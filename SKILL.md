@@ -19,6 +19,7 @@ under this directory.
 | Product documentation | `product/` | Active |
 | Tech design | `tech/` | Active |
 | Work order | `work-order/` | Active |
+| Code | `code/` | Active |
 
 ## Commands
 
@@ -54,3 +55,4 @@ Each stage has its own `SKILL.md` with install / init / start commands.
 - **Product doc:** read `~/.cursor/skills/lulu-dev-workflow/product/SKILL.md`
 - **Tech design:** read `~/.cursor/skills/lulu-dev-workflow/tech/SKILL.md`
 - **Work order:** read `~/.cursor/skills/lulu-dev-workflow/work-order/SKILL.md`
+- **Code:** read `~/.cursor/skills/lulu-dev-workflow/code/SKILL.md`
