@@ -86,7 +86,7 @@ def main() -> int:
 会话已启动。
 
 会话状态文件：{ss_path.as_posix()}
-当前技术文档：r{active_doc}
+当前技术文档：revision{active_doc}
 状态文件：    {ws_path.as_posix()}
 当前状态：    Drafting
 运行模式：    {run_mode}
