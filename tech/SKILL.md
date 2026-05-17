@@ -115,7 +115,7 @@ tech flow to use a previous tech-doc as the draft starting point.
 .cache/lulu-dev-workflow/tech-doc/<conv_id>/
   session-state.md               ← active_doc: N (线性递增，不回退)
 
-  r{N}/                          ← 第 N 个技术文档
+  revision{N}/                          ← 第 N 个技术文档
     workflow-state.md            ← current_state, evaluate_round (AI 写，Hook 校验)
     tech-doc.md                  ← 唯一的技术方案文档（唯一 AI 加工产物）
     evaluate-state.md            ← 三维评估进度追踪
@@ -147,13 +147,13 @@ Allowed transitions:
 The hook denies `Evaluating → ReadyForDelivery` unless ALL of the following hold:
 
 **product 模式：**
-1. `r{N}/evaluate-state.md` exists
+1. `revision{N}/evaluate-state.md` exists
 2. `current_dimension: done`
 3. `e1_status: complete`, `e3_status: complete`, `e2_status: complete`
 4. `evaluate{M}/tech-review-e{M}1.md`, `tech-review-e{M}2.md`, `tech-review-e{M}3.md` all exist
 
 **tech 模式（E1 跳过）：**
-1. `r{N}/evaluate-state.md` exists
+1. `revision{N}/evaluate-state.md` exists
 2. `current_dimension: done`
 3. `e1_status: complete`（初始化时预置），`e3_status: complete`, `e2_status: complete`
 4. `evaluate{M}/tech-review-e{M}2.md`, `tech-review-e{M}3.md` exist（E1 review 文件不检查）
@@ -166,7 +166,7 @@ The hook denies `Evaluating → ReadyForDelivery` unless ALL of the following ho
 
 1. Read `.cursor/lulu-dev-workflow/workflow-config.json` → `tech` section before driving the workflow.
 2. Read `session-state.md` → `active_doc: N` to determine current document round.
-3. `r{N}/workflow-state.md` is the authoritative current state — write it to request a transition.
+3. `revision{N}/workflow-state.md` is the authoritative current state — write it to request a transition.
 4. Never infer state from document body or file existence; always read `workflow-state.md`.
 5. Use full `Write` (not `Edit`) for `workflow-state.md` and `evaluate-state.md`.
 6. This workflow runs in Plan mode. All session files are Markdown.
@@ -198,7 +198,7 @@ Read code files on demand (only what's relevant to the current design), never ba
 
 **Rule D4 — Output**
 
-Write only `r{N}/tech-doc.md`. It is the sole AI-generated artifact.
+Write only `revision{N}/tech-doc.md`. It is the sole AI-generated artifact.
 
 ### Evaluating Rules
 
@@ -237,9 +237,9 @@ Do not skip within the required sequence.
 
 | Dim | seq | File | Inputs |
 |-----|-----|------|--------|
-| E1 | 1 | `tech-review-e{M}1.md` | `r{N}/tech-doc.md` + `product_ref` content + `ptc_url` framework |
-| E3 | 2 | `tech-review-e{M}2.md` | `r{N}/tech-doc.md` (post-E1 fixes, if any) + relevant code files |
-| E2 | 3 | `tech-review-e{M}3.md` | `r{N}/tech-doc.md` (post-E3 fixes) + `tpef_url` framework |
+| E1 | 1 | `tech-review-e{M}1.md` | `revision{N}/tech-doc.md` + `product_ref` content + `ptc_url` framework |
+| E3 | 2 | `tech-review-e{M}2.md` | `revision{N}/tech-doc.md` (post-E1 fixes, if any) + relevant code files |
+| E2 | 3 | `tech-review-e{M}3.md` | `revision{N}/tech-doc.md` (post-E3 fixes) + `tpef_url` framework |
 
 **Rule E3 — Per-dimension sequence**
 
@@ -248,7 +248,7 @@ For each dimension (example: E1):
 2. Load inputs (see E2 table)
 3. Write `evaluate{M}/tech-review-e{M}1.md` skeleton (issues list)
 4. Write `e1_total_issues: K`, update `total_issues = e1_total + e3_total + e2_total`
-5. Per issue: present to user with AskQuestion → user confirms → fix `r{N}/tech-doc.md` → update review file → `e1_resolved_issues +1`
+5. Per issue: present to user with AskQuestion → user confirms → fix `revision{N}/tech-doc.md` → update review file → `e1_resolved_issues +1`
 6. Write `e1_status: complete`, update `resolved_issues`
 
 Never batch fixes. Fix one issue, write files, then proceed.
@@ -271,10 +271,10 @@ Present each issue to the user via AskQuestion, one at a time:
 **Rule R1 — Delivery confirmation**
 
 After hook allows entry to ReadyForDelivery:
-1. Present final `r{N}/tech-doc.md` to user
+1. Present final `revision{N}/tech-doc.md` to user
 2. Wait for explicit delivery confirmation
-3. Write `r{N}/human-delivery-gate.md`
-4. Write `r{N}/workflow-state.md` → `current_state: Delivered`
+3. Write `revision{N}/human-delivery-gate.md`
+4. Write `revision{N}/workflow-state.md` → `current_state: Delivered`
 
 ---
 
@@ -290,7 +290,7 @@ updated_at: 2026-05-17T09:00:00+08:00
 ---
 ```
 
-### r{N}/workflow-state.md
+### revision{N}/workflow-state.md
 
 ```markdown
 ---
@@ -307,7 +307,7 @@ updated_at: 2026-05-17T09:00:00+08:00
 
 > `mode` 由 `start.py` 写入（`product` 或 `tech`），后续状态迁移中保持不变（AI 手写 workflow-state.md 时需保留此字段）。
 
-### r{N}/evaluate-state.md
+### revision{N}/evaluate-state.md
 
 ```markdown
 ---
@@ -338,7 +338,7 @@ fix_severity_reason: ""
 ### evaluate{M}/tech-review-e{M}1.md (E1)
 
 ```markdown
-# E1 评审：意图对齐 — r{N} · 第 {M} 轮
+# E1 评审：意图对齐 — revision{N} · 第 {M} 轮
 
 **评估日期：** YYYY-MM-DD
 **Product 参照：** [product_ref 路径]
@@ -352,7 +352,7 @@ fix_severity_reason: ""
 ### evaluate{M}/tech-review-e{M}2.md (E3)
 
 ```markdown
-# E3 评审：代码库一致性 — r{N} · 第 {M} 轮
+# E3 评审：代码库一致性 — revision{N} · 第 {M} 轮
 
 **评估日期：** YYYY-MM-DD
 **涉及代码路径：** [主要读取的代码文件列表]
@@ -365,7 +365,7 @@ fix_severity_reason: ""
 ### evaluate{M}/tech-review-e{M}3.md (E2)
 
 ```markdown
-# E2 评审：方案质量 — r{N} · 第 {M} 轮
+# E2 评审：方案质量 — revision{N} · 第 {M} 轮
 
 **评估日期：** YYYY-MM-DD
 **E2 框架：** [tpef_url]
@@ -391,7 +391,7 @@ note: All E1/E3/E2 issues resolved. User confirmed delivery.
 
 - `product_ref`：用户显式指定，不自动推断，两个流程目录完全解耦。
 - `carry_forward_ref`：re-entry 时提供，旧 tech-doc 与新 product-doc 的版本差要在 Drafting 强制校准后解决。
-- Re-entry = 新迭代（新 conv_id 或新 r{N}），不在旧目录继续。
+- Re-entry = 新迭代（新 conv_id 或新 revision{N}），不在旧目录继续。
 
 ---
 
@@ -399,11 +399,11 @@ note: All E1/E3/E2 issues resolved. User confirmed delivery.
 
 | File | Stage | Description |
 |------|-------|-------------|
-| `r{N}/tech-doc.md` | Drafting / Evaluating | 技术方案，就地修订（唯一 AI 加工产物） |
-| `r{N}/evaluate-state.md` | Evaluating | 评估进度追踪 |
-| `r{N}/evaluate{M}/tech-review-e{M}1.md` | Evaluating E1 | 意图对齐评审 |
-| `r{N}/evaluate{M}/tech-review-e{M}2.md` | Evaluating E3 | 代码库一致性评审 |
-| `r{N}/evaluate{M}/tech-review-e{M}3.md` | Evaluating E2 | 方案质量评审 |
-| `r{N}/human-delivery-gate.md` | ReadyForDelivery | 用户交付确认 |
-| `r{N}/workflow-state.md` | All | 当前工作流状态 |
+| `revision{N}/tech-doc.md` | Drafting / Evaluating | 技术方案，就地修订（唯一 AI 加工产物） |
+| `revision{N}/evaluate-state.md` | Evaluating | 评估进度追踪 |
+| `revision{N}/evaluate{M}/tech-review-e{M}1.md` | Evaluating E1 | 意图对齐评审 |
+| `revision{N}/evaluate{M}/tech-review-e{M}2.md` | Evaluating E3 | 代码库一致性评审 |
+| `revision{N}/evaluate{M}/tech-review-e{M}3.md` | Evaluating E2 | 方案质量评审 |
+| `revision{N}/human-delivery-gate.md` | ReadyForDelivery | 用户交付确认 |
+| `revision{N}/workflow-state.md` | All | 当前工作流状态 |
 | `session-state.md` | All | 活跃文档指针 |
