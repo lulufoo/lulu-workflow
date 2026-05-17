@@ -137,6 +137,10 @@ def main() -> int:
             evaluate_round = 0
         eval_dir = doc_path / f"evaluate{evaluate_round}"
 
+        # Read run-mode from existing workflow-state.md on disk (set at start time)
+        run_mode = read_md_field(state_file, "mode", default="product")
+        is_tech_mode = run_mode == "tech"
+
         # 1. evaluate-state.md must exist
         eval_state_file = doc_path / "evaluate-state.md"
         if not eval_state_file.exists():
@@ -152,14 +156,17 @@ def main() -> int:
         # 2. current_dimension must be "done"
         if eval_fields.get("current_dimension") != "done":
             dim = eval_fields.get("current_dimension", "unknown")
+            expected = "E3→E2" if is_tech_mode else "E1→E3→E2"
             print(json.dumps(deny(
-                f"评估未完成（current_dimension: {dim}）。请完成 E1→E3→E2 全部评估后再推进。",
+                f"评估未完成（current_dimension: {dim}）。请完成 {expected} 全部评估后再推进。",
                 "evaluate-state.md current_dimension must be 'done' before ReadyForDelivery.",
             )))
             return 0
 
-        # 3. all three dimensions must be complete
-        for dim in ("e1", "e3", "e2"):
+        # 3. required dimensions must be complete
+        # tech mode skips E1; product mode requires all three
+        required_dims = ("e3", "e2") if is_tech_mode else ("e1", "e3", "e2")
+        for dim in required_dims:
             status = eval_fields.get(f"{dim}_status", "")
             if status != "complete":
                 print(json.dumps(deny(
@@ -168,8 +175,8 @@ def main() -> int:
                 )))
                 return 0
 
-        # 4. three review files must exist (e1→1, e3→2, e2→3)
-        dim_seq = {"e1": 1, "e3": 2, "e2": 3}
+        # 4. review files must exist (e3→seq 2, e2→seq 3; tech mode skips e1→seq 1)
+        dim_seq = {"e3": 2, "e2": 3} if is_tech_mode else {"e1": 1, "e3": 2, "e2": 3}
         for dim, seq in dim_seq.items():
             review_file = eval_dir / f"tech-review-e{evaluate_round}{seq}.md"
             if not review_file.exists():
