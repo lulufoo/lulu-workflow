@@ -1,4 +1,6 @@
 import json
+import re
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -6,21 +8,22 @@ SKILL_ROOT = Path.home() / ".cursor/skills/lulu-dev-workflow/product"
 WHITELIST_PATH = SKILL_ROOT / "transition-whitelist.json"
 
 WORKFLOW_DIR = Path(".cursor/lulu-dev-workflow")
+CACHE_DIR = Path(".cache/lulu-dev-workflow")
 CONFIG_PATH = WORKFLOW_DIR / "workflow-config.json"
 HOOKS_JSON_PATH = Path(".cursor/hooks.json")
 HOOK_COMMAND = "python3 ~/.cursor/skills/lulu-dev-workflow/product/scripts/hook_guard.py"
 
 
 def session_dir(conversation_id: str) -> Path:
-    return WORKFLOW_DIR / "product" / conversation_id
+    return CACHE_DIR / "product" / conversation_id
 
 
 def state_path(conversation_id: str) -> Path:
-    return session_dir(conversation_id) / "state.json"
+    return session_dir(conversation_id) / "workflow-state.md"
 
 
 def approval_path(conversation_id: str) -> Path:
-    return session_dir(conversation_id) / "delivery-approval.json"
+    return session_dir(conversation_id) / "human-delivery-gate.md"
 
 
 def hook_entry() -> Dict[str, Any]:
@@ -46,6 +49,36 @@ def write_json(path: Path, payload: Dict[str, Any]) -> None:
     with path.open("w", encoding="utf-8") as handle:
         json.dump(payload, handle, indent=2, ensure_ascii=True)
         handle.write("\n")
+
+
+def write_md_state(path: Path, current_state: str) -> None:
+    """Write workflow-state.md with YAML frontmatter."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    now = datetime.now(timezone.utc).isoformat()
+    content = f"---\nversion: 1\nworkflow: product\ncurrent_state: {current_state}\nupdated_at: {now}\n---\n"
+    with path.open("w", encoding="utf-8") as handle:
+        handle.write(content)
+
+
+def parse_frontmatter_state(content: str) -> Optional[str]:
+    """Extract current_state from YAML frontmatter in a markdown file."""
+    fm_match = re.match(r"^---\s*\n(.*?)\n---", content, re.DOTALL)
+    if not fm_match:
+        return None
+    fm_content = fm_match.group(1)
+    state_match = re.search(r"^current_state:\s*(\w+)", fm_content, re.MULTILINE)
+    if state_match:
+        return state_match.group(1).strip()
+    return None
+
+
+def read_md_state(path: Path, default: str = "Drafting") -> str:
+    """Read current_state from workflow-state.md, returning default if absent."""
+    if not path.exists():
+        return default
+    content = path.read_text(encoding="utf-8")
+    state = parse_frontmatter_state(content)
+    return state if state else default
 
 
 def normalize_tool_path(raw_path: str, project_root: Path) -> str:
