@@ -12,7 +12,7 @@ disable-model-invocation: true
 Drive a tech document workflow with explicit per-session state files and a hook
 that gates state transitions.
 
-**Scope:** Tech document workflow only. Driven by a delivered product-doc as input.
+**Scope:** Tech document workflow only. Supports two run-modes: `product`（产品需求驱动）and `tech`（纯技改，无 product-doc）。
 **Scripts location (after install):** `~/.cursor/skills/lulu-dev-workflow/tech/scripts/`
 **This workflow runs entirely in Plan mode.**
 
@@ -70,23 +70,42 @@ ls ~/.cursor/projects/*/agent-transcripts/ | tail -5
 
 The most recent `.jsonl` filename (excluding `.jsonl`) is the current conversation ID.
 
-**Step 2: Get product-ref path**
+**Step 2: Determine run-mode**
 
-The user must explicitly provide the path to the `product-doc.md` to base this
-tech document on. Do not infer or auto-detect.
+If the user has not provided a `product-doc.md` path, ask:
+
+> 「当前任务是纯技改（无产品文档）吗？还是需要提供 product-doc.md？」
+
+| User answer | run-mode | --product-ref |
+|-------------|----------|---------------|
+| 纯技改，无 product-doc | `tech` | 不提供 |
+| 需要 product-doc | `product` | 用户提供的绝对路径 |
+
+Do not infer or auto-detect the path.
 
 **Step 3: Run start**
 
+Product 模式（需要 product-doc）：
 ```bash
 python3 ~/.cursor/skills/lulu-dev-workflow/tech/scripts/start.py \
   --project-root "$(pwd)" \
   --conversation-id "<uuid>" \
+  --run-mode product \
   --product-ref "<absolute-path-to-product-doc.md>" \
   [--carry-forward-ref "<absolute-path-to-previous-tech-doc.md>"]
 ```
 
-`--carry-forward-ref` is optional. Provide it when re-entering tech flow after a
-product update, to use a previous tech-doc as the draft starting point.
+Tech 模式（纯技改）：
+```bash
+python3 ~/.cursor/skills/lulu-dev-workflow/tech/scripts/start.py \
+  --project-root "$(pwd)" \
+  --conversation-id "<uuid>" \
+  --run-mode tech \
+  [--carry-forward-ref "<absolute-path-to-previous-tech-doc.md>"]
+```
+
+`--carry-forward-ref` is optional in both modes. Provide it when re-entering
+tech flow to use a previous tech-doc as the draft starting point.
 
 ---
 
@@ -127,10 +146,17 @@ Allowed transitions:
 
 The hook denies `Evaluating → ReadyForDelivery` unless ALL of the following hold:
 
+**product 模式：**
 1. `r{N}/evaluate-state.md` exists
 2. `current_dimension: done`
 3. `e1_status: complete`, `e3_status: complete`, `e2_status: complete`
 4. `evaluate{M}/tech-review-e{M}1.md`, `tech-review-e{M}2.md`, `tech-review-e{M}3.md` all exist
+
+**tech 模式（E1 跳过）：**
+1. `r{N}/evaluate-state.md` exists
+2. `current_dimension: done`
+3. `e1_status: complete`（初始化时预置），`e3_status: complete`, `e2_status: complete`
+4. `evaluate{M}/tech-review-e{M}2.md`, `tech-review-e{M}3.md` exist（E1 review 文件不检查）
 
 ---
 
@@ -180,23 +206,40 @@ Write only `r{N}/tech-doc.md`. It is the sole AI-generated artifact.
 
 On entering Evaluating:
 1. Increment `evaluate_round` in `workflow-state.md` (write `current_state: Evaluating, evaluate_round: M`)
-2. Initialize `evaluate-state.md`:
-   ```
-   current_dimension: e1
-   e1/e3/e2_status: pending
-   total_issues: 0, resolved_issues: 0
-   fix_severity: "", fix_severity_reason: ""
-   ```
+2. Read `mode` from `workflow-state.md` to determine evaluation path
+3. Initialize `evaluate-state.md` based on mode:
 
-**Rule E2 — Dimension sequencing (E1 → E3 → E2, no skipping)**
+**product 模式（E1 → E3 → E2）：**
+```
+current_dimension: e1
+e1_status: pending, e3_status: pending, e2_status: pending
+total_issues: 0, resolved_issues: 0
+fix_severity: "", fix_severity_reason: ""
+```
 
-Execute strictly in order. Do not start E3 until E1 is complete; do not start E2 until E3 is complete.
+**tech 模式（跳过 E1，直接 E3 → E2）：**
+```
+current_dimension: e3
+e1_status: complete, e1_total_issues: 0, e1_resolved_issues: 0
+e3_status: pending, e2_status: pending
+total_issues: 0, resolved_issues: 0
+fix_severity: "", fix_severity_reason: ""
+```
+
+**Rule E2 — Dimension sequencing**
+
+| Mode | 执行顺序 | 跳过 |
+|------|---------|------|
+| product | E1 → E3 → E2 | 无 |
+| tech | E3 → E2 | E1（已预置为 complete） |
+
+Do not skip within the required sequence.
 
 | Dim | seq | File | Inputs |
 |-----|-----|------|--------|
-| E1 | 1 | `tech-review-e{M}1.md` | `r{N}/tech-doc.md` + `product_ref` path content + `ptc_url` framework |
-| E3 | 2 | `tech-review-e{M}2.md` | `r{N}/tech-doc.md` (post-E1 fixes) + relevant code files |
-| E2 | 3 | `tech-review-e{M}3.md` | `r{N}/tech-doc.md` (post-E1+E3 fixes) + `tpef_url` framework |
+| E1 | 1 | `tech-review-e{M}1.md` | `r{N}/tech-doc.md` + `product_ref` content + `ptc_url` framework |
+| E3 | 2 | `tech-review-e{M}2.md` | `r{N}/tech-doc.md` (post-E1 fixes, if any) + relevant code files |
+| E2 | 3 | `tech-review-e{M}3.md` | `r{N}/tech-doc.md` (post-E3 fixes) + `tpef_url` framework |
 
 **Rule E3 — Per-dimension sequence**
 
@@ -253,6 +296,7 @@ updated_at: 2026-05-17T09:00:00+08:00
 ---
 version: 1
 workflow: tech-doc
+mode: product
 current_state: Drafting
 evaluate_round: 0
 product_ref: /abs/path/.cache/lulu-dev-workflow/product/<conv_id>/r1/product-doc.md
@@ -260,6 +304,8 @@ carry_forward_ref: ""
 updated_at: 2026-05-17T09:00:00+08:00
 ---
 ```
+
+> `mode` 由 `start.py` 写入（`product` 或 `tech`），后续状态迁移中保持不变（AI 手写 workflow-state.md 时需保留此字段）。
 
 ### r{N}/evaluate-state.md
 
