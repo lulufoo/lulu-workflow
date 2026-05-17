@@ -17,6 +17,9 @@ it does not evaluate spec quality or parse the spec body.
 
 **Scripts location:** `~/.cursor/skills/lulu-dev-workflow/product/scripts/`
 
+**This workflow runs entirely in Plan mode.** All files are Markdown; no mode
+switching is required except for advanced debugging.
+
 ---
 
 ## Commands
@@ -45,7 +48,7 @@ for f in init.py hook_guard.py start.py workflow_common.py; do
     > ~/.cursor/skills/lulu-dev-workflow/product/scripts/$f
 done
 
-for f in workflow-config.template.json state.template.json delivery-approval.template.json; do
+for f in workflow-config.template.json; do
   gh api "repos/lulufoo/lulu-dev-skills/contents/lulu-dev-workflow/product/templates/$f" \
     --jq '.content' | base64 -d \
     > ~/.cursor/skills/lulu-dev-workflow/product/templates/$f
@@ -68,7 +71,7 @@ python3 ~/.cursor/skills/lulu-dev-workflow/product/scripts/init.py \
 Creates:
 - `.cursor/lulu-dev-workflow/workflow-config.json`
 - merges a `preToolUse` hook into `.cursor/hooks.json`
-- ensures `.gitignore` includes `.cursor`
+- ensures `.gitignore` includes `.cache`
 
 After init, open `.cursor/lulu-dev-workflow/workflow-config.json` and fill in:
 
@@ -106,7 +109,7 @@ python3 ~/.cursor/skills/lulu-dev-workflow/product/scripts/start.py \
   --conversation-id "<uuid>"
 ```
 
-Creates `.cursor/lulu-dev-workflow/product/<conv_id>/state.json` with
+Creates `.cache/lulu-dev-workflow/product/<conv_id>/workflow-state.md` with
 `current_state: Drafting`. Can be run again at any time to reset state.
 
 ---
@@ -127,11 +130,12 @@ Allowed transitions:
 ## Operating Rules
 
 1. Read `.cursor/lulu-dev-workflow/workflow-config.json` before driving the workflow.
-2. State files live at `.cursor/lulu-dev-workflow/product/<conversation_id>/`.
-3. `state.json` is the authoritative current state — write it directly to request a transition.
-4. Never infer state from spec body; always read `state.json`.
-5. Only `ReadyForDelivery → Delivered` requires `delivery-approval.json` in the same session dir.
-6. Use full `Write` (not `Edit`) for `state.json` and `delivery-approval.json`.
+2. Session files live at `.cache/lulu-dev-workflow/product/<conversation_id>/`.
+3. `workflow-state.md` is the authoritative current state — write it to request a transition.
+4. Never infer state from spec body or file existence; always read `workflow-state.md`.
+5. Only `ReadyForDelivery → Delivered` requires `human-delivery-gate.md` in the same session dir.
+6. Use full `Write` (not `Edit`) for `workflow-state.md`.
+7. This workflow runs in Plan mode. All session files are Markdown.
 
 ---
 
@@ -145,47 +149,81 @@ Allowed transitions:
 ### `Evaluating`
 
 - Compare the spec against `product.pdqa_url`.
-- Surface issues one by one; push fixes back into the spec.
+- Surface issues one by one; push fixes back into the spec (`product-doc.md`).
+- Record all findings and resolutions in `pdqa-review.md`.
 - Stay in `Evaluating` or return to `Drafting` until evaluation is complete.
 
 ### `ReadyForDelivery`
 
-- Enter only after evaluation is complete.
+- Enter only after evaluation is complete with all issues resolved.
 - Returning to `Drafting` is allowed if new changes are needed.
 
 ### `Delivered`
 
-- Requires `delivery-approval.json` with `"approved": true` in the same session dir.
+- Requires `human-delivery-gate.md` to exist in the same session dir.
+- Write `human-delivery-gate.md` only after the user explicitly confirms delivery.
 
 ---
 
-## Transition: Writing state.json
+## Session File Formats
 
-Write the full JSON to `.cursor/lulu-dev-workflow/product/<conversation_id>/state.json`:
+### workflow-state.md
 
-```json
-{
-  "version": 1,
-  "workflow": "product",
-  "current_state": "Evaluating",
-  "updated_at": "2026-05-17T00:00:00Z"
-}
+```markdown
+---
+version: 1
+workflow: product
+current_state: Evaluating
+updated_at: 2026-05-17T09:00:00+08:00
+---
+```
+
+### human-delivery-gate.md
+
+```markdown
+---
+approved: true
+approved_at: 2026-05-17T09:00:00+08:00
+note: All PDQA issues resolved. User confirmed delivery.
+---
+```
+
+---
+
+## Transition: Writing workflow-state.md
+
+Write the full Markdown to `.cache/lulu-dev-workflow/product/<conversation_id>/workflow-state.md`:
+
+```markdown
+---
+version: 1
+workflow: product
+current_state: Evaluating
+updated_at: 2026-05-17T00:00:00Z
+---
 ```
 
 The hook intercepts this write, validates the transition, and allows or denies it.
 
 ---
 
-## Delivery Approval
+## Document Outputs
 
-Write `.cursor/lulu-dev-workflow/product/<conversation_id>/delivery-approval.json`:
+Write all product documents to the session directory:
 
-```json
-{
-  "approved": true,
-  "approved_at": "2026-05-17T00:00:00Z",
-  "note": "All PDQA issues resolved."
-}
-```
+| File | Stage | Description |
+|------|-------|-------------|
+| `product-doc.md` | Drafting / Evaluating | Product spec, revised in-place |
+| `pdqa-review.md` | Evaluating | PDQA evaluation record and issue log |
+| `human-delivery-gate.md` | ReadyForDelivery | User delivery confirmation |
+| `workflow-state.md` | All | Current workflow state |
 
-Then write `state.json` with `current_state: "Delivered"`.
+---
+
+## Delivery Flow
+
+1. Evaluation complete → write `workflow-state.md` with `current_state: ReadyForDelivery`
+2. Present final spec to user; wait for explicit delivery confirmation
+3. Write `human-delivery-gate.md` with `approved: true`
+4. Write `workflow-state.md` with `current_state: Delivered`
+5. Output the final `product-doc.md` content to the user
