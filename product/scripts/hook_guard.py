@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
@@ -8,14 +9,15 @@ from typing import Any, Dict, Optional, Tuple
 from workflow_common import (
     CACHE_DIR,
     WHITELIST_PATH,
-    approval_path,
     normalize_tool_path,
+    parse_frontmatter_fields,
     parse_frontmatter_state,
+    read_md_field,
     read_json,
     read_md_state,
 )
 
-# Matches: .cache/lulu-dev-workflow/product/<conv_id>/workflow-state.md
+# Matches: .cache/lulu-dev-workflow/product/<conv_id>/r{N}/workflow-state.md
 _CACHE_PARTS = (".cache", "lulu-dev-workflow", "product")
 
 
@@ -50,19 +52,23 @@ def extract_path_and_contents(event: Dict[str, Any], project_root: Path) -> Tupl
         or ""
     )
     normalized = normalize_tool_path(str(raw_path), project_root) if raw_path else ""
-    contents = tool_input.get("contents")
+    contents = tool_input.get("content") or tool_input.get("contents")
     return normalized, (contents if isinstance(contents, str) else "")
 
 
-def match_state_conv_id(path: str) -> Optional[str]:
-    """Return conversation_id if path is .cache/lulu-dev-workflow/product/<conv_id>/workflow-state.md."""
+def match_workflow_state_path(path: str) -> Optional[Tuple[str, str]]:
+    """Return (conv_id, doc_round_str) if path is r{N}/workflow-state.md under product cache.
+
+    Expected: .cache/lulu-dev-workflow/product/<conv_id>/r{N}/workflow-state.md
+    """
     parts = Path(path).parts
     if (
-        len(parts) == 5
+        len(parts) == 6
         and parts[:3] == _CACHE_PARTS
-        and parts[4] == "workflow-state.md"
+        and re.match(r"^r\d+$", parts[4])
+        and parts[5] == "workflow-state.md"
     ):
-        return parts[3]
+        return parts[3], parts[4]  # conv_id, r{N}
     return None
 
 
@@ -81,11 +87,14 @@ def main() -> int:
         return 0
 
     path, contents = extract_path_and_contents(event, project_root)
-    conv_id = match_state_conv_id(path)
+    match = match_workflow_state_path(path)
 
-    if conv_id is None:
+    if match is None:
         print(json.dumps(allow()))
         return 0
+
+    conv_id, doc_round_str = match
+    doc_path = project_root / CACHE_DIR / "product" / conv_id / doc_round_str
 
     if tool_name == "Edit" and not contents:
         print(json.dumps(deny(
@@ -102,7 +111,7 @@ def main() -> int:
         )))
         return 0
 
-    state_file = project_root / CACHE_DIR / "product" / conv_id / "workflow-state.md"
+    state_file = doc_path / "workflow-state.md"
     current_state = read_md_state(state_file, default="Drafting")
 
     if to_state == current_state:
@@ -122,8 +131,48 @@ def main() -> int:
         )))
         return 0
 
+    if to_state == "ReadyForDelivery":
+        fields = parse_frontmatter_fields(contents)
+        try:
+            evaluate_round = int(fields.get("evaluate_round", "0"))
+        except ValueError:
+            evaluate_round = 0
+        e_dir = doc_path / f"e{evaluate_round}"
+
+        eval_state_file = doc_path / "evaluate-state.md"
+        if not eval_state_file.exists():
+            print(json.dumps(deny(
+                "evaluate-state.md 不存在，评估尚未初始化。请先进入 Evaluating 并完成 PDQA 评估。",
+                "evaluate-state.md must exist with status: complete before ReadyForDelivery.",
+            )))
+            return 0
+
+        eval_status = read_md_field(eval_state_file, "status")
+        if eval_status != "complete":
+            print(json.dumps(deny(
+                f"评估未完成（evaluate-state.md status: {eval_status}）。请处理所有 PDQA 问题后再推进。",
+                "evaluate-state.md status must be 'complete' before ReadyForDelivery.",
+            )))
+            return 0
+
+        pdqa_file = e_dir / "pdqa-review.md"
+        if not pdqa_file.exists():
+            print(json.dumps(deny(
+                f"e{evaluate_round}/pdqa-review.md 不存在，请先写入 PDQA 评估记录。",
+                f"e{evaluate_round}/pdqa-review.md must exist before ReadyForDelivery.",
+            )))
+            return 0
+
+        snapshot_file = e_dir / "product-doc.md"
+        if not snapshot_file.exists():
+            print(json.dumps(deny(
+                f"e{evaluate_round}/product-doc.md 快照不存在，请在评估完成后写入文档快照。",
+                f"e{evaluate_round}/product-doc.md snapshot must exist before ReadyForDelivery.",
+            )))
+            return 0
+
     if to_state == "Delivered":
-        gate_file = project_root / approval_path(conv_id)
+        gate_file = doc_path / "human-delivery-gate.md"
         if not gate_file.exists():
             print(json.dumps(deny(
                 "ReadyForDelivery \u2192 Delivered requires human-delivery-gate.md to exist first.",
