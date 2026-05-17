@@ -84,6 +84,7 @@ def write_md_state(
     evaluate_round: int = 0,
     product_ref: str = "",
     carry_forward_ref: str = "",
+    mode: str = "product",
 ) -> None:
     """Write r{N}/workflow-state.md with YAML frontmatter."""
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -92,6 +93,7 @@ def write_md_state(
         f"---\n"
         f"version: 1\n"
         f"workflow: tech-doc\n"
+        f"mode: {mode}\n"
         f"current_state: {current_state}\n"
         f"evaluate_round: {evaluate_round}\n"
         f"product_ref: {product_ref}\n"
