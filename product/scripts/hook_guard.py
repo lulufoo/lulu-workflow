@@ -17,7 +17,7 @@ from workflow_common import (
     read_md_state,
 )
 
-# Matches: .cache/lulu-dev-workflow/product/<conv_id>/r{N}/workflow-state.md
+# Matches: .cache/lulu-dev-workflow/product/<conv_id>/revision{N}/workflow-state.md
 _CACHE_PARTS = (".cache", "lulu-dev-workflow", "product")
 
 
@@ -57,18 +57,18 @@ def extract_path_and_contents(event: Dict[str, Any], project_root: Path) -> Tupl
 
 
 def match_workflow_state_path(path: str) -> Optional[Tuple[str, str]]:
-    """Return (conv_id, doc_round_str) if path is r{N}/workflow-state.md under product cache.
+    """Return (conv_id, doc_round_str) if path is revision{N}/workflow-state.md under product cache.
 
-    Expected: .cache/lulu-dev-workflow/product/<conv_id>/r{N}/workflow-state.md
+    Expected: .cache/lulu-dev-workflow/product/<conv_id>/revision{N}/workflow-state.md
     """
     parts = Path(path).parts
     if (
         len(parts) == 6
         and parts[:3] == _CACHE_PARTS
-        and re.match(r"^r\d+$", parts[4])
+        and re.match(r"^revision\d+$", parts[4])
         and parts[5] == "workflow-state.md"
     ):
-        return parts[3], parts[4]  # conv_id, r{N}
+        return parts[3], parts[4]  # conv_id, revision{N}
     return None
 
 
@@ -137,7 +137,7 @@ def main() -> int:
             evaluate_round = int(fields.get("evaluate_round", "0"))
         except ValueError:
             evaluate_round = 0
-        e_dir = doc_path / f"e{evaluate_round}"
+        e_dir = doc_path / f"evaluate{evaluate_round}"
 
         eval_state_file = doc_path / "evaluate-state.md"
         if not eval_state_file.exists():
@@ -158,16 +158,16 @@ def main() -> int:
         pdqa_file = e_dir / "pdqa-review.md"
         if not pdqa_file.exists():
             print(json.dumps(deny(
-                f"e{evaluate_round}/pdqa-review.md 不存在，请先写入 PDQA 评估记录。",
-                f"e{evaluate_round}/pdqa-review.md must exist before ReadyForDelivery.",
+                f"evaluate{evaluate_round}/pdqa-review.md 不存在，请先写入 PDQA 评估记录。",
+                f"evaluate{evaluate_round}/pdqa-review.md must exist before ReadyForDelivery.",
             )))
             return 0
 
         snapshot_file = e_dir / "product-doc.md"
         if not snapshot_file.exists():
             print(json.dumps(deny(
-                f"e{evaluate_round}/product-doc.md 快照不存在，请在评估完成后写入文档快照。",
-                f"e{evaluate_round}/product-doc.md snapshot must exist before ReadyForDelivery.",
+                f"evaluate{evaluate_round}/product-doc.md 快照不存在，请在评估完成后写入文档快照。",
+                f"evaluate{evaluate_round}/product-doc.md snapshot must exist before ReadyForDelivery.",
             )))
             return 0
 
