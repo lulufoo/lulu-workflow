@@ -133,7 +133,6 @@ product document, do not run start again — read the current session files.
 
     e{M}/                        ← 第 M 轮 PDQA 评估
       pdqa-review.md             ← 评估记录（逐问题更新）
-      product-doc.md             ← 评估完成后快照（一次性写入）
 ```
 
 Two linear counters (non-reversible):
@@ -157,11 +156,10 @@ Allowed transitions:
 
 ## ReadyForDelivery Pre-conditions
 
-The hook denies `Evaluating → ReadyForDelivery` unless all three exist:
+The hook denies `Evaluating → ReadyForDelivery` unless both exist:
 
 1. `r{N}/evaluate-state.md` with `status: complete`
 2. `r{N}/e{M}/pdqa-review.md` (where M = current `evaluate_round`)
-3. `r{N}/e{M}/product-doc.md` (snapshot written after evaluation)
 
 ---
 
@@ -181,8 +179,7 @@ The hook denies `Evaluating → ReadyForDelivery` unless all three exist:
     skeleton, then update `evaluate-state.md` to `status: in_progress`.
 7c. After all issues are resolved: write in order —
     (1) `evaluate-state.md` (`status: complete`),
-    (2) `r{N}/e{M}/product-doc.md` (copy current `r{N}/product-doc.md` content),
-    (3) `r{N}/workflow-state.md` (`current_state: ReadyForDelivery`).
+    (2) `r{N}/workflow-state.md` (`current_state: ReadyForDelivery`).
 8. After each issue is resolved in Evaluating: immediately update `r{N}/product-doc.md`
    (apply the fix) and `r{N}/e{M}/pdqa-review.md` (record the resolution). Never batch updates.
 9. Never claim an issue is resolved without first writing the updated files.
@@ -297,7 +294,6 @@ ReadyForDelivery), and allows or denies it.
 | `r{N}/product-doc.md` | Drafting / Evaluating | Product spec, revised in-place |
 | `r{N}/evaluate-state.md` | Evaluating | Evaluation phase progress tracker |
 | `r{N}/e{M}/pdqa-review.md` | Evaluating | PDQA evaluation record, updated per issue |
-| `r{N}/e{M}/product-doc.md` | Evaluating (end) | Product doc snapshot after evaluation |
 | `r{N}/human-delivery-gate.md` | ReadyForDelivery | User delivery confirmation |
 | `r{N}/workflow-state.md` | All | Current workflow state |
 | `session-state.md` | All | Active product document pointer |
@@ -306,7 +302,7 @@ ReadyForDelivery), and allows or denies it.
 
 ## Delivery Flow
 
-1. All PDQA issues resolved → follow Rule 7c (complete evaluate-state, write snapshot, transition)
+1. All PDQA issues resolved → follow Rule 7c (complete evaluate-state, transition to ReadyForDelivery)
 2. Present final `r{N}/product-doc.md` to user; wait for explicit delivery confirmation
 3. Write `r{N}/human-delivery-gate.md` with `approved: true`
 4. Write `r{N}/workflow-state.md` with `current_state: Delivered`
