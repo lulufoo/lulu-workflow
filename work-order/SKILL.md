@@ -179,6 +179,9 @@ Fetch the templates via `gh api` (same pattern as install), read their format de
   ├── 从 tech-doc 显式搬运「约束」（硬性规则）
   ├── 从 tech-doc 搬运「补充」（软性上下文）
   └── 填写「依赖」（依赖的 task_id）
+         ↓ 所有 task.md 生成完毕后
+询问用户：「所有 task.md 已生成，是否进入评估阶段（Evaluating）？」
+         ↓ 用户确认后，方可写入 workflow-state.md: Evaluating
 ```
 
 **Test-First 认知约束**：生成每个 task.md 时，先问「通过什么测试证明这个改动正确？」，再问「需要什么函数？」。验收条件写在前，函数规格写在后。
