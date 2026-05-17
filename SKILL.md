@@ -2,8 +2,8 @@
 name: lulu-dev-workflow
 description: >-
   Top-level development workflow framework. Use when mentioning lulu-dev-workflow,
-  开发工作流, dev workflow, product doc workflow, 产品文档流程, or any sub-stage
-  (product, tech, qa, deploy).
+  开发工作流, dev workflow, product doc workflow, 产品文档流程, tech doc workflow,
+  技术方案流程, or any sub-stage (product, tech, qa, deploy).
 disable-model-invocation: true
 ---
 
@@ -17,6 +17,7 @@ under this directory.
 | Stage | Module | Status |
 |-------|--------|--------|
 | Product documentation | `product/` | Active |
+| Tech documentation | `tech/` | Active |
 
 ## Commands
 
@@ -50,3 +51,4 @@ https://github.com/lulufoo/ai-software-dev/blob/main/lulu-dev-workflow-template/
 Each stage has its own `SKILL.md` with install / init / start commands.
 
 - **Product doc:** read `~/.cursor/skills/lulu-dev-workflow/product/SKILL.md`
+- **Tech doc:** read `~/.cursor/skills/lulu-dev-workflow/tech/SKILL.md`
