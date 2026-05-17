@@ -30,7 +30,7 @@ def session_state_path(conversation_id: str) -> Path:
 
 
 def doc_dir(conversation_id: str, doc_round: int) -> Path:
-    return session_base_dir(conversation_id) / f"r{doc_round}"
+    return session_base_dir(conversation_id) / f"revision{doc_round}"
 
 
 def state_path(conversation_id: str, doc_round: int) -> Path:
@@ -86,7 +86,7 @@ def write_md_state(
     carry_forward_ref: str = "",
     mode: str = "product",
 ) -> None:
-    """Write r{N}/workflow-state.md with YAML frontmatter."""
+    """Write revision{N}/workflow-state.md with YAML frontmatter."""
     path.parent.mkdir(parents=True, exist_ok=True)
     now = datetime.now(timezone.utc).isoformat()
     content = (
