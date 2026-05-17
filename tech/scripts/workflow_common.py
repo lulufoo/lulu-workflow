@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-SKILL_ROOT = Path(__file__).resolve().parents[2]  # .cache/lulu-dev-workflow/tech-doc
+SKILL_ROOT = Path(__file__).resolve().parents[1]  # .cache/lulu-dev-workflow/tech
 WHITELIST_PATH = SKILL_ROOT / "transition-whitelist.json"
 
 WORKFLOW_DIR = Path(".cursor/lulu-dev-workflow")
