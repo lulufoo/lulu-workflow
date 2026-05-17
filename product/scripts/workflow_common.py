@@ -14,16 +14,32 @@ HOOKS_JSON_PATH = Path(".cursor/hooks.json")
 HOOK_COMMAND = "python3 ~/.cursor/skills/lulu-dev-workflow/product/scripts/hook_guard.py"
 
 
-def session_dir(conversation_id: str) -> Path:
+# ---------------------------------------------------------------------------
+# Path helpers
+# ---------------------------------------------------------------------------
+
+def session_base_dir(conversation_id: str) -> Path:
     return CACHE_DIR / "product" / conversation_id
 
 
-def state_path(conversation_id: str) -> Path:
-    return session_dir(conversation_id) / "workflow-state.md"
+def session_state_path(conversation_id: str) -> Path:
+    return session_base_dir(conversation_id) / "session-state.md"
 
 
-def approval_path(conversation_id: str) -> Path:
-    return session_dir(conversation_id) / "human-delivery-gate.md"
+def doc_dir(conversation_id: str, doc_round: int) -> Path:
+    return session_base_dir(conversation_id) / f"r{doc_round}"
+
+
+def state_path(conversation_id: str, doc_round: int) -> Path:
+    return doc_dir(conversation_id, doc_round) / "workflow-state.md"
+
+
+def approval_path(conversation_id: str, doc_round: int) -> Path:
+    return doc_dir(conversation_id, doc_round) / "human-delivery-gate.md"
+
+
+def eval_round_dir(conversation_id: str, doc_round: int, evaluate_round: int) -> Path:
+    return doc_dir(conversation_id, doc_round) / f"e{evaluate_round}"
 
 
 def hook_entry() -> Dict[str, Any]:
@@ -35,7 +51,11 @@ def hook_entry() -> Dict[str, Any]:
     }
 
 
-def read_json(path: Path, default: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+# ---------------------------------------------------------------------------
+# JSON helpers
+# ---------------------------------------------------------------------------
+
+def read_json(path: Path, default=None) -> Dict[str, Any]:
     if not path.exists():
         if default is None:
             raise FileNotFoundError(path)
@@ -51,33 +71,73 @@ def write_json(path: Path, payload: Dict[str, Any]) -> None:
         handle.write("\n")
 
 
-def write_md_state(path: Path, current_state: str) -> None:
-    """Write workflow-state.md with YAML frontmatter."""
+# ---------------------------------------------------------------------------
+# Markdown state helpers
+# ---------------------------------------------------------------------------
+
+def write_md_state(path: Path, current_state: str, evaluate_round: int = 0) -> None:
+    """Write r{N}/workflow-state.md with YAML frontmatter."""
     path.parent.mkdir(parents=True, exist_ok=True)
     now = datetime.now(timezone.utc).isoformat()
-    content = f"---\nversion: 1\nworkflow: product\ncurrent_state: {current_state}\nupdated_at: {now}\n---\n"
+    content = (
+        f"---\n"
+        f"version: 1\n"
+        f"workflow: product\n"
+        f"current_state: {current_state}\n"
+        f"evaluate_round: {evaluate_round}\n"
+        f"updated_at: {now}\n"
+        f"---\n"
+    )
     with path.open("w", encoding="utf-8") as handle:
         handle.write(content)
 
 
-def parse_frontmatter_state(content: str) -> Optional[str]:
-    """Extract current_state from YAML frontmatter in a markdown file."""
+def write_session_state(path: Path, active_doc: int) -> None:
+    """Write session-state.md tracking the active product document round."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    now = datetime.now(timezone.utc).isoformat()
+    content = (
+        f"---\n"
+        f"version: 1\n"
+        f"active_doc: {active_doc}\n"
+        f"updated_at: {now}\n"
+        f"---\n"
+    )
+    with path.open("w", encoding="utf-8") as handle:
+        handle.write(content)
+
+
+def parse_frontmatter_fields(content: str) -> Dict[str, str]:
+    """Extract all key: value pairs from YAML frontmatter."""
     fm_match = re.match(r"^---\s*\n(.*?)\n---", content, re.DOTALL)
     if not fm_match:
-        return None
-    fm_content = fm_match.group(1)
-    state_match = re.search(r"^current_state:\s*(\w+)", fm_content, re.MULTILINE)
-    if state_match:
-        return state_match.group(1).strip()
-    return None
+        return {}
+    result: Dict[str, str] = {}
+    for line in fm_match.group(1).splitlines():
+        kv_match = re.match(r"^(\w+):\s*(.*)", line)
+        if kv_match:
+            result[kv_match.group(1)] = kv_match.group(2).strip()
+    return result
+
+
+def parse_frontmatter_state(content: str) -> Optional[str]:
+    """Extract current_state from YAML frontmatter in a markdown file."""
+    fields = parse_frontmatter_fields(content)
+    return fields.get("current_state") or None
+
+
+def read_md_field(path: Path, field: str, default: str = "") -> str:
+    """Read a specific frontmatter field from a markdown file."""
+    if not path.exists():
+        return default
+    content = path.read_text(encoding="utf-8")
+    fields = parse_frontmatter_fields(content)
+    return fields.get(field, default)
 
 
 def read_md_state(path: Path, default: str = "Drafting") -> str:
     """Read current_state from workflow-state.md, returning default if absent."""
-    if not path.exists():
-        return default
-    content = path.read_text(encoding="utf-8")
-    state = parse_frontmatter_state(content)
+    state = read_md_field(path, "current_state", default=default)
     return state if state else default
 
 
