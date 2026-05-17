@@ -1,0 +1,12 @@
+{
+  "allowed_transitions": [
+    { "from": "Executing",    "to": "Completed" },
+    { "from": "WriteTests",   "to": "VerifyRed" },
+    { "from": "VerifyRed",    "to": "WriteImpl" },
+    { "from": "WriteImpl",    "to": "VerifyGreen" },
+    { "from": "VerifyGreen",  "to": "Refactor" },
+    { "from": "VerifyGreen",  "to": "Done" },
+    { "from": "Refactor",     "to": "Done" },
+    { "from": "Done",         "to": "WriteTests" }
+  ]
+}
