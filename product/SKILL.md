@@ -112,9 +112,9 @@ python3 ~/.cursor/skills/lulu-dev-workflow/product/scripts/start.py \
 ```
 
 Creates or increments `session-state.md` (`active_doc: N`) and initializes
-`r{N}/workflow-state.md` with `current_state: Drafting, evaluate_round: 0`.
+`revision{N}/workflow-state.md` with `current_state: Drafting, evaluate_round: 0`.
 
-Each run starts a **new** product document (r{N+1}). To resume an existing
+Each run starts a **new** product document (revision{N+1}). To resume an existing
 product document, do not run start again — read the current session files.
 
 ---
@@ -125,13 +125,13 @@ product document, do not run start again — read the current session files.
 .cache/lulu-dev-workflow/product/<conv_id>/
   session-state.md               ← active_doc: N (线性递增，不回退)
 
-  r{N}/                          ← 第 N 个产品文档
+  revision{N}/                          ← 第 N 个产品文档
     workflow-state.md            ← current_state, evaluate_round (AI 写，Hook 校验)
     product-doc.md               ← 当前工作草稿
     evaluate-state.md            ← pending / in_progress / complete
     human-delivery-gate.md       ← 交付门禁
 
-    e{M}/                        ← 第 M 轮 PDQA 评估
+    evaluate{M}/                        ← 第 M 轮 PDQA 评估
       pdqa-review.md             ← 评估记录（逐问题更新）
 ```
 
@@ -158,30 +158,30 @@ Allowed transitions:
 
 The hook denies `Evaluating → ReadyForDelivery` unless both exist:
 
-1. `r{N}/evaluate-state.md` with `status: complete`
-2. `r{N}/e{M}/pdqa-review.md` (where M = current `evaluate_round`)
+1. `revision{N}/evaluate-state.md` with `status: complete`
+2. `revision{N}/evaluate{M}/pdqa-review.md` (where M = current `evaluate_round`)
 
 ---
 
 ## Operating Rules
 
 1. Read `.cursor/lulu-dev-workflow/workflow-config.json` before driving the workflow.
-2. Session files live at `.cache/lulu-dev-workflow/product/<conversation_id>/r{N}/`.
+2. Session files live at `.cache/lulu-dev-workflow/product/<conversation_id>/revision{N}/`.
    Read `session-state.md` to determine current `active_doc` (N).
-3. `r{N}/workflow-state.md` is the authoritative current state — write it to request a transition.
+3. `revision{N}/workflow-state.md` is the authoritative current state — write it to request a transition.
 4. Never infer state from spec body or file existence; always read `workflow-state.md`.
-5. Only `ReadyForDelivery → Delivered` requires `r{N}/human-delivery-gate.md`.
+5. Only `ReadyForDelivery → Delivered` requires `revision{N}/human-delivery-gate.md`.
 6. Use full `Write` (not `Edit`) for `workflow-state.md`.
 7. This workflow runs in Plan mode. All session files are Markdown.
-7a. On entering Evaluating: first write `r{N}/evaluate-state.md` (`status: pending`,
+7a. On entering Evaluating: first write `revision{N}/evaluate-state.md` (`status: pending`,
     `round: M`), then begin PDQA analysis.
-7b. After PDQA analysis produces the issues list: write `r{N}/e{M}/pdqa-review.md`
+7b. After PDQA analysis produces the issues list: write `revision{N}/evaluate{M}/pdqa-review.md`
     skeleton, then update `evaluate-state.md` to `status: in_progress`.
 7c. After all issues are resolved: write in order —
     (1) `evaluate-state.md` (`status: complete`),
-    (2) `r{N}/workflow-state.md` (`current_state: ReadyForDelivery`).
-8. After each issue is resolved in Evaluating: immediately update `r{N}/product-doc.md`
-   (apply the fix) and `r{N}/e{M}/pdqa-review.md` (record the resolution). Never batch updates.
+    (2) `revision{N}/workflow-state.md` (`current_state: ReadyForDelivery`).
+8. After each issue is resolved in Evaluating: immediately update `revision{N}/product-doc.md`
+   (apply the fix) and `revision{N}/evaluate{M}/pdqa-review.md` (record the resolution). Never batch updates.
 9. Never claim an issue is resolved without first writing the updated files.
 
 ---
@@ -191,7 +191,7 @@ The hook denies `Evaluating → ReadyForDelivery` unless both exist:
 ### `Drafting`
 
 - Help draft or revise the spec against `workflow-config.json → product.template_url`.
-- Write to `r{N}/product-doc.md`.
+- Write to `revision{N}/product-doc.md`.
 - Stay in `Drafting` until the user explicitly requests evaluation.
 
 ### `Evaluating`
@@ -203,8 +203,8 @@ The hook denies `Evaluating → ReadyForDelivery` unless both exist:
   - Option A: 确认问题，需要修复
   - Option B: 忽略，不影响交付
 - Wait for the user's response before proceeding to the next issue.
-- For each confirmed issue: immediately fix `r{N}/product-doc.md` and update
-  `r{N}/e{M}/pdqa-review.md` before moving on. Do not batch fixes.
+- For each confirmed issue: immediately fix `revision{N}/product-doc.md` and update
+  `revision{N}/evaluate{M}/pdqa-review.md` before moving on. Do not batch fixes.
 - Stay in `Evaluating` or return to `Drafting` until all issues are resolved.
 
 ### `ReadyForDelivery`
@@ -214,7 +214,7 @@ The hook denies `Evaluating → ReadyForDelivery` unless both exist:
 
 ### `Delivered`
 
-- Requires `r{N}/human-delivery-gate.md` to exist.
+- Requires `revision{N}/human-delivery-gate.md` to exist.
 - Write `human-delivery-gate.md` only after the user explicitly confirms delivery.
 
 ---
@@ -231,7 +231,7 @@ updated_at: 2026-05-17T09:00:00+08:00
 ---
 ```
 
-### r{N}/workflow-state.md
+### revision{N}/workflow-state.md
 
 ```markdown
 ---
@@ -243,7 +243,7 @@ updated_at: 2026-05-17T09:00:00+08:00
 ---
 ```
 
-### r{N}/evaluate-state.md
+### revision{N}/evaluate-state.md
 
 ```markdown
 ---
@@ -270,7 +270,7 @@ note: All PDQA issues resolved. User confirmed delivery.
 
 ## Transition: Writing workflow-state.md
 
-Write the full Markdown to `r{N}/workflow-state.md`:
+Write the full Markdown to `revision{N}/workflow-state.md`:
 
 ```markdown
 ---
@@ -291,11 +291,11 @@ ReadyForDelivery), and allows or denies it.
 
 | File | Stage | Description |
 |------|-------|-------------|
-| `r{N}/product-doc.md` | Drafting / Evaluating | Product spec, revised in-place |
-| `r{N}/evaluate-state.md` | Evaluating | Evaluation phase progress tracker |
-| `r{N}/e{M}/pdqa-review.md` | Evaluating | PDQA evaluation record, updated per issue |
-| `r{N}/human-delivery-gate.md` | ReadyForDelivery | User delivery confirmation |
-| `r{N}/workflow-state.md` | All | Current workflow state |
+| `revision{N}/product-doc.md` | Drafting / Evaluating | Product spec, revised in-place |
+| `revision{N}/evaluate-state.md` | Evaluating | Evaluation phase progress tracker |
+| `revision{N}/evaluate{M}/pdqa-review.md` | Evaluating | PDQA evaluation record, updated per issue |
+| `revision{N}/human-delivery-gate.md` | ReadyForDelivery | User delivery confirmation |
+| `revision{N}/workflow-state.md` | All | Current workflow state |
 | `session-state.md` | All | Active product document pointer |
 
 ---
@@ -303,7 +303,7 @@ ReadyForDelivery), and allows or denies it.
 ## Delivery Flow
 
 1. All PDQA issues resolved → follow Rule 7c (complete evaluate-state, transition to ReadyForDelivery)
-2. Present final `r{N}/product-doc.md` to user; wait for explicit delivery confirmation
-3. Write `r{N}/human-delivery-gate.md` with `approved: true`
-4. Write `r{N}/workflow-state.md` with `current_state: Delivered`
-5. Output the final `r{N}/product-doc.md` content to the user
+2. Present final `revision{N}/product-doc.md` to user; wait for explicit delivery confirmation
+3. Write `revision{N}/human-delivery-gate.md` with `approved: true`
+4. Write `revision{N}/workflow-state.md` with `current_state: Delivered`
+5. Output the final `revision{N}/product-doc.md` content to the user
