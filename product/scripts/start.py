@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 
 import argparse
-from datetime import datetime, timezone
 from pathlib import Path
 
-from workflow_common import state_path, write_json
+from workflow_common import state_path, write_md_state
 
 
 def parse_args() -> argparse.Namespace:
@@ -20,13 +19,7 @@ def main() -> int:
     conv_id = args.conversation_id.strip()
 
     s_path = project_root / state_path(conv_id)
-    payload = {
-        "version": 1,
-        "workflow": "product",
-        "current_state": "Drafting",
-        "updated_at": datetime.now(timezone.utc).isoformat(),
-    }
-    write_json(s_path, payload)
+    write_md_state(s_path, "Drafting")
 
     print(f"""
 会话已启动。
