@@ -16,7 +16,13 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Start a new tech-doc workflow session.")
     parser.add_argument("--project-root", default=".", help="Project root directory.")
     parser.add_argument("--conversation-id", required=True, help="Current Cursor conversation ID.")
-    parser.add_argument("--product-ref", required=True, help="Absolute path to product-doc.md.")
+    parser.add_argument(
+        "--run-mode",
+        required=True,
+        choices=["product", "tech"],
+        help="Workflow mode: 'product' (requires --product-ref) or 'tech' (no product-ref).",
+    )
+    parser.add_argument("--product-ref", default="", help="Absolute path to product-doc.md (required for product mode).")
     parser.add_argument("--carry-forward-ref", default="", help="Absolute path to previous tech-doc.md (optional).")
     return parser.parse_args()
 
@@ -25,11 +31,20 @@ def main() -> int:
     args = parse_args()
     project_root = Path(args.project_root).resolve()
     conv_id = args.conversation_id.strip()
+    run_mode = args.run_mode
     product_ref = args.product_ref.strip()
     carry_forward_ref = args.carry_forward_ref.strip()
 
-    # Validate product_ref exists
-    if not Path(product_ref).exists():
+    # Validate mode / product-ref consistency
+    if run_mode == "product" and not product_ref:
+        print("错误：--run-mode product 需要同时提供 --product-ref。")
+        return 1
+    if run_mode == "tech" and product_ref:
+        print("错误：--run-mode tech 不能同时提供 --product-ref（两者互斥）。")
+        return 1
+
+    # Validate product_ref exists (product mode only)
+    if product_ref and not Path(product_ref).exists():
         print(f"错误：product-ref 文件不存在：{product_ref}")
         return 1
 
@@ -56,13 +71,16 @@ def main() -> int:
         evaluate_round=0,
         product_ref=product_ref,
         carry_forward_ref=carry_forward_ref,
+        mode=run_mode,
     )
 
-    calibration_note = (
-        "⚠️  carry_forward_ref 存在，进入 Drafting 后必须强制校准（对比新 product-doc 与旧 tech-doc）。"
-        if carry_forward_ref
-        else "首次起草，进入 Drafting 后必须校准（读取模板 + 架构约束 + product-doc）。"
-    )
+    if run_mode == "product":
+        if carry_forward_ref:
+            calibration_note = "⚠️  carry_forward_ref 存在，进入 Drafting 后必须强制校准（对比新 product-doc 与旧 tech-doc）。"
+        else:
+            calibration_note = "首次起草（产品需求模式），进入 Drafting 后必须校准（读取模板 + 架构约束 + product-doc）。"
+    else:
+        calibration_note = "技改模式：E1 意图对齐评估将跳过，仅执行 E3（代码库一致性）+ E2（方案质量）。"
 
     print(f"""
 会话已启动。
@@ -71,8 +89,9 @@ def main() -> int:
 当前技术文档：r{active_doc}
 状态文件：    {ws_path.as_posix()}
 当前状态：    Drafting
+运行模式：    {run_mode}
 评估轮次：    0
-product_ref：  {product_ref}
+product_ref：  {product_ref or '（无，技改模式）'}
 carry_forward：{carry_forward_ref or '（无）'}
 
 {calibration_note}
