@@ -27,7 +27,7 @@ def session_state_path(conversation_id: str) -> Path:
 
 
 def doc_dir(conversation_id: str, doc_round: int) -> Path:
-    return session_base_dir(conversation_id) / f"r{doc_round}"
+    return session_base_dir(conversation_id) / f"revision{doc_round}"
 
 
 def state_path(conversation_id: str, doc_round: int) -> Path:
@@ -39,7 +39,7 @@ def approval_path(conversation_id: str, doc_round: int) -> Path:
 
 
 def eval_round_dir(conversation_id: str, doc_round: int, evaluate_round: int) -> Path:
-    return doc_dir(conversation_id, doc_round) / f"e{evaluate_round}"
+    return doc_dir(conversation_id, doc_round) / f"evaluate{evaluate_round}"
 
 
 def hook_entry() -> Dict[str, Any]:
@@ -76,7 +76,7 @@ def write_json(path: Path, payload: Dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 
 def write_md_state(path: Path, current_state: str, evaluate_round: int = 0) -> None:
-    """Write r{N}/workflow-state.md with YAML frontmatter."""
+    """Write revision{N}/workflow-state.md with YAML frontmatter."""
     path.parent.mkdir(parents=True, exist_ok=True)
     now = datetime.now(timezone.utc).isoformat()
     content = (
