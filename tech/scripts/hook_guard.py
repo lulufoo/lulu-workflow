@@ -17,7 +17,7 @@ from workflow_common import (
     read_md_state,
 )
 
-# Matches: .cache/lulu-dev-workflow/tech-doc/<conv_id>/r{N}/workflow-state.md
+# Matches: .cache/lulu-dev-workflow/tech-doc/<conv_id>/revision{N}/workflow-state.md
 _CACHE_PARTS = (".cache", "lulu-dev-workflow", "tech")
 
 
@@ -57,15 +57,15 @@ def extract_path_and_contents(event: Dict[str, Any], project_root: Path) -> Tupl
 
 
 def match_workflow_state_path(path: str) -> Optional[Tuple[str, str]]:
-    """Return (conv_id, doc_round_str) if path is r{N}/workflow-state.md under tech-doc cache."""
+    """Return (conv_id, doc_round_str) if path is revision{N}/workflow-state.md under tech-doc cache."""
     parts = Path(path).parts
     if (
         len(parts) == 6
         and parts[:3] == _CACHE_PARTS
-        and re.match(r"^r\d+$", parts[4])
+        and re.match(r"^revision\d+$", parts[4])
         and parts[5] == "workflow-state.md"
     ):
-        return parts[3], parts[4]  # conv_id, r{N}
+        return parts[3], parts[4]  # conv_id, revision{N}
     return None
 
 
