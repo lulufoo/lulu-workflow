@@ -1,9 +1,10 @@
 ---
 name: product-doc-workflow
 description: >-
-  Use when initializing or driving a product document workflow in Cursor:
-  product-doc workflow, 产品文档流程, 产品文档状态迁移, spec workflow,
-  PDQA, ready for delivery, delivered, lulu-dev-workflow product.
+  Use when: 产品需求, 新功能, 功能设计, 产品文档, PRD, spec, 用户故事,
+  需求分析, feature request, product requirement, 功能规划, 需求文档,
+  product-doc workflow, 产品文档流程, 产品文档状态迁移, lulu-dev-workflow product,
+  PDQA, ready for delivery, delivered.
 disable-model-invocation: true
 ---
 
@@ -136,6 +137,9 @@ Allowed transitions:
 5. Only `ReadyForDelivery → Delivered` requires `human-delivery-gate.md` in the same session dir.
 6. Use full `Write` (not `Edit`) for `workflow-state.md`.
 7. This workflow runs in Plan mode. All session files are Markdown.
+8. After each issue is resolved in Evaluating: immediately update `product-doc.md`
+   (apply the fix) and `pdqa-review.md` (record the resolution). Never batch updates.
+9. Never claim an issue is resolved without first writing the updated files.
 
 ---
 
@@ -149,9 +153,14 @@ Allowed transitions:
 ### `Evaluating`
 
 - Compare the spec against `product.pdqa_url`.
-- Surface issues one by one; push fixes back into the spec (`product-doc.md`).
-- Record all findings and resolutions in `pdqa-review.md`.
-- Stay in `Evaluating` or return to `Drafting` until evaluation is complete.
+- Present each issue to the user one at a time using the **AskQuestion tool** (never
+  a plain text list). Each question must offer at minimum:
+  - Option A: 确认问题，需要修复
+  - Option B: 忽略，不影响交付
+- Wait for the user's response before proceeding to the next issue.
+- For each confirmed issue: immediately fix `product-doc.md` and update
+  `pdqa-review.md` before moving on. Do not batch fixes.
+- Stay in `Evaluating` or return to `Drafting` until all issues are resolved.
 
 ### `ReadyForDelivery`
 
