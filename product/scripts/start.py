@@ -3,7 +3,13 @@
 import argparse
 from pathlib import Path
 
-from workflow_common import state_path, write_md_state
+from workflow_common import (
+    read_md_field,
+    session_state_path,
+    state_path,
+    write_md_state,
+    write_session_state,
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -18,14 +24,28 @@ def main() -> int:
     project_root = Path(args.project_root).resolve()
     conv_id = args.conversation_id.strip()
 
-    s_path = project_root / state_path(conv_id)
-    write_md_state(s_path, "Drafting")
+    ss_path = project_root / session_state_path(conv_id)
+    if ss_path.exists():
+        try:
+            active_doc = int(read_md_field(ss_path, "active_doc", default="0")) + 1
+        except ValueError:
+            active_doc = 1
+    else:
+        active_doc = 1
+
+    write_session_state(ss_path, active_doc)
+
+    ws_path = project_root / state_path(conv_id, active_doc)
+    write_md_state(ws_path, "Drafting", evaluate_round=0)
 
     print(f"""
 会话已启动。
 
-状态文件：{s_path.as_posix()}
+会话状态文件：{ss_path.as_posix()}
+当前产品文档：r{active_doc}
+状态文件：{ws_path.as_posix()}
 当前状态：Drafting
+评估轮次：0
 
 工作流已就绪，可以开始产品文档起草。
 """)
