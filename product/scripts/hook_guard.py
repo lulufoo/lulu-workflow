@@ -6,15 +6,17 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
 from workflow_common import (
+    CACHE_DIR,
     WHITELIST_PATH,
-    WORKFLOW_DIR,
     approval_path,
     normalize_tool_path,
+    parse_frontmatter_state,
     read_json,
+    read_md_state,
 )
 
-# Matches: .cursor/lulu-dev-workflow/product/<conv_id>/state.json
-_STATE_PARTS = (".cursor", "lulu-dev-workflow", "product")
+# Matches: .cache/lulu-dev-workflow/product/<conv_id>/workflow-state.md
+_CACHE_PARTS = (".cache", "lulu-dev-workflow", "product")
 
 
 def allow() -> Dict[str, str]:
@@ -53,12 +55,12 @@ def extract_path_and_contents(event: Dict[str, Any], project_root: Path) -> Tupl
 
 
 def match_state_conv_id(path: str) -> Optional[str]:
-    """Return conversation_id if path is .cursor/lulu-dev-workflow/product/<conv_id>/state.json."""
+    """Return conversation_id if path is .cache/lulu-dev-workflow/product/<conv_id>/workflow-state.md."""
     parts = Path(path).parts
     if (
         len(parts) == 5
-        and parts[:3] == _STATE_PARTS
-        and parts[4] == "state.json"
+        and parts[:3] == _CACHE_PARTS
+        and parts[4] == "workflow-state.md"
     ):
         return parts[3]
     return None
@@ -87,25 +89,21 @@ def main() -> int:
 
     if tool_name == "Edit" and not contents:
         print(json.dumps(deny(
-            "State file must be written in full, not as a partial Edit.",
-            "Use a full Write operation when updating state.json.",
+            "Workflow state file must be written in full, not as a partial Edit.",
+            "Use a full Write operation when updating workflow-state.md.",
         )))
         return 0
 
-    try:
-        proposed = json.loads(contents)
-    except json.JSONDecodeError as exc:
-        print(json.dumps(deny(f"state.json content is not valid JSON: {exc}")))
-        return 0
-
-    to_state = proposed.get("current_state")
+    to_state = parse_frontmatter_state(contents)
     if not to_state:
-        print(json.dumps(deny("state.json must contain a 'current_state' field.")))
+        print(json.dumps(deny(
+            "workflow-state.md must contain a YAML frontmatter block with a 'current_state' field.",
+            "Ensure the file starts with '---' and includes 'current_state: <State>'.",
+        )))
         return 0
 
-    state_file = project_root / WORKFLOW_DIR / "product" / conv_id / "state.json"
-    current = read_json(state_file, default={"current_state": "Drafting"})
-    current_state = current.get("current_state", "Drafting")
+    state_file = project_root / CACHE_DIR / "product" / conv_id / "workflow-state.md"
+    current_state = read_md_state(state_file, default="Drafting")
 
     if to_state == current_state:
         print(json.dumps(allow()))
@@ -125,12 +123,11 @@ def main() -> int:
         return 0
 
     if to_state == "Delivered":
-        appr_file = project_root / approval_path(conv_id)
-        appr = read_json(appr_file, default={"approved": False})
-        if not appr.get("approved", False):
+        gate_file = project_root / approval_path(conv_id)
+        if not gate_file.exists():
             print(json.dumps(deny(
-                "ReadyForDelivery \u2192 Delivered requires delivery approval first.",
-                "Write delivery-approval.json with approved=true in the same session directory.",
+                "ReadyForDelivery \u2192 Delivered requires human-delivery-gate.md to exist first.",
+                "Write human-delivery-gate.md to confirm user approval before transitioning to Delivered.",
             )))
             return 0
 
