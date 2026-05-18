@@ -156,10 +156,14 @@ Allowed transitions:
 
 ## ReadyForDelivery Pre-conditions
 
-The hook denies `Evaluating → ReadyForDelivery` unless both exist:
+The hook denies `Evaluating → ReadyForDelivery` unless all of the following hold:
 
 1. `revision{N}/evaluate-state.md` with `status: complete`
 2. `revision{N}/evaluate{M}/pdqa-review.md` (where M = current `evaluate_round`)
+3. `revision{N}/product-doc.md` exists and is non-empty
+
+Do **not** create `evaluate{M}/product-doc.md`. During Evaluating, revise only
+`revision{N}/product-doc.md` in place; `pdqa-review.md` records issues and resolutions.
 
 ---
 
