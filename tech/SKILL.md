@@ -85,23 +85,13 @@ Do not infer or auto-detect the path.
 
 **Step 3: Run start**
 
-Product 模式（需要 product-doc）：
 ```bash
 python3 ~/.cursor/skills/lulu-dev-workflow/tech/scripts/start.py \
   --project-root "$(pwd)" \
   --conversation-id "<uuid>" \
-  --run-mode product \
-  --product-ref "<absolute-path-to-product-doc.md>" \
-  [--carry-forward-ref "<absolute-path-to-previous-tech-doc.md>"]
-```
-
-Tech 模式（纯技改）：
-```bash
-python3 ~/.cursor/skills/lulu-dev-workflow/tech/scripts/start.py \
-  --project-root "$(pwd)" \
-  --conversation-id "<uuid>" \
-  --run-mode tech \
-  [--carry-forward-ref "<absolute-path-to-previous-tech-doc.md>"]
+  --run-mode product|tech \
+  [--product-ref "<absolute-path-to-product-doc.md>"]  # product 模式必填
+  [--carry-forward-ref "<absolute-path-to-previous-tech-doc.md>"]  # 可选
 ```
 
 `--carry-forward-ref` is optional in both modes. Provide it when re-entering
@@ -137,40 +127,14 @@ Allowed transitions:
 - `Drafting → Evaluating`
 - `Drafting → ReadyForDelivery`  ← skip evaluate; requires `skip_evaluate_requested: true` (hook enforced)
 - `Evaluating → ReadyForDelivery`  ← requires evaluate pre-conditions (hook enforced)
-- `Evaluating → Drafting`
+- `Evaluating → Drafting`  ← requires `evaluate-state.md` with `current_dimension: abandoned` (hook enforced)
 - `ReadyForDelivery → Drafting`
-- `ReadyForDelivery → Delivered`  ← requires `human-delivery-gate.md`
+- `ReadyForDelivery → Delivered`  ← requires `human-delivery-gate.md` (hook enforced)
+
+Hook enforces all transition pre-conditions. Denial messages are self-explanatory.
 
 Skipping evaluation does **not** skip delivery confirmation: all paths still use
 `ReadyForDelivery → Delivered` with `human-delivery-gate.md`.
-
----
-
-## ReadyForDelivery Pre-conditions (Hook enforced)
-
-### Drafting → ReadyForDelivery（跳过评估）
-
-The hook allows this transition only when ALL hold:
-
-1. Incoming `workflow-state.md` has `skip_evaluate_requested: true` (AI sets only after user explicitly requests to skip E1/E3/E2)
-2. `revision{N}/tech-doc.md` exists and is non-empty
-3. `evaluate_round` remains `0` (do not increment)
-
-Does **not** require `evaluate-state.md` or `evaluate{M}/tech-review-*.md`.
-
-### Evaluating → ReadyForDelivery（完成评估）
-
-**product 模式：**
-1. `revision{N}/evaluate-state.md` exists
-2. `current_dimension: done`
-3. `e1_status: complete`, `e3_status: complete`, `e2_status: complete`
-4. `evaluate{M}/tech-review-e{M}1.md`, `tech-review-e{M}2.md`, `tech-review-e{M}3.md` all exist
-
-**tech 模式（E1 跳过）：**
-1. `revision{N}/evaluate-state.md` exists
-2. `current_dimension: done`
-3. `e1_status: complete`（初始化时预置），`e3_status: complete`, `e2_status: complete`
-4. `evaluate{M}/tech-review-e{M}2.md`, `tech-review-e{M}3.md` exist（E1 review 文件不检查）
 
 ---
 
@@ -237,18 +201,11 @@ On entering Evaluating:
 2. Read `mode` from `workflow-state.md` to determine evaluation path
 3. Initialize `evaluate-state.md` based on mode:
 
-**product 模式（E1 → E3 → E2）：**
 ```
-current_dimension: e1
-e1_status: pending, e3_status: pending, e2_status: pending
-total_issues: 0, resolved_issues: 0
-fix_severity: "", fix_severity_reason: ""
-```
-
-**tech 模式（跳过 E1，直接 E3 → E2）：**
-```
-current_dimension: e3
-e1_status: complete, e1_total_issues: 0, e1_resolved_issues: 0
+# product 模式：current_dimension: e1, e1_status: pending
+# tech 模式：current_dimension: e3, e1_status: complete（预置）, e1_total_issues: 0, e1_resolved_issues: 0
+current_dimension: e1|e3
+e1_status: pending|complete
 e3_status: pending, e2_status: pending
 total_issues: 0, resolved_issues: 0
 fix_severity: "", fix_severity_reason: ""
@@ -256,18 +213,14 @@ fix_severity: "", fix_severity_reason: ""
 
 **Rule E2 — Dimension sequencing**
 
-| Mode | 执行顺序 | 跳过 |
-|------|---------|------|
-| product | E1 → E3 → E2 | 无 |
-| tech | E3 → E2 | E1（已预置为 complete） |
+| Mode | 执行顺序 | 跳过 | E1 file | E3 file | E2 file |
+|------|---------|------|---------|---------|---------|
+| product | E1 → E3 → E2 | 无 | `tech-review-e{M}1.md` | `tech-review-e{M}2.md` | `tech-review-e{M}3.md` |
+| tech | E3 → E2 | E1（预置 complete） | — | `tech-review-e{M}2.md` | `tech-review-e{M}3.md` |
+
+Inputs per dimension: E1 ← product_ref + `ptc_url`; E3 ← relevant code files; E2 ← `tpef_url`.
 
 Do not skip within the required sequence.
-
-| Dim | seq | File | Inputs |
-|-----|-----|------|--------|
-| E1 | 1 | `tech-review-e{M}1.md` | `revision{N}/tech-doc.md` + `product_ref` content + `ptc_url` framework |
-| E3 | 2 | `tech-review-e{M}2.md` | `revision{N}/tech-doc.md` (post-E1 fixes, if any) + relevant code files |
-| E2 | 3 | `tech-review-e{M}3.md` | `revision{N}/tech-doc.md` (post-E3 fixes) + `tpef_url` framework |
 
 **Rule E3 — Per-dimension sequence**
 
@@ -293,7 +246,6 @@ After E2 complete:
 Present each issue to the user via AskQuestion, one at a time:
 - Option A: 确认问题，需要修复
 - Option B: 忽略，不影响交付
-
 
 **Rule E6 — Abandon evaluation（废弃本轮评估，回退 Drafting）**
 
@@ -384,44 +336,19 @@ fix_severity_reason: ""
 ---
 ```
 
-### evaluate{M}/tech-review-e{M}1.md (E1)
+### evaluate{M}/tech-review-e{M}N.md
+
+Each review file shares the same structure; column set varies by dimension:
 
 ```markdown
-# E1 评审：意图对齐 — revision{N} · 第 {M} 轮
+# {E1|E3|E2} 评审：{意图对齐|代码库一致性|方案质量} — revision{N} · 第 {M} 轮
 
 **评估日期：** YYYY-MM-DD
-**Product 参照：** [product_ref 路径]
-**E1 框架：** [ptc_url]
+**参照：** [E1: product_ref + ptc_url / E3: 涉及代码路径 / E2: tpef_url]
 
-| 编号 | 问题描述 | 严重性 | 状态 | 用户决策 |
-|------|---------|-------|------|---------|
-| E1-1 | ... | 严重/中等/一般 | ✅ 已修复 | 修复 |
-```
-
-### evaluate{M}/tech-review-e{M}2.md (E3)
-
-```markdown
-# E3 评审：代码库一致性 — revision{N} · 第 {M} 轮
-
-**评估日期：** YYYY-MM-DD
-**涉及代码路径：** [主要读取的代码文件列表]
-
-| 编号 | 问题描述 | 涉及文件 | 严重性 | 状态 | 用户决策 |
-|------|---------|---------|-------|------|---------|
-| E3-1 | ... | `src/foo.js` | ... | ✅ 已修复 | 修复 |
-```
-
-### evaluate{M}/tech-review-e{M}3.md (E2)
-
-```markdown
-# E2 评审：方案质量 — revision{N} · 第 {M} 轮
-
-**评估日期：** YYYY-MM-DD
-**E2 框架：** [tpef_url]
-
-| 编号 | 问题描述 | 维度 | 严重性 | 状态 | 用户决策 |
-|------|---------|------|-------|------|---------|
-| E2-1 | ... | 完备性 | ... | ✅ 已修复 | 修复 |
+| 编号 | 问题描述 | [E3 adds: 涉及文件] | [E2 adds: 维度] | 严重性 | 状态 | 用户决策 |
+|------|---------|---------------------|-----------------|-------|------|---------|
+| {E1|E3|E2}-1 | ... | ... | 严重/中等/一般 | ✅ 已修复 | 修复 |
 ```
 
 ### human-delivery-gate.md
@@ -441,18 +368,3 @@ note: All E1/E3/E2 issues resolved. User confirmed delivery.
 - `product_ref`：用户显式指定，不自动推断，两个流程目录完全解耦。
 - `carry_forward_ref`：re-entry 时提供，旧 tech-doc 与新 product-doc 的版本差要在 Drafting 强制校准后解决。
 - Re-entry = 新迭代（新 conv_id 或新 revision{N}），不在旧目录继续。
-
----
-
-## Document Outputs
-
-| File | Stage | Description |
-|------|-------|-------------|
-| `revision{N}/tech-doc.md` | Drafting / Evaluating | 技术方案，就地修订（唯一 AI 加工产物） |
-| `revision{N}/evaluate-state.md` | Evaluating | 评估进度追踪 |
-| `revision{N}/evaluate{M}/tech-review-e{M}1.md` | Evaluating E1 | 意图对齐评审 |
-| `revision{N}/evaluate{M}/tech-review-e{M}2.md` | Evaluating E3 | 代码库一致性评审 |
-| `revision{N}/evaluate{M}/tech-review-e{M}3.md` | Evaluating E2 | 方案质量评审 |
-| `revision{N}/human-delivery-gate.md` | ReadyForDelivery | 用户交付确认 |
-| `revision{N}/workflow-state.md` | All | 当前工作流状态 |
-| `session-state.md` | All | 活跃文档指针 |
