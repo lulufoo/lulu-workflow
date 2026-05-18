@@ -113,8 +113,8 @@ tech flow to use a previous tech-doc as the draft starting point.
 
     evaluate{M}/                 ← 第 M 轮评估（线性递增）
       tech-review-e{M}1.md       ← E1：意图对齐评审
-      tech-review-e{M}2.md       ← E3：代码库一致性评审
-      tech-review-e{M}3.md       ← E2：方案质量评审
+      tech-review-e{M}2.md       ← E2：代码库一致性评审
+      tech-review-e{M}3.md       ← E3：方案质量评审
 ```
 
 ---
@@ -167,7 +167,7 @@ Show the user: `「本轮修复严重性：[fix_severity] — [fix_severity_reas
 
 | User choice | Action |
 |-------------|--------|
-| Yes (校准) | Read `ac_url` + `tpt_url` + product-doc relevant sections (if E1 issues last round) + code files (if E3 issues last round) |
+| Yes (校准) | Read `ac_url` + `tpt_url` + product-doc relevant sections (if E1 issues last round) + code files (if E2 issues last round) |
 | Skip (跳过) | Proceed directly to writing |
 
 **Rule D3 — Code reads during drafting**
@@ -180,17 +180,9 @@ Write only `revision{N}/tech-doc.md`. It is the sole AI-generated artifact.
 
 **Rule D5 — Skip evaluate to ReadyForDelivery**
 
-Use only when the user **explicitly** requests to skip E1/E3/E2 (e.g.「跳过评估」「不评估直接定稿」).
-Do not infer; if ambiguous, use AskQuestion.
+User must explicitly request (e.g.「跳过评估」「不评估直接定稿」); if ambiguous, use AskQuestion.
 
-Steps:
-
-1. Ensure `revision{N}/tech-doc.md` is complete for delivery.
-2. **Write** `workflow-state.md` with `current_state: ReadyForDelivery`, `evaluate_round: 0`,
-   `skip_evaluate_requested: true`, and preserve `mode`, `product_ref`, `carry_forward_ref`.
-3. Follow **Rule R1** (present final tech-doc → user confirms delivery → gate → `Delivered`).
-
-Do **not** offer「直接改代码」as a tech-workflow next step; implementation belongs to work-order/TDD.
+Write `workflow-state.md`: `current_state: ReadyForDelivery`, `evaluate_round: 0`, `skip_evaluate_requested: true`; preserve `mode`, `product_ref`, `carry_forward_ref`. Then follow Rule R1.
 
 ### Evaluating Rules
 
@@ -203,22 +195,22 @@ On entering Evaluating:
 
 ```
 # product 模式：current_dimension: e1, e1_status: pending
-# tech 模式：current_dimension: e3, e1_status: complete（预置）, e1_total_issues: 0, e1_resolved_issues: 0
-current_dimension: e1|e3
+# tech 模式：current_dimension: e2, e1_status: complete（预置）, e1_total_issues: 0, e1_resolved_issues: 0
+current_dimension: e1|e2
 e1_status: pending|complete
-e3_status: pending, e2_status: pending
+e2_status: pending, e3_status: pending
 total_issues: 0, resolved_issues: 0
 fix_severity: "", fix_severity_reason: ""
 ```
 
 **Rule E2 — Dimension sequencing**
 
-| Mode | 执行顺序 | 跳过 | E1 file | E3 file | E2 file |
+| Mode | 执行顺序 | 跳过 | E1 file | E2 file | E3 file |
 |------|---------|------|---------|---------|---------|
-| product | E1 → E3 → E2 | 无 | `tech-review-e{M}1.md` | `tech-review-e{M}2.md` | `tech-review-e{M}3.md` |
-| tech | E3 → E2 | E1（预置 complete） | — | `tech-review-e{M}2.md` | `tech-review-e{M}3.md` |
+| product | E1 → E2 → E3 | 无 | `tech-review-e{M}1.md` | `tech-review-e{M}2.md` | `tech-review-e{M}3.md` |
+| tech | E2 → E3 | E1（预置 complete） | — | `tech-review-e{M}2.md` | `tech-review-e{M}3.md` |
 
-Inputs per dimension: E1 ← product_ref + `ptc_url`; E3 ← relevant code files; E2 ← `tpef_url`.
+Inputs per dimension: E1 ← product_ref + `ptc_url`; E2 ← relevant code files; E2 ← `tpef_url`.
 
 Do not skip within the required sequence.
 
@@ -236,7 +228,7 @@ Never batch fixes. Fix one issue, write files, then proceed.
 
 **Rule E4 — Completion**
 
-After E2 complete:
+After E3 complete:
 1. Assess overall `fix_severity` (critical / medium / minor) and write `fix_severity_reason`
 2. Write `evaluate-state.md` with `current_dimension: done`, `fix_severity` filled in
 3. Write `workflow-state.md` → `current_state: ReadyForDelivery` (hook will validate)
@@ -320,13 +312,13 @@ e1_status: pending
 e1_total_issues: 0
 e1_resolved_issues: 0
 
-e3_status: pending
-e3_total_issues: 0
-e3_resolved_issues: 0
-
 e2_status: pending
 e2_total_issues: 0
 e2_resolved_issues: 0
+
+e3_status: pending
+e3_total_issues: 0
+e3_resolved_issues: 0
 
 total_issues: 0
 resolved_issues: 0
@@ -341,14 +333,14 @@ fix_severity_reason: ""
 Each review file shares the same structure; column set varies by dimension:
 
 ```markdown
-# {E1|E3|E2} 评审：{意图对齐|代码库一致性|方案质量} — revision{N} · 第 {M} 轮
+# {E1|E2|E3} 评审：{意图对齐|代码库一致性|方案质量} — revision{N} · 第 {M} 轮
 
 **评估日期：** YYYY-MM-DD
-**参照：** [E1: product_ref + ptc_url / E3: 涉及代码路径 / E2: tpef_url]
+**参照：** [E1: product_ref + ptc_url / E2: 涉及代码路径 / E3: tpef_url]
 
-| 编号 | 问题描述 | [E3 adds: 涉及文件] | [E2 adds: 维度] | 严重性 | 状态 | 用户决策 |
+| 编号 | 问题描述 | [E2 adds: 涉及文件] | [E2 adds: 维度] | 严重性 | 状态 | 用户决策 |
 |------|---------|---------------------|-----------------|-------|------|---------|
-| {E1|E3|E2}-1 | ... | ... | 严重/中等/一般 | ✅ 已修复 | 修复 |
+| {E1|E2|E3}-1 | ... | ... | 严重/中等/一般 | ✅ 已修复 | 修复 |
 ```
 
 ### human-delivery-gate.md
@@ -357,7 +349,7 @@ Each review file shares the same structure; column set varies by dimension:
 ---
 approved: true
 approved_at: 2026-05-17T09:00:00+08:00
-note: All E1/E3/E2 issues resolved. User confirmed delivery.
+note: All E1/E2/E3 issues resolved. User confirmed delivery.
 ---
 ```
 
