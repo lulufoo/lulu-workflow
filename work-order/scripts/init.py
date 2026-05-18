@@ -13,10 +13,10 @@ from workflow_common import (
 )
 
 WORK_ORDER_CONFIG_DEFAULTS = {
-    "task_template_url": "https://github.com/lulufoo/ai-software-dev/blob/main/lulu-dev-workflow-template/work-order/30-work-order-task-template.md",
-    "tasklist_template_url": "https://github.com/lulufoo/ai-software-dev/blob/main/lulu-dev-workflow-template/work-order/33-work-order-tasklist-template.md",
-    "twca_url": "https://github.com/lulufoo/ai-software-dev/blob/main/lulu-dev-workflow-template/work-order/32-tech-workorder-crosscheck.md",
-    "woqa_url": "https://github.com/lulufoo/ai-software-dev/blob/main/lulu-dev-workflow-template/work-order/31-work-order-evaluation-framework.md",
+    "task_template_url": "",
+    "tasklist_template_url": "",
+    "twca_url": "",
+    "woqa_url": "",
 }
 
 
