@@ -26,7 +26,6 @@ switching is required except for advanced debugging.
 
 ## Commands
 
-> Machine setup and project init: see **SETUP.md** in the same directory.
 
 ### `start` — Session-level, run before each product document
 
@@ -285,4 +284,3 @@ ReadyForDelivery), and allows or denies it.
 | `revision{N}/human-delivery-gate.md` | ReadyForDelivery | User delivery confirmation |
 | `revision{N}/workflow-state.md` | All | Current workflow state |
 | `session-state.md` | All | Active product document pointer |
-
