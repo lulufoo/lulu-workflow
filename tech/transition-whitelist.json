@@ -1,6 +1,7 @@
 {
   "allowed_transitions": [
     {"from": "Drafting",         "to": "Evaluating"},
+    {"from": "Drafting",         "to": "ReadyForDelivery"},
     {"from": "Evaluating",       "to": "ReadyForDelivery"},
     {"from": "Evaluating",       "to": "Drafting"},
     {"from": "ReadyForDelivery", "to": "Drafting"},
