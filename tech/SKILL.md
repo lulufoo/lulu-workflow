@@ -20,43 +20,7 @@ that gates state transitions.
 
 ## Commands
 
-### `install` — Machine-level, run once
-
-```bash
-mkdir -p ~/.cursor/skills/lulu-dev-workflow/tech/scripts
-
-for f in SKILL.md transition-whitelist.json; do
-  gh api "repos/lulufoo/lulu-dev-skills/contents/lulu-dev-workflow/tech/$f" \
-    --jq '.content' | base64 -d \
-    > ~/.cursor/skills/lulu-dev-workflow/tech/$f
-done
-
-for f in workflow_common.py hook_guard.py start.py init.py; do
-  gh api "repos/lulufoo/lulu-dev-skills/contents/lulu-dev-workflow/tech/scripts/$f" \
-    --jq '.content' | base64 -d \
-    > ~/.cursor/skills/lulu-dev-workflow/tech/scripts/$f
-done
-```
-
-After install, run `tech-doc-workflow init` in the target project.
-
----
-
-### `init` — Project-level, run once per project
-
-Registers the tech hook into `.cursor/hooks.json` and ensures `workflow-config.json`
-has a `tech` section.
-
-```bash
-cd <project-root>
-python3 ~/.cursor/skills/lulu-dev-workflow/tech/scripts/init.py \
-  --project-root "$(pwd)"
-```
-
-After init, verify `.cursor/lulu-dev-workflow/workflow-config.json` has the `tech`
-block. Fill in `ac_url` if an architecture-constraints document exists.
-
----
+> Machine setup and project init: see **SETUP.md** in the same directory.
 
 ### `start` — Session-level, run before each tech document
 
@@ -262,16 +226,6 @@ After hook allows entry to ReadyForDelivery:
 
 ## Session File Formats
 
-### session-state.md
-
-```markdown
----
-version: 1
-active_doc: 1
-updated_at: 2026-05-17T09:00:00+08:00
----
-```
-
 ### revision{N}/workflow-state.md
 
 ```markdown
@@ -332,16 +286,6 @@ Each review file shares the same structure; column set varies by dimension:
 | 编号 | 问题描述 | [E2 adds: 涉及文件] | [E3 adds: 维度] | 严重性 | 状态 | 用户决策 |
 |------|---------|---------------------|-----------------|-------|------|---------|
 | {E1|E2|E3}-1 | ... | ... | 严重/中等/一般 | ✅ 已修复 | 修复 |
-```
-
-### human-delivery-gate.md
-
-```markdown
----
-approved: true
-approved_at: 2026-05-17T09:00:00+08:00
-note: All E1/E2/E3 issues resolved. User confirmed delivery.
----
 ```
 
 ---
