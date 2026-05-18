@@ -19,7 +19,6 @@ Execute Test-Driven Development from a Delivered tech-doc or work-order task set
 
 ## Commands
 
-> Machine setup and project init: see **SETUP.md** in the same directory.
 
 ### `/code <input>` — Entry point
 
