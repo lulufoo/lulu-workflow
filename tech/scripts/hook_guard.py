@@ -128,6 +128,23 @@ def main() -> int:
         )))
         return 0
 
+
+    if to_state == "Drafting" and current_state == "Evaluating":
+        eval_state_file = doc_path / "evaluate-state.md"
+        if not eval_state_file.exists():
+            print(json.dumps(deny(
+                "evaluate-state.md 不存在，请先将评估标记为 abandoned 后再回退 Drafting。",
+                "Write evaluate-state.md with current_dimension: abandoned before transitioning to Drafting.",
+            )))
+            return 0
+        eval_fields = parse_frontmatter_fields(eval_state_file.read_text(encoding="utf-8"))
+        if eval_fields.get("current_dimension") != "abandoned":
+            print(json.dumps(deny(
+                "Evaluating → Drafting 需先将 evaluate-state.md 的 current_dimension 设为 abandoned。",
+                "Write evaluate-state.md with current_dimension: abandoned before transitioning to Drafting.",
+            )))
+            return 0
+
     if to_state == "ReadyForDelivery":
         fields = parse_frontmatter_fields(contents)
 
