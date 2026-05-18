@@ -9,119 +9,72 @@ disable-model-invocation: true
 
 # code-workflow
 
-从已交付的 tech-doc 或 work-order task 文件集，执行 Test-Driven Development：先写测试，确认 Red，再写最小实现，确认 Green，最后重构。
+Execute Test-Driven Development from a Delivered tech-doc or work-order task set: write tests first, confirm Red, write minimal implementation, confirm Green, then refactor.
 
-**Scope：** TDD 代码生成阶段。输入为 Delivered tech-doc（Path A）或 Delivered work-order task 文件集（Path B），产出测试文件 + 实现文件。
+**Scope:** TDD code generation. Input: Delivered tech-doc (Path A) or Delivered work-order task set (Path B). Output: test files + implementation files.
 **Scripts location (after install):** `~/.cursor/skills/lulu-dev-workflow/code/scripts/`
-**This workflow runs in Agent mode.**（需要写代码文件并执行 Shell 命令）
+**This workflow runs in Agent mode.** (requires writing code files and executing Shell commands)
 
 ---
 
 ## Commands
 
-### `install` — Machine-level, run once
+> Machine setup and project init: see **SETUP.md** in the same directory.
 
-```bash
-mkdir -p ~/.cursor/skills/lulu-dev-workflow/code/scripts
+### `/code <input>` — Entry point
 
-for f in SKILL.md transition-whitelist.json; do
-  gh api "repos/lulufoo/lulu-dev-skills/contents/lulu-dev-workflow/code/$f" \
-    --jq '.content' | base64 -d \
-    > ~/.cursor/skills/lulu-dev-workflow/code/$f
-done
+| Format | Meaning | Example |
+|--------|---------|---------|
+| `work-order/<uuid>` | Source: specified work-order session | `/code work-order/1d2ea64b-065d-4e12-9008-9163d475ee00` |
+| `tech <path-to-tech-doc.md>` | Source: specified tech doc | `/code tech /abs/path/tech-doc.md` |
 
-for f in workflow_common.py hook_guard.py start.py init.py; do
-  gh api "repos/lulufoo/lulu-dev-skills/contents/lulu-dev-workflow/code/scripts/$f" \
-    --jq '.content' | base64 -d \
-    > ~/.cursor/skills/lulu-dev-workflow/code/scripts/$f
-done
-```
-
-After install, run `code-workflow init` in the target project.
-
----
-
-### `init` — Project-level, run once per project
-
-Registers the code hook into `.cursor/hooks.json` and adds the `code` section to `workflow-config.json`.
-
-```bash
-cd <project-root>
-python3 ~/.cursor/skills/lulu-dev-workflow/code/scripts/init.py \
-  --project-root "$(pwd)"
-```
-
-After init, verify `.cursor/lulu-dev-workflow/workflow-config.json` has the `code` block.
-Set `test_command` to the actual test runner command for this project (default: `npm test`).
-
----
-
-### `/code <input>` — 用户调用入口
-
-用户通过 `/code <input>` 触发 code workflow。
-
-**`<input>` 合法格式：**
-
-| 格式 | 含义 | 示例 |
-|------|------|------|
-| `work-order/<uuid>` | 来源：指定 work-order session | `/code work-order/1d2ea64b-065d-4e12-9008-9163d475ee00` |
-| `tech/<path-to-tech-doc.md>` | 来源：指定 tech doc | `/code tech /abs/path/tech-doc.md` |
-
-**如果用户未按格式输入，停止执行，输出以下提示：**
+If the user's input does not match either format, stop and output:
 
 ```
-❌ 无效输入。请按以下格式调用 code workflow：
+Invalid input. Usage:
 
-  来源 work-order：
-    /code work-order/<work-order-conv-id>
-    例：/code work-order/1d2ea64b-065d-4e12-9008-9163d475ee00
+  From work-order:  /code work-order/<work-order-conv-id>
+  From tech doc:    /code tech <path-to-tech-doc.md>
 
-  来源 tech doc：
-    /code tech <path-to-tech-doc.md>
-    例：/code tech /Users/me/proj/.cache/.../tech-doc.md
-
-前置要求：上游必须处于 Delivered 状态。
+Prerequisite: upstream must be in Delivered state.
 ```
 
 ---
 
-### AI 启动序列（收到合法输入后执行）
+### AI startup sequence (after valid input)
 
-**Step 1：解析 `<input>` 类型**
+**Step 1: Parse `<input>` type**
 
-- 以 `work-order/` 开头 → **Path B**，提取 `<work-order-conv-id>`
-- 以 `tech ` 开头 → **Path A**，提取 `<tech-doc-path>`
-- 其他 → 非法，输出上方错误提示，**停止**
+- Starts with `work-order/` → **Path B**, extract `<work-order-conv-id>`
+- Starts with `tech ` → **Path A**, extract `<tech-doc-path>`
+- Other → invalid; output error above and stop
 
-**Step 2：校验上游状态**
+**Step 2: Validate upstream state**
 
-Path B：
+Path B:
 ```bash
-# 读 work-order session 的 workflow-state.md，确认 current_state: Delivered
 cat <project-root>/.cache/lulu-dev-workflow/work-order/<work-order-conv-id>/*/workflow-state.md
 ```
-- 若 `current_state` 不是 `Delivered` → 输出错误："work-order `<id>` 尚未交付（当前状态：`<state>`），无法启动 code workflow。" 停止。
-- 若路径不存在 → 输出错误："找不到 work-order `<id>`，请确认 ID 正确。" 停止。
+- `current_state` is not `Delivered` → error: "work-order `<id>` not yet delivered (current state: `<state>`). Cannot start code workflow." Stop.
+- Path does not exist → error: "work-order `<id>` not found. Please verify the ID." Stop.
 
-Path A：
-- 读 `<tech-doc-path>` 确认文件存在
-- 若不存在 → 输出错误："找不到 tech doc：`<path>`。" 停止。
+Path A:
+- Read `<tech-doc-path>` to confirm file exists
+- Not found → error: "tech-doc not found: `<path>`." Stop.
 
-**Step 3：收集上游文件路径**
+**Step 3: Collect upstream file paths**
 
-Path B：
+Path B:
 ```bash
-# task-list.md
 <project-root>/.cache/lulu-dev-workflow/work-order/<id>/<revision>/task-list.md
-# 所有 task.md（通配符枚举）
 <project-root>/.cache/lulu-dev-workflow/work-order/<id>/<revision>/tasks/*/task.md
 ```
 
-Path A：直接使用 `<tech-doc-path>`。
+Path A: use `<tech-doc-path>` directly.
 
-**Step 4：运行 start.py**
+**Step 4: Run start.py**
 
-Path B：
+Path B:
 ```bash
 python3 ~/.cursor/skills/lulu-dev-workflow/code/scripts/start.py \
   --project-root "$(pwd)" \
@@ -131,7 +84,7 @@ python3 ~/.cursor/skills/lulu-dev-workflow/code/scripts/start.py \
   --task-refs <abs-path-to-t1/task.md> <abs-path-to-t2/task.md> ...
 ```
 
-Path A：
+Path A:
 ```bash
 python3 ~/.cursor/skills/lulu-dev-workflow/code/scripts/start.py \
   --project-root "$(pwd)" \
@@ -140,9 +93,9 @@ python3 ~/.cursor/skills/lulu-dev-workflow/code/scripts/start.py \
   --tech-ref "<abs-path-to-tech-doc.md>"
 ```
 
-> `<current-conv-id>` 从当前对话 transcript ID 获取（系统在每轮对话开头已提供，勿自行 `ls` 搜索）。
+> `<current-conv-id>` is the current conversation transcript ID (provided at session start; do not `ls` to search).
 
-**Step 5：读 `code-task-list.md`，展示任务列表，等待用户确认后开始执行**
+**Step 5: Read `code-task-list.md`, display task list, wait for user confirmation before starting execution**
 
 ---
 
@@ -150,51 +103,51 @@ python3 ~/.cursor/skills/lulu-dev-workflow/code/scripts/start.py \
 
 ```
 .cache/lulu-dev-workflow/code/<conv_id>/
-  session-state.md              ← active_session: N（线性递增，不回退）
+  session-state.md              ← active_session: N (monotonically increasing)
 
-  s{N}/                         ← 第 N 个 code session
-    workflow-state.md           ← current_state / current_task / current_phase（AI 写，Hook 校验）
-    code-task-list.md            ← checkbox 进度列表（统一执行锚点）
-    human-delivery-gate.md      ← 所有 task Done 后，用户确认写入
+  s{N}/                         ← Nth code session
+    workflow-state.md           ← current_state / current_task / current_phase (AI writes; hook validates)
+    code-task-list.md           ← checkbox progress list (execution anchor)
+    human-delivery-gate.md      ← written after all tasks Done and user confirms
 
     tasks/
       t{X}/
-        code-log.md              ← 每个 Phase 的时间戳 + 执行说明
-        red-run.md              ← Phase 2：测试运行输出（Hook 依赖此文件）
-        green-run.md            ← Phase 4：测试运行输出
+        code-log.md             ← timestamps + notes per phase
+        red-run.md              ← Phase 2: test run output (hook depends on this file)
+        green-run.md            ← Phase 4: test run output
 ```
 
 ---
 
 ## State Model
 
-### Session 级
+### Session level
 
 States: `Executing → Completed`
 
-| 起始状态 | 目标状态 | 触发条件 |
-|---------|---------|---------|
-| `[*]` | `Executing` | start 命令 |
-| `Executing` | `Completed` | Hook 校验：code-task-list.md 所有 task 均为 [x] |
+| From | To | Trigger |
+|------|----|---------|
+| `[*]` | `Executing` | start command |
+| `Executing` | `Completed` | Hook: all tasks in code-task-list.md are `[x]` |
 
-### Task Phase 级
+### Task Phase level
 
 ```
 WriteTests → VerifyRed → WriteImpl → VerifyGreen → Refactor → Done
                                               ↑
-                                    tdd_exempt: true 时可直接 VerifyGreen → Done
+                             tdd_exempt: true may skip directly to Done
 ```
 
-| 起始 Phase | 目标 Phase | 前置条件（Hook 校验） |
-|-----------|-----------|-------------------|
-| `[*]` | `WriteTests` | 所有 depends_on task 均为 [x] |
+| From Phase | To Phase | Pre-condition (hook enforced) |
+|-----------|---------|-------------------------------|
+| `[*]` | `WriteTests` | all depends_on tasks are `[x]` |
 | `WriteTests` | `VerifyRed` | — |
-| `VerifyRed` | `WriteImpl` | `tasks/t{X}/red-run.md` 存在 |
+| `VerifyRed` | `WriteImpl` | `tasks/t{X}/red-run.md` exists |
 | `WriteImpl` | `VerifyGreen` | — |
 | `VerifyGreen` | `Refactor` | — |
 | `VerifyGreen` | `Done` | tdd_exempt: true |
 | `Refactor` | `Done` | — |
-| `Done` | `WriteTests` | 下一个 task |
+| `Done` | `WriteTests` | next task |
 
 ---
 
@@ -202,103 +155,91 @@ WriteTests → VerifyRed → WriteImpl → VerifyGreen → Refactor → Done
 
 ### General
 
-1. 读 `.cursor/lulu-dev-workflow/workflow-config.json` → `code.test_command` 获取测试命令，在 Phase 2 / 4 / 5 均使用此命令运行测试。
-2. 读 `session-state.md` → `active_session: N` 确定当前 session 轮次。
-3. `s{N}/workflow-state.md` 是权威状态来源，通过写入它来请求状态迁移。
-4. 永远不从文件存在与否推断状态，只读 `workflow-state.md`。
-5. 使用全量 `Write`（不使用 `Edit`）更新 `workflow-state.md`。
-6. 写 `workflow-state.md` 时必须保留所有字段（`mode`、`task_list_ref`、`current_task`、`current_phase`）。
+1. Read `.cursor/lulu-dev-workflow/workflow-config.json` → `code.test_command` for the test runner; use this command in Phase 2 / 4 / 5.
+2. Read `session-state.md` → `active_session: N` to determine current session round.
+3. `s{N}/workflow-state.md` is the authoritative state — write it to request a transition.
+4. Never infer state from file existence; always read `workflow-state.md`.
+5. Use full `Write` (not `Edit`) for `workflow-state.md`.
+6. Preserve all fields when writing `workflow-state.md`: `mode`, `task_list_ref`, `current_task`, `current_phase`.
 
-### 启动序列
+### Startup sequence
 
-> 此节是 AI 在 `start.py` 成功运行后的后续步骤，对应上方"Step 5"。
+> Follows Step 5 above, after `start.py` completes successfully.
 
-**Path B（task-from-work-order）：**
+**Path B (task-from-work-order):**
+1. `start.py` auto-generates `code-task-list.md` (all tasks ⏳ Pending)
+2. Read `code-task-list.md`, display task list with dependencies to user
+3. Wait for user confirmation → begin first task
 
-1. start.py 已自动生成 `code-task-list.md`（所有 task ⏳ Pending）
-2. 读 `code-task-list.md`，向用户展示任务列表（含依赖关系）
-3. 等待用户确认任务范围 → 确认后开始执行第一个 task
+**Path A (task-from-tech):**
+1. Read `<tech-doc-path>`, analyze change points using Test-First logic, draft `code-task-list.md` (task_id from t1, granularity: single function change)
+2. Display draft to user, wait for confirmation
+3. After confirmation, write `s{N}/code-task-list.md`
+4. Write `workflow-state.md`: `current_task: t1, current_phase: WriteTests`
+5. Begin first task
 
-**Path A（task-from-tech）：**
-
-1. 读 `<tech-doc-path>`，按 Test First 逻辑分析改动点，起草 `code-task-list.md`（task_id 从 t1 开始，粒度：单函数变更）
-2. 向用户展示草稿，等待确认
-3. 用户确认后写入 `s{N}/code-task-list.md`
-4. 写 `workflow-state.md`：`current_task: t1, current_phase: WriteTests`
-5. 开始执行第一个 task
-
-### Phase 执行规则（每个 task 循环一次）
+### Phase execution rules (one loop per task)
 
 **Phase 1 — WriteTests**
 
-- 输入：task.md「验收条件」节（Path B）或 code-task-list.md 中该 task 的描述（Path A）
-- 产出：写入测试文件（`test_file` 路径）
-- 约束：**禁止写任何实现代码**
-- 完成：所有验收条件均有对应测试用例
-- 退出：写 `workflow-state.md: current_phase: VerifyRed`
+- Input: task.md "acceptance criteria" (Path B) or task description from code-task-list.md (Path A)
+- Output: write test file (`test_file` path)
+- Constraint: **do not write any implementation code**
+- Done when: all acceptance criteria have corresponding test cases
+- Exit: write `workflow-state.md: current_phase: VerifyRed`
 
-**Phase 2 — VerifyRed（必须执行，不可跳过）**
+**Phase 2 — VerifyRed (mandatory, cannot skip)**
 
-- 操作：运行 `test_command`（Shell），捕获完整输出
-- 期望：所有测试 FAIL，失败原因 = 函数/类不存在（非语法错误）
-- 异常：
-  - 测试通过 → 测试了已有行为，返回 Phase 1 修正测试
-  - 语法错误 → 修复语法，重新运行，直到失败原因正确
-- 记录：写 `tasks/t{X}/red-run.md`（含完整输出 + 一行确认："失败原因：函数不存在"）
-- 退出：写 `workflow-state.md: current_phase: WriteImpl`（Hook 校验 red-run.md 存在）
+- Action: run `test_command` (Shell), capture full output
+- Expected: all tests FAIL; failure reason = function/class does not exist (not a syntax error)
+- Exceptions:
+  - Tests pass → tests cover existing behavior; return to Phase 1 to fix tests
+  - Syntax error → fix syntax, re-run, repeat until failure reason is correct
+- Record: write `tasks/t{X}/red-run.md` (full output + one-line confirmation: "Failure reason: function does not exist")
+- Exit: write `workflow-state.md: current_phase: WriteImpl` (hook validates red-run.md exists)
 
 **Phase 3 — WriteImpl**
 
-- 产出：写入实现文件（`target_file` 路径）
-- 约束：
-  - **Do not modify tests**（绝对禁止修改测试文件）
+- Output: write implementation file (`target_file` path)
+- Constraints:
+  - **Do not modify tests** (absolute prohibition)
   - Minimum implementation only
-  - 遵守 task.md「约束」节所有硬性规则
-- 退出：写 `workflow-state.md: current_phase: VerifyGreen`
+  - Comply with all hard rules in task.md "constraints" section
+- Exit: write `workflow-state.md: current_phase: VerifyGreen`
 
 **Phase 4 — VerifyGreen**
 
-- 操作：运行 `test_command`（Shell），捕获完整输出
-- 期望：所有测试 PASS，无 warning / error
-- 失败：修改实现代码（禁止改测试），重新运行，循环直到全部 PASS
-- 记录：写 `tasks/t{X}/green-run.md`（含完整输出）
-- 退出：写 `workflow-state.md: current_phase: Refactor`（tdd_exempt 时写 `Done`）
+- Action: run `test_command` (Shell), capture full output
+- Expected: all tests PASS, no warnings or errors
+- Failure: fix implementation (never the tests), re-run, repeat until all PASS
+- Record: write `tasks/t{X}/green-run.md` (full output)
+- Exit: write `workflow-state.md: current_phase: Refactor` (or `Done` if tdd_exempt)
 
 **Phase 5 — Refactor**
 
-- 操作：去重、改名、提取 helper、消除魔法数字
-- 约束：每次重构后重新运行测试，确认仍全部 PASS
-- 禁止：添加新行为、新测试
-- tdd_exempt: true 的 task 跳过此 phase
-- 退出：写 `workflow-state.md: current_phase: Done`
+- Action: deduplicate, rename, extract helpers, eliminate magic numbers
+- Constraint: re-run tests after each refactor change to confirm all still PASS
+- Prohibition: do not add new behavior or new tests
+- tdd_exempt: true tasks skip this phase
+- Exit: write `workflow-state.md: current_phase: Done`
 
-**Task 完成动作（每个 task Done 后执行）**
+**Task completion actions (after each task Done)**
 
-1. 更新 `code-task-list.md` 对应行：`[ ]` → `[x]`，状态标记改为 `✅ Done`，frontmatter `done` 计数 +1
-2. 写 `tasks/t{X}/code-log.md`（各 Phase 时间戳 + 执行说明）
-3. 若还有未完成 task：写 `workflow-state.md: current_task: t{X+1}, current_phase: WriteTests`
-4. 若所有 task 已完成：写 `workflow-state.md: current_state: Completed`（Hook 校验）
+1. Update `code-task-list.md`: `[ ]` → `[x]`, status → `✅ Done`, increment frontmatter `done` count
+2. Write `tasks/t{X}/code-log.md` (timestamps + notes per phase)
+3. If tasks remain: write `workflow-state.md: current_task: t{X+1}, current_phase: WriteTests`
+4. If all tasks done: write `workflow-state.md: current_state: Completed` (hook validates)
 
-**Session 完成动作**
+**Session completion actions**
 
-1. 向用户展示 `code-task-list.md` 最终状态（所有 task ✅ Done）
-2. 等待用户显式确认
-3. 写 `s{N}/human-delivery-gate.md`（`approved: true`）
-4. 写 `s{N}/workflow-state.md: current_state: Completed`
+1. Display final `code-task-list.md` (all tasks ✅ Done)
+2. Wait for explicit user confirmation
+3. Write `s{N}/human-delivery-gate.md` (`approved: true`)
+4. Write `s{N}/workflow-state.md: current_state: Completed`
 
 ---
 
 ## Session File Formats
-
-### session-state.md
-
-```markdown
----
-version: 1
-active_session: 1
-updated_at: 2026-05-17T09:00:00+08:00
----
-```
 
 ### s{N}/workflow-state.md
 
@@ -315,7 +256,7 @@ updated_at: 2026-05-17T09:00:00+08:00
 ---
 ```
 
-> 写 `workflow-state.md` 时必须保留所有字段，包括 `mode`、`task_list_ref`。
+> Preserve all fields on every write: `mode`, `task_list_ref`, `current_task`, `current_phase`.
 
 ### s{N}/code-task-list.md
 
@@ -331,59 +272,35 @@ done: 1
 
 - [x] t1 · validateEmail · `src/utils/validators.ts` · ✅ Done
 - [ ] t2 · validatePhone · `src/utils/validators.ts` · 🔴 WriteImpl
-- [ ] t3 · authService 集成 · `src/services/auth.ts` · ⏳ Pending (depends: t1, t2)
-- [ ] t4 · 集成测试 · `tests/auth.test.ts` · ⏳ Pending (depends: t3)
-- [ ] t5 · 错误处理层 · `src/utils/error.ts` · ⏳ Pending
+- [ ] t3 · authService integration · `src/services/auth.ts` · ⏳ Pending (depends: t1, t2)
+- [ ] t4 · integration tests · `tests/auth.test.ts` · ⏳ Pending (depends: t3)
+- [ ] t5 · error handling layer · `src/utils/error.ts` · ⏳ Pending
 ```
 
-tdd_exempt 任务在行末加 `[tdd_exempt]` 标注：
+`tdd_exempt` tasks are marked with `[tdd_exempt]` at the end of the line:
 ```markdown
-- [ ] t6 · 更新按钮样式 · `src/components/Button.tsx` · ⏳ Pending [tdd_exempt]
+- [ ] t6 · update button styles · `src/components/Button.tsx` · ⏳ Pending [tdd_exempt]
 ```
 
 ### s{N}/tasks/t{X}/code-log.md
 
 ```markdown
-# t{X} TDD 执行日志
+# t{X} TDD Log
 
-## Phase 1 — WriteTests
-- 时间：2026-05-17T10:00:00+08:00
-- 产出：`tests/utils/validators.test.ts`（3 个测试用例）
-
-## Phase 2 — VerifyRed
-- 时间：2026-05-17T10:02:00+08:00
-- 结果：3 FAIL（validateEmail is not a function）
-- 确认：失败原因符合预期
-
-## Phase 3 — WriteImpl
-- 时间：2026-05-17T10:05:00+08:00
-- 产出：`src/utils/validators.ts`（validateEmail 函数，15 行）
-
-## Phase 4 — VerifyGreen
-- 时间：2026-05-17T10:06:00+08:00
-- 结果：3 PASS
-
-## Phase 5 — Refactor
-- 时间：2026-05-17T10:08:00+08:00
-- 变更：提取 EMAIL_REGEX 常量，重命名内部变量
-- 验证：3 PASS（重构后）
-```
-
-### human-delivery-gate.md
-
-```markdown
----
-approved: true
-approved_at: 2026-05-17T10:30:00+08:00
-note: All tasks Done. User confirmed completion.
----
+| Phase | Time | Output / Notes |
+|-------|------|----------------|
+| WriteTests | 2026-05-17T10:00Z | `tests/utils/validators.test.ts` — 3 cases |
+| VerifyRed | 2026-05-17T10:02Z | 3 FAIL — validateEmail is not a function |
+| WriteImpl | 2026-05-17T10:05Z | `src/utils/validators.ts` — validateEmail, 15 lines |
+| VerifyGreen | 2026-05-17T10:06Z | 3 PASS |
+| Refactor | 2026-05-17T10:08Z | extracted EMAIL_REGEX constant — 3 PASS |
 ```
 
 ---
 
-## work-order → code 契约
+## work-order → code handoff
 
-- **Path B 输入**：`--task-list-ref`（Delivered work-order task-list.md）+ `--task-refs`（所有 task.md）
-- **task.md 自包含**：「约束」+「补充」节显式搬运 tech-doc 信息，code session 只读 task.md，无需回头读 tech-doc
-- **tdd_exempt 标记**：从 task.md frontmatter 或 code-task-list.md 行末 `[tdd_exempt]` 读取，跳过 Phase 1/2/5
-- **测试命令**：从 `workflow-config.json → tdd.test_command` 读取，每次测试前确认命令正确
+- **Path B input**: `--task-list-ref` (Delivered work-order task-list.md) + `--task-refs` (all task.md files)
+- **task.md is self-contained**: constraints and context sections explicitly copy from tech-doc; code session only reads task.md
+- **tdd_exempt**: read from task.md frontmatter or `[tdd_exempt]` in code-task-list.md; skips Phase 1/2/5
+- **Test command**: read from `workflow-config.json → code.test_command`; confirm before each test run
