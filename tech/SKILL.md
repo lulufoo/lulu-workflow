@@ -135,16 +135,30 @@ States: `Drafting` → `Evaluating` → `ReadyForDelivery` → `Delivered`
 
 Allowed transitions:
 - `Drafting → Evaluating`
-- `Evaluating → ReadyForDelivery`  ← requires pre-conditions (hook enforced)
+- `Drafting → ReadyForDelivery`  ← skip evaluate; requires `skip_evaluate_requested: true` (hook enforced)
+- `Evaluating → ReadyForDelivery`  ← requires evaluate pre-conditions (hook enforced)
 - `Evaluating → Drafting`
 - `ReadyForDelivery → Drafting`
 - `ReadyForDelivery → Delivered`  ← requires `human-delivery-gate.md`
+
+Skipping evaluation does **not** skip delivery confirmation: all paths still use
+`ReadyForDelivery → Delivered` with `human-delivery-gate.md`.
 
 ---
 
 ## ReadyForDelivery Pre-conditions (Hook enforced)
 
-The hook denies `Evaluating → ReadyForDelivery` unless ALL of the following hold:
+### Drafting → ReadyForDelivery（跳过评估）
+
+The hook allows this transition only when ALL hold:
+
+1. Incoming `workflow-state.md` has `skip_evaluate_requested: true` (AI sets only after user explicitly requests to skip E1/E3/E2)
+2. `revision{N}/tech-doc.md` exists and is non-empty
+3. `evaluate_round` remains `0` (do not increment)
+
+Does **not** require `evaluate-state.md` or `evaluate{M}/tech-review-*.md`.
+
+### Evaluating → ReadyForDelivery（完成评估）
 
 **product 模式：**
 1. `revision{N}/evaluate-state.md` exists
@@ -199,6 +213,20 @@ Read code files on demand (only what's relevant to the current design), never ba
 **Rule D4 — Output**
 
 Write only `revision{N}/tech-doc.md`. It is the sole AI-generated artifact.
+
+**Rule D5 — Skip evaluate to ReadyForDelivery**
+
+Use only when the user **explicitly** requests to skip E1/E3/E2 (e.g.「跳过评估」「不评估直接定稿」).
+Do not infer; if ambiguous, use AskQuestion.
+
+Steps:
+
+1. Ensure `revision{N}/tech-doc.md` is complete for delivery.
+2. **Write** `workflow-state.md` with `current_state: ReadyForDelivery`, `evaluate_round: 0`,
+   `skip_evaluate_requested: true`, and preserve `mode`, `product_ref`, `carry_forward_ref`.
+3. Follow **Rule R1** (present final tech-doc → user confirms delivery → gate → `Delivered`).
+
+Do **not** offer「直接改代码」as a tech-workflow next step; implementation belongs to work-order/TDD.
 
 ### Evaluating Rules
 
@@ -299,13 +327,15 @@ workflow: tech-doc
 mode: product
 current_state: Drafting
 evaluate_round: 0
-product_ref: /abs/path/.cache/lulu-dev-workflow/product/<conv_id>/r1/product-doc.md
+skip_evaluate_requested: false
+product_ref: /abs/path/.cache/lulu-dev-workflow/product/<conv_id>/revision1/product-doc.md
 carry_forward_ref: ""
 updated_at: 2026-05-17T09:00:00+08:00
 ---
 ```
 
 > `mode` 由 `start.py` 写入（`product` 或 `tech`），后续状态迁移中保持不变（AI 手写 workflow-state.md 时需保留此字段）。
+> `skip_evaluate_requested: true` 仅用于 `Drafting → ReadyForDelivery`（用户显式跳过评估）；`Delivered` 时可省略该字段。
 
 ### revision{N}/evaluate-state.md
 
