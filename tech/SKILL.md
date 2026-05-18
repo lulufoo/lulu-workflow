@@ -20,7 +20,6 @@ that gates state transitions.
 
 ## Commands
 
-> Machine setup and project init: see **SETUP.md** in the same directory.
 
 ### `start` — Session-level, run before each tech document
 
