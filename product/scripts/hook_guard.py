@@ -163,11 +163,18 @@ def main() -> int:
             )))
             return 0
 
-        snapshot_file = e_dir / "product-doc.md"
-        if not snapshot_file.exists():
+        main_doc_file = doc_path / "product-doc.md"
+        if not main_doc_file.is_file():
             print(json.dumps(deny(
-                f"evaluate{evaluate_round}/product-doc.md 快照不存在，请在评估完成后写入文档快照。",
-                f"evaluate{evaluate_round}/product-doc.md snapshot must exist before ReadyForDelivery.",
+                f"{doc_round_str}/product-doc.md 不存在，请先完成产品文档起草或评估修订。",
+                f"{doc_round_str}/product-doc.md must exist before ReadyForDelivery.",
+            )))
+            return 0
+
+        if main_doc_file.stat().st_size == 0:
+            print(json.dumps(deny(
+                f"{doc_round_str}/product-doc.md 为空，请写入产品文档内容后再推进。",
+                f"{doc_round_str}/product-doc.md must be non-empty before ReadyForDelivery.",
             )))
             return 0
 
