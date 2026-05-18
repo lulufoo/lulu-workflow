@@ -21,6 +21,107 @@ under this directory.
 | Work order | `work-order/` | Active |
 | Code | `code/` | Active |
 
+## Setup
+
+### `install` — Machine-level, run once
+
+```bash
+mkdir -p ~/.cursor/skills/lulu-dev-workflow/scripts
+mkdir -p ~/.cursor/skills/lulu-dev-workflow/product/scripts
+mkdir -p ~/.cursor/skills/lulu-dev-workflow/product/templates
+mkdir -p ~/.cursor/skills/lulu-dev-workflow/tech/scripts
+mkdir -p ~/.cursor/skills/lulu-dev-workflow/work-order/scripts
+mkdir -p ~/.cursor/skills/lulu-dev-workflow/code/scripts
+
+# top-level
+for f in SKILL.md scripts/init.py; do
+  gh api "repos/lulufoo/lulu-dev-skills/contents/lulu-dev-workflow/$f" \
+    --jq '.content' | base64 -d \
+    > ~/.cursor/skills/lulu-dev-workflow/$f
+done
+
+# product
+for f in SKILL.md transition-whitelist.json; do
+  gh api "repos/lulufoo/lulu-dev-skills/contents/lulu-dev-workflow/product/$f" \
+    --jq '.content' | base64 -d \
+    > ~/.cursor/skills/lulu-dev-workflow/product/$f
+done
+for f in hook_guard.py init.py start.py workflow_common.py; do
+  gh api "repos/lulufoo/lulu-dev-skills/contents/lulu-dev-workflow/product/scripts/$f" \
+    --jq '.content' | base64 -d \
+    > ~/.cursor/skills/lulu-dev-workflow/product/scripts/$f
+done
+gh api "repos/lulufoo/lulu-dev-skills/contents/lulu-dev-workflow/product/templates/workflow-config.template.json" \
+  --jq '.content' | base64 -d \
+  > ~/.cursor/skills/lulu-dev-workflow/product/templates/workflow-config.template.json
+
+# tech
+for f in SKILL.md transition-whitelist.json; do
+  gh api "repos/lulufoo/lulu-dev-skills/contents/lulu-dev-workflow/tech/$f" \
+    --jq '.content' | base64 -d \
+    > ~/.cursor/skills/lulu-dev-workflow/tech/$f
+done
+for f in hook_guard.py init.py start.py workflow_common.py; do
+  gh api "repos/lulufoo/lulu-dev-skills/contents/lulu-dev-workflow/tech/scripts/$f" \
+    --jq '.content' | base64 -d \
+    > ~/.cursor/skills/lulu-dev-workflow/tech/scripts/$f
+done
+
+# work-order
+for f in SKILL.md transition-whitelist.json 30-work-order-task-template.md 31-work-order-tasklist-template.md; do
+  gh api "repos/lulufoo/lulu-dev-skills/contents/lulu-dev-workflow/work-order/$f" \
+    --jq '.content' | base64 -d \
+    > ~/.cursor/skills/lulu-dev-workflow/work-order/$f
+done
+for f in hook_guard.py init.py start.py workflow_common.py; do
+  gh api "repos/lulufoo/lulu-dev-skills/contents/lulu-dev-workflow/work-order/scripts/$f" \
+    --jq '.content' | base64 -d \
+    > ~/.cursor/skills/lulu-dev-workflow/work-order/scripts/$f
+done
+
+# code
+for f in SKILL.md transition-whitelist.json; do
+  gh api "repos/lulufoo/lulu-dev-skills/contents/lulu-dev-workflow/code/$f" \
+    --jq '.content' | base64 -d \
+    > ~/.cursor/skills/lulu-dev-workflow/code/$f
+done
+for f in hook_guard.py init.py start.py workflow_common.py; do
+  gh api "repos/lulufoo/lulu-dev-skills/contents/lulu-dev-workflow/code/scripts/$f" \
+    --jq '.content' | base64 -d \
+    > ~/.cursor/skills/lulu-dev-workflow/code/scripts/$f
+done
+```
+
+After install, run `lulu-dev-workflow init` in the target project.
+
+### `init` — Project-level, run once per project
+
+> Prerequisite: `install` has been run.
+
+```bash
+python3 ~/.cursor/skills/lulu-dev-workflow/scripts/init.py --project-root "$(pwd)"
+```
+
+Creates `.cursor/lulu-dev-workflow/workflow-config.json` and registers all sub-workflow
+hooks into `.cursor/hooks.json`.
+
+After init, open `.cursor/lulu-dev-workflow/workflow-config.json` and fill in:
+
+| Field | Description |
+|-------|-------------|
+| `product.template_url` | 产品文档模板 |
+| `product.review_checklist_url` | 进入评估前审查清单 |
+| `product.pdqa_url` | PDQA 评估框架 |
+| `tech.ac_url` | 架构约束文档（如有） |
+| `work_order.twca_url` | TWCA 评审框架 |
+| `work_order.woqa_url` | WOQA 质量评审框架 |
+| `code.test_command` | 项目测试命令（默认: `npm test`） |
+
+参考：`https://github.com/lulufoo/ai-software-dev/tree/main/ai-dev-workflow-framework`
+
+> **Note:** To override the default config with a project-specific one from GitHub,
+> run `lulu-dev-workflow configure <github-blob-url>` after init.
+
 ## Commands
 
 ### `configure` — Download and apply a workflow-config.json from GitHub
@@ -50,7 +151,7 @@ https://github.com/lulufoo/ai-software-dev/blob/main/lulu-dev-workflow-template/
 
 ## Usage
 
-Each stage has its own `SKILL.md` with install / init / start commands.
+Each stage has its own `SKILL.md` with start commands.
 
 - **Product doc:** read `~/.cursor/skills/lulu-dev-workflow/product/SKILL.md`
 - **Tech design:** read `~/.cursor/skills/lulu-dev-workflow/tech/SKILL.md`
