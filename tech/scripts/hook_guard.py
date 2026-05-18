@@ -129,19 +129,60 @@ def main() -> int:
         return 0
 
     if to_state == "ReadyForDelivery":
-        # evaluate_round is source of truth in workflow-state.md (incoming contents)
         fields = parse_frontmatter_fields(contents)
+
+        # Drafting → ReadyForDelivery: skip E1/E3/E2 when user explicitly requested
+        if current_state == "Drafting":
+            skip_flag = str(fields.get("skip_evaluate_requested", "")).lower()
+            if skip_flag != "true":
+                print(json.dumps(deny(
+                    "从 Drafting 进入 ReadyForDelivery 须用户显式要求跳过评估，"
+                    "并在 workflow-state 中设置 skip_evaluate_requested: true。",
+                    "Set skip_evaluate_requested: true only after the user explicitly "
+                    "requests to skip evaluation.",
+                )))
+                return 0
+
+            tech_doc_file = doc_path / "tech-doc.md"
+            if not tech_doc_file.is_file():
+                print(json.dumps(deny(
+                    f"{doc_round_str}/tech-doc.md 不存在，请先完成技术方案起草。",
+                    f"{doc_round_str}/tech-doc.md must exist before ReadyForDelivery.",
+                )))
+                return 0
+
+            if tech_doc_file.stat().st_size == 0:
+                print(json.dumps(deny(
+                    f"{doc_round_str}/tech-doc.md 为空，请写入技术方案内容后再推进。",
+                    f"{doc_round_str}/tech-doc.md must be non-empty before ReadyForDelivery.",
+                )))
+                return 0
+
+        elif current_state == "Evaluating":
+            pass  # fall through to evaluate pre-conditions below
+        else:
+            print(json.dumps(deny(
+                f"无法从 '{current_state}' 进入 ReadyForDelivery。",
+                "ReadyForDelivery is only reachable from Drafting (skip evaluate) "
+                "or Evaluating (evaluate complete).",
+            )))
+            return 0
+
+        if current_state != "Evaluating":
+            # Drafting skip-eval path: no evaluate files required
+            print(json.dumps(allow()))
+            return 0
+
+        # Evaluating → ReadyForDelivery: full evaluate pre-conditions
         try:
             evaluate_round = int(fields.get("evaluate_round", "0"))
         except ValueError:
             evaluate_round = 0
         eval_dir = doc_path / f"evaluate{evaluate_round}"
 
-        # Read run-mode from existing workflow-state.md on disk (set at start time)
         run_mode = read_md_field(state_file, "mode", default="product")
         is_tech_mode = run_mode == "tech"
 
-        # 1. evaluate-state.md must exist
         eval_state_file = doc_path / "evaluate-state.md"
         if not eval_state_file.exists():
             print(json.dumps(deny(
