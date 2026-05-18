@@ -19,7 +19,6 @@ Decompose a Delivered tech-doc into independently executable TDD units (task fil
 
 ## Commands
 
-> Machine setup and project init: see **SETUP.md** in the same directory.
 
 ### `start` — Session-level, run before each work order
 
