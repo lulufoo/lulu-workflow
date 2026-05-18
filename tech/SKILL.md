@@ -239,23 +239,14 @@ Present each issue to the user via AskQuestion, one at a time:
 - Option A: 确认问题，需要修复
 - Option B: 忽略，不影响交付
 
-**Rule E6 — Abandon evaluation（废弃本轮评估，回退 Drafting）**
+**Rule E6 — Abandon evaluation**
 
-Use only when the user **explicitly** requests to abandon the current evaluation
-(e.g.「废弃评估」「放弃评估」「取消评估」「不评了」).
-Do not infer; if ambiguous, use AskQuestion.
+User must explicitly request; if ambiguous, use AskQuestion. Steps are order-strict:
 
-Steps（当前轮次为 M，evaluate_round = M）——顺序不可交换：
+1. **Write** `evaluate-state.md`: set `current_dimension: abandoned`, preserve all other fields.
+2. **Write** `workflow-state.md`: `current_state: Drafting`, `evaluate_round: M` (unchanged, next Evaluating entry increments to M+1), `skip_evaluate_requested: false`; preserve `mode`, `product_ref`, `carry_forward_ref`.
 
-1. **Write** `revision{N}/evaluate-state.md`：将 `current_dimension` 改为 `abandoned`，其余字段保留原值。
-2. **Write** `revision{N}/workflow-state.md` with:
-   - `current_state: Drafting`
-   - `evaluate_round: M`（保持不变，下次进入 Evaluating 递增为 M+1）
-   - `skip_evaluate_requested: false`
-   - Preserve `mode`, `product_ref`, `carry_forward_ref`.
-3. Hook 校验 `evaluate-state.md` 的 `current_dimension == abandoned` 后放行，按 Rule D1/D2 重新进入 Drafting。
-
-`evaluate{M}/` 目录及已生成的 review 文件完整保留（历史记录，不删除）。
+Hook validates `current_dimension: abandoned` before allowing the transition. `evaluate{M}/` and review files are retained as history.
 
 ### ReadyForDelivery Rules
 
