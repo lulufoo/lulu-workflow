@@ -14,7 +14,7 @@ from workflow_common import (
 
 TDD_CONFIG_DEFAULTS = {
     "test_command": "npm test",
-    "woqa_url": "https://github.com/lulufoo/ai-software-dev/blob/main/lulu-dev-workflow-template/tdd/40-tdd-quality-audit.md",
+    "woqa_url": "",
 }
 
 
