@@ -112,10 +112,16 @@ hooks into `.cursor/hooks.json`.
 | `product.template_url` | 产品文档模板 |
 | `product.review_checklist_url` | 进入评估前审查清单 |
 | `product.pdqa_url` | PDQA 评估框架 |
+| `tech.tpt_url` | 技术方案模板（Tech Plan Template） |
+| `tech.tpef_url` | 技术方案评估框架（Tech Plan Evaluation Framework） |
+| `tech.ptc_url` | 产品-技术交叉检查（Product-Tech Crosscheck） |
 | `tech.ac_url` | 架构约束文档（如有） |
+| `work_order.task_template_url` | 单个施工单模板 |
+| `work_order.tasklist_template_url` | 施工单列表模板 |
 | `work_order.twca_url` | TWCA 评审框架 |
 | `work_order.woqa_url` | WOQA 质量评审框架 |
 | `code.test_command` | 项目测试命令（默认: `npm test`） |
+| `code.woqa_url` | TDD 质量审计框架 |
 
 Run `lulu-dev-workflow configure <github-blob-url>` to apply a config. See `## Commands` below.
 
