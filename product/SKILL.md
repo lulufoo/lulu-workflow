@@ -26,66 +26,7 @@ switching is required except for advanced debugging.
 
 ## Commands
 
-### `install` — Machine-level, run once
-
-```bash
-mkdir -p ~/.cursor/skills/lulu-dev-workflow/product/scripts
-mkdir -p ~/.cursor/skills/lulu-dev-workflow/product/templates
-
-gh api "repos/lulufoo/lulu-dev-skills/contents/lulu-dev-workflow/SKILL.md" \
-  --jq '.content' | base64 -d \
-  > ~/.cursor/skills/lulu-dev-workflow/SKILL.md
-
-gh api "repos/lulufoo/lulu-dev-skills/contents/lulu-dev-workflow/product/SKILL.md" \
-  --jq '.content' | base64 -d \
-  > ~/.cursor/skills/lulu-dev-workflow/product/SKILL.md
-
-gh api "repos/lulufoo/lulu-dev-skills/contents/lulu-dev-workflow/product/transition-whitelist.json" \
-  --jq '.content' | base64 -d \
-  > ~/.cursor/skills/lulu-dev-workflow/product/transition-whitelist.json
-
-for f in init.py hook_guard.py start.py workflow_common.py; do
-  gh api "repos/lulufoo/lulu-dev-skills/contents/lulu-dev-workflow/product/scripts/$f" \
-    --jq '.content' | base64 -d \
-    > ~/.cursor/skills/lulu-dev-workflow/product/scripts/$f
-done
-
-for f in workflow-config.template.json; do
-  gh api "repos/lulufoo/lulu-dev-skills/contents/lulu-dev-workflow/product/templates/$f" \
-    --jq '.content' | base64 -d \
-    > ~/.cursor/skills/lulu-dev-workflow/product/templates/$f
-done
-```
-
-After install, prompt: run `product-doc-workflow init` in the target project.
-
----
-
-### `init` — Project-level, run once per project
-
-> Prerequisite: `install` has been run.
-
-```bash
-python3 ~/.cursor/skills/lulu-dev-workflow/product/scripts/init.py \
-  --project-root "$(pwd)"
-```
-
-Creates:
-- `.cursor/lulu-dev-workflow/workflow-config.json`
-- merges a `preToolUse` hook into `.cursor/hooks.json`
-- ensures `.gitignore` includes `.cache`
-
-After init, open `.cursor/lulu-dev-workflow/workflow-config.json` and fill in:
-
-| Field | Description |
-|-------|-------------|
-| `product.template_url` | 产品文档模板 |
-| `product.review_checklist_url` | 进入评估前审查清单 |
-| `product.pdqa_url` | PDQA 评估框架 |
-
-参考：`https://github.com/lulufoo/ai-software-dev/tree/main/ai-dev-workflow-framework/product_template`
-
----
+> Machine setup and project init: see **SETUP.md** in the same directory.
 
 ### `start` — Session-level, run before each product document
 
@@ -168,24 +109,72 @@ During Evaluating, revise `revision{N}/product-doc.md` in place; `evaluate{M}/` 
 
 ## Operating Rules
 
-1. Read `.cursor/lulu-dev-workflow/workflow-config.json` before driving the workflow.
-2. Session files live at `.cache/lulu-dev-workflow/product/<conversation_id>/revision{N}/`.
-   Read `session-state.md` to determine current `active_doc` (N).
-3. `revision{N}/workflow-state.md` is the authoritative current state — write it to request a transition.
-4. Never infer state from spec body or file existence; always read `workflow-state.md`.
-5. Only `ReadyForDelivery → Delivered` requires `revision{N}/human-delivery-gate.md`.
-6. Use full `Write` (not `Edit`) for `workflow-state.md`.
-7. This workflow runs in Plan mode. All session files are Markdown.
-7a. On entering Evaluating: first write `revision{N}/evaluate-state.md` (`status: pending`,
-    `round: M`), then begin PDQA analysis.
-7b. After PDQA analysis produces the issues list: write `revision{N}/evaluate{M}/pdqa-review.md`
-    skeleton, then update `evaluate-state.md` to `status: in_progress`.
-7c. After all issues are resolved: write in order —
-    (1) `evaluate-state.md` (`status: complete`),
-    (2) `revision{N}/workflow-state.md` (`current_state: ReadyForDelivery`).
-8. After each issue is resolved in Evaluating: immediately update `revision{N}/product-doc.md`
-   (apply the fix) and `revision{N}/evaluate{M}/pdqa-review.md` (record the resolution). Never batch updates.
-9. Never claim an issue is resolved without first writing the updated files.
+### General Rules
+
+**G1.** Read `.cursor/lulu-dev-workflow/workflow-config.json` before driving the workflow.
+
+**G2.** Session files live at `.cache/lulu-dev-workflow/product/<conversation_id>/revision{N}/`.
+Read `session-state.md` to determine current `active_doc` (N).
+
+**G3.** `revision{N}/workflow-state.md` is the authoritative current state — write it to request a transition.
+
+**G4.** Never infer state from spec body or file existence; always read `workflow-state.md`.
+
+**G5.** Only `ReadyForDelivery → Delivered` requires `revision{N}/human-delivery-gate.md`.
+
+**G6.** Use full `Write` (not `Edit`) for `workflow-state.md`.
+
+**G7.** This workflow runs in Plan mode. All session files are Markdown.
+
+### Drafting Rules
+
+**D1.** Help draft or revise the spec against `workflow-config.json → product.template_url`.
+Write only to `revision{N}/product-doc.md`. Stay in `Drafting` until the user explicitly requests evaluation.
+
+**D2.** If `evaluate_round > 0` (returning from a prior evaluation round): read `evaluate-state.md`
+and show the previous `fix_severity` as context before continuing to draft. No user response required.
+
+### Evaluating Rules
+
+**E1.** On entering Evaluating: write `revision{N}/evaluate-state.md` (`status: pending`, `round: M`),
+then begin PDQA analysis.
+
+**E2.** After PDQA analysis produces the issues list: write `revision{N}/evaluate{M}/pdqa-review.md`
+skeleton, then update `evaluate-state.md` to `status: in_progress`.
+
+**E3.** Present each issue to the user one at a time using the **AskQuestion tool** (never a plain
+text list). Each question must offer at minimum:
+- Option A: 确认问题，需要修复
+- Option B: 忽略，不影响交付
+
+Wait for the user's response before proceeding to the next issue.
+
+**E4.** For each confirmed issue: immediately update `revision{N}/product-doc.md` (apply the fix)
+and `revision{N}/evaluate{M}/pdqa-review.md` (record the resolution). Never batch updates.
+
+**E5.** Never claim an issue is resolved without first writing the updated files.
+
+**E6.** After all issues are resolved: assess overall `fix_severity` (critical / medium / minor) and
+write `fix_severity_reason`. Then write in order:
+(1) `evaluate-state.md` (`status: complete`, `fix_severity` filled in),
+(2) `revision{N}/workflow-state.md` (`current_state: ReadyForDelivery`).
+
+**E7.** **Chat output vs disk:** `revision{N}/product-doc.md` on disk is the source of truth. In chat,
+link or cite the path; never paste the full document after delivery. During `Drafting` / `Evaluating`,
+show only excerpts needed for the current question.
+
+### ReadyForDelivery Rules
+
+**R1.** After hook allows entry to ReadyForDelivery: show **title** (from `product-doc.md` H1),
+**file path** (`revision{N}/product-doc.md`), and a **1–2 sentence summary** only. Do **not** paste
+the full document body unless the user explicitly asks to see it. Wait for explicit delivery confirmation.
+
+**R2.** Write `revision{N}/human-delivery-gate.md` with `approved: true` after the user confirms delivery.
+
+**R3.** Write `revision{N}/workflow-state.md` with `current_state: Delivered`.
+
+**R4.** Post-delivery message: delivery receipt only (state, path, optional one-line summary).
+Do **not** output the full `product-doc.md` content in chat.
 
 ---
 
@@ -193,32 +182,23 @@ During Evaluating, revise `revision{N}/product-doc.md` in place; `evaluate{M}/` 
 
 ### `Drafting`
 
-- Help draft or revise the spec against `workflow-config.json → product.template_url`.
-- Write to `revision{N}/product-doc.md`.
-- Stay in `Drafting` until the user explicitly requests evaluation.
+Follow Rules D1–D2. Compare the spec against `workflow-config.json → product.template_url`.
 
 ### `Evaluating`
 
-- Follow Rules 7a → 7b → loop(8) → 7c in order.
-- Compare the spec against `product.pdqa_url`.
-- Present each issue to the user one at a time using the **AskQuestion tool** (never
-  a plain text list). Each question must offer at minimum:
-  - Option A: 确认问题，需要修复
-  - Option B: 忽略，不影响交付
-- Wait for the user's response before proceeding to the next issue.
-- For each confirmed issue: immediately fix `revision{N}/product-doc.md` and update
-  `revision{N}/evaluate{M}/pdqa-review.md` before moving on. Do not batch fixes.
-- Stay in `Evaluating` or return to `Drafting` until all issues are resolved.
+Follow Rules E1 → E2 → loop(E3–E5) → E6 in order.
+Compare the spec against `workflow-config.json → product.pdqa_url`.
+Stay in `Evaluating` or return to `Drafting` until all issues are resolved.
 
 ### `ReadyForDelivery`
 
-- Enter only after all 3 pre-conditions are met (hook enforces this).
-- Returning to `Drafting` is allowed if new changes are needed.
+Enter only after all 3 pre-conditions are met (hook enforces this).
+Follow Rules R1–R3. Returning to `Drafting` is allowed if new changes are needed.
 
 ### `Delivered`
 
-- Requires `revision{N}/human-delivery-gate.md` to exist.
-- Write `human-delivery-gate.md` only after the user explicitly confirms delivery.
+Requires `revision{N}/human-delivery-gate.md` to exist.
+Follow Rule R4 after transitioning.
 
 ---
 
@@ -256,8 +236,13 @@ round: 2
 status: in_progress
 total_issues: 5
 resolved_issues: 3
+fix_severity: ""
+fix_severity_reason: ""
 ---
 ```
+
+> `fix_severity`: filled after all issues resolved (Rule E6). Values: `critical` / `medium` / `minor`.
+> `fix_severity_reason`: one sentence explaining the severity level.
 
 ### human-delivery-gate.md
 
@@ -301,12 +286,3 @@ ReadyForDelivery), and allows or denies it.
 | `revision{N}/workflow-state.md` | All | Current workflow state |
 | `session-state.md` | All | Active product document pointer |
 
----
-
-## Delivery Flow
-
-1. All PDQA issues resolved → follow Rule 7c (complete evaluate-state, transition to ReadyForDelivery)
-2. Present final `revision{N}/product-doc.md` to user; wait for explicit delivery confirmation
-3. Write `revision{N}/human-delivery-gate.md` with `approved: true`
-4. Write `revision{N}/workflow-state.md` with `current_state: Delivered`
-5. Output the final `revision{N}/product-doc.md` content to the user
