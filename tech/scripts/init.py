@@ -13,9 +13,9 @@ from workflow_common import (
 )
 
 TECH_DOC_CONFIG_DEFAULTS = {
-    "tpt_url": "https://github.com/lulufoo/ai-software-dev/blob/main/lulu-dev-workflow-template/tech/20-tech-plan-template.md",
-    "tpef_url": "https://github.com/lulufoo/ai-software-dev/blob/main/lulu-dev-workflow-template/tech/21-tech-plan-evaluation-framework.md",
-    "ptc_url": "https://github.com/lulufoo/ai-software-dev/blob/main/lulu-dev-workflow-template/tech/22-product-tech-crosscheck.md",
+    "tpt_url": "",
+    "tpef_url": "",
+    "ptc_url": "",
     "ac_url": "",
 }
 
