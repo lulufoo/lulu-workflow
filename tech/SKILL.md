@@ -210,7 +210,7 @@ fix_severity: "", fix_severity_reason: ""
 | product | E1 → E2 → E3 | 无 | `tech-review-e{M}1.md` | `tech-review-e{M}2.md` | `tech-review-e{M}3.md` |
 | tech | E2 → E3 | E1（预置 complete） | — | `tech-review-e{M}2.md` | `tech-review-e{M}3.md` |
 
-Inputs per dimension: E1 ← product_ref + `ptc_url`; E2 ← relevant code files; E2 ← `tpef_url`.
+Inputs per dimension: E1 ← product_ref + `ptc_url`; E2 ← relevant code files; E3 ← `tpef_url`.
 
 Do not skip within the required sequence.
 
@@ -338,7 +338,7 @@ Each review file shares the same structure; column set varies by dimension:
 **评估日期：** YYYY-MM-DD
 **参照：** [E1: product_ref + ptc_url / E2: 涉及代码路径 / E3: tpef_url]
 
-| 编号 | 问题描述 | [E2 adds: 涉及文件] | [E2 adds: 维度] | 严重性 | 状态 | 用户决策 |
+| 编号 | 问题描述 | [E2 adds: 涉及文件] | [E3 adds: 维度] | 严重性 | 状态 | 用户决策 |
 |------|---------|---------------------|-----------------|-------|------|---------|
 | {E1|E2|E3}-1 | ... | ... | 严重/中等/一般 | ✅ 已修复 | 修复 |
 ```
