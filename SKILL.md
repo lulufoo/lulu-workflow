@@ -105,7 +105,7 @@ python3 ~/.cursor/skills/lulu-dev-workflow/scripts/init.py --project-root "$(pwd
 Creates `.cursor/lulu-dev-workflow/workflow-config.json` and registers all sub-workflow
 hooks into `.cursor/hooks.json`.
 
-After init, open `.cursor/lulu-dev-workflow/workflow-config.json` and fill in:
+`workflow-config.json` contains the following fields:
 
 | Field | Description |
 |-------|-------------|
@@ -117,10 +117,7 @@ After init, open `.cursor/lulu-dev-workflow/workflow-config.json` and fill in:
 | `work_order.woqa_url` | WOQA 质量评审框架 |
 | `code.test_command` | 项目测试命令（默认: `npm test`） |
 
-参考：`https://github.com/lulufoo/ai-software-dev/tree/main/ai-dev-workflow-framework`
-
-> **Note:** To override the default config with a project-specific one from GitHub,
-> run `lulu-dev-workflow configure <github-blob-url>` after init.
+Run `lulu-dev-workflow configure <github-blob-url>` to apply a config. See `## Commands` below.
 
 ## Commands
 
