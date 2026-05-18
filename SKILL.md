@@ -68,7 +68,7 @@ for f in hook_guard.py init.py start.py workflow_common.py; do
 done
 
 # work-order
-for f in SKILL.md transition-whitelist.json 30-work-order-task-template.md 31-work-order-tasklist-template.md; do
+for f in SKILL.md transition-whitelist.json; do
   gh api "repos/lulufoo/lulu-dev-skills/contents/lulu-dev-workflow/work-order/$f" \
     --jq '.content' | base64 -d \
     > ~/.cursor/skills/lulu-dev-workflow/work-order/$f
