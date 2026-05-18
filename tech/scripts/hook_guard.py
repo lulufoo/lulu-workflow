@@ -148,7 +148,7 @@ def main() -> int:
     if to_state == "ReadyForDelivery":
         fields = parse_frontmatter_fields(contents)
 
-        # Drafting → ReadyForDelivery: skip E1/E3/E2 when user explicitly requested
+        # Drafting → ReadyForDelivery: skip E1/E2/E3 when user explicitly requested
         if current_state == "Drafting":
             skip_flag = str(fields.get("skip_evaluate_requested", "")).lower()
             if skip_flag != "true":
@@ -214,7 +214,7 @@ def main() -> int:
         # 2. current_dimension must be "done"
         if eval_fields.get("current_dimension") != "done":
             dim = eval_fields.get("current_dimension", "unknown")
-            expected = "E3→E2" if is_tech_mode else "E1→E3→E2"
+            expected = "E2→E3" if is_tech_mode else "E1→E2→E3"
             print(json.dumps(deny(
                 f"评估未完成（current_dimension: {dim}）。请完成 {expected} 全部评估后再推进。",
                 "evaluate-state.md current_dimension must be 'done' before ReadyForDelivery.",
@@ -223,7 +223,7 @@ def main() -> int:
 
         # 3. required dimensions must be complete
         # tech mode skips E1; product mode requires all three
-        required_dims = ("e3", "e2") if is_tech_mode else ("e1", "e3", "e2")
+        required_dims = ("e2", "e3") if is_tech_mode else ("e1", "e2", "e3")
         for dim in required_dims:
             status = eval_fields.get(f"{dim}_status", "")
             if status != "complete":
@@ -233,8 +233,8 @@ def main() -> int:
                 )))
                 return 0
 
-        # 4. review files must exist (e3→seq 2, e2→seq 3; tech mode skips e1→seq 1)
-        dim_seq = {"e3": 2, "e2": 3} if is_tech_mode else {"e1": 1, "e3": 2, "e2": 3}
+        # 4. review files must exist (e2→seq 2, e3→seq 3; tech mode skips e1→seq 1)
+        dim_seq = {"e2": 2, "e3": 3} if is_tech_mode else {"e1": 1, "e2": 2, "e3": 3}
         for dim, seq in dim_seq.items():
             review_file = eval_dir / f"tech-review-e{evaluate_round}{seq}.md"
             if not review_file.exists():
