@@ -26,8 +26,7 @@ def main() -> int:
         if not init_py.exists():
             print(f"[lulu-dev-workflow init] WARNING: {init_py} not found, skipping.")
             continue
-        print(f"
-[lulu-dev-workflow init] Running {sub} init...")
+        print(f"\n[lulu-dev-workflow init] Running {sub} init...")
         result = subprocess.run(
             [sys.executable, str(init_py), "--project-root", args.project_root],
             check=False,
@@ -36,8 +35,7 @@ def main() -> int:
             print(f"[lulu-dev-workflow init] ERROR: {sub} init failed (exit {result.returncode}).")
             return result.returncode
 
-    print("
-[lulu-dev-workflow init] All sub-workflows initialized successfully.")
+    print("\n[lulu-dev-workflow init] All sub-workflows initialized successfully.")
     return 0
 
 
