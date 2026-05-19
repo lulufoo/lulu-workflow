@@ -3,7 +3,7 @@ name: lulu-dev-workflow
 description: >-
   Top-level development workflow framework. Use when mentioning lulu-dev-workflow,
   开发工作流, dev workflow, product doc workflow, 产品文档流程, or any sub-stage
-  (product, tech, qa, deploy).
+  (diagnostic, product, tech, work-order, code).
 disable-model-invocation: true
 ---
 
@@ -16,10 +16,14 @@ under this directory.
 
 | Stage | Module | Status |
 |-------|--------|--------|
+| Decision diagnostic | `diagnostic/` | Active |
 | Product documentation | `product/` | Active |
 | Tech design | `tech/` | Active |
 | Work order | `work-order/` | Active |
 | Code | `code/` | Active |
+
+> **diagnostic is mandatory before /product or /tech.**
+> Run diagnostic to produce a decision-doc before starting either workflow.
 
 ## Setup
 
@@ -27,6 +31,7 @@ under this directory.
 
 ```bash
 mkdir -p ~/.cursor/skills/lulu-dev-workflow/scripts
+mkdir -p ~/.cursor/skills/lulu-dev-workflow/diagnostic
 mkdir -p ~/.cursor/skills/lulu-dev-workflow/product/scripts
 mkdir -p ~/.cursor/skills/lulu-dev-workflow/product/templates
 mkdir -p ~/.cursor/skills/lulu-dev-workflow/tech/scripts
@@ -38,6 +43,13 @@ for f in SKILL.md scripts/init.py; do
   gh api "repos/lulufoo/lulu-dev-skills/contents/lulu-dev-workflow/$f" \
     --jq '.content' | base64 -d \
     > ~/.cursor/skills/lulu-dev-workflow/$f
+done
+
+# diagnostic
+for f in SKILL.md; do
+  gh api "repos/lulufoo/lulu-dev-skills/contents/lulu-dev-workflow/diagnostic/$f" \
+    --jq '.content' | base64 -d \
+    > ~/.cursor/skills/lulu-dev-workflow/diagnostic/$f
 done
 
 # product
@@ -156,6 +168,7 @@ https://github.com/lulufoo/ai-software-dev/blob/main/lulu-dev-workflow-template/
 
 Each stage has its own `SKILL.md` with start commands.
 
+- **Decision diagnostic:** read `~/.cursor/skills/lulu-dev-workflow/diagnostic/SKILL.md`
 - **Product doc:** read `~/.cursor/skills/lulu-dev-workflow/product/SKILL.md`
 - **Tech design:** read `~/.cursor/skills/lulu-dev-workflow/tech/SKILL.md`
 - **Work order:** read `~/.cursor/skills/lulu-dev-workflow/work-order/SKILL.md`
