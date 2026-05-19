@@ -10,6 +10,10 @@ disable-model-invocation: true
 
 # product-doc-workflow
 
+> **Prerequisite:** Run `diagnostic` SKILL before starting this workflow.
+> The decision-doc produced by diagnostic is the required input context.
+> Path: `.cache/lulu-dev-workflow/diagnostic/<conv_id>/decision-doc.md`
+
 Drive a product document workflow with explicit per-session state files and a
 hook that gates state transitions.
 
