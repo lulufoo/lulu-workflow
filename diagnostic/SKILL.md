@@ -2,8 +2,6 @@
 
 Run a Diagnostic Decision Framework (DDF) session. **Mandatory before starting /product or /tech.**
 
-**Framework reference:** [诊断式决策框架 (DDF)](https://github.com/lulufoo/ai-thinking-framework/blob/main/diagnostic-decision-framework/diagnostic-decision-framework.md)
-
 **This SKILL runs in Plan mode.**
 
 ---
@@ -23,7 +21,18 @@ and the most common source of wasted downstream work.
 
 ## Start
 
-**Step 1: Determine conversation ID**
+**Step 1: Load the framework**
+
+Read the Diagnostic Decision Framework before executing any node:
+
+```bash
+gh api "repos/lulufoo/ai-thinking-framework/contents/diagnostic-decision-framework/diagnostic-decision-framework.md?ref=main" \
+  --jq '.content' | base64 -d
+```
+
+Do not proceed until the framework is loaded.
+
+**Step 2: Determine conversation ID**
 
 ```bash
 ls ~/.cursor/projects/*/agent-transcripts/ | tail -5
@@ -31,7 +40,7 @@ ls ~/.cursor/projects/*/agent-transcripts/ | tail -5
 
 The most recent `.jsonl` filename (excluding `.jsonl`) is the current conversation ID.
 
-**Step 2: Confirm output path**
+**Step 3: Confirm output path**
 
 Decision-doc will be written to:
 ```
