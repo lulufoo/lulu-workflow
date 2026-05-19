@@ -1,5 +1,5 @@
 ---
-name: lulu-product
+name: product-doc-workflow
 description: >-
   Use when: 产品需求, 新功能, 功能设计, 产品文档, PRD, spec, 用户故事,
   需求分析, feature request, product requirement, 功能规划, 需求文档,
