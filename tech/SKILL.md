@@ -7,7 +7,7 @@ description: >-
 disable-model-invocation: true
 ---
 
-# tech-doc-workflow
+# tech-workflow
 
 > **Prerequisite:** Run `diagnostic` SKILL before starting this workflow.
 > The decision-doc produced by diagnostic is the required input context.
