@@ -6,12 +6,41 @@ workflow_common.py / init.py — this script only dispatches to them.
 """
 
 import argparse
+import json
 import subprocess
 import sys
 from pathlib import Path
 
 SKILL_ROOT = Path(__file__).resolve().parents[1]
 SUB_WORKFLOWS = ["product", "tech", "work-order", "code"]
+
+_UNIFIED_HOOK_COMMAND = "python3 ~/.cursor/skills/lulu-dev-workflow/scripts/hook_guard.py"
+
+
+def register_unified_hook(project_root: Path) -> None:
+    hooks_path = project_root / ".cursor" / "hooks.json"
+    payload: dict = {"version": 1, "hooks": {}}
+    if hooks_path.exists():
+        with hooks_path.open(encoding="utf-8") as f:
+            payload = json.load(f)
+    hooks = payload.setdefault("hooks", {})
+    pre_tool_use = hooks.get("preToolUse", [])
+    # Remove existing lulu-dev-workflow stage hooks; preserve all other entries
+    pre_tool_use = [
+        e for e in pre_tool_use
+        if "lulu-dev-workflow" not in e.get("command", "")
+    ]
+    pre_tool_use.append({
+        "matcher": "Write|Edit",
+        "command": _UNIFIED_HOOK_COMMAND,
+        "timeout": 5,
+        "failClosed": True,
+    })
+    hooks["preToolUse"] = pre_tool_use
+    hooks_path.parent.mkdir(parents=True, exist_ok=True)
+    with hooks_path.open("w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2, ensure_ascii=False)
+        f.write("\n")
 
 
 def main() -> int:
@@ -20,6 +49,7 @@ def main() -> int:
     )
     parser.add_argument("--project-root", required=True, help="Project root directory.")
     args = parser.parse_args()
+    project_root = Path(args.project_root).resolve()
 
     for sub in SUB_WORKFLOWS:
         init_py = SKILL_ROOT / sub / "scripts" / "init.py"
@@ -35,6 +65,8 @@ def main() -> int:
             print(f"[lulu-dev-workflow init] ERROR: {sub} init failed (exit {result.returncode}).")
             return result.returncode
 
+    register_unified_hook(project_root)
+    print(f"\n[lulu-dev-workflow init] Hook registered: {_UNIFIED_HOOK_COMMAND}")
     print("\n[lulu-dev-workflow init] All sub-workflows initialized successfully.")
     return 0
 

@@ -5,9 +5,6 @@ from pathlib import Path
 
 from workflow_common import (
     CONFIG_PATH,
-    HOOKS_JSON_PATH,
-    HOOK_COMMAND,
-    merge_hook_entry,
     read_json,
     write_json,
 )
@@ -39,18 +36,12 @@ def main() -> int:
     else:
         config_note = f"work_order 配置区块已存在，跳过（{config_path.as_posix()}）"
 
-    hooks_path = project_root / HOOKS_JSON_PATH
-    hooks_payload = read_json(hooks_path, default={"version": 1, "hooks": {}})
-    merged = merge_hook_entry(hooks_payload)
-    write_json(hooks_path, merged)
-
     config_path_display = config_path.as_posix()
     start_py = Path(__file__).resolve().parent / "start.py"
     print(f"""
 work-order workflow 初始化完成。
 
 {config_note}
-Hook 已注册：{HOOK_COMMAND}
 
 下一步：
 1. 检查 {config_path_display} 中的 work_order 区块，确认 URL 正确。

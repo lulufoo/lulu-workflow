@@ -6,8 +6,6 @@ from pathlib import Path
 
 from workflow_common import (
     CONFIG_PATH,
-    HOOKS_JSON_PATH,
-    merge_hook_entry,
     read_json,
     write_json,
 )
@@ -59,11 +57,6 @@ def main() -> int:
 
     write_json(config_path, config)
     ensure_gitignore_entry(project_root)
-
-    hooks_path = project_root / HOOKS_JSON_PATH
-    hooks_payload = read_json(hooks_path, default={"version": 1, "hooks": {}})
-    merged = merge_hook_entry(hooks_payload)
-    write_json(hooks_path, merged)
 
     config_path_display = config_path.as_posix()
     print(f"""
