@@ -8,7 +8,7 @@ description: >-
 disable-model-invocation: true
 ---
 
-# product-doc-workflow
+# product-workflow
 
 > **Prerequisite:** Run `diagnostic` SKILL before starting this workflow.
 > The decision-doc produced by diagnostic is the required input context.
