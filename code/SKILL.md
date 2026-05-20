@@ -1,5 +1,5 @@
 ---
-name: code-workflow
+name: code
 description: >-
   Use when: TDD, tdd session, 测试驱动开发, 写测试代码, 写实现代码, Red Green Refactor,
   tdd-task-list, task-from-work-order, task-from-tech, tdd workflow,
