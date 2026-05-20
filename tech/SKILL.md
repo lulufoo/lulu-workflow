@@ -1,5 +1,5 @@
 ---
-name: tech-doc-workflow
+name: tech
 description: >-
   Use when: 技术方案, 技术设计, tech design, tech-doc, 技术文档, 架构设计,
   技术规格, 技术实现方案, tech-doc workflow, 技术文档流程, 技术文档状态迁移,
