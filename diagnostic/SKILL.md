@@ -2,7 +2,7 @@
 name: diagnostic
 ---
 
-# diagnostic
+# diagnostic-workflow
 
 Run a Diagnostic Decision Framework (DDF) session. **Mandatory before starting /product or /tech.**
 
