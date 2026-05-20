@@ -30,78 +30,31 @@ under this directory.
 ### `install` — Machine-level, run once
 
 ```bash
-mkdir -p ~/.cursor/skills/lulu-dev-workflow/scripts
-mkdir -p ~/.cursor/skills/lulu-dev-workflow/diagnostic
-mkdir -p ~/.cursor/skills/lulu-dev-workflow/product/scripts
-mkdir -p ~/.cursor/skills/lulu-dev-workflow/product/templates
-mkdir -p ~/.cursor/skills/lulu-dev-workflow/tech/scripts
-mkdir -p ~/.cursor/skills/lulu-dev-workflow/work-order/scripts
-mkdir -p ~/.cursor/skills/lulu-dev-workflow/code/scripts
+REPO="lulufoo/lulu-dev-skills"; REF="main"; SRC="lulu-dev-workflow"
+DST="$HOME/.cursor/skills/lulu-dev-workflow"
 
-# top-level
-for f in SKILL.md scripts/init.py; do
-  gh api "repos/lulufoo/lulu-dev-skills/contents/lulu-dev-workflow/$f" \
-    --jq '.content' | base64 -d \
-    > ~/.cursor/skills/lulu-dev-workflow/$f
-done
+# pull_dir REMOTE_PATH LOCAL_PATH — downloads all files in a remote directory
+pull_dir() {
+  mkdir -p "$2"
+  gh api "repos/$REPO/contents/$1?ref=$REF" --jq '.[] | select(.type=="file") | .name' \
+    | while read f; do
+        gh api "repos/$REPO/contents/$1/$f?ref=$REF" --jq '.content' | base64 -d > "$2/$f"
+      done
+}
 
-# diagnostic
-for f in SKILL.md; do
-  gh api "repos/lulufoo/lulu-dev-skills/contents/lulu-dev-workflow/diagnostic/$f" \
-    --jq '.content' | base64 -d \
-    > ~/.cursor/skills/lulu-dev-workflow/diagnostic/$f
-done
+mkdir -p "$DST"
+gh api "repos/$REPO/contents/$SRC/SKILL.md?ref=$REF" --jq '.content' | base64 -d > "$DST/SKILL.md"
+pull_dir "$SRC/scripts" "$DST/scripts"
 
-# product
-for f in SKILL.md transition-whitelist.json; do
-  gh api "repos/lulufoo/lulu-dev-skills/contents/lulu-dev-workflow/product/$f" \
-    --jq '.content' | base64 -d \
-    > ~/.cursor/skills/lulu-dev-workflow/product/$f
-done
-for f in hook_guard.py init.py start.py workflow_common.py; do
-  gh api "repos/lulufoo/lulu-dev-skills/contents/lulu-dev-workflow/product/scripts/$f" \
-    --jq '.content' | base64 -d \
-    > ~/.cursor/skills/lulu-dev-workflow/product/scripts/$f
-done
-gh api "repos/lulufoo/lulu-dev-skills/contents/lulu-dev-workflow/product/templates/workflow-config.template.json" \
-  --jq '.content' | base64 -d \
-  > ~/.cursor/skills/lulu-dev-workflow/product/templates/workflow-config.template.json
-
-# tech
-for f in SKILL.md transition-whitelist.json; do
-  gh api "repos/lulufoo/lulu-dev-skills/contents/lulu-dev-workflow/tech/$f" \
-    --jq '.content' | base64 -d \
-    > ~/.cursor/skills/lulu-dev-workflow/tech/$f
-done
-for f in hook_guard.py init.py start.py workflow_common.py; do
-  gh api "repos/lulufoo/lulu-dev-skills/contents/lulu-dev-workflow/tech/scripts/$f" \
-    --jq '.content' | base64 -d \
-    > ~/.cursor/skills/lulu-dev-workflow/tech/scripts/$f
+for sub in diagnostic product tech work-order code; do
+  mkdir -p "$DST/$sub"
+  gh api "repos/$REPO/contents/$SRC/$sub/SKILL.md?ref=$REF" --jq '.content' | base64 -d > "$DST/$sub/SKILL.md"
+  pull_dir "$SRC/$sub/scripts" "$DST/$sub/scripts" 2>/dev/null || true
+  gh api "repos/$REPO/contents/$SRC/$sub/transition-whitelist.json?ref=$REF" \
+    --jq '.content' 2>/dev/null | base64 -d > "$DST/$sub/transition-whitelist.json" 2>/dev/null || true
 done
 
-# work-order
-for f in SKILL.md transition-whitelist.json; do
-  gh api "repos/lulufoo/lulu-dev-skills/contents/lulu-dev-workflow/work-order/$f" \
-    --jq '.content' | base64 -d \
-    > ~/.cursor/skills/lulu-dev-workflow/work-order/$f
-done
-for f in hook_guard.py init.py start.py workflow_common.py; do
-  gh api "repos/lulufoo/lulu-dev-skills/contents/lulu-dev-workflow/work-order/scripts/$f" \
-    --jq '.content' | base64 -d \
-    > ~/.cursor/skills/lulu-dev-workflow/work-order/scripts/$f
-done
-
-# code
-for f in SKILL.md transition-whitelist.json; do
-  gh api "repos/lulufoo/lulu-dev-skills/contents/lulu-dev-workflow/code/$f" \
-    --jq '.content' | base64 -d \
-    > ~/.cursor/skills/lulu-dev-workflow/code/$f
-done
-for f in hook_guard.py init.py start.py workflow_common.py; do
-  gh api "repos/lulufoo/lulu-dev-skills/contents/lulu-dev-workflow/code/scripts/$f" \
-    --jq '.content' | base64 -d \
-    > ~/.cursor/skills/lulu-dev-workflow/code/scripts/$f
-done
+pull_dir "$SRC/product/templates" "$DST/product/templates"
 ```
 
 After install, run `lulu-dev-workflow init` in the target project.

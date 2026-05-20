@@ -13,10 +13,21 @@ _STAGES = ["code", "work-order", "tech", "product"]
 
 def _load_stage_module(stage: str):
     path = _SKILL_ROOT / stage / "scripts" / "hook_guard.py"
-    spec = importlib.util.spec_from_file_location(f"_{stage}_hook_guard", path)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
+    stage_scripts = str(path.parent)
+    sys.path.insert(0, stage_scripts)
+    sys.modules.pop("workflow_common", None)
+    try:
+        spec = importlib.util.spec_from_file_location(f"_{stage}_hook_guard", path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+    finally:
+        try:
+            sys.path.remove(stage_scripts)
+        except ValueError:
+            pass
+        sys.modules.pop("workflow_common", None)
+        sys.modules.pop(f"_{stage}_hook_guard", None)
 
 
 def main() -> int:
