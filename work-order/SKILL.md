@@ -1,5 +1,5 @@
 ---
-name: work-order-workflow
+name: work-order
 description: >-
   Use when: 施工单, work-order, 任务拆分, task breakdown, TDD 准备, 施工单工作流,
   work-order workflow, 任务依赖图, task-list, 施工单评审, TWCA, WOQA,
