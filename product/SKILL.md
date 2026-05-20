@@ -1,5 +1,5 @@
 ---
-name: product-doc-workflow
+name: lulu-product
 description: >-
   Use when: 产品需求, 新功能, 功能设计, 产品文档, PRD, spec, 用户故事,
   需求分析, feature request, product requirement, 功能规划, 需求文档,
@@ -23,8 +23,9 @@ the spec body.
 
 **Scripts location:** `~/.cursor/skills/lulu-dev-workflow/product/scripts/`
 
-**This workflow runs entirely in Plan mode.** All files are Markdown; no mode
-switching is required except for advanced debugging.
+**This workflow runs in Agent mode with path guard.** All session files are
+Markdown. During an active session, writes are restricted to
+`.cache/lulu-dev-workflow/` by the hook guard.
 
 ---
 
@@ -127,7 +128,8 @@ Read `session-state.md` to determine current `active_doc` (N).
 
 **G6.** Use full `Write` (not `Edit`) for `workflow-state.md`.
 
-**G7.** This workflow runs in Plan mode. All session files are Markdown.
+**G7.** This workflow runs in Agent mode. Writes outside `.cache/lulu-dev-workflow/`
+are blocked by the path guard hook while a session is active.
 
 ### Drafting Rules
 

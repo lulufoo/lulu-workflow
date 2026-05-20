@@ -141,6 +141,19 @@ def read_md_state(path: Path, default: str = "Drafting") -> str:
     return state if state else default
 
 
+def is_current_session_active(project_root: Path, conversation_id: str) -> bool:
+    """Return True if this conversation has any non-Delivered planning session."""
+    if not conversation_id:
+        return False
+    base = project_root / session_base_dir(conversation_id)
+    if not base.exists():
+        return False
+    for state_file in base.glob("revision*/workflow-state.md"):
+        if read_md_state(state_file, default="Drafting") != "Delivered":
+            return True
+    return False
+
+
 def normalize_tool_path(raw_path: str, project_root: Path) -> str:
     candidate = Path(raw_path)
     if candidate.is_absolute():

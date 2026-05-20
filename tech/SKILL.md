@@ -18,7 +18,7 @@ that gates state transitions.
 
 **Scope:** Tech document workflow only. Supports two run-modes: `product` (product-doc driven) and `tech` (pure tech, no product-doc).
 **Scripts location (after install):** `~/.cursor/skills/lulu-dev-workflow/tech/scripts/`
-**This workflow runs entirely in Plan mode.**
+**This workflow runs in Agent mode with path guard.**
 
 ---
 
@@ -114,7 +114,8 @@ Skipping evaluation does **not** skip delivery confirmation: all paths still use
 3. `revision{N}/workflow-state.md` is the authoritative current state — write it to request a transition.
 4. Never infer state from document body or file existence; always read `workflow-state.md`.
 5. Use full `Write` (not `Edit`) for `workflow-state.md` and `evaluate-state.md`.
-6. This workflow runs in Plan mode. All session files are Markdown.
+6. This workflow runs in Agent mode. Writes outside `.cache/lulu-dev-workflow/`
+   are blocked by the path guard hook while a session is active.
 
 ### Drafting Rules
 

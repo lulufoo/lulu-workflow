@@ -9,6 +9,7 @@ from typing import Any, Dict, Optional, Tuple
 from workflow_common import (
     CACHE_DIR,
     WHITELIST_PATH,
+    is_current_session_active,
     normalize_tool_path,
     parse_frontmatter_fields,
     parse_frontmatter_state,
@@ -84,6 +85,20 @@ def main() -> int:
         return 0
 
     path, contents = extract_path_and_contents(event, project_root)
+
+    conv_id = str(event.get("conversation_id") or "")
+    if path and is_current_session_active(project_root, conv_id):
+        allowed_root = (project_root / CACHE_DIR).resolve()
+        abs_path = (project_root / Path(path)).resolve()
+        try:
+            abs_path.relative_to(allowed_root)
+        except ValueError:
+            print(json.dumps(deny(
+                "planning workflow 进行中：只允许写入 .cache/lulu-dev-workflow/ 目录，不允许修改项目源码或其他文件。",
+                "Path guard active: writes outside .cache/lulu-dev-workflow/ are blocked during planning workflow.",
+            )))
+            return 0
+
     match = match_workflow_state_path(path)
 
     if match is None:

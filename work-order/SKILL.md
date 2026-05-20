@@ -13,7 +13,7 @@ Decompose a Delivered tech-doc into independently executable TDD units (task fil
 
 **Scope:** work-order workflow only. Input: Delivered tech-doc. Output: task file set.
 **Scripts location (after install):** `~/.cursor/skills/lulu-dev-workflow/work-order/scripts/`
-**This workflow runs entirely in Plan mode.**
+**This workflow runs in Agent mode with path guard.**
 
 ---
 
@@ -98,7 +98,8 @@ Hook enforces all transition pre-conditions. Denial messages are self-explanator
 3. `r{N}/workflow-state.md` is the authoritative current state — write it to request a transition.
 4. Never infer state from document body or file existence; always read `workflow-state.md`.
 5. Use full `Write` (not `Edit`) for `workflow-state.md` and `evaluate-state.md`.
-6. This workflow runs in Plan mode. All session files are Markdown.
+6. This workflow runs in Agent mode. Writes outside `.cache/lulu-dev-workflow/`
+   are blocked by the path guard hook while a session is active.
 
 ### Drafting Rules
 
