@@ -51,6 +51,32 @@ Decision-doc will be written to:
 .cache/lulu-dev-workflow/diagnostic/<conv_id>/decision-doc.md
 ```
 
+**Step 4: Run start.py**
+
+> `start.py` runs archive first: restores the current conv from `_archive/` if needed, then moves other **Delivered** convs to `_archive/<conv_id>/diagnostic/`. Non-terminal convs stay in the hot zone.
+
+```bash
+python3 ~/.cursor/skills/lulu-dev-workflow/diagnostic/scripts/start.py \
+  --project-root "$(pwd)" \
+  --conversation-id "<conv_id>"
+```
+
+Creates `session-state.md` with `current_state: InProgress`.
+
+**Do not** run start again after Delivery (`Delivered`) on the same conv — use a new conversation ID for a new diagnostic. Re-running start on a Delivered conv overwrites state to `InProgress` without removing `decision-doc.md`.
+
+**Hot / cold layout:**
+
+```
+.cache/lulu-dev-workflow/diagnostic/<conv_id>/     ← hot zone
+  session-state.md          ← current_state: InProgress | Delivered
+  decision-doc.md
+
+.cache/lulu-dev-workflow/_archive/<conv_id>/diagnostic/   ← cold zone (whole conv)
+```
+
+Legacy directories (only `decision-doc.md`, no `session-state.md`) are **not** auto-archived — add `session-state.md` manually or leave in hot zone.
+
 ---
 
 ## Execution Rules
@@ -280,6 +306,17 @@ Fix inline. No separate review round needed.
 After self-review passes:
 1. Show user: **title**, **file path**, **1–2 sentence summary only**. Do NOT paste the full doc.
 2. Ask user to review the file and confirm.
-3. After confirmation, tell user the next step:
+3. After confirmation, write terminal state:
+
+```bash
+# session-state.md at diagnostic/<conv_id>/session-state.md
+current_state: Delivered
+```
+
+(Use the same YAML frontmatter format as other workflow session files.)
+
+4. Tell user the next step:
    - Product-level decision → proceed to `/product`
    - Tech-level decision → proceed to `/tech` (use decision-doc as context alongside product-doc if applicable)
+
+Delivered convs move to `_archive/<conv_id>/diagnostic/` on the next diagnostic (or any stage) start that scans the hot zone — not immediately at Delivery.

@@ -3,6 +3,7 @@
 import argparse
 from pathlib import Path
 
+from archive import run as run_archive
 from workflow_common import (
     read_md_field,
     session_state_path,
@@ -33,6 +34,10 @@ def main() -> int:
     if not Path(tech_ref).exists():
         print(f"错误：--tech-ref 文件不存在：{tech_ref}")
         return 1
+
+    archive_rc = run_archive(project_root, exclude_conv_id=conv_id)
+    if archive_rc != 0:
+        return archive_rc
 
     ss_path = project_root / session_state_path(conv_id)
     if ss_path.exists():

@@ -50,6 +50,8 @@ conversation ID.
 
 **Step 2: Run start**
 
+> `start.py` runs archive first: restores the current conv from `_archive/` if needed, then moves other **Delivered** convs to `_archive/<conv_id>/product/`. Non-terminal convs stay in the hot zone.
+
 ```bash
 python3 ~/.cursor/skills/lulu-dev-workflow/product/scripts/start.py \
   --project-root "$(pwd)" \
@@ -79,6 +81,22 @@ product document, do not run start again — read the current session files.
     evaluate{M}/                        ← 第 M 轮 PDQA 评估
       pdqa-review.md             ← 评估记录（逐问题更新）
 ```
+
+**Cold zone** (Delivered convs archived on next `/product` start):
+
+```
+.cache/lulu-dev-workflow/_archive/<conv_id>/product/
+  session-state.md              ← same layout as hot zone
+  revision1/ … revision{N}/
+```
+
+Archive rules (via `start.py` → `archive.py`):
+
+- Only convs whose **active** `revision{N}/workflow-state.md` has `current_state: Delivered` are moved to cold storage (whole conv).
+- Non-terminal convs (Drafting, Evaluating, ReadyForDelivery, etc.) remain in the hot zone.
+- The current conversation conv is never archived; if it exists only in cold storage, `start.py` restores it before creating the next revision.
+
+To read historical product docs: `.cache/lulu-dev-workflow/_archive/<conv_id>/product/revision{N}/`
 
 Two linear counters (non-reversible):
 - `active_doc` (N): which product document in this conversation

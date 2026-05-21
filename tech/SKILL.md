@@ -52,6 +52,8 @@ Do not infer or auto-detect the path.
 
 **Step 3: Run start**
 
+> `start.py` runs archive first: restores the current conv from `_archive/` if needed, then moves other **Delivered** convs to `_archive/<conv_id>/tech/`. Non-terminal convs stay in the hot zone.
+
 ```bash
 python3 ~/.cursor/skills/lulu-dev-workflow/tech/scripts/start.py \
   --project-root "$(pwd)" \
@@ -83,6 +85,19 @@ tech flow to use a previous tech-doc as the draft starting point.
       tech-review-e{M}2.md       ← E2: codebase consistency review
       tech-review-e{M}3.md       ← E3: solution quality review
 ```
+
+**Cold zone** (Delivered convs archived on next `/tech` start):
+
+```
+.cache/lulu-dev-workflow/_archive/<conv_id>/tech/
+  session-state.md
+  revision1/ … revision{N}/
+```
+
+- Only the **active** `revision{N}/workflow-state.md` with `current_state: Delivered` triggers archive (whole conv).
+- The current conversation conv is never archived; cold-only convs are restored before the next revision.
+
+Historical tech docs: `.cache/lulu-dev-workflow/_archive/<conv_id>/tech/revision{N}/`
 
 ---
 

@@ -3,6 +3,7 @@
 import argparse
 from pathlib import Path
 
+from archive import run as run_archive
 from workflow_common import (
     read_md_field,
     session_state_path,
@@ -52,6 +53,10 @@ def main() -> int:
     if carry_forward_ref and not Path(carry_forward_ref).exists():
         print(f"错误：carry-forward-ref 文件不存在：{carry_forward_ref}")
         return 1
+
+    archive_rc = run_archive(project_root, exclude_conv_id=conv_id)
+    if archive_rc != 0:
+        return archive_rc
 
     ss_path = project_root / session_state_path(conv_id)
     if ss_path.exists():

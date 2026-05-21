@@ -40,6 +40,8 @@ Ask the user for the absolute path to the Delivered `tech-doc.md`. Do not auto-d
 
 **Step 3: Run start**
 
+> `start.py` runs archive first: restores the current conv from `_archive/` if needed, then moves other **Delivered** convs to `_archive/<conv_id>/work-order/`. Non-terminal convs stay in the hot zone.
+
 ```bash
 python3 ~/.cursor/skills/lulu-dev-workflow/work-order/scripts/start.py \
   --project-root "$(pwd)" \
@@ -71,6 +73,19 @@ python3 ~/.cursor/skills/lulu-dev-workflow/work-order/scripts/start.py \
       t2/
         task.md
 ```
+
+**Cold zone** (Delivered convs archived on next `/work-order` start):
+
+```
+.cache/lulu-dev-workflow/_archive/<conv_id>/work-order/
+  session-state.md
+  r1/ … r{N}/
+```
+
+- Only the **active** `r{N}/workflow-state.md` with `current_state: Delivered` triggers archive (whole conv).
+- The current conversation conv is never archived; cold-only convs are restored before the next round.
+
+Historical work orders: `.cache/lulu-dev-workflow/_archive/<conv_id>/work-order/r{N}/`
 
 ---
 

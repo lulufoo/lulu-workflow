@@ -130,7 +130,7 @@ python3 ~/.cursor/skills/lulu-dev-workflow/code/scripts/start.py \
 
 Archive rules (handled by `archive.py` via `start.py`):
 
-- Only convs whose **active** `s{N}/workflow-state.md` has `current_state: Completed` are moved to cold storage (whole conv, all sessions).
+- Only convs whose **active** `s{N}/workflow-state.md` has `current_state: Completed` are moved to cold storage (whole conv, all sessions). Conv IDs may be UUIDs or slugs (e.g. `p4-tauri-migration`).
 - Convs with `current_state: Executing` remain in the hot zone (safe for multi-window).
 - The current conversation conv is never archived; if it exists only in cold storage, `start.py` restores it before creating the next session round.
 
