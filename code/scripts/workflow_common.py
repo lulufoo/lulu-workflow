@@ -15,13 +15,26 @@ HOOKS_JSON_PATH = Path(".cursor/hooks.json")
 _SCRIPTS_DIR = Path(__file__).resolve().parent
 HOOK_COMMAND = f"python3 {_SCRIPTS_DIR / 'hook_guard.py'}"
 
+_CONV_ID_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    re.IGNORECASE,
+)
+
 
 # ---------------------------------------------------------------------------
 # Path helpers
 # ---------------------------------------------------------------------------
 
+def code_hot_root() -> Path:
+    return CACHE_DIR / "code"
+
+
+def archive_code_dir(conversation_id: str) -> Path:
+    return CACHE_DIR / "_archive" / conversation_id / "code"
+
+
 def session_base_dir(conversation_id: str) -> Path:
-    return CACHE_DIR / "code" / conversation_id
+    return code_hot_root() / conversation_id
 
 
 def session_state_path(conversation_id: str) -> Path:
@@ -46,6 +59,50 @@ def task_dir(conversation_id: str, session_round: int, task_id: str) -> Path:
 
 def approval_path(conversation_id: str, session_round: int) -> Path:
     return doc_dir(conversation_id, session_round) / "human-delivery-gate.md"
+
+
+def list_code_conv_ids(code_root: Path) -> List[str]:
+    """Return UUID-named direct subdirectories of code/."""
+    if not code_root.is_dir():
+        return []
+    result: List[str] = []
+    for entry in sorted(code_root.iterdir()):
+        if not entry.is_dir():
+            continue
+        name = entry.name
+        if name.startswith("_"):
+            continue
+        if _CONV_ID_RE.match(name):
+            result.append(name)
+    return result
+
+
+def is_conv_completed(conv_dir: Path) -> Optional[bool]:
+    """
+    Return True if active_session workflow-state is Completed,
+    False if Executing, None if state is unreadable.
+    """
+    ss_path = conv_dir / "session-state.md"
+    if not ss_path.exists():
+        return None
+    active_raw = read_md_field(ss_path, "active_session", default="")
+    if not active_raw:
+        return None
+    try:
+        active_session = int(active_raw)
+    except ValueError:
+        return None
+    ws_path = conv_dir / f"s{active_session}" / "workflow-state.md"
+    if not ws_path.exists():
+        return None
+    current_state = read_md_field(ws_path, "current_state", default="")
+    if not current_state:
+        return None
+    if current_state == "Completed":
+        return True
+    if current_state == "Executing":
+        return False
+    return None
 
 
 def hook_entry() -> Dict[str, Any]:

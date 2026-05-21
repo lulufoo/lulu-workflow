@@ -4,6 +4,7 @@ import argparse
 import re
 from pathlib import Path
 
+from archive import run as run_archive
 from workflow_common import (
     doc_dir,
     read_md_field,
@@ -133,6 +134,10 @@ def main() -> int:
     args = parse_args()
     project_root = Path(args.project_root).resolve()
     conv_id = args.conversation_id.strip()
+
+    archive_rc = run_archive(project_root, exclude_conv_id=conv_id)
+    if archive_rc != 0:
+        return archive_rc
 
     # Validate mode-specific required args
     if args.mode == "task-from-work-order":

@@ -73,6 +73,8 @@ Path A: use `<tech-doc-path>` directly.
 
 **Step 4: Run start.py**
 
+> `start.py` runs archive first: restores the current conv from `_archive/` if needed, then moves other **Completed** convs to `_archive/<conv_id>/code/`. **Executing** convs stay in the hot zone.
+
 Path B:
 ```bash
 python3 ~/.cursor/skills/lulu-dev-workflow/code/scripts/start.py \
@@ -100,6 +102,8 @@ python3 ~/.cursor/skills/lulu-dev-workflow/code/scripts/start.py \
 
 ## Session File Structure
 
+**Hot zone** (active / in-progress convs):
+
 ```
 .cache/lulu-dev-workflow/code/<conv_id>/
   session-state.md              ← active_session: N (monotonically increasing)
@@ -115,6 +119,22 @@ python3 ~/.cursor/skills/lulu-dev-workflow/code/scripts/start.py \
         red-run.md              ← Phase 2: test run output (hook depends on this file)
         green-run.md            ← Phase 4: test run output
 ```
+
+**Cold zone** (Completed convs archived on next `/code` start):
+
+```
+.cache/lulu-dev-workflow/_archive/<conv_id>/code/
+  session-state.md              ← same layout as hot zone
+  s1/ … s{N}/
+```
+
+Archive rules (handled by `archive.py` via `start.py`):
+
+- Only convs whose **active** `s{N}/workflow-state.md` has `current_state: Completed` are moved to cold storage (whole conv, all sessions).
+- Convs with `current_state: Executing` remain in the hot zone (safe for multi-window).
+- The current conversation conv is never archived; if it exists only in cold storage, `start.py` restores it before creating the next session round.
+
+To read historical sessions: `.cache/lulu-dev-workflow/_archive/<conv_id>/code/s{N}/`
 
 ---
 
