@@ -25,16 +25,28 @@ under this directory.
 > **diagnostic is mandatory before /product or /tech.**
 > Run diagnostic to produce a decision-doc before starting either workflow.
 
+## Platform Context
+
+Set once before running any command in this file:
+
+```bash
+# Cursor:
+SKILL_DIR="$HOME/.cursor/skills/lulu-dev-workflow"
+WORKFLOW_DIR=".cursor/lulu-dev-workflow"
+PLATFORM_FLAG=""
+# Copilot (uncomment, comment out the 3 lines above):
+# SKILL_DIR="$HOME/.copilot/skills/lulu-dev-workflow"
+# WORKFLOW_DIR=".github/lulu-dev-workflow"
+# PLATFORM_FLAG="--platform copilot"
+```
+
 ## Setup
 
 ### `install` — Machine-level, run once
 
 ```bash
 REPO="lulufoo/lulu-dev-skills"; REF="main"; SRC="lulu-dev-workflow"
-# Cursor:
-DST="$HOME/.cursor/skills/lulu-dev-workflow"
-# Copilot (uncomment, comment out Cursor line above):
-# DST="$HOME/.copilot/skills/lulu-dev-workflow"
+DST="$SKILL_DIR"
 
 # pull_dir REMOTE_PATH LOCAL_PATH — downloads all files in a remote directory
 pull_dir() {
@@ -67,14 +79,10 @@ After install, run `lulu-dev-workflow init` in the target project.
 > Prerequisite: `install` has been run.
 
 ```bash
-# Cursor:
-python3 ~/.cursor/skills/lulu-dev-workflow/scripts/init.py --project-root "$(pwd)"
-# Copilot:
-python3 ~/.copilot/skills/lulu-dev-workflow/scripts/init.py --project-root "$(pwd)" --platform copilot
+python3 "$SKILL_DIR/scripts/init.py" --project-root "$(pwd)" $PLATFORM_FLAG
 ```
 
-Creates `<platform-dir>/lulu-dev-workflow/workflow-config.json` and registers all sub-workflow
-hooks (`.cursor/hooks.json` for Cursor, `.github/hooks/hooks.json` for Copilot).
+Creates `$WORKFLOW_DIR/workflow-config.json` and registers all sub-workflow hooks.
 
 `workflow-config.json` contains the following fields:
 
@@ -111,14 +119,9 @@ https://github.com/lulufoo/ai-software-dev/blob/main/lulu-dev-workflow-template/
 Parse the URL to extract `owner`, `repo`, `ref`, `path`, then run:
 
 ```bash
-# Cursor:
 gh api "repos/{owner}/{repo}/contents/{path}?ref={ref}" \
   --jq '.content' | base64 -d \
-  > .cursor/lulu-dev-workflow/workflow-config.json
-# Copilot:
-gh api "repos/{owner}/{repo}/contents/{path}?ref={ref}" \
-  --jq '.content' | base64 -d \
-  > .github/lulu-dev-workflow/workflow-config.json
+  > "$WORKFLOW_DIR/workflow-config.json"
 ```
 
 After download, read and display the new config file to confirm.
@@ -132,8 +135,8 @@ https://github.com/lulufoo/ai-software-dev/blob/main/lulu-dev-workflow-template/
 
 Each stage has its own `SKILL.md` with start commands.
 
-- **Decision diagnostic:** read `~/.cursor/skills/lulu-dev-workflow/diagnostic/SKILL.md` (Cursor) or `~/.copilot/skills/lulu-dev-workflow/diagnostic/SKILL.md` (Copilot)
-- **Product doc:** read `~/.cursor/skills/lulu-dev-workflow/product/SKILL.md` (Cursor) or `~/.copilot/skills/lulu-dev-workflow/product/SKILL.md` (Copilot)
-- **Tech design:** read `~/.cursor/skills/lulu-dev-workflow/tech/SKILL.md` (Cursor) or `~/.copilot/skills/lulu-dev-workflow/tech/SKILL.md` (Copilot)
-- **Work order:** read `~/.cursor/skills/lulu-dev-workflow/work-order/SKILL.md` (Cursor) or `~/.copilot/skills/lulu-dev-workflow/work-order/SKILL.md` (Copilot)
-- **Code:** read `~/.cursor/skills/lulu-dev-workflow/code/SKILL.md` (Cursor) or `~/.copilot/skills/lulu-dev-workflow/code/SKILL.md` (Copilot)
+- **Decision diagnostic:** read `$SKILL_DIR/diagnostic/SKILL.md`
+- **Product doc:** read `$SKILL_DIR/product/SKILL.md`
+- **Tech design:** read `$SKILL_DIR/tech/SKILL.md`
+- **Work order:** read `$SKILL_DIR/work-order/SKILL.md`
+- **Code:** read `$SKILL_DIR/code/SKILL.md`

@@ -8,6 +8,13 @@ Run a Diagnostic Decision Framework (DDF) session. **Mandatory before starting /
 
 **This SKILL runs in Plan mode.**
 
+**Platform context** — resolve once, use `$SKILL_DIR` and `$WORKFLOW_DIR` for all paths:
+
+| | Cursor | Copilot |
+|---|---|---|
+| `$SKILL_DIR` | `~/.cursor/skills/lulu-dev-workflow/diagnostic` | `~/.copilot/skills/lulu-dev-workflow/diagnostic` |
+| `$WORKFLOW_DIR` | `.cursor/lulu-dev-workflow` | `.github/lulu-dev-workflow` |
+
 > Framework reference: [diagnostic-decision-framework.md](https://github.com/lulufoo/ai-thinking-framework/blob/main/diagnostic-decision-framework/diagnostic-decision-framework.md)
 
 ---
@@ -79,12 +86,7 @@ Decision-doc will be written to:
 > `start.py` runs archive first: restores the current conv from `_archive/` if needed, then moves other **Delivered** convs to `_archive/<conv_id>/diagnostic/`. Non-terminal convs stay in the hot zone.
 
 ```bash
-# Cursor:
-python3 ~/.cursor/skills/lulu-dev-workflow/diagnostic/scripts/start.py \
-  --project-root "$(pwd)" \
-  --conversation-id "<conv_id>"
-# Copilot:
-python3 ~/.copilot/skills/lulu-dev-workflow/diagnostic/scripts/start.py \
+python3 "$SKILL_DIR/scripts/start.py" \
   --project-root "$(pwd)" \
   --conversation-id "<conv_id>"
 ```

@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from workflow_common import (
+    _PLATFORM,
     PLATFORM_CONFIG_PATH,
     SKILL_ROOT,
     resolve_workflow_config_path,
@@ -31,7 +32,9 @@ def load_template_payload(template_name: str) -> dict:
 
 def ensure_gitignore_entry(project_root: Path) -> None:
     gitignore_path = project_root / ".gitignore"
-    entry = ".cursor"
+    entry = ".cursor" if _PLATFORM == "cursor" else None
+    if entry is None:
+        return
     if not gitignore_path.exists():
         gitignore_path.write_text(f"{entry}\n", encoding="utf-8")
         return
