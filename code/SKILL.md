@@ -12,7 +12,7 @@ disable-model-invocation: true
 Execute Test-Driven Development from a Delivered tech-doc or work-order task set: write tests first, confirm Red, write minimal implementation, confirm Green, then refactor.
 
 **Scope:** TDD code generation. Input: Delivered tech-doc (Path A) or Delivered work-order task set (Path B). Output: test files + implementation files.
-**Scripts location (after install):** `~/.cursor/skills/lulu-dev-workflow/code/scripts/`
+**Scripts location (after install):** Cursor: `~/.cursor/skills/lulu-dev-workflow/code/scripts/` | Copilot: `~/.copilot/skills/lulu-dev-workflow/code/scripts/`
 **This workflow runs in Agent mode.** (requires writing code files and executing Shell commands)
 
 ---
@@ -77,7 +77,15 @@ Path A: use `<tech-doc-path>` directly.
 
 Path B:
 ```bash
+# Cursor:
 python3 ~/.cursor/skills/lulu-dev-workflow/code/scripts/start.py \
+  --project-root "$(pwd)" \
+  --conversation-id "<current-conv-id>" \
+  --mode task-from-work-order \
+  --task-list-ref "<abs-path-to-task-list.md>" \
+  --task-refs <abs-path-to-t1/task.md> <abs-path-to-t2/task.md> ...
+# Copilot:
+python3 ~/.copilot/skills/lulu-dev-workflow/code/scripts/start.py \
   --project-root "$(pwd)" \
   --conversation-id "<current-conv-id>" \
   --mode task-from-work-order \
@@ -87,7 +95,14 @@ python3 ~/.cursor/skills/lulu-dev-workflow/code/scripts/start.py \
 
 Path A:
 ```bash
+# Cursor:
 python3 ~/.cursor/skills/lulu-dev-workflow/code/scripts/start.py \
+  --project-root "$(pwd)" \
+  --conversation-id "<current-conv-id>" \
+  --mode task-from-tech \
+  --tech-ref "<abs-path-to-tech-doc.md>"
+# Copilot:
+python3 ~/.copilot/skills/lulu-dev-workflow/code/scripts/start.py \
   --project-root "$(pwd)" \
   --conversation-id "<current-conv-id>" \
   --mode task-from-tech \
@@ -174,7 +189,7 @@ WriteTests → VerifyRed → WriteImpl → VerifyGreen → Refactor → Done
 
 ### General
 
-1. Read `.cursor/lulu-dev-workflow/workflow-config.json` → `code.test_command` for the test runner; use this command in Phase 2 / 4 / 5.
+1. Read `<platform-dir>/lulu-dev-workflow/workflow-config.json` → `code.test_command` for the test runner (`.cursor/` for Cursor, `.github/` for Copilot); use this command in Phase 2 / 4 / 5.
 2. Read `session-state.md` → `active_session: N` to determine current session round.
 3. `s{N}/workflow-state.md` is the authoritative state — write it to request a transition.
 4. Never infer state from file existence; always read `workflow-state.md`.

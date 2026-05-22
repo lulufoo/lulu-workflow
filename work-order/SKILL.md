@@ -12,7 +12,7 @@ disable-model-invocation: true
 Decompose a Delivered tech-doc into independently executable TDD units (task files). Each task is self-contained with acceptance criteria, function specs, constraints, context, and dependencies for direct use in TDD sessions.
 
 **Scope:** work-order workflow only. Input: Delivered tech-doc. Output: task file set.
-**Scripts location (after install):** `~/.cursor/skills/lulu-dev-workflow/work-order/scripts/`
+**Scripts location (after install):** Cursor: `~/.cursor/skills/lulu-dev-workflow/work-order/scripts/` | Copilot: `~/.copilot/skills/lulu-dev-workflow/work-order/scripts/`
 **This workflow runs in Agent mode with path guard.**
 
 ---
@@ -27,10 +27,12 @@ Decompose a Delivered tech-doc into independently executable TDD units (task fil
 **Step 1: Determine conversation ID**
 
 ```bash
+# Cursor:
 ls ~/.cursor/projects/*/agent-transcripts/ | tail -5
+# Copilot: conversation ID is the UUID in VSCODE_TARGET_SESSION_LOG template variable
 ```
 
-The most recent `.jsonl` filename (excluding `.jsonl`) is the current conversation ID.
+The most recent `.jsonl` filename (excluding `.jsonl`) is the current conversation ID (Cursor only).
 
 **Step 2: Confirm tech-ref path**
 
@@ -43,7 +45,13 @@ Ask the user for the absolute path to the Delivered `tech-doc.md`. Do not auto-d
 > `start.py` runs archive first: restores the current conv from `_archive/` if needed, then moves other **Delivered** convs to `_archive/<conv_id>/work-order/`. Non-terminal convs stay in the hot zone.
 
 ```bash
+# Cursor:
 python3 ~/.cursor/skills/lulu-dev-workflow/work-order/scripts/start.py \
+  --project-root "$(pwd)" \
+  --conversation-id "<uuid>" \
+  --tech-ref "<absolute-path-to-tech-doc.md>"
+# Copilot:
+python3 ~/.copilot/skills/lulu-dev-workflow/work-order/scripts/start.py \
   --project-root "$(pwd)" \
   --conversation-id "<uuid>" \
   --tech-ref "<absolute-path-to-tech-doc.md>"
@@ -108,7 +116,7 @@ Hook enforces all transition pre-conditions. Denial messages are self-explanator
 
 ### General
 
-1. Read `.cursor/lulu-dev-workflow/workflow-config.json` → `work_order` section before driving the workflow.
+1. Read `<platform-dir>/lulu-dev-workflow/workflow-config.json` → `work_order` section (`.cursor/` for Cursor, `.github/` for Copilot) before driving the workflow.
 2. Read `session-state.md` → `active_doc: N` to determine current work-order round.
 3. `r{N}/workflow-state.md` is the authoritative current state — write it to request a transition.
 4. Never infer state from document body or file existence; always read `workflow-state.md`.

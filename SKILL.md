@@ -31,7 +31,10 @@ under this directory.
 
 ```bash
 REPO="lulufoo/lulu-dev-skills"; REF="main"; SRC="lulu-dev-workflow"
+# Cursor:
 DST="$HOME/.cursor/skills/lulu-dev-workflow"
+# Copilot (uncomment, comment out Cursor line above):
+# DST="$HOME/.copilot/skills/lulu-dev-workflow"
 
 # pull_dir REMOTE_PATH LOCAL_PATH — downloads all files in a remote directory
 pull_dir() {
@@ -64,11 +67,14 @@ After install, run `lulu-dev-workflow init` in the target project.
 > Prerequisite: `install` has been run.
 
 ```bash
+# Cursor:
 python3 ~/.cursor/skills/lulu-dev-workflow/scripts/init.py --project-root "$(pwd)"
+# Copilot:
+python3 ~/.copilot/skills/lulu-dev-workflow/scripts/init.py --project-root "$(pwd)" --platform copilot
 ```
 
-Creates `.cursor/lulu-dev-workflow/workflow-config.json` and registers all sub-workflow
-hooks into `.cursor/hooks.json`.
+Creates `<platform-dir>/lulu-dev-workflow/workflow-config.json` and registers all sub-workflow
+hooks (`.cursor/hooks.json` for Cursor, `.github/hooks/hooks.json` for Copilot).
 
 `workflow-config.json` contains the following fields:
 
@@ -105,12 +111,17 @@ https://github.com/lulufoo/ai-software-dev/blob/main/lulu-dev-workflow-template/
 Parse the URL to extract `owner`, `repo`, `ref`, `path`, then run:
 
 ```bash
+# Cursor:
 gh api "repos/{owner}/{repo}/contents/{path}?ref={ref}" \
   --jq '.content' | base64 -d \
   > .cursor/lulu-dev-workflow/workflow-config.json
+# Copilot:
+gh api "repos/{owner}/{repo}/contents/{path}?ref={ref}" \
+  --jq '.content' | base64 -d \
+  > .github/lulu-dev-workflow/workflow-config.json
 ```
 
-After download, read and display the new `.cursor/lulu-dev-workflow/workflow-config.json` to confirm.
+After download, read and display the new config file to confirm.
 
 **Default template URL** (lulufoo standard config):
 ```
@@ -121,8 +132,8 @@ https://github.com/lulufoo/ai-software-dev/blob/main/lulu-dev-workflow-template/
 
 Each stage has its own `SKILL.md` with start commands.
 
-- **Decision diagnostic:** read `~/.cursor/skills/lulu-dev-workflow/diagnostic/SKILL.md`
-- **Product doc:** read `~/.cursor/skills/lulu-dev-workflow/product/SKILL.md`
-- **Tech design:** read `~/.cursor/skills/lulu-dev-workflow/tech/SKILL.md`
-- **Work order:** read `~/.cursor/skills/lulu-dev-workflow/work-order/SKILL.md`
-- **Code:** read `~/.cursor/skills/lulu-dev-workflow/code/SKILL.md`
+- **Decision diagnostic:** read `~/.cursor/skills/lulu-dev-workflow/diagnostic/SKILL.md` (Cursor) or `~/.copilot/skills/lulu-dev-workflow/diagnostic/SKILL.md` (Copilot)
+- **Product doc:** read `~/.cursor/skills/lulu-dev-workflow/product/SKILL.md` (Cursor) or `~/.copilot/skills/lulu-dev-workflow/product/SKILL.md` (Copilot)
+- **Tech design:** read `~/.cursor/skills/lulu-dev-workflow/tech/SKILL.md` (Cursor) or `~/.copilot/skills/lulu-dev-workflow/tech/SKILL.md` (Copilot)
+- **Work order:** read `~/.cursor/skills/lulu-dev-workflow/work-order/SKILL.md` (Cursor) or `~/.copilot/skills/lulu-dev-workflow/work-order/SKILL.md` (Copilot)
+- **Code:** read `~/.cursor/skills/lulu-dev-workflow/code/SKILL.md` (Cursor) or `~/.copilot/skills/lulu-dev-workflow/code/SKILL.md` (Copilot)

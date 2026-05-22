@@ -60,10 +60,12 @@ Two registers run throughout the entire session, not attached to any single gate
 **Step 1: Determine conversation ID**
 
 ```bash
+# Cursor:
 ls ~/.cursor/projects/*/agent-transcripts/ | tail -5
+# Copilot: conversation ID is the UUID in VSCODE_TARGET_SESSION_LOG template variable
 ```
 
-The most recent `.jsonl` filename (excluding `.jsonl`) is the current conversation ID.
+The most recent `.jsonl` filename (excluding `.jsonl`) is the current conversation ID (Cursor only).
 
 **Step 2: Confirm output path**
 
@@ -77,7 +79,12 @@ Decision-doc will be written to:
 > `start.py` runs archive first: restores the current conv from `_archive/` if needed, then moves other **Delivered** convs to `_archive/<conv_id>/diagnostic/`. Non-terminal convs stay in the hot zone.
 
 ```bash
+# Cursor:
 python3 ~/.cursor/skills/lulu-dev-workflow/diagnostic/scripts/start.py \
+  --project-root "$(pwd)" \
+  --conversation-id "<conv_id>"
+# Copilot:
+python3 ~/.copilot/skills/lulu-dev-workflow/diagnostic/scripts/start.py \
   --project-root "$(pwd)" \
   --conversation-id "<conv_id>"
 ```

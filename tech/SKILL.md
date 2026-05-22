@@ -17,7 +17,7 @@ Drive a tech document workflow with explicit per-session state files and a hook
 that gates state transitions.
 
 **Scope:** Tech document workflow only. Supports two run-modes: `product` (product-doc driven) and `tech` (pure tech, no product-doc).
-**Scripts location (after install):** `~/.cursor/skills/lulu-dev-workflow/tech/scripts/`
+**Scripts location (after install):** Cursor: `~/.cursor/skills/lulu-dev-workflow/tech/scripts/` | Copilot: `~/.copilot/skills/lulu-dev-workflow/tech/scripts/`
 **This workflow runs in Agent mode with path guard.**
 
 ---
@@ -32,10 +32,12 @@ that gates state transitions.
 **Step 1: Determine conversation ID**
 
 ```bash
+# Cursor:
 ls ~/.cursor/projects/*/agent-transcripts/ | tail -5
+# Copilot: conversation ID is the UUID in VSCODE_TARGET_SESSION_LOG template variable
 ```
 
-The most recent `.jsonl` filename (excluding `.jsonl`) is the current conversation ID.
+The most recent `.jsonl` filename (excluding `.jsonl`) is the current conversation ID (Cursor only).
 
 **Step 2: Determine run-mode**
 
@@ -55,7 +57,15 @@ Do not infer or auto-detect the path.
 > `start.py` runs archive first: restores the current conv from `_archive/` if needed, then moves other **Delivered** convs to `_archive/<conv_id>/tech/`. Non-terminal convs stay in the hot zone.
 
 ```bash
+# Cursor:
 python3 ~/.cursor/skills/lulu-dev-workflow/tech/scripts/start.py \
+  --project-root "$(pwd)" \
+  --conversation-id "<uuid>" \
+  --run-mode product|tech \
+  [--product-ref "<absolute-path-to-product-doc.md>"]  # required for product mode
+  [--carry-forward-ref "<absolute-path-to-previous-tech-doc.md>"]  # optional
+# Copilot:
+python3 ~/.copilot/skills/lulu-dev-workflow/tech/scripts/start.py \
   --project-root "$(pwd)" \
   --conversation-id "<uuid>" \
   --run-mode product|tech \
@@ -124,7 +134,7 @@ Skipping evaluation does **not** skip delivery confirmation: all paths still use
 
 ### General
 
-1. Read `.cursor/lulu-dev-workflow/workflow-config.json` → `tech` section before driving the workflow.
+1. Read `<platform-dir>/lulu-dev-workflow/workflow-config.json` → `tech` section (`.cursor/` for Cursor, `.github/` for Copilot) before driving the workflow.
 2. Read `session-state.md` → `active_doc: N` to determine current document round.
 3. `revision{N}/workflow-state.md` is the authoritative current state — write it to request a transition.
 4. Never infer state from document body or file existence; always read `workflow-state.md`.

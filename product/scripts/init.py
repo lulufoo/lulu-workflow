@@ -6,6 +6,7 @@ from pathlib import Path
 
 from workflow_common import (
     PLATFORM_CONFIG_PATH,
+    SKILL_ROOT,
     resolve_workflow_config_path,
     read_json,
     write_json,
@@ -69,6 +70,7 @@ def main() -> int:
     ensure_gitignore_entry(project_root)
 
     config_path_display = config_path.as_posix()
+    _start_py = str(SKILL_ROOT / "scripts" / "start.py").replace(str(Path.home()), "~")
     print(f"""
 初始化完成。
 
@@ -79,7 +81,7 @@ def main() -> int:
 1. 编辑 {config_path_display}，填写 product 配置 URL。
 2. 开始第一个产品文档，运行 start 命令：
 
-   python3 ~/.cursor/skills/lulu-dev-workflow/product/scripts/start.py \\
+   python3 {_start_py} \\
      --project-root "$(pwd)" --conversation-id "<your-conversation-id>"
 
 配置模板参考：

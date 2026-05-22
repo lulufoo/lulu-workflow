@@ -21,7 +21,7 @@ hook that gates state transitions.
 and ReadyForDelivery pre-conditions; it does not evaluate spec quality or parse
 the spec body.
 
-**Scripts location:** `~/.cursor/skills/lulu-dev-workflow/product/scripts/`
+**Scripts location:** Cursor: `~/.cursor/skills/lulu-dev-workflow/product/scripts/` | Copilot: `~/.copilot/skills/lulu-dev-workflow/product/scripts/`
 
 **This workflow runs in Agent mode with path guard.** All session files are
 Markdown. During an active session, writes are restricted to
@@ -42,7 +42,9 @@ The conversation ID is the UUID of the current chat session. Find it from the
 agent transcripts folder:
 
 ```bash
+# Cursor:
 ls ~/.cursor/projects/*/agent-transcripts/ | tail -5
+# Copilot: conversation ID is the UUID in VSCODE_TARGET_SESSION_LOG template variable
 ```
 
 The most recent `.jsonl` file (excluding the `.jsonl` extension) is the current
@@ -53,7 +55,12 @@ conversation ID.
 > `start.py` runs archive first: restores the current conv from `_archive/` if needed, then moves other **Delivered** convs to `_archive/<conv_id>/product/`. Non-terminal convs stay in the hot zone.
 
 ```bash
+# Cursor:
 python3 ~/.cursor/skills/lulu-dev-workflow/product/scripts/start.py \
+  --project-root "$(pwd)" \
+  --conversation-id "<uuid>"
+# Copilot:
+python3 ~/.copilot/skills/lulu-dev-workflow/product/scripts/start.py \
   --project-root "$(pwd)" \
   --conversation-id "<uuid>"
 ```
@@ -133,7 +140,7 @@ During Evaluating, revise `revision{N}/product-doc.md` in place; `evaluate{M}/` 
 
 ### General Rules
 
-**G1.** Read `.cursor/lulu-dev-workflow/workflow-config.json` before driving the workflow.
+**G1.** Read `<platform-dir>/lulu-dev-workflow/workflow-config.json` (`.cursor/` for Cursor, `.github/` for Copilot) before driving the workflow.
 
 **G2.** Session files live at `.cache/<platform>/lulu-dev-workflow/product/<conversation_id>/revision{N}/`.
 Read `session-state.md` to determine current `active_doc` (N).
