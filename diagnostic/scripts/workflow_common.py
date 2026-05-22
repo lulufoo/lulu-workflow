@@ -1,8 +1,8 @@
 from datetime import datetime, timezone
 from pathlib import Path
 
-WORKFLOW_DIR = Path(".cursor/lulu-dev-workflow")
-CACHE_DIR = Path(".cache/lulu-dev-workflow")
+_PLATFORM = __import__("os").environ.get("LULU_PLATFORM", "cursor")
+CACHE_DIR = Path(f".cache/{_PLATFORM}/lulu-dev-workflow")
 
 
 def diagnostic_hot_root() -> Path:
