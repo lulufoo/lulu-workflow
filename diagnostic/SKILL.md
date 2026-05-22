@@ -8,6 +8,8 @@ Run a Diagnostic Decision Framework (DDF) session. **Mandatory before starting /
 
 **This SKILL runs in Plan mode.**
 
+> 框架参考：[diagnostic-decision-framework.md](https://github.com/lulufoo/ai-thinking-framework/blob/main/diagnostic-decision-framework/diagnostic-decision-framework.md)
+
 ---
 
 <HARD-GATE>
@@ -25,16 +27,7 @@ and the most common source of wasted downstream work.
 
 ## Start
 
-**Step 1: [Optional] Load framework reference**
-
-Load when you need to reference gate details or pass criteria:
-
-```bash
-gh api "repos/lulufoo/ai-thinking-framework/contents/diagnostic-decision-framework/diagnostic-decision-framework.md?ref=main" \
-  --jq '.content' | base64 -d
-```
-
-**Step 2: Determine conversation ID**
+**Step 1: Determine conversation ID**
 
 ```bash
 ls ~/.cursor/projects/*/agent-transcripts/ | tail -5
@@ -42,14 +35,14 @@ ls ~/.cursor/projects/*/agent-transcripts/ | tail -5
 
 The most recent `.jsonl` filename (excluding `.jsonl`) is the current conversation ID.
 
-**Step 3: Confirm output path**
+**Step 2: Confirm output path**
 
 Decision-doc will be written to:
 ```
 .cache/lulu-dev-workflow/diagnostic/<conv_id>/decision-doc.md
 ```
 
-**Step 4: Run start.py**
+**Step 3: Run start.py**
 
 > `start.py` runs archive first: restores the current conv from `_archive/` if needed, then moves other **Delivered** convs to `_archive/<conv_id>/diagnostic/`. Non-terminal convs stay in the hot zone.
 
