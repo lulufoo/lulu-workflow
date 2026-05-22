@@ -8,7 +8,8 @@ SKILL_ROOT = Path.home() / ".cursor/skills/lulu-dev-workflow/product"
 WHITELIST_PATH = SKILL_ROOT / "transition-whitelist.json"
 
 WORKFLOW_DIR = Path(".cursor/lulu-dev-workflow")
-CACHE_DIR = Path(".cache/lulu-dev-workflow")
+_PLATFORM = __import__("os").environ.get("LULU_PLATFORM", "cursor")
+CACHE_DIR = Path(f".cache/{_PLATFORM}/lulu-dev-workflow")
 PLATFORM_CONFIG_PATH = WORKFLOW_DIR / "config.json"
 SHARED_CONFIG_DEFAULT = Path("skill-config/lulu-dev-workflow/workflow-config.json")
 HOOKS_JSON_PATH = Path(".cursor/hooks.json")
