@@ -41,7 +41,7 @@ def register_cursor_hook(project_root: Path) -> None:
         "timeout": 5,
         "failClosed": True,
     })
-    hooks["PreToolUse"] = pre_tool_use
+    hooks["preToolUse"] = pre_tool_use
     hooks_path.parent.mkdir(parents=True, exist_ok=True)
     with hooks_path.open("w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2, ensure_ascii=False)
