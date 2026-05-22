@@ -8,7 +8,7 @@ Run a Diagnostic Decision Framework (DDF) session. **Mandatory before starting /
 
 **This SKILL runs in Plan mode.**
 
-> 框架参考：[diagnostic-decision-framework.md](https://github.com/lulufoo/ai-thinking-framework/blob/main/diagnostic-decision-framework/diagnostic-decision-framework.md)
+> Framework reference: [diagnostic-decision-framework.md](https://github.com/lulufoo/ai-thinking-framework/blob/main/diagnostic-decision-framework/diagnostic-decision-framework.md)
 
 ---
 
@@ -22,6 +22,36 @@ This applies to EVERY intent, regardless of perceived clarity.
 "I already know what I want to build" is the most common reason to skip this —
 and the most common source of wasted downstream work.
 </HARD-GATE>
+
+---
+
+## Core Principles
+
+1. **Expose over conclude** — the goal is to surface assumptions and risks. A conclusion is the output of verification, not the target.
+2. **User prior over framework** — user's judgments, intuitions, and concerns shape the session; the framework captures and integrates them, does not override them.
+3. **Log assumptions immediately** — any assumption surfaced at any gate goes into the Assumption Log right away; R organizes, does not collect.
+4. **No-decision is a valid exit** — if inputs cannot be resolved, output "Unable to Decide"; do not force a direction.
+5. **No-decision requires justification** — state: directions explored (≥2), stuck gate and reason, unlock condition.
+
+---
+
+## Re-open & Invalidation
+
+Two global rules, applicable at any gate, any time:
+
+**Trigger**: Any participant (AI or user) can re-open a prior gate the moment new information shows its pass criterion no longer holds — without waiting for V.
+
+**Propagation**: When a gate is re-opened, all gates reachable from it along prerequisite dependency arrows are automatically invalidated and must be re-satisfied. Scope is determined by the DAG structure — no enumeration needed.
+
+---
+
+## Parallel Registers
+
+Two registers run throughout the entire session, not attached to any single gate:
+
+**User Prior Log** — captures user's existing judgments, preferences, concerns, and excluded options at any point in the session. Reviewed before entering D.
+
+**Assumption Log** — captures unverified premises at any point. Organized and risk-graded at R; not collected from scratch there.
 
 ---
 
@@ -74,7 +104,7 @@ Legacy directories (only `decision-doc.md`, no `session-state.md`) are **not** a
 
 ### Global Rules
 
-**G0. 用户先验捕获（全程）** — 任何门执行期间，若用户输出判断、倾向、顾虑或历史排除项，立即记入用户先验登记，简短确认后继续当前门，不打断流程。
+**G0. User prior capture (throughout)** — at any gate: if user states a judgment, preference, concern, or historically excluded option, capture it in the User Prior Log immediately, confirm briefly, then continue the current gate without interruption.
 
 **G1.** One question at a time — never stack multiple questions in a single message.
 
@@ -82,114 +112,114 @@ Legacy directories (only `decision-doc.md`, no `session-state.md`) are **not** a
 
 **G3.** Each gate has a pass criterion. Do not advance until the criterion is met.
 
-**G4. 重开与失效（全程）** — 任何门执行期间，若发现某个前序门的放行标准因新信息不再成立，立即重开该门——不等 V，任何参与者均可触发。被重开门的所有下游门（沿前置依赖方向）自动失效，需重新满足放行标准。
+**G4. Gate status tracking** — at key moments (session start, after a gate closes, after a re-open), report each gate's status: closed (✅) / open (⬜).
 
-**G5. 门状态追踪** — 在关键时刻（会话开始、门关闭后、发生重开后），报告各门状态：已放行（✅）/ 未放行（⬜）。
-
-**G6.** Upstream input error — if the intent input itself has a fundamental error, exit the loop; tell the user to fix the input and restart.
+**G5.** Upstream input error — if the intent input itself has a fundamental error, exit the loop; tell the user to fix the input and restart.
 
 ---
 
 ### Gate Rules
 
-#### Open channel（Q 之前）
+#### Open channel (before Q)
 
-进入 Q 之前，先做一次用户先验倾倒：
+Before entering Q, invite the user to dump existing knowledge:
 
-> 「在开始之前，告诉我你对这个问题已有的想法——方向倾向、顾虑或曾经排除过的选项。不需要完整，对话过程中随时可以补充。」
+> "Before we begin — tell me what you already know about this problem: direction preferences, concerns, or options you've already ruled out. It doesn't need to be complete; you can add more at any point."
 
-用户输入记入用户先验登记。此步骤不是 Q 的一部分，不占 Q 的问题配额。
+Capture input in User Prior Log. This step is not part of Q and does not count toward Q's question quota.
 
 ---
 
-#### Q — 问题澄清
+#### Q — Problem Clarification
 
-**前置：无**
+**Prerequisites:** None
 
 **Execute:**
-1. Ask: "触发这次决策的问题是什么？"
-2. Ask: "已知的、不可更改的限制有哪些？"
-3. Confirm understanding: restate the problem and constraints in one sentence; ask if correct.
+1. Ask: "What triggered this decision? What problem are we solving?"
+2. Ask: "What are the known, non-negotiable constraints?"
+   — Constraints are facts, not decisions. Do not attempt to challenge or negotiate them away.
+3. Confirm understanding: restate problem and constraints in one sentence; ask if correct.
 
 **Pass criterion:** Problem statement is clear and agreed upon; constraints enumerated.
 
 ---
 
-#### E — 方向探索
+#### E — Direction Exploration
 
-**前置：Q 放行**
+**Prerequisites:** Q closed
 
 **Execute:**
 1. Propose exactly **2–3 directions** — no more, no fewer.
-2. Lead with your recommended option and explain why.
-3. For each direction: state core approach, pros, cons. Include already-excluded directions with reasons.
-4. Ask user to choose or propose an alternative.
+2. Lead with the recommended option and explain why.
+3. For each direction: state core approach, pros, cons.
+4. List already-excluded directions with reasons — this prevents re-litigating ruled-out paths later.
+5. Ask user to choose or propose an alternative.
 
 **Pass criterion:** ≥2 directions evaluated with explicit pros/cons; user has chosen or indicated preference.
 
 ---
 
-#### D — 选择与边界
+#### D — Decision & Scope
 
-**前置：E 放行 · 用户先验已审查**
+**Prerequisites:** E closed · User Prior reviewed
 
-**进入前：** 回顾用户先验登记，确认选定方向反映了用户带入的判断与顾虑。如有矛盾或未回应的顾虑，在选型结论中显式处理。
+**Before entering:** Review User Prior Log. Confirm the selected direction reflects the user's stated judgments and concerns. If there is a conflict or unaddressed concern, address it explicitly in Decision Rationale.
 
 **Execute:**
-1. **选型结论:** State which option was chosen and why, referencing E's trade-offs. State why the others were excluded.
-2. **作用范围:** State what this decision covers. Then state explicit exclusions — what it does NOT cover.
+1. **Decision Rationale:** state which option was chosen and why, referencing E trade-offs; state why others were excluded.
+2. **Scope:** state what this decision covers; then state explicit exclusions — what it does NOT cover.
 
-**Pass criterion:** Both sub-dimensions filled; exclusions are explicit (not just "we cover X"); selection rationale references E trade-offs.
+**Pass criterion:** Both sub-dimensions filled; exclusions are explicit (not just "we cover X"); rationale references E trade-offs.
 
 ---
 
-#### X — 全面诊断
+#### X — Full Diagnosis
 
-**前置：D 放行**
+**Prerequisites:** D closed
 
 **Execute one dimension, one question at a time:**
 
-| # | Dimension | Core question |
-|---|-----------|---------------|
-| 1 | 验收标准 | 怎么知道做对了？用什么可观测的指标衡量？ |
-| 2 | 影响面 | 这个决策会波及哪些地方？有没有系统外的受影响方？ |
-| 3 | 外部依赖 | 需要和谁建立协作契约？契约内容是什么？权威来源在哪里？ |
-| 4 | 实施代价 | 需要投入多少时间、人力、资源？有没有隐性成本？ |
-| 5 | 结果预期 | 按这个方向实施，最终产出是什么水平？能达到验收标准吗？ |
+| # | Dimension | Core question | Pass criterion |
+|---|-----------|---------------|----------------|
+| 1 | Acceptance Criteria | How do we know it's done? What observable, verifiable indicators? | Criteria are observable and verifiable — not subjective feelings |
+| 2 | Impact Surface | What does this decision affect? Any outside-system parties? | Impact domains enumerated, including external |
+| 3 | External Dependencies | Who owns parts this depends on? What's the contract? Where is the authoritative source? How are changes confirmed? | Each dependency has contract + authoritative source + confirmation mechanism; unclear contracts → Assumption Log |
+| 4 | Implementation Cost | Time, people, resources needed? Any hidden costs? | Initial estimate with sourced rationale; no guesses |
+| 5 | Expected Outcome | What does implementation produce? Does it meet Acceptance Criteria? | Outcome aligned with criteria; gaps identified and transferred to Assumption Log |
 
-**Pass criterion:**
-- All 5 dimensions answered.
-- Assumptions discovered here: immediately add to 假设流水账 (do not defer to R).
-- External dependencies with unclear contracts: add to 假设流水账 as assumptions.
-- If 结果预期 falls short of 验收标准: flag the gap explicitly; apply G4 (re-open E or D as appropriate). Do not force-pass.
+**Additional pass criteria:**
+- Assumptions discovered here: immediately add to Assumption Log (do not defer to R).
+- If Expected Outcome falls short of Acceptance Criteria: flag the gap explicitly; apply Re-open & Invalidation (re-open E or D as appropriate). Do not force-pass.
 
 ---
 
-#### R — 暴露赌注
+#### R — Expose the Bets
 
-**前置：D 放行**（X 与 R 并行，无先后约束）
+**Prerequisites:** D closed (X and R are parallel — no ordering constraint between them)
 
 **Execute:**
-1. Review 假设流水账 — do not collect from scratch. Confirm coverage is complete against D, X, and conversation history.
-2. For each assumption: assign risk level (高/中/低) and describe the consequence if it fails.
+1. Review Assumption Log — do not collect from scratch. Confirm coverage is complete against D, X, and conversation history.
+2. For each assumption: assign risk level and describe the consequence if it fails.
 
 Risk levels:
-- **高:** Assumption failure makes the solution unviable — requires re-decision
-- **中:** Assumption failure causes significant rework, but solution can be adjusted
-- **低:** Assumption failure has limited impact, absorbable during execution
+- **High:** failure makes the solution unviable — requires re-decision
+- **Medium:** failure causes significant rework, but solution can be adjusted
+- **Low:** failure has limited impact, absorbable during execution
 
-**Pass criterion:** All assumptions have a risk level and consequence description; no gaps found in coverage review.
+**Pass criterion:** All assumptions have a risk level and consequence description; coverage review complete with no gaps.
 
 ---
 
-#### V — 验证
+#### V — Verification
 
-**前置：X 放行 · R 放行**
+**Prerequisites:** X closed · R closed
+
+V has two distinct duties: (1) confirm that verification actions are in place for all high-risk assumptions; (2) aggregate the global diagnosis result and decide the exit.
 
 **Execute:**
-1. For each **高**-risk assumption: define verification action, owner, timing.
-2. For each **中/低**-risk assumption: explicitly acknowledge (no verification required).
-3. If any prior gate's pass criterion is no longer satisfied, apply G4.
+1. For each **High**-risk assumption: define verification action, owner, timing.
+2. For each **Medium/Low**-risk assumption: explicitly acknowledge (no verification required).
+3. If any prior gate's pass criterion is no longer satisfied, apply Re-open & Invalidation.
 4. Assess overall exit condition.
 
 **Exit:**
@@ -197,16 +227,16 @@ Risk levels:
 | Condition | Action |
 |-----------|--------|
 | All gates pass | Write decision-doc → proceed to Delivery |
-| Prior gate pass criterion no longer holds | Apply G4: re-open that gate |
-| Information insufficient to decide | Output 无法决策 with justification (see below) |
-| Intent input has fundamental error | Apply G6: exit loop, tell user to fix and restart |
+| Prior gate pass criterion no longer holds | Apply Re-open & Invalidation: re-open that gate |
+| Information insufficient to decide | Output "Unable to Decide" with justification (see below) |
+| Intent input has fundamental error | Apply G5: exit loop, tell user to fix and restart |
 
-**无法决策 justification must include:**
+**"Unable to Decide" justification must include:**
 - Directions already explored (≥2)
 - Which gate is stuck and why
 - What information or condition would unlock it
 
-**Pass criterion:** All 高-risk assumptions have an executable verification action; 中/低-risk assumptions are explicitly acknowledged.
+**Pass criterion:** All High-risk assumptions have an executable verification action; Medium/Low-risk assumptions are explicitly acknowledged.
 
 ---
 
@@ -222,93 +252,93 @@ Write to `.cache/lulu-dev-workflow/diagnostic/<conv_id>/decision-doc.md`:
 
 ---
 
-## 用户先验
+## User Prior
 
 {key judgments, preferences, concerns, and excluded options stated by the user during the session}
 
 ---
 
-## 问题域
+## Problem Definition
 
 {problem statement}
 
-**已知约束：** {non-negotiable constraints}
+**Known Constraints:** {non-negotiable constraints}
 
 ---
 
-## 方案对比
+## Direction Comparison
 
-| 方案 | 核心思路 | 优势 | 劣势 |
-|------|---------|------|------|
-| 方案 A | | | |
-| 方案 B | | | |
+| Direction | Core Approach | Pros | Cons |
+|-----------|--------------|------|------|
+| Option A | | | |
+| Option B | | | |
 
-**已排除方案：**
+**Excluded Directions:**
 
-| 方案 | 排除理由 |
-|------|---------|
+| Direction | Reason for Exclusion |
+|-----------|---------------------|
 | | |
 
 ---
 
-## 选型结论
+## Decision Rationale
 
-选择 **[方案]**，因为 {rationale referencing E trade-offs}。
-排除 **[方案]**，因为 {rationale}。
-
----
-
-## 作用范围
-
-**适用范围：** {what this decision covers}
-**显式排除：** {what this decision explicitly does not cover}
+Chose **[option]** because {rationale referencing direction comparison trade-offs}.
+Excluded **[option]** because {rationale}.
 
 ---
 
-## 验收标准
+## Scope
+
+**Applies to:** {what this decision covers}
+**Explicitly excludes:** {what this decision does not cover}
+
+---
+
+## Acceptance Criteria
 
 {observable, verifiable success criteria}
 
 ---
 
-## 影响面
+## Impact Surface
 
 {affected domains, including outside the system}
 
 ---
 
-## 外部依赖
+## External Dependencies
 
-| 依赖方 | 契约内容 | 权威来源 | 确认机制 |
-|-------|---------|---------|---------|
+| Dependency | Contract | Authoritative Source | Confirmation Mechanism |
+|------------|----------|---------------------|------------------------|
 | | | | |
 
 ---
 
-## 实施代价
+## Implementation Cost
 
 {time / people / resource estimate with rationale}
 
 ---
 
-## 结果预期
+## Expected Outcome
 
-{expected output quality and level; comparison to 验收标准}
-
----
-
-## 假设与风险
-
-| # | 假设内容 | 来源 | 风险等级 | 失效后果 |
-|---|---------|------|---------|---------|
-| A1 | | | 高/中/低 | |
+{expected output quality and level; alignment with Acceptance Criteria}
 
 ---
 
-## 验证项
+## Assumptions & Risks
 
-| # | 对应假设 | 验证方式 | 负责人/时机 |
-|---|---------|---------|-----------|
+| # | Assumption | Source | Risk Level | Failure Consequence |
+|---|-----------|--------|------------|---------------------|
+| A1 | | | High/Medium/Low | |
+
+---
+
+## Verification Items
+
+| # | Assumption | Verification Method | Owner / Timing |
+|---|-----------|---------------------|----------------|
 | V1 | A{n} | | |
 ```
 
@@ -318,9 +348,9 @@ Write to `.cache/lulu-dev-workflow/diagnostic/<conv_id>/decision-doc.md`:
 
 Before presenting to user, scan the written decision-doc for:
 
-1. **Completeness:** all sections filled; no empty cells in tables; 用户先验 captured
-2. **Consistency:** 选型结论 references E trade-offs; 验证项 maps to 高-risk assumptions
-3. **Gap check:** if 结果预期 < 验收标准, the gap is documented (not silently dropped)
+1. **Completeness:** all sections filled; no empty cells in tables; User Prior captured
+2. **Consistency:** Decision Rationale references E trade-offs; Verification Items map to High-risk assumptions
+3. **Gap check:** if Expected Outcome < Acceptance Criteria, the gap is documented (not silently dropped)
 
 Fix inline. No separate review round needed.
 
