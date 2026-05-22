@@ -69,7 +69,7 @@ The most recent `.jsonl` filename (excluding `.jsonl`) is the current conversati
 
 Decision-doc will be written to:
 ```
-.cache/lulu-dev-workflow/diagnostic/<conv_id>/decision-doc.md
+.cache/<platform>/lulu-dev-workflow/diagnostic/<conv_id>/decision-doc.md
 ```
 
 **Step 3: Run start.py**
@@ -89,11 +89,11 @@ Creates `session-state.md` with `current_state: InProgress`.
 **Hot / cold layout:**
 
 ```
-.cache/lulu-dev-workflow/diagnostic/<conv_id>/     ← hot zone
+.cache/<platform>/lulu-dev-workflow/diagnostic/<conv_id>/     ← hot zone
   session-state.md          ← current_state: InProgress | Delivered
   decision-doc.md
 
-.cache/lulu-dev-workflow/_archive/<conv_id>/diagnostic/   ← cold zone (whole conv)
+.cache/<platform>/lulu-dev-workflow/_archive/<conv_id>/diagnostic/   ← cold zone (whole conv)
 ```
 
 Legacy directories (only `decision-doc.md`, no `session-state.md`) are **not** auto-archived — add `session-state.md` manually or leave in hot zone.
@@ -242,7 +242,7 @@ V has two distinct duties: (1) confirm that verification actions are in place fo
 
 ## Decision-Doc Format
 
-Write to `.cache/lulu-dev-workflow/diagnostic/<conv_id>/decision-doc.md`:
+Write to `.cache/<platform>/lulu-dev-workflow/diagnostic/<conv_id>/decision-doc.md`:
 
 ```markdown
 # Decision: {title}

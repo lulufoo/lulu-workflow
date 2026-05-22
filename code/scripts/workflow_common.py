@@ -20,7 +20,10 @@ SKILL_ROOT = Path(__file__).resolve().parents[1]  # .../tdd
 WHITELIST_PATH = SKILL_ROOT / "transition-whitelist.json"
 
 WORKFLOW_DIR = Path(".cursor/lulu-dev-workflow")
-_PLATFORM = __import__("os").environ.get("LULU_PLATFORM", "cursor")
+_PLATFORM = (
+    __import__("os").environ.get("LULU_PLATFORM")
+    or ("copilot" if __import__("os").environ.get("COPILOT_AGENT") else "cursor")
+)
 CACHE_DIR = Path(f".cache/{_PLATFORM}/lulu-dev-workflow")
 PLATFORM_CONFIG_PATH = WORKFLOW_DIR / "config.json"
 SHARED_CONFIG_DEFAULT = Path("skill-config/lulu-dev-workflow/workflow-config.json")

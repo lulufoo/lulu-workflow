@@ -54,7 +54,7 @@ python3 ~/.cursor/skills/lulu-dev-workflow/work-order/scripts/start.py \
 ## Session File Structure
 
 ```
-.cache/lulu-dev-workflow/work-order/<conv_id>/
+.cache/<platform>/lulu-dev-workflow/work-order/<conv_id>/
   session-state.md               ← active_doc: N (monotonically increasing)
 
   r{N}/                          ← Nth work order
@@ -77,7 +77,7 @@ python3 ~/.cursor/skills/lulu-dev-workflow/work-order/scripts/start.py \
 **Cold zone** (Delivered convs archived on next `/work-order` start):
 
 ```
-.cache/lulu-dev-workflow/_archive/<conv_id>/work-order/
+.cache/<platform>/lulu-dev-workflow/_archive/<conv_id>/work-order/
   session-state.md
   r1/ … r{N}/
 ```
@@ -85,7 +85,7 @@ python3 ~/.cursor/skills/lulu-dev-workflow/work-order/scripts/start.py \
 - Only the **active** `r{N}/workflow-state.md` with `current_state: Delivered` triggers archive (whole conv).
 - The current conversation conv is never archived; cold-only convs are restored before the next round.
 
-Historical work orders: `.cache/lulu-dev-workflow/_archive/<conv_id>/work-order/r{N}/`
+Historical work orders: `.cache/<platform>/lulu-dev-workflow/_archive/<conv_id>/work-order/r{N}/`
 
 ---
 
@@ -113,7 +113,7 @@ Hook enforces all transition pre-conditions. Denial messages are self-explanator
 3. `r{N}/workflow-state.md` is the authoritative current state — write it to request a transition.
 4. Never infer state from document body or file existence; always read `workflow-state.md`.
 5. Use full `Write` (not `Edit`) for `workflow-state.md` and `evaluate-state.md`.
-6. This workflow runs in Agent mode. Writes outside `.cache/lulu-dev-workflow/`
+6. This workflow runs in Agent mode. Writes outside `.cache/<platform>/lulu-dev-workflow/`
    are blocked by the path guard hook while a session is active.
 
 ### Drafting Rules
@@ -272,7 +272,7 @@ version: 1
 workflow: work-order
 current_state: Drafting
 evaluate_round: 0
-tech_ref: /abs/path/.cache/lulu-dev-workflow/tech/<conv_id>/r1/tech-doc.md
+tech_ref: /abs/path/.cache/<platform>/lulu-dev-workflow/tech/<conv_id>/r1/tech-doc.md
 updated_at: 2026-05-17T09:00:00+08:00
 ---
 ```

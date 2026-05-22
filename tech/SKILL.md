@@ -11,7 +11,7 @@ disable-model-invocation: true
 
 > **Prerequisite:** Run `diagnostic` SKILL before starting this workflow.
 > The decision-doc produced by diagnostic is the required input context.
-> Path: `.cache/lulu-dev-workflow/diagnostic/<conv_id>/decision-doc.md`
+> Path: `.cache/<platform>/lulu-dev-workflow/diagnostic/<conv_id>/decision-doc.md`
 
 Drive a tech document workflow with explicit per-session state files and a hook
 that gates state transitions.
@@ -71,7 +71,7 @@ tech flow to use a previous tech-doc as the draft starting point.
 ## Session File Structure
 
 ```
-.cache/lulu-dev-workflow/tech-doc/<conv_id>/
+.cache/<platform>/lulu-dev-workflow/tech-doc/<conv_id>/
   session-state.md               ← active_doc: N (monotonically increasing)
 
   revision{N}/                          ← Nth tech doc
@@ -89,7 +89,7 @@ tech flow to use a previous tech-doc as the draft starting point.
 **Cold zone** (Delivered convs archived on next `/tech` start):
 
 ```
-.cache/lulu-dev-workflow/_archive/<conv_id>/tech/
+.cache/<platform>/lulu-dev-workflow/_archive/<conv_id>/tech/
   session-state.md
   revision1/ … revision{N}/
 ```
@@ -97,7 +97,7 @@ tech flow to use a previous tech-doc as the draft starting point.
 - Only the **active** `revision{N}/workflow-state.md` with `current_state: Delivered` triggers archive (whole conv).
 - The current conversation conv is never archived; cold-only convs are restored before the next revision.
 
-Historical tech docs: `.cache/lulu-dev-workflow/_archive/<conv_id>/tech/revision{N}/`
+Historical tech docs: `.cache/<platform>/lulu-dev-workflow/_archive/<conv_id>/tech/revision{N}/`
 
 ---
 
@@ -129,7 +129,7 @@ Skipping evaluation does **not** skip delivery confirmation: all paths still use
 3. `revision{N}/workflow-state.md` is the authoritative current state — write it to request a transition.
 4. Never infer state from document body or file existence; always read `workflow-state.md`.
 5. Use full `Write` (not `Edit`) for `workflow-state.md` and `evaluate-state.md`.
-6. This workflow runs in Agent mode. Writes outside `.cache/lulu-dev-workflow/`
+6. This workflow runs in Agent mode. Writes outside `.cache/<platform>/lulu-dev-workflow/`
    are blocked by the path guard hook while a session is active.
 
 ### Drafting Rules
@@ -255,7 +255,7 @@ mode: product
 current_state: Drafting
 evaluate_round: 0
 skip_evaluate_requested: false
-product_ref: /abs/path/.cache/lulu-dev-workflow/product/<conv_id>/revision1/product-doc.md
+product_ref: /abs/path/.cache/<platform>/lulu-dev-workflow/product/<conv_id>/revision1/product-doc.md
 carry_forward_ref: ""
 updated_at: 2026-05-17T09:00:00+08:00
 ---

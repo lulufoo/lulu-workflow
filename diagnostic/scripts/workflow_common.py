@@ -1,7 +1,10 @@
 from datetime import datetime, timezone
 from pathlib import Path
 
-_PLATFORM = __import__("os").environ.get("LULU_PLATFORM", "cursor")
+_PLATFORM = (
+    __import__("os").environ.get("LULU_PLATFORM")
+    or ("copilot" if __import__("os").environ.get("COPILOT_AGENT") else "cursor")
+)
 CACHE_DIR = Path(f".cache/{_PLATFORM}/lulu-dev-workflow")
 
 

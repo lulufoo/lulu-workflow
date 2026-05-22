@@ -52,7 +52,7 @@ Prerequisite: upstream must be in Delivered state.
 
 Path B:
 ```bash
-cat <project-root>/.cache/lulu-dev-workflow/work-order/<work-order-conv-id>/*/workflow-state.md
+cat <project-root>/.cache/<platform>/lulu-dev-workflow/work-order/<work-order-conv-id>/*/workflow-state.md
 ```
 - `current_state` is not `Delivered` → error: "work-order `<id>` not yet delivered (current state: `<state>`). Cannot start code workflow." Stop.
 - Path does not exist → error: "work-order `<id>` not found. Please verify the ID." Stop.
@@ -65,8 +65,8 @@ Path A:
 
 Path B:
 ```bash
-<project-root>/.cache/lulu-dev-workflow/work-order/<id>/<revision>/task-list.md
-<project-root>/.cache/lulu-dev-workflow/work-order/<id>/<revision>/tasks/*/task.md
+<project-root>/.cache/<platform>/lulu-dev-workflow/work-order/<id>/<revision>/task-list.md
+<project-root>/.cache/<platform>/lulu-dev-workflow/work-order/<id>/<revision>/tasks/*/task.md
 ```
 
 Path A: use `<tech-doc-path>` directly.
@@ -105,7 +105,7 @@ python3 ~/.cursor/skills/lulu-dev-workflow/code/scripts/start.py \
 **Hot zone** (active / in-progress convs):
 
 ```
-.cache/lulu-dev-workflow/code/<conv_id>/
+.cache/<platform>/lulu-dev-workflow/code/<conv_id>/
   session-state.md              ← active_session: N (monotonically increasing)
 
   s{N}/                         ← Nth code session
@@ -123,7 +123,7 @@ python3 ~/.cursor/skills/lulu-dev-workflow/code/scripts/start.py \
 **Cold zone** (Completed convs archived on next `/code` start):
 
 ```
-.cache/lulu-dev-workflow/_archive/<conv_id>/code/
+.cache/<platform>/lulu-dev-workflow/_archive/<conv_id>/code/
   session-state.md              ← same layout as hot zone
   s1/ … s{N}/
 ```
@@ -134,7 +134,7 @@ Archive rules (handled by `archive.py` via `start.py`):
 - Convs with `current_state: Executing` remain in the hot zone (safe for multi-window).
 - The current conversation conv is never archived; if it exists only in cold storage, `start.py` restores it before creating the next session round.
 
-To read historical sessions: `.cache/lulu-dev-workflow/_archive/<conv_id>/code/s{N}/`
+To read historical sessions: `.cache/<platform>/lulu-dev-workflow/_archive/<conv_id>/code/s{N}/`
 
 ---
 
@@ -268,7 +268,7 @@ version: 1
 workflow: code
 current_state: Executing
 mode: task-from-work-order
-task_list_ref: /abs/path/.cache/lulu-dev-workflow/code/<conv_id>/s1/code-task-list.md
+task_list_ref: /abs/path/.cache/<platform>/lulu-dev-workflow/code/<conv_id>/s1/code-task-list.md
 current_task: t2
 current_phase: WriteImpl
 updated_at: 2026-05-17T09:00:00+08:00
@@ -282,7 +282,7 @@ updated_at: 2026-05-17T09:00:00+08:00
 ```markdown
 ---
 source: work-order
-task_list_ref: /abs/path/.cache/lulu-dev-workflow/work-order/<conv_id>/r1/task-list.md
+task_list_ref: /abs/path/.cache/<platform>/lulu-dev-workflow/work-order/<conv_id>/r1/task-list.md
 total: 5
 done: 1
 ---
