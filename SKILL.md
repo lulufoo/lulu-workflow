@@ -33,7 +33,7 @@ under this directory.
 |---|---|---|
 | `$SKILL_DIR` | `~/.cursor/skills/lulu-dev-workflow` | `~/.copilot/skills/lulu-dev-workflow` |
 | `$WORKFLOW_DIR` | `.cursor/lulu-dev-workflow` | `.github/lulu-dev-workflow` |
-| `$PLATFORM_FLAG` | | `--platform copilot` |
+| `$PLATFORM_FLAG` | `--platform cursor` | `--platform copilot` |
 
 > **Detect:** `COPILOT_AGENT=1` env var → Copilot; `VSCODE_TARGET_SESSION_LOG` template variable present → Copilot; otherwise → Cursor.
 
