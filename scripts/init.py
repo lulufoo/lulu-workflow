@@ -41,7 +41,7 @@ def register_cursor_hook(project_root: Path) -> None:
         "timeout": 5,
         "failClosed": True,
     })
-    hooks["preToolUse"] = pre_tool_use
+    hooks["PreToolUse"] = pre_tool_use
     hooks_path.parent.mkdir(parents=True, exist_ok=True)
     with hooks_path.open("w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2, ensure_ascii=False)
@@ -55,13 +55,14 @@ def register_copilot_hook(project_root: Path) -> None:
         with hooks_path.open(encoding="utf-8") as f:
             payload = json.load(f)
     hooks = payload.setdefault("hooks", {})
-    pre_tool_use = hooks.get("preToolUse", [])
+    # Copilot uses PascalCase hook names
+    pre_tool_use = hooks.get("PreToolUse", [])
     pre_tool_use = [
         e for e in pre_tool_use
         if "lulu-dev-workflow" not in e.get("command", "")
     ]
-    pre_tool_use.append({"command": _COPILOT_HOOK_COMMAND})
-    hooks["preToolUse"] = pre_tool_use
+    pre_tool_use.append({"type": "command", "command": _COPILOT_HOOK_COMMAND, "timeout": 5})
+    hooks["PreToolUse"] = pre_tool_use
     # Ensure Stop hook is preserved (do not overwrite unrelated entries)
     hooks_path.parent.mkdir(parents=True, exist_ok=True)
     with hooks_path.open("w", encoding="utf-8") as f:
