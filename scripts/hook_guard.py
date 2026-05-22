@@ -2,6 +2,7 @@
 """Unified preToolUse entry point. Dispatches to all stage hook_guard scripts."""
 
 import argparse
+import os
 import importlib.util
 import io
 import json
@@ -60,6 +61,9 @@ def main() -> int:
     except json.JSONDecodeError:
         print(json.dumps({"permission": "allow"}))
         return 0
+
+    # Propagate platform to stage workflow_common.py via env var
+    os.environ["LULU_PLATFORM"] = args.platform
 
     # Normalize payload to Cursor format
     platform_mod = _load_platform(args.platform)
