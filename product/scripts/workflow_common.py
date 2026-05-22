@@ -4,19 +4,36 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-SKILL_ROOT = Path.home() / ".cursor/skills/lulu-dev-workflow/product"
-WHITELIST_PATH = SKILL_ROOT / "transition-whitelist.json"
-
-WORKFLOW_DIR = Path(".cursor/lulu-dev-workflow")
 _PLATFORM = (
     __import__("os").environ.get("LULU_PLATFORM")
     or ("copilot" if __import__("os").environ.get("COPILOT_AGENT") else "cursor")
 )
+
+_SKILL_ROOT_MAP = {
+    "cursor":  Path.home() / ".cursor/skills/lulu-dev-workflow/product",
+    "copilot": Path.home() / ".copilot/skills/lulu-dev-workflow/product",
+}
+_WORKFLOW_DIR_MAP = {
+    "cursor":  Path(".cursor/lulu-dev-workflow"),
+    "copilot": Path(".github/lulu-dev-workflow"),
+}
+_HOOKS_JSON_MAP = {
+    "cursor":  Path(".cursor/hooks.json"),
+    "copilot": Path(".github/hooks/hooks.json"),
+}
+_HOOK_COMMAND_MAP = {
+    "cursor":  "python3 ~/.cursor/skills/lulu-dev-workflow/product/scripts/hook_guard.py",
+    "copilot": "python3 ~/.copilot/skills/lulu-dev-workflow/product/scripts/hook_guard.py",
+}
+
+SKILL_ROOT = _SKILL_ROOT_MAP.get(_PLATFORM, _SKILL_ROOT_MAP["cursor"])
+WHITELIST_PATH = SKILL_ROOT / "transition-whitelist.json"
+WORKFLOW_DIR = _WORKFLOW_DIR_MAP.get(_PLATFORM, _WORKFLOW_DIR_MAP["cursor"])
 CACHE_DIR = Path(f".cache/{_PLATFORM}/lulu-dev-workflow")
 PLATFORM_CONFIG_PATH = WORKFLOW_DIR / "config.json"
 SHARED_CONFIG_DEFAULT = Path("skill-config/lulu-dev-workflow/workflow-config.json")
-HOOKS_JSON_PATH = Path(".cursor/hooks.json")
-HOOK_COMMAND = "python3 ~/.cursor/skills/lulu-dev-workflow/product/scripts/hook_guard.py"
+HOOKS_JSON_PATH = _HOOKS_JSON_MAP.get(_PLATFORM, _HOOKS_JSON_MAP["cursor"])
+HOOK_COMMAND = _HOOK_COMMAND_MAP.get(_PLATFORM, _HOOK_COMMAND_MAP["cursor"])
 
 
 # ---------------------------------------------------------------------------

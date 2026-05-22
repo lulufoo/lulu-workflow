@@ -7,15 +7,24 @@ from typing import Any, Dict, Optional
 SKILL_ROOT = Path(__file__).resolve().parents[1]  # .../work-order
 WHITELIST_PATH = SKILL_ROOT / "transition-whitelist.json"
 
-WORKFLOW_DIR = Path(".cursor/lulu-dev-workflow")
 _PLATFORM = (
     __import__("os").environ.get("LULU_PLATFORM")
     or ("copilot" if __import__("os").environ.get("COPILOT_AGENT") else "cursor")
 )
+_WORKFLOW_DIR_MAP = {
+    "cursor":  Path(".cursor/lulu-dev-workflow"),
+    "copilot": Path(".github/lulu-dev-workflow"),
+}
+_HOOKS_JSON_MAP = {
+    "cursor":  Path(".cursor/hooks.json"),
+    "copilot": Path(".github/hooks/hooks.json"),
+}
+
+WORKFLOW_DIR = _WORKFLOW_DIR_MAP.get(_PLATFORM, _WORKFLOW_DIR_MAP["cursor"])
 CACHE_DIR = Path(f".cache/{_PLATFORM}/lulu-dev-workflow")
 PLATFORM_CONFIG_PATH = WORKFLOW_DIR / "config.json"
 SHARED_CONFIG_DEFAULT = Path("skill-config/lulu-dev-workflow/workflow-config.json")
-HOOKS_JSON_PATH = Path(".cursor/hooks.json")
+HOOKS_JSON_PATH = _HOOKS_JSON_MAP.get(_PLATFORM, _HOOKS_JSON_MAP["cursor"])
 
 _SCRIPTS_DIR = Path(__file__).resolve().parent
 HOOK_COMMAND = f"python3 {_SCRIPTS_DIR / 'hook_guard.py'}"

@@ -9,6 +9,7 @@ import argparse
 import json
 import subprocess
 import sys
+import os
 from pathlib import Path
 
 SKILL_ROOT = Path(__file__).resolve().parents[1]
@@ -105,6 +106,7 @@ def main() -> int:
         print(f"\n[lulu-dev-workflow init] Running {sub} init...")
         result = subprocess.run(
             [sys.executable, str(init_py), "--project-root", args.project_root],
+            env={**os.environ, "LULU_PLATFORM": args.platform},
             check=False,
         )
         if result.returncode != 0:
