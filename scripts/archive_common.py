@@ -10,7 +10,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import FrozenSet, List, Optional, Tuple
 
-CACHE_DIR = Path(".cache/lulu-dev-workflow")
+_PLATFORM = __import__("os").environ.get("LULU_PLATFORM", "cursor")
+CACHE_DIR = Path(f".cache/{_PLATFORM}/lulu-dev-workflow")
 
 _CONV_ID_RE = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
