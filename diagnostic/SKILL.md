@@ -12,7 +12,7 @@ Run a Diagnostic Decision Framework (DDF) session. **Mandatory before starting /
 
 <HARD-GATE>
 Do NOT exit diagnostic or transition to /product or /tech until:
-1. All six DDF nodes (Q / E / D / X / R / V) have passed diagnosis
+1. All DDF gates (Q / E / D / X / R / V) have passed
 2. The decision-doc has been written to disk
 3. User has explicitly confirmed readiness to proceed
 
@@ -25,16 +25,14 @@ and the most common source of wasted downstream work.
 
 ## Start
 
-**Step 1: Load the framework**
+**Step 1: [Optional] Load framework reference**
 
-Read the Diagnostic Decision Framework before executing any node:
+Load when you need to reference gate details or pass criteria:
 
 ```bash
 gh api "repos/lulufoo/ai-thinking-framework/contents/diagnostic-decision-framework/diagnostic-decision-framework.md?ref=main" \
   --jq '.content' | base64 -d
 ```
-
-Do not proceed until the framework is loaded.
 
 **Step 2: Determine conversation ID**
 
@@ -63,7 +61,7 @@ python3 ~/.cursor/skills/lulu-dev-workflow/diagnostic/scripts/start.py \
 
 Creates `session-state.md` with `current_state: InProgress`.
 
-**Do not** run start again after Delivery (`Delivered`) on the same conv — use a new conversation ID for a new diagnostic. Re-running start on a Delivered conv overwrites state to `InProgress` without removing `decision-doc.md`.
+**Do not** run start again after Delivery (`Delivered`) on the same conv — use a new conversation ID for a new diagnostic.
 
 **Hot / cold layout:**
 
@@ -81,21 +79,39 @@ Legacy directories (only `decision-doc.md`, no `session-state.md`) are **not** a
 
 ## Execution Rules
 
-### General
+### Global Rules
+
+**G0. 用户先验捕获（全程）** — 任何门执行期间，若用户输出判断、倾向、顾虑或历史排除项，立即记入用户先验登记，简短确认后继续当前门，不打断流程。
 
 **G1.** One question at a time — never stack multiple questions in a single message.
+
 **G2.** Multiple choice preferred; open-ended is fine when options are not enumerable.
-**G3.** Each node has a pass criterion. Do not advance until the criterion is met.
-**G4.** Back-edges are triggered from V only (see V rules). Discovering an issue mid-loop does not auto-trigger a back-edge; surface it and let V route.
-**G5.** If the intent input itself is found to have an upstream error (discovered via V), exit the loop and tell the user to fix the upstream input before restarting.
+
+**G3.** Each gate has a pass criterion. Do not advance until the criterion is met.
+
+**G4. 重开与失效（全程）** — 任何门执行期间，若发现某个前序门的放行标准因新信息不再成立，立即重开该门——不等 V，任何参与者均可触发。被重开门的所有下游门（沿前置依赖方向）自动失效，需重新满足放行标准。
+
+**G5. 门状态追踪** — 在关键时刻（会话开始、门关闭后、发生重开后），报告各门状态：已放行（✅）/ 未放行（⬜）。
+
+**G6.** Upstream input error — if the intent input itself has a fundamental error, exit the loop; tell the user to fix the input and restart.
 
 ---
 
-### Node Rules
+### Gate Rules
+
+#### Open channel（Q 之前）
+
+进入 Q 之前，先做一次用户先验倾倒：
+
+> 「在开始之前，告诉我你对这个问题已有的想法——方向倾向、顾虑或曾经排除过的选项。不需要完整，对话过程中随时可以补充。」
+
+用户输入记入用户先验登记。此步骤不是 Q 的一部分，不占 Q 的问题配额。
+
+---
 
 #### Q — 问题澄清
 
-**Purpose:** Establish what problem we are solving and what the known constraints are.
+**前置：无**
 
 **Execute:**
 1. Ask: "触发这次决策的问题是什么？"
@@ -104,41 +120,41 @@ Legacy directories (only `decision-doc.md`, no `session-state.md`) are **not** a
 
 **Pass criterion:** Problem statement is clear and agreed upon; constraints enumerated.
 
-**If unclear:** Stay in Q; ask one focused follow-up question.
-
 ---
 
 #### E — 方向探索
 
-**Purpose:** Surface 2–3 viable directions with explicit trade-offs.
+**前置：Q 放行**
 
 **Execute:**
 1. Propose exactly **2–3 directions** — no more, no fewer.
 2. Lead with your recommended option and explain why.
-3. For each direction: state core approach, pros, cons.
+3. For each direction: state core approach, pros, cons. Include already-excluded directions with reasons.
 4. Ask user to choose or propose an alternative.
 
-**Pass criterion:** 2–3 directions evaluated with explicit pros/cons; user has chosen or indicated preference.
+**Pass criterion:** ≥2 directions evaluated with explicit pros/cons; user has chosen or indicated preference.
 
 ---
 
 #### D — 选择与边界
 
-**Purpose:** Lock in the choice and define its scope.
+**前置：E 放行 · 用户先验已审查**
+
+**进入前：** 回顾用户先验登记，确认选定方向反映了用户带入的判断与顾虑。如有矛盾或未回应的顾虑，在选型结论中显式处理。
 
 **Execute:**
 1. **选型结论:** State which option was chosen and why, referencing E's trade-offs. State why the others were excluded.
 2. **作用范围:** State what this decision covers. Then state explicit exclusions — what it does NOT cover.
 
-**Pass criterion:** Both sub-dimensions filled; exclusions are explicit (not just "we cover X").
+**Pass criterion:** Both sub-dimensions filled; exclusions are explicit (not just "we cover X"); selection rationale references E trade-offs.
 
 ---
 
 #### X — 全面诊断
 
-**Purpose:** Thoroughly examine the chosen direction across 5 dimensions.
+**前置：D 放行**
 
-**Execute in sequence — one dimension, one question at a time:**
+**Execute one dimension, one question at a time:**
 
 | # | Dimension | Core question |
 |---|-----------|---------------|
@@ -150,17 +166,18 @@ Legacy directories (only `decision-doc.md`, no `session-state.md`) are **not** a
 
 **Pass criterion:**
 - All 5 dimensions answered.
-- If 结果预期 falls short of 验收标准: flag the gap explicitly and route back to E (do not force-pass).
-- External dependencies with unclear contracts: transfer to R as assumptions.
+- Assumptions discovered here: immediately add to 假设流水账 (do not defer to R).
+- External dependencies with unclear contracts: add to 假设流水账 as assumptions.
+- If 结果预期 falls short of 验收标准: flag the gap explicitly; apply G4 (re-open E or D as appropriate). Do not force-pass.
 
 ---
 
 #### R — 暴露赌注
 
-**Purpose:** Surface every unverified premise behind each decision and boundary.
+**前置：D 放行**（X 与 R 并行，无先后约束）
 
 **Execute:**
-1. For each item from D (选型结论, 作用范围) and X (external deps with unclear contracts): ask "what unverified premise does this depend on?"
+1. Review 假设流水账 — do not collect from scratch. Confirm coverage is complete against D, X, and conversation history.
 2. For each assumption: assign risk level (高/中/低) and describe the consequence if it fails.
 
 Risk levels:
@@ -168,30 +185,33 @@ Risk levels:
 - **中:** Assumption failure causes significant rework, but solution can be adjusted
 - **低:** Assumption failure has limited impact, absorbable during execution
 
-**Pass criterion:** Every decision, boundary, and unclear dependency has been interrogated; each assumption has a risk level and consequence.
+**Pass criterion:** All assumptions have a risk level and consequence description; no gaps found in coverage review.
 
 ---
 
 #### V — 验证
 
-**Purpose:** (1) Ensure high-risk assumptions have executable verification actions. (2) Route to exit or back-edge.
+**前置：X 放行 · R 放行**
 
 **Execute:**
 1. For each **高**-risk assumption: define verification action, owner, timing.
 2. For each **中/低**-risk assumption: explicitly acknowledge (no verification required).
-3. Assess overall pass/fail.
+3. If any prior gate's pass criterion is no longer satisfied, apply G4.
+4. Assess overall exit condition.
 
-**Exit routing (V only):**
+**Exit:**
 
 | Condition | Action |
 |-----------|--------|
-| All nodes pass | Write decision-doc → proceed to Delivery |
-| Upstream intent input has a fundamental error | Exit loop; tell user to fix input and restart |
-| Problem definition changed | Back-edge → Q |
-| Missed a direction | Back-edge → E |
-| Choice needs revision | Back-edge → D |
-| Diagnosis item incomplete | Back-edge → X |
-| New assumption surfaced | Back-edge → R |
+| All gates pass | Write decision-doc → proceed to Delivery |
+| Prior gate pass criterion no longer holds | Apply G4: re-open that gate |
+| Information insufficient to decide | Output 无法决策 with justification (see below) |
+| Intent input has fundamental error | Apply G6: exit loop, tell user to fix and restart |
+
+**无法决策 justification must include:**
+- Directions already explored (≥2)
+- Which gate is stuck and why
+- What information or condition would unlock it
 
 **Pass criterion:** All 高-risk assumptions have an executable verification action; 中/低-risk assumptions are explicitly acknowledged.
 
@@ -209,6 +229,12 @@ Write to `.cache/lulu-dev-workflow/diagnostic/<conv_id>/decision-doc.md`:
 
 ---
 
+## 用户先验
+
+{key judgments, preferences, concerns, and excluded options stated by the user during the session}
+
+---
+
 ## 问题域
 
 {problem statement}
@@ -223,6 +249,12 @@ Write to `.cache/lulu-dev-workflow/diagnostic/<conv_id>/decision-doc.md`:
 |------|---------|------|------|
 | 方案 A | | | |
 | 方案 B | | | |
+
+**已排除方案：**
+
+| 方案 | 排除理由 |
+|------|---------|
+| | |
 
 ---
 
@@ -293,7 +325,7 @@ Write to `.cache/lulu-dev-workflow/diagnostic/<conv_id>/decision-doc.md`:
 
 Before presenting to user, scan the written decision-doc for:
 
-1. **Completeness:** all sections filled; no empty cells in tables
+1. **Completeness:** all sections filled; no empty cells in tables; 用户先验 captured
 2. **Consistency:** 选型结论 references E trade-offs; 验证项 maps to 高-risk assumptions
 3. **Gap check:** if 结果预期 < 验收标准, the gap is documented (not silently dropped)
 
@@ -312,8 +344,6 @@ After self-review passes:
 # session-state.md at diagnostic/<conv_id>/session-state.md
 current_state: Delivered
 ```
-
-(Use the same YAML frontmatter format as other workflow session files.)
 
 4. Tell user the next step:
    - Product-level decision → proceed to `/product`
