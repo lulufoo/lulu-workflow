@@ -110,7 +110,7 @@ Creates `session-state.md` with `current_state: InProgress`.
 .cache/$PLATFORM/lulu-dev-workflow/_archive/<conv_id>/diagnostic/   ← cold zone (whole conv)
 ```
 
-Legacy directories (only `decision-doc.md`, no `session-state.md`) are **not** auto-archived — add `session-state.md` manually or leave in hot zone.
+Legacy directories (only `decision-doc.md`, no `session-state.md`) are **not** auto-archived — add `session-state.md` manually.
 
 ---
 
