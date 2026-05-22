@@ -4,7 +4,7 @@ import argparse
 from pathlib import Path
 
 from workflow_common import (
-    CONFIG_PATH,
+    resolve_workflow_config_path,
     read_json,
     write_json,
 )
@@ -28,7 +28,7 @@ def main() -> int:
     project_root = Path(args.project_root).resolve()
 
     # Update workflow-config.json: add tech-doc section if missing
-    config_path = project_root / CONFIG_PATH
+    config_path = resolve_workflow_config_path(project_root)
     config = read_json(config_path, default={})
     if "tech" not in config:
         config["tech"] = TECH_DOC_CONFIG_DEFAULTS
