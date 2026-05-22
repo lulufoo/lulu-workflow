@@ -43,7 +43,9 @@ that gates state transitions.
 ```bash
 # Cursor:
 ls ~/.cursor/projects/*/agent-transcripts/ | tail -5
-# Copilot: conversation ID is the UUID in VSCODE_TARGET_SESSION_LOG template variable
+
+# Copilot:
+# conversation ID is the UUID in VSCODE_TARGET_SESSION_LOG template variable
 ```
 
 The most recent `.jsonl` filename (excluding `.jsonl`) is the current conversation ID (Cursor only).
