@@ -5,7 +5,8 @@ import json
 from pathlib import Path
 
 from workflow_common import (
-    CONFIG_PATH,
+    PLATFORM_CONFIG_PATH,
+    resolve_workflow_config_path,
     read_json,
     write_json,
 )
@@ -46,7 +47,7 @@ def main() -> int:
     project_root = Path(args.project_root).resolve()
 
     config_template = load_template_payload("workflow-config.template.json")
-    config_path = project_root / CONFIG_PATH
+    config_path = resolve_workflow_config_path(project_root)
 
     if config_path.exists():
         existing = read_json(config_path)
@@ -56,6 +57,15 @@ def main() -> int:
         config = config_template
 
     write_json(config_path, config)
+
+    # Ensure platform config.json exists (Cursor)
+    platform_cfg_path = project_root / PLATFORM_CONFIG_PATH
+    if not platform_cfg_path.exists():
+        write_json(platform_cfg_path, {
+            "version": 1,
+            "workflowConfig": "skill-config/lulu-dev-workflow/workflow-config.json",
+        })
+
     ensure_gitignore_entry(project_root)
 
     config_path_display = config_path.as_posix()
