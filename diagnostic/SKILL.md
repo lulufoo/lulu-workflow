@@ -8,12 +8,15 @@ Run a Diagnostic Decision Framework (DDF) session. **Mandatory before starting /
 
 **This SKILL runs in Plan mode.**
 
-**Platform context** — resolve once, use `$SKILL_DIR` and `$WORKFLOW_DIR` for all paths:
+**Platform context** — detect once at session start, substitute `$SKILL_DIR`, `$WORKFLOW_DIR`, and `$PLATFORM` throughout:
 
 | | Cursor | Copilot |
 |---|---|---|
 | `$SKILL_DIR` | `~/.cursor/skills/lulu-dev-workflow/diagnostic` | `~/.copilot/skills/lulu-dev-workflow/diagnostic` |
 | `$WORKFLOW_DIR` | `.cursor/lulu-dev-workflow` | `.github/lulu-dev-workflow` |
+| `$PLATFORM` | `cursor` | `copilot` |
+
+> **Detect:** `COPILOT_AGENT=1` env var → Copilot; `VSCODE_TARGET_SESSION_LOG` template variable present → Copilot; otherwise → Cursor.
 
 > Framework reference: [diagnostic-decision-framework.md](https://github.com/lulufoo/ai-thinking-framework/blob/main/diagnostic-decision-framework/diagnostic-decision-framework.md)
 
@@ -78,7 +81,7 @@ The most recent `.jsonl` filename (excluding `.jsonl`) is the current conversati
 
 Decision-doc will be written to:
 ```
-.cache/<platform>/lulu-dev-workflow/diagnostic/<conv_id>/decision-doc.md
+.cache/$PLATFORM/lulu-dev-workflow/diagnostic/<conv_id>/decision-doc.md
 ```
 
 **Step 3: Run start.py**
@@ -98,11 +101,11 @@ Creates `session-state.md` with `current_state: InProgress`.
 **Hot / cold layout:**
 
 ```
-.cache/<platform>/lulu-dev-workflow/diagnostic/<conv_id>/     ← hot zone
+.cache/$PLATFORM/lulu-dev-workflow/diagnostic/<conv_id>/     ← hot zone
   session-state.md          ← current_state: InProgress | Delivered
   decision-doc.md
 
-.cache/<platform>/lulu-dev-workflow/_archive/<conv_id>/diagnostic/   ← cold zone (whole conv)
+.cache/$PLATFORM/lulu-dev-workflow/_archive/<conv_id>/diagnostic/   ← cold zone (whole conv)
 ```
 
 Legacy directories (only `decision-doc.md`, no `session-state.md`) are **not** auto-archived — add `session-state.md` manually or leave in hot zone.
@@ -251,7 +254,7 @@ V has two distinct duties: (1) confirm that verification actions are in place fo
 
 ## Decision-Doc Format
 
-Write to `.cache/<platform>/lulu-dev-workflow/diagnostic/<conv_id>/decision-doc.md`:
+Write to `.cache/$PLATFORM/lulu-dev-workflow/diagnostic/<conv_id>/decision-doc.md`:
 
 ```markdown
 # Decision: {title}
