@@ -10,7 +10,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import FrozenSet, List, Optional, Tuple
 
-_PLATFORM = __import__("os").environ.get("LULU_PLATFORM", "cursor")
+_PLATFORM = (
+    __import__("os").environ.get("LULU_PLATFORM")
+    or ("copilot" if __import__("os").environ.get("COPILOT_AGENT") else "cursor")
+)
 CACHE_DIR = Path(f".cache/{_PLATFORM}/lulu-dev-workflow")
 
 _CONV_ID_RE = re.compile(

@@ -18,8 +18,9 @@ from workflow_common import (
     read_md_state,
 )
 
-# Matches: .cache/lulu-dev-workflow/work-order/<conv_id>/r{N}/workflow-state.md
-_CACHE_PARTS = (".cache", "lulu-dev-workflow", "work-order")
+# Matches: .cache/<platform>/lulu-dev-workflow/work-order/<conv_id>/r{N}/workflow-state.md
+_PLATFORM = CACHE_DIR.parts[1]
+_CACHE_PARTS = (".cache", _PLATFORM, "lulu-dev-workflow", "work-order")
 
 
 def allow() -> Dict[str, str]:
@@ -61,12 +62,12 @@ def match_workflow_state_path(path: str) -> Optional[Tuple[str, str]]:
     """Return (conv_id, doc_round_str) if path is r{N}/workflow-state.md under work-order cache."""
     parts = Path(path).parts
     if (
-        len(parts) == 6
-        and parts[:3] == _CACHE_PARTS
-        and re.match(r"^r\d+$", parts[4])
-        and parts[5] == "workflow-state.md"
+        len(parts) == 7
+        and parts[:4] == _CACHE_PARTS
+        and re.match(r"^r\d+$", parts[5])
+        and parts[6] == "workflow-state.md"
     ):
-        return parts[3], parts[4]  # conv_id, r{N}
+        return parts[4], parts[5]  # conv_id, r{N}
     return None
 
 
@@ -94,8 +95,8 @@ def main() -> int:
             abs_path.relative_to(allowed_root)
         except ValueError:
             print(json.dumps(deny(
-                "planning workflow 进行中：只允许写入 .cache/lulu-dev-workflow/ 目录，不允许修改项目源码或其他文件。",
-                "Path guard active: writes outside .cache/lulu-dev-workflow/ are blocked during planning workflow.",
+                f"planning workflow 进行中：只允许写入 .cache/{_PLATFORM}/lulu-dev-workflow/ 目录，不允许修改项目源码或其他文件。",
+                f"Path guard active: writes outside .cache/{_PLATFORM}/lulu-dev-workflow/ are blocked during planning workflow.",
             )))
             return 0
 
