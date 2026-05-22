@@ -27,18 +27,15 @@ under this directory.
 
 ## Platform Context
 
-Set once before running any command in this file:
+**Detect once at session start, substitute `$SKILL_DIR`, `$WORKFLOW_DIR`, and `$PLATFORM_FLAG` throughout:**
 
-```bash
-# Cursor:
-SKILL_DIR="$HOME/.cursor/skills/lulu-dev-workflow"
-WORKFLOW_DIR=".cursor/lulu-dev-workflow"
-PLATFORM_FLAG=""
-# Copilot (uncomment, comment out the 3 lines above):
-# SKILL_DIR="$HOME/.copilot/skills/lulu-dev-workflow"
-# WORKFLOW_DIR=".github/lulu-dev-workflow"
-# PLATFORM_FLAG="--platform copilot"
-```
+| | Cursor | Copilot |
+|---|---|---|
+| `$SKILL_DIR` | `~/.cursor/skills/lulu-dev-workflow` | `~/.copilot/skills/lulu-dev-workflow` |
+| `$WORKFLOW_DIR` | `.cursor/lulu-dev-workflow` | `.github/lulu-dev-workflow` |
+| `$PLATFORM_FLAG` | *(empty)* | `--platform copilot` |
+
+> **Detect:** `COPILOT_AGENT=1` env var → Copilot; `VSCODE_TARGET_SESSION_LOG` template variable present → Copilot; otherwise → Cursor.
 
 ## Setup
 

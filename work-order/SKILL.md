@@ -12,12 +12,15 @@ disable-model-invocation: true
 Decompose a Delivered tech-doc into independently executable TDD units (task files). Each task is self-contained with acceptance criteria, function specs, constraints, context, and dependencies for direct use in TDD sessions.
 
 **Scope:** work-order workflow only. Input: Delivered tech-doc. Output: task file set.
-**Platform context** — resolve once, use `$SKILL_DIR` and `$WORKFLOW_DIR` for all paths:
+**Platform context** — detect once at session start, substitute `$SKILL_DIR`, `$WORKFLOW_DIR`, and `$PLATFORM` throughout:
 
 | | Cursor | Copilot |
 |---|---|---|
 | `$SKILL_DIR` | `~/.cursor/skills/lulu-dev-workflow/work-order` | `~/.copilot/skills/lulu-dev-workflow/work-order` |
 | `$WORKFLOW_DIR` | `.cursor/lulu-dev-workflow` | `.github/lulu-dev-workflow` |
+| `$PLATFORM` | `cursor` | `copilot` |
+
+> **Detect:** `COPILOT_AGENT=1` env var → Copilot; `VSCODE_TARGET_SESSION_LOG` template variable present → Copilot; otherwise → Cursor.
 
 **This workflow runs in Agent mode with path guard.**
 
@@ -62,7 +65,7 @@ python3 "$SKILL_DIR/scripts/start.py" \
 ## Session File Structure
 
 ```
-.cache/<platform>/lulu-dev-workflow/work-order/<conv_id>/
+.cache/$PLATFORM/lulu-dev-workflow/work-order/<conv_id>/
   session-state.md               ← active_doc: N (monotonically increasing)
 
   r{N}/                          ← Nth work order
@@ -85,7 +88,7 @@ python3 "$SKILL_DIR/scripts/start.py" \
 **Cold zone** (Delivered convs archived on next `/work-order` start):
 
 ```
-.cache/<platform>/lulu-dev-workflow/_archive/<conv_id>/work-order/
+.cache/$PLATFORM/lulu-dev-workflow/_archive/<conv_id>/work-order/
   session-state.md
   r1/ … r{N}/
 ```
@@ -93,7 +96,7 @@ python3 "$SKILL_DIR/scripts/start.py" \
 - Only the **active** `r{N}/workflow-state.md` with `current_state: Delivered` triggers archive (whole conv).
 - The current conversation conv is never archived; cold-only convs are restored before the next round.
 
-Historical work orders: `.cache/<platform>/lulu-dev-workflow/_archive/<conv_id>/work-order/r{N}/`
+Historical work orders: `.cache/$PLATFORM/lulu-dev-workflow/_archive/<conv_id>/work-order/r{N}/`
 
 ---
 
@@ -121,7 +124,7 @@ Hook enforces all transition pre-conditions. Denial messages are self-explanator
 3. `r{N}/workflow-state.md` is the authoritative current state — write it to request a transition.
 4. Never infer state from document body or file existence; always read `workflow-state.md`.
 5. Use full `Write` (not `Edit`) for `workflow-state.md` and `evaluate-state.md`.
-6. This workflow runs in Agent mode. Writes outside `.cache/<platform>/lulu-dev-workflow/`
+6. This workflow runs in Agent mode. Writes outside `.cache/$PLATFORM/lulu-dev-workflow/`
    are blocked by the path guard hook while a session is active.
 
 ### Drafting Rules
@@ -280,7 +283,7 @@ version: 1
 workflow: work-order
 current_state: Drafting
 evaluate_round: 0
-tech_ref: /abs/path/.cache/<platform>/lulu-dev-workflow/tech/<conv_id>/r1/tech-doc.md
+tech_ref: /abs/path/.cache/$PLATFORM/lulu-dev-workflow/tech/<conv_id>/r1/tech-doc.md
 updated_at: 2026-05-17T09:00:00+08:00
 ---
 ```

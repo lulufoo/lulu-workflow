@@ -12,12 +12,15 @@ disable-model-invocation: true
 Execute Test-Driven Development from a Delivered tech-doc or work-order task set: write tests first, confirm Red, write minimal implementation, confirm Green, then refactor.
 
 **Scope:** TDD code generation. Input: Delivered tech-doc (Path A) or Delivered work-order task set (Path B). Output: test files + implementation files.
-**Platform context** — resolve once, use `$SKILL_DIR` and `$WORKFLOW_DIR` for all paths:
+**Platform context** — detect once at session start, substitute `$SKILL_DIR`, `$WORKFLOW_DIR`, and `$PLATFORM` throughout:
 
 | | Cursor | Copilot |
 |---|---|---|
 | `$SKILL_DIR` | `~/.cursor/skills/lulu-dev-workflow/code` | `~/.copilot/skills/lulu-dev-workflow/code` |
 | `$WORKFLOW_DIR` | `.cursor/lulu-dev-workflow` | `.github/lulu-dev-workflow` |
+| `$PLATFORM` | `cursor` | `copilot` |
+
+> **Detect:** `COPILOT_AGENT=1` env var → Copilot; `VSCODE_TARGET_SESSION_LOG` template variable present → Copilot; otherwise → Cursor.
 
 **This workflow runs in Agent mode.** (requires writing code files and executing Shell commands)
 
@@ -58,7 +61,7 @@ Prerequisite: upstream must be in Delivered state.
 
 Path B:
 ```bash
-cat <project-root>/.cache/<platform>/lulu-dev-workflow/work-order/<work-order-conv-id>/*/workflow-state.md
+cat <project-root>/.cache/$PLATFORM/lulu-dev-workflow/work-order/<work-order-conv-id>/*/workflow-state.md
 ```
 - `current_state` is not `Delivered` → error: "work-order `<id>` not yet delivered (current state: `<state>`). Cannot start code workflow." Stop.
 - Path does not exist → error: "work-order `<id>` not found. Please verify the ID." Stop.
@@ -71,8 +74,8 @@ Path A:
 
 Path B:
 ```bash
-<project-root>/.cache/<platform>/lulu-dev-workflow/work-order/<id>/<revision>/task-list.md
-<project-root>/.cache/<platform>/lulu-dev-workflow/work-order/<id>/<revision>/tasks/*/task.md
+<project-root>/.cache/$PLATFORM/lulu-dev-workflow/work-order/<id>/<revision>/task-list.md
+<project-root>/.cache/$PLATFORM/lulu-dev-workflow/work-order/<id>/<revision>/tasks/*/task.md
 ```
 
 Path A: use `<tech-doc-path>` directly.
@@ -111,7 +114,7 @@ python3 "$SKILL_DIR/scripts/start.py" \
 **Hot zone** (active / in-progress convs):
 
 ```
-.cache/<platform>/lulu-dev-workflow/code/<conv_id>/
+.cache/$PLATFORM/lulu-dev-workflow/code/<conv_id>/
   session-state.md              ← active_session: N (monotonically increasing)
 
   s{N}/                         ← Nth code session
@@ -129,7 +132,7 @@ python3 "$SKILL_DIR/scripts/start.py" \
 **Cold zone** (Completed convs archived on next `/code` start):
 
 ```
-.cache/<platform>/lulu-dev-workflow/_archive/<conv_id>/code/
+.cache/$PLATFORM/lulu-dev-workflow/_archive/<conv_id>/code/
   session-state.md              ← same layout as hot zone
   s1/ … s{N}/
 ```
@@ -140,7 +143,7 @@ Archive rules (handled by `archive.py` via `start.py`):
 - Convs with `current_state: Executing` remain in the hot zone (safe for multi-window).
 - The current conversation conv is never archived; if it exists only in cold storage, `start.py` restores it before creating the next session round.
 
-To read historical sessions: `.cache/<platform>/lulu-dev-workflow/_archive/<conv_id>/code/s{N}/`
+To read historical sessions: `.cache/$PLATFORM/lulu-dev-workflow/_archive/<conv_id>/code/s{N}/`
 
 ---
 
@@ -274,7 +277,7 @@ version: 1
 workflow: code
 current_state: Executing
 mode: task-from-work-order
-task_list_ref: /abs/path/.cache/<platform>/lulu-dev-workflow/code/<conv_id>/s1/code-task-list.md
+task_list_ref: /abs/path/.cache/$PLATFORM/lulu-dev-workflow/code/<conv_id>/s1/code-task-list.md
 current_task: t2
 current_phase: WriteImpl
 updated_at: 2026-05-17T09:00:00+08:00
@@ -288,7 +291,7 @@ updated_at: 2026-05-17T09:00:00+08:00
 ```markdown
 ---
 source: work-order
-task_list_ref: /abs/path/.cache/<platform>/lulu-dev-workflow/work-order/<conv_id>/r1/task-list.md
+task_list_ref: /abs/path/.cache/$PLATFORM/lulu-dev-workflow/work-order/<conv_id>/r1/task-list.md
 total: 5
 done: 1
 ---
