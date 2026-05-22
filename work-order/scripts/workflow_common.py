@@ -9,7 +9,8 @@ WHITELIST_PATH = SKILL_ROOT / "transition-whitelist.json"
 
 WORKFLOW_DIR = Path(".cursor/lulu-dev-workflow")
 CACHE_DIR = Path(".cache/lulu-dev-workflow")
-CONFIG_PATH = WORKFLOW_DIR / "workflow-config.json"
+PLATFORM_CONFIG_PATH = WORKFLOW_DIR / "config.json"
+SHARED_CONFIG_DEFAULT = Path("skill-config/lulu-dev-workflow/workflow-config.json")
 HOOKS_JSON_PATH = Path(".cursor/hooks.json")
 
 _SCRIPTS_DIR = Path(__file__).resolve().parent
@@ -71,6 +72,17 @@ def write_json(path: Path, payload: Dict[str, Any]) -> None:
     with path.open("w", encoding="utf-8") as handle:
         json.dump(payload, handle, indent=2, ensure_ascii=True)
         handle.write("\n")
+
+
+def resolve_workflow_config_path(project_root: Path = Path(".")) -> Path:
+    """Get shared workflow-config.json path via platform config pointer."""
+    platform_cfg_path = project_root / PLATFORM_CONFIG_PATH
+    if platform_cfg_path.exists():
+        platform_cfg = read_json(platform_cfg_path, default={})
+        wf_path = platform_cfg.get("workflowConfig")
+        if wf_path:
+            return project_root / wf_path
+    return project_root / SHARED_CONFIG_DEFAULT
 
 
 # ---------------------------------------------------------------------------
