@@ -138,7 +138,7 @@ Legacy directories (only `decision-doc.md`, no `session-state.md`) are **not** a
 
 Before entering Q, invite the user to dump existing knowledge:
 
-> "Before we begin — tell me what you already know about this problem: direction preferences, concerns, or options you've already ruled out. It doesn't need to be complete; you can add more at any point."
+> "Before we begin — share what you'd like me to know: direction preferences, concerns, or options you've already ruled out. It doesn't need to be complete; you can add more at any point."
 
 Capture input in User Prior Log. This step is not part of Q and does not count toward Q's question quota.
 
