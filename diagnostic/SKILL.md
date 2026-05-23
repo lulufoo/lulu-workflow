@@ -382,8 +382,14 @@ After self-review passes:
 current_state: Delivered
 ```
 
-4. Tell user the next step:
-   - Product-level decision → proceed to `/product`
-   - Tech-level decision → proceed to `/tech` (use decision-doc as context alongside product-doc if applicable)
+4. Tell user the next step.
+
+> **HARD GATE — skipping `/product` or `/tech` is forbidden.**
+> The decision-doc is the required input for these stages, not a substitute for them.
+> Do NOT suggest `/work-order`, `/code`, or any other stage directly.
+
+   - Product-level decision → **must** proceed to `/product`
+   - Tech-level decision → **must** proceed to `/tech` (use decision-doc as context alongside product-doc if applicable)
+   - Mixed (product + tech) → **must** proceed to `/product` first, then `/tech`
 
 Delivered convs move to `_archive/<conv_id>/diagnostic/` on the next diagnostic (or any stage) start that scans the hot zone — not immediately at Delivery.
