@@ -23,9 +23,10 @@ Do NOT proceed until you have read `../SKILL.md` and loaded:
 
 <HARD-GATE>
 Do NOT exit diagnostic or transition to /product or /tech until:
-1. All DDF gates (Q / E / D / X / R / V) have passed
-2. The decision-doc has been written to disk
-3. User has explicitly confirmed readiness to proceed
+  
+- All DDF gates (Q / E / D / X / R / V) have passed
+- The decision-doc has been written to disk
+- User has explicitly confirmed readiness to proceed
 
 This applies to EVERY intent, regardless of perceived clarity.
 "I already know what I want to build" is the most common reason to skip this —
