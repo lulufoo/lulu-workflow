@@ -48,7 +48,7 @@ Markdown. During an active session, writes are restricted to
 
 **Fast path:** Find the latest `LULU-DEV-WORKFLOW: <id>` line in this conversation's AI responses (skip conversation-summary blocks). If found and no ambiguity signal → use it, proceed to next step.
 
-**Slow path:** Read `$CACHE_DIR/features.json` → display list + "New" option → wait for confirmation. If New → run `feature_init.py` for a new `feature_id`.
+**Slow path:** Read `$CACHE_DIR/features.json` → display list + "New" option → wait for confirmation. If New → ask: *"Please briefly describe the problem to solve (this becomes the working title):"* → wait for user response → run `feature_init.py --project-root "$(pwd)" --name "<user_response>"`. The name is a working title; update `features.json` directly if refinement is needed.
 
 Append `LULU-DEV-WORKFLOW: <feature_id>` to every workflow AI response.
 
