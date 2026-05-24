@@ -37,7 +37,7 @@ Decompose a Delivered tech-doc into independently executable TDD units (task fil
 
 **Fast path:** Find the latest `LULU-DEV-WORKFLOW: <id>` line in this conversation's AI responses (skip conversation-summary blocks). If found and no ambiguity signal → use it, proceed to next step.
 
-**Slow path:** Read `$CACHE_DIR/features.json` → display list + "New" option → wait for confirmation. If New → ask: *"Please briefly describe the problem to solve (this becomes the working title):"* → wait for user response → run `feature_init.py --project-root "$(pwd)" --name "<user_response>"`. The name is a working title; update `features.json` directly if refinement is needed.
+**Slow path:** Read `$CACHE_DIR/features.json` → display list where the last entry reads "New — type a description to create" → prompt once: `Enter number to select, or type a description to create a new feature:` → wait for single response. Parse: input is a pure number → select that existing feature; otherwise → treat as new feature description, run `feature_init.py --project-root "$(pwd)" --name "<user_input>"`. The name is a working title; update `features.json` directly if refinement is needed.
 
 Append `LULU-DEV-WORKFLOW: <feature_id>` to every workflow AI response.
 
