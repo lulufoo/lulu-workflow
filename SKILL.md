@@ -137,7 +137,17 @@ python3 $SKILL_DIR/scripts/feature_init.py \
   --project-root "$(pwd)" --name "[name]"
 ```
 
-Prints the `feature_id` (format: `YYYYMMDDHHMMSS-xxxxxxxx`). Use the output as the active feature for this conversation.
+Prints the `feature_id` (format: `YYYYMMDDHHMMSS-xxxxxxxx`). After running, append `LULU-DEV-WORKFLOW: <feature_id>` to this response.
+
+## Feature Tracking Convention
+
+Every workflow AI response must end with:
+
+```
+LULU-DEV-WORKFLOW: <feature_id>
+```
+
+This line tracks the active feature per conversation window. Stage workflows use the latest such line as the fast path to identify `feature_id`. When no such line exists in the conversation, the slow path (interactive selection) is triggered instead.
 
 ## Usage
 

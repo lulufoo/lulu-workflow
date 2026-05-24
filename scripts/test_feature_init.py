@@ -175,3 +175,8 @@ class TestCLI:
             capture_output=True, text=True, env=_ENV_COPILOT,
         )
         assert result.returncode != 0
+
+    def test_active_session_file_not_created(self, tmp_path):
+        """Regression: feature_init must never write ACTIVE_SESSION."""
+        self._run(tmp_path)
+        assert not (self._cache_dir(tmp_path) / "ACTIVE_SESSION").exists()
