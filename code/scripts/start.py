@@ -102,7 +102,7 @@ def build_code_task_list_md(tasks, source: str, task_list_ref: str) -> str:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Start a new TDD workflow session.")
     parser.add_argument("--project-root", default=".", help="Project root directory.")
-    parser.add_argument("--conversation-id", required=True, help="Current Cursor conversation ID.")
+    parser.add_argument("--feature-id", required=True, help="Feature ID (from feature_init.py).")
     parser.add_argument(
         "--mode",
         required=True,
@@ -133,11 +133,11 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     project_root = Path(args.project_root).resolve()
-    conv_id = args.conversation_id.strip()
+    feature_id = args.feature_id.strip()
 
-    archive_rc = run_archive(project_root, exclude_conv_id=conv_id)
-    if archive_rc != 0:
-        return archive_rc
+    # archive: deferred  archive_rc = run_archive(project_root, exclude_conv_id=feature_id)
+    # archive: deferred  if archive_rc != 0:
+    # archive: deferred      return archive_rc
 
     # Validate mode-specific required args
     if args.mode == "task-from-work-order":
@@ -157,7 +157,7 @@ def main() -> int:
             return 1
 
     # Determine session round
-    ss_path = project_root / session_state_path(conv_id)
+    ss_path = project_root / session_state_path(feature_id)
     if ss_path.exists():
         try:
             active_session = int(read_md_field(ss_path, "active_session", default="0")) + 1
@@ -169,11 +169,11 @@ def main() -> int:
     write_session_state(ss_path, active_session)
 
     # Create session directory
-    s_dir = project_root / doc_dir(conv_id, active_session)
+    s_dir = project_root / doc_dir(feature_id, active_session)
     s_dir.mkdir(parents=True, exist_ok=True)
 
-    tl_path = project_root / task_list_path(conv_id, active_session)
-    ws_path = project_root / state_path(conv_id, active_session)
+    tl_path = project_root / task_list_path(feature_id, active_session)
+    ws_path = project_root / state_path(feature_id, active_session)
 
     if args.mode == "task-from-work-order":
         # Parse task-list.md and generate code-task-list.md

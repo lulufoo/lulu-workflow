@@ -11,7 +11,7 @@ disable-model-invocation: true
 
 > **Prerequisite:** Run `diagnostic` SKILL before starting this workflow.
 > The decision-doc produced by diagnostic is the required input context.
-> Path: `.cache/$PLATFORM/lulu-dev-workflow/diagnostic/<conv_id>/decision-doc.md`
+> Path: `.cache/$PLATFORM/lulu-dev-workflow/<feature_id>/diagnostic/decision-doc.md`
 
 Drive a tech document workflow with explicit per-session state files and a hook
 that gates state transitions.
@@ -38,17 +38,28 @@ that gates state transitions.
 
 > Prerequisite: `init` has been run.
 
-**Step 1: Determine conversation ID**
+**Step 1: Identify active feature**
 
-```bash
-# Cursor:
-ls ~/.cursor/projects/*/agent-transcripts/ | tail -5
+【快路径】
+1. 读 `$CACHE_DIR/ACTIVE_SESSION`
+2. 若存在 AND 当前消息无歧义信号 → 宣告 "Feature: [name]（active）"，直接跳到步骤 7
+3. 否则 → 进入慢路径
 
-# Copilot:
-# conversation ID is the UUID in VSCODE_TARGET_SESSION_LOG template variable
-```
+【慢路径】（ACTIVE_SESSION 为空 / 有歧义信号时触发）
+4. 读 `$CACHE_DIR/features.json` → 得到所有活跃 feature 列表
+5. 对每个 feature 扫描其 `tech/` 子目录 → 推断当前进度，结合对话语义排序
+6. 展示选择列表（ACTIVE 排第一，含 New 选项）→ 等用户确认
+   - 若用户选 New → 执行 `feature_init.py`，得到新 `feature_id`
 
-The most recent `.jsonl` filename (excluding `.jsonl`) is the current conversation ID (Cursor only).
+【共同路径】
+7. 写 `ACTIVE_SESSION` = 选定的 `feature_id`
+8. 后续脚本均以此 `feature_id` 为参数执行
+
+**歧义信号（触发慢路径）：**
+- `ACTIVE_SESSION` 为空
+- 用户提及另一个 feature 名 / ID
+- 用户说"换一个"、"新建"、"选一下"等切换意图
+- `ACTIVE_SESSION` 指向的 feature 与当前需求语义明显不符
 
 **Step 2: Determine run-mode**
 
@@ -70,7 +81,7 @@ Do not infer or auto-detect the path.
 ```bash
 python3 "$SKILL_DIR/scripts/start.py" \
   --project-root "$(pwd)" \
-  --conversation-id "<uuid>" \
+  --feature-id "<feature_id>" \
   --run-mode product|tech \
   [--product-ref "<absolute-path-to-product-doc.md>"]  # required for product mode
   [--carry-forward-ref "<absolute-path-to-previous-tech-doc.md>"]  # optional
@@ -84,7 +95,7 @@ tech flow to use a previous tech-doc as the draft starting point.
 ## Session File Structure
 
 ```
-.cache/$PLATFORM/lulu-dev-workflow/tech-doc/<conv_id>/
+.cache/$PLATFORM/lulu-dev-workflow/<feature_id>/tech/
   session-state.md               ← active_doc: N (monotonically increasing)
 
   revision{N}/                          ← Nth tech doc
@@ -268,7 +279,7 @@ mode: product
 current_state: Drafting
 evaluate_round: 0
 skip_evaluate_requested: false
-product_ref: /abs/path/.cache/$PLATFORM/lulu-dev-workflow/product/<conv_id>/revision1/product-doc.md
+product_ref: /abs/path/.cache/$PLATFORM/lulu-dev-workflow/<feature_id>/product/revision1/product-doc.md
 carry_forward_ref: ""
 updated_at: 2026-05-17T09:00:00+08:00
 ---
@@ -326,4 +337,4 @@ Each review file shares the same structure; column set varies by dimension:
 
 - `product_ref`: user-provided; never auto-detected; the two workflow directories are fully decoupled.
 - `carry_forward_ref`: provided on re-entry; version delta between old tech-doc and new product-doc must be resolved via mandatory Drafting calibration.
-- Re-entry = new iteration (new conv_id or revision{N}); never continue in the old directory.
+- Re-entry = new iteration (new feature_id or revision{N}); never continue in the old directory.

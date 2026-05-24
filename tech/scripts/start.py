@@ -16,7 +16,7 @@ from workflow_common import (
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Start a new tech-doc workflow session.")
     parser.add_argument("--project-root", default=".", help="Project root directory.")
-    parser.add_argument("--conversation-id", required=True, help="Current Cursor conversation ID.")
+    parser.add_argument("--feature-id", required=True, help="Feature ID (from feature_init.py).")
     parser.add_argument(
         "--run-mode",
         required=True,
@@ -31,7 +31,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     project_root = Path(args.project_root).resolve()
-    conv_id = args.conversation_id.strip()
+    feature_id = args.feature_id.strip()
     run_mode = args.run_mode
     product_ref = args.product_ref.strip()
     carry_forward_ref = args.carry_forward_ref.strip()
@@ -54,11 +54,11 @@ def main() -> int:
         print(f"错误：carry-forward-ref 文件不存在：{carry_forward_ref}")
         return 1
 
-    archive_rc = run_archive(project_root, exclude_conv_id=conv_id)
-    if archive_rc != 0:
-        return archive_rc
+    # archive: deferred  archive_rc = run_archive(project_root, exclude_conv_id=feature_id)
+    # archive: deferred  if archive_rc != 0:
+    # archive: deferred      return archive_rc
 
-    ss_path = project_root / session_state_path(conv_id)
+    ss_path = project_root / session_state_path(feature_id)
     if ss_path.exists():
         try:
             active_doc = int(read_md_field(ss_path, "active_doc", default="0")) + 1
@@ -69,7 +69,7 @@ def main() -> int:
 
     write_session_state(ss_path, active_doc)
 
-    ws_path = project_root / state_path(conv_id, active_doc)
+    ws_path = project_root / state_path(feature_id, active_doc)
     write_md_state(
         ws_path,
         "Drafting",

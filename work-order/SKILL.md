@@ -33,17 +33,28 @@ Decompose a Delivered tech-doc into independently executable TDD units (task fil
 
 > Prerequisite: `init` has been run. The upstream tech-doc must be in `Delivered` state.
 
-**Step 1: Determine conversation ID**
+**Step 1: Identify active feature**
 
-```bash
-# Cursor:
-ls ~/.cursor/projects/*/agent-transcripts/ | tail -5
+【快路径】
+1. 读 `$CACHE_DIR/ACTIVE_SESSION`
+2. 若存在 AND 当前消息无歧义信号 → 宣告 "Feature: [name]（active）"，直接跳到步骤 7
+3. 否则 → 进入慢路径
 
-# Copilot:
-# conversation ID is the UUID in VSCODE_TARGET_SESSION_LOG template variable
-```
+【慢路径】（ACTIVE_SESSION 为空 / 有歧义信号时触发）
+4. 读 `$CACHE_DIR/features.json` → 得到所有活跃 feature 列表
+5. 对每个 feature 扫描其 `work-order/` 子目录 → 推断当前进度，结合对话语义排序
+6. 展示选择列表（ACTIVE 排第一，含 New 选项）→ 等用户确认
+   - 若用户选 New → 执行 `feature_init.py`，得到新 `feature_id`
 
-The most recent `.jsonl` filename (excluding `.jsonl`) is the current conversation ID (Cursor only).
+【共同路径】
+7. 写 `ACTIVE_SESSION` = 选定的 `feature_id`
+8. 后续脚本均以此 `feature_id` 为参数执行
+
+**歧义信号（触发慢路径）：**
+- `ACTIVE_SESSION` 为空
+- 用户提及另一个 feature 名 / ID
+- 用户说"换一个"、"新建"、"选一下"等切换意图
+- `ACTIVE_SESSION` 指向的 feature 与当前需求语义明显不符
 
 **Step 2: Confirm tech-ref path**
 
@@ -58,7 +69,7 @@ Ask the user for the absolute path to the Delivered `tech-doc.md`. Do not auto-d
 ```bash
 python3 "$SKILL_DIR/scripts/start.py" \
   --project-root "$(pwd)" \
-  --conversation-id "<uuid>" \
+  --feature-id "<feature_id>" \
   --tech-ref "<absolute-path-to-tech-doc.md>"
 ```
 
@@ -67,7 +78,7 @@ python3 "$SKILL_DIR/scripts/start.py" \
 ## Session File Structure
 
 ```
-.cache/$PLATFORM/lulu-dev-workflow/work-order/<conv_id>/
+.cache/$PLATFORM/lulu-dev-workflow/<feature_id>/work-order/
   session-state.md               ← active_doc: N (monotonically increasing)
 
   r{N}/                          ← Nth work order
@@ -285,7 +296,7 @@ version: 1
 workflow: work-order
 current_state: Drafting
 evaluate_round: 0
-tech_ref: /abs/path/.cache/$PLATFORM/lulu-dev-workflow/tech/<conv_id>/r1/tech-doc.md
+tech_ref: /abs/path/.cache/$PLATFORM/lulu-dev-workflow/<feature_id>/tech/revision1/tech-doc.md
 updated_at: 2026-05-17T09:00:00+08:00
 ---
 ```

@@ -51,17 +51,40 @@ Prerequisite: upstream must be in Delivered state.
 
 ### AI startup sequence (after valid input)
 
-**Step 1: Parse `<input>` type**
+**Step 1: Identify active feature**
 
-- Starts with `work-order/` → **Path B**, extract `<work-order-conv-id>`
+【快路径】
+1. 读 `$CACHE_DIR/ACTIVE_SESSION`
+2. 若存在 AND 当前消息无歧义信号 → 宣告 "Feature: [name]（active）"，直接跳到步骤 7
+3. 否则 → 进入慢路径
+
+【慢路径】（ACTIVE_SESSION 为空 / 有歧义信号时触发）
+4. 读 `$CACHE_DIR/features.json` → 得到所有活跃 feature 列表
+5. 对每个 feature 扫描其 `code/` 子目录 → 推断当前进度，结合对话语义排序
+6. 展示选择列表（ACTIVE 排第一，含 New 选项）→ 等用户确认
+   - 若用户选 New → 执行 `feature_init.py`，得到新 `feature_id`
+
+【共同路径】
+7. 写 `ACTIVE_SESSION` = 选定的 `feature_id`
+8. 后续脚本均以此 `feature_id` 为参数执行
+
+**歧义信号（触发慢路径）：**
+- `ACTIVE_SESSION` 为空
+- 用户提及另一个 feature 名 / ID
+- 用户说"换一个"、"新建"、"选一下"等切换意图
+- `ACTIVE_SESSION` 指向的 feature 与当前需求语义明显不符
+
+**Step 2: Parse `<input>` type**
+
+- Starts with `work-order/` → **Path B**, extract `<work-order-feature-id>`
 - Starts with `tech ` → **Path A**, extract `<tech-doc-path>`
 - Other → invalid; output error above and stop
 
-**Step 2: Validate upstream state**
+**Step 3: Validate upstream state**
 
 Path B:
 ```bash
-cat <project-root>/.cache/$PLATFORM/lulu-dev-workflow/work-order/<work-order-conv-id>/*/workflow-state.md
+cat <project-root>/.cache/$PLATFORM/lulu-dev-workflow/<work-order-feature-id>/work-order/*/workflow-state.md
 ```
 - `current_state` is not `Delivered` → error: "work-order `<id>` not yet delivered (current state: `<state>`). Cannot start code workflow." Stop.
 - Path does not exist → error: "work-order `<id>` not found. Please verify the ID." Stop.
@@ -70,17 +93,17 @@ Path A:
 - Read `<tech-doc-path>` to confirm file exists
 - Not found → error: "tech-doc not found: `<path>`." Stop.
 
-**Step 3: Collect upstream file paths**
+**Step 4: Collect upstream file paths**
 
 Path B:
 ```bash
-<project-root>/.cache/$PLATFORM/lulu-dev-workflow/work-order/<id>/<revision>/task-list.md
-<project-root>/.cache/$PLATFORM/lulu-dev-workflow/work-order/<id>/<revision>/tasks/*/task.md
+<project-root>/.cache/$PLATFORM/lulu-dev-workflow/<work-order-feature-id>/work-order/<revision>/task-list.md
+<project-root>/.cache/$PLATFORM/lulu-dev-workflow/<work-order-feature-id>/work-order/<revision>/tasks/*/task.md
 ```
 
 Path A: use `<tech-doc-path>` directly.
 
-**Step 4: Run start.py**
+**Step 5: Run start.py**
 
 > `start.py` runs archive first: restores the current conv from `_archive/` if needed, then moves other **Completed** convs to `_archive/<conv_id>/code/`. **Executing** convs stay in the hot zone.
 
@@ -88,7 +111,7 @@ Path B:
 ```bash
 python3 "$SKILL_DIR/scripts/start.py" \
   --project-root "$(pwd)" \
-  --conversation-id "<current-conv-id>" \
+  --feature-id "<feature_id>" \
   --mode task-from-work-order \
   --task-list-ref "<abs-path-to-task-list.md>" \
   --task-refs <abs-path-to-t1/task.md> <abs-path-to-t2/task.md> ...
@@ -98,14 +121,14 @@ Path A:
 ```bash
 python3 "$SKILL_DIR/scripts/start.py" \
   --project-root "$(pwd)" \
-  --conversation-id "<current-conv-id>" \
+  --feature-id "<feature_id>" \
   --mode task-from-tech \
   --tech-ref "<abs-path-to-tech-doc.md>"
 ```
 
-> `<current-conv-id>` is the current conversation transcript ID (provided at session start; do not `ls` to search).
+> `<feature_id>` is the active feature ID from `ACTIVE_SESSION` (identified in Step 1).
 
-**Step 5: Read `code-task-list.md`, display task list, wait for user confirmation before starting execution**
+**Step 6: Read `code-task-list.md`, display task list, wait for user confirmation before starting execution**
 
 ---
 
@@ -114,7 +137,7 @@ python3 "$SKILL_DIR/scripts/start.py" \
 **Hot zone** (active / in-progress convs):
 
 ```
-.cache/$PLATFORM/lulu-dev-workflow/code/<conv_id>/
+.cache/$PLATFORM/lulu-dev-workflow/<feature_id>/code/
   session-state.md              ← active_session: N (monotonically increasing)
 
   s{N}/                         ← Nth code session
@@ -277,7 +300,7 @@ version: 1
 workflow: code
 current_state: Executing
 mode: task-from-work-order
-task_list_ref: /abs/path/.cache/$PLATFORM/lulu-dev-workflow/code/<conv_id>/s1/code-task-list.md
+task_list_ref: /abs/path/.cache/$PLATFORM/lulu-dev-workflow/<feature_id>/code/s1/code-task-list.md
 current_task: t2
 current_phase: WriteImpl
 updated_at: 2026-05-17T09:00:00+08:00
@@ -291,7 +314,7 @@ updated_at: 2026-05-17T09:00:00+08:00
 ```markdown
 ---
 source: work-order
-task_list_ref: /abs/path/.cache/$PLATFORM/lulu-dev-workflow/work-order/<conv_id>/r1/task-list.md
+task_list_ref: /abs/path/.cache/$PLATFORM/lulu-dev-workflow/<feature_id>/work-order/r1/task-list.md
 total: 5
 done: 1
 ---

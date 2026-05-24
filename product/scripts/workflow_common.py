@@ -23,6 +23,7 @@ _SCRIPTS_DIR = Path(__file__).resolve().parent
 
 WORKFLOW_DIR = _WORKFLOW_DIR_MAP.get(_PLATFORM, _WORKFLOW_DIR_MAP["cursor"])
 CACHE_DIR = Path(f".cache/{_PLATFORM}/lulu-dev-workflow")
+STAGE = "product"
 PLATFORM_CONFIG_PATH = WORKFLOW_DIR / "config.json"
 SHARED_CONFIG_DEFAULT = Path("skill-config/lulu-dev-workflow/workflow-config.json")
 HOOKS_JSON_PATH = _HOOKS_JSON_MAP.get(_PLATFORM, _HOOKS_JSON_MAP["cursor"])
@@ -33,28 +34,28 @@ HOOK_COMMAND = f"python3 {_SCRIPTS_DIR / 'hook_guard.py'}"
 # Path helpers
 # ---------------------------------------------------------------------------
 
-def session_base_dir(conversation_id: str) -> Path:
-    return CACHE_DIR / "product" / conversation_id
+def session_base_dir(feature_id: str) -> Path:
+    return CACHE_DIR / feature_id / STAGE
 
 
-def session_state_path(conversation_id: str) -> Path:
-    return session_base_dir(conversation_id) / "session-state.md"
+def session_state_path(feature_id: str) -> Path:
+    return session_base_dir(feature_id) / "session-state.md"
 
 
-def doc_dir(conversation_id: str, doc_round: int) -> Path:
-    return session_base_dir(conversation_id) / f"revision{doc_round}"
+def doc_dir(feature_id: str, doc_round: int) -> Path:
+    return session_base_dir(feature_id) / f"revision{doc_round}"
 
 
-def state_path(conversation_id: str, doc_round: int) -> Path:
-    return doc_dir(conversation_id, doc_round) / "workflow-state.md"
+def state_path(feature_id: str, doc_round: int) -> Path:
+    return doc_dir(feature_id, doc_round) / "workflow-state.md"
 
 
-def approval_path(conversation_id: str, doc_round: int) -> Path:
-    return doc_dir(conversation_id, doc_round) / "human-delivery-gate.md"
+def approval_path(feature_id: str, doc_round: int) -> Path:
+    return doc_dir(feature_id, doc_round) / "human-delivery-gate.md"
 
 
-def eval_round_dir(conversation_id: str, doc_round: int, evaluate_round: int) -> Path:
-    return doc_dir(conversation_id, doc_round) / f"evaluate{evaluate_round}"
+def eval_round_dir(feature_id: str, doc_round: int, evaluate_round: int) -> Path:
+    return doc_dir(feature_id, doc_round) / f"evaluate{evaluate_round}"
 
 
 def hook_entry() -> Dict[str, Any]:
@@ -167,11 +168,11 @@ def read_md_state(path: Path, default: str = "Drafting") -> str:
     return state if state else default
 
 
-def is_current_session_active(project_root: Path, conversation_id: str) -> bool:
+def is_current_session_active(project_root: Path, feature_id: str) -> bool:
     """Return True if this conversation has any non-Delivered planning session."""
-    if not conversation_id:
+    if not feature_id:
         return False
-    base = project_root / session_base_dir(conversation_id)
+    base = project_root / session_base_dir(feature_id)
     if not base.exists():
         return False
     for state_file in base.glob("revision*/workflow-state.md"):

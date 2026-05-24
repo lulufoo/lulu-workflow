@@ -10,20 +10,20 @@ from workflow_common import session_state_path, write_session_state
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Start a diagnostic workflow session.")
     parser.add_argument("--project-root", default=".", help="Project root directory.")
-    parser.add_argument("--conversation-id", required=True, help="Current Cursor conversation ID.")
+    parser.add_argument("--feature-id", required=True, help="Feature ID (from feature_init.py).")
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
     project_root = Path(args.project_root).resolve()
-    conv_id = args.conversation_id.strip()
+    feature_id = args.feature_id.strip()
 
-    archive_rc = run_archive(project_root, exclude_conv_id=conv_id)
-    if archive_rc != 0:
-        return archive_rc
+    # archive: deferred  archive_rc = run_archive(project_root, exclude_conv_id=feature_id)
+    # archive: deferred  if archive_rc != 0:
+    # archive: deferred      return archive_rc
 
-    ss_path = project_root / session_state_path(conv_id)
+    ss_path = project_root / session_state_path(feature_id)
     write_session_state(ss_path, "InProgress")
 
     print(f"""

@@ -34,6 +34,7 @@ _HOOKS_JSON_MAP = {
 
 WORKFLOW_DIR = _WORKFLOW_DIR_MAP.get(_PLATFORM, _WORKFLOW_DIR_MAP["cursor"])
 CACHE_DIR = Path(f".cache/{_PLATFORM}/lulu-dev-workflow")
+STAGE = "code"
 PLATFORM_CONFIG_PATH = WORKFLOW_DIR / "config.json"
 SHARED_CONFIG_DEFAULT = Path("skill-config/lulu-dev-workflow/workflow-config.json")
 HOOKS_JSON_PATH = _HOOKS_JSON_MAP.get(_PLATFORM, _HOOKS_JSON_MAP["cursor"])
@@ -45,6 +46,7 @@ HOOK_COMMAND = f"python3 {_SCRIPTS_DIR / 'hook_guard.py'}"
 # Path helpers
 # ---------------------------------------------------------------------------
 
+# archive-only: used by archive logic (Phase 4)
 def code_hot_root() -> Path:
     return _hot_root(CODE_CONFIG)
 
@@ -53,32 +55,32 @@ def archive_code_dir(conversation_id: str) -> Path:
     return _archive_dir(CODE_CONFIG, conversation_id)
 
 
-def session_base_dir(conversation_id: str) -> Path:
-    return code_hot_root() / conversation_id
+def session_base_dir(feature_id: str) -> Path:
+    return CACHE_DIR / feature_id / STAGE
 
 
-def session_state_path(conversation_id: str) -> Path:
-    return session_base_dir(conversation_id) / "session-state.md"
+def session_state_path(feature_id: str) -> Path:
+    return session_base_dir(feature_id) / "session-state.md"
 
 
-def doc_dir(conversation_id: str, session_round: int) -> Path:
-    return session_base_dir(conversation_id) / f"s{session_round}"
+def doc_dir(feature_id: str, session_round: int) -> Path:
+    return session_base_dir(feature_id) / f"s{session_round}"
 
 
-def state_path(conversation_id: str, session_round: int) -> Path:
-    return doc_dir(conversation_id, session_round) / "workflow-state.md"
+def state_path(feature_id: str, session_round: int) -> Path:
+    return doc_dir(feature_id, session_round) / "workflow-state.md"
 
 
-def task_list_path(conversation_id: str, session_round: int) -> Path:
-    return doc_dir(conversation_id, session_round) / "code-task-list.md"
+def task_list_path(feature_id: str, session_round: int) -> Path:
+    return doc_dir(feature_id, session_round) / "code-task-list.md"
 
 
-def task_dir(conversation_id: str, session_round: int, task_id: str) -> Path:
-    return doc_dir(conversation_id, session_round) / "tasks" / task_id
+def task_dir(feature_id: str, session_round: int, task_id: str) -> Path:
+    return doc_dir(feature_id, session_round) / "tasks" / task_id
 
 
-def approval_path(conversation_id: str, session_round: int) -> Path:
-    return doc_dir(conversation_id, session_round) / "human-delivery-gate.md"
+def approval_path(feature_id: str, session_round: int) -> Path:
+    return doc_dir(feature_id, session_round) / "human-delivery-gate.md"
 
 
 def list_code_conv_ids(code_root: Path) -> List[str]:

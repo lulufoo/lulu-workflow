@@ -6,6 +6,7 @@ _PLATFORM = (
     or ("copilot" if __import__("os").environ.get("COPILOT_AGENT") else "cursor")
 )
 CACHE_DIR = Path(f".cache/{_PLATFORM}/lulu-dev-workflow")
+STAGE = "diagnostic"
 
 
 def diagnostic_hot_root() -> Path:
@@ -16,12 +17,12 @@ def archive_diagnostic_dir(conversation_id: str) -> Path:
     return CACHE_DIR / "_archive" / conversation_id / "diagnostic"
 
 
-def session_base_dir(conversation_id: str) -> Path:
-    return diagnostic_hot_root() / conversation_id
+def session_base_dir(feature_id: str) -> Path:
+    return CACHE_DIR / feature_id / STAGE
 
 
-def session_state_path(conversation_id: str) -> Path:
-    return session_base_dir(conversation_id) / "session-state.md"
+def session_state_path(feature_id: str) -> Path:
+    return session_base_dir(feature_id) / "session-state.md"
 
 
 def write_session_state(path: Path, current_state: str) -> None:

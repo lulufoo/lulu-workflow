@@ -28,6 +28,7 @@ BASE         = "lulu-dev-workflow"
 # Root-level scripts (relative to BASE/scripts/)
 ROOT_SCRIPTS = (
     "archive_common.py",
+    "feature_init.py",
     "hook_guard.py",
     "init.py",
     "install.py",
