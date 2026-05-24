@@ -108,19 +108,19 @@ Creates `session-state.md` with `current_state: InProgress`.
 
 **G5.** Upstream input error — if the intent input itself has a fundamental error, exit the loop; tell the user to fix the input and restart.
 
-**G6. Override Guard（反应式）** — 在所有 gates 通过前，检测到 override 信号（"跳过"/"直接实现"/"快去做"/"先做再说"等）时：
-1. 立即停下，不执行任何实现动作
-2. 说明当前哪些 gate 尚未通过
-3. 问用户："继续 diagnostic 还是主动退出？"
+**G6. Override Guard (reactive)** — when an override signal is detected before all gates are closed ("skip" / "just implement it" / "go ahead" / "do it first" etc.):
+1. Stop immediately — do not take any implementation action
+2. State which gates have not yet closed
+3. Ask the user: "Continue diagnostic or exit intentionally?"
 
-若用户确认主动退出 → 优雅退出，在最后一条消息中标注 diagnostic 未完成。
+If user confirms intentional exit → exit gracefully; mark diagnostic as incomplete in the final message.
 
-**G7. Collect-or-Ask**（适用于所有信息收集步骤）：
-1. 先检查该维度的信息是否已在本次对话中被用户**明确陈述**（非 AI 推断）
-2. **已陈述** → 必须：引用原文 + 陈述为本维度答案 + 一句确认（"是否正确？"）
-3. **未陈述** → 正常发问
+**G7. Collect-or-Ask** (applies to all information-gathering steps):
+1. First check whether information for this dimension has already been **explicitly stated** by the user in this conversation (not inferred by AI)
+2. **Already stated** → must: quote the original text + restate as the answer for this dimension + one-sentence confirmation ("Is this correct?")
+3. **Not stated** → ask normally
 
-**禁止：** 对已陈述信息重新发问（即 step 2 场景下不得执行 step 3 的操作）
+**Prohibited:** re-asking for information already stated (i.e. do not execute step 3 when step 2 applies)
 
 ---
 
