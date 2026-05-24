@@ -40,26 +40,13 @@ that gates state transitions.
 
 **Step 1: Identify active feature**
 
-【快路径】
-1. 在本对话 AI 回复历史中，找到最近一行 `LULU-DEV-WORKFLOW: <id>`（不含对话摘要区）
-2. 若找到 AND 当前消息无歧义信号 → 宣告 "Feature: [name]（active）"，直接跳到步骤 7
-3. 否则 → 进入慢路径
+**Fast path:** Find the latest `LULU-DEV-WORKFLOW: <id>` line in this conversation's AI responses (skip conversation-summary blocks). If found and no ambiguity signal → use it, proceed to next step.
 
-【慢路径】（无 LULU-DEV-WORKFLOW 行 / 有歧义信号时触发）
-4. 读 `$CACHE_DIR/features.json` → 得到所有活跃 feature 列表
-5. 对每个 feature 扫描其 `tech/` 子目录 → 推断当前进度，结合对话语义排序
-6. 展示选择列表（ACTIVE 排第一，含 New 选项）→ 等用户确认
-   - 若用户选 New → 执行 `feature_init.py`，得到新 `feature_id`
+**Slow path:** Read `$CACHE_DIR/features.json` → display list + "New" option → wait for confirmation. If New → run `feature_init.py` for a new `feature_id`.
 
-【共同路径】
-7. 确定 `feature_id`；每轮工作流回复末尾追加 `LULU-DEV-WORKFLOW: <feature_id>`
-8. 后续脚本均以此 `feature_id` 为参数执行
+Append `LULU-DEV-WORKFLOW: <feature_id>` to every workflow AI response.
 
-**歧义信号（触发慢路径）：**
-- 本对话无 `LULU-DEV-WORKFLOW:` 行（首次进入工作流）
-- 用户提及另一个 feature 名 / ID
-- 用户说"换一个"、"新建"、"选一下"等切换意图
-- 当前 `LULU-DEV-WORKFLOW:` 指向的 feature 与当前需求语义明显不符
+> Ambiguity signals: no footer in conversation · user mentions a different feature · user says "switch" / "new" / "choose"
 
 **Step 2: Determine run-mode**
 
