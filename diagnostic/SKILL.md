@@ -108,6 +108,20 @@ Creates `session-state.md` with `current_state: InProgress`.
 
 **G5.** Upstream input error — if the intent input itself has a fundamental error, exit the loop; tell the user to fix the input and restart.
 
+**G6. Override Guard（反应式）** — 在所有 gates 通过前，检测到 override 信号（"跳过"/"直接实现"/"快去做"/"先做再说"等）时：
+1. 立即停下，不执行任何实现动作
+2. 说明当前哪些 gate 尚未通过
+3. 问用户："继续 diagnostic 还是主动退出？"
+
+若用户确认主动退出 → 优雅退出，在最后一条消息中标注 diagnostic 未完成。
+
+**G7. Collect-or-Ask**（适用于所有信息收集步骤）：
+1. 先检查该维度的信息是否已在本次对话中被用户**明确陈述**（非 AI 推断）
+2. **已陈述** → 必须：引用原文 + 陈述为本维度答案 + 一句确认（"是否正确？"）
+3. **未陈述** → 正常发问
+
+**禁止：** 对已陈述信息重新发问（即 step 2 场景下不得执行 step 3 的操作）
+
 ---
 
 ### Gate Rules
@@ -127,8 +141,8 @@ Capture input in User Prior Log. This step is not part of Q and does not count t
 **Prerequisites:** None
 
 **Execute:**
-1. Ask: "What triggered this decision? What problem are we solving?"
-2. Ask: "What are the known, non-negotiable constraints?"
+1. Ask (G7): "What triggered this decision? What problem are we solving?"
+2. Ask (G7): "What are the known, non-negotiable constraints?"
    — Constraints are facts, not decisions. Do not attempt to challenge or negotiate them away.
 3. Confirm understanding: restate problem and constraints in one sentence; ask if correct.
 
@@ -169,7 +183,7 @@ Capture input in User Prior Log. This step is not part of Q and does not count t
 
 **Prerequisites:** D closed
 
-**Execute one dimension, one question at a time:**
+**Execute one dimension, one question at a time (apply G7 for each Core question):**
 
 | # | Dimension | Core question | Pass criterion |
 |---|-----------|---------------|----------------|

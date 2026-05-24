@@ -25,6 +25,32 @@ under this directory.
 > **diagnostic is mandatory before /product or /tech.**
 > Run diagnostic to produce a decision-doc before starting either workflow.
 
+## Stage Transitions
+
+When a stage delivers, AI must list the allowed next stages from the whitelist below, recommend one, and wait for explicit user selection. AI must not infer and execute the next stage autonomously.
+
+**Whitelist:**
+
+| Current Stage | Allowed Next → |
+|---|---|
+| `diagnostic` | `tech` / `product` |
+| `product` | `tech` |
+| `tech` | `work-order` |
+| `work-order` | `code` |
+| `code` | done |
+
+> `tech` → `code` is **prohibited** — bypasses task breakdown and TDD-first discipline in `work-order`.
+
+### Stage Rollback
+
+Any participant may trigger a Stage Rollback when new information shows a prior stage's output is no longer valid:
+
+- **Trigger:** state the target stage to roll back to (any prior stage, any number of levels back)
+- **Effect:** target stage + all downstream stages are invalidated; they must be redone from scratch
+- **AI must announce:** "[target stage] and all downstream stages are invalidated. Restarting from [target stage]."
+
+Stage Rollback is distinct from the diagnostic `Re-open` mechanism (which operates within a single diagnostic session on gate-level inputs).
+
 ## Platform Context
 
 **Detect once at session start, substitute `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, and `$CACHE_DIR` throughout:**
@@ -45,6 +71,9 @@ under this directory.
 **Fast path:** Find the latest `LULU-DEV-WORKFLOW: <id>` line in this conversation's AI responses (skip conversation-summary blocks). If found and no ambiguity signal → use it as `feature_id`.
 
 **Slow path:**
+
+**G7 pre-check:** Before prompting, check if the user's triggering message already contains a clear description of the feature/work to be done. If yes: derive a feature name from it → present as: `Feature name: "<derived name>". Correct?` → if confirmed, run `feature_init.py` with that name (skip steps 1–3 below). If not confirmed or description is ambiguous: proceed with steps 1–3.
+
 1. Read `$CACHE_DIR/features.json` → display list; last entry: "New — type a description to create"
 2. Prompt once: `Enter number to select, or type a description to create a new feature:`
 3. Wait for single response, then branch:
