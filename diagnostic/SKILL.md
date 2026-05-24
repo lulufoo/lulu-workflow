@@ -4,6 +4,8 @@ name: diagnostic
 
 # diagnostic-workflow
 
+> Framework reference: [diagnostic-decision-framework.md](https://github.com/lulufoo/ai-thinking-framework/blob/main/diagnostic-decision-framework/diagnostic-decision-framework.md)
+
 Run a Diagnostic Decision Framework (DDF) session. **Mandatory before starting /product or /tech.**
 
 **This SKILL runs in Plan mode.**
@@ -15,8 +17,6 @@ Do NOT proceed until you have read `../SKILL.md` and loaded:
 </HARD-GATE>
 
 `$SKILL_DIR` = `$SKILL_ROOT/diagnostic`
-
-> Framework reference: [diagnostic-decision-framework.md](https://github.com/lulufoo/ai-thinking-framework/blob/main/diagnostic-decision-framework/diagnostic-decision-framework.md)
 
 ---
 
