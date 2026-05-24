@@ -72,8 +72,6 @@ gh api "repos/$REPO/contents/lulu-dev-workflow/scripts/install.py?ref=$REF" \
   --jq '.content' | base64 -d | python3 - --platform $PLATFORM
 ```
 
-After install, run `lulu-dev-workflow init` in the target project.
-
 ### `init` — Project-level, run once per project
 
 > Prerequisite: `install` has been run.
