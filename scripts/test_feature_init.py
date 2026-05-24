@@ -117,32 +117,6 @@ class TestUpdateFeaturesJson:
 
 
 # ---------------------------------------------------------------------------
-# write_active_session
-# ---------------------------------------------------------------------------
-
-class TestWriteActiveSession:
-    def test_writes_feature_id_with_trailing_newline(self, tmp_path):
-        from feature_init import write_active_session
-        write_active_session(tmp_path, "20260524143022-02cd7e6e")
-        content = (tmp_path / "ACTIVE_SESSION").read_text()
-        assert content == "20260524143022-02cd7e6e\n"
-
-    def test_exactly_one_trailing_newline(self, tmp_path):
-        from feature_init import write_active_session
-        write_active_session(tmp_path, "20260524143022-02cd7e6e")
-        raw = (tmp_path / "ACTIVE_SESSION").read_bytes()
-        assert raw.endswith(b"\n")
-        assert not raw.endswith(b"\n\n")
-
-    def test_overwrites_existing_active_session(self, tmp_path):
-        from feature_init import write_active_session
-        (tmp_path / "ACTIVE_SESSION").write_text("20260101000000-oldoldold\n")
-        write_active_session(tmp_path, "20260524143022-02cd7e6e")
-        content = (tmp_path / "ACTIVE_SESSION").read_text()
-        assert content == "20260524143022-02cd7e6e\n"
-
-
-# ---------------------------------------------------------------------------
 # main / CLI integration (subprocess)
 # ---------------------------------------------------------------------------
 
@@ -185,12 +159,6 @@ class TestCLI:
         data = json.loads(fj.read_text())
         assert data[fid] == "my-feature"
 
-    def test_active_session_points_to_new_feature(self, tmp_path):
-        result = self._run(tmp_path)
-        fid = result.stdout.strip().splitlines()[-1]
-        active = self._cache_dir(tmp_path) / "ACTIVE_SESSION"
-        assert active.read_text() == f"{fid}\n"
-
     def test_consecutive_calls_append_features_json(self, tmp_path):
         self._run(tmp_path, name="feat-0")
         self._run(tmp_path, name="feat-1")
@@ -199,13 +167,6 @@ class TestCLI:
         assert len(data) == 2
         names = list(data.values())
         assert names == ["feat-0", "feat-1"]
-
-    def test_consecutive_calls_active_session_is_second(self, tmp_path):
-        self._run(tmp_path, name="feat-0")
-        result2 = self._run(tmp_path, name="feat-1")
-        fid2 = result2.stdout.strip().splitlines()[-1]
-        active = self._cache_dir(tmp_path) / "ACTIVE_SESSION"
-        assert active.read_text() == f"{fid2}\n"
 
     def test_invalid_project_root_exits_nonzero(self):
         result = subprocess.run(

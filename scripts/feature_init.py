@@ -58,11 +58,6 @@ def update_features_json(cache_dir: Path, feature_id: str, name: str) -> None:
     fj.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def write_active_session(cache_dir: Path, feature_id: str) -> None:
-    """Write feature_id + newline to ACTIVE_SESSION (overwrite)."""
-    (cache_dir / "ACTIVE_SESSION").write_text(f"{feature_id}\n", encoding="utf-8")
-
-
 def main(project_root: Path, name: str) -> str:
     """Orchestrate feature initialization. Returns feature_id."""
     if not project_root.is_dir():
@@ -75,7 +70,6 @@ def main(project_root: Path, name: str) -> str:
     feature_id = generate_feature_id()
     ensure_feature_dir(cache_dir, feature_id)
     update_features_json(cache_dir, feature_id, name)
-    write_active_session(cache_dir, feature_id)
 
     print(feature_id)
     return feature_id

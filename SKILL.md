@@ -130,14 +130,14 @@ https://github.com/lulufoo/ai-software-dev/blob/main/lulu-dev-workflow-template/
 
 ### `workflow start [name]` — Create a new feature
 
-Creates a new feature and updates `ACTIVE_SESSION`:
+Creates a new feature and prints the `feature_id`:
 
 ```bash
 python3 $SKILL_DIR/scripts/feature_init.py \
   --project-root "$(pwd)" --name "[name]"
 ```
 
-Prints the `feature_id` (format: `YYYYMMDDHHMMSS-xxxxxxxx`) and writes it to `$CACHE_DIR/ACTIVE_SESSION`.
+Prints the `feature_id` (format: `YYYYMMDDHHMMSS-xxxxxxxx`). Use the output as the active feature for this conversation.
 
 ## Usage
 
