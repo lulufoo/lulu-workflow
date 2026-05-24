@@ -36,3 +36,13 @@ def write_session_state(path: Path, current_state: str) -> None:
         f"---\n"
     )
     path.write_text(content, encoding="utf-8")
+
+
+def normalize_tool_path(raw_path: str, project_root: Path) -> str:
+    candidate = Path(raw_path)
+    if candidate.is_absolute():
+        try:
+            candidate = candidate.resolve().relative_to(project_root.resolve())
+        except ValueError:
+            return candidate.as_posix()
+    return candidate.as_posix()

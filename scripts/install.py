@@ -45,7 +45,7 @@ STAGE_SCRIPTS: dict = {
     "work-order": ["archive.py", "hook_guard.py", "init.py", "start.py", "workflow_common.py"],
     "tech":       ["archive.py", "hook_guard.py", "init.py", "start.py", "workflow_common.py"],
     "product":    ["archive.py", "hook_guard.py", "init.py", "start.py", "workflow_common.py"],
-    "diagnostic": ["archive.py", "start.py", "workflow_common.py"],
+    "diagnostic": ["archive.py", "hook_guard.py", "start.py", "workflow_common.py"],
 }
 # Stages that have transition-whitelist.json
 STAGE_WHITELIST = {"code", "work-order", "tech", "product"}

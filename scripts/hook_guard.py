@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 _SKILL_ROOT = Path(__file__).resolve().parents[1]
-_STAGES = ["work-order", "tech", "product"]
+_STAGES = ["diagnostic", "work-order", "tech", "product"]
 _PLATFORMS_DIR = Path(__file__).resolve().parent / "platforms"
 _WRITE_TOOL_NAMES = frozenset({"Write", "Edit"})
 
