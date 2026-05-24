@@ -164,6 +164,20 @@ python3 $SKILL_ROOT/scripts/feature_init.py \
 
 Prints the `feature_id` (format: `YYYYMMDDHHMMSS-xxxxxxxx`). After running, append `LULU-DEV-WORKFLOW: <feature_id>` to this response.
 
+### `archive [N]` — Prune old features, keep N most recent
+
+Usage: `lulu-dev-workflow archive [N]` (default N=5)
+
+Keeps the N most recent features (by creation timestamp in `feature_id`) in `$CACHE_DIR`. Deletes older feature directories and removes their entries from `features.json`.
+
+```bash
+python3 $SKILL_ROOT/scripts/prune_features.py \
+  --project-root "$(pwd)" \
+  --keep N
+```
+
+Prints a summary of deleted directories and retained features.
+
 ## Feature Tracking Convention
 
 Every workflow AI response must end with:

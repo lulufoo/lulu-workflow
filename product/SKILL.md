@@ -12,7 +12,7 @@ disable-model-invocation: true
 
 > **Prerequisite:** Run `diagnostic` SKILL before starting this workflow.
 > The decision-doc produced by diagnostic is the required input context.
-> Path: `.cache/$PLATFORM/lulu-dev-workflow/<feature_id>/diagnostic/decision-doc.md`
+> Path: `$CACHE_DIR/<feature_id>/diagnostic/decision-doc.md`
 
 Drive a product document workflow with explicit per-session state files and a
 hook that gates state transitions.
@@ -32,7 +32,7 @@ Do NOT proceed until you have read `../SKILL.md` and loaded:
 
 **This workflow runs in Agent mode with path guard.** All session files are
 Markdown. During an active session, writes are restricted to
-`.cache/$PLATFORM/lulu-dev-workflow/` by the hook guard.
+`$CACHE_DIR/` by the hook guard.
 
 ---
 
@@ -48,8 +48,6 @@ Markdown. During an active session, writes are restricted to
 > Ambiguity signals: no footer in conversation · user mentions a different feature · user says "switch" / "new" / "choose"
 
 **Step 2: Run start**
-
-> `start.py` runs archive first: restores the current conv from `_archive/` if needed, then moves other **Delivered** convs to `_archive/<conv_id>/product/`. Non-terminal convs stay in the hot zone.
 
 ```bash
 python3 "$SKILL_DIR/scripts/start.py" \
@@ -68,7 +66,7 @@ product document, do not run start again — read the current session files.
 ## Session File Structure
 
 ```
-.cache/$PLATFORM/lulu-dev-workflow/<feature_id>/product/
+$CACHE_DIR/<feature_id>/product/
   session-state.md               ← active_doc: N (线性递增，不回退)
 
   revision{N}/                          ← 第 N 个产品文档
@@ -80,22 +78,6 @@ product document, do not run start again — read the current session files.
     evaluate{M}/                        ← 第 M 轮 PDQA 评估
       pdqa-review.md             ← 评估记录（逐问题更新）
 ```
-
-**Cold zone** (Delivered convs archived on next `/product` start):
-
-```
-.cache/$PLATFORM/lulu-dev-workflow/_archive/<conv_id>/product/
-  session-state.md              ← same layout as hot zone
-  revision1/ … revision{N}/
-```
-
-Archive rules (via `start.py` → `archive.py`):
-
-- Only convs whose **active** `revision{N}/workflow-state.md` has `current_state: Delivered` are moved to cold storage (whole conv).
-- Non-terminal convs (Drafting, Evaluating, ReadyForDelivery, etc.) remain in the hot zone.
-- The current conversation conv is never archived; if it exists only in cold storage, `start.py` restores it before creating the next revision.
-
-To read historical product docs: `.cache/$PLATFORM/lulu-dev-workflow/_archive/<conv_id>/product/revision{N}/`
 
 Two linear counters (non-reversible):
 - `active_doc` (N): which product document in this conversation
@@ -134,7 +116,7 @@ During Evaluating, revise `revision{N}/product-doc.md` in place; `evaluate{M}/` 
 
 **G1.** Read `$WORKFLOW_DIR/workflow-config.json` before driving the workflow.
 
-**G2.** Session files live at `.cache/$PLATFORM/lulu-dev-workflow/<feature_id>/product/revision{N}/`.
+**G2.** Session files live at `$CACHE_DIR/<feature_id>/product/revision{N}/`.
 Read `session-state.md` to determine current `active_doc` (N).
 
 **G3.** `revision{N}/workflow-state.md` is the authoritative current state — write it to request a transition.
@@ -145,7 +127,7 @@ Read `session-state.md` to determine current `active_doc` (N).
 
 **G6.** Use full `Write` (not `Edit`) for `workflow-state.md`.
 
-**G7.** This workflow runs in Agent mode. Writes outside `.cache/$PLATFORM/lulu-dev-workflow/`
+**G7.** This workflow runs in Agent mode. Writes outside `$CACHE_DIR/`
 are blocked by the path guard hook while a session is active.
 
 ### Drafting Rules

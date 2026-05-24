@@ -74,12 +74,10 @@ Two registers run throughout the entire session, not attached to any single gate
 
 Decision-doc will be written to:
 ```
-.cache/$PLATFORM/lulu-dev-workflow/<feature_id>/diagnostic/decision-doc.md
+$CACHE_DIR/<feature_id>/diagnostic/decision-doc.md
 ```
 
 **Step 3: Run start.py**
-
-> `start.py` runs archive first: restores the current conv from `_archive/` if needed, then moves other **Delivered** convs to `_archive/<conv_id>/diagnostic/`. Non-terminal convs stay in the hot zone.
 
 ```bash
 python3 "$SKILL_DIR/scripts/start.py" \
@@ -90,18 +88,6 @@ python3 "$SKILL_DIR/scripts/start.py" \
 Creates `session-state.md` with `current_state: InProgress`.
 
 **Do not** run start again after Delivery (`Delivered`) on the same feature — use a new feature for a new diagnostic.
-
-**Hot / cold layout:**
-
-```
-.cache/$PLATFORM/lulu-dev-workflow/<feature_id>/diagnostic/  ← hot zone
-  session-state.md          ← current_state: InProgress | Delivered
-  decision-doc.md
-
-.cache/$PLATFORM/lulu-dev-workflow/_archive/<conv_id>/diagnostic/   ← cold zone (whole conv)
-```
-
-Legacy directories (only `decision-doc.md`, no `session-state.md`) are **not** auto-archived — add `session-state.md` manually.
 
 ---
 
@@ -247,7 +233,7 @@ V has two distinct duties: (1) confirm that verification actions are in place fo
 
 ## Decision-Doc Format
 
-Write to `.cache/$PLATFORM/lulu-dev-workflow/<feature_id>/diagnostic/decision-doc.md`:
+Write to `$CACHE_DIR/<feature_id>/diagnostic/decision-doc.md`:
 
 ```markdown
 # Decision: {title}
@@ -383,4 +369,3 @@ current_state: Delivered
    - Tech-level decision → **must** proceed to `/tech` (use decision-doc as context alongside product-doc if applicable)
    - Mixed (product + tech) → **must** proceed to `/product` first, then `/tech`
 
-Delivered convs move to `_archive/<conv_id>/diagnostic/` on the next diagnostic (or any stage) start that scans the hot zone — not immediately at Delivery.

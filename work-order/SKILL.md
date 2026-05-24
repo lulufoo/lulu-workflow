@@ -44,8 +44,6 @@ Ask the user for the absolute path to the Delivered `tech-doc.md`. Do not auto-d
 
 **Step 3: Run start**
 
-> `start.py` runs archive first: restores the current conv from `_archive/` if needed, then moves other **Delivered** convs to `_archive/<conv_id>/work-order/`. Non-terminal convs stay in the hot zone.
-
 ```bash
 python3 "$SKILL_DIR/scripts/start.py" \
   --project-root "$(pwd)" \
@@ -58,7 +56,7 @@ python3 "$SKILL_DIR/scripts/start.py" \
 ## Session File Structure
 
 ```
-.cache/$PLATFORM/lulu-dev-workflow/<feature_id>/work-order/
+$CACHE_DIR/<feature_id>/work-order/
   session-state.md               ← active_doc: N (monotonically increasing)
 
   r{N}/                          ← Nth work order
@@ -77,19 +75,6 @@ python3 "$SKILL_DIR/scripts/start.py" \
       t2/
         task.md
 ```
-
-**Cold zone** (Delivered convs archived on next `/work-order` start):
-
-```
-.cache/$PLATFORM/lulu-dev-workflow/_archive/<conv_id>/work-order/
-  session-state.md
-  r1/ … r{N}/
-```
-
-- Only the **active** `r{N}/workflow-state.md` with `current_state: Delivered` triggers archive (whole conv).
-- The current conversation conv is never archived; cold-only convs are restored before the next round.
-
-Historical work orders: `.cache/$PLATFORM/lulu-dev-workflow/_archive/<conv_id>/work-order/r{N}/`
 
 ---
 
@@ -117,7 +102,7 @@ Hook enforces all transition pre-conditions. Denial messages are self-explanator
 3. `r{N}/workflow-state.md` is the authoritative current state — write it to request a transition.
 4. Never infer state from document body or file existence; always read `workflow-state.md`.
 5. Use full `Write` (not `Edit`) for `workflow-state.md` and `evaluate-state.md`.
-6. This workflow runs in Agent mode. Writes outside `.cache/$PLATFORM/lulu-dev-workflow/`
+6. This workflow runs in Agent mode. Writes outside `$CACHE_DIR/`
    are blocked by the path guard hook while a session is active.
 
 ### Drafting Rules
@@ -276,7 +261,7 @@ version: 1
 workflow: work-order
 current_state: Drafting
 evaluate_round: 0
-tech_ref: /abs/path/.cache/$PLATFORM/lulu-dev-workflow/<feature_id>/tech/revision1/tech-doc.md
+tech_ref: /abs/path/$CACHE_DIR/<feature_id>/tech/revision1/tech-doc.md
 updated_at: 2026-05-17T09:00:00+08:00
 ---
 ```

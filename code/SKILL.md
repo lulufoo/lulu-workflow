@@ -62,7 +62,7 @@ Prerequisite: upstream must be in Delivered state.
 
 Path B:
 ```bash
-cat <project-root>/.cache/$PLATFORM/lulu-dev-workflow/<work-order-feature-id>/work-order/*/workflow-state.md
+cat <project-root>/$CACHE_DIR/<work-order-feature-id>/work-order/*/workflow-state.md
 ```
 - `current_state` is not `Delivered` → error: "work-order `<id>` not yet delivered (current state: `<state>`). Cannot start code workflow." Stop.
 - Path does not exist → error: "work-order `<id>` not found. Please verify the ID." Stop.
@@ -75,15 +75,13 @@ Path A:
 
 Path B:
 ```bash
-<project-root>/.cache/$PLATFORM/lulu-dev-workflow/<work-order-feature-id>/work-order/<revision>/task-list.md
-<project-root>/.cache/$PLATFORM/lulu-dev-workflow/<work-order-feature-id>/work-order/<revision>/tasks/*/task.md
+<project-root>/$CACHE_DIR/<work-order-feature-id>/work-order/<revision>/task-list.md
+<project-root>/$CACHE_DIR/<work-order-feature-id>/work-order/<revision>/tasks/*/task.md
 ```
 
 Path A: use `<tech-doc-path>` directly.
 
 **Step 5: Run start.py**
-
-> `start.py` runs archive first: restores the current conv from `_archive/` if needed, then moves other **Completed** convs to `_archive/<conv_id>/code/`. **Executing** convs stay in the hot zone.
 
 Path B:
 ```bash
@@ -112,10 +110,8 @@ python3 "$SKILL_DIR/scripts/start.py" \
 
 ## Session File Structure
 
-**Hot zone** (active / in-progress convs):
-
 ```
-.cache/$PLATFORM/lulu-dev-workflow/<feature_id>/code/
+$CACHE_DIR/<feature_id>/code/
   session-state.md              ← active_session: N (monotonically increasing)
 
   s{N}/                         ← Nth code session
@@ -129,22 +125,6 @@ python3 "$SKILL_DIR/scripts/start.py" \
         red-run.md              ← Phase 2: test run output (hook depends on this file)
         green-run.md            ← Phase 4: test run output
 ```
-
-**Cold zone** (Completed convs archived on next `/code` start):
-
-```
-.cache/$PLATFORM/lulu-dev-workflow/_archive/<conv_id>/code/
-  session-state.md              ← same layout as hot zone
-  s1/ … s{N}/
-```
-
-Archive rules (handled by `archive.py` via `start.py`):
-
-- Only convs whose **active** `s{N}/workflow-state.md` has `current_state: Completed` are moved to cold storage (whole conv, all sessions). Conv IDs may be UUIDs or slugs (e.g. `p4-tauri-migration`).
-- Convs with `current_state: Executing` remain in the hot zone (safe for multi-window).
-- The current conversation conv is never archived; if it exists only in cold storage, `start.py` restores it before creating the next session round.
-
-To read historical sessions: `.cache/$PLATFORM/lulu-dev-workflow/_archive/<conv_id>/code/s{N}/`
 
 ---
 
@@ -278,7 +258,7 @@ version: 1
 workflow: code
 current_state: Executing
 mode: task-from-work-order
-task_list_ref: /abs/path/.cache/$PLATFORM/lulu-dev-workflow/<feature_id>/code/s1/code-task-list.md
+task_list_ref: /abs/path/$CACHE_DIR/<feature_id>/code/s1/code-task-list.md
 current_task: t2
 current_phase: WriteImpl
 updated_at: 2026-05-17T09:00:00+08:00
@@ -292,7 +272,7 @@ updated_at: 2026-05-17T09:00:00+08:00
 ```markdown
 ---
 source: work-order
-task_list_ref: /abs/path/.cache/$PLATFORM/lulu-dev-workflow/<feature_id>/work-order/r1/task-list.md
+task_list_ref: /abs/path/$CACHE_DIR/<feature_id>/work-order/r1/task-list.md
 total: 5
 done: 1
 ---

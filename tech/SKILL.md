@@ -11,7 +11,7 @@ disable-model-invocation: true
 
 > **Prerequisite:** Run `diagnostic` SKILL before starting this workflow.
 > The decision-doc produced by diagnostic is the required input context.
-> Path: `.cache/$PLATFORM/lulu-dev-workflow/<feature_id>/diagnostic/decision-doc.md`
+> Path: `$CACHE_DIR/<feature_id>/diagnostic/decision-doc.md`
 
 Drive a tech document workflow with explicit per-session state files and a hook
 that gates state transitions.
@@ -56,8 +56,6 @@ Do not infer or auto-detect the path.
 
 **Step 3: Run start**
 
-> `start.py` runs archive first: restores the current conv from `_archive/` if needed, then moves other **Delivered** convs to `_archive/<conv_id>/tech/`. Non-terminal convs stay in the hot zone.
-
 ```bash
 python3 "$SKILL_DIR/scripts/start.py" \
   --project-root "$(pwd)" \
@@ -75,7 +73,7 @@ tech flow to use a previous tech-doc as the draft starting point.
 ## Session File Structure
 
 ```
-.cache/$PLATFORM/lulu-dev-workflow/<feature_id>/tech/
+$CACHE_DIR/<feature_id>/tech/
   session-state.md               ← active_doc: N (monotonically increasing)
 
   revision{N}/                          ← Nth tech doc
@@ -89,19 +87,6 @@ tech flow to use a previous tech-doc as the draft starting point.
       tech-review-e{M}2.md       ← E2: codebase consistency review
       tech-review-e{M}3.md       ← E3: solution quality review
 ```
-
-**Cold zone** (Delivered convs archived on next `/tech` start):
-
-```
-.cache/$PLATFORM/lulu-dev-workflow/_archive/<conv_id>/tech/
-  session-state.md
-  revision1/ … revision{N}/
-```
-
-- Only the **active** `revision{N}/workflow-state.md` with `current_state: Delivered` triggers archive (whole conv).
-- The current conversation conv is never archived; cold-only convs are restored before the next revision.
-
-Historical tech docs: `.cache/$PLATFORM/lulu-dev-workflow/_archive/<conv_id>/tech/revision{N}/`
 
 ---
 
@@ -133,7 +118,7 @@ Skipping evaluation does **not** skip delivery confirmation: all paths still use
 3. `revision{N}/workflow-state.md` is the authoritative current state — write it to request a transition.
 4. Never infer state from document body or file existence; always read `workflow-state.md`.
 5. Use full `Write` (not `Edit`) for `workflow-state.md` and `evaluate-state.md`.
-6. This workflow runs in Agent mode. Writes outside `.cache/$PLATFORM/lulu-dev-workflow/`
+6. This workflow runs in Agent mode. Writes outside `$CACHE_DIR/`
    are blocked by the path guard hook while a session is active.
 
 ### Drafting Rules
@@ -259,7 +244,7 @@ mode: product
 current_state: Drafting
 evaluate_round: 0
 skip_evaluate_requested: false
-product_ref: /abs/path/.cache/$PLATFORM/lulu-dev-workflow/<feature_id>/product/revision1/product-doc.md
+product_ref: /abs/path/$CACHE_DIR/<feature_id>/product/revision1/product-doc.md
 carry_forward_ref: ""
 updated_at: 2026-05-17T09:00:00+08:00
 ---
