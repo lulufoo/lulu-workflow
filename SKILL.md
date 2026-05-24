@@ -31,9 +31,9 @@ under this directory.
 
 | | Cursor | Copilot |
 |---|---|---|
+| `$PLATFORM` | `cursor` | `copilot` |
 | `$SKILL_ROOT` | `~/.cursor/skills/lulu-dev-workflow` | `~/.copilot/skills/lulu-dev-workflow` |
 | `$WORKFLOW_DIR` | `.cursor/lulu-dev-workflow` | `.github/lulu-dev-workflow` |
-| `$PLATFORM` | `cursor` | `copilot` |
 | `$CACHE_DIR` | `.cache/cursor/lulu-dev-workflow` | `.cache/copilot/lulu-dev-workflow` |
 
 > **Detect:** `COPILOT_AGENT=1` env var → Copilot; `VSCODE_TARGET_SESSION_LOG` template variable present → Copilot; otherwise → Cursor.
