@@ -72,7 +72,7 @@ Stage Rollback is distinct from the diagnostic `Re-open` mechanism (which operat
 
 **Slow path:**
 
-**G7 pre-check:** Before prompting, check if the user's triggering message already contains a clear description of the feature/work to be done. If yes: derive a feature name from it → present as: `Feature name: "<derived name>". Correct?` → if confirmed, run `feature_init.py` with that name (skip steps 1–3 below). If not confirmed or description is ambiguous: proceed with steps 1–3.
+If the triggering message already contains a clear feature description → derive name → `Feature name: "<derived name>". Correct?` → confirmed: `feature_init.py --name "<name>"` (done). Otherwise:
 
 1. Read `$CACHE_DIR/features.json` → display list; last entry: "New — type a description to create"
 2. Prompt once: `Enter number to select, or type a description to create a new feature:`
