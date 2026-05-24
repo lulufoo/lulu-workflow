@@ -27,15 +27,40 @@ under this directory.
 
 ## Platform Context
 
-**Detect once at session start, substitute `$SKILL_DIR`, `$WORKFLOW_DIR`, and `$PLATFORM_FLAG` throughout:**
+**Detect once at session start, substitute `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, and `$CACHE_DIR` throughout:**
 
 | | Cursor | Copilot |
 |---|---|---|
-| `$SKILL_DIR` | `~/.cursor/skills/lulu-dev-workflow` | `~/.copilot/skills/lulu-dev-workflow` |
+| `$SKILL_ROOT` | `~/.cursor/skills/lulu-dev-workflow` | `~/.copilot/skills/lulu-dev-workflow` |
 | `$WORKFLOW_DIR` | `.cursor/lulu-dev-workflow` | `.github/lulu-dev-workflow` |
-| `$PLATFORM_FLAG` | `--platform cursor` | `--platform copilot` |
+| `$PLATFORM` | `cursor` | `copilot` |
+| `$CACHE_DIR` | `.cache/cursor/lulu-dev-workflow` | `.cache/copilot/lulu-dev-workflow` |
 
 > **Detect:** `COPILOT_AGENT=1` env var → Copilot; `VSCODE_TARGET_SESSION_LOG` template variable present → Copilot; otherwise → Cursor.
+
+## Feature Context
+
+**Run at session start for every sub-workflow. Substitute `$CACHE_DIR` from Platform Context.**
+
+**Fast path:** Find the latest `LULU-DEV-WORKFLOW: <id>` line in this conversation's AI responses (skip conversation-summary blocks). If found and no ambiguity signal → use it as `feature_id`.
+
+**Slow path:**
+1. Read `$CACHE_DIR/features.json` → display list; last entry: "New — type a description to create"
+2. Prompt once: `Enter number to select, or type a description to create a new feature:`
+3. Wait for single response, then branch:
+
+   | Input | Action |
+   |---|---|
+   | Pure integer | Select that existing feature |
+   | Any other text | Run `feature_init.py --project-root "$(pwd)" --name "<user_input>"` |
+
+   _(Name is a working title; update `features.json` directly if refinement needed.)_
+
+Append `LULU-DEV-WORKFLOW: <feature_id>` to every workflow AI response.
+
+After confirming `feature_id`, only read workflow documents from `$CACHE_DIR/<feature_id>/`.
+
+> Ambiguity signals: no footer in conversation · user mentions a different feature · user says "switch" / "new" / "choose"
 
 ## Setup
 
@@ -43,7 +68,7 @@ under this directory.
 
 ```bash
 REPO="lulufoo/lulu-dev-skills"; REF="main"; SRC="lulu-dev-workflow"
-DST="$SKILL_DIR"
+DST="$SKILL_ROOT"
 
 # pull_dir REMOTE_PATH LOCAL_PATH — downloads all files in a remote directory
 pull_dir() {
@@ -76,7 +101,7 @@ After install, run `lulu-dev-workflow init` in the target project.
 > Prerequisite: `install` has been run.
 
 ```bash
-python3 "$SKILL_DIR/scripts/init.py" --project-root "$(pwd)" $PLATFORM_FLAG
+python3 "$SKILL_ROOT/scripts/init.py" --project-root "$(pwd)" --platform $PLATFORM
 ```
 
 Creates `$WORKFLOW_DIR/workflow-config.json` and registers all sub-workflow hooks.
@@ -133,7 +158,7 @@ https://github.com/lulufoo/ai-software-dev/blob/main/lulu-dev-workflow-template/
 Creates a new feature and prints the `feature_id`:
 
 ```bash
-python3 $SKILL_DIR/scripts/feature_init.py \
+python3 $SKILL_ROOT/scripts/feature_init.py \
   --project-root "$(pwd)" --name "[name]"
 ```
 
@@ -153,8 +178,8 @@ This line tracks the active feature per conversation window. Stage workflows use
 
 Each stage has its own `SKILL.md` with start commands.
 
-- **Decision diagnostic:** read `$SKILL_DIR/diagnostic/SKILL.md`
-- **Product doc:** read `$SKILL_DIR/product/SKILL.md`
-- **Tech design:** read `$SKILL_DIR/tech/SKILL.md`
-- **Work order:** read `$SKILL_DIR/work-order/SKILL.md`
-- **Code:** read `$SKILL_DIR/code/SKILL.md`
+- **Decision diagnostic:** read `$SKILL_ROOT/diagnostic/SKILL.md`
+- **Product doc:** read `$SKILL_ROOT/product/SKILL.md`
+- **Tech design:** read `$SKILL_ROOT/tech/SKILL.md`
+- **Work order:** read `$SKILL_ROOT/work-order/SKILL.md`
+- **Code:** read `$SKILL_ROOT/code/SKILL.md`

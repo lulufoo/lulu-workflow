@@ -12,15 +12,13 @@ disable-model-invocation: true
 Decompose a Delivered tech-doc into independently executable TDD units (task files). Each task is self-contained with acceptance criteria, function specs, constraints, context, and dependencies for direct use in TDD sessions.
 
 **Scope:** work-order workflow only. Input: Delivered tech-doc. Output: task file set.
-**Platform context** — detect once at session start, substitute `$SKILL_DIR`, `$WORKFLOW_DIR`, and `$PLATFORM` throughout:
+<HARD-GATE>
+Do NOT proceed until you have read `../SKILL.md` and loaded:
+- `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, `$CACHE_DIR` from `## Platform Context`
+- Feature identification logic from `## Feature Context`
+</HARD-GATE>
 
-| | Cursor | Copilot |
-|---|---|---|
-| `$SKILL_DIR` | `~/.cursor/skills/lulu-dev-workflow/work-order` | `~/.copilot/skills/lulu-dev-workflow/work-order` |
-| `$WORKFLOW_DIR` | `.cursor/lulu-dev-workflow` | `.github/lulu-dev-workflow` |
-| `$PLATFORM` | `cursor` | `copilot` |
-
-> **Detect:** `COPILOT_AGENT=1` env var → Copilot; `VSCODE_TARGET_SESSION_LOG` template variable present → Copilot; otherwise → Cursor.
+`$SKILL_DIR` = `$SKILL_ROOT/work-order`
 
 **This workflow runs in Agent mode with path guard.**
 
@@ -33,15 +31,7 @@ Decompose a Delivered tech-doc into independently executable TDD units (task fil
 
 > Prerequisite: `init` has been run. The upstream tech-doc must be in `Delivered` state.
 
-**Step 1: Identify active feature**
-
-**Fast path:** Find the latest `LULU-DEV-WORKFLOW: <id>` line in this conversation's AI responses (skip conversation-summary blocks). If found and no ambiguity signal → use it, proceed to next step.
-
-**Slow path:** Read `$CACHE_DIR/features.json` → display list where the last entry reads "New — type a description to create" → prompt once: `Enter number to select, or type a description to create a new feature:` → wait for single response. Parse: input is a pure number → select that existing feature; otherwise → treat as new feature description, run `feature_init.py --project-root "$(pwd)" --name "<user_input>"`. The name is a working title; update `features.json` directly if refinement is needed.
-
-Append `LULU-DEV-WORKFLOW: <feature_id>` to every workflow AI response.
-
-After confirming `feature_id`, only read workflow documents from `$CACHE_DIR/<feature_id>/`.
+**Step 1: Identify active feature** — See `## Feature Context` in `../SKILL.md`
 
 > Ambiguity signals: no footer in conversation · user mentions a different feature · user says "switch" / "new" / "choose"
 
