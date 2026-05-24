@@ -32,6 +32,7 @@ ROOT_SCRIPTS = (
     "hook_guard.py",
     "init.py",
     "install.py",
+    "prune_features.py",
 )
 ROOT_PLATFORMS = (
     "platforms/__init__.py",

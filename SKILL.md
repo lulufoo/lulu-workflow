@@ -67,31 +67,9 @@ After confirming `feature_id`, only read workflow documents from `$CACHE_DIR/<fe
 ### `install` — Machine-level, run once
 
 ```bash
-REPO="lulufoo/lulu-dev-skills"; REF="main"; SRC="lulu-dev-workflow"
-DST="$SKILL_ROOT"
-
-# pull_dir REMOTE_PATH LOCAL_PATH — downloads all files in a remote directory
-pull_dir() {
-  mkdir -p "$2"
-  gh api "repos/$REPO/contents/$1?ref=$REF" --jq '.[] | select(.type=="file") | .name' \
-    | while read f; do
-        gh api "repos/$REPO/contents/$1/$f?ref=$REF" --jq '.content' | base64 -d > "$2/$f"
-      done
-}
-
-mkdir -p "$DST"
-gh api "repos/$REPO/contents/$SRC/SKILL.md?ref=$REF" --jq '.content' | base64 -d > "$DST/SKILL.md"
-pull_dir "$SRC/scripts" "$DST/scripts"
-
-for sub in diagnostic product tech work-order code; do
-  mkdir -p "$DST/$sub"
-  gh api "repos/$REPO/contents/$SRC/$sub/SKILL.md?ref=$REF" --jq '.content' | base64 -d > "$DST/$sub/SKILL.md"
-  pull_dir "$SRC/$sub/scripts" "$DST/$sub/scripts" 2>/dev/null || true
-  gh api "repos/$REPO/contents/$SRC/$sub/transition-whitelist.json?ref=$REF" \
-    --jq '.content' 2>/dev/null | base64 -d > "$DST/$sub/transition-whitelist.json" 2>/dev/null || true
-done
-
-pull_dir "$SRC/product/templates" "$DST/product/templates"
+REPO="lulufoo/lulu-dev-skills"; REF="main"
+gh api "repos/$REPO/contents/lulu-dev-workflow/scripts/install.py?ref=$REF" \
+  --jq '.content' | base64 -d | python3 - --platform $PLATFORM
 ```
 
 After install, run `lulu-dev-workflow init` in the target project.
