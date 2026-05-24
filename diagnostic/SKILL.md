@@ -75,6 +75,8 @@ Two registers run throughout the entire session, not attached to any single gate
 
 Append `LULU-DEV-WORKFLOW: <feature_id>` to every workflow AI response.
 
+After confirming `feature_id`, only read workflow documents from `$CACHE_DIR/<feature_id>/`.
+
 > Ambiguity signals: no footer in conversation · user mentions a different feature · user says "switch" / "new" / "choose"
 
 **Step 2: Confirm output path**

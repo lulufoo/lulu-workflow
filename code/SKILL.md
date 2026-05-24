@@ -59,6 +59,8 @@ Prerequisite: upstream must be in Delivered state.
 
 Append `LULU-DEV-WORKFLOW: <feature_id>` to every workflow AI response.
 
+After confirming `feature_id`, only read workflow documents from `$CACHE_DIR/<feature_id>/`.
+
 > Ambiguity signals: no footer in conversation · user mentions a different feature · user says "switch" / "new" / "choose"
 
 **Step 2: Parse `<input>` type**

@@ -41,6 +41,8 @@ Decompose a Delivered tech-doc into independently executable TDD units (task fil
 
 Append `LULU-DEV-WORKFLOW: <feature_id>` to every workflow AI response.
 
+After confirming `feature_id`, only read workflow documents from `$CACHE_DIR/<feature_id>/`.
+
 > Ambiguity signals: no footer in conversation · user mentions a different feature · user says "switch" / "new" / "choose"
 
 **Step 2: Confirm tech-ref path**
