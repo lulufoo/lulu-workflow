@@ -8,7 +8,7 @@ name: diagnostic
 
 Run a Diagnostic Decision Framework (DDF) session. **Mandatory before starting /product or /tech.**
 
-**This SKILL runs in Plan mode.**
+---
 
 <HARD-GATE>
 Do NOT proceed until you have read `../SKILL.md` and loaded:
