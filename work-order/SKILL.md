@@ -14,6 +14,7 @@ Decompose a Delivered tech-doc into independently executable TDD units (task fil
 **Scope:** work-order workflow only. Input: Delivered tech-doc. Output: task file set.
 <HARD-GATE>
 Do NOT proceed until you have read `../SKILL.md` and loaded:
+
 - `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, `$CACHE_DIR` from `## Platform Context`
 - Feature identification logic from `## Feature Context`
 </HARD-GATE>

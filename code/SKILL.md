@@ -14,6 +14,7 @@ Execute Test-Driven Development from a Delivered tech-doc or work-order task set
 **Scope:** TDD code generation. Input: Delivered tech-doc (Path A) or Delivered work-order task set (Path B). Output: test files + implementation files.
 <HARD-GATE>
 Do NOT proceed until you have read `../SKILL.md` and loaded:
+
 - `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, `$CACHE_DIR` from `## Platform Context`
 - Feature identification logic from `## Feature Context`
 </HARD-GATE>

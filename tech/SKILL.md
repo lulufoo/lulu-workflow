@@ -19,6 +19,7 @@ that gates state transitions.
 **Scope:** Tech document workflow only. Supports two run-modes: `product` (product-doc driven) and `tech` (pure tech, no product-doc).
 <HARD-GATE>
 Do NOT proceed until you have read `../SKILL.md` and loaded:
+
 - `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, `$CACHE_DIR` from `## Platform Context`
 - Feature identification logic from `## Feature Context`
 </HARD-GATE>
