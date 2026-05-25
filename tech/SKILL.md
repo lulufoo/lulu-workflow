@@ -319,5 +319,6 @@ Read `$EXECUTION_MODE` from Feature Context (set by parent `SKILL.md`). Default:
 |------|-----------------------|
 | `start` Step 2 — run-mode detection | Auto-detect: if triggering message or session context includes a product-doc path → `product` mode; otherwise → `tech` mode. Do **not** ask. |
 | Drafting Rule D2 — recalibrate on re-entry | Default Yes. Do **not** ask. |
+| Drafting Rule D5 — skip evaluate to ReadyForDelivery | Default: skip evaluation. Write `workflow-state.md` with `skip_evaluate_requested: true` and transition to `ReadyForDelivery` directly. Do **not** ask. User may explicitly request evaluation to override. |
 | Evaluating Rule E3 — per-issue AskQuestion | Default: Option A (Fix). Apply fix without asking. |
 | ReadyForDelivery Rule R1 — delivery confirmation | **Unchanged: always wait for explicit user confirmation.** |
