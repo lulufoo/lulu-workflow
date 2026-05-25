@@ -70,27 +70,27 @@ Stage Rollback is distinct from the diagnostic `Re-open` mechanism (which operat
 
 **Fast path:** Find the latest `LULU-DEV-WORKFLOW: <id>` line in this conversation's AI responses (skip conversation-summary blocks). If found and no ambiguity signal → use it as `feature_id`.
 
-读取 `$CACHE_DIR/features.json[feature_id]`：
-- 若值为 string（旧格式）→ `execution_mode = "assisted"`
-- 若值为 object → `execution_mode = value["execution_mode"]`
-- 若 feature_id 不在 features.json → `execution_mode = "assisted"`
+Read `$CACHE_DIR/features.json[feature_id]`:
+- If value is a string (legacy format) → `execution_mode = "assisted"`
+- If value is an object → `execution_mode = value["execution_mode"]`
+- If feature_id not found in features.json → `execution_mode = "assisted"`
 
-设置 `$EXECUTION_MODE = execution_mode`。
+Set `$EXECUTION_MODE = execution_mode`.
 
 **Slow path:**
 
 If the triggering message already contains a clear feature description → derive name → `Feature name: "<derived name>". Correct?` → confirmed:
-询问："Execution mode: (1) assisted（默认）(2) self-service？" 等待用户选择；直接回车 → 默认 "assisted"。
-运行 `feature_init.py --project-root "$(pwd)" --name "<name>" --mode "<mode>"`，设置 `$EXECUTION_MODE = mode`（done）。否则：
+Ask: "Execution mode: (1) assisted (default) (2) self-service?" Wait for selection; Enter alone → default `assisted`.
+Run `feature_init.py --project-root "$(pwd)" --name "<name>" --mode "<mode>"`, set `$EXECUTION_MODE = mode` (done). Otherwise:
 
-1. Read `$CACHE_DIR/features.json` → display list as `{n}. {name} [{execution_mode}]`（若值为旧 string 格式，显示 `[assisted]`）; last entry: "New — type a description to create"
+1. Read `$CACHE_DIR/features.json` → display list as `{n}. {name} [{execution_mode}]` (if value is legacy string format, show `[assisted]`); last entry: "New — type a description to create"
 2. Prompt once: `Enter number to select, or type a description to create a new feature:`
 3. Wait for single response, then branch:
 
    | Input | Action |
    |---|---|
-   | Pure integer | Select that existing feature; 按 Fast path 相同规则提取 execution_mode，设置 `$EXECUTION_MODE` |
-   | Any other text | 询问："Execution mode: (1) assisted（默认）(2) self-service？" 等待用户选择；直接回车 → 默认 "assisted"。运行 `feature_init.py --project-root "$(pwd)" --name "<user_input>" --mode "<mode>"`，设置 `$EXECUTION_MODE = mode` |
+   | Pure integer | Select that existing feature; extract `execution_mode` using the same rules as Fast path, set `$EXECUTION_MODE` |
+   | Any other text | Ask: "Execution mode: (1) assisted (default) (2) self-service?" Wait for selection; Enter alone → default `assisted`. Run `feature_init.py --project-root "$(pwd)" --name "<user_input>" --mode "<mode>"`, set `$EXECUTION_MODE = mode` |
 
    _(Name is a working title; update `features.json` directly if refinement needed.)_
 
@@ -100,9 +100,9 @@ After confirming `feature_id`, only read workflow documents from `$CACHE_DIR/<fe
 
 > Ambiguity signals: no footer in conversation · user mentions a different feature · user says "switch" / "new" / "choose"
 
-**输出变量：**
-- `$FEATURE_ID` — feature 唯一标识
-- `$EXECUTION_MODE` — `"assisted"` | `"self-service"`（默认 `"assisted"`）
+**Output variables:**
+- `$FEATURE_ID` — unique feature identifier
+- `$EXECUTION_MODE` — `"assisted"` | `"self-service"` (default: `"assisted"`)
 
 ## Setup
 
