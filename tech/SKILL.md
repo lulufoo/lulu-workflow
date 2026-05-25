@@ -303,3 +303,21 @@ Each review file shares the same structure; column set varies by dimension:
 - `product_ref`: user-provided; never auto-detected; the two workflow directories are fully decoupled.
 - `carry_forward_ref`: provided on re-entry; version delta between old tech-doc and new product-doc must be resolved via mandatory Drafting calibration.
 - Re-entry = new iteration (new feature_id or revision{N}); never continue in the old directory.
+
+## Execution Mode
+
+Read `$EXECUTION_MODE` from Feature Context (set by parent `SKILL.md`). Default: `assisted`.
+
+| Mode | Behavior |
+|------|---------|
+| `assisted` | Current behavior — all rules apply as documented |
+| `self-service` | Apply the overrides below; all other rules unchanged |
+
+### Self-Service Overrides
+
+| Rule | Self-Service Behavior |
+|------|-----------------------|
+| `start` Step 2 — run-mode detection | Auto-detect: if triggering message or session context includes a product-doc path → `product` mode; otherwise → `tech` mode. Do **not** ask. |
+| Drafting Rule D2 — recalibrate on re-entry | Default Yes. Do **not** ask. |
+| Evaluating Rule E3 — per-issue AskQuestion | Default: Option A (Fix). Apply fix without asking. |
+| ReadyForDelivery Rule R1 — delivery confirmation | **Unchanged: always wait for explicit user confirmation.** |

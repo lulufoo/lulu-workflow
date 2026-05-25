@@ -313,3 +313,19 @@ done: 1
 - **task.md is self-contained**: constraints and context sections explicitly copy from tech-doc; code session only reads task.md
 - **tdd_exempt**: read from task.md frontmatter or `[tdd_exempt]` in code-task-list.md; skips Phase 1/2/5
 - **Test command**: read from `workflow-config.json → code.test_command`; confirm before each test run
+## Execution Mode
+
+Read `$EXECUTION_MODE` from Feature Context (set by parent `SKILL.md`). Default: `assisted`.
+
+| Mode | Behavior |
+|------|---------|
+| `assisted` | Current behavior — all rules apply as documented |
+| `self-service` | Apply the overrides below; all other rules unchanged |
+
+### Self-Service Overrides
+
+| Rule | Self-Service Behavior |
+|------|-----------------------|
+| startup Step 6 — confirm start execution | Auto-confirm. Start first task without asking. |
+| Path A — draft code-task-list confirmation | Auto-confirm. Write `code-task-list.md` immediately without asking. |
+| Session completion — C3 delivery confirmation | **Unchanged: always wait for explicit user confirmation.** |

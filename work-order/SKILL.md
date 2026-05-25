@@ -317,3 +317,22 @@ W1 and W2 share the same base structure; W1 groups issues by direction (Coverage
 - `task.md` is self-contained: constraints and context sections explicitly copy from tech-doc so the TDD session only reads `task.md`.
 - `tdd_exempt: true` tasks: TDD SKILL skips Red/Green/Refactor constraints.
 - Execution order: follow the topological sort of the dependency graph in `task-list.md`.
+## Execution Mode
+
+Read `$EXECUTION_MODE` from Feature Context (set by parent `SKILL.md`). Default: `assisted`.
+
+| Mode | Behavior |
+|------|---------|
+| `assisted` | Current behavior — all rules apply as documented |
+| `self-service` | Apply the overrides below; all other rules unchanged |
+
+### Self-Service Overrides
+
+| Rule | Self-Service Behavior |
+|------|-----------------------|
+| `start` Step 2 — tech-ref path | **Unchanged: always ask.** (W1 start gate) |
+| Drafting D2 Step 1 — confirm task breakdown | Auto-confirm. Proceed to task.md generation without asking. |
+| Drafting D2 Step 2 — "Proceed to Evaluating?" | Auto-confirm. Enter Evaluating without asking. |
+| Drafting D3 re-entry — "All issues fixed. Re-enter Evaluating?" | Auto-confirm. |
+| Evaluating E3/E4 — per-issue AskQuestion | Default: Fix. Apply fix without asking. |
+| ReadyForDelivery R1 — delivery confirmation | **Unchanged: always wait for explicit user confirmation.** |

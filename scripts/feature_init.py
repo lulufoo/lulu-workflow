@@ -47,18 +47,18 @@ def ensure_feature_dir(cache_dir: Path, feature_id: str) -> Path:
     return target
 
 
-def update_features_json(cache_dir: Path, feature_id: str, name: str) -> None:
-    """Append {feature_id: name} to features.json (create if absent)."""
+def update_features_json(cache_dir: Path, feature_id: str, name: str, mode: str = "assisted") -> None:
+    """Append {feature_id: {name, execution_mode}} to features.json (create if absent)."""
     fj = cache_dir / "features.json"
     if fj.exists():
         data: dict = json.loads(fj.read_text(encoding="utf-8"))
     else:
         data = {}
-    data[feature_id] = name
+    data[feature_id] = {"name": name, "execution_mode": mode}
     fj.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def main(project_root: Path, name: str) -> str:
+def main(project_root: Path, name: str, mode: str = "assisted") -> str:
     """Orchestrate feature initialization. Returns feature_id."""
     if not project_root.is_dir():
         print(f"Error: --project-root does not exist: {project_root}", file=sys.stderr)
@@ -69,7 +69,7 @@ def main(project_root: Path, name: str) -> str:
 
     feature_id = generate_feature_id()
     ensure_feature_dir(cache_dir, feature_id)
-    update_features_json(cache_dir, feature_id, name)
+    update_features_json(cache_dir, feature_id, name, mode)
 
     print(feature_id)
     return feature_id
@@ -85,6 +85,12 @@ if __name__ == "__main__":
     )
     parser.add_argument("--project-root", required=True, help="Workspace root path")
     parser.add_argument("--name", required=True, help="Human-readable feature name")
+    parser.add_argument(
+        "--mode",
+        choices=["assisted", "self-service"],
+        default="assisted",
+        help="Execution mode: assisted (default) or self-service",
+    )
     args = parser.parse_args()
 
-    main(Path(args.project_root), args.name)
+    main(Path(args.project_root), args.name, args.mode)

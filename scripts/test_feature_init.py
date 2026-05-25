@@ -90,7 +90,7 @@ class TestUpdateFeaturesJson:
         from feature_init import update_features_json
         update_features_json(tmp_path, "20260524143022-02cd7e6e", "my-feature")
         data = json.loads((tmp_path / "features.json").read_text())
-        assert data == {"20260524143022-02cd7e6e": "my-feature"}
+        assert data == {"20260524143022-02cd7e6e": {"name": "my-feature", "execution_mode": "assisted"}}
 
     def test_appends_without_overwriting_existing_entry(self, tmp_path):
         from feature_init import update_features_json
@@ -100,7 +100,7 @@ class TestUpdateFeaturesJson:
         update_features_json(tmp_path, "20260524143022-02cd7e6e", "new-feat")
         data = json.loads((tmp_path / "features.json").read_text())
         assert data["20260524000000-11111111"] == "existing-feat"
-        assert data["20260524143022-02cd7e6e"] == "new-feat"
+        assert data["20260524143022-02cd7e6e"] == {"name": "new-feat", "execution_mode": "assisted"}
 
     def test_multiple_sequential_calls_accumulate(self, tmp_path):
         from feature_init import update_features_json
@@ -113,7 +113,7 @@ class TestUpdateFeaturesJson:
         from feature_init import update_features_json
         update_features_json(tmp_path, "20260524143022-02cd7e6e", "cache restructure")
         data = json.loads((tmp_path / "features.json").read_text())
-        assert data["20260524143022-02cd7e6e"] == "cache restructure"
+        assert data["20260524143022-02cd7e6e"] == {"name": "cache restructure", "execution_mode": "assisted"}
 
 
 # ---------------------------------------------------------------------------
@@ -157,7 +157,7 @@ class TestCLI:
         fid = result.stdout.strip().splitlines()[-1]
         fj = self._cache_dir(tmp_path) / "features.json"
         data = json.loads(fj.read_text())
-        assert data[fid] == "my-feature"
+        assert data[fid] == {"name": "my-feature", "execution_mode": "assisted"}
 
     def test_consecutive_calls_append_features_json(self, tmp_path):
         self._run(tmp_path, name="feat-0")
@@ -165,7 +165,7 @@ class TestCLI:
         fj = self._cache_dir(tmp_path) / "features.json"
         data = json.loads(fj.read_text())
         assert len(data) == 2
-        names = list(data.values())
+        names = [v["name"] for v in data.values()]
         assert names == ["feat-0", "feat-1"]
 
     def test_invalid_project_root_exits_nonzero(self):
@@ -180,3 +180,74 @@ class TestCLI:
         """Regression: feature_init must never write ACTIVE_SESSION."""
         self._run(tmp_path)
         assert not (self._cache_dir(tmp_path) / "ACTIVE_SESSION").exists()
+
+
+# ---------------------------------------------------------------------------
+# update_features_json — mode parameter (new behavior)
+# ---------------------------------------------------------------------------
+
+class TestUpdateFeaturesJsonMode:
+    def test_default_writes_object_with_assisted(self, tmp_path):
+        from feature_init import update_features_json
+        update_features_json(tmp_path, "20260524143022-02cd7e6e", "my-feature")
+        data = json.loads((tmp_path / "features.json").read_text())
+        assert data["20260524143022-02cd7e6e"] == {"name": "my-feature", "execution_mode": "assisted"}
+
+    def test_explicit_assisted_writes_object(self, tmp_path):
+        from feature_init import update_features_json
+        update_features_json(tmp_path, "20260524143022-02cd7e6e", "my-feature", "assisted")
+        data = json.loads((tmp_path / "features.json").read_text())
+        assert data["20260524143022-02cd7e6e"] == {"name": "my-feature", "execution_mode": "assisted"}
+
+    def test_self_service_writes_object(self, tmp_path):
+        from feature_init import update_features_json
+        update_features_json(tmp_path, "20260524143022-02cd7e6e", "my-feature", "self-service")
+        data = json.loads((tmp_path / "features.json").read_text())
+        assert data["20260524143022-02cd7e6e"] == {"name": "my-feature", "execution_mode": "self-service"}
+
+    def test_old_string_entries_preserved(self, tmp_path):
+        """Old string-format entries must not be modified (no migration)."""
+        from feature_init import update_features_json
+        (tmp_path / "features.json").write_text(
+            json.dumps({"20260524000000-11111111": "old-string-format"})
+        )
+        update_features_json(tmp_path, "20260524143022-02cd7e6e", "new-feat")
+        data = json.loads((tmp_path / "features.json").read_text())
+        assert data["20260524000000-11111111"] == "old-string-format"
+        assert isinstance(data["20260524143022-02cd7e6e"], dict)
+
+
+# ---------------------------------------------------------------------------
+# CLI — --mode flag (new behavior)
+# ---------------------------------------------------------------------------
+
+class TestCLIMode:
+    def _run(self, tmp_path, name="test-feature", extra_args=None):
+        cmd = [
+            sys.executable,
+            str(_SCRIPTS / "feature_init.py"),
+            "--project-root", str(tmp_path),
+            "--name", name,
+        ]
+        if extra_args:
+            cmd.extend(extra_args)
+        return subprocess.run(cmd, capture_output=True, text=True, env=_ENV_COPILOT)
+
+    def _cache_dir(self, tmp_path):
+        return tmp_path / ".cache" / "copilot" / "lulu-dev-workflow"
+
+    def test_no_mode_flag_writes_assisted_object(self, tmp_path):
+        result = self._run(tmp_path, name="my-feature")
+        fid = result.stdout.strip().splitlines()[-1]
+        data = json.loads((self._cache_dir(tmp_path) / "features.json").read_text())
+        assert data[fid] == {"name": "my-feature", "execution_mode": "assisted"}
+
+    def test_mode_self_service_writes_object(self, tmp_path):
+        result = self._run(tmp_path, name="my-feature", extra_args=["--mode", "self-service"])
+        fid = result.stdout.strip().splitlines()[-1]
+        data = json.loads((self._cache_dir(tmp_path) / "features.json").read_text())
+        assert data[fid] == {"name": "my-feature", "execution_mode": "self-service"}
+
+    def test_invalid_mode_exits_nonzero(self, tmp_path):
+        result = self._run(tmp_path, name="my-feature", extra_args=["--mode", "invalid_mode"])
+        assert result.returncode != 0
