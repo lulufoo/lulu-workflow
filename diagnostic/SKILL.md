@@ -40,8 +40,6 @@ and the most common source of wasted downstream work.
 1. **Expose over conclude** — the goal is to surface assumptions and risks. A conclusion is the output of verification, not the target.
 2. **User prior over framework** — user's judgments, intuitions, and concerns shape the session; the framework captures and integrates them, does not override them.
 3. **Log assumptions immediately** — any assumption surfaced at any gate goes into the Assumption Log right away; R organizes, does not collect.
-4. **No-decision is a valid exit** — if inputs cannot be resolved, output "Unable to Decide"; do not force a direction.
-5. **No-decision requires justification** — state: directions explored (≥2), stuck gate and reason, unlock condition.
 
 ---
 
@@ -140,19 +138,19 @@ Creates `session-state.md` with `current_state: InProgress`.
 
 **G5.** Upstream input error — if the intent input itself has a fundamental error, exit the loop; tell the user to fix the input and restart.
 
-**G6. Override Guard (reactive)** — when an override signal is detected before all gates are closed ("skip" / "just implement it" / "go ahead" / "do it first" etc.):
-1. Stop immediately — do not take any implementation action
-2. State which gates have not yet closed
-3. Ask the user: "Continue diagnostic or exit intentionally?"
+**G6. Override Guard (reactive)** — when override signal detected ("skip" / "just implement it" / etc.):
+1. Stop immediately — do not execute
+2. State which gates are not yet closed
+3. Ask: "Continue diagnostic or exit intentionally?"
 
-If user confirms intentional exit → exit gracefully; mark diagnostic as incomplete in the final message.
+If user confirms exit → exit gracefully; mark as incomplete.
 
-**G7. Collect-or-Ask** (applies to all information-gathering steps):
-1. First check whether information for this dimension has already been **explicitly stated** by the user in this conversation (not inferred by AI)
-2. **Already stated** → must: quote the original text + restate as the answer for this dimension + one-sentence confirmation ("Is this correct?")
-3. **Not stated** → ask normally
+**G7. Collect-or-Ask** (applies to all information-gathering):
+1. Check: is this information already explicitly stated by user?
+2. Yes → quote original + restate + confirm ("Is this correct?")
+3. No → ask normally
 
-**Prohibited:** re-asking for information already stated (i.e. do not execute step 3 when step 2 applies)
+**Prohibited:** re-asking information already stated.
 
 **G8. Gate confirmation (all gates)** — AI cannot unilaterally declare a gate as passed. Each gate requires an explicit user confirmation step before it closes. Silence does not constitute confirmation.
 
@@ -280,14 +278,11 @@ Risk levels:
 
 **Prerequisites:** X closed · R closed
 
-V has two distinct duties: (1) confirm that verification actions are in place for all high-risk assumptions; (2) aggregate the global diagnosis result and decide the exit.
-
 **Execute:**
 1. For each **High**-risk assumption: define verification action, owner, timing, and release condition.
    — **Release condition:** the specific result or state that, if achieved, marks this item ✅ Released during execution.
 2. For each **Medium/Low**-risk assumption: list with acceptance rationale. Inform user they may flag any item for "release tracking" (adds it to Risk Release scope regardless of AI rating). Ask: "Do you confirm acceptance of these? Flag any for tracking." Proceed only after explicit user batch confirmation. (G8)
 3. If any prior gate's pass criterion is no longer satisfied, apply Re-open & Invalidation.
-4. Assess overall exit condition.
 
 **Exit:**
 
@@ -299,10 +294,7 @@ V has two distinct duties: (1) confirm that verification actions are in place fo
 | Information insufficient to decide | Output "Unable to Decide" with justification (see below) |
 | Intent input has fundamental error | Apply G5: exit loop, tell user to fix and restart |
 
-**"Unable to Decide" justification must include:**
-- Directions already explored (≥2)
-- Which gate is stuck and why
-- What information or condition would unlock it
+**"Unable to Decide" justification:** Directions explored (≥2) · Which gate stuck and why · What would unlock it (see Human Decision section for full spec).
 
 **Pass criterion:** All High-risk assumptions have an executable verification action (with owner, timing, release condition); Medium/Low-risk assumptions are explicitly listed and batch-confirmed by user; flagged items are in release tracking.
 
@@ -310,9 +302,7 @@ V has two distinct duties: (1) confirm that verification actions are in place fo
 
 #### Risk Release
 
-**Trigger:** V gate identifies High-risk assumptions or user-flagged items.
-
-**Scope:** All High-risk verification items, plus any item the user flagged for "release tracking" at V (regardless of AI rating).
+**Trigger & Scope:** V gate identifies high-risk assumptions or user-flagged items. Covers all high-risk verification items + any user-flagged items (regardless of AI rating).
 
 **Execute:**
 1. For each item: check verification result against its release condition.
@@ -347,10 +337,7 @@ V has two distinct duties: (1) confirm that verification actions are in place fo
    → trigger RS → RS routes back into LoopA at the identified gate
 
 2. **No solution** — the decision cannot be made with available information  
-   → output "Unable to Decide" with:
-     - Directions already explored (≥2)
-     - Which gate is stuck and why
-     - What information or condition would unlock it
+   → output "Unable to Decide" with: directions explored (≥2) · gate stuck and why · unlock condition
 
 ---
 
