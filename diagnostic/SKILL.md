@@ -24,7 +24,7 @@ Do NOT proceed until you have read `../SKILL.md` and loaded:
 <HARD-GATE>
 Do NOT exit diagnostic or transition to /product or /tech until:
   
-- All DDF gates (Q / E / D / X / R / V) have passed
+- All DDF gates (Q / E / D / X → R → [LoopB if uncertain: V / RR] → DC) have passed
 - The decision-doc has been written to disk
 - User has explicitly confirmed readiness to proceed
 
@@ -51,7 +51,28 @@ Two global rules, applicable at any gate, any time:
 
 **Trigger**: Any participant (AI or user) can re-open a prior gate the moment new information shows its pass criterion no longer holds — without waiting for V.
 
-**Propagation**: When a gate is re-opened, all gates reachable from it along prerequisite dependency arrows are automatically invalidated and must be re-satisfied. Scope is determined by the DAG structure — no enumeration needed.
+**Propagation**: When a gate is re-opened, all gates reachable from it along prerequisite dependency arrows are automatically invalidated and must be re-satisfied. Scope is determined by the DAG structure — no enumeration needed. When a reopen trigger fires, execute the Reopen State Handler (RS) subroutine below; RS handles state cleanup and re-entry routing.
+
+---
+
+## Reopen State Handler (RS)
+
+**Trigger sources:** R (known failure), Human Decision (upstream wrong), DC (user flags item for re-open).  
+RS is a shared relay node — all three triggers route through RS, then RS re-enters LoopA.
+
+**Execution steps:**
+
+1. **Identify reopen point** — determine which [LoopA] gate is being re-opened (Q / E / D / X)
+2. **Mechanically clear conclusion zones** — clear that gate's conclusion zone and all downstream [LoopA] gates (Q/E/D/X/R each maintain an independent conclusion zone; clear the re-opened gate and everything after it)
+3. **AI proposes 3-state labeling** — for every entry in both registers (User Prior Log + Assumption Log), propose:
+   - `[已验证]` — still valid, retain
+   - `[待验证]` — status uncertain after reopen, retain for re-assessment
+   - `[失效]` — no longer relevant given the reopen; mark for deletion
+4. **User confirms** — user reviews AI's proposed labels; may adjust any entry
+5. **Delete `[失效]` entries** — execute deletion of all confirmed-`[失效]` entries from both registers
+6. **Output clean snapshot** — re-enter LoopA at the gate identified in step 1
+
+> Registers are NOT automatically cleared by DAG propagation. Only RS steps 3–5 may modify register entries.
 
 ---
 
@@ -59,9 +80,20 @@ Two global rules, applicable at any gate, any time:
 
 Two registers run throughout the entire session, not attached to any single gate:
 
-**User Prior Log** — captures user's existing judgments, preferences, concerns, and excluded options at any point in the session. Reviewed before entering D.
+**User Prior Log** — captures user's existing judgments, preferences, concerns, and excluded options at any point in the session. Reviewed before entering D. Also reviewed at R (R签字确认: AI validates it has not misread or misrepresented any stated user judgment; correct before R assessment proceeds).
 
 **Assumption Log** — captures unverified premises at any point. Organized and risk-graded at R; not collected from scratch there.
+
+**3-state lifecycle:**
+- `[待验证]` — default when logged; not yet assessed
+- `[已验证]` — confirmed at R (no verification needed), or Released after Risk Release
+- `[失效]` — marked by AI during RS step 3, confirmed by user, deleted at RS step 5
+
+**Rules:**
+1. All new entries logged with `[待验证]`
+2. R reads only `[待验证]` entries; entries confirmed as "no verification needed" → update to `[已验证]`
+3. Append-only: entries are never deleted outside of RS step 5
+4. During LoopB: new assumptions discovered in V or RR are appended with `[待验证]`
 
 ---
 
@@ -96,7 +128,7 @@ Creates `session-state.md` with `current_state: InProgress`.
 
 ### Global Rules
 
-**G0. User prior capture (throughout)** — at any gate: if user states a judgment, preference, concern, or historically excluded option, capture it in the User Prior Log immediately, confirm briefly, then continue the current gate without interruption.
+**G0. User prior capture (throughout)** — at any gate: if user states a judgment, preference, concern, or historically excluded option, capture it in the User Prior Log immediately, confirm briefly, then continue the current gate without interruption. User Prior Log is reviewed twice: before D (direction alignment) and at R (R签字确认 — see User Prior Log).
 
 **G1.** One question at a time — never stack multiple questions in a single message.
 
@@ -124,9 +156,17 @@ If user confirms intentional exit → exit gracefully; mark diagnostic as incomp
 
 **G8. Gate confirmation (all gates)** — AI cannot unilaterally declare a gate as passed. Each gate requires an explicit user confirmation step before it closes. Silence does not constitute confirmation.
 
+**G9. Reopen check at gate close** — before closing any gate, check: does the evidence gathered in this gate invalidate any prior gate's pass criterion? If yes, do not close current gate; trigger Reopen State Handler (RS) instead.
+
 ---
 
 ### Gate Rules
+
+**Phase grouping (for re-open scope identification):**
+- [LoopA] Q → E → D → X  (decision construction loop)
+- [LoopB] V → RR  (verification release loop)
+- [RS]  Reopen State Handler (standalone subroutine, not in any loop)
+- [DC]  Delivery Confirmation (terminal gate)
 
 #### Open channel (before Q)
 
@@ -199,14 +239,14 @@ Capture input in User Prior Log. This step is not part of Q and does not count t
 | 5 | Expected Outcome | What does implementation produce? Does it meet Acceptance Criteria? | Outcome aligned with criteria; gaps identified and transferred to Assumption Log |
 
 **Additional pass criteria:**
-- Assumptions discovered here: immediately add to Assumption Log (do not defer to R).
+- Assumptions discovered here: immediately add to Assumption Log with `[待验证]` tag (do not defer to R).
 - If Expected Outcome falls short of Acceptance Criteria: flag the gap explicitly; apply Re-open & Invalidation (re-open E or D as appropriate). Do not force-pass.
 
 ---
 
 #### R — Expose the Bets
 
-**Prerequisites:** D closed (X and R are parallel — no ordering constraint between them)
+**Prerequisites:** X closed
 
 **Execute:**
 1. Review Assumption Log — do not collect from scratch. Confirm coverage is complete against D, X, and conversation history.
@@ -220,6 +260,19 @@ Risk levels:
 **Confirmation (G8):** After presenting all assumptions and risk levels, ask: "Do these risk levels look correct? You may reclassify any item." Do not declare R closed until user explicitly confirms (including any reclassifications).
 
 **Pass criterion:** All assumptions have a risk level and consequence description; coverage review complete; user has confirmed risk classification (with any reclassifications applied).
+
+**Three exits (mutually exclusive — present proposed exit to user for confirmation; AI cannot unilaterally select):**
+
+1. **Known failure** — an assumption is confirmed wrong or invalid  
+   → trigger Reopen State Handler (RS) → RS routes back into LoopA at the failed assumption's associated gate
+
+2. **Uncertain assumptions exist** — one or more `[待验证]` entries remain after R review  
+   → enter Group Loop B (V)  
+   → corresponding entries remain `[待验证]`
+
+3. **No uncertain assumptions** — all entries resolved; AI + user consensus  
+   → update all remaining `[待验证]` to `[已验证]`  
+   → proceed to DC
 
 ---
 
@@ -241,8 +294,8 @@ V has two distinct duties: (1) confirm that verification actions are in place fo
 | Condition | Action |
 |-----------|--------|
 | High-risk or user-flagged items exist | Proceed to Risk Release |
-| V re-confirms all items ✅ Released | Write decision-doc → proceed to Delivery Confirmation |
-| Prior gate pass criterion no longer holds | Apply Re-open & Invalidation: re-open that gate |
+| No high-risk + AI/user consensus medium/low need no explicit verification (batch-confirmed) | Write decision-doc → proceed to DC directly (skip Risk Release) |
+| Prior gate pass criterion no longer holds | Trigger RS (Reopen State Handler) |
 | Information insufficient to decide | Output "Unable to Decide" with justification (see below) |
 | Intent input has fundamental error | Apply G5: exit loop, tell user to fix and restart |
 
@@ -264,12 +317,40 @@ V has two distinct duties: (1) confirm that verification actions are in place fo
 **Execute:**
 1. For each item: check verification result against its release condition.
 2. Condition met → ✅ Released; update the corresponding entry in the decision-doc.
-3. Condition not met → ❌ Failed; apply Re-open & Invalidation on R or the relevant upstream gate.
-4. After all items are resolved, return to V for re-confirmation.
+3. Condition not met → ❌ Failed
+4. After all items are resolved, proceed to the appropriate exit below.
 
 **State model:** ⬜ Pending → ✅ Released / ❌ Failed
 
-**Re-confirmation (back to V):** V checks that all items are ✅ Released and no new issues have emerged. If V confirms no issues → write decision-doc → proceed to Delivery Confirmation.
+**Three exits after all items processed:**
+
+1. All items ✅ Released + Assumption Log has no new `[待验证]` entries generated during LoopB  
+   → write decision-doc → proceed to DC
+
+2. All items ✅ Released + Assumption Log has new `[待验证]` entries (generated during V or RR)  
+   → return to R (re-run R with the new entries; do not restart LoopA)
+
+3. Any item ❌ Failed  
+   → proceed to Human Decision
+
+---
+
+## Human Decision
+
+**Trigger:** Risk Release ❌ Failed — verification failed, upstream conclusion may be wrong, or information is insufficient to decide.
+
+**Execute:** Present the failure to user. Ask user to choose:
+
+**Two exits:**
+
+1. **Upstream wrong** — the failure reveals that a prior gate's conclusion is incorrect  
+   → trigger RS → RS routes back into LoopA at the identified gate
+
+2. **No solution** — the decision cannot be made with available information  
+   → output "Unable to Decide" with:
+     - Directions already explored (≥2)
+     - Which gate is stuck and why
+     - What information or condition would unlock it
 
 ---
 
@@ -362,9 +443,9 @@ Excluded **[option]** because {rationale}.
 
 ## Assumptions & Risks
 
-| # | Assumption | Source | Risk Level | Failure Consequence |
-|---|-----------|--------|------------|---------------------|
-| A1 | | | High/Medium/Low | |
+| # | Assumption | Source | Risk Level | Failure Consequence | State |
+|---|-----------|--------|------------|---------------------|-------|
+| A1 | | | High/Medium/Low | | [待验证] |
 
 ---
 
@@ -391,6 +472,11 @@ Fix inline. No separate review round needed.
 
 ## Delivery Confirmation
 
+**Entry paths (any one satisfies):**
+- Path 1: R exit 3 — all assumptions `[已验证]`, no uncertain items (Group Loop B skipped)
+- Path 2: V direct — no high-risk, medium/low batch-confirmed, no Risk Release needed
+- Path 3: RR exit 1 — all Released, Assumption Log has no new `[待验证]` entries
+
 After self-review passes (decision-doc already written, Risk Release statuses updated):
 1. Present the following key sections **in the conversation** (do not just show file path):
    - Decision Rationale
@@ -398,7 +484,7 @@ After self-review passes (decision-doc already written, Risk Release statuses up
    - Assumptions & Risks (all items with risk levels)
    - Verification Items
 2. Ask user: "Are these decisions correct? Any items to re-open?"
-3. If any item is flagged: apply Re-open & Invalidation on the corresponding gate; re-close all invalidated gates before proceeding.
+3. If any item is flagged: trigger RS on the corresponding gate; re-close all invalidated gates before proceeding.
 4. Only after user's explicit confirmation that everything is correct, write terminal state:
 
 ```bash
