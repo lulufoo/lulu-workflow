@@ -5,6 +5,7 @@ description: >-
   开发工作流, dev workflow, product doc workflow, 产品文档流程, or any sub-stage
   (diagnostic, product, tech, work-order, code).
 disable-model-invocation: true
+argument-hint: "[d=diagnostic | p=product | t=tech | w=work-order | c=code]"
 ---
 
 # lulu-dev-workflow
@@ -210,8 +211,18 @@ This line tracks the active feature per conversation window. Stage workflows use
 
 Each stage has its own `SKILL.md` with start commands.
 
-- **Decision diagnostic:** read `$SKILL_ROOT/diagnostic/SKILL.md`
-- **Product doc:** read `$SKILL_ROOT/product/SKILL.md`
-- **Tech design:** read `$SKILL_ROOT/tech/SKILL.md`
-- **Work order:** read `$SKILL_ROOT/work-order/SKILL.md`
-- **Code:** read `$SKILL_ROOT/code/SKILL.md`
+| Abbreviation | Stage |
+|---|---|
+| `d` | diagnostic |
+| `p` | product |
+| `t` | tech |
+| `w` | work-order |
+| `c` | code |
+
+When user passes a single letter, map it to the full stage name before routing.
+
+- **Decision diagnostic:** [diagnostic/SKILL.md](./diagnostic/SKILL.md)
+- **Product doc:** [product/SKILL.md](./product/SKILL.md)
+- **Tech design:** [tech/SKILL.md](./tech/SKILL.md)
+- **Work order:** [work-order/SKILL.md](./work-order/SKILL.md)
+- **Code:** [code/SKILL.md](./code/SKILL.md)
