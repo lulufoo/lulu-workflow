@@ -232,7 +232,7 @@ V has two distinct duties: (1) confirm that verification actions are in place fo
 **Execute:**
 1. For each **High**-risk assumption: define verification action, owner, timing, and release condition.
    — **Release condition:** the specific result or state that, if achieved, marks this item ✅ Released during execution.
-2. For each **Medium/Low**-risk assumption: list with acceptance rationale. Inform user they may flag any item for "execution-time release tracking" (adds it to Risk Release scope regardless of AI rating). Ask: "Do you confirm acceptance of these? Flag any for tracking." Proceed only after explicit user batch confirmation. (G8)
+2. For each **Medium/Low**-risk assumption: list with acceptance rationale. Inform user they may flag any item for "release tracking" (adds it to Risk Release scope regardless of AI rating). Ask: "Do you confirm acceptance of these? Flag any for tracking." Proceed only after explicit user batch confirmation. (G8)
 3. If any prior gate's pass criterion is no longer satisfied, apply Re-open & Invalidation.
 4. Assess overall exit condition.
 
@@ -240,7 +240,8 @@ V has two distinct duties: (1) confirm that verification actions are in place fo
 
 | Condition | Action |
 |-----------|--------|
-| All gates pass | Write decision-doc → proceed to Delivery |
+| High-risk or user-flagged items exist | Proceed to Risk Release |
+| V re-confirms all items ✅ Released | Write decision-doc → proceed to Delivery Confirmation |
 | Prior gate pass criterion no longer holds | Apply Re-open & Invalidation: re-open that gate |
 | Information insufficient to decide | Output "Unable to Decide" with justification (see below) |
 | Intent input has fundamental error | Apply G5: exit loop, tell user to fix and restart |
@@ -251,6 +252,24 @@ V has two distinct duties: (1) confirm that verification actions are in place fo
 - What information or condition would unlock it
 
 **Pass criterion:** All High-risk assumptions have an executable verification action (with owner, timing, release condition); Medium/Low-risk assumptions are explicitly listed and batch-confirmed by user; flagged items are in release tracking.
+
+---
+
+#### Risk Release
+
+**Trigger:** V gate identifies High-risk assumptions or user-flagged items.
+
+**Scope:** All High-risk verification items, plus any item the user flagged for "release tracking" at V (regardless of AI rating).
+
+**Execute:**
+1. For each item: check verification result against its release condition.
+2. Condition met → ✅ Released; update the corresponding entry in the decision-doc.
+3. Condition not met → ❌ Failed; apply Re-open & Invalidation on R or the relevant upstream gate.
+4. After all items are resolved, return to V for re-confirmation.
+
+**State model:** ⬜ Pending → ✅ Released / ❌ Failed
+
+**Re-confirmation (back to V):** V checks that all items are ✅ Released and no new issues have emerged. If V confirms no issues → write decision-doc → proceed to Delivery Confirmation.
 
 ---
 
@@ -370,9 +389,9 @@ Fix inline. No separate review round needed.
 
 ---
 
-## Delivery
+## Delivery Confirmation
 
-After self-review passes:
+After self-review passes (decision-doc already written, Risk Release statuses updated):
 1. Present the following key sections **in the conversation** (do not just show file path):
    - Decision Rationale
    - Scope (including explicit exclusions)
