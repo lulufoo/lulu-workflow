@@ -121,6 +121,8 @@ Optional seed: `$SKILL_DIR/templates/code-log.template.md` (replace `t{X}`).
 5. All task-phase transitions are **agent-driven** — no user confirmation required, except when `VerifyGreen` unexpectedly FAILs.
 6. Writing `enter · <phase>` to `code-log.md` is the materialized record of a phase advance; the phase is considered entered once written.
 7. `transition-whitelist.json` defines which transitions are *allowed*; the exit criterion table above defines *when* to trigger — the two are complementary and non-overlapping.
+8. **Task advance gate:** Before setting `current_task: t{N+1}`, verify all three exist for t{N}: `tasks/t{N}/commit-ref.md`, `tasks/t{N}/code-log.md` containing `enter · Done`, and `[x]` in `code-task-list.md`. These are preconditions, not post-conditions.
+9. **Observable checkpoint:** After each task `Done`, output to conversation before advancing: `CHECKPOINT t{N}: commit SHA {sha}, commit-ref.md written, advancing to t{N+1}.` Do not advance until this line is output.
 
 ---
 
@@ -172,6 +174,8 @@ recorded_at: 2026-05-27T14:00:00Z
 After **Refactor** if code changed: `git_commit · amend`; update `commit-ref.md` (`final_commit`, `amended: true`).
 
 Use `code.git.commit_message_template` for messages. End each task with `enter · Done` (+ optional summary in body).
+
+**Batch commit anti-pattern (prohibited):** Never commit changes for multiple tasks in a single `git commit`. Each task — including `tdd_exempt` tasks and documentation-only changes — must produce its own commit and its own `tasks/t{X}/commit-ref.md`. Per-task atomicity is not waived by any task property.
 
 ---
 
