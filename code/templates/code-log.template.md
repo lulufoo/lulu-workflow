@@ -1,30 +1,18 @@
-# Code Log — t{X}
+# Code Log — t{X} (optional append-only style)
 
-> **Append-only:** Add new event entries only at the end of this file. Do not edit, delete, or reorder existing entries.
+> **Append-only** phase timeline. Full Red/Green evidence still goes in `red-run.md` and `green-run.md` — do not paste only summaries here.
 
 ---
 
 ### 2026-05-27T10:00:00Z · phase_enter · WriteTests
 
-Starting task; reading acceptance criteria from task.md.
+### 2026-05-27T10:06:30Z · phase_exit · VerifyRed
 
-### 2026-05-27T10:06:30Z · test_run · VerifyRed
+See `red-run.md` for full output.
 
-command: `<test_command from workflow-config.json>`
-failure_reason: Function or class under test does not exist yet.
+### 2026-05-27T10:20:00Z · phase_exit · VerifyGreen
 
-```
-<paste full terminal output here>
-```
-
-### 2026-05-27T10:20:00Z · test_run · VerifyGreen
-
-command: `<test_command>`
-result: ALL PASS
-
-```
-<paste full terminal output here>
-```
+See `green-run.md` for full output / AC table.
 
 ### 2026-05-27T10:26:00Z · task_done
 
