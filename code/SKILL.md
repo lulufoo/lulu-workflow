@@ -86,7 +86,7 @@ Optional seed: `$SKILL_DIR/templates/code-log.template.md` (replace `t{X}`).
 
 | Phase | Meaning |
 |-------|---------|
-| **Preparing** | L1: create worktree/branch per project `docs/git/git-workflow-standard.md`; write `s{N}/workspace.json`. Agent runs git; `start.py` does not. |
+| **Preparing** | L1: create worktree + branch (see below); write `s{N}/workspace.json`. Agent runs git; `start.py` does not. |
 | **Executing** | Task TDD loop (1→N) while session stays Executing. |
 | **Closing** | L4′: complete `closing-checklist.md` (retest, commit-ref count, clean worktree, all tasks `[x]`). |
 | **Delivered** | After `human-delivery-gate.md` (`approved: true`). |
@@ -111,8 +111,22 @@ Optional seed: `$SKILL_DIR/templates/code-log.template.md` (replace `t{X}`).
 ## L1 — Preparing (worktree)
 
 1. Read `$WORKFLOW_DIR/workflow-config.json` → `code.git` (`worktree_base`, `branch_pattern`, `default_type`, `commit_message_template`).
-2. Follow **`docs/git/git-workflow-standard.md`** for worktree directory (e.g. `.cache/worktrees/<slug>/`) and branch (`wt/<type>-<slug>`).
-3. Write `s{N}/workspace.json`:
+2. Derive `<slug>` from feature id or scope; build paths from config:
+   - worktree dir: `{worktree_base}/<slug>/` (default `.cache/worktrees/<slug>/`)
+   - branch: apply `branch_pattern` with `{type}` = `default_type` (default `wt/feat-<slug>`)
+3. **Pre-check** (project repo root):
+   - `git status` — if dirty, **STOP** and show output to user
+   - `git worktree list` — if worktree dir or branch already exists, **STOP** (report collision; do not self-resolve)
+4. **Create worktree** (project repo root):
+
+```bash
+git pull --rebase
+git worktree add {worktree_base}/<slug>/ -b wt/<type>-<slug>
+```
+
+   If `pull --rebase` conflicts: `git rebase --abort` → **STOP**.
+
+5. Write `s{N}/workspace.json`:
 
 ```json
 {
@@ -122,7 +136,9 @@ Optional seed: `$SKILL_DIR/templates/code-log.template.md` (replace `t{X}`).
 }
 ```
 
-4. Update `workflow-state.md`: `current_state: Executing`, then set `current_task` and `current_phase: WriteTests` for the first runnable task.
+6. Update `workflow-state.md`: `current_state: Executing`, then set `current_task` and `current_phase: WriteTests` for the first runnable task.
+
+All subsequent TDD edits and L3 commits run **inside** the worktree directory.
 
 ---
 

@@ -209,7 +209,7 @@ code 任务列表：  {tl_path.as_posix()}
 
 下一步（L1 — Preparing，start.py 不执行 git）：
 1. 读 code-task-list.md，向用户展示任务列表，等待确认
-2. Agent 按 docs/git/git-workflow-standard.md 创建 worktree/分支，写入 s{active_session}/workspace.json
+2. Agent 按 SKILL L1 创建 worktree/分支（git pull --rebase && git worktree add），写入 s{active_session}/workspace.json
 3. workflow-state.md → current_state: Executing；再设置 current_task / current_phase（首任务 WriteTests）
 """)
 
