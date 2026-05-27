@@ -11,7 +11,9 @@ disable-model-invocation: true
 
 Execute Test-Driven Development from a Delivered tech-doc or work-order task set, with git worktree delivery and per-task commits. Session lifecycle: **Preparing → Executing → Closing → Delivered**.
 
-**Scope:** TDD code generation in a dedicated worktree. Input: Delivered tech-doc (Path A) or Delivered work-order task set (Path B). Output: tests + implementation, per-task `commit-ref.md`, closing checklist, human delivery gate.
+**Scope:** TDD code generation in a dedicated worktree. 
+- Input: Delivered tech-doc (Path A) or Delivered work-order task set (Path B).
+- Output: tests + implementation, per-task `commit-ref.md`, closing checklist, human delivery gate.
 
 <HARD-GATE>
 Do NOT proceed until you have read `../SKILL.md` and loaded:
