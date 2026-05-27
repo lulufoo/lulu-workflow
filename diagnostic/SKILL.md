@@ -472,6 +472,7 @@ After self-review passes (decision-doc already written, Risk Release statuses up
    - Verification Items
 2. Ask user: "Are these decisions correct? Any items to re-open?"
 3. If any item is flagged: trigger RS on the corresponding gate; re-close all invalidated gates before proceeding.
+   > **DC-triggered RS baseline:** when RS is triggered from DC, use the already-written decision-doc as the authoritative baseline snapshot — do not reconstruct state from conversation memory. RS step 2 (clear conclusion zones) and step 3 (propose 3-state labeling) are executed against the decision-doc's recorded state.
 4. Only after user's explicit confirmation that everything is correct, write terminal state:
 
 ```bash
