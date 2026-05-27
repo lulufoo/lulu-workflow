@@ -4,5 +4,27 @@
     "template_url": "",
     "review_checklist_url": "",
     "pdqa_url": ""
+  },
+  "tech": {
+    "tpt_url": "",
+    "tpef_url": "",
+    "ptc_url": "",
+    "ac_url": ""
+  },
+  "work_order": {
+    "task_template_url": "",
+    "tasklist_template_url": "",
+    "woqa_url": "",
+    "twca_url": ""
+  },
+  "code": {
+    "test_command": "npm test",
+    "woqa_url": "",
+    "git": {
+      "worktree_base": ".cache/worktrees",
+      "branch_pattern": "wt/{type}-{slug}",
+      "default_type": "feat",
+      "commit_message_template": "feat({scope}): {task_id} {summary}"
+    }
   }
 }

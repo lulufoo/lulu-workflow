@@ -2,12 +2,14 @@
 
 ## [Unreleased]
 
-### code stage (2026-05-27)
+### code stage — state machine + git delivery (2026-05-27)
 
-- **Added** `code/templates/code-log.template.md` — optional append-only event log template.
-- **Changed** `code/SKILL.md` — governance section: no runtime code hook; `transition-whitelist.json` normative only; Red/Green via `code-log` `test_run` events.
-- **Removed** `code/scripts/hook_guard.py` and hook-only helpers from `code/scripts/workflow_common.py` (phantom enforcement; never dispatched).
-- **Changed** `scripts/install.py` — code stage no longer installs `hook_guard.py`.
-- **Breaking** — External integrations that imported `code.scripts.hook_guard` must migrate; reinstall skill after merge (`install.py`).
-- **Unchanged** — `code` is **not** added to unified `scripts/hook_guard._STAGES`.
-- **Install** — Run `install.py` to sync `~/.cursor/skills/lulu-dev-workflow`.
+- **Added** dual state machine in `code/transition-whitelist.json` — session (`Preparing→Executing→Closing→Delivered`) + task (TDD six phases).
+- **Added** `code/templates/code-log.template.md` — append-only action model (`enter`, `test_run`, `git_commit`).
+- **Changed** `code/SKILL.md` — full rewrite: L1 worktree, L3 per-task commit, L4′ closing gate; SSOT whitelist; no runtime hook.
+- **Changed** `code/scripts/start.py` — bootstraps `current_state: Preparing` (Path B); no git in start.py.
+- **Changed** `code/scripts/init.py` — reads `config["code"]` (not `tdd`); documents `code.git`.
+- **Changed** `product/templates/workflow-config.template.json` — `code.git` block (`worktree_base`, `branch_pattern`, etc.).
+- **Changed** `scripts/install.py` — deploys `CODE_TEMPLATES` (`code-log.template.md`).
+- **Removed** (prior) `code/scripts/hook_guard.py` — code not in unified `_STAGES`.
+- **Install** — `python3 scripts/install.py --platform cursor --repo lulufoo/lulu-dev-skills --ref main`

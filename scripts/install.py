@@ -56,6 +56,9 @@ PRODUCT_TEMPLATES = (
     "state.template.json",
     "workflow-config.template.json",
 )
+CODE_TEMPLATES = (
+    "code-log.template.md",
+)
 
 
 def _skill_dst(platform: str) -> Path:
@@ -150,6 +153,14 @@ def _install_from_local(src: Path, dst: Path) -> None:
                 if not f.is_file():
                     raise FileNotFoundError(f"Missing: {f}")
                 shutil.copy2(f, templates_dst / tpl)
+        if stage == "code":
+            templates_dst = stage_dst / "templates"
+            templates_dst.mkdir(parents=True, exist_ok=True)
+            for tpl in CODE_TEMPLATES:
+                f = stage_src / "templates" / tpl
+                if not f.is_file():
+                    raise FileNotFoundError(f"Missing: {f}")
+                shutil.copy2(f, templates_dst / tpl)
 
 
 # ── GitHub install ─────────────────────────────────────────────────────────────
@@ -198,6 +209,13 @@ def _install_from_github(repo: str, ref: str, dst: Path) -> None:
                 _write(templates_dst / tpl,
                        _gh_api_content(owner, repo_name, ref,
                                        f"{BASE}/product/templates/{tpl}"))
+        if stage == "code":
+            templates_dst = stage_dst / "templates"
+            templates_dst.mkdir(parents=True, exist_ok=True)
+            for tpl in CODE_TEMPLATES:
+                _write(templates_dst / tpl,
+                       _gh_api_content(owner, repo_name, ref,
+                                       f"{BASE}/code/templates/{tpl}"))
 
 
 # ── cleanup ────────────────────────────────────────────────────────────────────

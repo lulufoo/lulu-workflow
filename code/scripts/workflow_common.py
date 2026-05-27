@@ -130,7 +130,7 @@ def write_md_state(
     content = (
         f"---\n"
         f"version: 1\n"
-        f"workflow: tdd\n"
+        f"workflow: code\n"
         f"current_state: {current_state}\n"
         f"mode: {mode}\n"
         f"task_list_ref: {task_list_ref}\n"

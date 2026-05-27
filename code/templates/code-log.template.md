@@ -1,19 +1,28 @@
-# Code Log — t{X} (optional append-only style)
+# Code Log — t{X}
 
-> **Append-only** phase timeline. Full Red/Green evidence still goes in `red-run.md` and `green-run.md` — do not paste only summaries here.
+> **Append-only** task action log. Header format: `### <ISO8601> · <action>[ · <target>]`.
+> Actions: `enter` (phase name), `test_run`, `git_commit` (`initial` | `amend`). Do not use red-run/green-run filenames.
 
 ---
 
-### 2026-05-27T10:00:00Z · phase_enter · WriteTests
+### 2026-05-27T10:00:00Z · enter · WriteTests
 
-### 2026-05-27T10:06:30Z · phase_exit · VerifyRed
+### 2026-05-27T10:02:00Z · enter · VerifyRed
 
-See `red-run.md` for full output.
+### 2026-05-27T10:02:30Z · test_run
 
-### 2026-05-27T10:20:00Z · phase_exit · VerifyGreen
+```text
+$ npm test
+FAIL …
+```
 
-See `green-run.md` for full output / AC table.
+### 2026-05-27T10:06:00Z · enter · WriteImpl
 
-### 2026-05-27T10:26:00Z · task_done
+### 2026-05-27T10:11:00Z · git_commit · initial
 
-summary: <one-line completion summary>
+sha: a1b2c3d
+message: feat(code): t1 …
+
+### 2026-05-27T10:15:00Z · enter · Done
+
+summary: …

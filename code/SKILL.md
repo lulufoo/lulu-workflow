@@ -1,17 +1,18 @@
 ---
 name: code
 description: >-
-  Use when: TDD, tdd session, 测试驱动开发, 写测试代码, 写实现代码, Red Green Refactor,
-  tdd-task-list, task-from-work-order, task-from-tech, tdd workflow,
-  lulu-dev-workflow tdd.
+  Use when: TDD, code session, 测试驱动开发, 写测试代码, 写实现代码, Red Green Refactor,
+  code-task-list, task-from-work-order, task-from-tech, code workflow,
+  lulu-dev-workflow code, git worktree delivery.
 disable-model-invocation: true
 ---
 
 # code-workflow
 
-Execute Test-Driven Development from a Delivered tech-doc or work-order task set: write tests first, confirm Red, write minimal implementation, confirm Green, then refactor.
+Execute Test-Driven Development from a Delivered tech-doc or work-order task set, with git worktree delivery and per-task commits. Session lifecycle: **Preparing → Executing → Closing → Delivered**.
 
-**Scope:** TDD code generation. Input: Delivered tech-doc (Path A) or Delivered work-order task set (Path B). Output: test files + implementation files.
+**Scope:** TDD code generation in a dedicated worktree. Input: Delivered tech-doc (Path A) or Delivered work-order task set (Path B). Output: tests + implementation, per-task `commit-ref.md`, closing checklist, human delivery gate.
+
 <HARD-GATE>
 Do NOT proceed until you have read `../SKILL.md` and loaded:
 
@@ -23,10 +24,11 @@ Do NOT proceed until you have read `../SKILL.md` and loaded:
 
 **This workflow runs in Agent mode.** (requires writing code files and executing Shell commands)
 
+**`/code` authorizes** automatic `git commit` / `git commit --amend` inside the session worktree during L3. Push, PR, CI, and review are **post-code** (out of scope).
+
 ---
 
 ## Commands
-
 
 ### `/code <input>` — Entry point
 
@@ -35,16 +37,7 @@ Do NOT proceed until you have read `../SKILL.md` and loaded:
 | `work-order/<uuid>` | Source: specified work-order session | `/code work-order/1d2ea64b-065d-4e12-9008-9163d475ee00` |
 | `tech <path-to-tech-doc.md>` | Source: specified tech doc | `/code tech /abs/path/tech-doc.md` |
 
-If the user's input does not match either format, stop and output:
-
-```
-Invalid input. Usage:
-
-  From work-order:  /code work-order/<work-order-conv-id>
-  From tech doc:    /code tech <path-to-tech-doc.md>
-
-Prerequisite: upstream must be in Delivered state.
-```
+If the user's input does not match either format, stop and output the usage error from the prior spec.
 
 ---
 
@@ -52,302 +45,168 @@ Prerequisite: upstream must be in Delivered state.
 
 **Step 1: Identify active feature** — See `## Feature Context` in `../SKILL.md`
 
-**Step 2: Parse `<input>` type**
+**Step 2–4:** Parse input, validate upstream Delivered state, collect paths (unchanged from prior flow).
 
-- Starts with `work-order/` → **Path B**, extract `<work-order-feature-id>`
-- Starts with `tech ` → **Path A**, extract `<tech-doc-path>`
-- Other → invalid; output error above and stop
+**Step 5: Run `start.py`** (does **not** run git; bootstraps `current_state: Preparing` with empty `current_task` / `current_phase` on Path B).
 
-**Step 3: Validate upstream state**
-
-Path B:
-```bash
-cat <project-root>/$CACHE_DIR/<work-order-feature-id>/work-order/*/workflow-state.md
-```
-- `current_state` is not `Delivered` → error: "work-order `<id>` not yet delivered (current state: `<state>`). Cannot start code workflow." Stop.
-- Path does not exist → error: "work-order `<id>` not found. Please verify the ID." Stop.
-
-Path A:
-- Read `<tech-doc-path>` to confirm file exists
-- Not found → error: "tech-doc not found: `<path>`." Stop.
-
-**Step 4: Collect upstream file paths**
-
-Path B:
-```bash
-<project-root>/$CACHE_DIR/<work-order-feature-id>/work-order/<revision>/task-list.md
-<project-root>/$CACHE_DIR/<work-order-feature-id>/work-order/<revision>/tasks/*/task.md
-```
-
-Path A: use `<tech-doc-path>` directly.
-
-**Step 5: Run start.py**
-
-Path B:
-```bash
-python3 "$SKILL_DIR/scripts/start.py" \
-  --project-root "$(pwd)" \
-  --feature-id "<feature_id>" \
-  --mode task-from-work-order \
-  --task-list-ref "<abs-path-to-task-list.md>" \
-  --task-refs <abs-path-to-t1/task.md> <abs-path-to-t2/task.md> ...
-```
-
-Path A:
-```bash
-python3 "$SKILL_DIR/scripts/start.py" \
-  --project-root "$(pwd)" \
-  --feature-id "<feature_id>" \
-  --mode task-from-tech \
-  --tech-ref "<abs-path-to-tech-doc.md>"
-```
-
-> `<feature_id>` is the active feature ID from `LULU-DEV-WORKFLOW:` (identified in Step 1).
-
-**Step 6: Read `code-task-list.md`, display task list, wait for user confirmation before starting execution**
+**Step 6:** Read `code-task-list.md` (Path B) or draft it (Path A); display tasks; wait for confirmation before L1/L2 execution.
 
 ---
 
-## Session File Structure
+## Session file structure
 
 ```
 $CACHE_DIR/<feature_id>/code/
-  session-state.md              ← active_session: N (monotonically increasing)
+  session-state.md
+  s{N}/
+    workflow-state.md           ← session + task pointer (authoritative)
+    workspace.json              ← L1: worktree_path, branch, created_at
+    code-task-list.md
+    closing-checklist.md        ← L4′ (Closing)
+    human-delivery-gate.md      ← required before Delivered
 
-  s{N}/                         ← Nth code session
-    workflow-state.md           ← current_state / current_task / current_phase (AI writes; authoritative pointer)
-    code-task-list.md           ← checkbox progress list (execution anchor)
-    human-delivery-gate.md      ← written after all tasks Done and user confirms
-
-    tasks/
-      t{X}/
-        code-log.md             ← phase summary / timeline (written or updated per task)
-        red-run.md              ← Phase 2: full test run output + failure reason
-        green-run.md            ← Phase 4: full test output or AC verification table (detail SSOT)
+    tasks/t{X}/
+      code-log.md               ← append-only action log (task-level only)
+      commit-ref.md             ← L3: initial/final SHA, message, amended
 ```
 
-**Division of labor:** `code-log.md` = concise per-phase notes; `red-run.md` / `green-run.md` = **full** Red/Green evidence (terminal output or itemized AC table). Do not drop detail from red/green in favor of a one-line code-log summary.
+Do **not** create `red-run.md` or `green-run.md` for new sessions. Red/Green evidence belongs in `code-log.md` as `test_run` entries.
 
-**Optional:** On task entry you may seed `code-log.md` from `$SKILL_DIR/templates/code-log.template.md` (replace `t{X}`) if using append-only event style; still **must** write `red-run.md` / `green-run.md` when those phases run.
+Optional seed: `$SKILL_DIR/templates/code-log.template.md` (replace `t{X}`).
 
 ---
 
-## State Model
+## State model
 
-### Session level
+**SSOT:** `$SKILL_DIR/transition-whitelist.json` — parallel `session` and `task` machines with `states` enums and `allowed_transitions`. This SKILL documents semantics and conventions only; **do not duplicate** transition tables here.
 
-States: `Executing → Completed`
+### Session states
 
-| From | To | Trigger |
-|------|----|---------|
-| `[*]` | `Executing` | start command |
-| `Executing` | `Completed` | All tasks in code-task-list.md are `[x]` |
+`Preparing` → `Executing` → `Closing` → `Delivered`
 
-### Task Phase level
+| Phase | Meaning |
+|-------|---------|
+| **Preparing** | L1: create worktree/branch per project `docs/git/git-workflow-standard.md`; write `s{N}/workspace.json`. Agent runs git; `start.py` does not. |
+| **Executing** | Task TDD loop (1→N) while session stays Executing. |
+| **Closing** | L4′: complete `closing-checklist.md` (retest, commit-ref count, clean worktree, all tasks `[x]`). |
+| **Delivered** | After `human-delivery-gate.md` (`approved: true`). |
 
-```
-WriteTests → VerifyRed → WriteImpl → VerifyGreen → Refactor → Done
-                                              ↑
-                             tdd_exempt: true may skip directly to Done
-```
+**Session completion (correct order):** when all tasks in `code-task-list.md` are `[x]`, set `current_state: Closing` — **not** `Delivered`. After checklist + user gate, set `Delivered`.
 
-| From Phase | To Phase | Pre-condition |
-|-----------|---------|---------------|
-| `[*]` | `WriteTests` | all depends_on tasks are `[x]` |
-| `WriteTests` | `VerifyRed` | — |
-| `VerifyRed` | `WriteImpl` | `tasks/t{X}/red-run.md` exists (full output + failure reason) |
-| `WriteImpl` | `VerifyGreen` | — |
-| `VerifyGreen` | `Refactor` | — |
-| `VerifyGreen` | `Done` | tdd_exempt: true |
-| `Refactor` | `Done` | — |
-| `Done` | `WriteTests` | next task |
+### Task phases (under Executing)
+
+`WriteTests` → `VerifyRed` → `WriteImpl` → `VerifyGreen` → `Refactor` → `Done` (with `tdd_exempt` shortcut VerifyGreen → `Done` per whitelist `when`).
 
 ---
 
-## Operating Rules
+## Conventions
 
-### General
-
-1. Read `$WORKFLOW_DIR/workflow-config.json` → `code.test_command` for the test runner; use this command in Phase 2 / 4 / 5.
-2. Read `session-state.md` → `active_session: N` to determine current session round.
-3. `s{N}/workflow-state.md` is the authoritative state — write it to request a transition.
-4. Never infer state from file existence; always read `workflow-state.md`.
-5. Use full `Write` (not `Edit`) for `workflow-state.md`.
-6. Preserve all fields when writing `workflow-state.md`: `mode`, `task_list_ref`, `current_task`, `current_phase`.
-7. **Always write** `red-run.md` (VerifyRed) and `green-run.md` (VerifyGreen) with **full** detail — not summarized only in `code-log.md`.
-8. If using append-only `code-log` events, add at end only; optional — table-style phase log (see Session File Formats) is also valid.
-
-### Startup sequence
-
-> Follows Step 5 above, after `start.py` completes successfully.
-
-**Path B (task-from-work-order):**
-1. `start.py` auto-generates `code-task-list.md` (all tasks ⏳ Pending)
-2. Read `code-task-list.md`, display task list with dependencies to user
-3. Wait for user confirmation → begin first task
-
-**Path A (task-from-tech):**
-1. Read `<tech-doc-path>`, analyze change points using Test-First logic, draft `code-task-list.md` (task_id from t1, granularity: single function change)
-2. Display draft to user, wait for confirmation
-3. After confirmation, write `s{N}/code-task-list.md`
-4. Write `workflow-state.md`: `current_task: t1, current_phase: WriteTests`
-5. Begin first task
-
-### Phase execution rules (one loop per task)
-
-**Phase 1 — WriteTests**
-
-- Input: task.md "acceptance criteria" (Path B) or task description from code-task-list.md (Path A)
-- Output: write test file (`test_file` path)
-- Constraint: **do not write any implementation code**
-- Done when: all acceptance criteria have corresponding test cases
-- Exit: write `workflow-state.md: current_phase: VerifyRed`
-
-**Phase 2 — VerifyRed (mandatory, cannot skip for non-exempt tasks)**
-
-- Action: run `test_command` (Shell), capture full output
-- Expected: all tests FAIL; failure reason = function/class does not exist (not a syntax error)
-- Exceptions:
-  - Tests pass → tests cover existing behavior; return to Phase 1 to fix tests
-  - Syntax error → fix syntax, re-run, repeat until failure reason is correct
-- Record: write `tasks/t{X}/red-run.md` (full output + one-line confirmation: "Failure reason: …")
-- `tdd_exempt: true`: still write `red-run.md` with verification command/output or explicit N/A + reason
-- Exit: write `workflow-state.md: current_phase: WriteImpl`
-
-**Phase 3 — WriteImpl**
-
-- Output: write implementation file (`target_file` path)
-- Constraints:
-  - **Do not modify tests** (absolute prohibition)
-  - Minimum implementation only
-  - Comply with all hard rules in task.md "constraints" section
-- Exit: write `workflow-state.md: current_phase: VerifyGreen`
-
-**Phase 4 — VerifyGreen**
-
-- Action: run `test_command` (Shell), capture full output
-- Expected: all tests PASS, no warnings or errors
-- Failure: fix implementation (never the tests), re-run, repeat until all PASS
-- Record: write `tasks/t{X}/green-run.md` (full terminal output **or**, for `tdd_exempt`, full AC verification table like legacy sessions)
-- Exit: write `workflow-state.md: current_phase: Refactor` (or `Done` if tdd_exempt)
-
-**Phase 5 — Refactor**
-
-- Action: deduplicate, rename, extract helpers, eliminate magic numbers
-- Constraint: re-run tests after each refactor change to confirm all still PASS
-- Prohibition: do not add new behavior or new tests
-- `tdd_exempt: true` tasks skip this phase
-- Exit: write `workflow-state.md: current_phase: Done`
-
-**Task completion actions (after each task Done)**
-
-1. Update `code-task-list.md`: `[ ]` → `[x]`, status → `✅ Done`, increment frontmatter `done` count
-2. Write or update `tasks/t{X}/code-log.md` (phase summary — one row or note per phase; not a substitute for red/green files)
-3. If tasks remain: write `workflow-state.md: current_task: t{X+1}, current_phase: WriteTests`
-4. If all tasks done: write `workflow-state.md: current_state: Completed`
-
-**Session completion actions**
-
-1. Display final `code-task-list.md` (all tasks ✅ Done)
-2. Wait for explicit user confirmation
-3. Write `s{N}/human-delivery-gate.md` (`approved: true`)
-4. Write `s{N}/workflow-state.md: current_state: Completed`
+1. Advance `current_phase` only when `current_state` is `Executing`.
+2. After task `Done`: if another task remains → update `current_task`, append `enter · WriteTests` in that task's `code-log.md`, set phase `WriteTests`; if all tasks `[x]` → session transition `Executing` → `Closing`.
+3. `code-log.md` is **task-level** only; session artifacts (`workspace.json`, `closing-checklist.md`, gate) are separate files.
+4. `/code` authorizes auto commit/amend in the worktree during L3; do not push/open PR from this stage.
 
 ---
 
-## Session File Formats
+## L1 — Preparing (worktree)
 
-### s{N}/workflow-state.md
+1. Read `$WORKFLOW_DIR/workflow-config.json` → `code.git` (`worktree_base`, `branch_pattern`, `default_type`, `commit_message_template`).
+2. Follow **`docs/git/git-workflow-standard.md`** for worktree directory (e.g. `.cache/worktrees/<slug>/`) and branch (`wt/<type>-<slug>`).
+3. Write `s{N}/workspace.json`:
+
+```json
+{
+  "worktree_path": ".cache/worktrees/<slug>/",
+  "branch": "wt/feat-<slug>",
+  "created_at": "2026-05-27T10:00:00Z"
+}
+```
+
+4. Update `workflow-state.md`: `current_state: Executing`, then set `current_task` and `current_phase: WriteTests` for the first runnable task.
+
+---
+
+## L3 — Git at task boundaries
+
+After **VerifyGreen** (implementation green): `git_commit · initial` in `code-log.md`; record `tasks/t{X}/commit-ref.md`:
 
 ```markdown
----
-version: 1
-workflow: code
-current_state: Executing
-mode: task-from-work-order
-task_list_ref: /abs/path/$CACHE_DIR/<feature_id>/code/s1/code-task-list.md
-current_task: t2
-current_phase: WriteImpl
-updated_at: 2026-05-17T09:00:00+08:00
----
+task_id: t2
+branch: wt/feat-code-git-delivery
+initial_commit: a1b2c3d
+final_commit: a1b2c3d
+commit_message: "feat(code): t2 validatePhone"
+amended: false
+recorded_at: 2026-05-27T14:00:00Z
 ```
 
-> Preserve all fields on every write: `mode`, `task_list_ref`, `current_task`, `current_phase`.
+After **Refactor** if code changed: `git_commit · amend`; update `commit-ref.md` (`final_commit`, `amended: true`).
 
-### s{N}/code-task-list.md
+Use `code.git.commit_message_template` for messages. End each task with `enter · Done` (+ optional summary in body).
+
+---
+
+## L4′ — Closing
+
+While `current_state: Closing`, create/update `s{N}/closing-checklist.md`:
 
 ```markdown
+- [ ] Full test suite re-run (PASS)
+- [ ] commit-ref count == task count
+- [ ] git status clean in worktree
+- [ ] All code-task-list items [x]
+```
+
+When all items checked, wait for explicit user confirmation, write `human-delivery-gate.md` (`approved: true`), then `current_state: Delivered`.
+
 ---
-source: work-order
-task_list_ref: /abs/path/$CACHE_DIR/<feature_id>/work-order/r1/task-list.md
-total: 5
-done: 1
+
+## code-log action model
+
+**Format:** `### <ISO8601> · <action>[ · <target>]` + optional body. **Append-only.**
+
+| action | target | meaning |
+|--------|--------|---------|
+| `enter` | phase name | phase transition |
+| `test_run` | — | run `code.test_command`; full output in fenced block |
+| `git_commit` | `initial` \| `amend` | L3 commit; SHA and message in body |
+
+No `red-run` / `green-run` action types or standalone red/green files for new sessions.
+
 ---
 
-# Code Task List
+## Operating rules (summary)
 
-- [x] t1 · validateEmail · `src/utils/validators.ts` · ✅ Done
-- [ ] t2 · validatePhone · `src/utils/validators.ts` · 🔴 WriteImpl
-- [ ] t3 · authService integration · `src/services/auth.ts` · ⏳ Pending (depends: t1, t2)
-- [ ] t4 · integration tests · `tests/auth.test.ts` · ⏳ Pending (depends: t3)
-- [ ] t5 · error handling layer · `src/utils/error.ts` · ⏳ Pending
-```
-
-`tdd_exempt` tasks are marked with `[tdd_exempt]` at the end of the line:
-```markdown
-- [ ] t6 · update button styles · `src/components/Button.tsx` · ⏳ Pending [tdd_exempt]
-```
-
-### s{N}/tasks/t{X}/code-log.md
-
-Phase summary (concise). Full Red/Green detail stays in `red-run.md` / `green-run.md`.
-
-```markdown
-# t{X} TDD Log
-
-| Phase | Time | Output / Notes |
-|-------|------|----------------|
-| WriteTests | 2026-05-17T10:00Z | `tests/utils/validators.test.ts` — 3 cases |
-| VerifyRed | 2026-05-17T10:02Z | see red-run.md |
-| WriteImpl | 2026-05-17T10:05Z | `src/utils/validators.ts` — validateEmail, 15 lines |
-| VerifyGreen | 2026-05-17T10:06Z | see green-run.md |
-| Refactor | 2026-05-17T10:08Z | extracted EMAIL_REGEX — 3 PASS |
-```
-
-Optional append-only event log: `$SKILL_DIR/templates/code-log.template.md`. Record Red/Green as `test_run` events in `code-log.md`; do **not** create new `red-run.md` / `green-run.md`.
+1. `code.test_command` from `workflow-config.json` for all `test_run` entries.
+2. `workflow-state.md` is authoritative; use full `Write` for updates; preserve `mode`, `task_list_ref`, `current_task`, `current_phase`.
+3. **WriteTests:** tests only, no implementation.
+4. **VerifyRed / VerifyGreen:** run tests; log via `test_run`; fix tests vs impl per TDD rules.
+5. **WriteImpl:** minimal implementation; do not modify tests.
+6. **Refactor:** behavior-neutral; re-run tests after each change; skip when `tdd_exempt`.
+7. On each task Done: update `code-task-list.md`; if last task → `Closing`, else next task + `WriteTests`.
 
 ---
 
 ## Governance (no runtime hook)
 
-- Unified `scripts/hook_guard.py` `_STAGES` lists `diagnostic`, `work-order`, `tech`, `product` only — **`code` is intentionally omitted** so agents can write repository source files without cache hook friction.
-- There is **no** `code/scripts/hook_guard.py` in this package; preToolUse does **not** enforce code-stage phase transitions.
-- **Phase edges:** `code/transition-whitelist.json` is a **normative reference** for AI/human adherence — **not** loaded or enforced at runtime.
-- **Task evidence:** Red/Green via append-only `code-log.md` `test_run` entries; do not create new `red-run.md` / `green-run.md`.
-- **Prohibited wording:** Do not claim "hook validates", "hook blocks phase", or "red-run required by hook".
-- Other stage hooks guard `.md` writes under `CACHE_DIR` only; verify against source, not legacy SKILL claims.
+- Unified `scripts/hook_guard.py` `_STAGES` = `diagnostic`, `work-order`, `tech`, `product` only — **`code` is omitted** by design.
+- There is **no** `code/scripts/hook_guard.py`; preToolUse does **not** enforce code transitions.
+- `transition-whitelist.json` is normative for agents/humans — **not** loaded at hook runtime.
+- **Prohibited wording:** "hook validates", "hook blocks phase", "red-run required by hook".
 
 ---
 
 ## work-order → code handoff
 
-- **Path B input**: `--task-list-ref` (Delivered work-order task-list.md) + `--task-refs` (all task.md files)
-- **task.md is self-contained**: constraints and context sections explicitly copy from tech-doc; code session only reads task.md
-- **tdd_exempt**: read from task.md frontmatter or `[tdd_exempt]` in code-task-list.md; skips Phase 1/2/5
-- **Test command**: read from `workflow-config.json → code.test_command`; confirm before each test run
+- Path B: `--task-list-ref` + `--task-refs`; `task.md` is self-contained.
+- `tdd_exempt` from task list / task frontmatter.
+- Config: `code.test_command`, `code.git` (see `init.py`).
+
 ## Execution Mode
 
-Read `$EXECUTION_MODE` from Feature Context (set by parent `SKILL.md`). Default: `assisted`.
+Read `$EXECUTION_MODE` from Feature Context. Default: `assisted`.
 
 | Mode | Behavior |
-|------|---------|
-| `assisted` | Current behavior — all rules apply as documented |
-| `self-service` | Apply the overrides below; all other rules unchanged |
-
-### Self-Service Overrides
-
-| Rule | Self-Service Behavior |
-|------|-----------------------|
-| startup Step 6 — confirm start execution | Auto-confirm. Start first task without asking. |
-| Path A — draft code-task-list confirmation | Auto-confirm. Write `code-task-list.md` immediately without asking. |
-| Session completion — C3 delivery confirmation | **Unchanged: always wait for explicit user confirmation.** |
+|------|----------|
+| `assisted` | Confirmations as documented |
+| `self-service` | Auto-confirm task list start; **delivery gate before Delivered still requires explicit user confirmation** |

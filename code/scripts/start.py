@@ -189,14 +189,13 @@ def main() -> int:
         )
         tl_path.write_text(tdd_list_content, encoding="utf-8")
 
-        first_task = tasks[0]["id"] if tasks else ""
         write_md_state(
             ws_path,
-            current_state="Executing",
+            current_state="Preparing",
             mode=args.mode,
             task_list_ref=tl_path.as_posix(),
-            current_task=first_task,
-            current_phase="WriteTests",
+            current_task="",
+            current_phase="",
         )
 
         print(f"""
@@ -204,21 +203,20 @@ code session 已启动（Path B：task-from-work-order）。
 
 会话状态文件：  {ss_path.as_posix()}
 当前 session：  s{active_session}
-状态文件：      {ws_path.as_posix()}
-TDD 任务列表：  {tl_path.as_posix()}
+状态文件：      {ws_path.as_posix()}（current_state: Preparing）
+code 任务列表：  {tl_path.as_posix()}
 任务数量：      {len(tasks)}
-当前任务：      {first_task}
-当前阶段：      WriteTests
 
-下一步：
+下一步（L1 — Preparing，start.py 不执行 git）：
 1. 读 code-task-list.md，向用户展示任务列表，等待确认
-2. 用户确认后，从 {first_task} 开始执行 Phase 1（WriteTests）
+2. Agent 按 docs/git/git-workflow-standard.md 创建 worktree/分支，写入 s{active_session}/workspace.json
+3. workflow-state.md → current_state: Executing；再设置 current_task / current_phase（首任务 WriteTests）
 """)
 
     else:  # task-from-tech
         write_md_state(
             ws_path,
-            current_state="Executing",
+            current_state="Preparing",
             mode=args.mode,
             task_list_ref=tl_path.as_posix(),
             current_task="",
@@ -230,16 +228,16 @@ code session 已启动（Path A：task-from-tech）。
 
 会话状态文件：  {ss_path.as_posix()}
 当前 session：  s{active_session}
-状态文件：      {ws_path.as_posix()}
-TDD 任务列表：  {tl_path.as_posix()}（待生成）
+状态文件：      {ws_path.as_posix()}（current_state: Preparing）
+code 任务列表：  {tl_path.as_posix()}（待生成）
 tech-ref：      {args.tech_ref}
 
 下一步：
 1. 读 tech-doc.md（{args.tech_ref}）
 2. 按 Test First 逻辑分析改动点，生成 {tl_path.as_posix()}
 3. 向用户展示任务列表草稿，等待确认
-4. 用户确认后，写入 code-task-list.md，更新 workflow-state.md（current_task / current_phase）
-5. 从第一个任务开始执行 Phase 1（WriteTests）
+4. L1：worktree + workspace.json（见 SKILL）；再 Preparing → Executing
+5. 用户确认后写入 code-task-list.md，设置 current_task / current_phase，开始 WriteTests
 """)
 
     return 0
