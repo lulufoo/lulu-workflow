@@ -314,16 +314,18 @@ Phase summary (concise). Full Red/Green detail stays in `red-run.md` / `green-ru
 | Refactor | 2026-05-17T10:08Z | extracted EMAIL_REGEX — 3 PASS |
 ```
 
-Optional append-only event log: `$SKILL_DIR/templates/code-log.template.md` (must still write red-run / green-run).
+Optional append-only event log: `$SKILL_DIR/templates/code-log.template.md`. Record Red/Green as `test_run` events in `code-log.md`; do **not** create new `red-run.md` / `green-run.md`.
 
 ---
 
-## Implementation note (hooks)
+## Governance (no runtime hook)
 
 - Unified `scripts/hook_guard.py` `_STAGES` lists `diagnostic`, `work-order`, `tech`, `product` only — **`code` is intentionally omitted** so agents can write repository source files without cache hook friction.
-- `code/scripts/hook_guard.py` contains state-machine logic but is **not dispatched** by the unified entry point; its path matcher expects `.../code/<conv_id>/s{N}/` while the real layout is `.../<feature_id>/code/s{N}/` → no enforcement in production.
-- Other stage hooks guard `.md` writes under `CACHE_DIR` only; they do **not** implement workflow-state transition state machines (verify against source, not legacy SKILL claims).
-- **Do not** document code-stage transitions as "hook enforced" unless `code` is deliberately re-enabled with a corrected design.
+- There is **no** `code/scripts/hook_guard.py` in this package; preToolUse does **not** enforce code-stage phase transitions.
+- **Phase edges:** `code/transition-whitelist.json` is a **normative reference** for AI/human adherence — **not** loaded or enforced at runtime.
+- **Task evidence:** Red/Green via append-only `code-log.md` `test_run` entries; do not create new `red-run.md` / `green-run.md`.
+- **Prohibited wording:** Do not claim "hook validates", "hook blocks phase", or "red-run required by hook".
+- Other stage hooks guard `.md` writes under `CACHE_DIR` only; verify against source, not legacy SKILL claims.
 
 ---
 

@@ -16,9 +16,6 @@ from archive_common import (  # noqa: E402
     list_conv_ids,
 )
 
-SKILL_ROOT = Path(__file__).resolve().parents[1]  # .../tdd
-WHITELIST_PATH = SKILL_ROOT / "transition-whitelist.json"
-
 _PLATFORM = (
     __import__("os").environ.get("LULU_PLATFORM")
     or ("copilot" if __import__("os").environ.get("COPILOT_AGENT") else "cursor")
@@ -27,20 +24,11 @@ _WORKFLOW_DIR_MAP = {
     "cursor":  Path(".cursor/lulu-dev-workflow"),
     "copilot": Path(".github/lulu-dev-workflow"),
 }
-_HOOKS_JSON_MAP = {
-    "cursor":  Path(".cursor/hooks.json"),
-    "copilot": Path(".github/hooks/hooks.json"),
-}
-
 WORKFLOW_DIR = _WORKFLOW_DIR_MAP.get(_PLATFORM, _WORKFLOW_DIR_MAP["cursor"])
 CACHE_DIR = Path(f".cache/{_PLATFORM}/lulu-dev-workflow")
 STAGE = "code"
 PLATFORM_CONFIG_PATH = WORKFLOW_DIR / "config.json"
 SHARED_CONFIG_DEFAULT = Path("skill-config/lulu-dev-workflow/workflow-config.json")
-HOOKS_JSON_PATH = _HOOKS_JSON_MAP.get(_PLATFORM, _HOOKS_JSON_MAP["cursor"])
-
-_SCRIPTS_DIR = Path(__file__).resolve().parent
-HOOK_COMMAND = f"python3 {_SCRIPTS_DIR / 'hook_guard.py'}"
 
 # ---------------------------------------------------------------------------
 # Path helpers
@@ -91,15 +79,6 @@ def list_code_conv_ids(code_root: Path) -> List[str]:
 def is_conv_completed(conv_dir: Path) -> Optional[bool]:
     """Return True if active session is Completed, False if non-terminal, None if unreadable."""
     return is_conv_terminal(conv_dir, CODE_CONFIG)
-
-
-def hook_entry() -> Dict[str, Any]:
-    return {
-        "matcher": "Write|Edit",
-        "command": HOOK_COMMAND,
-        "timeout": 5,
-        "failClosed": True,
-    }
 
 
 # ---------------------------------------------------------------------------
@@ -223,79 +202,3 @@ def normalize_tool_path(raw_path: str, project_root: Path) -> str:
     return candidate.as_posix()
 
 
-def merge_hook_entry(hooks_payload: Dict[str, Any]) -> Dict[str, Any]:
-    hooks_payload.setdefault("version", 1)
-    hooks = hooks_payload.setdefault("hooks", {})
-    pre_tool_use = hooks.setdefault("preToolUse", [])
-    entry = hook_entry()
-    new_cmd = entry["command"]
-
-    for index, existing in enumerate(pre_tool_use):
-        if existing.get("command") == new_cmd:
-            pre_tool_use[index] = entry
-            return hooks_payload
-
-    pre_tool_use.append(entry)
-    return hooks_payload
-
-
-# ---------------------------------------------------------------------------
-# code-task-list.md helpers
-# ---------------------------------------------------------------------------
-
-def parse_task_list_md(content: str) -> List[Dict[str, Any]]:
-    """
-    Parse code-task-list.md checkbox lines.
-    Line format:
-      - [x] t1 · Title · `target_file` · ✅ Done (depends: t2, t3)
-      - [ ] t2 · Title · `target_file` · ⏳ Pending
-    Returns list of dicts: {id, done, title, target_file, phase, depends}
-    """
-    tasks = []
-    for line in content.splitlines():
-        m = re.match(
-            r"^\s*-\s*\[([ xX])\]\s+(\w+)\s+·\s+(.+?)\s+·\s+`(.+?)`\s+·\s+(.+?)(?:\s+\(depends:\s*([^)]+)\))?$",
-            line,
-        )
-        if not m:
-            continue
-        checked, task_id, title, target_file, status, deps_raw = m.groups()
-        depends = [d.strip() for d in deps_raw.split(",")] if deps_raw else []
-        tasks.append(
-            {
-                "id": task_id,
-                "done": checked.lower() == "x",
-                "title": title.strip(),
-                "target_file": target_file.strip(),
-                "phase": status.strip(),
-                "depends": depends,
-            }
-        )
-    return tasks
-
-
-def all_tasks_done(tl_path: Path) -> bool:
-    """Return True if all tasks in code-task-list.md are checked [x]."""
-    if not tl_path.exists():
-        return False
-    tasks = parse_task_list_md(tl_path.read_text(encoding="utf-8"))
-    return bool(tasks) and all(t["done"] for t in tasks)
-
-
-def get_task_depends(tl_path: Path, task_id: str) -> List[str]:
-    """Return the depends list for a given task_id."""
-    if not tl_path.exists():
-        return []
-    tasks = parse_task_list_md(tl_path.read_text(encoding="utf-8"))
-    for t in tasks:
-        if t["id"] == task_id:
-            return t["depends"]
-    return []
-
-
-def get_done_task_ids(tl_path: Path) -> List[str]:
-    """Return list of task IDs that are checked [x]."""
-    if not tl_path.exists():
-        return []
-    tasks = parse_task_list_md(tl_path.read_text(encoding="utf-8"))
-    return [t["id"] for t in tasks if t["done"]]
