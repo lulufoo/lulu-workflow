@@ -300,7 +300,7 @@ Risk levels:
 
 ---
 
-#### Risk Release
+#### RR - Risk Release
 
 **Trigger & Scope:** V gate identifies high-risk assumptions or user-flagged items. Covers all high-risk verification items + any user-flagged items (regardless of AI rating).
 
@@ -457,7 +457,7 @@ Fix inline. No separate review round needed.
 
 ---
 
-## Delivery Confirmation
+## DC - Delivery Confirmation
 
 **Entry paths (any one satisfies):**
 - Path 1: R exit 3 — all assumptions `[已验证]`, no uncertain items (Group Loop B skipped)
