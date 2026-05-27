@@ -115,16 +115,18 @@ $CACHE_DIR/<feature_id>/code/
   session-state.md              ← active_session: N (monotonically increasing)
 
   s{N}/                         ← Nth code session
-    workflow-state.md           ← current_state / current_task / current_phase (AI writes; hook validates)
+    workflow-state.md           ← current_state / current_task / current_phase (AI writes; authoritative pointer)
     code-task-list.md           ← checkbox progress list (execution anchor)
     human-delivery-gate.md      ← written after all tasks Done and user confirms
 
     tasks/
       t{X}/
-        code-log.md             ← timestamps + notes per phase
-        red-run.md              ← Phase 2: test run output (hook depends on this file)
-        green-run.md            ← Phase 4: test run output
+        code-log.md             ← sole per-task execution log (append-only event stream)
 ```
+
+**Deprecated (do not create in new sessions):** `red-run.md`, `green-run.md`. Red/Green evidence lives in `code-log.md` as `test_run` events.
+
+**Template:** On task entry, create `code-log.md` from `$SKILL_DIR/templates/code-log.template.md` (replace `t{X}` with the task id).
 
 ---
 
@@ -137,7 +139,7 @@ States: `Executing → Completed`
 | From | To | Trigger |
 |------|----|---------|
 | `[*]` | `Executing` | start command |
-| `Executing` | `Completed` | Hook: all tasks in code-task-list.md are `[x]` |
+| `Executing` | `Completed` | All tasks in code-task-list.md are `[x]` |
 
 ### Task Phase level
 
@@ -147,11 +149,11 @@ WriteTests → VerifyRed → WriteImpl → VerifyGreen → Refactor → Done
                              tdd_exempt: true may skip directly to Done
 ```
 
-| From Phase | To Phase | Pre-condition (hook enforced) |
-|-----------|---------|-------------------------------|
+| From Phase | To Phase | Pre-condition |
+|-----------|---------|---------------|
 | `[*]` | `WriteTests` | all depends_on tasks are `[x]` |
 | `WriteTests` | `VerifyRed` | — |
-| `VerifyRed` | `WriteImpl` | `tasks/t{X}/red-run.md` exists |
+| `VerifyRed` | `WriteImpl` | `code-log.md` contains `test_run · VerifyRed` with full output + `failure_reason` |
 | `WriteImpl` | `VerifyGreen` | — |
 | `VerifyGreen` | `Refactor` | — |
 | `VerifyGreen` | `Done` | tdd_exempt: true |
@@ -170,6 +172,9 @@ WriteTests → VerifyRed → WriteImpl → VerifyGreen → Refactor → Done
 4. Never infer state from file existence; always read `workflow-state.md`.
 5. Use full `Write` (not `Edit`) for `workflow-state.md`.
 6. Preserve all fields when writing `workflow-state.md`: `mode`, `task_list_ref`, `current_task`, `current_phase`.
+7. **code-log.md is append-only:** add new events at the end only; never rewrite prior entries or use `## Phase N` report sections.
+8. **Event title format:** `### <ISO-8601>Z · <type> · <label>` where `type` is one of `phase_enter`, `phase_exit`, `test_run`, `note`, `task_done`.
+9. **Do not create** `red-run.md` or `green-run.md` in new sessions.
 
 ### Startup sequence
 
@@ -189,55 +194,63 @@ WriteTests → VerifyRed → WriteImpl → VerifyGreen → Refactor → Done
 
 ### Phase execution rules (one loop per task)
 
+**On task entry**
+
+1. Create `tasks/t{X}/code-log.md` from `$SKILL_DIR/templates/code-log.template.md` (replace `t{X}`).
+2. Append `phase_enter · WriteTests` (and `phase_exit` when leaving a phase, before the next `phase_enter`).
+
 **Phase 1 — WriteTests**
 
 - Input: task.md "acceptance criteria" (Path B) or task description from code-task-list.md (Path A)
 - Output: write test file (`test_file` path)
 - Constraint: **do not write any implementation code**
 - Done when: all acceptance criteria have corresponding test cases
-- Exit: write `workflow-state.md: current_phase: VerifyRed`
+- `tdd_exempt: true`: append `note` documenting skipped phases; proceed to WriteImpl or Done per task scope
+- Exit: append `phase_exit · WriteTests` (optional), then `workflow-state.md: current_phase: VerifyRed`
 
-**Phase 2 — VerifyRed (mandatory, cannot skip)**
+**Phase 2 — VerifyRed (mandatory for non-exempt tasks)**
 
 - Action: run `test_command` (Shell), capture full output
 - Expected: all tests FAIL; failure reason = function/class does not exist (not a syntax error)
 - Exceptions:
   - Tests pass → tests cover existing behavior; return to Phase 1 to fix tests
   - Syntax error → fix syntax, re-run, repeat until failure reason is correct
-- Record: write `tasks/t{X}/red-run.md` (full output + one-line confirmation: "Failure reason: function does not exist")
-- Exit: write `workflow-state.md: current_phase: WriteImpl` (hook validates red-run.md exists)
+- Record: append `test_run · VerifyRed` to `code-log.md` with `command`, `failure_reason`, and full output in a fenced block
+- **Do not** create `red-run.md`
+- Exit: write `workflow-state.md: current_phase: WriteImpl`
 
 **Phase 3 — WriteImpl**
 
-- Output: write implementation file (`target_file` path)
+- Output: write implementation file (`target_file` path) or doc/template per task
 - Constraints:
-  - **Do not modify tests** (absolute prohibition)
+  - **Do not modify tests** (absolute prohibition; N/A for tdd_exempt doc-only tasks)
   - Minimum implementation only
   - Comply with all hard rules in task.md "constraints" section
 - Exit: write `workflow-state.md: current_phase: VerifyGreen`
 
 **Phase 4 — VerifyGreen**
 
-- Action: run `test_command` (Shell), capture full output
-- Expected: all tests PASS, no warnings or errors
+- Action: run `test_command` (Shell), capture full output — or for `tdd_exempt`, append `test_run · VerifyGreen` with an acceptance checklist table instead of shell output
+- Expected: all tests PASS, no warnings or errors (non-exempt)
 - Failure: fix implementation (never the tests), re-run, repeat until all PASS
-- Record: write `tasks/t{X}/green-run.md` (full output)
+- Record: append `test_run · VerifyGreen` with `result: ALL PASS` and full output (or checklist)
+- **Do not** create `green-run.md`
 - Exit: write `workflow-state.md: current_phase: Refactor` (or `Done` if tdd_exempt)
 
 **Phase 5 — Refactor**
 
 - Action: deduplicate, rename, extract helpers, eliminate magic numbers
-- Constraint: re-run tests after each refactor change to confirm all still PASS
+- Constraint: re-run tests after each refactor change; append `test_run · Refactor` for each run
 - Prohibition: do not add new behavior or new tests
-- tdd_exempt: true tasks skip this phase
+- `tdd_exempt: true` tasks skip this phase
 - Exit: write `workflow-state.md: current_phase: Done`
 
 **Task completion actions (after each task Done)**
 
-1. Update `code-task-list.md`: `[ ]` → `[x]`, status → `✅ Done`, increment frontmatter `done` count
-2. Write `tasks/t{X}/code-log.md` (timestamps + notes per phase)
+1. Append `task_done` to `code-log.md`
+2. Update `code-task-list.md`: `[ ]` → `[x]`, status → `✅ Done`, increment frontmatter `done` count
 3. If tasks remain: write `workflow-state.md: current_task: t{X+1}, current_phase: WriteTests`
-4. If all tasks done: write `workflow-state.md: current_state: Completed` (hook validates)
+4. If all tasks done: write `workflow-state.md: current_state: Completed`
 
 **Session completion actions**
 
@@ -293,17 +306,33 @@ done: 1
 
 ### s{N}/tasks/t{X}/code-log.md
 
-```markdown
-# t{X} TDD Log
+Append-only event log. See `$SKILL_DIR/templates/code-log.template.md`.
 
-| Phase | Time | Output / Notes |
-|-------|------|----------------|
-| WriteTests | 2026-05-17T10:00Z | `tests/utils/validators.test.ts` — 3 cases |
-| VerifyRed | 2026-05-17T10:02Z | 3 FAIL — validateEmail is not a function |
-| WriteImpl | 2026-05-17T10:05Z | `src/utils/validators.ts` — validateEmail, 15 lines |
-| VerifyGreen | 2026-05-17T10:06Z | 3 PASS |
-| Refactor | 2026-05-17T10:08Z | extracted EMAIL_REGEX constant — 3 PASS |
+```markdown
+# Code Log — t1
+
+> Append-only: add entries at the end only.
+
+### 2026-05-27T10:00:12Z · phase_enter · WriteTests
+...
+
+### 2026-05-27T10:06:30Z · test_run · VerifyRed
+command: `npm test`
+failure_reason: validateEmail is not a function
 ```
+<full output>
+```
+
+**Prohibited in new sessions:** `## Progress`, `## Audit summary`, phase report tables replacing the event log, new `red-run.md` / `green-run.md`.
+
+---
+
+## Implementation note (hooks)
+
+- Unified `scripts/hook_guard.py` `_STAGES` lists `diagnostic`, `work-order`, `tech`, `product` only — **`code` is intentionally omitted** so agents can write repository source files without cache hook friction.
+- `code/scripts/hook_guard.py` contains state-machine logic but is **not dispatched** by the unified entry point; its path matcher expects `.../code/<conv_id>/s{N}/` while the real layout is `.../<feature_id>/code/s{N}/` → no enforcement in production.
+- Other stage hooks guard `.md` writes under `CACHE_DIR` only; they do **not** implement workflow-state transition state machines (verify against source, not legacy SKILL claims).
+- **Do not** document code-stage transitions as "hook enforced" unless `code` is deliberately re-enabled with a corrected design.
 
 ---
 
