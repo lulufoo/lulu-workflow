@@ -42,7 +42,7 @@ ROOT_PLATFORMS = (
 
 # Stage definitions: name -> list of scripts present in that stage
 STAGE_SCRIPTS: dict = {
-    "code":       ["archive.py", "hook_guard.py", "init.py", "start.py", "workflow_common.py"],
+    "code":       ["archive.py", "init.py", "start.py", "workflow_common.py"],
     "work-order": ["archive.py", "hook_guard.py", "init.py", "start.py", "workflow_common.py"],
     "tech":       ["archive.py", "hook_guard.py", "init.py", "start.py", "workflow_common.py"],
     "product":    ["archive.py", "hook_guard.py", "init.py", "start.py", "workflow_common.py"],
