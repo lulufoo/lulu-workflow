@@ -24,7 +24,7 @@ Do NOT proceed until you have read `../SKILL.md` and loaded:
 
 **This workflow runs in Agent mode.** (requires writing code files and executing Shell commands)
 
-**`/code` authorizes** automatic `git commit` / `git commit --amend` inside the session worktree during L3. Push, PR, CI, and review are **post-code** (out of scope).
+**`/code` authorizes** automatic `git commit` / `git commit --amend` inside the session worktree during L2.3. Push, PR, CI, and review are **post-code** (out of scope).
 
 ---
 
@@ -42,6 +42,8 @@ If the user's input does not match either format, stop and output the usage erro
 ---
 
 ### AI startup sequence (after valid input)
+
+**Step 0: Load `docs/git/git-workflow-standard.md`** — required before any git operations in L1.
 
 **Step 1: Identify active feature** — See `## Feature Context` in `../SKILL.md`
 
@@ -62,12 +64,12 @@ $CACHE_DIR/<feature_id>/code/
     workflow-state.md           ← session + task pointer (authoritative)
     workspace.json              ← L1: worktree_path, branch, created_at
     code-task-list.md
-    closing-checklist.md        ← L4′ (Closing)
+    closing-checklist.md        ← L3 (Closing)
     human-delivery-gate.md      ← required before Delivered
 
     tasks/t{X}/
       code-log.md               ← append-only action log (task-level only)
-      commit-ref.md             ← L3: initial/final SHA, message, amended
+      commit-ref.md             ← L2.3: initial/final SHA, message, amended
 ```
 
 Do **not** create `red-run.md` or `green-run.md` for new sessions. Red/Green evidence belongs in `code-log.md` as `test_run` entries.
@@ -88,7 +90,7 @@ Optional seed: `$SKILL_DIR/templates/code-log.template.md` (replace `t{X}`).
 |-------|---------|
 | **Preparing** | L1: create worktree + branch (see below); write `s{N}/workspace.json`. Agent runs git; `start.py` does not. |
 | **Executing** | Task TDD loop (1→N) while session stays Executing. |
-| **Closing** | L4′: complete `closing-checklist.md` (retest, commit-ref count, clean worktree, all tasks `[x]`). |
+| **Closing** | L3: complete `closing-checklist.md` (retest, commit-ref count, clean worktree, all tasks `[x]`). |
 | **Delivered** | After `human-delivery-gate.md` (`approved: true`). |
 
 **Session completion (correct order):** when all tasks in `code-task-list.md` are `[x]`, set `current_state: Closing` — **not** `Delivered`. After checklist + user gate, set `Delivered`.
@@ -97,6 +99,15 @@ Optional seed: `$SKILL_DIR/templates/code-log.template.md` (replace `t{X}`).
 
 `WriteTests` → `VerifyRed` → `WriteImpl` → `VerifyGreen` → `Refactor` → `Done` (with `tdd_exempt` shortcut VerifyGreen → `Done` per whitelist `when`).
 
+| Phase | Exit criterion | Trigger | On unexpected result |
+|-------|---------------|---------|----------------------|
+| `WriteTests` | All test files written; no implementation changed | Agent auto-advances | — |
+| `VerifyRed` | `test_run` log has at least one FAIL | Agent auto-advances | Unexpected all-PASS → STOP, report tests not covering implementation |
+| `WriteImpl` | Implementation written; no test files modified | Agent auto-advances | — |
+| `VerifyGreen` | `test_run` log all PASS | Agent auto-advances; `tdd_exempt` skips Refactor → Done | Any FAIL → STOP, report failures |
+| `Refactor` | No behavior change + tests still PASS, or skip | Agent auto-advances (skippable) | Test regression → STOP |
+| `Done` | `commit-ref.md` written | Session-level logic takes over | — |
+
 ---
 
 ## Conventions
@@ -104,7 +115,10 @@ Optional seed: `$SKILL_DIR/templates/code-log.template.md` (replace `t{X}`).
 1. Advance `current_phase` only when `current_state` is `Executing`.
 2. After task `Done`: if another task remains → update `current_task`, append `enter · WriteTests` in that task's `code-log.md`, set phase `WriteTests`; if all tasks `[x]` → session transition `Executing` → `Closing`.
 3. `code-log.md` is **task-level** only; session artifacts (`workspace.json`, `closing-checklist.md`, gate) are separate files.
-4. `/code` authorizes auto commit/amend in the worktree during L3; do not push/open PR from this stage.
+4. `/code` authorizes auto commit/amend in the worktree during L2.3; do not push/open PR from this stage.
+5. All task-phase transitions are **agent-driven** — no user confirmation required, except when `VerifyGreen` unexpectedly FAILs.
+6. Writing `enter · <phase>` to `code-log.md` is the materialized record of a phase advance; the phase is considered entered once written.
+7. `transition-whitelist.json` defines which transitions are *allowed*; the exit criterion table above defines *when* to trigger — the two are complementary and non-overlapping.
 
 ---
 
@@ -114,19 +128,8 @@ Optional seed: `$SKILL_DIR/templates/code-log.template.md` (replace `t{X}`).
 2. Derive `<slug>` from feature id or scope; build paths from config:
    - worktree dir: `{worktree_base}/<slug>/` (default `.cache/worktrees/<slug>/`)
    - branch: apply `branch_pattern` with `{type}` = `default_type` (default `wt/feat-<slug>`)
-3. **Pre-check** (project repo root):
-   - `git status` — if dirty, **STOP** and show output to user
-   - `git worktree list` — if worktree dir or branch already exists, **STOP** (report collision; do not self-resolve)
-4. **Create worktree** (project repo root):
-
-```bash
-git pull --rebase
-git worktree add {worktree_base}/<slug>/ -b wt/<type>-<slug>
-```
-
-   If `pull --rebase` conflicts: `git rebase --abort` → **STOP**.
-
-5. Write `s{N}/workspace.json`:
+3. Execute **P1 → P2 → P3** from `git-workflow-standard.md` using the derived `<slug>` and `code.git` config values.
+4. Write `s{N}/workspace.json`:
 
 ```json
 {
@@ -136,13 +139,21 @@ git worktree add {worktree_base}/<slug>/ -b wt/<type>-<slug>
 }
 ```
 
-6. Update `workflow-state.md`: `current_state: Executing`, then set `current_task` and `current_phase: WriteTests` for the first runnable task.
+5. Update `workflow-state.md`: `current_state: Executing`, then set `current_task` and `current_phase: WriteTests` for the first runnable task.
 
-All subsequent TDD edits and L3 commits run **inside** the worktree directory.
+All subsequent TDD edits and L2.3 commits run **inside** the worktree directory.
 
 ---
 
-## L3 — Git at task boundaries
+## L2 — Executing (TDD loop)
+
+Entry: `current_state: Executing`, `current_task` = first runnable task, `current_phase: WriteTests`.
+
+Process tasks 1→N in sequence. Per-phase behavior: see **Operating rules**. Git at task boundaries: see **L2.3**.
+
+---
+
+## L2.3 — Git commits at task boundaries
 
 After **VerifyGreen** (implementation green): `git_commit · initial` in `code-log.md`; record `tasks/t{X}/commit-ref.md`:
 
@@ -162,7 +173,7 @@ Use `code.git.commit_message_template` for messages. End each task with `enter �
 
 ---
 
-## L4′ — Closing
+## L3 — Closing
 
 While `current_state: Closing`, create/update `s{N}/closing-checklist.md`:
 
@@ -185,7 +196,7 @@ When all items checked, wait for explicit user confirmation, write `human-delive
 |--------|--------|---------|
 | `enter` | phase name | phase transition |
 | `test_run` | — | run `code.test_command`; full output in fenced block |
-| `git_commit` | `initial` \| `amend` | L3 commit; SHA and message in body |
+| `git_commit` | `initial` \| `amend` | L2.3 commit; SHA and message in body |
 
 No `red-run` / `green-run` action types or standalone red/green files for new sessions.
 
