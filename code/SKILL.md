@@ -12,7 +12,7 @@ disable-model-invocation: true
 Execute Test-Driven Development from a Delivered tech-doc or work-order task set, with git worktree delivery and per-task commits. Session lifecycle: **Preparing → Executing → Closing → Delivered**.
 
 **Scope:** TDD code generation in a dedicated worktree. 
-- Input: Delivered tech-doc (Path A) or Delivered work-order task set (Path B).
+- Input: Delivered work-order task set (Path B).
 - Output: tests + implementation, per-task `commit-ref.md`, closing checklist, human delivery gate.
 
 <HARD-GATE>
@@ -37,7 +37,6 @@ Do NOT proceed until you have read `../SKILL.md` and loaded:
 | Format | Meaning | Example |
 |--------|---------|---------|
 | `work-order/<uuid>` | Source: specified work-order session | `/code work-order/1d2ea64b-065d-4e12-9008-9163d475ee00` |
-| `tech <path-to-tech-doc.md>` | Source: specified tech doc | `/code tech /abs/path/tech-doc.md` |
 
 If the user's input does not match either format, stop and output the usage error from the prior spec.
 
@@ -51,9 +50,9 @@ If the user's input does not match either format, stop and output the usage erro
 
 **Step 2–4:** Parse input, validate upstream Delivered state, collect paths (unchanged from prior flow).
 
-**Step 5: Run `start.py`** (does **not** run git; bootstraps `current_state: Preparing` with empty `current_task` / `current_phase` on Path B).
+**Step 5: Run `start.py`** (does **not** run git; bootstraps `current_state: Preparing` with empty `current_task` / `current_phase`).
 
-**Step 6:** Read `code-task-list.md` (Path B) or draft it (Path A); display tasks; wait for confirmation before L1/L2 execution.
+**Step 6:** Read `code-task-list.md`; display tasks; wait for confirmation before L1/L2 execution.
 
 ---
 
@@ -217,15 +216,6 @@ No `red-run` / `green-run` action types or standalone red/green files for new se
 5. **WriteImpl:** minimal implementation; do not modify tests.
 6. **Refactor:** behavior-neutral; re-run tests after each change; skip when `tdd_exempt`.
 7. On each task Done: update `code-task-list.md`; if last task → `Closing`, else next task + `WriteTests`.
-
----
-
-## Governance (no runtime hook)
-
-- Unified `scripts/hook_guard.py` `_STAGES` = `diagnostic`, `work-order`, `tech`, `product` only — **`code` is omitted** by design.
-- There is **no** `code/scripts/hook_guard.py`; preToolUse does **not** enforce code transitions.
-- `transition-whitelist.json` is normative for agents/humans — **not** loaded at hook runtime.
-- **Prohibited wording:** "hook validates", "hook blocks phase", "red-run required by hook".
 
 ---
 
