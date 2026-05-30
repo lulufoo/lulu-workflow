@@ -105,19 +105,11 @@ After confirming `feature_id`, only read workflow documents from `$CACHE_DIR/<fe
 - `$FEATURE_ID` — unique feature identifier
 - `$EXECUTION_MODE` — `"assisted"` | `"self-service"` (default: `"assisted"`)
 
-## Setup
-
-### `install` — Machine-level, run once
-
-```bash
-REPO="lulufoo/lulu-dev-skills"; REF="main"
-gh api "repos/$REPO/contents/lulu-dev-workflow/scripts/install.py?ref=$REF" \
-  --jq '.content' | base64 -d | python3 - --platform $PLATFORM
-```
+## Commands
 
 ### `init` — Project-level, run once per project
 
-> Prerequisite: `install` has been run.
+> Prerequisite: machine-level install via `lulu-meta-skill install`.
 
 ```bash
 python3 "$SKILL_ROOT/scripts/init.py" --project-root "$(pwd)" --platform $PLATFORM
@@ -143,9 +135,7 @@ Creates `$WORKFLOW_DIR/workflow-config.json` and registers all sub-workflow hook
 | `code.test_command` | 项目测试命令（默认: `npm test`） |
 | `code.woqa_url` | TDD 质量审计框架 |
 
-Run `lulu-dev-workflow configure <github-blob-url>` to apply a config. See `## Commands` below.
-
-## Commands
+Run `lulu-dev-workflow configure <github-blob-url>` to apply a config. See `configure` below.
 
 ### `configure` — Download and apply a workflow-config.json from GitHub
 
@@ -207,22 +197,14 @@ LULU-DEV-WORKFLOW: <feature_id>
 
 This line tracks the active feature per conversation window. Stage workflows use the latest such line as the fast path to identify `feature_id`. When no such line exists in the conversation, the slow path (interactive selection) is triggered instead.
 
-## Usage
+## Sub-SKILL Routing
 
-Each stage has its own `SKILL.md` with start commands.
+| Key | Sub-SKILL | Action |
+|---|---|---|
+| `diagnostic` / `d` | Decision diagnostic | Read [diagnostic/SKILL.md](./diagnostic/SKILL.md) |
+| `product` / `p` | Product doc | Read [product/SKILL.md](./product/SKILL.md) |
+| `tech` / `t` | Tech design | Read [tech/SKILL.md](./tech/SKILL.md) |
+| `work-order` / `w` | Work order | Read [work-order/SKILL.md](./work-order/SKILL.md) |
+| `code` / `c` | Code | Read [code/SKILL.md](./code/SKILL.md) |
 
-| Abbreviation | Stage |
-|---|---|
-| `d` | diagnostic |
-| `p` | product |
-| `t` | tech |
-| `w` | work-order |
-| `c` | code |
-
-When user passes a single letter, map it to the full stage name before routing.
-
-- **Decision diagnostic:** [diagnostic/SKILL.md](./diagnostic/SKILL.md)
-- **Product doc:** [product/SKILL.md](./product/SKILL.md)
-- **Tech design:** [tech/SKILL.md](./tech/SKILL.md)
-- **Work order:** [work-order/SKILL.md](./work-order/SKILL.md)
-- **Code:** [code/SKILL.md](./code/SKILL.md)
+After routing to a sub-SKILL, follow the workflow defined in that sub-SKILL's SKILL.md.
