@@ -217,3 +217,11 @@ def merge_hook_entry(hooks_payload: Dict[str, Any]) -> Dict[str, Any]:
 
     pre_tool_use.append(entry)
     return hooks_payload
+
+
+def write_active_context(project_root: Path, feature_id: str) -> None:
+    path = project_root / CACHE_DIR / "active-context.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as handle:
+        json.dump({"feature_id": feature_id, "stage": STAGE}, handle, indent=2, ensure_ascii=True)
+        handle.write("\n")

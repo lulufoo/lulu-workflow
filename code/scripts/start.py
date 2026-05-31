@@ -11,6 +11,7 @@ from workflow_common import (
     session_state_path,
     state_path,
     task_list_path,
+    write_active_context,
     write_md_state,
     write_session_state,
 )
@@ -167,6 +168,7 @@ def main() -> int:
         active_session = 1
 
     write_session_state(ss_path, active_session)
+    write_active_context(project_root, feature_id)
 
     # Create session directory
     s_dir = project_root / doc_dir(feature_id, active_session)

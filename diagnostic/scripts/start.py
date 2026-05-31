@@ -4,7 +4,7 @@ import argparse
 from pathlib import Path
 
 from archive import run as run_archive
-from workflow_common import session_state_path, write_session_state
+from workflow_common import session_state_path, write_active_context, write_session_state
 
 
 def parse_args() -> argparse.Namespace:
@@ -25,6 +25,7 @@ def main() -> int:
 
     ss_path = project_root / session_state_path(feature_id)
     write_session_state(ss_path, "InProgress")
+    write_active_context(project_root, feature_id)
 
     print(f"""
 诊断会话已启动。
