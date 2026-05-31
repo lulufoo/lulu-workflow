@@ -2,6 +2,7 @@
 """Tests for subagent_config.py — TDD Red phase (t1)."""
 
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -121,3 +122,102 @@ class TestPlatformConfigPath:
         assert platform_config_path(tmp_path, "copilot") == (
             tmp_path / ".github/lulu-dev-workflow/config.json"
         )
+
+
+class TestEnsurePlatformConfig:
+    def test_creates_default_when_missing(self, tmp_path):
+        from subagent_config import ensure_platform_config, read_platform_config
+
+        ensure_platform_config(tmp_path, platform="cursor")
+        cfg = read_platform_config(tmp_path, platform="cursor")
+        assert cfg["subagents"] == {"code": {"model": ""}}
+        assert cfg["workflowConfig"] == "skill-config/lulu-dev-workflow/workflow-config.json"
+
+    def test_migrate_preserves_workflow_config(self, tmp_path):
+        from subagent_config import ensure_platform_config, read_platform_config
+
+        cfg_path = tmp_path / ".cursor/lulu-dev-workflow/config.json"
+        cfg_path.parent.mkdir(parents=True, exist_ok=True)
+        cfg_path.write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "workflowConfig": "custom/workflow-config.json",
+                }
+            ),
+            encoding="utf-8",
+        )
+        ensure_platform_config(tmp_path, platform="cursor")
+        cfg = read_platform_config(tmp_path, platform="cursor")
+        assert cfg["workflowConfig"] == "custom/workflow-config.json"
+        assert cfg["subagents"] == {"code": {"model": ""}}
+
+    def test_does_not_overwrite_existing_subagents(self, tmp_path):
+        from subagent_config import ensure_platform_config, read_platform_config
+
+        cfg_path = tmp_path / ".cursor/lulu-dev-workflow/config.json"
+        cfg_path.parent.mkdir(parents=True, exist_ok=True)
+        cfg_path.write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "subagents": {"code": {"model": "gpt-5.3-codex"}},
+                }
+            ),
+            encoding="utf-8",
+        )
+        ensure_platform_config(tmp_path, platform="cursor")
+        cfg = read_platform_config(tmp_path, platform="cursor")
+        assert cfg["subagents"]["code"]["model"] == "gpt-5.3-codex"
+
+
+class TestResolveSubagentCli:
+    def test_stdout_json_with_model(self, tmp_path):
+        cfg_path = tmp_path / ".cursor/lulu-dev-workflow/config.json"
+        cfg_path.parent.mkdir(parents=True, exist_ok=True)
+        cfg_path.write_text(
+            json.dumps({"subagents": {"code": {"model": "gpt-5.3-codex"}}}),
+            encoding="utf-8",
+        )
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(_SCRIPTS / "resolve_subagent.py"),
+                "--project-root",
+                str(tmp_path),
+                "--stage",
+                "code",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.returncode == 0
+        assert json.loads(result.stdout.strip()) == {"model": "gpt-5.3-codex"}
+
+    def test_stdout_empty_object_without_model(self, tmp_path):
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(_SCRIPTS / "resolve_subagent.py"),
+                "--project-root",
+                str(tmp_path),
+                "--stage",
+                "code",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.returncode == 0
+        assert json.loads(result.stdout.strip()) == {}
+
+    def test_missing_required_args_nonzero_exit(self):
+        result = subprocess.run(
+            [sys.executable, str(_SCRIPTS / "resolve_subagent.py")],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.returncode != 0

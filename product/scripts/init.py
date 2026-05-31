@@ -2,7 +2,14 @@
 
 import argparse
 import json
+import sys
 from pathlib import Path
+
+_SCRIPTS_ROOT = Path(__file__).resolve().parents[2] / "scripts"
+if str(_SCRIPTS_ROOT) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS_ROOT))
+
+from subagent_config import ensure_platform_config  # noqa: E402
 
 from workflow_common import (
     _PLATFORM,
@@ -62,13 +69,7 @@ def main() -> int:
 
     write_json(config_path, config)
 
-    # Ensure platform config.json exists (Cursor)
-    platform_cfg_path = project_root / PLATFORM_CONFIG_PATH
-    if not platform_cfg_path.exists():
-        write_json(platform_cfg_path, {
-            "version": 1,
-            "workflowConfig": "skill-config/lulu-dev-workflow/workflow-config.json",
-        })
+    ensure_platform_config(project_root, platform=_PLATFORM)
 
     ensure_gitignore_entry(project_root)
 

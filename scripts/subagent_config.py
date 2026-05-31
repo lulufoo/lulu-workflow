@@ -61,6 +61,32 @@ def ensure_subagents_section(cfg: dict) -> dict:
     return out
 
 
+def write_platform_config(
+    project_root: Path,
+    cfg: dict,
+    platform: Optional[str] = None,
+) -> None:
+    cfg_path = platform_config_path(project_root, platform)
+    cfg_path.parent.mkdir(parents=True, exist_ok=True)
+    cfg_path.write_text(
+        json.dumps(cfg, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+
+
+def ensure_platform_config(project_root: Path, platform: Optional[str] = None) -> None:
+    cfg_path = platform_config_path(project_root, platform)
+    if not cfg_path.exists():
+        write_platform_config(project_root, default_platform_config(), platform)
+        return
+
+    cfg = read_platform_config(project_root, platform)
+    if "subagents" in cfg:
+        return
+
+    write_platform_config(project_root, ensure_subagents_section(cfg), platform)
+
+
 def resolve_subagent_model(
     project_root: Path,
     stage: str,
