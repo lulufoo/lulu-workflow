@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Format guard: deny writes of non-.md files to the workflow cache."""
+"""Stage guard: only allow writes inside the workflow cache."""
 
 import json
 import sys
 from pathlib import Path
 from typing import Dict
 
-from workflow_common import CACHE_DIR, normalize_tool_path
+from workflow_common import CACHE_DIR, STAGE, normalize_tool_path
 
 
 def allow() -> Dict[str, str]:
@@ -50,7 +50,6 @@ def main() -> int:
         print(json.dumps(allow()))
         return 0
 
-    # normalize_tool_path returns a relative posix string; resolve to absolute
     rel = normalize_tool_path(str(raw_path), project_root)
     abs_path = (project_root / rel).resolve()
     workflow_cache = (project_root / CACHE_DIR).resolve()
@@ -58,13 +57,9 @@ def main() -> int:
     try:
         abs_path.relative_to(workflow_cache)
     except ValueError:
-        print(json.dumps(allow()))
-        return 0
-
-    if abs_path.suffix.lower() != ".md":
         print(json.dumps(deny(
-            f"workflow cache 只允许写入 .md 文件（收到: {abs_path.name}）。",
-            f"Only .md files are allowed in the workflow cache. Got: {abs_path.name}",
+            f"{STAGE} 阶段只允许写入 workflow cache 目录（{CACHE_DIR}）。",
+            f"Stage '{STAGE}' may only write inside the workflow cache. Got: {abs_path}",
         )))
         return 0
 

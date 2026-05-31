@@ -8,6 +8,7 @@ from workflow_common import (
     read_md_field,
     session_state_path,
     state_path,
+    write_active_context,
     write_md_state,
     write_session_state,
 )
@@ -49,6 +50,7 @@ def main() -> int:
         active_doc = 1
 
     write_session_state(ss_path, active_doc)
+    write_active_context(project_root, feature_id)
 
     ws_path = project_root / state_path(feature_id, active_doc)
     write_md_state(

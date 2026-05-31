@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
-"""Unified preToolUse entry point. Dispatches to all stage hook_guard scripts."""
+"""Unified preToolUse entry point. Routes to the active stage's hook_guard."""
 
 import argparse
-import os
 import importlib.util
 import io
 import json
+import os
 import sys
 from pathlib import Path
 
 _SKILL_ROOT = Path(__file__).resolve().parents[1]
-_STAGES = ["diagnostic", "work-order", "tech", "product"]
 _PLATFORMS_DIR = Path(__file__).resolve().parent / "platforms"
 _WRITE_TOOL_NAMES = frozenset({"Write", "Edit"})
+_KNOWN_STAGES = frozenset({"diagnostic", "work-order", "tech", "product", "code"})
 
 
 def _load_platform(platform: str):
@@ -40,6 +40,21 @@ def _load_stage_module(stage: str):
             pass
         sys.modules.pop("workflow_common", None)
         sys.modules.pop(f"_{stage}_hook_guard", None)
+
+
+def _read_active_stage(platform: str) -> str | None:
+    project_root = Path.cwd()
+    ctx_path = project_root / f".cache/{platform}/lulu-dev-workflow/active-context.json"
+    if not ctx_path.exists():
+        return None
+    try:
+        data = json.loads(ctx_path.read_text(encoding="utf-8"))
+        stage = data.get("stage")
+        if stage and stage in _KNOWN_STAGES:
+            return stage
+    except (json.JSONDecodeError, OSError):
+        pass
+    return None
 
 
 def main() -> int:
@@ -70,40 +85,43 @@ def main() -> int:
     normalized = platform_mod.normalize(payload)
 
     # Early-return allow for non-write tools
-    # (critical for Copilot which has no tool matcher at the framework level)
     tool_name = str(normalized.get("tool_name") or "")
     if tool_name not in _WRITE_TOOL_NAMES:
         print(json.dumps({"permission": "allow"}))
         return 0
 
+    # Determine active stage
+    stage = _read_active_stage(args.platform)
+    if stage is None:
+        print(json.dumps({"permission": "allow"}))
+        return 0
+
+    stage_path = _SKILL_ROOT / stage / "scripts" / "hook_guard.py"
+    if not stage_path.exists():
+        print(json.dumps({"permission": "allow"}))
+        return 0
+
     normalized_raw = json.dumps(normalized)
+    sys.stdin = io.StringIO(normalized_raw)
+    captured = io.StringIO()
+    old_stdout = sys.stdout
+    sys.stdout = captured
+    try:
+        mod = _load_stage_module(stage)
+        mod.main()
+    except SystemExit:
+        pass
+    finally:
+        sys.stdout = old_stdout
 
-    for stage in _STAGES:
-        stage_path = _SKILL_ROOT / stage / "scripts" / "hook_guard.py"
-        if not stage_path.exists():
-            continue
-
-        sys.stdin = io.StringIO(normalized_raw)
-        captured = io.StringIO()
-        old_stdout = sys.stdout
-        sys.stdout = captured
+    output = captured.getvalue().strip()
+    if output:
         try:
-            mod = _load_stage_module(stage)
-            mod.main()
-        except SystemExit:
+            result = json.loads(output)
+            print(json.dumps(result))
+            return 0
+        except json.JSONDecodeError:
             pass
-        finally:
-            sys.stdout = old_stdout
-
-        output = captured.getvalue().strip()
-        if output:
-            try:
-                result = json.loads(output)
-            except json.JSONDecodeError:
-                continue
-            if result.get("permission") == "deny":
-                print(json.dumps(result))
-                return 0
 
     print(json.dumps({"permission": "allow"}))
     return 0
