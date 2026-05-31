@@ -114,7 +114,7 @@ On entering Drafting, read:
 2. `workflow-config.json` → `work_order.task_template_url`, `work_order.tasklist_template_url`
 3. `tech-doc.md` (full content, from `tech_ref`)
 
-Fetch the templates via `gh api` (same pattern as install), read their format definitions.
+Fetch the templates via `gh api repos/{owner}/{repo}/contents/{path}?ref={ref}`, read their format definitions.
 
 **Rule D2 — Two-step generation (evaluate_round == 0, first entry)**
 
