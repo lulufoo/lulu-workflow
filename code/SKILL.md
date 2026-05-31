@@ -144,6 +144,14 @@ Phase lifecycle is fully defined in `task-runner/SKILL.md`. The orchestrator dis
 
 **Step 1: Dispatch sub-agent**
 
+Before dispatching, resolve the optional model:
+
+```bash
+python3 "$SKILL_ROOT/scripts/resolve_subagent.py" --project-root "$(pwd)" --stage code
+```
+
+If stdout contains a non-empty `"model"`, pass it as the `model` parameter to `$SUBAGENT_TOOL`; otherwise omit the parameter.
+
 Read `task.md` → resolve `task_worktree` to `worktree_abs_path`:
 - `"primary"` → absolute path of workspace.json `worktree_path`
 - relative path → `{project_root}/{task_worktree}` (absolute)
