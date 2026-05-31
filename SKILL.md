@@ -119,6 +119,19 @@ After confirming `feature_id`, only read workflow documents from `$CACHE_DIR/<fe
 - **Serial** — Single agent: dispatch with `$SUBAGENT_AWAIT_SYNC`; block until return.
 - **Parallel** — N agents in one message: each with `$SUBAGENT_AWAIT_ASYNC`; wait for all completion notifications before proceeding.
 
+### Config Resolution
+
+Before dispatching a sub-agent for a workflow stage, resolve the optional model slug from platform config:
+
+```bash
+python3 "$SKILL_ROOT/scripts/resolve_subagent.py" --project-root "$(pwd)" --stage <stage>
+```
+
+- stdout is JSON: `{"model": "<slug>"}` when configured, or `{}` when absent or empty.
+- When stdout contains a non-empty `model`, pass it as the `model` parameter to `$SUBAGENT_TOOL`; otherwise omit the parameter (platform default applies).
+- Merge rule (implementation SSOT: `scripts/subagent_config.py`): `subagents.default` merged with `subagents.<stage>`; stage wins on conflict.
+- Invalid model slugs are the user's responsibility; the Task tool may error at runtime.
+
 ## Commands
 
 ### `init` — Project-level, run once per project
@@ -130,6 +143,14 @@ python3 "$SKILL_ROOT/scripts/init.py" --project-root "$(pwd)" --platform $PLATFO
 ```
 
 Creates `$WORKFLOW_DIR/workflow-config.json` and registers all sub-workflow hooks.
+
+`$WORKFLOW_DIR/config.json` (platform config) fields:
+
+| Field | Description |
+|-------|-------------|
+| `workflowConfig` | Path to shared `workflow-config.json` (relative to project root) |
+| `subagents.<stage>.model` | Optional model slug for sub-agent dispatch (e.g. `subagents.code.model`) |
+| `subagents.default.model` | Optional fallback model; overridden by stage-specific `model` (user-added; init does not prefill) |
 
 `workflow-config.json` contains the following fields:
 

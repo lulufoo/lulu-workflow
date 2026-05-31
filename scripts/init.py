@@ -13,6 +13,11 @@ import os
 from pathlib import Path
 
 SKILL_ROOT = Path(__file__).resolve().parents[1]
+SCRIPTS_DIR = SKILL_ROOT / "scripts"
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
+
+from subagent_config import ensure_platform_config  # noqa: E402
 SUB_WORKFLOWS = ["product", "tech", "work-order", "code"]
 
 _CURSOR_HOOK_COMMAND = (
@@ -72,17 +77,8 @@ def register_copilot_hook(project_root: Path) -> None:
 
 
 def ensure_copilot_platform_config(project_root: Path) -> None:
-    """Create .github/lulu-dev-workflow/config.json if absent."""
-    cfg_path = project_root / ".github" / "lulu-dev-workflow" / "config.json"
-    if not cfg_path.exists():
-        cfg_path.parent.mkdir(parents=True, exist_ok=True)
-        payload = {
-            "version": 1,
-            "workflowConfig": "skill-config/lulu-dev-workflow/workflow-config.json",
-        }
-        with cfg_path.open("w", encoding="utf-8") as f:
-            json.dump(payload, f, indent=2, ensure_ascii=True)
-            f.write("\n")
+    """Create or migrate .github/lulu-dev-workflow/config.json."""
+    ensure_platform_config(project_root, platform="copilot")
 
 
 def main() -> int:
