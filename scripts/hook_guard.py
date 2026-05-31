@@ -8,6 +8,7 @@ import json
 import os
 import sys
 from pathlib import Path
+from typing import Optional
 
 _SKILL_ROOT = Path(__file__).resolve().parents[1]
 _PLATFORMS_DIR = Path(__file__).resolve().parent / "platforms"
@@ -42,7 +43,7 @@ def _load_stage_module(stage: str):
         sys.modules.pop(f"_{stage}_hook_guard", None)
 
 
-def _read_active_stage(platform: str) -> str | None:
+def _read_active_stage(platform: str) -> Optional[str]:
     project_root = Path.cwd()
     ctx_path = project_root / f".cache/{platform}/lulu-dev-workflow/active-context.json"
     if not ctx_path.exists():
