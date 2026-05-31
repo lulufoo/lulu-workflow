@@ -132,11 +132,21 @@ For each task.md delivered by the work-order, validate the schema:
 
 **Entry:** `current_state: Executing`, `current_task` = first runnable task, `current_phase: WriteTests`.
 
+On session resume: read `workflow-state.md`; resume from `current_task` / `current_phase`.
+
 Process tasks 1→N in sequence. Advance `current_phase` only when `current_state` is `Executing`.
 
 ### Task loop (1→N)
 
-**Invariant:** Never commit changes for multiple tasks in a single `git commit`. Each task must produce its own commit and its own `tasks/t{X}/commit-ref.md`.
+**Invariant (one commit per task):** Never commit changes for multiple tasks in a single `git commit`. Each task must produce its own commit and its own `tasks/t{X}/commit-ref.md`.
+
+**Invariant (no direct execution):** Task phases run in sub-agent only; orchestrator must not execute phases directly.
+
+Resolve model once before the loop:
+```bash
+python3 "$SKILL_ROOT/scripts/resolve_subagent.py" --project-root "$(pwd)" --stage code
+```
+Non-empty `"model"` → set `$RESOLVED_MODEL`; empty / absent → `$RESOLVED_MODEL` = (omit).
 
 For each task in order:
 
@@ -144,23 +154,16 @@ Phase lifecycle is fully defined in `task-runner/SKILL.md`. The orchestrator dis
 
 **Step 1: Dispatch sub-agent**
 
-Before dispatching, resolve the optional model:
-
-```bash
-python3 "$SKILL_ROOT/scripts/resolve_subagent.py" --project-root "$(pwd)" --stage code
-```
-
-If stdout contains a non-empty `"model"`, pass it as the `model` parameter to `$SUBAGENT_TOOL`; otherwise omit the parameter.
-
 Read `task.md` → resolve `task_worktree` to `worktree_abs_path`:
 - `"primary"` → absolute path of workspace.json `worktree_path`
 - relative path → `{project_root}/{task_worktree}` (absolute)
 
-Invoke `$SUBAGENT_TOOL` with `$SUBAGENT_AWAIT_SYNC`, prompt:
+Invoke `$SUBAGENT_TOOL` with `$SUBAGENT_AWAIT_SYNC`, passing `$RESOLVED_MODEL` as `model` if set. Prompt:
 
 ```
 You are executing a single TDD task.
-Load $SKILL_ROOT/code/task-runner/SKILL.md and follow its instructions.
+Load {actual $SKILL_ROOT}/code/task-runner/SKILL.md and follow its instructions.
+(substitute the real $SKILL_ROOT path above before dispatching)
 
 ## Input
 task_id: {task_id}
@@ -183,6 +186,7 @@ If sub-agent returned `TASK_FAILED` → stop, surface error and reason, wait for
 
 **Step 3: CHECKPOINT output**
 
+Read `tasks/t{X}/commit-ref.md → initial_commit` for the SHA.
 Output: `CHECKPOINT t{X}: commit SHA <sha>, commit-ref.md written, advancing to t{X+1}.`
 Do not advance until this line is output.
 
