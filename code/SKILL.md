@@ -93,6 +93,15 @@ Task phases (under Executing): `WriteTests` → `VerifyRed` → `WriteImpl` → 
 
 **Actions:**
 
+**Step 0：task-spec schema 校验（前置门控）**
+
+对 work-order 交付的每个 task.md 执行 schema 校验：
+- 检查 frontmatter 是否包含 `target_repo`（非空字符串）
+- 检查 frontmatter 是否包含 `task_worktree`（`"primary"` 或合法相对路径）
+- 检查 frontmatter 是否包含 `exit_contract`（含 `commit`、`commit_ref_md`、`code_log` 三个 key，值均为 `required`）
+- 任一缺失 → 输出具体缺失字段和 task_id，停止执行，等待用户修正
+- 检查 `task_worktree` 一致性：同一 target_repo 的所有 task 必须使用相同 task_worktree（不同则报 schema 冲突错误）
+
 1. Read `$WORKFLOW_DIR/workflow-config.json` → `code.git` (`worktree_base`, `branch_pattern`, `default_type`, `commit_message_template`).
 2. Derive `<slug>` from feature id or scope; build paths:
    - worktree dir: `{worktree_base}/<slug>/` (default `.cache/worktrees/<slug>/`)
@@ -102,10 +111,18 @@ Task phases (under Executing): `WriteTests` → `VerifyRed` → `WriteImpl` → 
    ```json
    {
      "worktree_path": ".cache/worktrees/<slug>/",
+     "primary_repo": "<repo-name>",
      "branch": "wt/feat-<slug>",
-     "created_at": "<ISO8601>"
+     "created_at": "<ISO8601>",
+     "extra_worktrees": {
+       "<repo-name>": {
+         "path": ".cache/worktrees/<slug>-<repo-suffix>/",
+         "branch": "wt/feat-<slug>-<repo-suffix>"
+       }
+     }
    }
    ```
+   `extra_worktrees` 仅在存在 target_repo ≠ primary_repo 的 task 时写入，否则省略此字段。
 
 **Exit:** All worktree and branch setup complete, `workspace.json` written → update `workflow-state.md`: `current_state: Executing`, set `current_task` to first runnable task, `current_phase: WriteTests`. All subsequent TDD edits and commits run inside the worktree directory.
 
@@ -119,11 +136,56 @@ Process tasks 1→N in sequence. Advance `current_phase` only when `current_stat
 
 ### Task loop (1→N)
 
-Each task runs the following phases in order. All phase transitions are **agent-driven** — no user confirmation required, except when `VerifyGreen` unexpectedly fails.
+**Invariant:** Never commit changes for multiple tasks in a single `git commit`. Each task must produce its own commit and its own `tasks/t{X}/commit-ref.md`.
 
-Writing `enter · <phase>` to `code-log.md` is the materialized record of a phase advance; the phase is considered entered once written.
+For each task in order:
+
+**Step 1: Dispatch sub-agent**
+
+Read `task.md` → resolve `task_worktree` to `worktree_abs_path`:
+- `"primary"` → absolute path of workspace.json `worktree_path`
+- relative path → `{project_root}/{task_worktree}` (absolute)
+
+Invoke `$SUBAGENT_TOOL` with `$SUBAGENT_AWAIT_SYNC`, prompt:
+
+```
+You are executing a single TDD task.
+Load $SKILL_ROOT/code/task-runner/SKILL.md and follow its instructions.
+
+## Input
+task_id: {task_id}
+worktree_abs_path: {worktree_abs_path}
+code_task_list_path: {abs_path_to_code-task-list.md}
+commit_message_template: {template_from_workflow-config}
+
+## Task Spec
+{full content of task.md}
+```
+
+**Step 2: Validate exit contract** (after sub-agent returns)
+
+① `tasks/t{X}/commit-ref.md` exists with non-empty `initial_commit`
+② `tasks/t{X}/code-log.md` contains `enter · Done`
+③ `code-task-list.md` has `t{X}` marked `[x]`
+
+If any check fails → stop, report which check failed, wait for user intervention.
+If sub-agent returned `TASK_FAILED` → stop, surface error and reason, wait for user.
+
+**Step 3: CHECKPOINT output**
+
+Output: `CHECKPOINT t{X}: commit SHA <sha>, commit-ref.md written, advancing to t{X+1}.`
+Do not advance until this line is output.
+
+**Step 4: Branch**
+
+- More tasks remain → update `current_task` to t{X+1}; return to Step 1.
+- All tasks `[x]` → set `current_state: Closing`.
+
+---
 
 #### WriteTests
+
+> **执行者：** code/task-runner sub-SKILL（由 Executing Task loop Step 1 dispatch）
 
 **Entry:** Append `enter · WriteTests` to `tasks/t{X}/code-log.md`. Set `current_phase: WriteTests`.
 
@@ -137,6 +199,8 @@ Writing `enter · <phase>` to `code-log.md` is the materialized record of a phas
 ---
 
 #### VerifyRed
+
+> **执行者：** code/task-runner sub-SKILL（由 Executing Task loop Step 1 dispatch）
 
 **Entry:** Append `enter · VerifyRed` to `code-log.md`. Set `current_phase: VerifyRed`.
 
@@ -152,6 +216,8 @@ Writing `enter · <phase>` to `code-log.md` is the materialized record of a phas
 
 #### WriteImpl
 
+> **执行者：** code/task-runner sub-SKILL（由 Executing Task loop Step 1 dispatch）
+
 **Entry:** Append `enter · WriteImpl` to `code-log.md`. Set `current_phase: WriteImpl`.
 
 **Actions:**
@@ -163,6 +229,8 @@ Writing `enter · <phase>` to `code-log.md` is the materialized record of a phas
 ---
 
 #### VerifyGreen
+
+> **执行者：** code/task-runner sub-SKILL（由 Executing Task loop Step 1 dispatch）
 
 **Entry:** Append `enter · VerifyGreen` to `code-log.md`. Set `current_phase: VerifyGreen`.
 
@@ -189,6 +257,8 @@ Writing `enter · <phase>` to `code-log.md` is the materialized record of a phas
 
 #### Refactor
 
+> **执行者：** code/task-runner sub-SKILL（由 Executing Task loop Step 1 dispatch）
+
 **Entry:** Append `enter · Refactor` to `code-log.md`. Set `current_phase: Refactor`.
 
 **Actions:**
@@ -205,6 +275,8 @@ Writing `enter · <phase>` to `code-log.md` is the materialized record of a phas
 ---
 
 #### Done
+
+> **执行者：** code/task-runner sub-SKILL（由 Executing Task loop Step 1 dispatch）
 
 **Entry:** Append `enter · Done` to `code-log.md`. Set `current_phase: Done`.
 
