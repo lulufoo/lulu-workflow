@@ -93,6 +93,15 @@ Task phases (under Executing): `WriteTests` → `VerifyRed` → `WriteImpl` → 
 
 **Actions:**
 
+**Step 0：task-spec schema 校验（前置门控）**
+
+对 work-order 交付的每个 task.md 执行 schema 校验：
+- 检查 frontmatter 是否包含 `target_repo`（非空字符串）
+- 检查 frontmatter 是否包含 `task_worktree`（`"primary"` 或合法相对路径）
+- 检查 frontmatter 是否包含 `exit_contract`（含 `commit`、`commit_ref_md`、`code_log` 三个 key，值均为 `required`）
+- 任一缺失 → 输出具体缺失字段和 task_id，停止执行，等待用户修正
+- 检查 `task_worktree` 一致性：同一 target_repo 的所有 task 必须使用相同 task_worktree（不同则报 schema 冲突错误）
+
 1. Read `$WORKFLOW_DIR/workflow-config.json` → `code.git` (`worktree_base`, `branch_pattern`, `default_type`, `commit_message_template`).
 2. Derive `<slug>` from feature id or scope; build paths:
    - worktree dir: `{worktree_base}/<slug>/` (default `.cache/worktrees/<slug>/`)
@@ -102,10 +111,18 @@ Task phases (under Executing): `WriteTests` → `VerifyRed` → `WriteImpl` → 
    ```json
    {
      "worktree_path": ".cache/worktrees/<slug>/",
+     "primary_repo": "<repo-name>",
      "branch": "wt/feat-<slug>",
-     "created_at": "<ISO8601>"
+     "created_at": "<ISO8601>",
+     "extra_worktrees": {
+       "<repo-name>": {
+         "path": ".cache/worktrees/<slug>-<repo-suffix>/",
+         "branch": "wt/feat-<slug>-<repo-suffix>"
+       }
+     }
    }
    ```
+   `extra_worktrees` 仅在存在 target_repo ≠ primary_repo 的 task 时写入，否则省略此字段。
 
 **Exit:** All worktree and branch setup complete, `workspace.json` written → update `workflow-state.md`: `current_state: Executing`, set `current_task` to first runnable task, `current_phase: WriteTests`. All subsequent TDD edits and commits run inside the worktree directory.
 
