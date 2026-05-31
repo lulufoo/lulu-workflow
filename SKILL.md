@@ -128,9 +128,11 @@ python3 "$SKILL_ROOT/scripts/resolve_subagent.py" --project-root "$(pwd)" --stag
 ```
 
 - stdout is JSON: `{"model": "<slug>"}` when configured, or `{}` when absent or empty.
-- When stdout contains a non-empty `model`, pass it as the `model` parameter to `$SUBAGENT_TOOL`; otherwise omit the parameter (platform default applies).
+- **Output variable `$RESOLVED_MODEL`:** non-empty `"model"` → `$RESOLVED_MODEL = <slug>`; absent or empty → `$RESOLVED_MODEL` = (omit — platform default applies).
+- Pass `$RESOLVED_MODEL` as the `model` parameter to `$SUBAGENT_TOOL` when set; omit the parameter otherwise.
 - Merge rule (implementation SSOT: `scripts/subagent_config.py`): `subagents.default` merged with `subagents.<stage>`; stage wins on conflict.
 - Invalid model slugs are the user's responsibility; the Task tool may error at runtime.
+- Resolve once per stage entry (not once per sub-agent dispatch); `$RESOLVED_MODEL` is stage-scoped, not session-scoped.
 
 ## Commands
 

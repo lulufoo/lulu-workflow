@@ -20,6 +20,7 @@ Do NOT proceed until you have read `../SKILL.md` and loaded:
 
 - `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, `$CACHE_DIR` from `## Platform Context`
 - Feature identification logic from `## Feature Context`
+- Sub-agent model convention (`$RESOLVED_MODEL`) from `## Sub-agent Context › Config Resolution`
 </HARD-GATE>
 
 `$SKILL_DIR` = `$SKILL_ROOT/code`
@@ -142,11 +143,7 @@ Process tasks 1→N in sequence. Advance `current_phase` only when `current_stat
 
 **Invariant (no direct execution):** Task phases run in sub-agent only; orchestrator must not execute phases directly.
 
-Resolve model once before the loop:
-```bash
-python3 "$SKILL_ROOT/scripts/resolve_subagent.py" --project-root "$(pwd)" --stage code
-```
-Non-empty `"model"` → set `$RESOLVED_MODEL`; empty / absent → `$RESOLVED_MODEL` = (omit).
+Resolve `$RESOLVED_MODEL` once before the loop — see `## Sub-agent Context › Config Resolution` in `../SKILL.md`, using `--stage code`.
 
 For each task in order:
 
