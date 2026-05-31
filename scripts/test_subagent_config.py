@@ -76,6 +76,29 @@ class TestResolveSubagentModel:
         )
         assert resolve_subagent_model(tmp_path, "code") == "gpt-5.3-codex"
 
+    def test_default_model_when_stage_empty(self, tmp_path):
+        from subagent_config import resolve_subagent_model
+
+        self._write_config(
+            tmp_path,
+            {
+                "subagents": {
+                    "default": {"model": "gpt-5.5-medium"},
+                    "code": {"model": ""},
+                }
+            },
+        )
+        assert resolve_subagent_model(tmp_path, "code") is None
+
+    def test_only_default_has_model(self, tmp_path):
+        from subagent_config import resolve_subagent_model
+
+        self._write_config(
+            tmp_path,
+            {"subagents": {"default": {"model": "gpt-5.5-medium"}}},
+        )
+        assert resolve_subagent_model(tmp_path, "code") == "gpt-5.5-medium"
+
     def test_empty_string_returns_none(self, tmp_path):
         from subagent_config import resolve_subagent_model
 
