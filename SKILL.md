@@ -5,7 +5,7 @@ description: >-
   开发工作流, dev workflow, product doc workflow, 产品文档流程, or any sub-stage
   (diagnostic, product, tech, work-order, code).
 disable-model-invocation: true
-argument-hint: "[d=diagnostic | p=product | t=tech | w=work-order | c=code]"
+argument-hint: "[d=diagnostic | pd=product-diagnostic | td=tech-diagnostic | p=product | t=tech | w=work-order | c=code]"
 ---
 
 # lulu-dev-workflow
@@ -17,14 +17,17 @@ under this directory.
 
 | Stage | Module | Status |
 |-------|--------|--------|
-| Decision diagnostic | `diagnostic/` | Active |
+| Product diagnostic | `product-diagnostic/` | Active |
+| Tech diagnostic | `tech-diagnostic/` | Active |
+| Generic diagnostic | `diagnostic/` | Active |
 | Product documentation | `product/` | Active |
 | Tech design | `tech/` | Active |
 | Work order | `work-order/` | Active |
 | Code | `code/` | Active |
 
-> **diagnostic is mandatory before /product or /tech.**
-> Run diagnostic to produce a decision-doc before starting either workflow.
+> **product-diagnostic** is the recommended entry point for full-feature work (produces product-scoped decision-doc).
+> **tech-diagnostic** is the entry point for pure tech work (produces tech-scoped decision-doc).
+> **diagnostic** runs without domain constraints (standalone use).
 
 ## Stage Transitions
 
@@ -238,7 +241,9 @@ This line tracks the active feature per conversation window. Stage workflows use
 
 | Key | Sub-SKILL | Action |
 |---|---|---|
-| `diagnostic` / `d` | Decision diagnostic | Read [diagnostic/SKILL.md](./diagnostic/SKILL.md) |
+| `product-diagnostic` / `pd` | Product diagnostic | Read [product-diagnostic/SKILL.md](./product-diagnostic/SKILL.md) |
+| `tech-diagnostic` / `td` | Tech diagnostic | Read [tech-diagnostic/SKILL.md](./tech-diagnostic/SKILL.md) |
+| `diagnostic` / `d` | Generic diagnostic | Read [diagnostic/SKILL.md](./diagnostic/SKILL.md) |
 | `product` / `p` | Product doc | Read [product/SKILL.md](./product/SKILL.md) |
 | `tech` / `t` | Tech design | Read [tech/SKILL.md](./tech/SKILL.md) |
 | `work-order` / `w` | Work order | Read [work-order/SKILL.md](./work-order/SKILL.md) |
