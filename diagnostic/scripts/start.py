@@ -16,6 +16,11 @@ def parse_args() -> argparse.Namespace:
         default="diagnostic",
         help="Diagnostic stage name (e.g. product-diagnostic, tech-diagnostic, diagnostic).",
     )
+    parser.add_argument(
+        "--conversation-id",
+        default="",
+        help="Cursor/Copilot conversation ID for active-context indexing.",
+    )
     return parser.parse_args()
 
 
@@ -31,7 +36,12 @@ def main() -> int:
 
     ss_path = project_root / session_state_path(feature_id, stage)
     write_session_state(ss_path, "InProgress")
-    write_active_context(project_root, feature_id, stage)
+    write_active_context(
+        project_root,
+        feature_id,
+        conversation_id=args.conversation_id.strip() or None,
+        stage=stage,
+    )
 
     print(f"""
 诊断会话已启动。
