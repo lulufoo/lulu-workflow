@@ -209,7 +209,7 @@ After download, read and display the new config file to confirm.
 https://github.com/lulufoo/ai-software-dev/blob/main/lulu-dev-workflow-template/workflow-config.json
 ```
 
-### `workflow start [name]` — Create a new feature
+### `start [name]` — Create a new feature
 
 Creates a new feature and prints the `feature_id`:
 
