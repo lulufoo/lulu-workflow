@@ -10,6 +10,8 @@ import sys
 from pathlib import Path
 from typing import Optional
 
+from active_context import get_entry
+
 _SKILL_ROOT = Path(__file__).resolve().parents[1]
 _PLATFORMS_DIR = Path(__file__).resolve().parent / "platforms"
 _WRITE_TOOL_NAMES = frozenset({"Write", "Edit"})
@@ -48,19 +50,14 @@ def _load_stage_module(stage: str):
         sys.modules.pop(f"_{stage}_hook_guard", None)
 
 
-def _read_active_stage(platform: str) -> Optional[str]:
-    project_root = Path.cwd()
-    ctx_path = project_root / f".cache/{platform}/lulu-dev-workflow/active-context.json"
-    if not ctx_path.exists():
+def _read_active_stage(platform: str, conversation_id: str) -> Optional[str]:
+    if not conversation_id:
         return None
-    try:
-        data = json.loads(ctx_path.read_text(encoding="utf-8"))
-        stage = data.get("stage")
-        if stage and stage in _KNOWN_STAGES:
-            return stage
-    except (json.JSONDecodeError, OSError):
-        pass
-    return None
+    entry = get_entry(Path.cwd(), platform, conversation_id)
+    if entry is None:
+        return None
+    stage = entry.get("stage")
+    return stage if stage in _KNOWN_STAGES else None
 
 
 def main() -> int:
@@ -97,7 +94,8 @@ def main() -> int:
         return 0
 
     # Determine active stage
-    stage = _read_active_stage(args.platform)
+    conv_id = (normalized.get("conversation_id") or "").strip()
+    stage = _read_active_stage(args.platform, conv_id)
     if stage is None:
         print(json.dumps({"permission": "allow"}))
         return 0

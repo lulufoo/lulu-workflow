@@ -26,6 +26,11 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--product-ref", default="", help="Absolute path to product-doc.md (required for product mode).")
     parser.add_argument("--carry-forward-ref", default="", help="Absolute path to previous tech-doc.md (optional).")
+    parser.add_argument(
+        "--conversation-id",
+        default="",
+        help="Cursor/Copilot conversation ID for active-context indexing.",
+    )
     return parser.parse_args()
 
 
@@ -69,7 +74,11 @@ def main() -> int:
         active_doc = 1
 
     write_session_state(ss_path, active_doc)
-    write_active_context(project_root, feature_id)
+    write_active_context(
+        project_root,
+        feature_id,
+        conversation_id=args.conversation_id.strip() or None,
+    )
 
     ws_path = project_root / state_path(feature_id, active_doc)
     write_md_state(

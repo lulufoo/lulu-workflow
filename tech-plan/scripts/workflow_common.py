@@ -220,9 +220,26 @@ def merge_hook_entry(hooks_payload: Dict[str, Any]) -> Dict[str, Any]:
     return hooks_payload
 
 
-def write_active_context(project_root: Path, feature_id: str) -> None:
-    path = project_root / CACHE_DIR / "active-context.json"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as handle:
-        json.dump({"feature_id": feature_id, "stage": STAGE}, handle, indent=2, ensure_ascii=True)
-        handle.write("\n")
+def write_active_context(
+    project_root: Path,
+    feature_id: str,
+    conversation_id: Optional[str] = None,
+    stage: str = STAGE,
+) -> None:
+    import os
+    import sys
+
+    _scripts_dir = Path(__file__).resolve().parents[2] / "scripts"
+    if str(_scripts_dir) not in sys.path:
+        sys.path.insert(0, str(_scripts_dir))
+    from active_context import resolve_conversation_id, write_entry  # noqa: E402
+
+    conv_id = resolve_conversation_id(conversation_id)
+    if not conv_id:
+        print(
+            "警告：未提供 conversation_id，active-context 未更新，hook 不会保护本对话写入。",
+            file=sys.stderr,
+        )
+        return
+    platform = os.environ.get("LULU_PLATFORM", "cursor")
+    write_entry(project_root, platform, conv_id, feature_id, stage)

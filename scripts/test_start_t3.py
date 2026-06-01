@@ -11,6 +11,7 @@ import pytest
 _SRC = Path(__file__).resolve().parents[2]  # lulu-dev-skills/
 _STAGES = ["diagnostic", "product-plan", "tech-plan", "tech-work-order", "tech-code"]
 _FID = "20260524143022-02cd7e6e"
+_CONV_ID = "test-conversation-aaa"
 _ENV_COPILOT = {**os.environ, "LULU_PLATFORM": "copilot"}
 
 
@@ -39,18 +40,10 @@ class TestArgparseSource:
         )
 
     @pytest.mark.parametrize("stage", _STAGES)
-    def test_conversation_id_arg_removed(self, stage):
+    def test_conversation_id_arg_declared(self, stage):
         src = _start_py(stage).read_text(encoding="utf-8")
-        # Must not have an active (non-commented) add_argument for --conversation-id
-        active_lines = [
-            line for line in src.splitlines()
-            if (
-                'add_argument("--conversation-id"' in line
-                or "add_argument('--conversation-id'" in line
-            ) and not line.lstrip().startswith("#")
-        ]
-        assert active_lines == [], (
-            f"{stage}/start.py: --conversation-id still declared in argparse: {active_lines}"
+        assert '"--conversation-id"' in src or "'--conversation-id'" in src, (
+            f"{stage}/start.py: --conversation-id not declared in argparse"
         )
 
 
@@ -114,11 +107,27 @@ class TestArgparseBehavior:
         )
         assert result.returncode != 0
 
-    def test_conversation_id_rejected_diagnostic(self, tmp_path):
-        result = self._run_with_conv_id("diagnostic", tmp_path)
-        assert result.returncode != 0, (
-            "diagnostic/start.py: --conversation-id should be rejected but was accepted"
+    def test_conversation_id_accepted_diagnostic(self, tmp_path):
+        result = self._run_with_conv_id(
+            "diagnostic",
+            tmp_path,
+            extra=["--feature-id", _FID, "--stage", "tech-diagnostic"],
         )
+        assert result.returncode == 0, result.stderr
+
+    def test_start_without_conv_id_no_context_write(self, tmp_path):
+        env = {k: v for k, v in _ENV_COPILOT.items() if k != "LULU_CONVERSATION_ID"}
+        result = subprocess.run(
+            [sys.executable, str(_start_py("product-plan")),
+             "--project-root", str(tmp_path),
+             "--feature-id", _FID],
+            capture_output=True, text=True, env=env,
+            cwd=str(_scripts_dir("product-plan")),
+        )
+        assert result.returncode == 0, result.stderr
+        assert "conversation_id" in result.stderr
+        ctx = _cache_dir(tmp_path) / "active-context.json"
+        assert not ctx.exists()
 
 
 # ---------------------------------------------------------------------------
@@ -222,11 +231,41 @@ class TestSessionPath:
 
     def test_product_diagnostic_active_context_stage_value(self, tmp_path):
         import json
-        self._run_diagnostic_with_stage(tmp_path, "product-diagnostic")
+
+        result = subprocess.run(
+            [sys.executable, str(_start_py("diagnostic")),
+             "--project-root", str(tmp_path),
+             "--feature-id", _FID,
+             "--stage", "product-diagnostic",
+             "--conversation-id", _CONV_ID],
+            capture_output=True, text=True, env=_ENV_COPILOT,
+            cwd=str(_scripts_dir("diagnostic")),
+        )
+        assert result.returncode == 0, result.stderr
         ctx = _cache_dir(tmp_path) / "active-context.json"
         assert ctx.exists(), f"Expected active-context.json at {ctx}"
         data = json.loads(ctx.read_text(encoding="utf-8"))
-        assert data.get("stage") == "product-diagnostic", f"stage mismatch: {data}"
+        assert _CONV_ID in data, f"missing conv key: {data}"
+        assert data[_CONV_ID]["stage"] == "product-diagnostic"
+        assert data[_CONV_ID]["feature_id"] == _FID
+
+    def test_start_writes_conv_indexed_context(self, tmp_path):
+        import json
+
+        result = subprocess.run(
+            [sys.executable, str(_start_py("tech-plan")),
+             "--project-root", str(tmp_path),
+             "--feature-id", _FID,
+             "--run-mode", "tech",
+             "--conversation-id", _CONV_ID],
+            capture_output=True, text=True, env=_ENV_COPILOT,
+            cwd=str(_scripts_dir("tech-plan")),
+        )
+        assert result.returncode == 0, result.stderr
+        ctx = _cache_dir(tmp_path) / "active-context.json"
+        data = json.loads(ctx.read_text(encoding="utf-8"))
+        assert _CONV_ID in data
+        assert data[_CONV_ID]["stage"] == "tech-plan"
 
     def test_product_session_file_at_feature_first_path(self, tmp_path):
         self._run_product(tmp_path)

@@ -18,6 +18,11 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Start a new product doc workflow session.")
     parser.add_argument("--project-root", default=".", help="Project root directory.")
     parser.add_argument("--feature-id", required=True, help="Feature ID (from feature_init.py).")
+    parser.add_argument(
+        "--conversation-id",
+        default="",
+        help="Cursor/Copilot conversation ID for active-context indexing.",
+    )
     return parser.parse_args()
 
 
@@ -40,7 +45,11 @@ def main() -> int:
         active_doc = 1
 
     write_session_state(ss_path, active_doc)
-    write_active_context(project_root, feature_id)
+    write_active_context(
+        project_root,
+        feature_id,
+        conversation_id=args.conversation_id.strip() or None,
+    )
 
     ws_path = project_root / state_path(feature_id, active_doc)
     write_md_state(ws_path, "Drafting", evaluate_round=0)

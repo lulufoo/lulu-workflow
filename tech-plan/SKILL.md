@@ -63,6 +63,7 @@ python3 "$SKILL_DIR/scripts/start.py" \
   --run-mode product|tech \
   [--product-ref "<absolute-path-to-product-doc.md>"]  # required for product mode
   [--carry-forward-ref "<absolute-path-to-previous-tech-doc.md>"]  # optional
+  [--conversation-id "<conversation_id>"]
 ```
 
 `--carry-forward-ref` is optional in both modes. Provide it when re-entering

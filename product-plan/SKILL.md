@@ -52,7 +52,8 @@ Markdown. During an active session, writes are restricted to
 ```bash
 python3 "$SKILL_DIR/scripts/start.py" \
   --project-root "$(pwd)" \
-  --feature-id "<feature_id>"
+  --feature-id "<feature_id>" \
+  [--conversation-id "<conversation_id>"]
 ```
 
 Creates or increments `session-state.md` (`active_doc: N`) and initializes

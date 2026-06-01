@@ -128,6 +128,11 @@ def parse_args() -> argparse.Namespace:
         default="",
         help="(Path A) Absolute path to tech-doc.md.",
     )
+    parser.add_argument(
+        "--conversation-id",
+        default="",
+        help="Cursor/Copilot conversation ID for active-context indexing.",
+    )
     return parser.parse_args()
 
 
@@ -168,7 +173,11 @@ def main() -> int:
         active_session = 1
 
     write_session_state(ss_path, active_session)
-    write_active_context(project_root, feature_id)
+    write_active_context(
+        project_root,
+        feature_id,
+        conversation_id=args.conversation_id.strip() or None,
+    )
 
     # Create session directory
     s_dir = project_root / doc_dir(feature_id, active_session)

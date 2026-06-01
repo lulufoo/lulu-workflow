@@ -142,6 +142,19 @@ python3 feature_init.py --project-root "$(pwd)" --name "<name>" --mode "<mode>"
 - Append `LULU-DEV-WORKFLOW: <feature_id>` to every workflow response
 - Read workflow docs only from `$CACHE_DIR/$FEATURE_ID/`
 
+### Active Context (multi-conversation)
+
+`active-context.json` is indexed by Cursor/Copilot `conversation_id`:
+
+```json
+{ "<conversation_id>": { "feature_id": "...", "stage": "tech-plan" } }
+```
+
+- Pass `--conversation-id "<id>"` to every stage `start.py`, or set env `LULU_CONVERSATION_ID`
+- Without conversation_id: stderr warning; path-guard hook does not apply to this conversation
+- Re-starting a different feature in the **same** conversation overwrites that conv entry (one active workflow per conversation)
+- Legacy flat `{ "feature_id", "stage" }` format is not supported (hard cut)
+
 **Output variables:** `$FEATURE_ID` · `$EXECUTION_MODE` (`"assisted"` | `"self-service"`)
 
 ## Sub-agent Context
