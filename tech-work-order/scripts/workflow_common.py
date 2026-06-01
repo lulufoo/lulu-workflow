@@ -1,20 +1,11 @@
 import json
 import re
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
-_SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
-if str(_SCRIPTS) not in sys.path:
-    sys.path.insert(0, str(_SCRIPTS))
-from archive_common import (  # noqa: E402
-    CODE_CONFIG,
-    archive_dir as _archive_dir,
-    hot_root as _hot_root,
-    is_conv_terminal,
-    list_conv_ids,
-)
+SKILL_ROOT = Path(__file__).resolve().parents[1]  # .../tech-work-order
+WHITELIST_PATH = SKILL_ROOT / "transition-whitelist.json"
 
 _PLATFORM = (
     __import__("os").environ.get("LULU_PLATFORM")
@@ -24,24 +15,25 @@ _WORKFLOW_DIR_MAP = {
     "cursor":  Path(".cursor/lulu-dev-workflow"),
     "copilot": Path(".github/lulu-dev-workflow"),
 }
+_HOOKS_JSON_MAP = {
+    "cursor":  Path(".cursor/hooks.json"),
+    "copilot": Path(".github/hooks/hooks.json"),
+}
+
 WORKFLOW_DIR = _WORKFLOW_DIR_MAP.get(_PLATFORM, _WORKFLOW_DIR_MAP["cursor"])
 CACHE_DIR = Path(f".cache/{_PLATFORM}/lulu-dev-workflow")
-STAGE = "code"
+STAGE = "tech-work-order"
 PLATFORM_CONFIG_PATH = WORKFLOW_DIR / "config.json"
 SHARED_CONFIG_DEFAULT = Path("skill-config/lulu-dev-workflow/workflow-config.json")
+HOOKS_JSON_PATH = _HOOKS_JSON_MAP.get(_PLATFORM, _HOOKS_JSON_MAP["cursor"])
+
+_SCRIPTS_DIR = Path(__file__).resolve().parent
+HOOK_COMMAND = f"python3 {_SCRIPTS_DIR / 'hook_guard.py'}"
+
 
 # ---------------------------------------------------------------------------
 # Path helpers
 # ---------------------------------------------------------------------------
-
-# archive-only: used by archive logic (Phase 4)
-def code_hot_root() -> Path:
-    return _hot_root(CODE_CONFIG)
-
-
-def archive_code_dir(conversation_id: str) -> Path:
-    return _archive_dir(CODE_CONFIG, conversation_id)
-
 
 def session_base_dir(feature_id: str) -> Path:
     return CACHE_DIR / feature_id / STAGE
@@ -51,41 +43,36 @@ def session_state_path(feature_id: str) -> Path:
     return session_base_dir(feature_id) / "session-state.md"
 
 
-def doc_dir(feature_id: str, session_round: int) -> Path:
-    return session_base_dir(feature_id) / f"s{session_round}"
+def doc_dir(feature_id: str, doc_round: int) -> Path:
+    return session_base_dir(feature_id) / f"r{doc_round}"
 
 
-def state_path(feature_id: str, session_round: int) -> Path:
-    return doc_dir(feature_id, session_round) / "workflow-state.md"
+def state_path(feature_id: str, doc_round: int) -> Path:
+    return doc_dir(feature_id, doc_round) / "workflow-state.md"
 
 
-def task_list_path(feature_id: str, session_round: int) -> Path:
-    return doc_dir(feature_id, session_round) / "code-task-list.md"
+def approval_path(feature_id: str, doc_round: int) -> Path:
+    return doc_dir(feature_id, doc_round) / "human-delivery-gate.md"
 
 
-def task_dir(feature_id: str, session_round: int, task_id: str) -> Path:
-    return doc_dir(feature_id, session_round) / "tasks" / task_id
+def eval_round_dir(feature_id: str, doc_round: int, evaluate_round: int) -> Path:
+    return doc_dir(feature_id, doc_round) / f"evaluate{evaluate_round}"
 
 
-def approval_path(feature_id: str, session_round: int) -> Path:
-    return doc_dir(feature_id, session_round) / "human-delivery-gate.md"
-
-
-def list_code_conv_ids(code_root: Path) -> List[str]:
-    """Return conv_id direct subdirectories of code/ (UUID or slug)."""
-    return list_conv_ids(code_root)
-
-
-def is_conv_completed(conv_dir: Path) -> Optional[bool]:
-    """Return True if active session is Completed, False if non-terminal, None if unreadable."""
-    return is_conv_terminal(conv_dir, CODE_CONFIG)
+def hook_entry() -> Dict[str, Any]:
+    return {
+        "matcher": "Write|Edit",
+        "command": HOOK_COMMAND,
+        "timeout": 5,
+        "failClosed": True,
+    }
 
 
 # ---------------------------------------------------------------------------
 # JSON helpers
 # ---------------------------------------------------------------------------
 
-def read_json(path: Path, default: Any = None) -> Any:
+def read_json(path: Path, default=None) -> Dict[str, Any]:
     if not path.exists():
         if default is None:
             raise FileNotFoundError(path)
@@ -94,7 +81,7 @@ def read_json(path: Path, default: Any = None) -> Any:
         return json.load(handle)
 
 
-def write_json(path: Path, payload: Any) -> None:
+def write_json(path: Path, payload: Dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as handle:
         json.dump(payload, handle, indent=2, ensure_ascii=True)
@@ -119,23 +106,19 @@ def resolve_workflow_config_path(project_root: Path = Path(".")) -> Path:
 def write_md_state(
     path: Path,
     current_state: str,
-    mode: str = "",
-    task_list_ref: str = "",
-    current_task: str = "",
-    current_phase: str = "",
+    evaluate_round: int = 0,
+    tech_ref: str = "",
 ) -> None:
-    """Write s{N}/workflow-state.md with YAML frontmatter."""
+    """Write r{N}/workflow-state.md with YAML frontmatter."""
     path.parent.mkdir(parents=True, exist_ok=True)
     now = datetime.now(timezone.utc).isoformat()
     content = (
         f"---\n"
         f"version: 1\n"
-        f"workflow: code\n"
+        f"workflow: tech-work-order\n"
         f"current_state: {current_state}\n"
-        f"mode: {mode}\n"
-        f"task_list_ref: {task_list_ref}\n"
-        f"current_task: {current_task}\n"
-        f"current_phase: {current_phase}\n"
+        f"evaluate_round: {evaluate_round}\n"
+        f"tech_ref: {tech_ref}\n"
         f"updated_at: {now}\n"
         f"---\n"
     )
@@ -143,14 +126,14 @@ def write_md_state(
         handle.write(content)
 
 
-def write_session_state(path: Path, active_session: int) -> None:
-    """Write session-state.md tracking the active TDD session round."""
+def write_session_state(path: Path, active_doc: int) -> None:
+    """Write session-state.md tracking the active tech-work-order round."""
     path.parent.mkdir(parents=True, exist_ok=True)
     now = datetime.now(timezone.utc).isoformat()
     content = (
         f"---\n"
         f"version: 1\n"
-        f"active_session: {active_session}\n"
+        f"active_doc: {active_doc}\n"
         f"updated_at: {now}\n"
         f"---\n"
     )
@@ -186,10 +169,25 @@ def read_md_field(path: Path, field: str, default: str = "") -> str:
     return fields.get(field, default)
 
 
-def read_md_state(path: Path, default: str = "Executing") -> str:
+def read_md_state(path: Path, default: str = "Drafting") -> str:
     """Read current_state from workflow-state.md, returning default if absent."""
     state = read_md_field(path, "current_state", default=default)
     return state if state else default
+
+
+def is_current_session_active(project_root: Path, feature_id: str) -> bool:
+    """Return True if this conversation has any non-Delivered tech-work-order session."""
+    if not feature_id:
+        return False
+    base = project_root / session_base_dir(feature_id)
+    if not base.exists():
+        return False
+    for state_file in base.glob("r*/workflow-state.md"):
+        if not re.match(r"^r\d+$", state_file.parent.name):
+            continue
+        if read_md_state(state_file, default="Drafting") != "Delivered":
+            return True
+    return False
 
 
 def normalize_tool_path(raw_path: str, project_root: Path) -> str:
@@ -202,11 +200,25 @@ def normalize_tool_path(raw_path: str, project_root: Path) -> str:
     return candidate.as_posix()
 
 
+def merge_hook_entry(hooks_payload: Dict[str, Any]) -> Dict[str, Any]:
+    hooks_payload.setdefault("version", 1)
+    hooks = hooks_payload.setdefault("hooks", {})
+    pre_tool_use = hooks.setdefault("preToolUse", [])
+    entry = hook_entry()
+    new_cmd = entry["command"]
+
+    for index, existing in enumerate(pre_tool_use):
+        if existing.get("command") == new_cmd:
+            pre_tool_use[index] = entry
+            return hooks_payload
+
+    pre_tool_use.append(entry)
+    return hooks_payload
+
+
 def write_active_context(project_root: Path, feature_id: str) -> None:
     path = project_root / CACHE_DIR / "active-context.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as handle:
         json.dump({"feature_id": feature_id, "stage": STAGE}, handle, indent=2, ensure_ascii=True)
         handle.write("\n")
-
-

@@ -1,9 +1,9 @@
 ---
-name: code
+name: tech-code
 description: >-
   Use when: TDD, code session, 测试驱动开发, 写测试代码, 写实现代码, Red Green Refactor,
-  code-task-list, task-from-work-order, code workflow,
-  lulu-dev-workflow code, git worktree delivery.
+  code-task-list, task-from-work-order, tech-code workflow,
+  lulu-dev-workflow tech-code, git worktree delivery.
 disable-model-invocation: true
 ---
 
@@ -23,7 +23,7 @@ Do NOT proceed until you have read `../SKILL.md` and loaded:
 - Sub-agent model convention (`$RESOLVED_MODEL`) from `## Sub-agent Context › Config Resolution`
 </HARD-GATE>
 
-`$SKILL_DIR` = `$SKILL_ROOT/code`
+`$SKILL_DIR` = `$SKILL_ROOT/tech-code`
 
 ---
 
@@ -33,7 +33,7 @@ Do NOT proceed until you have read `../SKILL.md` and loaded:
 
 | Format | Meaning | Example |
 |--------|---------|---------|
-| `work-order/<uuid>` | Source: specified work-order session | `/code work-order/1d2ea64b-065d-4e12-9008-9163d475ee00` |
+| `tech-work-order/<uuid>` | Source: specified tech-work-order session | `/code tech-work-order/1d2ea64b-065d-4e12-9008-9163d475ee00` |
 
 If the user's input does not match this format, stop and output the usage error.
 
@@ -56,7 +56,7 @@ If the user's input does not match this format, stop and output the usage error.
 ## Session files
 
 ```
-$CACHE_DIR/<feature_id>/code/
+$CACHE_DIR/<feature_id>/tech-code/
   session-state.md
   s{N}/
     workflow-state.md           ← Preparing: session + task pointer (authoritative)
@@ -225,7 +225,7 @@ AI must not self-declare session complete. Even if all tasks are `Done` and the 
 
 ---
 
-## Supporting: work-order → code handoff
+## Supporting: tech-work-order → tech-code handoff
 
 - Path B: `--task-list-ref` + `--task-refs`; `task.md` is self-contained.
 - `tdd_exempt` from task list or task frontmatter: if set, `VerifyGreen` → `Done` directly (execution handled by `task-runner/SKILL.md`).

@@ -1,9 +1,9 @@
 ---
-name: tech
+name: tech-plan
 description: >-
   Use when: 技术方案, 技术设计, tech design, tech-doc, 技术文档, 架构设计,
   技术规格, 技术实现方案, tech-doc workflow, 技术文档流程, 技术文档状态迁移,
-  lulu-dev-workflow tech, E1 E2 E3 评估, tech review, tech delivered.
+  lulu-dev-workflow tech-plan, E1 E2 E3 评估, tech review, tech delivered.
 disable-model-invocation: true
 ---
 
@@ -24,7 +24,7 @@ Do NOT proceed until you have read `../SKILL.md` and loaded:
 - Feature identification logic from `## Feature Context`
 </HARD-GATE>
 
-`$SKILL_DIR` = `$SKILL_ROOT/tech`
+`$SKILL_DIR` = `$SKILL_ROOT/tech-plan`
 
 **This workflow runs in Agent mode with path guard.**
 
@@ -73,7 +73,7 @@ tech flow to use a previous tech-doc as the draft starting point.
 ## Session File Structure
 
 ```
-$CACHE_DIR/<feature_id>/tech/
+$CACHE_DIR/<feature_id>/tech-plan/
   session-state.md               ← active_doc: N (monotonically increasing)
 
   revision{N}/                          ← Nth tech doc
@@ -244,7 +244,7 @@ mode: product
 current_state: Drafting
 evaluate_round: 0
 skip_evaluate_requested: false
-product_ref: /abs/path/$CACHE_DIR/<feature_id>/product/revision1/product-doc.md
+product_ref: /abs/path/$CACHE_DIR/<feature_id>/product-plan/revision1/product-doc.md
 carry_forward_ref: ""
 updated_at: 2026-05-17T09:00:00+08:00
 ---

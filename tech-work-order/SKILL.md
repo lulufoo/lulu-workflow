@@ -1,9 +1,9 @@
 ---
-name: work-order
+name: tech-work-order
 description: >-
-  Use when: 施工单, work-order, 任务拆分, task breakdown, TDD 准备, 施工单工作流,
+  Use when: 施工单, work-order, tech-work-order, 任务拆分, task breakdown, TDD 准备, 施工单工作流,
   work-order workflow, 任务依赖图, task-list, 施工单评审, TWCA, WOQA,
-  lulu-dev-workflow work-order.
+  lulu-dev-workflow tech-work-order.
 disable-model-invocation: true
 ---
 
@@ -19,7 +19,7 @@ Do NOT proceed until you have read `../SKILL.md` and loaded:
 - Feature identification logic from `## Feature Context`
 </HARD-GATE>
 
-`$SKILL_DIR` = `$SKILL_ROOT/work-order`
+`$SKILL_DIR` = `$SKILL_ROOT/tech-work-order`
 
 **This workflow runs in Agent mode with path guard.**
 
@@ -56,7 +56,7 @@ python3 "$SKILL_DIR/scripts/start.py" \
 ## Session File Structure
 
 ```
-$CACHE_DIR/<feature_id>/work-order/
+$CACHE_DIR/<feature_id>/tech-work-order/
   session-state.md               ← active_doc: N (monotonically increasing)
 
   r{N}/                          ← Nth work order
@@ -274,10 +274,10 @@ After hook allows entry to ReadyForDelivery:
 ```markdown
 ---
 version: 1
-workflow: work-order
+workflow: tech-work-order
 current_state: Drafting
 evaluate_round: 0
-tech_ref: /abs/path/$CACHE_DIR/<feature_id>/tech/revision1/tech-doc.md
+tech_ref: /abs/path/$CACHE_DIR/<feature_id>/tech-plan/revision1/tech-doc.md
 updated_at: 2026-05-17T09:00:00+08:00
 ---
 ```

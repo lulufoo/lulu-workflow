@@ -1,9 +1,9 @@
 ---
-name: product
+name: product-plan
 description: >-
   Use when: 产品需求, 新功能, 功能设计, 产品文档, PRD, spec, 用户故事,
   需求分析, feature request, product requirement, 功能规划, 需求文档,
-  product-doc workflow, 产品文档流程, 产品文档状态迁移, lulu-dev-workflow product,
+  product-doc workflow, 产品文档流程, 产品文档状态迁移, lulu-dev-workflow product-plan,
   PDQA, ready for delivery, delivered.
 disable-model-invocation: true
 ---
@@ -28,7 +28,7 @@ Do NOT proceed until you have read `../SKILL.md` and loaded:
 - Feature identification logic from `## Feature Context`
 </HARD-GATE>
 
-`$SKILL_DIR` = `$SKILL_ROOT/product`
+`$SKILL_DIR` = `$SKILL_ROOT/product-plan`
 
 **This workflow runs in Agent mode with path guard.** All session files are
 Markdown. During an active session, writes are restricted to
@@ -66,7 +66,7 @@ product document, do not run start again — read the current session files.
 ## Session File Structure
 
 ```
-$CACHE_DIR/<feature_id>/product/
+$CACHE_DIR/<feature_id>/product-plan/
   session-state.md               ← active_doc: N (线性递增，不回退)
 
   revision{N}/                          ← 第 N 个产品文档
@@ -116,7 +116,7 @@ During Evaluating, revise `revision{N}/product-doc.md` in place; `evaluate{M}/` 
 
 **G1.** Read `$WORKFLOW_DIR/workflow-config.json` before driving the workflow.
 
-**G2.** Session files live at `$CACHE_DIR/<feature_id>/product/revision{N}/`.
+**G2.** Session files live at `$CACHE_DIR/<feature_id>/product-plan/revision{N}/`.
 Read `session-state.md` to determine current `active_doc` (N).
 
 **G3.** `revision{N}/workflow-state.md` is the authoritative current state — write it to request a transition.

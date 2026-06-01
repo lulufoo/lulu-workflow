@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-SKILL_ROOT = Path(__file__).resolve().parents[1]  # .../work-order
+SKILL_ROOT = Path(__file__).resolve().parents[1]
 WHITELIST_PATH = SKILL_ROOT / "transition-whitelist.json"
 
 _PLATFORM = (
@@ -19,15 +19,14 @@ _HOOKS_JSON_MAP = {
     "cursor":  Path(".cursor/hooks.json"),
     "copilot": Path(".github/hooks/hooks.json"),
 }
+_SCRIPTS_DIR = Path(__file__).resolve().parent
 
 WORKFLOW_DIR = _WORKFLOW_DIR_MAP.get(_PLATFORM, _WORKFLOW_DIR_MAP["cursor"])
 CACHE_DIR = Path(f".cache/{_PLATFORM}/lulu-dev-workflow")
-STAGE = "work-order"
+STAGE = "product-plan"
 PLATFORM_CONFIG_PATH = WORKFLOW_DIR / "config.json"
 SHARED_CONFIG_DEFAULT = Path("skill-config/lulu-dev-workflow/workflow-config.json")
 HOOKS_JSON_PATH = _HOOKS_JSON_MAP.get(_PLATFORM, _HOOKS_JSON_MAP["cursor"])
-
-_SCRIPTS_DIR = Path(__file__).resolve().parent
 HOOK_COMMAND = f"python3 {_SCRIPTS_DIR / 'hook_guard.py'}"
 
 
@@ -44,7 +43,7 @@ def session_state_path(feature_id: str) -> Path:
 
 
 def doc_dir(feature_id: str, doc_round: int) -> Path:
-    return session_base_dir(feature_id) / f"r{doc_round}"
+    return session_base_dir(feature_id) / f"revision{doc_round}"
 
 
 def state_path(feature_id: str, doc_round: int) -> Path:
@@ -103,22 +102,16 @@ def resolve_workflow_config_path(project_root: Path = Path(".")) -> Path:
 # Markdown state helpers
 # ---------------------------------------------------------------------------
 
-def write_md_state(
-    path: Path,
-    current_state: str,
-    evaluate_round: int = 0,
-    tech_ref: str = "",
-) -> None:
-    """Write r{N}/workflow-state.md with YAML frontmatter."""
+def write_md_state(path: Path, current_state: str, evaluate_round: int = 0) -> None:
+    """Write revision{N}/workflow-state.md with YAML frontmatter."""
     path.parent.mkdir(parents=True, exist_ok=True)
     now = datetime.now(timezone.utc).isoformat()
     content = (
         f"---\n"
         f"version: 1\n"
-        f"workflow: work-order\n"
+        f"workflow: product\n"
         f"current_state: {current_state}\n"
         f"evaluate_round: {evaluate_round}\n"
-        f"tech_ref: {tech_ref}\n"
         f"updated_at: {now}\n"
         f"---\n"
     )
@@ -127,7 +120,7 @@ def write_md_state(
 
 
 def write_session_state(path: Path, active_doc: int) -> None:
-    """Write session-state.md tracking the active work-order round."""
+    """Write session-state.md tracking the active product document round."""
     path.parent.mkdir(parents=True, exist_ok=True)
     now = datetime.now(timezone.utc).isoformat()
     content = (
@@ -155,7 +148,7 @@ def parse_frontmatter_fields(content: str) -> Dict[str, str]:
 
 
 def parse_frontmatter_state(content: str) -> Optional[str]:
-    """Extract current_state from YAML frontmatter."""
+    """Extract current_state from YAML frontmatter in a markdown file."""
     fields = parse_frontmatter_fields(content)
     return fields.get("current_state") or None
 
@@ -176,15 +169,13 @@ def read_md_state(path: Path, default: str = "Drafting") -> str:
 
 
 def is_current_session_active(project_root: Path, feature_id: str) -> bool:
-    """Return True if this conversation has any non-Delivered work-order session."""
+    """Return True if this conversation has any non-Delivered planning session."""
     if not feature_id:
         return False
     base = project_root / session_base_dir(feature_id)
     if not base.exists():
         return False
-    for state_file in base.glob("r*/workflow-state.md"):
-        if not re.match(r"^r\d+$", state_file.parent.name):
-            continue
+    for state_file in base.glob("revision*/workflow-state.md"):
         if read_md_state(state_file, default="Drafting") != "Delivered":
             return True
     return False
@@ -206,9 +197,14 @@ def merge_hook_entry(hooks_payload: Dict[str, Any]) -> Dict[str, Any]:
     pre_tool_use = hooks.setdefault("preToolUse", [])
     entry = hook_entry()
     new_cmd = entry["command"]
+    old_cmds = {
+        "python3 ~/.cursor/skills/product-doc-workflow/scripts/hook_guard.py",
+        "python3 .cursor/hooks/product-doc-transition-guard.py",
+    }
 
     for index, existing in enumerate(pre_tool_use):
-        if existing.get("command") == new_cmd:
+        cmd = existing.get("command", "")
+        if cmd == new_cmd or cmd in old_cmds:
             pre_tool_use[index] = entry
             return hooks_payload
 

@@ -18,7 +18,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from subagent_config import ensure_platform_config  # noqa: E402
-SUB_WORKFLOWS = ["product", "tech", "work-order", "code"]
+SUB_WORKFLOWS = ["product-plan", "tech-plan", "tech-work-order", "tech-code"]
 
 _CURSOR_HOOK_COMMAND = (
     "python3 ~/.cursor/skills/lulu-dev-workflow/scripts/hook_guard.py"

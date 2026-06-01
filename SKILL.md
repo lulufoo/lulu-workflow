@@ -5,7 +5,7 @@ description: >-
   开发工作流, dev workflow, product doc workflow, 产品文档流程, or any sub-stage
   (product-diagnostic, tech-diagnostic, diagnostic, product-plan, tech-plan, tech-work-order, tech-code).
 disable-model-invocation: true
-argument-hint: "[d=diagnostic | pd=product-diagnostic | td=tech-diagnostic | p=product | t=tech | w=work-order | c=code]"
+argument-hint: "[d=diagnostic | pd=product-diagnostic | td=tech-diagnostic | p=product-plan | t=tech-plan | w=tech-work-order | c=tech-code]"
 ---
 
 # lulu-dev-workflow
@@ -20,10 +20,10 @@ under this directory.
 | Product diagnostic | `product-diagnostic/` | Active |
 | Tech diagnostic | `tech-diagnostic/` | Active |
 | Generic diagnostic | `diagnostic/` | Active |
-| Product documentation | `product/` | Active |
-| Tech design | `tech/` | Active |
-| Work order | `work-order/` | Active |
-| Code | `code/` | Active |
+| Product plan | `product-plan/` | Active |
+| Tech plan | `tech-plan/` | Active |
+| Tech work order | `tech-work-order/` | Active |
+| Tech code | `tech-code/` | Active |
 
 > **product-diagnostic** is the recommended entry point for full-feature work (produces product-scoped decision-doc).
 > **tech-diagnostic** is the entry point for pure tech work (produces tech-scoped decision-doc).
@@ -251,9 +251,9 @@ This line tracks the active feature per conversation window. Stage workflows use
 | `product-diagnostic` / `pd` | Product diagnostic | Read [product-diagnostic/SKILL.md](./product-diagnostic/SKILL.md) |
 | `tech-diagnostic` / `td` | Tech diagnostic | Read [tech-diagnostic/SKILL.md](./tech-diagnostic/SKILL.md) |
 | `diagnostic` / `d` | Generic diagnostic | Read [diagnostic/SKILL.md](./diagnostic/SKILL.md) |
-| `product` / `p` | Product doc | Read [product/SKILL.md](./product/SKILL.md) |
-| `tech` / `t` | Tech design | Read [tech/SKILL.md](./tech/SKILL.md) |
-| `work-order` / `w` | Work order | Read [work-order/SKILL.md](./work-order/SKILL.md) |
-| `code` / `c` | Code | Read [code/SKILL.md](./code/SKILL.md) |
+| `product-plan` / `p` | Product plan | Read [product-plan/SKILL.md](./product-plan/SKILL.md) |
+| `tech-plan` / `t` | Tech plan | Read [tech-plan/SKILL.md](./tech-plan/SKILL.md) |
+| `tech-work-order` / `w` | Tech work order | Read [tech-work-order/SKILL.md](./tech-work-order/SKILL.md) |
+| `tech-code` / `c` | Tech code | Read [tech-code/SKILL.md](./tech-code/SKILL.md) |
 
 After routing to a sub-SKILL, follow the workflow defined in that sub-SKILL's SKILL.md.

@@ -35,25 +35,25 @@ class StageArchiveConfig:
     flat: bool = False
 
 
-PRODUCT_CONFIG = StageArchiveConfig(
-    stage="product",
-    hot_subdir="product",
+PRODUCT_PLAN_CONFIG = StageArchiveConfig(
+    stage="product-plan",
+    hot_subdir="product-plan",
     session_counter_field="active_doc",
     doc_dir_fmt="revision{}",
     terminal_states=frozenset({"Delivered"}),
 )
 
-TECH_CONFIG = StageArchiveConfig(
-    stage="tech",
-    hot_subdir="tech",
+TECH_PLAN_CONFIG = StageArchiveConfig(
+    stage="tech-plan",
+    hot_subdir="tech-plan",
     session_counter_field="active_doc",
     doc_dir_fmt="revision{}",
     terminal_states=frozenset({"Delivered"}),
 )
 
-WORK_ORDER_CONFIG = StageArchiveConfig(
-    stage="work-order",
-    hot_subdir="work-order",
+TECH_WORK_ORDER_CONFIG = StageArchiveConfig(
+    stage="tech-work-order",
+    hot_subdir="tech-work-order",
     session_counter_field="active_doc",
     doc_dir_fmt="r{}",
     terminal_states=frozenset({"Delivered"}),
@@ -69,20 +69,20 @@ DIAGNOSTIC_CONFIG = StageArchiveConfig(
     flat=True,
 )
 
-CODE_CONFIG = StageArchiveConfig(
-    stage="code",
-    hot_subdir="code",
+TECH_CODE_CONFIG = StageArchiveConfig(
+    stage="tech-code",
+    hot_subdir="tech-code",
     session_counter_field="active_session",
     doc_dir_fmt="s{}",
     terminal_states=frozenset({"Completed"}),
 )
 
 ALL_STAGE_CONFIGS = (
-    PRODUCT_CONFIG,
-    TECH_CONFIG,
-    WORK_ORDER_CONFIG,
+    PRODUCT_PLAN_CONFIG,
+    TECH_PLAN_CONFIG,
+    TECH_WORK_ORDER_CONFIG,
     DIAGNOSTIC_CONFIG,
-    CODE_CONFIG,
+    TECH_CODE_CONFIG,
 )
 
 
