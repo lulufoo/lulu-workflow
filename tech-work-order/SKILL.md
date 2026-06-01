@@ -277,7 +277,7 @@ version: 1
 workflow: tech-work-order
 current_state: Drafting
 evaluate_round: 0
-tech_ref: /abs/path/$CACHE_DIR/<feature_id>/tech-plan/revision1/tech-doc.md
+tech_ref: /abs/path/$CACHE_DIR/<feature_id>/tech/plan/revision1/tech-doc.md
 updated_at: 2026-05-17T09:00:00+08:00
 ---
 ```

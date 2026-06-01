@@ -12,7 +12,7 @@ disable-model-invocation: true
 
 > **Prerequisite:** Run `diagnostic` SKILL before starting this workflow.
 > The decision-doc produced by diagnostic is the required input context.
-> Path: `$CACHE_DIR/<feature_id>/diagnostic/decision-doc.md`
+> Path: `$CACHE_DIR/<feature_id>/product/diagnostic/decision-doc.md`
 
 Drive a product document workflow with explicit per-session state files and a
 hook that gates state transitions.
@@ -66,7 +66,7 @@ product document, do not run start again — read the current session files.
 ## Session File Structure
 
 ```
-$CACHE_DIR/<feature_id>/product-plan/
+$CACHE_DIR/<feature_id>/product/plan/
   session-state.md               ← active_doc: N (线性递增，不回退)
 
   revision{N}/                          ← 第 N 个产品文档
@@ -116,7 +116,7 @@ During Evaluating, revise `revision{N}/product-doc.md` in place; `evaluate{M}/` 
 
 **G1.** Read `$WORKFLOW_DIR/workflow-config.json` before driving the workflow.
 
-**G2.** Session files live at `$CACHE_DIR/<feature_id>/product-plan/revision{N}/`.
+**G2.** Session files live at `$CACHE_DIR/<feature_id>/product/plan/revision{N}/`.
 Read `session-state.md` to determine current `active_doc` (N).
 
 **G3.** `revision{N}/workflow-state.md` is the authoritative current state — write it to request a transition.
@@ -223,7 +223,7 @@ updated_at: 2026-05-17T09:00:00+08:00
 ```markdown
 ---
 version: 1
-workflow: product
+workflow: product-plan
 current_state: Evaluating
 evaluate_round: 2
 updated_at: 2026-05-17T09:00:00+08:00
@@ -267,7 +267,7 @@ Write the full Markdown to `revision{N}/workflow-state.md`:
 ```markdown
 ---
 version: 1
-workflow: product
+workflow: product-plan
 current_state: Evaluating
 evaluate_round: 1
 updated_at: 2026-05-17T00:00:00Z

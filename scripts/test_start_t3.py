@@ -212,12 +212,12 @@ class TestSessionPath:
 
     def test_product_diagnostic_stage_writes_nested_path(self, tmp_path):
         self._run_diagnostic_with_stage(tmp_path, "product-diagnostic")
-        ss = _cache_dir(tmp_path) / _FID / "product-plan" / "diagnostic" / "session-state.md"
+        ss = _cache_dir(tmp_path) / _FID / "product" / "diagnostic" / "session-state.md"
         assert ss.exists(), f"Expected session-state.md at {ss}"
 
     def test_tech_diagnostic_stage_writes_nested_path(self, tmp_path):
         self._run_diagnostic_with_stage(tmp_path, "tech-diagnostic")
-        ss = _cache_dir(tmp_path) / _FID / "tech-plan" / "diagnostic" / "session-state.md"
+        ss = _cache_dir(tmp_path) / _FID / "tech" / "diagnostic" / "session-state.md"
         assert ss.exists(), f"Expected session-state.md at {ss}"
 
     def test_product_diagnostic_active_context_stage_value(self, tmp_path):
@@ -230,12 +230,12 @@ class TestSessionPath:
 
     def test_product_session_file_at_feature_first_path(self, tmp_path):
         self._run_product(tmp_path)
-        ss = _cache_dir(tmp_path) / _FID / "product-plan" / "session-state.md"
+        ss = _cache_dir(tmp_path) / _FID / "product" / "plan" / "session-state.md"
         assert ss.exists(), f"Expected session-state.md at {ss}"
 
     def test_tech_session_file_at_feature_first_path(self, tmp_path):
         self._run_tech(tmp_path)
-        ss = _cache_dir(tmp_path) / _FID / "tech-plan" / "session-state.md"
+        ss = _cache_dir(tmp_path) / _FID / "tech" / "plan" / "session-state.md"
         assert ss.exists(), f"Expected session-state.md at {ss}"
 
     def test_work_order_session_file_at_feature_first_path(self, tmp_path):

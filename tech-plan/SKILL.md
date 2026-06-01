@@ -11,7 +11,7 @@ disable-model-invocation: true
 
 > **Prerequisite:** Run `diagnostic` SKILL before starting this workflow.
 > The decision-doc produced by diagnostic is the required input context.
-> Path: `$CACHE_DIR/<feature_id>/diagnostic/decision-doc.md`
+> Path: `$CACHE_DIR/<feature_id>/tech/diagnostic/decision-doc.md`
 
 Drive a tech document workflow with explicit per-session state files and a hook
 that gates state transitions.
@@ -73,7 +73,7 @@ tech flow to use a previous tech-doc as the draft starting point.
 ## Session File Structure
 
 ```
-$CACHE_DIR/<feature_id>/tech-plan/
+$CACHE_DIR/<feature_id>/tech/plan/
   session-state.md               ← active_doc: N (monotonically increasing)
 
   revision{N}/                          ← Nth tech doc
@@ -244,7 +244,7 @@ mode: product
 current_state: Drafting
 evaluate_round: 0
 skip_evaluate_requested: false
-product_ref: /abs/path/$CACHE_DIR/<feature_id>/product-plan/revision1/product-doc.md
+product_ref: /abs/path/$CACHE_DIR/<feature_id>/product/plan/revision1/product-doc.md
 carry_forward_ref: ""
 updated_at: 2026-05-17T09:00:00+08:00
 ---
