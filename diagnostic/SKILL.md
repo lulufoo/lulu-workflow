@@ -6,7 +6,7 @@ name: diagnostic
 
 > Framework reference: [diagnostic-decision-framework.md](https://github.com/lulufoo/lulu-workflow-framework/blob/main/dev/diagnostic/diagnostic-decision-framework.md)
 
-Run a Diagnostic Decision Framework (DDF) session. **Mandatory before starting /product or /tech.**
+Run a Diagnostic Decision Framework (DDF) session. **Mandatory before starting `/product-plan` or `/tech-plan`.**
 
 ---
 
@@ -21,8 +21,26 @@ Do NOT proceed until you have read `../SKILL.md` and loaded:
 
 ---
 
+<HARD-GATE name="Domain Constraints">
+Before executing any DDF gate, scan your current instruction context for a `## Domain Constraints`
+section (injected by a domain holder such as `product-diagnostic` or `tech-diagnostic`).
+
+**If a `## Domain Constraints` section is present:**
+- Apply the X Gate constraints from that section (execute only the listed dimensions; skip the rest).
+- Apply the Decision-Doc constraints from that section (omit the listed sections).
+- Apply the After DC routing from that section.
+- These holder constraints override all kernel defaults below.
+
+**If no `## Domain Constraints` section is present** (direct `/diagnostic` invocation):
+- Execute all five X Gate dimensions.
+- Write all decision-doc sections.
+- After DC: tell user they may proceed to `/product-plan` or `/tech-plan`.
+</HARD-GATE>
+
+---
+
 <HARD-GATE>
-Do NOT exit diagnostic or transition to /product or /tech until:
+Do NOT exit diagnostic or transition to the next stage until:
   
 - All DDF gates (Q / E / D / X → R → [LoopB if uncertain: V / RR] → DC) have passed
 - The decision-doc has been written to disk
@@ -105,16 +123,24 @@ Two registers run throughout the entire session, not attached to any single gate
 
 Decision-doc will be written to:
 ```
-$CACHE_DIR/<feature_id>/diagnostic/decision-doc.md
+$CACHE_DIR/<feature_id>/{cache_subdir}/decision-doc.md
 ```
+
+Where `{cache_subdir}` is determined by the `--stage` argument:
+- `--stage product-diagnostic` → `product/diagnostic`
+- `--stage tech-diagnostic` → `tech/diagnostic`
+- `--stage diagnostic` (default) → `diagnostic`
 
 **Step 3: Run start.py**
 
 ```bash
 python3 "$SKILL_DIR/scripts/start.py" \
   --project-root "$(pwd)" \
-  --feature-id "<feature_id>"
+  --feature-id "<feature_id>" \
+  --stage "<stage_name>"
 ```
+
+Where `<stage_name>` is `product-diagnostic`, `tech-diagnostic`, or `diagnostic` (from the holder or the routing context).
 
 Creates `session-state.md` with `current_state: InProgress`.
 
@@ -225,6 +251,8 @@ Capture input in User Prior Log. This step is not part of Q and does not count t
 #### X — Full Diagnosis
 
 **Prerequisites:** D closed
+
+**Dimension list:** If a `## Domain Constraints` section is present (loaded from a domain holder), execute **only** the dimensions listed there; skip all others. If no Domain Constraints are present, execute all five dimensions below.
 
 **Execute one dimension, one question at a time (apply G7 for each Core question). After presenting each dimension's result, ask "Is this [dimension name] correct? (y / adjust)" before proceeding to the next. (G8)**
 
@@ -343,7 +371,9 @@ Risk levels:
 
 ## Decision-Doc Format
 
-Write to `$CACHE_DIR/<feature_id>/diagnostic/decision-doc.md`:
+Write to `$CACHE_DIR/<feature_id>/{cache_subdir}/decision-doc.md` (where `{cache_subdir}` is derived from `--stage` as described in §Start Step 2).
+
+**Section filtering:** If a `## Domain Constraints` section lists forbidden sections, omit those sections entirely from the written document. If no Domain Constraints are present, write all sections below.
 
 ```markdown
 # Decision: {title}
@@ -476,17 +506,19 @@ After self-review passes (decision-doc already written, Risk Release statuses up
 4. Only after user's explicit confirmation that everything is correct, write terminal state:
 
 ```bash
-# session-state.md at <feature_id>/diagnostic/session-state.md
+# session-state.md at <feature_id>/{cache_subdir}/session-state.md
 current_state: Delivered
 ```
 
 5. Tell user the next step.
 
-> **HARD GATE — skipping `/product` or `/tech` is forbidden.**
-> The decision-doc is the required input for these stages, not a substitute for them.
-> Do NOT suggest `/work-order`, `/code`, or any other stage directly.
+> **HARD GATE — skipping the plan stage is forbidden.**
+> The decision-doc is the required input for the next stage, not a substitute for it.
+> Do NOT suggest `/tech-work-order`, `/tech-code`, or any other stage directly.
 
-   - Product-level decision → **must** proceed to `/product`
-   - Tech-level decision → **must** proceed to `/tech` (use decision-doc as context alongside product-doc if applicable)
-   - Mixed (product + tech) → **must** proceed to `/product` first, then `/tech`
+Follow the After DC routing from `## Domain Constraints` (if present). If running standalone with no
+domain constraints:
+   - Product-level decision → **must** proceed to `/product-plan` (alias: `pp`)
+   - Tech-level decision → **must** proceed to `/tech-plan` (alias: `tp`)
+   - Mixed → **must** proceed to `/product-plan` first
 
