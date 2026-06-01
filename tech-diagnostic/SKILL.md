@@ -4,7 +4,7 @@ name: tech-diagnostic
 
 # tech-diagnostic
 
-Domain holder for tech-level diagnostic decisions. Loads the `diagnostic` kernel with tech domain constraints.
+Domain holder for tech-level diagnostic decisions. Delegates the full DDF execution to the `diagnostic` kernel under tech domain constraints.
 
 ---
 
@@ -15,14 +15,18 @@ Do NOT proceed until you have read `../SKILL.md` and loaded:
 - Feature identification logic from `## Feature Context`
 </HARD-GATE>
 
+<HARD-GATE>
+Do NOT proceed until you have read `../diagnostic/SKILL.md` in full.
+All DDF rules, gates, and registers defined there apply to this session.
+</HARD-GATE>
+
 `$SKILL_DIR` = `$SKILL_ROOT/tech-diagnostic`
 
 ---
 
 ## Domain Constraints
 
-These constraints override the kernel defaults for this domain. The `diagnostic/SKILL.md` kernel
-**must** read and apply these constraints before executing any DDF gate.
+These constraints are injected into the `diagnostic` kernel. The kernel's `Domain Constraints HARD-GATE` will detect and apply them.
 
 ### X Gate
 
@@ -42,17 +46,16 @@ Write **all sections** as defined in the kernel template. No sections are omitte
 
 ### Context Loading
 
-Before starting the DDF (before Open Channel / Q), check whether a Delivered `product-doc` exists
-for this feature:
+Before the Open Channel (before Q), check whether a Delivered product-doc exists for this feature:
 
 ```
 $CACHE_DIR/<feature_id>/product/plan/   (look for the latest revision with Delivered state)
 ```
 
-If a Delivered product-doc is found, load it as **read-only context** and note to the user:
+If a Delivered product-doc is found, load it as read-only context and tell the user:
 "I've loaded the product-doc as context for this tech diagnostic."
 
-If not found, proceed without it (do not block or error).
+If not found, proceed without it.
 
 ### After DC
 
@@ -60,20 +63,10 @@ Tell user: "Tech diagnostic is complete. The next step is `/tech-plan` (alias: `
 
 ---
 
-## How to Run
+## start
 
-Load `diagnostic/SKILL.md` and run the full DDF under the above constraints.
+Execute the `start` command from `diagnostic/SKILL.md`, passing `tech-diagnostic` as the stage:
 
-When invoking `start.py`, pass `--stage tech-diagnostic`:
-
-```bash
-python3 "$SKILL_ROOT/diagnostic/scripts/start.py" \
-  --project-root "$(pwd)" \
-  --feature-id "<feature_id>" \
-  --stage tech-diagnostic
-```
-
-Session artifacts write to:
-```
-$CACHE_DIR/<feature_id>/tech/diagnostic/
-```
+- Stage: `tech-diagnostic`
+- Cache subdir: `tech/diagnostic`
+- Apply all constraints from `## Domain Constraints` above throughout the session.
