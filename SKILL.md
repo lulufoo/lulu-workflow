@@ -161,7 +161,7 @@ Creates `$WORKFLOW_DIR/workflow-config.json` and registers all sub-workflow hook
 | Field | Description |
 |-------|-------------|
 | `workflowConfig` | Path to shared `workflow-config.json` (relative to project root) |
-| `subagents.<stage>.model` | Optional model slug for sub-agent dispatch (e.g. `subagents.code.model`) |
+| `subagents.<stage>.model` | Optional model slug for sub-agent dispatch (e.g. `subagents.tech-code.model`) |
 | `subagents.default.model` | Optional fallback model; overridden by stage-specific `model` (user-added; init does not prefill) |
 
 `workflow-config.json` contains the following fields:

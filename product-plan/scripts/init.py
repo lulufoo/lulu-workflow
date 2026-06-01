@@ -82,11 +82,11 @@ def main() -> int:
   {config_path_display}
 
 下一步：
-1. 编辑 {config_path_display}，填写 product 配置 URL。
+1. 编辑 {config_path_display}，填写 product-plan 配置 URL。
 2. 开始第一个产品文档，运行 start 命令：
 
    python3 {_start_py} \\
-     --project-root "$(pwd)" --conversation-id "<your-conversation-id>"
+     --project-root "$(pwd)" --feature-id "<your-feature-id>"
 
 配置模板参考：
   https://github.com/lulufoo/ai-software-dev/tree/main/ai-dev-workflow-framework/product_template
