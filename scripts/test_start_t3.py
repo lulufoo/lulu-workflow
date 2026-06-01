@@ -196,6 +196,38 @@ class TestSessionPath:
         ss = _cache_dir(tmp_path) / _FID / "diagnostic" / "session-state.md"
         assert ss.exists(), f"Expected session-state.md at {ss}"
 
+    def _run_diagnostic_with_stage(self, tmp_path, stage: str):
+        return subprocess.run(
+            [sys.executable, str(_start_py("diagnostic")),
+             "--project-root", str(tmp_path),
+             "--feature-id", _FID,
+             "--stage", stage],
+            capture_output=True, text=True, env=_ENV_COPILOT,
+            cwd=str(_scripts_dir("diagnostic")),
+        )
+
+    def test_product_diagnostic_stage_exits_zero(self, tmp_path):
+        result = self._run_diagnostic_with_stage(tmp_path, "product-diagnostic")
+        assert result.returncode == 0, result.stderr
+
+    def test_product_diagnostic_stage_writes_nested_path(self, tmp_path):
+        self._run_diagnostic_with_stage(tmp_path, "product-diagnostic")
+        ss = _cache_dir(tmp_path) / _FID / "product" / "diagnostic" / "session-state.md"
+        assert ss.exists(), f"Expected session-state.md at {ss}"
+
+    def test_tech_diagnostic_stage_writes_nested_path(self, tmp_path):
+        self._run_diagnostic_with_stage(tmp_path, "tech-diagnostic")
+        ss = _cache_dir(tmp_path) / _FID / "tech" / "diagnostic" / "session-state.md"
+        assert ss.exists(), f"Expected session-state.md at {ss}"
+
+    def test_product_diagnostic_active_context_stage_value(self, tmp_path):
+        import json
+        self._run_diagnostic_with_stage(tmp_path, "product-diagnostic")
+        ctx = _cache_dir(tmp_path) / "active-context.json"
+        assert ctx.exists(), f"Expected active-context.json at {ctx}"
+        data = json.loads(ctx.read_text(encoding="utf-8"))
+        assert data.get("stage") == "product-diagnostic", f"stage mismatch: {data}"
+
     def test_product_session_file_at_feature_first_path(self, tmp_path):
         self._run_product(tmp_path)
         ss = _cache_dir(tmp_path) / _FID / "product" / "session-state.md"

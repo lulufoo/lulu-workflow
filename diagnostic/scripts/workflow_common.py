@@ -9,6 +9,16 @@ _PLATFORM = (
 CACHE_DIR = Path(f".cache/{_PLATFORM}/lulu-dev-workflow")
 STAGE = "diagnostic"
 
+_STAGE_TO_SUBDIR: dict[str, str] = {
+    "product-diagnostic": "product/diagnostic",
+    "tech-diagnostic": "tech/diagnostic",
+    "diagnostic": "diagnostic",
+}
+
+
+def _cache_subdir(stage: str) -> str:
+    return _STAGE_TO_SUBDIR.get(stage, stage)
+
 
 def diagnostic_hot_root() -> Path:
     return CACHE_DIR / "diagnostic"
@@ -18,12 +28,12 @@ def archive_diagnostic_dir(conversation_id: str) -> Path:
     return CACHE_DIR / "_archive" / conversation_id / "diagnostic"
 
 
-def session_base_dir(feature_id: str) -> Path:
-    return CACHE_DIR / feature_id / STAGE
+def session_base_dir(feature_id: str, stage: str = STAGE) -> Path:
+    return CACHE_DIR / feature_id / _cache_subdir(stage)
 
 
-def session_state_path(feature_id: str) -> Path:
-    return session_base_dir(feature_id) / "session-state.md"
+def session_state_path(feature_id: str, stage: str = STAGE) -> Path:
+    return session_base_dir(feature_id, stage) / "session-state.md"
 
 
 def write_session_state(path: Path, current_state: str) -> None:
@@ -49,9 +59,9 @@ def normalize_tool_path(raw_path: str, project_root: Path) -> str:
     return candidate.as_posix()
 
 
-def write_active_context(project_root: Path, feature_id: str) -> None:
+def write_active_context(project_root: Path, feature_id: str, stage: str = STAGE) -> None:
     path = project_root / CACHE_DIR / "active-context.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as handle:
-        json.dump({"feature_id": feature_id, "stage": STAGE}, handle, indent=2, ensure_ascii=True)
+        json.dump({"feature_id": feature_id, "stage": stage}, handle, indent=2, ensure_ascii=True)
         handle.write("\n")
