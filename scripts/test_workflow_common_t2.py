@@ -15,8 +15,8 @@ _EXPECTED_CACHE_SUBDIR = {
     "diagnostic": "diagnostic",
     "product-plan": "product/plan",
     "tech-plan": "tech/plan",
-    "tech-work-order": "tech-work-order",
-    "tech-code": "tech-code",
+    "tech-work-order": "tech/work-order",
+    "tech-code": "tech/code",
 }
 
 

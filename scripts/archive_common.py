@@ -53,7 +53,7 @@ TECH_PLAN_CONFIG = StageArchiveConfig(
 
 TECH_WORK_ORDER_CONFIG = StageArchiveConfig(
     stage="tech-work-order",
-    hot_subdir="tech-work-order",
+    hot_subdir="tech/work-order",
     session_counter_field="active_doc",
     doc_dir_fmt="r{}",
     terminal_states=frozenset({"Delivered"}),
@@ -71,7 +71,7 @@ DIAGNOSTIC_CONFIG = StageArchiveConfig(
 
 TECH_CODE_CONFIG = StageArchiveConfig(
     stage="tech-code",
-    hot_subdir="tech-code",
+    hot_subdir="tech/code",
     session_counter_field="active_session",
     doc_dir_fmt="s{}",
     terminal_states=frozenset({"Completed"}),

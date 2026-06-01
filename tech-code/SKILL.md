@@ -56,7 +56,7 @@ If the user's input does not match this format, stop and output the usage error.
 ## Session files
 
 ```
-$CACHE_DIR/<feature_id>/tech-code/
+$CACHE_DIR/<feature_id>/tech/code/
   session-state.md
   s{N}/
     workflow-state.md           ← Preparing: session + task pointer (authoritative)

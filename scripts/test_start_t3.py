@@ -240,10 +240,10 @@ class TestSessionPath:
 
     def test_work_order_session_file_at_feature_first_path(self, tmp_path):
         self._run_work_order(tmp_path)
-        ss = _cache_dir(tmp_path) / _FID / "tech-work-order" / "session-state.md"
+        ss = _cache_dir(tmp_path) / _FID / "tech" / "work-order" / "session-state.md"
         assert ss.exists(), f"Expected session-state.md at {ss}"
 
     def test_code_session_file_at_feature_first_path(self, tmp_path):
         self._run_code(tmp_path)
-        ss = _cache_dir(tmp_path) / _FID / "tech-code" / "session-state.md"
+        ss = _cache_dir(tmp_path) / _FID / "tech" / "code" / "session-state.md"
         assert ss.exists(), f"Expected session-state.md at {ss}"
