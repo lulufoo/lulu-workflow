@@ -24,6 +24,7 @@ _SCRIPTS_DIR = Path(__file__).resolve().parent
 WORKFLOW_DIR = _WORKFLOW_DIR_MAP.get(_PLATFORM, _WORKFLOW_DIR_MAP["cursor"])
 CACHE_DIR = Path(f".cache/{_PLATFORM}/lulu-dev-workflow")
 STAGE = "product-plan"
+CACHE_SUBDIR = "product/plan"
 PLATFORM_CONFIG_PATH = WORKFLOW_DIR / "config.json"
 SHARED_CONFIG_DEFAULT = Path("skill-config/lulu-dev-workflow/workflow-config.json")
 HOOKS_JSON_PATH = _HOOKS_JSON_MAP.get(_PLATFORM, _HOOKS_JSON_MAP["cursor"])
@@ -35,7 +36,7 @@ HOOK_COMMAND = f"python3 {_SCRIPTS_DIR / 'hook_guard.py'}"
 # ---------------------------------------------------------------------------
 
 def session_base_dir(feature_id: str) -> Path:
-    return CACHE_DIR / feature_id / STAGE
+    return CACHE_DIR / feature_id / CACHE_SUBDIR
 
 
 def session_state_path(feature_id: str) -> Path:
@@ -109,7 +110,7 @@ def write_md_state(path: Path, current_state: str, evaluate_round: int = 0) -> N
     content = (
         f"---\n"
         f"version: 1\n"
-        f"workflow: product\n"
+        f"workflow: product-plan\n"
         f"current_state: {current_state}\n"
         f"evaluate_round: {evaluate_round}\n"
         f"updated_at: {now}\n"

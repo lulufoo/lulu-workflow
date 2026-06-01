@@ -11,12 +11,19 @@ _SRC = Path(__file__).resolve().parents[2]  # lulu-dev-skills/
 _STAGES = ["diagnostic", "product-plan", "tech-plan", "tech-work-order", "tech-code"]
 _FID = "20260524143022-02cd7e6e"
 
+_EXPECTED_CACHE_SUBDIR = {
+    "diagnostic": "diagnostic",
+    "product-plan": "product/plan",
+    "tech-plan": "tech/plan",
+    "tech-work-order": "tech-work-order",
+    "tech-code": "tech-code",
+}
+
 
 def _load_wc(stage: str):
     """Load a stage's workflow_common.py as a uniquely-named module."""
     path = _SRC / "lulu-dev-workflow" / stage / "scripts" / "workflow_common.py"
     mod_name = f"wc_{stage.replace('-', '_')}"
-    # Remove cached version so each test gets a fresh load
     sys.modules.pop(mod_name, None)
     spec = importlib.util.spec_from_file_location(mod_name, path)
     mod = importlib.util.module_from_spec(spec)
@@ -24,9 +31,10 @@ def _load_wc(stage: str):
     return mod
 
 
-# ---------------------------------------------------------------------------
-# STAGE constant
-# ---------------------------------------------------------------------------
+def _expected_session_base(mod, feature_id: str) -> Path:
+    subdir = getattr(mod, "CACHE_SUBDIR", mod.STAGE)
+    return mod.CACHE_DIR / feature_id / subdir
+
 
 class TestStageConstant:
     @pytest.mark.parametrize("stage", _STAGES)
@@ -40,28 +48,25 @@ class TestStageConstant:
         assert mod.STAGE == stage, f"{stage}: STAGE={mod.STAGE!r}, expected {stage!r}"
 
 
-# ---------------------------------------------------------------------------
-# session_base_dir — feature-first path structure
-# ---------------------------------------------------------------------------
-
 class TestSessionBaseDir:
     @pytest.mark.parametrize("stage", _STAGES)
     def test_returns_feature_first_path(self, stage):
         mod = _load_wc(stage)
         result = mod.session_base_dir(_FID)
-        assert result == mod.CACHE_DIR / _FID / stage
+        assert result == _expected_session_base(mod, _FID)
 
     @pytest.mark.parametrize("stage", _STAGES)
-    def test_feature_id_is_second_to_last_part(self, stage):
+    def test_feature_id_present_in_path(self, stage):
         mod = _load_wc(stage)
         result = mod.session_base_dir(_FID)
-        assert result.parts[-2] == _FID
+        assert _FID in result.parts
 
     @pytest.mark.parametrize("stage", _STAGES)
-    def test_stage_name_is_last_part(self, stage):
+    def test_cache_subdir_matches_line_layout(self, stage):
         mod = _load_wc(stage)
         result = mod.session_base_dir(_FID)
-        assert result.parts[-1] == stage
+        expected = _EXPECTED_CACHE_SUBDIR[stage]
+        assert str(result).endswith(f"{_FID}/{expected}")
 
     def test_feature_id_with_hyphen_no_escaping(self):
         mod = _load_wc("tech-plan")
@@ -79,10 +84,6 @@ class TestSessionBaseDir:
         result = mod.session_base_dir(fid)
         assert fid in str(result)
 
-
-# ---------------------------------------------------------------------------
-# tech-code stage: code_hot_root must NOT be called by session_base_dir
-# ---------------------------------------------------------------------------
 
 class TestCodeStageConstraints:
     def test_session_base_dir_does_not_call_code_hot_root(self):
@@ -107,6 +108,4 @@ class TestCodeStageConstraints:
     def test_code_hot_root_source_has_archive_only_comment(self):
         path = _SRC / "lulu-dev-workflow/tech-code/scripts/workflow_common.py"
         source = path.read_text(encoding="utf-8")
-        assert "# archive-only" in source, (
-            "code/workflow_common.py: code_hot_root is missing '# archive-only' comment"
-        )
+        assert "# archive-only" in source

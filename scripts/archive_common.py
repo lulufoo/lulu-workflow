@@ -37,7 +37,7 @@ class StageArchiveConfig:
 
 PRODUCT_PLAN_CONFIG = StageArchiveConfig(
     stage="product-plan",
-    hot_subdir="product-plan",
+    hot_subdir="product/plan",
     session_counter_field="active_doc",
     doc_dir_fmt="revision{}",
     terminal_states=frozenset({"Delivered"}),
@@ -45,7 +45,7 @@ PRODUCT_PLAN_CONFIG = StageArchiveConfig(
 
 TECH_PLAN_CONFIG = StageArchiveConfig(
     stage="tech-plan",
-    hot_subdir="tech-plan",
+    hot_subdir="tech/plan",
     session_counter_field="active_doc",
     doc_dir_fmt="revision{}",
     terminal_states=frozenset({"Delivered"}),
