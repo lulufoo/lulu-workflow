@@ -47,7 +47,7 @@ If the user's input does not match this format, stop and output the usage error.
 
 **Step 2–4:** Parse input, validate upstream Delivered state, collect paths.
 
-**Step 5: Run `start.py`** — bootstraps `current_state: Preparing` with empty `current_task` / `current_phase`. Pass `[--conversation-id "<id>"]` (or env `LULU_CONVERSATION_ID`) so path-guard hook applies to this conversation.
+**Step 5: Run `start.py`** — bootstraps `current_state: Preparing` with empty `current_task` / `current_phase`.
 
 **Step 6:** Read `code-task-list.md`; display tasks; wait for confirmation before execution.
 

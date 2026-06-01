@@ -48,8 +48,7 @@ Ask the user for the absolute path to the Delivered `tech-doc.md`. Do not auto-d
 python3 "$SKILL_DIR/scripts/start.py" \
   --project-root "$(pwd)" \
   --feature-id "<feature_id>" \
-  --tech-ref "<absolute-path-to-tech-doc.md>" \
-  [--conversation-id "<conversation_id>"]
+  --tech-ref "<absolute-path-to-tech-doc.md>"
 ```
 
 ---

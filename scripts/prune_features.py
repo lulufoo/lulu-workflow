@@ -100,7 +100,7 @@ def main() -> None:
         metavar="N",
         help="Number of most-recent features to keep (default: 5).",
     )
-    args = parser.parse_args()
+    args, _ = parser.parse_known_args()
 
     if args.keep < 1:
         parser.error("--keep must be at least 1")

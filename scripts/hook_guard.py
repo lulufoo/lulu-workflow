@@ -89,6 +89,29 @@ def main() -> int:
 
     # Early-return allow for non-write tools
     tool_name = str(normalized.get("tool_name") or "")
+
+    # Inject conversation_id into lulu-dev-workflow shell commands
+    if tool_name == "Shell":
+        try:
+            tool_input = normalized.get("tool_input") or {}
+            command = tool_input.get("command", "")
+            conv_id = (normalized.get("conversation_id") or "").strip()
+            if (
+                "lulu-dev-workflow" in command
+                and conv_id
+                and "--conversation-id" not in command
+            ):
+                new_cmd = f"{command} --conversation-id {conv_id}"
+                print(json.dumps({
+                    "permission": "allow",
+                    "updated_input": {"command": new_cmd},
+                }))
+                return 0
+        except Exception:
+            pass
+        print(json.dumps({"permission": "allow"}))
+        return 0
+
     if tool_name not in _WRITE_TOOL_NAMES:
         print(json.dumps({"permission": "allow"}))
         return 0

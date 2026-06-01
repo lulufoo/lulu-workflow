@@ -25,7 +25,7 @@ def main(argv: list[str] | None = None) -> int:
         choices=["cursor", "copilot"],
         help="Platform override (default: auto-detect).",
     )
-    args = parser.parse_args(argv)
+    args, _ = parser.parse_known_args(argv)
 
     project_root = Path(args.project_root).resolve()
     model = resolve_subagent_model(project_root, args.stage, args.platform)

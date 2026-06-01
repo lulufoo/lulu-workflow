@@ -59,5 +59,4 @@ Execute the `start` command from `diagnostic/SKILL.md`, passing `product-diagnos
 
 - Stage: `product-diagnostic`
 - Cache subdir: `product/diagnostic`
-- Include `[--conversation-id "<id>"]` per root `## Feature Context › Active Context`
 - Apply all constraints from `## Domain Constraints` above throughout the session.
