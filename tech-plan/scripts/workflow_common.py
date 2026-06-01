@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-SKILL_ROOT = Path(__file__).resolve().parents[1]
+SKILL_ROOT = Path(__file__).resolve().parents[1]  # .cache/<platform>/lulu-dev-workflow/tech
 WHITELIST_PATH = SKILL_ROOT / "transition-whitelist.json"
 
 _PLATFORM = (
@@ -19,14 +19,16 @@ _HOOKS_JSON_MAP = {
     "cursor":  Path(".cursor/hooks.json"),
     "copilot": Path(".github/hooks/hooks.json"),
 }
-_SCRIPTS_DIR = Path(__file__).resolve().parent
 
 WORKFLOW_DIR = _WORKFLOW_DIR_MAP.get(_PLATFORM, _WORKFLOW_DIR_MAP["cursor"])
 CACHE_DIR = Path(f".cache/{_PLATFORM}/lulu-dev-workflow")
-STAGE = "product"
+STAGE = "tech-plan"
 PLATFORM_CONFIG_PATH = WORKFLOW_DIR / "config.json"
 SHARED_CONFIG_DEFAULT = Path("skill-config/lulu-dev-workflow/workflow-config.json")
 HOOKS_JSON_PATH = _HOOKS_JSON_MAP.get(_PLATFORM, _HOOKS_JSON_MAP["cursor"])
+
+# Absolute path for hook command (workspace-local install)
+_SCRIPTS_DIR = Path(__file__).resolve().parent
 HOOK_COMMAND = f"python3 {_SCRIPTS_DIR / 'hook_guard.py'}"
 
 
@@ -102,16 +104,26 @@ def resolve_workflow_config_path(project_root: Path = Path(".")) -> Path:
 # Markdown state helpers
 # ---------------------------------------------------------------------------
 
-def write_md_state(path: Path, current_state: str, evaluate_round: int = 0) -> None:
+def write_md_state(
+    path: Path,
+    current_state: str,
+    evaluate_round: int = 0,
+    product_ref: str = "",
+    carry_forward_ref: str = "",
+    mode: str = "product",
+) -> None:
     """Write revision{N}/workflow-state.md with YAML frontmatter."""
     path.parent.mkdir(parents=True, exist_ok=True)
     now = datetime.now(timezone.utc).isoformat()
     content = (
         f"---\n"
         f"version: 1\n"
-        f"workflow: product\n"
+        f"workflow: tech-doc\n"
+        f"mode: {mode}\n"
         f"current_state: {current_state}\n"
         f"evaluate_round: {evaluate_round}\n"
+        f"product_ref: {product_ref}\n"
+        f"carry_forward_ref: {carry_forward_ref}\n"
         f"updated_at: {now}\n"
         f"---\n"
     )
@@ -120,7 +132,7 @@ def write_md_state(path: Path, current_state: str, evaluate_round: int = 0) -> N
 
 
 def write_session_state(path: Path, active_doc: int) -> None:
-    """Write session-state.md tracking the active product document round."""
+    """Write session-state.md tracking the active tech-doc round."""
     path.parent.mkdir(parents=True, exist_ok=True)
     now = datetime.now(timezone.utc).isoformat()
     content = (
@@ -148,7 +160,7 @@ def parse_frontmatter_fields(content: str) -> Dict[str, str]:
 
 
 def parse_frontmatter_state(content: str) -> Optional[str]:
-    """Extract current_state from YAML frontmatter in a markdown file."""
+    """Extract current_state from YAML frontmatter."""
     fields = parse_frontmatter_fields(content)
     return fields.get("current_state") or None
 
@@ -197,14 +209,9 @@ def merge_hook_entry(hooks_payload: Dict[str, Any]) -> Dict[str, Any]:
     pre_tool_use = hooks.setdefault("preToolUse", [])
     entry = hook_entry()
     new_cmd = entry["command"]
-    old_cmds = {
-        "python3 ~/.cursor/skills/product-doc-workflow/scripts/hook_guard.py",
-        "python3 .cursor/hooks/product-doc-transition-guard.py",
-    }
 
     for index, existing in enumerate(pre_tool_use):
-        cmd = existing.get("command", "")
-        if cmd == new_cmd or cmd in old_cmds:
+        if existing.get("command") == new_cmd:
             pre_tool_use[index] = entry
             return hooks_payload
 

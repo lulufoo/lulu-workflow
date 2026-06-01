@@ -8,7 +8,7 @@ _SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
-from archive_common import TECH_CONFIG, run_archive  # noqa: E402
+from archive_common import TECH_PLAN_CONFIG as TECH_CONFIG, run_archive  # noqa: E402
 
 
 def run(

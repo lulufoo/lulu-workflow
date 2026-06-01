@@ -33,12 +33,12 @@ def main() -> int:
 
     config_path = resolve_workflow_config_path(project_root)
     config = read_json(config_path, default={})
-    if "code" not in config:
-        config["code"] = CODE_CONFIG_DEFAULTS
+    if "tech-code" not in config:
+        config["tech-code"] = CODE_CONFIG_DEFAULTS
         write_json(config_path, config)
-        config_note = f"已添加 code 配置区块到 {config_path.as_posix()}"
+        config_note = f"已添加 tech-code 配置区块到 {config_path.as_posix()}"
     else:
-        config_note = f"code 配置区块已存在，跳过（{config_path.as_posix()}）"
+        config_note = f"tech-code 配置区块已存在，跳过（{config_path.as_posix()}）"
 
     start_py = Path(__file__).resolve().parent / "start.py"
     print(f"""

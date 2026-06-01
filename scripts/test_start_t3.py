@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 _SRC = Path(__file__).resolve().parents[2]  # lulu-dev-skills/
-_STAGES = ["diagnostic", "product", "tech", "work-order", "code"]
+_STAGES = ["diagnostic", "product-plan", "tech-plan", "tech-work-order", "tech-code"]
 _FID = "20260524143022-02cd7e6e"
 _ENV_COPILOT = {**os.environ, "LULU_PLATFORM": "copilot"}
 
@@ -137,38 +137,38 @@ class TestSessionPath:
 
     def _run_product(self, tmp_path):
         return subprocess.run(
-            [sys.executable, str(_start_py("product")),
+            [sys.executable, str(_start_py("product-plan")),
              "--project-root", str(tmp_path),
              "--feature-id", _FID],
             capture_output=True, text=True, env=_ENV_COPILOT,
-            cwd=str(_scripts_dir("product")),
+            cwd=str(_scripts_dir("product-plan")),
         )
 
     def _run_tech(self, tmp_path):
         return subprocess.run(
-            [sys.executable, str(_start_py("tech")),
+            [sys.executable, str(_start_py("tech-plan")),
              "--project-root", str(tmp_path),
              "--feature-id", _FID,
              "--run-mode", "tech"],
             capture_output=True, text=True, env=_ENV_COPILOT,
-            cwd=str(_scripts_dir("tech")),
+            cwd=str(_scripts_dir("tech-plan")),
         )
 
     def _run_work_order(self, tmp_path):
-        # work-order requires --tech-ref (existing file)
+        # tech-work-order requires --tech-ref (existing file)
         tech_ref = tmp_path / "tech-doc.md"
         tech_ref.write_text("# Tech Doc\n", encoding="utf-8")
         return subprocess.run(
-            [sys.executable, str(_start_py("work-order")),
+            [sys.executable, str(_start_py("tech-work-order")),
              "--project-root", str(tmp_path),
              "--feature-id", _FID,
              "--tech-ref", str(tech_ref)],
             capture_output=True, text=True, env=_ENV_COPILOT,
-            cwd=str(_scripts_dir("work-order")),
+            cwd=str(_scripts_dir("tech-work-order")),
         )
 
     def _run_code(self, tmp_path):
-        # code requires --mode and --task-list-ref (existing file with table)
+        # tech-code requires --mode and --task-list-ref (existing file with table)
         task_list = tmp_path / "task-list.md"
         task_list.write_text(
             "# Task List\n\n"
@@ -178,13 +178,13 @@ class TestSessionPath:
             encoding="utf-8",
         )
         return subprocess.run(
-            [sys.executable, str(_start_py("code")),
+            [sys.executable, str(_start_py("tech-code")),
              "--project-root", str(tmp_path),
              "--feature-id", _FID,
              "--mode", "task-from-work-order",
              "--task-list-ref", str(task_list)],
             capture_output=True, text=True, env=_ENV_COPILOT,
-            cwd=str(_scripts_dir("code")),
+            cwd=str(_scripts_dir("tech-code")),
         )
 
     def test_diagnostic_exits_zero(self, tmp_path):
@@ -212,12 +212,12 @@ class TestSessionPath:
 
     def test_product_diagnostic_stage_writes_nested_path(self, tmp_path):
         self._run_diagnostic_with_stage(tmp_path, "product-diagnostic")
-        ss = _cache_dir(tmp_path) / _FID / "product" / "diagnostic" / "session-state.md"
+        ss = _cache_dir(tmp_path) / _FID / "product-plan" / "diagnostic" / "session-state.md"
         assert ss.exists(), f"Expected session-state.md at {ss}"
 
     def test_tech_diagnostic_stage_writes_nested_path(self, tmp_path):
         self._run_diagnostic_with_stage(tmp_path, "tech-diagnostic")
-        ss = _cache_dir(tmp_path) / _FID / "tech" / "diagnostic" / "session-state.md"
+        ss = _cache_dir(tmp_path) / _FID / "tech-plan" / "diagnostic" / "session-state.md"
         assert ss.exists(), f"Expected session-state.md at {ss}"
 
     def test_product_diagnostic_active_context_stage_value(self, tmp_path):
@@ -230,20 +230,20 @@ class TestSessionPath:
 
     def test_product_session_file_at_feature_first_path(self, tmp_path):
         self._run_product(tmp_path)
-        ss = _cache_dir(tmp_path) / _FID / "product" / "session-state.md"
+        ss = _cache_dir(tmp_path) / _FID / "product-plan" / "session-state.md"
         assert ss.exists(), f"Expected session-state.md at {ss}"
 
     def test_tech_session_file_at_feature_first_path(self, tmp_path):
         self._run_tech(tmp_path)
-        ss = _cache_dir(tmp_path) / _FID / "tech" / "session-state.md"
+        ss = _cache_dir(tmp_path) / _FID / "tech-plan" / "session-state.md"
         assert ss.exists(), f"Expected session-state.md at {ss}"
 
     def test_work_order_session_file_at_feature_first_path(self, tmp_path):
         self._run_work_order(tmp_path)
-        ss = _cache_dir(tmp_path) / _FID / "work-order" / "session-state.md"
+        ss = _cache_dir(tmp_path) / _FID / "tech-work-order" / "session-state.md"
         assert ss.exists(), f"Expected session-state.md at {ss}"
 
     def test_code_session_file_at_feature_first_path(self, tmp_path):
         self._run_code(tmp_path)
-        ss = _cache_dir(tmp_path) / _FID / "code" / "session-state.md"
+        ss = _cache_dir(tmp_path) / _FID / "tech-code" / "session-state.md"
         assert ss.exists(), f"Expected session-state.md at {ss}"

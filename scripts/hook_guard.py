@@ -13,7 +13,12 @@ from typing import Optional
 _SKILL_ROOT = Path(__file__).resolve().parents[1]
 _PLATFORMS_DIR = Path(__file__).resolve().parent / "platforms"
 _WRITE_TOOL_NAMES = frozenset({"Write", "Edit"})
-_KNOWN_STAGES = frozenset({"diagnostic", "work-order", "tech", "product", "code"})
+_KNOWN_STAGES = frozenset({
+    "diagnostic",
+    "product-diagnostic", "tech-diagnostic",
+    "product-plan", "tech-plan",
+    "tech-work-order", "tech-code",
+})
 
 
 def _load_platform(platform: str):

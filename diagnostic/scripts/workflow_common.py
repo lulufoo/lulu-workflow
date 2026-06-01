@@ -10,8 +10,8 @@ CACHE_DIR = Path(f".cache/{_PLATFORM}/lulu-dev-workflow")
 STAGE = "diagnostic"
 
 _STAGE_TO_SUBDIR: dict[str, str] = {
-    "product-diagnostic": "product/diagnostic",
-    "tech-diagnostic": "tech/diagnostic",
+    "product-diagnostic": "product-plan/diagnostic",
+    "tech-diagnostic": "tech-plan/diagnostic",
     "diagnostic": "diagnostic",
 }
 
