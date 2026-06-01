@@ -56,7 +56,7 @@ python3 "$SKILL_DIR/scripts/start.py" \
 ## Session File Structure
 
 ```
-$CACHE_DIR/<feature_id>/tech-work-order/
+$CACHE_DIR/<feature_id>/tech/work-order/
   session-state.md               ← active_doc: N (monotonically increasing)
 
   r{N}/                          ← Nth work order
