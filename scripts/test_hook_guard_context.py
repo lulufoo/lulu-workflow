@@ -118,6 +118,76 @@ class TestMainRouting:
         assert hook_guard.main() == 0
         assert json.loads(captured.getvalue())["permission"] == "allow"
 
+    def test_shell_non_workflow_command_allows(self, tmp_path, monkeypatch):
+        import hook_guard
+
+        monkeypatch.chdir(tmp_path)
+        payload = json.dumps({
+            "tool_name": "Shell",
+            "tool_input": {"command": "git status"},
+            "conversation_id": "conv-a",
+        })
+        monkeypatch.setattr(sys, "stdin", io.StringIO(payload))
+        captured = io.StringIO()
+        monkeypatch.setattr(sys, "stdout", captured)
+        assert hook_guard.main() == 0
+        result = json.loads(captured.getvalue())
+        assert result["permission"] == "allow"
+        assert "updated_input" not in result
+
+    def test_shell_workflow_command_injects_conv_id(self, tmp_path, monkeypatch):
+        import hook_guard
+
+        monkeypatch.chdir(tmp_path)
+        cmd = "python3 ~/.cursor/skills/lulu-dev-workflow/diagnostic/scripts/start.py --feature-id fid1 --project-root /tmp"
+        payload = json.dumps({
+            "tool_name": "Shell",
+            "tool_input": {"command": cmd},
+            "conversation_id": "conv-xyz",
+        })
+        monkeypatch.setattr(sys, "stdin", io.StringIO(payload))
+        captured = io.StringIO()
+        monkeypatch.setattr(sys, "stdout", captured)
+        assert hook_guard.main() == 0
+        result = json.loads(captured.getvalue())
+        assert result["permission"] == "allow"
+        assert result["updated_input"]["command"].endswith("--conversation-id conv-xyz")
+
+    def test_shell_already_has_conv_id_no_duplicate(self, tmp_path, monkeypatch):
+        import hook_guard
+
+        monkeypatch.chdir(tmp_path)
+        cmd = "python3 ~/.cursor/skills/lulu-dev-workflow/diagnostic/scripts/start.py --conversation-id existing"
+        payload = json.dumps({
+            "tool_name": "Shell",
+            "tool_input": {"command": cmd},
+            "conversation_id": "conv-xyz",
+        })
+        monkeypatch.setattr(sys, "stdin", io.StringIO(payload))
+        captured = io.StringIO()
+        monkeypatch.setattr(sys, "stdout", captured)
+        assert hook_guard.main() == 0
+        result = json.loads(captured.getvalue())
+        assert result["permission"] == "allow"
+        assert "updated_input" not in result
+
+    def test_shell_workflow_command_no_conv_id_allows(self, tmp_path, monkeypatch):
+        import hook_guard
+
+        monkeypatch.chdir(tmp_path)
+        cmd = "python3 ~/.cursor/skills/lulu-dev-workflow/diagnostic/scripts/start.py --feature-id fid1"
+        payload = json.dumps({
+            "tool_name": "Shell",
+            "tool_input": {"command": cmd},
+        })
+        monkeypatch.setattr(sys, "stdin", io.StringIO(payload))
+        captured = io.StringIO()
+        monkeypatch.setattr(sys, "stdout", captured)
+        assert hook_guard.main() == 0
+        result = json.loads(captured.getvalue())
+        assert result["permission"] == "allow"
+        assert "updated_input" not in result
+
     def test_routes_by_conversation_id(self, tmp_path, monkeypatch):
         import active_context
         import hook_guard

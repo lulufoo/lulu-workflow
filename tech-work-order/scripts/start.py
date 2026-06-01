@@ -28,7 +28,7 @@ def parse_args() -> argparse.Namespace:
         default="",
         help="Cursor/Copilot conversation ID for active-context indexing.",
     )
-    return parser.parse_args()
+    return parser.parse_known_args()[0]
 
 
 def main() -> int:

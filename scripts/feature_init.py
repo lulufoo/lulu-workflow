@@ -91,6 +91,6 @@ if __name__ == "__main__":
         default="assisted",
         help="Execution mode: assisted (default) or self-service",
     )
-    args = parser.parse_args()
+    args, _ = parser.parse_known_args()
 
     main(Path(args.project_root), args.name, args.mode)

@@ -150,8 +150,7 @@ python3 feature_init.py --project-root "$(pwd)" --name "<name>" --mode "<mode>"
 { "<conversation_id>": { "feature_id": "...", "stage": "tech-plan" } }
 ```
 
-- Pass `--conversation-id "<id>"` to every stage `start.py`, or set env `LULU_CONVERSATION_ID`
-- Without conversation_id: stderr warning; path-guard hook does not apply to this conversation
+- `conversation_id` is injected automatically by `hook_guard.py` (preToolUse Shell hook); no manual `--conversation-id` needed
 - Re-starting a different feature in the **same** conversation overwrites that conv entry (one active workflow per conversation)
 - Legacy flat `{ "feature_id", "stage" }` format is not supported (hard cut)
 

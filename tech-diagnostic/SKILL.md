@@ -69,5 +69,4 @@ Execute the `start` command from `diagnostic/SKILL.md`, passing `tech-diagnostic
 
 - Stage: `tech-diagnostic`
 - Cache subdir: `tech/diagnostic`
-- Include `[--conversation-id "<id>"]` per root `## Feature Context › Active Context`
 - Apply all constraints from `## Domain Constraints` above throughout the session.

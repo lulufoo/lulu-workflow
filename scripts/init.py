@@ -42,7 +42,7 @@ def register_cursor_hook(project_root: Path) -> None:
         if "lulu-dev-workflow" not in e.get("command", "")
     ]
     pre_tool_use.append({
-        "matcher": "Write|Edit",
+        "matcher": "Write|Edit|Shell",
         "command": _CURSOR_HOOK_COMMAND,
         "timeout": 5,
         "failClosed": True,
@@ -91,7 +91,7 @@ def main() -> int:
         choices=["cursor", "copilot"],
         help="Target platform (cursor or copilot).",
     )
-    args = parser.parse_args()
+    args, _ = parser.parse_known_args()
     project_root = Path(args.project_root).resolve()
 
     for sub in SUB_WORKFLOWS:
