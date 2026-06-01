@@ -3,7 +3,7 @@ name: lulu-dev-workflow
 description: >-
   Top-level development workflow framework. Use when mentioning lulu-dev-workflow,
   开发工作流, dev workflow, product doc workflow, 产品文档流程, or any sub-stage
-  (diagnostic, product, tech, work-order, code).
+  (product-diagnostic, tech-diagnostic, diagnostic, product-plan, tech-plan, tech-work-order, tech-code).
 disable-model-invocation: true
 argument-hint: "[d=diagnostic | pd=product-diagnostic | td=tech-diagnostic | p=product | t=tech | w=work-order | c=code]"
 ---
@@ -37,20 +37,27 @@ When a stage delivers, AI must list the allowed next stages from the whitelist b
 
 | Current Stage | Allowed Next → |
 |---|---|
-| `diagnostic` | `tech` / `product` |
-| `product` | `tech` |
-| `tech` | `work-order` |
-| `work-order` | `code` |
-| `code` | done |
+| *(start)* | `product-diagnostic` / `tech-diagnostic` |
+| `product-diagnostic` | `product-plan` |
+| `product-plan` | `tech-diagnostic` / **done** |
+| `tech-diagnostic` | `tech-plan` |
+| `tech-plan` | `tech-work-order` |
+| `tech-work-order` | `tech-code` |
+| `tech-code` | done |
 
-> `tech` → `code` is **prohibited** — bypasses task breakdown and TDD-first discipline in `work-order`.
+> `tech-plan` → `tech-code` is **prohibited** — bypasses task breakdown and TDD-first discipline in `tech-work-order`.
+
+**Starting rules:**
+- `product-diagnostic` is the recommended entry for full-feature work (product decision → product-plan → tech line).
+- `tech-diagnostic` is the direct entry for pure tech work (no product phase needed).
 
 ### Stage Rollback
 
 Any participant may trigger a Stage Rollback when new information shows a prior stage's output is no longer valid:
 
 - **Trigger:** state the target stage to roll back to (any prior stage, any number of levels back)
-- **Effect:** target stage + all downstream stages are invalidated; they must be redone from scratch
+- **Effect on Product Line:** rolling back to `product-diagnostic` invalidates `product-plan` + entire tech line; rolling back to `product-plan` invalidates entire tech line.
+- **Effect on Tech Line:** rolling back to `tech-diagnostic` invalidates `tech-plan`, `tech-work-order`, `tech-code`.
 - **AI must announce:** "[target stage] and all downstream stages are invalidated. Restarting from [target stage]."
 
 Stage Rollback is distinct from the diagnostic `Re-open` mechanism (which operates within a single diagnostic session on gate-level inputs).
@@ -161,19 +168,19 @@ Creates `$WORKFLOW_DIR/workflow-config.json` and registers all sub-workflow hook
 
 | Field | Description |
 |-------|-------------|
-| `product.template_url` | 产品文档模板 |
-| `product.review_checklist_url` | 进入评估前审查清单 |
-| `product.pdqa_url` | PDQA 评估框架 |
-| `tech.tpt_url` | 技术方案模板（Tech Plan Template） |
-| `tech.tpef_url` | 技术方案评估框架（Tech Plan Evaluation Framework） |
-| `tech.ptc_url` | 产品-技术交叉检查（Product-Tech Crosscheck） |
-| `tech.ac_url` | 架构约束文档（如有） |
-| `work_order.task_template_url` | 单个施工单模板 |
-| `work_order.tasklist_template_url` | 施工单列表模板 |
-| `work_order.twca_url` | TWCA 评审框架 |
-| `work_order.woqa_url` | WOQA 质量评审框架 |
-| `code.test_command` | 项目测试命令（默认: `npm test`） |
-| `code.woqa_url` | TDD 质量审计框架 |
+| `product-plan.template_url` | 产品文档模板 |
+| `product-plan.review_checklist_url` | 进入评估前审查清单 |
+| `product-plan.pdqa_url` | PDQA 评估框架 |
+| `tech-plan.tpt_url` | 技术方案模板（Tech Plan Template） |
+| `tech-plan.tpef_url` | 技术方案评估框架（Tech Plan Evaluation Framework） |
+| `tech-plan.ptc_url` | 产品-技术交叉检查（Product-Tech Crosscheck） |
+| `tech-plan.ac_url` | 架构约束文档（如有） |
+| `tech-work-order.task_template_url` | 单个施工单模板 |
+| `tech-work-order.tasklist_template_url` | 施工单列表模板 |
+| `tech-work-order.twca_url` | TWCA 评审框架 |
+| `tech-work-order.woqa_url` | WOQA 质量评审框架 |
+| `tech-code.test_command` | 项目测试命令（默认: `npm test`） |
+| `tech-code.woqa_url` | TDD 质量审计框架 |
 
 Run `lulu-dev-workflow configure <github-blob-url>` to apply a config. See `configure` below.
 
