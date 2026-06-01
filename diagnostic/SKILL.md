@@ -137,10 +137,13 @@ Where `{cache_subdir}` is determined by the `--stage` argument:
 python3 "$SKILL_DIR/scripts/start.py" \
   --project-root "$(pwd)" \
   --feature-id "<feature_id>" \
-  --stage "<stage_name>"
+  --stage "<stage_name>" \
+  [--conversation-id "<conversation_id>"]
 ```
 
 Where `<stage_name>` is `product-diagnostic`, `tech-diagnostic`, or `diagnostic` (from the holder or the routing context).
+
+If `--conversation-id` is omitted and `LULU_CONVERSATION_ID` is unset, active-context is not updated and stderr warns that hook protection is disabled for this conversation.
 
 Creates `session-state.md` with `current_state: InProgress`.
 
