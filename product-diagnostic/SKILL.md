@@ -12,7 +12,7 @@ Domain holder for product-level diagnostic decisions. Delegates the full DDF exe
 Do NOT proceed until you have read `../SKILL.md` and loaded:
 
 - `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, `$CACHE_DIR` from `## Platform Context`
-- Feature identification logic from `## Feature Context`
+- Feature identification logic from `## Session Foundation`
 </HARD-GATE>
 
 <HARD-GATE>

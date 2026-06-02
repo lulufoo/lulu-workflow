@@ -19,7 +19,7 @@ Execute Test-Driven Development from a Delivered work-order task set, with git w
 Do NOT proceed until you have read `../SKILL.md` and loaded:
 
 - `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, `$CACHE_DIR` from `## Platform Context`
-- Feature identification logic from `## Feature Context`
+- Feature identification logic from `## Session Foundation`
 - Sub-agent model convention (`$RESOLVED_MODEL`) from `## Sub-agent Context › Config Resolution`
 </HARD-GATE>
 
@@ -43,7 +43,7 @@ If the user's input does not match this format, stop and output the usage error.
 
 **Step 0: Load `docs/git/git-workflow-standard.md`** — required before any git operations.
 
-**Step 1: Identify active feature** — See `## Feature Context` in `../SKILL.md`
+**Step 1: Identify active feature** — See `## Session Foundation` in `../SKILL.md`
 
 **Step 2–4:** Parse input, validate upstream Delivered state, collect paths.
 

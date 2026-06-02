@@ -21,7 +21,7 @@ that gates state transitions.
 Do NOT proceed until you have read `../SKILL.md` and loaded:
 
 - `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, `$CACHE_DIR` from `## Platform Context`
-- Feature identification logic from `## Feature Context`
+- Feature identification logic from `## Session Foundation`
 </HARD-GATE>
 
 `$SKILL_DIR` = `$SKILL_ROOT/tech-plan`
@@ -37,7 +37,7 @@ Do NOT proceed until you have read `../SKILL.md` and loaded:
 
 > Prerequisite: `init` has been run.
 
-**Step 1: Identify active feature** — See `## Feature Context` in `../SKILL.md`
+**Step 1: Identify active feature** — See `## Session Foundation` in `../SKILL.md`
 
 > Ambiguity signals: no footer in conversation · user mentions a different feature · user says "switch" / "new" / "choose"
 
@@ -304,9 +304,9 @@ Each review file shares the same structure; column set varies by dimension:
 - `carry_forward_ref`: provided on re-entry; version delta between old tech-doc and new product-doc must be resolved via mandatory Drafting calibration.
 - Re-entry = new iteration (new feature_id or revision{N}); never continue in the old directory.
 
-## Execution Mode
+## Execution Mode: Apply
 
-Read `$EXECUTION_MODE` from Feature Context (set by parent `SKILL.md`). Default: `assisted`.
+Read `$EXECUTION_MODE` from Session Foundation (set by parent `SKILL.md`). Default: `assisted`.
 
 | Mode | Behavior |
 |------|---------|

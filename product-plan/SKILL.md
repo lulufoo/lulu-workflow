@@ -25,7 +25,7 @@ the spec body.
 Do NOT proceed until you have read `../SKILL.md` and loaded:
 
 - `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, `$CACHE_DIR` from `## Platform Context`
-- Feature identification logic from `## Feature Context`
+- Feature identification logic from `## Session Foundation`
 </HARD-GATE>
 
 `$SKILL_DIR` = `$SKILL_ROOT/product-plan`
@@ -43,7 +43,7 @@ Markdown. During an active session, writes are restricted to
 
 > Prerequisite: `init` has been run.
 
-**Step 1: Identify active feature** — See `## Feature Context` in `../SKILL.md`
+**Step 1: Identify active feature** — See `## Session Foundation` in `../SKILL.md`
 
 > Ambiguity signals: no footer in conversation · user mentions a different feature · user says "switch" / "new" / "choose"
 

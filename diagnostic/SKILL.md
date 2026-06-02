@@ -14,7 +14,7 @@ Run a Diagnostic Decision Framework (DDF) session. **Mandatory before starting `
 Do NOT proceed until you have read `../SKILL.md` and loaded:
 
 - `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, `$CACHE_DIR` from `## Platform Context`
-- Feature identification logic from `## Feature Context`
+- Feature identification logic from `## Session Foundation`
 </HARD-GATE>
 
 `$SKILL_DIR` = `$SKILL_ROOT/diagnostic`
@@ -115,7 +115,7 @@ Two registers run throughout the entire session, not attached to any single gate
 
 ## Start
 
-**Step 1: Identify active feature** — See `## Feature Context` in `../SKILL.md`
+**Step 1: Identify active feature** — See `## Session Foundation` in `../SKILL.md`
 
 > Ambiguity signals: no footer in conversation · user mentions a different feature · user says "switch" / "new" / "choose"
 
