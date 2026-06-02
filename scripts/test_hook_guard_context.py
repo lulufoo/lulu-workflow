@@ -69,6 +69,42 @@ class TestReadActiveStage:
         assert _read_active_stage("cursor", "conv-a") is None
 
 
+class TestShouldInjectConversationId:
+    @pytest.mark.parametrize(
+        "command",
+        [
+            "python3 ~/.cursor/skills/lulu-dev-workflow/diagnostic/scripts/start.py --feature-id fid1",
+            "python3 ~/.cursor/skills/lulu-dev-workflow/scripts/hook_guard.py",
+            "python lulu-dev-workflow/product-plan/scripts/start.py --project-root /tmp",
+        ],
+    )
+    def test_workflow_py_invocation(self, command):
+        from hook_guard import _should_inject_conversation_id
+
+        assert _should_inject_conversation_id(command) is True
+
+    @pytest.mark.parametrize(
+        "command",
+        [
+            'git commit -m "docs(lulu-dev-workflow): subject"',
+            "git diff lulu-dev-workflow/SKILL.md",
+            "git add lulu-dev-workflow/scripts/hook_guard.py",
+            "git status",
+            "python3 feature_init.py --project-root /tmp",
+        ],
+    )
+    def test_non_workflow_py_invocation(self, command):
+        from hook_guard import _should_inject_conversation_id
+
+        assert _should_inject_conversation_id(command) is False
+
+    def test_already_has_conv_id(self):
+        from hook_guard import _should_inject_conversation_id
+
+        cmd = "python3 ~/.cursor/skills/lulu-dev-workflow/diagnostic/scripts/start.py --conversation-id existing"
+        assert _should_inject_conversation_id(cmd) is False
+
+
 class TestMainRouting:
     def test_no_conversation_id_allows(self, tmp_path, monkeypatch):
         import hook_guard
