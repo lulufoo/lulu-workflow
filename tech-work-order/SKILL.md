@@ -16,7 +16,7 @@ Decompose a Delivered tech-doc into independently executable TDD units (task fil
 Do NOT proceed until you have read `../SKILL.md` and loaded:
 
 - `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, `$CACHE_DIR` from `## Platform Context`
-- Feature identification logic from `## Feature Context`
+- Feature identification logic from `## Session Foundation`
 </HARD-GATE>
 
 `$SKILL_DIR` = `$SKILL_ROOT/tech-work-order`
@@ -32,7 +32,7 @@ Do NOT proceed until you have read `../SKILL.md` and loaded:
 
 > Prerequisite: `init` has been run. The upstream tech-doc must be in `Delivered` state.
 
-**Step 1: Identify active feature** — See `## Feature Context` in `../SKILL.md`
+**Step 1: Identify active feature** — See `## Session Foundation` in `../SKILL.md`
 
 > Ambiguity signals: no footer in conversation · user mentions a different feature · user says "switch" / "new" / "choose"
 
@@ -333,9 +333,9 @@ W1 and W2 share the same base structure; W1 groups issues by direction (Coverage
 - `task.md` is self-contained: constraints and context sections explicitly copy from tech-doc so the TDD session only reads `task.md`.
 - `tdd_exempt: true` tasks: TDD SKILL skips Red/Green/Refactor constraints.
 - Execution order: follow the topological sort of the dependency graph in `task-list.md`.
-## Execution Mode
+## Execution Mode: Apply
 
-Read `$EXECUTION_MODE` from Feature Context (set by parent `SKILL.md`). Default: `assisted`.
+Read `$EXECUTION_MODE` from Session Foundation (set by parent `SKILL.md`). Default: `assisted`.
 
 | Mode | Behavior |
 |------|---------|

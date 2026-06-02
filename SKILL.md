@@ -75,32 +75,64 @@ Stage Rollback is distinct from the diagnostic `Re-open` mechanism (which operat
 
 > **Detect:** `COPILOT_AGENT=1` env var → Copilot; `VSCODE_TARGET_SESSION_LOG` template variable present → Copilot; otherwise → Cursor.
 
-## Feature Context
+## Session Foundation
+
+### Active Context
+
+`active-context.json` is indexed by Cursor/Copilot `conversation_id`:
+
+```json
+{ "<conversation_id>": { "feature_id": "...", "stage": "tech-plan" } }
+```
+
+- `conversation_id` is injected automatically by `hook_guard.py` (preToolUse Shell hook); no manual `--conversation-id` needed
+- Re-starting a different feature in the **same** conversation overwrites that conv entry (one active workflow per conversation)
+- Legacy flat `{ "feature_id", "stage" }` format is not supported (hard cut)
+
+**Output variables:** `$FEATURE_ID` · `$EXECUTION_MODE` (`"assisted"` | `"self-service"`)
+
+### Execution Mode
+
+Defines how AI and user share control throughout the workflow.
+
+| Mode | Value | AI Behavior | User Role |
+|------|-------|-------------|-----------|
+| Assisted | `"assisted"` | AI leads: proactively advances, asks, recommends; waits at key gates | Approver |
+| Self-service | `"self-service"` | AI executes on instruction only; does not advance or suggest unprompted | Commander |
+
+`$EXECUTION_MODE` is set during Feature Resolution and applies to all subsequent stages.
+
+#### Initial Mode Resolution
+
+1. `feature_id` not in `features.json` → `"assisted"`
+2. Value is a string (legacy) → `"assisted"`
+3. Value is an object → use `object.execution_mode`
+
+#### Runtime Switch
+
+The user may switch mode at any point by entering:
+
+```
+SET_EXECUTION_MODE: <mode>
+```
+
+On detection: `$EXECUTION_MODE ← <mode>`, effective immediately for all remaining stages.
+Announce: `Execution mode → <mode>`
+
+Sub-SKILLs do not emit this command directly. They may prompt the user that switching is available.
+
+### Feature Resolution
 
 Run at session start for every sub-workflow.
 
----
-
-### Helper · resolve_execution_mode(feature_id)
-
-| `features.json[feature_id]` | → `execution_mode` |
-|---|---|
-| string (legacy) | `"assisted"` |
-| object | `object.execution_mode` |
-| missing | `"assisted"` |
-
----
-
-### Fast Path
+#### Fast Path
 
 1. Find the latest `LULU-DEV-WORKFLOW: <id>` line in this conversation *(skip conversation-summary blocks)*
-2. If found **and** no ambiguity signal → `$EXECUTION_MODE ← resolve_execution_mode(feature_id)` → **DONE**
+2. If found **and** no ambiguity signal → run Initial Mode Resolution for `feature_id` → **DONE**
 
 > **Ambiguity signals:** no footer · user mentions a different feature · user says "switch" / "new" / "choose"
 
----
-
-### Slow Path
+#### Slow Path
 
 1. Read `$CACHE_DIR/features.json` → display list. If the triggering message contains a feature description, derive a suggested name `<name>`.
 
@@ -119,7 +151,7 @@ Run at session start for every sub-workflow.
    *(Show `[default: "<name>"]` only when a name was derived from the triggering message.)*
 
 2. Parse response — both questions answered in one reply; any unanswered → default:
-   - **Feature:** integer → `feature_id ← features.json[n]`; `$EXECUTION_MODE ← resolve_execution_mode(feature_id)` → **DONE**; text → `name ← input`; no answer → use derived `<name>` if available
+   - **Feature:** integer → `feature_id ← features.json[n]`; run Initial Mode Resolution → **DONE**; text → `name ← input`; no answer → use derived `<name>` if available
    - **Mode:** `2` → `self-service`; anything else / no answer → `assisted`
 
 3. If a new name is resolved, run:
@@ -128,27 +160,21 @@ Run at session start for every sub-workflow.
    ```
    `$EXECUTION_MODE ← mode`
 
----
-
-### Done
+#### Done
 
 - `$FEATURE_ID` confirmed
 - Append `LULU-DEV-WORKFLOW: <feature_id>` to every workflow response
 - Read workflow docs only from `$CACHE_DIR/$FEATURE_ID/`
 
-### Active Context (multi-conversation)
+### Feature Tracking Convention
 
-`active-context.json` is indexed by Cursor/Copilot `conversation_id`:
+Every workflow AI response must end with:
 
-```json
-{ "<conversation_id>": { "feature_id": "...", "stage": "tech-plan" } }
+```
+LULU-DEV-WORKFLOW: <feature_id>
 ```
 
-- `conversation_id` is injected automatically by `hook_guard.py` (preToolUse Shell hook); no manual `--conversation-id` needed
-- Re-starting a different feature in the **same** conversation overwrites that conv entry (one active workflow per conversation)
-- Legacy flat `{ "feature_id", "stage" }` format is not supported (hard cut)
-
-**Output variables:** `$FEATURE_ID` · `$EXECUTION_MODE` (`"assisted"` | `"self-service"`)
+This line tracks the active feature per conversation window. Stage workflows use the latest such line as the fast path to identify `feature_id`. When no such line exists in the conversation, the slow path (interactive selection) is triggered instead.
 
 ## Sub-agent Context
 
@@ -268,16 +294,6 @@ python3 $SKILL_ROOT/scripts/prune_features.py \
 ```
 
 Prints a summary of deleted directories and retained features.
-
-## Feature Tracking Convention
-
-Every workflow AI response must end with:
-
-```
-LULU-DEV-WORKFLOW: <feature_id>
-```
-
-This line tracks the active feature per conversation window. Stage workflows use the latest such line as the fast path to identify `feature_id`. When no such line exists in the conversation, the slow path (interactive selection) is triggered instead.
 
 ## Sub-SKILL Routing
 
