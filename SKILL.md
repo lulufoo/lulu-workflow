@@ -104,8 +104,17 @@ Run at session start for every sub-workflow.
 
 **A. Triggering message contains a clear feature description**
 
-1. Derive name → confirm: `Feature name: "<name>". Correct?`
-2. → jump to **[Ask execution mode]**
+1. Derive name → ask in one message:
+   > `Feature: "<name>". Execution mode: (1) assisted [default]  (2) self-service  (3) rename`
+2. `1`/Enter → `assisted`；`2` → `self-service`；`3`/其他文本 → 视为新名称，重复步骤 1
+
+Run:
+\`\`\`bash
+python3 feature_init.py --project-root "$(pwd)" --name "<name>" --mode "<mode>"
+\`\`\`
+`$EXECUTION_MODE ← mode`
+
+---
 
 **B. No feature description in message**
 
@@ -117,22 +126,8 @@ Run at session start for every sub-workflow.
    N. New — type a description to create
    ```
 2. Prompt: `Enter number to select, or type a description to create:`
-3. Wait for single response:
-
-   | Input | Action |
-   |---|---|
-   | Integer | `feature_id ← features.json[n]`; `$EXECUTION_MODE ← resolve_execution_mode(feature_id)` → **DONE** |
-   | Other text | `name ← input` → **[Ask execution mode]** |
-
-**[Ask execution mode]**
-
-Prompt: `Execution mode: (1) assisted [default]  (2) self-service`
-Wait (Enter alone → `"assisted"`)
-Run:
-\`\`\`bash
-python3 feature_init.py --project-root "$(pwd)" --name "<name>" --mode "<mode>"
-\`\`\`
-`$EXECUTION_MODE ← mode`
+3. Integer → `feature_id ← features.json[n]`; `$EXECUTION_MODE ← resolve_execution_mode(feature_id)` → **DONE**  
+   Other text → `name ← input` → Path A step 1
 
 ---
 
