@@ -6,6 +6,7 @@ import importlib.util
 import io
 import json
 import os
+import re
 import sys
 from pathlib import Path
 from typing import Optional
@@ -48,6 +49,20 @@ def _load_stage_module(stage: str):
             pass
         sys.modules.pop("workflow_common", None)
         sys.modules.pop(f"_{stage}_hook_guard", None)
+
+
+# Any .py under the lulu-dev-workflow skill root (any subdir).
+_WORKFLOW_PY_PATH = re.compile(
+    r"lulu-dev-workflow[/\\][^\s;|&\"']+\.py\b"
+)
+
+
+def _should_inject_conversation_id(command: str) -> bool:
+    if "--conversation-id" in command:
+        return False
+    if not re.search(r"\bpython3?\b", command):
+        return False
+    return bool(_WORKFLOW_PY_PATH.search(command))
 
 
 def _read_active_stage(platform: str, conversation_id: str) -> Optional[str]:
@@ -96,11 +111,7 @@ def main() -> int:
             tool_input = normalized.get("tool_input") or {}
             command = tool_input.get("command", "")
             conv_id = (normalized.get("conversation_id") or "").strip()
-            if (
-                "lulu-dev-workflow" in command
-                and conv_id
-                and "--conversation-id" not in command
-            ):
+            if conv_id and _should_inject_conversation_id(command):
                 new_cmd = f"{command} --conversation-id {conv_id}"
                 print(json.dumps({
                     "permission": "allow",
