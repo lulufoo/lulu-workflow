@@ -102,32 +102,31 @@ Run at session start for every sub-workflow.
 
 ### Slow Path
 
-**A. Triggering message contains a clear feature description**
+1. Read `$CACHE_DIR/features.json` → display list. If the triggering message contains a feature description, derive a suggested name `<name>`.
 
-1. Derive name → ask in one message:
-   > `Feature: "<name>". Execution mode: (1) assisted [default]  (2) self-service  (3) rename`
-2. `1`/Enter → `assisted`；`2` → `self-service`；`3`/其他文本 → 视为新名称，重复步骤 1
-
-Run:
-\`\`\`bash
-python3 feature_init.py --project-root "$(pwd)" --name "<name>" --mode "<mode>"
-\`\`\`
-`$EXECUTION_MODE ← mode`
-
----
-
-**B. No feature description in message**
-
-1. Read `$CACHE_DIR/features.json` → display list:
    ```
+   Features:
    1. <name> [assisted]
    2. <name> [self-service]
-   ...
+   …
    N. New — type a description to create
    ```
-2. Prompt: `Enter number to select, or type a description to create:`
-3. Integer → `feature_id ← features.json[n]`; `$EXECUTION_MODE ← resolve_execution_mode(feature_id)` → **DONE**  
-   Other text → `name ← input` → Path A step 1
+
+   Ask both in one message:
+   > `Feature: enter number to select, or type a description to create [default: "<name>"]`  
+   > `Execution mode: (1) assisted [default]  (2) self-service`
+
+   *(Show `[default: "<name>"]` only when a name was derived from the triggering message.)*
+
+2. Parse response — both questions answered in one reply; any unanswered → default:
+   - **Feature:** integer → `feature_id ← features.json[n]`; `$EXECUTION_MODE ← resolve_execution_mode(feature_id)` → **DONE**; text → `name ← input`; no answer → use derived `<name>` if available
+   - **Mode:** `2` → `self-service`; anything else / no answer → `assisted`
+
+3. If a new name is resolved, run:
+   ```bash
+   python3 feature_init.py --project-root "$(pwd)" --name "<name>" --mode "<mode>"
+   ```
+   `$EXECUTION_MODE ← mode`
 
 ---
 
