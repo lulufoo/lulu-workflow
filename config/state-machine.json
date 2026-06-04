@@ -1,0 +1,22 @@
+{
+  "version": 2,
+  "cycle_types": {
+    "topic": {
+      "stages": ["product-diagnostic", "product-plan", "tech-diagnostic", "tech-plan"],
+      "terminal": "tech-plan"
+    },
+    "feature": {
+      "stages": ["product-diagnostic", "product-plan", "tech-diagnostic", "tech-plan", "tech-work-order", "tech-code"],
+      "terminal": "tech-code"
+    }
+  },
+  "session_states": ["Drafting", "Evaluating", "Delivered", "Invalidated"],
+  "topic_ref_stage": {
+    "product-diagnostic": "product-diagnostic",
+    "product-plan": "product-plan",
+    "tech-diagnostic": "tech-diagnostic",
+    "tech-plan": "tech-plan",
+    "tech-work-order": "tech-plan",
+    "tech-code": null
+  }
+}
