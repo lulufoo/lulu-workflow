@@ -335,16 +335,16 @@ W1 and W2 share the same base structure; W1 groups issues by direction (Coverage
 - Execution order: follow the topological sort of the dependency graph in `task-list.md`.
 ## Execution Mode: Apply
 
-Read `$EXECUTION_MODE` from Session Foundation (set by parent `SKILL.md`). Default: `assisted`.
+Read `$EXECUTION_MODE` from Session Foundation (set by parent `SKILL.md`). Default: `copilot`.
 
 | Mode | Behavior |
 |------|---------|
-| `assisted` | Current behavior — all rules apply as documented |
-| `self-service` | Apply the overrides below; all other rules unchanged |
+| `copilot` | Current behavior — all rules apply as documented |
+| `autonomous` | Apply the overrides below; all other rules unchanged |
 
-### Self-Service Overrides
+### Autonomous Overrides
 
-| Rule | Self-Service Behavior |
+| Rule | Autonomous Behavior |
 |------|-----------------------|
 | `start` Step 2 — tech-ref path | **Unchanged: always ask.** (W1 start gate) |
 | Drafting D2 Step 1 — confirm task breakdown | Auto-confirm. Proceed to task.md generation without asking. |

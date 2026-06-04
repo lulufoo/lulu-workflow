@@ -306,16 +306,16 @@ Each review file shares the same structure; column set varies by dimension:
 
 ## Execution Mode: Apply
 
-Read `$EXECUTION_MODE` from Session Foundation (set by parent `SKILL.md`). Default: `assisted`.
+Read `$EXECUTION_MODE` from Session Foundation (set by parent `SKILL.md`). Default: `copilot`.
 
 | Mode | Behavior |
 |------|---------|
-| `assisted` | Current behavior — all rules apply as documented |
-| `self-service` | Apply the overrides below; all other rules unchanged |
+| `copilot` | Current behavior — all rules apply as documented |
+| `autonomous` | Apply the overrides below; all other rules unchanged |
 
-### Self-Service Overrides
+### Autonomous Overrides
 
-| Rule | Self-Service Behavior |
+| Rule | Autonomous Behavior |
 |------|-----------------------|
 | `start` Step 2 — run-mode detection | Auto-detect: if triggering message or session context includes a product-doc path → `product` mode; otherwise → `tech` mode. Do **not** ask. |
 | Drafting Rule D2 — recalibrate on re-entry | Default Yes. Do **not** ask. |
