@@ -47,7 +47,7 @@ def ensure_feature_dir(cache_dir: Path, feature_id: str) -> Path:
     return target
 
 
-def update_features_json(cache_dir: Path, feature_id: str, name: str, mode: str = "assisted") -> None:
+def update_features_json(cache_dir: Path, feature_id: str, name: str, mode: str = "copilot") -> None:
     """Append {feature_id: {name, execution_mode}} to features.json (create if absent)."""
     fj = cache_dir / "features.json"
     if fj.exists():
@@ -58,7 +58,7 @@ def update_features_json(cache_dir: Path, feature_id: str, name: str, mode: str 
     fj.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def main(project_root: Path, name: str, mode: str = "assisted") -> str:
+def main(project_root: Path, name: str, mode: str = "copilot") -> str:
     """Orchestrate feature initialization. Returns feature_id."""
     if not project_root.is_dir():
         print(f"Error: --project-root does not exist: {project_root}", file=sys.stderr)
@@ -87,9 +87,9 @@ if __name__ == "__main__":
     parser.add_argument("--name", required=True, help="Human-readable feature name")
     parser.add_argument(
         "--mode",
-        choices=["assisted", "self-service"],
-        default="assisted",
-        help="Execution mode: assisted (default) or self-service",
+        choices=["copilot", "autonomous"],
+        default="copilot",
+        help="Execution mode: copilot (default) or autonomous",
     )
     args, _ = parser.parse_known_args()
 
