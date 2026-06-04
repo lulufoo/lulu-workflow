@@ -5,6 +5,9 @@ from pathlib import Path
 
 from archive import run as run_archive
 from workflow_common import (
+    CACHE_DIR,
+    detect_container_type,
+    load_container_meta,
     read_md_field,
     session_state_path,
     state_path,
@@ -41,6 +44,14 @@ def main() -> int:
         print(f"错误：--tech-ref 文件不存在：{tech_ref}")
         return 1
 
+    container_type = detect_container_type(feature_id)
+    cache_dir = project_root / CACHE_DIR
+    try:
+        load_container_meta(cache_dir, feature_id, container_type)
+    except ValueError as e:
+        print(f"错误：{e}")
+        return 1
+
     # archive: deferred  archive_rc = run_archive(project_root, exclude_conv_id=feature_id)
     # archive: deferred  if archive_rc != 0:
     # archive: deferred      return archive_rc
@@ -59,6 +70,7 @@ def main() -> int:
         project_root,
         feature_id,
         conversation_id=args.conversation_id.strip() or None,
+        container_type=container_type,
     )
 
     ws_path = project_root / state_path(feature_id, active_doc)

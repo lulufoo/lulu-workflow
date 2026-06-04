@@ -4,7 +4,14 @@ import argparse
 from pathlib import Path
 
 from archive import run as run_archive
-from workflow_common import session_state_path, write_active_context, write_session_state
+from workflow_common import (
+    CACHE_DIR,
+    detect_container_type,
+    load_container_meta,
+    session_state_path,
+    write_active_context,
+    write_session_state,
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -30,6 +37,14 @@ def main() -> int:
     feature_id = args.feature_id.strip()
     stage = args.stage.strip()
 
+    container_type = detect_container_type(feature_id)
+    cache_dir = project_root / CACHE_DIR
+    try:
+        load_container_meta(cache_dir, feature_id, container_type)
+    except ValueError as e:
+        print(f"错误：{e}")
+        return 1
+
     # archive: deferred  archive_rc = run_archive(project_root, exclude_conv_id=feature_id)
     # archive: deferred  if archive_rc != 0:
     # archive: deferred      return archive_rc
@@ -41,6 +56,7 @@ def main() -> int:
         feature_id,
         conversation_id=args.conversation_id.strip() or None,
         stage=stage,
+        container_type=container_type,
     )
 
     print(f"""

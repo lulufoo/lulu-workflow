@@ -123,7 +123,7 @@ class TestWriteEntry:
 
         write_entry(tmp_path, "cursor", "conv-a", _FID, "tech-plan")
         data = read_all(tmp_path, "cursor")
-        assert data["conv-a"] == {"feature_id": _FID, "stage": "tech-plan"}
+        assert data["conv-a"] == {"feature_id": _FID, "stage": "tech-plan", "container_type": "feature"}
 
     def test_merge_write_preserves_other_keys(self, tmp_path):
         from active_context import read_all, write_entry
