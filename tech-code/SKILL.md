@@ -33,7 +33,8 @@ Do NOT proceed until you have read `../SKILL.md` and loaded:
 
 | Format | Meaning | Example |
 |--------|---------|---------|
-| `tech-work-order/<uuid>` | Source: specified tech-work-order session | `/code tech-work-order/1d2ea64b-065d-4e12-9008-9163d475ee00` |
+| *(no input)* | Derive feature from active context (`$FEATURE_ID` resolved in Step 1) | `/code` |
+| `<feature_id>` | Explicit feature override; format: `<timestamp>-<uuid>` | `/code 20260601141338-3764ab2b` |
 
 If the user's input does not match this format, stop and output the usage error.
 
