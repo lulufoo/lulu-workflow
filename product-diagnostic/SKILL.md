@@ -53,6 +53,13 @@ Tell user: "Product diagnostic is complete. The next step is `/product-plan` (al
 
 ---
 
+## Topic Mode
+
+<!-- T3.4 topic-mode interim note — replace this paragraph in t9 when check_gate calls are added -->
+When the active container is a **topic** (i.e. `container_type: topic` in `active-context.json`), this stage operates as a **product architecture diagnostic**. The diagnostic scope is bounded by the topic's architectural question rather than a deliverable feature spec. All DDF dimensions and gates apply unchanged; the decision-doc is scoped to the architectural concern of the topic. No `product-plan` handoff is implied — the topic owner decides the next step after the diagnostic concludes.
+
+---
+
 ## start
 
 Execute the `start` command from `diagnostic/SKILL.md`, passing `product-diagnostic` as the stage:

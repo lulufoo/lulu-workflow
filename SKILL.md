@@ -90,14 +90,15 @@ Stage Rollback is distinct from the diagnostic `Re-open` mechanism (which operat
 `active-context.json` is indexed by Cursor/Copilot `conversation_id`:
 
 ```json
-{ "<conversation_id>": { "feature_id": "...", "stage": "tech-plan" } }
+{ "<conversation_id>": { "feature_id": "...", "stage": "tech-plan", "container_type": "feature" } }
 ```
 
+- `container_type`: `"topic"` | `"feature"` — backward compat: absent field is treated as `"feature"`
 - `conversation_id` is injected automatically by `hook_guard.py` (preToolUse Shell hook); no manual `--conversation-id` needed
 - Re-starting a different feature in the **same** conversation overwrites that conv entry (one active workflow per conversation)
 - Legacy flat `{ "feature_id", "stage" }` format is not supported (hard cut)
 
-**Output variables:** `$FEATURE_ID` · `$EXECUTION_MODE` (`"assisted"` | `"self-service"`)
+**Output variables:** `$FEATURE_ID` · `$EXECUTION_MODE` (`"copilot"` | `"autonomous"`)
 
 ### Execution Mode
 
@@ -105,15 +106,16 @@ Defines how AI and user share control throughout the workflow.
 
 | Mode | Value | AI Behavior | User Role |
 |------|-------|-------------|-----------|
-| Assisted | `"assisted"` | AI leads: proactively advances, asks, recommends; waits at key gates | Approver |
-| Self-service | `"self-service"` | AI executes on instruction only; does not advance or suggest unprompted | Commander |
+| Copilot | `"copilot"` | AI leads: proactively advances, asks, recommends; waits at key gates | Approver |
+| Autonomous | `"autonomous"` | AI executes on instruction only; does not advance or suggest unprompted | Commander |
 
 `$EXECUTION_MODE` is set during Feature Resolution and applies to all subsequent stages.
 
 #### Initial Mode Resolution
 
-1. `feature_id` not in `features.json` → `"assisted"`
-2. Value is a string (legacy) → `"assisted"`
+1. `feature_id` not in `features.json` (and not in `topics.json`) → `"copilot"`
+   - topic-id is resolved from `topics.json`; feature-id is resolved from `features.json`
+2. Value is a string (legacy) → `"copilot"` (backward-compat: `"assisted"` → `"copilot"`; `"self-service"` → `"autonomous"`)
 3. Value is an object → use `object.execution_mode`
 
 #### Runtime Switch
@@ -142,25 +144,26 @@ Run at session start for every sub-workflow.
 
 #### Slow Path
 
-1. Read `$CACHE_DIR/features.json` → display list. If the triggering message contains a feature description, derive a suggested name `<name>`.
+1. Read `$CACHE_DIR/features.json` and `$CACHE_DIR/topics.json` → display combined list. If the triggering message contains a description, derive a suggested name `<name>`.
 
    ```
-   Features:
-   1. <name> [assisted]
-   2. <name> [self-service]
+   Containers:
+   [topic]   1. <name> [copilot]
+   [feature] 2. <name> [autonomous]
    …
-   N. New — type a description to create
+   N. New topic — type a description to create
+   M. New feature — type a description to create
    ```
 
    Ask both in one message:
-   > `Feature: enter number to select, or type a description to create [default: "<name>"]`  
-   > `Execution mode: (1) assisted [default]  (2) self-service`
+   > `Container: enter number to select, or type a description to create [default: "<name>"]`  
+   > `Execution mode: (1) copilot [default]  (2) autonomous`
 
    *(Show `[default: "<name>"]` only when a name was derived from the triggering message.)*
 
 2. Parse response — both questions answered in one reply; any unanswered → default:
    - **Feature:** integer → `feature_id ← features.json[n]`; run Initial Mode Resolution → **DONE**; text → `name ← input`; no answer → use derived `<name>` if available
-   - **Mode:** `2` → `self-service`; anything else / no answer → `assisted`
+   - **Mode:** `2` → `autonomous`; anything else / no answer → `copilot`
 
 3. If a new name is resolved, run:
    ```bash
@@ -179,8 +182,10 @@ Run at session start for every sub-workflow.
 Every workflow AI response must end with:
 
 ```
-LULU-DEV-WORKFLOW: <feature_id>
+LULU-DEV-WORKFLOW: <container_id> type=<topic|feature>
 ```
+
+> `type=` tag identifies the container type. Omitting the tag (legacy format) is treated as `type=feature` for backward compatibility.
 
 This line tracks the active feature per conversation window. Stage workflows use the latest such line as the fast path to identify `feature_id`. When no such line exists in the conversation, the slow path (interactive selection) is triggered instead.
 

@@ -36,6 +36,13 @@ Markdown. During an active session, writes are restricted to
 
 ---
 
+## Topic Mode
+
+<!-- T3.4 topic-mode interim note — replace this paragraph in t9 when check_gate calls are added -->
+When the active container is a **topic** (i.e. `container_type: topic` in `active-context.json`), this stage operates as a **product planning architecture** session — not a deliverable product spec. The workflow drives architectural thinking and planning artifacts for the topic; it does not produce a PDQA-evaluated spec or `ReadyForDelivery` transition. State model and file structure remain the same; the planning output is understood as an architectural exploration rather than a binding product requirement.
+
+---
+
 ## Commands
 
 

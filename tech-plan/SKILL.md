@@ -30,6 +30,13 @@ Do NOT proceed until you have read `../SKILL.md` and loaded:
 
 ---
 
+## Topic Mode
+
+<!-- T3.4 topic-mode interim note — replace this paragraph in t9 when check_gate calls are added -->
+When the active container is a **topic** (i.e. `container_type: topic` in `active-context.json`), this stage operates as a **tech planning architecture** session — not a deliverable tech spec. The workflow drives architectural thinking and planning for the topic; it does not produce an evaluated tech-doc or `ReadyForDelivery` transition. State model and file structure remain the same; the planning output is understood as an architectural exploration rather than a binding implementation plan.
+
+---
+
 ## Commands
 
 
