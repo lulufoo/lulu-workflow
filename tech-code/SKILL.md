@@ -13,7 +13,7 @@ Execute Test-Driven Development from a Delivered work-order task set, with git w
 
 **This workflow runs in Agent mode.** (requires writing code files and executing Shell commands)
 
-**`/code` authorizes** automatic `git commit` / `git commit --amend` inside the session worktree during Executing. Push, PR, CI, and review are post-code (out of scope).
+**`/tech-code` authorizes** automatic `git commit` / `git commit --amend` inside the session worktree during Executing. Push, PR, CI, and review are post-code (out of scope).
 
 <HARD-GATE>
 Do NOT proceed until you have read `../SKILL.md` and loaded:
@@ -29,7 +29,7 @@ Do NOT proceed until you have read `../SKILL.md` and loaded:
 
 ## Commands
 
-### `/code <input>` — Entry point
+### `/tech-code <input>` — Entry point
 
 | Format | Meaning | Example |
 |--------|---------|---------|
