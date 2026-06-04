@@ -43,15 +43,15 @@ def parse_work_order_task_list(content: str):
             in_table = True
             continue
         in_table = True
-        cols = [c.strip() for c in line.strip("|").split("|")]
+        cols = _split_markdown_row(line)
         if len(cols) < 5:
             continue
         task_id, title, target_file_raw, depends_raw, tdd_exempt_raw = cols[:5]
         task_id = task_id.strip()
-        if not re.match(r"^t\d+$", task_id):
+        if not re.match(r"^t\d+[a-z]*$", task_id):
             continue
         # Strip backticks from target_file
-        target_file = target_file_raw.strip().strip("`")
+        target_file = target_file_raw.strip().replace("`", "")
         # Parse depends: "—" or "t1, t2"
         depends_raw = depends_raw.strip()
         depends = []
@@ -68,6 +68,19 @@ def parse_work_order_task_list(content: str):
             }
         )
     return tasks
+
+
+def _split_markdown_row(line: str):
+    cells = []
+    current = []
+    for char in line.strip().strip("|"):
+        if char == "|" and (not current or current[-1] != "\\"):
+            cells.append("".join(current).replace("\\|", "|").strip())
+            current = []
+            continue
+        current.append(char)
+    cells.append("".join(current).replace("\\|", "|").strip())
+    return cells
 
 
 def build_code_task_list_md(tasks, source: str, task_list_ref: str) -> str:
