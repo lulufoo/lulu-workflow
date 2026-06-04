@@ -90,7 +90,7 @@ class TestUpdateFeaturesJson:
         from feature_init import update_features_json
         update_features_json(tmp_path, "20260524143022-02cd7e6e", "my-feature")
         data = json.loads((tmp_path / "features.json").read_text())
-        assert data == {"20260524143022-02cd7e6e": {"name": "my-feature", "execution_mode": "assisted"}}
+        assert data == {"20260524143022-02cd7e6e": {"name": "my-feature", "execution_mode": "copilot"}}
 
     def test_appends_without_overwriting_existing_entry(self, tmp_path):
         from feature_init import update_features_json
@@ -100,7 +100,7 @@ class TestUpdateFeaturesJson:
         update_features_json(tmp_path, "20260524143022-02cd7e6e", "new-feat")
         data = json.loads((tmp_path / "features.json").read_text())
         assert data["20260524000000-11111111"] == "existing-feat"
-        assert data["20260524143022-02cd7e6e"] == {"name": "new-feat", "execution_mode": "assisted"}
+        assert data["20260524143022-02cd7e6e"] == {"name": "new-feat", "execution_mode": "copilot"}
 
     def test_multiple_sequential_calls_accumulate(self, tmp_path):
         from feature_init import update_features_json
@@ -113,7 +113,7 @@ class TestUpdateFeaturesJson:
         from feature_init import update_features_json
         update_features_json(tmp_path, "20260524143022-02cd7e6e", "cache restructure")
         data = json.loads((tmp_path / "features.json").read_text())
-        assert data["20260524143022-02cd7e6e"] == {"name": "cache restructure", "execution_mode": "assisted"}
+        assert data["20260524143022-02cd7e6e"] == {"name": "cache restructure", "execution_mode": "copilot"}
 
 
 # ---------------------------------------------------------------------------
@@ -130,6 +130,7 @@ class TestCLI:
             str(_SCRIPTS / "feature_init.py"),
             "--project-root", str(tmp_path),
             "--name", name,
+            "--type", "feature",
         ]
         if extra_args:
             cmd.extend(extra_args)
@@ -157,7 +158,7 @@ class TestCLI:
         fid = result.stdout.strip().splitlines()[-1]
         fj = self._cache_dir(tmp_path) / "features.json"
         data = json.loads(fj.read_text())
-        assert data[fid] == {"name": "my-feature", "execution_mode": "assisted"}
+        assert data[fid] == {"name": "my-feature", "execution_mode": "copilot"}
 
     def test_consecutive_calls_append_features_json(self, tmp_path):
         self._run(tmp_path, name="feat-0")
@@ -187,34 +188,55 @@ class TestCLI:
 # ---------------------------------------------------------------------------
 
 class TestUpdateFeaturesJsonMode:
-    def test_default_writes_object_with_assisted(self, tmp_path):
+    def test_default_writes_object_with_copilot(self, tmp_path):
         from feature_init import update_features_json
         update_features_json(tmp_path, "20260524143022-02cd7e6e", "my-feature")
         data = json.loads((tmp_path / "features.json").read_text())
-        assert data["20260524143022-02cd7e6e"] == {"name": "my-feature", "execution_mode": "assisted"}
+        assert data["20260524143022-02cd7e6e"] == {"name": "my-feature", "execution_mode": "copilot"}
 
-    def test_explicit_assisted_writes_object(self, tmp_path):
+    def test_explicit_copilot_writes_object(self, tmp_path):
         from feature_init import update_features_json
-        update_features_json(tmp_path, "20260524143022-02cd7e6e", "my-feature", "assisted")
+        update_features_json(tmp_path, "20260524143022-02cd7e6e", "my-feature", "copilot")
         data = json.loads((tmp_path / "features.json").read_text())
-        assert data["20260524143022-02cd7e6e"] == {"name": "my-feature", "execution_mode": "assisted"}
+        assert data["20260524143022-02cd7e6e"] == {"name": "my-feature", "execution_mode": "copilot"}
 
-    def test_self_service_writes_object(self, tmp_path):
+    def test_autonomous_writes_object(self, tmp_path):
         from feature_init import update_features_json
-        update_features_json(tmp_path, "20260524143022-02cd7e6e", "my-feature", "self-service")
+        update_features_json(tmp_path, "20260524143022-02cd7e6e", "my-feature", "autonomous")
         data = json.loads((tmp_path / "features.json").read_text())
-        assert data["20260524143022-02cd7e6e"] == {"name": "my-feature", "execution_mode": "self-service"}
+        assert data["20260524143022-02cd7e6e"] == {"name": "my-feature", "execution_mode": "autonomous"}
 
-    def test_old_string_entries_preserved(self, tmp_path):
-        """Old string-format entries must not be modified (no migration)."""
+    def test_old_slug_entries_preserved(self, tmp_path):
+        """Old slug entries must not be modified (no migration)."""
         from feature_init import update_features_json
         (tmp_path / "features.json").write_text(
-            json.dumps({"20260524000000-11111111": "old-string-format"})
+            json.dumps(
+                {
+                    "20260524000000-11111111": {
+                        "name": "legacy-assisted",
+                        "execution_mode": "assisted",
+                    },
+                    "20260524000000-22222222": {
+                        "name": "legacy-self-service",
+                        "execution_mode": "self-service",
+                    },
+                }
+            )
         )
         update_features_json(tmp_path, "20260524143022-02cd7e6e", "new-feat")
         data = json.loads((tmp_path / "features.json").read_text())
-        assert data["20260524000000-11111111"] == "old-string-format"
-        assert isinstance(data["20260524143022-02cd7e6e"], dict)
+        assert data["20260524000000-11111111"] == {
+            "name": "legacy-assisted",
+            "execution_mode": "assisted",
+        }
+        assert data["20260524000000-22222222"] == {
+            "name": "legacy-self-service",
+            "execution_mode": "self-service",
+        }
+        assert data["20260524143022-02cd7e6e"] == {
+            "name": "new-feat",
+            "execution_mode": "copilot",
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -228,6 +250,7 @@ class TestCLIMode:
             str(_SCRIPTS / "feature_init.py"),
             "--project-root", str(tmp_path),
             "--name", name,
+            "--type", "feature",
         ]
         if extra_args:
             cmd.extend(extra_args)
@@ -236,18 +259,287 @@ class TestCLIMode:
     def _cache_dir(self, tmp_path):
         return tmp_path / ".cache" / "copilot" / "lulu-dev-workflow"
 
-    def test_no_mode_flag_writes_assisted_object(self, tmp_path):
+    def test_no_mode_flag_writes_copilot_object(self, tmp_path):
         result = self._run(tmp_path, name="my-feature")
         fid = result.stdout.strip().splitlines()[-1]
         data = json.loads((self._cache_dir(tmp_path) / "features.json").read_text())
-        assert data[fid] == {"name": "my-feature", "execution_mode": "assisted"}
+        assert data[fid] == {"name": "my-feature", "execution_mode": "copilot"}
 
-    def test_mode_self_service_writes_object(self, tmp_path):
-        result = self._run(tmp_path, name="my-feature", extra_args=["--mode", "self-service"])
+    def test_mode_copilot_writes_object(self, tmp_path):
+        result = self._run(tmp_path, name="my-feature", extra_args=["--mode", "copilot"])
         fid = result.stdout.strip().splitlines()[-1]
         data = json.loads((self._cache_dir(tmp_path) / "features.json").read_text())
-        assert data[fid] == {"name": "my-feature", "execution_mode": "self-service"}
+        assert data[fid] == {"name": "my-feature", "execution_mode": "copilot"}
+
+    def test_mode_autonomous_writes_object(self, tmp_path):
+        result = self._run(tmp_path, name="my-feature", extra_args=["--mode", "autonomous"])
+        fid = result.stdout.strip().splitlines()[-1]
+        data = json.loads((self._cache_dir(tmp_path) / "features.json").read_text())
+        assert data[fid] == {"name": "my-feature", "execution_mode": "autonomous"}
 
     def test_invalid_mode_exits_nonzero(self, tmp_path):
         result = self._run(tmp_path, name="my-feature", extra_args=["--mode", "invalid_mode"])
         assert result.returncode != 0
+
+    def test_old_mode_assisted_exits_nonzero(self, tmp_path):
+        result = self._run(tmp_path, name="my-feature", extra_args=["--mode", "assisted"])
+        assert result.returncode != 0
+
+    def test_old_mode_self_service_exits_nonzero(self, tmp_path):
+        result = self._run(tmp_path, name="my-feature", extra_args=["--mode", "self-service"])
+        assert result.returncode != 0
+
+
+# ---------------------------------------------------------------------------
+# t3: generate_topic_id
+# ---------------------------------------------------------------------------
+
+_TOPIC_ID_RE = re.compile(r"^topic-\d{14}-[0-9a-f]{8}$")
+
+
+class TestGenerateTopicId:
+    def test_format_matches_pattern(self):
+        from feature_init import generate_topic_id
+        tid = generate_topic_id()
+        assert _TOPIC_ID_RE.match(tid), f"Bad format: {tid!r}"
+
+    def test_prefix_is_topic(self):
+        from feature_init import generate_topic_id
+        tid = generate_topic_id()
+        assert tid.startswith("topic-")
+
+    def test_consecutive_calls_unique(self):
+        from feature_init import generate_topic_id
+        ids = [generate_topic_id() for _ in range(10)]
+        assert len(set(ids)) == 10, "Duplicate topic IDs"
+
+
+# ---------------------------------------------------------------------------
+# t3: ensure_container_dir
+# ---------------------------------------------------------------------------
+
+class TestEnsureContainerDir:
+    def test_creates_directory(self, tmp_path):
+        from feature_init import ensure_container_dir
+        cid = "topic-20260524143022-aabbccdd"
+        result = ensure_container_dir(tmp_path, cid)
+        assert result == tmp_path / cid
+        assert result.is_dir()
+
+    def test_idempotent(self, tmp_path):
+        from feature_init import ensure_container_dir
+        cid = "topic-20260524143022-aabbccdd"
+        ensure_container_dir(tmp_path, cid)
+        result = ensure_container_dir(tmp_path, cid)
+        assert result.is_dir()
+
+
+# ---------------------------------------------------------------------------
+# t3: update_topics_json
+# ---------------------------------------------------------------------------
+
+class TestUpdateTopicsJson:
+    def test_creates_file_when_absent(self, tmp_path):
+        from feature_init import update_topics_json
+        update_topics_json(tmp_path, "topic-20260524143022-aabbccdd", "my-topic")
+        tj = tmp_path / "topics.json"
+        assert tj.exists()
+
+    def test_initial_content(self, tmp_path):
+        from feature_init import update_topics_json
+        tid = "topic-20260524143022-aabbccdd"
+        update_topics_json(tmp_path, tid, "my-topic")
+        data = json.loads((tmp_path / "topics.json").read_text())
+        assert data == {tid: {"name": "my-topic", "execution_mode": "copilot"}}
+
+    def test_mode_autonomous(self, tmp_path):
+        from feature_init import update_topics_json
+        tid = "topic-20260524143022-aabbccdd"
+        update_topics_json(tmp_path, tid, "my-topic", "autonomous")
+        data = json.loads((tmp_path / "topics.json").read_text())
+        assert data[tid]["execution_mode"] == "autonomous"
+
+    def test_two_consecutive_calls_independent(self, tmp_path):
+        from feature_init import update_topics_json
+        tid1 = "topic-20260524143022-aabbccdd"
+        tid2 = "topic-20260524143022-11223344"
+        update_topics_json(tmp_path, tid1, "topic-one")
+        update_topics_json(tmp_path, tid2, "topic-two")
+        data = json.loads((tmp_path / "topics.json").read_text())
+        assert len(data) == 2
+        assert tid1 in data
+        assert tid2 in data
+
+    def test_old_entries_unchanged(self, tmp_path):
+        from feature_init import update_topics_json
+        existing = {"topic-20260524000000-oldentry": {"name": "old", "execution_mode": "copilot"}}
+        (tmp_path / "topics.json").write_text(json.dumps(existing))
+        tid = "topic-20260524143022-aabbccdd"
+        update_topics_json(tmp_path, tid, "new-topic")
+        data = json.loads((tmp_path / "topics.json").read_text())
+        assert data["topic-20260524000000-oldentry"] == {"name": "old", "execution_mode": "copilot"}
+        assert tid in data
+
+
+# ---------------------------------------------------------------------------
+# t3: validate_topic_exists
+# ---------------------------------------------------------------------------
+
+class TestValidateTopicExists:
+    def test_returns_true_when_exists(self, tmp_path):
+        from feature_init import update_topics_json, validate_topic_exists
+        tid = "topic-20260524143022-aabbccdd"
+        update_topics_json(tmp_path, tid, "my-topic")
+        assert validate_topic_exists(tmp_path, tid) is True
+
+    def test_returns_false_when_not_exists(self, tmp_path):
+        from feature_init import update_topics_json, validate_topic_exists
+        tid = "topic-20260524143022-aabbccdd"
+        update_topics_json(tmp_path, tid, "my-topic")
+        assert validate_topic_exists(tmp_path, "topic-99999999999999-ffffffff") is False
+
+    def test_returns_false_when_topics_json_absent(self, tmp_path):
+        from feature_init import validate_topic_exists
+        assert validate_topic_exists(tmp_path, "topic-20260524143022-aabbccdd") is False
+
+
+# ---------------------------------------------------------------------------
+# t3: update_features_json with topic_id
+# ---------------------------------------------------------------------------
+
+class TestUpdateFeaturesJsonTopicId:
+    def test_no_topic_id_arg_no_field(self, tmp_path):
+        from feature_init import update_features_json
+        update_features_json(tmp_path, "20260524143022-02cd7e6e", "my-feature")
+        data = json.loads((tmp_path / "features.json").read_text())
+        entry = data["20260524143022-02cd7e6e"]
+        assert "topic_id" not in entry
+
+    def test_topic_id_arg_writes_field(self, tmp_path):
+        from feature_init import update_features_json
+        tid = "topic-20260524000000-aabbccdd"
+        update_features_json(tmp_path, "20260524143022-02cd7e6e", "my-feature", topic_id=tid)
+        data = json.loads((tmp_path / "features.json").read_text())
+        entry = data["20260524143022-02cd7e6e"]
+        assert entry["topic_id"] == tid
+
+    def test_old_entries_no_topic_id_unchanged(self, tmp_path):
+        """Old entries lacking topic_id must not be modified when appending new entry."""
+        from feature_init import update_features_json
+        old = {"20260524000000-11111111": {"name": "old-feat", "execution_mode": "copilot"}}
+        (tmp_path / "features.json").write_text(json.dumps(old))
+        update_features_json(tmp_path, "20260524143022-02cd7e6e", "new-feat")
+        data = json.loads((tmp_path / "features.json").read_text())
+        assert "topic_id" not in data["20260524000000-11111111"]
+
+
+# ---------------------------------------------------------------------------
+# t3: CLI --type topic
+# ---------------------------------------------------------------------------
+
+# _ENV_COPILOT already defined at module level above
+
+
+class TestCLITypeTopic:
+    def _run(self, tmp_path, name="test-topic", extra_args=None):
+        cmd = [
+            sys.executable, str(_SCRIPTS / "feature_init.py"),
+            "--project-root", str(tmp_path),
+            "--name", name,
+            "--type", "topic",
+        ]
+        if extra_args:
+            cmd.extend(extra_args)
+        return subprocess.run(cmd, capture_output=True, text=True, env=_ENV_COPILOT)
+
+    def _cache_dir(self, tmp_path):
+        return tmp_path / ".cache" / "copilot" / "lulu-dev-workflow"
+
+    def test_exit_zero(self, tmp_path):
+        result = self._run(tmp_path)
+        assert result.returncode == 0, result.stderr
+
+    def test_stdout_last_line_is_topic_id(self, tmp_path):
+        result = self._run(tmp_path)
+        last = result.stdout.strip().splitlines()[-1]
+        assert _TOPIC_ID_RE.match(last), f"Not a topic_id: {last!r}"
+
+    def test_topics_json_entry_created(self, tmp_path):
+        result = self._run(tmp_path, name="my-topic")
+        tid = result.stdout.strip().splitlines()[-1]
+        tj = self._cache_dir(tmp_path) / "topics.json"
+        assert tj.exists()
+        data = json.loads(tj.read_text())
+        assert tid in data
+        assert data[tid]["name"] == "my-topic"
+        assert data[tid]["execution_mode"] == "copilot"
+
+    def test_topic_container_dir_created(self, tmp_path):
+        result = self._run(tmp_path)
+        tid = result.stdout.strip().splitlines()[-1]
+        assert (self._cache_dir(tmp_path) / tid).is_dir()
+
+    def test_two_consecutive_topics_independent(self, tmp_path):
+        r1 = self._run(tmp_path, name="topic-one")
+        r2 = self._run(tmp_path, name="topic-two")
+        tid1 = r1.stdout.strip().splitlines()[-1]
+        tid2 = r2.stdout.strip().splitlines()[-1]
+        assert tid1 != tid2
+        data = json.loads((self._cache_dir(tmp_path) / "topics.json").read_text())
+        assert tid1 in data
+        assert tid2 in data
+
+
+# ---------------------------------------------------------------------------
+# t3: CLI --type feature (with and without --topic-id)
+# ---------------------------------------------------------------------------
+
+class TestCLITypeFeature:
+    def _run(self, tmp_path, name="test-feature", extra_args=None):
+        cmd = [
+            sys.executable,
+            str(_SCRIPTS / "feature_init.py"),
+            "--project-root", str(tmp_path),
+            "--name", name,
+            "--type", "feature",
+        ]
+        if extra_args:
+            cmd.extend(extra_args)
+        return subprocess.run(cmd, capture_output=True, text=True, env=_ENV_COPILOT)
+
+    def _cache_dir(self, tmp_path):
+        return tmp_path / ".cache" / "copilot" / "lulu-dev-workflow"
+
+    def test_type_feature_exit_zero(self, tmp_path):
+        result = self._run(tmp_path)
+        assert result.returncode == 0, result.stderr
+
+    def test_type_feature_stdout_is_feature_id(self, tmp_path):
+        result = self._run(tmp_path)
+        last = result.stdout.strip().splitlines()[-1]
+        assert _FEATURE_ID_RE.match(last), f"Not a feature_id: {last!r}"
+
+    def test_type_feature_no_topic_id_no_field(self, tmp_path):
+        result = self._run(tmp_path, name="my-feature")
+        fid = result.stdout.strip().splitlines()[-1]
+        data = json.loads((self._cache_dir(tmp_path) / "features.json").read_text())
+        assert "topic_id" not in data[fid]
+
+    def test_type_feature_with_valid_topic_id(self, tmp_path):
+        topic_result = subprocess.run(
+            [sys.executable, str(_SCRIPTS / "feature_init.py"),
+             "--project-root", str(tmp_path), "--name", "my-topic", "--type", "topic"],
+            capture_output=True, text=True, env=_ENV_COPILOT,
+        )
+        tid = topic_result.stdout.strip().splitlines()[-1]
+        result = self._run(tmp_path, name="my-feature", extra_args=["--topic-id", tid])
+        assert result.returncode == 0, result.stderr
+        fid = result.stdout.strip().splitlines()[-1]
+        data = json.loads((self._cache_dir(tmp_path) / "features.json").read_text())
+        assert data[fid]["topic_id"] == tid
+
+    def test_type_feature_invalid_topic_id_exits_nonzero(self, tmp_path):
+        result = self._run(tmp_path, name="my-feature",
+                           extra_args=["--topic-id", "topic-99999999999999-ffffffff"])
+        assert result.returncode != 0
+        assert result.stderr.strip() != "", "stderr should have an error message"

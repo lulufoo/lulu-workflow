@@ -40,6 +40,13 @@ def generate_feature_id() -> str:
     return f"{ts}-{hex_part}"
 
 
+def generate_topic_id() -> str:
+    """Return a topic ID: topic-YYYYMMDDHHMMSS-{8hexchars}."""
+    ts = datetime.now(tz=timezone.utc).strftime("%Y%m%d%H%M%S")
+    hex_part = uuid4().hex[:8]
+    return f"topic-{ts}-{hex_part}"
+
+
 def ensure_feature_dir(cache_dir: Path, feature_id: str) -> Path:
     """Create cache_dir/{feature_id}/ and return its Path."""
     target = cache_dir / feature_id
@@ -47,19 +54,60 @@ def ensure_feature_dir(cache_dir: Path, feature_id: str) -> Path:
     return target
 
 
-def update_features_json(cache_dir: Path, feature_id: str, name: str, mode: str = "copilot") -> None:
-    """Append {feature_id: {name, execution_mode}} to features.json (create if absent)."""
+def ensure_container_dir(cache_dir: Path, container_id: str) -> Path:
+    """Create cache_dir/{container_id}/ and return its Path."""
+    target = cache_dir / container_id
+    target.mkdir(parents=True, exist_ok=True)
+    return target
+
+
+def update_features_json(
+    cache_dir: Path,
+    feature_id: str,
+    name: str,
+    mode: str = "copilot",
+    topic_id: str = None,
+) -> None:
+    """Append {feature_id: {name, execution_mode[, topic_id]}} to features.json."""
     fj = cache_dir / "features.json"
     if fj.exists():
         data: dict = json.loads(fj.read_text(encoding="utf-8"))
     else:
         data = {}
-    data[feature_id] = {"name": name, "execution_mode": mode}
+    entry = {"name": name, "execution_mode": mode}
+    if topic_id is not None:
+        entry["topic_id"] = topic_id
+    data[feature_id] = entry
     fj.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def main(project_root: Path, name: str, mode: str = "copilot") -> str:
-    """Orchestrate feature initialization. Returns feature_id."""
+def update_topics_json(
+    cache_dir: Path,
+    topic_id: str,
+    name: str,
+    mode: str = "copilot",
+) -> None:
+    """Append {topic_id: {name, execution_mode}} to topics.json (create if absent)."""
+    tj = cache_dir / "topics.json"
+    if tj.exists():
+        data: dict = json.loads(tj.read_text(encoding="utf-8"))
+    else:
+        data = {}
+    data[topic_id] = {"name": name, "execution_mode": mode}
+    tj.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def validate_topic_exists(cache_dir: Path, topic_id: str) -> bool:
+    """Return True if topic_id exists in topics.json; False if absent or not found."""
+    tj = cache_dir / "topics.json"
+    if not tj.exists():
+        return False
+    data: dict = json.loads(tj.read_text(encoding="utf-8"))
+    return topic_id in data
+
+
+def main(project_root: Path, name: str, mode: str = "copilot", container_type: str = "feature", topic_id: str = None) -> str:
+    """Orchestrate initialization. Returns container_id."""
     if not project_root.is_dir():
         print(f"Error: --project-root does not exist: {project_root}", file=sys.stderr)
         sys.exit(1)
@@ -67,12 +115,20 @@ def main(project_root: Path, name: str, mode: str = "copilot") -> str:
     cache_dir = _cache_dir(project_root)
     cache_dir.mkdir(parents=True, exist_ok=True)
 
-    feature_id = generate_feature_id()
-    ensure_feature_dir(cache_dir, feature_id)
-    update_features_json(cache_dir, feature_id, name, mode)
+    if container_type == "topic":
+        container_id = generate_topic_id()
+        ensure_container_dir(cache_dir, container_id)
+        update_topics_json(cache_dir, container_id, name, mode)
+    else:
+        if topic_id is not None and not validate_topic_exists(cache_dir, topic_id):
+            print(f"Error: topic_id not found in topics.json: {topic_id}", file=sys.stderr)
+            sys.exit(1)
+        container_id = generate_feature_id()
+        ensure_feature_dir(cache_dir, container_id)
+        update_features_json(cache_dir, container_id, name, mode, topic_id=topic_id)
 
-    print(feature_id)
-    return feature_id
+    print(container_id)
+    return container_id
 
 
 # ---------------------------------------------------------------------------
@@ -81,16 +137,28 @@ def main(project_root: Path, name: str, mode: str = "copilot") -> str:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Initialize a new lulu-dev-workflow feature."
+        description="Initialize a new lulu-dev-workflow container (feature or topic)."
     )
     parser.add_argument("--project-root", required=True, help="Workspace root path")
-    parser.add_argument("--name", required=True, help="Human-readable feature name")
+    parser.add_argument("--name", required=True, help="Human-readable name")
     parser.add_argument(
         "--mode",
         choices=["copilot", "autonomous"],
         default="copilot",
         help="Execution mode: copilot (default) or autonomous",
     )
-    args, _ = parser.parse_known_args()
+    parser.add_argument(
+        "--type",
+        choices=["topic", "feature"],
+        required=True,
+        dest="container_type",
+        help="Container type: topic or feature",
+    )
+    parser.add_argument(
+        "--topic-id",
+        default=None,
+        help="Associate this feature with an existing topic (only valid with --type feature)",
+    )
+    args = parser.parse_args()
 
-    main(Path(args.project_root), args.name, args.mode)
+    main(Path(args.project_root), args.name, args.mode, args.container_type, args.topic_id)
