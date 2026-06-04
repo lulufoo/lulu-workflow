@@ -29,6 +29,14 @@ under this directory.
 > **tech-diagnostic** is the entry point for pure tech work (produces tech-scoped decision-doc).
 > **diagnostic** runs without domain constraints (standalone use).
 
+## Utilities
+
+Cross-cutting tools that may be invoked from any stage. Not part of the Stage Transitions pipeline.
+
+| Utility | Module | When to use |
+|---------|--------|-------------|
+| Research synthesis | `research-synthesis/` | External evidence synthesis; before `diagnostic` for landscape research, or during `diagnostic` R/V gates to assess assumptions that require external evidence |
+
 ## Stage Transitions
 
 When a stage delivers, AI must list the allowed next stages from the whitelist below, recommend one, and wait for explicit user selection. AI must not infer and execute the next stage autonomously.
