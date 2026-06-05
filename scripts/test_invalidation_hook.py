@@ -169,7 +169,7 @@ class TestInvalidateDownstream:
         sp = self.cache_dir / "feat-1" / "tech-plan" / "r1" / "workflow-state.md"
         assert _parse_frontmatter(sp.read_text())["current_state"] == "Invalidated"
 
-    def test_only_affects_given_container_id(self):
+    def test_only_affects_given_cycle_id(self):
         _make_state(self.cache_dir, "feat-1", "tech-plan", "r1", "Delivered")
         sp2 = _make_state(self.cache_dir, "feat-2", "tech-plan", "r1", "Delivered")
         invalidate_downstream("feat-1", "product-plan", "feature", self.cache_dir)

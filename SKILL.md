@@ -41,7 +41,7 @@ Cross-cutting tools that may be invoked from any stage. Not part of the Stage Tr
 
 When a stage delivers:
 1. Read `$SKILL_ROOT/config/transition-table.json`
-2. Look up the entry where `from == <current_stage>` under the `container_type` key (`topic` or `feature`)
+2. Look up the entry where `from == <current_stage>` under the `cycle_type` key (`topic` or `feature`)
 3. List allowed next stages from the `to` array, recommend one, wait for explicit user selection (see § Autonomous Tech Line Auto-Chain for the exception)
 4. If `to` is empty: announce completion; display the `note` field if present
 
@@ -53,11 +53,11 @@ When a stage delivers:
 
 ### § Autonomous Tech Line Auto-Chain
 
-**Trigger conditions:** `$EXECUTION_MODE == "autonomous"` AND `container_type == "feature"`
+**Trigger conditions:** `$EXECUTION_MODE == "autonomous"` AND `cycle_type == "feature"`
 
 Does **not** trigger for:
 - Copilot mode (any container type)
-- Topic containers (`container_type == "topic"`) — topic containers have no tech-work-order or tech-code stages
+- Topic containers (`cycle_type == "topic"`) — topic containers have no tech-work-order or tech-code stages
 
 When triggered, stage handoff in the Tech Line is automatic — no user selection required:
 
@@ -102,10 +102,10 @@ Stage Rollback is distinct from the diagnostic `Re-open` mechanism (which operat
 `active-context.json` is indexed by Cursor/Copilot `conversation_id`:
 
 ```json
-{ "<conversation_id>": { "feature_id": "...", "stage": "tech-plan", "container_type": "feature" } }
+{ "<conversation_id>": { "cycle_id": "...", "stage": "tech-plan", "cycle_type": "feature" } }
 ```
 
-- `container_type`: `"topic"` | `"feature"` — backward compat: absent field is treated as `"feature"`
+- `cycle_type`: `"topic"` | `"feature"` — backward compat: absent field is treated as `"feature"`
 - Re-starting a different feature in the **same** conversation overwrites that conv entry (one active workflow per conversation)
 
 **Output variables:** `$FEATURE_ID` · `$EXECUTION_MODE` (`"copilot"` | `"autonomous"`)
@@ -123,8 +123,8 @@ Defines how AI and user share control throughout the workflow.
 
 #### Initial Mode Resolution
 
-1. `feature_id` not in `features.json` (and not in `topics.json`) → `"copilot"`
-   - topic-id is resolved from `topics.json`; feature-id is resolved from `features.json`
+1. `cycle_id` not in `features.json` (and not in `topics.json`) → `"copilot"`
+   - topic-id is resolved from `topics.json`; cycle-id is resolved from `features.json`
 2. Value is a string (legacy) → `"copilot"` (backward-compat: `"assisted"` → `"copilot"`; `"self-service"` → `"autonomous"`)
 3. Value is an object → use `object.execution_mode`
 
@@ -148,7 +148,7 @@ Run at session start for every sub-workflow.
 #### Fast Path
 
 1. Find the latest `LULU-DEV-WORKFLOW: <id>` line in this conversation *(skip conversation-summary blocks)*
-2. If found **and** no ambiguity signal → run Initial Mode Resolution for `feature_id` → **DONE**
+2. If found **and** no ambiguity signal → run Initial Mode Resolution for `cycle_id` → **DONE**
 
 > **Ambiguity signals:** no footer · user mentions a different feature · user says "switch" / "new" / "choose"
 
@@ -172,19 +172,19 @@ Run at session start for every sub-workflow.
    *(Show `[default: "<name>"]` only when a name was derived from the triggering message.)*
 
 2. Parse response — both questions answered in one reply; any unanswered → default:
-   - **Feature:** integer → `feature_id ← features.json[n]`; run Initial Mode Resolution → **DONE**; text → `name ← input`; no answer → use derived `<name>` if available
+   - **Feature:** integer → `cycle_id ← features.json[n]`; run Initial Mode Resolution → **DONE**; text → `name ← input`; no answer → use derived `<name>` if available
    - **Mode:** `2` → `autonomous`; anything else / no answer → `copilot`
 
 3. If a new name is resolved, run:
    ```bash
-   python3 feature_init.py --project-root "$(pwd)" --name "<name>" --mode "<mode>"
+   python3 cycle_init.py --project-root "$(pwd)" --name "<name>" --mode "<mode>"
    ```
    `$EXECUTION_MODE ← mode`
 
 #### Done
 
 - `$FEATURE_ID` confirmed
-- Append `LULU-DEV-WORKFLOW: <feature_id>` to every workflow response
+- Append `LULU-DEV-WORKFLOW: <cycle_id>` to every workflow response
 - Read workflow docs only from `$CACHE_DIR/$FEATURE_ID/`
 
 ### Feature Tracking Convention
@@ -192,12 +192,12 @@ Run at session start for every sub-workflow.
 Every workflow AI response must end with:
 
 ```
-LULU-DEV-WORKFLOW: <container_id> type=<topic|feature>
+LULU-DEV-WORKFLOW: <cycle_id> type=<topic|feature>
 ```
 
 > `type=` tag identifies the container type. Omitting the tag (legacy format) is treated as `type=feature` for backward compatibility.
 
-This line tracks the active feature per conversation window. Stage workflows use the latest such line as the fast path to identify `feature_id`. When no such line exists in the conversation, the slow path (interactive selection) is triggered instead.
+This line tracks the active cycle per conversation window. Stage workflows use the latest such line as the fast path to identify `cycle_id`. When no such line exists in the conversation, the slow path (interactive selection) is triggered instead.
 
 ## Sub-agent Context
 
@@ -295,20 +295,20 @@ https://github.com/lulufoo/ai-software-dev/blob/main/lulu-dev-workflow-template/
 
 ### `start [name]` — Create a new feature
 
-Creates a new feature and prints the `feature_id`:
+Creates a new feature and prints the `cycle_id`:
 
 ```bash
-python3 $SKILL_ROOT/scripts/feature_init.py \
+python3 $SKILL_ROOT/scripts/cycle_init.py \
   --project-root "$(pwd)" --name "[name]"
 ```
 
-Prints the `feature_id` (format: `YYYYMMDDHHMMSS-xxxxxxxx`). After running, append `LULU-DEV-WORKFLOW: <feature_id>` to this response.
+Prints the `cycle_id` (format: `YYYYMMDDHHMMSS-xxxxxxxx`). After running, append `LULU-DEV-WORKFLOW: <cycle_id>` to this response.
 
 ### `archive [N]` — Prune old features, keep N most recent
 
 Usage: `lulu-dev-workflow archive [N]` (default N=5)
 
-Keeps the N most recent features (by creation timestamp in `feature_id`) in `$CACHE_DIR`. Deletes older feature directories and removes their entries from `features.json`.
+Keeps the N most recent features (by creation timestamp in `cycle_id`) in `$CACHE_DIR`. Deletes older feature directories and removes their entries from `features.json`.
 
 ```bash
 python3 $SKILL_ROOT/scripts/prune_features.py \

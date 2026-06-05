@@ -31,12 +31,12 @@ def archive_diagnostic_dir(conversation_id: str) -> Path:
     return CACHE_DIR / "_archive" / conversation_id / "diagnostic"
 
 
-def session_base_dir(feature_id: str, stage: str = STAGE) -> Path:
-    return CACHE_DIR / feature_id / _cache_subdir(stage)
+def session_base_dir(cycle_id: str, stage: str = STAGE) -> Path:
+    return CACHE_DIR / cycle_id / _cache_subdir(stage)
 
 
-def session_state_path(feature_id: str, stage: str = STAGE) -> Path:
-    return session_base_dir(feature_id, stage) / "session-state.md"
+def session_state_path(cycle_id: str, stage: str = STAGE) -> Path:
+    return session_base_dir(cycle_id, stage) / "session-state.md"
 
 
 def write_session_state(path: Path, current_state: str) -> None:
@@ -62,42 +62,42 @@ def normalize_tool_path(raw_path: str, project_root: Path) -> str:
     return candidate.as_posix()
 
 
-def detect_container_type(container_id: str) -> str:
-    """Return 'topic' if container_id starts with 'topic-', else 'feature'."""
-    return "topic" if container_id.startswith("topic-") else "feature"
+def detect_cycle_type(cycle_id: str) -> str:
+    """Return 'topic' if cycle_id starts with 'topic-', else 'feature'."""
+    return "topic" if cycle_id.startswith("topic-") else "feature"
 
 
-def load_container_meta(cache_dir: Path, container_id: str, container_type: str) -> dict:
+def load_container_meta(cache_dir: Path, cycle_id: str, cycle_type: str) -> dict:
     """Load container metadata from topics.json or features.json.
 
-    topic: topics.json must exist and contain container_id; raises ValueError otherwise.
+    topic: topics.json must exist and contain cycle_id; raises ValueError otherwise.
     feature: if features.json absent, returns {} (backward compat);
-             if present but missing container_id, raises ValueError.
+             if present but missing cycle_id, raises ValueError.
     """
-    if container_type == "topic":
+    if cycle_type == "topic":
         json_file = cache_dir / "topics.json"
         if not json_file.exists():
             raise ValueError(f"topics.json not found: {json_file}")
         data = json.loads(json_file.read_text(encoding="utf-8"))
-        if container_id not in data:
-            raise ValueError(f"topic-id {container_id!r} not found in topics.json")
-        return data[container_id]
+        if cycle_id not in data:
+            raise ValueError(f"topic-id {cycle_id!r} not found in topics.json")
+        return data[cycle_id]
     else:
         json_file = cache_dir / "features.json"
         if not json_file.exists():
             return {}
         data = json.loads(json_file.read_text(encoding="utf-8"))
-        if container_id not in data:
-            raise ValueError(f"feature-id {container_id!r} not found in features.json")
-        return data[container_id]
+        if cycle_id not in data:
+            raise ValueError(f"cycle-id {cycle_id!r} not found in features.json")
+        return data[cycle_id]
 
 
 def write_active_context(
     project_root: Path,
-    feature_id: str,
+    cycle_id: str,
     conversation_id: Optional[str] = None,
     stage: str = STAGE,
-    container_type: str = "feature",
+    cycle_type: str = "feature",
 ) -> None:
     _scripts_dir = Path(__file__).resolve().parents[2] / "scripts"
     if str(_scripts_dir) not in sys.path:
@@ -112,4 +112,4 @@ def write_active_context(
         )
         return
     platform = os.environ.get("LULU_PLATFORM", "cursor")
-    write_entry(project_root, platform, conv_id, feature_id, stage, container_type=container_type)
+    write_entry(project_root, platform, conv_id, cycle_id, stage, cycle_type=cycle_type)

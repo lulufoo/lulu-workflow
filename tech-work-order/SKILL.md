@@ -30,10 +30,10 @@ Do NOT proceed until you have read `../SKILL.md` and loaded:
 Before starting this stage, the AI must:
 
 1. Read `features.json` (or `topics.json`) to confirm the current container type (`topic` / `feature`) and container ID.
-2. Call `check_gate(container_id, to_stage="tech-work-order", cycle_type, cache_dir)` via the `hook_guard.py` script:
+2. Call `check_gate(cycle_id, to_stage="tech-work-order", cycle_type, cache_dir)` via the `hook_guard.py` script:
    - If `ok == False`: stop, output `reason` to user, do not proceed.
    - If `ok == True`: continue.
-3. If container is `feature` and has `topic_id`: call `get_topic_doc(container_id, "tech-work-order", cache_dir)` to retrieve the topic reference document.
+3. If container is `feature` and has `topic_id`: call `get_topic_doc(cycle_id, "tech-work-order", cache_dir)` to retrieve the topic reference document.
    - If path returned: inform user of the topic doc path and load it as context.
    - If `None`: skip silently.
    - If `ValueError`: stop, output error to user, do not proceed.
@@ -50,7 +50,7 @@ Before starting this stage, the AI must:
 
 > Prerequisite: `init` has been run. The upstream tech-doc must be in `Delivered` state.
 
-**Step 1: Identify active feature** — See `## Session Foundation` in `../SKILL.md`
+**Step 1: Identify active cycle** — See `## Session Foundation` in `../SKILL.md`
 
 > Ambiguity signals: no footer in conversation · user mentions a different feature · user says "switch" / "new" / "choose"
 
@@ -65,7 +65,7 @@ Ask the user for the absolute path to the Delivered `tech-doc.md`. Do not auto-d
 ```bash
 python3 "$SKILL_DIR/scripts/start.py" \
   --project-root "$(pwd)" \
-  --feature-id "<feature_id>" \
+  --cycle-id "<cycle_id>" \
   --tech-ref "<absolute-path-to-tech-doc.md>"
 ```
 
@@ -74,7 +74,7 @@ python3 "$SKILL_DIR/scripts/start.py" \
 ## Session File Structure
 
 ```
-$CACHE_DIR/<feature_id>/tech/work-order/
+$CACHE_DIR/<cycle_id>/tech/work-order/
   session-state.md               ← active_doc: N (monotonically increasing)
 
   r{N}/                          ← Nth work order
@@ -295,7 +295,7 @@ version: 1
 workflow: tech-work-order
 current_state: Drafting
 evaluate_round: 0
-tech_ref: /abs/path/$CACHE_DIR/<feature_id>/tech/plan/revision1/tech-doc.md
+tech_ref: /abs/path/$CACHE_DIR/<cycle_id>/tech/plan/revision1/tech-doc.md
 updated_at: 2026-05-17T09:00:00+08:00
 ---
 ```

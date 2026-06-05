@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for t4: container-type routing (topic-id vs feature-id) in all 5 stages."""
+"""Tests for t4: container-type routing (topic-id vs cycle-id) in all 5 stages."""
 
 import json
 import os
@@ -35,11 +35,11 @@ def _cache_dir(tmp_path: Path) -> Path:
     return tmp_path / ".cache" / "copilot" / "lulu-dev-workflow"
 
 
-def _make_features_json(cache_dir: Path, feature_id: str) -> None:
+def _make_features_json(cache_dir: Path, cycle_id: str) -> None:
     cache_dir.mkdir(parents=True, exist_ok=True)
     fj = cache_dir / "features.json"
     fj.write_text(
-        json.dumps({feature_id: {"name": "Test Feature", "execution_mode": "copilot"}}),
+        json.dumps({cycle_id: {"name": "Test Feature", "execution_mode": "copilot"}}),
         encoding="utf-8",
     )
 
@@ -79,30 +79,30 @@ def _stage_extra_args(stage: str, tmp_path: Path) -> list:
 
 
 # ---------------------------------------------------------------------------
-# Unit: detect_container_type
+# Unit: detect_cycle_type
 # ---------------------------------------------------------------------------
 
 
 class TestDetectContainerType:
-    def test_feature_id_returns_feature(self):
-        from workflow_common import detect_container_type
+    def test_cycle_id_returns_feature(self):
+        from workflow_common import detect_cycle_type
 
-        assert detect_container_type(_FEATURE_ID) == "feature"
+        assert detect_cycle_type(_FEATURE_ID) == "feature"
 
     def test_topic_id_returns_topic(self):
-        from workflow_common import detect_container_type
+        from workflow_common import detect_cycle_type
 
-        assert detect_container_type(_TOPIC_ID) == "topic"
+        assert detect_cycle_type(_TOPIC_ID) == "topic"
 
     def test_plain_string_returns_feature(self):
-        from workflow_common import detect_container_type
+        from workflow_common import detect_cycle_type
 
-        assert detect_container_type("some-random-id") == "feature"
+        assert detect_cycle_type("some-random-id") == "feature"
 
     def test_topic_prefix_canonical(self):
-        from workflow_common import detect_container_type
+        from workflow_common import detect_cycle_type
 
-        assert detect_container_type("topic-20260101000000-aabbccdd") == "topic"
+        assert detect_cycle_type("topic-20260101000000-aabbccdd") == "topic"
 
 
 # ---------------------------------------------------------------------------
@@ -162,20 +162,20 @@ class TestLoadContainerMeta:
 
 
 # ---------------------------------------------------------------------------
-# active-context.json gets container_type field
+# active-context.json gets cycle_type field
 # ---------------------------------------------------------------------------
 
 
 class TestActiveContextContainerType:
     @pytest.mark.parametrize("stage", _STAGES)
-    def test_feature_id_writes_container_type_feature(self, stage, tmp_path):
+    def test_cycle_id_writes_cycle_type_feature(self, stage, tmp_path):
         cd = _cache_dir(tmp_path)
         _make_features_json(cd, _FEATURE_ID)
         extra = _stage_extra_args(stage, tmp_path)
         cmd = [
             sys.executable, str(_start_py(stage)),
             "--project-root", str(tmp_path),
-            "--feature-id", _FEATURE_ID,
+            "--cycle-id", _FEATURE_ID,
             "--conversation-id", _CONV_ID,
         ] + extra
         result = subprocess.run(
@@ -187,17 +187,17 @@ class TestActiveContextContainerType:
         assert ctx.exists(), f"active-context.json not found at {ctx}"
         data = json.loads(ctx.read_text(encoding="utf-8"))
         assert _CONV_ID in data, f"conv key missing: {list(data)}"
-        assert data[_CONV_ID]["container_type"] == "feature"
+        assert data[_CONV_ID]["cycle_type"] == "feature"
 
     @pytest.mark.parametrize("stage", _STAGES)
-    def test_topic_id_writes_container_type_topic(self, stage, tmp_path):
+    def test_topic_id_writes_cycle_type_topic(self, stage, tmp_path):
         cd = _cache_dir(tmp_path)
         _make_topics_json(cd, _TOPIC_ID)
         extra = _stage_extra_args(stage, tmp_path)
         cmd = [
             sys.executable, str(_start_py(stage)),
             "--project-root", str(tmp_path),
-            "--feature-id", _TOPIC_ID,
+            "--cycle-id", _TOPIC_ID,
             "--conversation-id", _CONV_ID,
         ] + extra
         result = subprocess.run(
@@ -209,11 +209,11 @@ class TestActiveContextContainerType:
         assert ctx.exists()
         data = json.loads(ctx.read_text(encoding="utf-8"))
         assert _CONV_ID in data
-        assert data[_CONV_ID]["container_type"] == "topic"
+        assert data[_CONV_ID]["cycle_type"] == "topic"
 
 
 # ---------------------------------------------------------------------------
-# Session path for topic-id is symmetric with feature-id
+# Session path for topic-id is symmetric with cycle-id
 # ---------------------------------------------------------------------------
 
 
@@ -225,7 +225,7 @@ class TestTopicIdSessionPath:
             [
                 sys.executable, str(_start_py("diagnostic")),
                 "--project-root", str(tmp_path),
-                "--feature-id", _TOPIC_ID,
+                "--cycle-id", _TOPIC_ID,
             ],
             capture_output=True, text=True, env=_ENV_COPILOT,
             cwd=str(_scripts_dir("diagnostic")),
@@ -241,7 +241,7 @@ class TestTopicIdSessionPath:
             [
                 sys.executable, str(_start_py("product-plan")),
                 "--project-root", str(tmp_path),
-                "--feature-id", _TOPIC_ID,
+                "--cycle-id", _TOPIC_ID,
             ],
             capture_output=True, text=True, env=_ENV_COPILOT,
             cwd=str(_scripts_dir("product-plan")),
@@ -258,21 +258,21 @@ class TestTopicIdSessionPath:
 
 class TestContainerRoutingErrors:
     @pytest.mark.parametrize("stage", _STAGES)
-    def test_feature_id_not_in_features_json_exits_nonzero(self, stage, tmp_path):
+    def test_cycle_id_not_in_features_json_exits_nonzero(self, stage, tmp_path):
         cd = _cache_dir(tmp_path)
         _make_features_json(cd, "other-00000000-aaaabbbb")
         extra = _stage_extra_args(stage, tmp_path)
         cmd = [
             sys.executable, str(_start_py(stage)),
             "--project-root", str(tmp_path),
-            "--feature-id", _FEATURE_ID,
+            "--cycle-id", _FEATURE_ID,
         ] + extra
         result = subprocess.run(
             cmd, capture_output=True, text=True, env=_ENV_COPILOT,
             cwd=str(_scripts_dir(stage)),
         )
         assert result.returncode != 0, (
-            f"{stage}: expected nonzero exit when feature_id not in features.json"
+            f"{stage}: expected nonzero exit when cycle_id not in features.json"
         )
 
     @pytest.mark.parametrize("stage", _STAGES)
@@ -283,7 +283,7 @@ class TestContainerRoutingErrors:
         cmd = [
             sys.executable, str(_start_py(stage)),
             "--project-root", str(tmp_path),
-            "--feature-id", _TOPIC_ID,
+            "--cycle-id", _TOPIC_ID,
         ] + extra
         result = subprocess.run(
             cmd, capture_output=True, text=True, env=_ENV_COPILOT,
@@ -301,7 +301,7 @@ class TestContainerRoutingErrors:
         cmd = [
             sys.executable, str(_start_py(stage)),
             "--project-root", str(tmp_path),
-            "--feature-id", _TOPIC_ID,
+            "--cycle-id", _TOPIC_ID,
         ] + extra
         result = subprocess.run(
             cmd, capture_output=True, text=True, env=_ENV_COPILOT,
@@ -318,8 +318,8 @@ class TestContainerRoutingErrors:
 
 
 class TestActiveContextBackwardCompat:
-    def test_read_entry_without_container_type_defaults_to_feature(self, tmp_path):
-        """read_all on old-style entries (no container_type) must normalize to 'feature'."""
+    def test_read_entry_without_cycle_type_defaults_to_feature(self, tmp_path):
+        """read_all on old-style entries (no cycle_type) must normalize to 'feature'."""
         _scripts = _SRC / "lulu-dev-workflow" / "scripts"
         if str(_scripts) not in sys.path:
             sys.path.insert(0, str(_scripts))
@@ -329,15 +329,15 @@ class TestActiveContextBackwardCompat:
         cd.mkdir(parents=True, exist_ok=True)
         ctx_path = cd / "active-context.json"
         ctx_path.write_text(
-            json.dumps({"old-conv-id": {"feature_id": _FEATURE_ID, "stage": "diagnostic"}}),
+            json.dumps({"old-conv-id": {"cycle_id": _FEATURE_ID, "stage": "diagnostic"}}),
             encoding="utf-8",
         )
         data = read_all(tmp_path, "copilot")
         assert "old-conv-id" in data
-        assert data["old-conv-id"]["container_type"] == "feature"
+        assert data["old-conv-id"]["cycle_type"] == "feature"
 
     def test_old_features_json_without_topic_id_field_works(self, tmp_path):
-        """features.json entries without topic_id field: feature-id routing works fine."""
+        """features.json entries without topic_id field: cycle-id routing works fine."""
         cd = _cache_dir(tmp_path)
         cd.mkdir(parents=True, exist_ok=True)
         fj = cd / "features.json"
@@ -349,7 +349,7 @@ class TestActiveContextBackwardCompat:
             [
                 sys.executable, str(_start_py("diagnostic")),
                 "--project-root", str(tmp_path),
-                "--feature-id", _FEATURE_ID,
+                "--cycle-id", _FEATURE_ID,
                 "--conversation-id", _CONV_ID,
             ],
             capture_output=True, text=True, env=_ENV_COPILOT,

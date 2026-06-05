@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for t3: start.py --feature-id + archive call deferral in all 5 stages."""
+"""Tests for t3: start.py --cycle-id + archive call deferral in all 5 stages."""
 
 import os
 import subprocess
@@ -28,15 +28,15 @@ def _cache_dir(tmp_path: Path) -> Path:
 
 
 # ---------------------------------------------------------------------------
-# Source inspection: --feature-id replaces --conversation-id
+# Source inspection: --cycle-id replaces --conversation-id
 # ---------------------------------------------------------------------------
 
 class TestArgparseSource:
     @pytest.mark.parametrize("stage", _STAGES)
-    def test_feature_id_arg_declared(self, stage):
+    def test_cycle_id_arg_declared(self, stage):
         src = _start_py(stage).read_text(encoding="utf-8")
-        assert '"--feature-id"' in src or "'--feature-id'" in src, (
-            f"{stage}/start.py: --feature-id not declared in argparse"
+        assert '"--cycle-id"' in src or "'--cycle-id'" in src, (
+            f"{stage}/start.py: --cycle-id not declared in argparse"
         )
 
     @pytest.mark.parametrize("stage", _STAGES)
@@ -74,7 +74,7 @@ class TestArchiveDeferred:
 
 
 # ---------------------------------------------------------------------------
-# Subprocess: --feature-id recognized, --conversation-id rejected
+# Subprocess: --cycle-id recognized, --conversation-id rejected
 # ---------------------------------------------------------------------------
 
 class TestArgparseBehavior:
@@ -99,7 +99,7 @@ class TestArgparseBehavior:
             cwd=str(_scripts_dir(stage)),
         )
 
-    def test_feature_id_missing_diagnostic_exits_nonzero(self):
+    def test_cycle_id_missing_diagnostic_exits_nonzero(self):
         result = subprocess.run(
             [sys.executable, str(_start_py("diagnostic")), "--project-root", "."],
             capture_output=True, text=True, env=_ENV_COPILOT,
@@ -111,7 +111,7 @@ class TestArgparseBehavior:
         result = self._run_with_conv_id(
             "diagnostic",
             tmp_path,
-            extra=["--feature-id", _FID, "--stage", "tech-diagnostic"],
+            extra=["--cycle-id", _FID, "--stage", "tech-diagnostic"],
         )
         assert result.returncode == 0, result.stderr
 
@@ -120,7 +120,7 @@ class TestArgparseBehavior:
         result = subprocess.run(
             [sys.executable, str(_start_py("product-plan")),
              "--project-root", str(tmp_path),
-             "--feature-id", _FID],
+             "--cycle-id", _FID],
             capture_output=True, text=True, env=env,
             cwd=str(_scripts_dir("product-plan")),
         )
@@ -139,7 +139,7 @@ class TestSessionPath:
         return subprocess.run(
             [sys.executable, str(_start_py("diagnostic")),
              "--project-root", str(tmp_path),
-             "--feature-id", _FID],
+             "--cycle-id", _FID],
             capture_output=True, text=True, env=_ENV_COPILOT,
             cwd=str(_scripts_dir("diagnostic")),
         )
@@ -148,7 +148,7 @@ class TestSessionPath:
         return subprocess.run(
             [sys.executable, str(_start_py("product-plan")),
              "--project-root", str(tmp_path),
-             "--feature-id", _FID],
+             "--cycle-id", _FID],
             capture_output=True, text=True, env=_ENV_COPILOT,
             cwd=str(_scripts_dir("product-plan")),
         )
@@ -157,7 +157,7 @@ class TestSessionPath:
         return subprocess.run(
             [sys.executable, str(_start_py("tech-plan")),
              "--project-root", str(tmp_path),
-             "--feature-id", _FID,
+             "--cycle-id", _FID,
              "--run-mode", "tech"],
             capture_output=True, text=True, env=_ENV_COPILOT,
             cwd=str(_scripts_dir("tech-plan")),
@@ -170,7 +170,7 @@ class TestSessionPath:
         return subprocess.run(
             [sys.executable, str(_start_py("tech-work-order")),
              "--project-root", str(tmp_path),
-             "--feature-id", _FID,
+             "--cycle-id", _FID,
              "--tech-ref", str(tech_ref)],
             capture_output=True, text=True, env=_ENV_COPILOT,
             cwd=str(_scripts_dir("tech-work-order")),
@@ -189,7 +189,7 @@ class TestSessionPath:
         return subprocess.run(
             [sys.executable, str(_start_py("tech-code")),
              "--project-root", str(tmp_path),
-             "--feature-id", _FID,
+             "--cycle-id", _FID,
              "--mode", "task-from-work-order",
              "--task-list-ref", str(task_list)],
             capture_output=True, text=True, env=_ENV_COPILOT,
@@ -209,7 +209,7 @@ class TestSessionPath:
         return subprocess.run(
             [sys.executable, str(_start_py("diagnostic")),
              "--project-root", str(tmp_path),
-             "--feature-id", _FID,
+             "--cycle-id", _FID,
              "--stage", stage],
             capture_output=True, text=True, env=_ENV_COPILOT,
             cwd=str(_scripts_dir("diagnostic")),
@@ -235,7 +235,7 @@ class TestSessionPath:
         result = subprocess.run(
             [sys.executable, str(_start_py("diagnostic")),
              "--project-root", str(tmp_path),
-             "--feature-id", _FID,
+             "--cycle-id", _FID,
              "--stage", "product-diagnostic",
              "--conversation-id", _CONV_ID],
             capture_output=True, text=True, env=_ENV_COPILOT,
@@ -247,7 +247,7 @@ class TestSessionPath:
         data = json.loads(ctx.read_text(encoding="utf-8"))
         assert _CONV_ID in data, f"missing conv key: {data}"
         assert data[_CONV_ID]["stage"] == "product-diagnostic"
-        assert data[_CONV_ID]["feature_id"] == _FID
+        assert data[_CONV_ID]["cycle_id"] == _FID
 
     def test_start_writes_conv_indexed_context(self, tmp_path):
         import json
@@ -255,7 +255,7 @@ class TestSessionPath:
         result = subprocess.run(
             [sys.executable, str(_start_py("tech-plan")),
              "--project-root", str(tmp_path),
-             "--feature-id", _FID,
+             "--cycle-id", _FID,
              "--run-mode", "tech",
              "--conversation-id", _CONV_ID],
             capture_output=True, text=True, env=_ENV_COPILOT,

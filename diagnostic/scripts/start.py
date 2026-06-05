@@ -18,7 +18,7 @@ from invalidation_hook import invalidate_downstream  # noqa: E402
 from archive import run as run_archive
 from workflow_common import (
     CACHE_DIR,
-    detect_container_type,
+    detect_cycle_type,
     load_container_meta,
     session_state_path,
     write_active_context,
@@ -29,7 +29,7 @@ from workflow_common import (
 _CONFIG_DIR = Path(__file__).resolve().parents[2] / "config"
 
 
-def _find_latest_delivered_stage(container_id: str, cycle_type: str,
+def _find_latest_delivered_stage(cycle_id: str, cycle_type: str,
                                   cache_dir: Path) -> "str | None":
     """Return the last stage in cycle order where current_effective_delivered is True."""
     try:
@@ -38,19 +38,19 @@ def _find_latest_delivered_stage(container_id: str, cycle_type: str,
         return None
     latest = None
     for s in stages:
-        if current_effective_delivered(container_id, s, cache_dir):
+        if current_effective_delivered(cycle_id, s, cache_dir):
             latest = s
     return latest
 
 
-def _mark_historical(container_id: str, stage: str, cache_dir: Path) -> None:
+def _mark_historical(cycle_id: str, stage: str, cache_dir: Path) -> None:
     """Add historical: true to frontmatter of the current effective delivered session."""
-    sessions = [s for s in get_sessions(container_id, stage, cache_dir)
+    sessions = [s for s in get_sessions(cycle_id, stage, cache_dir)
                 if s.state != "Invalidated"]
     if not sessions:
         return
     latest = max(sessions, key=lambda s: (s.created_at, s.revision))
-    ws_path = cache_dir / container_id / stage / latest.revision / "workflow-state.md"
+    ws_path = cache_dir / cycle_id / stage / latest.revision / "workflow-state.md"
     if not ws_path.exists():
         return
     text = ws_path.read_text(encoding="utf-8")
@@ -62,7 +62,7 @@ def _mark_historical(container_id: str, stage: str, cache_dir: Path) -> None:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Start a diagnostic workflow session.")
     parser.add_argument("--project-root", default=".", help="Project root directory.")
-    parser.add_argument("--feature-id", required=True, help="Feature ID (from feature_init.py).")
+    parser.add_argument("--cycle-id", required=True, help="Cycle ID (from cycle_init.py).")
     parser.add_argument(
         "--stage",
         default="diagnostic",
@@ -79,60 +79,60 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     project_root = Path(args.project_root).resolve()
-    feature_id = args.feature_id.strip()
+    cycle_id = args.cycle_id.strip()
     stage = args.stage.strip()
 
-    container_type = detect_container_type(feature_id)
+    cycle_type = detect_cycle_type(cycle_id)
     cache_dir = project_root / CACHE_DIR
     try:
-        load_container_meta(cache_dir, feature_id, container_type)
+        load_container_meta(cache_dir, cycle_id, cycle_type)
     except ValueError as e:
         print(f"错误：{e}")
         return 1
 
     # Step 2: re-open detection
-    if current_effective_delivered(feature_id, stage, cache_dir):
-        _mark_historical(feature_id, stage, cache_dir)
-        invalidate_downstream(feature_id, stage, container_type, cache_dir)
+    if current_effective_delivered(cycle_id, stage, cache_dir):
+        _mark_historical(cycle_id, stage, cache_dir)
+        invalidate_downstream(cycle_id, stage, cycle_type, cache_dir)
 
     # Step 3: back-fill detection
-    latest_stage = _find_latest_delivered_stage(feature_id, container_type, cache_dir)
+    latest_stage = _find_latest_delivered_stage(cycle_id, cycle_type, cache_dir)
     if latest_stage:
         try:
-            _stages = load_stage_order(container_type, _CONFIG_DIR)
+            _stages = load_stage_order(cycle_type, _CONFIG_DIR)
         except Exception:
             _stages = []
         if stage in _stages and latest_stage in _stages:
             if _stages.index(stage) < _stages.index(latest_stage):
-                invalidate_downstream(feature_id, stage, container_type, cache_dir)
+                invalidate_downstream(cycle_id, stage, cycle_type, cache_dir)
 
     # Step 4: check_gate
-    ok, reason = check_gate(feature_id, stage, container_type, cache_dir, _CONFIG_DIR)
+    ok, reason = check_gate(cycle_id, stage, cycle_type, cache_dir, _CONFIG_DIR)
     if not ok:
         print(f"Gate blocked: {reason}", file=sys.stderr)
         sys.exit(1)
 
     # Step 5: get_topic_doc (feature containers only, if topic_id exists)
     try:
-        topic_doc = get_topic_doc(feature_id, stage, cache_dir, _CONFIG_DIR)
+        topic_doc = get_topic_doc(cycle_id, stage, cache_dir, _CONFIG_DIR)
         if topic_doc:
             print(f"Topic doc: {topic_doc}")
     except ValueError as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # archive: deferred  archive_rc = run_archive(project_root, exclude_conv_id=feature_id)
+    # archive: deferred  archive_rc = run_archive(project_root, exclude_conv_id=cycle_id)
     # archive: deferred  if archive_rc != 0:
     # archive: deferred      return archive_rc
 
-    ss_path = project_root / session_state_path(feature_id, stage)
+    ss_path = project_root / session_state_path(cycle_id, stage)
     write_session_state(ss_path, "InProgress")
     write_active_context(
         project_root,
-        feature_id,
+        cycle_id,
         conversation_id=args.conversation_id.strip() or None,
         stage=stage,
-        container_type=container_type,
+        cycle_type=cycle_type,
     )
 
     print(f"""

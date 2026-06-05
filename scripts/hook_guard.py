@@ -44,9 +44,9 @@ def _parse_frontmatter(text: str) -> dict:
     return result
 
 
-def get_sessions(container_id: str, stage: str, cache_dir: Path) -> List[SessionInfo]:
-    """Scan cache_dir/container_id/stage/r*/workflow-state.md and return SessionInfo list."""
-    stage_dir = cache_dir / container_id / stage
+def get_sessions(cycle_id: str, stage: str, cache_dir: Path) -> List[SessionInfo]:
+    """Scan cache_dir/cycle_id/stage/r*/workflow-state.md and return SessionInfo list."""
+    stage_dir = cache_dir / cycle_id / stage
     if not stage_dir.is_dir():
         return []
     sessions = []
@@ -65,14 +65,14 @@ def get_sessions(container_id: str, stage: str, cache_dir: Path) -> List[Session
     return sessions
 
 
-def has_any_valid_session(container_id: str, stage: str, cache_dir: Path) -> bool:
+def has_any_valid_session(cycle_id: str, stage: str, cache_dir: Path) -> bool:
     """Return True if at least one session has state != Invalidated."""
-    return any(s.state != "Invalidated" for s in get_sessions(container_id, stage, cache_dir))
+    return any(s.state != "Invalidated" for s in get_sessions(cycle_id, stage, cache_dir))
 
 
-def current_effective_delivered(container_id: str, stage: str, cache_dir: Path) -> bool:
+def current_effective_delivered(cycle_id: str, stage: str, cache_dir: Path) -> bool:
     """Return True if the latest non-Invalidated session has state == Delivered."""
-    valid = [s for s in get_sessions(container_id, stage, cache_dir)
+    valid = [s for s in get_sessions(cycle_id, stage, cache_dir)
              if s.state != "Invalidated"]
     if not valid:
         return False
@@ -86,7 +86,7 @@ def load_stage_order(cycle_type: str, config_dir: Path) -> List[str]:
     return sm["cycle_types"][cycle_type]["stages"]
 
 
-def check_gate(container_id: str, to_stage: str, cycle_type: str,
+def check_gate(cycle_id: str, to_stage: str, cycle_type: str,
                cache_dir: Path, config_dir: Path) -> Tuple[bool, str]:
     """Validate gate for to_stage: all prior stages with valid sessions must be Delivered."""
     stages = load_stage_order(cycle_type, config_dir)
@@ -95,13 +95,13 @@ def check_gate(container_id: str, to_stage: str, cycle_type: str,
     idx = stages.index(to_stage)
     prior = stages[:idx]
     for stage in prior:
-        if has_any_valid_session(container_id, stage, cache_dir):
-            if not current_effective_delivered(container_id, stage, cache_dir):
+        if has_any_valid_session(cycle_id, stage, cache_dir):
+            if not current_effective_delivered(cycle_id, stage, cache_dir):
                 return (False, f"Gate blocked: {stage} is not Delivered")
     return (True, "OK")
 
 
-def get_topic_doc(feature_id: str, stage: str,
+def get_topic_doc(cycle_id: str, stage: str,
                   cache_dir: Path, config_dir: Path) -> Optional[Path]:
     """Return the latest Delivered doc path for the topic referenced by a feature, or None."""
     # Load feature meta
@@ -109,7 +109,7 @@ def get_topic_doc(feature_id: str, stage: str,
     if not fj.exists():
         return None
     feat_data = json.loads(fj.read_text(encoding="utf-8"))
-    meta = feat_data.get(feature_id, {})
+    meta = feat_data.get(cycle_id, {})
     if not isinstance(meta, dict):
         return None
     topic_id = meta.get("topic_id")

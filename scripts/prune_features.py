@@ -4,7 +4,7 @@
 Usage:
     python3 prune_features.py --project-root <path> [--keep N]
 
-Sorts feature_ids lexicographically (YYYYMMDDHHMMSS prefix → chronological),
+Sorts cycle_ids lexicographically (YYYYMMDDHHMMSS prefix → chronological),
 keeps the N most recent, deletes older feature directories from $CACHE_DIR,
 and rewrites features.json to match.
 """
@@ -16,7 +16,7 @@ import shutil
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
-# Platform detection (same pattern as feature_init.py / archive_common.py)
+# Platform detection (same pattern as cycle_init.py / archive_common.py)
 # ---------------------------------------------------------------------------
 
 _PLATFORM = (

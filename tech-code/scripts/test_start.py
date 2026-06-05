@@ -46,7 +46,7 @@ def test_cli_generates_full_code_task_list_for_complex_task_ids(tmp_path):
 
 | task_id | 标题 | 目标文件 | 依赖 | TDD 豁免 |
 | --- | --- | --- | --- | --- |
-| t1 | feature_init.py mode slug 重命名 + 测试 | `scripts/feature_init.py`, `scripts/test_feature_init.py` | — | 否 |
+| t1 | cycle_init.py mode slug 重命名 + 测试 | `scripts/cycle_init.py`, `scripts/test_cycle_init.py` | — | 否 |
 | t10 | workflow-config.json nested product-plan.shaping\\|spec + template | `skill-config/lulu-dev-workflow/workflow-config.json`, `product-plan/templates/workflow-config.template.json` | t7 | 是 |
 | t12b | product-plan/SKILL.md shaping/spec 双路径 + G6 规则 | `product-plan/SKILL.md` | t12 | 是 |
 | t16c | [P2] tech-code/SKILL.md gate-model 门控步骤 | `tech-code/SKILL.md` | t6, t13 | 是 |
@@ -60,7 +60,7 @@ def test_cli_generates_full_code_task_list_for_complex_task_ids(tmp_path):
             str(_START),
             "--project-root",
             str(tmp_path),
-            "--feature-id",
+            "--cycle-id",
             _FID,
             "--mode",
             "task-from-work-order",

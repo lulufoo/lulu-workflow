@@ -46,12 +46,12 @@ class TestIsLegacyFlat:
     def test_flat_dict_is_legacy(self):
         from active_context import is_legacy_flat
 
-        assert is_legacy_flat({"feature_id": "x", "stage": "tech-plan"}) is True
+        assert is_legacy_flat({"cycle_id": "x", "stage": "tech-plan"}) is True
 
     def test_conv_indexed_is_not_legacy(self):
         from active_context import is_legacy_flat
 
-        data = {"conv-a": {"feature_id": "x", "stage": "tech-plan"}}
+        data = {"conv-a": {"cycle_id": "x", "stage": "tech-plan"}}
         assert is_legacy_flat(data) is False
 
     def test_non_dict_is_not_legacy(self):
@@ -81,7 +81,7 @@ class TestReadAll:
         path = _ctx_file(tmp_path)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(
-            json.dumps({"feature_id": "x", "stage": "tech-plan"}),
+            json.dumps({"cycle_id": "x", "stage": "tech-plan"}),
             encoding="utf-8",
         )
         assert read_all(tmp_path, "cursor") == {}
@@ -94,8 +94,8 @@ class TestReadAll:
         path.write_text(
             json.dumps(
                 {
-                    "good": {"feature_id": _FID, "stage": "tech-plan"},
-                    "bad": {"feature_id": _FID, "stage": "unknown-stage"},
+                    "good": {"cycle_id": _FID, "stage": "tech-plan"},
+                    "bad": {"cycle_id": _FID, "stage": "unknown-stage"},
                 }
             ),
             encoding="utf-8",
@@ -123,7 +123,7 @@ class TestWriteEntry:
 
         write_entry(tmp_path, "cursor", "conv-a", _FID, "tech-plan")
         data = read_all(tmp_path, "cursor")
-        assert data["conv-a"] == {"feature_id": _FID, "stage": "tech-plan", "container_type": "feature"}
+        assert data["conv-a"] == {"cycle_id": _FID, "stage": "tech-plan", "cycle_type": "feature"}
 
     def test_merge_write_preserves_other_keys(self, tmp_path):
         from active_context import read_all, write_entry
@@ -131,8 +131,8 @@ class TestWriteEntry:
         write_entry(tmp_path, "cursor", "conv-a", _FID, "tech-plan")
         write_entry(tmp_path, "cursor", "conv-b", "other-fid", "product-plan")
         data = read_all(tmp_path, "cursor")
-        assert data["conv-a"]["feature_id"] == _FID
-        assert data["conv-b"]["feature_id"] == "other-fid"
+        assert data["conv-a"]["cycle_id"] == _FID
+        assert data["conv-b"]["cycle_id"] == "other-fid"
 
     def test_legacy_overwritten_on_write(self, tmp_path):
         from active_context import read_all, write_entry
@@ -140,12 +140,12 @@ class TestWriteEntry:
         path = _ctx_file(tmp_path)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(
-            json.dumps({"feature_id": "old", "stage": "tech-plan"}),
+            json.dumps({"cycle_id": "old", "stage": "tech-plan"}),
             encoding="utf-8",
         )
         write_entry(tmp_path, "cursor", "conv-new", _FID, "tech-diagnostic")
         raw = json.loads(path.read_text(encoding="utf-8"))
-        assert "feature_id" not in raw
+        assert "cycle_id" not in raw
         assert raw["conv-new"]["stage"] == "tech-diagnostic"
 
     def test_invalid_stage_raises(self, tmp_path):

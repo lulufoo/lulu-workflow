@@ -32,10 +32,10 @@ Do NOT proceed until you have read `../SKILL.md` and loaded:
 Before starting this stage, the AI must:
 
 1. Read `features.json` (or `topics.json`) to confirm the current container type (`topic` / `feature`) and container ID.
-2. Call `check_gate(container_id, to_stage="tech-code", cycle_type, cache_dir)` via the `hook_guard.py` script:
+2. Call `check_gate(cycle_id, to_stage="tech-code", cycle_type, cache_dir)` via the `hook_guard.py` script:
    - If `ok == False`: stop, output `reason` to user, do not proceed.
    - If `ok == True`: continue.
-3. If container is `feature` and has `topic_id`: call `get_topic_doc(container_id, "tech-code", cache_dir)` to retrieve the topic reference document.
+3. If container is `feature` and has `topic_id`: call `get_topic_doc(cycle_id, "tech-code", cache_dir)` to retrieve the topic reference document.
    - If path returned: inform user of the topic doc path and load it as context.
    - If `None`: skip silently.
    - If `ValueError`: stop, output error to user, do not proceed.
@@ -52,7 +52,7 @@ Before starting this stage, the AI must:
 | Format | Meaning | Example |
 |--------|---------|---------|
 | *(no input)* | Derive feature from active context (`$FEATURE_ID` resolved in Step 1) | `/tech-code` |
-| `<feature_id>` | Explicit feature override; format: `<timestamp>-<uuid>` | `/tech-code 20260601141338-3764ab2b` |
+| `<cycle_id>` | Explicit feature override; format: `<timestamp>-<uuid>` | `/tech-code 20260601141338-3764ab2b` |
 
 If the user's input does not match this format, stop and output the usage error.
 
@@ -62,7 +62,7 @@ If the user's input does not match this format, stop and output the usage error.
 
 **Step 0: Load `docs/git/git-workflow-standard.md`** — required before any git operations.
 
-**Step 1: Identify active feature** — See `## Session Foundation` in `../SKILL.md`
+**Step 1: Identify active cycle** — See `## Session Foundation` in `../SKILL.md`
 
 **Step 2–4:** Parse input, validate upstream Delivered state, collect paths.
 
@@ -75,7 +75,7 @@ If the user's input does not match this format, stop and output the usage error.
 ## Session files
 
 ```
-$CACHE_DIR/<feature_id>/tech/code/
+$CACHE_DIR/<cycle_id>/tech/code/
   session-state.md
   s{N}/
     workflow-state.md           ← Preparing: session + task pointer (authoritative)
@@ -248,7 +248,7 @@ AI must not self-declare session complete. Even if all tasks are `Done` and the 
 
 Read `$EXECUTION_MODE` from Session Foundation (set by parent `SKILL.md`). Default: `copilot`.
 
-The overrides below apply only when `$EXECUTION_MODE == "autonomous"` **and** `container_type == "feature"`. All other rules unchanged.
+The overrides below apply only when `$EXECUTION_MODE == "autonomous"` **and** `cycle_type == "feature"`. All other rules unchanged.
 
 **Auto-chain entry point:** In autonomous + feature mode, this stage may be entered automatically after `tech-work-order` delivers (see `§ Autonomous Tech Line Auto-Chain` in `../SKILL.md`). No user `/code` command is required; the orchestrator auto-invokes the startup sequence.
 

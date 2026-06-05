@@ -12,7 +12,7 @@ disable-model-invocation: true
 
 > **Prerequisite:** Run `diagnostic` SKILL before starting this workflow.
 > The decision-doc produced by diagnostic is the required input context.
-> Path: `$CACHE_DIR/<feature_id>/product/diagnostic/decision-doc.md`
+> Path: `$CACHE_DIR/<cycle_id>/product/diagnostic/decision-doc.md`
 
 Drive a product document workflow with explicit per-session state files and a
 hook that gates state transitions.
@@ -41,10 +41,10 @@ Markdown. During an active session, writes are restricted to
 Before starting this stage, the AI must:
 
 1. Read `features.json` (or `topics.json`) to confirm the current container type (`topic` / `feature`) and container ID.
-2. Call `check_gate(container_id, to_stage="product-plan", cycle_type, cache_dir)` via the `hook_guard.py` script:
+2. Call `check_gate(cycle_id, to_stage="product-plan", cycle_type, cache_dir)` via the `hook_guard.py` script:
    - If `ok == False`: stop, output `reason` to user, do not proceed.
    - If `ok == True`: continue.
-3. If container is `feature` and has `topic_id`: call `get_topic_doc(container_id, "product-plan", cache_dir)` to retrieve the topic reference document.
+3. If container is `feature` and has `topic_id`: call `get_topic_doc(cycle_id, "product-plan", cache_dir)` to retrieve the topic reference document.
    - If path returned: inform user of the topic doc path and load it as context.
    - If `None`: skip silently.
    - If `ValueError`: stop, output error to user, do not proceed.
@@ -61,7 +61,7 @@ Before starting this stage, the AI must:
 
 > Prerequisite: `init` has been run.
 
-**Step 1: Identify active feature** — See `## Session Foundation` in `../SKILL.md`
+**Step 1: Identify active cycle** — See `## Session Foundation` in `../SKILL.md`
 
 > Ambiguity signals: no footer in conversation · user mentions a different feature · user says "switch" / "new" / "choose"
 
@@ -70,7 +70,7 @@ Before starting this stage, the AI must:
 ```bash
 python3 "$SKILL_DIR/scripts/start.py" \
   --project-root "$(pwd)" \
-  --feature-id "<feature_id>"
+  --cycle-id "<cycle_id>"
 ```
 
 Creates or increments `session-state.md` (`active_doc: N`) and initializes
@@ -84,7 +84,7 @@ product document, do not run start again — read the current session files.
 ## Session File Structure
 
 ```
-$CACHE_DIR/<feature_id>/product/plan/
+$CACHE_DIR/<cycle_id>/product/plan/
   session-state.md               ← active_doc: N (线性递增，不回退)
 
   revision{N}/                          ← 第 N 个产品文档
@@ -134,7 +134,7 @@ During Evaluating, revise `revision{N}/product-doc.md` in place; `evaluate{M}/` 
 
 **G1.** Read `$WORKFLOW_DIR/workflow-config.json` before driving the workflow.
 
-**G2.** Session files live at `$CACHE_DIR/<feature_id>/product/plan/revision{N}/`.
+**G2.** Session files live at `$CACHE_DIR/<cycle_id>/product/plan/revision{N}/`.
 Read `session-state.md` to determine current `active_doc` (N).
 
 **G3.** `revision{N}/workflow-state.md` is the authoritative current state — write it to request a transition.

@@ -63,7 +63,7 @@ class TestReadActiveStage:
         ctx = tmp_path / ".cache/cursor/lulu-dev-workflow/active-context.json"
         ctx.parent.mkdir(parents=True, exist_ok=True)
         ctx.write_text(
-            json.dumps({"feature_id": _FID_A, "stage": "tech-plan"}),
+            json.dumps({"cycle_id": _FID_A, "stage": "tech-plan"}),
             encoding="utf-8",
         )
         assert _read_active_stage("cursor", "conv-a") is None
@@ -73,7 +73,7 @@ class TestShouldInjectConversationId:
     @pytest.mark.parametrize(
         "command",
         [
-            "python3 ~/.cursor/skills/lulu-dev-workflow/diagnostic/scripts/start.py --feature-id fid1",
+            "python3 ~/.cursor/skills/lulu-dev-workflow/diagnostic/scripts/start.py --cycle-id fid1",
             "python3 ~/.cursor/skills/lulu-dev-workflow/scripts/hook_guard.py",
             "python lulu-dev-workflow/product-plan/scripts/start.py --project-root /tmp",
         ],
@@ -90,7 +90,7 @@ class TestShouldInjectConversationId:
             "git diff lulu-dev-workflow/SKILL.md",
             "git add lulu-dev-workflow/scripts/hook_guard.py",
             "git status",
-            "python3 feature_init.py --project-root /tmp",
+            "python3 cycle_init.py --project-root /tmp",
         ],
     )
     def test_non_workflow_py_invocation(self, command):
@@ -143,7 +143,7 @@ class TestMainRouting:
         ctx = tmp_path / ".cache/cursor/lulu-dev-workflow/active-context.json"
         ctx.parent.mkdir(parents=True, exist_ok=True)
         ctx.write_text(
-            json.dumps({"feature_id": _FID_A, "stage": "tech-plan"}),
+            json.dumps({"cycle_id": _FID_A, "stage": "tech-plan"}),
             encoding="utf-8",
         )
 
@@ -175,7 +175,7 @@ class TestMainRouting:
         import hook_guard
 
         monkeypatch.chdir(tmp_path)
-        cmd = "python3 ~/.cursor/skills/lulu-dev-workflow/diagnostic/scripts/start.py --feature-id fid1 --project-root /tmp"
+        cmd = "python3 ~/.cursor/skills/lulu-dev-workflow/diagnostic/scripts/start.py --cycle-id fid1 --project-root /tmp"
         payload = json.dumps({
             "tool_name": "Shell",
             "tool_input": {"command": cmd},
@@ -211,7 +211,7 @@ class TestMainRouting:
         import hook_guard
 
         monkeypatch.chdir(tmp_path)
-        cmd = "python3 ~/.cursor/skills/lulu-dev-workflow/diagnostic/scripts/start.py --feature-id fid1"
+        cmd = "python3 ~/.cursor/skills/lulu-dev-workflow/diagnostic/scripts/start.py --cycle-id fid1"
         payload = json.dumps({
             "tool_name": "Shell",
             "tool_input": {"command": cmd},
