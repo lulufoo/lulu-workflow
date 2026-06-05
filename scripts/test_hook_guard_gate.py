@@ -211,7 +211,7 @@ class TestGetTopicDoc:
                                   {"name": "x", "execution_mode": "copilot",
                                    "topic_id": topic_id})
         self._write_topics_json(tmp_path, topic_id, {"name": "t", "execution_mode": "copilot"})
-        # tech-code maps to null in topic_ref_stage
+        # tech-code maps to null in topic_doc_stage
         result = get_topic_doc("feat-a", "tech-code", tmp_path, _CONFIG_DIR)
         assert result is None
 
@@ -396,7 +396,7 @@ class TestTopicRefExtended:
         return session_dir
 
     def test_tech_work_order_maps_to_tech_plan_stage(self, tmp_path):
-        """feature.tech-work-order: topic_ref_stage["tech-work-order"] == "tech-plan"
+        """feature.tech-work-order: topic_doc_stage["tech-work-order"] == "tech-plan"
         → get_topic_doc looks in topic's tech-plan sessions and returns path."""
         from hook_guard import get_topic_doc
         topic_id = "topic-20260101000000-aabbccdd"
@@ -410,7 +410,7 @@ class TestTopicRefExtended:
         assert result == session_dir
 
     def test_tech_code_null_ref_stage_returns_none_extended(self, tmp_path):
-        """feature.tech-code: topic_ref_stage["tech-code"] is null → returns None (no error)."""
+        """feature.tech-code: topic_doc_stage["tech-code"] is null → returns None (no error)."""
         from hook_guard import get_topic_doc
         topic_id = "topic-20260101000000-aabbccdd"
         self._write_features_json(tmp_path, "feat-a",

@@ -10,8 +10,7 @@
       "terminal": "tech-code"
     }
   },
-  "session_states": ["Drafting", "Evaluating", "Delivered", "Invalidated"],
-  "topic_ref_stage": {
+  "topic_doc_stage": {
     "product-diagnostic": "product-diagnostic",
     "product-plan": "product-plan",
     "tech-diagnostic": "tech-diagnostic",

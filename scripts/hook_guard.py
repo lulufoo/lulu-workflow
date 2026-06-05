@@ -122,7 +122,7 @@ def get_topic_doc(cycle_id: str, stage: str,
 
     # Resolve ref stage
     sm = json.loads((config_dir / "state-machine.json").read_text(encoding="utf-8"))
-    ref_stage = sm.get("topic_ref_stage", {}).get(stage)
+    ref_stage = sm.get("topic_doc_stage", {}).get(stage)
     if ref_stage is None:
         return None
 
