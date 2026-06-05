@@ -11,7 +11,7 @@ def load(filename):
 
 
 def test_all_files_parseable():
-    for name in ("state-machine.json", "gate-model.json", "transition-table.json"):
+    for name in ("state-machine.json", "transition-table.json"):
         data = load(name)
         assert isinstance(data, dict)
 
@@ -47,16 +47,6 @@ def test_topic_doc_stage_key_count():
     assert len(data["topic_doc_stage"]) == 6
 
 
-def test_gate_model_version():
-    data = load("gate-model.json")
-    assert data["version"] == 2
-
-
-def test_gate_model_rule():
-    data = load("gate-model.json")
-    assert data["rule"] == "sequential_all_prior"
-
-
 def test_transition_table_version():
     data = load("transition-table.json")
     assert data["version"] == 2
@@ -81,7 +71,7 @@ def test_transition_table_topic_last_entry():
 
 def test_no_old_state_names():
     old_names = ["InProgress", "ReadyForDelivery"]
-    for filename in ("state-machine.json", "gate-model.json", "transition-table.json"):
+    for filename in ("state-machine.json", "transition-table.json"):
         raw = (CONFIG_DIR / filename).read_text()
         for name in old_names:
             assert name not in raw, f"Found old state name '{name}' in {filename}"

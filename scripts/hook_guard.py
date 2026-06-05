@@ -88,7 +88,14 @@ def load_stage_order(cycle_type: str, config_dir: Path) -> List[str]:
 
 def check_gate(cycle_id: str, to_stage: str, cycle_type: str,
                cache_dir: Path, config_dir: Path) -> Tuple[bool, str]:
-    """Validate gate for to_stage: all prior stages with valid sessions must be Delivered."""
+    """Validate gate for to_stage using the sequential_all_prior rule.
+
+    Rule: for any to_stage, all stages that appear before it in the stage order
+    AND have at least one valid (non-Invalidated) session must have
+    current_effective_delivered == True.
+    Stages with no valid sessions are exempt (allows skipping optional stages,
+    e.g. null → tech-diagnostic bypassing the product phase).
+    """
     stages = load_stage_order(cycle_type, config_dir)
     if to_stage not in stages:
         return (True, "OK")

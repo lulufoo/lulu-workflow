@@ -87,8 +87,7 @@ Defines how AI and user share control throughout the workflow.
 #### Initial Mode Resolution
 
 1. `cycle_id` not in `cycles.json` → `"copilot"`
-2. Value is a string (legacy) → `"copilot"` (backward-compat: `"assisted"` → `"copilot"`; `"self-service"` → `"autonomous"`)
-3. Value is an object → use `object.execution_mode`
+2. Value is an object → use `object.execution_mode`
 
 #### Runtime Switch
 
