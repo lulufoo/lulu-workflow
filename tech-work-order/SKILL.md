@@ -113,8 +113,8 @@ Note: `ReadyForDelivery` is deprecated as a hook-enforced state. It remains an A
 
 Allowed transitions:
 - `Drafting → Evaluating`
-- `Evaluating → TDABlocked`  ← eval-runner returns exit_code: tda_blocked
-- `Evaluating → Drafting`    ← eval-runner returns exit_code: w0_failed or structural fix required
+- `Evaluating → TDABlocked`  ← eval-runner: current_dimension=FAILED, failure_type=sot_defect
+- `Evaluating → Drafting`    ← eval-runner: current_dimension=FAILED, failure_type=structural
 - `TDABlocked → Drafting`    ← human decides to abandon round (SOT fix externally)
 - `Evaluating → ReadyForDelivery` (internal, AI-governed; then human-delivery-gate → Delivered)
 
@@ -279,11 +279,11 @@ Await sub-agent completion (`$SUBAGENT_AWAIT_SYNC`). Read returned `exit_code` a
 
 After eval-runner returns, read `evaluate-state.md → current_dimension` as the authoritative exit signal:
 
-| `current_dimension` | Action |
-|--------------------|--------|
-| `tda_blocked` | Write `workflow-state.md: current_state: TDABlocked`. Present `evaluate{M}/wo-review-e{M}-tda.md` (or `-w1.md` if blocked in W1) path to user. Inform: SOT defect found — resolve tech-doc, then start a new work-order round. |
-| `w0_failed` | Write `workflow-state.md: current_state: Drafting`. Present `evaluate{M}/wo-review-e{M}-w0.md` (or `-w1.md` / `-w2.md` if structural fix required in W1/W2) path to user. Fix structural issues, then re-enter Evaluating. |
-| `DONE` | Write `workflow-state.md: current_state: ReadyForDelivery` (AI-governed; hook allows). Await human writing `human-delivery-gate.md`, then write `current_state: Delivered`. |
+| `current_dimension` | `failure_type` | Action |
+|--------------------|---------------|--------|
+| `DONE` | — | Write `workflow-state.md: current_state: ReadyForDelivery` (AI-governed; hook allows). Await human writing `human-delivery-gate.md`, then write `current_state: Delivered`. |
+| `FAILED` | `sot_defect` | Write `workflow-state.md: current_state: TDABlocked`. Present the blocking report path to user. Inform: SOT defect found — resolve tech-doc, then start a new work-order round. |
+| `FAILED` | `structural` | Write `workflow-state.md: current_state: Drafting`. Present the blocking report path to user. Fix structural issues, then re-enter Evaluating. |
 
 ### ReadyForDelivery Rules
 
@@ -321,8 +321,9 @@ updated_at: 2026-05-17T09:00:00+08:00
 ---
 version: 2
 phase: evaluate
-current_dimension: TDA        # active states: TDA | W0 | W1 | W2 | DONE
-                              # exit codes (written on failure): tda_blocked | w0_failed
+current_dimension: TDA        # active states: TDA | W0 | W1 | W2
+                              # terminal states: DONE | FAILED
+failure_type: ""              # sot_defect | structural | none (set when current_dimension: FAILED)
 
 tda_status: pending           # pending | passed | failed
 tda_sot_defect_count: 0
