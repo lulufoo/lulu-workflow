@@ -244,6 +244,7 @@ w2_wo_error_count: 0
 post_split_scan_required: false
 post_split_scan_done: false
 
+failure_type: ""
 fix_severity: ""
 fix_severity_reason: ""
 ---
