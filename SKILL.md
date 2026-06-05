@@ -224,7 +224,7 @@ gh api "repos/{owner}/{repo}/contents/{path}?ref={ref}" \
 
 After download, display the new config. Default (if no URL given):
 ```
-https://github.com/lulufoo/ai-software-dev/blob/main/lulu-dev-workflow-template/workflow-config.json
+https://github.com/lulufoo/lulu-workflow-framework/blob/main/template/workflow-config.json
 ```
 
 ### `start [name]` — Create a new feature
