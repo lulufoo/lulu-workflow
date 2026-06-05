@@ -328,4 +328,4 @@ Read `$EXECUTION_MODE` from Session Foundation (set by parent `SKILL.md`). Defau
 | Drafting Rule D2 — recalibrate on re-entry | Default Yes. Do **not** ask. |
 | Drafting Rule D5 — skip evaluate to ReadyForDelivery | Default: proceed to Evaluating directly. Do **not** ask. User may explicitly request skip (e.g. "skip evaluation") to override. |
 | Evaluating Rule E3 — per-issue AskQuestion | Default: Option A (Fix). Apply fix without asking. |
-| ReadyForDelivery Rule R1 — delivery confirmation | **Unchanged: always wait for explicit user confirmation.** |
+| ReadyForDelivery Rule R1 — delivery confirmation | **Feature container (autonomous):** auto-deliver — write `human-delivery-gate.md`, set `current_state: Delivered`, then auto handoff to `tech-work-order` (auto-chain). For topic containers or copilot mode: unchanged (wait for explicit user confirmation). |

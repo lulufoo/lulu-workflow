@@ -346,9 +346,9 @@ Read `$EXECUTION_MODE` from Session Foundation (set by parent `SKILL.md`). Defau
 
 | Rule | Autonomous Behavior |
 |------|-----------------------|
-| `start` Step 2 — tech-ref path | **Unchanged: always ask.** (W1 start gate) |
+| `start` Step 2 — tech-ref path | **Feature container (autonomous):** auto-parse `tech-ref` from the tech-plan Delivered output in the current conversation (latest `tech-doc.md` path). Do **not** ask. For topic containers or copilot mode: unchanged (always ask). |
 | Drafting D2 Step 1 — confirm task breakdown | Auto-confirm. Proceed to task.md generation without asking. |
 | Drafting D2 Step 2 — "Proceed to Evaluating?" | Auto-confirm. Enter Evaluating without asking. |
 | Drafting D3 re-entry — "All issues fixed. Re-enter Evaluating?" | Auto-confirm. |
 | Evaluating E3/E4 — per-issue AskQuestion | Default: Fix. Apply fix without asking. |
-| ReadyForDelivery R1 — delivery confirmation | **Unchanged: always wait for explicit user confirmation.** |
+| ReadyForDelivery R1 — delivery confirmation | **Feature container (autonomous):** auto-complete delivery — write `human-delivery-gate.md`, set `current_state: Delivered`; then auto handoff to `tech-code` (auto-chain). For topic containers or copilot mode: unchanged (wait for explicit user confirmation). |

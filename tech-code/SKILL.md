@@ -225,6 +225,21 @@ AI must not self-declare session complete. Even if all tasks are `Done` and the 
 
 ---
 
+## § Autonomous Overrides
+
+Read `$EXECUTION_MODE` from Session Foundation (set by parent `SKILL.md`). Default: `copilot`.
+
+The overrides below apply only when `$EXECUTION_MODE == "autonomous"` **and** `container_type == "feature"`. All other rules unchanged.
+
+**Auto-chain entry point:** In autonomous + feature mode, this stage may be entered automatically after `tech-work-order` delivers (see `§ Autonomous Tech Line Auto-Chain` in `../SKILL.md`). No user `/code` command is required; the orchestrator auto-invokes the startup sequence.
+
+| Rule | Autonomous Behavior |
+|------|-----------------------|
+| AI startup Step 6 — task confirmation | Auto-skip. Proceed directly to Executing without waiting for user confirmation. |
+| Closing step 5 — delivery gate confirmation | Auto-complete. Write `human-delivery-gate.md` (`approved: true`) without waiting for explicit user confirmation. |
+
+---
+
 ## Supporting: tech-work-order → tech-code handoff
 
 - Path B: `--task-list-ref` + `--task-refs`; `task.md` is self-contained.

@@ -59,6 +59,26 @@ When a stage delivers, AI must list the allowed next stages from the whitelist b
 - `product-diagnostic` is the recommended entry for full-feature work (product decision → product-plan → tech line).
 - `tech-diagnostic` is the direct entry for pure tech work (no product phase needed).
 
+### § Autonomous Tech Line Auto-Chain
+
+**Trigger conditions:** `$EXECUTION_MODE == "autonomous"` AND `container_type == "feature"`
+
+Does **not** trigger for:
+- Copilot mode (any container type)
+- Topic containers (`container_type == "topic"`) — topic containers have no tech-work-order or tech-code stages
+
+When triggered, stage handoff in the Tech Line is automatic — no user selection required:
+
+| Delivered Stage | Next Auto Action |
+|---|---|
+| `tech-plan` | Auto start `tech-work-order` |
+| `tech-work-order` | Auto start `tech-code` |
+| `tech-code` | Done — no further auto action |
+
+Each stage's autonomous overrides govern how delivery and handoff are executed. See `Autonomous Overrides` sections in `tech-plan/SKILL.md`, `tech-work-order/SKILL.md`, and `tech-code/SKILL.md`.
+
+---
+
 ### Stage Rollback
 
 Any participant may trigger a Stage Rollback when new information shows a prior stage's output is no longer valid:
@@ -107,7 +127,7 @@ Defines how AI and user share control throughout the workflow.
 | Mode | Value | AI Behavior | User Role |
 |------|-------|-------------|-----------|
 | Copilot | `"copilot"` | AI leads: proactively advances, asks, recommends; waits at key gates | Approver |
-| Autonomous | `"autonomous"` | AI executes on instruction only; does not advance or suggest unprompted | Commander |
+| Autonomous | `"autonomous"` | AI executes on instruction only; does not advance or suggest unprompted; includes Tech Line auto-chain for feature containers | Commander |
 
 `$EXECUTION_MODE` is set during Feature Resolution and applies to all subsequent stages.
 
