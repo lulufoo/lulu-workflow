@@ -74,10 +74,9 @@ On entry, read `current_dimension` from the `## Current Evaluation State` sectio
 | `W1` | Skip TDA + W0; begin at Phase W1 |
 | `W2` | Skip TDA + W0 + W1; begin at Phase W2 |
 | `DONE` | All phases complete; verify exit contract and return |
-| `tda_blocked` | Not executable. Report to parent: exit_code=tda_blocked. Do not re-run. |
-| `w0_failed` | Not executable. Report to parent: exit_code=w0_failed. Do not re-run. |
+| `FAILED` | Terminal state — not executable. Read `failure_type` from evaluate-state.md; report to parent. Do not re-run. |
 
-**`DONE`, `tda_blocked`, `w0_failed` are exit codes, not executable phases.** Do not run any phase when these are the current dimension.
+**`DONE` and `FAILED` are terminal states, not executable phases.** Do not run any phase when either is the current dimension.
 
 ---
 
@@ -120,7 +119,7 @@ UNRESOLVABLE:
 
 **WO-MISS / WO-ERROR — WO template:**
 
-Present via AskQuestion (guided mode) or auto-fix (autonomous mode for WO-ERROR):
+Present via AskQuestion (guided mode) or auto-fix (autonomous mode for WO-MISS / WO-ERROR):
 
 ```
 Issue [{#}] — {root_cause}
@@ -157,8 +156,8 @@ Provide reclassification:
 ```
 
 **Routing outcomes:**
-- `Escalate` → write report row (status: escalated) → set exit_code: tda_blocked → stop current phase
-- `Reclassify` → update report row (root_cause: new_root_cause, decision: reclassified) → route to corresponding WO or SOT template
+- `Escalate` → write report row (status: escalated) → write `current_dimension: FAILED`, `failure_type: sot_defect` to evaluate-state.md → stop current phase
+- `Reclassify` → update report row (root_cause: new_root_cause, decision: reclassified) → route to corresponding WO or SOT template. **Special case: UNRESOLVABLE → Reclassify → SOT-DEFECT is treated as Escalate** — immediately write FAILED + sot_defect; do not start another AskQuestion round.
 - `Ignore` → write report row (status: noted) → continue to next issue
 
 ---
@@ -187,7 +186,7 @@ Provide reclassification:
 5. **Record findings.** For each defect found: classify as `SOT-DEFECT` (Completeness / Precision / Consistency), record evidence per P1, write to `wo-review-e{M}-tda.md`.
 
 6. **For each SOT-DEFECT found:** invoke SOT template AskQuestion (P2 — always required).
-   - `Escalate` → write report (status: escalated) → update evaluate-state.md: `tda_status: failed`, `current_dimension: tda_blocked` → **exit_code: tda_blocked**
+   - `Escalate` → write report (status: escalated) → update evaluate-state.md: `tda_status: failed`, `current_dimension: FAILED`, `failure_type: sot_defect` → **stop, return to parent**
    - `Reclassify` → update root_cause in report → route accordingly (if reclassified to WO-MISS/WO-ERROR: note for later phases; TDA itself is not about WO issues)
    - `Ignore` → write report (status: noted) → continue
 
@@ -240,7 +239,7 @@ w0_status: passed | failed
 
 ### W0 Exit
 
-- Any blocking issue found → update evaluate-state.md: `w0_status: failed`, `current_dimension: w0_failed` → **exit_code: w0_failed**
+- Any blocking issue found → update evaluate-state.md: `w0_status: failed`, `current_dimension: FAILED`, `failure_type: structural` → **stop, return to parent**
 - No blocking issues → update evaluate-state.md: `w0_status: passed`, `current_dimension: W1` → advance to Phase W1
 
 ---
@@ -270,8 +269,8 @@ w0_status: passed | failed
    - Route each finding through Attribution Protocol.
 
 6. **Structural fix detection.** If any fix requires modifying `task-list.md` (task split, task addition, dependency graph change):
-   - Update evaluate-state.md: `w1_status: complete`, `post_split_scan_required: true`, `current_dimension: w0_failed` (return-to-Drafting path)
-   - **exit_code: w0_failed** (structural return, not a W0 check failure)
+   - Update evaluate-state.md: `w1_status: complete`, `post_split_scan_required: true`, `current_dimension: FAILED`, `failure_type: structural`
+   - **Stop and return to parent** (structural return; parent SKILL writes Drafting)
 
 7. **Exit W1.** No unresolved SOT-DEFECT; all WO-MISS fixed or noted:
    - Update evaluate-state.md: `w1_status: complete`, `current_dimension: W2`
@@ -303,8 +302,8 @@ w0_status: passed | failed
    - Route each finding through Attribution Protocol.
 
 4. **Structural fix detection.** If any fix requires modifying `task-list.md` (granularity split, dependency cycle resolution):
-   - Update evaluate-state.md: `w2_status: complete`, `fix_severity: critical`, `current_dimension: w0_failed`
-   - **exit_code: w0_failed** (structural return; trigger Drafting in parent SKILL)
+   - Update evaluate-state.md: `w2_status: complete`, `fix_severity: critical`, `current_dimension: FAILED`, `failure_type: structural`
+   - **Stop and return to parent** (structural return; parent SKILL writes Drafting)
 
 5. **Exit W2.** No structural issues; all non-structural WO-ERROR fixed or noted:
    - Update evaluate-state.md: `w2_status: complete`, `fix_severity: {level}`, `fix_severity_reason: {reason}`, `current_dimension: DONE`
@@ -331,11 +330,11 @@ w0_status: passed | failed
 
 ## Exit Contract
 
-| exit_code | Trigger | evaluate-state.md state | Parent action |
-|-----------|---------|------------------------|--------------|
-| `done` | All phases passed | `current_dimension: DONE` | Write `ReadyForDelivery` → await human-delivery-gate |
-| `tda_blocked` | SOT-DEFECT escalated (TDA or W1) | `current_dimension: tda_blocked` | Write `TDABlocked`; present report path to human |
-| `w0_failed` | W0 structural gate failed OR structural fix required in W1/W2 | `current_dimension: w0_failed` | Write `Drafting`; present report path |
+| `current_dimension` | `failure_type` | Trigger | Parent action |
+|--------------------|---------------|---------|---------------|
+| `DONE` | — | All phases passed | Write `ReadyForDelivery` → await human-delivery-gate |
+| `FAILED` | `sot_defect` | SOT-DEFECT escalated in TDA or W1 | Write `TDABlocked`; present report path to human |
+| `FAILED` | `structural` | W0 blocking issue OR structural fix required in W1/W2 | Write `Drafting`; present report path |
 
 **`current_dimension: DONE` does not mean delivery is complete.** The parent SKILL must still:
 1. Await human writing `human-delivery-gate.md`
