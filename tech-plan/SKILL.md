@@ -324,11 +324,11 @@ Each review file shares the same structure; column set varies by dimension:
 
 ## Execution Mode: Apply
 
-Read `$EXECUTION_MODE` from Session Foundation (set by parent `SKILL.md`). Default: `copilot`.
+Read `$EXECUTION_MODE` from Session Foundation (set by parent `SKILL.md`). Default: `guided`.
 
 | Mode | Behavior |
 |------|---------|
-| `copilot` | Current behavior — all rules apply as documented |
+| `guided` | Current behavior — all rules apply as documented |
 | `autonomous` | Apply the overrides below; all other rules unchanged |
 
 ### Autonomous Overrides
@@ -339,4 +339,4 @@ Read `$EXECUTION_MODE` from Session Foundation (set by parent `SKILL.md`). Defau
 | Drafting Rule D2 — recalibrate on re-entry | Default Yes. Do **not** ask. |
 | Drafting Rule D5 — skip evaluate to ReadyForDelivery | Default: proceed to Evaluating directly. Do **not** ask. User may explicitly request skip (e.g. "skip evaluation") to override. |
 | Evaluating Rule E3 — per-issue AskQuestion | Default: Option A (Fix). Apply fix without asking. |
-| ReadyForDelivery Rule R1 — delivery confirmation | **Feature container (autonomous):** auto-deliver — write `human-delivery-gate.md`, set `current_state: Delivered`, then auto handoff to `tech-work-order` (auto-chain). For topic containers or copilot mode: unchanged (wait for explicit user confirmation). |
+| ReadyForDelivery Rule R1 — delivery confirmation | **Feature container (autonomous):** auto-deliver — write `human-delivery-gate.md`, set `current_state: Delivered`, then auto handoff to `tech-work-order` (auto-chain). For topic containers or guided mode: unchanged (wait for explicit user confirmation). |

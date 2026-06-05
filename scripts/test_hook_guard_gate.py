@@ -191,14 +191,14 @@ class TestGetTopicDoc:
 
     def test_no_topic_id_returns_none(self, tmp_path):
         from hook_guard import get_topic_doc
-        self._write_features_json(tmp_path, "feat-a", {"name": "x", "execution_mode": "copilot"})
+        self._write_features_json(tmp_path, "feat-a", {"name": "x", "execution_mode": "guided"})
         result = get_topic_doc("feat-a", "tech-plan", tmp_path, _CONFIG_DIR)
         assert result is None
 
     def test_invalid_topic_id_raises_value_error(self, tmp_path):
         from hook_guard import get_topic_doc
         self._write_features_json(tmp_path, "feat-a",
-                                  {"name": "x", "execution_mode": "copilot",
+                                  {"name": "x", "execution_mode": "guided",
                                    "topic_id": "topic-20260101000000-deadbeef"})
         # cycles.json does not exist → ValueError
         with pytest.raises(ValueError):
@@ -208,9 +208,9 @@ class TestGetTopicDoc:
         from hook_guard import get_topic_doc
         topic_id = "topic-20260101000000-aabbccdd"
         self._write_features_json(tmp_path, "feat-a",
-                                  {"name": "x", "execution_mode": "copilot",
+                                  {"name": "x", "execution_mode": "guided",
                                    "topic_id": topic_id})
-        self._write_topics_json(tmp_path, topic_id, {"name": "t", "execution_mode": "copilot"})
+        self._write_topics_json(tmp_path, topic_id, {"name": "t", "execution_mode": "guided"})
         # tech-code maps to null in topic_doc_stage
         result = get_topic_doc("feat-a", "tech-code", tmp_path, _CONFIG_DIR)
         assert result is None
@@ -219,9 +219,9 @@ class TestGetTopicDoc:
         from hook_guard import get_topic_doc
         topic_id = "topic-20260101000000-aabbccdd"
         self._write_features_json(tmp_path, "feat-a",
-                                  {"name": "x", "execution_mode": "copilot",
+                                  {"name": "x", "execution_mode": "guided",
                                    "topic_id": topic_id})
-        self._write_topics_json(tmp_path, topic_id, {"name": "t", "execution_mode": "copilot"})
+        self._write_topics_json(tmp_path, topic_id, {"name": "t", "execution_mode": "guided"})
         # No session files → None
         result = get_topic_doc("feat-a", "tech-plan", tmp_path, _CONFIG_DIR)
         assert result is None
@@ -401,8 +401,8 @@ class TestTopicRefExtended:
         from hook_guard import get_topic_doc
         topic_id = "topic-20260101000000-aabbccdd"
         self._write_features_json(tmp_path, "feat-a",
-                                  {"name": "x", "execution_mode": "copilot", "topic_id": topic_id})
-        self._write_topics_json(tmp_path, topic_id, {"name": "t", "execution_mode": "copilot"})
+                                  {"name": "x", "execution_mode": "guided", "topic_id": topic_id})
+        self._write_topics_json(tmp_path, topic_id, {"name": "t", "execution_mode": "guided"})
         session_dir = self._make_delivered_session(tmp_path, topic_id, "tech-plan")
 
         result = get_topic_doc("feat-a", "tech-work-order", tmp_path, _CONFIG_DIR)
@@ -414,8 +414,8 @@ class TestTopicRefExtended:
         from hook_guard import get_topic_doc
         topic_id = "topic-20260101000000-aabbccdd"
         self._write_features_json(tmp_path, "feat-a",
-                                  {"name": "x", "execution_mode": "copilot", "topic_id": topic_id})
-        self._write_topics_json(tmp_path, topic_id, {"name": "t", "execution_mode": "copilot"})
+                                  {"name": "x", "execution_mode": "guided", "topic_id": topic_id})
+        self._write_topics_json(tmp_path, topic_id, {"name": "t", "execution_mode": "guided"})
 
         result = get_topic_doc("feat-a", "tech-code", tmp_path, _CONFIG_DIR)
 
@@ -426,8 +426,8 @@ class TestTopicRefExtended:
         from hook_guard import get_topic_doc
         topic_id = "topic-20260101000000-aabbccdd"
         self._write_features_json(tmp_path, "feat-a",
-                                  {"name": "x", "execution_mode": "copilot", "topic_id": topic_id})
-        self._write_topics_json(tmp_path, topic_id, {"name": "t", "execution_mode": "copilot"})
+                                  {"name": "x", "execution_mode": "guided", "topic_id": topic_id})
+        self._write_topics_json(tmp_path, topic_id, {"name": "t", "execution_mode": "guided"})
         session_dir = self._make_delivered_session(tmp_path, topic_id, "tech-plan")
 
         result = get_topic_doc("feat-a", "tech-plan", tmp_path, _CONFIG_DIR)
@@ -439,8 +439,8 @@ class TestTopicRefExtended:
         from hook_guard import get_topic_doc
         topic_id = "topic-20260101000000-aabbccdd"
         self._write_features_json(tmp_path, "feat-a",
-                                  {"name": "x", "execution_mode": "copilot", "topic_id": topic_id})
-        self._write_topics_json(tmp_path, topic_id, {"name": "t", "execution_mode": "copilot"})
+                                  {"name": "x", "execution_mode": "guided", "topic_id": topic_id})
+        self._write_topics_json(tmp_path, topic_id, {"name": "t", "execution_mode": "guided"})
 
         result = get_topic_doc("feat-a", "tech-plan", tmp_path, _CONFIG_DIR)
 
@@ -450,7 +450,7 @@ class TestTopicRefExtended:
         """topic_id field present but empty string → returns None, no error."""
         from hook_guard import get_topic_doc
         self._write_features_json(tmp_path, "feat-a",
-                                  {"name": "x", "execution_mode": "copilot", "topic_id": ""})
+                                  {"name": "x", "execution_mode": "guided", "topic_id": ""})
 
         result = get_topic_doc("feat-a", "tech-plan", tmp_path, _CONFIG_DIR)
 
@@ -460,9 +460,9 @@ class TestTopicRefExtended:
         """topic_id not in cycles.json → ValueError raised."""
         from hook_guard import get_topic_doc
         self._write_features_json(tmp_path, "feat-a",
-                                  {"name": "x", "execution_mode": "copilot",
+                                  {"name": "x", "execution_mode": "guided",
                                    "topic_id": "topic-does-not-exist"})
-        self._write_topics_json(tmp_path, "topic-other", {"name": "t", "execution_mode": "copilot"})
+        self._write_topics_json(tmp_path, "topic-other", {"name": "t", "execution_mode": "guided"})
 
         with pytest.raises(ValueError):
             get_topic_doc("feat-a", "tech-plan", tmp_path, _CONFIG_DIR)
