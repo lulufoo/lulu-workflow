@@ -17,7 +17,7 @@ from active_context import get_entry
 _SKILL_ROOT = Path(__file__).resolve().parents[1]
 _CONFIG_DIR = _SKILL_ROOT / "config"
 
-_VALID_STATES = frozenset({"Drafting", "Evaluating", "Delivered", "Invalidated"})
+_VALID_STATES = frozenset({"Drafting", "Evaluating", "TDABlocked", "Delivered", "Invalidated"})
 
 
 # ---------------------------------------------------------------------------

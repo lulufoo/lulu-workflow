@@ -12,6 +12,7 @@ from workflow_common import (
 WORK_ORDER_CONFIG_DEFAULTS = {
     "task_template_url": "",
     "tasklist_template_url": "",
+    "tda_url": "",
     "twca_url": "",
     "woqa_url": "",
 }

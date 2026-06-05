@@ -1,9 +1,29 @@
 {
-  "allowed_transitions": [
-    {"from": "Drafting",         "to": "Evaluating"},
-    {"from": "Evaluating",       "to": "ReadyForDelivery"},
-    {"from": "Evaluating",       "to": "Drafting"},
-    {"from": "ReadyForDelivery", "to": "Drafting"},
-    {"from": "ReadyForDelivery", "to": "Delivered"}
-  ]
+  "version": 1,
+  "session": {
+    "states": ["Drafting", "Evaluating", "TDABlocked", "Delivered"],
+    "allowed_transitions": [
+      {"from": "Drafting",     "to": "Evaluating"},
+      {"from": "Evaluating",   "to": "TDABlocked"},
+      {"from": "Evaluating",   "to": "Drafting"},
+      {"from": "TDABlocked",   "to": "Drafting"},
+      {"from": "Evaluating",   "to": "ReadyForDelivery"},
+      {"from": "ReadyForDelivery", "to": "Drafted"},
+      {"from": "ReadyForDelivery", "to": "Delivered"}
+    ]
+  },
+  "evaluate": {
+    "active_states": ["TDA", "W0", "W1", "W2", "DONE"],
+    "failure_exits": ["tda_blocked", "w0_failed"],
+    "transitions": [
+      {"from": "*",    "to": "TDA"},
+      {"from": "TDA",  "to": "W0"},
+      {"from": "W0",   "to": "W1"},
+      {"from": "W1",   "to": "W2"},
+      {"from": "W2",   "to": "DONE"},
+      {"from": "TDA",  "to": "tda_blocked"},
+      {"from": "W0",   "to": "w0_failed"},
+      {"from": "W1",   "to": "tda_blocked"}
+    ]
+  }
 }
