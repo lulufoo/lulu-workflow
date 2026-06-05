@@ -162,7 +162,7 @@ Process tasks 1→N in sequence. Advance `current_phase` only when `current_stat
 
 **Invariant (no direct execution):** Task phases run in sub-agent only; orchestrator must not execute phases directly.
 
-Resolve `$RESOLVED_MODEL` once before the loop — see `## Sub-agent Context › Config Resolution` in `../SKILL.md`, using `--stage code`.
+Resolve `$RESOLVED_MODEL` once before the loop — see `## Sub-agent Context › Config Resolution` in `../SKILL.md`, using `--stage tech-code`.
 
 For each task in order:
 
