@@ -106,9 +106,7 @@ Stage Rollback is distinct from the diagnostic `Re-open` mechanism (which operat
 ```
 
 - `container_type`: `"topic"` | `"feature"` — backward compat: absent field is treated as `"feature"`
-- `conversation_id` is injected automatically by `hook_guard.py` (preToolUse Shell hook); no manual `--conversation-id` needed
 - Re-starting a different feature in the **same** conversation overwrites that conv entry (one active workflow per conversation)
-- Legacy flat `{ "feature_id", "stage" }` format is not supported (hard cut)
 
 **Output variables:** `$FEATURE_ID` · `$EXECUTION_MODE` (`"copilot"` | `"autonomous"`)
 
