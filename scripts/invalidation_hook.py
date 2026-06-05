@@ -32,6 +32,5 @@ def invalidate_downstream(cycle_id: str, from_stage: str,
     for stage in downstream:
         for session in get_sessions(cycle_id, stage, cache_dir):
             if session.state != "Invalidated":
-                state_path = (cache_dir / cycle_id / stage
-                              / session.revision / "workflow-state.md")
-                _write_invalidated(state_path)
+                if session.state_path and session.state_path.exists():
+                    _write_invalidated(session.state_path)

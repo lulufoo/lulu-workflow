@@ -13,11 +13,22 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 from active_context import get_entry
+from cycle_state import read_cycle_state, write_cycle_state  # noqa: F401 (re-exported)
 
 _SKILL_ROOT = Path(__file__).resolve().parents[1]
 _CONFIG_DIR = _SKILL_ROOT / "config"
 
 _VALID_STATES = frozenset({"Drafting", "Evaluating", "TDABlocked", "Delivered", "Invalidated"})
+
+# Flat stages use session-state.md directly (no revision subdirectories).
+_STAGE_FLAT = frozenset({"diagnostic", "product-diagnostic", "tech-diagnostic"})
+_FLAT_VALID_STATES = frozenset({"InProgress", "Delivered", "Invalidated"})
+_STAGE_REVISION_PAT = re.compile(r"^(revision|r|s)\d+$")
+
+
+def _stage_subdir(stage: str) -> str:
+    """Convert stage name to cache subdirectory: product-plan → product/plan."""
+    return stage.replace("-", "/", 1)
 
 
 # ---------------------------------------------------------------------------
@@ -26,9 +37,10 @@ _VALID_STATES = frozenset({"Drafting", "Evaluating", "TDABlocked", "Delivered", 
 
 @dataclass
 class SessionInfo:
-    revision: str    # "r1", "r2", ...
-    state: str       # Drafting / Evaluating / Delivered / Invalidated
-    created_at: str  # ISO 8601 from workflow-state.md updated_at
+    revision: str              # "revision1", "revision2", ... or "r0" for flat stages
+    state: str                 # Drafting / Evaluating / Delivered / Invalidated / InProgress
+    created_at: str            # ISO 8601 from state file updated_at
+    state_path: Optional[Path] = None  # full path to the state file
 
 
 def _parse_frontmatter(text: str) -> dict:
@@ -45,23 +57,40 @@ def _parse_frontmatter(text: str) -> dict:
 
 
 def get_sessions(cycle_id: str, stage: str, cache_dir: Path) -> List[SessionInfo]:
-    """Scan cache_dir/cycle_id/stage/r*/workflow-state.md and return SessionInfo list."""
-    stage_dir = cache_dir / cycle_id / stage
+    """Scan the correct stage directory and return SessionInfo list."""
+    stage_dir = cache_dir / cycle_id / _stage_subdir(stage)
     if not stage_dir.is_dir():
         return []
     sessions = []
-    for rev_dir in sorted(stage_dir.iterdir()):
-        if not re.match(r"^r\d+$", rev_dir.name):
-            continue
-        ws = rev_dir / "workflow-state.md"
-        if not ws.exists():
-            continue
-        fm = _parse_frontmatter(ws.read_text(encoding="utf-8"))
-        state = fm.get("current_state", "")
-        if state not in _VALID_STATES:
-            continue  # silently skip old state names
-        created_at = fm.get("updated_at", "")
-        sessions.append(SessionInfo(revision=rev_dir.name, state=state, created_at=created_at))
+    if stage in _STAGE_FLAT:
+        ws = stage_dir / "session-state.md"
+        if ws.exists():
+            fm = _parse_frontmatter(ws.read_text(encoding="utf-8"))
+            state = fm.get("current_state", "")
+            if state in _FLAT_VALID_STATES:
+                sessions.append(SessionInfo(
+                    revision="r0",
+                    state=state,
+                    created_at=fm.get("updated_at", ""),
+                    state_path=ws,
+                ))
+    else:
+        for rev_dir in sorted(stage_dir.iterdir()):
+            if not _STAGE_REVISION_PAT.match(rev_dir.name):
+                continue
+            ws = rev_dir / "workflow-state.md"
+            if not ws.exists():
+                continue
+            fm = _parse_frontmatter(ws.read_text(encoding="utf-8"))
+            state = fm.get("current_state", "")
+            if state not in _VALID_STATES:
+                continue  # silently skip old state names
+            sessions.append(SessionInfo(
+                revision=rev_dir.name,
+                state=state,
+                created_at=fm.get("updated_at", ""),
+                state_path=ws,
+            ))
     return sessions
 
 
@@ -88,23 +117,45 @@ def load_stage_order(cycle_type: str, config_dir: Path) -> List[str]:
 
 def check_gate(cycle_id: str, to_stage: str, cycle_type: str,
                cache_dir: Path, config_dir: Path) -> Tuple[bool, str]:
-    """Validate gate for to_stage using the sequential_all_prior rule.
+    """Validate gate for to_stage using the transition-table rule.
 
-    Rule: for any to_stage, all stages that appear before it in the stage order
-    AND have at least one valid (non-Invalidated) session must have
-    current_effective_delivered == True.
-    Stages with no valid sessions are exempt (allows skipping optional stages,
-    e.g. null → tech-diagnostic bypassing the product phase).
+    Rule:
+    1. Read cycle-state.json → current_stage (None = NULL / never started).
+    2. If current_stage is not in this cycle's stages list, treat as NULL.
+    3. Valid next stage: NULL → stages[0]; stages[i] → stages[i+1]; X → X (re-entry).
+    4. to_stage not in valid set → BLOCK (invalid transition).
+    5. Advancing (to_stage != current_stage): require current_stage Delivered.
     """
     stages = load_stage_order(cycle_type, config_dir)
     if to_stage not in stages:
         return (True, "OK")
-    idx = stages.index(to_stage)
-    prior = stages[:idx]
-    for stage in prior:
-        if has_any_valid_session(cycle_id, stage, cache_dir):
-            if not current_effective_delivered(cycle_id, stage, cache_dir):
-                return (False, f"Gate blocked: {stage} is not Delivered")
+
+    current_stage = read_cycle_state(cycle_id, cache_dir)
+    if current_stage is not None and current_stage not in stages:
+        current_stage = None  # normalize stale / out-of-cycle values
+
+    # Determine valid next stage from current position
+    if current_stage is None:
+        valid_next = stages[0]
+    else:
+        idx = stages.index(current_stage)
+        valid_next = stages[idx + 1] if idx + 1 < len(stages) else None
+
+    is_reentry = (to_stage == current_stage)
+    is_advance = (to_stage == valid_next)
+
+    if not is_reentry and not is_advance:
+        return (
+            False,
+            f"Invalid transition: {current_stage or 'NULL'} → {to_stage}"
+            f" (expected: {valid_next or 'terminal'})",
+        )
+
+    # Advancing requires current stage to be Delivered
+    if is_advance and current_stage is not None:
+        if not current_effective_delivered(cycle_id, current_stage, cache_dir):
+            return (False, f"Gate blocked: {current_stage} is not Delivered")
+
     return (True, "OK")
 
 
@@ -139,8 +190,8 @@ def get_topic_doc(cycle_id: str, stage: str,
     if not sessions:
         return None
     latest = max(sessions, key=lambda s: (s.created_at, s.revision))
-    doc_path = cache_dir / topic_id / ref_stage / latest.revision
-    return doc_path if doc_path.exists() else None
+    doc_path = latest.state_path.parent if latest.state_path else None
+    return doc_path if doc_path and doc_path.exists() else None
 _PLATFORMS_DIR = Path(__file__).resolve().parent / "platforms"
 _WRITE_TOOL_NAMES = frozenset({"Write", "Edit"})
 _KNOWN_STAGES = frozenset({

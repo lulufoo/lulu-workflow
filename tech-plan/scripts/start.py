@@ -12,6 +12,7 @@ from hook_guard import (  # noqa: E402
     get_sessions,
     get_topic_doc,
     load_stage_order,
+    write_cycle_state,
 )
 from invalidation_hook import invalidate_downstream  # noqa: E402
 
@@ -54,13 +55,12 @@ def _mark_historical(cycle_id: str, stage: str, cache_dir: Path) -> None:
     if not sessions:
         return
     latest = max(sessions, key=lambda s: (s.created_at, s.revision))
-    ws_path = cache_dir / cycle_id / stage / latest.revision / "workflow-state.md"
-    if not ws_path.exists():
+    if not latest.state_path or not latest.state_path.exists():
         return
-    text = ws_path.read_text(encoding="utf-8")
+    text = latest.state_path.read_text(encoding="utf-8")
     if "historical:" not in text:
         updated = re.sub(r"(---\s*\n)", r"\1historical: true\n", text, count=1)
-        ws_path.write_text(updated, encoding="utf-8")
+        latest.state_path.write_text(updated, encoding="utf-8")
 
 
 def parse_args() -> argparse.Namespace:
@@ -170,6 +170,7 @@ def main() -> int:
         conversation_id=args.conversation_id.strip() or None,
         cycle_type=cycle_type,
     )
+    write_cycle_state(cycle_id, _TO_STAGE, cache_dir)
 
     ws_path = project_root / state_path(cycle_id, active_doc)
     write_md_state(
