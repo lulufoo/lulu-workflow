@@ -64,12 +64,12 @@ def test_transition_table_version():
 
 def test_transition_table_topic_count():
     data = load("transition-table.json")
-    assert len(data["topic"]) == 5
+    assert len(data["topic"]) == 6
 
 
 def test_transition_table_feature_count():
     data = load("transition-table.json")
-    assert len(data["feature"]) == 7
+    assert len(data["feature"]) == 8
 
 
 def test_transition_table_topic_last_entry():

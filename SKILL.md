@@ -17,7 +17,7 @@ under this directory.
 
 When a stage delivers:
 1. Read `$SKILL_ROOT/config/transition-table.json`
-2. Look up the entry where `from == <current_stage>` (`null` if no active stage) under the `cycle_type` key (`topic` or `feature`)
+2. Collect all entries where `from == <current_stage>` (`null` if no active stage) under the `cycle_type` key (`topic` or `feature`); aggregate their `to` arrays
 3. Present all allowed next stages from the `to` array; wait for explicit user selection (see § Autonomous Tech Line Auto-Chain for the exception)
 4. If `to` is empty: announce completion; display the `note` field if present
 
