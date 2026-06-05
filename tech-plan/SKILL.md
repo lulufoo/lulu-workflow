@@ -30,6 +30,24 @@ Do NOT proceed until you have read `../SKILL.md` and loaded:
 
 ---
 
+## Stage Entry (Gate Check)
+
+Before starting this stage, the AI must:
+
+1. Read `features.json` (or `topics.json`) to confirm the current container type (`topic` / `feature`) and container ID.
+2. Call `check_gate(container_id, to_stage="tech-plan", cycle_type, cache_dir)` via the `hook_guard.py` script:
+   - If `ok == False`: stop, output `reason` to user, do not proceed.
+   - If `ok == True`: continue.
+3. If container is `feature` and has `topic_id`: call `get_topic_doc(container_id, "tech-plan", cache_dir)` to retrieve the topic reference document.
+   - If path returned: inform user of the topic doc path and load it as context.
+   - If `None`: skip silently.
+   - If `ValueError`: stop, output error to user, do not proceed.
+4. Inform user of the current cycle layer:
+   - `topic` container → shaping cycle (architecture exploration)
+   - `feature` container → spec cycle (implementation spec)
+
+---
+
 ## Commands
 
 
@@ -306,19 +324,19 @@ Each review file shares the same structure; column set varies by dimension:
 
 ## Execution Mode: Apply
 
-Read `$EXECUTION_MODE` from Session Foundation (set by parent `SKILL.md`). Default: `assisted`.
+Read `$EXECUTION_MODE` from Session Foundation (set by parent `SKILL.md`). Default: `copilot`.
 
 | Mode | Behavior |
 |------|---------|
-| `assisted` | Current behavior — all rules apply as documented |
-| `self-service` | Apply the overrides below; all other rules unchanged |
+| `copilot` | Current behavior — all rules apply as documented |
+| `autonomous` | Apply the overrides below; all other rules unchanged |
 
-### Self-Service Overrides
+### Autonomous Overrides
 
-| Rule | Self-Service Behavior |
+| Rule | Autonomous Behavior |
 |------|-----------------------|
 | `start` Step 2 — run-mode detection | Auto-detect: if triggering message or session context includes a product-doc path → `product` mode; otherwise → `tech` mode. Do **not** ask. |
 | Drafting Rule D2 — recalibrate on re-entry | Default Yes. Do **not** ask. |
 | Drafting Rule D5 — skip evaluate to ReadyForDelivery | Default: proceed to Evaluating directly. Do **not** ask. User may explicitly request skip (e.g. "skip evaluation") to override. |
 | Evaluating Rule E3 — per-issue AskQuestion | Default: Option A (Fix). Apply fix without asking. |
-| ReadyForDelivery Rule R1 — delivery confirmation | **Unchanged: always wait for explicit user confirmation.** |
+| ReadyForDelivery Rule R1 — delivery confirmation | **Feature container (autonomous):** auto-deliver — write `human-delivery-gate.md`, set `current_state: Delivered`, then auto handoff to `tech-work-order` (auto-chain). For topic containers or copilot mode: unchanged (wait for explicit user confirmation). |

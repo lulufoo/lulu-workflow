@@ -213,11 +213,42 @@ def merge_hook_entry(hooks_payload: Dict[str, Any]) -> Dict[str, Any]:
     return hooks_payload
 
 
+def detect_container_type(container_id: str) -> str:
+    """Return 'topic' if container_id starts with 'topic-', else 'feature'."""
+    return "topic" if container_id.startswith("topic-") else "feature"
+
+
+def load_container_meta(cache_dir: Path, container_id: str, container_type: str) -> dict:
+    """Load container metadata from topics.json or features.json.
+
+    topic: topics.json must exist and contain container_id; raises ValueError otherwise.
+    feature: if features.json absent, returns {} (backward compat);
+             if present but missing container_id, raises ValueError.
+    """
+    if container_type == "topic":
+        json_file = cache_dir / "topics.json"
+        if not json_file.exists():
+            raise ValueError(f"topics.json not found: {json_file}")
+        data = json.loads(json_file.read_text(encoding="utf-8"))
+        if container_id not in data:
+            raise ValueError(f"topic-id {container_id!r} not found in topics.json")
+        return data[container_id]
+    else:
+        json_file = cache_dir / "features.json"
+        if not json_file.exists():
+            return {}
+        data = json.loads(json_file.read_text(encoding="utf-8"))
+        if container_id not in data:
+            raise ValueError(f"feature-id {container_id!r} not found in features.json")
+        return data[container_id]
+
+
 def write_active_context(
     project_root: Path,
     feature_id: str,
     conversation_id: Optional[str] = None,
     stage: str = STAGE,
+    container_type: str = "feature",
 ) -> None:
     import os
     import sys
@@ -235,4 +266,4 @@ def write_active_context(
         )
         return
     platform = os.environ.get("LULU_PLATFORM", "cursor")
-    write_entry(project_root, platform, conv_id, feature_id, stage)
+    write_entry(project_root, platform, conv_id, feature_id, stage, container_type=container_type)

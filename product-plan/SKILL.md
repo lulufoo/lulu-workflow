@@ -36,6 +36,24 @@ Markdown. During an active session, writes are restricted to
 
 ---
 
+## Stage Entry (Gate Check)
+
+Before starting this stage, the AI must:
+
+1. Read `features.json` (or `topics.json`) to confirm the current container type (`topic` / `feature`) and container ID.
+2. Call `check_gate(container_id, to_stage="product-plan", cycle_type, cache_dir)` via the `hook_guard.py` script:
+   - If `ok == False`: stop, output `reason` to user, do not proceed.
+   - If `ok == True`: continue.
+3. If container is `feature` and has `topic_id`: call `get_topic_doc(container_id, "product-plan", cache_dir)` to retrieve the topic reference document.
+   - If path returned: inform user of the topic doc path and load it as context.
+   - If `None`: skip silently.
+   - If `ValueError`: stop, output error to user, do not proceed.
+4. Inform user of the current cycle layer:
+   - `topic` container → shaping cycle (architecture exploration)
+   - `feature` container → spec cycle (implementation spec)
+
+---
+
 ## Commands
 
 

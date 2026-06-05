@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "topic": [
+    { "from": "product-diagnostic", "to": ["product-plan"] },
+    { "from": "product-plan", "to": ["tech-diagnostic"] },
+    { "from": "tech-diagnostic", "to": ["tech-plan"] },
+    { "from": "tech-plan", "to": [], "note": "shaping 循环完成；推荐创建 feature 并引用此 topic" }
+  ],
+  "feature": [
+    { "from": "product-diagnostic", "to": ["product-plan"] },
+    { "from": "product-plan", "to": ["tech-diagnostic"] },
+    { "from": "tech-diagnostic", "to": ["tech-plan"] },
+    { "from": "tech-plan", "to": ["tech-work-order"] },
+    { "from": "tech-work-order", "to": ["tech-code"] },
+    { "from": "tech-code", "to": [] }
+  ]
+}

@@ -27,6 +27,24 @@ Do NOT proceed until you have read `../SKILL.md` and loaded:
 
 ---
 
+## Stage Entry (Gate Check)
+
+Before starting this stage, the AI must:
+
+1. Read `features.json` (or `topics.json`) to confirm the current container type (`topic` / `feature`) and container ID.
+2. Call `check_gate(container_id, to_stage="tech-code", cycle_type, cache_dir)` via the `hook_guard.py` script:
+   - If `ok == False`: stop, output `reason` to user, do not proceed.
+   - If `ok == True`: continue.
+3. If container is `feature` and has `topic_id`: call `get_topic_doc(container_id, "tech-code", cache_dir)` to retrieve the topic reference document.
+   - If path returned: inform user of the topic doc path and load it as context.
+   - If `None`: skip silently.
+   - If `ValueError`: stop, output error to user, do not proceed.
+4. Inform user of the current cycle layer:
+   - `topic` container → shaping cycle (architecture exploration)
+   - `feature` container → spec cycle (implementation spec)
+
+---
+
 ## Commands
 
 ### `/tech-code <input>` — Entry point
@@ -223,6 +241,21 @@ Do not advance until this line is output.
 **Condition:** `human-delivery-gate.md` exists with `approved: true`. `current_state: Delivered`.
 
 AI must not self-declare session complete. Even if all tasks are `Done` and the closing checklist is fully checked, `Delivered` requires explicit human confirmation via the gate file.
+
+---
+
+## § Autonomous Overrides
+
+Read `$EXECUTION_MODE` from Session Foundation (set by parent `SKILL.md`). Default: `copilot`.
+
+The overrides below apply only when `$EXECUTION_MODE == "autonomous"` **and** `container_type == "feature"`. All other rules unchanged.
+
+**Auto-chain entry point:** In autonomous + feature mode, this stage may be entered automatically after `tech-work-order` delivers (see `§ Autonomous Tech Line Auto-Chain` in `../SKILL.md`). No user `/code` command is required; the orchestrator auto-invokes the startup sequence.
+
+| Rule | Autonomous Behavior |
+|------|-----------------------|
+| AI startup Step 6 — task confirmation | Auto-skip. Proceed directly to Executing without waiting for user confirmation. |
+| Closing step 5 — delivery gate confirmation | Auto-complete. Write `human-delivery-gate.md` (`approved: true`) without waiting for explicit user confirmation. |
 
 ---
 

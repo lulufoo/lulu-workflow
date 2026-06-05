@@ -25,6 +25,24 @@ Do NOT proceed until you have read `../SKILL.md` and loaded:
 
 ---
 
+## Stage Entry (Gate Check)
+
+Before starting this stage, the AI must:
+
+1. Read `features.json` (or `topics.json`) to confirm the current container type (`topic` / `feature`) and container ID.
+2. Call `check_gate(container_id, to_stage="tech-work-order", cycle_type, cache_dir)` via the `hook_guard.py` script:
+   - If `ok == False`: stop, output `reason` to user, do not proceed.
+   - If `ok == True`: continue.
+3. If container is `feature` and has `topic_id`: call `get_topic_doc(container_id, "tech-work-order", cache_dir)` to retrieve the topic reference document.
+   - If path returned: inform user of the topic doc path and load it as context.
+   - If `None`: skip silently.
+   - If `ValueError`: stop, output error to user, do not proceed.
+4. Inform user of the current cycle layer:
+   - `topic` container → shaping cycle (architecture exploration)
+   - `feature` container → spec cycle (implementation spec)
+
+---
+
 ## Commands
 
 
@@ -335,20 +353,20 @@ W1 and W2 share the same base structure; W1 groups issues by direction (Coverage
 - Execution order: follow the topological sort of the dependency graph in `task-list.md`.
 ## Execution Mode: Apply
 
-Read `$EXECUTION_MODE` from Session Foundation (set by parent `SKILL.md`). Default: `assisted`.
+Read `$EXECUTION_MODE` from Session Foundation (set by parent `SKILL.md`). Default: `copilot`.
 
 | Mode | Behavior |
 |------|---------|
-| `assisted` | Current behavior — all rules apply as documented |
-| `self-service` | Apply the overrides below; all other rules unchanged |
+| `copilot` | Current behavior — all rules apply as documented |
+| `autonomous` | Apply the overrides below; all other rules unchanged |
 
-### Self-Service Overrides
+### Autonomous Overrides
 
-| Rule | Self-Service Behavior |
+| Rule | Autonomous Behavior |
 |------|-----------------------|
-| `start` Step 2 — tech-ref path | **Unchanged: always ask.** (W1 start gate) |
+| `start` Step 2 — tech-ref path | **Feature container (autonomous):** auto-parse `tech-ref` from the tech-plan Delivered output in the current conversation (latest `tech-doc.md` path). Do **not** ask. For topic containers or copilot mode: unchanged (always ask). |
 | Drafting D2 Step 1 — confirm task breakdown | Auto-confirm. Proceed to task.md generation without asking. |
 | Drafting D2 Step 2 — "Proceed to Evaluating?" | Auto-confirm. Enter Evaluating without asking. |
 | Drafting D3 re-entry — "All issues fixed. Re-enter Evaluating?" | Auto-confirm. |
 | Evaluating E3/E4 — per-issue AskQuestion | Default: Fix. Apply fix without asking. |
-| ReadyForDelivery R1 — delivery confirmation | **Unchanged: always wait for explicit user confirmation.** |
+| ReadyForDelivery R1 — delivery confirmation | **Feature container (autonomous):** auto-complete delivery — write `human-delivery-gate.md`, set `current_state: Delivered`; then auto handoff to `tech-code` (auto-chain). For topic containers or copilot mode: unchanged (wait for explicit user confirmation). |

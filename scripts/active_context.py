@@ -23,6 +23,7 @@ KNOWN_STAGES = frozenset({
 class Entry(TypedDict):
     feature_id: str
     stage: str
+    container_type: str
 
 
 def _normalize_platform(platform: str) -> str:
@@ -55,7 +56,10 @@ def _valid_entry(raw: object) -> Entry | None:
         return None
     if not isinstance(stage, str) or stage not in KNOWN_STAGES:
         return None
-    return {"feature_id": feature_id, "stage": stage}
+    container_type = raw.get("container_type", "feature")
+    if container_type not in ("feature", "topic"):
+        container_type = "feature"
+    return {"feature_id": feature_id, "stage": stage, "container_type": container_type}
 
 
 def read_all(project_root: Path, platform: str) -> dict[str, Entry]:
@@ -96,6 +100,7 @@ def write_entry(
     conversation_id: str,
     feature_id: str,
     stage: str,
+    container_type: str = "feature",
 ) -> None:
     if not conversation_id:
         print(
@@ -106,7 +111,11 @@ def write_entry(
     if stage not in KNOWN_STAGES:
         raise ValueError(f"Unknown stage: {stage!r}")
     data = read_all(project_root, platform)
-    data[conversation_id] = {"feature_id": feature_id, "stage": stage}
+    data[conversation_id] = {
+        "feature_id": feature_id,
+        "stage": stage,
+        "container_type": container_type,
+    }
     path = context_path(project_root, platform)
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as handle:
