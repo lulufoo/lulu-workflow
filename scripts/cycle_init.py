@@ -51,7 +51,7 @@ def update_cycles_json(
     cache_dir: Path,
     cycle_id: str,
     name: str,
-    mode: str = "copilot",
+    mode: str = "guided",
     topic_id: str = None,
 ) -> None:
     """Append {cycle_id: {name, execution_mode[, topic_id]}} to cycles.json."""
@@ -73,7 +73,7 @@ def validate_cycle_exists(cache_dir: Path, cycle_id: str) -> bool:
     return cycle_id in data
 
 
-def main(project_root: Path, name: str, mode: str = "copilot", cycle_type: str = "feature", topic_id: str = None) -> str:
+def main(project_root: Path, name: str, mode: str = "guided", cycle_type: str = "feature", topic_id: str = None) -> str:
     """Orchestrate initialization. Returns cycle_id."""
     if not project_root.is_dir():
         print(f"Error: --project-root does not exist: {project_root}", file=sys.stderr)
@@ -105,9 +105,9 @@ if __name__ == "__main__":
     parser.add_argument("--name", required=True, help="Human-readable name")
     parser.add_argument(
         "--mode",
-        choices=["copilot", "autonomous"],
-        default="copilot",
-        help="Execution mode: copilot (default) or autonomous",
+        choices=["guided", "autonomous"],
+        default="guided",
+        help="Execution mode: guided (default) or autonomous",
     )
     parser.add_argument(
         "--type",

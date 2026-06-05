@@ -246,7 +246,7 @@ AI must not self-declare session complete. Even if all tasks are `Done` and the 
 
 ## § Autonomous Overrides
 
-Read `$EXECUTION_MODE` from Session Foundation (set by parent `SKILL.md`). Default: `copilot`.
+Read `$EXECUTION_MODE` from Session Foundation (set by parent `SKILL.md`). Default: `guided`.
 
 The overrides below apply only when `$EXECUTION_MODE == "autonomous"` **and** `cycle_type == "feature"`. All other rules unchanged.
 

@@ -30,7 +30,7 @@ When a stage delivers:
 **Auto-chain whitelist** (on delivery, immediately start the next stage without user selection):
 `tech-plan` → `tech-work-order` → `tech-code`
 
-Does **not** trigger for **Copilot mode**.
+Does **not** trigger for **Guided mode**.
 
 Each stage's autonomous overrides govern how delivery and handoff are executed. See `Autonomous Overrides` sections in `tech-plan/SKILL.md`, `tech-work-order/SKILL.md`, and `tech-code/SKILL.md`.
 
@@ -71,7 +71,7 @@ Any participant may trigger a Stage Rollback when new information shows a prior 
 - `cycle_type`: `"topic"` | `"feature"` — backward compat: absent field is treated as `"feature"`
 - Re-starting a different feature in the **same** conversation overwrites that conv entry (one active workflow per conversation)
 
-**Output variables:** `$CYCLE_ID` · `$EXECUTION_MODE` (`"copilot"` | `"autonomous"`)
+**Output variables:** `$CYCLE_ID` · `$EXECUTION_MODE` (`"guided"` | `"autonomous"`)
 
 ### Execution Mode
 
@@ -79,14 +79,14 @@ Defines how AI and user share control throughout the workflow.
 
 | Mode | Value | AI Behavior | User Role |
 |------|-------|-------------|-----------|
-| Copilot | `"copilot"` | AI leads: proactively advances, asks, recommends; waits at key gates | Approver |
+| Guided | `"guided"` | AI leads: proactively advances, asks, recommends; waits at key gates | Approver |
 | Autonomous | `"autonomous"` | AI executes on instruction only; does not advance or suggest unprompted; includes Tech Line auto-chain for feature cycles | Commander |
 
 `$EXECUTION_MODE` is set during Feature Resolution and applies to all subsequent stages.
 
 #### Initial Mode Resolution
 
-1. `cycle_id` not in `cycles.json` → `"copilot"`
+1. `cycle_id` not in `cycles.json` → `"guided"`
 2. Value is an object → use `object.execution_mode`
 
 #### Runtime Switch
@@ -119,7 +119,7 @@ Run at session start for every sub-workflow.
 
    ```
    Cycles:
-   [topic]   1. <name> [copilot]
+   [topic]   1. <name> [guided]
    [feature] 2. <name> [autonomous]
    …
    N. New topic — type a description to create
@@ -128,13 +128,13 @@ Run at session start for every sub-workflow.
 
    Ask both in one message:
    > `Cycle: enter number to select, or type a description to create [default: "<name>"]`  
-   > `Execution mode: (1) copilot [default]  (2) autonomous`
+   > `Execution mode: (1) guided [default]  (2) autonomous`
 
    *(Show `[default: "<name>"]` only when a name was derived from the triggering message.)*
 
 2. Parse response — both questions answered in one reply; any unanswered → default:
    - **Feature:** integer → `cycle_id ← cycles.json[n]`; run Initial Mode Resolution → **DONE**; text → `name ← input`; no answer → use derived `<name>` if available
-   - **Mode:** `2` → `autonomous`; anything else / no answer → `copilot`
+   - **Mode:** `2` → `autonomous`; anything else / no answer → `guided`
 
 3. If a new name is resolved, run:
    ```bash

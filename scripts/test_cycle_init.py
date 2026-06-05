@@ -90,7 +90,7 @@ class TestUpdateFeaturesJson:
         from cycle_init import update_cycles_json
         update_cycles_json(tmp_path, "20260524143022-02cd7e6e", "my-feature")
         data = json.loads((tmp_path / "cycles.json").read_text())
-        assert data == {"20260524143022-02cd7e6e": {"name": "my-feature", "execution_mode": "copilot"}}
+        assert data == {"20260524143022-02cd7e6e": {"name": "my-feature", "execution_mode": "guided"}}
 
     def test_appends_without_overwriting_existing_entry(self, tmp_path):
         from cycle_init import update_cycles_json
@@ -100,7 +100,7 @@ class TestUpdateFeaturesJson:
         update_cycles_json(tmp_path, "20260524143022-02cd7e6e", "new-feat")
         data = json.loads((tmp_path / "cycles.json").read_text())
         assert data["20260524000000-11111111"] == "existing-feat"
-        assert data["20260524143022-02cd7e6e"] == {"name": "new-feat", "execution_mode": "copilot"}
+        assert data["20260524143022-02cd7e6e"] == {"name": "new-feat", "execution_mode": "guided"}
 
     def test_multiple_sequential_calls_accumulate(self, tmp_path):
         from cycle_init import update_cycles_json
@@ -113,7 +113,7 @@ class TestUpdateFeaturesJson:
         from cycle_init import update_cycles_json
         update_cycles_json(tmp_path, "20260524143022-02cd7e6e", "cache restructure")
         data = json.loads((tmp_path / "cycles.json").read_text())
-        assert data["20260524143022-02cd7e6e"] == {"name": "cache restructure", "execution_mode": "copilot"}
+        assert data["20260524143022-02cd7e6e"] == {"name": "cache restructure", "execution_mode": "guided"}
 
 
 # ---------------------------------------------------------------------------
@@ -158,7 +158,7 @@ class TestCLI:
         fid = result.stdout.strip().splitlines()[-1]
         fj = self._cache_dir(tmp_path) / "cycles.json"
         data = json.loads(fj.read_text())
-        assert data[fid] == {"name": "my-feature", "execution_mode": "copilot"}
+        assert data[fid] == {"name": "my-feature", "execution_mode": "guided"}
 
     def test_consecutive_calls_append_features_json(self, tmp_path):
         self._run(tmp_path, name="feat-0")
@@ -188,17 +188,17 @@ class TestCLI:
 # ---------------------------------------------------------------------------
 
 class TestUpdateFeaturesJsonMode:
-    def test_default_writes_object_with_copilot(self, tmp_path):
+    def test_default_writes_object_with_guided(self, tmp_path):
         from cycle_init import update_cycles_json
         update_cycles_json(tmp_path, "20260524143022-02cd7e6e", "my-feature")
         data = json.loads((tmp_path / "cycles.json").read_text())
-        assert data["20260524143022-02cd7e6e"] == {"name": "my-feature", "execution_mode": "copilot"}
+        assert data["20260524143022-02cd7e6e"] == {"name": "my-feature", "execution_mode": "guided"}
 
     def test_explicit_copilot_writes_object(self, tmp_path):
         from cycle_init import update_cycles_json
-        update_cycles_json(tmp_path, "20260524143022-02cd7e6e", "my-feature", "copilot")
+        update_cycles_json(tmp_path, "20260524143022-02cd7e6e", "my-feature", "guided")
         data = json.loads((tmp_path / "cycles.json").read_text())
-        assert data["20260524143022-02cd7e6e"] == {"name": "my-feature", "execution_mode": "copilot"}
+        assert data["20260524143022-02cd7e6e"] == {"name": "my-feature", "execution_mode": "guided"}
 
     def test_autonomous_writes_object(self, tmp_path):
         from cycle_init import update_cycles_json
@@ -235,7 +235,7 @@ class TestUpdateFeaturesJsonMode:
         }
         assert data["20260524143022-02cd7e6e"] == {
             "name": "new-feat",
-            "execution_mode": "copilot",
+            "execution_mode": "guided",
         }
 
 
@@ -263,13 +263,13 @@ class TestCLIMode:
         result = self._run(tmp_path, name="my-feature")
         fid = result.stdout.strip().splitlines()[-1]
         data = json.loads((self._cache_dir(tmp_path) / "cycles.json").read_text())
-        assert data[fid] == {"name": "my-feature", "execution_mode": "copilot"}
+        assert data[fid] == {"name": "my-feature", "execution_mode": "guided"}
 
     def test_mode_copilot_writes_object(self, tmp_path):
-        result = self._run(tmp_path, name="my-feature", extra_args=["--mode", "copilot"])
+        result = self._run(tmp_path, name="my-feature", extra_args=["--mode", "guided"])
         fid = result.stdout.strip().splitlines()[-1]
         data = json.loads((self._cache_dir(tmp_path) / "cycles.json").read_text())
-        assert data[fid] == {"name": "my-feature", "execution_mode": "copilot"}
+        assert data[fid] == {"name": "my-feature", "execution_mode": "guided"}
 
     def test_mode_autonomous_writes_object(self, tmp_path):
         result = self._run(tmp_path, name="my-feature", extra_args=["--mode", "autonomous"])
@@ -350,7 +350,7 @@ class TestUpdateTopicsJson:
         tid = "topic-20260524143022-aabbccdd"
         update_cycles_json(tmp_path, tid, "my-topic")
         data = json.loads((tmp_path / "cycles.json").read_text())
-        assert data == {tid: {"name": "my-topic", "execution_mode": "copilot"}}
+        assert data == {tid: {"name": "my-topic", "execution_mode": "guided"}}
 
     def test_mode_autonomous(self, tmp_path):
         from cycle_init import update_cycles_json
@@ -372,12 +372,12 @@ class TestUpdateTopicsJson:
 
     def test_old_entries_unchanged(self, tmp_path):
         from cycle_init import update_cycles_json
-        existing = {"topic-20260524000000-oldentry": {"name": "old", "execution_mode": "copilot"}}
+        existing = {"topic-20260524000000-oldentry": {"name": "old", "execution_mode": "guided"}}
         (tmp_path / "cycles.json").write_text(json.dumps(existing))
         tid = "topic-20260524143022-aabbccdd"
         update_cycles_json(tmp_path, tid, "new-topic")
         data = json.loads((tmp_path / "cycles.json").read_text())
-        assert data["topic-20260524000000-oldentry"] == {"name": "old", "execution_mode": "copilot"}
+        assert data["topic-20260524000000-oldentry"] == {"name": "old", "execution_mode": "guided"}
         assert tid in data
 
 
@@ -426,7 +426,7 @@ class TestUpdateFeaturesJsonTopicId:
     def test_old_entries_no_topic_id_unchanged(self, tmp_path):
         """Old entries lacking topic_id must not be modified when appending new entry."""
         from cycle_init import update_cycles_json
-        old = {"20260524000000-11111111": {"name": "old-feat", "execution_mode": "copilot"}}
+        old = {"20260524000000-11111111": {"name": "old-feat", "execution_mode": "guided"}}
         (tmp_path / "cycles.json").write_text(json.dumps(old))
         update_cycles_json(tmp_path, "20260524143022-02cd7e6e", "new-feat")
         data = json.loads((tmp_path / "cycles.json").read_text())
@@ -472,7 +472,7 @@ class TestCLITypeTopic:
         data = json.loads(tj.read_text())
         assert tid in data
         assert data[tid]["name"] == "my-topic"
-        assert data[tid]["execution_mode"] == "copilot"
+        assert data[tid]["execution_mode"] == "guided"
 
     def test_topic_container_dir_created(self, tmp_path):
         result = self._run(tmp_path)
