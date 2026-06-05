@@ -1,20 +1,19 @@
 #!/usr/bin/env python3
-"""Shared subagent model resolution from platform config.json."""
+"""Shared subagent model resolution from workflow-config.json."""
 
 from __future__ import annotations
 
 import json
 import os
-from copy import deepcopy
 from pathlib import Path
 from typing import Optional
-
-DEFAULT_SUBAGENTS = {"tech-code": {"model": ""}}
 
 _WORKFLOW_DIR_MAP = {
     "cursor": Path(".cursor/lulu-dev-workflow"),
     "copilot": Path(".github/lulu-dev-workflow"),
 }
+
+_DEFAULT_WORKFLOW_CONFIG_PATH = "skill-config/lulu-dev-workflow/workflow-config.json"
 
 
 def detect_platform(platform: Optional[str] = None) -> str:
@@ -26,15 +25,10 @@ def detect_platform(platform: Optional[str] = None) -> str:
     )
 
 
-def default_subagents() -> dict:
-    return deepcopy(DEFAULT_SUBAGENTS)
-
-
 def default_platform_config() -> dict:
     return {
         "version": 1,
-        "workflowConfig": "skill-config/lulu-dev-workflow/workflow-config.json",
-        "subagents": default_subagents(),
+        "workflowConfig": _DEFAULT_WORKFLOW_CONFIG_PATH,
     }
 
 
@@ -54,13 +48,6 @@ def read_platform_config(project_root: Path, platform: Optional[str] = None) -> 
         return {}
 
 
-def ensure_subagents_section(cfg: dict) -> dict:
-    out = dict(cfg)
-    if "subagents" not in out:
-        out["subagents"] = default_subagents()
-    return out
-
-
 def write_platform_config(
     project_root: Path,
     cfg: dict,
@@ -78,13 +65,6 @@ def ensure_platform_config(project_root: Path, platform: Optional[str] = None) -
     cfg_path = platform_config_path(project_root, platform)
     if not cfg_path.exists():
         write_platform_config(project_root, default_platform_config(), platform)
-        return
-
-    cfg = read_platform_config(project_root, platform)
-    if "subagents" in cfg:
-        return
-
-    write_platform_config(project_root, ensure_subagents_section(cfg), platform)
 
 
 def resolve_subagent_model(
@@ -92,15 +72,22 @@ def resolve_subagent_model(
     stage: str,
     platform: Optional[str] = None,
 ) -> Optional[str]:
-    cfg = read_platform_config(project_root, platform)
-    subagents = cfg.get("subagents")
-    if not subagents:
+    plat = detect_platform(platform)
+
+    platform_cfg = read_platform_config(project_root, platform)
+    workflow_config_rel = platform_cfg.get("workflowConfig", _DEFAULT_WORKFLOW_CONFIG_PATH)
+    workflow_config_path = project_root / workflow_config_rel
+
+    if not workflow_config_path.exists():
+        return None
+    try:
+        workflow_config = json.loads(workflow_config_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
         return None
 
-    default_cfg = subagents.get("default") or {}
-    stage_cfg = subagents.get(stage) or {}
-    merged = {**default_cfg, **stage_cfg}
-    model = merged.get("model")
+    stage_cfg = workflow_config.get(stage) or {}
+    subagent = stage_cfg.get("subagent") or {}
+    model = subagent.get(plat)
     if model is None:
         return None
 

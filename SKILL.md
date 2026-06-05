@@ -172,7 +172,7 @@ LULU-DEV-WORKFLOW: <cycle_id>
 
 ### Config Resolution
 
-Before dispatching a sub-agent for a workflow stage, resolve the optional model slug from platform config:
+Before dispatching a sub-agent for a workflow stage, resolve the optional model slug from workflow config:
 
 ```bash
 python3 "$SKILL_ROOT/scripts/resolve_subagent.py" --project-root "$(pwd)" --stage <stage>
@@ -181,7 +181,6 @@ python3 "$SKILL_ROOT/scripts/resolve_subagent.py" --project-root "$(pwd)" --stag
 - stdout is JSON: `{"model": "<slug>"}` when configured, or `{}` when absent or empty.
 - **Output variable `$RESOLVED_MODEL`:** non-empty `"model"` → `$RESOLVED_MODEL = <slug>`; absent or empty → `$RESOLVED_MODEL` = (omit — platform default applies).
 - Pass `$RESOLVED_MODEL` as the `model` parameter to `$SUBAGENT_TOOL` when set; omit the parameter otherwise.
-- Merge rule: `subagents.default` merged with `subagents.<stage>`; stage wins on conflict.
 - Resolve once per stage entry (not once per sub-agent dispatch); `$RESOLVED_MODEL` is stage-scoped, not session-scoped.
 
 ## Commands
@@ -201,8 +200,13 @@ Creates `$WORKFLOW_DIR/workflow-config.json` and registers all sub-workflow hook
 | Field | Description |
 |-------|-------------|
 | `workflowConfig` | Path to shared `workflow-config.json` (relative to project root) |
-| `subagents.<stage>.model` | Optional model slug for sub-agent dispatch (e.g. `subagents.tech-code.model`) |
-| `subagents.default.model` | Optional fallback model; overridden by stage-specific `model` (user-added; init does not prefill) |
+
+`workflow-config.json` stage fields:
+
+| Field | Description |
+|-------|-------------|
+| `<stage>.subagent.cursor` | Optional model slug for Cursor sub-agent dispatch |
+| `<stage>.subagent.copilot` | Optional model slug for Copilot sub-agent dispatch |
 
 Run `lulu-dev-workflow configure <github-blob-url>` to apply workflow config. See `configure` below.
 

@@ -25,6 +25,10 @@
       "branch_pattern": "wt/{type}-{slug}",
       "default_type": "feat",
       "commit_message_template": "feat({scope}): {task_id} {summary}"
+    },
+    "subagent": {
+      "cursor": "",
+      "copilot": ""
     }
   }
 }
