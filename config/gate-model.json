@@ -1,5 +1,0 @@
-{
-  "version": 2,
-  "rule": "sequential_all_prior",
-  "description": "For any to_stage, all stages before it with valid (non-Invalidated) sessions must have current_effective_delivered == true."
-}
