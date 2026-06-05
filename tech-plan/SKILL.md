@@ -147,7 +147,7 @@ Read `workflow-state.md` → `evaluate_round` to determine entry path:
 
 | Condition | Calibration | Required reads |
 |-----------|-------------|----------------|
-| `evaluate_round == 0`, `carry_forward_ref` empty | Mandatory (full) | product-doc.md + `ac_url` (if set) + `tpt_url` |
+| `evaluate_round == 0`, `carry_forward_ref` empty | Mandatory (full) | product-doc.md + `ac_url` (if set) + `tpt_url` (feature) or `shaping_tpt_url` (topic) |
 | `evaluate_round == 0`, `carry_forward_ref` present | Mandatory (diff) | carry_forward tech-doc.md + product-doc.md + `ac_url` (if set) |
 | `evaluate_round > 0` (return from Evaluating) | Present `fix_severity` from evaluate-state.md; user decides | Per user choice (see D2) |
 
@@ -157,7 +157,7 @@ Show the user: `"Fix severity this round: [fix_severity] — [fix_severity_reaso
 
 | User choice | Action |
 |-------------|--------|
-| Yes | Read `ac_url` + `tpt_url` + product-doc relevant sections (if E1 issues last round) + code files (if E2 issues last round) |
+| Yes | Read `ac_url` + `tpt_url` (feature) or `shaping_tpt_url` (topic) + product-doc relevant sections (if E1 issues last round) + code files (if E2 issues last round) |
 | Skip | Proceed directly to writing |
 
 **Rule D3 — Code reads during drafting**
@@ -200,7 +200,7 @@ fix_severity: "", fix_severity_reason: ""
 | product | E1 → E2 → E3 | none | `tech-review-e{M}1.md` | `tech-review-e{M}2.md` | `tech-review-e{M}3.md` |
 | tech | E2 → E3 | E1 (preset complete) | — | `tech-review-e{M}2.md` | `tech-review-e{M}3.md` |
 
-Inputs per dimension: E1 ← product_ref + `ptc_url`; E2 ← relevant code files; E3 ← `tpef_url`.
+Inputs per dimension: E1 ← product_ref + `ptc_url`; E2 ← relevant code files; E3 ← `tpef_url` (feature) or `shaping_tpef_url` (topic).
 
 Do not skip within the required sequence.
 
