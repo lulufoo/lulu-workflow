@@ -159,6 +159,6 @@ if __name__ == "__main__":
         default=None,
         help="Associate this feature with an existing topic (only valid with --type feature)",
     )
-    args = parser.parse_args()
+    args = parser.parse_known_args()[0]
 
     main(Path(args.project_root), args.name, args.mode, args.container_type, args.topic_id)
