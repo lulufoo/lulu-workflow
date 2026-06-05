@@ -80,12 +80,14 @@ $CACHE_DIR/<cycle_id>/tech/work-order/
   r{N}/                          ← Nth work order
     workflow-state.md            ← current_state, evaluate_round (AI writes; hook validates)
     task-list.md                 ← task index + Mermaid dependency graph + exclusions
-    evaluate-state.md            ← W1/W2 evaluation progress
+    evaluate-state.md            ← evaluation sub-state (version: 2 schema)
     human-delivery-gate.md       ← delivery gate
 
     evaluate{M}/                 ← Mth evaluation round (monotonically increasing)
-      wo-review-e{M}1.md         ← W1: TWCA cross-check report
-      wo-review-e{M}2.md         ← W2: WOQA quality review report
+      wo-review-e{M}-tda.md      ← TDA: Tech-doc Admission report
+      wo-review-e{M}-w0.md       ← W0: Structural Gate report
+      wo-review-e{M}-w1.md       ← W1: TWCA Compliance Cross-check report
+      wo-review-e{M}-w2.md       ← W2: WOQA Execution Admission report
 
     tasks/                       ← task file set
       t1/
@@ -98,14 +100,23 @@ $CACHE_DIR/<cycle_id>/tech/work-order/
 
 ## State Model
 
-States: `Drafting` → `Evaluating` → `ReadyForDelivery` → `Delivered`
+**Main state axis** (`workflow-state.md → current_state`) — hook-enforced:
+
+| State | Description |
+|-------|-------------|
+| `Drafting` | Task file creation and modification |
+| `Evaluating` | Evaluation phases running (eval-runner sub-agent) |
+| `TDABlocked` | Evaluation suspended: SOT-DEFECT found in TDA or W1; awaiting human decision |
+| `Delivered` | Work-order finalized; handed off to tech-code |
+
+Note: `ReadyForDelivery` is deprecated as a hook-enforced state. It remains an AI-governed intermediate step within the Evaluating → Delivered transition (human-delivery-gate.md mechanism unchanged).
 
 Allowed transitions:
 - `Drafting → Evaluating`
-- `Evaluating → ReadyForDelivery`  ← requires evaluate pre-conditions (hook enforced)
-- `Evaluating → Drafting`
-- `ReadyForDelivery → Drafting`
-- `ReadyForDelivery → Delivered`  ← requires `human-delivery-gate.md` (hook enforced)
+- `Evaluating → TDABlocked`  ← eval-runner returns exit_code: tda_blocked
+- `Evaluating → Drafting`    ← eval-runner returns exit_code: w0_failed or structural fix required
+- `TDABlocked → Drafting`    ← human decides to abandon round (SOT fix externally)
+- `Evaluating → ReadyForDelivery` (internal, AI-governed; then human-delivery-gate → Delivered)
 
 Hook enforces all transition pre-conditions. Denial messages are self-explanatory.
 
@@ -177,7 +188,8 @@ Only write `workflow-state.md: Evaluating` after user confirms.
 When returning from Evaluating or ReadyForDelivery to Drafting:
 1. Read `evaluate-state.md` → check `fix_severity` and issue summary from last round
 2. Do **not** re-run the two-step flow; directly edit the flagged task files
-3. After fixes, ask: "All issues fixed. Re-enter Evaluating?"
+3. If `post_split_scan_required: true`: before re-entering Evaluating, grep all task files for original task_id references and update them. Write `post_split_scan_done: true` in `evaluate-state.md` only after scan completes. A pending scan (`post_split_scan_done: false`) blocks the Drafting → Evaluating transition.
+4. After fixes (and split scan if required), ask: "All issues fixed. Re-enter Evaluating?"
 
 **Rule D4 — TDD exemption**
 
@@ -201,76 +213,77 @@ Read code files on demand (only what's needed to understand existing types and f
 
 On entering Evaluating:
 1. Increment `evaluate_round` in `workflow-state.md` (write `current_state: Evaluating, evaluate_round: M`)
-2. Read `workflow-config.json` → `work_order.twca_url`, `work_order.woqa_url`
-3. Initialize `evaluate-state.md`:
+2. Read `workflow-config.json` → `work_order.tda_url`, `work_order.twca_url`, `work_order.woqa_url`
+3. Initialize `evaluate-state.md` (version: 2 schema; `current_dimension: TDA`):
 
-```
-version: 1
+```yaml
+---
+version: 2
 phase: evaluate
-current_dimension: w1
+current_dimension: TDA
+
+tda_status: pending
+tda_sot_defect_count: 0
+
+w0_status: pending
+w0_total_issues: 0
+w0_resolved_issues: 0
+
 w1_status: pending
 w1_total_issues: 0
 w1_resolved_issues: 0
+w1_sot_defect_count: 0
+w1_wo_miss_count: 0
+
 w2_status: pending
 w2_total_issues: 0
 w2_resolved_issues: 0
-total_issues: 0
-resolved_issues: 0
+w2_sot_defect_count: 0
+w2_wo_error_count: 0
+
+post_split_scan_required: false
+post_split_scan_done: false
+
 fix_severity: ""
 fix_severity_reason: ""
+---
 ```
 
-**Rule E2 — W1 → W2 sequence**
+**Rule E2 — Delegate to eval-runner sub-agent**
 
-Always execute W1 first, then W2. Do not skip or reorder.
+Invoke eval-runner as a sub-agent. Pass the following prompt (fill in actual values):
 
-| Dim | seq | Report file | Inputs |
-|-----|-----|-------------|--------|
-| W1 (TWCA) | 1 | `evaluate{M}/wo-review-e{M}1.md` | `task-list.md` + all `task.md` files + `tech-doc.md` + `twca_url` framework |
-| W2 (WOQA) | 2 | `evaluate{M}/wo-review-e{M}2.md` | all `task.md` files + `woqa_url` framework |
+```
+You are executing a single work-order evaluation round.
+Load {actual $SKILL_DIR}/eval-runner/SKILL.md and follow its instructions.
 
-**Rule E3 — W1 (TWCA) execution**
+## Input
+evaluate_round: {M}
+session_dir: {abs_path_to r{N}/}
+tech_doc_path: {abs_path_to tech-doc.md, from workflow-state.md tech_ref}
+task_list_path: {abs_path_to task-list.md}
+tda_url: {workflow-config.json → work_order.tda_url}
+twca_url: {workflow-config.json → work_order.twca_url}
+woqa_url: {workflow-config.json → work_order.woqa_url}
+execution_mode: {guided | autonomous}
 
-W1 checks three directions:
+## Current Evaluation State
+{full content of evaluate-state.md}
+```
 
-1. **Coverage:** every tech-doc change point has a corresponding task (exclusion list is the exemption registry)
-2. **Traceability:** each task's acceptance criteria traces back to a specific tech-doc requirement
-3. **Consistency:** task constraints match tech-doc hard rules, no contradictions
+The `## Current Evaluation State` section enables resume: eval-runner reads `current_dimension` and skips already-completed phases. If `evaluate-state.md` does not yet exist, eval-runner starts from TDA.
 
-For each direction:
-1. Load inputs, read `twca_url` framework
-2. Write `evaluate{M}/wo-review-e{M}1.md` skeleton (issues list per direction)
-3. Per issue: present to user via AskQuestion → user decides → fix task file → update review file immediately
+Await sub-agent completion (`$SUBAGENT_AWAIT_SYNC`). Read returned `exit_code` and proceed to Rule E3.
 
-Never batch-fix. One issue, one fix, one file update.
+**Rule E3 — Exit verification**
 
-**Rule E4 — W2 (WOQA) execution**
+After eval-runner returns, read `evaluate-state.md → current_dimension` as the authoritative exit signal:
 
-W2 checks 6 dimensions:
-
-| # | Dimension | Check | tdd_exempt skips |
-|---|-----------|-------|-----------------|
-| 1 | Granularity | Each task covers 1–3 function changes, completable in one TDD session | no |
-| 2 | TDD compliance | Acceptance criteria precede function specs; Test-First order maintained | yes |
-| 3 | Spec completeness | Function signatures complete; no empty acceptance criteria; no TBD | no |
-| 4 | Constraint coverage | All hard rules explicitly copied from tech-doc | no |
-| 5 | Test case quality | Normal / boundary / edge scenarios all covered | yes |
-| 6 | Dependency graph | No cycles; execution order is sound | no |
-
-Same per-issue flow as W1: present via AskQuestion → user decides → fix → update file immediately.
-
-**Rule E5 — Completion**
-
-After W2 complete:
-1. Assess overall `fix_severity` (critical / medium / minor) and write `fix_severity_reason`
-2. Write `evaluate-state.md` with `current_dimension: done`, all statuses `complete`
-3. Write `workflow-state.md` → `current_state: ReadyForDelivery` (hook will validate)
-
-**Rule E6 — Issue presentation**
-
-Present each issue via AskQuestion, one at a time:
-- Option A: Confirm, fix the issue
-- Option B: Ignore, no impact on delivery
+| `current_dimension` | Action |
+|--------------------|--------|
+| `tda_blocked` | Write `workflow-state.md: current_state: TDABlocked`. Present `evaluate{M}/wo-review-e{M}-tda.md` (or `-w1.md` if blocked in W1) path to user. Inform: SOT defect found — resolve tech-doc, then start a new work-order round. |
+| `w0_failed` | Write `workflow-state.md: current_state: Drafting`. Present `evaluate{M}/wo-review-e{M}-w0.md` (or `-w1.md` / `-w2.md` if structural fix required in W1/W2) path to user. Fix structural issues, then re-enter Evaluating. |
+| `DONE` | Write `workflow-state.md: current_state: ReadyForDelivery` (AI-governed; hook allows). Await human writing `human-delivery-gate.md`, then write `current_state: Delivered`. |
 
 ### ReadyForDelivery Rules
 
@@ -304,44 +317,56 @@ updated_at: 2026-05-17T09:00:00+08:00
 
 ### r{N}/evaluate-state.md
 
-```markdown
+```yaml
 ---
-version: 1
+version: 2
 phase: evaluate
-current_dimension: w1
+current_dimension: TDA        # active states: TDA | W0 | W1 | W2 | DONE
+                              # exit codes (written on failure): tda_blocked | w0_failed
 
-w1_status: pending
+tda_status: pending           # pending | passed | failed
+tda_sot_defect_count: 0
+
+w0_status: pending            # pending | passed | failed
+w0_total_issues: 0
+w0_resolved_issues: 0
+
+w1_status: pending            # pending | complete | blocked
 w1_total_issues: 0
 w1_resolved_issues: 0
+w1_sot_defect_count: 0
+w1_wo_miss_count: 0
 
-w2_status: pending
+w2_status: pending            # pending | complete
 w2_total_issues: 0
 w2_resolved_issues: 0
+w2_sot_defect_count: 0
+w2_wo_error_count: 0
 
-total_issues: 0
-resolved_issues: 0
+post_split_scan_required: false
+post_split_scan_done: false
 
-fix_severity: ""
+fix_severity: ""              # critical | medium | minor | none
 fix_severity_reason: ""
 ---
 ```
 
-### evaluate{M}/wo-review-e{M}N.md
+### evaluate{M}/wo-review-e{M}-{phase}.md
 
-W1 and W2 share the same base structure; W1 groups issues by direction (Coverage / Traceability / Consistency), W2 groups by dimension number.
+One report file per phase. All phases use the same issue row format:
 
 ```markdown
-# {W1 TWCA Cross-Check|W2 WOQA Quality Review} — r{N} round {M}
-
-**Date:** YYYY-MM-DD
-**Refs:** [W1: tech_ref + twca_url / W2: woqa_url]
-
-## {Direction 1: Coverage | Dimension 1: Granularity | ...}
-
-| # | Issue | task_id | Severity | Status | Decision |
-|---|-------|---------|----------|--------|---------|
-| {W1|W2}-1 | ... | t2 | critical/medium/minor | ✅ Fixed | fix |
+| # | Issue | task_id | root_cause | sot_source | evidence | Severity | Status | Decision |
+|---|-------|---------|-----------|------------|----------|---------|--------|----------|
 ```
+
+| Column | Values |
+|--------|--------|
+| `root_cause` | `SOT-DEFECT` \| `WO-MISS` \| `WO-ERROR` \| `UNRESOLVABLE` |
+| `sot_source` | tech-doc section or `—` if SOT not involved |
+| `Severity` | `critical` \| `medium` \| `minor` |
+| `Status` | `Fixed` \| `Escalated` \| `Noted` \| `Reclassified` |
+| `Decision` | `fix` \| `escalate` \| `ignore` \| `reclassify→{root_cause}` |
 
 ---
 
@@ -368,5 +393,5 @@ Read `$EXECUTION_MODE` from Session Foundation (set by parent `SKILL.md`). Defau
 | Drafting D2 Step 1 — confirm task breakdown | Auto-confirm. Proceed to task.md generation without asking. |
 | Drafting D2 Step 2 — "Proceed to Evaluating?" | Auto-confirm. Enter Evaluating without asking. |
 | Drafting D3 re-entry — "All issues fixed. Re-enter Evaluating?" | Auto-confirm. |
-| Evaluating E3/E4 — per-issue AskQuestion | Default: Fix. Apply fix without asking. |
+| Evaluating E2 — eval-runner per-issue AskQuestion (WO issues) | Default: Fix. Apply fix without asking. SOT issues always require AskQuestion regardless of mode. |
 | ReadyForDelivery R1 — delivery confirmation | **Feature container (autonomous):** auto-complete delivery — write `human-delivery-gate.md`, set `current_state: Delivered`; then auto handoff to `tech-code` (auto-chain). For topic containers or guided mode: unchanged (wait for explicit user confirmation). |
