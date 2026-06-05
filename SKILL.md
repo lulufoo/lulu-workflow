@@ -247,37 +247,13 @@ Creates `$WORKFLOW_DIR/workflow-config.json` and registers all sub-workflow hook
 | `subagents.<stage>.model` | Optional model slug for sub-agent dispatch (e.g. `subagents.tech-code.model`) |
 | `subagents.default.model` | Optional fallback model; overridden by stage-specific `model` (user-added; init does not prefill) |
 
-`workflow-config.json` contains the following fields:
-
-| Field | Description |
-|-------|-------------|
-| `product-plan.template_url` | 产品文档模板 |
-| `product-plan.review_checklist_url` | 进入评估前审查清单 |
-| `product-plan.pdqa_url` | PDQA 评估框架 |
-| `tech-plan.tpt_url` | 技术方案模板（Tech Plan Template） |
-| `tech-plan.tpef_url` | 技术方案评估框架（Tech Plan Evaluation Framework） |
-| `tech-plan.ptc_url` | 产品-技术交叉检查（Product-Tech Crosscheck） |
-| `tech-plan.ac_url` | 架构约束文档（如有） |
-| `tech-work-order.task_template_url` | 单个施工单模板 |
-| `tech-work-order.tasklist_template_url` | 施工单列表模板 |
-| `tech-work-order.twca_url` | TWCA 评审框架 |
-| `tech-work-order.woqa_url` | WOQA 质量评审框架 |
-| `tech-code.test_command` | 项目测试命令（默认: `npm test`） |
-| `tech-code.woqa_url` | TDD 质量审计框架 |
-
-Run `lulu-dev-workflow configure <github-blob-url>` to apply a config. See `configure` below.
+Run `lulu-dev-workflow configure <github-blob-url>` to apply workflow config. See `configure` below.
 
 ### `configure` — Download and apply a workflow-config.json from GitHub
 
 Usage: `lulu-dev-workflow configure <github-blob-url>`
 
-`<github-blob-url>` is a GitHub `blob` URL pointing to a `workflow-config.json`, e.g.:
-
-```
-https://github.com/lulufoo/ai-software-dev/blob/main/lulu-dev-workflow-template/workflow-config.json
-```
-
-Parse the URL to extract `owner`, `repo`, `ref`, `path`, then run:
+Parse the GitHub blob URL to extract `owner`, `repo`, `ref`, `path`, then run:
 
 ```bash
 gh api "repos/{owner}/{repo}/contents/{path}?ref={ref}" \
@@ -285,9 +261,7 @@ gh api "repos/{owner}/{repo}/contents/{path}?ref={ref}" \
   > "$WORKFLOW_DIR/workflow-config.json"
 ```
 
-After download, read and display the new config file to confirm.
-
-**Default template URL** (lulufoo standard config):
+After download, display the new config. Default (if no URL given):
 ```
 https://github.com/lulufoo/ai-software-dev/blob/main/lulu-dev-workflow-template/workflow-config.json
 ```
