@@ -150,7 +150,10 @@ are blocked by the path guard hook while a session is active.
 
 ### Drafting Rules
 
-**D1.** Help draft or revise the spec against `workflow-config.json → product.template_url`.
+**D1.** 根据容器类型（从 session start 时 `active-context.json → container_type` 获取）选择模板 URL：
+- `topic` 容器 → 读 `workflow-config.json → product-plan.shaping_template_url`，加载 shaping 模板（13-product-shaping-template.md）
+- `feature` 容器 → 读 `workflow-config.json → product-plan.template_url`，加载 spec 模板（10-product-doc-template.md）
+
 Write only to `revision{N}/product-doc.md`. Stay in `Drafting` until the user explicitly requests evaluation.
 
 **D2.** If `evaluate_round > 0` (returning from a prior evaluation round): read `evaluate-state.md`
@@ -204,12 +207,14 @@ Do **not** output the full `product-doc.md` content in chat.
 
 ### `Drafting`
 
-Follow Rules D1–D2. Compare the spec against `workflow-config.json → product.template_url`.
+Follow Rules D1–D2.
 
 ### `Evaluating`
 
 Follow Rules E1 → E2 → loop(E3–E5) → E6 in order.
-Compare the spec against `workflow-config.json → product.pdqa_url`.
+根据容器类型选择评估框架 URL：
+- `topic` 容器 → 读 `workflow-config.json → product-plan.shaping_pdqa_url`，加载 shaping 评估框架（14-product-shaping-pdqa.md）
+- `feature` 容器 → 读 `workflow-config.json → product-plan.pdqa_url`，加载 spec 评估框架（12-product-doc-evaluation-framework.md）
 Stay in `Evaluating` or return to `Drafting` until all issues are resolved.
 
 ### `ReadyForDelivery`
