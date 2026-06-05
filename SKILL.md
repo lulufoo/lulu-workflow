@@ -13,30 +13,6 @@ argument-hint: "[d=diagnostic | pd=product-diagnostic | td=tech-diagnostic | p=p
 A staged development workflow framework. Each stage is an independent sub-module
 under this directory.
 
-## Stages
-
-| Stage | Module | Status |
-|-------|--------|--------|
-| Product diagnostic | `product-diagnostic/` | Active |
-| Tech diagnostic | `tech-diagnostic/` | Active |
-| Generic diagnostic | `diagnostic/` | Active |
-| Product plan | `product-plan/` | Active |
-| Tech plan | `tech-plan/` | Active |
-| Tech work order | `tech-work-order/` | Active |
-| Tech code | `tech-code/` | Active |
-
-> **product-diagnostic** is the recommended entry point for full-feature work (produces product-scoped decision-doc).
-> **tech-diagnostic** is the entry point for pure tech work (produces tech-scoped decision-doc).
-> **diagnostic** runs without domain constraints (standalone use).
-
-## Utilities
-
-Cross-cutting tools that may be invoked from any stage. Not part of the Stage Transitions pipeline.
-
-| Utility | Module | When to use |
-|---------|--------|-------------|
-| Research synthesis | `research-synthesis/` | External evidence synthesis; before `diagnostic` for landscape research, or during `diagnostic` R/V gates to assess assumptions that require external evidence |
-
 ## Stage Transitions
 
 When a stage delivers:
@@ -58,7 +34,7 @@ When a stage delivers:
 **Auto-chain whitelist** (on delivery, immediately start the next stage without user selection):
 `tech-plan` → `tech-work-order` → `tech-code`
 
-Does **not** trigger for Copilot mode or topic cycles.
+Does **not** trigger for **Copilot mode**.
 
 Each stage's autonomous overrides govern how delivery and handoff are executed. See `Autonomous Overrides` sections in `tech-plan/SKILL.md`, `tech-work-order/SKILL.md`, and `tech-code/SKILL.md`.
 
