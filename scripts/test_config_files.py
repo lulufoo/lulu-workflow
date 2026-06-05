@@ -37,19 +37,14 @@ def test_feature_stages_count():
     assert len(data["cycle_types"]["feature"]["stages"]) == 6
 
 
-def test_session_states():
+def test_topic_doc_stage_tech_code_is_null():
     data = load("state-machine.json")
-    assert data["session_states"] == ["Drafting", "Evaluating", "Delivered", "Invalidated"]
+    assert data["topic_doc_stage"]["tech-code"] is None
 
 
-def test_topic_ref_stage_tech_code_is_null():
+def test_topic_doc_stage_key_count():
     data = load("state-machine.json")
-    assert data["topic_ref_stage"]["tech-code"] is None
-
-
-def test_topic_ref_stage_key_count():
-    data = load("state-machine.json")
-    assert len(data["topic_ref_stage"]) == 6
+    assert len(data["topic_doc_stage"]) == 6
 
 
 def test_gate_model_version():
@@ -69,12 +64,12 @@ def test_transition_table_version():
 
 def test_transition_table_topic_count():
     data = load("transition-table.json")
-    assert len(data["topic"]) == 4
+    assert len(data["topic"]) == 5
 
 
 def test_transition_table_feature_count():
     data = load("transition-table.json")
-    assert len(data["feature"]) == 6
+    assert len(data["feature"]) == 7
 
 
 def test_transition_table_topic_last_entry():

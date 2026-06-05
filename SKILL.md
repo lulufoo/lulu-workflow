@@ -17,15 +17,11 @@ under this directory.
 
 When a stage delivers:
 1. Read `$SKILL_ROOT/config/transition-table.json`
-2. Look up the entry where `from == <current_stage>` under the `cycle_type` key (`topic` or `feature`)
+2. Look up the entry where `from == <current_stage>` (`null` if no active stage) under the `cycle_type` key (`topic` or `feature`)
 3. Present all allowed next stages from the `to` array; wait for explicit user selection (see § Autonomous Tech Line Auto-Chain for the exception)
 4. If `to` is empty: announce completion; display the `note` field if present
 
 > Any transition not listed in `transition-table.json` is **prohibited**.
-
-**Starting rules:**
-- `product-diagnostic` is the recommended entry for full-feature work (product decision → product-plan → tech line).
-- `tech-diagnostic` is the direct entry for pure tech work (no product phase needed).
 
 ### § Autonomous Tech Line Auto-Chain
 
