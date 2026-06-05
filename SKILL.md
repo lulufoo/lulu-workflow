@@ -45,8 +45,6 @@ Any participant may trigger a Stage Rollback when new information shows a prior 
 - **Effect on Tech Line:** rolling back to `tech-diagnostic` invalidates `tech-plan`, `tech-work-order`, `tech-code`.
 - **AI must announce:** "[target stage] and all downstream stages are invalidated. Restarting from [target stage]."
 
-Stage Rollback is distinct from the diagnostic `Re-open` mechanism (which operates within a single diagnostic session on gate-level inputs).
-
 ## Platform Context
 
 **Detect once at session start, substitute `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, and `$CACHE_DIR` throughout:**
@@ -89,7 +87,6 @@ Defines how AI and user share control throughout the workflow.
 #### Initial Mode Resolution
 
 1. `cycle_id` not in `cycles.json` → `"copilot"`
-   - both topic-id and cycle-id are resolved from `cycles.json`
 2. Value is a string (legacy) → `"copilot"` (backward-compat: `"assisted"` → `"copilot"`; `"self-service"` → `"autonomous"`)
 3. Value is an object → use `object.execution_mode`
 
@@ -160,9 +157,6 @@ Every workflow AI response must end with:
 LULU-DEV-WORKFLOW: <cycle_id>
 ```
 
-
-This line tracks the active cycle per conversation window. Stage workflows use the latest such line as the fast path to identify `cycle_id`. When no such line exists in the conversation, the slow path (interactive selection) is triggered instead.
-
 ## Sub-agent Context
 
 | Variable | copilot | cursor | claude | codex |
@@ -188,8 +182,7 @@ python3 "$SKILL_ROOT/scripts/resolve_subagent.py" --project-root "$(pwd)" --stag
 - stdout is JSON: `{"model": "<slug>"}` when configured, or `{}` when absent or empty.
 - **Output variable `$RESOLVED_MODEL`:** non-empty `"model"` → `$RESOLVED_MODEL = <slug>`; absent or empty → `$RESOLVED_MODEL` = (omit — platform default applies).
 - Pass `$RESOLVED_MODEL` as the `model` parameter to `$SUBAGENT_TOOL` when set; omit the parameter otherwise.
-- Merge rule (implementation SSOT: `scripts/subagent_config.py`): `subagents.default` merged with `subagents.<stage>`; stage wins on conflict.
-- Invalid model slugs are the user's responsibility; the Task tool may error at runtime.
+- Merge rule: `subagents.default` merged with `subagents.<stage>`; stage wins on conflict.
 - Resolve once per stage entry (not once per sub-agent dispatch); `$RESOLVED_MODEL` is stage-scoped, not session-scoped.
 
 ## Commands
@@ -240,7 +233,7 @@ python3 $SKILL_ROOT/scripts/cycle_init.py \
   --project-root "$(pwd)" --name "[name]"
 ```
 
-Prints the `cycle_id` (format: `YYYYMMDDHHMMSS-xxxxxxxx`). After running, append `LULU-DEV-WORKFLOW: <cycle_id>` to this response.
+Prints the `cycle_id` (format: `{cycle_type}-YYYYMMDDHHMMSS-xxxxxxxx`). After running, append `LULU-DEV-WORKFLOW: <cycle_id>` to this response.
 
 ### `archive [N]` — Prune old features, keep N most recent
 
@@ -268,4 +261,4 @@ Prints a summary of deleted directories and retained features.
 | `tech-work-order` / `w` | Tech work order | Read [tech-work-order/SKILL.md](./tech-work-order/SKILL.md) |
 | `tech-code` / `c` | Tech code | Read [tech-code/SKILL.md](./tech-code/SKILL.md) |
 
-After routing to a sub-SKILL, follow the workflow defined in that sub-SKILL's SKILL.md.
+
