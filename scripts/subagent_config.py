@@ -9,7 +9,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Optional
 
-DEFAULT_SUBAGENTS = {"code": {"model": ""}}
+DEFAULT_SUBAGENTS = {"tech-code": {"model": ""}}
 
 _WORKFLOW_DIR_MAP = {
     "cursor": Path(".cursor/lulu-dev-workflow"),

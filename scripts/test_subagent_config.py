@@ -17,8 +17,8 @@ class TestDefaults:
     def test_default_subagents_skeleton(self):
         from subagent_config import DEFAULT_SUBAGENTS, default_subagents
 
-        assert DEFAULT_SUBAGENTS == {"code": {"model": ""}}
-        assert default_subagents() == {"code": {"model": ""}}
+        assert DEFAULT_SUBAGENTS == {"tech-code": {"model": ""}}
+        assert default_subagents() == {"tech-code": {"model": ""}}
 
     def test_default_platform_config(self):
         from subagent_config import default_platform_config
@@ -26,7 +26,7 @@ class TestDefaults:
         cfg = default_platform_config()
         assert cfg["version"] == 1
         assert cfg["workflowConfig"] == "skill-config/lulu-dev-workflow/workflow-config.json"
-        assert cfg["subagents"] == {"code": {"model": ""}}
+        assert cfg["subagents"] == {"tech-code": {"model": ""}}
 
 
 class TestEnsureSubagentsSection:
@@ -35,15 +35,15 @@ class TestEnsureSubagentsSection:
 
         cfg = {"version": 1}
         result = ensure_subagents_section(cfg)
-        assert result["subagents"] == {"code": {"model": ""}}
+        assert result["subagents"] == {"tech-code": {"model": ""}}
         assert "subagents" not in cfg
 
     def test_does_not_overwrite_existing_subagents(self):
         from subagent_config import ensure_subagents_section
 
-        cfg = {"subagents": {"code": {"model": "gpt-5.3-codex"}}}
+        cfg = {"subagents": {"tech-code": {"model": "gpt-5.3-codex"}}}
         result = ensure_subagents_section(cfg)
-        assert result["subagents"]["code"]["model"] == "gpt-5.3-codex"
+        assert result["subagents"]["tech-code"]["model"] == "gpt-5.3-codex"
 
 
 class TestResolveSubagentModel:
@@ -58,9 +58,9 @@ class TestResolveSubagentModel:
 
         self._write_config(
             tmp_path,
-            {"subagents": {"code": {"model": "gpt-5.3-codex"}}},
+            {"subagents": {"tech-code": {"model": "gpt-5.3-codex"}}},
         )
-        assert resolve_subagent_model(tmp_path, "code") == "gpt-5.3-codex"
+        assert resolve_subagent_model(tmp_path, "tech-code") == "gpt-5.3-codex"
 
     def test_stage_overrides_default(self, tmp_path):
         from subagent_config import resolve_subagent_model
@@ -70,11 +70,11 @@ class TestResolveSubagentModel:
             {
                 "subagents": {
                     "default": {"model": "gpt-5.5-medium"},
-                    "code": {"model": "gpt-5.3-codex"},
+                    "tech-code": {"model": "gpt-5.3-codex"},
                 }
             },
         )
-        assert resolve_subagent_model(tmp_path, "code") == "gpt-5.3-codex"
+        assert resolve_subagent_model(tmp_path, "tech-code") == "gpt-5.3-codex"
 
     def test_default_model_when_stage_empty(self, tmp_path):
         from subagent_config import resolve_subagent_model
@@ -84,11 +84,11 @@ class TestResolveSubagentModel:
             {
                 "subagents": {
                     "default": {"model": "gpt-5.5-medium"},
-                    "code": {"model": ""},
+                    "tech-code": {"model": ""},
                 }
             },
         )
-        assert resolve_subagent_model(tmp_path, "code") is None
+        assert resolve_subagent_model(tmp_path, "tech-code") is None
 
     def test_only_default_has_model(self, tmp_path):
         from subagent_config import resolve_subagent_model
@@ -97,30 +97,30 @@ class TestResolveSubagentModel:
             tmp_path,
             {"subagents": {"default": {"model": "gpt-5.5-medium"}}},
         )
-        assert resolve_subagent_model(tmp_path, "code") == "gpt-5.5-medium"
+        assert resolve_subagent_model(tmp_path, "tech-code") == "gpt-5.5-medium"
 
     def test_empty_string_returns_none(self, tmp_path):
         from subagent_config import resolve_subagent_model
 
-        self._write_config(tmp_path, {"subagents": {"code": {"model": ""}}})
-        assert resolve_subagent_model(tmp_path, "code") is None
+        self._write_config(tmp_path, {"subagents": {"tech-code": {"model": ""}}})
+        assert resolve_subagent_model(tmp_path, "tech-code") is None
 
     def test_whitespace_only_returns_none(self, tmp_path):
         from subagent_config import resolve_subagent_model
 
-        self._write_config(tmp_path, {"subagents": {"code": {"model": "   "}}})
-        assert resolve_subagent_model(tmp_path, "code") is None
+        self._write_config(tmp_path, {"subagents": {"tech-code": {"model": "   "}}})
+        assert resolve_subagent_model(tmp_path, "tech-code") is None
 
     def test_missing_config_file_returns_none(self, tmp_path):
         from subagent_config import resolve_subagent_model
 
-        assert resolve_subagent_model(tmp_path, "code") is None
+        assert resolve_subagent_model(tmp_path, "tech-code") is None
 
     def test_missing_subagents_key_returns_none(self, tmp_path):
         from subagent_config import resolve_subagent_model
 
         self._write_config(tmp_path, {"version": 1})
-        assert resolve_subagent_model(tmp_path, "code") is None
+        assert resolve_subagent_model(tmp_path, "tech-code") is None
 
     def test_invalid_json_returns_none(self, tmp_path):
         from subagent_config import resolve_subagent_model
@@ -128,7 +128,7 @@ class TestResolveSubagentModel:
         cfg_path = tmp_path / ".cursor/lulu-dev-workflow/config.json"
         cfg_path.parent.mkdir(parents=True, exist_ok=True)
         cfg_path.write_text("{not json", encoding="utf-8")
-        assert resolve_subagent_model(tmp_path, "code") is None
+        assert resolve_subagent_model(tmp_path, "tech-code") is None
 
 
 class TestPlatformConfigPath:
@@ -153,7 +153,7 @@ class TestEnsurePlatformConfig:
 
         ensure_platform_config(tmp_path, platform="cursor")
         cfg = read_platform_config(tmp_path, platform="cursor")
-        assert cfg["subagents"] == {"code": {"model": ""}}
+        assert cfg["subagents"] == {"tech-code": {"model": ""}}
         assert cfg["workflowConfig"] == "skill-config/lulu-dev-workflow/workflow-config.json"
 
     def test_migrate_preserves_workflow_config(self, tmp_path):
@@ -173,7 +173,7 @@ class TestEnsurePlatformConfig:
         ensure_platform_config(tmp_path, platform="cursor")
         cfg = read_platform_config(tmp_path, platform="cursor")
         assert cfg["workflowConfig"] == "custom/workflow-config.json"
-        assert cfg["subagents"] == {"code": {"model": ""}}
+        assert cfg["subagents"] == {"tech-code": {"model": ""}}
 
     def test_does_not_overwrite_existing_subagents(self, tmp_path):
         from subagent_config import ensure_platform_config, read_platform_config
@@ -184,14 +184,14 @@ class TestEnsurePlatformConfig:
             json.dumps(
                 {
                     "version": 1,
-                    "subagents": {"code": {"model": "gpt-5.3-codex"}},
+                    "subagents": {"tech-code": {"model": "gpt-5.3-codex"}},
                 }
             ),
             encoding="utf-8",
         )
         ensure_platform_config(tmp_path, platform="cursor")
         cfg = read_platform_config(tmp_path, platform="cursor")
-        assert cfg["subagents"]["code"]["model"] == "gpt-5.3-codex"
+        assert cfg["subagents"]["tech-code"]["model"] == "gpt-5.3-codex"
 
 
 class TestResolveSubagentCli:
@@ -199,7 +199,7 @@ class TestResolveSubagentCli:
         cfg_path = tmp_path / ".cursor/lulu-dev-workflow/config.json"
         cfg_path.parent.mkdir(parents=True, exist_ok=True)
         cfg_path.write_text(
-            json.dumps({"subagents": {"code": {"model": "gpt-5.3-codex"}}}),
+            json.dumps({"subagents": {"tech-code": {"model": "gpt-5.3-codex"}}}),
             encoding="utf-8",
         )
 
@@ -210,7 +210,7 @@ class TestResolveSubagentCli:
                 "--project-root",
                 str(tmp_path),
                 "--stage",
-                "code",
+                "tech-code",
             ],
             capture_output=True,
             text=True,
@@ -227,7 +227,7 @@ class TestResolveSubagentCli:
                 "--project-root",
                 str(tmp_path),
                 "--stage",
-                "code",
+                "tech-code",
             ],
             capture_output=True,
             text=True,
