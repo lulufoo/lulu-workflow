@@ -21,9 +21,9 @@ KNOWN_STAGES = frozenset({
 
 
 class Entry(TypedDict):
-    feature_id: str
+    cycle_id: str
     stage: str
-    container_type: str
+    cycle_type: str
 
 
 def _normalize_platform(platform: str) -> str:
@@ -40,9 +40,9 @@ def context_path(project_root: Path, platform: str) -> Path:
 def is_legacy_flat(data: object) -> bool:
     if not isinstance(data, dict):
         return False
-    if "feature_id" not in data or "stage" not in data:
+    if "cycle_id" not in data or "stage" not in data:
         return False
-    return not isinstance(data.get("feature_id"), dict) and not isinstance(
+    return not isinstance(data.get("cycle_id"), dict) and not isinstance(
         data.get("stage"), dict
     )
 
@@ -50,16 +50,16 @@ def is_legacy_flat(data: object) -> bool:
 def _valid_entry(raw: object) -> Entry | None:
     if not isinstance(raw, dict):
         return None
-    feature_id = raw.get("feature_id")
+    cycle_id = raw.get("cycle_id")
     stage = raw.get("stage")
-    if not isinstance(feature_id, str) or not feature_id.strip():
+    if not isinstance(cycle_id, str) or not cycle_id.strip():
         return None
     if not isinstance(stage, str) or stage not in KNOWN_STAGES:
         return None
-    container_type = raw.get("container_type", "feature")
-    if container_type not in ("feature", "topic"):
-        container_type = "feature"
-    return {"feature_id": feature_id, "stage": stage, "container_type": container_type}
+    cycle_type = raw.get("cycle_type", "feature")
+    if cycle_type not in ("feature", "topic"):
+        cycle_type = "feature"
+    return {"cycle_id": cycle_id, "stage": stage, "cycle_type": cycle_type}
 
 
 def read_all(project_root: Path, platform: str) -> dict[str, Entry]:
@@ -98,9 +98,9 @@ def write_entry(
     project_root: Path,
     platform: str,
     conversation_id: str,
-    feature_id: str,
+    cycle_id: str,
     stage: str,
-    container_type: str = "feature",
+    cycle_type: str = "feature",
 ) -> None:
     if not conversation_id:
         print(
@@ -112,9 +112,9 @@ def write_entry(
         raise ValueError(f"Unknown stage: {stage!r}")
     data = read_all(project_root, platform)
     data[conversation_id] = {
-        "feature_id": feature_id,
+        "cycle_id": cycle_id,
         "stage": stage,
-        "container_type": container_type,
+        "cycle_type": cycle_type,
     }
     path = context_path(project_root, platform)
     path.parent.mkdir(parents=True, exist_ok=True)

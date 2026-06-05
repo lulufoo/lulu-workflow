@@ -16,10 +16,10 @@ if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
 
-def _make_workflow_state(tmp_path: Path, container_id: str, stage: str, revision: str,
+def _make_workflow_state(tmp_path: Path, cycle_id: str, stage: str, revision: str,
                           state: str, updated_at: str = "2026-06-01T00:00:00+00:00") -> Path:
     """Create a workflow-state.md file at the expected session path."""
-    session_dir = tmp_path / container_id / stage / revision
+    session_dir = tmp_path / cycle_id / stage / revision
     session_dir.mkdir(parents=True, exist_ok=True)
     ws = session_dir / "workflow-state.md"
     ws.write_text(
@@ -173,12 +173,12 @@ class TestGetSessions:
 # ---------------------------------------------------------------------------
 
 class TestGetTopicDoc:
-    def _write_features_json(self, cache_dir: Path, feature_id: str, meta: dict):
+    def _write_features_json(self, cache_dir: Path, cycle_id: str, meta: dict):
         fj = cache_dir / "features.json"
         data = {}
         if fj.exists():
             data = json.loads(fj.read_text())
-        data[feature_id] = meta
+        data[cycle_id] = meta
         fj.write_text(json.dumps(data), encoding="utf-8")
 
     def _write_topics_json(self, cache_dir: Path, topic_id: str, meta: dict):
@@ -369,12 +369,12 @@ class TestCrossContainerIsolation:
 # ---------------------------------------------------------------------------
 
 class TestTopicRefExtended:
-    def _write_features_json(self, cache_dir: Path, feature_id: str, meta: dict):
+    def _write_features_json(self, cache_dir: Path, cycle_id: str, meta: dict):
         fj = cache_dir / "features.json"
         data = {}
         if fj.exists():
             data = json.loads(fj.read_text())
-        data[feature_id] = meta
+        data[cycle_id] = meta
         fj.write_text(json.dumps(data), encoding="utf-8")
 
     def _write_topics_json(self, cache_dir: Path, topic_id: str, meta: dict):
@@ -385,9 +385,9 @@ class TestTopicRefExtended:
         data[topic_id] = meta
         tj.write_text(json.dumps(data), encoding="utf-8")
 
-    def _make_delivered_session(self, cache_dir: Path, container_id: str, stage: str,
+    def _make_delivered_session(self, cache_dir: Path, cycle_id: str, stage: str,
                                 revision: str = "r1") -> Path:
-        session_dir = cache_dir / container_id / stage / revision
+        session_dir = cache_dir / cycle_id / stage / revision
         session_dir.mkdir(parents=True, exist_ok=True)
         (session_dir / "workflow-state.md").write_text(
             "---\ncurrent_state: Delivered\nupdated_at: 2026-06-01T00:00:00+00:00\n---\n",

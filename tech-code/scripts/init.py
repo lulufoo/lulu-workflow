@@ -57,7 +57,7 @@ code workflow 初始化完成。
    Path B（来自 work-order）：
    python3 {start_py} \
      --project-root "$(pwd)" \
-     --feature-id "<feature_id>" \
+     --cycle-id "<cycle_id>" \
      --mode task-from-work-order \
      --task-list-ref "<abs-path-to-task-list.md>" \
      --task-refs "<abs-path-to-t1/task.md>" "<abs-path-to-t2/task.md>"
@@ -65,7 +65,7 @@ code workflow 初始化完成。
    Path A（来自 tech-doc）：
    python3 {start_py} \
      --project-root "$(pwd)" \
-     --feature-id "<feature_id>" \
+     --cycle-id "<cycle_id>" \
      --mode task-from-tech \
      --tech-ref "<abs-path-to-tech-doc.md>"
 """)

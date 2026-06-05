@@ -22,7 +22,7 @@ def _write_invalidated(state_path: Path) -> None:
     state_path.write_text(updated, encoding="utf-8")
 
 
-def invalidate_downstream(container_id: str, from_stage: str,
+def invalidate_downstream(cycle_id: str, from_stage: str,
                            cycle_type: str, cache_dir: Path) -> None:
     """Mark all non-Invalidated sessions in stages after from_stage as Invalidated."""
     stages = load_stage_order(cycle_type, _CONFIG_DIR)
@@ -30,8 +30,8 @@ def invalidate_downstream(container_id: str, from_stage: str,
         return
     downstream = stages[stages.index(from_stage) + 1:]
     for stage in downstream:
-        for session in get_sessions(container_id, stage, cache_dir):
+        for session in get_sessions(cycle_id, stage, cache_dir):
             if session.state != "Invalidated":
-                state_path = (cache_dir / container_id / stage
+                state_path = (cache_dir / cycle_id / stage
                               / session.revision / "workflow-state.md")
                 _write_invalidated(state_path)

@@ -86,7 +86,7 @@ def main() -> int:
 2. 开始第一个产品文档，运行 start 命令：
 
    python3 {_start_py} \\
-     --project-root "$(pwd)" --feature-id "<your-feature-id>"
+     --project-root "$(pwd)" --cycle-id "<your-cycle-id>"
 
 配置模板参考：
   https://github.com/lulufoo/ai-software-dev/tree/main/ai-dev-workflow-framework/product_template

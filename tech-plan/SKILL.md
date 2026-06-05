@@ -11,7 +11,7 @@ disable-model-invocation: true
 
 > **Prerequisite:** Run `diagnostic` SKILL before starting this workflow.
 > The decision-doc produced by diagnostic is the required input context.
-> Path: `$CACHE_DIR/<feature_id>/tech/diagnostic/decision-doc.md`
+> Path: `$CACHE_DIR/<cycle_id>/tech/diagnostic/decision-doc.md`
 
 Drive a tech document workflow with explicit per-session state files and a hook
 that gates state transitions.
@@ -35,10 +35,10 @@ Do NOT proceed until you have read `../SKILL.md` and loaded:
 Before starting this stage, the AI must:
 
 1. Read `features.json` (or `topics.json`) to confirm the current container type (`topic` / `feature`) and container ID.
-2. Call `check_gate(container_id, to_stage="tech-plan", cycle_type, cache_dir)` via the `hook_guard.py` script:
+2. Call `check_gate(cycle_id, to_stage="tech-plan", cycle_type, cache_dir)` via the `hook_guard.py` script:
    - If `ok == False`: stop, output `reason` to user, do not proceed.
    - If `ok == True`: continue.
-3. If container is `feature` and has `topic_id`: call `get_topic_doc(container_id, "tech-plan", cache_dir)` to retrieve the topic reference document.
+3. If container is `feature` and has `topic_id`: call `get_topic_doc(cycle_id, "tech-plan", cache_dir)` to retrieve the topic reference document.
    - If path returned: inform user of the topic doc path and load it as context.
    - If `None`: skip silently.
    - If `ValueError`: stop, output error to user, do not proceed.
@@ -55,7 +55,7 @@ Before starting this stage, the AI must:
 
 > Prerequisite: `init` has been run.
 
-**Step 1: Identify active feature** — See `## Session Foundation` in `../SKILL.md`
+**Step 1: Identify active cycle** — See `## Session Foundation` in `../SKILL.md`
 
 > Ambiguity signals: no footer in conversation · user mentions a different feature · user says "switch" / "new" / "choose"
 
@@ -77,7 +77,7 @@ Do not infer or auto-detect the path.
 ```bash
 python3 "$SKILL_DIR/scripts/start.py" \
   --project-root "$(pwd)" \
-  --feature-id "<feature_id>" \
+  --cycle-id "<cycle_id>" \
   --run-mode product|tech \
   [--product-ref "<absolute-path-to-product-doc.md>"]  # required for product mode
   [--carry-forward-ref "<absolute-path-to-previous-tech-doc.md>"]  # optional
@@ -91,7 +91,7 @@ tech flow to use a previous tech-doc as the draft starting point.
 ## Session File Structure
 
 ```
-$CACHE_DIR/<feature_id>/tech/plan/
+$CACHE_DIR/<cycle_id>/tech/plan/
   session-state.md               ← active_doc: N (monotonically increasing)
 
   revision{N}/                          ← Nth tech doc
@@ -262,7 +262,7 @@ mode: product
 current_state: Drafting
 evaluate_round: 0
 skip_evaluate_requested: false
-product_ref: /abs/path/$CACHE_DIR/<feature_id>/product/plan/revision1/product-doc.md
+product_ref: /abs/path/$CACHE_DIR/<cycle_id>/product/plan/revision1/product-doc.md
 carry_forward_ref: ""
 updated_at: 2026-05-17T09:00:00+08:00
 ---
@@ -320,7 +320,7 @@ Each review file shares the same structure; column set varies by dimension:
 
 - `product_ref`: user-provided; never auto-detected; the two workflow directories are fully decoupled.
 - `carry_forward_ref`: provided on re-entry; version delta between old tech-doc and new product-doc must be resolved via mandatory Drafting calibration.
-- Re-entry = new iteration (new feature_id or revision{N}); never continue in the old directory.
+- Re-entry = new iteration (new cycle_id or revision{N}); never continue in the old directory.
 
 ## Execution Mode: Apply
 

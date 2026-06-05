@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""feature_init.py — Initialize a new lulu-dev-workflow feature.
+"""cycle_init.py — Initialize a new lulu-dev-workflow feature.
 
 Usage:
-    python3 feature_init.py --project-root <path> --name "<feature-name>"
+    python3 cycle_init.py --project-root <path> --name "<feature-name>"
 
-Output (stdout last line): feature_id
+Output (stdout last line): cycle_id
 """
 
 import argparse
@@ -33,8 +33,8 @@ def _cache_dir(project_root: Path) -> Path:
 # Core functions
 # ---------------------------------------------------------------------------
 
-def generate_feature_id() -> str:
-    """Return a feature ID: YYYYMMDDHHMMSS-{8hexchars}."""
+def generate_cycle_id() -> str:
+    """Return a cycle ID: YYYYMMDDHHMMSS-{8hexchars}."""
     ts = datetime.now(tz=timezone.utc).strftime("%Y%m%d%H%M%S")
     hex_part = uuid4().hex[:8]
     return f"{ts}-{hex_part}"
@@ -47,28 +47,28 @@ def generate_topic_id() -> str:
     return f"topic-{ts}-{hex_part}"
 
 
-def ensure_feature_dir(cache_dir: Path, feature_id: str) -> Path:
-    """Create cache_dir/{feature_id}/ and return its Path."""
-    target = cache_dir / feature_id
+def ensure_feature_dir(cache_dir: Path, cycle_id: str) -> Path:
+    """Create cache_dir/{cycle_id}/ and return its Path."""
+    target = cache_dir / cycle_id
     target.mkdir(parents=True, exist_ok=True)
     return target
 
 
-def ensure_container_dir(cache_dir: Path, container_id: str) -> Path:
-    """Create cache_dir/{container_id}/ and return its Path."""
-    target = cache_dir / container_id
+def ensure_container_dir(cache_dir: Path, cycle_id: str) -> Path:
+    """Create cache_dir/{cycle_id}/ and return its Path."""
+    target = cache_dir / cycle_id
     target.mkdir(parents=True, exist_ok=True)
     return target
 
 
 def update_features_json(
     cache_dir: Path,
-    feature_id: str,
+    cycle_id: str,
     name: str,
     mode: str = "copilot",
     topic_id: str = None,
 ) -> None:
-    """Append {feature_id: {name, execution_mode[, topic_id]}} to features.json."""
+    """Append {cycle_id: {name, execution_mode[, topic_id]}} to features.json."""
     fj = cache_dir / "features.json"
     if fj.exists():
         data: dict = json.loads(fj.read_text(encoding="utf-8"))
@@ -77,7 +77,7 @@ def update_features_json(
     entry = {"name": name, "execution_mode": mode}
     if topic_id is not None:
         entry["topic_id"] = topic_id
-    data[feature_id] = entry
+    data[cycle_id] = entry
     fj.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
@@ -106,8 +106,8 @@ def validate_topic_exists(cache_dir: Path, topic_id: str) -> bool:
     return topic_id in data
 
 
-def main(project_root: Path, name: str, mode: str = "copilot", container_type: str = "feature", topic_id: str = None) -> str:
-    """Orchestrate initialization. Returns container_id."""
+def main(project_root: Path, name: str, mode: str = "copilot", cycle_type: str = "feature", topic_id: str = None) -> str:
+    """Orchestrate initialization. Returns cycle_id."""
     if not project_root.is_dir():
         print(f"Error: --project-root does not exist: {project_root}", file=sys.stderr)
         sys.exit(1)
@@ -115,20 +115,20 @@ def main(project_root: Path, name: str, mode: str = "copilot", container_type: s
     cache_dir = _cache_dir(project_root)
     cache_dir.mkdir(parents=True, exist_ok=True)
 
-    if container_type == "topic":
-        container_id = generate_topic_id()
-        ensure_container_dir(cache_dir, container_id)
-        update_topics_json(cache_dir, container_id, name, mode)
+    if cycle_type == "topic":
+        cycle_id = generate_topic_id()
+        ensure_container_dir(cache_dir, cycle_id)
+        update_topics_json(cache_dir, cycle_id, name, mode)
     else:
         if topic_id is not None and not validate_topic_exists(cache_dir, topic_id):
             print(f"Error: topic_id not found in topics.json: {topic_id}", file=sys.stderr)
             sys.exit(1)
-        container_id = generate_feature_id()
-        ensure_feature_dir(cache_dir, container_id)
-        update_features_json(cache_dir, container_id, name, mode, topic_id=topic_id)
+        cycle_id = generate_cycle_id()
+        ensure_feature_dir(cache_dir, cycle_id)
+        update_features_json(cache_dir, cycle_id, name, mode, topic_id=topic_id)
 
-    print(container_id)
-    return container_id
+    print(cycle_id)
+    return cycle_id
 
 
 # ---------------------------------------------------------------------------
@@ -151,7 +151,7 @@ if __name__ == "__main__":
         "--type",
         choices=["topic", "feature"],
         required=True,
-        dest="container_type",
+        dest="cycle_type",
         help="Container type: topic or feature",
     )
     parser.add_argument(
@@ -161,4 +161,4 @@ if __name__ == "__main__":
     )
     args = parser.parse_known_args()[0]
 
-    main(Path(args.project_root), args.name, args.mode, args.container_type, args.topic_id)
+    main(Path(args.project_root), args.name, args.mode, args.cycle_type, args.topic_id)

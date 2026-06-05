@@ -31,9 +31,9 @@ def _load_wc(stage: str):
     return mod
 
 
-def _expected_session_base(mod, feature_id: str) -> Path:
+def _expected_session_base(mod, cycle_id: str) -> Path:
     subdir = getattr(mod, "CACHE_SUBDIR", mod.STAGE)
-    return mod.CACHE_DIR / feature_id / subdir
+    return mod.CACHE_DIR / cycle_id / subdir
 
 
 class TestStageConstant:
@@ -56,7 +56,7 @@ class TestSessionBaseDir:
         assert result == _expected_session_base(mod, _FID)
 
     @pytest.mark.parametrize("stage", _STAGES)
-    def test_feature_id_present_in_path(self, stage):
+    def test_cycle_id_present_in_path(self, stage):
         mod = _load_wc(stage)
         result = mod.session_base_dir(_FID)
         assert _FID in result.parts
@@ -68,7 +68,7 @@ class TestSessionBaseDir:
         expected = _EXPECTED_CACHE_SUBDIR[stage]
         assert str(result).endswith(f"{_FID}/{expected}")
 
-    def test_feature_id_with_hyphen_no_escaping(self):
+    def test_cycle_id_with_hyphen_no_escaping(self):
         mod = _load_wc("tech-plan")
         result = mod.session_base_dir(_FID)
         assert _FID in str(result)
@@ -79,7 +79,7 @@ class TestSessionBaseDir:
         "20991231235959-ffffffff",
         "20260524143022-02cd7e6e",
     ])
-    def test_accepts_any_string_feature_id_without_error(self, fid):
+    def test_accepts_any_string_cycle_id_without_error(self, fid):
         mod = _load_wc("tech-plan")
         result = mod.session_base_dir(fid)
         assert fid in str(result)

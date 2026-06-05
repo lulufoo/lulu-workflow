@@ -48,13 +48,13 @@ def _cache_dir(tmp_path: Path) -> Path:
     return tmp_path / ".cache" / "copilot" / "lulu-dev-workflow"
 
 
-def _make_features_json(cache_dir: Path, feature_id: str, extra: dict = None) -> None:
+def _make_features_json(cache_dir: Path, cycle_id: str, extra: dict = None) -> None:
     cache_dir.mkdir(parents=True, exist_ok=True)
     meta = {"name": "Test Feature", "execution_mode": "copilot"}
     if extra:
         meta.update(extra)
     fj = cache_dir / "features.json"
-    fj.write_text(json.dumps({feature_id: meta}), encoding="utf-8")
+    fj.write_text(json.dumps({cycle_id: meta}), encoding="utf-8")
 
 
 def _make_topics_json(cache_dir: Path, topic_id: str) -> None:
@@ -65,14 +65,14 @@ def _make_topics_json(cache_dir: Path, topic_id: str) -> None:
 
 def _make_session(
     cache_dir: Path,
-    container_id: str,
+    cycle_id: str,
     stage: str,
     revision: str,
     state: str,
     updated_at: str = "2026-06-01T00:00:00+00:00",
 ) -> Path:
     """Create a workflow-state.md at hook_guard path convention (stage/rN/)."""
-    session_dir = cache_dir / container_id / stage / revision
+    session_dir = cache_dir / cycle_id / stage / revision
     session_dir.mkdir(parents=True, exist_ok=True)
     ws = session_dir / "workflow-state.md"
     ws.write_text(
@@ -108,14 +108,14 @@ def _stage_extra_args(stage: str, tmp_path: Path) -> list:
 def _run_start(
     stage: str,
     tmp_path: Path,
-    feature_id: str = _FEATURE_ID,
+    cycle_id: str = _FEATURE_ID,
     extra_args: list = None,
 ) -> subprocess.CompletedProcess:
     args = extra_args if extra_args is not None else _stage_extra_args(stage, tmp_path)
     cmd = [
         sys.executable, str(_start_py(stage)),
         "--project-root", str(tmp_path),
-        "--feature-id", feature_id,
+        "--cycle-id", cycle_id,
     ] + args
     return subprocess.run(
         cmd, capture_output=True, text=True, env=_ENV_COPILOT,
@@ -123,13 +123,13 @@ def _run_start(
     )
 
 
-def _all_prior_delivered(cache_dir: Path, container_id: str, to_stage: str) -> None:
+def _all_prior_delivered(cache_dir: Path, cycle_id: str, to_stage: str) -> None:
     """Create Delivered sessions for all stages prior to to_stage in feature cycle."""
     if to_stage not in _FEATURE_CYCLE:
         return
     idx = _FEATURE_CYCLE.index(to_stage)
     for s in _FEATURE_CYCLE[:idx]:
-        _make_session(cache_dir, container_id, s, "r1", "Delivered")
+        _make_session(cache_dir, cycle_id, s, "r1", "Delivered")
 
 
 # ---------------------------------------------------------------------------

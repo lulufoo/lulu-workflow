@@ -115,7 +115,7 @@ Two registers run throughout the entire session, not attached to any single gate
 
 ## Start
 
-**Step 1: Identify active feature** — See `## Session Foundation` in `../SKILL.md`
+**Step 1: Identify active cycle** — See `## Session Foundation` in `../SKILL.md`
 
 > Ambiguity signals: no footer in conversation · user mentions a different feature · user says "switch" / "new" / "choose"
 
@@ -123,7 +123,7 @@ Two registers run throughout the entire session, not attached to any single gate
 
 Decision-doc will be written to:
 ```
-$CACHE_DIR/<feature_id>/{cache_subdir}/decision-doc.md
+$CACHE_DIR/<cycle_id>/{cache_subdir}/decision-doc.md
 ```
 
 Where `{cache_subdir}` is determined by the `--stage` argument:
@@ -136,7 +136,7 @@ Where `{cache_subdir}` is determined by the `--stage` argument:
 ```bash
 python3 "$SKILL_DIR/scripts/start.py" \
   --project-root "$(pwd)" \
-  --feature-id "<feature_id>" \
+  --cycle-id "<cycle_id>" \
   --stage "<stage_name>"
 ```
 
@@ -371,7 +371,7 @@ Risk levels:
 
 ## Decision-Doc Format
 
-Write to `$CACHE_DIR/<feature_id>/{cache_subdir}/decision-doc.md` (where `{cache_subdir}` is derived from `--stage` as described in §Start Step 2).
+Write to `$CACHE_DIR/<cycle_id>/{cache_subdir}/decision-doc.md` (where `{cache_subdir}` is derived from `--stage` as described in §Start Step 2).
 
 **Section filtering:** If a `## Domain Constraints` section lists forbidden sections, omit those sections entirely from the written document. If no Domain Constraints are present, write all sections below.
 
@@ -506,7 +506,7 @@ After self-review passes (decision-doc already written, Risk Release statuses up
 4. Only after user's explicit confirmation that everything is correct, write terminal state:
 
 ```bash
-# session-state.md at <feature_id>/{cache_subdir}/session-state.md
+# session-state.md at <cycle_id>/{cache_subdir}/session-state.md
 current_state: Delivered
 ```
 
