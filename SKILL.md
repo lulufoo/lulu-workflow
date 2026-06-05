@@ -39,19 +39,11 @@ Cross-cutting tools that may be invoked from any stage. Not part of the Stage Tr
 
 ## Stage Transitions
 
-When a stage delivers, AI must list the allowed next stages from the whitelist below, recommend one, and wait for explicit user selection. AI must not infer and execute the next stage autonomously.
-
-**Whitelist:**
-
-| Current Stage | Allowed Next → |
-|---|---|
-| *(start)* | `product-diagnostic` / `tech-diagnostic` |
-| `product-diagnostic` | `product-plan` |
-| `product-plan` | `tech-diagnostic` / **done** |
-| `tech-diagnostic` | `tech-plan` |
-| `tech-plan` | `tech-work-order` |
-| `tech-work-order` | `tech-code` |
-| `tech-code` | done |
+When a stage delivers:
+1. Read `$SKILL_ROOT/config/transition-table.json`
+2. Look up the entry where `from == <current_stage>` under the `container_type` key (`topic` or `feature`)
+3. List allowed next stages from the `to` array, recommend one, wait for explicit user selection (see § Autonomous Tech Line Auto-Chain for the exception)
+4. If `to` is empty: announce completion; display the `note` field if present
 
 > `tech-plan` → `tech-code` is **prohibited** — bypasses task breakdown and TDD-first discipline in `tech-work-order`.
 
