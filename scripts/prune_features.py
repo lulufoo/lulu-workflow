@@ -6,7 +6,7 @@ Usage:
 
 Sorts cycle_ids lexicographically (YYYYMMDDHHMMSS prefix → chronological),
 keeps the N most recent, deletes older feature directories from $CACHE_DIR,
-and rewrites features.json to match.
+and rewrites cycles.json to match.
 """
 
 import argparse
@@ -35,13 +35,13 @@ def _cache_dir(project_root: Path) -> Path:
 
 def prune(project_root: Path, keep: int) -> None:
     cache = _cache_dir(project_root)
-    features_json = cache / "features.json"
+    cycles_json = cache / "cycles.json"
 
-    if not features_json.exists():
-        print("features.json not found — nothing to prune.")
+    if not cycles_json.exists():
+        print("cycles.json not found — nothing to prune.")
         return
 
-    with open(features_json, encoding="utf-8") as f:
+    with open(cycles_json, encoding="utf-8") as f:
         features: dict = json.load(f)
 
     sorted_ids = sorted(features.keys())  # lexicographic = chronological
@@ -68,7 +68,7 @@ def prune(project_root: Path, keep: int) -> None:
             print(f"Directory not found (removed from index only): {fid}")
 
     pruned_features = {fid: features[fid] for fid in sorted_ids if fid in keep_ids}
-    with open(features_json, "w", encoding="utf-8") as f:
+    with open(cycles_json, "w", encoding="utf-8") as f:
         json.dump(pruned_features, f, indent=2, ensure_ascii=False)
         f.write("\n")
 

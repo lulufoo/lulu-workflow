@@ -174,7 +174,7 @@ class TestGetSessions:
 
 class TestGetTopicDoc:
     def _write_features_json(self, cache_dir: Path, cycle_id: str, meta: dict):
-        fj = cache_dir / "features.json"
+        fj = cache_dir / "cycles.json"
         data = {}
         if fj.exists():
             data = json.loads(fj.read_text())
@@ -182,7 +182,7 @@ class TestGetTopicDoc:
         fj.write_text(json.dumps(data), encoding="utf-8")
 
     def _write_topics_json(self, cache_dir: Path, topic_id: str, meta: dict):
-        tj = cache_dir / "topics.json"
+        tj = cache_dir / "cycles.json"
         data = {}
         if tj.exists():
             data = json.loads(tj.read_text())
@@ -200,7 +200,7 @@ class TestGetTopicDoc:
         self._write_features_json(tmp_path, "feat-a",
                                   {"name": "x", "execution_mode": "copilot",
                                    "topic_id": "topic-20260101000000-deadbeef"})
-        # topics.json does not exist → ValueError
+        # cycles.json does not exist → ValueError
         with pytest.raises(ValueError):
             get_topic_doc("feat-a", "tech-plan", tmp_path, _CONFIG_DIR)
 
@@ -370,7 +370,7 @@ class TestCrossContainerIsolation:
 
 class TestTopicRefExtended:
     def _write_features_json(self, cache_dir: Path, cycle_id: str, meta: dict):
-        fj = cache_dir / "features.json"
+        fj = cache_dir / "cycles.json"
         data = {}
         if fj.exists():
             data = json.loads(fj.read_text())
@@ -378,7 +378,7 @@ class TestTopicRefExtended:
         fj.write_text(json.dumps(data), encoding="utf-8")
 
     def _write_topics_json(self, cache_dir: Path, topic_id: str, meta: dict):
-        tj = cache_dir / "topics.json"
+        tj = cache_dir / "cycles.json"
         data = {}
         if tj.exists():
             data = json.loads(tj.read_text())
@@ -457,7 +457,7 @@ class TestTopicRefExtended:
         assert result is None
 
     def test_topic_id_points_to_nonexistent_topic_raises_value_error(self, tmp_path):
-        """topic_id not in topics.json → ValueError raised."""
+        """topic_id not in cycles.json → ValueError raised."""
         from hook_guard import get_topic_doc
         self._write_features_json(tmp_path, "feat-a",
                                   {"name": "x", "execution_mode": "copilot",
@@ -474,9 +474,9 @@ class TestTopicRefExtended:
 
 class TestBackwardCompat:
     def test_feature_without_topic_id_loads_normally(self, tmp_path):
-        """Old features.json entry without topic_id field → loads, treated as no topic."""
+        """Old cycles.json entry without topic_id field → loads, treated as no topic."""
         from hook_guard import get_topic_doc
-        fj = tmp_path / "features.json"
+        fj = tmp_path / "cycles.json"
         fj.write_text(json.dumps({"feat-old": {"name": "legacy", "execution_mode": "cursor"}}),
                       encoding="utf-8")
 
