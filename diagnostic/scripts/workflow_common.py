@@ -67,29 +67,22 @@ def detect_cycle_type(cycle_id: str) -> str:
     return "topic" if cycle_id.startswith("topic-") else "feature"
 
 
-def load_container_meta(cache_dir: Path, cycle_id: str, cycle_type: str) -> dict:
-    """Load container metadata from topics.json or features.json.
+def load_container_meta(cache_dir: Path, cycle_id: str, cycle_type: str = None) -> dict:
+    """Load cycle metadata from cycles.json.
 
-    topic: topics.json must exist and contain cycle_id; raises ValueError otherwise.
-    feature: if features.json absent, returns {} (backward compat);
-             if present but missing cycle_id, raises ValueError.
+    topic cycles: cycles.json must exist and contain cycle_id (strict).
+    feature cycles: returns {} if cycles.json absent (backward compat).
     """
-    if cycle_type == "topic":
-        json_file = cache_dir / "topics.json"
-        if not json_file.exists():
-            raise ValueError(f"topics.json not found: {json_file}")
-        data = json.loads(json_file.read_text(encoding="utf-8"))
-        if cycle_id not in data:
-            raise ValueError(f"topic-id {cycle_id!r} not found in topics.json")
-        return data[cycle_id]
-    else:
-        json_file = cache_dir / "features.json"
-        if not json_file.exists():
-            return {}
-        data = json.loads(json_file.read_text(encoding="utf-8"))
-        if cycle_id not in data:
-            raise ValueError(f"cycle-id {cycle_id!r} not found in features.json")
-        return data[cycle_id]
+    _cycle_type = cycle_type or ("topic" if cycle_id.startswith("topic-") else "feature")
+    json_file = cache_dir / "cycles.json"
+    if not json_file.exists():
+        if _cycle_type == "topic":
+            raise ValueError(f"cycles.json not found: {json_file}")
+        return {}
+    data = json.loads(json_file.read_text(encoding="utf-8"))
+    if cycle_id not in data:
+        raise ValueError(f"cycle-id {cycle_id!r} not found in cycles.json")
+    return data[cycle_id]
 
 
 def write_active_context(

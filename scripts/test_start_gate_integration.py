@@ -19,7 +19,7 @@ _LDEV = _SRC / "lulu-dev-workflow"
 _CONFIG_DIR = _LDEV / "config"
 
 _ENV_COPILOT = {**os.environ, "LULU_PLATFORM": "copilot"}
-_FEATURE_ID = "20260524143022-02cd7e6e"
+_CYCLE_ID = "20260524143022-02cd7e6e"
 _TOPIC_ID = "topic-20260101000000-deadbeef"
 
 _STAGES_WITH_GATE = ["product-plan", "tech-plan", "tech-work-order", "tech-code"]
@@ -48,19 +48,15 @@ def _cache_dir(tmp_path: Path) -> Path:
     return tmp_path / ".cache" / "copilot" / "lulu-dev-workflow"
 
 
-def _make_features_json(cache_dir: Path, cycle_id: str, extra: dict = None) -> None:
+def _make_cycles_json(cache_dir: Path, cycle_id: str, extra: dict = None, name: str = "Test Cycle") -> None:
     cache_dir.mkdir(parents=True, exist_ok=True)
-    meta = {"name": "Test Feature", "execution_mode": "copilot"}
+    cj = cache_dir / "cycles.json"
+    data = json.loads(cj.read_text(encoding="utf-8")) if cj.exists() else {}
+    meta = {"name": name, "execution_mode": "copilot"}
     if extra:
         meta.update(extra)
-    fj = cache_dir / "features.json"
-    fj.write_text(json.dumps({cycle_id: meta}), encoding="utf-8")
-
-
-def _make_topics_json(cache_dir: Path, topic_id: str) -> None:
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    tj = cache_dir / "topics.json"
-    tj.write_text(json.dumps({topic_id: {"name": "Test Topic"}}), encoding="utf-8")
+    data[cycle_id] = meta
+    cj.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
 def _make_session(
@@ -108,7 +104,7 @@ def _stage_extra_args(stage: str, tmp_path: Path) -> list:
 def _run_start(
     stage: str,
     tmp_path: Path,
-    cycle_id: str = _FEATURE_ID,
+    cycle_id: str = _CYCLE_ID,
     extra_args: list = None,
 ) -> subprocess.CompletedProcess:
     args = extra_args if extra_args is not None else _stage_extra_args(stage, tmp_path)
@@ -140,8 +136,8 @@ class TestGateBlocked:
     def test_prior_drafting_exits_1(self, tmp_path):
         """Gate blocked: prior stage Drafting → exit 1 with 'Gate blocked' on stderr."""
         cd = _cache_dir(tmp_path)
-        _make_features_json(cd, _FEATURE_ID)
-        _make_session(cd, _FEATURE_ID, "product-diagnostic", "r1", "Drafting")
+        _make_cycles_json(cd, _CYCLE_ID)
+        _make_session(cd, _CYCLE_ID, "product-diagnostic", "r1", "Drafting")
         result = _run_start("product-plan", tmp_path)
         assert result.returncode == 1
         assert "Gate blocked" in result.stderr
@@ -149,18 +145,18 @@ class TestGateBlocked:
     def test_gate_blocked_no_session_created(self, tmp_path):
         """Gate blocked → product-plan session file not created."""
         cd = _cache_dir(tmp_path)
-        _make_features_json(cd, _FEATURE_ID)
-        _make_session(cd, _FEATURE_ID, "product-diagnostic", "r1", "Drafting")
+        _make_cycles_json(cd, _CYCLE_ID)
+        _make_session(cd, _CYCLE_ID, "product-diagnostic", "r1", "Drafting")
         _run_start("product-plan", tmp_path)
-        plan_dir = cd / _FEATURE_ID / "product" / "plan"
+        plan_dir = cd / _CYCLE_ID / "product" / "plan"
         assert not plan_dir.exists() or not any(plan_dir.rglob("workflow-state.md"))
 
     def test_intermediate_drafting_blocks_downstream(self, tmp_path):
         """Intermediate stage Drafting blocks further downstream stages."""
         cd = _cache_dir(tmp_path)
-        _make_features_json(cd, _FEATURE_ID)
-        _make_session(cd, _FEATURE_ID, "product-diagnostic", "r1", "Delivered")
-        _make_session(cd, _FEATURE_ID, "product-plan", "r1", "Drafting")
+        _make_cycles_json(cd, _CYCLE_ID)
+        _make_session(cd, _CYCLE_ID, "product-diagnostic", "r1", "Delivered")
+        _make_session(cd, _CYCLE_ID, "product-plan", "r1", "Drafting")
         result = _run_start("tech-plan", tmp_path)
         assert result.returncode == 1
         assert "Gate blocked" in result.stderr
@@ -174,31 +170,31 @@ class TestGatePasses:
     def test_no_prior_sessions_product_plan(self, tmp_path):
         """No prior sessions → gate passes."""
         cd = _cache_dir(tmp_path)
-        _make_features_json(cd, _FEATURE_ID)
+        _make_cycles_json(cd, _CYCLE_ID)
         result = _run_start("product-plan", tmp_path)
         assert result.returncode == 0, result.stderr
 
     def test_prior_delivered_allows_product_plan(self, tmp_path):
         """Prior stage Delivered → gate passes."""
         cd = _cache_dir(tmp_path)
-        _make_features_json(cd, _FEATURE_ID)
-        _make_session(cd, _FEATURE_ID, "product-diagnostic", "r1", "Delivered")
+        _make_cycles_json(cd, _CYCLE_ID)
+        _make_session(cd, _CYCLE_ID, "product-diagnostic", "r1", "Delivered")
         result = _run_start("product-plan", tmp_path)
         assert result.returncode == 0, result.stderr
 
     def test_all_prior_delivered_tech_plan(self, tmp_path):
         """All prior stages Delivered → tech-plan gate passes."""
         cd = _cache_dir(tmp_path)
-        _make_features_json(cd, _FEATURE_ID)
-        _all_prior_delivered(cd, _FEATURE_ID, "tech-plan")
+        _make_cycles_json(cd, _CYCLE_ID)
+        _all_prior_delivered(cd, _CYCLE_ID, "tech-plan")
         result = _run_start("tech-plan", tmp_path)
         assert result.returncode == 0, result.stderr
 
     def test_diagnostic_always_passes(self, tmp_path):
         """diagnostic stage not in cycle → gate always OK."""
         cd = _cache_dir(tmp_path)
-        _make_features_json(cd, _FEATURE_ID)
-        _make_session(cd, _FEATURE_ID, "product-diagnostic", "r1", "Drafting")
+        _make_cycles_json(cd, _CYCLE_ID)
+        _make_session(cd, _CYCLE_ID, "product-diagnostic", "r1", "Drafting")
         result = _run_start("diagnostic", tmp_path)
         assert result.returncode == 0, result.stderr
 
@@ -211,8 +207,8 @@ class TestReopen:
     def test_marks_historical_true(self, tmp_path):
         """Re-open: to_stage Delivered session gets historical: true in frontmatter."""
         cd = _cache_dir(tmp_path)
-        _make_features_json(cd, _FEATURE_ID)
-        ws = _make_session(cd, _FEATURE_ID, "product-plan", "r1", "Delivered")
+        _make_cycles_json(cd, _CYCLE_ID)
+        ws = _make_session(cd, _CYCLE_ID, "product-plan", "r1", "Delivered")
         result = _run_start("product-plan", tmp_path)
         assert result.returncode == 0, result.stderr
         assert "historical: true" in ws.read_text(encoding="utf-8")
@@ -220,17 +216,17 @@ class TestReopen:
     def test_old_revision_file_preserved(self, tmp_path):
         """Re-open must NOT delete old revision files."""
         cd = _cache_dir(tmp_path)
-        _make_features_json(cd, _FEATURE_ID)
-        ws = _make_session(cd, _FEATURE_ID, "product-plan", "r1", "Delivered")
+        _make_cycles_json(cd, _CYCLE_ID)
+        ws = _make_session(cd, _CYCLE_ID, "product-plan", "r1", "Delivered")
         _run_start("product-plan", tmp_path)
         assert ws.exists(), "Old revision workflow-state.md must still exist"
 
     def test_invalidates_downstream(self, tmp_path):
         """Re-open: downstream stages are Invalidated."""
         cd = _cache_dir(tmp_path)
-        _make_features_json(cd, _FEATURE_ID)
-        _make_session(cd, _FEATURE_ID, "product-plan", "r1", "Delivered")
-        downstream_ws = _make_session(cd, _FEATURE_ID, "tech-diagnostic", "r1", "Delivered")
+        _make_cycles_json(cd, _CYCLE_ID)
+        _make_session(cd, _CYCLE_ID, "product-plan", "r1", "Delivered")
+        downstream_ws = _make_session(cd, _CYCLE_ID, "tech-diagnostic", "r1", "Delivered")
         result = _run_start("product-plan", tmp_path)
         assert result.returncode == 0, result.stderr
         assert "Invalidated" in downstream_ws.read_text(encoding="utf-8")
@@ -238,8 +234,8 @@ class TestReopen:
     def test_creates_new_session_after_reopen(self, tmp_path):
         """Re-open + gate passes → new session is still created."""
         cd = _cache_dir(tmp_path)
-        _make_features_json(cd, _FEATURE_ID)
-        _make_session(cd, _FEATURE_ID, "product-plan", "r1", "Delivered")
+        _make_cycles_json(cd, _CYCLE_ID)
+        _make_session(cd, _CYCLE_ID, "product-plan", "r1", "Delivered")
         result = _run_start("product-plan", tmp_path)
         assert result.returncode == 0, result.stderr
 
@@ -252,13 +248,13 @@ class TestBackfill:
     def test_invalidates_later_delivered_stages(self, tmp_path):
         """Back-fill: to_stage < latest Delivered → invalidate_downstream from to_stage."""
         cd = _cache_dir(tmp_path)
-        _make_features_json(cd, _FEATURE_ID)
+        _make_cycles_json(cd, _CYCLE_ID)
         # product-diagnostic: Delivered (gate OK for product-plan)
-        _make_session(cd, _FEATURE_ID, "product-diagnostic", "r1", "Delivered")
+        _make_session(cd, _CYCLE_ID, "product-diagnostic", "r1", "Delivered")
         # No product-plan session (re-open won't trigger)
         # Later stages Delivered → back-fill fires
-        tech_diag_ws = _make_session(cd, _FEATURE_ID, "tech-diagnostic", "r1", "Delivered")
-        tech_plan_ws = _make_session(cd, _FEATURE_ID, "tech-plan", "r1", "Delivered")
+        tech_diag_ws = _make_session(cd, _CYCLE_ID, "tech-diagnostic", "r1", "Delivered")
+        tech_plan_ws = _make_session(cd, _CYCLE_ID, "tech-plan", "r1", "Delivered")
         result = _run_start("product-plan", tmp_path)
         assert result.returncode == 0, result.stderr
         assert "Invalidated" in tech_diag_ws.read_text(encoding="utf-8")
@@ -267,8 +263,8 @@ class TestBackfill:
     def test_no_backfill_when_no_later_delivered(self, tmp_path):
         """No back-fill when no later stages are Delivered."""
         cd = _cache_dir(tmp_path)
-        _make_features_json(cd, _FEATURE_ID)
-        _make_session(cd, _FEATURE_ID, "product-diagnostic", "r1", "Delivered")
+        _make_cycles_json(cd, _CYCLE_ID)
+        _make_session(cd, _CYCLE_ID, "product-diagnostic", "r1", "Delivered")
         result = _run_start("product-plan", tmp_path)
         assert result.returncode == 0, result.stderr
 
@@ -279,9 +275,9 @@ class TestBackfill:
 
 class TestGetTopicDoc:
     def test_topic_id_no_topics_json_exits_1(self, tmp_path):
-        """Feature has topic_id but topics.json absent → ValueError → exit 1."""
+        """Feature has topic_id but cycles.json absent → ValueError → exit 1."""
         cd = _cache_dir(tmp_path)
-        _make_features_json(cd, _FEATURE_ID, extra={"topic_id": _TOPIC_ID})
+        _make_cycles_json(cd, _CYCLE_ID, extra={"topic_id": _TOPIC_ID})
         result = _run_start("product-plan", tmp_path)
         assert result.returncode == 1
         assert "Error" in result.stderr or "topic" in result.stderr.lower()
@@ -289,31 +285,31 @@ class TestGetTopicDoc:
     def test_topic_id_no_topics_json_no_session(self, tmp_path):
         """ValueError prevents session creation."""
         cd = _cache_dir(tmp_path)
-        _make_features_json(cd, _FEATURE_ID, extra={"topic_id": _TOPIC_ID})
+        _make_cycles_json(cd, _CYCLE_ID, extra={"topic_id": _TOPIC_ID})
         _run_start("product-plan", tmp_path)
-        plan_dir = cd / _FEATURE_ID / "product" / "plan"
+        plan_dir = cd / _CYCLE_ID / "product" / "plan"
         assert not plan_dir.exists() or not any(plan_dir.rglob("workflow-state.md"))
 
     def test_no_topic_id_session_created(self, tmp_path):
         """No topic_id → get_topic_doc returns None → session created normally."""
         cd = _cache_dir(tmp_path)
-        _make_features_json(cd, _FEATURE_ID)
+        _make_cycles_json(cd, _CYCLE_ID)
         result = _run_start("product-plan", tmp_path)
         assert result.returncode == 0, result.stderr
 
     def test_valid_topic_no_delivered_session_created(self, tmp_path):
         """Valid topic but no Delivered session for it → None → session created."""
         cd = _cache_dir(tmp_path)
-        _make_features_json(cd, _FEATURE_ID, extra={"topic_id": _TOPIC_ID})
-        _make_topics_json(cd, _TOPIC_ID)
+        _make_cycles_json(cd, _CYCLE_ID, extra={"topic_id": _TOPIC_ID})
+        _make_cycles_json(cd, _TOPIC_ID)
         result = _run_start("product-plan", tmp_path)
         assert result.returncode == 0, result.stderr
 
     def test_topic_id_not_in_topics_json_exits_1(self, tmp_path):
-        """topic_id not in topics.json → ValueError → exit 1."""
+        """topic_id not in cycles.json → ValueError → exit 1."""
         cd = _cache_dir(tmp_path)
-        _make_features_json(cd, _FEATURE_ID, extra={"topic_id": _TOPIC_ID})
-        _make_topics_json(cd, "topic-other-000-aabbccdd")
+        _make_cycles_json(cd, _CYCLE_ID, extra={"topic_id": _TOPIC_ID})
+        _make_cycles_json(cd, "topic-other-000-aabbccdd")
         result = _run_start("product-plan", tmp_path)
         assert result.returncode == 1
 
@@ -329,8 +325,8 @@ class TestAllStagesGateIntegration:
     def test_gate_blocked_all_stages(self, stage, tmp_path):
         """Each gated start.py exits 1 when product-diagnostic is Drafting."""
         cd = _cache_dir(tmp_path)
-        _make_features_json(cd, _FEATURE_ID)
-        _make_session(cd, _FEATURE_ID, "product-diagnostic", "r1", "Drafting")
+        _make_cycles_json(cd, _CYCLE_ID)
+        _make_session(cd, _CYCLE_ID, "product-diagnostic", "r1", "Drafting")
         result = _run_start(stage, tmp_path)
         assert result.returncode == 1, (
             f"{stage}: expected exit 1 when product-diagnostic is Drafting"
@@ -339,23 +335,23 @@ class TestAllStagesGateIntegration:
 
     @pytest.mark.parametrize("stage", _ALL_STAGES)
     def test_topic_missing_topics_json_all_stages(self, stage, tmp_path):
-        """All start.py: feature with topic_id + no topics.json → exit 1."""
+        """All start.py: feature with topic_id + no cycles.json → exit 1."""
         cd = _cache_dir(tmp_path)
-        _make_features_json(cd, _FEATURE_ID, extra={"topic_id": _TOPIC_ID})
-        _all_prior_delivered(cd, _FEATURE_ID, stage)
+        _make_cycles_json(cd, _CYCLE_ID, extra={"topic_id": _TOPIC_ID})
+        _all_prior_delivered(cd, _CYCLE_ID, stage)
         result = _run_start(stage, tmp_path)
         assert result.returncode == 1, (
-            f"{stage}: expected exit 1 due to missing topics.json"
+            f"{stage}: expected exit 1 due to missing cycles.json"
         )
 
     @pytest.mark.parametrize("stage", _ALL_STAGES)
     def test_reopen_marks_historical_all_stages(self, stage, tmp_path):
         """All start.py mark historical when their to_stage has a Delivered session."""
         cd = _cache_dir(tmp_path)
-        _make_features_json(cd, _FEATURE_ID)
+        _make_cycles_json(cd, _CYCLE_ID)
         # to_stage = stage for all (they share the same stage name convention)
-        old_ws = _make_session(cd, _FEATURE_ID, stage, "r1", "Delivered")
-        _all_prior_delivered(cd, _FEATURE_ID, stage)
+        old_ws = _make_session(cd, _CYCLE_ID, stage, "r1", "Delivered")
+        _all_prior_delivered(cd, _CYCLE_ID, stage)
         result = _run_start(stage, tmp_path)
         assert result.returncode == 0, f"{stage}: {result.stderr}"
         assert "historical: true" in old_ws.read_text(encoding="utf-8"), (

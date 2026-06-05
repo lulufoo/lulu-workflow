@@ -33,25 +33,11 @@ def _cache_dir(project_root: Path) -> Path:
 # Core functions
 # ---------------------------------------------------------------------------
 
-def generate_cycle_id() -> str:
-    """Return a cycle ID: YYYYMMDDHHMMSS-{8hexchars}."""
+def generate_cycle_id(cycle_type: str) -> str:
+    """Return a cycle ID: {cycle_type}-YYYYMMDDHHMMSS-{8hexchars}."""
     ts = datetime.now(tz=timezone.utc).strftime("%Y%m%d%H%M%S")
     hex_part = uuid4().hex[:8]
-    return f"{ts}-{hex_part}"
-
-
-def generate_topic_id() -> str:
-    """Return a topic ID: topic-YYYYMMDDHHMMSS-{8hexchars}."""
-    ts = datetime.now(tz=timezone.utc).strftime("%Y%m%d%H%M%S")
-    hex_part = uuid4().hex[:8]
-    return f"topic-{ts}-{hex_part}"
-
-
-def ensure_feature_dir(cache_dir: Path, cycle_id: str) -> Path:
-    """Create cache_dir/{cycle_id}/ and return its Path."""
-    target = cache_dir / cycle_id
-    target.mkdir(parents=True, exist_ok=True)
-    return target
+    return f"{cycle_type}-{ts}-{hex_part}"
 
 
 def ensure_container_dir(cache_dir: Path, cycle_id: str) -> Path:
@@ -61,49 +47,30 @@ def ensure_container_dir(cache_dir: Path, cycle_id: str) -> Path:
     return target
 
 
-def update_features_json(
+def update_cycles_json(
     cache_dir: Path,
     cycle_id: str,
     name: str,
     mode: str = "copilot",
     topic_id: str = None,
 ) -> None:
-    """Append {cycle_id: {name, execution_mode[, topic_id]}} to features.json."""
-    fj = cache_dir / "features.json"
-    if fj.exists():
-        data: dict = json.loads(fj.read_text(encoding="utf-8"))
-    else:
-        data = {}
+    """Append {cycle_id: {name, execution_mode[, topic_id]}} to cycles.json."""
+    cj = cache_dir / "cycles.json"
+    data: dict = json.loads(cj.read_text(encoding="utf-8")) if cj.exists() else {}
     entry = {"name": name, "execution_mode": mode}
     if topic_id is not None:
         entry["topic_id"] = topic_id
     data[cycle_id] = entry
-    fj.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    cj.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def update_topics_json(
-    cache_dir: Path,
-    topic_id: str,
-    name: str,
-    mode: str = "copilot",
-) -> None:
-    """Append {topic_id: {name, execution_mode}} to topics.json (create if absent)."""
-    tj = cache_dir / "topics.json"
-    if tj.exists():
-        data: dict = json.loads(tj.read_text(encoding="utf-8"))
-    else:
-        data = {}
-    data[topic_id] = {"name": name, "execution_mode": mode}
-    tj.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-
-
-def validate_topic_exists(cache_dir: Path, topic_id: str) -> bool:
-    """Return True if topic_id exists in topics.json; False if absent or not found."""
-    tj = cache_dir / "topics.json"
-    if not tj.exists():
+def validate_cycle_exists(cache_dir: Path, cycle_id: str) -> bool:
+    """Return True if cycle_id exists in cycles.json; False if absent or not found."""
+    cj = cache_dir / "cycles.json"
+    if not cj.exists():
         return False
-    data: dict = json.loads(tj.read_text(encoding="utf-8"))
-    return topic_id in data
+    data: dict = json.loads(cj.read_text(encoding="utf-8"))
+    return cycle_id in data
 
 
 def main(project_root: Path, name: str, mode: str = "copilot", cycle_type: str = "feature", topic_id: str = None) -> str:
@@ -115,17 +82,12 @@ def main(project_root: Path, name: str, mode: str = "copilot", cycle_type: str =
     cache_dir = _cache_dir(project_root)
     cache_dir.mkdir(parents=True, exist_ok=True)
 
-    if cycle_type == "topic":
-        cycle_id = generate_topic_id()
-        ensure_container_dir(cache_dir, cycle_id)
-        update_topics_json(cache_dir, cycle_id, name, mode)
-    else:
-        if topic_id is not None and not validate_topic_exists(cache_dir, topic_id):
-            print(f"Error: topic_id not found in topics.json: {topic_id}", file=sys.stderr)
-            sys.exit(1)
-        cycle_id = generate_cycle_id()
-        ensure_feature_dir(cache_dir, cycle_id)
-        update_features_json(cache_dir, cycle_id, name, mode, topic_id=topic_id)
+    if cycle_type == "feature" and topic_id is not None and not validate_cycle_exists(cache_dir, topic_id):
+        print(f"Error: topic_id not found in cycles.json: {topic_id}", file=sys.stderr)
+        sys.exit(1)
+    cycle_id = generate_cycle_id(cycle_type)
+    ensure_container_dir(cache_dir, cycle_id)
+    update_cycles_json(cache_dir, cycle_id, name, mode, topic_id=topic_id)
 
     print(cycle_id)
     return cycle_id

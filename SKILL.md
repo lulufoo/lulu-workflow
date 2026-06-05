@@ -108,7 +108,7 @@ Stage Rollback is distinct from the diagnostic `Re-open` mechanism (which operat
 - `cycle_type`: `"topic"` | `"feature"` — backward compat: absent field is treated as `"feature"`
 - Re-starting a different feature in the **same** conversation overwrites that conv entry (one active workflow per conversation)
 
-**Output variables:** `$FEATURE_ID` · `$EXECUTION_MODE` (`"copilot"` | `"autonomous"`)
+**Output variables:** `$CYCLE_ID` · `$EXECUTION_MODE` (`"copilot"` | `"autonomous"`)
 
 ### Execution Mode
 
@@ -123,8 +123,8 @@ Defines how AI and user share control throughout the workflow.
 
 #### Initial Mode Resolution
 
-1. `cycle_id` not in `features.json` (and not in `topics.json`) → `"copilot"`
-   - topic-id is resolved from `topics.json`; cycle-id is resolved from `features.json`
+1. `cycle_id` not in `cycles.json` → `"copilot"`
+   - both topic-id and cycle-id are resolved from `cycles.json`
 2. Value is a string (legacy) → `"copilot"` (backward-compat: `"assisted"` → `"copilot"`; `"self-service"` → `"autonomous"`)
 3. Value is an object → use `object.execution_mode`
 
@@ -154,7 +154,7 @@ Run at session start for every sub-workflow.
 
 #### Slow Path
 
-1. Read `$CACHE_DIR/features.json` and `$CACHE_DIR/topics.json` → display combined list. If the triggering message contains a description, derive a suggested name `<name>`.
+1. Read `$CACHE_DIR/cycles.json` → display list. If the triggering message contains a description, derive a suggested name `<name>`.
 
    ```
    Containers:
@@ -172,7 +172,7 @@ Run at session start for every sub-workflow.
    *(Show `[default: "<name>"]` only when a name was derived from the triggering message.)*
 
 2. Parse response — both questions answered in one reply; any unanswered → default:
-   - **Feature:** integer → `cycle_id ← features.json[n]`; run Initial Mode Resolution → **DONE**; text → `name ← input`; no answer → use derived `<name>` if available
+   - **Feature:** integer → `cycle_id ← cycles.json[n]`; run Initial Mode Resolution → **DONE**; text → `name ← input`; no answer → use derived `<name>` if available
    - **Mode:** `2` → `autonomous`; anything else / no answer → `copilot`
 
 3. If a new name is resolved, run:
@@ -183,19 +183,18 @@ Run at session start for every sub-workflow.
 
 #### Done
 
-- `$FEATURE_ID` confirmed
+- `$CYCLE_ID` confirmed
 - Append `LULU-DEV-WORKFLOW: <cycle_id>` to every workflow response
-- Read workflow docs only from `$CACHE_DIR/$FEATURE_ID/`
+- Read workflow docs only from `$CACHE_DIR/$CYCLE_ID/`
 
 ### Feature Tracking Convention
 
 Every workflow AI response must end with:
 
 ```
-LULU-DEV-WORKFLOW: <cycle_id> type=<topic|feature>
+LULU-DEV-WORKFLOW: <cycle_id>
 ```
 
-> `type=` tag identifies the container type. Omitting the tag (legacy format) is treated as `type=feature` for backward compatibility.
 
 This line tracks the active cycle per conversation window. Stage workflows use the latest such line as the fast path to identify `cycle_id`. When no such line exists in the conversation, the slow path (interactive selection) is triggered instead.
 
@@ -308,7 +307,7 @@ Prints the `cycle_id` (format: `YYYYMMDDHHMMSS-xxxxxxxx`). After running, append
 
 Usage: `lulu-dev-workflow archive [N]` (default N=5)
 
-Keeps the N most recent features (by creation timestamp in `cycle_id`) in `$CACHE_DIR`. Deletes older feature directories and removes their entries from `features.json`.
+Keeps the N most recent features (by creation timestamp in `cycle_id`) in `$CACHE_DIR`. Deletes older feature directories and removes their entries from `cycles.json`.
 
 ```bash
 python3 $SKILL_ROOT/scripts/prune_features.py \

@@ -104,25 +104,21 @@ def check_gate(cycle_id: str, to_stage: str, cycle_type: str,
 def get_topic_doc(cycle_id: str, stage: str,
                   cache_dir: Path, config_dir: Path) -> Optional[Path]:
     """Return the latest Delivered doc path for the topic referenced by a feature, or None."""
-    # Load feature meta
-    fj = cache_dir / "features.json"
-    if not fj.exists():
+    # Load cycle meta from cycles.json
+    cj = cache_dir / "cycles.json"
+    if not cj.exists():
         return None
-    feat_data = json.loads(fj.read_text(encoding="utf-8"))
-    meta = feat_data.get(cycle_id, {})
+    cycles_data = json.loads(cj.read_text(encoding="utf-8"))
+    meta = cycles_data.get(cycle_id, {})
     if not isinstance(meta, dict):
         return None
     topic_id = meta.get("topic_id")
     if not topic_id:
         return None
 
-    # Validate topic exists
-    tj = cache_dir / "topics.json"
-    if not tj.exists():
-        raise ValueError(f"topics.json not found; topic_id {topic_id!r} cannot be validated")
-    topic_data = json.loads(tj.read_text(encoding="utf-8"))
-    if topic_id not in topic_data:
-        raise ValueError(f"topic_id {topic_id!r} not found in topics.json")
+    # Validate topic exists in cycles.json
+    if topic_id not in cycles_data:
+        raise ValueError(f"topic_id {topic_id!r} not found in cycles.json")
 
     # Resolve ref stage
     sm = json.loads((config_dir / "state-machine.json").read_text(encoding="utf-8"))

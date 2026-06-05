@@ -31,7 +31,7 @@ Do NOT proceed until you have read `../SKILL.md` and loaded:
 
 Before starting this stage, the AI must:
 
-1. Read `features.json` (or `topics.json`) to confirm the current container type (`topic` / `feature`) and container ID.
+1. Read `cycles.json` (or `cycles.json`) to confirm the current container type (`topic` / `feature`) and container ID.
 2. Call `check_gate(cycle_id, to_stage="tech-code", cycle_type, cache_dir)` via the `hook_guard.py` script:
    - If `ok == False`: stop, output `reason` to user, do not proceed.
    - If `ok == True`: continue.
@@ -51,7 +51,7 @@ Before starting this stage, the AI must:
 
 | Format | Meaning | Example |
 |--------|---------|---------|
-| *(no input)* | Derive feature from active context (`$FEATURE_ID` resolved in Step 1) | `/tech-code` |
+| *(no input)* | Derive feature from active context (`$CYCLE_ID` resolved in Step 1) | `/tech-code` |
 | `<cycle_id>` | Explicit feature override; format: `<timestamp>-<uuid>` | `/tech-code 20260601141338-3764ab2b` |
 
 If the user's input does not match this format, stop and output the usage error.
