@@ -30,10 +30,21 @@ Do NOT proceed until you have read `../SKILL.md` and loaded:
 
 ---
 
-## Topic Mode
+## Stage Entry (Gate Check)
 
-<!-- T3.4 topic-mode interim note — replace this paragraph in t9 when check_gate calls are added -->
-When the active container is a **topic** (i.e. `container_type: topic` in `active-context.json`), this stage operates as a **tech planning architecture** session — not a deliverable tech spec. The workflow drives architectural thinking and planning for the topic; it does not produce an evaluated tech-doc or `ReadyForDelivery` transition. State model and file structure remain the same; the planning output is understood as an architectural exploration rather than a binding implementation plan.
+Before starting this stage, the AI must:
+
+1. Read `features.json` (or `topics.json`) to confirm the current container type (`topic` / `feature`) and container ID.
+2. Call `check_gate(container_id, to_stage="tech-plan", cycle_type, cache_dir)` via the `hook_guard.py` script:
+   - If `ok == False`: stop, output `reason` to user, do not proceed.
+   - If `ok == True`: continue.
+3. If container is `feature` and has `topic_id`: call `get_topic_doc(container_id, "tech-plan", cache_dir)` to retrieve the topic reference document.
+   - If path returned: inform user of the topic doc path and load it as context.
+   - If `None`: skip silently.
+   - If `ValueError`: stop, output error to user, do not proceed.
+4. Inform user of the current cycle layer:
+   - `topic` container → shaping cycle (architecture exploration)
+   - `feature` container → spec cycle (implementation spec)
 
 ---
 

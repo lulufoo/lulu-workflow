@@ -53,10 +53,21 @@ Tell user: "Product diagnostic is complete. The next step is `/product-plan` (al
 
 ---
 
-## Topic Mode
+## Stage Entry (Gate Check)
 
-<!-- T3.4 topic-mode interim note — replace this paragraph in t9 when check_gate calls are added -->
-When the active container is a **topic** (i.e. `container_type: topic` in `active-context.json`), this stage operates as a **product architecture diagnostic**. The diagnostic scope is bounded by the topic's architectural question rather than a deliverable feature spec. All DDF dimensions and gates apply unchanged; the decision-doc is scoped to the architectural concern of the topic. No `product-plan` handoff is implied — the topic owner decides the next step after the diagnostic concludes.
+Before starting this stage, the AI must:
+
+1. Read `features.json` (or `topics.json`) to confirm the current container type (`topic` / `feature`) and container ID.
+2. Call `check_gate(container_id, to_stage="product-diagnostic", cycle_type, cache_dir)` via the `hook_guard.py` script:
+   - If `ok == False`: stop, output `reason` to user, do not proceed.
+   - If `ok == True`: continue.
+3. If container is `feature` and has `topic_id`: call `get_topic_doc(container_id, "product-diagnostic", cache_dir)` to retrieve the topic reference document.
+   - If path returned: inform user of the topic doc path and load it as context.
+   - If `None`: skip silently.
+   - If `ValueError`: stop, output error to user, do not proceed.
+4. Inform user of the current cycle layer:
+   - `topic` container → shaping cycle (architecture exploration)
+   - `feature` container → spec cycle (implementation spec)
 
 ---
 
