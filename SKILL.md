@@ -42,10 +42,10 @@ Cross-cutting tools that may be invoked from any stage. Not part of the Stage Tr
 When a stage delivers:
 1. Read `$SKILL_ROOT/config/transition-table.json`
 2. Look up the entry where `from == <current_stage>` under the `cycle_type` key (`topic` or `feature`)
-3. List allowed next stages from the `to` array, recommend one, wait for explicit user selection (see § Autonomous Tech Line Auto-Chain for the exception)
+3. Present all allowed next stages from the `to` array; wait for explicit user selection (see § Autonomous Tech Line Auto-Chain for the exception)
 4. If `to` is empty: announce completion; display the `note` field if present
 
-> `tech-plan` → `tech-code` is **prohibited** — bypasses task breakdown and TDD-first discipline in `tech-work-order`.
+> Any transition not listed in `transition-table.json` is **prohibited**.
 
 **Starting rules:**
 - `product-diagnostic` is the recommended entry for full-feature work (product decision → product-plan → tech line).
@@ -56,8 +56,8 @@ When a stage delivers:
 **Trigger conditions:** `$EXECUTION_MODE == "autonomous"` AND `cycle_type == "feature"`
 
 Does **not** trigger for:
-- Copilot mode (any container type)
-- Topic containers (`cycle_type == "topic"`) — topic containers have no tech-work-order or tech-code stages
+- Copilot mode (any cycle type)
+- Topic cycles (`cycle_type == "topic"`) — topic cycles have no tech-work-order or tech-code stages
 
 When triggered, stage handoff in the Tech Line is automatic — no user selection required:
 
@@ -117,7 +117,7 @@ Defines how AI and user share control throughout the workflow.
 | Mode | Value | AI Behavior | User Role |
 |------|-------|-------------|-----------|
 | Copilot | `"copilot"` | AI leads: proactively advances, asks, recommends; waits at key gates | Approver |
-| Autonomous | `"autonomous"` | AI executes on instruction only; does not advance or suggest unprompted; includes Tech Line auto-chain for feature containers | Commander |
+| Autonomous | `"autonomous"` | AI executes on instruction only; does not advance or suggest unprompted; includes Tech Line auto-chain for feature cycles | Commander |
 
 `$EXECUTION_MODE` is set during Feature Resolution and applies to all subsequent stages.
 
@@ -157,7 +157,7 @@ Run at session start for every sub-workflow.
 1. Read `$CACHE_DIR/cycles.json` → display list. If the triggering message contains a description, derive a suggested name `<name>`.
 
    ```
-   Containers:
+   Cycles:
    [topic]   1. <name> [copilot]
    [feature] 2. <name> [autonomous]
    …
@@ -166,7 +166,7 @@ Run at session start for every sub-workflow.
    ```
 
    Ask both in one message:
-   > `Container: enter number to select, or type a description to create [default: "<name>"]`  
+   > `Cycle: enter number to select, or type a description to create [default: "<name>"]`  
    > `Execution mode: (1) copilot [default]  (2) autonomous`
 
    *(Show `[default: "<name>"]` only when a name was derived from the triggering message.)*
