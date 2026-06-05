@@ -55,17 +55,10 @@ When a stage delivers:
 
 **Trigger conditions:** `$EXECUTION_MODE == "autonomous"` AND `cycle_type == "feature"`
 
-Does **not** trigger for:
-- Copilot mode (any cycle type)
-- Topic cycles (`cycle_type == "topic"`) — topic cycles have no tech-work-order or tech-code stages
+**Auto-chain whitelist** (on delivery, immediately start the next stage without user selection):
+`tech-plan` → `tech-work-order` → `tech-code`
 
-When triggered, stage handoff in the Tech Line is automatic — no user selection required:
-
-| Delivered Stage | Next Auto Action |
-|---|---|
-| `tech-plan` | Auto start `tech-work-order` |
-| `tech-work-order` | Auto start `tech-code` |
-| `tech-code` | Done — no further auto action |
+Does **not** trigger for Copilot mode or topic cycles.
 
 Each stage's autonomous overrides govern how delivery and handoff are executed. See `Autonomous Overrides` sections in `tech-plan/SKILL.md`, `tech-work-order/SKILL.md`, and `tech-code/SKILL.md`.
 
