@@ -1,5 +1,13 @@
 {
   "version": 2,
+  "topic_doc_stage": {
+    "product-diagnostic": "product-diagnostic",
+    "product-plan": "product-plan",
+    "tech-diagnostic": "tech-diagnostic",
+    "tech-plan": "tech-plan",
+    "tech-work-order": "tech-plan",
+    "tech-code": null
+  },
   "topic": [
     { "from": null, "to": ["product-diagnostic"], "note": "recommended for full-feature work" },
     { "from": null, "to": ["tech-diagnostic"], "note": "for pure tech work" },

@@ -10,41 +10,9 @@ def load(filename):
         return json.load(f)
 
 
-def test_all_files_parseable():
-    for name in ("state-machine.json", "transition-table.json"):
-        data = load(name)
-        assert isinstance(data, dict)
-
-
-def test_state_machine_version():
-    data = load("state-machine.json")
-    assert data["version"] == 2
-
-
-def test_state_machine_cycle_types_keys():
-    data = load("state-machine.json")
-    assert "topic" in data["cycle_types"]
-    assert "feature" in data["cycle_types"]
-
-
-def test_topic_stages_count():
-    data = load("state-machine.json")
-    assert len(data["cycle_types"]["topic"]["stages"]) == 4
-
-
-def test_feature_stages_count():
-    data = load("state-machine.json")
-    assert len(data["cycle_types"]["feature"]["stages"]) == 6
-
-
-def test_topic_doc_stage_tech_code_is_null():
-    data = load("state-machine.json")
-    assert data["topic_doc_stage"]["tech-code"] is None
-
-
-def test_topic_doc_stage_key_count():
-    data = load("state-machine.json")
-    assert len(data["topic_doc_stage"]) == 6
+def test_transition_table_parseable():
+    data = load("transition-table.json")
+    assert isinstance(data, dict)
 
 
 def test_transition_table_version():
@@ -69,9 +37,31 @@ def test_transition_table_topic_last_entry():
     assert last["to"] == []
 
 
+def test_transition_table_has_topic_doc_stage():
+    data = load("transition-table.json")
+    assert "topic_doc_stage" in data
+
+
+def test_topic_doc_stage_tech_code_is_null():
+    data = load("transition-table.json")
+    assert data["topic_doc_stage"]["tech-code"] is None
+
+
+def test_topic_doc_stage_key_count():
+    data = load("transition-table.json")
+    assert len(data["topic_doc_stage"]) == 6
+
+
+def test_transition_table_null_entries_feature():
+    data = load("transition-table.json")
+    null_entries = [e for e in data["feature"] if e.get("from") is None]
+    null_targets = {t for e in null_entries for t in e.get("to", [])}
+    assert "product-diagnostic" in null_targets
+    assert "tech-diagnostic" in null_targets
+
+
 def test_no_old_state_names():
     old_names = ["InProgress", "ReadyForDelivery"]
-    for filename in ("state-machine.json", "transition-table.json"):
-        raw = (CONFIG_DIR / filename).read_text()
-        for name in old_names:
-            assert name not in raw, f"Found old state name '{name}' in {filename}"
+    raw = (CONFIG_DIR / "transition-table.json").read_text()
+    for name in old_names:
+        assert name not in raw, f"Found old state name '{name}' in transition-table.json"

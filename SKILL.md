@@ -22,6 +22,7 @@ When a stage delivers:
 4. If `to` is empty: announce completion; display the `note` field if present
 
 > Any transition not listed in `transition-table.json` is **prohibited**.
+> The same rules are machine-enforced at stage entry via `check_gate` (`scripts/hook_guard.py`).
 
 ### § Autonomous Tech Line Auto-Chain
 

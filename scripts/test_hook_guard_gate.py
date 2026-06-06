@@ -149,25 +149,32 @@ class TestCheckGate:
     """Gate uses transition-table logic backed by cycle-state.json."""
 
     def test_null_allows_first_stage_only(self, tmp_path):
-        """No cycle-state.json: only the first stage (product-diagnostic) is valid."""
+        """No cycle-state.json: product-diagnostic (first stage) is allowed from NULL."""
         from hook_guard import check_gate
-        ok, msg = check_gate("feat-a", "product-diagnostic", "feature", tmp_path, _CONFIG_DIR)
+        ok, msg = check_gate("feat-a", "product-diagnostic", "feature", tmp_path)
+        assert ok is True
+        assert msg == "OK"
+
+    def test_null_allows_tech_diagnostic_direct_entry(self, tmp_path):
+        """null → tech-diagnostic is listed in transition-table.json → allowed."""
+        from hook_guard import check_gate
+        ok, msg = check_gate("feat-a", "tech-diagnostic", "feature", tmp_path)
         assert ok is True
         assert msg == "OK"
 
     def test_null_blocks_non_first_stage(self, tmp_path):
-        """No cycle-state.json: product-plan is not the first stage → blocked."""
+        """No cycle-state.json: product-plan is not a valid NULL entry → blocked."""
         from hook_guard import check_gate
-        ok, msg = check_gate("feat-a", "product-plan", "feature", tmp_path, _CONFIG_DIR)
+        ok, msg = check_gate("feat-a", "product-plan", "feature", tmp_path)
         assert ok is False
-        assert "NULL" in msg or "product-diagnostic" in msg
+        assert "NULL" in msg or "product-diagnostic" in msg or "tech-diagnostic" in msg
 
     def test_gap_scenario_blocked_by_transition_table(self, tmp_path):
         """current=product-plan, Delivered: jumping to tech-plan (skipping tech-diagnostic) → blocked."""
         from hook_guard import check_gate
         _make_cycle_state(tmp_path, "feat-a", "product-plan")
         _make_workflow_state(tmp_path, "feat-a", "product-plan", "r1", "Delivered")
-        ok, msg = check_gate("feat-a", "tech-plan", "feature", tmp_path, _CONFIG_DIR)
+        ok, msg = check_gate("feat-a", "tech-plan", "feature", tmp_path)
         assert ok is False
         assert "product-plan" in msg or "tech-diagnostic" in msg
 
@@ -176,7 +183,7 @@ class TestCheckGate:
         from hook_guard import check_gate
         _make_cycle_state(tmp_path, "feat-a", "product-diagnostic")
         _make_workflow_state(tmp_path, "feat-a", "product-diagnostic", "r1", "Delivered")
-        ok, msg = check_gate("feat-a", "product-plan", "feature", tmp_path, _CONFIG_DIR)
+        ok, msg = check_gate("feat-a", "product-plan", "feature", tmp_path)
         assert ok is True
         assert msg == "OK"
 
@@ -185,7 +192,7 @@ class TestCheckGate:
         from hook_guard import check_gate
         _make_cycle_state(tmp_path, "feat-a", "product-diagnostic")
         _make_workflow_state(tmp_path, "feat-a", "product-diagnostic", "r1", "InProgress")
-        ok, msg = check_gate("feat-a", "product-plan", "feature", tmp_path, _CONFIG_DIR)
+        ok, msg = check_gate("feat-a", "product-plan", "feature", tmp_path)
         assert ok is False
         assert "product-diagnostic" in msg
 
@@ -193,13 +200,13 @@ class TestCheckGate:
         """Re-entering the current stage is always allowed (no session required)."""
         from hook_guard import check_gate
         _make_cycle_state(tmp_path, "feat-a", "product-plan")
-        ok, msg = check_gate("feat-a", "product-plan", "feature", tmp_path, _CONFIG_DIR)
+        ok, msg = check_gate("feat-a", "product-plan", "feature", tmp_path)
         assert ok is True
 
     def test_stage_not_in_cycle_always_allowed(self, tmp_path):
         """'diagnostic' is not in the feature cycle stages → gate always OK."""
         from hook_guard import check_gate
-        ok, msg = check_gate("feat-a", "diagnostic", "feature", tmp_path, _CONFIG_DIR)
+        ok, msg = check_gate("feat-a", "diagnostic", "feature", tmp_path)
         assert ok is True
 
     def test_topic_cycle_valid_advance(self, tmp_path):
@@ -207,14 +214,14 @@ class TestCheckGate:
         from hook_guard import check_gate
         _make_cycle_state(tmp_path, "topic-a", "product-diagnostic")
         _make_workflow_state(tmp_path, "topic-a", "product-diagnostic", "r1", "Delivered")
-        ok, msg = check_gate("topic-a", "product-plan", "topic", tmp_path, _CONFIG_DIR)
+        ok, msg = check_gate("topic-a", "product-plan", "topic", tmp_path)
         assert ok is True
 
     def test_stale_cycle_state_treated_as_null(self, tmp_path):
         """cycle-state.json with a stage not in the cycle → treated as NULL."""
         from hook_guard import check_gate
         _make_cycle_state(tmp_path, "feat-a", "some-unknown-stage")
-        ok, msg = check_gate("feat-a", "product-diagnostic", "feature", tmp_path, _CONFIG_DIR)
+        ok, msg = check_gate("feat-a", "product-diagnostic", "feature", tmp_path)
         assert ok is True  # NULL → first stage allowed
 
     def test_full_feature_cycle_sequence(self, tmp_path):
@@ -224,12 +231,12 @@ class TestCheckGate:
                   "tech-plan", "tech-work-order", "tech-code"]
         for i, stage in enumerate(stages):
             if i == 0:
-                ok, _ = check_gate("feat-a", stage, "feature", tmp_path, _CONFIG_DIR)
+                ok, _ = check_gate("feat-a", stage, "feature", tmp_path)
                 assert ok is True, f"First stage {stage} should be allowed from NULL"
                 _make_workflow_state(tmp_path, "feat-a", stage, "r1", "Delivered")
                 _make_cycle_state(tmp_path, "feat-a", stage)
             else:
-                ok, _ = check_gate("feat-a", stage, "feature", tmp_path, _CONFIG_DIR)
+                ok, _ = check_gate("feat-a", stage, "feature", tmp_path)
                 assert ok is True, f"Stage {stage} should be allowed after prior Delivered"
                 _make_workflow_state(tmp_path, "feat-a", stage, "r1", "Delivered")
                 _make_cycle_state(tmp_path, "feat-a", stage)
@@ -320,7 +327,7 @@ class TestGetTopicDoc:
     def test_no_topic_id_returns_none(self, tmp_path):
         from hook_guard import get_topic_doc
         self._write_features_json(tmp_path, "feat-a", {"name": "x", "execution_mode": "guided"})
-        result = get_topic_doc("feat-a", "tech-plan", tmp_path, _CONFIG_DIR)
+        result = get_topic_doc("feat-a", "tech-plan", tmp_path)
         assert result is None
 
     def test_invalid_topic_id_raises_value_error(self, tmp_path):
@@ -330,7 +337,7 @@ class TestGetTopicDoc:
                                    "topic_id": "topic-20260101000000-deadbeef"})
         # cycles.json does not exist → ValueError
         with pytest.raises(ValueError):
-            get_topic_doc("feat-a", "tech-plan", tmp_path, _CONFIG_DIR)
+            get_topic_doc("feat-a", "tech-plan", tmp_path)
 
     def test_tech_code_null_ref_stage_returns_none(self, tmp_path):
         from hook_guard import get_topic_doc
@@ -340,7 +347,7 @@ class TestGetTopicDoc:
                                    "topic_id": topic_id})
         self._write_topics_json(tmp_path, topic_id, {"name": "t", "execution_mode": "guided"})
         # tech-code maps to null in topic_doc_stage
-        result = get_topic_doc("feat-a", "tech-code", tmp_path, _CONFIG_DIR)
+        result = get_topic_doc("feat-a", "tech-code", tmp_path)
         assert result is None
 
     def test_valid_topic_no_delivered_session_returns_none(self, tmp_path):
@@ -351,7 +358,7 @@ class TestGetTopicDoc:
                                    "topic_id": topic_id})
         self._write_topics_json(tmp_path, topic_id, {"name": "t", "execution_mode": "guided"})
         # No session files → None
-        result = get_topic_doc("feat-a", "tech-plan", tmp_path, _CONFIG_DIR)
+        result = get_topic_doc("feat-a", "tech-plan", tmp_path)
         assert result is None
 
 
@@ -550,7 +557,7 @@ class TestTopicRefExtended:
         self._write_topics_json(tmp_path, topic_id, {"name": "t", "execution_mode": "guided"})
         session_dir = self._make_delivered_session(tmp_path, topic_id, "tech-plan")
 
-        result = get_topic_doc("feat-a", "tech-work-order", tmp_path, _CONFIG_DIR)
+        result = get_topic_doc("feat-a", "tech-work-order", tmp_path)
 
         assert result == session_dir
 
@@ -562,7 +569,7 @@ class TestTopicRefExtended:
                                   {"name": "x", "execution_mode": "guided", "topic_id": topic_id})
         self._write_topics_json(tmp_path, topic_id, {"name": "t", "execution_mode": "guided"})
 
-        result = get_topic_doc("feat-a", "tech-code", tmp_path, _CONFIG_DIR)
+        result = get_topic_doc("feat-a", "tech-code", tmp_path)
 
         assert result is None
 
@@ -575,7 +582,7 @@ class TestTopicRefExtended:
         self._write_topics_json(tmp_path, topic_id, {"name": "t", "execution_mode": "guided"})
         session_dir = self._make_delivered_session(tmp_path, topic_id, "tech-plan")
 
-        result = get_topic_doc("feat-a", "tech-plan", tmp_path, _CONFIG_DIR)
+        result = get_topic_doc("feat-a", "tech-plan", tmp_path)
 
         assert result == session_dir
 
@@ -587,7 +594,7 @@ class TestTopicRefExtended:
                                   {"name": "x", "execution_mode": "guided", "topic_id": topic_id})
         self._write_topics_json(tmp_path, topic_id, {"name": "t", "execution_mode": "guided"})
 
-        result = get_topic_doc("feat-a", "tech-plan", tmp_path, _CONFIG_DIR)
+        result = get_topic_doc("feat-a", "tech-plan", tmp_path)
 
         assert result is None
 
@@ -597,7 +604,7 @@ class TestTopicRefExtended:
         self._write_features_json(tmp_path, "feat-a",
                                   {"name": "x", "execution_mode": "guided", "topic_id": ""})
 
-        result = get_topic_doc("feat-a", "tech-plan", tmp_path, _CONFIG_DIR)
+        result = get_topic_doc("feat-a", "tech-plan", tmp_path)
 
         assert result is None
 
@@ -610,7 +617,7 @@ class TestTopicRefExtended:
         self._write_topics_json(tmp_path, "topic-other", {"name": "t", "execution_mode": "guided"})
 
         with pytest.raises(ValueError):
-            get_topic_doc("feat-a", "tech-plan", tmp_path, _CONFIG_DIR)
+            get_topic_doc("feat-a", "tech-plan", tmp_path)
 
 
 # ---------------------------------------------------------------------------
@@ -625,7 +632,7 @@ class TestBackwardCompat:
         fj.write_text(json.dumps({"feat-old": {"name": "legacy", "execution_mode": "cursor"}}),
                       encoding="utf-8")
 
-        result = get_topic_doc("feat-old", "tech-plan", tmp_path, _CONFIG_DIR)
+        result = get_topic_doc("feat-old", "tech-plan", tmp_path)
 
         assert result is None
 

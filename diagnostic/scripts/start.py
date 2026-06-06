@@ -27,14 +27,14 @@ from workflow_common import (
 )
 
 
-_CONFIG_DIR = Path(__file__).resolve().parents[2] / "config"
+
 
 
 def _find_latest_delivered_stage(cycle_id: str, cycle_type: str,
                                   cache_dir: Path) -> "str | None":
     """Return the last stage in cycle order where current_effective_delivered is True."""
     try:
-        stages = load_stage_order(cycle_type, _CONFIG_DIR)
+        stages = load_stage_order(cycle_type)
     except Exception:
         return None
     latest = None
@@ -99,7 +99,7 @@ def main() -> int:
     latest_stage = _find_latest_delivered_stage(cycle_id, cycle_type, cache_dir)
     if latest_stage:
         try:
-            _stages = load_stage_order(cycle_type, _CONFIG_DIR)
+            _stages = load_stage_order(cycle_type)
         except Exception:
             _stages = []
         if stage in _stages and latest_stage in _stages:
@@ -107,14 +107,14 @@ def main() -> int:
                 invalidate_downstream(cycle_id, stage, cycle_type, cache_dir)
 
     # Step 4: check_gate
-    ok, reason = check_gate(cycle_id, stage, cycle_type, cache_dir, _CONFIG_DIR)
+    ok, reason = check_gate(cycle_id, stage, cycle_type, cache_dir)
     if not ok:
         print(f"Gate blocked: {reason}", file=sys.stderr)
         sys.exit(1)
 
     # Step 5: get_topic_doc (feature containers only, if topic_id exists)
     try:
-        topic_doc = get_topic_doc(cycle_id, stage, cache_dir, _CONFIG_DIR)
+        topic_doc = get_topic_doc(cycle_id, stage, cache_dir)
         if topic_doc:
             print(f"Topic doc: {topic_doc}")
     except ValueError as e:
