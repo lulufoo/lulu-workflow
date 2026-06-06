@@ -109,46 +109,60 @@ def current_effective_delivered(cycle_id: str, stage: str, cache_dir: Path) -> b
     return latest.state == "Delivered"
 
 
-def load_stage_order(cycle_type: str, config_dir: Path) -> List[str]:
-    """Read stage order from config/state-machine.json."""
-    sm = json.loads((config_dir / "state-machine.json").read_text(encoding="utf-8"))
-    return sm["cycle_types"][cycle_type]["stages"]
+def load_transitions(cycle_type: str) -> dict:
+    """Load transition-table.json → {from_stage|None: set(to_stages)}."""
+    tt = json.loads((_CONFIG_DIR / "transition-table.json").read_text(encoding="utf-8"))
+    result: dict = {}
+    for entry in tt.get(cycle_type, []):
+        result.setdefault(entry.get("from"), set()).update(entry.get("to", []))
+    return result
+
+
+def load_stage_order(cycle_type: str) -> List[str]:
+    """Derive ordered stage list from non-null transitions in transition-table.json."""
+    transitions = load_transitions(cycle_type)
+    forward = {k: next(iter(v)) for k, v in transitions.items() if k is not None and v}
+    all_targets = set(forward.values())
+    roots = [s for s in forward if s not in all_targets]
+    order: List[str] = []
+    current: Optional[str] = roots[0] if roots else None
+    while current:
+        order.append(current)
+        current = forward.get(current)
+    return order
 
 
 def check_gate(cycle_id: str, to_stage: str, cycle_type: str,
-               cache_dir: Path, config_dir: Path) -> Tuple[bool, str]:
-    """Validate gate for to_stage using the transition-table rule.
+               cache_dir: Path) -> Tuple[bool, str]:
+    """Validate gate for to_stage using transition-table.json rules.
 
     Rule:
     1. Read cycle-state.json → current_stage (None = NULL / never started).
-    2. If current_stage is not in this cycle's stages list, treat as NULL.
-    3. Valid next stage: NULL → stages[0]; stages[i] → stages[i+1]; X → X (re-entry).
-    4. to_stage not in valid set → BLOCK (invalid transition).
+    2. Load allowed transitions from transition-table.json.
+    3. Allowed next stages = transitions[current_stage]; re-entry always allowed.
+    4. to_stage not in allowed set → BLOCK.
     5. Advancing (to_stage != current_stage): require current_stage Delivered.
     """
-    stages = load_stage_order(cycle_type, config_dir)
-    if to_stage not in stages:
+    transitions = load_transitions(cycle_type)
+    all_stages = {s for v in transitions.values() for s in v} | \
+                 {k for k in transitions if k is not None}
+    if to_stage not in all_stages:
         return (True, "OK")
 
     current_stage = read_cycle_state(cycle_id, cache_dir)
-    if current_stage is not None and current_stage not in stages:
+    if current_stage is not None and current_stage not in all_stages:
         current_stage = None  # normalize stale / out-of-cycle values
 
-    # Determine valid next stage from current position
-    if current_stage is None:
-        valid_next = stages[0]
-    else:
-        idx = stages.index(current_stage)
-        valid_next = stages[idx + 1] if idx + 1 < len(stages) else None
-
+    allowed = transitions.get(current_stage, set())
     is_reentry = (to_stage == current_stage)
-    is_advance = (to_stage == valid_next)
+    is_advance = (to_stage in allowed)
 
     if not is_reentry and not is_advance:
+        expected = ", ".join(sorted(allowed)) or "terminal"
         return (
             False,
             f"Invalid transition: {current_stage or 'NULL'} → {to_stage}"
-            f" (expected: {valid_next or 'terminal'})",
+            f" (allowed: {expected})",
         )
 
     # Advancing requires current stage to be Delivered
@@ -160,7 +174,7 @@ def check_gate(cycle_id: str, to_stage: str, cycle_type: str,
 
 
 def get_topic_doc(cycle_id: str, stage: str,
-                  cache_dir: Path, config_dir: Path) -> Optional[Path]:
+                  cache_dir: Path) -> Optional[Path]:
     """Return the latest Delivered doc path for the topic referenced by a feature, or None."""
     # Load cycle meta from cycles.json
     cj = cache_dir / "cycles.json"
@@ -178,9 +192,9 @@ def get_topic_doc(cycle_id: str, stage: str,
     if topic_id not in cycles_data:
         raise ValueError(f"topic_id {topic_id!r} not found in cycles.json")
 
-    # Resolve ref stage
-    sm = json.loads((config_dir / "state-machine.json").read_text(encoding="utf-8"))
-    ref_stage = sm.get("topic_doc_stage", {}).get(stage)
+    # Resolve ref stage from transition-table.json
+    tt = json.loads((_CONFIG_DIR / "transition-table.json").read_text(encoding="utf-8"))
+    ref_stage = tt.get("topic_doc_stage", {}).get(stage)
     if ref_stage is None:
         return None
 
