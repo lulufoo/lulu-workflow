@@ -23,26 +23,6 @@ Do NOT proceed until you have read `../SKILL.md` and loaded:
 
 **This workflow runs in Agent mode with path guard.**
 
----
-
-## Stage Entry (Gate Check)
-
-Before starting this stage, the AI must:
-
-1. Read `cycles.json` (or `cycles.json`) to confirm the current container type (`topic` / `feature`) and container ID.
-2. Call `check_gate(cycle_id, to_stage="tech-work-order", cycle_type, cache_dir)` via the `hook_guard.py` script:
-   - If `ok == False`: stop, output `reason` to user, do not proceed.
-   - If `ok == True`: continue.
-3. If container is `feature` and has `topic_id`: call `get_topic_doc(cycle_id, "tech-work-order", cache_dir)` to retrieve the topic reference document.
-   - If path returned: inform user of the topic doc path and load it as context.
-   - If `None`: skip silently.
-   - If `ValueError`: stop, output error to user, do not proceed.
-4. Inform user of the current cycle layer:
-   - `topic` container → shaping cycle (architecture exploration)
-   - `feature` container → spec cycle (implementation spec)
-
----
-
 ## Commands
 
 
@@ -68,6 +48,7 @@ python3 "$SKILL_DIR/scripts/start.py" \
   --cycle-id "<cycle_id>" \
   --tech-ref "<absolute-path-to-tech-doc.md>"
 ```
+> If start.py exits non-zero ("Gate blocked: <stage> is not Delivered"): tell the user which prior stage must be delivered first. Do not retry start.
 
 ---
 
