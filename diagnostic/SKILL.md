@@ -115,19 +115,7 @@ Assumption：
 
 > Ambiguity signals: no footer in conversation · user mentions a different feature · user says "switch" / "new" / "choose"
 
-**Step 2: Confirm output path**
-
-Decision-doc will be written to:
-```
-$CACHE_DIR/<cycle_id>/{cache_subdir}/decision-doc.md
-```
-
-Where `{cache_subdir}` is determined by the `--stage` argument:
-- `--stage product-diagnostic` → `product/diagnostic`
-- `--stage tech-diagnostic` → `tech/diagnostic`
-- `--stage diagnostic` (default) → `diagnostic`
-
-**Step 3: Run start.py**
+**Step 2: Run start.py**
 
 ```bash
 python3 "$SKILL_DIR/scripts/start.py" \
@@ -136,7 +124,7 @@ python3 "$SKILL_DIR/scripts/start.py" \
   --stage "<stage_name>"
 ```
 
-Where `<stage_name>` is `product-diagnostic`, `tech-diagnostic`, or `diagnostic` (from the holder or the routing context).
+<stage_name>: product-diagnostic · tech-diagnostic · diagnostic (default)
 
 Creates `session-state.md` with `current_state: InProgress`.
 
