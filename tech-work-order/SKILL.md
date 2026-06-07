@@ -33,7 +33,7 @@ Also read `../_subagent.md` and load:
 
 > Prerequisite: `init` has been run. The upstream tech-doc must be in `Delivered` state.
 
-**Step 1: Identify active cycle** — See `## Session Foundation` in `../SKILL.md`
+**Step 1: Identify active cycle** — See `## Session Foundation` in `../_runtime.md`
 
 > Ambiguity signals: no footer in conversation · user mentions a different feature · user says "switch" / "new" / "choose"
 
@@ -281,6 +281,10 @@ After hook allows entry to ReadyForDelivery:
 4. Write `r{N}/workflow-state.md` → `current_state: Delivered`
 5. Output the full list of `tasks/t{N}/task.md` paths for the TDD session to consume
 
+<DELIVERY-GATE>
+Before presenting next stages to the user, read `../_transitions.md` and follow the Stage Transitions rules.
+</DELIVERY-GATE>
+
 ---
 
 ## Session File Formats
@@ -364,7 +368,7 @@ One report file per phase. All phases use the same issue row format:
 - Execution order: follow the topological sort of the dependency graph in `task-list.md`.
 ## Execution Mode: Apply
 
-Read `$EXECUTION_MODE` from Session Foundation (set by parent `SKILL.md`). Default: `guided`.
+Read `$EXECUTION_MODE` from Session Foundation (set by parent `../_runtime.md`). Default: `guided`.
 
 | Mode | Behavior |
 |------|---------|

@@ -111,7 +111,7 @@ Assumption：
 
 ## Start
 
-**Step 1: Identify active cycle** — See `## Session Foundation` in `../SKILL.md`
+**Step 1: Identify active cycle** — See `## Session Foundation` in `../_runtime.md`
 
 > Ambiguity signals: no footer in conversation · user mentions a different feature · user says "switch" / "new" / "choose"
 

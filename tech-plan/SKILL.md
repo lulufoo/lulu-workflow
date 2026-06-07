@@ -35,7 +35,7 @@ Do NOT proceed until you have read `../_runtime.md` and loaded:
 
 > Prerequisite: `init` has been run.
 
-**Step 1: Identify active cycle** — See `## Session Foundation` in `../SKILL.md`
+**Step 1: Identify active cycle** — See `## Session Foundation` in `../_runtime.md`
 
 > Ambiguity signals: no footer in conversation · user mentions a different feature · user says "switch" / "new" / "choose"
 
@@ -229,6 +229,10 @@ After hook allows entry to ReadyForDelivery:
 3. Write `revision{N}/human-delivery-gate.md`
 4. Write `revision{N}/workflow-state.md` → `current_state: Delivered`
 
+<DELIVERY-GATE>
+Before presenting next stages to the user, read `../_transitions.md` and follow the Stage Transitions rules.
+</DELIVERY-GATE>
+
 ---
 
 ## Session File Formats
@@ -305,7 +309,7 @@ Each review file shares the same structure; column set varies by dimension:
 
 ## Execution Mode: Apply
 
-Read `$EXECUTION_MODE` from Session Foundation (set by parent `SKILL.md`). Default: `guided`.
+Read `$EXECUTION_MODE` from Session Foundation (set by parent `../_runtime.md`). Default: `guided`.
 
 | Mode | Behavior |
 |------|---------|

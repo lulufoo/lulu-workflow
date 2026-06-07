@@ -21,6 +21,8 @@ under this directory.
 
 ## Commands
 
+> Commands use `$PLATFORM`, `$SKILL_ROOT`, `$CACHE_DIR`, and `$WORKFLOW_DIR`. Read `_runtime.md` § Platform Context before running any command.
+
 ### `init` — Project-level, run once per project
 
 > Prerequisite: machine-level install via `lulu-meta-skill install`.
