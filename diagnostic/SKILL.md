@@ -124,7 +124,7 @@ python3 "$SKILL_DIR/scripts/start.py" \
   --stage "<stage_name>"
 ```
 
-<stage_name>: product-diagnostic · tech-diagnostic · diagnostic (default)
+`<stage_name>`: `product-diagnostic` · `tech-diagnostic` · `diagnostic` (default)
 
 Creates `session-state.md` with `current_state: InProgress`.
 
