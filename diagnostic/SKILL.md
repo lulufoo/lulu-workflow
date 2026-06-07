@@ -96,20 +96,36 @@ RS is a shared relay node — all three triggers route through RS, then RS re-en
 
 Two registers run throughout the entire session, not attached to any single gate:
 
-**User Prior Log** — captures user's existing judgments, preferences, concerns, and excluded options at any point in the session. Reviewed before entering D. Also reviewed at R (R签字确认: AI validates it has not misread or misrepresented any stated user judgment; correct before R assessment proceeds).
+**User Prior Log** — captures user's judgments, preferences, concerns, and excluded options. Reviewed before D; verified at R (R签字确认).
 
-**Assumption Log** — captures unverified premises at any point. Organized and risk-graded at R; not collected from scratch there.
+**Assumption Log** — captures unverified premises. Risk-graded at R; not collected from scratch there.
 
-**3-state lifecycle:**
-- `[待验证]` — default when logged; not yet assessed
-- `[已验证]` — confirmed at R (no verification needed), or Released after Risk Release
-- `[失效]` — marked by AI during RS step 3, confirmed by user, deleted at RS step 5
+**3-state lifecycle:** `[待验证]` (default) → `[已验证]` (confirmed at R or after Risk Release) → `[失效]` (user confirms deletion in reopen confirmation step)
 
-**Rules:**
-1. All new entries logged with `[待验证]`
-2. R reads only `[待验证]` entries; entries confirmed as "no verification needed" → update to `[已验证]`
-3. Append-only: entries are never deleted outside of RS step 5
-4. During LoopB: new assumptions discovered in V or RR are appended with `[待验证]`
+**Reply Header** — output at the top of every reply once any entry exists:
+
+```
+─── DDF ───────────────────────────────────────
+Gate: Q✅ E✅ D⬜ X⬜ R⬜ V⬜ RR⬜ DC⬜
+Prior：
+[P1✓ open] 排除方案B
+[P2? Q] 偏好渐进实施
+Assumption：
+[A1? D H] API批量操作
+[A2✓ X L] 管理员权限
+───────────────────────────────────────────────
+```
+
+- `<state>`: `?` = 待验证 · `✓` = 已验证
+- `<source>`: gate where first discovered — `open` / `Q` / `E` / `D` / `X` / `R` / `V` / `RR`
+- `<risk>`: `H`/`M`/`L` — assigned by R gate; omitted until then
+- Omit `Prior：` or `Assumption：` block if empty; omit entire Header if no entries exist; stop after DC Delivered
+
+**Reopen:** RS step 2 fires:
+- Gate line: reopened gate G + downstream → `⬜`
+- Entries with `<source>` ∈ reopen scope and state `✓` → auto-reset to `?`
+- LLM lists reset entries in reply body; user confirms: keep (`?`) or delete (removed from Header)
+- Reopen scope: reopen G → `<source>` ∈ {G + downstream gates} resets; upstream sources unaffected
 
 ---
 
@@ -160,7 +176,7 @@ Creates `session-state.md` with `current_state: InProgress`.
 
 **G3.** Each gate has a pass criterion. Do not advance until the criterion is met.
 
-**G4. Gate status tracking** — at key moments (session start, after a gate closes, after a re-open), report each gate's status: closed (✅) / open (⬜).
+**G4. Gate status tracking** — Gate status is always visible in the Reply Header (see `## Parallel Registers`). No separate gate status report is needed.
 
 **G5.** Upstream input error — if the intent input itself has a fundamental error, exit the loop; tell the user to fix the input and restart.
 
