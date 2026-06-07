@@ -22,7 +22,7 @@ and ReadyForDelivery pre-conditions; it does not evaluate spec quality or parse
 the spec body.
 
 <HARD-GATE>
-Do NOT proceed until you have read `../SKILL.md` and loaded:
+Do NOT proceed until you have read `../_runtime.md` and loaded:
 
 - `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, `$CACHE_DIR` from `## Platform Context`
 - Feature identification logic from `## Session Foundation`

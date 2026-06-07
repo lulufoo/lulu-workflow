@@ -13,10 +13,13 @@ Decompose a Delivered tech-doc into independently executable TDD units (task fil
 
 **Scope:** work-order workflow only. Input: Delivered tech-doc. Output: task file set.
 <HARD-GATE>
-Do NOT proceed until you have read `../SKILL.md` and loaded:
+Do NOT proceed until you have read `../_runtime.md` and loaded:
 
 - `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, `$CACHE_DIR` from `## Platform Context`
 - Feature identification logic from `## Session Foundation`
+
+Also read `../_subagent.md` and load:
+- Sub-agent model convention (`$RESOLVED_MODEL`) from `## Sub-agent Context › Config Resolution`
 </HARD-GATE>
 
 `$SKILL_DIR` = `$SKILL_ROOT/tech-work-order`
