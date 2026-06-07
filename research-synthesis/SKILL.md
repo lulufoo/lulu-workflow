@@ -15,7 +15,7 @@ collect and evaluate multi-source evidence, output a structured synthesis judgme
 land in one of three exits: `Consensus`, `Divergence`, or `Insufficient Evidence`.
 
 <HARD-GATE>
-Do NOT proceed until you have read `../SKILL.md` and loaded:
+Do NOT proceed until you have read `../_runtime.md` and loaded:
 
 - `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, `$CACHE_DIR` from `## Platform Context`
 </HARD-GATE>

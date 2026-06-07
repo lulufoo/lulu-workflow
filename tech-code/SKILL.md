@@ -16,10 +16,12 @@ Execute Test-Driven Development from a Delivered work-order task set, with git w
 **`/tech-code` authorizes** automatic `git commit` / `git commit --amend` inside the session worktree during Executing. Push, PR, CI, and review are post-code (out of scope).
 
 <HARD-GATE>
-Do NOT proceed until you have read `../SKILL.md` and loaded:
+Do NOT proceed until you have read `../_runtime.md` and loaded:
 
 - `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, `$CACHE_DIR` from `## Platform Context`
 - Feature identification logic from `## Session Foundation`
+
+Also read `../_subagent.md` and load:
 - Sub-agent model convention (`$RESOLVED_MODEL`) from `## Sub-agent Context › Config Resolution`
 </HARD-GATE>
 
@@ -42,7 +44,7 @@ If the user's input does not match this format, stop and output the usage error.
 
 **Step 0: Load `docs/git/git-workflow-standard.md`** — required before any git operations.
 
-**Step 1: Identify active cycle** — See `## Session Foundation` in `../SKILL.md`
+**Step 1: Identify active cycle** — See `## Session Foundation` in `../_runtime.md`
 
 **Step 2–4:** Parse input, validate upstream Delivered state, collect paths.
 
@@ -143,7 +145,7 @@ Process tasks 1→N in sequence. Advance `current_phase` only when `current_stat
 
 **Invariant (no direct execution):** Task phases run in sub-agent only; orchestrator must not execute phases directly.
 
-Resolve `$RESOLVED_MODEL` once before the loop — see `## Sub-agent Context › Config Resolution` in `../SKILL.md`, using `--stage tech-code`.
+Resolve `$RESOLVED_MODEL` once before the loop — see `## Sub-agent Context › Config Resolution` in `../_subagent.md`, using `--stage tech-code`.
 
 For each task in order:
 
@@ -227,11 +229,11 @@ AI must not self-declare session complete. Even if all tasks are `Done` and the 
 
 ## § Autonomous Overrides
 
-Read `$EXECUTION_MODE` from Session Foundation (set by parent `SKILL.md`). Default: `guided`.
+Read `$EXECUTION_MODE` from Session Foundation (set by parent `../_runtime.md`). Default: `guided`.
 
 The overrides below apply only when `$EXECUTION_MODE == "autonomous"` **and** `cycle_type == "feature"`. All other rules unchanged.
 
-**Auto-chain entry point:** In autonomous + feature mode, this stage may be entered automatically after `tech-work-order` delivers (see `§ Autonomous Tech Line Auto-Chain` in `../SKILL.md`). No user `/code` command is required; the orchestrator auto-invokes the startup sequence.
+**Auto-chain entry point:** In autonomous + feature mode, this stage may be entered automatically after `tech-work-order` delivers (see `§ Autonomous Tech Line Auto-Chain` in `../_transitions.md`). No user `/code` command is required; the orchestrator auto-invokes the startup sequence.
 
 | Rule | Autonomous Behavior |
 |------|-----------------------|

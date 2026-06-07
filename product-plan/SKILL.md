@@ -22,7 +22,7 @@ and ReadyForDelivery pre-conditions; it does not evaluate spec quality or parse
 the spec body.
 
 <HARD-GATE>
-Do NOT proceed until you have read `../SKILL.md` and loaded:
+Do NOT proceed until you have read `../_runtime.md` and loaded:
 
 - `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, `$CACHE_DIR` from `## Platform Context`
 - Feature identification logic from `## Session Foundation`
@@ -41,7 +41,7 @@ Markdown. During an active session, writes are restricted to
 
 > Prerequisite: `init` has been run.
 
-**Step 1: Identify active cycle** — See `## Session Foundation` in `../SKILL.md`
+**Step 1: Identify active cycle** — See `## Session Foundation` in `../_runtime.md`
 
 > Ambiguity signals: no footer in conversation · user mentions a different feature · user says "switch" / "new" / "choose"
 
@@ -181,6 +181,10 @@ the full document body unless the user explicitly asks to see it. Wait for expli
 
 **R4.** Post-delivery message: delivery receipt only (state, path, optional one-line summary).
 Do **not** output the full `product-doc.md` content in chat.
+
+<DELIVERY-GATE>
+Before presenting next stages to the user, read `../_transitions.md` and follow the Stage Transitions rules.
+</DELIVERY-GATE>
 
 ---
 
