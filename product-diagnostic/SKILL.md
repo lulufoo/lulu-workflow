@@ -28,24 +28,27 @@ All DDF rules, gates, and registers defined there apply to this session.
 
 These constraints are injected into the `diagnostic` kernel. The kernel's `Domain Constraints HARD-GATE` will detect and apply them.
 
+### Role
+
+You are acting as a **product thinker**. Frame all questions and analyses from the perspective of
+user value, business impact, and product strategy. Use product vocabulary (user journey, feature scope,
+adoption, rollout) rather than technical vocabulary.
+
 ### X Gate
 
-Execute **only** the following dimensions (in order):
+Execute **all five** dimensions (in order):
 
 1. Acceptance Criteria
 2. Impact Surface
-3. Expected Outcome
+3. External Dependencies
+4. Implementation Sketch
+5. Gap Check
 
-Do **NOT** execute: External Dependencies, Implementation Cost.
+> Note: product diagnostic now runs all five dimensions. Sessions will be deeper than before.
 
 ### Decision-Doc
 
-Omit the following sections from the written decision-doc:
-
-- External Dependencies
-- Implementation Cost
-
-All other sections are required as defined in the kernel template.
+Write all sections as defined in the kernel template. No sections are omitted.
 
 ### After DC
 
