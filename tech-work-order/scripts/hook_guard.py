@@ -4,20 +4,17 @@
 import json
 import sys
 from pathlib import Path
-from typing import Dict
 
 from workflow_common import CACHE_DIR, STAGE, normalize_tool_path
 
+_SCRIPTS_ROOT = Path(__file__).resolve().parents[2] / "scripts"
+if str(_SCRIPTS_ROOT) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS_ROOT))
+from workflow_hook_common import deny_cache_boundary  # noqa: E402
 
-def allow() -> Dict[str, str]:
+
+def allow() -> dict:
     return {"permission": "allow"}
-
-
-def deny(user_message: str, agent_message: str = "") -> Dict[str, str]:
-    payload = {"permission": "deny", "user_message": user_message}
-    if agent_message:
-        payload["agent_message"] = agent_message
-    return payload
 
 
 def main() -> int:
@@ -57,9 +54,10 @@ def main() -> int:
     try:
         abs_path.relative_to(workflow_cache)
     except ValueError:
-        print(json.dumps(deny(
-            f"{STAGE} 阶段只允许写入 workflow cache 目录（{CACHE_DIR}）。",
-            f"Stage '{STAGE}' may only write inside the workflow cache. Got: {abs_path}",
+        print(json.dumps(deny_cache_boundary(
+            stage=STAGE,
+            cache_dir=workflow_cache,
+            target_path=abs_path,
         )))
         return 0
 

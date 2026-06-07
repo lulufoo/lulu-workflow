@@ -257,10 +257,18 @@ def _should_inject_conversation_id(command: str) -> bool:
     return bool(_WORKFLOW_PY_PATH.search(command))
 
 
-def _read_active_stage(platform: str, conversation_id: str) -> Optional[str]:
+def _workflow_cache_dir(platform: str) -> Path:
+    return Path.cwd() / f".cache/{platform}/lulu-dev-workflow"
+
+
+def _read_active_entry(platform: str, conversation_id: str):
     if not conversation_id:
         return None
-    entry = get_entry(Path.cwd(), platform, conversation_id)
+    return get_entry(Path.cwd(), platform, conversation_id)
+
+
+def _read_active_stage(platform: str, conversation_id: str) -> Optional[str]:
+    entry = _read_active_entry(platform, conversation_id)
     if entry is None:
         return None
     stage = entry.get("stage")
@@ -328,6 +336,13 @@ def main() -> int:
 
     stage_path = _SKILL_ROOT / stage / "scripts" / "hook_guard.py"
     if not stage_path.exists():
+        print(json.dumps({"permission": "allow"}))
+        return 0
+
+    entry = _read_active_entry(args.platform, conv_id)
+    if entry and current_effective_delivered(
+        entry["cycle_id"], stage, _workflow_cache_dir(args.platform)
+    ):
         print(json.dumps({"permission": "allow"}))
         return 0
 
