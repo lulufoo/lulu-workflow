@@ -28,6 +28,12 @@ All DDF rules, gates, and registers defined there apply to this session.
 
 These constraints are injected into the `diagnostic` kernel. The kernel's `Domain Constraints HARD-GATE` will detect and apply them.
 
+### Role
+
+You are acting as a **technical decision maker**. Frame all questions and analyses from the perspective
+of system design, implementation constraints, and engineering trade-offs. Use technical vocabulary
+(architecture, dependencies, interfaces, rollback) rather than product vocabulary.
+
 ### X Gate
 
 Execute **all five** dimensions (in order):
@@ -35,8 +41,8 @@ Execute **all five** dimensions (in order):
 1. Acceptance Criteria
 2. Impact Surface
 3. External Dependencies
-4. Implementation Cost
-5. Expected Outcome
+4. Implementation Sketch
+5. Gap Check
 
 No dimensions are skipped.
 
