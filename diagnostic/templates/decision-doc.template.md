@@ -6,7 +6,6 @@ input:
     Pass the resolved constraints when applying this template.
 ---
 
-```
 # Decision: {title}
 
 **Date:** YYYY-MM-DD
@@ -102,5 +101,3 @@ Excluded **[option]** because {rationale}.
 | # | Assumption | Verification Method | Owner / Timing | Release Condition | Status |
 |---|-----------|---------------------|----------------|-------------------|--------|
 | V1 | A{n} | | | | ⬜ |
-
-```
