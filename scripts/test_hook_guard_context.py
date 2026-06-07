@@ -15,6 +15,42 @@ if str(_SCRIPTS) not in sys.path:
 
 _FID_A = "20260601135820-155a71e7"
 _FID_B = "20260601141338-3764ab2b"
+_CYCLE_ID = "feature-20260607084939-test0001"
+
+
+def _cache_dir(tmp_path: Path) -> Path:
+    return tmp_path / ".cache/cursor/lulu-dev-workflow"
+
+
+def _make_workflow_state(
+    cache_dir: Path,
+    cycle_id: str,
+    stage: str,
+    state: str,
+    revision: str = "r1",
+) -> None:
+    import re
+
+    from hook_guard import _STAGE_FLAT, _stage_subdir
+
+    subdir = _stage_subdir(stage)
+    if stage in _STAGE_FLAT:
+        session_dir = cache_dir / cycle_id / subdir
+        session_dir.mkdir(parents=True, exist_ok=True)
+        ws = session_dir / "session-state.md"
+    else:
+        rev_name = (
+            f"revision{revision.lstrip('r')}"
+            if re.match(r"^r\d+$", revision)
+            else revision
+        )
+        session_dir = cache_dir / cycle_id / subdir / rev_name
+        session_dir.mkdir(parents=True, exist_ok=True)
+        ws = session_dir / "workflow-state.md"
+    ws.write_text(
+        f"---\ncurrent_state: {state}\nupdated_at: 2026-06-07T00:00:00+00:00\n---\n",
+        encoding="utf-8",
+    )
 
 
 def _write_payload(
@@ -258,3 +294,122 @@ class TestMainRouting:
             result = json.loads(captured.getvalue())
             assert result["permission"] == "allow"
             assert result["routed_stage"] == expected_stage
+
+
+class TestDeliveredBypass:
+    def test_delivered_allows_outside_cache(self, tmp_path, monkeypatch):
+        import active_context
+        import hook_guard
+
+        monkeypatch.chdir(tmp_path)
+        active_context.write_entry(
+            tmp_path, "cursor", "conv-a", _CYCLE_ID, "tech-plan"
+        )
+        _make_workflow_state(_cache_dir(tmp_path), _CYCLE_ID, "tech-plan", "Delivered")
+
+        loaded: list[str] = []
+
+        def fake_load_stage(stage: str):
+            loaded.append(stage)
+            raise AssertionError("stage module should not load when Delivered")
+
+        monkeypatch.setattr(hook_guard, "_load_stage_module", fake_load_stage)
+
+        payload = _write_payload(
+            conversation_id="conv-a",
+            file_path=str(tmp_path / "src" / "main.py"),
+        )
+        (tmp_path / "src").mkdir(parents=True, exist_ok=True)
+
+        monkeypatch.setattr(sys, "stdin", io.StringIO(payload))
+        captured = io.StringIO()
+        monkeypatch.setattr(sys, "stdout", captured)
+        assert hook_guard.main() == 0
+        assert loaded == []
+        result = json.loads(captured.getvalue())
+        assert result["permission"] == "allow"
+
+    def test_not_delivered_denies_outside_cache(self, tmp_path, monkeypatch):
+        import active_context
+        import hook_guard
+
+        monkeypatch.chdir(tmp_path)
+        active_context.write_entry(
+            tmp_path, "cursor", "conv-a", _CYCLE_ID, "tech-plan"
+        )
+        _make_workflow_state(_cache_dir(tmp_path), _CYCLE_ID, "tech-plan", "Drafting")
+
+        payload = _write_payload(
+            conversation_id="conv-a",
+            file_path=str(tmp_path / "src" / "main.py"),
+        )
+        (tmp_path / "src").mkdir(parents=True, exist_ok=True)
+
+        monkeypatch.setattr(sys, "stdin", io.StringIO(payload))
+        captured = io.StringIO()
+        monkeypatch.setattr(sys, "stdout", captured)
+        assert hook_guard.main() == 0
+        result = json.loads(captured.getvalue())
+        assert result["permission"] == "deny"
+        assert "[lulu-dev-workflow]" in result["user_message"]
+        assert "STOP" in result["agent_message"]
+        assert "inform the user" in result["agent_message"].lower()
+
+    def test_invalidated_still_denies_outside_cache(self, tmp_path, monkeypatch):
+        import active_context
+        import hook_guard
+
+        monkeypatch.chdir(tmp_path)
+        active_context.write_entry(
+            tmp_path, "cursor", "conv-a", _CYCLE_ID, "tech-plan"
+        )
+        _make_workflow_state(
+            _cache_dir(tmp_path), _CYCLE_ID, "tech-plan", "Invalidated"
+        )
+
+        payload = _write_payload(
+            conversation_id="conv-a",
+            file_path=str(tmp_path / "src" / "main.py"),
+        )
+        (tmp_path / "src").mkdir(parents=True, exist_ok=True)
+
+        monkeypatch.setattr(sys, "stdin", io.StringIO(payload))
+        captured = io.StringIO()
+        monkeypatch.setattr(sys, "stdout", captured)
+        assert hook_guard.main() == 0
+        result = json.loads(captured.getvalue())
+        assert result["permission"] == "deny"
+
+    def test_flat_stage_delivered_allows_outside_cache(self, tmp_path, monkeypatch):
+        import active_context
+        import hook_guard
+
+        monkeypatch.chdir(tmp_path)
+        active_context.write_entry(
+            tmp_path, "cursor", "conv-a", _CYCLE_ID, "diagnostic"
+        )
+        _make_workflow_state(
+            _cache_dir(tmp_path), _CYCLE_ID, "diagnostic", "Delivered"
+        )
+
+        loaded: list[str] = []
+
+        def fake_load_stage(stage: str):
+            loaded.append(stage)
+            raise AssertionError("stage module should not load when Delivered")
+
+        monkeypatch.setattr(hook_guard, "_load_stage_module", fake_load_stage)
+
+        payload = _write_payload(
+            conversation_id="conv-a",
+            file_path=str(tmp_path / "src" / "main.py"),
+        )
+        (tmp_path / "src").mkdir(parents=True, exist_ok=True)
+
+        monkeypatch.setattr(sys, "stdin", io.StringIO(payload))
+        captured = io.StringIO()
+        monkeypatch.setattr(sys, "stdout", captured)
+        assert hook_guard.main() == 0
+        assert loaded == []
+        result = json.loads(captured.getvalue())
+        assert result["permission"] == "allow"
