@@ -25,28 +25,15 @@ under this directory.
 
 ### `init` — Project-level, run once per project
 
-> Prerequisite: machine-level install via `lulu-meta-skill install`.
+> Prerequisite: machine-level install via [`lulu-meta-skill install`](../lulu-meta-skill/install/SKILL.md).
 
 ```bash
 python3 "$SKILL_ROOT/scripts/init.py" --project-root "$(pwd)" --platform $PLATFORM
 ```
 
-Creates `$WORKFLOW_DIR/workflow-config.json` and registers all sub-workflow hooks.
+Creates `$WORKFLOW_DIR/workflow-config.json` and registers all sub-workflow hooks. Safe to re-run.
 
-`$WORKFLOW_DIR/config.json` (platform config) fields:
-
-| Field | Description |
-|-------|-------------|
-| `workflowConfig` | Path to shared `workflow-config.json` (relative to project root) |
-
-`workflow-config.json` stage fields:
-
-| Field | Description |
-|-------|-------------|
-| `<stage>.subagent.cursor` | Optional model slug for Cursor sub-agent dispatch |
-| `<stage>.subagent.copilot` | Optional model slug for Copilot sub-agent dispatch |
-
-Run `lulu-dev-workflow configure <github-blob-url>` to apply workflow config. See `configure` below.
+After init, optionally run `configure` to apply a team config, then `start` to begin a feature.
 
 ### `configure` — Download and apply a workflow-config.json from GitHub
 
