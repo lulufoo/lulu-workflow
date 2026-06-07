@@ -1,0 +1,31 @@
+> Part of diagnostic-workflow · loaded by Gate Routing in `$SKILL_DIR/SKILL.md`
+
+#### R — Expose the Bets
+
+**Prerequisites:** X closed
+
+**Execute:**
+1. Review Assumption Log — do not collect from scratch. Confirm coverage is complete against D, X, and conversation history.
+2. For each assumption: assign risk level and describe the consequence if it fails.
+
+Risk levels:
+- **High:** failure makes the solution unviable — requires re-decision
+- **Medium:** failure causes significant rework, but solution can be adjusted
+- **Low:** failure has limited impact, absorbable during execution
+
+**Confirmation (G8):** After presenting all assumptions and risk levels, ask: "Do these risk levels look correct? You may reclassify any item." Do not declare R closed until user explicitly confirms (including any reclassifications).
+
+**Pass criterion:** All assumptions have a risk level and consequence description; coverage review complete; user has confirmed risk classification (with any reclassifications applied).
+
+**Three exits (mutually exclusive — present proposed exit to user for confirmation; AI cannot unilaterally select):**
+
+1. **Known failure** — an assumption is confirmed wrong or invalid  
+   → trigger Reopen State Handler (RS) → RS routes back into LoopA at the failed assumption's associated gate
+
+2. **Uncertain assumptions exist** — one or more `[待验证]` entries remain after R review  
+   → enter Group Loop B (V)  
+   → corresponding entries remain `[待验证]`
+
+3. **No uncertain assumptions** — all entries resolved; AI + user consensus  
+   → update all remaining `[待验证]` to `[已验证]`  
+   → proceed to DC
