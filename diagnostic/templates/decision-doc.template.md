@@ -15,7 +15,10 @@ input:
 
 ## User Prior
 
-{key judgments, preferences, concerns, and excluded options stated by the user during the session}
+- [judgment] {user's assessment or conclusion about the problem or options}
+- [preference] {preferred approach, without a hard rationale}
+- [concern] {risk or worry surfaced during the session}
+- [excluded] {direction or option already ruled out, with reason}
 
 ---
 
@@ -56,19 +59,37 @@ Excluded **[option]** because {rationale}.
 
 ---
 
-## Acceptance Criteria
+## Assumptions & Risks
+
+> Status values: `[待验证]` (default) · `[已验证]` (confirmed at R / RR Released / M-L batch-confirmed) · `[失效]` (invalidated via RS Register Reopen Protocol)
+> H-risk Verification: Method / Owner / Timing / Release condition. M/L Verification: Accepted.
+
+| # | Assumption | Source | Risk | Failure Consequence | Verification | Status |
+|---|-----------|--------|------|---------------------|-------------|--------|
+| A1 | | Q/E/D/X | H | | Method: ... / Owner: ... / Timing: ... / Release condition: ... | [待验证] |
+| A2 | | | M | | Accepted | [已验证] |
+
+---
+
+## Execution Analysis
+
+### Acceptance Criteria
 
 {observable, verifiable success criteria}
 
----
-
-## Impact Surface
-
-{affected domains, including outside the system}
+**Gap (if any):** {what the implementation is expected to produce that falls short of the above; if none, write "None"}
 
 ---
 
-## External Dependencies
+### Impact Surface
+
+| Layer | Affected Area | Change Type | Notes |
+|-------|--------------|-------------|-------|
+| | | add / modify / delete / read-only | |
+
+---
+
+### External Dependencies
 
 | Dependency | Contract | Authoritative Source | Confirmation Mechanism |
 |------------|----------|---------------------|------------------------|
@@ -76,28 +97,8 @@ Excluded **[option]** because {rationale}.
 
 ---
 
-## Implementation Cost
+### Implementation Sketch
 
-{time / people / resource estimate with rationale}
-
----
-
-## Expected Outcome
-
-{expected output quality and level; alignment with Acceptance Criteria}
-
----
-
-## Assumptions & Risks
-
-| # | Assumption | Source | Risk Level | Failure Consequence | State |
-|---|-----------|--------|------------|---------------------|-------|
-| A1 | | | High/Medium/Low | | [待验证] |
-
----
-
-## Verification Items
-
-| # | Assumption | Verification Method | Owner / Timing | Release Condition | Status |
-|---|-----------|---------------------|----------------|-------------------|--------|
-| V1 | A{n} | | | | ⬜ |
+**Key changes:** {what components / modules / files will be added, modified, or removed}
+**Critical constraints:** {non-obvious constraints that affect how this can be implemented}
+**Reversibility:** {easy / partial / hard — and why}

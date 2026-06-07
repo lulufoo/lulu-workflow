@@ -13,9 +13,11 @@
 | 1 | Acceptance Criteria | How do we know it's done? What observable, verifiable indicators? | Criteria are observable and verifiable — not subjective feelings |
 | 2 | Impact Surface | What does this decision affect? Any outside-system parties? | Impact domains enumerated, including external |
 | 3 | External Dependencies | Who owns parts this depends on? What's the contract? Where is the authoritative source? How are changes confirmed? | Each dependency has contract + authoritative source + confirmation mechanism; unclear contracts → Assumption Log |
-| 4 | Implementation Cost | Time, people, resources needed? Any hidden costs? | Initial estimate with sourced rationale; no guesses |
-| 5 | Expected Outcome | What does implementation produce? Does it meet Acceptance Criteria? | Outcome aligned with criteria; gaps identified and transferred to Assumption Log |
+| 4 | Implementation Sketch | What are the key changes? Any non-obvious constraints or complexity? How reversible is this change? | Key changes / Critical constraints / Reversibility all filled; unknown constraints → Assumption Log |
+| 5 | Gap Check | Does the expected implementation output meet the Acceptance Criteria? Where does it fall short? | Gap explicitly recorded in `Acceptance Criteria > Gap (if any)`, or confirmed as None |
 
 **Additional pass criteria:**
 - Assumptions discovered here: immediately add to Assumption Log with `[待验证]` tag (do not defer to R).
-- If Expected Outcome falls short of Acceptance Criteria: flag the gap explicitly; apply Re-open & Invalidation (re-open E or D as appropriate). Do not force-pass.
+- If Gap (if any) is non-empty: flag the gap explicitly; apply Re-open & Invalidation (re-open E or D as appropriate). Do not force-pass.
+
+> Dim 5 (Gap Check) does not produce a separate document section. Its result is written into `### Acceptance Criteria > Gap (if any)` in the decision-doc.

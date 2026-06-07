@@ -17,9 +17,9 @@ Apply Section filtering above using resolved Domain Constraints before writing.
 
 Before presenting to user, scan the written decision-doc for:
 
-1. **Completeness:** all sections filled; no empty cells in tables; User Prior captured
-2. **Consistency:** Decision Rationale references E trade-offs; Verification Items map to High-risk assumptions
-3. **Gap check:** if Expected Outcome < Acceptance Criteria, the gap is documented (not silently dropped)
+1. **Completeness:** all sections filled; no empty cells in tables; User Prior captured with type tags
+2. **Consistency:** Decision Rationale references E trade-offs; all H-risk rows in Assumptions & Risks have Verification content (Method / Owner / Timing / Release condition)
+3. **Gap check:** if `Gap (if any)` is non-empty, the gap is documented and a reopen was either triggered or explicitly accepted
 
 Fix inline. No separate review round needed.
 
@@ -36,8 +36,7 @@ After self-review passes (decision-doc already written, Risk Release statuses up
 1. Present the following key sections **in the conversation** (do not just show file path):
    - Decision Rationale
    - Scope (including explicit exclusions)
-   - Assumptions & Risks (all items with risk levels)
-   - Verification Items
+   - Assumptions & Risks (all items with risk levels and Verification content)
 2. Ask user: "Are these decisions correct? Any items to re-open?"
 3. If any item is flagged: trigger RS on the corresponding gate; re-close all invalidated gates before proceeding.
    > **DC-triggered RS baseline:** when RS is triggered from DC, use the already-written decision-doc as the authoritative baseline snapshot — do not reconstruct state from conversation memory. RS step 2 (clear conclusion zones) and step 3 (propose 3-state labeling) are executed against the decision-doc's recorded state.

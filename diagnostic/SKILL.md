@@ -29,6 +29,7 @@ section (injected by a domain holder such as `product-diagnostic` or `tech-diagn
 - Apply the X Gate constraints from that section (execute only the listed dimensions; skip the rest).
 - Apply the Decision-Doc constraints from that section (omit the listed sections).
 - Apply the After DC routing from that section.
+- Apply Role from `### Role` if present: activate immediately before the Open Channel; the role applies throughout the entire session and shapes question framing, vocabulary, and analytical perspective. If no `### Role` block is present, execute with neutral framing.
 - These holder constraints override all kernel defaults below.
 
 **If no `## Domain Constraints` section is present** (direct `/diagnostic` invocation):
@@ -136,7 +137,9 @@ Creates `session-state.md` with `current_state: InProgress`.
 
 ### Global Rules
 
-**G0. User prior capture (throughout)** — at any gate: if user states a judgment, preference, concern, or historically excluded option, capture it in the User Prior Log immediately, confirm briefly, then continue the current gate without interruption. User Prior Log is reviewed twice: before D (direction alignment) and at R (R签字确认 — see User Prior Log).
+**G0. User prior capture (throughout)** — at any gate: if user states a judgment, preference, concern, or historically excluded option, capture it in the User Prior Log immediately with its type tag (`[judgment]` / `[preference]` / `[concern]` / `[excluded]`), confirm briefly, then continue the current gate without interruption. User Prior Log is reviewed twice: before D (direction alignment) and at R (R签字确认 — see User Prior Log).
+
+When capturing a `[judgment]` or `[excluded]` entry, check whether it rests on an unverified premise — i.e., "this is true only if X holds." If so, extract X as a separate entry in the Assumption Log (`[待验证]`, source = current gate). Pure preferences with no underlying premise go only into User Prior Log.
 
 **G1.** One question at a time — never stack multiple questions in a single message.
 
