@@ -121,11 +121,10 @@ Assumption：
 - `<risk>`: `H`/`M`/`L` — assigned by R gate; omitted until then
 - Omit `Prior：` or `Assumption：` block if empty; omit entire Header if no entries exist; stop after DC Delivered
 
-**Reopen:** RS step 2 fires:
+**Reopen:** RS step 2 fires (G = the gate being reopened):
 - Gate line: reopened gate G + downstream → `⬜`
-- Entries with `<source>` ∈ reopen scope and state `✓` → auto-reset to `?`
-- LLM lists reset entries in reply body; user confirms: keep (`?`) or delete (removed from Header)
 - Reopen scope: reopen G → `<source>` ∈ {G + downstream gates} resets; upstream sources unaffected
+- Entries with `<source>` ∈ reopen scope and state `✓` → auto-reset to `?`
 
 ---
 
