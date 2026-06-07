@@ -67,28 +67,10 @@ Two global rules, applicable at any gate, any time:
 
 **Trigger**: Any participant (AI or user) can re-open a prior gate the moment new information shows its pass criterion no longer holds — without waiting for V.
 
-**Propagation**: When a gate is re-opened, all gates reachable from it along prerequisite dependency arrows are automatically invalidated and must be re-satisfied. Scope is determined by the DAG structure — no enumeration needed. When a reopen trigger fires, execute the Reopen State Handler (RS) subroutine below; RS handles state cleanup and re-entry routing.
-
----
-
-## Reopen State Handler (RS)
-
-**Trigger sources:** R (known failure), Human Decision (upstream wrong), DC (user flags item for re-open).  
-RS is a shared relay node — all three triggers route through RS, then RS re-enters LoopA.
-
-**Execution steps:**
-
-1. **Identify reopen point** — determine which [LoopA] gate is being re-opened (Q / E / D / X)
-2. **Mechanically clear conclusion zones** — clear that gate's conclusion zone and all downstream [LoopA] gates (Q/E/D/X/R each maintain an independent conclusion zone; clear the re-opened gate and everything after it)
-3. **AI proposes 3-state labeling** — for every entry in both registers (User Prior Log + Assumption Log), propose:
-   - `[已验证]` — still valid, retain
-   - `[待验证]` — status uncertain after reopen, retain for re-assessment
-   - `[失效]` — no longer relevant given the reopen; mark for deletion
-4. **User confirms** — user reviews AI's proposed labels; may adjust any entry
-5. **Delete `[失效]` entries** — execute deletion of all confirmed-`[失效]` entries from both registers
-6. **Output clean snapshot** — re-enter LoopA at the gate identified in step 1
-
-> Registers are NOT automatically cleared by DAG propagation. Only RS steps 3–5 may modify register entries.
+**Propagation**:
+- When a gate is re-opened, all gates reachable from it along prerequisite dependency arrows are automatically invalidated and must be re-satisfied.
+- Scope is determined by the DAG structure — no enumeration needed.
+- When a reopen trigger fires, read and execute `$SKILL_DIR/gates/rs-reopen-state-handler.md`; RS handles state cleanup and re-entry routing.
 
 ---
 
@@ -100,7 +82,7 @@ Two registers run throughout the entire session, not attached to any single gate
 
 **Assumption Log** — captures unverified premises. Risk-graded at R; not collected from scratch there.
 
-**3-state lifecycle:** `[待验证]` (default) → `[已验证]` (confirmed at R or after Risk Release) → `[失效]` (user confirms deletion in reopen confirmation step)
+**3-state lifecycle:** `[待验证]` (default) → `[已验证]` (confirmed at R or after Risk Release) → `[失效]` (deleted via RS § Register Reopen Protocol)
 
 **Reply Header** — output at the top of every reply once any entry exists:
 
@@ -121,10 +103,9 @@ Assumption：
 - `<risk>`: `H`/`M`/`L` — assigned by R gate; omitted until then
 - Omit `Prior：` or `Assumption：` block if empty; omit entire Header if no entries exist; stop after DC Delivered
 
-**Reopen:** RS step 2 fires (G = the gate being reopened):
-- Gate line: reopened gate G + downstream → `⬜`
-- Reopen scope: reopen G → `<source>` ∈ {G + downstream gates} resets; upstream sources unaffected
-- Entries with `<source>` ∈ reopen scope and state `✓` → auto-reset to `?`
+**On reopen:**
+- Gate line: reopened gate G + all downstream → `⬜`
+- Register entries are not auto-modified by DAG propagation — changes only occur when reopen is triggered.
 
 ---
 
@@ -234,4 +215,5 @@ Do NOT rely on memory or prior context for gate execution steps.
 | V | `$SKILL_DIR/gates/v-verification.md` | R → uncertain assumptions |
 | RR | `$SKILL_DIR/gates/rr-risk-release.md` | V → high-risk items |
 | DC | `$SKILL_DIR/gates/dc-delivery-confirmation.md` | Verification complete |
+| RS | `$SKILL_DIR/gates/rs-reopen-state-handler.md` | Reopen triggered |
 | Human Decision | `$SKILL_DIR/gates/hd-human-decision.md` | RR → ❌ Failed |
