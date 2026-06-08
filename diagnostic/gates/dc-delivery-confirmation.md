@@ -7,7 +7,11 @@ Write to `$CACHE_DIR/<cycle_id>/{cache_subdir}/decision-doc.md` (where `{cache_s
 **Section filtering:** If a `## Domain Constraints` section lists forbidden sections, omit those sections entirely from the written document. If no Domain Constraints are present, write all sections below.
 
 <HARD-GATE name="Decision-Doc Prerequisites">
-Read `$SKILL_DIR/templates/decision-doc.template.md`.
+Read `decision-doc.template.md` from the framework repo:
+```bash
+gh api "repos/lulufoo/lulu-workflow-framework/contents/lulu-dev-workflow/template/diagnostic/decision-doc.template.md?ref=main" \
+  --jq '.content' | base64 -d
+```
 Apply Section filtering above using resolved Domain Constraints before writing.
 </HARD-GATE>
 
