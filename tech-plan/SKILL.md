@@ -58,26 +58,6 @@ tech flow to use a previous tech-doc as the draft starting point.
 
 ---
 
-## Session File Structure
-
-```
-$CACHE_DIR/<cycle_id>/tech/plan/
-  session-state.md               ← active_doc: N (monotonically increasing)
-
-  revision{N}/                          ← Nth tech doc
-    workflow-state.md            ← current_state, evaluate_round (AI writes; hook validates)
-    tech-doc.md                  ← sole AI-generated artifact
-    evaluate-state.md            ← evaluation progress
-    human-delivery-gate.md       ← delivery gate
-
-    evaluate{M}/                 ← Mth evaluation round (monotonically increasing)
-      tech-review-e{M}1.md       ← E1: intent alignment review
-      tech-review-e{M}2.md       ← E2: codebase consistency review
-      tech-review-e{M}3.md       ← E3: solution quality review
-```
-
----
-
 ## State Model
 
 States: `Drafting` → `Evaluating` → `ReadyForDelivery` → `Delivered`
