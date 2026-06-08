@@ -58,14 +58,6 @@ tech flow to use a previous tech-doc as the draft starting point.
 
 ---
 
-## Skip Evaluate
-
-User must explicitly request (e.g. "skip evaluation", "deliver without review"); if ambiguous, use AskQuestion.
-
-Write `workflow-state.md`: `current_state: ReadyForDelivery`, `evaluate_round: 0`, `skip_evaluate_requested: true`; preserve `mode`, `product_ref`, `carry_forward_ref`. Then follow Rule R1.
-
----
-
 ## State Model
 
 Load `./transition-whitelist.json` — check `allowed_transitions` for valid transitions and `precondition` for required writes before transitioning.
@@ -84,6 +76,16 @@ Load `./transition-whitelist.json` — check `allowed_transitions` for valid tra
 6. Read `./formats.md` before writing `workflow-state.md`, `evaluate-state.md`, or any `evaluate{M}/tech-review-*.md`.
 
 ### Drafting Rules
+
+#### Drafting Constraints
+
+**Rule D1 — Code reads during drafting**
+
+Read code files on demand (only what's relevant to the current design), never batch-load the entire codebase.
+
+**Rule D2 — Output**
+
+Write only `revision{N}/tech-doc.md`. It is the sole AI-generated artifact.
 
 #### Drafting Sub-State Machine
 
@@ -281,21 +283,16 @@ If any check fails, list every failing section or consistency mismatch and route
 - remaining `N/A-s` / `N/A-c` → write `drafting-progress.md: current_step: SkipConfirming`
 - consistency mismatch only → write `drafting-progress.md: current_step: InDialogue` and let the user choose which section to revise
 
-#### Drafting Constraints
-
-**Rule D1 — Code reads during drafting**
-
-Read code files on demand (only what's relevant to the current design), never batch-load the entire codebase.
-
-**Rule D2 — Output**
-
-Write only `revision{N}/tech-doc.md`. It is the sole AI-generated artifact.
-
 ### Evaluating Rules
 
-<HARD-GATE>
-Read `./eval-rules.md` before executing any evaluation step. Follow its instructions exactly.
-</HARD-GATE>
+**Entry confirmation**
+
+Before starting evaluation, ask the user:
+
+> "Start evaluation, or deliver directly?"
+
+- Evaluate → read `./eval-rules.md` and follow its instructions.
+- Deliver directly → write `workflow-state.md`: `current_state: ReadyForDelivery`, `skip_evaluate_requested: true`; preserve `mode`, `product_ref`, `carry_forward_ref`, `evaluate_round`. Then follow Rule R1.
 
 ### ReadyForDelivery Rules
 
