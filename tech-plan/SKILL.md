@@ -122,14 +122,84 @@ Skipping evaluation does **not** skip delivery confirmation: all paths still use
 
 ### Drafting Rules
 
-**Rule D1 — Calibration routing on entry**
+**Rule D0 — Drafting entry (first time, `evaluate_round == 0`)**
 
-Read `workflow-state.md` → `evaluate_round` to determine entry path:
+Read `workflow-state.md` → `evaluate_round`, `mode`, `carry_forward_ref`; confirm the current cycle `decision-doc.md` path from the diagnostic prerequisite; read `## Session Foundation` in `../_runtime.md` to resolve `cycle_type`. Keep all Drafting substeps inside the existing top-level workflow state model: `workflow-state.md` stays at `current_state: Drafting` while `drafting-progress.md` carries `Ready → Scoping → InDialogue → Extending → SkipConfirming → Checking`. Do not expand workflow states or the hook transition contract for these substeps.
+
+| Input | Effect |
+|------|--------|
+| `mode: product` | Drafting calibration may read `product-doc.md`; Evaluating follows `E1 → E2 → E3`. |
+| `mode: tech` | Drafting proceeds without `product-doc.md`; Evaluating skips E1 and follows `E2 → E3`. |
+| `cycle_type: feature` | Initializing / Scoping / InDialogue use `workflow-config.json` → `tech-plan.tpt_url`. |
+| `cycle_type: topic` | Initializing / Scoping / InDialogue use `workflow-config.json` → `tech-plan.shaping_tpt_url`. |
+
+If `evaluate_round == 0`:
+
+1. Resolve the drafting inputs from `workflow-config.json`:
+   - feature → `tpt_url`
+   - topic → `shaping_tpt_url`
+   - shared meta → `tpt_meta_url`
+2. If `drafting-progress.md` does not yet exist, or shows `current_step: Ready`:
+   - Resolve `$RESOLVED_MODEL` for stage `initializing` — see `../_subagent.md` → `## Config Resolution`
+   - Invoke `$SUBAGENT_TOOL` with `$SUBAGENT_AWAIT_SYNC`, passing `$RESOLVED_MODEL` as `model` if set. Prompt:
+
+```text
+You are executing the Initializing step for tech-plan Drafting.
+Load {actual $SKILL_ROOT}/tech-plan/initializing-runner/SKILL.md and follow its instructions.
+(substitute the real $SKILL_ROOT path above before dispatching)
+
+## Input
+TEMPLATE_PATH: {workflow-config.json -> tech-plan.tpt_url | tech-plan.shaping_tpt_url}
+META_PATH: {workflow-config.json -> tech-plan.tpt_meta_url}
+DECISION_DOC_PATH: {absolute path to decision-doc.md}
+TECH_DOC_PATH: {absolute path to revision{N}/tech-doc.md}
+DRAFTING_PROGRESS_PATH: {absolute path to revision{N}/drafting-progress.md}
+SECTION_PROGRESS_PATH: {absolute path to revision{N}/section-progress.md}
+CYCLE_ID: {cycle_id}
+```
+
+   - Await sub-agent completion (`$SUBAGENT_AWAIT_SYNC`). Then read `drafting-progress.md` and verify `current_step: Scoping`.
+3. If `drafting-progress.md` shows `current_step: Scoping`:
+   - Resolve `$RESOLVED_MODEL` for stage `scoping` — see `../_subagent.md` → `## Config Resolution`
+   - Invoke `$SUBAGENT_TOOL` with `$SUBAGENT_AWAIT_SYNC`, passing `$RESOLVED_MODEL` as `model` if set. Prompt:
+
+```text
+You are executing the Scoping step for tech-plan Drafting.
+Load {actual $SKILL_ROOT}/tech-plan/scoping-runner/SKILL.md and follow its instructions.
+(substitute the real $SKILL_ROOT path above before dispatching)
+
+## Input
+META_PATH: {workflow-config.json -> tech-plan.tpt_meta_url}
+DECISION_DOC_PATH: {absolute path to decision-doc.md}
+TECH_DOC_PATH: {absolute path to revision{N}/tech-doc.md}
+SECTION_PROGRESS_PATH: {absolute path to revision{N}/section-progress.md}
+DRAFTING_PROGRESS_PATH: {absolute path to revision{N}/drafting-progress.md}
+```
+
+   - Await sub-agent completion (`$SUBAGENT_AWAIT_SYNC`). Then read `drafting-progress.md` and verify `current_step: InDialogue`.
+4. Read `section-progress.md` and present the Scoping summary:
+   - all `N/A-s` subsection ids
+   - all `N/A-c` subsection ids
+   - remaining unresolved top-level section count
+5. Enter Step 3 `InDialogue` and run Resume Detection before selecting the next section.
+
+#### Drafting Flow Reference
+
+| Step | Content | Rule |
+|------|---------|------|
+| Step 0 | Read `decision-doc.md`, confirm `mode`, and resolve drafting source inputs | Rule D0 pre-entry |
+| Step 1 | `initializing-runner`: seed the initial draft and write progress files | Rule D0 |
+| Step 2 | `scoping-runner`: apply N/A decisions and advance to `InDialogue` | Rule D0 |
+| Step 3 | Per-section dialogue: `D → X/I/! mode → V`, with user-driven Reopen | Parent skill |
+| Step 4 | Optional `Extending`, then `SkipConfirming` for every `N/A-s` / `N/A-c` section | Parent skill |
+| Step 5 | Completeness and consistency checks, then enter `Evaluating` | Parent skill |
+
+**Rule D1 — Calibration routing on entry (`evaluate_round > 0`)**
+
+Read `workflow-state.md` → `evaluate_round`. Only when `evaluate_round > 0`, present `fix_severity` from `evaluate-state.md` and route per Rule D2.
 
 | Condition | Calibration | Required reads |
 |-----------|-------------|----------------|
-| `evaluate_round == 0`, `carry_forward_ref` empty | Mandatory (full) | product-doc.md + `ac_url` (if set) + `tpt_url` (feature) or `shaping_tpt_url` (topic) |
-| `evaluate_round == 0`, `carry_forward_ref` present | Mandatory (diff) | carry_forward tech-doc.md + product-doc.md + `ac_url` (if set) |
 | `evaluate_round > 0` (return from Evaluating) | Present `fix_severity` from evaluate-state.md; user decides | Per user choice (see D2) |
 
 **Rule D2 — Re-entry calibration (evaluate_round > 0)**
@@ -140,6 +210,186 @@ Show the user: `"Fix severity this round: [fix_severity] — [fix_severity_reaso
 |-------------|--------|
 | Yes | Read `ac_url` + `tpt_url` (feature) or `shaping_tpt_url` (topic) + product-doc relevant sections (if E1 issues last round) + code files (if E2 issues last round) |
 | Skip | Proceed directly to writing |
+
+#### Step 3 — InDialogue
+
+Entry paths:
+- after Rule D0 Scoping completes
+- after Reopen
+- after `Extending` or `SkipConfirming` routes back
+- after `Checking` reports unresolved sections
+- after Rule D2 re-entry calibration (`evaluate_round > 0`)
+
+Write `drafting-progress.md: current_step: InDialogue` on every parent-managed entry into this step.
+
+**Resume Detection** (run once on each `InDialogue` entry)
+
+1. Read `section-progress.md` → `sections`, `reopen_reasons`; read `drafting-progress.md` → `current_step`.
+2. If there are existing `V`, `N/A-s`, `N/A-c`, or `S` sections, present a resume summary and state which section resumes next.
+3. If any `D` sections remain:
+   - if the section also appears in `reopen_reasons`, rewrite that section to `I`
+   - otherwise rewrite that section to `X`
+   - if multiple `D` sections remain, rewrite all of them to `X` and warn that the previous dialogue was interrupted
+4. If an interrupted `D` section was rewritten, tell the user that the section will restart from the beginning.
+
+**Select Section**
+
+- Iterate top-level section keys in order and pick the first section whose status is `X`, `I`, or `!`
+- skip `V`, `N/A-s`, `N/A-c`, and `S`
+- write the selected section to `D`
+- retain the pre-`D` status as the section's original mode discriminator
+
+`§2` special case:
+- for `§2` (Decision Anchors), showing the existing seeded content counts as pass-through confirmation
+- if the user accepts it unchanged, write `V` directly
+- if the user requests edits, switch to `I`-mode for that section
+
+**`I`-mode — display and confirm**
+
+1. Initialize the working buffer from the current `tech-doc.md` content for that section.
+2. Show the working buffer and ask the user to confirm or request adjustments.
+3. Loop:
+   - confirmation → proceed to **Write and mark `V`**
+   - adjustments → update the working buffer only, re-display it, and ask again
+
+**`X`-mode — build from skeleton**
+
+1. Read the current `tech-doc.md` skeleton for the section and identify required placeholders/sub-items.
+2. Ask one question for the first unresolved required sub-item.
+3. Loop:
+   - if the user's reply contains a Reopen signal, stop the current section, rewrite it to `X`, clear the working buffer, and jump to **Reopen trigger**
+   - otherwise update the working buffer only
+   - if unresolved required sub-items remain, ask the next single question
+   - once all required sub-items are filled, show the draft and ask for confirmation or adjustments
+   - confirmation → proceed to **Write and mark `V`**
+   - adjustments → update the working buffer, re-display it, and continue the loop
+
+Stop rule: once all required sub-items are filled, move to explicit draft confirmation; do not keep asking on AI judgment alone.
+
+**`!`-mode — expired downstream review**
+
+1. Read `reopen_reasons[§N]` and explain which upstream section triggered expiry.
+2. Show the upstream reopen reason plus the current section content.
+3. Ask the user to review this section in the changed upstream context.
+4. Continue using the same confirmation loop as `I`-mode.
+
+**Write and mark `V`**
+
+1. Write the working buffer into `tech-doc.md` for the current section.
+2. Write `sections[§N]: V` in `section-progress.md`.
+3. Run **Reopen detection**.
+4. Return to **Select Section**.
+
+`tech-doc.md` write discipline:
+- write the section content only once, immediately before setting `V`
+- do not write intermediate dialogue states into `tech-doc.md`
+
+**Reopen detection** — passive checkpoint
+
+- do not proactively scan old `V` sections for consistency conflicts
+- do not proactively ask whether a prior section should be reopened
+- only react when the user explicitly includes a Reopen signal in the current or next reply
+
+If the confirmation message itself includes a Reopen signal, process it immediately. Otherwise continue normally unless the user's next message includes a Reopen signal.
+
+**Reopen trigger** (user-driven only)
+
+Signal handling:
+- explicit section id (`Reopen §3`, `§3 needs changes`) → trigger directly
+- uniquely identifiable earlier section by description → restate the target section, then trigger after user confirmation
+- vague earlier-section concern → ask which section should be reopened
+- user-reported section conflict → restate the conflict and ask whether to reopen the earlier section; only trigger after explicit confirmation
+
+When a valid Reopen targets an earlier section `§N`:
+
+1. Write `sections[§N]: I` and record `reopen_reasons[§N] = <user reason>`.
+2. Rewrite downstream confirmed sections to `!`:
+   - between `§N+1` and the current section, rewrite any `V` or `D` section to `!`
+   - after the current section, rewrite any `V` section to `!`
+   - write each downstream `reopen_reasons[§M] = "reopened: §N — <§N section title>"`
+3. Keep sections before `§N` unchanged.
+4. Re-enter **Select Section**; `§N` re-enters through `I`-mode and downstream `!` sections are handled in order afterward.
+
+Special case — Reopen the current `D` section itself:
+
+1. Clear the current working buffer.
+2. Rewrite `sections[§N]: X`.
+3. Clear the current section body in `tech-doc.md`.
+4. Do not propagate `!` to later sections.
+5. Re-enter **Select Section** and rebuild the same section in `X`-mode.
+
+This self-reopen path does not write `reopen_reasons` and does not change any other section state.
+
+Reopen while outside `InDialogue`:
+
+| Current step | Action |
+|-------------|--------|
+| `Extending` | Rewrite `drafting-progress.md: current_step: InDialogue`; discard any not-yet-registered custom section in the current round; then process Reopen. |
+| `SkipConfirming` | Rewrite `drafting-progress.md: current_step: InDialogue`; restore the current unconfirmed `N/A-s` / `N/A-c` section to its pre-`S` state; then process Reopen. |
+| `Checking` | Rewrite `drafting-progress.md: current_step: InDialogue`; discard the current checking result; then process Reopen. |
+
+Exit condition:
+- all standard sections and any registered custom sections are in `V`, `N/A-s`, or `N/A-c`
+- no section remains in `I`, `X`, `D`, or `!`
+- then write `drafting-progress.md: current_step: Extending`
+
+#### Step 4A — Extending
+
+Role: user-driven optional custom sections after all standard sections are resolved.
+
+1. Prompt: standard sections are complete; the user may add a custom section or reply `完成`.
+2. Loop:
+   - `完成` → exit `Extending`, write `drafting-progress.md: current_step: SkipConfirming`, and continue to Step 4B
+   - custom section request with title + content structure:
+     1. append the new section at the end of `tech-doc.md`
+     2. register the new top-level custom section id as `§Cx: V` in `section-progress.md`
+     3. run a one-time consistency check against existing `V` standard sections and report explicit conflicts only
+     4. ask whether another custom section should be added
+
+Custom sections have no template constraint: preserve the user-provided structure, formatting, and depth rather than forcing the standard template shape.
+
+#### Step 4B — SkipConfirming
+
+Process every section currently marked `N/A-s` or `N/A-c`, one section at a time:
+
+1. Show the section id and title.
+2. Show `na_evidence[§N]`.
+3. Ask whether the user confirms the skip or wants to fill the section after all.
+
+Per section:
+- confirm skip → rewrite `sections[§N]: S`
+- restore section → clear `na_evidence[§N]`, remove that section's leading N/A banner from `tech-doc.md`, and rewrite `sections[§N]: X`
+
+Batch boundary rule:
+- handle each N/A section immediately as `show → user choice → write state → next section`
+- do not jump back to `InDialogue` mid-batch
+- only after all current `N/A-s` / `N/A-c` sections are processed, if any were restored to `X`, rewrite `drafting-progress.md: current_step: InDialogue` once and re-enter `InDialogue` for the full batch of restored sections
+
+Exit condition:
+- every original `N/A-s` / `N/A-c` section is now either `S` or `X`
+- no original N/A section remains unprocessed
+- if none were restored to `X`, write `drafting-progress.md: current_step: Checking`
+
+#### Step 5 — Checking
+
+Write `drafting-progress.md: current_step: Checking` on entry and verify:
+
+| Check | Pass condition |
+|------|----------------|
+| Required standard sections | all required sections are `V` |
+| Conditional standard sections | each conditional section is `V` or `S`; none remain `I`, `X`, `N/A-s`, or `N/A-c` |
+| Custom sections (`§Cx`) | all registered custom sections are `V` |
+| Cross-section consistency | `§5` file paths exactly match `§6` task-file references; `§4` naming-contract tokens exactly match the `§6` constraints that consume them |
+
+If all checks pass:
+
+1. Keep the existing top-level workflow model unchanged.
+2. Write `workflow-state.md` → `current_state: Evaluating`.
+
+If any check fails, list every failing section or consistency mismatch and route by failure type:
+- remaining `I` / `X` / `!` → write `drafting-progress.md: current_step: InDialogue`
+- remaining `N/A-s` / `N/A-c` → write `drafting-progress.md: current_step: SkipConfirming`
+- consistency mismatch only → write `drafting-progress.md: current_step: InDialogue` and let the user choose which section to revise
 
 **Rule D3 — Code reads during drafting**
 
