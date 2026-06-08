@@ -301,8 +301,6 @@ If any check fails, list every failing section or consistency mismatch and route
 
 ### Evaluating Rules
 
-**Entry confirmation**
-
 Before starting evaluation, ask the user:
 
 > "Start evaluation, or deliver directly?"
@@ -311,8 +309,6 @@ Before starting evaluation, ask the user:
 - Deliver directly → write `workflow-state.md`: `current_state: ReadyForDelivery`, `skip_evaluate_requested: true`; preserve `mode`, `product_ref`, `carry_forward_ref`, `evaluate_round`. Then follow Rule R1.
 
 ### ReadyForDelivery Rules
-
-**Rule R1 — Delivery confirmation**
 
 After hook allows entry to ReadyForDelivery:
 
