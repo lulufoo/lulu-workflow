@@ -219,7 +219,8 @@ Only react when the user signals intent to revise a section.
    - If currently outside `InDialogue`, return to `InDialogue` first.
    - Re-enter **Select Section**.
 
-Exit condition:
+**Exit condition**
+
 - all standard sections and any registered custom sections are in `V`, `N/A-s`, or `N/A-c`
 - no section remains in `I`, `X`, `D`, or `!`
 - then write `drafting-progress.md: current_step: Extending`
