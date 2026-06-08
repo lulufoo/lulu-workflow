@@ -50,9 +50,10 @@ python3 "$SKILL_DIR/scripts/start.py" \
   [--carry-forward-ref "<absolute-path-to-previous-tech-doc.md>"]  # optional
 ```
 
-`--carry-forward-ref` is optional in both modes. Provide it when re-entering
+- `--carry-forward-ref` is optional in both modes. Provide it when re-entering
 tech flow to use a previous tech-doc as the draft starting point.
-`--run-mode`: use `product` if a `product-doc.md` path was provided (user-supplied, do not auto-detect), otherwise `tech`.
+- `--run-mode`: use `product` if a `product-doc.md` path was provided (user-supplied, do not auto-detect), otherwise `tech`.
+
 > If start.py exits non-zero ("Gate blocked: <stage> is not Delivered"): tell the user which prior stage must be delivered first. Do not retry start.
 
 ---
