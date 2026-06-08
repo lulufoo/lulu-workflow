@@ -111,68 +111,14 @@ Skipping evaluation does **not** skip delivery confirmation: all paths still use
 
 ### Drafting Rules
 
-#### Drafting Flow Overview
-
-| Step | Content | Rule |
-|------|---------|------|
-| Step 0 | Read `decision-doc.md`, confirm `mode`, and resolve drafting source inputs | Rule D0 pre-entry |
-| Step 1 | `initializing-runner`: seed the initial draft and write progress files | Rule D0 |
-| Step 2 | `scoping-runner`: apply N/A decisions and advance to `InDialogue` | Rule D0 |
-| Step 3 | Per-section dialogue: `D → X/I/! mode → V`, with user-driven Reopen | Parent skill |
-| Step 4 | `Extending`: optional custom sections after all standard sections resolved | Parent skill |
-| Step 5 | `SkipConfirming`: confirm or restore every `N/A-s` / `N/A-c` section | Parent skill |
-| Step 6 | Completeness and consistency checks, then enter `Evaluating` | Parent skill |
-
-#### Entry Logic
-
-**Rule D0 — Drafting entry (first time, `evaluate_round == 0`)**
+#### Step 0 — Entry
 
 - Read `workflow-state.md` → `evaluate_round`, `mode`, `carry_forward_ref`
 - Confirm `decision-doc.md` path from the diagnostic prerequisite
 - Read `## Session Foundation` in `../_runtime.md` → resolve `cycle_type`
 - Substep states are managed in `drafting-progress.md` (`Ready → Scoping → InDialogue → Extending → SkipConfirming → Checking`); do not expand `workflow-state.md` states.
 
-If `evaluate_round == 0`:
-
-1. Resolve the drafting inputs from `workflow-config.json`:
-   - feature → `tpt_url`
-   - topic → `shaping_tpt_url`
-   - shared meta → `tpt_meta_url`
-2. If `drafting-progress.md` does not yet exist, or shows `current_step: Ready`:
-   - Resolve `$RESOLVED_MODEL` for stage `initializing` — see `../_subagent.md` → `## Config Resolution`
-   - Invoke `$SUBAGENT_TOOL` with `$SUBAGENT_AWAIT_SYNC`, passing `$RESOLVED_MODEL` as `model` if set. Prompt:
-
-```text
-Load {actual $SKILL_ROOT}/tech-plan/initializing-runner/SKILL.md and follow its instructions.
-
-## Input
-TEMPLATE_PATH: {workflow-config.json -> tech-plan.tpt_url | tech-plan.shaping_tpt_url}
-META_PATH: {workflow-config.json -> tech-plan.tpt_meta_url}
-DECISION_DOC_PATH: {absolute path to decision-doc.md}
-TECH_DOC_PATH: {absolute path to revision{N}/tech-doc.md}
-DRAFTING_PROGRESS_PATH: {absolute path to revision{N}/drafting-progress.md}
-SECTION_PROGRESS_PATH: {absolute path to revision{N}/section-progress.md}
-CYCLE_ID: {cycle_id}
-```
-
-   - Await sub-agent completion (`$SUBAGENT_AWAIT_SYNC`). Then read `drafting-progress.md` and verify `current_step: Scoping`.
-3. If `drafting-progress.md` shows `current_step: Scoping`:
-   - Resolve `$RESOLVED_MODEL` for stage `scoping` — see `../_subagent.md` → `## Config Resolution`
-   - Invoke `$SUBAGENT_TOOL` with `$SUBAGENT_AWAIT_SYNC`, passing `$RESOLVED_MODEL` as `model` if set. Prompt:
-
-```text
-Load {actual $SKILL_ROOT}/tech-plan/scoping-runner/SKILL.md and follow its instructions.
-
-## Input
-META_PATH: {workflow-config.json -> tech-plan.tpt_meta_url}
-DECISION_DOC_PATH: {absolute path to decision-doc.md}
-TECH_DOC_PATH: {absolute path to revision{N}/tech-doc.md}
-SECTION_PROGRESS_PATH: {absolute path to revision{N}/section-progress.md}
-DRAFTING_PROGRESS_PATH: {absolute path to revision{N}/drafting-progress.md}
-```
-
-   - Await sub-agent completion (`$SUBAGENT_AWAIT_SYNC`). Then read `drafting-progress.md` and verify `current_step: InDialogue`.
-4. Read `section-progress.md`; present Scoping summary (N/A-s ids, N/A-c ids, unresolved section count); enter Step 3 `InDialogue`.
+If `evaluate_round == 0`: resolve drafting inputs from `workflow-config.json` (feature → `tpt_url`; topic → `shaping_tpt_url`; shared meta → `tpt_meta_url`), then dispatch Step 1 → Step 2 in order.
 
 **Rule D1 — Calibration routing (`evaluate_round > 0`)**: read `evaluate-state.md` → `fix_severity` and `fix_severity_reason`; present to user and route per Rule D2.
 
@@ -187,17 +133,49 @@ Show the user: `"Fix severity this round: [fix_severity] — [fix_severity_reaso
 
 #### Step 1 — Initializing
 
-Dispatched as a subagent → see `initializing-runner/SKILL.md`.
+Only runs on first Drafting entry (`evaluate_round == 0`).
 
 Entry condition: `drafting-progress.md: current_step: Ready` (or file absent).
 Exit condition: subagent writes `drafting-progress.md: current_step: Scoping`.
 
+Resolve `$RESOLVED_MODEL` for stage `initializing` (see `../_subagent.md` → `## Config Resolution`); dispatch:
+
+```text
+Load {actual $SKILL_ROOT}/tech-plan/initializing-runner/SKILL.md and follow its instructions.
+
+## Input
+TEMPLATE_PATH: {workflow-config.json -> tech-plan.tpt_url | tech-plan.shaping_tpt_url}
+META_PATH: {workflow-config.json -> tech-plan.tpt_meta_url}
+DECISION_DOC_PATH: {absolute path to decision-doc.md}
+TECH_DOC_PATH: {absolute path to revision{N}/tech-doc.md}
+DRAFTING_PROGRESS_PATH: {absolute path to revision{N}/drafting-progress.md}
+SECTION_PROGRESS_PATH: {absolute path to revision{N}/section-progress.md}
+CYCLE_ID: {cycle_id}
+```
+
+Await completion (`$SUBAGENT_AWAIT_SYNC`); verify `drafting-progress.md: current_step: Scoping`.
+
 #### Step 2 — Scoping
 
-Dispatched as a subagent → see `scoping-runner/SKILL.md`.
+Only runs on first Drafting entry (`evaluate_round == 0`).
 
 Entry condition: `drafting-progress.md: current_step: Scoping`.
 Exit condition: subagent writes `drafting-progress.md: current_step: InDialogue`.
+
+Resolve `$RESOLVED_MODEL` for stage `scoping` (see `../_subagent.md` → `## Config Resolution`); dispatch:
+
+```text
+Load {actual $SKILL_ROOT}/tech-plan/scoping-runner/SKILL.md and follow its instructions.
+
+## Input
+META_PATH: {workflow-config.json -> tech-plan.tpt_meta_url}
+DECISION_DOC_PATH: {absolute path to decision-doc.md}
+TECH_DOC_PATH: {absolute path to revision{N}/tech-doc.md}
+SECTION_PROGRESS_PATH: {absolute path to revision{N}/section-progress.md}
+DRAFTING_PROGRESS_PATH: {absolute path to revision{N}/drafting-progress.md}
+```
+
+Await completion (`$SUBAGENT_AWAIT_SYNC`); verify `drafting-progress.md: current_step: InDialogue`. Then read `section-progress.md` and present Scoping summary (N/A-s ids, N/A-c ids, unresolved section count); enter Step 3.
 
 #### Step 3 — InDialogue
 
