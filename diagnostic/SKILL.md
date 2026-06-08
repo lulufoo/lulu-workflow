@@ -87,6 +87,7 @@ Two registers run throughout the entire session, not attached to any single gate
 
 **Reply Header** — output at the top of every reply once any entry exists:
 
+~~~~
 ```
 ─── DDF ───────────────────────────────────────
 Gate: Q✅ E✅ D⬜ X⬜ R⬜ V⬜ RR⬜ DC⬜
@@ -98,6 +99,7 @@ Assumption：
 [A2✓ X L] 管理员权限
 ───────────────────────────────────────────────
 ```
+~~~~
 
 - `<state>`: `?` = 待验证 · `✓` = 已验证
 - `<source>`: gate where first discovered — `open` / `Q` / `E` / `D` / `X` / `R` / `V` / `RR`
