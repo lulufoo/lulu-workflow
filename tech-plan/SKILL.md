@@ -60,20 +60,7 @@ tech flow to use a previous tech-doc as the draft starting point.
 
 ## State Model
 
-States: `Drafting` → `Evaluating` → `ReadyForDelivery` → `Delivered`
-
-Allowed transitions:
-- `Drafting → Evaluating`
-- `Drafting → ReadyForDelivery`  ← skip evaluate; requires `skip_evaluate_requested: true` (hook enforced)
-- `Evaluating → ReadyForDelivery`  ← requires evaluate pre-conditions (hook enforced)
-- `Evaluating → Drafting`  ← requires `evaluate-state.md` with `current_dimension: abandoned` (hook enforced)
-- `ReadyForDelivery → Drafting`
-- `ReadyForDelivery → Delivered`  ← requires `human-delivery-gate.md` (hook enforced)
-
-Hook enforces all transition pre-conditions. Denial messages are self-explanatory.
-
-Skipping evaluation does **not** skip delivery confirmation: all paths still use
-`ReadyForDelivery → Delivered` with `human-delivery-gate.md`.
+Load `./transition-whitelist.json` — check `allowed_transitions` for valid transitions and `precondition` for required writes before transitioning.
 
 ---
 
