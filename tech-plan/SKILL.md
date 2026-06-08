@@ -73,6 +73,7 @@ Load `./transition-whitelist.json` — check `allowed_transitions` for valid tra
 3. `workflow-state.md` is the authoritative state — always read it; never infer state from document body or file existence; write it to request a transition.
 4. Use full `Write` (not `Edit`) for `workflow-state.md` and `evaluate-state.md`.
 5. Path guard blocks writes outside `$CACHE_DIR/` while a session is active.
+6. Read `./formats.md` before writing `workflow-state.md`, `evaluate-state.md`, or any `evaluate{M}/tech-review-*.md`.
 
 ### Drafting Rules
 
@@ -315,33 +316,9 @@ Before presenting next stages to the user, read `../_transitions.md` and follow 
 
 ---
 
-## Session File Formats
-
-Reference: `./formats.md` — read on demand when writing any session file.
-
----
-
 ## product → tech handoff
 
 - `product_ref`: user-provided; never auto-detected; the two workflow directories are fully decoupled.
 - `carry_forward_ref`: provided on re-entry; version delta between old tech-doc and new product-doc must be resolved via mandatory Drafting calibration.
 - Re-entry = new iteration (new cycle_id or revision{N}); never continue in the old directory.
 
-## Execution Mode: Apply
-
-Read `$EXECUTION_MODE` from Session Foundation (set by parent `../_runtime.md`). Default: `guided`.
-
-| Mode | Behavior |
-|------|---------|
-| `guided` | Current behavior — all rules apply as documented |
-| `autonomous` | Apply the overrides below; all other rules unchanged |
-
-### Autonomous Overrides
-
-| Rule | Autonomous Behavior |
-|------|-----------------------|
-| `start` Phase 2 — run-mode detection | Auto-detect: if triggering message or session context includes a product-doc path → `product` mode; otherwise → `tech` mode. Do **not** ask. |
-| Drafting Rule D2 — recalibrate on re-entry | Default Yes. Do **not** ask. |
-| Drafting Rule D5 — skip evaluate to ReadyForDelivery | Default: proceed to Evaluating directly. Do **not** ask. User may explicitly request skip (e.g. "skip evaluation") to override. |
-| Evaluating Rule E3 — per-issue AskQuestion | Default: Option A (Fix). Apply fix without asking. |
-| ReadyForDelivery Rule R1 — delivery confirmation | **Feature container (autonomous):** auto-deliver — write `human-delivery-gate.md`, set `current_state: Delivered`, then auto handoff to `tech-work-order` (auto-chain). For topic containers or guided mode: unchanged (wait for explicit user confirmation). |
