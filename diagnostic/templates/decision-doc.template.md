@@ -13,7 +13,7 @@ input:
 
 ---
 
-## User Prior
+## 1. User Prior
 
 - [judgment] {user's assessment or conclusion about the problem or options}
 - [preference] {preferred approach, without a hard rationale}
@@ -22,7 +22,7 @@ input:
 
 ---
 
-## Problem Definition
+## 2. Problem Definition
 
 {problem statement}
 
@@ -30,7 +30,7 @@ input:
 
 ---
 
-## Direction Comparison
+## 3. Direction Comparison
 
 | Direction | Core Approach | Pros | Cons |
 |-----------|--------------|------|------|
@@ -45,21 +45,21 @@ input:
 
 ---
 
-## Decision Rationale
+## 4. Decision Rationale
 
 Chose **[option]** because {rationale referencing direction comparison trade-offs}.
 Excluded **[option]** because {rationale}.
 
 ---
 
-## Scope
+## 5. Scope
 
 **Applies to:** {what this decision covers}
 **Explicitly excludes:** {what this decision does not cover}
 
 ---
 
-## Assumptions & Risks
+## 6. Assumptions & Risks
 
 > Status values: `[待验证]` (default) · `[已验证]` (confirmed at R / RR Released / M-L batch-confirmed) · `[失效]` (invalidated via RS Register Reopen Protocol)
 > H-risk Verification: Method / Owner / Timing / Release condition. M/L Verification: Accepted.
@@ -71,9 +71,9 @@ Excluded **[option]** because {rationale}.
 
 ---
 
-## Execution Analysis
+## 7. Execution Analysis
 
-### Acceptance Criteria
+### 7.1 Acceptance Criteria
 
 {observable, verifiable success criteria}
 
@@ -81,7 +81,7 @@ Excluded **[option]** because {rationale}.
 
 ---
 
-### Impact Surface
+### 7.2 Impact Surface
 
 | Layer | Affected Area | Change Type | Notes |
 |-------|--------------|-------------|-------|
@@ -89,7 +89,7 @@ Excluded **[option]** because {rationale}.
 
 ---
 
-### External Dependencies
+### 7.3 External Dependencies
 
 | Dependency | Contract | Authoritative Source | Confirmation Mechanism |
 |------------|----------|---------------------|------------------------|
@@ -97,7 +97,7 @@ Excluded **[option]** because {rationale}.
 
 ---
 
-### Implementation Sketch
+### 7.4 Implementation Sketch
 
 **Key changes:** {what components / modules / files will be added, modified, or removed}
 **Critical constraints:** {non-obvious constraints that affect how this can be implemented}
