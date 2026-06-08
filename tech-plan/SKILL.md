@@ -127,14 +127,10 @@ Skipping evaluation does **not** skip delivery confirmation: all paths still use
 
 **Rule D0 — Drafting entry (first time, `evaluate_round == 0`)**
 
-Read `workflow-state.md` → `evaluate_round`, `mode`, `carry_forward_ref`; confirm the current cycle `decision-doc.md` path from the diagnostic prerequisite; read `## Session Foundation` in `../_runtime.md` to resolve `cycle_type`. Keep all Drafting substeps inside the existing top-level workflow state model: `workflow-state.md` stays at `current_state: Drafting` while `drafting-progress.md` carries `Ready → Scoping → InDialogue → Extending → SkipConfirming → Checking`. Do not expand workflow states or the hook transition contract for these substeps.
-
-| Input | Effect |
-|------|--------|
-| `mode: product` | Drafting calibration may read `product-doc.md`; Evaluating follows `E1 → E2 → E3`. |
-| `mode: tech` | Drafting proceeds without `product-doc.md`; Evaluating skips E1 and follows `E2 → E3`. |
-| `cycle_type: feature` | Initializing / Scoping / InDialogue use `workflow-config.json` → `tech-plan.tpt_url`. |
-| `cycle_type: topic` | Initializing / Scoping / InDialogue use `workflow-config.json` → `tech-plan.shaping_tpt_url`. |
+- Read `workflow-state.md` → `evaluate_round`, `mode`, `carry_forward_ref`
+- Confirm `decision-doc.md` path from the diagnostic prerequisite
+- Read `## Session Foundation` in `../_runtime.md` → resolve `cycle_type`
+- Substep states are managed in `drafting-progress.md` (`Ready → Scoping → InDialogue → Extending → SkipConfirming → Checking`); do not expand `workflow-state.md` states.
 
 If `evaluate_round == 0`:
 
@@ -178,13 +174,7 @@ DRAFTING_PROGRESS_PATH: {absolute path to revision{N}/drafting-progress.md}
    - Await sub-agent completion (`$SUBAGENT_AWAIT_SYNC`). Then read `drafting-progress.md` and verify `current_step: InDialogue`.
 4. Read `section-progress.md`; present Scoping summary (N/A-s ids, N/A-c ids, unresolved section count); enter Step 3 `InDialogue`.
 
-**Rule D1 — Calibration routing on entry (`evaluate_round > 0`)**
-
-Read `workflow-state.md` → `evaluate_round`. Only when `evaluate_round > 0`, present `fix_severity` from `evaluate-state.md` and route per Rule D2.
-
-| Condition | Calibration | Required reads |
-|-----------|-------------|----------------|
-| `evaluate_round > 0` (return from Evaluating) | Present `fix_severity` from evaluate-state.md; user decides | Per user choice (see D2) |
+**Rule D1 — Calibration routing (`evaluate_round > 0`)**: read `evaluate-state.md` → `fix_severity` and `fix_severity_reason`; present to user and route per Rule D2.
 
 **Rule D2 — Re-entry calibration (evaluate_round > 0)**
 
