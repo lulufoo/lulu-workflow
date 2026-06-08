@@ -46,9 +46,7 @@ Self-read at Step S1: `$WORKFLOW_DIR/workflow-config.json` → `tech-plan.tpt_me
 
 ### Section Status Symbols
 
-✅ Verified source: `$SKILL_ROOT/tech-plan/templates/drafting-state-machine.json` → `section_symbols`
-
-Load this file at runtime and read the `section_symbols` object for the authoritative symbol definitions.
+Read inline comments in `$SKILL_ROOT/tech-plan/templates/section-progress.template.md`.
 
 ## Hard Constraint: Verifiable N/A Determination
 
