@@ -56,6 +56,12 @@ tech flow to use a previous tech-doc as the draft starting point.
 
 > If start.py exits non-zero ("Gate blocked: <stage> is not Delivered"): tell the user which prior stage must be delivered first. Do not retry start.
 
+## product → tech handoff
+
+- `product_ref`: user-provided; never auto-detected; the two workflow directories are fully decoupled.
+- `carry_forward_ref`: provided on re-entry; version delta between old tech-doc and new product-doc must be resolved via mandatory Drafting calibration.
+- Re-entry = new iteration (new cycle_id or revision{N}); never continue in the old directory.
+
 ---
 
 ## State Model
@@ -310,9 +316,4 @@ Before presenting next stages to the user, read `../_transitions.md` and follow 
 
 ---
 
-## product → tech handoff
-
-- `product_ref`: user-provided; never auto-detected; the two workflow directories are fully decoupled.
-- `carry_forward_ref`: provided on re-entry; version delta between old tech-doc and new product-doc must be resolved via mandatory Drafting calibration.
-- Re-entry = new iteration (new cycle_id or revision{N}); never continue in the old directory.
 
