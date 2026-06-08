@@ -158,9 +158,7 @@ If `evaluate_round == 0`:
    - Invoke `$SUBAGENT_TOOL` with `$SUBAGENT_AWAIT_SYNC`, passing `$RESOLVED_MODEL` as `model` if set. Prompt:
 
 ```text
-You are executing the Initializing step for tech-plan Drafting.
 Load {actual $SKILL_ROOT}/tech-plan/initializing-runner/SKILL.md and follow its instructions.
-(substitute the real $SKILL_ROOT path above before dispatching)
 
 ## Input
 TEMPLATE_PATH: {workflow-config.json -> tech-plan.tpt_url | tech-plan.shaping_tpt_url}
@@ -178,9 +176,7 @@ CYCLE_ID: {cycle_id}
    - Invoke `$SUBAGENT_TOOL` with `$SUBAGENT_AWAIT_SYNC`, passing `$RESOLVED_MODEL` as `model` if set. Prompt:
 
 ```text
-You are executing the Scoping step for tech-plan Drafting.
 Load {actual $SKILL_ROOT}/tech-plan/scoping-runner/SKILL.md and follow its instructions.
-(substitute the real $SKILL_ROOT path above before dispatching)
 
 ## Input
 META_PATH: {workflow-config.json -> tech-plan.tpt_meta_url}
@@ -191,11 +187,7 @@ DRAFTING_PROGRESS_PATH: {absolute path to revision{N}/drafting-progress.md}
 ```
 
    - Await sub-agent completion (`$SUBAGENT_AWAIT_SYNC`). Then read `drafting-progress.md` and verify `current_step: InDialogue`.
-4. Read `section-progress.md` and present the Scoping summary:
-   - all `N/A-s` subsection ids
-   - all `N/A-c` subsection ids
-   - remaining unresolved top-level section count
-5. Enter Step 3 `InDialogue` and run Resume Detection before selecting the next section.
+4. Read `section-progress.md`; present Scoping summary (N/A-s ids, N/A-c ids, unresolved section count); enter Step 3 `InDialogue`.
 
 **Rule D1 — Calibration routing on entry (`evaluate_round > 0`)**
 
@@ -426,67 +418,9 @@ Write `workflow-state.md`: `current_state: ReadyForDelivery`, `evaluate_round: 0
 
 ### Evaluating Rules
 
-**Rule E1 — Entry sequence**
-
-On entering Evaluating:
-1. Increment `evaluate_round` in `workflow-state.md` (write `current_state: Evaluating, evaluate_round: M`)
-2. Read `mode` from `workflow-state.md` to determine evaluation path
-3. Initialize `evaluate-state.md` based on mode:
-
-```
-# product mode: current_dimension: e1, e1_status: pending
-# tech mode: current_dimension: e2, e1_status: complete (preset), e1_total_issues: 0, e1_resolved_issues: 0
-current_dimension: e1|e2
-e1_status: pending|complete
-e2_status: pending, e3_status: pending
-total_issues: 0, resolved_issues: 0
-fix_severity: "", fix_severity_reason: ""
-```
-
-**Rule E2 — Dimension sequencing**
-
-| Mode | Sequence | Skip | E1 file | E2 file | E3 file |
-|------|---------|------|---------|---------|---------|
-| product | E1 → E2 → E3 | none | `tech-review-e{M}1.md` | `tech-review-e{M}2.md` | `tech-review-e{M}3.md` |
-| tech | E2 → E3 | E1 (preset complete) | — | `tech-review-e{M}2.md` | `tech-review-e{M}3.md` |
-
-Inputs per dimension: E1 ← product_ref + `ptc_url`; E2 ← relevant code files; E3 ← `tpef_url` (feature) or `shaping_tpef_url` (topic).
-
-Do not skip within the required sequence.
-
-**Rule E3 — Per-dimension sequence**
-
-For each dimension (example: E1):
-1. Write `e1_status: in_progress`, `current_dimension: e1` to `evaluate-state.md`
-2. Load inputs (see E2 table)
-3. Write `evaluate{M}/tech-review-e{M}1.md` skeleton (issues list)
-4. Write `e1_total_issues: K`, update `total_issues = e1_total + e2_total + e3_total`
-5. Per issue: present to user with AskQuestion → user confirms → fix `revision{N}/tech-doc.md` → update review file → `e1_resolved_issues +1`
-6. Write `e1_status: complete`, update `resolved_issues`
-
-Never batch fixes. Fix one issue, write files, then proceed.
-
-**Rule E4 — Completion**
-
-After E3 complete:
-1. Assess overall `fix_severity` (critical / medium / minor) and write `fix_severity_reason`
-2. Write `evaluate-state.md` with `current_dimension: done`, `fix_severity` filled in
-3. Write `workflow-state.md` → `current_state: ReadyForDelivery` (hook will validate)
-
-**Rule E5 — Issue presentation**
-
-Present each issue to the user via AskQuestion, one at a time:
-- Option A: Confirm, fix the issue
-- Option B: Ignore, no impact on delivery
-
-**Rule E6 — Abandon evaluation**
-
-User must explicitly request; if ambiguous, use AskQuestion. Steps are order-strict:
-
-1. **Write** `evaluate-state.md`: set `current_dimension: abandoned`, preserve all other fields.
-2. **Write** `workflow-state.md`: `current_state: Drafting`, `evaluate_round: M` (unchanged, next Evaluating entry increments to M+1), `skip_evaluate_requested: false`; preserve `mode`, `product_ref`, `carry_forward_ref`.
-
-Hook validates `current_dimension: abandoned` before allowing the transition. `evaluate{M}/` and review files are retained as history.
+<HARD-GATE>
+Read `./eval-rules.md` before executing any evaluation step. Follow its instructions exactly.
+</HARD-GATE>
 
 ### ReadyForDelivery Rules
 
@@ -506,67 +440,7 @@ Before presenting next stages to the user, read `../_transitions.md` and follow 
 
 ## Session File Formats
 
-### revision{N}/workflow-state.md
-
-```markdown
----
-version: 1
-workflow: tech-doc
-mode: product
-current_state: Drafting
-evaluate_round: 0
-skip_evaluate_requested: false
-product_ref: /abs/path/$CACHE_DIR/<cycle_id>/product/plan/revision1/product-doc.md
-carry_forward_ref: ""
-updated_at: 2026-05-17T09:00:00+08:00
----
-```
-
-> `mode`: set by `start.py`; preserve on every manual write of `workflow-state.md`.
-> `skip_evaluate_requested: true`: only for `Drafting → ReadyForDelivery`; omit when writing `Delivered`.
-
-### revision{N}/evaluate-state.md
-
-```markdown
----
-version: 1
-phase: evaluate
-current_dimension: e1
-
-e1_status: pending
-e1_total_issues: 0
-e1_resolved_issues: 0
-
-e2_status: pending
-e2_total_issues: 0
-e2_resolved_issues: 0
-
-e3_status: pending
-e3_total_issues: 0
-e3_resolved_issues: 0
-
-total_issues: 0
-resolved_issues: 0
-
-fix_severity: ""
-fix_severity_reason: ""
----
-```
-
-### evaluate{M}/tech-review-e{M}N.md
-
-Each review file shares the same structure; column set varies by dimension:
-
-```markdown
-# {E1|E2|E3} Review: {Intent Alignment|Codebase Consistency|Solution Quality} — revision{N} round {M}
-
-**Date:** YYYY-MM-DD
-**Refs:** [E1: product_ref + ptc_url / E2: relevant code paths / E3: tpef_url]
-
-| # | Issue | [E2: file] | [E3: dimension] | Severity | Status | Decision |
-|---|-------|-----------|-----------------|----------|--------|---------|
-| {E1|E2|E3}-1 | ... | ... | critical/medium/minor | ✅ Fixed | fix |
-```
+Reference: `./formats.md` — read on demand when writing any session file.
 
 ---
 
