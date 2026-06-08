@@ -33,37 +33,16 @@ description: >-
 | `$DECISION_DOC_PATH` | Absolute path to the current cycle `decision-doc.md` |
 
 Self-resolved at runtime:
+- `$META_PATH` — read `$WORKFLOW_DIR/workflow-config.json` → `tech-plan.tpt_meta_url`; fetch that URL to get `## Section Conditions`
 - `$TECH_DOC_PATH` = `{REVISION_DIR}/tech-doc.md`
 - `$SECTION_PROGRESS_PATH` = `{REVISION_DIR}/section-progress.md`
 - `$DRAFTING_PROGRESS_PATH` = `{REVISION_DIR}/drafting-progress.md`
 
 ## Authoritative References
 
-✅ Verified: The Section Conditions below are embedded and must be treated as the execution source of truth for conditional-section evaluation. The Section Status Symbols are loaded at runtime from the templates directory.
+### Section Conditions
 
-### Embedded Section Conditions
-
-✅ Verified source: `.cache/20-tech-plan-spec-meta.md` → `## Section Conditions`
-
-```markdown
-> Required sections (always included): §1.1, §1.2, §2, §3, §4.1-4.4, §5, §6, §8.1-§8.2, §9.1, §9.2, §10
->
-> Conditional sections - scoping-runner evaluates each trigger and marks non-applicable sections `N/A-s` or `N/A-c`.
-> `Trigger Type`: `structural` = keyword match on `**Intent:**` line; `content` = read the specified decision-doc section body.
-> `Evidence Source`: exact decision-doc field scoping-runner must locate to find denying evidence.
->
-> | Section | Trigger | Trigger Type | Evidence Source |
-> |---|---|---|---|
-> | §1.3 Current State Analysis | contains keyword "bugfix" or "refactor" in `**Intent:**` | structural | `**Intent:**` line |
-> | §4.5 Interface Contract | change introduces or modifies interfaces | content | `### Impact Surface` (Change Type column) + `### Implementation Sketch > Key changes` |
-> | §4.6 Detailed Design | module-level elaboration needed beyond §4.1 sketch | content | `### Implementation Sketch > Key changes` |
-> | §7.1 Observable | change has a runtime observability surface | content | `### Impact Surface` (Layer column: runtime / infra) |
-> | §7.2 Gradual Rollout | change can be released to subset of users/traffic | content | `## Scope > Applies to` + `### Implementation Sketch` |
-> | §7.3 Operable | change requires post-deployment operational management | content | `### Impact Surface` + `### Implementation Sketch > Critical constraints` |
-> | §8.3 Pre-Implementation Checklist | §2.5 has open assumptions or S0 prerequisite items | content | `## Assumptions & Risks` (rows with `[待验证]` status) |
-> | §9.3 Data Repair | change involves data migration or orphaned records | content | `### Implementation Sketch > Key changes` |
-> | §9.4 Open Questions | unresolved questions requiring human decision | content | `## Assumptions & Risks` (rows flagged H-risk `[待验证]`) |
-```
+Self-read at Step S1: `$WORKFLOW_DIR/workflow-config.json` → `tech-plan.tpt_meta_url`; fetch that URL and read `## Section Conditions` table. This is the execution source of truth — do not use any embedded snapshot.
 
 ### Section Status Symbols
 
@@ -89,7 +68,7 @@ Load this file at runtime and read the `section_symbols` object for the authorit
 
 ✅ Verified:
 
-1. Load the embedded `Section Conditions` table and extract all conditional sections.
+1. Read `$WORKFLOW_DIR/workflow-config.json` → `tech-plan.tpt_meta_url`; fetch that URL; read `## Section Conditions` table and extract all conditional sections.
 2. Partition the rows by `Trigger Type`:
    - `structural_list`: all rows where `Trigger Type = structural`
    - `content_list`: all rows where `Trigger Type = content`
