@@ -99,8 +99,6 @@ Then dispatch Step 1 → Step 2 in order.
 
 #### Step 1 — Initializing
 
-Only runs on first Drafting entry (`evaluate_round == 0`).
-
 Entry condition: `drafting-progress.md: current_step: Ready` (or file absent).
 Exit condition: subagent writes `drafting-progress.md: current_step: Scoping`.
 
@@ -119,8 +117,6 @@ CYCLE_ID:             {cycle_id}
 Await completion (`$SUBAGENT_AWAIT_SYNC`); verify `drafting-progress.md: current_step: Scoping`.
 
 #### Step 2 — Scoping
-
-Only runs on first Drafting entry (`evaluate_round == 0`).
 
 Entry condition: `drafting-progress.md: current_step: Scoping`.
 Exit condition: subagent writes `drafting-progress.md: current_step: InDialogue`.
@@ -144,13 +140,13 @@ Entry paths:
 - after Reopen
 - after `Extending` or `SkipConfirming` routes back
 - after `Checking` reports unresolved sections
-- after Rule D2 re-entry calibration (`evaluate_round > 0`)
+- after Step 0 entry (`evaluate_round > 0`)
 
 Write `drafting-progress.md: current_step: InDialogue` on every parent-managed entry into this step.
 
 **Resume Detection** (run once on each `InDialogue` entry)
 
-1. Read `section-progress.md` → `sections`, `reopen_reasons`; read `drafting-progress.md` → `current_step`.
+1. Read `section-progress.md` → `sections`, `reopen_reasons`.
 2. If there are existing `V`, `N/A-s`, `N/A-c`, or `S` sections, present a resume summary and state which section resumes next.
 3. If any `D` sections remain:
    - if the section also appears in `reopen_reasons`, rewrite that section to `I`
@@ -212,11 +208,7 @@ Stop rule: once all required sub-items are filled, move to explicit draft confir
 
 **Reopen detection** — passive checkpoint
 
-- do not proactively scan old `V` sections for consistency conflicts
-- do not proactively ask whether a prior section should be reopened
-- only react when the user explicitly includes a Reopen signal in the current or next reply
-
-If the confirmation message itself includes a Reopen signal, process it immediately. Otherwise continue normally unless the user's next message includes a Reopen signal.
+Only react when the user explicitly includes a Reopen signal. If the confirmation message itself includes one, process it immediately.
 
 **Reopen trigger** (user-driven only)
 
@@ -233,8 +225,7 @@ When a valid Reopen targets an earlier section `§N`:
    - between `§N+1` and the current section, rewrite any `V` or `D` section to `!`
    - after the current section, rewrite any `V` section to `!`
    - write each downstream `reopen_reasons[§M] = "reopened: §N — <§N section title>"`
-3. Keep sections before `§N` unchanged.
-4. Re-enter **Select Section**; `§N` re-enters through `I`-mode and downstream `!` sections are handled in order afterward.
+3. Re-enter **Select Section**; `§N` re-enters through `I`-mode and downstream `!` sections are handled in order afterward.
 
 Special case — Reopen the current `D` section itself:
 
@@ -243,8 +234,6 @@ Special case — Reopen the current `D` section itself:
 3. Clear the current section body in `tech-doc.md`.
 4. Do not propagate `!` to later sections.
 5. Re-enter **Select Section** and rebuild the same section in `X`-mode.
-
-This self-reopen path does not write `reopen_reasons` and does not change any other section state.
 
 Reopen while outside `InDialogue`:
 
@@ -260,8 +249,6 @@ Exit condition:
 - then write `drafting-progress.md: current_step: Extending`
 
 #### Step 4 — Extending
-
-Role: user-driven optional custom sections after all standard sections are resolved.
 
 1. Prompt: standard sections are complete; the user may add a custom section or reply `完成`.
 2. Loop:
@@ -287,13 +274,11 @@ Per section:
 - restore section → clear `na_evidence[§N]`, remove that section's leading N/A banner from `tech-doc.md`, and rewrite `sections[§N]: X`
 
 Batch boundary rule:
-- handle each N/A section immediately as `show → user choice → write state → next section`
 - do not jump back to `InDialogue` mid-batch
 - only after all current `N/A-s` / `N/A-c` sections are processed, if any were restored to `X`, rewrite `drafting-progress.md: current_step: InDialogue` once and re-enter `InDialogue` for the full batch of restored sections
 
 Exit condition:
 - every original `N/A-s` / `N/A-c` section is now either `S` or `X`
-- no original N/A section remains unprocessed
 - if none were restored to `X`, write `drafting-progress.md: current_step: Checking`
 
 #### Step 6 — Checking
