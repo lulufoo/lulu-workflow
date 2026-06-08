@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "states": [
+    "Ready",
+    "Initializing",
+    "Scoping",
+    "InDialogue",
+    "Extending",
+    "SkipConfirming",
+    "Checking"
+  ],
+  "initial_step": "Ready",
+  "exit_to": "Evaluating",
+  "persisted_in": "drafting-progress.md → current_step",
+  "transitions": [
+    { "from": "Ready",          "to": "Initializing",   "trigger": "Rule D0: initializing-runner dispatched",              "writer": "parent SKILL" },
+    { "from": "Initializing",   "to": "Scoping",        "trigger": "initializing-runner complete (Step I4)",               "writer": "initializing-runner" },
+    { "from": "Scoping",        "to": "InDialogue",     "trigger": "scoping-runner complete (Step S4)",                    "writer": "scoping-runner" },
+    { "from": "InDialogue",     "to": "Extending",      "trigger": "all §1–§10 sections V / N/A-s / N/A-c",               "writer": "parent SKILL" },
+    { "from": "InDialogue",     "to": "InDialogue",     "trigger": "user Reopen signal",                                   "writer": "parent SKILL" },
+    { "from": "Extending",      "to": "Extending",      "trigger": "user adds §Cx",                                        "writer": "parent SKILL" },
+    { "from": "Extending",      "to": "InDialogue",     "trigger": "user Reopen signal",                                   "writer": "parent SKILL" },
+    { "from": "Extending",      "to": "SkipConfirming", "trigger": "user replies 完成",                                    "writer": "parent SKILL" },
+    { "from": "SkipConfirming", "to": "InDialogue",     "trigger": "user Reopen signal",                                   "writer": "parent SKILL" },
+    { "from": "SkipConfirming", "to": "Checking",       "trigger": "all N/A sections processed (each → S or X)",          "writer": "parent SKILL" },
+    { "from": "Checking",       "to": "InDialogue",     "trigger": "check fail: residual X / I",                          "writer": "parent SKILL" },
+    { "from": "Checking",       "to": "InDialogue",     "trigger": "user Reopen signal",                                   "writer": "parent SKILL" },
+    { "from": "Checking",       "to": "SkipConfirming", "trigger": "check fail: residual N/A-s / N/A-c",                  "writer": "parent SKILL" },
+    { "from": "Checking",       "to": "Evaluating",     "trigger": "check pass",                                           "writer": "parent SKILL (writes workflow-state.md)" }
+  ],
+  "section_symbols": {
+    "X":     "Pending — skeleton placeholder; InDialogue X-mode (build from scratch)",
+    "I":     "Initialized — seeded from decision-doc or retained on Reopen; InDialogue I-mode (display & confirm)",
+    "N/A-s": "Not Applicable (structural) — excluded by change type",
+    "N/A-c": "Not Applicable (content) — condition not triggered per decision-doc",
+    "D":     "In Dialogue — section currently being processed (only one D at a time)",
+    "V":     "Confirmed — user explicitly confirmed; content locked",
+    "!":     "Expired — upstream Reopen invalidated; requires re-review",
+    "S":     "Skipped — user explicitly confirmed exclusion (N/A-s / N/A-c → S)"
+  }
+}

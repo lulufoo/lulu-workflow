@@ -35,11 +35,9 @@ description: >-
 | `$SECTION_PROGRESS_PATH` | Absolute path to `revision{N}/section-progress.md` |
 | `$DRAFTING_PROGRESS_PATH` | Absolute path to `revision{N}/drafting-progress.md` |
 
-✅ Verified: This sub-skill does not fetch conditional rules from a runtime path. The authoritative inputs needed from the meta/state files are embedded below and must be treated as the execution source of truth.
+## Authoritative References
 
-## Embedded Authoritative References
-
-✅ Verified: Use these embedded references exactly as the read model. Do not load separate local meta/state files at runtime for these rules.
+✅ Verified: The Section Conditions below are embedded and must be treated as the execution source of truth for conditional-section evaluation. The Section Status Symbols are loaded at runtime from the templates directory.
 
 ### Embedded Section Conditions
 
@@ -65,22 +63,11 @@ description: >-
 > | §9.4 Open Questions | unresolved questions requiring human decision | content | `## Assumptions & Risks` (rows flagged H-risk `[待验证]`) |
 ```
 
-### Embedded Section Status Symbols
+### Section Status Symbols
 
-✅ Verified source: `.cache/drafting-state-machine.json` → `section_symbols`
+✅ Verified source: `$SKILL_ROOT/tech-plan/templates/drafting-state-machine.json` → `section_symbols`
 
-```json
-{
-  "X": "Pending - skeleton placeholder; InDialogue X-mode (build from scratch)",
-  "I": "Initialized - seeded from decision-doc or retained on Reopen; InDialogue I-mode (display & confirm)",
-  "N/A-s": "Not Applicable (structural) - excluded by change type",
-  "N/A-c": "Not Applicable (content) - condition not triggered per decision-doc",
-  "D": "In Dialogue - section currently being processed (only one D at a time)",
-  "V": "Confirmed - user explicitly confirmed; content locked",
-  "!": "Expired - upstream Reopen invalidated; requires re-review",
-  "S": "Skipped - user explicitly confirmed exclusion (N/A-s / N/A-c -> S)"
-}
-```
+Load this file at runtime and read the `section_symbols` object for the authoritative symbol definitions.
 
 ## Hard Constraint: Verifiable N/A Determination
 
