@@ -54,7 +54,7 @@ Load this template file from the skill repository at runtime. Do not embed its c
 
 ### Step I1 - Load mapping table and template skeleton
 
-1. Fetch and read the raw markdown at `$META_PATH`.
+1. Fetch and read the raw markdown at `$META_PATH`, via `gh api repos/{owner}/{repo}/contents/{path}?ref={ref}`.
 2. Locate the `## Decision-Doc Mapping` table.
 3. Parse the mapping rows into:
 
@@ -65,7 +65,7 @@ Load this template file from the skill repository at runtime. Do not embed its c
 ```
 
 4. Skip rows where `target` is `—`.
-5. Fetch and read the raw markdown at `$TEMPLATE_PATH`.
+5. Fetch and read the raw markdown at `$TEMPLATE_PATH`, via `gh api repos/{owner}/{repo}/contents/{path}?ref={ref}`.
 6. Parse the template into an ordered section map keyed by tech-doc section id:
    - top-level: `§1` ... `§10`
    - sub-sections where present: `§2.1`, `§2.2`, `§3.1`, etc.
