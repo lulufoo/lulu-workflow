@@ -206,42 +206,17 @@ Stop rule: once all required sub-items are filled, move to explicit draft confir
 - write the section content only once, immediately before setting `V`
 - do not write intermediate dialogue states into `tech-doc.md`
 
-**Reopen detection** — passive checkpoint
+**Reopen**
 
-Only react when the user explicitly includes a Reopen signal. If the confirmation message itself includes one, process it immediately.
+Only react when the user signals intent to revise a section.
 
-**Reopen trigger** (user-driven only)
-
-Signal handling:
-- explicit section id (`Reopen §3`, `§3 needs changes`) → trigger directly
-- uniquely identifiable earlier section by description → restate the target section, then trigger after user confirmation
-- vague earlier-section concern → ask which section should be reopened
-- user-reported section conflict → restate the conflict and ask whether to reopen the earlier section; only trigger after explicit confirmation
-
-When a valid Reopen targets an earlier section `§N`:
-
-1. Write `sections[§N]: I` and record `reopen_reasons[§N] = <user reason>`.
-2. Rewrite downstream confirmed sections to `!`:
-   - between `§N+1` and the current section, rewrite any `V` or `D` section to `!`
-   - after the current section, rewrite any `V` section to `!`
-   - write each downstream `reopen_reasons[§M] = "reopened: §N — <§N section title>"`
-3. Re-enter **Select Section**; `§N` re-enters through `I`-mode and downstream `!` sections are handled in order afterward.
-
-Special case — Reopen the current `D` section itself:
-
-1. Clear the current working buffer.
-2. Rewrite `sections[§N]: X`.
-3. Clear the current section body in `tech-doc.md`.
-4. Do not propagate `!` to later sections.
-5. Re-enter **Select Section** and rebuild the same section in `X`-mode.
-
-Reopen while outside `InDialogue`:
-
-| Current step | Action |
-|-------------|--------|
-| `Extending` | Rewrite `drafting-progress.md: current_step: InDialogue`; discard any not-yet-registered custom section in the current round; then process Reopen. |
-| `SkipConfirming` | Rewrite `drafting-progress.md: current_step: InDialogue`; restore the current unconfirmed `N/A-s` / `N/A-c` section to its pre-`S` state; then process Reopen. |
-| `Checking` | Rewrite `drafting-progress.md: current_step: InDialogue`; discard the current checking result; then process Reopen. |
+1. Identify the target section; if unclear, ask the user to specify.
+2. Confirm with the user before proceeding.
+3. On confirmation:
+   - Rewrite `sections[§N]: I`; record `reopen_reasons[§N] = <user reason>`.
+   - Rewrite all downstream `V` sections to `!`; record `reopen_reasons[§M] = "reopened: §N — <title>"`.
+   - If currently outside `InDialogue`, return to `InDialogue` first.
+   - Re-enter **Select Section**.
 
 Exit condition:
 - all standard sections and any registered custom sections are in `V`, `N/A-s`, or `N/A-c`
