@@ -68,14 +68,11 @@ Load `./transition-whitelist.json` — check `allowed_transitions` for valid tra
 
 ### General
 
-1. Read `$WORKFLOW_DIR/workflow-config.json` → `tech-plan` section before driving the workflow.
-2. Read `session-state.md` → `active_doc: N` to determine current document round.
-3. `revision{N}/workflow-state.md` is the authoritative current state — write it to request a transition.
-4. Never infer state from document body or file existence; always read `workflow-state.md`.
-5. Use full `Write` (not `Edit`) for `workflow-state.md` and `evaluate-state.md`.
-6. This workflow runs in Agent mode. Writes outside `$CACHE_DIR/`
-   are blocked by the path guard hook while a session is active.
-7. Confirm `decision-doc.md` path from the diagnostic prerequisite before entering any workflow state.
+1. Read `session-state.md` → `active_doc: N` to determine current document round.
+2. Read `$WORKFLOW_DIR/workflow-config.json` → `tech-plan` section before driving the workflow.
+3. `workflow-state.md` is the authoritative state — always read it; never infer state from document body or file existence; write it to request a transition.
+4. Use full `Write` (not `Edit`) for `workflow-state.md` and `evaluate-state.md`.
+5. Path guard blocks writes outside `$CACHE_DIR/` while a session is active.
 
 ### Drafting Rules
 
