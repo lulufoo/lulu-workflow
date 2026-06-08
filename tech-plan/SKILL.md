@@ -39,16 +39,7 @@ Do NOT proceed until you have read `../_runtime.md` and loaded:
 
 > Ambiguity signals: no footer in conversation · user mentions a different feature · user says "switch" / "new" / "choose"
 
-**Phase 2: Determine run-mode**
-
-| Condition | run-mode | `--product-ref` |
-|-----------|----------|-----------------|
-| `product-doc.md` path present in conversation | `product` | that path |
-| no path provided | `tech` | omit |
-
-Path must be user-provided; do not auto-detect from filesystem.
-
-**Phase 3: Run start**
+**Phase 2: Run start**
 
 ```bash
 python3 "$SKILL_DIR/scripts/start.py" \
@@ -61,6 +52,7 @@ python3 "$SKILL_DIR/scripts/start.py" \
 
 `--carry-forward-ref` is optional in both modes. Provide it when re-entering
 tech flow to use a previous tech-doc as the draft starting point.
+`--run-mode`: use `product` if a `product-doc.md` path was provided (user-supplied, do not auto-detect), otherwise `tech`.
 > If start.py exits non-zero ("Gate blocked: <stage> is not Delivered"): tell the user which prior stage must be delivered first. Do not retry start.
 
 ---
