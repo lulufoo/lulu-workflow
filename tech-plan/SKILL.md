@@ -78,24 +78,24 @@ Load `./transition-whitelist.json` — check `allowed_transitions` for valid tra
 
 #### Drafting Sub-State Machine
 
-Substep states are managed in `drafting-progress.md` (`Ready → Scoping → InDialogue → Extending → SkipConfirming → Checking`); do not expand `workflow-state.md` states. Reopen can revert to a prior substep.
+1. Substep states: `Ready → Scoping → InDialogue → Extending → SkipConfirming → Checking`
+2. Substep state is recorded in `drafting-progress.md`.
+3. Reopen can revert to a prior substep.
 
 #### Step 0 — Entry
 
 Read `workflow-state.md` → `evaluate_round`, `mode`, `carry_forward_ref`.
 
-If `evaluate_round == 0`: resolve drafting inputs from `workflow-config.json` (feature → `tpt_url`; topic → `shaping_tpt_url`; shared meta → `tpt_meta_url`), then dispatch Step 1 → Step 2 in order.
+**If `evaluate_round > 0`:** read `evaluate-state.md` → `fix_severity`, `fix_severity_reason`; present to the user:
 
-**Rule D1 — Calibration routing (`evaluate_round > 0`)**: read `evaluate-state.md` → `fix_severity` and `fix_severity_reason`; present to user and route per Rule D2.
+> "上轮评估结果：[fix_severity] — [fix_severity_reason]。本轮将从头重新起草。"
 
-**Rule D2 — Re-entry calibration (evaluate_round > 0)**
+Resolve drafting inputs from `workflow-config.json`:
+- feature → `tpt_url`
+- topic → `shaping_tpt_url`
+- shared meta → `tpt_meta_url`
 
-Show the user: `"Fix severity this round: [fix_severity] — [fix_severity_reason]. Recalibrate?"`
-
-| User choice | Action |
-|-------------|--------|
-| Yes | Read `ac_url` + `tpt_url` (feature) or `shaping_tpt_url` (topic) + product-doc relevant sections (if E1 issues last round) + code files (if E2 issues last round) |
-| Skip | Proceed directly to writing |
+Then dispatch Step 1 → Step 2 in order.
 
 #### Step 1 — Initializing
 
