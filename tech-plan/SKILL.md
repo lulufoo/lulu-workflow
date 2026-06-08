@@ -35,11 +35,11 @@ Do NOT proceed until you have read `../_runtime.md` and loaded:
 
 > Prerequisite: `init` has been run.
 
-**Step 1: Identify active cycle** — See `## Session Foundation` in `../_runtime.md`
+**Phase 1: Identify active cycle** — See `## Session Foundation` in `../_runtime.md`
 
 > Ambiguity signals: no footer in conversation · user mentions a different feature · user says "switch" / "new" / "choose"
 
-**Step 2: Determine run-mode**
+**Phase 2: Determine run-mode**
 
 If the user has not provided a `product-doc.md` path, ask:
 
@@ -52,7 +52,7 @@ If the user has not provided a `product-doc.md` path, ask:
 
 Do not infer or auto-detect the path.
 
-**Step 3: Run start**
+**Phase 3: Run start**
 
 ```bash
 python3 "$SKILL_DIR/scripts/start.py" \
@@ -122,6 +122,20 @@ Skipping evaluation does **not** skip delivery confirmation: all paths still use
 
 ### Drafting Rules
 
+#### Drafting Flow Overview
+
+| Step | Content | Rule |
+|------|---------|------|
+| Step 0 | Read `decision-doc.md`, confirm `mode`, and resolve drafting source inputs | Rule D0 pre-entry |
+| Step 1 | `initializing-runner`: seed the initial draft and write progress files | Rule D0 |
+| Step 2 | `scoping-runner`: apply N/A decisions and advance to `InDialogue` | Rule D0 |
+| Step 3 | Per-section dialogue: `D → X/I/! mode → V`, with user-driven Reopen | Parent skill |
+| Step 4 | `Extending`: optional custom sections after all standard sections resolved | Parent skill |
+| Step 5 | `SkipConfirming`: confirm or restore every `N/A-s` / `N/A-c` section | Parent skill |
+| Step 6 | Completeness and consistency checks, then enter `Evaluating` | Parent skill |
+
+#### Entry Logic
+
 **Rule D0 — Drafting entry (first time, `evaluate_round == 0`)**
 
 Read `workflow-state.md` → `evaluate_round`, `mode`, `carry_forward_ref`; confirm the current cycle `decision-doc.md` path from the diagnostic prerequisite; read `## Session Foundation` in `../_runtime.md` to resolve `cycle_type`. Keep all Drafting substeps inside the existing top-level workflow state model: `workflow-state.md` stays at `current_state: Drafting` while `drafting-progress.md` carries `Ready → Scoping → InDialogue → Extending → SkipConfirming → Checking`. Do not expand workflow states or the hook transition contract for these substeps.
@@ -183,17 +197,6 @@ DRAFTING_PROGRESS_PATH: {absolute path to revision{N}/drafting-progress.md}
    - remaining unresolved top-level section count
 5. Enter Step 3 `InDialogue` and run Resume Detection before selecting the next section.
 
-#### Drafting Flow Reference
-
-| Step | Content | Rule |
-|------|---------|------|
-| Step 0 | Read `decision-doc.md`, confirm `mode`, and resolve drafting source inputs | Rule D0 pre-entry |
-| Step 1 | `initializing-runner`: seed the initial draft and write progress files | Rule D0 |
-| Step 2 | `scoping-runner`: apply N/A decisions and advance to `InDialogue` | Rule D0 |
-| Step 3 | Per-section dialogue: `D → X/I/! mode → V`, with user-driven Reopen | Parent skill |
-| Step 4 | Optional `Extending`, then `SkipConfirming` for every `N/A-s` / `N/A-c` section | Parent skill |
-| Step 5 | Completeness and consistency checks, then enter `Evaluating` | Parent skill |
-
 **Rule D1 — Calibration routing on entry (`evaluate_round > 0`)**
 
 Read `workflow-state.md` → `evaluate_round`. Only when `evaluate_round > 0`, present `fix_severity` from `evaluate-state.md` and route per Rule D2.
@@ -210,6 +213,20 @@ Show the user: `"Fix severity this round: [fix_severity] — [fix_severity_reaso
 |-------------|--------|
 | Yes | Read `ac_url` + `tpt_url` (feature) or `shaping_tpt_url` (topic) + product-doc relevant sections (if E1 issues last round) + code files (if E2 issues last round) |
 | Skip | Proceed directly to writing |
+
+#### Step 1 — Initializing
+
+Dispatched as a subagent → see `initializing-runner/SKILL.md`.
+
+Entry condition: `drafting-progress.md: current_step: Ready` (or file absent).
+Exit condition: subagent writes `drafting-progress.md: current_step: Scoping`.
+
+#### Step 2 — Scoping
+
+Dispatched as a subagent → see `scoping-runner/SKILL.md`.
+
+Entry condition: `drafting-progress.md: current_step: Scoping`.
+Exit condition: subagent writes `drafting-progress.md: current_step: InDialogue`.
 
 #### Step 3 — InDialogue
 
@@ -333,13 +350,13 @@ Exit condition:
 - no section remains in `I`, `X`, `D`, or `!`
 - then write `drafting-progress.md: current_step: Extending`
 
-#### Step 4A — Extending
+#### Step 4 — Extending
 
 Role: user-driven optional custom sections after all standard sections are resolved.
 
 1. Prompt: standard sections are complete; the user may add a custom section or reply `完成`.
 2. Loop:
-   - `完成` → exit `Extending`, write `drafting-progress.md: current_step: SkipConfirming`, and continue to Step 4B
+   - `完成` → exit `Extending`, write `drafting-progress.md: current_step: SkipConfirming`, and continue to Step 5
    - custom section request with title + content structure:
      1. append the new section at the end of `tech-doc.md`
      2. register the new top-level custom section id as `§Cx: V` in `section-progress.md`
@@ -348,7 +365,7 @@ Role: user-driven optional custom sections after all standard sections are resol
 
 Custom sections have no template constraint: preserve the user-provided structure, formatting, and depth rather than forcing the standard template shape.
 
-#### Step 4B — SkipConfirming
+#### Step 5 — SkipConfirming
 
 Process every section currently marked `N/A-s` or `N/A-c`, one section at a time:
 
@@ -370,7 +387,7 @@ Exit condition:
 - no original N/A section remains unprocessed
 - if none were restored to `X`, write `drafting-progress.md: current_step: Checking`
 
-#### Step 5 — Checking
+#### Step 6 — Checking
 
 Write `drafting-progress.md: current_step: Checking` on entry and verify:
 
@@ -390,6 +407,8 @@ If any check fails, list every failing section or consistency mismatch and route
 - remaining `I` / `X` / `!` → write `drafting-progress.md: current_step: InDialogue`
 - remaining `N/A-s` / `N/A-c` → write `drafting-progress.md: current_step: SkipConfirming`
 - consistency mismatch only → write `drafting-progress.md: current_step: InDialogue` and let the user choose which section to revise
+
+#### Drafting Constraints
 
 **Rule D3 — Code reads during drafting**
 
@@ -570,7 +589,7 @@ Read `$EXECUTION_MODE` from Session Foundation (set by parent `../_runtime.md`).
 
 | Rule | Autonomous Behavior |
 |------|-----------------------|
-| `start` Step 2 — run-mode detection | Auto-detect: if triggering message or session context includes a product-doc path → `product` mode; otherwise → `tech` mode. Do **not** ask. |
+| `start` Phase 2 — run-mode detection | Auto-detect: if triggering message or session context includes a product-doc path → `product` mode; otherwise → `tech` mode. Do **not** ask. |
 | Drafting Rule D2 — recalibrate on re-entry | Default Yes. Do **not** ask. |
 | Drafting Rule D5 — skip evaluate to ReadyForDelivery | Default: proceed to Evaluating directly. Do **not** ask. User may explicitly request skip (e.g. "skip evaluation") to override. |
 | Evaluating Rule E3 — per-issue AskQuestion | Default: Option A (Fix). Apply fix without asking. |
