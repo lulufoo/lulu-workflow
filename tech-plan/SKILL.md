@@ -17,6 +17,7 @@ Drive a tech document workflow with explicit per-session state files and a hook
 that gates state transitions.
 
 **Scope:** Tech document workflow only. Supports two run-modes: `product` (product-doc driven) and `tech` (pure tech, no product-doc).
+
 <HARD-GATE>
 Do NOT proceed until you have read `../_runtime.md` and loaded:
 
@@ -29,7 +30,6 @@ Do NOT proceed until you have read `../_runtime.md` and loaded:
 **This workflow runs in Agent mode with path guard.**
 
 ## Commands
-
 
 ### `start` — Session-level, run before each tech document
 
@@ -51,10 +51,12 @@ python3 "$SKILL_DIR/scripts/start.py" \
 ```
 
 - `--carry-forward-ref` is optional in both modes. Provide it when re-entering
-tech flow to use a previous tech-doc as the draft starting point.
+  tech flow to use a previous tech-doc as the draft starting point.
 - `--run-mode`: use `product` if a `product-doc.md` path was provided (user-supplied, do not auto-detect), otherwise `tech`.
 
 > If start.py exits non-zero ("Gate blocked: <stage> is not Delivered"): tell the user which prior stage must be delivered first. Do not retry start.
+
+---
 
 ## product → tech handoff
 
@@ -108,6 +110,7 @@ Read `workflow-state.md` → `evaluate_round`, `mode`, `carry_forward_ref`.
 > "上轮评估结果：[fix_severity] — [fix_severity_reason]。本轮将从头重新起草。"
 
 Resolve drafting inputs from `workflow-config.json`:
+
 - feature → `tpt_url`
 - topic → `shaping_tpt_url`
 - shared meta → `tpt_meta_url`
@@ -153,6 +156,7 @@ Await completion (`$SUBAGENT_AWAIT_SYNC`); verify `drafting-progress.md: current
 #### Step 3 — InDialogue
 
 Entry paths:
+
 - after Step 2 — Scoping completes
 - after Reopen
 - after `Extending` or `SkipConfirming` routes back
@@ -178,6 +182,7 @@ Write `drafting-progress.md: current_step: InDialogue` on every parent-managed e
 - retain the pre-`D` status as the section's original mode discriminator
 
 `§2` special case:
+
 - for `§2` (Decision Anchors), showing the existing seeded content counts as pass-through confirmation
 - if the user accepts it unchanged, write `V` directly
 - if the user requests edits, switch to `I`-mode for that section
@@ -219,6 +224,7 @@ Stop rule: once all required sub-items are filled, move to explicit draft confir
 4. Return to **Select Section**.
 
 `tech-doc.md` write discipline:
+
 - write the section content only once, immediately before setting `V`
 - do not write intermediate dialogue states into `tech-doc.md`
 
@@ -257,14 +263,17 @@ Process every section currently marked `N/A-s` or `N/A-c`, one section at a time
 3. Ask whether the user confirms the skip or wants to fill the section after all.
 
 Per section:
+
 - confirm skip → rewrite `sections[§N]: S`
 - restore section → clear `na_evidence[§N]`, remove that section's leading N/A banner from `tech-doc.md`, and rewrite `sections[§N]: X`
 
 Batch boundary rule:
+
 - do not jump back to `InDialogue` mid-batch
 - only after all current `N/A-s` / `N/A-c` sections are processed, if any were restored to `X`, rewrite `drafting-progress.md: current_step: InDialogue` once and re-enter `InDialogue` for the full batch of restored sections
 
 Exit condition:
+
 - every original `N/A-s` / `N/A-c` section is now either `S` or `X`
 - if none were restored to `X`, write `drafting-progress.md: current_step: Checking`
 
@@ -273,7 +282,7 @@ Exit condition:
 Write `drafting-progress.md: current_step: Checking` on entry and verify:
 
 | Check | Pass condition |
-|------|----------------|
+|-------|----------------|
 | Required standard sections | all required sections are `V` |
 | Conditional standard sections | each conditional section is `V` or `S`; none remain `I`, `X`, `N/A-s`, or `N/A-c` |
 | Custom sections (`§Cx`) | all registered custom sections are `V` |
@@ -285,6 +294,7 @@ If all checks pass:
 2. Write `workflow-state.md` → `current_state: Evaluating`.
 
 If any check fails, list every failing section or consistency mismatch and route by failure type:
+
 - remaining `I` / `X` / `!` → write `drafting-progress.md: current_step: InDialogue`
 - remaining `N/A-s` / `N/A-c` → write `drafting-progress.md: current_step: SkipConfirming`
 - consistency mismatch only → write `drafting-progress.md: current_step: InDialogue` and let the user choose which section to revise
@@ -305,6 +315,7 @@ Before starting evaluation, ask the user:
 **Rule R1 — Delivery confirmation**
 
 After hook allows entry to ReadyForDelivery:
+
 1. Present final `revision{N}/tech-doc.md` to user
 2. Wait for explicit delivery confirmation
 3. Write `revision{N}/human-delivery-gate.md`
@@ -315,5 +326,3 @@ Before presenting next stages to the user, read `../_transitions.md` and follow 
 </DELIVERY-GATE>
 
 ---
-
-
