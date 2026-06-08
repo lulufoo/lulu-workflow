@@ -44,11 +44,10 @@ Self-resolved at runtime (do not pass from parent):
 
 ## Progress Templates
 
-Load these template files from the skill repository at runtime. Do not embed their content inline.
+Load this template file from the skill repository at runtime. Do not embed its content inline.
 
 | Template file | Output file |
 |---|---|
-| `$SKILL_ROOT/tech-plan/templates/drafting-progress.template.md` | `$DRAFTING_PROGRESS_PATH` |
 | `$SKILL_ROOT/tech-plan/templates/section-progress.template.md` | `$SECTION_PROGRESS_PATH` |
 
 ## Execution Contract
@@ -169,12 +168,15 @@ Do not populate `na_evidence` or `reopen_reasons` here.
 
 #### 3. Write `$DRAFTING_PROGRESS_PATH`
 
-Load `$SKILL_ROOT/tech-plan/templates/drafting-progress.template.md` as the write template.
+Write directly:
 
-Set:
-
-- `cycle_id: $CYCLE_ID`
-- `current_step: Scoping`
+```yaml
+---
+version: 1
+cycle_id: {CYCLE_ID}
+current_step: Scoping
+---
+```
 
 ## Expected Initial Seed Set
 
