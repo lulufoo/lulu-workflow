@@ -30,15 +30,17 @@ The parent skill must inject these values before invoking this sub-skill:
 
 | Variable | Purpose |
 |---|---|
-| `$TEMPLATE_PATH` | Raw markdown source for the tech-doc template (`tpt_url`) |
-| `$META_PATH` | Raw markdown source for the tech-plan meta rules (`tpt_meta_url`) |
+| `$REVISION_DIR` | Absolute path to `revision{N}/` — output paths are derived from this |
 | `$DECISION_DOC_PATH` | Absolute path to the current cycle decision doc |
-| `$TECH_DOC_PATH` | Absolute output path for `revision{N}/tech-doc.md` |
-| `$SECTION_PROGRESS_PATH` | Absolute output path for `revision{N}/section-progress.md` |
-| `$DRAFTING_PROGRESS_PATH` | Absolute output path for `revision{N}/drafting-progress.md` |
+| `$CYCLE_TYPE` | `feature` or `topic` — selects `tpt_url` vs `shaping_tpt_url` in workflow-config.json |
 | `$CYCLE_ID` | Active cycle id |
 
-`$TEMPLATE_PATH` and `$META_PATH` are source-of-truth inputs from the parent. Treat them as remote/raw content locations, not as local repo-relative fallbacks.
+Self-resolved at runtime (do not pass from parent):
+- `$TEMPLATE_PATH` — read `$WORKFLOW_DIR/workflow-config.json` → `tech-plan.tpt_url` (feature) or `tech-plan.shaping_tpt_url` (topic)
+- `$META_PATH` — read `$WORKFLOW_DIR/workflow-config.json` → `tech-plan.tpt_meta_url`
+- `$TECH_DOC_PATH` = `{REVISION_DIR}/tech-doc.md`
+- `$SECTION_PROGRESS_PATH` = `{REVISION_DIR}/section-progress.md`
+- `$DRAFTING_PROGRESS_PATH` = `{REVISION_DIR}/drafting-progress.md`
 
 ## Progress Templates
 
