@@ -75,6 +75,7 @@ Load `./transition-whitelist.json` — check `allowed_transitions` for valid tra
 5. Use full `Write` (not `Edit`) for `workflow-state.md` and `evaluate-state.md`.
 6. This workflow runs in Agent mode. Writes outside `$CACHE_DIR/`
    are blocked by the path guard hook while a session is active.
+7. Confirm `decision-doc.md` path from the diagnostic prerequisite before entering any workflow state.
 
 ### Drafting Rules
 
@@ -84,9 +85,7 @@ Substep states are managed in `drafting-progress.md` (`Ready → Scoping → InD
 
 #### Step 0 — Entry
 
-- Read `workflow-state.md` → `evaluate_round`, `mode`, `carry_forward_ref`
-- Confirm `decision-doc.md` path from the diagnostic prerequisite
-- Read `## Session Foundation` in `../_runtime.md` → resolve `cycle_type`
+Read `workflow-state.md` → `evaluate_round`, `mode`, `carry_forward_ref`.
 
 If `evaluate_round == 0`: resolve drafting inputs from `workflow-config.json` (feature → `tpt_url`; topic → `shaping_tpt_url`; shared meta → `tpt_meta_url`), then dispatch Step 1 → Step 2 in order.
 
