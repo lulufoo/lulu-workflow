@@ -78,12 +78,15 @@ Load `./transition-whitelist.json` — check `allowed_transitions` for valid tra
 
 ### Drafting Rules
 
+#### Drafting Sub-State Machine
+
+Substep states are managed in `drafting-progress.md` (`Ready → Scoping → InDialogue → Extending → SkipConfirming → Checking`); do not expand `workflow-state.md` states. Reopen can revert to a prior substep.
+
 #### Step 0 — Entry
 
 - Read `workflow-state.md` → `evaluate_round`, `mode`, `carry_forward_ref`
 - Confirm `decision-doc.md` path from the diagnostic prerequisite
 - Read `## Session Foundation` in `../_runtime.md` → resolve `cycle_type`
-- Substep states are managed in `drafting-progress.md` (`Ready → Scoping → InDialogue → Extending → SkipConfirming → Checking`); do not expand `workflow-state.md` states.
 
 If `evaluate_round == 0`: resolve drafting inputs from `workflow-config.json` (feature → `tpt_url`; topic → `shaping_tpt_url`; shared meta → `tpt_meta_url`), then dispatch Step 1 → Step 2 in order.
 
