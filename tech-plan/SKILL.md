@@ -41,16 +41,12 @@ Do NOT proceed until you have read `../_runtime.md` and loaded:
 
 **Phase 2: Determine run-mode**
 
-If the user has not provided a `product-doc.md` path, ask:
+| Condition | run-mode | `--product-ref` |
+|-----------|----------|-----------------|
+| `product-doc.md` path present in conversation | `product` | that path |
+| no path provided | `tech` | omit |
 
-> "Is this a pure tech task (no product-doc)? Or do you have a product-doc.md?"
-
-| User answer | run-mode | --product-ref |
-|-------------|----------|---------------|
-| Pure tech, no product-doc | `tech` | omit |
-| Has product-doc | `product` | absolute path (user-provided) |
-
-Do not infer or auto-detect the path.
+Path must be user-provided; do not auto-detect from filesystem.
 
 **Phase 3: Run start**
 
