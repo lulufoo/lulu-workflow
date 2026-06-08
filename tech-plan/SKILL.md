@@ -58,6 +58,14 @@ tech flow to use a previous tech-doc as the draft starting point.
 
 ---
 
+## Skip Evaluate
+
+User must explicitly request (e.g. "skip evaluation", "deliver without review"); if ambiguous, use AskQuestion.
+
+Write `workflow-state.md`: `current_state: ReadyForDelivery`, `evaluate_round: 0`, `skip_evaluate_requested: true`; preserve `mode`, `product_ref`, `carry_forward_ref`. Then follow Rule R1.
+
+---
+
 ## State Model
 
 Load `./transition-whitelist.json` — check `allowed_transitions` for valid transitions and `precondition` for required writes before transitioning.
@@ -81,7 +89,7 @@ Load `./transition-whitelist.json` — check `allowed_transitions` for valid tra
 
 1. Substep states: `Ready → Scoping → InDialogue → Extending → SkipConfirming → Checking`
 2. Substep state is recorded in `drafting-progress.md`.
-3. Reopen can revert to a prior substep.
+3. Reopen returns to `InDialogue`.
 
 #### Step 0 — Entry
 
@@ -137,11 +145,10 @@ Await completion (`$SUBAGENT_AWAIT_SYNC`); verify `drafting-progress.md: current
 #### Step 3 — InDialogue
 
 Entry paths:
-- after Rule D0 Scoping completes
+- after Step 2 — Scoping completes
 - after Reopen
 - after `Extending` or `SkipConfirming` routes back
 - after `Checking` reports unresolved sections
-- after Step 0 entry (`evaluate_round > 0`)
 
 Write `drafting-progress.md: current_step: InDialogue` on every parent-managed entry into this step.
 
@@ -180,7 +187,7 @@ Write `drafting-progress.md: current_step: InDialogue` on every parent-managed e
 1. Read the current `tech-doc.md` skeleton for the section and identify required placeholders/sub-items.
 2. Ask one question for the first unresolved required sub-item.
 3. Loop:
-   - if the user's reply contains a Reopen signal, stop the current section, rewrite it to `X`, clear the working buffer, and jump to **Reopen trigger**
+   - if the user's reply contains a Reopen signal, stop the current section, rewrite it to `X`, clear the working buffer, and jump to **Reopen**
    - otherwise update the working buffer only
    - if unresolved required sub-items remain, ask the next single question
    - once all required sub-items are filled, show the draft and ask for confirmation or adjustments
@@ -227,16 +234,11 @@ Only react when the user signals intent to revise a section.
 
 #### Step 4 — Extending
 
-1. Prompt: standard sections are complete; the user may add a custom section or reply `完成`.
-2. Loop:
-   - `完成` → exit `Extending`, write `drafting-progress.md: current_step: SkipConfirming`, and continue to Step 5
-   - custom section request with title + content structure:
-     1. append the new section at the end of `tech-doc.md`
-     2. register the new top-level custom section id as `§Cx: V` in `section-progress.md`
-     3. run a one-time consistency check against existing `V` standard sections and report explicit conflicts only
-     4. ask whether another custom section should be added
+Prompt: standard sections are complete; the user may add custom sections or reply `完成`.
 
-Custom sections have no template constraint: preserve the user-provided structure, formatting, and depth rather than forcing the standard template shape.
+For each custom section: append to `tech-doc.md`; register `§Cx: V` in `section-progress.md`. When the section looks complete, ask: "继续添加，还是完成？"
+
+On `完成`: write `drafting-progress.md: current_step: SkipConfirming`.
 
 #### Step 5 — SkipConfirming
 
@@ -281,19 +283,13 @@ If any check fails, list every failing section or consistency mismatch and route
 
 #### Drafting Constraints
 
-**Rule D3 — Code reads during drafting**
+**Rule D1 — Code reads during drafting**
 
 Read code files on demand (only what's relevant to the current design), never batch-load the entire codebase.
 
-**Rule D4 — Output**
+**Rule D2 — Output**
 
 Write only `revision{N}/tech-doc.md`. It is the sole AI-generated artifact.
-
-**Rule D5 — Skip evaluate to ReadyForDelivery**
-
-User must explicitly request (e.g. "skip evaluation", "deliver without review"); if ambiguous, use AskQuestion.
-
-Write `workflow-state.md`: `current_state: ReadyForDelivery`, `evaluate_round: 0`, `skip_evaluate_requested: true`; preserve `mode`, `product_ref`, `carry_forward_ref`. Then follow Rule R1.
 
 ### Evaluating Rules
 
