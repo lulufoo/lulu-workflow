@@ -29,11 +29,13 @@ description: >-
 
 | Variable | Purpose |
 |---|---|
-| `$META_PATH` | Raw markdown source for the tech-plan meta rules (`tpt_meta_url`) |
+| `$REVISION_DIR` | Absolute path to `revision{N}/` — TECH_DOC_PATH, SECTION_PROGRESS_PATH, and DRAFTING_PROGRESS_PATH are derived from this |
 | `$DECISION_DOC_PATH` | Absolute path to the current cycle `decision-doc.md` |
-| `$TECH_DOC_PATH` | Absolute path to `revision{N}/tech-doc.md` |
-| `$SECTION_PROGRESS_PATH` | Absolute path to `revision{N}/section-progress.md` |
-| `$DRAFTING_PROGRESS_PATH` | Absolute path to `revision{N}/drafting-progress.md` |
+
+Self-resolved at runtime:
+- `$TECH_DOC_PATH` = `{REVISION_DIR}/tech-doc.md`
+- `$SECTION_PROGRESS_PATH` = `{REVISION_DIR}/section-progress.md`
+- `$DRAFTING_PROGRESS_PATH` = `{REVISION_DIR}/drafting-progress.md`
 
 ## Authoritative References
 

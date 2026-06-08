@@ -144,13 +144,10 @@ Resolve `$RESOLVED_MODEL` for stage `initializing` (see `../_subagent.md` → `#
 Load {actual $SKILL_ROOT}/tech-plan/initializing-runner/SKILL.md and follow its instructions.
 
 ## Input
-TEMPLATE_PATH: {workflow-config.json -> tech-plan.tpt_url | tech-plan.shaping_tpt_url}
-META_PATH: {workflow-config.json -> tech-plan.tpt_meta_url}
-DECISION_DOC_PATH: {absolute path to decision-doc.md}
-TECH_DOC_PATH: {absolute path to revision{N}/tech-doc.md}
-DRAFTING_PROGRESS_PATH: {absolute path to revision{N}/drafting-progress.md}
-SECTION_PROGRESS_PATH: {absolute path to revision{N}/section-progress.md}
-CYCLE_ID: {cycle_id}
+REVISION_DIR:         {absolute path to revision{N}/}
+DECISION_DOC_PATH:    {absolute path to decision-doc.md}
+CYCLE_TYPE:           {feature | topic}
+CYCLE_ID:             {cycle_id}
 ```
 
 Await completion (`$SUBAGENT_AWAIT_SYNC`); verify `drafting-progress.md: current_step: Scoping`.
@@ -168,11 +165,8 @@ Resolve `$RESOLVED_MODEL` for stage `scoping` (see `../_subagent.md` → `## Con
 Load {actual $SKILL_ROOT}/tech-plan/scoping-runner/SKILL.md and follow its instructions.
 
 ## Input
-META_PATH: {workflow-config.json -> tech-plan.tpt_meta_url}
+REVISION_DIR:      {absolute path to revision{N}/}
 DECISION_DOC_PATH: {absolute path to decision-doc.md}
-TECH_DOC_PATH: {absolute path to revision{N}/tech-doc.md}
-SECTION_PROGRESS_PATH: {absolute path to revision{N}/section-progress.md}
-DRAFTING_PROGRESS_PATH: {absolute path to revision{N}/drafting-progress.md}
 ```
 
 Await completion (`$SUBAGENT_AWAIT_SYNC`); verify `drafting-progress.md: current_step: InDialogue`. Then read `section-progress.md` and present Scoping summary (N/A-s ids, N/A-c ids, unresolved section count); enter Step 3.
