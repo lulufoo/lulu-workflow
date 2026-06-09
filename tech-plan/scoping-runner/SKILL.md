@@ -2,9 +2,9 @@
 name: scoping-runner
 description: >-
   Autonomous Scoping step for tech-plan drafting. Evaluates conditional sections
-  for N/A-s or N/A-c using embedded section conditions, writes N/A reasons into
-  the tech doc, updates section-progress.md, advances drafting-progress.md to
-  InDialogue, and returns control to the parent skill.
+  for N/A-s or N/A-c using embedded section conditions, writes §state provenance
+  comments into tech-doc, advances drafting-progress.md to Generating, and
+  returns control to the parent skill.
 ---
 
 # scoping-runner
@@ -17,11 +17,11 @@ description: >-
 
 1. Load the embedded conditional-section rules and decision-doc intent.
 2. Run Pass 1 structural scanning and Pass 2 content scanning.
-3. Write N/A evidence into the tech doc and `section-progress.md`.
-4. Write `drafting-progress.md` with `current_step: InDialogue`.
+3. Write `§state:N/A-s` or `§state:N/A-c` provenance comments into tech-doc.
+4. Write `drafting-progress.md` with `current_step: Generating`.
 
 ✅ Verified: Do not ask the user questions.  
-✅ Verified: Do not perform Initializing, InDialogue, Reopen, Extending, Checking, or delivery work here.
+✅ Verified: Do not perform Initializing, Generating, FreeEdit, or delivery work here.
 
 ## Parent-Provided Inputs
 
@@ -29,13 +29,12 @@ description: >-
 
 | Variable | Purpose |
 |---|---|
-| `$REVISION_DIR` | Absolute path to `revision{N}/` — TECH_DOC_PATH, SECTION_PROGRESS_PATH, and DRAFTING_PROGRESS_PATH are derived from this |
+| `$REVISION_DIR` | Absolute path to `revision{N}/` — TECH_DOC_PATH and DRAFTING_PROGRESS_PATH are derived from this |
 | `$DECISION_DOC_PATH` | Absolute path to the current cycle `decision-doc.md` |
 
 Self-resolved at runtime:
 - `$META_PATH` — read `$WORKFLOW_DIR/workflow-config.json` → `tech-plan.tpt_meta_url`; fetch that URL to get `## Section Conditions`
 - `$TECH_DOC_PATH` = `{REVISION_DIR}/tech-doc.md`
-- `$SECTION_PROGRESS_PATH` = `{REVISION_DIR}/section-progress.md`
 - `$DRAFTING_PROGRESS_PATH` = `{REVISION_DIR}/drafting-progress.md`
 
 ## Authoritative References
@@ -43,10 +42,6 @@ Self-resolved at runtime:
 ### Section Conditions
 
 Self-read at Step S1: `$WORKFLOW_DIR/workflow-config.json` → `tech-plan.tpt_meta_url`; fetch that URL and read `## Section Conditions` table. This is the execution source of truth — do not use any embedded snapshot.
-
-### Section Status Symbols
-
-Read inline comments in `$SKILL_ROOT/tech-plan/templates/section-progress.template.md`.
 
 ## Hard Constraint: Verifiable N/A Determination
 
@@ -102,7 +97,7 @@ for each {section, trigger, evidence_source} in structural_list:
 - This pass is purely string matching against the `**Intent:**` line.
 - Do not read decision-doc body content during Pass 1.
 - Structural matches are repeatable and deterministic from the same intent text.
-- A matched structural trigger means the subsection remains applicable and should continue to InDialogue as unresolved, not `V`.
+- A matched structural trigger means the subsection remains applicable and will be processed by generating-runner as unresolved `X`.
 
 ### Step S3 - Pass 2: content scan
 
@@ -125,69 +120,32 @@ for each {section, trigger, evidence_source} in content_list:
 ✅ Verified rules:
 
 - Only assign `N/A-c` when the decision doc contains a positively citable statement that denies applicability.
-- If no such statement is found, keep the subsection applicable for later dialogue as unresolved `X`. Do not infer `N/A-c` from silence.
+- If no such statement is found, keep the subsection applicable for generating-runner as unresolved `X`. Do not infer `N/A-c` from silence.
 - The `evidence_source` field defines where the scan must look first; do not search unrelated sections as substitutes.
 
 ### Step S4 - Write outputs
 
 ✅ Verified: For each entry in `na_results`:
 
-1. Write an N/A banner at the start of the matching section body in `$TECH_DOC_PATH`:
+1. In `$TECH_DOC_PATH`, locate the section heading for the matched section. Replace its `<!-- §state:X -->` comment with the appropriate provenance comment:
 
 ```markdown
-> N/A-s: <evidence>
+<!-- §state:N/A-s evidence:"Intent: '<intent text>' — keyword '<keyword>' not found" -->
 ```
 
 or
 
 ```markdown
-> N/A-c: "<cited passage>" (decision-doc <section>)
+<!-- §state:N/A-c evidence:"'<verbatim passage>' (decision-doc <section>)" -->
 ```
 
-2. Update `$SECTION_PROGRESS_PATH`:
-   - `na_evidence[<subsection id>] = <cited source>`
-   - `sections[§N] = <aggregated top-level status>` using the aggregation rule block below
-3. Update `$DRAFTING_PROGRESS_PATH`:
-   - set `current_step: InDialogue`
+2. Update `$DRAFTING_PROGRESS_PATH`:
+   - set `current_step: Generating`
 
 ✅ Verified write discipline:
 
-- `section-progress.md` is the only progress file that records `sections` and `na_evidence`.
-- `drafting-progress.md` is the only progress file that records the step machine and must end this sub-skill at `InDialogue`.
-- Do not write subsection keys under `sections`.
-
-## Top-Level Section Aggregation Rule Block
-
-✅ Verified: `section-progress.md` keeps top-level keys only in `sections`:
-
-```text
-§1 ... §10
-```
-
-✅ Verified: Subsection-granularity N/A evidence must be written under `na_evidence`, for example:
-
-```text
-na_evidence["§1.3"] = "Intent: '...' - keyword 'bugfix' not found"
-na_evidence["§9.4"] = "\"<verbatim passage>\" (decision-doc Assumptions & Risks)"
-```
-
-✅ Verified: When scoping-runner updates `sections[§N]`, aggregate from the subsection results using these rules:
-
-| Subsection outcome set under `§N` | Write `sections[§N]` |
-|---|---|
-| Any subsection is `X` | `X` |
-| Any subsection is `!` | `!` |
-| All subsections are `N/A-s` | `N/A-s` |
-| All subsections are `N/A-s` or `N/A-c`, and at least one is `N/A-c` | `N/A-c` |
-| All subsections are `V` | `V` |
-| Mixed applicable and non-applicable subsections (for example, some `V`, some `N/A-*`) | `X` |
-
-✅ Verified aggregation notes:
-
-- If a top-level section has both required and conditional subsections, any still-applicable subsection keeps the parent top-level key at `X` until dialogue resolves it.
-- Required subsections should be treated as applicable inputs to this aggregation model, not as candidates for N/A assignment.
-- During Scoping, applicable conditional subsections also remain unresolved inputs (`X`); this sub-skill does not produce `V`.
-- Parent-skill iteration remains top-level first; once inside a top-level section, downstream dialogue proceeds subsection by subsection.
+- `drafting-progress.md` is the only progress file written by this sub-skill; it must end at `Generating`.
+- Do not write any separate progress or evidence files.
 
 ## Return Summary
 
@@ -198,5 +156,5 @@ Scoping complete.
   N/A-s (structural): <space-separated subsection ids>
   N/A-c (content): <space-separated subsection ids>
   Remaining (X): <space-separated unresolved section ids>
-  Next step: InDialogue
+  Next step: Generating
 ```

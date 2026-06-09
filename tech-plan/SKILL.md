@@ -82,6 +82,8 @@ Load `./transition-whitelist.json` — check `allowed_transitions` for valid tra
 
 ### Drafting Rules
 
+**If returning from Evaluating fix:** resume at Step 4 — FreeEdit; skip Steps 1–3.
+
 #### Drafting Constraints
 
 **Rule D1 — Code reads during drafting**
@@ -94,9 +96,8 @@ Write only `revision{N}/tech-doc.md`. It is the sole AI-generated artifact.
 
 #### Drafting Sub-State Machine
 
-1. Substep states: `Ready → Scoping → InDialogue → Extending → SkipConfirming → Checking`
+1. Substep states: `Ready → Initializing → Scoping → Generating → FreeEdit`
 2. Substep state is recorded in `drafting-progress.md`.
-3. Reopen returns to `InDialogue`.
 
 #### Step 0 — Entry
 
@@ -104,7 +105,7 @@ Read `workflow-state.md` → `evaluate_round`, `mode`, `carry_forward_ref`.
 
 **If `evaluate_round > 0`:** read `evaluate-state.md` → `fix_severity`, `fix_severity_reason`; present to the user:
 
-> "上轮评估结果：[fix_severity] — [fix_severity_reason]。本轮将从头重新起草。"
+> "上轮评估结果：[fix_severity] — [fix_severity_reason]。"
 
 Resolve drafting inputs from `workflow-config.json`:
 
@@ -112,7 +113,7 @@ Resolve drafting inputs from `workflow-config.json`:
 - topic → `shaping_tpt_url`
 - shared meta → `tpt_meta_url`
 
-Then dispatch Step 1 → Step 2 in order.
+Then dispatch Steps 1 → 2 → 3 in order. If returning from Evaluating fix, enter Step 4 directly.
 
 #### Step 1 — Initializing
 
@@ -136,7 +137,7 @@ Await completion (`$SUBAGENT_AWAIT_SYNC`); verify `drafting-progress.md: current
 #### Step 2 — Scoping
 
 Entry condition: `drafting-progress.md: current_step: Scoping`.
-Exit condition: subagent writes `drafting-progress.md: current_step: InDialogue`.
+Exit condition: subagent writes `drafting-progress.md: current_step: Generating`.
 
 Resolve `$RESOLVED_MODEL` for stage `scoping` (see `../_subagent.md` → `## Config Resolution`); dispatch:
 
@@ -148,153 +149,41 @@ REVISION_DIR:      {absolute path to revision{N}/}
 DECISION_DOC_PATH: {absolute path to decision-doc.md}
 ```
 
-Await completion (`$SUBAGENT_AWAIT_SYNC`); verify `drafting-progress.md: current_step: InDialogue`. Then read `section-progress.md` and present Scoping summary (N/A-s ids, N/A-c ids, unresolved section count); enter Step 3.
+Await completion (`$SUBAGENT_AWAIT_SYNC`); verify `drafting-progress.md: current_step: Generating`; enter Step 3.
 
-#### Step 3 — InDialogue
+#### Step 3 — Generating
+
+Entry condition: `drafting-progress.md: current_step: Generating`.
+Exit condition: subagent writes `drafting-progress.md: current_step: FreeEdit`.
+
+Resolve `$RESOLVED_MODEL` for stage `generating` (see `../_subagent.md` → `## Config Resolution`); dispatch:
+
+```text
+Load {actual $SKILL_ROOT}/tech-plan/generating-runner/SKILL.md and follow its instructions.
+
+## Input
+REVISION_DIR:      {absolute path to revision{N}/}
+DECISION_DOC_PATH: {absolute path to decision-doc.md}
+CYCLE_ID:          {cycle_id}
+```
+
+Await completion (`$SUBAGENT_AWAIT_SYNC`); verify `drafting-progress.md: current_step: FreeEdit`.
+
+Present the full `tech-doc.md` to the user as a complete draft; enter Step 4.
+
+#### Step 4 — FreeEdit
 
 Entry paths:
 
-- after Step 2 — Scoping completes
-- after Reopen
-- after `Extending` or `SkipConfirming` routes back
-- after `Checking` reports unresolved sections
+- after Step 3 — Generating completes
+- after Evaluating returns fix to Drafting (resume directly here; skip Steps 1–3)
 
-Write `drafting-progress.md: current_step: InDialogue` on every parent-managed entry into this step.
+Rules:
 
-**Resume Detection** (run once on each `InDialogue` entry)
-
-1. Read `section-progress.md` → `sections`, `reopen_reasons`.
-2. If there are existing `V`, `N/A-s`, `N/A-c`, or `S` sections, present a resume summary and state which section resumes next.
-3. If any `D` sections remain:
-   - if the section also appears in `reopen_reasons`, rewrite that section to `I`
-   - otherwise rewrite that section to `X`
-   - if multiple `D` sections remain, rewrite all of them to `X` and warn that the previous dialogue was interrupted
-4. If an interrupted `D` section was rewritten, tell the user that the section will restart from the beginning.
-
-**Select Section**
-
-- Iterate top-level section keys in order and pick the first section whose status is `X`, `I`, or `!`
-- skip `V`, `N/A-s`, `N/A-c`, and `S`
-- write the selected section to `D`
-- retain the pre-`D` status as the section's original mode discriminator
-
-`§2` special case:
-
-- for `§2` (Decision Anchors), showing the existing seeded content counts as pass-through confirmation
-- if the user accepts it unchanged, write `V` directly
-- if the user requests edits, switch to `I`-mode for that section
-
-**`I`-mode — display and confirm**
-
-1. Initialize the working buffer from the current `tech-doc.md` content for that section.
-2. Show the working buffer and ask the user to confirm or request adjustments.
-3. Loop:
-   - confirmation → proceed to **Write and mark `V`**
-   - adjustments → update the working buffer only, re-display it, and ask again
-
-**`X`-mode — build from skeleton**
-
-1. Read the current `tech-doc.md` skeleton for the section and identify required placeholders/sub-items.
-2. Ask one question for the first unresolved required sub-item.
-3. Loop:
-   - if the user's reply contains a Reopen signal, stop the current section, rewrite it to `X`, clear the working buffer, and jump to **Reopen**
-   - otherwise update the working buffer only
-   - if unresolved required sub-items remain, ask the next single question
-   - once all required sub-items are filled, show the draft and ask for confirmation or adjustments
-   - confirmation → proceed to **Write and mark `V`**
-   - adjustments → update the working buffer, re-display it, and continue the loop
-
-Stop rule: once all required sub-items are filled, move to explicit draft confirmation; do not keep asking on AI judgment alone.
-
-**`!`-mode — expired downstream review**
-
-1. Read `reopen_reasons[§N]` and explain which upstream section triggered expiry.
-2. Show the upstream reopen reason plus the current section content.
-3. Ask the user to review this section in the changed upstream context.
-4. Continue using the same confirmation loop as `I`-mode.
-
-**Write and mark `V`**
-
-1. Write the working buffer into `tech-doc.md` for the current section.
-2. Write `sections[§N]: V` in `section-progress.md`.
-3. Run **Reopen detection**.
-4. Return to **Select Section**.
-
-`tech-doc.md` write discipline:
-
-- write the section content only once, immediately before setting `V`
-- do not write intermediate dialogue states into `tech-doc.md`
-
-**Reopen**
-
-Only react when the user signals intent to revise a section.
-
-1. Identify the target section; if unclear, ask the user to specify.
-2. Confirm with the user before proceeding.
-3. On confirmation:
-   - Rewrite `sections[§N]: I`; record `reopen_reasons[§N] = <user reason>`.
-   - Rewrite all downstream `V` sections to `!`; record `reopen_reasons[§M] = "reopened: §N — <title>"`.
-   - If currently outside `InDialogue`, return to `InDialogue` first.
-   - Re-enter **Select Section**.
-
-**Exit condition**
-
-- all standard sections and any registered custom sections are in `V`, `N/A-s`, or `N/A-c`
-- no section remains in `I`, `X`, `D`, or `!`
-- then write `drafting-progress.md: current_step: Extending`
-
-#### Step 4 — Extending
-
-Prompt: standard sections are complete; the user may add custom sections or reply `完成`.
-
-For each custom section: append to `tech-doc.md`; register `§Cx: V` in `section-progress.md`. When the section looks complete, ask: "继续添加，还是完成？"
-
-On `完成`: write `drafting-progress.md: current_step: SkipConfirming`.
-
-#### Step 5 — SkipConfirming
-
-Process every section currently marked `N/A-s` or `N/A-c`, one section at a time:
-
-1. Show the section id and title.
-2. Show `na_evidence[§N]`.
-3. Ask whether the user confirms the skip or wants to fill the section after all.
-
-Per section:
-
-- confirm skip → rewrite `sections[§N]: S`
-- restore section → clear `na_evidence[§N]`, remove that section's leading N/A banner from `tech-doc.md`, and rewrite `sections[§N]: X`
-
-Batch boundary rule:
-
-- do not jump back to `InDialogue` mid-batch
-- only after all current `N/A-s` / `N/A-c` sections are processed, if any were restored to `X`, rewrite `drafting-progress.md: current_step: InDialogue` once and re-enter `InDialogue` for the full batch of restored sections
-
-Exit condition:
-
-- every original `N/A-s` / `N/A-c` section is now either `S` or `X`
-- if none were restored to `X`, write `drafting-progress.md: current_step: Checking`
-
-#### Step 6 — Checking
-
-Write `drafting-progress.md: current_step: Checking` on entry and verify:
-
-| Check | Pass condition |
-|-------|----------------|
-| Required standard sections | all required sections are `V` |
-| Conditional standard sections | each conditional section is `V` or `S`; none remain `I`, `X`, `N/A-s`, or `N/A-c` |
-| Custom sections (`§Cx`) | all registered custom sections are `V` |
-| Cross-section consistency | `§5` file paths exactly match `§6` task-file references; `§4` naming-contract tokens exactly match the `§6` constraints that consume them |
-
-If all checks pass:
-
-1. Keep the existing top-level workflow model unchanged.
-2. Write `workflow-state.md` → `current_state: Evaluating`.
-
-If any check fails, list every failing section or consistency mismatch and route by failure type:
-
-- remaining `I` / `X` / `!` → write `drafting-progress.md: current_step: InDialogue`
-- remaining `N/A-s` / `N/A-c` → write `drafting-progress.md: current_step: SkipConfirming`
-- consistency mismatch only → write `drafting-progress.md: current_step: InDialogue` and let the user choose which section to revise
+- User drives edits; AI assists on request.
+- AI adding new sections must write `<!-- §state:U -->` immediately above the heading.
+- Existing `§state:` comments are immutable — do not modify or delete.
+- On user "完成": write `workflow-state.md` → `current_state: Evaluating`.
 
 ### Evaluating Rules
 
