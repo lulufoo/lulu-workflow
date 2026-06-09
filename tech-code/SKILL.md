@@ -80,7 +80,7 @@ Task phases (under Executing): `WriteTests` → `VerifyRed` → `WriteImpl` → 
 
 **Actions:**
 
-Run `prepare.py`; on non-zero exit report the error and halt. Slug is auto-derived from `cycle_id` + random suffix; on resume, the existing `workspace.json` is read instead.
+Run `prepare.py`; on non-zero exit report the error and halt. 
 
 ```bash
 python3 "$SKILL_DIR/scripts/prepare.py" \
