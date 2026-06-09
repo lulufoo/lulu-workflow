@@ -5,16 +5,18 @@ paths, and write workspace.json.
 Usage:
     python3 prepare.py \\
         --cycle-dir /abs/path/.cache/cursor/lulu-dev-workflow/<cycle_id> \\
-        --project-root /abs/path/to/project \\
-        --slug <feature-slug>
+        --project-root /abs/path/to/project
 
-Outputs JSON to stdout: { slug, worktree_dir, branch, workspace_json }
+Outputs JSON to stdout: { slug, worktree_dir, branch }
 AI uses these values to execute git P1 -> P2 -> P3.
+Slug is auto-derived: last 8 chars of cycle_id + 4-char random hex suffix.
+On resume (workspace.json already exists), the existing slug is reused.
 """
 
 import argparse
 import json
 import re
+import secrets
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -161,7 +163,25 @@ def load_git_config(project_root: Path) -> dict:
     return cfg.get("tech-code", {}).get("git", {})
 
 
-def build_worktree_paths(slug: str, git_cfg: dict) -> dict:
+def _derive_slug(cycle_id: str) -> str:
+    """Generate a unique slug: last 8 chars of cycle_id + 4-char random hex."""
+    short = cycle_id[-8:] if len(cycle_id) >= 8 else cycle_id
+    suffix = secrets.token_hex(2)  # 4 hex chars
+    return f"{short}-{suffix}"
+
+
+def resolve_slug(cycle_dir: Path, session_idx: int, cycle_id: str) -> str:
+    """Return existing slug from workspace.json (resume), or generate a new one."""
+    workspace_path = cycle_dir / "tech" / "code" / f"s{session_idx}" / "workspace.json"
+    if workspace_path.exists():
+        try:
+            data = json.loads(workspace_path.read_text(encoding="utf-8"))
+            worktree_path = data.get("worktree_path", "")
+            if worktree_path:
+                return Path(worktree_path.rstrip("/")).name
+        except (json.JSONDecodeError, KeyError):
+            pass
+    return _derive_slug(cycle_id)
     """Derive relative worktree_dir and branch from slug and config."""
     worktree_base = git_cfg.get("worktree_base", ".cache/worktrees")
     branch_pattern = git_cfg.get("branch_pattern", "wt/{type}-{slug}")
@@ -230,15 +250,14 @@ def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Prepare tech-code session workspace.")
     p.add_argument("--cycle-dir", required=True, help="Absolute path to cycle cache directory.")
     p.add_argument("--project-root", required=True, help="Absolute path to project root.")
-    p.add_argument("--slug", required=True, help="Feature slug for worktree naming (e.g. 'path-guard').")
-    return p.parse_args()
+    return p.parse_known_args()[0]
 
 
 def main() -> int:
     args = parse_args()
     cycle_dir = Path(args.cycle_dir).resolve()
     project_root = Path(args.project_root).resolve()
-    slug = args.slug
+    cycle_id = cycle_dir.name
 
     tasks = validate_tasks(cycle_dir)
 
@@ -248,21 +267,21 @@ def main() -> int:
         print(f"Error: {e}", file=sys.stderr)
         return 1
 
-    paths = build_worktree_paths(slug, git_cfg)
-
     try:
         session_idx = read_active_code_session(cycle_dir)
     except (ValueError, FileNotFoundError) as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
 
-    workspace_path = write_workspace(cycle_dir, session_idx, slug, paths, tasks)
+    slug = resolve_slug(cycle_dir, session_idx, cycle_id)
+    paths = build_worktree_paths(slug, git_cfg)
+
+    write_workspace(cycle_dir, session_idx, slug, paths, tasks)
 
     print(json.dumps({
         "slug": slug,
         "worktree_dir": paths["worktree_dir"],
         "branch": paths["branch"],
-        "workspace_json": str(workspace_path),
     }, indent=2, ensure_ascii=False))
     return 0
 

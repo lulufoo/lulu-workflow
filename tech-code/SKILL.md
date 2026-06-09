@@ -80,16 +80,17 @@ Task phases (under Executing): `WriteTests` → `VerifyRed` → `WriteImpl` → 
 
 **Actions:**
 
-Run `prepare.py`; on non-zero exit report the error and halt. `<slug>` is a human-readable feature name derived from the feature scope (e.g. `path-guard`).
+Run `prepare.py`; on non-zero exit report the error and halt. Slug is auto-derived from `cycle_id` + random suffix; on resume, the existing `workspace.json` is read instead.
 
 ```bash
 python3 "$SKILL_DIR/scripts/prepare.py" \
   --cycle-dir "$CACHE_DIR/$CYCLE_ID" \
-  --project-root "$(pwd)" \
-  --slug <slug>
+  --project-root "$(pwd)"
 ```
 
 Read stdout JSON for `slug`, `worktree_dir`, `branch`. Execute **P1 → P2 → P3** from `git-workflow-standard.md` using those values.
+
+> **P1 collision** (`wt/<branch>` already exists): worktree was created in a prior run — re-use it, skip P3.
 
 **Exit:** `workspace.json` written → `workflow-state.md`: `current_state: Executing`, `current_task` = first task, `current_phase: WriteTests`.
 
