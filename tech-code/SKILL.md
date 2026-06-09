@@ -38,7 +38,7 @@ Derive `$CYCLE_ID` from active context (see `_runtime.md § Session Foundation`)
 `$CYCLE_ID` must be resolved before proceeding. If it cannot be resolved → stop and ask the user to provide it.
 </HARD-GATE>
 
----
+**Upstream handoff:** Tasks are delivered via `--task-list-ref` (required) + optional `--task-refs`; each `task.md` is self-contained. If `tdd_exempt` is set in task list or task frontmatter, `VerifyGreen` → `Done` directly (handled by `task-runner/SKILL.md`).
 
 ### AI startup sequence
 
@@ -55,29 +55,6 @@ python3 "$SKILL_DIR/scripts/start.py" \
 > On non-zero exit: report the blocking stage to the user. Do not retry.
 
 **Step 3:** Read `code-task-list.md`; display tasks; wait for confirmation before execution.
-
----
-
-## Session files
-
-```
-$CACHE_DIR/<cycle_id>/tech/code/
-  session-state.md
-  s{N}/
-    workflow-state.md           ← Preparing: session + task pointer (authoritative)
-    workspace.json              ← Preparing: worktree_path, branch, created_at
-    code-task-list.md           ← Preparing: task list from work-order
-    closing-checklist.md        ← Closing: checklist items
-    human-delivery-gate.md      ← Closing→Delivered: required before Delivered
-
-    tasks/t{X}/
-      code-log.md               ← Executing: append-only action log (task-level)
-      commit-ref.md             ← Executing/Done: initial/final SHA, message, amended
-```
-
-Do **not** create `red-run.md` or `green-run.md`. Red/Green evidence belongs in `code-log.md` as `test_run` entries.
-
-Optional seed: `$SKILL_DIR/templates/code-log.template.md` (replace `t{X}`).
 
 ---
 
@@ -229,22 +206,19 @@ AI must not self-declare session complete. Even if all tasks are `Done` and the 
 
 ---
 
-## § Autonomous Overrides
+## Session files
 
-Read `$EXECUTION_MODE` from Session Foundation (set by parent `../_runtime.md`). Default: `guided`.
+```
+$CACHE_DIR/<cycle_id>/tech/code/
+  session-state.md
+  s{N}/
+    workflow-state.md           ← Preparing: session + task pointer (authoritative)
+    workspace.json              ← Preparing: worktree_path, branch, created_at
+    code-task-list.md           ← Preparing: task list from work-order
+    closing-checklist.md        ← Closing: checklist items
+    human-delivery-gate.md      ← Closing→Delivered: required before Delivered
 
-The overrides below apply only when `$EXECUTION_MODE == "autonomous"` **and** `cycle_type == "feature"`. All other rules unchanged.
-
-**Auto-chain entry point:** In autonomous + feature mode, this stage may be entered automatically after `tech-work-order` delivers (see `§ Autonomous Tech Line Auto-Chain` in `../_transitions.md`). No user `/code` command is required; the orchestrator auto-invokes the startup sequence.
-
-| Rule | Autonomous Behavior |
-|------|-----------------------|
-| AI startup Step 6 — task confirmation | Auto-skip. Proceed directly to Executing without waiting for user confirmation. |
-| Closing step 5 — delivery gate confirmation | Auto-complete. Write `human-delivery-gate.md` (`approved: true`) without waiting for explicit user confirmation. |
-
----
-
-## Supporting: tech-work-order → tech-code handoff
-
-- `--task-list-ref` (required) + optional `--task-refs`; `task.md` is self-contained.
-- `tdd_exempt` from task list or task frontmatter: if set, `VerifyGreen` → `Done` directly (execution handled by `task-runner/SKILL.md`).
+    tasks/t{X}/
+      code-log.md               ← Executing: append-only action log (task-level)
+      commit-ref.md             ← Executing/Done: initial/final SHA, message, amended
+```
