@@ -1,13 +1,7 @@
 ---
 version: 1
 cycle_id: "{cycle_id}"
-# Legend ref: lulu-dev-workflow/tech-plan/templates/20-tech-plan-spec-meta.md → ## Section Status Legend
-# Section statuses: X | I | N/A-s | N/A-c | D | V | ! | S
-# I     = seeded from decision-doc (Initializing) or re-opened by user (Reopen); has content, needs dialogue confirmation
-# X     = skeleton placeholder only, no content yet
-# N/A-s = not applicable: excluded by change type (structural)
-# N/A-c = not applicable: excluded by decision-doc content analysis (content)
-# !     = expired: user triggered Reopen on an upstream section; must re-review
+# Section statuses legend: lulu-dev-workflow/tech-plan/templates/section-state.md
 sections:
   §1: X
   §2: X
