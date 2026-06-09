@@ -9,26 +9,32 @@ disable-model-invocation: true
 
 # code-workflow
 
+## Overview
+
 **Input:** Delivered work-order task set  
 **Output:** tests + implementation, per-task `commit-ref.md`, closing checklist, human delivery gate  
 **Scope:** TDD code generation in a dedicated worktree, with git worktree delivery and per-task commits  
 **Session lifecycle:** `Preparing → Executing → Closing → Delivered`
 
-**`/tech-code` authorizes** automatic `git commit` / `git commit --amend` inside the session worktree during Executing. Push, PR, CI, and review are post-code (out of scope).
+## Prerequisites
 
 <HARD-GATE>
-Do NOT proceed until you have read `../_runtime.md` and loaded:
+Do NOT proceed until you have read `../_runtime.md`
+</HARD-GATE>
 
 - `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, `$CACHE_DIR` from `## Platform Context`
 - Feature identification logic from `## Session Foundation`
+- `$SKILL_DIR` = `$SKILL_ROOT/tech-code`
 
-Also read `../_subagent.md` and load:
-- Sub-agent model convention (`$RESOLVED_MODEL`) from `## Sub-agent Context › Config Resolution`
+<HARD-GATE>
+Do NOT proceed until you have read `../_subagent.md` 
 </HARD-GATE>
 
-`$SKILL_DIR` = `$SKILL_ROOT/tech-code`
+- Sub-agent model convention (`$RESOLVED_MODEL`) from `## Sub-agent Context › Config Resolution`
 
 ## Commands
+
+**`/tech-code` authorizes** automatic `git commit` / `git commit --amend` inside the session worktree during Executing. Push, PR, CI, and review are post-code (out of scope).
 
 ### `/tech-code [<cycle_id>]` — Entry point
 
@@ -37,8 +43,6 @@ Derive `$CYCLE_ID` from active context (see `_runtime.md § Session Foundation`)
 <HARD-GATE>
 `$CYCLE_ID` must be resolved before proceeding. If it cannot be resolved → stop and ask the user to provide it.
 </HARD-GATE>
-
-**Upstream handoff:** Tasks are delivered via `--task-list-ref` (required) + optional `--task-refs`; each `task.md` is self-contained. If `tdd_exempt` is set in task list or task frontmatter, `VerifyGreen` → `Done` directly (handled by `task-runner/SKILL.md`).
 
 ### AI startup sequence
 
