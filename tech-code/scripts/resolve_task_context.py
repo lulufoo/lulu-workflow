@@ -5,27 +5,32 @@ Usage:
     python3 resolve_task_context.py \
         --task-id t1 \
         --cycle-dir /abs/path/.cache/cursor/lulu-dev-workflow/<cycle_id> \
-        --work-order-index r1 \
-        --code-index s1 \
         --project-root /abs/path/to/project
 
-Outputs a JSON object to stdout with all paths and config values the
-task-runner sub-agent needs. No further file reads or path derivation
-is required by the sub-agent.
+Reads work-order and code session indices from their respective
+session-state.md files. Outputs a JSON object to stdout with all paths
+and config values the task-runner sub-agent needs.
 """
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
+
+
+def _read_active_session(session_state_path: Path) -> str:
+    for line in session_state_path.read_text(encoding="utf-8").splitlines():
+        m = re.match(r"^active_session:\s*(\S+)", line)
+        if m:
+            return m.group(1)
+    raise ValueError(f"active_session not found in {session_state_path}")
 
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Resolve task-runner context paths.")
     p.add_argument("--task-id", required=True, help="Task ID, e.g. t1")
     p.add_argument("--cycle-dir", required=True, help="Absolute path to the cycle cache directory.")
-    p.add_argument("--work-order-index", required=True, help="Work-order session index, e.g. r1")
-    p.add_argument("--code-index", required=True, help="Code session index, e.g. s1")
     p.add_argument("--project-root", required=True, help="Absolute path to the project root.")
     return p.parse_args()
 
@@ -36,8 +41,17 @@ def main() -> int:
     cycle_dir = Path(args.cycle_dir).resolve()
     project_root = Path(args.project_root).resolve()
     task_id = args.task_id
-    wo_index = args.work_order_index
-    code_index = args.code_index
+
+    wo_session_state = cycle_dir / "tech" / "work-order" / "session-state.md"
+    code_session_state = cycle_dir / "tech" / "code" / "session-state.md"
+
+    for path in (wo_session_state, code_session_state):
+        if not path.exists():
+            print(f"Error: session-state.md not found: {path}", file=sys.stderr)
+            return 1
+
+    wo_index = f"r{_read_active_session(wo_session_state)}"
+    code_index = f"s{_read_active_session(code_session_state)}"
 
     work_order_task_path = cycle_dir / "tech" / "work-order" / wo_index / "tasks" / task_id / "task.md"
     task_output_dir = cycle_dir / "tech" / "code" / code_index / "tasks" / task_id

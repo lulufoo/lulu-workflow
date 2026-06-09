@@ -168,10 +168,8 @@ Run `scripts/resolve_task_context.py` to build the dispatch input:
 ```bash
 python3 "$SKILL_DIR/scripts/resolve_task_context.py" \
   --task-id {task_id} \
-  --cycle-dir {cycle_dir} \
-  --work-order-index {work_order_index} \
-  --code-index {code_index} \
-  --project-root {project_root}
+  --cycle-dir "$CACHE_DIR/$CYCLE_ID" \
+  --project-root "$(pwd)"
 ```
 
 Invoke `$SUBAGENT_TOOL` with `$SUBAGENT_AWAIT_SYNC`, passing `$RESOLVED_MODEL` as `model` if set. Prompt:
