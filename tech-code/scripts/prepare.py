@@ -1,0 +1,271 @@
+#!/usr/bin/env python3
+"""Prepare a new tech-code session: validate task schemas, derive worktree
+paths, and write workspace.json.
+
+Usage:
+    python3 prepare.py \\
+        --cycle-dir /abs/path/.cache/cursor/lulu-dev-workflow/<cycle_id> \\
+        --project-root /abs/path/to/project \\
+        --slug <feature-slug>
+
+Outputs JSON to stdout: { slug, worktree_dir, branch, workspace_json }
+AI uses these values to execute git P1 -> P2 -> P3.
+"""
+
+import argparse
+import json
+import re
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from workflow_common import read_md_field, resolve_workflow_config_path, write_json  # noqa: E402
+
+
+# ---------------------------------------------------------------------------
+# Frontmatter parsing
+# ---------------------------------------------------------------------------
+
+def _read_task_frontmatter(task_path: Path) -> dict:
+    """Parse YAML frontmatter from task.md using stdlib re only."""
+    content = task_path.read_text(encoding="utf-8")
+    fm_match = re.match(r"^---\s*\n(.*?)\n---", content, re.DOTALL)
+    if not fm_match:
+        raise ValueError(f"No frontmatter found in {task_path}")
+    fm_text = fm_match.group(1)
+
+    result = {}
+    lines = fm_text.splitlines()
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        block_match = re.match(r"^(\w+):\s*$", line)
+        if block_match:
+            key = block_match.group(1)
+            nested = {}
+            i += 1
+            while i < len(lines):
+                sub = re.match(r"^  (\w+):\s*(.+)", lines[i])
+                if sub:
+                    nested[sub.group(1)] = sub.group(2).strip()
+                    i += 1
+                else:
+                    break
+            result[key] = nested
+            continue
+        scalar_match = re.match(r"^(\w+):\s*(.+)", line)
+        if scalar_match:
+            result[scalar_match.group(1)] = scalar_match.group(2).strip().strip('"')
+        i += 1
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Schema validation
+# ---------------------------------------------------------------------------
+
+_EXIT_CONTRACT_KEYS = {"commit", "commit_ref_md", "code_log"}
+
+
+def _validate_single_task(task_id: str, fm: dict) -> list:
+    """Return list of error strings; empty list means valid."""
+    errors = []
+
+    tw = fm.get("task_worktree", "")
+    if not tw:
+        errors.append(f"{task_id}: missing task_worktree")
+    elif tw != "primary":
+        p = Path(tw)
+        if p.is_absolute():
+            errors.append(f"{task_id}: task_worktree must be 'primary' or a relative path, got '{tw}'")
+
+    ec = fm.get("exit_contract")
+    if not isinstance(ec, dict):
+        errors.append(f"{task_id}: missing exit_contract block")
+    else:
+        for key in _EXIT_CONTRACT_KEYS:
+            if ec.get(key) != "required":
+                errors.append(
+                    f"{task_id}: exit_contract.{key} must be 'required', got '{ec.get(key)}'"
+                )
+
+    return errors
+
+
+def validate_tasks(cycle_dir: Path) -> list:
+    """Validate all task.md files; return list of {task_id, target_repo, task_worktree}."""
+    wo_ss = cycle_dir / "tech" / "work-order" / "session-state.md"
+    if not wo_ss.exists():
+        print(f"Error: work-order session-state.md not found: {wo_ss}", file=sys.stderr)
+        sys.exit(1)
+
+    wo_active = read_md_field(wo_ss, "active_session", default="")
+    if not wo_active:
+        print(f"Error: active_session not found in {wo_ss}", file=sys.stderr)
+        sys.exit(1)
+
+    tasks_dir = cycle_dir / "tech" / "work-order" / f"r{wo_active}" / "tasks"
+    task_files = sorted(tasks_dir.glob("*/task.md"))
+    if not task_files:
+        print(f"Error: no task.md files found under {tasks_dir}", file=sys.stderr)
+        sys.exit(1)
+
+    all_errors = []
+    task_records = []
+    for task_path in task_files:
+        task_id = task_path.parent.name
+        try:
+            fm = _read_task_frontmatter(task_path)
+        except ValueError as e:
+            all_errors.append(str(e))
+            continue
+        all_errors.extend(_validate_single_task(task_id, fm))
+        task_records.append({
+            "task_id": task_id,
+            "target_repo": fm.get("target_repo", ""),
+            "task_worktree": fm.get("task_worktree", "primary"),
+        })
+
+    if all_errors:
+        for err in all_errors:
+            print(f"Schema error: {err}", file=sys.stderr)
+        sys.exit(1)
+
+    repo_worktree: dict = {}
+    for rec in task_records:
+        repo = rec["target_repo"]
+        tw = rec["task_worktree"]
+        if repo in repo_worktree and repo_worktree[repo] != tw:
+            print(
+                f"Schema conflict: tasks targeting '{repo}' use different worktrees: "
+                f"'{repo_worktree[repo]}' vs '{tw}'",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        repo_worktree[repo] = tw
+
+    return task_records
+
+
+# ---------------------------------------------------------------------------
+# Config + paths
+# ---------------------------------------------------------------------------
+
+def load_git_config(project_root: Path) -> dict:
+    """Read workflow-config.json and return tech-code.git section."""
+    config_path = resolve_workflow_config_path(project_root)
+    if not config_path.exists():
+        raise FileNotFoundError(f"workflow-config.json not found: {config_path}")
+    cfg = json.loads(config_path.read_text(encoding="utf-8"))
+    return cfg.get("tech-code", {}).get("git", {})
+
+
+def build_worktree_paths(slug: str, git_cfg: dict) -> dict:
+    """Derive relative worktree_dir and branch from slug and config."""
+    worktree_base = git_cfg.get("worktree_base", ".cache/worktrees")
+    branch_pattern = git_cfg.get("branch_pattern", "wt/{type}-{slug}")
+    default_type = git_cfg.get("default_type", "feat")
+    return {
+        "worktree_dir": f"{worktree_base}/{slug}/",
+        "branch": branch_pattern.format(type=default_type, slug=slug),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Write workspace.json
+# ---------------------------------------------------------------------------
+
+def read_active_code_session(cycle_dir: Path) -> int:
+    """Return active_session int from tech/code/session-state.md."""
+    ss = cycle_dir / "tech" / "code" / "session-state.md"
+    raw = read_md_field(ss, "active_session", default="")
+    if not raw:
+        raise ValueError(f"active_session not found in {ss}")
+    return int(raw)
+
+
+def write_workspace(
+    cycle_dir: Path,
+    session_idx: int,
+    slug: str,
+    paths: dict,
+    tasks: list,
+) -> Path:
+    """Write s{N}/workspace.json and return the written path."""
+    repos = list(dict.fromkeys(t["target_repo"] for t in tasks))
+    primary_repo = repos[0] if repos else ""
+
+    payload: dict = {
+        "worktree_path": paths["worktree_dir"],
+        "primary_repo": primary_repo,
+        "branch": paths["branch"],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+    if len(repos) > 1:
+        extra = {}
+        for repo in repos[1:]:
+            tw_records = [t for t in tasks if t["target_repo"] == repo]
+            if tw_records and tw_records[0]["task_worktree"] != "primary":
+                base = paths["worktree_dir"].rstrip("/")
+                suffix = repo.replace("/", "-")
+                extra[repo] = {
+                    "path": f"{base}-{suffix}/",
+                    "branch": f"{paths['branch']}-{suffix}",
+                }
+        if extra:
+            payload["extra_worktrees"] = extra
+
+    dest = cycle_dir / "tech" / "code" / f"s{session_idx}" / "workspace.json"
+    write_json(dest, payload)
+    return dest
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+
+def parse_args() -> argparse.Namespace:
+    p = argparse.ArgumentParser(description="Prepare tech-code session workspace.")
+    p.add_argument("--cycle-dir", required=True, help="Absolute path to cycle cache directory.")
+    p.add_argument("--project-root", required=True, help="Absolute path to project root.")
+    p.add_argument("--slug", required=True, help="Feature slug for worktree naming (e.g. 'path-guard').")
+    return p.parse_args()
+
+
+def main() -> int:
+    args = parse_args()
+    cycle_dir = Path(args.cycle_dir).resolve()
+    project_root = Path(args.project_root).resolve()
+    slug = args.slug
+
+    tasks = validate_tasks(cycle_dir)
+
+    try:
+        git_cfg = load_git_config(project_root)
+    except FileNotFoundError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+
+    paths = build_worktree_paths(slug, git_cfg)
+
+    try:
+        session_idx = read_active_code_session(cycle_dir)
+    except (ValueError, FileNotFoundError) as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+
+    workspace_path = write_workspace(cycle_dir, session_idx, slug, paths, tasks)
+
+    print(json.dumps({
+        "slug": slug,
+        "worktree_dir": paths["worktree_dir"],
+        "branch": paths["branch"],
+        "workspace_json": str(workspace_path),
+    }, indent=2, ensure_ascii=False))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

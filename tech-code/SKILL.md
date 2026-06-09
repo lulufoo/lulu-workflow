@@ -80,39 +80,18 @@ Task phases (under Executing): `WriteTests` → `VerifyRed` → `WriteImpl` → 
 
 **Actions:**
 
-**Step 0: Task-spec schema validation (pre-execution gate)**
+Run `prepare.py`; on non-zero exit report the error and halt. `<slug>` is a human-readable feature name derived from the feature scope (e.g. `path-guard`).
 
-For each task.md delivered by the work-order, validate the schema:
-- Verify frontmatter contains `target_repo` (non-empty string)
-- Verify frontmatter contains `task_worktree` (`"primary"` or a valid relative path)
-- Verify frontmatter contains `exit_contract` with keys `commit`, `commit_ref_md`, `code_log` all set to `required`
-- Any missing field: output the missing field name and task_id, halt, wait for user correction
-- Verify `task_worktree` consistency: all tasks sharing a target_repo must use the same task_worktree value (mismatch: schema conflict error)
+```bash
+python3 "$SKILL_DIR/scripts/prepare.py" \
+  --cycle-dir "$CACHE_DIR/$CYCLE_ID" \
+  --project-root "$(pwd)" \
+  --slug <slug>
+```
 
-1. Read `$WORKFLOW_DIR/workflow-config.json` → `code.git` (`worktree_base`, `branch_pattern`, `default_type`, `commit_message_template`).
-2. Derive `<slug>` from feature id or scope; build paths:
-   - worktree dir: `{worktree_base}/<slug>/` (default `.cache/worktrees/<slug>/`)
-   - branch: apply `branch_pattern` with `{type}` = `default_type` (default `wt/feat-<slug>`)
-3. Execute **P1 → P2 → P3** from `git-workflow-standard.md` using the derived `<slug>` and `code.git` config values.
-4. Write `s{N}/workspace.json`:
-   ```json
-   {
-     "worktree_path": "/abs/path/to/project/.cache/worktrees/<slug>/",
-     "project_root": "/abs/path/to/project",
-     "primary_repo": "<repo-name>",
-     "branch": "wt/feat-<slug>",
-     "created_at": "<ISO8601>",
-     "extra_worktrees": {
-       "<repo-name>": {
-         "path": "/abs/path/to/project/.cache/worktrees/<slug>-<repo-suffix>/",
-         "branch": "wt/feat-<slug>-<repo-suffix>"
-       }
-     }
-   }
-   ```
-   All paths are written as absolute paths at creation time. Omit `extra_worktrees` entirely if all tasks target the primary repo.
+Read stdout JSON for `slug`, `worktree_dir`, `branch`. Execute **P1 → P2 → P3** from `git-workflow-standard.md` using those values.
 
-**Exit:** All worktree and branch setup complete, `workspace.json` written → update `workflow-state.md`: `current_state: Executing`, set `current_task` to first runnable task, `current_phase: WriteTests`. All subsequent TDD edits and commits run inside the worktree directory.
+**Exit:** `workspace.json` written → `workflow-state.md`: `current_state: Executing`, `current_task` = first task, `current_phase: WriteTests`.
 
 ---
 
