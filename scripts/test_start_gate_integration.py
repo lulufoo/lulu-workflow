@@ -132,7 +132,7 @@ def _stage_extra_args(stage: str, tmp_path: Path) -> list:
             "| t1 | test task | `scripts/foo.py` | — | 否 |\n",
             encoding="utf-8",
         )
-        return ["--mode", "task-from-work-order", "--task-list-ref", str(task_list)]
+        return ["--task-list-ref", str(task_list)]
     return []
 
 

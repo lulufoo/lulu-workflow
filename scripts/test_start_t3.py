@@ -177,7 +177,7 @@ class TestSessionPath:
         )
 
     def _run_code(self, tmp_path):
-        # tech-code requires --mode and --task-list-ref (existing file with table)
+        # tech-code requires --task-list-ref (existing file with table)
         task_list = tmp_path / "task-list.md"
         task_list.write_text(
             "# Task List\n\n"
@@ -190,7 +190,6 @@ class TestSessionPath:
             [sys.executable, str(_start_py("tech-code")),
              "--project-root", str(tmp_path),
              "--cycle-id", _FID,
-             "--mode", "task-from-work-order",
              "--task-list-ref", str(task_list)],
             capture_output=True, text=True, env=_ENV_COPILOT,
             cwd=str(_scripts_dir("tech-code")),

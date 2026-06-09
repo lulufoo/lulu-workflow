@@ -62,8 +62,6 @@ def test_cli_generates_full_code_task_list_for_complex_task_ids(tmp_path):
             str(tmp_path),
             "--cycle-id",
             _FID,
-            "--mode",
-            "task-from-work-order",
             "--task-list-ref",
             str(task_list),
         ],
@@ -92,3 +90,23 @@ def test_cli_generates_full_code_task_list_for_complex_task_ids(tmp_path):
     assert "t12b" in content
     assert "t16c" in content
     assert "product-plan.shaping|spec + template" in content
+
+
+def test_cli_requires_task_list_ref(tmp_path):
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(_START),
+            "--project-root",
+            str(tmp_path),
+            "--cycle-id",
+            _FID,
+        ],
+        capture_output=True,
+        text=True,
+        env=_ENV_COPILOT,
+        cwd=str(_SCRIPTS),
+    )
+
+    assert result.returncode != 0
+    assert "task-list-ref" in result.stderr

@@ -46,9 +46,18 @@ If the user's input does not match this format, stop and output the usage error.
 
 **Step 1: Identify active cycle** — See `## Session Foundation` in `../_runtime.md`
 
-**Step 2–4:** Parse input, validate upstream Delivered state, collect paths.
+**Step 2–4:** Parse input, validate upstream Delivered state, collect `--task-list-ref` (absolute path to work-order `task-list.md`).
 
-**Step 5: Run `start.py`** — bootstraps `current_state: Preparing` with empty `current_task` / `current_phase`.
+**Step 5: Run `start.py`**
+
+```bash
+python3 "$SKILL_DIR/scripts/start.py" \
+  --project-root "$(pwd)" \
+  --cycle-id "<cycle_id>" \
+  --task-list-ref "<absolute-path-to-task-list.md>"
+```
+
+Bootstraps `current_state: Preparing` with empty `current_task` / `current_phase`.
 > If start.py exits non-zero ("Gate blocked: <stage> is not Delivered"): tell the user which prior stage must be delivered first. Do not retry start.
 
 **Step 6:** Read `code-task-list.md`; display tasks; wait for confirmation before execution.
@@ -244,5 +253,5 @@ The overrides below apply only when `$EXECUTION_MODE == "autonomous"` **and** `c
 
 ## Supporting: tech-work-order → tech-code handoff
 
-- Path B: `--task-list-ref` + `--task-refs`; `task.md` is self-contained.
+- `--task-list-ref` (required) + optional `--task-refs`; `task.md` is self-contained.
 - `tdd_exempt` from task list or task frontmatter: if set, `VerifyGreen` → `Done` directly (execution handled by `task-runner/SKILL.md`).

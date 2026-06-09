@@ -166,28 +166,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--project-root", default=".", help="Project root directory.")
     parser.add_argument("--cycle-id", required=True, help="Cycle ID (from cycle_init.py).")
     parser.add_argument(
-        "--mode",
-        required=True,
-        choices=["task-from-work-order", "task-from-tech"],
-        help="Input mode: task-from-work-order or task-from-tech.",
-    )
-    # Path B
-    parser.add_argument(
         "--task-list-ref",
-        default="",
-        help="(Path B) Absolute path to work-order task-list.md.",
+        required=True,
+        help="Absolute path to work-order task-list.md.",
     )
     parser.add_argument(
         "--task-refs",
         nargs="*",
         default=[],
-        help="(Path B) Absolute paths to individual task.md files.",
-    )
-    # Path A
-    parser.add_argument(
-        "--tech-ref",
-        default="",
-        help="(Path A) Absolute path to tech-doc.md.",
+        help="Optional absolute paths to individual task.md files.",
     )
     parser.add_argument(
         "--conversation-id",
@@ -245,22 +232,10 @@ def main() -> int:
     # archive: deferred  if archive_rc != 0:
     # archive: deferred      return archive_rc
 
-    # Validate mode-specific required args
-    if args.mode == "task-from-work-order":
-        if not args.task_list_ref:
-            print("错误：--mode task-from-work-order 需要提供 --task-list-ref")
-            return 1
-        task_list_ref_path = Path(args.task_list_ref)
-        if not task_list_ref_path.exists():
-            print(f"错误：--task-list-ref 文件不存在：{args.task_list_ref}")
-            return 1
-    elif args.mode == "task-from-tech":
-        if not args.tech_ref:
-            print("错误：--mode task-from-tech 需要提供 --tech-ref")
-            return 1
-        if not Path(args.tech_ref).exists():
-            print(f"错误：--tech-ref 文件不存在：{args.tech_ref}")
-            return 1
+    task_list_ref_path = Path(args.task_list_ref)
+    if not task_list_ref_path.exists():
+        print(f"错误：--task-list-ref 文件不存在：{args.task_list_ref}")
+        return 1
 
     # Determine session round
     ss_path = project_root / session_state_path(cycle_id)
@@ -288,31 +263,29 @@ def main() -> int:
     tl_path = project_root / task_list_path(cycle_id, active_session)
     ws_path = project_root / state_path(cycle_id, active_session)
 
-    if args.mode == "task-from-work-order":
-        # Parse task-list.md and generate code-task-list.md
-        task_list_content = task_list_ref_path.read_text(encoding="utf-8")
-        tasks = parse_work_order_task_list(task_list_content)
-        if not tasks:
-            print("警告：task-list.md 中未解析到任何任务，请检查表格格式。")
+    task_list_content = task_list_ref_path.read_text(encoding="utf-8")
+    tasks = parse_work_order_task_list(task_list_content)
+    if not tasks:
+        print("警告：task-list.md 中未解析到任何任务，请检查表格格式。")
 
-        tdd_list_content = build_code_task_list_md(
-            tasks,
-            source="work-order",
-            task_list_ref=args.task_list_ref,
-        )
-        tl_path.write_text(tdd_list_content, encoding="utf-8")
+    tdd_list_content = build_code_task_list_md(
+        tasks,
+        source="work-order",
+        task_list_ref=args.task_list_ref,
+    )
+    tl_path.write_text(tdd_list_content, encoding="utf-8")
 
-        write_md_state(
-            ws_path,
-            current_state="Preparing",
-            mode=args.mode,
-            task_list_ref=tl_path.as_posix(),
-            current_task="",
-            current_phase="",
-        )
+    write_md_state(
+        ws_path,
+        current_state="Preparing",
+        mode="work-order",
+        task_list_ref=tl_path.as_posix(),
+        current_task="",
+        current_phase="",
+    )
 
-        print(f"""
-code session 已启动（Path B：task-from-work-order）。
+    print(f"""
+code session 已启动。
 
 会话状态文件：  {ss_path.as_posix()}
 当前 session：  s{active_session}
@@ -324,33 +297,6 @@ code 任务列表：  {tl_path.as_posix()}
 1. 读 code-task-list.md，向用户展示任务列表，等待确认
 2. Agent 按 SKILL L1 创建 worktree/分支（git pull --rebase && git worktree add），写入 s{active_session}/workspace.json
 3. workflow-state.md → current_state: Executing；再设置 current_task / current_phase（首任务 WriteTests）
-""")
-
-    else:  # task-from-tech
-        write_md_state(
-            ws_path,
-            current_state="Preparing",
-            mode=args.mode,
-            task_list_ref=tl_path.as_posix(),
-            current_task="",
-            current_phase="",
-        )
-
-        print(f"""
-code session 已启动（Path A：task-from-tech）。
-
-会话状态文件：  {ss_path.as_posix()}
-当前 session：  s{active_session}
-状态文件：      {ws_path.as_posix()}（current_state: Preparing）
-code 任务列表：  {tl_path.as_posix()}（待生成）
-tech-ref：      {args.tech_ref}
-
-下一步：
-1. 读 tech-doc.md（{args.tech_ref}）
-2. 按 Test First 逻辑分析改动点，生成 {tl_path.as_posix()}
-3. 向用户展示任务列表草稿，等待确认
-4. L1：worktree + workspace.json（见 SKILL）；再 Preparing → Executing
-5. 用户确认后写入 code-task-list.md，设置 current_task / current_phase，开始 WriteTests
 """)
 
     return 0
