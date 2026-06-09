@@ -2,8 +2,8 @@
 name: initializing-runner
 description: >-
   Autonomous Initializing step for tech-plan drafting. Reads template/meta from
-  parent-provided raw sources, seeds the initial tech-doc, writes section-progress.md
-  and drafting-progress.md, then returns control to Scoping.
+  parent-provided raw sources, seeds the initial tech-doc with §state provenance
+  comments, writes drafting-progress.md, then returns control to Scoping.
 ---
 
 # initializing-runner
@@ -17,9 +17,7 @@ This skill is responsible for Step I1-I4 only:
 1. Read the authoritative template and meta documents from parent-provided inputs.
 2. Read the current cycle `decision-doc.md`.
 3. Seed the first `tech-doc.md` draft from `Decision-Doc Mapping`.
-4. Write two separate progress files:
-   - `section-progress.md` for `sections`
-   - `drafting-progress.md` for `current_step`
+4. Write provenance comment `§state:I` or `§state:X` above each section heading in tech-doc.
 
 Do not ask the user questions.
 Do not perform Scoping, InDialogue, Reopen, Evaluating, or delivery work here.
@@ -39,16 +37,7 @@ Self-resolved at runtime (do not pass from parent):
 - `$TEMPLATE_PATH` — read `$WORKFLOW_DIR/workflow-config.json` → `tech-plan.tpt_url` (feature) or `tech-plan.shaping_tpt_url` (topic)
 - `$META_PATH` — read `$WORKFLOW_DIR/workflow-config.json` → `tech-plan.tpt_meta_url`
 - `$TECH_DOC_PATH` = `{REVISION_DIR}/tech-doc.md`
-- `$SECTION_PROGRESS_PATH` = `{REVISION_DIR}/section-progress.md`
 - `$DRAFTING_PROGRESS_PATH` = `{REVISION_DIR}/drafting-progress.md`
-
-## Progress Templates
-
-Load this template file from the skill repository at runtime. Do not embed its content inline.
-
-| Template file | Output file |
-|---|---|
-| `$SKILL_ROOT/tech-plan/templates/section-progress.template.md` | `$SECTION_PROGRESS_PATH` |
 
 ## Execution Contract
 
@@ -137,7 +126,7 @@ Apply the method as follows:
 
 ## Write Outputs
 
-### Step I4 - Write tech doc and two progress files
+### Step I4 - Write tech doc and progress file
 
 #### 1. Write `$TECH_DOC_PATH`
 
@@ -145,28 +134,13 @@ Render the full tech document in template order:
 
 - preserve the template preamble/frontmatter
 - preserve every heading
+- immediately above each section heading, insert the provenance comment:
+  - `fill_results[section_id].status = "I"` → `<!-- §state:I -->`
+  - `fill_results[section_id].status = "X"` → `<!-- §state:X -->`
 - use `fill_results[section_id].content` as the body for each parsed section
 - leave untouched sections as their original skeleton
 
-The output is the initialized draft:
-
-- seeded sections contain decision-doc-derived content
-- unseeded sections remain skeleton placeholders
-
-#### 2. Write `$SECTION_PROGRESS_PATH`
-
-Load `$SKILL_ROOT/tech-plan/templates/section-progress.template.md` as the write template.
-
-Set `cycle_id` to `$CYCLE_ID`.
-
-Populate `sections` using top-level section ids only.
-
-Write each top-level `§N` status from the initialized result set as `I` or `X`, consistent with the parent skill's top-level section-key model.
-
-Do not write subsection keys into `section-progress.md` during Initializing.
-Do not populate `na_evidence` or `reopen_reasons` here.
-
-#### 3. Write `$DRAFTING_PROGRESS_PATH`
+#### 2. Write `$DRAFTING_PROGRESS_PATH`
 
 Write directly:
 
