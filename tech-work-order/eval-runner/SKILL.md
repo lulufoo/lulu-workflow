@@ -57,7 +57,7 @@ Received via the invocation prompt from `tech-work-order/SKILL.md` Rule E2:
 | `TEMPLATE_KEY_TDA` | string | Always `tda_url` |
 | `TEMPLATE_KEY_TWCA` | string | Always `twca_url` |
 | `TEMPLATE_KEY_WOQA` | string | Always `woqa_url` |
-| `PROJECT_ROOT` | path | Project root for `fetch_template.py` |
+| `PROJECT_ROOT` | path | Project root for `$FETCH_TEMPLATE` |
 | `execution_mode` | enum | `guided` (prompt each issue) \| `autonomous` (auto-fix WO issues, always prompt SOT issues) |
 | evaluate-state.md | file content | Pasted in prompt under `## Current Evaluation State` section; used for resume |
 
@@ -172,7 +172,7 @@ Provide reclassification:
 
 ### Steps
 
-1. **Load framework.** Run `fetch_template.py --section {TEMPLATE_SECTION} --key {TEMPLATE_KEY_TDA} --project-root {PROJECT_ROOT}`; read stdout as the TDA framework in full.
+1. **Load framework.** Use `$FETCH_TEMPLATE {TEMPLATE_SECTION} {TEMPLATE_KEY_TDA}`; read stdout as the TDA framework in full.
 
 2. **Identify functional units.** From `tech-doc.md`, enumerate the functional units that would need to be implemented (deliverable behaviors, not design elements).
 
@@ -254,7 +254,7 @@ w0_status: passed | failed
 
 ### Steps
 
-1. **Load framework.** Run `fetch_template.py --section {TEMPLATE_SECTION} --key {TEMPLATE_KEY_TWCA} --project-root {PROJECT_ROOT}`; read stdout as the TWCA framework in full.
+1. **Load framework.** Use `$FETCH_TEMPLATE {TEMPLATE_SECTION} {TEMPLATE_KEY_TWCA}`; read stdout as the TWCA framework in full.
 
 2. **Direction 1 — Coverage.** For each deliverable unit in `tech-doc.md`, verify at least one task in `task-list.md` implements it. Flag gaps as `WO-MISS`.
 
@@ -288,7 +288,7 @@ w0_status: passed | failed
 
 ### Steps
 
-1. **Load framework.** Run `fetch_template.py --section {TEMPLATE_SECTION} --key {TEMPLATE_KEY_WOQA} --project-root {PROJECT_ROOT}`; read stdout as the WOQA framework in full.
+1. **Load framework.** Use `$FETCH_TEMPLATE {TEMPLATE_SECTION} {TEMPLATE_KEY_WOQA}`; read stdout as the WOQA framework in full.
 
 2. **Per-task evaluation.** For each task file, check all 6 dimensions:
    - **Dim 1 — Granularity:** 1–3 function changes per task; completable in one TDD session

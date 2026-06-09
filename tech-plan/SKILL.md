@@ -107,13 +107,15 @@ Read `workflow-state.md` → `evaluate_round`, `mode`, `carry_forward_ref`.
 
 > "上轮评估结果：[fix_severity] — [fix_severity_reason]。"
 
-Resolve drafting template keys from cycle type (sub-agents fetch via `fetch_template.py`):
+Resolve drafting template keys from cycle type (sub-agents fetch via `$FETCH_TEMPLATE`):
 
 - feature → `tech-plan` / `tpt_url`
 - topic → `tech-plan` / `shaping_tpt_url`
 - shared meta → `tech-plan` / `tpt_meta_url`
 
-See `../_runtime.md` → Template Fetch for the CLI invocation.
+Use:
+- `Use $FETCH_TEMPLATE tech-plan <key>`
+- Read stdout as template body; on failure report error and stop current step.
 
 Then dispatch Steps 1 → 2 → 3 in order. If returning from Evaluating fix, enter Step 4 directly.
 

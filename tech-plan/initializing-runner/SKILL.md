@@ -40,12 +40,10 @@ Self-resolved at runtime (do not pass from parent):
 - `$TECH_DOC_PATH` = `{REVISION_DIR}/tech-doc.md`
 - `$DRAFTING_PROGRESS_PATH` = `{REVISION_DIR}/drafting-progress.md`
 
-Load templates via the shared CLI (see `../_runtime.md` → Template Fetch):
+Load templates via the shared entry (see `../_runtime.md` → Template Fetch):
 
-```bash
-python3 "$SKILL_ROOT/scripts/fetch_template.py" \
-  --section tech-plan --key tpt_meta_url \
-  --project-root "$(pwd)"
+```text
+Use $FETCH_TEMPLATE tech-plan tpt_meta_url
 ```
 
 Replace `tpt_meta_url` with `$TEMPLATE_KEY` for the template skeleton fetch.
@@ -54,7 +52,7 @@ Replace `tpt_meta_url` with `$TEMPLATE_KEY` for the template skeleton fetch.
 
 ### Step I1 - Load mapping table and template skeleton
 
-1. Run `fetch_template.py` with `--section tech-plan --key tpt_meta_url`; read stdout as meta markdown.
+1. Use `$FETCH_TEMPLATE tech-plan tpt_meta_url`; read stdout as meta markdown.
 2. Locate the `## Decision-Doc Mapping` table.
 3. Parse the mapping rows into:
 
@@ -65,7 +63,7 @@ Replace `tpt_meta_url` with `$TEMPLATE_KEY` for the template skeleton fetch.
 ```
 
 4. Skip rows where `target` is `—`.
-5. Run `fetch_template.py` with `--section $TEMPLATE_SECTION --key $TEMPLATE_KEY`; read stdout as template markdown.
+5. Use `$FETCH_TEMPLATE $TEMPLATE_SECTION $TEMPLATE_KEY`; read stdout as template markdown.
 6. Parse the template into an ordered section map keyed by tech-doc section id:
    - top-level: `§1` ... `§10`
    - sub-sections where present: `§2.1`, `§2.2`, `§3.1`, etc.

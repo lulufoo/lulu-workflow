@@ -39,8 +39,8 @@ Dimension-specific:
 
 - Read `TECH_DOC_PATH`
 - For `e2`: parse §5 (Data Flow) and §6 (API / Interfaces) to identify relevant code files; read those files
-- For `e1`: read `PRODUCT_REF`; run `fetch_template.py --section {TEMPLATE_SECTION} --key {TEMPLATE_KEY} --project-root {PROJECT_ROOT}`; read stdout as PTC framework
-- For `e3`: run `fetch_template.py --section {TEMPLATE_SECTION} --key {TEMPLATE_KEY} --project-root {PROJECT_ROOT}`; read stdout as TPEF framework
+- For `e1`: read `PRODUCT_REF`; use `$FETCH_TEMPLATE {TEMPLATE_SECTION} {TEMPLATE_KEY}`; read stdout as PTC framework
+- For `e3`: use `$FETCH_TEMPLATE {TEMPLATE_SECTION} {TEMPLATE_KEY}`; read stdout as TPEF framework
 
 ---
 

@@ -26,6 +26,32 @@ class TestParseBlobUrl:
         assert parsed["ref"] == "main"
         assert parsed["path"].endswith("20-tech-plan-spec-template.md")
 
+    def test_parses_multi_segment_ref(self):
+        url = (
+            "https://github.com/lulufoo/lulu-workflow-framework/blob/release/2026.06/"
+            "lulu-dev-workflow/template/tech-plan/20-tech-plan-spec-template.md"
+        )
+        parsed = parse_blob_url(url)
+        assert parsed["ref"] == "release/2026.06"
+        assert parsed["path"] == (
+            "lulu-dev-workflow/template/tech-plan/20-tech-plan-spec-template.md"
+        )
+
+    def test_parses_multi_segment_ref_with_nested_path(self):
+        url = (
+            "https://github.com/lulufoo/lulu-workflow-framework/blob/release/candidate/v2/"
+            "lulu-dev-workflow/template/diagnostic/decision-doc.template.md"
+        )
+        parsed = parse_blob_url(url)
+        assert parsed["ref"] == "release/candidate/v2"
+        assert parsed["path"] == (
+            "lulu-dev-workflow/template/diagnostic/decision-doc.template.md"
+        )
+
+    def test_rejects_ambiguous_blob_url_without_path(self):
+        with pytest.raises(FetchTemplateError, match="Ambiguous GitHub blob URL"):
+            parse_blob_url("https://github.com/o/r/blob/release/candidate/template.md")
+
     def test_rejects_non_github_url(self):
         with pytest.raises(FetchTemplateError, match="Not a GitHub blob URL"):
             parse_blob_url("https://example.com/doc.md")
@@ -143,6 +169,29 @@ class TestFetchTemplate:
             gh_fetcher=lambda *_: "# refetched\n",
         )
         assert content == "# refetched\n"
+
+    def test_fetches_diagnostic_template(self, tmp_path):
+        url = (
+            "https://github.com/lulufoo/lulu-workflow-framework/blob/main/"
+            "lulu-dev-workflow/template/diagnostic/decision-doc.template.md"
+        )
+        self._write_config(tmp_path, {"diagnostic": {"decision_doc_template_url": url}})
+
+        def mock_fetch(owner, repo, ref, path):
+            assert owner == "lulufoo"
+            assert repo == "lulu-workflow-framework"
+            assert ref == "main"
+            assert path == "lulu-dev-workflow/template/diagnostic/decision-doc.template.md"
+            return "# diagnostic template\n"
+
+        content = fetch_template(
+            "diagnostic",
+            "decision_doc_template_url",
+            tmp_path,
+            platform="cursor",
+            gh_fetcher=mock_fetch,
+        )
+        assert content == "# diagnostic template\n"
 
 
 class TestMainCli:

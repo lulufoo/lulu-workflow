@@ -18,7 +18,13 @@ CACHE_ROOT_NAME = "lulu-dev-workflow"
 CACHE_TEMPLATE_SUBDIR = ".template"
 
 _BLOB_RE = re.compile(
-    r"^https://github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/blob/(?P<ref>[^/]+)/(?P<path>.+)$"
+    r"^https://github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/blob/(?P<rest>.+)$"
+)
+
+# Parse refs from right to left by locating known template roots.
+# This avoids incorrectly splitting multi-segment refs as path.
+_KNOWN_TEMPLATE_ROOTS: tuple[tuple[str, ...], ...] = (
+    ("lulu-dev-workflow", "template"),
 )
 
 GhFetcher = Callable[[str, str, str, str], str]
@@ -49,7 +55,44 @@ def parse_blob_url(url: str) -> dict[str, str]:
     match = _BLOB_RE.match(url.strip())
     if not match:
         raise FetchTemplateError(f"Not a GitHub blob URL: {url}")
-    return match.groupdict()
+    base = match.groupdict()
+    rest = base["rest"]
+    parts = [p for p in rest.split("/") if p]
+    if len(parts) < 2:
+        raise FetchTemplateError(f"Ambiguous GitHub blob URL (missing path): {url}")
+
+    candidates: list[tuple[str, str]] = []
+    for root in _KNOWN_TEMPLATE_ROOTS:
+        root_len = len(root)
+        for idx in range(1, len(parts) - root_len + 1):
+            if tuple(parts[idx : idx + root_len]) != root:
+                continue
+            ref_parts = parts[:idx]
+            path_parts = parts[idx:]
+            if not ref_parts or not path_parts:
+                continue
+            candidates.append(("/".join(ref_parts), "/".join(path_parts)))
+
+    if len(candidates) == 1:
+        ref, path = candidates[0]
+        return {
+            "owner": base["owner"],
+            "repo": base["repo"],
+            "ref": ref,
+            "path": path,
+        }
+    if len(candidates) > 1:
+        raise FetchTemplateError(f"Ambiguous GitHub blob URL (multiple roots): {url}")
+
+    # Without a known root, only a single-segment ref can be parsed unambiguously.
+    if len(parts) == 2:
+        return {
+            "owner": base["owner"],
+            "repo": base["repo"],
+            "ref": parts[0],
+            "path": parts[1],
+        }
+    raise FetchTemplateError(f"Ambiguous GitHub blob URL (cannot resolve ref/path): {url}")
 
 
 def gh_api_fetch(owner: str, repo: str, ref: str, path: str) -> str:

@@ -8,9 +8,8 @@ Write to `$CACHE_DIR/<cycle_id>/{cache_subdir}/decision-doc.md` (where `{cache_s
 
 <HARD-GATE name="Decision-Doc Prerequisites">
 Read `decision-doc.template.md` from the framework repo:
-```bash
-gh api "repos/lulufoo/lulu-workflow-framework/contents/lulu-dev-workflow/template/diagnostic/decision-doc.template.md?ref=main" \
-  --jq '.content' | base64 -d
+```text
+Use $FETCH_TEMPLATE diagnostic decision_doc_template_url
 ```
 Apply Section filtering above using resolved Domain Constraints before writing.
 </HARD-GATE>
