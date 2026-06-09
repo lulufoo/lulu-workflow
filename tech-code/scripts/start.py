@@ -166,17 +166,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--project-root", default=".", help="Project root directory.")
     parser.add_argument("--cycle-id", required=True, help="Cycle ID (from cycle_init.py).")
     parser.add_argument(
-        "--task-list-ref",
-        required=True,
-        help="Absolute path to work-order task-list.md.",
-    )
-    parser.add_argument(
-        "--task-refs",
-        nargs="*",
-        default=[],
-        help="Optional absolute paths to individual task.md files.",
-    )
-    parser.add_argument(
         "--conversation-id",
         default="",
         help="Cursor/Copilot conversation ID for active-context indexing.",
@@ -232,9 +221,15 @@ def main() -> int:
     # archive: deferred  if archive_rc != 0:
     # archive: deferred      return archive_rc
 
-    task_list_ref_path = Path(args.task_list_ref)
+    # Derive task-list.md path from work-order session-state.md
+    wo_ss_path = cache_dir / cycle_id / "tech" / "work-order" / "session-state.md"
+    wo_active = read_md_field(wo_ss_path, "active_session", default="")
+    if not wo_active:
+        print(f"错误：无法从 work-order session-state.md 推导 task-list-ref（{wo_ss_path}）", file=sys.stderr)
+        return 1
+    task_list_ref_path = cache_dir / cycle_id / "tech" / "work-order" / f"r{wo_active}" / "task-list.md"
     if not task_list_ref_path.exists():
-        print(f"错误：--task-list-ref 文件不存在：{args.task_list_ref}")
+        print(f"错误：task-list.md 不存在：{task_list_ref_path}", file=sys.stderr)
         return 1
 
     # Determine session round
@@ -271,7 +266,7 @@ def main() -> int:
     tdd_list_content = build_code_task_list_md(
         tasks,
         source="work-order",
-        task_list_ref=args.task_list_ref,
+        task_list_ref=task_list_ref_path.as_posix(),
     )
     tl_path.write_text(tdd_list_content, encoding="utf-8")
 

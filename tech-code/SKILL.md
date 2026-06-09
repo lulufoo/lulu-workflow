@@ -9,9 +9,10 @@ disable-model-invocation: true
 
 # code-workflow
 
-Execute Test-Driven Development from a Delivered work-order task set, with git worktree delivery and per-task commits. **Scope:** TDD code generation in a dedicated worktree. Input: Delivered work-order task set. Output: tests + implementation, per-task `commit-ref.md`, closing checklist, human delivery gate. Session lifecycle: **Preparing → Executing → Closing → Delivered**.
-
-**This workflow runs in Agent mode.** (requires writing code files and executing Shell commands)
+**Input:** Delivered work-order task set  
+**Output:** tests + implementation, per-task `commit-ref.md`, closing checklist, human delivery gate  
+**Scope:** TDD code generation in a dedicated worktree, with git worktree delivery and per-task commits  
+**Session lifecycle:** `Preparing → Executing → Closing → Delivered`
 
 **`/tech-code` authorizes** automatic `git commit` / `git commit --amend` inside the session worktree during Executing. Push, PR, CI, and review are post-code (out of scope).
 
@@ -29,38 +30,31 @@ Also read `../_subagent.md` and load:
 
 ## Commands
 
-### `/tech-code <input>` — Entry point
+### `/tech-code [<cycle_id>]` — Entry point
 
-| Format | Meaning | Example |
-|--------|---------|---------|
-| *(no input)* | Derive feature from active context (`$CYCLE_ID` resolved in Step 1) | `/tech-code` |
-| `<cycle_id>` | Explicit feature override; format: `<timestamp>-<uuid>` | `/tech-code 20260601141338-3764ab2b` |
+Derive `$CYCLE_ID` from active context (see `_runtime.md § Session Foundation`), or use the explicit `<cycle_id>` argument if provided.
 
-If the user's input does not match this format, stop and output the usage error.
+<HARD-GATE>
+`$CYCLE_ID` must be resolved before proceeding. If it cannot be resolved → stop and ask the user to provide it.
+</HARD-GATE>
 
 ---
 
-### AI startup sequence (after valid input)
+### AI startup sequence
 
-**Step 0: Load `docs/git/git-workflow-standard.md`** — required before any git operations.
+**Step 1: Load `docs/git/git-workflow-standard.md`** — required before any git operations.
 
-**Step 1: Identify active cycle** — See `## Session Foundation` in `../_runtime.md`
-
-**Step 2–4:** Parse input, validate upstream Delivered state, collect `--task-list-ref` (absolute path to work-order `task-list.md`).
-
-**Step 5: Run `start.py`**
+**Step 2: Run `start.py`**
 
 ```bash
 python3 "$SKILL_DIR/scripts/start.py" \
   --project-root "$(pwd)" \
-  --cycle-id "<cycle_id>" \
-  --task-list-ref "<absolute-path-to-task-list.md>"
+  --cycle-id "<cycle_id>"
 ```
 
-Bootstraps `current_state: Preparing` with empty `current_task` / `current_phase`.
-> If start.py exits non-zero ("Gate blocked: <stage> is not Delivered"): tell the user which prior stage must be delivered first. Do not retry start.
+> On non-zero exit: report the blocking stage to the user. Do not retry.
 
-**Step 6:** Read `code-task-list.md`; display tasks; wait for confirmation before execution.
+**Step 3:** Read `code-task-list.md`; display tasks; wait for confirmation before execution.
 
 ---
 
