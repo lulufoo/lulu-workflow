@@ -16,21 +16,26 @@ Commits after VerifyGreen; amends after Refactor if code changed.
 
 ## Input Contract
 
-Received via the invocation prompt (structured as shown in code/SKILL.md Task loop step 1):
+Received as JSON via the invocation prompt `## Input` block (output of `resolve_task_context.py`):
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `task_id` | string | e.g. `t1` |
-| `worktree_abs_path` | string | Absolute path to the worktree directory for this task |
-| `code_task_list_path` | string | Absolute path to `code-task-list.md` |
-| `commit_message_template` | string | From `workflow-config.json code.git.commit_message_template` |
-| task spec | markdown content | Full content of `task.md` (acceptance criteria, constraints, function specs) |
-
-All file edits and test runs operate inside `worktree_abs_path`.
+```json
+{
+  "task_id":                 "<task_id>",
+  "work_order_task_path":    "<abs_path>/work-order/<r{N}>/tasks/<task_id>/task.md",
+  "task_output_dir":         "<abs_path>/code/<s{N}>/tasks/<task_id>",
+  "code_task_list_path":     "<abs_path>/code/<s{N}>/code-task-list.md",
+  "worktree_abs_path":       "<abs_path>/.cache/worktrees/<slug>/",
+  "commit_message_template": "<template>",
+  "test_command":            "<command>"
+}
+```
 
 ## Execution
 
 Execute TDD phases in order: WriteTests → VerifyRed → WriteImpl → VerifyGreen → Refactor → Done.
+
+Only read files provided in Input Contract. Do not read any other files.
+All code edits, git operations, and test runs: cwd = `worktree_abs_path`.
 
 ### WriteTests
 
@@ -39,7 +44,7 @@ Execute TDD phases in order: WriteTests → VerifyRed → WriteImpl → VerifyGr
 **Actions:**
 
 1. Write all test files for the current task. Do not create or modify any implementation files.
-2. Use `code.test_command` from `workflow-config.json` for all test runs.
+2. Use `test_command` from Input Contract for all test runs.
 
 **Exit:** All test files written, no implementation changed → agent auto-advances to `VerifyRed`.
 

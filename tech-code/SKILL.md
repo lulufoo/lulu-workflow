@@ -9,81 +9,56 @@ disable-model-invocation: true
 
 # code-workflow
 
-Execute Test-Driven Development from a Delivered work-order task set, with git worktree delivery and per-task commits. **Scope:** TDD code generation in a dedicated worktree. Input: Delivered work-order task set. Output: tests + implementation, per-task `commit-ref.md`, closing checklist, human delivery gate. Session lifecycle: **Preparing → Executing → Closing → Delivered**.
+## Overview
 
-**This workflow runs in Agent mode.** (requires writing code files and executing Shell commands)
+**Input:** Delivered work-order task set  
+**Output:** tests + implementation, per-task `commit-ref.md`, closing checklist, human delivery gate  
+**Scope:** TDD code generation in a dedicated worktree, with git worktree delivery and per-task commits  
+**Session lifecycle:** `Preparing → Executing → Closing → Delivered`
 
-**`/tech-code` authorizes** automatic `git commit` / `git commit --amend` inside the session worktree during Executing. Push, PR, CI, and review are post-code (out of scope).
+## Prerequisites
 
 <HARD-GATE>
-Do NOT proceed until you have read `../_runtime.md` and loaded:
+Do NOT proceed until you have read `../_runtime.md`
+</HARD-GATE>
 
 - `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, `$CACHE_DIR` from `## Platform Context`
 - Feature identification logic from `## Session Foundation`
+- `$SKILL_DIR` = `$SKILL_ROOT/tech-code`
 
-Also read `../_subagent.md` and load:
-- Sub-agent model convention (`$RESOLVED_MODEL`) from `## Sub-agent Context › Config Resolution`
+<HARD-GATE>
+Do NOT proceed until you have read `../_subagent.md` 
 </HARD-GATE>
 
-`$SKILL_DIR` = `$SKILL_ROOT/tech-code`
+- Sub-agent model convention (`$RESOLVED_MODEL`) from `## Sub-agent Context › Config Resolution`
 
 ## Commands
 
-### `/tech-code <input>` — Entry point
+**`/tech-code` authorizes** automatic `git commit` / `git commit --amend` inside the session worktree during Executing. Push, PR, CI, and review are post-code (out of scope).
 
-| Format | Meaning | Example |
-|--------|---------|---------|
-| *(no input)* | Derive feature from active context (`$CYCLE_ID` resolved in Step 1) | `/tech-code` |
-| `<cycle_id>` | Explicit feature override; format: `<timestamp>-<uuid>` | `/tech-code 20260601141338-3764ab2b` |
+### `/tech-code [<cycle_id>]` — Entry point
 
-If the user's input does not match this format, stop and output the usage error.
+Derive `$CYCLE_ID` from active context (see `_runtime.md § Session Foundation`), or use the explicit `<cycle_id>` argument if provided.
 
----
+<HARD-GATE>
+`$CYCLE_ID` must be resolved before proceeding. If it cannot be resolved → stop and ask the user to provide it.
+</HARD-GATE>
 
-### AI startup sequence (after valid input)
+### AI startup sequence
 
-**Step 0: Load `docs/git/git-workflow-standard.md`** — required before any git operations.
+**Step 1: Load `docs/git/git-workflow-standard.md`** — required before any git operations.
 
-**Step 1: Identify active cycle** — See `## Session Foundation` in `../_runtime.md`
-
-**Step 2–4:** Parse input, validate upstream Delivered state, collect `--task-list-ref` (absolute path to work-order `task-list.md`).
-
-**Step 5: Run `start.py`**
+**Step 2: Run `start.py`**
 
 ```bash
 python3 "$SKILL_DIR/scripts/start.py" \
   --project-root "$(pwd)" \
-  --cycle-id "<cycle_id>" \
-  --task-list-ref "<absolute-path-to-task-list.md>"
+  --cycle-id "<cycle_id>"
 ```
 
-Bootstraps `current_state: Preparing` with empty `current_task` / `current_phase`.
-> If start.py exits non-zero ("Gate blocked: <stage> is not Delivered"): tell the user which prior stage must be delivered first. Do not retry start.
+> On non-zero exit: report the blocking stage to the user. Do not retry.
 
-**Step 6:** Read `code-task-list.md`; display tasks; wait for confirmation before execution.
-
----
-
-## Session files
-
-```
-$CACHE_DIR/<cycle_id>/tech/code/
-  session-state.md
-  s{N}/
-    workflow-state.md           ← Preparing: session + task pointer (authoritative)
-    workspace.json              ← Preparing: worktree_path, branch, created_at
-    code-task-list.md           ← Preparing: task list from work-order
-    closing-checklist.md        ← Closing: checklist items
-    human-delivery-gate.md      ← Closing→Delivered: required before Delivered
-
-    tasks/t{X}/
-      code-log.md               ← Executing: append-only action log (task-level)
-      commit-ref.md             ← Executing/Done: initial/final SHA, message, amended
-```
-
-Do **not** create `red-run.md` or `green-run.md`. Red/Green evidence belongs in `code-log.md` as `test_run` entries.
-
-Optional seed: `$SKILL_DIR/templates/code-log.template.md` (replace `t{X}`).
+**Step 3:** Read `code-task-list.md`; display tasks; wait for confirmation before execution.
 
 ---
 
@@ -122,19 +97,20 @@ For each task.md delivered by the work-order, validate the schema:
 4. Write `s{N}/workspace.json`:
    ```json
    {
-     "worktree_path": ".cache/worktrees/<slug>/",
+     "worktree_path": "/abs/path/to/project/.cache/worktrees/<slug>/",
+     "project_root": "/abs/path/to/project",
      "primary_repo": "<repo-name>",
      "branch": "wt/feat-<slug>",
      "created_at": "<ISO8601>",
      "extra_worktrees": {
        "<repo-name>": {
-         "path": ".cache/worktrees/<slug>-<repo-suffix>/",
+         "path": "/abs/path/to/project/.cache/worktrees/<slug>-<repo-suffix>/",
          "branch": "wt/feat-<slug>-<repo-suffix>"
        }
      }
    }
    ```
-   Omit `extra_worktrees` entirely if all tasks target the primary repo.
+   All paths are written as absolute paths at creation time. Omit `extra_worktrees` entirely if all tasks target the primary repo.
 
 **Exit:** All worktree and branch setup complete, `workspace.json` written → update `workflow-state.md`: `current_state: Executing`, set `current_task` to first runnable task, `current_phase: WriteTests`. All subsequent TDD edits and commits run inside the worktree directory.
 
@@ -162,25 +138,23 @@ Phase lifecycle is fully defined in `task-runner/SKILL.md`. The orchestrator dis
 
 **Step 1: Dispatch sub-agent**
 
-Read `task.md` → resolve `task_worktree` to `worktree_abs_path`:
-- `"primary"` → absolute path of workspace.json `worktree_path`
-- relative path → `{project_root}/{task_worktree}` (absolute)
+Run `scripts/resolve_task_context.py` to build the dispatch input:
+
+```bash
+python3 "$SKILL_DIR/scripts/resolve_task_context.py" \
+  --task-id {task_id} \
+  --cycle-dir "$CACHE_DIR/$CYCLE_ID" \
+  --project-root "$(pwd)"
+```
 
 Invoke `$SUBAGENT_TOOL` with `$SUBAGENT_AWAIT_SYNC`, passing `$RESOLVED_MODEL` as `model` if set. Prompt:
 
 ```
 You are executing a single TDD task.
-Load {actual $SKILL_ROOT}/code/task-runner/SKILL.md and follow its instructions.
-(substitute the real $SKILL_ROOT path above before dispatching)
+Load {actual $SKILL_ROOT}/tech-code/task-runner/SKILL.md and follow its instructions.
 
 ## Input
-task_id: {task_id}
-worktree_abs_path: {worktree_abs_path}
-code_task_list_path: {abs_path_to_code-task-list.md}
-commit_message_template: {template_from_workflow-config}
-
-## Task Spec
-{full content of task.md}
+{stdout of resolve_task_context.py}
 ```
 
 **Step 2: Validate exit contract** (after sub-agent returns)
@@ -236,22 +210,19 @@ AI must not self-declare session complete. Even if all tasks are `Done` and the 
 
 ---
 
-## § Autonomous Overrides
+## Session files
 
-Read `$EXECUTION_MODE` from Session Foundation (set by parent `../_runtime.md`). Default: `guided`.
+```
+$CACHE_DIR/<cycle_id>/tech/code/
+  session-state.md
+  s{N}/
+    workflow-state.md           ← Preparing: session + task pointer (authoritative)
+    workspace.json              ← Preparing: worktree_path, branch, created_at
+    code-task-list.md           ← Preparing: task list from work-order
+    closing-checklist.md        ← Closing: checklist items
+    human-delivery-gate.md      ← Closing→Delivered: required before Delivered
 
-The overrides below apply only when `$EXECUTION_MODE == "autonomous"` **and** `cycle_type == "feature"`. All other rules unchanged.
-
-**Auto-chain entry point:** In autonomous + feature mode, this stage may be entered automatically after `tech-work-order` delivers (see `§ Autonomous Tech Line Auto-Chain` in `../_transitions.md`). No user `/code` command is required; the orchestrator auto-invokes the startup sequence.
-
-| Rule | Autonomous Behavior |
-|------|-----------------------|
-| AI startup Step 6 — task confirmation | Auto-skip. Proceed directly to Executing without waiting for user confirmation. |
-| Closing step 5 — delivery gate confirmation | Auto-complete. Write `human-delivery-gate.md` (`approved: true`) without waiting for explicit user confirmation. |
-
----
-
-## Supporting: tech-work-order → tech-code handoff
-
-- `--task-list-ref` (required) + optional `--task-refs`; `task.md` is self-contained.
-- `tdd_exempt` from task list or task frontmatter: if set, `VerifyGreen` → `Done` directly (execution handled by `task-runner/SKILL.md`).
+    tasks/t{X}/
+      code-log.md               ← Executing: append-only action log (task-level)
+      commit-ref.md             ← Executing/Done: initial/final SHA, message, amended
+```
