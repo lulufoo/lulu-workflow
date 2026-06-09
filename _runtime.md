@@ -55,30 +55,15 @@ Sub-SKILLs do not emit this command directly. They may prompt the user that swit
 
 ### Template Fetch
 
-Workflow templates (spec, meta, evaluation frameworks) load via the shared CLI — not hand-written `gh api` in SKILL docs.
+Unique entry for template fetch in docs, workflow steps, direct `fetch_template.py` usage is forbidden:
 
-```bash
-python3 "$SKILL_ROOT/scripts/fetch_template.py" \
-  --section <section> --key <key> \
-  --project-root "<project_root>"
+```text
+$FETCH_TEMPLATE <section> <key>
 ```
 
-- **Cache:** `$CACHE_DIR/.template/{section}/{key}.md`
-- **Refresh:** delete the cache file or pass `--force`
-- **Prerequisite:** `gh` CLI authenticated (required only on cache miss)
-
-#### Runtime alias
-
-The user may request a template fetch at any point:
-
-```
-FETCH_TEMPLATE: <section> <key>
-```
-
-On detection: run the CLI above with parsed args; output template content or report failure.
-Announce: `Template fetched: <section>.<key>` (or report error).
-
-Sub-SKILLs invoke the CLI directly in their execution steps; they do not emit `FETCH_TEMPLATE`.
+- **Success:** output template body and announce `Template fetched: <section>.<key>`.
+- **Failure:** report error and stop current step.
+- **Cache:** `$CACHE_DIR/.template/{section}/{key}.md` (delete this file to refresh).
 
 ### Feature Resolution
 
