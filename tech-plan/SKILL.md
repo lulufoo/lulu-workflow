@@ -157,6 +157,8 @@ Await completion (`$SUBAGENT_AWAIT_SYNC`); verify `drafting-progress.md: current
 
 #### Step 3 — Generating
 
+Before starting, ask: "Proceed to Generating, or skip to FreeEdit?" — confirm → continue Step 3 — Generating; skip → go directly to Step 4 — FreeEdit.
+
 Entry condition: `drafting-progress.md: current_step: Generating`.
 Exit condition: subagent writes `drafting-progress.md: current_step: FreeEdit`.
 
