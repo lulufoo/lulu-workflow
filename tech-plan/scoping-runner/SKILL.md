@@ -33,15 +33,17 @@ description: >-
 | `$DECISION_DOC_PATH` | Absolute path to the current cycle `decision-doc.md` |
 
 Self-resolved at runtime:
-- `$META_PATH` — read `$WORKFLOW_DIR/workflow-config.json` → `tech-plan.tpt_meta_url`; fetch that URL to get `## Section Conditions`
+- `$META_KEY` = `tpt_meta_url` (section `tech-plan`)
 - `$TECH_DOC_PATH` = `{REVISION_DIR}/tech-doc.md`
 - `$DRAFTING_PROGRESS_PATH` = `{REVISION_DIR}/drafting-progress.md`
+
+Load section conditions via `fetch_template.py` (see `../_runtime.md` → Template Fetch).
 
 ## Authoritative References
 
 ### Section Conditions
 
-Self-read at Step S1: `$WORKFLOW_DIR/workflow-config.json` → `tech-plan.tpt_meta_url`; fetch that URL and read `## Section Conditions` table. This is the execution source of truth — do not use any embedded snapshot.
+Self-read at Step S1: run `fetch_template.py --section tech-plan --key tpt_meta_url`; read `## Section Conditions` table from stdout. This is the execution source of truth — do not use any embedded snapshot.
 
 ## Hard Constraint: Verifiable N/A Determination
 
@@ -61,7 +63,7 @@ Self-read at Step S1: `$WORKFLOW_DIR/workflow-config.json` → `tech-plan.tpt_me
 
 ✅ Verified:
 
-1. Read `$WORKFLOW_DIR/workflow-config.json` → `tech-plan.tpt_meta_url`; fetch that URL; read `## Section Conditions` table and extract all conditional sections.
+1. Run `fetch_template.py --section tech-plan --key tpt_meta_url`; read `## Section Conditions` table from stdout and extract all conditional sections.
 2. Partition the rows by `Trigger Type`:
    - `structural_list`: all rows where `Trigger Type = structural`
    - `content_list`: all rows where `Trigger Type = content`

@@ -67,16 +67,23 @@ def ensure_platform_config(project_root: Path, platform: Optional[str] = None) -
         write_platform_config(project_root, default_platform_config(), platform)
 
 
+def resolve_workflow_config_path(
+    project_root: Path,
+    platform: Optional[str] = None,
+) -> Path:
+    """Return path to workflow-config.json via platform config pointer."""
+    platform_cfg = read_platform_config(project_root, platform)
+    workflow_config_rel = platform_cfg.get("workflowConfig", _DEFAULT_WORKFLOW_CONFIG_PATH)
+    return project_root / workflow_config_rel
+
+
 def resolve_subagent_model(
     project_root: Path,
     stage: str,
     platform: Optional[str] = None,
 ) -> Optional[str]:
     plat = detect_platform(platform)
-
-    platform_cfg = read_platform_config(project_root, platform)
-    workflow_config_rel = platform_cfg.get("workflowConfig", _DEFAULT_WORKFLOW_CONFIG_PATH)
-    workflow_config_path = project_root / workflow_config_rel
+    workflow_config_path = resolve_workflow_config_path(project_root, platform)
 
     if not workflow_config_path.exists():
         return None

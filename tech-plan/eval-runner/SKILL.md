@@ -29,9 +29,9 @@ Dimension-specific:
 
 | Dimension | Additional inputs |
 |-----------|------------------|
-| `e1` | `PRODUCT_REF` (product requirement ref text), `PTC_URL` (PTC sheet URL) |
-| `e2` | none (read `TECH_DOC_PATH` §5 / §6 to identify relevant code paths) |
-| `e3` | `TPEF_URL` or `SHAPING_TPEF_URL` |
+| `e1` | `PRODUCT_REF`, `TEMPLATE_SECTION` (`tech-plan`), `TEMPLATE_KEY` (`ptc_url`), `PROJECT_ROOT` |
+| `e2` | `PROJECT_ROOT` (read `TECH_DOC_PATH` §5 / §6 to identify relevant code paths) |
+| `e3` | `TEMPLATE_SECTION` (`tech-plan`), `TEMPLATE_KEY` (`tpef_url` or `shaping_tpef_url`), `PROJECT_ROOT` |
 
 ---
 
@@ -39,8 +39,8 @@ Dimension-specific:
 
 - Read `TECH_DOC_PATH`
 - For `e2`: parse §5 (Data Flow) and §6 (API / Interfaces) to identify relevant code files; read those files
-- For `e1`: retrieve `PRODUCT_REF` and `PTC_URL` content
-- For `e3`: retrieve `TPEF_URL` / `SHAPING_TPEF_URL` content
+- For `e1`: read `PRODUCT_REF`; run `fetch_template.py --section {TEMPLATE_SECTION} --key {TEMPLATE_KEY} --project-root {PROJECT_ROOT}`; read stdout as PTC framework
+- For `e3`: run `fetch_template.py --section {TEMPLATE_SECTION} --key {TEMPLATE_KEY} --project-root {PROJECT_ROOT}`; read stdout as TPEF framework
 
 ---
 

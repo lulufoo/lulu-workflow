@@ -110,7 +110,7 @@ Hook enforces all transition pre-conditions. Denial messages are self-explanator
 
 ### General
 
-1. Read `$WORKFLOW_DIR/workflow-config.json` → `work_order` section before driving the workflow.
+1. Read `$WORKFLOW_DIR/workflow-config.json` → `tech-work-order` section before driving the workflow.
 2. Read `session-state.md` → `active_doc: N` to determine current work-order round.
 3. `r{N}/workflow-state.md` is the authoritative current state — write it to request a transition.
 4. Never infer state from document body or file existence; always read `workflow-state.md`.
@@ -124,10 +124,12 @@ Hook enforces all transition pre-conditions. Denial messages are self-explanator
 
 On entering Drafting, read:
 1. `workflow-state.md` → `tech_ref`, `evaluate_round`
-2. `workflow-config.json` → `work_order.task_template_url`, `work_order.tasklist_template_url`
+2. Load work-order templates via `fetch_template.py` (see `../_runtime.md` → Template Fetch):
+   - `--section tech-work-order --key tasklist_template_url`
+   - `--section tech-work-order --key task_template_url`
 3. `tech-doc.md` (full content, from `tech_ref`)
 
-Fetch the templates via `gh api repos/{owner}/{repo}/contents/{path}?ref={ref}`, read their format definitions.
+Read stdout from each CLI invocation for format definitions.
 
 **Rule D2 — Two-step generation (evaluate_round == 0, first entry)**
 
@@ -197,7 +199,7 @@ Read code files on demand (only what's needed to understand existing types and f
 
 On entering Evaluating:
 1. Increment `evaluate_round` in `workflow-state.md` (write `current_state: Evaluating, evaluate_round: M`)
-2. Read `workflow-config.json` → `work_order.tda_url`, `work_order.twca_url`, `work_order.woqa_url`
+2. Note evaluation framework keys for eval-runner dispatch: `tda_url`, `twca_url`, `woqa_url` (section `tech-work-order`)
 3. Initialize `evaluate-state.md` (version: 2 schema; `current_dimension: TDA`):
 
 ```yaml
@@ -247,9 +249,11 @@ evaluate_round: {M}
 session_dir: {abs_path_to r{N}/}
 tech_doc_path: {abs_path_to tech-doc.md, from workflow-state.md tech_ref}
 task_list_path: {abs_path_to task-list.md}
-tda_url: {workflow-config.json → work_order.tda_url}
-twca_url: {workflow-config.json → work_order.twca_url}
-woqa_url: {workflow-config.json → work_order.woqa_url}
+TEMPLATE_SECTION: tech-work-order
+TEMPLATE_KEY_TDA:  tda_url
+TEMPLATE_KEY_TWCA: twca_url
+TEMPLATE_KEY_WOQA: woqa_url
+PROJECT_ROOT: {project root absolute path}
 execution_mode: {guided | autonomous}
 
 ## Current Evaluation State

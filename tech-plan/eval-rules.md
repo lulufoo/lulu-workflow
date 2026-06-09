@@ -75,8 +75,11 @@ EVALUATE_STATE_PATH:  {absolute path to revision{N}/evaluate-state.md}
 EVALUATE_DIR:         {absolute path to revision{N}/evaluate{M}/}
 EXECUTION_MODE:       {guided | autonomous}
 [e1 only] PRODUCT_REF: {product_ref from workflow-state.md}
-[e1 only] PTC_URL:    {workflow-config.json → tech-plan.ptc_url}
-[e3 only] TPEF_URL:   {workflow-config.json → tech-plan.tpef_url (feature) or shaping_tpef_url (topic)}
+[e1 only] TEMPLATE_SECTION: tech-plan
+[e1 only] TEMPLATE_KEY:     ptc_url
+[e3 only] TEMPLATE_SECTION: tech-plan
+[e3 only] TEMPLATE_KEY:     tpef_url | shaping_tpef_url
+PROJECT_ROOT:         {project root absolute path}
 ```
 
 3. Await completion

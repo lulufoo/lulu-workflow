@@ -53,6 +53,33 @@ Announce: `Execution mode → <mode>`
 
 Sub-SKILLs do not emit this command directly. They may prompt the user that switching is available.
 
+### Template Fetch
+
+Workflow templates (spec, meta, evaluation frameworks) load via the shared CLI — not hand-written `gh api` in SKILL docs.
+
+```bash
+python3 "$SKILL_ROOT/scripts/fetch_template.py" \
+  --section <section> --key <key> \
+  --project-root "<project_root>"
+```
+
+- **Cache:** `$CACHE_DIR/.template/{section}/{key}.md`
+- **Refresh:** delete the cache file or pass `--force`
+- **Prerequisite:** `gh` CLI authenticated (required only on cache miss)
+
+#### Runtime alias
+
+The user may request a template fetch at any point:
+
+```
+FETCH_TEMPLATE: <section> <key>
+```
+
+On detection: run the CLI above with parsed args; output template content or report failure.
+Announce: `Template fetched: <section>.<key>` (or report error).
+
+Sub-SKILLs invoke the CLI directly in their execution steps; they do not emit `FETCH_TEMPLATE`.
+
 ### Feature Resolution
 
 #### Fast Path

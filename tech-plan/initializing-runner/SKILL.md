@@ -34,16 +34,27 @@ The parent skill must inject these values before invoking this sub-skill:
 | `$CYCLE_ID` | Active cycle id |
 
 Self-resolved at runtime (do not pass from parent):
-- `$TEMPLATE_PATH` — read `$WORKFLOW_DIR/workflow-config.json` → `tech-plan.tpt_url` (feature) or `tech-plan.shaping_tpt_url` (topic)
-- `$META_PATH` — read `$WORKFLOW_DIR/workflow-config.json` → `tech-plan.tpt_meta_url`
+- `$TEMPLATE_SECTION` = `tech-plan`
+- `$TEMPLATE_KEY` — `tpt_url` (feature) or `shaping_tpt_url` (topic)
+- `$META_KEY` — `tpt_meta_url`
 - `$TECH_DOC_PATH` = `{REVISION_DIR}/tech-doc.md`
 - `$DRAFTING_PROGRESS_PATH` = `{REVISION_DIR}/drafting-progress.md`
+
+Load templates via the shared CLI (see `../_runtime.md` → Template Fetch):
+
+```bash
+python3 "$SKILL_ROOT/scripts/fetch_template.py" \
+  --section tech-plan --key tpt_meta_url \
+  --project-root "$(pwd)"
+```
+
+Replace `tpt_meta_url` with `$TEMPLATE_KEY` for the template skeleton fetch.
 
 ## Execution Contract
 
 ### Step I1 - Load mapping table and template skeleton
 
-1. Fetch and read the raw markdown at `$META_PATH`.
+1. Run `fetch_template.py` with `--section tech-plan --key tpt_meta_url`; read stdout as meta markdown.
 2. Locate the `## Decision-Doc Mapping` table.
 3. Parse the mapping rows into:
 
@@ -54,7 +65,7 @@ Self-resolved at runtime (do not pass from parent):
 ```
 
 4. Skip rows where `target` is `—`.
-5. Fetch and read the raw markdown at `$TEMPLATE_PATH`.
+5. Run `fetch_template.py` with `--section $TEMPLATE_SECTION --key $TEMPLATE_KEY`; read stdout as template markdown.
 6. Parse the template into an ordered section map keyed by tech-doc section id:
    - top-level: `§1` ... `§10`
    - sub-sections where present: `§2.1`, `§2.2`, `§3.1`, etc.
@@ -169,7 +180,7 @@ When the current mapping table matches the known tech-plan meta, the initialized
 
 Sections such as `§1`, `§3.2`, `§4`, `§5.1`, `§5.2`, `§6`, `§7`, `§8.1`, `§9.2`, `§9.3`, `§9.4`, and `§10` remain skeleton-first unless the template or mapping changes.
 
-Do not hardcode these ids during execution. Always derive the actual result from `$META_PATH` and `$TEMPLATE_PATH`.
+Do not hardcode these ids during execution. Always derive the actual result from the meta and template fetches in Step I1.
 
 ## Return Summary
 

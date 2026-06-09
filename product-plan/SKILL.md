@@ -131,9 +131,18 @@ are blocked by the path guard hook while a session is active.
 
 ### Drafting Rules
 
-**D1.** 根据容器类型（从 session start 时 `active-context.json → container_type` 获取）选择模板 URL：
-- `topic` 容器 → 读 `workflow-config.json → product-plan.shaping_template_url`，加载 shaping 模板（13-product-shaping-template.md）
-- `feature` 容器 → 读 `workflow-config.json → product-plan.template_url`，加载 spec 模板（10-product-doc-template.md）
+**D1.** 根据容器类型（从 session start 时 `active-context.json → container_type` 获取）选择模板 key，通过 `fetch_template.py` 加载：
+
+```bash
+python3 "$SKILL_ROOT/scripts/fetch_template.py" \
+  --section product-plan --key <key> \
+  --project-root "$(pwd)"
+```
+
+- `topic` 容器 → `--key shaping_template_url`（13-product-shaping-template.md）
+- `feature` 容器 → `--key template_url`（10-product-doc-template.md）
+
+Read stdout as the template body. See `../_runtime.md` → Template Fetch.
 
 Write only to `revision{N}/product-doc.md`. Stay in `Drafting` until the user explicitly requests evaluation.
 
@@ -197,9 +206,12 @@ Follow Rules D1–D2.
 ### `Evaluating`
 
 Follow Rules E1 → E2 → loop(E3–E5) → E6 in order.
-根据容器类型选择评估框架 URL：
-- `topic` 容器 → 读 `workflow-config.json → product-plan.shaping_pdqa_url`，加载 shaping 评估框架（14-product-shaping-pdqa.md）
-- `feature` 容器 → 读 `workflow-config.json → product-plan.pdqa_url`，加载 spec 评估框架（12-product-doc-evaluation-framework.md）
+根据容器类型选择评估框架 key，通过 `fetch_template.py` 加载：
+
+- `topic` 容器 → `--section product-plan --key shaping_pdqa_url`
+- `feature` 容器 → `--section product-plan --key pdqa_url`
+
+Run the CLI (see `../_runtime.md` → Template Fetch); read stdout as the PDQA framework.
 Stay in `Evaluating` or return to `Drafting` until all issues are resolved.
 
 ### `ReadyForDelivery`

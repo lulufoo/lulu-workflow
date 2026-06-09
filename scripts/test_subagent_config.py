@@ -131,6 +131,28 @@ class TestPlatformConfigPath:
         )
 
 
+class TestResolveWorkflowConfigPath:
+    def test_default_path_when_platform_config_missing(self, tmp_path):
+        from subagent_config import resolve_workflow_config_path
+
+        assert resolve_workflow_config_path(tmp_path, "cursor") == (
+            tmp_path / "skill-config/lulu-dev-workflow/workflow-config.json"
+        )
+
+    def test_custom_path_from_platform_config(self, tmp_path):
+        from subagent_config import resolve_workflow_config_path
+
+        cfg_path = tmp_path / ".cursor/lulu-dev-workflow/config.json"
+        cfg_path.parent.mkdir(parents=True, exist_ok=True)
+        cfg_path.write_text(
+            json.dumps({"workflowConfig": "custom/workflow-config.json"}),
+            encoding="utf-8",
+        )
+        assert resolve_workflow_config_path(tmp_path, "cursor") == (
+            tmp_path / "custom/workflow-config.json"
+        )
+
+
 class TestEnsurePlatformConfig:
     def test_creates_default_when_missing(self, tmp_path):
         from subagent_config import ensure_platform_config, read_platform_config
