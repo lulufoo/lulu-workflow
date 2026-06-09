@@ -122,19 +122,20 @@ For each task.md delivered by the work-order, validate the schema:
 4. Write `s{N}/workspace.json`:
    ```json
    {
-     "worktree_path": ".cache/worktrees/<slug>/",
+     "worktree_path": "/abs/path/to/project/.cache/worktrees/<slug>/",
+     "project_root": "/abs/path/to/project",
      "primary_repo": "<repo-name>",
      "branch": "wt/feat-<slug>",
      "created_at": "<ISO8601>",
      "extra_worktrees": {
        "<repo-name>": {
-         "path": ".cache/worktrees/<slug>-<repo-suffix>/",
+         "path": "/abs/path/to/project/.cache/worktrees/<slug>-<repo-suffix>/",
          "branch": "wt/feat-<slug>-<repo-suffix>"
        }
      }
    }
    ```
-   Omit `extra_worktrees` entirely if all tasks target the primary repo.
+   All paths are written as absolute paths at creation time. Omit `extra_worktrees` entirely if all tasks target the primary repo.
 
 **Exit:** All worktree and branch setup complete, `workspace.json` written → update `workflow-state.md`: `current_state: Executing`, set `current_task` to first runnable task, `current_phase: WriteTests`. All subsequent TDD edits and commits run inside the worktree directory.
 
@@ -162,25 +163,25 @@ Phase lifecycle is fully defined in `task-runner/SKILL.md`. The orchestrator dis
 
 **Step 1: Dispatch sub-agent**
 
-Read `task.md` → resolve `task_worktree` to `worktree_abs_path`:
-- `"primary"` → absolute path of workspace.json `worktree_path`
-- relative path → `{project_root}/{task_worktree}` (absolute)
+Run `scripts/resolve_task_context.py` to build the dispatch input:
+
+```bash
+python3 "$SKILL_DIR/scripts/resolve_task_context.py" \
+  --task-id {task_id} \
+  --cycle-dir {cycle_dir} \
+  --work-order-index {work_order_index} \
+  --code-index {code_index} \
+  --project-root {project_root}
+```
 
 Invoke `$SUBAGENT_TOOL` with `$SUBAGENT_AWAIT_SYNC`, passing `$RESOLVED_MODEL` as `model` if set. Prompt:
 
 ```
 You are executing a single TDD task.
-Load {actual $SKILL_ROOT}/code/task-runner/SKILL.md and follow its instructions.
-(substitute the real $SKILL_ROOT path above before dispatching)
+Load {actual $SKILL_ROOT}/tech-code/task-runner/SKILL.md and follow its instructions.
 
 ## Input
-task_id: {task_id}
-worktree_abs_path: {worktree_abs_path}
-code_task_list_path: {abs_path_to_code-task-list.md}
-commit_message_template: {template_from_workflow-config}
-
-## Task Spec
-{full content of task.md}
+{stdout of resolve_task_context.py}
 ```
 
 **Step 2: Validate exit contract** (after sub-agent returns)
