@@ -1,7 +1,6 @@
 import json
 import re
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -117,33 +116,6 @@ def resolve_workflow_config_path(project_root: Path = Path(".")) -> Path:
 # Markdown state helpers
 # ---------------------------------------------------------------------------
 
-def write_md_state(
-    path: Path,
-    current_state: str,
-    mode: str = "",
-    task_list_ref: str = "",
-    current_task: str = "",
-    current_phase: str = "",
-) -> None:
-    """Write s{N}/workflow-state.md with YAML frontmatter."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    now = datetime.now(timezone.utc).isoformat()
-    content = (
-        f"---\n"
-        f"version: 1\n"
-        f"workflow: tech-code\n"
-        f"current_state: {current_state}\n"
-        f"mode: {mode}\n"
-        f"task_list_ref: {task_list_ref}\n"
-        f"current_task: {current_task}\n"
-        f"current_phase: {current_phase}\n"
-        f"updated_at: {now}\n"
-        f"---\n"
-    )
-    with path.open("w", encoding="utf-8") as handle:
-        handle.write(content)
-
-
 def write_session_state(path: Path, active_session: int) -> None:
     """Write session-state.md tracking the active TDD session round."""
     from session_state_schema import save_session_state
@@ -164,12 +136,6 @@ def parse_frontmatter_fields(content: str) -> Dict[str, str]:
     return result
 
 
-def parse_frontmatter_state(content: str) -> Optional[str]:
-    """Extract current_state from YAML frontmatter."""
-    fields = parse_frontmatter_fields(content)
-    return fields.get("current_state") or None
-
-
 def read_md_field(path: Path, field: str, default: str = "") -> str:
     """Read a specific frontmatter field from a markdown file."""
     if not path.exists():
@@ -177,12 +143,6 @@ def read_md_field(path: Path, field: str, default: str = "") -> str:
     content = path.read_text(encoding="utf-8")
     fields = parse_frontmatter_fields(content)
     return fields.get(field, default)
-
-
-def read_md_state(path: Path, default: str = "Executing") -> str:
-    """Read current_state from workflow-state.md, returning default if absent."""
-    state = read_md_field(path, "current_state", default=default)
-    return state if state else default
 
 
 def normalize_tool_path(raw_path: str, project_root: Path) -> str:

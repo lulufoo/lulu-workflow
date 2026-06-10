@@ -12,6 +12,7 @@ if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
 from start import parse_work_order_task_list  # noqa: E402
+from workflow_state_schema import load_workflow_state  # noqa: E402
 
 _START = _SCRIPTS / "start.py"
 _FID = "20260604102312-e2b86e89"
@@ -144,6 +145,22 @@ def test_cli_generates_full_code_task_list_for_complex_task_ids(tmp_path):
     )
 
     assert result.returncode == 0, result.stderr
+
+    ws_path = (
+        tmp_path
+        / ".cache"
+        / "copilot"
+        / "lulu-dev-workflow"
+        / _FID
+        / "tech"
+        / "code"
+        / "s1"
+        / "workflow-state.md"
+    )
+    ws = load_workflow_state(ws_path)
+    assert ws["current_state"] == "Preparing"
+    assert ws["mode"] == "work-order"
+    assert ws["task_list_ref"]
 
     generated = (
         tmp_path

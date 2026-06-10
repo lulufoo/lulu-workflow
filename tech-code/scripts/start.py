@@ -22,6 +22,7 @@ from session_state_schema import (
     next_session_round,
     save_session_state,
 )
+from workflow_state_schema import init_preparing, mark_historical
 from workflow_common import (
     CACHE_DIR,
     detect_cycle_type,
@@ -31,7 +32,6 @@ from workflow_common import (
     state_path,
     task_list_path,
     write_active_context,
-    write_md_state,
 )
 
 
@@ -62,10 +62,7 @@ def _mark_historical(cycle_id: str, stage: str, cache_dir: Path) -> None:
     latest = max(sessions, key=lambda s: (s.created_at, s.revision))
     if not latest.state_path or not latest.state_path.exists():
         return
-    text = latest.state_path.read_text(encoding="utf-8")
-    if "historical:" not in text:
-        updated = re.sub(r"(---\s*\n)", r"\1historical: true\n", text, count=1)
-        latest.state_path.write_text(updated, encoding="utf-8")
+    mark_historical(latest.state_path)
 
 
 # ---------------------------------------------------------------------------
@@ -266,13 +263,10 @@ def main() -> int:
     )
     tl_path.write_text(tdd_list_content, encoding="utf-8")
 
-    write_md_state(
+    init_preparing(
         ws_path,
-        current_state="Preparing",
         mode="work-order",
         task_list_ref=tl_path.as_posix(),
-        current_task="",
-        current_phase="",
     )
 
     print(f"""

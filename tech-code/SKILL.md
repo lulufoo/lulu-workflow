@@ -209,4 +209,5 @@ If you need a file's field definitions at runtime, run the corresponding action:
 | File | Action |
 |---|---|
 | `session-state.md` | `python3 $SKILL_DIR/scripts/session_state_schema.py --schema` |
+| `workflow-state.md` | `python3 $SKILL_DIR/scripts/workflow_state_schema.py --schema` |
 | `workspace.json` | `python3 $SKILL_DIR/scripts/workspace_schema.py --schema` |
