@@ -125,13 +125,13 @@ Resolve `$RESOLVED_MODEL` once before the loop — see `## Sub-agent Context ›
 
 **Step 1: Dispatch sub-agent**
 
-Run `scripts/resolve_task_context.py` to build the dispatch input:
+Run `session_control.py resolve-task-context` to build the dispatch input:
 
 ```bash
-python3 "$SKILL_DIR/scripts/resolve_task_context.py" \
-  --task-id {task_id} \
+python3 "$SKILL_DIR/scripts/session_control.py" \
   --cycle-dir "$CACHE_DIR/$CYCLE_ID" \
-  --project-root "$(pwd)"
+  --project-root "$(pwd)" \
+  resolve-task-context --task-id {task_id}
 ```
 
 Invoke `$SUBAGENT_TOOL` with `$SUBAGENT_AWAIT_SYNC`, passing `$RESOLVED_MODEL` as `model` if set. Prompt:
@@ -141,7 +141,7 @@ You are executing a single TDD task.
 Load {actual $SKILL_ROOT}/tech-code/task-runner/SKILL.md and follow its instructions.
 
 ## Input
-{stdout of resolve_task_context.py}
+{stdout of resolve-task-context command above}
 ```
 
 **Step 2: Confirm task ready** (after sub-agent returns)
@@ -234,6 +234,6 @@ If you need a file's field definitions at runtime, run the corresponding action:
 | `workspace.json` | `workspace_schema.py --schema` |
 | `closing-checklist.md` | `closing_checklist_schema.py --schema` |
 | `tasks/t{X}/commit-ref.md` | `commit_ref_schema.py --schema` |
-| `session_control.py` | `session_control.py` — `check-recovery`, `get-pointer`, `confirm-task-ready`, `advance-pointer`, `deliver` |
+| `session_control.py` | `session_control.py` — `check-recovery`, `get-pointer`, `resolve-task-context`, `confirm-task-ready`, `advance-pointer`, `deliver` |
 
 `closing-test-log.md` has no standalone schema CLI; format is defined in `run_test_suite.py` module docstring.

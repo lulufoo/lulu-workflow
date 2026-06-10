@@ -20,6 +20,7 @@ from session_control import (  # noqa: E402
     confirm_task_ready_cmd,
     deliver,
     get_pointer,
+    resolve_task_context_cmd,
 )
 from workflow_state_schema import (  # noqa: E402
     init_preparing,
@@ -91,6 +92,39 @@ def _write_commit_ref(session_dir: Path, task_id: str) -> None:
         "commit_message: \"feat: test\"\n"
         "amended: false\n"
         "recorded_at: 2024-01-01T00:00:00Z\n",
+        encoding="utf-8",
+    )
+
+
+def _write_wo_session_state(cycle_dir: Path, round_id: str = "1") -> None:
+    wo_dir = cycle_dir / "tech" / "work-order"
+    wo_dir.mkdir(parents=True, exist_ok=True)
+    (wo_dir / "session-state.md").write_text(
+        f"---\nversion: 1\nactive_doc: {round_id}\nupdated_at: 2024-01-01T00:00:00+00:00\n---\n",
+        encoding="utf-8",
+    )
+    round_dir = wo_dir / f"r{round_id}" / "tasks" / "t1"
+    round_dir.mkdir(parents=True, exist_ok=True)
+    (round_dir / "task.md").write_text("# t1\n", encoding="utf-8")
+
+
+def _write_workflow_config(project_root: Path) -> None:
+    config_dir = project_root / "skill-config" / "lulu-dev-workflow"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    (config_dir / "workflow-config.json").write_text(
+        json.dumps(
+            {
+                "tech-code": {
+                    "test_command": "npm test",
+                    "git": {
+                        "worktree_base": ".cache/worktrees",
+                        "branch_pattern": "wt/{type}-{slug}",
+                        "default_type": "feat",
+                        "commit_message_template": "feat({scope}): {subject}",
+                    },
+                }
+            }
+        ),
         encoding="utf-8",
     )
 
@@ -371,6 +405,23 @@ class TestConfirmTaskReady:
             confirm_task_ready_cmd(cycle_dir, "t1")
 
 
+class TestResolveTaskContext:
+    def test_resolve_task_context_cmd_success(self, tmp_path: Path):
+        cycle_dir = _setup_session(tmp_path, state="Executing", current_task="t1")
+        session_dir = cycle_dir / "tech" / "code" / "s1"
+        worktree = tmp_path / "wt"
+        worktree.mkdir()
+        _write_wo_session_state(cycle_dir)
+        _write_workspace(session_dir, worktree)
+        _write_workflow_config(tmp_path)
+        result = resolve_task_context_cmd(cycle_dir, "t1", tmp_path)
+        assert result["task_id"] == "t1"
+        assert result["test_command"] == "npm test"
+        assert result["commit_message_template"] == "feat({scope}): {subject}"
+        assert "/work-order/r1/tasks/t1/task.md" in result["work_order_task_path"]
+        assert "/code/s1/tasks/t1" in result["task_output_dir"]
+
+
 class TestCLI:
     def test_get_pointer_cli(self, tmp_path: Path):
         cycle_dir = _setup_session(tmp_path)
@@ -439,3 +490,49 @@ class TestCLI:
         payload = json.loads(result.stdout)
         assert payload["recoverable"] is True
         assert payload["resume_section"] == "Executing"
+
+    def test_resolve_task_context_cli_success(self, tmp_path: Path):
+        cycle_dir = _setup_session(tmp_path, state="Executing", current_task="t1")
+        session_dir = cycle_dir / "tech" / "code" / "s1"
+        worktree = tmp_path / "wt"
+        worktree.mkdir()
+        _write_wo_session_state(cycle_dir)
+        _write_workspace(session_dir, worktree)
+        _write_workflow_config(tmp_path)
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(_SCRIPT),
+                "--cycle-dir",
+                str(cycle_dir),
+                "--project-root",
+                str(tmp_path),
+                "resolve-task-context",
+                "--task-id",
+                "t1",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        payload = json.loads(result.stdout)
+        assert payload["task_id"] == "t1"
+        assert payload["test_command"] == "npm test"
+
+    def test_resolve_task_context_cli_missing_project_root(self, tmp_path: Path):
+        cycle_dir = _setup_session(tmp_path, state="Executing", current_task="t1")
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(_SCRIPT),
+                "--cycle-dir",
+                str(cycle_dir),
+                "resolve-task-context",
+                "--task-id",
+                "t1",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode != 0
+        assert "resolve-task-context requires --project-root" in result.stderr
