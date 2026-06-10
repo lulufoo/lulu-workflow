@@ -31,8 +31,6 @@ Do NOT proceed until you have read `../_runtime.md`
 Do NOT proceed until you have read `../_subagent.md` 
 </HARD-GATE>
 
-- Sub-agent model convention (`$RESOLVED_MODEL`) from `## Sub-agent Context › Config Resolution`
-
 ## Commands
 
 ### `/tech-code [<cycle_id>]` — Entry point
@@ -125,8 +123,6 @@ python3 "$SKILL_DIR/scripts/session_control.py" \
 
 ### Task loop (1→N)
 
-Resolve `$RESOLVED_MODEL` once before the loop — see `## Sub-agent Context › Config Resolution` in `../_subagent.md`, using `--stage tech-code`.
-
 **Step 1: Dispatch sub-agent**
 
 Run `session_control.py resolve-task-context` to build the dispatch input:
@@ -138,14 +134,16 @@ python3 "$SKILL_DIR/scripts/session_control.py" \
   resolve-task-context --task-id {task_id}
 ```
 
-Invoke `$SUBAGENT_TOOL` with `$SUBAGENT_AWAIT_SYNC`, passing `$RESOLVED_MODEL` as `model` if set. Prompt:
+Parse stdout JSON from `resolve-task-context`. If `model` is present, pass it as the `model` parameter to `$SUBAGENT_TOOL`; omit the parameter otherwise. Exclude `model` from the `## Input` block (task-runner reads only the seven task fields).
+
+Invoke `$SUBAGENT_TOOL` with `$SUBAGENT_AWAIT_SYNC`. Prompt:
 
 ```
 You are executing a single TDD task.
 Load {actual $SKILL_ROOT}/tech-code/task-runner/SKILL.md and follow its instructions.
 
 ## Input
-{stdout of resolve-task-context command above}
+{resolve-task-context JSON with model key removed}
 ```
 
 **Step 2: Confirm task ready** (after sub-agent returns)

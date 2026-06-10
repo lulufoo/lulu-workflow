@@ -18,8 +18,7 @@ Do NOT proceed until you have read `../_runtime.md` and loaded:
 - `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, `$CACHE_DIR` from `## Platform Context`
 - Feature identification logic from `## Session Foundation`
 
-Also read `../_subagent.md` and load:
-- Sub-agent model convention (`$RESOLVED_MODEL`) from `## Sub-agent Context › Config Resolution`
+Also read `../_subagent.md` (for `$SUBAGENT_TOOL` / `$SUBAGENT_AWAIT_*`).
 </HARD-GATE>
 
 `$SKILL_DIR` = `$SKILL_ROOT/tech-work-order`

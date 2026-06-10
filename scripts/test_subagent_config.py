@@ -191,7 +191,8 @@ class TestResolveSubagentCli:
         result = subprocess.run(
             [
                 sys.executable,
-                str(_SCRIPTS / "resolve_subagent.py"),
+                str(_SCRIPTS / "workflow_config.py"),
+                "get-model",
                 "--project-root",
                 str(tmp_path),
                 "--stage",
@@ -211,7 +212,8 @@ class TestResolveSubagentCli:
         result = subprocess.run(
             [
                 sys.executable,
-                str(_SCRIPTS / "resolve_subagent.py"),
+                str(_SCRIPTS / "workflow_config.py"),
+                "get-model",
                 "--project-root",
                 str(tmp_path),
                 "--stage",
@@ -227,7 +229,7 @@ class TestResolveSubagentCli:
     def test_missing_required_args_nonzero_exit(self):
         import subprocess
         result = subprocess.run(
-            [sys.executable, str(_SCRIPTS / "resolve_subagent.py")],
+            [sys.executable, str(_SCRIPTS / "workflow_config.py"), "get-model"],
             capture_output=True,
             text=True,
             check=False,

@@ -6,12 +6,18 @@ Imported by session_control.py resolve-task-context subcommand only.
 
 from __future__ import annotations
 
-import json
+import sys
 from pathlib import Path
 from typing import Any
 
-from session_state_schema import load_session_state, load_work_order_round
-from workspace_schema import load_workspace
+_SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
+if str(_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS))
+
+from workflow_config import extract_subagent_model, load_workflow_config  # noqa: E402
+
+from session_state_schema import load_session_state, load_work_order_round  # noqa: E402
+from workspace_schema import load_workspace  # noqa: E402
 
 
 def resolve_task_context(cycle_dir: Path, task_id: str, project_root: Path) -> dict[str, Any]:
@@ -40,15 +46,11 @@ def resolve_task_context(cycle_dir: Path, task_id: str, project_root: Path) -> d
     workspace = load_workspace(workspace_json_path)
     worktree_path = Path(workspace["worktree_path"])
 
-    config_path = project_root / "skill-config" / "lulu-dev-workflow" / "workflow-config.json"
-    if not config_path.exists():
-        raise ValueError(f"workflow-config.json not found: {config_path}")
-
-    config = json.loads(config_path.read_text(encoding="utf-8"))
+    config = load_workflow_config(project_root)
     code_cfg = config.get("tech-code", {})
     git_cfg = code_cfg.get("git", {})
 
-    return {
+    result: dict[str, Any] = {
         "task_id": task_id,
         "work_order_task_path": str(work_order_task_path),
         "task_output_dir": str(task_output_dir),
@@ -57,3 +59,9 @@ def resolve_task_context(cycle_dir: Path, task_id: str, project_root: Path) -> d
         "commit_message_template": git_cfg.get("commit_message_template", ""),
         "test_command": code_cfg.get("test_command", ""),
     }
+
+    model = extract_subagent_model(code_cfg)
+    if model:
+        result["model"] = model
+
+    return result
