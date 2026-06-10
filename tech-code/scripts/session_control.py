@@ -12,12 +12,12 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import subprocess
 import sys
 from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from git_ops import validate_worktrees, validate_worktrees_clean  # noqa: E402
 from code_task_list import (  # noqa: E402
     all_done,
     assert_task_done,
@@ -48,42 +48,6 @@ def _task_list_path(session_dir: Path) -> Path:
 
 def _workspace_path(session_dir: Path) -> Path:
     return session_dir / "workspace.json"
-
-
-def _git_is_worktree(path: str) -> bool:
-    result = subprocess.run(
-        ["git", "-C", path.rstrip("/"), "rev-parse", "--is-inside-work-tree"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    return result.returncode == 0 and result.stdout.strip() == "true"
-
-
-def _git_status_clean(path: str) -> bool:
-    result = subprocess.run(
-        ["git", "-C", path.rstrip("/"), "status", "--porcelain"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    return result.returncode == 0 and result.stdout.strip() == ""
-
-
-def _validate_worktrees(workspace: dict) -> None:
-    worktree_path = workspace.get("worktree_path", "")
-    if not worktree_path:
-        raise ValueError("workspace.json missing worktree_path")
-    if not _git_is_worktree(worktree_path):
-        raise ValueError(f"primary worktree is not a git worktree: {worktree_path}")
-
-    extra = workspace.get("extra_worktrees") or {}
-    for repo, info in extra.items():
-        path = info.get("path", "")
-        if not path:
-            raise ValueError(f"extra_worktree for {repo!r} missing path")
-        if not _git_is_worktree(path):
-            raise ValueError(f"extra worktree for {repo!r} is not a git worktree: {path}")
 
 
 def _validate_closing_ready(session_dir: Path) -> None:
@@ -262,17 +226,8 @@ def deliver(cycle_dir: Path, project_root: Path | None = None) -> dict[str, Any]
     _validate_delivery_approval(session_dir)
 
     workspace = load_workspace(_workspace_path(session_dir))
-    _validate_worktrees(workspace)
-
-    worktree_path = workspace["worktree_path"]
-    if not _git_status_clean(worktree_path):
-        raise ValueError(f"primary worktree has uncommitted changes: {worktree_path}")
-
-    extra = workspace.get("extra_worktrees") or {}
-    for repo, info in extra.items():
-        path = info.get("path", "")
-        if not _git_status_clean(path):
-            raise ValueError(f"extra worktree for {repo!r} has uncommitted changes: {path}")
+    validate_worktrees(workspace)
+    validate_worktrees_clean(workspace)
 
     save_workflow_state(
         ws_path,

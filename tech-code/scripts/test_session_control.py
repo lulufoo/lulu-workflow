@@ -78,8 +78,7 @@ def _fake_git(monkeypatch, *, worktrees: set[str], clean: set[str]):
             return subprocess.CompletedProcess(cmd, 0, stdout, "")
         raise AssertionError(f"unexpected git command: {cmd}")
 
-    monkeypatch.setattr("session_control.subprocess.run", _run)
-    monkeypatch.setattr("prepare.subprocess.run", _run)
+    monkeypatch.setattr("git_ops.subprocess.run", _run)
 
 
 class TestGetPointer:
