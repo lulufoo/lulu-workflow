@@ -76,11 +76,7 @@ Task phases (under Executing): `WriteTests` → `VerifyRed` → `WriteImpl` → 
 
 ## Preparing
 
-**Entry:** `start.py` sets `current_state: Preparing`. `workflow-state.md` exists.
-
-**Actions:**
-
-Run `prepare.py`; on non-zero exit report the error and halt. 
+**Actions:** Run `prepare.py`; on non-zero exit report the error and halt. 
 
 ```bash
 python3 "$SKILL_DIR/scripts/prepare.py" \
