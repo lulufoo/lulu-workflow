@@ -56,8 +56,7 @@ code workflow 初始化完成。
 
    python3 {start_py} \\
      --project-root "$(pwd)" \\
-     --cycle-id "<cycle_id>" \\
-     --task-list-ref "<abs-path-to-task-list.md>"
+     --cycle-id "<cycle_id>"
 """)
     return 0
 

@@ -13,6 +13,10 @@ _STAGES = ["diagnostic", "product-plan", "tech-plan", "tech-work-order", "tech-c
 _FID = "20260524143022-02cd7e6e"
 _CONV_ID = "test-conversation-aaa"
 _ENV_COPILOT = {**os.environ, "LULU_PLATFORM": "copilot"}
+_FEATURE_CYCLE = [
+    "product-diagnostic", "product-plan", "tech-diagnostic",
+    "tech-plan", "tech-work-order", "tech-code",
+]
 
 
 def _start_py(stage: str) -> Path:
@@ -25,6 +29,82 @@ def _scripts_dir(stage: str) -> Path:
 
 def _cache_dir(tmp_path: Path) -> Path:
     return tmp_path / ".cache" / "copilot" / "lulu-dev-workflow"
+
+
+def _seed_work_order_handoff(tmp_path: Path, cycle_id: str, active_doc: int = 1) -> None:
+    cd = _cache_dir(tmp_path)
+    wo_dir = cd / cycle_id / "tech" / "work-order"
+    wo_dir.mkdir(parents=True, exist_ok=True)
+    (wo_dir / "session-state.md").write_text(
+        f"---\nactive_doc: {active_doc}\nupdated_at: 2026-06-01T00:00:00+00:00\n---\n",
+        encoding="utf-8",
+    )
+    r_dir = wo_dir / f"r{active_doc}"
+    r_dir.mkdir(parents=True, exist_ok=True)
+    (r_dir / "task-list.md").write_text(
+        "# Task List\n\n"
+        "| task_id | 标题 | 目标文件 | 依赖 | TDD 豁免 |\n"
+        "| --- | --- | --- | --- | --- |\n"
+        "| t1 | test task | `scripts/foo.py` | — | 否 |\n",
+        encoding="utf-8",
+    )
+
+
+def _make_cycles_json(cache_dir: Path, cycle_id: str, name: str = "Test Cycle") -> None:
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    cj = cache_dir / "cycles.json"
+    data = {}
+    if cj.exists():
+        import json
+        data = json.loads(cj.read_text(encoding="utf-8"))
+    data[cycle_id] = {"name": name, "execution_mode": "copilot"}
+    import json
+    cj.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+
+def _make_cycle_state(cache_dir: Path, cycle_id: str, stage: str) -> None:
+    import json
+    p = cache_dir / cycle_id / "cycle-state.json"
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(
+        json.dumps({"current_stage": stage, "updated_at": "2026-06-01T00:00:00+00:00"}),
+        encoding="utf-8",
+    )
+
+
+def _make_session(cache_dir: Path, cycle_id: str, stage: str, revision: str) -> None:
+    scripts_root = _SRC / "lulu-dev-workflow" / "scripts"
+    if str(scripts_root) not in sys.path:
+        sys.path.insert(0, str(scripts_root))
+    from hook_guard import _stage_subdir, _STAGE_FLAT  # noqa: E402
+
+    subdir = _stage_subdir(stage)
+    if stage in _STAGE_FLAT:
+        session_dir = cache_dir / cycle_id / subdir
+        session_dir.mkdir(parents=True, exist_ok=True)
+        ws = session_dir / "session-state.md"
+    else:
+        rev_name = f"revision{revision.lstrip('r')}"
+        session_dir = cache_dir / cycle_id / subdir / rev_name
+        session_dir.mkdir(parents=True, exist_ok=True)
+        ws = session_dir / "workflow-state.md"
+    ws.write_text(
+        "---\ncurrent_state: Delivered\nupdated_at: 2026-06-01T00:00:00+00:00\n---\n",
+        encoding="utf-8",
+    )
+
+
+def _seed_gate_for_stage(tmp_path: Path, to_stage: str) -> None:
+    if to_stage not in _FEATURE_CYCLE:
+        return
+    cd = _cache_dir(tmp_path)
+    _make_cycles_json(cd, _FID)
+    idx = _FEATURE_CYCLE.index(to_stage)
+    prior = _FEATURE_CYCLE[:idx]
+    for stage in prior:
+        _make_session(cd, _FID, stage, "r1")
+    if prior:
+        _make_cycle_state(cd, _FID, prior[-1])
 
 
 # ---------------------------------------------------------------------------
@@ -116,6 +196,7 @@ class TestArgparseBehavior:
         assert result.returncode == 0, result.stderr
 
     def test_start_without_conv_id_no_context_write(self, tmp_path):
+        _seed_gate_for_stage(tmp_path, "product-plan")
         env = {k: v for k, v in _ENV_COPILOT.items() if k != "LULU_CONVERSATION_ID"}
         result = subprocess.run(
             [sys.executable, str(_start_py("product-plan")),
@@ -145,6 +226,7 @@ class TestSessionPath:
         )
 
     def _run_product(self, tmp_path):
+        _seed_gate_for_stage(tmp_path, "product-plan")
         return subprocess.run(
             [sys.executable, str(_start_py("product-plan")),
              "--project-root", str(tmp_path),
@@ -154,6 +236,7 @@ class TestSessionPath:
         )
 
     def _run_tech(self, tmp_path):
+        _seed_gate_for_stage(tmp_path, "tech-plan")
         return subprocess.run(
             [sys.executable, str(_start_py("tech-plan")),
              "--project-root", str(tmp_path),
@@ -164,6 +247,7 @@ class TestSessionPath:
         )
 
     def _run_work_order(self, tmp_path):
+        _seed_gate_for_stage(tmp_path, "tech-work-order")
         # tech-work-order requires --tech-ref (existing file)
         tech_ref = tmp_path / "tech-doc.md"
         tech_ref.write_text("# Tech Doc\n", encoding="utf-8")
@@ -177,20 +261,12 @@ class TestSessionPath:
         )
 
     def _run_code(self, tmp_path):
-        # tech-code requires --task-list-ref (existing file with table)
-        task_list = tmp_path / "task-list.md"
-        task_list.write_text(
-            "# Task List\n\n"
-            "| task_id | 标题 | 目标文件 | 依赖 | TDD 豁免 |\n"
-            "| --- | --- | --- | --- | --- |\n"
-            "| t1 | test task | `scripts/foo.py` | — | 否 |\n",
-            encoding="utf-8",
-        )
+        _seed_gate_for_stage(tmp_path, "tech-code")
+        _seed_work_order_handoff(tmp_path, _FID)
         return subprocess.run(
             [sys.executable, str(_start_py("tech-code")),
              "--project-root", str(tmp_path),
-             "--cycle-id", _FID,
-             "--task-list-ref", str(task_list)],
+             "--cycle-id", _FID],
             capture_output=True, text=True, env=_ENV_COPILOT,
             cwd=str(_scripts_dir("tech-code")),
         )
@@ -251,6 +327,7 @@ class TestSessionPath:
     def test_start_writes_conv_indexed_context(self, tmp_path):
         import json
 
+        _seed_gate_for_stage(tmp_path, "tech-plan")
         result = subprocess.run(
             [sys.executable, str(_start_py("tech-plan")),
              "--project-root", str(tmp_path),

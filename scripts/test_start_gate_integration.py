@@ -65,7 +65,8 @@ def _make_session_state(cache_dir: Path, cycle_id: str, stage: str, active: int 
     from hook_guard import _stage_subdir
     p = cache_dir / cycle_id / _stage_subdir(stage) / "session-state.md"
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(f"---\nactive_doc: {active}\n---\n", encoding="utf-8")
+    field = "active_session" if stage == "tech-code" else "active_doc"
+    p.write_text(f"---\n{field}: {active}\n---\n", encoding="utf-8")
     return p
 
 
@@ -124,16 +125,26 @@ def _stage_extra_args(stage: str, tmp_path: Path) -> list:
         tech_ref.write_text("# Tech Doc\n", encoding="utf-8")
         return ["--tech-ref", str(tech_ref)]
     if stage == "tech-code":
-        task_list = tmp_path / "task-list.md"
-        task_list.write_text(
-            "# Task List\n\n"
-            "| task_id | 标题 | 目标文件 | 依赖 | TDD 豁免 |\n"
-            "| --- | --- | --- | --- | --- |\n"
-            "| t1 | test task | `scripts/foo.py` | — | 否 |\n",
-            encoding="utf-8",
-        )
-        return ["--task-list-ref", str(task_list)]
+        return []
     return []
+
+
+def _seed_work_order_handoff(cache_dir: Path, cycle_id: str, active_doc: int = 1) -> None:
+    wo_dir = cache_dir / cycle_id / "tech" / "work-order"
+    wo_dir.mkdir(parents=True, exist_ok=True)
+    (wo_dir / "session-state.md").write_text(
+        f"---\nactive_doc: {active_doc}\nupdated_at: 2026-06-01T00:00:00+00:00\n---\n",
+        encoding="utf-8",
+    )
+    r_dir = wo_dir / f"r{active_doc}"
+    r_dir.mkdir(parents=True, exist_ok=True)
+    (r_dir / "task-list.md").write_text(
+        "# Task List\n\n"
+        "| task_id | 标题 | 目标文件 | 依赖 | TDD 豁免 |\n"
+        "| --- | --- | --- | --- | --- |\n"
+        "| t1 | test task | `scripts/foo.py` | — | 否 |\n",
+        encoding="utf-8",
+    )
 
 
 def _run_start(
@@ -143,6 +154,8 @@ def _run_start(
     extra_args: list = None,
 ) -> subprocess.CompletedProcess:
     args = extra_args if extra_args is not None else _stage_extra_args(stage, tmp_path)
+    if stage == "tech-code":
+        _seed_work_order_handoff(_cache_dir(tmp_path), cycle_id)
     cmd = [
         sys.executable, str(_start_py(stage)),
         "--project-root", str(tmp_path),

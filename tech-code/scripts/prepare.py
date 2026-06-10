@@ -70,6 +70,21 @@ def _read_task_frontmatter(task_path: Path) -> dict:
 _EXIT_CONTRACT_KEYS = {"commit", "commit_ref_md", "code_log"}
 
 
+def _read_work_order_round(wo_session_state: Path) -> str:
+    """Read work-order round from session-state.md.
+
+    Prefer active_doc (current contract), fallback to active_session
+    for backward compatibility.
+    """
+    active_doc = read_md_field(wo_session_state, "active_doc", default="")
+    if active_doc:
+        return active_doc
+    active_session = read_md_field(wo_session_state, "active_session", default="")
+    if active_session:
+        return active_session
+    return ""
+
+
 def _validate_single_task(task_id: str, fm: dict) -> list:
     """Return list of error strings; empty list means valid."""
     errors = []
@@ -102,9 +117,9 @@ def validate_tasks(cycle_dir: Path) -> list:
         print(f"Error: work-order session-state.md not found: {wo_ss}", file=sys.stderr)
         sys.exit(1)
 
-    wo_active = read_md_field(wo_ss, "active_session", default="")
+    wo_active = _read_work_order_round(wo_ss)
     if not wo_active:
-        print(f"Error: active_session not found in {wo_ss}", file=sys.stderr)
+        print(f"Error: active_doc/active_session not found in {wo_ss}", file=sys.stderr)
         sys.exit(1)
 
     tasks_dir = cycle_dir / "tech" / "work-order" / f"r{wo_active}" / "tasks"
@@ -182,6 +197,9 @@ def resolve_slug(cycle_dir: Path, session_idx: int, cycle_id: str) -> str:
         except (json.JSONDecodeError, KeyError):
             pass
     return _derive_slug(cycle_id)
+
+
+def build_worktree_paths(slug: str, git_cfg: dict) -> dict:
     """Derive relative worktree_dir and branch from slug and config."""
     worktree_base = git_cfg.get("worktree_base", ".cache/worktrees")
     branch_pattern = git_cfg.get("branch_pattern", "wt/{type}-{slug}")
@@ -211,13 +229,16 @@ def write_workspace(
     slug: str,
     paths: dict,
     tasks: list,
+    project_root: Path,
 ) -> Path:
     """Write s{N}/workspace.json and return the written path."""
     repos = list(dict.fromkeys(t["target_repo"] for t in tasks))
     primary_repo = repos[0] if repos else ""
 
+    worktree_path = (project_root / paths["worktree_dir"]).resolve().as_posix().rstrip("/") + "/"
     payload: dict = {
-        "worktree_path": paths["worktree_dir"],
+        "worktree_path": worktree_path,
+        "project_root": str(project_root.resolve()),
         "primary_repo": primary_repo,
         "branch": paths["branch"],
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -230,8 +251,9 @@ def write_workspace(
             if tw_records and tw_records[0]["task_worktree"] != "primary":
                 base = paths["worktree_dir"].rstrip("/")
                 suffix = repo.replace("/", "-")
+                rel_path = f"{base}-{suffix}/"
                 extra[repo] = {
-                    "path": f"{base}-{suffix}/",
+                    "path": (project_root / rel_path).resolve().as_posix().rstrip("/") + "/",
                     "branch": f"{paths['branch']}-{suffix}",
                 }
         if extra:
@@ -276,7 +298,7 @@ def main() -> int:
     slug = resolve_slug(cycle_dir, session_idx, cycle_id)
     paths = build_worktree_paths(slug, git_cfg)
 
-    write_workspace(cycle_dir, session_idx, slug, paths, tasks)
+    write_workspace(cycle_dir, session_idx, slug, paths, tasks, project_root)
 
     print(json.dumps({
         "slug": slug,

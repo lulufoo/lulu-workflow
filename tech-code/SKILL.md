@@ -88,7 +88,13 @@ python3 "$SKILL_DIR/scripts/prepare.py" \
   --project-root "$(pwd)"
 ```
 
-Read stdout JSON for `slug`, `worktree_dir`, `branch`. Execute **P1 → P2 → P3** from `git-workflow-standard.md` using those values.
+Read stdout JSON for `slug`, `worktree_dir`, `branch`; use these values to execute **P1 → P2 → P3** from `git-workflow-standard.md`.
+
+Separately, `prepare.py` writes `workspace.json` with:
+- `worktree_path`: absolute worktree path
+- `project_root`: absolute project root
+- `branch`: branch name for the primary worktree
+- `created_at`: ISO8601 timestamp
 
 > **P1 collision** (`wt/<branch>` already exists): worktree was created in a prior run — re-use it, skip P3.
 
@@ -197,7 +203,7 @@ $CACHE_DIR/<cycle_id>/tech/code/
   session-state.md
   s{N}/
     workflow-state.md           ← Preparing: session + task pointer (authoritative)
-    workspace.json              ← Preparing: worktree_path, branch, created_at
+    workspace.json              ← Preparing: absolute worktree_path, project_root, branch, created_at
     code-task-list.md           ← Preparing: task list from work-order
     closing-checklist.md        ← Closing: checklist items
     human-delivery-gate.md      ← Closing→Delivered: required before Delivered
