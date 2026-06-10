@@ -64,10 +64,6 @@ python3 "$SKILL_DIR/scripts/start.py" \
 
 ## State machine
 
-**SSOT:** `$SKILL_DIR/transition-whitelist.json` — parallel `session` and `task` machines with `states` enums and `allowed_transitions`. This SKILL documents semantics only; do not duplicate transition tables here.
-
-`transition-whitelist.json` defines which transitions are *allowed*; each state section below defines *when* to trigger — the two are complementary and non-overlapping.
-
 Session states: `Preparing` → `Executing` → `Closing` → `Delivered`
 
 Task phases (under Executing): `WriteTests` → `VerifyRed` → `WriteImpl` → `VerifyGreen` → `Refactor` → `Done`
