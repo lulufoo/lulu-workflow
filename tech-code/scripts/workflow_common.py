@@ -146,17 +146,9 @@ def write_md_state(
 
 def write_session_state(path: Path, active_session: int) -> None:
     """Write session-state.md tracking the active TDD session round."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    now = datetime.now(timezone.utc).isoformat()
-    content = (
-        f"---\n"
-        f"version: 1\n"
-        f"active_session: {active_session}\n"
-        f"updated_at: {now}\n"
-        f"---\n"
-    )
-    with path.open("w", encoding="utf-8") as handle:
-        handle.write(content)
+    from session_state_schema import save_session_state
+
+    save_session_state(path, active_session)
 
 
 def parse_frontmatter_fields(content: str) -> Dict[str, str]:

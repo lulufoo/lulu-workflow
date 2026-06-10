@@ -17,35 +17,26 @@ from hook_guard import (  # noqa: E402
 from invalidation_hook import invalidate_downstream  # noqa: E402
 
 from archive import run as run_archive
+from session_state_schema import (
+    load_work_order_round,
+    next_session_round,
+    save_session_state,
+)
 from workflow_common import (
     CACHE_DIR,
     detect_cycle_type,
     doc_dir,
     load_container_meta,
-    read_md_field,
     session_state_path,
     state_path,
     task_list_path,
     write_active_context,
     write_md_state,
-    write_session_state,
 )
 
 
 _TO_STAGE = "tech-code"
 
-
-
-def _read_work_order_round(session_state_path: Path) -> str:
-    """Read work-order round index from session-state.md.
-
-    Prefer active_doc (current contract), fallback to active_session
-    for backward compatibility with older fixtures.
-    """
-    active_doc = read_md_field(session_state_path, "active_doc", default="")
-    if active_doc:
-        return active_doc
-    return read_md_field(session_state_path, "active_session", default="")
 
 
 def _find_latest_delivered_stage(cycle_id: str, cycle_type: str,
@@ -235,29 +226,19 @@ def main() -> int:
 
     # Derive task-list.md path from work-order session-state.md
     wo_ss_path = cache_dir / cycle_id / "tech" / "work-order" / "session-state.md"
-    wo_active = _read_work_order_round(wo_ss_path)
-    if not wo_active:
-        print(
-            f"错误：无法从 work-order session-state.md 推导 task-list-ref（缺少 active_doc/active_session：{wo_ss_path}）",
-            file=sys.stderr,
-        )
+    try:
+        wo_active = load_work_order_round(wo_ss_path)
+    except ValueError as e:
+        print(f"错误：无法从 work-order session-state.md 推导 task-list-ref（{e}）", file=sys.stderr)
         return 1
     task_list_ref_path = cache_dir / cycle_id / "tech" / "work-order" / f"r{wo_active}" / "task-list.md"
     if not task_list_ref_path.exists():
         print(f"错误：task-list.md 不存在：{task_list_ref_path}", file=sys.stderr)
         return 1
 
-    # Determine session round
     ss_path = project_root / session_state_path(cycle_id)
-    if ss_path.exists():
-        try:
-            active_session = int(read_md_field(ss_path, "active_session", default="0")) + 1
-        except ValueError:
-            active_session = 1
-    else:
-        active_session = 1
-
-    write_session_state(ss_path, active_session)
+    active_session = next_session_round(ss_path)
+    save_session_state(ss_path, active_session)
     write_active_context(
         project_root,
         cycle_id,

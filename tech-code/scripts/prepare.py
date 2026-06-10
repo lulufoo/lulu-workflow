@@ -22,7 +22,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from workflow_common import read_md_field, resolve_workflow_config_path  # noqa: E402
+from session_state_schema import load_session_state, load_work_order_round  # noqa: E402
+from workflow_common import resolve_workflow_config_path  # noqa: E402
 from workspace_schema import save_workspace  # noqa: E402
 
 
@@ -71,21 +72,6 @@ def _read_task_frontmatter(task_path: Path) -> dict:
 _EXIT_CONTRACT_KEYS = {"commit", "commit_ref_md", "code_log"}
 
 
-def _read_work_order_round(wo_session_state: Path) -> str:
-    """Read work-order round from session-state.md.
-
-    Prefer active_doc (current contract), fallback to active_session
-    for backward compatibility.
-    """
-    active_doc = read_md_field(wo_session_state, "active_doc", default="")
-    if active_doc:
-        return active_doc
-    active_session = read_md_field(wo_session_state, "active_session", default="")
-    if active_session:
-        return active_session
-    return ""
-
-
 def _validate_single_task(task_id: str, fm: dict) -> list:
     """Return list of error strings; empty list means valid."""
     errors = []
@@ -118,9 +104,10 @@ def validate_tasks(cycle_dir: Path) -> list:
         print(f"Error: work-order session-state.md not found: {wo_ss}", file=sys.stderr)
         sys.exit(1)
 
-    wo_active = _read_work_order_round(wo_ss)
-    if not wo_active:
-        print(f"Error: active_doc/active_session not found in {wo_ss}", file=sys.stderr)
+    try:
+        wo_active = load_work_order_round(wo_ss)
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
     tasks_dir = cycle_dir / "tech" / "work-order" / f"r{wo_active}" / "tasks"
@@ -215,15 +202,6 @@ def build_worktree_paths(slug: str, git_cfg: dict) -> dict:
 # Write workspace.json
 # ---------------------------------------------------------------------------
 
-def read_active_code_session(cycle_dir: Path) -> int:
-    """Return active_session int from tech/code/session-state.md."""
-    ss = cycle_dir / "tech" / "code" / "session-state.md"
-    raw = read_md_field(ss, "active_session", default="")
-    if not raw:
-        raise ValueError(f"active_session not found in {ss}")
-    return int(raw)
-
-
 def write_workspace(
     cycle_dir: Path,
     session_idx: int,
@@ -291,7 +269,7 @@ def main() -> int:
         return 1
 
     try:
-        session_idx = read_active_code_session(cycle_dir)
+        session_idx = load_session_state(cycle_dir / "tech" / "code" / "session-state.md")
     except (ValueError, FileNotFoundError) as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
