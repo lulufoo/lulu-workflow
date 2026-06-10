@@ -1,8 +1,7 @@
 ---
 name: tech-code
 description: >-
-  Use when: TDD, code session, 测试驱动开发, 写测试代码, 写实现代码, Red Green Refactor,
-  code-task-list, task-from-work-order, tech-code workflow,
+  Use when: TDD, code session, 测试驱动开发, 写测试代码, 写实现代码, task-from-work-order, tech-code workflow,
   lulu-dev-workflow tech-code, git worktree delivery.
 disable-model-invocation: true
 ---
