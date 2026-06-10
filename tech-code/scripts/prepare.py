@@ -17,13 +17,13 @@ import argparse
 import json
 import re
 import secrets
-import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from code_task_list import first_pending, parse_tasks  # noqa: E402
+from git_ops import validate_worktrees  # noqa: E402
 from session_state_schema import load_session_state, load_work_order_round  # noqa: E402
 from workflow_common import resolve_workflow_config_path  # noqa: E402
 from workflow_state_schema import (  # noqa: E402
@@ -254,32 +254,6 @@ def write_workspace(
 # Entry point
 # ---------------------------------------------------------------------------
 
-def _git_is_worktree(path: str) -> bool:
-    result = subprocess.run(
-        ["git", "-C", path.rstrip("/"), "rev-parse", "--is-inside-work-tree"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    return result.returncode == 0 and result.stdout.strip() == "true"
-
-
-def _validate_worktrees(workspace: dict) -> None:
-    worktree_path = workspace.get("worktree_path", "")
-    if not worktree_path:
-        raise ValueError("workspace.json missing worktree_path")
-    if not _git_is_worktree(worktree_path):
-        raise ValueError(f"primary worktree is not a git worktree: {worktree_path}")
-
-    extra = workspace.get("extra_worktrees") or {}
-    for repo, info in extra.items():
-        path = info.get("path", "")
-        if not path:
-            raise ValueError(f"extra_worktree for {repo!r} missing path")
-        if not _git_is_worktree(path):
-            raise ValueError(f"extra worktree for {repo!r} is not a git worktree: {path}")
-
-
 def validate_preparing_to_executing(cycle_dir: Path) -> dict:
     """Transition Preparing -> Executing after worktree validation."""
     ws_path = resolve_workflow_state_path(cycle_dir)
@@ -312,7 +286,7 @@ def validate_preparing_to_executing(cycle_dir: Path) -> dict:
         raise ValueError(f"workspace.json not found: {workspace_path}")
 
     workspace = load_workspace(workspace_path)
-    _validate_worktrees(workspace)
+    validate_worktrees(workspace)
 
     task_list_path = session_dir / "code-task-list.md"
     if not task_list_path.exists():

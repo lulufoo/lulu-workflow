@@ -87,7 +87,7 @@ def _fake_git(monkeypatch, worktree: Path):
             return subprocess.CompletedProcess(cmd, 0, "true\n", "")
         return real_run(cmd, capture_output=capture_output, text=text, check=check)
 
-    monkeypatch.setattr("prepare.subprocess.run", _run)
+    monkeypatch.setattr("git_ops.subprocess.run", _run)
 
 
 def test_validate_preparing_to_executing(tmp_path: Path, monkeypatch):
