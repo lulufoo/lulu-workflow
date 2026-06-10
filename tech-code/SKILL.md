@@ -76,7 +76,9 @@ Task phases (under Executing): `WriteTests` → `VerifyRed` → `WriteImpl` → 
 
 ## Preparing
 
-**Actions:** Run `prepare.py`; on non-zero exit report the error and halt. 
+**Actions:**
+
+1. Run `prepare.py`; on non-zero exit report the error and halt.
 
 ```bash
 python3 "$SKILL_DIR/scripts/prepare.py" \
@@ -86,32 +88,41 @@ python3 "$SKILL_DIR/scripts/prepare.py" \
 
 Read stdout JSON for `slug`, `worktree_dir`, `branch`; use these values to execute **P1 → P2 → P3** from `git-workflow-standard.md`.
 
-Separately, `prepare.py` writes `workspace.json`.
-Field definitions: see § Session files › Schema queries below.
+`prepare.py` writes `workspace.json`. Field definitions: see § Session files › Schema queries below.
 
 > **P1 collision** (`wt/<branch>` already exists): worktree was created in a prior run — re-use it, skip P3.
 
-**Exit:** `workspace.json` written → `workflow-state.md`: `current_state: Executing`, `current_task` = first task, `current_phase: WriteTests`.
+2. After git worktree is ready, run:
+
+```bash
+python3 "$SKILL_DIR/scripts/prepare.py" \
+  --cycle-dir "$CACHE_DIR/$CYCLE_ID" \
+  --project-root "$(pwd)" \
+  --validate
+```
+
+> On non-zero exit: report the error and halt.
+
+**Exit:** `--validate` succeeds → session is `Executing`; first task id is in stdout JSON (`current_task`).
 
 ---
 
 ## Executing
 
-On session resume: read `workflow-state.md`; resume from `current_task` / `current_phase`.
+**Entry:** Run `get-pointer`; follow `next_action`:
+- `dispatch` → enter the task loop with `current_task` as `{task_id}`
+- `closing` → proceed to § Closing → Delivered
+- `done` → report terminal state (session already Delivered)
 
-Process tasks 1→N in sequence.
+```bash
+python3 "$SKILL_DIR/scripts/session_control.py" \
+  --cycle-dir "$CACHE_DIR/$CYCLE_ID" \
+  get-pointer
+```
 
 ### Task loop (1→N)
 
-**Invariant (one commit per task):** Never commit changes for multiple tasks in a single `git commit`. Each task must produce its own commit and its own `tasks/t{X}/commit-ref.md`.
-
-**Invariant (no direct execution):** Task phases run in sub-agent only; orchestrator must not execute phases directly.
-
 Resolve `$RESOLVED_MODEL` once before the loop — see `## Sub-agent Context › Config Resolution` in `../_subagent.md`, using `--stage tech-code`.
-
-For each task in order:
-
-Phase lifecycle is fully defined in `task-runner/SKILL.md`. The orchestrator dispatches per-task and validates the exit contract; it does not define or duplicate phase logic.
 
 **Step 1: Dispatch sub-agent**
 
@@ -149,16 +160,24 @@ Read `tasks/t{X}/commit-ref.md → initial_commit` for the SHA.
 Output: `CHECKPOINT t{X}: commit SHA <sha>, commit-ref.md written, advancing to t{X+1}.`
 Do not advance until this line is output.
 
-**Step 4: Branch**
+**Step 4: Advance pointer**
 
-- More tasks remain → update `current_task` to t{X+1}; return to Step 1.
-- All tasks `[x]` → set `current_state: Closing`.
+```bash
+python3 "$SKILL_DIR/scripts/session_control.py" \
+  --cycle-dir "$CACHE_DIR/$CYCLE_ID" \
+  advance-pointer --completed-task t{X}
+```
+
+> On non-zero exit: halt and report.
+
+Read stdout JSON:
+
+- `next_action: dispatch` → enter Step 1 with `current_task` as `{task_id}`.
+- `next_action: closing` → leave Task loop; proceed to § Closing → Delivered.
 
 ---
 
 ## Closing
-
-**Entry:** `current_state: Closing`. All tasks in `code-task-list.md` are `[x]`.
 
 **Actions:**
 
@@ -172,13 +191,25 @@ Do not advance until this line is output.
 2. Run full test suite; append `test_run` to a session-level log or note in checklist.
 3. Count `commit-ref.md` files; verify count matches task count.
 4. Verify `git status` is clean in the worktree.
-5. Checklist complete → write `delivery-approval.md` (`approved: true`) → set `current_state: Delivered`.
+5. Write `delivery-approval.md` (`approved: true`).
+6. Run:
+
+```bash
+python3 "$SKILL_DIR/scripts/session_control.py" \
+  --cycle-dir "$CACHE_DIR/$CYCLE_ID" \
+  --project-root "$(pwd)" \
+  deliver
+```
+
+> On non-zero exit: halt and report.
+
+**Exit:** `deliver` succeeds → proceed to § Delivered.
 
 ---
 
 ## Delivered
 
-**Condition:** All closing checklist items pass. `delivery-approval.md` exists with `approved: true`. `current_state: Delivered`.
+Session complete; stop.
 
 ---
 
@@ -190,7 +221,7 @@ Do not advance until this line is output.
 
 | Path (relative to prefix) | Purpose |
 |---|---|
-| `workflow-state.md` | Session state and current task/phase |
+| `workflow-state.md` | Session state and current task (written by scripts only) |
 | `workspace.json` | Worktree path, project root, branch |
 | `code-task-list.md` | Task list from work-order |
 | `closing-checklist.md` | Pre-delivery verification |
@@ -207,3 +238,5 @@ If you need a file's field definitions at runtime, run the corresponding action:
 | `session-state.md` | `python3 $SKILL_DIR/scripts/session_state_schema.py --schema` |
 | `workflow-state.md` | `python3 $SKILL_DIR/scripts/workflow_state_schema.py --schema` |
 | `workspace.json` | `python3 $SKILL_DIR/scripts/workspace_schema.py --schema` |
+
+**Session control (orchestrator):** `python3 $SKILL_DIR/scripts/session_control.py` — `get-pointer`, `advance-pointer`, `deliver`. Do not write `workflow-state.md` directly.

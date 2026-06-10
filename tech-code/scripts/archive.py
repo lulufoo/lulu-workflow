@@ -21,7 +21,7 @@ def run(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Restore current code conv from archive and move Completed convs to cold storage.",
+        description="Restore current code conv from archive and move Delivered convs to cold storage.",
     )
     parser.add_argument("--project-root", default=".", help="Project root directory.")
     parser.add_argument(
