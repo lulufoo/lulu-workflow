@@ -195,25 +195,25 @@ AI must not self-declare session complete. Even if all tasks are `Done` and the 
 
 ## Session files
 
-```
-$CACHE_DIR/<cycle_id>/tech/code/
-  session-state.md
-  s{N}/
-    workflow-state.md           ← Preparing: session + task pointer (authoritative)
-    workspace.json              ← Preparing: absolute worktree_path, project_root, branch, created_at
-    code-task-list.md           ← Preparing: task list from work-order
-    closing-checklist.md        ← Closing: checklist items
-    human-delivery-gate.md      ← Closing→Delivered: required before Delivered
+**Session round index:** `$CACHE_DIR/<cycle_id>/tech/code/session-state.md` — defines `N`.
 
-    tasks/t{X}/
-      code-log.md               ← Executing: append-only action log (task-level)
-      commit-ref.md             ← Executing/Done: initial/final SHA, message, amended
-```
+**Path prefix (session workspace):** `$CACHE_DIR/<cycle_id>/tech/code/s{N}/`
 
-### Schema queries
+| Path (relative to prefix) | Purpose |
+|---|---|
+| `workflow-state.md` | Session state and current task/phase |
+| `workspace.json` | Worktree path, project root, branch |
+| `code-task-list.md` | Task list from work-order |
+| `closing-checklist.md` | Pre-delivery verification |
+| `human-delivery-gate.md` | Human sign-off for Delivered |
+| `tasks/t{X}/code-log.md` | Append-only task execution log |
+| `tasks/t{X}/commit-ref.md` | Task commit SHA and message |
+
+**Schema queries**
 
 If you need a file's field definitions at runtime, run the corresponding action:
 
-| file | action |
+| File | Action |
 |---|---|
+| `session-state.md` | `python3 $SKILL_DIR/scripts/session_state_schema.py --schema` |
 | `workspace.json` | `python3 $SKILL_DIR/scripts/workspace_schema.py --schema` |
