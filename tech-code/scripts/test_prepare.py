@@ -8,7 +8,14 @@ from pathlib import Path
 
 import pytest
 
-from prepare import build_worktree_paths, validate_preparing_to_executing, write_workspace  # noqa: E402
+from git_ops import normalize_repo_path  # noqa: E402
+from prepare import (  # noqa: E402
+    build_worktree_paths,
+    ensure_workspace,
+    main,
+    validate_preparing_to_executing,
+    write_workspace,
+)
 from workflow_state_schema import init_preparing, save_workflow_state  # noqa: E402
 
 _SCRIPT = Path(__file__).resolve().parent / "prepare.py"
@@ -45,6 +52,61 @@ def test_write_workspace_writes_absolute_paths(tmp_path: Path):
     assert payload["project_root"] == str(project_root.resolve())
     assert payload["extra_worktrees"]["repo-b"]["path"].startswith(str(project_root.resolve()))
     assert payload["extra_worktrees"]["repo-b"]["path"].endswith("/")
+
+
+_TASK_MD = """---
+target_repo: repo-a
+task_worktree: primary
+exit_contract:
+  commit: required
+  commit_ref_md: required
+  code_log: required
+---
+# Task
+"""
+
+
+def _setup_full_preparing_session(tmp_path: Path) -> tuple[Path, Path]:
+    cycle_dir = tmp_path / "cycle-id"
+    session_dir = cycle_dir / "tech" / "code" / "s1"
+    session_dir.mkdir(parents=True)
+
+    wo_dir = cycle_dir / "tech" / "work-order"
+    wo_dir.mkdir(parents=True)
+    (wo_dir / "session-state.md").write_text(
+        "---\nactive_doc: 1\nupdated_at: 2024-01-01T00:00:00+00:00\n---\n",
+        encoding="utf-8",
+    )
+    task_dir = wo_dir / "r1" / "tasks" / "t1"
+    task_dir.mkdir(parents=True)
+    (task_dir / "task.md").write_text(_TASK_MD, encoding="utf-8")
+
+    (cycle_dir / "tech" / "code" / "session-state.md").write_text(
+        "---\nversion: 1\nactive_session: 1\nupdated_at: 2024-01-01T00:00:00+00:00\n---\n",
+        encoding="utf-8",
+    )
+    ws_path = session_dir / "workflow-state.md"
+    init_preparing(ws_path, mode="work-order", task_list_ref=str(session_dir / "code-task-list.md"))
+    (session_dir / "code-task-list.md").write_text("- [ ] t1 · task\n", encoding="utf-8")
+
+    config_dir = tmp_path / "skill-config" / "lulu-dev-workflow"
+    config_dir.mkdir(parents=True)
+    (config_dir / "workflow-config.json").write_text(
+        json.dumps({
+            "tech-code": {
+                "git": {
+                    "worktree_base": ".cache/worktrees",
+                    "branch_pattern": "wt/{type}-{slug}",
+                    "default_type": "feat",
+                }
+            }
+        }),
+        encoding="utf-8",
+    )
+
+    worktree = tmp_path / "wt"
+    worktree.mkdir()
+    return cycle_dir, worktree
 
 
 def _setup_validate_session(tmp_path: Path) -> tuple[Path, Path]:
@@ -135,3 +197,171 @@ def test_validate_cli(tmp_path: Path):
     assert result.returncode == 0
     payload = json.loads(result.stdout)
     assert payload["current_task"] == "t1"
+    assert payload["current_state"] == "Executing"
+    assert payload["slug"] == "wt"
+    assert payload["branch"] == "wt/feat-slug-1"
+
+
+def test_main_default_path_stdout(monkeypatch, tmp_path: Path, capsys):
+    cycle_dir, _ = _setup_full_preparing_session(tmp_path)
+    prepare_called = []
+
+    def _fake_prepare(project_root, workspace):
+        prepare_called.append((project_root, workspace))
+        wt_path = Path(workspace["worktree_path"].rstrip("/"))
+        wt_path.mkdir(parents=True, exist_ok=True)
+        subprocess.run(["git", "init"], cwd=wt_path, capture_output=True, check=True)
+
+    monkeypatch.setattr("prepare.prepare_worktrees", _fake_prepare)
+    monkeypatch.setattr(
+        "git_ops.is_worktree",
+        lambda path: Path(normalize_repo_path(path)).joinpath(".git").exists(),
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "prepare.py",
+            "--cycle-dir",
+            str(cycle_dir),
+            "--project-root",
+            str(tmp_path),
+        ],
+    )
+
+    assert main() == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["current_state"] == "Executing"
+    assert payload["current_task"] == "t1"
+    assert payload["worktree_path"].startswith(str(tmp_path.resolve()))
+    assert payload["slug"]
+    assert payload["branch"].startswith("wt/feat-")
+    assert len(prepare_called) == 1
+
+
+def _git_cfg() -> dict:
+    return {
+        "worktree_base": ".cache/worktrees",
+        "branch_pattern": "wt/{type}-{slug}",
+        "default_type": "feat",
+    }
+
+
+def _minimal_tasks():
+    return [{"task_id": "t1", "target_repo": "repo-a", "task_worktree": "primary"}]
+
+
+def test_ensure_workspace_first_create(tmp_path: Path):
+    cycle_dir, _ = _setup_full_preparing_session(tmp_path)
+    dest, workspace, slug, branch, created = ensure_workspace(
+        cycle_dir, 1, "cycle-id", _minimal_tasks(), tmp_path, _git_cfg()
+    )
+    assert created is True
+    assert dest.exists()
+    assert workspace["branch"] == branch
+    assert slug in workspace["worktree_path"]
+
+
+def test_ensure_workspace_reuses_valid_file(tmp_path: Path, monkeypatch):
+    cycle_dir, _ = _setup_full_preparing_session(tmp_path)
+    dest, workspace, slug, branch, created = ensure_workspace(
+        cycle_dir, 1, "cycle-id", _minimal_tasks(), tmp_path, _git_cfg()
+    )
+    assert created is True
+    created_at = workspace["created_at"]
+    mtime = dest.stat().st_mtime
+
+    monkeypatch.setattr("prepare._derive_slug", lambda _cid: "should-not-be-used")
+
+    dest2, workspace2, slug2, branch2, created2 = ensure_workspace(
+        cycle_dir, 1, "cycle-id", _minimal_tasks(), tmp_path, _git_cfg()
+    )
+    assert created2 is False
+    assert dest2 == dest
+    assert workspace2["created_at"] == created_at
+    assert slug2 == slug
+    assert branch2 == branch
+    assert dest.stat().st_mtime == mtime
+
+
+def test_ensure_workspace_recreates_invalid_json(tmp_path: Path, monkeypatch):
+    cycle_dir, _ = _setup_full_preparing_session(tmp_path)
+    ws_path = cycle_dir / "tech" / "code" / "s1" / "workspace.json"
+    ws_path.write_text("{bad json", encoding="utf-8")
+
+    fixed_slug = "fixed-slug-abcd"
+    monkeypatch.setattr("prepare._derive_slug", lambda _cid: fixed_slug)
+
+    dest, workspace, slug, branch, created = ensure_workspace(
+        cycle_dir, 1, "cycle-id", _minimal_tasks(), tmp_path, _git_cfg()
+    )
+    assert created is True
+    assert slug == fixed_slug
+    assert fixed_slug in workspace["worktree_path"]
+    assert branch == f"wt/feat-{fixed_slug}"
+
+
+def test_ensure_workspace_recreates_missing_field(tmp_path: Path, monkeypatch):
+    cycle_dir, _ = _setup_full_preparing_session(tmp_path)
+    ws_path = cycle_dir / "tech" / "code" / "s1" / "workspace.json"
+    ws_path.write_text(json.dumps({"worktree_path": "/x/"}), encoding="utf-8")
+
+    fixed_slug = "new-slug-efgh"
+    monkeypatch.setattr("prepare._derive_slug", lambda _cid: fixed_slug)
+
+    dest, workspace, slug, _, created = ensure_workspace(
+        cycle_dir, 1, "cycle-id", _minimal_tasks(), tmp_path, _git_cfg()
+    )
+    assert created is True
+    assert slug == fixed_slug
+    assert "created_at" in workspace
+
+
+def test_main_preserves_executing_current_task(tmp_path: Path, monkeypatch, capsys):
+    cycle_dir, _ = _setup_full_preparing_session(tmp_path)
+    session_dir = cycle_dir / "tech" / "code" / "s1"
+
+    paths = build_worktree_paths("existing-slug", _git_cfg())
+    write_workspace(
+        cycle_dir, 1, "existing-slug", paths, _minimal_tasks(), tmp_path
+    )
+    created_at = json.loads(
+        (session_dir / "workspace.json").read_text(encoding="utf-8")
+    )["created_at"]
+
+    save_workflow_state(
+        session_dir / "workflow-state.md",
+        {"current_state": "Executing", "current_task": "t3", "current_phase": ""},
+    )
+    (session_dir / "code-task-list.md").write_text(
+        "- [x] t1 · done\n- [ ] t3 · task\n", encoding="utf-8"
+    )
+
+    def _fake_prepare(project_root, workspace):
+        wt_path = Path(workspace["worktree_path"].rstrip("/"))
+        wt_path.mkdir(parents=True, exist_ok=True)
+        subprocess.run(["git", "init"], cwd=wt_path, capture_output=True, check=True)
+
+    monkeypatch.setattr("prepare.prepare_worktrees", _fake_prepare)
+    monkeypatch.setattr(
+        "git_ops.is_worktree",
+        lambda path: Path(normalize_repo_path(path)).joinpath(".git").exists(),
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "prepare.py",
+            "--cycle-dir",
+            str(cycle_dir),
+            "--project-root",
+            str(tmp_path),
+        ],
+    )
+
+    assert main() == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["current_task"] == "t3"
+    assert payload["current_state"] == "Executing"
+    after = json.loads((session_dir / "workspace.json").read_text(encoding="utf-8"))
+    assert after["created_at"] == created_at

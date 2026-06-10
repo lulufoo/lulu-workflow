@@ -5,6 +5,8 @@ CLI:
     python3 workspace_schema.py --schema   # print JSON schema array
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import sys
@@ -43,9 +45,78 @@ def validate_workspace(data: dict) -> list[str]:
     return errors
 
 
+def read_workspace_file(path: Path) -> tuple[dict | None, list[str]]:
+    """Read workspace.json from disk; return (data, errors). Never raises."""
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        return None, [f"cannot read file: {exc}"]
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        return None, [f"invalid JSON: {exc}"]
+    if not isinstance(data, dict):
+        return None, ["root must be a JSON object"]
+    return data, []
+
+
+def validate_workspace_semantic(data: dict, project_root: Path) -> list[str]:
+    """Semantic checks beyond required fields; empty means valid."""
+    errors = []
+    expected_root = str(project_root.resolve())
+    if data.get("project_root") != expected_root:
+        errors.append(
+            f"project_root mismatch: expected {expected_root!r}, "
+            f"got {data.get('project_root')!r}"
+        )
+
+    worktree_path = data.get("worktree_path", "")
+    if not isinstance(worktree_path, str):
+        errors.append("worktree_path must be a string")
+    elif not worktree_path.startswith("/"):
+        errors.append("worktree_path must be an absolute path")
+    elif not worktree_path.endswith("/"):
+        errors.append("worktree_path must have a trailing slash")
+
+    extra = data.get("extra_worktrees")
+    if extra is not None:
+        if not isinstance(extra, dict):
+            errors.append("extra_worktrees must be an object")
+        else:
+            for repo, entry in extra.items():
+                if not isinstance(entry, dict):
+                    errors.append(f"extra_worktrees[{repo!r}] must be an object")
+                    continue
+                if "path" not in entry:
+                    errors.append(f"extra_worktrees[{repo!r}] missing 'path'")
+                elif not isinstance(entry["path"], str):
+                    errors.append(f"extra_worktrees[{repo!r}].path must be a string")
+                elif not entry["path"].startswith("/"):
+                    errors.append(f"extra_worktrees[{repo!r}].path must be absolute")
+                elif not entry["path"].endswith("/"):
+                    errors.append(f"extra_worktrees[{repo!r}].path must have trailing slash")
+                if "branch" not in entry:
+                    errors.append(f"extra_worktrees[{repo!r}] missing 'branch'")
+
+    return errors
+
+
+def assess_workspace_file(path: Path, project_root: Path) -> tuple[bool, dict | None, list[str]]:
+    """Explicit validity gate: read → schema → semantic. No exceptions for routing."""
+    data, read_errors = read_workspace_file(path)
+    if read_errors:
+        return False, None, read_errors
+    errors = validate_workspace(data) + validate_workspace_semantic(data, project_root)
+    if errors:
+        return False, data, errors
+    return True, data, []
+
+
 def load_workspace(path: Path) -> dict:
     """Read and validate workspace.json; raise ValueError on missing required fields."""
-    data = json.loads(path.read_text(encoding="utf-8"))
+    data, read_errors = read_workspace_file(path)
+    if read_errors:
+        raise ValueError(f"workspace.json invalid ({path}): {'; '.join(read_errors)}")
     errors = validate_workspace(data)
     if errors:
         raise ValueError(f"workspace.json invalid ({path}): {'; '.join(errors)}")
