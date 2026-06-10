@@ -84,7 +84,7 @@ def test_terminal_archives_other_conv(project_root, config):
         other_dir = project_root / hot_conv_dir(config, other)
         write_md_field(other_dir / "session-state.md", current_state="Delivered")
     else:
-        terminal = "Completed" if config is CODE_CONFIG else "Delivered"
+        terminal = "Delivered"
         _setup_rounded_conv(project_root, config, other, 1, terminal)
 
     rc = run_archive(project_root, config, exclude_conv_id=current)
@@ -100,7 +100,7 @@ def test_non_terminal_skips(project_root, config):
         other_dir = project_root / hot_conv_dir(config, other)
         write_md_field(other_dir / "session-state.md", current_state="InProgress")
     elif config is CODE_CONFIG:
-        _setup_rounded_conv(project_root, config, other, 2, "Executing", extra_rounds=[(1, "Completed")])
+        _setup_rounded_conv(project_root, config, other, 2, "Executing", extra_rounds=[(1, "Delivered")])
     else:
         _setup_rounded_conv(project_root, config, other, 1, "Drafting")
 
@@ -116,7 +116,7 @@ def test_current_conv_never_archived(project_root, config):
         conv_dir = project_root / hot_conv_dir(config, current)
         write_md_field(conv_dir / "session-state.md", current_state="Delivered")
     else:
-        terminal = "Completed" if config is CODE_CONFIG else "Delivered"
+        terminal = "Delivered"
         _setup_rounded_conv(project_root, config, current, 1, terminal)
 
     run_archive(project_root, config, exclude_conv_id=current)
@@ -147,7 +147,7 @@ def test_cold_conflict_skips(project_root, config):
             current_state="Delivered",
         )
     else:
-        terminal = "Completed" if config is CODE_CONFIG else "Delivered"
+        terminal = "Delivered"
         _setup_rounded_conv(project_root, config, other, 1, terminal)
 
     cold = project_root / archive_dir(config, other)
@@ -182,7 +182,7 @@ def test_dry_run_no_disk_change(project_root, config):
             current_state="Delivered",
         )
     else:
-        terminal = "Completed" if config is CODE_CONFIG else "Delivered"
+        terminal = "Delivered"
         _setup_rounded_conv(project_root, config, other, 1, terminal)
 
     hot = project_root / hot_conv_dir(config, other)

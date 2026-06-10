@@ -77,7 +77,7 @@ def list_code_conv_ids(code_root: Path) -> List[str]:
 
 
 def is_conv_completed(conv_dir: Path) -> Optional[bool]:
-    """Return True if active session is Completed, False if non-terminal, None if unreadable."""
+    """Return True if active session is Delivered, False if non-terminal, None if unreadable."""
     return is_conv_terminal(conv_dir, CODE_CONFIG)
 
 

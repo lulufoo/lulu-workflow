@@ -99,6 +99,21 @@ class TestValidateWorkflowState:
         data = {**_VALID_DATA, "current_phase": ""}
         assert validate_workflow_state(data) == []
 
+    def test_executing_session_keeps_empty_current_phase(self, tmp_path: Path):
+        """Orchestrator keeps current_phase empty during Executing; task-runner owns phases in code-log."""
+        p = tmp_path / "workflow-state.md"
+        save_workflow_state(
+            p,
+            {
+                **_VALID_DATA,
+                "current_state": "Executing",
+                "current_task": "t1",
+                "current_phase": "",
+            },
+        )
+        loaded = load_workflow_state(p)
+        assert loaded["current_phase"] == ""
+
     def test_invalid_current_phase(self):
         data = {**_VALID_DATA, "current_phase": "NotAPhase"}
         errors = validate_workflow_state(data)

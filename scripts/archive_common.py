@@ -74,7 +74,7 @@ TECH_CODE_CONFIG = StageArchiveConfig(
     hot_subdir="tech/code",
     session_counter_field="active_session",
     doc_dir_fmt="s{}",
-    terminal_states=frozenset({"Completed"}),
+    terminal_states=frozenset({"Delivered"}),
 )
 
 ALL_STAGE_CONFIGS = (
