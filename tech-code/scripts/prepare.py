@@ -19,7 +19,6 @@ If s{N}/workspace.json already exists and passes validation, it is loaded only
 
 import argparse
 import json
-import re
 import secrets
 import sys
 from datetime import datetime, timezone
@@ -35,45 +34,8 @@ from workflow_state_schema import (  # noqa: E402
     resolve_workflow_state_path,
     save_workflow_state,
 )
+from task_frontmatter import read_task_frontmatter  # noqa: E402
 from workspace_schema import assess_workspace_file, load_workspace, save_workspace  # noqa: E402
-
-
-# ---------------------------------------------------------------------------
-# Frontmatter parsing
-# ---------------------------------------------------------------------------
-
-def _read_task_frontmatter(task_path: Path) -> dict:
-    """Parse YAML frontmatter from task.md using stdlib re only."""
-    content = task_path.read_text(encoding="utf-8")
-    fm_match = re.match(r"^---\s*\n(.*?)\n---", content, re.DOTALL)
-    if not fm_match:
-        raise ValueError(f"No frontmatter found in {task_path}")
-    fm_text = fm_match.group(1)
-
-    result = {}
-    lines = fm_text.splitlines()
-    i = 0
-    while i < len(lines):
-        line = lines[i]
-        block_match = re.match(r"^(\w+):\s*$", line)
-        if block_match:
-            key = block_match.group(1)
-            nested = {}
-            i += 1
-            while i < len(lines):
-                sub = re.match(r"^  (\w+):\s*(.+)", lines[i])
-                if sub:
-                    nested[sub.group(1)] = sub.group(2).strip()
-                    i += 1
-                else:
-                    break
-            result[key] = nested
-            continue
-        scalar_match = re.match(r"^(\w+):\s*(.+)", line)
-        if scalar_match:
-            result[scalar_match.group(1)] = scalar_match.group(2).strip().strip('"')
-        i += 1
-    return result
 
 
 # ---------------------------------------------------------------------------
@@ -132,7 +94,7 @@ def validate_tasks(cycle_dir: Path) -> list:
     for task_path in task_files:
         task_id = task_path.parent.name
         try:
-            fm = _read_task_frontmatter(task_path)
+            fm = read_task_frontmatter(task_path)
         except ValueError as e:
             all_errors.append(str(e))
             continue

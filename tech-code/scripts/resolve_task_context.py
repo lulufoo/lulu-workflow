@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Resolve paths and config for task-runner dispatch input (library module).
 
-Imported by session_control.py resolve-task-context subcommand only.
+Imported by task_control.py resolve-context subcommand.
 """
 
 from __future__ import annotations
@@ -16,11 +16,80 @@ if str(_SCRIPTS) not in sys.path:
 
 from workflow_config import extract_subagent_model, load_workflow_config  # noqa: E402
 
+from code_task_list import parse_tdd_exempt_from_list  # noqa: E402
 from session_state_schema import load_session_state, load_work_order_round  # noqa: E402
+from task_frontmatter import parse_tdd_exempt_from_frontmatter, read_task_frontmatter  # noqa: E402
 from workspace_schema import load_workspace  # noqa: E402
 
 
-def resolve_task_context(cycle_dir: Path, task_id: str, project_root: Path) -> dict[str, Any]:
+def _resolve_worktree_for_task(
+    *,
+    workspace: dict,
+    project_root: Path,
+    target_repo: str,
+    task_worktree: str,
+) -> tuple[str, str]:
+    """Map task frontmatter to (worktree_abs_path, branch)."""
+    extra = workspace.get("extra_worktrees") or {}
+    if target_repo in extra:
+        info = extra[target_repo]
+        path = info.get("path", "")
+        branch = info.get("branch", "")
+        if not path or not branch:
+            raise ValueError(f"extra_worktree for {target_repo!r} missing path or branch")
+        return path.rstrip("/"), branch
+
+    if task_worktree == "primary":
+        path = workspace.get("worktree_path", "")
+        branch = workspace.get("branch", "")
+        if not path or not branch:
+            raise ValueError("workspace.json missing worktree_path or branch")
+        return path.rstrip("/"), branch
+
+    resolved = (project_root / task_worktree).resolve()
+    branch = workspace.get("branch", "")
+    if not branch:
+        raise ValueError("workspace.json missing branch for non-primary task_worktree")
+    return str(resolved), branch
+
+
+def _read_frontmatter_optional(task_path: Path) -> dict | None:
+    if not task_path.exists():
+        return None
+    try:
+        return read_task_frontmatter(task_path)
+    except ValueError:
+        return None
+
+
+def _resolve_tdd_exempt(
+    *,
+    work_order_task_path: Path,
+    code_task_list_path: Path,
+    task_id: str,
+) -> bool:
+    """Frontmatter wins; else [tdd_exempt] on code-task-list line."""
+    fm = _read_frontmatter_optional(work_order_task_path)
+    if fm is not None:
+        from_fm = parse_tdd_exempt_from_frontmatter(fm)
+        if from_fm is not None:
+            return from_fm
+
+    if code_task_list_path.exists():
+        content = code_task_list_path.read_text(encoding="utf-8")
+        if parse_tdd_exempt_from_list(content, task_id):
+            return True
+
+    return False
+
+
+def resolve_task_context(
+    cycle_dir: Path,
+    task_id: str,
+    project_root: Path,
+    *,
+    include_model: bool = False,
+) -> dict[str, Any]:
     """Resolve paths and config for task-runner dispatch input."""
     cycle_dir = cycle_dir.resolve()
     project_root = project_root.resolve()
@@ -44,24 +113,47 @@ def resolve_task_context(cycle_dir: Path, task_id: str, project_root: Path) -> d
         raise ValueError(f"workspace.json not found: {workspace_json_path}")
 
     workspace = load_workspace(workspace_json_path)
-    worktree_path = Path(workspace["worktree_path"])
+
+    fm = _read_frontmatter_optional(work_order_task_path)
+    if fm is not None:
+        target_repo = str(fm.get("target_repo", workspace.get("primary_repo", "")))
+        task_worktree = str(fm.get("task_worktree", "primary"))
+    else:
+        target_repo = str(workspace.get("primary_repo", ""))
+        task_worktree = "primary"
+
+    worktree_abs_path, branch = _resolve_worktree_for_task(
+        workspace=workspace,
+        project_root=project_root,
+        target_repo=target_repo,
+        task_worktree=task_worktree,
+    )
 
     config = load_workflow_config(project_root)
     code_cfg = config.get("tech-code", {})
     git_cfg = code_cfg.get("git", {})
+
+    tdd_exempt = _resolve_tdd_exempt(
+        work_order_task_path=work_order_task_path,
+        code_task_list_path=code_task_list_path,
+        task_id=task_id,
+    )
 
     result: dict[str, Any] = {
         "task_id": task_id,
         "work_order_task_path": str(work_order_task_path),
         "task_output_dir": str(task_output_dir),
         "code_task_list_path": str(code_task_list_path),
-        "worktree_abs_path": str(worktree_path),
+        "worktree_abs_path": worktree_abs_path,
+        "branch": branch,
+        "tdd_exempt": tdd_exempt,
         "commit_message_template": git_cfg.get("commit_message_template", ""),
         "test_command": code_cfg.get("test_command", ""),
     }
 
-    model = extract_subagent_model(code_cfg)
-    if model:
-        result["model"] = model
+    if include_model:
+        model = extract_subagent_model(code_cfg)
+        if model:
+            result["model"] = model
 
     return result

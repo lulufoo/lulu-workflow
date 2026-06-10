@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 _SCHEMA: list[dict] = [
@@ -86,6 +87,31 @@ def validate_commit_ref(data: dict, expected_task_id: str) -> None:
         raise ValueError("amended must be a boolean")
     if not data.get("recorded_at"):
         raise ValueError("recorded_at must be non-empty")
+
+
+def _format_commit_ref(data: dict) -> str:
+    message = data["commit_message"]
+    if '"' not in message:
+        message_field = f'"{message}"'
+    else:
+        message_field = message
+    amended = "true" if data["amended"] else "false"
+    return (
+        f"task_id: {data['task_id']}\n"
+        f"branch: {data['branch']}\n"
+        f"initial_commit: {data['initial_commit']}\n"
+        f"final_commit: {data['final_commit']}\n"
+        f"commit_message: {message_field}\n"
+        f"amended: {amended}\n"
+        f"recorded_at: {data['recorded_at']}\n"
+    )
+
+
+def write_commit_ref(path: Path, data: dict) -> None:
+    """Write commit-ref.md after semantic validation."""
+    validate_commit_ref(data, data["task_id"])
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(_format_commit_ref(data), encoding="utf-8")
 
 
 def validate_session_commit_refs(session_dir: Path, tasks: list[dict]) -> None:

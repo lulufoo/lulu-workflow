@@ -4,7 +4,6 @@
 Subcommands:
     check-recovery       Read-only entry probe for Executing/Closing recovery
     get-pointer          Read workflow-state and return PointerResponse JSON
-    resolve-task-context Build task-runner dispatch input JSON
     confirm-task-ready   Validate task-runner exit contract after dispatch
     advance-pointer      Advance after a completed task
     deliver              Transition Closing -> Delivered
@@ -22,7 +21,6 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from closing_checklist_schema import write_passed  # noqa: E402
 from confirm_task_ready import ExitContractError, confirm_task_ready  # noqa: E402
-from resolve_task_context import resolve_task_context  # noqa: E402
 from commit_ref_schema import validate_session_commit_refs  # noqa: E402
 from code_task_list import (  # noqa: E402
     all_done,
@@ -243,10 +241,6 @@ def check_recovery(cycle_dir: Path) -> dict[str, Any]:
     }
 
 
-def resolve_task_context_cmd(cycle_dir: Path, task_id: str, project_root: Path) -> dict[str, Any]:
-    return resolve_task_context(cycle_dir, task_id, project_root)
-
-
 def confirm_task_ready_cmd(cycle_dir: Path, task_id: str) -> dict[str, Any]:
     session_dir = _session_dir(cycle_dir)
     ws_path = session_dir / "workflow-state.md"
@@ -369,14 +363,12 @@ def _cli() -> int:
     parser.add_argument("--cycle-dir", required=True, help="Absolute path to cycle cache directory")
     parser.add_argument(
         "--project-root",
-        help="Absolute path to project root (required for resolve-task-context and deliver)",
+        help="Absolute path to project root (required for deliver)",
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("check-recovery", help="Read-only entry recovery probe")
     sub.add_parser("get-pointer", help="Read session pointer")
-    resolve = sub.add_parser("resolve-task-context", help="Build task-runner dispatch input")
-    resolve.add_argument("--task-id", required=True, help="Task id to dispatch (e.g. t1)")
     confirm = sub.add_parser("confirm-task-ready", help="Validate task exit contract")
     confirm.add_argument("--task-id", required=True, help="Task id just completed (e.g. t1)")
     advance = sub.add_parser("advance-pointer", help="Advance after completed task")
@@ -391,12 +383,6 @@ def _cli() -> int:
             payload = check_recovery(cycle_dir)
         elif args.command == "get-pointer":
             payload = get_pointer(cycle_dir)
-        elif args.command == "resolve-task-context":
-            if not args.project_root:
-                parser.error("resolve-task-context requires --project-root")
-            payload = resolve_task_context_cmd(
-                cycle_dir, args.task_id, Path(args.project_root).resolve()
-            )
         elif args.command == "confirm-task-ready":
             payload = confirm_task_ready_cmd(cycle_dir, args.task_id)
         elif args.command == "advance-pointer":

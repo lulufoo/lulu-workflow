@@ -38,9 +38,11 @@ class TestResult:
     command: str
     duration_ms: int
     passed: bool
+    output: str = ""
 
 
-def _resolve_test_command(project_root: Path) -> str:
+def resolve_test_command(project_root: Path) -> str:
+    """Read tech-code.test_command from workflow-config.json."""
     config_path = resolve_workflow_config_path(project_root)
     if not config_path.exists():
         raise ValueError(f"workflow-config.json not found: {config_path}")
@@ -52,7 +54,7 @@ def _resolve_test_command(project_root: Path) -> str:
     return str(command).strip()
 
 
-def _format_log_entry(
+def format_test_log_entry(
     *,
     timestamp: str,
     passed: bool,
@@ -78,14 +80,14 @@ def _format_log_entry(
     )
 
 
-def run_test_suite(
+def execute_test_command(
     *,
     project_root: Path,
     worktree_path: Path,
-    log_path: Path,
+    test_command: str | None = None,
 ) -> TestResult:
-    """Run tech-code.test_command in worktree; append log entry; return result."""
-    command = _resolve_test_command(project_root)
+    """Run test_command in worktree; return result without writing a log."""
+    command = test_command or resolve_test_command(project_root)
     cwd = worktree_path.resolve()
     start = time.monotonic()
     result = subprocess.run(
@@ -98,27 +100,42 @@ def run_test_suite(
     duration_ms = int((time.monotonic() - start) * 1000)
     output = (result.stdout or "") + (result.stderr or "")
     passed = result.returncode == 0
-    timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-    entry = _format_log_entry(
-        timestamp=timestamp,
-        passed=passed,
-        command=command,
-        cwd=cwd,
+    return TestResult(
         exit_code=result.returncode,
+        command=command,
         duration_ms=duration_ms,
+        passed=passed,
         output=output,
+    )
+
+
+def run_test_suite(
+    *,
+    project_root: Path,
+    worktree_path: Path,
+    log_path: Path,
+) -> TestResult:
+    """Run tech-code.test_command in worktree; append log entry; return result."""
+    test_result = execute_test_command(
+        project_root=project_root,
+        worktree_path=worktree_path,
+    )
+    timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    entry = format_test_log_entry(
+        timestamp=timestamp,
+        passed=test_result.passed,
+        command=test_result.command,
+        cwd=worktree_path.resolve(),
+        exit_code=test_result.exit_code,
+        duration_ms=test_result.duration_ms,
+        output=test_result.output,
     )
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with log_path.open("a", encoding="utf-8") as handle:
         if log_path.exists() and log_path.stat().st_size > 0:
             handle.write("\n")
         handle.write(entry)
-    return TestResult(
-        exit_code=result.returncode,
-        command=command,
-        duration_ms=duration_ms,
-        passed=passed,
-    )
+    return test_result
 
 
 def _cli() -> int:
