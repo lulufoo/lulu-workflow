@@ -32,9 +32,9 @@ Do NOT proceed until you have read `../_subagent.md`
 
 - Sub-agent model convention (`$RESOLVED_MODEL`) from `## Sub-agent Context › Config Resolution`
 
-## Commands
+- `/tech-code` authorizes** automatic `git commit` / `git commit --amend` inside the session worktree during Executing.
 
-**`/tech-code` authorizes** automatic `git commit` / `git commit --amend` inside the session worktree during Executing. Push, PR, CI, and review are post-code (out of scope).
+## Commands
 
 ### `/tech-code [<cycle_id>]` — Entry point
 
