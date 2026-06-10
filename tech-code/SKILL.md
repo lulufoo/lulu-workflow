@@ -76,9 +76,9 @@ Task phases (under Executing): `WriteTests` → `VerifyRed` → `WriteImpl` → 
 
 ## Preparing
 
-**Actions:**
+### Entry 
 
-1. Run `prepare.py`; on non-zero exit report the error and halt.
+Run `prepare.py`; on non-zero exit report the error and halt.
 
 ```bash
 python3 "$SKILL_DIR/scripts/prepare.py" \
@@ -86,21 +86,20 @@ python3 "$SKILL_DIR/scripts/prepare.py" \
   --project-root "$(pwd)"
 ```
 
-`prepare.py` ensures `workspace.json` (writes only on first create or after deleting an invalid file), runs git P1–P3 internally (via `git_ops.prepare_worktrees`), validates worktrees, and transitions `Preparing → Executing`. If `s{N}/workspace.json` already exists and passes validation, it is loaded without rewriting (`created_at` preserved). Invalid files are deleted and recreated with a new slug. Field definitions: see § Session files › Schema queries below.
+`prepare.py` owns workspace setup, worktree preparation, and Preparing → Executing.
 
-> On non-zero exit: report the error and halt.
-
-**Exit:** stdout JSON contains `current_task` → session is `Executing`; proceed to § Executing (`get-pointer`). Resuming an Executing session uses `get-pointer`, not Preparing.
-
-`--validate` is for recovery or idempotent query when worktrees already exist; not the normal Preparing path.
+Do not create `workspace.json` or worktrees manually.
 
 ---
 
 ## Executing
 
-**Entry:** Run `get-pointer`; follow `next_action`:
+### Entry 
+
+Run `session_control.py`; follow `next_action`:
+- `prepare` → enter § Preparing
 - `dispatch` → enter the task loop with `current_task` as `{task_id}`
-- `closing` → proceed to § Closing → Delivered
+- `closing` → proceed to § Closing
 - `done` → report terminal state (session already Delivered)
 
 ```bash
