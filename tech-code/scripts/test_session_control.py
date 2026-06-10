@@ -13,7 +13,14 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from types import SimpleNamespace
 
-from session_control import advance_pointer, check_recovery, deliver, get_pointer  # noqa: E402
+from confirm_task_ready import ExitContractError  # noqa: E402
+from session_control import (  # noqa: E402
+    advance_pointer,
+    check_recovery,
+    confirm_task_ready_cmd,
+    deliver,
+    get_pointer,
+)
 from workflow_state_schema import (  # noqa: E402
     init_preparing,
     init_starting,
@@ -62,6 +69,15 @@ def _write_workspace(session_dir: Path, worktree_path: Path, extra: dict | None 
     if extra:
         payload["extra_worktrees"] = extra
     (session_dir / "workspace.json").write_text(json.dumps(payload), encoding="utf-8")
+
+
+def _write_code_log_done(session_dir: Path, task_id: str) -> None:
+    task_dir = session_dir / "tasks" / task_id
+    task_dir.mkdir(parents=True, exist_ok=True)
+    (task_dir / "code-log.md").write_text(
+        "### 2024-01-01T00:00:00Z · enter · Done\n",
+        encoding="utf-8",
+    )
 
 
 def _write_commit_ref(session_dir: Path, task_id: str) -> None:
@@ -335,6 +351,26 @@ class TestCheckRecovery:
             get_pointer(cycle_dir)
 
 
+class TestConfirmTaskReady:
+    def test_complete_artifacts(self, tmp_path: Path):
+        cycle_dir = _setup_session(tmp_path, state="Executing", current_task="t1")
+        session_dir = cycle_dir / "tech" / "code" / "s1"
+        _write_task_list(session_dir, [("t1", "x"), ("t2", " ")])
+        _write_commit_ref(session_dir, "t1")
+        _write_code_log_done(session_dir, "t1")
+        result = confirm_task_ready_cmd(cycle_dir, "t1")
+        assert result["task_id"] == "t1"
+        assert result["initial_commit"] == "abc123"
+        assert result["next_task_id"] == "t2"
+
+    def test_missing_artifact_raises(self, tmp_path: Path):
+        cycle_dir = _setup_session(tmp_path, state="Executing", current_task="t1")
+        session_dir = cycle_dir / "tech" / "code" / "s1"
+        _write_task_list(session_dir, [("t1", "x"), ("t2", " ")])
+        with pytest.raises(ExitContractError):
+            confirm_task_ready_cmd(cycle_dir, "t1")
+
+
 class TestCLI:
     def test_get_pointer_cli(self, tmp_path: Path):
         cycle_dir = _setup_session(tmp_path)
@@ -345,6 +381,50 @@ class TestCLI:
         )
         assert result.returncode == 0
         assert json.loads(result.stdout)["next_action"] == "prepare"
+
+    def test_confirm_task_ready_cli_success(self, tmp_path: Path):
+        cycle_dir = _setup_session(tmp_path, state="Executing", current_task="t1")
+        session_dir = cycle_dir / "tech" / "code" / "s1"
+        _write_task_list(session_dir, [("t1", "x"), ("t2", " ")])
+        _write_commit_ref(session_dir, "t1")
+        _write_code_log_done(session_dir, "t1")
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(_SCRIPT),
+                "--cycle-dir",
+                str(cycle_dir),
+                "confirm-task-ready",
+                "--task-id",
+                "t1",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        payload = json.loads(result.stdout)
+        assert payload["initial_commit"] == "abc123"
+        assert payload["next_task_id"] == "t2"
+
+    def test_confirm_task_ready_cli_missing_artifact(self, tmp_path: Path):
+        cycle_dir = _setup_session(tmp_path, state="Executing", current_task="t1")
+        session_dir = cycle_dir / "tech" / "code" / "s1"
+        _write_task_list(session_dir, [("t1", "x"), ("t2", " ")])
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(_SCRIPT),
+                "--cycle-dir",
+                str(cycle_dir),
+                "confirm-task-ready",
+                "--task-id",
+                "t1",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 1
+        assert "exit contract failed:" in result.stderr
 
     def test_check_recovery_cli(self, tmp_path: Path):
         cycle_dir = _setup_session(tmp_path, state="Executing", current_task="t1")

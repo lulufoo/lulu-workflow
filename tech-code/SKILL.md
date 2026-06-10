@@ -144,18 +144,25 @@ Load {actual $SKILL_ROOT}/tech-code/task-runner/SKILL.md and follow its instruct
 {stdout of resolve_task_context.py}
 ```
 
-**Step 2: Validate exit contract** (after sub-agent returns)
+**Step 2: Confirm task ready** (after sub-agent returns)
 
-① `tasks/t{X}/commit-ref.md` exists with non-empty `initial_commit`
-② `tasks/t{X}/code-log.md` contains `enter · Done`
-③ `code-task-list.md` has `t{X}` marked `[x]`
+1. If sub-agent returned `TASK_FAILED` → stop, surface error and reason, wait for user.
+2. Run:
 
-If any check fails → stop, report which check failed, wait for user intervention.
-If sub-agent returned `TASK_FAILED` → stop, surface error and reason, wait for user.
+```bash
+python3 "$SKILL_DIR/scripts/session_control.py" \
+  --cycle-dir "$CACHE_DIR/$CYCLE_ID" \
+  confirm-task-ready --task-id {task_id}
+```
+
+3. On non-zero exit → stop, report stderr, wait for user.
+4. On success → parse stdout JSON; retain for Step 3 (`task_id`, `initial_commit`, `next_task_id`).
+
+Validates exit contract: ① commit-ref + `initial_commit`, ② code-log `enter · Done`, ③ code-task-list `[x]`.
 
 **Step 3: CHECKPOINT output**
 
-Read `tasks/t{X}/commit-ref.md → initial_commit` for the SHA.
+Use Step 2 JSON `initial_commit` for the SHA (do not re-read files).
 Output: `CHECKPOINT t{X}: commit SHA <sha>, commit-ref.md written, advancing to t{X+1}.`
 Do not advance until this line is output.
 
@@ -171,7 +178,7 @@ python3 "$SKILL_DIR/scripts/session_control.py" \
 
 Read stdout JSON:
 
-- `next_action: dispatch` → enter Step 1 with `current_task` as `{task_id}`.
+- `next_action: dispatch` → enter Step 1 with `current_task` from advance-pointer JSON as `{task_id}`.
 - `next_action: closing` → leave Task loop; proceed to § Closing → Delivered.
 
 ---
@@ -227,6 +234,6 @@ If you need a file's field definitions at runtime, run the corresponding action:
 | `workspace.json` | `workspace_schema.py --schema` |
 | `closing-checklist.md` | `closing_checklist_schema.py --schema` |
 | `tasks/t{X}/commit-ref.md` | `commit_ref_schema.py --schema` |
-| `session_control.py` | `session_control.py` — `check-recovery`, `get-pointer`, `advance-pointer`, `deliver` |
+| `session_control.py` | `session_control.py` — `check-recovery`, `get-pointer`, `confirm-task-ready`, `advance-pointer`, `deliver` |
 
 `closing-test-log.md` has no standalone schema CLI; format is defined in `run_test_suite.py` module docstring.

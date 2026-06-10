@@ -2,10 +2,11 @@
 """Session pointer control for tech-code orchestrator.
 
 Subcommands:
-    check-recovery    Read-only entry probe for Executing/Closing recovery
-    get-pointer       Read workflow-state and return PointerResponse JSON
-    advance-pointer   Advance after a completed task
-    deliver           Transition Closing -> Delivered
+    check-recovery      Read-only entry probe for Executing/Closing recovery
+    get-pointer         Read workflow-state and return PointerResponse JSON
+    confirm-task-ready  Validate task-runner exit contract after dispatch
+    advance-pointer     Advance after a completed task
+    deliver             Transition Closing -> Delivered
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from closing_checklist_schema import write_passed  # noqa: E402
+from confirm_task_ready import ExitContractError, confirm_task_ready  # noqa: E402
 from commit_ref_schema import validate_session_commit_refs  # noqa: E402
 from code_task_list import (  # noqa: E402
     all_done,
@@ -239,6 +241,13 @@ def check_recovery(cycle_dir: Path) -> dict[str, Any]:
     }
 
 
+def confirm_task_ready_cmd(cycle_dir: Path, task_id: str) -> dict[str, Any]:
+    session_dir = _session_dir(cycle_dir)
+    ws_path = session_dir / "workflow-state.md"
+    state = load_workflow_state(ws_path)
+    return confirm_task_ready(session_dir, task_id, workflow_state=state)
+
+
 def advance_pointer(cycle_dir: Path, completed_task: str) -> dict[str, Any]:
     ws_path = resolve_workflow_state_path(cycle_dir)
     state = load_workflow_state(ws_path)
@@ -357,6 +366,8 @@ def _cli() -> int:
 
     sub.add_parser("check-recovery", help="Read-only entry recovery probe")
     sub.add_parser("get-pointer", help="Read session pointer")
+    confirm = sub.add_parser("confirm-task-ready", help="Validate task exit contract")
+    confirm.add_argument("--task-id", required=True, help="Task id just completed (e.g. t1)")
     advance = sub.add_parser("advance-pointer", help="Advance after completed task")
     advance.add_argument("--completed-task", required=True, help="Task id just completed (e.g. t1)")
     sub.add_parser("deliver", help="Transition Closing -> Delivered")
@@ -369,6 +380,8 @@ def _cli() -> int:
             payload = check_recovery(cycle_dir)
         elif args.command == "get-pointer":
             payload = get_pointer(cycle_dir)
+        elif args.command == "confirm-task-ready":
+            payload = confirm_task_ready_cmd(cycle_dir, args.task_id)
         elif args.command == "advance-pointer":
             payload = advance_pointer(cycle_dir, args.completed_task)
         elif args.command == "deliver":
@@ -377,6 +390,10 @@ def _cli() -> int:
             payload = deliver(cycle_dir, Path(args.project_root).resolve())
         else:
             parser.error(f"unknown command: {args.command}")
+    except ExitContractError as exc:
+        for key, msg in exc.failures:
+            print(f"exit contract failed: {key} — {msg}", file=sys.stderr)
+        return 1
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 1
