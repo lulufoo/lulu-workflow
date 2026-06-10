@@ -12,7 +12,7 @@ disable-model-invocation: true
 ## Overview
 
 **Input:** Delivered work-order task set  
-**Output:** tests + implementation, per-task `commit-ref.md`, closing checklist, human delivery gate  
+**Output:** tests + implementation, per-task `commit-ref.md`, closing checklist, delivery approval  
 **Scope:** TDD code generation in a dedicated worktree, with git worktree delivery and per-task commits  
 **Session lifecycle:** `Preparing → Executing → Closing → Delivered`
 
@@ -174,15 +174,15 @@ Do not advance until this line is output.
 2. Run full test suite; append `test_run` to a session-level log or note in checklist.
 3. Count `commit-ref.md` files; verify count matches task count.
 4. Verify `git status` is clean in the worktree.
-5. Checklist complete → write `human-delivery-gate.md` (`approved: true`) → set `current_state: Delivered`.
+5. Checklist complete → write `delivery-approval.md` (`approved: true`) → set `current_state: Delivered`.
 
-**Exit:** `human-delivery-gate.md` written with `approved: true` → set `current_state: Delivered`.
+**Exit:** `delivery-approval.md` written with `approved: true` → set `current_state: Delivered`.
 
 ---
 
 ## Delivered
 
-**Condition:** All closing checklist items pass. `human-delivery-gate.md` exists with `approved: true`. `current_state: Delivered`.
+**Condition:** All closing checklist items pass. `delivery-approval.md` exists with `approved: true`. `current_state: Delivered`.
 
 ---
 
@@ -198,7 +198,7 @@ Do not advance until this line is output.
 | `workspace.json` | Worktree path, project root, branch |
 | `code-task-list.md` | Task list from work-order |
 | `closing-checklist.md` | Pre-delivery verification |
-| `human-delivery-gate.md` | Human sign-off for Delivered |
+| `delivery-approval.md` | Delivery approval for Delivered |
 | `tasks/t{X}/code-log.md` | Append-only task execution log |
 | `tasks/t{X}/commit-ref.md` | Task commit SHA and message |
 

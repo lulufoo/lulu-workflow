@@ -68,7 +68,7 @@ def task_dir(cycle_id: str, session_round: int, task_id: str) -> Path:
 
 
 def approval_path(cycle_id: str, session_round: int) -> Path:
-    return doc_dir(cycle_id, session_round) / "human-delivery-gate.md"
+    return doc_dir(cycle_id, session_round) / "delivery-approval.md"
 
 
 def list_code_conv_ids(code_root: Path) -> List[str]:
