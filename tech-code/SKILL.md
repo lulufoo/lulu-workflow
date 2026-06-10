@@ -13,6 +13,10 @@ disable-model-invocation: true
 
 Run TDD on work-order tasks in an isolated git worktree—one task per sub-agent dispatch, per-task commits, then a closing gate before delivery.
 
+## Blocking policy
+
+If the workflow cannot advance: **stop** (no retry, skip, or workaround), **report** the reason (stderr, exit code, or `TASK_FAILED`), and **wait** for user direction before continuing.
+
 ## Prerequisites
 
 <HARD-GATE>
@@ -79,9 +83,9 @@ python3 "$SKILL_DIR/scripts/start.py" \
   --cycle-id "<cycle_id>"
 ```
 
-> On non-zero exit: report the blocking stage to the user. Do not retry.
+> On non-zero exit: Apply § Blocking policy.
 
-**Exit:** `start.py` succeeds → `workflow-state.md` `current_state` is already `Preparing` → proceed to § Preparing.
+**Exit:** `start.py` succeeds → proceed to § Preparing.
 
 ---
 
@@ -89,7 +93,7 @@ python3 "$SKILL_DIR/scripts/start.py" \
 
 ### Entry
 
-Run `prepare.py`; on non-zero exit report the error and halt.
+Run `prepare.py`; on non-zero exit, apply § Blocking policy.
 
 ```bash
 python3 "$SKILL_DIR/scripts/prepare.py" \
@@ -98,7 +102,7 @@ python3 "$SKILL_DIR/scripts/prepare.py" \
 ```
 
 - `prepare.py` owns workspace setup, worktree preparation, and Preparing → Executing.
-- Do not create `workspace.json` or worktrees manually.
+- Do not bypass `prepare.py` for workspace or worktree setup.
 
 ---
 
@@ -107,7 +111,7 @@ python3 "$SKILL_DIR/scripts/prepare.py" \
 ### Entry 
 
 Run `session_control.py`; follow `next_action`:
-- `starting` → halt and report
+- `starting` → apply § Blocking policy
 - `prepare` → ## Preparing
 - `dispatch` → enter the task loop with `current_task` as `{task_id}`
 - `closing` → proceed to § Closing
@@ -146,7 +150,7 @@ Load {actual $SKILL_ROOT}/tech-code/task-runner/SKILL.md and follow its instruct
 
 **Step 2: Confirm task ready** (after sub-agent returns)
 
-1. If sub-agent returned `TASK_FAILED` → stop, surface error and reason, wait for user.
+1. If sub-agent returned `TASK_FAILED` → apply § Blocking policy.
 2. Run:
 
 ```bash
@@ -155,15 +159,17 @@ python3 "$SKILL_DIR/scripts/session_control.py" \
   confirm-task-ready --task-id {task_id}
 ```
 
-3. On non-zero exit → stop, report stderr, wait for user.
+3. On non-zero exit → apply § Blocking policy.
 4. On success → parse stdout JSON; retain for Step 3 (`task_id`, `initial_commit`, `next_task_id`).
 
-Validates exit contract: ① commit-ref + `initial_commit`, ② code-log `enter · Done`, ③ code-task-list `[x]`.
+`confirm-task-ready` validates the task exit contract; on failure, report stderr and wait for user.
 
 **Step 3: CHECKPOINT output**
 
-Use Step 2 JSON `initial_commit` for the SHA (do not re-read files).
-Output: `CHECKPOINT t{X}: commit SHA <sha>, commit-ref.md written, advancing to t{X+1}.`
+Use Step 2 JSON only: `initial_commit` for the SHA, `next_task_id` for the advance target.
+Output:
+- If `next_task_id` is set: `CHECKPOINT t{X}: commit SHA <sha>, task commit recorded, advancing to <next_task_id>.`
+- If `next_task_id` is null: `CHECKPOINT t{X}: commit SHA <sha>, task commit recorded, advancing to Closing.`
 Do not advance until this line is output.
 
 **Step 4: Advance pointer**
@@ -174,7 +180,7 @@ python3 "$SKILL_DIR/scripts/session_control.py" \
   advance-pointer --completed-task t{X}
 ```
 
-> On non-zero exit: halt and report.
+> On non-zero exit: Apply § Blocking policy.
 
 Read stdout JSON:
 
@@ -195,7 +201,7 @@ python3 "$SKILL_DIR/scripts/session_control.py" \
 ```
 
 > Precondition: `current_state` must be Closing (enforced by script).
-> On non-zero exit: halt and report.
+> On non-zero exit: Apply § Blocking policy.
 
 **Exit:** deliver succeeds → § Delivered.
 
