@@ -192,9 +192,9 @@ Do not advance until this line is output.
 
 ## Session files
 
-**Session round index:** `$CACHE_DIR/<cycle_id>/tech/code/session-state.md` — defines `N`.
+**Session Round Index:** `$CACHE_DIR/<cycle_id>/tech/code/session-state.md` — defines `N`.
 
-**Path prefix (session workspace):** `$CACHE_DIR/<cycle_id>/tech/code/s{N}/`
+**Session Workspace:** `$CACHE_DIR/<cycle_id>/tech/code/s{N}/`
 
 | Path (relative to prefix) | Purpose |
 |---|---|
