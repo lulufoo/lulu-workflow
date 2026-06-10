@@ -39,7 +39,7 @@ All code edits, git operations, and test runs: cwd = `worktree_abs_path`.
 
 ### WriteTests
 
-**Entry:** Append `enter · WriteTests` to `tasks/t{X}/code-log.md`. Set `current_phase: WriteTests`.
+**Entry:** Append `enter · WriteTests` to `tasks/t{X}/code-log.md`.
 
 **Actions:**
 
@@ -52,7 +52,7 @@ All code edits, git operations, and test runs: cwd = `worktree_abs_path`.
 
 ### VerifyRed
 
-**Entry:** Append `enter · VerifyRed` to `code-log.md`. Set `current_phase: VerifyRed`.
+**Entry:** Append `enter · VerifyRed` to `code-log.md`.
 
 **Actions:**
 
@@ -66,7 +66,7 @@ All code edits, git operations, and test runs: cwd = `worktree_abs_path`.
 
 ### WriteImpl
 
-**Entry:** Append `enter · WriteImpl` to `code-log.md`. Set `current_phase: WriteImpl`.
+**Entry:** Append `enter · WriteImpl` to `code-log.md`.
 
 **Actions:**
 
@@ -78,7 +78,7 @@ All code edits, git operations, and test runs: cwd = `worktree_abs_path`.
 
 ### VerifyGreen
 
-**Entry:** Append `enter · VerifyGreen` to `code-log.md`. Set `current_phase: VerifyGreen`.
+**Entry:** Append `enter · VerifyGreen` to `code-log.md`.
 
 **Actions:**
 
@@ -103,7 +103,7 @@ All code edits, git operations, and test runs: cwd = `worktree_abs_path`.
 
 ### Refactor
 
-**Entry:** Append `enter · Refactor` to `code-log.md`. Set `current_phase: Refactor`.
+**Entry:** Append `enter · Refactor` to `code-log.md`.
 
 **Actions:**
 
@@ -120,7 +120,7 @@ All code edits, git operations, and test runs: cwd = `worktree_abs_path`.
 
 ### Done
 
-**Entry:** Append `enter · Done` to `code-log.md`. Set `current_phase: Done`.
+**Entry:** Append `enter · Done` to `code-log.md`.
 
 **Actions:**
 
@@ -149,8 +149,6 @@ All code edits, git operations, and test runs: cwd = `worktree_abs_path`.
 | `git_commit` | `initial` \| `amend` | commit; SHA and message in body |
 
 No `red-run` / `green-run` action types or standalone red/green files.
-
-`workflow-state.md` is authoritative; use full `Write` for updates; preserve `mode`, `task_list_ref`, `current_task`, `current_phase`.
 
 ---
 

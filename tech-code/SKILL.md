@@ -97,11 +97,9 @@ Field definitions: see § Session files › Schema queries below.
 
 ## Executing
 
-**Entry:** `current_state: Executing`, `current_task` = first runnable task, `current_phase: WriteTests`.
-
 On session resume: read `workflow-state.md`; resume from `current_task` / `current_phase`.
 
-Process tasks 1→N in sequence. Advance `current_phase` only when `current_state` is `Executing`.
+Process tasks 1→N in sequence.
 
 ### Task loop (1→N)
 
@@ -175,8 +173,6 @@ Do not advance until this line is output.
 3. Count `commit-ref.md` files; verify count matches task count.
 4. Verify `git status` is clean in the worktree.
 5. Checklist complete → write `delivery-approval.md` (`approved: true`) → set `current_state: Delivered`.
-
-**Exit:** `delivery-approval.md` written with `approved: true` → set `current_state: Delivered`.
 
 ---
 
