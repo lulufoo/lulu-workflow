@@ -18,11 +18,17 @@ from invalidation_hook import invalidate_downstream  # noqa: E402
 
 from archive import run as run_archive
 from session_state_schema import (
+    load_session_state,
     load_work_order_round,
     next_session_round,
     save_session_state,
 )
-from workflow_state_schema import init_preparing, mark_historical
+from workflow_state_schema import (
+    init_starting,
+    load_workflow_state,
+    mark_historical,
+    save_workflow_state,
+)
 from workflow_common import (
     CACHE_DIR,
     detect_cycle_type,
@@ -234,6 +240,37 @@ def main() -> int:
         return 1
 
     ss_path = project_root / session_state_path(cycle_id)
+
+    # Idempotent recovery: reuse active session stuck in Starting
+    if ss_path.exists():
+        try:
+            active_session = load_session_state(ss_path)
+            ws_path = project_root / state_path(cycle_id, active_session)
+            tl_path = project_root / task_list_path(cycle_id, active_session)
+            if ws_path.exists() and tl_path.exists():
+                state = load_workflow_state(ws_path)
+                if state["current_state"] == "Starting":
+                    save_workflow_state(ws_path, {"current_state": "Preparing"})
+                    tasks = parse_work_order_task_list(
+                        (cache_dir / cycle_id / "tech" / "work-order" / f"r{wo_active}" / "task-list.md").read_text(encoding="utf-8")
+                    )
+                    print(f"""
+code session 已恢复（Starting → Preparing）。
+
+会话状态文件：  {ss_path.as_posix()}
+当前 session：  s{active_session}
+状态文件：      {ws_path.as_posix()}（current_state: Preparing）
+code 任务列表：  {tl_path.as_posix()}
+任务数量：      {len(tasks)}
+
+下一步（L1 — Preparing，start.py 不执行 git）：
+1. 读 code-task-list.md，向用户展示任务列表，等待确认
+2. 运行 prepare.py（含 git P1–P3 与 Preparing → Executing 状态迁移）；stdout JSON 的 current_task 为首个任务 id
+""")
+                    return 0
+        except ValueError:
+            pass
+
     active_session = next_session_round(ss_path)
     save_session_state(ss_path, active_session)
     write_active_context(
@@ -263,11 +300,13 @@ def main() -> int:
     )
     tl_path.write_text(tdd_list_content, encoding="utf-8")
 
-    init_preparing(
+    init_starting(
         ws_path,
         mode="work-order",
         task_list_ref=tl_path.as_posix(),
     )
+
+    save_workflow_state(ws_path, {"current_state": "Preparing"})
 
     print(f"""
 code session 已启动。

@@ -26,7 +26,7 @@ _SCHEMA: list[dict] = [
     {"field": "workflow", "type": "string", "required": True,
      "description": "Fixed value: tech-code"},
     {"field": "current_state", "type": "string", "required": True,
-     "description": "Session state: Preparing / Executing / Closing / Delivered"},
+     "description": "Session state: Starting / Preparing / Executing / Closing / Delivered"},
     {"field": "mode", "type": "string", "required": True,
      "description": "Execution mode (may be empty)"},
     {"field": "task_list_ref", "type": "string", "required": True,
@@ -162,6 +162,20 @@ def resolve_workflow_state_path(cycle_dir: Path) -> Path:
     code_dir = cycle_dir / "tech" / "code"
     active = load_session_state(code_dir / "session-state.md")
     return code_dir / f"s{active}" / "workflow-state.md"
+
+
+def init_starting(path: Path, *, mode: str, task_list_ref: str) -> None:
+    """Initialize workflow-state.md in Starting state."""
+    data = {
+        "version": "1",
+        "workflow": "tech-code",
+        "current_state": "Starting",
+        "mode": mode,
+        "task_list_ref": task_list_ref,
+        "current_task": "",
+        "current_phase": "",
+    }
+    save_workflow_state(path, data, merge=False)
 
 
 def init_preparing(path: Path, *, mode: str, task_list_ref: str) -> None:

@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from workflow_state_schema import (
     get_schema,
     init_preparing,
+    init_starting,
     load_workflow_state,
     mark_historical,
     resolve_workflow_state_path,
@@ -71,6 +72,7 @@ class TestGetSchema:
 
     def test_current_state_description_mentions_enum(self):
         state_field = next(s for s in get_schema() if s["field"] == "current_state")
+        assert "Starting" in state_field["description"]
         assert "Preparing" in state_field["description"]
         assert "Delivered" in state_field["description"]
 
@@ -153,6 +155,18 @@ class TestMerge:
         loaded = load_workflow_state(p)
         assert loaded["custom_flag"] == "yes"
         assert loaded["current_task"] == "t2"
+
+
+class TestInitStarting:
+    def test_defaults(self, tmp_path: Path):
+        p = tmp_path / "s1" / "workflow-state.md"
+        init_starting(p, mode="work-order", task_list_ref="/ref/list.md")
+        loaded = load_workflow_state(p)
+        assert loaded["current_state"] == "Starting"
+        assert loaded["mode"] == "work-order"
+        assert loaded["task_list_ref"] == "/ref/list.md"
+        assert loaded["current_task"] == ""
+        assert loaded["current_phase"] == ""
 
 
 class TestInitPreparing:

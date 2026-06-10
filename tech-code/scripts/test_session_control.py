@@ -12,7 +12,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from session_control import advance_pointer, deliver, get_pointer  # noqa: E402
-from workflow_state_schema import init_preparing, save_workflow_state  # noqa: E402
+from workflow_state_schema import init_preparing, init_starting, save_workflow_state  # noqa: E402
 
 _SCRIPT = Path(__file__).resolve().parent / "session_control.py"
 
@@ -82,6 +82,14 @@ def _fake_git(monkeypatch, *, worktrees: set[str], clean: set[str]):
 
 
 class TestGetPointer:
+    def test_starting(self, tmp_path: Path):
+        cycle_dir = _setup_session(tmp_path)
+        ws_path = cycle_dir / "tech" / "code" / "s1" / "workflow-state.md"
+        init_starting(ws_path, mode="work-order", task_list_ref=str(ws_path.parent / "code-task-list.md"))
+        ptr = get_pointer(cycle_dir)
+        assert ptr["next_action"] == "starting"
+        assert ptr["current_state"] == "Starting"
+
     def test_preparing(self, tmp_path: Path):
         cycle_dir = _setup_session(tmp_path)
         ptr = get_pointer(cycle_dir)
