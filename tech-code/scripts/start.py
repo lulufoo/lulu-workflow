@@ -280,8 +280,7 @@ code 任务列表：  {tl_path.as_posix()}
 
 下一步（L1 — Preparing，start.py 不执行 git）：
 1. 读 code-task-list.md，向用户展示任务列表，等待确认
-2. Agent 按 SKILL L1 运行 prepare.py，再按 git-workflow-standard.md 执行 P1 → P2 → P3
-3. git worktree 就绪后运行 prepare.py --validate，进入 Executing（首任务 id 在 stdout JSON 的 current_task）
+2. 运行 prepare.py（含 git P1–P3 与 Preparing → Executing 状态迁移）；stdout JSON 的 current_task 为首个任务 id
 """)
 
     return 0

@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
-"""Prepare a new tech-code session: validate task schemas, derive worktree
-paths, and write workspace.json.
+"""Prepare a new tech-code session: validate tasks, ensure workspace.json,
+run git P1–P3, and transition Preparing -> Executing.
 
 Usage:
     python3 prepare.py \\
         --cycle-dir /abs/path/.cache/cursor/lulu-dev-workflow/<cycle_id> \\
         --project-root /abs/path/to/project
 
-Outputs JSON to stdout: { slug, worktree_dir, branch }
-AI uses these values to execute git P1 -> P2 -> P3.
-Slug is auto-derived: last 8 chars of cycle_id + 4-char random hex suffix.
-On resume (workspace.json already exists), the existing slug is reused.
+    python3 prepare.py ... --validate   # recovery / idempotent query only
+
+Outputs JSON to stdout on success:
+    { current_state, current_task, worktree_path, slug, branch }
+
+Slug is auto-derived on first create: last 8 chars of cycle_id + 4-char random hex.
+If s{N}/workspace.json already exists and passes validation, it is loaded only
+(created_at is not rewritten). Invalid files are deleted and recreated with a new slug.
 """
 
 import argparse
@@ -23,7 +27,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from code_task_list import first_pending, parse_tasks  # noqa: E402
-from git_ops import validate_worktrees  # noqa: E402
+from git_ops import prepare_worktrees, validate_worktrees  # noqa: E402
 from session_state_schema import load_session_state, load_work_order_round  # noqa: E402
 from workflow_common import resolve_workflow_config_path  # noqa: E402
 from workflow_state_schema import (  # noqa: E402
@@ -31,7 +35,7 @@ from workflow_state_schema import (  # noqa: E402
     resolve_workflow_state_path,
     save_workflow_state,
 )
-from workspace_schema import load_workspace, save_workspace  # noqa: E402
+from workspace_schema import assess_workspace_file, load_workspace, save_workspace  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -180,20 +184,6 @@ def _derive_slug(cycle_id: str) -> str:
     return f"{short}-{suffix}"
 
 
-def resolve_slug(cycle_dir: Path, session_idx: int, cycle_id: str) -> str:
-    """Return existing slug from workspace.json (resume), or generate a new one."""
-    workspace_path = cycle_dir / "tech" / "code" / f"s{session_idx}" / "workspace.json"
-    if workspace_path.exists():
-        try:
-            data = json.loads(workspace_path.read_text(encoding="utf-8"))
-            worktree_path = data.get("worktree_path", "")
-            if worktree_path:
-                return Path(worktree_path.rstrip("/")).name
-        except (json.JSONDecodeError, KeyError):
-            pass
-    return _derive_slug(cycle_id)
-
-
 def build_worktree_paths(slug: str, git_cfg: dict) -> dict:
     """Derive relative worktree_dir and branch from slug and config."""
     worktree_base = git_cfg.get("worktree_base", ".cache/worktrees")
@@ -248,6 +238,54 @@ def write_workspace(
     dest = cycle_dir / "tech" / "code" / f"s{session_idx}" / "workspace.json"
     save_workspace(dest, payload)
     return dest
+
+
+def _workspace_dest(cycle_dir: Path, session_idx: int) -> Path:
+    """Return the canonical path for s{N}/workspace.json."""
+    return cycle_dir / "tech" / "code" / f"s{session_idx}" / "workspace.json"
+
+
+def _create_workspace(
+    cycle_dir: Path,
+    session_idx: int,
+    cycle_id: str,
+    tasks: list,
+    project_root: Path,
+    git_cfg: dict,
+) -> tuple[Path, dict, str, str, bool]:
+    """First-time workspace creation: derive slug, write file, return created=True."""
+    slug = _derive_slug(cycle_id)
+    paths = build_worktree_paths(slug, git_cfg)
+    dest = write_workspace(cycle_dir, session_idx, slug, paths, tasks, project_root)
+    workspace = load_workspace(dest)
+    return dest, workspace, slug, paths["branch"], True
+
+
+def ensure_workspace(
+    cycle_dir: Path,
+    session_idx: int,
+    cycle_id: str,
+    tasks: list,
+    project_root: Path,
+    git_cfg: dict,
+) -> tuple[Path, dict, str, str, bool]:
+    """Load valid workspace.json without writing; delete and recreate if invalid."""
+    dest = _workspace_dest(cycle_dir, session_idx)
+    if not dest.exists():
+        return _create_workspace(
+            cycle_dir, session_idx, cycle_id, tasks, project_root, git_cfg
+        )
+
+    ok, workspace, errors = assess_workspace_file(dest, project_root)
+    if ok:
+        slug = Path(workspace["worktree_path"].rstrip("/")).name
+        return dest, workspace, slug, workspace["branch"], False
+
+    print(f"workspace.json invalid, recreating: {errors}", file=sys.stderr)
+    dest.unlink(missing_ok=True)
+    return _create_workspace(
+        cycle_dir, session_idx, cycle_id, tasks, project_root, git_cfg
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -324,6 +362,23 @@ def parse_args() -> argparse.Namespace:
     return p.parse_known_args()[0]
 
 
+def _enrich_payload(payload: dict, cycle_dir: Path, slug: str, branch: str) -> dict:
+    """Add slug/branch to stdout payload from workspace.json when available."""
+    result = {**payload, "slug": slug, "branch": branch}
+    if slug and branch:
+        return result
+    ws_path = resolve_workflow_state_path(cycle_dir).parent / "workspace.json"
+    if ws_path.exists():
+        workspace = load_workspace(ws_path)
+        if not slug:
+            wt = workspace.get("worktree_path", "")
+            if wt:
+                result["slug"] = Path(wt.rstrip("/")).name
+        if not branch:
+            result["branch"] = workspace.get("branch", branch)
+    return result
+
+
 def main() -> int:
     args = parse_args()
     cycle_dir = Path(args.cycle_dir).resolve()
@@ -333,6 +388,15 @@ def main() -> int:
     if args.validate:
         try:
             payload = validate_preparing_to_executing(cycle_dir)
+            ws_path = resolve_workflow_state_path(cycle_dir).parent / "workspace.json"
+            slug = ""
+            branch = ""
+            if ws_path.exists():
+                workspace = load_workspace(ws_path)
+                wt = workspace.get("worktree_path", "")
+                slug = Path(wt.rstrip("/")).name if wt else ""
+                branch = workspace.get("branch", "")
+            payload = _enrich_payload(payload, cycle_dir, slug, branch)
         except ValueError as exc:
             print(str(exc), file=sys.stderr)
             return 1
@@ -353,16 +417,19 @@ def main() -> int:
         print(f"Error: {e}", file=sys.stderr)
         return 1
 
-    slug = resolve_slug(cycle_dir, session_idx, cycle_id)
-    paths = build_worktree_paths(slug, git_cfg)
+    dest, workspace, slug, branch, created = ensure_workspace(
+        cycle_dir, session_idx, cycle_id, tasks, project_root, git_cfg
+    )
 
-    write_workspace(cycle_dir, session_idx, slug, paths, tasks, project_root)
+    try:
+        prepare_worktrees(str(project_root), workspace)
+        result = validate_preparing_to_executing(cycle_dir)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
 
-    print(json.dumps({
-        "slug": slug,
-        "worktree_dir": paths["worktree_dir"],
-        "branch": paths["branch"],
-    }, indent=2, ensure_ascii=False))
+    payload = _enrich_payload(result, cycle_dir, slug, branch)
+    print(json.dumps(payload, indent=2, ensure_ascii=False))
     return 0
 
 

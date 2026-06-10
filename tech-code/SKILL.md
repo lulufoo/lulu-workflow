@@ -86,24 +86,13 @@ python3 "$SKILL_DIR/scripts/prepare.py" \
   --project-root "$(pwd)"
 ```
 
-Read stdout JSON for `slug`, `worktree_dir`, `branch`; use these values to execute **P1 → P2 → P3** from `git-workflow-standard.md`.
-
-`prepare.py` writes `workspace.json`. Field definitions: see § Session files › Schema queries below.
-
-> **P1 collision** (`wt/<branch>` already exists): worktree was created in a prior run — re-use it, skip P3.
-
-2. After git worktree is ready, run:
-
-```bash
-python3 "$SKILL_DIR/scripts/prepare.py" \
-  --cycle-dir "$CACHE_DIR/$CYCLE_ID" \
-  --project-root "$(pwd)" \
-  --validate
-```
+`prepare.py` ensures `workspace.json` (writes only on first create or after deleting an invalid file), runs git P1–P3 internally (via `git_ops.prepare_worktrees`), validates worktrees, and transitions `Preparing → Executing`. If `s{N}/workspace.json` already exists and passes validation, it is loaded without rewriting (`created_at` preserved). Invalid files are deleted and recreated with a new slug. Field definitions: see § Session files › Schema queries below.
 
 > On non-zero exit: report the error and halt.
 
-**Exit:** `--validate` succeeds → session is `Executing`; first task id is in stdout JSON (`current_task`).
+**Exit:** stdout JSON contains `current_task` → session is `Executing`; proceed to § Executing (`get-pointer`). Resuming an Executing session uses `get-pointer`, not Preparing.
+
+`--validate` is for recovery or idempotent query when worktrees already exist; not the normal Preparing path.
 
 ---
 
