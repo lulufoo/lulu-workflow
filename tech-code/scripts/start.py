@@ -241,33 +241,18 @@ def main() -> int:
 
     ss_path = project_root / session_state_path(cycle_id)
 
-    # Idempotent recovery: reuse active session stuck in Starting
     if ss_path.exists():
         try:
-            active_session = load_session_state(ss_path)
-            ws_path = project_root / state_path(cycle_id, active_session)
-            tl_path = project_root / task_list_path(cycle_id, active_session)
-            if ws_path.exists() and tl_path.exists():
-                state = load_workflow_state(ws_path)
-                if state["current_state"] == "Starting":
-                    save_workflow_state(ws_path, {"current_state": "Preparing"})
-                    tasks = parse_work_order_task_list(
-                        (cache_dir / cycle_id / "tech" / "work-order" / f"r{wo_active}" / "task-list.md").read_text(encoding="utf-8")
+            prev_active = load_session_state(ss_path)
+            prev_ws = project_root / state_path(cycle_id, prev_active)
+            if prev_ws.exists():
+                prev_state = load_workflow_state(prev_ws)
+                if prev_state["current_state"] != "Delivered":
+                    print(
+                        f"superseding s{prev_active} in {prev_state['current_state']}, "
+                        f"creating s{prev_active + 1}",
+                        file=sys.stderr,
                     )
-                    print(f"""
-code session 已恢复（Starting → Preparing）。
-
-会话状态文件：  {ss_path.as_posix()}
-当前 session：  s{active_session}
-状态文件：      {ws_path.as_posix()}（current_state: Preparing）
-code 任务列表：  {tl_path.as_posix()}
-任务数量：      {len(tasks)}
-
-下一步（L1 — Preparing，start.py 不执行 git）：
-1. 读 code-task-list.md，向用户展示任务列表，等待确认
-2. 运行 prepare.py（含 git P1–P3 与 Preparing → Executing 状态迁移）；stdout JSON 的 current_task 为首个任务 id
-""")
-                    return 0
         except ValueError:
             pass
 

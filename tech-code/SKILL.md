@@ -41,7 +41,21 @@ Derive `$CYCLE_ID` from active context (see `_runtime.md § Session Foundation`)
 `$CYCLE_ID` must be resolved before proceeding. If it cannot be resolved → stop and ask the user to provide it.
 </HARD-GATE>
 
-Proceed to § Starting.
+Run entry recovery probe:
+
+```bash
+python3 "$SKILL_DIR/scripts/session_control.py" \
+  --cycle-dir "$CACHE_DIR/$CYCLE_ID" \
+  check-recovery
+```
+
+Branch on stdout JSON:
+
+- `recoverable: false` → proceed to § `{resume_section}` (usually Starting; do not resume Preparing — start a new session round)
+- `recoverable: true` → <HARD-GATE> show `current_state`, `current_task` (if Executing), and `active_session`; ask whether to resume
+  - For Closing: resuming only means the session is not yet delivered; checklist completion is not guaranteed — handle section script errors if they occur
+  - **Yes** → proceed to § `{resume_section}` → run that section's Entry (`get-pointer`); do **not** run `start.py`
+  - **No** → proceed to § Starting → run `start.py`
 
 ---
 
@@ -96,7 +110,7 @@ Do not create `workspace.json` or worktrees manually.
 ### Entry 
 
 Run `session_control.py`; follow `next_action`:
-- `starting` → enter § Starting and re-run `start.py` (interrupt recovery only)
+- `starting` → unexpected state after check-recovery; halt and report; do not auto-run `start.py`
 - `prepare` → enter § Preparing (normal default after successful `start.py`)
 - `dispatch` → enter the task loop with `current_task` as `{task_id}`
 - `closing` → proceed to § Closing
@@ -167,6 +181,19 @@ Read stdout JSON:
 
 ## Closing
 
+### Entry
+
+Run `session_control.py`; follow `next_action`:
+
+- `closing` → continue Actions below
+- anything else → halt and report
+
+```bash
+python3 "$SKILL_DIR/scripts/session_control.py" \
+  --cycle-dir "$CACHE_DIR/$CYCLE_ID" \
+  get-pointer
+```
+
 **Actions:**
 
 1. Create `s{N}/closing-checklist.md` and complete each item:
@@ -227,4 +254,4 @@ If you need a file's field definitions at runtime, run the corresponding action:
 | `workflow-state.md` | `python3 $SKILL_DIR/scripts/workflow_state_schema.py --schema` |
 | `workspace.json` | `python3 $SKILL_DIR/scripts/workspace_schema.py --schema` |
 
-**Session control (orchestrator):** `python3 $SKILL_DIR/scripts/session_control.py` — `get-pointer`, `advance-pointer`, `deliver`. Do not write `workflow-state.md` directly.
+**Session control (orchestrator):** `python3 $SKILL_DIR/scripts/session_control.py` — `check-recovery` (read-only entry probe; does not write state), `get-pointer`, `advance-pointer`, `deliver`. Do not write `workflow-state.md` directly.
