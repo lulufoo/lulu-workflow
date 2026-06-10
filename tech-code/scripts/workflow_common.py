@@ -67,10 +67,6 @@ def task_dir(cycle_id: str, session_round: int, task_id: str) -> Path:
     return doc_dir(cycle_id, session_round) / "tasks" / task_id
 
 
-def approval_path(cycle_id: str, session_round: int) -> Path:
-    return doc_dir(cycle_id, session_round) / "delivery-approval.md"
-
-
 def list_code_conv_ids(code_root: Path) -> List[str]:
     """Return conv_id direct subdirectories of code/ (UUID or slug)."""
     return list_conv_ids(code_root)

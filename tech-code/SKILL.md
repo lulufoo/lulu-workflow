@@ -29,8 +29,6 @@ Do NOT proceed until you have read `../_subagent.md`
 
 - Sub-agent model convention (`$RESOLVED_MODEL`) from `## Sub-agent Context › Config Resolution`
 
-- `/tech-code` authorizes** automatic `git commit` / `git commit --amend` inside the session worktree during Executing.
-
 ## Commands
 
 ### `/tech-code [<cycle_id>]` — Entry point
@@ -41,7 +39,7 @@ Derive `$CYCLE_ID` from active context (see `_runtime.md § Session Foundation`)
 `$CYCLE_ID` must be resolved before proceeding. If it cannot be resolved → stop and ask the user to provide it.
 </HARD-GATE>
 
-Run entry recovery probe:
+Run entry recovery probe, branch on stdout JSON:
 
 ```bash
 python3 "$SKILL_DIR/scripts/session_control.py" \
@@ -49,13 +47,15 @@ python3 "$SKILL_DIR/scripts/session_control.py" \
   check-recovery
 ```
 
-Branch on stdout JSON:
+- `recoverable: false` → ## Starting
+- `recoverable: true`:
 
-- `recoverable: false` → proceed to § `{resume_section}` (usually Starting; do not resume Preparing — start a new session round)
-- `recoverable: true` → <HARD-GATE> show `current_state`, `current_task` (if Executing), and `active_session`; ask whether to resume
-  - For Closing: resuming only means the session is not yet delivered; checklist completion is not guaranteed — handle section script errors if they occur
-  - **Yes** → proceed to § `{resume_section}` → run that section's Entry (`get-pointer`); do **not** run `start.py`
-  - **No** → proceed to § Starting → run `start.py`
+<HARD-GATE>
+Show `current_state`, `active_session`, and `current_task` (Executing only); ask to resume.
+
+- **Yes** → ## `{resume_section}`
+- **No** → ## Starting
+</HARD-GATE>
 
 ---
 
@@ -89,9 +89,7 @@ python3 "$SKILL_DIR/scripts/start.py" \
 
 ### Entry
 
-Read `code-task-list.md`; display tasks; wait for user confirmation before execution.
-
-After confirmation, run `prepare.py`; on non-zero exit report the error and halt.
+Run `prepare.py`; on non-zero exit report the error and halt.
 
 ```bash
 python3 "$SKILL_DIR/scripts/prepare.py" \
@@ -99,9 +97,8 @@ python3 "$SKILL_DIR/scripts/prepare.py" \
   --project-root "$(pwd)"
 ```
 
-`prepare.py` owns workspace setup, worktree preparation, and Preparing → Executing.
-
-Do not create `workspace.json` or worktrees manually.
+- `prepare.py` owns workspace setup, worktree preparation, and Preparing → Executing.
+- Do not create `workspace.json` or worktrees manually.
 
 ---
 
@@ -110,8 +107,8 @@ Do not create `workspace.json` or worktrees manually.
 ### Entry 
 
 Run `session_control.py`; follow `next_action`:
-- `starting` → unexpected state after check-recovery; halt and report; do not auto-run `start.py`
-- `prepare` → enter § Preparing (normal default after successful `start.py`)
+- `starting` → halt and report
+- `prepare` → ## Preparing
 - `dispatch` → enter the task loop with `current_task` as `{task_id}`
 - `closing` → proceed to § Closing
 - `done` → report terminal state (session already Delivered)
@@ -206,8 +203,7 @@ python3 "$SKILL_DIR/scripts/session_control.py" \
 2. Run full test suite; append `test_run` to a session-level log or note in checklist.
 3. Count `commit-ref.md` files; verify count matches task count.
 4. Verify `git status` is clean in the worktree.
-5. Write `delivery-approval.md` (`approved: true`).
-6. Run:
+5. Run:
 
 ```bash
 python3 "$SKILL_DIR/scripts/session_control.py" \
@@ -240,18 +236,16 @@ Session complete; stop.
 | `workspace.json` | Worktree path, project root, branch |
 | `code-task-list.md` | Task list from work-order |
 | `closing-checklist.md` | Pre-delivery verification |
-| `delivery-approval.md` | Delivery approval for Delivered |
 | `tasks/t{X}/code-log.md` | Append-only task execution log |
 | `tasks/t{X}/commit-ref.md` | Task commit SHA and message |
 
-**Schema queries**
+**Schema queries** — `python3 $SKILL_DIR/scripts/<script>.py`
 
 If you need a file's field definitions at runtime, run the corresponding action:
 
 | File | Action |
 |---|---|
-| `session-state.md` | `python3 $SKILL_DIR/scripts/session_state_schema.py --schema` |
-| `workflow-state.md` | `python3 $SKILL_DIR/scripts/workflow_state_schema.py --schema` |
-| `workspace.json` | `python3 $SKILL_DIR/scripts/workspace_schema.py --schema` |
-
-**Session control (orchestrator):** `python3 $SKILL_DIR/scripts/session_control.py` — `check-recovery` (read-only entry probe; does not write state), `get-pointer`, `advance-pointer`, `deliver`. Do not write `workflow-state.md` directly.
+| `session-state.md` | `session_state_schema.py --schema` |
+| `workflow-state.md` | `workflow_state_schema.py --schema` |
+| `workspace.json` | `workspace_schema.py --schema` |
+| `session_control.py` | `session_control.py` — `check-recovery`, `get-pointer`, `advance-pointer`, `deliver` |

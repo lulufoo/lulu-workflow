@@ -27,7 +27,6 @@ from code_task_list import (  # noqa: E402
     parse_tasks,
 )
 from session_state_schema import load_session_state  # noqa: E402
-from workflow_common import parse_frontmatter_fields  # noqa: E402
 from workflow_state_schema import (  # noqa: E402
     load_workflow_state,
     resolve_workflow_state_path,
@@ -123,15 +122,6 @@ def _build_pointer(
     return payload
 
 
-def _validate_delivery_approval(session_dir: Path) -> None:
-    approval_path = session_dir / "delivery-approval.md"
-    if not approval_path.exists():
-        raise ValueError(f"delivery-approval.md not found: {approval_path}")
-    fields = parse_frontmatter_fields(approval_path.read_text(encoding="utf-8"))
-    if fields.get("approved") != "true":
-        raise ValueError("delivery-approval.md approved must be true")
-
-
 def _validate_checklist_complete(session_dir: Path) -> None:
     checklist_path = session_dir / "closing-checklist.md"
     if not checklist_path.exists():
@@ -182,7 +172,6 @@ def get_pointer(cycle_dir: Path) -> dict[str, Any]:
         )
 
     if current_state == "Delivered":
-        _validate_delivery_approval(session_dir)
         return _build_pointer(
             current_state=current_state,
             current_task="",
@@ -326,7 +315,6 @@ def deliver(cycle_dir: Path, project_root: Path | None = None) -> dict[str, Any]
 
     _validate_closing_ready(session_dir)
     _validate_checklist_complete(session_dir)
-    _validate_delivery_approval(session_dir)
 
     workspace = load_workspace(_workspace_path(session_dir))
     validate_worktrees(workspace)
