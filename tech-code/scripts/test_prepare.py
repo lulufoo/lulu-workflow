@@ -4,7 +4,7 @@
 import json
 from pathlib import Path
 
-from prepare import build_worktree_paths, write_workspace, _read_work_order_round  # noqa: E402
+from prepare import build_worktree_paths, write_workspace  # noqa: E402
 
 
 def test_build_worktree_paths_returns_expected_values():
@@ -16,24 +16,6 @@ def test_build_worktree_paths_returns_expected_values():
     paths = build_worktree_paths("abc12345-dead", git_cfg)
     assert paths["worktree_dir"] == ".cache/worktrees/abc12345-dead/"
     assert paths["branch"] == "wt/feat-abc12345-dead"
-
-
-def test_read_work_order_round_prefers_active_doc(tmp_path: Path):
-    session_state = tmp_path / "session-state.md"
-    session_state.write_text(
-        "---\nactive_doc: 3\nactive_session: 9\n---\n",
-        encoding="utf-8",
-    )
-    assert _read_work_order_round(session_state) == "3"
-
-
-def test_read_work_order_round_fallback_to_active_session(tmp_path: Path):
-    session_state = tmp_path / "session-state.md"
-    session_state.write_text(
-        "---\nactive_session: 2\n---\n",
-        encoding="utf-8",
-    )
-    assert _read_work_order_round(session_state) == "2"
 
 
 def test_write_workspace_writes_absolute_paths(tmp_path: Path):

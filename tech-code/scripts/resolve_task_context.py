@@ -13,33 +13,13 @@ and config values the task-runner sub-agent needs.
 """
 
 import argparse
-import re
+import json
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from session_state_schema import load_session_state, load_work_order_round  # noqa: E402
 from workspace_schema import load_workspace  # noqa: E402
-
-
-def _read_active_session(session_state_path: Path) -> str:
-    for line in session_state_path.read_text(encoding="utf-8").splitlines():
-        m = re.match(r"^active_session:\s*(\S+)", line)
-        if m:
-            return m.group(1)
-    raise ValueError(f"active_session not found in {session_state_path}")
-
-
-def _read_work_order_round(session_state_path: Path) -> str:
-    """Read work-order round index from session-state.md.
-
-    Prefer active_doc (current contract), fallback to active_session
-    for backward compatibility.
-    """
-    for line in session_state_path.read_text(encoding="utf-8").splitlines():
-        m_doc = re.match(r"^active_doc:\s*(\S+)", line)
-        if m_doc:
-            return m_doc.group(1)
-    return _read_active_session(session_state_path)
 
 
 def parse_args() -> argparse.Namespace:
@@ -65,8 +45,12 @@ def main() -> int:
             print(f"Error: session-state.md not found: {path}", file=sys.stderr)
             return 1
 
-    wo_index = f"r{_read_work_order_round(wo_session_state)}"
-    code_index = f"s{_read_active_session(code_session_state)}"
+    try:
+        wo_index = f"r{load_work_order_round(wo_session_state)}"
+        code_index = f"s{load_session_state(code_session_state)}"
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
 
     work_order_task_path = cycle_dir / "tech" / "work-order" / wo_index / "tasks" / task_id / "task.md"
     task_output_dir = cycle_dir / "tech" / "code" / code_index / "tasks" / task_id
