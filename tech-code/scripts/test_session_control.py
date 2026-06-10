@@ -11,8 +11,13 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from session_control import advance_pointer, deliver, get_pointer  # noqa: E402
-from workflow_state_schema import init_preparing, init_starting, save_workflow_state  # noqa: E402
+from session_control import advance_pointer, check_recovery, deliver, get_pointer  # noqa: E402
+from workflow_state_schema import (  # noqa: E402
+    init_preparing,
+    init_starting,
+    mark_historical,
+    save_workflow_state,
+)
 
 _SCRIPT = Path(__file__).resolve().parent / "session_control.py"
 
@@ -207,6 +212,99 @@ class TestDeliver:
             deliver(cycle_dir, tmp_path)
 
 
+class TestCheckRecovery:
+    def test_no_session_state(self, tmp_path: Path):
+        cycle_dir = tmp_path / "cycle-id"
+        result = check_recovery(cycle_dir)
+        assert result == {
+            "recoverable": False,
+            "resume_section": "Starting",
+            "reason": "no_session",
+        }
+
+    @pytest.mark.parametrize("state", ["Starting", "Preparing", "Delivered"])
+    def test_terminal_states(self, tmp_path: Path, state: str):
+        cycle_dir = _setup_session(tmp_path, state=state)
+        result = check_recovery(cycle_dir)
+        assert result["recoverable"] is False
+        assert result["resume_section"] == "Starting"
+        assert result["reason"] == "terminal_state"
+
+    def test_historical(self, tmp_path: Path):
+        cycle_dir = _setup_session(tmp_path)
+        ws_path = cycle_dir / "tech" / "code" / "s1" / "workflow-state.md"
+        mark_historical(ws_path)
+        result = check_recovery(cycle_dir)
+        assert result["recoverable"] is False
+        assert result["reason"] == "historical"
+
+    def test_missing_workflow_state(self, tmp_path: Path):
+        cycle_dir = tmp_path / "cycle-id"
+        (cycle_dir / "tech" / "code").mkdir(parents=True)
+        (cycle_dir / "tech" / "code" / "session-state.md").write_text(
+            "---\nversion: 1\nactive_session: 1\nupdated_at: 2024-01-01T00:00:00+00:00\n---\n",
+            encoding="utf-8",
+        )
+        result = check_recovery(cycle_dir)
+        assert result["recoverable"] is False
+        assert result["reason"] == "missing_workflow_state"
+
+    def test_executing_valid_pending_task(self, tmp_path: Path):
+        cycle_dir = _setup_session(tmp_path, state="Executing", current_task="t1")
+        session_dir = cycle_dir / "tech" / "code" / "s1"
+        _write_task_list(session_dir, [("t1", " "), ("t2", " ")])
+        result = check_recovery(cycle_dir)
+        assert result["recoverable"] is True
+        assert result["resume_section"] == "Executing"
+        assert result["current_task"] == "t1"
+        assert result["active_session"] == 1
+
+    def test_executing_empty_current_task(self, tmp_path: Path):
+        cycle_dir = _setup_session(tmp_path, state="Executing", current_task="")
+        session_dir = cycle_dir / "tech" / "code" / "s1"
+        _write_task_list(session_dir, [("t1", " ")])
+        result = check_recovery(cycle_dir)
+        assert result["recoverable"] is False
+        assert result["reason"] == "empty_current_task"
+
+    def test_executing_missing_task_list(self, tmp_path: Path):
+        cycle_dir = _setup_session(tmp_path, state="Executing", current_task="t1")
+        result = check_recovery(cycle_dir)
+        assert result["recoverable"] is False
+        assert result["reason"] == "missing_task_list"
+
+    def test_executing_unknown_task(self, tmp_path: Path):
+        cycle_dir = _setup_session(tmp_path, state="Executing", current_task="t9")
+        session_dir = cycle_dir / "tech" / "code" / "s1"
+        _write_task_list(session_dir, [("t1", " ")])
+        result = check_recovery(cycle_dir)
+        assert result["recoverable"] is False
+        assert result["reason"] == "unknown_current_task"
+
+    def test_executing_pointer_unrecoverable(self, tmp_path: Path):
+        cycle_dir = _setup_session(tmp_path, state="Executing", current_task="t1")
+        session_dir = cycle_dir / "tech" / "code" / "s1"
+        _write_task_list(session_dir, [("t1", "x"), ("t2", " ")])
+        result = check_recovery(cycle_dir)
+        assert result["recoverable"] is False
+        assert result["reason"] == "pointer_unrecoverable"
+
+    def test_closing(self, tmp_path: Path):
+        cycle_dir = _setup_session(tmp_path, state="Closing")
+        result = check_recovery(cycle_dir)
+        assert result["recoverable"] is True
+        assert result["resume_section"] == "Closing"
+        assert result["active_session"] == 1
+
+    def test_drift_matches_get_pointer(self, tmp_path: Path):
+        cycle_dir = _setup_session(tmp_path, state="Executing", current_task="t1")
+        session_dir = cycle_dir / "tech" / "code" / "s1"
+        _write_task_list(session_dir, [("t1", "x"), ("t2", " ")])
+        assert check_recovery(cycle_dir)["recoverable"] is False
+        with pytest.raises(ValueError, match="pointer drift"):
+            get_pointer(cycle_dir)
+
+
 class TestCLI:
     def test_get_pointer_cli(self, tmp_path: Path):
         cycle_dir = _setup_session(tmp_path)
@@ -217,3 +315,17 @@ class TestCLI:
         )
         assert result.returncode == 0
         assert json.loads(result.stdout)["next_action"] == "prepare"
+
+    def test_check_recovery_cli(self, tmp_path: Path):
+        cycle_dir = _setup_session(tmp_path, state="Executing", current_task="t1")
+        session_dir = cycle_dir / "tech" / "code" / "s1"
+        _write_task_list(session_dir, [("t1", " "), ("t2", " ")])
+        result = subprocess.run(
+            [sys.executable, str(_SCRIPT), "--cycle-dir", str(cycle_dir), "check-recovery"],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        payload = json.loads(result.stdout)
+        assert payload["recoverable"] is True
+        assert payload["resume_section"] == "Executing"

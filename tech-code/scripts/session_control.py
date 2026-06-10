@@ -2,6 +2,7 @@
 """Session pointer control for tech-code orchestrator.
 
 Subcommands:
+    check-recovery    Read-only entry probe for Executing/Closing recovery
     get-pointer       Read workflow-state and return PointerResponse JSON
     advance-pointer   Advance after a completed task
     deliver           Transition Closing -> Delivered
@@ -74,6 +75,37 @@ def _task_is_done(task_list_path: Path, task_id: str) -> bool:
     return False
 
 
+def _executing_recoverable(session_dir: Path, current_task: str) -> tuple[bool, str | None]:
+    """Return whether an Executing session can resume dispatch without pointer drift."""
+    if not current_task:
+        return False, "empty_current_task"
+    task_list_path = _task_list_path(session_dir)
+    if not task_list_path.exists():
+        return False, "missing_task_list"
+    tasks = parse_tasks(task_list_path.read_text(encoding="utf-8"))
+    if not any(task["id"] == current_task for task in tasks):
+        return False, "unknown_current_task"
+    if _task_is_done(task_list_path, current_task):
+        return False, "pointer_unrecoverable"
+    return True, None
+
+
+def _executing_unrecoverable_error(
+    session_dir: Path, current_task: str, reason: str
+) -> ValueError:
+    if reason == "empty_current_task":
+        return ValueError("Executing state requires current_task")
+    if reason == "missing_task_list":
+        return ValueError(f"code-task-list.md not found: {_task_list_path(session_dir)}")
+    if reason == "unknown_current_task":
+        return ValueError(f"unknown current_task {current_task!r} in code-task-list.md")
+    if reason == "pointer_unrecoverable":
+        return ValueError(
+            f"pointer drift: current_task {current_task} is already done in code-task-list.md"
+        )
+    return ValueError(f"Executing session not recoverable: {reason}")
+
+
 def _build_pointer(
     *,
     current_state: str,
@@ -132,13 +164,9 @@ def get_pointer(cycle_dir: Path) -> dict[str, Any]:
 
     if current_state == "Executing":
         current_task = state.get("current_task", "")
-        if not current_task:
-            raise ValueError("Executing state requires current_task")
-        task_list_path = _task_list_path(session_dir)
-        if _task_is_done(task_list_path, current_task):
-            raise ValueError(
-                f"pointer drift: current_task {current_task} is already done in code-task-list.md"
-            )
+        recoverable, reason = _executing_recoverable(session_dir, current_task)
+        if not recoverable:
+            raise _executing_unrecoverable_error(session_dir, current_task, reason or "")
         return _build_pointer(
             current_state=current_state,
             current_task=current_task,
@@ -162,6 +190,74 @@ def get_pointer(cycle_dir: Path) -> dict[str, Any]:
         )
 
     raise ValueError(f"unsupported current_state: {current_state}")
+
+
+def check_recovery(cycle_dir: Path) -> dict[str, Any]:
+    """Read-only entry probe; does not run get-pointer validations."""
+    ss_path = cycle_dir / "tech" / "code" / "session-state.md"
+    if not ss_path.exists():
+        return {
+            "recoverable": False,
+            "resume_section": "Starting",
+            "reason": "no_session",
+        }
+
+    active_session = load_session_state(ss_path)
+    ws_path = cycle_dir / "tech" / "code" / f"s{active_session}" / "workflow-state.md"
+    if not ws_path.exists():
+        return {
+            "recoverable": False,
+            "resume_section": "Starting",
+            "reason": "missing_workflow_state",
+        }
+
+    state = load_workflow_state(ws_path)
+    if state.get("historical") == "true":
+        return {
+            "recoverable": False,
+            "resume_section": "Starting",
+            "reason": "historical",
+        }
+
+    current_state = state["current_state"]
+    if current_state in ("Starting", "Preparing", "Delivered"):
+        return {
+            "recoverable": False,
+            "resume_section": "Starting",
+            "reason": "terminal_state",
+        }
+
+    if current_state == "Executing":
+        session_dir = ws_path.parent
+        current_task = state.get("current_task", "")
+        recoverable, reason = _executing_recoverable(session_dir, current_task)
+        if not recoverable:
+            return {
+                "recoverable": False,
+                "resume_section": "Starting",
+                "reason": reason,
+            }
+        return {
+            "recoverable": True,
+            "resume_section": "Executing",
+            "current_state": current_state,
+            "current_task": current_task,
+            "active_session": active_session,
+        }
+
+    if current_state == "Closing":
+        return {
+            "recoverable": True,
+            "resume_section": "Closing",
+            "current_state": current_state,
+            "active_session": active_session,
+        }
+
+    return {
+        "recoverable": False,
+        "resume_section": "Starting",
+        "reason": "terminal_state",
+    }
 
 
 def advance_pointer(cycle_dir: Path, completed_task: str) -> dict[str, Any]:
@@ -257,6 +353,7 @@ def _cli() -> int:
     parser.add_argument("--project-root", help="Absolute path to project root (required for deliver)")
     sub = parser.add_subparsers(dest="command", required=True)
 
+    sub.add_parser("check-recovery", help="Read-only entry recovery probe")
     sub.add_parser("get-pointer", help="Read session pointer")
     advance = sub.add_parser("advance-pointer", help="Advance after completed task")
     advance.add_argument("--completed-task", required=True, help="Task id just completed (e.g. t1)")
@@ -266,7 +363,9 @@ def _cli() -> int:
     cycle_dir = Path(args.cycle_dir).resolve()
 
     try:
-        if args.command == "get-pointer":
+        if args.command == "check-recovery":
+            payload = check_recovery(cycle_dir)
+        elif args.command == "get-pointer":
             payload = get_pointer(cycle_dir)
         elif args.command == "advance-pointer":
             payload = advance_pointer(cycle_dir, args.completed_task)

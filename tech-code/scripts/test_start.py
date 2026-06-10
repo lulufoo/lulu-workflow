@@ -11,6 +11,7 @@ _SCRIPTS = Path(__file__).resolve().parent
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
+from session_state_schema import load_session_state  # noqa: E402
 from start import parse_work_order_task_list  # noqa: E402
 from workflow_state_schema import load_workflow_state  # noqa: E402
 
@@ -209,3 +210,73 @@ def test_cli_errors_when_work_order_task_list_missing(tmp_path):
 
     assert result.returncode != 0
     assert "task-list.md 不存在" in result.stderr
+
+
+def test_cli_creates_new_round_when_active_preparing(tmp_path):
+    task_list_content = """# Task List
+
+| task_id | 标题 | 目标文件 | 依赖 | TDD 豁免 |
+| --- | --- | --- | --- | --- |
+| t1 | first task | `a.py` | — | 否 |
+"""
+    _seed_gate_and_handoff(tmp_path, task_list_content)
+
+    first = subprocess.run(
+        [
+            sys.executable,
+            str(_START),
+            "--project-root",
+            str(tmp_path),
+            "--cycle-id",
+            _FID,
+        ],
+        capture_output=True,
+        text=True,
+        env=_ENV_COPILOT,
+        cwd=str(_SCRIPTS),
+    )
+    assert first.returncode == 0, first.stderr
+
+    ss_path = (
+        tmp_path
+        / ".cache"
+        / "copilot"
+        / "lulu-dev-workflow"
+        / _FID
+        / "tech"
+        / "code"
+        / "session-state.md"
+    )
+    assert load_session_state(ss_path) == 1
+
+    second = subprocess.run(
+        [
+            sys.executable,
+            str(_START),
+            "--project-root",
+            str(tmp_path),
+            "--cycle-id",
+            _FID,
+        ],
+        capture_output=True,
+        text=True,
+        env=_ENV_COPILOT,
+        cwd=str(_SCRIPTS),
+    )
+    assert second.returncode == 0, second.stderr
+    assert "superseding s1 in Preparing" in second.stderr
+
+    assert load_session_state(ss_path) == 2
+
+    ws_path = (
+        tmp_path
+        / ".cache"
+        / "copilot"
+        / "lulu-dev-workflow"
+        / _FID
+        / "tech"
+        / "code"
+        / "s2"
+        / "workflow-state.md"
+    )
+    assert load_workflow_state(ws_path)["current_state"] == "Preparing"
