@@ -126,11 +126,6 @@ class TestGetPointer:
 
     def test_delivered_done(self, tmp_path: Path):
         cycle_dir = _setup_session(tmp_path, state="Delivered")
-        session_dir = cycle_dir / "tech" / "code" / "s1"
-        (session_dir / "delivery-approval.md").write_text(
-            "---\napproved: true\n---\n",
-            encoding="utf-8",
-        )
         ptr = get_pointer(cycle_dir)
         assert ptr["next_action"] == "done"
 
@@ -180,10 +175,6 @@ class TestDeliver:
         _write_commit_ref(session_dir, "t1")
         _write_workspace(session_dir, worktree)
         (session_dir / "closing-checklist.md").write_text("- [x] item\n", encoding="utf-8")
-        (session_dir / "delivery-approval.md").write_text(
-            "---\napproved: true\n---\n",
-            encoding="utf-8",
-        )
         _fake_git(monkeypatch, worktrees={str(worktree.resolve())}, clean={str(worktree.resolve())})
         ptr = deliver(cycle_dir, tmp_path)
         assert ptr["next_action"] == "done"
@@ -203,10 +194,6 @@ class TestDeliver:
         _write_commit_ref(session_dir, "t1")
         _write_workspace(session_dir, worktree)
         (session_dir / "closing-checklist.md").write_text("- [ ] item\n", encoding="utf-8")
-        (session_dir / "delivery-approval.md").write_text(
-            "---\napproved: true\n---\n",
-            encoding="utf-8",
-        )
         _fake_git(monkeypatch, worktrees={str(worktree.resolve())}, clean={str(worktree.resolve())})
         with pytest.raises(ValueError, match="unchecked"):
             deliver(cycle_dir, tmp_path)
