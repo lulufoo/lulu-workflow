@@ -44,8 +44,6 @@ e2_status: pending
 ...
 ```
 
-5. Resolve `$RESOLVED_MODEL` for stage `evaluating` (see `../_subagent.md` → `## Config Resolution`). This model is reused for all dimension dispatches — do not re-resolve inside the loop.
-
 ---
 
 ## Phase 2 — Build dispatch list (E2)
@@ -63,7 +61,7 @@ For each `dim` in dispatch list:
 
 1. Write `evaluate-state.md`: `current_dimension: {dim}`, `{dim}_status: in_progress`
 
-2. Dispatch `eval-runner` (`$SUBAGENT_TOOL`, `$SUBAGENT_AWAIT_SYNC`), passing `$RESOLVED_MODEL` as `model` if set. Prompt:
+2. Dispatch `eval-runner` (`$SUBAGENT_TOOL`, `$SUBAGENT_AWAIT_SYNC`). Prompt:
 
 ```text
 Load {$SKILL_ROOT}/tech-plan/eval-runner/SKILL.md and follow its instructions.

@@ -49,23 +49,41 @@ def _write_workspace(session_dir: Path, worktree_path: Path) -> None:
     (session_dir / "workspace.json").write_text(json.dumps(payload), encoding="utf-8")
 
 
-def _write_workflow_config(project_root: Path) -> None:
+_REQUIRED_KEYS = {
+    "task_id",
+    "work_order_task_path",
+    "task_output_dir",
+    "code_task_list_path",
+    "worktree_abs_path",
+    "commit_message_template",
+    "test_command",
+}
+
+
+def _write_workflow_config(project_root: Path, extra: dict | None = None) -> None:
     config_dir = project_root / "skill-config" / "lulu-dev-workflow"
     config_dir.mkdir(parents=True, exist_ok=True)
-    (config_dir / "workflow-config.json").write_text(
-        json.dumps(
-            {
-                "tech-code": {
-                    "test_command": "npm test",
-                    "git": {
-                        "worktree_base": ".cache/worktrees",
-                        "branch_pattern": "wt/{type}-{slug}",
-                        "default_type": "feat",
-                        "commit_message_template": "feat({scope}): {subject}",
-                    },
-                }
-            }
-        ),
+    payload = {
+        "tech-code": {
+            "test_command": "npm test",
+            "git": {
+                "worktree_base": ".cache/worktrees",
+                "branch_pattern": "wt/{type}-{slug}",
+                "default_type": "feat",
+                "commit_message_template": "feat({scope}): {subject}",
+            },
+        }
+    }
+    if extra:
+        payload["tech-code"].update(extra)
+    (config_dir / "workflow-config.json").write_text(json.dumps(payload), encoding="utf-8")
+
+
+def _write_platform_config(project_root: Path, workflow_config_rel: str) -> None:
+    cfg_path = project_root / ".cursor/lulu-dev-workflow/config.json"
+    cfg_path.parent.mkdir(parents=True, exist_ok=True)
+    cfg_path.write_text(
+        json.dumps({"workflowConfig": workflow_config_rel}),
         encoding="utf-8",
     )
 
@@ -87,15 +105,8 @@ class TestResolveTaskContext:
         cycle_dir, project_root, worktree = _setup_happy_path(tmp_path)
         result = resolve_task_context(cycle_dir, "t1", project_root)
 
-        assert set(result) == {
-            "task_id",
-            "work_order_task_path",
-            "task_output_dir",
-            "code_task_list_path",
-            "worktree_abs_path",
-            "commit_message_template",
-            "test_command",
-        }
+        assert _REQUIRED_KEYS <= set(result)
+        assert "model" not in result
         assert result["task_id"] == "t1"
         assert "/work-order/r1/tasks/t1/task.md" in result["work_order_task_path"]
         assert "/code/s1/tasks/t1" in result["task_output_dir"]
@@ -127,6 +138,19 @@ class TestResolveTaskContext:
         _write_code_session_state(cycle_dir)
         _write_workflow_config(project_root)
         with pytest.raises(ValueError, match="workspace.json not found"):
+            resolve_task_context(cycle_dir, "t1", project_root)
+
+    def test_includes_model_when_subagent_configured(self, tmp_path: Path):
+        cycle_dir, project_root, _ = _setup_happy_path(tmp_path)
+        _write_workflow_config(project_root, {"subagent": {"cursor": "Auto"}})
+        result = resolve_task_context(cycle_dir, "t1", project_root)
+        assert result["model"] == "Auto"
+        assert _REQUIRED_KEYS | {"model"} == set(result)
+
+    def test_custom_workflow_config_path_missing_raises(self, tmp_path: Path):
+        cycle_dir, project_root, _ = _setup_happy_path(tmp_path)
+        _write_platform_config(project_root, "custom/missing-config.json")
+        with pytest.raises(ValueError, match="workflow-config.json not found"):
             resolve_task_context(cycle_dir, "t1", project_root)
 
     def test_missing_workflow_config(self, tmp_path: Path):

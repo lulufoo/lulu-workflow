@@ -124,7 +124,7 @@ Then dispatch Steps 1 → 2 → 3 in order. If returning from Evaluating fix, en
 Entry condition: `drafting-progress.md: current_step: Ready` (or file absent).
 Exit condition: subagent writes `drafting-progress.md: current_step: Scoping`.
 
-Resolve `$RESOLVED_MODEL` for stage `initializing` (see `../_subagent.md` → `## Config Resolution`); dispatch:
+Dispatch:
 
 ```text
 Load {actual $SKILL_ROOT}/tech-plan/initializing-runner/SKILL.md and follow its instructions.
@@ -143,7 +143,7 @@ Await completion (`$SUBAGENT_AWAIT_SYNC`); verify `drafting-progress.md: current
 Entry condition: `drafting-progress.md: current_step: Scoping`.
 Exit condition: subagent writes `drafting-progress.md: current_step: Generating`.
 
-Resolve `$RESOLVED_MODEL` for stage `scoping` (see `../_subagent.md` → `## Config Resolution`); dispatch:
+Dispatch:
 
 ```text
 Load {actual $SKILL_ROOT}/tech-plan/scoping-runner/SKILL.md and follow its instructions.
@@ -162,7 +162,7 @@ Before starting, ask: "Proceed to Generating, or skip to FreeEdit?" — confirm 
 Entry condition: `drafting-progress.md: current_step: Generating`.
 Exit condition: subagent writes `drafting-progress.md: current_step: FreeEdit`.
 
-Resolve `$RESOLVED_MODEL` for stage `generating` (see `../_subagent.md` → `## Config Resolution`); dispatch:
+Dispatch:
 
 ```text
 Load {actual $SKILL_ROOT}/tech-plan/generating-runner/SKILL.md and follow its instructions.
