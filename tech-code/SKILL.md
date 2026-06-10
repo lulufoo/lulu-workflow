@@ -151,6 +151,7 @@ Load {actual $SKILL_ROOT}/tech-code/task-runner/SKILL.md and follow its instruct
 **Step 2: Confirm task ready** (after sub-agent returns)
 
 1. If sub-agent returned `TASK_FAILED` → apply § Blocking policy.
+
 2. Run:
 
 ```bash
@@ -159,20 +160,15 @@ python3 "$SKILL_DIR/scripts/session_control.py" \
   confirm-task-ready --task-id {task_id}
 ```
 
-3. On non-zero exit → apply § Blocking policy.
-4. On success → parse stdout JSON; retain for Step 3 (`task_id`, `initial_commit`, `next_task_id`).
+On non-zero exit → apply § Blocking policy.
 
-`confirm-task-ready` validates the task exit contract; on failure, report stderr and wait for user.
+3. On success, parse stdout JSON and **immediately output**:
+   - `next_task_id` set → `CHECKPOINT t{X}: commit SHA <initial_commit>, task commit recorded, advancing to <next_task_id>.`
+   - `next_task_id` null → `CHECKPOINT t{X}: commit SHA <initial_commit>, task commit recorded, advancing to Closing.`
+   
+4. Do not run advance-pointer until the CHECKPOINT line is output.
 
-**Step 3: CHECKPOINT output**
-
-Use Step 2 JSON only: `initial_commit` for the SHA, `next_task_id` for the advance target.
-Output:
-- If `next_task_id` is set: `CHECKPOINT t{X}: commit SHA <sha>, task commit recorded, advancing to <next_task_id>.`
-- If `next_task_id` is null: `CHECKPOINT t{X}: commit SHA <sha>, task commit recorded, advancing to Closing.`
-Do not advance until this line is output.
-
-**Step 4: Advance pointer**
+**Step 3: Advance pointer**
 
 ```bash
 python3 "$SKILL_DIR/scripts/session_control.py" \
