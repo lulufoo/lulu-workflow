@@ -1,9 +1,10 @@
 {
   "version": 1,
   "session": {
-    "states": ["Preparing", "Executing", "Closing", "Delivered"],
+    "states": ["Starting", "Preparing", "Executing", "Closing", "Delivered"],
     "allowed_transitions": [
-      { "from": "*", "to": "Preparing" },
+      { "from": "*", "to": "Starting" },
+      { "from": "Starting", "to": "Preparing" },
       { "from": "Preparing", "to": "Executing" },
       { "from": "Executing", "to": "Closing" },
       { "from": "Closing", "to": "Delivered" }

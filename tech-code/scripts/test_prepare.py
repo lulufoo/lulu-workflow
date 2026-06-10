@@ -178,6 +178,14 @@ def test_validate_rejects_invalid_state(tmp_path: Path):
         validate_preparing_to_executing(cycle_dir)
 
 
+def test_validate_rejects_starting_state(tmp_path: Path):
+    cycle_dir, _ = _setup_validate_session(tmp_path)
+    ws_path = cycle_dir / "tech" / "code" / "s1" / "workflow-state.md"
+    save_workflow_state(ws_path, {"current_state": "Starting", "current_task": "", "current_phase": ""})
+    with pytest.raises(ValueError, match="requires Preparing"):
+        validate_preparing_to_executing(cycle_dir)
+
+
 def test_validate_cli(tmp_path: Path):
     cycle_dir, worktree = _setup_validate_session(tmp_path)
     subprocess.run(["git", "init"], cwd=worktree, capture_output=True, check=True)

@@ -116,6 +116,13 @@ def get_pointer(cycle_dir: Path) -> dict[str, Any]:
     session_dir = ws_path.parent
     current_state = state["current_state"]
 
+    if current_state == "Starting":
+        return _build_pointer(
+            current_state=current_state,
+            current_task="",
+            next_action="starting",
+        )
+
     if current_state == "Preparing":
         return _build_pointer(
             current_state=current_state,

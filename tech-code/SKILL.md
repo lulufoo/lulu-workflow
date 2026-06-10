@@ -41,7 +41,19 @@ Derive `$CYCLE_ID` from active context (see `_runtime.md § Session Foundation`)
 `$CYCLE_ID` must be resolved before proceeding. If it cannot be resolved → stop and ask the user to provide it.
 </HARD-GATE>
 
-### AI startup sequence
+Proceed to § Starting.
+
+---
+
+## State machine
+
+Session states: `Starting` → `Preparing` → `Executing` → `Closing` → `Delivered`
+
+Task phases (under Executing): `WriteTests` → `VerifyRed` → `WriteImpl` → `VerifyGreen` → `Refactor` → `Done`
+
+---
+
+## Starting
 
 **Step 1: Load `docs/git/git-workflow-standard.md`** — required before any git operations.
 
@@ -55,23 +67,17 @@ python3 "$SKILL_DIR/scripts/start.py" \
 
 > On non-zero exit: report the blocking stage to the user. Do not retry.
 
-**Step 3:** Read `code-task-list.md`; display tasks; wait for confirmation before execution.
-
----
-
-## State machine
-
-Session states: `Preparing` → `Executing` → `Closing` → `Delivered`
-
-Task phases (under Executing): `WriteTests` → `VerifyRed` → `WriteImpl` → `VerifyGreen` → `Refactor` → `Done`
+**Exit:** `start.py` succeeds → `workflow-state.md` `current_state` is already `Preparing` → proceed to § Preparing.
 
 ---
 
 ## Preparing
 
-### Entry 
+### Entry
 
-Run `prepare.py`; on non-zero exit report the error and halt.
+Read `code-task-list.md`; display tasks; wait for user confirmation before execution.
+
+After confirmation, run `prepare.py`; on non-zero exit report the error and halt.
 
 ```bash
 python3 "$SKILL_DIR/scripts/prepare.py" \
@@ -90,7 +96,8 @@ Do not create `workspace.json` or worktrees manually.
 ### Entry 
 
 Run `session_control.py`; follow `next_action`:
-- `prepare` → enter § Preparing
+- `starting` → enter § Starting and re-run `start.py` (interrupt recovery only)
+- `prepare` → enter § Preparing (normal default after successful `start.py`)
 - `dispatch` → enter the task loop with `current_task` as `{task_id}`
 - `closing` → proceed to § Closing
 - `done` → report terminal state (session already Delivered)
