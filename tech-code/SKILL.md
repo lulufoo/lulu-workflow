@@ -178,8 +178,7 @@ Do not advance until this line is output.
 2. Run full test suite; append `test_run` to a session-level log or note in checklist.
 3. Count `commit-ref.md` files; verify count matches task count.
 4. Verify `git status` is clean in the worktree.
-5. When all checklist items checked: wait for explicit user confirmation.
-6. Write `human-delivery-gate.md` (`approved: true`).
+5. Checklist complete → write `human-delivery-gate.md` (`approved: true`) → set `current_state: Delivered`.
 
 **Exit:** `human-delivery-gate.md` written with `approved: true` → set `current_state: Delivered`.
 
@@ -187,9 +186,7 @@ Do not advance until this line is output.
 
 ## Delivered
 
-**Condition:** `human-delivery-gate.md` exists with `approved: true`. `current_state: Delivered`.
-
-AI must not self-declare session complete. Even if all tasks are `Done` and the closing checklist is fully checked, `Delivered` requires explicit human confirmation via the gate file.
+**Condition:** All closing checklist items pass. `human-delivery-gate.md` exists with `approved: true`. `current_state: Delivered`.
 
 ---
 
