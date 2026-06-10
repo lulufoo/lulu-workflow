@@ -16,7 +16,7 @@ Commits after VerifyGreen; amends after Refactor if code changed.
 
 ## Input Contract
 
-Received as JSON via the invocation prompt `## Input` block (output of `resolve_task_context.py`):
+Received as JSON via the invocation prompt `## Input` block (output of `session_control.py resolve-task-context`):
 
 ```json
 {
