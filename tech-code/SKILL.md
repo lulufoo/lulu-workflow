@@ -90,11 +90,8 @@ python3 "$SKILL_DIR/scripts/prepare.py" \
 
 Read stdout JSON for `slug`, `worktree_dir`, `branch`; use these values to execute **P1 → P2 → P3** from `git-workflow-standard.md`.
 
-Separately, `prepare.py` writes `workspace.json` with:
-- `worktree_path`: absolute worktree path
-- `project_root`: absolute project root
-- `branch`: branch name for the primary worktree
-- `created_at`: ISO8601 timestamp
+Separately, `prepare.py` writes `workspace.json`.
+Field definitions: see § Session files › Schema queries below.
 
 > **P1 collision** (`wt/<branch>` already exists): worktree was created in a prior run — re-use it, skip P3.
 
@@ -212,3 +209,11 @@ $CACHE_DIR/<cycle_id>/tech/code/
       code-log.md               ← Executing: append-only action log (task-level)
       commit-ref.md             ← Executing/Done: initial/final SHA, message, amended
 ```
+
+### Schema queries
+
+If you need a file's field definitions at runtime, run the corresponding action:
+
+| file | action |
+|---|---|
+| `workspace.json` | `python3 $SKILL_DIR/scripts/workspace_schema.py --schema` |

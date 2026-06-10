@@ -22,7 +22,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from workflow_common import read_md_field, resolve_workflow_config_path, write_json  # noqa: E402
+from workflow_common import read_md_field, resolve_workflow_config_path  # noqa: E402
+from workspace_schema import save_workspace  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -260,7 +261,7 @@ def write_workspace(
             payload["extra_worktrees"] = extra
 
     dest = cycle_dir / "tech" / "code" / f"s{session_idx}" / "workspace.json"
-    write_json(dest, payload)
+    save_workspace(dest, payload)
     return dest
 
 

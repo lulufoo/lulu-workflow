@@ -13,10 +13,12 @@ and config values the task-runner sub-agent needs.
 """
 
 import argparse
-import json
 import re
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from workspace_schema import load_workspace  # noqa: E402
 
 
 def _read_active_session(session_state_path: Path) -> str:
@@ -75,15 +77,13 @@ def main() -> int:
         print(f"Error: workspace.json not found: {workspace_json_path}", file=sys.stderr)
         return 1
 
-    workspace = json.loads(workspace_json_path.read_text(encoding="utf-8"))
-    worktree_path_raw = workspace.get("worktree_path", "")
-    if not worktree_path_raw:
-        print("Error: workspace.json missing 'worktree_path'", file=sys.stderr)
+    try:
+        workspace = load_workspace(workspace_json_path)
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
         return 1
 
-    worktree_path = Path(worktree_path_raw)
-    if not worktree_path.is_absolute():
-        worktree_path = (project_root / worktree_path).resolve()
+    worktree_path = Path(workspace["worktree_path"])
 
     config_path = project_root / "skill-config" / "lulu-dev-workflow" / "workflow-config.json"
     if not config_path.exists():
