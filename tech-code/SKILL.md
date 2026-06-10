@@ -134,7 +134,7 @@ python3 "$SKILL_DIR/scripts/session_control.py" \
   resolve-task-context --task-id {task_id}
 ```
 
-Parse stdout JSON from `resolve-task-context`. If `model` is present, pass it as the `model` parameter to `$SUBAGENT_TOOL`; omit the parameter otherwise. Exclude `model` from the `## Input` block (task-runner reads only the seven task fields).
+Parse stdout JSON from `resolve-task-context`: optional `model` → `$SUBAGENT_TOOL`; all other fields → `## Input`.
 
 Invoke `$SUBAGENT_TOOL` with `$SUBAGENT_AWAIT_SYNC`. Prompt:
 
@@ -163,7 +163,7 @@ On non-zero exit → apply § Blocking policy.
 3. On success, parse stdout JSON and **immediately output**:
    - `next_task_id` set → `CHECKPOINT t{X}: commit SHA <initial_commit>, task commit recorded, advancing to <next_task_id>.`
    - `next_task_id` null → `CHECKPOINT t{X}: commit SHA <initial_commit>, task commit recorded, advancing to Closing.`
-   
+
 4. Do not run advance-pointer until the CHECKPOINT line is output.
 
 **Step 3: Advance pointer**
