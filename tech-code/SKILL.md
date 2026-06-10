@@ -124,17 +124,6 @@ python3 "$SKILL_DIR/scripts/session_control.py" \
 
 **Step 1: Dispatch sub-agent**
 
-Run `session_control.py resolve-task-context` to build the dispatch input:
-
-```bash
-python3 "$SKILL_DIR/scripts/session_control.py" \
-  --cycle-dir "$CACHE_DIR/$CYCLE_ID" \
-  --project-root "$(pwd)" \
-  resolve-task-context --task-id {task_id}
-```
-
-Parse stdout JSON from `resolve-task-context`: optional `model` → `$SUBAGENT_TOOL`; all other fields → `## Input`.
-
 Invoke `$SUBAGENT_TOOL` with `$SUBAGENT_AWAIT_SYNC`. Prompt:
 
 ```
@@ -142,7 +131,11 @@ You are executing a single TDD task.
 Load {actual $SKILL_ROOT}/tech-code/task-runner/SKILL.md and follow its instructions.
 
 ## Input
-{resolve-task-context JSON with model key removed}
+{
+  "task_id": "{task_id}",
+  "cycle_dir": "{absolute $CACHE_DIR/$CYCLE_ID}",
+  "project_root": "{absolute project root}"
+}
 ```
 
 **Step 2: Confirm task ready** (after sub-agent returns)
@@ -205,4 +198,3 @@ python3 "$SKILL_DIR/scripts/session_control.py" \
 Session complete; stop.
 
 ---
-

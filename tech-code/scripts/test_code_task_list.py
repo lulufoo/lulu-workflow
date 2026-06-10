@@ -9,7 +9,10 @@ from code_task_list import (
     all_done,
     assert_task_done,
     first_pending,
+    mark_task_done,
     next_pending_after,
+    parse_task_title,
+    parse_tdd_exempt_from_list,
     parse_tasks,
 )
 
@@ -76,6 +79,25 @@ def test_assert_task_done_not_done(tmp_path: Path):
     path.write_text("- [ ] t1\n", encoding="utf-8")
     with pytest.raises(ValueError, match="not marked done"):
         assert_task_done(path, "t1")
+
+
+def test_parse_task_title():
+    assert parse_task_title(_SAMPLE, "t1") == "First task"
+    assert parse_task_title(_SAMPLE, "t9") is None
+
+
+def test_parse_tdd_exempt_from_list():
+    content = "- [ ] t1 · Exempt [tdd_exempt]\n"
+    assert parse_tdd_exempt_from_list(content, "t1") is True
+    assert parse_tdd_exempt_from_list(_SAMPLE, "t1") is False
+
+
+def test_mark_task_done(tmp_path: Path):
+    path = tmp_path / "code-task-list.md"
+    path.write_text("- [ ] t1 · First task\n", encoding="utf-8")
+    mark_task_done(path, "t1")
+    assert "- [x] t1" in path.read_text(encoding="utf-8")
+    mark_task_done(path, "t1")
 
 
 def test_assert_task_done_missing(tmp_path: Path):

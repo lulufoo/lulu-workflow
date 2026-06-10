@@ -3,7 +3,8 @@ name: code-task-runner
 description: >-
   Single-task TDD executor for lulu-dev-workflow /code sessions.
   Invoked by the parent code/SKILL.md orchestrator per task.
-  Input: task spec + worktree path. Output: commit-ref.md + code-log.md + task marked [x].
+  Input: dispatch coordinates; bootstraps $CTX via task_control resolve-context.
+  Output: TASK_COMPLETE or TASK_FAILED.
   Use when: dispatched by code/SKILL.md Executing loop for a single task.
 meta-skill-version: 1.0.0
 ---
@@ -11,163 +12,117 @@ meta-skill-version: 1.0.0
 # code-task-runner
 
 Sub-agent executing a single TDD task within a lulu-dev-workflow /code session.
-Runs WriteTests → VerifyRed → WriteImpl → VerifyGreen → Refactor → Done.
-Commits after VerifyGreen; amends after Refactor if code changed.
+Mechanical side effects (log, tests, commit, checkbox) are driven by `task_control.py`.
+Agent owns creative work: WriteTests, WriteImpl, Refactor.
 
-## Input Contract
+## Blocking policy
 
-Received as JSON via the invocation prompt `## Input` block (output of `session_control.py resolve-task-context`, with optional top-level `model` stripped by the orchestrator):
+If the workflow cannot advance: **stop** (no retry, skip, or workaround), **report** the reason (`TASK_FAILED`), and **wait** for user direction before continuing.
+
+Any `task_control.py` non-zero exit or phase exception → `TASK_FAILED` + optional `error-log.md`. Do not continue the phase loop.
+
+## Prerequisites
+
+<HARD-GATE>
+Do NOT proceed until you have read `../../_runtime.md`
+</HARD-GATE>
+
+- `$SKILL_DIR` = `$SKILL_ROOT/tech-code` (from `## Platform Context` in `_runtime.md`)
+
+## Dispatch input
+
+Received as JSON via the invocation prompt `## Input` block:
 
 ```json
 {
-  "task_id":                 "<task_id>",
-  "work_order_task_path":    "<abs_path>/work-order/<r{N}>/tasks/<task_id>/task.md",
-  "task_output_dir":         "<abs_path>/code/<s{N}>/tasks/<task_id>",
-  "code_task_list_path":     "<abs_path>/code/<s{N}>/code-task-list.md",
-  "worktree_abs_path":       "<abs_path>/.cache/worktrees/<slug>/",
-  "commit_message_template": "<template>",
-  "test_command":            "<command>"
+  "task_id":     "<task_id>",
+  "cycle_dir":   "<abs_path>/.cache/<platform>/lulu-dev-workflow/<cycle_id>",
+  "project_root": "<abs_path>/to/project"
 }
 ```
 
-## Execution
+## Step 0: Resolve context
 
-Execute TDD phases in order: WriteTests → VerifyRed → WriteImpl → VerifyGreen → Refactor → Done.
+```bash
+python3 "$SKILL_DIR/scripts/task_control.py" \
+  --cycle-dir "<cycle_dir>" \
+  --project-root "<project_root>" \
+  resolve-context --task-id <task_id>
+```
 
-Only read files provided in Input Contract. Do not read any other files.
-All code edits, git operations, and test runs: cwd = `worktree_abs_path`.
+Parse stdout JSON as `$CTX`. Required fields include:
+`work_order_task_path`, `task_output_dir`, `code_task_list_path`, `worktree_abs_path`,
+`branch`, `tdd_exempt`, `commit_message_template`, `test_command`.
+
+<HARD-GATE>
+Before any `commit-*` subcommand, load `docs/git/git-workflow-standard.md`.
+</HARD-GATE>
+
+All code edits and test runs: cwd = `$CTX.worktree_abs_path`.
+
+## Phase loop
+
+Use this command template for mechanical steps:
+
+```bash
+python3 "$SKILL_DIR/scripts/task_control.py" \
+  --cycle-dir "<cycle_dir>" \
+  --project-root "<project_root>" \
+  <subcommand> --task-id <task_id> [args]
+```
 
 ### WriteTests
 
-**Entry:** Append `enter · WriteTests` to `tasks/t{X}/code-log.md`.
-
-**Actions:**
-
-1. Write all test files for the current task. Do not create or modify any implementation files.
-2. Use `test_command` from Input Contract for all test runs.
-
-**Exit:** All test files written, no implementation changed → agent auto-advances to `VerifyRed`.
-
----
+1. `enter-phase --phase WriteTests`
+2. Read `$CTX.work_order_task_path`; write test files only (no implementation).
+3. Continue to VerifyRed.
 
 ### VerifyRed
 
-**Entry:** Append `enter · VerifyRed` to `code-log.md`.
-
-**Actions:**
-
-1. Run tests; append `test_run` entry to `code-log.md` with full output in fenced block.
-
-**Exception:** If all tests pass unexpectedly → **STOP**. Report: tests have no constraining power over the implementation. Do not advance until resolved.
-
-**Exit:** `test_run` log has at least one FAIL → agent auto-advances to `WriteImpl`.
-
----
+1. `enter-phase --phase VerifyRed`
+2. `run-tests --expect red`
+3. On non-zero exit → `TASK_FAILED` (unexpected all-PASS).
+4. Continue to WriteImpl.
 
 ### WriteImpl
 
-**Entry:** Append `enter · WriteImpl` to `code-log.md`.
-
-**Actions:**
-
-1. Write minimal implementation to make failing tests pass. Do not modify any test files.
-
-**Exit:** Implementation written, no test files modified → agent auto-advances to `VerifyGreen`.
-
----
+1. `enter-phase --phase WriteImpl`
+2. Write minimal implementation; do not modify test files.
+3. Continue to VerifyGreen.
 
 ### VerifyGreen
 
-**Entry:** Append `enter · VerifyGreen` to `code-log.md`.
-
-**Actions:**
-
-1. Run tests; append `test_run` entry to `code-log.md` with full output.
-2. On all PASS: append `git_commit · initial` to `code-log.md`; execute `git commit` using `code.git.commit_message_template`; record `tasks/t{X}/commit-ref.md`:
-   ```markdown
-   task_id: t{X}
-   branch: wt/feat-<slug>
-   initial_commit: <sha>
-   final_commit: <sha>
-   commit_message: "<message>"
-   amended: false
-   recorded_at: <ISO8601>
-   ```
-3. If `tdd_exempt` is set on this task (from task list or task frontmatter): advance directly to `Done`, skipping Refactor entirely.
-
-**Exception:** Any FAIL → **STOP**. Report failures; do not advance until all tests pass.
-
-**Exit:** All PASS + initial commit written → advance to `Refactor` (or `Done` if `tdd_exempt`).
-
----
+1. `enter-phase --phase VerifyGreen`
+2. `run-tests --expect green`
+3. `commit-initial` — parse stdout JSON; keep `final_commit` for `TASK_COMPLETE`.
+4. If `$CTX.tdd_exempt` → `mark-done` → `TASK_COMPLETE`.
+5. Else continue to Refactor.
 
 ### Refactor
 
-**Entry:** Append `enter · Refactor` to `code-log.md`.
+1. `enter-phase --phase Refactor`
+2. Apply behavior-neutral cleanup; do not modify test files.
+3. `run-tests --expect green`
+4. `commit-amend` (skips automatically when worktree is clean).
+5. `mark-done` → `TASK_COMPLETE`.
 
-**Actions:**
+## Exit contract
 
-1. Apply behavior-neutral code cleanup. Do not modify test files.
-2. Re-run tests after each change; append `test_run` entry to `code-log.md`.
-3. If any code changed: append `git_commit · amend` to `code-log.md`; execute `git commit --amend`; update `commit-ref.md` (`final_commit`, `amended: true`). Amend keeps task atomicity — Refactor is part of the same task, not a separate commit.
-4. If no changes: skip step 3.
+On success, output to parent:
 
-**Exception:** Test regression → **STOP**. Revert change before proceeding.
-
-**Exit:** No behavior change + tests still PASS (or no changes made) → advance to `Done`.
-
----
-
-### Done
-
-**Entry:** Append `enter · Done` to `code-log.md`.
-
-**Actions:**
-
-1. Mark task `[x]` in `code-task-list.md`.
-2. Verify all three exit contract conditions before returning:
-   - ① `tasks/t{X}/commit-ref.md` exists with non-empty `initial_commit`
-   - ② `tasks/t{X}/code-log.md` contains `enter · Done`
-   - ③ `code-task-list.md` has this task marked `[x]`
-
-   These are **preconditions for completion**, not post-conditions. Do not proceed until all three are confirmed.
-
-**Batch commit anti-pattern (prohibited):** Never commit changes for multiple tasks in a single `git commit`. Each task — including `tdd_exempt` tasks and documentation-only changes — must produce its own commit and its own `tasks/t{X}/commit-ref.md`.
-
----
-
-## Supporting: code-log action model
-
-**Format:** `### <ISO8601> · <action>[ · <target>]` + optional body. **Append-only.**
-
-`code-log.md` is **task-level** only. Session artifacts (`workspace.json`, `closing-checklist.md`, `closing-test-log.md`) are separate files. `closing-checklist.md` and `closing-test-log.md` are written by the parent `deliver` command; task-runner does not maintain them.
-
-| action | target | meaning |
-|--------|--------|---------|
-| `enter` | phase name | phase transition |
-| `test_run` | — | run `code.test_command`; full output in fenced block |
-| `git_commit` | `initial` \| `amend` | commit; SHA and message in body |
-
-No `red-run` / `green-run` action types or standalone red/green files.
-
----
-
-## Exit Contract
-
-Before returning, verify all three conditions:
-
-1. `tasks/{task_id}/commit-ref.md` exists with non-empty `initial_commit` SHA
-2. `tasks/{task_id}/code-log.md` contains `enter · Done`
-3. `{task_id}` is marked `[x]` in `code-task-list.md`
-
-**On success:** output to parent agent:
 ```
-TASK_COMPLETE {task_id} sha={commit_sha}
+TASK_COMPLETE <task_id> sha=<final_commit>
 ```
 
-**On failure (any phase exception or unrecoverable test failure):**
-1. Write `tasks/{task_id}/error-log.md` with error details
-2. Output to parent agent:
+Use `final_commit` from `commit-initial` or `commit-amend` stdout JSON.
+
+On failure:
+
+1. Write `$CTX.task_output_dir/error-log.md` with error details.
+2. Output:
+
 ```
-TASK_FAILED {task_id} reason={brief description}
+TASK_FAILED <task_id> reason=<brief description>
 ```
+
+Do not manually write `commit-ref.md`, `code-log.md` entries, or flip `[x]` — `task_control.py` owns those artifacts.

@@ -45,6 +45,32 @@ def worktree_branch(path: str) -> str:
     return result.stdout.strip()
 
 
+def git_head_sha(path: str) -> str:
+    """Return current HEAD commit SHA for a worktree."""
+    result = run_git(path, "rev-parse", "HEAD")
+    return result.stdout.strip()
+
+
+def git_add_all(path: str) -> None:
+    """Stage all changes in worktree."""
+    run_git(path, "add", "-A")
+
+
+def git_commit(path: str, message: str) -> str:
+    """Create commit; return new HEAD SHA."""
+    run_git(path, "commit", "-m", message)
+    return git_head_sha(path)
+
+
+def git_commit_amend(path: str, message: str | None = None) -> str:
+    """Amend last commit; return new HEAD SHA."""
+    if message:
+        run_git(path, "commit", "--amend", "-m", message)
+    else:
+        run_git(path, "commit", "--amend", "--no-edit")
+    return git_head_sha(path)
+
+
 def status_clean(path: str) -> bool:
     result = subprocess.run(
         ["git", "-C", normalize_repo_path(path), "status", "--porcelain"],

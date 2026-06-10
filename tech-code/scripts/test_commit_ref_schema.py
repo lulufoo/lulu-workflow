@@ -13,6 +13,7 @@ from commit_ref_schema import (  # noqa: E402
     load_commit_ref,
     validate_commit_ref,
     validate_session_commit_refs,
+    write_commit_ref,
 )
 
 
@@ -76,6 +77,23 @@ def test_validate_session_commit_refs_orphan(tmp_path: Path):
     (t1_dir / "commit-ref.md").write_text(_valid_ref_text("t1"), encoding="utf-8")
     with pytest.raises(ValueError, match="orphan commit-ref"):
         validate_session_commit_refs(session_dir, tasks)
+
+
+def test_write_commit_ref_roundtrip(tmp_path: Path):
+    path = tmp_path / "commit-ref.md"
+    data = {
+        "task_id": "t1",
+        "branch": "wt/feat-test",
+        "initial_commit": "abc123",
+        "final_commit": "abc123",
+        "commit_message": "feat(code): t1 test",
+        "amended": False,
+        "recorded_at": "2024-01-01T00:00:00Z",
+    }
+    write_commit_ref(path, data)
+    loaded = load_commit_ref(path)
+    assert loaded["task_id"] == "t1"
+    assert loaded["commit_message"] == "feat(code): t1 test"
 
 
 def test_validate_session_commit_refs_missing(tmp_path: Path):

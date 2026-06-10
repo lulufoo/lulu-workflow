@@ -34,11 +34,11 @@ def _write_code_session_state(cycle_dir: Path, session_id: str = "1") -> Path:
     )
     session_dir = code_dir / f"s{session_id}"
     session_dir.mkdir(parents=True, exist_ok=True)
-    (session_dir / "code-task-list.md").write_text("- [ ] t1 · task\n", encoding="utf-8")
+    (session_dir / "code-task-list.md").write_text("- [ ] t1 · First task\n", encoding="utf-8")
     return session_dir
 
 
-def _write_workspace(session_dir: Path, worktree_path: Path) -> None:
+def _write_workspace(session_dir: Path, worktree_path: Path, extra: dict | None = None) -> None:
     payload = {
         "worktree_path": str(worktree_path.resolve()).rstrip("/") + "/",
         "project_root": str(session_dir.resolve()),
@@ -46,6 +46,8 @@ def _write_workspace(session_dir: Path, worktree_path: Path) -> None:
         "branch": "wt/feat-test",
         "created_at": "2024-01-01T00:00:00+00:00",
     }
+    if extra:
+        payload["extra_worktrees"] = extra
     (session_dir / "workspace.json").write_text(json.dumps(payload), encoding="utf-8")
 
 
@@ -55,6 +57,8 @@ _REQUIRED_KEYS = {
     "task_output_dir",
     "code_task_list_path",
     "worktree_abs_path",
+    "branch",
+    "tdd_exempt",
     "commit_message_template",
     "test_command",
 }
@@ -70,7 +74,7 @@ def _write_workflow_config(project_root: Path, extra: dict | None = None) -> Non
                 "worktree_base": ".cache/worktrees",
                 "branch_pattern": "wt/{type}-{slug}",
                 "default_type": "feat",
-                "commit_message_template": "feat({scope}): {subject}",
+                "commit_message_template": "feat({scope}): {task_id} {summary}",
             },
         }
     }
@@ -112,8 +116,53 @@ class TestResolveTaskContext:
         assert "/code/s1/tasks/t1" in result["task_output_dir"]
         assert "/code/s1/code-task-list.md" in result["code_task_list_path"]
         assert result["worktree_abs_path"] == str(worktree.resolve())
+        assert result["branch"] == "wt/feat-test"
+        assert result["tdd_exempt"] is False
         assert result["test_command"] == "npm test"
-        assert result["commit_message_template"] == "feat({scope}): {subject}"
+        assert result["commit_message_template"] == "feat({scope}): {task_id} {summary}"
+
+    def test_extra_worktree_mapping(self, tmp_path: Path):
+        cycle_dir, project_root, worktree = _setup_happy_path(tmp_path)
+        session_dir = cycle_dir / "tech" / "code" / "s1"
+        extra_wt = tmp_path / "wt-b"
+        extra_wt.mkdir()
+        _write_workspace(
+            session_dir,
+            worktree,
+            extra={
+                "repo-b": {
+                    "path": str(extra_wt.resolve()).rstrip("/") + "/",
+                    "branch": "wt/feat-test-repo-b",
+                }
+            },
+        )
+        task_md = cycle_dir / "tech" / "work-order" / "r1" / "tasks" / "t1" / "task.md"
+        task_md.write_text(
+            "---\ntarget_repo: repo-b\ntask_worktree: primary\n---\n# t1\n",
+            encoding="utf-8",
+        )
+        result = resolve_task_context(cycle_dir, "t1", project_root)
+        assert result["worktree_abs_path"] == str(extra_wt.resolve())
+        assert result["branch"] == "wt/feat-test-repo-b"
+
+    def test_tdd_exempt_from_list(self, tmp_path: Path):
+        cycle_dir, project_root, _ = _setup_happy_path(tmp_path)
+        session_dir = cycle_dir / "tech" / "code" / "s1"
+        (session_dir / "code-task-list.md").write_text(
+            "- [ ] t1 · Exempt task [tdd_exempt]\n",
+            encoding="utf-8",
+        )
+        result = resolve_task_context(cycle_dir, "t1", project_root)
+        assert result["tdd_exempt"] is True
+
+    def test_tdd_exempt_frontmatter_wins(self, tmp_path: Path):
+        cycle_dir, project_root, _ = _setup_happy_path(tmp_path)
+        session_dir = cycle_dir / "tech" / "code" / "s1"
+        (session_dir / "code-task-list.md").write_text("- [ ] t1 · task\n", encoding="utf-8")
+        task_md = cycle_dir / "tech" / "work-order" / "r1" / "tasks" / "t1" / "task.md"
+        task_md.write_text("---\ntdd_exempt: true\n---\n# t1\n", encoding="utf-8")
+        result = resolve_task_context(cycle_dir, "t1", project_root)
+        assert result["tdd_exempt"] is True
 
     def test_missing_work_order_session_state(self, tmp_path: Path):
         cycle_dir = tmp_path / "cycle"
@@ -140,12 +189,11 @@ class TestResolveTaskContext:
         with pytest.raises(ValueError, match="workspace.json not found"):
             resolve_task_context(cycle_dir, "t1", project_root)
 
-    def test_includes_model_when_subagent_configured(self, tmp_path: Path):
+    def test_includes_model_when_requested(self, tmp_path: Path):
         cycle_dir, project_root, _ = _setup_happy_path(tmp_path)
         _write_workflow_config(project_root, {"subagent": {"cursor": "Auto"}})
-        result = resolve_task_context(cycle_dir, "t1", project_root)
+        result = resolve_task_context(cycle_dir, "t1", project_root, include_model=True)
         assert result["model"] == "Auto"
-        assert _REQUIRED_KEYS | {"model"} == set(result)
 
     def test_custom_workflow_config_path_missing_raises(self, tmp_path: Path):
         cycle_dir, project_root, _ = _setup_happy_path(tmp_path)
