@@ -12,13 +12,14 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from git_ops import validate_worktrees, validate_worktrees_clean  # noqa: E402
+from closing_checklist_schema import write_passed  # noqa: E402
+from commit_ref_schema import validate_session_commit_refs  # noqa: E402
 from code_task_list import (  # noqa: E402
     all_done,
     assert_task_done,
@@ -26,6 +27,8 @@ from code_task_list import (  # noqa: E402
     next_pending_after,
     parse_tasks,
 )
+from git_ops import validate_session_worktrees_clean  # noqa: E402
+from run_test_suite import run_test_suite  # noqa: E402
 from session_state_schema import load_session_state  # noqa: E402
 from workflow_state_schema import (  # noqa: E402
     load_workflow_state,
@@ -33,8 +36,6 @@ from workflow_state_schema import (  # noqa: E402
     save_workflow_state,
 )
 from workspace_schema import load_workspace  # noqa: E402
-
-_UNCHECKED_RE = re.compile(r"^-\s+\[\s\]\s")
 
 
 def _session_dir(cycle_dir: Path) -> Path:
@@ -50,7 +51,8 @@ def _workspace_path(session_dir: Path) -> Path:
     return session_dir / "workspace.json"
 
 
-def _validate_closing_ready(session_dir: Path) -> None:
+def _validate_closing_ready(session_dir: Path) -> list[dict]:
+    """Lightweight Closing readiness: all tasks done + commit-ref schema validation."""
     task_list_path = _task_list_path(session_dir)
     if not task_list_path.exists():
         raise ValueError(f"code-task-list.md not found: {task_list_path}")
@@ -61,10 +63,8 @@ def _validate_closing_ready(session_dir: Path) -> None:
     if not all_done(tasks):
         raise ValueError("not all tasks are marked done in code-task-list.md")
 
-    for task in tasks:
-        commit_ref = session_dir / "tasks" / task["id"] / "commit-ref.md"
-        if not commit_ref.exists():
-            raise ValueError(f"missing commit-ref.md for task {task['id']}: {commit_ref}")
+    validate_session_commit_refs(session_dir, tasks)
+    return tasks
 
 
 def _task_is_done(task_list_path: Path, task_id: str) -> bool:
@@ -120,16 +120,6 @@ def _build_pointer(
     if previous_task is not None:
         payload["previous_task"] = previous_task
     return payload
-
-
-def _validate_checklist_complete(session_dir: Path) -> None:
-    checklist_path = session_dir / "closing-checklist.md"
-    if not checklist_path.exists():
-        raise ValueError(f"closing-checklist.md not found: {checklist_path}")
-    content = checklist_path.read_text(encoding="utf-8")
-    unchecked = [line for line in content.splitlines() if _UNCHECKED_RE.match(line.strip())]
-    if unchecked:
-        raise ValueError("closing-checklist.md has unchecked items")
 
 
 def get_pointer(cycle_dir: Path) -> dict[str, Any]:
@@ -313,12 +303,36 @@ def deliver(cycle_dir: Path, project_root: Path | None = None) -> dict[str, Any]
             f"deliver requires Closing, got {state['current_state']!r}"
         )
 
-    _validate_closing_ready(session_dir)
-    _validate_checklist_complete(session_dir)
+    if project_root is None:
+        raise ValueError("project_root required for deliver")
+
+    tasks = _validate_closing_ready(session_dir)
+    validate_session_worktrees_clean(session_dir)
 
     workspace = load_workspace(_workspace_path(session_dir))
-    validate_worktrees(workspace)
-    validate_worktrees_clean(workspace)
+    worktree_path = Path(workspace["worktree_path"].rstrip("/"))
+    log_path = session_dir / "closing-test-log.md"
+    test_result = run_test_suite(
+        project_root=project_root,
+        worktree_path=worktree_path,
+        log_path=log_path,
+    )
+    if not test_result.passed:
+        raise ValueError(f"test suite failed: exit_code={test_result.exit_code}")
+
+    updated_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    task_count = len(tasks)
+    write_passed(
+        session_dir / "closing-checklist.md",
+        {
+            "task_count": task_count,
+            "commit_ref_count": task_count,
+            "tasks_done_count": task_count,
+            "test_passed": True,
+            "git_clean": True,
+            "updated_at": updated_at,
+        },
+    )
 
     save_workflow_state(
         ws_path,

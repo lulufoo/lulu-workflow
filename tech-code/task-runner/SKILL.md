@@ -140,7 +140,7 @@ All code edits, git operations, and test runs: cwd = `worktree_abs_path`.
 
 **Format:** `### <ISO8601> · <action>[ · <target>]` + optional body. **Append-only.**
 
-`code-log.md` is **task-level** only. Session artifacts (`workspace.json`, `closing-checklist.md`, gate) are separate files.
+`code-log.md` is **task-level** only. Session artifacts (`workspace.json`, `closing-checklist.md`, `closing-test-log.md`) are separate files. `closing-checklist.md` and `closing-test-log.md` are written by the parent `deliver` command; task-runner does not maintain them.
 
 | action | target | meaning |
 |--------|--------|---------|

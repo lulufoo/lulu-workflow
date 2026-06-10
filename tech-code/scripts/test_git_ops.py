@@ -20,6 +20,7 @@ from git_ops import (  # noqa: E402
     resolve_worktree_action,
     status_clean,
     sync_repo,
+    validate_session_worktrees_clean,
     validate_worktrees,
     validate_worktrees_clean,
     worktree_branch,
@@ -143,6 +144,32 @@ def test_validate_worktrees_clean_dirty_extra(monkeypatch):
             "worktree_path": "/primary/",
             "extra_worktrees": {"repo-b": {"path": "/extra/"}},
         })
+
+
+def test_validate_session_worktrees_clean_success(tmp_path: Path, monkeypatch):
+    session_dir = tmp_path / "s1"
+    session_dir.mkdir()
+    (session_dir / "workspace.json").write_text(
+        json.dumps({
+            "worktree_path": "/primary/",
+            "project_root": str(tmp_path),
+            "primary_repo": "repo-a",
+            "branch": "wt/feat-test",
+            "created_at": "2024-01-01T00:00:00+00:00",
+            "extra_worktrees": {"repo-b": {"path": "/extra/", "branch": "wt/feat-b"}},
+        }),
+        encoding="utf-8",
+    )
+
+    def _run(cmd, capture_output=True, text=True, check=False):
+        if cmd[3] == "rev-parse" and cmd[4] == "--is-inside-work-tree":
+            return subprocess.CompletedProcess(cmd, 0, "true\n", "")
+        if cmd[3] == "status":
+            return subprocess.CompletedProcess(cmd, 0, "", "")
+        return subprocess.CompletedProcess(cmd, 1, "", "")
+
+    monkeypatch.setattr("git_ops.subprocess.run", _run)
+    validate_session_worktrees_clean(session_dir)
 
 
 def test_validate_worktrees_clean_success(monkeypatch):

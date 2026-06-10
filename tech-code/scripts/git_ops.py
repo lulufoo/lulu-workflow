@@ -212,6 +212,15 @@ def validate_worktrees_clean(workspace: dict) -> None:
             raise ValueError(f"extra worktree for {repo!r} has uncommitted changes: {path}")
 
 
+def validate_session_worktrees_clean(session_dir: Path) -> None:
+    """Validate primary and extra worktrees exist and are clean for a session."""
+    from workspace_schema import load_workspace
+
+    workspace = load_workspace(session_dir / "workspace.json")
+    validate_worktrees(workspace)
+    validate_worktrees_clean(workspace)
+
+
 def _load_workspace(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
@@ -230,7 +239,14 @@ def _cli() -> int:
     val_wt.add_argument("--workspace", required=True, help="Absolute path to workspace.json")
 
     val_clean = sub.add_parser("validate-clean", help="Validate all workspace worktrees are clean")
-    val_clean.add_argument("--workspace", required=True, help="Absolute path to workspace.json")
+    val_clean.add_argument("--workspace", help="Absolute path to workspace.json")
+    val_clean.add_argument("--session-dir", help="Absolute path to session dir (uses workspace.json inside)")
+
+    val_session = sub.add_parser(
+        "validate-session-clean",
+        help="Validate session worktrees exist and are clean",
+    )
+    val_session.add_argument("--session-dir", required=True, help="Absolute path to session dir")
 
     prep = sub.add_parser("prepare-worktrees", help="Run P1–P3 for a workspace.json")
     prep.add_argument("--project-root", required=True, help="Absolute path to project root")
@@ -247,7 +263,15 @@ def _cli() -> int:
             validate_worktrees(_load_workspace(Path(args.workspace)))
             ok = True
         elif args.command == "validate-clean":
-            validate_worktrees_clean(_load_workspace(Path(args.workspace)))
+            if args.session_dir:
+                validate_session_worktrees_clean(Path(args.session_dir))
+            elif args.workspace:
+                validate_worktrees_clean(_load_workspace(Path(args.workspace)))
+            else:
+                parser.error("validate-clean requires --workspace or --session-dir")
+            ok = True
+        elif args.command == "validate-session-clean":
+            validate_session_worktrees_clean(Path(args.session_dir))
             ok = True
         elif args.command == "prepare-worktrees":
             prepare_worktrees(args.project_root, _load_workspace(Path(args.workspace)))

@@ -178,32 +178,7 @@ Read stdout JSON:
 
 ## Closing
 
-### Entry
-
-Run `session_control.py`; follow `next_action`:
-
-- `closing` → continue Actions below
-- anything else → halt and report
-
-```bash
-python3 "$SKILL_DIR/scripts/session_control.py" \
-  --cycle-dir "$CACHE_DIR/$CYCLE_ID" \
-  get-pointer
-```
-
-**Actions:**
-
-1. Create `s{N}/closing-checklist.md` and complete each item:
-   ```markdown
-   - [ ] Full test suite re-run (PASS)
-   - [ ] commit-ref count == task count
-   - [ ] git status clean in worktree
-   - [ ] All code-task-list items [x]
-   ```
-2. Run full test suite; append `test_run` to a session-level log or note in checklist.
-3. Count `commit-ref.md` files; verify count matches task count.
-4. Verify `git status` is clean in the worktree.
-5. Run:
+Run:
 
 ```bash
 python3 "$SKILL_DIR/scripts/session_control.py" \
@@ -212,9 +187,10 @@ python3 "$SKILL_DIR/scripts/session_control.py" \
   deliver
 ```
 
+> Precondition: `current_state` must be Closing (enforced by script).
 > On non-zero exit: halt and report.
 
-**Exit:** `deliver` succeeds → proceed to § Delivered.
+**Exit:** deliver succeeds → § Delivered.
 
 ---
 
@@ -235,9 +211,10 @@ Session complete; stop.
 | `workflow-state.md` | Session state and current task (written by scripts only) |
 | `workspace.json` | Worktree path, project root, branch |
 | `code-task-list.md` | Task list from work-order |
-| `closing-checklist.md` | Pre-delivery verification |
+| `closing-checklist.md` | Post-delivery audit (written by `deliver`, not maintained by agent) |
+| `closing-test-log.md` | Closing full test suite append-only log |
 | `tasks/t{X}/code-log.md` | Append-only task execution log |
-| `tasks/t{X}/commit-ref.md` | Task commit SHA and message |
+| `tasks/t{X}/commit-ref.md` | Task commit record |
 
 **Schema queries** — `python3 $SKILL_DIR/scripts/<script>.py`
 
@@ -248,4 +225,8 @@ If you need a file's field definitions at runtime, run the corresponding action:
 | `session-state.md` | `session_state_schema.py --schema` |
 | `workflow-state.md` | `workflow_state_schema.py --schema` |
 | `workspace.json` | `workspace_schema.py --schema` |
+| `closing-checklist.md` | `closing_checklist_schema.py --schema` |
+| `tasks/t{X}/commit-ref.md` | `commit_ref_schema.py --schema` |
 | `session_control.py` | `session_control.py` — `check-recovery`, `get-pointer`, `advance-pointer`, `deliver` |
+
+`closing-test-log.md` has no standalone schema CLI; format is defined in `run_test_suite.py` module docstring.
