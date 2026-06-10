@@ -11,10 +11,7 @@ disable-model-invocation: true
 
 ## Overview
 
-**Input:** Delivered work-order task set  
-**Output:** tests + implementation, per-task `commit-ref.md`, closing checklist, delivery approval  
-**Scope:** TDD code generation in a dedicated worktree, with git worktree delivery and per-task commits  
-**Session lifecycle:** `Preparing → Executing → Closing → Delivered`
+Run TDD on work-order tasks in an isolated git worktree—one task per sub-agent dispatch, per-task commits, then a closing gate before delivery.
 
 ## Prerequisites
 
