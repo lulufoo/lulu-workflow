@@ -288,7 +288,7 @@ python3 "$SKILL_DIR/scripts/session_control.py" \
   ready-for-delivery
 ```
 
-> On non-zero exit: apply Blocking policy; parse stdout JSON and follow `resume.entry`.
+> On non-zero exit: apply Blocking policy. 必须停止执行。
 > On success: follow **ReadyForDelivery Rules** below.
 
 ### Evaluating Rules
@@ -304,7 +304,7 @@ python3 "$SKILL_DIR/scripts/session_control.py" \
   ready-for-delivery
 ```
 
-> On non-zero exit: apply Blocking policy; parse stdout JSON and follow `resume.entry`.
+> On non-zero exit: apply Blocking policy. 必须停止执行。
 > On success: follow **ReadyForDelivery Rules** below.
 
 ### ReadyForDelivery Rules
@@ -320,7 +320,7 @@ python3 "$SKILL_DIR/scripts/session_info.py" \
   --view delivery-preview
 ```
 
-> On non-zero exit: apply Blocking policy.
+> On non-zero exit: apply Blocking policy. 必须停止执行。
 
 Present to user: `tech_doc.path`, `tech_doc.title`, `tech_doc.summary` from stdout JSON. Do not paste full body unless asked.
 
@@ -334,7 +334,7 @@ python3 "$SKILL_DIR/scripts/session_control.py" \
   deliver
 ```
 
-> On non-zero exit: apply Blocking policy; parse stdout JSON and follow `resume.entry`.
+> On non-zero exit: apply Blocking policy. 必须停止执行。
 > On success: proceed to DELIVERY-GATE below.
 
 <DELIVERY-GATE>
