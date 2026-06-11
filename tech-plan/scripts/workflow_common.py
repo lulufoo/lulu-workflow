@@ -105,33 +105,6 @@ def resolve_workflow_config_path(project_root: Path = Path(".")) -> Path:
 # Markdown state helpers
 # ---------------------------------------------------------------------------
 
-def write_md_state(
-    path: Path,
-    current_state: str,
-    evaluate_round: int = 0,
-    product_ref: str = "",
-    carry_forward_ref: str = "",
-    mode: str = "product",
-) -> None:
-    """Write revision{N}/workflow-state.md with YAML frontmatter."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    now = datetime.now(timezone.utc).isoformat()
-    content = (
-        f"---\n"
-        f"version: 1\n"
-        f"workflow: tech-doc\n"
-        f"mode: {mode}\n"
-        f"current_state: {current_state}\n"
-        f"evaluate_round: {evaluate_round}\n"
-        f"product_ref: {product_ref}\n"
-        f"carry_forward_ref: {carry_forward_ref}\n"
-        f"updated_at: {now}\n"
-        f"---\n"
-    )
-    with path.open("w", encoding="utf-8") as handle:
-        handle.write(content)
-
-
 def write_session_state(path: Path, active_doc: int) -> None:
     """Write session-state.md tracking the active tech-doc round."""
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -175,21 +148,17 @@ def read_md_field(path: Path, field: str, default: str = "") -> str:
     return fields.get(field, default)
 
 
-def read_md_state(path: Path, default: str = "Drafting") -> str:
-    """Read current_state from workflow-state.md, returning default if absent."""
-    state = read_md_field(path, "current_state", default=default)
-    return state if state else default
-
-
 def is_current_session_active(project_root: Path, cycle_id: str) -> bool:
     """Return True if this conversation has any non-Delivered planning session."""
+    from workflow_state_schema import read_current_state  # noqa: WPS433
+
     if not cycle_id:
         return False
     base = project_root / session_base_dir(cycle_id)
     if not base.exists():
         return False
     for state_file in base.glob("revision*/workflow-state.md"):
-        if read_md_state(state_file, default="Drafting") != "Delivered":
+        if read_current_state(state_file, default="Drafting") != "Delivered":
             return True
     return False
 

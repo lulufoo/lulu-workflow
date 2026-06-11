@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import argparse
-import re
 import sys
 from pathlib import Path
 
@@ -25,9 +24,9 @@ from workflow_common import (
     session_state_path,
     state_path,
     write_active_context,
-    write_md_state,
     write_session_state,
 )
+from workflow_state_schema import init_drafting, mark_historical
 
 
 _TO_STAGE = "tech-plan"
@@ -48,19 +47,15 @@ def _find_latest_delivered_stage(cycle_id: str, cycle_type: str,
     return latest
 
 
-def _mark_historical(cycle_id: str, stage: str, cache_dir: Path) -> None:
-    """Add historical: true to frontmatter of the current effective delivered session."""
+def _mark_latest_delivered_historical(cycle_id: str, stage: str, cache_dir: Path) -> None:
+    """Mark the current effective delivered session as historical."""
     sessions = [s for s in get_sessions(cycle_id, stage, cache_dir)
                 if s.state != "Invalidated"]
     if not sessions:
         return
     latest = max(sessions, key=lambda s: (s.created_at, s.revision))
-    if not latest.state_path or not latest.state_path.exists():
-        return
-    text = latest.state_path.read_text(encoding="utf-8")
-    if "historical:" not in text:
-        updated = re.sub(r"(---\s*\n)", r"\1historical: true\n", text, count=1)
-        latest.state_path.write_text(updated, encoding="utf-8")
+    if latest.state_path and latest.state_path.exists():
+        mark_historical(latest.state_path)
 
 
 def parse_args() -> argparse.Namespace:
@@ -121,7 +116,7 @@ def main() -> int:
 
     # Step 2: re-open detection
     if current_effective_delivered(cycle_id, _TO_STAGE, cache_dir):
-        _mark_historical(cycle_id, _TO_STAGE, cache_dir)
+        _mark_latest_delivered_historical(cycle_id, _TO_STAGE, cache_dir)
         invalidate_downstream(cycle_id, _TO_STAGE, cycle_type, cache_dir)
 
     # Step 3: back-fill detection
@@ -173,13 +168,11 @@ def main() -> int:
     write_cycle_state(cycle_id, _TO_STAGE, cache_dir)
 
     ws_path = project_root / state_path(cycle_id, active_doc)
-    write_md_state(
+    init_drafting(
         ws_path,
-        "Drafting",
-        evaluate_round=0,
+        mode=run_mode,
         product_ref=product_ref,
         carry_forward_ref=carry_forward_ref,
-        mode=run_mode,
     )
 
     if run_mode == "product":
