@@ -311,7 +311,19 @@ python3 "$SKILL_DIR/scripts/session_control.py" \
 
 Entry: `current_state` is `ReadyForDelivery`.
 
-1. Present final `revision{N}/tech-doc.md` to user (path + title/summary; do not paste full body unless asked).
+1. Run:
+
+```bash
+python3 "$SKILL_DIR/scripts/session_info.py" \
+  --cycle-id "<cycle_id>" \
+  --project-root "$(pwd)" \
+  --view delivery-preview
+```
+
+> On non-zero exit: apply Blocking policy.
+
+Present to user: `tech_doc.path`, `tech_doc.title`, `tech_doc.summary` from stdout JSON. Do not paste full body unless asked.
+
 2. Wait for explicit delivery confirmation.
 3. Run:
 
