@@ -153,12 +153,13 @@ Render the full tech document in template order:
 
 After rendering all sections, derive the initial State Vector from `fill_results`:
 - `status: "I"` → `L1`; `status: "X"` → `L0`
-- Map to the 5 dimensions: `NS`, `NG`, `KD`, `SK`, `T`
+- Map to the 6 dimensions: `NS`, `NG`, `INV`, `KD`, `SK`, `T`
+- Section → dimension: `North Star` → `NS`; `Non-Goals` → `NG`; `Invariants` → `INV`; `Key Decisions` → `KD`; `Approach Skeleton` → `SK`; `Tasks` → `T`
 - Update the `<!-- state-vector: ... -->` comment in the document header.
 
 Example result:
 ```
-<!-- state-vector: NS:L0, NG:L1, KD:L1, SK:L1, T:L1 -->
+<!-- state-vector: NS:L0, NG:L1, INV:L1, KD:L1, SK:L1, T:L1 -->
 ```
 
 #### 2. Write `$DRAFTING_PROGRESS_PATH`
@@ -194,7 +195,7 @@ After all writes succeed, return exactly this structure with the actual derived 
 Initializing complete.
   Seeded (I): <space-separated seeded section names>
   Skeleton (X): <space-separated skeleton section names>
-  State Vector: NS:L? NG:L? KD:L? SK:L? T:L?
+  State Vector: NS:L? NG:L? INV:L? KD:L? SK:L? T:L?
   Next step: L1Scaffold
 ```
 
