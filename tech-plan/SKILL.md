@@ -28,6 +28,22 @@ Do NOT proceed until you have read `../_runtime.md` and loaded:
 
 ## Commands
 
+### `$SESSION_INFO`
+
+`$SESSION_INFO <view>` →
+
+```bash
+python3 "$SKILL_DIR/scripts/session_info.py" --cycle-id "$CYCLE_ID" --view <view>
+```
+
+### `$SESSION_CONTROL`
+
+`$SESSION_CONTROL <subcommand>` →
+
+```bash
+python3 "$SKILL_DIR/scripts/session_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>
+```
+
 ### `start` — Session-level, run before each tech document
 
 > Prerequisite: `init` has been run.
@@ -279,14 +295,7 @@ Rules:
 > "Start evaluation, or deliver directly?"
 
 - **Evaluate** → write `workflow-state.md` → `current_state: Evaluating`.
-- **Deliver directly** → run:
-
-```bash
-python3 "$SKILL_DIR/scripts/session_control.py" \
-  --cycle-id "<cycle_id>" \
-  --project-root "$(pwd)" \
-  ready-for-delivery
-```
+- **Deliver directly** → run `$SESSION_CONTROL ready-for-delivery`.
 
 > On non-zero exit: apply Blocking policy.
 > On success: follow **ReadyForDelivery Rules** below.
@@ -295,14 +304,7 @@ python3 "$SKILL_DIR/scripts/session_control.py" \
 
 Read `./eval-rules.md` and follow its instructions.
 
-When eval-rules completes Phase 4, run:
-
-```bash
-python3 "$SKILL_DIR/scripts/session_control.py" \
-  --cycle-id "<cycle_id>" \
-  --project-root "$(pwd)" \
-  ready-for-delivery
-```
+When eval-rules completes Phase 4, run `$SESSION_CONTROL ready-for-delivery`.
 
 > On non-zero exit: apply Blocking policy.
 > On success: follow **ReadyForDelivery Rules** below.
@@ -311,41 +313,20 @@ python3 "$SKILL_DIR/scripts/session_control.py" \
 
 Entry: `current_state` is `ReadyForDelivery`.
 
-1. Run:
-
-```bash
-python3 "$SKILL_DIR/scripts/session_info.py" \
-  --cycle-id "<cycle_id>" \
-  --project-root "$(pwd)" \
-  --view delivery-preview
-```
+1. Run `$SESSION_INFO delivery-preview`.
 
 > On non-zero exit: apply Blocking policy.
 > On success: show a delivery preview; full tech-doc only if asked.
 
 2. Wait for explicit delivery confirmation.
-3. Run:
-
-```bash
-python3 "$SKILL_DIR/scripts/session_control.py" \
-  --cycle-id "<cycle_id>" \
-  --project-root "$(pwd)" \
-  deliver
-```
+3. Run `$SESSION_CONTROL deliver`.
 
 > On non-zero exit: apply Blocking policy.
 > On success: follow **Delivery Rules** below.
 
 ### Delivery Rules
 
-1. Run:
-
-```bash
-python3 "$SKILL_DIR/scripts/session_info.py" \
-  --cycle-id "<cycle_id>" \
-  --project-root "$(pwd)" \
-  --view stage-transitions
-```
+1. Run `$SESSION_INFO stage-transitions`.
 
 > On non-zero exit: apply Blocking policy.
 > On success: prompt next stages when present.
