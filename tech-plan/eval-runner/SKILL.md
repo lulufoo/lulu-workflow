@@ -3,22 +3,23 @@ rule-guard:
   globs:
     - "**/*.md"
 description: >
-  Single-round work-order evaluation executor for lulu-dev-workflow /tech-work-order sessions.
-  Invoked by the parent tech-work-order/SKILL.md orchestrator per evaluation round.
-  Runs TDA → W0 → W1 → W2 phases and returns exit_code. Use when: dispatched by
-  tech-work-order/SKILL.md Rule E2 for a single evaluation round.
+  Single-round evaluation executor for lulu-dev-workflow tech-plan sessions.
+  Invoked by tech-plan/SKILL.md eval-rules per evaluation round.
+  Evaluates e1 (product intent) or e2 (codebase consistency). e3 deprecated in Phase 2.
 ---
 
 # eval-runner/SKILL.md
 
-Terminal runner subagent. Evaluates **one dimension** (`e1`, `e2`, or `e3`) per invocation.
+> **e3 deprecated (Phase 2):** replaced by Round Iteration Prober. This runner evaluates **e1** or **e2** only.
+
+Terminal runner subagent. Evaluates **one dimension** (`e1` or `e2`) per invocation.
 
 ---
 
 ## Required Inputs
 
 ```
-DIMENSION           e1 | e2 | e3
+DIMENSION           e1 | e2
 TECH_DOC_PATH       absolute path to the revision tech-doc.md
 EVALUATE_STATE_PATH absolute path to revision{N}/evaluate-state.md
 EVALUATE_DIR        absolute path to revision{N}/evaluate{M}/
@@ -31,7 +32,6 @@ Dimension-specific:
 |-----------|------------------|
 | `e1` | `PRODUCT_REF`, `TEMPLATE_SECTION` (`tech-plan`), `TEMPLATE_KEY` (`ptc_url`), `PROJECT_ROOT` |
 | `e2` | `PROJECT_ROOT` (read `TECH_DOC_PATH` to identify relevant code paths — see Step 1 e2 rule) |
-| `e3` | `TEMPLATE_SECTION` (`tech-plan`), `TEMPLATE_KEY` (`tpef_url` or `shaping_tpef_url`), `PROJECT_ROOT` |
 
 ---
 
@@ -43,7 +43,6 @@ Dimension-specific:
   - **legacy template** (contains `§5` / `§6` headings): parse `§5 Data Flow` and `§6 API / Interfaces` instead
   - Read the identified code files
 - For `e1`: read `PRODUCT_REF`; use `$FETCH_TEMPLATE {TEMPLATE_SECTION} {TEMPLATE_KEY}`; read stdout as PTC framework
-- For `e3`: use `$FETCH_TEMPLATE {TEMPLATE_SECTION} {TEMPLATE_KEY}`; read stdout as TPEF framework
 
 ---
 
@@ -55,7 +54,6 @@ Evaluate the dimension against `TECH_DOC_PATH` and loaded references.
 |-----|-------|
 | `e1` | Intent alignment — does the tech design faithfully implement the product requirements? |
 | `e2` | Codebase consistency — does the design align with existing code structure / conventions? |
-| `e3` | Solution quality — does the design follow TPEF / Shaping TPEF standards? |
 
 Output: ordered list of issues, each with:
 - `id`: e.g. `e2-1`, `e2-2`
@@ -68,7 +66,7 @@ Output: ordered list of issues, each with:
 ## Step 3 — Write review skeleton
 
 Path: `{EVALUATE_DIR}/tech-review-e{M}{DIM_N}.md`
-where `DIM_N` = dimension index (e1→1, e2→2, e3→3).
+where `DIM_N` = dimension index (e1→1, e2→2).
 
 ```markdown
 # Tech Review — {DIMENSION upper} | Round {M}

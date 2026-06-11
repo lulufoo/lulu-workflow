@@ -47,10 +47,6 @@ e2_status: pending
 e2_total_issues: 0
 e2_resolved_issues: 0
 
-e3_status: pending
-e3_total_issues: 0
-e3_resolved_issues: 0
-
 total_issues: 0
 resolved_issues: 0
 
@@ -66,12 +62,12 @@ fix_severity_reason: ""
 Each review file shares the same structure; column set varies by dimension:
 
 ```markdown
-# {E1|E2|E3} Review: {Intent Alignment|Codebase Consistency|Solution Quality} — revision{N} round {M}
+# {E1|E2} Review: {Intent Alignment|Codebase Consistency} — revision{N} round {M}
 
 **Date:** YYYY-MM-DD
-**Refs:** [E1: product_ref + ptc_url / E2: relevant code paths / E3: tpef_url]
+**Refs:** [E1: product_ref + ptc_url / E2: relevant code paths]
 
-| # | Issue | [E2: file] | [E3: dimension] | Severity | Status | Decision |
-|---|-------|-----------|-----------------|----------|--------|---------|
-| {E1|E2|E3}-1 | ... | ... | critical/medium/minor | ✅ Fixed | fix |
+| # | Issue | [E2: file] | Severity | Status | Decision |
+|---|-------|-----------|----------|--------|---------|
+| {E1|E2}-1 | ... | ... | critical/medium/minor | ✅ Fixed | fix |
 ```

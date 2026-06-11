@@ -3,7 +3,7 @@ name: tech-plan
 description: >-
   Use when: 技术方案, 技术设计, tech design, tech-doc, 技术文档, 架构设计,
   技术规格, 技术实现方案, tech-doc workflow, 技术文档流程, 技术文档状态迁移,
-  lulu-dev-workflow tech-plan, E1 E2 E3 评估, tech review, tech delivered.
+  lulu-dev-workflow tech-plan, E1 E2 评估, Round Iteration, tech review, tech delivered.
 disable-model-invocation: true
 ---
 
@@ -96,8 +96,14 @@ Write only `revision{N}/tech-doc.md`. It is the sole AI-generated artifact.
 
 #### Drafting Sub-State Machine
 
-1. Substep states: `Ready → Initializing → L1Scaffold → FreeEdit`
+1. Substep states: `Ready → Initializing → L1Scaffold → RoundIteration → FreeEdit`
 2. Substep state is recorded in `drafting-progress.md`.
+
+#### Blocking policy
+
+If the workflow cannot advance: **stop** (no retry, skip, or workaround), **report** the reason (stderr, exit code), and **wait** for user direction before continuing.
+
+Any `round_state.py` non-zero exit → apply Blocking policy.
 
 #### Step 0 — Entry
 
@@ -116,7 +122,7 @@ Use:
 - `Use $FETCH_TEMPLATE tech-plan <key>`
 - Read stdout as template body; on failure report error and stop current step.
 
-Then dispatch Steps 1 → 3 in order. If returning from Evaluating fix, enter Step 4 directly.
+Then dispatch Steps 1 → 3 → 3.5 in order. If returning from Evaluating fix, enter Step 4 directly.
 
 #### Step 1 — Initializing
 
@@ -140,17 +146,130 @@ Await completion (`$SUBAGENT_AWAIT_SYNC`); verify `drafting-progress.md: current
 #### Step 3 — L1Scaffold
 
 Entry condition: `drafting-progress.md: current_step: L1Scaffold`.
+Exit condition: `drafting-progress.md: current_step: RoundIteration`.
 
-Phase 1 bypass: write `drafting-progress.md: current_step: FreeEdit` directly and enter Step 4.
+Write `drafting-progress.md` with:
 
-> Phase 2 will insert a lightweight L1 fill loop here before FreeEdit.
+```yaml
+---
+version: 1
+cycle_id: {cycle_id}
+current_step: RoundIteration
+round: 1
+---
+```
+
+Then enter Step 3.5.
+
+#### Step 3.5 — Round Iteration Loop
+
+Entry condition: `drafting-progress.md: current_step: RoundIteration`.
+
+Each round (Round N):
+
+1. **Probe** — dispatch `prober-runner`:
+
+```text
+Load {actual $SKILL_ROOT}/tech-plan/prober-runner/SKILL.md and follow its instructions.
+
+## Input
+CYCLE_DIR:      {absolute path to $CACHE_DIR/<cycle_id>}
+CYCLE_TYPE:     {feature | topic}
+ROUND_N:        {N from drafting-progress.md}
+TECH_DOC_PATH:  {absolute path to revision{N}/tech-doc.md}
+```
+
+Pin ProbeReport at top of conversation; keep visible for the entire round.
+
+Track round context throughout step 2 (reset at start of each round):
+
+- `round_had_accept`: `true` if any zoom was accepted this round
+- `round_probe_failures`: count of ProbeReport lines that are not `无问题` at round start (before human decisions)
+
+2. **Human decide** — for each ProbeReport item:
+   - `accept` → dispatch `refiner-runner` (ProbeReport stays pinned)
+   - `reject` / `skip` → mark as ignored this round (ProbeReport stays pinned)
+   - `redirect` → human edits `tech-doc.md` directly (ProbeReport stays pinned)
+   - `commit-anchor` → append anchor:
+
+```bash
+python3 "$SKILL_DIR/scripts/round_state.py" \
+  --cycle-dir "$CACHE_DIR/$CYCLE_ID" \
+  append-anchor --section {X} --criterion "..." --round {N}
+```
+
+Refiner dispatch (per accept):
+
+```text
+Load {actual $SKILL_ROOT}/tech-plan/refiner-runner/SKILL.md and follow its instructions.
+
+## Input
+CYCLE_DIR:       {absolute path to $CACHE_DIR/<cycle_id>}
+CYCLE_TYPE:      {feature | topic}
+SECTION:         {section key or name}
+CURRENT_L:       {current L}
+TARGET_L:        {target L}
+ROUND_N:         {N}
+TECH_DOC_PATH:   {absolute path to revision{N}/tech-doc.md}
+ZOOM_EVIDENCE:   {probe failure evidence}
+```
+
+3. **Round end** — when human confirms all items handled, run L0 block check:
+
+```bash
+python3 "$SKILL_DIR/scripts/round_state.py" \
+  --cycle-dir "$CACHE_DIR/$CYCLE_ID" \
+  check-l0
+```
+
+If `l0_sections` is non-empty → block with message:
+> 以下 section 仍为 L0，必须处理后才能进入下一轮：{section list}
+
+4. **Skip ledger** — write non-L0 reject/skip entries:
+
+```bash
+python3 "$SKILL_DIR/scripts/round_state.py" \
+  --cycle-dir "$CACHE_DIR/$CYCLE_ID" \
+  append-skip --section {X} --probe {P1} --round {N}
+```
+
+5. **Convergence** — build flags from tracked round context (do not hardcode):
+
+| Condition | Flag |
+|---|---|
+| No zoom accepted this round | `--no-accept` |
+| Every initial ProbeReport failure was accept-resolved, reject/skip-recorded, or redirect-fixed; no open failures remain | `--probes-passed` |
+
+Example when both hold:
+
+```bash
+python3 "$SKILL_DIR/scripts/round_state.py" \
+  --cycle-dir "$CACHE_DIR/$CYCLE_ID" \
+  check-convergence --no-accept --probes-passed
+```
+
+Omit `--probes-passed` when any probe failure was skipped/rejected without resolution. Omit `--no-accept` when any zoom was accepted.
+
+- `converged: true` → advance:
+
+```bash
+python3 "$SKILL_DIR/scripts/round_state.py" \
+  --cycle-dir "$CACHE_DIR/$CYCLE_ID" \
+  advance-to-freeedit
+```
+
+Then enter Step 4.
+
+- `converged: false` → increment `round` in `drafting-progress.md` → return to step 1.
+
+Exit condition: `drafting-progress.md: current_step: FreeEdit`.
 
 #### Step 4 — FreeEdit
 
 Entry paths:
 
-- after Step 3 — L1Scaffold bypass completes
-- after Evaluating returns fix to Drafting (resume directly here; skip Steps 1–3)
+- after Step 3.5 — Round Iteration converges
+- after Evaluating returns fix to Drafting (resume directly here; skip Steps 1–3.5)
 
 Rules:
 

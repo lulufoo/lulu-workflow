@@ -27,9 +27,6 @@ e1_resolved_issues: 0
 e2_status: pending
 e2_total_issues: 0
 e2_resolved_issues: 0
-e3_status: pending
-e3_total_issues: 0
-e3_resolved_issues: 0
 total_issues: 0
 resolved_issues: 0
 fix_severity: ""
@@ -50,8 +47,8 @@ e2_status: pending
 
 | `mode` | Dispatch sequence |
 |--------|------------------|
-| `product` | `[e1, e2, e3]` |
-| `tech` | `[e2, e3]` |
+| `product` | `[e1, e2]` |
+| `tech` | `[e2]` |
 
 ---
 
@@ -75,8 +72,6 @@ EXECUTION_MODE:       {guided | autonomous}
 [e1 only] PRODUCT_REF: {product_ref from workflow-state.md}
 [e1 only] TEMPLATE_SECTION: tech-plan
 [e1 only] TEMPLATE_KEY:     ptc_url
-[e3 only] TEMPLATE_SECTION: tech-plan
-[e3 only] TEMPLATE_KEY:     tpef_url | shaping_tpef_url
 PROJECT_ROOT:         {project root absolute path}
 ```
 
@@ -92,7 +87,7 @@ PROJECT_ROOT:         {project root absolute path}
 
 After all dimensions complete:
 
-1. Read all completed review files (`evaluate{M}/tech-review-e{M}1.md`, `e{M}2.md`, `e{M}3.md`) — only those that exist
+1. Read all completed review files (`evaluate{M}/tech-review-e{M}1.md`, `e{M}2.md`) — only those that exist
 2. Collect the `Severity` column of every issue row; determine `fix_severity` as the highest level found (critical > medium > minor); if all ignored, use `minor`
 3. Write `fix_severity_reason` (one sentence citing the most severe issue)
 4. Write `evaluate-state.md`: `current_dimension: done`, `fix_severity` and `fix_severity_reason` filled in
