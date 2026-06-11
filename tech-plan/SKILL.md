@@ -112,7 +112,7 @@ Write only `revision{N}/tech-doc.md`. It is the sole AI-generated artifact.
 
 #### Drafting Sub-State Machine
 
-1. Substep states: `Ready → Initializing → L1Scaffold → RoundIteration → FreeEdit`
+1. Substep states: `Ready → RoundIteration → FreeEdit` (Initializing is Step 1 only; not persisted in `current_step`)
 2. Substep state is recorded in `drafting-progress.md`.
 
 #### Blocking policy
@@ -138,12 +138,12 @@ Use:
 - `Use $FETCH_TEMPLATE tech-plan <key>`
 - Read stdout as template body; on failure report error and stop current step.
 
-Then dispatch Steps 1 → 3 → 3.5 in order. If returning from Evaluating fix, enter Step 4 directly.
+Then dispatch Steps 1 → 3 in order. If returning from Evaluating fix, enter Step 4 directly.
 
 #### Step 1 — Initializing
 
 Entry condition: `drafting-progress.md: current_step: Ready` (or file absent).
-Exit condition: subagent writes `drafting-progress.md: current_step: L1Scaffold`.
+Exit condition: `tech-doc.md` seeded; `drafting-progress.md` records `cycle_id`.
 
 Dispatch:
 
@@ -157,14 +157,13 @@ CYCLE_TYPE:           {feature | topic}
 CYCLE_ID:             {cycle_id}
 ```
 
-Await completion (`$SUBAGENT_AWAIT_SYNC`); verify `drafting-progress.md: current_step: L1Scaffold`.
+Await completion (`$SUBAGENT_AWAIT_SYNC`); verify `revision{N}/tech-doc.md` exists.
 
-#### Step 3 — L1Scaffold
+#### Step 3 — Round Iteration Loop
 
-Entry condition: `drafting-progress.md: current_step: L1Scaffold`.
-Exit condition: `drafting-progress.md: current_step: RoundIteration`.
+Entry: Step 1 complete, or `drafting-progress.md: current_step: RoundIteration`.
 
-Write `drafting-progress.md` with:
+On first entry after Step 1, write `drafting-progress.md`:
 
 ```yaml
 ---
@@ -174,12 +173,6 @@ current_step: RoundIteration
 round: 1
 ---
 ```
-
-Then enter Step 3.5.
-
-#### Step 3.5 — Round Iteration Loop
-
-Entry condition: `drafting-progress.md: current_step: RoundIteration`.
 
 Each round (Round N):
 
@@ -284,8 +277,8 @@ Exit condition: `drafting-progress.md: current_step: FreeEdit`.
 
 Entry paths:
 
-- after Step 3.5 — Round Iteration converges
-- after Evaluating returns fix to Drafting (resume directly here; skip Steps 1–3.5)
+- after Step 3 — Round Iteration converges
+- after Evaluating returns fix to Drafting (resume directly here; skip Steps 1–3)
 
 Rules:
 

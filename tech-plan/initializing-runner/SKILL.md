@@ -3,7 +3,7 @@ name: initializing-runner
 description: >-
   Autonomous Initializing step for tech-plan drafting. Reads template/meta from
   parent-provided raw sources, seeds the initial tech-doc with provenance tags and
-  state-vector, writes drafting-progress.md, then returns control to L1Scaffold.
+  state-vector, writes drafting-progress.md, then returns control to Step 3 — Round Iteration.
 ---
 
 # initializing-runner
@@ -167,7 +167,7 @@ Write directly:
 ---
 version: 1
 cycle_id: {CYCLE_ID}
-current_step: L1Scaffold
+current_step: Ready
 ---
 ```
 
@@ -193,6 +193,6 @@ Initializing complete.
   Seeded (I): <space-separated seeded section names>
   Skeleton (X): <space-separated skeleton section names>
   State Vector: NS:L? NG:L? KD:L? SK:L? T:L?
-  Next step: L1Scaffold
+  Next step: Round Iteration Loop (Step 3)
 ```
 
