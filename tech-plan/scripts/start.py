@@ -188,7 +188,7 @@ def main() -> int:
         else:
             calibration_note = "首次起草（产品需求模式），进入 Drafting 后必须校准（读取模板 + 架构约束 + product-doc）。"
     else:
-        calibration_note = "技改模式：E1 意图对齐评估将跳过，仅执行 E3（代码库一致性）+ E2（方案质量）。"
+        calibration_note = "技改模式：E1 意图对齐评估将跳过，仅执行 E2（代码库一致性）+ E3（方案质量 / TPEF）。"
 
     print(f"""
 会话已启动。
