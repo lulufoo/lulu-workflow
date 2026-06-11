@@ -57,6 +57,10 @@ def approval_path(cycle_id: str, doc_round: int) -> Path:
     return doc_dir(cycle_id, doc_round) / "human-delivery-gate.md"
 
 
+def tech_doc_path(cycle_id: str, doc_round: int) -> Path:
+    return doc_dir(cycle_id, doc_round) / "tech-doc.md"
+
+
 def eval_round_dir(cycle_id: str, doc_round: int, evaluate_round: int) -> Path:
     return doc_dir(cycle_id, doc_round) / f"evaluate{evaluate_round}"
 
