@@ -2,8 +2,8 @@
 name: initializing-runner
 description: >-
   Autonomous Initializing step for tech-plan drafting. Reads template/meta from
-  parent-provided raw sources, seeds the initial tech-doc with §state provenance
-  comments, writes drafting-progress.md, then returns control to L1Scaffold.
+  parent-provided raw sources, seeds the initial tech-doc with provenance tags and
+  state-vector, writes drafting-progress.md, then returns control to L1Scaffold.
 ---
 
 # initializing-runner
@@ -17,7 +17,7 @@ This skill is responsible for Step I1-I4 only:
 1. Read the authoritative template and meta documents from parent-provided inputs.
 2. Read the current cycle `decision-doc.md`.
 3. Seed the first `tech-doc.md` draft from `Decision-Doc Mapping`.
-4. Write provenance comment `§state:I` or `§state:X` above each section heading in tech-doc.
+4. Write seeded content with `[Source: ...]` tags and derive the initial state-vector.
 
 Do not ask the user questions.
 Do not perform InDialogue, Reopen, Evaluating, or delivery work here.
@@ -145,9 +145,6 @@ Render the full tech document in template order:
 
 - preserve the template preamble/frontmatter
 - preserve every heading
-- immediately above each section heading, insert the provenance comment:
-  - `fill_results[section_name].status = "I"` → `<!-- §state:I -->`
-  - `fill_results[section_name].status = "X"` → `<!-- §state:X -->`
 - use `fill_results[section_name].content` as the body for each parsed section
 - leave untouched sections as their original skeleton
 

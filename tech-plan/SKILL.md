@@ -274,8 +274,6 @@ Entry paths:
 Rules:
 
 - User drives edits; AI assists on request.
-- AI adding new sections must write `<!-- §state:U -->` immediately above the heading.
-- Existing `§state:` comments are immutable — do not modify or delete.
 - On user "完成": write `workflow-state.md` → `current_state: Evaluating`.
 
 ### Evaluating Rules
