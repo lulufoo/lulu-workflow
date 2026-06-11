@@ -4,7 +4,7 @@
 Aggregates schema modules for SKILL-facing reads. No state mutations.
 
 CLI:
-    python3 session_info.py --cycle-id <id> --project-root . [--view delivery-preview|session]
+    python3 session_info.py --cycle-id <id> --project-root . [--view delivery-preview|session|stage-transitions]
 """
 
 from __future__ import annotations
@@ -16,8 +16,10 @@ from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+from hook_guard import load_transitions  # noqa: E402
 from tech_doc_schema import load_presentation_from_cycle  # noqa: E402
-from workflow_common import read_md_field, session_base_dir  # noqa: E402
+from workflow_common import STAGE, detect_cycle_type, read_md_field, session_base_dir  # noqa: E402
 from workflow_state_schema import (  # noqa: E402
     load_workflow_state,
     resolve_workflow_state_path_from_cycle,
@@ -25,7 +27,12 @@ from workflow_state_schema import (  # noqa: E402
 
 _VIEW_DELIVERY_PREVIEW = "delivery-preview"
 _VIEW_SESSION = "session"
-_VALID_VIEWS = frozenset({_VIEW_DELIVERY_PREVIEW, _VIEW_SESSION})
+_VIEW_STAGE_TRANSITIONS = "stage-transitions"
+_VALID_VIEWS = frozenset({
+    _VIEW_DELIVERY_PREVIEW,
+    _VIEW_SESSION,
+    _VIEW_STAGE_TRANSITIONS,
+})
 
 
 def _active_doc(cycle_id: str, project_root: Path) -> int:
@@ -51,6 +58,14 @@ def delivery_preview(cycle_id: str, project_root: Path) -> dict[str, Any]:
             "summary": tech_doc["summary"],
         },
     }
+
+
+def stage_transitions(cycle_id: str, project_root: Path) -> dict[str, Any]:
+    """Return allowed next stages from transition-table.json for this stage."""
+    cycle_type = detect_cycle_type(cycle_id)
+    transitions = load_transitions(cycle_type)
+    next_stages = sorted(transitions.get(STAGE, set()))
+    return {"next_stages": next_stages}
 
 
 def session_snapshot(cycle_id: str, project_root: Path) -> dict[str, Any]:
@@ -87,6 +102,8 @@ def get_session_info(
         raise ValueError(f"unknown view: {view!r} (allowed: {sorted(_VALID_VIEWS)})")
     if view == _VIEW_SESSION:
         return session_snapshot(cycle_id, project_root)
+    if view == _VIEW_STAGE_TRANSITIONS:
+        return stage_transitions(cycle_id, project_root)
     return delivery_preview(cycle_id, project_root)
 
 

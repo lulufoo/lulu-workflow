@@ -288,7 +288,7 @@ python3 "$SKILL_DIR/scripts/session_control.py" \
   ready-for-delivery
 ```
 
-> On non-zero exit: apply Blocking policy. 必须停止执行。
+> On non-zero exit: apply Blocking policy.
 > On success: follow **ReadyForDelivery Rules** below.
 
 ### Evaluating Rules
@@ -338,6 +338,16 @@ python3 "$SKILL_DIR/scripts/session_control.py" \
 
 ### Delivery Rules
 
-Before presenting next stages to the user, read `../_transitions.md` and follow the Stage Transitions rules.
+1. Run:
+
+```bash
+python3 "$SKILL_DIR/scripts/session_info.py" \
+  --cycle-id "<cycle_id>" \
+  --project-root "$(pwd)" \
+  --view stage-transitions
+```
+
+> On non-zero exit: apply Blocking policy.
+> On success: prompt next stages when present.
 
 ---

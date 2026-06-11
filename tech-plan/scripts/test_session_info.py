@@ -11,10 +11,23 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from session_info import delivery_preview, get_session_info, session_snapshot  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+from hook_guard import load_transitions  # noqa: E402
+from session_info import (  # noqa: E402
+    delivery_preview,
+    get_session_info,
+    session_snapshot,
+    stage_transitions,
+)
+from workflow_common import STAGE  # noqa: E402
 from workflow_state_schema import save_workflow_state  # noqa: E402
 
 _SCRIPT = Path(__file__).resolve().parent / "session_info.py"
+
+
+def _expected_next_stages(cycle_id: str) -> list[str]:
+    cycle_type = "topic" if cycle_id.startswith("topic-") else "feature"
+    return sorted(load_transitions(cycle_type).get(STAGE, set()))
 
 
 def _setup_cycle(tmp_path: Path) -> tuple[Path, str]:
@@ -64,6 +77,19 @@ class TestSessionSnapshot:
         assert payload["tech_doc"]["revision"] == 1
 
 
+class TestStageTransitions:
+    def test_matches_transition_table_for_feature(self, tmp_path: Path):
+        project_root, cycle_id = _setup_cycle(tmp_path)
+        payload = stage_transitions(cycle_id, project_root)
+        assert payload == {"next_stages": _expected_next_stages(cycle_id)}
+
+    def test_matches_transition_table_for_topic(self, tmp_path: Path):
+        project_root, _ = _setup_cycle(tmp_path)
+        cycle_id = "topic-session-info"
+        payload = stage_transitions(cycle_id, project_root)
+        assert payload == {"next_stages": _expected_next_stages(cycle_id)}
+
+
 class TestGetSessionInfo:
     def test_unknown_view_raises(self, tmp_path: Path):
         project_root, cycle_id = _setup_cycle(tmp_path)
@@ -92,3 +118,23 @@ class TestCli:
         payload = json.loads(result.stdout)
         assert payload["view"] == "delivery-preview"
         assert payload["tech_doc"]["title"] == "Feature X"
+
+    def test_stage_transitions_view(self, tmp_path: Path):
+        project_root, cycle_id = _setup_cycle(tmp_path)
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(_SCRIPT),
+                "--cycle-id",
+                cycle_id,
+                "--project-root",
+                str(project_root),
+                "--view",
+                "stage-transitions",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        payload = json.loads(result.stdout)
+        assert payload == {"next_stages": _expected_next_stages(cycle_id)}
