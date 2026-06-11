@@ -96,7 +96,7 @@ Write only `revision{N}/tech-doc.md`. It is the sole AI-generated artifact.
 
 #### Drafting Sub-State Machine
 
-1. Substep states: `Ready → Initializing → Scoping → Generating → FreeEdit`
+1. Substep states: `Ready → Initializing → L1Scaffold → FreeEdit`
 2. Substep state is recorded in `drafting-progress.md`.
 
 #### Step 0 — Entry
@@ -109,20 +109,19 @@ Read `workflow-state.md` → `evaluate_round`, `mode`, `carry_forward_ref`.
 
 Resolve drafting template keys from cycle type (sub-agents fetch via `$FETCH_TEMPLATE`):
 
-- feature → `tech-plan` / `tpt_url`
-- topic → `tech-plan` / `shaping_tpt_url`
-- shared meta → `tech-plan` / `tpt_meta_url`
+- feature → template: `tech-plan` / `tpt_v2_url`；meta: `tech-plan` / `tpt_meta_v2_url`
+- topic → template: `tech-plan` / `shaping_tpt_url`；meta: `tech-plan` / `tpt_meta_url`
 
 Use:
 - `Use $FETCH_TEMPLATE tech-plan <key>`
 - Read stdout as template body; on failure report error and stop current step.
 
-Then dispatch Steps 1 → 2 → 3 in order. If returning from Evaluating fix, enter Step 4 directly.
+Then dispatch Steps 1 → 3 in order. If returning from Evaluating fix, enter Step 4 directly.
 
 #### Step 1 — Initializing
 
 Entry condition: `drafting-progress.md: current_step: Ready` (or file absent).
-Exit condition: subagent writes `drafting-progress.md: current_step: Scoping`.
+Exit condition: subagent writes `drafting-progress.md: current_step: L1Scaffold`.
 
 Dispatch:
 
@@ -136,52 +135,21 @@ CYCLE_TYPE:           {feature | topic}
 CYCLE_ID:             {cycle_id}
 ```
 
-Await completion (`$SUBAGENT_AWAIT_SYNC`); verify `drafting-progress.md: current_step: Scoping`.
+Await completion (`$SUBAGENT_AWAIT_SYNC`); verify `drafting-progress.md: current_step: L1Scaffold`.
 
-#### Step 2 — Scoping
+#### Step 3 — L1Scaffold
 
-Entry condition: `drafting-progress.md: current_step: Scoping`.
-Exit condition: subagent writes `drafting-progress.md: current_step: Generating`.
+Entry condition: `drafting-progress.md: current_step: L1Scaffold`.
 
-Dispatch:
+Phase 1 bypass: write `drafting-progress.md: current_step: FreeEdit` directly and enter Step 4.
 
-```text
-Load {actual $SKILL_ROOT}/tech-plan/scoping-runner/SKILL.md and follow its instructions.
-
-## Input
-REVISION_DIR:      {absolute path to revision{N}/}
-DECISION_DOC_PATH: {absolute path to decision-doc.md}
-```
-
-Await completion (`$SUBAGENT_AWAIT_SYNC`); verify `drafting-progress.md: current_step: Generating`; enter Step 3.
-
-#### Step 3 — Generating
-
-Before starting, ask: "Proceed to Generating, or skip to FreeEdit?" — confirm → continue Step 3 — Generating; skip → go directly to Step 4 — FreeEdit.
-
-Entry condition: `drafting-progress.md: current_step: Generating`.
-Exit condition: subagent writes `drafting-progress.md: current_step: FreeEdit`.
-
-Dispatch:
-
-```text
-Load {actual $SKILL_ROOT}/tech-plan/generating-runner/SKILL.md and follow its instructions.
-
-## Input
-REVISION_DIR:      {absolute path to revision{N}/}
-DECISION_DOC_PATH: {absolute path to decision-doc.md}
-CYCLE_ID:          {cycle_id}
-```
-
-Await completion (`$SUBAGENT_AWAIT_SYNC`); verify `drafting-progress.md: current_step: FreeEdit`.
-
-Present the full `tech-doc.md` to the user as a complete draft; enter Step 4.
+> Phase 2 will insert a lightweight L1 fill loop here before FreeEdit.
 
 #### Step 4 — FreeEdit
 
 Entry paths:
 
-- after Step 3 — Generating completes
+- after Step 3 — L1Scaffold bypass completes
 - after Evaluating returns fix to Drafting (resume directly here; skip Steps 1–3)
 
 Rules:

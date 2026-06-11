@@ -1,5 +1,7 @@
 ---
 name: scoping-runner
+deprecated: true
+deprecated_reason: N/A determination (N/A-s / N/A-c) is superseded by L0 defaults in the 5-layer model. Section Conditions are no longer written into v2 meta.
 description: >-
   Autonomous Scoping step for tech-plan drafting. Evaluates conditional sections
   for N/A-s or N/A-c using embedded section conditions, writes §state provenance

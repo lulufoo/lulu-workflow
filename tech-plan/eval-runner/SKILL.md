@@ -30,7 +30,7 @@ Dimension-specific:
 | Dimension | Additional inputs |
 |-----------|------------------|
 | `e1` | `PRODUCT_REF`, `TEMPLATE_SECTION` (`tech-plan`), `TEMPLATE_KEY` (`ptc_url`), `PROJECT_ROOT` |
-| `e2` | `PROJECT_ROOT` (read `TECH_DOC_PATH` §5 / §6 to identify relevant code paths) |
+| `e2` | `PROJECT_ROOT` (read `TECH_DOC_PATH` to identify relevant code paths — see Step 1 e2 rule) |
 | `e3` | `TEMPLATE_SECTION` (`tech-plan`), `TEMPLATE_KEY` (`tpef_url` or `shaping_tpef_url`), `PROJECT_ROOT` |
 
 ---
@@ -38,7 +38,10 @@ Dimension-specific:
 ## Step 1 — Load context
 
 - Read `TECH_DOC_PATH`
-- For `e2`: parse §5 (Data Flow) and §6 (API / Interfaces) to identify relevant code files; read those files
+- For `e2`: locate relevant code entry points using the following priority rule:
+  - **v2 template** (contains `## Approach Skeleton` or `## Tasks` headings): parse those sections to identify relevant code files
+  - **legacy template** (contains `§5` / `§6` headings): parse `§5 Data Flow` and `§6 API / Interfaces` instead
+  - Read the identified code files
 - For `e1`: read `PRODUCT_REF`; use `$FETCH_TEMPLATE {TEMPLATE_SECTION} {TEMPLATE_KEY}`; read stdout as PTC framework
 - For `e3`: use `$FETCH_TEMPLATE {TEMPLATE_SECTION} {TEMPLATE_KEY}`; read stdout as TPEF framework
 

@@ -1,5 +1,7 @@
 ---
 name: generating-runner
+deprecated: true
+deprecated_reason: Replaced by L1Scaffold bypass in tech-plan v2 (one-period). Generating step is no longer dispatched; AI enters FreeEdit directly from initializing-runner.
 description: >-
   Autonomous Generating step for tech-plan drafting. Scans tech-doc for §state:X
   sections, generates content for each from decision-doc context, writes §state:P
