@@ -3,7 +3,7 @@ name: initializing-runner
 description: >-
   Autonomous Initializing step for tech-plan drafting. Reads template/meta from
   parent-provided raw sources, seeds the initial tech-doc with §state provenance
-  comments, writes drafting-progress.md, then returns control to Scoping.
+  comments, writes drafting-progress.md, then returns control to L1Scaffold.
 ---
 
 # initializing-runner
@@ -20,7 +20,7 @@ This skill is responsible for Step I1-I4 only:
 4. Write provenance comment `§state:I` or `§state:X` above each section heading in tech-doc.
 
 Do not ask the user questions.
-Do not perform Scoping, InDialogue, Reopen, Evaluating, or delivery work here.
+Do not perform InDialogue, Reopen, Evaluating, or delivery work here.
 
 ## Parent-Provided Inputs
 
@@ -30,47 +30,45 @@ The parent skill must inject these values before invoking this sub-skill:
 |---|---|
 | `$REVISION_DIR` | Absolute path to `revision{N}/` — output paths are derived from this |
 | `$DECISION_DOC_PATH` | Absolute path to the current cycle decision doc |
-| `$CYCLE_TYPE` | `feature` or `topic` — selects `tpt_url` vs `shaping_tpt_url` in workflow-config.json |
+| `$CYCLE_TYPE` | `feature` or `topic` — selects `tpt_v2_url` (feature) vs `shaping_tpt_url` (topic) in workflow-config.json |
 | `$CYCLE_ID` | Active cycle id |
 
 Self-resolved at runtime (do not pass from parent):
 - `$TEMPLATE_SECTION` = `tech-plan`
-- `$TEMPLATE_KEY` — `tpt_url` (feature) or `shaping_tpt_url` (topic)
-- `$META_KEY` — `tpt_meta_url`
+- `$TEMPLATE_KEY` — `tpt_v2_url` (feature) or `shaping_tpt_url` (topic)
+- `$META_KEY` — `tpt_meta_v2_url` (feature) or `tpt_meta_url` (topic)
 - `$TECH_DOC_PATH` = `{REVISION_DIR}/tech-doc.md`
 - `$DRAFTING_PROGRESS_PATH` = `{REVISION_DIR}/drafting-progress.md`
 
 Load templates via the shared entry (see `../_runtime.md` → Template Fetch):
 
 ```text
-Use $FETCH_TEMPLATE tech-plan tpt_meta_url
+Use $FETCH_TEMPLATE tech-plan $META_KEY
 ```
 
-Replace `tpt_meta_url` with `$TEMPLATE_KEY` for the template skeleton fetch.
+Replace `$META_KEY` with `$TEMPLATE_KEY` for the template skeleton fetch.
 
 ## Execution Contract
 
 ### Step I1 - Load mapping table and template skeleton
 
-1. Use `$FETCH_TEMPLATE tech-plan tpt_meta_url`; read stdout as meta markdown.
+1. Use `$FETCH_TEMPLATE tech-plan $META_KEY`; read stdout as meta markdown.
 2. Locate the `## Decision-Doc Mapping` table.
 3. Parse the mapping rows into:
 
 ```text
 [
-  { source, target, method, notes }
+  { source, target, method, hard_constraint, notes }
 ]
 ```
 
 4. Skip rows where `target` is `—`.
 5. Use `$FETCH_TEMPLATE $TEMPLATE_SECTION $TEMPLATE_KEY`; read stdout as template markdown.
-6. Parse the template into an ordered section map keyed by tech-doc section id:
-   - top-level: `§1` ... `§10`
-   - sub-sections where present: `§2.1`, `§2.2`, `§3.1`, etc.
+6. Parse the template into an ordered section map keyed by section heading name (e.g. `North Star`, `Non-Goals`, `Invariants`, `Key Decisions`, `Approach Skeleton`, `Tasks`).
 7. Initialize `fill_results` from the template skeleton:
 
 ```text
-fill_results[section_id] = {
+fill_results[section_name] = {
   heading: <original heading line>,
   content: <original template body>,
   status: "X"
@@ -108,7 +106,9 @@ Apply the method as follows:
 #### `Direct`
 
 - Replace the target section body with `source_content`.
-- Set `fill_results[target].status = "I"`.
+- Append `[Source: decision-doc.md#{source}]` at the end of the seeded content.
+- If `hard_constraint: true`, also append `[Anchored: R0, by human]`.
+- Set `fill_results[target_name].status = "I"`.
 
 #### `Extract`
 
@@ -116,7 +116,9 @@ Apply the method as follows:
 - Keep only implementation-relevant material requested by the mapping row.
 - If the extracted result is non-empty:
   - replace the target section body with the extracted content
-  - set `fill_results[target].status = "I"`
+  - append `[Source: decision-doc.md#{source}]` at the end
+  - if `hard_constraint: true`, also append `[Anchored: R0, by human]`
+  - set `fill_results[target_name].status = "I"`
 - If the extracted result is empty, leave the original skeleton and keep status `X`.
 
 #### `Transform`
@@ -144,10 +146,20 @@ Render the full tech document in template order:
 - preserve the template preamble/frontmatter
 - preserve every heading
 - immediately above each section heading, insert the provenance comment:
-  - `fill_results[section_id].status = "I"` → `<!-- §state:I -->`
-  - `fill_results[section_id].status = "X"` → `<!-- §state:X -->`
-- use `fill_results[section_id].content` as the body for each parsed section
+  - `fill_results[section_name].status = "I"` → `<!-- §state:I -->`
+  - `fill_results[section_name].status = "X"` → `<!-- §state:X -->`
+- use `fill_results[section_name].content` as the body for each parsed section
 - leave untouched sections as their original skeleton
+
+After rendering all sections, derive the initial State Vector from `fill_results`:
+- `status: "I"` → `L1`; `status: "X"` → `L0`
+- Map to the 5 dimensions: `NS`, `NG`, `KD`, `SK`, `T`
+- Update the `<!-- state-vector: ... -->` comment in the document header.
+
+Example result:
+```
+<!-- state-vector: NS:L0, NG:L1, KD:L1, SK:L1, T:L1 -->
+```
 
 #### 2. Write `$DRAFTING_PROGRESS_PATH`
 
@@ -157,28 +169,22 @@ Write directly:
 ---
 version: 1
 cycle_id: {CYCLE_ID}
-current_step: Scoping
+current_step: L1Scaffold
 ---
 ```
 
 ## Expected Initial Seed Set
 
-When the current mapping table matches the known tech-plan meta, the initialized draft typically seeds:
+When the current mapping table matches the v2 meta, the initialized draft typically seeds:
 
-- `§2.1`
-- `§2.2`
-- `§2.3`
-- `§2.4`
-- `§2.5`
-- `§3.1`
-- `§3.3`
-- `§5.3`
-- `§8.2`
-- `§9.1`
+- `Invariants` (Known Constraints, H-risk 已验证)
+- `Key Decisions` (Decision Rationale, Excluded Directions, H-risk 待验证)
+- `Approach Skeleton` (External Dependencies, Reversibility)
+- `Tasks` (Acceptance Criteria)
 
-Sections such as `§1`, `§3.2`, `§4`, `§5.1`, `§5.2`, `§6`, `§7`, `§8.1`, `§9.2`, `§9.3`, `§9.4`, and `§10` remain skeleton-first unless the template or mapping changes.
+Sections that remain skeleton-first: `North Star`, `Non-Goals` (Transform method keeps status X).
 
-Do not hardcode these ids during execution. Always derive the actual result from the meta and template fetches in Step I1.
+Do not hardcode these names during execution. Always derive the actual result from the meta and template fetches in Step I1.
 
 ## Return Summary
 
@@ -186,8 +192,9 @@ After all writes succeed, return exactly this structure with the actual derived 
 
 ```text
 Initializing complete.
-  Seeded (I): <space-separated seeded section ids>
-  Skeleton (X): <space-separated skeleton section ids>
-  Next step: Scoping
+  Seeded (I): <space-separated seeded section names>
+  Skeleton (X): <space-separated skeleton section names>
+  State Vector: NS:L? NG:L? KD:L? SK:L? T:L?
+  Next step: L1Scaffold
 ```
 
