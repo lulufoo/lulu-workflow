@@ -25,6 +25,7 @@ from workflow_state_schema import (  # noqa: E402
 
 _CMD_READY = "ready-for-delivery"
 _CMD_DELIVER = "deliver"
+_EXPECTED_DELIVER_STATE = "ReadyForDelivery"
 
 
 def _active_doc(cycle_id: str, project_root: Path) -> int:
@@ -49,6 +50,18 @@ def _failure(command: str, current_state: str) -> dict[str, Any]:
         "command": command,
         "current_state": current_state,
         "resume": _build_resume(command, current_state),
+    }
+
+
+def _failure_deliver(current_state: str) -> dict[str, Any]:
+    return {
+        "ok": False,
+        "command": _CMD_DELIVER,
+        "current_state": current_state,
+        "message": (
+            f"deliver 被拒绝：当前状态为 {current_state}，"
+            f"预期状态为 {_EXPECTED_DELIVER_STATE}。请暂停执行，等待用户指示。"
+        ),
     }
 
 
@@ -99,8 +112,8 @@ def deliver(cycle_id: str, project_root: Path, *, note: str = "") -> dict[str, A
     state = load_workflow_state(ws_path)
     current = state["current_state"]
 
-    if current != "ReadyForDelivery":
-        return _failure(_CMD_DELIVER, current)
+    if current != _EXPECTED_DELIVER_STATE:
+        return _failure_deliver(current)
 
     write_approved(_gate_path(cycle_id, project_root), note=note)
 

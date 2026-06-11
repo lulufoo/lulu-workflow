@@ -95,11 +95,11 @@ class TestDeliver:
 
         assert result["ok"] is False
         assert result["current_state"] == "Evaluating"
-        assert result["resume"] == {
-            "entry": "Evaluating",
-            "action": "当前状态是 Evaluating，请先执行完 Evaluating。",
-        }
-        assert "message" not in result
+        assert result["message"] == (
+            "deliver 被拒绝：当前状态为 Evaluating，"
+            "预期状态为 ReadyForDelivery。请暂停执行，等待用户指示。"
+        )
+        assert "resume" not in result
 
     def test_failure_from_drafting(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
@@ -108,7 +108,8 @@ class TestDeliver:
         result = deliver(_CYCLE, tmp_path)
 
         assert result["ok"] is False
-        assert result["resume"]["entry"] == "Drafting"
+        assert "Drafting" in result["message"]
+        assert "resume" not in result
 
 
 class TestCli:
@@ -136,3 +137,6 @@ class TestCli:
         payload = json.loads(proc.stdout)
         assert payload["ok"] is False
         assert payload["command"] == _CMD_DELIVER
+        assert "message" in payload
+        assert "resume" not in payload
+        assert "ReadyForDelivery" in payload["message"]
