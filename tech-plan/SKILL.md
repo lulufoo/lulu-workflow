@@ -321,8 +321,7 @@ python3 "$SKILL_DIR/scripts/session_info.py" \
 ```
 
 > On non-zero exit: apply Blocking policy. 必须停止执行。
-
-向用户展示路径、标题与摘要；除非用户明确要求，不粘贴正文。
+> On success: give the user a delivery preview sufficient to confirm delivery. Do not paste the full tech-doc unless they ask.
 
 2. Wait for explicit delivery confirmation.
 3. Run:
