@@ -304,7 +304,7 @@ python3 "$SKILL_DIR/scripts/session_control.py" \
   ready-for-delivery
 ```
 
-> On non-zero exit: apply Blocking policy. 必须停止执行。
+> On non-zero exit: apply Blocking policy.
 > On success: follow **ReadyForDelivery Rules** below.
 
 ### ReadyForDelivery Rules
@@ -320,8 +320,8 @@ python3 "$SKILL_DIR/scripts/session_info.py" \
   --view delivery-preview
 ```
 
-> On non-zero exit: apply Blocking policy. 必须停止执行。
-> On success: give the user a delivery preview sufficient to confirm delivery. Do not paste the full tech-doc unless they ask.
+> On non-zero exit: apply Blocking policy.
+> On success: show a delivery preview; full tech-doc only if asked.
 
 2. Wait for explicit delivery confirmation.
 3. Run:
@@ -333,11 +333,11 @@ python3 "$SKILL_DIR/scripts/session_control.py" \
   deliver
 ```
 
-> On non-zero exit: apply Blocking policy. 必须停止执行。
-> On success: proceed to DELIVERY-GATE below.
+> On non-zero exit: apply Blocking policy.
+> On success: follow **Delivery Rules** below.
 
-<DELIVERY-GATE>
+### Delivery Rules
+
 Before presenting next stages to the user, read `../_transitions.md` and follow the Stage Transitions rules.
-</DELIVERY-GATE>
 
 ---
