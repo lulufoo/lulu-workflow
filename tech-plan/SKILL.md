@@ -274,25 +274,56 @@ Entry paths:
 Rules:
 
 - User drives edits; AI assists on request.
-- On user "完成": write `workflow-state.md` → `current_state: Evaluating`.
-
-### Evaluating Rules
-
-Before starting evaluation, ask the user:
+- On user "完成", ask:
 
 > "Start evaluation, or deliver directly?"
 
-- Evaluate → read `./eval-rules.md` and follow its instructions.
-- Deliver directly → write `workflow-state.md`: `current_state: ReadyForDelivery`, `skip_evaluate_requested: true`; preserve `mode`, `product_ref`, `carry_forward_ref`, `evaluate_round`. Then follow Rule R1.
+- **Evaluate** → write `workflow-state.md` → `current_state: Evaluating`.
+- **Deliver directly** → run:
+
+```bash
+python3 "$SKILL_DIR/scripts/session_control.py" \
+  --cycle-id "<cycle_id>" \
+  --project-root "$(pwd)" \
+  ready-for-delivery
+```
+
+> On non-zero exit: apply Blocking policy; parse stdout JSON and follow `resume.entry`.
+> On success: follow **ReadyForDelivery Rules** below.
+
+### Evaluating Rules
+
+Read `./eval-rules.md` and follow its instructions.
+
+When eval-rules completes Phase 4, run:
+
+```bash
+python3 "$SKILL_DIR/scripts/session_control.py" \
+  --cycle-id "<cycle_id>" \
+  --project-root "$(pwd)" \
+  ready-for-delivery
+```
+
+> On non-zero exit: apply Blocking policy; parse stdout JSON and follow `resume.entry`.
+> On success: follow **ReadyForDelivery Rules** below.
 
 ### ReadyForDelivery Rules
 
-After hook allows entry to ReadyForDelivery:
+Entry: `current_state` is `ReadyForDelivery`.
 
-1. Present final `revision{N}/tech-doc.md` to user
-2. Wait for explicit delivery confirmation
-3. Write `revision{N}/human-delivery-gate.md`
-4. Write `revision{N}/workflow-state.md` → `current_state: Delivered`
+1. Present final `revision{N}/tech-doc.md` to user (path + title/summary; do not paste full body unless asked).
+2. Wait for explicit delivery confirmation.
+3. Run:
+
+```bash
+python3 "$SKILL_DIR/scripts/session_control.py" \
+  --cycle-id "<cycle_id>" \
+  --project-root "$(pwd)" \
+  deliver
+```
+
+> On non-zero exit: apply Blocking policy; parse stdout JSON and follow `resume.entry`.
+> On success: proceed to DELIVERY-GATE below.
 
 <DELIVERY-GATE>
 Before presenting next stages to the user, read `../_transitions.md` and follow the Stage Transitions rules.

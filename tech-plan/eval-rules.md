@@ -96,7 +96,7 @@ After all dimensions complete:
 2. Collect the `Severity` column of every issue row; determine `fix_severity` as the highest level found (critical > medium > minor); if all ignored, use `minor`
 3. Write `fix_severity_reason` (one sentence citing the most severe issue)
 4. Write `evaluate-state.md`: `current_dimension: done`, `fix_severity` and `fix_severity_reason` filled in
-5. Write `workflow-state.md` → `current_state: ReadyForDelivery` (hook will validate)
+5. Stop — return to parent (`tech-plan/SKILL.md` Evaluating Rules) to run `session_control ready-for-delivery`
 
 ---
 
