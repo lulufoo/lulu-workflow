@@ -1,0 +1,152 @@
+#!/usr/bin/env python3
+"""Session control for tech-plan orchestrator.
+
+Subcommands:
+    ready-for-delivery   Drafting|Evaluating -> ReadyForDelivery
+    deliver              ReadyForDelivery -> Delivered (+ human-delivery-gate.md)
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+from typing import Any
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from human_delivery_gate_schema import write_approved  # noqa: E402
+from workflow_common import approval_path, read_md_field, session_base_dir  # noqa: E402
+from workflow_state_schema import (  # noqa: E402
+    load_workflow_state,
+    resolve_workflow_state_path_from_cycle,
+    save_workflow_state,
+)
+
+_CMD_READY = "ready-for-delivery"
+_CMD_DELIVER = "deliver"
+
+
+def _active_doc(cycle_id: str, project_root: Path) -> int:
+    ss_path = project_root / session_base_dir(cycle_id) / "session-state.md"
+    try:
+        return int(read_md_field(ss_path, "active_doc", default="1"))
+    except ValueError:
+        return 1
+
+
+def _gate_path(cycle_id: str, project_root: Path) -> Path:
+    return project_root / approval_path(cycle_id, _active_doc(cycle_id, project_root))
+
+
+def _success(command: str, current_state: str) -> dict[str, Any]:
+    return {"ok": True, "command": command, "current_state": current_state}
+
+
+def _failure(command: str, current_state: str) -> dict[str, Any]:
+    return {
+        "ok": False,
+        "command": command,
+        "current_state": current_state,
+        "resume": _build_resume(command, current_state),
+    }
+
+
+def _build_resume(command: str, current_state: str) -> dict[str, Any]:
+    if current_state == "Invalidated":
+        return {
+            "entry": None,
+            "action": "当前会话已 Invalidated。",
+        }
+    if current_state == "Delivered":
+        if command == _CMD_DELIVER:
+            action = "当前状态是 Delivered，无需 deliver。"
+        else:
+            action = "当前状态是 Delivered，无需 ready-for-delivery。"
+        return {"entry": "Delivered", "action": action}
+    return {
+        "entry": current_state,
+        "action": f"当前状态是 {current_state}，请先执行完 {current_state}。",
+    }
+
+
+def ready_for_delivery(cycle_id: str, project_root: Path) -> dict[str, Any]:
+    ws_path = resolve_workflow_state_path_from_cycle(cycle_id, project_root)
+    state = load_workflow_state(ws_path)
+    current = state["current_state"]
+
+    if current == "ReadyForDelivery":
+        return _success(_CMD_READY, "ReadyForDelivery")
+
+    if current == "Drafting":
+        updates: dict[str, str] = {"current_state": "ReadyForDelivery"}
+        updates["skip_evaluate_requested"] = "true"
+        save_workflow_state(ws_path, updates)
+        return _success(_CMD_READY, "ReadyForDelivery")
+
+    if current == "Evaluating":
+        merged = dict(state)
+        merged.pop("skip_evaluate_requested", None)
+        merged["current_state"] = "ReadyForDelivery"
+        save_workflow_state(ws_path, merged, merge=False)
+        return _success(_CMD_READY, "ReadyForDelivery")
+
+    return _failure(_CMD_READY, current)
+
+
+def deliver(cycle_id: str, project_root: Path, *, note: str = "") -> dict[str, Any]:
+    ws_path = resolve_workflow_state_path_from_cycle(cycle_id, project_root)
+    state = load_workflow_state(ws_path)
+    current = state["current_state"]
+
+    if current != "ReadyForDelivery":
+        return _failure(_CMD_DELIVER, current)
+
+    write_approved(_gate_path(cycle_id, project_root), note=note)
+
+    merged = dict(state)
+    merged.pop("skip_evaluate_requested", None)
+    merged["current_state"] = "Delivered"
+    save_workflow_state(ws_path, merged, merge=False)
+
+    return _success(_CMD_DELIVER, "Delivered")
+
+
+def _emit(payload: dict[str, Any]) -> int:
+    print(json.dumps(payload, ensure_ascii=False))
+    return 0 if payload.get("ok") else 1
+
+
+def _cli() -> int:
+    parser = argparse.ArgumentParser(description="tech-plan session control")
+    parser.add_argument("--cycle-id", required=True, help="Cycle ID")
+    parser.add_argument(
+        "--project-root",
+        type=Path,
+        default=Path("."),
+        help="Project root directory",
+    )
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    sub.add_parser(_CMD_READY, help="Transition to ReadyForDelivery")
+    deliver_parser = sub.add_parser(_CMD_DELIVER, help="Transition to Delivered")
+    deliver_parser.add_argument("--note", default="", help="Optional delivery note")
+
+    args = parser.parse_args()
+    project_root = args.project_root.resolve()
+    cycle_id = args.cycle_id.strip()
+
+    try:
+        if args.command == _CMD_READY:
+            return _emit(ready_for_delivery(cycle_id, project_root))
+        if args.command == _CMD_DELIVER:
+            return _emit(deliver(cycle_id, project_root, note=args.note))
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(_cli())
