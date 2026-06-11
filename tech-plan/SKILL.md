@@ -322,7 +322,7 @@ python3 "$SKILL_DIR/scripts/session_info.py" \
 
 > On non-zero exit: apply Blocking policy. 必须停止执行。
 
-Present to user: `tech_doc.path`, `tech_doc.title`, `tech_doc.summary` from stdout JSON. Do not paste full body unless asked.
+向用户展示路径、标题与摘要；除非用户明确要求，不粘贴正文。
 
 2. Wait for explicit delivery confirmation.
 3. Run:
