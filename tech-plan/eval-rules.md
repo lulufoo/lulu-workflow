@@ -64,7 +64,7 @@ After Step 1 loop completes:
 
 ## Step 4 — Abandon Handler
 
-Triggered when `check-dimension` returns `abandoned: true` (or `evaluate-state.md: current_dimension: abandoned`).
+Triggered when `check-dimension` returns `abandoned: true`.
 
 1. Write `workflow-state.md`:
    - `current_state: Drafting`
