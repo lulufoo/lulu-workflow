@@ -64,14 +64,5 @@ After Step 1 loop completes:
 
 ## Step 4 — Abandon Handler
 
-Triggered when `check-dimension` returns `abandoned: true`.
-
-1. Write `workflow-state.md`:
-   - `current_state: Drafting`
-   - `evaluate_round: M` (unchanged; use `M` from pinned Step 1 payload)
-   - `skip_evaluate_requested: false`
-   - preserve `mode`, `product_ref`, `carry_forward_ref`
-
+1. Run `$SESSION_CONTROL abandon-evaluation`. On failure → Blocking. Pin payload.
 2. Stop — do not dispatch remaining dimensions
-
-Hook validates `current_dimension: abandoned` before allowing the transition.

@@ -5,6 +5,7 @@ Subcommands:
     start-evaluating     Drafting -> Evaluating (+ evaluate-state.md init)
     ready-for-delivery   Drafting|Evaluating -> ReadyForDelivery
     deliver              ReadyForDelivery -> Delivered (+ human-delivery-gate.md)
+    abandon-evaluation   Evaluating -> Drafting (requires evaluate-state abandoned)
 """
 
 from __future__ import annotations
@@ -17,6 +18,10 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from eval_control import init_round  # noqa: E402
+from evaluate_state_schema import (  # noqa: E402
+    load_evaluate_state,
+    resolve_evaluate_state_path_from_cycle,
+)
 from human_delivery_gate_schema import write_approved  # noqa: E402
 from session_state_schema import load_active_doc_from_cycle  # noqa: E402
 from workflow_common import approval_path  # noqa: E402
@@ -29,7 +34,9 @@ from workflow_state_schema import (  # noqa: E402
 _CMD_START_EVALUATING = "start-evaluating"
 _CMD_READY = "ready-for-delivery"
 _CMD_DELIVER = "deliver"
+_CMD_ABANDON = "abandon-evaluation"
 _EXPECTED_DELIVER_STATE = "ReadyForDelivery"
+_EXPECTED_ABANDON_STATE = "Evaluating"
 
 
 def _gate_path(cycle_id: str, project_root: Path) -> Path:
@@ -67,6 +74,15 @@ def _failure_deliver(current_state: str) -> dict[str, Any]:
             f"deliver 被拒绝：当前状态为 {current_state}，"
             f"预期状态为 {_EXPECTED_DELIVER_STATE}。请暂停执行，等待用户指示。"
         ),
+    }
+
+
+def _failure_abandon(current_state: str, message: str) -> dict[str, Any]:
+    return {
+        "ok": False,
+        "command": _CMD_ABANDON,
+        "current_state": current_state,
+        "message": message,
     }
 
 
@@ -169,6 +185,58 @@ def deliver(cycle_id: str, project_root: Path, *, note: str = "") -> dict[str, A
     return _success(_CMD_DELIVER, "Delivered")
 
 
+def abandon_evaluation(cycle_id: str, project_root: Path) -> dict[str, Any]:
+    ws_path = resolve_workflow_state_path_from_cycle(cycle_id, project_root)
+    state = load_workflow_state(ws_path)
+    current = state["current_state"]
+
+    if current != _EXPECTED_ABANDON_STATE:
+        return _failure_abandon(
+            current,
+            (
+                f"abandon-evaluation 被拒绝：当前状态为 {current}，"
+                f"预期状态为 {_EXPECTED_ABANDON_STATE}。"
+                "请暂停执行，等待用户指示。"
+            ),
+        )
+
+    es_path = resolve_evaluate_state_path_from_cycle(cycle_id, project_root)
+    if not es_path.exists():
+        return _failure_abandon(
+            current,
+            "abandon-evaluation 被拒绝：evaluate-state.md 不存在。"
+            "请暂停执行，等待用户指示。",
+        )
+
+    eval_data = load_evaluate_state(es_path)
+    current_dimension = eval_data.get("current_dimension", "")
+    if current_dimension != "abandoned":
+        return _failure_abandon(
+            current,
+            (
+                f"abandon-evaluation 被拒绝：current_dimension 为 "
+                f"{current_dimension!r}，预期为 'abandoned'。"
+                "请暂停执行，等待用户指示。"
+            ),
+        )
+
+    merged = dict(state)
+    merged["current_state"] = "Drafting"
+    merged["skip_evaluate_requested"] = "false"
+    save_workflow_state(ws_path, merged, merge=False)
+
+    try:
+        evaluate_round = int(merged.get("evaluate_round", "0"))
+    except ValueError:
+        evaluate_round = 0
+
+    return _success(
+        _CMD_ABANDON,
+        "Drafting",
+        evaluate_round=evaluate_round,
+    )
+
+
 def _emit(payload: dict[str, Any]) -> int:
     print(json.dumps(payload, ensure_ascii=False))
     return 0 if payload.get("ok") else 1
@@ -189,6 +257,10 @@ def _cli() -> int:
     sub.add_parser(_CMD_READY, help="Transition to ReadyForDelivery")
     deliver_parser = sub.add_parser(_CMD_DELIVER, help="Transition to Delivered")
     deliver_parser.add_argument("--note", default="", help="Optional delivery note")
+    sub.add_parser(
+        _CMD_ABANDON,
+        help="Transition Evaluating -> Drafting after evaluation abandoned",
+    )
 
     args = parser.parse_args()
     project_root = args.project_root.resolve()
@@ -201,6 +273,8 @@ def _cli() -> int:
             return _emit(ready_for_delivery(cycle_id, project_root))
         if args.command == _CMD_DELIVER:
             return _emit(deliver(cycle_id, project_root, note=args.note))
+        if args.command == _CMD_ABANDON:
+            return _emit(abandon_evaluation(cycle_id, project_root))
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 1

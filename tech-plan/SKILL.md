@@ -266,7 +266,9 @@ Views: `delivery-preview` · `session` · `stage-transitions`
 python3 "$SKILL_DIR/scripts/session_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>
 ```
 
-Subcommands: `start-evaluating` · `ready-for-delivery` · `deliver`
+Subcommands: `start-evaluating` · `ready-for-delivery` · `deliver` · `abandon-evaluation`
+
+On `abandon-evaluation` success: read stdout JSON and pin payload. Non-zero exit → Blocking.
 
 ### `$EVAL_CONTROL`
 
