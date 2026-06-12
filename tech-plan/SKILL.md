@@ -214,7 +214,7 @@ Rules:
 
 Read `./eval-rules.md` and follow its instructions.
 
-eval-rules may loop Step 1–3 via **Re-evaluate** without exiting to parent.
+eval-rules may loop Step 1–5 via **Re-evaluate** without exiting to parent.
 
 When eval-rules completes, follow its exit branch:
 
@@ -280,13 +280,19 @@ On `abandon-evaluation` success: read stdout JSON and pin payload. Non-zero exit
 python3 "$SKILL_DIR/scripts/eval_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand> [args...]
 ```
 
-Subcommands: `begin-eval-round` · `begin-dimension` (`--dim e1|e2|e3`) · `check-dimension` (`--dim e1|e2|e3`) · `complete-round` · `resume-drafting`
+Subcommands: `begin-eval-round` · `begin-dimension` (`--dim e1|e2|e3`) · `finish-dimension-probe` (`--dim e1|e2|e3`) · `check-dimension` (`--dim e1|e2|e3`) · `probe-complete` · `begin-artifact-remediation` · `check-artifact-remediation` · `begin-sot-remediation` · `check-sot-remediation` · `complete-round` · `resume-drafting`
 
 On `begin-eval-round` success: read stdout JSON and pin payload (loop context).
-On `begin-dimension` success: read stdout as plain-text `## Input` block for eval-runner dispatch.
-On `check-dimension` success (exit 0): read stdout JSON; branch on `abandoned` / `outcome`.
+On `begin-dimension` success: stdout is **plain text** — use entire stdout as eval-runner `## Input` block (not JSON).
+On `finish-dimension-probe` success: read stdout JSON (`outcome: probed`, `total_issues`).
+On `check-dimension` success (exit 0): read stdout JSON; branch on `abandoned` / `outcome: probed`.
+On `probe-complete` success: read stdout JSON (`fix_phase: artifact-remediation`).
+On `begin-artifact-remediation` / `begin-sot-remediation` success: read stdout **JSON**; if `skip: true` do not dispatch runner; else extract `dispatch_input` string from JSON for remediation-runner `## Input` (do not pass raw JSON to the subagent).
+On `check-artifact-remediation` / `check-sot-remediation` success: read stdout JSON; branch on `abandoned` for SoT check.
 On `complete-round` success: read stdout JSON and pin payload (summary for user presentation).
 On `resume-drafting` success: read stdout JSON and pin payload. Non-zero exit → Blocking.
+
+**Probe exception:** `eval-runner` may invoke `$EVAL_CONTROL finish-dimension-probe` but must **not** Write/Edit `evaluate-state.md` directly (override generic drafting rule for probe phase only). Before writing `tech-review-*.md`, read `{$SKILL_ROOT}/eval/review.template.md`.
 
 ### `$DRAFT_CONTROL`
 

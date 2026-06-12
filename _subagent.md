@@ -11,3 +11,8 @@
 - **Dispatch** — Invoke `$SUBAGENT_TOOL` with a prompt that loads the target sub-SKILL and the input contract for that agent.
 - **Serial** — Single agent: dispatch with `$SUBAGENT_AWAIT_SYNC`; block until return.
 - **Parallel** — N agents in one message: each with `$SUBAGENT_AWAIT_ASYNC`; wait for all completion notifications before proceeding.
+
+### Async handle
+
+- On `$SUBAGENT_AWAIT_ASYNC` dispatch, pin the returned agent id as `{scope}_handle`.
+- Before any downstream mechanical check (`check-dimension`, etc.), await **all** pinned handles for that batch.

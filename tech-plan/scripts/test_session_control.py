@@ -19,6 +19,8 @@ from session_control import (  # noqa: E402
 from evaluate_state_schema import (  # noqa: E402
     init_evaluate_state,
     load_evaluate_state,
+    merge_current_dimension,
+    parse_current_dimension,
     save_evaluate_state,
 )
 from workflow_state_schema import init_drafting, load_workflow_state, save_workflow_state
@@ -64,7 +66,7 @@ def _setup_abandon_ready(
     )
     es_path = ws.parent / "evaluate-state.md"
     init_evaluate_state(es_path, mode=mode)
-    save_evaluate_state(es_path, {"current_dimension": "abandoned"})
+    save_evaluate_state(es_path, {"eval_status": "abandoned"})
     return ws, es_path
 
 
@@ -83,8 +85,10 @@ class TestStartEvaluating:
         assert loaded["evaluate_round"] == "1"
         assert "skip_evaluate_requested" not in loaded
         es = load_evaluate_state(ws.parent / "evaluate-state.md")
-        assert es["current_dimension"] == "e1"
-        assert es["e1_status"] == "pending"
+        from evaluate_state_schema import parse_current_dimension  # noqa: WPS433
+
+        dim_map = parse_current_dimension(es["current_dimension"])
+        assert dim_map["e1"] == "pending"
 
     def test_from_drafting_tech_mode(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
@@ -94,9 +98,11 @@ class TestStartEvaluating:
 
         assert result["ok"] is True
         es = load_evaluate_state(ws.parent / "evaluate-state.md")
-        assert es["current_dimension"] == "e2"
-        assert es["e1_status"] == "complete"
-        assert es["e2_status"] == "pending"
+        from evaluate_state_schema import parse_current_dimension  # noqa: WPS433
+
+        dim_map = parse_current_dimension(es["current_dimension"])
+        assert "e1" not in dim_map
+        assert dim_map["e2"] == "pending"
 
     def test_increments_evaluate_round(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
@@ -113,15 +119,14 @@ class TestStartEvaluating:
         start_evaluating(_CYCLE, tmp_path)
         es_path = ws.parent / "evaluate-state.md"
         es = load_evaluate_state(es_path)
-        es["e2_status"] = "in_progress"
-        from evaluate_state_schema import save_evaluate_state  # noqa: WPS433
-
+        es = merge_current_dimension(es, "e2", "in_progress")
         save_evaluate_state(es_path, es)
         result = start_evaluating(_CYCLE, tmp_path)
         assert result["ok"] is True
         assert result["evaluate_round"] == 1
         reloaded = load_evaluate_state(es_path)
-        assert reloaded["e2_status"] == "in_progress"
+        dim_map = parse_current_dimension(reloaded["current_dimension"])
+        assert dim_map["e2"] == "in_progress"
 
     def test_failure_from_ready_for_delivery(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
@@ -252,7 +257,7 @@ class TestAbandonEvaluation:
 
     def test_failure_when_not_abandoned(self, tmp_path: Path):
         ws, es_path = _setup_abandon_ready(tmp_path, mode="tech")
-        save_evaluate_state(es_path, {"current_dimension": "e2"})
+        save_evaluate_state(es_path, {"eval_status": "active"})
 
         result = abandon_evaluation(_CYCLE, tmp_path)
 

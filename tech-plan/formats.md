@@ -33,45 +33,17 @@ updated_at: 2026-05-17T09:00:00+08:00
 
 ## revision{N}/evaluate-state.md
 
-```markdown
----
-version: 1
-phase: evaluate
-current_dimension: e1
+Schema v2. Full field list:
 
-e1_status: pending
-e1_total_issues: 0
-e1_resolved_issues: 0
-
-e2_status: pending
-e2_total_issues: 0
-e2_resolved_issues: 0
-
-e3_status: pending
-e3_total_issues: 0
-e3_resolved_issues: 0
-
-total_issues: 0
-resolved_issues: 0
-
-fix_severity: ""
-fix_severity_reason: ""
----
+```bash
+python3 {$SKILL_ROOT}/tech-plan/scripts/evaluate_state_schema.py --schema
 ```
+
+Key fields: `eval_status` (`active` | `done` | `abandoned`), `fix_phase` (`probe` | `artifact-remediation` | `sot-remediation` | `done`), `current_dimension` (JSON map: dim → `pending` | `in_progress` | `probed` | `complete`).
 
 ---
 
 ## evaluate{M}/tech-review-e{M}N.md
 
-Each review file shares the same structure; column set varies by dimension:
-
-```markdown
-# {E1|E2|E3} Review: {Intent Alignment|Codebase Consistency|Solution Quality} — revision{N} round {M}
-
-**Date:** YYYY-MM-DD
-**Refs:** [E1: product_ref + ptc_url / E2: relevant code paths / E3: tpef_url]
-
-| # | Issue | [E2: file] | [E3: dimension] | Severity | Status | Decision |
-|---|-------|-----------|-----------------|----------|--------|---------|
-| {E1|E2|E3}-1 | ... | ... | critical/medium/minor | ✅ Fixed | fix |
-```
+SSOT: header from `{$SKILL_ROOT}/eval/review.template.md`; validate via
+`python3 {$SKILL_ROOT}/eval/scripts/review_schema.py --schema`. Cell content: `{$SKILL_ROOT}/eval/SKILL.md`.

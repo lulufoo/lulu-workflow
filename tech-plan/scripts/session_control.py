@@ -209,13 +209,13 @@ def abandon_evaluation(cycle_id: str, project_root: Path) -> dict[str, Any]:
         )
 
     eval_data = load_evaluate_state(es_path)
-    current_dimension = eval_data.get("current_dimension", "")
-    if current_dimension != "abandoned":
+    eval_status = eval_data.get("eval_status", "")
+    if eval_status != "abandoned":
         return _failure_abandon(
             current,
             (
-                f"abandon-evaluation 被拒绝：current_dimension 为 "
-                f"{current_dimension!r}，预期为 'abandoned'。"
+                f"abandon-evaluation 被拒绝：eval_status 为 "
+                f"{eval_status!r}，预期为 'abandoned'。"
                 "请暂停执行，等待用户指示。"
             ),
         )

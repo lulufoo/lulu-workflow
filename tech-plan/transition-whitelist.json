@@ -3,7 +3,7 @@
     {"from": "Drafting",         "to": "Evaluating"},
     {"from": "Drafting",         "to": "ReadyForDelivery", "precondition": "write skip_evaluate_requested: true to workflow-state.md"},
     {"from": "Evaluating",       "to": "ReadyForDelivery"},
-    {"from": "Evaluating",       "to": "Drafting",          "precondition": "evaluate-state.md must have current_dimension: abandoned"},
+    {"from": "Evaluating",       "to": "Drafting",          "precondition": "evaluate-state.md must have eval_status: abandoned"},
     {"from": "Evaluating",       "to": "Drafting",          "label": "fix", "note": "user chooses to fix; inner resumes at FreeEdit"},
     {"from": "ReadyForDelivery", "to": "Drafting"},
     {"from": "ReadyForDelivery", "to": "Delivered",          "precondition": "human-delivery-gate.md must exist"}

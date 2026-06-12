@@ -1,0 +1,21 @@
+{
+  "version": "1",
+  "labels": {
+    "SOT-DEFECT": {
+      "desc": "SoT incomplete, ambiguous, or contradictory",
+      "fix": "interactive"
+    },
+    "WO-MISS": {
+      "desc": "Valid SoT not reflected in tech-doc",
+      "fix": "auto"
+    },
+    "WO-ERROR": {
+      "desc": "Tech-doc self-quality issue, SoT not involved",
+      "fix": "auto"
+    },
+    "UNRESOLVABLE": {
+      "desc": "Insufficient evidence; pending reclassification",
+      "fix": "interactive"
+    }
+  }
+}
