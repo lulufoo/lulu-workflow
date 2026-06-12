@@ -9,7 +9,10 @@ rule-guard:
 Loaded when parent routes to Evaluating Rules (user chose **Evaluate** from FreeEdit).
 Follow this document exactly. Do not execute any evaluation step before reading it.
 
-`$SESSION_INFO` / `$SESSION_CONTROL` / `$EVAL_CONTROL` non-zero exit → Blocking (parent SKILL).
+## Principles
+
+**Blocking** — Cannot advance → stop, report (stderr / exit code), wait for user direction.
+`$SESSION_INFO` / `$SESSION_CONTROL` / `$EVAL_CONTROL` non-zero exit → apply Blocking.
 
 ---
 
@@ -48,15 +51,11 @@ Load {$SKILL_ROOT}/tech-plan/eval-runner/SKILL.md and follow its instructions.
 
 ## Step 3 — Completion
 
-After Step 1 loop completes (use `M` from pinned Step 1 payload):
+After Step 1 loop completes:
 
-1. Read all completed review files (`evaluate{M}/tech-review-e{M}1.md`, `e{M}2.md`, `e{M}3.md`) — only those that exist
-2. Collect the `Severity` column of every issue row; determine `fix_severity` as the highest level found (critical > medium > minor); if all ignored, use `minor`
-3. Write `fix_severity_reason` (one sentence citing the most severe issue)
-4. Write `evaluate-state.md`: `current_dimension: done`, `fix_severity` and `fix_severity_reason` filled in
-5. Run `$SESSION_INFO eval-summary`.
-6. Present `eval-summary` payload to the user.
-7. Ask user:
+1. Run `$EVAL_CONTROL complete-round`. On failure → Blocking. Pin payload.
+2. Present payload to the user.
+3. Ask user:
    - **Deliver** → stop; parent runs `$SESSION_CONTROL ready-for-delivery`
    - **Continue editing** → write `workflow-state.md`: `current_state: Drafting` (preserve `evaluate_round`, `mode`, `product_ref`, `carry_forward_ref`); stop; parent enters **Step 4 — FreeEdit** (parent SKILL)
 

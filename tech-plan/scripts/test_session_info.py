@@ -15,7 +15,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 from hook_guard import load_transitions  # noqa: E402
 from session_info import (  # noqa: E402
     delivery_preview,
-    eval_summary,
     get_session_info,
     session_snapshot,
     stage_transitions,
@@ -55,92 +54,6 @@ def _setup_cycle(tmp_path: Path) -> tuple[Path, str]:
     init_drafting(ws_path, mode="product", product_ref="/p.md")
     save_workflow_state(ws_path, {"current_state": "ReadyForDelivery"})
     return tmp_path, cycle_id
-
-
-def _setup_evaluating_cycle(tmp_path: Path) -> tuple[Path, str]:
-    project_root, cycle_id = _setup_cycle(tmp_path)
-    from evaluate_state_schema import save_evaluate_state  # noqa: WPS433
-    from workflow_state_schema import resolve_workflow_state_path_from_cycle  # noqa: WPS433
-
-    ws_path = resolve_workflow_state_path_from_cycle(cycle_id, project_root)
-    save_workflow_state(ws_path, {
-        "current_state": "Evaluating",
-        "evaluate_round": "1",
-    })
-    revision = ws_path.parent
-    save_evaluate_state(
-        revision / "evaluate-state.md",
-        {
-            "version": "1",
-            "phase": "evaluate",
-            "current_dimension": "done",
-            "e1_status": "pending",
-            "e1_total_issues": "0",
-            "e1_resolved_issues": "0",
-            "e2_status": "complete",
-            "e2_total_issues": "2",
-            "e2_resolved_issues": "1",
-            "e3_status": "pending",
-            "e3_total_issues": "0",
-            "e3_resolved_issues": "0",
-            "total_issues": "2",
-            "resolved_issues": "1",
-            "fix_severity": "critical",
-            "fix_severity_reason": "e2-1 missing error handling",
-        },
-        merge=False,
-    )
-    eval_dir = revision / "evaluate1"
-    eval_dir.mkdir(parents=True, exist_ok=True)
-    (eval_dir / "tech-review-e12.md").write_text(
-        "# Tech Review — E2 | Round 1\n\n"
-        "| ID | Location | Severity | Description | Status | Decision |\n"
-        "|----|----------|----------|-------------|--------|----------|\n"
-        "| e2-1 | §3 | critical | missing error handling | ✅ Fixed | fix |\n"
-        "| e2-2 | §5 | minor | naming inconsistency | Ignored | ignore |\n",
-        encoding="utf-8",
-    )
-    return project_root, cycle_id
-
-
-class TestEvalSummary:
-    def test_returns_eval_fields(self, tmp_path: Path):
-        project_root, cycle_id = _setup_evaluating_cycle(tmp_path)
-        payload = eval_summary(cycle_id, project_root)
-        assert payload["ok"] is True
-        assert payload["view"] == "eval-summary"
-        assert payload["evaluate_round"] == 1
-        assert payload["fix_severity"] == "critical"
-        assert payload["counts"]["total_issues"] == 2
-        assert payload["counts"]["resolved_issues"] == 1
-        assert payload["counts"]["ignored_issues"] == 1
-        assert len(payload["issues"]) == 2
-        assert payload["issues"][0]["id"] == "e2-1"
-        assert payload["issues"][0]["dimension"] == "e2"
-
-    def test_rejects_non_evaluating_state(self, tmp_path: Path):
-        project_root, cycle_id = _setup_evaluating_cycle(tmp_path)
-        from workflow_state_schema import resolve_workflow_state_path_from_cycle  # noqa: WPS433
-
-        ws_path = resolve_workflow_state_path_from_cycle(cycle_id, project_root)
-        save_workflow_state(ws_path, {"current_state": "Drafting", "evaluate_round": "1"})
-        payload = eval_summary(cycle_id, project_root)
-        assert payload["ok"] is False
-        assert payload["command"] == "eval-summary"
-
-    def test_rejects_incomplete_dimension(self, tmp_path: Path):
-        project_root, cycle_id = _setup_evaluating_cycle(tmp_path)
-        from evaluate_state_schema import save_evaluate_state  # noqa: WPS433
-        from workflow_state_schema import resolve_workflow_state_path_from_cycle  # noqa: WPS433
-
-        ws_path = resolve_workflow_state_path_from_cycle(cycle_id, project_root)
-        save_evaluate_state(
-            ws_path.parent / "evaluate-state.md",
-            {"current_dimension": "e2"},
-        )
-        payload = eval_summary(cycle_id, project_root)
-        assert payload["ok"] is False
-        assert "done" in payload["message"]
 
 
 class TestDeliveryPreview:
@@ -245,28 +158,6 @@ class TestCli:
         payload = json.loads(result.stdout)
         assert payload["ok"] is False
         assert payload["command"] == "delivery-preview"
-
-    def test_eval_summary_view(self, tmp_path: Path):
-        project_root, cycle_id = _setup_evaluating_cycle(tmp_path)
-        result = subprocess.run(
-            [
-                sys.executable,
-                str(_SCRIPT),
-                "--cycle-id",
-                cycle_id,
-                "--project-root",
-                str(project_root),
-                "--view",
-                "eval-summary",
-            ],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        payload = json.loads(result.stdout)
-        assert payload["ok"] is True
-        assert payload["view"] == "eval-summary"
-        assert payload["fix_severity"] == "critical"
 
     def test_stage_transitions_view(self, tmp_path: Path):
         project_root, cycle_id = _setup_cycle(tmp_path)

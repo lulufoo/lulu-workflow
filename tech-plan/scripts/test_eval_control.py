@@ -13,11 +13,16 @@ from eval_control import (  # noqa: E402
     begin_dimension,
     begin_eval_round,
     build_eval_loop_payload,
+    complete_round,
     dispatch_list,
     init_round,
     resolve_execution_mode,
 )
-from evaluate_state_schema import init_evaluate_state, load_evaluate_state  # noqa: E402
+from evaluate_state_schema import (  # noqa: E402
+    init_evaluate_state,
+    load_evaluate_state,
+    save_evaluate_state,
+)
 from workflow_state_schema import init_drafting, save_workflow_state  # noqa: E402
 
 _CYCLE = "feat-eval-control"
@@ -229,6 +234,117 @@ class TestBeginDimension:
         save_workflow_state(ws, {"current_state": "Drafting", "evaluate_round": "1"})
         result = begin_dimension(_CYCLE, tmp_path, dim="e2")
         assert result["ok"] is False
+
+
+_REVIEW_E2 = (
+    "# Tech Review — E2 | Round 1\n\n"
+    "| ID | Location | Severity | Description | Status | Decision |\n"
+    "|----|----------|----------|-------------|--------|----------|\n"
+    "| e2-1 | §3 | critical | missing error handling | ✅ Fixed | fix |\n"
+    "| e2-2 | §5 | minor | naming inconsistency | Ignored | ignore |\n"
+)
+
+
+def _setup_complete_round_ready(
+    tmp_path: Path,
+    *,
+    mode: str = "product",
+) -> Path:
+    ws = _seed_session(tmp_path)
+    init_drafting(ws, mode=mode, product_ref="/p.md" if mode == "product" else None)
+    save_workflow_state(ws, {"current_state": "Evaluating", "evaluate_round": "1"})
+    init_evaluate_state(ws.parent / "evaluate-state.md", mode=mode)
+    es_path = ws.parent / "evaluate-state.md"
+    es = load_evaluate_state(es_path)
+    dims = dispatch_list(mode)
+    for dim in dims:
+        es[f"{dim}_status"] = "complete"
+    es["current_dimension"] = dims[-1]
+    es["e2_total_issues"] = "2"
+    es["e2_resolved_issues"] = "1"
+    es["total_issues"] = "2"
+    es["resolved_issues"] = "1"
+    save_evaluate_state(es_path, es, merge=False)
+
+    eval_dir = ws.parent / "evaluate1"
+    eval_dir.mkdir(parents=True, exist_ok=True)
+    (eval_dir / "tech-review-e12.md").write_text(_REVIEW_E2, encoding="utf-8")
+    return ws
+
+
+class TestCompleteRound:
+    def test_writes_done_and_returns_summary(self, tmp_path: Path):
+        ws = _setup_complete_round_ready(tmp_path)
+        result = complete_round(_CYCLE, tmp_path)
+
+        assert result["ok"] is True
+        assert result["command"] == "complete-round"
+        assert result["current_dimension"] == "done"
+        assert result["fix_severity"] == "critical"
+        assert result["fix_severity_reason"] == "e2-1: missing error handling"
+        assert result["counts"]["ignored_issues"] == 1
+        assert len(result["issues"]) == 2
+
+        es = load_evaluate_state(ws.parent / "evaluate-state.md")
+        assert es["current_dimension"] == "done"
+        assert es["fix_severity"] == "critical"
+
+    def test_all_ignored_uses_minor_severity(self, tmp_path: Path):
+        ws = _setup_complete_round_ready(tmp_path)
+        eval_dir = ws.parent / "evaluate1"
+        (eval_dir / "tech-review-e12.md").write_text(
+            "# Review\n\n"
+            "| ID | Location | Severity | Description | Status | Decision |\n"
+            "|----|----------|----------|-------------|--------|----------|\n"
+            "| e2-1 | §3 | critical | missing error handling | Ignored | ignore |\n",
+            encoding="utf-8",
+        )
+        result = complete_round(_CYCLE, tmp_path)
+        assert result["ok"] is True
+        assert result["fix_severity"] == "minor"
+
+    def test_rejects_incomplete_dimension(self, tmp_path: Path):
+        ws = _setup_complete_round_ready(tmp_path)
+        es_path = ws.parent / "evaluate-state.md"
+        es = load_evaluate_state(es_path)
+        es["e3_status"] = "pending"
+        save_evaluate_state(es_path, es)
+        result = complete_round(_CYCLE, tmp_path)
+        assert result["ok"] is False
+        assert "e3_status" in result["reason"]
+
+    def test_rejects_already_done(self, tmp_path: Path):
+        ws = _setup_complete_round_ready(tmp_path)
+        save_evaluate_state(
+            ws.parent / "evaluate-state.md",
+            {"current_dimension": "done"},
+        )
+        result = complete_round(_CYCLE, tmp_path)
+        assert result["ok"] is False
+        assert "already complete" in result["reason"]
+
+
+class TestCompleteRoundCli:
+    def test_json_stdout_on_success(self, tmp_path: Path):
+        _setup_complete_round_ready(tmp_path)
+        proc = subprocess.run(
+            [
+                sys.executable,
+                str(_SCRIPT),
+                "--cycle-id",
+                _CYCLE,
+                "--project-root",
+                str(tmp_path),
+                "complete-round",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert proc.returncode == 0
+        payload = json.loads(proc.stdout)
+        assert payload["ok"] is True
+        assert payload["command"] == "complete-round"
 
 
 class TestBeginDimensionCli:

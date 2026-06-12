@@ -8,6 +8,7 @@ Subcommands:
     init-round            Initialize evaluate-state.md (internal; session_control)
     begin-eval-round      Enter Evaluating, validate evaluate-state, return loop payload
     begin-dimension       Mark dimension in_progress and return eval-runner inputs
+    complete-round        Finalize evaluate-state and return summary payload
 """
 
 from __future__ import annotations
@@ -19,6 +20,12 @@ from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from eval_review import (  # noqa: E402
+    build_dimensions,
+    build_issue_counts,
+    collect_review_issues,
+    compute_fix_severity,
+)
 from evaluate_state_schema import (  # noqa: E402
     build_initial_evaluate_state,
     init_evaluate_state,
@@ -42,6 +49,7 @@ from workflow_state_schema import (  # noqa: E402
 _CMD_INIT_ROUND = "init-round"
 _CMD_BEGIN_EVAL_ROUND = "begin-eval-round"
 _CMD_BEGIN_DIMENSION = "begin-dimension"
+_CMD_COMPLETE_ROUND = "complete-round"
 _ENTRY_DIMENSION_KEYS = (
     "current_dimension",
     "e1_status",
@@ -298,6 +306,97 @@ def init_round(
     )
 
 
+def complete_round(cycle_id: str, project_root: Path) -> dict[str, Any]:
+    """Finalize evaluation round: compute severity, write done, return summary."""
+    ws_path = resolve_workflow_state_path_from_cycle(cycle_id, project_root)
+    state = load_workflow_state(ws_path)
+    current = state["current_state"]
+    if current != _EXPECTED_EVALUATING_STATE:
+        return _failure(
+            _CMD_COMPLETE_ROUND,
+            (
+                f"current state is {current!r}, "
+                f"expected {_EXPECTED_EVALUATING_STATE!r}."
+            ),
+            current_state=current,
+        )
+
+    try:
+        evaluate_round = int(state.get("evaluate_round", "0"))
+    except ValueError:
+        evaluate_round = 0
+    if evaluate_round < 1:
+        return _failure(
+            _CMD_COMPLETE_ROUND,
+            f"evaluate_round is {evaluate_round!r} (expected >= 1).",
+            current_state=current,
+        )
+
+    es_path = resolve_evaluate_state_path_from_cycle(cycle_id, project_root)
+    if not es_path.exists():
+        return _failure(
+            _CMD_COMPLETE_ROUND,
+            "evaluate-state.md not found.",
+            current_state=current,
+        )
+
+    eval_data = load_evaluate_state(es_path)
+    current_dimension = eval_data.get("current_dimension", "")
+    if current_dimension == "done":
+        return _failure(
+            _CMD_COMPLETE_ROUND,
+            "evaluate round is already complete (current_dimension: done).",
+            current_state=current,
+        )
+    if current_dimension == "abandoned":
+        return _failure(
+            _CMD_COMPLETE_ROUND,
+            "evaluation was abandoned (current_dimension: abandoned).",
+            current_state=current,
+        )
+
+    mode = state["mode"]
+    for dim in dispatch_list(mode):
+        if eval_data.get(f"{dim}_status") != "complete":
+            return _failure(
+                _CMD_COMPLETE_ROUND,
+                f"{dim}_status is not complete.",
+                current_state=current,
+            )
+
+    active_doc = load_active_doc_from_cycle(cycle_id, project_root)
+    eval_dir = project_root.resolve() / eval_round_dir(
+        cycle_id,
+        active_doc,
+        evaluate_round,
+    )
+    issues, review_paths = collect_review_issues(eval_dir)
+    fix_severity, fix_severity_reason = compute_fix_severity(issues)
+
+    save_evaluate_state(
+        es_path,
+        {
+            "current_dimension": "done",
+            "fix_severity": fix_severity,
+            "fix_severity_reason": fix_severity_reason,
+        },
+    )
+    eval_data = load_evaluate_state(es_path)
+
+    return _success(
+        _CMD_COMPLETE_ROUND,
+        evaluate_round=evaluate_round,
+        current_state=current,
+        current_dimension="done",
+        fix_severity=eval_data.get("fix_severity", ""),
+        fix_severity_reason=eval_data.get("fix_severity_reason", ""),
+        counts=build_issue_counts(eval_data, issues),
+        dimensions=build_dimensions(eval_data),
+        issues=issues,
+        review_paths=review_paths,
+    )
+
+
 def begin_dimension(
     cycle_id: str,
     project_root: Path,
@@ -412,6 +511,10 @@ def _cli() -> int:
         choices=sorted(_VALID_DIMS),
         help="Dimension: e1, e2, or e3",
     )
+    sub.add_parser(
+        _CMD_COMPLETE_ROUND,
+        help="Finalize evaluation round and return summary payload",
+    )
 
     args = parser.parse_args()
     project_root = args.project_root.resolve()
@@ -426,6 +529,8 @@ def _cli() -> int:
                 print(payload["dispatch_input"])
                 return 0
             return _emit(payload)
+        if args.command == _CMD_COMPLETE_ROUND:
+            return _emit(complete_round(cycle_id, project_root))
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 1
