@@ -20,7 +20,8 @@ Any `round_control.py` non-zero exit → stop and report stderr.
 
 ```
 CYCLE_DIR           absolute path to $CACHE_DIR/<cycle_id>
-CYCLE_TYPE          feature | topic
+CYCLE_ID            cycle identifier (for $RESOLVE_PLAN_ROLE)
+CYCLE_TYPE          topic | feature
 SECTION             NS | NG | KD | SK | T (or full section name)
 CURRENT_L           current magnification level (0–4)
 TARGET_L            target magnification level (CURRENT_L + 1 typically)
@@ -34,21 +35,8 @@ Self-resolved at runtime:
 
 ## Step 1 — Load C2 Content Form
 
-**Feature (`CYCLE_TYPE` = `feature`):**
-
-```text
-Use $FETCH_TECH_PLAN feature layer-standards
-```
-
-Read stdout; locate `## C2 Matrix — Content Standards`.
-
-**Topic (`CYCLE_TYPE` = `topic`):**
-
-```text
-Use $FETCH_TECH_PLAN topic layer-standards
-```
-
-Read stdout; locate `## C2 Matrix` (shaping bundle — interim until shaping v2).
+1. Run `$RESOLVE_PLAN_ROLE` with `CYCLE_ID`; apply Plan Scope Constraints.
+2. Use `$FETCH_TECH_PLAN $CYCLE_TYPE layer-standards`; read stdout and locate `## C2 Matrix — Content Standards`.
 
 Find the row for `(SECTION, TARGET_L)` → read **Content Form** and **Delta** columns.
 

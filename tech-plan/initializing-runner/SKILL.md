@@ -30,21 +30,22 @@ The parent skill must inject these values before invoking this sub-skill:
 |---|---|
 | `$REVISION_DIR` | Absolute path to `revision{N}/` — output paths are derived from this |
 | `$DECISION_DOC_PATH` | Absolute path to the current cycle decision doc |
-| `$CYCLE_TYPE` | `feature` or `topic` — passed to `$FETCH_TECH_PLAN` |
-| `$CYCLE_ID` | Active cycle id |
+| `$CYCLE_TYPE` | `topic` or `feature` — from parent dispatch; also used by `$RESOLVE_PLAN_ROLE` |
+| `$CYCLE_ID` | Active cycle id (for `$RESOLVE_PLAN_ROLE`) |
 
 Self-resolved at runtime (do not pass from parent):
 - `$TECH_DOC_PATH` = `{REVISION_DIR}/tech-doc.md`
 
-Load frameworks via `$FETCH_TECH_PLAN` (see `../SKILL.md` → Command Index).
+Load frameworks via `$FETCH_TECH_PLAN` and role constraints via `$RESOLVE_PLAN_ROLE` (see `../SKILL.md` → Command Index).
 
 ## Execution Contract
 
 ### Step I1 - Load mapping table and template skeleton
 
-1. Use `$FETCH_TECH_PLAN $CYCLE_TYPE draft-meta`; read stdout as meta markdown.
-2. Locate the `## Decision-Doc Mapping` table.
-3. Parse the mapping rows into:
+1. Run `$RESOLVE_PLAN_ROLE` with `$CYCLE_ID`; read stdout as Plan Scope Constraints and apply `### Role`.
+2. Use `$FETCH_TECH_PLAN $CYCLE_TYPE draft-meta`; read stdout as meta markdown.
+3. Locate the `## Decision-Doc Mapping` table.
+4. Parse the mapping rows into:
 
 ```text
 [
@@ -52,19 +53,11 @@ Load frameworks via `$FETCH_TECH_PLAN` (see `../SKILL.md` → Command Index).
 ]
 ```
 
-4. Skip rows where `target` is `—`.
+5. Skip rows where `target` is `—`.
+6. Locate `## Document Skeleton` in the same meta markdown.
+7. Parse the fenced markdown block into an ordered section map keyed by section heading name (e.g. `North Star`, `Non-Goals`, `Invariants`, `Key Decisions`, `Approach Skeleton`, `Tasks`). Use the **Section map** table for dimension keys and nested headings (`### Non-Goals` / `### Invariants` under `## Non-Goals & Invariants`).
 
-**Feature cycles (`$CYCLE_TYPE` = `feature`):**
-
-5. Locate `## Document Skeleton` in the same meta markdown.
-6. Parse the fenced markdown block into an ordered section map keyed by section heading name (e.g. `North Star`, `Non-Goals`, `Invariants`, `Key Decisions`, `Approach Skeleton`, `Tasks`). Use the **Section map** table for dimension keys and nested headings (`### Non-Goals` / `### Invariants` under `## Non-Goals & Invariants`).
-
-**Topic cycles (`$CYCLE_TYPE` = `topic`):**
-
-5. Use `$FETCH_TECH_PLAN topic layer-standards`; read stdout as template markdown (shaping bundle — interim until shaping v2).
-6. Parse the template into an ordered section map keyed by section heading name.
-
-7. Initialize `fill_results` from the parsed skeleton:
+8. Initialize `fill_results` from the parsed skeleton:
 
 ```text
 fill_results[section_name] = {
@@ -182,4 +175,3 @@ Initializing complete.
   State Vector: NS:L? NG:L? KD:L? SK:L? T:L?
   Next step: Round Iteration Loop (Step 3)
 ```
-

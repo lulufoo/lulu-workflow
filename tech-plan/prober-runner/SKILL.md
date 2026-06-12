@@ -20,7 +20,8 @@ Any `round_control.py` non-zero exit → stop and report stderr.
 
 ```
 CYCLE_DIR           absolute path to $CACHE_DIR/<cycle_id>
-CYCLE_TYPE          feature | topic
+CYCLE_ID            cycle identifier (for $RESOLVE_PLAN_ROLE)
+CYCLE_TYPE          topic | feature
 ROUND_N             current round number (integer ≥ 1)
 TECH_DOC_PATH       absolute path to revision{N}/tech-doc.md
 ```
@@ -40,21 +41,8 @@ Parse stdout JSON as `$CTX`. Required fields: `state_vector`, `anchors`, `skips`
 
 Load C2 Diagnostic Criteria for verification checks:
 
-**Feature (`CYCLE_TYPE` = `feature`):**
-
-```text
-Use $FETCH_TECH_PLAN feature layer-diagnostic
-```
-
-Read stdout; locate `## C2 Diagnostic Criteria`.
-
-**Topic (`CYCLE_TYPE` = `topic`):**
-
-```text
-Use $FETCH_TECH_PLAN topic layer-diagnostic
-```
-
-Read stdout; locate diagnostic criteria section (shaping TPEF — interim until shaping v2).
+1. Run `$RESOLVE_PLAN_ROLE` with `CYCLE_ID`; apply Plan Scope Constraints.
+2. Use `$FETCH_TECH_PLAN $CYCLE_TYPE layer-diagnostic`; read stdout and locate `## C2 Diagnostic Criteria`.
 
 ## Step 2 — Run probes per section
 

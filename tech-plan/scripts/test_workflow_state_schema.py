@@ -24,6 +24,7 @@ _REQUIRED_FIELD_NAMES = {
     "version",
     "workflow",
     "mode",
+    "cycle_type",
     "current_state",
     "evaluate_round",
     "product_ref",
@@ -35,6 +36,7 @@ _VALID_DATA = {
     "version": "1",
     "workflow": "tech-doc",
     "mode": "product",
+    "cycle_type": "feature",
     "current_state": "Drafting",
     "evaluate_round": "0",
     "product_ref": "/path/to/product-doc.md",
@@ -89,6 +91,7 @@ class TestInitDrafting:
         loaded = load_workflow_state(path)
         assert loaded["current_state"] == "Drafting"
         assert loaded["mode"] == "tech"
+        assert loaded["cycle_type"] == "feature"
         assert loaded["evaluate_round"] == "0"
         assert loaded["carry_forward_ref"] == "/old/tech-doc.md"
 

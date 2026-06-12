@@ -57,7 +57,7 @@
       ],
       "method": {
         "kind": "external",
-        "source": "{tpef_v2_url}",
+        "source": "{tpef_url}",
         "focus": "v2 ladder diagnostic — L0 required; validate L0…L_claimed per section"
       },
       "review": {

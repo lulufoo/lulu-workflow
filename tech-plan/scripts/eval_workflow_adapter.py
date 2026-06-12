@@ -122,7 +122,6 @@ class TechPlanEvalAdapter:
             "ptc_url": "",
             "tpef_url": "",
             "tpt_layer_standards_url": "",
-            "tpef_v2_url": "",
         }
 
     def corpus_bind_extensions(
@@ -130,7 +129,6 @@ class TechPlanEvalAdapter:
     ) -> dict[str, str]:
         from subagent_config import detect_platform, resolve_workflow_config_path  # noqa: WPS433
 
-        cycle_type = detect_cycle_type(cycle_id)
         plat = detect_platform(None)
         config_path = resolve_workflow_config_path(project_root.resolve(), plat)
         if not config_path.exists():
@@ -145,22 +143,14 @@ class TechPlanEvalAdapter:
         if not isinstance(section, dict):
             return self._empty_corpus_bind()
         ptc_url = str(section.get("ptc_url", "")).strip()
-        if cycle_type == "feature":
-            tpt_layer_standards_url = str(
-                section.get("tpt_layer_standards_url", ""),
-            ).strip()
-            tpef_v2_url = str(section.get("tpef_v2_url", "")).strip()
-            tpef_url = str(section.get("tpef_url", "")).strip()
-        else:
-            shaping_tpef = str(section.get("shaping_tpef_url", "")).strip()
-            tpt_layer_standards_url = shaping_tpef
-            tpef_v2_url = shaping_tpef
-            tpef_url = shaping_tpef
+        tpt_layer_standards_url = str(
+            section.get("tpt_layer_standards_url", ""),
+        ).strip()
+        tpef_url = str(section.get("tpef_url", "")).strip()
         return {
             "ptc_url": ptc_url,
             "tpef_url": tpef_url,
             "tpt_layer_standards_url": tpt_layer_standards_url,
-            "tpef_v2_url": tpef_v2_url,
         }
 
     def detect_cycle_type(self, cycle_id: str) -> str:

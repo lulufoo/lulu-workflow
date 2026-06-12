@@ -23,7 +23,8 @@ Terminal runner subagent. Probes **one Dimension** per invocation (from EvalCorp
 3. Read `{$SKILL_ROOT}/eval/review.template.md`
 4. Read `{$SKILL_ROOT}/eval/scripts/url_fetch.py` — use `read_ref()` for all URL/path loads
 5. Read `{$SKILL_ROOT}/eval/scripts/codebase_sot.py` — use `resolve_codebase_ref()` for codebase SoT
-6. Follow steps below
+6. Run `$RESOLVE_PLAN_ROLE` with `CYCLE_ID`; apply Plan Scope Constraints for probe narrative
+7. Follow steps below
 
 ---
 
@@ -36,7 +37,7 @@ DIMENSION_ID          canonical dimension id (e.g. codebase-consistency)
 DIMENSION             dispatch key for finish-dimension-probe (legacy e1/e2/e3 or id)
 DIMENSION_LABEL       human-readable label for review header
 CYCLE_ID              cycle identifier
-CYCLE_TYPE            feature | topic
+CYCLE_TYPE            topic | feature
 EVAL_TARGET_PATH      absolute path to EvalTarget (B)
 REMEDIATION_TARGET_PATH absolute path to RemediationTarget (informational; do not write)
 EVALUATE_STATE_PATH   absolute path to evaluate-state.md (read-only)
@@ -77,18 +78,13 @@ Evaluate **B** using loaded SoT content and **M** / `METHOD_FOCUS`.
 
 ### solution-quality (e3)
 
-**Feature (`CYCLE_TYPE` = `feature`):**
-
 1. Parse `<!-- state-vector: NS:Lx, NG:Ly, … -->` from B.
-2. Apply **ladder diagnostic** from loaded M (`31-tech-plan-v2-evaluation-framework.md`):
+2. Apply **ladder diagnostic** from loaded M:
    - For each dimension in `[NS, NG, KD, SK, T]`, validate **L0 through L_claimed** against Diagnostic Criteria in M.
    - NG: run ladder on both `### Non-Goals` and `### Invariants` under `## Non-Goals & Invariants`; share the single `NG` key from state-vector as `L_claimed`.
    - When Diagnostic Criterion is ambiguous, cross-check Content Form at the same (section, L) from loaded A (layer-standards SoT).
-3. Part B task executability (31 §Step 4): apply when present; known gap vs legacy 21 TPQA until 31 revision.
-
-**Topic (`CYCLE_TYPE` = `topic`):**
-
-Apply diagnostic procedure from loaded M (shaping TPEF — interim until shaping v2). Do not use v2 ladder unless M explicitly defines it.
+3. Apply Plan Scope Constraints (`### Role`) when wording issues and choosing severity emphasis.
+4. Part B task executability (31 §Step 4): apply when present; known gap vs legacy 21 TPQA until 31 revision.
 
 For each finding classify `root_cause` per `eval/SKILL.md` and fill all required columns.
 

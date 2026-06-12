@@ -33,6 +33,8 @@ _SCHEMA: list[dict] = [
      "description": "Fixed value: tech-doc"},
     {"field": "mode", "type": "string", "required": True,
      "description": "Run mode: product | tech"},
+    {"field": "cycle_type", "type": "string", "required": True,
+     "description": "Cycle type: topic (architect role) | feature (technical expert role)"},
     {"field": "current_state", "type": "string", "required": True,
      "description": "Session state from transition-whitelist"},
     {"field": "evaluate_round", "type": "string", "required": True,
@@ -57,6 +59,7 @@ _REQUIRED_KEY_ORDER = [
     "version",
     "workflow",
     "mode",
+    "cycle_type",
     "current_state",
     "evaluate_round",
     "product_ref",
@@ -65,6 +68,7 @@ _REQUIRED_KEY_ORDER = [
 ]
 
 _VALID_MODES = frozenset({"product", "tech"})
+_VALID_CYCLE_TYPES = frozenset({"topic", "feature"})
 _SKIP_EVALUATE_VALUES = frozenset({"true", "false"})
 _HISTORICAL_VALUES = frozenset({"true"})
 
@@ -114,6 +118,13 @@ def validate_workflow_state(data: dict) -> list[str]:
     mode = data.get("mode")
     if mode is not None and mode not in _VALID_MODES:
         errors.append(f"invalid mode: {mode!r} (allowed: {sorted(_VALID_MODES)})")
+
+    cycle_type_val = data.get("cycle_type")
+    if cycle_type_val is not None and cycle_type_val not in _VALID_CYCLE_TYPES:
+        errors.append(
+            f"invalid cycle_type: {cycle_type_val!r} "
+            f"(allowed: {sorted(_VALID_CYCLE_TYPES)})"
+        )
 
     current_state = data.get("current_state")
     if current_state is not None and current_state not in _session_states():
@@ -234,6 +245,7 @@ def init_drafting(
     path: Path,
     *,
     mode: str,
+    cycle_type: str = "feature",
     product_ref: str = "",
     carry_forward_ref: str = "",
     evaluate_round: int = 0,
@@ -243,6 +255,7 @@ def init_drafting(
         "version": "1",
         "workflow": "tech-doc",
         "mode": mode,
+        "cycle_type": cycle_type,
         "current_state": "Drafting",
         "evaluate_round": str(evaluate_round),
         "product_ref": product_ref,

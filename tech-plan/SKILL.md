@@ -16,7 +16,15 @@ disable-model-invocation: true
 Drive a tech document workflow with explicit per-session state files and a hook
 that gates state transitions.
 
-**Scope:** Tech document workflow only. Supports two run-modes: `product` (product-doc driven) and `tech` (pure tech, no product-doc).
+**Scope:** Tech document workflow only. Supports `run_mode` (`product` | `tech`) and `cycle_type` (`topic` architect | `feature` technical expert). Framework templates are shared; `cycle_type` selects role constraints via `$RESOLVE_PLAN_ROLE`.
+
+<HARD-GATE name="Plan Scope Constraints">
+Before Drafting or Evaluating work:
+
+1. Run `$RESOLVE_PLAN_ROLE` (see Command Index).
+2. Read stdout as authoritative **Plan Scope Constraints**; apply `### Role`.
+3. **Do not** select framework template URLs by `cycle_type` — fetch roles are shared across topic and feature.
+</HARD-GATE>
 
 <HARD-GATE>
 Do NOT proceed until you have read `../_runtime.md` and loaded:
@@ -132,7 +140,8 @@ Load {actual $SKILL_ROOT}/tech-plan/prober-runner/SKILL.md and follow its instru
 
 ## Input
 CYCLE_DIR:      {absolute path to $CACHE_DIR/<cycle_id>}
-CYCLE_TYPE:     {feature | topic}
+CYCLE_ID:       {cycle_id}
+CYCLE_TYPE:     {topic | feature}
 ROUND_N:        {N from `$DRAFT_CONTROL status`}
 TECH_DOC_PATH:  {absolute path to revision{N}/tech-doc.md}
 ```
@@ -157,7 +166,8 @@ Load {actual $SKILL_ROOT}/tech-plan/refiner-runner/SKILL.md and follow its instr
 
 ## Input
 CYCLE_DIR:       {absolute path to $CACHE_DIR/<cycle_id>}
-CYCLE_TYPE:      {feature | topic}
+CYCLE_ID:        {cycle_id}
+CYCLE_TYPE:      {topic | feature}
 SECTION:         {section key or name}
 CURRENT_L:       {current L}
 TARGET_L:        {target L}
@@ -317,6 +327,18 @@ python3 "$SKILL_DIR/scripts/round_control.py" \
   --cycle-dir "$CACHE_DIR/$CYCLE_ID" <subcommand> [args...]
 ```
 
+### `$RESOLVE_PLAN_ROLE`
+
+`$RESOLVE_PLAN_ROLE` →
+
+```bash
+python3 "$SKILL_DIR/scripts/plan_scope.py" resolve-role \
+  --cycle-id "$CYCLE_ID" --project-root "$(pwd)"
+```
+
+On success: read stdout as Plan Scope Constraints markdown (`cycle_type`, `### Role`).
+On failure: report error and stop current step.
+
 ### `$FETCH_TECH_PLAN`
 
 `$FETCH_TECH_PLAN <cycle_type> <role>` →
@@ -328,14 +350,15 @@ python3 "$SKILL_DIR/scripts/fetch_plan_framework.py" \
   --project-root "$(pwd)"
 ```
 
-| Role | Feature key | Topic key | Consumers |
-|------|-------------|-----------|-----------|
-| `draft-meta` | `tpt_draft_meta_v2_url` | `shaping_tpt_url` | initializing-runner (mapping + skeleton) |
-| `layer-standards` | `tpt_layer_standards_url` | `shaping_tpt_url` | refiner-runner; eval e3 SoT (A) |
-| `layer-diagnostic` | `tpef_v2_url` | `shaping_tpef_url` | prober-runner; eval e3 method (M) |
-| `eval-ptc` | `ptc_url` | `ptc_url` | eval e1 |
+| Role | Config key | Consumers |
+|------|------------|-----------|
+| `draft-meta` | `tpt_draft_meta_url` | initializing-runner (mapping + skeleton) |
+| `layer-standards` | `tpt_layer_standards_url` | refiner-runner; eval e3 SoT (A) |
+| `layer-diagnostic` | `tpef_url` | prober-runner; eval e3 method (M) |
+| `eval-ptc` | `ptc_url` | eval e1 |
 
-Roles resolve to `workflow-config.json` keys via `fetch_plan_framework.py` (`FEATURE_ROLE_KEYS` / `TOPIC_ROLE_KEYS`).
+Pass session `CYCLE_TYPE` as `--cycle-type`. Template URLs are shared; role constraints come from `$RESOLVE_PLAN_ROLE`.
+Roles resolve to `workflow-config.json` keys via `fetch_plan_framework.py` (`ROLE_KEYS`).
 On success: read stdout as framework markdown and announce `Template fetched: tech-plan.<resolved_key>`.
 On failure: report error and stop current step. Cache path: `$CACHE_DIR/.template/tech-plan/<key>.md`.
 

@@ -16,55 +16,36 @@ from fetch_template import FetchTemplateError, fetch_template  # noqa: E402
 
 SECTION = "tech-plan"
 
-FEATURE_ROLE_KEYS: dict[str, str] = {
-    "draft-meta": "tpt_draft_meta_v2_url",
+ROLE_KEYS: dict[str, str] = {
+    "draft-meta": "tpt_draft_meta_url",
     "layer-standards": "tpt_layer_standards_url",
-    "layer-diagnostic": "tpef_v2_url",
+    "layer-diagnostic": "tpef_url",
     "eval-ptc": "ptc_url",
 }
 
-TOPIC_ROLE_KEYS: dict[str, str] = {
-    "draft-meta": "shaping_tpt_url",
-    "layer-standards": "shaping_tpt_url",
-    "layer-diagnostic": "shaping_tpef_url",
-    "eval-ptc": "ptc_url",
-}
-
-_ROLE_MAPS: dict[str, dict[str, str]] = {
-    "feature": FEATURE_ROLE_KEYS,
-    "topic": TOPIC_ROLE_KEYS,
-}
-
-_VALID_CYCLE_TYPES = frozenset(_ROLE_MAPS)
-_VALID_ROLES = frozenset(FEATURE_ROLE_KEYS)
+_VALID_ROLES = frozenset(ROLE_KEYS)
 
 
 class FetchPlanFrameworkError(Exception):
     """Raised when role resolution or template fetch fails."""
 
 
-def resolve_key(cycle_type: str, role: str) -> str:
-    if cycle_type not in _VALID_CYCLE_TYPES:
-        raise FetchPlanFrameworkError(
-            f"Invalid cycle_type {cycle_type!r}; expected one of: "
-            f"{', '.join(sorted(_VALID_CYCLE_TYPES))}"
-        )
+def resolve_key(role: str) -> str:
     if role not in _VALID_ROLES:
         raise FetchPlanFrameworkError(
             f"Invalid role {role!r}; expected one of: "
             f"{', '.join(sorted(_VALID_ROLES))}"
         )
-    return _ROLE_MAPS[cycle_type][role]
+    return ROLE_KEYS[role]
 
 
 def fetch_plan_framework(
-    cycle_type: str,
     role: str,
     project_root: Path,
     platform: Optional[str] = None,
     force: bool = False,
 ) -> str:
-    key = resolve_key(cycle_type, role)
+    key = resolve_key(role)
     try:
         return fetch_template(
             section=SECTION,
@@ -79,13 +60,13 @@ def fetch_plan_framework(
 
 def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Fetch tech-plan framework markdown by cycle_type and role",
+        description="Fetch tech-plan framework markdown by role",
     )
     parser.add_argument(
         "--cycle-type",
         required=True,
-        choices=sorted(_VALID_CYCLE_TYPES),
-        help="Cycle type: feature or topic",
+        choices=["feature", "topic"],
+        help="Cycle type (topic | feature). Role constraints use this; template URL is shared.",
     )
     parser.add_argument(
         "--role",
@@ -112,7 +93,6 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     try:
         content = fetch_plan_framework(
-            cycle_type=args.cycle_type,
             role=args.role,
             project_root=Path(args.project_root).resolve(),
             platform=args.platform,

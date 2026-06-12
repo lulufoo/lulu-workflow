@@ -26,6 +26,9 @@ from workflow_common import (
 )
 from workflow_state_schema import init_drafting, mark_historical
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from plan_scope import resolve_role_summary  # noqa: E402
+
 
 _TO_STAGE = "tech-plan"
 
@@ -161,9 +164,12 @@ def main() -> int:
     init_drafting(
         ws_path,
         mode=run_mode,
+        cycle_type=cycle_type,
         product_ref=product_ref,
         carry_forward_ref=carry_forward_ref,
     )
+
+    role_summary = resolve_role_summary(cycle_type=cycle_type)
 
     if run_mode == "product":
         if carry_forward_ref:
@@ -181,6 +187,7 @@ def main() -> int:
 状态文件：    {ws_path.as_posix()}
 当前状态：    Drafting
 运行模式：    {run_mode}
+Cycle type：  {role_summary}
 评估轮次：    0
 product_ref：  {product_ref or '（无，技改模式）'}
 carry_forward：{carry_forward_ref or '（无）'}

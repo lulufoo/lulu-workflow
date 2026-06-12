@@ -11,8 +11,7 @@ if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
 from fetch_plan_framework import (  # noqa: E402
-    FEATURE_ROLE_KEYS,
-    TOPIC_ROLE_KEYS,
+    ROLE_KEYS,
     FetchPlanFrameworkError,
     fetch_plan_framework,
     resolve_key,
@@ -21,31 +20,28 @@ from fetch_plan_framework import (  # noqa: E402
 
 class TestResolveKey:
     @pytest.mark.parametrize(
-        ("cycle_type", "role", "expected"),
+        ("role", "expected"),
         [
-            ("feature", "draft-meta", "tpt_draft_meta_v2_url"),
-            ("feature", "layer-standards", "tpt_layer_standards_url"),
-            ("feature", "layer-diagnostic", "tpef_v2_url"),
-            ("feature", "eval-ptc", "ptc_url"),
-            ("topic", "draft-meta", "shaping_tpt_url"),
-            ("topic", "layer-standards", "shaping_tpt_url"),
-            ("topic", "layer-diagnostic", "shaping_tpef_url"),
-            ("topic", "eval-ptc", "ptc_url"),
+            ("draft-meta", "tpt_draft_meta_url"),
+            ("layer-standards", "tpt_layer_standards_url"),
+            ("layer-diagnostic", "tpef_url"),
+            ("eval-ptc", "ptc_url"),
         ],
     )
-    def test_resolve_key(self, cycle_type: str, role: str, expected: str) -> None:
-        assert resolve_key(cycle_type, role) == expected
-
-    def test_feature_and_topic_maps_have_same_roles(self) -> None:
-        assert set(FEATURE_ROLE_KEYS) == set(TOPIC_ROLE_KEYS)
-
-    def test_invalid_cycle_type(self) -> None:
-        with pytest.raises(FetchPlanFrameworkError, match="Invalid cycle_type"):
-            resolve_key("invalid", "draft-meta")
+    def test_resolve_key(self, role: str, expected: str) -> None:
+        assert resolve_key(role) == expected
 
     def test_invalid_role(self) -> None:
         with pytest.raises(FetchPlanFrameworkError, match="Invalid role"):
-            resolve_key("feature", "unknown-role")
+            resolve_key("unknown-role")
+
+    def test_all_roles_mapped(self) -> None:
+        assert set(ROLE_KEYS) == {
+            "draft-meta",
+            "layer-standards",
+            "layer-diagnostic",
+            "eval-ptc",
+        }
 
 
 class TestFetchPlanFramework:
@@ -62,12 +58,12 @@ class TestFetchPlanFramework:
         original = mod.fetch_template
         mod.fetch_template = stub_fetch
         try:
-            content = fetch_plan_framework("topic", "layer-diagnostic", tmp_path)
+            content = fetch_plan_framework("layer-diagnostic", tmp_path)
         finally:
             mod.fetch_template = original
 
-        assert content == "# tech-plan.shaping_tpef_url\n"
-        assert calls == [("tech-plan", "shaping_tpef_url")]
+        assert content == "# tech-plan.tpef_url\n"
+        assert calls == [("tech-plan", "tpef_url")]
 
     def test_wraps_fetch_template_error(self, tmp_path: Path) -> None:
         import fetch_plan_framework as mod
@@ -81,6 +77,6 @@ class TestFetchPlanFramework:
         mod.fetch_template = fail_fetch
         try:
             with pytest.raises(FetchPlanFrameworkError, match="network failed"):
-                fetch_plan_framework("feature", "draft-meta", tmp_path)
+                fetch_plan_framework("draft-meta", tmp_path)
         finally:
             mod.fetch_template = original

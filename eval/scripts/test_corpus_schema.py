@@ -27,7 +27,7 @@ class TestGetSchema:
         schema = get_schema()
         assert "tech_doc" in schema["bind_placeholders"]
         assert "tpt_layer_standards_url" in schema["bind_placeholders"]
-        assert "tpef_v2_url" in schema["bind_placeholders"]
+        assert "tpef_url" in schema["bind_placeholders"]
         assert schema["enums"]["sot_kind"] == ["url", "codebase"]
         assert schema["enums"]["codebase_strategy"] == ["all"]
 
@@ -81,7 +81,6 @@ class TestExpandCorpus:
         "ptc_url": "https://github.com/o/r/blob/main/ptc.md",
         "tpef_url": "https://github.com/o/r/blob/main/tpef.md",
         "tpt_layer_standards_url": "https://github.com/o/r/blob/main/layer-standards.md",
-        "tpef_v2_url": "https://github.com/o/r/blob/main/tpef-v2.md",
     }
 
     def test_expand_substitutes_paths(self):
@@ -104,7 +103,7 @@ class TestExpandCorpus:
         expanded = expand_corpus(data, self._BIND)
         e3 = expanded["dimensions"][2]
         assert e3["sots"][0]["ref"] == self._BIND["tpt_layer_standards_url"]
-        assert e3["method"]["source"] == self._BIND["tpef_v2_url"]
+        assert e3["method"]["source"] == self._BIND["tpef_url"]
 
     def test_invalid_codebase_strategy(self):
         dim = {
