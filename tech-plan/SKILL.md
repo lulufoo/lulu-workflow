@@ -276,10 +276,11 @@ Subcommands: `start-evaluating` · `ready-for-delivery` · `deliver`
 python3 "$SKILL_DIR/scripts/eval_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand> [args...]
 ```
 
-Subcommands: `begin-eval-round` · `begin-dimension` (`--dim e1|e2|e3`) · `complete-round`
+Subcommands: `begin-eval-round` · `begin-dimension` (`--dim e1|e2|e3`) · `check-dimension` (`--dim e1|e2|e3`) · `complete-round`
 
 On `begin-eval-round` success: read stdout JSON and pin payload (loop context).
 On `begin-dimension` success: read stdout as plain-text `## Input` block for eval-runner dispatch.
+On `check-dimension` success (exit 0): read stdout JSON; branch on `abandoned` / `outcome`.
 On `complete-round` success: read stdout JSON and pin payload (summary for user presentation).
 
 ### `$DRAFT_CONTROL`

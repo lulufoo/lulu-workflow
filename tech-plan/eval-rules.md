@@ -43,9 +43,10 @@ Load {$SKILL_ROOT}/tech-plan/eval-runner/SKILL.md and follow its instructions.
 
 3. Await completion
 
-4. Read `evaluate-state.md` → check `current_dimension`:
-   - if `abandoned` → **Step 4 — Abandon Handler**, STOP
-   - else → verify `{dim}_status: complete`
+4. Run `$EVAL_CONTROL check-dimension --dim {dim}`. Pin payload.
+   - `payload.abandoned: true` → **Step 4 — Abandon Handler**, STOP
+   - non-zero exit → Blocking, STOP
+   - else (`outcome: complete`) → continue Step 1 loop
 
 ---
 
@@ -63,7 +64,7 @@ After Step 1 loop completes:
 
 ## Step 4 — Abandon Handler
 
-Triggered when `evaluate-state.md: current_dimension: abandoned`.
+Triggered when `check-dimension` returns `abandoned: true` (or `evaluate-state.md: current_dimension: abandoned`).
 
 1. Write `workflow-state.md`:
    - `current_state: Drafting`

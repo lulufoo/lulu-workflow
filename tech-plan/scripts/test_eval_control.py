@@ -13,6 +13,7 @@ from eval_control import (  # noqa: E402
     begin_dimension,
     begin_eval_round,
     build_eval_loop_payload,
+    check_dimension,
     complete_round,
     dispatch_list,
     init_round,
@@ -270,6 +271,113 @@ def _setup_complete_round_ready(
     eval_dir.mkdir(parents=True, exist_ok=True)
     (eval_dir / "tech-review-e12.md").write_text(_REVIEW_E2, encoding="utf-8")
     return ws
+
+
+class TestCheckDimension:
+    def test_complete_outcome_exit_zero(self, tmp_path: Path):
+        ws = _setup_complete_round_ready(tmp_path)
+        save_evaluate_state(
+            ws.parent / "evaluate-state.md",
+            {"current_dimension": "e2"},
+        )
+        result = check_dimension(_CYCLE, tmp_path, dim="e2")
+
+        assert result["ok"] is True
+        assert result["command"] == "check-dimension"
+        assert result["outcome"] == "complete"
+        assert result["abandoned"] is False
+        assert result["dim_status"] == "complete"
+        assert len(result["issues"]) == 2
+        assert result["review_path"].endswith("tech-review-e12.md")
+
+    def test_abandoned_outcome_exit_zero(self, tmp_path: Path):
+        ws = _setup_evaluating(tmp_path)
+        save_evaluate_state(
+            ws.parent / "evaluate-state.md",
+            {
+                "current_dimension": "abandoned",
+                "e2_status": "in_progress",
+            },
+        )
+        result = check_dimension(_CYCLE, tmp_path, dim="e2")
+
+        assert result["ok"] is True
+        assert result["outcome"] == "abandoned"
+        assert result["abandoned"] is True
+
+    def test_incomplete_outcome_exit_nonzero_via_emit(self, tmp_path: Path):
+        ws = _setup_evaluating(tmp_path)
+        save_evaluate_state(
+            ws.parent / "evaluate-state.md",
+            {
+                "current_dimension": "e2",
+                "e2_status": "in_progress",
+            },
+        )
+        result = check_dimension(_CYCLE, tmp_path, dim="e2")
+
+        assert result["ok"] is False
+        assert result["outcome"] == "incomplete"
+        assert result["abandoned"] is False
+
+    def test_rejects_dim_not_in_dispatch_for_tech_mode(self, tmp_path: Path):
+        _setup_evaluating(tmp_path, mode="tech")
+        result = check_dimension(_CYCLE, tmp_path, dim="e1")
+        assert result["ok"] is False
+
+
+class TestCheckDimensionCli:
+    def test_abandoned_exit_zero(self, tmp_path: Path):
+        ws = _setup_evaluating(tmp_path)
+        save_evaluate_state(
+            ws.parent / "evaluate-state.md",
+            {"current_dimension": "abandoned", "e2_status": "in_progress"},
+        )
+        proc = subprocess.run(
+            [
+                sys.executable,
+                str(_SCRIPT),
+                "--cycle-id",
+                _CYCLE,
+                "--project-root",
+                str(tmp_path),
+                "check-dimension",
+                "--dim",
+                "e2",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert proc.returncode == 0
+        payload = json.loads(proc.stdout)
+        assert payload["abandoned"] is True
+
+    def test_incomplete_exit_nonzero(self, tmp_path: Path):
+        ws = _setup_evaluating(tmp_path)
+        save_evaluate_state(
+            ws.parent / "evaluate-state.md",
+            {"current_dimension": "e2", "e2_status": "in_progress"},
+        )
+        proc = subprocess.run(
+            [
+                sys.executable,
+                str(_SCRIPT),
+                "--cycle-id",
+                _CYCLE,
+                "--project-root",
+                str(tmp_path),
+                "check-dimension",
+                "--dim",
+                "e2",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert proc.returncode == 1
+        payload = json.loads(proc.stdout)
+        assert payload["outcome"] == "incomplete"
 
 
 class TestCompleteRound:

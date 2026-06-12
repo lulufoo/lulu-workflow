@@ -9,6 +9,7 @@ Subcommands:
     begin-eval-round      Enter Evaluating, validate evaluate-state, return loop payload
     begin-dimension       Mark dimension in_progress and return eval-runner inputs
     complete-round        Finalize evaluate-state and return summary payload
+    check-dimension       Read back single-dimension outcome after eval-runner
 """
 
 from __future__ import annotations
@@ -25,6 +26,7 @@ from eval_review import (  # noqa: E402
     build_issue_counts,
     collect_review_issues,
     compute_fix_severity,
+    parse_review_issues,
 )
 from evaluate_state_schema import (  # noqa: E402
     build_initial_evaluate_state,
@@ -50,6 +52,8 @@ _CMD_INIT_ROUND = "init-round"
 _CMD_BEGIN_EVAL_ROUND = "begin-eval-round"
 _CMD_BEGIN_DIMENSION = "begin-dimension"
 _CMD_COMPLETE_ROUND = "complete-round"
+_CMD_CHECK_DIMENSION = "check-dimension"
+_DIM_TO_REVIEW_INDEX = {"e1": "1", "e2": "2", "e3": "3"}
 _ENTRY_DIMENSION_KEYS = (
     "current_dimension",
     "e1_status",
@@ -397,6 +401,153 @@ def complete_round(cycle_id: str, project_root: Path) -> dict[str, Any]:
     )
 
 
+def _review_path_for_dim(
+    eval_dir: Path,
+    evaluate_round: int,
+    dim: str,
+) -> Path:
+    index = _DIM_TO_REVIEW_INDEX[dim]
+    return eval_dir / f"tech-review-e{evaluate_round}{index}.md"
+
+
+def _dim_review_snapshot(
+    eval_dir: Path,
+    evaluate_round: int,
+    dim: str,
+) -> tuple[list[dict[str, str]], str]:
+    review_path = _review_path_for_dim(eval_dir, evaluate_round, dim)
+    if not review_path.exists():
+        return [], ""
+    return (
+        parse_review_issues(review_path, dimension=dim),
+        review_path.resolve().as_posix(),
+    )
+
+
+def check_dimension(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    dim: str,
+) -> dict[str, Any]:
+    """Return single-dimension outcome after eval-runner (read-only)."""
+    if dim not in _VALID_DIMS:
+        return _failure(
+            _CMD_CHECK_DIMENSION,
+            f"invalid dim: {dim!r} (allowed: {sorted(_VALID_DIMS)})",
+            dim=dim,
+            outcome="incomplete",
+            abandoned=False,
+        )
+
+    ws_path = resolve_workflow_state_path_from_cycle(cycle_id, project_root)
+    state = load_workflow_state(ws_path)
+    current = state["current_state"]
+    if current != _EXPECTED_EVALUATING_STATE:
+        return _failure(
+            _CMD_CHECK_DIMENSION,
+            (
+                f"current state is {current!r}, "
+                f"expected {_EXPECTED_EVALUATING_STATE!r}."
+            ),
+            current_state=current,
+            dim=dim,
+            outcome="incomplete",
+            abandoned=False,
+        )
+
+    mode = state["mode"]
+    if dim not in dispatch_list(mode):
+        return _failure(
+            _CMD_CHECK_DIMENSION,
+            f"dim {dim!r} is not in dispatch list for mode {mode!r}.",
+            current_state=current,
+            dim=dim,
+            outcome="incomplete",
+            abandoned=False,
+        )
+
+    try:
+        evaluate_round = int(state.get("evaluate_round", "0"))
+    except ValueError:
+        evaluate_round = 0
+    if evaluate_round < 1:
+        return _failure(
+            _CMD_CHECK_DIMENSION,
+            f"evaluate_round is {evaluate_round!r} (expected >= 1).",
+            current_state=current,
+            dim=dim,
+            outcome="incomplete",
+            abandoned=False,
+        )
+
+    es_path = resolve_evaluate_state_path_from_cycle(cycle_id, project_root)
+    if not es_path.exists():
+        return _failure(
+            _CMD_CHECK_DIMENSION,
+            "evaluate-state.md not found.",
+            current_state=current,
+            dim=dim,
+            outcome="incomplete",
+            abandoned=False,
+        )
+
+    eval_data = load_evaluate_state(es_path)
+    current_dimension = eval_data.get("current_dimension", "")
+    dim_status = eval_data.get(f"{dim}_status", "")
+
+    if current_dimension == "abandoned":
+        return _success(
+            _CMD_CHECK_DIMENSION,
+            dim=dim,
+            outcome="abandoned",
+            abandoned=True,
+            current_state=current,
+            current_dimension=current_dimension,
+            dim_status=dim_status,
+        )
+
+    if dim_status == "complete":
+        active_doc = load_active_doc_from_cycle(cycle_id, project_root)
+        eval_dir = project_root.resolve() / eval_round_dir(
+            cycle_id,
+            active_doc,
+            evaluate_round,
+        )
+        issues, review_path = _dim_review_snapshot(
+            eval_dir,
+            evaluate_round,
+            dim,
+        )
+        return _success(
+            _CMD_CHECK_DIMENSION,
+            dim=dim,
+            outcome="complete",
+            abandoned=False,
+            current_state=current,
+            current_dimension=current_dimension,
+            dim_status=dim_status,
+            total_issues=eval_data.get(f"{dim}_total_issues", "0"),
+            resolved_issues=eval_data.get(f"{dim}_resolved_issues", "0"),
+            review_path=review_path,
+            issues=issues,
+        )
+
+    return _failure(
+        _CMD_CHECK_DIMENSION,
+        (
+            f"{dim}_status is {dim_status!r} "
+            f"(expected 'complete' when not abandoned)."
+        ),
+        current_state=current,
+        dim=dim,
+        outcome="incomplete",
+        abandoned=False,
+        current_dimension=current_dimension,
+        dim_status=dim_status,
+    )
+
+
 def begin_dimension(
     cycle_id: str,
     project_root: Path,
@@ -516,6 +667,17 @@ def _cli() -> int:
         help="Finalize evaluation round and return summary payload",
     )
 
+    check_parser = sub.add_parser(
+        _CMD_CHECK_DIMENSION,
+        help="Read single-dimension outcome after eval-runner",
+    )
+    check_parser.add_argument(
+        "--dim",
+        required=True,
+        choices=sorted(_VALID_DIMS),
+        help="Dimension: e1, e2, or e3",
+    )
+
     args = parser.parse_args()
     project_root = args.project_root.resolve()
     cycle_id = args.cycle_id.strip()
@@ -531,6 +693,8 @@ def _cli() -> int:
             return _emit(payload)
         if args.command == _CMD_COMPLETE_ROUND:
             return _emit(complete_round(cycle_id, project_root))
+        if args.command == _CMD_CHECK_DIMENSION:
+            return _emit(check_dimension(cycle_id, project_root, dim=args.dim))
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 1
