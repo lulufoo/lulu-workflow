@@ -184,7 +184,7 @@ class TestInitRound:
         assert es["version"] == "3"
         assert es["eval_status"] == "active"
         assert es["fix_phase"] == "probe"
-        assert es["corpus_ref"] == "tech-plan-product@2"
+        assert es["corpus_ref"] == "tech-plan-product@3"
         dim_map = _dim_map(es)
         assert dim_map == {"e1": "pending", "e2": "pending", "e3": "pending"}
 
@@ -251,6 +251,8 @@ class TestBeginDimension:
         assert ri["DIMENSION_ID"] == "codebase-consistency"
         assert ri["DIMENSION"] == "e2"
         assert "SOTS_JSON" in ri
+        sots = json.loads(ri["SOTS_JSON"])
+        assert sots[0]["ref"] == {"root": ".", "strategy": "all"}
         assert "METHOD_JSON" in ri
         assert "EXECUTION_MODE" not in ri
         assert "EVAL_TARGET_PATH" in result["dispatch_input"]

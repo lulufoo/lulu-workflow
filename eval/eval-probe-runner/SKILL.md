@@ -22,7 +22,8 @@ Terminal runner subagent. Probes **one Dimension** per invocation (from EvalCorp
 2. Read `{$SKILL_ROOT}/eval/issue-taxonomy.json`
 3. Read `{$SKILL_ROOT}/eval/review.template.md`
 4. Read `{$SKILL_ROOT}/eval/scripts/url_fetch.py` — use `read_ref()` for all URL/path loads
-5. Follow steps below
+5. Read `{$SKILL_ROOT}/eval/scripts/codebase_sot.py` — use `resolve_codebase_ref()` for codebase SoT
+6. Follow steps below
 
 ---
 
@@ -61,13 +62,10 @@ PRODUCT_REF           absolute path (only when SOTS_JSON references product doc)
 2. Parse `SOTS_JSON` and `METHOD_JSON`.
 3. Load each EvalSoT:
    - `url` · `ref` (https URL or absolute local path) → `read_ref(ref, project_root=Path(PROJECT_ROOT))`
-   - `codebase` · `discover_from` + `strategy: approach_or_legacy_sections` → parse B for code entry points:
-     - **v2 template** (`## Approach Skeleton` or `## Tasks`)
-     - **legacy template** (`§5 Data Flow`, `§6 API / Interfaces`)
-     - Read identified code files
+   - `codebase` · `ref.root` + `ref.strategy` → `resolve_codebase_ref(ref, project_root=Path(PROJECT_ROOT))` yields repo root; with `strategy: all`, read code files narrowly as needed (do not batch-load the entire repo)
 4. Load EvalMethod **M**:
    - `external` · `source` (https URL or absolute path) → `read_ref(source, project_root=Path(PROJECT_ROOT))` as rubric
-   - `builtin` · `source.procedure_id: codebase_consistency` → compare B against loaded codebase SoT per METHOD_FOCUS
+   - `builtin` · `source.procedure_id: codebase_consistency` → compare B against code read from codebase SoT root per METHOD_FOCUS
    - `builtin` · `source.procedure_id: tpef_solution_quality` → apply loaded TPEF SoT against B per METHOD_FOCUS
 
 When `SOTS_JSON` is empty, **M** carries both rubric and basis.

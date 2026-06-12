@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 _SCHEMA: dict[str, Any] = {
-    "version": "2",
+    "version": "3",
     "required_top_level": [
         "id",
         "version",
@@ -33,6 +33,7 @@ _SCHEMA: dict[str, Any] = {
         "sot_kind": ["url", "codebase"],
         "sot_role": ["primary", "supplementary", "constraint"],
         "method_kind": ["builtin", "external"],
+        "codebase_strategy": ["all"],
     },
     "bind_placeholders": [
         "tech_doc",
@@ -50,6 +51,7 @@ _VALID_SOT_ROLE = frozenset(_SCHEMA["enums"]["sot_role"])
 _VALID_METHOD_KIND = frozenset(_SCHEMA["enums"]["method_kind"])
 _VALID_CONTEXT = frozenset(_SCHEMA["enums"]["context"])
 _VALID_DISPATCH = frozenset(_SCHEMA["enums"]["dimension_dispatch"])
+_VALID_CODEBASE_STRATEGY = frozenset(_SCHEMA["enums"]["codebase_strategy"])
 
 
 def get_schema() -> dict[str, Any]:
@@ -92,8 +94,15 @@ def _validate_sot(sot: Any, errors: list[str], *, ctx: str) -> None:
         if not isinstance(ref, dict):
             errors.append(f"{ctx}: codebase sot ref must be an object")
         else:
-            _require_str(ref, "discover_from", errors, ctx=f"{ctx}.ref")
-            _require_str(ref, "strategy", errors, ctx=f"{ctx}.ref")
+            _require_str(ref, "root", errors, ctx=f"{ctx}.ref")
+            strategy = ref.get("strategy")
+            if not isinstance(strategy, str) or not strategy.strip():
+                errors.append(f"{ctx}.ref: missing or invalid string field 'strategy'")
+            elif strategy.strip() not in _VALID_CODEBASE_STRATEGY:
+                errors.append(
+                    f"{ctx}.ref: invalid codebase strategy {strategy!r} "
+                    f"(allowed: {sorted(_VALID_CODEBASE_STRATEGY)})",
+                )
     elif ref is not None:
         errors.append(f"{ctx}: sot ref type does not match kind {kind!r}")
 

@@ -25,7 +25,10 @@ from workflow_state_schema import (  # noqa: E402
 )
 
 _EVAL_ROOT = Path(__file__).resolve().parents[2] / "eval" / "scripts"
+_WORKFLOW_SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
 sys.path.insert(0, str(_EVAL_ROOT))
+if str(_WORKFLOW_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_WORKFLOW_SCRIPTS))
 from workflow_adapter import SessionContext  # noqa: E402
 
 _MODE_TO_CORPUS_ID = {

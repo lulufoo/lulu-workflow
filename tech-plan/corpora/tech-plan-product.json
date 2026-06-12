@@ -1,6 +1,6 @@
 {
   "id": "tech-plan-product",
-  "version": "2",
+  "version": "3",
   "scope": "tech-plan",
   "context": "offline",
   "dimension_dispatch": "parallel",
@@ -48,8 +48,8 @@
           "kind": "codebase",
           "role": "primary",
           "ref": {
-            "discover_from": "{tech_doc}",
-            "strategy": "approach_or_legacy_sections"
+            "root": ".",
+            "strategy": "all"
           }
         }
       ],

@@ -29,8 +29,8 @@ def _seed_session(tmp_path: Path) -> Path:
 class TestTechPlanEvalAdapter:
     def test_load_via_registry(self):
         adapter = load_adapter("tech-plan")
-        assert adapter.corpus_ref_for_mode("product") == "tech-plan-product@2"
-        assert adapter.corpus_ref_for_mode("tech") == "tech-plan-tech@2"
+        assert adapter.corpus_ref_for_mode("product") == "tech-plan-product@3"
+        assert adapter.corpus_ref_for_mode("tech") == "tech-plan-tech@3"
 
     def test_resolve_evaluate_state_path(self, tmp_path: Path):
         ws = _seed_session(tmp_path)

@@ -32,7 +32,7 @@ class TestBuildInitial:
     def test_builds_pending_dims(self):
         data = build_initial_evaluate_state(
             dimension_ids=["intent-alignment", "codebase-consistency"],
-            corpus_ref="tech-plan-product@2",
+            corpus_ref="tech-plan-product@3",
         )
         assert data["version"] == "3"
         dim_map = parse_dimension_status(data["dimension_status"])
@@ -72,12 +72,12 @@ class TestIo:
         path = tmp_path / "evaluate-state.md"
         data = build_initial_evaluate_state(
             dimension_ids=["intent-alignment"],
-            corpus_ref="tech-plan-product@2",
+            corpus_ref="tech-plan-product@3",
         )
         save_evaluate_state(path, data, merge=False)
         loaded = load_evaluate_state(path)
         assert loaded["version"] == "3"
-        assert loaded["corpus_ref"] == "tech-plan-product@2"
+        assert loaded["corpus_ref"] == "tech-plan-product@3"
         assert is_v3_state(loaded)
 
 

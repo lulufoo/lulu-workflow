@@ -28,6 +28,7 @@ class TestGetSchema:
         assert "tech_doc" in schema["bind_placeholders"]
         assert "ptc_url" in schema["bind_placeholders"]
         assert schema["enums"]["sot_kind"] == ["url", "codebase"]
+        assert schema["enums"]["codebase_strategy"] == ["all"]
 
 
 class TestValidateCorpus:
@@ -40,7 +41,7 @@ class TestValidateCorpus:
         assert validate_corpus(data) == []
 
     def test_missing_dimensions(self):
-        errors = validate_corpus({"id": "x", "version": "2"})
+        errors = validate_corpus({"id": "x", "version": "3"})
         assert any("dimensions" in err for err in errors)
 
     def test_duplicate_dimension_id(self):
@@ -60,7 +61,7 @@ class TestValidateCorpus:
         errors = validate_corpus(
             {
                 "id": "x",
-                "version": "2",
+                "version": "3",
                 "scope": "tech-plan",
                 "context": "offline",
                 "dimension_dispatch": "parallel",
@@ -89,6 +90,44 @@ class TestExpandCorpus:
         assert dim["method"]["source"] == self._BIND["ptc_url"]
         assert dim["review"]["output_path"] == "tech-review-e11.md"
 
+    def test_expand_preserves_codebase_root_dot(self):
+        data = load_corpus(_CORPUS_DIR / "tech-plan-tech.json")
+        expanded = expand_corpus(data, self._BIND)
+        e2 = expanded["dimensions"][0]
+        assert e2["sots"][0]["ref"] == {"root": ".", "strategy": "all"}
+
+    def test_invalid_codebase_strategy(self):
+        dim = {
+            "id": "a",
+            "label": "A",
+            "eval_target": {"path": "{tech_doc}"},
+            "remediation_target": {"path": "{tech_doc}"},
+            "sots": [
+                {
+                    "kind": "codebase",
+                    "role": "primary",
+                    "ref": {"root": ".", "strategy": "glob:**"},
+                },
+            ],
+            "method": {
+                "kind": "builtin",
+                "source": {"procedure_id": "codebase_consistency"},
+                "focus": "f",
+            },
+            "review": {"seq": 1, "output_path": "r.md", "template": "eval/review.template.md"},
+        }
+        errors = validate_corpus(
+            {
+                "id": "x",
+                "version": "3",
+                "scope": "tech-plan",
+                "context": "offline",
+                "dimension_dispatch": "parallel",
+                "dimensions": [dim],
+            },
+        )
+        assert any("invalid codebase strategy" in err for err in errors)
+
     def test_unbound_placeholder_raises(self):
         data = load_corpus(_CORPUS_DIR / "tech-plan-product.json")
         with pytest.raises(ValueError, match="unbound placeholder"):
@@ -98,7 +137,7 @@ class TestExpandCorpus:
 class TestHelpers:
     def test_corpus_ref(self):
         data = load_corpus(_CORPUS_DIR / "tech-plan-product.json")
-        assert corpus_ref(data) == "tech-plan-product@2"
+        assert corpus_ref(data) == "tech-plan-product@3"
 
     def test_dispatch_ids(self):
         data = load_corpus(_CORPUS_DIR / "tech-plan-tech.json")
