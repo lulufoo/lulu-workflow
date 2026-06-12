@@ -6,22 +6,24 @@ Subcommands:
     ready-for-delivery   Drafting|Evaluating -> ReadyForDelivery
     deliver              ReadyForDelivery -> Delivered (+ human-delivery-gate.md)
     abandon-evaluation   Evaluating -> Drafting (requires evaluate-state abandoned)
+    resume-after-eval    Evaluating -> Drafting after eval complete-round (fix exit)
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from eval_control import init_round  # noqa: E402
-from evaluate_state_schema import (  # noqa: E402
-    load_evaluate_state,
-    resolve_evaluate_state_path_from_cycle,
-)
+
+_EVAL_SCRIPTS = Path(__file__).resolve().parents[2] / "eval" / "scripts"
+sys.path.insert(0, str(_EVAL_SCRIPTS))
+
+from evaluate_state_schema import load_evaluate_state  # noqa: E402
 from human_delivery_gate_schema import write_approved  # noqa: E402
 from session_state_schema import load_active_doc_from_cycle  # noqa: E402
 from workflow_common import approval_path  # noqa: E402
@@ -30,13 +32,44 @@ from workflow_state_schema import (  # noqa: E402
     resolve_workflow_state_path_from_cycle,
     save_workflow_state,
 )
+from adapter_registry import load_adapter  # noqa: E402
 
 _CMD_START_EVALUATING = "start-evaluating"
 _CMD_READY = "ready-for-delivery"
 _CMD_DELIVER = "deliver"
 _CMD_ABANDON = "abandon-evaluation"
+_CMD_RESUME_AFTER_EVAL = "resume-after-eval"
 _EXPECTED_DELIVER_STATE = "ReadyForDelivery"
 _EXPECTED_ABANDON_STATE = "Evaluating"
+_EXPECTED_EVALUATING_STATE = "Evaluating"
+_EVAL_CONTROL = _EVAL_SCRIPTS / "eval_control.py"
+_WORKFLOW = "tech-plan"
+
+
+def _run_eval_init_round(cycle_id: str, project_root: Path) -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(_EVAL_CONTROL),
+            "--workflow",
+            _WORKFLOW,
+            "--cycle-id",
+            cycle_id,
+            "--project-root",
+            str(project_root),
+            "init-round",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        detail = result.stderr.strip() or result.stdout.strip() or "init-round failed"
+        raise ValueError(detail)
+
+
+def _evaluate_state_path(cycle_id: str, project_root: Path) -> Path:
+    adapter = load_adapter(_WORKFLOW)
+    return adapter.resolve_evaluate_state_path(cycle_id, project_root)
 
 
 def _gate_path(cycle_id: str, project_root: Path) -> Path:
@@ -134,7 +167,7 @@ def start_evaluating(cycle_id: str, project_root: Path) -> dict[str, Any]:
     merged["evaluate_round"] = str(evaluate_round)
     save_workflow_state(ws_path, merged, merge=False)
 
-    init_round(cycle_id, project_root, mode=merged["mode"])
+    _run_eval_init_round(cycle_id, project_root)
 
     return _success(
         _CMD_START_EVALUATING,
@@ -200,7 +233,7 @@ def abandon_evaluation(cycle_id: str, project_root: Path) -> dict[str, Any]:
             ),
         )
 
-    es_path = resolve_evaluate_state_path_from_cycle(cycle_id, project_root)
+    es_path = _evaluate_state_path(cycle_id, project_root)
     if not es_path.exists():
         return _failure_abandon(
             current,
@@ -237,6 +270,70 @@ def abandon_evaluation(cycle_id: str, project_root: Path) -> dict[str, Any]:
     )
 
 
+def resume_after_eval(cycle_id: str, project_root: Path) -> dict[str, Any]:
+    """Return to Drafting after complete-round (Evaluating fix exit)."""
+    ws_path = resolve_workflow_state_path_from_cycle(cycle_id, project_root)
+    state = load_workflow_state(ws_path)
+    current = state["current_state"]
+    if current != _EXPECTED_EVALUATING_STATE:
+        return _failure(
+            _CMD_RESUME_AFTER_EVAL,
+            current,
+        )
+
+    try:
+        evaluate_round = int(state.get("evaluate_round", "0"))
+    except ValueError:
+        evaluate_round = 0
+    if evaluate_round < 1:
+        return {
+            "ok": False,
+            "command": _CMD_RESUME_AFTER_EVAL,
+            "current_state": current,
+            "reason": f"evaluate_round is {evaluate_round!r} (expected >= 1).",
+        }
+
+    es_path = _evaluate_state_path(cycle_id, project_root)
+    if not es_path.exists():
+        return {
+            "ok": False,
+            "command": _CMD_RESUME_AFTER_EVAL,
+            "current_state": current,
+            "reason": "evaluate-state.md not found.",
+        }
+
+    eval_data = load_evaluate_state(es_path)
+    eval_status = eval_data.get("eval_status", "")
+    if eval_status == "abandoned":
+        return {
+            "ok": False,
+            "command": _CMD_RESUME_AFTER_EVAL,
+            "current_state": current,
+            "reason": "evaluation was abandoned (eval_status: abandoned).",
+        }
+    if eval_status != "done":
+        return {
+            "ok": False,
+            "command": _CMD_RESUME_AFTER_EVAL,
+            "current_state": current,
+            "reason": (
+                f"eval_status is {eval_status!r}, "
+                "expected 'done' (run complete-round first)."
+            ),
+        }
+
+    merged = dict(state)
+    merged["current_state"] = "Drafting"
+    merged.pop("skip_evaluate_requested", None)
+    save_workflow_state(ws_path, merged, merge=False)
+
+    return _success(
+        _CMD_RESUME_AFTER_EVAL,
+        "Drafting",
+        evaluate_round=evaluate_round,
+    )
+
+
 def _emit(payload: dict[str, Any]) -> int:
     print(json.dumps(payload, ensure_ascii=False))
     return 0 if payload.get("ok") else 1
@@ -261,6 +358,10 @@ def _cli() -> int:
         _CMD_ABANDON,
         help="Transition Evaluating -> Drafting after evaluation abandoned",
     )
+    sub.add_parser(
+        _CMD_RESUME_AFTER_EVAL,
+        help="Transition Evaluating -> Drafting after complete-round (fix exit)",
+    )
 
     args = parser.parse_args()
     project_root = args.project_root.resolve()
@@ -275,6 +376,8 @@ def _cli() -> int:
             return _emit(deliver(cycle_id, project_root, note=args.note))
         if args.command == _CMD_ABANDON:
             return _emit(abandon_evaluation(cycle_id, project_root))
+        if args.command == _CMD_RESUME_AFTER_EVAL:
+            return _emit(resume_after_eval(cycle_id, project_root))
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 1

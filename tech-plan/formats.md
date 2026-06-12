@@ -33,13 +33,13 @@ updated_at: 2026-05-17T09:00:00+08:00
 
 ## revision{N}/evaluate-state.md
 
-Schema v2. Full field list:
+Schema v3. Full field list:
 
 ```bash
-python3 {$SKILL_ROOT}/tech-plan/scripts/evaluate_state_schema.py --schema
+python3 {$SKILL_ROOT}/eval/scripts/evaluate_state_schema.py --schema
 ```
 
-Key fields: `eval_status` (`active` | `done` | `abandoned`), `fix_phase` (`probe` | `artifact-remediation` | `sot-remediation` | `done`), `current_dimension` (JSON map: dim → `pending` | `in_progress` | `probed` | `complete`).
+Key fields: `eval_status` (`active` | `done` | `abandoned`), `fix_phase` (`probe` | `artifact-remediation` | `sot-remediation` | `done`), `dimension_status` (JSON map: dim_id → `pending` | `in_progress` | `probed` | `complete`), `issue_counts` (JSON map per dimension).
 
 ---
 

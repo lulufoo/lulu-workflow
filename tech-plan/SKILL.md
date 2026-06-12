@@ -212,7 +212,7 @@ Rules:
 
 ### Evaluating Rules
 
-Read `./eval-rules.md` and follow its instructions.
+Read `{$SKILL_ROOT}/eval/eval-rules.md` and follow its instructions.
 
 eval-rules may loop Step 1–5 via **Re-evaluate** without exiting to parent.
 
@@ -268,31 +268,35 @@ Views: `delivery-preview` · `session` · `stage-transitions`
 python3 "$SKILL_DIR/scripts/session_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>
 ```
 
-Subcommands: `start-evaluating` · `ready-for-delivery` · `deliver` · `abandon-evaluation`
+Subcommands: `start-evaluating` · `ready-for-delivery` · `deliver` · `abandon-evaluation` · `resume-after-eval`
 
 On `abandon-evaluation` success: read stdout JSON and pin payload. Non-zero exit → Blocking.
+On `resume-after-eval` success: read stdout JSON and pin payload (Continue editing exit from eval-rules Step 5). Non-zero exit → Blocking.
 
 ### `$EVAL_CONTROL`
 
 `$EVAL_CONTROL <subcommand> [args...]` →
 
 ```bash
-python3 "$SKILL_DIR/scripts/eval_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand> [args...]
+python3 "$SKILL_ROOT/eval/scripts/eval_control.py" \
+  --workflow tech-plan \
+  --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand> [args...]
 ```
 
-Subcommands: `begin-eval-round` · `begin-dimension` (`--dim e1|e2|e3`) · `finish-dimension-probe` (`--dim e1|e2|e3`) · `check-dimension` (`--dim e1|e2|e3`) · `probe-complete` · `begin-artifact-remediation` · `check-artifact-remediation` · `begin-sot-remediation` · `check-sot-remediation` · `complete-round` · `resume-drafting`
+Subcommands: `begin-eval-round` · `begin-dimension` (`--dim e1|e2|e3`) · `finish-dimension-probe` (`--dim e1|e2|e3`) · `check-dimension` (`--dim e1|e2|e3`) · `probe-complete` · `begin-artifact-remediation` · `begin-dimension-artifact-remediation` (`--dim`) · `check-dimension-artifact-remediation` (`--dim`) · `artifact-remediation-complete` · `begin-sot-remediation` · `begin-dimension-sot-remediation` (`--dim`) · `check-dimension-sot-remediation` (`--dim`) · `sot-remediation-complete` · `complete-round`
 
 On `begin-eval-round` success: read stdout JSON and pin payload (loop context).
-On `begin-dimension` success: stdout is **plain text** — use entire stdout as eval-runner `## Input` block (not JSON).
+On `begin-dimension` success: stdout is **plain text** — use entire stdout as eval-probe-runner `## Input` block (not JSON).
 On `finish-dimension-probe` success: read stdout JSON (`outcome: probed`, `total_issues`).
 On `check-dimension` success (exit 0): read stdout JSON; branch on `abandoned` / `outcome: probed`.
 On `probe-complete` success: read stdout JSON (`fix_phase: artifact-remediation`).
-On `begin-artifact-remediation` / `begin-sot-remediation` success: read stdout **JSON**; if `skip: true` do not dispatch runner; else extract `dispatch_input` string from JSON for remediation-runner `## Input` (do not pass raw JSON to the subagent).
-On `check-artifact-remediation` / `check-sot-remediation` success: read stdout JSON; branch on `abandoned` for SoT check.
-On `complete-round` success: read stdout JSON and pin payload (summary for user presentation).
-On `resume-drafting` success: read stdout JSON and pin payload. Non-zero exit → Blocking.
+On `begin-artifact-remediation` success: read stdout **JSON**; if `skip: true` skip Step 3.2; else pin `dispatch` (dim list).
+On `begin-dimension-artifact-remediation` / `begin-dimension-sot-remediation` success: stdout is **plain text** — pin as remediation-runner `## Input`.
+On `check-dimension-artifact-remediation` / `check-dimension-sot-remediation` success: read stdout JSON; SoT check may set `abandoned: true`.
+On `artifact-remediation-complete` / `sot-remediation-complete` success: read stdout JSON; branch on phase advance / `abandoned`.
+On `complete-round` success: read stdout JSON and pin payload (summary for user presentation). Non-zero exit → Blocking.
 
-**Probe exception:** `eval-runner` may invoke `$EVAL_CONTROL finish-dimension-probe` but must **not** Write/Edit `evaluate-state.md` directly (override generic drafting rule for probe phase only). Before writing `tech-review-*.md`, read `{$SKILL_ROOT}/eval/review.template.md`.
+**Probe exception:** `eval-probe-runner` may invoke `$EVAL_CONTROL finish-dimension-probe` but must **not** Write/Edit `evaluate-state.md` directly (override generic drafting rule for probe phase only). Before writing review files, read `{$SKILL_ROOT}/eval/review.template.md`.
 
 ### `$DRAFT_CONTROL`
 

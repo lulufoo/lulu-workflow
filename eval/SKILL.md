@@ -28,7 +28,7 @@ Every issue must be classified: is the SoT defective, or did the work artifact f
 
 - SOT defective → escalate (never fix silently)
 - SOT valid, artifact wrong → Artifact Remediation
-- SOT issues always require AskQuestion — regardless of `execution_mode`
+- SOT issues always require AskQuestion
 
 P1 is a prerequisite for P2.
 
@@ -51,7 +51,7 @@ SSOT: `{$SKILL_ROOT}/eval/issue-taxonomy.json`. `root_cause` must be one of four
 
 - Header SSOT: `{$SKILL_ROOT}/eval/review.template.md`
 - Validate via: `python3 {$SKILL_ROOT}/eval/scripts/review_schema.py --schema`
-- **tech-plan output path:** `{revision}/evaluate{M}/tech-review-e{M}{DIM_N}.md` (`DIM_N`: e1→1, e2→2, e3→3)
+- **tech-plan output path:** `{revision}/evaluate{M}/{review.output_path}` from EvalCorpus (e.g. `tech-review-e{M}1.md`)
 
 Probe runners: Read template, substitute `{{DIM_LABEL}}`, `{{REV}}`, `{{M}}`, `{{DATE}}`, `{{REFS}}`; append issue rows; never alter header/separator row order.
 
@@ -82,3 +82,17 @@ Example (WO-MISS):
 
 - **Artifact Remediation:** `WO-MISS` / `WO-ERROR` — use `location` + `description` + `evidence` to fix `tech-doc.md`
 - **SoT Remediation:** `SOT-DEFECT` / `UNRESOLVABLE` — AskQuestion from row fields; Reclassify → `WO-*` applies Artifact fix inline in same session
+
+---
+
+## Mechanical command
+
+`$EVAL_CONTROL` (workflow-specific; tech-plan example):
+
+```bash
+python3 {$SKILL_ROOT}/eval/scripts/eval_control.py \
+  --workflow tech-plan \
+  --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand> [args...]
+```
+
+Subcommand SSOT: `{$SKILL_ROOT}/tech-plan/SKILL.md` Command Index · orchestration: `{$SKILL_ROOT}/eval/eval-rules.md`.

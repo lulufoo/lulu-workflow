@@ -6,6 +6,17 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+_EVAL_SCRIPTS = Path(__file__).resolve().parents[2] / "eval" / "scripts"
+sys.path.insert(0, str(_EVAL_SCRIPTS))
+
+from adapter_registry import load_adapter  # noqa: E402
+from evaluate_state_ops import (  # noqa: E402
+    dimension_status_legacy_map,
+    init_evaluate_state as _init_evaluate_state_impl,
+    merge_current_dimension,
+)
+from evaluate_state_schema import load_evaluate_state, save_evaluate_state  # noqa: E402
 from session_control import (  # noqa: E402
     _CMD_ABANDON,
     _CMD_DELIVER,
@@ -16,17 +27,23 @@ from session_control import (  # noqa: E402
     ready_for_delivery,
     start_evaluating,
 )
-from evaluate_state_schema import (  # noqa: E402
-    init_evaluate_state,
-    load_evaluate_state,
-    merge_current_dimension,
-    parse_current_dimension,
-    save_evaluate_state,
-)
 from workflow_state_schema import init_drafting, load_workflow_state, save_workflow_state
 
 _CYCLE = "feat-test"
 _CACHE = Path(".cache/cursor/lulu-dev-workflow")
+_ADAPTER = load_adapter("tech-plan")
+
+
+def _corpus_ref_for_mode(mode: str) -> str:
+    return _ADAPTER.corpus_ref_for_mode(mode)
+
+
+def init_evaluate_state(path: Path, *, mode: str) -> None:
+    _init_evaluate_state_impl(
+        path,
+        mode=mode,
+        corpus_ref_for_mode=_corpus_ref_for_mode,
+    )
 
 
 def _seed_session(tmp_path: Path, active_doc: int = 1) -> Path:
@@ -85,9 +102,7 @@ class TestStartEvaluating:
         assert loaded["evaluate_round"] == "1"
         assert "skip_evaluate_requested" not in loaded
         es = load_evaluate_state(ws.parent / "evaluate-state.md")
-        from evaluate_state_schema import parse_current_dimension  # noqa: WPS433
-
-        dim_map = parse_current_dimension(es["current_dimension"])
+        dim_map = dimension_status_legacy_map(es)
         assert dim_map["e1"] == "pending"
 
     def test_from_drafting_tech_mode(self, tmp_path: Path):
@@ -98,9 +113,7 @@ class TestStartEvaluating:
 
         assert result["ok"] is True
         es = load_evaluate_state(ws.parent / "evaluate-state.md")
-        from evaluate_state_schema import parse_current_dimension  # noqa: WPS433
-
-        dim_map = parse_current_dimension(es["current_dimension"])
+        dim_map = dimension_status_legacy_map(es)
         assert "e1" not in dim_map
         assert dim_map["e2"] == "pending"
 
@@ -125,7 +138,7 @@ class TestStartEvaluating:
         assert result["ok"] is True
         assert result["evaluate_round"] == 1
         reloaded = load_evaluate_state(es_path)
-        dim_map = parse_current_dimension(reloaded["current_dimension"])
+        dim_map = dimension_status_legacy_map(reloaded)
         assert dim_map["e2"] == "in_progress"
 
     def test_failure_from_ready_for_delivery(self, tmp_path: Path):
