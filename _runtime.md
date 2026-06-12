@@ -55,13 +55,14 @@ Sub-SKILLs do not emit this command directly. They may prompt the user that swit
 
 ### Template Fetch
 
-Unique entry for template fetch in docs, workflow steps, direct `fetch_template.py` usage is forbidden:
+Direct `fetch_template.py` usage in docs and workflow steps is forbidden. Use one of:
 
 ```text
 $FETCH_TEMPLATE <section> <key>
+$FETCH_TECH_PLAN <cycle_type> <role>    # tech-plan only; see tech-plan/SKILL.md Commands
 ```
 
-- **Success:** output template body and announce `Template fetched: <section>.<key>`.
+- **Success:** output template body and announce `Template fetched: <section>.<key>` (or `tech-plan.<resolved_key>` for `$FETCH_TECH_PLAN`).
 - **Failure:** report error and stop current step.
 - **Cache:** `$CACHE_DIR/.template/{section}/{key}.md` (delete this file to refresh).
 

@@ -30,28 +30,19 @@ The parent skill must inject these values before invoking this sub-skill:
 |---|---|
 | `$REVISION_DIR` | Absolute path to `revision{N}/` — output paths are derived from this |
 | `$DECISION_DOC_PATH` | Absolute path to the current cycle decision doc |
-| `$CYCLE_TYPE` | `feature` or `topic` — selects `tpt_v2_url` (feature) vs `shaping_tpt_url` (topic) in workflow-config.json |
+| `$CYCLE_TYPE` | `feature` or `topic` — passed to `$FETCH_TECH_PLAN` |
 | `$CYCLE_ID` | Active cycle id |
 
 Self-resolved at runtime (do not pass from parent):
-- `$TEMPLATE_SECTION` = `tech-plan`
-- `$TEMPLATE_KEY` — `tpt_v2_url` (feature) or `shaping_tpt_url` (topic)
-- `$META_KEY` — `tpt_meta_v2_url` (feature) or `tpt_meta_url` (topic)
 - `$TECH_DOC_PATH` = `{REVISION_DIR}/tech-doc.md`
 
-Load templates via the shared entry (see `../_runtime.md` → Template Fetch):
-
-```text
-Use $FETCH_TEMPLATE tech-plan $META_KEY
-```
-
-Replace `$META_KEY` with `$TEMPLATE_KEY` for the template skeleton fetch.
+Load frameworks via `$FETCH_TECH_PLAN` (see `../SKILL.md` → Command Index).
 
 ## Execution Contract
 
 ### Step I1 - Load mapping table and template skeleton
 
-1. Use `$FETCH_TEMPLATE tech-plan $META_KEY`; read stdout as meta markdown.
+1. Use `$FETCH_TECH_PLAN $CYCLE_TYPE draft-meta`; read stdout as meta markdown.
 2. Locate the `## Decision-Doc Mapping` table.
 3. Parse the mapping rows into:
 
@@ -62,7 +53,7 @@ Replace `$META_KEY` with `$TEMPLATE_KEY` for the template skeleton fetch.
 ```
 
 4. Skip rows where `target` is `—`.
-5. Use `$FETCH_TEMPLATE $TEMPLATE_SECTION $TEMPLATE_KEY`; read stdout as template markdown.
+5. Use `$FETCH_TECH_PLAN $CYCLE_TYPE draft-template`; read stdout as template markdown.
 6. Parse the template into an ordered section map keyed by section heading name (e.g. `North Star`, `Non-Goals`, `Invariants`, `Key Decisions`, `Approach Skeleton`, `Tasks`).
 7. Initialize `fill_results` from the template skeleton:
 

@@ -32,6 +32,8 @@ Prerequisite: `$SESSION_CONTROL start-evaluating` succeeded (writes `workflow-st
 
 ## Phase 3 — Per-dimension loop
 
+Resolve `CYCLE_TYPE` once before the loop (`detect_cycle_type($CYCLE_ID)` or `active-context.json`).
+
 For each `dim` in dispatch list:
 
 1. Write `evaluate-state.md`: `current_dimension: {dim}`, `{dim}_status: in_progress`
@@ -43,15 +45,12 @@ Load {$SKILL_ROOT}/tech-plan/eval-runner/SKILL.md and follow its instructions.
 
 ## Input
 DIMENSION:            {dim}
+CYCLE_TYPE:           {feature | topic}
 TECH_DOC_PATH:        {absolute path to revision{N}/tech-doc.md}
 EVALUATE_STATE_PATH:  {absolute path to revision{N}/evaluate-state.md}
 EVALUATE_DIR:         {absolute path to revision{N}/evaluate{M}/}
 EXECUTION_MODE:       {guided | autonomous}
 [e1 only] PRODUCT_REF: {product_ref from workflow-state.md}
-[e1 only] TEMPLATE_SECTION: tech-plan
-[e1 only] TEMPLATE_KEY:     ptc_url
-[e3 only] TEMPLATE_SECTION: tech-plan
-[e3 only] TEMPLATE_KEY:     tpef_url (feature cycle) | shaping_tpef_url (topic cycle)
 PROJECT_ROOT:         {project root absolute path}
 ```
 

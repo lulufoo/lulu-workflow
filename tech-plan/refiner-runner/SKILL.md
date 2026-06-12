@@ -31,12 +31,11 @@ ZOOM_EVIDENCE       probe failure evidence from ProbeReport (context for draftin
 
 Self-resolved at runtime:
 - `$SKILL_DIR` = `$SKILL_ROOT/tech-plan`
-- `$META_KEY` = `tpt_meta_v2_url` when `CYCLE_TYPE=feature`, else `tpt_meta_url`
 
 ## Step 1 — Load C2 Content Form
 
 ```text
-Use $FETCH_TEMPLATE tech-plan $META_KEY
+Use $FETCH_TECH_PLAN $CYCLE_TYPE draft-meta
 ```
 
 Read stdout as meta markdown; locate `## C2 Matrix`.

@@ -20,6 +20,7 @@ Terminal runner subagent. Evaluates **one dimension** (`e1`, `e2`, or `e3`) per 
 
 ```
 DIMENSION           e1 | e2 | e3
+CYCLE_TYPE          feature | topic
 TECH_DOC_PATH       absolute path to the revision tech-doc.md
 EVALUATE_STATE_PATH absolute path to revision{N}/evaluate-state.md
 EVALUATE_DIR        absolute path to revision{N}/evaluate{M}/
@@ -30,9 +31,9 @@ Dimension-specific:
 
 | Dimension | Additional inputs |
 |-----------|------------------|
-| `e1` | `PRODUCT_REF`, `TEMPLATE_SECTION` (`tech-plan`), `TEMPLATE_KEY` (`ptc_url`), `PROJECT_ROOT` |
+| `e1` | `PRODUCT_REF`, `PROJECT_ROOT` |
 | `e2` | `PROJECT_ROOT` (read `TECH_DOC_PATH` to identify relevant code paths — see Step 1 e2 rule) |
-| `e3` | `TEMPLATE_SECTION` (`tech-plan`), `TEMPLATE_KEY` (`tpef_url` or `shaping_tpef_url`), `PROJECT_ROOT` |
+| `e3` | `PROJECT_ROOT` |
 
 ---
 
@@ -43,8 +44,8 @@ Dimension-specific:
   - **v2 template** (contains `## Approach Skeleton` or `## Tasks` headings): parse those sections to identify relevant code files
   - **legacy template** (contains `§5` / `§6` headings): parse `§5 Data Flow` and `§6 API / Interfaces` instead
   - Read the identified code files
-- For `e1`: read `PRODUCT_REF`; use `$FETCH_TEMPLATE {TEMPLATE_SECTION} {TEMPLATE_KEY}`; read stdout as PTC framework
-- For `e3`: use `$FETCH_TEMPLATE {TEMPLATE_SECTION} {TEMPLATE_KEY}`; read stdout as TPEF framework
+- For `e1`: read `PRODUCT_REF`; use `$FETCH_TECH_PLAN $CYCLE_TYPE eval-ptc`; read stdout as PTC framework
+- For `e3`: use `$FETCH_TECH_PLAN $CYCLE_TYPE eval-tpef`; read stdout as TPEF framework
 
 ---
 

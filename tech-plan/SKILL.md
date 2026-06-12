@@ -97,16 +97,9 @@ Substep states: `Ready → RoundIteration → FreeEdit`.
 
 #### Step 1 — Entry
 
-Resolve drafting template keys from cycle type (sub-agents fetch via `$FETCH_TEMPLATE`):
-
-- feature → template: `tech-plan` / `tpt_v2_url`；meta: `tech-plan` / `tpt_meta_v2_url`
-- topic → template: `tech-plan` / `shaping_tpt_url`；meta: `tech-plan` / `tpt_meta_url`
-
-Use:
-- `Use $FETCH_TEMPLATE tech-plan <key>`
-- Read stdout as template body; on failure report error and stop current step.
-
-Then dispatch Steps 2 → 3 in order. Evaluating fix resume → enter Step 4 directly.
+Entry:
+- **Evaluating fix resume** → Step 4 — FreeEdit
+- **Otherwise** → dispatch Steps 2 → 3 in order
 
 #### Step 2 — Initializing
 
@@ -295,5 +288,20 @@ Subcommands: `init-probe` · `init-complete` · `begin-round` · `advance-round`
 python3 "$SKILL_DIR/scripts/round_control.py" \
   --cycle-dir "$CACHE_DIR/$CYCLE_ID" <subcommand> [args...]
 ```
+
+### `$FETCH_TECH_PLAN`
+
+`$FETCH_TECH_PLAN <cycle_type> <role>` →
+
+```bash
+python3 "$SKILL_DIR/scripts/fetch_plan_framework.py" \
+  --cycle-type <feature|topic> \
+  --role <draft-template|draft-meta|eval-ptc|eval-tpef> \
+  --project-root "$(pwd)"
+```
+
+Roles resolve to `workflow-config.json` keys via `fetch_plan_framework.py` (`FEATURE_ROLE_KEYS` / `TOPIC_ROLE_KEYS`).
+On success: read stdout as framework markdown and announce `Template fetched: tech-plan.<resolved_key>`.
+On failure: report error and stop current step. Cache path: `$CACHE_DIR/.template/tech-plan/<key>.md`.
 
 ---
