@@ -189,7 +189,7 @@ def _count_ignored(issues: list[dict[str, str]]) -> int:
 
 
 def eval_dispatch(cycle_id: str, project_root: Path) -> dict[str, Any]:
-    """Return eval dimension dispatch sequence for Evaluating Phase 2."""
+    """Return eval loop coordinates for Evaluating Phase 2 (dispatch, M, N)."""
     ws_path = resolve_workflow_state_path_from_cycle(cycle_id, project_root)
     state = load_workflow_state(ws_path)
     current = state["current_state"]
@@ -218,6 +218,7 @@ def eval_dispatch(cycle_id: str, project_root: Path) -> dict[str, Any]:
         return _eval_dispatch_failure(current, reason="evaluate-state.md not found.")
 
     mode = state["mode"]
+    active_doc = load_active_doc_from_cycle(cycle_id, project_root)
     return {
         "ok": True,
         "view": _VIEW_EVAL_DISPATCH,
@@ -225,7 +226,9 @@ def eval_dispatch(cycle_id: str, project_root: Path) -> dict[str, Any]:
         "mode": mode,
         "dispatch": dispatch_list(mode),
         "evaluate_round": evaluate_round,
-        "active_doc": load_active_doc_from_cycle(cycle_id, project_root),
+        "M": evaluate_round,
+        "active_doc": active_doc,
+        "N": active_doc,
     }
 
 

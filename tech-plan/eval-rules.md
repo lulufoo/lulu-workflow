@@ -9,24 +9,22 @@ rule-guard:
 Loaded by `tech-plan/SKILL.md` on entering `Evaluating` state.
 Follow this document exactly. Do not execute any evaluation step before reading it.
 
+`$SESSION_INFO` / `$SESSION_CONTROL` non-zero exit → Blocking (parent SKILL).
+
 ---
 
 ## Phase 1 — Initialize (E1)
 
-Prerequisite: `$SESSION_CONTROL start-evaluating` succeeded (writes `workflow-state.md` and initializes `evaluate-state.md`).
+Prerequisite: `$SESSION_CONTROL start-evaluating` succeeded.
 
-1. Read `workflow-state.md` → confirm `current_state: Evaluating`, `evaluate_round: M`
-2. Read `evaluate-state.md` → confirm `phase: evaluate` and dimension fields match `mode`
-3. Proceed to Phase 2
+1. Read `evaluate-state.md` → confirm `phase: evaluate` and dimension fields match `mode`.
+2. Proceed to Phase 2.
 
 ---
 
 ## Phase 2 — Build dispatch list (E2)
 
-| `mode` | Dispatch sequence |
-|--------|------------------|
-| `product` | `[e1, e2, e3]` |
-| `tech` | `[e2, e3]` |
+Run `$SESSION_INFO eval-dispatch`. Pin payload for Phase 3.
 
 ---
 
@@ -34,7 +32,9 @@ Prerequisite: `$SESSION_CONTROL start-evaluating` succeeded (writes `workflow-st
 
 Resolve `CYCLE_TYPE` once before the loop (`detect_cycle_type($CYCLE_ID)` or `active-context.json`).
 
-For each `dim` in dispatch list:
+Use pinned payload: `dispatch`, `M`, `N` (`active_doc`) for paths below.
+
+For each `dim` in `dispatch`:
 
 1. Write `evaluate-state.md`: `current_dimension: {dim}`, `{dim}_status: in_progress`
 
@@ -70,8 +70,8 @@ After all dimensions complete:
 2. Collect the `Severity` column of every issue row; determine `fix_severity` as the highest level found (critical > medium > minor); if all ignored, use `minor`
 3. Write `fix_severity_reason` (one sentence citing the most severe issue)
 4. Write `evaluate-state.md`: `current_dimension: done`, `fix_severity` and `fix_severity_reason` filled in
-5. Run `$SESSION_INFO eval-summary`. On failure → apply Blocking policy.
-6. Present payload to the user (issue table + `fix_severity` summary).
+5. Run `$SESSION_INFO eval-summary`.
+6. Present `eval-summary` payload to the user.
 7. Ask user:
    - **Deliver** → stop; parent runs `$SESSION_CONTROL ready-for-delivery`
    - **Continue editing** → write `workflow-state.md`: `current_state: Drafting` (preserve `evaluate_round`, `mode`, `product_ref`, `carry_forward_ref`); stop; parent enters **Step 4 — FreeEdit**
@@ -82,14 +82,12 @@ After all dimensions complete:
 
 Triggered when `evaluate-state.md: current_dimension: abandoned`.
 
-Steps are order-strict:
-
 1. Write `workflow-state.md`:
    - `current_state: Drafting`
-   - `evaluate_round: M` (unchanged; next Evaluating entry increments to M+1)
+   - `evaluate_round: M` (unchanged; use `M` from pinned E2 payload)
    - `skip_evaluate_requested: false`
    - preserve `mode`, `product_ref`, `carry_forward_ref`
 
 2. Stop — do not dispatch remaining dimensions
 
-Hook validates `current_dimension: abandoned` before allowing the transition. `evaluate{M}/` and review files are retained as history.
+Hook validates `current_dimension: abandoned` before allowing the transition.

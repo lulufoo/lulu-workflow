@@ -113,7 +113,11 @@ class TestEvalDispatch:
         assert payload["mode"] == "product"
         assert payload["dispatch"] == ["e1", "e2", "e3"]
         assert payload["evaluate_round"] == 1
+        assert payload["M"] == 1
+        assert payload["M"] == payload["evaluate_round"]
         assert payload["active_doc"] == 1
+        assert payload["N"] == 1
+        assert payload["N"] == payload["active_doc"]
         assert payload["current_state"] == "Evaluating"
 
     def test_tech_mode_dispatch(self, tmp_path: Path):

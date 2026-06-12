@@ -258,7 +258,7 @@ Macro definitions referenced in the workflow above.
 python3 "$SKILL_DIR/scripts/session_info.py" --cycle-id "$CYCLE_ID" --view <view>
 ```
 
-Views: `delivery-preview` · `session` · `stage-transitions` · `eval-summary`
+Views: `delivery-preview` · `session` · `stage-transitions` · `eval-dispatch` · `eval-summary`
 
 ### `$SESSION_CONTROL`
 
