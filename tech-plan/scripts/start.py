@@ -16,15 +16,13 @@ from hook_guard import (  # noqa: E402
 from invalidation_hook import invalidate_downstream  # noqa: E402
 
 from archive import run as run_archive
+from session_state_schema import bump_active_doc, resolve_path
 from workflow_common import (
     CACHE_DIR,
     detect_cycle_type,
     load_container_meta,
-    read_md_field,
-    session_state_path,
     state_path,
     write_active_context,
-    write_session_state,
 )
 from workflow_state_schema import init_drafting, mark_historical
 
@@ -149,16 +147,8 @@ def main() -> int:
     # archive: deferred  if archive_rc != 0:
     # archive: deferred      return archive_rc
 
-    ss_path = project_root / session_state_path(cycle_id)
-    if ss_path.exists():
-        try:
-            active_doc = int(read_md_field(ss_path, "active_doc", default="0")) + 1
-        except ValueError:
-            active_doc = 1
-    else:
-        active_doc = 1
-
-    write_session_state(ss_path, active_doc)
+    active_doc = bump_active_doc(cycle_id, project_root)
+    ss_path = resolve_path(cycle_id, project_root)
     write_active_context(
         project_root,
         cycle_id,

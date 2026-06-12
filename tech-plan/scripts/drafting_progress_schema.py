@@ -15,7 +15,8 @@ import json
 import sys
 from pathlib import Path
 
-from workflow_common import doc_dir, parse_frontmatter_fields, read_md_field, session_state_path
+from session_state_schema import load_active_doc_from_cycle
+from workflow_common import doc_dir, parse_frontmatter_fields, read_md_field
 
 _SCHEMA: list[dict] = [
     {"field": "version", "type": "string", "required": True,
@@ -149,11 +150,7 @@ def read_current_step(path: Path, *, default: str | None = None) -> str | None:
 
 def resolve_drafting_progress_path_from_cycle(cycle_id: str, project_root: Path) -> Path:
     """Resolve revision{N}/drafting-progress.md via session-state.md active_doc."""
-    ss_path = project_root / session_state_path(cycle_id)
-    try:
-        active_doc = int(read_md_field(ss_path, "active_doc", default="1"))
-    except ValueError:
-        active_doc = 1
+    active_doc = load_active_doc_from_cycle(cycle_id, project_root)
     return project_root / doc_dir(cycle_id, active_doc) / "drafting-progress.md"
 
 

@@ -2,7 +2,8 @@
 """Draft control for tech-plan orchestrator.
 
 Subcommands:
-    init-probe            Check whether Initializing can start
+    init-probe            Check whether Initializing can start; on success print
+                          initializing-runner ## Input block (plain text)
     init-complete         Validate seeded tech-doc and write drafting-progress Ready
     begin-round           Transition Ready -> RoundIteration (round 1)
     advance-round         Increment round while in RoundIteration
@@ -26,7 +27,13 @@ from drafting_progress_schema import (  # noqa: E402
     resolve_drafting_progress_path_from_cycle,
     save_drafting_progress,
 )
-from workflow_common import read_md_field, session_state_path, tech_doc_path  # noqa: E402
+from session_state_schema import load_active_doc_from_cycle  # noqa: E402
+from workflow_common import (  # noqa: E402
+    decision_doc_path,
+    detect_cycle_type,
+    doc_dir,
+    tech_doc_path,
+)
 
 _CMD_INIT_PROBE = "init-probe"
 _CMD_INIT_COMPLETE = "init-complete"
@@ -40,16 +47,11 @@ _STEP_FREE_EDIT = "FreeEdit"
 _STATE_VECTOR_RE = re.compile(r"<!--\s*state-vector:")
 
 
-def _active_doc(cycle_id: str, project_root: Path) -> int:
-    ss_path = project_root / session_state_path(cycle_id)
-    try:
-        return int(read_md_field(ss_path, "active_doc", default="1"))
-    except ValueError:
-        return 1
-
-
 def _tech_doc_path(cycle_id: str, project_root: Path) -> Path:
-    return project_root / tech_doc_path(cycle_id, _active_doc(cycle_id, project_root))
+    return project_root / tech_doc_path(
+        cycle_id,
+        load_active_doc_from_cycle(cycle_id, project_root),
+    )
 
 
 def _success(command: str, **extra: Any) -> dict[str, Any]:
@@ -64,6 +66,33 @@ def _failure(command: str, reason: str, **extra: Any) -> dict[str, Any]:
     return payload
 
 
+def _format_init_dispatch_input(
+    *,
+    revision_dir: Path,
+    decision_doc: Path,
+    cycle_type: str,
+    cycle_id: str,
+) -> str:
+    return (
+        f"REVISION_DIR:         {revision_dir.resolve().as_posix()}\n"
+        f"DECISION_DOC_PATH:    {decision_doc.resolve().as_posix()}\n"
+        f"CYCLE_TYPE:           {cycle_type}\n"
+        f"CYCLE_ID:             {cycle_id}"
+    )
+
+
+def _init_dispatch_input(cycle_id: str, project_root: Path) -> str:
+    active_doc = load_active_doc_from_cycle(cycle_id, project_root)
+    revision_dir = project_root / doc_dir(cycle_id, active_doc)
+    decision_doc = project_root / decision_doc_path(cycle_id)
+    return _format_init_dispatch_input(
+        revision_dir=revision_dir,
+        decision_doc=decision_doc,
+        cycle_type=detect_cycle_type(cycle_id),
+        cycle_id=cycle_id,
+    )
+
+
 def _validate_tech_doc_seeded(tech_doc: Path) -> str | None:
     if not tech_doc.exists():
         return f"tech-doc.md not found: {tech_doc}"
@@ -75,12 +104,21 @@ def _validate_tech_doc_seeded(tech_doc: Path) -> str | None:
 
 def init_probe(cycle_id: str, project_root: Path) -> dict[str, Any]:
     progress_path = resolve_drafting_progress_path_from_cycle(cycle_id, project_root)
+    dispatch_input = _init_dispatch_input(cycle_id, project_root)
     if not progress_path.exists():
-        return _success(_CMD_INIT_PROBE, current_step=None)
+        return _success(
+            _CMD_INIT_PROBE,
+            current_step=None,
+            dispatch_input=dispatch_input,
+        )
 
     step = read_current_step(progress_path)
     if step == _STEP_READY:
-        return _success(_CMD_INIT_PROBE, current_step=_STEP_READY)
+        return _success(
+            _CMD_INIT_PROBE,
+            current_step=_STEP_READY,
+            dispatch_input=dispatch_input,
+        )
 
     return _failure(
         _CMD_INIT_PROBE,
@@ -268,7 +306,11 @@ def _cli() -> int:
 
     try:
         if args.command == _CMD_INIT_PROBE:
-            return _emit(init_probe(cycle_id, project_root))
+            result = init_probe(cycle_id, project_root)
+            if result.get("ok"):
+                print(result["dispatch_input"])
+                return 0
+            return _emit(result)
         if args.command == _CMD_INIT_COMPLETE:
             return _emit(init_complete(cycle_id, project_root))
         if args.command == _CMD_BEGIN_ROUND:

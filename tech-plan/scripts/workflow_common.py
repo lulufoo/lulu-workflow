@@ -1,6 +1,5 @@
 import json
 import re
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -61,6 +60,10 @@ def tech_doc_path(cycle_id: str, doc_round: int) -> Path:
     return doc_dir(cycle_id, doc_round) / "tech-doc.md"
 
 
+def decision_doc_path(cycle_id: str) -> Path:
+    return CACHE_DIR / cycle_id / "tech" / "diagnostic" / "decision-doc.md"
+
+
 def eval_round_dir(cycle_id: str, doc_round: int, evaluate_round: int) -> Path:
     return doc_dir(cycle_id, doc_round) / f"evaluate{evaluate_round}"
 
@@ -108,21 +111,6 @@ def resolve_workflow_config_path(project_root: Path = Path(".")) -> Path:
 # ---------------------------------------------------------------------------
 # Markdown state helpers
 # ---------------------------------------------------------------------------
-
-def write_session_state(path: Path, active_doc: int) -> None:
-    """Write session-state.md tracking the active tech-doc round."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    now = datetime.now(timezone.utc).isoformat()
-    content = (
-        f"---\n"
-        f"version: 1\n"
-        f"active_doc: {active_doc}\n"
-        f"updated_at: {now}\n"
-        f"---\n"
-    )
-    with path.open("w", encoding="utf-8") as handle:
-        handle.write(content)
-
 
 def parse_frontmatter_fields(content: str) -> Dict[str, str]:
     """Extract all key: value pairs from YAML frontmatter."""

@@ -18,8 +18,9 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 from hook_guard import load_transitions  # noqa: E402
+from session_state_schema import load_active_doc_from_cycle  # noqa: E402
 from tech_doc_schema import load_presentation_from_cycle  # noqa: E402
-from workflow_common import STAGE, detect_cycle_type, read_md_field, session_base_dir  # noqa: E402
+from workflow_common import STAGE, detect_cycle_type  # noqa: E402
 from workflow_state_schema import (  # noqa: E402
     load_workflow_state,
     resolve_workflow_state_path_from_cycle,
@@ -35,14 +36,6 @@ _VALID_VIEWS = frozenset({
     _VIEW_SESSION,
     _VIEW_STAGE_TRANSITIONS,
 })
-
-
-def _active_doc(cycle_id: str, project_root: Path) -> int:
-    ss_path = project_root / session_base_dir(cycle_id) / "session-state.md"
-    try:
-        return int(read_md_field(ss_path, "active_doc", default="1"))
-    except ValueError:
-        return 1
 
 
 def _delivery_preview_failure(current_state: str) -> dict[str, Any]:
@@ -70,7 +63,7 @@ def delivery_preview(cycle_id: str, project_root: Path) -> dict[str, Any]:
     return {
         "ok": True,
         "view": _VIEW_DELIVERY_PREVIEW,
-        "active_doc": _active_doc(cycle_id, project_root),
+        "active_doc": load_active_doc_from_cycle(cycle_id, project_root),
         "current_state": current,
         "tech_doc": {
             "path": tech_doc["path"],
@@ -95,7 +88,7 @@ def session_snapshot(cycle_id: str, project_root: Path) -> dict[str, Any]:
     tech_doc = load_presentation_from_cycle(cycle_id, project_root)
     return {
         "view": _VIEW_SESSION,
-        "active_doc": _active_doc(cycle_id, project_root),
+        "active_doc": load_active_doc_from_cycle(cycle_id, project_root),
         "workflow_state": {
             "current_state": state["current_state"],
             "mode": state.get("mode", ""),

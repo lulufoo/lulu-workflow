@@ -17,10 +17,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+from session_state_schema import load_active_doc_from_cycle
 from workflow_common import (
     parse_frontmatter_fields,
     read_md_field,
-    session_base_dir,
     state_path,
 )
 
@@ -226,11 +226,7 @@ def resolve_workflow_state_path_from_cycle(
     project_root: Path,
 ) -> Path:
     """Resolve revision{N}/workflow-state.md via session-state.md active_doc."""
-    ss_path = project_root / session_base_dir(cycle_id) / "session-state.md"
-    try:
-        active_doc = int(read_md_field(ss_path, "active_doc", default="1"))
-    except ValueError:
-        active_doc = 1
+    active_doc = load_active_doc_from_cycle(cycle_id, project_root)
     return project_root / state_path(cycle_id, active_doc)
 
 

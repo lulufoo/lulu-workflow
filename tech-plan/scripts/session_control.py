@@ -18,7 +18,8 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from evaluate_state_schema import init_evaluate_state  # noqa: E402
 from human_delivery_gate_schema import write_approved  # noqa: E402
-from workflow_common import approval_path, read_md_field, session_base_dir  # noqa: E402
+from session_state_schema import load_active_doc_from_cycle  # noqa: E402
+from workflow_common import approval_path  # noqa: E402
 from workflow_state_schema import (  # noqa: E402
     load_workflow_state,
     resolve_workflow_state_path_from_cycle,
@@ -31,16 +32,11 @@ _CMD_DELIVER = "deliver"
 _EXPECTED_DELIVER_STATE = "ReadyForDelivery"
 
 
-def _active_doc(cycle_id: str, project_root: Path) -> int:
-    ss_path = project_root / session_base_dir(cycle_id) / "session-state.md"
-    try:
-        return int(read_md_field(ss_path, "active_doc", default="1"))
-    except ValueError:
-        return 1
-
-
 def _gate_path(cycle_id: str, project_root: Path) -> Path:
-    return project_root / approval_path(cycle_id, _active_doc(cycle_id, project_root))
+    return project_root / approval_path(
+        cycle_id,
+        load_active_doc_from_cycle(cycle_id, project_root),
+    )
 
 
 def _success(command: str, current_state: str, **extra: Any) -> dict[str, Any]:

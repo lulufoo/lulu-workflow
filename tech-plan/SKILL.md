@@ -117,16 +117,13 @@ Then dispatch Steps 1 → 3 in order. If returning from Evaluating fix, enter St
 #### Step 2 — Initializing
 
 1. Run `$DRAFT_CONTROL init-probe`. On failure → apply Blocking policy.
-2. Dispatch:
+2. Dispatch — paste `init-probe` stdout verbatim under `## Input`:
 
 ```text
 Load {actual $SKILL_ROOT}/tech-plan/initializing-runner/SKILL.md and follow its instructions.
 
 ## Input
-REVISION_DIR:         {absolute path to revision{N}/}
-DECISION_DOC_PATH:    {absolute path to decision-doc.md}
-CYCLE_TYPE:           {feature | topic}
-CYCLE_ID:             {cycle_id}
+{init-probe stdout}
 ```
 
 Await completion (`$SUBAGENT_AWAIT_SYNC`).

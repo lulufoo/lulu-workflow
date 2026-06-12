@@ -15,7 +15,8 @@ import re
 import sys
 from pathlib import Path
 
-from workflow_common import read_md_field, session_base_dir, tech_doc_path
+from session_state_schema import load_active_doc_from_cycle
+from workflow_common import read_md_field, tech_doc_path
 
 _SCHEMA: list[dict] = [
     {"field": "path", "type": "string", "required": True,
@@ -118,11 +119,7 @@ def extract_presentation(path: Path, *, revision: int | None = None) -> dict:
 
 def resolve_tech_doc_path_from_cycle(cycle_id: str, project_root: Path) -> tuple[Path, int]:
     """Resolve revision{N}/tech-doc.md via session-state.md active_doc."""
-    ss_path = project_root / session_base_dir(cycle_id) / "session-state.md"
-    try:
-        active_doc = int(read_md_field(ss_path, "active_doc", default="1"))
-    except ValueError:
-        active_doc = 1
+    active_doc = load_active_doc_from_cycle(cycle_id, project_root)
     return project_root / tech_doc_path(cycle_id, active_doc), active_doc
 
 

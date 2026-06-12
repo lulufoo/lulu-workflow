@@ -43,10 +43,15 @@ def _write_tech_doc(revision: Path) -> None:
 
 class TestInitProbe:
     def test_absent_progress_ok(self, tmp_path: Path):
-        _seed_session(tmp_path)
+        revision = _seed_session(tmp_path)
         result = init_probe(_CYCLE, tmp_path)
         assert result["ok"] is True
         assert result["current_step"] is None
+        assert "dispatch_input" in result
+        assert f"REVISION_DIR:         {(revision).resolve().as_posix()}" in result["dispatch_input"]
+        assert f"CYCLE_ID:             {_CYCLE}" in result["dispatch_input"]
+        assert "CYCLE_TYPE:           feature" in result["dispatch_input"]
+        assert "tech/diagnostic/decision-doc.md" in result["dispatch_input"]
 
     def test_ready_ok(self, tmp_path: Path):
         revision = _seed_session(tmp_path)
@@ -57,6 +62,7 @@ class TestInitProbe:
         result = init_probe(_CYCLE, tmp_path)
         assert result["ok"] is True
         assert result["current_step"] == "Ready"
+        assert "dispatch_input" in result
 
     def test_round_iteration_blocked(self, tmp_path: Path):
         revision = _seed_session(tmp_path)
@@ -67,6 +73,7 @@ class TestInitProbe:
         result = init_probe(_CYCLE, tmp_path)
         assert result["ok"] is False
         assert "RoundIteration" in result["reason"]
+        assert "dispatch_input" not in result
 
 
 class TestInitComplete:
@@ -176,8 +183,8 @@ class TestDraftStatus:
 
 
 class TestCli:
-    def test_init_probe_json_stdout(self, tmp_path: Path):
-        _seed_session(tmp_path)
+    def test_init_probe_plaintext_stdout(self, tmp_path: Path):
+        revision = _seed_session(tmp_path)
         proc = subprocess.run(
             [
                 sys.executable,
@@ -193,5 +200,35 @@ class TestCli:
             check=False,
         )
         assert proc.returncode == 0
+        assert proc.stdout.startswith("REVISION_DIR:")
+        assert revision.resolve().as_posix() in proc.stdout
+        assert f"CYCLE_ID:             {_CYCLE}" in proc.stdout
+        try:
+            json.loads(proc.stdout)
+            raise AssertionError("expected plain-text stdout, not JSON")
+        except json.JSONDecodeError:
+            pass
+
+    def test_init_probe_failure_json_stdout(self, tmp_path: Path):
+        revision = _seed_session(tmp_path)
+        (revision / "drafting-progress.md").write_text(
+            f"---\nversion: 1\ncycle_id: {_CYCLE}\ncurrent_step: RoundIteration\nround: 1\n---\n",
+            encoding="utf-8",
+        )
+        proc = subprocess.run(
+            [
+                sys.executable,
+                str(_SCRIPT),
+                "--cycle-id",
+                _CYCLE,
+                "--project-root",
+                str(tmp_path),
+                "init-probe",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert proc.returncode == 1
         payload = json.loads(proc.stdout)
-        assert payload["ok"] is True
+        assert payload["ok"] is False

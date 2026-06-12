@@ -25,7 +25,7 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from drafting_progress_schema import load_drafting_progress  # noqa: E402
-from workflow_common import read_md_field  # noqa: E402
+from session_state_schema import load_active_doc  # noqa: E402
 
 SECTION_KEYS = ("NS", "NG", "KD", "SK", "T")
 SECTION_HEADINGS = {
@@ -68,13 +68,7 @@ def _plan_base(cycle_dir: Path) -> Path:
 def _active_revision_dir(cycle_dir: Path) -> Path:
     base = _plan_base(cycle_dir)
     session_state = base / "session-state.md"
-    active_doc = 1
-    if session_state.exists():
-        raw = read_md_field(session_state, "active_doc", default="1")
-        try:
-            active_doc = int(raw or "1")
-        except ValueError:
-            active_doc = 1
+    active_doc = load_active_doc(session_state, default=1)
     revision_dir = base / f"revision{active_doc}"
     if not revision_dir.exists():
         raise FileNotFoundError(f"revision dir not found: {revision_dir}")
