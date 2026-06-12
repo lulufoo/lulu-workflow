@@ -42,6 +42,8 @@ _SCHEMA: dict[str, Any] = {
         "M",
         "ptc_url",
         "tpef_url",
+        "tpt_layer_standards_url",
+        "tpef_v2_url",
     ],
 }
 

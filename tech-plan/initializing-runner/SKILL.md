@@ -53,9 +53,18 @@ Load frameworks via `$FETCH_TECH_PLAN` (see `../SKILL.md` → Command Index).
 ```
 
 4. Skip rows where `target` is `—`.
-5. Use `$FETCH_TECH_PLAN $CYCLE_TYPE draft-template`; read stdout as template markdown.
-6. Parse the template into an ordered section map keyed by section heading name (e.g. `North Star`, `Non-Goals`, `Invariants`, `Key Decisions`, `Approach Skeleton`, `Tasks`).
-7. Initialize `fill_results` from the template skeleton:
+
+**Feature cycles (`$CYCLE_TYPE` = `feature`):**
+
+5. Locate `## Document Skeleton` in the same meta markdown.
+6. Parse the fenced markdown block into an ordered section map keyed by section heading name (e.g. `North Star`, `Non-Goals`, `Invariants`, `Key Decisions`, `Approach Skeleton`, `Tasks`). Use the **Section map** table for dimension keys and nested headings (`### Non-Goals` / `### Invariants` under `## Non-Goals & Invariants`).
+
+**Topic cycles (`$CYCLE_TYPE` = `topic`):**
+
+5. Use `$FETCH_TECH_PLAN topic layer-standards`; read stdout as template markdown (shaping bundle — interim until shaping v2).
+6. Parse the template into an ordered section map keyed by section heading name.
+
+7. Initialize `fill_results` from the parsed skeleton:
 
 ```text
 fill_results[section_name] = {

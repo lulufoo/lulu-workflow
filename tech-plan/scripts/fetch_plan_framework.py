@@ -17,17 +17,17 @@ from fetch_template import FetchTemplateError, fetch_template  # noqa: E402
 SECTION = "tech-plan"
 
 FEATURE_ROLE_KEYS: dict[str, str] = {
-    "draft-template": "tpt_v2_url",
-    "draft-meta": "tpt_meta_v2_url",
+    "draft-meta": "tpt_draft_meta_v2_url",
+    "layer-standards": "tpt_layer_standards_url",
+    "layer-diagnostic": "tpef_v2_url",
     "eval-ptc": "ptc_url",
-    "eval-tpef": "tpef_url",
 }
 
 TOPIC_ROLE_KEYS: dict[str, str] = {
-    "draft-template": "shaping_tpt_url",
-    "draft-meta": "tpt_meta_url",
+    "draft-meta": "shaping_tpt_url",
+    "layer-standards": "shaping_tpt_url",
+    "layer-diagnostic": "shaping_tpef_url",
     "eval-ptc": "ptc_url",
-    "eval-tpef": "shaping_tpef_url",
 }
 
 _ROLE_MAPS: dict[str, dict[str, str]] = {
@@ -91,7 +91,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         "--role",
         required=True,
         choices=sorted(_VALID_ROLES),
-        help="Framework role (draft-template, draft-meta, eval-ptc, eval-tpef)",
+        help="Framework role (draft-meta, layer-standards, layer-diagnostic, eval-ptc)",
     )
     parser.add_argument(
         "--project-root",

@@ -23,14 +23,14 @@ class TestResolveKey:
     @pytest.mark.parametrize(
         ("cycle_type", "role", "expected"),
         [
-            ("feature", "draft-template", "tpt_v2_url"),
-            ("feature", "draft-meta", "tpt_meta_v2_url"),
+            ("feature", "draft-meta", "tpt_draft_meta_v2_url"),
+            ("feature", "layer-standards", "tpt_layer_standards_url"),
+            ("feature", "layer-diagnostic", "tpef_v2_url"),
             ("feature", "eval-ptc", "ptc_url"),
-            ("feature", "eval-tpef", "tpef_url"),
-            ("topic", "draft-template", "shaping_tpt_url"),
-            ("topic", "draft-meta", "tpt_meta_url"),
+            ("topic", "draft-meta", "shaping_tpt_url"),
+            ("topic", "layer-standards", "shaping_tpt_url"),
+            ("topic", "layer-diagnostic", "shaping_tpef_url"),
             ("topic", "eval-ptc", "ptc_url"),
-            ("topic", "eval-tpef", "shaping_tpef_url"),
         ],
     )
     def test_resolve_key(self, cycle_type: str, role: str, expected: str) -> None:
@@ -62,7 +62,7 @@ class TestFetchPlanFramework:
         original = mod.fetch_template
         mod.fetch_template = stub_fetch
         try:
-            content = fetch_plan_framework("topic", "eval-tpef", tmp_path)
+            content = fetch_plan_framework("topic", "layer-diagnostic", tmp_path)
         finally:
             mod.fetch_template = original
 

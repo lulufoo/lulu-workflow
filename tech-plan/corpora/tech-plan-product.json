@@ -1,6 +1,6 @@
 {
   "id": "tech-plan-product",
-  "version": "3",
+  "version": "4",
   "scope": "tech-plan",
   "context": "offline",
   "dimension_dispatch": "parallel",
@@ -69,7 +69,7 @@
     {
       "id": "solution-quality",
       "legacy_alias": "e3",
-      "label": "Solution Quality (TPEF)",
+      "label": "Solution Quality (v2)",
       "eval_target": {
         "path": "{tech_doc}"
       },
@@ -80,15 +80,13 @@
         {
           "kind": "url",
           "role": "primary",
-          "ref": "{tpef_url}"
+          "ref": "{tpt_layer_standards_url}"
         }
       ],
       "method": {
-        "kind": "builtin",
-        "source": {
-          "procedure_id": "tpef_solution_quality"
-        },
-        "focus": "TPEF / Shaping TPEF solution-quality standards"
+        "kind": "external",
+        "source": "{tpef_v2_url}",
+        "focus": "v2 ladder diagnostic — L0 required; validate L0…L_claimed per section"
       },
       "review": {
         "seq": 3,

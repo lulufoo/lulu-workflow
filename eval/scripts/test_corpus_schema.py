@@ -26,7 +26,8 @@ class TestGetSchema:
     def test_has_bind_placeholders(self):
         schema = get_schema()
         assert "tech_doc" in schema["bind_placeholders"]
-        assert "ptc_url" in schema["bind_placeholders"]
+        assert "tpt_layer_standards_url" in schema["bind_placeholders"]
+        assert "tpef_v2_url" in schema["bind_placeholders"]
         assert schema["enums"]["sot_kind"] == ["url", "codebase"]
         assert schema["enums"]["codebase_strategy"] == ["all"]
 
@@ -79,6 +80,8 @@ class TestExpandCorpus:
         "M": "1",
         "ptc_url": "https://github.com/o/r/blob/main/ptc.md",
         "tpef_url": "https://github.com/o/r/blob/main/tpef.md",
+        "tpt_layer_standards_url": "https://github.com/o/r/blob/main/layer-standards.md",
+        "tpef_v2_url": "https://github.com/o/r/blob/main/tpef-v2.md",
     }
 
     def test_expand_substitutes_paths(self):
@@ -95,6 +98,13 @@ class TestExpandCorpus:
         expanded = expand_corpus(data, self._BIND)
         e2 = expanded["dimensions"][0]
         assert e2["sots"][0]["ref"] == {"root": ".", "strategy": "all"}
+
+    def test_expand_e3_substitutes_v2_urls(self):
+        data = load_corpus(_CORPUS_DIR / "tech-plan-product.json")
+        expanded = expand_corpus(data, self._BIND)
+        e3 = expanded["dimensions"][2]
+        assert e3["sots"][0]["ref"] == self._BIND["tpt_layer_standards_url"]
+        assert e3["method"]["source"] == self._BIND["tpef_v2_url"]
 
     def test_invalid_codebase_strategy(self):
         dim = {
@@ -137,7 +147,7 @@ class TestExpandCorpus:
 class TestHelpers:
     def test_corpus_ref(self):
         data = load_corpus(_CORPUS_DIR / "tech-plan-product.json")
-        assert corpus_ref(data) == "tech-plan-product@3"
+        assert corpus_ref(data) == "tech-plan-product@4"
 
     def test_dispatch_ids(self):
         data = load_corpus(_CORPUS_DIR / "tech-plan-tech.json")

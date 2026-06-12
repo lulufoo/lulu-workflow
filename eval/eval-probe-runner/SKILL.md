@@ -66,7 +66,6 @@ PRODUCT_REF           absolute path (only when SOTS_JSON references product doc)
 4. Load EvalMethod **M**:
    - `external` · `source` (https URL or absolute path) → `read_ref(source, project_root=Path(PROJECT_ROOT))` as rubric
    - `builtin` · `source.procedure_id: codebase_consistency` → compare B against code read from codebase SoT root per METHOD_FOCUS
-   - `builtin` · `source.procedure_id: tpef_solution_quality` → apply loaded TPEF SoT against B per METHOD_FOCUS
 
 When `SOTS_JSON` is empty, **M** carries both rubric and basis.
 
@@ -75,6 +74,21 @@ When `SOTS_JSON` is empty, **M** carries both rubric and basis.
 ## Step 2 — Generate issues list
 
 Evaluate **B** using loaded SoT content and **M** / `METHOD_FOCUS`.
+
+### solution-quality (e3)
+
+**Feature (`CYCLE_TYPE` = `feature`):**
+
+1. Parse `<!-- state-vector: NS:Lx, NG:Ly, … -->` from B.
+2. Apply **ladder diagnostic** from loaded M (`31-tech-plan-v2-evaluation-framework.md`):
+   - For each dimension in `[NS, NG, KD, SK, T]`, validate **L0 through L_claimed** against Diagnostic Criteria in M.
+   - NG: run ladder on both `### Non-Goals` and `### Invariants` under `## Non-Goals & Invariants`; share the single `NG` key from state-vector as `L_claimed`.
+   - When Diagnostic Criterion is ambiguous, cross-check Content Form at the same (section, L) from loaded A (layer-standards SoT).
+3. Part B task executability (31 §Step 4): apply when present; known gap vs legacy 21 TPQA until 31 revision.
+
+**Topic (`CYCLE_TYPE` = `topic`):**
+
+Apply diagnostic procedure from loaded M (shaping TPEF — interim until shaping v2). Do not use v2 ladder unless M explicitly defines it.
 
 For each finding classify `root_cause` per `eval/SKILL.md` and fill all required columns.
 

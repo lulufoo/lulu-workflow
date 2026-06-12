@@ -116,6 +116,15 @@ class TechPlanEvalAdapter:
     def corpus_dir(self) -> Path:
         return Path(__file__).resolve().parents[1] / "corpora"
 
+    @staticmethod
+    def _empty_corpus_bind() -> dict[str, str]:
+        return {
+            "ptc_url": "",
+            "tpef_url": "",
+            "tpt_layer_standards_url": "",
+            "tpef_v2_url": "",
+        }
+
     def corpus_bind_extensions(
         self, cycle_id: str, project_root: Path
     ) -> dict[str, str]:
@@ -125,20 +134,34 @@ class TechPlanEvalAdapter:
         plat = detect_platform(None)
         config_path = resolve_workflow_config_path(project_root.resolve(), plat)
         if not config_path.exists():
-            return {"ptc_url": "", "tpef_url": ""}
+            return self._empty_corpus_bind()
         try:
             import json
 
             config = json.loads(config_path.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
-            return {"ptc_url": "", "tpef_url": ""}
+            return self._empty_corpus_bind()
         section = config.get("tech-plan")
         if not isinstance(section, dict):
-            return {"ptc_url": "", "tpef_url": ""}
+            return self._empty_corpus_bind()
         ptc_url = str(section.get("ptc_url", "")).strip()
-        tpef_key = "tpef_url" if cycle_type == "feature" else "shaping_tpef_url"
-        tpef_url = str(section.get(tpef_key, "")).strip()
-        return {"ptc_url": ptc_url, "tpef_url": tpef_url}
+        if cycle_type == "feature":
+            tpt_layer_standards_url = str(
+                section.get("tpt_layer_standards_url", ""),
+            ).strip()
+            tpef_v2_url = str(section.get("tpef_v2_url", "")).strip()
+            tpef_url = str(section.get("tpef_url", "")).strip()
+        else:
+            shaping_tpef = str(section.get("shaping_tpef_url", "")).strip()
+            tpt_layer_standards_url = shaping_tpef
+            tpef_v2_url = shaping_tpef
+            tpef_url = shaping_tpef
+        return {
+            "ptc_url": ptc_url,
+            "tpef_url": tpef_url,
+            "tpt_layer_standards_url": tpt_layer_standards_url,
+            "tpef_v2_url": tpef_v2_url,
+        }
 
     def detect_cycle_type(self, cycle_id: str) -> str:
         return detect_cycle_type(cycle_id)

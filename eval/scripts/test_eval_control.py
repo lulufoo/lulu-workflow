@@ -184,7 +184,7 @@ class TestInitRound:
         assert es["version"] == "3"
         assert es["eval_status"] == "active"
         assert es["fix_phase"] == "probe"
-        assert es["corpus_ref"] == "tech-plan-product@3"
+        assert es["corpus_ref"] == "tech-plan-product@4"
         dim_map = _dim_map(es)
         assert dim_map == {"e1": "pending", "e2": "pending", "e3": "pending"}
 

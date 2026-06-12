@@ -38,13 +38,23 @@ python3 "$SKILL_DIR/scripts/round_control.py" \
 
 Parse stdout JSON as `$CTX`. Required fields: `state_vector`, `anchors`, `skips`, `round`.
 
-Load C2 Matrix for Diagnostic Criterion checks:
+Load C2 Diagnostic Criteria for verification checks:
+
+**Feature (`CYCLE_TYPE` = `feature`):**
 
 ```text
-Use $FETCH_TECH_PLAN $CYCLE_TYPE draft-meta
+Use $FETCH_TECH_PLAN feature layer-diagnostic
 ```
 
-Read stdout as meta markdown; locate `## C2 Matrix`.
+Read stdout; locate `## C2 Diagnostic Criteria`.
+
+**Topic (`CYCLE_TYPE` = `topic`):**
+
+```text
+Use $FETCH_TECH_PLAN topic layer-diagnostic
+```
+
+Read stdout; locate diagnostic criteria section (shaping TPEF — interim until shaping v2).
 
 ## Step 2 — Run probes per section
 

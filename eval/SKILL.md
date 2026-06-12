@@ -10,7 +10,7 @@ meta-skill-version: 1.0.0
 
 Library SKILL — not a workflow stage. Runners Read this file; eval-rules never dispatches it.
 
-**WO (tech-plan v1):** `tech-doc.md`
+**WO (tech-plan v2):** `tech-doc.md` — EvalCorpus v4; e3 uses layer-standards (A) + `31` evaluation framework (M).
 
 ---
 

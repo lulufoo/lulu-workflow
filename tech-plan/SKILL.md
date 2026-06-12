@@ -324,9 +324,16 @@ python3 "$SKILL_DIR/scripts/round_control.py" \
 ```bash
 python3 "$SKILL_DIR/scripts/fetch_plan_framework.py" \
   --cycle-type <feature|topic> \
-  --role <draft-template|draft-meta|eval-ptc|eval-tpef> \
+  --role <draft-meta|layer-standards|layer-diagnostic|eval-ptc> \
   --project-root "$(pwd)"
 ```
+
+| Role | Feature key | Topic key | Consumers |
+|------|-------------|-----------|-----------|
+| `draft-meta` | `tpt_draft_meta_v2_url` | `shaping_tpt_url` | initializing-runner (mapping + skeleton) |
+| `layer-standards` | `tpt_layer_standards_url` | `shaping_tpt_url` | refiner-runner; eval e3 SoT (A) |
+| `layer-diagnostic` | `tpef_v2_url` | `shaping_tpef_url` | prober-runner; eval e3 method (M) |
+| `eval-ptc` | `ptc_url` | `ptc_url` | eval e1 |
 
 Roles resolve to `workflow-config.json` keys via `fetch_plan_framework.py` (`FEATURE_ROLE_KEYS` / `TOPIC_ROLE_KEYS`).
 On success: read stdout as framework markdown and announce `Template fetched: tech-plan.<resolved_key>`.

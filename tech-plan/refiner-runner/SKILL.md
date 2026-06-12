@@ -34,11 +34,21 @@ Self-resolved at runtime:
 
 ## Step 1 — Load C2 Content Form
 
+**Feature (`CYCLE_TYPE` = `feature`):**
+
 ```text
-Use $FETCH_TECH_PLAN $CYCLE_TYPE draft-meta
+Use $FETCH_TECH_PLAN feature layer-standards
 ```
 
-Read stdout as meta markdown; locate `## C2 Matrix`.
+Read stdout; locate `## C2 Matrix — Content Standards`.
+
+**Topic (`CYCLE_TYPE` = `topic`):**
+
+```text
+Use $FETCH_TECH_PLAN topic layer-standards
+```
+
+Read stdout; locate `## C2 Matrix` (shaping bundle — interim until shaping v2).
 
 Find the row for `(SECTION, TARGET_L)` → read **Content Form** and **Delta** columns.
 
