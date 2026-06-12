@@ -2,6 +2,7 @@
 """Session control for tech-plan orchestrator.
 
 Subcommands:
+    start-evaluating     Drafting -> Evaluating (+ evaluate-state.md init)
     ready-for-delivery   Drafting|Evaluating -> ReadyForDelivery
     deliver              ReadyForDelivery -> Delivered (+ human-delivery-gate.md)
 """
@@ -15,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from evaluate_state_schema import init_evaluate_state  # noqa: E402
 from human_delivery_gate_schema import write_approved  # noqa: E402
 from workflow_common import approval_path, read_md_field, session_base_dir  # noqa: E402
 from workflow_state_schema import (  # noqa: E402
@@ -23,6 +25,7 @@ from workflow_state_schema import (  # noqa: E402
     save_workflow_state,
 )
 
+_CMD_START_EVALUATING = "start-evaluating"
 _CMD_READY = "ready-for-delivery"
 _CMD_DELIVER = "deliver"
 _EXPECTED_DELIVER_STATE = "ReadyForDelivery"
@@ -40,8 +43,14 @@ def _gate_path(cycle_id: str, project_root: Path) -> Path:
     return project_root / approval_path(cycle_id, _active_doc(cycle_id, project_root))
 
 
-def _success(command: str, current_state: str) -> dict[str, Any]:
-    return {"ok": True, "command": command, "current_state": current_state}
+def _success(command: str, current_state: str, **extra: Any) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "ok": True,
+        "command": command,
+        "current_state": current_state,
+    }
+    payload.update(extra)
+    return payload
 
 
 def _failure(command: str, current_state: str) -> dict[str, Any]:
@@ -81,6 +90,45 @@ def _build_resume(command: str, current_state: str) -> dict[str, Any]:
         "entry": current_state,
         "action": f"当前状态是 {current_state}，请先执行完 {current_state}。",
     }
+
+
+def start_evaluating(cycle_id: str, project_root: Path) -> dict[str, Any]:
+    ws_path = resolve_workflow_state_path_from_cycle(cycle_id, project_root)
+    state = load_workflow_state(ws_path)
+    current = state["current_state"]
+
+    if current == "Evaluating":
+        try:
+            evaluate_round = int(state.get("evaluate_round", "0"))
+        except ValueError:
+            evaluate_round = 0
+        return _success(
+            _CMD_START_EVALUATING,
+            "Evaluating",
+            evaluate_round=evaluate_round,
+        )
+
+    if current != "Drafting":
+        return _failure(_CMD_START_EVALUATING, current)
+
+    try:
+        evaluate_round = int(state.get("evaluate_round", "0")) + 1
+    except ValueError:
+        evaluate_round = 1
+
+    merged = dict(state)
+    merged.pop("skip_evaluate_requested", None)
+    merged["current_state"] = "Evaluating"
+    merged["evaluate_round"] = str(evaluate_round)
+    save_workflow_state(ws_path, merged, merge=False)
+
+    init_evaluate_state(ws_path.parent / "evaluate-state.md", mode=merged["mode"])
+
+    return _success(
+        _CMD_START_EVALUATING,
+        "Evaluating",
+        evaluate_round=evaluate_round,
+    )
 
 
 def ready_for_delivery(cycle_id: str, project_root: Path) -> dict[str, Any]:
@@ -141,6 +189,7 @@ def _cli() -> int:
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
+    sub.add_parser(_CMD_START_EVALUATING, help="Transition to Evaluating")
     sub.add_parser(_CMD_READY, help="Transition to ReadyForDelivery")
     deliver_parser = sub.add_parser(_CMD_DELIVER, help="Transition to Delivered")
     deliver_parser.add_argument("--note", default="", help="Optional delivery note")
@@ -150,6 +199,8 @@ def _cli() -> int:
     cycle_id = args.cycle_id.strip()
 
     try:
+        if args.command == _CMD_START_EVALUATING:
+            return _emit(start_evaluating(cycle_id, project_root))
         if args.command == _CMD_READY:
             return _emit(ready_for_delivery(cycle_id, project_root))
         if args.command == _CMD_DELIVER:

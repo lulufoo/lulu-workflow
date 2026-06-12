@@ -28,6 +28,8 @@ from workflow_state_schema import (  # noqa: E402
 _VIEW_DELIVERY_PREVIEW = "delivery-preview"
 _VIEW_SESSION = "session"
 _VIEW_STAGE_TRANSITIONS = "stage-transitions"
+_CMD_DELIVERY_PREVIEW = "delivery-preview"
+_EXPECTED_DELIVERY_PREVIEW_STATE = "ReadyForDelivery"
 _VALID_VIEWS = frozenset({
     _VIEW_DELIVERY_PREVIEW,
     _VIEW_SESSION,
@@ -43,15 +45,33 @@ def _active_doc(cycle_id: str, project_root: Path) -> int:
         return 1
 
 
+def _delivery_preview_failure(current_state: str) -> dict[str, Any]:
+    return {
+        "ok": False,
+        "command": _CMD_DELIVERY_PREVIEW,
+        "current_state": current_state,
+        "message": (
+            f"delivery-preview rejected: current state is {current_state}, "
+            f"expected {_EXPECTED_DELIVERY_PREVIEW_STATE}. "
+            "Pause execution and wait for user direction."
+        ),
+    }
+
+
 def delivery_preview(cycle_id: str, project_root: Path) -> dict[str, Any]:
     """Return fields needed to present tech-doc before delivery confirmation."""
     ws_path = resolve_workflow_state_path_from_cycle(cycle_id, project_root)
     state = load_workflow_state(ws_path)
+    current = state["current_state"]
+    if current != _EXPECTED_DELIVERY_PREVIEW_STATE:
+        return _delivery_preview_failure(current)
+
     tech_doc = load_presentation_from_cycle(cycle_id, project_root)
     return {
+        "ok": True,
         "view": _VIEW_DELIVERY_PREVIEW,
         "active_doc": _active_doc(cycle_id, project_root),
-        "current_state": state["current_state"],
+        "current_state": current,
         "tech_doc": {
             "path": tech_doc["path"],
             "title": tech_doc["title"],
@@ -135,7 +155,7 @@ def _cli() -> int:
         return 1
 
     print(json.dumps(payload, ensure_ascii=False, indent=2))
-    return 0
+    return 0 if payload.get("ok", True) else 1
 
 
 if __name__ == "__main__":

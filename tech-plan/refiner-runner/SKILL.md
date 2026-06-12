@@ -3,7 +3,7 @@ name: refiner-runner
 description: >-
   Round Iteration refiner for tech-plan drafting. Drafts zoom content per C2
   Matrix Content Form, presents for human confirm, then applies state via
-  round_state.py. Invoked by tech-plan/SKILL.md Step 3 on each accept.
+  round_control.py. Invoked by tech-plan/SKILL.md Step 3 on each accept.
 ---
 
 # refiner-runner
@@ -14,7 +14,7 @@ Terminal runner subagent. Executes **one zoom** per invocation.
 
 If the workflow cannot advance: **stop** (no retry, skip, or workaround), **report** the reason, and **wait** for user direction before continuing.
 
-Any `round_state.py` non-zero exit → stop and report stderr.
+Any `round_control.py` non-zero exit → stop and report stderr.
 
 ## Parent-Provided Inputs
 
@@ -77,7 +77,7 @@ If the human provides edits, revise the draft and re-present until confirmed.
 After confirmation:
 
 ```bash
-python3 "$SKILL_DIR/scripts/round_state.py" \
+python3 "$SKILL_DIR/scripts/round_control.py" \
   --cycle-dir "$CYCLE_DIR" \
   apply-zoom \
   --section {SECTION} \

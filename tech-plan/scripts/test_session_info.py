@@ -60,12 +60,25 @@ class TestDeliveryPreview:
     def test_returns_delivery_fields(self, tmp_path: Path):
         project_root, cycle_id = _setup_cycle(tmp_path)
         payload = delivery_preview(cycle_id, project_root)
+        assert payload["ok"] is True
         assert payload["view"] == "delivery-preview"
         assert payload["active_doc"] == 1
         assert payload["current_state"] == "ReadyForDelivery"
         assert payload["tech_doc"]["title"] == "Feature X"
         assert "session info facade" in payload["tech_doc"]["summary"]
         assert payload["tech_doc"]["path"].endswith("revision1/tech-doc.md")
+
+    def test_rejects_non_ready_for_delivery_state(self, tmp_path: Path):
+        project_root, cycle_id = _setup_cycle(tmp_path)
+        from workflow_state_schema import init_drafting, resolve_workflow_state_path_from_cycle  # noqa: WPS433
+
+        ws_path = resolve_workflow_state_path_from_cycle(cycle_id, project_root)
+        init_drafting(ws_path, mode="tech")
+        payload = delivery_preview(cycle_id, project_root)
+        assert payload["ok"] is False
+        assert payload["command"] == "delivery-preview"
+        assert payload["current_state"] == "Drafting"
+        assert "ReadyForDelivery" in payload["message"]
 
 
 class TestSessionSnapshot:
@@ -116,8 +129,35 @@ class TestCli:
             check=True,
         )
         payload = json.loads(result.stdout)
+        assert payload["ok"] is True
         assert payload["view"] == "delivery-preview"
         assert payload["tech_doc"]["title"] == "Feature X"
+
+    def test_delivery_preview_cli_failure(self, tmp_path: Path):
+        project_root, cycle_id = _setup_cycle(tmp_path)
+        from workflow_state_schema import init_drafting, resolve_workflow_state_path_from_cycle  # noqa: WPS433
+
+        ws_path = resolve_workflow_state_path_from_cycle(cycle_id, project_root)
+        init_drafting(ws_path, mode="tech")
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(_SCRIPT),
+                "--cycle-id",
+                cycle_id,
+                "--project-root",
+                str(project_root),
+                "--view",
+                "delivery-preview",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.returncode == 1
+        payload = json.loads(result.stdout)
+        assert payload["ok"] is False
+        assert payload["command"] == "delivery-preview"
 
     def test_stage_transitions_view(self, tmp_path: Path):
         project_root, cycle_id = _setup_cycle(tmp_path)

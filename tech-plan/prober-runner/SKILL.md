@@ -14,7 +14,7 @@ Terminal runner subagent. Executes **one probe round** per invocation.
 
 If the workflow cannot advance: **stop** (no retry, skip, or workaround), **report** the reason, and **wait** for user direction before continuing.
 
-Any `round_state.py` non-zero exit → stop and report stderr.
+Any `round_control.py` non-zero exit → stop and report stderr.
 
 ## Parent-Provided Inputs
 
@@ -32,7 +32,7 @@ Self-resolved at runtime:
 ## Step 1 — Load context
 
 ```bash
-python3 "$SKILL_DIR/scripts/round_state.py" \
+python3 "$SKILL_DIR/scripts/round_control.py" \
   --cycle-dir "$CYCLE_DIR" \
   read-context
 ```
@@ -82,7 +82,7 @@ For each anchor in `$CTX.anchors`:
 - If re-check **fails** → force highest-priority issue for that section; update ledger:
 
 ```bash
-python3 "$SKILL_DIR/scripts/round_state.py" \
+python3 "$SKILL_DIR/scripts/round_control.py" \
   --cycle-dir "$CYCLE_DIR" \
   update-anchor-status --id {anchor_id} --status failing
 ```
@@ -90,7 +90,7 @@ python3 "$SKILL_DIR/scripts/round_state.py" \
 - If re-check **passes** → update ledger when status was `failing`:
 
 ```bash
-python3 "$SKILL_DIR/scripts/round_state.py" \
+python3 "$SKILL_DIR/scripts/round_control.py" \
   --cycle-dir "$CYCLE_DIR" \
   update-anchor-status --id {anchor_id} --status passing
 ```

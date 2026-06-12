@@ -2,9 +2,12 @@
 """Draft control for tech-plan orchestrator.
 
 Subcommands:
-    init-probe     Check whether Initializing can start
-    init-complete  Validate seeded tech-doc and write drafting-progress Ready
-    begin-round    Transition Ready -> RoundIteration (round 1)
+    init-probe            Check whether Initializing can start
+    init-complete         Validate seeded tech-doc and write drafting-progress Ready
+    begin-round           Transition Ready -> RoundIteration (round 1)
+    advance-round         Increment round while in RoundIteration
+    advance-to-freeedit   Transition RoundIteration -> FreeEdit
+    status                Read drafting-progress snapshot (read-only)
 """
 
 from __future__ import annotations
@@ -28,8 +31,12 @@ from workflow_common import read_md_field, session_state_path, tech_doc_path  # 
 _CMD_INIT_PROBE = "init-probe"
 _CMD_INIT_COMPLETE = "init-complete"
 _CMD_BEGIN_ROUND = "begin-round"
+_CMD_ADVANCE_ROUND = "advance-round"
+_CMD_ADVANCE_TO_FREEEDIT = "advance-to-freeedit"
+_CMD_STATUS = "status"
 _STEP_READY = "Ready"
 _STEP_ROUND = "RoundIteration"
+_STEP_FREE_EDIT = "FreeEdit"
 _STATE_VECTOR_RE = re.compile(r"<!--\s*state-vector:")
 
 
@@ -154,6 +161,84 @@ def begin_round(cycle_id: str, project_root: Path) -> dict[str, Any]:
     return _success(_CMD_BEGIN_ROUND, current_step=_STEP_ROUND, round=1)
 
 
+def advance_round(cycle_id: str, project_root: Path) -> dict[str, Any]:
+    progress_path = resolve_drafting_progress_path_from_cycle(cycle_id, project_root)
+    if not progress_path.exists():
+        return _failure(
+            _CMD_ADVANCE_ROUND,
+            "drafting-progress.md not found; run begin-round first",
+        )
+
+    data = load_drafting_progress(progress_path)
+    step = data.get("current_step")
+    if step != _STEP_ROUND:
+        return _failure(
+            _CMD_ADVANCE_ROUND,
+            f"cannot advance round: current_step is {step!r} (expected RoundIteration)",
+            current_step=step,
+        )
+
+    current_round = max(1, int(data.get("round", "1")))
+    new_round = current_round + 1
+    save_drafting_progress(
+        progress_path,
+        {
+            "version": "1",
+            "cycle_id": data.get("cycle_id", cycle_id),
+            "current_step": _STEP_ROUND,
+            "round": str(new_round),
+        },
+        merge=False,
+    )
+    return _success(_CMD_ADVANCE_ROUND, current_step=_STEP_ROUND, round=new_round)
+
+
+def advance_to_freeedit(cycle_id: str, project_root: Path) -> dict[str, Any]:
+    progress_path = resolve_drafting_progress_path_from_cycle(cycle_id, project_root)
+    if not progress_path.exists():
+        return _failure(
+            _CMD_ADVANCE_TO_FREEEDIT,
+            "drafting-progress.md not found; run begin-round first",
+        )
+
+    data = load_drafting_progress(progress_path)
+    step = data.get("current_step")
+    if step == _STEP_FREE_EDIT:
+        return _success(_CMD_ADVANCE_TO_FREEEDIT, current_step=_STEP_FREE_EDIT)
+
+    if step != _STEP_ROUND:
+        return _failure(
+            _CMD_ADVANCE_TO_FREEEDIT,
+            f"cannot advance to FreeEdit: current_step is {step!r} (expected RoundIteration)",
+            current_step=step,
+        )
+
+    payload: dict[str, str] = {
+        "version": "1",
+        "cycle_id": data.get("cycle_id", cycle_id),
+        "current_step": _STEP_FREE_EDIT,
+    }
+    if data.get("round"):
+        payload["round"] = data["round"]
+    save_drafting_progress(progress_path, payload, merge=False)
+    return _success(_CMD_ADVANCE_TO_FREEEDIT, current_step=_STEP_FREE_EDIT)
+
+
+def draft_status(cycle_id: str, project_root: Path) -> dict[str, Any]:
+    progress_path = resolve_drafting_progress_path_from_cycle(cycle_id, project_root)
+    if not progress_path.exists():
+        return _failure(_CMD_STATUS, "drafting-progress.md not found")
+
+    data = load_drafting_progress(progress_path)
+    result: dict[str, Any] = {
+        "current_step": data.get("current_step"),
+        "cycle_id": data.get("cycle_id"),
+    }
+    if data.get("round"):
+        result["round"] = int(data["round"])
+    return _success(_CMD_STATUS, **result)
+
+
 def _emit(payload: dict[str, Any]) -> int:
     print(json.dumps(payload, ensure_ascii=False))
     return 0 if payload.get("ok") else 1
@@ -173,6 +258,9 @@ def _cli() -> int:
     sub.add_parser(_CMD_INIT_PROBE, help="Probe Initializing entry")
     sub.add_parser(_CMD_INIT_COMPLETE, help="Complete Initializing")
     sub.add_parser(_CMD_BEGIN_ROUND, help="Begin Round Iteration")
+    sub.add_parser(_CMD_ADVANCE_ROUND, help="Increment round counter")
+    sub.add_parser(_CMD_ADVANCE_TO_FREEEDIT, help="Transition to FreeEdit")
+    sub.add_parser(_CMD_STATUS, help="Read drafting-progress snapshot")
 
     args = parser.parse_args()
     project_root = args.project_root.resolve()
@@ -185,6 +273,12 @@ def _cli() -> int:
             return _emit(init_complete(cycle_id, project_root))
         if args.command == _CMD_BEGIN_ROUND:
             return _emit(begin_round(cycle_id, project_root))
+        if args.command == _CMD_ADVANCE_ROUND:
+            return _emit(advance_round(cycle_id, project_root))
+        if args.command == _CMD_ADVANCE_TO_FREEEDIT:
+            return _emit(advance_to_freeedit(cycle_id, project_root))
+        if args.command == _CMD_STATUS:
+            return _emit(draft_status(cycle_id, project_root))
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 1

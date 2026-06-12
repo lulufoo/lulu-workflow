@@ -7,7 +7,14 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from draft_control import begin_round, init_complete, init_probe  # noqa: E402
+from draft_control import (  # noqa: E402
+    advance_round,
+    advance_to_freeedit,
+    begin_round,
+    draft_status,
+    init_complete,
+    init_probe,
+)
 
 _CYCLE = "feat-draft-control"
 _CACHE = Path(".cache/cursor/lulu-dev-workflow")
@@ -112,6 +119,60 @@ class TestBeginRound:
         _seed_session(tmp_path)
         result = begin_round(_CYCLE, tmp_path)
         assert result["ok"] is False
+
+
+class TestAdvanceRound:
+    def _begin(self, tmp_path: Path) -> Path:
+        revision = _seed_session(tmp_path)
+        _write_tech_doc(revision)
+        init_complete(_CYCLE, tmp_path)
+        begin_round(_CYCLE, tmp_path)
+        return revision
+
+    def test_increments_round(self, tmp_path: Path):
+        revision = self._begin(tmp_path)
+        result = advance_round(_CYCLE, tmp_path)
+        assert result["ok"] is True
+        assert result["round"] == 2
+        progress = (revision / "drafting-progress.md").read_text(encoding="utf-8")
+        assert "round: 2" in progress
+        assert "current_step: RoundIteration" in progress
+
+
+class TestAdvanceToFreeedit:
+    def test_transitions_to_freeedit(self, tmp_path: Path):
+        revision = _seed_session(tmp_path)
+        _write_tech_doc(revision)
+        init_complete(_CYCLE, tmp_path)
+        begin_round(_CYCLE, tmp_path)
+        result = advance_to_freeedit(_CYCLE, tmp_path)
+        assert result["ok"] is True
+        assert result["current_step"] == "FreeEdit"
+        progress = (revision / "drafting-progress.md").read_text(encoding="utf-8")
+        assert "current_step: FreeEdit" in progress
+
+    def test_idempotent_when_already_freeedit(self, tmp_path: Path):
+        revision = _seed_session(tmp_path)
+        _write_tech_doc(revision)
+        init_complete(_CYCLE, tmp_path)
+        begin_round(_CYCLE, tmp_path)
+        advance_to_freeedit(_CYCLE, tmp_path)
+        result = advance_to_freeedit(_CYCLE, tmp_path)
+        assert result["ok"] is True
+        assert result["current_step"] == "FreeEdit"
+
+
+class TestDraftStatus:
+    def test_returns_round_and_step(self, tmp_path: Path):
+        revision = _seed_session(tmp_path)
+        _write_tech_doc(revision)
+        init_complete(_CYCLE, tmp_path)
+        begin_round(_CYCLE, tmp_path)
+        result = draft_status(_CYCLE, tmp_path)
+        assert result["ok"] is True
+        assert result["current_step"] == "RoundIteration"
+        assert result["round"] == 1
+        assert result["cycle_id"] == _CYCLE
 
 
 class TestCli:

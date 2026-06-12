@@ -13,36 +13,11 @@ Follow this document exactly. Do not execute any evaluation step before reading 
 
 ## Phase 1 — Initialize (E1)
 
-1. Read `workflow-state.md` → `evaluate_round`, `mode`, `product_ref`, `carry_forward_ref`
-2. Increment `evaluate_round` → M
-3. Write `workflow-state.md`: `current_state: Evaluating`, `evaluate_round: M`; preserve all other fields
-4. Initialize `evaluate-state.md` based on `mode`:
+Prerequisite: `$SESSION_CONTROL start-evaluating` succeeded (writes `workflow-state.md` and initializes `evaluate-state.md`).
 
-```
-# product mode
-current_dimension: e1
-e1_status: pending
-e1_total_issues: 0
-e1_resolved_issues: 0
-e2_status: pending
-e2_total_issues: 0
-e2_resolved_issues: 0
-e3_status: pending
-e3_total_issues: 0
-e3_resolved_issues: 0
-total_issues: 0
-resolved_issues: 0
-fix_severity: ""
-fix_severity_reason: ""
-
-# tech mode (e1 preset complete)
-current_dimension: e2
-e1_status: complete
-e1_total_issues: 0
-e1_resolved_issues: 0
-e2_status: pending
-...
-```
+1. Read `workflow-state.md` → confirm `current_state: Evaluating`, `evaluate_round: M`
+2. Read `evaluate-state.md` → confirm `phase: evaluate` and dimension fields match `mode`
+3. Proceed to Phase 2
 
 ---
 

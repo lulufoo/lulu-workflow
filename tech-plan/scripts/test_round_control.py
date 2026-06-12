@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for round_state.py."""
+"""Tests for round_control.py."""
 
 from __future__ import annotations
 
@@ -9,16 +9,17 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from round_state import (  # noqa: E402
-    _parse_state_vector,
+from round_control import (  # noqa: E402
     _normalize_section,
+    _parse_state_vector,
 )
 
-_SCRIPT = Path(__file__).resolve().parent / "round_state.py"
+_SCRIPT = Path(__file__).resolve().parent / "round_control.py"
+_CYCLE_ID = "test-cycle"
 
 
 def _setup_cycle(tmp_path: Path) -> Path:
-    cycle_dir = tmp_path / "test-cycle"
+    cycle_dir = tmp_path / _CYCLE_ID
     plan_base = cycle_dir / "tech" / "plan"
     revision = plan_base / "revision1"
     revision.mkdir(parents=True)
@@ -37,7 +38,8 @@ def _setup_cycle(tmp_path: Path) -> Path:
         encoding="utf-8",
     )
     (revision / "drafting-progress.md").write_text(
-        "---\nversion: 1\ncurrent_step: RoundIteration\nround: 1\n---\n",
+        f"---\nversion: 1\ncycle_id: {_CYCLE_ID}\n"
+        "current_step: RoundIteration\nround: 1\n---\n",
         encoding="utf-8",
     )
     return cycle_dir
@@ -151,10 +153,3 @@ def test_check_convergence(tmp_path: Path):
     result = _run(cycle_dir, "check-convergence", "--no-accept", "--probes-passed")
     assert result["converged"] is False
     assert "L0" in result["reason"]
-
-
-def test_advance_to_freeedit(tmp_path: Path):
-    cycle_dir = _setup_cycle(tmp_path)
-    _run(cycle_dir, "advance-to-freeedit")
-    progress = (cycle_dir / "tech" / "plan" / "revision1" / "drafting-progress.md").read_text()
-    assert "current_step: FreeEdit" in progress

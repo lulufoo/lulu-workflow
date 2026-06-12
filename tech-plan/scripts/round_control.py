@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Round Iteration state control for tech-plan orchestrator.
+"""Round Iteration control for tech-plan orchestrator.
 
 Subcommands:
     read-context          Return state-vector, anchors, skips, round metadata
@@ -9,7 +9,8 @@ Subcommands:
     append-skip           Append skip ledger entry (rejects L0)
     update-anchor-status  Set anchor ledger entry status (passing | failing)
     check-convergence     Evaluate convergence conditions
-    advance-to-freeedit   Write drafting-progress current_step: FreeEdit
+
+Does not write drafting-progress.md — use draft_control.py for progress transitions.
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from drafting_progress_schema import load_drafting_progress  # noqa: E402
 from workflow_common import read_md_field  # noqa: E402
 
 SECTION_KEYS = ("NS", "NG", "KD", "SK", "T")
@@ -220,9 +222,9 @@ def _read_round(revision_dir: Path) -> int:
     progress = revision_dir / "drafting-progress.md"
     if not progress.exists():
         return 1
-    raw = read_md_field(progress, "round", default="1")
     try:
-        return max(1, int(raw or "1"))
+        data = load_drafting_progress(progress)
+        return max(1, int(data.get("round", "1")))
     except ValueError:
         return 1
 
@@ -413,24 +415,8 @@ def cmd_check_convergence(
     return 0
 
 
-def cmd_advance_to_freeedit(cycle_dir: Path) -> int:
-    revision_dir = _active_revision_dir(cycle_dir)
-    progress = revision_dir / "drafting-progress.md"
-    if not progress.exists():
-        return _fail(f"drafting-progress.md not found: {progress}")
-
-    text = progress.read_text(encoding="utf-8")
-    if "current_step:" in text:
-        text = re.sub(r"current_step:\s*\S+", "current_step: FreeEdit", text)
-    else:
-        text = text.rstrip() + "\ncurrent_step: FreeEdit\n"
-    progress.write_text(text, encoding="utf-8")
-    _emit({"ok": True})
-    return 0
-
-
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Round Iteration state control")
+    parser = argparse.ArgumentParser(description="Round Iteration control")
     parser.add_argument(
         "--cycle-dir",
         required=True,
@@ -441,7 +427,6 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("read-context")
     sub.add_parser("check-l0")
-    sub.add_parser("advance-to-freeedit")
 
     apply_zoom = sub.add_parser("apply-zoom")
     apply_zoom.add_argument("--section", required=True)
@@ -528,8 +513,6 @@ def main(argv: list[str] | None = None) -> int:
                 no_accept=args.no_accept,
                 probes_passed=args.probes_passed,
             )
-        if args.command == "advance-to-freeedit":
-            return cmd_advance_to_freeedit(cycle_dir)
         return _fail(f"unknown command: {args.command}")
     except (FileNotFoundError, ValueError) as exc:
         return _fail(str(exc))

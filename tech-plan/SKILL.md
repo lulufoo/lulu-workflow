@@ -44,12 +44,25 @@ python3 "$SKILL_DIR/scripts/session_info.py" --cycle-id "$CYCLE_ID" --view <view
 python3 "$SKILL_DIR/scripts/session_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>
 ```
 
+Subcommands: `start-evaluating` · `ready-for-delivery` · `deliver`
+
 ### `$DRAFT_CONTROL`
 
 `$DRAFT_CONTROL <subcommand>` →
 
 ```bash
 python3 "$SKILL_DIR/scripts/draft_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>
+```
+
+Subcommands: `init-probe` · `init-complete` · `begin-round` · `advance-round` · `advance-to-freeedit` · `status`
+
+### `$ROUND_CONTROL`
+
+`$ROUND_CONTROL <subcommand> [args...]` →
+
+```bash
+python3 "$SKILL_DIR/scripts/round_control.py" \
+  --cycle-dir "$CACHE_DIR/$CYCLE_ID" <subcommand> [args...]
 ```
 
 ### `start` — Session-level, run before each tech document
@@ -127,7 +140,7 @@ Write only `revision{N}/tech-doc.md`. It is the sole AI-generated artifact.
 
 If the workflow cannot advance: **stop** (no retry, skip, or workaround), **report** the reason (stderr, exit code), and **wait** for user direction before continuing.
 
-Any `round_state.py` non-zero exit → apply Blocking policy.
+Any `$ROUND_CONTROL` or `$DRAFT_CONTROL` non-zero exit → apply Blocking policy.
 
 #### Step 1 — Entry
 
@@ -183,7 +196,7 @@ Load {actual $SKILL_ROOT}/tech-plan/prober-runner/SKILL.md and follow its instru
 ## Input
 CYCLE_DIR:      {absolute path to $CACHE_DIR/<cycle_id>}
 CYCLE_TYPE:     {feature | topic}
-ROUND_N:        {N from drafting-progress.md}
+ROUND_N:        {N from `$DRAFT_CONTROL status`}
 TECH_DOC_PATH:  {absolute path to revision{N}/tech-doc.md}
 ```
 
@@ -198,13 +211,7 @@ Track round context throughout step 2 (reset at start of each round):
    - `accept` → dispatch `refiner-runner` (ProbeReport stays pinned)
    - `reject` / `skip` → mark as ignored this round (ProbeReport stays pinned)
    - `redirect` → human edits `tech-doc.md` directly (ProbeReport stays pinned)
-   - `commit-anchor` → append anchor:
-
-```bash
-python3 "$SKILL_DIR/scripts/round_state.py" \
-  --cycle-dir "$CACHE_DIR/$CYCLE_ID" \
-  append-anchor --section {X} --criterion "..." --round {N}
-```
+   - `commit-anchor` → `$ROUND_CONTROL append-anchor --section {X} --criterion "..." --round {N}`
 
 Refiner dispatch (per accept):
 
@@ -222,24 +229,12 @@ TECH_DOC_PATH:   {absolute path to revision{N}/tech-doc.md}
 ZOOM_EVIDENCE:   {probe failure evidence}
 ```
 
-3. **Round end** — when human confirms all items handled, run L0 block check:
-
-```bash
-python3 "$SKILL_DIR/scripts/round_state.py" \
-  --cycle-dir "$CACHE_DIR/$CYCLE_ID" \
-  check-l0
-```
+3. **Round end** — when human confirms all items handled, run `$ROUND_CONTROL check-l0`.
 
 If `l0_sections` is non-empty → block with message:
 > 以下 section 仍为 L0，必须处理后才能进入下一轮：{section list}
 
-4. **Skip ledger** — write non-L0 reject/skip entries:
-
-```bash
-python3 "$SKILL_DIR/scripts/round_state.py" \
-  --cycle-dir "$CACHE_DIR/$CYCLE_ID" \
-  append-skip --section {X} --probe {P1} --round {N}
-```
+4. **Skip ledger** — write non-L0 reject/skip entries: `$ROUND_CONTROL append-skip --section {X} --probe {P1} --round {N}`
 
 5. **Convergence** — build flags from tracked round context (do not hardcode):
 
@@ -248,72 +243,58 @@ python3 "$SKILL_DIR/scripts/round_state.py" \
 | No zoom accepted this round | `--no-accept` |
 | Every initial ProbeReport failure was accept-resolved, reject/skip-recorded, or redirect-fixed; no open failures remain | `--probes-passed` |
 
-Example when both hold:
-
-```bash
-python3 "$SKILL_DIR/scripts/round_state.py" \
-  --cycle-dir "$CACHE_DIR/$CYCLE_ID" \
-  check-convergence --no-accept --probes-passed
-```
+Example when both hold: `$ROUND_CONTROL check-convergence --no-accept --probes-passed`
 
 Omit `--probes-passed` when any probe failure was skipped/rejected without resolution. Omit `--no-accept` when any zoom was accepted.
 
-- `converged: true` → advance:
+- `converged: true` → present convergence summary (include state-vector from `$ROUND_CONTROL read-context`); ask:
 
-```bash
-python3 "$SKILL_DIR/scripts/round_state.py" \
-  --cycle-dir "$CACHE_DIR/$CYCLE_ID" \
-  advance-to-freeedit
-```
+> 1. Enter FreeEdit
+> 2. Continue to the next round
 
-Then enter Step 4.
+  - **1** → `$DRAFT_CONTROL advance-to-freeedit`. On failure → apply Blocking policy. Then enter Step 4 - FreeEdit.
+  - **2** → `$DRAFT_CONTROL advance-round`. On failure → apply Blocking policy. Return to step 1 (Probe).
 
-- `converged: false` → increment `round` in `drafting-progress.md` → return to step 1.
-
-Exit condition: `drafting-progress.md: current_step: FreeEdit`.
+- `converged: false` → `$DRAFT_CONTROL advance-round`. On failure → apply Blocking policy. Return to step 1 (Probe).
 
 #### Step 4 — FreeEdit
 
-Entry paths:
-
-- after Step 3 — Round Iteration converges
-- after Evaluating returns fix to Drafting (resume directly here; skip Steps 1–3)
+Entry: `advance-to-freeedit` success, or Evaluating fix resume.
 
 Rules:
 
 - User drives edits; AI assists on request.
-- On user "完成", ask:
+- When user signals done, ask: Evaluate or deliver directly?
 
-> "Start evaluation, or deliver directly?"
+- **Evaluate** → run `$SESSION_CONTROL start-evaluating`.
+  > On failure → apply Blocking policy.
+  > On success → follow **Evaluating Rules** below.
 
-- **Evaluate** → write `workflow-state.md` → `current_state: Evaluating`.
-- **Deliver directly** → run `$SESSION_CONTROL ready-for-delivery`.
-
-> On non-zero exit: apply Blocking policy.
-> On success: follow **ReadyForDelivery Rules** below.
+- **Deliver**
+  run `$SESSION_CONTROL ready-for-delivery`.
+  > On failure → apply Blocking policy.
+  > On success → follow **ReadyForDelivery Rules** below.
 
 ### Evaluating Rules
 
 Read `./eval-rules.md` and follow its instructions.
 
-When eval-rules completes Phase 4, run `$SESSION_CONTROL ready-for-delivery`.
+When eval-rules completes, run `$SESSION_CONTROL ready-for-delivery`.
 
 > On non-zero exit: apply Blocking policy.
 > On success: follow **ReadyForDelivery Rules** below.
 
 ### ReadyForDelivery Rules
 
-Entry: `current_state` is `ReadyForDelivery`.
-
 1. Run `$SESSION_INFO delivery-preview`.
 
-> On non-zero exit: apply Blocking policy.
+> On failure: apply Blocking policy.
 > On success: show a delivery preview; full tech-doc only if asked.
 
 2. Wait for explicit delivery confirmation.
 3. Run `$SESSION_CONTROL deliver`.
 
-> On non-zero exit: apply Blocking policy.
+> On failure: apply Blocking policy.
 > On success: follow **Delivery Rules** below.
 
 ### Delivery Rules
