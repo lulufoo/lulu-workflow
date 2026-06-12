@@ -26,12 +26,17 @@ from evaluate_state_schema import (  # noqa: E402
 from hook_guard import load_transitions  # noqa: E402
 from session_state_schema import load_active_doc_from_cycle  # noqa: E402
 from tech_doc_schema import load_presentation_from_cycle  # noqa: E402
-from workflow_common import STAGE, detect_cycle_type, eval_round_dir  # noqa: E402
+from workflow_common import (  # noqa: E402
+    STAGE,
+    detect_cycle_type,
+    eval_round_dir,
+    tech_doc_path,
+)
 from workflow_state_schema import (  # noqa: E402
     load_workflow_state,
     resolve_workflow_state_path_from_cycle,
 )
-from eval_control import dispatch_list  # noqa: E402
+from eval_control import build_eval_dispatch_payload  # noqa: E402
 
 _VIEW_DELIVERY_PREVIEW = "delivery-preview"
 _VIEW_SESSION = "session"
@@ -189,47 +194,16 @@ def _count_ignored(issues: list[dict[str, str]]) -> int:
 
 
 def eval_dispatch(cycle_id: str, project_root: Path) -> dict[str, Any]:
-    """Return eval loop coordinates for Evaluating Phase 2 (dispatch, M, N)."""
-    ws_path = resolve_workflow_state_path_from_cycle(cycle_id, project_root)
-    state = load_workflow_state(ws_path)
-    current = state["current_state"]
-
-    if current != _EXPECTED_EVAL_DISPATCH_STATE:
+    """Return eval loop context for Phase 2 (dispatch, paths, cycle_type, refs)."""
+    payload = build_eval_dispatch_payload(cycle_id, project_root)
+    if not payload.get("ok"):
         return _eval_dispatch_failure(
-            current,
-            reason=(
-                f"current state is {current!r}, "
-                f"expected {_EXPECTED_EVAL_DISPATCH_STATE!r}."
-            ),
+            payload.get("current_state", ""),
+            reason=payload.get("reason", "eval-dispatch failed."),
         )
-
-    try:
-        evaluate_round = int(state.get("evaluate_round", "0"))
-    except ValueError:
-        evaluate_round = 0
-    if evaluate_round < 1:
-        return _eval_dispatch_failure(
-            current,
-            reason=f"evaluate_round is {evaluate_round!r} (expected >= 1).",
-        )
-
-    es_path = resolve_evaluate_state_path_from_cycle(cycle_id, project_root)
-    if not es_path.exists():
-        return _eval_dispatch_failure(current, reason="evaluate-state.md not found.")
-
-    mode = state["mode"]
-    active_doc = load_active_doc_from_cycle(cycle_id, project_root)
-    return {
-        "ok": True,
-        "view": _VIEW_EVAL_DISPATCH,
-        "current_state": current,
-        "mode": mode,
-        "dispatch": dispatch_list(mode),
-        "evaluate_round": evaluate_round,
-        "M": evaluate_round,
-        "active_doc": active_doc,
-        "N": active_doc,
-    }
+    result = dict(payload)
+    result["view"] = _VIEW_EVAL_DISPATCH
+    return result
 
 
 def eval_summary(cycle_id: str, project_root: Path) -> dict[str, Any]:

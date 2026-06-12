@@ -72,7 +72,7 @@ Load `./transition-whitelist.json` — check `allowed_transitions` for valid tra
 ## Principles
 
 **Blocking** — Cannot advance → stop, report (stderr / exit code), wait for user direction.
-`$SESSION_CONTROL`, `$DRAFT_CONTROL`, `$ROUND_CONTROL`, or `$SESSION_INFO` non-zero exit → apply Blocking.
+`$SESSION_CONTROL`, `$DRAFT_CONTROL`, `$ROUND_CONTROL`, `$EVAL_CONTROL`, or `$SESSION_INFO` non-zero exit → apply Blocking.
 
 **Drafting — code reference** — Reference relevant source code for the current section; read narrowly, not the whole codebase.
 
@@ -203,9 +203,7 @@ Rules:
 - User drives edits; AI assists on request.
 - When user signals done, ask: Evaluate or deliver directly?
 
-- **Evaluate** → run `$SESSION_CONTROL start-evaluating`.
-  > On failure → apply Blocking policy.
-  > On success → follow **Evaluating Rules** below.
+- **Evaluate** → follow **Evaluating Rules** below.
 
 - **Deliver**
   run `$SESSION_CONTROL ready-for-delivery`.
@@ -269,6 +267,18 @@ python3 "$SKILL_DIR/scripts/session_control.py" --cycle-id "$CYCLE_ID" --project
 ```
 
 Subcommands: `start-evaluating` · `ready-for-delivery` · `deliver`
+
+### `$EVAL_CONTROL`
+
+`$EVAL_CONTROL <subcommand> [args...]` →
+
+```bash
+python3 "$SKILL_DIR/scripts/eval_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand> [args...]
+```
+
+Subcommands: `begin-dimension` (`--dim e1|e2|e3`)
+
+On `begin-dimension` success: read stdout as plain-text `## Input` block for eval-runner dispatch.
 
 ### `$DRAFT_CONTROL`
 

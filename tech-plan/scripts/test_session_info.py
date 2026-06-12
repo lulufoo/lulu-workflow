@@ -119,6 +119,13 @@ class TestEvalDispatch:
         assert payload["N"] == 1
         assert payload["N"] == payload["active_doc"]
         assert payload["current_state"] == "Evaluating"
+        assert payload["cycle_type"] == "feature"
+        assert payload["product_ref"] == "/p.md"
+        assert payload["project_root"] == project_root.resolve().as_posix()
+        paths = payload["paths"]
+        assert paths["tech_doc"].endswith("revision1/tech-doc.md")
+        assert paths["evaluate_state"].endswith("revision1/evaluate-state.md")
+        assert paths["evaluate_dir"].endswith("revision1/evaluate1")
 
     def test_tech_mode_dispatch(self, tmp_path: Path):
         project_root, cycle_id = _setup_evaluating_cycle(tmp_path)

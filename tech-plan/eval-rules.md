@@ -6,37 +6,36 @@ rule-guard:
 
 # Evaluating Orchestration Rules
 
-Loaded by `tech-plan/SKILL.md` on entering `Evaluating` state.
+Loaded when parent routes to Evaluating Rules (user chose **Evaluate** from FreeEdit).
 Follow this document exactly. Do not execute any evaluation step before reading it.
 
-`$SESSION_INFO` / `$SESSION_CONTROL` non-zero exit → Blocking (parent SKILL).
+`$SESSION_INFO` / `$SESSION_CONTROL` / `$EVAL_CONTROL` non-zero exit → Blocking (parent SKILL).
 
 ---
 
 ## Phase 1 — Initialize (E1)
 
-Prerequisite: `$SESSION_CONTROL start-evaluating` succeeded.
-
-1. Read `evaluate-state.md` → confirm `phase: evaluate` and dimension fields match `mode`.
-2. Proceed to Phase 2.
-
----
-
-## Phase 2 — Build dispatch list (E2)
-
-Run `$SESSION_INFO eval-dispatch`. Pin payload for Phase 3.
+1. Run `$SESSION_CONTROL start-evaluating`.
+2. Read `evaluate-state.md` → confirm `phase: evaluate` and dimension fields match `mode`.
+3. Proceed to Phase 2.
 
 ---
 
-## Phase 3 — Per-dimension loop
+## Phase 2 — Per-dimension loop (E2)
 
-Resolve `CYCLE_TYPE` once before the loop (`detect_cycle_type($CYCLE_ID)` or `active-context.json`).
+1. Run `$SESSION_INFO eval-dispatch`. Pin payload.
+2. For each `dim` in `payload.dispatch`:
+   - Execute **Phase 3 — Single dimension** with `dim` and pinned payload.
+   - If Phase 3 exits to **E6** → STOP.
+3. When all dimensions complete → Phase 4.
 
-Use pinned payload: `dispatch`, `M`, `N` (`active_doc`) for paths below.
+---
 
-For each `dim` in `dispatch`:
+## Phase 3 — Single dimension (E3)
 
-1. Write `evaluate-state.md`: `current_dimension: {dim}`, `{dim}_status: in_progress`
+Inputs: `dim` (from E2 loop), pinned E2 payload.
+
+1. Run `$EVAL_CONTROL begin-dimension --dim {dim}`. On failure → Blocking. Pin `dispatch_input`.
 
 2. Dispatch `eval-runner` (`$SUBAGENT_TOOL`, `$SUBAGENT_AWAIT_SYNC`). Prompt:
 
@@ -44,27 +43,20 @@ For each `dim` in `dispatch`:
 Load {$SKILL_ROOT}/tech-plan/eval-runner/SKILL.md and follow its instructions.
 
 ## Input
-DIMENSION:            {dim}
-CYCLE_TYPE:           {feature | topic}
-TECH_DOC_PATH:        {absolute path to revision{N}/tech-doc.md}
-EVALUATE_STATE_PATH:  {absolute path to revision{N}/evaluate-state.md}
-EVALUATE_DIR:         {absolute path to revision{N}/evaluate{M}/}
-EXECUTION_MODE:       {guided | autonomous}
-[e1 only] PRODUCT_REF: {product_ref from workflow-state.md}
-PROJECT_ROOT:         {project root absolute path}
+{dispatch_input from step 1}
 ```
 
 3. Await completion
 
 4. Read `evaluate-state.md` → check `current_dimension`:
-   - if `abandoned` → jump to **E6 Abandon Handler**, STOP
-   - else → verify `{dim}_status: complete`; continue to next dimension
+   - if `abandoned` → **E6 Abandon Handler**, STOP
+   - else → verify `{dim}_status: complete`
 
 ---
 
 ## Phase 4 — Completion (E4)
 
-After all dimensions complete:
+After E2 loop completes (use `M` from pinned E2 payload):
 
 1. Read all completed review files (`evaluate{M}/tech-review-e{M}1.md`, `e{M}2.md`, `e{M}3.md`) — only those that exist
 2. Collect the `Severity` column of every issue row; determine `fix_severity` as the highest level found (critical > medium > minor); if all ignored, use `minor`
