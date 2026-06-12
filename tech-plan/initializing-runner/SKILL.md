@@ -3,7 +3,7 @@ name: initializing-runner
 description: >-
   Autonomous Initializing step for tech-plan drafting. Reads template/meta from
   parent-provided raw sources, seeds the initial tech-doc with provenance tags and
-  state-vector, writes drafting-progress.md, then returns control to Step 3 — Round Iteration.
+  state-vector, then returns control to the parent Initializing step.
 ---
 
 # initializing-runner
@@ -38,7 +38,6 @@ Self-resolved at runtime (do not pass from parent):
 - `$TEMPLATE_KEY` — `tpt_v2_url` (feature) or `shaping_tpt_url` (topic)
 - `$META_KEY` — `tpt_meta_v2_url` (feature) or `tpt_meta_url` (topic)
 - `$TECH_DOC_PATH` = `{REVISION_DIR}/tech-doc.md`
-- `$DRAFTING_PROGRESS_PATH` = `{REVISION_DIR}/drafting-progress.md`
 
 Load templates via the shared entry (see `../_runtime.md` → Template Fetch):
 
@@ -137,9 +136,9 @@ Apply the method as follows:
 
 ## Write Outputs
 
-### Step I4 - Write tech doc and progress file
+### Step I4 - Write tech doc
 
-#### 1. Write `$TECH_DOC_PATH`
+#### Write `$TECH_DOC_PATH`
 
 Render the full tech document in template order:
 
@@ -157,18 +156,6 @@ After rendering all sections, derive the initial State Vector from `fill_results
 Example result:
 ```
 <!-- state-vector: NS:L0, NG:L1, KD:L1, SK:L1, T:L1 -->
-```
-
-#### 2. Write `$DRAFTING_PROGRESS_PATH`
-
-Write directly:
-
-```yaml
----
-version: 1
-cycle_id: {CYCLE_ID}
-current_step: Ready
----
 ```
 
 ## Expected Initial Seed Set

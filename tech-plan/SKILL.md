@@ -44,6 +44,14 @@ python3 "$SKILL_DIR/scripts/session_info.py" --cycle-id "$CYCLE_ID" --view <view
 python3 "$SKILL_DIR/scripts/session_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>
 ```
 
+### `$DRAFT_CONTROL`
+
+`$DRAFT_CONTROL <subcommand>` →
+
+```bash
+python3 "$SKILL_DIR/scripts/draft_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>
+```
+
 ### `start` — Session-level, run before each tech document
 
 > Prerequisite: `init` has been run.
@@ -121,7 +129,7 @@ If the workflow cannot advance: **stop** (no retry, skip, or workaround), **repo
 
 Any `round_state.py` non-zero exit → apply Blocking policy.
 
-#### Step 0 — Entry
+#### Step 1 — Entry
 
 Read `workflow-state.md` → `evaluate_round`, `mode`, `carry_forward_ref`.
 
@@ -140,12 +148,10 @@ Use:
 
 Then dispatch Steps 1 → 3 in order. If returning from Evaluating fix, enter Step 4 directly.
 
-#### Step 1 — Initializing
+#### Step 2 — Initializing
 
-Entry condition: `drafting-progress.md: current_step: Ready` (or file absent).
-Exit condition: `tech-doc.md` seeded; `drafting-progress.md` records `cycle_id`.
-
-Dispatch:
+1. Run `$DRAFT_CONTROL init-probe`. On failure → apply Blocking policy.
+2. Dispatch:
 
 ```text
 Load {actual $SKILL_ROOT}/tech-plan/initializing-runner/SKILL.md and follow its instructions.
@@ -157,22 +163,15 @@ CYCLE_TYPE:           {feature | topic}
 CYCLE_ID:             {cycle_id}
 ```
 
-Await completion (`$SUBAGENT_AWAIT_SYNC`); verify `revision{N}/tech-doc.md` exists.
+Await completion (`$SUBAGENT_AWAIT_SYNC`).
+
+3. Run `$DRAFT_CONTROL init-complete`. On failure → apply Blocking policy.
 
 #### Step 3 — Round Iteration Loop
 
 Entry: Step 1 complete, or `drafting-progress.md: current_step: RoundIteration`.
 
-On first entry after Step 1, write `drafting-progress.md`:
-
-```yaml
----
-version: 1
-cycle_id: {cycle_id}
-current_step: RoundIteration
-round: 1
----
-```
+On first entry after Step 1, run `$DRAFT_CONTROL begin-round`. On failure → apply Blocking policy.
 
 Each round (Round N):
 
