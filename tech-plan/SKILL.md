@@ -28,43 +28,6 @@ Do NOT proceed until you have read `../_runtime.md` and loaded:
 
 ## Commands
 
-### `$SESSION_INFO`
-
-`$SESSION_INFO <view>` →
-
-```bash
-python3 "$SKILL_DIR/scripts/session_info.py" --cycle-id "$CYCLE_ID" --view <view>
-```
-
-### `$SESSION_CONTROL`
-
-`$SESSION_CONTROL <subcommand>` →
-
-```bash
-python3 "$SKILL_DIR/scripts/session_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>
-```
-
-Subcommands: `start-evaluating` · `ready-for-delivery` · `deliver`
-
-### `$DRAFT_CONTROL`
-
-`$DRAFT_CONTROL <subcommand>` →
-
-```bash
-python3 "$SKILL_DIR/scripts/draft_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>
-```
-
-Subcommands: `init-probe` · `init-complete` · `begin-round` · `advance-round` · `advance-to-freeedit` · `status`
-
-### `$ROUND_CONTROL`
-
-`$ROUND_CONTROL <subcommand> [args...]` →
-
-```bash
-python3 "$SKILL_DIR/scripts/round_control.py" \
-  --cycle-dir "$CACHE_DIR/$CYCLE_ID" <subcommand> [args...]
-```
-
 ### `start` — Session-level, run before each tech document
 
 > Prerequisite: `init` has been run.
@@ -106,6 +69,15 @@ Load `./transition-whitelist.json` — check `allowed_transitions` for valid tra
 
 ---
 
+## Principles
+
+**Blocking** — Cannot advance → stop, report (stderr / exit code), wait for user direction.
+`$SESSION_CONTROL`, `$DRAFT_CONTROL`, `$ROUND_CONTROL`, or `$SESSION_INFO` non-zero exit → apply Blocking.
+
+**Drafting — code reference** — Reference relevant source code for the current section; read narrowly, not the whole codebase.
+
+---
+
 ## Operating Rules
 
 ### General
@@ -121,26 +93,7 @@ Load `./transition-whitelist.json` — check `allowed_transitions` for valid tra
 
 **If returning from Evaluating fix:** resume at Step 4 — FreeEdit; skip Steps 1–3.
 
-#### Drafting Constraints
-
-**Rule D1 — Code reads during drafting**
-
-Read code files on demand (only what's relevant to the current design), never batch-load the entire codebase.
-
-**Rule D2 — Output**
-
-Write only `revision{N}/tech-doc.md`. It is the sole AI-generated artifact.
-
-#### Drafting Sub-State Machine
-
-1. Substep states: `Ready → RoundIteration → FreeEdit` (Initializing is Step 1 only; not persisted in `current_step`)
-2. Substep state is recorded in `drafting-progress.md`.
-
-#### Blocking policy
-
-If the workflow cannot advance: **stop** (no retry, skip, or workaround), **report** the reason (stderr, exit code), and **wait** for user direction before continuing.
-
-Any `$ROUND_CONTROL` or `$DRAFT_CONTROL` non-zero exit → apply Blocking policy.
+Substep states: `Ready → RoundIteration → FreeEdit` (Initializing is Step 2 only; not persisted in `current_step`).
 
 #### Step 1 — Entry
 
@@ -303,5 +256,48 @@ When eval-rules completes, run `$SESSION_CONTROL ready-for-delivery`.
 
 > On non-zero exit: apply Blocking policy.
 > On success: prompt next stages when present.
+
+---
+
+## Command Index
+
+Macro definitions referenced in the workflow above.
+
+### `$SESSION_INFO`
+
+`$SESSION_INFO <view>` →
+
+```bash
+python3 "$SKILL_DIR/scripts/session_info.py" --cycle-id "$CYCLE_ID" --view <view>
+```
+
+### `$SESSION_CONTROL`
+
+`$SESSION_CONTROL <subcommand>` →
+
+```bash
+python3 "$SKILL_DIR/scripts/session_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>
+```
+
+Subcommands: `start-evaluating` · `ready-for-delivery` · `deliver`
+
+### `$DRAFT_CONTROL`
+
+`$DRAFT_CONTROL <subcommand>` →
+
+```bash
+python3 "$SKILL_DIR/scripts/draft_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>
+```
+
+Subcommands: `init-probe` · `init-complete` · `begin-round` · `advance-round` · `advance-to-freeedit` · `status`
+
+### `$ROUND_CONTROL`
+
+`$ROUND_CONTROL <subcommand> [args...]` →
+
+```bash
+python3 "$SKILL_DIR/scripts/round_control.py" \
+  --cycle-dir "$CACHE_DIR/$CYCLE_ID" <subcommand> [args...]
+```
 
 ---
