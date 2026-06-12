@@ -46,7 +46,7 @@ _SCHEMA: list[dict] = [
     {"field": "resolved_issues", "type": "string", "required": True,
      "description": "Aggregate resolved issues"},
     {"field": "fix_severity", "type": "string", "required": True,
-     "description": "Fix severity label when returning to Drafting"},
+     "description": "Highest severity from completed eval round summary"},
     {"field": "fix_severity_reason", "type": "string", "required": True,
      "description": "Fix severity reason"},
 ]

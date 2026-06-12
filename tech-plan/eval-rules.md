@@ -71,7 +71,11 @@ After all dimensions complete:
 2. Collect the `Severity` column of every issue row; determine `fix_severity` as the highest level found (critical > medium > minor); if all ignored, use `minor`
 3. Write `fix_severity_reason` (one sentence citing the most severe issue)
 4. Write `evaluate-state.md`: `current_dimension: done`, `fix_severity` and `fix_severity_reason` filled in
-5. Stop — return to parent (`tech-plan/SKILL.md` Evaluating Rules) to run `session_control ready-for-delivery`
+5. Run `$SESSION_INFO eval-summary`. On failure → apply Blocking policy.
+6. Present payload to the user (issue table + `fix_severity` summary).
+7. Ask user:
+   - **Deliver** → stop; parent runs `$SESSION_CONTROL ready-for-delivery`
+   - **Continue editing** → write `workflow-state.md`: `current_state: Drafting` (preserve `evaluate_round`, `mode`, `product_ref`, `carry_forward_ref`); stop; parent enters **Step 4 — FreeEdit**
 
 ---
 

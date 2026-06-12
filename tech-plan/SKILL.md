@@ -91,17 +91,11 @@ Load `./transition-whitelist.json` — check `allowed_transitions` for valid tra
 
 ### Drafting Rules
 
-**If returning from Evaluating fix:** resume at Step 4 — FreeEdit; skip Steps 1–3.
+**Evaluating fix resume → Step 4 — FreeEdit** (skip Steps 1–3).
 
-Substep states: `Ready → RoundIteration → FreeEdit` (Initializing is Step 2 only; not persisted in `current_step`).
+Substep states: `Ready → RoundIteration → FreeEdit`.
 
 #### Step 1 — Entry
-
-Read `workflow-state.md` → `evaluate_round`, `mode`, `carry_forward_ref`.
-
-**If `evaluate_round > 0`:** read `evaluate-state.md` → `fix_severity`, `fix_severity_reason`; present to the user:
-
-> "上轮评估结果：[fix_severity] — [fix_severity_reason]。"
 
 Resolve drafting template keys from cycle type (sub-agents fetch via `$FETCH_TEMPLATE`):
 
@@ -112,7 +106,7 @@ Use:
 - `Use $FETCH_TEMPLATE tech-plan <key>`
 - Read stdout as template body; on failure report error and stop current step.
 
-Then dispatch Steps 1 → 3 in order. If returning from Evaluating fix, enter Step 4 directly.
+Then dispatch Steps 2 → 3 in order. Evaluating fix resume → enter Step 4 directly.
 
 #### Step 2 — Initializing
 
@@ -229,10 +223,13 @@ Rules:
 
 Read `./eval-rules.md` and follow its instructions.
 
-When eval-rules completes, run `$SESSION_CONTROL ready-for-delivery`.
+When eval-rules completes, follow its exit branch:
 
-> On non-zero exit: apply Blocking policy.
-> On success: follow **ReadyForDelivery Rules** below.
+- **Deliver** → run `$SESSION_CONTROL ready-for-delivery`.
+  > On failure → apply Blocking policy.
+  > On success → follow **ReadyForDelivery Rules** below.
+
+- **Continue editing** → enter **Step 4 — FreeEdit** (Evaluating fix resume; skip Steps 2–3).
 
 ### ReadyForDelivery Rules
 
@@ -267,6 +264,8 @@ Macro definitions referenced in the workflow above.
 ```bash
 python3 "$SKILL_DIR/scripts/session_info.py" --cycle-id "$CYCLE_ID" --view <view>
 ```
+
+Views: `delivery-preview` · `session` · `stage-transitions` · `eval-summary`
 
 ### `$SESSION_CONTROL`
 
