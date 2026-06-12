@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from evaluate_state_schema import init_evaluate_state  # noqa: E402
+from eval_control import init_round  # noqa: E402
 from human_delivery_gate_schema import write_approved  # noqa: E402
 from session_state_schema import load_active_doc_from_cycle  # noqa: E402
 from workflow_common import approval_path  # noqa: E402
@@ -118,7 +118,7 @@ def start_evaluating(cycle_id: str, project_root: Path) -> dict[str, Any]:
     merged["evaluate_round"] = str(evaluate_round)
     save_workflow_state(ws_path, merged, merge=False)
 
-    init_evaluate_state(ws_path.parent / "evaluate-state.md", mode=merged["mode"])
+    init_round(cycle_id, project_root, mode=merged["mode"])
 
     return _success(
         _CMD_START_EVALUATING,

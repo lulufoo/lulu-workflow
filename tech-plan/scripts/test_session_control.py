@@ -75,9 +75,17 @@ class TestStartEvaluating:
         ws = _seed_session(tmp_path)
         init_drafting(ws, mode="tech")
         start_evaluating(_CYCLE, tmp_path)
+        es_path = ws.parent / "evaluate-state.md"
+        es = load_evaluate_state(es_path)
+        es["e2_status"] = "in_progress"
+        from evaluate_state_schema import save_evaluate_state  # noqa: WPS433
+
+        save_evaluate_state(es_path, es)
         result = start_evaluating(_CYCLE, tmp_path)
         assert result["ok"] is True
         assert result["evaluate_round"] == 1
+        reloaded = load_evaluate_state(es_path)
+        assert reloaded["e2_status"] == "in_progress"
 
     def test_failure_from_ready_for_delivery(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
