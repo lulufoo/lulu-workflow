@@ -31,9 +31,19 @@ from evaluate_state_schema import (  # noqa: E402
 
 _CMD_INIT_ROUND = "init-round"
 
+_VALID_MODES = frozenset({"product", "tech"})
 _VALID_DIMS = frozenset({"e1", "e2", "e3"})
 _DISPATCH_BY_MODE = {"product": ["e1", "e2", "e3"], "tech": ["e2", "e3"]}
 _SEVERITY_RANK = {"critical": 3, "medium": 2, "minor": 1}
+
+
+def dispatch_list(mode: str) -> list[str]:
+    """Return eval dimension dispatch sequence for workflow mode (SSOT)."""
+    if mode not in _VALID_MODES:
+        raise ValueError(
+            f"invalid mode: {mode!r} (allowed: {sorted(_VALID_MODES)})"
+        )
+    return list(_DISPATCH_BY_MODE[mode])
 
 
 def _success(command: str, **extra: Any) -> dict[str, Any]:

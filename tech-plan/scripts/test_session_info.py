@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 from hook_guard import load_transitions  # noqa: E402
 from session_info import (  # noqa: E402
     delivery_preview,
+    eval_dispatch,
     eval_summary,
     get_session_info,
     session_snapshot,
@@ -101,6 +102,96 @@ def _setup_evaluating_cycle(tmp_path: Path) -> tuple[Path, str]:
         encoding="utf-8",
     )
     return project_root, cycle_id
+
+
+class TestEvalDispatch:
+    def test_product_mode_dispatch(self, tmp_path: Path):
+        project_root, cycle_id = _setup_evaluating_cycle(tmp_path)
+        payload = eval_dispatch(cycle_id, project_root)
+        assert payload["ok"] is True
+        assert payload["view"] == "eval-dispatch"
+        assert payload["mode"] == "product"
+        assert payload["dispatch"] == ["e1", "e2", "e3"]
+        assert payload["evaluate_round"] == 1
+        assert payload["active_doc"] == 1
+        assert payload["current_state"] == "Evaluating"
+
+    def test_tech_mode_dispatch(self, tmp_path: Path):
+        project_root, cycle_id = _setup_evaluating_cycle(tmp_path)
+        from workflow_state_schema import resolve_workflow_state_path_from_cycle  # noqa: WPS433
+
+        ws_path = resolve_workflow_state_path_from_cycle(cycle_id, project_root)
+        save_workflow_state(ws_path, {"mode": "tech"})
+        payload = eval_dispatch(cycle_id, project_root)
+        assert payload["ok"] is True
+        assert payload["dispatch"] == ["e2", "e3"]
+
+    def test_rejects_non_evaluating_state(self, tmp_path: Path):
+        project_root, cycle_id = _setup_evaluating_cycle(tmp_path)
+        from workflow_state_schema import resolve_workflow_state_path_from_cycle  # noqa: WPS433
+
+        ws_path = resolve_workflow_state_path_from_cycle(cycle_id, project_root)
+        save_workflow_state(ws_path, {"current_state": "Drafting", "evaluate_round": "1"})
+        payload = eval_dispatch(cycle_id, project_root)
+        assert payload["ok"] is False
+        assert payload["command"] == "eval-dispatch"
+
+    def test_rejects_missing_evaluate_state(self, tmp_path: Path):
+        project_root, cycle_id = _setup_evaluating_cycle(tmp_path)
+        from workflow_state_schema import resolve_workflow_state_path_from_cycle  # noqa: WPS433
+
+        ws_path = resolve_workflow_state_path_from_cycle(cycle_id, project_root)
+        (ws_path.parent / "evaluate-state.md").unlink()
+        payload = eval_dispatch(cycle_id, project_root)
+        assert payload["ok"] is False
+        assert "evaluate-state.md not found" in payload["message"]
+
+    def test_cli_success(self, tmp_path: Path):
+        project_root, cycle_id = _setup_evaluating_cycle(tmp_path)
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(_SCRIPT),
+                "--cycle-id",
+                cycle_id,
+                "--project-root",
+                str(project_root),
+                "--view",
+                "eval-dispatch",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        payload = json.loads(result.stdout)
+        assert payload["ok"] is True
+        assert payload["dispatch"] == ["e1", "e2", "e3"]
+
+    def test_cli_failure(self, tmp_path: Path):
+        project_root, cycle_id = _setup_evaluating_cycle(tmp_path)
+        from workflow_state_schema import resolve_workflow_state_path_from_cycle  # noqa: WPS433
+
+        ws_path = resolve_workflow_state_path_from_cycle(cycle_id, project_root)
+        save_workflow_state(ws_path, {"current_state": "Drafting", "evaluate_round": "1"})
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(_SCRIPT),
+                "--cycle-id",
+                cycle_id,
+                "--project-root",
+                str(project_root),
+                "--view",
+                "eval-dispatch",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.returncode == 1
+        payload = json.loads(result.stdout)
+        assert payload["ok"] is False
+        assert payload["command"] == "eval-dispatch"
 
 
 class TestEvalSummary:

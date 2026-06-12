@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from eval_control import init_round  # noqa: E402
+from eval_control import dispatch_list, init_round  # noqa: E402
 from evaluate_state_schema import load_evaluate_state  # noqa: E402
 from workflow_state_schema import init_drafting  # noqa: E402
 
@@ -24,6 +24,18 @@ def _seed_session(tmp_path: Path, *, active_doc: int = 1) -> Path:
     )
     ws = base / f"revision{active_doc}" / "workflow-state.md"
     return ws
+
+
+class TestDispatchList:
+    def test_product_mode(self):
+        assert dispatch_list("product") == ["e1", "e2", "e3"]
+
+    def test_tech_mode(self):
+        assert dispatch_list("tech") == ["e2", "e3"]
+
+    def test_invalid_mode_raises(self):
+        with pytest.raises(ValueError, match="invalid mode"):
+            dispatch_list("invalid")
 
 
 class TestInitRound:

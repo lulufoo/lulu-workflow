@@ -5,7 +5,7 @@ Aggregates schema modules for SKILL-facing reads. No state mutations.
 
 CLI:
     python3 session_info.py --cycle-id <id> --project-root . \\
-        [--view delivery-preview|session|stage-transitions|eval-summary]
+        [--view delivery-preview|session|stage-transitions|eval-dispatch|eval-summary]
 """
 
 from __future__ import annotations
@@ -31,14 +31,18 @@ from workflow_state_schema import (  # noqa: E402
     load_workflow_state,
     resolve_workflow_state_path_from_cycle,
 )
+from eval_control import dispatch_list  # noqa: E402
 
 _VIEW_DELIVERY_PREVIEW = "delivery-preview"
 _VIEW_SESSION = "session"
 _VIEW_STAGE_TRANSITIONS = "stage-transitions"
+_VIEW_EVAL_DISPATCH = "eval-dispatch"
 _VIEW_EVAL_SUMMARY = "eval-summary"
 _CMD_DELIVERY_PREVIEW = "delivery-preview"
+_CMD_EVAL_DISPATCH = "eval-dispatch"
 _CMD_EVAL_SUMMARY = "eval-summary"
 _EXPECTED_DELIVERY_PREVIEW_STATE = "ReadyForDelivery"
+_EXPECTED_EVAL_DISPATCH_STATE = "Evaluating"
 _EXPECTED_EVAL_SUMMARY_STATE = "Evaluating"
 _DIM_INDEX_TO_NAME = {"1": "e1", "2": "e2", "3": "e3"}
 _REVIEW_FILE_RE = re.compile(r"tech-review-e\d+([123])\.md$")
@@ -46,6 +50,7 @@ _VALID_VIEWS = frozenset({
     _VIEW_DELIVERY_PREVIEW,
     _VIEW_SESSION,
     _VIEW_STAGE_TRANSITIONS,
+    _VIEW_EVAL_DISPATCH,
     _VIEW_EVAL_SUMMARY,
 })
 
@@ -58,6 +63,22 @@ def _delivery_preview_failure(current_state: str) -> dict[str, Any]:
         "message": (
             f"delivery-preview rejected: current state is {current_state}, "
             f"expected {_EXPECTED_DELIVERY_PREVIEW_STATE}. "
+            "Pause execution and wait for user direction."
+        ),
+    }
+
+
+def _eval_dispatch_failure(
+    current_state: str,
+    *,
+    reason: str,
+) -> dict[str, Any]:
+    return {
+        "ok": False,
+        "command": _CMD_EVAL_DISPATCH,
+        "current_state": current_state,
+        "message": (
+            f"eval-dispatch rejected: {reason} "
             "Pause execution and wait for user direction."
         ),
     }
@@ -165,6 +186,47 @@ def _build_dimensions(eval_state: dict[str, str]) -> list[dict[str, str]]:
 
 def _count_ignored(issues: list[dict[str, str]]) -> int:
     return sum(1 for issue in issues if issue.get("decision", "").lower() == "ignore")
+
+
+def eval_dispatch(cycle_id: str, project_root: Path) -> dict[str, Any]:
+    """Return eval dimension dispatch sequence for Evaluating Phase 2."""
+    ws_path = resolve_workflow_state_path_from_cycle(cycle_id, project_root)
+    state = load_workflow_state(ws_path)
+    current = state["current_state"]
+
+    if current != _EXPECTED_EVAL_DISPATCH_STATE:
+        return _eval_dispatch_failure(
+            current,
+            reason=(
+                f"current state is {current!r}, "
+                f"expected {_EXPECTED_EVAL_DISPATCH_STATE!r}."
+            ),
+        )
+
+    try:
+        evaluate_round = int(state.get("evaluate_round", "0"))
+    except ValueError:
+        evaluate_round = 0
+    if evaluate_round < 1:
+        return _eval_dispatch_failure(
+            current,
+            reason=f"evaluate_round is {evaluate_round!r} (expected >= 1).",
+        )
+
+    es_path = resolve_evaluate_state_path_from_cycle(cycle_id, project_root)
+    if not es_path.exists():
+        return _eval_dispatch_failure(current, reason="evaluate-state.md not found.")
+
+    mode = state["mode"]
+    return {
+        "ok": True,
+        "view": _VIEW_EVAL_DISPATCH,
+        "current_state": current,
+        "mode": mode,
+        "dispatch": dispatch_list(mode),
+        "evaluate_round": evaluate_round,
+        "active_doc": load_active_doc_from_cycle(cycle_id, project_root),
+    }
 
 
 def eval_summary(cycle_id: str, project_root: Path) -> dict[str, Any]:
@@ -301,6 +363,8 @@ def get_session_info(
         return session_snapshot(cycle_id, project_root)
     if view == _VIEW_STAGE_TRANSITIONS:
         return stage_transitions(cycle_id, project_root)
+    if view == _VIEW_EVAL_DISPATCH:
+        return eval_dispatch(cycle_id, project_root)
     if view == _VIEW_EVAL_SUMMARY:
         return eval_summary(cycle_id, project_root)
     return delivery_preview(cycle_id, project_root)
