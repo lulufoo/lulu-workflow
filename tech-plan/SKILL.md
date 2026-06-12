@@ -214,6 +214,8 @@ Rules:
 
 Read `./eval-rules.md` and follow its instructions.
 
+eval-rules may loop Step 1–3 via **Re-evaluate** without exiting to parent.
+
 When eval-rules completes, follow its exit branch:
 
 - **Deliver** → run `$SESSION_CONTROL ready-for-delivery`.
@@ -278,12 +280,13 @@ On `abandon-evaluation` success: read stdout JSON and pin payload. Non-zero exit
 python3 "$SKILL_DIR/scripts/eval_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand> [args...]
 ```
 
-Subcommands: `begin-eval-round` · `begin-dimension` (`--dim e1|e2|e3`) · `check-dimension` (`--dim e1|e2|e3`) · `complete-round`
+Subcommands: `begin-eval-round` · `begin-dimension` (`--dim e1|e2|e3`) · `check-dimension` (`--dim e1|e2|e3`) · `complete-round` · `resume-drafting`
 
 On `begin-eval-round` success: read stdout JSON and pin payload (loop context).
 On `begin-dimension` success: read stdout as plain-text `## Input` block for eval-runner dispatch.
 On `check-dimension` success (exit 0): read stdout JSON; branch on `abandoned` / `outcome`.
 On `complete-round` success: read stdout JSON and pin payload (summary for user presentation).
+On `resume-drafting` success: read stdout JSON and pin payload. Non-zero exit → Blocking.
 
 ### `$DRAFT_CONTROL`
 

@@ -18,13 +18,18 @@ from eval_control import (  # noqa: E402
     dispatch_list,
     init_round,
     resolve_execution_mode,
+    resume_drafting,
 )
 from evaluate_state_schema import (  # noqa: E402
     init_evaluate_state,
     load_evaluate_state,
     save_evaluate_state,
 )
-from workflow_state_schema import init_drafting, save_workflow_state  # noqa: E402
+from workflow_state_schema import (  # noqa: E402
+    init_drafting,
+    load_workflow_state,
+    save_workflow_state,
+)
 
 _CYCLE = "feat-eval-control"
 _CACHE = Path(".cache/cursor/lulu-dev-workflow")
@@ -155,6 +160,34 @@ class TestBeginEvalRound:
         save_workflow_state(ws, {"current_state": "ReadyForDelivery"})
         result = begin_eval_round(_CYCLE, tmp_path)
         assert result["ok"] is False
+
+    def test_re_evaluate_after_complete_round(self, tmp_path: Path):
+        ws = _setup_complete_round_ready(tmp_path)
+        complete_round(_CYCLE, tmp_path)
+
+        result = begin_eval_round(_CYCLE, tmp_path)
+
+        assert result["ok"] is True
+        assert result["evaluate_round"] == 2
+        assert result["paths"]["evaluate_dir"].endswith("/evaluate2")
+        loaded = load_workflow_state(ws)
+        assert loaded["current_state"] == "Evaluating"
+        assert loaded["evaluate_round"] == "2"
+        es = load_evaluate_state(ws.parent / "evaluate-state.md")
+        assert es["current_dimension"] == "e1"
+        assert es["e1_status"] == "pending"
+
+    def test_rejects_re_evaluate_when_abandoned(self, tmp_path: Path):
+        ws = _setup_complete_round_ready(tmp_path)
+        save_evaluate_state(
+            ws.parent / "evaluate-state.md",
+            {"current_dimension": "abandoned"},
+        )
+
+        result = begin_eval_round(_CYCLE, tmp_path)
+
+        assert result["ok"] is False
+        assert "abandoned" in result["reason"]
 
 
 class TestBeginEvalRoundCli:
@@ -432,6 +465,69 @@ class TestCompleteRound:
         assert "already complete" in result["reason"]
 
 
+class TestResumeDrafting:
+    def test_success_after_complete_round(self, tmp_path: Path):
+        ws = _setup_complete_round_ready(tmp_path, mode="product")
+        save_workflow_state(
+            ws,
+            {
+                "current_state": "Evaluating",
+                "evaluate_round": "2",
+                "product_ref": "/p.md",
+                "carry_forward_ref": "/old.md",
+                "skip_evaluate_requested": "true",
+            },
+        )
+        complete_round(_CYCLE, tmp_path)
+
+        result = resume_drafting(_CYCLE, tmp_path)
+
+        assert result["ok"] is True
+        assert result["command"] == "resume-drafting"
+        assert result["current_state"] == "Drafting"
+        assert result["evaluate_round"] == 2
+        loaded = load_workflow_state(ws)
+        assert loaded["current_state"] == "Drafting"
+        assert loaded["evaluate_round"] == "2"
+        assert loaded["mode"] == "product"
+        assert loaded["product_ref"] == "/p.md"
+        assert loaded["carry_forward_ref"] == "/old.md"
+        assert "skip_evaluate_requested" not in loaded
+
+    def test_failure_when_not_evaluating(self, tmp_path: Path):
+        ws = _setup_complete_round_ready(tmp_path)
+        complete_round(_CYCLE, tmp_path)
+        save_workflow_state(ws, {"current_state": "Drafting"})
+
+        result = resume_drafting(_CYCLE, tmp_path)
+
+        assert result["ok"] is False
+        assert result["command"] == "resume-drafting"
+        assert "Evaluating" in result["reason"]
+
+    def test_failure_when_not_done(self, tmp_path: Path):
+        _setup_complete_round_ready(tmp_path)
+
+        result = resume_drafting(_CYCLE, tmp_path)
+
+        assert result["ok"] is False
+        assert "complete-round" in result["reason"]
+
+    def test_failure_when_abandoned(self, tmp_path: Path):
+        ws = _setup_complete_round_ready(tmp_path)
+        save_evaluate_state(
+            ws.parent / "evaluate-state.md",
+            {"current_dimension": "abandoned"},
+        )
+
+        result = resume_drafting(_CYCLE, tmp_path)
+
+        assert result["ok"] is False
+        assert "abandoned" in result["reason"]
+        loaded = load_workflow_state(ws)
+        assert loaded["current_state"] == "Evaluating"
+
+
 class TestCompleteRoundCli:
     def test_json_stdout_on_success(self, tmp_path: Path):
         _setup_complete_round_ready(tmp_path)
@@ -453,6 +549,33 @@ class TestCompleteRoundCli:
         payload = json.loads(proc.stdout)
         assert payload["ok"] is True
         assert payload["command"] == "complete-round"
+
+
+class TestResumeDraftingCli:
+    def test_json_stdout_on_success(self, tmp_path: Path):
+        ws = _setup_complete_round_ready(tmp_path)
+        complete_round(_CYCLE, tmp_path)
+        proc = subprocess.run(
+            [
+                sys.executable,
+                str(_SCRIPT),
+                "--cycle-id",
+                _CYCLE,
+                "--project-root",
+                str(tmp_path),
+                "resume-drafting",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert proc.returncode == 0
+        payload = json.loads(proc.stdout)
+        assert payload["ok"] is True
+        assert payload["command"] == "resume-drafting"
+        assert payload["current_state"] == "Drafting"
+        loaded = load_workflow_state(ws)
+        assert loaded["current_state"] == "Drafting"
 
 
 class TestBeginDimensionCli:

@@ -16,9 +16,9 @@ Follow this document exactly. Do not execute any evaluation step before reading 
 
 ---
 
-## Step 1 — Entry
+## Step 1 — Begin Eval
 
-1. Run `$EVAL_CONTROL begin-eval-round`. Pin payload.
+1. Run `$EVAL_CONTROL begin-eval-round`. On failure → Blocking. Pin payload.
 2. For each `dim` in `payload.dispatch`:
    - Execute **Step 2 — Single dimension** with `dim` and pinned payload.
    - If Step 2 exits to **Step 4 — Abandon Handler** → STOP.
@@ -57,8 +57,9 @@ After Step 1 loop completes:
 1. Run `$EVAL_CONTROL complete-round`. On failure → Blocking. Pin payload.
 2. Present payload to the user.
 3. Ask user:
-   - **Deliver** → stop; parent runs `$SESSION_CONTROL ready-for-delivery`
-   - **Continue editing** → write `workflow-state.md`: `current_state: Drafting` (preserve `evaluate_round`, `mode`, `product_ref`, `carry_forward_ref`); stop; parent enters **Step 4 — FreeEdit** (parent SKILL)
+   - **Deliver** → exit eval-rules (Deliver branch)
+   - **Continue editing** → Run `$EVAL_CONTROL resume-drafting`. On failure → Blocking. Pin payload.; exit eval-rules (Continue editing branch)
+   - **Re-evaluate** → re-enter **Step 1 — Begin Eval**
 
 ---
 

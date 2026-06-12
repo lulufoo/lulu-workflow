@@ -2,13 +2,14 @@
 """Eval control for tech-plan orchestrator.
 
 Owns mechanical writes to evaluate-state.md. workflow-state transitions stay in
-session_control.py.
+session_control.py, except resume-drafting (eval fix exit after complete-round).
 
 Subcommands:
     init-round            Initialize evaluate-state.md (internal; session_control)
-    begin-eval-round      Enter Evaluating, validate evaluate-state, return loop payload
+    begin-eval-round      Enter Evaluating or start next round after done; return loop payload
     begin-dimension       Mark dimension in_progress and return eval-runner inputs
     complete-round        Finalize evaluate-state and return summary payload
+    resume-drafting       Evaluating -> Drafting after complete-round (fix exit)
     check-dimension       Read back single-dimension outcome after eval-runner
 """
 
@@ -46,12 +47,14 @@ from workflow_common import (  # noqa: E402
 from workflow_state_schema import (  # noqa: E402
     load_workflow_state,
     resolve_workflow_state_path_from_cycle,
+    save_workflow_state,
 )
 
 _CMD_INIT_ROUND = "init-round"
 _CMD_BEGIN_EVAL_ROUND = "begin-eval-round"
 _CMD_BEGIN_DIMENSION = "begin-dimension"
 _CMD_COMPLETE_ROUND = "complete-round"
+_CMD_RESUME_DRAFTING = "resume-drafting"
 _CMD_CHECK_DIMENSION = "check-dimension"
 _DIM_TO_REVIEW_INDEX = {"e1": "1", "e2": "2", "e3": "3"}
 _ENTRY_DIMENSION_KEYS = (
@@ -210,9 +213,78 @@ def build_eval_loop_payload(
     )
 
 
+def _start_next_eval_round(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    state: dict[str, str],
+    ws_path: Path,
+    mode: str,
+) -> dict[str, Any]:
+    """Increment evaluate_round, re-init evaluate-state, return loop payload."""
+    try:
+        evaluate_round = int(state.get("evaluate_round", "0")) + 1
+    except ValueError:
+        evaluate_round = 1
+
+    merged = dict(state)
+    merged["evaluate_round"] = str(evaluate_round)
+    save_workflow_state(ws_path, merged, merge=False)
+    init_round(cycle_id, project_root, mode=mode)
+    return build_eval_loop_payload(cycle_id, project_root)
+
+
 def begin_eval_round(cycle_id: str, project_root: Path) -> dict[str, Any]:
-    """Enter Evaluating, validate evaluate-state, return loop payload."""
+    """Enter Evaluating or start next eval round; validate evaluate-state; return payload."""
     from session_control import start_evaluating  # noqa: WPS433
+
+    ws_path = resolve_workflow_state_path_from_cycle(cycle_id, project_root)
+    state = load_workflow_state(ws_path)
+    current = state["current_state"]
+    mode = state["mode"]
+    es_path = resolve_evaluate_state_path_from_cycle(cycle_id, project_root)
+
+    if current == _EXPECTED_EVALUATING_STATE:
+        if not es_path.exists():
+            return _failure(
+                _CMD_BEGIN_EVAL_ROUND,
+                "evaluate-state.md not found.",
+                current_state=current,
+            )
+
+        try:
+            eval_data = load_evaluate_state(es_path)
+        except ValueError as exc:
+            return _failure(
+                _CMD_BEGIN_EVAL_ROUND,
+                str(exc),
+                current_state=current,
+            )
+
+        current_dimension = eval_data.get("current_dimension", "")
+        if current_dimension == "done":
+            return _start_next_eval_round(
+                cycle_id,
+                project_root,
+                state=state,
+                ws_path=ws_path,
+                mode=mode,
+            )
+        if current_dimension == "abandoned":
+            return _failure(
+                _CMD_BEGIN_EVAL_ROUND,
+                "evaluation was abandoned (current_dimension: abandoned).",
+                current_state=current,
+            )
+
+        mismatch = _validate_evaluate_state_for_mode(eval_data, mode)
+        if mismatch:
+            return _failure(
+                _CMD_BEGIN_EVAL_ROUND,
+                mismatch,
+                current_state=current,
+            )
+        return build_eval_loop_payload(cycle_id, project_root)
 
     entry = start_evaluating(cycle_id, project_root)
     if not entry.get("ok"):
@@ -227,10 +299,8 @@ def begin_eval_round(cycle_id: str, project_root: Path) -> dict[str, Any]:
             current_state=entry.get("current_state", ""),
         )
 
-    ws_path = resolve_workflow_state_path_from_cycle(cycle_id, project_root)
     state = load_workflow_state(ws_path)
     mode = state["mode"]
-    es_path = resolve_evaluate_state_path_from_cycle(cycle_id, project_root)
 
     try:
         eval_data = load_evaluate_state(es_path)
@@ -398,6 +468,70 @@ def complete_round(cycle_id: str, project_root: Path) -> dict[str, Any]:
         dimensions=build_dimensions(eval_data),
         issues=issues,
         review_paths=review_paths,
+    )
+
+
+def resume_drafting(cycle_id: str, project_root: Path) -> dict[str, Any]:
+    """Return to Drafting after complete-round (Evaluating fix exit)."""
+    ws_path = resolve_workflow_state_path_from_cycle(cycle_id, project_root)
+    state = load_workflow_state(ws_path)
+    current = state["current_state"]
+    if current != _EXPECTED_EVALUATING_STATE:
+        return _failure(
+            _CMD_RESUME_DRAFTING,
+            (
+                f"current state is {current!r}, "
+                f"expected {_EXPECTED_EVALUATING_STATE!r}."
+            ),
+            current_state=current,
+        )
+
+    try:
+        evaluate_round = int(state.get("evaluate_round", "0"))
+    except ValueError:
+        evaluate_round = 0
+    if evaluate_round < 1:
+        return _failure(
+            _CMD_RESUME_DRAFTING,
+            f"evaluate_round is {evaluate_round!r} (expected >= 1).",
+            current_state=current,
+        )
+
+    es_path = resolve_evaluate_state_path_from_cycle(cycle_id, project_root)
+    if not es_path.exists():
+        return _failure(
+            _CMD_RESUME_DRAFTING,
+            "evaluate-state.md not found.",
+            current_state=current,
+        )
+
+    eval_data = load_evaluate_state(es_path)
+    current_dimension = eval_data.get("current_dimension", "")
+    if current_dimension == "abandoned":
+        return _failure(
+            _CMD_RESUME_DRAFTING,
+            "evaluation was abandoned (current_dimension: abandoned).",
+            current_state=current,
+        )
+    if current_dimension != "done":
+        return _failure(
+            _CMD_RESUME_DRAFTING,
+            (
+                f"current_dimension is {current_dimension!r}, "
+                "expected 'done' (run complete-round first)."
+            ),
+            current_state=current,
+        )
+
+    merged = dict(state)
+    merged["current_state"] = "Drafting"
+    merged.pop("skip_evaluate_requested", None)
+    save_workflow_state(ws_path, merged, merge=False)
+
+    return _success(
+        _CMD_RESUME_DRAFTING,
+        current_state="Drafting",
+        evaluate_round=evaluate_round,
     )
 
 
@@ -666,6 +800,10 @@ def _cli() -> int:
         _CMD_COMPLETE_ROUND,
         help="Finalize evaluation round and return summary payload",
     )
+    sub.add_parser(
+        _CMD_RESUME_DRAFTING,
+        help="Transition Evaluating -> Drafting after complete-round",
+    )
 
     check_parser = sub.add_parser(
         _CMD_CHECK_DIMENSION,
@@ -693,6 +831,8 @@ def _cli() -> int:
             return _emit(payload)
         if args.command == _CMD_COMPLETE_ROUND:
             return _emit(complete_round(cycle_id, project_root))
+        if args.command == _CMD_RESUME_DRAFTING:
+            return _emit(resume_drafting(cycle_id, project_root))
         if args.command == _CMD_CHECK_DIMENSION:
             return _emit(check_dimension(cycle_id, project_root, dim=args.dim))
     except ValueError as exc:
