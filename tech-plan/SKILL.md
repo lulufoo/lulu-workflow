@@ -256,7 +256,7 @@ Macro definitions referenced in the workflow above.
 python3 "$SKILL_DIR/scripts/session_info.py" --cycle-id "$CYCLE_ID" --view <view>
 ```
 
-Views: `delivery-preview` · `session` · `stage-transitions` · `eval-dispatch` · `eval-summary`
+Views: `delivery-preview` · `session` · `stage-transitions` · `eval-summary`
 
 ### `$SESSION_CONTROL`
 
@@ -276,8 +276,9 @@ Subcommands: `start-evaluating` · `ready-for-delivery` · `deliver`
 python3 "$SKILL_DIR/scripts/eval_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand> [args...]
 ```
 
-Subcommands: `begin-dimension` (`--dim e1|e2|e3`)
+Subcommands: `begin-eval-round` · `begin-dimension` (`--dim e1|e2|e3`)
 
+On `begin-eval-round` success: read stdout JSON and pin payload (loop context).
 On `begin-dimension` success: read stdout as plain-text `## Input` block for eval-runner dispatch.
 
 ### `$DRAFT_CONTROL`

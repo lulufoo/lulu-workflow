@@ -5,7 +5,7 @@ Aggregates schema modules for SKILL-facing reads. No state mutations.
 
 CLI:
     python3 session_info.py --cycle-id <id> --project-root . \\
-        [--view delivery-preview|session|stage-transitions|eval-dispatch|eval-summary]
+        [--view delivery-preview|session|stage-transitions|eval-summary]
 """
 
 from __future__ import annotations
@@ -36,18 +36,14 @@ from workflow_state_schema import (  # noqa: E402
     load_workflow_state,
     resolve_workflow_state_path_from_cycle,
 )
-from eval_control import build_eval_dispatch_payload  # noqa: E402
 
 _VIEW_DELIVERY_PREVIEW = "delivery-preview"
 _VIEW_SESSION = "session"
 _VIEW_STAGE_TRANSITIONS = "stage-transitions"
-_VIEW_EVAL_DISPATCH = "eval-dispatch"
 _VIEW_EVAL_SUMMARY = "eval-summary"
 _CMD_DELIVERY_PREVIEW = "delivery-preview"
-_CMD_EVAL_DISPATCH = "eval-dispatch"
 _CMD_EVAL_SUMMARY = "eval-summary"
 _EXPECTED_DELIVERY_PREVIEW_STATE = "ReadyForDelivery"
-_EXPECTED_EVAL_DISPATCH_STATE = "Evaluating"
 _EXPECTED_EVAL_SUMMARY_STATE = "Evaluating"
 _DIM_INDEX_TO_NAME = {"1": "e1", "2": "e2", "3": "e3"}
 _REVIEW_FILE_RE = re.compile(r"tech-review-e\d+([123])\.md$")
@@ -55,7 +51,6 @@ _VALID_VIEWS = frozenset({
     _VIEW_DELIVERY_PREVIEW,
     _VIEW_SESSION,
     _VIEW_STAGE_TRANSITIONS,
-    _VIEW_EVAL_DISPATCH,
     _VIEW_EVAL_SUMMARY,
 })
 
@@ -68,22 +63,6 @@ def _delivery_preview_failure(current_state: str) -> dict[str, Any]:
         "message": (
             f"delivery-preview rejected: current state is {current_state}, "
             f"expected {_EXPECTED_DELIVERY_PREVIEW_STATE}. "
-            "Pause execution and wait for user direction."
-        ),
-    }
-
-
-def _eval_dispatch_failure(
-    current_state: str,
-    *,
-    reason: str,
-) -> dict[str, Any]:
-    return {
-        "ok": False,
-        "command": _CMD_EVAL_DISPATCH,
-        "current_state": current_state,
-        "message": (
-            f"eval-dispatch rejected: {reason} "
             "Pause execution and wait for user direction."
         ),
     }
@@ -191,19 +170,6 @@ def _build_dimensions(eval_state: dict[str, str]) -> list[dict[str, str]]:
 
 def _count_ignored(issues: list[dict[str, str]]) -> int:
     return sum(1 for issue in issues if issue.get("decision", "").lower() == "ignore")
-
-
-def eval_dispatch(cycle_id: str, project_root: Path) -> dict[str, Any]:
-    """Return eval loop context for Phase 2 (dispatch, paths, cycle_type, refs)."""
-    payload = build_eval_dispatch_payload(cycle_id, project_root)
-    if not payload.get("ok"):
-        return _eval_dispatch_failure(
-            payload.get("current_state", ""),
-            reason=payload.get("reason", "eval-dispatch failed."),
-        )
-    result = dict(payload)
-    result["view"] = _VIEW_EVAL_DISPATCH
-    return result
 
 
 def eval_summary(cycle_id: str, project_root: Path) -> dict[str, Any]:
@@ -340,8 +306,6 @@ def get_session_info(
         return session_snapshot(cycle_id, project_root)
     if view == _VIEW_STAGE_TRANSITIONS:
         return stage_transitions(cycle_id, project_root)
-    if view == _VIEW_EVAL_DISPATCH:
-        return eval_dispatch(cycle_id, project_root)
     if view == _VIEW_EVAL_SUMMARY:
         return eval_summary(cycle_id, project_root)
     return delivery_preview(cycle_id, project_root)

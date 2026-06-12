@@ -13,27 +13,19 @@ Follow this document exactly. Do not execute any evaluation step before reading 
 
 ---
 
-## Phase 1 — Initialize (E1)
+## Step 1 — Entry
 
-1. Run `$SESSION_CONTROL start-evaluating`.
-2. Read `evaluate-state.md` → confirm `phase: evaluate` and dimension fields match `mode`.
-3. Proceed to Phase 2.
-
----
-
-## Phase 2 — Per-dimension loop (E2)
-
-1. Run `$SESSION_INFO eval-dispatch`. Pin payload.
+1. Run `$EVAL_CONTROL begin-eval-round`. Pin payload.
 2. For each `dim` in `payload.dispatch`:
-   - Execute **Phase 3 — Single dimension** with `dim` and pinned payload.
-   - If Phase 3 exits to **E6** → STOP.
-3. When all dimensions complete → Phase 4.
+   - Execute **Step 2 — Single dimension** with `dim` and pinned payload.
+   - If Step 2 exits to **Step 4 — Abandon Handler** → STOP.
+3. When all dimensions complete → **Step 3 — Completion**.
 
 ---
 
-## Phase 3 — Single dimension (E3)
+## Step 2 — Single dimension
 
-Inputs: `dim` (from E2 loop), pinned E2 payload.
+Inputs: `dim` (from Step 1 loop), pinned Step 1 payload.
 
 1. Run `$EVAL_CONTROL begin-dimension --dim {dim}`. On failure → Blocking. Pin `dispatch_input`.
 
@@ -49,14 +41,14 @@ Load {$SKILL_ROOT}/tech-plan/eval-runner/SKILL.md and follow its instructions.
 3. Await completion
 
 4. Read `evaluate-state.md` → check `current_dimension`:
-   - if `abandoned` → **E6 Abandon Handler**, STOP
+   - if `abandoned` → **Step 4 — Abandon Handler**, STOP
    - else → verify `{dim}_status: complete`
 
 ---
 
-## Phase 4 — Completion (E4)
+## Step 3 — Completion
 
-After E2 loop completes (use `M` from pinned E2 payload):
+After Step 1 loop completes (use `M` from pinned Step 1 payload):
 
 1. Read all completed review files (`evaluate{M}/tech-review-e{M}1.md`, `e{M}2.md`, `e{M}3.md`) — only those that exist
 2. Collect the `Severity` column of every issue row; determine `fix_severity` as the highest level found (critical > medium > minor); if all ignored, use `minor`
@@ -66,17 +58,17 @@ After E2 loop completes (use `M` from pinned E2 payload):
 6. Present `eval-summary` payload to the user.
 7. Ask user:
    - **Deliver** → stop; parent runs `$SESSION_CONTROL ready-for-delivery`
-   - **Continue editing** → write `workflow-state.md`: `current_state: Drafting` (preserve `evaluate_round`, `mode`, `product_ref`, `carry_forward_ref`); stop; parent enters **Step 4 — FreeEdit**
+   - **Continue editing** → write `workflow-state.md`: `current_state: Drafting` (preserve `evaluate_round`, `mode`, `product_ref`, `carry_forward_ref`); stop; parent enters **Step 4 — FreeEdit** (parent SKILL)
 
 ---
 
-## E6 — Abandon Handler
+## Step 4 — Abandon Handler
 
 Triggered when `evaluate-state.md: current_dimension: abandoned`.
 
 1. Write `workflow-state.md`:
    - `current_state: Drafting`
-   - `evaluate_round: M` (unchanged; use `M` from pinned E2 payload)
+   - `evaluate_round: M` (unchanged; use `M` from pinned Step 1 payload)
    - `skip_evaluate_requested: false`
    - preserve `mode`, `product_ref`, `carry_forward_ref`
 

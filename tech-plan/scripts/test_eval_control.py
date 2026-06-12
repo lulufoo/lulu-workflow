@@ -11,7 +11,8 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from eval_control import (  # noqa: E402
     begin_dimension,
-    build_eval_dispatch_payload,
+    begin_eval_round,
+    build_eval_loop_payload,
     dispatch_list,
     init_round,
     resolve_execution_mode,
@@ -93,13 +94,85 @@ def _setup_evaluating(tmp_path: Path, *, mode: str = "product") -> Path:
     return ws
 
 
-class TestBuildEvalDispatchPayload:
+class TestBuildEvalLoopPayload:
     def test_success(self, tmp_path: Path):
         _setup_evaluating(tmp_path)
-        payload = build_eval_dispatch_payload(_CYCLE, tmp_path)
+        payload = build_eval_loop_payload(_CYCLE, tmp_path)
         assert payload["ok"] is True
-        assert payload["command"] == "eval-dispatch"
+        assert payload["command"] == "begin-eval-round"
         assert payload["dispatch"] == ["e1", "e2", "e3"]
+
+
+class TestBeginEvalRound:
+    def test_from_drafting_enters_evaluating_and_returns_payload(self, tmp_path: Path):
+        ws = _seed_session(tmp_path)
+        init_drafting(ws, mode="product", product_ref="/p.md")
+
+        result = begin_eval_round(_CYCLE, tmp_path)
+
+        assert result["ok"] is True
+        assert result["command"] == "begin-eval-round"
+        assert result["current_state"] == "Evaluating"
+        assert result["evaluate_round"] == 1
+        assert result["dispatch"] == ["e1", "e2", "e3"]
+        es = load_evaluate_state(ws.parent / "evaluate-state.md")
+        assert es["phase"] == "evaluate"
+        assert es["current_dimension"] == "e1"
+
+    def test_idempotent_when_already_evaluating(self, tmp_path: Path):
+        _setup_evaluating(tmp_path)
+        result = begin_eval_round(_CYCLE, tmp_path)
+        assert result["ok"] is True
+        assert result["dispatch"] == ["e1", "e2", "e3"]
+
+    def test_tech_mode_dispatch(self, tmp_path: Path):
+        _setup_evaluating(tmp_path, mode="tech")
+        result = begin_eval_round(_CYCLE, tmp_path)
+        assert result["ok"] is True
+        assert result["dispatch"] == ["e2", "e3"]
+
+    def test_rejects_mismatched_evaluate_state(self, tmp_path: Path):
+        ws = _setup_evaluating(tmp_path, mode="product")
+        es_path = ws.parent / "evaluate-state.md"
+        es = load_evaluate_state(es_path)
+        es["e1_status"] = "complete"
+        from evaluate_state_schema import save_evaluate_state  # noqa: WPS433
+
+        save_evaluate_state(es_path, es)
+        result = begin_eval_round(_CYCLE, tmp_path)
+        assert result["ok"] is False
+        assert "e1_status" in result["reason"]
+
+    def test_rejects_non_drafting_non_evaluating_state(self, tmp_path: Path):
+        ws = _seed_session(tmp_path)
+        init_drafting(ws, mode="product", product_ref="/p.md")
+        save_workflow_state(ws, {"current_state": "ReadyForDelivery"})
+        result = begin_eval_round(_CYCLE, tmp_path)
+        assert result["ok"] is False
+
+
+class TestBeginEvalRoundCli:
+    def test_json_stdout_on_success(self, tmp_path: Path):
+        ws = _seed_session(tmp_path)
+        init_drafting(ws, mode="product", product_ref="/p.md")
+        proc = subprocess.run(
+            [
+                sys.executable,
+                str(_SCRIPT),
+                "--cycle-id",
+                _CYCLE,
+                "--project-root",
+                str(tmp_path),
+                "begin-eval-round",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert proc.returncode == 0
+        payload = json.loads(proc.stdout)
+        assert payload["ok"] is True
+        assert payload["command"] == "begin-eval-round"
 
 
 class TestResolveExecutionMode:

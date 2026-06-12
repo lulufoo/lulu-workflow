@@ -6,6 +6,7 @@ session_control.py.
 
 Subcommands:
     init-round            Initialize evaluate-state.md (internal; session_control)
+    begin-eval-round      Enter Evaluating, validate evaluate-state, return loop payload
     begin-dimension       Mark dimension in_progress and return eval-runner inputs
 """
 
@@ -19,6 +20,7 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from evaluate_state_schema import (  # noqa: E402
+    build_initial_evaluate_state,
     init_evaluate_state,
     load_evaluate_state,
     resolve_evaluate_state_path_from_cycle,
@@ -38,7 +40,14 @@ from workflow_state_schema import (  # noqa: E402
 )
 
 _CMD_INIT_ROUND = "init-round"
+_CMD_BEGIN_EVAL_ROUND = "begin-eval-round"
 _CMD_BEGIN_DIMENSION = "begin-dimension"
+_ENTRY_DIMENSION_KEYS = (
+    "current_dimension",
+    "e1_status",
+    "e2_status",
+    "e3_status",
+)
 _EXPECTED_EVALUATING_STATE = "Evaluating"
 _VALID_EXECUTION_MODES = frozenset({"guided", "autonomous"})
 _VALID_MODES = frozenset({"product", "tech"})
@@ -102,18 +111,42 @@ def _eval_paths(
     }
 
 
-def build_eval_dispatch_payload(
+def _validate_evaluate_state_for_mode(
+    eval_data: dict[str, str],
+    mode: str,
+) -> str | None:
+    """Return error reason when evaluate-state does not match mode at entry."""
+    if eval_data.get("phase") != "evaluate":
+        return (
+            f"phase is {eval_data.get('phase')!r}, expected 'evaluate'."
+        )
+    try:
+        expected = build_initial_evaluate_state(mode=mode)
+    except ValueError as exc:
+        return str(exc)
+    for key in _ENTRY_DIMENSION_KEYS:
+        actual = eval_data.get(key)
+        exp = expected.get(key)
+        if actual != exp:
+            return (
+                f"{key} is {actual!r}, expected {exp!r} "
+                f"for mode {mode!r}."
+            )
+    return None
+
+
+def build_eval_loop_payload(
     cycle_id: str,
     project_root: Path,
 ) -> dict[str, Any]:
-    """Build eval-dispatch success/failure payload (no view field)."""
+    """Build eval loop context payload (requires Evaluating + evaluate-state)."""
     ws_path = resolve_workflow_state_path_from_cycle(cycle_id, project_root)
     state = load_workflow_state(ws_path)
     current = state["current_state"]
 
     if current != _EXPECTED_EVALUATING_STATE:
         return _failure(
-            "eval-dispatch",
+            _CMD_BEGIN_EVAL_ROUND,
             (
                 f"current state is {current!r}, "
                 f"expected {_EXPECTED_EVALUATING_STATE!r}."
@@ -127,7 +160,7 @@ def build_eval_dispatch_payload(
         evaluate_round = 0
     if evaluate_round < 1:
         return _failure(
-            "eval-dispatch",
+            _CMD_BEGIN_EVAL_ROUND,
             f"evaluate_round is {evaluate_round!r} (expected >= 1).",
             current_state=current,
         )
@@ -135,7 +168,7 @@ def build_eval_dispatch_payload(
     es_path = resolve_evaluate_state_path_from_cycle(cycle_id, project_root)
     if not es_path.exists():
         return _failure(
-            "eval-dispatch",
+            _CMD_BEGIN_EVAL_ROUND,
             "evaluate-state.md not found.",
             current_state=current,
         )
@@ -150,7 +183,7 @@ def build_eval_dispatch_payload(
         es_path=es_path,
     )
     return _success(
-        "eval-dispatch",
+        _CMD_BEGIN_EVAL_ROUND,
         current_state=current,
         mode=mode,
         dispatch=dispatch_list(mode),
@@ -163,6 +196,48 @@ def build_eval_dispatch_payload(
         project_root=project_root.resolve().as_posix(),
         paths=paths,
     )
+
+
+def begin_eval_round(cycle_id: str, project_root: Path) -> dict[str, Any]:
+    """Enter Evaluating, validate evaluate-state, return loop payload."""
+    from session_control import start_evaluating  # noqa: WPS433
+
+    entry = start_evaluating(cycle_id, project_root)
+    if not entry.get("ok"):
+        resume = entry.get("resume", {})
+        return _failure(
+            _CMD_BEGIN_EVAL_ROUND,
+            resume.get("action")
+            or (
+                f"cannot enter Evaluating from state "
+                f"{entry.get('current_state', '')!r}."
+            ),
+            current_state=entry.get("current_state", ""),
+        )
+
+    ws_path = resolve_workflow_state_path_from_cycle(cycle_id, project_root)
+    state = load_workflow_state(ws_path)
+    mode = state["mode"]
+    es_path = resolve_evaluate_state_path_from_cycle(cycle_id, project_root)
+
+    try:
+        eval_data = load_evaluate_state(es_path)
+    except ValueError as exc:
+        return _failure(
+            _CMD_BEGIN_EVAL_ROUND,
+            str(exc),
+            current_state=state["current_state"],
+        )
+
+    mismatch = _validate_evaluate_state_for_mode(eval_data, mode)
+    if mismatch:
+        return _failure(
+            _CMD_BEGIN_EVAL_ROUND,
+            mismatch,
+            current_state=state["current_state"],
+        )
+
+    return build_eval_loop_payload(cycle_id, project_root)
 
 
 def _format_runner_dispatch_input(runner_input: dict[str, str]) -> str:
@@ -322,6 +397,11 @@ def _cli() -> int:
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
+    sub.add_parser(
+        _CMD_BEGIN_EVAL_ROUND,
+        help="Enter Evaluating and return eval loop payload",
+    )
+
     begin_parser = sub.add_parser(
         _CMD_BEGIN_DIMENSION,
         help="Begin a single eval dimension",
@@ -338,6 +418,8 @@ def _cli() -> int:
     cycle_id = args.cycle_id.strip()
 
     try:
+        if args.command == _CMD_BEGIN_EVAL_ROUND:
+            return _emit(begin_eval_round(cycle_id, project_root))
         if args.command == _CMD_BEGIN_DIMENSION:
             payload = begin_dimension(cycle_id, project_root, dim=args.dim)
             if payload.get("ok") and "dispatch_input" in payload:
