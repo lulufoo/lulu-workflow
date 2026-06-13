@@ -36,7 +36,7 @@ Self-resolved at runtime:
 ## Step 1 — Load C2 Content Form
 
 1. Run `$RESOLVE_PLAN_ROLE` with `CYCLE_ID`; apply Plan Scope Constraints.
-2. Use `$FETCH_TECH_PLAN $CYCLE_TYPE layer-standards`; read stdout and locate `## C2 Matrix — Content Standards`.
+2. Use `$FETCH_TECH_PLAN layer-standards`; read stdout and locate `## C2 Matrix — Content Standards`.
 
 Find the row for `(SECTION, TARGET_L)` → read **Content Form** and **Delta** columns.
 

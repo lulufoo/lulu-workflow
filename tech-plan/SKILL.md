@@ -258,7 +258,7 @@ Macros invoke `$SKILL_DIR/scripts/*.py`. Non-zero exit → Blocking (Principles)
 | `$DRAFT_CONTROL` | `python3 "$SKILL_DIR/scripts/draft_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
 | `$ROUND_CONTROL` | `python3 "$SKILL_DIR/scripts/round_control.py" --cycle-dir "$CACHE_DIR/$CYCLE_ID" <subcommand> [args...]` |
 | `$RESOLVE_PLAN_ROLE` | `python3 "$SKILL_DIR/scripts/plan_scope.py" resolve-role --cycle-id "$CYCLE_ID" --project-root "$(pwd)"` |
-| `$FETCH_TECH_PLAN` | `python3 "$SKILL_DIR/scripts/fetch_plan_framework.py" --cycle-type <feature\|topic> --role <role> --project-root "$(pwd)"` |
+| `$FETCH_TECH_PLAN` | `python3 "$SKILL_DIR/scripts/fetch_plan_framework.py" --role <role> --project-root "$(pwd)"` |
 
 Subcommands and stdout contracts: script module docstring or `--help`. `$FETCH_TECH_PLAN` roles: `fetch_plan_framework.py` (`ROLE_KEYS`). Template fetch announce/cache: `../_runtime.md` → Template Fetch.
 

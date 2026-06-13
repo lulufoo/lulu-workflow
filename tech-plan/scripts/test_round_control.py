@@ -165,7 +165,7 @@ class TestRoundProbeInput:
         assert "dispatch_input" in result
         inp = result["dispatch_input"]
         assert f"CYCLE_ID:       {_CYCLE_ID}" in inp
-        assert "CYCLE_TYPE:     feature" in inp
+        assert "CYCLE_TYPE" not in inp
         assert "ROUND_N:        1" in inp
         assert revision.resolve().as_posix() in inp
         assert "tech-doc.md" in inp

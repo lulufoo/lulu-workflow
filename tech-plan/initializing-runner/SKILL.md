@@ -43,7 +43,7 @@ Load frameworks via `$FETCH_TECH_PLAN` and role constraints via `$RESOLVE_PLAN_R
 ### Step I1 - Load mapping table and template skeleton
 
 1. Run `$RESOLVE_PLAN_ROLE` with `$CYCLE_ID`; read stdout as Plan Scope Constraints and apply `### Role`.
-2. Use `$FETCH_TECH_PLAN $CYCLE_TYPE draft-meta`; read stdout as meta markdown.
+2. Use `$FETCH_TECH_PLAN draft-meta`; read stdout as meta markdown.
 3. Locate the `## Decision-Doc Mapping` table.
 4. Parse the mapping rows into:
 

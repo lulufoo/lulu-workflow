@@ -63,12 +63,6 @@ def main(argv: Optional[list[str]] = None) -> int:
         description="Fetch tech-plan framework markdown by role",
     )
     parser.add_argument(
-        "--cycle-type",
-        required=True,
-        choices=["feature", "topic"],
-        help="Cycle type (topic | feature). Role constraints use this; template URL is shared.",
-    )
-    parser.add_argument(
         "--role",
         required=True,
         choices=sorted(_VALID_ROLES),

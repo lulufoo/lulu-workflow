@@ -27,7 +27,6 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from drafting_progress_schema import load_drafting_progress  # noqa: E402
 from session_state_schema import load_active_doc  # noqa: E402
-from workflow_common import detect_cycle_type  # noqa: E402
 
 _CMD_ROUND_PROBE_INPUT = "round-probe-input"
 _STEP_ROUND = "RoundIteration"
@@ -232,14 +231,12 @@ def _format_round_probe_input(
     *,
     cycle_dir: Path,
     cycle_id: str,
-    cycle_type: str,
     round_n: int,
     tech_doc: Path,
 ) -> str:
     return (
         f"CYCLE_DIR:      {cycle_dir.resolve().as_posix()}\n"
         f"CYCLE_ID:       {cycle_id}\n"
-        f"CYCLE_TYPE:     {cycle_type}\n"
         f"ROUND_N:        {round_n}\n"
         f"TECH_DOC_PATH:  {tech_doc.resolve().as_posix()}"
     )
@@ -286,7 +283,6 @@ def round_probe_input(cycle_dir: Path) -> dict[str, Any]:
     dispatch_input = _format_round_probe_input(
         cycle_dir=cycle_dir,
         cycle_id=cycle_id,
-        cycle_type=detect_cycle_type(cycle_id),
         round_n=round_n,
         tech_doc=tech_doc,
     )

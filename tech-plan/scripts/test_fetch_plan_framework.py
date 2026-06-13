@@ -80,3 +80,15 @@ class TestFetchPlanFramework:
                 fetch_plan_framework("draft-meta", tmp_path)
         finally:
             mod.fetch_template = original
+
+
+class TestMainCli:
+    def test_main_accepts_role_without_cycle_type(self, tmp_path: Path, monkeypatch) -> None:
+        import fetch_plan_framework as mod
+
+        def stub_fetch(role: str, project_root: Path, **kwargs) -> str:
+            assert role == "layer-diagnostic"
+            return "# diagnostic\n"
+
+        monkeypatch.setattr(mod, "fetch_plan_framework", stub_fetch)
+        assert mod.main(["--role", "layer-diagnostic", "--project-root", str(tmp_path)]) == 0
