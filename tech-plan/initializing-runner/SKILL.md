@@ -55,7 +55,7 @@ Load frameworks via `$FETCH_TECH_PLAN` and role constraints via `$RESOLVE_PLAN_R
 
 5. Skip rows where `target` is `—`.
 6. Locate `## Document Skeleton` in the same meta markdown.
-7. Parse the fenced markdown block into an ordered section map keyed by section heading name (e.g. `North Star`, `Non-Goals`, `Invariants`, `Key Decisions`, `Approach Skeleton`, `Tasks`). Use the **Section map** table for dimension keys and nested headings (`### Non-Goals` / `### Invariants` under `## Non-Goals & Invariants`).
+7. Parse the fenced markdown block into an ordered section map keyed by section heading name.
 
 8. Initialize `fill_results` from the parsed skeleton:
 
@@ -142,18 +142,17 @@ Render the full tech document in template order:
 
 After rendering all sections, derive the initial State Vector from `fill_results`:
 - `status: "I"` → `L1`; `status: "X"` → `L0`
-- Map to the 5 dimensions: `NS`, `NG`, `KD`, `SK`, `T`
-- Section → dimension: `North Star` → `NS`; `Non-Goals` / `Invariants` / `Non-Goals & Invariants` → `NG` (take max L when multiple contribute); `Key Decisions` → `KD`; `Approach Skeleton` → `SK`; `Tasks` → `T`
+- Derive each section's dimension key by concatenating the uppercase initial of each word in the heading name.
 - Update the `<!-- state-vector: ... -->` comment in the document header.
 
 Example result:
 ```
-<!-- state-vector: NS:L0, NG:L1, KD:L1, SK:L1, T:L1 -->
+<!-- state-vector: NS:L0, NG:L0, I:L1, KD:L1, AS:L1, T:L1 -->
 ```
 
 ## Expected Initial Seed Set
 
-When the current mapping table matches the v2 meta, the initialized draft typically seeds:
+When the current mapping table matches the draft meta, the initialized draft typically seeds:
 
 - `Invariants` (Known Constraints, H-risk 已验证)
 - `Key Decisions` (Decision Rationale, Excluded Directions, H-risk 待验证)
@@ -172,6 +171,6 @@ After all writes succeed, return exactly this structure with the actual derived 
 Initializing complete.
   Seeded (I): <space-separated seeded section names>
   Skeleton (X): <space-separated skeleton section names>
-  State Vector: NS:L? NG:L? KD:L? SK:L? T:L?
+  State Vector: <key>:L? ...
   Next step: Round Iteration Loop (Step 2)
 ```
