@@ -107,7 +107,7 @@ Load `./transition-whitelist.json` — check `allowed_transitions` for valid tra
 1. Run `$DRAFT_CONTROL begin-init`. 
 
 - On failure → apply Blocking policy.
-- On success → dispatch initializing-runner (stdout → ## Input):
+- On success → dispatch initializing-runner (stdout → `## Input`):
 
 ```text
 Load {actual $SKILL_ROOT}/tech-plan/initializing-runner/SKILL.md and follow its instructions.
@@ -126,9 +126,10 @@ Entry: run `$DRAFT_CONTROL begin-round`. On failure → apply Blocking policy.
 
 Each round (Round N):
 
-1. **Probe** — run `$DRAFT_CONTROL round-probe-input`. On failure → apply Blocking policy.
+1. **Probe** — run `$DRAFT_CONTROL round-probe-input`.
 
-   Dispatch — paste `round-probe-input` stdout verbatim under `## Input`:
+- On failure → apply Blocking policy.
+- On success → dispatch prober-runner (stdout → `## Input`):
 
 ```text
 Load {actual $SKILL_ROOT}/tech-plan/prober-runner/SKILL.md and follow its instructions.
@@ -137,17 +138,16 @@ Load {actual $SKILL_ROOT}/tech-plan/prober-runner/SKILL.md and follow its instru
 {round-probe-input stdout}
 ```
 
-Pin ProbeReport at top of conversation; keep visible for the entire round.
+Await completion (`$SUBAGENT_AWAIT_SYNC`). 
 
-Track round context throughout step 2 (reset at start of each round):
-
-- `round_had_accept`: `true` if any zoom was accepted this round
-- `round_probe_failures`: count of ProbeReport lines that are not `无问题` at round start (before human decisions)
+Pin ProbeReport for the entire round. Init round context (reset each new Round N):
+- `round_probe_failures`: count of ProbeReport lines that are not `无问题`
+- `round_had_accept`: `false`
 
 2. **Human decide** — for each ProbeReport item:
-   - `accept` → dispatch `refiner-runner` (ProbeReport stays pinned)
-   - `reject` / `skip` → mark as ignored this round (ProbeReport stays pinned)
-   - `redirect` → human edits `tech-doc.md` directly (ProbeReport stays pinned)
+   - `accept` → set `round_had_accept` to `true`; dispatch `refiner-runner`
+   - `reject` / `skip` → mark as ignored this round
+   - `redirect` → human edits `tech-doc.md` directly
    - `commit-anchor` → `$ROUND_CONTROL append-anchor --section {X} --criterion "..." --round {N}`
 
 Refiner dispatch (per accept):
@@ -174,7 +174,7 @@ If `l0_sections` is non-empty → block with message:
 
 4. **Skip ledger** — write non-L0 reject/skip entries: `$ROUND_CONTROL append-skip --section {X} --probe {P1} --round {N}`
 
-5. **Convergence** — build flags from tracked round context (do not hardcode):
+5. **Convergence** — build flags from round context (Probe init; Human decide updates; do not hardcode):
 
 | Condition | Flag |
 |---|---|
