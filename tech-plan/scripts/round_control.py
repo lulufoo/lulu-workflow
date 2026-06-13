@@ -2,11 +2,9 @@
 """Round Iteration control for tech-plan orchestrator.
 
 Subcommands:
-    read-context          Return state-vector, anchors, skips, round metadata
-    check-l0              List sections still at L0
-    apply-zoom            Update state-vector and append signed comment
+    read-context          Return anchors, skips, round metadata
     append-anchor         Append anchor ledger entry
-    append-skip           Append skip ledger entry (rejects L0)
+    append-skip           Append skip ledger entry
     update-anchor-status  Set anchor ledger entry status (passing | failing)
     check-convergence     Evaluate convergence conditions
     round-probe-input     Gate Probe entry; print prober-runner ## Input block (plain text)
@@ -20,7 +18,6 @@ import argparse
 import json
 import re
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -50,11 +47,6 @@ SECTION_ALIASES = {
     "approach skeleton": "SK",
     "tasks": "T",
 }
-
-STATE_VECTOR_RE = re.compile(
-    r"<!--\s*state-vector:\s*([^>]+)\s*-->", re.IGNORECASE
-)
-
 
 def _emit(payload: dict[str, Any]) -> None:
     print(json.dumps(payload, ensure_ascii=False))
@@ -98,44 +90,6 @@ def _normalize_section(raw: str) -> str:
     if not key:
         raise ValueError(f"unknown section: {raw!r}")
     return key
-
-
-def _parse_state_vector(text: str) -> dict[str, int]:
-    match = STATE_VECTOR_RE.search(text)
-    if not match:
-        return {k: 0 for k in SECTION_KEYS}
-    raw: dict[str, int] = {}
-    for part in match.group(1).split(","):
-        part = part.strip()
-        if ":" not in part:
-            continue
-        key, level = part.split(":", 1)
-        key = key.strip().upper()
-        level = level.strip().upper()
-        if level.startswith("L"):
-            level = level[1:]
-        if key in SECTION_KEYS or key == "INV":
-            raw[key] = int(level)
-    result: dict[str, int] = {}
-    for key in SECTION_KEYS:
-        result[key] = raw.get(key, 0)
-    if "INV" in raw:
-        result["NG"] = max(result["NG"], raw["INV"])
-    return result
-
-
-def _format_state_vector(levels: dict[str, int]) -> str:
-    parts = [f"{k}:L{levels[k]}" for k in SECTION_KEYS]
-    return f"<!-- state-vector: {', '.join(parts)} -->"
-
-
-def _update_state_vector_comment(text: str, levels: dict[str, int]) -> str:
-    replacement = _format_state_vector(levels)
-    if STATE_VECTOR_RE.search(text):
-        return STATE_VECTOR_RE.sub(replacement, text, count=1)
-    if "---" in text:
-        return text.replace("---\n\n", f"---\n\n{replacement}\n\n", 1)
-    return f"{replacement}\n\n{text}"
 
 
 def _parse_table_rows(path: Path, *, min_cells: int = 1) -> list[list[str]]:
@@ -204,16 +158,6 @@ def _append_table_row(path: Path, cells: list[str]) -> None:
     line = "| " + " | ".join(cells) + " |"
     text = path.read_text(encoding="utf-8").rstrip() + "\n" + line + "\n"
     path.write_text(text, encoding="utf-8")
-
-
-def _insert_signed_comment(text: str, section_key: str, round_n: int, level: int) -> str:
-    heading = f"## {SECTION_HEADINGS[section_key]}"
-    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    signed = f"<!-- signed: Round {round_n}, L{level}, {timestamp} -->"
-    idx = text.find(heading)
-    if idx == -1:
-        raise ValueError(f"section heading not found: {heading}")
-    return text[:idx] + signed + "\n\n" + text[idx:]
 
 
 def _read_round(revision_dir: Path) -> int:
@@ -337,10 +281,8 @@ def cmd_read_context(cycle_dir: Path) -> int:
     if not tech_doc.exists():
         return _fail(f"tech-doc.md not found: {tech_doc}")
 
-    text = tech_doc.read_text(encoding="utf-8")
     _emit(
         {
-            "state_vector": _parse_state_vector(text),
             "anchors": _read_anchors(anchor_path),
             "skips": _read_skips(skip_path),
             "round": _read_round(revision_dir),
@@ -348,47 +290,6 @@ def cmd_read_context(cycle_dir: Path) -> int:
             "revision_dir": str(revision_dir.resolve()),
         }
     )
-    return 0
-
-
-def cmd_check_l0(cycle_dir: Path) -> int:
-    revision_dir = _active_revision_dir(cycle_dir)
-    tech_doc = revision_dir / "tech-doc.md"
-    if not tech_doc.exists():
-        return _fail(f"tech-doc.md not found: {tech_doc}")
-    levels = _parse_state_vector(tech_doc.read_text(encoding="utf-8"))
-    l0_sections = [SECTION_HEADINGS[k] for k in SECTION_KEYS if levels.get(k, 0) == 0]
-    _emit({"l0_sections": l0_sections})
-    return 0
-
-
-def cmd_apply_zoom(
-    cycle_dir: Path,
-    *,
-    section: str,
-    from_l: int,
-    to_l: int,
-    round_n: int,
-) -> int:
-    section_key = _normalize_section(section)
-    revision_dir = _active_revision_dir(cycle_dir)
-    tech_doc = revision_dir / "tech-doc.md"
-    if not tech_doc.exists():
-        return _fail(f"tech-doc.md not found: {tech_doc}")
-
-    text = tech_doc.read_text(encoding="utf-8")
-    levels = _parse_state_vector(text)
-    current = levels.get(section_key, 0)
-    if current != from_l:
-        return _fail(f"state mismatch: {section_key} is L{current}, expected L{from_l}")
-    if to_l <= from_l:
-        return _fail(f"target L{to_l} must be greater than from L{from_l}")
-
-    levels[section_key] = to_l
-    text = _update_state_vector_comment(text, levels)
-    text = _insert_signed_comment(text, section_key, round_n, to_l)
-    tech_doc.write_text(text, encoding="utf-8")
-    _emit({"ok": True, "section": section_key, "new_level": to_l})
     return 0
 
 
@@ -421,15 +322,6 @@ def cmd_append_skip(
     notes: str = "",
 ) -> int:
     section_key = _normalize_section(section)
-    revision_dir = _active_revision_dir(cycle_dir)
-    tech_doc = revision_dir / "tech-doc.md"
-    if not tech_doc.exists():
-        return _fail(f"tech-doc.md not found: {tech_doc}")
-
-    levels = _parse_state_vector(tech_doc.read_text(encoding="utf-8"))
-    if levels.get(section_key, 0) == 0:
-        return _fail("L0 sections cannot be written to skip-ledger")
-
     _, skip_path = _ledger_paths(cycle_dir)
     _ensure_ledger(skip_path, "skip-ledger.template.md")
     _append_table_row(
@@ -464,17 +356,10 @@ def cmd_check_convergence(
     no_accept: bool,
     probes_passed: bool,
 ) -> int:
-    revision_dir = _active_revision_dir(cycle_dir)
-    tech_doc = revision_dir / "tech-doc.md"
     anchor_path, _ = _ledger_paths(cycle_dir)
-    if not tech_doc.exists():
-        return _fail(f"tech-doc.md not found: {tech_doc}")
-
     _ensure_ledger(anchor_path, "anchor-ledger.template.md")
     anchors = _read_anchors(anchor_path)
     failing_anchors = [a for a in anchors if a.get("status") != "passing"]
-    levels = _parse_state_vector(tech_doc.read_text(encoding="utf-8"))
-    l0_sections = [SECTION_HEADINGS[k] for k in SECTION_KEYS if levels.get(k, 0) == 0]
 
     reasons: list[str] = []
     if not no_accept:
@@ -483,8 +368,6 @@ def cmd_check_convergence(
         reasons.append("probes not all passed")
     if failing_anchors:
         reasons.append(f"{len(failing_anchors)} anchor(s) not passing")
-    if l0_sections:
-        reasons.append(f"L0 sections remain: {', '.join(l0_sections)}")
 
     converged = not reasons
     _emit({"converged": converged, "reason": "ok" if converged else "; ".join(reasons)})
@@ -502,13 +385,6 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("read-context")
-    sub.add_parser("check-l0")
-
-    apply_zoom = sub.add_parser("apply-zoom")
-    apply_zoom.add_argument("--section", required=True)
-    apply_zoom.add_argument("--from-l", type=int, required=True)
-    apply_zoom.add_argument("--to-l", type=int, required=True)
-    apply_zoom.add_argument("--round", type=int, required=True)
 
     append_anchor = sub.add_parser("append-anchor")
     append_anchor.add_argument("--section", required=True)
@@ -557,16 +433,6 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "read-context":
             return cmd_read_context(cycle_dir)
-        if args.command == "check-l0":
-            return cmd_check_l0(cycle_dir)
-        if args.command == "apply-zoom":
-            return cmd_apply_zoom(
-                cycle_dir,
-                section=args.section,
-                from_l=args.from_l,
-                to_l=args.to_l,
-                round_n=args.round,
-            )
         if args.command == "append-anchor":
             return cmd_append_anchor(
                 cycle_dir,

@@ -140,16 +140,6 @@ Render the full tech document in template order:
 - use `fill_results[section_name].content` as the body for each parsed section
 - leave untouched sections as their original skeleton
 
-After rendering all sections, derive the initial State Vector from `fill_results`:
-- `status: "I"` → `L1`; `status: "X"` → `L0`
-- Derive each section's dimension key by concatenating the uppercase initial of each word in the heading name.
-- Update the `<!-- state-vector: ... -->` comment in the document header.
-
-Example result:
-```
-<!-- state-vector: NS:L0, NG:L0, I:L1, KD:L1, AS:L1, T:L1 -->
-```
-
 ## Expected Initial Seed Set
 
 When the current mapping table matches the draft meta, the initialized draft typically seeds:
@@ -171,6 +161,5 @@ After all writes succeed, return exactly this structure with the actual derived 
 Initializing complete.
   Seeded (I): <space-separated seeded section names>
   Skeleton (X): <space-separated skeleton section names>
-  State Vector: <key>:L? ...
   Next step: Round Iteration Loop (Step 2)
 ```

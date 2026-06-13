@@ -35,7 +35,6 @@ def _seed_session(tmp_path: Path, *, active_doc: int = 1) -> Path:
 def _write_tech_doc(revision: Path) -> None:
     (revision / "tech-doc.md").write_text(
         "---\n\n"
-        "<!-- state-vector: NS:L0, NG:L1, KD:L1, SK:L1, T:L1 -->\n\n"
         "## North Star\n\nGoal.\n",
         encoding="utf-8",
     )

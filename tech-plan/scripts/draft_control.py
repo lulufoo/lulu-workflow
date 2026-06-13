@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -44,9 +43,6 @@ _CMD_STATUS = "status"
 _STEP_READY = "Ready"
 _STEP_ROUND = "RoundIteration"
 _STEP_FREE_EDIT = "FreeEdit"
-_STATE_VECTOR_RE = re.compile(r"<!--\s*state-vector:")
-
-
 def _tech_doc_path(cycle_id: str, project_root: Path) -> Path:
     return project_root / tech_doc_path(
         cycle_id,
@@ -96,9 +92,6 @@ def _init_dispatch_input(cycle_id: str, project_root: Path) -> str:
 def _validate_tech_doc_seeded(tech_doc: Path) -> str | None:
     if not tech_doc.exists():
         return f"tech-doc.md not found: {tech_doc}"
-    text = tech_doc.read_text(encoding="utf-8")
-    if not _STATE_VECTOR_RE.search(text):
-        return "tech-doc.md missing state-vector comment"
     return None
 
 

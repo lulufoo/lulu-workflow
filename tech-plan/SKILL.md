@@ -167,14 +167,9 @@ ROUND_N:            {N}
 TECH_DOC_PATH:      {absolute path to revision{N}/tech-doc.md}
 ```
 
-3. **Round end** — when human confirms all items handled, run `$ROUND_CONTROL check-l0`.
+3. **Skip ledger** — write reject/skip entries: `$ROUND_CONTROL append-skip --section {X} --probe {P1} --round {N}`
 
-If `l0_sections` is non-empty → block with message:
-> 以下 section 仍为 L0，必须处理后才能进入下一轮：{section list}
-
-4. **Skip ledger** — write non-L0 reject/skip entries: `$ROUND_CONTROL append-skip --section {X} --probe {P1} --round {N}`
-
-5. **Convergence** — build flags from round context (Probe init; Human decide updates; do not hardcode):
+4. **Convergence** — build flags from round context (Probe init; Human decide updates; do not hardcode):
 
 | Condition | Flag |
 |---|---|
@@ -185,7 +180,7 @@ Example when both hold: `$ROUND_CONTROL check-convergence --no-accept --probes-p
 
 Omit `--probes-passed` when any probe failure was skipped/rejected without resolution. Omit `--no-accept` when any zoom was accepted.
 
-- `converged: true` → present convergence summary (include state-vector from `$ROUND_CONTROL read-context`); ask:
+- `converged: true` → present convergence summary; ask:
 
 > 1. Enter FreeEdit
 > 2. Continue to the next round

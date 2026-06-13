@@ -26,7 +26,7 @@ CYCLE_TYPE          topic | feature
 SECTION             section name (e.g. Invariants, Key Decisions)
 SUB_SECTION_TEXT    verbatim content of the sub-section to refine
 CURRENT_L           current magnification level assessed by prober (integer 0–4)
-GAP_DESCRIPTION     what L{CURRENT_L+1} requires that is currently absent (from GapReport)
+GAP_DESCRIPTION     probe's raw finding — what the prober detected as wrong (from GapReport)
 ROUND_N             current round number
 TECH_DOC_PATH       absolute path to revision{N}/tech-doc.md
 ```
@@ -48,19 +48,19 @@ Self-resolved at runtime:
 2. Run `$FETCH_TECH_PLAN layer-standards`; locate `## C2 Matrix — Content Standards`.
 3. Read `TECH_DOC_PATH` for the full section body and surrounding context (adjacent sections as reference for P3 gaps).
 
-## Step 2 — Determine L{x+1} target
+## Step 2 — Determine refinement target
 
-Using `CURRENT_L` and the C2 Matrix Content Form for `SECTION`:
-
-1. Read the Content Form and Delta for `CURRENT_L + 1` — this defines what must be added.
-2. Confirm alignment with `GAP_DESCRIPTION` (the two should describe the same missing constraint dimension).
+1. Use `GAP_DESCRIPTION` as the starting point — it describes what the probe found wrong with the sub-section.
+2. Read the Content Form for `CURRENT_L + 1` from the loaded C2 Matrix — this is the generation target.
+3. The gap between current content and L{CURRENT_L+1} Content Form is what must be added.
 
 ## Step 3 — Draft refinement
 
-Draft **only the Delta** needed to reach L{x+1}:
+Preserve existing sub-section content; add what is needed to satisfy the L{CURRENT_L+1} Content Form.
 
-- Preserve existing sub-section content; add the missing constraint dimension.
-- Ground new content in `GAP_DESCRIPTION`, adjacent section context, and the L{x+1} Content Form.
+- **Anchor:** `GAP_DESCRIPTION` — use this to understand what the probe detected as wrong and where to focus.
+- **Target:** L{CURRENT_L+1} Content Form — use this to determine what the refined content must look like.
+- Ground new content in adjacent section context as needed.
 - Do **not** auto-write to disk.
 
 Present the draft to the human:
@@ -68,8 +68,8 @@ Present the draft to the human:
 ```markdown
 ## Refiner Draft — {SECTION} / {sub-section summary} (Round {ROUND_N})
 
-**Current:** L{CURRENT_L} — {GAP_DESCRIPTION}
-**Target:** L{CURRENT_L+1} — {one-line description of what is added per Delta}
+**Anchor:** {GAP_DESCRIPTION}
+**Target:** L{CURRENT_L+1} — {one-line description of L{CURRENT_L+1} Content Form}
 
 {proposed sub-section body with refinement applied}
 
@@ -90,11 +90,10 @@ If the human provides edits, revise the draft and re-present until confirmed.
 After confirmation:
 
 1. Replace the sub-section content within `SECTION` in `TECH_DOC_PATH` with the confirmed content.
-2. Append `[Refined: R{ROUND_N}, zoom L{CURRENT_L}→L{CURRENT_L+1}]` at the end of the refined sub-section.
 
 ## Return
 
 ```text
-Refiner complete — {SECTION} / {sub-section summary} L{CURRENT_L}→L{CURRENT_L+1} (Round {ROUND_N}).
+Refiner complete — {SECTION} / {sub-section summary} (Round {ROUND_N}).
   Next: human continues from GapReport
 ```

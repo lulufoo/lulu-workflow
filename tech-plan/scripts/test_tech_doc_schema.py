@@ -22,7 +22,7 @@ _SCRIPT = Path(__file__).resolve().parent / "tech_doc_schema.py"
 
 
 def _write_tech_doc(path: Path, *, title: str = "", north_star: str = "Goal.") -> None:
-    lines = ["---", "", "<!-- state-vector: NS:L1, NG:L1, KD:L1, SK:L1, T:L1 -->", ""]
+    lines = ["---", ""]
     if title:
         lines.extend([f"# {title}", ""])
     lines.extend([

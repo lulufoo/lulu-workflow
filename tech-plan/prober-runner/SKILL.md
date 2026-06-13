@@ -2,10 +2,10 @@
 name: prober-runner
 description: >-
   Round Iteration prober for tech-plan drafting. Dynamically splits each section
-  into sub-sections, assesses current L{x} per sub-section using C2 Diagnostic
-  Criteria, identifies the L{x+1} gap from C2 Matrix Content Form, merges
-  Anchor Ledger checks, and outputs a GapReport. Invoked by tech-plan/SKILL.md
-  Step 2 per round.
+  into sub-sections, assesses current L{x} via Content Form, uses intent-probes
+  to filter sub-sections with gaps, then identifies the L{x+1} constraint gap
+  for those with issues. Merges Anchor Ledger and outputs a GapReport. Invoked
+  by tech-plan/SKILL.md Step 2 per round.
 ---
 
 # prober-runner
@@ -18,8 +18,8 @@ One invocation = one probe round. Read-only on tech-doc.
 
 **In scope**
 
-- Load `$CTX`, C2 Diagnostic Criteria, C2 Matrix Content Form, and plan role constraints
-- Per section: split into sub-sections, assess L{x}, identify L{x+1} gap
+- Load `$CTX`, C2 Matrix Content Form, intent-gap probes, and plan role constraints
+- Per section: split into sub-sections, assess L{x}, probe for gaps, identify L{x+1} constraint gap
 - Merge Anchor Ledger; surface new anchor candidates
 - Output pinned GapReport for human decide
 
@@ -62,7 +62,7 @@ Subcommands and stdout contracts: script module docstring or `--help`.
 
 | Step | Macro calls |
 |------|-------------|
-| 1 | `$ROUND_CONTROL read-context` · `$RESOLVE_PLAN_ROLE` · `$FETCH_TECH_PLAN layer-diagnostic` · `$FETCH_TECH_PLAN layer-standards` |
+| 1 | `$ROUND_CONTROL read-context` · `$RESOLVE_PLAN_ROLE` · `$FETCH_TECH_PLAN layer-standards` · `$FETCH_TECH_PLAN intent-probes` |
 | 3 | `$ROUND_CONTROL update-anchor-status --id {anchor_id} --status {passing\|failing}` |
 
 ## Execution Contract
@@ -71,10 +71,10 @@ Subcommands and stdout contracts: script module docstring or `--help`.
 
 1. `$ROUND_CONTROL read-context` → parse stdout as `$CTX` (contains anchors and skips)
 2. `$RESOLVE_PLAN_ROLE` → apply Plan Scope Constraints
-3. `$FETCH_TECH_PLAN layer-diagnostic` → load `## C2 Diagnostic Criteria` (used to assess current L{x})
-4. `$FETCH_TECH_PLAN layer-standards` → load `## C2 Matrix — Content Standards` (used to identify L{x+1} gap)
+3. `$FETCH_TECH_PLAN layer-standards` → load `## C2 Matrix — Content Standards` (Content Form per section and L)
+4. `$FETCH_TECH_PLAN intent-probes` → load P1–P4 probe definitions
 
-**Done when:** `$CTX`, role constraints, Diagnostic Criteria, and Content Standards are all loaded.
+**Done when:** `$CTX`, role constraints, Content Standards, and probe definitions are all loaded.
 
 ### Step 2 — Diagnose sections
 
@@ -86,9 +86,10 @@ Read `TECH_DOC_PATH`. For each section in document order:
 2. Split the section into sub-sections — semantic units of intent (e.g. individual bullet items, decision entries, phase descriptions). Each sub-section is one coherent statement of intent.
 3. For each sub-section:
    - Skip if `(section, sub-section)` ∈ `$CTX.skips`
-   - Assess current L{x}: apply C2 Diagnostic Criteria for this section type; find the highest L whose criteria are fully met by this sub-section's content
-   - Identify L{x+1} gap: read the Content Form for L{x+1} in C2 Matrix; the gap is the constraint dimension present in L{x+1} Content Form that is absent from the current sub-section
-   - If the sub-section already satisfies the maximum defined L, record no gap
+   - **Step A — Assess L{x}:** use Content Form for this section type; find the highest L whose Content Form is fully satisfied by this sub-section's content. This is the current L{x}.
+   - **Step B — Probe for gaps:** from the loaded probe definitions, select applicable probes based on each probe's `Applies when` condition; run selected probes against the sub-section. If no probe finds a gap, record no gap and skip this sub-section.
+   - **Step C — Record gap (only when Step B found a gap):** record `{ L_current, gap_description }` where `L_current` is from Step A and `gap_description` is the probe's raw output from Step B.
+   - If the sub-section already satisfies the maximum defined L, record no gap.
 4. Collect all gaps for this section. Sort by L{x} ascending (lowest L first — weakest constraint is highest priority).
 
 ### Step 3 — Anchor Ledger merge
