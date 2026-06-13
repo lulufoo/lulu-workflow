@@ -127,9 +127,7 @@ Await completion (`$SUBAGENT_AWAIT_SYNC`).
 
 #### Step 3 — Round Iteration Loop
 
-Entry: Step 1 complete, or `drafting-progress.md: current_step: RoundIteration`.
-
-On first entry after Step 1, run `$DRAFT_CONTROL begin-round`. On failure → apply Blocking policy.
+Entry: run `$DRAFT_CONTROL begin-round`. On failure → apply Blocking policy.
 
 Each round (Round N):
 
