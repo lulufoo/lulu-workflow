@@ -16,7 +16,7 @@ One invocation = one probe round. Read-only on tech-doc and drafting-progress.
 
 **In scope**
 
-- Load `$CTX`, C2 criteria, and plan role constraints
+- Load `$CTX`, probe dispatch, C2 criteria, and plan role constraints
 - Run P1–P4 per section; merge anchor ledger
 - Output pinned ProbeReport for human decide
 
@@ -72,21 +72,16 @@ Subcommands and stdout contracts: script module docstring or `--help`.
 
 1. `$ROUND_CONTROL read-context` → parse stdout as `$CTX`
 2. `$RESOLVE_PLAN_ROLE` → apply Plan Scope Constraints
-3. `$FETCH_TECH_PLAN layer-diagnostic` → locate `## C2 Diagnostic Criteria`
+3. `$FETCH_TECH_PLAN layer-diagnostic` → locate:
+   - `## C3 Probe Dispatch` (applicable probes per section)
+   - `## C2 Diagnostic Criteria` (judgment at current L)
 
-**Done when:** `$CTX`, role constraints, and C2 criteria are all loaded.
+**Done when:** `$CTX`, role constraints, probe dispatch, and C2 criteria are all loaded.
 
 ### Step 2 — Run probes
 
-#### Probe matrix
-
-| Key | Section | Applicable probes |
-|-----|---------|-------------------|
-| NS | North Star | P1 (restated accurately?) |
-| NG | Non-Goals & Invariants | P1 + P2 (semantic consistency + violation enumeration) |
-| KD | Key Decisions | P3 (regenerate from NS+NG with KD masked) |
-| SK | Approach Skeleton | P4 (boundary cases answerable?) |
-| T | Tasks | P4 (escalate to L4 when funds/security involved) |
+Resolve applicable probes per section from `## C3 Probe Dispatch` (loaded in Step 1).
+Section order: NS → NG → KD → SK → T (same as dispatch table).
 
 #### Per-section algorithm
 
