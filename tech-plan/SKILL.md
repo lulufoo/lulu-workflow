@@ -126,7 +126,7 @@ Entry: run `$DRAFT_CONTROL begin-round`. On failure → apply Blocking policy.
 
 Each round (Round N):
 
-1. **Probe** — run `$DRAFT_CONTROL round-probe-input`.
+1. **Probe** — run `$ROUND_CONTROL round-probe-input`.
 
 - On failure → apply Blocking policy.
 - On success → dispatch prober-runner (stdout → `## Input`):

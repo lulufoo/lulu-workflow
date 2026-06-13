@@ -14,7 +14,6 @@ from draft_control import (  # noqa: E402
     draft_status,
     init_complete,
     begin_init,
-    round_probe_input,
 )
 
 _CYCLE = "feat-draft-control"
@@ -183,47 +182,6 @@ class TestDraftStatus:
         assert result["cycle_id"] == _CYCLE
 
 
-class TestRoundProbeInput:
-    def _begin(self, tmp_path: Path) -> Path:
-        revision = _seed_session(tmp_path)
-        _write_tech_doc(revision)
-        init_complete(_CYCLE, tmp_path)
-        begin_round(_CYCLE, tmp_path)
-        return revision
-
-    def test_returns_dispatch_input_in_round_iteration(self, tmp_path: Path):
-        revision = self._begin(tmp_path)
-        result = round_probe_input(_CYCLE, tmp_path)
-        assert result["ok"] is True
-        assert "dispatch_input" in result
-        inp = result["dispatch_input"]
-        assert f"CYCLE_ID:       {_CYCLE}" in inp
-        assert "CYCLE_TYPE:     feature" in inp
-        assert "ROUND_N:        1" in inp
-        assert revision.resolve().as_posix() in inp
-        assert "tech-doc.md" in inp
-
-    def test_round_2_reflects_advanced_round(self, tmp_path: Path):
-        self._begin(tmp_path)
-        advance_round(_CYCLE, tmp_path)
-        result = round_probe_input(_CYCLE, tmp_path)
-        assert result["ok"] is True
-        assert "ROUND_N:        2" in result["dispatch_input"]
-
-    def test_fails_when_ready_not_round_iteration(self, tmp_path: Path):
-        revision = _seed_session(tmp_path)
-        _write_tech_doc(revision)
-        init_complete(_CYCLE, tmp_path)
-        result = round_probe_input(_CYCLE, tmp_path)
-        assert result["ok"] is False
-        assert "RoundIteration" in result["reason"]
-
-    def test_fails_without_progress(self, tmp_path: Path):
-        _seed_session(tmp_path)
-        result = round_probe_input(_CYCLE, tmp_path)
-        assert result["ok"] is False
-
-
 class TestCli:
     def test_begin_init_plaintext_stdout(self, tmp_path: Path):
         revision = _seed_session(tmp_path)
@@ -266,58 +224,6 @@ class TestCli:
                 "--project-root",
                 str(tmp_path),
                 "begin-init",
-            ],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        assert proc.returncode == 1
-        payload = json.loads(proc.stdout)
-        assert payload["ok"] is False
-
-    def test_round_probe_input_plaintext_stdout(self, tmp_path: Path):
-        revision = _seed_session(tmp_path)
-        _write_tech_doc(revision)
-        init_complete(_CYCLE, tmp_path)
-        begin_round(_CYCLE, tmp_path)
-        proc = subprocess.run(
-            [
-                sys.executable,
-                str(_SCRIPT),
-                "--cycle-id",
-                _CYCLE,
-                "--project-root",
-                str(tmp_path),
-                "round-probe-input",
-            ],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        assert proc.returncode == 0
-        assert proc.stdout.startswith("CYCLE_DIR:")
-        assert f"CYCLE_ID:       {_CYCLE}" in proc.stdout
-        assert "ROUND_N:        1" in proc.stdout
-        assert revision.resolve().as_posix() in proc.stdout
-        try:
-            json.loads(proc.stdout)
-            raise AssertionError("expected plain-text stdout, not JSON")
-        except json.JSONDecodeError:
-            pass
-
-    def test_round_probe_input_failure_json_stdout(self, tmp_path: Path):
-        revision = _seed_session(tmp_path)
-        _write_tech_doc(revision)
-        init_complete(_CYCLE, tmp_path)
-        proc = subprocess.run(
-            [
-                sys.executable,
-                str(_SCRIPT),
-                "--cycle-id",
-                _CYCLE,
-                "--project-root",
-                str(tmp_path),
-                "round-probe-input",
             ],
             capture_output=True,
             text=True,

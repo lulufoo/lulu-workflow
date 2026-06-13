@@ -9,6 +9,7 @@ Subcommands:
     append-skip           Append skip ledger entry (rejects L0)
     update-anchor-status  Set anchor ledger entry status (passing | failing)
     check-convergence     Evaluate convergence conditions
+    round-probe-input     Gate Probe entry; print prober-runner ## Input block (plain text)
 
 Does not write drafting-progress.md — use draft_control.py for progress transitions.
 """
@@ -26,6 +27,10 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from drafting_progress_schema import load_drafting_progress  # noqa: E402
 from session_state_schema import load_active_doc  # noqa: E402
+from workflow_common import detect_cycle_type  # noqa: E402
+
+_CMD_ROUND_PROBE_INPUT = "round-probe-input"
+_STEP_ROUND = "RoundIteration"
 
 SECTION_KEYS = ("NS", "NG", "KD", "SK", "T")
 SECTION_HEADINGS = {
@@ -221,6 +226,87 @@ def _read_round(revision_dir: Path) -> int:
         return max(1, int(data.get("round", "1")))
     except ValueError:
         return 1
+
+
+def _format_round_probe_input(
+    *,
+    cycle_dir: Path,
+    cycle_id: str,
+    cycle_type: str,
+    round_n: int,
+    tech_doc: Path,
+) -> str:
+    return (
+        f"CYCLE_DIR:      {cycle_dir.resolve().as_posix()}\n"
+        f"CYCLE_ID:       {cycle_id}\n"
+        f"CYCLE_TYPE:     {cycle_type}\n"
+        f"ROUND_N:        {round_n}\n"
+        f"TECH_DOC_PATH:  {tech_doc.resolve().as_posix()}"
+    )
+
+
+def round_probe_input(cycle_dir: Path) -> dict[str, Any]:
+    """Return probe dispatch input when current_step is RoundIteration."""
+    cycle_id = cycle_dir.name
+    progress_path: Path | None = None
+    try:
+        revision_dir = _active_revision_dir(cycle_dir)
+        progress_path = revision_dir / "drafting-progress.md"
+    except FileNotFoundError:
+        return {
+            "ok": False,
+            "command": _CMD_ROUND_PROBE_INPUT,
+            "reason": "drafting-progress.md not found; run begin-round first",
+        }
+
+    if not progress_path.exists():
+        return {
+            "ok": False,
+            "command": _CMD_ROUND_PROBE_INPUT,
+            "reason": "drafting-progress.md not found; run begin-round first",
+        }
+
+    data = load_drafting_progress(progress_path)
+    step = data.get("current_step")
+    if step != _STEP_ROUND:
+        payload: dict[str, Any] = {
+            "ok": False,
+            "command": _CMD_ROUND_PROBE_INPUT,
+            "reason": (
+                f"cannot generate probe input: current_step is {step!r} "
+                f"(expected {_STEP_ROUND})"
+            ),
+        }
+        if step is not None:
+            payload["current_step"] = step
+        return payload
+
+    round_n = max(1, int(data.get("round", "1")))
+    tech_doc = revision_dir / "tech-doc.md"
+    dispatch_input = _format_round_probe_input(
+        cycle_dir=cycle_dir,
+        cycle_id=cycle_id,
+        cycle_type=detect_cycle_type(cycle_id),
+        round_n=round_n,
+        tech_doc=tech_doc,
+    )
+    return {
+        "ok": True,
+        "command": _CMD_ROUND_PROBE_INPUT,
+        "dispatch_input": dispatch_input,
+    }
+
+
+def cmd_round_probe_input(cycle_dir: Path) -> int:
+    result = round_probe_input(cycle_dir)
+    if result.get("ok"):
+        dispatch_input = result["dispatch_input"]
+        sys.stdout.write(dispatch_input)
+        if not dispatch_input.endswith("\n"):
+            sys.stdout.write("\n")
+        return 0
+    _emit(result)
+    return 1
 
 
 def _update_anchor_row(path: Path, anchor_id: str, status: str) -> None:
@@ -459,6 +545,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="All probes passed in the current round",
     )
 
+    sub.add_parser(
+        _CMD_ROUND_PROBE_INPUT,
+        help="Print prober-runner Input block (requires RoundIteration)",
+    )
+
     return parser
 
 
@@ -507,6 +598,8 @@ def main(argv: list[str] | None = None) -> int:
                 no_accept=args.no_accept,
                 probes_passed=args.probes_passed,
             )
+        if args.command == _CMD_ROUND_PROBE_INPUT:
+            return cmd_round_probe_input(cycle_dir)
         return _fail(f"unknown command: {args.command}")
     except (FileNotFoundError, ValueError) as exc:
         return _fail(str(exc))

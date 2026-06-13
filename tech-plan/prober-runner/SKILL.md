@@ -14,7 +14,7 @@ Terminal runner subagent. Executes **one probe round** per invocation.
 
 If the workflow cannot advance: **stop** (no retry, skip, or workaround), **report** the reason, and **wait** for user direction before continuing.
 
-Any `round_control.py` non-zero exit → stop and report stderr.
+Any `$ROUND_CONTROL` non-zero exit → stop and report stderr.
 
 ## Parent-Provided Inputs
 
@@ -29,17 +29,15 @@ TECH_DOC_PATH       absolute path to revision{N}/tech-doc.md
 Self-resolved at runtime:
 - `$SKILL_DIR` = `$SKILL_ROOT/tech-plan`
 
+Script macros: see `../SKILL.md` → **Command Index**.
+In this runner, `$ROUND_CONTROL` expands with `--cycle-dir "$CYCLE_DIR"` (equivalent to parent `--cycle-dir "$CACHE_DIR/$CYCLE_ID"`).
+
 ## Step 1 — Load context
 
-```bash
-python3 "$SKILL_DIR/scripts/round_control.py" \
-  --cycle-dir "$CYCLE_DIR" \
-  read-context
-```
+Run `$ROUND_CONTROL read-context`.
+Parse stdout as `$CTX` per `round_control.py` → `read-context` contract.
 
-Parse stdout JSON as `$CTX`. Required fields: `state_vector`, `anchors`, `skips`, `round`.
-
-Load C2 Diagnostic Criteria for verification checks:
+Load C2 Diagnostic Criteria (see `../SKILL.md` → Command Index):
 
 1. Run `$RESOLVE_PLAN_ROLE` with `CYCLE_ID`; apply Plan Scope Constraints.
 2. Use `$FETCH_TECH_PLAN $CYCLE_TYPE layer-diagnostic`; read stdout and locate `## C2 Diagnostic Criteria`.
@@ -77,20 +75,10 @@ Re-check every committed anchor against current tech-doc + probe inputs.
 For each anchor in `$CTX.anchors`:
 
 - If re-check **fails** → force highest-priority issue for that section; update ledger:
-
-```bash
-python3 "$SKILL_DIR/scripts/round_control.py" \
-  --cycle-dir "$CYCLE_DIR" \
-  update-anchor-status --id {anchor_id} --status failing
-```
+  `$ROUND_CONTROL update-anchor-status --id {anchor_id} --status failing`
 
 - If re-check **passes** → update ledger when status was `failing`:
-
-```bash
-python3 "$SKILL_DIR/scripts/round_control.py" \
-  --cycle-dir "$CYCLE_DIR" \
-  update-anchor-status --id {anchor_id} --status passing
-```
+  `$ROUND_CONTROL update-anchor-status --id {anchor_id} --status passing`
 
 Collect new anchor candidates (not yet committed) as `anchorCandidates` for human commit.
 

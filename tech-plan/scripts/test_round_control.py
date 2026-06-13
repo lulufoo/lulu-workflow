@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from round_control import (  # noqa: E402
     _normalize_section,
     _parse_state_vector,
+    round_probe_input,
 )
 
 _SCRIPT = Path(__file__).resolve().parent / "round_control.py"
@@ -153,3 +154,102 @@ def test_check_convergence(tmp_path: Path):
     result = _run(cycle_dir, "check-convergence", "--no-accept", "--probes-passed")
     assert result["converged"] is False
     assert "L0" in result["reason"]
+
+
+class TestRoundProbeInput:
+    def test_returns_dispatch_input_in_round_iteration(self, tmp_path: Path):
+        cycle_dir = _setup_cycle(tmp_path)
+        revision = cycle_dir / "tech" / "plan" / "revision1"
+        result = round_probe_input(cycle_dir)
+        assert result["ok"] is True
+        assert "dispatch_input" in result
+        inp = result["dispatch_input"]
+        assert f"CYCLE_ID:       {_CYCLE_ID}" in inp
+        assert "CYCLE_TYPE:     feature" in inp
+        assert "ROUND_N:        1" in inp
+        assert revision.resolve().as_posix() in inp
+        assert "tech-doc.md" in inp
+
+    def test_round_2_reflects_advanced_round(self, tmp_path: Path):
+        cycle_dir = _setup_cycle(tmp_path)
+        progress = cycle_dir / "tech" / "plan" / "revision1" / "drafting-progress.md"
+        progress.write_text(
+            f"---\nversion: 1\ncycle_id: {_CYCLE_ID}\n"
+            "current_step: RoundIteration\nround: 2\n---\n",
+            encoding="utf-8",
+        )
+        result = round_probe_input(cycle_dir)
+        assert result["ok"] is True
+        assert "ROUND_N:        2" in result["dispatch_input"]
+
+    def test_fails_when_ready_not_round_iteration(self, tmp_path: Path):
+        cycle_dir = _setup_cycle(tmp_path)
+        progress = cycle_dir / "tech" / "plan" / "revision1" / "drafting-progress.md"
+        progress.write_text(
+            f"---\nversion: 1\ncycle_id: {_CYCLE_ID}\ncurrent_step: Ready\n---\n",
+            encoding="utf-8",
+        )
+        result = round_probe_input(cycle_dir)
+        assert result["ok"] is False
+        assert "RoundIteration" in result["reason"]
+
+    def test_fails_without_progress(self, tmp_path: Path):
+        cycle_dir = tmp_path / "empty-cycle"
+        plan_base = cycle_dir / "tech" / "plan"
+        revision = plan_base / "revision1"
+        revision.mkdir(parents=True)
+        (plan_base / "session-state.md").write_text(
+            "---\nversion: 1\nactive_doc: 1\n---\n",
+            encoding="utf-8",
+        )
+        result = round_probe_input(cycle_dir)
+        assert result["ok"] is False
+
+    def test_cli_plaintext_stdout(self, tmp_path: Path):
+        cycle_dir = _setup_cycle(tmp_path)
+        revision = cycle_dir / "tech" / "plan" / "revision1"
+        proc = subprocess.run(
+            [
+                sys.executable,
+                str(_SCRIPT),
+                "--cycle-dir",
+                str(cycle_dir),
+                "round-probe-input",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert proc.returncode == 0
+        assert proc.stdout.startswith("CYCLE_DIR:")
+        assert f"CYCLE_ID:       {_CYCLE_ID}" in proc.stdout
+        assert "ROUND_N:        1" in proc.stdout
+        assert revision.resolve().as_posix() in proc.stdout
+        try:
+            json.loads(proc.stdout)
+            raise AssertionError("expected plain-text stdout, not JSON")
+        except json.JSONDecodeError:
+            pass
+
+    def test_cli_failure_json_stdout(self, tmp_path: Path):
+        cycle_dir = _setup_cycle(tmp_path)
+        progress = cycle_dir / "tech" / "plan" / "revision1" / "drafting-progress.md"
+        progress.write_text(
+            f"---\nversion: 1\ncycle_id: {_CYCLE_ID}\ncurrent_step: Ready\n---\n",
+            encoding="utf-8",
+        )
+        proc = subprocess.run(
+            [
+                sys.executable,
+                str(_SCRIPT),
+                "--cycle-dir",
+                str(cycle_dir),
+                "round-probe-input",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert proc.returncode == 1
+        payload = json.loads(proc.stdout)
+        assert payload["ok"] is False
