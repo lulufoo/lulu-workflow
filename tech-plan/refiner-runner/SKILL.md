@@ -3,7 +3,7 @@ name: refiner-runner
 description: >-
   Round Iteration refiner for tech-plan drafting. Drafts zoom content per C2
   Matrix Content Form, presents for human confirm, then applies state via
-  round_control.py. Invoked by tech-plan/SKILL.md Step 3 on each accept.
+  round_control.py. Invoked by tech-plan/SKILL.md Step 2 on each accept.
 ---
 
 # refiner-runner

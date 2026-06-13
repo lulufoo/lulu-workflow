@@ -99,49 +99,40 @@ Load `./transition-whitelist.json` — check `allowed_transitions` for valid tra
 
 ### Drafting Rules
 
-**Evaluating fix resume → Step 4 — FreeEdit** (skip Steps 1–3).
+**Entry:** fix resume → Step 3; otherwise Steps 1 → 2.
+**Drafting states**: `Ready → RoundIteration → FreeEdit`.
 
-Substep states: `Ready → RoundIteration → FreeEdit`.
+#### Step 1 — Initializing
 
-#### Step 1 — Entry
-
-Entry:
-- **Evaluating fix resume** → Step 4 — FreeEdit
-- **Otherwise** → dispatch Steps 2 → 3 in order
-
-#### Step 2 — Initializing
-
-1. Run `$DRAFT_CONTROL init-probe`. On failure → apply Blocking policy.
-2. Dispatch — paste `init-probe` stdout verbatim under `## Input`:
+1. Run `$DRAFT_CONTROL begin-init`. On failure → apply Blocking policy.
+2. Dispatch — paste `begin-init` stdout verbatim under `## Input`:
 
 ```text
 Load {actual $SKILL_ROOT}/tech-plan/initializing-runner/SKILL.md and follow its instructions.
 
 ## Input
-{init-probe stdout}
+{begin-init stdout}
 ```
 
 Await completion (`$SUBAGENT_AWAIT_SYNC`).
 
 3. Run `$DRAFT_CONTROL init-complete`. On failure → apply Blocking policy.
 
-#### Step 3 — Round Iteration Loop
+#### Step 2 — Round Iteration Loop
 
 Entry: run `$DRAFT_CONTROL begin-round`. On failure → apply Blocking policy.
 
 Each round (Round N):
 
-1. **Probe** — dispatch `prober-runner`:
+1. **Probe** — run `$DRAFT_CONTROL round-probe-input`. On failure → apply Blocking policy.
+
+   Dispatch — paste `round-probe-input` stdout verbatim under `## Input`:
 
 ```text
 Load {actual $SKILL_ROOT}/tech-plan/prober-runner/SKILL.md and follow its instructions.
 
 ## Input
-CYCLE_DIR:      {absolute path to $CACHE_DIR/<cycle_id>}
-CYCLE_ID:       {cycle_id}
-CYCLE_TYPE:     {topic | feature}
-ROUND_N:        {N from `$DRAFT_CONTROL status`}
-TECH_DOC_PATH:  {absolute path to revision{N}/tech-doc.md}
+{round-probe-input stdout}
 ```
 
 Pin ProbeReport at top of conversation; keep visible for the entire round.
@@ -197,12 +188,12 @@ Omit `--probes-passed` when any probe failure was skipped/rejected without resol
 > 1. Enter FreeEdit
 > 2. Continue to the next round
 
-  - **1** → `$DRAFT_CONTROL advance-to-freeedit`. On failure → apply Blocking policy. Then enter Step 4 - FreeEdit.
+  - **1** → `$DRAFT_CONTROL advance-to-freeedit`. On failure → apply Blocking policy. Then enter Step 3 — FreeEdit.
   - **2** → `$DRAFT_CONTROL advance-round`. On failure → apply Blocking policy. Return to step 1 (Probe).
 
 - `converged: false` → `$DRAFT_CONTROL advance-round`. On failure → apply Blocking policy. Return to step 1 (Probe).
 
-#### Step 4 — FreeEdit
+#### Step 3 — FreeEdit
 
 Entry: `advance-to-freeedit` success, or Evaluating fix resume.
 
@@ -230,7 +221,7 @@ When eval-rules completes, follow its exit branch:
   > On failure → apply Blocking policy.
   > On success → follow **ReadyForDelivery Rules** below.
 
-- **Continue editing** → enter **Step 4 — FreeEdit** (Evaluating fix resume; skip Steps 2–3).
+- **Continue editing** → enter **Step 3 — FreeEdit** (Evaluating fix resume; skip Steps 1–2).
 
 ### ReadyForDelivery Rules
 

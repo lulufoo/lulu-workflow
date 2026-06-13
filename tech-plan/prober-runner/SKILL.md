@@ -3,7 +3,7 @@ name: prober-runner
 description: >-
   Round Iteration prober for tech-plan drafting. Runs P1–P4 verification probes
   per section, merges Anchor Ledger checks, and outputs a pinned ProbeReport.
-  Invoked by tech-plan/SKILL.md Step 3 per round.
+  Invoked by tech-plan/SKILL.md Step 2 per round.
 ---
 
 # prober-runner

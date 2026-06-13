@@ -173,5 +173,5 @@ Initializing complete.
   Seeded (I): <space-separated seeded section names>
   Skeleton (X): <space-separated skeleton section names>
   State Vector: NS:L? NG:L? KD:L? SK:L? T:L?
-  Next step: Round Iteration Loop (Step 3)
+  Next step: Round Iteration Loop (Step 2)
 ```

@@ -2,12 +2,13 @@
 """Draft control for tech-plan orchestrator.
 
 Subcommands:
-    init-probe            Check whether Initializing can start; on success print
+    begin-init            Check whether Initializing can start; on success print
                           initializing-runner ## Input block (plain text)
     init-complete         Validate seeded tech-doc and write drafting-progress Ready
     begin-round           Transition Ready -> RoundIteration (round 1)
     advance-round         Increment round while in RoundIteration
     advance-to-freeedit   Transition RoundIteration -> FreeEdit
+    round-probe-input     Print prober-runner ## Input block (plain text); requires RoundIteration
     status                Read drafting-progress snapshot (read-only)
 """
 
@@ -29,17 +30,19 @@ from drafting_progress_schema import (  # noqa: E402
 )
 from session_state_schema import load_active_doc_from_cycle  # noqa: E402
 from workflow_common import (  # noqa: E402
+    CACHE_DIR,
     decision_doc_path,
     detect_cycle_type,
     doc_dir,
     tech_doc_path,
 )
 
-_CMD_INIT_PROBE = "init-probe"
+_CMD_BEGIN_INIT = "begin-init"
 _CMD_INIT_COMPLETE = "init-complete"
 _CMD_BEGIN_ROUND = "begin-round"
 _CMD_ADVANCE_ROUND = "advance-round"
 _CMD_ADVANCE_TO_FREEEDIT = "advance-to-freeedit"
+_CMD_ROUND_PROBE_INPUT = "round-probe-input"
 _CMD_STATUS = "status"
 _STEP_READY = "Ready"
 _STEP_ROUND = "RoundIteration"
@@ -102,12 +105,12 @@ def _validate_tech_doc_seeded(tech_doc: Path) -> str | None:
     return None
 
 
-def init_probe(cycle_id: str, project_root: Path) -> dict[str, Any]:
+def begin_init(cycle_id: str, project_root: Path) -> dict[str, Any]:
     progress_path = resolve_drafting_progress_path_from_cycle(cycle_id, project_root)
     dispatch_input = _init_dispatch_input(cycle_id, project_root)
     if not progress_path.exists():
         return _success(
-            _CMD_INIT_PROBE,
+            _CMD_BEGIN_INIT,
             current_step=None,
             dispatch_input=dispatch_input,
         )
@@ -115,13 +118,13 @@ def init_probe(cycle_id: str, project_root: Path) -> dict[str, Any]:
     step = read_current_step(progress_path)
     if step == _STEP_READY:
         return _success(
-            _CMD_INIT_PROBE,
+            _CMD_BEGIN_INIT,
             current_step=_STEP_READY,
             dispatch_input=dispatch_input,
         )
 
     return _failure(
-        _CMD_INIT_PROBE,
+        _CMD_BEGIN_INIT,
         f"cannot start Initializing: current_step is {step!r} (expected absent or Ready)",
         current_step=step,
     )
@@ -262,6 +265,56 @@ def advance_to_freeedit(cycle_id: str, project_root: Path) -> dict[str, Any]:
     return _success(_CMD_ADVANCE_TO_FREEEDIT, current_step=_STEP_FREE_EDIT)
 
 
+def _format_round_probe_input(
+    *,
+    cycle_dir: Path,
+    cycle_id: str,
+    cycle_type: str,
+    round_n: int,
+    tech_doc: Path,
+) -> str:
+    return (
+        f"CYCLE_DIR:      {cycle_dir.resolve().as_posix()}\n"
+        f"CYCLE_ID:       {cycle_id}\n"
+        f"CYCLE_TYPE:     {cycle_type}\n"
+        f"ROUND_N:        {round_n}\n"
+        f"TECH_DOC_PATH:  {tech_doc.resolve().as_posix()}"
+    )
+
+
+def round_probe_input(cycle_id: str, project_root: Path) -> dict[str, Any]:
+    progress_path = resolve_drafting_progress_path_from_cycle(cycle_id, project_root)
+    if not progress_path.exists():
+        return _failure(
+            _CMD_ROUND_PROBE_INPUT,
+            "drafting-progress.md not found; run begin-round first",
+        )
+
+    data = load_drafting_progress(progress_path)
+    step = data.get("current_step")
+    if step != _STEP_ROUND:
+        return _failure(
+            _CMD_ROUND_PROBE_INPUT,
+            f"cannot generate probe input: current_step is {step!r} (expected RoundIteration)",
+            current_step=step,
+        )
+
+    round_n = int(data.get("round", "1"))
+    cycle_dir = project_root / CACHE_DIR / cycle_id
+    tech_doc = project_root / tech_doc_path(
+        cycle_id,
+        load_active_doc_from_cycle(cycle_id, project_root),
+    )
+    dispatch_input = _format_round_probe_input(
+        cycle_dir=cycle_dir,
+        cycle_id=cycle_id,
+        cycle_type=detect_cycle_type(cycle_id),
+        round_n=round_n,
+        tech_doc=tech_doc,
+    )
+    return _success(_CMD_ROUND_PROBE_INPUT, dispatch_input=dispatch_input)
+
+
 def draft_status(cycle_id: str, project_root: Path) -> dict[str, Any]:
     progress_path = resolve_drafting_progress_path_from_cycle(cycle_id, project_root)
     if not progress_path.exists():
@@ -293,11 +346,12 @@ def _cli() -> int:
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
-    sub.add_parser(_CMD_INIT_PROBE, help="Probe Initializing entry")
+    sub.add_parser(_CMD_BEGIN_INIT, help="Begin Initializing (gate + dispatch input)")
     sub.add_parser(_CMD_INIT_COMPLETE, help="Complete Initializing")
     sub.add_parser(_CMD_BEGIN_ROUND, help="Begin Round Iteration")
     sub.add_parser(_CMD_ADVANCE_ROUND, help="Increment round counter")
     sub.add_parser(_CMD_ADVANCE_TO_FREEEDIT, help="Transition to FreeEdit")
+    sub.add_parser(_CMD_ROUND_PROBE_INPUT, help="Print prober-runner Input block (requires RoundIteration)")
     sub.add_parser(_CMD_STATUS, help="Read drafting-progress snapshot")
 
     args = parser.parse_args()
@@ -305,8 +359,8 @@ def _cli() -> int:
     cycle_id = args.cycle_id.strip()
 
     try:
-        if args.command == _CMD_INIT_PROBE:
-            result = init_probe(cycle_id, project_root)
+        if args.command == _CMD_BEGIN_INIT:
+            result = begin_init(cycle_id, project_root)
             if result.get("ok"):
                 print(result["dispatch_input"])
                 return 0
@@ -319,6 +373,12 @@ def _cli() -> int:
             return _emit(advance_round(cycle_id, project_root))
         if args.command == _CMD_ADVANCE_TO_FREEEDIT:
             return _emit(advance_to_freeedit(cycle_id, project_root))
+        if args.command == _CMD_ROUND_PROBE_INPUT:
+            result = round_probe_input(cycle_id, project_root)
+            if result.get("ok"):
+                print(result["dispatch_input"])
+                return 0
+            return _emit(result)
         if args.command == _CMD_STATUS:
             return _emit(draft_status(cycle_id, project_root))
     except ValueError as exc:
