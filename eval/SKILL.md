@@ -87,12 +87,20 @@ Example (WO-MISS):
 
 ## Mechanical command
 
-`$EVAL_CONTROL` (workflow-specific; tech-plan example):
+`$EVAL_CONTROL` — eval-domain state machine. Pass parent workflow id via `--workflow`.
 
 ```bash
 python3 {$SKILL_ROOT}/eval/scripts/eval_control.py \
-  --workflow tech-plan \
+  --workflow <workflow> \
   --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand> [args...]
 ```
 
-Subcommand SSOT: `{$SKILL_ROOT}/tech-plan/SKILL.md` Command Index · orchestration: `{$SKILL_ROOT}/eval/eval-rules.md`.
+**tech-plan:** `--workflow tech-plan`
+
+| Concern | SSOT |
+|---------|------|
+| Step order, stdout handling, branching | `{$SKILL_ROOT}/eval/eval-rules.md` |
+| Subcommand list | `eval/scripts/eval_control.py` module docstring or `--help` |
+| Runner write boundaries | `eval/*-runner/SKILL.md` |
+
+Do not infer `$EVAL_CONTROL` contracts from workflow parent SKILL Command Index files.

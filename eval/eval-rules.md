@@ -9,6 +9,8 @@ rule-guard:
 Loaded when parent routes to Evaluating Rules (user chose **Evaluate** from FreeEdit).
 Follow this document exactly. Do not execute any evaluation step before reading it.
 
+`$EVAL_CONTROL` invocation: `{$SKILL_ROOT}/eval/SKILL.md` → Mechanical command.
+
 ## Principles
 
 **Blocking** — Cannot advance → stop, report (stderr / exit code), wait for user direction.

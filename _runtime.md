@@ -59,7 +59,7 @@ Direct `fetch_template.py` usage in docs and workflow steps is forbidden. Use on
 
 ```text
 $FETCH_TEMPLATE <section> <key>
-$FETCH_TECH_PLAN <cycle_type> <role>    # tech-plan only; see tech-plan/SKILL.md Commands
+$FETCH_TECH_PLAN <cycle_type> <role>    # tech-plan only; see tech-plan/SKILL.md Command Index
 ```
 
 - **Success:** output template body and announce `Template fetched: <section>.<key>` (or `tech-plan.<resolved_key>` for `$FETCH_TECH_PLAN`).

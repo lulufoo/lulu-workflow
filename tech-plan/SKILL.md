@@ -80,7 +80,7 @@ Load `./transition-whitelist.json` — check `allowed_transitions` for valid tra
 ## Principles
 
 **Blocking** — Cannot advance → stop, report (stderr / exit code), wait for user direction.
-`$SESSION_CONTROL`, `$DRAFT_CONTROL`, `$ROUND_CONTROL`, `$EVAL_CONTROL`, or `$SESSION_INFO` non-zero exit → apply Blocking.
+`$SESSION_CONTROL`, `$DRAFT_CONTROL`, `$ROUND_CONTROL`, or `$SESSION_INFO` non-zero exit → apply Blocking.
 
 **Drafting — code reference** — Reference relevant source code for the current section; read narrowly, not the whole codebase.
 
@@ -258,108 +258,17 @@ When eval-rules completes, follow its exit branch:
 
 ## Command Index
 
-Macro definitions referenced in the workflow above.
+Macros invoke `$SKILL_DIR/scripts/*.py`. Non-zero exit → Blocking (Principles).
 
-### `$SESSION_INFO`
+| Macro | Command |
+|-------|---------|
+| `$SESSION_INFO` | `python3 "$SKILL_DIR/scripts/session_info.py" --cycle-id "$CYCLE_ID" --view <view>` |
+| `$SESSION_CONTROL` | `python3 "$SKILL_DIR/scripts/session_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
+| `$DRAFT_CONTROL` | `python3 "$SKILL_DIR/scripts/draft_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
+| `$ROUND_CONTROL` | `python3 "$SKILL_DIR/scripts/round_control.py" --cycle-dir "$CACHE_DIR/$CYCLE_ID" <subcommand> [args...]` |
+| `$RESOLVE_PLAN_ROLE` | `python3 "$SKILL_DIR/scripts/plan_scope.py" resolve-role --cycle-id "$CYCLE_ID" --project-root "$(pwd)"` |
+| `$FETCH_TECH_PLAN` | `python3 "$SKILL_DIR/scripts/fetch_plan_framework.py" --cycle-type <feature\|topic> --role <role> --project-root "$(pwd)"` |
 
-`$SESSION_INFO <view>` →
-
-```bash
-python3 "$SKILL_DIR/scripts/session_info.py" --cycle-id "$CYCLE_ID" --view <view>
-```
-
-Views: `delivery-preview` · `session` · `stage-transitions`
-
-### `$SESSION_CONTROL`
-
-`$SESSION_CONTROL <subcommand>` →
-
-```bash
-python3 "$SKILL_DIR/scripts/session_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>
-```
-
-Subcommands: `start-evaluating` · `ready-for-delivery` · `deliver` · `abandon-evaluation` · `resume-after-eval`
-
-On `abandon-evaluation` success: read stdout JSON and pin payload. Non-zero exit → Blocking.
-On `resume-after-eval` success: read stdout JSON and pin payload (Continue editing exit from eval-rules Step 5). Non-zero exit → Blocking.
-
-### `$EVAL_CONTROL`
-
-`$EVAL_CONTROL <subcommand> [args...]` →
-
-```bash
-python3 "$SKILL_ROOT/eval/scripts/eval_control.py" \
-  --workflow tech-plan \
-  --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand> [args...]
-```
-
-Subcommands: `begin-eval-round` · `begin-dimension` (`--dim e1|e2|e3`) · `finish-dimension-probe` (`--dim e1|e2|e3`) · `check-dimension` (`--dim e1|e2|e3`) · `probe-complete` · `begin-artifact-remediation` · `begin-dimension-artifact-remediation` (`--dim`) · `check-dimension-artifact-remediation` (`--dim`) · `artifact-remediation-complete` · `begin-sot-remediation` · `begin-dimension-sot-remediation` (`--dim`) · `check-dimension-sot-remediation` (`--dim`) · `sot-remediation-complete` · `complete-round`
-
-On `begin-eval-round` success: read stdout JSON and pin payload (loop context).
-On `begin-dimension` success: stdout is **plain text** — use entire stdout as eval-probe-runner `## Input` block (not JSON).
-On `finish-dimension-probe` success: read stdout JSON (`outcome: probed`, `total_issues`).
-On `check-dimension` success (exit 0): read stdout JSON; branch on `abandoned` / `outcome: probed`.
-On `probe-complete` success: read stdout JSON (`fix_phase: artifact-remediation`).
-On `begin-artifact-remediation` success: read stdout **JSON**; if `skip: true` skip Step 3.2; else pin `dispatch` (dim list).
-On `begin-dimension-artifact-remediation` / `begin-dimension-sot-remediation` success: stdout is **plain text** — pin as remediation-runner `## Input`.
-On `check-dimension-artifact-remediation` / `check-dimension-sot-remediation` success: read stdout JSON; SoT check may set `abandoned: true`.
-On `artifact-remediation-complete` / `sot-remediation-complete` success: read stdout JSON; branch on phase advance / `abandoned`.
-On `complete-round` success: read stdout JSON and pin payload (summary for user presentation). Non-zero exit → Blocking.
-
-**Probe exception:** `eval-probe-runner` may invoke `$EVAL_CONTROL finish-dimension-probe` but must **not** Write/Edit `evaluate-state.md` directly (override generic drafting rule for probe phase only). Before writing review files, read `{$SKILL_ROOT}/eval/review.template.md`.
-
-### `$DRAFT_CONTROL`
-
-`$DRAFT_CONTROL <subcommand>` →
-
-```bash
-python3 "$SKILL_DIR/scripts/draft_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>
-```
-
-Subcommands: `init-probe` · `init-complete` · `begin-round` · `advance-round` · `advance-to-freeedit` · `status`
-
-### `$ROUND_CONTROL`
-
-`$ROUND_CONTROL <subcommand> [args...]` →
-
-```bash
-python3 "$SKILL_DIR/scripts/round_control.py" \
-  --cycle-dir "$CACHE_DIR/$CYCLE_ID" <subcommand> [args...]
-```
-
-### `$RESOLVE_PLAN_ROLE`
-
-`$RESOLVE_PLAN_ROLE` →
-
-```bash
-python3 "$SKILL_DIR/scripts/plan_scope.py" resolve-role \
-  --cycle-id "$CYCLE_ID" --project-root "$(pwd)"
-```
-
-On success: read stdout as Plan Scope Constraints markdown (`cycle_type`, `### Role`).
-On failure: report error and stop current step.
-
-### `$FETCH_TECH_PLAN`
-
-`$FETCH_TECH_PLAN <cycle_type> <role>` →
-
-```bash
-python3 "$SKILL_DIR/scripts/fetch_plan_framework.py" \
-  --cycle-type <feature|topic> \
-  --role <draft-meta|layer-standards|layer-diagnostic|eval-ptc> \
-  --project-root "$(pwd)"
-```
-
-| Role | Config key | Consumers |
-|------|------------|-----------|
-| `draft-meta` | `tpt_draft_meta_url` | initializing-runner (mapping + skeleton) |
-| `layer-standards` | `tpt_layer_standards_url` | refiner-runner; eval e3 SoT (A) |
-| `layer-diagnostic` | `tpef_url` | prober-runner; eval e3 method (M) |
-| `eval-ptc` | `ptc_url` | eval e1 |
-
-Pass session `CYCLE_TYPE` as `--cycle-type`. Template URLs are shared; role constraints come from `$RESOLVE_PLAN_ROLE`.
-Roles resolve to `workflow-config.json` keys via `fetch_plan_framework.py` (`ROLE_KEYS`).
-On success: read stdout as framework markdown and announce `Template fetched: tech-plan.<resolved_key>`.
-On failure: report error and stop current step. Cache path: `$CACHE_DIR/.template/tech-plan/<key>.md`.
+Subcommands and stdout contracts: script module docstring or `--help`. `$FETCH_TECH_PLAN` roles: `fetch_plan_framework.py` (`ROLE_KEYS`). Template fetch announce/cache: `../_runtime.md` → Template Fetch.
 
 ---
