@@ -95,7 +95,10 @@ Load `./transition-whitelist.json` — check `allowed_transitions` for valid tra
 3. `workflow-state.md` is the authoritative state — always read it; never infer state from document body or file existence; write it to request a transition.
 4. Use full `Write` (not `Edit`) for `workflow-state.md` and `evaluate-state.md`.
 5. Path guard blocks writes outside `$CACHE_DIR/` while a session is active.
-6. Read `./formats.md` before writing `workflow-state.md`, `evaluate-state.md`, or any `evaluate{M}/tech-review-*.md`.
+6. Before writing session files, read schema contracts (SSOT):
+   - `workflow-state.md` → `python3 "$SKILL_DIR/scripts/workflow_state_schema.py" --schema`
+   - `evaluate-state.md` → `python3 "$SKILL_ROOT/eval/scripts/evaluate_state_schema.py" --schema`
+   - `evaluate{M}/tech-review-*.md` → read `$SKILL_ROOT/eval/review.template.md`; run `python3 "$SKILL_ROOT/eval/scripts/review_schema.py" --schema`; read `$SKILL_ROOT/eval/SKILL.md` (Review table contract).
 
 ### Drafting Rules
 

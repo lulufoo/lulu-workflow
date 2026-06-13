@@ -32,7 +32,7 @@ _SCHEMA: list[dict] = [
     {"field": "workflow", "type": "string", "required": True,
      "description": "Fixed value: tech-doc"},
     {"field": "mode", "type": "string", "required": True,
-     "description": "Run mode: product | tech"},
+     "description": "Run mode: product | tech. Set by start.py on init; preserve unchanged on every manual write."},
     {"field": "cycle_type", "type": "string", "required": True,
      "description": "Cycle type: topic (architect role) | feature (technical expert role)"},
     {"field": "current_state", "type": "string", "required": True,
