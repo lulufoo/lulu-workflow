@@ -21,6 +21,7 @@ ROLE_KEYS: dict[str, str] = {
     "layer-standards": "tpt_layer_standards_url",
     "layer-diagnostic": "tpef_url",
     "eval-ptc": "ptc_url",
+    "intent-probes": "tpt_intent_gap_probes_url",
 }
 
 _VALID_ROLES = frozenset(ROLE_KEYS)
@@ -66,7 +67,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         "--role",
         required=True,
         choices=sorted(_VALID_ROLES),
-        help="Framework role (draft-meta, layer-standards, layer-diagnostic, eval-ptc)",
+        help="Framework role (draft-meta, layer-standards, layer-diagnostic, eval-ptc, intent-probes)",
     )
     parser.add_argument(
         "--project-root",

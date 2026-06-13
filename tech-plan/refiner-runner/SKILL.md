@@ -1,14 +1,15 @@
 ---
 name: refiner-runner
 description: >-
-  Round Iteration refiner for tech-plan drafting. Drafts zoom content per C2
-  Matrix Content Form, presents for human confirm, then applies state via
-  round_control.py. Invoked by tech-plan/SKILL.md Step 2 on each accept.
+  Round Iteration refiner for tech-plan drafting. Receives a sub-section and its
+  intent gap, dynamically assesses current L{x} via C2 Matrix, drafts L{x+1}
+  content, presents for human confirm, then writes to tech-doc. Invoked by
+  tech-plan/SKILL.md Step 2 on each accept.
 ---
 
 # refiner-runner
 
-Terminal runner subagent. Executes **one zoom** per invocation.
+Terminal runner subagent. Executes **one refinement** per invocation.
 
 ## Blocking policy
 
@@ -22,81 +23,78 @@ Any `round_control.py` non-zero exit → stop and report stderr.
 CYCLE_DIR           absolute path to $CACHE_DIR/<cycle_id>
 CYCLE_ID            cycle identifier (for $RESOLVE_PLAN_ROLE)
 CYCLE_TYPE          topic | feature
-SECTION             NS | NG | KD | SK | T (or full section name)
-CURRENT_L           current magnification level (0–4)
-TARGET_L            target magnification level (CURRENT_L + 1 typically)
+SECTION             section name (e.g. Invariants, Key Decisions)
+SUB_SECTION_TEXT    verbatim content of the sub-section to refine
+CURRENT_L           current magnification level assessed by prober (integer 0–4)
+GAP_DESCRIPTION     what L{CURRENT_L+1} requires that is currently absent (from GapReport)
 ROUND_N             current round number
 TECH_DOC_PATH       absolute path to revision{N}/tech-doc.md
-ZOOM_EVIDENCE       probe failure evidence from ProbeReport (context for drafting)
 ```
 
 Self-resolved at runtime:
 - `$SKILL_DIR` = `$SKILL_ROOT/tech-plan`
 
-## Step 1 — Load C2 Content Form
+## Command Index
+
+| Macro | Command |
+|-------|---------|
+| `$RESOLVE_PLAN_ROLE` | `python3 "$SKILL_DIR/scripts/plan_scope.py" resolve-role --cycle-id "$CYCLE_ID" --project-root "$(pwd)"` |
+| `$FETCH_TECH_PLAN` | `python3 "$SKILL_DIR/scripts/fetch_plan_framework.py" --role <role> --project-root "$(pwd)"` |
+| `$ROUND_CONTROL` | `python3 "$SKILL_DIR/scripts/round_control.py" --cycle-dir "$CYCLE_DIR" <subcommand> [args...]` |
+
+## Step 1 — Load C2 Content Standards
 
 1. Run `$RESOLVE_PLAN_ROLE` with `CYCLE_ID`; apply Plan Scope Constraints.
-2. Use `$FETCH_TECH_PLAN layer-standards`; read stdout and locate `## C2 Matrix — Content Standards`.
+2. Run `$FETCH_TECH_PLAN layer-standards`; locate `## C2 Matrix — Content Standards`.
+3. Read `TECH_DOC_PATH` for the full section body and surrounding context (adjacent sections as reference for P3 gaps).
 
-Find the row for `(SECTION, TARGET_L)` → read **Content Form** and **Delta** columns.
+## Step 2 — Determine L{x+1} target
 
-Read `TECH_DOC_PATH` for the current section body and surrounding context (NS, NG for KD zooms, etc.).
+Using `CURRENT_L` and the C2 Matrix Content Form for `SECTION`:
 
-## Step 2 — Draft zoom content
+1. Read the Content Form and Delta for `CURRENT_L + 1` — this defines what must be added.
+2. Confirm alignment with `GAP_DESCRIPTION` (the two should describe the same missing constraint dimension).
 
-Draft **only the Delta** needed to reach `TARGET_L`:
+## Step 3 — Draft refinement
 
-- Preserve existing content; add missing constraints per Content Form.
-- Ground in `ZOOM_EVIDENCE`, decision-doc context, and existing tech-doc sections.
+Draft **only the Delta** needed to reach L{x+1}:
+
+- Preserve existing sub-section content; add the missing constraint dimension.
+- Ground new content in `GAP_DESCRIPTION`, adjacent section context, and the L{x+1} Content Form.
 - Do **not** auto-write to disk.
 
 Present the draft to the human:
 
 ```markdown
-## Refiner Draft — {SECTION} L{CURRENT_L}→L{TARGET_L} (Round {ROUND_N})
+## Refiner Draft — {SECTION} / {sub-section summary} (Round {ROUND_N})
 
-{proposed section body or delta block}
+**Current:** L{CURRENT_L} — {GAP_DESCRIPTION}
+**Target:** L{CURRENT_L+1} — {one-line description of what is added per Delta}
+
+{proposed sub-section body with refinement applied}
 
 ---
 Confirm to write, or provide edits.
 ```
 
-## Step 3 — Human confirm gate
+## Step 4 — Human confirm gate
 
 Wait for explicit human confirmation ("confirm", "写入", "OK", or equivalent).
 
 If the human provides edits, revise the draft and re-present until confirmed.
 
-**Do not call `apply-zoom` without confirmation.**
+**Do not write to tech-doc without confirmation.**
 
-## Step 4 — Apply zoom state
+## Step 5 — Write tech-doc
 
 After confirmation:
 
-```bash
-python3 "$SKILL_DIR/scripts/round_control.py" \
-  --cycle-dir "$CYCLE_DIR" \
-  apply-zoom \
-  --section {SECTION} \
-  --from-l {CURRENT_L} \
-  --to-l {TARGET_L} \
-  --round {ROUND_N}
-```
-
-On non-zero exit → stop (Blocking policy).
-
-## Step 5 — Write tech-doc section
-
-Update `TECH_DOC_PATH`:
-
-1. Replace the target section body with the confirmed content.
-2. Append `[Source: Round {ROUND_N}]` at the end of the section.
-3. `state-vector` and `<!-- signed: Round N, L{x}, {timestamp} -->` are updated by `apply-zoom` — do not duplicate.
+1. Replace the sub-section content within `SECTION` in `TECH_DOC_PATH` with the confirmed content.
+2. Append `[Refined: R{ROUND_N}, zoom L{CURRENT_L}→L{CURRENT_L+1}]` at the end of the refined sub-section.
 
 ## Return
 
 ```text
-Refiner complete — {SECTION} L{CURRENT_L}→L{TARGET_L} (Round {ROUND_N}).
-  Signed: yes
-  Next: human continues from ProbeReport
+Refiner complete — {SECTION} / {sub-section summary} L{CURRENT_L}→L{CURRENT_L+1} (Round {ROUND_N}).
+  Next: human continues from GapReport
 ```

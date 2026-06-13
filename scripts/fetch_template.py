@@ -156,6 +156,14 @@ def read_config_url(config_path: Path, section: str, key: str) -> str:
     return url
 
 
+def read_local_file(url: str) -> str:
+    """Read content from a file:// URL or absolute path."""
+    local_path = Path(url[7:]) if url.startswith("file://") else Path(url)
+    if not local_path.exists():
+        raise FetchTemplateError(f"Local file not found: {local_path}")
+    return local_path.read_text(encoding="utf-8")
+
+
 def fetch_template(
     section: str,
     key: str,
@@ -174,6 +182,10 @@ def fetch_template(
 
     config_path = resolve_workflow_config_path(project_root, plat)
     url = read_config_url(config_path, section, key)
+
+    if url.startswith("file://") or (url.startswith("/") and not url.startswith("//")):
+        return read_local_file(url)
+
     parsed = parse_blob_url(url)
     content = gh_fetcher(
         parsed["owner"],

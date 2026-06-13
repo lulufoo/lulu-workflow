@@ -1,24 +1,27 @@
 ---
 name: prober-runner
 description: >-
-  Round Iteration prober for tech-plan drafting. Runs P1–P4 verification probes
-  per section, merges Anchor Ledger checks, and outputs a pinned ProbeReport.
-  Invoked by tech-plan/SKILL.md Step 2 per round.
+  Round Iteration prober for tech-plan drafting. Dynamically splits each section
+  into sub-sections, assesses current L{x} per sub-section using C2 Diagnostic
+  Criteria, identifies the L{x+1} gap from C2 Matrix Content Form, merges
+  Anchor Ledger checks, and outputs a GapReport. Invoked by tech-plan/SKILL.md
+  Step 2 per round.
 ---
 
 # prober-runner
 
-**Pipeline:** Load context → Probe five sections → Merge anchors → Deliver ProbeReport → Return.
+**Pipeline:** Load context → Diagnose sections → Merge anchors → Deliver GapReport → Return.
 
-One invocation = one probe round. Read-only on tech-doc and drafting-progress.
+One invocation = one probe round. Read-only on tech-doc.
 
 ## Scope
 
 **In scope**
 
-- Load `$CTX`, probe dispatch, C2 criteria, and plan role constraints
-- Run P1–P4 per section; merge anchor ledger
-- Output pinned ProbeReport for human decide
+- Load `$CTX`, C2 Diagnostic Criteria, C2 Matrix Content Form, and plan role constraints
+- Per section: split into sub-sections, assess L{x}, identify L{x+1} gap
+- Merge Anchor Ledger; surface new anchor candidates
+- Output pinned GapReport for human decide
 
 **Out of scope**
 
@@ -55,100 +58,82 @@ Macros invoke `$SKILL_DIR/scripts/*.py`. Non-zero exit → Blocking policy.
 | `$RESOLVE_PLAN_ROLE` | `python3 "$SKILL_DIR/scripts/plan_scope.py" resolve-role --cycle-id "$CYCLE_ID" --project-root "$(pwd)"` |
 | `$FETCH_TECH_PLAN` | `python3 "$SKILL_DIR/scripts/fetch_plan_framework.py" --role <role> --project-root "$(pwd)"` |
 
-Shorthand: `$FETCH_TECH_PLAN layer-diagnostic` → `--role layer-diagnostic`.
-
 Subcommands and stdout contracts: script module docstring or `--help`.
 
 | Step | Macro calls |
 |------|-------------|
-| 1 | `$ROUND_CONTROL read-context` · `$RESOLVE_PLAN_ROLE` · `$FETCH_TECH_PLAN layer-diagnostic` |
+| 1 | `$ROUND_CONTROL read-context` · `$RESOLVE_PLAN_ROLE` · `$FETCH_TECH_PLAN layer-diagnostic` · `$FETCH_TECH_PLAN layer-standards` |
 | 3 | `$ROUND_CONTROL update-anchor-status --id {anchor_id} --status {passing\|failing}` |
 
 ## Execution Contract
 
 ### Step 1 — Load context
 
-**Run**
-
-1. `$ROUND_CONTROL read-context` → parse stdout as `$CTX`
+1. `$ROUND_CONTROL read-context` → parse stdout as `$CTX` (contains anchors and skips)
 2. `$RESOLVE_PLAN_ROLE` → apply Plan Scope Constraints
-3. `$FETCH_TECH_PLAN layer-diagnostic` → locate:
-   - `## C3 Probe Dispatch` (applicable probes per section)
-   - `## C2 Diagnostic Criteria` (judgment at current L)
+3. `$FETCH_TECH_PLAN layer-diagnostic` → load `## C2 Diagnostic Criteria` (used to assess current L{x})
+4. `$FETCH_TECH_PLAN layer-standards` → load `## C2 Matrix — Content Standards` (used to identify L{x+1} gap)
 
-**Done when:** `$CTX`, role constraints, probe dispatch, and C2 criteria are all loaded.
+**Done when:** `$CTX`, role constraints, Diagnostic Criteria, and Content Standards are all loaded.
 
-### Step 2 — Run probes
+### Step 2 — Diagnose sections
 
-Resolve applicable probes per section from `## C3 Probe Dispatch` (loaded in Step 1).
-Section order: NS → NG → KD → SK → T (same as dispatch table).
+Read `TECH_DOC_PATH`. For each section in document order:
 
 #### Per-section algorithm
 
-For each section in order NS → NG → KD → SK → T:
+1. Read the full section body.
+2. Split the section into sub-sections — semantic units of intent (e.g. individual bullet items, decision entries, phase descriptions). Each sub-section is one coherent statement of intent.
+3. For each sub-section:
+   - Skip if `(section, sub-section)` ∈ `$CTX.skips`
+   - Assess current L{x}: apply C2 Diagnostic Criteria for this section type; find the highest L whose criteria are fully met by this sub-section's content
+   - Identify L{x+1} gap: read the Content Form for L{x+1} in C2 Matrix; the gap is the constraint dimension present in L{x+1} Content Form that is absent from the current sub-section
+   - If the sub-section already satisfies the maximum defined L, record no gap
+4. Collect all gaps for this section. Sort by L{x} ascending (lowest L first — weakest constraint is highest priority).
 
-1. Skip if `(section, probe)` ∈ `$CTX.skips`
-2. Read section body from `TECH_DOC_PATH`
-3. Merge `$CTX.anchors` into P2 / P4 inputs
-4. Read current L from `$CTX.state_vector[section]`
-5. Evaluate against C2 Diagnostic Criterion at that L
-6. Record pass (`无问题`) or failure (evidence, zoom, probe id)
-7. Keep at most one issue per section (apply arbitration below)
+### Step 3 — Anchor Ledger merge
 
-#### Arbitration
-
-One issue per section max:
-
-- Lower current L wins (L0 highest priority)
-- Same L: stronger failure evidence wins
-- Section tie-break: NS > NG > KD > SK > T
-
-### Step 3 — Anchor ledger merge
-
-Runs **after** Step 2. Re-check every committed anchor against current tech-doc + probe inputs.
+Runs **after** Step 2. Re-check every committed anchor against current tech-doc content.
 
 For each anchor in `$CTX.anchors`:
 
-- Re-check **fails** → **override** that section's Step 2 result with the anchor failure; run `$ROUND_CONTROL update-anchor-status --id {anchor_id} --status failing`
+- Re-check **fails** → override the relevant section's result with the anchor failure; run `$ROUND_CONTROL update-anchor-status --id {anchor_id} --status failing`
 - Re-check **passes** and status was `failing` → `$ROUND_CONTROL update-anchor-status --id {anchor_id} --status passing`
 
 Collect new anchor candidates (not yet committed) as `anchorCandidates` for human commit.
 
-### Step 4 — Deliver ProbeReport
+### Step 4 — Deliver GapReport
 
 1. Pin report at conversation top (keep visible entire round)
-2. Fill template below; use failure line format when not `无问题`
-3. Append `[REQUIRED]` when current L is L0 (must be handled; cannot skip)
-4. Return completion summary
+2. Fill template below; omit gap-free sections entirely
+3. Return completion summary
 
 **Template**
 
 ```markdown
-## ProbeReport — Round {ROUND_N}
+## GapReport — Round {ROUND_N}
 
-North Star [L{ns_l}]:              {result or 无问题}
-Non-Goals & Invariants [L{ng_l}]:  {result or 无问题}
-Key Decisions [L{kd_l}]:           {result or 无问题}
-Approach Skeleton [L{sk_l}]:       {result or 无问题}
-Tasks [L{t_l}]:                   {result or 无问题}
-Anchor Candidates:            [{candidate list or empty}]
-```
+### {Section Name}
+- [L{x}→L{x+1}] {brief description of sub-section intent}
+  Gap: {what L{x+1} requires that is currently absent}
+- [L{x}→L{x+1}] {brief description of sub-section intent}
+  Gap: {what L{x+1} requires that is currently absent}
 
-`{ns_l}` etc. come from `$CTX.state_vector`.
+### {Section Name}
+- [L{x}→L{x+1}] {brief description of sub-section intent}
+  Gap: {what L{x+1} requires that is currently absent}
 
-**Line format examples**
+Anchor failures: [{anchor id: description, ...}]
+Anchor candidates: [{scenario, ...}]
 
-```text
-Pass:  无问题
-Fail:  P2 失败 — NG 与 NS 语义冲突：… → zoom L1→L2
-L0:    P1 失败 — … → zoom L0→L1 [REQUIRED]
+Summary: {X} gaps across {Y} sections.
 ```
 
 **Return**
 
 ```text
-ProbeReport complete — Round {ROUND_N}.
-  Issues: {count of non-无问题 lines}
+GapReport complete — Round {ROUND_N}.
+  Gaps: {total count across all sections}
   Anchor failures: {count}
-  Next: await human decide (accept / reject / redirect / commit-anchor)
+  Next: await human decide (accept / reject / redirect / commit-anchor / stop)
 ```

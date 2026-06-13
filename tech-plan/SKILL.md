@@ -156,15 +156,15 @@ Refiner dispatch (per accept):
 Load {actual $SKILL_ROOT}/tech-plan/refiner-runner/SKILL.md and follow its instructions.
 
 ## Input
-CYCLE_DIR:       {absolute path to $CACHE_DIR/<cycle_id>}
-CYCLE_ID:        {cycle_id}
-CYCLE_TYPE:      {topic | feature}
-SECTION:         {section key or name}
-CURRENT_L:       {current L}
-TARGET_L:        {target L}
-ROUND_N:         {N}
-TECH_DOC_PATH:   {absolute path to revision{N}/tech-doc.md}
-ZOOM_EVIDENCE:   {probe failure evidence}
+CYCLE_DIR:          {absolute path to $CACHE_DIR/<cycle_id>}
+CYCLE_ID:           {cycle_id}
+CYCLE_TYPE:         {topic | feature}
+SECTION:            {section name, e.g. Invariants}
+SUB_SECTION_TEXT:   {verbatim sub-section content from GapReport}
+CURRENT_L:          {L{x} from GapReport}
+GAP_DESCRIPTION:    {gap description from GapReport — what L{x+1} requires that is absent}
+ROUND_N:            {N}
+TECH_DOC_PATH:      {absolute path to revision{N}/tech-doc.md}
 ```
 
 3. **Round end** — when human confirms all items handled, run `$ROUND_CONTROL check-l0`.
