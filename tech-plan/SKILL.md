@@ -104,8 +104,10 @@ Load `./transition-whitelist.json` — check `allowed_transitions` for valid tra
 
 #### Step 1 — Initializing
 
-1. Run `$DRAFT_CONTROL begin-init`. On failure → apply Blocking policy.
-2. Dispatch — paste `begin-init` stdout verbatim under `## Input`:
+1. Run `$DRAFT_CONTROL begin-init`. 
+
+- On failure → apply Blocking policy.
+- On success → dispatch initializing-runner (stdout → ## Input):
 
 ```text
 Load {actual $SKILL_ROOT}/tech-plan/initializing-runner/SKILL.md and follow its instructions.
@@ -116,7 +118,7 @@ Load {actual $SKILL_ROOT}/tech-plan/initializing-runner/SKILL.md and follow its 
 
 Await completion (`$SUBAGENT_AWAIT_SYNC`).
 
-3. Run `$DRAFT_CONTROL init-complete`. On failure → apply Blocking policy.
+2. Run `$DRAFT_CONTROL init-complete`. On failure → apply Blocking policy.
 
 #### Step 2 — Round Iteration Loop
 
