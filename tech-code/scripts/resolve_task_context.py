@@ -14,7 +14,7 @@ _SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
-from workflow_config import extract_subagent_model, load_workflow_config  # noqa: E402
+from workflow_config_schema import extract_subagent_model, load_workflow_config  # noqa: E402
 
 from code_task_list import parse_tdd_exempt_from_list  # noqa: E402
 from session_state_schema import load_session_state, load_work_order_round  # noqa: E402

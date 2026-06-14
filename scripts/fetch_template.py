@@ -84,13 +84,13 @@ def parse_blob_url(url: str) -> dict[str, str]:
     if len(candidates) > 1:
         raise FetchTemplateError(f"Ambiguous GitHub blob URL (multiple roots): {url}")
 
-    # Without a known root, only a single-segment ref can be parsed unambiguously.
-    if len(parts) == 2:
+    # Without a known root, treat the first segment as ref and the rest as path.
+    if len(parts) >= 2:
         return {
             "owner": base["owner"],
             "repo": base["repo"],
             "ref": parts[0],
-            "path": parts[1],
+            "path": "/".join(parts[1:]),
         }
     raise FetchTemplateError(f"Ambiguous GitHub blob URL (cannot resolve ref/path): {url}")
 

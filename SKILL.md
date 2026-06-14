@@ -21,15 +21,13 @@ under this directory.
 
 ## Commands
 
-> Commands use `$PLATFORM`, `$SKILL_ROOT`, `$CACHE_DIR`, and `$WORKFLOW_DIR`. Read `_runtime.md` § Platform Context before running any command.
+> Commands use `$PLATFORM`, `$SKILL_ROOT`, `$CACHE_DIR`, and `$WORKFLOW_DIR`. Read `_runtime.md` § Platform Context before running any command. Invoke scripts via **Command Index** macros only.
 
 ### `init` — Project-level, run once per project
 
 > Prerequisite: machine-level install via [`lulu-meta-skill install`](../lulu-meta-skill/install/SKILL.md).
 
-```bash
-python3 "$SKILL_ROOT/scripts/init.py" --project-root "$(pwd)" --platform $PLATFORM
-```
+Run `$INIT`.
 
 Registers platform config and workflow hooks. Does **not** create `workflow-config.json` — use `configure` first (or ensure `skill-config/lulu-dev-workflow/workflow-config.json` exists). Safe to re-run.
 
@@ -37,29 +35,17 @@ Run `configure` before `start` if the project has no workflow-config yet.
 
 ### `configure` — Download and apply a workflow-config.json from GitHub
 
-Usage: `lulu-dev-workflow configure <github-blob-url>`
+Writes to the same path that `fetch_template` and runtime use: `workflowConfig` in platform config (default `skill-config/lulu-dev-workflow/workflow-config.json`).
 
-Parse the GitHub blob URL to extract `owner`, `repo`, `ref`, `path`, then run:
+Run `$CONFIGURE`. Optional `--url` overrides the default framework template blob URL.
 
-```bash
-gh api "repos/{owner}/{repo}/contents/{path}?ref={ref}" \
-  --jq '.content' | base64 -d \
-  > "$WORKFLOW_DIR/workflow-config.json"
-```
+On success, stdout is the absolute path written. Do **not** write to `$WORKFLOW_DIR/workflow-config.json` unless `workflowConfig` points there.
 
-After download, display the new config. Default (if no URL given):
-```
-https://github.com/lulufoo/lulu-workflow-framework/blob/main/template/workflow-config.json
-```
+To inspect the resolved path without downloading, run `$WORKFLOW_CONFIG_PATH`.
 
 ### `start [name]` — Create a new feature
 
-Creates a new feature and prints the `cycle_id`:
-
-```bash
-python3 $SKILL_ROOT/scripts/cycle_init.py \
-  --project-root "$(pwd)" --name "[name]"
-```
+Run `$START` (set `<name>` in the macro).
 
 Prints the `cycle_id` (format: `{cycle_type}-YYYYMMDDHHMMSS-xxxxxxxx`). After running, append `LULU-DEV-WORKFLOW: <cycle_id>` to this response.
 
@@ -69,13 +55,23 @@ Usage: `lulu-dev-workflow archive [N]` (default N=5)
 
 Keeps the N most recent features (by creation timestamp in `cycle_id`) in `$CACHE_DIR`. Deletes older feature directories and removes their entries from `cycles.json`.
 
-```bash
-python3 $SKILL_ROOT/scripts/prune_features.py \
-  --project-root "$(pwd)" \
-  --keep N
-```
+Run `$ARCHIVE` (set `<N>`; default 5 when omitted).
 
 Prints a summary of deleted directories and retained features.
+
+## Command Index
+
+Macros invoke `$SKILL_ROOT/scripts/*.py`. Non-zero exit → stop and report stderr.
+
+| Macro | Command |
+|-------|---------|
+| `$INIT` | `python3 "$SKILL_ROOT/scripts/init.py" --project-root "$(pwd)" --platform $PLATFORM` |
+| `$CONFIGURE` | `python3 "$SKILL_ROOT/scripts/workflow_config.py" configure --project-root "$(pwd)" --platform $PLATFORM [--url "<github-blob-url>"]` |
+| `$WORKFLOW_CONFIG_PATH` | `python3 "$SKILL_ROOT/scripts/workflow_config.py" resolve-path --project-root "$(pwd)" --platform $PLATFORM` |
+| `$START` | `python3 "$SKILL_ROOT/scripts/cycle_init.py" --project-root "$(pwd)" --name "<name>"` |
+| `$ARCHIVE` | `python3 "$SKILL_ROOT/scripts/prune_features.py" --project-root "$(pwd)" --keep <N>` |
+
+Subcommands and stdout contracts: script module docstring or `--help`. Default `$CONFIGURE` URL: `workflow_config.py configure --help`.
 
 ## Sub-SKILL Routing
 

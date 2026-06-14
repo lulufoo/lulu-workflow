@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """Shared subagent model resolution from workflow-config.json.
 
-Thin re-export layer; implementation lives in workflow_config.py.
+Thin re-export layer; implementation lives in workflow_config_schema.py.
 """
 
 from __future__ import annotations
 
-from workflow_config import (  # noqa: F401
+from workflow_config_schema import (  # noqa: F401
+    apply_workflow_config_from_url,
+    default_configure_blob_url,
     default_platform_config,
     detect_platform,
     ensure_platform_config,
@@ -21,6 +23,8 @@ from workflow_config import (  # noqa: F401
 )
 
 __all__ = [
+    "apply_workflow_config_from_url",
+    "default_configure_blob_url",
     "default_platform_config",
     "detect_platform",
     "ensure_platform_config",

@@ -48,13 +48,27 @@ class TestParseBlobUrl:
             "lulu-dev-workflow/template/diagnostic/decision-doc.template.md"
         )
 
-    def test_rejects_ambiguous_blob_url_without_path(self):
-        with pytest.raises(FetchTemplateError, match="Ambiguous GitHub blob URL"):
-            parse_blob_url("https://github.com/o/r/blob/release/candidate/template.md")
+    def test_rejects_blob_url_with_ref_only(self):
+        with pytest.raises(FetchTemplateError, match="missing path"):
+            parse_blob_url("https://github.com/o/r/blob/main")
+
+    def test_parses_repo_root_template_path(self):
+        url = (
+            "https://github.com/lulufoo/lulu-workflow-framework/blob/main/"
+            "template/workflow-config.json"
+        )
+        parsed = parse_blob_url(url)
+        assert parsed["ref"] == "main"
+        assert parsed["path"] == "template/workflow-config.json"
 
     def test_rejects_non_github_url(self):
         with pytest.raises(FetchTemplateError, match="Not a GitHub blob URL"):
             parse_blob_url("https://example.com/doc.md")
+
+    def test_parses_path_when_known_root_not_matched(self):
+        parsed = parse_blob_url("https://github.com/o/r/blob/release/candidate/template.md")
+        assert parsed["ref"] == "release"
+        assert parsed["path"] == "candidate/template.md"
 
 
 class TestFetchTemplate:
