@@ -41,7 +41,6 @@ _SCHEMA: dict[str, Any] = {
         "cycle_type",
         "M",
         "ptc_url",
-        "tpt_intent_gap_probes_url",
         "tpt_intent_eval_framework_url",
     ],
 }

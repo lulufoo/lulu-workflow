@@ -101,18 +101,15 @@ def test_parse_work_order_task_list_accepts_letter_suffix_ids_and_escaped_pipes(
 
 | task_id | 标题 | 目标文件 | 依赖 | TDD 豁免 |
 | --- | --- | --- | --- | --- |
-| t10 | workflow-config.json nested product-plan.shaping\\|spec + template | `skill-config/lulu-dev-workflow/workflow-config.json`, `product-plan/templates/workflow-config.template.json` | t7 | 是 |
+| t10 | workflow-config.json nested product-plan.shaping\\|spec | `skill-config/lulu-dev-workflow/workflow-config.json` | t7 | 是 |
 | t12b | product-plan/SKILL.md shaping/spec 双路径 + G6 规则 | `product-plan/SKILL.md` | t12 | 是 |
 | t16c | [P2] tech-code/SKILL.md gate-model 门控步骤 | `tech-code/SKILL.md` | t6, t13 | 是 |
 """
     tasks = parse_work_order_task_list(content)
 
     assert [task["id"] for task in tasks] == ["t10", "t12b", "t16c"]
-    assert tasks[0]["title"] == "workflow-config.json nested product-plan.shaping|spec + template"
-    assert tasks[0]["target_file"] == (
-        "skill-config/lulu-dev-workflow/workflow-config.json, "
-        "product-plan/templates/workflow-config.template.json"
-    )
+    assert tasks[0]["title"] == "workflow-config.json nested product-plan.shaping|spec"
+    assert tasks[0]["target_file"] == "skill-config/lulu-dev-workflow/workflow-config.json"
     assert tasks[1]["depends"] == ["t12"]
     assert tasks[2]["depends"] == ["t6", "t13"]
     assert all(task["tdd_exempt"] for task in tasks)
@@ -124,7 +121,7 @@ def test_cli_generates_full_code_task_list_for_complex_task_ids(tmp_path):
 | task_id | 标题 | 目标文件 | 依赖 | TDD 豁免 |
 | --- | --- | --- | --- | --- |
 | t1 | cycle_init.py mode slug 重命名 + 测试 | `scripts/cycle_init.py`, `scripts/test_cycle_init.py` | — | 否 |
-| t10 | workflow-config.json nested product-plan.shaping\\|spec + template | `skill-config/lulu-dev-workflow/workflow-config.json`, `product-plan/templates/workflow-config.template.json` | t7 | 是 |
+| t10 | workflow-config.json nested product-plan.shaping\\|spec | `skill-config/lulu-dev-workflow/workflow-config.json` | t7 | 是 |
 | t12b | product-plan/SKILL.md shaping/spec 双路径 + G6 规则 | `product-plan/SKILL.md` | t12 | 是 |
 | t16c | [P2] tech-code/SKILL.md gate-model 门控步骤 | `tech-code/SKILL.md` | t6, t13 | 是 |
 """
@@ -179,7 +176,7 @@ def test_cli_generates_full_code_task_list_for_complex_task_ids(tmp_path):
     assert "total: 4" in content
     assert "t12b" in content
     assert "t16c" in content
-    assert "product-plan.shaping|spec + template" in content
+    assert "product-plan.shaping|spec" in content
 
 
 def test_cli_errors_when_work_order_task_list_missing(tmp_path):

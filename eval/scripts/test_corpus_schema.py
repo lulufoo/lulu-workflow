@@ -26,7 +26,6 @@ class TestGetSchema:
     def test_has_bind_placeholders(self):
         schema = get_schema()
         assert "tech_doc" in schema["bind_placeholders"]
-        assert "tpt_intent_gap_probes_url" in schema["bind_placeholders"]
         assert "tpt_intent_eval_framework_url" in schema["bind_placeholders"]
         assert schema["enums"]["sot_kind"] == ["url", "codebase"]
         assert schema["enums"]["codebase_strategy"] == ["all"]
@@ -79,8 +78,7 @@ class TestExpandCorpus:
         "cycle_type": "feature",
         "M": "1",
         "ptc_url": "https://github.com/o/r/blob/main/ptc.md",
-        "tpt_intent_gap_probes_url": "https://github.com/o/r/blob/main/intent-gap-probes.md",
-        "tpt_intent_eval_framework_url": "https://github.com/o/r/blob/main/intent-eval-framework.md",
+        "tpt_intent_eval_framework_url": "https://github.com/o/r/blob/main/32-tech-plan-intent-evaluation-framework.md",
     }
 
     def test_expand_substitutes_paths(self):
@@ -102,8 +100,8 @@ class TestExpandCorpus:
         data = load_corpus(_CORPUS_DIR / "tech-plan-product.json")
         expanded = expand_corpus(data, self._BIND)
         e3 = expanded["dimensions"][2]
-        assert e3["sots"][0]["ref"] == self._BIND["tpt_intent_gap_probes_url"]
-        assert e3["method"]["source"] == self._BIND["tpt_intent_eval_framework_url"]
+        assert e3["sots"][0]["ref"] == self._BIND["tpt_intent_eval_framework_url"]
+        assert e3["method"]["source"] == {"procedure_id": "intent_gap_probes"}
 
     def test_invalid_codebase_strategy(self):
         dim = {

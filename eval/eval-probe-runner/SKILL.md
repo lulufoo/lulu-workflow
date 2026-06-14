@@ -67,6 +67,7 @@ PRODUCT_REF           absolute path (only when SOTS_JSON references product doc)
 4. Load EvalMethod **M**:
    - `external` · `source` (https URL or absolute path) → `read_ref(source, project_root=Path(PROJECT_ROOT))` as rubric
    - `builtin` · `source.procedure_id: codebase_consistency` → compare B against code read from codebase SoT root per METHOD_FOCUS
+   - `builtin` · `source.procedure_id: intent_gap_probes` → follow **solution-quality (e3)** procedure below; criteria from url SoT **A**
 
 When `SOTS_JSON` is empty, **M** carries both rubric and basis.
 
@@ -78,16 +79,26 @@ Evaluate **B** using loaded SoT content and **M** / `METHOD_FOCUS`.
 
 ### solution-quality (e3)
 
-1. Load **A** from SoT (`intent-gap-probes.md` — P1–P4 definitions).
-2. Load **M** from external method source (`32-tech-plan-intent-evaluation-framework.md` — procedure).
-3. Do **not** parse `<!-- state-vector: … -->`. Do **not** load `layer-standards` or L Diagnostic Criteria.
-4. Follow **M** §3–§7:
-   - Load **R** via `$FETCH_TECH_PLAN section-registry` (same project root as eval).
-   - Traverse `section_order` from **R**; load each section body via `<!-- section-key:{key} -->` in **B** (not H2 display titles); split sub-sections.
-   - Run applicable P1–P4 per sub-section (see M §5 and A).
-   - For P3, use upstream closure from **R** (`sections.{key}.upstream`) per M §3.3.
-5. Apply Plan Scope Constraints (`### Role`) when wording issues and choosing severity (M §6).
-6. Optional: last section in `section_order` — task executability sanity check (M §7).
+Builtin `procedure_id: intent_gap_probes`. Criteria **A** = url SoT (`32-tech-plan-intent-evaluation-framework.md` via `tpt_intent_eval_framework_url`).
+
+1. Load **A** from SoT (P1–P4 definitions and applicability in **A**).
+2. Do **not** parse `<!-- state-vector: … -->`. Do **not** load `layer-standards` or L Diagnostic Criteria.
+3. Load **R** via `$FETCH_TECH_PLAN section-registry` (same `PROJECT_ROOT`).
+4. For each `K` in **R** `section_order`:
+   - Load section body via `<!-- section-key:K -->` in **B** (not H2 display titles).
+   - Split sub-sections (one coherent intent unit; skip empty / boilerplate-only).
+   - For each sub-section, run applicable probes per **A** (`Applies when` in each P section).
+   - **P3:** upstream bodies = full sections listed in `sections.K.upstream` from **R**.
+5. **Severity** (default; adjust per Plan Scope `### Role` and **R**):
+   - P1 fail on first `section_order` key → `high`
+   - P1 fail on a key in any later section's `upstream` list → `high`
+   - P2 fail before last key in `section_order` → `high`
+   - P3 fail when `sections.K.upstream` non-empty → `high`
+   - P4 fail on last key in `section_order` → `high`
+   - P1/P2 fail on late approach-style sections (Done-when only) → `medium`
+   - P4 edge cases on early direction-style sections → `medium`
+6. Optional: on last `section_order` key — sanity-check verifiable action or file reference.
+7. `sot_ref` → `32-tech-plan-intent-evaluation-framework.md#P{n}`; `description` → Gap output from **A**.
 
 For each finding classify `root_cause` per `eval/SKILL.md` and fill all required columns.
 

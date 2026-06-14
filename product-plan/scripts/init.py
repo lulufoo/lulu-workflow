@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import argparse
-import json
 import sys
 from pathlib import Path
 
@@ -13,11 +12,8 @@ from subagent_config import ensure_platform_config  # noqa: E402
 
 from workflow_common import (
     _PLATFORM,
-    PLATFORM_CONFIG_PATH,
     SKILL_ROOT,
     resolve_workflow_config_path,
-    read_json,
-    write_json,
 )
 
 
@@ -25,16 +21,6 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Initialize lulu-dev-workflow in a project.")
     parser.add_argument("--project-root", required=True, help="Project root directory.")
     return parser.parse_args()
-
-
-def source_root() -> Path:
-    return Path(__file__).resolve().parents[1]
-
-
-def load_template_payload(template_name: str) -> dict:
-    template_path = source_root() / "templates" / template_name
-    with template_path.open("r", encoding="utf-8") as handle:
-        return json.load(handle)
 
 
 def ensure_gitignore_entry(project_root: Path) -> None:
@@ -57,39 +43,31 @@ def main() -> int:
     args = parse_args()
     project_root = Path(args.project_root).resolve()
 
-    config_template = load_template_payload("workflow-config.template.json")
-    config_path = resolve_workflow_config_path(project_root)
-
-    if config_path.exists():
-        existing = read_json(config_path)
-        existing["version"] = config_template["version"]
-        config = existing
-    else:
-        config = config_template
-
-    write_json(config_path, config)
-
     ensure_platform_config(project_root, platform=_PLATFORM)
-
     ensure_gitignore_entry(project_root)
 
+    config_path = resolve_workflow_config_path(project_root)
     config_path_display = config_path.as_posix()
+    if config_path.exists():
+        config_note = f"workflow-config 已存在：{config_path_display}"
+    else:
+        config_note = (
+            f"workflow-config 未配置。请运行 lulu-dev-workflow configure "
+            f"（目标路径：{config_path_display}）"
+        )
+
     _start_py = str(SKILL_ROOT / "scripts" / "start.py").replace(str(Path.home()), "~")
     print(f"""
-初始化完成。
+product-plan 初始化完成。
 
-创建的文件：
-  {config_path_display}
+{config_note}
 
 下一步：
-1. 编辑 {config_path_display}，填写 product-plan 配置 URL。
+1. 若尚未 configure，先应用 workflow-config.json。
 2. 开始第一个产品文档，运行 start 命令：
 
    python3 {_start_py} \\
      --project-root "$(pwd)" --cycle-id "<your-cycle-id>"
-
-配置模板参考：
-  https://github.com/lulufoo/ai-software-dev/tree/main/ai-dev-workflow-framework/product_template
 """)
     return 0
 

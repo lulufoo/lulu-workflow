@@ -120,7 +120,6 @@ class TechPlanEvalAdapter:
     def _empty_corpus_bind() -> dict[str, str]:
         return {
             "ptc_url": "",
-            "tpt_intent_gap_probes_url": "",
             "tpt_intent_eval_framework_url": "",
         }
 
@@ -143,15 +142,11 @@ class TechPlanEvalAdapter:
         if not isinstance(section, dict):
             return self._empty_corpus_bind()
         ptc_url = str(section.get("ptc_url", "")).strip()
-        tpt_intent_gap_probes_url = str(
-            section.get("tpt_intent_gap_probes_url", ""),
-        ).strip()
         tpt_intent_eval_framework_url = str(
             section.get("tpt_intent_eval_framework_url", ""),
         ).strip()
         return {
             "ptc_url": ptc_url,
-            "tpt_intent_gap_probes_url": tpt_intent_gap_probes_url,
             "tpt_intent_eval_framework_url": tpt_intent_eval_framework_url,
         }
 

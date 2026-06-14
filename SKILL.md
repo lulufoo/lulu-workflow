@@ -31,9 +31,9 @@ under this directory.
 python3 "$SKILL_ROOT/scripts/init.py" --project-root "$(pwd)" --platform $PLATFORM
 ```
 
-Creates `$WORKFLOW_DIR/workflow-config.json` and registers all sub-workflow hooks. Safe to re-run.
+Registers platform config and workflow hooks. Does **not** create `workflow-config.json` — use `configure` first (or ensure `skill-config/lulu-dev-workflow/workflow-config.json` exists). Safe to re-run.
 
-After init, optionally run `configure` to apply a team config, then `start` to begin a feature.
+Run `configure` before `start` if the project has no workflow-config yet.
 
 ### `configure` — Download and apply a workflow-config.json from GitHub
 

@@ -80,12 +80,14 @@
         {
           "kind": "url",
           "role": "primary",
-          "ref": "{tpt_intent_gap_probes_url}"
+          "ref": "{tpt_intent_eval_framework_url}"
         }
       ],
       "method": {
-        "kind": "external",
-        "source": "{tpt_intent_eval_framework_url}",
+        "kind": "builtin",
+        "source": {
+          "procedure_id": "intent_gap_probes"
+        },
         "focus": "P1–P4 intent gap probes — semantic fidelity, boundaries, derivability, edge cases"
       },
       "review": {

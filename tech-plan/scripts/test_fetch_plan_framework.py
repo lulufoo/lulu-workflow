@@ -26,7 +26,6 @@ class TestResolveKey:
             ("section-kw-criteria", "tpt_section_kw_criteria_url"),
             ("section-registry", "tpt_section_registry_url"),
             ("eval-ptc", "ptc_url"),
-            ("intent-probes", "tpt_intent_gap_probes_url"),
             ("intent-eval-framework", "tpt_intent_eval_framework_url"),
         ],
     )
@@ -41,7 +40,6 @@ class TestResolveKey:
         assert set(ROLE_KEYS) == {
             "decision-doc-mapping",
             "eval-ptc",
-            "intent-probes",
             "intent-eval-framework",
             "section-kw-criteria",
             "section-registry",
@@ -87,12 +85,12 @@ class TestFetchPlanFramework:
 
 
 class TestMainCli:
-    def test_main_accepts_role_without_cycle_type(self, tmp_path: Path, monkeypatch) -> None:
+    def test_main_accepts_intent_eval_framework_role(self, tmp_path: Path, monkeypatch) -> None:
         import fetch_plan_framework as mod
 
         def stub_fetch(role: str, project_root: Path, **kwargs) -> str:
-            assert role == "intent-probes"
-            return "# probes\n"
+            assert role == "intent-eval-framework"
+            return "# criteria\n"
 
         monkeypatch.setattr(mod, "fetch_plan_framework", stub_fetch)
-        assert mod.main(["--role", "intent-probes", "--project-root", str(tmp_path)]) == 0
+        assert mod.main(["--role", "intent-eval-framework", "--project-root", str(tmp_path)]) == 0
