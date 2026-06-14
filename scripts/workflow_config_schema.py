@@ -7,13 +7,13 @@ Library module — CLI lives in workflow_config.py.
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 from typing import Optional
 
+from platform_schema import PLATFORM_PATHS, detect_platform as _detect_platform
+
 _WORKFLOW_DIR_MAP = {
-    "cursor": Path(".cursor/lulu-dev-workflow"),
-    "copilot": Path(".github/lulu-dev-workflow"),
+    platform: paths["workflow_dir"] for platform, paths in PLATFORM_PATHS.items()
 }
 
 _DEFAULT_WORKFLOW_CONFIG_PATH = "skill-config/lulu-dev-workflow/workflow-config.json"
@@ -23,12 +23,7 @@ _DEFAULT_CONFIGURE_BLOB_URL = (
 
 
 def detect_platform(platform: Optional[str] = None) -> str:
-    if platform:
-        return platform
-    return (
-        os.environ.get("LULU_PLATFORM")
-        or ("copilot" if os.environ.get("COPILOT_AGENT") else "cursor")
-    )
+    return _detect_platform(override=platform, strict=False)
 
 
 def default_platform_config() -> dict:

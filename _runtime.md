@@ -1,87 +1,51 @@
+## Script Macros
+
+Non-zero exit → stop and report stderr (unless noted below).
+
+| Macro | Command |
+|-------|---------|
+| `$RUNTIME_CONTROL` | `python3 "$SKILL_ROOT/scripts/runtime_control.py" --project-root "$(pwd)" <subcommand> [args...]` |
+| `$RESOLVE_PLATFORM_CONTEXT` | `$RUNTIME_CONTROL resolve-platform-context` |
+| `$RESOLVE_SESSION_CONTEXT` | `$RUNTIME_CONTROL resolve-session-context` |
+| `$SET_EXECUTION_MODE` | `$RUNTIME_CONTROL set-execution-mode --cycle-id "$CYCLE_ID" --mode <mode>` |
+| `$FETCH_TEMPLATE` | `python3 "$SKILL_ROOT/scripts/fetch_template.py" --section <section> --key <key> --project-root "$(pwd)" --platform $PLATFORM` |
+
+Subcommands and stdout: `runtime_control.py` / `fetch_template.py` module docstring or `--help`.
+
 ## Platform Context
 
-**Detect once at session start, substitute `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, and `$CACHE_DIR` throughout:**
+When `$PLATFORM`, `$SKILL_ROOT`, `$WORKFLOW_DIR`, or `$CACHE_DIR` is needed: `$RESOLVE_PLATFORM_CONTEXT`.
 
-| | Cursor | Copilot |
-|---|---|---|
-| `$PLATFORM` | `cursor` | `copilot` |
-| `$SKILL_ROOT` | `~/.cursor/skills/lulu-dev-workflow` | `~/.copilot/skills/lulu-dev-workflow` |
-| `$WORKFLOW_DIR` | `.cursor/lulu-dev-workflow` | `.github/lulu-dev-workflow` |
-| `$CACHE_DIR` | `.cache/cursor/lulu-dev-workflow` | `.cache/copilot/lulu-dev-workflow` |
+Non-zero exit → stop. Map stdout JSON: `platform`→`$PLATFORM`, `skill_root`→`$SKILL_ROOT`, `workflow_dir`→`$WORKFLOW_DIR`, `cache_dir`→`$CACHE_DIR`.
 
-> **Detect:** `COPILOT_AGENT=1` env var → Copilot; `VSCODE_TARGET_SESSION_LOG` template variable present → Copilot; otherwise → Cursor.
+## Session Context
 
-## Session Foundation
+When `$CYCLE_ID`, `$STAGE`, `$CYCLE_TYPE`, or `$EXECUTION_MODE` is needed: `$RESOLVE_SESSION_CONTEXT`.
 
-### Active Context
+Exit 0 always; empty fields → Feature Resolution below. Map stdout: `cycle_id`→`$CYCLE_ID`, `cycle_type`→`$CYCLE_TYPE`, `stage`→`$STAGE`, `execution_mode`→`$EXECUTION_MODE`.
 
-`active-context.json` is indexed by Cursor/Copilot `conversation_id`:
+| Mode | Behavior |
+|------|----------|
+| `guided` | Lead, ask, recommend; wait at gates |
+| `autonomous` | Execute only; tech-line auto-chains feature cycles |
 
-```json
-{ "<conversation_id>": { "cycle_id": "...", "stage": "tech-plan", "cycle_type": "feature" } }
-```
+User sends `SET_EXECUTION_MODE: <mode>` → `$SET_EXECUTION_MODE --mode <mode>`; non-zero exit → stop; announce `Execution mode → <mode>`.
 
-- `cycle_type`: `"topic"` | `"feature"` — backward compat: absent field is treated as `"feature"`
-- Re-starting a different feature in the **same** conversation overwrites that conv entry (one active workflow per conversation)
+## Template Fetch
 
-**Output variables:** `$CYCLE_ID` · `$EXECUTION_MODE` (`"guided"` | `"autonomous"`)
+Direct `fetch_template.py` usage is forbidden. Use `$FETCH_TEMPLATE <section> <key>` or `$FETCH_TECH_PLAN <role>` (`tech-plan/SKILL.md` → Script Macros).
 
-### Execution Mode
+- Success → output body; announce `Template fetched: <section>.<key>`
+- Failure → stop current step
+- Cache: `$CACHE_DIR/.template/{section}/{key}.md`
 
-| Mode | Value | AI Behavior |
-|------|-------|-------------|
-| Guided | `"guided"` | Proactively leads, asks, recommends; waits at key gates |
-| Autonomous | `"autonomous"` | Executes instructions only; no unprompted advances; tech-line auto-chains feature cycles |
-
-`$EXECUTION_MODE` is set during Feature Resolution and applies to all subsequent stages.
-
-#### Initial Mode Resolution
-
-1. `cycle_id` not in `cycles.json` → `"guided"`
-2. Value is an object → use `object.execution_mode`
-
-#### Runtime Switch
-
-The user may switch mode at any point by entering:
-
-```
-SET_EXECUTION_MODE: <mode>
-```
-
-On detection: `$EXECUTION_MODE ← <mode>`, effective immediately for all remaining stages.
-Announce: `Execution mode → <mode>`
-
-Sub-SKILLs do not emit this command directly. They may prompt the user that switching is available.
-
-### Template Fetch
-
-Direct `fetch_template.py` usage in docs and workflow steps is forbidden. Use one of:
-
-```text
-$FETCH_TEMPLATE <section> <key>
-$FETCH_TECH_PLAN <role>    # tech-plan only; see tech-plan/SKILL.md Script Macros
-```
-
-- **Success:** output template body and announce `Template fetched: <section>.<key>` (or `tech-plan.<resolved_key>` for `$FETCH_TECH_PLAN`).
-- **Failure:** report error and stop current step.
-- **Cache:** `$CACHE_DIR/.template/{section}/{key}.md` (delete this file to refresh).
-
-### Feature Resolution
-
-#### Fast Path
+## Feature Resolution
 
 1. Scan conversation for latest `LULU-DEV-WORKFLOW: <id>` (skip summary blocks)
-2. If found, no ambiguity signal → Initial Mode Resolution → DONE
-   Ambiguity: no footer · user mentions different feature · says "switch" / "new" / "choose"
+2. Found and no ambiguity → set `$CYCLE_ID`; read workflow docs from `$CACHE_DIR/$CYCLE_ID/` only
+3. Ambiguity (no footer · different feature · "switch"/"new"/"choose") or miss → read `../_slowpath.md`
 
-If Fast Path fails → read `../_slowpath.md` and execute Slow Path.
-
-#### Done
-
-- `$CYCLE_ID` confirmed
-- Read workflow docs only from `$CACHE_DIR/$CYCLE_ID/`
-
-### Feature Tracking Convention
+## Feature Tracking Convention
 
 Every workflow AI response must end with:
 

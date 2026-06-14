@@ -378,7 +378,7 @@ class TestActiveContextBackwardCompat:
         _scripts = _SRC / "lulu-dev-workflow" / "scripts"
         if str(_scripts) not in sys.path:
             sys.path.insert(0, str(_scripts))
-        from active_context import read_all  # noqa: E402
+        from active_context_schema import read_all  # noqa: E402
 
         cd = _cache_dir(tmp_path)
         cd.mkdir(parents=True, exist_ok=True)

@@ -14,7 +14,7 @@ A staged development workflow framework. Each stage is an independent sub-module
 under this directory.
 
 > **Runtime modules** (loaded by sub-skills, not this file):
-> - `_runtime.md` — Platform Context + Session Foundation (all sub-skills)
+> - `_runtime.md` — Script Macros + Platform / Session / Execution Mode (all sub-skills)
 > - `_slowpath.md` — Feature Resolution Slow Path (loaded on demand)
 > - `_transitions.md` — Stage Transitions + Rollback (loaded at delivery)
 > - `_subagent.md` — Sub-agent Context (tech-code, tech-work-order only)
@@ -35,8 +35,10 @@ Do **not** call `cycle_schema.py` or bare `python3 .../cycle_control.py` paths �
 | Layer | Requirement |
 |-------|-------------|
 | Machine | [`lulu-meta-skill install`](../lulu-meta-skill/install/SKILL.md) (once per machine) |
-| Runtime | Read `_runtime.md` § Platform Context before any command |
+| Runtime | Read `_runtime.md` § Script Macros + § Platform Context when platform vars are needed |
 | Platform vars | `$PLATFORM`, `$SKILL_ROOT`, `$CACHE_DIR`, `$WORKFLOW_DIR` |
+| Session | Read `_runtime.md` § Session Context; resolve session variables when any are needed |
+| Session vars | `$CYCLE_ID`, `$CYCLE_TYPE`, `$STAGE`, `$EXECUTION_MODE` |
 | Project config | `workflow-config.json` at resolved `workflowConfig` path (see ## Command Semantics → configure) |
 
 ## Command Flow
@@ -50,7 +52,7 @@ Do **not** call `cycle_schema.py` or bare `python3 .../cycle_control.py` paths �
 
 ### New feature — repo already bootstrapped
 
-1. Resolve active cycle — `_runtime.md` § Session Foundation (Fast Path / Slow Path)
+1. Resolve active cycle — `_runtime.md` § Session Context, then § Feature Resolution if needed
 2. If user wants a **new** feature → `$CYCLE_CONTROL start ...`
 3. If user names a sub-stage → ## Sub-SKILL Routing (do not start here)
 
@@ -125,6 +127,8 @@ Do **not** call `cycle_schema.py` or bare `python3 .../cycle_control.py` paths �
 - **Safe:** re-run allowed (idempotent hooks registration).
 
 ## Script Macros
+
+Requires `$SKILL_ROOT` and `$PLATFORM` from `_runtime.md` § Platform Context.
 
 Non-zero exit → stop and report stderr.
 

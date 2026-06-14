@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from active_context import get_entry
+from active_context_schema import get_entry
 from cycle_schema import read_stage as read_cycle_state  # noqa: F401
 from cycle_schema import write_stage as write_cycle_state  # noqa: F401
 

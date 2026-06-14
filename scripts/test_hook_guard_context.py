@@ -70,12 +70,12 @@ def _write_payload(
 
 class TestReadActiveStage:
     def test_returns_stage_for_conversation(self, tmp_path, monkeypatch):
-        import active_context
+        import active_context_schema
         from hook_guard import _read_active_stage
 
         monkeypatch.chdir(tmp_path)
-        active_context.write_entry(tmp_path, "cursor", "conv-a", _FID_A, "tech-plan")
-        active_context.write_entry(tmp_path, "cursor", "conv-b", _FID_B, "product-plan")
+        active_context_schema.write_entry(tmp_path, "cursor", "conv-a", _FID_A, "tech-plan")
+        active_context_schema.write_entry(tmp_path, "cursor", "conv-b", _FID_B, "product-plan")
 
         assert _read_active_stage("cursor", "conv-a") == "tech-plan"
         assert _read_active_stage("cursor", "conv-b") == "product-plan"
@@ -261,12 +261,12 @@ class TestMainRouting:
         assert "updated_input" not in result
 
     def test_routes_by_conversation_id(self, tmp_path, monkeypatch):
-        import active_context
+        import active_context_schema
         import hook_guard
 
         monkeypatch.chdir(tmp_path)
-        active_context.write_entry(tmp_path, "cursor", "conv-a", _FID_A, "tech-plan")
-        active_context.write_entry(tmp_path, "cursor", "conv-b", _FID_B, "product-plan")
+        active_context_schema.write_entry(tmp_path, "cursor", "conv-a", _FID_A, "tech-plan")
+        active_context_schema.write_entry(tmp_path, "cursor", "conv-b", _FID_B, "product-plan")
 
         loaded: list[str] = []
 
@@ -298,11 +298,11 @@ class TestMainRouting:
 
 class TestDeliveredBypass:
     def test_delivered_allows_outside_cache(self, tmp_path, monkeypatch):
-        import active_context
+        import active_context_schema
         import hook_guard
 
         monkeypatch.chdir(tmp_path)
-        active_context.write_entry(
+        active_context_schema.write_entry(
             tmp_path, "cursor", "conv-a", _CYCLE_ID, "tech-plan"
         )
         _make_workflow_state(_cache_dir(tmp_path), _CYCLE_ID, "tech-plan", "Delivered")
@@ -330,11 +330,11 @@ class TestDeliveredBypass:
         assert result["permission"] == "allow"
 
     def test_not_delivered_denies_outside_cache(self, tmp_path, monkeypatch):
-        import active_context
+        import active_context_schema
         import hook_guard
 
         monkeypatch.chdir(tmp_path)
-        active_context.write_entry(
+        active_context_schema.write_entry(
             tmp_path, "cursor", "conv-a", _CYCLE_ID, "tech-plan"
         )
         _make_workflow_state(_cache_dir(tmp_path), _CYCLE_ID, "tech-plan", "Drafting")
@@ -356,11 +356,11 @@ class TestDeliveredBypass:
         assert "inform the user" in result["agent_message"].lower()
 
     def test_invalidated_still_denies_outside_cache(self, tmp_path, monkeypatch):
-        import active_context
+        import active_context_schema
         import hook_guard
 
         monkeypatch.chdir(tmp_path)
-        active_context.write_entry(
+        active_context_schema.write_entry(
             tmp_path, "cursor", "conv-a", _CYCLE_ID, "tech-plan"
         )
         _make_workflow_state(
@@ -381,11 +381,11 @@ class TestDeliveredBypass:
         assert result["permission"] == "deny"
 
     def test_flat_stage_delivered_allows_outside_cache(self, tmp_path, monkeypatch):
-        import active_context
+        import active_context_schema
         import hook_guard
 
         monkeypatch.chdir(tmp_path)
-        active_context.write_entry(
+        active_context_schema.write_entry(
             tmp_path, "cursor", "conv-a", _CYCLE_ID, "diagnostic"
         )
         _make_workflow_state(

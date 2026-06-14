@@ -12,6 +12,8 @@ from uuid import uuid4
 
 from workflow_config_schema import detect_platform  # noqa: E402
 
+VALID_EXECUTION_MODES = frozenset({"guided", "autonomous"})
+
 
 def resolve_cache_dir(project_root: Path, platform: Optional[str] = None) -> Path:
     plat = detect_platform(platform)
@@ -107,6 +109,21 @@ def build_cycle_info(cache_dir: Path, cycle_id: str) -> Optional[dict]:
     if "topic_id" in entry:
         info["topic_id"] = entry["topic_id"]
     return info
+
+
+def set_execution_mode(cache_dir: Path, cycle_id: str, mode: str) -> dict[str, str]:
+    if mode not in VALID_EXECUTION_MODES:
+        raise ValueError(f"invalid execution_mode: {mode!r}")
+    data = load_cycles(cache_dir)
+    if cycle_id not in data:
+        raise ValueError(f"cycle-id {cycle_id!r} not found in cycles.json")
+    entry = data[cycle_id]
+    if not isinstance(entry, dict):
+        entry = {"name": str(entry), "execution_mode": "guided"}
+        data[cycle_id] = entry
+    entry["execution_mode"] = mode
+    save_cycles(cache_dir, data)
+    return {"cycle_id": cycle_id, "execution_mode": mode}
 
 
 def ensure_container_dir(cache_dir: Path, cycle_id: str) -> Path:

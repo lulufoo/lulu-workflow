@@ -10,6 +10,7 @@ Subcommands:
     list                  Print cycles.json summary for Feature Resolution
     info                  JSON metadata for one cycle (--cycle-id)
     validate              Exit 0 when cycle exists in index and on disk
+    set-execution-mode    Update execution_mode for one cycle in cycles.json
 """
 
 from __future__ import annotations
@@ -30,6 +31,7 @@ from cycle_schema import (  # noqa: E402
     generate_cycle_id,
     prune_cycles,
     resolve_cache_dir,
+    set_execution_mode,
     validate_cycle,
 )
 from init_ops import run_init_project  # noqa: E402
@@ -47,6 +49,7 @@ _CMD_ARCHIVE = "archive"
 _CMD_LIST = "list"
 _CMD_INFO = "info"
 _CMD_VALIDATE = "validate"
+_CMD_SET_EXECUTION_MODE = "set-execution-mode"
 
 
 def _add_project_args(parser: argparse.ArgumentParser) -> None:
@@ -157,6 +160,28 @@ def cmd_validate(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_set_execution_mode(args: argparse.Namespace) -> int:
+    cache_dir = resolve_cache_dir(args.project_root, args.platform)
+    try:
+        payload = set_execution_mode(cache_dir, args.cycle_id, args.mode)
+    except ValueError as exc:
+        print(
+            json.dumps(
+                {
+                    "ok": False,
+                    "command": _CMD_SET_EXECUTION_MODE,
+                    "current_state": args.cycle_id,
+                    "message": f"{exc}. Pause execution and wait for user direction.",
+                },
+                separators=(",", ":"),
+            )
+        )
+        print(str(exc), file=sys.stderr)
+        return 1
+    print(json.dumps(payload, separators=(",", ":")))
+    return 0
+
+
 def cmd_archive(args: argparse.Namespace) -> int:
     cache_dir = resolve_cache_dir(args.project_root, args.platform)
     prune_cycles(cache_dir, args.keep, args.project_root)
@@ -248,6 +273,19 @@ def _cli(argv: Optional[list[str]] = None) -> int:
     )
     validate.add_argument("--cycle-id", required=True, help="Cycle ID to validate.")
     validate.set_defaults(handler=cmd_validate)
+
+    set_mode = sub.add_parser(
+        _CMD_SET_EXECUTION_MODE,
+        help="Update execution_mode for one cycle in cycles.json.",
+    )
+    set_mode.add_argument("--cycle-id", required=True, help="Cycle ID to update.")
+    set_mode.add_argument(
+        "--mode",
+        required=True,
+        choices=sorted({"guided", "autonomous"}),
+        help="New execution mode.",
+    )
+    set_mode.set_defaults(handler=cmd_set_execution_mode)
 
     args = parser.parse_args(argv)
     args.project_root = args.project_root.resolve()

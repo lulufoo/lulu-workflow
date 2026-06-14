@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Conversation-indexed active-context read/write helpers."""
+"""Schema and I/O for active-context.json."""
 
 from __future__ import annotations
 

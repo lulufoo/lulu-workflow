@@ -187,7 +187,7 @@ def write_active_context(
     _scripts_dir = Path(__file__).resolve().parents[2] / "scripts"
     if str(_scripts_dir) not in sys.path:
         sys.path.insert(0, str(_scripts_dir))
-    from active_context import resolve_conversation_id, write_entry  # noqa: E402
+    from active_context_schema import resolve_conversation_id, write_entry  # noqa: E402
 
     conv_id = resolve_conversation_id(conversation_id)
     if not conv_id:

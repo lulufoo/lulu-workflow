@@ -548,3 +548,36 @@ class TestCLITypeFeature:
                            extra_args=["--topic-id", "topic-99999999999999-ffffffff"])
         assert result.returncode != 0
         assert result.stderr.strip() != "", "stderr should have an error message"
+
+
+class TestSetExecutionMode:
+    def test_updates_existing_cycle(self, tmp_path):
+        from cycle_schema import append_cycle, resolve_cache_dir, set_execution_mode
+
+        cache_dir = resolve_cache_dir(tmp_path, "cursor")
+        cache_dir.mkdir(parents=True)
+        cycle_id = "feature-20260101000000-55555555"
+        append_cycle(cache_dir, cycle_id, "demo", "guided")
+        payload = set_execution_mode(cache_dir, cycle_id, "autonomous")
+        assert payload == {"cycle_id": cycle_id, "execution_mode": "autonomous"}
+        data = json.loads((cache_dir / "cycles.json").read_text())
+        assert data[cycle_id]["execution_mode"] == "autonomous"
+
+    def test_invalid_mode_raises(self, tmp_path):
+        from cycle_schema import resolve_cache_dir, set_execution_mode
+
+        cache_dir = resolve_cache_dir(tmp_path, "cursor")
+        cache_dir.mkdir(parents=True)
+        cycle_id = "feature-20260101000000-66666666"
+        (cache_dir / "cycles.json").write_text(json.dumps({cycle_id: {"name": "demo", "execution_mode": "guided"}}))
+        with pytest.raises(ValueError, match="invalid execution_mode"):
+            set_execution_mode(cache_dir, cycle_id, "turbo")
+
+    def test_unknown_cycle_raises(self, tmp_path):
+        from cycle_schema import resolve_cache_dir, set_execution_mode
+
+        cache_dir = resolve_cache_dir(tmp_path, "cursor")
+        cache_dir.mkdir(parents=True)
+        (cache_dir / "cycles.json").write_text("{}")
+        with pytest.raises(ValueError, match="not found"):
+            set_execution_mode(cache_dir, "feature-20260101000000-77777777", "guided")

@@ -134,3 +134,37 @@ class TestCycleControlValidate:
             "validate", "--cycle-id", "feature-20990101000000-00000000",
         )
         assert result.returncode != 0
+
+
+class TestCycleControlSetExecutionMode:
+    def _cache_dir(self, tmp_path: Path) -> Path:
+        return tmp_path / ".cache" / "copilot" / "lulu-dev-workflow"
+
+    def test_set_execution_mode_success(self, tmp_path):
+        start = _run("--project-root", str(tmp_path), "start", "--name", "feat", "--mode", "guided")
+        cycle_id = start.stdout.strip().splitlines()[-1]
+        result = _run(
+            "--project-root", str(tmp_path),
+            "set-execution-mode",
+            "--cycle-id", cycle_id,
+            "--mode", "autonomous",
+        )
+        assert result.returncode == 0, result.stderr
+        payload = json.loads(result.stdout.strip())
+        assert payload == {"cycle_id": cycle_id, "execution_mode": "autonomous"}
+        data = json.loads((self._cache_dir(tmp_path) / "cycles.json").read_text())
+        assert data[cycle_id]["execution_mode"] == "autonomous"
+
+    def test_set_execution_mode_unknown_cycle(self, tmp_path):
+        cache = self._cache_dir(tmp_path)
+        cache.mkdir(parents=True)
+        (cache / "cycles.json").write_text("{}")
+        result = _run(
+            "--project-root", str(tmp_path),
+            "set-execution-mode",
+            "--cycle-id", "feature-20990101000000-00000000",
+            "--mode", "guided",
+        )
+        assert result.returncode != 0
+        payload = json.loads(result.stdout.strip())
+        assert payload["ok"] is False
