@@ -1,0 +1,63 @@
+{
+  "version": "1",
+  "section_order": ["NS", "NG", "I", "KD", "SK", "T"],
+  "document_preamble": "# {Feature Name} Tech Plan\n\n**Date:** YYYY-MM-DD\n**Version:** v1\n**Status:** Draft\n\n**Document References:**\n- Decision-doc: `{/<cycle_id>/tech/diagnostic/decision-doc.md}`\n- Product-doc: `{path}` / N/A\n\n---\n",
+  "sections": {
+    "NS": {
+      "heading": "North Star",
+      "aliases": ["north star"],
+      "upstream": [],
+      "relations": {}
+    },
+    "NG": {
+      "heading": "Non-Goals",
+      "aliases": ["non-goals"],
+      "upstream": ["NS"],
+      "relations": {
+        "NS": "operationalize"
+      }
+    },
+    "I": {
+      "heading": "Invariants",
+      "aliases": ["invariants"],
+      "upstream": ["NS", "NG"],
+      "relations": {
+        "NS": "operationalize",
+        "NG": "respect_exclude"
+      }
+    },
+    "KD": {
+      "heading": "Key Decisions",
+      "aliases": ["key decisions"],
+      "upstream": ["NS", "NG", "I"],
+      "relations": {
+        "NS": "operationalize",
+        "NG": "respect_exclude",
+        "I": "preserve_invariant"
+      }
+    },
+    "SK": {
+      "heading": "Approach Skeleton",
+      "aliases": ["approach skeleton"],
+      "upstream": ["NS", "NG", "I", "KD"],
+      "relations": {
+        "NS": "operationalize",
+        "NG": "respect_exclude",
+        "I": "preserve_invariant",
+        "KD": "instantiate"
+      }
+    },
+    "T": {
+      "heading": "Tasks",
+      "aliases": ["tasks"],
+      "upstream": ["NS", "NG", "I", "KD", "SK"],
+      "relations": {
+        "NS": "operationalize",
+        "NG": "respect_exclude",
+        "I": "preserve_invariant",
+        "KD": "instantiate",
+        "SK": "decompose"
+      }
+    }
+  }
+}

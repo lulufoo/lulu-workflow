@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from test_registry_fixtures import minimal_tech_doc_markdown  # noqa: E402
 from draft_control import (  # noqa: E402
     advance_round,
     advance_to_freeedit,
@@ -33,11 +34,7 @@ def _seed_session(tmp_path: Path, *, active_doc: int = 1) -> Path:
 
 
 def _write_tech_doc(revision: Path) -> None:
-    (revision / "tech-doc.md").write_text(
-        "---\n\n"
-        "## North Star\n\nGoal.\n",
-        encoding="utf-8",
-    )
+    (revision / "tech-doc.md").write_text(minimal_tech_doc_markdown(), encoding="utf-8")
 
 
 class TestBeginInit:
@@ -111,6 +108,8 @@ class TestBeginRound:
         progress = (revision / "drafting-progress.md").read_text(encoding="utf-8")
         assert "current_step: RoundIteration" in progress
         assert "round: 1" in progress
+        pointer = revision / "round-1" / "section-pointer.json"
+        assert pointer.exists()
 
     def test_idempotent_when_already_round_iteration(self, tmp_path: Path):
         revision = _seed_session(tmp_path)

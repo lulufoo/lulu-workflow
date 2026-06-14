@@ -120,8 +120,8 @@ class TechPlanEvalAdapter:
     def _empty_corpus_bind() -> dict[str, str]:
         return {
             "ptc_url": "",
-            "tpef_url": "",
-            "tpt_layer_standards_url": "",
+            "tpt_intent_gap_probes_url": "",
+            "tpt_intent_eval_framework_url": "",
         }
 
     def corpus_bind_extensions(
@@ -143,14 +143,16 @@ class TechPlanEvalAdapter:
         if not isinstance(section, dict):
             return self._empty_corpus_bind()
         ptc_url = str(section.get("ptc_url", "")).strip()
-        tpt_layer_standards_url = str(
-            section.get("tpt_layer_standards_url", ""),
+        tpt_intent_gap_probes_url = str(
+            section.get("tpt_intent_gap_probes_url", ""),
         ).strip()
-        tpef_url = str(section.get("tpef_url", "")).strip()
+        tpt_intent_eval_framework_url = str(
+            section.get("tpt_intent_eval_framework_url", ""),
+        ).strip()
         return {
             "ptc_url": ptc_url,
-            "tpef_url": tpef_url,
-            "tpt_layer_standards_url": tpt_layer_standards_url,
+            "tpt_intent_gap_probes_url": tpt_intent_gap_probes_url,
+            "tpt_intent_eval_framework_url": tpt_intent_eval_framework_url,
         }
 
     def detect_cycle_type(self, cycle_id: str) -> str:

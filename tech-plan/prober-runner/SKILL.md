@@ -1,140 +1,122 @@
 ---
 name: prober-runner
 description: >-
-  Round Iteration prober for tech-plan drafting. Dynamically splits each section
-  into sub-sections, assesses current L{x} via Content Form, uses intent-probes
-  to filter sub-sections with gaps, then identifies the L{x+1} constraint gap
-  for those with issues. Merges Anchor Ledger and outputs a GapReport. Invoked
-  by tech-plan/SKILL.md Step 2 per round.
+  Round Iteration prober for tech-plan drafting. Probes only the active section
+  (section-gated): KW sub-section scan plus section-level Upstream comparison,
+  writes probe-{seq}.json under round-{N}/{section}/.
 ---
 
 # prober-runner
 
-**Pipeline:** Load context → Diagnose sections → Merge anchors → Deliver GapReport → Return.
+**Pipeline:** Load context → KW diagnose → Upstream diagnose → Merge anchors → Write probe report → Return.
 
-One invocation = one probe round. Read-only on tech-doc.
+One invocation = one probe pass on **one section** (`ACTIVE_SECTION`). Read-only on tech-doc.
 
 ## Scope
 
 **In scope**
 
-- Load `$CTX`, C2 Matrix Content Form, intent-gap probes, and plan role constraints
-- Per section: split into sub-sections, assess L{x}, probe for gaps, identify L{x+1} constraint gap
-- Merge Anchor Ledger; surface new anchor candidates
-- Output pinned GapReport for human decide
+- Load `$CTX`, section KW criteria, section dependency graph, plan role, `ACTIVE_SECTION`
+- **Step 2 — KW:** sub-section scan (KW0→KW4)
+- **Step 2b — Upstream:** section-level Violation + Coverage vs **stable** upstream sections only
+- Merge anchors; write `write-probe-report`
 
 **Out of scope**
 
-- Do not write `tech-doc.md`
-- Do not advance `drafting-progress`
-- Do not dispatch refiner or ask human questions mid-run
-
-## Blocking policy
-
-If the workflow cannot advance: **stop** (no retry, skip, or workaround), **report** the reason, and **wait** for user direction before continuing.
-
-Any `$ROUND_CONTROL` non-zero exit → stop and report stderr.
+- Probe sections other than `ACTIVE_SECTION`
+- Upstream when any `kw0_pending` in this section (skip Step 2b)
+- Upstream vs non-stable upstream sections
+- Write tech-doc; advance pointer; dispatch refiner
 
 ## Parent-Provided Inputs
 
 | Variable | Purpose |
 |----------|---------|
-| `CYCLE_DIR` | Cycle cache dir (`$CACHE_DIR/<cycle_id>`); used by `$ROUND_CONTROL` |
-| `CYCLE_ID` | Cycle id; used by `$RESOLVE_PLAN_ROLE` |
-| `ROUND_N` | Current round (integer ≥ 1) |
-| `TECH_DOC_PATH` | Active `revision{N}/tech-doc.md` (read-only) |
-
-Self-resolved at runtime:
-
-- `$SKILL_DIR` = `$SKILL_ROOT/tech-plan`
+| `CYCLE_DIR` | Cycle cache dir |
+| `CYCLE_ID` | Cycle id |
+| `ROUND_N` | Current round |
+| `ROUND_DIR` | `revision{R}/round-{N}/` |
+| `ACTIVE_SECTION` | Section key to probe |
+| `TECH_DOC_PATH` | tech-doc (read-only) |
 
 ## Command Index
 
-Macros invoke `$SKILL_DIR/scripts/*.py`. Non-zero exit → Blocking policy.
-
-| Macro | Command |
-|-------|---------|
-| `$ROUND_CONTROL` | `python3 "$SKILL_DIR/scripts/round_control.py" --cycle-dir "$CYCLE_DIR" <subcommand> [args...]` |
-| `$RESOLVE_PLAN_ROLE` | `python3 "$SKILL_DIR/scripts/plan_scope.py" resolve-role --cycle-id "$CYCLE_ID" --project-root "$(pwd)"` |
-| `$FETCH_TECH_PLAN` | `python3 "$SKILL_DIR/scripts/fetch_plan_framework.py" --role <role> --project-root "$(pwd)"` |
-
-Subcommands and stdout contracts: script module docstring or `--help`.
-
 | Step | Macro calls |
 |------|-------------|
-| 1 | `$ROUND_CONTROL read-context` · `$RESOLVE_PLAN_ROLE` · `$FETCH_TECH_PLAN layer-standards` · `$FETCH_TECH_PLAN intent-probes` |
-| 3 | `$ROUND_CONTROL update-anchor-status --id {anchor_id} --status {passing\|failing}` |
+| 1 | `read-context` · `read-section-pointer` · `read-upstream-context` · `read-section-body` · `resolve-role` · `section-kw-criteria` |
+| 3 | `update-anchor-status` |
+| 4 | `write-probe-report` |
 
-## Execution Contract
+`read-context` → `$CTX.skips` (skip ledger with `skip_key`).
 
-### Step 1 — Load context
+`read-section-body --section {ACTIVE_SECTION}` → active section `body` (located by `<!-- section-key:… -->`; do not grep H2 display titles).
 
-1. `$ROUND_CONTROL read-context` → parse stdout as `$CTX` (contains anchors and skips)
-2. `$RESOLVE_PLAN_ROLE` → apply Plan Scope Constraints
-3. `$FETCH_TECH_PLAN layer-standards` → load `## C2 Matrix — Content Standards` (Content Form per section and L)
-4. `$FETCH_TECH_PLAN intent-probes` → load P1–P4 probe definitions
+Dependency graph SSOT: `$FETCH_TECH_PLAN section-registry` (`tpt_section_registry_url`). Exposed via `read-upstream-context`.
 
-**Done when:** `$CTX`, role constraints, Content Standards, and probe definitions are all loaded.
+## Step 1 — Load context
 
-### Step 2 — Diagnose sections
+Verify `ACTIVE_SECTION` == pointer `active_section`.
 
-Read `TECH_DOC_PATH`. For each section in document order:
+`read-upstream-context` → `stable_upstream` edges for Upstream pass.
 
-#### Per-section algorithm
+`read-section-body --section {ACTIVE_SECTION}` → full active section body for KW split.
 
-1. Read the full section body.
-2. Split the section into sub-sections — semantic units of intent (e.g. individual bullet items, decision entries, phase descriptions). Each sub-section is one coherent statement of intent.
-3. For each sub-section:
-   - Skip if `(section, sub-section)` ∈ `$CTX.skips`
-   - **Step A — Assess L{x}:** use Content Form for this section type; find the highest L whose Content Form is fully satisfied by this sub-section's content. This is the current L{x}.
-   - **Step B — Probe for gaps:** from the loaded probe definitions, select applicable probes based on each probe's `Applies when` condition; run selected probes against the sub-section. If no probe finds a gap, record no gap and skip this sub-section.
-   - **Step C — Record gap (only when Step B found a gap):** record `{ L_current, gap_description }` where `L_current` is from Step A and `gap_description` is the probe's raw output from Step B.
-   - If the sub-section already satisfies the maximum defined L, record no gap.
-4. Collect all gaps for this section. Sort by L{x} ascending (lowest L first — weakest constraint is highest priority).
+`$FETCH_TECH_PLAN section-kw-criteria` → locate `## {ACTIVE_SECTION}` block (section **key**, not tech-doc display title).
 
-### Step 3 — Anchor Ledger merge
+Build `$SKIP_KEYS` = non-empty `skip_key` values from `$CTX.skips`.
 
-Runs **after** Step 2. Re-check every committed anchor against current tech-doc content.
+## Step 2 — KW diagnose (sub-section)
 
-For each anchor in `$CTX.anchors`:
+Split sub-sections within active section body, KW0→KW4, emit `gap_kind: kw | kw0_pending`.
 
-- Re-check **fails** → override the relevant section's result with the anchor failure; run `$ROUND_CONTROL update-anchor-status --id {anchor_id} --status failing`
-- Re-check **passes** and status was `failing` → `$ROUND_CONTROL update-anchor-status --id {anchor_id} --status passing`
+- **Skip** sub-section when its `skip_key` ∈ `$SKIP_KEYS` (ledger from prior skip decisions).
 
-Collect new anchor candidates (not yet committed) as `anchorCandidates` for human commit.
+Collect KW items first. **If any `kw0_pending` → skip Step 2b entirely.**
 
-### Step 4 — Deliver GapReport
+## Step 2b — Upstream diagnose (section-level)
 
-1. Pin report at conversation top (keep visible entire round)
-2. Fill template below; omit gap-free sections entirely
-3. Return completion summary
+Only when Step 2 has **no** `kw0_pending`.
 
-**Template**
+For each edge in `stable_upstream`:
 
-```markdown
-## GapReport — Round {ROUND_N}
+- **Skip** upstream pair when `skip_key` `{ACTIVE_SECTION}:upstream:{upstream}` ∈ `$SKIP_KEYS`.
 
-### {Section Name}
-- [L{x}→L{x+1}] {brief description of sub-section intent}
-  Gap: {what L{x+1} requires that is currently absent}
-- [L{x}→L{x+1}] {brief description of sub-section intent}
-  Gap: {what L{x+1} requires that is currently absent}
+1. Load **full section body** via `read-section-body` for `ACTIVE_SECTION` and each stable `upstream_section`.
+2. **Violation** (`upstream_violation`): current section contradicts upstream intent/constraints per `upstream_relation`.
+3. **Coverage** (`upstream_coverage`): upstream intent not operationalized/supported by current section as a whole.
 
-### {Section Name}
-- [L{x}→L{x+1}] {brief description of sub-section intent}
-  Gap: {what L{x+1} requires that is currently absent}
+Emit items:
 
-Anchor failures: [{anchor id: description, ...}]
-Anchor candidates: [{scenario, ...}]
-
-Summary: {X} gaps across {Y} sections.
+```json
+{
+  "id": "{section_key}-U-{upstream_section}-1",
+  "gap_kind": "upstream_coverage",
+  "scope": "section",
+  "section_key": "{section_key}",
+  "upstream_section": "{upstream_section}",
+  "upstream_relation": "{upstream_relation}",
+  "intent_gap": "...",
+  "upstream_criteria": {
+    "upstream_intent": "...",
+    "expected": "...",
+    "observed": "..."
+  },
+  "sub_section_text": "{ACTIVE_SECTION full body}",
+  "sub_section_summary": "{section_key} upstream coverage vs {upstream_section}",
+  "skip_key": "{section_key}:upstream:{upstream_section}",
+  "status": "open",
+  "decision": "—"
+}
 ```
 
-**Return**
+Id pattern: `{section}-U-{upstream}-{n}`. Violation items before coverage for same upstream.
 
-```text
-GapReport complete — Round {ROUND_N}.
-  Gaps: {total count across all sections}
-  Anchor failures: {count}
-  Next: await human decide (accept / reject / redirect / commit-anchor / stop)
-```
+## Step 3 — Anchor merge
+
+Unchanged; scope to active section.
+
+## Step 4 — Write probe report
+
+Merge KW items then Upstream items. Include `upstream_open_count` in return summary.
+
+**Return footer:** Open gaps · KW0 pending · **Upstream open**

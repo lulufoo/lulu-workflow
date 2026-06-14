@@ -11,6 +11,9 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from section_registry_schema import section_heading, summary_section_key  # noqa: E402
+from tech_doc_schema import format_section_heading  # noqa: E402
+from test_registry_fixtures import fourth_section_key  # noqa: E402
 from tech_doc_schema import (  # noqa: E402
     extract_presentation,
     get_schema,
@@ -21,18 +24,20 @@ from tech_doc_schema import (  # noqa: E402
 _SCRIPT = Path(__file__).resolve().parent / "tech_doc_schema.py"
 
 
-def _write_tech_doc(path: Path, *, title: str = "", north_star: str = "Goal.") -> None:
+def _write_tech_doc(path: Path, *, title: str = "", summary: str = "Goal.") -> None:
+    summary_key = summary_section_key()
+    kd_key = fourth_section_key()
     lines = ["---", ""]
     if title:
         lines.extend([f"# {title}", ""])
     lines.extend([
-        "## North Star",
+        format_section_heading(summary_key, section_heading(summary_key)),
         "",
-        north_star,
+        summary,
         "",
-        "## Key Decisions",
+        format_section_heading(kd_key, section_heading(kd_key)),
         "",
-        "KD.",
+        f"{kd_key}.",
         "",
     ])
     path.write_text("\n".join(lines), encoding="utf-8")
@@ -51,7 +56,7 @@ def _setup_cycle(tmp_path: Path, *, active_doc: int = 1) -> tuple[Path, str]:
     _write_tech_doc(
         revision / "tech-doc.md",
         title="Feature X",
-        north_star="Deliver a unified session info facade.",
+        summary="Deliver a unified session info facade.",
     )
     from workflow_state_schema import init_drafting  # noqa: WPS433
 
@@ -70,23 +75,23 @@ class TestGetSchema:
 
 
 class TestExtractPresentation:
-    def test_reads_h1_title_and_north_star_summary(self, tmp_path: Path):
+    def test_reads_h1_title_and_summary_section(self, tmp_path: Path):
         path = tmp_path / "tech-doc.md"
-        _write_tech_doc(path, title="Feature X", north_star="Deliver unified reads.")
+        _write_tech_doc(path, title="Feature X", summary="Deliver unified reads.")
         payload = extract_presentation(path, revision=1)
         assert payload["title"] == "Feature X"
         assert payload["summary"] == "Deliver unified reads."
         assert payload["revision"] == 1
 
-    def test_falls_back_to_north_star_lead_when_no_h1(self, tmp_path: Path):
+    def test_falls_back_to_summary_lead_when_no_h1(self, tmp_path: Path):
         path = tmp_path / "tech-doc.md"
-        _write_tech_doc(path, north_star="North star lead line.")
+        _write_tech_doc(path, summary="Summary lead line.")
         payload = extract_presentation(path)
-        assert payload["title"] == "North star lead line."
+        assert payload["title"] == "Summary lead line."
 
     def test_truncates_long_summary(self, tmp_path: Path):
         path = tmp_path / "tech-doc.md"
-        _write_tech_doc(path, north_star="x" * 400)
+        _write_tech_doc(path, summary="x" * 400)
         payload = extract_presentation(path)
         assert len(payload["summary"]) == 300
         assert payload["summary"].endswith("…")
@@ -94,6 +99,31 @@ class TestExtractPresentation:
     def test_missing_file_raises(self, tmp_path: Path):
         with pytest.raises(ValueError, match="not found"):
             extract_presentation(tmp_path / "missing.md")
+
+
+class TestSectionKeyAnchors:
+    def test_section_body_by_key_uses_anchor(self, tmp_path: Path):
+        from tech_doc_schema import section_body_by_key, section_display_heading
+
+        path = tmp_path / "tech-doc.md"
+        key = summary_section_key()
+        path.write_text(
+            f"---\n\n{format_section_heading(key, 'Custom title')}\n\nAnchor body.\n",
+            encoding="utf-8",
+        )
+        raw = path.read_text(encoding="utf-8")
+        assert section_body_by_key(raw, key) == "Anchor body."
+        assert section_display_heading(raw, key) == "Custom title"
+
+    def test_legacy_heading_fallback(self, tmp_path: Path):
+        from tech_doc_schema import section_body_by_key
+
+        key = summary_section_key()
+        heading = section_heading(key)
+        path = tmp_path / "legacy.md"
+        path.write_text(f"---\n\n## {heading}\n\nLegacy body.\n", encoding="utf-8")
+        raw = path.read_text(encoding="utf-8")
+        assert section_body_by_key(raw, key) == "Legacy body."
 
 
 class TestResolveFromCycle:
@@ -125,7 +155,7 @@ class TestCli:
 
     def test_read_by_path(self, tmp_path: Path):
         path = tmp_path / "tech-doc.md"
-        _write_tech_doc(path, title="CLI Title", north_star="CLI summary.")
+        _write_tech_doc(path, title="CLI Title", summary="CLI summary.")
         result = subprocess.run(
             [sys.executable, str(_SCRIPT), "--read", "--path", str(path)],
             capture_output=True,

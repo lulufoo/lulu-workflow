@@ -98,6 +98,9 @@ Load `./transition-whitelist.json` — check `allowed_transitions` for valid tra
 6. Before writing session files, read schema contracts (SSOT):
    - `workflow-state.md` → `python3 "$SKILL_DIR/scripts/workflow_state_schema.py" --schema`
    - `evaluate-state.md` → `python3 "$SKILL_ROOT/eval/scripts/evaluate_state_schema.py" --schema`
+   - `round-{N}/{section}/probe-{seq}.json` → `python3 "$SKILL_DIR/scripts/probe_report_schema.py" --schema` (version 3: section-gated probe SSOT)
+   - `round-{N}/section-pointer.json` → `python3 "$SKILL_DIR/scripts/section_pointer_schema.py"` (via module; pointer SSOT)
+   - `gap-report-round-{N}.json` → deprecated; use probe report above
    - `evaluate{M}/tech-review-*.md` → read `$SKILL_ROOT/eval/review.template.md`; run `python3 "$SKILL_ROOT/eval/scripts/review_schema.py" --schema`; read `$SKILL_ROOT/eval/SKILL.md` (Review table contract).
 
 ### Drafting Rules
@@ -123,75 +126,66 @@ Await completion (`$SUBAGENT_AWAIT_SYNC`).
 
 2. Run `$DRAFT_CONTROL init-complete`. On failure → apply Blocking policy.
 
-#### Step 2 — Round Iteration Loop
+#### Step 2 — RoundIteration
+
+Workflow state: `RoundIteration` (`drafting-progress.current_step`). Exit via `advance-to-freeedit` → Step 3.
+
+- **Macro:** one or more drafting rounds (`round: N` in `drafting-progress.md`). `begin-round` enters at `N=1`; `advance-round` increments `N` while still in this step.
+- **Per round N:** section-gated loop (2a–2d) — probe and decide **one `ACTIVE_SECTION` at a time** until every registry section is `stable` in `section-pointer.json`.
 
 Entry: run `$DRAFT_CONTROL begin-round`. On failure → apply Blocking policy.
 
-Each round (Round N):
+##### Per round N
 
-1. **Probe** — run `$ROUND_CONTROL round-probe-input`.
+**Round setup** — `$ROUND_CONTROL init-round-dir --round {N}` (idempotent; `begin-round` / `advance-round` also initialize).
 
-- On failure → apply Blocking policy.
-- On success → dispatch prober-runner (stdout → `## Input`):
+Track progress: `$ROUND_CONTROL read-section-pointer --round {N}`.
 
-```text
-Load {actual $SKILL_ROOT}/tech-plan/prober-runner/SKILL.md and follow its instructions.
+**Section loop** — until all sections in registry `section_order` are `stable` (load via `$FETCH_TECH_PLAN section-registry`):
 
-## Input
-{round-probe-input stdout}
-```
+##### 2a. Probe active section
 
-Await completion (`$SUBAGENT_AWAIT_SYNC`). 
+1. `$ROUND_CONTROL round-probe-input` → `ACTIVE_SECTION`, `ROUND_DIR`.
+2. Dispatch prober-runner; await `$SUBAGENT_AWAIT_SYNC`.
 
-Pin ProbeReport for the entire round. Init round context (reset each new Round N):
-- `round_probe_failures`: count of ProbeReport lines that are not `无问题`
-- `round_had_accept`: `false`
+##### 2b. Load & display (S3 — active section only)
 
-2. **Human decide** — for each ProbeReport item:
-   - `accept` → set `round_had_accept` to `true`; dispatch `refiner-runner`
-   - `reject` / `skip` → mark as ignored this round
-   - `redirect` → human edits `tech-doc.md` directly
-   - `commit-anchor` → `$ROUND_CONTROL append-anchor --section {X} --criterion "..." --round {N}`
+`$ROUND_CONTROL read-probe-report --round {N}`.
 
-Refiner dispatch (per accept):
+- **KW0 gate:** if `kw0_pending_count` > 0 → show pending only; user edits tech-doc → return to **2a**.
+- Render active-section `items` in two groups: **KW** (`gap_kind: kw`) then **Upstream** (`upstream_violation` / `upstream_coverage`).
+- Footer: section statuses from pointer · `Undecided` · `KW0 pending` · `Upstream undecided` · `Probe seq`.
+- Fix priority: KW undecided first, then upstream undecided.
+- Prompt: `请你决定（Round {N} / {ACTIVE_SECTION}）` e.g. `{ACTIVE_SECTION}-1 accept`.
+- **Rewind:** user requests upstream edit → `$ROUND_CONTROL rewind-section --round {N} --to {section}` → **2a**.
 
-```text
-Load {actual $SKILL_ROOT}/tech-plan/refiner-runner/SKILL.md and follow its instructions.
+##### 2c. Human decide
 
-## Input
-CYCLE_DIR:          {absolute path to $CACHE_DIR/<cycle_id>}
-CYCLE_ID:           {cycle_id}
-CYCLE_TYPE:         {topic | feature}
-SECTION:            {section name, e.g. Invariants}
-SUB_SECTION_TEXT:   {verbatim sub-section content from GapReport}
-CURRENT_L:          {L{x} from GapReport}
-GAP_DESCRIPTION:    {gap description from GapReport — what L{x+1} requires that is absent}
-ROUND_N:            {N}
-TECH_DOC_PATH:      {absolute path to revision{N}/tech-doc.md}
-```
+Parse `{id} {accept|skip|redirect}` for active-section ids only.
 
-3. **Skip ledger** — write reject/skip entries: `$ROUND_CONTROL append-skip --section {X} --probe {P1} --round {N}`
+Each decision → `$ROUND_CONTROL update-gap-decision --round {N} --id {id} --decision {accept|skip|redirect}`.
 
-4. **Convergence** — build flags from round context (Probe init; Human decide updates; do not hardcode):
+- `accept` → refiner dispatch
+- `skip` / `redirect` → decision recorded only (skip also appends skip ledger)
+- After refiner accept path → **2a** (re-probe same section).
 
-| Condition | Flag |
-|---|---|
-| No zoom accepted this round | `--no-accept` |
-| Every initial ProbeReport failure was accept-resolved, reject/skip-recorded, or redirect-fixed; no open failures remain | `--probes-passed` |
+Refiner input includes `ROUND_DIR`, `GAP_ITEM_ID`, `TECH_DOC_PATH`, `CYCLE_*`, `ROUND_N`.
 
-Example when both hold: `$ROUND_CONTROL check-convergence --no-accept --probes-passed`
+##### 2d. Section advance
 
-Omit `--probes-passed` when any probe failure was skipped/rejected without resolution. Omit `--no-accept` when any zoom was accepted.
+When `undecided_count` 0 and `kw0_pending_count` 0:
 
-- `converged: true` → present convergence summary; ask:
+1. `$ROUND_CONTROL mark-section-stable --round {N} --section {ACTIVE_SECTION}`
+2. `$ROUND_CONTROL advance-section --round {N}`
 
-> 1. Enter FreeEdit
-> 2. Continue to the next round
+If not all stable → **2a** for new active section. If all stable → **2e**.
 
-  - **1** → `$DRAFT_CONTROL advance-to-freeedit`. On failure → apply Blocking policy. Then enter Step 3 — FreeEdit.
-  - **2** → `$DRAFT_CONTROL advance-round`. On failure → apply Blocking policy. Return to step 1 (Probe).
+##### 2e. Round convergence
 
-- `converged: false` → `$DRAFT_CONTROL advance-round`. On failure → apply Blocking policy. Return to step 1 (Probe).
+`$ROUND_CONTROL check-convergence --round {N} --no-accept --gaps-resolved`
+
+- `converged: true` → FreeEdit or advance macro-round per user choice.
+- `converged: false` → continue section loop or advance-round per context.
 
 #### Step 3 — FreeEdit
 
@@ -255,9 +249,18 @@ Macros invoke `$SKILL_DIR/scripts/*.py`. Non-zero exit → Blocking (Principles)
 | `$SESSION_CONTROL` | `python3 "$SKILL_DIR/scripts/session_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
 | `$DRAFT_CONTROL` | `python3 "$SKILL_DIR/scripts/draft_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
 | `$ROUND_CONTROL` | `python3 "$SKILL_DIR/scripts/round_control.py" --cycle-dir "$CACHE_DIR/$CYCLE_ID" <subcommand> [args...]` |
+| `$ROUND_CONTROL init-round-dir` | `$ROUND_CONTROL init-round-dir --round {N}` |
+| `$ROUND_CONTROL read-section-pointer` | `$ROUND_CONTROL read-section-pointer --round {N}` |
+| `$ROUND_CONTROL advance-section` | `$ROUND_CONTROL advance-section --round {N}` |
+| `$ROUND_CONTROL rewind-section` | `$ROUND_CONTROL rewind-section --round {N} --to {section_key}` |
+| `$ROUND_CONTROL mark-section-stable` | `$ROUND_CONTROL mark-section-stable --round {N} --section {key}` |
+| `$ROUND_CONTROL read-probe-report` | `$ROUND_CONTROL read-probe-report --round {N}` |
+| `$ROUND_CONTROL read-upstream-context` | `$ROUND_CONTROL read-upstream-context --round {N}` |
+| `$ROUND_CONTROL read-section-body` | `$ROUND_CONTROL read-section-body --section {key}` |
+| `$ROUND_CONTROL update-gap-decision` | `$ROUND_CONTROL update-gap-decision --round {N} --id {id} --decision {accept\|skip\|redirect}` |
 | `$RESOLVE_PLAN_ROLE` | `python3 "$SKILL_DIR/scripts/plan_scope.py" resolve-role --cycle-id "$CYCLE_ID" --project-root "$(pwd)"` |
 | `$FETCH_TECH_PLAN` | `python3 "$SKILL_DIR/scripts/fetch_plan_framework.py" --role <role> --project-root "$(pwd)"` |
 
-Subcommands and stdout contracts: script module docstring or `--help`. `$FETCH_TECH_PLAN` roles: `fetch_plan_framework.py` (`ROLE_KEYS`). Template fetch announce/cache: `../_runtime.md` → Template Fetch.
+Subcommands and stdout contracts: script module docstring or `--help`. `$FETCH_TECH_PLAN` roles: `fetch_plan_framework.py` (`ROLE_KEYS`, includes `section-registry`, `section-kw-criteria`). Template fetch announce/cache: `../_runtime.md` → Template Fetch.
 
 ---

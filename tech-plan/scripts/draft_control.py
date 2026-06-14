@@ -27,7 +27,9 @@ from drafting_progress_schema import (  # noqa: E402
     save_drafting_progress,
 )
 from session_state_schema import load_active_doc_from_cycle  # noqa: E402
+from round_control import init_round_dir_if_needed  # noqa: E402
 from workflow_common import (  # noqa: E402
+    CACHE_DIR,
     decision_doc_path,
     detect_cycle_type,
     doc_dir,
@@ -43,6 +45,20 @@ _CMD_STATUS = "status"
 _STEP_READY = "Ready"
 _STEP_ROUND = "RoundIteration"
 _STEP_FREE_EDIT = "FreeEdit"
+def _cycle_dir(cycle_id: str, project_root: Path) -> Path:
+    return (project_root / CACHE_DIR / cycle_id).resolve()
+
+
+def _ensure_round_dir(cycle_id: str, project_root: Path, *, round_n: int) -> None:
+    cycle_dir = _cycle_dir(cycle_id, project_root)
+    if not cycle_dir.exists():
+        return
+    try:
+        init_round_dir_if_needed(cycle_dir, round_n=round_n)
+    except FileNotFoundError:
+        return
+
+
 def _tech_doc_path(cycle_id: str, project_root: Path) -> Path:
     return project_root / tech_doc_path(
         cycle_id,
@@ -166,10 +182,12 @@ def begin_round(cycle_id: str, project_root: Path) -> dict[str, Any]:
     step = read_current_step(progress_path)
     if step == _STEP_ROUND:
         data = load_drafting_progress(progress_path)
+        round_n = max(1, int(data.get("round", "1")))
+        _ensure_round_dir(cycle_id, project_root, round_n=round_n)
         return _success(
             _CMD_BEGIN_ROUND,
             current_step=_STEP_ROUND,
-            round=int(data.get("round", "1")),
+            round=round_n,
         )
 
     if step != _STEP_READY:
@@ -189,6 +207,7 @@ def begin_round(cycle_id: str, project_root: Path) -> dict[str, Any]:
         },
         merge=False,
     )
+    _ensure_round_dir(cycle_id, project_root, round_n=1)
     return _success(_CMD_BEGIN_ROUND, current_step=_STEP_ROUND, round=1)
 
 
@@ -221,6 +240,7 @@ def advance_round(cycle_id: str, project_root: Path) -> dict[str, Any]:
         },
         merge=False,
     )
+    _ensure_round_dir(cycle_id, project_root, round_n=new_round)
     return _success(_CMD_ADVANCE_ROUND, current_step=_STEP_ROUND, round=new_round)
 
 

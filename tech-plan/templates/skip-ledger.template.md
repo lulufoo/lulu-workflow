@@ -1,4 +1,4 @@
 # Skip Ledger
-<!-- 记录人主动忽略的非 L0 问题；prober-runner 下轮跳过这些条目 -->
-| Section | Probe Type | Skipped at Round | Notes |
-|---|---|---|---|
+<!-- 记录人主动忽略的 KW 意图缺口；prober-runner 下轮跳过这些条目 -->
+| Section | KW Gap | Skipped at Round | Skip Key | Notes |
+|---|---|---|---|---|

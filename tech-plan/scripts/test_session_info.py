@@ -12,6 +12,9 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+from section_registry_schema import section_heading, summary_section_key  # noqa: E402
+from tech_doc_schema import format_section_heading  # noqa: E402
+from test_registry_fixtures import fourth_section_key  # noqa: E402
 from hook_guard import load_transitions  # noqa: E402
 from session_info import (  # noqa: E402
     delivery_preview,
@@ -39,13 +42,15 @@ def _setup_cycle(tmp_path: Path) -> tuple[Path, str]:
         "---\nversion: 1\nactive_doc: 1\n---\n",
         encoding="utf-8",
     )
+    summary_key = summary_section_key()
+    kd_key = fourth_section_key()
     (revision / "tech-doc.md").write_text(
         "---\n\n"
         "# Feature X\n\n"
-        "## North Star\n\n"
+        f"{format_section_heading(summary_key, section_heading(summary_key))}\n\n"
         "Deliver a unified session info facade.\n\n"
-        "## Key Decisions\n\n"
-        "KD.\n",
+        f"{format_section_heading(kd_key, section_heading(kd_key))}\n\n"
+        f"{kd_key}.\n",
         encoding="utf-8",
     )
     from workflow_state_schema import init_drafting  # noqa: WPS433

@@ -78,13 +78,16 @@ Evaluate **B** using loaded SoT content and **M** / `METHOD_FOCUS`.
 
 ### solution-quality (e3)
 
-1. Parse `<!-- state-vector: NS:Lx, NG:Ly, … -->` from B.
-2. Apply **ladder diagnostic** from loaded M:
-   - For each dimension in `[NS, NG, KD, SK, T]`, validate **L0 through L_claimed** against Diagnostic Criteria in M.
-   - NG: run ladder on both `### Non-Goals` and `### Invariants` under `## Non-Goals & Invariants`; share the single `NG` key from state-vector as `L_claimed`.
-   - When Diagnostic Criterion is ambiguous, cross-check Content Form at the same (section, L) from loaded A (layer-standards SoT).
-3. Apply Plan Scope Constraints (`### Role`) when wording issues and choosing severity emphasis.
-4. Part B task executability (31 §Step 4): apply when present; known gap vs legacy 21 TPQA until 31 revision.
+1. Load **A** from SoT (`intent-gap-probes.md` — P1–P4 definitions).
+2. Load **M** from external method source (`32-tech-plan-intent-evaluation-framework.md` — procedure).
+3. Do **not** parse `<!-- state-vector: … -->`. Do **not** load `layer-standards` or L Diagnostic Criteria.
+4. Follow **M** §3–§7:
+   - Load **R** via `$FETCH_TECH_PLAN section-registry` (same project root as eval).
+   - Traverse `section_order` from **R**; load each section body via `<!-- section-key:{key} -->` in **B** (not H2 display titles); split sub-sections.
+   - Run applicable P1–P4 per sub-section (see M §5 and A).
+   - For P3, use upstream closure from **R** (`sections.{key}.upstream`) per M §3.3.
+5. Apply Plan Scope Constraints (`### Role`) when wording issues and choosing severity (M §6).
+6. Optional: last section in `section_order` — task executability sanity check (M §7).
 
 For each finding classify `root_cause` per `eval/SKILL.md` and fill all required columns.
 

@@ -22,10 +22,12 @@ class TestResolveKey:
     @pytest.mark.parametrize(
         ("role", "expected"),
         [
-            ("draft-meta", "tpt_draft_meta_url"),
-            ("layer-standards", "tpt_layer_standards_url"),
-            ("layer-diagnostic", "tpef_url"),
+            ("decision-doc-mapping", "tpt_decision_doc_mapping_url"),
+            ("section-kw-criteria", "tpt_section_kw_criteria_url"),
+            ("section-registry", "tpt_section_registry_url"),
             ("eval-ptc", "ptc_url"),
+            ("intent-probes", "tpt_intent_gap_probes_url"),
+            ("intent-eval-framework", "tpt_intent_eval_framework_url"),
         ],
     )
     def test_resolve_key(self, role: str, expected: str) -> None:
@@ -37,10 +39,12 @@ class TestResolveKey:
 
     def test_all_roles_mapped(self) -> None:
         assert set(ROLE_KEYS) == {
-            "draft-meta",
-            "layer-standards",
-            "layer-diagnostic",
+            "decision-doc-mapping",
             "eval-ptc",
+            "intent-probes",
+            "intent-eval-framework",
+            "section-kw-criteria",
+            "section-registry",
         }
 
 
@@ -58,12 +62,12 @@ class TestFetchPlanFramework:
         original = mod.fetch_template
         mod.fetch_template = stub_fetch
         try:
-            content = fetch_plan_framework("layer-diagnostic", tmp_path)
+            content = fetch_plan_framework("intent-eval-framework", tmp_path)
         finally:
             mod.fetch_template = original
 
-        assert content == "# tech-plan.tpef_url\n"
-        assert calls == [("tech-plan", "tpef_url")]
+        assert content == "# tech-plan.tpt_intent_eval_framework_url\n"
+        assert calls == [("tech-plan", "tpt_intent_eval_framework_url")]
 
     def test_wraps_fetch_template_error(self, tmp_path: Path) -> None:
         import fetch_plan_framework as mod
@@ -77,7 +81,7 @@ class TestFetchPlanFramework:
         mod.fetch_template = fail_fetch
         try:
             with pytest.raises(FetchPlanFrameworkError, match="network failed"):
-                fetch_plan_framework("draft-meta", tmp_path)
+                fetch_plan_framework("decision-doc-mapping", tmp_path)
         finally:
             mod.fetch_template = original
 
@@ -87,8 +91,8 @@ class TestMainCli:
         import fetch_plan_framework as mod
 
         def stub_fetch(role: str, project_root: Path, **kwargs) -> str:
-            assert role == "layer-diagnostic"
-            return "# diagnostic\n"
+            assert role == "intent-probes"
+            return "# probes\n"
 
         monkeypatch.setattr(mod, "fetch_plan_framework", stub_fetch)
-        assert mod.main(["--role", "layer-diagnostic", "--project-root", str(tmp_path)]) == 0
+        assert mod.main(["--role", "intent-probes", "--project-root", str(tmp_path)]) == 0

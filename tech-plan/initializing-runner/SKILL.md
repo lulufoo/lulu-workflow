@@ -3,7 +3,7 @@ name: initializing-runner
 description: >-
   Autonomous Initializing step for tech-plan drafting. Reads template/meta from
   parent-provided raw sources, seeds the initial tech-doc with provenance tags and
-  state-vector, then returns control to the parent Initializing step.
+  seeds the initial tech-doc with provenance tags, then returns control to the parent Initializing step.
 ---
 
 # initializing-runner
@@ -17,7 +17,7 @@ This skill is responsible for Step I1-I4 only:
 1. Read the authoritative template and meta documents from parent-provided inputs.
 2. Read the current cycle `decision-doc.md`.
 3. Seed the first `tech-doc.md` draft from `Decision-Doc Mapping`.
-4. Write seeded content with `[Source: ...]` tags and derive the initial state-vector.
+4. Write seeded content with `[Source: ...]` tags.
 
 Do not ask the user questions.
 Do not perform InDialogue, Reopen, Evaluating, or delivery work here.
@@ -40,10 +40,10 @@ Load frameworks via `$FETCH_TECH_PLAN` and role constraints via `$RESOLVE_PLAN_R
 
 ## Execution Contract
 
-### Step I1 - Load mapping table and template skeleton
+### Step I1 - Load mapping table and section registry
 
 1. Run `$RESOLVE_PLAN_ROLE` with `$CYCLE_ID`; read stdout as Plan Scope Constraints and apply `### Role`.
-2. Use `$FETCH_TECH_PLAN draft-meta`; read stdout as meta markdown.
+2. Use `$FETCH_TECH_PLAN decision-doc-mapping`; read stdout as mapping markdown.
 3. Locate the `## Decision-Doc Mapping` table.
 4. Parse the mapping rows into:
 
@@ -54,20 +54,23 @@ Load frameworks via `$FETCH_TECH_PLAN` and role constraints via `$RESOLVE_PLAN_R
 ```
 
 5. Skip rows where `target` is `—`.
-6. Locate `## Document Skeleton` in the same meta markdown.
-7. Parse the fenced markdown block into an ordered section map keyed by section heading name.
+6. Use `$FETCH_TECH_PLAN section-registry`; parse stdout as JSON.
+7. Read `document_preamble` for the tech-doc header block (substitute `{cycle_id}`, `{path}`, etc. at write time).
+8. Initialize `fill_results` from `section_order` and `sections.{key}.heading`: each section gets a stable H2 line with section-key anchor, empty `content`, `status: "X"`. Do not use `document_skeleton`.
 
-8. Initialize `fill_results` from the parsed skeleton:
+9. Mapping `target` values are registry **section keys** (e.g. keys in `section_order`). Validate each non-skipped target against the registry; reject unknown keys.
 
 ```text
-fill_results[section_name] = {
-  heading: <original heading line>,
-  content: <original template body>,
+fill_results[section_key] = {
+  heading_line: "## {default_display} <!-- section-key:{section_key} -->",
+  content: "",
   status: "X"
 }
 ```
 
-Preserve the original template order and untouched sections exactly as they appear in the template.
+`default_display` = registry `sections.{key}.heading` at init (placeholder title; refiner may replace display text while preserving `<!-- section-key:… -->`).
+
+Preserve `section_order` from the registry when rendering the final document.
 
 ### Step I2 - Prefetch decision-doc source content
 
@@ -100,7 +103,7 @@ Apply the method as follows:
 - Replace the target section body with `source_content`.
 - Append `[Source: decision-doc.md#{source}]` at the end of the seeded content.
 - If `hard_constraint: true`, also append `[Anchored: R0, by human]`.
-- Set `fill_results[target_name].status = "I"`.
+- Set `fill_results[target].status = "I"`.
 
 #### `Extract`
 
@@ -110,13 +113,13 @@ Apply the method as follows:
   - replace the target section body with the extracted content
   - append `[Source: decision-doc.md#{source}]` at the end
   - if `hard_constraint: true`, also append `[Anchored: R0, by human]`
-  - set `fill_results[target_name].status = "I"`
+  - set `fill_results[target].status = "I"`
 - If the extracted result is empty, leave the original skeleton and keep status `X`.
 
 #### `Transform`
 
-- Keep the original template skeleton in place.
-- Add one short context anchor above the untouched skeleton body using the source content:
+- Start from empty section body (status `X`).
+- Add one short context anchor using the source content:
   - prefer the first paragraph
   - otherwise use the first 200 characters
 - Format the anchor as:
@@ -133,33 +136,27 @@ Apply the method as follows:
 
 #### Write `$TECH_DOC_PATH`
 
-Render the full tech document in template order:
+Render the full tech document in registry `section_order`:
 
-- preserve the template preamble/frontmatter
-- preserve every heading
-- use `fill_results[section_name].content` as the body for each parsed section
-- leave untouched sections as their original skeleton
+- write `document_preamble` first (with substituted placeholders)
+- for each key in `section_order`: write `heading_line` then `fill_results[key].content`
+- sections with status `X` and empty content may remain empty
 
 ## Expected Initial Seed Set
 
-When the current mapping table matches the draft meta, the initialized draft typically seeds:
+Derive seeded vs skeleton section **keys** from Step I3 results (`fill_results[*].status` is `I` vs `X`). Do not assume fixed section names — mapping rows and registry `section_order` define the actual set.
 
-- `Invariants` (Known Constraints, H-risk 已验证)
-- `Key Decisions` (Decision Rationale, Excluded Directions, H-risk 待验证)
-- `Approach Skeleton` (External Dependencies, Reversibility)
-- `Tasks` (Acceptance Criteria)
+Transform rows keep status `X` (anchor only, empty or minimal body).
 
-Sections that remain skeleton-first: `North Star`, `Non-Goals` (Transform method keeps status X).
-
-Do not hardcode these names during execution. Always derive the actual result from the meta and template fetches in Step I1.
+Do not hardcode section names during execution. Always derive from the mapping fetch (`decision-doc-mapping`) and section registry fetch (`section-registry`) in Step I1.
 
 ## Return Summary
 
-After all writes succeed, return exactly this structure with the actual derived section ids:
+After all writes succeed, return exactly this structure with the actual derived section keys:
 
 ```text
 Initializing complete.
-  Seeded (I): <space-separated seeded section names>
-  Skeleton (X): <space-separated skeleton section names>
-  Next step: Round Iteration Loop (Step 2)
+  Seeded (I): <space-separated section keys>
+  Skeleton (X): <space-separated section keys>
+  Next step: RoundIteration (Step 2)
 ```

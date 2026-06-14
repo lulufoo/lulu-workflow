@@ -41,7 +41,7 @@
     {
       "id": "solution-quality",
       "legacy_alias": "e3",
-      "label": "Solution Quality (v2)",
+      "label": "Solution Quality (Intent Probes)",
       "eval_target": {
         "path": "{tech_doc}"
       },
@@ -52,13 +52,13 @@
         {
           "kind": "url",
           "role": "primary",
-          "ref": "{tpt_layer_standards_url}"
+          "ref": "{tpt_intent_gap_probes_url}"
         }
       ],
       "method": {
         "kind": "external",
-        "source": "{tpef_url}",
-        "focus": "v2 ladder diagnostic — L0 required; validate L0…L_claimed per section"
+        "source": "{tpt_intent_eval_framework_url}",
+        "focus": "P1–P4 intent gap probes — semantic fidelity, boundaries, derivability, edge cases"
       },
       "review": {
         "seq": 3,

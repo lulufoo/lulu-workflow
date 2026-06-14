@@ -11,7 +11,6 @@ from workflow_common import (
 
 TECH_DOC_CONFIG_DEFAULTS = {
     "tpt_url": "",
-    "tpef_url": "",
     "ptc_url": "",
     "ac_url": "",
 }

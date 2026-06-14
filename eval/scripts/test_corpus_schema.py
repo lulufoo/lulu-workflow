@@ -26,8 +26,8 @@ class TestGetSchema:
     def test_has_bind_placeholders(self):
         schema = get_schema()
         assert "tech_doc" in schema["bind_placeholders"]
-        assert "tpt_layer_standards_url" in schema["bind_placeholders"]
-        assert "tpef_url" in schema["bind_placeholders"]
+        assert "tpt_intent_gap_probes_url" in schema["bind_placeholders"]
+        assert "tpt_intent_eval_framework_url" in schema["bind_placeholders"]
         assert schema["enums"]["sot_kind"] == ["url", "codebase"]
         assert schema["enums"]["codebase_strategy"] == ["all"]
 
@@ -79,8 +79,8 @@ class TestExpandCorpus:
         "cycle_type": "feature",
         "M": "1",
         "ptc_url": "https://github.com/o/r/blob/main/ptc.md",
-        "tpef_url": "https://github.com/o/r/blob/main/tpef.md",
-        "tpt_layer_standards_url": "https://github.com/o/r/blob/main/layer-standards.md",
+        "tpt_intent_gap_probes_url": "https://github.com/o/r/blob/main/intent-gap-probes.md",
+        "tpt_intent_eval_framework_url": "https://github.com/o/r/blob/main/intent-eval-framework.md",
     }
 
     def test_expand_substitutes_paths(self):
@@ -98,12 +98,12 @@ class TestExpandCorpus:
         e2 = expanded["dimensions"][0]
         assert e2["sots"][0]["ref"] == {"root": ".", "strategy": "all"}
 
-    def test_expand_e3_substitutes_v2_urls(self):
+    def test_expand_e3_substitutes_intent_probe_urls(self):
         data = load_corpus(_CORPUS_DIR / "tech-plan-product.json")
         expanded = expand_corpus(data, self._BIND)
         e3 = expanded["dimensions"][2]
-        assert e3["sots"][0]["ref"] == self._BIND["tpt_layer_standards_url"]
-        assert e3["method"]["source"] == self._BIND["tpef_url"]
+        assert e3["sots"][0]["ref"] == self._BIND["tpt_intent_gap_probes_url"]
+        assert e3["method"]["source"] == self._BIND["tpt_intent_eval_framework_url"]
 
     def test_invalid_codebase_strategy(self):
         dim = {

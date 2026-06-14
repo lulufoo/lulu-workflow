@@ -17,11 +17,12 @@ from fetch_template import FetchTemplateError, fetch_template  # noqa: E402
 SECTION = "tech-plan"
 
 ROLE_KEYS: dict[str, str] = {
-    "draft-meta": "tpt_draft_meta_url",
-    "layer-standards": "tpt_layer_standards_url",
-    "layer-diagnostic": "tpef_url",
+    "decision-doc-mapping": "tpt_decision_doc_mapping_url",
     "eval-ptc": "ptc_url",
     "intent-probes": "tpt_intent_gap_probes_url",
+    "intent-eval-framework": "tpt_intent_eval_framework_url",
+    "section-kw-criteria": "tpt_section_kw_criteria_url",
+    "section-registry": "tpt_section_registry_url",
 }
 
 _VALID_ROLES = frozenset(ROLE_KEYS)
@@ -61,13 +62,13 @@ def fetch_plan_framework(
 
 def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Fetch tech-plan framework markdown by role",
+        description="Fetch tech-plan framework template by role (markdown or JSON)",
     )
     parser.add_argument(
         "--role",
         required=True,
         choices=sorted(_VALID_ROLES),
-        help="Framework role (draft-meta, layer-standards, layer-diagnostic, eval-ptc, intent-probes)",
+        help="Framework role (decision-doc-mapping, eval-ptc, intent-probes, intent-eval-framework, section-kw-criteria, section-registry)",
     )
     parser.add_argument(
         "--project-root",
