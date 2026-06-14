@@ -34,7 +34,7 @@ Do NOT proceed until you have read `../_subagent.md`
 
 ### `/tech-code [<cycle_id>]` — Entry point
 
-Derive `$CYCLE_ID` from active context (see `_runtime.md § Session Foundation`), or use the explicit `<cycle_id>` argument if provided.
+Derive `$CYCLE_ID` via `_runtime.md` § Session Foundation, or use the explicit `<cycle_id>` argument if provided.
 
 <HARD-GATE>
 `$CYCLE_ID` must be resolved before proceeding. If it cannot be resolved → stop and ask the user to provide it.

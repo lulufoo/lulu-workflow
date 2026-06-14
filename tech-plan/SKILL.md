@@ -40,9 +40,7 @@ Do NOT proceed until you have read `../_runtime.md` and loaded:
 
 > Prerequisite: `init` has been run.
 
-**Phase 1: Identify active cycle** — See `## Session Foundation` in `../_runtime.md`
-
-> Ambiguity signals: no footer in conversation · user mentions a different feature · user says "switch" / "new" / "choose"
+**Phase 1: Identify active cycle** — `_runtime.md` § Session Foundation. Do not run start.py until `$CYCLE_ID` is confirmed.
 
 **Phase 2: Run start**
 
@@ -60,6 +58,8 @@ python3 "$SKILL_DIR/scripts/start.py" \
 - `--run-mode`: use `product` if a `product-doc.md` path was provided (user-supplied, do not auto-detect), otherwise `tech`.
 
 > If start.py exits non-zero ("Gate blocked: <stage> is not Delivered"): tell the user which prior stage must be delivered first. Do not retry start.
+
+To resume an in-progress tech document, do not run start again — read `session-state.md` and `revision{N}/workflow-state.md`; use `$SESSION_INFO --view session` when needed.
 
 ---
 
@@ -261,6 +261,4 @@ Macros invoke `$SKILL_DIR/scripts/*.py`. Non-zero exit → Blocking (Principles)
 | `$RESOLVE_PLAN_ROLE` | `python3 "$SKILL_DIR/scripts/plan_scope.py" resolve-role --cycle-id "$CYCLE_ID" --project-root "$(pwd)"` |
 | `$FETCH_TECH_PLAN` | `python3 "$SKILL_DIR/scripts/fetch_plan_framework.py" --role <role> --project-root "$(pwd)"` |
 
-Subcommands and stdout contracts: script module docstring or `--help`. `$FETCH_TECH_PLAN` roles: `fetch_plan_framework.py` (`ROLE_KEYS`, includes `section-registry`, `section-kw-criteria`). Template fetch announce/cache: `../_runtime.md` → Template Fetch.
-
----
+Subcommands and stdout: script module docstrings or `--help`.

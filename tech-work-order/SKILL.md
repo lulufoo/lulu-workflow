@@ -32,9 +32,7 @@ Also read `../_subagent.md` (for `$SUBAGENT_TOOL` / `$SUBAGENT_AWAIT_*`).
 
 > Prerequisite: `init` has been run. The upstream tech-doc must be in `Delivered` state.
 
-**Step 1: Identify active cycle** — See `## Session Foundation` in `../_runtime.md`
-
-> Ambiguity signals: no footer in conversation · user mentions a different feature · user says "switch" / "new" / "choose"
+**Step 1: Identify active cycle** — `_runtime.md` § Session Foundation. Do not run start.py until `$CYCLE_ID` is confirmed.
 
 **Step 2: Confirm tech-ref path**
 
@@ -123,7 +121,7 @@ Hook enforces all transition pre-conditions. Denial messages are self-explanator
 
 On entering Drafting, read:
 1. `workflow-state.md` → `tech_ref`, `evaluate_round`
-2. Load work-order templates via `$FETCH_TEMPLATE` (see `../_runtime.md` → Template Fetch):
+2. Load work-order templates via `$FETCH_TEMPLATE` (see `../_runtime.md` → Script Macros):
    - `Use $FETCH_TEMPLATE tech-work-order tasklist_template_url`
    - `Use $FETCH_TEMPLATE tech-work-order task_template_url`
 3. `tech-doc.md` (full content, from `tech_ref`)

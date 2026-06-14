@@ -105,6 +105,42 @@ class TestResolveSessionContext:
         assert payload["stage"] == "tech-plan"
         assert payload["execution_mode"] == "autonomous"
 
+    def test_cli_conversation_id_overrides_env(self, tmp_path: Path):
+        env = {
+            **_ENV_CLEAN,
+            "LULU_CONVERSATION_ID": "env-conv",
+        }
+        cache = tmp_path / ".cache" / "cursor" / "lulu-dev-workflow"
+        cache.mkdir(parents=True)
+        cycle_id = "feature-20260101000000-55555555"
+        (cache / "cycles.json").write_text(
+            json.dumps({cycle_id: {"name": "demo", "execution_mode": "guided"}})
+        )
+        active = cache / "active-context.json"
+        active.write_text(
+            json.dumps(
+                {
+                    "cli-conv": {
+                        "cycle_id": cycle_id,
+                        "stage": "tech-plan",
+                        "cycle_type": "feature",
+                    }
+                }
+            )
+        )
+        result = _run(
+            "--project-root",
+            str(tmp_path),
+            "resolve-session-context",
+            "--conversation-id",
+            "cli-conv",
+            env=env,
+        )
+        assert result.returncode == 0, result.stderr
+        payload = json.loads(result.stdout.strip())
+        assert payload["conversation_id"] == "cli-conv"
+        assert payload["cycle_id"] == cycle_id
+
     def test_execution_mode_defaults_guided_when_cycle_missing(self, tmp_path: Path):
         env = {
             **_ENV_CLEAN,

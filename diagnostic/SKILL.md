@@ -114,9 +114,7 @@ Assumption：
 
 ## Start
 
-**Step 1: Identify active cycle** — See `## Session Foundation` in `../_runtime.md`
-
-> Ambiguity signals: no footer in conversation · user mentions a different feature · user says "switch" / "new" / "choose"
+**Step 1: Identify active cycle** — `_runtime.md` § Session Foundation. Do not run start.py until `$CYCLE_ID` is confirmed.
 
 **Step 2: Run start.py**
 

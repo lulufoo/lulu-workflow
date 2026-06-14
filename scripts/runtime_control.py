@@ -66,7 +66,7 @@ def cmd_resolve_session_context(args: argparse.Namespace) -> int:
         plat = "cursor"
 
     project_root = Path(args.project_root)
-    conv_id = resolve_conversation_id(None) or ""
+    conv_id = resolve_conversation_id(getattr(args, "conversation_id", None)) or ""
     entry = get_entry(project_root, plat, conv_id) if conv_id else None
 
     if entry is None:
@@ -123,6 +123,11 @@ def main() -> int:
     resolve_session = sub.add_parser(
         _CMD_RESOLVE_SESSION_CONTEXT,
         help="Emit session context JSON from active-context and cycles",
+    )
+    resolve_session.add_argument(
+        "--conversation-id",
+        default=None,
+        help="Cursor/Copilot conversation ID (overrides LULU_CONVERSATION_ID).",
     )
     resolve_session.set_defaults(handler=cmd_resolve_session_context)
 

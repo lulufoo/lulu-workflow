@@ -16,10 +16,17 @@
    > `Execution mode: (1) guided [default]  (2) autonomous`
 
 2. Parse (one reply covers both; unanswered → default):
-   - **Feature:** integer → `cycle_id ← cycles.json[n]`; Initial Mode Resolution → DONE; text → `name ← input`; no answer → use derived `<name>`
+   - **Feature:** integer → `cycle_id ← cycles.json[n]`; `$EXECUTION_MODE ← mode from cycles.json`; **DONE**
    - **Mode:** `2` → `autonomous`; else → `guided`
+   - **New topic** (description or N): `name ← input`; `$CYCLE_TYPE ← topic`
+   - **New feature** (description or M): `name ← input`; `$CYCLE_TYPE ← feature`
 
-3. If a new name is resolved, run `$CYCLE_CONTROL start --name "<name>" --mode "<mode>"` (see parent `SKILL.md` → Script Macros).
-   `$EXECUTION_MODE ← mode`
+3. If a new name is resolved (not an integer selection), run `$CYCLE_CONTROL start`:
+   - topic: `--name "<name>" --type topic --mode "<mode>"`
+   - feature: `--name "<name>" --type feature --mode "<mode>"` [`--topic-id <id>` when associating with an existing topic]
+   - stdout last line → `$CYCLE_ID`; `$EXECUTION_MODE ← mode`
+   - append footer (`LULU-DEV-WORKFLOW: $CYCLE_ID`)
+
+`$CYCLE_CONTROL` macro: parent `SKILL.md` § Script Macros. `start` subcommand: `cycle_control.py` `--help`.
 
 Done: `$CYCLE_ID` confirmed · Read workflow docs only from `$CACHE_DIR/$CYCLE_ID/`

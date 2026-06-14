@@ -56,6 +56,8 @@ Tell user: "Product diagnostic is complete. The next step is `/product-plan` (al
 
 ## start
 
+Complete `_runtime.md` § Session Foundation before running diagnostic start.
+
 Execute the `start` command from `diagnostic/SKILL.md`, passing `product-diagnostic` as the stage:
 
 - Stage: `product-diagnostic`

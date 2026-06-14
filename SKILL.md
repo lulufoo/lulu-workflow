@@ -23,9 +23,11 @@ under this directory.
 
 This SKILL orchestrates **project-level lifecycle** only:
 
-- Bootstrap: install hooks, workflow-config, new cycle container
+- Bootstrap: install hooks, workflow-config
 - Maintenance: list / validate / archive cycles
 - Routing: dispatch to sub-SKILLs (see ## Sub-SKILL Routing)
+
+Cycle creation and selection run in sub-SKILLs via `_runtime.md` § Session Foundation → `_slowpath.md`.
 
 Do **not** drive drafting, evaluating, or delivery here — sub-SKILLs own those steps.
 Do **not** call `cycle_schema.py` or bare `python3 .../cycle_control.py` paths — use `$CYCLE_CONTROL` only.
@@ -37,8 +39,8 @@ Do **not** call `cycle_schema.py` or bare `python3 .../cycle_control.py` paths �
 | Machine | [`lulu-meta-skill install`](../lulu-meta-skill/install/SKILL.md) (once per machine) |
 | Runtime | Read `_runtime.md` § Script Macros + § Platform Context when platform vars are needed |
 | Platform vars | `$PLATFORM`, `$SKILL_ROOT`, `$CACHE_DIR`, `$WORKFLOW_DIR` |
-| Session | Read `_runtime.md` § Session Context; resolve session variables when any are needed |
-| Session vars | `$CYCLE_ID`, `$CYCLE_TYPE`, `$STAGE`, `$EXECUTION_MODE` |
+| Session | Read `_runtime.md` § Session Foundation when session variables are needed |
+| Session vars | `$CYCLE_ID`, `$CYCLE_TYPE`, `$EXECUTION_MODE` |
 | Project config | `workflow-config.json` at resolved `workflowConfig` path (see ## Command Semantics → configure) |
 
 ## Command Flow
@@ -48,13 +50,7 @@ Do **not** call `cycle_schema.py` or bare `python3 .../cycle_control.py` paths �
 1. **Machine install** — `lulu-meta-skill install`
 2. **Project init** — `$CYCLE_CONTROL init-project` (once per repo; safe to re-run)
 3. **Workflow config** — skip if config file already exists at resolved path; else `$CYCLE_CONTROL configure`
-4. **First feature** — `$CYCLE_CONTROL start --name "<name>"` → apply footer (see ## Command Semantics → start)
-
-### New feature — repo already bootstrapped
-
-1. Resolve active cycle — `_runtime.md` § Session Context, then § Feature Resolution if needed
-2. If user wants a **new** feature → `$CYCLE_CONTROL start ...`
-3. If user names a sub-stage → ## Sub-SKILL Routing (do not start here)
+4. **First work** — Enter any sub-SKILL (e.g. `/tech-diagnostic`). Cycle binding via `_runtime.md` § Session Foundation.
 
 ### Maintenance — optional, user-invoked
 
@@ -69,6 +65,7 @@ Do **not** call `cycle_schema.py` or bare `python3 .../cycle_control.py` paths �
 ## Commands
 
 > Invoke via `$CYCLE_CONTROL` only. Subcommand contracts: `cycle_control.py` module docstring or `--help`.
+> `start` is invoked from `_slowpath.md` only (not from this orchestrator).
 
 ### `init` — Once per project
 
@@ -86,14 +83,6 @@ Do **not** call `cycle_schema.py` or bare `python3 .../cycle_control.py` paths �
 
 **Done:** stdout = absolute path written; announce path to user.
 
-### `start [name]` — New cycle container
-
-**When:** User starts a new topic/feature (see ## Command Flow).
-
-**Run:** `$CYCLE_CONTROL start --name "<name>"` [`--type topic|feature`] [`--mode guided|autonomous`] [`--topic-id <id>`]
-
-**Done:** Read stdout last line as `cycle_id`; append `LULU-DEV-WORKFLOW: <cycle_id>` to response.
-
 ### `archive [N]` — Prune old cycles
 
 **When:** User asks to clean up old features (default keep 5).
@@ -110,11 +99,6 @@ Do **not** call `cycle_schema.py` or bare `python3 .../cycle_control.py` paths �
 - **Success stdout:** absolute path of file written.
 - **Anti-pattern:** Do not write to `$WORKFLOW_DIR/workflow-config.json` unless `workflowConfig` points there.
 - **Inspect only:** `$CYCLE_CONTROL resolve-config-path` (no download).
-
-### start
-
-- **cycle_id format:** `{cycle_type}-YYYYMMDDHHMMSS-xxxxxxxx` (stdout last line).
-- **Footer contract:** `_runtime.md` § Feature Tracking Convention — append `LULU-DEV-WORKFLOW: <cycle_id>` after every successful start.
 
 ### archive
 
@@ -140,7 +124,7 @@ Subcommands and stdout: `cycle_control.py` module docstring or `--help`.
 
 ## Sub-SKILL Routing
 
-After `start`, route stage work via sub-SKILLs — do not re-run orchestrator commands unless bootstrap/maintenance.
+After `$CYCLE_ID` is confirmed, route stage work via sub-SKILLs — do not re-run orchestrator commands unless bootstrap/maintenance.
 
 | Key | Sub-SKILL | Action |
 |---|---|---|

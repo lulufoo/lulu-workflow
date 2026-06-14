@@ -18,37 +18,38 @@ When `$PLATFORM`, `$SKILL_ROOT`, `$WORKFLOW_DIR`, or `$CACHE_DIR` is needed: `$R
 
 Non-zero exit → stop. Map stdout JSON: `platform`→`$PLATFORM`, `skill_root`→`$SKILL_ROOT`, `workflow_dir`→`$WORKFLOW_DIR`, `cache_dir`→`$CACHE_DIR`.
 
-## Session Context
+## Session Foundation
 
-When `$CYCLE_ID`, `$STAGE`, `$CYCLE_TYPE`, or `$EXECUTION_MODE` is needed: `$RESOLVE_SESSION_CONTEXT`.
+Resolve `$CYCLE_ID`, `$CYCLE_TYPE`, `$EXECUTION_MODE` before stage work. Stage is defined by the active sub-SKILL, not session bootstrap.
 
-Exit 0 always; empty fields → Feature Resolution below. Map stdout: `cycle_id`→`$CYCLE_ID`, `cycle_type`→`$CYCLE_TYPE`, `stage`→`$STAGE`, `execution_mode`→`$EXECUTION_MODE`.
+**1. Detect ambiguity** — user message contains any of: `switch` · `new` · `choose` · different feature · explicit new topic/feature.
 
-| Mode | Behavior |
-|------|----------|
-| `guided` | Lead, ask, recommend; wait at gates |
-| `autonomous` | Execute only; tech-line auto-chains feature cycles |
+**2. Resolve cycle**
 
-User sends `SET_EXECUTION_MODE: <mode>` → `$SET_EXECUTION_MODE --mode <mode>`; non-zero exit → stop; announce `Execution mode → <mode>`.
+- **CASE 1 — Ambiguity detected**
+  → read `../_slowpath.md`
+  → do not run `$RESOLVE_SESSION_CONTEXT`
 
-## Template Fetch
+- **CASE 2 — No ambiguity**
+  → run `$RESOLVE_SESSION_CONTEXT` (exit 0 always)
+  → if stdout `cycle_id` empty: read `../_slowpath.md`
+  → else: **DONE** (step 3)
 
-Direct `fetch_template.py` usage is forbidden. Use `$FETCH_TEMPLATE <section> <key>` or `$FETCH_TECH_PLAN <role>` (`tech-plan/SKILL.md` → Script Macros).
+**3. Map stdout** (CASE 2, `cycle_id` present)
 
-- Success → output body; announce `Template fetched: <section>.<key>`
-- Failure → stop current step
-- Cache: `$CACHE_DIR/.template/{section}/{key}.md`
+`cycle_id`→`$CYCLE_ID` · `cycle_type`→`$CYCLE_TYPE` · `execution_mode`→`$EXECUTION_MODE`
 
-## Feature Resolution
+## Execution mode
 
-1. Scan conversation for latest `LULU-DEV-WORKFLOW: <id>` (skip summary blocks)
-2. Found and no ambiguity → set `$CYCLE_ID`; read workflow docs from `$CACHE_DIR/$CYCLE_ID/` only
-3. Ambiguity (no footer · different feature · "switch"/"new"/"choose") or miss → read `../_slowpath.md`
+- `guided` — lead, ask, wait at gates
+- `autonomous` — execute only; tech-line auto-chains feature cycles
+
+Change mode: user sends `SET_EXECUTION_MODE: <mode>` → `$SET_EXECUTION_MODE --mode <mode>`; non-zero exit → stop; announce `Execution mode → <mode>`.
 
 ## Feature Tracking Convention
 
 Every workflow AI response must end with:
 
 ```
-LULU-DEV-WORKFLOW: <cycle_id>
+LULU-DEV-WORKFLOW: $CYCLE_ID
 ```

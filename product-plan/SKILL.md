@@ -41,9 +41,7 @@ Markdown. During an active session, writes are restricted to
 
 > Prerequisite: `init` has been run.
 
-**Step 1: Identify active cycle** — See `## Session Foundation` in `../_runtime.md`
-
-> Ambiguity signals: no footer in conversation · user mentions a different feature · user says "switch" / "new" / "choose"
+**Step 1: Identify active cycle** — `_runtime.md` § Session Foundation. Do not run start.py until `$CYCLE_ID` is confirmed.
 
 **Step 2: Run start**
 
@@ -140,7 +138,7 @@ Use $FETCH_TEMPLATE product-plan <key>
 - `topic` 容器 → `--key shaping_template_url`（13-product-shaping-template.md）
 - `feature` 容器 → `--key template_url`（10-product-doc-template.md）
 
-Read stdout as the template body. On failure, report error and stop current step. See `../_runtime.md` → Template Fetch.
+Read stdout as the template body. On failure, report error and stop current step.
 
 Write only to `revision{N}/product-doc.md`. Stay in `Drafting` until the user explicitly requests evaluation.
 
