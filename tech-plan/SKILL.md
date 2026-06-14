@@ -145,7 +145,7 @@ Track progress: `$ROUND_CONTROL read-section-pointer --round {N}`.
 
 ##### 2a. Probe active section
 
-1. `$ROUND_CONTROL round-probe-input` → `ACTIVE_SECTION`, `ROUND_DIR`.
+1. `$ROUND_PROBE_INPUT` → `ACTIVE_SECTION`, `ROUND_DIR`.
 2. Dispatch prober-runner; await `$SUBAGENT_AWAIT_SYNC`.
 
 ##### 2b. Load & display (S3 — active section only)
@@ -251,6 +251,7 @@ Macros invoke `$SKILL_DIR/scripts/*.py`. Non-zero exit → Blocking (Principles)
 | `$ROUND_CONTROL` | `python3 "$SKILL_DIR/scripts/round_control.py" --cycle-dir "$CACHE_DIR/$CYCLE_ID" <subcommand> [args...]` |
 | `$ROUND_CONTROL init-round-dir` | `$ROUND_CONTROL init-round-dir --round {N}` |
 | `$ROUND_CONTROL read-section-pointer` | `$ROUND_CONTROL read-section-pointer --round {N}` |
+| `$ROUND_PROBE_INPUT` | `$ROUND_CONTROL round-probe-input` |
 | `$ROUND_CONTROL advance-section` | `$ROUND_CONTROL advance-section --round {N}` |
 | `$ROUND_CONTROL rewind-section` | `$ROUND_CONTROL rewind-section --round {N} --to {section_key}` |
 | `$ROUND_CONTROL mark-section-stable` | `$ROUND_CONTROL mark-section-stable --round {N} --section {key}` |
@@ -258,6 +259,7 @@ Macros invoke `$SKILL_DIR/scripts/*.py`. Non-zero exit → Blocking (Principles)
 | `$ROUND_CONTROL read-upstream-context` | `$ROUND_CONTROL read-upstream-context --round {N}` |
 | `$ROUND_CONTROL read-section-body` | `$ROUND_CONTROL read-section-body --section {key}` |
 | `$ROUND_CONTROL update-gap-decision` | `$ROUND_CONTROL update-gap-decision --round {N} --id {id} --decision {accept\|skip\|redirect}` |
+| `$ROUND_CONTROL check-convergence` | `$ROUND_CONTROL check-convergence --round {N} --no-accept --gaps-resolved` |
 | `$RESOLVE_PLAN_ROLE` | `python3 "$SKILL_DIR/scripts/plan_scope.py" resolve-role --cycle-id "$CYCLE_ID" --project-root "$(pwd)"` |
 | `$FETCH_TECH_PLAN` | `python3 "$SKILL_DIR/scripts/fetch_plan_framework.py" --role <role> --project-root "$(pwd)"` |
 
