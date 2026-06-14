@@ -249,13 +249,22 @@ _WORKFLOW_PY_PATH = re.compile(
     r"lulu-dev-workflow[/\\][^\s;|&\"']+\.py\b"
 )
 
+# Only stage entry scripts call write_active_context(..., conversation_id=...).
+# Orchestrator/control scripts (draft_control, session_control, etc.) must not
+# receive injected --conversation-id — they use strict argparse.parse_args().
+_CONV_ID_INJECT_SCRIPT_SUFFIXES = (
+    "/scripts/start.py",
+)
+
 
 def _should_inject_conversation_id(command: str) -> bool:
     if "--conversation-id" in command:
         return False
     if not re.search(r"\bpython3?\b", command):
         return False
-    return bool(_WORKFLOW_PY_PATH.search(command))
+    if not _WORKFLOW_PY_PATH.search(command):
+        return False
+    return any(suffix in command for suffix in _CONV_ID_INJECT_SCRIPT_SUFFIXES)
 
 
 def _workflow_cache_dir(platform: str) -> Path:

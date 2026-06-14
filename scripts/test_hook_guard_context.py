@@ -110,11 +110,13 @@ class TestShouldInjectConversationId:
         "command",
         [
             "python3 ~/.cursor/skills/lulu-dev-workflow/diagnostic/scripts/start.py --cycle-id fid1",
-            "python3 ~/.cursor/skills/lulu-dev-workflow/scripts/hook_guard.py",
             "python lulu-dev-workflow/product-plan/scripts/start.py --project-root /tmp",
+            "python3 ~/.cursor/skills/lulu-dev-workflow/tech-plan/scripts/start.py --cycle-id fid1",
+            "python3 ~/.cursor/skills/lulu-dev-workflow/tech-work-order/scripts/start.py --cycle-id fid1",
+            "python3 ~/.cursor/skills/lulu-dev-workflow/tech-code/scripts/start.py --cycle-id fid1",
         ],
     )
-    def test_workflow_py_invocation(self, command):
+    def test_start_py_invocation(self, command):
         from hook_guard import _should_inject_conversation_id
 
         assert _should_inject_conversation_id(command) is True
@@ -127,6 +129,9 @@ class TestShouldInjectConversationId:
             "git add lulu-dev-workflow/scripts/hook_guard.py",
             "git status",
             "python3 cycle_control.py --project-root /tmp start --name test",
+            "python3 ~/.cursor/skills/lulu-dev-workflow/scripts/hook_guard.py",
+            "python3 ~/.cursor/skills/lulu-dev-workflow/tech-plan/scripts/draft_control.py --cycle-id fid1",
+            "python3 ~/.cursor/skills/lulu-dev-workflow/scripts/cycle_control.py start --name test",
         ],
     )
     def test_non_workflow_py_invocation(self, command):
