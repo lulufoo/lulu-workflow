@@ -156,12 +156,12 @@ Track progress: `$ROUND_CONTROL read-section-pointer --round {N}`.
 - Render active-section `items` in two groups: **KW** (`gap_kind: kw`) then **Upstream** (`upstream_violation` / `upstream_coverage`).
 - Footer: section statuses from pointer · `Undecided` · `KW0 pending` · `Upstream undecided` · `Probe seq`.
 - Fix priority: KW undecided first, then upstream undecided.
-- Prompt: `请你决定（Round {N} / {ACTIVE_SECTION}）` e.g. `{ACTIVE_SECTION}-1 accept`.
+- Prompt and **wait**: `Your call (Round {N} / {ACTIVE_SECTION})` — e.g. `{ACTIVE_SECTION}-1 accept`.
 - **Rewind:** user requests upstream edit → `$ROUND_CONTROL rewind-section --round {N} --to {section}` → **2a**.
 
 ##### 2c. Human decide
 
-Parse `{id} {accept|skip|redirect}` for active-section ids only.
+**Gate:** Stop after 2b; proceed only on explicit user `{id} {accept|skip|redirect}` input — do not infer decisions.
 
 Each decision → `$ROUND_CONTROL update-gap-decision --round {N} --id {id} --decision {accept|skip|redirect}`.
 
