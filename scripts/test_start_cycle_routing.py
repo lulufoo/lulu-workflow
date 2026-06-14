@@ -12,10 +12,10 @@ import pytest
 _SRC = Path(__file__).resolve().parents[2]  # lulu-dev-skills/
 _STAGES = ["diagnostic", "product-plan", "tech-plan", "tech-work-order", "tech-code"]
 
-# Use tech-work-order's workflow_common for unit tests of shared functions
+# Use tech-work-order's workflow_common for unit tests of shared functions.
 _TWO_SCRIPTS = _SRC / "lulu-dev-workflow" / "tech-work-order" / "scripts"
 if str(_TWO_SCRIPTS) not in sys.path:
-    sys.path.insert(0, str(_TWO_SCRIPTS))
+    sys.path.append(str(_TWO_SCRIPTS))
 
 _CYCLE_ID = "20260524143022-02cd7e6e"
 _TOPIC_ID = "topic-20260524143022-aabbccdd"

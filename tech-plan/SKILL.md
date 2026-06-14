@@ -21,7 +21,7 @@ that gates state transitions.
 <HARD-GATE name="Plan Scope Constraints">
 Before Drafting or Evaluating work:
 
-1. Run `$RESOLVE_PLAN_ROLE` (see Command Index).
+1. Run `$RESOLVE_PLAN_ROLE` (see Script Macros).
 2. Read stdout as authoritative **Plan Scope Constraints**; apply `### Role`.
 3. **Do not** select framework template URLs by `cycle_type` — fetch roles are shared across topic and feature.
 </HARD-GATE>
@@ -239,7 +239,7 @@ When eval-rules completes, follow its exit branch:
 
 ---
 
-## Command Index
+## Script Macros
 
 Macros invoke `$SKILL_DIR/scripts/*.py`. Non-zero exit → Blocking (Principles).
 

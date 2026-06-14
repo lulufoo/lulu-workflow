@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
-"""Top-level orchestrator: runs each sub-workflow init.py in sequence.
+"""Project-level init operations for lulu-dev-workflow."""
 
-Hook paths and config defaults are owned by each sub-workflow's own
-workflow_common.py / init.py — this script only dispatches to them.
-"""
+from __future__ import annotations
 
-import argparse
 import json
+import os
 import subprocess
 import sys
-import os
 from pathlib import Path
 
 SKILL_ROOT = Path(__file__).resolve().parents[1]
@@ -18,6 +15,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from subagent_config import ensure_platform_config  # noqa: E402
+
 SUB_WORKFLOWS = ["product-plan", "tech-plan", "tech-work-order", "tech-code"]
 
 _CURSOR_HOOK_COMMAND = (
@@ -61,7 +59,6 @@ def register_copilot_hook(project_root: Path) -> None:
         with hooks_path.open(encoding="utf-8") as f:
             payload = json.load(f)
     hooks = payload.setdefault("hooks", {})
-    # Copilot uses PascalCase hook names
     pre_tool_use = hooks.get("PreToolUse", [])
     pre_tool_use = [
         e for e in pre_tool_use
@@ -69,7 +66,6 @@ def register_copilot_hook(project_root: Path) -> None:
     ]
     pre_tool_use.append({"type": "command", "command": _COPILOT_HOOK_COMMAND, "timeout": 5})
     hooks["PreToolUse"] = pre_tool_use
-    # Ensure Stop hook is preserved (do not overwrite unrelated entries)
     hooks_path.parent.mkdir(parents=True, exist_ok=True)
     with hooks_path.open("w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2, ensure_ascii=False)
@@ -77,23 +73,10 @@ def register_copilot_hook(project_root: Path) -> None:
 
 
 def ensure_copilot_platform_config(project_root: Path) -> None:
-    """Create or migrate .github/lulu-dev-workflow/config.json."""
     ensure_platform_config(project_root, platform="copilot")
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Initialize lulu-dev-workflow in a project (all sub-workflows)."
-    )
-    parser.add_argument("--project-root", required=True, help="Project root directory.")
-    parser.add_argument(
-        "--platform", default="cursor",
-        choices=["cursor", "copilot"],
-        help="Target platform (cursor or copilot).",
-    )
-    args, _ = parser.parse_known_args()
-    project_root = Path(args.project_root).resolve()
-
+def run_init_project(project_root: Path, platform: str) -> int:
     for sub in SUB_WORKFLOWS:
         init_py = SKILL_ROOT / sub / "scripts" / "init.py"
         if not init_py.exists():
@@ -101,15 +84,15 @@ def main() -> int:
             continue
         print(f"\n[lulu-dev-workflow init] Running {sub} init...")
         result = subprocess.run(
-            [sys.executable, str(init_py), "--project-root", args.project_root],
-            env={**os.environ, "LULU_PLATFORM": args.platform},
+            [sys.executable, str(init_py), "--project-root", str(project_root)],
+            env={**os.environ, "LULU_PLATFORM": platform},
             check=False,
         )
         if result.returncode != 0:
             print(f"[lulu-dev-workflow init] ERROR: {sub} init failed (exit {result.returncode}).")
             return result.returncode
 
-    if args.platform == "copilot":
+    if platform == "copilot":
         ensure_copilot_platform_config(project_root)
         register_copilot_hook(project_root)
         print(f"\n[lulu-dev-workflow init] Copilot hook registered: {_COPILOT_HOOK_COMMAND}")
@@ -119,7 +102,3 @@ def main() -> int:
 
     print("\n[lulu-dev-workflow init] All sub-workflows initialized successfully.")
     return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

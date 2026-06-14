@@ -13,7 +13,8 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 from active_context import get_entry
-from cycle_state import read_cycle_state, write_cycle_state  # noqa: F401 (re-exported)
+from cycle_schema import read_stage as read_cycle_state  # noqa: F401
+from cycle_schema import write_stage as write_cycle_state  # noqa: F401
 
 _SKILL_ROOT = Path(__file__).resolve().parents[1]
 _CONFIG_DIR = _SKILL_ROOT / "config"

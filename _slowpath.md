@@ -1,6 +1,6 @@
 # Feature Resolution — Slow Path
 
-1. Read `$CACHE_DIR/cycles.json`, display list; if user message has a description, derive `<name>`.
+1. Run `$CYCLE_CONTROL list`; use stdout for the numbered list. If user message has a description, derive `<name>`.
 
    ```
    Cycles:
@@ -19,10 +19,7 @@
    - **Feature:** integer → `cycle_id ← cycles.json[n]`; Initial Mode Resolution → DONE; text → `name ← input`; no answer → use derived `<name>`
    - **Mode:** `2` → `autonomous`; else → `guided`
 
-3. If a new name is resolved, run:
-   ```bash
-   python3 cycle_init.py --project-root "$(pwd)" --name "<name>" --mode "<mode>"
-   ```
+3. If a new name is resolved, run `$CYCLE_CONTROL start --name "<name>" --mode "<mode>"` (see parent `SKILL.md` → Script Macros).
    `$EXECUTION_MODE ← mode`
 
 Done: `$CYCLE_ID` confirmed · Read workflow docs only from `$CACHE_DIR/$CYCLE_ID/`

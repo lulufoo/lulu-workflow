@@ -103,4 +103,4 @@ python3 {$SKILL_ROOT}/eval/scripts/eval_control.py \
 | Subcommand list | `eval/scripts/eval_control.py` module docstring or `--help` |
 | Runner write boundaries | `eval/*-runner/SKILL.md` |
 
-Do not infer `$EVAL_CONTROL` contracts from workflow parent SKILL Command Index files.
+Do not infer `$EVAL_CONTROL` contracts from workflow parent SKILL Script Macros sections.

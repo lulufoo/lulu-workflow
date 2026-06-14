@@ -19,61 +19,124 @@ under this directory.
 > - `_transitions.md` — Stage Transitions + Rollback (loaded at delivery)
 > - `_subagent.md` — Sub-agent Context (tech-code, tech-work-order only)
 
+## Scope
+
+This SKILL orchestrates **project-level lifecycle** only:
+
+- Bootstrap: install hooks, workflow-config, new cycle container
+- Maintenance: list / validate / archive cycles
+- Routing: dispatch to sub-SKILLs (see ## Sub-SKILL Routing)
+
+Do **not** drive drafting, evaluating, or delivery here — sub-SKILLs own those steps.
+Do **not** call `cycle_schema.py` or bare `python3 .../cycle_control.py` paths — use `$CYCLE_CONTROL` only.
+
+## Prerequisites
+
+| Layer | Requirement |
+|-------|-------------|
+| Machine | [`lulu-meta-skill install`](../lulu-meta-skill/install/SKILL.md) (once per machine) |
+| Runtime | Read `_runtime.md` § Platform Context before any command |
+| Platform vars | `$PLATFORM`, `$SKILL_ROOT`, `$CACHE_DIR`, `$WORKFLOW_DIR` |
+| Project config | `workflow-config.json` at resolved `workflowConfig` path (see ## Command Semantics → configure) |
+
+## Command Flow
+
+### Bootstrap — first time in a repo
+
+1. **Machine install** — `lulu-meta-skill install`
+2. **Project init** — `$CYCLE_CONTROL init-project` (once per repo; safe to re-run)
+3. **Workflow config** — skip if config file already exists at resolved path; else `$CYCLE_CONTROL configure`
+4. **First feature** — `$CYCLE_CONTROL start --name "<name>"` → apply footer (see ## Command Semantics → start)
+
+### New feature — repo already bootstrapped
+
+1. Resolve active cycle — `_runtime.md` § Session Foundation (Fast Path / Slow Path)
+2. If user wants a **new** feature → `$CYCLE_CONTROL start ...`
+3. If user names a sub-stage → ## Sub-SKILL Routing (do not start here)
+
+### Maintenance — optional, user-invoked
+
+| Intent | Run |
+|--------|-----|
+| List cycles | `$CYCLE_CONTROL list` |
+| Inspect one cycle | `$CYCLE_CONTROL info --cycle-id "<id>"` |
+| Validate cycle on disk | `$CYCLE_CONTROL validate --cycle-id "<id>"` |
+| Prune old cycles | `$CYCLE_CONTROL archive` [`--keep N`] |
+| Show config path only | `$CYCLE_CONTROL resolve-config-path` |
+
 ## Commands
 
-> Commands use `$PLATFORM`, `$SKILL_ROOT`, `$CACHE_DIR`, and `$WORKFLOW_DIR`. Read `_runtime.md` § Platform Context before running any command. Invoke scripts via **Command Index** macros only.
+> Invoke via `$CYCLE_CONTROL` only. Subcommand contracts: `cycle_control.py` module docstring or `--help`.
 
-### `init` — Project-level, run once per project
+### `init` — Once per project
 
-> Prerequisite: machine-level install via [`lulu-meta-skill install`](../lulu-meta-skill/install/SKILL.md).
+**When:** Repo has no platform hooks / first lulu-dev-workflow use.
 
-Run `$INIT`.
+**Run:** `$CYCLE_CONTROL init-project`
 
-Registers platform config and workflow hooks. Does **not** create `workflow-config.json` — use `configure` first (or ensure `skill-config/lulu-dev-workflow/workflow-config.json` exists). Safe to re-run.
+**Done:** Report success or stderr; does not create `workflow-config.json`.
 
-Run `configure` before `start` if the project has no workflow-config yet.
+### `configure` — When workflow-config is missing
 
-### `configure` — Download and apply a workflow-config.json from GitHub
+**When:** Resolved config path has no file (see ## Command Semantics → configure).
 
-Writes to the same path that `fetch_template` and runtime use: `workflowConfig` in platform config (default `skill-config/lulu-dev-workflow/workflow-config.json`).
+**Run:** `$CYCLE_CONTROL configure` [`--url "<blob-url>"`]
 
-Run `$CONFIGURE`. Optional `--url` overrides the default framework template blob URL.
+**Done:** stdout = absolute path written; announce path to user.
 
-On success, stdout is the absolute path written. Do **not** write to `$WORKFLOW_DIR/workflow-config.json` unless `workflowConfig` points there.
+### `start [name]` — New cycle container
 
-To inspect the resolved path without downloading, run `$WORKFLOW_CONFIG_PATH`.
+**When:** User starts a new topic/feature (see ## Command Flow).
 
-### `start [name]` — Create a new feature
+**Run:** `$CYCLE_CONTROL start --name "<name>"` [`--type topic|feature`] [`--mode guided|autonomous`] [`--topic-id <id>`]
 
-Run `$START` (set `<name>` in the macro).
+**Done:** Read stdout last line as `cycle_id`; append `LULU-DEV-WORKFLOW: <cycle_id>` to response.
 
-Prints the `cycle_id` (format: `{cycle_type}-YYYYMMDDHHMMSS-xxxxxxxx`). After running, append `LULU-DEV-WORKFLOW: <cycle_id>` to this response.
+### `archive [N]` — Prune old cycles
 
-### `archive [N]` — Prune old features, keep N most recent
+**When:** User asks to clean up old features (default keep 5).
 
-Usage: `lulu-dev-workflow archive [N]` (default N=5)
+**Run:** `$CYCLE_CONTROL archive` [`--keep N`]
 
-Keeps the N most recent features (by creation timestamp in `cycle_id`) in `$CACHE_DIR`. Deletes older feature directories and removes their entries from `cycles.json`.
+**Done:** Summarize deleted vs retained (stdout).
 
-Run `$ARCHIVE` (set `<N>`; default 5 when omitted).
+## Command Semantics
 
-Prints a summary of deleted directories and retained features.
+### configure
 
-## Command Index
+- **Target path:** `workflowConfig` in platform config (default `skill-config/lulu-dev-workflow/workflow-config.json`).
+- **Success stdout:** absolute path of file written.
+- **Anti-pattern:** Do not write to `$WORKFLOW_DIR/workflow-config.json` unless `workflowConfig` points there.
+- **Inspect only:** `$CYCLE_CONTROL resolve-config-path` (no download).
 
-Macros invoke `$SKILL_ROOT/scripts/*.py`. Non-zero exit → stop and report stderr.
+### start
+
+- **cycle_id format:** `{cycle_type}-YYYYMMDDHHMMSS-xxxxxxxx` (stdout last line).
+- **Footer contract:** `_runtime.md` § Feature Tracking Convention — append `LULU-DEV-WORKFLOW: <cycle_id>` after every successful start.
+
+### archive
+
+- **Retention rule:** Keep N most recent by timestamp embedded in `cycle_id` (default N=5).
+- **Side effects:** Deletes dirs under `$CACHE_DIR`; updates `cycles.json`.
+
+### init
+
+- **Does not:** create `workflow-config.json`.
+- **Safe:** re-run allowed (idempotent hooks registration).
+
+## Script Macros
+
+Non-zero exit → stop and report stderr.
 
 | Macro | Command |
 |-------|---------|
-| `$INIT` | `python3 "$SKILL_ROOT/scripts/init.py" --project-root "$(pwd)" --platform $PLATFORM` |
-| `$CONFIGURE` | `python3 "$SKILL_ROOT/scripts/workflow_config.py" configure --project-root "$(pwd)" --platform $PLATFORM [--url "<github-blob-url>"]` |
-| `$WORKFLOW_CONFIG_PATH` | `python3 "$SKILL_ROOT/scripts/workflow_config.py" resolve-path --project-root "$(pwd)" --platform $PLATFORM` |
-| `$START` | `python3 "$SKILL_ROOT/scripts/cycle_init.py" --project-root "$(pwd)" --name "<name>"` |
-| `$ARCHIVE` | `python3 "$SKILL_ROOT/scripts/prune_features.py" --project-root "$(pwd)" --keep <N>` |
+| `$CYCLE_CONTROL` | `python3 "$SKILL_ROOT/scripts/cycle_control.py" --project-root "$(pwd)" --platform $PLATFORM <subcommand> [args...]` |
 
-Subcommands and stdout contracts: script module docstring or `--help`. Default `$CONFIGURE` URL: `workflow_config.py configure --help`.
+Subcommands and stdout: `cycle_control.py` module docstring or `--help`.
 
 ## Sub-SKILL Routing
+
+After `start`, route stage work via sub-SKILLs — do not re-run orchestrator commands unless bootstrap/maintenance.
 
 | Key | Sub-SKILL | Action |
 |---|---|---|

@@ -39,7 +39,7 @@ One invocation = one probe pass on **one section** (`ACTIVE_SECTION`). Read-only
 | `ACTIVE_SECTION` | Section key to probe |
 | `TECH_DOC_PATH` | tech-doc (read-only) |
 
-## Command Index
+## Script Macros
 
 | Step | Macro calls |
 |------|-------------|

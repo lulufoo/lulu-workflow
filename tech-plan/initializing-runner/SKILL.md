@@ -36,7 +36,7 @@ The parent skill must inject these values before invoking this sub-skill:
 Self-resolved at runtime (do not pass from parent):
 - `$TECH_DOC_PATH` = `{REVISION_DIR}/tech-doc.md`
 
-Load frameworks via `$FETCH_TECH_PLAN` and role constraints via `$RESOLVE_PLAN_ROLE` (see `../SKILL.md` → Command Index).
+Load frameworks via `$FETCH_TECH_PLAN` and role constraints via `$RESOLVE_PLAN_ROLE` (see `../SKILL.md` → Script Macros).
 
 ## Execution Contract
 

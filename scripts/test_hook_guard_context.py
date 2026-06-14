@@ -126,7 +126,7 @@ class TestShouldInjectConversationId:
             "git diff lulu-dev-workflow/SKILL.md",
             "git add lulu-dev-workflow/scripts/hook_guard.py",
             "git status",
-            "python3 cycle_init.py --project-root /tmp",
+            "python3 cycle_control.py --project-root /tmp start --name test",
         ],
     )
     def test_non_workflow_py_invocation(self, command):
