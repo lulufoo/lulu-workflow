@@ -139,18 +139,16 @@ Repeat **2a–2d** until every registry section is `stable`.
 
 ##### 2b. Present gaps
 
-1. `$ROUND_CONTROL read-probe-report --round {N}`.
-2. Footer: `$ROUND_CONTROL read-section-pointer --round {N}` section statuses + report counts from step 1 stdout.
+1. `$ROUND_CONTROL read-probe-report --round {N}` — pin stdout as **`$PROBE`**.
+2. `$ROUND_CONTROL read-section-pointer --round {N}` — pin stdout as **`$POINTER`**.
+3. Read `{$SKILL_DIR}/references/gap-display.md`; render user copy from **`$PROBE` + `$POINTER` only** (do not read probe files on disk).
 
-- **KW0 gate:** `kw0_pending_count` > 0 → show pending only; user edits tech-doc → **2a** (skip 2c).
-- Else present `items` in probe report order (prober-runner §Step 4).
+- **KW0 gate:** `$PROBE.kw0_pending_count` > 0 → pending rows only (gap-display pipeline step 1); user edits tech-doc → **2a** (skip 2c).
 - **Rewind:** upstream edit → `$ROUND_CONTROL rewind-section --round {N} --to {section}` → **2a**.
 
 ##### 2c. Human decide
 
-**Gate:** After 2b (KW0 gate clear); proceed only on explicit `{id} {accept|skip|redirect}` — do not infer.
-
-Prompt and **wait**: `Your call (Round {N} / {ACTIVE_SECTION})` — e.g. `{ACTIVE_SECTION}-1 accept`.
+**Gate:** After 2b presentation and wait (gap-display template footer); proceed only on explicit `{id} {accept|skip|redirect}` — do not infer.
 
 Each decision → `$ROUND_CONTROL update-gap-decision --round {N} --id {id} --decision {accept|skip|redirect}`.
 
@@ -162,7 +160,7 @@ Refiner input includes `ROUND_DIR`, `GAP_ITEM_ID`, `TECH_DOC_PATH`, `CYCLE_*`, `
 
 ##### 2d. Section advance
 
-When `undecided_count` 0 and `kw0_pending_count` 0 (no KW0 pending per 2b):
+When `$PROBE.undecided_count` 0 and `$PROBE.kw0_pending_count` 0 (after 2b presentation):
 
 1. `$ROUND_CONTROL mark-section-stable --round {N} --section {ACTIVE_SECTION}`
 2. `$ROUND_CONTROL advance-section --round {N}`
@@ -225,6 +223,15 @@ When eval-rules completes, follow its exit branch:
 
 > On non-zero exit: apply Blocking policy.
 > On success: prompt next stages when present.
+
+---
+
+## Reference documents
+
+| Document | When |
+|----------|------|
+| `references/gap-display.md` | Round Iteration **2b** step 3 — render from pinned `$PROBE` + `$POINTER` (parent runs steps 1–2) |
+| `{$SKILL_ROOT}/eval/eval-rules.md` | Evaluating Rules |
 
 ---
 
