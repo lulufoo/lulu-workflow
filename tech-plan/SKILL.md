@@ -128,27 +128,25 @@ Await completion (`$SUBAGENT_AWAIT_SYNC`).
 
 #### Step 2 — RoundIteration
 
-Workflow state: `RoundIteration` (`drafting-progress.current_step`). Exit via `advance-to-freeedit` → Step 3.
+- **Macro:** `begin-round` enters or resumes `RoundIteration`; `advance-round` increments macro N (stay in `RoundIteration`).
+- **Per round N:** section-gated loop (2a–2d) — probe and decide **one `ACTIVE_SECTION` at a time** until every registry section is `stable`.
 
-- **Macro:** one or more drafting rounds (`round: N` in `drafting-progress.md`). `begin-round` enters at `N=1`; `advance-round` increments `N` while still in this step.
-- **Per round N:** section-gated loop (2a–2d) — probe and decide **one `ACTIVE_SECTION` at a time** until every registry section is `stable` in `section-pointer.json`.
-
-Entry: run `$DRAFT_CONTROL begin-round`. On failure → apply Blocking policy.
+**Entry:** run `$DRAFT_CONTROL begin-round`.
+- On failure → apply Blocking policy.
+- On success → parse stdout JSON `round` as macro **N** for all `--round` args in this step.
 
 ##### Per round N
 
-**Round setup** — `$ROUND_CONTROL init-round-dir --round {N}` (idempotent; `begin-round` / `advance-round` also initialize).
-
-Track progress: `$ROUND_CONTROL read-section-pointer --round {N}`.
-
-**Section loop** — until all sections in registry `section_order` are `stable` (load via `$FETCH_TECH_PLAN section-registry`):
+**Section loop** (for macro N) — after Entry `begin-round`, repeat **2a–2d** until every registry section is `stable`.
 
 ##### 2a. Probe active section
 
-1. `$ROUND_PROBE_INPUT` → `ACTIVE_SECTION`, `ROUND_DIR`.
+1. Run `$ROUND_PROBE_INPUT`; pin stdout as prober `## Input`. Includes `ACTIVE_SECTION`, `ROUND_DIR`, `ROUND_N`.
 2. Dispatch prober-runner; await `$SUBAGENT_AWAIT_SYNC`.
 
-##### 2b. Load & display (S3 — active section only)
+##### 2b. Load report & present gaps
+
+Load the latest probe report for  `ACTIVE_SECTION` only; render gap items and **wait** for user input.
 
 `$ROUND_CONTROL read-probe-report --round {N}`.
 
@@ -185,7 +183,7 @@ If not all stable → **2a** for new active section. If all stable → **2e**.
 `$ROUND_CONTROL check-convergence --round {N} --no-accept --gaps-resolved`
 
 - `converged: true` → FreeEdit or advance macro-round per user choice.
-- `converged: false` → continue section loop or advance-round per context.
+- `converged: false` → continue section loop, or run `$DRAFT_CONTROL advance-round` and re-parse stdout `round` as the new N.
 
 #### Step 3 — FreeEdit
 
@@ -248,6 +246,7 @@ Macros invoke `$SKILL_DIR/scripts/*.py`. Non-zero exit → Blocking (Principles)
 | `$SESSION_INFO` | `python3 "$SKILL_DIR/scripts/session_info.py" --cycle-id "$CYCLE_ID" --view <view>` |
 | `$SESSION_CONTROL` | `python3 "$SKILL_DIR/scripts/session_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
 | `$DRAFT_CONTROL` | `python3 "$SKILL_DIR/scripts/draft_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
+| `$DRAFT_CONTROL status` | `$DRAFT_CONTROL status` — stdout JSON: `current_step`, `round` |
 | `$ROUND_CONTROL` | `python3 "$SKILL_DIR/scripts/round_control.py" --cycle-dir "$CACHE_DIR/$CYCLE_ID" <subcommand> [args...]` |
 | `$ROUND_CONTROL init-round-dir` | `$ROUND_CONTROL init-round-dir --round {N}` |
 | `$ROUND_CONTROL read-section-pointer` | `$ROUND_CONTROL read-section-pointer --round {N}` |
