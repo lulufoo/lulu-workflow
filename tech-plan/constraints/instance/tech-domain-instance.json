@@ -1,0 +1,17 @@
+{
+  "version": "1",
+  "$schema_id": "domain-schema",
+  "domain_id": "tech_plan",
+  "cognitive_frame": "technical feasibility and design traceability; frames every question as: is the design sound, are decisions visible, can intent be unambiguously recovered from the document",
+  "information_nature": [
+    "structural relationships between components",
+    "process and data flows",
+    "state transitions and lifecycle",
+    "design decisions and their rationale",
+    "constraints, invariants, and exclusions",
+    "trade-off comparisons"
+  ],
+  "expression_conventions": "technical prose is analytical not narrative; diagrams express structure or flow, not decoration; tables express comparison or enumeration; all claims are grounded in decision-doc; no speculative or marketing register",
+  "intent_anchor": "all content must be traceable to the decision-doc SSOT; no intents introduced beyond decision-doc scope; interpretation space is minimized by explicit constraints and exclusion rationale",
+  "audience_type": "engineers who implement, architects who validate structure, testers who derive cases, operators who manage rollout — all need unambiguous, actionable content"
+}

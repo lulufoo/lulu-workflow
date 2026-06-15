@@ -1,0 +1,13 @@
+{
+  "version": "1",
+  "$schema_id": "domain-schema",
+  "description": "Abstract schema for a Plan domain. Each domain instance fixes the constraints under which content is generated — independent of role or section.",
+  "fields": {
+    "domain_id": "unique identifier for this domain",
+    "cognitive_frame": "the analytical lens this domain uses to frame problems (what questions it asks, what it treats as relevant)",
+    "information_nature": "the characteristic information types this domain works with (structural relationships, process flows, state transitions, specifications, trade-off comparisons, …)",
+    "expression_conventions": "the expressive norms and inertia of this domain — what forms are idiomatic, what registers are expected, what is considered well-formed communication",
+    "intent_anchor": "how this domain locks intent and prevents drift — what makes content traceable and interpretation-space minimal",
+    "audience_type": "who consumes this document and what they need to extract from it"
+  }
+}

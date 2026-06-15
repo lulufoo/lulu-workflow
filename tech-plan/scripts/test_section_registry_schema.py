@@ -109,3 +109,9 @@ def test_validate_rejects_missing_heading():
     payload["sections"]["NG"]["heading"] = ""
     errors = validate_section_registry(payload)
     assert any("sections.NG.heading" in err for err in errors)
+
+
+def test_section_desc_preserved():
+    reg = _load_fixture_registry()
+    assert reg["sections"]["NS"]["desc"].startswith("One clear before")
+    assert "desc" in reg["sections"]["T"]

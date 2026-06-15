@@ -111,6 +111,9 @@ def validate_section_registry(data: dict[str, Any]) -> list[str]:
         heading = str(entry.get("heading", "")).strip()
         if not heading:
             errors.append(f"sections.{key}.heading is required")
+        desc = entry.get("desc")
+        if desc is not None and (not isinstance(desc, str) or not desc.strip()):
+            errors.append(f"sections.{key}.desc must be a non-empty string when present")
         aliases = entry.get("aliases", [])
         if aliases is not None and not isinstance(aliases, list):
             errors.append(f"sections.{key}.aliases must be a list")
@@ -162,12 +165,16 @@ def normalize_section_registry(data: dict[str, Any]) -> dict[str, Any]:
         upstream = [str(item).upper() for item in entry.get("upstream") or []]
         relations_raw = entry.get("relations") or {}
         relations = {str(k).upper(): str(v) for k, v in relations_raw.items()}
-        sections[key] = {
+        normalized: dict[str, Any] = {
             "heading": str(entry.get("heading", "")).strip(),
             "aliases": aliases,
             "upstream": upstream,
             "relations": relations,
         }
+        desc = entry.get("desc")
+        if isinstance(desc, str) and desc.strip():
+            normalized["desc"] = desc.strip()
+        sections[key] = normalized
     return {
         "version": "1",
         "section_order": order,

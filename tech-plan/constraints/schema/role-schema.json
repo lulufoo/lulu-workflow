@@ -1,0 +1,12 @@
+{
+  "version": "1",
+  "$schema_id": "role-schema",
+  "fields": {
+    "role_id": "unique identifier",
+    "cognitive_framework": "how this role frames problems — what dimensions it analyzes from",
+    "priority_tendency": "which section types or content aspects this role prioritizes",
+    "vocabulary_domain": "the vocabulary set characteristic of this role's reasoning",
+    "expressive_tendency": "what visual or structural style this role naturally favors when communicating",
+    "completion_bar": "what 'done' means from this role's perspective"
+  }
+}

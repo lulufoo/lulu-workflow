@@ -22,7 +22,6 @@ class TestResolveKey:
     @pytest.mark.parametrize(
         ("role", "expected"),
         [
-            ("decision-doc-mapping", "tpt_decision_doc_mapping_url"),
             ("section-kw-criteria", "tpt_section_kw_criteria_url"),
             ("section-registry", "tpt_section_registry_url"),
             ("eval-ptc", "ptc_url"),
@@ -36,9 +35,12 @@ class TestResolveKey:
         with pytest.raises(FetchPlanFrameworkError, match="Invalid role"):
             resolve_key("unknown-role")
 
+    def test_decision_doc_mapping_role_removed(self) -> None:
+        with pytest.raises(FetchPlanFrameworkError, match="Invalid role"):
+            resolve_key("decision-doc-mapping")
+
     def test_all_roles_mapped(self) -> None:
         assert set(ROLE_KEYS) == {
-            "decision-doc-mapping",
             "eval-ptc",
             "intent-eval-framework",
             "section-kw-criteria",
@@ -79,7 +81,7 @@ class TestFetchPlanFramework:
         mod.fetch_template = fail_fetch
         try:
             with pytest.raises(FetchPlanFrameworkError, match="network failed"):
-                fetch_plan_framework("decision-doc-mapping", tmp_path)
+                fetch_plan_framework("section-registry", tmp_path)
         finally:
             mod.fetch_template = original
 

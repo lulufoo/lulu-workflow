@@ -4,7 +4,7 @@
 Subcommands:
     begin-init            Check whether Initializing can start; on success print
                           initializing-runner ## Input block (plain text)
-    init-complete         Validate seeded tech-doc and write drafting-progress Ready
+    init-complete         Validate composed tech-doc (all sections non-empty) and write Ready
     begin-round           Transition Ready -> RoundIteration (round 1)
     advance-round         Increment round while in RoundIteration
     advance-to-freeedit   Transition RoundIteration -> FreeEdit
@@ -105,9 +105,20 @@ def _init_dispatch_input(cycle_id: str, project_root: Path) -> str:
     )
 
 
-def _validate_tech_doc_seeded(tech_doc: Path) -> str | None:
+def _validate_tech_doc_seeded(tech_doc: Path, project_root: Path) -> str | None:
     if not tech_doc.exists():
         return f"tech-doc.md not found: {tech_doc}"
+    from section_registry_schema import section_order  # noqa: WPS433
+    from tech_doc_schema import section_body_by_key  # noqa: WPS433
+
+    raw = tech_doc.read_text(encoding="utf-8")
+    empty: list[str] = []
+    for key in section_order(project_root):
+        body = section_body_by_key(raw, key, project_root=project_root).strip()
+        if not body:
+            empty.append(key)
+    if empty:
+        return f"tech-doc sections with empty body: {', '.join(empty)}"
     return None
 
 
@@ -140,7 +151,7 @@ def init_complete(cycle_id: str, project_root: Path) -> dict[str, Any]:
     progress_path = resolve_drafting_progress_path_from_cycle(cycle_id, project_root)
     tech_doc = _tech_doc_path(cycle_id, project_root)
 
-    seed_error = _validate_tech_doc_seeded(tech_doc)
+    seed_error = _validate_tech_doc_seeded(tech_doc, project_root)
     if seed_error:
         return _failure(_CMD_INIT_COMPLETE, seed_error)
 

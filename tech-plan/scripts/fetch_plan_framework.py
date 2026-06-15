@@ -17,7 +17,6 @@ from fetch_template import FetchTemplateError, fetch_template  # noqa: E402
 SECTION = "tech-plan"
 
 ROLE_KEYS: dict[str, str] = {
-    "decision-doc-mapping": "tpt_decision_doc_mapping_url",
     "eval-ptc": "ptc_url",
     "intent-eval-framework": "tpt_intent_eval_framework_url",
     "section-kw-criteria": "tpt_section_kw_criteria_url",
@@ -67,7 +66,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         "--role",
         required=True,
         choices=sorted(_VALID_ROLES),
-        help="Framework role (decision-doc-mapping, eval-ptc, intent-eval-framework, section-kw-criteria, section-registry)",
+        help="Framework role (eval-ptc, intent-eval-framework, section-kw-criteria, section-registry)",
     )
     parser.add_argument(
         "--project-root",

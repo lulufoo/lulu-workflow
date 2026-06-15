@@ -103,6 +103,8 @@ State transitions via `$SESSION_CONTROL` / `$EVAL_CONTROL`; `transition-whitelis
 
 #### Step 1 — Initializing
 
+Compose draft from decision-doc (`I*` / `F` / `C` per section; see initializing-runner Theory). No mapping paste.
+
 1. Run `$DRAFT_CONTROL begin-init`. 
 
 - On failure → apply Blocking policy.
@@ -258,6 +260,7 @@ Macros invoke `$SKILL_DIR/scripts/*.py`. Non-zero exit → Blocking (Principles)
 | `$ROUND_CONTROL update-gap-decision` | `$ROUND_CONTROL update-gap-decision --round {N} --id {id} --decision {accept\|skip\|redirect}` |
 | `$ROUND_CONTROL check-convergence` | `$ROUND_CONTROL check-convergence --round {N} --no-accept --gaps-resolved` |
 | `$RESOLVE_PLAN_ROLE` | `python3 "$SKILL_DIR/scripts/plan_scope.py" resolve-role --cycle-id "$CYCLE_ID" --project-root "$(pwd)"` |
+| `$RESOLVE_DOMAIN` | `python3 "$SKILL_DIR/scripts/plan_scope.py" resolve-domain --project-root "$(pwd)"` |
 | `$FETCH_TECH_PLAN` | `python3 "$SKILL_DIR/scripts/fetch_plan_framework.py" --role <role> --project-root "$(pwd)"` |
 
 Subcommands and stdout: script module docstrings or `--help`.

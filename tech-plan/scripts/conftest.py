@@ -8,7 +8,7 @@ import pytest
 
 _SCRIPTS_DIR = Path(__file__).resolve().parent
 _FIXTURE_REGISTRY = _SCRIPTS_DIR / "test_fixtures" / "section-registry.json"
-_WORKFLOW_SCRIPTS = _SCRIPTS_DIR.parents[2] / "scripts"
+_WORKFLOW_SCRIPTS = _SCRIPTS_DIR.parents[1] / "scripts"
 
 
 @pytest.fixture(scope="session")

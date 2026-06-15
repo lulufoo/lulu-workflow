@@ -18,8 +18,7 @@ Subcommands:
     write-probe-report     Write round-{N}/{section}/probe-{seq}.json
     read-probe-report      Return latest probe report for a section
     write-refiner-artifact   Write round-{N}/{section}/refiner-{seq}-{id}.json
-    write-gap-report       [deprecated] Write gap-report-round-{N}.json
-    read-gap-report        Return gap report (probe shim or legacy file)
+    read-gap-report        Return probe report for active section (pointer required)
     read-gap-item          Return one gap item + refiner dispatch fields
     update-gap-decision    Set gap item decision (accept | skip | redirect)
     update-gap-status      Set gap item status (open | no_gap | resolved)
@@ -38,23 +37,17 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from drafting_progress_schema import load_drafting_progress  # noqa: E402
-from gap_report_schema import (  # noqa: E402
-    find_item,
-    gap_report_path,
-    kw0_pending_items,
-    load_gap_report,
-    open_items,
-    refiner_payload,
-    save_gap_report,
-    undecided_items,
-    update_item_decision,
-    update_item_status,
-)
 from probe_report_schema import (  # noqa: E402
+    find_item,
+    intent_open_items,
+    intent_undecided_items,
+    kw0_pending_items,
     load_probe_report,
     normalize_probe_report,
+    open_items,
     refiner_payload as probe_refiner_payload,
     save_probe_report,
+    undecided_items,
     update_probe_item_decision,
     update_probe_item_status,
     upstream_open_items,
@@ -91,6 +84,7 @@ from section_registry_schema import (  # noqa: E402
     section_heading,
 )
 from tech_doc_schema import section_body_by_key, section_display_heading  # noqa: E402
+from workflow_common import decision_doc_path  # noqa: E402
 
 _CMD_ROUND_PROBE_INPUT = "round-probe-input"
 _STEP_ROUND = "RoundIteration"
@@ -220,11 +214,6 @@ def _append_table_row(path: Path, cells: list[str]) -> None:
     path.write_text(text, encoding="utf-8")
 
 
-def _gap_report_file(cycle_dir: Path, round_n: int) -> Path:
-    revision_dir = _active_revision_dir(cycle_dir)
-    return gap_report_path(revision_dir, round_n)
-
-
 def _read_round(revision_dir: Path) -> int:
     progress = revision_dir / "drafting-progress.md"
     if not progress.exists():
@@ -319,6 +308,8 @@ def _probe_report_summary(report: dict[str, Any], *, path: Path) -> dict[str, An
         "kw0_pending_count": len(kw0_pending_items(report)),
         "upstream_open_count": len(upstream_open_items(report)),
         "upstream_undecided_count": len(upstream_undecided_items(report)),
+        "intent_open_count": len(intent_open_items(report)),
+        "intent_undecided_count": len(intent_undecided_items(report)),
         "items": report["items"],
         "anchor_failures": report["anchor_failures"],
         "anchor_candidates": report["anchor_candidates"],
@@ -433,12 +424,16 @@ def cmd_read_context(cycle_dir: Path) -> int:
     if not tech_doc.exists():
         return _fail(f"tech-doc.md not found: {tech_doc}")
 
+    project_root = project_root_from_cycle_dir(cycle_dir)
+    decision_path = project_root / decision_doc_path(cycle_dir.name)
+
     _emit(
         {
             "anchors": _read_anchors(anchor_path),
             "skips": _read_skips(skip_path),
             "round": _read_round(revision_dir),
             "tech_doc_path": str(tech_doc.resolve()),
+            "decision_doc_path": str(decision_path.resolve()),
             "revision_dir": str(revision_dir.resolve()),
         }
     )
@@ -640,6 +635,7 @@ def cmd_write_probe_report(cycle_dir: Path, *, payload: dict[str, Any]) -> int:
             "undecided_count": len(undecided_items(report)),
             "kw0_pending_count": len(kw0_pending_items(report)),
             "upstream_open_count": len(upstream_open_items(report)),
+            "intent_open_count": len(intent_open_items(report)),
             "item_count": len(report["items"]),
         }
     )
@@ -692,26 +688,6 @@ def cmd_write_refiner_artifact(cycle_dir: Path, *, payload: dict[str, Any]) -> i
     return 0
 
 
-def cmd_write_gap_report(cycle_dir: Path, *, payload: dict[str, Any]) -> int:
-    round_n = int(payload["round"])
-    revision_dir = _active_revision_dir(cycle_dir)
-    path = gap_report_path(revision_dir, round_n)
-    save_gap_report(path, payload)
-    report = load_gap_report(path)
-    _emit(
-        {
-            "ok": True,
-            "path": str(path.resolve()),
-            "round": round_n,
-            "open_count": len(open_items(report)),
-            "kw0_pending_count": len(kw0_pending_items(report)),
-            "upstream_open_count": len(upstream_open_items(report)),
-            "item_count": len(report["items"]),
-        }
-    )
-    return 0
-
-
 def cmd_read_upstream_context(cycle_dir: Path, *, round_n: int) -> int:
     pointer_path = _pointer_file(cycle_dir, round_n)
     pointer = load_section_pointer(pointer_path)
@@ -754,80 +730,55 @@ def cmd_read_section_body(cycle_dir: Path, *, section: str) -> int:
 
 def cmd_read_gap_report(cycle_dir: Path, *, round_n: int) -> int:
     pointer = _load_pointer_if_exists(cycle_dir, round_n)
-    if pointer is not None:
-        try:
-            path, report = _load_active_probe_report(
-                cycle_dir,
-                round_n=round_n,
-                section_key=pointer["active_section"],
-            )
-        except FileNotFoundError:
-            _emit(
-                {
-                    "ok": True,
-                    "path": str(_pointer_file(cycle_dir, round_n).resolve()),
-                    "round": round_n,
-                    "active_section": pointer["active_section"],
-                    "open_count": 0,
-                    "undecided_count": 0,
-                    "kw0_pending_count": 0,
-                    "upstream_open_count": 0,
-                    "upstream_undecided_count": 0,
-                    "items": [],
-                    "anchor_failures": [],
-                    "anchor_candidates": [],
-                }
-            )
-            return 0
-        payload = _probe_report_summary(report, path=path)
-        payload["active_section"] = pointer["active_section"]
-        _emit(payload)
-        return 0
-
-    path = _gap_report_file(cycle_dir, round_n)
-    report = load_gap_report(path)
-    _emit(
-        {
-            "ok": True,
-            "path": str(path.resolve()),
-            "round": report["round"],
-            "open_count": len(open_items(report)),
-            "undecided_count": len(undecided_items(report)),
-            "kw0_pending_count": len(kw0_pending_items(report)),
-            "items": report["items"],
-            "anchor_failures": report["anchor_failures"],
-            "anchor_candidates": report["anchor_candidates"],
-        }
-    )
-    return 0
-
-
-def cmd_read_gap_item(cycle_dir: Path, *, round_n: int, item_id: str) -> int:
-    pointer = _load_pointer_if_exists(cycle_dir, round_n)
-    if pointer is not None:
+    if pointer is None:
+        return _fail(
+            f"section-pointer not found for round {round_n}; "
+            "run init-round-dir before reading the gap report"
+        )
+    try:
         path, report = _load_active_probe_report(
             cycle_dir,
             round_n=round_n,
             section_key=pointer["active_section"],
         )
-        item = find_item(report, item_id)
-        if item is None:
-            return _fail(f"gap item not found: {item_id!r}")
+    except FileNotFoundError:
         _emit(
             {
                 "ok": True,
-                "path": str(path.resolve()),
-                "round": report["round"],
-                "section_key": report["section_key"],
-                "probe_seq": report["probe_seq"],
-                "item": item,
-                "refiner": probe_refiner_payload(item),
+                "path": str(_pointer_file(cycle_dir, round_n).resolve()),
+                "round": round_n,
+                "active_section": pointer["active_section"],
+                "open_count": 0,
+                "undecided_count": 0,
+                "kw0_pending_count": 0,
+                "upstream_open_count": 0,
+                "upstream_undecided_count": 0,
+                "intent_open_count": 0,
+                "intent_undecided_count": 0,
+                "items": [],
+                "anchor_failures": [],
+                "anchor_candidates": [],
             }
         )
         return 0
+    payload = _probe_report_summary(report, path=path)
+    payload["active_section"] = pointer["active_section"]
+    _emit(payload)
+    return 0
 
-    path = _gap_report_file(cycle_dir, round_n)
-    report = load_gap_report(path)
+
+def cmd_read_gap_item(cycle_dir: Path, *, round_n: int, item_id: str) -> int:
+    pointer = _load_pointer_if_exists(cycle_dir, round_n)
+    if pointer is None:
+        return _fail(
+            f"section-pointer not found for round {round_n}; "
+            "run init-round-dir before reading gap items"
+        )
+    path, report = _load_active_probe_report(
+        cycle_dir,
+        round_n=round_n,
+        section_key=pointer["active_section"],
+    )
     item = find_item(report, item_id)
     if item is None:
         return _fail(f"gap item not found: {item_id!r}")
@@ -836,8 +787,10 @@ def cmd_read_gap_item(cycle_dir: Path, *, round_n: int, item_id: str) -> int:
             "ok": True,
             "path": str(path.resolve()),
             "round": report["round"],
+            "section_key": report["section_key"],
+            "probe_seq": report["probe_seq"],
             "item": item,
-            "refiner": refiner_payload(item),
+            "refiner": probe_refiner_payload(item),
         }
     )
     return 0
@@ -845,7 +798,7 @@ def cmd_read_gap_item(cycle_dir: Path, *, round_n: int, item_id: str) -> int:
 
 def _skip_kw_label(item: dict[str, Any]) -> str:
     gap_kind = str(item.get("gap_kind", "kw")).lower()
-    if gap_kind.startswith("upstream_"):
+    if gap_kind.startswith("upstream_") or gap_kind.startswith("intent_"):
         return gap_kind
     if item.get("target_kw") is not None:
         return f"KW{item['target_kw']}"
@@ -860,36 +813,21 @@ def cmd_update_gap_decision(
     decision: str,
 ) -> int:
     pointer = _load_pointer_if_exists(cycle_dir, round_n)
-    if pointer is not None:
-        path, report = _load_active_probe_report(
-            cycle_dir,
-            round_n=round_n,
-            section_key=pointer["active_section"],
+    if pointer is None:
+        return _fail(
+            f"section-pointer not found for round {round_n}; "
+            "run init-round-dir before updating gap decisions"
         )
-        item = find_item(report, item_id)
-        if item is None:
-            return _fail(f"gap item not found: {item_id!r}")
-        updated = update_probe_item_decision(report, item_id=item_id, decision=decision)
-        _save_active_probe_report(path, updated)
-        if decision == "skip":
-            _append_skip_row(
-                cycle_dir,
-                section=item["section_key"],
-                kw_gap=_skip_kw_label(item),
-                round_n=round_n,
-                skip_key=item.get("skip_key", ""),
-                notes=f"gap-item {item_id}",
-            )
-        _emit({"ok": True, "id": item_id, "decision": decision})
-        return 0
-
-    path = _gap_report_file(cycle_dir, round_n)
-    report = load_gap_report(path)
+    path, report = _load_active_probe_report(
+        cycle_dir,
+        round_n=round_n,
+        section_key=pointer["active_section"],
+    )
     item = find_item(report, item_id)
     if item is None:
         return _fail(f"gap item not found: {item_id!r}")
-    updated = update_item_decision(report, item_id=item_id, decision=decision)
-    save_gap_report(path, updated)
+    updated = update_probe_item_decision(report, item_id=item_id, decision=decision)
+    _save_active_probe_report(path, updated)
     if decision == "skip":
         _append_skip_row(
             cycle_dir,
@@ -911,21 +849,18 @@ def cmd_update_gap_status(
     status: str,
 ) -> int:
     pointer = _load_pointer_if_exists(cycle_dir, round_n)
-    if pointer is not None:
-        path, report = _load_active_probe_report(
-            cycle_dir,
-            round_n=round_n,
-            section_key=pointer["active_section"],
+    if pointer is None:
+        return _fail(
+            f"section-pointer not found for round {round_n}; "
+            "run init-round-dir before updating gap statuses"
         )
-        updated = update_probe_item_status(report, item_id=item_id, status=status)
-        _save_active_probe_report(path, updated)
-        _emit({"ok": True, "id": item_id, "status": status})
-        return 0
-
-    path = _gap_report_file(cycle_dir, round_n)
-    report = load_gap_report(path)
-    updated = update_item_status(report, item_id=item_id, status=status)
-    save_gap_report(path, updated)
+    path, report = _load_active_probe_report(
+        cycle_dir,
+        round_n=round_n,
+        section_key=pointer["active_section"],
+    )
+    updated = update_probe_item_status(report, item_id=item_id, status=status)
+    _save_active_probe_report(path, updated)
     _emit({"ok": True, "id": item_id, "status": status})
     return 0
 
@@ -1005,10 +940,6 @@ def build_parser() -> argparse.ArgumentParser:
     append_skip.add_argument("--round", type=int, required=True)
     append_skip.add_argument("--notes", default="")
     append_skip.add_argument("--skip-key", default="")
-
-    write_gap = sub.add_parser("write-gap-report")
-    write_gap.add_argument("--round", type=int, required=True)
-    write_gap.add_argument("--json", required=True, help="Gap report JSON payload")
 
     init_round = sub.add_parser("init-round-dir")
     init_round.add_argument("--round", type=int, required=True)
@@ -1122,9 +1053,6 @@ def main(argv: list[str] | None = None) -> int:
                 notes=args.notes,
                 skip_key=args.skip_key,
             )
-        if args.command == "write-gap-report":
-            payload = json.loads(args.json)
-            return cmd_write_gap_report(cycle_dir, payload=payload)
         if args.command == "init-round-dir":
             return cmd_init_round_dir(cycle_dir, round_n=args.round)
         if args.command == "read-section-pointer":

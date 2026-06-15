@@ -1,9 +1,9 @@
 ---
 name: initializing-runner
 description: >-
-  Autonomous Initializing step for tech-plan drafting. Reads template/meta from
-  parent-provided raw sources, seeds the initial tech-doc with provenance tags and
-  seeds the initial tech-doc with provenance tags, then returns control to the parent Initializing step.
+  Autonomous Initializing step for tech-plan drafting. Loads decision-doc and
+  frameworks, composes per-section tech-doc body via I* / F / C, then writes
+  the initial draft and returns control to the parent Initializing step.
 ---
 
 # initializing-runner
@@ -12,151 +12,114 @@ Run this sub-skill only for the `Initializing` step inside `tech-plan` Drafting.
 
 ## Scope
 
-This skill is responsible for Step I1-I4 only:
+Steps I1–I4 only:
 
-1. Read the authoritative template and meta documents from parent-provided inputs.
-2. Read the current cycle `decision-doc.md`.
-3. Seed the first `tech-doc.md` draft from `Decision-Doc Mapping`.
-4. Write seeded content with `[Source: ...]` tags.
+1. Load decision-doc, section-registry (with `desc`), section-kw-criteria, and Plan Scope Constraints.
+2. Compose each section body: Filter `I*` → Derive `F` → Derive `C` → Write body (see Theory).
+3. Optionally write R0 rows to anchor-ledger.
+4. Write `$TECH_DOC_PATH`.
 
-Do not ask the user questions.
-Do not perform InDialogue, Reopen, Evaluating, or delivery work here.
+Do not ask the user questions. Do not run InDialogue, Reopen, Evaluating, or delivery work.
+
+## Theory (Compose)
+
+See [`../references/compose-theory.md`](../references/compose-theory.md).
+
+**Order (strict):** I2a Filter `I*` → I2b Derive `F` → I2c Derive `C` → I2d Write body.
 
 ## Parent-Provided Inputs
 
-The parent skill must inject these values before invoking this sub-skill:
-
 | Variable | Purpose |
 |---|---|
-| `$REVISION_DIR` | Absolute path to `revision{N}/` — output paths are derived from this |
-| `$DECISION_DOC_PATH` | Absolute path to the current cycle decision doc |
-| `$CYCLE_TYPE` | `topic` or `feature` — from parent dispatch; also used by `$RESOLVE_PLAN_ROLE` |
-| `$CYCLE_ID` | Active cycle id (for `$RESOLVE_PLAN_ROLE`) |
+| `$REVISION_DIR` | Absolute path to `revision{N}/` |
+| `$DECISION_DOC_PATH` | Absolute path to decision-doc |
+| `$CYCLE_TYPE` | `topic` or `feature` |
+| `$CYCLE_ID` | Active cycle id |
 
-Self-resolved at runtime (do not pass from parent):
-- `$TECH_DOC_PATH` = `{REVISION_DIR}/tech-doc.md`
+Self-resolved: `$TECH_DOC_PATH` = `{REVISION_DIR}/tech-doc.md`
 
-Load frameworks via `$FETCH_TECH_PLAN` and role constraints via `$RESOLVE_PLAN_ROLE` (see `../SKILL.md` → Script Macros).
+Load frameworks via `$FETCH_TECH_PLAN` and role via `$RESOLVE_PLAN_ROLE` (see `../SKILL.md` → Script Macros).
 
 ## Execution Contract
 
-### Step I1 - Load mapping table and section registry
+### Step I1 — Load
 
-1. Run `$RESOLVE_PLAN_ROLE` with `$CYCLE_ID`; read stdout as Plan Scope Constraints and apply `### Role`.
-2. Use `$FETCH_TECH_PLAN decision-doc-mapping`; read stdout as mapping markdown.
-3. Locate the `## Decision-Doc Mapping` table.
-4. Parse the mapping rows into:
+1. Run `$RESOLVE_PLAN_ROLE` with `$CYCLE_ID`; read stdout as Plan Scope Constraints; keep `### Role` and `### Role Fields`.
+2. Run `$RESOLVE_DOMAIN`; read stdout; keep as `domain instance`.
+3. Run `$FETCH_TECH_PLAN section-registry`; parse JSON. Cache `section_order`, `document_preamble`, `sections.{key}.heading`, `sections.{key}.desc`.
+4. Run `$FETCH_TECH_PLAN section-kw-criteria`; cache each `## {section_key}` block.
+5. Read `$DECISION_DOC_PATH` **full text** once; keep in memory for all sections.
+6. Initialize `fill_results` from `section_order`: each entry has `heading_line`, empty `content`, `status: "X"`, internal `draft: true`.
 
-```text
-[
-  { source, target, method, hard_constraint, notes }
-]
-```
-
-5. Skip rows where `target` is `—`.
-6. Use `$FETCH_TECH_PLAN section-registry`; parse stdout as JSON.
-7. Read `document_preamble` for the tech-doc header block (substitute `{cycle_id}`, `{path}`, etc. at write time).
-8. Initialize `fill_results` from `section_order` and `sections.{key}.heading`: each section gets a stable H2 line with section-key anchor, empty `content`, `status: "X"`. Do not use `document_skeleton`.
-
-9. Mapping `target` values are registry **section keys** (e.g. keys in `section_order`). Validate each non-skipped target against the registry; reject unknown keys.
+Do **not** fetch `decision-doc-mapping`.
 
 ```text
 fill_results[section_key] = {
-  heading_line: "## {default_display} <!-- section-key:{section_key} -->",
+  heading_line: "## {heading} <!-- section-key:{section_key} -->",
   content: "",
   status: "X"
 }
 ```
 
-`default_display` = registry `sections.{key}.heading` at init (placeholder title; refiner may replace display text while preserving `<!-- section-key:… -->`).
+`heading` = registry `sections.{key}.heading`.
 
-Preserve `section_order` from the registry when rendering the final document.
+### Step I2 — Compose (per `section_key`, strict I2a → I2d)
 
-### Step I2 - Prefetch decision-doc source content
+For each key in `section_order`:
 
-1. Read `$DECISION_DOC_PATH`.
-2. Collect the unique mapping `source` values from Step I1.
-3. For each unique `source`, read the corresponding section or subsection content from the decision doc and store it in `source_cache[source]`.
-4. If a source section is missing or empty, store `null` and continue without error.
+#### I2a — Filter `I*`
 
-Use the decision-doc section labels exactly as referenced by the mapping table, including nested selectors such as:
+- **Input:** decision full text · `sections.{key}.desc` · kw `## {key}`
+- Include an intent sentence in `I*` only if it matches `desc` and supports at least one KW dimension (semantic; do not label KW numbers).
+- Exclude intents that belong to other sections' `desc`. Rewrite as tech-neutral sentences; not decision verbatim.
+- **Output:** list `I*` (may be empty).
 
-- `Direction Comparison > Excluded Directions`
-- `Execution Analysis > Acceptance Criteria`
-- `Execution Analysis > Implementation Sketch > Reversibility`
-- `Assumptions & Risks - H-risk [待验证]`
+#### I2b — Derive `F`
 
-### Step I3 - Apply each mapping row
-
-For each mapping row:
+- **Input:** `### Role Fields` · domain instance · `desc`
+- **Derive (three-step narrowing; priority on conflict: desc > domain > role):**
+  1. **L1 — domain → lawful form space:** Read `expression_conventions` from the domain instance; establish what forms are idiomatic and legitimate in this domain. Forms outside this space are unconditionally excluded.
+  2. **L2 — role × domain → preferred subset:** Read `expressive_tendency` from `### Role Fields` and `information_nature` from the domain instance; within the lawful space, narrow to forms that match both the role's expressive preference and the domain's characteristic information types.
+  3. **L3 — desc → concrete selection:** Read `desc` to determine this section's specific information nature; from the preferred subset, select the carrier and structure that best serve it. Extract any explicit exclusion clauses ("No …") from `desc` — these go directly to `F.forbidden`.
+- **Output (required):**
 
 ```text
-source_content = source_cache[source]
-if source_content == null:
-  continue
+F.carrier:   <derived from L1 → L2 → L3>
+F.structure: <derived from L1 → L2 → L3; "none" if no diagram>
+F.forbidden: <derived from desc exclusion clauses + forms eliminated in L1/L2>
 ```
 
-Apply the method as follows:
+#### I2c — Derive `C`
 
-#### `Direct`
+- **Input:** `### Role Fields` · domain instance · `desc` · `F` from I2b
+- **Derive (three steps):**
+  1. **Role Fields → candidate constraints:** Read each Role Field; map to writing dimensions — `vocabulary_domain` → vocabulary, `cognitive_framework` → abstraction level, `priority_tendency` → emphasis and granularity, `completion_bar` → completeness criterion.
+  2. **domain + desc → filter:** Add `expression_conventions` as baseline constraints; drop Role-derived clauses that conflict with this section's nature or target other section types.
+  3. **F → adjust:** Cross remaining constraints with `F.carrier` and `F.structure`; adjust any dimension whose criterion depends on the carrier form.
+- **Output:** `C = {(d, c), …}` — 2–5 pairs; every `c` traceable to a specific Role Field, `desc`, or `expression_conventions`.
 
-- Replace the target section body with `source_content`.
-- Append `[Source: decision-doc.md#{source}]` at the end of the seeded content.
-- If `hard_constraint: true`, also append `[Anchored: R0, by human]`.
-- Set `fill_results[target].status = "I"`.
+#### I2d — Write body
 
-#### `Extract`
+- **Input:** `I*` · `F` · `C` · `desc`
+- Scaffold per `F`; rewrite `I*` into slots; obey every `(d, c)` and `desc`.
+- Set `fill_results[section_key].content` to the section markdown body (no H2 line).
+- Keep `status: "X"`.
 
-- Filter `source_content` according to `notes`.
-- Keep only implementation-relevant material requested by the mapping row.
-- If the extracted result is non-empty:
-  - replace the target section body with the extracted content
-  - append `[Source: decision-doc.md#{source}]` at the end
-  - if `hard_constraint: true`, also append `[Anchored: R0, by human]`
-  - set `fill_results[target].status = "I"`
-- If the extracted result is empty, leave the original skeleton and keep status `X`.
+### Step I3 — Ancillary (optional)
 
-#### `Transform`
+- R0-grade User Prior / Known Constraints → `anchor-ledger.md` (`Committed at Round = 0`). Do not stack `[Anchored]` in body.
 
-- Start from empty section body (status `X`).
-- Add one short context anchor using the source content:
-  - prefer the first paragraph
-  - otherwise use the first 200 characters
-- Format the anchor as:
+### Step I4 — Write tech-doc
 
-```markdown
-> Initializing context anchor: <excerpt>
-```
-
-- Keep status `X`.
-
-## Write Outputs
-
-### Step I4 - Write tech doc
-
-#### Write `$TECH_DOC_PATH`
-
-Render the full tech document in registry `section_order`:
-
-- write `document_preamble` first (with substituted placeholders)
-- for each key in `section_order`: write `heading_line` then `fill_results[key].content`
-- sections with status `X` and empty content may remain empty
-
-## Expected Initial Seed Set
-
-Derive seeded vs skeleton section **keys** from Step I3 results (`fill_results[*].status` is `I` vs `X`). Do not assume fixed section names — mapping rows and registry `section_order` define the actual set.
-
-Transform rows keep status `X` (anchor only, empty or minimal body).
-
-Do not hardcode section names during execution. Always derive from the mapping fetch (`decision-doc-mapping`) and section registry fetch (`section-registry`) in Step I1.
+1. Write `$TECH_DOC_PATH`: `document_preamble` (substitute placeholders) then each section in `section_order` (`heading_line` + `content`).
+2. All sections remain draft (`X`) until Round probe.
 
 ## Return Summary
 
-After all writes succeed, return exactly this structure with the actual derived section keys:
-
 ```text
 Initializing complete.
-  Seeded (I): <space-separated section keys>
-  Skeleton (X): <space-separated section keys>
+  Synthesized sections: <space-separated section keys from section_order>
+  Decision SSOT: <DECISION_DOC_PATH>
+  Draft status: pending Round validation (all sections X until probe)
   Next step: RoundIteration (Step 2)
 ```

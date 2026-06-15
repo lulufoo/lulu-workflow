@@ -7,7 +7,10 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from test_registry_fixtures import minimal_tech_doc_markdown  # noqa: E402
+from test_registry_fixtures import (  # noqa: E402
+    first_section_key,
+    minimal_tech_doc_markdown,
+)
 from draft_control import (  # noqa: E402
     advance_round,
     advance_to_freeedit,
@@ -20,12 +23,25 @@ from draft_control import (  # noqa: E402
 _CYCLE = "feat-draft-control"
 _CACHE = Path(".cache/cursor/lulu-dev-workflow")
 _SCRIPT = Path(__file__).resolve().parent / "draft_control.py"
+_FIXTURE_REGISTRY = Path(__file__).resolve().parent / "test_fixtures" / "section-registry.json"
+_WORKFLOW_SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
+
+
+def _seed_registry_cache(tmp_path: Path) -> None:
+    if str(_WORKFLOW_SCRIPTS) not in sys.path:
+        sys.path.insert(0, str(_WORKFLOW_SCRIPTS))
+    from fetch_template import atomic_write, cache_path  # noqa: WPS433
+    from subagent_config import detect_platform  # noqa: WPS433
+
+    cache = cache_path(tmp_path, detect_platform(), "tech-plan", "tpt_section_registry_url")
+    atomic_write(cache, _FIXTURE_REGISTRY.read_text(encoding="utf-8"))
 
 
 def _seed_session(tmp_path: Path, *, active_doc: int = 1) -> Path:
+    _seed_registry_cache(tmp_path)
     base = tmp_path / _CACHE / _CYCLE / "tech" / "plan"
     revision = base / f"revision{active_doc}"
-    revision.mkdir(parents=True)
+    revision.mkdir(parents=True, exist_ok=True)
     (base / "session-state.md").write_text(
         f"---\nversion: 1\nactive_doc: {active_doc}\n---\n",
         encoding="utf-8",
@@ -87,6 +103,16 @@ class TestInitComplete:
         result = init_complete(_CYCLE, tmp_path)
         assert result["ok"] is False
         assert "tech-doc.md" in result["reason"]
+
+    def test_fails_when_section_body_empty(self, tmp_path: Path):
+        revision = _seed_session(tmp_path)
+        (revision / "tech-doc.md").write_text(
+            minimal_tech_doc_markdown().replace(f"{first_section_key()}.\n", "\n", 1),
+            encoding="utf-8",
+        )
+        result = init_complete(_CYCLE, tmp_path)
+        assert result["ok"] is False
+        assert "empty body" in result["reason"]
 
     def test_idempotent_when_already_ready(self, tmp_path: Path):
         revision = _seed_session(tmp_path)

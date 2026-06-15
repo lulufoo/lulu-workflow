@@ -162,3 +162,87 @@ def test_refiner_payload_upstream():
     assert payload["gap_kind"] == "upstream_coverage"
     assert payload["upstream_section"] == upstream
     assert payload["target_kw"] is None
+
+
+def test_accepts_intent_coverage_item():
+    section_key = first_section_key()
+    heading = section_heading(section_key)
+    payload = _sample_probe()
+    payload["items"] = [
+        {
+            "id": f"{section_key}-D-1",
+            "gap_kind": "intent_coverage",
+            "scope": "section",
+            "section_key": section_key,
+            "section": heading,
+            "target_kw": None,
+            "intent_gap": f"{section_key} 未体现 decision Scope",
+            "kw_criteria": None,
+            "intent_criteria": {
+                "decision_intent": "Scope: exclude standalone CLI",
+                "expected": f"{section_key} 应 operationalize 排除项",
+                "observed": "未提及",
+            },
+            "sub_section_summary": f"{section_key} vs decision Scope",
+            "sub_section_text": f"（{section_key} 整节）",
+            "skip_key": f"{section_key}:intent:scope-cli",
+            "status": "open",
+            "decision": "—",
+        }
+    ]
+    assert validate_probe_report(payload) == []
+
+
+def test_intent_open_and_undecided_counts():
+    from probe_report_schema import intent_open_items, intent_undecided_items
+
+    section_key = first_section_key()
+    heading = section_heading(section_key)
+    report = _sample_probe()
+    report["items"].append(
+        {
+            "id": f"{section_key}-D-1",
+            "gap_kind": "intent_violation",
+            "scope": "section",
+            "section_key": section_key,
+            "section": heading,
+            "intent_gap": "与 decision 冲突",
+            "intent_criteria": {
+                "decision_intent": "AC-1",
+                "expected": "一致",
+                "observed": "冲突",
+            },
+            "sub_section_summary": "intent gap",
+            "sub_section_text": "body",
+            "skip_key": f"{section_key}:intent:ac1",
+            "status": "open",
+            "decision": "—",
+        }
+    )
+    assert len(intent_open_items(report)) == 1
+    assert len(intent_undecided_items(report)) == 1
+
+
+def test_refiner_payload_intent():
+    from probe_report_schema import refiner_payload
+
+    section_key = first_section_key()
+    heading = section_heading(section_key)
+    item = {
+        "id": f"{section_key}-D-1",
+        "gap_kind": "intent_coverage",
+        "scope": "section",
+        "section": heading,
+        "section_key": section_key,
+        "sub_section_text": "body",
+        "intent_gap": "gap",
+        "intent_criteria": {
+            "decision_intent": "Scope",
+            "expected": "reflect exclusion",
+            "observed": "missing",
+        },
+    }
+    payload = refiner_payload(item)
+    assert payload["gap_kind"] == "intent_coverage"
+    assert payload["intent_criteria"]["decision_intent"] == "Scope"
+    assert payload["upstream_section"] is None

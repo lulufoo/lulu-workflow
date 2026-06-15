@@ -15,23 +15,47 @@ from pathlib import Path
 from typing import Any
 
 from section_registry_schema import section_keys as _registry_section_keys
-from gap_report_schema import (  # noqa: E402 — same package
-    _DECISIONS,
-    _KW_CRITERIA_KEYS,
-    _STATUSES,
-    find_item,
-    kw0_pending_items,
-    open_items,
-    undecided_items,
-    refiner_payload,
-)
+
+_STATUSES = frozenset({"open", "no_gap", "resolved", "kw0_pending"})
+_DECISIONS = frozenset({"—", "accept", "skip", "redirect"})
+_KW_CRITERIA_KEYS = ("kw0", "kw1", "kw2", "kw3", "kw4")
+
+
+def find_item(report: dict[str, Any], item_id: str) -> dict[str, Any] | None:
+    """Return item by id or None."""
+    target = item_id.strip()
+    for item in report.get("items", []):
+        if item.get("id") == target:
+            return item
+    return None
+
+
+def open_items(report: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return items with status open."""
+    return [item for item in report.get("items", []) if item.get("status") == "open"]
+
+
+def undecided_items(report: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return open items awaiting a human decision (decision still —)."""
+    return [
+        item
+        for item in report.get("items", [])
+        if item.get("status") == "open" and item.get("decision", "—") == "—"
+    ]
+
+
+def kw0_pending_items(report: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return items waiting for user to supply initial sub-section content."""
+    return [item for item in report.get("items", []) if item.get("status") == "kw0_pending"]
 
 _GAP_KINDS_KW = frozenset({"kw", "kw0_pending"})
 _GAP_KINDS_UPSTREAM = frozenset({"upstream_violation", "upstream_coverage"})
-_GAP_KINDS_ALL = _GAP_KINDS_KW | _GAP_KINDS_UPSTREAM
+_GAP_KINDS_INTENT = frozenset({"intent_coverage", "intent_violation"})
+_GAP_KINDS_ALL = _GAP_KINDS_KW | _GAP_KINDS_UPSTREAM | _GAP_KINDS_INTENT
 _SCOPES_KW = frozenset({"subsection"})
 _SCOPES_SECTION = frozenset({"section"})
 _UPSTREAM_CRITERIA_KEYS = ("upstream_intent", "expected", "observed")
+_INTENT_CRITERIA_KEYS = ("decision_intent", "expected", "observed")
 
 _SCHEMA: dict[str, Any] = {
     "version": "3",
@@ -48,6 +72,7 @@ _SCHEMA: dict[str, Any] = {
         "upstream_section",
         "upstream_relation",
         "upstream_criteria",
+        "intent_criteria",
         "sub_section_summary",
         "sub_section_text",
         "skip_key",
@@ -60,6 +85,8 @@ _SCHEMA: dict[str, Any] = {
             "kw0_pending",
             "upstream_violation",
             "upstream_coverage",
+            "intent_coverage",
+            "intent_violation",
         ],
         "scope": ["subsection", "section"],
         "status": list(_STATUSES),
@@ -90,6 +117,14 @@ def _is_upstream_gap(gap_kind: str) -> bool:
     return gap_kind in _GAP_KINDS_UPSTREAM
 
 
+def _is_intent_gap(gap_kind: str) -> bool:
+    return gap_kind in _GAP_KINDS_INTENT
+
+
+def _is_section_gap(gap_kind: str) -> bool:
+    return _is_upstream_gap(gap_kind) or _is_intent_gap(gap_kind)
+
+
 def upstream_open_items(report: dict[str, Any]) -> list[dict[str, Any]]:
     """Return open upstream gap items."""
     return [
@@ -117,6 +152,24 @@ def upstream_undecided_items(report: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
+def intent_open_items(report: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return open decision-intent gap items."""
+    return [
+        item
+        for item in open_items(report)
+        if _is_intent_gap(str(item.get("gap_kind", "")).lower())
+    ]
+
+
+def intent_undecided_items(report: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return undecided decision-intent gap items."""
+    return [
+        item
+        for item in undecided_items(report)
+        if _is_intent_gap(str(item.get("gap_kind", "")).lower())
+    ]
+
+
 def kw_undecided_items(report: dict[str, Any]) -> list[dict[str, Any]]:
     """Return undecided KW gap items (kw and kw0_pending)."""
     return [
@@ -135,10 +188,10 @@ def validate_probe_item(item: dict[str, Any], *, index: int = 0) -> list[str]:
     if gap_kind not in _GAP_KINDS_ALL:
         errors.append(f"{prefix}: invalid gap_kind: {gap_kind!r}")
 
-    scope = str(item.get("scope") or ("section" if _is_upstream_gap(gap_kind) else "subsection")).lower()
-    if _is_upstream_gap(gap_kind):
+    scope = str(item.get("scope") or ("section" if _is_section_gap(gap_kind) else "subsection")).lower()
+    if _is_section_gap(gap_kind):
         if scope not in _SCOPES_SECTION:
-            errors.append(f"{prefix}: upstream items require scope section")
+            errors.append(f"{prefix}: section-level gaps require scope section")
     elif scope not in _SCOPES_KW:
         errors.append(f"{prefix}: invalid scope: {scope!r}")
 
@@ -189,6 +242,30 @@ def validate_probe_item(item: dict[str, Any], *, index: int = 0) -> list[str]:
                     if not str(upstream_criteria.get(key, "")).strip():
                         errors.append(
                             f"{prefix}: upstream_criteria.{key} required when status is open"
+                        )
+
+    if _is_intent_gap(gap_kind) and status in ("open", "resolved"):
+        if item.get("target_kw") is not None:
+            errors.append(f"{prefix}: intent gaps must not include target_kw")
+        if item.get("kw_criteria") is not None:
+            errors.append(f"{prefix}: intent gaps must not include kw_criteria")
+        if item.get("upstream_section") is not None:
+            errors.append(f"{prefix}: intent gaps must not include upstream_section")
+        if item.get("upstream_criteria") is not None:
+            errors.append(f"{prefix}: intent gaps must not include upstream_criteria")
+        if item.get("intent_gap") is None:
+            errors.append(f"{prefix}: intent_gap required when status is {status}")
+        intent_criteria = item.get("intent_criteria")
+        if status == "open":
+            if intent_criteria is None:
+                errors.append(f"{prefix}: intent_criteria required when status is open")
+            elif not isinstance(intent_criteria, dict):
+                errors.append(f"{prefix}: intent_criteria must be an object")
+            else:
+                for key in _INTENT_CRITERIA_KEYS:
+                    if not str(intent_criteria.get(key, "")).strip():
+                        errors.append(
+                            f"{prefix}: intent_criteria.{key} required when status is open"
                         )
 
     if status in ("open", "resolved") and gap_kind == "kw":
@@ -297,7 +374,7 @@ def validate_probe_report(data: dict[str, Any]) -> list[str]:
 def normalize_probe_item(item: dict[str, Any]) -> dict[str, Any]:
     """Return item with normalized v3 fields."""
     gap_kind = str(item.get("gap_kind") or _default_gap_kind(item)).lower()
-    default_scope = "section" if _is_upstream_gap(gap_kind) else "subsection"
+    default_scope = "section" if _is_section_gap(gap_kind) else "subsection"
     normalized: dict[str, Any] = {
         "id": str(item.get("id", "")),
         "gap_kind": gap_kind,
@@ -324,6 +401,7 @@ def normalize_probe_item(item: dict[str, Any]) -> dict[str, Any]:
     upstream_relation = item.get("upstream_relation")
     normalized["upstream_relation"] = str(upstream_relation) if upstream_relation else None
     normalized["upstream_criteria"] = item.get("upstream_criteria")
+    normalized["intent_criteria"] = item.get("intent_criteria")
     return normalized
 
 
@@ -432,6 +510,19 @@ def refiner_payload(item: dict[str, Any]) -> dict[str, Any]:
                 "upstream_section": item.get("upstream_section"),
                 "upstream_relation": item.get("upstream_relation"),
                 "upstream_criteria": item.get("upstream_criteria"),
+                "intent_criteria": None,
+                "target_kw": None,
+                "kw_criteria": None,
+            }
+        )
+        return payload
+    if _is_intent_gap(gap_kind):
+        payload.update(
+            {
+                "intent_criteria": item.get("intent_criteria"),
+                "upstream_section": None,
+                "upstream_relation": None,
+                "upstream_criteria": None,
                 "target_kw": None,
                 "kw_criteria": None,
             }

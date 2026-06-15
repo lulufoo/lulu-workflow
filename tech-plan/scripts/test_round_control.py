@@ -98,6 +98,7 @@ def test_read_context(tmp_path: Path):
     ctx = _run(cycle_dir, "read-context")
     assert ctx["round"] == 1
     assert (cycle_dir / "tech" / "plan" / "anchor-ledger.md").exists()
+    assert ctx["decision_doc_path"].endswith("tech/diagnostic/decision-doc.md")
 
 
 def test_append_skip_any_section(tmp_path: Path):
@@ -174,33 +175,6 @@ _KW_CRITERIA = {
     "kw3": "能说出进入下一阶段的前提条件",
     "kw4": "能说出阶段边界未达成时如何决策",
 }
-
-
-def _sample_gap_json() -> str:
-    payload = {
-        "version": "2",
-        "round": 1,
-        "revision": 1,
-        "cycle_id": _CYCLE_ID,
-        "anchor_failures": [],
-        "anchor_candidates": [],
-        "items": [
-            {
-                "id": f"{section_key_at(4)}-1",
-                "section_key": section_key_at(4),
-                "section": section_headings_map()[section_key_at(4)],
-                "target_kw": 2,
-                "intent_gap": "每个阶段缺少 Done 判据",
-                "kw_criteria": _KW_CRITERIA,
-                "sub_section_summary": "phase plan",
-                "sub_section_text": "deps only",
-                "skip_key": f"{section_key_at(4)}:phase-plan",
-                "status": "open",
-                "decision": "—",
-            }
-        ],
-    }
-    return json.dumps(payload, ensure_ascii=False)
 
 
 def _sample_probe_json(*, section_key: str | None = None) -> str:
@@ -421,67 +395,6 @@ def test_write_refiner_artifact(tmp_path: Path):
     result = json.loads(proc.stdout)
     assert result["gap_item_id"] == f"{first}-1"
     assert f"refiner-001-{first}-1.json" in result["path"]
-
-
-def test_write_and_read_gap_report(tmp_path: Path):
-    cycle_dir = _setup_cycle(tmp_path)
-    proc = subprocess.run(
-        [
-            sys.executable,
-            str(_SCRIPT),
-            "--cycle-dir",
-            str(cycle_dir),
-            "write-gap-report",
-            "--round",
-            "1",
-            "--json",
-            _sample_gap_json(),
-        ],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert proc.returncode == 0, proc.stderr
-    written = json.loads(proc.stdout)
-    assert written["open_count"] == 1
-    assert written["kw0_pending_count"] == 0
-    report = _run(cycle_dir, "read-gap-report", "--round", "1")
-    assert report["open_count"] == 1
-    assert report["kw0_pending_count"] == 0
-    assert report["items"][0]["id"] == "SK-1"
-
-
-def test_read_gap_item_and_update_decision(tmp_path: Path):
-    cycle_dir = _setup_cycle(tmp_path)
-    subprocess.run(
-        [
-            sys.executable,
-            str(_SCRIPT),
-            "--cycle-dir",
-            str(cycle_dir),
-            "write-gap-report",
-            "--round",
-            "1",
-            "--json",
-            _sample_gap_json(),
-        ],
-        check=True,
-    )
-    item = _run(cycle_dir, "read-gap-item", "--round", "1", "--id", "SK-1")
-    assert item["refiner"]["intent_gap"] == "每个阶段缺少 Done 判据"
-    _run(
-        cycle_dir,
-        "update-gap-decision",
-        "--round",
-        "1",
-        "--id",
-        "SK-1",
-        "--decision",
-        "skip",
-    )
-    ctx = _run(cycle_dir, "read-context")
-    assert len(ctx["skips"]) == 1
-    assert ctx["skips"][0]["skip_key"] == "SK:phase-plan"
 
 
 class TestRoundProbeInput:

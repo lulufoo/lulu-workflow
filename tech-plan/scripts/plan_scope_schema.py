@@ -54,3 +54,28 @@ def get_scope_role(data: dict[str, Any], cycle_type: str) -> str:
             f"invalid cycle_type: {cycle_type!r} (allowed: {sorted(_VALID_SCOPES)})",
         )
     return str(data["scopes"][cycle_type]).strip()
+
+
+def default_role_instances_path() -> Path:
+    return Path(__file__).resolve().parents[1] / "constraints" / "instance" / "tech-role-instances.json"
+
+
+def default_domain_instance_path() -> Path:
+    return Path(__file__).resolve().parents[1] / "constraints" / "instance" / "tech-domain-instance.json"
+
+
+def load_role_instances(path: Path) -> dict[str, Any]:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"invalid JSON in {path}: {exc}") from exc
+    if not isinstance(data, dict):
+        raise ValueError(f"role instances root must be an object: {path}")
+    return data
+
+
+def get_role_instance(data: dict[str, Any], cycle_type: str) -> dict[str, Any]:
+    roles = data.get("roles", {})
+    if cycle_type not in roles:
+        raise KeyError(f"no role instance for cycle_type: {cycle_type!r}")
+    return dict(roles[cycle_type])
