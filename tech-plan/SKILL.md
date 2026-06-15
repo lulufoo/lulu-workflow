@@ -59,7 +59,7 @@ python3 "$SKILL_DIR/scripts/start.py" \
 
 > If start.py exits non-zero ("Gate blocked: <stage> is not Delivered"): tell the user which prior stage must be delivered first. Do not retry start.
 
-To resume an in-progress tech document, do not run start again — read `session-state.md` and `revision{N}/workflow-state.md`; use `$SESSION_INFO --view session` when needed.
+To resume an in-progress tech document, do not run start again — run `$SESSION_INFO --view session`.
 
 ---
 
@@ -73,7 +73,7 @@ To resume an in-progress tech document, do not run start again — read `session
 
 ## State Model
 
-Load `./transition-whitelist.json` — check `allowed_transitions` for valid transitions and `precondition` for required writes before transitioning.
+State transitions via `$SESSION_CONTROL` / `$EVAL_CONTROL`; `transition-whitelist.json` enforced by control scripts and hook — do not load it directly.
 
 ---
 
@@ -90,18 +90,11 @@ Load `./transition-whitelist.json` — check `allowed_transitions` for valid tra
 
 ### General
 
-1. Read `session-state.md` → `active_doc: N` to determine current document round.
-2. Read `$WORKFLOW_DIR/workflow-config.json` → `tech-plan` section before driving the workflow.
-3. `workflow-state.md` is the authoritative state — always read it; never infer state from document body or file existence; write it to request a transition.
-4. Use full `Write` (not `Edit`) for `workflow-state.md` and `evaluate-state.md`.
-5. Path guard blocks writes outside `$CACHE_DIR/` while a session is active.
-6. Before writing session files, read schema contracts (SSOT):
-   - `workflow-state.md` → `python3 "$SKILL_DIR/scripts/workflow_state_schema.py" --schema`
-   - `evaluate-state.md` → `python3 "$SKILL_ROOT/eval/scripts/evaluate_state_schema.py" --schema`
-   - `round-{N}/{section}/probe-{seq}.json` → `python3 "$SKILL_DIR/scripts/probe_report_schema.py" --schema` (version 3: section-gated probe SSOT)
-   - `round-{N}/section-pointer.json` → `python3 "$SKILL_DIR/scripts/section_pointer_schema.py"` (via module; pointer SSOT)
-   - `gap-report-round-{N}.json` → deprecated; use probe report above
-   - `evaluate{M}/tech-review-*.md` → read `$SKILL_ROOT/eval/review.template.md`; run `python3 "$SKILL_ROOT/eval/scripts/review_schema.py" --schema`; read `$SKILL_ROOT/eval/SKILL.md` (Review table contract).
+1. Session reads: `$SESSION_INFO --view session` — `active_doc`, `workflow_state`; never infer state from tech-doc body or file existence.
+2. Config/templates: `$FETCH_TECH_PLAN <role>` on demand; do not read `workflow-config.json` directly.
+3. State writes: `$SESSION_CONTROL` / `$DRAFT_CONTROL` / `$ROUND_CONTROL` / `$EVAL_CONTROL` only; do not Write cache data files directly.
+4. Path guard blocks writes outside `$CACHE_DIR/` while a session is active.
+5. Evaluating review contract: `{$SKILL_ROOT}/eval/eval-rules.md` and `{$SKILL_ROOT}/eval/SKILL.md` (probe/remediation runners own `review.template.md`).
 
 ### Drafting Rules
 
@@ -137,29 +130,27 @@ Await completion (`$SUBAGENT_AWAIT_SYNC`).
 
 ##### Per round N
 
-**Section loop** (for macro N) — after Entry `begin-round`, repeat **2a–2d** until every registry section is `stable`.
+Repeat **2a–2d** until every registry section is `stable`.
 
 ##### 2a. Probe active section
 
 1. Run `$ROUND_PROBE_INPUT`; pin stdout as prober `## Input`. Includes `ACTIVE_SECTION`, `ROUND_DIR`, `ROUND_N`.
 2. Dispatch prober-runner; await `$SUBAGENT_AWAIT_SYNC`.
 
-##### 2b. Load report & present gaps
+##### 2b. Present gaps
 
-Load the latest probe report for  `ACTIVE_SECTION` only; render gap items and **wait** for user input.
+1. `$ROUND_CONTROL read-probe-report --round {N}`.
+2. Footer: `$ROUND_CONTROL read-section-pointer --round {N}` section statuses + report counts from step 1 stdout.
 
-`$ROUND_CONTROL read-probe-report --round {N}`.
-
-- **KW0 gate:** if `kw0_pending_count` > 0 → show pending only; user edits tech-doc → return to **2a**.
-- Render active-section `items` in two groups: **KW** (`gap_kind: kw`) then **Upstream** (`upstream_violation` / `upstream_coverage`).
-- Footer: section statuses from pointer · `Undecided` · `KW0 pending` · `Upstream undecided` · `Probe seq`.
-- Fix priority: KW undecided first, then upstream undecided.
-- Prompt and **wait**: `Your call (Round {N} / {ACTIVE_SECTION})` — e.g. `{ACTIVE_SECTION}-1 accept`.
-- **Rewind:** user requests upstream edit → `$ROUND_CONTROL rewind-section --round {N} --to {section}` → **2a**.
+- **KW0 gate:** `kw0_pending_count` > 0 → show pending only; user edits tech-doc → **2a** (skip 2c).
+- Else present `items` in probe report order (prober-runner §Step 4).
+- **Rewind:** upstream edit → `$ROUND_CONTROL rewind-section --round {N} --to {section}` → **2a**.
 
 ##### 2c. Human decide
 
-**Gate:** Stop after 2b; proceed only on explicit user `{id} {accept|skip|redirect}` input — do not infer decisions.
+**Gate:** After 2b (KW0 gate clear); proceed only on explicit `{id} {accept|skip|redirect}` — do not infer.
+
+Prompt and **wait**: `Your call (Round {N} / {ACTIVE_SECTION})` — e.g. `{ACTIVE_SECTION}-1 accept`.
 
 Each decision → `$ROUND_CONTROL update-gap-decision --round {N} --id {id} --decision {accept|skip|redirect}`.
 
@@ -171,7 +162,7 @@ Refiner input includes `ROUND_DIR`, `GAP_ITEM_ID`, `TECH_DOC_PATH`, `CYCLE_*`, `
 
 ##### 2d. Section advance
 
-When `undecided_count` 0 and `kw0_pending_count` 0:
+When `undecided_count` 0 and `kw0_pending_count` 0 (no KW0 pending per 2b):
 
 1. `$ROUND_CONTROL mark-section-stable --round {N} --section {ACTIVE_SECTION}`
 2. `$ROUND_CONTROL advance-section --round {N}`
