@@ -27,6 +27,6 @@
    - stdout last line → `$CYCLE_ID`; `$EXECUTION_MODE ← mode`
    - append footer (`LULU-DEV-WORKFLOW: $CYCLE_ID`)
 
-`$CYCLE_CONTROL` macro: parent `SKILL.md` § Script Macros. `start` subcommand: `cycle_control.py` `--help`.
+`$CYCLE_CONTROL` macro: parent `SKILL.md` § Script Macros; macro expansion: `../_runtime.md` § Script Macros → Macro expansion. `start` subcommand: `cycle_control.py` `--help`.
 
 Done: `$CYCLE_ID` confirmed · Read workflow docs only from `$CACHE_DIR/$CYCLE_ID/`

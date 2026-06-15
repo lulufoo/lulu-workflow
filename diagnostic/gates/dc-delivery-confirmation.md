@@ -9,7 +9,7 @@ Write to `$CACHE_DIR/<cycle_id>/{cache_subdir}/decision-doc.md` (where `{cache_s
 <HARD-GATE name="Decision-Doc Prerequisites">
 Read `decision-doc.template.md` from the framework repo:
 ```text
-Use $FETCH_TEMPLATE diagnostic decision_doc_template_url
+$FETCH_TEMPLATE --section diagnostic --key decision_doc_template_url
 ```
 Apply Section filtering above using resolved Domain Constraints before writing.
 </HARD-GATE>

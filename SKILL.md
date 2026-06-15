@@ -24,7 +24,7 @@ under this directory.
 This SKILL orchestrates **project-level lifecycle** only:
 
 - Bootstrap: install hooks, workflow-config
-- Maintenance: list / validate / archive cycles
+- Maintenance: optional cycle ops via `$CYCLE_CONTROL` (`cycle_control.py --help`)
 - Routing: dispatch to sub-SKILLs (see ## Sub-SKILL Routing)
 
 Cycle creation and selection run in sub-SKILLs via `_runtime.md` § Session Foundation → `_slowpath.md`.
@@ -51,16 +51,6 @@ Do **not** call `cycle_schema.py` or bare `python3 .../cycle_control.py` paths �
 2. **Project init** — `$CYCLE_CONTROL init-project` (once per repo; safe to re-run)
 3. **Workflow config** — skip if config file already exists at resolved path; else `$CYCLE_CONTROL configure`
 4. **First work** — Enter any sub-SKILL (e.g. `/tech-diagnostic`). Cycle binding via `_runtime.md` § Session Foundation.
-
-### Maintenance — optional, user-invoked
-
-| Intent | Run |
-|--------|-----|
-| List cycles | `$CYCLE_CONTROL list` |
-| Inspect one cycle | `$CYCLE_CONTROL info --cycle-id "<id>"` |
-| Validate cycle on disk | `$CYCLE_CONTROL validate --cycle-id "<id>"` |
-| Prune old cycles | `$CYCLE_CONTROL archive` [`--keep N`] |
-| Show config path only | `$CYCLE_CONTROL resolve-config-path` |
 
 ## Commands
 
@@ -111,6 +101,8 @@ Do **not** call `cycle_schema.py` or bare `python3 .../cycle_control.py` paths �
 - **Safe:** re-run allowed (idempotent hooks registration).
 
 ## Script Macros
+
+Macro expansion: `_runtime.md` § Script Macros → Macro expansion.
 
 Requires `$SKILL_ROOT` and `$PLATFORM` from `_runtime.md` § Platform Context.
 

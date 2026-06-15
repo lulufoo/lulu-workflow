@@ -132,7 +132,7 @@ are blocked by the path guard hook while a session is active.
 **D1.** 根据容器类型（从 session start 时 `active-context.json → container_type` 获取）选择模板 key，通过 `$FETCH_TEMPLATE` 加载：
 
 ```text
-Use $FETCH_TEMPLATE product-plan <key>
+$FETCH_TEMPLATE --section product-plan --key <key>
 ```
 
 - `topic` 容器 → `--key shaping_template_url`（13-product-shaping-template.md）
@@ -204,8 +204,8 @@ Follow Rules D1–D2.
 Follow Rules E1 → E2 → loop(E3–E5) → E6 in order.
 根据容器类型选择评估框架 key，通过 `$FETCH_TEMPLATE` 加载：
 
-- `topic` 容器 → `Use $FETCH_TEMPLATE product-plan shaping_pdqa_url`
-- `feature` 容器 → `Use $FETCH_TEMPLATE product-plan pdqa_url`
+- `topic` 容器 → `$FETCH_TEMPLATE --section product-plan --key shaping_pdqa_url`
+- `feature` 容器 → `$FETCH_TEMPLATE --section product-plan --key pdqa_url`
 
 Read stdout as the PDQA framework. On failure, report error and stop current step.
 Stay in `Evaluating` or return to `Drafting` until all issues are resolved.

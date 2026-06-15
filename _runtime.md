@@ -1,20 +1,21 @@
 ## Script Macros
 
+<HARD-GATE name="Macro expansion">
+Expand macros verbatim from the Script Macros table that defines them — include every flag; do not invoke control scripts by subcommand name alone.
+</HARD-GATE>
+
 Non-zero exit → stop and report stderr (unless noted below).
 
 | Macro | Command |
 |-------|---------|
 | `$RUNTIME_CONTROL` | `python3 "$SKILL_ROOT/scripts/runtime_control.py" --project-root "$(pwd)" <subcommand> [args...]` |
-| `$RESOLVE_PLATFORM_CONTEXT` | `$RUNTIME_CONTROL resolve-platform-context` |
-| `$RESOLVE_SESSION_CONTEXT` | `$RUNTIME_CONTROL resolve-session-context` |
-| `$SET_EXECUTION_MODE` | `$RUNTIME_CONTROL set-execution-mode --cycle-id "$CYCLE_ID" --mode <mode>` |
 | `$FETCH_TEMPLATE` | `python3 "$SKILL_ROOT/scripts/fetch_template.py" --section <section> --key <key> --project-root "$(pwd)" --platform $PLATFORM` |
 
 Subcommands and stdout: `runtime_control.py` / `fetch_template.py` module docstring or `--help`.
 
 ## Platform Context
 
-When `$PLATFORM`, `$SKILL_ROOT`, `$WORKFLOW_DIR`, or `$CACHE_DIR` is needed: `$RESOLVE_PLATFORM_CONTEXT`.
+When `$PLATFORM`, `$SKILL_ROOT`, `$WORKFLOW_DIR`, or `$CACHE_DIR` is needed: `$RUNTIME_CONTROL resolve-platform-context`.
 
 Non-zero exit → stop. Map stdout JSON: `platform`→`$PLATFORM`, `skill_root`→`$SKILL_ROOT`, `workflow_dir`→`$WORKFLOW_DIR`, `cache_dir`→`$CACHE_DIR`.
 
@@ -28,10 +29,10 @@ Resolve `$CYCLE_ID`, `$CYCLE_TYPE`, `$EXECUTION_MODE` before stage work. Stage i
 
 - **CASE 1 — Ambiguity detected**
   → read `../_slowpath.md`
-  → do not run `$RESOLVE_SESSION_CONTEXT`
+  → do not run `$RUNTIME_CONTROL resolve-session-context`
 
 - **CASE 2 — No ambiguity**
-  → run `$RESOLVE_SESSION_CONTEXT` (exit 0 always)
+  → run `$RUNTIME_CONTROL resolve-session-context` (exit 0 always)
   → if stdout `cycle_id` empty: read `../_slowpath.md`
   → else: **DONE** (step 3)
 
@@ -44,7 +45,7 @@ Resolve `$CYCLE_ID`, `$CYCLE_TYPE`, `$EXECUTION_MODE` before stage work. Stage i
 - `guided` — lead, ask, wait at gates
 - `autonomous` — execute only; tech-line auto-chains feature cycles
 
-Change mode: user sends `SET_EXECUTION_MODE: <mode>` → `$SET_EXECUTION_MODE --mode <mode>`; non-zero exit → stop; announce `Execution mode → <mode>`.
+Change mode: user sends `SET_EXECUTION_MODE: <mode>` → `$RUNTIME_CONTROL set-execution-mode --cycle-id "$CYCLE_ID" --mode <mode>`; non-zero exit → stop; announce `Execution mode → <mode>`.
 
 ## Feature Tracking Convention
 

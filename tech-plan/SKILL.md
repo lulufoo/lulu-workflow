@@ -136,7 +136,7 @@ Repeat **2a–2d** until every registry section is `stable`.
 
 ##### 2a. Probe active section
 
-1. Run `$ROUND_PROBE_INPUT`; pin stdout as prober `## Input`. Includes `ACTIVE_SECTION`, `ROUND_DIR`, `ROUND_N`.
+1. Run `$ROUND_CONTROL round-probe-input`; pin stdout as prober `## Input`. Includes `ACTIVE_SECTION`, `ROUND_DIR`, `ROUND_N`.
 2. Dispatch prober-runner; await `$SUBAGENT_AWAIT_SYNC`.
 
 ##### 2b. Present gaps
@@ -208,7 +208,7 @@ When eval-rules completes, follow its exit branch:
 
 ### ReadyForDelivery Rules
 
-1. Run `$SESSION_INFO delivery-preview`.
+1. Run `$SESSION_INFO --view delivery-preview`.
 
 > On failure: apply Blocking policy.
 > On success: show a delivery preview; full tech-doc only if asked.
@@ -221,7 +221,7 @@ When eval-rules completes, follow its exit branch:
 
 ### Delivery Rules
 
-1. Run `$SESSION_INFO stage-transitions`.
+1. Run `$SESSION_INFO --view stage-transitions`.
 
 > On non-zero exit: apply Blocking policy.
 > On success: prompt next stages when present.
@@ -239,18 +239,19 @@ When eval-rules completes, follow its exit branch:
 
 ## Script Macros
 
+Macro expansion: `../_runtime.md` § Script Macros → Macro expansion.
+
 Macros invoke `$SKILL_DIR/scripts/*.py`. Non-zero exit → Blocking (Principles).
 
 | Macro | Command |
 |-------|---------|
-| `$SESSION_INFO` | `python3 "$SKILL_DIR/scripts/session_info.py" --cycle-id "$CYCLE_ID" --view <view>` |
+| `$SESSION_INFO` | `python3 "$SKILL_DIR/scripts/session_info.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --view <view>` |
 | `$SESSION_CONTROL` | `python3 "$SKILL_DIR/scripts/session_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
 | `$DRAFT_CONTROL` | `python3 "$SKILL_DIR/scripts/draft_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
 | `$DRAFT_CONTROL status` | `$DRAFT_CONTROL status` — stdout JSON: `current_step`, `round` |
 | `$ROUND_CONTROL` | `python3 "$SKILL_DIR/scripts/round_control.py" --cycle-dir "$CACHE_DIR/$CYCLE_ID" <subcommand> [args...]` |
 | `$ROUND_CONTROL init-round-dir` | `$ROUND_CONTROL init-round-dir --round {N}` |
 | `$ROUND_CONTROL read-section-pointer` | `$ROUND_CONTROL read-section-pointer --round {N}` |
-| `$ROUND_PROBE_INPUT` | `$ROUND_CONTROL round-probe-input` |
 | `$ROUND_CONTROL advance-section` | `$ROUND_CONTROL advance-section --round {N}` |
 | `$ROUND_CONTROL rewind-section` | `$ROUND_CONTROL rewind-section --round {N} --to {section_key}` |
 | `$ROUND_CONTROL mark-section-stable` | `$ROUND_CONTROL mark-section-stable --round {N} --section {key}` |
