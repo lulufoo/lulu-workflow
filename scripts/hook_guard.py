@@ -249,11 +249,13 @@ _WORKFLOW_PY_PATH = re.compile(
     r"lulu-dev-workflow[/\\][^\s;|&\"']+\.py\b"
 )
 
-# Only stage entry scripts call write_active_context(..., conversation_id=...).
+# Only stage entry start scripts call write_active_context(..., conversation_id=...).
+# Shell paths: {stage}/scripts/start.py. tech-plan: plan-kernel/scripts/core/start.py.
 # Orchestrator/control scripts (draft_control, session_control, etc.) must not
 # receive injected --conversation-id — they use strict argparse.parse_args().
 _CONV_ID_INJECT_SCRIPT_SUFFIXES = (
     "/scripts/start.py",
+    "/plan-kernel/scripts/core/start.py",
 )
 
 

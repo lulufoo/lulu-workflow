@@ -1,4 +1,4 @@
-"""Pytest hooks for tech-plan shell script tests."""
+"""Pytest hooks: seed tech-plan template caches under tmp project_root/.cache."""
 
 from __future__ import annotations
 
@@ -6,18 +6,13 @@ from pathlib import Path
 
 import pytest
 
-_KERNEL_TESTS = Path(__file__).resolve().parents[2] / "plan-kernel" / "scripts" / "tests"
-import sys
-
-if str(_KERNEL_TESTS) not in sys.path:
-    sys.path.insert(0, str(_KERNEL_TESTS))
-
 import bootstrap  # noqa: F401
 from test_template_data import seed_tech_plan_test_caches  # noqa: WPS433
 
 
 @pytest.fixture(scope="session")
 def project_root(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Session project root with tech-plan template caches (pytest temp dir)."""
     root = tmp_path_factory.mktemp("project")
     seed_tech_plan_test_caches(root)
     return root
@@ -28,6 +23,7 @@ def _use_project_template_cache(
     project_root: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Resolve fetched templates via project_root (matches production cache layout)."""
     import section_registry_schema  # noqa: WPS433
 
     section_registry_schema._registry_for_path.cache_clear()

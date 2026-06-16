@@ -1,0 +1,11 @@
+{
+  "profile_id": "tech-design",
+  "stage_name": "tech-design",
+  "shell_dir": "tech-design",
+  "document": {
+    "filename": "design-doc.md",
+    "schema": "section-keyed"
+  },
+  "cache_subdir": "tech/design",
+  "status": "placeholder_phase2"
+}

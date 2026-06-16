@@ -20,10 +20,14 @@ _FEATURE_CYCLE = [
 
 
 def _start_py(stage: str) -> Path:
+    if stage == "tech-plan":
+        return _SRC / "lulu-dev-workflow" / "plan-kernel" / "scripts" / "core" / "start.py"
     return _SRC / "lulu-dev-workflow" / stage / "scripts" / "start.py"
 
 
 def _scripts_dir(stage: str) -> Path:
+    if stage == "tech-plan":
+        return _SRC / "lulu-dev-workflow" / "plan-kernel" / "scripts" / "core"
     return _SRC / "lulu-dev-workflow" / stage / "scripts"
 
 
@@ -241,6 +245,7 @@ class TestSessionPath:
             [sys.executable, str(_start_py("tech-plan")),
              "--project-root", str(tmp_path),
              "--cycle-id", _FID,
+             "--profile", "tech-plan",
              "--run-mode", "tech"],
             capture_output=True, text=True, env=_ENV_COPILOT,
             cwd=str(_scripts_dir("tech-plan")),

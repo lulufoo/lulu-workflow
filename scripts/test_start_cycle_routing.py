@@ -28,10 +28,14 @@ _FEATURE_CYCLE = [
 
 
 def _start_py(stage: str) -> Path:
+    if stage == "tech-plan":
+        return _SRC / "lulu-dev-workflow" / "plan-kernel" / "scripts" / "core" / "start.py"
     return _SRC / "lulu-dev-workflow" / stage / "scripts" / "start.py"
 
 
 def _scripts_dir(stage: str) -> Path:
+    if stage == "tech-plan":
+        return _SRC / "lulu-dev-workflow" / "plan-kernel" / "scripts" / "core"
     return _SRC / "lulu-dev-workflow" / stage / "scripts"
 
 
@@ -117,7 +121,7 @@ def _stage_extra_args(stage: str, tmp_path: Path) -> list:
     elif stage == "product-plan":
         return []
     elif stage == "tech-plan":
-        return ["--run-mode", "tech"]
+        return ["--profile", "tech-plan", "--run-mode", "tech"]
     elif stage == "tech-work-order":
         tech_ref = tmp_path / "tech-doc.md"
         tech_ref.write_text("# Tech Doc\n", encoding="utf-8")

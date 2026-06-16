@@ -10,8 +10,8 @@ from pathlib import Path
 import pytest
 
 _EVAL_SCRIPTS = Path(__file__).resolve().parent
-_TECH_PLAN_SCRIPTS = _EVAL_SCRIPTS.parents[1] / "tech-plan" / "scripts"
-sys.path.insert(0, str(_TECH_PLAN_SCRIPTS))
+_KERNEL_CORE = _EVAL_SCRIPTS.parents[1] / "plan-kernel" / "scripts" / "core"
+sys.path.insert(0, str(_KERNEL_CORE))
 sys.path.insert(0, str(_EVAL_SCRIPTS))
 
 from adapter_registry import load_adapter  # noqa: E402

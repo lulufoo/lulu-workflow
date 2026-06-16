@@ -19,7 +19,13 @@ import sys
 from pathlib import Path
 from typing import Any
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+_WORKFLOW_ROOT = Path(__file__).resolve().parents[2]
+_CORE = _WORKFLOW_ROOT / "plan-kernel" / "scripts" / "core"
+_SECTION = _WORKFLOW_ROOT / "plan-kernel" / "scripts" / "section"
+for p in (_CORE, _SECTION, Path(__file__).resolve().parent):
+    if str(p) not in sys.path:
+        sys.path.insert(0, str(p))
+
 from drafting_progress_schema import (  # noqa: E402
     load_drafting_progress,
     read_current_step,
@@ -34,6 +40,10 @@ from workflow_common import (  # noqa: E402
     detect_cycle_type,
     doc_dir,
     tech_doc_path,
+)
+from workflow_state_schema import (  # noqa: E402
+    load_workflow_state,
+    resolve_workflow_state_path_from_cycle,
 )
 
 _CMD_BEGIN_INIT = "begin-init"
@@ -84,24 +94,38 @@ def _format_init_dispatch_input(
     decision_doc: Path,
     cycle_type: str,
     cycle_id: str,
+    design_doc: Path | None = None,
 ) -> str:
-    return (
-        f"REVISION_DIR:         {revision_dir.resolve().as_posix()}\n"
-        f"DECISION_DOC_PATH:    {decision_doc.resolve().as_posix()}\n"
-        f"CYCLE_TYPE:           {cycle_type}\n"
-        f"CYCLE_ID:             {cycle_id}"
+    lines = [
+        f"REVISION_DIR:         {revision_dir.resolve().as_posix()}",
+        f"DECISION_DOC_PATH:    {decision_doc.resolve().as_posix()}",
+    ]
+    if design_doc is not None:
+        lines.append(f"DESIGN_DOC_PATH:      {design_doc.resolve().as_posix()}")
+    lines.extend(
+        [
+            f"CYCLE_TYPE:           {cycle_type}",
+            f"CYCLE_ID:             {cycle_id}",
+        ]
     )
+    return "\n".join(lines)
 
 
 def _init_dispatch_input(cycle_id: str, project_root: Path) -> str:
     active_doc = load_active_doc_from_cycle(cycle_id, project_root)
     revision_dir = project_root / doc_dir(cycle_id, active_doc)
     decision_doc = project_root / decision_doc_path(cycle_id)
+    ws_path = resolve_workflow_state_path_from_cycle(cycle_id, project_root)
+    design_ref = ""
+    if ws_path.exists():
+        design_ref = load_workflow_state(ws_path).get("design_ref", "").strip()
+    design_doc = Path(design_ref) if design_ref else None
     return _format_init_dispatch_input(
         revision_dir=revision_dir,
         decision_doc=decision_doc,
         cycle_type=detect_cycle_type(cycle_id),
         cycle_id=cycle_id,
+        design_doc=design_doc,
     )
 
 

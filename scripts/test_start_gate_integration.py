@@ -37,6 +37,8 @@ _FEATURE_CYCLE = [
 # ---------------------------------------------------------------------------
 
 def _start_py(stage: str) -> Path:
+    if stage == "tech-plan":
+        return _LDEV / "plan-kernel" / "scripts" / "core" / "start.py"
     return _LDEV / stage / "scripts" / "start.py"
 
 
@@ -107,6 +109,23 @@ def _make_session(
         session_dir = cache_dir / cycle_id / subdir / rev_name
         session_dir.mkdir(parents=True, exist_ok=True)
         ws = session_dir / "workflow-state.md"
+    if ws.name == "workflow-state.md" and stage == "tech-plan":
+        ws.write_text(
+            f"---\n"
+            f"version: 1\n"
+            f"workflow: tech-doc\n"
+            f"mode: tech\n"
+            f"cycle_type: feature\n"
+            f"current_state: {state}\n"
+            f"evaluate_round: 0\n"
+            f"product_ref: \"\"\n"
+            f"carry_forward_ref: \"\"\n"
+            f"design_ref: \"\"\n"
+            f"updated_at: {updated_at}\n"
+            f"---\n",
+            encoding="utf-8",
+        )
+        return ws
     ws.write_text(
         f"---\ncurrent_state: {state}\nupdated_at: {updated_at}\n---\n",
         encoding="utf-8",
@@ -119,7 +138,7 @@ def _stage_extra_args(stage: str, tmp_path: Path) -> list:
     if stage in ("diagnostic", "product-plan"):
         return []
     if stage == "tech-plan":
-        return ["--run-mode", "tech"]
+        return ["--profile", "tech-plan", "--run-mode", "tech"]
     if stage == "tech-work-order":
         tech_ref = tmp_path / "tech-doc.md"
         tech_ref.write_text("# Tech Doc\n", encoding="utf-8")
@@ -249,6 +268,33 @@ class TestGatePasses:
         _all_prior_delivered(cd, _CYCLE_ID, "tech-plan")
         result = _run_start("tech-plan", tmp_path)
         assert result.returncode == 0, result.stderr
+
+    def test_start_with_design_ref(self, tmp_path):
+        """start.py --design-ref writes design_ref to workflow-state.md."""
+        cd = _cache_dir(tmp_path)
+        _make_cycles_json(cd, _CYCLE_ID)
+        _all_prior_delivered(cd, _CYCLE_ID, "tech-plan")
+        design = tmp_path / "design-doc.md"
+        design.write_text("# Design\n", encoding="utf-8")
+        result = _run_start(
+            "tech-plan",
+            tmp_path,
+            extra_args=[
+                "--profile",
+                "tech-plan",
+                "--run-mode",
+                "tech",
+                "--design-ref",
+                str(design),
+            ],
+        )
+        assert result.returncode == 0, result.stderr or result.stdout
+        ws_path = cd / _CYCLE_ID / "tech" / "plan" / "revision1" / "workflow-state.md"
+        assert ws_path.exists()
+        sys.path.insert(0, str(_LDEV / "plan-kernel" / "scripts" / "core"))
+        from workflow_state_schema import load_workflow_state  # noqa: WPS433
+
+        assert load_workflow_state(ws_path)["design_ref"] == str(design)
 
     def test_diagnostic_always_passes(self, tmp_path):
         """diagnostic stage not in cycle → gate always OK."""

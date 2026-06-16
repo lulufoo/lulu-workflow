@@ -1,0 +1,26 @@
+{
+  "profile_id": "tech-plan",
+  "stage_name": "tech-plan",
+  "cycle_types": ["feature", "topic"],
+  "shell_dir": "tech-plan",
+  "shell_paths": {
+    "transition_whitelist": "tech-plan/transition-whitelist.json",
+    "hook_guard": "tech-plan/scripts/hook_guard.py",
+    "corpora_dir": "tech-plan/corpora",
+    "constraints_instance_dir": "tech-plan/constraints/instance"
+  },
+  "document": {
+    "filename": "tech-doc.md",
+    "schema": "section-keyed"
+  },
+  "cache_subdir": "tech/plan",
+  "framework_section": "tech-plan",
+  "eval": {
+    "enabled": true,
+    "workflow_id": "tech-plan"
+  },
+  "upstream_ssot": {
+    "decision_doc_rel": "tech/diagnostic/decision-doc.md",
+    "design_doc_optional": true
+  }
+}

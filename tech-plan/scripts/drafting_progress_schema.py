@@ -15,6 +15,11 @@ import json
 import sys
 from pathlib import Path
 
+_WORKFLOW_ROOT = Path(__file__).resolve().parents[2]
+_CORE = _WORKFLOW_ROOT / "plan-kernel" / "scripts" / "core"
+if str(_CORE) not in sys.path:
+    sys.path.insert(0, str(_CORE))
+
 from session_state_schema import load_active_doc_from_cycle
 from workflow_common import doc_dir, parse_frontmatter_fields, read_md_field
 

@@ -8,6 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from hook_guard import get_sessions, load_stage_order  # noqa: E402
 
 _SKILL_ROOT = Path(__file__).resolve().parents[1]
+_KERNEL_CORE = _SKILL_ROOT / "plan-kernel" / "scripts" / "core"
 
 
 def _is_tech_plan_workflow_state(state_path: Path) -> bool:
@@ -32,7 +33,7 @@ def _write_invalidated_regex(state_path: Path) -> None:
 
 def _write_invalidated(state_path: Path) -> None:
     if _is_tech_plan_workflow_state(state_path):
-        scripts_dir = str(_SKILL_ROOT / "tech-plan" / "scripts")
+        scripts_dir = str(_KERNEL_CORE)
         if scripts_dir not in sys.path:
             sys.path.insert(0, scripts_dir)
         try:

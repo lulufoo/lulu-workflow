@@ -6,7 +6,13 @@ import subprocess
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+_WORKFLOW_ROOT = Path(__file__).resolve().parents[2]
+_KERNEL_TESTS = _WORKFLOW_ROOT / "plan-kernel" / "scripts" / "tests"
+for p in (Path(__file__).resolve().parent, _KERNEL_TESTS):
+    if str(p) not in sys.path:
+        sys.path.insert(0, str(p))
+import bootstrap  # noqa: F401
+
 from test_template_data import LEGACY_SECTION_REGISTRY, seed_template_cache  # noqa: E402
 from test_registry_fixtures import (  # noqa: E402
     first_section_key,
