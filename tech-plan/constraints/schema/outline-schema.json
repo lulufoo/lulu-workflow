@@ -1,0 +1,11 @@
+{
+  "version": "1",
+  "$schema_id": "outline-schema",
+  "description": "Presentation outline for feature tech-plan: maps reader-facing H2 blocks to intent keys. Independent of intent-registry upstream graph.",
+  "fields": {
+    "cycle_type": "which cycle_type this outline applies to (feature)",
+    "outline_order": "ordered block keys for document assembly",
+    "document_preamble_addon": "markdown appended after intent-registry document_preamble",
+    "blocks": "block_key → { heading, intents[], reader_note }"
+  }
+}

@@ -24,6 +24,9 @@ class TestResolveKey:
         [
             ("section-kw-criteria", "tpt_section_kw_criteria_url"),
             ("section-registry", "tpt_section_registry_url"),
+            ("outline-registry", "tpt_outline_registry_url"),
+            ("feature-role-instance", "tpt_feature_role_instance_url"),
+            ("feature-domain-instance", "tpt_feature_domain_instance_url"),
             ("eval-ptc", "ptc_url"),
             ("intent-eval-framework", "tpt_intent_eval_framework_url"),
         ],
@@ -42,7 +45,10 @@ class TestResolveKey:
     def test_all_roles_mapped(self) -> None:
         assert set(ROLE_KEYS) == {
             "eval-ptc",
+            "feature-domain-instance",
+            "feature-role-instance",
             "intent-eval-framework",
+            "outline-registry",
             "section-kw-criteria",
             "section-registry",
         }

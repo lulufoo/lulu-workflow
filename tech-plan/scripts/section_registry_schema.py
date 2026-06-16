@@ -111,9 +111,23 @@ def validate_section_registry(data: dict[str, Any]) -> list[str]:
         heading = str(entry.get("heading", "")).strip()
         if not heading:
             errors.append(f"sections.{key}.heading is required")
+        intent = entry.get("intent")
+        if intent is not None and (not isinstance(intent, str) or not intent.strip()):
+            errors.append(f"sections.{key}.intent must be a non-empty string when present")
         desc = entry.get("desc")
         if desc is not None and (not isinstance(desc, str) or not desc.strip()):
             errors.append(f"sections.{key}.desc must be a non-empty string when present")
+        intent_boundary = entry.get("intent_boundary")
+        if intent_boundary is not None and (
+            not isinstance(intent_boundary, str) or not intent_boundary.strip()
+        ):
+            errors.append(
+                f"sections.{key}.intent_boundary must be a non-empty string when present"
+            )
+        has_intent = isinstance(intent, str) and intent.strip()
+        has_desc = isinstance(desc, str) and desc.strip()
+        if not has_intent and not has_desc:
+            errors.append(f"sections.{key} requires intent or desc")
         aliases = entry.get("aliases", [])
         if aliases is not None and not isinstance(aliases, list):
             errors.append(f"sections.{key}.aliases must be a list")
@@ -171,9 +185,17 @@ def normalize_section_registry(data: dict[str, Any]) -> dict[str, Any]:
             "upstream": upstream,
             "relations": relations,
         }
+        intent = entry.get("intent")
+        if isinstance(intent, str) and intent.strip():
+            normalized["intent"] = intent.strip()
         desc = entry.get("desc")
         if isinstance(desc, str) and desc.strip():
             normalized["desc"] = desc.strip()
+        elif "intent" in normalized:
+            normalized["desc"] = normalized["intent"]
+        intent_boundary = entry.get("intent_boundary")
+        if isinstance(intent_boundary, str) and intent_boundary.strip():
+            normalized["intent_boundary"] = intent_boundary.strip()
         sections[key] = normalized
     return {
         "version": "1",
@@ -215,8 +237,20 @@ def section_order(project_root: Path | None = None) -> tuple[str, ...]:
 
 
 def summary_section_key(project_root: Path | None = None) -> str:
-    """Return section key used for tech-doc summary extraction."""
-    return section_order(project_root)[0]
+    """Return section key used for tech-doc summary extraction (GO when present)."""
+    order = section_order(project_root)
+    if "GO" in order:
+        return "GO"
+    return order[0]
+
+
+def section_intent_boundary(section_key: str, project_root: Path | None = None) -> str:
+    """Return intent_boundary for a section when present."""
+    key = normalize_section(section_key, project_root=project_root)
+    boundary = _active_registry(project_root)["sections"][key].get("intent_boundary")
+    if isinstance(boundary, str):
+        return boundary.strip()
+    return ""
 
 
 def section_keys(project_root: Path | None = None) -> frozenset[str]:
@@ -261,6 +295,16 @@ def section_heading(section_key: str, project_root: Path | None = None) -> str:
 def document_preamble(project_root: Path | None = None) -> str:
     """Return tech-doc preamble markdown (before first section)."""
     return _active_registry(project_root)["document_preamble"]
+
+
+def section_intent_text(section_key: str, project_root: Path | None = None) -> str:
+    """Return intent substance text for a section (intent field, else desc)."""
+    key = normalize_section(section_key, project_root=project_root)
+    entry = _active_registry(project_root)["sections"][key]
+    intent = entry.get("intent")
+    if isinstance(intent, str) and intent.strip():
+        return intent.strip()
+    return str(entry.get("desc", "")).strip()
 
 
 def initial_fill_results(project_root: Path | None = None) -> dict[str, dict[str, str]]:
@@ -327,6 +371,16 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--document-preamble", action="store_true", help="Print preamble markdown")
     parser.add_argument("--normalize", metavar="SECTION", help="Normalize section to key")
+    parser.add_argument(
+        "--section-intent",
+        metavar="SECTION",
+        help="Print intent text for section (intent field, else desc)",
+    )
+    parser.add_argument(
+        "--section-intent-boundary",
+        metavar="SECTION",
+        help="Print intent_boundary for section",
+    )
     parser.add_argument("--schema", action="store_true", help="Print loaded registry JSON")
     args = parser.parse_args(argv)
 
@@ -352,6 +406,22 @@ def main(argv: list[str] | None = None) -> int:
     if args.normalize:
         try:
             print(normalize_section(args.normalize, project_root=project_root))
+        except ValueError as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
+        return 0
+
+    if args.section_intent:
+        try:
+            print(section_intent_text(args.section_intent, project_root=project_root))
+        except ValueError as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
+        return 0
+
+    if args.section_intent_boundary:
+        try:
+            print(section_intent_boundary(args.section_intent_boundary, project_root=project_root))
         except ValueError as exc:
             print(str(exc), file=sys.stderr)
             return 1

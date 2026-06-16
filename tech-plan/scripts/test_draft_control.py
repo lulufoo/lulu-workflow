@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from test_template_data import LEGACY_SECTION_REGISTRY, seed_template_cache  # noqa: E402
 from test_registry_fixtures import (  # noqa: E402
     first_section_key,
     minimal_tech_doc_markdown,
@@ -23,18 +24,10 @@ from draft_control import (  # noqa: E402
 _CYCLE = "feat-draft-control"
 _CACHE = Path(".cache/cursor/lulu-dev-workflow")
 _SCRIPT = Path(__file__).resolve().parent / "draft_control.py"
-_FIXTURE_REGISTRY = Path(__file__).resolve().parent / "test_fixtures" / "section-registry.json"
-_WORKFLOW_SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
 
 
 def _seed_registry_cache(tmp_path: Path) -> None:
-    if str(_WORKFLOW_SCRIPTS) not in sys.path:
-        sys.path.insert(0, str(_WORKFLOW_SCRIPTS))
-    from fetch_template import atomic_write, cache_path  # noqa: WPS433
-    from subagent_config import detect_platform  # noqa: WPS433
-
-    cache = cache_path(tmp_path, detect_platform(), "tech-plan", "tpt_section_registry_url")
-    atomic_write(cache, _FIXTURE_REGISTRY.read_text(encoding="utf-8"))
+    seed_template_cache(tmp_path, "tech-plan", "tpt_section_registry_url", LEGACY_SECTION_REGISTRY)
 
 
 def _seed_session(tmp_path: Path, *, active_doc: int = 1) -> Path:

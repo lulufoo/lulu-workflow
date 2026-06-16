@@ -24,24 +24,16 @@ from test_registry_fixtures import (  # noqa: E402
 
 _SCRIPT = Path(__file__).resolve().parent / "round_control.py"
 _CYCLE_ID = "test-cycle"
-_FIXTURE_REGISTRY = Path(__file__).resolve().parent / "test_fixtures" / "section-registry.json"
+from test_template_data import LEGACY_SECTION_REGISTRY, seed_template_cache  # noqa: E402
 
 
 def _seed_registry_cache(project_root: Path) -> None:
-    workflow_scripts = Path(__file__).resolve().parents[2] / "scripts"
-    if str(workflow_scripts) not in sys.path:
-        sys.path.insert(0, str(workflow_scripts))
-    from fetch_template import atomic_write, cache_path  # noqa: WPS433
-    from subagent_config import detect_platform  # noqa: WPS433
-
-    cache = cache_path(
-        project_root.resolve(),
-        detect_platform(),
+    seed_template_cache(
+        project_root,
         "tech-plan",
         "tpt_section_registry_url",
+        LEGACY_SECTION_REGISTRY,
     )
-    if not cache.exists() or not cache.read_text(encoding="utf-8").strip():
-        atomic_write(cache, _FIXTURE_REGISTRY.read_text(encoding="utf-8"))
 
 
 def _setup_cycle(tmp_path: Path) -> Path:

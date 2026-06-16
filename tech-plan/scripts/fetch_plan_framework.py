@@ -18,7 +18,10 @@ SECTION = "tech-plan"
 
 ROLE_KEYS: dict[str, str] = {
     "eval-ptc": "ptc_url",
+    "feature-domain-instance": "tpt_feature_domain_instance_url",
+    "feature-role-instance": "tpt_feature_role_instance_url",
     "intent-eval-framework": "tpt_intent_eval_framework_url",
+    "outline-registry": "tpt_outline_registry_url",
     "section-kw-criteria": "tpt_section_kw_criteria_url",
     "section-registry": "tpt_section_registry_url",
 }
@@ -66,7 +69,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         "--role",
         required=True,
         choices=sorted(_VALID_ROLES),
-        help="Framework role (eval-ptc, intent-eval-framework, section-kw-criteria, section-registry)",
+        help="Framework role (eval-ptc, feature-domain-instance, feature-role-instance, intent-eval-framework, outline-registry, section-kw-criteria, section-registry)",
     )
     parser.add_argument(
         "--project-root",

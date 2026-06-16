@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Authoritative read helpers for tech-plan revision{N}/tech-doc.md presentation.
 
-Section bodies are located by `<!-- section-key:KEY -->` on the H2 line (preferred)
-or legacy registry heading match.
+Section bodies are located by `<!-- section-key:KEY -->` anchors (preferred):
+either on the H2 line (legacy 10-H2) or inside outline blocks (feature 5-H2).
+Legacy registry heading match is a final fallback.
 
 CLI:
     python3 tech_doc_schema.py --schema
@@ -43,6 +44,7 @@ _SECTION_HEADER_WITH_KEY_RE = re.compile(
     r"^##\s+(.*?)\s*<!--\s*section-key:\s*([A-Za-z0-9_]+)\s*-->\s*$",
     re.MULTILINE | re.IGNORECASE,
 )
+_H2_RE = re.compile(r"^##\s+", re.MULTILINE)
 
 
 def get_schema() -> list[dict]:
@@ -110,6 +112,53 @@ def format_section_heading(section_key: str, display_title: str) -> str:
     return f"## {title} <!-- section-key:{key} -->"
 
 
+def format_section_intent_anchor(section_key: str) -> str:
+    """Return intent anchor comment for outline-block assembly."""
+    key = section_key.strip().upper()
+    return f"<!-- section-key:{key} -->"
+
+
+def _next_boundary(body: str, start: int, anchor_positions: list[int]) -> int:
+    """Return end offset for section body starting at start."""
+    next_h2 = _H2_RE.search(body, start)
+    h2_pos = next_h2.start() if next_h2 else len(body)
+    later_anchors = [pos for pos in anchor_positions if pos > start]
+    anchor_pos = later_anchors[0] if later_anchors else len(body)
+    return min(h2_pos, anchor_pos)
+
+
+def _parse_sections_by_intent_anchors(
+    body: str,
+) -> dict[str, dict[str, str]]:
+    """Parse intent-key bodies from standalone section-key anchors."""
+    sections: dict[str, dict[str, str]] = {}
+    anchor_matches = list(_SECTION_KEY_ANCHOR_RE.finditer(body))
+    if not anchor_matches:
+        return sections
+
+    anchor_positions = [match.start() for match in anchor_matches]
+    for index, match in enumerate(anchor_matches):
+        key = match.group(1).upper()
+        line_start = body.rfind("\n", 0, match.start()) + 1
+        line_end = body.find("\n", match.start())
+        if line_end == -1:
+            line_end = len(body)
+        line = body[line_start:line_end]
+        h2_match = _SECTION_HEADER_WITH_KEY_RE.match(line)
+        if h2_match:
+            display = h2_match.group(1).strip()
+            start = match.end()
+        else:
+            display = ""
+            start = match.end()
+        end = _next_boundary(body, start, anchor_positions)
+        sections[key] = {
+            "display_heading": display,
+            "body": body[start:end].strip(),
+        }
+    return sections
+
+
 def parse_sections(
     text: str,
     *,
@@ -117,7 +166,10 @@ def parse_sections(
 ) -> dict[str, dict[str, str]]:
     """Parse tech-doc into section_key → {display_heading, body}."""
     body = _strip_frontmatter(text)
-    sections: dict[str, dict[str, str]] = {}
+    sections = _parse_sections_by_intent_anchors(body)
+    if sections:
+        return sections
+
     matches = list(_SECTION_HEADER_WITH_KEY_RE.finditer(body))
     for index, match in enumerate(matches):
         key = match.group(2).upper()

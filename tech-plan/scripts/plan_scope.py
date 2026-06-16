@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Resolve plan-scope role constraints from plan-scope-roles.json.
+"""Resolve plan-scope role constraints from per-cycle_type role instance files.
 
 CLI:
     python3 plan_scope.py resolve-role --cycle-id <id> --project-root .
     python3 plan_scope.py resolve-role --cycle-type topic --project-root .
-    python3 plan_scope.py --validate --path constraints/plan-scope-roles.json
+    python3 plan_scope.py --validate
 """
 
 from __future__ import annotations
@@ -15,14 +15,11 @@ from pathlib import Path
 from typing import Optional
 
 from plan_scope_schema import (  # noqa: E402
-    default_roles_path,
-    default_role_instances_path,
-    default_domain_instance_path,
-    get_scope_role,
-    get_role_instance,
-    load_roles,
-    load_role_instances,
-    validate_roles,
+    get_role_fields,
+    get_role_prompt,
+    load_and_validate_domain_instance,
+    load_and_validate_role_instance,
+    validate_all_plan_scope_instances,
 )
 from workflow_common import detect_cycle_type  # noqa: E402
 
@@ -33,6 +30,7 @@ class PlanScopeError(Exception):
 
 def format_constraints_markdown(cycle_type: str, role: str, role_fields: dict | None = None) -> str:
     import json
+
     lines = [
         "## Plan Scope Constraints",
         f"cycle_type: {cycle_type}",
@@ -68,48 +66,47 @@ def resolve_role_markdown(
     *,
     cycle_id: str | None = None,
     cycle_type: str | None = None,
-    roles_path: Path | None = None,
-    role_instances_path: Path | None = None,
+    role_instance_path: Path | None = None,
+    project_root: Path | None = None,
 ) -> str:
     resolved = resolve_cycle_type(cycle_id=cycle_id, cycle_type=cycle_type)
-    path = roles_path or default_roles_path()
-    if not path.exists():
-        raise PlanScopeError(f"plan-scope-roles not found: {path}")
+    root = Path(project_root).resolve() if project_root is not None else None
     try:
-        data = load_roles(path)
-        role = get_scope_role(data, resolved)
-    except ValueError as exc:
+        data = load_and_validate_role_instance(
+            resolved,
+            path=role_instance_path,
+            project_root=root,
+        )
+        role = get_role_prompt(data)
+        role_fields = get_role_fields(data)
+    except (OSError, ValueError, FileNotFoundError) as exc:
         raise PlanScopeError(str(exc)) from exc
-
-    role_fields: dict | None = None
-    instances_path = role_instances_path or default_role_instances_path()
-    if not instances_path.exists():
-        raise PlanScopeError(f"role-instances not found: {instances_path}")
-    try:
-        instances = load_role_instances(instances_path)
-        role_fields = get_role_instance(instances, resolved)
-    except (ValueError, KeyError) as exc:
-        raise PlanScopeError(
-            f"failed to load role instance for {resolved!r} from {instances_path}: {exc}"
-        ) from exc
 
     return format_constraints_markdown(resolved, role, role_fields)
 
 
 def resolve_domain_markdown(
     *,
+    cycle_id: str | None = None,
+    cycle_type: str | None = None,
     domain_instance_path: Path | None = None,
+    project_root: Path | None = None,
 ) -> str:
     import json
-    path = domain_instance_path or default_domain_instance_path()
-    if not path.exists():
-        raise PlanScopeError(f"domain instance not found: {path}")
+
+    resolved = resolve_cycle_type(cycle_id=cycle_id, cycle_type=cycle_type)
+    root = Path(project_root).resolve() if project_root is not None else None
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except Exception as exc:
-        raise PlanScopeError(f"failed to read domain instance: {exc}") from exc
+        data = load_and_validate_domain_instance(
+            resolved,
+            path=domain_instance_path,
+            project_root=root,
+        )
+    except (OSError, ValueError, FileNotFoundError) as exc:
+        raise PlanScopeError(str(exc)) from exc
     lines = [
         "## Domain Instance",
+        f"cycle_type: {resolved}",
         "",
         "```json",
         json.dumps(data, ensure_ascii=False, indent=2),
@@ -125,6 +122,7 @@ def resolve_role_summary(
     cycle_type: str | None = None,
     roles_path: Path | None = None,
 ) -> str:
+    del roles_path  # legacy parameter; role instances resolved by cycle_type
     return resolve_cycle_type(cycle_id=cycle_id, cycle_type=cycle_type)
 
 
@@ -133,12 +131,12 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument(
         "--validate",
         action="store_true",
-        help="Validate plan-scope-roles.json and exit",
+        help="Validate role instance JSON files and exit",
     )
     parser.add_argument(
-        "--path",
-        type=Path,
-        help="Path to plan-scope-roles.json (for --validate)",
+        "--project-root",
+        default=".",
+        help="Project root for template cache resolution",
     )
     sub = parser.add_subparsers(dest="command")
 
@@ -155,33 +153,35 @@ def main(argv: Optional[list[str]] = None) -> int:
         help="Project root (reserved; roles load from skill package)",
     )
     resolve.add_argument(
-        "--roles-path",
+        "--role-instance-path",
         type=Path,
-        help="Override path to plan-scope-roles.json",
+        help="Override path to role instance JSON for resolved cycle_type",
     )
 
     domain = sub.add_parser("resolve-domain", help="Print Domain Instance markdown")
+    domain.add_argument("--cycle-id", help="Cycle id (infers cycle_type from prefix)")
+    domain.add_argument(
+        "--cycle-type",
+        choices=["topic", "feature"],
+        help="Explicit cycle_type (overrides --cycle-id inference)",
+    )
     domain.add_argument(
         "--project-root",
         default=".",
         help="Project root (reserved; domain instance loads from skill package)",
     )
     domain.add_argument(
-        "--domain-path",
+        "--domain-instance-path",
         type=Path,
-        help="Override path to tech-domain-instance.json",
+        help="Override path to domain instance JSON for resolved cycle_type",
     )
 
     args = parser.parse_args(argv)
 
+    project_root = Path(args.project_root).resolve()
+
     if args.validate:
-        path = args.path or default_roles_path()
-        try:
-            data = load_roles(path)
-            errors = validate_roles(data)
-        except ValueError as exc:
-            print(str(exc), file=sys.stderr)
-            return 1
+        errors = validate_all_plan_scope_instances(project_root)
         if errors:
             for err in errors:
                 print(err, file=sys.stderr)
@@ -191,7 +191,10 @@ def main(argv: Optional[list[str]] = None) -> int:
     if args.command == "resolve-domain":
         try:
             content = resolve_domain_markdown(
-                domain_instance_path=getattr(args, "domain_path", None),
+                cycle_id=getattr(args, "cycle_id", None),
+                cycle_type=getattr(args, "cycle_type", None),
+                domain_instance_path=getattr(args, "domain_instance_path", None),
+                project_root=Path(args.project_root).resolve(),
             )
         except PlanScopeError as exc:
             print(str(exc), file=sys.stderr)
@@ -207,7 +210,8 @@ def main(argv: Optional[list[str]] = None) -> int:
         content = resolve_role_markdown(
             cycle_id=args.cycle_id,
             cycle_type=args.cycle_type,
-            roles_path=args.roles_path,
+            role_instance_path=getattr(args, "role_instance_path", None),
+            project_root=Path(args.project_root).resolve(),
         )
     except PlanScopeError as exc:
         print(str(exc), file=sys.stderr)

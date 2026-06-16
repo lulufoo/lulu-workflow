@@ -16,9 +16,17 @@ from probe_report_schema import (  # noqa: E402
     validate_probe_report,
 )
 from section_registry_schema import load_section_registry, section_heading  # noqa: E402
+from test_template_data import LEGACY_SECTION_REGISTRY  # noqa: E402
 from test_registry_fixtures import first_section_key, fourth_section_key  # noqa: E402
 
-_FIXTURE_REGISTRY = Path(__file__).resolve().parent / "test_fixtures" / "section-registry.json"
+import json
+
+
+def _legacy_registry_path(tmp_path: Path) -> Path:
+    path = tmp_path / "section-registry.json"
+    path.write_text(json.dumps(LEGACY_SECTION_REGISTRY), encoding="utf-8")
+    return path
+
 
 _KW_CRITERIA = {
     "kw0": "决策未被命名",
@@ -104,8 +112,8 @@ def test_rejects_mismatched_section_key():
     assert any("does not match report section" in err for err in errors)
 
 
-def test_accepts_upstream_coverage_item():
-    reg = load_section_registry(_FIXTURE_REGISTRY)
+def test_accepts_upstream_coverage_item(tmp_path: Path):
+    reg = load_section_registry(_legacy_registry_path(tmp_path))
     section_key = fourth_section_key()
     heading = section_heading(section_key)
     upstream = reg["sections"][section_key]["upstream"][0]
@@ -139,10 +147,10 @@ def test_accepts_upstream_coverage_item():
     assert validate_probe_report(payload) == []
 
 
-def test_refiner_payload_upstream():
+def test_refiner_payload_upstream(tmp_path: Path):
     from probe_report_schema import refiner_payload
 
-    reg = load_section_registry(_FIXTURE_REGISTRY)
+    reg = load_section_registry(_legacy_registry_path(tmp_path))
     section_key = fourth_section_key()
     heading = section_heading(section_key)
     upstream = reg["sections"][section_key]["upstream"][0]

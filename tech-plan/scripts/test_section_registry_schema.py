@@ -20,12 +20,14 @@ from section_registry_schema import (  # noqa: E402
     validate_section_registry,
 )
 from section_dependency_schema import load_dependency_graph  # noqa: E402
-
-_FIXTURE_REGISTRY = Path(__file__).resolve().parent / "test_fixtures" / "section-registry.json"
+from test_template_data import (  # noqa: E402
+    LEGACY_SECTION_REGISTRY,
+    legacy_section_registry_normalized,
+)
 
 
 def _load_fixture_registry() -> dict:
-    return load_section_registry(_FIXTURE_REGISTRY)
+    return legacy_section_registry_normalized()
 
 
 def test_section_order_and_keys():
@@ -64,10 +66,12 @@ def test_initial_fill_results():
     assert fills[first_heading]["status"] == "X"
 
 
-def test_upstream_edges_from_registry():
+def test_upstream_edges_from_registry(tmp_path: Path):
     reg = _load_fixture_registry()
     kd_key = reg["section_order"][3]
-    graph = load_dependency_graph(_FIXTURE_REGISTRY)
+    registry_path = tmp_path / "section-registry.json"
+    registry_path.write_text(json.dumps(LEGACY_SECTION_REGISTRY), encoding="utf-8")
+    graph = load_dependency_graph(registry_path)
     edges = upstream_edges(kd_key, graph)
     assert {e["upstream_section"] for e in edges} == set(reg["sections"][kd_key]["upstream"])
 
@@ -115,3 +119,50 @@ def test_section_desc_preserved():
     reg = _load_fixture_registry()
     assert reg["sections"]["NS"]["desc"].startswith("One clear before")
     assert "desc" in reg["sections"]["T"]
+
+
+def test_intent_copied_to_desc_on_normalize():
+    payload = {
+        "version": "1",
+        "section_order": ["GO"],
+        "document_preamble": "preamble\n",
+        "sections": {
+            "GO": {
+                "heading": "Goal",
+                "aliases": [],
+                "upstream": [],
+                "relations": {},
+                "intent": "Outcome text.",
+                "intent_boundary": "Tasks belong to T.",
+            }
+        },
+    }
+    from section_registry_schema import normalize_section_registry  # noqa: E402
+
+    normalized = normalize_section_registry(payload)
+    assert normalized["sections"]["GO"]["desc"] == "Outcome text."
+    assert normalized["sections"]["GO"]["intent_boundary"] == "Tasks belong to T."
+
+
+def test_validate_requires_intent_or_desc():
+    payload = _load_fixture_registry()
+    key = payload["section_order"][0]
+    payload["sections"][key].pop("desc", None)
+    errors = validate_section_registry(payload)
+    assert any("requires intent or desc" in err for err in errors)
+
+
+def test_summary_section_key_prefers_go(monkeypatch):
+    from section_registry_schema import summary_section_key  # noqa: E402
+
+    monkeypatch.setattr(
+        "section_registry_schema.section_order",
+        lambda project_root=None: ("CTX", "GO", "SC"),
+    )
+    assert summary_section_key() == "GO"
+
+    monkeypatch.setattr(
+        "section_registry_schema.section_order",
+        lambda project_root=None: ("NS", "NG"),
+    )
+    assert summary_section_key() == "NS"

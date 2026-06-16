@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Tests for plan_scope.py and plan_scope_schema.py."""
 
+import json
 import sys
 from pathlib import Path
 
@@ -8,21 +9,36 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from plan_scope import PlanScopeError, resolve_role_markdown, resolve_role_summary  # noqa: E402
-from plan_scope_schema import default_roles_path, load_roles, validate_roles  # noqa: E402
+from plan_scope import (  # noqa: E402
+    PlanScopeError,
+    resolve_domain_markdown,
+    resolve_role_markdown,
+    resolve_role_summary,
+)
+from plan_scope_schema import (  # noqa: E402
+    domain_instance_path,
+    get_role_fields,
+    get_role_prompt,
+    load_and_validate_role_instance,
+    role_instance_path,
+    validate_all_plan_scope_instances,
+    validate_role_instance,
+)
 
 
-class TestValidateRoles:
-    def test_default_roles_valid(self):
-        data = load_roles(default_roles_path())
-        assert validate_roles(data) == []
+class TestValidateRoleInstances:
+    def test_default_instances_valid(self):
+        assert validate_all_plan_scope_instances() == []
 
-    def test_missing_scope(self):
-        data = load_roles(default_roles_path())
-        scopes = dict(data["scopes"])
-        del scopes["topic"]
-        bad = {**data, "scopes": scopes}
-        assert any("scopes.topic" in err for err in validate_roles(bad))
+    def test_missing_role_prompt(self):
+        data = load_and_validate_role_instance("topic")
+        bad = {**data, "role_prompt": ""}
+        assert any("role_prompt" in err for err in validate_role_instance(bad))
+
+    def test_cycle_type_mismatch(self):
+        data = load_and_validate_role_instance("topic")
+        errors = validate_role_instance(data, expected_cycle_type="feature")
+        assert any("cycle_type mismatch" in err for err in errors)
 
 
 class TestResolveRole:
@@ -32,15 +48,26 @@ class TestResolveRole:
         assert "cycle_type: topic" in md
         assert "### Role" in md
         assert "architect" in md.lower()
+        assert "### Role Fields" in md
+        assert "role_prompt" not in md
 
     def test_feature_by_cycle_id(self):
         md = resolve_role_markdown(cycle_id="feat-demo")
         assert "cycle_type: feature" in md
         assert "technical expert" in md.lower()
+        payload = md.split("### Role Fields")[1]
+        assert "technical_expert" in payload
 
     def test_topic_by_cycle_id(self):
         md = resolve_role_markdown(cycle_id="topic-demo")
         assert "cycle_type: topic" in md
+
+    def test_role_fields_exclude_prompt(self):
+        data = load_and_validate_role_instance("feature")
+        fields = get_role_fields(data)
+        assert "role_prompt" not in fields
+        assert fields["role_id"] == "technical_expert"
+        assert get_role_prompt(data).startswith("You are acting")
 
     def test_summary(self):
         summary = resolve_role_summary(cycle_type="feature")
@@ -49,3 +76,30 @@ class TestResolveRole:
     def test_requires_scope_or_cycle(self):
         with pytest.raises(PlanScopeError, match="requires"):
             resolve_role_markdown()
+
+    def test_instance_paths(self):
+        assert role_instance_path("topic").name == "tech-plan-topic-role-instance.json"
+        assert role_instance_path("feature", project_root=Path.cwd()).exists()
+
+
+class TestResolveDomain:
+    def test_feature_domain_by_cycle_type(self):
+        md = resolve_domain_markdown(cycle_type="feature")
+        assert "## Domain Instance" in md
+        assert "cycle_type: feature" in md
+        assert "tech_plan_feature" in md
+        assert "executable next steps" in md
+
+    def test_topic_domain_by_cycle_id(self):
+        md = resolve_domain_markdown(cycle_id="topic-demo")
+        assert "cycle_type: topic" in md
+        assert "tech_plan_topic" in md
+        assert "trade-off comparisons" in md
+
+    def test_domain_paths(self):
+        assert domain_instance_path("topic").name == "tech-plan-topic-domain-instance.json"
+        assert domain_instance_path("feature", project_root=Path.cwd()).exists()
+
+    def test_requires_cycle(self):
+        with pytest.raises(PlanScopeError, match="requires"):
+            resolve_domain_markdown()

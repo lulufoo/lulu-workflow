@@ -94,7 +94,7 @@ Emit items (see Step 4 merge). Id pattern: `{section}-U-{upstream}-{n}`. Violati
 
 Only when Step 2 has **no** `kw0_pending` (same gate as Step 2b).
 
-**Input:** decision-doc full text · active section body · `## {ACTIVE_SECTION}` kw block · registry `desc` for section (via `$FETCH_TECH_PLAN section-registry`).
+**Input:** decision-doc full text · active section body · `## {ACTIVE_SECTION}` kw block · registry `intent` and `intent_boundary` for section (`python3 section_registry_schema.py --section-intent {ACTIVE_SECTION}` / `--section-intent-boundary`; or parse `$FETCH_TECH_PLAN section-registry` JSON).
 
 **Skip** when `skip_key` `{ACTIVE_SECTION}:intent:{slug}` ∈ `$SKIP_KEYS`.
 

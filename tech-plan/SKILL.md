@@ -91,7 +91,7 @@ State transitions via `$SESSION_CONTROL` / `$EVAL_CONTROL`; `transition-whitelis
 ### General
 
 1. Session reads: `$SESSION_INFO --view session` — `active_doc`, `workflow_state`; never infer state from tech-doc body or file existence.
-2. Config/templates: `$FETCH_TECH_PLAN <role>` on demand; do not read `workflow-config.json` directly.
+2. Config/templates: `$FETCH_TECH_PLAN <role>` on demand; do not read `workflow-config.json` directly. Roles: `section-registry`, `outline-registry`, `feature-role-instance`, `feature-domain-instance`, `section-kw-criteria`, `intent-eval-framework`, `eval-ptc`.
 3. State writes: `$SESSION_CONTROL` / `$DRAFT_CONTROL` / `$ROUND_CONTROL` / `$EVAL_CONTROL` only; do not Write cache data files directly.
 4. Path guard blocks writes outside `$CACHE_DIR/` while a session is active.
 5. Evaluating review contract: `{$SKILL_ROOT}/eval/eval-rules.md` and `{$SKILL_ROOT}/eval/SKILL.md` (probe/remediation runners own `review.template.md`).
@@ -261,7 +261,9 @@ Macros invoke `$SKILL_DIR/scripts/*.py`. Non-zero exit → Blocking (Principles)
 | `$ROUND_CONTROL update-gap-decision` | `$ROUND_CONTROL update-gap-decision --round {N} --id {id} --decision {accept\|skip\|redirect}` |
 | `$ROUND_CONTROL check-convergence` | `$ROUND_CONTROL check-convergence --round {N} --no-accept --gaps-resolved` |
 | `$RESOLVE_PLAN_ROLE` | `python3 "$SKILL_DIR/scripts/plan_scope.py" resolve-role --cycle-id "$CYCLE_ID" --project-root "$(pwd)"` |
-| `$RESOLVE_DOMAIN` | `python3 "$SKILL_DIR/scripts/plan_scope.py" resolve-domain --project-root "$(pwd)"` |
+| `$RESOLVE_DOMAIN` | `python3 "$SKILL_DIR/scripts/plan_scope.py" resolve-domain --cycle-id "$CYCLE_ID" --project-root "$(pwd)"` |
 | `$FETCH_TECH_PLAN` | `python3 "$SKILL_DIR/scripts/fetch_plan_framework.py" --role <role> --project-root "$(pwd)"` |
+| `$SECTION_INTENT` | `python3 "$SKILL_DIR/scripts/section_registry_schema.py" --section-intent {key} --project-root "$(pwd)"` |
+| `$SECTION_INTENT_BOUNDARY` | `python3 "$SKILL_DIR/scripts/section_registry_schema.py" --section-intent-boundary {key} --project-root "$(pwd)"` |
 
 Subcommands and stdout: script module docstrings or `--help`.

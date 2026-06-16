@@ -16,25 +16,34 @@ from section_pointer_schema import init_section_pointer, mark_section_stable  # 
 from section_registry_schema import load_section_registry  # noqa: E402
 from test_registry_fixtures import fourth_section_key  # noqa: E402
 
+import json
 
-_FIXTURE_REGISTRY = Path(__file__).resolve().parent / "test_fixtures" / "section-registry.json"
+from test_template_data import LEGACY_SECTION_REGISTRY  # noqa: E402
 
 
-def test_section_upstream_edges_from_registry():
-    reg = load_section_registry(_FIXTURE_REGISTRY)
+def _registry_path(tmp_path: Path) -> Path:
+    path = tmp_path / "section-registry.json"
+    path.write_text(json.dumps(LEGACY_SECTION_REGISTRY), encoding="utf-8")
+    return path
+
+
+def test_section_upstream_edges_from_registry(tmp_path: Path):
+    registry_path = _registry_path(tmp_path)
+    reg = load_section_registry(registry_path)
     section_key = fourth_section_key()
-    graph = load_dependency_graph(_FIXTURE_REGISTRY)
+    graph = load_dependency_graph(registry_path)
     edges = upstream_edges(section_key, graph)
     keys = {edge["upstream_section"] for edge in edges}
     assert keys == set(reg["sections"][section_key]["upstream"])
     assert edges[0]["upstream_relation"] == "operationalize"
 
 
-def test_stable_upstream_filters_pointer():
-    reg = load_section_registry(_FIXTURE_REGISTRY)
+def test_stable_upstream_filters_pointer(tmp_path: Path):
+    registry_path = _registry_path(tmp_path)
+    reg = load_section_registry(registry_path)
     section_key = fourth_section_key()
     upstream = reg["sections"][section_key]["upstream"]
-    graph = load_dependency_graph(_FIXTURE_REGISTRY)
+    graph = load_dependency_graph(registry_path)
     pointer = init_section_pointer(round_n=1, revision=1, cycle_id="c1")
     for key in upstream[:2]:
         pointer = mark_section_stable(pointer, key)

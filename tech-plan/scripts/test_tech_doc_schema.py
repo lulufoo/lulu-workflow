@@ -125,6 +125,34 @@ class TestSectionKeyAnchors:
         raw = path.read_text(encoding="utf-8")
         assert section_body_by_key(raw, key) == "Legacy body."
 
+    def test_outline_block_intent_anchors(self, tmp_path: Path):
+        from tech_doc_schema import parse_sections, section_body_by_key
+
+        doc = """---
+---
+
+## Overview
+
+<!-- section-key:CTX -->
+Context body.
+
+<!-- section-key:GO -->
+Goal body.
+
+## Boundaries
+
+<!-- section-key:NG -->
+Non-goals body.
+"""
+        raw = doc
+        parsed = parse_sections(raw)
+        assert set(parsed) >= {"CTX", "GO", "NG"}
+        assert section_body_by_key(raw, "CTX") == "Context body."
+        assert section_body_by_key(raw, "GO") == "Goal body."
+        assert section_body_by_key(raw, "NG") == "Non-goals body."
+        assert parsed["CTX"]["display_heading"] == ""
+        assert parsed["NG"]["display_heading"] == ""
+
 
 class TestResolveFromCycle:
     def test_resolves_active_doc(self, tmp_path: Path):

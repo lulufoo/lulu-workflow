@@ -1,8 +1,11 @@
 {
   "version": "1",
   "$schema_id": "role-schema",
+  "description": "Single plan-scope role instance per cycle_type (topic or feature). Loaded by plan_scope.py resolve-role.",
   "fields": {
+    "cycle_type": "topic (system architect) or feature (technical expert)",
     "role_id": "unique identifier",
+    "role_prompt": "natural-language persona and operational guidance for ### Role",
     "cognitive_framework": "how this role frames problems — what dimensions it analyzes from",
     "priority_tendency": "which section types or content aspects this role prioritizes",
     "vocabulary_domain": "the vocabulary set characteristic of this role's reasoning",
