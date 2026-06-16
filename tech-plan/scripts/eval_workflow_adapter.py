@@ -31,10 +31,11 @@ if str(_WORKFLOW_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_WORKFLOW_SCRIPTS))
 from workflow_adapter import SessionContext  # noqa: E402
 
-_MODE_TO_CORPUS_ID = {
-    "product": "tech-plan-product",
-    "tech": "tech-plan-tech",
-}
+from tech_plan_eval_policy import (  # noqa: E402
+    intent_eval_config_key,
+    select_dimension_defs,
+)
+
 _VALID_EXECUTION_MODES = frozenset({"guided", "autonomous"})
 
 
@@ -103,15 +104,39 @@ class TechPlanEvalAdapter:
         }
 
     def corpus_ref_for_mode(self, mode: str) -> str:
-        if mode not in _MODE_TO_CORPUS_ID:
+        if mode not in frozenset({"product", "tech"}):
             raise ValueError(
-                f"invalid mode: {mode!r} (allowed: {sorted(_MODE_TO_CORPUS_ID)})",
+                f"invalid mode: {mode!r} (allowed: ['product', 'tech'])",
             )
-        corpus_id = _MODE_TO_CORPUS_ID[mode]
-        from corpus_schema import corpus_ref, load_corpus  # noqa: WPS433
+        from corpus_compose import COMPOSED_CORPUS_REF  # noqa: WPS433
 
-        data = load_corpus(self.corpus_dir() / f"{corpus_id}.json")
-        return corpus_ref(data)
+        return COMPOSED_CORPUS_REF
+
+    def resolve_eval_corpus(
+        self, cycle_id: str, project_root: Path
+    ) -> dict[str, Any]:
+        from corpus_compose import (  # noqa: WPS433
+            COMPOSED_CORPUS_ID,
+            COMPOSED_CORPUS_VERSION,
+            compose_corpus,
+        )
+
+        state = self.load_workflow_state(cycle_id, project_root)
+        mode = state["mode"]
+        product_ref = state.get("product_ref", "")
+        cycle_type = detect_cycle_type(cycle_id)
+        dimensions = select_dimension_defs(
+            product_ref=product_ref,
+            mode=mode,
+            cycle_type=cycle_type,
+            corpora_dir=self.corpus_dir(),
+        )
+        return compose_corpus(
+            corpus_id=COMPOSED_CORPUS_ID,
+            corpus_version=COMPOSED_CORPUS_VERSION,
+            scope="tech-plan",
+            dimensions=dimensions,
+        )
 
     def corpus_dir(self) -> Path:
         return Path(__file__).resolve().parents[1] / "corpora"
@@ -142,8 +167,11 @@ class TechPlanEvalAdapter:
         if not isinstance(section, dict):
             return self._empty_corpus_bind()
         ptc_url = str(section.get("ptc_url", "")).strip()
+        cycle_type = detect_cycle_type(cycle_id)
+        intent_key = intent_eval_config_key(cycle_type)
         tpt_intent_eval_framework_url = str(
-            section.get("tpt_intent_eval_framework_url", ""),
+            section.get(intent_key, "")
+            or section.get("tpt_intent_eval_framework_url", ""),
         ).strip()
         return {
             "ptc_url": ptc_url,

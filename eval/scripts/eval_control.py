@@ -64,9 +64,10 @@ from contextvars import ContextVar
 
 from adapter_registry import load_adapter  # noqa: E402
 from evaluate_state_ops import (  # noqa: E402
-    build_initial_evaluate_state_for_mode,
+    build_initial_evaluate_state_for_corpus,
     dimension_status_legacy_map,
-    init_evaluate_state,
+    dispatch_legacy_for_corpus,
+    init_evaluate_state_for_corpus,
     merge_current_dimension,
     save_evaluate_state_locked,
 )
@@ -82,15 +83,33 @@ def _adapter() -> WorkflowAdapter:
     return adapter
 
 
-def _corpus_ref_for_mode(mode: str) -> str:
-    return _adapter().corpus_ref_for_mode(mode)
+def _load_corpus(cycle_id: str, project_root: Path):
+    """Resolve session EvalCorpus via workflow adapter."""
+    return _adapter().resolve_eval_corpus(cycle_id, project_root)
 
 
-def _load_corpus_for_mode(mode: str):
-    return load_corpus_by_ref(
-        _corpus_ref_for_mode(mode),
-        corpus_dir=_adapter().corpus_dir(),
-    )
+def _dispatch_dim_allowed(cycle_id: str, project_root: Path, dim: str) -> bool:
+    """Return True when dim is a legacy alias or canonical id in session corpus."""
+    try:
+        corpus = _load_corpus(cycle_id, project_root)
+        resolve_dim_id(corpus, dim)
+    except ValueError:
+        return False
+    legacy = dispatch_list(cycle_id, project_root)
+    canonical = _dispatch_canonical(cycle_id, project_root)
+    return dim in legacy or dim in canonical
+
+
+def dispatch_list(cycle_id: str, project_root: Path) -> list[str]:
+    """Return legacy eval dimension dispatch (e1/e2/e3) for eval-rules."""
+    return dispatch_legacy_for_corpus(_load_corpus(cycle_id, project_root))
+
+
+def _dispatch_canonical(cycle_id: str, project_root: Path) -> list[str]:
+    """Return canonical dimension ids from session EvalCorpus."""
+    from evaluate_state_ops import dispatch_dims_for_corpus
+
+    return dispatch_dims_for_corpus(_load_corpus(cycle_id, project_root))
 
 
 def _eval_dir(
@@ -138,44 +157,13 @@ _ENTRY_V3_KEYS = (
     "fix_phase",
     "dimension_status",
     "corpus_ref",
+    "corpus_fingerprint",
     "dimension_dispatch",
 )
 _EXPECTED_EVALUATING_STATE = "Evaluating"
 _VALID_EXECUTION_MODES = frozenset({"guided", "autonomous"})
 _VALID_MODES = frozenset({"product", "tech"})
 _SEVERITY_RANK = {"critical": 3, "medium": 2, "minor": 1}
-
-
-def _dispatch_dim_allowed(mode: str, dim: str) -> bool:
-    """Return True when dim is a legacy alias or canonical id in mode corpus."""
-    try:
-        corpus = _load_corpus_for_mode(mode)
-        resolve_dim_id(corpus, dim)
-    except ValueError:
-        return False
-    legacy = dispatch_list(mode)
-    canonical = _dispatch_canonical(mode)
-    return dim in legacy or dim in canonical
-
-
-def dispatch_list(mode: str) -> list[str]:
-    """Return legacy eval dimension dispatch (e1/e2/e3) for eval-rules."""
-    from evaluate_state_ops import dispatch_legacy_for_mode
-
-    return dispatch_legacy_for_mode(
-        mode=mode,
-        corpus_ref_for_mode=_corpus_ref_for_mode,
-    )
-
-
-def _dispatch_canonical(mode: str) -> list[str]:
-    """Return canonical dimension ids from EvalCorpus."""
-    from evaluate_state_ops import dispatch_dims_for_mode
-
-    return dispatch_dims_for_mode(
-        mode=mode,
-        corpus_ref_for_mode=_corpus_ref_for_mode,
-    )
 
 
 def _bind_vars(
@@ -197,7 +185,6 @@ def _bind_vars(
 
 
 def _expanded_corpus(
-    mode: str,
     cycle_id: str,
     state: dict[str, str],
     paths: dict[str, str],
@@ -206,7 +193,7 @@ def _expanded_corpus(
     project_root: Path,
 ) -> dict[str, Any]:
     return expand_corpus(
-        _load_corpus_for_mode(mode),
+        _load_corpus(cycle_id, project_root),
         _bind_vars(
             cycle_id,
             state,
@@ -217,8 +204,8 @@ def _expanded_corpus(
     )
 
 
-def _canonical_dim(mode: str, dim: str) -> str:
-    return resolve_dim_id(_load_corpus_for_mode(mode), dim)
+def _canonical_dim(cycle_id: str, project_root: Path, dim: str) -> str:
+    return resolve_dim_id(_load_corpus(cycle_id, project_root), dim)
 
 
 def resolve_execution_mode(cycle_id: str, project_root: Path) -> str:
@@ -255,11 +242,12 @@ def _eval_paths(
     )
 
 
-def _validate_evaluate_state_for_mode(
+def _validate_evaluate_state_for_session(
     eval_data: dict[str, str],
-    mode: str,
+    cycle_id: str,
+    project_root: Path,
 ) -> str | None:
-    """Return error reason when evaluate-state does not match mode at entry."""
+    """Return error reason when evaluate-state does not match session at entry."""
     if not is_v3_state(eval_data):
         return (
             "evaluate-state version 1/2 is not supported; "
@@ -268,9 +256,9 @@ def _validate_evaluate_state_for_mode(
     if eval_data.get("phase") != "evaluate":
         return f"phase is {eval_data.get('phase')!r}, expected 'evaluate'."
     try:
-        expected = build_initial_evaluate_state_for_mode(
-            mode=mode,
-            corpus_ref_for_mode=_corpus_ref_for_mode,
+        expected = build_initial_evaluate_state_for_corpus(
+            _load_corpus(cycle_id, project_root),
+            cycle_type=_adapter().detect_cycle_type(cycle_id),
         )
     except ValueError as exc:
         return str(exc)
@@ -280,7 +268,7 @@ def _validate_evaluate_state_for_mode(
         if actual != exp:
             return (
                 f"{key} is {actual!r}, expected {exp!r} "
-                f"for mode {mode!r}."
+                f"for this session."
             )
     return None
 
@@ -288,7 +276,6 @@ def _validate_evaluate_state_for_mode(
 def _review_path_for_dim(
     eval_dir: Path,
     *,
-    mode: str,
     cycle_id: str,
     state: dict[str, str],
     paths: dict[str, str],
@@ -297,7 +284,6 @@ def _review_path_for_dim(
     project_root: Path,
 ) -> Path:
     expanded = _expanded_corpus(
-        mode,
         cycle_id,
         state,
         paths,
@@ -318,7 +304,6 @@ def _review_path_from_context(
     state: dict[str, str],
     evaluate_round: int,
     active_doc: int,
-    mode: str,
     dim: str,
 ) -> Path:
     es_path = _adapter().resolve_evaluate_state_path(cycle_id, project_root)
@@ -338,7 +323,6 @@ def _review_path_from_context(
     )
     return _review_path_for_dim(
         eval_dir,
-        mode=mode,
         cycle_id=cycle_id,
         state=state,
         paths=paths,
@@ -348,12 +332,17 @@ def _review_path_from_context(
     )
 
 
-def dimension_from_review_path(path: Path, *, mode: str) -> str:
+def dimension_from_review_path(
+    path: Path,
+    *,
+    cycle_id: str,
+    project_root: Path,
+) -> str:
     match = _REVIEW_FILE_RE.search(path.name)
     if not match:
         return ""
     seq = int(match.group(1))
-    corpus = _load_corpus_for_mode(mode)
+    corpus = _load_corpus(cycle_id, project_root)
     for item in corpus["dimensions"]:
         if item["review"]["seq"] == seq:
             return str(item.get("legacy_alias") or item["id"])
@@ -363,7 +352,8 @@ def dimension_from_review_path(path: Path, *, mode: str) -> str:
 def collect_review_issues(
     eval_dir: Path,
     *,
-    mode: str,
+    cycle_id: str,
+    project_root: Path,
 ) -> tuple[list[dict[str, str]], list[str]]:
     issues: list[dict[str, str]] = []
     review_paths: list[str] = []
@@ -371,7 +361,11 @@ def collect_review_issues(
         return issues, review_paths
 
     for path in sorted(eval_dir.glob("tech-review-e*.md")):
-        dimension = dimension_from_review_path(path, mode=mode)
+        dimension = dimension_from_review_path(
+            path,
+            cycle_id=cycle_id,
+            project_root=project_root,
+        )
         if not dimension:
             continue
         review_paths.append(path.as_posix())
@@ -380,36 +374,47 @@ def collect_review_issues(
     return issues, review_paths
 
 
-def build_dimensions(eval_state: dict[str, str]) -> list[dict[str, str]]:
-    dim_map = dimension_status_legacy_map(eval_state)
+def build_dimensions(
+    eval_state: dict[str, str],
+    *,
+    corpus: dict[str, Any] | None = None,
+) -> list[dict[str, str]]:
+    if corpus is None:
+        ref = eval_state.get("corpus_ref", "")
+        if ref:
+            from corpus_compose import is_composed_corpus_ref
+
+            if is_composed_corpus_ref(ref):
+                raise ValueError(
+                    "composed corpus requires explicit corpus for build_dimensions",
+                )
+            corpus = load_corpus_by_ref(ref)
+    dim_map = dimension_status_legacy_map(eval_state, corpus=corpus)
     counts = parse_issue_counts(eval_state.get("issue_counts", "{}"))
-    ref = eval_state.get("corpus_ref", "")
-    canonical_counts = counts
-    if ref:
-        corpus = load_corpus_by_ref(ref)
-        dimensions: list[dict[str, str]] = []
-        for item in corpus["dimensions"]:
-            alias = str(item.get("legacy_alias") or item["id"])
-            dim_id = str(item["id"])
-            status = dim_map.get(alias, "pending")
+    if corpus is None:
+        dimensions = []
+        for dim, status in dim_map.items():
             if status == "pending":
                 continue
-            entry = canonical_counts.get(dim_id, {"total": "0", "resolved": "0"})
+            entry = counts.get(dim, {"total": "0", "resolved": "0"})
             dimensions.append({
-                "dim": alias,
+                "dim": dim,
                 "status": status,
                 "total": entry.get("total", "0"),
                 "resolved": entry.get("resolved", "0"),
             })
         return dimensions
 
-    dimensions = []
-    for dim, status in dim_map.items():
+    dimensions: list[dict[str, str]] = []
+    for item in corpus["dimensions"]:
+        alias = str(item.get("legacy_alias") or item["id"])
+        dim_id = str(item["id"])
+        status = dim_map.get(alias, "pending")
         if status == "pending":
             continue
-        entry = canonical_counts.get(dim, {"total": "0", "resolved": "0"})
+        entry = counts.get(dim_id, {"total": "0", "resolved": "0"})
         dimensions.append({
-            "dim": dim,
+            "dim": alias,
             "status": status,
             "total": entry.get("total", "0"),
             "resolved": entry.get("resolved", "0"),
@@ -548,7 +553,7 @@ def build_eval_loop_payload(
         _CMD_BEGIN_EVAL_ROUND,
         current_state=state["current_state"],
         mode=mode,
-        dispatch=dispatch_list(mode),
+        dispatch=dispatch_list(cycle_id, project_root),
         corpus_ref=eval_data.get("corpus_ref", ""),
         dimension_dispatch=eval_data.get("dimension_dispatch", "parallel"),
         evaluate_round=evaluate_round,
@@ -631,7 +636,9 @@ def begin_eval_round(cycle_id: str, project_root: Path) -> dict[str, Any]:
                 current_state=current,
             )
 
-        mismatch = _validate_evaluate_state_for_mode(eval_data, mode)
+        mismatch = _validate_evaluate_state_for_session(
+            eval_data, cycle_id, project_root
+        )
         if mismatch:
             return _failure(
                 _CMD_BEGIN_EVAL_ROUND,
@@ -665,7 +672,9 @@ def begin_eval_round(cycle_id: str, project_root: Path) -> dict[str, Any]:
             current_state=state["current_state"],
         )
 
-    mismatch = _validate_evaluate_state_for_mode(eval_data, mode)
+    mismatch = _validate_evaluate_state_for_session(
+        eval_data, cycle_id, project_root
+    )
     if mismatch:
         return _failure(
             _CMD_BEGIN_EVAL_ROUND,
@@ -714,11 +723,9 @@ def _build_runner_input(
     dim: str,
     state: dict[str, str],
     paths: dict[str, str],
-    mode: str,
     evaluate_round: int,
 ) -> dict[str, str]:
     expanded = _expanded_corpus(
-        mode,
         cycle_id,
         state,
         paths,
@@ -767,11 +774,9 @@ def init_round(
     if mode is None:
         mode = _adapter().load_workflow_state(cycle_id, project_root)["mode"]
     es_path = _adapter().resolve_evaluate_state_path(cycle_id, project_root)
-    init_evaluate_state(
-        es_path,
-        mode=mode,
-        corpus_ref_for_mode=_corpus_ref_for_mode,
-    )
+    corpus = _load_corpus(cycle_id, project_root)
+    cycle_type = _adapter().detect_cycle_type(cycle_id)
+    init_evaluate_state_for_corpus(es_path, corpus, cycle_type=cycle_type)
     return _success(
         _CMD_INIT_ROUND,
         mode=mode,
@@ -798,7 +803,7 @@ def begin_dimension(
         return ctx
 
     state, _ws_path, eval_data, evaluate_round, active_doc, mode = ctx
-    if not _dispatch_dim_allowed(mode, dim):
+    if not _dispatch_dim_allowed(cycle_id, project_root, dim):
         return _failure(
             _CMD_BEGIN_DIMENSION,
             f"invalid dim: {dim!r} (not in corpus for mode {mode!r}).",
@@ -820,9 +825,10 @@ def begin_dimension(
         es_path=es_path,
     )
 
+    corpus = _load_corpus(cycle_id, project_root)
+
     def _patch(data: dict[str, str]) -> dict[str, str]:
-        updated = merge_current_dimension(data, dim, "in_progress")
-        return updated
+        return merge_current_dimension(data, dim, "in_progress", corpus=corpus)
 
     save_evaluate_state_locked(es_path, _patch)
 
@@ -832,7 +838,6 @@ def begin_dimension(
         dim=dim,
         state=state,
         paths=paths,
-        mode=mode,
         evaluate_round=evaluate_round,
     )
     return _success(
@@ -858,7 +863,7 @@ def finish_dimension_probe(
         return ctx
 
     state, _ws_path, eval_data, evaluate_round, active_doc, mode = ctx
-    if not _dispatch_dim_allowed(mode, dim):
+    if not _dispatch_dim_allowed(cycle_id, project_root, dim):
         return _failure(
             _CMD_FINISH_DIMENSION_PROBE,
             f"invalid dim: {dim!r} (not in corpus for mode {mode!r}).",
@@ -877,7 +882,6 @@ def finish_dimension_probe(
         state=state,
         evaluate_round=evaluate_round,
         active_doc=active_doc,
-        mode=mode,
         dim=dim,
     )
     validation_errors = validate_review_file(review_path, phase="probe")
@@ -891,12 +895,14 @@ def finish_dimension_probe(
 
     rows = parse_review_file(review_path)
     total_issues = str(len(rows))
-    dim_id = _canonical_dim(mode, dim)
+    dim_id = _canonical_dim(cycle_id, project_root, dim)
 
     es_path = _adapter().resolve_evaluate_state_path(cycle_id, project_root)
 
+    corpus = _load_corpus(cycle_id, project_root)
+
     def _patch(data: dict[str, str]) -> dict[str, str]:
-        updated = merge_current_dimension(data, dim, "probed")
+        updated = merge_current_dimension(data, dim, "probed", corpus=corpus)
         return patch_issue_count(updated, dim_id, total=total_issues)
 
     save_evaluate_state_locked(es_path, _patch)
@@ -926,7 +932,7 @@ def check_dimension(
         return ctx
 
     state, _ws_path, eval_data, evaluate_round, active_doc, mode = ctx
-    if not _dispatch_dim_allowed(mode, dim):
+    if not _dispatch_dim_allowed(cycle_id, project_root, dim):
         return _failure(
             _CMD_CHECK_DIMENSION,
             f"invalid dim: {dim!r} (not in corpus for mode {mode!r}).",
@@ -947,9 +953,10 @@ def check_dimension(
             eval_status=eval_status,
         )
 
-    dim_map = dimension_status_legacy_map(eval_data)
+    corpus = _load_corpus(cycle_id, project_root)
+    dim_map = dimension_status_legacy_map(eval_data, corpus=corpus)
     dim_status = dim_map.get(dim, "pending")
-    dim_id = _canonical_dim(mode, dim)
+    dim_id = _canonical_dim(cycle_id, project_root, dim)
 
     review_path = _review_path_from_context(
         cycle_id,
@@ -957,7 +964,6 @@ def check_dimension(
         state=state,
         evaluate_round=evaluate_round,
         active_doc=active_doc,
-        mode=mode,
         dim=dim,
     )
 
@@ -1028,7 +1034,7 @@ def probe_complete(cycle_id: str, project_root: Path) -> dict[str, Any]:
         return ctx
 
     state, _ws_path, eval_data, _evaluate_round, _active_doc, mode = ctx
-    dispatch = _dispatch_canonical(mode)
+    dispatch = _dispatch_canonical(cycle_id, project_root)
 
     if eval_data.get("fix_phase") != "probe":
         return _failure(
@@ -1070,11 +1076,9 @@ def _build_remediation_runner_input(
     dim: str,
     state: dict[str, str],
     paths: dict[str, str],
-    mode: str,
     evaluate_round: int,
 ) -> dict[str, str]:
     expanded = _expanded_corpus(
-        mode,
         cycle_id,
         state,
         paths,
@@ -1128,7 +1132,6 @@ def _review_rows_for_dim(
     state: dict[str, str],
     evaluate_round: int,
     active_doc: int,
-    mode: str,
     dim: str,
 ) -> list[dict[str, str]]:
     review_path = _review_path_from_context(
@@ -1137,7 +1140,6 @@ def _review_rows_for_dim(
         state=state,
         evaluate_round=evaluate_round,
         active_doc=active_doc,
-        mode=mode,
         dim=dim,
     )
     return parse_review_file(review_path)
@@ -1150,17 +1152,15 @@ def _dims_with_pending_artifact(
     state: dict[str, str],
     evaluate_round: int,
     active_doc: int,
-    mode: str,
 ) -> list[str]:
     pending_dims: list[str] = []
-    for dim in dispatch_list(mode):
+    for dim in dispatch_list(cycle_id, project_root):
         rows = _review_rows_for_dim(
             cycle_id,
             project_root,
             state=state,
             evaluate_round=evaluate_round,
             active_doc=active_doc,
-            mode=mode,
             dim=dim,
         )
         if pending_artifact_rows(rows):
@@ -1175,17 +1175,15 @@ def _dims_with_pending_sot(
     state: dict[str, str],
     evaluate_round: int,
     active_doc: int,
-    mode: str,
 ) -> list[str]:
     pending_dims: list[str] = []
-    for dim in dispatch_list(mode):
+    for dim in dispatch_list(cycle_id, project_root):
         rows = _review_rows_for_dim(
             cycle_id,
             project_root,
             state=state,
             evaluate_round=evaluate_round,
             active_doc=active_doc,
-            mode=mode,
             dim=dim,
         )
         if pending_sot_rows(rows):
@@ -1220,7 +1218,6 @@ def begin_artifact_remediation(
         state=state,
         evaluate_round=evaluate_round,
         active_doc=active_doc,
-        mode=mode,
     )
     if not pending_dims:
         return _success(
@@ -1257,7 +1254,7 @@ def begin_dimension_artifact_remediation(
         return ctx
 
     state, _ws_path, eval_data, evaluate_round, active_doc, mode = ctx
-    if not _dispatch_dim_allowed(mode, dim):
+    if not _dispatch_dim_allowed(cycle_id, project_root, dim):
         return _failure(
             _CMD_BEGIN_DIMENSION_ARTIFACT,
             f"invalid dim: {dim!r} (not in corpus for mode {mode!r}).",
@@ -1278,7 +1275,6 @@ def begin_dimension_artifact_remediation(
         state=state,
         evaluate_round=evaluate_round,
         active_doc=active_doc,
-        mode=mode,
         dim=dim,
     )
     if not pending_artifact_rows(rows):
@@ -1302,7 +1298,6 @@ def begin_dimension_artifact_remediation(
         dim=dim,
         state=state,
         paths=paths,
-        mode=mode,
         evaluate_round=evaluate_round,
     )
     return _success(
@@ -1328,7 +1323,7 @@ def check_dimension_artifact_remediation(
         return ctx
 
     state, _ws_path, eval_data, evaluate_round, active_doc, mode = ctx
-    if not _dispatch_dim_allowed(mode, dim):
+    if not _dispatch_dim_allowed(cycle_id, project_root, dim):
         return _failure(
             _CMD_CHECK_DIMENSION_ARTIFACT,
             f"invalid dim: {dim!r} (not in corpus for mode {mode!r}).",
@@ -1341,7 +1336,6 @@ def check_dimension_artifact_remediation(
         state=state,
         evaluate_round=evaluate_round,
         active_doc=active_doc,
-        mode=mode,
         dim=dim,
     )
     errors = validate_review_file(review_path, phase="remediation")
@@ -1361,14 +1355,15 @@ def check_dimension_artifact_remediation(
             dim=dim,
         )
 
-    dim_id = _canonical_dim(mode, dim)
+    dim_id = _canonical_dim(cycle_id, project_root, dim)
     merged = patch_issue_count(
         eval_data,
         dim_id,
         resolved=str(count_resolved(rows)),
     )
+    corpus = _load_corpus(cycle_id, project_root)
     if not has_pending_sot(rows):
-        merged = merge_current_dimension(merged, dim, "complete")
+        merged = merge_current_dimension(merged, dim, "complete", corpus=corpus)
 
     es_path = _adapter().resolve_evaluate_state_path(cycle_id, project_root)
     save_evaluate_state(
@@ -1408,14 +1403,13 @@ def artifact_remediation_complete(
             current_state=state["current_state"],
         )
 
-    for dim in dispatch_list(mode):
+    for dim in dispatch_list(cycle_id, project_root):
         rows = _review_rows_for_dim(
             cycle_id,
             project_root,
             state=state,
             evaluate_round=evaluate_round,
             active_doc=active_doc,
-            mode=mode,
             dim=dim,
         )
         if pending_artifact_rows(rows):
@@ -1484,7 +1478,6 @@ def begin_sot_remediation(
         state=state,
         evaluate_round=evaluate_round,
         active_doc=active_doc,
-        mode=mode,
     )
     if not pending_dims:
         return _success(
@@ -1521,7 +1514,7 @@ def begin_dimension_sot_remediation(
         return ctx
 
     state, _ws_path, eval_data, evaluate_round, active_doc, mode = ctx
-    if not _dispatch_dim_allowed(mode, dim):
+    if not _dispatch_dim_allowed(cycle_id, project_root, dim):
         return _failure(
             _CMD_BEGIN_DIMENSION_SOT,
             f"invalid dim: {dim!r} (not in corpus for mode {mode!r}).",
@@ -1542,7 +1535,6 @@ def begin_dimension_sot_remediation(
         state=state,
         evaluate_round=evaluate_round,
         active_doc=active_doc,
-        mode=mode,
         dim=dim,
     )
     if not pending_sot_rows(rows):
@@ -1566,7 +1558,6 @@ def begin_dimension_sot_remediation(
         dim=dim,
         state=state,
         paths=paths,
-        mode=mode,
         evaluate_round=evaluate_round,
     )
     return _success(
@@ -1593,7 +1584,7 @@ def check_dimension_sot_remediation(
         return ctx
 
     state, _ws_path, eval_data, evaluate_round, active_doc, mode = ctx
-    if not _dispatch_dim_allowed(mode, dim):
+    if not _dispatch_dim_allowed(cycle_id, project_root, dim):
         return _failure(
             _CMD_CHECK_DIMENSION_SOT,
             f"invalid dim: {dim!r} (not in corpus for mode {mode!r}).",
@@ -1607,7 +1598,6 @@ def check_dimension_sot_remediation(
         state=state,
         evaluate_round=evaluate_round,
         active_doc=active_doc,
-        mode=mode,
         dim=dim,
     )
     errors = validate_review_file(review_path, phase="remediation")
@@ -1629,15 +1619,16 @@ def check_dimension_sot_remediation(
         )
 
     escalated = has_escalated(rows)
-    dim_id = _canonical_dim(mode, dim)
+    dim_id = _canonical_dim(cycle_id, project_root, dim)
     merged = patch_issue_count(
         eval_data,
         dim_id,
         resolved=str(count_resolved(rows)),
     )
-    dim_map = dimension_status_legacy_map(eval_data)
+    corpus = _load_corpus(cycle_id, project_root)
+    dim_map = dimension_status_legacy_map(eval_data, corpus=corpus)
     if dim_map.get(dim) == "probed":
-        merged = merge_current_dimension(merged, dim, "complete")
+        merged = merge_current_dimension(merged, dim, "complete", corpus=corpus)
 
     patch: dict[str, str] = {
         "issue_counts": merged["issue_counts"],
@@ -1668,7 +1659,7 @@ def sot_remediation_complete(
         return ctx
 
     state, _ws_path, eval_data, evaluate_round, active_doc, mode = ctx
-    dispatch = dispatch_list(mode)
+    dispatch = dispatch_list(cycle_id, project_root)
 
     if eval_data.get("fix_phase") != "sot-remediation":
         return _failure(
@@ -1697,7 +1688,6 @@ def sot_remediation_complete(
             state=state,
             evaluate_round=evaluate_round,
             active_doc=active_doc,
-            mode=mode,
             dim=dim,
         )
         if pending_sot_rows(rows):
@@ -1715,7 +1705,6 @@ def sot_remediation_complete(
                 state=state,
                 evaluate_round=evaluate_round,
                 active_doc=active_doc,
-                mode=mode,
                 dim=dim,
             ),
         )
@@ -1731,8 +1720,9 @@ def sot_remediation_complete(
         },
     )
     eval_data_after = load_evaluate_state(es_path)
-    if not all_dims_at_least(eval_data_after, _dispatch_canonical(mode), "complete"):
-        dim_map = dimension_status_legacy_map(eval_data_after)
+    if not all_dims_at_least(eval_data_after, _dispatch_canonical(cycle_id, project_root), "complete"):
+        corpus = _load_corpus(cycle_id, project_root)
+        dim_map = dimension_status_legacy_map(eval_data_after, corpus=corpus)
         incomplete = [
             dim for dim in dispatch if dim_map.get(dim) != "complete"
         ]
@@ -1771,7 +1761,7 @@ def complete_round(cycle_id: str, project_root: Path) -> dict[str, Any]:
         return ctx
 
     state, _ws_path, eval_data, evaluate_round, active_doc, mode = ctx
-    dispatch = _dispatch_canonical(mode)
+    dispatch = _dispatch_canonical(cycle_id, project_root)
 
     eval_status = eval_data.get("eval_status", "")
     if eval_status == "done":
@@ -1809,7 +1799,12 @@ def complete_round(cycle_id: str, project_root: Path) -> dict[str, Any]:
         active_doc=active_doc,
         evaluate_round=evaluate_round,
     )
-    issues, review_paths = collect_review_issues(eval_dir, mode=mode)
+    corpus = _load_corpus(cycle_id, project_root)
+    issues, review_paths = collect_review_issues(
+        eval_dir,
+        cycle_id=cycle_id,
+        project_root=project_root,
+    )
     fix_severity, fix_severity_reason = compute_fix_severity(issues)
 
     es_path = _adapter().resolve_evaluate_state_path(cycle_id, project_root)
@@ -1831,7 +1826,7 @@ def complete_round(cycle_id: str, project_root: Path) -> dict[str, Any]:
         fix_severity=eval_data.get("fix_severity", ""),
         fix_severity_reason=eval_data.get("fix_severity_reason", ""),
         counts=build_issue_counts(eval_data, issues),
-        dimensions=build_dimensions(eval_data),
+        dimensions=build_dimensions(eval_data, corpus=corpus),
         issues=issues,
         review_paths=review_paths,
     )

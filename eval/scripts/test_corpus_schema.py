@@ -1,25 +1,54 @@
 #!/usr/bin/env python3
 """Tests for eval/scripts/corpus_schema.py."""
 
-import json
 import sys
 from pathlib import Path
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tech-plan" / "scripts"))
+
+from corpus_compose import COMPOSED_CORPUS_REF, compose_corpus, load_dimension_stamp  # noqa: E402
 from corpus_schema import (  # noqa: E402
     corpus_ref,
     default_corpus_dir,
     dispatch_ids,
     expand_corpus,
     get_schema,
-    load_corpus,
     resolve_dim_id,
     validate_corpus,
 )
 
 _CORPUS_DIR = default_corpus_dir()
+_FEATURE_STAMPS = _CORPUS_DIR / "stamps" / "feature"
+
+
+def _feature_product_corpus() -> dict:
+    dims = [
+        load_dimension_stamp(_FEATURE_STAMPS / "intent-alignment.json"),
+        load_dimension_stamp(_FEATURE_STAMPS / "codebase-consistency.json"),
+        load_dimension_stamp(_FEATURE_STAMPS / "solution-quality.json"),
+    ]
+    return compose_corpus(
+        corpus_id="tech-plan-composed",
+        corpus_version="1",
+        scope="tech-plan",
+        dimensions=dims,
+    )
+
+
+def _feature_tech_corpus() -> dict:
+    dims = [
+        load_dimension_stamp(_FEATURE_STAMPS / "codebase-consistency.json"),
+        load_dimension_stamp(_FEATURE_STAMPS / "solution-quality.json"),
+    ]
+    return compose_corpus(
+        corpus_id="tech-plan-composed",
+        corpus_version="1",
+        scope="tech-plan",
+        dimensions=dims,
+    )
 
 
 class TestGetSchema:
@@ -32,13 +61,11 @@ class TestGetSchema:
 
 
 class TestValidateCorpus:
-    def test_product_corpus_valid(self):
-        data = load_corpus(_CORPUS_DIR / "tech-plan-product.json")
-        assert validate_corpus(data) == []
+    def test_feature_product_corpus_valid(self):
+        assert validate_corpus(_feature_product_corpus()) == []
 
-    def test_tech_corpus_valid(self):
-        data = load_corpus(_CORPUS_DIR / "tech-plan-tech.json")
-        assert validate_corpus(data) == []
+    def test_feature_tech_corpus_valid(self):
+        assert validate_corpus(_feature_tech_corpus()) == []
 
     def test_missing_dimensions(self):
         errors = validate_corpus({"id": "x", "version": "3"})
@@ -82,7 +109,7 @@ class TestExpandCorpus:
     }
 
     def test_expand_substitutes_paths(self):
-        data = load_corpus(_CORPUS_DIR / "tech-plan-product.json")
+        data = _feature_product_corpus()
         expanded = expand_corpus(data, self._BIND)
         dim = expanded["dimensions"][0]
         assert dim["eval_target"]["path"] == "/abs/tech-doc.md"
@@ -91,13 +118,13 @@ class TestExpandCorpus:
         assert dim["review"]["output_path"] == "tech-review-e11.md"
 
     def test_expand_preserves_codebase_root_dot(self):
-        data = load_corpus(_CORPUS_DIR / "tech-plan-tech.json")
+        data = _feature_tech_corpus()
         expanded = expand_corpus(data, self._BIND)
         e2 = expanded["dimensions"][0]
         assert e2["sots"][0]["ref"] == {"root": ".", "strategy": "all"}
 
     def test_expand_e3_substitutes_intent_probe_urls(self):
-        data = load_corpus(_CORPUS_DIR / "tech-plan-product.json")
+        data = _feature_product_corpus()
         expanded = expand_corpus(data, self._BIND)
         e3 = expanded["dimensions"][2]
         assert e3["sots"][0]["ref"] == self._BIND["tpt_intent_eval_framework_url"]
@@ -136,26 +163,26 @@ class TestExpandCorpus:
         assert any("invalid codebase strategy" in err for err in errors)
 
     def test_unbound_placeholder_raises(self):
-        data = load_corpus(_CORPUS_DIR / "tech-plan-product.json")
+        data = _feature_product_corpus()
         with pytest.raises(ValueError, match="unbound placeholder"):
             expand_corpus(data, {"tech_doc": "/abs/tech-doc.md"})
 
 
 class TestHelpers:
     def test_corpus_ref(self):
-        data = load_corpus(_CORPUS_DIR / "tech-plan-product.json")
-        assert corpus_ref(data) == "tech-plan-product@4"
+        data = _feature_product_corpus()
+        assert corpus_ref(data) == COMPOSED_CORPUS_REF
 
     def test_dispatch_ids(self):
-        data = load_corpus(_CORPUS_DIR / "tech-plan-tech.json")
+        data = _feature_tech_corpus()
         assert dispatch_ids(data) == ["codebase-consistency", "solution-quality"]
 
     def test_resolve_dim_id_legacy_alias(self):
-        data = load_corpus(_CORPUS_DIR / "tech-plan-product.json")
+        data = _feature_product_corpus()
         assert resolve_dim_id(data, "e2") == "codebase-consistency"
         assert resolve_dim_id(data, "codebase-consistency") == "codebase-consistency"
 
     def test_resolve_unknown_dim(self):
-        data = load_corpus(_CORPUS_DIR / "tech-plan-product.json")
+        data = _feature_product_corpus()
         with pytest.raises(ValueError, match="unknown dimension"):
             resolve_dim_id(data, "e9")

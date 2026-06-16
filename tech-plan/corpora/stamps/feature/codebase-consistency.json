@@ -1,0 +1,33 @@
+{
+  "id": "codebase-consistency",
+  "legacy_alias": "e2",
+  "label": "Codebase Consistency",
+  "eval_target": {
+    "path": "{tech_doc}"
+  },
+  "remediation_target": {
+    "path": "{tech_doc}"
+  },
+  "sots": [
+    {
+      "kind": "codebase",
+      "role": "primary",
+      "ref": {
+        "root": ".",
+        "strategy": "all"
+      }
+    }
+  ],
+  "method": {
+    "kind": "builtin",
+    "source": {
+      "procedure_id": "codebase_consistency"
+    },
+    "focus": "Design vs existing code structure, references, conventions"
+  },
+  "review": {
+    "seq": 2,
+    "output_path": "tech-review-e{M}2.md",
+    "template": "eval/review.template.md"
+  }
+}

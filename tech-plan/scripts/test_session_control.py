@@ -13,7 +13,7 @@ sys.path.insert(0, str(_EVAL_SCRIPTS))
 from adapter_registry import load_adapter  # noqa: E402
 from evaluate_state_ops import (  # noqa: E402
     dimension_status_legacy_map,
-    init_evaluate_state as _init_evaluate_state_impl,
+    init_evaluate_state_for_corpus,
     merge_current_dimension,
 )
 from evaluate_state_schema import load_evaluate_state, save_evaluate_state  # noqa: E402
@@ -34,16 +34,20 @@ _CACHE = Path(".cache/cursor/lulu-dev-workflow")
 _ADAPTER = load_adapter("tech-plan")
 
 
-def _corpus_ref_for_mode(mode: str) -> str:
-    return _ADAPTER.corpus_ref_for_mode(mode)
+def _corpus(tmp_path: Path):
+    return _ADAPTER.resolve_eval_corpus(_CYCLE, tmp_path)
 
 
-def init_evaluate_state(path: Path, *, mode: str) -> None:
-    _init_evaluate_state_impl(
+def init_evaluate_state(path: Path, *, tmp_path: Path) -> None:
+    init_evaluate_state_for_corpus(
         path,
-        mode=mode,
-        corpus_ref_for_mode=_corpus_ref_for_mode,
+        _corpus(tmp_path),
+        cycle_type="feature",
     )
+
+
+def _dim_map(es: dict, tmp_path: Path) -> dict[str, str]:
+    return dimension_status_legacy_map(es, corpus=_corpus(tmp_path))
 
 
 def _seed_session(tmp_path: Path, active_doc: int = 1) -> Path:
@@ -82,7 +86,7 @@ def _setup_abandon_ready(
         },
     )
     es_path = ws.parent / "evaluate-state.md"
-    init_evaluate_state(es_path, mode=mode)
+    init_evaluate_state(es_path, tmp_path=tmp_path)
     save_evaluate_state(es_path, {"eval_status": "abandoned"})
     return ws, es_path
 
@@ -102,7 +106,7 @@ class TestStartEvaluating:
         assert loaded["evaluate_round"] == "1"
         assert "skip_evaluate_requested" not in loaded
         es = load_evaluate_state(ws.parent / "evaluate-state.md")
-        dim_map = dimension_status_legacy_map(es)
+        dim_map = _dim_map(es, tmp_path)
         assert dim_map["e1"] == "pending"
 
     def test_from_drafting_tech_mode(self, tmp_path: Path):
@@ -113,7 +117,7 @@ class TestStartEvaluating:
 
         assert result["ok"] is True
         es = load_evaluate_state(ws.parent / "evaluate-state.md")
-        dim_map = dimension_status_legacy_map(es)
+        dim_map = _dim_map(es, tmp_path)
         assert "e1" not in dim_map
         assert dim_map["e2"] == "pending"
 
@@ -132,13 +136,13 @@ class TestStartEvaluating:
         start_evaluating(_CYCLE, tmp_path)
         es_path = ws.parent / "evaluate-state.md"
         es = load_evaluate_state(es_path)
-        es = merge_current_dimension(es, "e2", "in_progress")
+        es = merge_current_dimension(es, "e2", "in_progress", corpus=_corpus(tmp_path))
         save_evaluate_state(es_path, es)
         result = start_evaluating(_CYCLE, tmp_path)
         assert result["ok"] is True
         assert result["evaluate_round"] == 1
         reloaded = load_evaluate_state(es_path)
-        dim_map = dimension_status_legacy_map(reloaded)
+        dim_map = _dim_map(reloaded, tmp_path)
         assert dim_map["e2"] == "in_progress"
 
     def test_failure_from_ready_for_delivery(self, tmp_path: Path):

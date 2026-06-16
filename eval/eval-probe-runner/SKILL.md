@@ -12,7 +12,7 @@ description: >
 
 Terminal runner subagent. Probes **one Dimension** per invocation (from EvalCorpus dispatch).
 
-> Drafting Round Iteration (`prober-runner`) complements drafting maturity checks; Evaluating-stage dimensions are defined in workflow corpus templates (e.g. `tech-plan/corpora/*.json`).
+> Drafting Round Iteration (`prober-runner`) complements drafting maturity checks; Evaluating-stage dimensions are composed from `tech-plan/corpora/stamps/{cycle_type}/`.
 
 ---
 

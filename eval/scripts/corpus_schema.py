@@ -254,31 +254,6 @@ def default_corpus_dir() -> Path:
     return Path(__file__).resolve().parents[2] / "tech-plan" / "corpora"
 
 
-_MODE_TO_CORPUS_ID = {
-    "product": "tech-plan-product",
-    "tech": "tech-plan-tech",
-}
-
-
-def load_corpus_for_mode(
-    mode: str,
-    *,
-    corpus_dir: Path | None = None,
-) -> dict[str, Any]:
-    """Load validated corpus JSON for tech-plan workflow mode."""
-    if mode not in _MODE_TO_CORPUS_ID:
-        raise ValueError(
-            f"invalid mode: {mode!r} (allowed: {sorted(_MODE_TO_CORPUS_ID)})",
-        )
-    base = corpus_dir or default_corpus_dir()
-    path = base / f"{_MODE_TO_CORPUS_ID[mode]}.json"
-    data = load_corpus(path)
-    errors = validate_corpus(data)
-    if errors:
-        raise ValueError(f"corpus invalid ({path}): {'; '.join(errors)}")
-    return data
-
-
 def load_corpus_by_ref(
     ref: str,
     *,

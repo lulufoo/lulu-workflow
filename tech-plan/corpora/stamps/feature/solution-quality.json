@@ -1,0 +1,30 @@
+{
+  "id": "solution-quality",
+  "legacy_alias": "e3",
+  "label": "Solution Quality (Intent Probes)",
+  "eval_target": {
+    "path": "{tech_doc}"
+  },
+  "remediation_target": {
+    "path": "{tech_doc}"
+  },
+  "sots": [
+    {
+      "kind": "url",
+      "role": "primary",
+      "ref": "{tpt_intent_eval_framework_url}"
+    }
+  ],
+  "method": {
+    "kind": "builtin",
+    "source": {
+      "procedure_id": "intent_gap_probes"
+    },
+    "focus": "P1–P4 intent gap probes — semantic fidelity, boundaries, derivability, edge cases"
+  },
+  "review": {
+    "seq": 3,
+    "output_path": "tech-review-e{M}3.md",
+    "template": "eval/review.template.md"
+  }
+}

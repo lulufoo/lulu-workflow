@@ -1,0 +1,28 @@
+{
+  "id": "intent-alignment",
+  "legacy_alias": "e1",
+  "label": "Product Intent Alignment",
+  "eval_target": {
+    "path": "{tech_doc}"
+  },
+  "remediation_target": {
+    "path": "{tech_doc}"
+  },
+  "sots": [
+    {
+      "kind": "url",
+      "role": "primary",
+      "ref": "{product_ref}"
+    }
+  ],
+  "method": {
+    "kind": "external",
+    "source": "{ptc_url}",
+    "focus": "Intent alignment — does tech-doc faithfully implement product requirements?"
+  },
+  "review": {
+    "seq": 1,
+    "output_path": "tech-review-e{M}1.md",
+    "template": "eval/review.template.md"
+  }
+}

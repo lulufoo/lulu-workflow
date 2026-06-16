@@ -26,6 +26,8 @@ _SCHEMA: list[dict[str, Any]] = [
      "description": "probe | artifact-remediation | sot-remediation | done"},
     {"field": "corpus_ref", "type": "string", "required": False,
      "description": "EvalCorpus id@version (optional)"},
+    {"field": "corpus_fingerprint", "type": "string", "required": False,
+     "description": "Hash of composed dimension id set (dynamic corpus)"},
     {"field": "dimension_dispatch", "type": "string", "required": True,
      "description": "parallel | serial"},
     {"field": "dimension_status", "type": "string", "required": True,
@@ -50,6 +52,7 @@ _KEY_ORDER = [
     "eval_status",
     "fix_phase",
     "corpus_ref",
+    "corpus_fingerprint",
     "dimension_dispatch",
     "dimension_status",
     "issue_counts",
@@ -146,6 +149,7 @@ def build_initial_evaluate_state(
     *,
     dimension_ids: list[str],
     corpus_ref: str = "",
+    corpus_fingerprint: str = "",
     dimension_dispatch: str = "parallel",
 ) -> dict[str, str]:
     """Return frontmatter fields for a new evaluate-state.md v3."""
@@ -175,6 +179,8 @@ def build_initial_evaluate_state(
     }
     if corpus_ref:
         data["corpus_ref"] = corpus_ref
+    if corpus_fingerprint:
+        data["corpus_fingerprint"] = corpus_fingerprint
     return data
 
 

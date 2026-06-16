@@ -58,6 +58,10 @@ class WorkflowAdapter(Protocol):
 
     def corpus_ref_for_mode(self, mode: str) -> str: ...
 
+    def resolve_eval_corpus(
+        self, cycle_id: str, project_root: Path
+    ) -> dict[str, Any]: ...
+
     def corpus_dir(self) -> Path: ...
 
     def corpus_bind_extensions(
