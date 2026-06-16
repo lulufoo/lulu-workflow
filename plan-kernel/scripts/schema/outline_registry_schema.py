@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Load feature tech-plan outline registry (presentation blocks → intent keys)."""
+"""Load feature tech-plan outline registry (presentation blocks → intent keys).
+
+CLI:
+    python3 outline_registry_schema.py --schema
+    python3 outline_registry_schema.py --dump --path <outline.json>
+"""
 
 from __future__ import annotations
 
@@ -10,15 +15,38 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-_SECTION = Path(__file__).resolve().parent
-_CORE = _SECTION.parent / "core"
-sys.path.insert(0, str(_SECTION))
-sys.path.insert(0, str(_CORE))
+_SCHEMA_DIR = Path(__file__).resolve().parent
+_CORE = _SCHEMA_DIR.parent / "core"
+_SECTION = _SCHEMA_DIR.parent / "section"
+for _p in (_CORE, _SECTION):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
+
 from workflow_paths import WORKFLOW_SCRIPTS  # noqa: E402
 
-
+SCHEMA_ID = "outline-schema"
 _OUTLINE_KEY = "tpt_outline_registry_url"
 _FETCH_SECTION = "tech-plan"
+
+_SCHEMA: list[dict[str, Any]] = [
+    {"field": "version", "type": "string", "required": True,
+     "description": "Schema version (currently 1)"},
+    {"field": "$schema_id", "type": "string", "required": False,
+     "description": "Fixed value: outline-schema when present"},
+    {"field": "cycle_type", "type": "string", "required": False,
+     "description": "Must be 'feature' when present"},
+    {"field": "outline_order", "type": "list[string]", "required": True,
+     "description": "Ordered block keys for document assembly"},
+    {"field": "document_preamble_addon", "type": "string", "required": False,
+     "description": "Markdown appended after intent-registry document_preamble"},
+    {"field": "blocks", "type": "object", "required": True,
+     "description": "block_key → { heading, intents[], reader_note? }"},
+]
+
+
+def get_schema() -> list[dict[str, Any]]:
+    """Return field definitions for outline registry JSON."""
+    return list(_SCHEMA)
 
 
 def _ensure_workflow_scripts() -> None:
@@ -77,6 +105,10 @@ def validate_outline_registry(data: dict[str, Any]) -> list[str]:
     errors: list[str] = []
     if data.get("version") != "1":
         errors.append(f"invalid version: {data.get('version')!r} (expected '1')")
+
+    schema_id = data.get("$schema_id")
+    if schema_id is not None and schema_id != SCHEMA_ID:
+        errors.append(f"$schema_id must be {SCHEMA_ID!r} when present")
 
     cycle_type = data.get("cycle_type")
     if cycle_type is not None and str(cycle_type).strip() != "feature":
@@ -159,6 +191,8 @@ def normalize_outline_registry(data: dict[str, Any]) -> dict[str, Any]:
     }
     if data.get("cycle_type"):
         result["cycle_type"] = str(data["cycle_type"]).strip()
+    if data.get("$schema_id"):
+        result["$schema_id"] = str(data["$schema_id"]).strip()
     addon = data.get("document_preamble_addon")
     if isinstance(addon, str) and addon.strip():
         result["document_preamble_addon"] = addon
@@ -214,8 +248,21 @@ def main(argv: list[str] | None = None) -> int:
         default=".",
         help="Project root for template cache resolution",
     )
-    parser.add_argument("--schema", action="store_true", help="Print loaded outline JSON")
+    parser.add_argument("--schema", action="store_true", help="Print field schema JSON")
+    parser.add_argument(
+        "--dump",
+        action="store_true",
+        help="Print loaded and normalized outline registry JSON",
+    )
     args = parser.parse_args(argv)
+
+    if args.schema:
+        print(json.dumps(get_schema(), indent=2, ensure_ascii=False))
+        return 0
+
+    if not args.dump:
+        parser.print_help()
+        return 0
 
     project_root = args.project_root.resolve()
 
@@ -229,12 +276,8 @@ def main(argv: list[str] | None = None) -> int:
         print(str(exc), file=sys.stderr)
         return 1
 
-    if args.schema:
-        json.dump(registry, sys.stdout, indent=2, ensure_ascii=False)
-        sys.stdout.write("\n")
-        return 0
-
-    parser.print_help()
+    json.dump(registry, sys.stdout, indent=2, ensure_ascii=False)
+    sys.stdout.write("\n")
     return 0
 
 

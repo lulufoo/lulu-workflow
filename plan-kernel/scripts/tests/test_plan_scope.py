@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for plan_scope.py and plan_scope_schema.py."""
+"""Tests for plan_scope.py and plan-scope schema modules."""
 
 import json
 import sys
@@ -15,15 +15,23 @@ from plan_scope import (  # noqa: E402
     resolve_role_markdown,
     resolve_role_summary,
 )
-from plan_scope_schema import (  # noqa: E402
-    domain_instance_path,
+from domain_instance_schema import domain_instance_path  # noqa: E402
+from schema_common import validate_all_plan_scope_instances  # noqa: E402
+from role_instance_schema import (  # noqa: E402
     get_role_fields,
     get_role_prompt,
+    get_schema as get_role_schema,
     load_and_validate_role_instance,
     role_instance_path,
-    validate_all_plan_scope_instances,
     validate_role_instance,
 )
+
+
+class TestRoleSchema:
+    def test_get_schema_includes_role_prompt(self):
+        fields = {entry["field"] for entry in get_role_schema()}
+        assert "role_prompt" in fields
+        assert "$schema_id" in fields
 
 
 class TestValidateRoleInstances:

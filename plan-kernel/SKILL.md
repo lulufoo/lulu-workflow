@@ -18,7 +18,8 @@ Internal library for planning workflows. Users invoke stage shells (`tech-plan`,
 | Path | Contents |
 |------|----------|
 | `scripts/core/` | Session, `start`, archive, `workflow_state`, `session_control`, `session_info` |
-| `scripts/section/` | `round_control`, section schemas, `eval_workflow_adapter`, `plan_scope` |
+| `scripts/section/` | `round_control`, section I/O, `eval_workflow_adapter`, `plan_scope` |
+| `scripts/schema/` | Plan-scope and outline instance schemas (`role_instance_schema`, `domain_instance_schema`, `outline_registry_schema`) |
 | `runners/` | initializing, prober, refiner runner SKILLs |
 | `references/` | `compose-theory.md`, `gap-display.md` |
 | `profiles/` | Stage profile JSON (`tech-plan`, placeholders) |
@@ -31,7 +32,7 @@ Internal library for planning workflows. Users invoke stage shells (`tech-plan`,
 | `scripts/drafting_progress_schema.py` | `drafting-progress.md` schema |
 | `scripts/hook_guard.py` | Active-session Write/Edit cache boundary (`HOOK_COMMAND` target) |
 | `SKILL.md` | Full Drafting / Evaluating orchestration text |
-| `corpora/`, `constraints/`, `templates/` | Eval stamps, role/domain instances, ledger templates |
+| `corpora/`, `constraints/instance/`, `templates/` | Eval stamps, topic role/domain instances, ledger templates |
 | `transition-whitelist.json` | Outer session transition whitelist |
 
 `draft_control.py` is **not** under `plan-kernel/scripts/`.
@@ -48,4 +49,4 @@ python3 "$SKILL_ROOT/plan-kernel/scripts/core/profile_schema.py" --validate
 
 ## Paths
 
-`scripts/core/workflow_paths.py` is the SSOT for `WORKFLOW_ROOT`, `CORE_SCRIPTS`, `SECTION_SCRIPTS`, and `load_profile()`.
+`scripts/core/workflow_paths.py` is the SSOT for `WORKFLOW_ROOT`, `CORE_SCRIPTS`, `SECTION_SCRIPTS`, `SCHEMA_SCRIPTS`, and `load_profile()`.

@@ -11,6 +11,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from outline_registry_schema import (  # noqa: E402
+    get_schema,
     load_outline_registry,
     validate_outline_registry,
 )
@@ -22,6 +23,12 @@ def outline_path(tmp_path: Path) -> Path:
     path = tmp_path / "outline-registry.json"
     path.write_text(json.dumps(OUTLINE_REGISTRY_FEATURE), encoding="utf-8")
     return path
+
+
+def test_get_schema_includes_outline_order():
+    fields = {entry["field"] for entry in get_schema()}
+    assert "outline_order" in fields
+    assert "blocks" in fields
 
 
 def test_outline_order_and_intent_map(outline_path: Path):

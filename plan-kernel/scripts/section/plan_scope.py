@@ -21,12 +21,12 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
-from plan_scope_schema import (  # noqa: E402
+from domain_instance_schema import load_and_validate_domain_instance  # noqa: E402
+from schema_common import validate_all_plan_scope_instances  # noqa: E402
+from role_instance_schema import (  # noqa: E402
     get_role_fields,
     get_role_prompt,
-    load_and_validate_domain_instance,
     load_and_validate_role_instance,
-    validate_all_plan_scope_instances,
 )
 from workflow_common import detect_cycle_type  # noqa: E402
 

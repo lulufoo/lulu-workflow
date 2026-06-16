@@ -8,10 +8,11 @@ from pathlib import Path
 _SCRIPTS = Path(__file__).resolve().parent
 _CORE = _SCRIPTS / "core"
 _SECTION = _SCRIPTS / "section"
+_SCHEMA = _SCRIPTS / "schema"
 
 
 def ensure_kernel_paths() -> None:
-    for p in (_SCRIPTS, _CORE, _SECTION):
+    for p in (_SCRIPTS, _CORE, _SECTION, _SCHEMA):
         s = str(p)
         if s not in sys.path:
             sys.path.insert(0, s)
