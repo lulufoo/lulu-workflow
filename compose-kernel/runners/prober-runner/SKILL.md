@@ -42,9 +42,11 @@ One invocation = one probe pass on **one section** (`ACTIVE_SECTION`). Read-only
 
 ## Script Macros
 
+`$FETCH_COMPOSE` / `$ROUND_CONTROL`: `{SKILL_ROOT}/compose-kernel/SKILL.md` → Script Macros.
+
 | Step | Macro calls |
 |------|-------------|
-| 1 | `read-context` · `read-section-pointer` · `read-upstream-context` · `read-section-body` · `resolve-role` · `section-kw-criteria` |
+| 1 | `$ROUND_CONTROL`: `read-context` · `read-section-pointer` · `read-upstream-context` · `read-section-body` · `$FETCH_COMPOSE section-kw-criteria` |
 | 3 | `update-anchor-status` |
 | 4 | `write-probe-report` |
 

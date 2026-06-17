@@ -38,9 +38,15 @@ See [`../../references/compose-theory.md`](../../references/compose-theory.md).
 | `$CYCLE_TYPE` | `feature` (tech-plan compose profile) |
 | `$CYCLE_ID` | Active cycle id |
 
-Self-resolved: `$TECH_DOC_PATH` = `{REVISION_DIR}/tech-doc.md` · `$PROJECT_ROOT` = `$(pwd)` (same as `$FETCH_COMPOSE` / `$RESOLVE_PLAN_ROLE` project root)
+Self-resolved: `$TECH_DOC_PATH` = `{REVISION_DIR}/tech-doc.md` · `$PROJECT_ROOT` = `$(pwd)`
 
-Load frameworks via `$FETCH_COMPOSE` and role via `$RESOLVE_PLAN_ROLE` (see `{SKILL_ROOT}/tech-plan/SKILL.md` → Script Macros).
+`$FETCH_COMPOSE`: `{SKILL_ROOT}/compose-kernel/SKILL.md` → Script Macros. `$RESOLVE_PLAN_ROLE`: `{SKILL_ROOT}/tech-plan/SKILL.md` → Script Macros (also HARD-GATE).
+
+## Script Macros
+
+| Macro | Command |
+|-------|---------|
+| `$RESOLVE_DOMAIN` | `python3 "$SKILL_ROOT/compose-kernel/scripts/scope/scope_resolver.py" resolve-domain --cycle-id "$CYCLE_ID" --project-root "$(pwd)"` |
 
 ## Execution Contract
 
@@ -48,7 +54,7 @@ Load frameworks via `$FETCH_COMPOSE` and role via `$RESOLVE_PLAN_ROLE` (see `{SK
 
 1. Run `$RESOLVE_PLAN_ROLE` with `$CYCLE_ID`; read stdout as Plan Scope Constraints; keep `### Role` and `### Role Fields`.
 2. Run `$RESOLVE_DOMAIN` with `$CYCLE_ID`; read stdout; keep as `domain instance` (execution domain).
-3. Run `$FETCH_COMPOSE section-registry`; parse JSON. Cache `section_order`, `document_preamble`, `sections.{key}.heading`, `sections.{key}.intent` (fallback `desc`), `sections.{key}.intent_boundary`. Optional: `$SECTION_INTENT` / `$SECTION_INTENT_BOUNDARY` per key.
+3. Run `$FETCH_COMPOSE section-registry`; parse JSON. Cache `section_order`, `document_preamble`, `sections.{key}.heading`, `sections.{key}.intent` (fallback `desc`), `sections.{key}.intent_boundary`.
 4. Run `$FETCH_COMPOSE outline-registry`; cache `outline_order`, `blocks.{key}.heading`, `blocks.{key}.intents`, `blocks.{key}.reader_note`, `document_preamble_addon`.
 5. Run `$FETCH_COMPOSE section-kw-criteria`; cache each `## {section_key}` block.
 6. Read `$DECISION_DOC_PATH` **full text** once; keep in memory for all sections.

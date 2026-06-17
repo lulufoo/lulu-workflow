@@ -31,7 +31,7 @@ GAP_ITEM_ID, TECH_DOC_PATH
 
 **Anchor:** `intent_gap`. **Target:** table above.
 
-Use `$ROUND_CONTROL read-section-body --section {section_key}` to load section bodies (not H2 title grep).
+`$ROUND_CONTROL`: `{SKILL_ROOT}/compose-kernel/SKILL.md` → Script Macros. Use `$ROUND_CONTROL read-section-body --section {section_key}` to load section bodies (not H2 title grep).
 
 For intent gaps, read decision-doc from `$CTX.decision_doc_path` and locate the paragraph(s) behind `intent_criteria.decision_intent`.
 

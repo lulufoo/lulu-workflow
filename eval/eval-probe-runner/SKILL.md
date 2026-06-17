@@ -24,7 +24,8 @@ Terminal runner subagent. Probes **one Dimension** per invocation (from EvalCorp
 4. Read `{$SKILL_ROOT}/eval/scripts/url_fetch.py` — use `read_ref()` for all URL/path loads
 5. Read `{$SKILL_ROOT}/eval/scripts/codebase_sot.py` — use `resolve_codebase_ref()` for codebase SoT
 6. Run `$RESOLVE_PLAN_ROLE` with `CYCLE_ID`; apply Plan Scope Constraints for probe narrative
-7. Follow steps below
+7. `$FETCH_COMPOSE`: `{SKILL_ROOT}/compose-kernel/SKILL.md` → Script Macros (when loading section-registry)
+8. Follow steps below
 
 ---
 

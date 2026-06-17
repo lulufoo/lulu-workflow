@@ -7,7 +7,7 @@ description: >-
 disable-model-invocation: true
 ---
 
-# tech-workflow
+# tech-plan
 
 > **Prerequisite:** Run `diagnostic` SKILL before starting this workflow.
 > The decision-doc produced by diagnostic is the required input context.
@@ -16,14 +16,14 @@ disable-model-invocation: true
 Drive a tech document workflow with explicit per-session state files and a hook
 that gates state transitions.
 
-**Scope:** Tech document workflow only. Supports `run_mode` (`product` | `tech`) and `cycle_type` (`topic` architect | `feature` technical expert). Framework templates are shared; `cycle_type` selects role constraints via `$RESOLVE_PLAN_ROLE`.
+**Scope:** Tech document workflow only. Supports `run_mode` (`product` | `tech`) and `cycle_type` (`feature`).
 
 <HARD-GATE name="Plan Scope Constraints">
 Before Drafting or Evaluating work:
 
-1. Run `$RESOLVE_PLAN_ROLE` (see Script Macros).
-2. Read stdout as authoritative **Plan Scope Constraints**; apply `### Role`.
-3. **Do not** select framework template URLs by `cycle_type` — fetch roles are shared across topic and feature.
+1. Run `$RESOLVE_PLAN_ROLE`.
+2. Read stdout as authoritative **Plan Scope Constraints**.
+
 </HARD-GATE>
 
 <HARD-GATE>
@@ -31,8 +31,17 @@ Do NOT proceed until you have read `../_runtime.md` and loaded:
 
 - `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, `$CACHE_DIR` from `## Platform Context`
 - Feature identification logic from `## Session Foundation`
-</HARD-GATE>
 - `$SKILL_DIR` = `$SKILL_ROOT/tech-plan`
+
+</HARD-GATE>
+
+<HARD-GATE name="Compose kernel macros">
+Do NOT proceed until you have read `{SKILL_ROOT}/compose-kernel/SKILL.md` and loaded:
+
+- `$FETCH_COMPOSE` / `$ROUND_CONTROL` from `## Script Macros`
+- Fetch constraint: templates via `$FETCH_COMPOSE` only; do not read `workflow-config.json` directly
+
+</HARD-GATE>
 
 ## Commands
 
@@ -75,7 +84,7 @@ To resume an in-progress tech document, do not run start again — run `$SESSION
 
 ## State Model
 
-State transitions via `$SESSION_CONTROL` / `$EVAL_CONTROL` only; outer session states and allowed transitions live in `compose-kernel/transitions/compose-session.json` and are enforced by `$SESSION_CONTROL` — do not load that JSON directly.
+Outer session transitions via `$SESSION_CONTROL` only (`compose-kernel/transitions/compose-session.json` — do not load directly).
 
 ---
 
@@ -93,10 +102,9 @@ State transitions via `$SESSION_CONTROL` / `$EVAL_CONTROL` only; outer session s
 ### General
 
 1. Session reads: `$SESSION_INFO --view session` — `active_doc`, `workflow_state`; never infer state from tech-doc body or file existence.
-2. Config/templates: `$FETCH_COMPOSE <role>` on demand; do not read `workflow-config.json` directly. Roles: `section-registry`, `outline-registry`, `role-instance`, `domain-instance`, `section-kw-criteria`.
-3. State writes: `$SESSION_CONTROL` / `$DRAFT_CONTROL` / `$ROUND_CONTROL` / `$EVAL_CONTROL` only; do not Write cache data files directly.
-4. Path guard blocks writes outside `$CACHE_DIR/` while a session is active.
-5. Evaluating review contract: `{$SKILL_ROOT}/eval/eval-rules.md` and `{$SKILL_ROOT}/eval/SKILL.md` (probe/remediation runners own `review.template.md`).
+2. State writes: `$SESSION_CONTROL` / `$DRAFT_CONTROL` / `$ROUND_CONTROL` only; during Evaluating follow eval-rules (do not Write cache state files directly).
+3. Path guard blocks writes outside `$CACHE_DIR/` while a session is active.
+4. Evaluating: follow `{$SKILL_ROOT}/eval/eval-rules.md` only.
 
 ### Drafting Rules
 
@@ -109,7 +117,7 @@ Compose draft from decision-doc (`I*` / `F` / `C` per section; see initializing-
 
 1. Run `$DRAFT_CONTROL begin-init`. 
 
-- On failure → apply Blocking policy.
+- On failure → apply Blocking.
 - On success → dispatch initializing-runner (stdout → `## Input`):
 
 ```text
@@ -121,7 +129,7 @@ Load {actual $SKILL_ROOT}/compose-kernel/runners/initializing-runner/SKILL.md an
 
 Await completion (`$SUBAGENT_AWAIT_SYNC`).
 
-2. Run `$DRAFT_CONTROL init-complete`. On failure → apply Blocking policy.
+2. Run `$DRAFT_CONTROL init-complete`. On failure → apply Blocking.
 
 #### Step 2 — RoundIteration
 
@@ -129,8 +137,8 @@ Await completion (`$SUBAGENT_AWAIT_SYNC`).
 - **Per round N:** section-gated loop (2a–2d) — probe and decide **one `ACTIVE_SECTION` at a time** until every registry section is `stable`.
 
 **Entry:** run `$DRAFT_CONTROL begin-round`.
-- On failure → apply Blocking policy.
-- On success → parse stdout JSON `round` as macro **N** for all `--round` args in this step.
+- On failure → apply Blocking.
+- On success → parse stdout JSON `round` as **N** for `$ROUND_CONTROL` (macro includes `--round {N}`).
 
 ##### Per round N
 
@@ -152,20 +160,20 @@ Await `$SUBAGENT_AWAIT_SYNC`.
 
 ##### 2b. Present gaps
 
-1. `$ROUND_CONTROL read-probe-report --round {N}` — pin stdout as **`$PROBE`**.
-2. `$ROUND_CONTROL read-section-pointer --round {N}` — pin stdout as **`$POINTER`**.
+1. `$ROUND_CONTROL read-probe-report` — pin stdout as **`$PROBE`**.
+2. `$ROUND_CONTROL read-section-pointer` — pin stdout as **`$POINTER`**.
 3. Read `{SKILL_ROOT}/compose-kernel/references/gap-display.md`; render user copy from **`$PROBE` + `$POINTER` only** (do not read probe files on disk).
 
 - **KW0 gate:** `$PROBE.kw0_pending_count` > 0 → pending rows only (gap-display pipeline step 1); user edits tech-doc → **2a** (skip 2c).
-- **Rewind:** upstream edit → `$ROUND_CONTROL rewind-section --round {N} --to {section}` → **2a**.
+- **Rewind:** upstream edit → `$ROUND_CONTROL rewind-section --to {section}` → **2a**.
 
 ##### 2c. Human decide
 
 **Gate:** After 2b presentation and wait (gap-display template footer); proceed only on explicit `{id} {accept|skip|redirect}` — do not infer.
 
-Each decision → `$ROUND_CONTROL update-gap-decision --round {N} --id {id} --decision {accept|skip|redirect}`.
+Each decision → `$ROUND_CONTROL update-gap-decision --id {id} --decision {accept|skip|redirect}`.
 
-- `accept` → refiner dispatch (`$ROUND_CONTROL read-gap-item` for payload):
+- `accept` → refiner dispatch (`$ROUND_CONTROL read-gap-item --id {id}` for payload):
 
 ```text
 Load {actual $SKILL_ROOT}/compose-kernel/runners/refiner-runner/SKILL.md and follow its instructions.
@@ -184,16 +192,17 @@ Refiner input includes `ROUND_DIR`, `GAP_ITEM_ID`, `TECH_DOC_PATH`, `CYCLE_*`, `
 
 When `$PROBE.undecided_count` 0 and `$PROBE.kw0_pending_count` 0 (after 2b presentation):
 
-1. `$ROUND_CONTROL mark-section-stable --round {N} --section {ACTIVE_SECTION}`
-2. `$ROUND_CONTROL advance-section --round {N}`
+1. `$ROUND_CONTROL mark-section-stable --section {ACTIVE_SECTION}`
+2. `$ROUND_CONTROL advance-section`
 
 If not all stable → **2a** for new active section. If all stable → **2e**.
 
 ##### 2e. Round convergence
 
-`$ROUND_CONTROL check-convergence --round {N} --no-accept --gaps-resolved`
+`$ROUND_CONTROL check-convergence --no-accept --gaps-resolved`
 
-- `converged: true` → FreeEdit or advance macro-round per user choice.
+- `converged: true` and user chooses **FreeEdit** → run `$DRAFT_CONTROL advance-to-freeedit` (on failure → Blocking); on success → **Step 3 — FreeEdit**.
+- `converged: true` and user chooses **next macro-round** → run `$DRAFT_CONTROL advance-round`; re-parse stdout `round` as the new N; continue **2a–2d**.
 - `converged: false` → continue section loop, or run `$DRAFT_CONTROL advance-round` and re-parse stdout `round` as the new N.
 
 #### Step 3 — FreeEdit
@@ -207,44 +216,30 @@ Rules:
 
 - **Evaluate** → follow **Evaluating Rules** below.
 
-- **Deliver**
-  run `$SESSION_CONTROL ready-for-delivery`.
-  > On failure → apply Blocking policy.
-  > On success → follow **ReadyForDelivery Rules** below.
+- **Deliver** → **ReadyForDelivery Rules** below.
 
 ### Evaluating Rules
 
 Read `{$SKILL_ROOT}/eval/eval-rules.md` and follow its instructions.
 
-eval-rules may loop Step 1–5 via **Re-evaluate** without exiting to parent.
-
 When eval-rules completes, follow its exit branch:
 
-- **Deliver** → run `$SESSION_CONTROL ready-for-delivery`.
-  > On failure → apply Blocking policy.
-  > On success → follow **ReadyForDelivery Rules** below.
+- **Deliver** → **ReadyForDelivery Rules** below.
 
 - **Continue editing** → enter **Step 3 — FreeEdit** (Evaluating fix resume; skip Steps 1–2).
 
 ### ReadyForDelivery Rules
 
-1. Run `$SESSION_INFO --view delivery-preview`.
+1. Run `$SESSION_CONTROL ready-for-delivery`. On failure → Blocking.
 
-> On failure: apply Blocking policy.
-> On success: show a delivery preview; full tech-doc only if asked.
+2. Run `$SESSION_INFO --view delivery-preview`. On failure → Blocking. On success: show a delivery preview; full tech-doc only if asked.
 
-2. Wait for explicit delivery confirmation.
-3. Run `$SESSION_CONTROL deliver`.
-
-> On failure: apply Blocking policy.
-> On success: follow **Delivery Rules** below.
+3. Wait for explicit delivery confirmation.
+4. Run `$SESSION_CONTROL deliver`. On failure → Blocking. On success → **Delivery Rules** below.
 
 ### Delivery Rules
 
-1. Run `$SESSION_INFO --view stage-transitions`.
-
-> On non-zero exit: apply Blocking policy.
-> On success: prompt next stages when present.
+1. Run `$SESSION_INFO --view stage-transitions`. On non-zero exit → Blocking. On success: prompt next stages when present.
 
 ---
 
@@ -252,6 +247,7 @@ When eval-rules completes, follow its exit branch:
 
 | Document | When |
 |----------|------|
+| `{SKILL_ROOT}/compose-kernel/runners/initializing-runner/SKILL.md` | Step 1 — initializing-runner |
 | `{SKILL_ROOT}/compose-kernel/references/gap-display.md` | Round Iteration **2b** step 3 — render from pinned `$PROBE` + `$POINTER` (parent runs steps 1–2) |
 | `{$SKILL_ROOT}/eval/eval-rules.md` | Evaluating Rules |
 
@@ -259,32 +255,13 @@ When eval-rules completes, follow its exit branch:
 
 ## Script Macros
 
-Macro expansion: `../_runtime.md` § Script Macros → Macro expansion.
-
-Macros invoke compose-kernel scripts (`$SKILL_ROOT/compose-kernel/scripts/...`) or shell scripts (`$SKILL_DIR/scripts/...` for `$DRAFT_CONTROL` only). Non-zero exit → Blocking (Principles).
+Macro expansion: `../_runtime.md` § Script Macros → Macro expansion. Non-zero exit → Blocking (Principles).
 
 | Macro | Command |
 |-------|---------|
 | `$SESSION_INFO` | `python3 "$SKILL_ROOT/compose-kernel/scripts/core/session_info.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --view <view>` |
 | `$SESSION_CONTROL` | `python3 "$SKILL_ROOT/compose-kernel/scripts/core/session_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
 | `$DRAFT_CONTROL` | `python3 "$SKILL_DIR/scripts/drafting/draft_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
-| `$DRAFT_CONTROL status` | `$DRAFT_CONTROL status` — stdout JSON: `current_step`, `round` |
-| `$ROUND_CONTROL` | `python3 "$SKILL_ROOT/compose-kernel/scripts/section/section_round_control.py" --cycle-dir "$CACHE_DIR/$CYCLE_ID" <subcommand> [args...]` |
-| `$ROUND_CONTROL init-round-dir` | `$ROUND_CONTROL init-round-dir --round {N}` |
-| `$ROUND_CONTROL read-section-pointer` | `$ROUND_CONTROL read-section-pointer --round {N}` |
-| `$ROUND_CONTROL advance-section` | `$ROUND_CONTROL advance-section --round {N}` |
-| `$ROUND_CONTROL rewind-section` | `$ROUND_CONTROL rewind-section --round {N} --to {section_key}` |
-| `$ROUND_CONTROL mark-section-stable` | `$ROUND_CONTROL mark-section-stable --round {N} --section {key}` |
-| `$ROUND_CONTROL read-probe-report` | `$ROUND_CONTROL read-probe-report --round {N}` |
-| `$ROUND_CONTROL read-upstream-context` | `$ROUND_CONTROL read-upstream-context --round {N}` |
-| `$ROUND_CONTROL read-section-body` | `$ROUND_CONTROL read-section-body --section {key}` |
-| `$ROUND_CONTROL update-gap-decision` | `$ROUND_CONTROL update-gap-decision --round {N} --id {id} --decision {accept\|skip\|redirect}` |
-| `$ROUND_CONTROL check-convergence` | `$ROUND_CONTROL check-convergence --round {N} --no-accept --gaps-resolved` |
 | `$RESOLVE_PLAN_ROLE` | `python3 "$SKILL_ROOT/compose-kernel/scripts/scope/scope_resolver.py" resolve-role --cycle-id "$CYCLE_ID" --project-root "$(pwd)"` |
-| `$RESOLVE_DOMAIN` | `python3 "$SKILL_ROOT/compose-kernel/scripts/scope/scope_resolver.py" resolve-domain --cycle-id "$CYCLE_ID" --project-root "$(pwd)"` |
-| `$FETCH_COMPOSE` | `python3 "$SKILL_ROOT/compose-kernel/scripts/io/fetch_compose_framework.py" --role <role> --project-root "$(pwd)"` |
-| `$SECTION_INTENT` | `python3 "$SKILL_ROOT/compose-kernel/scripts/schema/section/registry/section_registry_schema.py" --section-intent {key} --project-root "$(pwd)"` |
-| `$SECTION_INTENT_BOUNDARY` | `python3 "$SKILL_ROOT/compose-kernel/scripts/schema/section/registry/section_registry_schema.py" --section-intent-boundary {key} --project-root "$(pwd)"` |
-| `$EVAL_CONTROL` | `python3 "$SKILL_ROOT/eval/scripts/eval_control.py" --workflow tech-plan --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` — subcommands: `{$SKILL_ROOT}/eval/eval-rules.md` and `{$SKILL_ROOT}/eval/SKILL.md` |
 
 Subcommands and stdout: script module docstrings or `--help`.

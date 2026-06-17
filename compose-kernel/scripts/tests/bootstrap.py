@@ -17,6 +17,7 @@ SCHEMA_SECTION_ROUND = SCHEMA_SECTION / "round"
 SCHEMA_SECTION_DOCUMENT = SCHEMA_SECTION / "document"
 SCHEMA_SECTION_SCOPE = SCHEMA_SECTION / "scope"
 SCHEMA_SESSION = _KERNEL_SCRIPTS / "schema" / "session"
+TECH_PLAN_DRAFTING = _TESTS.parent.parent.parent / "tech-plan" / "scripts" / "drafting"
 
 for p in (
     CORE,
@@ -28,6 +29,7 @@ for p in (
     SCHEMA_SECTION_DOCUMENT,
     SCHEMA_SECTION_SCOPE,
     SCHEMA_SESSION,
+    TECH_PLAN_DRAFTING,
     _TESTS,
 ):
     if str(p) not in sys.path:

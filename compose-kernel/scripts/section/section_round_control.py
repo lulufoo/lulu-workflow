@@ -24,6 +24,8 @@ Subcommands:
     update-gap-status      Set gap item status (open | no_gap | resolved)
 
 Does not write drafting-progress.md — use draft_control.py for progress transitions.
+
+Global option ``--round`` applies to round-scoped subcommands (place before subcommand name).
 """
 
 from __future__ import annotations
@@ -46,6 +48,9 @@ from workflow_paths import KERNEL_TEMPLATES, TECH_PLAN_SCRIPTS  # noqa: E402
 
 if str(TECH_PLAN_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(TECH_PLAN_SCRIPTS))
+_DRAFTING_SCRIPTS = TECH_PLAN_SCRIPTS / "drafting"
+if str(_DRAFTING_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_DRAFTING_SCRIPTS))
 from drafting_progress_schema import load_drafting_progress  # noqa: E402
 from probe_report_schema import (  # noqa: E402
     find_item,
@@ -936,6 +941,35 @@ def cmd_check_convergence(
     return 0
 
 
+_ROUND_REQUIRED_COMMANDS = frozenset(
+    {
+        "append-anchor",
+        "append-skip",
+        "init-round-dir",
+        "read-section-pointer",
+        "read-upstream-context",
+        "advance-section",
+        "rewind-section",
+        "mark-section-stable",
+        "read-probe-report",
+        "read-gap-report",
+        "read-gap-item",
+        "update-gap-decision",
+        "update-gap-status",
+    }
+)
+
+
+def _resolve_round_n(args: argparse.Namespace, cycle_dir: Path) -> int | None:
+    if args.round is not None:
+        return int(args.round)
+    if args.command in _ROUND_REQUIRED_COMMANDS:
+        return None
+    if args.command == "check-convergence":
+        return _read_round(_active_revision_dir(cycle_dir))
+    return None
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Round Iteration control")
     parser.add_argument(
@@ -944,6 +978,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         help="Absolute path to cycle directory ($CACHE_DIR/<cycle_id>)",
     )
+    parser.add_argument(
+        "--round",
+        type=int,
+        default=None,
+        help="Macro round N for round-scoped subcommands",
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("read-context")
@@ -951,37 +991,29 @@ def build_parser() -> argparse.ArgumentParser:
     append_anchor = sub.add_parser("append-anchor")
     append_anchor.add_argument("--section", required=True)
     append_anchor.add_argument("--criterion", required=True)
-    append_anchor.add_argument("--round", type=int, required=True)
 
     append_skip = sub.add_parser("append-skip")
     append_skip.add_argument("--section", required=True)
     append_skip.add_argument("--kw-gap", required=True, dest="kw_gap")
-    append_skip.add_argument("--round", type=int, required=True)
     append_skip.add_argument("--notes", default="")
     append_skip.add_argument("--skip-key", default="")
 
-    init_round = sub.add_parser("init-round-dir")
-    init_round.add_argument("--round", type=int, required=True)
+    sub.add_parser("init-round-dir")
 
-    read_pointer = sub.add_parser("read-section-pointer")
-    read_pointer.add_argument("--round", type=int, required=True)
+    sub.add_parser("read-section-pointer")
 
-    read_upstream = sub.add_parser("read-upstream-context")
-    read_upstream.add_argument("--round", type=int, required=True)
+    sub.add_parser("read-upstream-context")
 
     read_section_body = sub.add_parser("read-section-body")
     read_section_body.add_argument("--section", required=True)
 
-    adv_section = sub.add_parser("advance-section")
-    adv_section.add_argument("--round", type=int, required=True)
+    sub.add_parser("advance-section")
 
     rewind = sub.add_parser("rewind-section")
-    rewind.add_argument("--round", type=int, required=True)
     rewind.add_argument("--to", required=True, dest="to_section")
     rewind.add_argument("--reason", default="")
 
     mark_stable = sub.add_parser("mark-section-stable")
-    mark_stable.add_argument("--round", type=int, required=True)
     mark_stable.add_argument("--section", required=True)
 
     write_probe = sub.add_parser("write-probe-report")
@@ -991,18 +1023,14 @@ def build_parser() -> argparse.ArgumentParser:
     write_refiner.add_argument("--json", required=True, help="Refiner artifact JSON payload")
 
     read_probe = sub.add_parser("read-probe-report")
-    read_probe.add_argument("--round", type=int, required=True)
     read_probe.add_argument("--section", default=None)
 
-    read_gap = sub.add_parser("read-gap-report")
-    read_gap.add_argument("--round", type=int, required=True)
+    sub.add_parser("read-gap-report")
 
     read_item = sub.add_parser("read-gap-item")
-    read_item.add_argument("--round", type=int, required=True)
     read_item.add_argument("--id", required=True)
 
     update_decision = sub.add_parser("update-gap-decision")
-    update_decision.add_argument("--round", type=int, required=True)
     update_decision.add_argument("--id", required=True)
     update_decision.add_argument(
         "--decision",
@@ -1011,7 +1039,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     update_status = sub.add_parser("update-gap-status")
-    update_status.add_argument("--round", type=int, required=True)
     update_status.add_argument("--id", required=True)
     update_status.add_argument(
         "--status",
@@ -1038,7 +1065,6 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Every initial open gap was decided (accept/skip/redirect)",
     )
-    check_conv.add_argument("--round", type=int, default=None)
 
     sub.add_parser(
         _CMD_ROUND_PROBE_INPUT,
@@ -1052,6 +1078,9 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     cycle_dir = args.cycle_dir.resolve()
+    round_n = _resolve_round_n(args, cycle_dir)
+    if args.command in _ROUND_REQUIRED_COMMANDS and round_n is None:
+        return _fail("--round is required for this subcommand")
 
     try:
         if args.command == "read-context":
@@ -1061,38 +1090,38 @@ def main(argv: list[str] | None = None) -> int:
                 cycle_dir,
                 section=args.section,
                 criterion=args.criterion,
-                round_n=args.round,
+                round_n=round_n,
             )
         if args.command == "append-skip":
             return cmd_append_skip(
                 cycle_dir,
                 section=args.section,
                 kw_gap=args.kw_gap,
-                round_n=args.round,
+                round_n=round_n,
                 notes=args.notes,
                 skip_key=args.skip_key,
             )
         if args.command == "init-round-dir":
-            return cmd_init_round_dir(cycle_dir, round_n=args.round)
+            return cmd_init_round_dir(cycle_dir, round_n=round_n)
         if args.command == "read-section-pointer":
-            return cmd_read_section_pointer(cycle_dir, round_n=args.round)
+            return cmd_read_section_pointer(cycle_dir, round_n=round_n)
         if args.command == "read-upstream-context":
-            return cmd_read_upstream_context(cycle_dir, round_n=args.round)
+            return cmd_read_upstream_context(cycle_dir, round_n=round_n)
         if args.command == "read-section-body":
             return cmd_read_section_body(cycle_dir, section=args.section)
         if args.command == "advance-section":
-            return cmd_advance_section(cycle_dir, round_n=args.round)
+            return cmd_advance_section(cycle_dir, round_n=round_n)
         if args.command == "rewind-section":
             return cmd_rewind_section(
                 cycle_dir,
-                round_n=args.round,
+                round_n=round_n,
                 to_section=args.to_section,
                 reason=args.reason,
             )
         if args.command == "mark-section-stable":
             return cmd_mark_section_stable(
                 cycle_dir,
-                round_n=args.round,
+                round_n=round_n,
                 section=args.section,
             )
         if args.command == "write-probe-report":
@@ -1104,28 +1133,28 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "read-probe-report":
             return cmd_read_probe_report(
                 cycle_dir,
-                round_n=args.round,
+                round_n=round_n,
                 section=args.section,
             )
         if args.command == "read-gap-report":
-            return cmd_read_gap_report(cycle_dir, round_n=args.round)
+            return cmd_read_gap_report(cycle_dir, round_n=round_n)
         if args.command == "read-gap-item":
             return cmd_read_gap_item(
                 cycle_dir,
-                round_n=args.round,
+                round_n=round_n,
                 item_id=args.id,
             )
         if args.command == "update-gap-decision":
             return cmd_update_gap_decision(
                 cycle_dir,
-                round_n=args.round,
+                round_n=round_n,
                 item_id=args.id,
                 decision=args.decision,
             )
         if args.command == "update-gap-status":
             return cmd_update_gap_status(
                 cycle_dir,
-                round_n=args.round,
+                round_n=round_n,
                 item_id=args.id,
                 status=args.status,
             )
@@ -1140,7 +1169,7 @@ def main(argv: list[str] | None = None) -> int:
                 cycle_dir,
                 no_accept=args.no_accept,
                 gaps_resolved=args.gaps_resolved,
-                round_n=args.round,
+                round_n=round_n,
             )
         if args.command == _CMD_ROUND_PROBE_INPUT:
             return cmd_round_probe_input(cycle_dir)

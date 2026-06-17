@@ -60,9 +60,13 @@ def _setup_cycle(tmp_path: Path) -> Path:
     return cycle_dir
 
 
-def _run(cycle_dir: Path, *args: str) -> dict:
+def _run(cycle_dir: Path, *args: str, round_n: str | None = "1") -> dict:
+    cmd = [sys.executable, str(_SCRIPT), "--cycle-dir", str(cycle_dir)]
+    if round_n is not None:
+        cmd.extend(["--round", round_n])
+    cmd.extend(args)
     proc = subprocess.run(
-        [sys.executable, str(_SCRIPT), "--cycle-dir", str(cycle_dir), *args],
+        cmd,
         capture_output=True,
         text=True,
         check=False,
@@ -83,7 +87,7 @@ def test_normalize_section_aliases():
 def test_read_section_body(tmp_path: Path):
     cycle_dir = _setup_cycle(tmp_path)
     first = first_section_key()
-    result = _run(cycle_dir, "read-section-body", "--section", first)
+    result = _run(cycle_dir, "read-section-body", "--section", first, round_n=None)
     assert result["ok"] is True
     assert result["section_key"] == first
     assert first in result["body"]
@@ -92,7 +96,7 @@ def test_read_section_body(tmp_path: Path):
 
 def test_read_context(tmp_path: Path):
     cycle_dir = _setup_cycle(tmp_path)
-    ctx = _run(cycle_dir, "read-context")
+    ctx = _run(cycle_dir, "read-context", round_n=None)
     assert ctx["round"] == 1
     assert (cycle_dir / "tech" / "plan" / "anchor-ledger.md").exists()
     assert ctx["decision_doc_path"].endswith("tech/diagnostic/decision-doc.md")
@@ -106,13 +110,13 @@ def test_append_skip_any_section(tmp_path: Path):
             str(_SCRIPT),
             "--cycle-dir",
             str(cycle_dir),
+            "--round",
+            "1",
             "append-skip",
             "--section",
             first_section_key(),
             "--kw-gap",
             "KW1",
-            "--round",
-            "1",
         ],
         capture_output=True,
         text=True,
@@ -122,8 +126,8 @@ def test_append_skip_any_section(tmp_path: Path):
 
 def test_append_skip_empty_notes_roundtrip(tmp_path: Path):
     cycle_dir = _setup_cycle(tmp_path)
-    _run(cycle_dir, "append-skip", "--section", second_section_key(), "--kw-gap", "KW2", "--round", "1")
-    ctx = _run(cycle_dir, "read-context")
+    _run(cycle_dir, "append-skip", "--section", second_section_key(), "--kw-gap", "KW2")
+    ctx = _run(cycle_dir, "read-context", round_n=None)
     assert len(ctx["skips"]) == 1
     assert ctx["skips"][0]["kw_gap"] == "KW2"
 
@@ -137,14 +141,12 @@ def test_update_anchor_status(tmp_path: Path):
         second_section_key(),
         "--criterion",
         "must be idempotent",
-        "--round",
-        "1",
     )
     anchor_id = result["id"]
-    _run(cycle_dir, "update-anchor-status", "--id", anchor_id, "--status", "failing")
-    ctx = _run(cycle_dir, "read-context")
+    _run(cycle_dir, "update-anchor-status", "--id", anchor_id, "--status", "failing", round_n=None)
+    ctx = _run(cycle_dir, "read-context", round_n=None)
     assert ctx["anchors"][0]["status"] == "failing"
-    conv = _run(cycle_dir, "check-convergence", "--no-accept", "--gaps-resolved")
+    conv = _run(cycle_dir, "check-convergence", "--no-accept", "--gaps-resolved", round_n=None)
     assert conv["converged"] is False
     assert "anchor" in conv["reason"]
 
@@ -153,14 +155,14 @@ def test_check_convergence_requires_pointer_when_round_dir_exists(tmp_path: Path
     cycle_dir = _setup_cycle(tmp_path)
     revision = cycle_dir / "tech" / "plan" / "revision1"
     (revision / "round-1").mkdir()
-    result = _run(cycle_dir, "check-convergence", "--no-accept", "--gaps-resolved")
+    result = _run(cycle_dir, "check-convergence", "--no-accept", "--gaps-resolved", round_n=None)
     assert result["converged"] is False
     assert "pointer" in result["reason"]
 
 
 def test_check_convergence_converged(tmp_path: Path):
     cycle_dir = _setup_cycle(tmp_path)
-    result = _run(cycle_dir, "check-convergence", "--no-accept", "--gaps-resolved")
+    result = _run(cycle_dir, "check-convergence", "--no-accept", "--gaps-resolved", round_n=None)
     assert result["converged"] is True
     assert result["reason"] == "ok"
 
@@ -214,16 +216,16 @@ def test_init_round_dir_and_pointer(tmp_path: Path):
     cycle_dir = _setup_cycle(tmp_path)
     first = first_section_key()
     fourth = section_key_at(3)
-    result = _run(cycle_dir, "init-round-dir", "--round", "1")
+    result = _run(cycle_dir, "init-round-dir")
     assert result["active_section"] == first
-    pointer = _run(cycle_dir, "read-section-pointer", "--round", "1")
+    pointer = _run(cycle_dir, "read-section-pointer")
     assert pointer["sections"][first]["status"] == "active"
     assert pointer["sections"][fourth]["status"] == "pending"
 
 
 def test_write_and_read_probe_report(tmp_path: Path):
     cycle_dir = _setup_cycle(tmp_path)
-    _run(cycle_dir, "init-round-dir", "--round", "1")
+    _run(cycle_dir, "init-round-dir")
     proc = subprocess.run(
         [
             sys.executable,
@@ -244,18 +246,18 @@ def test_write_and_read_probe_report(tmp_path: Path):
     assert written["open_count"] == 1
 
     first = first_section_key()
-    report = _run(cycle_dir, "read-probe-report", "--round", "1")
+    report = _run(cycle_dir, "read-probe-report")
     assert report["section_key"] == first
     assert report["items"][0]["id"] == f"{first}-1"
 
-    gap = _run(cycle_dir, "read-gap-report", "--round", "1")
+    gap = _run(cycle_dir, "read-gap-report")
     assert gap["active_section"] == first
     assert gap["open_count"] == 1
 
 
 def test_advance_and_rewind_section(tmp_path: Path):
     cycle_dir = _setup_cycle(tmp_path)
-    _run(cycle_dir, "init-round-dir", "--round", "1")
+    _run(cycle_dir, "init-round-dir")
     subprocess.run(
         [
             sys.executable,
@@ -270,19 +272,19 @@ def test_advance_and_rewind_section(tmp_path: Path):
     )
     first = first_section_key()
     second = second_section_key()
-    _run(cycle_dir, "mark-section-stable", "--round", "1", "--section", first)
-    advanced = _run(cycle_dir, "advance-section", "--round", "1")
+    _run(cycle_dir, "mark-section-stable", "--section", first)
+    advanced = _run(cycle_dir, "advance-section")
     assert advanced["active_section"] == second
 
-    rewound = _run(cycle_dir, "rewind-section", "--round", "1", "--to", first)
+    rewound = _run(cycle_dir, "rewind-section", "--to", first)
     assert rewound["active_section"] == first
-    pointer = _run(cycle_dir, "read-section-pointer", "--round", "1")
+    pointer = _run(cycle_dir, "read-section-pointer")
     assert pointer["sections"][second]["status"] == "invalidated"
 
 
 def test_probe_read_gap_item_and_update(tmp_path: Path):
     cycle_dir = _setup_cycle(tmp_path)
-    _run(cycle_dir, "init-round-dir", "--round", "1")
+    _run(cycle_dir, "init-round-dir")
     subprocess.run(
         [
             sys.executable,
@@ -296,26 +298,24 @@ def test_probe_read_gap_item_and_update(tmp_path: Path):
         check=True,
     )
     first = first_section_key()
-    item = _run(cycle_dir, "read-gap-item", "--round", "1", "--id", f"{first}-1")
+    item = _run(cycle_dir, "read-gap-item", "--id", f"{first}-1")
     assert item["refiner"]["intent_gap"] == "每个阶段缺少 Done 判据"
     assert item["item"]["gap_kind"] == "kw"
     _run(
         cycle_dir,
         "update-gap-decision",
-        "--round",
-        "1",
         "--id",
         f"{first_section_key()}-1",
         "--decision",
         "skip",
     )
-    ctx = _run(cycle_dir, "read-context")
+    ctx = _run(cycle_dir, "read-context", round_n=None)
     assert len(ctx["skips"]) == 1
 
 
 def test_skip_clears_undecided_count(tmp_path: Path):
     cycle_dir = _setup_cycle(tmp_path)
-    _run(cycle_dir, "init-round-dir", "--round", "1")
+    _run(cycle_dir, "init-round-dir")
     subprocess.run(
         [
             sys.executable,
@@ -328,19 +328,17 @@ def test_skip_clears_undecided_count(tmp_path: Path):
         ],
         check=True,
     )
-    before = _run(cycle_dir, "read-probe-report", "--round", "1")
+    before = _run(cycle_dir, "read-probe-report")
     assert before["undecided_count"] == 1
     _run(
         cycle_dir,
         "update-gap-decision",
-        "--round",
-        "1",
         "--id",
         f"{first_section_key()}-1",
         "--decision",
         "skip",
     )
-    after = _run(cycle_dir, "read-probe-report", "--round", "1")
+    after = _run(cycle_dir, "read-probe-report")
     assert after["open_count"] == 1
     assert after["undecided_count"] == 0
 
@@ -348,8 +346,8 @@ def test_skip_clears_undecided_count(tmp_path: Path):
 def test_init_round_dir_idempotent(tmp_path: Path):
     cycle_dir = _setup_cycle(tmp_path)
     first = first_section_key()
-    first_result = _run(cycle_dir, "init-round-dir", "--round", "1")
-    second = _run(cycle_dir, "init-round-dir", "--round", "1")
+    first_result = _run(cycle_dir, "init-round-dir")
+    second = _run(cycle_dir, "init-round-dir")
     assert first_result["active_section"] == first
     assert second["already_initialized"] is True
     assert second["active_section"] == first
@@ -357,7 +355,7 @@ def test_init_round_dir_idempotent(tmp_path: Path):
 
 def test_write_refiner_artifact(tmp_path: Path):
     cycle_dir = _setup_cycle(tmp_path)
-    _run(cycle_dir, "init-round-dir", "--round", "1")
+    _run(cycle_dir, "init-round-dir")
     first = first_section_key()
     payload = json.dumps(
         {
@@ -398,7 +396,7 @@ class TestRoundProbeInput:
     def test_returns_dispatch_input_in_round_iteration(self, tmp_path: Path):
         cycle_dir = _setup_cycle(tmp_path)
         revision = cycle_dir / "tech" / "plan" / "revision1"
-        _run(cycle_dir, "init-round-dir", "--round", "1")
+        _run(cycle_dir, "init-round-dir")
         result = round_probe_input(cycle_dir)
         assert result["ok"] is True
         assert "dispatch_input" in result
@@ -419,7 +417,7 @@ class TestRoundProbeInput:
             "current_step: RoundIteration\nround: 2\n---\n",
             encoding="utf-8",
         )
-        _run(cycle_dir, "init-round-dir", "--round", "2")
+        _run(cycle_dir, "init-round-dir", round_n="2")
         result = round_probe_input(cycle_dir)
         assert result["ok"] is True
         assert "ROUND_N:        2" in result["dispatch_input"]
@@ -456,7 +454,7 @@ class TestRoundProbeInput:
     def test_cli_plaintext_stdout(self, tmp_path: Path):
         cycle_dir = _setup_cycle(tmp_path)
         revision = cycle_dir / "tech" / "plan" / "revision1"
-        _run(cycle_dir, "init-round-dir", "--round", "1")
+        _run(cycle_dir, "init-round-dir")
         proc = subprocess.run(
             [
                 sys.executable,

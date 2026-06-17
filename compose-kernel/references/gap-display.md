@@ -10,8 +10,8 @@ Display contract for user-facing gap presentation. **Does not invoke scripts** �
 
 Parent **2b** has already:
 
-1. Run `$ROUND_CONTROL read-probe-report --round {N}` → pin stdout as **`$PROBE`**
-2. Run `$ROUND_CONTROL read-section-pointer --round {N}` → pin stdout as **`$POINTER`**
+1. Run `$ROUND_CONTROL read-probe-report` → pin stdout as **`$PROBE`**
+2. Run `$ROUND_CONTROL read-section-pointer` → pin stdout as **`$POINTER`**
 
 Render from **`$PROBE` + `$POINTER` only**. Do not read probe report files on disk. Do not re-run `$ROUND_CONTROL` inside this document.
 
