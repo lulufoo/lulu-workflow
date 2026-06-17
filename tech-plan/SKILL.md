@@ -201,9 +201,16 @@ If not all stable → **2a** for new active section. If all stable → **2e**.
 
 `$ROUND_CONTROL check-convergence --no-accept --gaps-resolved`
 
-- `converged: true` and user chooses **FreeEdit** → run `$DRAFT_CONTROL advance-to-freeedit` (on failure → Blocking); on success → **Step 3 — FreeEdit**.
-- `converged: true` and user chooses **next macro-round** → run `$DRAFT_CONTROL advance-round`; re-parse stdout `round` as the new N; continue **2a–2d**.
-- `converged: false` → continue section loop, or run `$DRAFT_CONTROL advance-round` and re-parse stdout `round` as the new N.
+- `converged: true` → present convergence summary; ask **1** / **2** — stop and wait; do not infer.
+
+  > 1. Enter FreeEdit
+  > 2. Continue to the next round
+
+  - **1** → `$DRAFT_CONTROL advance-to-freeedit`. On failure → Blocking. Then **Step 3 — FreeEdit**.
+
+  - **2** → `$DRAFT_CONTROL advance-round`. On failure → Blocking. Re-parse stdout `round` as the new N; continue **2a–2d**.
+
+- `converged: false` → `$DRAFT_CONTROL advance-round`. On failure → Blocking. Re-parse stdout `round` as the new N; continue **2a–2d**.
 
 #### Step 3 — FreeEdit
 
