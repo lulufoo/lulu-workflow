@@ -45,7 +45,7 @@ Do NOT proceed until you have read `../_runtime.md` and loaded:
 **Phase 2: Run start**
 
 ```bash
-python3 "$SKILL_ROOT/plan-kernel/scripts/core/start.py" \
+python3 "$SKILL_ROOT/compose-kernel/scripts/core/start.py" \
   --project-root "$(pwd)" \
   --cycle-id "<cycle_id>" \
   --profile tech-plan \
@@ -113,7 +113,7 @@ Compose draft from decision-doc (`I*` / `F` / `C` per section; see initializing-
 - On success → dispatch initializing-runner (stdout → `## Input`):
 
 ```text
-Load {actual $SKILL_ROOT}/plan-kernel/runners/initializing-runner/SKILL.md and follow its instructions.
+Load {actual $SKILL_ROOT}/compose-kernel/runners/initializing-runner/SKILL.md and follow its instructions.
 
 ## Input
 {begin-init stdout}
@@ -142,7 +142,7 @@ Repeat **2a–2d** until every registry section is `stable`.
 2. Dispatch prober-runner (stdout → `## Input`):
 
 ```text
-Load {actual $SKILL_ROOT}/plan-kernel/runners/prober-runner/SKILL.md and follow its instructions.
+Load {actual $SKILL_ROOT}/compose-kernel/runners/prober-runner/SKILL.md and follow its instructions.
 
 ## Input
 {round-probe-input stdout}
@@ -154,7 +154,7 @@ Await `$SUBAGENT_AWAIT_SYNC`.
 
 1. `$ROUND_CONTROL read-probe-report --round {N}` — pin stdout as **`$PROBE`**.
 2. `$ROUND_CONTROL read-section-pointer --round {N}` — pin stdout as **`$POINTER`**.
-3. Read `{SKILL_ROOT}/plan-kernel/references/gap-display.md`; render user copy from **`$PROBE` + `$POINTER` only** (do not read probe files on disk).
+3. Read `{SKILL_ROOT}/compose-kernel/references/gap-display.md`; render user copy from **`$PROBE` + `$POINTER` only** (do not read probe files on disk).
 
 - **KW0 gate:** `$PROBE.kw0_pending_count` > 0 → pending rows only (gap-display pipeline step 1); user edits tech-doc → **2a** (skip 2c).
 - **Rewind:** upstream edit → `$ROUND_CONTROL rewind-section --round {N} --to {section}` → **2a**.
@@ -168,7 +168,7 @@ Each decision → `$ROUND_CONTROL update-gap-decision --round {N} --id {id} --de
 - `accept` → refiner dispatch (`$ROUND_CONTROL read-gap-item` for payload):
 
 ```text
-Load {actual $SKILL_ROOT}/plan-kernel/runners/refiner-runner/SKILL.md and follow its instructions.
+Load {actual $SKILL_ROOT}/compose-kernel/runners/refiner-runner/SKILL.md and follow its instructions.
 
 ## Input
 {read-gap-item stdout}
@@ -252,7 +252,7 @@ When eval-rules completes, follow its exit branch:
 
 | Document | When |
 |----------|------|
-| `{SKILL_ROOT}/plan-kernel/references/gap-display.md` | Round Iteration **2b** step 3 — render from pinned `$PROBE` + `$POINTER` (parent runs steps 1–2) |
+| `{SKILL_ROOT}/compose-kernel/references/gap-display.md` | Round Iteration **2b** step 3 — render from pinned `$PROBE` + `$POINTER` (parent runs steps 1–2) |
 | `{$SKILL_ROOT}/eval/eval-rules.md` | Evaluating Rules |
 
 ---
@@ -261,15 +261,15 @@ When eval-rules completes, follow its exit branch:
 
 Macro expansion: `../_runtime.md` § Script Macros → Macro expansion.
 
-Macros invoke plan-kernel scripts (`$SKILL_ROOT/plan-kernel/scripts/...`) or shell scripts (`$SKILL_DIR/scripts/...` for `$DRAFT_CONTROL` only). Non-zero exit → Blocking (Principles).
+Macros invoke compose-kernel scripts (`$SKILL_ROOT/compose-kernel/scripts/...`) or shell scripts (`$SKILL_DIR/scripts/...` for `$DRAFT_CONTROL` only). Non-zero exit → Blocking (Principles).
 
 | Macro | Command |
 |-------|---------|
-| `$SESSION_INFO` | `python3 "$SKILL_ROOT/plan-kernel/scripts/core/session_info.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --view <view>` |
-| `$SESSION_CONTROL` | `python3 "$SKILL_ROOT/plan-kernel/scripts/core/session_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
+| `$SESSION_INFO` | `python3 "$SKILL_ROOT/compose-kernel/scripts/core/session_info.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --view <view>` |
+| `$SESSION_CONTROL` | `python3 "$SKILL_ROOT/compose-kernel/scripts/core/session_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
 | `$DRAFT_CONTROL` | `python3 "$SKILL_DIR/scripts/draft_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
 | `$DRAFT_CONTROL status` | `$DRAFT_CONTROL status` — stdout JSON: `current_step`, `round` |
-| `$ROUND_CONTROL` | `python3 "$SKILL_ROOT/plan-kernel/scripts/section/section_round_control.py" --cycle-dir "$CACHE_DIR/$CYCLE_ID" <subcommand> [args...]` |
+| `$ROUND_CONTROL` | `python3 "$SKILL_ROOT/compose-kernel/scripts/section/section_round_control.py" --cycle-dir "$CACHE_DIR/$CYCLE_ID" <subcommand> [args...]` |
 | `$ROUND_CONTROL init-round-dir` | `$ROUND_CONTROL init-round-dir --round {N}` |
 | `$ROUND_CONTROL read-section-pointer` | `$ROUND_CONTROL read-section-pointer --round {N}` |
 | `$ROUND_CONTROL advance-section` | `$ROUND_CONTROL advance-section --round {N}` |
@@ -280,11 +280,11 @@ Macros invoke plan-kernel scripts (`$SKILL_ROOT/plan-kernel/scripts/...`) or she
 | `$ROUND_CONTROL read-section-body` | `$ROUND_CONTROL read-section-body --section {key}` |
 | `$ROUND_CONTROL update-gap-decision` | `$ROUND_CONTROL update-gap-decision --round {N} --id {id} --decision {accept\|skip\|redirect}` |
 | `$ROUND_CONTROL check-convergence` | `$ROUND_CONTROL check-convergence --round {N} --no-accept --gaps-resolved` |
-| `$RESOLVE_PLAN_ROLE` | `python3 "$SKILL_ROOT/plan-kernel/scripts/scope/scope_resolver.py" resolve-role --cycle-id "$CYCLE_ID" --project-root "$(pwd)"` |
-| `$RESOLVE_DOMAIN` | `python3 "$SKILL_ROOT/plan-kernel/scripts/scope/scope_resolver.py" resolve-domain --cycle-id "$CYCLE_ID" --project-root "$(pwd)"` |
-| `$FETCH_TECH_PLAN` | `python3 "$SKILL_ROOT/plan-kernel/scripts/io/fetch_plan_framework.py" --role <role> --project-root "$(pwd)"` |
-| `$SECTION_INTENT` | `python3 "$SKILL_ROOT/plan-kernel/scripts/schema/section/registry/section_registry_schema.py" --section-intent {key} --project-root "$(pwd)"` |
-| `$SECTION_INTENT_BOUNDARY` | `python3 "$SKILL_ROOT/plan-kernel/scripts/schema/section/registry/section_registry_schema.py" --section-intent-boundary {key} --project-root "$(pwd)"` |
+| `$RESOLVE_PLAN_ROLE` | `python3 "$SKILL_ROOT/compose-kernel/scripts/scope/scope_resolver.py" resolve-role --cycle-id "$CYCLE_ID" --project-root "$(pwd)"` |
+| `$RESOLVE_DOMAIN` | `python3 "$SKILL_ROOT/compose-kernel/scripts/scope/scope_resolver.py" resolve-domain --cycle-id "$CYCLE_ID" --project-root "$(pwd)"` |
+| `$FETCH_TECH_PLAN` | `python3 "$SKILL_ROOT/compose-kernel/scripts/io/fetch_plan_framework.py" --role <role> --project-root "$(pwd)"` |
+| `$SECTION_INTENT` | `python3 "$SKILL_ROOT/compose-kernel/scripts/schema/section/registry/section_registry_schema.py" --section-intent {key} --project-root "$(pwd)"` |
+| `$SECTION_INTENT_BOUNDARY` | `python3 "$SKILL_ROOT/compose-kernel/scripts/schema/section/registry/section_registry_schema.py" --section-intent-boundary {key} --project-root "$(pwd)"` |
 | `$EVAL_CONTROL` | `python3 "$SKILL_ROOT/eval/scripts/eval_control.py" --workflow tech-plan --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` — subcommands: `{$SKILL_ROOT}/eval/eval-rules.md` and `{$SKILL_ROOT}/eval/SKILL.md` |
 
 Subcommands and stdout: script module docstrings or `--help`.

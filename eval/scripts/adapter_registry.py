@@ -14,8 +14,8 @@ _WORKFLOW_ROOT = Path(__file__).resolve().parents[2]
 
 _REGISTRY: dict[str, tuple[str, str, str]] = {
     "tech-plan": (
-        "plan-kernel/scripts/eval/eval_workflow_adapter.py",
-        "eval_workflow_adapter",
+        "tech-plan/scripts/tech_plan_eval_adapter.py",
+        "tech_plan_eval_adapter",
         "TechPlanEvalAdapter",
     ),
 }

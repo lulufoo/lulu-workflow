@@ -10,9 +10,9 @@ from pathlib import Path
 import pytest
 
 _EVAL_SCRIPTS = Path(__file__).resolve().parent
-_KERNEL_CORE = _EVAL_SCRIPTS.parents[1] / "plan-kernel" / "scripts" / "core"
+_KERNEL_CORE = _EVAL_SCRIPTS.parents[1] / "compose-kernel" / "scripts" / "core"
 _KERNEL_SCHEMA_SESSION = (
-    _EVAL_SCRIPTS.parents[1] / "plan-kernel" / "scripts" / "schema" / "session"
+    _EVAL_SCRIPTS.parents[1] / "compose-kernel" / "scripts" / "schema" / "session"
 )
 sys.path.insert(0, str(_KERNEL_CORE))
 sys.path.insert(0, str(_KERNEL_SCHEMA_SESSION))

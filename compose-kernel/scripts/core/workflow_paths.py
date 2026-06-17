@@ -1,4 +1,4 @@
-"""Path constants and profile loading for plan-kernel scripts."""
+"""Path constants and profile loading for compose-kernel scripts."""
 
 from __future__ import annotations
 
@@ -9,23 +9,22 @@ from typing import Any
 WORKFLOW_ROOT = Path(__file__).resolve().parents[3]
 EVAL_SCRIPTS = WORKFLOW_ROOT / "eval" / "scripts"
 WORKFLOW_SCRIPTS = WORKFLOW_ROOT / "scripts"
-PLAN_KERNEL_ROOT = WORKFLOW_ROOT / "plan-kernel"
-KERNEL_TEMPLATES = PLAN_KERNEL_ROOT / "templates"
-CORE_SCRIPTS = PLAN_KERNEL_ROOT / "scripts" / "core"
-SECTION_SCRIPTS = PLAN_KERNEL_ROOT / "scripts" / "section"
-SCOPE_SCRIPTS = PLAN_KERNEL_ROOT / "scripts" / "scope"
-IO_SCRIPTS = PLAN_KERNEL_ROOT / "scripts" / "io"
-KERNEL_EVAL_SCRIPTS = PLAN_KERNEL_ROOT / "scripts" / "eval"
-SCHEMA_SECTION_SCRIPTS = PLAN_KERNEL_ROOT / "scripts" / "schema" / "section"
+COMPOSE_KERNEL_ROOT = WORKFLOW_ROOT / "compose-kernel"
+KERNEL_TEMPLATES = COMPOSE_KERNEL_ROOT / "templates"
+CORE_SCRIPTS = COMPOSE_KERNEL_ROOT / "scripts" / "core"
+SECTION_SCRIPTS = COMPOSE_KERNEL_ROOT / "scripts" / "section"
+SCOPE_SCRIPTS = COMPOSE_KERNEL_ROOT / "scripts" / "scope"
+IO_SCRIPTS = COMPOSE_KERNEL_ROOT / "scripts" / "io"
+SCHEMA_SECTION_SCRIPTS = COMPOSE_KERNEL_ROOT / "scripts" / "schema" / "section"
 SCHEMA_SECTION_REGISTRY_SCRIPTS = SCHEMA_SECTION_SCRIPTS / "registry"
 SCHEMA_SECTION_ROUND_SCRIPTS = SCHEMA_SECTION_SCRIPTS / "round"
 SCHEMA_SECTION_DOCUMENT_SCRIPTS = SCHEMA_SECTION_SCRIPTS / "document"
 SCHEMA_SECTION_SCOPE_SCRIPTS = SCHEMA_SECTION_SCRIPTS / "scope"
-SCHEMA_SESSION_SCRIPTS = PLAN_KERNEL_ROOT / "scripts" / "schema" / "session"
-SCHEMA_SCRIPTS = PLAN_KERNEL_ROOT / "scripts" / "schema"
+SCHEMA_SESSION_SCRIPTS = COMPOSE_KERNEL_ROOT / "scripts" / "schema" / "session"
+SCHEMA_SCRIPTS = COMPOSE_KERNEL_ROOT / "scripts" / "schema"
 TECH_PLAN_SHELL = WORKFLOW_ROOT / "tech-plan"
 TECH_PLAN_SCRIPTS = TECH_PLAN_SHELL / "scripts"
-PROFILES_DIR = PLAN_KERNEL_ROOT / "profiles"
+PROFILES_DIR = COMPOSE_KERNEL_ROOT / "profiles"
 
 _DEFAULT_PROFILE_ID = "tech-plan"
 _profile_cache: dict[str, dict[str, Any]] = {}

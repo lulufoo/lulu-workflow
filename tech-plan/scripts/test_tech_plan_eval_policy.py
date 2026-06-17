@@ -1,22 +1,19 @@
 #!/usr/bin/env python3
 """Tests for tech_plan_eval_policy.py."""
 
-import sys
 from pathlib import Path
 
 import pytest
 
-import bootstrap  # noqa: F401
-from workflow_paths import TECH_PLAN_SHELL, WORKFLOW_SCRIPTS  # noqa: E402
-
-from tech_plan_eval_policy import (  # noqa: E402
+from tech_plan_eval_policy import (
     intent_eval_config_key,
     select_dimension_defs,
     select_dimension_ids,
     stamps_dir_for_cycle_type,
 )
 
-_CORPORA = TECH_PLAN_SHELL / "corpora"
+_TECH_PLAN = Path(__file__).resolve().parents[1]
+_CORPORA = _TECH_PLAN / "corpora"
 _FEATURE_STAMPS = _CORPORA / "stamps" / "feature"
 
 

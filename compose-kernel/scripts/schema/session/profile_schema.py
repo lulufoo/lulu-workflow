@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate plan-kernel profile JSON files."""
+"""Validate compose-kernel stage profile JSON files."""
 
 from __future__ import annotations
 
@@ -69,7 +69,7 @@ def validate_all() -> list[str]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Validate plan-kernel profiles.")
+    parser = argparse.ArgumentParser(description="Validate compose-kernel stage profiles.")
     parser.add_argument("--validate", action="store_true", help="Validate all profiles.")
     args = parser.parse_args()
     if not args.validate:

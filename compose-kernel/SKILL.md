@@ -1,19 +1,20 @@
 ---
-name: plan-kernel
+name: compose-kernel
 description: >-
-  Shared session and section-round tooling for planning stages (tech-plan,
-  future tech-design / tech-arch). Not user-invoked; consumed by stage shells.
+  Shared compose engine (I*/F/C), session, and section-round tooling for
+  structured technical document stages (tech-plan, future tech-design /
+  tech-arch). Not user-invoked; consumed by stage shells.
 ---
 
-# plan-kernel
+# compose-kernel
 
-Internal library for planning workflows. Users invoke stage shells (`tech-plan`, etc.), not this skill.
+Internal library for structured technical document authoring. Users invoke stage shells (`tech-plan`, etc.), not this skill.
 
 ## Boundary
 
-**Kernel** = `plan-kernel/` below. **Shell** = stage directory (e.g. `tech-plan/`). Shell SKILL macros call into kernel; kernel does not include shell-only Drafting orchestration.
+**Kernel** = `compose-kernel/` below. **Shell** = stage directory (e.g. `tech-plan/`). Shell SKILL macros call into kernel; kernel does not include shell-only Drafting orchestration.
 
-### In kernel (`plan-kernel/`)
+### In kernel (`compose-kernel/`)
 
 | Path | Contents |
 |------|----------|
@@ -22,11 +23,10 @@ Internal library for planning workflows. Users invoke stage shells (`tech-plan`,
 | `scripts/schema/section/registry/` | Section registry core (`section_registry`, `section_dependency`, `outline_registry`) |
 | `scripts/schema/section/round/` | Round runtime artifacts (`section_pointer`, `probe_report`, `refiner_artifact`) |
 | `scripts/schema/section/document/` | Tech-doc presentation I/O (`tech_doc_schema`) |
-| `scripts/schema/section/scope/` | Plan-scope instance schemas (role, domain, `schema_common`) |
+| `scripts/schema/section/scope/` | Compose-scope instance schemas (role, domain, `schema_common`) |
 | `scripts/section/` | `section_round_control` (section-gated Round Iteration) |
 | `scripts/scope/` | `scope_resolver` (role/domain constraint resolver CLI) |
 | `scripts/io/` | `fetch_plan_framework` (framework template fetch) |
-| `scripts/eval/` | `eval_workflow_adapter`, `tech_plan_eval_policy` |
 | `templates/` | Ledger seed templates (`anchor-ledger`, `skip-ledger`) |
 | `runners/` | initializing, prober, refiner runner SKILLs |
 | `references/` | `compose-theory.md`, `gap-display.md` |
@@ -43,7 +43,7 @@ Internal library for planning workflows. Users invoke stage shells (`tech-plan`,
 | `corpora/`, `constraints/instance/` | Eval stamps, topic role/domain instances |
 | `transition-whitelist.json` | Outer session transition whitelist |
 
-`draft_control.py` is **not** under `plan-kernel/scripts/`.
+`draft_control.py` is **not** under `compose-kernel/scripts/`.
 
 ## Profiles
 
@@ -52,9 +52,9 @@ Stage behavior is driven by `profiles/{profile_id}.json`. Default active profile
 Validate profiles:
 
 ```bash
-python3 "$SKILL_ROOT/plan-kernel/scripts/schema/session/profile_schema.py" --validate
+python3 "$SKILL_ROOT/compose-kernel/scripts/schema/session/profile_schema.py" --validate
 ```
 
 ## Paths
 
-`scripts/core/workflow_paths.py` is the SSOT for `WORKFLOW_ROOT`, `CORE_SCRIPTS`, `SECTION_SCRIPTS`, `SCOPE_SCRIPTS`, `IO_SCRIPTS`, `KERNEL_EVAL_SCRIPTS`, `SCHEMA_SECTION_*_SCRIPTS`, `SCHEMA_SESSION_SCRIPTS`, `KERNEL_TEMPLATES`, and `load_profile()`.
+`scripts/core/workflow_paths.py` is the SSOT for `WORKFLOW_ROOT`, `CORE_SCRIPTS`, `SECTION_SCRIPTS`, `SCOPE_SCRIPTS`, `IO_SCRIPTS`, `SCHEMA_SECTION_*_SCRIPTS`, `SCHEMA_SESSION_SCRIPTS`, `KERNEL_TEMPLATES`, and `load_profile()`.

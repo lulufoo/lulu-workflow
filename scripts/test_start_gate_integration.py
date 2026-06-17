@@ -38,7 +38,7 @@ _FEATURE_CYCLE = [
 
 def _start_py(stage: str) -> Path:
     if stage == "tech-plan":
-        return _LDEV / "plan-kernel" / "scripts" / "core" / "start.py"
+        return _LDEV / "compose-kernel" / "scripts" / "core" / "start.py"
     return _LDEV / stage / "scripts" / "start.py"
 
 
@@ -291,8 +291,8 @@ class TestGatePasses:
         assert result.returncode == 0, result.stderr or result.stdout
         ws_path = cd / _CYCLE_ID / "tech" / "plan" / "revision1" / "workflow-state.md"
         assert ws_path.exists()
-        sys.path.insert(0, str(_LDEV / "plan-kernel" / "scripts" / "core"))
-        sys.path.insert(0, str(_LDEV / "plan-kernel" / "scripts" / "schema" / "session"))
+        sys.path.insert(0, str(_LDEV / "compose-kernel" / "scripts" / "core"))
+        sys.path.insert(0, str(_LDEV / "compose-kernel" / "scripts" / "schema" / "session"))
         from workflow_state_schema import load_workflow_state  # noqa: WPS433
 
         assert load_workflow_state(ws_path)["design_ref"] == str(design)

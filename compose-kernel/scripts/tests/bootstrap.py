@@ -1,4 +1,4 @@
-"""Pytest path bootstrap for plan-kernel tests."""
+"""Pytest path bootstrap for compose-kernel tests."""
 
 from __future__ import annotations
 
@@ -11,7 +11,6 @@ CORE = _KERNEL_SCRIPTS / "core"
 SECTION = _KERNEL_SCRIPTS / "section"
 SCOPE = _KERNEL_SCRIPTS / "scope"
 IO = _KERNEL_SCRIPTS / "io"
-KERNEL_EVAL = _KERNEL_SCRIPTS / "eval"
 SCHEMA_SECTION = _KERNEL_SCRIPTS / "schema" / "section"
 SCHEMA_SECTION_REGISTRY = SCHEMA_SECTION / "registry"
 SCHEMA_SECTION_ROUND = SCHEMA_SECTION / "round"
@@ -24,7 +23,6 @@ for p in (
     SECTION,
     SCOPE,
     IO,
-    KERNEL_EVAL,
     SCHEMA_SECTION_REGISTRY,
     SCHEMA_SECTION_ROUND,
     SCHEMA_SECTION_DOCUMENT,

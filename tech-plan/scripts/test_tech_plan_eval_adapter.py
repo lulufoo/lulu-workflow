@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
-"""Tests for tech-plan eval_workflow_adapter."""
+"""Tests for tech_plan_eval_adapter.py."""
 
 import sys
 from pathlib import Path
 
 import pytest
 
+_WORKFLOW_ROOT = Path(__file__).resolve().parents[2]
+_EVAL_SCRIPTS = _WORKFLOW_ROOT / "eval" / "scripts"
+_KERNEL_TESTS = _WORKFLOW_ROOT / "compose-kernel" / "scripts" / "tests"
+_SHELL_SCRIPTS = Path(__file__).resolve().parent
+for p in (_EVAL_SCRIPTS, _KERNEL_TESTS, _SHELL_SCRIPTS):
+    if str(p) not in sys.path:
+        sys.path.insert(0, str(p))
+
 import bootstrap  # noqa: F401
-from workflow_paths import EVAL_SCRIPTS  # noqa: E402
-
-sys.path.insert(0, str(EVAL_SCRIPTS))
-
 from adapter_registry import load_adapter  # noqa: E402
 from corpus_compose import COMPOSED_CORPUS_REF, corpus_fingerprint  # noqa: E402
 from tech_plan_eval_policy import select_dimension_ids  # noqa: E402

@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import pytest
 
-_KERNEL_TESTS = Path(__file__).resolve().parents[2] / "plan-kernel" / "scripts" / "tests"
-import sys
-
-if str(_KERNEL_TESTS) not in sys.path:
-    sys.path.insert(0, str(_KERNEL_TESTS))
+_WORKFLOW_ROOT = Path(__file__).resolve().parents[2]
+_KERNEL_TESTS = _WORKFLOW_ROOT / "compose-kernel" / "scripts" / "tests"
+_SHELL_SCRIPTS = Path(__file__).resolve().parent
+_EVAL_SCRIPTS = _WORKFLOW_ROOT / "eval" / "scripts"
+for p in (_KERNEL_TESTS, _SHELL_SCRIPTS, _EVAL_SCRIPTS):
+    if str(p) not in sys.path:
+        sys.path.insert(0, str(p))
 
 import bootstrap  # noqa: F401
 from test_template_data import seed_tech_plan_test_caches  # noqa: WPS433

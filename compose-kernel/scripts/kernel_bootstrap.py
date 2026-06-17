@@ -1,4 +1,4 @@
-"""Insert plan-kernel script directories onto sys.path."""
+"""Insert compose-kernel script directories onto sys.path."""
 
 from __future__ import annotations
 
@@ -10,7 +10,6 @@ _CORE = _SCRIPTS / "core"
 _SECTION = _SCRIPTS / "section"
 _SCOPE = _SCRIPTS / "scope"
 _IO = _SCRIPTS / "io"
-_EVAL = _SCRIPTS / "eval"
 _SCHEMA_SECTION = _SCRIPTS / "schema" / "section"
 _SCHEMA_SECTION_REGISTRY = _SCHEMA_SECTION / "registry"
 _SCHEMA_SECTION_ROUND = _SCHEMA_SECTION / "round"
@@ -26,7 +25,6 @@ def ensure_kernel_paths() -> None:
         _SECTION,
         _SCOPE,
         _IO,
-        _EVAL,
         _SCHEMA_SECTION_REGISTRY,
         _SCHEMA_SECTION_ROUND,
         _SCHEMA_SECTION_DOCUMENT,

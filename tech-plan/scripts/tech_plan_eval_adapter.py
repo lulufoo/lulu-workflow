@@ -7,10 +7,12 @@ import sys
 from pathlib import Path
 from typing import Any
 
-_SECTION = Path(__file__).resolve().parent
-_SCRIPTS = _SECTION.parent
-if str(_SCRIPTS) not in sys.path:
-    sys.path.insert(0, str(_SCRIPTS))
+_WORKFLOW_ROOT = Path(__file__).resolve().parents[2]
+_KERNEL_SCRIPTS = _WORKFLOW_ROOT / "compose-kernel" / "scripts"
+_SHELL_SCRIPTS = Path(__file__).resolve().parent
+for p in (_KERNEL_SCRIPTS, _SHELL_SCRIPTS):
+    if str(p) not in sys.path:
+        sys.path.insert(0, str(p))
 import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()

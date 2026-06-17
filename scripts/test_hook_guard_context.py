@@ -111,7 +111,7 @@ class TestShouldInjectConversationId:
         [
             "python3 ~/.cursor/skills/lulu-dev-workflow/diagnostic/scripts/start.py --cycle-id fid1",
             "python lulu-dev-workflow/product-plan/scripts/start.py --project-root /tmp",
-            "python3 ~/.cursor/skills/lulu-dev-workflow/plan-kernel/scripts/core/start.py --cycle-id fid1",
+            "python3 ~/.cursor/skills/lulu-dev-workflow/compose-kernel/scripts/core/start.py --cycle-id fid1",
             "python3 ~/.cursor/skills/lulu-dev-workflow/tech-work-order/scripts/start.py --cycle-id fid1",
             "python3 ~/.cursor/skills/lulu-dev-workflow/tech-code/scripts/start.py --cycle-id fid1",
         ],

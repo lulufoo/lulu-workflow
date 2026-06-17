@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 
 _WORKFLOW_ROOT = Path(__file__).resolve().parents[2]
-_KERNEL_SCRIPTS = _WORKFLOW_ROOT / "plan-kernel" / "scripts"
+_KERNEL_SCRIPTS = _WORKFLOW_ROOT / "compose-kernel" / "scripts"
 _CORE = _KERNEL_SCRIPTS / "core"
 if str(_KERNEL_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_KERNEL_SCRIPTS))

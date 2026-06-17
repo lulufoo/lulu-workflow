@@ -29,13 +29,13 @@ _FEATURE_CYCLE = [
 
 def _start_py(stage: str) -> Path:
     if stage == "tech-plan":
-        return _SRC / "lulu-dev-workflow" / "plan-kernel" / "scripts" / "core" / "start.py"
+        return _SRC / "lulu-dev-workflow" / "compose-kernel" / "scripts" / "core" / "start.py"
     return _SRC / "lulu-dev-workflow" / stage / "scripts" / "start.py"
 
 
 def _scripts_dir(stage: str) -> Path:
     if stage == "tech-plan":
-        return _SRC / "lulu-dev-workflow" / "plan-kernel" / "scripts" / "core"
+        return _SRC / "lulu-dev-workflow" / "compose-kernel" / "scripts" / "core"
     return _SRC / "lulu-dev-workflow" / stage / "scripts"
 
 

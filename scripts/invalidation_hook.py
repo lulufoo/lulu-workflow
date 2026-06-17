@@ -8,8 +8,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from hook_guard import get_sessions, load_stage_order  # noqa: E402
 
 _SKILL_ROOT = Path(__file__).resolve().parents[1]
-_KERNEL_CORE = _SKILL_ROOT / "plan-kernel" / "scripts" / "core"
-_KERNEL_SCHEMA_SESSION = _SKILL_ROOT / "plan-kernel" / "scripts" / "schema" / "session"
+_KERNEL_CORE = _SKILL_ROOT / "compose-kernel" / "scripts" / "core"
+_KERNEL_SCHEMA_SESSION = _SKILL_ROOT / "compose-kernel" / "scripts" / "schema" / "session"
 
 
 def _is_tech_plan_workflow_state(state_path: Path) -> bool:
