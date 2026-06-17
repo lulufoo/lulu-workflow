@@ -6,11 +6,12 @@ from pathlib import Path
 
 import pytest
 
-_WORKFLOW_ROOT = Path(__file__).resolve().parents[2]
+_SCRIPTS_ROOT = Path(__file__).resolve().parents[1]
+_WORKFLOW_ROOT = _SCRIPTS_ROOT.parents[1]
+_EVAL_SHELL = _SCRIPTS_ROOT / "eval"
 _EVAL_SCRIPTS = _WORKFLOW_ROOT / "eval" / "scripts"
 _KERNEL_TESTS = _WORKFLOW_ROOT / "compose-kernel" / "scripts" / "tests"
-_SHELL_SCRIPTS = Path(__file__).resolve().parent
-for p in (_EVAL_SCRIPTS, _KERNEL_TESTS, _SHELL_SCRIPTS):
+for p in (_EVAL_SHELL, _EVAL_SCRIPTS, _KERNEL_TESTS):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
 

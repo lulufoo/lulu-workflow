@@ -36,9 +36,11 @@ Internal library for structured technical document authoring. Users invoke stage
 
 | Path | Contents |
 |------|----------|
-| `scripts/draft_control.py` | Inner Drafting state machine (Initializing / Round / FreeEdit) |
-| `scripts/drafting_progress_schema.py` | `drafting-progress.md` schema |
+| `scripts/drafting/draft_control.py` | Inner Drafting state machine (Initializing / Round / FreeEdit) |
+| `scripts/drafting/drafting_progress_schema.py` | `drafting-progress.md` schema |
+| `scripts/eval/` | Eval adapter + corpus policy (`tech_plan_eval_adapter`, `tech_plan_eval_policy`) |
 | `scripts/hook_guard.py` | Active-session Write/Edit cache boundary (`HOOK_COMMAND` target) |
+| `scripts/tests/` | Shell script pytest suite |
 | `SKILL.md` | Full Drafting / Evaluating orchestration text |
 | `corpora/`, `constraints/instance/` | Eval stamps, topic role/domain instances |
 | `transition-whitelist.json` | Outer session transition whitelist |

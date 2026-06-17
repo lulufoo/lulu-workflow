@@ -7,10 +7,10 @@ import sys
 from pathlib import Path
 from typing import Any
 
-_WORKFLOW_ROOT = Path(__file__).resolve().parents[2]
+_WORKFLOW_ROOT = Path(__file__).resolve().parents[3]
 _KERNEL_SCRIPTS = _WORKFLOW_ROOT / "compose-kernel" / "scripts"
-_SHELL_SCRIPTS = Path(__file__).resolve().parent
-for p in (_KERNEL_SCRIPTS, _SHELL_SCRIPTS):
+_EVAL_SHELL = Path(__file__).resolve().parent
+for p in (_KERNEL_SCRIPTS, _EVAL_SHELL):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
 import kernel_bootstrap  # noqa: E402
@@ -152,7 +152,7 @@ class TechPlanEvalAdapter:
     @staticmethod
     def _empty_corpus_bind() -> dict[str, str]:
         return {
-            "ptc_url": "",
+            "tpt_product_tech_spec_crosscheck_url": "",
             "tpt_intent_eval_framework_url": "",
         }
 
@@ -174,7 +174,9 @@ class TechPlanEvalAdapter:
         section = config.get("tech-plan")
         if not isinstance(section, dict):
             return self._empty_corpus_bind()
-        ptc_url = str(section.get("ptc_url", "")).strip()
+        crosscheck_url = str(
+            section.get("tpt_product_tech_spec_crosscheck_url", "")
+        ).strip()
         cycle_type = detect_cycle_type(cycle_id)
         intent_key = intent_eval_config_key(cycle_type)
         tpt_intent_eval_framework_url = str(
@@ -182,7 +184,7 @@ class TechPlanEvalAdapter:
             or section.get("tpt_intent_eval_framework_url", ""),
         ).strip()
         return {
-            "ptc_url": ptc_url,
+            "tpt_product_tech_spec_crosscheck_url": crosscheck_url,
             "tpt_intent_eval_framework_url": tpt_intent_eval_framework_url,
         }
 

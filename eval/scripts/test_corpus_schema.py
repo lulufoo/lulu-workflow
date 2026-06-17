@@ -104,7 +104,7 @@ class TestExpandCorpus:
         "product_ref": "/abs/product-doc.md",
         "cycle_type": "feature",
         "M": "1",
-        "ptc_url": "https://github.com/o/r/blob/main/ptc.md",
+        "tpt_product_tech_spec_crosscheck_url": "https://github.com/o/r/blob/main/ptc.md",
         "tpt_intent_eval_framework_url": "https://github.com/o/r/blob/main/41-tech-plan-intent-evaluation-framework.md",
     }
 
@@ -114,7 +114,7 @@ class TestExpandCorpus:
         dim = expanded["dimensions"][0]
         assert dim["eval_target"]["path"] == "/abs/tech-doc.md"
         assert dim["sots"][0]["ref"] == "/abs/product-doc.md"
-        assert dim["method"]["source"] == self._BIND["ptc_url"]
+        assert dim["method"]["source"] == self._BIND["tpt_product_tech_spec_crosscheck_url"]
         assert dim["review"]["output_path"] == "tech-review-e11.md"
 
     def test_expand_preserves_codebase_root_dot(self):

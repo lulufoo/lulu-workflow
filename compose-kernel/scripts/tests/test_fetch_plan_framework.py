@@ -27,7 +27,7 @@ class TestResolveKey:
             ("outline-registry", "tpt_outline_registry_url"),
             ("feature-role-instance", "tpt_feature_role_instance_url"),
             ("feature-domain-instance", "tpt_feature_domain_instance_url"),
-            ("eval-ptc", "ptc_url"),
+            ("eval-ptc", "tpt_product_tech_spec_crosscheck_url"),
             ("intent-eval-framework", "tpt_intent_eval_framework_url"),
         ],
     )

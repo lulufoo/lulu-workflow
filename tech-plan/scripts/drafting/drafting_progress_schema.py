@@ -15,7 +15,7 @@ import json
 import sys
 from pathlib import Path
 
-_WORKFLOW_ROOT = Path(__file__).resolve().parents[2]
+_WORKFLOW_ROOT = Path(__file__).resolve().parents[3]
 _KERNEL_SCRIPTS = _WORKFLOW_ROOT / "compose-kernel" / "scripts"
 _CORE = _KERNEL_SCRIPTS / "core"
 if str(_KERNEL_SCRIPTS) not in sys.path:

@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 """Tests for tech_plan_eval_policy.py."""
 
+import sys
 from pathlib import Path
 
 import pytest
+
+_SCRIPTS_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(_SCRIPTS_ROOT / "eval"))
 
 from tech_plan_eval_policy import (
     intent_eval_config_key,
@@ -12,7 +16,7 @@ from tech_plan_eval_policy import (
     stamps_dir_for_cycle_type,
 )
 
-_TECH_PLAN = Path(__file__).resolve().parents[1]
+_TECH_PLAN = _SCRIPTS_ROOT.parent
 _CORPORA = _TECH_PLAN / "corpora"
 _FEATURE_STAMPS = _CORPORA / "stamps" / "feature"
 

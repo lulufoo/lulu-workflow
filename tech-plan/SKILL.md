@@ -267,7 +267,7 @@ Macros invoke compose-kernel scripts (`$SKILL_ROOT/compose-kernel/scripts/...`) 
 |-------|---------|
 | `$SESSION_INFO` | `python3 "$SKILL_ROOT/compose-kernel/scripts/core/session_info.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --view <view>` |
 | `$SESSION_CONTROL` | `python3 "$SKILL_ROOT/compose-kernel/scripts/core/session_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
-| `$DRAFT_CONTROL` | `python3 "$SKILL_DIR/scripts/draft_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
+| `$DRAFT_CONTROL` | `python3 "$SKILL_DIR/scripts/drafting/draft_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
 | `$DRAFT_CONTROL status` | `$DRAFT_CONTROL status` — stdout JSON: `current_step`, `round` |
 | `$ROUND_CONTROL` | `python3 "$SKILL_ROOT/compose-kernel/scripts/section/section_round_control.py" --cycle-dir "$CACHE_DIR/$CYCLE_ID" <subcommand> [args...]` |
 | `$ROUND_CONTROL init-round-dir` | `$ROUND_CONTROL init-round-dir --round {N}` |

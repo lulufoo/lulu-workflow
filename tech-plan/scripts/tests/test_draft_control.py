@@ -6,9 +6,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-_WORKFLOW_ROOT = Path(__file__).resolve().parents[2]
+_SCRIPTS_ROOT = Path(__file__).resolve().parents[1]
+_WORKFLOW_ROOT = _SCRIPTS_ROOT.parents[1]
+_DRAFTING = _SCRIPTS_ROOT / "drafting"
 _KERNEL_TESTS = _WORKFLOW_ROOT / "compose-kernel" / "scripts" / "tests"
-for p in (Path(__file__).resolve().parent, _KERNEL_TESTS):
+for p in (_DRAFTING, _KERNEL_TESTS):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
 import bootstrap  # noqa: F401
@@ -29,7 +31,7 @@ from draft_control import (  # noqa: E402
 
 _CYCLE = "feat-draft-control"
 _CACHE = Path(".cache/cursor/lulu-dev-workflow")
-_SCRIPT = Path(__file__).resolve().parent / "draft_control.py"
+_SCRIPT = _DRAFTING / "draft_control.py"
 
 
 def _seed_registry_cache(tmp_path: Path) -> None:

@@ -40,7 +40,7 @@ _SCHEMA: dict[str, Any] = {
         "product_ref",
         "cycle_type",
         "M",
-        "ptc_url",
+        "tpt_product_tech_spec_crosscheck_url",
         "tpt_intent_eval_framework_url",
     ],
 }

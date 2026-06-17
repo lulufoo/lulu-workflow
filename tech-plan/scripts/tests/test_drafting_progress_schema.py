@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "drafting"))
 from drafting_progress_schema import (  # noqa: E402
     get_schema,
     load_drafting_progress,

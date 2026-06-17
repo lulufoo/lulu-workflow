@@ -18,7 +18,7 @@ from fetch_template import FetchTemplateError, fetch_template  # noqa: E402
 SECTION = "tech-plan"
 
 ROLE_KEYS: dict[str, str] = {
-    "eval-ptc": "ptc_url",
+    "eval-ptc": "tpt_product_tech_spec_crosscheck_url",
     "feature-domain-instance": "tpt_feature_domain_instance_url",
     "feature-role-instance": "tpt_feature_role_instance_url",
     "intent-eval-framework": "tpt_intent_eval_framework_url",

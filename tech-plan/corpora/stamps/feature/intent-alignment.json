@@ -17,7 +17,7 @@
   ],
   "method": {
     "kind": "external",
-    "source": "{ptc_url}",
+    "source": "{tpt_product_tech_spec_crosscheck_url}",
     "focus": "Intent alignment — does tech-doc faithfully implement product requirements?"
   },
   "review": {

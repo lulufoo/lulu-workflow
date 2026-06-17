@@ -5,7 +5,15 @@ import json
 import sys
 from pathlib import Path
 
-from workflow_common import CACHE_DIR, STAGE, normalize_tool_path
+_WORKFLOW_ROOT = Path(__file__).resolve().parents[2]
+_KERNEL_SCRIPTS = _WORKFLOW_ROOT / "compose-kernel" / "scripts"
+if str(_KERNEL_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_KERNEL_SCRIPTS))
+import kernel_bootstrap  # noqa: E402
+
+kernel_bootstrap.ensure_kernel_paths()
+
+from workflow_common import CACHE_DIR, STAGE, normalize_tool_path  # noqa: E402
 
 _SCRIPTS_ROOT = Path(__file__).resolve().parents[2] / "scripts"
 if str(_SCRIPTS_ROOT) not in sys.path:

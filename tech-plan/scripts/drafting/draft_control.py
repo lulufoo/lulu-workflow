@@ -19,11 +19,12 @@ import sys
 from pathlib import Path
 from typing import Any
 
-_WORKFLOW_ROOT = Path(__file__).resolve().parents[2]
+_WORKFLOW_ROOT = Path(__file__).resolve().parents[3]
 _KERNEL_SCRIPTS = _WORKFLOW_ROOT / "compose-kernel" / "scripts"
 _CORE = _KERNEL_SCRIPTS / "core"
 _SECTION = _KERNEL_SCRIPTS / "section"
-for p in (_KERNEL_SCRIPTS, _CORE, _SECTION, Path(__file__).resolve().parent):
+_DRAFTING = Path(__file__).resolve().parent
+for p in (_KERNEL_SCRIPTS, _CORE, _SECTION, _DRAFTING):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
 import kernel_bootstrap  # noqa: E402

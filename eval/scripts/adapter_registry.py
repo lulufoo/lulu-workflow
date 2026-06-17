@@ -14,7 +14,7 @@ _WORKFLOW_ROOT = Path(__file__).resolve().parents[2]
 
 _REGISTRY: dict[str, tuple[str, str, str]] = {
     "tech-plan": (
-        "tech-plan/scripts/tech_plan_eval_adapter.py",
+        "tech-plan/scripts/eval/tech_plan_eval_adapter.py",
         "tech_plan_eval_adapter",
         "TechPlanEvalAdapter",
     ),

@@ -130,7 +130,7 @@ class TestShouldInjectConversationId:
             "git status",
             "python3 cycle_control.py --project-root /tmp start --name test",
             "python3 ~/.cursor/skills/lulu-dev-workflow/scripts/hook_guard.py",
-            "python3 ~/.cursor/skills/lulu-dev-workflow/tech-plan/scripts/draft_control.py --cycle-id fid1",
+            "python3 ~/.cursor/skills/lulu-dev-workflow/tech-plan/scripts/drafting/draft_control.py --cycle-id fid1",
             "python3 ~/.cursor/skills/lulu-dev-workflow/scripts/cycle_control.py start --name test",
         ],
     )
