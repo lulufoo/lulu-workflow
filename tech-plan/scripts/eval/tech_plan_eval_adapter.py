@@ -137,7 +137,7 @@ class TechPlanEvalAdapter:
             product_ref=product_ref,
             mode=mode,
             cycle_type=cycle_type,
-            corpora_dir=self.corpus_dir(),
+            dimension_defs_dir=self.dimension_defs_dir(),
         )
         return compose_corpus(
             corpus_id=COMPOSED_CORPUS_ID,
@@ -146,8 +146,8 @@ class TechPlanEvalAdapter:
             dimensions=dimensions,
         )
 
-    def corpus_dir(self) -> Path:
-        return shell_path(_PROFILE, "corpora_dir")
+    def dimension_defs_dir(self) -> Path:
+        return shell_path(_PROFILE, "dimension_defs_dir")
 
     @staticmethod
     def _empty_corpus_bind() -> dict[str, str]:

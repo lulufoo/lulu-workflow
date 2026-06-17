@@ -6,8 +6,7 @@
   "shell_paths": {
     "transition_whitelist": "tech-plan/transition-whitelist.json",
     "hook_guard": "tech-plan/scripts/hook_guard.py",
-    "corpora_dir": "tech-plan/corpora",
-    "constraints_instance_dir": "tech-plan/constraints/instance"
+    "dimension_defs_dir": "tech-plan/dimension-defs"
   },
   "document": {
     "filename": "tech-doc.md",

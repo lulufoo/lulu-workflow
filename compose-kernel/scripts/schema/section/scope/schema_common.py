@@ -13,16 +13,10 @@ for _p in (_CORE, _IO):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
-from workflow_paths import WORKFLOW_SCRIPTS, load_profile, shell_path  # noqa: E402
-
-_PROFILE = load_profile("tech-plan")
+from workflow_paths import WORKFLOW_SCRIPTS  # noqa: E402
 
 VALID_CYCLE_TYPES = frozenset({"topic", "feature"})
 FETCH_SECTION = "tech-plan"
-
-
-def default_instance_dir() -> Path:
-    return shell_path(_PROFILE, "constraints_instance_dir")
 
 
 def effective_project_root(project_root: Path | None) -> Path:
@@ -34,7 +28,7 @@ def resolve_fetched_instance_path(
     fetch_role: str,
     project_root: Path | None = None,
 ) -> Path:
-    """Return template cache path for a feature instance; fetch when cache is empty."""
+    """Return template cache path for a plan-scope instance; fetch when cache is empty."""
     root = effective_project_root(project_root)
     if str(WORKFLOW_SCRIPTS) not in sys.path:
         sys.path.insert(0, str(WORKFLOW_SCRIPTS))

@@ -11,14 +11,13 @@ sys.path.insert(0, str(_SCRIPTS_ROOT / "eval"))
 
 from tech_plan_eval_policy import (
     intent_eval_config_key,
+    require_feature_eval,
     select_dimension_defs,
     select_dimension_ids,
-    stamps_dir_for_cycle_type,
 )
 
 _TECH_PLAN = _SCRIPTS_ROOT.parent
-_CORPORA = _TECH_PLAN / "corpora"
-_FEATURE_STAMPS = _CORPORA / "stamps" / "feature"
+_DIMENSION_DEFS = _TECH_PLAN / "dimension-defs"
 
 
 class TestTechPlanEvalPolicy:
@@ -44,19 +43,16 @@ class TestTechPlanEvalPolicy:
         assert intent_eval_config_key("topic") == "tpt_intent_eval_framework_url"
         assert intent_eval_config_key("other") == "tpt_intent_eval_framework_url"
 
-    def test_stamps_dir_feature(self):
-        assert stamps_dir_for_cycle_type(_CORPORA, "feature") == _FEATURE_STAMPS
-
-    def test_stamps_dir_topic_not_implemented(self):
-        with pytest.raises(ValueError, match="topic eval stamps are not implemented"):
-            stamps_dir_for_cycle_type(_CORPORA, "topic")
+    def test_require_feature_eval_topic_blocks(self):
+        with pytest.raises(ValueError, match="topic cycles do not evaluate in tech-plan"):
+            require_feature_eval("topic")
 
     def test_select_dimension_defs_feature(self):
         defs = select_dimension_defs(
             product_ref="",
             mode="tech",
             cycle_type="feature",
-            corpora_dir=_CORPORA,
+            dimension_defs_dir=_DIMENSION_DEFS,
         )
         assert [d["id"] for d in defs] == [
             "codebase-consistency",
@@ -64,10 +60,10 @@ class TestTechPlanEvalPolicy:
         ]
 
     def test_select_dimension_defs_topic_blocks(self):
-        with pytest.raises(ValueError, match="topic eval stamps are not implemented"):
+        with pytest.raises(ValueError, match="topic cycles do not evaluate in tech-plan"):
             select_dimension_defs(
                 product_ref="",
                 mode="tech",
                 cycle_type="topic",
-                corpora_dir=_CORPORA,
+                dimension_defs_dir=_DIMENSION_DEFS,
             )

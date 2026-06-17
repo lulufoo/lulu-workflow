@@ -9,10 +9,10 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tech-plan" / "scripts"))
 
-from corpus_compose import COMPOSED_CORPUS_REF, compose_corpus, load_dimension_stamp  # noqa: E402
+from corpus_compose import COMPOSED_CORPUS_REF, compose_corpus, load_dimension_def  # noqa: E402
 from corpus_schema import (  # noqa: E402
     corpus_ref,
-    default_corpus_dir,
+    default_dimension_defs_dir,
     dispatch_ids,
     expand_corpus,
     get_schema,
@@ -20,15 +20,14 @@ from corpus_schema import (  # noqa: E402
     validate_corpus,
 )
 
-_CORPUS_DIR = default_corpus_dir()
-_FEATURE_STAMPS = _CORPUS_DIR / "stamps" / "feature"
+_DIMENSION_DEFS = default_dimension_defs_dir()
 
 
 def _feature_product_corpus() -> dict:
     dims = [
-        load_dimension_stamp(_FEATURE_STAMPS / "intent-alignment.json"),
-        load_dimension_stamp(_FEATURE_STAMPS / "codebase-consistency.json"),
-        load_dimension_stamp(_FEATURE_STAMPS / "solution-quality.json"),
+        load_dimension_def(_DIMENSION_DEFS / "intent-alignment.json"),
+        load_dimension_def(_DIMENSION_DEFS / "codebase-consistency.json"),
+        load_dimension_def(_DIMENSION_DEFS / "solution-quality.json"),
     ]
     return compose_corpus(
         corpus_id="tech-plan-composed",
@@ -40,8 +39,8 @@ def _feature_product_corpus() -> dict:
 
 def _feature_tech_corpus() -> dict:
     dims = [
-        load_dimension_stamp(_FEATURE_STAMPS / "codebase-consistency.json"),
-        load_dimension_stamp(_FEATURE_STAMPS / "solution-quality.json"),
+        load_dimension_def(_DIMENSION_DEFS / "codebase-consistency.json"),
+        load_dimension_def(_DIMENSION_DEFS / "solution-quality.json"),
     ]
     return compose_corpus(
         corpus_id="tech-plan-composed",

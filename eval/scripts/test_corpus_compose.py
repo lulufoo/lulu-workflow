@@ -13,10 +13,10 @@ from corpus_compose import (  # noqa: E402
     compose_corpus,
     corpus_fingerprint,
     is_composed_corpus_ref,
-    load_dimension_stamp,
+    load_dimension_def,
 )
 
-_STAMPS = Path(__file__).resolve().parents[2] / "tech-plan" / "corpora" / "stamps" / "feature"
+_DIMENSION_DEFS = Path(__file__).resolve().parents[2] / "tech-plan" / "dimension-defs"
 
 
 class TestCorpusCompose:
@@ -44,9 +44,9 @@ class TestCorpusCompose:
 
     def test_compose_product_session(self):
         dims = [
-            load_dimension_stamp(_STAMPS / "intent-alignment.json"),
-            load_dimension_stamp(_STAMPS / "codebase-consistency.json"),
-            load_dimension_stamp(_STAMPS / "solution-quality.json"),
+            load_dimension_def(_DIMENSION_DEFS / "intent-alignment.json"),
+            load_dimension_def(_DIMENSION_DEFS / "codebase-consistency.json"),
+            load_dimension_def(_DIMENSION_DEFS / "solution-quality.json"),
         ]
         corpus = compose_corpus(
             corpus_id="tech-plan-composed",

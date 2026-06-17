@@ -249,8 +249,13 @@ def resolve_dim_id(data: dict[str, Any], dim: str) -> str:
     raise ValueError(f"unknown dimension: {dim!r}")
 
 
+def default_dimension_defs_dir() -> Path:
+    """Return tech-plan feature Evaluating dimension definition directory."""
+    return Path(__file__).resolve().parents[2] / "tech-plan" / "dimension-defs"
+
+
 def default_corpus_dir() -> Path:
-    """Return workflow corpus template directory (tech-plan/corpora)."""
+    """Legacy static EvalCorpus directory (retired; tech-plan uses dynamic compose)."""
     return Path(__file__).resolve().parents[2] / "tech-plan" / "corpora"
 
 

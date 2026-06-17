@@ -28,8 +28,7 @@ _TECH_PLAN_SHELL_PATHS = frozenset(
     {
         "transition_whitelist",
         "hook_guard",
-        "corpora_dir",
-        "constraints_instance_dir",
+        "dimension_defs_dir",
     }
 )
 

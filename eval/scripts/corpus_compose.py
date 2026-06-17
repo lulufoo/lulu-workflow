@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compose EvalCorpus documents from dimension stamps."""
+"""Compose EvalCorpus documents from dimension definition files."""
 
 from __future__ import annotations
 
@@ -26,13 +26,13 @@ def corpus_fingerprint(
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
 
 
-def load_dimension_stamp(path: Path) -> dict[str, Any]:
-    """Load one dimension stamp JSON object."""
+def load_dimension_def(path: Path) -> dict[str, Any]:
+    """Load one dimension definition JSON object."""
     data = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
-        raise ValueError(f"stamp must be an object: {path}")
+        raise ValueError(f"dimension def must be an object: {path}")
     if not data.get("id"):
-        raise ValueError(f"stamp missing id: {path}")
+        raise ValueError(f"dimension def missing id: {path}")
     return data
 
 

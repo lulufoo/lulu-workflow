@@ -79,7 +79,7 @@ class TestTechPlanEvalAdapter:
         ws = base / "revision1" / "workflow-state.md"
         init_drafting(ws, mode="tech")
         adapter = load_adapter("tech-plan")
-        with pytest.raises(ValueError, match="topic eval stamps are not implemented"):
+        with pytest.raises(ValueError, match="topic cycles do not evaluate in tech-plan"):
             adapter.resolve_eval_corpus(cycle, tmp_path)
 
     def test_unknown_workflow_raises(self):

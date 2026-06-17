@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-_STAMP_FILES = {
+_DIMENSION_DEF_FILES = {
     "intent-alignment": "intent-alignment.json",
     "codebase-consistency": "codebase-consistency.json",
     "solution-quality": "solution-quality.json",
@@ -16,9 +16,9 @@ _STAMP_FILES = {
 
 _INTENT_EVAL_CONFIG_KEY = "tpt_intent_eval_framework_url"
 
-_TOPIC_EVAL_NOT_IMPLEMENTED = (
-    "topic eval stamps are not implemented yet; "
-    "only feature cycles can enter Evaluating."
+_TOPIC_EVAL_BLOCKED = (
+    "topic cycles do not evaluate in tech-plan; "
+    "use arch-design stage for topic Evaluating."
 )
 
 
@@ -40,25 +40,24 @@ def intent_eval_config_key(cycle_type: str) -> str:
     return _INTENT_EVAL_CONFIG_KEY
 
 
-def stamps_dir_for_cycle_type(corpora_dir: Path, cycle_type: str) -> Path:
-    """Return stamp directory for cycle_type; topic is reserved but not implemented."""
-    if cycle_type == "feature":
-        return corpora_dir / "stamps" / "feature"
+def require_feature_eval(cycle_type: str) -> None:
+    """Raise when cycle_type cannot use tech-plan Evaluating."""
     if cycle_type == "topic":
-        raise ValueError(_TOPIC_EVAL_NOT_IMPLEMENTED)
-    raise ValueError(f"unsupported cycle_type for eval: {cycle_type!r}")
+        raise ValueError(_TOPIC_EVAL_BLOCKED)
+    if cycle_type != "feature":
+        raise ValueError(f"unsupported cycle_type for eval: {cycle_type!r}")
 
 
-def load_stamps(stamps_dir: Path) -> dict[str, dict[str, Any]]:
-    """Load all dimension stamps keyed by dimension id."""
+def load_dimension_defs(dimension_defs_dir: Path) -> dict[str, dict[str, Any]]:
+    """Load all dimension definition files keyed by dimension id."""
     result: dict[str, dict[str, Any]] = {}
-    for dim_id, filename in _STAMP_FILES.items():
-        path = stamps_dir / filename
+    for dim_id, filename in _DIMENSION_DEF_FILES.items():
+        path = dimension_defs_dir / filename
         if not path.is_file():
-            raise FileNotFoundError(f"missing dimension stamp: {path}")
+            raise FileNotFoundError(f"missing dimension def: {path}")
         data = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(data, dict):
-            raise ValueError(f"stamp must be an object: {path}")
+            raise ValueError(f"dimension def must be an object: {path}")
         result[dim_id] = data
     return result
 
@@ -68,10 +67,10 @@ def select_dimension_defs(
     product_ref: str,
     mode: str,
     cycle_type: str,
-    corpora_dir: Path,
+    dimension_defs_dir: Path,
 ) -> list[dict[str, Any]]:
     """Return ordered dimension definitions for compose_corpus."""
-    stamps_dir = stamps_dir_for_cycle_type(corpora_dir, cycle_type)
-    stamps = load_stamps(stamps_dir)
+    require_feature_eval(cycle_type)
+    defs = load_dimension_defs(dimension_defs_dir)
     ids = select_dimension_ids(product_ref=product_ref, mode=mode)
-    return [copy.deepcopy(stamps[dim_id]) for dim_id in ids]
+    return [copy.deepcopy(defs[dim_id]) for dim_id in ids]

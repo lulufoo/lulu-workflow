@@ -27,6 +27,8 @@ class TestResolveKey:
             ("outline-registry", "tpt_outline_registry_url"),
             ("feature-role-instance", "tpt_feature_role_instance_url"),
             ("feature-domain-instance", "tpt_feature_domain_instance_url"),
+            ("topic-role-instance", "tpt_topic_role_instance_url"),
+            ("topic-domain-instance", "tpt_topic_domain_instance_url"),
             ("eval-ptc", "tpt_product_tech_spec_crosscheck_url"),
             ("intent-eval-framework", "tpt_intent_eval_framework_url"),
         ],
@@ -51,6 +53,8 @@ class TestResolveKey:
             "outline-registry",
             "section-kw-criteria",
             "section-registry",
+            "topic-domain-instance",
+            "topic-role-instance",
         }
 
 

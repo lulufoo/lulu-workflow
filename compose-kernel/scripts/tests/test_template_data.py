@@ -144,6 +144,48 @@ FEATURE_DOMAIN_INSTANCE: dict[str, Any] = {
     "audience_type": "agent or engineer about to implement the next step",
 }
 
+TOPIC_ROLE_INSTANCE: dict[str, Any] = {
+    "version": "1",
+    "$schema_id": "role-schema",
+    "cycle_type": "topic",
+    "role_id": "system_architect",
+    "role_prompt": (
+        "You are acting as a **system architect**. Frame analysis from system boundaries, "
+        "structural evolution, and long-term trade-offs."
+    ),
+    "cognitive_framework": "system boundaries, structural evolution, execution phasing at milestone granularity",
+    "priority_tendency": "early registry sections establish the arc; SK and T carry phased momentum",
+    "vocabulary_domain": [
+        "module boundaries",
+        "coupling",
+        "evolution paths",
+        "exclusion rationale",
+        "system invariants",
+        "phase Done criteria",
+    ],
+    "expressive_tendency": "boundary-explicit blocks first; phase skeleton with clear Done lines",
+    "completion_bar": "direction clear, boundaries explicit, key decisions traceable",
+}
+
+TOPIC_DOMAIN_INSTANCE: dict[str, Any] = {
+    "version": "1",
+    "$schema_id": "domain-schema",
+    "cycle_type": "topic",
+    "domain_id": "tech_plan_topic",
+    "cognitive_frame": "technical feasibility and design traceability",
+    "information_nature": [
+        "structural relationships between components",
+        "process and data flows",
+        "state transitions and lifecycle",
+        "design decisions and their rationale",
+        "constraints, invariants, and exclusions",
+        "trade-off comparisons",
+    ],
+    "expression_conventions": "technical prose is analytical not narrative",
+    "intent_anchor": "all content must be traceable to the decision-doc SSOT",
+    "audience_type": "architects who validate structure and evolution",
+}
+
 
 def _workflow_scripts_dir() -> Path:
     from workflow_paths import WORKFLOW_SCRIPTS  # noqa: WPS433
@@ -182,6 +224,18 @@ def seed_tech_plan_test_caches(project_root: Path) -> None:
         "tech-plan",
         "tpt_feature_domain_instance_url",
         FEATURE_DOMAIN_INSTANCE,
+    )
+    seed_template_cache(
+        project_root,
+        "tech-plan",
+        "tpt_topic_role_instance_url",
+        TOPIC_ROLE_INSTANCE,
+    )
+    seed_template_cache(
+        project_root,
+        "tech-plan",
+        "tpt_topic_domain_instance_url",
+        TOPIC_DOMAIN_INSTANCE,
     )
 
 

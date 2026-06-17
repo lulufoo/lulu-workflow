@@ -42,7 +42,7 @@ Internal library for structured technical document authoring. Users invoke stage
 | `scripts/hook_guard.py` | Active-session Write/Edit cache boundary (`HOOK_COMMAND` target) |
 | `scripts/tests/` | Shell script pytest suite |
 | `SKILL.md` | Full Drafting / Evaluating orchestration text |
-| `corpora/`, `constraints/instance/` | Eval stamps, topic role/domain instances |
+| `dimension-defs/` | Feature Evaluating dimension definitions |
 | `transition-whitelist.json` | Outer session transition whitelist |
 
 `draft_control.py` is **not** under `compose-kernel/scripts/`.

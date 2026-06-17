@@ -12,14 +12,11 @@ import json
 from pathlib import Path
 from typing import Any
 
-from schema_common import (
-    VALID_CYCLE_TYPES,
-    default_instance_dir,
-    resolve_fetched_instance_path,
-)
+from schema_common import VALID_CYCLE_TYPES, resolve_fetched_instance_path
 
 SCHEMA_ID = "domain-schema"
 FEATURE_DOMAIN_KEY = "tpt_feature_domain_instance_url"
+TOPIC_DOMAIN_KEY = "tpt_topic_domain_instance_url"
 
 _SCHEMA: list[dict[str, Any]] = [
     {"field": "version", "type": "string", "required": True,
@@ -48,9 +45,9 @@ _DOMAIN_FIELD_KEYS = frozenset(
     if entry["field"] not in {"version", "$schema_id", "cycle_type"}
 )
 
-_INSTANCE_FILENAMES: dict[str, str] = {
-    "topic": "tech-plan-topic-domain-instance.json",
-    "feature": "tech-plan-feature-domain-instance.json",
+_FETCH_BINDINGS: dict[str, tuple[str, str]] = {
+    "feature": (FEATURE_DOMAIN_KEY, "feature-domain-instance"),
+    "topic": (TOPIC_DOMAIN_KEY, "topic-domain-instance"),
 }
 
 
@@ -62,17 +59,12 @@ def get_schema() -> list[dict[str, Any]]:
 def domain_instance_path(cycle_type: str, project_root: Path | None = None) -> Path:
     """Return path to domain instance file for cycle_type."""
     key = cycle_type.strip().lower()
-    if key not in _INSTANCE_FILENAMES:
+    if key not in _FETCH_BINDINGS:
         raise ValueError(
             f"invalid cycle_type: {cycle_type!r} (allowed: {sorted(VALID_CYCLE_TYPES)})",
         )
-    if key == "feature":
-        return resolve_fetched_instance_path(
-            FEATURE_DOMAIN_KEY,
-            "feature-domain-instance",
-            project_root,
-        )
-    return default_instance_dir() / _INSTANCE_FILENAMES[key]
+    config_key, fetch_role = _FETCH_BINDINGS[key]
+    return resolve_fetched_instance_path(config_key, fetch_role, project_root)
 
 
 def load_domain_instance(path: Path) -> dict[str, Any]:
@@ -140,20 +132,13 @@ def validate_all_domain_instances(project_root: Path | None = None) -> list[str]
     for cycle_type in sorted(VALID_CYCLE_TYPES):
         try:
             path = domain_instance_path(cycle_type, project_root)
-        except (OSError, ValueError, FileNotFoundError) as exc:
-            errors.append(f"domain instance {cycle_type}: {exc}")
-            continue
-        if cycle_type == "topic" and not path.exists():
-            errors.append(f"missing domain instance: {path}")
-            continue
-        try:
             data = load_domain_instance(path)
             errors.extend(
                 f"{path.name}: {err}"
                 for err in validate_domain_instance(data, expected_cycle_type=cycle_type)
             )
-        except ValueError as exc:
-            errors.append(str(exc))
+        except (OSError, ValueError, FileNotFoundError) as exc:
+            errors.append(f"domain instance {cycle_type}: {exc}")
     return errors
 
 

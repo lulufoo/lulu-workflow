@@ -86,8 +86,9 @@ class TestResolveRole:
             resolve_role_markdown()
 
     def test_instance_paths(self):
-        assert role_instance_path("topic").name == "tech-plan-topic-role-instance.json"
-        assert role_instance_path("feature", project_root=Path.cwd()).exists()
+        root = Path.cwd()
+        assert role_instance_path("topic", project_root=root).exists()
+        assert role_instance_path("feature", project_root=root).exists()
 
 
 class TestResolveDomain:
@@ -105,8 +106,9 @@ class TestResolveDomain:
         assert "trade-off comparisons" in md
 
     def test_domain_paths(self):
-        assert domain_instance_path("topic").name == "tech-plan-topic-domain-instance.json"
-        assert domain_instance_path("feature", project_root=Path.cwd()).exists()
+        root = Path.cwd()
+        assert domain_instance_path("topic", project_root=root).exists()
+        assert domain_instance_path("feature", project_root=root).exists()
 
     def test_requires_cycle(self):
         with pytest.raises(ScopeResolverError, match="requires"):

@@ -25,6 +25,8 @@ ROLE_KEYS: dict[str, str] = {
     "outline-registry": "tpt_outline_registry_url",
     "section-kw-criteria": "tpt_section_kw_criteria_url",
     "section-registry": "tpt_section_registry_url",
+    "topic-domain-instance": "tpt_topic_domain_instance_url",
+    "topic-role-instance": "tpt_topic_role_instance_url",
 }
 
 _VALID_ROLES = frozenset(ROLE_KEYS)
@@ -70,7 +72,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         "--role",
         required=True,
         choices=sorted(_VALID_ROLES),
-        help="Framework role (eval-ptc, feature-domain-instance, feature-role-instance, intent-eval-framework, outline-registry, section-kw-criteria, section-registry)",
+        help="Framework role (eval-ptc, feature-domain-instance, feature-role-instance, intent-eval-framework, outline-registry, section-kw-criteria, section-registry, topic-domain-instance, topic-role-instance)",
     )
     parser.add_argument(
         "--project-root",
