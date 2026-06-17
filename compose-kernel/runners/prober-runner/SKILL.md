@@ -52,7 +52,7 @@ One invocation = one probe pass on **one section** (`ACTIVE_SECTION`). Read-only
 
 `read-section-body --section {ACTIVE_SECTION}` → active section `body` (located by `<!-- section-key:… -->`; do not grep H2 display titles).
 
-Dependency graph SSOT: `$FETCH_TECH_PLAN section-registry` (`tpt_section_registry_url`). Exposed via `read-upstream-context`.
+Dependency graph SSOT: `$FETCH_COMPOSE section-registry` (`tpt_section_registry_url`). Exposed via `read-upstream-context`.
 
 ## Step 1 — Load context
 
@@ -64,7 +64,7 @@ Read decision-doc **full text** from `$CTX.decision_doc_path` once; keep for Ste
 
 `read-section-body --section {ACTIVE_SECTION}` → full active section body for KW split and intent pass.
 
-`$FETCH_TECH_PLAN section-kw-criteria` → locate `## {ACTIVE_SECTION}` block (section **key**, not tech-doc display title).
+`$FETCH_COMPOSE section-kw-criteria` → locate `## {ACTIVE_SECTION}` block (section **key**, not tech-doc display title).
 
 Build `$SKIP_KEYS` = non-empty `skip_key` values from `$CTX.skips`.
 
@@ -94,7 +94,7 @@ Emit items (see Step 4 merge). Id pattern: `{section}-U-{upstream}-{n}`. Violati
 
 Only when Step 2 has **no** `kw0_pending` (same gate as Step 2b).
 
-**Input:** decision-doc full text · active section body · `## {ACTIVE_SECTION}` kw block · registry `intent` and `intent_boundary` for section (`python3 section_registry_schema.py --section-intent {ACTIVE_SECTION}` / `--section-intent-boundary`; or parse `$FETCH_TECH_PLAN section-registry` JSON).
+**Input:** decision-doc full text · active section body · `## {ACTIVE_SECTION}` kw block · registry `intent` and `intent_boundary` for section (`python3 section_registry_schema.py --section-intent {ACTIVE_SECTION}` / `--section-intent-boundary`; or parse `$FETCH_COMPOSE section-registry` JSON).
 
 **Skip** when `skip_key` `{ACTIVE_SECTION}:intent:{slug}` ∈ `$SKIP_KEYS`.
 

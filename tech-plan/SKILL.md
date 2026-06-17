@@ -75,7 +75,7 @@ To resume an in-progress tech document, do not run start again — run `$SESSION
 
 ## State Model
 
-State transitions via `$SESSION_CONTROL` / `$EVAL_CONTROL`; `transition-whitelist.json` enforced by control scripts and hook — do not load it directly.
+State transitions via `$SESSION_CONTROL` / `$EVAL_CONTROL` only; outer session states and allowed transitions live in `compose-kernel/transitions/compose-session.json` and are enforced by `$SESSION_CONTROL` — do not load that JSON directly.
 
 ---
 
@@ -93,7 +93,7 @@ State transitions via `$SESSION_CONTROL` / `$EVAL_CONTROL`; `transition-whitelis
 ### General
 
 1. Session reads: `$SESSION_INFO --view session` — `active_doc`, `workflow_state`; never infer state from tech-doc body or file existence.
-2. Config/templates: `$FETCH_TECH_PLAN <role>` on demand; do not read `workflow-config.json` directly. Roles: `section-registry`, `outline-registry`, `feature-role-instance`, `feature-domain-instance`, `section-kw-criteria`, `intent-eval-framework`, `eval-ptc`.
+2. Config/templates: `$FETCH_COMPOSE <role>` on demand; do not read `workflow-config.json` directly. Roles: `section-registry`, `outline-registry`, `role-instance`, `domain-instance`, `section-kw-criteria`.
 3. State writes: `$SESSION_CONTROL` / `$DRAFT_CONTROL` / `$ROUND_CONTROL` / `$EVAL_CONTROL` only; do not Write cache data files directly.
 4. Path guard blocks writes outside `$CACHE_DIR/` while a session is active.
 5. Evaluating review contract: `{$SKILL_ROOT}/eval/eval-rules.md` and `{$SKILL_ROOT}/eval/SKILL.md` (probe/remediation runners own `review.template.md`).
@@ -282,7 +282,7 @@ Macros invoke compose-kernel scripts (`$SKILL_ROOT/compose-kernel/scripts/...`) 
 | `$ROUND_CONTROL check-convergence` | `$ROUND_CONTROL check-convergence --round {N} --no-accept --gaps-resolved` |
 | `$RESOLVE_PLAN_ROLE` | `python3 "$SKILL_ROOT/compose-kernel/scripts/scope/scope_resolver.py" resolve-role --cycle-id "$CYCLE_ID" --project-root "$(pwd)"` |
 | `$RESOLVE_DOMAIN` | `python3 "$SKILL_ROOT/compose-kernel/scripts/scope/scope_resolver.py" resolve-domain --cycle-id "$CYCLE_ID" --project-root "$(pwd)"` |
-| `$FETCH_TECH_PLAN` | `python3 "$SKILL_ROOT/compose-kernel/scripts/io/fetch_plan_framework.py" --role <role> --project-root "$(pwd)"` |
+| `$FETCH_COMPOSE` | `python3 "$SKILL_ROOT/compose-kernel/scripts/io/fetch_compose_framework.py" --role <role> --project-root "$(pwd)"` |
 | `$SECTION_INTENT` | `python3 "$SKILL_ROOT/compose-kernel/scripts/schema/section/registry/section_registry_schema.py" --section-intent {key} --project-root "$(pwd)"` |
 | `$SECTION_INTENT_BOUNDARY` | `python3 "$SKILL_ROOT/compose-kernel/scripts/schema/section/registry/section_registry_schema.py" --section-intent-boundary {key} --project-root "$(pwd)"` |
 | `$EVAL_CONTROL` | `python3 "$SKILL_ROOT/eval/scripts/eval_control.py" --workflow tech-plan --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` — subcommands: `{$SKILL_ROOT}/eval/eval-rules.md` and `{$SKILL_ROOT}/eval/SKILL.md` |

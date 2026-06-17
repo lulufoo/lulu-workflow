@@ -7,11 +7,17 @@ from typing import Any, Dict, Optional
 _CORE = Path(__file__).resolve().parent
 if str(_CORE) not in sys.path:
     sys.path.insert(0, str(_CORE))
-from workflow_paths import WORKFLOW_ROOT, WORKFLOW_SCRIPTS, load_profile, shell_path  # noqa: E402
+from workflow_paths import (  # noqa: E402
+    COMPOSE_SESSION_TRANSITION,
+    WORKFLOW_ROOT,
+    WORKFLOW_SCRIPTS,
+    load_profile,
+    shell_path,
+)
 
 _PROFILE = load_profile("tech-plan")
 SKILL_ROOT = WORKFLOW_ROOT / _PROFILE["shell_dir"]
-WHITELIST_PATH = shell_path(_PROFILE, "transition_whitelist")
+WHITELIST_PATH = COMPOSE_SESSION_TRANSITION
 
 _PLATFORM = (
     __import__("os").environ.get("LULU_PLATFORM")

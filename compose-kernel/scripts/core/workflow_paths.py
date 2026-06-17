@@ -10,7 +10,11 @@ WORKFLOW_ROOT = Path(__file__).resolve().parents[3]
 EVAL_SCRIPTS = WORKFLOW_ROOT / "eval" / "scripts"
 WORKFLOW_SCRIPTS = WORKFLOW_ROOT / "scripts"
 COMPOSE_KERNEL_ROOT = WORKFLOW_ROOT / "compose-kernel"
+KERNEL_TRANSITIONS = COMPOSE_KERNEL_ROOT / "transitions"
+KERNEL_SCHEMES = COMPOSE_KERNEL_ROOT / "schemes"
+COMPOSE_SESSION_TRANSITION = KERNEL_TRANSITIONS / "compose-session.json"
 KERNEL_TEMPLATES = COMPOSE_KERNEL_ROOT / "templates"
+DEFAULT_COMPOSE_PROFILE_ID = "tech-plan"
 CORE_SCRIPTS = COMPOSE_KERNEL_ROOT / "scripts" / "core"
 SECTION_SCRIPTS = COMPOSE_KERNEL_ROOT / "scripts" / "section"
 SCOPE_SCRIPTS = COMPOSE_KERNEL_ROOT / "scripts" / "scope"
@@ -26,13 +30,12 @@ TECH_PLAN_SHELL = WORKFLOW_ROOT / "tech-plan"
 TECH_PLAN_SCRIPTS = TECH_PLAN_SHELL / "scripts"
 PROFILES_DIR = COMPOSE_KERNEL_ROOT / "profiles"
 
-_DEFAULT_PROFILE_ID = "tech-plan"
 _profile_cache: dict[str, dict[str, Any]] = {}
 
 
 def load_profile(profile_id: str | None = None) -> dict[str, Any]:
     """Load and cache a profile JSON by id (default: tech-plan)."""
-    pid = profile_id or _DEFAULT_PROFILE_ID
+    pid = profile_id or DEFAULT_COMPOSE_PROFILE_ID
     if pid in _profile_cache:
         return _profile_cache[pid]
     path = PROFILES_DIR / f"{pid}.json"
@@ -50,3 +53,4 @@ def shell_path(profile: dict[str, Any], key: str) -> Path:
     if not rel:
         raise KeyError(f"shell_paths.{key} missing in profile {profile.get('profile_id')!r}")
     return WORKFLOW_ROOT / rel
+

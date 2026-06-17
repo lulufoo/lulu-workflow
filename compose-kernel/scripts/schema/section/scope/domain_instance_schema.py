@@ -15,8 +15,7 @@ from typing import Any
 from schema_common import VALID_CYCLE_TYPES, resolve_fetched_instance_path
 
 SCHEMA_ID = "domain-schema"
-FEATURE_DOMAIN_KEY = "tpt_feature_domain_instance_url"
-TOPIC_DOMAIN_KEY = "tpt_topic_domain_instance_url"
+DOMAIN_SCHEME_KEY = "domain-instance"
 
 _SCHEMA: list[dict[str, Any]] = [
     {"field": "version", "type": "string", "required": True,
@@ -24,7 +23,7 @@ _SCHEMA: list[dict[str, Any]] = [
     {"field": "$schema_id", "type": "string", "required": True,
      "description": "Fixed value: domain-schema"},
     {"field": "cycle_type", "type": "string", "required": True,
-     "description": "topic (architecture plan) or feature (execution plan)"},
+     "description": "Container type label in instance payload (shell policy validates)"},
     {"field": "domain_id", "type": "string", "required": True,
      "description": "Unique identifier for this domain slice"},
     {"field": "cognitive_frame", "type": "string", "required": True,
@@ -45,26 +44,22 @@ _DOMAIN_FIELD_KEYS = frozenset(
     if entry["field"] not in {"version", "$schema_id", "cycle_type"}
 )
 
-_FETCH_BINDINGS: dict[str, tuple[str, str]] = {
-    "feature": (FEATURE_DOMAIN_KEY, "feature-domain-instance"),
-    "topic": (TOPIC_DOMAIN_KEY, "topic-domain-instance"),
-}
-
 
 def get_schema() -> list[dict[str, Any]]:
     """Return field definitions for domain instance JSON."""
     return list(_SCHEMA)
 
 
-def domain_instance_path(cycle_type: str, project_root: Path | None = None) -> Path:
-    """Return path to domain instance file for cycle_type."""
-    key = cycle_type.strip().lower()
-    if key not in _FETCH_BINDINGS:
-        raise ValueError(
-            f"invalid cycle_type: {cycle_type!r} (allowed: {sorted(VALID_CYCLE_TYPES)})",
-        )
-    config_key, fetch_role = _FETCH_BINDINGS[key]
-    return resolve_fetched_instance_path(config_key, fetch_role, project_root)
+def domain_instance_path(
+    project_root: Path | None = None,
+    profile_id: str | None = None,
+) -> Path:
+    """Return path to domain instance template for the active compose profile."""
+    return resolve_fetched_instance_path(
+        DOMAIN_SCHEME_KEY,
+        project_root,
+        profile_id=profile_id,
+    )
 
 
 def load_domain_instance(path: Path) -> dict[str, Any]:
@@ -116,7 +111,7 @@ def load_and_validate_domain_instance(
     path: Path | None = None,
     project_root: Path | None = None,
 ) -> dict[str, Any]:
-    target = path or domain_instance_path(cycle_type, project_root)
+    target = path or domain_instance_path(project_root=project_root)
     if not target.exists():
         raise FileNotFoundError(f"domain instance not found: {target}")
     data = load_domain_instance(target)
@@ -127,18 +122,14 @@ def load_and_validate_domain_instance(
 
 
 def validate_all_domain_instances(project_root: Path | None = None) -> list[str]:
-    """Validate both topic and feature domain instance files."""
+    """Validate domain instance template for the active compose profile."""
     errors: list[str] = []
-    for cycle_type in sorted(VALID_CYCLE_TYPES):
-        try:
-            path = domain_instance_path(cycle_type, project_root)
-            data = load_domain_instance(path)
-            errors.extend(
-                f"{path.name}: {err}"
-                for err in validate_domain_instance(data, expected_cycle_type=cycle_type)
-            )
-        except (OSError, ValueError, FileNotFoundError) as exc:
-            errors.append(f"domain instance {cycle_type}: {exc}")
+    try:
+        path = domain_instance_path(project_root=project_root)
+        data = load_domain_instance(path)
+        errors.extend(f"{path.name}: {err}" for err in validate_domain_instance(data))
+    except (OSError, ValueError, FileNotFoundError) as exc:
+        errors.append(f"domain instance: {exc}")
     return errors
 
 

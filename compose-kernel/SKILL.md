@@ -19,14 +19,16 @@ Internal library for structured technical document authoring. Users invoke stage
 | Path | Contents |
 |------|----------|
 | `scripts/core/` | Session entrypoints (`start`, `session_control`, `session_info`, `archive`, `workflow_common`) |
-| `scripts/schema/session/` | Session/cycle schemas (`workflow_state`, `session_state`, `human_delivery_gate`, `profile`) |
+| `scripts/schema/session/` | Session/cycle schemas (`workflow_state`, `session_state`, `human_delivery_gate`, `profile`, `transition_registry`) |
+| `transitions/` | Shared compose session transition table (`compose-session.json`) |
+| `schemes/` | Compose template scheme (`compose-template-scheme.json`) |
 | `scripts/schema/section/registry/` | Section registry core (`section_registry`, `section_dependency`, `outline_registry`) |
 | `scripts/schema/section/round/` | Round runtime artifacts (`section_pointer`, `probe_report`, `refiner_artifact`) |
 | `scripts/schema/section/document/` | Tech-doc presentation I/O (`tech_doc_schema`) |
 | `scripts/schema/section/scope/` | Compose-scope instance schemas (role, domain, `schema_common`) |
 | `scripts/section/` | `section_round_control` (section-gated Round Iteration) |
 | `scripts/scope/` | `scope_resolver` (role/domain constraint resolver CLI) |
-| `scripts/io/` | `fetch_plan_framework` (framework template fetch) |
+| `scripts/io/` | `fetch_compose_framework` (compose template fetch by scheme role) |
 | `templates/` | Ledger seed templates (`anchor-ledger`, `skip-ledger`) |
 | `runners/` | initializing, prober, refiner runner SKILLs |
 | `references/` | `compose-theory.md`, `gap-display.md` |
@@ -43,7 +45,6 @@ Internal library for structured technical document authoring. Users invoke stage
 | `scripts/tests/` | Shell script pytest suite |
 | `SKILL.md` | Full Drafting / Evaluating orchestration text |
 | `dimension-defs/` | Feature Evaluating dimension definitions |
-| `transition-whitelist.json` | Outer session transition whitelist |
 
 `draft_control.py` is **not** under `compose-kernel/scripts/`.
 

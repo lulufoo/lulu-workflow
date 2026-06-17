@@ -13,7 +13,7 @@ _CORE = _SCRIPTS / "core"
 if str(_CORE) not in sys.path:
     sys.path.insert(0, str(_CORE))
 
-from workflow_paths import PROFILES_DIR
+from workflow_paths import KERNEL_SCHEMES, PROFILES_DIR  # noqa: E402
 
 _TECH_PLAN_REQUIRED = frozenset(
     {
@@ -22,15 +22,37 @@ _TECH_PLAN_REQUIRED = frozenset(
         "shell_paths",
         "cache_subdir",
         "framework_section",
+        "framework_templates",
+        "cycle_types",
     }
 )
 _TECH_PLAN_SHELL_PATHS = frozenset(
     {
-        "transition_whitelist",
         "hook_guard",
         "dimension_defs_dir",
     }
 )
+_COMPOSE_SCHEME_PATH = KERNEL_SCHEMES / "compose-template-scheme.json"
+
+
+def _load_scheme() -> dict:
+    return json.loads(_COMPOSE_SCHEME_PATH.read_text(encoding="utf-8"))
+
+
+def _required_scheme_keys() -> frozenset[str]:
+    keys: set[str] = set()
+    for entry in _load_scheme().get("templates", []):
+        if entry.get("required") == "always" and entry.get("key"):
+            keys.add(str(entry["key"]))
+    return frozenset(keys)
+
+
+def _allowed_scheme_keys() -> frozenset[str]:
+    keys: set[str] = set()
+    for entry in _load_scheme().get("templates", []):
+        if entry.get("key"):
+            keys.add(str(entry["key"]))
+    return frozenset(keys)
 
 
 def _validate_profile(path: Path) -> list[str]:
@@ -56,6 +78,20 @@ def _validate_profile(path: Path) -> list[str]:
         for key in _TECH_PLAN_SHELL_PATHS:
             if key not in shell_paths:
                 errors.append(f"{path.name}: missing shell_paths.{key!r}")
+        cycle_types = data.get("cycle_types") or []
+        if not isinstance(cycle_types, list) or not cycle_types:
+            errors.append(f"{path.name}: cycle_types must be a non-empty list")
+        templates = data.get("framework_templates") or {}
+        for scheme_key in _required_scheme_keys():
+            if scheme_key not in templates:
+                errors.append(f"{path.name}: missing framework_templates[{scheme_key!r}]")
+        allowed = _allowed_scheme_keys()
+        for scheme_key in templates:
+            if scheme_key not in allowed:
+                errors.append(
+                    f"{path.name}: unknown framework_templates key {scheme_key!r}; "
+                    f"allowed: {', '.join(sorted(allowed))}",
+                )
 
     return errors
 

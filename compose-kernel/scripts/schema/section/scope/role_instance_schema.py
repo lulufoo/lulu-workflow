@@ -16,8 +16,7 @@ from typing import Any
 from schema_common import VALID_CYCLE_TYPES, resolve_fetched_instance_path
 
 SCHEMA_ID = "role-schema"
-FEATURE_ROLE_KEY = "tpt_feature_role_instance_url"
-TOPIC_ROLE_KEY = "tpt_topic_role_instance_url"
+ROLE_SCHEME_KEY = "role-instance"
 
 _SCHEMA: list[dict[str, Any]] = [
     {"field": "version", "type": "string", "required": True,
@@ -25,7 +24,7 @@ _SCHEMA: list[dict[str, Any]] = [
     {"field": "$schema_id", "type": "string", "required": True,
      "description": "Fixed value: role-schema"},
     {"field": "cycle_type", "type": "string", "required": True,
-     "description": "topic (system architect) or feature (technical expert)"},
+     "description": "Container type label in instance payload (shell policy validates)"},
     {"field": "role_id", "type": "string", "required": True,
      "description": "Unique identifier for this role slice"},
     {"field": "role_prompt", "type": "string", "required": True,
@@ -48,26 +47,22 @@ _ROLE_FIELD_KEYS = frozenset(
     if entry["field"] not in {"version", "$schema_id", "cycle_type", "role_prompt"}
 )
 
-_FETCH_BINDINGS: dict[str, tuple[str, str]] = {
-    "feature": (FEATURE_ROLE_KEY, "feature-role-instance"),
-    "topic": (TOPIC_ROLE_KEY, "topic-role-instance"),
-}
-
 
 def get_schema() -> list[dict[str, Any]]:
     """Return field definitions for role instance JSON."""
     return list(_SCHEMA)
 
 
-def role_instance_path(cycle_type: str, project_root: Path | None = None) -> Path:
-    """Return path to role instance file for cycle_type."""
-    key = cycle_type.strip().lower()
-    if key not in _FETCH_BINDINGS:
-        raise ValueError(
-            f"invalid cycle_type: {cycle_type!r} (allowed: {sorted(VALID_CYCLE_TYPES)})",
-        )
-    config_key, fetch_role = _FETCH_BINDINGS[key]
-    return resolve_fetched_instance_path(config_key, fetch_role, project_root)
+def role_instance_path(
+    project_root: Path | None = None,
+    profile_id: str | None = None,
+) -> Path:
+    """Return path to role instance template for the active compose profile."""
+    return resolve_fetched_instance_path(
+        ROLE_SCHEME_KEY,
+        project_root,
+        profile_id=profile_id,
+    )
 
 
 def load_role_instance(path: Path) -> dict[str, Any]:
@@ -138,7 +133,7 @@ def load_and_validate_role_instance(
     path: Path | None = None,
     project_root: Path | None = None,
 ) -> dict[str, Any]:
-    target = path or role_instance_path(cycle_type, project_root)
+    target = path or role_instance_path(project_root=project_root)
     if not target.exists():
         raise FileNotFoundError(f"role instance not found: {target}")
     data = load_role_instance(target)
@@ -149,18 +144,14 @@ def load_and_validate_role_instance(
 
 
 def validate_all_role_instances(project_root: Path | None = None) -> list[str]:
-    """Validate both topic and feature role instance files."""
+    """Validate role instance template for the active compose profile."""
     errors: list[str] = []
-    for cycle_type in sorted(VALID_CYCLE_TYPES):
-        try:
-            path = role_instance_path(cycle_type, project_root)
-            data = load_role_instance(path)
-            errors.extend(
-                f"{path.name}: {err}"
-                for err in validate_role_instance(data, expected_cycle_type=cycle_type)
-            )
-        except (OSError, ValueError, FileNotFoundError) as exc:
-            errors.append(f"role instance {cycle_type}: {exc}")
+    try:
+        path = role_instance_path(project_root=project_root)
+        data = load_role_instance(path)
+        errors.extend(f"{path.name}: {err}" for err in validate_role_instance(data))
+    except (OSError, ValueError, FileNotFoundError) as exc:
+        errors.append(f"role instance: {exc}")
     return errors
 
 

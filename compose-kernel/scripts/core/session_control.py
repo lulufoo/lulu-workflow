@@ -33,6 +33,7 @@ from evaluate_state_schema import load_evaluate_state  # noqa: E402
 from human_delivery_gate_schema import write_approved  # noqa: E402
 from session_state_schema import load_active_doc_from_cycle  # noqa: E402
 from workflow_common import approval_path  # noqa: E402
+from transition_registry import is_allowed  # noqa: E402
 from workflow_state_schema import (  # noqa: E402
     load_workflow_state,
     resolve_workflow_state_path_from_cycle,
@@ -125,6 +126,10 @@ def _failure_abandon(current_state: str, message: str) -> dict[str, Any]:
     }
 
 
+def _require_transition(command: str, from_state: str, to_state: str) -> bool:
+    return is_allowed(command, from_state, to_state)
+
+
 def _build_resume(command: str, current_state: str) -> dict[str, Any]:
     if current_state == "Invalidated":
         return {
@@ -162,6 +167,9 @@ def start_evaluating(cycle_id: str, project_root: Path) -> dict[str, Any]:
     if current != "Drafting":
         return _failure(_CMD_START_EVALUATING, current)
 
+    if not _require_transition(_CMD_START_EVALUATING, current, "Evaluating"):
+        return _failure(_CMD_START_EVALUATING, current)
+
     try:
         evaluate_round = int(state.get("evaluate_round", "0")) + 1
     except ValueError:
@@ -191,12 +199,16 @@ def ready_for_delivery(cycle_id: str, project_root: Path) -> dict[str, Any]:
         return _success(_CMD_READY, "ReadyForDelivery")
 
     if current == "Drafting":
+        if not _require_transition(_CMD_READY, current, "ReadyForDelivery"):
+            return _failure(_CMD_READY, current)
         updates: dict[str, str] = {"current_state": "ReadyForDelivery"}
         updates["skip_evaluate_requested"] = "true"
         save_workflow_state(ws_path, updates)
         return _success(_CMD_READY, "ReadyForDelivery")
 
     if current == "Evaluating":
+        if not _require_transition(_CMD_READY, current, "ReadyForDelivery"):
+            return _failure(_CMD_READY, current)
         merged = dict(state)
         merged.pop("skip_evaluate_requested", None)
         merged["current_state"] = "ReadyForDelivery"
@@ -212,6 +224,9 @@ def deliver(cycle_id: str, project_root: Path, *, note: str = "") -> dict[str, A
     current = state["current_state"]
 
     if current != _EXPECTED_DELIVER_STATE:
+        return _failure_deliver(current)
+
+    if not _require_transition(_CMD_DELIVER, current, "Delivered"):
         return _failure_deliver(current)
 
     write_approved(_gate_path(cycle_id, project_root), note=note)
@@ -255,6 +270,16 @@ def abandon_evaluation(cycle_id: str, project_root: Path) -> dict[str, Any]:
             (
                 f"abandon-evaluation 被拒绝：eval_status 为 "
                 f"{eval_status!r}，预期为 'abandoned'。"
+                "请暂停执行，等待用户指示。"
+            ),
+        )
+
+    if not _require_transition(_CMD_ABANDON, current, "Drafting"):
+        return _failure_abandon(
+            current,
+            (
+                f"abandon-evaluation 被拒绝：当前状态为 {current}，"
+                f"预期状态为 {_EXPECTED_ABANDON_STATE}。"
                 "请暂停执行，等待用户指示。"
             ),
         )
@@ -327,6 +352,9 @@ def resume_after_eval(cycle_id: str, project_root: Path) -> dict[str, Any]:
                 "expected 'done' (run complete-round first)."
             ),
         }
+
+    if not _require_transition(_CMD_RESUME_AFTER_EVAL, current, "Drafting"):
+        return _failure(_CMD_RESUME_AFTER_EVAL, current)
 
     merged = dict(state)
     merged["current_state"] = "Drafting"

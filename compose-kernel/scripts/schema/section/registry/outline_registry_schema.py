@@ -26,8 +26,7 @@ for _p in (_CORE, _IO):
 from workflow_paths import WORKFLOW_SCRIPTS  # noqa: E402
 
 SCHEMA_ID = "outline-schema"
-_OUTLINE_KEY = "tpt_outline_registry_url"
-_FETCH_SECTION = "tech-plan"
+_OUTLINE_SCHEME_KEY = "outline-registry"
 
 _SCHEMA: list[dict[str, Any]] = [
     {"field": "version", "type": "string", "required": True,
@@ -63,10 +62,13 @@ def resolve_outline_registry_path(project_root: Path | None = None) -> Path:
     """Return fetched outline template cache path; fetch when cache is empty."""
     root = _effective_project_root(project_root)
     _ensure_workflow_scripts()
+    from compose_template_registry import framework_section, resolve_config_key  # noqa: WPS433
     from fetch_template import cache_path  # noqa: WPS433
     from subagent_config import detect_platform  # noqa: WPS433
 
-    cached = cache_path(root, detect_platform(), _FETCH_SECTION, _OUTLINE_KEY)
+    section = framework_section()
+    config_key = resolve_config_key(_OUTLINE_SCHEME_KEY)
+    cached = cache_path(root, detect_platform(), section, config_key)
     if cached.exists() and cached.read_text(encoding="utf-8").strip():
         return cached
     fetch_outline_registry(root)
@@ -74,7 +76,7 @@ def resolve_outline_registry_path(project_root: Path | None = None) -> Path:
         return cached
     raise FileNotFoundError(
         f"outline registry cache not available after fetch: {cached}. "
-        "Run: python3 fetch_plan_framework.py --role outline-registry --project-root ."
+        "Run: python3 fetch_compose_framework.py --role outline-registry --project-root ."
     )
 
 
@@ -86,10 +88,10 @@ def fetch_outline_registry(
 ) -> dict[str, Any]:
     """Fetch outline registry via workflow-config template URL."""
     _ensure_workflow_scripts()
-    from fetch_plan_framework import fetch_plan_framework  # noqa: WPS433
+    from fetch_compose_framework import fetch_compose_framework  # noqa: WPS433
 
-    content = fetch_plan_framework(
-        "outline-registry",
+    content = fetch_compose_framework(
+        _OUTLINE_SCHEME_KEY,
         project_root.resolve(),
         platform=platform,
         force=force,

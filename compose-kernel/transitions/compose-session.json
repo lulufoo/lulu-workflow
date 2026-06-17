@@ -1,0 +1,17 @@
+{
+  "states": [
+    "Drafting",
+    "Evaluating",
+    "ReadyForDelivery",
+    "Delivered",
+    "Invalidated"
+  ],
+  "transitions": [
+    { "from": "Drafting", "to": "Evaluating", "command": "start-evaluating" },
+    { "from": "Drafting", "to": "ReadyForDelivery", "command": "ready-for-delivery" },
+    { "from": "Evaluating", "to": "ReadyForDelivery", "command": "ready-for-delivery" },
+    { "from": "Evaluating", "to": "Drafting", "command": "abandon-evaluation" },
+    { "from": "Evaluating", "to": "Drafting", "command": "resume-after-eval" },
+    { "from": "ReadyForDelivery", "to": "Delivered", "command": "deliver" }
+  ]
+}

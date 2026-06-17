@@ -39,36 +39,35 @@ class TestValidateRoleInstances:
         assert validate_all_plan_scope_instances() == []
 
     def test_missing_role_prompt(self):
-        data = load_and_validate_role_instance("topic")
+        data = load_and_validate_role_instance("feature")
         bad = {**data, "role_prompt": ""}
         assert any("role_prompt" in err for err in validate_role_instance(bad))
 
     def test_cycle_type_mismatch(self):
-        data = load_and_validate_role_instance("topic")
-        errors = validate_role_instance(data, expected_cycle_type="feature")
+        data = load_and_validate_role_instance("feature")
+        errors = validate_role_instance(data, expected_cycle_type="topic")
         assert any("cycle_type mismatch" in err for err in errors)
 
 
 class TestResolveRole:
-    def test_topic_by_cycle_type(self):
-        md = resolve_role_markdown(cycle_type="topic")
+    def test_feature_by_cycle_type(self):
+        md = resolve_role_markdown(cycle_type="feature")
         assert "## Plan Scope Constraints" in md
-        assert "cycle_type: topic" in md
+        assert "cycle_type: feature" in md
         assert "### Role" in md
-        assert "architect" in md.lower()
+        assert "technical expert" in md.lower()
         assert "### Role Fields" in md
         assert "role_prompt" not in md
 
     def test_feature_by_cycle_id(self):
         md = resolve_role_markdown(cycle_id="feat-demo")
         assert "cycle_type: feature" in md
-        assert "technical expert" in md.lower()
         payload = md.split("### Role Fields")[1]
         assert "technical_expert" in payload
 
-    def test_topic_by_cycle_id(self):
-        md = resolve_role_markdown(cycle_id="topic-demo")
-        assert "cycle_type: topic" in md
+    def test_topic_cycle_rejected(self):
+        with pytest.raises(ScopeResolverError, match="invalid cycle_type"):
+            resolve_role_markdown(cycle_id="topic-demo")
 
     def test_role_fields_exclude_prompt(self):
         data = load_and_validate_role_instance("feature")
@@ -87,8 +86,7 @@ class TestResolveRole:
 
     def test_instance_paths(self):
         root = Path.cwd()
-        assert role_instance_path("topic", project_root=root).exists()
-        assert role_instance_path("feature", project_root=root).exists()
+        assert role_instance_path(project_root=root).exists()
 
 
 class TestResolveDomain:
@@ -99,16 +97,13 @@ class TestResolveDomain:
         assert "tech_plan_feature" in md
         assert "executable next steps" in md
 
-    def test_topic_domain_by_cycle_id(self):
-        md = resolve_domain_markdown(cycle_id="topic-demo")
-        assert "cycle_type: topic" in md
-        assert "tech_plan_topic" in md
-        assert "trade-off comparisons" in md
+    def test_topic_cycle_rejected(self):
+        with pytest.raises(ScopeResolverError, match="invalid cycle_type"):
+            resolve_domain_markdown(cycle_id="topic-demo")
 
     def test_domain_paths(self):
         root = Path.cwd()
-        assert domain_instance_path("topic", project_root=root).exists()
-        assert domain_instance_path("feature", project_root=root).exists()
+        assert domain_instance_path(project_root=root).exists()
 
     def test_requires_cycle(self):
         with pytest.raises(ScopeResolverError, match="requires"):

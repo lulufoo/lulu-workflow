@@ -225,18 +225,6 @@ def seed_tech_plan_test_caches(project_root: Path) -> None:
         "tpt_feature_domain_instance_url",
         FEATURE_DOMAIN_INSTANCE,
     )
-    seed_template_cache(
-        project_root,
-        "tech-plan",
-        "tpt_topic_role_instance_url",
-        TOPIC_ROLE_INSTANCE,
-    )
-    seed_template_cache(
-        project_root,
-        "tech-plan",
-        "tpt_topic_domain_instance_url",
-        TOPIC_DOMAIN_INSTANCE,
-    )
 
 
 def legacy_section_registry_normalized() -> dict[str, Any]:

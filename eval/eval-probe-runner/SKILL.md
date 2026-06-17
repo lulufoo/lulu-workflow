@@ -83,7 +83,7 @@ Builtin `procedure_id: intent_gap_probes`. Criteria **A** = url SoT (`41-tech-pl
 
 1. Load **A** from SoT (P1–P4 definitions and applicability in **A**).
 2. Do **not** parse `<!-- state-vector: … -->`. Do **not** load `layer-standards` or L Diagnostic Criteria.
-3. Load **R** via `$FETCH_TECH_PLAN section-registry` (same `PROJECT_ROOT`).
+3. Load **R** via `$FETCH_COMPOSE section-registry` (same `PROJECT_ROOT`).
 4. For each `K` in **R** `section_order`:
    - Load section body via `<!-- section-key:K -->` in **B** (not H2 display titles).
    - Split sub-sections (one coherent intent unit; skip empty / boilerplate-only).

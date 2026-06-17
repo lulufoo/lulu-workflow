@@ -1,0 +1,10 @@
+{
+  "scheme_id": "compose-kernel-v1",
+  "templates": [
+    { "key": "section-registry", "format": "json", "required": "always" },
+    { "key": "section-kw-criteria", "format": "markdown", "required": "always" },
+    { "key": "role-instance", "format": "json", "required": "always" },
+    { "key": "domain-instance", "format": "json", "required": "always" },
+    { "key": "outline-registry", "format": "json", "required": "optional" }
+  ]
+}

@@ -3,7 +3,7 @@
 
 CLI:
     python3 scope_resolver.py resolve-role --cycle-id <id> --project-root .
-    python3 scope_resolver.py resolve-role --cycle-type topic --project-root .
+    python3 scope_resolver.py resolve-role --cycle-type feature --project-root .
     python3 scope_resolver.py resolve-domain --cycle-id <id> --project-root .
     python3 scope_resolver.py --validate
 """
@@ -23,7 +23,7 @@ import kernel_bootstrap  # noqa: E402
 kernel_bootstrap.ensure_kernel_paths()
 
 from domain_instance_schema import load_and_validate_domain_instance  # noqa: E402
-from schema_common import validate_all_plan_scope_instances  # noqa: E402
+from schema_common import VALID_CYCLE_TYPES, validate_all_plan_scope_instances  # noqa: E402
 from role_instance_schema import (  # noqa: E402
     get_role_fields,
     get_role_prompt,
@@ -63,9 +63,9 @@ def resolve_cycle_type(*, cycle_id: str | None, cycle_type: str | None) -> str:
         if not cycle_id:
             raise ScopeResolverError("resolve-role requires --cycle-id or --cycle-type")
         cycle_type = detect_cycle_type(cycle_id)
-    if cycle_type not in {"topic", "feature"}:
+    if cycle_type not in VALID_CYCLE_TYPES:
         raise ScopeResolverError(
-            f"invalid cycle_type: {cycle_type!r} (allowed: feature, topic)",
+            f"invalid cycle_type: {cycle_type!r} (allowed: {sorted(VALID_CYCLE_TYPES)})",
         )
     return cycle_type
 
@@ -152,7 +152,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     resolve.add_argument("--cycle-id", help="Cycle id (infers cycle_type from prefix)")
     resolve.add_argument(
         "--cycle-type",
-        choices=["topic", "feature"],
+        choices=sorted(VALID_CYCLE_TYPES),
         help="Explicit cycle_type (overrides --cycle-id inference)",
     )
     resolve.add_argument(
@@ -170,7 +170,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     domain.add_argument("--cycle-id", help="Cycle id (infers cycle_type from prefix)")
     domain.add_argument(
         "--cycle-type",
-        choices=["topic", "feature"],
+        choices=sorted(VALID_CYCLE_TYPES),
         help="Explicit cycle_type (overrides --cycle-id inference)",
     )
     domain.add_argument(

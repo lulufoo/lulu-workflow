@@ -31,7 +31,7 @@ from workflow_common import (
     state_path,
 )
 
-from workflow_common import WHITELIST_PATH as _WHITELIST_PATH  # noqa: E402
+from transition_registry import session_states as _session_states  # noqa: E402
 
 _SCHEMA: list[dict] = [
     {"field": "version", "type": "string", "required": True,
@@ -81,30 +81,6 @@ _VALID_MODES = frozenset({"product", "tech"})
 _VALID_CYCLE_TYPES = frozenset({"topic", "feature"})
 _SKIP_EVALUATE_VALUES = frozenset({"true", "false"})
 _HISTORICAL_VALUES = frozenset({"true"})
-
-_whitelist_cache: Optional[dict] = None
-_session_states_cache: Optional[frozenset[str]] = None
-
-
-def _load_whitelist() -> dict:
-    global _whitelist_cache
-    if _whitelist_cache is None:
-        _whitelist_cache = json.loads(_WHITELIST_PATH.read_text(encoding="utf-8"))
-    return _whitelist_cache
-
-
-def _session_states() -> frozenset[str]:
-    global _session_states_cache
-    if _session_states_cache is None:
-        states: set[str] = {"Invalidated"}
-        for entry in _load_whitelist().get("allowed_transitions", []):
-            if entry.get("from"):
-                states.add(entry["from"])
-            if entry.get("to"):
-                states.add(entry["to"])
-        _session_states_cache = frozenset(states)
-    return _session_states_cache
-
 
 def get_schema() -> list[dict]:
     """Return field definitions for workflow-state.md."""

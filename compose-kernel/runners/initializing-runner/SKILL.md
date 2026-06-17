@@ -35,25 +35,25 @@ See [`../../references/compose-theory.md`](../../references/compose-theory.md).
 | `$REVISION_DIR` | Absolute path to `revision{N}/` |
 | `$DECISION_DOC_PATH` | Absolute path to decision-doc |
 | `$DESIGN_DOC_PATH` | Optional absolute path to design-doc (supplementary; decision-doc remains SSOT) |
-| `$CYCLE_TYPE` | `topic` or `feature` |
+| `$CYCLE_TYPE` | `feature` (tech-plan compose profile) |
 | `$CYCLE_ID` | Active cycle id |
 
-Self-resolved: `$TECH_DOC_PATH` = `{REVISION_DIR}/tech-doc.md` · `$PROJECT_ROOT` = `$(pwd)` (same as `$FETCH_TECH_PLAN` / `$RESOLVE_PLAN_ROLE` project root)
+Self-resolved: `$TECH_DOC_PATH` = `{REVISION_DIR}/tech-doc.md` · `$PROJECT_ROOT` = `$(pwd)` (same as `$FETCH_COMPOSE` / `$RESOLVE_PLAN_ROLE` project root)
 
-Load frameworks via `$FETCH_TECH_PLAN` and role via `$RESOLVE_PLAN_ROLE` (see `{SKILL_ROOT}/tech-plan/SKILL.md` → Script Macros).
+Load frameworks via `$FETCH_COMPOSE` and role via `$RESOLVE_PLAN_ROLE` (see `{SKILL_ROOT}/tech-plan/SKILL.md` → Script Macros).
 
 ## Execution Contract
 
 ### Step I1 — Load
 
 1. Run `$RESOLVE_PLAN_ROLE` with `$CYCLE_ID`; read stdout as Plan Scope Constraints; keep `### Role` and `### Role Fields`.
-2. Run `$RESOLVE_DOMAIN` with `$CYCLE_ID`; read stdout; keep as `domain instance` (feature = execution domain; topic = architecture domain).
-3. Run `$FETCH_TECH_PLAN section-registry`; parse JSON. Cache `section_order`, `document_preamble`, `sections.{key}.heading`, `sections.{key}.intent` (fallback `desc`), `sections.{key}.intent_boundary`. Optional: `$SECTION_INTENT` / `$SECTION_INTENT_BOUNDARY` per key.
-4. When `$CYCLE_TYPE` is `feature`, run `$FETCH_TECH_PLAN outline-registry`; cache `outline_order`, `blocks.{key}.heading`, `blocks.{key}.intents`, `blocks.{key}.reader_note`, `document_preamble_addon`.
-5. Run `$FETCH_TECH_PLAN section-kw-criteria`; cache each `## {section_key}` block.
+2. Run `$RESOLVE_DOMAIN` with `$CYCLE_ID`; read stdout; keep as `domain instance` (execution domain).
+3. Run `$FETCH_COMPOSE section-registry`; parse JSON. Cache `section_order`, `document_preamble`, `sections.{key}.heading`, `sections.{key}.intent` (fallback `desc`), `sections.{key}.intent_boundary`. Optional: `$SECTION_INTENT` / `$SECTION_INTENT_BOUNDARY` per key.
+4. Run `$FETCH_COMPOSE outline-registry`; cache `outline_order`, `blocks.{key}.heading`, `blocks.{key}.intents`, `blocks.{key}.reader_note`, `document_preamble_addon`.
+5. Run `$FETCH_COMPOSE section-kw-criteria`; cache each `## {section_key}` block.
 6. Read `$DECISION_DOC_PATH` **full text** once; keep in memory for all sections.
 7. When `$DESIGN_DOC_PATH` is provided, read it **full text** once as supplementary context (decision-doc remains scope SSOT).
-8. Initialize `fill_results` from `section_order`: each entry has `content`, `status: "X"`, internal `draft: true`. For `topic`, also set `heading_line: "## {heading} <!-- section-key:{section_key} -->"` (`heading` = registry `sections.{key}.heading`).
+8. Initialize `fill_results` from `section_order`: each entry has `content`, `status: "X"`, internal `draft: true`.
 9. **Codebase read scope** — parse from decision Impact Surface, Implementation Sketch, and explicit reference implementations (paths, modules, or globs). Do not scan the whole repo.
 10. **Codebase context** — read only scoped files under `$PROJECT_ROOT`; keep structural facts (paths, entry points, dialog patterns, vendor layout, public symbols). Skip when scope is empty.
 11. When `$CYCLE_TYPE` is `feature` and codebase context is non-empty, note reference paths for I3 anchor-ledger R0 (`Ref: {path}`).
@@ -66,9 +66,6 @@ fill_results[section_key] = {
   status: "X"
 }
 ```
-
-For `topic` only, `heading_line` is also set per section for 1:1 H2 assembly.
-
 ### Step I2 — Compose (per `section_key`, strict I2a → I2d)
 
 For each key in `section_order`:
