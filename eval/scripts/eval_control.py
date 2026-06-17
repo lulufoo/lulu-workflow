@@ -36,6 +36,15 @@ from typing import Any
 _EVAL_LIB = Path(__file__).resolve().parent
 sys.path.insert(0, str(_EVAL_LIB))
 
+_WORKFLOW_ROOT = _EVAL_LIB.parent.parent
+_KERNEL_SCRIPTS = _WORKFLOW_ROOT / "compose-kernel" / "scripts"
+if str(_KERNEL_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_KERNEL_SCRIPTS))
+import kernel_bootstrap  # noqa: E402
+
+kernel_bootstrap.ensure_kernel_paths()
+from delivered_refs_schema import product_ref_from_state  # noqa: E402
+
 from review_io import (  # noqa: E402
     count_resolved,
     has_escalated,
@@ -175,8 +184,8 @@ def _bind_vars(
     project_root: Path,
 ) -> dict[str, str]:
     bind = {
-        "tech_doc": paths["tech_doc"],
-        "product_ref": state.get("product_ref", ""),
+        "compose_doc": paths["compose_doc"],
+        "product_ref": product_ref_from_state(state),
         "cycle_type": _adapter().detect_cycle_type(cycle_id),
         "M": str(evaluate_round),
     }
@@ -561,7 +570,7 @@ def build_eval_loop_payload(
         active_doc=active_doc,
         N=active_doc,
         cycle_type=_adapter().detect_cycle_type(cycle_id),
-        product_ref=state.get("product_ref", ""),
+        product_ref=product_ref_from_state(state),
         project_root=project_root.resolve().as_posix(),
         paths=paths,
     )
@@ -755,12 +764,13 @@ def _build_runner_input(
     for sot in sots:
         if sot.get("kind") == "url":
             ref = str(sot.get("ref", ""))
-            if ref and ref != paths["tech_doc"]:
+            if ref and ref != paths["compose_doc"]:
                 runner_input["PRODUCT_REF"] = ref
                 break
-    if "PRODUCT_REF" not in runner_input and state.get("product_ref"):
-        if any(s.get("kind") == "url" for s in sots):
-            runner_input["PRODUCT_REF"] = state.get("product_ref", "")
+    if "PRODUCT_REF" not in runner_input:
+        pref = product_ref_from_state(state)
+        if pref and any(s.get("kind") == "url" for s in sots):
+            runner_input["PRODUCT_REF"] = pref
     return runner_input
 
 
@@ -1100,7 +1110,7 @@ def _build_remediation_runner_input(
         "EVALUATE_ROUND": str(evaluate_round),
         "PROJECT_ROOT": project_root.resolve().as_posix(),
     }
-    product_ref = state.get("product_ref", "")
+    product_ref = product_ref_from_state(state)
     if product_ref:
         runner_input["PRODUCT_REF"] = product_ref
     return runner_input

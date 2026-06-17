@@ -1,0 +1,30 @@
+{
+  "id": "solution-quality",
+  "legacy_alias": "d2",
+  "label": "Design Solution Quality (Intent Probes)",
+  "eval_target": {
+    "path": "{compose_doc}"
+  },
+  "remediation_target": {
+    "path": "{compose_doc}"
+  },
+  "sots": [
+    {
+      "kind": "url",
+      "role": "primary",
+      "ref": "{tdt_design_quality_framework_url}"
+    }
+  ],
+  "method": {
+    "kind": "builtin",
+    "source": {
+      "procedure_id": "intent_gap_probes"
+    },
+    "focus": "P1–P4 intent gap probes on design-doc + design-only supplements (plan register, OQ flags, ST/IF inferability)"
+  },
+  "review": {
+    "seq": 2,
+    "output_path": "design-review-e{M}2.md",
+    "template": "eval/review.template.md"
+  }
+}

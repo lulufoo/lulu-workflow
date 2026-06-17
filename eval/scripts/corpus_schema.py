@@ -36,12 +36,13 @@ _SCHEMA: dict[str, Any] = {
         "codebase_strategy": ["all"],
     },
     "bind_placeholders": [
-        "tech_doc",
+        "compose_doc",
         "product_ref",
         "cycle_type",
         "M",
         "tpt_product_tech_spec_crosscheck_url",
         "tpt_intent_eval_framework_url",
+        "tdt_design_quality_framework_url",
     ],
 }
 

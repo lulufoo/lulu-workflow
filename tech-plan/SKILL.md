@@ -59,14 +59,15 @@ python3 "$SKILL_ROOT/compose-kernel/scripts/core/start.py" \
   --cycle-id "<cycle_id>" \
   --profile tech-plan \
   --run-mode product|tech \
-  [--product-ref "<absolute-path-to-product-doc.md>"]  # required for product mode
   [--carry-forward-ref "<absolute-path-to-previous-tech-doc.md>"]  # optional
-  [--design-ref "<absolute-path-to-design-doc.md>"]  # optional supplementary context
 ```
 
+- Upstream documents are read from `{cycle_id}/delivered-refs.json` (written when prior stages **deliver**). `start.py` validates required entries via the profile StartAdapter, then snapshots them into `workflow-state.md` → `delivered_refs`.
+- **product mode** requires a delivered `product-plan` entry; **tech mode** requires `tech-design` or `tech-diagnostic`.
+- Initializing reads the snapshot from `workflow-state.delivered_refs` (not the file on disk).
 - `--carry-forward-ref` is optional in both modes. Provide it when re-entering
   tech flow to use a previous tech-doc as the draft starting point.
-- `--run-mode`: use `product` if a `product-doc.md` path was provided (user-supplied, do not auto-detect), otherwise `tech`.
+- `--run-mode`: use `product` when product-plan context applies; otherwise `tech`.
 
 > If start.py exits non-zero ("Gate blocked: <stage> is not Delivered"): tell the user which prior stage must be delivered first. Do not retry start.
 
@@ -76,7 +77,7 @@ To resume an in-progress tech document, do not run start again — run `$SESSION
 
 ## product → tech handoff
 
-- `product_ref`: user-provided; never auto-detected; the two workflow directories are fully decoupled.
+- Upstream paths come from `delivered-refs.json` (each stage writes its compose doc on **deliver**); `start` snapshots into `workflow-state.delivered_refs`.
 - `carry_forward_ref`: provided on re-entry; version delta between old tech-doc and new product-doc must be resolved via mandatory Drafting calibration.
 - Re-entry = new iteration (new cycle_id or revision{N}); never continue in the old directory.
 
@@ -186,7 +187,7 @@ Await `$SUBAGENT_AWAIT_SYNC`.
 - `skip` / `redirect` → decision recorded only (skip also appends skip ledger)
 - After refiner accept path → **2a** (re-probe same section).
 
-Refiner input includes `ROUND_DIR`, `GAP_ITEM_ID`, `TECH_DOC_PATH`, `CYCLE_*`, `ROUND_N`.
+Refiner input includes `ROUND_DIR`, `GAP_ITEM_ID`, `COMPOSE_DOC_PATH`, `CYCLE_*`, `ROUND_N`.
 
 ##### 2d. Section advance
 

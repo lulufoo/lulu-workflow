@@ -3,10 +3,10 @@
   "legacy_alias": "e3",
   "label": "Solution Quality (Intent Probes)",
   "eval_target": {
-    "path": "{tech_doc}"
+    "path": "{compose_doc}"
   },
   "remediation_target": {
-    "path": "{tech_doc}"
+    "path": "{compose_doc}"
   },
   "sots": [
     {

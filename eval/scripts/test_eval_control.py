@@ -14,8 +14,10 @@ _KERNEL_CORE = _EVAL_SCRIPTS.parents[1] / "compose-kernel" / "scripts" / "core"
 _KERNEL_SCHEMA_SESSION = (
     _EVAL_SCRIPTS.parents[1] / "compose-kernel" / "scripts" / "schema" / "session"
 )
+_KERNEL_TESTS = _EVAL_SCRIPTS.parents[1] / "compose-kernel" / "scripts" / "tests"
 sys.path.insert(0, str(_KERNEL_CORE))
 sys.path.insert(0, str(_KERNEL_SCHEMA_SESSION))
+sys.path.insert(0, str(_KERNEL_TESTS))
 sys.path.insert(0, str(_EVAL_SCRIPTS))
 
 from adapter_registry import load_adapter  # noqa: E402
@@ -55,6 +57,7 @@ from evaluate_state_schema import (  # noqa: E402
     save_evaluate_state,
 )
 from session_control import resume_after_eval  # noqa: E402
+from init_drafting_helpers import product_delivered_refs  # noqa: E402
 from workflow_state_schema import (  # noqa: E402
     init_drafting,
     load_workflow_state,
@@ -129,7 +132,7 @@ def _setup_evaluating(tmp_path: Path, *, mode: str = "product") -> Path:
     init_drafting(
         ws,
         mode=mode,
-        product_ref="/p.md" if mode == "product" else "",
+        delivered_refs=product_delivered_refs("/p.md") if mode == "product" else [],
     )
     save_workflow_state(ws, {"current_state": "Evaluating", "evaluate_round": "1"})
     _init_evaluate_state(ws.parent / "evaluate-state.md", cycle_id=_CYCLE, tmp_path=tmp_path)
@@ -188,7 +191,7 @@ def _setup_complete_round_ready(
 class TestDispatchList:
     def test_product_mode(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="product", product_ref="/p.md")
+        init_drafting(ws, mode="product", delivered_refs=product_delivered_refs("/p.md"))
         assert dispatch_list(_CYCLE, tmp_path) == ["e1", "e2", "e3"]
 
     def test_tech_mode(self, tmp_path: Path):
@@ -200,7 +203,7 @@ class TestDispatchList:
 class TestInitRound:
     def test_product_mode(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="product", product_ref="/p.md")
+        init_drafting(ws, mode="product", delivered_refs=product_delivered_refs("/p.md"))
         result = init_round(_CYCLE, tmp_path, mode="product")
         assert result["ok"] is True
         es = load_evaluate_state(ws.parent / "evaluate-state.md")
@@ -222,7 +225,7 @@ class TestInitRound:
 
     def test_product_mode_without_product_ref_blocks(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="product", product_ref="")
+        init_drafting(ws, mode="product", delivered_refs=[])
         with pytest.raises(ValueError, match="product_ref is empty"):
             init_round(_CYCLE, tmp_path, mode="product")
 
@@ -230,7 +233,7 @@ class TestInitRound:
 class TestBeginEvalRound:
     def test_from_drafting_enters_evaluating(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="product", product_ref="/p.md")
+        init_drafting(ws, mode="product", delivered_refs=product_delivered_refs("/p.md"))
         result = begin_eval_round(_CYCLE, tmp_path)
         assert result["ok"] is True
         assert result["dispatch"] == ["e1", "e2", "e3"]

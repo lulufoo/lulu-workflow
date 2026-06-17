@@ -19,6 +19,7 @@ import bootstrap  # noqa: F401
 from adapter_registry import load_adapter  # noqa: E402
 from corpus_compose import COMPOSED_CORPUS_REF, corpus_fingerprint  # noqa: E402
 from tech_plan_eval_policy import select_dimension_ids  # noqa: E402
+from init_drafting_helpers import product_delivered_refs  # noqa: E402
 from workflow_state_schema import init_drafting  # noqa: E402
 
 _CYCLE = "feat-adapter"
@@ -43,7 +44,7 @@ class TestTechPlanEvalAdapter:
 
     def test_resolve_eval_corpus_product_ref(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="product", product_ref="/p.md")
+        init_drafting(ws, mode="product", delivered_refs=product_delivered_refs("/p.md"))
         adapter = load_adapter("tech-plan")
         corpus = adapter.resolve_eval_corpus(_CYCLE, tmp_path)
         ids = select_dimension_ids(
@@ -62,7 +63,7 @@ class TestTechPlanEvalAdapter:
 
     def test_resolve_evaluate_state_path(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="product", product_ref="/p.md")
+        init_drafting(ws, mode="product", delivered_refs=product_delivered_refs("/p.md"))
         adapter = load_adapter("tech-plan")
         es_path = adapter.resolve_evaluate_state_path(_CYCLE, tmp_path)
         assert es_path.name == "evaluate-state.md"

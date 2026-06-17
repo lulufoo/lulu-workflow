@@ -110,8 +110,9 @@ def load_and_validate_domain_instance(
     *,
     path: Path | None = None,
     project_root: Path | None = None,
+    profile_id: str | None = None,
 ) -> dict[str, Any]:
-    target = path or domain_instance_path(project_root=project_root)
+    target = path or domain_instance_path(project_root=project_root, profile_id=profile_id)
     if not target.exists():
         raise FileNotFoundError(f"domain instance not found: {target}")
     data = load_domain_instance(target)

@@ -10,6 +10,7 @@ import pytest
 import bootstrap  # noqa: F401
 from bootstrap import CORE, SCHEMA_SESSION  # noqa: E402
 
+from delivered_refs_schema import DeliveredRef, delivered_path, parse_delivered_refs
 from workflow_state_schema import (
     get_schema,
     init_drafting,
@@ -29,7 +30,7 @@ _REQUIRED_FIELD_NAMES = {
     "cycle_type",
     "current_state",
     "evaluate_round",
-    "product_ref",
+    "delivered_refs",
     "carry_forward_ref",
     "updated_at",
 }
@@ -41,9 +42,8 @@ _VALID_DATA = {
     "cycle_type": "feature",
     "current_state": "Drafting",
     "evaluate_round": "0",
-    "product_ref": "/path/to/product-doc.md",
+    "delivered_refs": '[{"type":"product-plan","path":"/path/to/product-doc.md"}]',
     "carry_forward_ref": "",
-    "design_ref": "",
     "updated_at": "2024-01-01T00:00:00+00:00",
 }
 
@@ -85,10 +85,11 @@ class TestValidateWorkflowState:
 class TestInitDrafting:
     def test_writes_valid_drafting_state(self, tmp_path: Path):
         path = tmp_path / "revision1" / "workflow-state.md"
+        refs = [DeliveredRef(type="tech-diagnostic", path="/abs/decision.md")]
         init_drafting(
             path,
             mode="tech",
-            product_ref="",
+            delivered_refs=refs,
             carry_forward_ref="/old/tech-doc.md",
         )
         loaded = load_workflow_state(path)
@@ -97,12 +98,17 @@ class TestInitDrafting:
         assert loaded["cycle_type"] == "feature"
         assert loaded["evaluate_round"] == "0"
         assert loaded["carry_forward_ref"] == "/old/tech-doc.md"
+        assert delivered_path(loaded, "tech-diagnostic") == "/abs/decision.md"
 
 
 class TestMarkHistorical:
     def test_idempotent(self, tmp_path: Path):
         path = tmp_path / "workflow-state.md"
-        init_drafting(path, mode="product", product_ref="/p.md")
+        init_drafting(
+            path,
+            mode="product",
+            delivered_refs=[DeliveredRef(type="product-plan", path="/p.md")],
+        )
         save_workflow_state(path, {"current_state": "Delivered"})
         mark_historical(path)
         first = load_workflow_state(path)
@@ -115,44 +121,15 @@ class TestMarkHistorical:
 class TestMarkInvalidated:
     def test_preserves_other_fields(self, tmp_path: Path):
         path = tmp_path / "workflow-state.md"
-        init_drafting(path, mode="product", product_ref="/p.md")
+        init_drafting(
+            path,
+            mode="product",
+            delivered_refs=[DeliveredRef(type="product-plan", path="/p.md")],
+        )
         mark_invalidated(path)
         loaded = load_workflow_state(path)
         assert loaded["current_state"] == "Invalidated"
-        assert loaded["product_ref"] == "/p.md"
-
-
-class TestLegacyDesignRef:
-    _LEGACY_STATE = """---
-version: 1
-workflow: tech-doc
-mode: tech
-cycle_type: feature
-current_state: Delivered
-evaluate_round: 0
-product_ref: ""
-carry_forward_ref: ""
-updated_at: 2024-01-01T00:00:00+00:00
----
-"""
-
-    def test_load_without_design_ref(self, tmp_path: Path):
-        path = tmp_path / "workflow-state.md"
-        path.write_text(self._LEGACY_STATE, encoding="utf-8")
-        loaded = load_workflow_state(path)
-        assert loaded["design_ref"] == ""
-
-    def test_mark_historical_on_legacy_state(self, tmp_path: Path):
-        path = tmp_path / "workflow-state.md"
-        path.write_text(self._LEGACY_STATE, encoding="utf-8")
-        mark_historical(path)
-        assert load_workflow_state(path)["historical"] == "true"
-
-    def test_mark_invalidated_on_legacy_state(self, tmp_path: Path):
-        path = tmp_path / "workflow-state.md"
-        path.write_text(self._LEGACY_STATE, encoding="utf-8")
-        mark_invalidated(path)
-        assert load_workflow_state(path)["current_state"] == "Invalidated"
+        assert delivered_path(loaded, "product-plan") == "/p.md"
 
 
 class TestReadCurrentState:
@@ -177,11 +154,15 @@ class TestResolveWorkflowStatePathFromCycle:
 class TestSaveLoadRoundTrip:
     def test_merge_preserves_unmentioned_fields(self, tmp_path: Path):
         path = tmp_path / "workflow-state.md"
-        init_drafting(path, mode="product", product_ref="/p.md")
+        init_drafting(
+            path,
+            mode="product",
+            delivered_refs=[DeliveredRef(type="product-plan", path="/p.md")],
+        )
         save_workflow_state(path, {"current_state": "Evaluating", "evaluate_round": "1"})
         loaded = load_workflow_state(path)
         assert loaded["current_state"] == "Evaluating"
-        assert loaded["product_ref"] == "/p.md"
+        assert delivered_path(loaded, "product-plan") == "/p.md"
 
 
 class TestCli:

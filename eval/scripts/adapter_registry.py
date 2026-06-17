@@ -18,6 +18,11 @@ _REGISTRY: dict[str, tuple[str, str, str]] = {
         "tech_plan_eval_adapter",
         "TechPlanEvalAdapter",
     ),
+    "tech-design": (
+        "tech-design/scripts/eval/tech_design_eval_adapter.py",
+        "tech_design_eval_adapter",
+        "TechDesignEvalAdapter",
+    ),
 }
 
 

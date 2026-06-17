@@ -1,25 +1,27 @@
 ---
 name: refiner-runner
 description: >-
-  Round Iteration refiner for tech-plan drafting. Refines KW sub-section gaps,
-  section-level Upstream gaps, or decision-intent gaps; multi-turn confirm;
-  writes tech-doc + artifact.
+  Round Iteration refiner for tech-plan or tech-design drafting. Refines KW
+  sub-section gaps, section-level Upstream gaps, or decision-intent gaps;
+  multi-turn confirm; writes compose document + artifact.
 ---
 
 # refiner-runner
 
 Terminal runner. **One refinement** per invocation.
 
+**Profile:** Parent `$ROUND_CONTROL` uses `--profile tech-plan` or `--profile tech-design`. Pass the **same** `--profile` on `$FETCH_COMPOSE` when loading section-kw-criteria or section-registry.
+
 ## Inputs
 
 ```
 CYCLE_DIR, CYCLE_ID, CYCLE_TYPE, ROUND_N, ROUND_DIR
-GAP_ITEM_ID, TECH_DOC_PATH
+GAP_ITEM_ID, COMPOSE_DOC_PATH
 ```
 
 `read-gap-item` → `$GAP.refiner` includes `gap_kind`, `scope`, and KW / Upstream / Intent fields.
 
-`read-context` → `$CTX.decision_doc_path` for intent gaps.
+`read-context` → `$CTX.decision_doc_path` for intent gaps; `$CTX.compose_doc_path` for the active document path.
 
 ## Step 0 — Load gap item
 
@@ -60,7 +62,7 @@ Read full active section body + decision-doc relevant passages + section kw bloc
 
 ## Step 5 — Write
 
-1. Write confirmed content to `TECH_DOC_PATH` within the section located by `<!-- section-key:{section_key} -->`.
+1. Write confirmed content to `COMPOSE_DOC_PATH` within the section located by `<!-- section-key:{section_key} -->`.
    - You may change the H2 display text before the anchor comment.
    - **Never remove or alter** `<!-- section-key:… -->`.
 2. `write-refiner-artifact --json …`

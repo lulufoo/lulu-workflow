@@ -68,7 +68,7 @@ def build_initial_evaluate_state_for_corpus(
     ids = dispatch_ids(corpus)
     ref = corpus_ref(corpus)
     fingerprint = ""
-    if ref == COMPOSED_CORPUS_REF:
+    if is_composed_corpus_ref(ref):
         fingerprint = corpus_fingerprint(ids, cycle_type=cycle_type)
     return build_initial_evaluate_state(
         dimension_ids=ids,

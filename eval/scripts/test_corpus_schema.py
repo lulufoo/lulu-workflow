@@ -53,8 +53,9 @@ def _feature_tech_corpus() -> dict:
 class TestGetSchema:
     def test_has_bind_placeholders(self):
         schema = get_schema()
-        assert "tech_doc" in schema["bind_placeholders"]
+        assert "compose_doc" in schema["bind_placeholders"]
         assert "tpt_intent_eval_framework_url" in schema["bind_placeholders"]
+        assert "tdt_design_quality_framework_url" in schema["bind_placeholders"]
         assert schema["enums"]["sot_kind"] == ["url", "codebase"]
         assert schema["enums"]["codebase_strategy"] == ["all"]
 
@@ -74,8 +75,8 @@ class TestValidateCorpus:
         dim = {
             "id": "a",
             "label": "A",
-            "eval_target": {"path": "{tech_doc}"},
-            "remediation_target": {"path": "{tech_doc}"},
+            "eval_target": {"path": "{compose_doc}"},
+            "remediation_target": {"path": "{compose_doc}"},
             "sots": [],
             "method": {
                 "kind": "external",
@@ -99,7 +100,7 @@ class TestValidateCorpus:
 
 class TestExpandCorpus:
     _BIND = {
-        "tech_doc": "/abs/tech-doc.md",
+        "compose_doc": "/abs/tech-doc.md",
         "product_ref": "/abs/product-doc.md",
         "cycle_type": "feature",
         "M": "1",
@@ -133,8 +134,8 @@ class TestExpandCorpus:
         dim = {
             "id": "a",
             "label": "A",
-            "eval_target": {"path": "{tech_doc}"},
-            "remediation_target": {"path": "{tech_doc}"},
+            "eval_target": {"path": "{compose_doc}"},
+            "remediation_target": {"path": "{compose_doc}"},
             "sots": [
                 {
                     "kind": "codebase",
@@ -164,7 +165,7 @@ class TestExpandCorpus:
     def test_unbound_placeholder_raises(self):
         data = _feature_product_corpus()
         with pytest.raises(ValueError, match="unbound placeholder"):
-            expand_corpus(data, {"tech_doc": "/abs/tech-doc.md"})
+            expand_corpus(data, {"compose_doc": "/abs/tech-doc.md"})
 
 
 class TestHelpers:

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -24,13 +25,19 @@ from hook_guard import (  # noqa: E402
 )
 from invalidation_hook import invalidate_downstream  # noqa: E402
 
-from archive import run as run_archive
-from session_state_schema import bump_active_doc, resolve_path
+from compose_session import calibration_note  # noqa: E402
+from delivered_refs_backfill import backfill_delivered_refs_from_cycle  # noqa: E402
+from delivered_refs_schema import serialize_delivered_refs  # noqa: E402
+from session_state_schema import load_active_doc, next_doc_round, save_active_doc
+from start_adapter_registry import load_start_adapter  # noqa: E402
+from workflow_profile_paths import (
+    session_state_path as profile_session_state_path,
+    state_path as profile_state_path,
+)
 from workflow_common import (
     CACHE_DIR,
     detect_cycle_type,
     load_container_meta,
-    state_path,
     write_active_context,
 )
 from workflow_state_schema import init_drafting, mark_historical
@@ -39,6 +46,12 @@ from scope_resolver import resolve_role_summary  # noqa: E402
 
 from workflow_paths import load_profile  # noqa: E402
 
+
+def _bump_active_doc(cycle_id: str, project_root: Path, profile_id: str) -> int:
+    path = project_root / profile_session_state_path(cycle_id, profile_id)
+    active_doc = next_doc_round(path)
+    save_active_doc(path, active_doc)
+    return active_doc
 
 
 def _find_latest_delivered_stage(cycle_id: str, cycle_type: str,
@@ -67,26 +80,24 @@ def _mark_latest_delivered_historical(cycle_id: str, stage: str, cache_dir: Path
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Start a new tech-doc workflow session.")
+    parser = argparse.ArgumentParser(description="Start a new compose workflow session.")
     parser.add_argument("--project-root", default=".", help="Project root directory.")
     parser.add_argument("--cycle-id", required=True, help="Cycle ID (from cycle_init.py).")
     parser.add_argument(
         "--run-mode",
         required=True,
         choices=["product", "tech"],
-        help="Workflow mode: 'product' (requires --product-ref) or 'tech' (no product-ref).",
+        help="Workflow mode: 'product' or 'tech'.",
     )
     parser.add_argument(
         "--profile",
         default="tech-plan",
-        help="Plan kernel profile id (default: tech-plan).",
+        help="Compose profile id (default: tech-plan).",
     )
-    parser.add_argument("--product-ref", default="", help="Absolute path to product-doc.md (required for product mode).")
-    parser.add_argument("--carry-forward-ref", default="", help="Absolute path to previous tech-doc.md (optional).")
     parser.add_argument(
-        "--design-ref",
+        "--carry-forward-ref",
         default="",
-        help="Absolute path to optional design-doc.md (supplementary context).",
+        help="Absolute path to previous compose doc revision (optional).",
     )
     parser.add_argument(
         "--conversation-id",
@@ -101,50 +112,54 @@ def main() -> int:
     project_root = Path(args.project_root).resolve()
     cycle_id = args.cycle_id.strip()
     profile = load_profile(args.profile.strip())
+    profile_id = profile["profile_id"]
     to_stage = profile["stage_name"]
 
     cycle_type = detect_cycle_type(cycle_id)
 
     run_mode = args.run_mode
-    product_ref = args.product_ref.strip()
     carry_forward_ref = args.carry_forward_ref.strip()
-    design_ref = args.design_ref.strip()
 
-    # Validate mode / product-ref consistency
-    if run_mode == "product" and not product_ref:
-        print("错误：--run-mode product 需要同时提供 --product-ref。")
-        return 1
-    if run_mode == "tech" and product_ref:
-        print("错误：--run-mode tech 不能同时提供 --product-ref（两者互斥）。")
-        return 1
-
-    # Validate product_ref exists (product mode only)
-    if product_ref and not Path(product_ref).exists():
-        print(f"错误：product-ref 文件不存在：{product_ref}")
-        return 1
-
-  # Validate carry_forward_ref if provided
     if carry_forward_ref and not Path(carry_forward_ref).exists():
         print(f"错误：carry-forward-ref 文件不存在：{carry_forward_ref}")
         return 1
 
-    if design_ref and not Path(design_ref).exists():
-        print(f"错误：design-ref 文件不存在：{design_ref}")
+    cache_dir = project_root / CACHE_DIR
+
+    backfill_delivered_refs_from_cycle(cycle_id, project_root)
+
+    adapter = load_start_adapter(profile_id)
+    start_errors = adapter.validate_for_start(
+        cycle_id,
+        project_root,
+        run_mode=run_mode,
+        carry_forward_ref=carry_forward_ref,
+    )
+    if start_errors:
+        print("错误：start 校验失败：", file=sys.stderr)
+        for err in start_errors:
+            print(f"  - {err}", file=sys.stderr)
         return 1
 
-    cache_dir = project_root / CACHE_DIR
+    delivered_refs = adapter.resolve_delivered_refs(
+        cycle_id,
+        project_root,
+        run_mode=run_mode,
+    )
+    if not delivered_refs:
+        print("错误：delivered_refs 快照为空（start 校验已通过但无可写入条目）", file=sys.stderr)
+        return 1
+
     try:
         load_container_meta(cache_dir, cycle_id, cycle_type)
     except ValueError as e:
         print(f"错误：{e}")
         return 1
 
-    # Step 2: re-open detection
     if current_effective_delivered(cycle_id, to_stage, cache_dir):
         _mark_latest_delivered_historical(cycle_id, to_stage, cache_dir)
         invalidate_downstream(cycle_id, to_stage, cycle_type, cache_dir)
 
-    # Step 3: back-fill detection
     latest_stage = _find_latest_delivered_stage(cycle_id, cycle_type, cache_dir)
     if latest_stage:
         try:
@@ -155,13 +170,11 @@ def main() -> int:
             if _stages.index(to_stage) < _stages.index(latest_stage):
                 invalidate_downstream(cycle_id, to_stage, cycle_type, cache_dir)
 
-    # Step 4: check_gate
     ok, reason = check_gate(cycle_id, to_stage, cycle_type, cache_dir)
     if not ok:
         print(f"Gate blocked: {reason}", file=sys.stderr)
         sys.exit(1)
 
-    # Step 5: get_topic_doc (feature containers only, if topic_id exists)
     try:
         topic_doc = get_topic_doc(cycle_id, to_stage, cache_dir)
         if topic_doc:
@@ -170,12 +183,8 @@ def main() -> int:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # archive: deferred  archive_rc = run_archive(project_root, exclude_conv_id=cycle_id)
-    # archive: deferred  if archive_rc != 0:
-    # archive: deferred      return archive_rc
-
-    active_doc = bump_active_doc(cycle_id, project_root)
-    ss_path = resolve_path(cycle_id, project_root)
+    active_doc = _bump_active_doc(cycle_id, project_root, profile_id)
+    ss_path = project_root / profile_session_state_path(cycle_id, profile_id)
     write_active_context(
         project_root,
         cycle_id,
@@ -184,41 +193,40 @@ def main() -> int:
     )
     write_cycle_state(cycle_id, to_stage, cache_dir)
 
-    ws_path = project_root / state_path(cycle_id, active_doc)
+    ws_path = project_root / profile_state_path(cycle_id, active_doc, profile_id)
     init_drafting(
         ws_path,
         mode=run_mode,
         cycle_type=cycle_type,
-        product_ref=product_ref,
+        delivered_refs=delivered_refs,
         carry_forward_ref=carry_forward_ref,
-        design_ref=design_ref,
     )
 
     role_summary = resolve_role_summary(cycle_type=cycle_type)
 
-    if run_mode == "product":
-        if carry_forward_ref:
-            calibration_note = "⚠️  carry_forward_ref 存在，进入 Drafting 后必须强制校准（对比新 product-doc 与旧 tech-doc）。"
-        else:
-            calibration_note = "首次起草（产品需求模式），进入 Drafting 后必须校准（读取模板 + 架构约束 + product-doc）。"
-    else:
-        calibration_note = "技改模式：E1 意图对齐评估将跳过，仅执行 E2（代码库一致性）+ E3（方案质量 / TPEF）。"
+    note = calibration_note(
+        profile_id,
+        run_mode,
+        carry_forward_ref=carry_forward_ref,
+    )
 
+    doc_label = profile["document"]["filename"]
+    refs_json = serialize_delivered_refs(delivered_refs)
     print(f"""
 会话已启动。
 
 会话状态文件：{ss_path.as_posix()}
-当前技术文档：revision{active_doc}
+当前文档：    revision{active_doc} / {doc_label}
 状态文件：    {ws_path.as_posix()}
 当前状态：    Drafting
 运行模式：    {run_mode}
+Profile：     {profile_id}
 Cycle type：  {role_summary}
 评估轮次：    0
-product_ref：  {product_ref or '（无，技改模式）'}
+delivered_refs：{refs_json}
 carry_forward：{carry_forward_ref or '（无）'}
-design_ref：  {design_ref or '（无）'}
 
-{calibration_note}
+{note}
 """)
     return 0
 

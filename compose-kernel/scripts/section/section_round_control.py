@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Section-gated Round Iteration control for tech-plan orchestrator.
+"""Section-gated Round Iteration control for compose orchestrators (tech-plan, tech-design, …).
 
 Subcommands:
     read-context           Return anchors, skips, round metadata
@@ -11,7 +11,7 @@ Subcommands:
     init-round-dir         Create round-{N}/ and section-pointer.json
     read-section-pointer   Return section pointer for current round
     read-upstream-context  Return stable upstream edges for active section
-    read-section-body      Return tech-doc section body by section key
+    read-section-body      Return compose document section body by section key
     advance-section        Mark active stable and activate next section
     rewind-section         Rewind to section and invalidate downstream
     mark-section-stable      Mark one section stable (no advance)
@@ -44,14 +44,9 @@ if str(_SCRIPTS) not in sys.path:
 import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
-from workflow_paths import KERNEL_TEMPLATES, TECH_PLAN_SCRIPTS  # noqa: E402
-
-if str(TECH_PLAN_SCRIPTS) not in sys.path:
-    sys.path.insert(0, str(TECH_PLAN_SCRIPTS))
-_DRAFTING_SCRIPTS = TECH_PLAN_SCRIPTS / "drafting"
-if str(_DRAFTING_SCRIPTS) not in sys.path:
-    sys.path.insert(0, str(_DRAFTING_SCRIPTS))
-from drafting_progress_schema import load_drafting_progress  # noqa: E402
+from compose_profile_context import get_active_profile, set_active_profile  # noqa: E402
+from compose_session import workflow_state_path  # noqa: E402
+from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, KERNEL_TEMPLATES, load_profile  # noqa: E402
 from probe_report_schema import (  # noqa: E402
     find_item,
     intent_open_items,
@@ -98,12 +93,14 @@ from section_registry_schema import (  # noqa: E402
     project_root_from_cycle_dir,
     section_heading,
 )
-from tech_doc_schema import section_body_by_key, section_display_heading  # noqa: E402
-from workflow_common import decision_doc_path  # noqa: E402
-from workflow_state_schema import (  # noqa: E402
-    load_workflow_state,
-    resolve_workflow_state_path_from_cycle,
+from compose_doc_schema import section_body_by_key, section_display_heading  # noqa: E402
+from workflow_common import parse_frontmatter_fields  # noqa: E402
+from delivered_refs_schema import (  # noqa: E402
+    delivered_path,
+    init_scope_ref_from_state,
+    parse_delivered_refs,
 )
+from workflow_state_schema import load_workflow_state  # noqa: E402
 
 _CMD_ROUND_PROBE_INPUT = "round-probe-input"
 _STEP_ROUND = "RoundIteration"
@@ -122,12 +119,30 @@ def _fail(message: str, code: int = 1) -> int:
     return code
 
 
-def _plan_base(cycle_dir: Path) -> Path:
-    return cycle_dir / "tech" / "plan"
+def _compose_base(cycle_dir: Path) -> Path:
+    profile = load_profile(get_active_profile())
+    return cycle_dir / profile["cache_subdir"]
+
+
+def _document_filename() -> str:
+    return load_profile(get_active_profile())["document"]["filename"]
+
+
+def _compose_document(revision_dir: Path) -> Path:
+    return revision_dir / _document_filename()
+
+
+def _load_drafting_progress(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        raise FileNotFoundError(f"drafting-progress.md not found: {path}")
+    fields = parse_frontmatter_fields(path.read_text(encoding="utf-8"))
+    if not fields:
+        raise ValueError(f"empty or invalid frontmatter in {path}")
+    return fields
 
 
 def _active_revision_dir(cycle_dir: Path) -> Path:
-    base = _plan_base(cycle_dir)
+    base = _compose_base(cycle_dir)
     session_state = base / "session-state.md"
     active_doc = load_active_doc(session_state, default=1)
     revision_dir = base / f"revision{active_doc}"
@@ -166,7 +181,7 @@ def _parse_table_rows(path: Path, *, min_cells: int = 1) -> list[list[str]]:
 
 
 def _ledger_paths(cycle_dir: Path) -> tuple[Path, Path]:
-    base = _plan_base(cycle_dir)
+    base = _compose_base(cycle_dir)
     return base / "anchor-ledger.md", base / "skip-ledger.md"
 
 
@@ -238,7 +253,7 @@ def _read_round(revision_dir: Path) -> int:
     if not progress.exists():
         return 1
     try:
-        data = load_drafting_progress(progress)
+        data = _load_drafting_progress(progress)
         return max(1, int(data.get("round", "1")))
     except ValueError:
         return 1
@@ -249,15 +264,16 @@ def _format_round_probe_input(
     cycle_dir: Path,
     cycle_id: str,
     round_n: int,
-    tech_doc: Path,
+    compose_doc: Path,
     round_dir: Path | None = None,
     active_section: str | None = None,
 ) -> str:
+    doc_path = compose_doc.resolve().as_posix()
     lines = [
-        f"CYCLE_DIR:      {cycle_dir.resolve().as_posix()}",
-        f"CYCLE_ID:       {cycle_id}",
-        f"ROUND_N:        {round_n}",
-        f"TECH_DOC_PATH:  {tech_doc.resolve().as_posix()}",
+        f"CYCLE_DIR:        {cycle_dir.resolve().as_posix()}",
+        f"CYCLE_ID:         {cycle_id}",
+        f"ROUND_N:          {round_n}",
+        f"COMPOSE_DOC_PATH: {doc_path}",
     ]
     if round_dir is not None:
         lines.append(f"ROUND_DIR:      {round_dir.resolve().as_posix()}")
@@ -356,7 +372,7 @@ def round_probe_input(cycle_dir: Path) -> dict[str, Any]:
             "reason": "drafting-progress.md not found; run begin-round first",
         }
 
-    data = load_drafting_progress(progress_path)
+    data = _load_drafting_progress(progress_path)
     step = data.get("current_step")
     if step != _STEP_ROUND:
         payload: dict[str, Any] = {
@@ -372,7 +388,7 @@ def round_probe_input(cycle_dir: Path) -> dict[str, Any]:
         return payload
 
     round_n = max(1, int(data.get("round", "1")))
-    tech_doc = revision_dir / "tech-doc.md"
+    compose_doc = _compose_document(revision_dir)
     round_dir_path = round_directory(revision_dir, round_n)
     pointer = _load_pointer_if_exists(cycle_dir, round_n)
     if pointer is None:
@@ -388,7 +404,7 @@ def round_probe_input(cycle_dir: Path) -> dict[str, Any]:
         cycle_dir=cycle_dir,
         cycle_id=cycle_id,
         round_n=round_n,
-        tech_doc=tech_doc,
+        compose_doc=compose_doc,
         round_dir=round_dir_path,
         active_section=pointer["active_section"],
     )
@@ -434,31 +450,46 @@ def _update_anchor_row(path: Path, anchor_id: str, status: str) -> None:
 
 def cmd_read_context(cycle_dir: Path) -> int:
     revision_dir = _active_revision_dir(cycle_dir)
-    tech_doc = revision_dir / "tech-doc.md"
+    compose_doc = _compose_document(revision_dir)
     anchor_path, skip_path = _ledger_paths(cycle_dir)
 
     _ensure_ledger(anchor_path, "anchor-ledger.template.md")
     _ensure_ledger(skip_path, "skip-ledger.template.md")
 
-    if not tech_doc.exists():
-        return _fail(f"tech-doc.md not found: {tech_doc}")
+    if not compose_doc.exists():
+        return _fail(f"{compose_doc.name} not found: {compose_doc}")
 
     project_root = project_root_from_cycle_dir(cycle_dir)
-    decision_path = project_root / decision_doc_path(cycle_dir.name)
+    cycle_id = cycle_dir.name
 
+    doc_path = str(compose_doc.resolve())
     payload: dict[str, Any] = {
             "anchors": _read_anchors(anchor_path),
             "skips": _read_skips(skip_path),
             "round": _read_round(revision_dir),
-            "tech_doc_path": str(tech_doc.resolve()),
-            "decision_doc_path": str(decision_path.resolve()),
+            "compose_doc_path": doc_path,
+            "decision_doc_path": "",
             "revision_dir": str(revision_dir.resolve()),
         }
-    ws_path = resolve_workflow_state_path_from_cycle(cycle_dir.name, project_root)
+    profile_id = get_active_profile()
+    ws_path = workflow_state_path(cycle_id, project_root, profile_id)
     if ws_path.exists():
-        design_ref = load_workflow_state(ws_path).get("design_ref", "").strip()
-        if design_ref:
-            payload["design_doc_path"] = design_ref
+        state = load_workflow_state(ws_path)
+        payload["delivered_refs"] = [
+            ref.to_dict() for ref in parse_delivered_refs(state)
+        ]
+        scope_ref = init_scope_ref_from_state(state, profile_id)
+        if scope_ref is not None:
+            payload["decision_doc_path"] = str(Path(scope_ref.path).resolve())
+        design_path = delivered_path(state, "tech-design")
+        if design_path:
+            payload["design_doc_path"] = design_path
+    if not payload["decision_doc_path"]:
+        from workflow_common import decision_doc_path  # noqa: WPS433
+
+        payload["decision_doc_path"] = str(
+            (project_root / decision_doc_path(cycle_id)).resolve(),
+        )
 
     _emit(payload)
     return 0
@@ -730,10 +761,10 @@ def cmd_read_upstream_context(cycle_dir: Path, *, round_n: int) -> int:
 
 def cmd_read_section_body(cycle_dir: Path, *, section: str) -> int:
     revision_dir = _active_revision_dir(cycle_dir)
-    tech_doc = revision_dir / "tech-doc.md"
-    if not tech_doc.exists():
-        raise FileNotFoundError(f"tech-doc.md not found: {tech_doc}")
-    raw = tech_doc.read_text(encoding="utf-8")
+    compose_doc = _compose_document(revision_dir)
+    if not compose_doc.exists():
+        raise FileNotFoundError(f"{compose_doc.name} not found: {compose_doc}")
+    raw = compose_doc.read_text(encoding="utf-8")
     project_root = project_root_from_cycle_dir(cycle_dir)
     key = _normalize_section(section)
     _emit(
@@ -746,7 +777,7 @@ def cmd_read_section_body(cycle_dir: Path, *, section: str) -> int:
                 project_root=project_root,
             ),
             "body": section_body_by_key(raw, key, project_root=project_root),
-            "path": str(tech_doc.resolve()),
+            "path": str(compose_doc.resolve()),
         }
     )
     return 0
@@ -979,6 +1010,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Absolute path to cycle directory ($CACHE_DIR/<cycle_id>)",
     )
     parser.add_argument(
+        "--profile",
+        default=DEFAULT_COMPOSE_PROFILE_ID,
+        help="Compose profile / stage name (default: tech-plan)",
+    )
+    parser.add_argument(
         "--round",
         type=int,
         default=None,
@@ -1077,6 +1113,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    set_active_profile(args.profile.strip())
     cycle_dir = args.cycle_dir.resolve()
     round_n = _resolve_round_n(args, cycle_dir)
     if args.command in _ROUND_REQUIRED_COMMANDS and round_n is None:

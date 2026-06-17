@@ -76,6 +76,7 @@ def resolve_role_markdown(
     cycle_type: str | None = None,
     role_instance_path: Path | None = None,
     project_root: Path | None = None,
+    profile_id: str | None = None,
 ) -> str:
     resolved = resolve_cycle_type(cycle_id=cycle_id, cycle_type=cycle_type)
     root = Path(project_root).resolve() if project_root is not None else None
@@ -84,6 +85,7 @@ def resolve_role_markdown(
             resolved,
             path=role_instance_path,
             project_root=root,
+            profile_id=profile_id,
         )
         role = get_role_prompt(data)
         role_fields = get_role_fields(data)
@@ -99,6 +101,7 @@ def resolve_domain_markdown(
     cycle_type: str | None = None,
     domain_instance_path: Path | None = None,
     project_root: Path | None = None,
+    profile_id: str | None = None,
 ) -> str:
     import json
 
@@ -109,6 +112,7 @@ def resolve_domain_markdown(
             resolved,
             path=domain_instance_path,
             project_root=root,
+            profile_id=profile_id,
         )
     except (OSError, ValueError, FileNotFoundError) as exc:
         raise ScopeResolverError(str(exc)) from exc
@@ -145,6 +149,11 @@ def main(argv: Optional[list[str]] = None) -> int:
         "--project-root",
         default=".",
         help="Project root for template cache resolution",
+    )
+    parser.add_argument(
+        "--profile",
+        default="tech-plan",
+        help="Compose profile id (tech-plan, tech-design, …)",
     )
     sub = parser.add_subparsers(dest="command")
 
@@ -187,6 +196,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     args = parser.parse_args(argv)
 
     project_root = Path(args.project_root).resolve()
+    profile_id = getattr(args, "profile", "tech-plan").strip() or "tech-plan"
 
     if args.validate:
         errors = validate_all_plan_scope_instances(project_root)
@@ -203,6 +213,7 @@ def main(argv: Optional[list[str]] = None) -> int:
                 cycle_type=getattr(args, "cycle_type", None),
                 domain_instance_path=getattr(args, "domain_instance_path", None),
                 project_root=Path(args.project_root).resolve(),
+                profile_id=profile_id,
             )
         except ScopeResolverError as exc:
             print(str(exc), file=sys.stderr)
@@ -220,6 +231,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             cycle_type=args.cycle_type,
             role_instance_path=getattr(args, "role_instance_path", None),
             project_root=Path(args.project_root).resolve(),
+            profile_id=profile_id,
         )
     except ScopeResolverError as exc:
         print(str(exc), file=sys.stderr)

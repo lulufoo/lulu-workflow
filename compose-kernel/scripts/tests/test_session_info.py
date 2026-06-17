@@ -15,7 +15,7 @@ from workflow_paths import WORKFLOW_SCRIPTS  # noqa: E402
 
 sys.path.insert(0, str(WORKFLOW_SCRIPTS))
 from section_registry_schema import section_heading, summary_section_key  # noqa: E402
-from tech_doc_schema import format_section_heading  # noqa: E402
+from compose_doc_schema import format_section_heading  # noqa: E402
 from test_registry_fixtures import fourth_section_key  # noqa: E402
 from hook_guard import load_transitions  # noqa: E402
 from session_info import (  # noqa: E402
@@ -26,6 +26,7 @@ from session_info import (  # noqa: E402
 )
 from workflow_common import STAGE  # noqa: E402
 from workflow_state_schema import save_workflow_state  # noqa: E402
+from init_drafting_helpers import product_delivered_refs  # noqa: E402
 
 import bootstrap  # noqa: F401
 from bootstrap import CORE  # noqa: E402
@@ -61,7 +62,7 @@ def _setup_cycle(tmp_path: Path) -> tuple[Path, str]:
     from workflow_state_schema import init_drafting  # noqa: WPS433
 
     ws_path = revision / "workflow-state.md"
-    init_drafting(ws_path, mode="product", product_ref="/p.md")
+    init_drafting(ws_path, mode="product", delivered_refs=product_delivered_refs("/p.md"))
     save_workflow_state(ws_path, {"current_state": "ReadyForDelivery"})
     return tmp_path, cycle_id
 
@@ -74,9 +75,9 @@ class TestDeliveryPreview:
         assert payload["view"] == "delivery-preview"
         assert payload["active_doc"] == 1
         assert payload["current_state"] == "ReadyForDelivery"
-        assert payload["tech_doc"]["title"] == "Feature X"
-        assert "session info facade" in payload["tech_doc"]["summary"]
-        assert payload["tech_doc"]["path"].endswith("revision1/tech-doc.md")
+        assert payload["compose_doc"]["title"] == "Feature X"
+        assert "session info facade" in payload["compose_doc"]["summary"]
+        assert payload["compose_doc"]["path"].endswith("revision1/tech-doc.md")
 
     def test_rejects_non_ready_for_delivery_state(self, tmp_path: Path):
         project_root, cycle_id = _setup_cycle(tmp_path)
@@ -92,25 +93,31 @@ class TestDeliveryPreview:
 
 
 class TestSessionSnapshot:
-    def test_returns_workflow_and_tech_doc(self, tmp_path: Path):
+    def test_returns_workflow_and_compose_doc(self, tmp_path: Path):
         project_root, cycle_id = _setup_cycle(tmp_path)
         payload = session_snapshot(cycle_id, project_root)
         assert payload["view"] == "session"
         assert payload["workflow_state"]["mode"] == "product"
-        assert payload["tech_doc"]["revision"] == 1
+        assert payload["compose_doc"]["revision"] == 1
 
 
 class TestStageTransitions:
     def test_matches_transition_table_for_feature(self, tmp_path: Path):
         project_root, cycle_id = _setup_cycle(tmp_path)
         payload = stage_transitions(cycle_id, project_root)
-        assert payload == {"next_stages": _expected_next_stages(cycle_id)}
+        assert payload == {
+            "profile_id": "tech-plan",
+            "next_stages": _expected_next_stages(cycle_id),
+        }
 
     def test_matches_transition_table_for_topic(self, tmp_path: Path):
         project_root, _ = _setup_cycle(tmp_path)
         cycle_id = "topic-session-info"
         payload = stage_transitions(cycle_id, project_root)
-        assert payload == {"next_stages": _expected_next_stages(cycle_id)}
+        assert payload == {
+            "profile_id": "tech-plan",
+            "next_stages": _expected_next_stages(cycle_id),
+        }
 
 
 class TestGetSessionInfo:
@@ -141,7 +148,7 @@ class TestCli:
         payload = json.loads(result.stdout)
         assert payload["ok"] is True
         assert payload["view"] == "delivery-preview"
-        assert payload["tech_doc"]["title"] == "Feature X"
+        assert payload["compose_doc"]["title"] == "Feature X"
 
     def test_delivery_preview_cli_failure(self, tmp_path: Path):
         project_root, cycle_id = _setup_cycle(tmp_path)
@@ -187,4 +194,7 @@ class TestCli:
             check=True,
         )
         payload = json.loads(result.stdout)
-        assert payload == {"next_stages": _expected_next_stages(cycle_id)}
+        assert payload == {
+            "profile_id": "tech-plan",
+            "next_stages": _expected_next_stages(cycle_id),
+        }

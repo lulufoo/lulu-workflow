@@ -6,6 +6,8 @@ integrate check_gate, current_effective_delivered, invalidate_downstream, and ge
 before creating a new session.
 """
 
+from __future__ import annotations
+
 import json
 import os
 import subprocess
@@ -118,9 +120,8 @@ def _make_session(
             f"cycle_type: feature\n"
             f"current_state: {state}\n"
             f"evaluate_round: 0\n"
-            f"product_ref: \"\"\n"
+            f"delivered_refs: []\n"
             f"carry_forward_ref: \"\"\n"
-            f"design_ref: \"\"\n"
             f"updated_at: {updated_at}\n"
             f"---\n",
             encoding="utf-8",
@@ -166,6 +167,65 @@ def _seed_work_order_handoff(cache_dir: Path, cycle_id: str, active_doc: int = 1
     )
 
 
+def _upsert_delivered_ref_entry(
+    cache_dir: Path,
+    cycle_id: str,
+    *,
+    delivered_type: str,
+    path: Path,
+    profile_id: str,
+) -> None:
+    refs_path = cache_dir / cycle_id / "delivered-refs.json"
+    data = (
+        json.loads(refs_path.read_text(encoding="utf-8"))
+        if refs_path.is_file()
+        else {"version": 1, "entries": {}}
+    )
+    entries = dict(data.get("entries") or {})
+    entries[delivered_type] = {
+        "delivered_type": delivered_type,
+        "path": str(path.resolve()),
+        "revision": 1,
+        "profile_id": profile_id,
+        "delivered_at": "2026-06-01T00:00:00+00:00",
+        "source_workflow_state": "",
+    }
+    data["entries"] = entries
+    refs_path.parent.mkdir(parents=True, exist_ok=True)
+    refs_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def _seed_tech_plan_delivered_refs(
+    cache_dir: Path,
+    cycle_id: str,
+    project_root: Path,
+    *,
+    design_path: Path | None = None,
+) -> None:
+    """Seed delivered-refs.json entries required for tech-plan start (tech mode)."""
+    del project_root
+    diag_dir = cache_dir / cycle_id / "tech" / "diagnostic"
+    diag_dir.mkdir(parents=True, exist_ok=True)
+    decision = diag_dir / "decision-doc.md"
+    if not decision.is_file():
+        decision.write_text("# Decision\n", encoding="utf-8")
+    _upsert_delivered_ref_entry(
+        cache_dir,
+        cycle_id,
+        delivered_type="tech-diagnostic",
+        path=decision,
+        profile_id="tech-diagnostic",
+    )
+    if design_path is not None:
+        _upsert_delivered_ref_entry(
+            cache_dir,
+            cycle_id,
+            delivered_type="tech-design",
+            path=design_path,
+            profile_id="tech-design",
+        )
+
+
 def _run_start(
     stage: str,
     tmp_path: Path,
@@ -175,6 +235,8 @@ def _run_start(
     args = extra_args if extra_args is not None else _stage_extra_args(stage, tmp_path)
     if stage == "tech-code":
         _seed_work_order_handoff(_cache_dir(tmp_path), cycle_id)
+    if stage == "tech-plan":
+        _seed_tech_plan_delivered_refs(_cache_dir(tmp_path), cycle_id, tmp_path)
     cmd = [
         sys.executable, str(_start_py(stage)),
         "--project-root", str(tmp_path),
@@ -269,13 +331,14 @@ class TestGatePasses:
         result = _run_start("tech-plan", tmp_path)
         assert result.returncode == 0, result.stderr
 
-    def test_start_with_design_ref(self, tmp_path):
-        """start.py --design-ref writes design_ref to workflow-state.md."""
+    def test_start_snapshots_delivered_refs(self, tmp_path):
+        """start.py snapshots delivered-refs.json into workflow-state.delivered_refs."""
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID)
         _all_prior_delivered(cd, _CYCLE_ID, "tech-plan")
         design = tmp_path / "design-doc.md"
         design.write_text("# Design\n", encoding="utf-8")
+        _seed_tech_plan_delivered_refs(cd, _CYCLE_ID, tmp_path, design_path=design)
         result = _run_start(
             "tech-plan",
             tmp_path,
@@ -284,18 +347,17 @@ class TestGatePasses:
                 "tech-plan",
                 "--run-mode",
                 "tech",
-                "--design-ref",
-                str(design),
             ],
         )
         assert result.returncode == 0, result.stderr or result.stdout
         ws_path = cd / _CYCLE_ID / "tech" / "plan" / "revision1" / "workflow-state.md"
         assert ws_path.exists()
-        sys.path.insert(0, str(_LDEV / "compose-kernel" / "scripts" / "core"))
         sys.path.insert(0, str(_LDEV / "compose-kernel" / "scripts" / "schema" / "session"))
+        from delivered_refs_schema import parse_delivered_refs  # noqa: WPS433
         from workflow_state_schema import load_workflow_state  # noqa: WPS433
 
-        assert load_workflow_state(ws_path)["design_ref"] == str(design)
+        refs = parse_delivered_refs(load_workflow_state(ws_path))
+        assert any(r.type == "tech-design" and r.path == str(design.resolve()) for r in refs)
 
     def test_diagnostic_always_passes(self, tmp_path):
         """diagnostic stage not in cycle → gate always OK."""

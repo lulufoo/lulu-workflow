@@ -12,7 +12,7 @@ description: >
 
 Terminal runner subagent. Probes **one Dimension** per invocation (from EvalCorpus dispatch).
 
-> Drafting Round Iteration (`prober-runner`) complements drafting maturity checks; Evaluating-stage dimensions are composed from `tech-plan/dimension-defs/`.
+> Drafting Round Iteration (`prober-runner`) complements drafting maturity checks; Evaluating-stage dimensions are composed from workflow `dimension-defs/` (`tech-plan` or `tech-design` per `--workflow`).
 
 ---
 
@@ -23,8 +23,8 @@ Terminal runner subagent. Probes **one Dimension** per invocation (from EvalCorp
 3. Read `{$SKILL_ROOT}/eval/review.template.md`
 4. Read `{$SKILL_ROOT}/eval/scripts/url_fetch.py` — use `read_ref()` for all URL/path loads
 5. Read `{$SKILL_ROOT}/eval/scripts/codebase_sot.py` — use `resolve_codebase_ref()` for codebase SoT
-6. Run `$RESOLVE_PLAN_ROLE` with `CYCLE_ID`; apply Plan Scope Constraints for probe narrative
-7. `$FETCH_COMPOSE`: `{SKILL_ROOT}/compose-kernel/SKILL.md` → Script Macros (when loading section-registry)
+6. Run `$RESOLVE_PLAN_ROLE` with `CYCLE_ID` and workflow profile (`--profile tech-design` for design-doc); apply Plan Scope Constraints for probe narrative
+7. `$FETCH_COMPOSE`: `{SKILL_ROOT}/compose-kernel/SKILL.md` → Script Macros — pass `--profile tech-plan` or `--profile tech-design` when loading section-registry
 8. Follow steps below
 
 ---
@@ -67,7 +67,7 @@ PRODUCT_REF           absolute path (only when SOTS_JSON references product doc)
    - `codebase` · `ref.root` + `ref.strategy` → `resolve_codebase_ref(ref, project_root=Path(PROJECT_ROOT))` yields repo root; with `strategy: all`, read code files narrowly as needed (do not batch-load the entire repo)
 4. Load EvalMethod **M**:
    - `external` · `source` (https URL or absolute path) → `read_ref(source, project_root=Path(PROJECT_ROOT))` as rubric
-   - `builtin` · `source.procedure_id: codebase_consistency` → compare B against code read from codebase SoT root per METHOD_FOCUS
+   - `builtin` · `source.procedure_id: codebase_consistency` → compare B against code read from codebase SoT root per METHOD_FOCUS; for **tech-design d1**, probe only sub-sections that **explicitly cite** modules, paths, interfaces, or schema names — skip the rest
    - `builtin` · `source.procedure_id: intent_gap_probes` → follow **solution-quality (e3)** procedure below; criteria from url SoT **A**
 
 When `SOTS_JSON` is empty, **M** carries both rubric and basis.
@@ -78,13 +78,16 @@ When `SOTS_JSON` is empty, **M** carries both rubric and basis.
 
 Evaluate **B** using loaded SoT content and **M** / `METHOD_FOCUS`.
 
-### solution-quality (e3)
+### solution-quality (e3 / tech-plan d3, tech-design d2)
 
-Builtin `procedure_id: intent_gap_probes`. Criteria **A** = url SoT (`41-tech-plan-intent-evaluation-framework.md` via `tpt_intent_eval_framework_url`).
+Builtin `procedure_id: intent_gap_probes`. Criteria **A** = url SoT:
 
-1. Load **A** from SoT (P1–P4 definitions and applicability in **A**).
+- **tech-plan:** `41-tech-plan-intent-evaluation-framework.md` via `tpt_intent_eval_framework_url`
+- **tech-design:** `48-tech-design-design-quality-framework.md` via `tdt_design_quality_framework_url` (P1–P4 + D1–D3 supplements)
+
+1. Load **A** from SoT (P1–P4 definitions and applicability in **A**; for tech-design also run D1–D3 supplements after applicable P probes).
 2. Do **not** parse `<!-- state-vector: … -->`. Do **not** load `layer-standards` or L Diagnostic Criteria.
-3. Load **R** via `$FETCH_COMPOSE section-registry` (same `PROJECT_ROOT`).
+3. Load **R** via `$FETCH_COMPOSE section-registry` with `--profile tech-plan` or `--profile tech-design` (same `PROJECT_ROOT`).
 4. For each `K` in **R** `section_order`:
    - Load section body via `<!-- section-key:K -->` in **B** (not H2 display titles).
    - Split sub-sections (one coherent intent unit; skip empty / boilerplate-only).
@@ -99,7 +102,7 @@ Builtin `procedure_id: intent_gap_probes`. Criteria **A** = url SoT (`41-tech-pl
    - P1/P2 fail on late approach-style sections (Done-when only) → `medium`
    - P4 edge cases on early direction-style sections → `medium`
 6. Optional: on last `section_order` key — sanity-check verifiable action or file reference.
-7. `sot_ref` → `41-tech-plan-intent-evaluation-framework.md#P{n}`; `description` → Gap output from **A**.
+7. `sot_ref` → framework doc `#P{n}` or `#D{n}`; `description` → Gap output from **A**.
 
 For each finding classify `root_cause` per `eval/SKILL.md` and fill all required columns.
 

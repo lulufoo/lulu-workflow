@@ -29,6 +29,11 @@ from session_control import (  # noqa: E402
     start_evaluating,
 )
 from workflow_state_schema import init_drafting, load_workflow_state, save_workflow_state
+from init_drafting_helpers import product_delivered_refs  # noqa: E402
+from delivered_refs_schema import (  # noqa: E402
+    load_delivered_refs_file,
+    product_ref_from_state,
+)
 
 _CYCLE = "feat-test"
 _CACHE = Path(".cache/cursor/lulu-dev-workflow")
@@ -74,7 +79,7 @@ def _setup_abandon_ready(
     init_drafting(
         ws,
         mode=mode,
-        product_ref=product_ref,
+        delivered_refs=product_delivered_refs(product_ref) if mode == "product" else [],
         carry_forward_ref=carry_forward_ref,
         evaluate_round=max(evaluate_round - 1, 0),
     )
@@ -95,7 +100,7 @@ def _setup_abandon_ready(
 class TestStartEvaluating:
     def test_from_drafting_product_mode(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="product", product_ref="/p.md")
+        init_drafting(ws, mode="product", delivered_refs=product_delivered_refs("/p.md"))
 
         result = start_evaluating(_CYCLE, tmp_path)
 
@@ -158,7 +163,7 @@ class TestStartEvaluating:
 class TestReadyForDelivery:
     def test_from_drafting_sets_skip_flag(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="product", product_ref="/p.md")
+        init_drafting(ws, mode="product", delivered_refs=product_delivered_refs("/p.md"))
 
         result = ready_for_delivery(_CYCLE, tmp_path)
 
@@ -203,7 +208,8 @@ class TestReadyForDelivery:
 class TestDeliver:
     def test_success_from_ready_for_delivery(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="product", product_ref="/p.md")
+        init_drafting(ws, mode="product", delivered_refs=product_delivered_refs("/p.md"))
+        (ws.parent / "tech-doc.md").write_text("# Tech\n", encoding="utf-8")
         ready_for_delivery(_CYCLE, tmp_path)
 
         result = deliver(_CYCLE, tmp_path, note="confirmed")
@@ -216,6 +222,8 @@ class TestDeliver:
         gate = ws.parent / "human-delivery-gate.md"
         assert gate.exists()
         assert "confirmed" in gate.read_text(encoding="utf-8")
+        refs = load_delivered_refs_file(_CYCLE, tmp_path)
+        assert refs["entries"]["tech-plan"]["path"] == str((ws.parent / "tech-doc.md").resolve())
 
     def test_failure_from_evaluating(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
@@ -258,7 +266,7 @@ class TestAbandonEvaluation:
         assert loaded["evaluate_round"] == "2"
         assert loaded["skip_evaluate_requested"] == "false"
         assert loaded["mode"] == "product"
-        assert loaded["product_ref"] == "/p.md"
+        assert product_ref_from_state(loaded) == "/p.md"
         assert loaded["carry_forward_ref"] == "/old.md"
 
     def test_failure_when_not_evaluating(self, tmp_path: Path):

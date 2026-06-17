@@ -41,11 +41,12 @@ from session_state_schema import load_active_doc_from_cycle  # noqa: E402
 from section_round_control import init_round_dir_if_needed  # noqa: E402
 from workflow_common import (  # noqa: E402
     CACHE_DIR,
-    decision_doc_path,
     detect_cycle_type,
     doc_dir,
-    tech_doc_path,
 )
+from workflow_profile_paths import document_path  # noqa: E402
+from delivered_refs_schema import delivered_path  # noqa: E402
+from start_adapter_registry import load_start_adapter  # noqa: E402
 from workflow_state_schema import (  # noqa: E402
     load_workflow_state,
     resolve_workflow_state_path_from_cycle,
@@ -74,11 +75,12 @@ def _ensure_round_dir(cycle_id: str, project_root: Path, *, round_n: int) -> Non
         return
 
 
-def _tech_doc_path(cycle_id: str, project_root: Path) -> Path:
-    return project_root / tech_doc_path(
-        cycle_id,
-        load_active_doc_from_cycle(cycle_id, project_root),
-    )
+_PROFILE_ID = "tech-plan"
+
+
+def _compose_doc_path(cycle_id: str, project_root: Path) -> Path:
+    active_doc = load_active_doc_from_cycle(cycle_id, project_root)
+    return project_root / document_path(cycle_id, active_doc, _PROFILE_ID)
 
 
 def _success(command: str, **extra: Any) -> dict[str, Any]:
@@ -97,6 +99,7 @@ def _format_init_dispatch_input(
     *,
     revision_dir: Path,
     decision_doc: Path,
+    output_doc: Path,
     cycle_type: str,
     cycle_id: str,
     design_doc: Path | None = None,
@@ -104,6 +107,8 @@ def _format_init_dispatch_input(
     lines = [
         f"REVISION_DIR:         {revision_dir.resolve().as_posix()}",
         f"DECISION_DOC_PATH:    {decision_doc.resolve().as_posix()}",
+        f"OUTPUT_DOC_PATH:      {output_doc.resolve().as_posix()}",
+        f"COMPOSE_PROFILE:      {_PROFILE_ID}",
     ]
     if design_doc is not None:
         lines.append(f"DESIGN_DOC_PATH:      {design_doc.resolve().as_posix()}")
@@ -119,35 +124,40 @@ def _format_init_dispatch_input(
 def _init_dispatch_input(cycle_id: str, project_root: Path) -> str:
     active_doc = load_active_doc_from_cycle(cycle_id, project_root)
     revision_dir = project_root / doc_dir(cycle_id, active_doc)
-    decision_doc = project_root / decision_doc_path(cycle_id)
+    output_doc = _compose_doc_path(cycle_id, project_root)
+    adapter = load_start_adapter(_PROFILE_ID)
+    init_ref = adapter.delivered_ref_for_init(cycle_id, project_root)
+    if init_ref is None:
+        raise ValueError("no delivered ref available for Initializing")
     ws_path = resolve_workflow_state_path_from_cycle(cycle_id, project_root)
-    design_ref = ""
+    design_path = ""
     if ws_path.exists():
-        design_ref = load_workflow_state(ws_path).get("design_ref", "").strip()
-    design_doc = Path(design_ref) if design_ref else None
+        design_path = delivered_path(load_workflow_state(ws_path), "tech-design")
+    design_doc = Path(design_path) if design_path else None
     return _format_init_dispatch_input(
         revision_dir=revision_dir,
-        decision_doc=decision_doc,
+        decision_doc=Path(init_ref.path),
+        output_doc=output_doc,
         cycle_type=detect_cycle_type(cycle_id),
         cycle_id=cycle_id,
         design_doc=design_doc,
     )
 
 
-def _validate_tech_doc_seeded(tech_doc: Path, project_root: Path) -> str | None:
-    if not tech_doc.exists():
-        return f"tech-doc.md not found: {tech_doc}"
+def _validate_compose_doc_seeded(compose_doc: Path, project_root: Path) -> str | None:
+    if not compose_doc.exists():
+        return f"compose document not found: {compose_doc}"
     from section_registry_schema import section_order  # noqa: WPS433
-    from tech_doc_schema import section_body_by_key  # noqa: WPS433
+    from compose_doc_schema import section_body_by_key  # noqa: WPS433
 
-    raw = tech_doc.read_text(encoding="utf-8")
+    raw = compose_doc.read_text(encoding="utf-8")
     empty: list[str] = []
     for key in section_order(project_root):
         body = section_body_by_key(raw, key, project_root=project_root).strip()
         if not body:
             empty.append(key)
     if empty:
-        return f"tech-doc sections with empty body: {', '.join(empty)}"
+        return f"compose document sections with empty body: {', '.join(empty)}"
     return None
 
 
@@ -178,9 +188,9 @@ def begin_init(cycle_id: str, project_root: Path) -> dict[str, Any]:
 
 def init_complete(cycle_id: str, project_root: Path) -> dict[str, Any]:
     progress_path = resolve_drafting_progress_path_from_cycle(cycle_id, project_root)
-    tech_doc = _tech_doc_path(cycle_id, project_root)
+    compose_doc = _compose_doc_path(cycle_id, project_root)
 
-    seed_error = _validate_tech_doc_seeded(tech_doc, project_root)
+    seed_error = _validate_compose_doc_seeded(compose_doc, project_root)
     if seed_error:
         return _failure(_CMD_INIT_COMPLETE, seed_error)
 

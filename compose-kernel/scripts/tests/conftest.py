@@ -24,6 +24,9 @@ def _use_project_template_cache(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Resolve fetched templates via project_root (matches production cache layout)."""
+    from compose_profile_context import reset_active_profile  # noqa: WPS433
+
+    reset_active_profile()
     import section_registry_schema  # noqa: WPS433
 
     section_registry_schema._registry_for_path.cache_clear()

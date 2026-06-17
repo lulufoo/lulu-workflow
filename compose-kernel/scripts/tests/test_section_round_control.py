@@ -17,7 +17,7 @@ from section_round_control import (  # noqa: E402
 )
 from test_registry_fixtures import (  # noqa: E402
     first_section_key,
-    minimal_tech_doc_markdown,
+    minimal_compose_doc_markdown,
     second_section_key,
     section_headings_map,
     section_key_at,
@@ -51,7 +51,7 @@ def _setup_cycle(tmp_path: Path) -> Path:
         "---\nversion: 1\nactive_doc: 1\n---\n",
         encoding="utf-8",
     )
-    (revision / "tech-doc.md").write_text(minimal_tech_doc_markdown(), encoding="utf-8")
+    (revision / "tech-doc.md").write_text(minimal_compose_doc_markdown(), encoding="utf-8")
     (revision / "drafting-progress.md").write_text(
         f"---\nversion: 1\ncycle_id: {_CYCLE_ID}\n"
         "current_step: RoundIteration\nround: 1\n---\n",
@@ -100,6 +100,37 @@ def test_read_context(tmp_path: Path):
     assert ctx["round"] == 1
     assert (cycle_dir / "tech" / "plan" / "anchor-ledger.md").exists()
     assert ctx["decision_doc_path"].endswith("tech/diagnostic/decision-doc.md")
+
+
+def test_read_context_uses_delivered_refs_scope_doc(tmp_path: Path):
+    cycle_dir = tmp_path / ".cache/cursor/lulu-dev-workflow" / _CYCLE_ID
+    _seed_registry_cache(tmp_path)
+    plan_base = cycle_dir / "tech" / "plan"
+    revision = plan_base / "revision1"
+    revision.mkdir(parents=True)
+    (plan_base / "session-state.md").write_text(
+        "---\nversion: 1\nactive_doc: 1\n---\n",
+        encoding="utf-8",
+    )
+    (revision / "tech-doc.md").write_text(minimal_compose_doc_markdown(), encoding="utf-8")
+    (revision / "drafting-progress.md").write_text(
+        f"---\nversion: 1\ncycle_id: {_CYCLE_ID}\n"
+        "current_step: RoundIteration\nround: 1\n---\n",
+        encoding="utf-8",
+    )
+    from delivered_refs_schema import DeliveredRef  # noqa: WPS433
+    from workflow_state_schema import init_drafting  # noqa: WPS433
+
+    product_doc = tmp_path / "product-doc.md"
+    product_doc.write_text("# Product\n", encoding="utf-8")
+    ws = revision / "workflow-state.md"
+    init_drafting(
+        ws,
+        mode="product",
+        delivered_refs=[DeliveredRef(type="product-plan", path=str(product_doc.resolve()))],
+    )
+    ctx = _run(cycle_dir, "read-context", round_n=None)
+    assert ctx["decision_doc_path"] == str(product_doc.resolve())
 
 
 def test_append_skip_any_section(tmp_path: Path):
@@ -401,9 +432,10 @@ class TestRoundProbeInput:
         assert result["ok"] is True
         assert "dispatch_input" in result
         inp = result["dispatch_input"]
-        assert f"CYCLE_ID:       {_CYCLE_ID}" in inp
+        assert f"CYCLE_ID:         {_CYCLE_ID}" in inp
         assert "CYCLE_TYPE" not in inp
-        assert "ROUND_N:        1" in inp
+        assert "ROUND_N:          1" in inp
+        assert "COMPOSE_DOC_PATH:" in inp
         assert f"ACTIVE_SECTION: {first_section_key()}" in inp
         assert "ROUND_DIR:" in inp
         assert revision.resolve().as_posix() in inp
@@ -420,7 +452,7 @@ class TestRoundProbeInput:
         _run(cycle_dir, "init-round-dir", round_n="2")
         result = round_probe_input(cycle_dir)
         assert result["ok"] is True
-        assert "ROUND_N:        2" in result["dispatch_input"]
+        assert "ROUND_N:          2" in result["dispatch_input"]
 
     def test_fails_when_ready_not_round_iteration(self, tmp_path: Path):
         cycle_dir = _setup_cycle(tmp_path)
@@ -469,8 +501,10 @@ class TestRoundProbeInput:
         )
         assert proc.returncode == 0
         assert proc.stdout.startswith("CYCLE_DIR:")
-        assert f"CYCLE_ID:       {_CYCLE_ID}" in proc.stdout
-        assert "ROUND_N:        1" in proc.stdout
+        assert f"CYCLE_ID:         {_CYCLE_ID}" in proc.stdout
+        assert "ROUND_N:          1" in proc.stdout
+        assert "COMPOSE_DOC_PATH:" in proc.stdout
+        assert "TECH_DOC_PATH:" not in proc.stdout
         assert revision.resolve().as_posix() in proc.stdout
         try:
             json.loads(proc.stdout)

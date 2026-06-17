@@ -68,10 +68,6 @@ def approval_path(cycle_id: str, doc_round: int) -> Path:
     return doc_dir(cycle_id, doc_round) / "human-delivery-gate.md"
 
 
-def tech_doc_path(cycle_id: str, doc_round: int) -> Path:
-    return doc_dir(cycle_id, doc_round) / "tech-doc.md"
-
-
 def decision_doc_path(cycle_id: str) -> Path:
     return CACHE_DIR / cycle_id / "tech" / "diagnostic" / "decision-doc.md"
 

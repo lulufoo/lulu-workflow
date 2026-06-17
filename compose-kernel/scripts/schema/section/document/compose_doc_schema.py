@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""Authoritative read helpers for tech-plan revision{N}/tech-doc.md presentation.
+"""Authoritative read helpers for profile compose documents (section-keyed markdown).
 
 Section bodies are located by `<!-- section-key:KEY -->` anchors (preferred):
 either on the H2 line (legacy 10-H2) or inside outline blocks (feature 5-H2).
 Legacy registry heading match is a final fallback.
 
 CLI:
-    python3 tech_doc_schema.py --schema
-    python3 tech_doc_schema.py --read  --path <tech-doc.md>
-    python3 tech_doc_schema.py --read  --cycle-id <id> --project-root .
-    python3 tech_doc_schema.py --section-body --path <tech-doc.md> --section KEY
+    python3 compose_doc_schema.py --schema
+    python3 compose_doc_schema.py --read  --path <compose-doc.md>
+    python3 compose_doc_schema.py --read  --cycle-id <id> --project-root . [--profile tech-plan]
+    python3 compose_doc_schema.py --section-body --path <compose-doc.md> --section KEY
 """
 
 from __future__ import annotations
@@ -27,13 +27,14 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
-from session_state_schema import load_active_doc_from_cycle
 from section_registry_schema import section_heading, summary_section_key
-from workflow_common import read_md_field, tech_doc_path
+from session_state_schema import load_active_doc
+from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID
+from workflow_profile_paths import document_path, session_state_path
 
 _SCHEMA: list[dict] = [
     {"field": "path", "type": "string", "required": True,
-     "description": "Absolute path to revision{N}/tech-doc.md"},
+     "description": "Absolute path to revision{N} compose document"},
     {"field": "revision", "type": "integer", "required": True,
      "description": "Active document round from session-state.md"},
     {"field": "title", "type": "string", "required": True,
@@ -55,7 +56,7 @@ _H2_RE = re.compile(r"^##\s+", re.MULTILINE)
 
 
 def get_schema() -> list[dict]:
-    """Return field definitions for tech-doc presentation payload."""
+    """Return field definitions for compose document presentation payload."""
     return list(_SCHEMA)
 
 
@@ -113,7 +114,7 @@ def _truncate_summary(text: str, *, max_len: int = _SUMMARY_MAX_LEN) -> str:
 
 
 def format_section_heading(section_key: str, display_title: str) -> str:
-    """Return H2 line with stable section-key anchor for tech-doc writers."""
+    """Return H2 line with stable section-key anchor for compose document writers."""
     key = section_key.strip().upper()
     title = display_title.strip() or "（待命名）"
     return f"## {title} <!-- section-key:{key} -->"
@@ -171,7 +172,7 @@ def parse_sections(
     *,
     project_root: Path | None = None,
 ) -> dict[str, dict[str, str]]:
-    """Parse tech-doc into section_key → {display_heading, body}."""
+    """Parse compose document into section_key → {display_heading, body}."""
     body = _strip_frontmatter(text)
     sections = _parse_sections_by_intent_anchors(body)
     if sections:
@@ -234,9 +235,9 @@ def section_body_by_key(
 
 
 def extract_presentation(path: Path, *, revision: int | None = None) -> dict:
-    """Read tech-doc.md and return path/title/summary presentation fields."""
+    """Read compose document and return path/title/summary presentation fields."""
     if not path.exists():
-        raise ValueError(f"tech-doc.md not found: {path}")
+        raise ValueError(f"compose document not found: {path}")
 
     raw = path.read_text(encoding="utf-8")
     body = _strip_frontmatter(raw)
@@ -247,7 +248,7 @@ def extract_presentation(path: Path, *, revision: int | None = None) -> dict:
     if not title:
         title = _first_content_line(summary_body)
     if not title:
-        title = f"revision{revision} tech-doc" if revision is not None else path.stem
+        title = f"revision{revision} {path.name}" if revision is not None else path.stem
 
     summary = _truncate_summary(summary_body)
 
@@ -261,29 +262,53 @@ def extract_presentation(path: Path, *, revision: int | None = None) -> dict:
     return payload
 
 
-def resolve_tech_doc_path_from_cycle(cycle_id: str, project_root: Path) -> tuple[Path, int]:
-    """Resolve revision{N}/tech-doc.md via session-state.md active_doc."""
-    active_doc = load_active_doc_from_cycle(cycle_id, project_root)
-    return project_root / tech_doc_path(cycle_id, active_doc), active_doc
+def resolve_compose_doc_path_from_cycle(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+) -> tuple[Path, int]:
+    """Resolve revision compose document via session-state.md active_doc."""
+    active_doc = load_active_doc(
+        project_root / session_state_path(cycle_id, profile_id),
+        default=1,
+    )
+    return project_root / document_path(cycle_id, active_doc, profile_id), active_doc
 
 
-def load_presentation_from_cycle(cycle_id: str, project_root: Path) -> dict:
-    """Resolve active tech-doc and return presentation payload."""
-    path, revision = resolve_tech_doc_path_from_cycle(cycle_id, project_root)
+def load_presentation_from_cycle(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+) -> dict:
+    """Resolve active compose document and return presentation payload."""
+    path, revision = resolve_compose_doc_path_from_cycle(
+        cycle_id,
+        project_root,
+        profile_id=profile_id,
+    )
     payload = extract_presentation(path, revision=revision)
     payload["revision"] = revision
     return payload
 
 
 def _cli() -> int:
-    parser = argparse.ArgumentParser(description="tech-plan tech-doc.md presentation utilities")
+    parser = argparse.ArgumentParser(
+        description="Compose document (section-keyed markdown) presentation utilities",
+    )
     parser.add_argument("--schema", action="store_true", help="Print JSON schema array and exit")
     parser.add_argument("--read", action="store_true", help="Print presentation payload as JSON")
     parser.add_argument("--section-body", action="store_true", help="Print section body JSON")
-    parser.add_argument("--path", type=Path, help="Path to tech-doc.md")
+    parser.add_argument("--path", type=Path, help="Path to compose document markdown")
     parser.add_argument("--section", type=str, help="Section key for --section-body")
     parser.add_argument("--cycle-id", type=str, help="Cycle ID for --read")
     parser.add_argument("--project-root", type=Path, default=Path("."), help="Project root")
+    parser.add_argument(
+        "--profile",
+        default=DEFAULT_COMPOSE_PROFILE_ID,
+        help="Compose profile / stage name (default: tech-plan)",
+    )
     args = parser.parse_args()
 
     if args.schema:
@@ -291,6 +316,7 @@ def _cli() -> int:
         return 0
 
     project_root = args.project_root.resolve()
+    profile_id = args.profile.strip() or DEFAULT_COMPOSE_PROFILE_ID
 
     if args.section_body:
         if not args.path or not args.section:
@@ -312,6 +338,7 @@ def _cli() -> int:
                 data = load_presentation_from_cycle(
                     args.cycle_id.strip(),
                     project_root,
+                    profile_id=profile_id,
                 )
             elif args.path:
                 data = extract_presentation(args.path.resolve())
@@ -328,4 +355,4 @@ def _cli() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(_cli())
+    raise SystemExit(_cli())

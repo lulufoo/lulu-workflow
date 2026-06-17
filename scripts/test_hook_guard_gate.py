@@ -487,17 +487,19 @@ class TestCrossContainerIsolation:
         assert all(s.state == "Invalidated" for s in get_sessions("topic-a", "tech-diagnostic", tmp_path))
         assert all(s.state == "Invalidated" for s in get_sessions("topic-a", "tech-plan", tmp_path))
 
-    def test_topic_reopen_tech_diagnostic_invalidates_tech_plan_only(self, tmp_path):
-        """Topic re-open tech-diagnostic → only tech-plan Invalidated."""
+    def test_topic_reopen_tech_diagnostic_invalidates_tech_design_and_plan(self, tmp_path):
+        """Topic re-open tech-diagnostic → tech-design and tech-plan Invalidated."""
         from invalidation_hook import invalidate_downstream
         from hook_guard import get_sessions
         _make_workflow_state(tmp_path, "topic-a", "tech-diagnostic", "r1", "Delivered")
+        _make_workflow_state(tmp_path, "topic-a", "tech-design", "r1", "Delivered")
         _make_workflow_state(tmp_path, "topic-a", "tech-plan", "r1", "Delivered")
 
         invalidate_downstream("topic-a", "tech-diagnostic", "topic", tmp_path)
 
         tech_diag = get_sessions("topic-a", "tech-diagnostic", tmp_path)
         assert all(s.state == "Delivered" for s in tech_diag)
+        assert all(s.state == "Invalidated" for s in get_sessions("topic-a", "tech-design", tmp_path))
         assert all(s.state == "Invalidated" for s in get_sessions("topic-a", "tech-plan", tmp_path))
 
 

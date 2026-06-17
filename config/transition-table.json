@@ -4,6 +4,7 @@
     "product-diagnostic": "product-diagnostic",
     "product-plan": "product-plan",
     "tech-diagnostic": "tech-diagnostic",
+    "tech-design": "tech-design",
     "tech-plan": "tech-plan",
     "tech-work-order": "tech-plan",
     "tech-code": null
@@ -13,7 +14,8 @@
     { "from": null, "to": ["tech-diagnostic"], "note": "for pure tech work" },
     { "from": "product-diagnostic", "to": ["product-plan"] },
     { "from": "product-plan", "to": ["tech-diagnostic"] },
-    { "from": "tech-diagnostic", "to": ["tech-plan"] },
+    { "from": "tech-diagnostic", "to": ["tech-design", "tech-plan"] },
+    { "from": "tech-design", "to": ["tech-plan"] },
     { "from": "tech-plan", "to": [], "note": "shaping 循环完成；推荐创建 feature 并引用此 topic" }
   ],
   "feature": [
@@ -21,7 +23,8 @@
     { "from": null, "to": ["tech-diagnostic"], "note": "for pure tech work" },
     { "from": "product-diagnostic", "to": ["product-plan"] },
     { "from": "product-plan", "to": ["tech-diagnostic"] },
-    { "from": "tech-diagnostic", "to": ["tech-plan"] },
+    { "from": "tech-diagnostic", "to": ["tech-design", "tech-plan"] },
+    { "from": "tech-design", "to": ["tech-plan"] },
     { "from": "tech-plan", "to": ["tech-work-order"] },
     { "from": "tech-work-order", "to": ["tech-code"] },
     { "from": "tech-code", "to": [] }

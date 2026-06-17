@@ -26,8 +26,9 @@ from workflow_common import (  # noqa: E402
     detect_cycle_type,
     eval_round_dir,
     load_container_meta,
-    tech_doc_path,
 )
+from workflow_profile_paths import document_path  # noqa: E402
+from delivered_refs_schema import product_ref_from_state  # noqa: E402
 from workflow_state_schema import (  # noqa: E402
     load_workflow_state,
     resolve_workflow_state_path_from_cycle,
@@ -89,7 +90,7 @@ class TechPlanEvalAdapter:
         return SessionContext(
             active_doc=load_active_doc_from_cycle(cycle_id, project_root),
             mode=state["mode"],
-            product_ref=state.get("product_ref", ""),
+            product_ref=product_ref_from_state(state),
             cycle_type=detect_cycle_type(cycle_id),
         )
 
@@ -104,7 +105,9 @@ class TechPlanEvalAdapter:
     ) -> dict[str, str]:
         root = project_root.resolve()
         return {
-            "tech_doc": (root / tech_doc_path(cycle_id, active_doc)).as_posix(),
+            "compose_doc": (
+                root / document_path(cycle_id, active_doc, "tech-plan")
+            ).as_posix(),
             "evaluate_state": es_path.resolve().as_posix(),
             "evaluate_dir": (
                 root / eval_round_dir(cycle_id, active_doc, evaluate_round)
@@ -131,7 +134,7 @@ class TechPlanEvalAdapter:
 
         state = self.load_workflow_state(cycle_id, project_root)
         mode = state["mode"]
-        product_ref = state.get("product_ref", "")
+        product_ref = product_ref_from_state(state)
         cycle_type = detect_cycle_type(cycle_id)
         dimensions = select_dimension_defs(
             product_ref=product_ref,
@@ -210,6 +213,10 @@ class TechPlanEvalAdapter:
     def enter_evaluating(
         self, cycle_id: str, project_root: Path
     ) -> dict[str, Any]:
-        from session_control import start_evaluating  # noqa: WPS433
+        from session_evaluating import transition_to_evaluating  # noqa: WPS433
 
-        return start_evaluating(cycle_id, project_root)
+        return transition_to_evaluating(
+            cycle_id,
+            project_root,
+            profile_id=_PROFILE["profile_id"],
+        )

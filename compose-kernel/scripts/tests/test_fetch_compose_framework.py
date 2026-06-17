@@ -31,7 +31,9 @@ class TestResolveConfigKey:
     def test_resolve_config_key(self, role: str, expected: str) -> None:
         assert resolve_config_key(role) == expected
 
-    def test_invalid_role(self) -> None:
+    def test_resolve_config_key_tech_design(self) -> None:
+        assert resolve_config_key("outline-registry", "tech-design") == "tdt_outline_registry_url"
+        assert resolve_config_key("section-registry", "tech-design") == "tdt_section_registry_url"
         from compose_template_registry import ComposeTemplateError
 
         with pytest.raises(ComposeTemplateError, match="Invalid compose template role"):
@@ -50,6 +52,19 @@ class TestResolveConfigKey:
 
 
 class TestFetchComposeFramework:
+    def test_fetch_tech_design_outline_registry(self, tmp_path: Path) -> None:
+        import fetch_compose_framework as mod
+
+        root = Path(__file__).resolve().parents[4]
+        content = mod.fetch_compose_framework(
+            "outline-registry",
+            root,
+            profile_id="tech-design",
+        )
+        data = __import__("json").loads(content)
+        assert data["outline_order"] == ["SI", "BD", "SH", "RS", "CT", "RD"]
+        assert data["blocks"]["SH"]["intents"] == ["ST"]
+
     def test_delegates_to_fetch_template(self, tmp_path: Path) -> None:
         calls: list[tuple[str, str]] = []
 

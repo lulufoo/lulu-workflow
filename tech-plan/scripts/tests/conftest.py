@@ -21,7 +21,16 @@ for p in (
         sys.path.insert(0, str(p))
 
 import bootstrap  # noqa: F401
+from compose_profile_context import reset_active_profile  # noqa: WPS433
 from test_template_data import seed_tech_plan_test_caches  # noqa: WPS433
+
+
+@pytest.fixture(autouse=True)
+def _reset_compose_profile() -> None:
+    """Avoid leaking compose profile between test modules."""
+    reset_active_profile()
+    yield
+    reset_active_profile()
 
 
 @pytest.fixture(scope="session")

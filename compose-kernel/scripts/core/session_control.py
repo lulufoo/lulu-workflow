@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Session control for tech-plan orchestrator.
+"""Session control for compose orchestrators (tech-plan, tech-design, …).
 
 Subcommands:
     start-evaluating     Drafting -> Evaluating (+ evaluate-state.md init)
@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -25,21 +24,24 @@ if str(_SCRIPTS) not in sys.path:
 import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
-from workflow_paths import EVAL_SCRIPTS as _EVAL_SCRIPTS  # noqa: E402
+from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, EVAL_SCRIPTS as _EVAL_SCRIPTS  # noqa: E402
 
 sys.path.insert(0, str(_EVAL_SCRIPTS))
 
+from adapter_registry import load_adapter  # noqa: E402
+from compose_session import (  # noqa: E402
+    approval_gate_path,
+    document_file_path,
+    eval_workflow_id,
+    load_active_doc_for_profile,
+    workflow_state_path,
+)
+from delivered_refs_schema import record_delivered_ref  # noqa: E402
 from evaluate_state_schema import load_evaluate_state  # noqa: E402
 from human_delivery_gate_schema import write_approved  # noqa: E402
-from session_state_schema import load_active_doc_from_cycle  # noqa: E402
-from workflow_common import approval_path  # noqa: E402
+from session_evaluating import transition_to_evaluating  # noqa: E402
 from transition_registry import is_allowed  # noqa: E402
-from workflow_state_schema import (  # noqa: E402
-    load_workflow_state,
-    resolve_workflow_state_path_from_cycle,
-    save_workflow_state,
-)
-from adapter_registry import load_adapter  # noqa: E402
+from workflow_state_schema import load_workflow_state, save_workflow_state  # noqa: E402
 
 _CMD_START_EVALUATING = "start-evaluating"
 _CMD_READY = "ready-for-delivery"
@@ -49,41 +51,16 @@ _CMD_RESUME_AFTER_EVAL = "resume-after-eval"
 _EXPECTED_DELIVER_STATE = "ReadyForDelivery"
 _EXPECTED_ABANDON_STATE = "Evaluating"
 _EXPECTED_EVALUATING_STATE = "Evaluating"
-_EVAL_CONTROL = _EVAL_SCRIPTS / "eval_control.py"
-_WORKFLOW = "tech-plan"
 
 
-def _run_eval_init_round(cycle_id: str, project_root: Path) -> None:
-    result = subprocess.run(
-        [
-            sys.executable,
-            str(_EVAL_CONTROL),
-            "--workflow",
-            _WORKFLOW,
-            "--cycle-id",
-            cycle_id,
-            "--project-root",
-            str(project_root),
-            "init-round",
-        ],
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        detail = result.stderr.strip() or result.stdout.strip() or "init-round failed"
-        raise ValueError(detail)
-
-
-def _evaluate_state_path(cycle_id: str, project_root: Path) -> Path:
-    adapter = load_adapter(_WORKFLOW)
+def _evaluate_state_path(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    profile_id: str,
+) -> Path:
+    adapter = load_adapter(eval_workflow_id(profile_id))
     return adapter.resolve_evaluate_state_path(cycle_id, project_root)
-
-
-def _gate_path(cycle_id: str, project_root: Path) -> Path:
-    return project_root / approval_path(
-        cycle_id,
-        load_active_doc_from_cycle(cycle_id, project_root),
-    )
 
 
 def _success(command: str, current_state: str, **extra: Any) -> dict[str, Any]:
@@ -148,8 +125,13 @@ def _build_resume(command: str, current_state: str) -> dict[str, Any]:
     }
 
 
-def start_evaluating(cycle_id: str, project_root: Path) -> dict[str, Any]:
-    ws_path = resolve_workflow_state_path_from_cycle(cycle_id, project_root)
+def start_evaluating(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+) -> dict[str, Any]:
+    ws_path = workflow_state_path(cycle_id, project_root, profile_id)
     state = load_workflow_state(ws_path)
     current = state["current_state"]
 
@@ -161,6 +143,7 @@ def start_evaluating(cycle_id: str, project_root: Path) -> dict[str, Any]:
         return _success(
             _CMD_START_EVALUATING,
             "Evaluating",
+            profile_id=profile_id,
             evaluate_round=evaluate_round,
         )
 
@@ -170,33 +153,38 @@ def start_evaluating(cycle_id: str, project_root: Path) -> dict[str, Any]:
     if not _require_transition(_CMD_START_EVALUATING, current, "Evaluating"):
         return _failure(_CMD_START_EVALUATING, current)
 
-    try:
-        evaluate_round = int(state.get("evaluate_round", "0")) + 1
-    except ValueError:
-        evaluate_round = 1
-
-    merged = dict(state)
-    merged.pop("skip_evaluate_requested", None)
-    merged["current_state"] = "Evaluating"
-    merged["evaluate_round"] = str(evaluate_round)
-    save_workflow_state(ws_path, merged, merge=False)
-
-    _run_eval_init_round(cycle_id, project_root)
+    entry = transition_to_evaluating(cycle_id, project_root, profile_id=profile_id)
+    if not entry.get("ok"):
+        return {
+            "ok": False,
+            "command": _CMD_START_EVALUATING,
+            "current_state": entry.get("current_state", current),
+            "resume": entry.get(
+                "resume",
+                _build_resume(_CMD_START_EVALUATING, entry.get("current_state", current)),
+            ),
+        }
 
     return _success(
         _CMD_START_EVALUATING,
         "Evaluating",
-        evaluate_round=evaluate_round,
+        profile_id=profile_id,
+        evaluate_round=entry["evaluate_round"],
     )
 
 
-def ready_for_delivery(cycle_id: str, project_root: Path) -> dict[str, Any]:
-    ws_path = resolve_workflow_state_path_from_cycle(cycle_id, project_root)
+def ready_for_delivery(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+) -> dict[str, Any]:
+    ws_path = workflow_state_path(cycle_id, project_root, profile_id)
     state = load_workflow_state(ws_path)
     current = state["current_state"]
 
     if current == "ReadyForDelivery":
-        return _success(_CMD_READY, "ReadyForDelivery")
+        return _success(_CMD_READY, "ReadyForDelivery", profile_id=profile_id)
 
     if current == "Drafting":
         if not _require_transition(_CMD_READY, current, "ReadyForDelivery"):
@@ -204,7 +192,7 @@ def ready_for_delivery(cycle_id: str, project_root: Path) -> dict[str, Any]:
         updates: dict[str, str] = {"current_state": "ReadyForDelivery"}
         updates["skip_evaluate_requested"] = "true"
         save_workflow_state(ws_path, updates)
-        return _success(_CMD_READY, "ReadyForDelivery")
+        return _success(_CMD_READY, "ReadyForDelivery", profile_id=profile_id)
 
     if current == "Evaluating":
         if not _require_transition(_CMD_READY, current, "ReadyForDelivery"):
@@ -213,13 +201,19 @@ def ready_for_delivery(cycle_id: str, project_root: Path) -> dict[str, Any]:
         merged.pop("skip_evaluate_requested", None)
         merged["current_state"] = "ReadyForDelivery"
         save_workflow_state(ws_path, merged, merge=False)
-        return _success(_CMD_READY, "ReadyForDelivery")
+        return _success(_CMD_READY, "ReadyForDelivery", profile_id=profile_id)
 
     return _failure(_CMD_READY, current)
 
 
-def deliver(cycle_id: str, project_root: Path, *, note: str = "") -> dict[str, Any]:
-    ws_path = resolve_workflow_state_path_from_cycle(cycle_id, project_root)
+def deliver(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    note: str = "",
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+) -> dict[str, Any]:
+    ws_path = workflow_state_path(cycle_id, project_root, profile_id)
     state = load_workflow_state(ws_path)
     current = state["current_state"]
 
@@ -229,18 +223,35 @@ def deliver(cycle_id: str, project_root: Path, *, note: str = "") -> dict[str, A
     if not _require_transition(_CMD_DELIVER, current, "Delivered"):
         return _failure_deliver(current)
 
-    write_approved(_gate_path(cycle_id, project_root), note=note)
+    write_approved(approval_gate_path(cycle_id, project_root, profile_id), note=note)
+
+    active_doc = load_active_doc_for_profile(cycle_id, project_root, profile_id)
+    compose_path = document_file_path(cycle_id, project_root, profile_id)
+    record_delivered_ref(
+        cycle_id,
+        project_root,
+        delivered_type=profile_id,
+        path=str(compose_path.resolve()),
+        revision=active_doc,
+        profile_id=profile_id,
+        source_workflow_state=str(ws_path.resolve()),
+    )
 
     merged = dict(state)
     merged.pop("skip_evaluate_requested", None)
     merged["current_state"] = "Delivered"
     save_workflow_state(ws_path, merged, merge=False)
 
-    return _success(_CMD_DELIVER, "Delivered")
+    return _success(_CMD_DELIVER, "Delivered", profile_id=profile_id)
 
 
-def abandon_evaluation(cycle_id: str, project_root: Path) -> dict[str, Any]:
-    ws_path = resolve_workflow_state_path_from_cycle(cycle_id, project_root)
+def abandon_evaluation(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+) -> dict[str, Any]:
+    ws_path = workflow_state_path(cycle_id, project_root, profile_id)
     state = load_workflow_state(ws_path)
     current = state["current_state"]
 
@@ -254,7 +265,7 @@ def abandon_evaluation(cycle_id: str, project_root: Path) -> dict[str, Any]:
             ),
         )
 
-    es_path = _evaluate_state_path(cycle_id, project_root)
+    es_path = _evaluate_state_path(cycle_id, project_root, profile_id=profile_id)
     if not es_path.exists():
         return _failure_abandon(
             current,
@@ -297,13 +308,19 @@ def abandon_evaluation(cycle_id: str, project_root: Path) -> dict[str, Any]:
     return _success(
         _CMD_ABANDON,
         "Drafting",
+        profile_id=profile_id,
         evaluate_round=evaluate_round,
     )
 
 
-def resume_after_eval(cycle_id: str, project_root: Path) -> dict[str, Any]:
+def resume_after_eval(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+) -> dict[str, Any]:
     """Return to Drafting after complete-round (Evaluating fix exit)."""
-    ws_path = resolve_workflow_state_path_from_cycle(cycle_id, project_root)
+    ws_path = workflow_state_path(cycle_id, project_root, profile_id)
     state = load_workflow_state(ws_path)
     current = state["current_state"]
     if current != _EXPECTED_EVALUATING_STATE:
@@ -324,7 +341,7 @@ def resume_after_eval(cycle_id: str, project_root: Path) -> dict[str, Any]:
             "reason": f"evaluate_round is {evaluate_round!r} (expected >= 1).",
         }
 
-    es_path = _evaluate_state_path(cycle_id, project_root)
+    es_path = _evaluate_state_path(cycle_id, project_root, profile_id=profile_id)
     if not es_path.exists():
         return {
             "ok": False,
@@ -364,6 +381,7 @@ def resume_after_eval(cycle_id: str, project_root: Path) -> dict[str, Any]:
     return _success(
         _CMD_RESUME_AFTER_EVAL,
         "Drafting",
+        profile_id=profile_id,
         evaluate_round=evaluate_round,
     )
 
@@ -374,13 +392,18 @@ def _emit(payload: dict[str, Any]) -> int:
 
 
 def _cli() -> int:
-    parser = argparse.ArgumentParser(description="tech-plan session control")
+    parser = argparse.ArgumentParser(description="compose session control")
     parser.add_argument("--cycle-id", required=True, help="Cycle ID")
     parser.add_argument(
         "--project-root",
         type=Path,
         default=Path("."),
         help="Project root directory",
+    )
+    parser.add_argument(
+        "--profile",
+        default=DEFAULT_COMPOSE_PROFILE_ID,
+        help="Compose profile / stage name (default: tech-plan)",
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -400,18 +423,21 @@ def _cli() -> int:
     args = parser.parse_args()
     project_root = args.project_root.resolve()
     cycle_id = args.cycle_id.strip()
+    profile_id = args.profile.strip()
 
     try:
         if args.command == _CMD_START_EVALUATING:
-            return _emit(start_evaluating(cycle_id, project_root))
+            return _emit(start_evaluating(cycle_id, project_root, profile_id=profile_id))
         if args.command == _CMD_READY:
-            return _emit(ready_for_delivery(cycle_id, project_root))
+            return _emit(ready_for_delivery(cycle_id, project_root, profile_id=profile_id))
         if args.command == _CMD_DELIVER:
-            return _emit(deliver(cycle_id, project_root, note=args.note))
+            return _emit(
+                deliver(cycle_id, project_root, note=args.note, profile_id=profile_id),
+            )
         if args.command == _CMD_ABANDON:
-            return _emit(abandon_evaluation(cycle_id, project_root))
+            return _emit(abandon_evaluation(cycle_id, project_root, profile_id=profile_id))
         if args.command == _CMD_RESUME_AFTER_EVAL:
-            return _emit(resume_after_eval(cycle_id, project_root))
+            return _emit(resume_after_eval(cycle_id, project_root, profile_id=profile_id))
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 1

@@ -1,0 +1,30 @@
+{
+  "profile_id": "tech-design",
+  "stage_name": "tech-design",
+  "cycle_types": ["feature"],
+  "shell_dir": "tech-design",
+  "shell_paths": {
+    "hook_guard": "tech-design/scripts/hook_guard.py",
+    "dimension_defs_dir": "tech-design/dimension-defs"
+  },
+  "document": {
+    "filename": "design-doc.md",
+    "schema": "section-keyed"
+  },
+  "cache_subdir": "tech/design",
+  "framework_section": "tech-design",
+  "framework_templates": {
+    "section-registry": "tdt_section_registry_url",
+    "section-kw-criteria": "tdt_section_kw_criteria_url",
+    "outline-registry": "tdt_outline_registry_url",
+    "role-instance": "tdt_feature_role_instance_url",
+    "domain-instance": "tdt_feature_domain_instance_url"
+  },
+  "eval": {
+    "enabled": true,
+    "workflow_id": "tech-design"
+  },
+  "upstream_ssot": {
+    "decision_doc_rel": "tech/diagnostic/decision-doc.md"
+  }
+}

@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Read-only session info facade for tech-plan orchestrator.
+"""Read-only session info facade for compose orchestrators (tech-plan, tech-design, …).
 
 Aggregates schema modules for SKILL-facing reads. No state mutations.
 
 CLI:
     python3 session_info.py --cycle-id <id> --project-root . \\
+        [--profile tech-plan|tech-design] \\
         [--view delivery-preview|session|stage-transitions]
 """
 
@@ -23,17 +24,19 @@ if str(_SCRIPTS) not in sys.path:
 import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
-from workflow_paths import WORKFLOW_SCRIPTS  # noqa: E402
+from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, WORKFLOW_SCRIPTS  # noqa: E402
 
 sys.path.insert(0, str(WORKFLOW_SCRIPTS))
 from hook_guard import load_transitions  # noqa: E402
-from session_state_schema import load_active_doc_from_cycle  # noqa: E402
-from tech_doc_schema import load_presentation_from_cycle  # noqa: E402
-from workflow_common import STAGE, detect_cycle_type  # noqa: E402
-from workflow_state_schema import (  # noqa: E402
-    load_workflow_state,
-    resolve_workflow_state_path_from_cycle,
+from compose_session import (  # noqa: E402
+    load_active_doc_for_profile,
+    load_document_presentation,
+    stage_name,
+    workflow_state_path,
 )
+from workflow_common import detect_cycle_type  # noqa: E402
+from delivered_refs_schema import parse_delivered_refs  # noqa: E402
+from workflow_state_schema import load_workflow_state  # noqa: E402
 
 _VIEW_DELIVERY_PREVIEW = "delivery-preview"
 _VIEW_SESSION = "session"
@@ -45,6 +48,22 @@ _VALID_VIEWS = frozenset({
     _VIEW_SESSION,
     _VIEW_STAGE_TRANSITIONS,
 })
+
+
+def _compose_document_view(doc: dict[str, Any]) -> dict[str, Any]:
+    """Profile-neutral document presentation (tech-doc or design-doc)."""
+    return {
+        "path": doc["path"],
+        "title": doc["title"],
+        "summary": doc["summary"],
+    }
+
+
+def _session_document_view(doc: dict[str, Any]) -> dict[str, Any]:
+    """Session resume fields including revision."""
+    payload = _compose_document_view(doc)
+    payload["revision"] = doc["revision"]
+    return payload
 
 
 def _delivery_preview_failure(current_state: str) -> dict[str, Any]:
@@ -60,57 +79,67 @@ def _delivery_preview_failure(current_state: str) -> dict[str, Any]:
     }
 
 
-def delivery_preview(cycle_id: str, project_root: Path) -> dict[str, Any]:
-    """Return fields needed to present tech-doc before delivery confirmation."""
-    ws_path = resolve_workflow_state_path_from_cycle(cycle_id, project_root)
+def delivery_preview(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+) -> dict[str, Any]:
+    """Return fields needed to present the compose document before delivery."""
+    ws_path = workflow_state_path(cycle_id, project_root, profile_id)
     state = load_workflow_state(ws_path)
     current = state["current_state"]
     if current != _EXPECTED_DELIVERY_PREVIEW_STATE:
         return _delivery_preview_failure(current)
 
-    tech_doc = load_presentation_from_cycle(cycle_id, project_root)
+    doc = load_document_presentation(cycle_id, project_root, profile_id)
+    compose_doc = _compose_document_view(doc)
     return {
         "ok": True,
         "view": _VIEW_DELIVERY_PREVIEW,
-        "active_doc": load_active_doc_from_cycle(cycle_id, project_root),
+        "profile_id": profile_id,
+        "active_doc": load_active_doc_for_profile(cycle_id, project_root, profile_id),
         "current_state": current,
-        "tech_doc": {
-            "path": tech_doc["path"],
-            "title": tech_doc["title"],
-            "summary": tech_doc["summary"],
-        },
+        "compose_doc": compose_doc,
     }
 
 
-def stage_transitions(cycle_id: str, project_root: Path) -> dict[str, Any]:
-    """Return allowed next stages from transition-table.json for this stage."""
+def stage_transitions(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+) -> dict[str, Any]:
+    """Return allowed next stages from transition-table.json for this profile."""
     cycle_type = detect_cycle_type(cycle_id)
     transitions = load_transitions(cycle_type)
-    next_stages = sorted(transitions.get(STAGE, set()))
-    return {"next_stages": next_stages}
+    next_stages = sorted(transitions.get(stage_name(profile_id), set()))
+    return {"profile_id": profile_id, "next_stages": next_stages}
 
 
-def session_snapshot(cycle_id: str, project_root: Path) -> dict[str, Any]:
-    """Return workflow state plus tech-doc presentation for session resume."""
-    ws_path = resolve_workflow_state_path_from_cycle(cycle_id, project_root)
+def session_snapshot(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+) -> dict[str, Any]:
+    """Return workflow state plus document presentation for session resume."""
+    ws_path = workflow_state_path(cycle_id, project_root, profile_id)
     state = load_workflow_state(ws_path)
-    tech_doc = load_presentation_from_cycle(cycle_id, project_root)
+    doc = load_document_presentation(cycle_id, project_root, profile_id)
+    compose_doc = _session_document_view(doc)
     return {
         "view": _VIEW_SESSION,
-        "active_doc": load_active_doc_from_cycle(cycle_id, project_root),
+        "profile_id": profile_id,
+        "active_doc": load_active_doc_for_profile(cycle_id, project_root, profile_id),
         "workflow_state": {
             "current_state": state["current_state"],
             "mode": state.get("mode", ""),
             "evaluate_round": state.get("evaluate_round", "0"),
-            "product_ref": state.get("product_ref", ""),
+            "delivered_refs": [r.to_dict() for r in parse_delivered_refs(state)],
             "carry_forward_ref": state.get("carry_forward_ref", ""),
         },
-        "tech_doc": {
-            "path": tech_doc["path"],
-            "title": tech_doc["title"],
-            "summary": tech_doc["summary"],
-            "revision": tech_doc["revision"],
-        },
+        "compose_doc": compose_doc,
     }
 
 
@@ -119,24 +148,30 @@ def get_session_info(
     project_root: Path,
     *,
     view: str = _VIEW_DELIVERY_PREVIEW,
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
 ) -> dict[str, Any]:
     if view not in _VALID_VIEWS:
         raise ValueError(f"unknown view: {view!r} (allowed: {sorted(_VALID_VIEWS)})")
     if view == _VIEW_SESSION:
-        return session_snapshot(cycle_id, project_root)
+        return session_snapshot(cycle_id, project_root, profile_id=profile_id)
     if view == _VIEW_STAGE_TRANSITIONS:
-        return stage_transitions(cycle_id, project_root)
-    return delivery_preview(cycle_id, project_root)
+        return stage_transitions(cycle_id, project_root, profile_id=profile_id)
+    return delivery_preview(cycle_id, project_root, profile_id=profile_id)
 
 
 def _cli() -> int:
-    parser = argparse.ArgumentParser(description="tech-plan read-only session info")
+    parser = argparse.ArgumentParser(description="compose read-only session info")
     parser.add_argument("--cycle-id", required=True, help="Cycle ID")
     parser.add_argument(
         "--project-root",
         type=Path,
         default=Path("."),
         help="Project root directory",
+    )
+    parser.add_argument(
+        "--profile",
+        default=DEFAULT_COMPOSE_PROFILE_ID,
+        help="Compose profile / stage name (default: tech-plan)",
     )
     parser.add_argument(
         "--view",
@@ -151,6 +186,7 @@ def _cli() -> int:
             args.cycle_id.strip(),
             args.project_root.resolve(),
             view=args.view,
+            profile_id=args.profile.strip(),
         )
     except ValueError as exc:
         print(str(exc), file=sys.stderr)

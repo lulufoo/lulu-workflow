@@ -122,7 +122,7 @@ def load_transitions(cycle_type: str) -> dict:
 def load_stage_order(cycle_type: str) -> List[str]:
     """Derive ordered stage list from non-null transitions in transition-table.json."""
     transitions = load_transitions(cycle_type)
-    forward = {k: next(iter(v)) for k, v in transitions.items() if k is not None and v}
+    forward = {k: sorted(v)[0] for k, v in transitions.items() if k is not None and v}
     all_targets = set(forward.values())
     roots = [s for s in forward if s not in all_targets]
     order: List[str] = []
@@ -212,7 +212,7 @@ _WRITE_TOOL_NAMES = frozenset({"Write", "Edit"})
 _KNOWN_STAGES = frozenset({
     "diagnostic",
     "product-diagnostic", "tech-diagnostic",
-    "product-plan", "tech-plan",
+    "product-plan", "tech-design", "tech-plan",
     "tech-work-order", "tech-code",
 })
 

@@ -10,13 +10,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from corpus_compose import (  # noqa: E402
     COMPOSED_CORPUS_REF,
+    TECH_DESIGN_COMPOSED_CORPUS_REF,
     compose_corpus,
     corpus_fingerprint,
     is_composed_corpus_ref,
     load_dimension_def,
 )
 
-_DIMENSION_DEFS = Path(__file__).resolve().parents[2] / "tech-plan" / "dimension-defs"
+_TECH_PLAN_DIMENSION_DEFS = Path(__file__).resolve().parents[2] / "tech-plan" / "dimension-defs"
+_TECH_DESIGN_DIMENSION_DEFS = Path(__file__).resolve().parents[2] / "tech-design" / "dimension-defs"
 
 
 class TestCorpusCompose:
@@ -44,9 +46,9 @@ class TestCorpusCompose:
 
     def test_compose_product_session(self):
         dims = [
-            load_dimension_def(_DIMENSION_DEFS / "intent-alignment.json"),
-            load_dimension_def(_DIMENSION_DEFS / "codebase-consistency.json"),
-            load_dimension_def(_DIMENSION_DEFS / "solution-quality.json"),
+            load_dimension_def(_TECH_PLAN_DIMENSION_DEFS / "intent-alignment.json"),
+            load_dimension_def(_TECH_PLAN_DIMENSION_DEFS / "codebase-consistency.json"),
+            load_dimension_def(_TECH_PLAN_DIMENSION_DEFS / "solution-quality.json"),
         ]
         corpus = compose_corpus(
             corpus_id="tech-plan-composed",
@@ -56,6 +58,7 @@ class TestCorpusCompose:
         )
         assert corpus["id"] == "tech-plan-composed"
         assert is_composed_corpus_ref(COMPOSED_CORPUS_REF)
+        assert is_composed_corpus_ref(TECH_DESIGN_COMPOSED_CORPUS_REF)
         assert corpus["dimensions"][0]["review"]["seq"] == 1
         assert corpus["dimensions"][2]["review"]["output_path"] == "tech-review-e{M}3.md"
 
@@ -67,3 +70,18 @@ class TestCorpusCompose:
                 scope="tech-plan",
                 dimensions=[],
             )
+
+    def test_compose_tech_design(self):
+        dims = [
+            load_dimension_def(_TECH_DESIGN_DIMENSION_DEFS / "codebase-consistency.json"),
+            load_dimension_def(_TECH_DESIGN_DIMENSION_DEFS / "solution-quality.json"),
+        ]
+        corpus = compose_corpus(
+            corpus_id="tech-design-composed",
+            corpus_version="1",
+            scope="tech-design",
+            dimensions=dims,
+            review_output_prefix="design-review",
+        )
+        assert corpus["id"] == "tech-design-composed"
+        assert corpus["dimensions"][1]["review"]["output_path"] == "design-review-e{M}2.md"

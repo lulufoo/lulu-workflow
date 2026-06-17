@@ -70,7 +70,7 @@ def _validate_profile(path: Path) -> list[str]:
     if data.get("status") == "placeholder_phase2":
         return errors
 
-    if profile_id == "tech-plan":
+    if profile_id in {"tech-plan", "tech-design"}:
         for field in _TECH_PLAN_REQUIRED:
             if field not in data:
                 errors.append(f"{path.name}: missing required field {field!r}")

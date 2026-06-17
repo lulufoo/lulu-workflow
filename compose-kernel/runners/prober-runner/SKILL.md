@@ -1,22 +1,25 @@
 ---
 name: prober-runner
 description: >-
-  Round Iteration prober for tech-plan drafting. Probes only the active section
-  (section-gated): KW sub-section scan, section-level Upstream comparison, and
-  decision-doc intent check; writes probe-{seq}.json under round-{N}/{section}/.
+  Round Iteration prober for tech-plan or tech-design drafting. Probes only the
+  active section (section-gated): KW sub-section scan, section-level Upstream
+  comparison, and decision-doc intent check; writes probe-{seq}.json under
+  round-{N}/{section}/.
 ---
 
 # prober-runner
 
 **Pipeline:** Load context → KW diagnose → Upstream diagnose → Decision intent diagnose → Merge anchors → Write probe report → Return.
 
-One invocation = one probe pass on **one section** (`ACTIVE_SECTION`). Read-only on tech-doc.
+One invocation = one probe pass on **one section** (`ACTIVE_SECTION`). Read-only on the compose document (`COMPOSE_DOC_PATH`).
+
+**Profile:** Parent `$ROUND_CONTROL` passes `--profile tech-plan` or `--profile tech-design`. Use the **same** `--profile` on every `$FETCH_COMPOSE` call in this runner.
 
 ## Scope
 
 **In scope**
 
-- Load `$CTX`, section KW criteria, section dependency graph, plan role, `ACTIVE_SECTION`, decision-doc; when `$CTX.design_doc_path` is present, read design-doc full text as supplementary context (decision-doc remains SSOT)
+- Load `$CTX`, section KW criteria, section dependency graph, plan role, `ACTIVE_SECTION`, decision-doc; when `$CTX.design_doc_path` is present (typical on **tech-plan**), read design-doc full text as supplementary context (decision-doc remains SSOT)
 - **Step 2 — KW:** sub-section scan (KW0→KW4)
 - **Step 2b — Upstream:** section-level Violation + Coverage vs **stable** upstream sections only
 - **Step 2c — Decision intent:** section-level coverage/violation vs decision-doc (when no KW0 pending)
@@ -27,7 +30,7 @@ One invocation = one probe pass on **one section** (`ACTIVE_SECTION`). Read-only
 - Probe sections other than `ACTIVE_SECTION`
 - Step 2b / 2c when any `kw0_pending` in this section
 - Upstream vs non-stable upstream sections
-- Write tech-doc; advance pointer; dispatch refiner
+- Write compose document; advance pointer; dispatch refiner
 
 ## Parent-Provided Inputs
 
@@ -38,11 +41,13 @@ One invocation = one probe pass on **one section** (`ACTIVE_SECTION`). Read-only
 | `ROUND_N` | Current round |
 | `ROUND_DIR` | `revision{R}/round-{N}/` |
 | `ACTIVE_SECTION` | Section key to probe |
-| `TECH_DOC_PATH` | tech-doc (read-only) |
+| `COMPOSE_DOC_PATH` | Active compose doc (`tech-doc.md` or `design-doc.md`; read-only) |
 
 ## Script Macros
 
 `$FETCH_COMPOSE` / `$ROUND_CONTROL`: `{SKILL_ROOT}/compose-kernel/SKILL.md` → Script Macros.
+
+Pass **`--profile`** on `$FETCH_COMPOSE` to match parent stage (`tech-plan` or `tech-design`).
 
 | Step | Macro calls |
 |------|-------------|
@@ -50,11 +55,11 @@ One invocation = one probe pass on **one section** (`ACTIVE_SECTION`). Read-only
 | 3 | `update-anchor-status` |
 | 4 | `write-probe-report` |
 
-`read-context` → `$CTX.skips`, `$CTX.decision_doc_path`, optional `$CTX.design_doc_path`.
+`read-context` → `$CTX.skips`, `$CTX.decision_doc_path`, optional `$CTX.design_doc_path` (supplementary design context on tech-plan).
 
 `read-section-body --section {ACTIVE_SECTION}` → active section `body` (located by `<!-- section-key:… -->`; do not grep H2 display titles).
 
-Dependency graph SSOT: `$FETCH_COMPOSE section-registry` (`tpt_section_registry_url`). Exposed via `read-upstream-context`.
+Dependency graph SSOT: `$FETCH_COMPOSE section-registry` with matching `--profile`. Exposed via `read-upstream-context`.
 
 ## Step 1 — Load context
 
@@ -66,7 +71,7 @@ Read decision-doc **full text** from `$CTX.decision_doc_path` once; keep for Ste
 
 `read-section-body --section {ACTIVE_SECTION}` → full active section body for KW split and intent pass.
 
-`$FETCH_COMPOSE section-kw-criteria` → locate `## {ACTIVE_SECTION}` block (section **key**, not tech-doc display title).
+`$FETCH_COMPOSE section-kw-criteria --profile <same as $ROUND_CONTROL>` → locate `## {ACTIVE_SECTION}` block (section **key**, not document display title).
 
 Build `$SKIP_KEYS` = non-empty `skip_key` values from `$CTX.skips`.
 

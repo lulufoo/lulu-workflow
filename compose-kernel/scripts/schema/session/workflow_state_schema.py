@@ -24,6 +24,7 @@ _CORE = _SCRIPTS / "core"
 if str(_CORE) not in sys.path:
     sys.path.insert(0, str(_CORE))
 
+from delivered_refs_schema import serialize_delivered_refs  # noqa: E402
 from session_state_schema import load_active_doc_from_cycle
 from workflow_common import (
     parse_frontmatter_fields,
@@ -46,12 +47,10 @@ _SCHEMA: list[dict] = [
      "description": "Session state from transition-whitelist"},
     {"field": "evaluate_round", "type": "string", "required": True,
      "description": "Evaluation round counter (non-negative integer as string)"},
-    {"field": "product_ref", "type": "string", "required": True,
-     "description": "Absolute path to product-doc.md (may be empty in tech mode)"},
+    {"field": "delivered_refs", "type": "string", "required": True,
+     "description": "JSON array of {type, path} upstream delivered documents (start snapshot)"},
     {"field": "carry_forward_ref", "type": "string", "required": True,
-     "description": "Absolute path to previous tech-doc.md (may be empty)"},
-    {"field": "design_ref", "type": "string", "required": False,
-     "description": "Absolute path to optional design-doc.md (omit or empty when none)"},
+     "description": "Absolute path to previous compose doc revision (may be empty)"},
     {"field": "updated_at", "type": "string", "required": True,
      "description": "ISO 8601 last-update timestamp"},
     {"field": "skip_evaluate_requested", "type": "string", "required": False,
@@ -71,9 +70,8 @@ _REQUIRED_KEY_ORDER = [
     "cycle_type",
     "current_state",
     "evaluate_round",
-    "product_ref",
+    "delivered_refs",
     "carry_forward_ref",
-    "design_ref",
     "updated_at",
 ]
 
@@ -89,10 +87,7 @@ def get_schema() -> list[dict]:
 
 def _apply_schema_defaults(data: dict) -> dict:
     """Fill optional fields omitted by pre-migration workflow-state files."""
-    out = dict(data)
-    if "design_ref" not in out:
-        out["design_ref"] = ""
-    return out
+    return dict(data)
 
 
 def validate_workflow_state(data: dict) -> list[str]:
@@ -146,6 +141,15 @@ def validate_workflow_state(data: dict) -> list[str]:
     historical = data.get("historical")
     if historical is not None and historical not in _HISTORICAL_VALUES:
         errors.append(f"invalid historical: {historical!r} (allowed: 'true' or omit)")
+
+    delivered_refs = data.get("delivered_refs")
+    if delivered_refs is not None:
+        try:
+            from delivered_refs_schema import parse_delivered_refs
+
+            parse_delivered_refs({"delivered_refs": delivered_refs})
+        except (ValueError, json.JSONDecodeError) as exc:
+            errors.append(f"invalid delivered_refs: {exc}")
 
     if data.get("current_state") == "Delivered" and "skip_evaluate_requested" in data:
         errors.append(
@@ -241,12 +245,18 @@ def init_drafting(
     *,
     mode: str,
     cycle_type: str = "feature",
-    product_ref: str = "",
+    delivered_refs: list | None = None,
     carry_forward_ref: str = "",
-    design_ref: str = "",
     evaluate_round: int = 0,
 ) -> None:
     """Initialize workflow-state.md in Drafting state."""
+    from delivered_refs_schema import DeliveredRef
+
+    refs = delivered_refs or []
+    normalized = [
+        r if isinstance(r, DeliveredRef) else DeliveredRef(str(r["type"]), str(r["path"]))
+        for r in refs
+    ]
     data = {
         "version": "1",
         "workflow": "tech-doc",
@@ -254,9 +264,8 @@ def init_drafting(
         "cycle_type": cycle_type,
         "current_state": "Drafting",
         "evaluate_round": str(evaluate_round),
-        "product_ref": product_ref,
+        "delivered_refs": serialize_delivered_refs(normalized),
         "carry_forward_ref": carry_forward_ref,
-        "design_ref": design_ref,
     }
     save_workflow_state(path, data, merge=False)
 

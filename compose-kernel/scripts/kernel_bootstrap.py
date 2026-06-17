@@ -16,6 +16,7 @@ _SCHEMA_SECTION_ROUND = _SCHEMA_SECTION / "round"
 _SCHEMA_SECTION_DOCUMENT = _SCHEMA_SECTION / "document"
 _SCHEMA_SECTION_SCOPE = _SCHEMA_SECTION / "scope"
 _SCHEMA_SESSION = _SCRIPTS / "schema" / "session"
+_START = _SCRIPTS / "start"
 
 
 def ensure_kernel_paths() -> None:
@@ -25,6 +26,7 @@ def ensure_kernel_paths() -> None:
         _SECTION,
         _SCOPE,
         _IO,
+        _START,
         _SCHEMA_SECTION_REGISTRY,
         _SCHEMA_SECTION_ROUND,
         _SCHEMA_SECTION_DOCUMENT,
