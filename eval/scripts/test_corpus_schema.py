@@ -105,7 +105,7 @@ class TestExpandCorpus:
         "cycle_type": "feature",
         "M": "1",
         "ptc_url": "https://github.com/o/r/blob/main/ptc.md",
-        "tpt_intent_eval_framework_url": "https://github.com/o/r/blob/main/32-tech-plan-intent-evaluation-framework.md",
+        "tpt_intent_eval_framework_url": "https://github.com/o/r/blob/main/41-tech-plan-intent-evaluation-framework.md",
     }
 
     def test_expand_substitutes_paths(self):

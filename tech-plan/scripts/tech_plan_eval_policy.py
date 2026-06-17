@@ -14,10 +14,7 @@ _STAMP_FILES = {
     "solution-quality": "solution-quality.json",
 }
 
-_INTENT_EVAL_CONFIG_KEYS = {
-    "feature": "tpt_feature_intent_eval_framework_url",
-    "topic": "tpt_topic_intent_eval_framework_url",
-}
+_INTENT_EVAL_CONFIG_KEY = "tpt_intent_eval_framework_url"
 
 _TOPIC_EVAL_NOT_IMPLEMENTED = (
     "topic eval stamps are not implemented yet; "
@@ -40,10 +37,7 @@ def select_dimension_ids(*, product_ref: str, mode: str) -> list[str]:
 
 def intent_eval_config_key(cycle_type: str) -> str:
     """Return workflow-config key for intent-eval framework URL."""
-    return _INTENT_EVAL_CONFIG_KEYS.get(
-        cycle_type,
-        "tpt_intent_eval_framework_url",
-    )
+    return _INTENT_EVAL_CONFIG_KEY
 
 
 def stamps_dir_for_cycle_type(corpora_dir: Path, cycle_type: str) -> Path:

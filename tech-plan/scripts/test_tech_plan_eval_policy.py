@@ -35,9 +35,9 @@ class TestTechPlanEvalPolicy:
         with pytest.raises(ValueError, match="product_ref is empty"):
             select_dimension_ids(product_ref="", mode="product")
 
-    def test_intent_eval_config_key_by_cycle_type(self):
-        assert intent_eval_config_key("feature") == "tpt_feature_intent_eval_framework_url"
-        assert intent_eval_config_key("topic") == "tpt_topic_intent_eval_framework_url"
+    def test_intent_eval_config_key_is_shared(self):
+        assert intent_eval_config_key("feature") == "tpt_intent_eval_framework_url"
+        assert intent_eval_config_key("topic") == "tpt_intent_eval_framework_url"
         assert intent_eval_config_key("other") == "tpt_intent_eval_framework_url"
 
     def test_stamps_dir_feature(self):

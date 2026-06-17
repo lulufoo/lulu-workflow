@@ -79,7 +79,7 @@ Evaluate **B** using loaded SoT content and **M** / `METHOD_FOCUS`.
 
 ### solution-quality (e3)
 
-Builtin `procedure_id: intent_gap_probes`. Criteria **A** = url SoT (`32-tech-plan-intent-evaluation-framework.md` via `tpt_intent_eval_framework_url`).
+Builtin `procedure_id: intent_gap_probes`. Criteria **A** = url SoT (`41-tech-plan-intent-evaluation-framework.md` via `tpt_intent_eval_framework_url`).
 
 1. Load **A** from SoT (P1–P4 definitions and applicability in **A**).
 2. Do **not** parse `<!-- state-vector: … -->`. Do **not** load `layer-standards` or L Diagnostic Criteria.
@@ -98,7 +98,7 @@ Builtin `procedure_id: intent_gap_probes`. Criteria **A** = url SoT (`32-tech-pl
    - P1/P2 fail on late approach-style sections (Done-when only) → `medium`
    - P4 edge cases on early direction-style sections → `medium`
 6. Optional: on last `section_order` key — sanity-check verifiable action or file reference.
-7. `sot_ref` → `32-tech-plan-intent-evaluation-framework.md#P{n}`; `description` → Gap output from **A**.
+7. `sot_ref` → `41-tech-plan-intent-evaluation-framework.md#P{n}`; `description` → Gap output from **A**.
 
 For each finding classify `root_cause` per `eval/SKILL.md` and fill all required columns.
 

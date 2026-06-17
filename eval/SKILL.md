@@ -10,7 +10,7 @@ meta-skill-version: 1.0.0
 
 Library SKILL — not a workflow stage. Runners Read this file; eval-rules never dispatches it.
 
-**WO (tech-plan v2):** `tech-doc.md` — EvalCorpus v4; e3 uses `32-tech-plan-intent-evaluation-framework.md` (A, `tpt_intent_eval_framework_url`) + builtin `intent_gap_probes` procedure.
+**WO (tech-plan v2):** `tech-doc.md` — EvalCorpus v4; e3 uses `41-tech-plan-intent-evaluation-framework.md` (A, `tpt_intent_eval_framework_url`) + builtin `intent_gap_probes` procedure.
 
 ---
 
