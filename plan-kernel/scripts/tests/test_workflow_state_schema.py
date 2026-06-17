@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 import bootstrap  # noqa: F401
-from bootstrap import CORE  # noqa: E402
+from bootstrap import CORE, SCHEMA_SESSION  # noqa: E402
 
 from workflow_state_schema import (
     get_schema,
@@ -188,7 +188,7 @@ class TestCli:
     def test_schema_flag(self):
         import subprocess
 
-        script = CORE / "workflow_state_schema.py"
+        script = SCHEMA_SESSION / "workflow_state_schema.py"
         result = subprocess.run(
             [sys.executable, str(script), "--schema"],
             capture_output=True,

@@ -10,7 +10,7 @@ from typing import Optional
 import pytest
 
 import bootstrap  # noqa: F401
-from bootstrap import CORE  # noqa: E402
+from bootstrap import CORE, SCHEMA_SESSION  # noqa: E402
 
 from session_state_schema import (
     bump_active_doc,
@@ -147,7 +147,7 @@ class TestResolvePath:
 
 class TestCLI:
     def test_schema_flag_outputs_valid_json(self):
-        script = CORE / "session_state_schema.py"
+        script = SCHEMA_SESSION / "session_state_schema.py"
         result = subprocess.run(
             [sys.executable, str(script), "--schema"],
             capture_output=True, text=True,
@@ -160,7 +160,7 @@ class TestCLI:
     def test_read_flag_with_path(self, tmp_path: Path):
         p = tmp_path / "session-state.md"
         _write_session_state(p, 4)
-        script = CORE / "session_state_schema.py"
+        script = SCHEMA_SESSION / "session_state_schema.py"
         result = subprocess.run(
             [sys.executable, str(script), "--read", "--path", str(p)],
             capture_output=True, text=True,
@@ -170,7 +170,7 @@ class TestCLI:
 
     def test_read_flag_with_cycle_id(self, tmp_path: Path):
         _seed_cycle(tmp_path, active_doc=5)
-        script = CORE / "session_state_schema.py"
+        script = SCHEMA_SESSION / "session_state_schema.py"
         result = subprocess.run(
             [
                 sys.executable, str(script),
@@ -186,7 +186,7 @@ class TestCLI:
     def test_next_flag_with_path(self, tmp_path: Path):
         p = tmp_path / "session-state.md"
         _write_session_state(p, 1)
-        script = CORE / "session_state_schema.py"
+        script = SCHEMA_SESSION / "session_state_schema.py"
         result = subprocess.run(
             [sys.executable, str(script), "--next", "--path", str(p)],
             capture_output=True, text=True,
@@ -197,7 +197,7 @@ class TestCLI:
 
     def test_next_flag_with_cycle_id(self, tmp_path: Path):
         _seed_cycle(tmp_path, active_doc=2)
-        script = CORE / "session_state_schema.py"
+        script = SCHEMA_SESSION / "session_state_schema.py"
         result = subprocess.run(
             [
                 sys.executable, str(script),

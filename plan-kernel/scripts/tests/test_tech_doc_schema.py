@@ -22,9 +22,9 @@ from tech_doc_schema import (  # noqa: E402
 )
 
 import bootstrap  # noqa: F401
-from bootstrap import SECTION  # noqa: E402
+from bootstrap import SCHEMA_SECTION_DOCUMENT, SECTION  # noqa: E402
 
-_SCRIPT = SECTION / "tech_doc_schema.py"
+_SCRIPT = SCHEMA_SECTION_DOCUMENT / "tech_doc_schema.py"
 
 
 def _write_tech_doc(path: Path, *, title: str = "", summary: str = "Goal.") -> None:

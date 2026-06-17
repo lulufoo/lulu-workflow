@@ -15,6 +15,13 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+import sys
+
+_SCRIPTS = Path(__file__).resolve().parents[2]
+_CORE = _SCRIPTS / "core"
+if str(_CORE) not in sys.path:
+    sys.path.insert(0, str(_CORE))
+
 from workflow_common import approval_path, parse_frontmatter_fields
 
 _SCHEMA: list[dict] = [

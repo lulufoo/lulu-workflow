@@ -8,6 +8,11 @@ import json
 import sys
 from pathlib import Path
 
+_SCRIPTS = Path(__file__).resolve().parents[2]
+_CORE = _SCRIPTS / "core"
+if str(_CORE) not in sys.path:
+    sys.path.insert(0, str(_CORE))
+
 from workflow_paths import PROFILES_DIR
 
 _TECH_PLAN_REQUIRED = frozenset(

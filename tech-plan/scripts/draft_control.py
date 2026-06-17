@@ -20,11 +20,15 @@ from pathlib import Path
 from typing import Any
 
 _WORKFLOW_ROOT = Path(__file__).resolve().parents[2]
-_CORE = _WORKFLOW_ROOT / "plan-kernel" / "scripts" / "core"
-_SECTION = _WORKFLOW_ROOT / "plan-kernel" / "scripts" / "section"
-for p in (_CORE, _SECTION, Path(__file__).resolve().parent):
+_KERNEL_SCRIPTS = _WORKFLOW_ROOT / "plan-kernel" / "scripts"
+_CORE = _KERNEL_SCRIPTS / "core"
+_SECTION = _KERNEL_SCRIPTS / "section"
+for p in (_KERNEL_SCRIPTS, _CORE, _SECTION, Path(__file__).resolve().parent):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
+import kernel_bootstrap  # noqa: E402
+
+kernel_bootstrap.ensure_kernel_paths()
 
 from drafting_progress_schema import (  # noqa: E402
     load_drafting_progress,
@@ -33,7 +37,7 @@ from drafting_progress_schema import (  # noqa: E402
     save_drafting_progress,
 )
 from session_state_schema import load_active_doc_from_cycle  # noqa: E402
-from round_control import init_round_dir_if_needed  # noqa: E402
+from section_round_control import init_round_dir_if_needed  # noqa: E402
 from workflow_common import (  # noqa: E402
     CACHE_DIR,
     decision_doc_path,

@@ -292,6 +292,7 @@ class TestGatePasses:
         ws_path = cd / _CYCLE_ID / "tech" / "plan" / "revision1" / "workflow-state.md"
         assert ws_path.exists()
         sys.path.insert(0, str(_LDEV / "plan-kernel" / "scripts" / "core"))
+        sys.path.insert(0, str(_LDEV / "plan-kernel" / "scripts" / "schema" / "session"))
         from workflow_state_schema import load_workflow_state  # noqa: WPS433
 
         assert load_workflow_state(ws_path)["design_ref"] == str(design)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Round Iteration control for tech-plan orchestrator.
+"""Section-gated Round Iteration control for tech-plan orchestrator.
 
 Subcommands:
     read-context           Return anchors, skips, round metadata
@@ -36,10 +36,13 @@ from pathlib import Path
 from typing import Any
 
 _SECTION = Path(__file__).resolve().parent
-_CORE = _SECTION.parent / "core"
-sys.path.insert(0, str(_SECTION))
-sys.path.insert(0, str(_CORE))
-from workflow_paths import TECH_PLAN_SCRIPTS, TECH_PLAN_SHELL  # noqa: E402
+_SCRIPTS = _SECTION.parent
+if str(_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS))
+import kernel_bootstrap  # noqa: E402
+
+kernel_bootstrap.ensure_kernel_paths()
+from workflow_paths import KERNEL_TEMPLATES, TECH_PLAN_SCRIPTS  # noqa: E402
 
 if str(TECH_PLAN_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(TECH_PLAN_SCRIPTS))
@@ -129,7 +132,7 @@ def _active_revision_dir(cycle_dir: Path) -> Path:
 
 
 def _template_path(name: str) -> Path:
-    return TECH_PLAN_SHELL / "templates" / name
+    return KERNEL_TEMPLATES / name
 
 
 def _ensure_ledger(path: Path, template_name: str) -> None:

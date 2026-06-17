@@ -20,7 +20,7 @@ import re
 import sys
 from pathlib import Path
 
-_SCRIPTS = Path(__file__).resolve().parent.parent
+_SCRIPTS = Path(__file__).resolve().parents[3]
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 import kernel_bootstrap  # noqa: E402

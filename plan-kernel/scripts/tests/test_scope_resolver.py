@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for plan_scope.py and plan-scope schema modules."""
+"""Tests for scope_resolver.py and plan-scope schema modules."""
 
 import json
 import sys
@@ -9,8 +9,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from plan_scope import (  # noqa: E402
-    PlanScopeError,
+from scope_resolver import (  # noqa: E402
+    ScopeResolverError,
     resolve_domain_markdown,
     resolve_role_markdown,
     resolve_role_summary,
@@ -82,7 +82,7 @@ class TestResolveRole:
         assert summary == "feature"
 
     def test_requires_scope_or_cycle(self):
-        with pytest.raises(PlanScopeError, match="requires"):
+        with pytest.raises(ScopeResolverError, match="requires"):
             resolve_role_markdown()
 
     def test_instance_paths(self):
@@ -109,5 +109,5 @@ class TestResolveDomain:
         assert domain_instance_path("feature", project_root=Path.cwd()).exists()
 
     def test_requires_cycle(self):
-        with pytest.raises(PlanScopeError, match="requires"):
+        with pytest.raises(ScopeResolverError, match="requires"):
             resolve_domain_markdown()

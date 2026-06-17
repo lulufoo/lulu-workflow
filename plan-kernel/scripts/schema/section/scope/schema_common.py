@@ -6,9 +6,10 @@ import sys
 from pathlib import Path
 
 _SCHEMA_DIR = Path(__file__).resolve().parent
-_CORE = _SCHEMA_DIR.parent / "core"
-_SECTION = _SCHEMA_DIR.parent / "section"
-for _p in (_CORE, _SECTION):
+_SCRIPTS = _SCHEMA_DIR.parents[3]
+_CORE = _SCRIPTS / "core"
+_IO = _SCRIPTS / "io"
+for _p in (_CORE, _IO):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 

@@ -17,6 +17,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+import sys
+
+_SCRIPTS = Path(__file__).resolve().parents[2]
+_CORE = _SCRIPTS / "core"
+if str(_CORE) not in sys.path:
+    sys.path.insert(0, str(_CORE))
+
 from session_state_schema import load_active_doc_from_cycle
 from workflow_common import (
     parse_frontmatter_fields,

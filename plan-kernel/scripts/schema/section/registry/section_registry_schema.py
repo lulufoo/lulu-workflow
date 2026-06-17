@@ -10,10 +10,13 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-_SECTION = Path(__file__).resolve().parent
-_CORE = _SECTION.parent / "core"
-sys.path.insert(0, str(_SECTION))
-sys.path.insert(0, str(_CORE))
+_SCRIPTS = Path(__file__).resolve().parents[3]
+_CORE = _SCRIPTS / "core"
+_IO = _SCRIPTS / "io"
+if str(_CORE) not in sys.path:
+    sys.path.insert(0, str(_CORE))
+if str(_IO) not in sys.path:
+    sys.path.insert(0, str(_IO))
 from workflow_paths import WORKFLOW_SCRIPTS  # noqa: E402
 
 

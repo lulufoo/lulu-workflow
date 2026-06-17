@@ -269,7 +269,7 @@ Macros invoke plan-kernel scripts (`$SKILL_ROOT/plan-kernel/scripts/...`) or she
 | `$SESSION_CONTROL` | `python3 "$SKILL_ROOT/plan-kernel/scripts/core/session_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
 | `$DRAFT_CONTROL` | `python3 "$SKILL_DIR/scripts/draft_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
 | `$DRAFT_CONTROL status` | `$DRAFT_CONTROL status` — stdout JSON: `current_step`, `round` |
-| `$ROUND_CONTROL` | `python3 "$SKILL_ROOT/plan-kernel/scripts/section/round_control.py" --cycle-dir "$CACHE_DIR/$CYCLE_ID" <subcommand> [args...]` |
+| `$ROUND_CONTROL` | `python3 "$SKILL_ROOT/plan-kernel/scripts/section/section_round_control.py" --cycle-dir "$CACHE_DIR/$CYCLE_ID" <subcommand> [args...]` |
 | `$ROUND_CONTROL init-round-dir` | `$ROUND_CONTROL init-round-dir --round {N}` |
 | `$ROUND_CONTROL read-section-pointer` | `$ROUND_CONTROL read-section-pointer --round {N}` |
 | `$ROUND_CONTROL advance-section` | `$ROUND_CONTROL advance-section --round {N}` |
@@ -280,11 +280,11 @@ Macros invoke plan-kernel scripts (`$SKILL_ROOT/plan-kernel/scripts/...`) or she
 | `$ROUND_CONTROL read-section-body` | `$ROUND_CONTROL read-section-body --section {key}` |
 | `$ROUND_CONTROL update-gap-decision` | `$ROUND_CONTROL update-gap-decision --round {N} --id {id} --decision {accept\|skip\|redirect}` |
 | `$ROUND_CONTROL check-convergence` | `$ROUND_CONTROL check-convergence --round {N} --no-accept --gaps-resolved` |
-| `$RESOLVE_PLAN_ROLE` | `python3 "$SKILL_ROOT/plan-kernel/scripts/section/plan_scope.py" resolve-role --cycle-id "$CYCLE_ID" --project-root "$(pwd)"` |
-| `$RESOLVE_DOMAIN` | `python3 "$SKILL_ROOT/plan-kernel/scripts/section/plan_scope.py" resolve-domain --cycle-id "$CYCLE_ID" --project-root "$(pwd)"` |
-| `$FETCH_TECH_PLAN` | `python3 "$SKILL_ROOT/plan-kernel/scripts/section/fetch_plan_framework.py" --role <role> --project-root "$(pwd)"` |
-| `$SECTION_INTENT` | `python3 "$SKILL_ROOT/plan-kernel/scripts/section/section_registry_schema.py" --section-intent {key} --project-root "$(pwd)"` |
-| `$SECTION_INTENT_BOUNDARY` | `python3 "$SKILL_ROOT/plan-kernel/scripts/section/section_registry_schema.py" --section-intent-boundary {key} --project-root "$(pwd)"` |
+| `$RESOLVE_PLAN_ROLE` | `python3 "$SKILL_ROOT/plan-kernel/scripts/scope/scope_resolver.py" resolve-role --cycle-id "$CYCLE_ID" --project-root "$(pwd)"` |
+| `$RESOLVE_DOMAIN` | `python3 "$SKILL_ROOT/plan-kernel/scripts/scope/scope_resolver.py" resolve-domain --cycle-id "$CYCLE_ID" --project-root "$(pwd)"` |
+| `$FETCH_TECH_PLAN` | `python3 "$SKILL_ROOT/plan-kernel/scripts/io/fetch_plan_framework.py" --role <role> --project-root "$(pwd)"` |
+| `$SECTION_INTENT` | `python3 "$SKILL_ROOT/plan-kernel/scripts/schema/section/registry/section_registry_schema.py" --section-intent {key} --project-root "$(pwd)"` |
+| `$SECTION_INTENT_BOUNDARY` | `python3 "$SKILL_ROOT/plan-kernel/scripts/schema/section/registry/section_registry_schema.py" --section-intent-boundary {key} --project-root "$(pwd)"` |
 | `$EVAL_CONTROL` | `python3 "$SKILL_ROOT/eval/scripts/eval_control.py" --workflow tech-plan --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` — subcommands: `{$SKILL_ROOT}/eval/eval-rules.md` and `{$SKILL_ROOT}/eval/SKILL.md` |
 
 Subcommands and stdout: script module docstrings or `--help`.

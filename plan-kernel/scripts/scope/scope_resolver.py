@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Resolve plan-scope role constraints from per-cycle_type role instance files.
+"""Resolve plan-scope role and domain constraints from per-cycle_type instance files.
 
 CLI:
-    python3 plan_scope.py resolve-role --cycle-id <id> --project-root .
-    python3 plan_scope.py resolve-role --cycle-type topic --project-root .
-    python3 plan_scope.py --validate
+    python3 scope_resolver.py resolve-role --cycle-id <id> --project-root .
+    python3 scope_resolver.py resolve-role --cycle-type topic --project-root .
+    python3 scope_resolver.py resolve-domain --cycle-id <id> --project-root .
+    python3 scope_resolver.py --validate
 """
 
 from __future__ import annotations
@@ -31,8 +32,8 @@ from role_instance_schema import (  # noqa: E402
 from workflow_common import detect_cycle_type  # noqa: E402
 
 
-class PlanScopeError(Exception):
-    """Raised when role resolution fails."""
+class ScopeResolverError(Exception):
+    """Raised when scope constraint resolution fails."""
 
 
 def format_constraints_markdown(cycle_type: str, role: str, role_fields: dict | None = None) -> str:
@@ -60,10 +61,10 @@ def format_constraints_markdown(cycle_type: str, role: str, role_fields: dict | 
 def resolve_cycle_type(*, cycle_id: str | None, cycle_type: str | None) -> str:
     if cycle_type is None:
         if not cycle_id:
-            raise PlanScopeError("resolve-role requires --cycle-id or --cycle-type")
+            raise ScopeResolverError("resolve-role requires --cycle-id or --cycle-type")
         cycle_type = detect_cycle_type(cycle_id)
     if cycle_type not in {"topic", "feature"}:
-        raise PlanScopeError(
+        raise ScopeResolverError(
             f"invalid cycle_type: {cycle_type!r} (allowed: feature, topic)",
         )
     return cycle_type
@@ -87,7 +88,7 @@ def resolve_role_markdown(
         role = get_role_prompt(data)
         role_fields = get_role_fields(data)
     except (OSError, ValueError, FileNotFoundError) as exc:
-        raise PlanScopeError(str(exc)) from exc
+        raise ScopeResolverError(str(exc)) from exc
 
     return format_constraints_markdown(resolved, role, role_fields)
 
@@ -110,7 +111,7 @@ def resolve_domain_markdown(
             project_root=root,
         )
     except (OSError, ValueError, FileNotFoundError) as exc:
-        raise PlanScopeError(str(exc)) from exc
+        raise ScopeResolverError(str(exc)) from exc
     lines = [
         "## Domain Instance",
         f"cycle_type: {resolved}",
@@ -203,7 +204,7 @@ def main(argv: Optional[list[str]] = None) -> int:
                 domain_instance_path=getattr(args, "domain_instance_path", None),
                 project_root=Path(args.project_root).resolve(),
             )
-        except PlanScopeError as exc:
+        except ScopeResolverError as exc:
             print(str(exc), file=sys.stderr)
             return 1
         sys.stdout.write(content)
@@ -220,7 +221,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             role_instance_path=getattr(args, "role_instance_path", None),
             project_root=Path(args.project_root).resolve(),
         )
-    except PlanScopeError as exc:
+    except ScopeResolverError as exc:
         print(str(exc), file=sys.stderr)
         return 1
 

@@ -17,9 +17,17 @@ Internal library for planning workflows. Users invoke stage shells (`tech-plan`,
 
 | Path | Contents |
 |------|----------|
-| `scripts/core/` | Session, `start`, archive, `workflow_state`, `session_control`, `session_info` |
-| `scripts/section/` | `round_control`, section I/O, `eval_workflow_adapter`, `plan_scope` |
-| `scripts/schema/` | Plan-scope and outline instance schemas (`role_instance_schema`, `domain_instance_schema`, `outline_registry_schema`) |
+| `scripts/core/` | Session entrypoints (`start`, `session_control`, `session_info`, `archive`, `workflow_common`) |
+| `scripts/schema/session/` | Session/cycle schemas (`workflow_state`, `session_state`, `human_delivery_gate`, `profile`) |
+| `scripts/schema/section/registry/` | Section registry core (`section_registry`, `section_dependency`, `outline_registry`) |
+| `scripts/schema/section/round/` | Round runtime artifacts (`section_pointer`, `probe_report`, `refiner_artifact`) |
+| `scripts/schema/section/document/` | Tech-doc presentation I/O (`tech_doc_schema`) |
+| `scripts/schema/section/scope/` | Plan-scope instance schemas (role, domain, `schema_common`) |
+| `scripts/section/` | `section_round_control` (section-gated Round Iteration) |
+| `scripts/scope/` | `scope_resolver` (role/domain constraint resolver CLI) |
+| `scripts/io/` | `fetch_plan_framework` (framework template fetch) |
+| `scripts/eval/` | `eval_workflow_adapter`, `tech_plan_eval_policy` |
+| `templates/` | Ledger seed templates (`anchor-ledger`, `skip-ledger`) |
 | `runners/` | initializing, prober, refiner runner SKILLs |
 | `references/` | `compose-theory.md`, `gap-display.md` |
 | `profiles/` | Stage profile JSON (`tech-plan`, placeholders) |
@@ -32,7 +40,7 @@ Internal library for planning workflows. Users invoke stage shells (`tech-plan`,
 | `scripts/drafting_progress_schema.py` | `drafting-progress.md` schema |
 | `scripts/hook_guard.py` | Active-session Write/Edit cache boundary (`HOOK_COMMAND` target) |
 | `SKILL.md` | Full Drafting / Evaluating orchestration text |
-| `corpora/`, `constraints/instance/`, `templates/` | Eval stamps, topic role/domain instances, ledger templates |
+| `corpora/`, `constraints/instance/` | Eval stamps, topic role/domain instances |
 | `transition-whitelist.json` | Outer session transition whitelist |
 
 `draft_control.py` is **not** under `plan-kernel/scripts/`.
@@ -44,9 +52,9 @@ Stage behavior is driven by `profiles/{profile_id}.json`. Default active profile
 Validate profiles:
 
 ```bash
-python3 "$SKILL_ROOT/plan-kernel/scripts/core/profile_schema.py" --validate
+python3 "$SKILL_ROOT/plan-kernel/scripts/schema/session/profile_schema.py" --validate
 ```
 
 ## Paths
 
-`scripts/core/workflow_paths.py` is the SSOT for `WORKFLOW_ROOT`, `CORE_SCRIPTS`, `SECTION_SCRIPTS`, `SCHEMA_SCRIPTS`, and `load_profile()`.
+`scripts/core/workflow_paths.py` is the SSOT for `WORKFLOW_ROOT`, `CORE_SCRIPTS`, `SECTION_SCRIPTS`, `SCOPE_SCRIPTS`, `IO_SCRIPTS`, `KERNEL_EVAL_SCRIPTS`, `SCHEMA_SECTION_*_SCRIPTS`, `SCHEMA_SESSION_SCRIPTS`, `KERNEL_TEMPLATES`, and `load_profile()`.

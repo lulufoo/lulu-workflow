@@ -17,9 +17,12 @@ from pathlib import Path
 from typing import Any
 
 _CORE = Path(__file__).resolve().parent
-_SECTION = _CORE.parent / "section"
-sys.path.insert(0, str(_CORE))
-sys.path.insert(0, str(_SECTION))
+_SCRIPTS = _CORE.parent
+if str(_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS))
+import kernel_bootstrap  # noqa: E402
+
+kernel_bootstrap.ensure_kernel_paths()
 from workflow_paths import WORKFLOW_SCRIPTS  # noqa: E402
 
 sys.path.insert(0, str(WORKFLOW_SCRIPTS))

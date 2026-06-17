@@ -8,9 +8,12 @@ from pathlib import Path
 from typing import Any
 
 _SECTION = Path(__file__).resolve().parent
-_CORE = _SECTION.parent / "core"
-sys.path.insert(0, str(_SECTION))
-sys.path.insert(0, str(_CORE))
+_SCRIPTS = _SECTION.parent
+if str(_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS))
+import kernel_bootstrap  # noqa: E402
+
+kernel_bootstrap.ensure_kernel_paths()
 from workflow_paths import EVAL_SCRIPTS, WORKFLOW_SCRIPTS, load_profile, shell_path  # noqa: E402
 
 _PROFILE = load_profile("tech-plan")

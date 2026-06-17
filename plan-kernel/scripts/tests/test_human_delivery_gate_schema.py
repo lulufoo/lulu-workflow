@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 import bootstrap  # noqa: F401
-from bootstrap import CORE  # noqa: E402
+from bootstrap import CORE, SCHEMA_SESSION  # noqa: E402
 
 from human_delivery_gate_schema import (
     delivery_gate_exists,
@@ -56,7 +56,7 @@ class TestCli:
     def test_schema_flag(self):
         import subprocess
 
-        script = CORE / "human_delivery_gate_schema.py"
+        script = SCHEMA_SESSION / "human_delivery_gate_schema.py"
         result = subprocess.run(
             [sys.executable, str(script), "--schema"],
             capture_output=True,

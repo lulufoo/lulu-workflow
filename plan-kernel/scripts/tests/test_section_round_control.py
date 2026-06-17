@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for round_control.py."""
+"""Tests for section_round_control.py."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from pathlib import Path
 import bootstrap  # noqa: F401
 from bootstrap import CORE, SECTION  # noqa: E402
 
-from round_control import (  # noqa: E402
+from section_round_control import (  # noqa: E402
     _normalize_section,
     round_probe_input,
 )
@@ -27,7 +27,7 @@ from test_registry_fixtures import (  # noqa: E402
 import bootstrap  # noqa: F401
 from bootstrap import CORE, SECTION  # noqa: E402
 
-_SCRIPT = SECTION / "round_control.py"
+_SCRIPT = SECTION / "section_round_control.py"
 _CYCLE_ID = "test-cycle"
 from test_template_data import LEGACY_SECTION_REGISTRY, seed_template_cache  # noqa: E402
 
