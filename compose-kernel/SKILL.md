@@ -2,8 +2,8 @@
 name: compose-kernel
 description: >-
   Shared compose engine (I*/F/C), session, and section-round tooling for
-  structured technical document stages (tech-plan, future tech-design /
-  tech-arch). Not user-invoked; consumed by stage shells.
+  structured technical document stages (tech-plan, future tech-arch).
+  Not user-invoked; consumed by stage shells.
 ---
 
 # compose-kernel

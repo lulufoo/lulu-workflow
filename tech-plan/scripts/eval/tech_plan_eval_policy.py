@@ -18,7 +18,7 @@ _INTENT_EVAL_CONFIG_KEY = "tpt_intent_eval_framework_url"
 
 _TOPIC_EVAL_BLOCKED = (
     "topic cycles do not evaluate in tech-plan; "
-    "use tech-design stage for topic Evaluating."
+    "use tech-arch stage for topic Evaluating."
 )
 
 
