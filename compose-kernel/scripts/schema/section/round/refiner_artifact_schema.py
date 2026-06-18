@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Schema and I/O for tech-plan round-{N}/{section}/refiner-{seq}-{id}.json."""
+"""Schema and I/O for compose stage round-{N}/{section}/refiner-{seq}-{id}.json."""
 
 from __future__ import annotations
 

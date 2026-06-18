@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Authoritative schema and I/O for tech-plan role instance JSON.
+"""Authoritative schema and I/O for compose stage role instance JSON.
 
 CLI:
     python3 role_instance_schema.py --schema
@@ -157,7 +157,7 @@ def validate_all_role_instances(project_root: Path | None = None) -> list[str]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Tech-plan role instance schema")
+    parser = argparse.ArgumentParser(description="Compose stage role instance schema")
     parser.add_argument("--schema", action="store_true", help="Print field schema JSON")
     args = parser.parse_args(argv)
 

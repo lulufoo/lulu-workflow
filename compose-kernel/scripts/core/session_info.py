@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Read-only session info facade for compose orchestrators (tech-plan, tech-design, …).
+"""Read-only session info facade for compose orchestrators.
 
 Aggregates schema modules for SKILL-facing reads. No state mutations.
 
 CLI:
     python3 session_info.py --cycle-id <id> --project-root . \\
-        [--profile tech-plan|tech-design] \\
+        [--profile <profile_id>] \\
         [--view delivery-preview|session|stage-transitions]
 """
 

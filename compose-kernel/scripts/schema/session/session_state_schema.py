@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Authoritative schema and I/O helpers for tech-plan session-state.md.
+"""Authoritative schema and I/O helpers for compose stage session-state.md.
 
 CLI:
     python3 session_state_schema.py --schema
@@ -39,7 +39,7 @@ _SCHEMA: list[dict] = [
 
 
 def get_schema() -> list[dict]:
-    """Return field definitions for tech-plan session-state.md."""
+    """Return field definitions for compose stage session-state.md."""
     return list(_SCHEMA)
 
 
@@ -125,7 +125,7 @@ def bump_active_doc(
 
 
 def _cli() -> int:
-    parser = argparse.ArgumentParser(description="tech-plan session-state.md schema utilities")
+    parser = argparse.ArgumentParser(description="compose stage session-state.md schema utilities")
     parser.add_argument("--schema", action="store_true", help="Print JSON schema array and exit")
     parser.add_argument("--read", action="store_true", help="Print active_doc")
     parser.add_argument("--next", action="store_true", help="Compute, write, and print next doc round")

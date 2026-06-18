@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Load feature tech-plan outline registry (presentation blocks → intent keys).
+"""Load feature compose stage outline registry (presentation blocks → intent keys).
 
 CLI:
     python3 outline_registry_schema.py --schema
@@ -243,7 +243,7 @@ def outline_intent_map(project_root: Path | None = None) -> dict[str, str]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Tech-plan outline registry utilities")
+    parser = argparse.ArgumentParser(description="Compose stage outline registry utilities")
     parser.add_argument("--path", type=Path, help="Override outline JSON path")
     parser.add_argument(
         "--project-root",

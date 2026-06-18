@@ -1,8 +1,8 @@
 ---
 name: prober-runner
 description: >-
-  Round Iteration prober for tech-plan or tech-design drafting. Probes only the
-  active section (section-gated): KW sub-section scan, section-level Upstream
+  Round Iteration prober for compose-profile drafting. Probes only the active
+  section (section-gated): KW sub-section scan, section-level Upstream
   comparison, and decision-doc intent check; writes probe-{seq}.json under
   round-{N}/{section}/.
 ---
@@ -13,13 +13,13 @@ description: >-
 
 One invocation = one probe pass on **one section** (`ACTIVE_SECTION`). Read-only on the compose document (`COMPOSE_DOC_PATH`).
 
-**Profile:** Parent `$ROUND_CONTROL` passes `--profile tech-plan` or `--profile tech-design`. Use the **same** `--profile` on every `$FETCH_COMPOSE` call in this runner.
+**Profile:** Use the **same** `--profile` as parent `$ROUND_CONTROL` on every `$FETCH_COMPOSE` call in this runner.
 
 ## Scope
 
 **In scope**
 
-- Load `$CTX`, section KW criteria, section dependency graph, plan role, `ACTIVE_SECTION`, decision-doc; when `$CTX.design_doc_path` is present (typical on **tech-plan**), read design-doc full text as supplementary context (decision-doc remains SSOT)
+- Load `$CTX`, section KW criteria, section dependency graph, plan role, `ACTIVE_SECTION`, decision-doc; when `$CTX.design_doc_path` is present, read design-doc full text as supplementary context (decision-doc remains SSOT)
 - **Step 2 — KW:** sub-section scan (KW0→KW4)
 - **Step 2b — Upstream:** section-level Violation + Coverage vs **stable** upstream sections only
 - **Step 2c — Decision intent:** section-level coverage/violation vs decision-doc (when no KW0 pending)
@@ -47,7 +47,7 @@ One invocation = one probe pass on **one section** (`ACTIVE_SECTION`). Read-only
 
 `$FETCH_COMPOSE` / `$ROUND_CONTROL`: `{SKILL_ROOT}/compose-kernel/SKILL.md` → Script Macros.
 
-Pass **`--profile`** on `$FETCH_COMPOSE` to match parent stage (`tech-plan` or `tech-design`).
+Pass **`--profile`** on `$FETCH_COMPOSE` to match parent `$ROUND_CONTROL`.
 
 | Step | Macro calls |
 |------|-------------|
@@ -55,7 +55,7 @@ Pass **`--profile`** on `$FETCH_COMPOSE` to match parent stage (`tech-plan` or `
 | 3 | `update-anchor-status` |
 | 4 | `write-probe-report` |
 
-`read-context` → `$CTX.skips`, `$CTX.decision_doc_path`, optional `$CTX.design_doc_path` (supplementary design context on tech-plan).
+`read-context` → `$CTX.skips`, `$CTX.decision_doc_path`, optional `$CTX.design_doc_path` (supplementary design context when present).
 
 `read-section-body --section {ACTIVE_SECTION}` → active section `body` (located by `<!-- section-key:… -->`; do not grep H2 display titles).
 

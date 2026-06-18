@@ -1,4 +1,4 @@
-"""Load and query tech-plan section upstream graph (subset of section registry)."""
+"""Load and query compose stage section upstream graph (subset of section registry)."""
 
 from __future__ import annotations
 

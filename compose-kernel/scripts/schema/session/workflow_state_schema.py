@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Authoritative schema and I/O helpers for tech-plan workflow-state.md.
+"""Authoritative schema and I/O helpers for compose stage workflow-state.md.
 
 CLI:
     python3 workflow_state_schema.py --schema
@@ -293,7 +293,7 @@ def mark_invalidated(path: Path) -> None:
 
 
 def _cli() -> int:
-    parser = argparse.ArgumentParser(description="tech-plan workflow-state.md schema utilities")
+    parser = argparse.ArgumentParser(description="compose stage workflow-state.md schema utilities")
     parser.add_argument("--schema", action="store_true", help="Print JSON schema array and exit")
     parser.add_argument("--read", action="store_true", help="Print workflow state as JSON")
     parser.add_argument("--write", action="store_true", help="Write workflow state from --json")

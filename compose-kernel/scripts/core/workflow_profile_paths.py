@@ -1,4 +1,4 @@
-"""Profile-aware cache paths for compose stage shells (tech-plan, tech-design, …)."""
+"""Profile-aware cache paths for compose stage shells."""
 
 from __future__ import annotations
 

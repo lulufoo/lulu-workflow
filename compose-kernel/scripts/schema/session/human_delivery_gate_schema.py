@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Authoritative schema and I/O helpers for tech-plan human-delivery-gate.md.
+"""Authoritative schema and I/O helpers for compose stage human-delivery-gate.md.
 
 CLI:
     python3 human_delivery_gate_schema.py --schema
@@ -148,7 +148,7 @@ def resolve_delivery_gate_path(
 
 
 def _cli() -> int:
-    parser = argparse.ArgumentParser(description="tech-plan human-delivery-gate.md schema utilities")
+    parser = argparse.ArgumentParser(description="compose stage human-delivery-gate.md schema utilities")
     parser.add_argument("--schema", action="store_true", help="Print JSON schema array and exit")
     parser.add_argument("--read", action="store_true", help="Print delivery gate as JSON")
     parser.add_argument("--write", action="store_true", help="Write approved delivery gate")

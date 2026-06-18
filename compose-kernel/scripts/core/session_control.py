@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Session control for compose orchestrators (tech-plan, tech-design, …).
+"""Session control for compose orchestrators.
 
 Subcommands:
     start-evaluating     Drafting -> Evaluating (+ evaluate-state.md init)

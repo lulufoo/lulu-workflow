@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Load unified tech-plan section registry (order, headings, upstream graph)."""
+"""Load unified compose stage section registry (order, headings, upstream graph)."""
 
 from __future__ import annotations
 
@@ -385,7 +385,7 @@ def stable_upstream_edges(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Tech-plan section registry utilities")
+    parser = argparse.ArgumentParser(description="Compose stage section registry utilities")
     parser.add_argument("--path", type=Path, help="Override registry JSON path")
     parser.add_argument(
         "--project-root",

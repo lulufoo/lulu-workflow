@@ -1,17 +1,17 @@
 ---
 name: initializing-runner
 description: >-
-  Autonomous Initializing step for tech-plan or tech-design drafting. Loads
-  decision-doc, narrow codebase context, and frameworks; composes per-section
-  body via I* / F / C; writes the initial draft and returns control to the
-  parent Initializing step.
+  Autonomous Initializing step for compose-profile drafting. Loads decision-doc,
+  narrow codebase context, and frameworks; composes per-section body via I* / F
+  / C; writes the initial draft and returns control to the parent Initializing
+  step.
 ---
 
 # initializing-runner
 
-Run this sub-skill only for the `Initializing` step inside **tech-plan** or **tech-design** Drafting.
+Run this sub-skill only for the `Initializing` step inside a parent compose stage Drafting shell.
 
-Default profile is `tech-plan` when `COMPOSE_PROFILE` is omitted.
+Use `$COMPOSE_PROFILE` from parent dispatch; kernel default applies only when omitted.
 
 ## Scope
 
@@ -37,19 +37,20 @@ See [`../../references/compose-theory.md`](../../references/compose-theory.md).
 | `$REVISION_DIR` | Absolute path to `revision{N}/` |
 | `$DECISION_DOC_PATH` | Absolute path to decision-doc |
 | `$OUTPUT_DOC_PATH` | Absolute path to output document (design-doc.md or tech-doc.md) |
-| `$COMPOSE_PROFILE` | `tech-plan` (default) or `tech-design` |
-| `$DESIGN_DOC_PATH` | Optional supplementary design context (tech-plan only; decision-doc remains SSOT) |
+| `$COMPOSE_PROFILE` | Compose profile id from parent dispatch |
+| `$DESIGN_DOC_PATH` | Optional supplementary design context when parent provides it (decision-doc remains SSOT) |
 | `$CYCLE_TYPE` | `feature` |
 | `$CYCLE_ID` | Active cycle id |
 
 Self-resolved: `$PROJECT_ROOT` = `$(pwd)` · `$OUTPUT_DOC_PATH` from parent input (fallback `{REVISION_DIR}/tech-doc.md`)
 
-`$FETCH_COMPOSE`: append `--profile $COMPOSE_PROFILE`. `$RESOLVE_PLAN_ROLE`: append `--profile $COMPOSE_PROFILE` when not `tech-plan`.
+All compose and scope macros (`$FETCH_COMPOSE`, `$RESOLVE_PLAN_ROLE`, `$RESOLVE_DOMAIN`) **must** pass `--profile "$COMPOSE_PROFILE"`.
 
 ## Script Macros
 
 | Macro | Command |
 |-------|---------|
+| `$RESOLVE_PLAN_ROLE` | `python3 "$SKILL_ROOT/compose-kernel/scripts/scope/scope_resolver.py" resolve-role --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile "$COMPOSE_PROFILE"` |
 | `$RESOLVE_DOMAIN` | `python3 "$SKILL_ROOT/compose-kernel/scripts/scope/scope_resolver.py" resolve-domain --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile "$COMPOSE_PROFILE"` |
 
 ## Execution Contract

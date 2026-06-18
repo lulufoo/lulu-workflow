@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Schema and I/O for tech-plan round-{N}/{section}/probe-{seq}.json files (v3).
+"""Schema and I/O for compose stage round-{N}/{section}/probe-{seq}.json files (v3).
 
 CLI:
     python3 probe_report_schema.py --schema
@@ -541,7 +541,7 @@ def refiner_payload(item: dict[str, Any]) -> dict[str, Any]:
 
 
 def _cli() -> int:
-    parser = argparse.ArgumentParser(description="tech-plan probe report schema")
+    parser = argparse.ArgumentParser(description="compose stage probe report schema")
     parser.add_argument("--schema", action="store_true", help="Print schema JSON")
     parser.add_argument("--validate", action="store_true", help="Validate probe report")
     parser.add_argument("--read", action="store_true", help="Read probe report as JSON")

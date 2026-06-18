@@ -8,7 +8,7 @@ Legacy registry heading match is a final fallback.
 CLI:
     python3 compose_doc_schema.py --schema
     python3 compose_doc_schema.py --read  --path <compose-doc.md>
-    python3 compose_doc_schema.py --read  --cycle-id <id> --project-root . [--profile tech-plan]
+    python3 compose_doc_schema.py --read  --cycle-id <id> --project-root . [--profile <profile_id>]
     python3 compose_doc_schema.py --section-body --path <compose-doc.md> --section KEY
 """
 

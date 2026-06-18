@@ -139,7 +139,7 @@ def resolve_role_summary(
 
 
 def main(argv: Optional[list[str]] = None) -> int:
-    parser = argparse.ArgumentParser(description="Tech-plan plan scope role resolver")
+    parser = argparse.ArgumentParser(description="Compose stage profile plan scope role resolver")
     parser.add_argument(
         "--validate",
         action="store_true",
@@ -153,7 +153,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument(
         "--profile",
         default="tech-plan",
-        help="Compose profile id (tech-plan, tech-design, …)",
+        help="Compose profile id (e.g. tech-plan, tech-design, …)",
     )
     sub = parser.add_subparsers(dest="command")
 

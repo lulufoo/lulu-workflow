@@ -1,16 +1,16 @@
 ---
 name: refiner-runner
 description: >-
-  Round Iteration refiner for tech-plan or tech-design drafting. Refines KW
-  sub-section gaps, section-level Upstream gaps, or decision-intent gaps;
-  multi-turn confirm; writes compose document + artifact.
+  Round Iteration refiner for compose-profile drafting. Refines KW sub-section
+  gaps, section-level Upstream gaps, or decision-intent gaps; multi-turn
+  confirm; writes compose document + artifact.
 ---
 
 # refiner-runner
 
 Terminal runner. **One refinement** per invocation.
 
-**Profile:** Parent `$ROUND_CONTROL` uses `--profile tech-plan` or `--profile tech-design`. Pass the **same** `--profile` on `$FETCH_COMPOSE` when loading section-kw-criteria or section-registry.
+**Profile:** Pass the **same** `--profile` as parent `$ROUND_CONTROL` on `$FETCH_COMPOSE` when loading section-kw-criteria or section-registry.
 
 ## Inputs
 

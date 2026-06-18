@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Section-gated Round Iteration control for compose orchestrators (tech-plan, tech-design, …).
+"""Section-gated Round Iteration control for compose orchestrators.
 
 Subcommands:
     read-context           Return anchors, skips, round metadata

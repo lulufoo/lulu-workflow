@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""tech-plan project init — workflow-config is applied via lulu-dev-workflow configure only."""
+"""Compose stage profile project init — workflow-config is applied via lulu-dev-workflow configure only."""
 
 import argparse
 import sys
@@ -7,7 +7,7 @@ import sys
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="tech-plan sub-init (no workflow-config writes).",
+        description="Compose stage profile sub-init (no workflow-config writes).",
     )
     parser.add_argument("--project-root", required=True, help="Project root directory.")
     return parser.parse_args()
