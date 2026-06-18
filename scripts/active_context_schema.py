@@ -9,15 +9,7 @@ import sys
 from pathlib import Path
 from typing import TypedDict
 
-KNOWN_STAGES = frozenset({
-    "diagnostic",
-    "product-diagnostic",
-    "tech-diagnostic",
-    "product-plan",
-    "tech-plan",
-    "tech-work-order",
-    "tech-code",
-})
+from transition_table import allowed_stages
 
 
 class Entry(TypedDict):
@@ -30,6 +22,13 @@ def _normalize_platform(platform: str) -> str:
     if platform in ("cursor", "copilot"):
         return platform
     return "cursor"
+
+
+def _normalize_cycle_type(raw: object) -> str:
+    cycle_type = raw if isinstance(raw, str) else "feature"
+    if cycle_type not in ("feature", "topic"):
+        return "feature"
+    return cycle_type
 
 
 def context_path(project_root: Path, platform: str) -> Path:
@@ -54,11 +53,9 @@ def _valid_entry(raw: object) -> Entry | None:
     stage = raw.get("stage")
     if not isinstance(cycle_id, str) or not cycle_id.strip():
         return None
-    if not isinstance(stage, str) or stage not in KNOWN_STAGES:
+    cycle_type = _normalize_cycle_type(raw.get("cycle_type", "feature"))
+    if not isinstance(stage, str) or stage not in allowed_stages(cycle_type):
         return None
-    cycle_type = raw.get("cycle_type", "feature")
-    if cycle_type not in ("feature", "topic"):
-        cycle_type = "feature"
     return {"cycle_id": cycle_id, "stage": stage, "cycle_type": cycle_type}
 
 
@@ -108,7 +105,8 @@ def write_entry(
             file=sys.stderr,
         )
         return
-    if stage not in KNOWN_STAGES:
+    cycle_type = _normalize_cycle_type(cycle_type)
+    if stage not in allowed_stages(cycle_type):
         raise ValueError(f"Unknown stage: {stage!r}")
     data = read_all(project_root, platform)
     data[conversation_id] = {

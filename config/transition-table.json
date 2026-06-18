@@ -19,8 +19,7 @@
     { "from": "tech-plan", "to": [], "note": "shaping 循环完成；推荐创建 feature 并引用此 topic" }
   ],
   "feature": [
-    { "from": null, "to": ["product-diagnostic"], "note": "recommended for full-feature work" },
-    { "from": null, "to": ["tech-diagnostic"], "note": "for pure tech work" },
+    { "from": null, "to": ["product-diagnostic", "tech-diagnostic"] },
     { "from": "product-diagnostic", "to": ["product-plan"] },
     { "from": "product-plan", "to": ["tech-diagnostic"] },
     { "from": "tech-diagnostic", "to": ["tech-design", "tech-plan"] },

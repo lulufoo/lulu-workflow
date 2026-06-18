@@ -148,6 +148,77 @@ class TestWriteEntry:
         assert "cycle_id" not in raw
         assert raw["conv-new"]["stage"] == "tech-diagnostic"
 
+    def test_write_tech_design_stage(self, tmp_path):
+        from active_context_schema import read_all, write_entry
+
+        write_entry(tmp_path, "cursor", "conv-a", _FID, "tech-design")
+        data = read_all(tmp_path, "cursor")
+        assert data["conv-a"] == {
+            "cycle_id": _FID,
+            "stage": "tech-design",
+            "cycle_type": "feature",
+        }
+
+    def test_topic_rejects_tech_work_order(self, tmp_path):
+        from active_context_schema import write_entry
+
+        with pytest.raises(ValueError, match="Unknown stage"):
+            write_entry(
+                tmp_path,
+                "cursor",
+                "conv-a",
+                "topic-20260101000000-aabbccdd",
+                "tech-work-order",
+                cycle_type="topic",
+            )
+
+    def test_feature_allows_tech_work_order(self, tmp_path):
+        from active_context_schema import read_all, write_entry
+
+        write_entry(
+            tmp_path,
+            "cursor",
+            "conv-a",
+            _FID,
+            "tech-work-order",
+            cycle_type="feature",
+        )
+        data = read_all(tmp_path, "cursor")
+        assert data["conv-a"]["stage"] == "tech-work-order"
+
+    def test_read_filters_topic_invalid_stage(self, tmp_path):
+        from active_context_schema import read_all
+
+        path = _ctx_file(tmp_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps(
+                {
+                    "conv-a": {
+                        "cycle_id": "topic-20260101000000-aabbccdd",
+                        "stage": "tech-work-order",
+                        "cycle_type": "topic",
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+        assert read_all(tmp_path, "cursor") == {}
+
+    def test_diagnostic_legacy_allowed(self, tmp_path):
+        from active_context_schema import read_all, write_entry
+
+        write_entry(
+            tmp_path,
+            "cursor",
+            "conv-a",
+            _FID,
+            "diagnostic",
+            cycle_type="feature",
+        )
+        data = read_all(tmp_path, "cursor")
+        assert data["conv-a"]["stage"] == "diagnostic"
+
     def test_invalid_stage_raises(self, tmp_path):
         from active_context_schema import write_entry
 

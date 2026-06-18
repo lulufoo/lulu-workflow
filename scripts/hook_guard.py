@@ -15,6 +15,12 @@ from typing import List, Optional, Tuple
 from active_context_schema import get_entry
 from cycle_schema import read_stage as read_cycle_state  # noqa: F401
 from cycle_schema import write_stage as write_cycle_state  # noqa: F401
+from transition_table import (  # noqa: F401
+    allowed_stages,
+    known_stages,
+    load_stage_order,
+    load_transitions,
+)
 from workflow_hook_common import agent_stop_message
 
 _SKILL_ROOT = Path(__file__).resolve().parents[1]
@@ -111,29 +117,6 @@ def current_effective_delivered(cycle_id: str, stage: str, cache_dir: Path) -> b
     return latest.state == "Delivered"
 
 
-def load_transitions(cycle_type: str) -> dict:
-    """Load transition-table.json → {from_stage|None: set(to_stages)}."""
-    tt = json.loads((_CONFIG_DIR / "transition-table.json").read_text(encoding="utf-8"))
-    result: dict = {}
-    for entry in tt.get(cycle_type, []):
-        result.setdefault(entry.get("from"), set()).update(entry.get("to", []))
-    return result
-
-
-def load_stage_order(cycle_type: str) -> List[str]:
-    """Derive ordered stage list from non-null transitions in transition-table.json."""
-    transitions = load_transitions(cycle_type)
-    forward = {k: sorted(v)[0] for k, v in transitions.items() if k is not None and v}
-    all_targets = set(forward.values())
-    roots = [s for s in forward if s not in all_targets]
-    order: List[str] = []
-    current: Optional[str] = roots[0] if roots else None
-    while current:
-        order.append(current)
-        current = forward.get(current)
-    return order
-
-
 def check_gate(cycle_id: str, to_stage: str, cycle_type: str,
                cache_dir: Path) -> Tuple[bool, str]:
     """Validate gate for to_stage using transition-table.json rules.
@@ -146,8 +129,7 @@ def check_gate(cycle_id: str, to_stage: str, cycle_type: str,
     5. Advancing (to_stage != current_stage): require current_stage Delivered.
     """
     transitions = load_transitions(cycle_type)
-    all_stages = {s for v in transitions.values() for s in v} | \
-                 {k for k in transitions if k is not None}
+    all_stages = known_stages(cycle_type)
     if to_stage not in all_stages:
         return (True, "OK")
 
@@ -221,12 +203,6 @@ def get_topic_doc(cycle_id: str, stage: str,
     return doc_path if doc_path and doc_path.exists() else None
 _PLATFORMS_DIR = Path(__file__).resolve().parent / "platforms"
 _WRITE_TOOL_NAMES = frozenset({"Write", "Edit"})
-_KNOWN_STAGES = frozenset({
-    "diagnostic",
-    "product-diagnostic", "tech-diagnostic",
-    "product-plan", "tech-design", "tech-plan",
-    "tech-work-order", "tech-code",
-})
 
 
 def _load_platform(platform: str):
@@ -296,7 +272,10 @@ def _read_active_stage(platform: str, conversation_id: str) -> Optional[str]:
     if entry is None:
         return None
     stage = entry.get("stage")
-    return stage if stage in _KNOWN_STAGES else None
+    cycle_type = entry.get("cycle_type", "feature")
+    if cycle_type not in ("feature", "topic"):
+        cycle_type = "feature"
+    return stage if stage in allowed_stages(cycle_type) else None
 
 
 def main() -> int:
