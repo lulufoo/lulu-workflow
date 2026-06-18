@@ -168,6 +168,8 @@ class TestCheckGate:
         ok, msg = check_gate("feat-a", "product-plan", "feature", tmp_path)
         assert ok is False
         assert "NULL" in msg or "product-diagnostic" in msg or "tech-diagnostic" in msg
+        assert "STOP" in msg
+        assert "start.py" in msg
 
     def test_gap_scenario_blocked_by_transition_table(self, tmp_path):
         """current=product-plan, Delivered: jumping to tech-plan (skipping tech-diagnostic) → blocked."""
@@ -177,6 +179,18 @@ class TestCheckGate:
         ok, msg = check_gate("feat-a", "tech-plan", "feature", tmp_path)
         assert ok is False
         assert "product-plan" in msg or "tech-diagnostic" in msg
+        assert "STOP" in msg
+
+    def test_tech_plan_to_tech_design_blocked_with_stop(self, tmp_path):
+        """current=tech-plan: tech-design is not a valid advance → blocked with STOP."""
+        from hook_guard import check_gate
+        _make_cycle_state(tmp_path, "feat-a", "tech-plan")
+        _make_workflow_state(tmp_path, "feat-a", "tech-plan", "r1", "Delivered")
+        ok, msg = check_gate("feat-a", "tech-design", "feature", tmp_path)
+        assert ok is False
+        assert "Invalid transition" in msg
+        assert "tech-work-order" in msg
+        assert "STOP" in msg
 
     def test_valid_advance_after_delivery(self, tmp_path):
         """current=product-diagnostic (Delivered): advance to product-plan → allowed."""
@@ -195,6 +209,8 @@ class TestCheckGate:
         ok, msg = check_gate("feat-a", "product-plan", "feature", tmp_path)
         assert ok is False
         assert "product-diagnostic" in msg
+        assert "STOP" in msg
+        assert "Gate blocked:" not in msg
 
     def test_reentry_always_allowed(self, tmp_path):
         """Re-entering the current stage is always allowed (no session required)."""

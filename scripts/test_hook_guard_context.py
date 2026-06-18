@@ -358,7 +358,7 @@ class TestDeliveredBypass:
         assert result["permission"] == "deny"
         assert "[lulu-dev-workflow]" in result["user_message"]
         assert "STOP" in result["agent_message"]
-        assert "inform the user" in result["agent_message"].lower()
+        assert "report this message to the user" in result["agent_message"].lower()
 
     def test_invalidated_still_denies_outside_cache(self, tmp_path, monkeypatch):
         import active_context_schema

@@ -15,6 +15,7 @@ from typing import List, Optional, Tuple
 from active_context_schema import get_entry
 from cycle_schema import read_stage as read_cycle_state  # noqa: F401
 from cycle_schema import write_stage as write_cycle_state  # noqa: F401
+from workflow_hook_common import agent_stop_message
 
 _SKILL_ROOT = Path(__file__).resolve().parents[1]
 _CONFIG_DIR = _SKILL_ROOT / "config"
@@ -162,14 +163,25 @@ def check_gate(cycle_id: str, to_stage: str, cycle_type: str,
         expected = ", ".join(sorted(allowed)) or "terminal"
         return (
             False,
-            f"Invalid transition: {current_stage or 'NULL'} → {to_stage}"
-            f" (allowed: {expected})",
+            agent_stop_message(
+                f"Invalid transition: {current_stage or 'NULL'} → {to_stage} "
+                f"(allowed: {expected})",
+                forbidden="start.py",
+                workarounds="alternate cycle, rollback, flags, etc.",
+            ),
         )
 
     # Advancing requires current stage to be Delivered
     if is_advance and current_stage is not None:
         if not current_effective_delivered(cycle_id, current_stage, cache_dir):
-            return (False, f"Gate blocked: {current_stage} is not Delivered")
+            return (
+                False,
+                agent_stop_message(
+                    f"{current_stage} is not Delivered",
+                    forbidden="start.py",
+                    workarounds="alternate cycle, rollback, flags, etc.",
+                ),
+            )
 
     return (True, "OK")
 
