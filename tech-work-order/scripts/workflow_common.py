@@ -1,35 +1,35 @@
 import json
 import re
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+_SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
+if str(_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS))
+
+from platform_schema import detect_platform  # noqa: E402
+from platforms.paths import (  # noqa: E402
+    cache_dir,
+    hook_guard_command,
+    hooks_config_path,
+    workflow_dir,
+)
+
 SKILL_ROOT = Path(__file__).resolve().parents[1]  # .../tech-work-order
 WHITELIST_PATH = SKILL_ROOT / "transition-whitelist.json"
+_SCRIPTS_DIR = Path(__file__).resolve().parent
 
-_PLATFORM = (
-    __import__("os").environ.get("LULU_PLATFORM")
-    or ("copilot" if __import__("os").environ.get("COPILOT_AGENT") else "cursor")
-)
-_WORKFLOW_DIR_MAP = {
-    "cursor":  Path(".cursor/lulu-dev-workflow"),
-    "copilot": Path(".github/lulu-dev-workflow"),
-}
-_HOOKS_JSON_MAP = {
-    "cursor":  Path(".cursor/hooks.json"),
-    "copilot": Path(".github/hooks/hooks.json"),
-}
-
-WORKFLOW_DIR = _WORKFLOW_DIR_MAP.get(_PLATFORM, _WORKFLOW_DIR_MAP["cursor"])
-CACHE_DIR = Path(f".cache/{_PLATFORM}/lulu-dev-workflow")
+_PLATFORM = detect_platform()
+WORKFLOW_DIR = workflow_dir(_PLATFORM)
+CACHE_DIR = cache_dir(_PLATFORM)
 STAGE = "tech-work-order"
 CACHE_SUBDIR = "tech/work-order"
 PLATFORM_CONFIG_PATH = WORKFLOW_DIR / "config.json"
 SHARED_CONFIG_DEFAULT = Path("skill-config/lulu-dev-workflow/workflow-config.json")
-HOOKS_JSON_PATH = _HOOKS_JSON_MAP.get(_PLATFORM, _HOOKS_JSON_MAP["cursor"])
-
-_SCRIPTS_DIR = Path(__file__).resolve().parent
-HOOK_COMMAND = f"python3 {_SCRIPTS_DIR / 'hook_guard.py'}"
+HOOKS_JSON_PATH = hooks_config_path(_PLATFORM)
+HOOK_COMMAND = hook_guard_command(_PLATFORM)
 
 
 # ---------------------------------------------------------------------------
@@ -62,7 +62,7 @@ def eval_round_dir(cycle_id: str, doc_round: int, evaluate_round: int) -> Path:
 
 def hook_entry() -> Dict[str, Any]:
     return {
-        "matcher": "Write|Edit",
+        "matcher": "Write|Edit|Read|Shell",
         "command": HOOK_COMMAND,
         "timeout": 5,
         "failClosed": True,
@@ -262,5 +262,5 @@ def write_active_context(
             file=sys.stderr,
         )
         return
-    platform = os.environ.get("LULU_PLATFORM", "cursor")
+    platform = detect_platform()
     write_entry(project_root, platform, conv_id, cycle_id, stage, cycle_type=cycle_type)

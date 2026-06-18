@@ -4,7 +4,7 @@
   "cycle_types": ["feature"],
   "shell_dir": "tech-design",
   "shell_paths": {
-    "hook_guard": "tech-design/scripts/hook_guard.py",
+    "hook_guard": "scripts/hook/hook_guard.py",
     "dimension_defs_dir": "tech-design/dimension-defs"
   },
   "document": {

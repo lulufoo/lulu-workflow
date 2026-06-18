@@ -35,10 +35,16 @@ class TestContextPath:
         p = context_path(tmp_path, "copilot")
         assert p == _ctx_file(tmp_path, "copilot")
 
-    def test_unknown_platform_fallback_cursor(self, tmp_path):
+    def test_claude_platform(self, tmp_path):
         from active_context_schema import context_path
 
         p = context_path(tmp_path, "claude")
+        assert p == _ctx_file(tmp_path, "claude")
+
+    def test_unknown_platform_fallback_cursor(self, tmp_path):
+        from active_context_schema import context_path
+
+        p = context_path(tmp_path, "codex")
         assert p == _ctx_file(tmp_path, "cursor")
 
 

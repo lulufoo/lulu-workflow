@@ -9,12 +9,15 @@ if str(_SCRIPTS_ROOT) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_ROOT))
 
 from subagent_config import ensure_platform_config  # noqa: E402
+from platform_schema import detect_platform  # noqa: E402
+from platforms.paths import gitignore_entry  # noqa: E402
 
-from workflow_common import (
-    _PLATFORM,
+from workflow_common import (  # noqa: E402
     SKILL_ROOT,
     resolve_workflow_config_path,
 )
+
+_PLATFORM = detect_platform()
 
 
 def parse_args() -> argparse.Namespace:
@@ -24,10 +27,10 @@ def parse_args() -> argparse.Namespace:
 
 
 def ensure_gitignore_entry(project_root: Path) -> None:
-    gitignore_path = project_root / ".gitignore"
-    entry = ".cursor" if _PLATFORM == "cursor" else None
+    entry = gitignore_entry(_PLATFORM)
     if entry is None:
         return
+    gitignore_path = project_root / ".gitignore"
     if not gitignore_path.exists():
         gitignore_path.write_text(f"{entry}\n", encoding="utf-8")
         return

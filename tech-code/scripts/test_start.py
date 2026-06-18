@@ -49,10 +49,10 @@ def _make_session(cache_dir: Path, cycle_id: str, stage: str, revision: str, sta
     workflow_scripts = _SCRIPTS.parents[1] / "scripts"
     if str(workflow_scripts) not in sys.path:
         sys.path.insert(0, str(workflow_scripts))
-    from hook_guard import _stage_subdir, _STAGE_FLAT  # noqa: E402
+    from workflow_sessions import STAGE_FLAT, stage_subdir  # noqa: E402
 
-    subdir = _stage_subdir(stage)
-    if stage in _STAGE_FLAT:
+    subdir = stage_subdir(stage)
+    if stage in STAGE_FLAT:
         session_dir = cache_dir / cycle_id / subdir
         session_dir.mkdir(parents=True, exist_ok=True)
         ws = session_dir / "session-state.md"

@@ -35,6 +35,7 @@ from cycle_schema import (  # noqa: E402
     validate_cycle,
 )
 from init_ops import run_init_project  # noqa: E402
+from platform_schema import detect_platform  # noqa: E402
 from workflow_config_schema import (  # noqa: E402
     apply_workflow_config_from_url,
     default_configure_blob_url,
@@ -62,13 +63,13 @@ def _add_project_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--platform",
         default=None,
-        choices=["cursor", "copilot"],
+        choices=["cursor", "copilot", "claude"],
         help="Platform override (default: auto-detect).",
     )
 
 
 def cmd_init_project(args: argparse.Namespace) -> int:
-    platform = args.platform or "cursor"
+    platform = args.platform or detect_platform(strict=False)
     return run_init_project(args.project_root, platform)
 
 

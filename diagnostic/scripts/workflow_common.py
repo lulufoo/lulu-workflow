@@ -1,15 +1,18 @@
 import json
-import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-_PLATFORM = (
-    __import__("os").environ.get("LULU_PLATFORM")
-    or ("copilot" if __import__("os").environ.get("COPILOT_AGENT") else "cursor")
-)
-CACHE_DIR = Path(f".cache/{_PLATFORM}/lulu-dev-workflow")
+_SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
+if str(_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS))
+
+from platform_schema import detect_platform  # noqa: E402
+from platforms.paths import cache_dir  # noqa: E402
+
+_PLATFORM = detect_platform()
+CACHE_DIR = cache_dir(_PLATFORM)
 STAGE = "diagnostic"
 
 _STAGE_TO_SUBDIR: dict[str, str] = {
@@ -104,5 +107,5 @@ def write_active_context(
             file=sys.stderr,
         )
         return
-    platform = os.environ.get("LULU_PLATFORM", "cursor")
+    platform = detect_platform()
     write_entry(project_root, platform, conv_id, cycle_id, stage, cycle_type=cycle_type)

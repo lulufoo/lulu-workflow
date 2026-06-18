@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
 """Tests for t3: start.py --cycle-id + archive call deferral in all 5 stages."""
 
+import json
 import os
 import subprocess
 import sys
 from pathlib import Path
+from typing import Optional
 
 import pytest
 
 _SRC = Path(__file__).resolve().parents[2]  # lulu-dev-skills/
 _STAGES = ["diagnostic", "product-plan", "tech-plan", "tech-work-order", "tech-code"]
+# compose-kernel start.py never integrated run_archive; other stages defer via comment.
+_STAGES_WITH_DEFERRED_ARCHIVE = [s for s in _STAGES if s != "tech-plan"]
 _FID = "20260524143022-02cd7e6e"
 _CONV_ID = "test-conversation-aaa"
 _ENV_COPILOT = {**os.environ, "LULU_PLATFORM": "copilot"}
@@ -80,10 +84,10 @@ def _make_session(cache_dir: Path, cycle_id: str, stage: str, revision: str) -> 
     scripts_root = _SRC / "lulu-dev-workflow" / "scripts"
     if str(scripts_root) not in sys.path:
         sys.path.insert(0, str(scripts_root))
-    from hook_guard import _stage_subdir, _STAGE_FLAT  # noqa: E402
+    from workflow_sessions import STAGE_FLAT, stage_subdir  # noqa: E402
 
-    subdir = _stage_subdir(stage)
-    if stage in _STAGE_FLAT:
+    subdir = stage_subdir(stage)
+    if stage in STAGE_FLAT:
         session_dir = cache_dir / cycle_id / subdir
         session_dir.mkdir(parents=True, exist_ok=True)
         ws = session_dir / "session-state.md"
@@ -98,6 +102,64 @@ def _make_session(cache_dir: Path, cycle_id: str, stage: str, revision: str) -> 
     )
 
 
+def _upsert_delivered_ref_entry(
+    cache_dir: Path,
+    cycle_id: str,
+    *,
+    delivered_type: str,
+    path: Path,
+    profile_id: str,
+) -> None:
+    refs_path = cache_dir / cycle_id / "delivered-refs.json"
+    data = (
+        json.loads(refs_path.read_text(encoding="utf-8"))
+        if refs_path.is_file()
+        else {"version": 1, "entries": {}}
+    )
+    entries = dict(data.get("entries") or {})
+    entries[delivered_type] = {
+        "delivered_type": delivered_type,
+        "path": str(path.resolve()),
+        "revision": 1,
+        "profile_id": profile_id,
+        "delivered_at": "2026-06-01T00:00:00+00:00",
+        "source_workflow_state": "",
+    }
+    data["entries"] = entries
+    refs_path.parent.mkdir(parents=True, exist_ok=True)
+    refs_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def _seed_tech_plan_delivered_refs(
+    cache_dir: Path,
+    cycle_id: str,
+    project_root: Path,
+    *,
+    design_path: Optional[Path] = None,
+) -> None:
+    del project_root
+    diag_dir = cache_dir / cycle_id / "tech" / "diagnostic"
+    diag_dir.mkdir(parents=True, exist_ok=True)
+    decision = diag_dir / "decision-doc.md"
+    if not decision.is_file():
+        decision.write_text("# Decision\n", encoding="utf-8")
+    _upsert_delivered_ref_entry(
+        cache_dir,
+        cycle_id,
+        delivered_type="tech-diagnostic",
+        path=decision,
+        profile_id="tech-diagnostic",
+    )
+    if design_path is not None:
+        _upsert_delivered_ref_entry(
+            cache_dir,
+            cycle_id,
+            delivered_type="tech-design",
+            path=design_path,
+            profile_id="tech-design",
+        )
+
+
 def _seed_gate_for_stage(tmp_path: Path, to_stage: str) -> None:
     if to_stage not in _FEATURE_CYCLE:
         return
@@ -109,6 +171,8 @@ def _seed_gate_for_stage(tmp_path: Path, to_stage: str) -> None:
         _make_session(cd, _FID, stage, "r1")
     if prior:
         _make_cycle_state(cd, _FID, prior[-1])
+    if to_stage == "tech-plan":
+        _seed_tech_plan_delivered_refs(cd, _FID, tmp_path)
 
 
 # ---------------------------------------------------------------------------
@@ -136,7 +200,7 @@ class TestArgparseSource:
 # ---------------------------------------------------------------------------
 
 class TestArchiveDeferred:
-    @pytest.mark.parametrize("stage", _STAGES)
+    @pytest.mark.parametrize("stage", _STAGES_WITH_DEFERRED_ARCHIVE)
     def test_archive_deferred_comment_present(self, stage):
         src = _start_py(stage).read_text(encoding="utf-8")
         assert "# archive: deferred" in src, (

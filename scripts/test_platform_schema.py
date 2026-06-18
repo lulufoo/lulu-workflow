@@ -17,6 +17,16 @@ from platform_schema import (
 
 def test_detect_platform_override():
     assert detect_platform(override="copilot") == "copilot"
+    assert detect_platform(override="claude") == "claude"
+
+
+def test_detect_platform_claude_code(monkeypatch):
+    monkeypatch.delenv("LULU_PLATFORM", raising=False)
+    monkeypatch.delenv("COPILOT_AGENT", raising=False)
+    monkeypatch.delenv("VSCODE_TARGET_SESSION_LOG", raising=False)
+    monkeypatch.delenv("CURSOR_AGENT", raising=False)
+    monkeypatch.setenv("CLAUDE_CODE", "1")
+    assert detect_platform() == "claude"
 
 
 def test_detect_platform_lulu_platform(monkeypatch):
@@ -49,14 +59,26 @@ def test_detect_platform_cursor_agent(monkeypatch):
 
 
 def test_detect_platform_strict_raises(monkeypatch):
-    for key in ("LULU_PLATFORM", "COPILOT_AGENT", "CURSOR_AGENT", "VSCODE_TARGET_SESSION_LOG"):
+    for key in (
+        "LULU_PLATFORM",
+        "COPILOT_AGENT",
+        "CURSOR_AGENT",
+        "VSCODE_TARGET_SESSION_LOG",
+        "CLAUDE_CODE",
+    ):
         monkeypatch.delenv(key, raising=False)
     with pytest.raises(PlatformDetectionError):
         detect_platform(strict=True)
 
 
 def test_detect_platform_non_strict_defaults_cursor(monkeypatch):
-    for key in ("LULU_PLATFORM", "COPILOT_AGENT", "CURSOR_AGENT", "VSCODE_TARGET_SESSION_LOG"):
+    for key in (
+        "LULU_PLATFORM",
+        "COPILOT_AGENT",
+        "CURSOR_AGENT",
+        "VSCODE_TARGET_SESSION_LOG",
+        "CLAUDE_CODE",
+    ):
         monkeypatch.delenv(key, raising=False)
     assert detect_platform(strict=False) == "cursor"
 

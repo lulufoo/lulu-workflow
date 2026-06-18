@@ -9,7 +9,8 @@ import sys
 from pathlib import Path
 from typing import TypedDict
 
-from transition_table import allowed_stages
+from transition_table import allowed_stages  # noqa: E402
+from platforms.registry import SUPPORTED_PLATFORMS  # noqa: E402
 
 
 class Entry(TypedDict):
@@ -19,7 +20,7 @@ class Entry(TypedDict):
 
 
 def _normalize_platform(platform: str) -> str:
-    if platform in ("cursor", "copilot"):
+    if platform in SUPPORTED_PLATFORMS:
         return platform
     return "cursor"
 

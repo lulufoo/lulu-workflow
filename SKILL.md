@@ -41,7 +41,7 @@ Do **not** call `cycle_schema.py` or bare `python3 .../cycle_control.py` paths â
 | Platform vars | `$PLATFORM`, `$SKILL_ROOT`, `$CACHE_DIR`, `$WORKFLOW_DIR` |
 | Session | Read `_runtime.md` Â§ Session Foundation when session variables are needed |
 | Session vars | `$CYCLE_ID`, `$CYCLE_TYPE`, `$EXECUTION_MODE` |
-| Project config | `workflow-config.json` at resolved `workflowConfig` path (see ## Command Semantics â†’ configure) |
+| Project config | `workflow-config.json` at resolved `workflowConfig` path (see ## Command Semantics â†’ configure); `hook-config.json` at resolved `hookConfig` path (created by init if missing) |
 
 ## Command Flow
 
@@ -63,7 +63,7 @@ Do **not** call `cycle_schema.py` or bare `python3 .../cycle_control.py` paths â
 
 **Run:** `$CYCLE_CONTROL init-project`
 
-**Done:** Report success or stderr; does not create `workflow-config.json`.
+**Done:** Report success or stderr; creates `hook-config.json` at resolved `hookConfig` path if missing; does **not** create `workflow-config.json`.
 
 ### `configure` â€” When workflow-config is missing
 
@@ -97,8 +97,9 @@ Do **not** call `cycle_schema.py` or bare `python3 .../cycle_control.py` paths â
 
 ### init
 
-- **Does not:** create `workflow-config.json`.
-- **Safe:** re-run allowed (idempotent hooks registration).
+- **Creates:** platform `config.json` pointer(s) if missing; **`hook-config.json`** at resolved `hookConfig` path if missing (from skill default template; does not overwrite existing file).
+- **Does not:** create `workflow-config.json` (use `configure`).
+- **Safe:** re-run allowed (idempotent hooks registration and hook-config bootstrap).
 
 ## Script Macros
 

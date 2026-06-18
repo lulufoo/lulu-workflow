@@ -8,6 +8,9 @@ import subprocess
 import sys
 from pathlib import Path
 
+import bootstrap  # noqa: F401
+from bootstrap import SCHEMA_SECTION_DOCUMENT, SECTION  # noqa: E402
+
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -21,8 +24,6 @@ from compose_doc_schema import (  # noqa: E402
     resolve_compose_doc_path_from_cycle,
 )
 
-import bootstrap  # noqa: F401
-from bootstrap import SCHEMA_SECTION_DOCUMENT, SECTION  # noqa: E402
 from init_drafting_helpers import product_delivered_refs  # noqa: E402
 
 _SCRIPT = SCHEMA_SECTION_DOCUMENT / "compose_doc_schema.py"

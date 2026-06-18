@@ -12,10 +12,10 @@ if str(_SCRIPTS) not in sys.path:
 
 from archive_common import (  # noqa: E402
     ALL_STAGE_CONFIGS,
-    CODE_CONFIG,
     DIAGNOSTIC_CONFIG,
-    PRODUCT_CONFIG,
-    WORK_ORDER_CONFIG,
+    PRODUCT_PLAN_CONFIG as PRODUCT_CONFIG,
+    TECH_CODE_CONFIG as CODE_CONFIG,
+    TECH_WORK_ORDER_CONFIG as WORK_ORDER_CONFIG,
     archive_dir,
     hot_conv_dir,
     hot_root,

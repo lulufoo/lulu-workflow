@@ -7,7 +7,24 @@ from pathlib import Path
 import pytest
 
 import bootstrap  # noqa: F401
+from bootstrap import refresh_compose_import_paths  # noqa: E402
 from test_template_data import seed_tech_plan_test_caches  # noqa: WPS433
+
+
+def pytest_configure(config) -> None:
+    refresh_compose_import_paths()
+
+
+def pytest_collect_directory(path, parent):
+    if "compose-kernel/scripts/tests" in str(path):
+        refresh_compose_import_paths()
+    return None
+
+
+@pytest.fixture(autouse=True)
+def _compose_import_paths():
+    refresh_compose_import_paths()
+    yield
 
 
 @pytest.fixture(scope="session")

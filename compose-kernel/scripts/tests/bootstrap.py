@@ -19,7 +19,33 @@ SCHEMA_SECTION_SCOPE = SCHEMA_SECTION / "scope"
 SCHEMA_SESSION = _KERNEL_SCRIPTS / "schema" / "session"
 TECH_PLAN_DRAFTING = _TESTS.parent.parent.parent / "tech-plan" / "scripts" / "drafting"
 
-for p in (
+_MODULE_OWNERS = {
+    "workflow_common": CORE,
+    "workflow_state_schema": SCHEMA_SESSION,
+    "session_state_schema": SCHEMA_SESSION,
+    "session_control": CORE,
+}
+
+
+def _purge_stale_modules() -> None:
+    """Drop same-named modules loaded from other stage trees (e.g. tech-code)."""
+    for name, expected_dir in _MODULE_OWNERS.items():
+        mod = sys.modules.get(name)
+        if mod is None:
+            continue
+        mod_file = getattr(mod, "__file__", None)
+        if not mod_file:
+            del sys.modules[name]
+            continue
+        try:
+            Path(mod_file).resolve().relative_to(Path(expected_dir).resolve())
+        except ValueError:
+            del sys.modules[name]
+
+
+_purge_stale_modules()
+
+_COMPOSE_PATHS = (
     CORE,
     SECTION,
     SCOPE,
@@ -31,6 +57,43 @@ for p in (
     SCHEMA_SESSION,
     TECH_PLAN_DRAFTING,
     _TESTS,
-):
+)
+
+
+_WORKFLOW_ROOT = _TESTS.parent.parent.parent
+_OTHER_STAGE_SCRIPT_DIRS = (
+    _WORKFLOW_ROOT / "tech-code" / "scripts",
+    _WORKFLOW_ROOT / "diagnostic" / "scripts",
+    _WORKFLOW_ROOT / "product-plan" / "scripts",
+    _WORKFLOW_ROOT / "tech-work-order" / "scripts",
+)
+
+
+def _deprioritize_other_stage_paths() -> None:
+    for path in _OTHER_STAGE_SCRIPT_DIRS:
+        entry = str(path)
+        while entry in sys.path:
+            sys.path.remove(entry)
+
+
+def _prioritize_compose_paths() -> None:
+    _deprioritize_other_stage_paths()
+    for path in reversed(_COMPOSE_PATHS):
+        entry = str(path)
+        while entry in sys.path:
+            sys.path.remove(entry)
+        sys.path.insert(0, entry)
+
+
+for p in _COMPOSE_PATHS:
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
+
+_prioritize_compose_paths()
+
+
+def refresh_compose_import_paths() -> None:
+    """Re-run purge + path priority after another stage tree imported same module names."""
+    _deprioritize_other_stage_paths()
+    _purge_stale_modules()
+    _prioritize_compose_paths()

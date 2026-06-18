@@ -14,17 +14,12 @@ from archive_common import (  # noqa: E402
     is_conv_terminal,
     list_conv_ids,
 )
+from platform_schema import detect_platform  # noqa: E402
+from platforms.paths import cache_dir, workflow_dir  # noqa: E402
 
-_PLATFORM = (
-    __import__("os").environ.get("LULU_PLATFORM")
-    or ("copilot" if __import__("os").environ.get("COPILOT_AGENT") else "cursor")
-)
-_WORKFLOW_DIR_MAP = {
-    "cursor":  Path(".cursor/lulu-dev-workflow"),
-    "copilot": Path(".github/lulu-dev-workflow"),
-}
-WORKFLOW_DIR = _WORKFLOW_DIR_MAP.get(_PLATFORM, _WORKFLOW_DIR_MAP["cursor"])
-CACHE_DIR = Path(f".cache/{_PLATFORM}/lulu-dev-workflow")
+_PLATFORM = detect_platform()
+WORKFLOW_DIR = workflow_dir(_PLATFORM)
+CACHE_DIR = cache_dir(_PLATFORM)
 STAGE = "tech-code"
 CACHE_SUBDIR = "tech/code"
 PLATFORM_CONFIG_PATH = WORKFLOW_DIR / "config.json"
@@ -196,7 +191,7 @@ def write_active_context(
             file=sys.stderr,
         )
         return
-    platform = os.environ.get("LULU_PLATFORM", "cursor")
+    platform = detect_platform()
     write_entry(project_root, platform, conv_id, cycle_id, stage, cycle_type=cycle_type)
 
 

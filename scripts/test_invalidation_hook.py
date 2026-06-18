@@ -15,13 +15,13 @@ from invalidation_hook import _write_invalidated, invalidate_downstream
 
 def _make_state(tmp_path: Path, container: str, stage: str, revision: str,
                 current_state: str, extra_fields: Optional[Dict] = None) -> Path:
-    from hook_guard import _stage_subdir, _STAGE_FLAT
-    if stage in _STAGE_FLAT:
-        state_dir = tmp_path / container / _stage_subdir(stage)
+    from workflow_sessions import STAGE_FLAT, stage_subdir
+    if stage in STAGE_FLAT:
+        state_dir = tmp_path / container / stage_subdir(stage)
         state_dir.mkdir(parents=True, exist_ok=True)
         state_path = state_dir / "session-state.md"
     else:
-        rev_dir = tmp_path / container / _stage_subdir(stage) / revision
+        rev_dir = tmp_path / container / stage_subdir(stage) / revision
         rev_dir.mkdir(parents=True, exist_ok=True)
         state_path = rev_dir / "workflow-state.md"
     fields = {
@@ -77,16 +77,16 @@ class TestWriteInvalidated:
     def test_changes_current_state_to_invalidated(self, tmp_path):
         sp = _make_state(tmp_path, "c", "product-plan", "r1", "Delivered")
         _write_invalidated(sp)
-        from hook_guard import _parse_frontmatter
-        assert _parse_frontmatter(sp.read_text())["current_state"] == "Invalidated"
+        from workflow_sessions import parse_frontmatter
+        assert parse_frontmatter(sp.read_text())["current_state"] == "Invalidated"
 
     def test_preserves_other_frontmatter_fields(self, tmp_path):
         sp = _make_state(tmp_path, "c", "product-plan", "r1", "Drafting",
                          extra_fields={"evaluate_round": "2", "tech_ref": "/a/b.md",
                                        "updated_at": "2026-05-01T12:00:00Z"})
         _write_invalidated(sp)
-        from hook_guard import _parse_frontmatter
-        fm = _parse_frontmatter(sp.read_text())
+        from workflow_sessions import parse_frontmatter
+        fm = parse_frontmatter(sp.read_text())
         assert fm["current_state"] == "Invalidated"
         assert fm["version"] == "1"
         assert fm["workflow"] == "product-plan"
@@ -97,8 +97,8 @@ class TestWriteInvalidated:
     def test_already_invalidated_stays_invalidated(self, tmp_path):
         sp = _make_state(tmp_path, "c", "tech-plan", "r1", "Invalidated")
         _write_invalidated(sp)
-        from hook_guard import _parse_frontmatter
-        assert _parse_frontmatter(sp.read_text())["current_state"] == "Invalidated"
+        from workflow_sessions import parse_frontmatter
+        assert parse_frontmatter(sp.read_text())["current_state"] == "Invalidated"
 
     def test_written_file_has_valid_frontmatter_block(self, tmp_path):
         sp = _make_state(tmp_path, "c", "product-plan", "r1", "Evaluating")
@@ -115,10 +115,17 @@ class TestWriteInvalidated:
 class TestInvalidateDownstream:
     @pytest.fixture(autouse=True)
     def patch_config(self, tmp_path, monkeypatch):
-        import hook_guard
+        import start_gate
+        import transition_table
+
         config_dir = tmp_path / "config"
         _make_tt_config(config_dir, FEATURE_STAGES, TOPIC_STAGES)
-        monkeypatch.setattr(hook_guard, "_CONFIG_DIR", config_dir)
+        monkeypatch.setattr(start_gate, "_CONFIG_DIR", config_dir)
+        monkeypatch.setattr(
+            transition_table,
+            "_CONFIG_PATH",
+            config_dir / "transition-table.json",
+        )
         self.cache_dir = tmp_path
 
     def test_feature_reopen_product_plan_invalidates_downstream(self):
@@ -128,14 +135,14 @@ class TestInvalidateDownstream:
 
         invalidate_downstream("feat-1", "product-plan", "feature", self.cache_dir)
 
-        from hook_guard import _parse_frontmatter, _stage_subdir, _STAGE_FLAT
-        assert _parse_frontmatter(from_sp.read_text())["current_state"] == "Drafting"
+        from workflow_sessions import STAGE_FLAT, parse_frontmatter, stage_subdir
+        assert parse_frontmatter(from_sp.read_text())["current_state"] == "Drafting"
         for stage in ["tech-diagnostic", "tech-plan", "tech-work-order", "tech-code"]:
-            if stage in _STAGE_FLAT:
-                sp = self.cache_dir / "feat-1" / _stage_subdir(stage) / "session-state.md"
+            if stage in STAGE_FLAT:
+                sp = self.cache_dir / "feat-1" / stage_subdir(stage) / "session-state.md"
             else:
-                sp = self.cache_dir / "feat-1" / _stage_subdir(stage) / "r1" / "workflow-state.md"
-            assert _parse_frontmatter(sp.read_text())["current_state"] == "Invalidated", stage
+                sp = self.cache_dir / "feat-1" / stage_subdir(stage) / "r1" / "workflow-state.md"
+            assert parse_frontmatter(sp.read_text())["current_state"] == "Invalidated", stage
 
     def test_topic_reopen_product_diagnostic_invalidates_downstream(self):
         from_sp = _make_state(self.cache_dir, "topic-1", "product-diagnostic", "r1", "Drafting")
@@ -144,22 +151,22 @@ class TestInvalidateDownstream:
 
         invalidate_downstream("topic-1", "product-diagnostic", "topic", self.cache_dir)
 
-        from hook_guard import _parse_frontmatter, _stage_subdir, _STAGE_FLAT
-        assert _parse_frontmatter(from_sp.read_text())["current_state"] == "Drafting"
+        from workflow_sessions import STAGE_FLAT, parse_frontmatter, stage_subdir
+        assert parse_frontmatter(from_sp.read_text())["current_state"] == "Drafting"
         for stage in ["product-plan", "tech-diagnostic", "tech-plan"]:
-            if stage in _STAGE_FLAT:
-                sp = self.cache_dir / "topic-1" / _stage_subdir(stage) / "session-state.md"
+            if stage in STAGE_FLAT:
+                sp = self.cache_dir / "topic-1" / stage_subdir(stage) / "session-state.md"
             else:
-                sp = self.cache_dir / "topic-1" / _stage_subdir(stage) / "r1" / "workflow-state.md"
-            assert _parse_frontmatter(sp.read_text())["current_state"] == "Invalidated", stage
+                sp = self.cache_dir / "topic-1" / stage_subdir(stage) / "r1" / "workflow-state.md"
+            assert parse_frontmatter(sp.read_text())["current_state"] == "Invalidated", stage
 
     def test_only_writes_current_state_other_fields_preserved(self):
         _make_state(self.cache_dir, "feat-1", "tech-plan", "r1", "Delivered",
                     extra_fields={"evaluate_round": "3", "tech_ref": "/ref.md"})
         invalidate_downstream("feat-1", "product-plan", "feature", self.cache_dir)
-        from hook_guard import _parse_frontmatter, _stage_subdir
-        sp = self.cache_dir / "feat-1" / _stage_subdir("tech-plan") / "r1" / "workflow-state.md"
-        fm = _parse_frontmatter(sp.read_text())
+        from workflow_sessions import parse_frontmatter, stage_subdir
+        sp = self.cache_dir / "feat-1" / stage_subdir("tech-plan") / "r1" / "workflow-state.md"
+        fm = parse_frontmatter(sp.read_text())
         assert fm["current_state"] == "Invalidated"
         assert fm["evaluate_round"] == "3"
         assert fm["tech_ref"] == "/ref.md"
@@ -168,8 +175,8 @@ class TestInvalidateDownstream:
         from_sp = _make_state(self.cache_dir, "feat-1", "tech-plan", "r1", "Drafting")
         _make_state(self.cache_dir, "feat-1", "tech-work-order", "r1", "Delivered")
         invalidate_downstream("feat-1", "tech-plan", "feature", self.cache_dir)
-        from hook_guard import _parse_frontmatter
-        assert _parse_frontmatter(from_sp.read_text())["current_state"] == "Drafting"
+        from workflow_sessions import parse_frontmatter
+        assert parse_frontmatter(from_sp.read_text())["current_state"] == "Drafting"
 
     def test_downstream_stage_no_sessions_no_error(self):
         invalidate_downstream("feat-1", "product-plan", "feature", self.cache_dir)
@@ -177,28 +184,28 @@ class TestInvalidateDownstream:
     def test_already_invalidated_stays_invalidated(self):
         sp = _make_state(self.cache_dir, "feat-1", "tech-plan", "r1", "Invalidated")
         invalidate_downstream("feat-1", "product-plan", "feature", self.cache_dir)
-        from hook_guard import _parse_frontmatter
-        assert _parse_frontmatter(sp.read_text())["current_state"] == "Invalidated"
+        from workflow_sessions import parse_frontmatter
+        assert parse_frontmatter(sp.read_text())["current_state"] == "Invalidated"
 
     def test_idempotent_second_call(self):
         _make_state(self.cache_dir, "feat-1", "tech-plan", "r1", "Delivered")
         invalidate_downstream("feat-1", "product-plan", "feature", self.cache_dir)
         invalidate_downstream("feat-1", "product-plan", "feature", self.cache_dir)
-        from hook_guard import _parse_frontmatter, _stage_subdir
-        sp = self.cache_dir / "feat-1" / _stage_subdir("tech-plan") / "r1" / "workflow-state.md"
-        assert _parse_frontmatter(sp.read_text())["current_state"] == "Invalidated"
+        from workflow_sessions import parse_frontmatter, stage_subdir
+        sp = self.cache_dir / "feat-1" / stage_subdir("tech-plan") / "r1" / "workflow-state.md"
+        assert parse_frontmatter(sp.read_text())["current_state"] == "Invalidated"
 
     def test_only_affects_given_cycle_id(self):
         _make_state(self.cache_dir, "feat-1", "tech-plan", "r1", "Delivered")
         sp2 = _make_state(self.cache_dir, "feat-2", "tech-plan", "r1", "Delivered")
         invalidate_downstream("feat-1", "product-plan", "feature", self.cache_dir)
-        from hook_guard import _parse_frontmatter
-        assert _parse_frontmatter(sp2.read_text())["current_state"] == "Delivered"
+        from workflow_sessions import parse_frontmatter
+        assert parse_frontmatter(sp2.read_text())["current_state"] == "Delivered"
 
     def test_old_named_sessions_not_modified(self):
         """get_sessions skips unknown state names like InProgress."""
-        from hook_guard import _stage_subdir
-        rev_dir = self.cache_dir / "feat-1" / _stage_subdir("tech-plan") / "r1"
+        from workflow_sessions import stage_subdir
+        rev_dir = self.cache_dir / "feat-1" / stage_subdir("tech-plan") / "r1"
         rev_dir.mkdir(parents=True, exist_ok=True)
         sp = rev_dir / "workflow-state.md"
         sp.write_text(

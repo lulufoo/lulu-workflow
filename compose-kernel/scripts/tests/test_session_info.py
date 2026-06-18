@@ -17,7 +17,7 @@ sys.path.insert(0, str(WORKFLOW_SCRIPTS))
 from section_registry_schema import section_heading, summary_section_key  # noqa: E402
 from compose_doc_schema import format_section_heading  # noqa: E402
 from test_registry_fixtures import fourth_section_key  # noqa: E402
-from hook_guard import load_transitions  # noqa: E402
+from transition_table import load_transitions  # noqa: E402
 from session_info import (  # noqa: E402
     delivery_preview,
     get_session_info,

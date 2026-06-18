@@ -10,11 +10,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import FrozenSet, List, Optional, Tuple
 
-_PLATFORM = (
-    __import__("os").environ.get("LULU_PLATFORM")
-    or ("copilot" if __import__("os").environ.get("COPILOT_AGENT") else "cursor")
-)
-CACHE_DIR = Path(f".cache/{_PLATFORM}/lulu-dev-workflow")
+_SCRIPTS = Path(__file__).resolve().parent
+if str(_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS))
+
+from platform_schema import detect_platform  # noqa: E402
+from platforms.paths import cache_dir  # noqa: E402
+
+_PLATFORM = detect_platform()
+CACHE_DIR = cache_dir(_PLATFORM)
 
 _CONV_ID_RE = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",

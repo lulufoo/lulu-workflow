@@ -15,14 +15,10 @@ kernel_bootstrap.ensure_kernel_paths()
 from workflow_paths import WORKFLOW_SCRIPTS  # noqa: E402
 
 sys.path.insert(0, str(WORKFLOW_SCRIPTS))
-from hook_guard import (  # noqa: E402
-    check_gate,
-    current_effective_delivered,
-    get_sessions,
-    get_topic_doc,
-    load_stage_order,
-    write_cycle_state,
-)
+from cycle_schema import write_stage as write_cycle_state  # noqa: E402
+from start_gate import check_gate, get_topic_doc  # noqa: E402
+from transition_table import load_stage_order  # noqa: E402
+from workflow_sessions import current_effective_delivered, get_sessions  # noqa: E402
 from invalidation_hook import invalidate_downstream  # noqa: E402
 
 from compose_session import calibration_note  # noqa: E402
@@ -42,7 +38,7 @@ from workflow_common import (
 )
 from workflow_state_schema import init_drafting, mark_historical
 
-from scope_resolver import resolve_role_summary  # noqa: E402
+from scope_resolver import resolve_role_summary, ScopeResolverError  # noqa: E402
 
 from workflow_paths import load_profile  # noqa: E402
 
@@ -203,7 +199,10 @@ def main() -> int:
         carry_forward_ref=carry_forward_ref,
     )
 
-    role_summary = resolve_role_summary(cycle_type=cycle_type)
+    try:
+        role_summary = resolve_role_summary(cycle_type=cycle_type)
+    except ScopeResolverError:
+        role_summary = cycle_type
 
     note = calibration_note(
         profile_id,

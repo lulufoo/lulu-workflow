@@ -5,7 +5,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from hook_guard import get_sessions, load_stage_order  # noqa: E402
+from transition_table import load_stage_order  # noqa: E402
+from workflow_sessions import get_sessions  # noqa: E402
 
 _SKILL_ROOT = Path(__file__).resolve().parents[1]
 _KERNEL_CORE = _SKILL_ROOT / "compose-kernel" / "scripts" / "core"

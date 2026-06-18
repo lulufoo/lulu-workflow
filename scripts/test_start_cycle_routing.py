@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from typing import Optional
 
 import pytest
 
@@ -25,6 +26,8 @@ _FEATURE_CYCLE = [
     "product-diagnostic", "product-plan", "tech-diagnostic",
     "tech-plan", "tech-work-order", "tech-code",
 ]
+# Topic cycles end at tech-plan; tech-work-order and tech-code are feature-only.
+_TOPIC_CONTAINER_STAGES = ["diagnostic", "product-plan", "tech-plan"]
 
 
 def _start_py(stage: str) -> Path:
@@ -64,10 +67,10 @@ def _make_session(cache_dir: Path, cycle_id: str, stage: str, revision: str, sta
     workflow_scripts = _SRC / "lulu-dev-workflow" / "scripts"
     if str(workflow_scripts) not in sys.path:
         sys.path.insert(0, str(workflow_scripts))
-    from hook_guard import _stage_subdir, _STAGE_FLAT  # noqa: E402
+    from workflow_sessions import STAGE_FLAT, stage_subdir  # noqa: E402
 
-    subdir = _stage_subdir(stage)
-    if stage in _STAGE_FLAT:
+    subdir = stage_subdir(stage)
+    if stage in STAGE_FLAT:
         session_dir = cache_dir / cycle_id / subdir
         session_dir.mkdir(parents=True, exist_ok=True)
         ws = session_dir / "session-state.md"
@@ -82,7 +85,65 @@ def _make_session(cache_dir: Path, cycle_id: str, stage: str, revision: str, sta
     )
 
 
-def _seed_gate_for_stage(cache_dir: Path, cycle_id: str, to_stage: str) -> None:
+def _upsert_delivered_ref_entry(
+    cache_dir: Path,
+    cycle_id: str,
+    *,
+    delivered_type: str,
+    path: Path,
+    profile_id: str,
+) -> None:
+    refs_path = cache_dir / cycle_id / "delivered-refs.json"
+    data = (
+        json.loads(refs_path.read_text(encoding="utf-8"))
+        if refs_path.is_file()
+        else {"version": 1, "entries": {}}
+    )
+    entries = dict(data.get("entries") or {})
+    entries[delivered_type] = {
+        "delivered_type": delivered_type,
+        "path": str(path.resolve()),
+        "revision": 1,
+        "profile_id": profile_id,
+        "delivered_at": "2026-06-01T00:00:00+00:00",
+        "source_workflow_state": "",
+    }
+    data["entries"] = entries
+    refs_path.parent.mkdir(parents=True, exist_ok=True)
+    refs_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def _seed_tech_plan_delivered_refs(
+    cache_dir: Path,
+    cycle_id: str,
+    project_root: Path,
+    *,
+    design_path: Optional[Path] = None,
+) -> None:
+    del project_root
+    diag_dir = cache_dir / cycle_id / "tech" / "diagnostic"
+    diag_dir.mkdir(parents=True, exist_ok=True)
+    decision = diag_dir / "decision-doc.md"
+    if not decision.is_file():
+        decision.write_text("# Decision\n", encoding="utf-8")
+    _upsert_delivered_ref_entry(
+        cache_dir,
+        cycle_id,
+        delivered_type="tech-diagnostic",
+        path=decision,
+        profile_id="tech-diagnostic",
+    )
+    if design_path is not None:
+        _upsert_delivered_ref_entry(
+            cache_dir,
+            cycle_id,
+            delivered_type="tech-design",
+            path=design_path,
+            profile_id="tech-design",
+        )
+
+
+def _seed_gate_for_stage(cache_dir: Path, cycle_id: str, to_stage: str, project_root: Path) -> None:
     if to_stage not in _FEATURE_CYCLE:
         return
     idx = _FEATURE_CYCLE.index(to_stage)
@@ -91,6 +152,8 @@ def _seed_gate_for_stage(cache_dir: Path, cycle_id: str, to_stage: str) -> None:
         _make_session(cache_dir, cycle_id, stage, "r1", "Delivered")
     if prior:
         _make_cycle_state(cache_dir, cycle_id, prior[-1])
+    if to_stage == "tech-plan":
+        _seed_tech_plan_delivered_refs(cache_dir, cycle_id, project_root)
 
 
 def _seed_work_order_handoff(cache_dir: Path, cycle_id: str, active_doc: int = 1) -> None:
@@ -227,7 +290,7 @@ class TestActiveContextContainerType:
     def test_cycle_id_writes_cycle_type_feature(self, stage, tmp_path):
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID)
-        _seed_gate_for_stage(cd, _CYCLE_ID, stage)
+        _seed_gate_for_stage(cd, _CYCLE_ID, stage, tmp_path)
         extra = _stage_extra_args(stage, tmp_path)
         cmd = [
             sys.executable, str(_start_py(stage)),
@@ -246,11 +309,11 @@ class TestActiveContextContainerType:
         assert _CONV_ID in data, f"conv key missing: {list(data)}"
         assert data[_CONV_ID]["cycle_type"] == "feature"
 
-    @pytest.mark.parametrize("stage", _STAGES)
+    @pytest.mark.parametrize("stage", _TOPIC_CONTAINER_STAGES)
     def test_topic_id_writes_cycle_type_topic(self, stage, tmp_path):
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _TOPIC_ID)
-        _seed_gate_for_stage(cd, _TOPIC_ID, stage)
+        _seed_gate_for_stage(cd, _TOPIC_ID, stage, tmp_path)
         extra = _stage_extra_args(stage, tmp_path)
         cmd = [
             sys.executable, str(_start_py(stage)),
@@ -295,7 +358,7 @@ class TestTopicIdSessionPath:
     def test_product_plan_topic_session_uses_topic_dir(self, tmp_path):
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _TOPIC_ID)
-        _seed_gate_for_stage(cd, _TOPIC_ID, "product-plan")
+        _seed_gate_for_stage(cd, _TOPIC_ID, "product-plan", tmp_path)
         result = subprocess.run(
             [
                 sys.executable, str(_start_py("product-plan")),

@@ -66,8 +66,8 @@ def _make_cycles_json(cache_dir: Path, cycle_id: str, extra: dict = None, name: 
 def _make_session_state(cache_dir: Path, cycle_id: str, stage: str, active: int = 1) -> Path:
     """Create session-state.md so start.py increments to the NEXT revision."""
     sys.path.insert(0, str(_LDEV / "scripts"))
-    from hook_guard import _stage_subdir
-    p = cache_dir / cycle_id / _stage_subdir(stage) / "session-state.md"
+    from workflow_sessions import stage_subdir
+    p = cache_dir / cycle_id / stage_subdir(stage) / "session-state.md"
     p.parent.mkdir(parents=True, exist_ok=True)
     field = "active_session" if stage == "tech-code" else "active_doc"
     p.write_text(f"---\n{field}: {active}\n---\n", encoding="utf-8")
@@ -95,9 +95,9 @@ def _make_session(
 ) -> Path:
     """Create a session state file at the correct path (subdir + revision naming)."""
     sys.path.insert(0, str(_LDEV / "scripts"))
-    from hook_guard import _stage_subdir, _STAGE_FLAT
-    subdir = _stage_subdir(stage)
-    if stage in _STAGE_FLAT:
+    from workflow_sessions import STAGE_FLAT, stage_subdir
+    subdir = stage_subdir(stage)
+    if stage in STAGE_FLAT:
         session_dir = cache_dir / cycle_id / subdir
         session_dir.mkdir(parents=True, exist_ok=True)
         ws = session_dir / "session-state.md"
@@ -352,11 +352,15 @@ class TestGatePasses:
         assert result.returncode == 0, result.stderr or result.stdout
         ws_path = cd / _CYCLE_ID / "tech" / "plan" / "revision1" / "workflow-state.md"
         assert ws_path.exists()
+        scripts_root = _LDEV / "scripts"
+        if str(scripts_root) not in sys.path:
+            sys.path.insert(0, str(scripts_root))
+        from workflow_sessions import parse_frontmatter  # noqa: WPS433
+
         sys.path.insert(0, str(_LDEV / "compose-kernel" / "scripts" / "schema" / "session"))
         from delivered_refs_schema import parse_delivered_refs  # noqa: WPS433
-        from workflow_state_schema import load_workflow_state  # noqa: WPS433
 
-        refs = parse_delivered_refs(load_workflow_state(ws_path))
+        refs = parse_delivered_refs(parse_frontmatter(ws_path.read_text(encoding="utf-8")))
         assert any(r.type == "tech-design" and r.path == str(design.resolve()) for r in refs)
 
     def test_diagnostic_always_passes(self, tmp_path):

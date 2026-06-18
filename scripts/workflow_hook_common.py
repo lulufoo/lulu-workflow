@@ -2,39 +2,29 @@
 
 from __future__ import annotations
 
+import importlib.util
+import sys
 from pathlib import Path
 
-
-def agent_stop_message(
-    detail: str,
-    *,
-    forbidden: str,
-    workarounds: str,
-) -> str:
-    return (
-        f"{detail}\n"
-        f"STOP: Do not retry {forbidden} or attempt workarounds "
-        f"({workarounds}).\n"
-        "Report this message to the user and wait for their direction."
-    )
+_SCRIPTS = Path(__file__).resolve().parent
+_HOOK_COMMON = _SCRIPTS / "hook" / "workflow_hook_common.py"
 
 
-def deny_cache_boundary(*, stage: str, cache_dir: Path, target_path: Path) -> dict:
-    cache_str = cache_dir.as_posix()
-    target_str = target_path.as_posix()
-    user_message = (
-        f"[lulu-dev-workflow] 写入被拦截：{stage} 阶段仅允许写入 workflow cache（{cache_str}）。"
-        "请确认是否继续本阶段、完成交付，或切换到下一阶段。"
-    )
-    agent_message = agent_stop_message(
-        f"[lulu-dev-workflow] Write blocked in stage '{stage}': outside workflow cache.\n"
-        f"Target: {target_str}\n"
-        f"Allowed directory: {cache_str}",
-        forbidden="this write",
-        workarounds="Shell redirects, alternate paths, etc.",
-    )
-    return {
-        "permission": "deny",
-        "user_message": user_message,
-        "agent_message": agent_message,
-    }
+def _load_hook_common():
+    name = "lulu_hook_workflow_common"
+    if name in sys.modules:
+        return sys.modules[name]
+    spec = importlib.util.spec_from_file_location(name, _HOOK_COMMON)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[name] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+_hook_common = _load_hook_common()
+
+agent_stop_message = _hook_common.agent_stop_message
+deny_rw_boundary = _hook_common.deny_rw_boundary
+deny_cache_boundary = _hook_common.deny_cache_boundary
+
+__all__ = ["agent_stop_message", "deny_cache_boundary", "deny_rw_boundary"]

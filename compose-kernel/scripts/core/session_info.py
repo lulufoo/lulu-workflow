@@ -27,7 +27,7 @@ kernel_bootstrap.ensure_kernel_paths()
 from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, WORKFLOW_SCRIPTS  # noqa: E402
 
 sys.path.insert(0, str(WORKFLOW_SCRIPTS))
-from hook_guard import load_transitions  # noqa: E402
+from transition_table import load_transitions  # noqa: E402
 from compose_session import (  # noqa: E402
     load_active_doc_for_profile,
     load_document_presentation,
