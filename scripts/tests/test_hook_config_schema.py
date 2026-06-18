@@ -32,14 +32,16 @@ class TestDefaultHookConfig:
         first["rwGuard"]["enable"] = False
         assert second["rwGuard"]["enable"] is True
 
-    def test_includes_tech_code_and_diagnostic_stages(self):
+    def test_includes_tech_code_stage(self):
         from hook_config_schema import default_hook_config
 
         stages = default_hook_config()["rwGuard"]["stages"]
-        assert "tech-code" in stages
-        assert stages["tech-code"]["writeDirs"] == ["."]
-        assert "product-diagnostic" in stages
-        assert "tech-diagnostic" in stages
+        assert stages == {
+            "tech-code": {
+                "readDirs": ["."],
+                "writeDirs": ["."],
+            },
+        }
 
 
 class TestValidateHookConfig:
