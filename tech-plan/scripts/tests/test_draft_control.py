@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for draft_control.py."""
+"""Tests for tech_plan_draft_control.py."""
 
 import json
 import subprocess
@@ -12,16 +12,17 @@ _DRAFTING = _SCRIPTS_ROOT / "drafting"
 _KERNEL_TESTS = _WORKFLOW_ROOT / "compose-kernel" / "scripts" / "tests"
 if str(_KERNEL_TESTS) not in sys.path:
     sys.path.insert(0, str(_KERNEL_TESTS))
+if str(_DRAFTING) not in sys.path:
+    sys.path.insert(0, str(_DRAFTING))
 import bootstrap  # noqa: F401
-from draft_control_test_loader import load_draft_control  # noqa: E402
-
-_dc = load_draft_control(_DRAFTING, module_name="tech_plan_draft_control")
-advance_round = _dc.advance_round
-advance_to_freeedit = _dc.advance_to_freeedit
-begin_init = _dc.begin_init
-begin_round = _dc.begin_round
-draft_status = _dc.draft_status
-init_complete = _dc.init_complete
+from tech_plan_draft_control import (  # noqa: E402
+    advance_round,
+    advance_to_freeedit,
+    begin_init,
+    begin_round,
+    draft_status,
+    init_complete,
+)
 
 from test_template_data import LEGACY_SECTION_REGISTRY, seed_template_cache  # noqa: E402
 from test_registry_fixtures import (  # noqa: E402
@@ -31,7 +32,7 @@ from test_registry_fixtures import (  # noqa: E402
 
 _CYCLE = "feat-draft-control"
 _CACHE = Path(".cache/cursor/lulu-dev-workflow")
-_SCRIPT = _DRAFTING / "draft_control.py"
+_SCRIPT = _DRAFTING / "tech_plan_draft_control.py"
 
 
 def _seed_registry_cache(tmp_path: Path) -> None:

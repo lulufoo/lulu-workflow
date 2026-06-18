@@ -43,7 +43,7 @@ Ask the user for the absolute path to the Delivered `tech-doc.md`. Do not auto-d
 **Step 3: Run start**
 
 ```bash
-python3 "$SKILL_DIR/scripts/start.py" \
+python3 "$SKILL_DIR/scripts/two_start.py" \
   --project-root "$(pwd)" \
   --cycle-id "<cycle_id>" \
   --tech-ref "<absolute-path-to-tech-doc.md>"

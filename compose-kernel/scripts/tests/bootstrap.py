@@ -19,6 +19,7 @@ SCHEMA_SECTION_SCOPE = SCHEMA_SECTION / "scope"
 SCHEMA_SESSION = _KERNEL_SCRIPTS / "schema" / "session"
 TECH_PLAN_DRAFTING = _TESTS.parent.parent.parent / "tech-plan" / "scripts" / "drafting"
 
+# Bare module names owned exclusively by compose-kernel (stage trees use prefixed names).
 _MODULE_OWNERS = {
     "workflow_common": CORE,
     "workflow_state_schema": SCHEMA_SESSION,
@@ -28,7 +29,7 @@ _MODULE_OWNERS = {
 
 
 def _purge_stale_modules() -> None:
-    """Drop same-named modules loaded from other stage trees (e.g. tech-code)."""
+    """Drop cached modules that were imported from outside compose-kernel."""
     for name, expected_dir in _MODULE_OWNERS.items():
         mod = sys.modules.get(name)
         if mod is None:
@@ -59,13 +60,11 @@ _COMPOSE_PATHS = (
     _TESTS,
 )
 
-
 _WORKFLOW_ROOT = _TESTS.parent.parent.parent
+# Stage script dirs on pytest pythonpath must not shadow compose-kernel bare imports.
 _OTHER_STAGE_SCRIPT_DIRS = (
     _WORKFLOW_ROOT / "tech-code" / "scripts",
-    _WORKFLOW_ROOT / "diagnostic" / "scripts",
-    _WORKFLOW_ROOT / "product-plan" / "scripts",
-    _WORKFLOW_ROOT / "tech-work-order" / "scripts",
+    _WORKFLOW_ROOT / "eval" / "scripts",
 )
 
 
@@ -93,7 +92,7 @@ _prioritize_compose_paths()
 
 
 def refresh_compose_import_paths() -> None:
-    """Re-run purge + path priority after another stage tree imported same module names."""
+    """Re-run purge + path priority after another tree imported compose-owned module names."""
     _deprioritize_other_stage_paths()
     _purge_stale_modules()
     _prioritize_compose_paths()

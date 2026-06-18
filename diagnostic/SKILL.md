@@ -119,7 +119,7 @@ Assumption：
 **Step 2: Run start.py**
 
 ```bash
-python3 "$SKILL_DIR/scripts/start.py" \
+python3 "$SKILL_DIR/scripts/dx_start.py" \
   --project-root "$(pwd)" \
   --cycle-id "<cycle_id>" \
   --stage "<stage_name>"

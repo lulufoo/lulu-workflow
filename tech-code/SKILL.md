@@ -43,7 +43,7 @@ Derive `$CYCLE_ID` via `_runtime.md` § Session Foundation, or use the explicit 
 Run entry recovery probe, branch on stdout JSON:
 
 ```bash
-python3 "$SKILL_DIR/scripts/session_control.py" \
+python3 "$SKILL_DIR/scripts/tc_session_control.py" \
   --cycle-dir "$CACHE_DIR/$CYCLE_ID" \
   check-recovery
 ```
@@ -75,7 +75,7 @@ Task phases (under Executing): `WriteTests` → `VerifyRed` → `WriteImpl` → 
 **Step 2: Run `start.py`**
 
 ```bash
-python3 "$SKILL_DIR/scripts/start.py" \
+python3 "$SKILL_DIR/scripts/tc_start.py" \
   --project-root "$(pwd)" \
   --cycle-id "<cycle_id>"
 ```
@@ -93,7 +93,7 @@ python3 "$SKILL_DIR/scripts/start.py" \
 Run `prepare.py`; on non-zero exit, apply § Blocking policy.
 
 ```bash
-python3 "$SKILL_DIR/scripts/prepare.py" \
+python3 "$SKILL_DIR/scripts/tc_prepare.py" \
   --cycle-dir "$CACHE_DIR/$CYCLE_ID" \
   --project-root "$(pwd)"
 ```
@@ -115,7 +115,7 @@ Run `session_control.py`; follow `next_action`:
 - `done` → report terminal state (session already Delivered)
 
 ```bash
-python3 "$SKILL_DIR/scripts/session_control.py" \
+python3 "$SKILL_DIR/scripts/tc_session_control.py" \
   --cycle-dir "$CACHE_DIR/$CYCLE_ID" \
   get-pointer
 ```
@@ -145,7 +145,7 @@ Load {actual $SKILL_ROOT}/tech-code/task-runner/SKILL.md and follow its instruct
 2. Run:
 
 ```bash
-python3 "$SKILL_DIR/scripts/session_control.py" \
+python3 "$SKILL_DIR/scripts/tc_session_control.py" \
   --cycle-dir "$CACHE_DIR/$CYCLE_ID" \
   confirm-task-ready --task-id {task_id}
 ```
@@ -161,7 +161,7 @@ On non-zero exit → apply § Blocking policy.
 **Step 3: Advance pointer**
 
 ```bash
-python3 "$SKILL_DIR/scripts/session_control.py" \
+python3 "$SKILL_DIR/scripts/tc_session_control.py" \
   --cycle-dir "$CACHE_DIR/$CYCLE_ID" \
   advance-pointer --completed-task t{X}
 ```
@@ -180,7 +180,7 @@ Read stdout JSON:
 Run:
 
 ```bash
-python3 "$SKILL_DIR/scripts/session_control.py" \
+python3 "$SKILL_DIR/scripts/tc_session_control.py" \
   --cycle-dir "$CACHE_DIR/$CYCLE_ID" \
   --project-root "$(pwd)" \
   deliver

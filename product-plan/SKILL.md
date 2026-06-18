@@ -46,7 +46,7 @@ Markdown. During an active session, writes are restricted to
 **Step 2: Run start**
 
 ```bash
-python3 "$SKILL_DIR/scripts/start.py" \
+python3 "$SKILL_DIR/scripts/pp_start.py" \
   --project-root "$(pwd)" \
   --cycle-id "<cycle_id>"
 ```

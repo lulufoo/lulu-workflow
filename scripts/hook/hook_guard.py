@@ -39,8 +39,11 @@ _WORKFLOW_PY_PATH = re.compile(
 )
 
 _CONV_ID_INJECT_SCRIPT_SUFFIXES = (
-    "/scripts/start.py",
     "/compose-kernel/scripts/core/start.py",
+    "/tech-code/scripts/tc_start.py",
+    "/diagnostic/scripts/dx_start.py",
+    "/product-plan/scripts/pp_start.py",
+    "/tech-work-order/scripts/two_start.py",
 )
 
 
@@ -165,59 +168,65 @@ def main() -> int:
         _emit_response(load_hook_adapter(args.platform), {"permission": "allow"})
         return 0
 
+    prev_platform = os.environ.get("LULU_PLATFORM")
     os.environ["LULU_PLATFORM"] = args.platform
+    try:
+        platform_mod = load_hook_adapter(args.platform)
+        normalized = platform_mod.normalize(payload)
 
-    platform_mod = load_hook_adapter(args.platform)
-    normalized = platform_mod.normalize(payload)
+        tool_name = str(normalized.get("tool_name") or "")
+        tool_input = normalized.get("tool_input") or {}
 
-    tool_name = str(normalized.get("tool_name") or "")
-    tool_input = normalized.get("tool_input") or {}
+        if tool_name == "Shell":
+            try:
+                command = tool_input.get("command", "")
+                conv_id = (normalized.get("conversation_id") or "").strip()
+                if conv_id and _should_inject_conversation_id(command):
+                    new_cmd = f"{command} --conversation-id {conv_id}"
+                    _emit_response(
+                        platform_mod,
+                        {
+                            "permission": "allow",
+                            "updated_input": {"command": new_cmd},
+                        },
+                        tool_name=tool_name,
+                        tool_input=tool_input,
+                    )
+                    return 0
+            except Exception:
+                pass
+            _emit_response(platform_mod, {"permission": "allow"})
+            return 0
 
-    if tool_name == "Shell":
-        try:
-            command = tool_input.get("command", "")
-            conv_id = (normalized.get("conversation_id") or "").strip()
-            if conv_id and _should_inject_conversation_id(command):
-                new_cmd = f"{command} --conversation-id {conv_id}"
-                _emit_response(
-                    platform_mod,
-                    {
-                        "permission": "allow",
-                        "updated_input": {"command": new_cmd},
-                    },
-                    tool_name=tool_name,
-                    tool_input=tool_input,
-                )
-                return 0
-        except Exception:
-            pass
+        if not is_rw_tool(tool_name):
+            _emit_response(platform_mod, {"permission": "allow"})
+            return 0
+
+        conv_id = (normalized.get("conversation_id") or "").strip()
+        stage = _read_active_stage(args.platform, conv_id)
+        if stage is None:
+            _emit_response(platform_mod, {"permission": "allow"})
+            return 0
+
+        entry = _read_active_entry(args.platform, conv_id)
+        deny = _evaluate_rw_guard(
+            platform=args.platform,
+            stage=stage,
+            tool_name=tool_name,
+            tool_input=tool_input,
+            entry=entry,
+        )
+        if deny is not None:
+            _emit_response(platform_mod, deny, tool_name=tool_name, tool_input=tool_input)
+            return 0
+
         _emit_response(platform_mod, {"permission": "allow"})
         return 0
-
-    if not is_rw_tool(tool_name):
-        _emit_response(platform_mod, {"permission": "allow"})
-        return 0
-
-    conv_id = (normalized.get("conversation_id") or "").strip()
-    stage = _read_active_stage(args.platform, conv_id)
-    if stage is None:
-        _emit_response(platform_mod, {"permission": "allow"})
-        return 0
-
-    entry = _read_active_entry(args.platform, conv_id)
-    deny = _evaluate_rw_guard(
-        platform=args.platform,
-        stage=stage,
-        tool_name=tool_name,
-        tool_input=tool_input,
-        entry=entry,
-    )
-    if deny is not None:
-        _emit_response(platform_mod, deny, tool_name=tool_name, tool_input=tool_input)
-        return 0
-
-    _emit_response(platform_mod, {"permission": "allow"})
-    return 0
+    finally:
+        if prev_platform is None:
+            os.environ.pop("LULU_PLATFORM", None)
+        else:
+            os.environ["LULU_PLATFORM"] = prev_platform
 
 
 if __name__ == "__main__":

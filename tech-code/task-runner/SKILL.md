@@ -44,7 +44,7 @@ Received as JSON via the invocation prompt `## Input` block:
 ## Step 0: Resolve context
 
 ```bash
-python3 "$SKILL_DIR/scripts/task_control.py" \
+python3 "$SKILL_DIR/scripts/tc_task_control.py" \
   --cycle-dir "<cycle_dir>" \
   --project-root "<project_root>" \
   resolve-context --task-id <task_id>
@@ -65,7 +65,7 @@ All code edits and test runs: cwd = `$CTX.worktree_abs_path`.
 Use this command template for mechanical steps:
 
 ```bash
-python3 "$SKILL_DIR/scripts/task_control.py" \
+python3 "$SKILL_DIR/scripts/tc_task_control.py" \
   --cycle-dir "<cycle_dir>" \
   --project-root "<project_root>" \
   <subcommand> --task-id <task_id> [args]

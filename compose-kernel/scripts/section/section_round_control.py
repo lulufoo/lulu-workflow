@@ -23,7 +23,7 @@ Subcommands:
     update-gap-decision    Set gap item decision (accept | skip | redirect)
     update-gap-status      Set gap item status (open | no_gap | resolved)
 
-Does not write drafting-progress.md — use draft_control.py for progress transitions.
+Does not write drafting-progress.md — use tech_plan_draft_control.py / tech_design_draft_control.py for progress transitions.
 
 Global option ``--round`` applies to round-scoped subcommands (place before subcommand name).
 """

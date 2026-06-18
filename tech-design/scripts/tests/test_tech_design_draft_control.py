@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for tech-design draft_control.py."""
+"""Tests for tech_design_draft_control.py."""
 
 from __future__ import annotations
 
@@ -13,16 +13,17 @@ _DRAFTING = _SCRIPTS_ROOT / "drafting"
 _KERNEL_TESTS = _SCRIPTS_ROOT.parents[1] / "compose-kernel" / "scripts" / "tests"
 if str(_KERNEL_TESTS) not in sys.path:
     sys.path.insert(0, str(_KERNEL_TESTS))
+if str(_DRAFTING) not in sys.path:
+    sys.path.insert(0, str(_DRAFTING))
 import bootstrap  # noqa: F401, E402
-from draft_control_test_loader import load_draft_control  # noqa: E402
-
-_dc = load_draft_control(_DRAFTING, module_name="tech_design_draft_control")
-advance_round = _dc.advance_round
-advance_to_freeedit = _dc.advance_to_freeedit
-begin_init = _dc.begin_init
-begin_round = _dc.begin_round
-draft_status = _dc.draft_status
-init_complete = _dc.init_complete
+from tech_design_draft_control import (  # noqa: E402
+    advance_round,
+    advance_to_freeedit,
+    begin_init,
+    begin_round,
+    draft_status,
+    init_complete,
+)
 from test_template_data import seed_template_cache  # noqa: E402
 
 _CYCLE = "feat-design-init"

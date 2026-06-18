@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for drafting_progress_schema.py."""
+"""Tests for tech_plan_drafting_progress_schema.py."""
 
 import sys
 from pathlib import Path
@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "drafting"))
-from drafting_progress_schema import (  # noqa: E402
+from tech_plan_drafting_progress_schema import (  # noqa: E402
     get_schema,
     load_drafting_progress,
     resolve_drafting_progress_path_from_cycle,

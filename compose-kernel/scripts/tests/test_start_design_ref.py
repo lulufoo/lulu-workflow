@@ -53,9 +53,8 @@ def test_begin_init_includes_design_doc_path(tmp_path: Path, monkeypatch):
         sys.path.insert(0, str(_SHELL_SCRIPTS))
     if str(_DRAFTING_SCRIPTS) not in sys.path:
         sys.path.insert(0, str(_DRAFTING_SCRIPTS))
-    from draft_control_test_loader import load_draft_control  # noqa: E402
+    from tech_plan_draft_control import begin_init  # noqa: E402
 
-    begin_init = load_draft_control(_DRAFTING_SCRIPTS, module_name="tech_plan_draft_control").begin_init
     result = begin_init(_CYCLE, tmp_path)
     assert result["ok"] is True
     assert "DESIGN_DOC_PATH" in result["dispatch_input"]
@@ -72,9 +71,8 @@ def test_begin_init_omits_design_doc_path_when_absent(tmp_path: Path, monkeypatc
         sys.path.insert(0, str(_SHELL_SCRIPTS))
     if str(_DRAFTING_SCRIPTS) not in sys.path:
         sys.path.insert(0, str(_DRAFTING_SCRIPTS))
-    from draft_control_test_loader import load_draft_control  # noqa: E402
+    from tech_plan_draft_control import begin_init  # noqa: E402
 
-    begin_init = load_draft_control(_DRAFTING_SCRIPTS, module_name="tech_plan_draft_control").begin_init
     result = begin_init(_CYCLE, tmp_path)
     assert result["ok"] is True
     assert "DESIGN_DOC_PATH" not in result["dispatch_input"]

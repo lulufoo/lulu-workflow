@@ -28,9 +28,25 @@ def ensure_copilot_platform_config(project_root: Path) -> None:
     ensure_platform_config(project_root, platform="copilot")
 
 
+_INIT_SCRIPT = {
+    "tech-code": "tc_init.py",
+    "product-plan": "pp_init.py",
+    "tech-work-order": "two_init.py",
+}
+
+
+def _init_script(sub: str) -> Path:
+    scripts = SKILL_ROOT / sub / "scripts"
+    preferred = _INIT_SCRIPT.get(sub, "init.py")
+    path = scripts / preferred
+    if path.is_file():
+        return path
+    return scripts / "init.py"
+
+
 def run_init_project(project_root: Path, platform: str) -> int:
     for sub in SUB_WORKFLOWS:
-        init_py = SKILL_ROOT / sub / "scripts" / "init.py"
+        init_py = _init_script(sub)
         if not init_py.exists():
             print(f"[lulu-dev-workflow init] WARNING: {init_py} not found, skipping.")
             continue
