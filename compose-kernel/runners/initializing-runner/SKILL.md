@@ -28,7 +28,7 @@ Do not ask the user questions. Do not run InDialogue, Reopen, Evaluating, or del
 
 See [`../../references/compose-theory.md`](../../references/compose-theory.md).
 
-**Order (strict):** I2a Filter `I*` → I2a-impl Collect impl context → I2b Derive `F` → I2c Derive `C` → I2d Write body.
+**Order (strict):** I2a Filter `I*` → I2b Derive `F` → I2c Derive `C` → I2d Write body.
 
 ## Parent-Provided Inputs
 
@@ -87,12 +87,6 @@ For each key in `section_order`:
 - **Action:** Include only if content matches `intent` and supports at least one KW dimension (semantic; do not label KW numbers). Exclude intents that belong to other sections' `intent` / `intent_boundary`.
 - **Output `I*`:** filtered decision content for this section (may be empty)
 
-#### I2a-impl — Collect impl context
-
-- **Input:** codebase context (from I1) · `I*` · `$CYCLE_TYPE` · `$COMPOSE_PROFILE`
-- **Action:** When `$CYCLE_TYPE` is `feature` — **tech-plan:** `CTX`, `AR`, `SK`, `T`, or `VF`; **tech-design:** `CTX`, `ST`, or `IF` only — collect paths, APIs, or patterns from codebase context only when `I*` already points at that surface. For `CTX`, collect only in existing-assets context. Never collect capabilities beyond decision-doc.
-- **Output `I*_impl`:** codebase facts scoped to this section (may be empty)
-
 #### I2b — Derive `F`
 
 - **Input:** `### Role Fields` · domain instance · `intent` · outline `guidance` for the block containing this intent (feature)
@@ -120,7 +114,7 @@ F.forbidden: <derived from intent_boundary + forms eliminated in L1/L2>
 
 #### I2d — Write body
 
-- **Input:** `I*` · `I*_impl` · `F` · `C` · `intent` · `intent_boundary`
+- **Input:** `I*` · `F` · `C` · `intent` · `intent_boundary`
 - Scaffold per `F`; rewrite `I*` into slots; obey every `(d, c)` and `intent`.
 - When high-priority `C` requires named blocks, ordering, step lists, tables, diagrams, or forbidden-form exclusions, realize them explicitly in body structure.
 - **De-duplication:** Do not repeat the same boundary constraint across sections when `intent_boundary` defers elsewhere; upstream sections stay compact.
