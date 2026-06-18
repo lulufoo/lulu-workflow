@@ -7,7 +7,7 @@ from pathlib import Path
 
 import bootstrap  # noqa: F401
 from bootstrap import CORE  # noqa: E402
-from workflow_paths import EVAL_SCRIPTS, TECH_PLAN_SHELL, WORKFLOW_SCRIPTS  # noqa: E402
+from workflow_paths import EVAL_SCRIPTS, WORKFLOW_SCRIPTS  # noqa: E402
 
 sys.path.insert(0, str(EVAL_SCRIPTS))
 

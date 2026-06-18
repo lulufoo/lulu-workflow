@@ -29,8 +29,9 @@ from session_state_schema import load_active_doc_from_cycle
 from workflow_common import (
     parse_frontmatter_fields,
     read_md_field,
-    state_path,
 )
+from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID
+from workflow_profile_paths import state_path
 
 from transition_registry import session_states as _session_states  # noqa: E402
 
@@ -234,10 +235,11 @@ def read_current_state(path: Path, default: str = "Drafting") -> str:
 def resolve_workflow_state_path_from_cycle(
     cycle_id: str,
     project_root: Path,
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
 ) -> Path:
     """Resolve revision{N}/workflow-state.md via session-state.md active_doc."""
-    active_doc = load_active_doc_from_cycle(cycle_id, project_root)
-    return project_root / state_path(cycle_id, active_doc)
+    active_doc = load_active_doc_from_cycle(cycle_id, project_root, profile_id=profile_id)
+    return project_root / state_path(cycle_id, active_doc, profile_id)
 
 
 def init_drafting(
@@ -298,8 +300,14 @@ def _cli() -> int:
     parser.add_argument("--path", type=Path, help="Path to workflow-state.md")
     parser.add_argument("--cycle-id", type=str, help="Cycle ID for --read")
     parser.add_argument("--project-root", type=Path, default=Path("."), help="Project root")
+    parser.add_argument(
+        "--profile",
+        default=DEFAULT_COMPOSE_PROFILE_ID,
+        help="Compose profile id (default: tech-plan)",
+    )
     parser.add_argument("--json", type=str, help="JSON object for --write")
     args = parser.parse_args()
+    profile_id = args.profile.strip() or DEFAULT_COMPOSE_PROFILE_ID
 
     if args.schema:
         print(json.dumps(get_schema(), indent=2, ensure_ascii=False))
@@ -310,6 +318,7 @@ def _cli() -> int:
             path = resolve_workflow_state_path_from_cycle(
                 args.cycle_id.strip(),
                 args.project_root.resolve(),
+                profile_id=profile_id,
             )
         elif args.path:
             path = args.path

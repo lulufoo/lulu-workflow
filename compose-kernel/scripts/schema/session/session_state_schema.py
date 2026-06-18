@@ -24,7 +24,9 @@ _CORE = _SCRIPTS / "core"
 if str(_CORE) not in sys.path:
     sys.path.insert(0, str(_CORE))
 
-from workflow_common import read_md_field, session_state_path
+from workflow_common import read_md_field
+from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID
+from workflow_profile_paths import session_state_path
 
 _SCHEMA: list[dict] = [
     {"field": "version", "type": "int", "required": True,
@@ -41,9 +43,13 @@ def get_schema() -> list[dict]:
     return list(_SCHEMA)
 
 
-def resolve_path(cycle_id: str, project_root: Path = Path(".")) -> Path:
+def resolve_path(
+    cycle_id: str,
+    project_root: Path = Path("."),
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+) -> Path:
     """Return absolute path to session-state.md for a cycle."""
-    return project_root / session_state_path(cycle_id)
+    return project_root / session_state_path(cycle_id, profile_id)
 
 
 def load_active_doc(path: Path, *, default: int | None = None) -> int:
@@ -72,9 +78,13 @@ def load_active_doc_from_cycle(
     project_root: Path,
     *,
     default: int = 1,
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
 ) -> int:
     """Read active_doc for a cycle; missing or invalid values fall back to default."""
-    return load_active_doc(resolve_path(cycle_id, project_root), default=default)
+    return load_active_doc(
+        resolve_path(cycle_id, project_root, profile_id),
+        default=default,
+    )
 
 
 def save_active_doc(path: Path, active_doc: int) -> None:
@@ -102,9 +112,13 @@ def next_doc_round(path: Path) -> int:
         return 1
 
 
-def bump_active_doc(cycle_id: str, project_root: Path) -> int:
+def bump_active_doc(
+    cycle_id: str,
+    project_root: Path,
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+) -> int:
     """Compute next active_doc, persist it, and return the new round."""
-    path = resolve_path(cycle_id, project_root)
+    path = resolve_path(cycle_id, project_root, profile_id)
     active_doc = next_doc_round(path)
     save_active_doc(path, active_doc)
     return active_doc
@@ -117,8 +131,14 @@ def _cli() -> int:
     parser.add_argument("--next", action="store_true", help="Compute, write, and print next doc round")
     parser.add_argument("--cycle-id", type=str, help="Cycle ID (with --project-root)")
     parser.add_argument("--project-root", type=Path, default=Path("."), help="Project root directory")
+    parser.add_argument(
+        "--profile",
+        default=DEFAULT_COMPOSE_PROFILE_ID,
+        help="Compose profile id (default: tech-plan)",
+    )
     parser.add_argument("--path", type=Path, help="Path to session-state.md")
     args = parser.parse_args()
+    profile_id = args.profile.strip() or DEFAULT_COMPOSE_PROFILE_ID
 
     if args.schema:
         print(json.dumps(get_schema(), indent=2, ensure_ascii=False))
@@ -128,7 +148,11 @@ def _cli() -> int:
         if args.cycle_id:
             if not args.cycle_id.strip():
                 parser.error("--cycle-id must not be empty")
-            print(load_active_doc_from_cycle(args.cycle_id.strip(), args.project_root.resolve()))
+            print(load_active_doc_from_cycle(
+                args.cycle_id.strip(),
+                args.project_root.resolve(),
+                profile_id=profile_id,
+            ))
             return 0
         if args.path:
             print(load_active_doc(args.path))
@@ -139,7 +163,11 @@ def _cli() -> int:
         if args.cycle_id:
             if not args.cycle_id.strip():
                 parser.error("--cycle-id must not be empty")
-            active_doc = bump_active_doc(args.cycle_id.strip(), args.project_root.resolve())
+            active_doc = bump_active_doc(
+                args.cycle_id.strip(),
+                args.project_root.resolve(),
+                profile_id=profile_id,
+            )
             print(active_doc)
             return 0
         if args.path:

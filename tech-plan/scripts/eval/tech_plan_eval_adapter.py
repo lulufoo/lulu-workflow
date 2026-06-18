@@ -24,10 +24,13 @@ from session_state_schema import load_active_doc_from_cycle  # noqa: E402
 from workflow_common import (  # noqa: E402
     CACHE_DIR,
     detect_cycle_type,
-    eval_round_dir,
     load_container_meta,
 )
-from workflow_profile_paths import document_path  # noqa: E402
+from workflow_profile_paths import (  # noqa: E402
+    doc_dir,
+    document_path,
+    eval_round_dir,
+)
 from delivered_refs_schema import product_ref_from_state  # noqa: E402
 from workflow_state_schema import (  # noqa: E402
     load_workflow_state,
@@ -55,7 +58,9 @@ class TechPlanEvalAdapter:
         self, cycle_id: str, project_root: Path
     ) -> Path:
         return project_root / resolve_workflow_state_path_from_cycle(
-            cycle_id, project_root
+            cycle_id,
+            project_root,
+            profile_id="tech-plan",
         )
 
     def load_workflow_state(
@@ -78,17 +83,16 @@ class TechPlanEvalAdapter:
     def resolve_evaluate_state_path(
         self, cycle_id: str, project_root: Path
     ) -> Path:
-        active_doc = load_active_doc_from_cycle(cycle_id, project_root)
-        from workflow_common import doc_dir  # noqa: WPS433
+        active_doc = load_active_doc_from_cycle(cycle_id, project_root, profile_id="tech-plan")
 
-        return project_root / doc_dir(cycle_id, active_doc) / "evaluate-state.md"
+        return project_root / doc_dir(cycle_id, active_doc, "tech-plan") / "evaluate-state.md"
 
     def session_context(
         self, cycle_id: str, project_root: Path
     ) -> SessionContext:
         state = self.load_workflow_state(cycle_id, project_root)
         return SessionContext(
-            active_doc=load_active_doc_from_cycle(cycle_id, project_root),
+            active_doc=load_active_doc_from_cycle(cycle_id, project_root, profile_id="tech-plan"),
             mode=state["mode"],
             product_ref=product_ref_from_state(state),
             cycle_type=detect_cycle_type(cycle_id),
@@ -110,7 +114,7 @@ class TechPlanEvalAdapter:
             ).as_posix(),
             "evaluate_state": es_path.resolve().as_posix(),
             "evaluate_dir": (
-                root / eval_round_dir(cycle_id, active_doc, evaluate_round)
+                root / eval_round_dir(cycle_id, active_doc, evaluate_round, "tech-plan")
             ).as_posix(),
         }
 

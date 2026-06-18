@@ -24,7 +24,7 @@ from session_info import (  # noqa: E402
     session_snapshot,
     stage_transitions,
 )
-from workflow_common import STAGE  # noqa: E402
+from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID  # noqa: E402
 from workflow_state_schema import save_workflow_state  # noqa: E402
 from init_drafting_helpers import product_delivered_refs  # noqa: E402
 
@@ -36,7 +36,7 @@ _SCRIPT = CORE / "session_info.py"
 
 def _expected_next_stages(cycle_id: str) -> list[str]:
     cycle_type = "topic" if cycle_id.startswith("topic-") else "feature"
-    return sorted(load_transitions(cycle_type).get(STAGE, set()))
+    return sorted(load_transitions(cycle_type).get(DEFAULT_COMPOSE_PROFILE_ID, set()))
 
 
 def _setup_cycle(tmp_path: Path) -> tuple[Path, str]:

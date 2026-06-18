@@ -9,14 +9,10 @@ if str(_CORE) not in sys.path:
     sys.path.insert(0, str(_CORE))
 from workflow_paths import (  # noqa: E402
     COMPOSE_SESSION_TRANSITION,
-    WORKFLOW_ROOT,
+    DEFAULT_COMPOSE_PROFILE_ID,
     WORKFLOW_SCRIPTS,
-    load_profile,
-    shell_path,
 )
 
-_PROFILE = load_profile("tech-plan")
-SKILL_ROOT = WORKFLOW_ROOT / _PROFILE["shell_dir"]
 WHITELIST_PATH = COMPOSE_SESSION_TRANSITION
 
 _PLATFORM = (
@@ -34,55 +30,9 @@ _HOOKS_JSON_MAP = {
 
 WORKFLOW_DIR = _WORKFLOW_DIR_MAP.get(_PLATFORM, _WORKFLOW_DIR_MAP["cursor"])
 CACHE_DIR = Path(f".cache/{_PLATFORM}/lulu-dev-workflow")
-STAGE = _PROFILE["stage_name"]
-CACHE_SUBDIR = _PROFILE["cache_subdir"]
 PLATFORM_CONFIG_PATH = WORKFLOW_DIR / "config.json"
 SHARED_CONFIG_DEFAULT = Path("skill-config/lulu-dev-workflow/workflow-config.json")
 HOOKS_JSON_PATH = _HOOKS_JSON_MAP.get(_PLATFORM, _HOOKS_JSON_MAP["cursor"])
-
-# Absolute path for hook command (workspace-local install; shell hook_guard)
-HOOK_COMMAND = f"python3 {shell_path(_PROFILE, 'hook_guard')}"
-
-
-# ---------------------------------------------------------------------------
-# Path helpers
-# ---------------------------------------------------------------------------
-
-def session_base_dir(cycle_id: str) -> Path:
-    return CACHE_DIR / cycle_id / CACHE_SUBDIR
-
-
-def session_state_path(cycle_id: str) -> Path:
-    return session_base_dir(cycle_id) / "session-state.md"
-
-
-def doc_dir(cycle_id: str, doc_round: int) -> Path:
-    return session_base_dir(cycle_id) / f"revision{doc_round}"
-
-
-def state_path(cycle_id: str, doc_round: int) -> Path:
-    return doc_dir(cycle_id, doc_round) / "workflow-state.md"
-
-
-def approval_path(cycle_id: str, doc_round: int) -> Path:
-    return doc_dir(cycle_id, doc_round) / "human-delivery-gate.md"
-
-
-def decision_doc_path(cycle_id: str) -> Path:
-    return CACHE_DIR / cycle_id / "tech" / "diagnostic" / "decision-doc.md"
-
-
-def eval_round_dir(cycle_id: str, doc_round: int, evaluate_round: int) -> Path:
-    return doc_dir(cycle_id, doc_round) / f"evaluate{evaluate_round}"
-
-
-def hook_entry() -> Dict[str, Any]:
-    return {
-        "matcher": "Write|Edit",
-        "command": HOOK_COMMAND,
-        "timeout": 5,
-        "failClosed": True,
-    }
 
 
 # ---------------------------------------------------------------------------
@@ -148,13 +98,18 @@ def read_md_field(path: Path, field: str, default: str = "") -> str:
     return fields.get(field, default)
 
 
-def is_current_session_active(project_root: Path, cycle_id: str) -> bool:
-    """Return True if this conversation has any non-Delivered planning session."""
+def is_current_session_active(
+    project_root: Path,
+    cycle_id: str,
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+) -> bool:
+    """Return True if this cycle has any non-Delivered compose session for the profile."""
+    from workflow_profile_paths import session_base_dir  # noqa: WPS433
     from workflow_state_schema import read_current_state  # noqa: WPS433
 
     if not cycle_id:
         return False
-    base = project_root / session_base_dir(cycle_id)
+    base = project_root / session_base_dir(cycle_id, profile_id)
     if not base.exists():
         return False
     for state_file in base.glob("revision*/workflow-state.md"):
@@ -171,22 +126,6 @@ def normalize_tool_path(raw_path: str, project_root: Path) -> str:
         except ValueError:
             return candidate.as_posix()
     return candidate.as_posix()
-
-
-def merge_hook_entry(hooks_payload: Dict[str, Any]) -> Dict[str, Any]:
-    hooks_payload.setdefault("version", 1)
-    hooks = hooks_payload.setdefault("hooks", {})
-    pre_tool_use = hooks.setdefault("preToolUse", [])
-    entry = hook_entry()
-    new_cmd = entry["command"]
-
-    for index, existing in enumerate(pre_tool_use):
-        if existing.get("command") == new_cmd:
-            pre_tool_use[index] = entry
-            return hooks_payload
-
-    pre_tool_use.append(entry)
-    return hooks_payload
 
 
 def detect_cycle_type(cycle_id: str) -> str:
@@ -216,7 +155,8 @@ def write_active_context(
     project_root: Path,
     cycle_id: str,
     conversation_id: Optional[str] = None,
-    stage: str = STAGE,
+    *,
+    stage: str,
     cycle_type: str = "feature",
 ) -> None:
     import os

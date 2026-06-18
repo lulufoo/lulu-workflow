@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from workflow_common import CACHE_DIR, decision_doc_path as shared_decision_doc_path
+from workflow_common import CACHE_DIR
 from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, load_profile
 
 
@@ -47,6 +47,15 @@ def approval_path(
     return doc_dir(cycle_id, doc_round, profile_id) / "human-delivery-gate.md"
 
 
+def eval_round_dir(
+    cycle_id: str,
+    doc_round: int,
+    evaluate_round: int,
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+) -> Path:
+    return doc_dir(cycle_id, doc_round, profile_id) / f"evaluate{evaluate_round}"
+
+
 def decision_doc_path(cycle_id: str) -> Path:
-    """Diagnostic decision-doc path (shared across stages)."""
-    return shared_decision_doc_path(cycle_id)
+    """Diagnostic decision-doc path (shared across compose stages)."""
+    return CACHE_DIR / cycle_id / "tech" / "diagnostic" / "decision-doc.md"

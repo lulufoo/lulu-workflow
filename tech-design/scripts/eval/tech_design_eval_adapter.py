@@ -23,14 +23,20 @@ from workflow_paths import EVAL_SCRIPTS, load_profile, shell_path  # noqa: E402
 _PROFILE = load_profile("tech-design")
 _WORKFLOW_ID = "tech-design"
 
-from session_state_schema import load_active_doc  # noqa: E402
+from session_state_schema import load_active_doc_from_cycle  # noqa: E402
 from workflow_common import (  # noqa: E402
     CACHE_DIR,
     detect_cycle_type,
     load_container_meta,
 )
+from workflow_profile_paths import (  # noqa: E402
+    doc_dir,
+    document_path,
+    eval_round_dir,
+)
 from workflow_state_schema import (  # noqa: E402
     load_workflow_state,
+    resolve_workflow_state_path_from_cycle,
     save_workflow_state,
 )
 from delivered_refs_schema import product_ref_from_state  # noqa: E402
@@ -43,41 +49,17 @@ from tech_design_eval_policy import select_dimension_defs  # noqa: E402
 _VALID_EXECUTION_MODES = frozenset({"guided", "autonomous"})
 
 
-def _session_base_dir(cycle_id: str) -> Path:
-    return CACHE_DIR / cycle_id / _PROFILE["cache_subdir"]
-
-
-def _session_state_path(cycle_id: str) -> Path:
-    return _session_base_dir(cycle_id) / "session-state.md"
-
-
-def _doc_dir(cycle_id: str, doc_round: int) -> Path:
-    return _session_base_dir(cycle_id) / f"revision{doc_round}"
-
-
-def _state_path(cycle_id: str, doc_round: int) -> Path:
-    return _doc_dir(cycle_id, doc_round) / "workflow-state.md"
-
-
-def _design_doc_path(cycle_id: str, doc_round: int) -> Path:
-    return _doc_dir(cycle_id, doc_round) / _PROFILE["document"]["filename"]
-
-
-def _eval_round_dir(cycle_id: str, doc_round: int, evaluate_round: int) -> Path:
-    return _doc_dir(cycle_id, doc_round) / f"evaluate{evaluate_round}"
-
-
-def _active_doc(cycle_id: str, project_root: Path) -> int:
-    return load_active_doc(project_root / _session_state_path(cycle_id), default=1)
-
-
 class TechDesignEvalAdapter:
     """WorkflowAdapter for tech-design cache layout and state machine."""
 
     def resolve_workflow_state_path(
         self, cycle_id: str, project_root: Path
     ) -> Path:
-        return project_root / _state_path(cycle_id, _active_doc(cycle_id, project_root))
+        return resolve_workflow_state_path_from_cycle(
+            cycle_id,
+            project_root,
+            profile_id=_WORKFLOW_ID,
+        )
 
     def load_workflow_state(
         self, cycle_id: str, project_root: Path
@@ -99,15 +81,23 @@ class TechDesignEvalAdapter:
     def resolve_evaluate_state_path(
         self, cycle_id: str, project_root: Path
     ) -> Path:
-        active_doc = _active_doc(cycle_id, project_root)
-        return project_root / _doc_dir(cycle_id, active_doc) / "evaluate-state.md"
+        active_doc = load_active_doc_from_cycle(
+            cycle_id,
+            project_root,
+            profile_id=_WORKFLOW_ID,
+        )
+        return project_root / doc_dir(cycle_id, active_doc, _WORKFLOW_ID) / "evaluate-state.md"
 
     def session_context(
         self, cycle_id: str, project_root: Path
     ) -> SessionContext:
         state = self.load_workflow_state(cycle_id, project_root)
         return SessionContext(
-            active_doc=_active_doc(cycle_id, project_root),
+            active_doc=load_active_doc_from_cycle(
+                cycle_id,
+                project_root,
+                profile_id=_WORKFLOW_ID,
+            ),
             mode=state["mode"],
             product_ref=product_ref_from_state(state),
             cycle_type=detect_cycle_type(cycle_id),
@@ -123,12 +113,19 @@ class TechDesignEvalAdapter:
         es_path: Path,
     ) -> dict[str, str]:
         root = project_root.resolve()
-        compose_doc = (root / _design_doc_path(cycle_id, active_doc)).as_posix()
+        compose_doc = (
+            root / document_path(cycle_id, active_doc, _WORKFLOW_ID)
+        ).as_posix()
         return {
             "compose_doc": compose_doc,
             "evaluate_state": es_path.resolve().as_posix(),
             "evaluate_dir": (
-                root / _eval_round_dir(cycle_id, active_doc, evaluate_round)
+                root / eval_round_dir(
+                    cycle_id,
+                    active_doc,
+                    evaluate_round,
+                    _WORKFLOW_ID,
+                )
             ).as_posix(),
         }
 

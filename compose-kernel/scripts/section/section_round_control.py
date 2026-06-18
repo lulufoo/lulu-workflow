@@ -485,7 +485,7 @@ def cmd_read_context(cycle_dir: Path) -> int:
         if design_path:
             payload["design_doc_path"] = design_path
     if not payload["decision_doc_path"]:
-        from workflow_common import decision_doc_path  # noqa: WPS433
+        from workflow_profile_paths import decision_doc_path  # noqa: WPS433
 
         payload["decision_doc_path"] = str(
             (project_root / decision_doc_path(cycle_id)).resolve(),

@@ -42,9 +42,8 @@ from section_round_control import init_round_dir_if_needed  # noqa: E402
 from workflow_common import (  # noqa: E402
     CACHE_DIR,
     detect_cycle_type,
-    doc_dir,
 )
-from workflow_profile_paths import document_path  # noqa: E402
+from workflow_profile_paths import doc_dir, document_path  # noqa: E402
 from delivered_refs_schema import delivered_path  # noqa: E402
 from start_adapter_registry import load_start_adapter  # noqa: E402
 from workflow_state_schema import (  # noqa: E402
@@ -53,6 +52,7 @@ from workflow_state_schema import (  # noqa: E402
 )
 
 _CMD_BEGIN_INIT = "begin-init"
+_PROFILE_ID = "tech-plan"
 _CMD_INIT_COMPLETE = "init-complete"
 _CMD_BEGIN_ROUND = "begin-round"
 _CMD_ADVANCE_ROUND = "advance-round"
@@ -75,11 +75,8 @@ def _ensure_round_dir(cycle_id: str, project_root: Path, *, round_n: int) -> Non
         return
 
 
-_PROFILE_ID = "tech-plan"
-
-
 def _compose_doc_path(cycle_id: str, project_root: Path) -> Path:
-    active_doc = load_active_doc_from_cycle(cycle_id, project_root)
+    active_doc = load_active_doc_from_cycle(cycle_id, project_root, profile_id=_PROFILE_ID)
     return project_root / document_path(cycle_id, active_doc, _PROFILE_ID)
 
 
@@ -122,14 +119,18 @@ def _format_init_dispatch_input(
 
 
 def _init_dispatch_input(cycle_id: str, project_root: Path) -> str:
-    active_doc = load_active_doc_from_cycle(cycle_id, project_root)
-    revision_dir = project_root / doc_dir(cycle_id, active_doc)
+    active_doc = load_active_doc_from_cycle(cycle_id, project_root, profile_id=_PROFILE_ID)
+    revision_dir = project_root / doc_dir(cycle_id, active_doc, _PROFILE_ID)
     output_doc = _compose_doc_path(cycle_id, project_root)
     adapter = load_start_adapter(_PROFILE_ID)
     init_ref = adapter.delivered_ref_for_init(cycle_id, project_root)
     if init_ref is None:
         raise ValueError("no delivered ref available for Initializing")
-    ws_path = resolve_workflow_state_path_from_cycle(cycle_id, project_root)
+    ws_path = resolve_workflow_state_path_from_cycle(
+        cycle_id,
+        project_root,
+        profile_id=_PROFILE_ID,
+    )
     design_path = ""
     if ws_path.exists():
         design_path = delivered_path(load_workflow_state(ws_path), "tech-design")

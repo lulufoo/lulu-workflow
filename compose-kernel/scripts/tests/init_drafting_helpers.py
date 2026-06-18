@@ -14,7 +14,9 @@ def product_delivered_refs(product_path: str = "/p.md") -> list[DeliveredRef]:
 def tech_diagnostic_refs(decision_path: Path | str) -> list[DeliveredRef]:
     return [DeliveredRef(type="tech-diagnostic", path=str(Path(decision_path).resolve()))]
 from session_state_schema import bump_active_doc
-from workflow_common import CACHE_DIR, state_path
+from workflow_common import CACHE_DIR
+from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID
+from workflow_profile_paths import state_path
 from workflow_state_schema import init_drafting
 
 
@@ -42,8 +44,9 @@ def seed_tech_plan_session(
     cycle_id: str,
     mode: str = "tech",
     delivered_refs: list[DeliveredRef] | None = None,
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
 ) -> Path:
-    """Seed minimal tech-plan session-state + workflow-state for shell tests."""
+    """Seed minimal compose session-state + workflow-state for shell tests."""
     cache_dir = project_root / CACHE_DIR
     diag_dir = cache_dir / cycle_id / "tech" / "diagnostic"
     diag_dir.mkdir(parents=True, exist_ok=True)
@@ -53,7 +56,7 @@ def seed_tech_plan_session(
     if refs is None:
         refs = [DeliveredRef(type="tech-diagnostic", path=str(decision.resolve()))]
     seed_delivered_refs_file(project_root, cycle_id, refs)
-    active_doc = bump_active_doc(cycle_id, project_root)
-    ws_path = project_root / state_path(cycle_id, active_doc)
+    active_doc = bump_active_doc(cycle_id, project_root, profile_id)
+    ws_path = project_root / state_path(cycle_id, active_doc, profile_id)
     init_drafting(ws_path, mode=mode, delivered_refs=refs)
     return ws_path

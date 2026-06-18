@@ -189,6 +189,7 @@ def main() -> int:
         project_root,
         cycle_id,
         conversation_id=args.conversation_id.strip() or None,
+        stage=to_stage,
         cycle_type=cycle_type,
     )
     write_cycle_state(cycle_id, to_stage, cache_dir)

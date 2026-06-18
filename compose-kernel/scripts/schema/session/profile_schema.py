@@ -15,7 +15,7 @@ if str(_CORE) not in sys.path:
 
 from workflow_paths import KERNEL_SCHEMES, PROFILES_DIR  # noqa: E402
 
-_TECH_PLAN_REQUIRED = frozenset(
+_COMPOSE_PROFILE_REQUIRED = frozenset(
     {
         "stage_name",
         "shell_dir",
@@ -26,7 +26,7 @@ _TECH_PLAN_REQUIRED = frozenset(
         "cycle_types",
     }
 )
-_TECH_PLAN_SHELL_PATHS = frozenset(
+_COMPOSE_SHELL_PATH_KEYS = frozenset(
     {
         "hook_guard",
         "dimension_defs_dir",
@@ -55,6 +55,33 @@ def _allowed_scheme_keys() -> frozenset[str]:
     return frozenset(keys)
 
 
+def _validate_active_compose_profile(path: Path, data: dict) -> list[str]:
+    """Full compose contract for non-placeholder profiles."""
+    errors: list[str] = []
+    for field in _COMPOSE_PROFILE_REQUIRED:
+        if field not in data:
+            errors.append(f"{path.name}: missing required field {field!r}")
+    shell_paths = data.get("shell_paths") or {}
+    for key in _COMPOSE_SHELL_PATH_KEYS:
+        if key not in shell_paths:
+            errors.append(f"{path.name}: missing shell_paths.{key!r}")
+    cycle_types = data.get("cycle_types") or []
+    if not isinstance(cycle_types, list) or not cycle_types:
+        errors.append(f"{path.name}: cycle_types must be a non-empty list")
+    templates = data.get("framework_templates") or {}
+    for scheme_key in _required_scheme_keys():
+        if scheme_key not in templates:
+            errors.append(f"{path.name}: missing framework_templates[{scheme_key!r}]")
+    allowed = _allowed_scheme_keys()
+    for scheme_key in templates:
+        if scheme_key not in allowed:
+            errors.append(
+                f"{path.name}: unknown framework_templates key {scheme_key!r}; "
+                f"allowed: {', '.join(sorted(allowed))}",
+            )
+    return errors
+
+
 def _validate_profile(path: Path) -> list[str]:
     errors: list[str] = []
     try:
@@ -70,29 +97,7 @@ def _validate_profile(path: Path) -> list[str]:
     if data.get("status") == "placeholder_phase2":
         return errors
 
-    if profile_id in {"tech-plan", "tech-design"}:
-        for field in _TECH_PLAN_REQUIRED:
-            if field not in data:
-                errors.append(f"{path.name}: missing required field {field!r}")
-        shell_paths = data.get("shell_paths") or {}
-        for key in _TECH_PLAN_SHELL_PATHS:
-            if key not in shell_paths:
-                errors.append(f"{path.name}: missing shell_paths.{key!r}")
-        cycle_types = data.get("cycle_types") or []
-        if not isinstance(cycle_types, list) or not cycle_types:
-            errors.append(f"{path.name}: cycle_types must be a non-empty list")
-        templates = data.get("framework_templates") or {}
-        for scheme_key in _required_scheme_keys():
-            if scheme_key not in templates:
-                errors.append(f"{path.name}: missing framework_templates[{scheme_key!r}]")
-        allowed = _allowed_scheme_keys()
-        for scheme_key in templates:
-            if scheme_key not in allowed:
-                errors.append(
-                    f"{path.name}: unknown framework_templates key {scheme_key!r}; "
-                    f"allowed: {', '.join(sorted(allowed))}",
-                )
-
+    errors.extend(_validate_active_compose_profile(path, data))
     return errors
 
 

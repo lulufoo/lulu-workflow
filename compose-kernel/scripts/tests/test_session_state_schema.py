@@ -21,10 +21,12 @@ from session_state_schema import (
     resolve_path,
     save_active_doc,
 )
-from workflow_common import CACHE_DIR, CACHE_SUBDIR
+from workflow_common import CACHE_DIR
+from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, load_profile
 
 _REQUIRED_FIELD_NAMES = {"version", "active_doc", "updated_at"}
 _CYCLE_ID = "feat-test-session-state"
+_CACHE_SUBDIR = load_profile(DEFAULT_COMPOSE_PROFILE_ID)["cache_subdir"]
 
 
 def _write_session_state(path: Path, active_doc: int) -> None:
@@ -35,7 +37,7 @@ def _write_session_state(path: Path, active_doc: int) -> None:
 
 
 def _seed_cycle(tmp_path: Path, *, active_doc: Optional[int] = None) -> Path:
-    base = tmp_path / CACHE_DIR / _CYCLE_ID / CACHE_SUBDIR
+    base = tmp_path / CACHE_DIR / _CYCLE_ID / _CACHE_SUBDIR
     base.mkdir(parents=True, exist_ok=True)
     if active_doc is not None:
         _write_session_state(base / "session-state.md", active_doc)
@@ -141,7 +143,7 @@ class TestBumpActiveDoc:
 
 class TestResolvePath:
     def test_points_to_session_state(self, tmp_path: Path):
-        expected = tmp_path / CACHE_DIR / _CYCLE_ID / CACHE_SUBDIR / "session-state.md"
+        expected = tmp_path / CACHE_DIR / _CYCLE_ID / _CACHE_SUBDIR / "session-state.md"
         assert resolve_path(_CYCLE_ID, tmp_path) == expected
 
 

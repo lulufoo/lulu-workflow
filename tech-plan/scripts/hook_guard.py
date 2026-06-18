@@ -13,7 +13,9 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
-from workflow_common import CACHE_DIR, STAGE, normalize_tool_path  # noqa: E402
+from workflow_common import CACHE_DIR, normalize_tool_path  # noqa: E402
+
+STAGE = "tech-plan"
 
 _SCRIPTS_ROOT = Path(__file__).resolve().parents[2] / "scripts"
 if str(_SCRIPTS_ROOT) not in sys.path:
