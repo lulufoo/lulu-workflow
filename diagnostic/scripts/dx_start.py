@@ -62,7 +62,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--stage",
         default="diagnostic",
-        help="Diagnostic stage name (e.g. product-diagnostic, tech-diagnostic, diagnostic).",
+        help="Diagnostic stage name (holder SKILL passes its name; default: diagnostic).",
     )
     parser.add_argument(
         "--conversation-id",
@@ -130,8 +130,8 @@ def main() -> int:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
-    session_dir = project_root / session_base_dir(cycle_id, stage)
-    ss_path = project_root / session_state_path(cycle_id, stage)
+    session_dir = project_root / session_base_dir(cycle_id, stage, project_root=project_root)
+    ss_path = project_root / session_state_path(cycle_id, stage, project_root=project_root)
 
     if needs_migration(session_dir):
         migrate_rc = cmd_migrate_session(project_root, cycle_id, stage)

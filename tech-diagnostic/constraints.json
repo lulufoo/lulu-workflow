@@ -1,5 +1,6 @@
 {
   "version": 1,
+  "cache_subdir": "tech/diagnostic",
   "omitted_sections": [],
   "x_dimensions": [
     "acceptance_criteria",

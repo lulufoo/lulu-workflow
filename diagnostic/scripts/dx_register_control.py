@@ -58,10 +58,10 @@ def _emit_error(message: str) -> int:
 
 def _paths(project_root: Path, cycle_id: str, stage: str) -> dict[str, Path]:
     return {
-        "gate_state": project_root / gate_state_path(cycle_id, stage),
-        "registers": project_root / registers_path(cycle_id, stage),
-        "decision_doc": project_root / decision_doc_path(cycle_id, stage),
-        "session_dir": project_root / session_base_dir(cycle_id, stage),
+        "gate_state": project_root / gate_state_path(cycle_id, stage, project_root=project_root),
+        "registers": project_root / registers_path(cycle_id, stage, project_root=project_root),
+        "decision_doc": project_root / decision_doc_path(cycle_id, stage, project_root=project_root),
+        "session_dir": project_root / session_base_dir(cycle_id, stage, project_root=project_root),
     }
 
 

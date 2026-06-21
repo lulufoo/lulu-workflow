@@ -26,7 +26,7 @@ Do NOT proceed until you have read `../_runtime.md` and loaded:
 
 **Role:** If `role.instruction` is present, apply it at the start of gate **O** (Open Channel).
 
-**Holder prose** (when `## Domain Constraints` is in context — e.g. `product-diagnostic`, `tech-diagnostic`): follow holder `### Context Loading` during gate **O** and `### After DC` at DC routing.
+**Holder prose** (when holder `## Domain Constraints` is in context): follow holder `### Context Loading` during gate **O** and `### After DC` at DC routing.
 
 **Direct `/diagnostic`** (no holder section): built-in defaults at `$DX_START`; after DC, tell the user they may proceed to `/product-plan` or `/tech-plan`.
 </HARD-GATE>
@@ -49,9 +49,7 @@ Subcommand contracts: module docstrings / `--help`.
 
 **Step 1: Identify active cycle** — `_runtime.md` § Session Foundation. Do not run `$DX_START` until `$CYCLE_ID` is confirmed.
 
-**Step 2: Run `$DX_START`** — set `--stage` to `<stage_name>`. Non-zero exit → stop and report stderr.
-
-`<stage_name>`: `product-diagnostic` · `tech-diagnostic` · `diagnostic` (default)
+**Step 2: Run `$DX_START`** — pass `--stage` when the invoking holder SKILL specifies one; otherwise omit (defaults to `diagnostic`). Non-zero exit → stop and report stderr.
 
 On success, follow stdout (new session ready, or legacy session migrated). Do **not** inspect session directory files directly — artifact layout is `$DX_START` / `init-session` contract (`--help`).
 

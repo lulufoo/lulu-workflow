@@ -94,18 +94,18 @@ def _emit_error(message: str) -> int:
 
 
 def _paths(project_root: Path, cycle_id: str, stage: str) -> dict[str, Path]:
-    base = project_root / session_base_dir(cycle_id, stage)
+    base = project_root / session_base_dir(cycle_id, stage, project_root=project_root)
     return {
         "session_dir": base,
-        "gate_state": project_root / gate_state_path(cycle_id, stage),
-        "registers": project_root / registers_path(cycle_id, stage),
-        "decision_doc": project_root / decision_doc_path(cycle_id, stage),
-        "domain_constraints": project_root / domain_constraints_path(cycle_id, stage),
+        "gate_state": project_root / gate_state_path(cycle_id, stage, project_root=project_root),
+        "registers": project_root / registers_path(cycle_id, stage, project_root=project_root),
+        "decision_doc": project_root / decision_doc_path(cycle_id, stage, project_root=project_root),
+        "domain_constraints": project_root / domain_constraints_path(cycle_id, stage, project_root=project_root),
     }
 
 
 def _load_session_constraints(project_root: Path, cycle_id: str, stage: str) -> dict[str, Any]:
-    path = project_root / domain_constraints_path(cycle_id, stage)
+    path = project_root / domain_constraints_path(cycle_id, stage, project_root=project_root)
     if path.exists():
         return load_domain_constraints(path)
     return load_stage_defaults(project_root, stage)
@@ -659,7 +659,7 @@ def cmd_deliver(project_root: Path, cycle_id: str, stage: str) -> int:
         errors = _collect_delivery_errors(state, registers, doc, constraints=constraints)
         if errors:
             return _emit_error("; ".join(errors))
-        ss_path = project_root / session_state_path(cycle_id, stage)
+        ss_path = project_root / session_state_path(cycle_id, stage, project_root=project_root)
         write_session_state(ss_path, "Delivered")
     except (FileNotFoundError, ValueError) as exc:
         return _emit_error(str(exc))

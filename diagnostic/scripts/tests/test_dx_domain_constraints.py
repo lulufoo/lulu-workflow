@@ -205,3 +205,13 @@ def test_load_stage_defaults_from_holder_config() -> None:
     assert tech["role"]["persona"] == "technical_decision_maker"
     assert "product thinker" in product["role"]["instruction"]
     assert "technical decision maker" in tech["role"]["instruction"]
+
+
+def test_holder_cache_subdir_from_constraints() -> None:
+    from dx_domain_constraints_schema import holder_cache_subdir
+
+    root = Path(__file__).resolve().parents[4]
+    assert holder_cache_subdir(root, "product-diagnostic") == "product/diagnostic"
+    assert holder_cache_subdir(root, "tech-diagnostic") == "tech/diagnostic"
+    assert holder_cache_subdir(root, "diagnostic") == "diagnostic"
+    assert holder_cache_subdir(root, "unknown-stage") == "unknown-stage"

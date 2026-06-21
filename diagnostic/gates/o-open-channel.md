@@ -6,7 +6,7 @@
 
 **Execute:**
 1. Apply `role.instruction` from `domain_constraints` if present (see kernel Domain Constraints HARD-GATE).
-2. Run holder `### Context Loading` steps if injected (e.g. tech-diagnostic product-doc).
+2. Run holder `### Context Loading` steps if injected.
 3. Invite the user to share existing knowledge:
 
    > "Before we begin — share what you'd like me to know: direction preferences, concerns, or options you've already ruled out. It doesn't need to be complete; you can add more at any point."

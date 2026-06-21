@@ -13,51 +13,36 @@ if str(_SCRIPTS) not in sys.path:
 from platform_schema import detect_platform  # noqa: E402
 from platforms.paths import cache_dir  # noqa: E402
 
+from dx_domain_constraints_schema import KERNEL_STAGE, holder_cache_subdir  # noqa: E402
+
 _PLATFORM = detect_platform()
 CACHE_DIR = cache_dir(_PLATFORM)
-STAGE = "diagnostic"
-
-_STAGE_TO_SUBDIR: dict[str, str] = {
-    "product-diagnostic": "product/diagnostic",
-    "tech-diagnostic": "tech/diagnostic",
-    "diagnostic": "diagnostic",
-}
+STAGE = KERNEL_STAGE
 
 
-def _cache_subdir(stage: str) -> str:
-    return _STAGE_TO_SUBDIR.get(stage, stage)
+def session_base_dir(cycle_id: str, stage: str = STAGE, *, project_root: Optional[Path] = None) -> Path:
+    root = project_root or Path.cwd()
+    return CACHE_DIR / cycle_id / holder_cache_subdir(root, stage)
 
 
-def diagnostic_hot_root() -> Path:
-    return CACHE_DIR / "diagnostic"
+def session_state_path(cycle_id: str, stage: str = STAGE, *, project_root: Optional[Path] = None) -> Path:
+    return session_base_dir(cycle_id, stage, project_root=project_root) / "session-state.md"
 
 
-def archive_diagnostic_dir(conversation_id: str) -> Path:
-    return CACHE_DIR / "_archive" / conversation_id / "diagnostic"
+def gate_state_path(cycle_id: str, stage: str = STAGE, *, project_root: Optional[Path] = None) -> Path:
+    return session_base_dir(cycle_id, stage, project_root=project_root) / "gate-state.json"
 
 
-def session_base_dir(cycle_id: str, stage: str = STAGE) -> Path:
-    return CACHE_DIR / cycle_id / _cache_subdir(stage)
+def registers_path(cycle_id: str, stage: str = STAGE, *, project_root: Optional[Path] = None) -> Path:
+    return session_base_dir(cycle_id, stage, project_root=project_root) / "registers.json"
 
 
-def session_state_path(cycle_id: str, stage: str = STAGE) -> Path:
-    return session_base_dir(cycle_id, stage) / "session-state.md"
+def decision_doc_path(cycle_id: str, stage: str = STAGE, *, project_root: Optional[Path] = None) -> Path:
+    return session_base_dir(cycle_id, stage, project_root=project_root) / "decision-doc.md"
 
 
-def gate_state_path(cycle_id: str, stage: str = STAGE) -> Path:
-    return session_base_dir(cycle_id, stage) / "gate-state.json"
-
-
-def registers_path(cycle_id: str, stage: str = STAGE) -> Path:
-    return session_base_dir(cycle_id, stage) / "registers.json"
-
-
-def decision_doc_path(cycle_id: str, stage: str = STAGE) -> Path:
-    return session_base_dir(cycle_id, stage) / "decision-doc.md"
-
-
-def domain_constraints_path(cycle_id: str, stage: str = STAGE) -> Path:
-    return session_base_dir(cycle_id, stage) / "domain-constraints.json"
+def domain_constraints_path(cycle_id: str, stage: str = STAGE, *, project_root: Optional[Path] = None) -> Path:
+    return session_base_dir(cycle_id, stage, project_root=project_root) / "domain-constraints.json"
 
 
 def write_session_state(path: Path, current_state: str) -> None:

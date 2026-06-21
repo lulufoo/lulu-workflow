@@ -31,10 +31,22 @@ ALL_X_DIMENSIONS: tuple[str, ...] = (
 
 _WORKFLOW_ROOT = Path(__file__).resolve().parents[2]
 
-_STAGE_DEFAULTS_REL: dict[str, Path] = {
-    "product-diagnostic": Path("product-diagnostic/constraints.json"),
-    "tech-diagnostic": Path("tech-diagnostic/constraints.json"),
-}
+KERNEL_STAGE = "diagnostic"
+
+
+def holder_constraints_path(project_root: Path, stage: str) -> Path | None:
+    """Return `{stage}/constraints.json` under workflow root if present (holder SSOT)."""
+    if stage == KERNEL_STAGE:
+        return None
+    rel = Path(stage) / "constraints.json"
+    for candidate in (
+        _WORKFLOW_ROOT / rel,
+        project_root / "lulu-dev-workflow" / rel,
+        project_root / rel,
+    ):
+        if candidate.is_file():
+            return candidate
+    return None
 
 
 def _normalize_role(data: dict[str, Any]) -> dict[str, str] | None:
@@ -47,19 +59,6 @@ def _normalize_role(data: dict[str, Any]) -> dict[str, str] | None:
         return {"persona": persona, "instruction": instruction}
     if isinstance(role_raw, str) and role_raw.strip():
         return {"persona": "", "instruction": role_raw.strip()}
-    return None
-
-
-def _resolve_stage_defaults_path(project_root: Path, stage: str) -> Path | None:
-    rel = _STAGE_DEFAULTS_REL.get(stage)
-    if rel is None:
-        return None
-    for candidate in (
-        _WORKFLOW_ROOT / rel,
-        project_root / "lulu-dev-workflow" / rel,
-    ):
-        if candidate.is_file():
-            return candidate
     return None
 
 
@@ -137,14 +136,29 @@ def save_domain_constraints(path: Path, data: dict[str, Any]) -> None:
 
 
 def load_stage_defaults(project_root: Path, stage: str) -> dict[str, Any]:
-    config_path = _resolve_stage_defaults_path(project_root, stage)
+    config_path = holder_constraints_path(project_root, stage)
     if config_path is None:
         return _default_constraints(stage=stage)
     payload = json.loads(config_path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
         return _default_constraints(stage=stage)
-    merged = {**payload, "stage": stage}
+    merged = {k: v for k, v in payload.items() if k != "cache_subdir"}
+    merged["stage"] = stage
     return normalize_domain_constraints(merged)
+
+
+def holder_cache_subdir(project_root: Path, stage: str) -> str:
+    """Session cache subdir from holder `constraints.json` (`cache_subdir`) or kernel default."""
+    if stage == KERNEL_STAGE:
+        return KERNEL_STAGE
+    path = holder_constraints_path(project_root, stage)
+    if path is None:
+        return stage
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        return stage
+    subdir = str(payload.get("cache_subdir", "")).strip()
+    return subdir if subdir else stage
 
 
 def merge_domain_constraints(
