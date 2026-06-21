@@ -1,4 +1,4 @@
-> Part of diagnostic-workflow · loaded by Gate Routing in `$SKILL_DIR/SKILL.md`
+> Part of diagnostic-workflow · gate contract · via `$SKILL_DIR/runners/dc-delivery-runner/SKILL.md`
 
 ## Decision-Doc Format
 

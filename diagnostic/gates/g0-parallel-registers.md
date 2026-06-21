@@ -1,4 +1,4 @@
-> Part of diagnostic-workflow · Global gate (parallel) · loaded via Gate Routing in `$SKILL_DIR/SKILL.md`
+> Part of diagnostic-workflow · global gate (parallel) · gate contract · via `$SKILL_DIR/runners/g0-parallel-registers-runner/SKILL.md`
 
 #### G0 — Parallel Registers
 

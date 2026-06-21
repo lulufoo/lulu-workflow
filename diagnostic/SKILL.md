@@ -105,7 +105,7 @@ Do NOT rely on memory or prior context for gate execution steps.
 | **RS** | `$SKILL_DIR/runners/rs-reopen-runner/SKILL.md` | Invalidation · **not parallel** |
 | Human Decision | `$SKILL_DIR/runners/hd-human-decision-runner/SKILL.md` | RR exit `human_decision` |
 
-Gate contracts (dialogue semantics): `$SKILL_DIR/gates/*.md` — read via runner reference. Global: `g0-parallel-registers.md` · `rs-reopen-state-handler.md`.
+Gate contracts (dialogue semantics): `$SKILL_DIR/gates/*.md` — each spine/global runner names its contract in Prerequisites; Gate Routing loads runners only, not gate files directly. Global: `g0-parallel-registers.md` · `rs-reopen-state-handler.md`.
 
 ---
 

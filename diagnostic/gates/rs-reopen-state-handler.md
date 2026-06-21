@@ -1,4 +1,4 @@
-> Part of diagnostic-workflow · Global gate (not parallel) · loaded via Gate Routing in `$SKILL_DIR/SKILL.md`
+> Part of diagnostic-workflow · global gate (not parallel) · gate contract · via `$SKILL_DIR/runners/rs-reopen-runner/SKILL.md`
 
 #### RS — Reopen State Handler
 

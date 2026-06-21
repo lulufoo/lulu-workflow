@@ -1,4 +1,4 @@
-> Part of diagnostic-workflow · loaded by Gate Routing in `$SKILL_DIR/SKILL.md`
+> Part of diagnostic-workflow · gate contract · via `$SKILL_DIR/runners/r-expose-bets-runner/SKILL.md`
 
 #### R — Expose the Bets
 

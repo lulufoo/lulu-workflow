@@ -1,4 +1,4 @@
-> Part of diagnostic-workflow · loaded by Gate Routing in `$SKILL_DIR/SKILL.md`
+> Part of diagnostic-workflow · gate contract · via `$SKILL_DIR/runners/hd-human-decision-runner/SKILL.md`
 
 ## Human Decision
 
