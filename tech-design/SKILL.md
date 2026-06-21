@@ -51,7 +51,7 @@ Before design drafting or evaluation:
 **Phase 2:** Run start
 
 ```bash
-python3 "$SKILL_ROOT/compose-kernel/scripts/core/start.py" \
+python3 "$SKILL_DIR/scripts/tech-design_start.py" \
   --project-root "$(pwd)" \
   --cycle-id "<cycle_id>" \
   --profile tech-design \

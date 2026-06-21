@@ -40,15 +40,19 @@ _FEATURE_CYCLE = [
 # Helpers
 # ---------------------------------------------------------------------------
 
+_COMPOSE_START_SCRIPT = {
+    "product-spec": "product-spec_start.py",
+    "tech-plan": "tech-plan_start.py",
+}
+
+
 def _start_py(stage: str) -> Path:
     if stage in _COMPOSE_START_STAGES:
-        return _LDEV / "compose-kernel" / "scripts" / "core" / "start.py"
+        return _LDEV / stage / "scripts" / _COMPOSE_START_SCRIPT[stage]
     return _LDEV / stage / "scripts" / ({"tech-code": "tc_start.py", "diagnostic": "dx_start.py", "tech-work-order": "two_start.py"}.get(stage, "start.py"))
 
 
 def _scripts_dir(stage: str) -> Path:
-    if stage in _COMPOSE_START_STAGES:
-        return _LDEV / "compose-kernel" / "scripts" / "core"
     return _LDEV / stage / "scripts"
 
 

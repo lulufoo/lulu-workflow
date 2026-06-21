@@ -24,7 +24,8 @@ _KERNEL_SCRIPTS = _WORKFLOW_ROOT / "compose-kernel" / "scripts"
 _CORE = _KERNEL_SCRIPTS / "core"
 _SECTION = _KERNEL_SCRIPTS / "section"
 _DRAFTING = Path(__file__).resolve().parent
-for p in (_KERNEL_SCRIPTS, _CORE, _SECTION, _DRAFTING):
+_START = _DRAFTING.parent / "start"
+for p in (_KERNEL_SCRIPTS, _CORE, _SECTION, _DRAFTING, _START):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
 import kernel_bootstrap  # noqa: E402
@@ -45,7 +46,7 @@ from workflow_common import (  # noqa: E402
 )
 from workflow_profile_paths import doc_dir, document_path  # noqa: E402
 from delivered_refs_schema import delivered_path  # noqa: E402
-from start_adapter_registry import load_start_adapter  # noqa: E402
+from tech_plan_start_adapter import TechPlanStartAdapter  # noqa: E402
 from workflow_state_schema import (  # noqa: E402
     load_workflow_state,
     resolve_workflow_state_path_from_cycle,
@@ -122,7 +123,7 @@ def _init_dispatch_input(cycle_id: str, project_root: Path) -> str:
     active_doc = load_active_doc_from_cycle(cycle_id, project_root, profile_id=_PROFILE_ID)
     revision_dir = project_root / doc_dir(cycle_id, active_doc, _PROFILE_ID)
     output_doc = _compose_doc_path(cycle_id, project_root)
-    adapter = load_start_adapter(_PROFILE_ID)
+    adapter = TechPlanStartAdapter()
     init_ref = adapter.delivered_ref_for_init(cycle_id, project_root)
     if init_ref is None:
         raise ValueError("no delivered ref available for Initializing")

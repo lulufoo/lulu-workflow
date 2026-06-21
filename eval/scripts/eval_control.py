@@ -71,7 +71,7 @@ from evaluate_state_schema import (  # noqa: E402
 )
 from contextvars import ContextVar
 
-from adapter_registry import load_adapter  # noqa: E402
+from workflow_adapter_loader import load_adapter  # noqa: E402
 from evaluate_state_ops import (  # noqa: E402
     build_initial_evaluate_state_for_corpus,
     dimension_status_legacy_map,

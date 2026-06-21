@@ -24,21 +24,19 @@ if str(_SCRIPTS) not in sys.path:
 import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
-from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, EVAL_SCRIPTS as _EVAL_SCRIPTS  # noqa: E402
+from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID  # noqa: E402
 
-sys.path.insert(0, str(_EVAL_SCRIPTS))
-
-from adapter_registry import load_adapter  # noqa: E402
 from compose_session import (  # noqa: E402
     approval_gate_path,
     document_file_path,
-    eval_workflow_id,
     load_active_doc_for_profile,
     workflow_state_path,
 )
 from delivered_refs_schema import record_delivered_ref  # noqa: E402
-from evaluate_state_schema import load_evaluate_state  # noqa: E402
 from human_delivery_gate_schema import write_approved  # noqa: E402
+from session_state_schema import load_active_doc_from_cycle  # noqa: E402
+from workflow_common import parse_frontmatter_fields  # noqa: E402
+from workflow_profile_paths import evaluate_state_path as profile_evaluate_state_path  # noqa: E402
 from session_evaluating import transition_to_evaluating  # noqa: E402
 from transition_registry import is_allowed  # noqa: E402
 from workflow_state_schema import load_workflow_state, save_workflow_state  # noqa: E402
@@ -59,8 +57,20 @@ def _evaluate_state_path(
     *,
     profile_id: str,
 ) -> Path:
-    adapter = load_adapter(eval_workflow_id(profile_id))
-    return adapter.resolve_evaluate_state_path(cycle_id, project_root)
+    active_doc = load_active_doc_from_cycle(
+        cycle_id,
+        project_root,
+        profile_id=profile_id,
+    )
+    rel = profile_evaluate_state_path(cycle_id, active_doc, profile_id)
+    return project_root / rel
+
+
+def _read_eval_status(es_path: Path) -> str:
+    if not es_path.is_file():
+        return ""
+    content = es_path.read_text(encoding="utf-8")
+    return parse_frontmatter_fields(content).get("eval_status", "")
 
 
 def _success(command: str, current_state: str, **extra: Any) -> dict[str, Any]:
@@ -273,8 +283,7 @@ def abandon_evaluation(
             "请暂停执行，等待用户指示。",
         )
 
-    eval_data = load_evaluate_state(es_path)
-    eval_status = eval_data.get("eval_status", "")
+    eval_status = _read_eval_status(es_path)
     if eval_status != "abandoned":
         return _failure_abandon(
             current,
@@ -350,8 +359,7 @@ def resume_after_eval(
             "reason": "evaluate-state.md not found.",
         }
 
-    eval_data = load_evaluate_state(es_path)
-    eval_status = eval_data.get("eval_status", "")
+    eval_status = _read_eval_status(es_path)
     if eval_status == "abandoned":
         return {
             "ok": False,

@@ -11,7 +11,7 @@ from workflow_paths import EVAL_SCRIPTS, WORKFLOW_SCRIPTS  # noqa: E402
 
 sys.path.insert(0, str(EVAL_SCRIPTS))
 
-from adapter_registry import load_adapter  # noqa: E402
+from workflow_adapter_loader import load_adapter  # noqa: E402
 from evaluate_state_ops import (  # noqa: E402
     dimension_status_legacy_map,
     init_evaluate_state_for_corpus,

@@ -13,7 +13,8 @@ _WORKFLOW_ROOT = Path(__file__).resolve().parents[3]
 _KERNEL_SCRIPTS = _WORKFLOW_ROOT / "compose-kernel" / "scripts"
 _SECTION = _KERNEL_SCRIPTS / "section"
 _DRAFTING = Path(__file__).resolve().parent
-for p in (_KERNEL_SCRIPTS, _KERNEL_SCRIPTS / "core", _SECTION, _DRAFTING):
+_START = _DRAFTING.parent / "start"
+for p in (_KERNEL_SCRIPTS, _KERNEL_SCRIPTS / "core", _SECTION, _DRAFTING, _START):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
 import kernel_bootstrap  # noqa: E402
@@ -31,7 +32,7 @@ from tech_design_drafting_progress_schema import (  # noqa: E402
 from section_round_control import init_round_dir_if_needed  # noqa: E402
 from session_state_schema import load_active_doc  # noqa: E402
 from workflow_common import CACHE_DIR, detect_cycle_type  # noqa: E402
-from start_adapter_registry import load_start_adapter  # noqa: E402
+from tech_design_start_adapter import TechDesignStartAdapter  # noqa: E402
 from workflow_profile_paths import (  # noqa: E402
     doc_dir,
     document_path,
@@ -114,7 +115,7 @@ def _init_dispatch_input(cycle_id: str, project_root: Path) -> str:
     active_doc = _active_doc(cycle_id, project_root)
     revision_dir = project_root / doc_dir(cycle_id, active_doc, PROFILE_ID)
     output_doc = project_root / document_path(cycle_id, active_doc, PROFILE_ID)
-    adapter = load_start_adapter(PROFILE_ID)
+    adapter = TechDesignStartAdapter()
     init_ref = adapter.delivered_ref_for_init(cycle_id, project_root)
     if init_ref is None:
         raise ValueError("no delivered ref available for Initializing")

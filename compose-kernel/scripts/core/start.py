@@ -25,7 +25,7 @@ from compose_session import calibration_note  # noqa: E402
 from delivered_refs_backfill import backfill_delivered_refs_from_cycle  # noqa: E402
 from delivered_refs_schema import serialize_delivered_refs  # noqa: E402
 from session_state_schema import load_active_doc, next_doc_round, save_active_doc
-from start_adapter_registry import load_start_adapter  # noqa: E402
+from start_adapter import StartAdapter
 from workflow_profile_paths import (
     session_state_path as profile_session_state_path,
     state_path as profile_state_path,
@@ -103,8 +103,10 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_known_args()[0]
 
 
-def main() -> int:
-    args = parse_args()
+def run_start(
+    args: argparse.Namespace,
+    adapter: StartAdapter,
+) -> int:
     project_root = Path(args.project_root).resolve()
     cycle_id = args.cycle_id.strip()
     profile = load_profile(args.profile.strip())
@@ -124,7 +126,6 @@ def main() -> int:
 
     backfill_delivered_refs_from_cycle(cycle_id, project_root)
 
-    adapter = load_start_adapter(profile_id)
     start_errors = adapter.validate_for_start(
         cycle_id,
         project_root,
@@ -229,6 +230,14 @@ carry_forward：{carry_forward_ref or '（无）'}
 {note}
 """)
     return 0
+
+
+def main() -> int:
+    print(
+        "错误：请通过 stage start 脚本启动（例如 product-spec/scripts/product-spec_start.py）。",
+        file=sys.stderr,
+    )
+    return 1
 
 
 if __name__ == "__main__":

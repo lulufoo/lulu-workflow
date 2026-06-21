@@ -22,7 +22,9 @@
   },
   "eval": {
     "enabled": true,
-    "workflow_id": "tech-design"
+    "workflow_id": "tech-design",
+    "adapter_module": "tech-design/scripts/eval/tech_design_eval_adapter.py",
+    "adapter_class": "TechDesignEvalAdapter"
   },
   "upstream_ssot": {
     "decision_doc_rel": "tech/diagnostic/decision-doc.md"

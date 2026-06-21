@@ -29,13 +29,11 @@ _TOPIC_ID = "topic-20260524143022-aabbccdd"
 
 def _start_py(stage: str) -> Path:
     if stage == "tech-plan":
-        return _SRC / "lulu-dev-workflow" / "compose-kernel" / "scripts" / "core" / "start.py"
+        return _SRC / "lulu-dev-workflow" / "tech-plan" / "scripts" / "tech-plan_start.py"
     return _SRC / "lulu-dev-workflow" / stage / "scripts" / ({"tech-code": "tc_start.py", "diagnostic": "dx_start.py", "product-arch": "pa_start.py", "tech-arch": "ta_start.py", "tech-work-order": "two_start.py"}.get(stage, "start.py"))
 
 
 def _scripts_dir(stage: str) -> Path:
-    if stage == "tech-plan":
-        return _SRC / "lulu-dev-workflow" / "compose-kernel" / "scripts" / "core"
     return _SRC / "lulu-dev-workflow" / stage / "scripts"
 
 

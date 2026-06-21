@@ -39,7 +39,9 @@ _WORKFLOW_PY_PATH = re.compile(
 )
 
 _CONV_ID_INJECT_SCRIPT_SUFFIXES = (
-    "/compose-kernel/scripts/core/start.py",
+    "/product-spec/scripts/product-spec_start.py",
+    "/tech-plan/scripts/tech-plan_start.py",
+    "/tech-design/scripts/tech-design_start.py",
     "/tech-code/scripts/tc_start.py",
     "/diagnostic/scripts/dx_start.py",
     "/product-arch/scripts/pa_start.py",

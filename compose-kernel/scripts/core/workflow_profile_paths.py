@@ -59,3 +59,12 @@ def eval_round_dir(
 def decision_doc_path(cycle_id: str) -> Path:
     """Diagnostic decision-doc path (shared across compose stages)."""
     return CACHE_DIR / cycle_id / "tech" / "diagnostic" / "decision-doc.md"
+
+
+def evaluate_state_path(
+    cycle_id: str,
+    active_doc: int,
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+) -> Path:
+    """Path to evaluate-state.md for the active revision (relative to project root)."""
+    return doc_dir(cycle_id, active_doc, profile_id) / "evaluate-state.md"

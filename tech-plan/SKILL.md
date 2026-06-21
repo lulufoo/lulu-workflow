@@ -54,7 +54,7 @@ Do NOT proceed until you have read `{SKILL_ROOT}/compose-kernel/SKILL.md` and lo
 **Phase 2: Run start**
 
 ```bash
-python3 "$SKILL_ROOT/compose-kernel/scripts/core/start.py" \
+python3 "$SKILL_DIR/scripts/tech-plan_start.py" \
   --project-root "$(pwd)" \
   --cycle-id "<cycle_id>" \
   --profile tech-plan \

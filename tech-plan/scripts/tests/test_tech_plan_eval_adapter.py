@@ -16,7 +16,7 @@ for p in (_EVAL_SHELL, _EVAL_SCRIPTS, _KERNEL_TESTS):
         sys.path.insert(0, str(p))
 
 import bootstrap  # noqa: F401
-from adapter_registry import load_adapter  # noqa: E402
+from workflow_adapter_loader import load_adapter  # noqa: E402
 from corpus_compose import COMPOSED_CORPUS_REF, corpus_fingerprint  # noqa: E402
 from tech_plan_eval_policy import select_dimension_ids  # noqa: E402
 from init_drafting_helpers import product_delivered_refs  # noqa: E402

@@ -22,7 +22,9 @@
   },
   "eval": {
     "enabled": true,
-    "workflow_id": "tech-plan"
+    "workflow_id": "tech-plan",
+    "adapter_module": "tech-plan/scripts/eval/tech_plan_eval_adapter.py",
+    "adapter_class": "TechPlanEvalAdapter"
   },
   "upstream_ssot": {
     "decision_doc_rel": "tech/diagnostic/decision-doc.md",

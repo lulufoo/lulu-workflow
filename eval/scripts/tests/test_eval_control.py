@@ -20,7 +20,7 @@ sys.path.insert(0, str(_KERNEL_SCHEMA_SESSION))
 sys.path.insert(0, str(_KERNEL_TESTS))
 sys.path.insert(0, str(_EVAL_SCRIPTS))
 
-from adapter_registry import load_adapter  # noqa: E402
+from workflow_adapter_loader import load_adapter  # noqa: E402
 import eval_control  # noqa: E402
 from eval_control import (  # noqa: E402
     artifact_remediation_complete,
