@@ -149,34 +149,36 @@ def product_ref_from_state(state: dict[str, Any]) -> str:
     return delivered_path(state, "product-spec")
 
 
-def init_scope_ref_from_state(
-    state: dict[str, Any],
-    profile_id: str,
-) -> DeliveredRef | None:
-    """Return the scope SSOT ref for Initializing / round read-context (from snapshot)."""
-    refs = parse_delivered_refs(state)
-    mode = state.get("mode", "tech")
-    if profile_id == "tech-plan":
-        if mode == "product":
-            for ref in refs:
-                if ref.type == "product-spec":
-                    return ref
-            return None
-        for ref in refs:
-            if ref.type == "tech-design":
-                return ref
-        for ref in refs:
-            if ref.type == "tech-diagnostic":
-                return ref
-        return None
-    if profile_id == "tech-design":
-        for ref in refs:
-            if ref.type == "tech-diagnostic":
-                return ref
-        return None
-    return None
+def parse_scope_refs(state: dict[str, Any]) -> list[DeliveredRef]:
+    """Parse scope_refs JSON array from workflow-state frontmatter."""
+    raw = state.get("scope_refs", "[]")
+    if isinstance(raw, list):
+        items = raw
+    else:
+        text = str(raw).strip() or "[]"
+        items = json.loads(text)
+    if not isinstance(items, list):
+        raise ValueError("scope_refs must be a JSON array")
+    refs: list[DeliveredRef] = []
+    for item in items:
+        if not isinstance(item, dict):
+            raise ValueError("scope_refs items must be objects")
+        dtype = str(item.get("type", "")).strip()
+        path = str(item.get("path", "")).strip()
+        if not dtype or not path:
+            raise ValueError("scope_refs item requires non-empty type and path")
+        refs.append(DeliveredRef(type=dtype, path=path))
+    return refs
 
 
-def scope_doc_path_from_state(state: dict[str, Any], profile_id: str) -> str:
-    ref = init_scope_ref_from_state(state, profile_id)
+def primary_scope_ref_from_state(state: dict[str, Any]) -> DeliveredRef | None:
+    """Return scope_refs[0] from workflow-state snapshot."""
+    refs = parse_scope_refs(state)
+    if not refs:
+        return None
+    return refs[0]
+
+
+def scope_doc_path_from_state(state: dict[str, Any]) -> str:
+    ref = primary_scope_ref_from_state(state)
     return ref.path if ref is not None else ""

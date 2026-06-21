@@ -17,6 +17,7 @@ SCHEMA_SECTION_ROUND = SCHEMA_SECTION / "round"
 SCHEMA_SECTION_DOCUMENT = SCHEMA_SECTION / "document"
 SCHEMA_SECTION_SCOPE = SCHEMA_SECTION / "scope"
 SCHEMA_SESSION = _KERNEL_SCRIPTS / "schema" / "session"
+START = _KERNEL_SCRIPTS / "start"
 TECH_PLAN_DRAFTING = _TESTS.parent.parent.parent / "tech-plan" / "scripts" / "drafting"
 
 # Bare module names owned exclusively by compose-kernel (stage trees use prefixed names).
@@ -56,6 +57,7 @@ _COMPOSE_PATHS = (
     SCHEMA_SECTION_DOCUMENT,
     SCHEMA_SECTION_SCOPE,
     SCHEMA_SESSION,
+    START,
     TECH_PLAN_DRAFTING,
     _TESTS,
 )

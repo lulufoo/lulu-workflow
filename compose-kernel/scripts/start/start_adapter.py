@@ -31,9 +31,34 @@ class StartAdapter(Protocol):
     ) -> list[DeliveredRef]:
         """Read delivered-refs.json and return snapshot for workflow-state."""
 
+    def resolve_scope_refs(
+        self,
+        *,
+        delivered_refs: list[DeliveredRef],
+        run_mode: str = "tech",
+        carry_forward_ref: str = "",
+    ) -> list[DeliveredRef]:
+        """Ordered scope SSOT refs: [0]=primary; [1]+ optional attachments (unused by kernel v1)."""
+
     def delivered_ref_for_init(
         self,
         cycle_id: str,
         project_root: Path,
     ) -> DeliveredRef | None:
-        """Return the single DeliveredRef Initializing consumes (v1)."""
+        """Return primary scope ref (scope_refs[0]) from workflow-state snapshot."""
+
+
+def primary_scope_from_workflow(
+    cycle_id: str,
+    project_root: Path,
+    profile_id: str,
+) -> DeliveredRef | None:
+    """Read scope_refs[0] from active revision workflow-state."""
+    from compose_session import workflow_state_path  # noqa: WPS433
+    from delivered_refs_schema import primary_scope_ref_from_state  # noqa: WPS433
+    from workflow_state_schema import load_workflow_state  # noqa: WPS433
+
+    ws_path = workflow_state_path(cycle_id, project_root, profile_id)
+    if not ws_path.is_file():
+        return None
+    return primary_scope_ref_from_state(load_workflow_state(ws_path))

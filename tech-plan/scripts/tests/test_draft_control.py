@@ -53,12 +53,15 @@ def _seed_session(tmp_path: Path, *, active_doc: int = 1) -> Path:
     decision = diag_dir / "decision-doc.md"
     decision.write_text("# Decision\n", encoding="utf-8")
     from delivered_refs_schema import DeliveredRef  # noqa: WPS433
+    from init_drafting_helpers import tech_plan_scope_refs  # noqa: WPS433
     from workflow_state_schema import init_drafting  # noqa: WPS433
 
+    refs = [DeliveredRef(type="tech-diagnostic", path=str(decision.resolve()))]
     init_drafting(
         revision / "workflow-state.md",
         mode="tech",
-        delivered_refs=[DeliveredRef(type="tech-diagnostic", path=str(decision.resolve()))],
+        delivered_refs=refs,
+        scope_refs=tech_plan_scope_refs(refs),
     )
     return revision
 

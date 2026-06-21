@@ -18,12 +18,11 @@ from delivered_refs_schema import (  # noqa: E402
     DeliveredRef,
     entry_path_ok,
     load_delivered_refs_file,
-    parse_delivered_refs,
     ref_from_file_entry,
 )
+from start_adapter import primary_scope_from_workflow  # noqa: E402
+from start_scope_helpers import first_ref  # noqa: E402
 from workflow_common import detect_cycle_type  # noqa: E402
-from workflow_state_schema import load_workflow_state  # noqa: E402
-from compose_session import workflow_state_path  # noqa: E402
 
 
 class ProductSpecStartAdapter:
@@ -59,13 +58,20 @@ class ProductSpecStartAdapter:
             return []
         return [ref]
 
+    def resolve_scope_refs(
+        self,
+        *,
+        delivered_refs: list[DeliveredRef],
+        run_mode: str = "tech",
+        carry_forward_ref: str = "",
+    ) -> list[DeliveredRef]:
+        del run_mode, carry_forward_ref
+        primary = first_ref(delivered_refs, "product-diagnostic")
+        return [primary] if primary is not None else []
+
     def delivered_ref_for_init(
         self,
         cycle_id: str,
         project_root: Path,
     ) -> DeliveredRef | None:
-        ws_path = workflow_state_path(cycle_id, project_root, "product-spec")
-        for ref in parse_delivered_refs(load_workflow_state(ws_path)):
-            if ref.type == "product-diagnostic":
-                return ref
-        return None
+        return primary_scope_from_workflow(cycle_id, project_root, "product-spec")

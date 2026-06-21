@@ -8,54 +8,24 @@ from pathlib import Path
 import bootstrap  # noqa: F401
 from delivered_refs_schema import (  # noqa: E402
     DeliveredRef,
-    init_scope_ref_from_state,
     load_delivered_refs_file,
+    parse_scope_refs,
+    primary_scope_ref_from_state,
+    serialize_delivered_refs,
 )
 from delivered_refs_backfill import backfill_delivered_refs_from_cycle  # noqa: E402
-from delivered_refs_schema import serialize_delivered_refs  # noqa: E402
 
 
-def test_init_scope_ref_tech_plan_product_mode():
+def test_parse_scope_refs_primary_index():
     state = {
-        "mode": "product",
-        "delivered_refs": serialize_delivered_refs(
-            [
-                DeliveredRef(type="product-spec", path="/abs/product-doc.md"),
-                DeliveredRef(type="tech-diagnostic", path="/abs/decision.md"),
-            ],
-        ),
-    }
-    ref = init_scope_ref_from_state(state, "tech-plan")
-    assert ref is not None
-    assert ref.type == "product-spec"
-    assert ref.path == "/abs/product-doc.md"
-
-
-def test_init_scope_ref_tech_plan_tech_mode_prefers_design():
-    state = {
-        "mode": "tech",
-        "delivered_refs": serialize_delivered_refs(
-            [
-                DeliveredRef(type="tech-diagnostic", path="/abs/decision.md"),
-                DeliveredRef(type="tech-design", path="/abs/design.md"),
-            ],
-        ),
-    }
-    ref = init_scope_ref_from_state(state, "tech-plan")
-    assert ref is not None
-    assert ref.type == "tech-design"
-
-
-def test_init_scope_ref_tech_design():
-    state = {
-        "mode": "tech",
-        "delivered_refs": serialize_delivered_refs(
+        "scope_refs": serialize_delivered_refs(
             [DeliveredRef(type="tech-diagnostic", path="/abs/decision.md")],
         ),
     }
-    ref = init_scope_ref_from_state(state, "tech-design")
+    ref = primary_scope_ref_from_state(state)
     assert ref is not None
     assert ref.type == "tech-diagnostic"
+    assert len(parse_scope_refs(state)) == 1
 
 
 def test_backfill_from_delivered_tech_diagnostic(tmp_path: Path):

@@ -17,14 +17,11 @@ kernel_bootstrap.ensure_kernel_paths()
 from delivered_refs_schema import (  # noqa: E402
     DeliveredRef,
     entry_path_ok,
-    init_scope_ref_from_state,
     load_delivered_refs_file,
     ref_from_file_entry,
 )
-from workflow_state_schema import (  # noqa: E402
-    load_workflow_state,
-    resolve_workflow_state_path_from_cycle,
-)
+from start_adapter import primary_scope_from_workflow  # noqa: E402
+from start_scope_helpers import first_ref  # noqa: E402
 
 
 class TechPlanStartAdapter:
@@ -77,10 +74,29 @@ class TechPlanStartAdapter:
                 refs.append(ref)
         return refs
 
+    def resolve_scope_refs(
+        self,
+        *,
+        delivered_refs: list[DeliveredRef],
+        run_mode: str = "tech",
+        carry_forward_ref: str = "",
+    ) -> list[DeliveredRef]:
+        del run_mode, carry_forward_ref
+        out: list[DeliveredRef] = []
+        primary = first_ref(delivered_refs, "tech-design") or first_ref(
+            delivered_refs,
+            "tech-diagnostic",
+        )
+        if primary is not None:
+            out.append(primary)
+        product = first_ref(delivered_refs, "product-spec")
+        if product is not None:
+            out.append(product)
+        return out
+
     def delivered_ref_for_init(
         self,
         cycle_id: str,
         project_root: Path,
     ) -> DeliveredRef | None:
-        ws_path = resolve_workflow_state_path_from_cycle(cycle_id, project_root)
-        return init_scope_ref_from_state(load_workflow_state(ws_path), "tech-plan")
+        return primary_scope_from_workflow(cycle_id, project_root, "tech-plan")

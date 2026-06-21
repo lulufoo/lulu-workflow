@@ -102,7 +102,7 @@ def test_read_context(tmp_path: Path):
     assert ctx["decision_doc_path"].endswith("tech/diagnostic/decision-doc.md")
 
 
-def test_read_context_uses_delivered_refs_scope_doc(tmp_path: Path):
+def test_read_context_uses_scope_refs_primary_not_product(tmp_path: Path):
     cycle_dir = tmp_path / ".cache/cursor/lulu-dev-workflow" / _CYCLE_ID
     _seed_registry_cache(tmp_path)
     plan_base = cycle_dir / "tech" / "plan"
@@ -123,14 +123,23 @@ def test_read_context_uses_delivered_refs_scope_doc(tmp_path: Path):
 
     product_doc = tmp_path / "product-doc.md"
     product_doc.write_text("# Product\n", encoding="utf-8")
+    decision_doc = tmp_path / "decision-doc.md"
+    decision_doc.write_text("# Decision\n", encoding="utf-8")
     ws = revision / "workflow-state.md"
     init_drafting(
         ws,
         mode="product",
-        delivered_refs=[DeliveredRef(type="product-spec", path=str(product_doc.resolve()))],
+        delivered_refs=[
+            DeliveredRef(type="product-spec", path=str(product_doc.resolve())),
+            DeliveredRef(type="tech-diagnostic", path=str(decision_doc.resolve())),
+        ],
+        scope_refs=[
+            DeliveredRef(type="tech-diagnostic", path=str(decision_doc.resolve())),
+            DeliveredRef(type="product-spec", path=str(product_doc.resolve())),
+        ],
     )
     ctx = _run(cycle_dir, "read-context", round_n=None)
-    assert ctx["decision_doc_path"] == str(product_doc.resolve())
+    assert ctx["decision_doc_path"] == str(decision_doc.resolve())
 
 
 def test_append_skip_any_section(tmp_path: Path):

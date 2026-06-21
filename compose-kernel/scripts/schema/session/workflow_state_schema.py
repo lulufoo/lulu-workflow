@@ -50,6 +50,8 @@ _SCHEMA: list[dict] = [
      "description": "Evaluation round counter (non-negative integer as string)"},
     {"field": "delivered_refs", "type": "string", "required": True,
      "description": "JSON array of {type, path} upstream delivered documents (start snapshot)"},
+    {"field": "scope_refs", "type": "string", "required": False,
+     "description": "JSON array; [0]=primary scope SSOT, [1]+ optional attachments (start snapshot)"},
     {"field": "carry_forward_ref", "type": "string", "required": True,
      "description": "Absolute path to previous compose doc revision (may be empty)"},
     {"field": "updated_at", "type": "string", "required": True,
@@ -72,6 +74,7 @@ _REQUIRED_KEY_ORDER = [
     "current_state",
     "evaluate_round",
     "delivered_refs",
+    "scope_refs",
     "carry_forward_ref",
     "updated_at",
 ]
@@ -151,6 +154,15 @@ def validate_workflow_state(data: dict) -> list[str]:
             parse_delivered_refs({"delivered_refs": delivered_refs})
         except (ValueError, json.JSONDecodeError) as exc:
             errors.append(f"invalid delivered_refs: {exc}")
+
+    scope_refs = data.get("scope_refs")
+    if scope_refs is not None:
+        try:
+            from delivered_refs_schema import parse_scope_refs
+
+            parse_scope_refs({"scope_refs": scope_refs})
+        except (ValueError, json.JSONDecodeError) as exc:
+            errors.append(f"invalid scope_refs: {exc}")
 
     if data.get("current_state") == "Delivered" and "skip_evaluate_requested" in data:
         errors.append(
@@ -248,6 +260,7 @@ def init_drafting(
     mode: str,
     cycle_type: str = "feature",
     delivered_refs: list | None = None,
+    scope_refs: list | None = None,
     carry_forward_ref: str = "",
     evaluate_round: int = 0,
 ) -> None:
@@ -259,6 +272,11 @@ def init_drafting(
         r if isinstance(r, DeliveredRef) else DeliveredRef(str(r["type"]), str(r["path"]))
         for r in refs
     ]
+    scope = scope_refs or []
+    normalized_scope = [
+        r if isinstance(r, DeliveredRef) else DeliveredRef(str(r["type"]), str(r["path"]))
+        for r in scope
+    ]
     data = {
         "version": "1",
         "workflow": "tech-doc",
@@ -269,6 +287,8 @@ def init_drafting(
         "delivered_refs": serialize_delivered_refs(normalized),
         "carry_forward_ref": carry_forward_ref,
     }
+    if normalized_scope:
+        data["scope_refs"] = serialize_delivered_refs(normalized_scope)
     save_workflow_state(path, data, merge=False)
 
 

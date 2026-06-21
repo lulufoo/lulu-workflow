@@ -147,6 +147,15 @@ def run_start(
         print("错误：delivered_refs 快照为空（start 校验已通过但无可写入条目）", file=sys.stderr)
         return 1
 
+    scope_refs = adapter.resolve_scope_refs(
+        delivered_refs=delivered_refs,
+        run_mode=run_mode,
+        carry_forward_ref=carry_forward_ref,
+    )
+    if not scope_refs:
+        print("错误：scope_refs 快照为空（无法解析 primary scope SSOT）", file=sys.stderr)
+        return 1
+
     try:
         load_container_meta(cache_dir, cycle_id, cycle_type)
     except ValueError as e:
@@ -197,6 +206,7 @@ def run_start(
         mode=run_mode,
         cycle_type=cycle_type,
         delivered_refs=delivered_refs,
+        scope_refs=scope_refs,
         carry_forward_ref=carry_forward_ref,
     )
 
@@ -213,6 +223,7 @@ def run_start(
 
     doc_label = profile["document"]["filename"]
     refs_json = serialize_delivered_refs(delivered_refs)
+    scope_json = serialize_delivered_refs(scope_refs)
     print(f"""
 会话已启动。
 
@@ -225,6 +236,7 @@ Profile：     {profile_id}
 Cycle type：  {role_summary}
 评估轮次：    0
 delivered_refs：{refs_json}
+scope_refs：  {scope_json}
 carry_forward：{carry_forward_ref or '（无）'}
 
 {note}

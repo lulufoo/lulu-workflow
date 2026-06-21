@@ -97,8 +97,8 @@ from compose_doc_schema import section_body_by_key, section_display_heading  # n
 from workflow_common import parse_frontmatter_fields  # noqa: E402
 from delivered_refs_schema import (  # noqa: E402
     delivered_path,
-    init_scope_ref_from_state,
     parse_delivered_refs,
+    primary_scope_ref_from_state,
 )
 from workflow_state_schema import load_workflow_state  # noqa: E402
 
@@ -478,7 +478,7 @@ def cmd_read_context(cycle_dir: Path) -> int:
         payload["delivered_refs"] = [
             ref.to_dict() for ref in parse_delivered_refs(state)
         ]
-        scope_ref = init_scope_ref_from_state(state, profile_id)
+        scope_ref = primary_scope_ref_from_state(state)
         if scope_ref is not None:
             payload["decision_doc_path"] = str(Path(scope_ref.path).resolve())
         design_path = delivered_path(state, "tech-design")
@@ -488,7 +488,7 @@ def cmd_read_context(cycle_dir: Path) -> int:
         from workflow_profile_paths import decision_doc_path  # noqa: WPS433
 
         payload["decision_doc_path"] = str(
-            (project_root / decision_doc_path(cycle_id)).resolve(),
+            (project_root / decision_doc_path(cycle_id, profile_id)).resolve(),
         )
 
     _emit(payload)

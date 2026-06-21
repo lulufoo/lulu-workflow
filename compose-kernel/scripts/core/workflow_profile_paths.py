@@ -56,9 +56,15 @@ def eval_round_dir(
     return doc_dir(cycle_id, doc_round, profile_id) / f"evaluate{evaluate_round}"
 
 
-def decision_doc_path(cycle_id: str) -> Path:
-    """Diagnostic decision-doc path (shared across compose stages)."""
-    return CACHE_DIR / cycle_id / "tech" / "diagnostic" / "decision-doc.md"
+def decision_doc_path(cycle_id: str, profile_id: str = DEFAULT_COMPOSE_PROFILE_ID) -> Path:
+    """Diagnostic decision-doc fallback from profile upstream_ssot."""
+    profile = load_profile(profile_id)
+    rel = str((profile.get("upstream_ssot") or {}).get("decision_doc_rel", "")).strip()
+    if not rel:
+        raise ValueError(
+            f"profile {profile_id!r} missing upstream_ssot.decision_doc_rel",
+        )
+    return CACHE_DIR / cycle_id / Path(rel)
 
 
 def evaluate_state_path(
