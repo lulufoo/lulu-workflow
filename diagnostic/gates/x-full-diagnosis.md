@@ -17,7 +17,7 @@
 | 5 | Gap Check | Does the expected implementation output meet the Acceptance Criteria? Where does it fall short? | Gap explicitly recorded in `Acceptance Criteria > Gap (if any)`, or confirmed as None |
 
 **Additional pass criteria:**
-- Assumptions discovered here: immediately add to Assumption Log with `[待验证]` tag (do not defer to R).
+- Assumptions discovered here: invoke G0 runner immediately (do not defer to R).
 - If Gap (if any) is non-empty: flag the gap explicitly; apply Re-open & Invalidation (re-open E or D as appropriate). Do not force-pass.
 
 > Dim 5 (Gap Check) does not produce a separate document section. Its result is written into `### 7.1 Acceptance Criteria > Gap (if any)` in the decision-doc.

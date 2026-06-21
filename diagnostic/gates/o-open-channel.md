@@ -11,7 +11,7 @@
 
    > "Before we begin — share what you'd like me to know: direction preferences, concerns, or options you've already ruled out. It doesn't need to be complete; you can add more at any point."
 
-4. G0 capture per § Parallel Registers (confirm briefly, then `$REGISTER_COMMIT`)
+4. During dialogue: on identification hit → G0 runner → `G0_COMPLETE` → continue
 
 **Pass criterion:** User confirms they are ready to proceed to Q (G8). Prior dump is optional — empty registers are allowed.
 

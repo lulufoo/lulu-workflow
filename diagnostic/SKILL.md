@@ -65,6 +65,8 @@ On success, follow stdout (new session ready, or legacy session migrated). Do **
 
 **Spine:** [LoopA] O → Q → E → D → X → R → ([LoopB] V → RR if needed) → DC → `$GATE_CONTROL deliver`.
 
+**Global gate (parallel):** **G0 · Parallel Registers** — entire session; re-enter whenever identification hits during any spine gate dialogue (see § Gate routing · G0).
+
 **Phase grouping** (re-open invalidate scope):
 - [LoopA] O → Q → E → D → X → R — decision construction
 - [LoopB] V → RR — verification release
@@ -79,12 +81,14 @@ After a runner returns `GATE_COMPLETE`, load the next runner per § Gate routing
 
 <HARD-GATE>
 Before executing any gate, read the corresponding runner SKILL first.
-Every runner pipeline step 1 (`$GATE_CONTROL resolve-context`) is mandatory — it pins `$CTX` for that gate. Do not skip it or rely on memory.
+Every spine gate runner pipeline step 1 (`$GATE_CONTROL resolve-context`) is mandatory — it pins `$CTX` for that gate. Do not skip it or rely on memory.
+On G0 identification hit during spine gate dialogue: load G0 runner before the next user-visible reply; after `G0_COMPLETE`, resume the active spine gate.
 Do NOT rely on memory or prior context for gate execution steps.
 </HARD-GATE>
 
 | Gate | File | Load condition |
 |------|------|----------------|
+| **G0** | `$SKILL_DIR/runners/g0-parallel-registers-runner/SKILL.md` | Identification hit · **parallel** · resume active spine gate after `G0_COMPLETE` |
 | O | `$SKILL_DIR/runners/o-open-channel-runner/SKILL.md` | After `$DX_START` · `active_gate` is `O` |
 | Q | `$SKILL_DIR/runners/q-problem-runner/SKILL.md` | O closed |
 | E | `$SKILL_DIR/runners/e-direction-runner/SKILL.md` | Q closed |
@@ -97,49 +101,7 @@ Do NOT rely on memory or prior context for gate execution steps.
 | RS | `$SKILL_DIR/runners/rs-reopen-runner/SKILL.md` | Reopen triggered (any gate / DC flag / R exit `rs`) |
 | Human Decision | `$SKILL_DIR/runners/hd-human-decision-runner/SKILL.md` | RR exit `human_decision` |
 
-Gate contracts (dialogue semantics): `$SKILL_DIR/gates/*.md` — read via runner reference.
-
----
-
-## Parallel Registers
-
-Two logs run in parallel for the entire session (not owned by a single gate):
-
-- **User Prior** — user judgments, preferences, concerns, excluded options
-- **Assumption** — unverified premises underlying the decision
-
-### G0 — when to capture (Agent)
-
-<HARD-GATE name="G0 capture">
-If any row below applies in the current turn, persist via `$REGISTER_COMMIT` successfully before the next user-visible reply continues the gate.
-</HARD-GATE>
-
-| Surface in dialogue | Log | Extra rule |
-|---------------------|-----|------------|
-| Judgment / preference / concern / excluded option | Prior | If it rests on an unverified premise → also add Assumption |
-| Explicit or implicit unverified premise | Assumption | Do not defer to R |
-| Gate contract requires logging (e.g. X gap, unknown dependency) | Assumption | Immediate |
-
-**Flow:** brief confirm with user → `$REGISTER_COMMIT` with one or more append/update operations (non-zero → stop gate) → pin `$CTX` from stdout → continue dialogue.
-
-**Prohibited:** deferring capture because R is coming; hand-editing register state in prose; reading or writing register data files directly; chaining `register-append` / `register-update` / `sync-registers-to-doc` / `resolve-context` separately for G0.
-
-Gate contracts may add mandatory capture moments — follow those in addition to this table.
-
-Register read and organize steps: gate contracts + runner pipelines (D, R) — not kernel tables.
-
-### Persistence (script SSOT)
-
-| Path | Macro | Notes |
-|------|-------|-------|
-| G0 capture / inline edit | `$REGISTER_COMMIT` | stdout = full `$CTX` (registers + gates) |
-| R / V / RR bulk field updates | `$GATE_CONTROL gate-close` | Coupled to gate transition — not separable |
-| RS batch | `$RS_COMMIT` | stdout = full `$CTX`; see § Re-open & Invalidation |
-| Pin `$CTX` | Runner step 1 `resolve-context`, `$REGISTER_COMMIT`, or `$RS_COMMIT` stdout | Do not read session data files |
-
-If any register CLI exits non-zero: stop the current gate and report the error.
-
-Subcommand contracts: `$REGISTER_COMMIT` via `$REGISTER_CONTROL --help` (`register-commit`).
+Gate contracts (dialogue semantics): `$SKILL_DIR/gates/*.md` — read via runner reference. G0 contract: `$SKILL_DIR/gates/g0-parallel-registers.md`.
 
 ---
 
@@ -149,11 +111,9 @@ Subcommand contracts: `$REGISTER_COMMIT` via `$REGISTER_CONTROL --help` (`regist
 
 1. **Expose over conclude** — the goal is to surface assumptions and risks. A conclusion is the output of verification, not the target.
 2. **User prior over framework** — user's judgments, intuitions, and concerns shape the session; the framework captures and integrates them, does not override them.
-3. **Log assumptions immediately** — see § Parallel Registers · G0 capture; R organizes, does not collect.
+3. **Log assumptions immediately** — on identification hit, run **G0** runner before continuing the active spine gate.
 
 ### Global rules
-
-**G0.** User prior / assumption capture — see § Parallel Registers · G0 capture.
 
 **G1.** One question at a time — never stack multiple questions in a single message.
 
@@ -161,7 +121,7 @@ Subcommand contracts: `$REGISTER_COMMIT` via `$REGISTER_CONTROL --help` (`regist
 
 **G3.** Each gate has a pass criterion. Do not advance until the criterion is met.
 
-**G4. Context refresh** — Pin `$CTX` from the active runner pipeline step 1 (`resolve-context`), or from `$REGISTER_COMMIT` / `$RS_COMMIT` stdout when those run. Do not chain an extra `resolve-context` after those commands. Do **not** show `reply_header` or hand-write gate/register status blocks; read `gates` / `registers` from `$CTX` only. Do **not** read session data files directly.
+**G4. Context refresh** — Pin `$CTX` from the active spine gate runner pipeline step 1 (`resolve-context`), or from G0 `$REGISTER_COMMIT` / `$RS_COMMIT` stdout when those run. Do not chain an extra `resolve-context` after those commands. Do **not** show `reply_header` or hand-write gate/register status blocks; read `gates` / `registers` from `$CTX` only. Do **not** read session data files directly.
 
 **G4b. Gate persistence** — Closing a gate requires `$GATE_CONTROL gate-close` after G8 user confirmation. Do not mark a gate closed in conversation only.
 
@@ -203,7 +163,7 @@ If user confirms exit → exit gracefully; mark as incomplete.
 ### Consequences (script SSOT)
 
 - Gate and decision-doc downstream invalidation: **`$GATE_CONTROL` only**; scope computed by DAG — agent does not enumerate.
-- Registers are **not** auto-modified by gate invalidation (see § Parallel Registers · Persistence).
+- Registers are **not** auto-modified by gate invalidation — RS register batch via `$RS_COMMIT` only.
 - Re-entry point after RS: **Loop A gate `G`** (Q / E / D / X), not V / RR.
 - Loop B-only new assumptions while Loop A still holds → RR `return_r` back to R; not RS.
 
