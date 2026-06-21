@@ -2,9 +2,14 @@
 
 #### D — Decision & Scope
 
-**Prerequisites:** E closed · User Prior reviewed
+**Prerequisites:** E closed
 
-**Before entering:** Review User Prior Log. Confirm the selected direction reflects the user's stated judgments and concerns. If there is a conflict or unaddressed concern, address it explicitly in Decision Rationale.
+**Before entering:**
+1. Read `$CTX.registers.prior` from runner pipeline step 1 stdout — not conversation memory alone.
+2. Compare each prior against E user choice; surface conflicts or unaddressed concerns before D dialogue.
+3. Address conflicts explicitly in Decision Rationale.
+
+Do not start D dialogue until the above is complete.
 
 **Execute:**
 1. **Decision Rationale:** state which option was chosen and why, referencing E trade-offs; state why others were excluded.
@@ -13,4 +18,4 @@
 
 **Confirmation (G8):** Ask user: "Does this decision rationale, scope, and execution approach look correct?" Do not declare D closed until user explicitly confirms.
 
-**Pass criterion:** All three sub-dimensions filled; exclusions are explicit (not just "we cover X"); rationale references E trade-offs; user confirmed.
+**Pass criterion:** All three sub-dimensions filled; exclusions are explicit (not just "we cover X"); rationale references E trade-offs and explicitly addresses every `concern` and `excluded` prior (or states none exist); user confirmed.

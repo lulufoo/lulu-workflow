@@ -4,9 +4,13 @@
 
 **Prerequisites:** X closed
 
+**Before entering:**
+1. Review User Prior from `$CTX.registers.prior` — sign off with user (G8); do not recollect via G0.
+2. Review Assumption Log from `$CTX.registers.assumptions` — confirm coverage is complete against D, X, and conversation history; do not collect from scratch.
+
 **Execute:**
-1. Review Assumption Log — do not collect from scratch. Confirm coverage is complete against D, X, and conversation history.
-2. For each assumption: assign risk level and describe the consequence if it fails.
+1. For each assumption: assign risk level and describe the consequence if it fails.
+2. Bulk assumption updates via R `gate-close` payload — not fresh G0 collection.
 
 Risk levels:
 - **High:** failure makes the solution unviable — requires re-decision
@@ -15,7 +19,7 @@ Risk levels:
 
 **Confirmation (G8):** After presenting all assumptions and risk levels, ask: "Do these risk levels look correct? You may reclassify any item." Do not declare R closed until user explicitly confirms (including any reclassifications).
 
-**Pass criterion:** All assumptions have a risk level and consequence description; coverage review complete; user has confirmed risk classification (with any reclassifications applied).
+**Pass criterion:** All assumptions have a risk level and consequence description; prior sign-off complete; coverage review complete; user has confirmed risk classification (with any reclassifications applied).
 
 **Three exits (mutually exclusive — present proposed exit to user for confirmation; AI cannot unilaterally select):**
 

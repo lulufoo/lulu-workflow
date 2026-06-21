@@ -71,14 +71,15 @@ On success, follow stdout (new session ready, or legacy session migrated). Do **
 - [RS] Reopen State Handler — standalone subroutine (see § Re-open & Invalidation)
 - [DC] Delivery Confirmation — terminal gate
 
-### Between gates
+### Gate handoff
 
-After each runner returns `GATE_COMPLETE`, run `$GATE_CONTROL resolve-context` before loading the next runner. Pin `$CTX` for routing (`active_gate`, `skipped_gates`, `gates`, `registers`, `domain_constraints`). Do **not** paste `reply_header` to the user — persistence is via `$GATE_CONTROL` / `$REGISTER_CONTROL` only.
+After a runner returns `GATE_COMPLETE`, load the next runner per § Gate routing. Its pipeline step 1 pins fresh `$CTX`. Do **not** paste `reply_header` to the user — persistence is via `$GATE_CONTROL` / `$REGISTER_CONTROL` only.
 
 ### Gate routing
 
 <HARD-GATE>
 Before executing any gate, read the corresponding runner SKILL first.
+Every runner pipeline step 1 (`$GATE_CONTROL resolve-context`) is mandatory — it pins `$CTX` for that gate. Do not skip it or rely on memory.
 Do NOT rely on memory or prior context for gate execution steps.
 </HARD-GATE>
 
@@ -125,22 +126,16 @@ If any row below applies in the current turn, persist via `$REGISTER_COMMIT` suc
 
 Gate contracts may add mandatory capture moments — follow those in addition to this table.
 
-### When to read (not collect)
-
-| Moment | Action |
-|--------|--------|
-| Before D | Review User Prior from `$CTX.registers` — resolve conflicts with chosen direction |
-| At R | Organize and sign off priors; risk-grade assumptions — via R `gate-close` payload, not fresh G0 collection |
-| After gate-close or when no G0 write in turn | `$GATE_CONTROL resolve-context` → pin `$CTX` (G4) |
+Register read and organize steps: gate contracts + runner pipelines (D, R) — not kernel tables.
 
 ### Persistence (script SSOT)
 
 | Path | Macro | Notes |
 |------|-------|-------|
-| G0 capture / inline edit | `$REGISTER_COMMIT` | stdout = full `$CTX` (registers + gates); satisfies G4 for G0 |
+| G0 capture / inline edit | `$REGISTER_COMMIT` | stdout = full `$CTX` (registers + gates) |
 | R / V / RR bulk field updates | `$GATE_CONTROL gate-close` | Coupled to gate transition — not separable |
-| RS batch | `$RS_COMMIT` | See § Re-open & Invalidation |
-| Read only | `$CTX.registers` | From last `$REGISTER_COMMIT`, `gate-close`, or `resolve-context` stdout |
+| RS batch | `$RS_COMMIT` | stdout = full `$CTX`; see § Re-open & Invalidation |
+| Pin `$CTX` | Runner step 1 `resolve-context`, `$REGISTER_COMMIT`, or `$RS_COMMIT` stdout | Do not read session data files |
 
 If any register CLI exits non-zero: stop the current gate and report the error.
 
@@ -166,7 +161,7 @@ Subcommand contracts: `$REGISTER_COMMIT` via `$REGISTER_CONTROL --help` (`regist
 
 **G3.** Each gate has a pass criterion. Do not advance until the criterion is met.
 
-**G4. Context refresh** — after any gate state change, or after G0 when not using `$REGISTER_COMMIT`, run `$GATE_CONTROL resolve-context` successfully and pin `$CTX` before the next user-visible reply. `$REGISTER_COMMIT` and `$RS_COMMIT` stdout already include full `$CTX`. Do **not** show `reply_header` or hand-write gate/register status blocks; read `gates` / `registers` from `$CTX` only. Do **not** read session data files directly.
+**G4. Context refresh** — Pin `$CTX` from the active runner pipeline step 1 (`resolve-context`), or from `$REGISTER_COMMIT` / `$RS_COMMIT` stdout when those run. Do not chain an extra `resolve-context` after those commands. Do **not** show `reply_header` or hand-write gate/register status blocks; read `gates` / `registers` from `$CTX` only. Do **not** read session data files directly.
 
 **G4b. Gate persistence** — Closing a gate requires `$GATE_CONTROL gate-close` after G8 user confirmation. Do not mark a gate closed in conversation only.
 

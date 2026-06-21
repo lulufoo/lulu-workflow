@@ -26,8 +26,8 @@ Do NOT proceed until you have read `../../../_runtime.md`
 ## Pipeline
 
 1. `$GATE_CONTROL resolve-context` — pin `$CTX`
-2. Review User Prior from `$CTX.registers` — R签字确认 (G8)
-3. Review assumptions; assign risk + consequence (G8 confirm)
+2. Gate contract § Before entering — prior sign-off, then assumption coverage (G8)
+3. Gate contract § Execute — risk + consequence (G8 confirm)
 4. Select exit with user:
    - `rs` — known failure → RS runner (identify `reopen_gate`)
    - `loop_b` — uncertain assumptions → V
