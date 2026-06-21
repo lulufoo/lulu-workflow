@@ -7,6 +7,7 @@ Subcommands:
     gate-activate          Activate a gate (e.g. re-activate Q after RS)
     gate-close             Close active gate, patch decision-doc, advance pointer
     invalidate-from        RS mechanical invalidation from a gate downstream
+    rs-commit              Atomic RS: invalidate-from + register batch + resolve-context
     check-delivery-ready   Validate decision-doc + gates for DC delivery
     deliver                Set session-state Delivered (requires DC closed)
     migrate-session        Bootstrap gate-state/registers for legacy sessions
@@ -81,7 +82,7 @@ from dx_workflow_common import (  # noqa: E402
 )
 
 from dx_migrate_session import migrate_session_dir, needs_migration  # noqa: E402
-from dx_register_control import sync_registers_to_doc  # noqa: E402
+from dx_register_control import apply_register_batch_operations, sync_registers_to_doc  # noqa: E402
 
 
 def _emit(payload: dict[str, Any]) -> None:
@@ -787,31 +788,84 @@ def cmd_gate_close(
     return 0
 
 
+def _run_invalidate_from(
+    paths: dict[str, Path],
+    project_root: Path,
+    cycle_id: str,
+    stage: str,
+    gate: str,
+) -> dict[str, Any]:
+    state = load_gate_state(paths["gate_state"])
+    if gate not in GATE_ORDER:
+        raise ValueError(f"invalid gate: {gate!r}")
+    if gate not in RS_INVALIDATE_GATES:
+        raise ValueError(f"invalidate-from supports {sorted(RS_INVALIDATE_GATES)}, got {gate!r}")
+    updated = invalidate_from_gate(state, gate)
+    save_gate_state(paths["gate_state"], updated)
+    doc = load_decision_doc(paths["decision_doc"])
+    doc = clear_sections_downstream(doc, gate)
+    save_decision_doc(paths["decision_doc"], doc)
+    r_closed = is_gate_closed(updated, "R")
+    constraints = _load_session_constraints(project_root, cycle_id, stage)
+    sync_registers_to_doc(
+        paths["decision_doc"],
+        paths["registers"],
+        r_gate_closed=r_closed,
+        constraints=constraints,
+    )
+    return updated
+
+
 def cmd_invalidate_from(project_root: Path, cycle_id: str, stage: str, gate: str) -> int:
     paths = _paths(project_root, cycle_id, stage)
     try:
-        state = load_gate_state(paths["gate_state"])
-        if gate not in GATE_ORDER:
-            return _emit_error(f"invalid gate: {gate!r}")
-        if gate not in RS_INVALIDATE_GATES:
-            return _emit_error(f"invalidate-from supports {sorted(RS_INVALIDATE_GATES)}, got {gate!r}")
-        updated = invalidate_from_gate(state, gate)
-        save_gate_state(paths["gate_state"], updated)
-        doc = load_decision_doc(paths["decision_doc"])
-        doc = clear_sections_downstream(doc, gate)
-        save_decision_doc(paths["decision_doc"], doc)
-        r_closed = is_gate_closed(updated, "R")
-        constraints = _load_session_constraints(project_root, cycle_id, stage)
-        sync_registers_to_doc(
-            paths["decision_doc"],
-            paths["registers"],
-            r_gate_closed=r_closed,
-            constraints=constraints,
-        )
+        updated = _run_invalidate_from(paths, project_root, cycle_id, stage, gate)
     except (FileNotFoundError, ValueError) as exc:
         return _emit_error(str(exc))
 
     _emit({"ok": True, "gate": gate, "active_gate": updated["active_gate"]})
+    return 0
+
+
+def cmd_rs_commit(
+    project_root: Path,
+    cycle_id: str,
+    stage: str,
+    gate: str,
+    *,
+    operations: list[dict[str, Any]],
+) -> int:
+    paths = _paths(project_root, cycle_id, stage)
+    try:
+        if gate not in RS_REOPEN_GATES:
+            return _emit_error(f"rs-commit gate must be one of {list(RS_REOPEN_GATES)}, got {gate!r}")
+        updated = _run_invalidate_from(paths, project_root, cycle_id, stage, gate)
+        registers, applied = apply_register_batch_operations(paths, operations=operations)
+        gate_state = load_gate_state(paths["gate_state"])
+        constraints = _load_session_constraints(project_root, cycle_id, stage)
+    except (FileNotFoundError, ValueError) as exc:
+        return _emit_error(str(exc))
+
+    _emit(
+        {
+            "ok": True,
+            "reenter": gate,
+            "applied": applied,
+            "cycle_id": cycle_id,
+            "stage": stage,
+            "session_dir": paths["session_dir"].as_posix(),
+            "gate_state_path": paths["gate_state"].as_posix(),
+            "registers_path": paths["registers"].as_posix(),
+            "decision_doc_path": paths["decision_doc"].as_posix(),
+            "domain_constraints_path": paths["domain_constraints"].as_posix(),
+            "active_gate": gate_state["active_gate"],
+            "gates": gate_state["gates"],
+            "skipped_gates": gate_state.get("skipped_gates", []),
+            "domain_constraints": constraints,
+            "registers": registers,
+            "reply_header": render_reply_header(gate_state, registers),
+        }
+    )
     return 0
 
 
@@ -866,6 +920,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     invalidate = sub.add_parser("invalidate-from", help="Invalidate gate and downstream.")
     invalidate.add_argument("--gate", required=True)
 
+    rs_commit = sub.add_parser(
+        "rs-commit",
+        help="Atomic RS: invalidate-from + register batch + resolve-context.",
+    )
+    rs_commit.add_argument("--gate", required=True, help="Reopen gate (Q, E, D, or X).")
+    rs_commit.add_argument(
+        "--operations",
+        required=True,
+        help="JSON array of register batch operations (use [] if none).",
+    )
+
     sub.add_parser("check-delivery-ready", help="Validate readiness for DC delivery.")
     sub.add_parser("deliver", help="Set session-state Delivered after DC closed.")
     sub.add_parser("migrate-session", help="Migrate legacy session to gate-state architecture.")
@@ -905,6 +970,23 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_gate_close(project_root, cycle_id, stage, args.gate.strip(), payload)
     if args.command == "invalidate-from":
         return cmd_invalidate_from(project_root, cycle_id, stage, args.gate.strip())
+    if args.command == "rs-commit":
+        try:
+            operations_raw = json.loads(args.operations)
+        except json.JSONDecodeError as exc:
+            return _emit_error(f"invalid operations JSON: {exc}")
+        if not isinstance(operations_raw, list):
+            return _emit_error("operations must be a JSON array")
+        operations = [op for op in operations_raw if isinstance(op, dict)]
+        if len(operations) != len(operations_raw):
+            return _emit_error("each operation must be a JSON object")
+        return cmd_rs_commit(
+            project_root,
+            cycle_id,
+            stage,
+            args.gate.strip(),
+            operations=operations,
+        )
     if args.command == "check-delivery-ready":
         return cmd_check_delivery_ready(project_root, cycle_id, stage)
     if args.command == "deliver":

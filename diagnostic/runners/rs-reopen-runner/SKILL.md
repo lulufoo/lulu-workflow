@@ -1,14 +1,14 @@
 ---
 name: diagnostic/rs-reopen-runner
 description: >-
-  RS subroutine for diagnostic. Mechanical gate/doc invalidation and register
-  batch relabeling after reopen trigger. Invoked by diagnostic/SKILL.md.
+  RS subroutine for diagnostic. Dialogue and register proposals before atomic
+  rs-commit. Invoked by diagnostic/SKILL.md.
 meta-skill-version: 1.0.0
 ---
 
 # rs-reopen-runner
 
-Execute **RS — Reopen State Handler**. Clears downstream gate conclusions and relabels registers per user confirmation.
+Execute **RS — Reopen State Handler**. Proposes register relabeling; persists via `$RS_COMMIT`.
 
 ## Blocking policy
 
@@ -25,16 +25,14 @@ Do NOT proceed until you have read `../../../_runtime.md`
 
 ## Pipeline
 
-1. `$GATE_CONTROL resolve-context` — pin `$CTX`; use `$CTX` (not conversation memory) as baseline before invalidation
-2. Step 1 — confirm reopen gate `G` with user (G8)
-3. `$GATE_CONTROL invalidate-from --gate <G>`
-4. Step 3 — propose 3-state labeling for all register entries; user confirms (G8)
-5. `$REGISTER_CONTROL register-batch-apply --operations '<json array>'`
-6. `$REGISTER_CONTROL sync-registers-to-doc`
-7. `$GATE_CONTROL resolve-context` — refresh `$CTX` (G4)
-8. Return `RS_COMPLETE reenter=<G>` — load gate `G` runner next
+1. `$GATE_CONTROL resolve-context` — pin `$CTX`; baseline before proposals (not conversation memory)
+2. Confirm reopen gate `G` with user (G8)
+3. Propose 3-state labeling for all register entries per gate contract Step 3; user confirms (G8)
+4. `$RS_COMMIT` with `--gate <G>` and `--operations '<json array>'` (use `[]` if no register changes)
+5. Pin `$CTX` from stdout (`reenter`, `gates`, `registers`, `domain_constraints`)
+6. Return `RS_COMPLETE reenter=<G>` — load gate `G` runner via kernel § Gate routing
 
-## register-batch-apply operations
+## `--operations` format
 
 ```json
 [

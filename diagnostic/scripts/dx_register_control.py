@@ -225,6 +225,46 @@ def _find_entry(registers: dict[str, Any], entry_id: str) -> dict[str, Any] | No
     return None
 
 
+def apply_register_batch_operations(
+    paths: dict[str, Path],
+    *,
+    operations: list[dict[str, Any]],
+) -> tuple[dict[str, Any], int]:
+    """Apply RS batch ops; persist registers and sync decision-doc. Returns (registers, applied)."""
+    gate_state = load_gate_state(paths["gate_state"])
+    r_closed = is_gate_closed(gate_state, "R")
+    registers = load_registers(paths["registers"], r_gate_closed=r_closed)
+
+    for op in operations:
+        entry_id = str(op.get("id", ""))
+        action = str(op.get("action", ""))
+        target = _find_entry(registers, entry_id)
+        if target is None:
+            raise ValueError(f"entry not found: {entry_id}")
+        if action == "delete":
+            collection = "prior" if entry_id.startswith("P") else "assumptions"
+            registers[collection] = [
+                e for e in registers[collection] if str(e.get("id")) != entry_id
+            ]
+        elif action == "set_state":
+            state = str(op.get("state", ""))
+            if state not in REGISTER_STATES:
+                raise ValueError(f"invalid state: {state!r}")
+            if state == "invalidated":
+                collection = "prior" if entry_id.startswith("P") else "assumptions"
+                registers[collection] = [
+                    e for e in registers[collection] if str(e.get("id")) != entry_id
+                ]
+            else:
+                target["state"] = state
+        else:
+            raise ValueError(f"invalid action: {action!r}")
+
+    save_registers(paths["registers"], registers, r_gate_closed=r_closed)
+    sync_registers_to_doc(paths["decision_doc"], paths["registers"], r_gate_closed=r_closed)
+    return registers, len(operations)
+
+
 def cmd_register_batch_apply(
     project_root: Path,
     cycle_id: str,
@@ -234,41 +274,11 @@ def cmd_register_batch_apply(
 ) -> int:
     paths = _paths(project_root, cycle_id, stage)
     try:
-        gate_state = load_gate_state(paths["gate_state"])
-        r_closed = is_gate_closed(gate_state, "R")
-        registers = load_registers(paths["registers"], r_gate_closed=r_closed)
-
-        for op in operations:
-            entry_id = str(op.get("id", ""))
-            action = str(op.get("action", ""))
-            target = _find_entry(registers, entry_id)
-            if target is None:
-                return _emit_error(f"entry not found: {entry_id}")
-            if action == "delete":
-                collection = "prior" if entry_id.startswith("P") else "assumptions"
-                registers[collection] = [
-                    e for e in registers[collection] if str(e.get("id")) != entry_id
-                ]
-            elif action == "set_state":
-                state = str(op.get("state", ""))
-                if state not in REGISTER_STATES:
-                    return _emit_error(f"invalid state: {state!r}")
-                if state == "invalidated":
-                    collection = "prior" if entry_id.startswith("P") else "assumptions"
-                    registers[collection] = [
-                        e for e in registers[collection] if str(e.get("id")) != entry_id
-                    ]
-                else:
-                    target["state"] = state
-            else:
-                return _emit_error(f"invalid action: {action!r}")
-
-        save_registers(paths["registers"], registers, r_gate_closed=r_closed)
-        sync_registers_to_doc(paths["decision_doc"], paths["registers"], r_gate_closed=r_closed)
+        _, applied = apply_register_batch_operations(paths, operations=operations)
     except (FileNotFoundError, ValueError) as exc:
         return _emit_error(str(exc))
 
-    _emit({"ok": True, "applied": len(operations)})
+    _emit({"ok": True, "applied": applied})
     return 0
 
 

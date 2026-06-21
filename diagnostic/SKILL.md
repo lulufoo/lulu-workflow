@@ -40,6 +40,7 @@ Do NOT proceed until you have read `../_runtime.md` and loaded:
 | `$DX_START` | `python3 "$SKILL_DIR/scripts/dx_start.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>"` |
 | `$GATE_CONTROL` | `python3 "$SKILL_DIR/scripts/dx_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>"` |
 | `$REGISTER_CONTROL` | `python3 "$SKILL_DIR/scripts/dx_register_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>"` |
+| `$RS_COMMIT` | `python3 "$SKILL_DIR/scripts/dx_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" rs-commit --gate "<G>" --operations '<json array>'` |
 
 Subcommand contracts: module docstrings / `--help`.
 
@@ -113,10 +114,10 @@ Two registers run throughout the entire session, not attached to any single gate
 - `<source>`: gate where first discovered — `O` / `Q` / `E` / `D` / `X` / `R` / `V` / `RR`
 - `<risk>`: `H`/`M`/`L` — assigned at R; omitted until then
 
-**On reopen:** register entries are not auto-modified by DAG propagation — changes only occur when RS runs with user-confirmed `register-batch-apply`.
+**On reopen:** register entries are not auto-modified by gate invalidation — changes only occur after user-confirmed `$RS_COMMIT` (see § Re-open & Invalidation).
 
 <HARD-GATE name="Register SSOT">
-- Prior and Assumption data SSOT: `$REGISTER_CONTROL` + `$CTX.registers` (via `resolve-context`). Incremental capture and edits use `$REGISTER_CONTROL` only (`register-append`, `register-update`, `register-batch-apply`, `sync-registers-to-doc`).
+- Prior and Assumption data SSOT: `$REGISTER_CONTROL` + `$CTX.registers` (via `resolve-context`). Incremental capture and edits use `$REGISTER_CONTROL` only (`register-append`, `register-update`, `sync-registers-to-doc`); RS batch changes go through `$RS_COMMIT`.
 - After G0 capture (Prior or Assumption), call `register-append` or `register-update` successfully before the next user-visible reply continues the gate.
 - Batch register updates at R / V / RR gate-close are applied via `$GATE_CONTROL gate-close` payload (not a separate `$REGISTER_CONTROL` call).
 - If any register CLI exits non-zero: stop the current gate and report the error.
@@ -124,9 +125,9 @@ Two registers run throughout the entire session, not attached to any single gate
 
 | Operation | Command |
 |-----------|---------|
+| RS commit (gate + registers) | `$RS_COMMIT` |
 | G0 append prior / assumption | `$REGISTER_CONTROL register-append --kind prior\|assumption` |
 | Single-field update | `$REGISTER_CONTROL register-update` |
-| RS batch relabel / delete | `$REGISTER_CONTROL register-batch-apply` |
 | Sync registers into decision-doc | `$REGISTER_CONTROL sync-registers-to-doc` |
 
 Subcommand contracts: `$REGISTER_CONTROL --help` (and `$GATE_CONTROL --help` where applicable).
@@ -179,20 +180,39 @@ If user confirms exit → exit gracefully; mark as incomplete.
 
 ## Re-open & Invalidation
 
-Two global rules, applicable at any gate, any time:
+> Global rules — any gate, any time. RS dialogue and register proposals:
+> `$SKILL_DIR/runners/rs-reopen-runner/SKILL.md` + `gates/rs-reopen-state-handler.md`.
 
-**Trigger:** Any participant (AI or user) can re-open a prior gate the moment new information shows its pass criterion no longer holds — without waiting for V.
+### When to reopen (Trigger)
 
-**Propagation:**
-- When a gate is re-opened, all gates reachable from it along prerequisite dependency arrows are automatically invalidated and must be re-satisfied.
-- Scope is determined by the DAG structure — no enumeration needed.
-- When a reopen trigger fires, load and execute `$SKILL_DIR/runners/rs-reopen-runner/SKILL.md` (gate contract: `gates/rs-reopen-state-handler.md`).
+- Any participant may trigger reopen when a **prior gate's pass criterion no longer holds** — without waiting for V.
+- Loop B discovering upstream is wrong → RS (not a Loop B re-entry).
+- **G9:** before gate-close, check whether this gate's evidence invalidates any prior gate; if yes → do not gate-close; trigger RS.
+- Agent duties: detect reopen need, propose reopen gate `G` (Q / E / D / X), obtain G8 confirmation.
+- Agent **must not** manually mark gates invalidated, edit gate-state, or enumerate downstream gates.
 
-**RS mechanical steps** (do not skip):
-1. `$GATE_CONTROL invalidate-from --gate <G>`
-2. User-confirmed register relabeling → `$REGISTER_CONTROL register-batch-apply`
-3. `$REGISTER_CONTROL sync-registers-to-doc` + `$GATE_CONTROL resolve-context` (refresh `$CTX` — G4)
-4. Re-enter LoopA at gate `<G>` via § Gate routing
+### Consequences (script SSOT)
+
+- Gate and decision-doc downstream invalidation: **`$GATE_CONTROL` only**; scope computed by DAG — agent does not enumerate.
+- Registers are **not** auto-modified by gate invalidation (see § Parallel Registers · On reopen).
+- Re-entry point after RS: **Loop A gate `G`** (Q / E / D / X), not V / RR.
+- Loop B-only new assumptions while Loop A still holds → RR `return_r` back to R; not RS.
+
+### RS subroutine
+
+After trigger and G8 confirm reopen gate `G`:
+
+1. Load `$SKILL_DIR/runners/rs-reopen-runner/SKILL.md`
+2. Runner: baseline `$CTX` → propose register 3-state labels → G8 → **`$RS_COMMIT`**
+3. Pin `$CTX` from `$RS_COMMIT` stdout; load gate `G` runner via § Gate routing
+
+<HARD-GATE name="RS commit">
+- Do **not** call `$RS_COMMIT` before G8 confirms `G` and register operations.
+- Non-zero exit → stop RS, report stderr, wait for user direction.
+- After success, read `reenter`, `gates`, `registers` from stdout only — do not chain `invalidate-from` / `register-batch-apply` / `sync-registers-to-doc` separately for RS.
+</HARD-GATE>
+
+Subcommand contracts: `$RS_COMMIT` via `$GATE_CONTROL --help` (`rs-commit`).
 
 ---
 

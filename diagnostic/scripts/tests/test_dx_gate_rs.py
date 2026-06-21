@@ -18,6 +18,7 @@ from dx_gate_control import (  # noqa: E402
     cmd_gate_close,
     cmd_invalidate_from,
     cmd_init_session,
+    cmd_rs_commit,
 )
 from dx_register_control import cmd_register_append, cmd_register_batch_apply  # noqa: E402
 from dx_workflow_common import decision_doc_path, gate_state_path, registers_path  # noqa: E402
@@ -213,3 +214,59 @@ def test_rs_invalidate_and_register_batch(template_config: Path, monkeypatch: py
         (project_root / registers_path(cycle_id, stage)).read_text(encoding="utf-8")
     )
     assert registers["assumptions"][0]["state"] == "pending"
+
+
+def test_rs_commit_atomic(template_config: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    project_root = template_config
+    cycle_id = "feature-rs-004"
+    stage = "diagnostic"
+    monkeypatch.chdir(project_root)
+
+    _close_through_d(project_root, cycle_id, stage)
+    cmd_register_append(
+        project_root,
+        cycle_id,
+        stage,
+        register_kind="assumption",
+        payload={"text": "Stale assumption from X"},
+    )
+    cmd_gate_close(
+        project_root,
+        cycle_id,
+        stage,
+        "X",
+        {
+            "acceptance_criteria": "Users export CSV",
+            "gap": "None",
+            "impact_surface": [],
+            "external_dependencies": [],
+            "key_changes": "Add endpoint",
+            "critical_constraints": "none",
+            "reversibility": "easy",
+        },
+    )
+
+    capsys.readouterr()
+    assert (
+        cmd_rs_commit(
+            project_root,
+            cycle_id,
+            stage,
+            "D",
+            operations=[{"id": "A1", "action": "set_state", "state": "pending"}],
+        )
+        == 0
+    )
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+    assert payload["ok"] is True
+    assert payload["reenter"] == "D"
+    assert payload["active_gate"] == "D"
+    assert payload["applied"] == 1
+    assert payload["registers"]["assumptions"][0]["state"] == "pending"
+    assert payload["gates"]["D"]["status"] == "active"
+    assert payload["gates"]["X"]["status"] == "invalidated"
+
+    doc = load_decision_doc(project_root / decision_doc_path(cycle_id, stage))
+    assert "Add endpoint" not in doc
+    assert "Chose A" not in doc
