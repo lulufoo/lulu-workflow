@@ -38,88 +38,14 @@ section (injected by a domain holder such as `product-diagnostic` or `tech-diagn
 
 ---
 
-<HARD-GATE>
-Do NOT exit diagnostic or transition to the next stage until:
-  
-- All DDF gates (Q / E / D / X → R → [LoopB if uncertain: V / RR] → DC) have passed
-- All decision-doc sections are written incrementally and current on disk
-- User has explicitly confirmed readiness to proceed
+## Script Macros
 
-This applies to EVERY intent, regardless of perceived clarity.
-"I already know what I want to build" is the most common reason to skip this —
-and the most common source of wasted downstream work.
-</HARD-GATE>
+| Macro | Command |
+|-------|---------|
+| `$GATE_CONTROL` | `python3 "$SKILL_DIR/scripts/dx_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>"` |
+| `$REGISTER_CONTROL` | `python3 "$SKILL_DIR/scripts/dx_register_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>"` |
 
-<HARD-GATE name="Register SSOT">
-- `registers.json` is modified only via `$REGISTER_CONTROL`.
-- After G0 capture (Prior or Assumption), call `register-append` or `register-update` successfully before the next user-visible reply continues the gate.
-- Reply Header Prior/Assumption lines must come from `$GATE_CONTROL resolve-context` (`reply_header` field). Do not hand-write register lines.
-- If any register CLI exits non-zero: stop the current gate and report the error.
-</HARD-GATE>
-
----
-
-## Core Principles
-
-1. **Expose over conclude** — the goal is to surface assumptions and risks. A conclusion is the output of verification, not the target.
-2. **User prior over framework** — user's judgments, intuitions, and concerns shape the session; the framework captures and integrates them, does not override them.
-3. **Log assumptions immediately** — any assumption surfaced at any gate goes into the Assumption Log right away; R organizes, does not collect.
-
----
-
-## Re-open & Invalidation
-
-Two global rules, applicable at any gate, any time:
-
-**Trigger**: Any participant (AI or user) can re-open a prior gate the moment new information shows its pass criterion no longer holds — without waiting for V.
-
-**Propagation**:
-- When a gate is re-opened, all gates reachable from it along prerequisite dependency arrows are automatically invalidated and must be re-satisfied.
-- Scope is determined by the DAG structure — no enumeration needed.
-- When a reopen trigger fires, load and execute `$SKILL_DIR/runners/rs-reopen-runner/SKILL.md` (gate contract: `gates/rs-reopen-state-handler.md`).
-
-**RS mechanical steps** (via Script Macros — do not skip):
-1. `$GATE_CONTROL invalidate-from --gate <G>` — reset gate-state + downstream decision-doc zones
-2. User-confirmed register relabeling → `$REGISTER_CONTROL register-batch-apply`
-3. `$REGISTER_CONTROL sync-registers-to-doc` + `$GATE_CONTROL resolve-context`
-4. Re-enter LoopA at gate `<G>` via the corresponding gate runner
-
----
-
-## Parallel Registers
-
-Two registers run throughout the entire session, not attached to any single gate:
-
-**User Prior Log** — captures user's judgments, preferences, concerns, and excluded options. Reviewed before D; verified at R (R签字确认).
-
-**Assumption Log** — captures unverified premises. Risk-graded at R; not collected from scratch there.
-
-**3-state lifecycle:** `[待验证]` (default) → `[已验证]` (confirmed at R or after Risk Release) → `[失效]` (deleted via RS § Register Reopen Protocol)
-
-**Reply Header** — output at the top of every reply once any entry exists:
-
-~~~~
-```
-─── DDF ───────────────────────────────────────
-Gate: Q✅ E✅ D⬜ X⬜ R⬜ V⬜ RR⬜ DC⬜
-Prior：
-[P1✓ open] 排除方案B
-[P2? Q] 偏好渐进实施
-Assumption：
-[A1? D H] API批量操作
-[A2✓ X L] 管理员权限
-───────────────────────────────────────────────
-```
-~~~~
-
-- `<state>`: `?` = 待验证 · `✓` = 已验证
-- `<source>`: gate where first discovered — `open` / `Q` / `E` / `D` / `X` / `R` / `V` / `RR`
-- `<risk>`: `H`/`M`/`L` — assigned by R gate; omitted until then
-- Omit `Prior：` or `Assumption：` block if empty; omit entire Header if no entries exist; stop after DC Delivered
-
-**On reopen:**
-- Gate line: reopened gate G + all downstream → `⬜`
-- Register entries are not auto-modified by DAG propagation — changes only occur when reopen is triggered.
+Subcommand contracts: module docstrings / `--help`.
 
 ---
 
@@ -148,24 +74,128 @@ Creates `session-state.md` with `current_state: InProgress`, plus `gate-state.js
 
 ---
 
-## Script Macros
+## Session Flow
 
-| Macro | Command |
-|-------|---------|
-| `$GATE_CONTROL` | `python3 "$SKILL_DIR/scripts/dx_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>"` |
-| `$REGISTER_CONTROL` | `python3 "$SKILL_DIR/scripts/dx_register_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>"` |
+**Spine:** Open channel → [LoopA] Q → E → D → X → R → ([LoopB] V → RR if needed) → DC → `$GATE_CONTROL deliver`.
 
-Subcommand contracts: module docstrings / `--help`.
+**Phase grouping** (re-open invalidate scope):
+- [LoopA] Q → E → D → X → R — decision construction
+- [LoopB] V → RR — verification release
+- [RS] Reopen State Handler — standalone subroutine (see § Re-open & Invalidation)
+- [DC] Delivery Confirmation — terminal gate
+
+### Open channel (before Q)
+
+Before entering Q, invite the user to dump existing knowledge:
+
+> "Before we begin — share what you'd like me to know: direction preferences, concerns, or options you've already ruled out. It doesn't need to be complete; you can add more at any point."
+
+Capture input via `$REGISTER_CONTROL register-append --kind prior --payload '<json>'` (source `open` while `active_gate` is `open`). This step is not part of Q and does not count toward Q's question quota. See § Parallel Registers.
+
+### Between gates
+
+After each runner returns `GATE_COMPLETE`, run `$GATE_CONTROL resolve-context` before loading the next runner. Pin `$CTX` for Reply Header (see § Reply Header) and routing (`active_gate`, `skipped_gates`).
+
+### Gate routing
+
+<HARD-GATE>
+Before executing any gate, read the corresponding runner SKILL first.
+Do NOT rely on memory or prior context for gate execution steps.
+</HARD-GATE>
+
+| Gate | File | Load condition |
+|------|------|----------------|
+| Q | `$SKILL_DIR/runners/q-problem-runner/SKILL.md` | After Open channel |
+| E | `$SKILL_DIR/runners/e-direction-runner/SKILL.md` | Q closed |
+| D | `$SKILL_DIR/runners/d-decision-runner/SKILL.md` | E closed |
+| X | `$SKILL_DIR/runners/x-full-diagnosis-runner/SKILL.md` | D closed |
+| R | `$SKILL_DIR/runners/r-expose-bets-runner/SKILL.md` | X closed |
+| V | `$SKILL_DIR/runners/v-verification-runner/SKILL.md` | R closed · `skipped_gates` empty |
+| RR | `$SKILL_DIR/runners/rr-risk-release-runner/SKILL.md` | V closed · RR-scope items |
+| DC | `$SKILL_DIR/runners/dc-delivery-runner/SKILL.md` | R exit `dc` or verification complete |
+| RS | `$SKILL_DIR/runners/rs-reopen-runner/SKILL.md` | Reopen triggered (any gate / DC flag / R exit `rs`) |
+| Human Decision | `$SKILL_DIR/runners/hd-human-decision-runner/SKILL.md` | RR exit `human_decision` |
+
+Gate contracts (dialogue semantics): `$SKILL_DIR/gates/*.md` — read via runner reference.
+
+---
+
+## Parallel Registers
+
+Two registers run throughout the entire session, not attached to any single gate:
+
+**User Prior Log** — captures user's judgments, preferences, concerns, and excluded options. Reviewed before D; verified at R (R签字确认).
+
+**Assumption Log** — captures unverified premises. Risk-graded at R; not collected from scratch there.
+
+**3-state lifecycle:** `[待验证]` (default) → `[已验证]` (confirmed at R or after Risk Release) → `[失效]` (deleted via RS § Register Reopen Protocol)
+
+**Field semantics** (stored in `registers.json`):
+- `<state>`: `?` = 待验证 · `✓` = 已验证
+- `<source>`: gate where first discovered — `open` / `Q` / `E` / `D` / `X` / `R` / `V` / `RR`
+- `<risk>`: `H`/`M`/`L` — assigned at R; omitted until then
+
+**On reopen:** register entries are not auto-modified by DAG propagation — changes only occur when RS runs with user-confirmed `register-batch-apply`.
+
+<HARD-GATE name="Register SSOT">
+- `registers.json` is the SSOT for Prior and Assumption data. Incremental capture and edits use `$REGISTER_CONTROL` only (`register-append`, `register-update`, `register-batch-apply`, `sync-registers-to-doc`).
+- After G0 capture (Prior or Assumption), call `register-append` or `register-update` successfully before the next user-visible reply continues the gate.
+- Batch register updates at R / V / RR gate-close are applied via `$GATE_CONTROL gate-close` payload (not a separate `$REGISTER_CONTROL` call).
+- If any register CLI exits non-zero: stop the current gate and report the error.
+</HARD-GATE>
+
+| Operation | Command |
+|-----------|---------|
+| G0 append prior / assumption | `$REGISTER_CONTROL register-append --kind prior\|assumption` |
+| Single-field update | `$REGISTER_CONTROL register-update` |
+| RS batch relabel / delete | `$REGISTER_CONTROL register-batch-apply` |
+| Sync to decision-doc §1 / §6 | `$REGISTER_CONTROL sync-registers-to-doc` |
+
+Subcommand contracts: `dx_register_control.py` module docstring / `--help`.
+
+---
+
+## Reply Header
+
+Conversation-facing status block at the top of every reply. **Display only** — not the register write path (see § Parallel Registers).
+
+**When to output:** once any Prior or Assumption entry exists; omit entire Header if both logs are empty; stop after DC Delivered.
+
+**Render SSOT:** `$GATE_CONTROL resolve-context` → `reply_header`. Copy verbatim; do not hand-write Gate, Prior, or Assumption lines. After any register or gate state change, run `resolve-context` successfully before the next user-visible reply.
+
+Example:
+
+~~~~
+```
+─── DDF ───────────────────────────────────────
+Gate: Q✅ E✅ D⬜ X⬜ R⬜ V⬜ RR⬜ DC⬜
+Prior：
+[P1✓ open] 排除方案B
+[P2? Q] 偏好渐进实施
+Assumption：
+[A1? D H] API批量操作
+[A2✓ X L] 管理员权限
+───────────────────────────────────────────────
+```
+~~~~
+
+**Display rules:**
+- Omit `Prior：` or `Assumption：` block if that log is empty.
+- On reopen: Gate line shows reopened gate G and all downstream gates as `⬜` (register line content follows Parallel Registers / RS — not auto-cleared by DAG).
 
 ---
 
 ## Execution Rules
 
-### Global Rules
+### Core principles
 
-**G0. User prior capture (throughout)** — at any gate: if user states a judgment, preference, concern, or historically excluded option, confirm briefly, then call `$REGISTER_CONTROL register-append --kind prior --payload '<json>'` before continuing. Payload `kind`: `judgment` / `preference` / `concern` / `excluded`. For unverified premises, also call `register-append --kind assumption --payload '<json>'`. User Prior Log is reviewed twice: before D (direction alignment) and at R (R签字确认).
+1. **Expose over conclude** — the goal is to surface assumptions and risks. A conclusion is the output of verification, not the target.
+2. **User prior over framework** — user's judgments, intuitions, and concerns shape the session; the framework captures and integrates them, does not override them.
+3. **Log assumptions immediately** — any assumption surfaced at any gate goes into the Assumption Log right away; R organizes, does not collect.
 
-When capturing a `[judgment]` or `[excluded]` entry, check whether it rests on an unverified premise — i.e., "this is true only if X holds." If so, extract X as a separate entry in the Assumption Log (`[待验证]`, source = current gate). Pure preferences with no underlying premise go only into User Prior Log.
+### Global rules
+
+**G0. User prior capture (throughout)** — at any gate, if the user states a judgment, preference, concern, or excluded option: confirm briefly, then capture per § Parallel Registers (`register-append`) before continuing. When a `[judgment]` or `[excluded]` rests on an unverified premise, extract the premise as a separate Assumption entry (`[待验证]`, source = current gate).
 
 **G1.** One question at a time — never stack multiple questions in a single message.
 
@@ -173,7 +203,7 @@ When capturing a `[judgment]` or `[excluded]` entry, check whether it rests on a
 
 **G3.** Each gate has a pass criterion. Do not advance until the criterion is met.
 
-**G4. Gate status tracking** — Gate and register lines in the Reply Header must be rendered from `$GATE_CONTROL resolve-context` (`reply_header`). Do not update gate/register display without a successful control CLI call.
+**G4. Reply Header** — render per § Reply Header from `$GATE_CONTROL resolve-context` (`reply_header`). Do not update gate or register display without a successful `resolve-context` after the underlying CLI call.
 
 **G4b. Gate persistence** — Closing a gate requires `$GATE_CONTROL gate-close` after G8 user confirmation. Do not mark a gate closed in conversation only.
 
@@ -195,46 +225,37 @@ If user confirms exit → exit gracefully; mark as incomplete.
 
 **G8. Gate confirmation (all gates)** — AI cannot unilaterally declare a gate as passed. Each gate requires an explicit user confirmation step before it closes. Silence does not constitute confirmation.
 
-**G9. Reopen check at gate close** — before closing any gate, check: does the evidence gathered in this gate invalidate any prior gate's pass criterion? If yes, do not close current gate; trigger Reopen State Handler (RS) instead.
+**G9. Reopen check at gate close** — before closing any gate, check: does the evidence gathered in this gate invalidate any prior gate's pass criterion? If yes, do not close current gate; trigger RS per § Re-open & Invalidation.
 
 ---
 
-### Gate Rules
+## Re-open & Invalidation
 
-**Phase grouping (for re-open scope identification):**
-- [LoopA] Q → E → D → X  (decision construction loop)
-- [LoopB] V → RR  (verification release loop)
-- [RS]  Reopen State Handler (standalone subroutine, not in any loop)
-- [DC]  Delivery Confirmation (terminal gate)
+Two global rules, applicable at any gate, any time:
 
-#### Open channel (before Q)
+**Trigger:** Any participant (AI or user) can re-open a prior gate the moment new information shows its pass criterion no longer holds — without waiting for V.
 
-Before entering Q, invite the user to dump existing knowledge:
+**Propagation:**
+- When a gate is re-opened, all gates reachable from it along prerequisite dependency arrows are automatically invalidated and must be re-satisfied.
+- Scope is determined by the DAG structure — no enumeration needed.
+- When a reopen trigger fires, load and execute `$SKILL_DIR/runners/rs-reopen-runner/SKILL.md` (gate contract: `gates/rs-reopen-state-handler.md`).
 
-> "Before we begin — share what you'd like me to know: direction preferences, concerns, or options you've already ruled out. It doesn't need to be complete; you can add more at any point."
-
-Capture input via `$REGISTER_CONTROL register-append --kind prior --payload '<json>'` (source `open` while `active_gate` is `open`). This step is not part of Q and does not count toward Q's question quota.
+**RS mechanical steps** (do not skip):
+1. `$GATE_CONTROL invalidate-from --gate <G>` — reset gate-state + downstream decision-doc zones
+2. User-confirmed register relabeling → `$REGISTER_CONTROL register-batch-apply`
+3. `$REGISTER_CONTROL sync-registers-to-doc` + `$GATE_CONTROL resolve-context` (refresh Reply Header — § Reply Header)
+4. Re-enter LoopA at gate `<G>` via § Gate routing
 
 ---
 
-### Gate Routing
+<HARD-GATE name="Session Exit">
+Do NOT exit diagnostic or transition to the next stage until:
 
-After Start: Open channel → Q runner → E runner → remaining gates. After each `GATE_COMPLETE`, run `$GATE_CONTROL resolve-context` before the next gate.
+- All DDF gates (Q / E / D / X → R → [LoopB if uncertain: V / RR] → DC) have passed
+- All decision-doc sections are written incrementally and current on disk
+- User has explicitly confirmed readiness to proceed
 
-<HARD-GATE>
-Before executing any gate, Read the corresponding runner or gate file first.
-Do NOT rely on memory or prior context for gate execution steps.
+This applies to EVERY intent, regardless of perceived clarity.
+"I already know what I want to build" is the most common reason to skip this —
+and the most common source of wasted downstream work.
 </HARD-GATE>
-
-| Gate | File | Load condition |
-|------|------|----------------|
-| Q | `$SKILL_DIR/runners/q-problem-runner/SKILL.md` | After Open channel |
-| E | `$SKILL_DIR/runners/e-direction-runner/SKILL.md` | Q closed |
-| D | `$SKILL_DIR/runners/d-decision-runner/SKILL.md` | E closed |
-| X | `$SKILL_DIR/runners/x-full-diagnosis-runner/SKILL.md` | D closed |
-| R | `$SKILL_DIR/runners/r-expose-bets-runner/SKILL.md` | X closed |
-| V | `$SKILL_DIR/runners/v-verification-runner/SKILL.md` | R closed · `skipped_gates` empty |
-| RR | `$SKILL_DIR/runners/rr-risk-release-runner/SKILL.md` | V closed · RR-scope items |
-| DC | `$SKILL_DIR/runners/dc-delivery-runner/SKILL.md` | R exit `dc` or verification complete |
-| RS | `$SKILL_DIR/runners/rs-reopen-runner/SKILL.md` | Reopen triggered (any gate / DC flag / R exit `rs`) |
-| Human Decision | `$SKILL_DIR/runners/hd-human-decision-runner/SKILL.md` | RR exit `human_decision` |
