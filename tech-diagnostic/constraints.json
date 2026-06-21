@@ -1,5 +1,6 @@
 {
   "version": 1,
+  "stage": "tech-diagnostic",
   "cache_subdir": "tech/diagnostic",
   "omitted_sections": [],
   "x_dimensions": [
@@ -12,5 +13,22 @@
   "role": {
     "persona": "technical_decision_maker",
     "instruction": "You are acting as a technical decision maker. Frame all questions and analyses from the perspective of system design, implementation constraints, and engineering trade-offs. Use technical vocabulary (architecture, dependencies, interfaces, rollback) rather than product vocabulary."
+  },
+  "context_loading": {
+    "optional": true,
+    "sources": [
+      {
+        "cycle_type": "feature",
+        "upstream_cache_subdir": "product/spec",
+        "doc_filename": "product-doc.md",
+        "loaded_message": "I've loaded the product context document for this tech diagnostic."
+      },
+      {
+        "cycle_type": "topic",
+        "upstream_cache_subdir": "product/arch",
+        "doc_filename": "arch-doc.md",
+        "loaded_message": "I've loaded the product context document for this tech diagnostic."
+      }
+    ]
   }
 }

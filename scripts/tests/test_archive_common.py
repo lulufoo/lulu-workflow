@@ -206,6 +206,7 @@ def test_ready_for_delivery_skips(project_root):
 
 
 def test_diagnostic_no_session_state_skips(project_root):
+    """Legacy conv-layout only; runtime diagnostic uses dx_archive_cycle (cycle-based)."""
     other = "legacy-conv"
     conv = project_root / hot_conv_dir(DIAGNOSTIC_CONFIG, other)
     conv.mkdir(parents=True)

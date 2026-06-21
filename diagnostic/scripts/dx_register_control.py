@@ -57,13 +57,29 @@ def _emit_error(message: str) -> int:
     return 1
 
 
-def _paths(project_root: Path, cycle_id: str, stage: str) -> dict[str, Path]:
+def _paths(
+    project_root: Path,
+    cycle_id: str,
+    stage: str,
+    *,
+    constraints_path: Path | None = None,
+) -> dict[str, Path]:
     return {
-        "gate_state": project_root / gate_state_path(cycle_id, stage, project_root=project_root),
-        "registers": project_root / registers_path(cycle_id, stage, project_root=project_root),
-        "decision_doc": project_root / decision_doc_path(cycle_id, stage, project_root=project_root),
-        "domain_constraints": project_root / domain_constraints_path(cycle_id, stage, project_root=project_root),
-        "session_dir": project_root / session_base_dir(cycle_id, stage, project_root=project_root),
+        "gate_state": project_root / gate_state_path(
+            cycle_id, stage, project_root=project_root, constraints_path=constraints_path
+        ),
+        "registers": project_root / registers_path(
+            cycle_id, stage, project_root=project_root, constraints_path=constraints_path
+        ),
+        "decision_doc": project_root / decision_doc_path(
+            cycle_id, stage, project_root=project_root, constraints_path=constraints_path
+        ),
+        "domain_constraints": project_root / domain_constraints_path(
+            cycle_id, stage, project_root=project_root, constraints_path=constraints_path
+        ),
+        "session_dir": project_root / session_base_dir(
+            cycle_id, stage, project_root=project_root, constraints_path=constraints_path
+        ),
     }
 
 
@@ -234,13 +250,20 @@ def cmd_register_commit(
     stage: str,
     *,
     operations: list[dict[str, Any]],
+    constraints_path: Path | None = None,
 ) -> int:
-    paths = _paths(project_root, cycle_id, stage)
+    paths = _paths(project_root, cycle_id, stage, constraints_path=constraints_path)
     try:
         _, applied = apply_register_commit_operations(paths, operations=operations)
         from dx_gate_control import build_resolve_context_payload  # noqa: WPS433
 
-        ctx = build_resolve_context_payload(project_root, cycle_id, stage, paths=paths)
+        ctx = build_resolve_context_payload(
+            project_root,
+            cycle_id,
+            stage,
+            paths=paths,
+            constraints_path=constraints_path,
+        )
     except (FileNotFoundError, ValueError) as exc:
         return _emit_error(str(exc))
 
@@ -255,8 +278,9 @@ def cmd_register_append(
     *,
     register_kind: str,
     payload: dict[str, Any],
+    constraints_path: Path | None = None,
 ) -> int:
-    paths = _paths(project_root, cycle_id, stage)
+    paths = _paths(project_root, cycle_id, stage, constraints_path=constraints_path)
     try:
         gate_state = load_gate_state(paths["gate_state"])
         r_closed = is_gate_closed(gate_state, "R")
@@ -284,8 +308,9 @@ def cmd_register_update(
     *,
     entry_id: str,
     payload: dict[str, Any],
+    constraints_path: Path | None = None,
 ) -> int:
-    paths = _paths(project_root, cycle_id, stage)
+    paths = _paths(project_root, cycle_id, stage, constraints_path=constraints_path)
     try:
         gate_state = load_gate_state(paths["gate_state"])
         r_closed = is_gate_closed(gate_state, "R")
@@ -359,8 +384,9 @@ def cmd_register_batch_apply(
     stage: str,
     *,
     operations: list[dict[str, Any]],
+    constraints_path: Path | None = None,
 ) -> int:
-    paths = _paths(project_root, cycle_id, stage)
+    paths = _paths(project_root, cycle_id, stage, constraints_path=constraints_path)
     try:
         _, applied = apply_register_batch_operations(paths, operations=operations)
     except (FileNotFoundError, ValueError) as exc:
@@ -370,8 +396,14 @@ def cmd_register_batch_apply(
     return 0
 
 
-def cmd_sync_registers(project_root: Path, cycle_id: str, stage: str) -> int:
-    paths = _paths(project_root, cycle_id, stage)
+def cmd_sync_registers(
+    project_root: Path,
+    cycle_id: str,
+    stage: str,
+    *,
+    constraints_path: Path | None = None,
+) -> int:
+    paths = _paths(project_root, cycle_id, stage, constraints_path=constraints_path)
     try:
         gate_state = load_gate_state(paths["gate_state"])
         r_closed = is_gate_closed(gate_state, "R")
@@ -382,8 +414,14 @@ def cmd_sync_registers(project_root: Path, cycle_id: str, stage: str) -> int:
     return 0
 
 
-def cmd_resolve_context(project_root: Path, cycle_id: str, stage: str) -> int:
-    paths = _paths(project_root, cycle_id, stage)
+def cmd_resolve_context(
+    project_root: Path,
+    cycle_id: str,
+    stage: str,
+    *,
+    constraints_path: Path | None = None,
+) -> int:
+    paths = _paths(project_root, cycle_id, stage, constraints_path=constraints_path)
     try:
         gate_state = load_gate_state(paths["gate_state"])
         r_closed = is_gate_closed(gate_state, "R")
@@ -416,6 +454,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--project-root", default=".", help="Project root directory.")
     parser.add_argument("--cycle-id", required=True, help="Cycle ID.")
     parser.add_argument("--stage", default="diagnostic", help="Diagnostic stage name.")
+    parser.add_argument(
+        "--constraints",
+        default="",
+        help="Path to holder constraints.json (for session path resolution before snapshot exists).",
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     append = sub.add_parser(
@@ -465,6 +508,11 @@ def main(argv: list[str] | None = None) -> int:
     project_root = Path(args.project_root).resolve()
     cycle_id = args.cycle_id.strip()
     stage = args.stage.strip()
+    constraints_path = (
+        Path(args.constraints.strip()).expanduser().resolve()
+        if args.constraints.strip()
+        else None
+    )
 
     if args.command == "register-append":
         try:
@@ -477,6 +525,7 @@ def main(argv: list[str] | None = None) -> int:
             stage,
             register_kind=args.kind.strip(),
             payload=payload,
+            constraints_path=constraints_path,
         )
     if args.command == "register-update":
         try:
@@ -489,6 +538,7 @@ def main(argv: list[str] | None = None) -> int:
             stage,
             entry_id=args.entry_id.strip(),
             payload=payload,
+            constraints_path=constraints_path,
         )
     if args.command == "register-batch-apply":
         try:
@@ -497,7 +547,13 @@ def main(argv: list[str] | None = None) -> int:
             return _emit_error(str(exc))
         if not isinstance(operations, list):
             return _emit_error("operations must be a JSON array")
-        return cmd_register_batch_apply(project_root, cycle_id, stage, operations=operations)
+        return cmd_register_batch_apply(
+            project_root,
+            cycle_id,
+            stage,
+            operations=operations,
+            constraints_path=constraints_path,
+        )
     if args.command == "register-commit":
         try:
             operations = json.loads(args.operations)
@@ -508,11 +564,27 @@ def main(argv: list[str] | None = None) -> int:
         cleaned = [op for op in operations if isinstance(op, dict)]
         if len(cleaned) != len(operations):
             return _emit_error("each operation must be a JSON object")
-        return cmd_register_commit(project_root, cycle_id, stage, operations=cleaned)
+        return cmd_register_commit(
+            project_root,
+            cycle_id,
+            stage,
+            operations=cleaned,
+            constraints_path=constraints_path,
+        )
     if args.command == "sync-registers-to-doc":
-        return cmd_sync_registers(project_root, cycle_id, stage)
+        return cmd_sync_registers(
+            project_root,
+            cycle_id,
+            stage,
+            constraints_path=constraints_path,
+        )
     if args.command == "resolve-context":
-        return cmd_resolve_context(project_root, cycle_id, stage)
+        return cmd_resolve_context(
+            project_root,
+            cycle_id,
+            stage,
+            constraints_path=constraints_path,
+        )
     return _emit_error(f"unknown command: {args.command}")
 
 

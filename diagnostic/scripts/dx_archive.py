@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
+"""Restore/archive diagnostic-family sessions using cycle-based cache layout.
+
+Hot:  cache/<cycle_id>/<cache_subdir>/  (indexed via platform active-context.json)
+Cold: cache/_archive/<conversation_id>/<cache_subdir>/
+
+Stages: diagnostic, product-diagnostic, tech-diagnostic.
+Does not scan legacy cache/diagnostic/<conversation_id>/ paths.
+"""
 
 import argparse
 import sys
 from pathlib import Path
 
-_SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
-if str(_SCRIPTS) not in sys.path:
-    sys.path.insert(0, str(_SCRIPTS))
-
-from archive_common import DIAGNOSTIC_CONFIG, run_archive  # noqa: E402
+from dx_archive_cycle import run_diagnostic_cycle_archive
 
 
 def run(
@@ -16,12 +20,19 @@ def run(
     exclude_conv_id: str,
     dry_run: bool = False,
 ) -> int:
-    return run_archive(project_root, DIAGNOSTIC_CONFIG, exclude_conv_id, dry_run=dry_run)
+    return run_diagnostic_cycle_archive(
+        project_root,
+        exclude_conv_id,
+        dry_run=dry_run,
+    )
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Restore current diagnostic conv from archive and move Delivered convs to cold storage.",
+        description=(
+            "Restore current diagnostic conv from archive and move Delivered convs "
+            "to cold storage (cycle-based layout)."
+        ),
     )
     parser.add_argument("--project-root", default=".", help="Project root directory.")
     parser.add_argument(

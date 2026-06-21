@@ -22,6 +22,12 @@ from dx_workflow_common import (  # noqa: E402
 )
 from test_dx_gate_loop_a import _full_template  # noqa: E402
 
+_WORKFLOW_ROOT = Path(__file__).resolve().parents[3]
+
+
+def _holder_constraints(stage: str) -> Path:
+    return _WORKFLOW_ROOT / stage / "constraints.json"
+
 
 @pytest.fixture
 def template_config(tmp_path: Path) -> Path:
@@ -52,22 +58,61 @@ def test_stage_init_and_constraints(
 ) -> None:
     project_root = template_config
     cycle_id = f"e2e-{stage.replace('-', '_')}"
+    constraints_path = _holder_constraints(stage)
     monkeypatch.chdir(project_root)
 
-    assert cmd_init_session(project_root, cycle_id, stage) == 0
+    assert (
+        cmd_init_session(
+            project_root,
+            cycle_id,
+            stage,
+            constraints_path=constraints_path,
+        )
+        == 0
+    )
     capsys.readouterr()
-    session_dir = project_root / session_base_dir(cycle_id, stage)
+    session_dir = project_root / session_base_dir(
+        cycle_id,
+        stage,
+        project_root=project_root,
+        constraints_path=constraints_path,
+    )
     assert expected_subdir in session_dir.as_posix()
     assert (session_dir / "gate-state.json").exists()
 
-    assert cmd_resolve_context(project_root, cycle_id, stage) == 0
+    assert (
+        cmd_resolve_context(
+            project_root,
+            cycle_id,
+            stage,
+            constraints_path=constraints_path,
+        )
+        == 0
+    )
     ctx = json.loads(capsys.readouterr().out)
     assert ctx["stage"] == stage
     assert ctx["domain_constraints"]["stage"] == stage
+    assert ctx["domain_constraints"]["cache_subdir"] == expected_subdir
+    assert "after_dc" in ctx
 
     if stage == "tech-diagnostic":
-        constraints = load_domain_constraints(project_root / domain_constraints_path(cycle_id, stage))
+        constraints = load_domain_constraints(
+            project_root / domain_constraints_path(
+                cycle_id,
+                stage,
+                project_root=project_root,
+                constraints_path=constraints_path,
+            )
+        )
         assert "impact_surface" in constraints["x_dimensions"]
+        assert constraints.get("context_loading")
 
-    gate_state = json.loads((project_root / gate_state_path(cycle_id, stage)).read_text(encoding="utf-8"))
+    gate_state = json.loads(
+        (project_root / gate_state_path(
+            cycle_id,
+            stage,
+            project_root=project_root,
+            constraints_path=constraints_path,
+        )).read_text(encoding="utf-8")
+    )
     assert gate_state["stage"] == stage

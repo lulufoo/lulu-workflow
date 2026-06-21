@@ -24,11 +24,13 @@ Do NOT proceed until you have read `../_runtime.md` and loaded:
 ---
 
 <HARD-GATE name="Domain Constraints">
-**Runtime SSOT:** `$GATE_CONTROL resolve-context` → `domain_constraints` (`x_dimensions`, `omitted_sections`, `role`). Do not infer these from holder prose or memory.
+**Runtime SSOT:** `$GATE_CONTROL resolve-context` → `domain_constraints` (`x_dimensions`, `omitted_sections`, `role`), `context_loading`, `after_dc`. Do not infer these from holder SKILL prose or memory.
 
 **Role:** If `role.instruction` is present, apply it at the start of gate **O** (Open Channel).
 
-**Holder prose** (when invoking stage's `## Domain Constraints` is in context): follow `### Context Loading` during gate **O** and `### After DC` at DC routing.
+**Context loading (gate O):** Read `$CTX.context_loading` from resolve-context. If `status` is `loaded`, load `resolved_doc_path` read-only and tell the user `loaded_message`.
+
+**After DC:** Tell the user `$CTX.after_dc.user_message` (next steps from `config/transition-table.json`).
 </HARD-GATE>
 
 ---
@@ -37,11 +39,11 @@ Do NOT proceed until you have read `../_runtime.md` and loaded:
 
 | Macro | Command |
 |-------|---------|
-| `$DX_START` | `python3 "$SKILL_DIR/scripts/dx_start.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>"` |
-| `$GATE_CONTROL` | `python3 "$SKILL_DIR/scripts/dx_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>"` |
-| `$REGISTER_CONTROL` | `python3 "$SKILL_DIR/scripts/dx_register_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>"` |
-| `$REGISTER_COMMIT` | `python3 "$SKILL_DIR/scripts/dx_register_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" register-commit --operations '<json array>'` |
-| `$RS_COMMIT` | `python3 "$SKILL_DIR/scripts/dx_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" rs-commit --gate "<G>" --operations '<json array>'` |
+| `$DX_START` | `python3 "$SKILL_DIR/scripts/dx_start.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>"` |
+| `$GATE_CONTROL` | `python3 "$SKILL_DIR/scripts/dx_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>"` |
+| `$REGISTER_CONTROL` | `python3 "$SKILL_DIR/scripts/dx_register_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>"` |
+| `$REGISTER_COMMIT` | `python3 "$SKILL_DIR/scripts/dx_register_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" register-commit --operations '<json array>'` |
+| `$RS_COMMIT` | `python3 "$SKILL_DIR/scripts/dx_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" rs-commit --gate "<G>" --operations '<json array>'` |
 
 Subcommand contracts: module docstrings / `--help`.
 
@@ -51,11 +53,18 @@ Subcommand contracts: module docstrings / `--help`.
 
 **Step 1: Identify active cycle** — `_runtime.md` § Session Foundation. Do not run `$DX_START` until `$CYCLE_ID` is confirmed.
 
-**Step 2: Run `$DX_START`** — pass `--stage` when the invoking stage specifies one; otherwise omit (defaults to `diagnostic`). Non-zero exit → stop and report stderr.
+**Step 2: Run `$DX_START`** — holder stages **must** pass `--constraints` (path to holder `constraints.json`) and `--stage`. Generic `diagnostic` may omit `--constraints`. Non-zero exit → stop and report stderr.
 
 On success, follow stdout (new session ready, or legacy session migrated). Do **not** inspect session directory files directly — artifact layout is `$DX_START` / `init-session` contract (`--help`).
 
 **Archive:** When the platform provides a conversation id, pass `--conversation-id "<id>"` on `$DX_START`.
+
+When `$DX_START` receives `--conversation-id`:
+
+1. **Restore:** if this conversation's diagnostic session is in cold storage, move it back to `cache/<cycle_id>/<cache_subdir>/` (from active-context + session snapshot).
+2. **Archive:** other conversations with diagnostic-family stages (`diagnostic`, `product-diagnostic`, `tech-diagnostic`) and `session-state: Delivered` are moved to `cache/_archive/<conversation_id>/<cache_subdir>/`.
+
+SSOT for conversation → cycle mapping: platform `active-context.json`. Does **not** use `cache/diagnostic/<conversation_id>/`.
 
 **Do not** run `$DX_START` again after Delivery (`Delivered`) on the same feature — use a new feature for a new diagnostic.
 

@@ -41,4 +41,4 @@ $GATE_CONTROL gate-close --gate DC --payload '{"user_confirmed": true}'
 $GATE_CONTROL deliver
 ```
 
-5. Tell user the next step per `### After DC` in the invoking stage's `## Domain Constraints` (when that section is in context).
+5. Tell the user `$CTX.after_dc.user_message` from resolve-context.

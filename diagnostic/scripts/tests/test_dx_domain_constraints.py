@@ -35,6 +35,13 @@ def template_config(tmp_path: Path) -> Path:
     return tmp_path
 
 
+_WORKFLOW_ROOT = Path(__file__).resolve().parents[3]
+
+
+def _holder_constraints(stage: str) -> Path:
+    return _WORKFLOW_ROOT / stage / "constraints.json"
+
+
 def test_init_strips_omitted_sections(template_config: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     project_root = template_config
     cycle_id = "feature-domain-001"
@@ -182,36 +189,61 @@ def test_resolve_context_includes_role_for_product_diagnostic(
     stage = "product-diagnostic"
     monkeypatch.chdir(project_root)
 
-    assert cmd_init_session(project_root, cycle_id, stage) == 0
+    assert (
+        cmd_init_session(
+            project_root,
+            cycle_id,
+            stage,
+            constraints_path=_holder_constraints(stage),
+        )
+        == 0
+    )
     capsys.readouterr()
-    assert cmd_resolve_context(project_root, cycle_id, stage) == 0
+    assert (
+        cmd_resolve_context(
+            project_root,
+            cycle_id,
+            stage,
+            constraints_path=_holder_constraints(stage),
+        )
+        == 0
+    )
     payload = json.loads(capsys.readouterr().out)
     role = payload["domain_constraints"]["role"]
     assert role["persona"] == "product_thinker"
     assert role["instruction"]
+    assert payload["after_dc"]["next_steps"] == ["product-spec"]
 
 
-def test_load_stage_defaults_from_holder_config() -> None:
-    from dx_domain_constraints_schema import load_stage_defaults
+def test_load_constraints_config_from_explicit_path() -> None:
+    from dx_domain_constraints_schema import load_constraints_config
 
-    root = Path(__file__).resolve().parents[4]
-    product = load_stage_defaults(root, "product-diagnostic")
-    tech = load_stage_defaults(root, "tech-diagnostic")
+    product = load_constraints_config(_holder_constraints("product-diagnostic"))
+    tech = load_constraints_config(_holder_constraints("tech-diagnostic"))
     assert "impact_surface" in product["x_dimensions"]
     assert "impact_surface" in tech["x_dimensions"]
     assert product["stage"] == "product-diagnostic"
     assert tech["stage"] == "tech-diagnostic"
+    assert product["cache_subdir"] == "product/diagnostic"
+    assert tech["cache_subdir"] == "tech/diagnostic"
     assert product["role"]["persona"] == "product_thinker"
     assert tech["role"]["persona"] == "technical_decision_maker"
-    assert "product thinker" in product["role"]["instruction"]
-    assert "technical decision maker" in tech["role"]["instruction"]
+    assert tech.get("context_loading", {}).get("sources")
 
 
-def test_holder_cache_subdir_from_constraints() -> None:
-    from dx_domain_constraints_schema import holder_cache_subdir
+def test_session_cache_subdir_from_constraints_path(
+    template_config: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from dx_session_paths import session_cache_subdir
+    from dx_workflow_common import CACHE_DIR
 
-    root = Path(__file__).resolve().parents[4]
-    assert holder_cache_subdir(root, "product-diagnostic") == "product/diagnostic"
-    assert holder_cache_subdir(root, "tech-diagnostic") == "tech/diagnostic"
-    assert holder_cache_subdir(root, "diagnostic") == "diagnostic"
-    assert holder_cache_subdir(root, "unknown-stage") == "unknown-stage"
+    monkeypatch.chdir(template_config)
+    subdir = session_cache_subdir(
+        template_config,
+        "cycle-x",
+        "product-diagnostic",
+        CACHE_DIR,
+        constraints_path=_holder_constraints("product-diagnostic"),
+    )
+    assert subdir == "product/diagnostic"

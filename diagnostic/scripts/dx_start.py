@@ -65,6 +65,11 @@ def parse_args() -> argparse.Namespace:
         help="Diagnostic stage name (holder SKILL passes its name; default: diagnostic).",
     )
     parser.add_argument(
+        "--constraints",
+        default="",
+        help="Path to holder constraints.json (required for non-diagnostic holder stages).",
+    )
+    parser.add_argument(
         "--conversation-id",
         default="",
         help="Cursor/Copilot conversation ID for active-context indexing.",
@@ -78,6 +83,7 @@ def main() -> int:
     cycle_id = args.cycle_id.strip()
     stage = args.stage.strip()
     conversation_id = args.conversation_id.strip()
+    constraints_path = Path(args.constraints.strip()).expanduser().resolve() if args.constraints.strip() else None
 
     cycle_type = detect_cycle_type(cycle_id)
     cache_dir = project_root / CACHE_DIR
@@ -130,11 +136,26 @@ def main() -> int:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
-    session_dir = project_root / session_base_dir(cycle_id, stage, project_root=project_root)
-    ss_path = project_root / session_state_path(cycle_id, stage, project_root=project_root)
+    session_dir = project_root / session_base_dir(
+        cycle_id,
+        stage,
+        project_root=project_root,
+        constraints_path=constraints_path,
+    )
+    ss_path = project_root / session_state_path(
+        cycle_id,
+        stage,
+        project_root=project_root,
+        constraints_path=constraints_path,
+    )
 
     if needs_migration(session_dir):
-        migrate_rc = cmd_migrate_session(project_root, cycle_id, stage)
+        migrate_rc = cmd_migrate_session(
+            project_root,
+            cycle_id,
+            stage,
+            constraints_path=constraints_path,
+        )
         if migrate_rc != 0:
             return migrate_rc
         write_active_context(
@@ -159,7 +180,12 @@ def main() -> int:
             print("错误：会话已在进行中，请勿重复 start。", file=sys.stderr)
             return 1
 
-    init_rc = cmd_init_session(project_root, cycle_id, stage)
+    init_rc = cmd_init_session(
+        project_root,
+        cycle_id,
+        stage,
+        constraints_path=constraints_path,
+    )
     if init_rc != 0:
         return init_rc
 

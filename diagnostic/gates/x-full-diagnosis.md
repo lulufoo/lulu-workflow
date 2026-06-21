@@ -4,7 +4,7 @@
 
 **Prerequisites:** D closed
 
-**Dimension list:** If a `## Domain Constraints` section is present (loaded from a domain holder), execute **only** the dimensions listed there; skip all others. If no Domain Constraints are present, execute all five dimensions below.
+**Dimension list:** After `$GATE_CONTROL resolve-context`, execute **only** dimensions listed in `$CTX.domain_constraints.x_dimensions`; skip all others. Do not read holder SKILL or infer dimensions from prose.
 
 **Execute one dimension, one question at a time (apply G7 for each Core question). After presenting each dimension's result, ask "Is this [dimension name] correct? (y / adjust)" before proceeding to the next. (G8)**
 

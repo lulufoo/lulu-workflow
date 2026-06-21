@@ -41,11 +41,15 @@ from dx_decision_doc_schema import (  # noqa: E402
     replace_section,
     save_decision_doc,
 )
+from dx_after_dc import build_after_dc  # noqa: E402
+from dx_context_loading import build_context_loading  # noqa: E402
 from dx_domain_constraints_schema import (  # noqa: E402
+    KERNEL_STAGE,
     active_x_dimensions,
+    default_kernel_constraints,
     is_x_dimension_active,
+    load_constraints_config,
     load_domain_constraints,
-    load_stage_defaults,
     merge_domain_constraints,
     save_domain_constraints,
 )
@@ -72,7 +76,9 @@ from dx_register_schema import (  # noqa: E402
 )
 from dx_session_render import render_reply_header  # noqa: E402
 from dx_workflow_common import (  # noqa: E402
+    CACHE_DIR,
     decision_doc_path,
+    detect_cycle_type,
     domain_constraints_path,
     gate_state_path,
     registers_path,
@@ -94,22 +100,78 @@ def _emit_error(message: str) -> int:
     return 1
 
 
-def _paths(project_root: Path, cycle_id: str, stage: str) -> dict[str, Path]:
-    base = project_root / session_base_dir(cycle_id, stage, project_root=project_root)
+def _parse_constraints_path(raw: str) -> Path | None:
+    text = raw.strip()
+    if not text:
+        return None
+    return Path(text).expanduser().resolve()
+
+
+def _load_constraints_for_init(
+    project_root: Path,
+    cycle_id: str,
+    stage: str,
+    *,
+    constraints_path: Path | None,
+) -> dict[str, Any]:
+    if constraints_path is not None:
+        return load_constraints_config(constraints_path, stage=stage)
+    if stage == KERNEL_STAGE:
+        return default_kernel_constraints(stage=stage)
+    raise ValueError(f"--constraints is required for stage {stage!r}")
+
+
+def _paths(
+    project_root: Path,
+    cycle_id: str,
+    stage: str,
+    *,
+    constraints_path: Path | None = None,
+) -> dict[str, Path]:
+    base = project_root / session_base_dir(
+        cycle_id,
+        stage,
+        project_root=project_root,
+        constraints_path=constraints_path,
+    )
     return {
         "session_dir": base,
-        "gate_state": project_root / gate_state_path(cycle_id, stage, project_root=project_root),
-        "registers": project_root / registers_path(cycle_id, stage, project_root=project_root),
-        "decision_doc": project_root / decision_doc_path(cycle_id, stage, project_root=project_root),
-        "domain_constraints": project_root / domain_constraints_path(cycle_id, stage, project_root=project_root),
+        "gate_state": project_root / gate_state_path(
+            cycle_id, stage, project_root=project_root, constraints_path=constraints_path
+        ),
+        "registers": project_root / registers_path(
+            cycle_id, stage, project_root=project_root, constraints_path=constraints_path
+        ),
+        "decision_doc": project_root / decision_doc_path(
+            cycle_id, stage, project_root=project_root, constraints_path=constraints_path
+        ),
+        "domain_constraints": project_root / domain_constraints_path(
+            cycle_id, stage, project_root=project_root, constraints_path=constraints_path
+        ),
     }
 
 
-def _load_session_constraints(project_root: Path, cycle_id: str, stage: str) -> dict[str, Any]:
-    path = project_root / domain_constraints_path(cycle_id, stage, project_root=project_root)
+def _load_session_constraints(
+    project_root: Path,
+    cycle_id: str,
+    stage: str,
+    *,
+    constraints_path: Path | None = None,
+) -> dict[str, Any]:
+    path = project_root / domain_constraints_path(
+        cycle_id,
+        stage,
+        project_root=project_root,
+        constraints_path=constraints_path,
+    )
     if path.exists():
         return load_domain_constraints(path)
-    return load_stage_defaults(project_root, stage)
+    return _load_constraints_for_init(
+        project_root,
+        cycle_id,
+        stage,
+        constraints_path=constraints_path,
+    )
 
 
 def _validate_gate_activate_prereqs(state: dict[str, Any], gate: str) -> str | None:
@@ -138,13 +200,22 @@ def cmd_init_session(
     cycle_id: str,
     stage: str,
     *,
+    constraints_path: Path | None = None,
     domain_override: dict[str, Any] | None = None,
 ) -> int:
-    paths = _paths(project_root, cycle_id, stage)
+    try:
+        constraints = _load_constraints_for_init(
+            project_root,
+            cycle_id,
+            stage,
+            constraints_path=constraints_path,
+        )
+    except (FileNotFoundError, ValueError) as exc:
+        return _emit_error(str(exc))
+
+    paths = _paths(project_root, cycle_id, stage, constraints_path=constraints_path)
     if paths["gate_state"].exists():
         return _emit_error("gate-state already exists; use a new cycle or remove session dir")
-
-    constraints = load_stage_defaults(project_root, stage)
     if domain_override:
         constraints = merge_domain_constraints(constraints, domain_override)
     save_domain_constraints(paths["domain_constraints"], constraints)
@@ -193,16 +264,30 @@ def build_resolve_context_payload(
     stage: str,
     *,
     paths: dict[str, Path] | None = None,
+    constraints_path: Path | None = None,
 ) -> dict[str, Any]:
     """Session context dict for resolve-context / register-commit stdout."""
-    resolved_paths = paths or _paths(project_root, cycle_id, stage)
+    resolved_paths = paths or _paths(
+        project_root,
+        cycle_id,
+        stage,
+        constraints_path=constraints_path,
+    )
     gate_state = load_gate_state(resolved_paths["gate_state"])
     r_closed = is_gate_closed(gate_state, "R")
     registers = load_registers(resolved_paths["registers"], r_gate_closed=r_closed)
-    constraints = _load_session_constraints(project_root, cycle_id, stage)
+    constraints = _load_session_constraints(
+        project_root,
+        cycle_id,
+        stage,
+        constraints_path=constraints_path,
+    )
+    cycle_type = detect_cycle_type(cycle_id)
+    cache_dir = project_root / CACHE_DIR
     return {
         "cycle_id": cycle_id,
         "stage": stage,
+        "cycle_type": cycle_type,
         "session_dir": resolved_paths["session_dir"].as_posix(),
         "gate_state_path": resolved_paths["gate_state"].as_posix(),
         "registers_path": resolved_paths["registers"].as_posix(),
@@ -214,12 +299,31 @@ def build_resolve_context_payload(
         "domain_constraints": constraints,
         "registers": registers,
         "reply_header": render_reply_header(gate_state, registers),
+        "context_loading": build_context_loading(
+            project_root,
+            cycle_id,
+            constraints,
+            cycle_type,
+            cache_dir=cache_dir,
+        ),
+        "after_dc": build_after_dc(stage, cycle_type),
     }
 
 
-def cmd_resolve_context(project_root: Path, cycle_id: str, stage: str) -> int:
+def cmd_resolve_context(
+    project_root: Path,
+    cycle_id: str,
+    stage: str,
+    *,
+    constraints_path: Path | None = None,
+) -> int:
     try:
-        payload = build_resolve_context_payload(project_root, cycle_id, stage)
+        payload = build_resolve_context_payload(
+            project_root,
+            cycle_id,
+            stage,
+            constraints_path=constraints_path,
+        )
     except (FileNotFoundError, ValueError) as exc:
         return _emit_error(str(exc))
 
@@ -579,8 +683,15 @@ def _apply_gate_close_doc(
     save_decision_doc(doc_path, doc)
 
 
-def cmd_gate_activate(project_root: Path, cycle_id: str, stage: str, gate: str) -> int:
-    paths = _paths(project_root, cycle_id, stage)
+def cmd_gate_activate(
+    project_root: Path,
+    cycle_id: str,
+    stage: str,
+    gate: str,
+    *,
+    constraints_path: Path | None = None,
+) -> int:
+    paths = _paths(project_root, cycle_id, stage, constraints_path=constraints_path)
     try:
         state = load_gate_state(paths["gate_state"])
     except (FileNotFoundError, ValueError) as exc:
@@ -640,14 +751,25 @@ def _collect_delivery_errors(
     return errors
 
 
-def cmd_check_delivery_ready(project_root: Path, cycle_id: str, stage: str) -> int:
-    paths = _paths(project_root, cycle_id, stage)
+def cmd_check_delivery_ready(
+    project_root: Path,
+    cycle_id: str,
+    stage: str,
+    *,
+    constraints_path: Path | None = None,
+) -> int:
+    paths = _paths(project_root, cycle_id, stage, constraints_path=constraints_path)
     try:
         state = load_gate_state(paths["gate_state"])
         r_closed = is_gate_closed(state, "R")
         registers = load_registers(paths["registers"], r_gate_closed=r_closed)
         doc = load_decision_doc(paths["decision_doc"])
-        constraints = _load_session_constraints(project_root, cycle_id, stage)
+        constraints = _load_session_constraints(
+            project_root,
+            cycle_id,
+            stage,
+            constraints_path=constraints_path,
+        )
         errors = _collect_delivery_errors(state, registers, doc, constraints=constraints)
     except (FileNotFoundError, ValueError) as exc:
         return _emit_error(str(exc))
@@ -656,8 +778,14 @@ def cmd_check_delivery_ready(project_root: Path, cycle_id: str, stage: str) -> i
     return 0
 
 
-def cmd_deliver(project_root: Path, cycle_id: str, stage: str) -> int:
-    paths = _paths(project_root, cycle_id, stage)
+def cmd_deliver(
+    project_root: Path,
+    cycle_id: str,
+    stage: str,
+    *,
+    constraints_path: Path | None = None,
+) -> int:
+    paths = _paths(project_root, cycle_id, stage, constraints_path=constraints_path)
     try:
         state = load_gate_state(paths["gate_state"])
         if not is_gate_closed(state, "DC"):
@@ -665,11 +793,21 @@ def cmd_deliver(project_root: Path, cycle_id: str, stage: str) -> int:
         r_closed = is_gate_closed(state, "R")
         registers = load_registers(paths["registers"], r_gate_closed=r_closed)
         doc = load_decision_doc(paths["decision_doc"])
-        constraints = _load_session_constraints(project_root, cycle_id, stage)
+        constraints = _load_session_constraints(
+            project_root,
+            cycle_id,
+            stage,
+            constraints_path=constraints_path,
+        )
         errors = _collect_delivery_errors(state, registers, doc, constraints=constraints)
         if errors:
             return _emit_error("; ".join(errors))
-        ss_path = project_root / session_state_path(cycle_id, stage, project_root=project_root)
+        ss_path = project_root / session_state_path(
+            cycle_id,
+            stage,
+            project_root=project_root,
+            constraints_path=constraints_path,
+        )
         write_session_state(ss_path, "Delivered")
     except (FileNotFoundError, ValueError) as exc:
         return _emit_error(str(exc))
@@ -690,11 +828,18 @@ def cmd_gate_close(
     stage: str,
     gate: str,
     payload: dict[str, Any],
+    *,
+    constraints_path: Path | None = None,
 ) -> int:
-    paths = _paths(project_root, cycle_id, stage)
+    paths = _paths(project_root, cycle_id, stage, constraints_path=constraints_path)
     try:
         state = load_gate_state(paths["gate_state"])
-        constraints = _load_session_constraints(project_root, cycle_id, stage)
+        constraints = _load_session_constraints(
+            project_root,
+            cycle_id,
+            stage,
+            constraints_path=constraints_path,
+        )
         prereq_error = _validate_gate_close_prereqs(state, gate)
         if prereq_error:
             return _emit_error(prereq_error)
@@ -803,6 +948,8 @@ def _run_invalidate_from(
     cycle_id: str,
     stage: str,
     gate: str,
+    *,
+    constraints_path: Path | None = None,
 ) -> dict[str, Any]:
     state = load_gate_state(paths["gate_state"])
     if gate not in GATE_ORDER:
@@ -815,7 +962,12 @@ def _run_invalidate_from(
     doc = clear_sections_downstream(doc, gate)
     save_decision_doc(paths["decision_doc"], doc)
     r_closed = is_gate_closed(updated, "R")
-    constraints = _load_session_constraints(project_root, cycle_id, stage)
+    constraints = _load_session_constraints(
+        project_root,
+        cycle_id,
+        stage,
+        constraints_path=constraints_path,
+    )
     sync_registers_to_doc(
         paths["decision_doc"],
         paths["registers"],
@@ -825,10 +977,24 @@ def _run_invalidate_from(
     return updated
 
 
-def cmd_invalidate_from(project_root: Path, cycle_id: str, stage: str, gate: str) -> int:
-    paths = _paths(project_root, cycle_id, stage)
+def cmd_invalidate_from(
+    project_root: Path,
+    cycle_id: str,
+    stage: str,
+    gate: str,
+    *,
+    constraints_path: Path | None = None,
+) -> int:
+    paths = _paths(project_root, cycle_id, stage, constraints_path=constraints_path)
     try:
-        updated = _run_invalidate_from(paths, project_root, cycle_id, stage, gate)
+        updated = _run_invalidate_from(
+            paths,
+            project_root,
+            cycle_id,
+            stage,
+            gate,
+            constraints_path=constraints_path,
+        )
     except (FileNotFoundError, ValueError) as exc:
         return _emit_error(str(exc))
 
@@ -843,23 +1009,43 @@ def cmd_rs_commit(
     gate: str,
     *,
     operations: list[dict[str, Any]],
+    constraints_path: Path | None = None,
 ) -> int:
-    paths = _paths(project_root, cycle_id, stage)
+    paths = _paths(project_root, cycle_id, stage, constraints_path=constraints_path)
     try:
         if gate not in RS_REOPEN_GATES:
             return _emit_error(f"rs-commit gate must be one of {list(RS_REOPEN_GATES)}, got {gate!r}")
-        _run_invalidate_from(paths, project_root, cycle_id, stage, gate)
+        _run_invalidate_from(
+            paths,
+            project_root,
+            cycle_id,
+            stage,
+            gate,
+            constraints_path=constraints_path,
+        )
         _, applied = apply_register_batch_operations(paths, operations=operations)
     except (FileNotFoundError, ValueError) as exc:
         return _emit_error(str(exc))
 
-    ctx = build_resolve_context_payload(project_root, cycle_id, stage, paths=paths)
+    ctx = build_resolve_context_payload(
+        project_root,
+        cycle_id,
+        stage,
+        paths=paths,
+        constraints_path=constraints_path,
+    )
     _emit({"ok": True, "reenter": gate, "applied": applied, **ctx})
     return 0
 
 
-def cmd_migrate_session(project_root: Path, cycle_id: str, stage: str) -> int:
-    paths = _paths(project_root, cycle_id, stage)
+def cmd_migrate_session(
+    project_root: Path,
+    cycle_id: str,
+    stage: str,
+    *,
+    constraints_path: Path | None = None,
+) -> int:
+    paths = _paths(project_root, cycle_id, stage, constraints_path=constraints_path)
     try:
         if not needs_migration(paths["session_dir"]):
             return _emit_error("session does not require migration (gate-state exists or no session-state)")
@@ -868,6 +1054,7 @@ def cmd_migrate_session(project_root: Path, cycle_id: str, stage: str) -> int:
             project_root=project_root,
             cycle_id=cycle_id,
             stage=stage,
+            constraints_path=constraints_path,
         )
     except (FileNotFoundError, ValueError) as exc:
         return _emit_error(str(exc))
@@ -888,6 +1075,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--project-root", default=".", help="Project root directory.")
     parser.add_argument("--cycle-id", required=True, help="Cycle ID.")
     parser.add_argument("--stage", default="diagnostic", help="Diagnostic stage name.")
+    parser.add_argument(
+        "--constraints",
+        default="",
+        help="Path to holder constraints.json (required for non-diagnostic stages at init).",
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     init_parser = sub.add_parser("init-session", help="Bootstrap session artifacts.")
@@ -932,6 +1124,7 @@ def main(argv: list[str] | None = None) -> int:
     project_root = Path(args.project_root).resolve()
     cycle_id = args.cycle_id.strip()
     stage = args.stage.strip()
+    constraints_path = _parse_constraints_path(getattr(args, "constraints", ""))
 
     if args.command == "init-session":
         domain_override = None
@@ -945,20 +1138,45 @@ def main(argv: list[str] | None = None) -> int:
             project_root,
             cycle_id,
             stage,
+            constraints_path=constraints_path,
             domain_override=domain_override,
         )
     if args.command == "resolve-context":
-        return cmd_resolve_context(project_root, cycle_id, stage)
+        return cmd_resolve_context(
+            project_root,
+            cycle_id,
+            stage,
+            constraints_path=constraints_path,
+        )
     if args.command == "gate-activate":
-        return cmd_gate_activate(project_root, cycle_id, stage, args.gate.strip())
+        return cmd_gate_activate(
+            project_root,
+            cycle_id,
+            stage,
+            args.gate.strip(),
+            constraints_path=constraints_path,
+        )
     if args.command == "gate-close":
         try:
             payload = _load_payload(args.payload)
         except (json.JSONDecodeError, ValueError) as exc:
             return _emit_error(str(exc))
-        return cmd_gate_close(project_root, cycle_id, stage, args.gate.strip(), payload)
+        return cmd_gate_close(
+            project_root,
+            cycle_id,
+            stage,
+            args.gate.strip(),
+            payload,
+            constraints_path=constraints_path,
+        )
     if args.command == "invalidate-from":
-        return cmd_invalidate_from(project_root, cycle_id, stage, args.gate.strip())
+        return cmd_invalidate_from(
+            project_root,
+            cycle_id,
+            stage,
+            args.gate.strip(),
+            constraints_path=constraints_path,
+        )
     if args.command == "rs-commit":
         try:
             operations_raw = json.loads(args.operations)
@@ -975,13 +1193,29 @@ def main(argv: list[str] | None = None) -> int:
             stage,
             args.gate.strip(),
             operations=operations,
+            constraints_path=constraints_path,
         )
     if args.command == "check-delivery-ready":
-        return cmd_check_delivery_ready(project_root, cycle_id, stage)
+        return cmd_check_delivery_ready(
+            project_root,
+            cycle_id,
+            stage,
+            constraints_path=constraints_path,
+        )
     if args.command == "deliver":
-        return cmd_deliver(project_root, cycle_id, stage)
+        return cmd_deliver(
+            project_root,
+            cycle_id,
+            stage,
+            constraints_path=constraints_path,
+        )
     if args.command == "migrate-session":
-        return cmd_migrate_session(project_root, cycle_id, stage)
+        return cmd_migrate_session(
+            project_root,
+            cycle_id,
+            stage,
+            constraints_path=constraints_path,
+        )
     return _emit_error(f"unknown command: {args.command}")
 
 

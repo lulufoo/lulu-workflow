@@ -20,7 +20,12 @@ from dx_decision_doc_schema import (
     _section_end_index,
     load_decision_doc,
 )
-from dx_domain_constraints_schema import load_stage_defaults, save_domain_constraints
+from dx_domain_constraints_schema import (
+    default_kernel_constraints,
+    load_constraints_config,
+    load_domain_constraints,
+    save_domain_constraints,
+)
 from dx_gate_state_schema import GATE_ORDER, init_gate_state, save_gate_state
 from dx_register_schema import init_registers, save_registers
 
@@ -197,6 +202,7 @@ def migrate_session_dir(
     project_root: Path,
     cycle_id: str,
     stage: str,
+    constraints_path: Path | None = None,
 ) -> dict[str, Any]:
     if not needs_migration(session_dir):
         raise ValueError("session does not require migration")
@@ -208,8 +214,14 @@ def migrate_session_dir(
     fm = parse_frontmatter(ss_path.read_text(encoding="utf-8"))
     delivered = fm.get("current_state") == "Delivered"
 
-    constraints = load_stage_defaults(project_root, stage)
-    save_domain_constraints(session_dir / "domain-constraints.json", constraints)
+    dc_path = session_dir / "domain-constraints.json"
+    if dc_path.is_file():
+        constraints = load_domain_constraints(dc_path)
+    elif constraints_path is not None:
+        constraints = load_constraints_config(constraints_path, stage=stage)
+    else:
+        constraints = default_kernel_constraints(stage=stage)
+    save_domain_constraints(dc_path, constraints)
 
     active_gate, skipped = infer_progress(doc, constraints=constraints, delivered=delivered)
     gate_state = build_gate_state_from_progress(

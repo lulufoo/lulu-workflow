@@ -22,28 +22,19 @@ All DDF rules, gates, and registers defined there apply to this session.
 
 `$SKILL_DIR` = `$SKILL_ROOT/product-diagnostic`
 
----
-
-## Domain Constraints
-
-Prose for the kernel `Domain Constraints HARD-GATE`. Machine constraints: holder defaults loaded at `$DX_START`; runtime via `$GATE_CONTROL resolve-context` → `domain_constraints`.
-
-### After DC
-
-Read `$CYCLE_TYPE` from `_runtime.md` § Session Foundation.
-
-- **feature:** Tell user: "Product diagnostic is complete. The next step is `/product-spec` (alias: `ps`)."
-- **topic:** Tell user: "Product diagnostic is complete. The next step is `/product-arch` (alias: `pa`)."
-
-If `$CYCLE_TYPE` is unset, read `_transitions.md`, list allowed next stages for `product-diagnostic` under the matching `cycle_type` key, and wait for explicit user selection.
+Machine constraints SSOT: `$SKILL_DIR/constraints.json` (passed to diagnostic CLI via `--constraints`).
 
 ## start
 
 Complete `_runtime.md` § Session Foundation before running diagnostic start.
 
-Execute `$DX_START` from `diagnostic/SKILL.md` § Start, passing `product-diagnostic` as `--stage`:
+Execute `$DX_START` from `diagnostic/SKILL.md` § Start with:
 
-- Stage: `product-diagnostic`
-- Cache subdir: `product/diagnostic`
-- Apply holder prose from `## Domain Constraints` above throughout the session.
+```bash
+--stage product-diagnostic \
+--constraints "$SKILL_DIR/constraints.json"
+```
+
+Pass the same `--constraints "$SKILL_DIR/constraints.json"` on every `$GATE_CONTROL` / `$REGISTER_*` invocation.
+
 > If `$DX_START` exits non-zero ("Gate blocked: <stage> is not Delivered"): tell the user which prior stage must be delivered first. Do not retry start.

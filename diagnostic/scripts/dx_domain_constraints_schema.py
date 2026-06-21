@@ -29,24 +29,13 @@ ALL_X_DIMENSIONS: tuple[str, ...] = (
     "gap_check",
 )
 
-_WORKFLOW_ROOT = Path(__file__).resolve().parents[2]
-
 KERNEL_STAGE = "diagnostic"
 
 
-def holder_constraints_path(project_root: Path, stage: str) -> Path | None:
-    """Return `{stage}/constraints.json` under workflow root if present (holder SSOT)."""
+def default_cache_subdir(stage: str) -> str:
     if stage == KERNEL_STAGE:
-        return None
-    rel = Path(stage) / "constraints.json"
-    for candidate in (
-        _WORKFLOW_ROOT / rel,
-        project_root / "lulu-dev-workflow" / rel,
-        project_root / rel,
-    ):
-        if candidate.is_file():
-            return candidate
-    return None
+        return KERNEL_STAGE
+    return stage.replace("-", "/", 1)
 
 
 def _normalize_role(data: dict[str, Any]) -> dict[str, str] | None:
@@ -62,11 +51,45 @@ def _normalize_role(data: dict[str, Any]) -> dict[str, str] | None:
     return None
 
 
-def _default_constraints(*, stage: str) -> dict[str, Any]:
+def _normalize_context_loading(data: dict[str, Any]) -> dict[str, Any] | None:
+    raw = data.get("context_loading")
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        return None
+    optional = bool(raw.get("optional", True))
+    sources_raw = raw.get("sources")
+    if not isinstance(sources_raw, list):
+        return None
+    sources: list[dict[str, str]] = []
+    for item in sources_raw:
+        if not isinstance(item, dict):
+            continue
+        cycle_type = str(item.get("cycle_type", "")).strip()
+        subdir = str(item.get("upstream_cache_subdir", "")).strip()
+        doc_filename = str(item.get("doc_filename", "")).strip()
+        if not cycle_type or not subdir or not doc_filename:
+            continue
+        entry: dict[str, str] = {
+            "cycle_type": cycle_type,
+            "upstream_cache_subdir": subdir,
+            "doc_filename": doc_filename,
+        }
+        loaded_message = str(item.get("loaded_message", "")).strip()
+        if loaded_message:
+            entry["loaded_message"] = loaded_message
+        sources.append(entry)
+    if not sources:
+        return None
+    return {"optional": optional, "sources": sources}
+
+
+def default_kernel_constraints(*, stage: str) -> dict[str, Any]:
     return normalize_domain_constraints(
         {
             "version": "1",
             "stage": stage,
+            "cache_subdir": default_cache_subdir(stage),
             "omitted_sections": [],
             "x_dimensions": list(ALL_X_DIMENSIONS),
         }
@@ -84,15 +107,24 @@ def normalize_domain_constraints(data: dict[str, Any]) -> dict[str, Any]:
     if not x_clean:
         x_clean = list(ALL_X_DIMENSIONS)
 
+    stage = str(data.get("stage", "")).strip()
+    cache_subdir = str(data.get("cache_subdir", "")).strip()
+    if not cache_subdir and stage:
+        cache_subdir = default_cache_subdir(stage)
+
     normalized: dict[str, Any] = {
         "version": "1",
-        "stage": str(data.get("stage", "")),
+        "stage": stage,
+        "cache_subdir": cache_subdir,
         "omitted_sections": omitted_clean,
         "x_dimensions": x_clean,
     }
     role = _normalize_role(data)
     if role:
         normalized["role"] = role
+    context_loading = _normalize_context_loading(data)
+    if context_loading:
+        normalized["context_loading"] = context_loading
     return normalized
 
 
@@ -100,6 +132,10 @@ def validate_domain_constraints(data: dict[str, Any]) -> list[str]:
     errors: list[str] = []
     if data.get("version") != "1":
         errors.append(f"invalid version: {data.get('version')!r}")
+    if not str(data.get("stage", "")).strip():
+        errors.append("stage is required")
+    if not str(data.get("cache_subdir", "")).strip():
+        errors.append("cache_subdir is required")
     for key in data.get("omitted_sections", []):
         if key not in ALL_SECTION_KEYS:
             errors.append(f"invalid omitted section: {key!r}")
@@ -112,6 +148,12 @@ def validate_domain_constraints(data: dict[str, Any]) -> list[str]:
             errors.append("role must be an object")
         elif not str(role.get("instruction", "")).strip():
             errors.append("role.instruction is required when role is present")
+    context_loading = data.get("context_loading")
+    if context_loading is not None:
+        if not isinstance(context_loading, dict):
+            errors.append("context_loading must be an object")
+        elif not isinstance(context_loading.get("sources"), list):
+            errors.append("context_loading.sources must be a list")
     return errors
 
 
@@ -126,6 +168,26 @@ def load_domain_constraints(path: Path) -> dict[str, Any]:
     return normalized
 
 
+def load_constraints_config(path: Path, *, stage: str = "") -> dict[str, Any]:
+    """Load holder constraints file from explicit path (R1 contract)."""
+    if not path.is_file():
+        raise FileNotFoundError(f"constraints config not found: {path}")
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError(f"constraints config must be a JSON object: {path}")
+    if stage and not str(data.get("stage", "")).strip():
+        data = {**data, "stage": stage}
+    elif stage and str(data.get("stage", "")).strip() != stage:
+        raise ValueError(
+            f"constraints stage {data.get('stage')!r} does not match --stage {stage!r}",
+        )
+    normalized = normalize_domain_constraints(data)
+    errors = validate_domain_constraints(normalized)
+    if errors:
+        raise ValueError("; ".join(errors))
+    return normalized
+
+
 def save_domain_constraints(path: Path, data: dict[str, Any]) -> None:
     normalized = normalize_domain_constraints(data)
     errors = validate_domain_constraints(normalized)
@@ -133,32 +195,6 @@ def save_domain_constraints(path: Path, data: dict[str, Any]) -> None:
         raise ValueError("; ".join(errors))
     path.parent.mkdir(parents=True, exist_ok=True)
     atomic_write_text(path, json.dumps(normalized, indent=2, ensure_ascii=False) + "\n")
-
-
-def load_stage_defaults(project_root: Path, stage: str) -> dict[str, Any]:
-    config_path = holder_constraints_path(project_root, stage)
-    if config_path is None:
-        return _default_constraints(stage=stage)
-    payload = json.loads(config_path.read_text(encoding="utf-8"))
-    if not isinstance(payload, dict):
-        return _default_constraints(stage=stage)
-    merged = {k: v for k, v in payload.items() if k != "cache_subdir"}
-    merged["stage"] = stage
-    return normalize_domain_constraints(merged)
-
-
-def holder_cache_subdir(project_root: Path, stage: str) -> str:
-    """Session cache subdir from holder `constraints.json` (`cache_subdir`) or kernel default."""
-    if stage == KERNEL_STAGE:
-        return KERNEL_STAGE
-    path = holder_constraints_path(project_root, stage)
-    if path is None:
-        return stage
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(payload, dict):
-        return stage
-    subdir = str(payload.get("cache_subdir", "")).strip()
-    return subdir if subdir else stage
 
 
 def merge_domain_constraints(
