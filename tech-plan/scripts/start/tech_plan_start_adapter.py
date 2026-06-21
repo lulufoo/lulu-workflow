@@ -100,3 +100,26 @@ class TechPlanStartAdapter:
         project_root: Path,
     ) -> DeliveredRef | None:
         return primary_scope_from_workflow(cycle_id, project_root, "tech-plan")
+
+    def post_start_guidance(
+        self,
+        *,
+        run_mode: str,
+        carry_forward_ref: str,
+        scope_refs: list[DeliveredRef],
+    ) -> str:
+        del scope_refs
+        if run_mode == "product":
+            if carry_forward_ref:
+                return (
+                    "⚠️  carry_forward_ref 存在，进入 Drafting 后必须强制校准"
+                    "（对比新 product-doc 与旧 tech-doc）。"
+                )
+            return (
+                "首次起草（产品需求模式），进入 Drafting 后必须校准"
+                "（读取模板 + 架构约束 + product-doc）。"
+            )
+        return (
+            "技改模式：E1 意图对齐评估将跳过，仅执行 E2（代码库一致性）"
+            " + E3（方案质量 / TPEF）。"
+        )

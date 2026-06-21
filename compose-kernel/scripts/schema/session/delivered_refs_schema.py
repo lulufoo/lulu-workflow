@@ -6,7 +6,6 @@ from __future__ import annotations
 import json
 import sys
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -17,10 +16,16 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
-from workflow_common import CACHE_DIR  # noqa: E402
+_WORKFLOW_SCRIPTS = Path(__file__).resolve().parents[4] / "scripts"
+if str(_WORKFLOW_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_WORKFLOW_SCRIPTS))
 
-_FILE_NAME = "delivered-refs.json"
-_VERSION = 1
+from cycle_delivered_refs import (  # noqa: E402
+    delivered_refs_file_path,
+    load_delivered_refs_file,
+    record_delivered_ref,
+    save_delivered_refs_file,
+)
 
 
 @dataclass(frozen=True)
@@ -32,67 +37,6 @@ class DeliveredRef:
 
     def to_dict(self) -> dict[str, str]:
         return {"type": self.type, "path": self.path}
-
-
-def delivered_refs_file_path(cycle_id: str, project_root: Path) -> Path:
-    return (project_root / CACHE_DIR / cycle_id / _FILE_NAME).resolve()
-
-
-def _empty_file_payload() -> dict[str, Any]:
-    return {"version": _VERSION, "entries": {}}
-
-
-def load_delivered_refs_file(cycle_id: str, project_root: Path) -> dict[str, Any]:
-    """Load {cycle_id}/delivered-refs.json; missing file returns empty entries."""
-    path = delivered_refs_file_path(cycle_id, project_root)
-    if not path.is_file():
-        return _empty_file_payload()
-    data = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(data, dict):
-        raise ValueError(f"invalid delivered-refs.json (not object): {path}")
-    entries = data.get("entries")
-    if entries is None:
-        data["entries"] = {}
-    elif not isinstance(entries, dict):
-        raise ValueError(f"invalid delivered-refs.json entries: {path}")
-    return data
-
-
-def save_delivered_refs_file(cycle_id: str, project_root: Path, data: dict[str, Any]) -> Path:
-    path = delivered_refs_file_path(cycle_id, project_root)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    payload = dict(data)
-    payload["version"] = _VERSION
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    return path
-
-
-def record_delivered_ref(
-    cycle_id: str,
-    project_root: Path,
-    *,
-    delivered_type: str,
-    path: str,
-    revision: int | str,
-    profile_id: str,
-    source_workflow_state: str,
-) -> None:
-    """Upsert one delivered type in {cycle_id}/delivered-refs.json."""
-    dtype = delivered_type.strip()
-    if not dtype:
-        raise ValueError("delivered_type must be non-empty")
-    data = load_delivered_refs_file(cycle_id, project_root)
-    entries = dict(data.get("entries") or {})
-    entries[dtype] = {
-        "delivered_type": dtype,
-        "path": str(Path(path).resolve()),
-        "revision": revision,
-        "profile_id": profile_id,
-        "delivered_at": datetime.now(timezone.utc).isoformat(),
-        "source_workflow_state": source_workflow_state,
-    }
-    data["entries"] = entries
-    save_delivered_refs_file(cycle_id, project_root, data)
 
 
 def entry_path_ok(data: dict[str, Any], delivered_type: str) -> bool:
@@ -143,10 +87,6 @@ def delivered_path(state: dict[str, Any], delivered_type: str) -> str:
         if ref.type == delivered_type:
             return ref.path
     return ""
-
-
-def product_ref_from_state(state: dict[str, Any]) -> str:
-    return delivered_path(state, "product-spec")
 
 
 def parse_scope_refs(state: dict[str, Any]) -> list[DeliveredRef]:

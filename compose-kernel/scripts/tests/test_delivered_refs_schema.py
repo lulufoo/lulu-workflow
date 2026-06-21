@@ -44,18 +44,18 @@ def test_backfill_from_delivered_tech_diagnostic(tmp_path: Path):
     assert entry["path"] == str(decision.resolve())
 
 
-def test_backfill_from_delivered_product_arch(tmp_path: Path):
-    cycle_id = "feat-backfill-arch"
-    rev = tmp_path / ".cache/cursor/lulu-dev-workflow" / cycle_id / "product" / "arch" / "revision1"
+def test_backfill_from_delivered_tech_design(tmp_path: Path):
+    cycle_id = "feat-backfill-design"
+    rev = tmp_path / ".cache/cursor/lulu-dev-workflow" / cycle_id / "tech" / "design" / "revision1"
     rev.mkdir(parents=True)
-    arch_doc = rev / "arch-doc.md"
-    arch_doc.write_text("# Arch\n", encoding="utf-8")
+    design_doc = rev / "design-doc.md"
+    design_doc.write_text("# Design\n", encoding="utf-8")
     (rev / "workflow-state.md").write_text(
         "---\n"
         "version: 1\n"
-        "workflow: product-arch\n"
-        "mode: product\n"
-        "cycle_type: topic\n"
+        "workflow: tech-design\n"
+        "mode: tech\n"
+        "cycle_type: feature\n"
         "current_state: Delivered\n"
         "evaluate_round: 0\n"
         "delivered_refs: []\n"
@@ -66,7 +66,7 @@ def test_backfill_from_delivered_product_arch(tmp_path: Path):
     )
     backfill_delivered_refs_from_cycle(cycle_id, tmp_path)
     data = load_delivered_refs_file(cycle_id, tmp_path)
-    assert data["entries"]["product-arch"]["path"] == str(arch_doc.resolve())
+    assert data["entries"]["tech-design"]["path"] == str(design_doc.resolve())
 
 
 def test_backfill_from_delivered_product_spec(tmp_path: Path):

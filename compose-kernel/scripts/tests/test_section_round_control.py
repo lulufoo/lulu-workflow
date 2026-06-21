@@ -142,6 +142,47 @@ def test_read_context_uses_scope_refs_primary_not_product(tmp_path: Path):
     assert ctx["decision_doc_path"] == str(decision_doc.resolve())
 
 
+def test_read_context_supplementary_design_doc_from_scope(tmp_path: Path):
+    cycle_dir = tmp_path / ".cache/cursor/lulu-dev-workflow" / _CYCLE_ID
+    _seed_registry_cache(tmp_path)
+    plan_base = cycle_dir / "tech" / "plan"
+    revision = plan_base / "revision1"
+    revision.mkdir(parents=True)
+    (plan_base / "session-state.md").write_text(
+        "---\nversion: 1\nactive_doc: 1\n---\n",
+        encoding="utf-8",
+    )
+    (revision / "tech-doc.md").write_text(minimal_compose_doc_markdown(), encoding="utf-8")
+    (revision / "drafting-progress.md").write_text(
+        f"---\nversion: 1\ncycle_id: {_CYCLE_ID}\n"
+        "current_step: RoundIteration\nround: 1\n---\n",
+        encoding="utf-8",
+    )
+    from delivered_refs_schema import DeliveredRef  # noqa: WPS433
+    from workflow_state_schema import init_drafting  # noqa: WPS433
+
+    decision_doc = tmp_path / "decision-doc.md"
+    decision_doc.write_text("# Decision\n", encoding="utf-8")
+    design_doc = tmp_path / "design-doc.md"
+    design_doc.write_text("# Design\n", encoding="utf-8")
+    ws = revision / "workflow-state.md"
+    init_drafting(
+        ws,
+        mode="tech",
+        delivered_refs=[
+            DeliveredRef(type="tech-diagnostic", path=str(decision_doc.resolve())),
+            DeliveredRef(type="tech-design", path=str(design_doc.resolve())),
+        ],
+        scope_refs=[
+            DeliveredRef(type="tech-diagnostic", path=str(decision_doc.resolve())),
+            DeliveredRef(type="tech-design", path=str(design_doc.resolve())),
+        ],
+    )
+    ctx = _run(cycle_dir, "read-context", round_n=None)
+    assert ctx["decision_doc_path"] == str(decision_doc.resolve())
+    assert ctx["design_doc_path"] == str(design_doc.resolve())
+
+
 def test_append_skip_any_section(tmp_path: Path):
     cycle_dir = _setup_cycle(tmp_path)
     proc = subprocess.run(

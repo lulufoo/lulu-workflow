@@ -808,6 +808,17 @@ def cmd_deliver(
             project_root=project_root,
             constraints_path=constraints_path,
         )
+        from cycle_delivered_refs import record_delivered_ref  # noqa: WPS433
+
+        record_delivered_ref(
+            cycle_id,
+            project_root,
+            delivered_type=stage,
+            path=str(paths["decision_doc"].resolve()),
+            revision=1,
+            profile_id=stage,
+            source_workflow_state=str(ss_path.resolve()),
+        )
         write_session_state(ss_path, "Delivered")
     except (FileNotFoundError, ValueError) as exc:
         return _emit_error(str(exc))

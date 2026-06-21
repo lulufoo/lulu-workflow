@@ -32,7 +32,7 @@ from workflow_state_schema import init_drafting, load_workflow_state, save_workf
 from init_drafting_helpers import product_delivered_refs  # noqa: E402
 from delivered_refs_schema import (  # noqa: E402
     load_delivered_refs_file,
-    product_ref_from_state,
+    delivered_path,
 )
 
 _CYCLE = "feat-test"
@@ -278,7 +278,7 @@ class TestAbandonEvaluation:
         assert loaded["evaluate_round"] == "2"
         assert loaded["skip_evaluate_requested"] == "false"
         assert loaded["mode"] == "product"
-        assert product_ref_from_state(loaded) == "/p.md"
+        assert delivered_path(loaded, "product-spec") == "/p.md"
         assert loaded["carry_forward_ref"] == "/old.md"
 
     def test_failure_when_not_evaluating(self, tmp_path: Path):

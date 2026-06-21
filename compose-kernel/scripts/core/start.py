@@ -21,7 +21,6 @@ from transition_table import load_stage_order  # noqa: E402
 from workflow_sessions import current_effective_delivered, get_sessions  # noqa: E402
 from invalidation_hook import invalidate_downstream  # noqa: E402
 
-from compose_session import calibration_note  # noqa: E402
 from delivered_refs_backfill import backfill_delivered_refs_from_cycle  # noqa: E402
 from delivered_refs_schema import serialize_delivered_refs  # noqa: E402
 from session_state_schema import load_active_doc, next_doc_round, save_active_doc
@@ -124,7 +123,7 @@ def run_start(
 
     cache_dir = project_root / CACHE_DIR
 
-    backfill_delivered_refs_from_cycle(cycle_id, project_root)
+    backfill_delivered_refs_from_cycle(cycle_id, project_root)  # reconcile index from cache
 
     start_errors = adapter.validate_for_start(
         cycle_id,
@@ -215,10 +214,10 @@ def run_start(
     except ScopeResolverError:
         role_summary = cycle_type
 
-    note = calibration_note(
-        profile_id,
-        run_mode,
+    note = adapter.post_start_guidance(
+        run_mode=run_mode,
         carry_forward_ref=carry_forward_ref,
+        scope_refs=scope_refs,
     )
 
     doc_label = profile["document"]["filename"]

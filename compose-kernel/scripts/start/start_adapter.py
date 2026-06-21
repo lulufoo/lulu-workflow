@@ -40,6 +40,15 @@ class StartAdapter(Protocol):
     ) -> list[DeliveredRef]:
         """Ordered scope SSOT refs: [0]=primary; [1]+ optional attachments (unused by kernel v1)."""
 
+    def post_start_guidance(
+        self,
+        *,
+        run_mode: str,
+        carry_forward_ref: str,
+        scope_refs: list[DeliveredRef],
+    ) -> str:
+        """Orchestrator-facing note after init_drafting (may be empty)."""
+
     def delivered_ref_for_init(
         self,
         cycle_id: str,

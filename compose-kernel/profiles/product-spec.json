@@ -28,5 +28,11 @@
   },
   "upstream_ssot": {
     "decision_doc_rel": "product/diagnostic/decision-doc.md"
+  },
+  "delivery_index": {
+    "layout": "revision",
+    "state_file": "workflow-state.md",
+    "terminal_state": "Delivered",
+    "doc_filename": "product-doc.md"
   }
 }

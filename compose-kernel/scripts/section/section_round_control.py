@@ -96,10 +96,11 @@ from section_registry_schema import (  # noqa: E402
 from compose_doc_schema import section_body_by_key, section_display_heading  # noqa: E402
 from workflow_common import parse_frontmatter_fields  # noqa: E402
 from delivered_refs_schema import (  # noqa: E402
-    delivered_path,
     parse_delivered_refs,
+    parse_scope_refs,
     primary_scope_ref_from_state,
 )
+from upstream_ssot import resolve_supplementary_paths  # noqa: E402
 from workflow_state_schema import load_workflow_state  # noqa: E402
 
 _CMD_ROUND_PROBE_INPUT = "round-probe-input"
@@ -475,15 +476,18 @@ def cmd_read_context(cycle_dir: Path) -> int:
     ws_path = workflow_state_path(cycle_id, project_root, profile_id)
     if ws_path.exists():
         state = load_workflow_state(ws_path)
-        payload["delivered_refs"] = [
-            ref.to_dict() for ref in parse_delivered_refs(state)
-        ]
+        delivered_refs = parse_delivered_refs(state)
+        scope_refs = parse_scope_refs(state)
+        payload["delivered_refs"] = [ref.to_dict() for ref in delivered_refs]
         scope_ref = primary_scope_ref_from_state(state)
         if scope_ref is not None:
             payload["decision_doc_path"] = str(Path(scope_ref.path).resolve())
-        design_path = delivered_path(state, "tech-design")
-        if design_path:
-            payload["design_doc_path"] = design_path
+        for ctx_key, path in resolve_supplementary_paths(
+            profile_id,
+            scope_refs,
+            delivered_refs,
+        ).items():
+            payload[ctx_key] = path
     if not payload["decision_doc_path"]:
         from workflow_profile_paths import decision_doc_path  # noqa: WPS433
 

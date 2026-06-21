@@ -31,7 +31,7 @@ from workflow_profile_paths import (  # noqa: E402
     document_path,
     eval_round_dir,
 )
-from delivered_refs_schema import product_ref_from_state  # noqa: E402
+from delivered_refs_schema import delivered_path  # noqa: E402
 from workflow_state_schema import (  # noqa: E402
     load_workflow_state,
     resolve_workflow_state_path_from_cycle,
@@ -94,7 +94,7 @@ class TechPlanEvalAdapter:
         return SessionContext(
             active_doc=load_active_doc_from_cycle(cycle_id, project_root, profile_id="tech-plan"),
             mode=state["mode"],
-            product_ref=product_ref_from_state(state),
+            product_ref=delivered_path(state, "product-spec"),
             cycle_type=detect_cycle_type(cycle_id),
         )
 
@@ -138,7 +138,7 @@ class TechPlanEvalAdapter:
 
         state = self.load_workflow_state(cycle_id, project_root)
         mode = state["mode"]
-        product_ref = product_ref_from_state(state)
+        product_ref = delivered_path(state, "product-spec")
         cycle_type = detect_cycle_type(cycle_id)
         dimensions = select_dimension_defs(
             product_ref=product_ref,

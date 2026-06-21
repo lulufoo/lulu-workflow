@@ -30,5 +30,11 @@
         "loaded_message": "I've loaded the product context document for this tech diagnostic."
       }
     ]
+  },
+  "delivery_index": {
+    "layout": "flat",
+    "state_file": "session-state.md",
+    "terminal_state": "Delivered",
+    "doc_filename": "decision-doc.md"
   }
 }

@@ -39,7 +39,7 @@ from workflow_state_schema import (  # noqa: E402
     resolve_workflow_state_path_from_cycle,
     save_workflow_state,
 )
-from delivered_refs_schema import product_ref_from_state  # noqa: E402
+from delivered_refs_schema import delivered_path  # noqa: E402
 
 sys.path.insert(0, str(EVAL_SCRIPTS))
 from workflow_adapter import SessionContext  # noqa: E402
@@ -99,7 +99,7 @@ class TechDesignEvalAdapter:
                 profile_id=_WORKFLOW_ID,
             ),
             mode=state["mode"],
-            product_ref=product_ref_from_state(state),
+            product_ref=delivered_path(state, "product-spec"),
             cycle_type=detect_cycle_type(cycle_id),
         )
 

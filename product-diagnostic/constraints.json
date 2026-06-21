@@ -13,5 +13,11 @@
   "role": {
     "persona": "product_thinker",
     "instruction": "You are acting as a product thinker. Frame all questions and analyses from the perspective of user value, business impact, and product strategy. Use product vocabulary (user journey, feature scope, adoption, rollout) rather than technical vocabulary."
+  },
+  "delivery_index": {
+    "layout": "flat",
+    "state_file": "session-state.md",
+    "terminal_state": "Delivered",
+    "doc_filename": "decision-doc.md"
   }
 }

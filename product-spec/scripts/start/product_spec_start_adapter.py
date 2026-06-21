@@ -75,3 +75,13 @@ class ProductSpecStartAdapter:
         project_root: Path,
     ) -> DeliveredRef | None:
         return primary_scope_from_workflow(cycle_id, project_root, "product-spec")
+
+    def post_start_guidance(
+        self,
+        *,
+        run_mode: str,
+        carry_forward_ref: str,
+        scope_refs: list[DeliveredRef],
+    ) -> str:
+        del run_mode, carry_forward_ref, scope_refs
+        return "产品规格阶段：Initializing 完成后进入 Drafting，以上游 product-diagnostic 为 scope SSOT。"

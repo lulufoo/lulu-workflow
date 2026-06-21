@@ -103,31 +103,3 @@ def load_document_presentation(
     payload = extract_presentation(doc_path, revision=active_doc)
     payload["revision"] = active_doc
     return payload
-
-
-def calibration_note(
-    profile_id: str,
-    run_mode: str,
-    *,
-    carry_forward_ref: str = "",
-) -> str:
-    """Profile-aware post-start guidance for the orchestrator."""
-    if profile_id == "tech-design":
-        return (
-            "设计阶段：Initializing 完成后暂停；可选 Evaluating（d1 代码库一致性 + "
-            "d2 方案质量）或 Deliver。"
-        )
-    if run_mode == "product":
-        if carry_forward_ref:
-            return (
-                "⚠️  carry_forward_ref 存在，进入 Drafting 后必须强制校准"
-                "（对比新 product-doc 与旧 tech-doc）。"
-            )
-        return (
-            "首次起草（产品需求模式），进入 Drafting 后必须校准"
-            "（读取模板 + 架构约束 + product-doc）。"
-        )
-    return (
-        "技改模式：E1 意图对齐评估将跳过，仅执行 E2（代码库一致性）"
-        " + E3（方案质量 / TPEF）。"
-    )

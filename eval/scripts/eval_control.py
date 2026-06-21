@@ -43,7 +43,7 @@ if str(_KERNEL_SCRIPTS) not in sys.path:
 import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
-from delivered_refs_schema import product_ref_from_state  # noqa: E402
+from delivered_refs_schema import delivered_path  # noqa: E402
 
 from review_io import (  # noqa: E402
     count_resolved,
@@ -185,7 +185,7 @@ def _bind_vars(
 ) -> dict[str, str]:
     bind = {
         "compose_doc": paths["compose_doc"],
-        "product_ref": product_ref_from_state(state),
+        "product_ref": delivered_path(state, "product-spec"),
         "cycle_type": _adapter().detect_cycle_type(cycle_id),
         "M": str(evaluate_round),
     }
@@ -570,7 +570,7 @@ def build_eval_loop_payload(
         active_doc=active_doc,
         N=active_doc,
         cycle_type=_adapter().detect_cycle_type(cycle_id),
-        product_ref=product_ref_from_state(state),
+        product_ref=delivered_path(state, "product-spec"),
         project_root=project_root.resolve().as_posix(),
         paths=paths,
     )
@@ -768,7 +768,7 @@ def _build_runner_input(
                 runner_input["PRODUCT_REF"] = ref
                 break
     if "PRODUCT_REF" not in runner_input:
-        pref = product_ref_from_state(state)
+        pref = delivered_path(state, "product-spec")
         if pref and any(s.get("kind") == "url" for s in sots):
             runner_input["PRODUCT_REF"] = pref
     return runner_input
@@ -1110,7 +1110,7 @@ def _build_remediation_runner_input(
         "EVALUATE_ROUND": str(evaluate_round),
         "PROJECT_ROOT": project_root.resolve().as_posix(),
     }
-    product_ref = product_ref_from_state(state)
+    product_ref = delivered_path(state, "product-spec")
     if product_ref:
         runner_input["PRODUCT_REF"] = product_ref
     return runner_input

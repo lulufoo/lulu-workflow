@@ -168,6 +168,11 @@ def test_loop_b_v_rr_dc_deliver(template_config: Path, monkeypatch: pytest.Monke
     ss = (project_root / session_state_path(cycle_id, stage)).read_text(encoding="utf-8")
     assert "current_state: Delivered" in ss
 
+    from cycle_delivered_refs import load_delivered_refs_file  # noqa: WPS433
+
+    refs = load_delivered_refs_file(cycle_id, project_root)
+    assert refs["entries"]["diagnostic"]["path"].endswith("decision-doc.md")
+
 
 def test_v_dc_skip_rr(template_config: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     project_root = template_config

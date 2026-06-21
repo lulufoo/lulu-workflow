@@ -28,6 +28,14 @@
   },
   "upstream_ssot": {
     "decision_doc_rel": "tech/diagnostic/decision-doc.md",
-    "design_doc_optional": true
+    "supplementary_refs": [
+      { "type": "tech-design", "ctx_key": "design_doc_path" }
+    ]
+  },
+  "delivery_index": {
+    "layout": "revision",
+    "state_file": "workflow-state.md",
+    "terminal_state": "Delivered",
+    "doc_filename": "tech-doc.md"
   }
 }

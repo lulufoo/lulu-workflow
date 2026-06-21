@@ -72,3 +72,16 @@ class TechDesignStartAdapter:
         project_root: Path,
     ) -> DeliveredRef | None:
         return primary_scope_from_workflow(cycle_id, project_root, "tech-design")
+
+    def post_start_guidance(
+        self,
+        *,
+        run_mode: str,
+        carry_forward_ref: str,
+        scope_refs: list[DeliveredRef],
+    ) -> str:
+        del run_mode, carry_forward_ref, scope_refs
+        return (
+            "设计阶段：Initializing 完成后暂停；可选 Evaluating（d1 代码库一致性 + "
+            "d2 方案质量）或 Deliver。"
+        )
