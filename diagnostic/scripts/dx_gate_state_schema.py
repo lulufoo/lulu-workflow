@@ -12,7 +12,7 @@ from typing import Any, Optional
 from dx_io import atomic_write_text
 
 GATE_ORDER: tuple[str, ...] = (
-    "open",
+    "O",
     "Q",
     "E",
     "D",
@@ -22,8 +22,11 @@ GATE_ORDER: tuple[str, ...] = (
     "RR",
     "DC",
 )
-LOOP_A: tuple[str, ...] = ("Q", "E", "D", "X", "R")
+LOOP_A: tuple[str, ...] = ("O", "Q", "E", "D", "X", "R")
 LOOP_B: tuple[str, ...] = ("V", "RR")
+RS_REOPEN_GATES: tuple[str, ...] = ("Q", "E", "D", "X")
+RS_INVALIDATE_GATES: frozenset[str] = frozenset({"Q", "E", "D", "X", "R"})
+_LEGACY_GATE_IDS: dict[str, str] = {"open": "O"}
 GATE_STATUSES = frozenset({"pending", "active", "closed", "invalidated"})
 
 
@@ -39,13 +42,13 @@ def init_gate_state(*, cycle_id: str, stage: str) -> dict[str, Any]:
     gates: dict[str, dict[str, Any]] = {}
     for gate in GATE_ORDER:
         gates[gate] = _default_gate_entry(status="pending")
-    gates["open"] = _default_gate_entry(status="active")
+    gates["O"] = _default_gate_entry(status="active")
     return normalize_gate_state(
         {
             "version": "1",
             "cycle_id": cycle_id,
             "stage": stage,
-            "active_gate": "open",
+            "active_gate": "O",
             "gates": gates,
             "skipped_gates": [],
             "updated_at": _now_iso(),
@@ -89,7 +92,25 @@ def validate_gate_state(data: dict[str, Any]) -> list[str]:
     return errors
 
 
+def _migrate_legacy_gate_ids(data: dict[str, Any]) -> dict[str, Any]:
+    """Map pre-O gate id ``open`` to ``O`` on read."""
+    updated = dict(data)
+    active = str(updated.get("active_gate", ""))
+    if active in _LEGACY_GATE_IDS:
+        updated["active_gate"] = _LEGACY_GATE_IDS[active]
+    gates_raw = updated.get("gates")
+    if isinstance(gates_raw, dict):
+        gates = dict(gates_raw)
+        if "open" in gates:
+            if "O" not in gates:
+                gates["O"] = gates["open"]
+            del gates["open"]
+        updated["gates"] = gates
+    return updated
+
+
 def normalize_gate_state(data: dict[str, Any]) -> dict[str, Any]:
+    data = _migrate_legacy_gate_ids(data)
     gates_raw = data.get("gates")
     gates: dict[str, dict[str, Any]] = {}
     if isinstance(gates_raw, dict):
@@ -108,9 +129,9 @@ def normalize_gate_state(data: dict[str, Any]) -> dict[str, Any]:
         for gate in GATE_ORDER:
             gates[gate] = _default_gate_entry(status="pending")
 
-    active = str(data.get("active_gate", "open"))
+    active = str(data.get("active_gate", "O"))
     if active not in GATE_ORDER:
-        active = "open"
+        active = "O"
 
     return {
         "version": "1",
@@ -126,7 +147,7 @@ def normalize_gate_state(data: dict[str, Any]) -> dict[str, Any]:
 def load_gate_state(path: Path) -> dict[str, Any]:
     if not path.exists():
         raise FileNotFoundError(f"gate-state not found: {path}")
-    data = json.loads(path.read_text(encoding="utf-8"))
+    data = _migrate_legacy_gate_ids(json.loads(path.read_text(encoding="utf-8")))
     errors = validate_gate_state(data)
     if errors:
         raise ValueError("; ".join(errors))
@@ -183,7 +204,7 @@ def activate_gate(state: dict[str, Any], gate: str) -> dict[str, Any]:
         if g == gate:
             entry["status"] = "active"
         elif str(entry.get("status", "")).lower() == "active":
-            entry["status"] = "closed" if g == "open" else "pending"
+            entry["status"] = "closed" if g == "O" else "pending"
     updated["active_gate"] = gate
     updated["updated_at"] = _now_iso()
     return updated
@@ -263,7 +284,7 @@ def reactivate_gate_for_r_rerun(state: dict[str, Any]) -> dict[str, Any]:
 
 def header_gate_symbols(state: dict[str, Any]) -> dict[str, str]:
     symbols: dict[str, str] = {}
-    for gate in ("Q", "E", "D", "X", "R", "V", "RR", "DC"):
+    for gate in ("O", "Q", "E", "D", "X", "R", "V", "RR", "DC"):
         status = str(state["gates"].get(gate, {}).get("status", "pending")).lower()
         symbols[gate] = "✅" if status == "closed" else "⬜"
     return symbols

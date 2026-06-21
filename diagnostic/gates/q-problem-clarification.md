@@ -2,7 +2,7 @@
 
 #### Q — Problem Clarification
 
-**Prerequisites:** None
+**Prerequisites:** O closed
 
 **Execute:**
 1. Ask (G7): "What triggered this decision? What problem are we solving?"

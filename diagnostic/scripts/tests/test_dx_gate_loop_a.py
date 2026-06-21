@@ -15,7 +15,6 @@ if str(_DIAG_SCRIPTS) not in sys.path:
 
 from dx_decision_doc_schema import load_decision_doc  # noqa: E402
 from dx_gate_control import (  # noqa: E402
-    cmd_gate_activate,
     cmd_gate_close,
     cmd_init_session,
 )
@@ -50,8 +49,18 @@ def template_config(tmp_path: Path) -> Path:
     return tmp_path
 
 
+def _close_o(project_root: Path, cycle_id: str, stage: str) -> None:
+    cmd_gate_close(
+        project_root,
+        cycle_id,
+        stage,
+        "O",
+        {"user_confirmed": True},
+    )
+
+
 def _close_qe(project_root: Path, cycle_id: str, stage: str) -> None:
-    cmd_gate_activate(project_root, cycle_id, stage, "Q")
+    _close_o(project_root, cycle_id, stage)
     cmd_gate_close(
         project_root,
         cycle_id,

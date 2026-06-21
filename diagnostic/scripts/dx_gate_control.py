@@ -3,8 +3,8 @@
 
 Subcommands:
     init-session           Bootstrap gate-state, registers, and decision-doc skeleton
-    resolve-context        JSON context for runners and Reply Header rendering
-    gate-activate          Activate a gate (e.g. open → Q)
+    resolve-context        JSON session context for runners (gates, registers, constraints)
+    gate-activate          Activate a gate (e.g. re-activate Q after RS)
     gate-close             Close active gate, patch decision-doc, advance pointer
     invalidate-from        RS mechanical invalidation from a gate downstream
     check-delivery-ready   Validate decision-doc + gates for DC delivery
@@ -50,7 +50,8 @@ from dx_domain_constraints_schema import (  # noqa: E402
 )
 from dx_gate_state_schema import (  # noqa: E402
     GATE_ORDER,
-    LOOP_A,
+    RS_INVALIDATE_GATES,
+    RS_REOPEN_GATES,
     activate_gate,
     close_gate,
     close_gate_r,
@@ -111,11 +112,11 @@ def _load_session_constraints(project_root: Path, cycle_id: str, stage: str) -> 
 
 
 def _validate_gate_activate_prereqs(state: dict[str, Any], gate: str) -> str | None:
-    if gate == "open":
-        return "cannot activate open; it is the initial gate"
+    if gate == "O":
+        return "cannot activate O; it is the initial gate"
     if gate == "Q":
-        if state["active_gate"] != "open":
-            return "gate Q can only be activated from open channel"
+        if not is_gate_closed(state, "O"):
+            return "gate O must be closed before activating Q"
         return None
     if gate == "E":
         if not is_gate_closed(state, "Q"):
@@ -216,7 +217,7 @@ def cmd_resolve_context(project_root: Path, cycle_id: str, stage: str) -> int:
     return 0
 
 
-_IMPLEMENTED_GATES = frozenset({"Q", "E", "D", "X", "R", "V", "RR", "DC"})
+_IMPLEMENTED_GATES = frozenset({"O", "Q", "E", "D", "X", "R", "V", "RR", "DC"})
 
 _H_VERIFICATION_PARTS = ("Method:", "Owner:", "Timing:", "Release condition:")
 
@@ -289,6 +290,10 @@ def _validate_v_exit_against_registers(
 
 
 def _validate_gate_close_payload(gate: str, payload: dict[str, Any], *, constraints: dict[str, Any]) -> None:
+    if gate == "O":
+        if not payload.get("user_confirmed"):
+            raise ValueError("user_confirmed must be true for O gate-close")
+        return
     if gate == "Q":
         if not str(payload.get("problem_statement", "")).strip():
             raise ValueError("problem_statement is required")
@@ -325,7 +330,7 @@ def _validate_gate_close_payload(gate: str, payload: dict[str, Any], *, constrai
             raise ValueError("exit must be loop_b, dc, or rs")
         if exit_path == "rs":
             reopen_gate = str(payload.get("reopen_gate", "")).strip()
-            if reopen_gate not in LOOP_A:
+            if reopen_gate not in RS_REOPEN_GATES:
                 raise ValueError("reopen_gate must be one of Q, E, D, X for R exit rs")
         assumptions = payload.get("assumptions", [])
         if not isinstance(assumptions, list):
@@ -592,7 +597,7 @@ def _collect_delivery_errors(
     if state["active_gate"] != "DC":
         errors.append(f"active_gate must be DC, got {state['active_gate']!r}")
 
-    for gate in ("Q", "E", "D", "X", "R"):
+    for gate in ("O", "Q", "E", "D", "X", "R"):
         if not is_gate_closed(state, gate):
             errors.append(f"gate {gate} is not closed")
 
@@ -747,6 +752,8 @@ def cmd_gate_close(
                     constraints=constraints,
                 )
                 updated = close_gate_rr(state, exit_path=exit_path)
+        elif gate == "O":
+            updated = close_gate(state, gate)
         elif gate == "DC":
             registers = load_registers(paths["registers"], r_gate_closed=True)
             doc = load_decision_doc(paths["decision_doc"])
@@ -786,8 +793,8 @@ def cmd_invalidate_from(project_root: Path, cycle_id: str, stage: str, gate: str
         state = load_gate_state(paths["gate_state"])
         if gate not in GATE_ORDER:
             return _emit_error(f"invalid gate: {gate!r}")
-        if gate not in LOOP_A and gate != "R":
-            return _emit_error(f"invalidate-from supports LoopA gates and R, got {gate!r}")
+        if gate not in RS_INVALIDATE_GATES:
+            return _emit_error(f"invalidate-from supports {sorted(RS_INVALIDATE_GATES)}, got {gate!r}")
         updated = invalidate_from_gate(state, gate)
         save_gate_state(paths["gate_state"], updated)
         doc = load_decision_doc(paths["decision_doc"])

@@ -77,7 +77,7 @@ def infer_progress(
     if delivered:
         return "DC", []
 
-    last_closed = "open"
+    last_closed = "O"
     for gate, section_key in _GATE_AFTER_SECTION:
         body = _section_body(doc, section_key)
         if not _section_ready(body):
@@ -135,7 +135,7 @@ def _parse_prior_from_doc(doc: str) -> list[dict[str, Any]]:
                 "kind": match.group("kind").strip(),
                 "text": match.group("text").strip(),
                 "state": "pending",
-                "source": "open",
+                "source": "O",
             }
         )
     return entries
@@ -165,7 +165,7 @@ def _parse_assumptions_from_doc(doc: str) -> list[dict[str, Any]]:
                 "id": entry_id,
                 "text": text,
                 "state": state,
-                "source": source or "open",
+                "source": source or "O",
                 "risk": risk_val,
                 "consequence": consequence or None,
                 "verification": verification or None,

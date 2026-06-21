@@ -2,26 +2,20 @@
 
 ## Decision-Doc Format
 
-Decision-doc is maintained incrementally on disk at `$CACHE_DIR/<cycle_id>/{cache_subdir}/decision-doc.md` (see §Start). Each gate-close patches its sections; registers sync into §6 via `$REGISTER_CONTROL`.
+Decision-doc is maintained incrementally by `$GATE_CONTROL gate-close` and `$REGISTER_CONTROL sync-registers-to-doc`. Section layout and filtering: `dx_decision_doc_schema.py` / control `--help`.
 
-**Section filtering:** If a `## Domain Constraints` section lists forbidden sections, omit those sections from init and patches. If no Domain Constraints are present, write all sections.
+**Section filtering:** If Domain Constraints omit sections, control scripts skip them at init and patch. If no Domain Constraints are present, write all sections.
 
 <HARD-GATE name="Decision-Doc Prerequisites">
 Template SSOT: `$FETCH_TEMPLATE --section diagnostic --key decision_doc_template_url`
-Apply Section filtering using resolved Domain Constraints at session start.
+Apply Section filtering using `$CTX.domain_constraints` after `resolve-context`.
 </HARD-GATE>
 
 ---
 
 ## Self-Review (before Delivery)
 
-Before presenting to user, scan the written decision-doc for:
-
-1. **Completeness:** all sections filled; no empty cells in tables; User Prior captured with type tags
-2. **Consistency:** Decision Rationale references E trade-offs; all H-risk rows in Assumptions & Risks have Verification content (Method / Owner / Timing / Release condition)
-3. **Gap check:** if `Gap (if any)` is non-empty, the gap is documented and a reopen was either triggered or explicitly accepted
-
-Fix inline. No separate review round needed.
+Before presenting to user, run `$GATE_CONTROL check-delivery-ready`. Fix every error in stdout before continuing. Do **not** open session data files directly.
 
 ---
 
@@ -32,14 +26,14 @@ Fix inline. No separate review round needed.
 - Path 2: V direct — no high-risk, medium/low batch-confirmed, no Risk Release needed
 - Path 3: RR exit 1 — all Released, Assumption Log has no new `[待验证]` entries
 
-After self-review passes (decision-doc already written, Risk Release statuses updated):
-1. Present the following key sections **in the conversation** (do not just show file path):
+After `check-delivery-ready` passes:
+1. Present the following key sections **in the conversation** (from `$CTX` / prior gate-close content — do not show file paths):
    - Decision Rationale
    - Scope (including explicit exclusions)
    - Assumptions & Risks (all items with risk levels and Verification content)
 2. Ask user: "Are these decisions correct? Any items to re-open?"
 3. If any item is flagged: load `$SKILL_DIR/runners/rs-reopen-runner/SKILL.md` on the corresponding gate; re-close all invalidated gates before proceeding.
-   > **DC-triggered RS baseline:** when RS is triggered from DC, use the already-written decision-doc as the authoritative baseline snapshot — do not reconstruct state from conversation memory. RS step 2 (clear conclusion zones) and step 3 (propose 3-state labeling) are executed against the decision-doc's recorded state.
+   > **DC-triggered RS baseline:** when RS is triggered from DC, pin fresh `$CTX` via `resolve-context` after any sync — do not reconstruct state from conversation memory alone.
 4. Only after user's explicit confirmation:
 
 ```bash

@@ -25,13 +25,13 @@ Do NOT proceed until you have read `../../../_runtime.md`
 
 ## Pipeline
 
-1. `$GATE_CONTROL resolve-context` — pin `$CTX`; use on-disk decision-doc as baseline (not conversation memory)
+1. `$GATE_CONTROL resolve-context` — pin `$CTX`; use `$CTX` (not conversation memory) as baseline before invalidation
 2. Step 1 — confirm reopen gate `G` with user (G8)
-3. `$GATE_CONTROL invalidate-from --gate <G>` — mechanical gate-state + doc zone reset
+3. `$GATE_CONTROL invalidate-from --gate <G>`
 4. Step 3 — propose 3-state labeling for all register entries; user confirms (G8)
 5. `$REGISTER_CONTROL register-batch-apply --operations '<json array>'`
 6. `$REGISTER_CONTROL sync-registers-to-doc`
-7. `$GATE_CONTROL resolve-context` — refresh Reply Header
+7. `$GATE_CONTROL resolve-context` — refresh `$CTX` (G4)
 8. Return `RS_COMPLETE reenter=<G>` — load gate `G` runner next
 
 ## register-batch-apply operations

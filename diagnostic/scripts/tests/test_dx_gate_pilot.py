@@ -15,7 +15,6 @@ if str(_DIAG_SCRIPTS) not in sys.path:
 
 from dx_decision_doc_schema import load_decision_doc  # noqa: E402
 from dx_gate_control import (  # noqa: E402
-    cmd_gate_activate,
     cmd_gate_close,
     cmd_init_session,
     cmd_invalidate_from,
@@ -23,6 +22,7 @@ from dx_gate_control import (  # noqa: E402
 )
 from dx_register_control import cmd_register_append  # noqa: E402
 from dx_workflow_common import decision_doc_path, gate_state_path, registers_path  # noqa: E402
+from test_dx_gate_loop_a import _close_o  # noqa: E402
 
 
 @pytest.fixture
@@ -70,7 +70,7 @@ def test_init_and_q_e_gate_close(template_config: Path, monkeypatch: pytest.Monk
         payload={"kind": "excluded", "text": "排除方案 B"},
     ) == 0
 
-    assert cmd_gate_activate(project_root, cycle_id, stage, "Q") == 0
+    _close_o(project_root, cycle_id, stage)
 
     q_payload = {
         "problem_statement": "用户无法批量导出报表",
@@ -110,11 +110,12 @@ def test_init_and_q_e_gate_close(template_config: Path, monkeypatch: pytest.Monk
     registers = json.loads(
         (project_root / registers_path(cycle_id, stage)).read_text(encoding="utf-8")
     )
-    assert registers["prior"][0]["source"] == "open"
+    assert registers["prior"][0]["source"] == "O"
 
     gate_state = json.loads(
         (project_root / gate_state_path(cycle_id, stage)).read_text(encoding="utf-8")
     )
+    assert gate_state["gates"]["O"]["status"] == "closed"
     assert gate_state["gates"]["Q"]["status"] == "closed"
     assert gate_state["gates"]["E"]["status"] == "closed"
     assert gate_state["active_gate"] == "D"
@@ -128,7 +129,7 @@ def test_invalidate_from_e_resets_downstream(template_config: Path, monkeypatch:
     (project_root / ".cursor" / "lulu-dev-workflow").mkdir(parents=True, exist_ok=True)
 
     assert cmd_init_session(project_root, cycle_id, stage) == 0
-    assert cmd_gate_activate(project_root, cycle_id, stage, "Q") == 0
+    _close_o(project_root, cycle_id, stage)
     cmd_gate_close(
         project_root,
         cycle_id,
@@ -175,7 +176,7 @@ def test_invalidate_from_q_clears_direction_section(
     (project_root / ".cursor" / "lulu-dev-workflow").mkdir(parents=True, exist_ok=True)
 
     cmd_init_session(project_root, cycle_id, stage)
-    cmd_gate_activate(project_root, cycle_id, stage, "Q")
+    _close_o(project_root, cycle_id, stage)
     cmd_gate_close(
         project_root,
         cycle_id,
@@ -217,7 +218,7 @@ def test_gate_close_e_rejects_four_directions(
     (project_root / ".cursor" / "lulu-dev-workflow").mkdir(parents=True, exist_ok=True)
 
     cmd_init_session(project_root, cycle_id, stage)
-    cmd_gate_activate(project_root, cycle_id, stage, "Q")
+    _close_o(project_root, cycle_id, stage)
     cmd_gate_close(
         project_root,
         cycle_id,
@@ -265,7 +266,7 @@ def test_resolve_context_empty_header_without_registers(
     assert payload["reply_header"] == ""
 
 
-def test_resolve_context_reply_header(template_config: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_resolve_context_includes_registers(template_config: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     import io
     from contextlib import redirect_stdout
 
@@ -289,5 +290,61 @@ def test_resolve_context_reply_header(template_config: Path, monkeypatch: pytest
         rc = cmd_resolve_context(project_root, cycle_id, stage)
     assert rc == 0
     payload = json.loads(buffer.getvalue())
-    assert "偏好渐进" in payload["reply_header"]
-    assert "Prior：" in payload["reply_header"]
+    assert payload["reply_header"] == ""
+    assert "偏好渐进" in payload["registers"]["prior"][0]["text"]
+
+
+def test_init_session_starts_at_gate_o(template_config: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    project_root = template_config
+    cycle_id = "feature-test-o-init"
+    stage = "diagnostic"
+    monkeypatch.chdir(project_root)
+    (project_root / ".cursor" / "lulu-dev-workflow").mkdir(parents=True, exist_ok=True)
+
+    assert cmd_init_session(project_root, cycle_id, stage) == 0
+    gate_state = json.loads(
+        (project_root / gate_state_path(cycle_id, stage)).read_text(encoding="utf-8")
+    )
+    assert gate_state["active_gate"] == "O"
+    assert gate_state["gates"]["O"]["status"] == "active"
+
+
+def test_gate_close_o_advances_to_q(template_config: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    project_root = template_config
+    cycle_id = "feature-test-o-close"
+    stage = "diagnostic"
+    monkeypatch.chdir(project_root)
+    (project_root / ".cursor" / "lulu-dev-workflow").mkdir(parents=True, exist_ok=True)
+
+    cmd_init_session(project_root, cycle_id, stage)
+    _close_o(project_root, cycle_id, stage)
+    gate_state = json.loads(
+        (project_root / gate_state_path(cycle_id, stage)).read_text(encoding="utf-8")
+    )
+    assert gate_state["gates"]["O"]["status"] == "closed"
+    assert gate_state["active_gate"] == "Q"
+
+
+def test_legacy_open_gate_id_normalizes(template_config: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from dx_gate_state_schema import load_gate_state, save_gate_state
+
+    project_root = template_config
+    cycle_id = "feature-test-o-legacy"
+    stage = "diagnostic"
+    monkeypatch.chdir(project_root)
+    (project_root / ".cursor" / "lulu-dev-workflow").mkdir(parents=True, exist_ok=True)
+
+    cmd_init_session(project_root, cycle_id, stage)
+    path = project_root / gate_state_path(cycle_id, stage)
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    raw["active_gate"] = "open"
+    raw["gates"]["open"] = raw["gates"].pop("O")
+    path.write_text(json.dumps(raw), encoding="utf-8")
+
+    normalized = load_gate_state(path)
+    assert normalized["active_gate"] == "O"
+    assert "open" not in normalized["gates"]
+    save_gate_state(path, normalized)
+    reloaded = json.loads(path.read_text(encoding="utf-8"))
+    assert reloaded["active_gate"] == "O"
+    assert "O" in reloaded["gates"]

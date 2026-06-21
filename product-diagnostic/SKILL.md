@@ -26,9 +26,7 @@ All DDF rules, gates, and registers defined there apply to this session.
 
 ## Domain Constraints
 
-Injected into the `diagnostic` kernel. The kernel's `Domain Constraints HARD-GATE` detects this section.
-
-**Holder SSOT:** `product-diagnostic/constraints.json` → session `domain-constraints.json` at init. At runtime, X dimensions, omitted sections, and Role come **only** from `$GATE_CONTROL resolve-context` → `domain_constraints`.
+Prose for the kernel `Domain Constraints HARD-GATE`. Machine constraints: holder defaults loaded at `$DX_START`; runtime via `$GATE_CONTROL resolve-context` → `domain_constraints`.
 
 ### After DC
 
@@ -38,9 +36,9 @@ Tell user: "Product diagnostic is complete. The next step is `/product-plan` (al
 
 Complete `_runtime.md` § Session Foundation before running diagnostic start.
 
-Execute the `start` command from `diagnostic/SKILL.md`, passing `product-diagnostic` as the stage:
+Execute `$DX_START` from `diagnostic/SKILL.md` § Start, passing `product-diagnostic` as `--stage`:
 
 - Stage: `product-diagnostic`
 - Cache subdir: `product/diagnostic`
-- Apply all constraints from `## Domain Constraints` above throughout the session.
-> If start.py exits non-zero ("Gate blocked: <stage> is not Delivered"): tell the user which prior stage must be delivered first. Do not retry start.
+- Apply holder prose from `## Domain Constraints` above throughout the session.
+> If `$DX_START` exits non-zero ("Gate blocked: <stage> is not Delivered"): tell the user which prior stage must be delivered first. Do not retry start.

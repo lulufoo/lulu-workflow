@@ -45,7 +45,7 @@ GATE_SECTION_KEYS: dict[str, tuple[str, ...]] = {
 }
 
 GATE_CLOSE_PREREQ: dict[str, str | None] = {
-    "Q": None,
+    "Q": "O",
     "E": "Q",
     "D": "E",
     "X": "D",

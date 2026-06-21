@@ -14,7 +14,7 @@ from dx_io import atomic_write_text
 
 PRIOR_KINDS = frozenset({"judgment", "preference", "concern", "excluded"})
 REGISTER_STATES = frozenset({"pending", "verified", "invalidated"})
-REGISTER_SOURCES = frozenset({"open", "Q", "E", "D", "X", "R", "V", "RR"})
+REGISTER_SOURCES = frozenset({"O", "Q", "E", "D", "X", "R", "V", "RR"})
 RISK_LEVELS = frozenset({"H", "M", "L"})
 
 
@@ -141,6 +141,13 @@ def normalize_registers(data: dict[str, Any]) -> dict[str, Any]:
     assumptions_raw = data.get("assumptions")
     prior = prior_raw if isinstance(prior_raw, list) else []
     assumptions = assumptions_raw if isinstance(assumptions_raw, list) else []
+
+    for entry in prior:
+        if isinstance(entry, dict) and str(entry.get("source", "")) == "open":
+            entry["source"] = "O"
+    for entry in assumptions:
+        if isinstance(entry, dict) and str(entry.get("source", "")) == "open":
+            entry["source"] = "O"
 
     return {
         "version": "1",

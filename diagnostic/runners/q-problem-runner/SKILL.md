@@ -23,13 +23,14 @@ Do NOT proceed until you have read `../../../_runtime.md`
 - `$SKILL_DIR` = `$SKILL_ROOT/diagnostic`
 - Gate contract: `$SKILL_DIR/gates/q-problem-clarification.md`
 
+- `$CTX.gates.O.status` must be `closed` (from resolve-context)
+
 ## Pipeline
 
 1. `$GATE_CONTROL resolve-context` — pin stdout JSON as `$CTX`
-2. `$GATE_CONTROL gate-activate --gate Q` (from open channel)
-3. Execute Q gate dialogue (G1/G7/G8; G0 → `$REGISTER_CONTROL register-append --kind prior|assumption`)
-4. After user confirms problem + constraints: `$GATE_CONTROL gate-close --gate Q --payload '<json>'`
-5. Return `GATE_COMPLETE Q` to parent
+2. Execute Q gate dialogue (G1/G7/G8; G0 → `$REGISTER_CONTROL register-append --kind prior|assumption`)
+3. After user confirms problem + constraints: `$GATE_CONTROL gate-close --gate Q --payload '<json>'`
+4. Return `GATE_COMPLETE Q` to parent
 
 ## gate-close payload
 

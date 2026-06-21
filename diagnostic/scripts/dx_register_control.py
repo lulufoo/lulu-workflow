@@ -6,7 +6,7 @@ Subcommands:
     register-update        Update an existing register entry
     register-batch-apply   RS batch labeling and deletions
     sync-registers-to-doc  Render registers into decision-doc sections
-    resolve-context        Register-focused context (includes reply_header)
+    resolve-context        Register-focused context JSON (reply_header always empty)
 """
 
 from __future__ import annotations
@@ -66,12 +66,12 @@ def _paths(project_root: Path, cycle_id: str, stage: str) -> dict[str, Path]:
 
 
 def _active_register_source(gate_state: dict[str, Any]) -> str:
-    active = str(gate_state.get("active_gate", "open"))
-    if active == "open":
-        return "open"
+    active = str(gate_state.get("active_gate", "O"))
+    if active == "O":
+        return "O"
     if active in {"Q", "E", "D", "X", "R", "V", "RR"}:
         return active
-    return "open"
+    return "O"
 
 
 def sync_registers_to_doc(
