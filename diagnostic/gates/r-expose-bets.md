@@ -24,7 +24,7 @@ Risk levels:
 **Three exits (mutually exclusive — present proposed exit to user for confirmation; AI cannot unilaterally select):**
 
 1. **Known failure** — an assumption is confirmed wrong or invalid  
-   → trigger Reopen State Handler (RS) → RS routes back into LoopA at the failed assumption's associated gate
+   → load `$SKILL_DIR/runners/rs-reopen-runner/SKILL.md` → re-enter LoopA at the failed assumption's associated gate
 
 2. **Uncertain assumptions exist** — one or more `[待验证]` entries remain after R review  
    → enter Group Loop B (V)  

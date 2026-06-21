@@ -2,7 +2,7 @@
 
 #### G0 — Parallel Registers
 
-**Global · parallel** — runs alongside any active spine gate (O → DC). Does not change `active_gate`. No `gate-close`.
+**Global · parallel** — runs alongside any active gate dialogue (spine O → DC, or RS subroutine). Does not change `active_gate`. No `gate-close`.
 
 **Prerequisites:** Session InProgress · identification hit this turn
 
@@ -30,7 +30,7 @@ Do **not** defer assumption identification to R — recognize as soon as it surf
 2. `$REGISTER_COMMIT` with one or more append/update operations (non-zero → stop, report error)
 3. Pin `$CTX` from stdout
 
-**Pass criterion:** `$REGISTER_COMMIT` succeeded · `$CTX` pinned · resume active spine gate dialogue
+**Pass criterion:** `$REGISTER_COMMIT` succeeded · `$CTX` pinned · resume active gate dialogue
 
 **Prohibited:** deferring capture because R is coming; hand-editing register state; reading or writing register data files directly; chaining `register-append` / `register-update` / `sync-registers-to-doc` / `resolve-context` separately
 

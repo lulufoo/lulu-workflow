@@ -6,7 +6,7 @@ name: diagnostic
 
 > Framework reference: [diagnostic-decision-framework.md](https://github.com/lulufoo/lulu-workflow-framework/blob/main/lulu-dev-workflow/diagnostic/diagnostic-decision-framework.md)
 
-Run a Diagnostic Decision Framework (DDF) session. **Mandatory before starting `/product-plan` or `/tech-plan`.**
+Run a Diagnostic Decision Framework (DDF) session.
 
 ---
 
@@ -14,10 +14,12 @@ Run a Diagnostic Decision Framework (DDF) session. **Mandatory before starting `
 Do NOT proceed until you have read `../_runtime.md` and loaded:
 
 - `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, `$CACHE_DIR` from `## Platform Context`
-- Feature identification logic from `## Session Foundation`
-</HARD-GATE>
 
-`$SKILL_DIR` = `$SKILL_ROOT/diagnostic`
+- Feature identification logic from `## Session Foundation`
+
+- `$SKILL_DIR` = `$SKILL_ROOT/diagnostic`
+
+</HARD-GATE>
 
 ---
 
@@ -26,9 +28,7 @@ Do NOT proceed until you have read `../_runtime.md` and loaded:
 
 **Role:** If `role.instruction` is present, apply it at the start of gate **O** (Open Channel).
 
-**Holder prose** (when holder `## Domain Constraints` is in context): follow holder `### Context Loading` during gate **O** and `### After DC` at DC routing.
-
-**Direct `/diagnostic`** (no holder section): built-in defaults at `$DX_START`; after DC, tell the user they may proceed to `/product-plan` or `/tech-plan`.
+**Holder prose** (when invoking stage's `## Domain Constraints` is in context): follow `### Context Loading` during gate **O** and `### After DC` at DC routing.
 </HARD-GATE>
 
 ---
@@ -51,7 +51,7 @@ Subcommand contracts: module docstrings / `--help`.
 
 **Step 1: Identify active cycle** — `_runtime.md` § Session Foundation. Do not run `$DX_START` until `$CYCLE_ID` is confirmed.
 
-**Step 2: Run `$DX_START`** — pass `--stage` when the invoking holder SKILL specifies one; otherwise omit (defaults to `diagnostic`). Non-zero exit → stop and report stderr.
+**Step 2: Run `$DX_START`** — pass `--stage` when the invoking stage specifies one; otherwise omit (defaults to `diagnostic`). Non-zero exit → stop and report stderr.
 
 On success, follow stdout (new session ready, or legacy session migrated). Do **not** inspect session directory files directly — artifact layout is `$DX_START` / `init-session` contract (`--help`).
 
@@ -63,32 +63,36 @@ On success, follow stdout (new session ready, or legacy session migrated). Do **
 
 ## Session Flow
 
+**Global gates (non-spine):**
+
+- **G0 · Parallel Registers** — entire session · parallel on hit · spine uninterrupted (see § Gate routing · G0).
+- **RS · Reopen State Handler** — any gate on invalidation · not parallel · LoopA re-entry (see § Gate routing · RS).
+
 **Spine:** [LoopA] O → Q → E → D → X → R → ([LoopB] V → RR if needed) → DC → `$GATE_CONTROL deliver`.
 
-**Global gate (parallel):** **G0 · Parallel Registers** — entire session; re-enter whenever identification hits during any spine gate dialogue (see § Gate routing · G0).
-
-**Phase grouping** (re-open invalidate scope):
-- [LoopA] O → Q → E → D → X → R — decision construction
-- [LoopB] V → RR — verification release
-- [RS] Reopen State Handler — standalone subroutine (see § Re-open & Invalidation)
+**Phase grouping** (invalidate scope):
+- [LoopA] O → Q → E → D → X → R — decision construction (reopen at Q / E / D / X)
+- [LoopB] V → RR — verification release (upstream wrong → RS, not Loop B re-entry)
+- [HD] Human Decision — RR exit `human_decision` (see § Gate routing · HD)
 - [DC] Delivery Confirmation — terminal gate
 
 ### Gate handoff
 
-After a runner returns `GATE_COMPLETE`, load the next runner per § Gate routing. Its pipeline step 1 pins fresh `$CTX`. Do **not** paste `reply_header` to the user — persistence is via `$GATE_CONTROL` / `$REGISTER_CONTROL` only.
+After a spine runner returns `GATE_COMPLETE`, load the next spine runner per § Gate routing; its pipeline step 1 pins fresh `$CTX`. After `G0_COMPLETE`, resume the active gate dialogue. After `RS_COMPLETE`, load gate `G` runner per § Gate routing.
 
 ### Gate routing
 
 <HARD-GATE>
 Before executing any gate, read the corresponding runner SKILL first.
 Every spine gate runner pipeline step 1 (`$GATE_CONTROL resolve-context`) is mandatory — it pins `$CTX` for that gate. Do not skip it or rely on memory.
-On G0 identification hit during spine gate dialogue: load G0 runner before the next user-visible reply; after `G0_COMPLETE`, resume the active spine gate.
+On G0 identification hit during spine or RS subroutine dialogue: load G0 runner before the next user-visible reply; after `G0_COMPLETE`, resume the active gate dialogue.
+On invalidation trigger: do not `gate-close`; load RS runner before `$RS_COMMIT`; after `RS_COMPLETE`, load gate `G` runner per this table.
 Do NOT rely on memory or prior context for gate execution steps.
 </HARD-GATE>
 
 | Gate | File | Load condition |
 |------|------|----------------|
-| **G0** | `$SKILL_DIR/runners/g0-parallel-registers-runner/SKILL.md` | Identification hit · **parallel** · resume active spine gate after `G0_COMPLETE` |
+| **G0** | `$SKILL_DIR/runners/g0-parallel-registers-runner/SKILL.md` | Identification hit · **parallel** |
 | O | `$SKILL_DIR/runners/o-open-channel-runner/SKILL.md` | After `$DX_START` · `active_gate` is `O` |
 | Q | `$SKILL_DIR/runners/q-problem-runner/SKILL.md` | O closed |
 | E | `$SKILL_DIR/runners/e-direction-runner/SKILL.md` | Q closed |
@@ -98,10 +102,10 @@ Do NOT rely on memory or prior context for gate execution steps.
 | V | `$SKILL_DIR/runners/v-verification-runner/SKILL.md` | R closed · `skipped_gates` empty |
 | RR | `$SKILL_DIR/runners/rr-risk-release-runner/SKILL.md` | V closed · RR-scope items |
 | DC | `$SKILL_DIR/runners/dc-delivery-runner/SKILL.md` | R exit `dc` or verification complete |
-| RS | `$SKILL_DIR/runners/rs-reopen-runner/SKILL.md` | Reopen triggered (any gate / DC flag / R exit `rs`) |
+| **RS** | `$SKILL_DIR/runners/rs-reopen-runner/SKILL.md` | Invalidation · **not parallel** |
 | Human Decision | `$SKILL_DIR/runners/hd-human-decision-runner/SKILL.md` | RR exit `human_decision` |
 
-Gate contracts (dialogue semantics): `$SKILL_DIR/gates/*.md` — read via runner reference. G0 contract: `$SKILL_DIR/gates/g0-parallel-registers.md`.
+Gate contracts (dialogue semantics): `$SKILL_DIR/gates/*.md` — read via runner reference. Global: `g0-parallel-registers.md` · `rs-reopen-state-handler.md`.
 
 ---
 
@@ -111,7 +115,7 @@ Gate contracts (dialogue semantics): `$SKILL_DIR/gates/*.md` — read via runner
 
 1. **Expose over conclude** — the goal is to surface assumptions and risks. A conclusion is the output of verification, not the target.
 2. **User prior over framework** — user's judgments, intuitions, and concerns shape the session; the framework captures and integrates them, does not override them.
-3. **Log assumptions immediately** — on identification hit, run **G0** runner before continuing the active spine gate.
+3. **Log assumptions immediately** — on identification hit, see § Gate routing · G0.
 
 ### Global rules
 
@@ -121,7 +125,7 @@ Gate contracts (dialogue semantics): `$SKILL_DIR/gates/*.md` — read via runner
 
 **G3.** Each gate has a pass criterion. Do not advance until the criterion is met.
 
-**G4. Context refresh** — Pin `$CTX` from the active spine gate runner pipeline step 1 (`resolve-context`), or from G0 `$REGISTER_COMMIT` / `$RS_COMMIT` stdout when those run. Do not chain an extra `resolve-context` after those commands. Do **not** show `reply_header` or hand-write gate/register status blocks; read `gates` / `registers` from `$CTX` only. Do **not** read session data files directly.
+**G4. Context refresh** — Pin `$CTX` from the active gate runner pipeline step 1 (`resolve-context`), or from G0 `$REGISTER_COMMIT` / `$RS_COMMIT` stdout when those run. Do not chain an extra `resolve-context` after those commands. Do **not** show `reply_header` or hand-write gate/register status blocks; read `gates` / `registers` from `$CTX` only. Do **not** read session data files directly.
 
 **G4b. Gate persistence** — Closing a gate requires `$GATE_CONTROL gate-close` after G8 user confirmation. Do not mark a gate closed in conversation only.
 
@@ -143,45 +147,7 @@ If user confirms exit → exit gracefully; mark as incomplete.
 
 **G8. Gate confirmation (all gates)** — AI cannot unilaterally declare a gate as passed. Each gate requires an explicit user confirmation step before it closes. Silence does not constitute confirmation.
 
-**G9. Reopen check at gate close** — before closing any gate, check: does the evidence gathered in this gate invalidate any prior gate's pass criterion? If yes, do not close current gate; trigger RS per § Re-open & Invalidation.
-
----
-
-## Re-open & Invalidation
-
-> Global rules — any gate, any time. RS dialogue and register proposals:
-> `$SKILL_DIR/runners/rs-reopen-runner/SKILL.md` + `gates/rs-reopen-state-handler.md`.
-
-### When to reopen (Trigger)
-
-- Any participant may trigger reopen when a **prior gate's pass criterion no longer holds** — without waiting for V.
-- Loop B discovering upstream is wrong → RS (not a Loop B re-entry).
-- **G9:** before gate-close, check whether this gate's evidence invalidates any prior gate; if yes → do not gate-close; trigger RS.
-- Agent duties: detect reopen need, propose reopen gate `G` (Q / E / D / X), obtain G8 confirmation.
-- Agent **must not** manually mark gates invalidated, edit gate-state, or enumerate downstream gates.
-
-### Consequences (script SSOT)
-
-- Gate and decision-doc downstream invalidation: **`$GATE_CONTROL` only**; scope computed by DAG — agent does not enumerate.
-- Registers are **not** auto-modified by gate invalidation — RS register batch via `$RS_COMMIT` only.
-- Re-entry point after RS: **Loop A gate `G`** (Q / E / D / X), not V / RR.
-- Loop B-only new assumptions while Loop A still holds → RR `return_r` back to R; not RS.
-
-### RS subroutine
-
-After trigger and G8 confirm reopen gate `G`:
-
-1. Load `$SKILL_DIR/runners/rs-reopen-runner/SKILL.md`
-2. Runner: baseline `$CTX` → propose register 3-state labels → G8 → **`$RS_COMMIT`**
-3. Pin `$CTX` from `$RS_COMMIT` stdout; load gate `G` runner via § Gate routing
-
-<HARD-GATE name="RS commit">
-- Do **not** call `$RS_COMMIT` before G8 confirms `G` and register operations.
-- Non-zero exit → stop RS, report stderr, wait for user direction.
-- After success, read `reenter`, `gates`, `registers` from stdout only — do not chain `invalidate-from` / `register-batch-apply` / `sync-registers-to-doc` separately for RS.
-</HARD-GATE>
-
-Subcommand contracts: `$RS_COMMIT` via `$GATE_CONTROL --help` (`rs-commit`).
+**G9. Reopen check at gate close** — before closing any gate, check: does the evidence gathered in this gate invalidate any prior gate's pass criterion? If yes, do not close current gate; load RS runner per § Gate routing · RS.
 
 ---
 

@@ -1,7 +1,10 @@
-# Reopen State Handler (RS)
+> Part of diagnostic-workflow · Global gate (not parallel) · loaded via Gate Routing in `$SKILL_DIR/SKILL.md`
 
-**Trigger sources:** R (known failure), Human Decision (upstream wrong), DC (user flags item for re-open).  
-RS is a shared relay node — all three triggers route through RS, then RS re-enters LoopA.
+#### RS — Reopen State Handler
+
+**Trigger sources:** any gate when a prior pass criterion fails (G9) · Loop B upstream wrong · **R** exit `rs` · **DC** user flags item · **Human Decision** upstream wrong.
+
+RS is a shared relay node — all triggers route through RS, then RS re-enters LoopA.
 
 ---
 

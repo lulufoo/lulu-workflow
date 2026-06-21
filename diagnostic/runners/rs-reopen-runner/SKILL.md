@@ -1,18 +1,42 @@
 ---
 name: diagnostic/rs-reopen-runner
 description: >-
-  RS subroutine for diagnostic. Dialogue and register proposals before atomic
-  rs-commit. Invoked by diagnostic/SKILL.md.
+  RS global gate for diagnostic. Reopen and invalidation when a prior gate's pass
+  criterion fails. Not parallel; load before $RS_COMMIT. Invoked by diagnostic/SKILL.md Gate routing.
 meta-skill-version: 1.0.0
 ---
 
 # rs-reopen-runner
 
-Execute **RS — Reopen State Handler**. Proposes register relabeling; persists via `$RS_COMMIT`.
+Execute **RS — Reopen State Handler** (global · not parallel). Dialogue per gate contract; persistence via `$RS_COMMIT`.
 
 ## Blocking policy
 
 Control CLI non-zero → stop, report error, wait for user direction.
+
+## Global · not parallel
+
+Runs on invalidation trigger during any gate. No `gate-close` until `RS_COMPLETE`. After success, re-enter LoopA at reopen gate `G` (Q / E / D / X), not V / RR.
+
+## When to load
+
+Load this runner before `$RS_COMMIT` when:
+
+- Prior gate pass criterion no longer holds — any participant, any gate (not only V).
+- **G9:** evidence in current gate invalidates a prior gate → do not `gate-close`; load RS runner.
+- Loop B upstream wrong → RS (not Loop B re-entry).
+- **R** exit `rs` · **DC** user flags item · **Human Decision** upstream wrong.
+
+Propose reopen gate `G` (Q / E / D / X); G8 before `$RS_COMMIT`.
+
+**Prohibited:** manually invalidate gates, edit gate-state, or enumerate downstream gates.
+
+**Not RS:** Loop B-only assumptions while Loop A holds → RR `return_r` to R.
+
+## Consequences (script SSOT)
+
+- Gate + decision-doc invalidation: **`$GATE_CONTROL` only** (DAG scope).
+- Registers: **not** auto-modified — `$RS_COMMIT` only.
 
 ## Prerequisites
 
@@ -32,6 +56,16 @@ Do NOT proceed until you have read `../../../_runtime.md`
 5. Pin `$CTX` from stdout (`reenter`, `gates`, `registers`, `domain_constraints`)
 6. Return `RS_COMPLETE reenter=<G>` — load gate `G` runner via kernel § Gate routing
 
+<HARD-GATE name="RS commit">
+- Do **not** call `$RS_COMMIT` before G8 confirms `G` and register operations.
+- Non-zero exit → stop RS, report stderr, wait for user direction.
+- After success, read `reenter`, `gates`, `registers` from stdout only — do not chain `invalidate-from` / `register-batch-apply` / `sync-registers-to-doc` separately for RS.
+</HARD-GATE>
+
+## `$RS_COMMIT`
+
+`$RS_COMMIT` (`$GATE_CONTROL --help` · `rs-commit`).
+
 ## `--operations` format
 
 ```json
@@ -47,4 +81,4 @@ Do NOT proceed until you have read `../../../_runtime.md`
 
 ## Exit
 
-`RS_COMPLETE reenter=Q` (or E / D / X)
+`RS_COMPLETE reenter=Q` (or E / D / X) · `RS_FAILED reason=...`

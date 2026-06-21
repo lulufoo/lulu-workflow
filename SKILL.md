@@ -123,7 +123,7 @@ After `$CYCLE_ID` is confirmed, route stage work via sub-SKILLs — do not re-ru
 |---|---|---|
 | `product-diagnostic` / `pd` | Product diagnostic | Read [product-diagnostic/SKILL.md](./product-diagnostic/SKILL.md) |
 | `tech-diagnostic` / `td` | Tech diagnostic | Read [tech-diagnostic/SKILL.md](./tech-diagnostic/SKILL.md) |
-| `diagnostic` / `d` | Generic diagnostic | Read [diagnostic/SKILL.md](./diagnostic/SKILL.md) |
+| `diagnostic` / `d` | Generic kernel (no `### After DC`) | Read [diagnostic/SKILL.md](./diagnostic/SKILL.md) — use `pd` / `td` for domain routing |
 | `product-plan` / `p` | Product plan | Read [product-plan/SKILL.md](./product-plan/SKILL.md) |
 | `tech-design` / `ds` | Tech design | Read [tech-design/SKILL.md](./tech-design/SKILL.md) |
 | `tech-plan` / `t` | Tech plan | Read [tech-plan/SKILL.md](./tech-plan/SKILL.md) |

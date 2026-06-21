@@ -41,14 +41,4 @@ $GATE_CONTROL gate-close --gate DC --payload '{"user_confirmed": true}'
 $GATE_CONTROL deliver
 ```
 
-5. Tell user the next step.
-
-> **HARD GATE — skipping the plan stage is forbidden.**
-> The decision-doc is the required input for the next stage, not a substitute for it.
-> Do NOT suggest `/tech-work-order`, `/tech-code`, or any other stage directly.
-
-Follow the After DC routing from `## Domain Constraints` (if present). If running standalone with no
-domain constraints:
-   - Product-level decision → **must** proceed to `/product-plan` (alias: `pp`)
-   - Tech-level decision → **must** proceed to `/tech-plan` (alias: `tp`)
-   - Mixed → **must** proceed to `/product-plan` first
+5. Tell user the next step per `### After DC` in the invoking stage's `## Domain Constraints` (when that section is in context).
