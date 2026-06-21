@@ -43,7 +43,7 @@ If not found, proceed without it.
 
 ### After DC
 
-Tell user: "Tech diagnostic is complete. The next step is `/tech-plan` (alias: `tp`)."
+Tell user: "Tech diagnostic is complete. The next step is `/tech-design` (alias: `ds`). You may also go directly to `/tech-plan` (alias: `tp`)."
 
 ## start
 
