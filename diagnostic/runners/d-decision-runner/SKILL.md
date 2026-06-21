@@ -27,7 +27,7 @@ Do NOT proceed until you have read `../../../_runtime.md`
 
 1. `$GATE_CONTROL resolve-context` — pin `$CTX`
 2. Review User Prior from `$CTX.registers` before dialogue
-3. Execute D gate (G1/G7/G8; G0 → `$REGISTER_CONTROL register-append --kind prior|assumption`)
+3. Execute D gate (G1/G7/G8; G0 per parent § Parallel Registers)
 4. `$GATE_CONTROL gate-close --gate D --payload '<json>'`
 5. Return `GATE_COMPLETE D`
 

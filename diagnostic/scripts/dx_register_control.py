@@ -3,6 +3,7 @@
 
 Subcommands:
     register-append        Append prior or assumption entry (G0 capture)
+    register-commit        Atomic G0: append/update ops + sync + full session context
     register-update        Update an existing register entry
     register-batch-apply   RS batch labeling and deletions
     sync-registers-to-doc  Render registers into decision-doc sections
@@ -40,7 +41,7 @@ from dx_register_schema import (
     save_registers,
 )
 from dx_session_render import render_reply_header
-from dx_workflow_common import decision_doc_path, gate_state_path, registers_path, session_base_dir
+from dx_workflow_common import decision_doc_path, domain_constraints_path, gate_state_path, registers_path, session_base_dir
 
 
 def _now_iso() -> str:
@@ -61,6 +62,7 @@ def _paths(project_root: Path, cycle_id: str, stage: str) -> dict[str, Path]:
         "gate_state": project_root / gate_state_path(cycle_id, stage, project_root=project_root),
         "registers": project_root / registers_path(cycle_id, stage, project_root=project_root),
         "decision_doc": project_root / decision_doc_path(cycle_id, stage, project_root=project_root),
+        "domain_constraints": project_root / domain_constraints_path(cycle_id, stage, project_root=project_root),
         "session_dir": project_root / session_base_dir(cycle_id, stage, project_root=project_root),
     }
 
@@ -94,6 +96,158 @@ def sync_registers_to_doc(
     save_decision_doc(decision_doc_file, doc)
 
 
+def _apply_append_operation(
+    registers: dict[str, Any],
+    *,
+    register_kind: str,
+    payload: dict[str, Any],
+    source: str,
+) -> dict[str, Any]:
+    if register_kind == "prior":
+        kind = str(payload.get("kind", "")).strip()
+        text = str(payload.get("text", "")).strip()
+        if kind not in PRIOR_KINDS:
+            raise ValueError(f"invalid prior kind: {kind!r}")
+        if not text:
+            raise ValueError("text is required")
+        duplicate = find_duplicate_prior(registers, kind=kind, text=text)
+        if duplicate:
+            return duplicate
+        entry_id = next_prior_id(registers)
+        entry = {
+            "id": entry_id,
+            "kind": kind,
+            "text": text,
+            "state": "pending",
+            "source": source,
+            "created_at": _now_iso(),
+        }
+        registers["prior"].append(entry)
+        registers["next_prior_seq"] = int(registers.get("next_prior_seq", 1)) + 1
+        return entry
+    if register_kind == "assumption":
+        text = str(payload.get("text", "")).strip()
+        if not text:
+            raise ValueError("text is required")
+        duplicate = find_duplicate_assumption(registers, text)
+        if duplicate:
+            return duplicate
+        entry_id = next_assumption_id(registers)
+        entry = {
+            "id": entry_id,
+            "text": text,
+            "state": "pending",
+            "source": source,
+            "risk": None,
+            "consequence": None,
+            "verification": None,
+            "created_at": _now_iso(),
+        }
+        registers["assumptions"].append(entry)
+        registers["next_assumption_seq"] = int(registers.get("next_assumption_seq", 1)) + 1
+        return entry
+    raise ValueError(f"invalid register kind: {register_kind!r}")
+
+
+def _apply_update_operation(
+    registers: dict[str, Any],
+    *,
+    entry_id: str,
+    payload: dict[str, Any],
+    r_closed: bool,
+) -> dict[str, Any]:
+    target = _find_entry(registers, entry_id)
+    if target is None:
+        raise ValueError(f"entry not found: {entry_id}")
+
+    if "state" in payload:
+        state = str(payload["state"])
+        if state not in REGISTER_STATES:
+            raise ValueError(f"invalid state: {state!r}")
+        target["state"] = state
+
+    if "text" in payload:
+        text = str(payload["text"]).strip()
+        if not text:
+            raise ValueError("text must be non-empty")
+        target["text"] = text
+
+    if "risk" in payload:
+        if not r_closed:
+            raise ValueError("risk cannot be set before R gate is closed")
+        risk = payload["risk"]
+        if risk is not None and str(risk) not in RISK_LEVELS:
+            raise ValueError(f"invalid risk: {risk!r}")
+        target["risk"] = risk
+
+    for field in ("consequence", "verification"):
+        if field in payload:
+            target[field] = payload[field]
+
+    if "release_tracking" in payload:
+        target["release_tracking"] = bool(payload["release_tracking"])
+
+    return target
+
+
+def apply_register_commit_operations(
+    paths: dict[str, Path],
+    *,
+    operations: list[dict[str, Any]],
+) -> tuple[dict[str, Any], int]:
+    """Apply G0 append/update ops; persist once and sync decision-doc."""
+    gate_state = load_gate_state(paths["gate_state"])
+    r_closed = is_gate_closed(gate_state, "R")
+    registers = load_registers(paths["registers"], r_gate_closed=r_closed)
+    source = _active_register_source(gate_state)
+    applied = 0
+
+    for op in operations:
+        action = str(op.get("action", "")).strip()
+        if action == "append":
+            kind = str(op.get("kind", "")).strip()
+            payload = op.get("payload")
+            if not isinstance(payload, dict):
+                raise ValueError("append operation requires object payload")
+            _apply_append_operation(registers, register_kind=kind, payload=payload, source=source)
+            applied += 1
+        elif action == "update":
+            entry_id = str(op.get("id", "")).strip()
+            payload = op.get("payload")
+            if not entry_id:
+                raise ValueError("update operation requires id")
+            if not isinstance(payload, dict):
+                raise ValueError("update operation requires object payload")
+            _apply_update_operation(registers, entry_id=entry_id, payload=payload, r_closed=r_closed)
+            applied += 1
+        else:
+            raise ValueError(f"invalid action: {action!r} (use append or update)")
+
+    save_registers(paths["registers"], registers, r_gate_closed=r_closed)
+    sync_registers_to_doc(paths["decision_doc"], paths["registers"], r_gate_closed=r_closed)
+    return registers, applied
+
+
+def cmd_register_commit(
+    project_root: Path,
+    cycle_id: str,
+    stage: str,
+    *,
+    operations: list[dict[str, Any]],
+) -> int:
+    paths = _paths(project_root, cycle_id, stage)
+    try:
+        _, applied = apply_register_commit_operations(paths, operations=operations)
+        from dx_gate_control import build_resolve_context_payload  # noqa: WPS433
+
+        ctx = build_resolve_context_payload(project_root, cycle_id, stage, paths=paths)
+    except (FileNotFoundError, ValueError) as exc:
+        return _emit_error(str(exc))
+
+    _emit({"ok": True, "applied": applied, **ctx})
+    return 0
+
+
 def cmd_register_append(
     project_root: Path,
     cycle_id: str,
@@ -108,53 +262,12 @@ def cmd_register_append(
         r_closed = is_gate_closed(gate_state, "R")
         registers = load_registers(paths["registers"], r_gate_closed=r_closed)
         source = _active_register_source(gate_state)
-
-        if register_kind == "prior":
-            kind = str(payload.get("kind", "")).strip()
-            text = str(payload.get("text", "")).strip()
-            if kind not in PRIOR_KINDS:
-                return _emit_error(f"invalid prior kind: {kind!r}")
-            if not text:
-                return _emit_error("text is required")
-            duplicate = find_duplicate_prior(registers, kind=kind, text=text)
-            if duplicate:
-                _emit({"ok": True, "duplicate": True, "entry": duplicate})
-                return 0
-            entry_id = next_prior_id(registers)
-            entry = {
-                "id": entry_id,
-                "kind": kind,
-                "text": text,
-                "state": "pending",
-                "source": source,
-                "created_at": _now_iso(),
-            }
-            registers["prior"].append(entry)
-            registers["next_prior_seq"] = int(registers.get("next_prior_seq", 1)) + 1
-        elif register_kind == "assumption":
-            text = str(payload.get("text", "")).strip()
-            if not text:
-                return _emit_error("text is required")
-            duplicate = find_duplicate_assumption(registers, text)
-            if duplicate:
-                _emit({"ok": True, "duplicate": True, "entry": duplicate})
-                return 0
-            entry_id = next_assumption_id(registers)
-            entry = {
-                "id": entry_id,
-                "text": text,
-                "state": "pending",
-                "source": source,
-                "risk": None,
-                "consequence": None,
-                "verification": None,
-                "created_at": _now_iso(),
-            }
-            registers["assumptions"].append(entry)
-            registers["next_assumption_seq"] = int(registers.get("next_assumption_seq", 1)) + 1
-        else:
-            return _emit_error(f"invalid register kind: {register_kind!r}")
-
+        entry = _apply_append_operation(
+            registers,
+            register_kind=register_kind,
+            payload=payload,
+            source=source,
+        )
         save_registers(paths["registers"], registers, r_gate_closed=r_closed)
         sync_registers_to_doc(paths["decision_doc"], paths["registers"], r_gate_closed=r_closed)
     except (FileNotFoundError, ValueError) as exc:
@@ -177,37 +290,12 @@ def cmd_register_update(
         gate_state = load_gate_state(paths["gate_state"])
         r_closed = is_gate_closed(gate_state, "R")
         registers = load_registers(paths["registers"], r_gate_closed=r_closed)
-        target = _find_entry(registers, entry_id)
-        if target is None:
-            return _emit_error(f"entry not found: {entry_id}")
-
-        if "state" in payload:
-            state = str(payload["state"])
-            if state not in REGISTER_STATES:
-                return _emit_error(f"invalid state: {state!r}")
-            target["state"] = state
-
-        if "text" in payload:
-            text = str(payload["text"]).strip()
-            if not text:
-                return _emit_error("text must be non-empty")
-            target["text"] = text
-
-        if "risk" in payload:
-            if not r_closed:
-                return _emit_error("risk cannot be set before R gate is closed")
-            risk = payload["risk"]
-            if risk is not None and str(risk) not in RISK_LEVELS:
-                return _emit_error(f"invalid risk: {risk!r}")
-            target["risk"] = risk
-
-        for field in ("consequence", "verification"):
-            if field in payload:
-                target[field] = payload[field]
-
-        if "release_tracking" in payload:
-            target["release_tracking"] = bool(payload["release_tracking"])
-
+        target = _apply_update_operation(
+            registers,
+            entry_id=entry_id,
+            payload=payload,
+            r_closed=r_closed,
+        )
         save_registers(paths["registers"], registers, r_gate_closed=r_closed)
         sync_registers_to_doc(paths["decision_doc"], paths["registers"], r_gate_closed=r_closed)
     except (FileNotFoundError, ValueError) as exc:
@@ -330,7 +418,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--stage", default="diagnostic", help="Diagnostic stage name.")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    append = sub.add_parser("register-append", help="Append a register entry.")
+    append = sub.add_parser(
+        "register-append",
+        help="Append a register entry (G0 capture).",
+        description=(
+            "Append User Prior or Assumption. Sets source from active_gate, assigns id, "
+            "dedupes by kind+text (prior) or text (assumption), syncs decision-doc.\n\n"
+            "Prior payload: {\"kind\": \"judgment|preference|concern|excluded\", \"text\": \"...\"}\n"
+            "Assumption payload: {\"text\": \"...\"}"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     append.add_argument("--kind", required=True, choices=["prior", "assumption"])
     append.add_argument("--payload", required=True, help="JSON payload string.")
 
@@ -340,6 +438,21 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
     batch = sub.add_parser("register-batch-apply", help="Apply RS batch operations.")
     batch.add_argument("--operations", required=True, help="JSON array string.")
+
+    commit = sub.add_parser(
+        "register-commit",
+        help="Atomic G0: append/update operations + sync + full session context.",
+        description=(
+            "Apply one or more register writes, sync decision-doc once, return full session context.\n\n"
+            "Operations JSON array examples:\n"
+            '  [{"action":"append","kind":"prior","payload":{"kind":"preference","text":"..."}}]\n'
+            '  [{"action":"append","kind":"assumption","payload":{"text":"..."}}]\n'
+            '  [{"action":"update","id":"P1","payload":{"text":"revised"}}]\n'
+            "Multiple ops in one array are allowed (e.g. prior + assumption in one G0 turn)."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    commit.add_argument("--operations", required=True, help="JSON array of append/update operations.")
 
     sub.add_parser("sync-registers-to-doc", help="Render registers into decision-doc.")
     sub.add_parser("resolve-context", help="Return register context JSON.")
@@ -385,6 +498,17 @@ def main(argv: list[str] | None = None) -> int:
         if not isinstance(operations, list):
             return _emit_error("operations must be a JSON array")
         return cmd_register_batch_apply(project_root, cycle_id, stage, operations=operations)
+    if args.command == "register-commit":
+        try:
+            operations = json.loads(args.operations)
+        except json.JSONDecodeError as exc:
+            return _emit_error(str(exc))
+        if not isinstance(operations, list):
+            return _emit_error("operations must be a JSON array")
+        cleaned = [op for op in operations if isinstance(op, dict)]
+        if len(cleaned) != len(operations):
+            return _emit_error("each operation must be a JSON object")
+        return cmd_register_commit(project_root, cycle_id, stage, operations=cleaned)
     if args.command == "sync-registers-to-doc":
         return cmd_sync_registers(project_root, cycle_id, stage)
     if args.command == "resolve-context":

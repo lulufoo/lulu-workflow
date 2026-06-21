@@ -27,7 +27,7 @@ Do NOT proceed until you have read `../../../_runtime.md`
 
 1. `$GATE_CONTROL resolve-context` — pin `$CTX`; read `$CTX.domain_constraints.x_dimensions` for active dimensions only
 2. Execute active X dimensions one at a time (G1/G7/G8 per dimension); skip dimensions not in `x_dimensions`
-3. G0 assumptions → `$REGISTER_CONTROL register-append --kind assumption`
+3. G0 assumptions per parent § Parallel Registers
 4. `$GATE_CONTROL gate-close --gate X --payload '<json>'` (only fields for active dimensions required)
 5. Return `GATE_COMPLETE X`
 

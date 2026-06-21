@@ -40,6 +40,7 @@ Do NOT proceed until you have read `../_runtime.md` and loaded:
 | `$DX_START` | `python3 "$SKILL_DIR/scripts/dx_start.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>"` |
 | `$GATE_CONTROL` | `python3 "$SKILL_DIR/scripts/dx_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>"` |
 | `$REGISTER_CONTROL` | `python3 "$SKILL_DIR/scripts/dx_register_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>"` |
+| `$REGISTER_COMMIT` | `python3 "$SKILL_DIR/scripts/dx_register_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" register-commit --operations '<json array>'` |
 | `$RS_COMMIT` | `python3 "$SKILL_DIR/scripts/dx_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" rs-commit --gate "<G>" --operations '<json array>'` |
 
 Subcommand contracts: module docstrings / `--help`.
@@ -101,36 +102,49 @@ Gate contracts (dialogue semantics): `$SKILL_DIR/gates/*.md` — read via runner
 
 ## Parallel Registers
 
-Two registers run throughout the entire session, not attached to any single gate:
+Two logs run in parallel for the entire session (not owned by a single gate):
 
-**User Prior Log** — captures user's judgments, preferences, concerns, and excluded options. Reviewed before D; verified at R (R签字确认).
+- **User Prior** — user judgments, preferences, concerns, excluded options
+- **Assumption** — unverified premises underlying the decision
 
-**Assumption Log** — captures unverified premises. Risk-graded at R; not collected from scratch there.
+### G0 — when to capture (Agent)
 
-**3-state lifecycle:** `[待验证]` (default) → `[已验证]` (confirmed at R or after Risk Release) → `[失效]` (deleted via RS § Register Reopen Protocol)
-
-**Field semantics** (in `$CTX.registers` after `resolve-context`):
-- `<state>`: `?` = 待验证 · `✓` = 已验证
-- `<source>`: gate where first discovered — `O` / `Q` / `E` / `D` / `X` / `R` / `V` / `RR`
-- `<risk>`: `H`/`M`/`L` — assigned at R; omitted until then
-
-**On reopen:** register entries are not auto-modified by gate invalidation — changes only occur after user-confirmed `$RS_COMMIT` (see § Re-open & Invalidation).
-
-<HARD-GATE name="Register SSOT">
-- Prior and Assumption data SSOT: `$REGISTER_CONTROL` + `$CTX.registers` (via `resolve-context`). Incremental capture and edits use `$REGISTER_CONTROL` only (`register-append`, `register-update`, `sync-registers-to-doc`); RS batch changes go through `$RS_COMMIT`.
-- After G0 capture (Prior or Assumption), call `register-append` or `register-update` successfully before the next user-visible reply continues the gate.
-- Batch register updates at R / V / RR gate-close are applied via `$GATE_CONTROL gate-close` payload (not a separate `$REGISTER_CONTROL` call).
-- If any register CLI exits non-zero: stop the current gate and report the error.
+<HARD-GATE name="G0 capture">
+If any row below applies in the current turn, persist via `$REGISTER_COMMIT` successfully before the next user-visible reply continues the gate.
 </HARD-GATE>
 
-| Operation | Command |
-|-----------|---------|
-| RS commit (gate + registers) | `$RS_COMMIT` |
-| G0 append prior / assumption | `$REGISTER_CONTROL register-append --kind prior\|assumption` |
-| Single-field update | `$REGISTER_CONTROL register-update` |
-| Sync registers into decision-doc | `$REGISTER_CONTROL sync-registers-to-doc` |
+| Surface in dialogue | Log | Extra rule |
+|---------------------|-----|------------|
+| Judgment / preference / concern / excluded option | Prior | If it rests on an unverified premise → also add Assumption |
+| Explicit or implicit unverified premise | Assumption | Do not defer to R |
+| Gate contract requires logging (e.g. X gap, unknown dependency) | Assumption | Immediate |
 
-Subcommand contracts: `$REGISTER_CONTROL --help` (and `$GATE_CONTROL --help` where applicable).
+**Flow:** brief confirm with user → `$REGISTER_COMMIT` with one or more append/update operations (non-zero → stop gate) → pin `$CTX` from stdout → continue dialogue.
+
+**Prohibited:** deferring capture because R is coming; hand-editing register state in prose; reading or writing register data files directly; chaining `register-append` / `register-update` / `sync-registers-to-doc` / `resolve-context` separately for G0.
+
+Gate contracts may add mandatory capture moments — follow those in addition to this table.
+
+### When to read (not collect)
+
+| Moment | Action |
+|--------|--------|
+| Before D | Review User Prior from `$CTX.registers` — resolve conflicts with chosen direction |
+| At R | Organize and sign off priors; risk-grade assumptions — via R `gate-close` payload, not fresh G0 collection |
+| After gate-close or when no G0 write in turn | `$GATE_CONTROL resolve-context` → pin `$CTX` (G4) |
+
+### Persistence (script SSOT)
+
+| Path | Macro | Notes |
+|------|-------|-------|
+| G0 capture / inline edit | `$REGISTER_COMMIT` | stdout = full `$CTX` (registers + gates); satisfies G4 for G0 |
+| R / V / RR bulk field updates | `$GATE_CONTROL gate-close` | Coupled to gate transition — not separable |
+| RS batch | `$RS_COMMIT` | See § Re-open & Invalidation |
+| Read only | `$CTX.registers` | From last `$REGISTER_COMMIT`, `gate-close`, or `resolve-context` stdout |
+
+If any register CLI exits non-zero: stop the current gate and report the error.
+
+Subcommand contracts: `$REGISTER_COMMIT` via `$REGISTER_CONTROL --help` (`register-commit`).
 
 ---
 
@@ -140,11 +154,11 @@ Subcommand contracts: `$REGISTER_CONTROL --help` (and `$GATE_CONTROL --help` whe
 
 1. **Expose over conclude** — the goal is to surface assumptions and risks. A conclusion is the output of verification, not the target.
 2. **User prior over framework** — user's judgments, intuitions, and concerns shape the session; the framework captures and integrates them, does not override them.
-3. **Log assumptions immediately** — any assumption surfaced at any gate goes into the Assumption Log right away; R organizes, does not collect.
+3. **Log assumptions immediately** — see § Parallel Registers · G0 capture; R organizes, does not collect.
 
 ### Global rules
 
-**G0. User prior capture (throughout)** — at any gate, if the user states a judgment, preference, concern, or excluded option: confirm briefly, then capture per § Parallel Registers (`register-append`) before continuing. When a `[judgment]` or `[excluded]` rests on an unverified premise, extract the premise as a separate Assumption entry (`[待验证]`, source = current gate).
+**G0.** User prior / assumption capture — see § Parallel Registers · G0 capture.
 
 **G1.** One question at a time — never stack multiple questions in a single message.
 
@@ -152,7 +166,7 @@ Subcommand contracts: `$REGISTER_CONTROL --help` (and `$GATE_CONTROL --help` whe
 
 **G3.** Each gate has a pass criterion. Do not advance until the criterion is met.
 
-**G4. Context refresh** — after any register or gate state change, run `$GATE_CONTROL resolve-context` successfully and pin `$CTX` before the next user-visible reply. Do **not** show `reply_header` or hand-write gate/register status blocks; read `gates` / `registers` from `$CTX` only. Do **not** read session data files directly.
+**G4. Context refresh** — after any gate state change, or after G0 when not using `$REGISTER_COMMIT`, run `$GATE_CONTROL resolve-context` successfully and pin `$CTX` before the next user-visible reply. `$REGISTER_COMMIT` and `$RS_COMMIT` stdout already include full `$CTX`. Do **not** show `reply_header` or hand-write gate/register status blocks; read `gates` / `registers` from `$CTX` only. Do **not** read session data files directly.
 
 **G4b. Gate persistence** — Closing a gate requires `$GATE_CONTROL gate-close` after G8 user confirmation. Do not mark a gate closed in conversation only.
 
@@ -194,7 +208,7 @@ If user confirms exit → exit gracefully; mark as incomplete.
 ### Consequences (script SSOT)
 
 - Gate and decision-doc downstream invalidation: **`$GATE_CONTROL` only**; scope computed by DAG — agent does not enumerate.
-- Registers are **not** auto-modified by gate invalidation (see § Parallel Registers · On reopen).
+- Registers are **not** auto-modified by gate invalidation (see § Parallel Registers · Persistence).
 - Re-entry point after RS: **Loop A gate `G`** (Q / E / D / X), not V / RR.
 - Loop B-only new assumptions while Loop A still holds → RR `return_r` back to R; not RS.
 

@@ -28,7 +28,7 @@ Do NOT proceed until you have read `../../../_runtime.md`
 
 1. `$GATE_CONTROL resolve-context` — pin `$CTX`
 2. Apply Role + holder Context Loading per kernel Domain Constraints HARD-GATE
-3. Open channel dialogue + G0 → `$REGISTER_CONTROL register-append --kind prior|assumption` (see q-problem-runner § Register capture)
+3. Open channel dialogue + G0 per parent § Parallel Registers
 4. After user confirms ready for Q (G8): `$GATE_CONTROL gate-close --gate O --payload '{"user_confirmed": true}'`
 5. Return `GATE_COMPLETE O` to parent
 

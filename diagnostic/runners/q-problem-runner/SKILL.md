@@ -28,7 +28,7 @@ Do NOT proceed until you have read `../../../_runtime.md`
 ## Pipeline
 
 1. `$GATE_CONTROL resolve-context` — pin stdout JSON as `$CTX`
-2. Execute Q gate dialogue (G1/G7/G8; G0 → `$REGISTER_CONTROL register-append --kind prior|assumption`)
+2. Execute Q gate dialogue (G1/G7/G8; G0 per parent § Parallel Registers)
 3. After user confirms problem + constraints: `$GATE_CONTROL gate-close --gate Q --payload '<json>'`
 4. Return `GATE_COMPLETE Q` to parent
 
@@ -40,20 +40,6 @@ Do NOT proceed until you have read `../../../_runtime.md`
   "constraints": "<enumerated constraints>"
 }
 ```
-
-## Register capture (G0)
-
-After brief confirmation:
-
-```bash
-$REGISTER_CONTROL register-append --kind prior --payload '{"kind":"preference","text":"..."}'
-$REGISTER_CONTROL register-append --kind assumption --payload '{"text":"..."}'
-```
-
-- `--kind prior` — User Prior Log; payload `kind`: `judgment` | `preference` | `concern` | `excluded`
-- `--kind assumption` — Assumption Log; unverified premises extracted from judgments
-
-See parent `## Script Macros` and rule **G0**.
 
 ## Exit
 

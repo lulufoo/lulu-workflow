@@ -28,7 +28,7 @@ Do NOT proceed until you have read `../../../_runtime.md`
 
 1. `$GATE_CONTROL resolve-context` — pin `$CTX`
 2. Execute E gate dialogue (2–3 directions, pros/cons, excluded, user choice; G1/G7/G8)
-3. G0 captures → `$REGISTER_CONTROL register-append --kind prior|assumption` (see q-problem-runner § Register capture)
+3. G0 captures per parent § Parallel Registers
 4. After user confirms: `$GATE_CONTROL gate-close --gate E --payload '<json>'`
 5. Return `GATE_COMPLETE E` to parent
 

@@ -348,3 +348,53 @@ def test_legacy_open_gate_id_normalizes(template_config: Path, monkeypatch: pyte
     reloaded = json.loads(path.read_text(encoding="utf-8"))
     assert reloaded["active_gate"] == "O"
     assert "O" in reloaded["gates"]
+
+
+def test_register_commit_g0_returns_full_ctx(
+    template_config: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from dx_register_control import cmd_register_commit  # noqa: E402
+
+    project_root = template_config
+    cycle_id = "feature-register-commit"
+    stage = "diagnostic"
+    monkeypatch.chdir(project_root)
+    (project_root / ".cursor" / "lulu-dev-workflow").mkdir(parents=True, exist_ok=True)
+
+    assert cmd_init_session(project_root, cycle_id, stage) == 0
+    capsys.readouterr()
+
+    assert (
+        cmd_register_commit(
+            project_root,
+            cycle_id,
+            stage,
+            operations=[
+                {
+                    "action": "append",
+                    "kind": "prior",
+                    "payload": {"kind": "preference", "text": "Prefer incremental rollout"},
+                },
+                {
+                    "action": "append",
+                    "kind": "assumption",
+                    "payload": {"text": "API is ready"},
+                },
+            ],
+        )
+        == 0
+    )
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    assert payload["applied"] == 2
+    assert payload["active_gate"] == "O"
+    assert len(payload["registers"]["prior"]) == 1
+    assert len(payload["registers"]["assumptions"]) == 1
+    assert "gates" in payload
+    assert "domain_constraints" in payload
+
+    doc = load_decision_doc(project_root / decision_doc_path(cycle_id, stage))
+    assert "Prefer incremental rollout" in doc
+    assert "API is ready" in doc

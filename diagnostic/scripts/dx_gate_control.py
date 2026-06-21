@@ -187,34 +187,43 @@ def cmd_init_session(
     return 0
 
 
+def build_resolve_context_payload(
+    project_root: Path,
+    cycle_id: str,
+    stage: str,
+    *,
+    paths: dict[str, Path] | None = None,
+) -> dict[str, Any]:
+    """Session context dict for resolve-context / register-commit stdout."""
+    resolved_paths = paths or _paths(project_root, cycle_id, stage)
+    gate_state = load_gate_state(resolved_paths["gate_state"])
+    r_closed = is_gate_closed(gate_state, "R")
+    registers = load_registers(resolved_paths["registers"], r_gate_closed=r_closed)
+    constraints = _load_session_constraints(project_root, cycle_id, stage)
+    return {
+        "cycle_id": cycle_id,
+        "stage": stage,
+        "session_dir": resolved_paths["session_dir"].as_posix(),
+        "gate_state_path": resolved_paths["gate_state"].as_posix(),
+        "registers_path": resolved_paths["registers"].as_posix(),
+        "decision_doc_path": resolved_paths["decision_doc"].as_posix(),
+        "domain_constraints_path": resolved_paths["domain_constraints"].as_posix(),
+        "active_gate": gate_state["active_gate"],
+        "gates": gate_state["gates"],
+        "skipped_gates": gate_state.get("skipped_gates", []),
+        "domain_constraints": constraints,
+        "registers": registers,
+        "reply_header": render_reply_header(gate_state, registers),
+    }
+
+
 def cmd_resolve_context(project_root: Path, cycle_id: str, stage: str) -> int:
-    paths = _paths(project_root, cycle_id, stage)
     try:
-        gate_state = load_gate_state(paths["gate_state"])
-        r_closed = is_gate_closed(gate_state, "R")
-        registers = load_registers(paths["registers"], r_gate_closed=r_closed)
-        constraints = _load_session_constraints(project_root, cycle_id, stage)
+        payload = build_resolve_context_payload(project_root, cycle_id, stage)
     except (FileNotFoundError, ValueError) as exc:
         return _emit_error(str(exc))
 
-    _emit(
-        {
-            "ok": True,
-            "cycle_id": cycle_id,
-            "stage": stage,
-            "session_dir": paths["session_dir"].as_posix(),
-            "gate_state_path": paths["gate_state"].as_posix(),
-            "registers_path": paths["registers"].as_posix(),
-            "decision_doc_path": paths["decision_doc"].as_posix(),
-            "domain_constraints_path": paths["domain_constraints"].as_posix(),
-            "active_gate": gate_state["active_gate"],
-            "gates": gate_state["gates"],
-            "skipped_gates": gate_state.get("skipped_gates", []),
-            "domain_constraints": constraints,
-            "registers": registers,
-            "reply_header": render_reply_header(gate_state, registers),
-        }
-    )
+    _emit({"ok": True, **payload})
     return 0
 
 
@@ -839,33 +848,13 @@ def cmd_rs_commit(
     try:
         if gate not in RS_REOPEN_GATES:
             return _emit_error(f"rs-commit gate must be one of {list(RS_REOPEN_GATES)}, got {gate!r}")
-        updated = _run_invalidate_from(paths, project_root, cycle_id, stage, gate)
-        registers, applied = apply_register_batch_operations(paths, operations=operations)
-        gate_state = load_gate_state(paths["gate_state"])
-        constraints = _load_session_constraints(project_root, cycle_id, stage)
+        _run_invalidate_from(paths, project_root, cycle_id, stage, gate)
+        _, applied = apply_register_batch_operations(paths, operations=operations)
     except (FileNotFoundError, ValueError) as exc:
         return _emit_error(str(exc))
 
-    _emit(
-        {
-            "ok": True,
-            "reenter": gate,
-            "applied": applied,
-            "cycle_id": cycle_id,
-            "stage": stage,
-            "session_dir": paths["session_dir"].as_posix(),
-            "gate_state_path": paths["gate_state"].as_posix(),
-            "registers_path": paths["registers"].as_posix(),
-            "decision_doc_path": paths["decision_doc"].as_posix(),
-            "domain_constraints_path": paths["domain_constraints"].as_posix(),
-            "active_gate": gate_state["active_gate"],
-            "gates": gate_state["gates"],
-            "skipped_gates": gate_state.get("skipped_gates", []),
-            "domain_constraints": constraints,
-            "registers": registers,
-            "reply_header": render_reply_header(gate_state, registers),
-        }
-    )
+    ctx = build_resolve_context_payload(project_root, cycle_id, stage, paths=paths)
+    _emit({"ok": True, "reenter": gate, "applied": applied, **ctx})
     return 0
 
 
