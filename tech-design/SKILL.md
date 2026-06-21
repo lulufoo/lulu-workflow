@@ -169,6 +169,6 @@ Template SSOT: [tech-design templates on GitHub](https://github.com/lulufoo/lulu
 | `$ROUND_CONTROL` | `python3 "$SKILL_ROOT/compose-kernel/scripts/section/section_round_control.py" --cycle-dir "$CACHE_DIR/$CYCLE_ID" --profile tech-design --round {N} <subcommand>` |
 | `$RESOLVE_PLAN_ROLE` | `python3 "$SKILL_ROOT/compose-kernel/scripts/scope/scope_resolver.py" resolve-role --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile tech-design` |
 | `$FETCH_COMPOSE` | `python3 "$SKILL_ROOT/compose-kernel/scripts/io/fetch_compose_framework.py" --role <role> --profile tech-design --project-root "$(pwd)"` |
-| `$EVAL_CONTROL` | `python3 "$SKILL_ROOT/eval/scripts/eval_control.py" --workflow tech-design --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
+| `$EVAL_CONTROL` | `python3 "$SKILL_DIR/scripts/tech-design_eval_control.py" --workflow tech-design --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
 
 Subcommands and stdout: script module docstrings or `--help`.

@@ -2,7 +2,10 @@
 """Eval control for lulu-dev-workflow eval domain.
 
 Owns mechanical writes to evaluate-state.md. Workflow-specific paths and state
-transitions go through WorkflowAdapter (--workflow).
+transitions go through an injected WorkflowAdapter (stage eval entry scripts).
+
+Invoke via stage entrypoints (e.g. tech-plan/scripts/tech-plan_eval_control.py).
+Do not run this module directly as __main__.
 
 Subcommands:
     init-round                  Initialize evaluate-state.md (internal; session_control)
@@ -71,7 +74,6 @@ from evaluate_state_schema import (  # noqa: E402
 )
 from contextvars import ContextVar
 
-from workflow_adapter_loader import load_adapter  # noqa: E402
 from evaluate_state_ops import (  # noqa: E402
     build_initial_evaluate_state_for_corpus,
     dimension_status_legacy_map,
@@ -88,7 +90,10 @@ _ADAPTER_CTX: ContextVar[WorkflowAdapter | None] = ContextVar("workflow_adapter"
 def _adapter() -> WorkflowAdapter:
     adapter = _ADAPTER_CTX.get()
     if adapter is None:
-        adapter = load_adapter("tech-plan")
+        raise RuntimeError(
+            "WorkflowAdapter not set; invoke via stage eval entrypoint "
+            "(e.g. tech-plan/scripts/tech-plan_eval_control.py)",
+        )
     return adapter
 
 
@@ -1848,7 +1853,7 @@ def _emit(payload: dict[str, Any]) -> int:
     return 0 if payload.get("ok") else 1
 
 
-def _cli() -> int:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="lulu-dev-workflow eval control")
     parser.add_argument(
         "--workflow",
@@ -1960,10 +1965,18 @@ def _cli() -> int:
         _CMD_COMPLETE_ROUND,
         help="Finalize evaluation round and return summary payload",
     )
-    args = parser.parse_args()
+    return parser
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    return build_parser().parse_args(argv)
+
+
+def run_eval(args: argparse.Namespace, adapter: WorkflowAdapter) -> int:
+    """Run eval subcommand with an injected WorkflowAdapter (stage entrypoint)."""
     project_root = args.project_root.resolve()
     cycle_id = args.cycle_id.strip()
-    token = _ADAPTER_CTX.set(load_adapter(args.workflow))
+    token = _ADAPTER_CTX.set(adapter)
 
     try:
         if args.command == _CMD_INIT_ROUND:
@@ -2043,5 +2056,14 @@ def _cli() -> int:
     return 1
 
 
+def main() -> int:
+    print(
+        "错误：请通过 stage eval 入口调用（例如 "
+        "tech-plan/scripts/tech-plan_eval_control.py）。",
+        file=sys.stderr,
+    )
+    return 1
+
+
 if __name__ == "__main__":
-    sys.exit(_cli())
+    sys.exit(main())

@@ -16,7 +16,7 @@ for p in (_EVAL_SHELL, _EVAL_SCRIPTS, _KERNEL_TESTS):
         sys.path.insert(0, str(p))
 
 import bootstrap  # noqa: F401
-from workflow_adapter_loader import load_adapter  # noqa: E402
+from product_spec_eval_adapter import ProductSpecEvalAdapter  # noqa: E402
 from corpus_compose import PRODUCT_SPEC_COMPOSED_CORPUS_REF, corpus_fingerprint  # noqa: E402
 from delivered_refs_schema import DeliveredRef  # noqa: E402
 from product_spec_eval_policy import select_dimension_ids  # noqa: E402
@@ -52,12 +52,12 @@ def _seed_session(tmp_path: Path) -> Path:
 
 class TestProductSpecEvalAdapter:
     def test_registry_loads_product_spec(self):
-        adapter = load_adapter("product-spec")
+        adapter = ProductSpecEvalAdapter()
         assert adapter.corpus_ref_for_mode("product") == PRODUCT_SPEC_COMPOSED_CORPUS_REF
 
     def test_resolve_eval_corpus(self, tmp_path: Path):
         _seed_session(tmp_path)
-        adapter = load_adapter("product-spec")
+        adapter = ProductSpecEvalAdapter()
         corpus = adapter.resolve_eval_corpus(_CYCLE, tmp_path)
         ids = select_dimension_ids()
         assert [d["id"] for d in corpus["dimensions"]] == ids
@@ -67,7 +67,7 @@ class TestProductSpecEvalAdapter:
 
     def test_eval_paths_compose_doc(self, tmp_path: Path):
         _seed_session(tmp_path)
-        adapter = load_adapter("product-spec")
+        adapter = ProductSpecEvalAdapter()
         es_path = adapter.resolve_evaluate_state_path(_CYCLE, tmp_path)
         paths = adapter.eval_paths(
             _CYCLE,
@@ -80,14 +80,14 @@ class TestProductSpecEvalAdapter:
 
     def test_corpus_bind_extensions_includes_decision_ref(self, tmp_path: Path):
         _seed_session(tmp_path)
-        adapter = load_adapter("product-spec")
+        adapter = ProductSpecEvalAdapter()
         bind = adapter.corpus_bind_extensions(_CYCLE, tmp_path)
         assert bind["decision_ref"].endswith("/product/diagnostic/decision-doc.md")
         assert "pst_product_eval_framework_url" in bind
 
     def test_resolve_evaluate_state_path(self, tmp_path: Path):
         _seed_session(tmp_path)
-        adapter = load_adapter("product-spec")
+        adapter = ProductSpecEvalAdapter()
         es_path = adapter.resolve_evaluate_state_path(_CYCLE, tmp_path)
         assert es_path.name == "evaluate-state.md"
         assert "product/spec/revision1" in es_path.as_posix()
@@ -103,6 +103,6 @@ class TestProductSpecEvalAdapter:
         ws = base / "revision1" / "workflow-state.md"
         ws.parent.mkdir(parents=True, exist_ok=True)
         init_drafting(ws, mode="product")
-        adapter = load_adapter("product-spec")
+        adapter = ProductSpecEvalAdapter()
         with pytest.raises(ValueError, match="topic cycles do not evaluate in product-spec"):
             adapter.resolve_eval_corpus(cycle, tmp_path)

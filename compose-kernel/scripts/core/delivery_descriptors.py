@@ -7,10 +7,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator
 
-from workflow_paths import PROFILES_DIR, WORKFLOW_ROOT, load_profile
+from workflow_paths import COMPOSE_KERNEL_ROOT, PROFILES_DIR, WORKFLOW_ROOT, load_profile
 
+_DELIVERY_SOURCES_PATH = COMPOSE_KERNEL_ROOT / "config" / "delivery-sources.json"
 _DEFAULT_TERMINAL = "Delivered"
-_DIAGNOSTIC_HOLDER_GLOB = "*-diagnostic"
 
 
 @dataclass(frozen=True)
@@ -101,14 +101,41 @@ def _diagnostic_descriptor(constraints_path: Path) -> DeliveryDescriptor | None:
     )
 
 
+def _load_delivery_sources() -> dict:
+    if not _DELIVERY_SOURCES_PATH.is_file():
+        raise FileNotFoundError(f"delivery-sources not found: {_DELIVERY_SOURCES_PATH}")
+    return json.loads(_DELIVERY_SOURCES_PATH.read_text(encoding="utf-8"))
+
+
+def _diagnostic_constraints_paths() -> list[Path]:
+    data = _load_delivery_sources()
+    raw = data.get("diagnostic_constraints")
+    if not isinstance(raw, list):
+        raise ValueError("delivery-sources.diagnostic_constraints must be a list")
+    paths: list[Path] = []
+    for item in raw:
+        if not isinstance(item, str) or not item.strip():
+            continue
+        paths.append(WORKFLOW_ROOT / item.strip())
+    return paths
+
+
 def iter_delivery_descriptors() -> Iterator[DeliveryDescriptor]:
     seen: set[str] = set()
-    for path in sorted(PROFILES_DIR.glob("*.json")):
+    sources = _load_delivery_sources()
+    compose_mode = sources.get("compose_profiles", "auto")
+    if compose_mode == "auto":
+        profile_paths = sorted(PROFILES_DIR.glob("*.json"))
+    else:
+        raise ValueError(
+            f"unsupported compose_profiles value: {compose_mode!r} (expected 'auto')",
+        )
+    for path in profile_paths:
         desc = _compose_descriptor(path.stem)
         if desc is not None and desc.stage_name not in seen:
             seen.add(desc.stage_name)
             yield desc
-    for constraints_path in sorted(WORKFLOW_ROOT.glob(f"{_DIAGNOSTIC_HOLDER_GLOB}/constraints.json")):
+    for constraints_path in _diagnostic_constraints_paths():
         desc = _diagnostic_descriptor(constraints_path)
         if desc is not None and desc.stage_name not in seen:
             seen.add(desc.stage_name)

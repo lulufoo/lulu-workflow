@@ -12,7 +12,12 @@ from workflow_paths import EVAL_SCRIPTS  # noqa: E402
 
 sys.path.insert(0, str(CORE))
 sys.path.insert(0, str(EVAL_SCRIPTS))
-from workflow_adapter_loader import load_adapter  # noqa: E402
+_TECH_DESIGN_EVAL = (
+    Path(__file__).resolve().parents[3] / "tech-design" / "scripts" / "eval"
+)
+if str(_TECH_DESIGN_EVAL) not in sys.path:
+    sys.path.insert(0, str(_TECH_DESIGN_EVAL))
+from tech_design_eval_adapter import TechDesignEvalAdapter  # noqa: E402
 from compose_session import (  # noqa: E402
     eval_workflow_id,
     load_active_doc_for_profile,
@@ -71,7 +76,7 @@ class TestComposeSessionTechDesign:
 
     def test_adapter_enter_evaluating_creates_evaluate_state(self, tmp_path: Path):
         _seed_design_session(tmp_path)
-        adapter = load_adapter(_PROFILE)
+        adapter = TechDesignEvalAdapter()
         result = adapter.enter_evaluating(_CYCLE, tmp_path)
         assert result["ok"] is True
         es = (

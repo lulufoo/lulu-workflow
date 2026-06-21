@@ -87,20 +87,25 @@ Example (WO-MISS):
 
 ## Mechanical command
 
-`$EVAL_CONTROL` — eval-domain state machine. Pass parent workflow id via `--workflow`.
+`$EVAL_CONTROL` — eval-domain state machine. **Invoke via compose stage eval entry scripts** (inject `WorkflowAdapter`); do not call `eval_control.py` directly.
+
+Examples:
 
 ```bash
-python3 {$SKILL_ROOT}/eval/scripts/eval_control.py \
-  --workflow <workflow> \
+# tech-plan
+python3 {$SKILL_ROOT}/tech-plan/scripts/tech-plan_eval_control.py \
+  --workflow tech-plan \
   --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand> [args...]
 ```
 
-**tech-plan:** `--workflow tech-plan`
+| Stage | Entry script |
+|-------|----------------|
+| tech-plan | `tech-plan/scripts/tech-plan_eval_control.py` |
+| tech-design | `tech-design/scripts/tech-design_eval_control.py` |
+| product-spec | `product-spec/scripts/product-spec_eval_control.py` |
 
 | Concern | SSOT |
 |---------|------|
 | Step order, stdout handling, branching | `{$SKILL_ROOT}/eval/eval-rules.md` |
-| Subcommand list | `eval/scripts/eval_control.py` module docstring or `--help` |
+| Subcommand list | `eval/scripts/eval_control.py` module docstring or stage entry `--help` |
 | Runner write boundaries | `eval/*-runner/SKILL.md` |
-
-Do not infer `$EVAL_CONTROL` contracts from workflow parent SKILL Script Macros sections.

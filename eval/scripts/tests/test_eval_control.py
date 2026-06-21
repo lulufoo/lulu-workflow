@@ -20,7 +20,7 @@ sys.path.insert(0, str(_KERNEL_SCHEMA_SESSION))
 sys.path.insert(0, str(_KERNEL_TESTS))
 sys.path.insert(0, str(_EVAL_SCRIPTS))
 
-from workflow_adapter_loader import load_adapter  # noqa: E402
+from tech_plan_eval_adapter import TechPlanEvalAdapter  # noqa: E402
 import eval_control  # noqa: E402
 from eval_control import (  # noqa: E402
     artifact_remediation_complete,
@@ -68,8 +68,7 @@ _CYCLE = "feat-eval-control"
 from corpus_compose import COMPOSED_CORPUS_REF  # noqa: E402
 
 _CACHE = Path(".cache/cursor/lulu-dev-workflow")
-_SCRIPT = _EVAL_SCRIPTS / "eval_control.py"
-_ADAPTER = load_adapter("tech-plan")
+_ADAPTER = TechPlanEvalAdapter()
 
 
 def _corpus(cycle_id: str, tmp_path: Path):
@@ -331,10 +330,13 @@ class TestFinishDimensionProbe:
         errors: list[str] = []
 
         def _run(dim: str) -> None:
+            token = eval_control._ADAPTER_CTX.set(_ADAPTER)
             try:
                 finish_dimension_probe(_CYCLE, tmp_path, dim=dim)
             except ValueError as exc:
                 errors.append(str(exc))
+            finally:
+                eval_control._ADAPTER_CTX.reset(token)
 
         t1 = threading.Thread(target=_run, args=("e2",))
         t2 = threading.Thread(target=_run, args=("e3",))

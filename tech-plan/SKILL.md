@@ -273,5 +273,6 @@ Macro expansion: `../_runtime.md` § Script Macros → Macro expansion. Non-zero
 | `$ROUND_CONTROL` | `python3 "$SKILL_ROOT/compose-kernel/scripts/section/section_round_control.py" --cycle-dir "$CACHE_DIR/$CYCLE_ID" --profile tech-plan --round {N} <subcommand>` |
 | `$FETCH_COMPOSE` | `python3 "$SKILL_ROOT/compose-kernel/scripts/io/fetch_compose_framework.py" --role <role> --profile tech-plan --project-root "$(pwd)"` |
 | `$RESOLVE_PLAN_ROLE` | `python3 "$SKILL_ROOT/compose-kernel/scripts/scope/scope_resolver.py" resolve-role --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile tech-plan` |
+| `$EVAL_CONTROL` | `python3 "$SKILL_DIR/scripts/tech-plan_eval_control.py" --workflow tech-plan --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
 
 Subcommands and stdout: script module docstrings or `--help`.

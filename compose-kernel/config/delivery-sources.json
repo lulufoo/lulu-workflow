@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "compose_profiles": "auto",
+  "diagnostic_constraints": [
+    "product-diagnostic/constraints.json",
+    "tech-diagnostic/constraints.json"
+  ]
+}

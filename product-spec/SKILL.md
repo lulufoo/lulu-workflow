@@ -156,6 +156,6 @@ Template SSOT: [product-spec templates on GitHub](https://github.com/lulufoo/lul
 | `$DRAFT_CONTROL` | `python3 "$SKILL_DIR/scripts/drafting/product_spec_draft_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` — MVP: `begin-init`, `init-complete`, `status` only |
 | `$RESOLVE_PLAN_ROLE` | `python3 "$SKILL_ROOT/compose-kernel/scripts/scope/scope_resolver.py" resolve-role --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile product-spec` |
 | `$FETCH_COMPOSE` | `python3 "$SKILL_ROOT/compose-kernel/scripts/io/fetch_compose_framework.py" --role <role> --profile product-spec --project-root "$(pwd)"` |
-| `$EVAL_CONTROL` | `python3 "$SKILL_ROOT/eval/scripts/eval_control.py" --workflow product-spec --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
+| `$EVAL_CONTROL` | `python3 "$SKILL_DIR/scripts/product-spec_eval_control.py" --workflow product-spec --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
 
 Subcommands and stdout: script module docstrings or `--help`.

@@ -16,7 +16,7 @@ for p in (_EVAL_SHELL, _EVAL_SCRIPTS, _KERNEL_TESTS):
         sys.path.insert(0, str(p))
 
 import bootstrap  # noqa: F401
-from workflow_adapter_loader import load_adapter  # noqa: E402
+from tech_plan_eval_adapter import TechPlanEvalAdapter  # noqa: E402
 from corpus_compose import COMPOSED_CORPUS_REF, corpus_fingerprint  # noqa: E402
 from tech_plan_eval_policy import select_dimension_ids  # noqa: E402
 from init_drafting_helpers import product_delivered_refs  # noqa: E402
@@ -38,14 +38,14 @@ def _seed_session(tmp_path: Path) -> Path:
 
 class TestTechPlanEvalAdapter:
     def test_corpus_ref_for_mode_is_composed(self):
-        adapter = load_adapter("tech-plan")
+        adapter = TechPlanEvalAdapter()
         assert adapter.corpus_ref_for_mode("product") == COMPOSED_CORPUS_REF
         assert adapter.corpus_ref_for_mode("tech") == COMPOSED_CORPUS_REF
 
     def test_resolve_eval_corpus_product_ref(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
         init_drafting(ws, mode="product", delivered_refs=product_delivered_refs("/p.md"))
-        adapter = load_adapter("tech-plan")
+        adapter = TechPlanEvalAdapter()
         corpus = adapter.resolve_eval_corpus(_CYCLE, tmp_path)
         ids = select_dimension_ids(
             product_ref="/p.md",
@@ -57,14 +57,14 @@ class TestTechPlanEvalAdapter:
     def test_resolve_eval_corpus_tech_mode(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
         init_drafting(ws, mode="tech")
-        adapter = load_adapter("tech-plan")
+        adapter = TechPlanEvalAdapter()
         corpus = adapter.resolve_eval_corpus(_CYCLE, tmp_path)
         assert [d["legacy_alias"] for d in corpus["dimensions"]] == ["e2", "e3"]
 
     def test_resolve_evaluate_state_path(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
         init_drafting(ws, mode="product", delivered_refs=product_delivered_refs("/p.md"))
-        adapter = load_adapter("tech-plan")
+        adapter = TechPlanEvalAdapter()
         es_path = adapter.resolve_evaluate_state_path(_CYCLE, tmp_path)
         assert es_path.name == "evaluate-state.md"
         assert "revision1" in es_path.as_posix()
@@ -79,10 +79,11 @@ class TestTechPlanEvalAdapter:
         )
         ws = base / "revision1" / "workflow-state.md"
         init_drafting(ws, mode="tech")
-        adapter = load_adapter("tech-plan")
+        adapter = TechPlanEvalAdapter()
         with pytest.raises(ValueError, match="topic cycles do not evaluate in tech-plan"):
             adapter.resolve_eval_corpus(cycle, tmp_path)
 
-    def test_unknown_workflow_raises(self):
-        with pytest.raises(ValueError, match="unknown workflow"):
-            load_adapter("product-arch")
+    def test_eval_control_main_rejects_direct_invocation(self):
+        from eval_control import main  # noqa: WPS433
+
+        assert main() != 0

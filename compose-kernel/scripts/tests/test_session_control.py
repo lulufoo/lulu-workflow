@@ -10,8 +10,12 @@ from bootstrap import CORE  # noqa: E402
 from workflow_paths import EVAL_SCRIPTS, WORKFLOW_SCRIPTS  # noqa: E402
 
 sys.path.insert(0, str(EVAL_SCRIPTS))
-
-from workflow_adapter_loader import load_adapter  # noqa: E402
+_TECH_PLAN_EVAL = (
+    Path(__file__).resolve().parents[3] / "tech-plan" / "scripts" / "eval"
+)
+if str(_TECH_PLAN_EVAL) not in sys.path:
+    sys.path.insert(0, str(_TECH_PLAN_EVAL))
+from tech_plan_eval_adapter import TechPlanEvalAdapter  # noqa: E402
 from evaluate_state_ops import (  # noqa: E402
     dimension_status_legacy_map,
     init_evaluate_state_for_corpus,
@@ -37,7 +41,7 @@ from delivered_refs_schema import (  # noqa: E402
 
 _CYCLE = "feat-test"
 _CACHE = Path(".cache/cursor/lulu-dev-workflow")
-_ADAPTER = load_adapter("tech-plan")
+_ADAPTER = TechPlanEvalAdapter()
 
 
 def _corpus(tmp_path: Path):

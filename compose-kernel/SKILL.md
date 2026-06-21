@@ -8,7 +8,9 @@ description: >-
 
 # compose-kernel
 
-Internal library — consumed by stage shells (`tech-plan`, etc.); not user-invoked.
+Internal library — consumed by stage shells (`tech-plan`, `product-spec`, etc.); not user-invoked.
+
+`DEFAULT_COMPOSE_PROFILE_ID` (`tech-plan`) is for kernel tests and `load_profile()` fallbacks only. Production invocations must pass `--profile` via stage macros or entry scripts.
 
 ## Script Macros
 
