@@ -13,7 +13,7 @@
 **Three exits after all items processed:**
 
 1. All items `[已验证]` + Assumption Log has no new `[待验证]` entries generated during LoopB  
-   → write decision-doc → proceed to DC
+   → proceed to DC
 
 2. All items `[已验证]` + Assumption Log has new `[待验证]` entries (generated during V or RR)  
    → return to R (re-run R with the new entries; do not restart LoopA)

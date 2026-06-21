@@ -25,16 +25,14 @@ Do NOT proceed until you have read `../_runtime.md` and loaded:
 Before executing any DDF gate, scan your current instruction context for a `## Domain Constraints`
 section (injected by a domain holder such as `product-diagnostic` or `tech-diagnostic`).
 
-**If a `## Domain Constraints` section is present:**
-- Apply the X Gate constraints from that section (execute only the listed dimensions; skip the rest).
-- Apply the Decision-Doc constraints from that section (omit the listed sections).
-- Apply the After DC routing from that section.
-- Apply Role from `### Role` if present: activate immediately before the Open Channel; the role applies throughout the entire session and shapes question framing, vocabulary, and analytical perspective. If no `### Role` block is present, execute with neutral framing.
-- These holder constraints override all kernel defaults below.
+**If a `## Domain Constraints` section is present** (domain holder injected):
+- **X dimensions, omitted sections, and Role:** read only from `$GATE_CONTROL resolve-context` → `domain_constraints` (`x_dimensions`, `omitted_sections`, `role`). Apply `role.instruction` immediately before Open Channel; shapes vocabulary and framing for the whole session. If `role` is absent, use neutral framing.
+- **After DC routing:** from holder `### After DC`.
+- **Context loading:** from holder `### Context Loading` if present (e.g. tech-diagnostic product-doc).
+- **Defaults file:** `$GATE_CONTROL init-session` loads holder `constraints.json` into session `domain-constraints.json`. Gate-close and doc sync honor session constraints automatically.
 
 **If no `## Domain Constraints` section is present** (direct `/diagnostic` invocation):
-- Execute all five X Gate dimensions.
-- Write all decision-doc sections.
+- `domain_constraints`: all five X dimensions; no omitted sections (built-in defaults).
 - After DC: tell user they may proceed to `/product-plan` or `/tech-plan`.
 </HARD-GATE>
 
@@ -44,12 +42,19 @@ section (injected by a domain holder such as `product-diagnostic` or `tech-diagn
 Do NOT exit diagnostic or transition to the next stage until:
   
 - All DDF gates (Q / E / D / X → R → [LoopB if uncertain: V / RR] → DC) have passed
-- The decision-doc has been written to disk
+- All decision-doc sections are written incrementally and current on disk
 - User has explicitly confirmed readiness to proceed
 
 This applies to EVERY intent, regardless of perceived clarity.
 "I already know what I want to build" is the most common reason to skip this —
 and the most common source of wasted downstream work.
+</HARD-GATE>
+
+<HARD-GATE name="Register SSOT">
+- `registers.json` is modified only via `$REGISTER_CONTROL`.
+- After G0 capture (Prior or Assumption), call `register-append` or `register-update` successfully before the next user-visible reply continues the gate.
+- Reply Header Prior/Assumption lines must come from `$GATE_CONTROL resolve-context` (`reply_header` field). Do not hand-write register lines.
+- If any register CLI exits non-zero: stop the current gate and report the error.
 </HARD-GATE>
 
 ---
@@ -71,7 +76,13 @@ Two global rules, applicable at any gate, any time:
 **Propagation**:
 - When a gate is re-opened, all gates reachable from it along prerequisite dependency arrows are automatically invalidated and must be re-satisfied.
 - Scope is determined by the DAG structure — no enumeration needed.
-- When a reopen trigger fires, read and execute `$SKILL_DIR/gates/rs-reopen-state-handler.md`; RS handles state cleanup and re-entry routing.
+- When a reopen trigger fires, load and execute `$SKILL_DIR/runners/rs-reopen-runner/SKILL.md` (gate contract: `gates/rs-reopen-state-handler.md`).
+
+**RS mechanical steps** (via Script Macros — do not skip):
+1. `$GATE_CONTROL invalidate-from --gate <G>` — reset gate-state + downstream decision-doc zones
+2. User-confirmed register relabeling → `$REGISTER_CONTROL register-batch-apply`
+3. `$REGISTER_CONTROL sync-registers-to-doc` + `$GATE_CONTROL resolve-context`
+4. Re-enter LoopA at gate `<G>` via the corresponding gate runner
 
 ---
 
@@ -127,9 +138,24 @@ python3 "$SKILL_DIR/scripts/dx_start.py" \
 
 `<stage_name>`: `product-diagnostic` · `tech-diagnostic` · `diagnostic` (default)
 
-Creates `session-state.md` with `current_state: InProgress`.
+Creates `session-state.md` with `current_state: InProgress`, plus `gate-state.json`, `registers.json`, `domain-constraints.json`, and `decision-doc.md` skeleton.
+
+**Legacy migration:** If `session-state.md` exists without `gate-state.json`, start runs `$GATE_CONTROL migrate-session` instead of re-init (preserves existing decision-doc).
+
+**Archive:** When `--conversation-id` is provided, start restores/archives diagnostic hot convs via `dx_archive.py`.
 
 **Do not** run start again after Delivery (`Delivered`) on the same feature — use a new feature for a new diagnostic.
+
+---
+
+## Script Macros
+
+| Macro | Command |
+|-------|---------|
+| `$GATE_CONTROL` | `python3 "$SKILL_DIR/scripts/dx_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>"` |
+| `$REGISTER_CONTROL` | `python3 "$SKILL_DIR/scripts/dx_register_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>"` |
+
+Subcommand contracts: module docstrings / `--help`.
 
 ---
 
@@ -137,7 +163,7 @@ Creates `session-state.md` with `current_state: InProgress`.
 
 ### Global Rules
 
-**G0. User prior capture (throughout)** — at any gate: if user states a judgment, preference, concern, or historically excluded option, capture it in the User Prior Log immediately with its type tag (`[judgment]` / `[preference]` / `[concern]` / `[excluded]`), confirm briefly, then continue the current gate without interruption. User Prior Log is reviewed twice: before D (direction alignment) and at R (R签字确认 — see User Prior Log).
+**G0. User prior capture (throughout)** — at any gate: if user states a judgment, preference, concern, or historically excluded option, confirm briefly, then call `$REGISTER_CONTROL register-append --kind prior --payload '<json>'` before continuing. Payload `kind`: `judgment` / `preference` / `concern` / `excluded`. For unverified premises, also call `register-append --kind assumption --payload '<json>'`. User Prior Log is reviewed twice: before D (direction alignment) and at R (R签字确认).
 
 When capturing a `[judgment]` or `[excluded]` entry, check whether it rests on an unverified premise — i.e., "this is true only if X holds." If so, extract X as a separate entry in the Assumption Log (`[待验证]`, source = current gate). Pure preferences with no underlying premise go only into User Prior Log.
 
@@ -147,7 +173,9 @@ When capturing a `[judgment]` or `[excluded]` entry, check whether it rests on a
 
 **G3.** Each gate has a pass criterion. Do not advance until the criterion is met.
 
-**G4. Gate status tracking** — Gate status is always visible in the Reply Header (see `## Parallel Registers`). No separate gate status report is needed.
+**G4. Gate status tracking** — Gate and register lines in the Reply Header must be rendered from `$GATE_CONTROL resolve-context` (`reply_header`). Do not update gate/register display without a successful control CLI call.
+
+**G4b. Gate persistence** — Closing a gate requires `$GATE_CONTROL gate-close` after G8 user confirmation. Do not mark a gate closed in conversation only.
 
 **G5.** Upstream input error — if the intent input itself has a fundamental error, exit the loop; tell the user to fix the input and restart.
 
@@ -185,26 +213,28 @@ Before entering Q, invite the user to dump existing knowledge:
 
 > "Before we begin — share what you'd like me to know: direction preferences, concerns, or options you've already ruled out. It doesn't need to be complete; you can add more at any point."
 
-Capture input in User Prior Log. This step is not part of Q and does not count toward Q's question quota.
+Capture input via `$REGISTER_CONTROL register-append --kind prior --payload '<json>'` (source `open` while `active_gate` is `open`). This step is not part of Q and does not count toward Q's question quota.
 
 ---
 
 ### Gate Routing
 
+After Start: Open channel → Q runner → E runner → remaining gates. After each `GATE_COMPLETE`, run `$GATE_CONTROL resolve-context` before the next gate.
+
 <HARD-GATE>
-Before executing any gate, Read the corresponding gate file first.
+Before executing any gate, Read the corresponding runner or gate file first.
 Do NOT rely on memory or prior context for gate execution steps.
 </HARD-GATE>
 
 | Gate | File | Load condition |
 |------|------|----------------|
-| Q | `$SKILL_DIR/gates/q-problem-clarification.md` | Entering Q |
-| E | `$SKILL_DIR/gates/e-direction-exploration.md` | Q closed |
-| D | `$SKILL_DIR/gates/d-decision-scope.md` | E closed |
-| X | `$SKILL_DIR/gates/x-full-diagnosis.md` | D closed |
-| R | `$SKILL_DIR/gates/r-expose-bets.md` | X closed |
-| V | `$SKILL_DIR/gates/v-verification.md` | R → uncertain assumptions |
-| RR | `$SKILL_DIR/gates/rr-risk-release.md` | V → high-risk items |
-| DC | `$SKILL_DIR/gates/dc-delivery-confirmation.md` | Verification complete |
-| RS | `$SKILL_DIR/gates/rs-reopen-state-handler.md` | Reopen triggered |
-| Human Decision | `$SKILL_DIR/gates/hd-human-decision.md` | RR → ❌ Failed |
+| Q | `$SKILL_DIR/runners/q-problem-runner/SKILL.md` | After Open channel |
+| E | `$SKILL_DIR/runners/e-direction-runner/SKILL.md` | Q closed |
+| D | `$SKILL_DIR/runners/d-decision-runner/SKILL.md` | E closed |
+| X | `$SKILL_DIR/runners/x-full-diagnosis-runner/SKILL.md` | D closed |
+| R | `$SKILL_DIR/runners/r-expose-bets-runner/SKILL.md` | X closed |
+| V | `$SKILL_DIR/runners/v-verification-runner/SKILL.md` | R closed · `skipped_gates` empty |
+| RR | `$SKILL_DIR/runners/rr-risk-release-runner/SKILL.md` | V closed · RR-scope items |
+| DC | `$SKILL_DIR/runners/dc-delivery-runner/SKILL.md` | R exit `dc` or verification complete |
+| RS | `$SKILL_DIR/runners/rs-reopen-runner/SKILL.md` | Reopen triggered (any gate / DC flag / R exit `rs`) |
+| Human Decision | `$SKILL_DIR/runners/hd-human-decision-runner/SKILL.md` | RR exit `human_decision` |

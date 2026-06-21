@@ -2,16 +2,13 @@
 
 ## Decision-Doc Format
 
-Write to `$CACHE_DIR/<cycle_id>/{cache_subdir}/decision-doc.md` (where `{cache_subdir}` is derived from `--stage` as described in §Start Step 2).
+Decision-doc is maintained incrementally on disk at `$CACHE_DIR/<cycle_id>/{cache_subdir}/decision-doc.md` (see §Start). Each gate-close patches its sections; registers sync into §6 via `$REGISTER_CONTROL`.
 
-**Section filtering:** If a `## Domain Constraints` section lists forbidden sections, omit those sections entirely from the written document. If no Domain Constraints are present, write all sections below.
+**Section filtering:** If a `## Domain Constraints` section lists forbidden sections, omit those sections from init and patches. If no Domain Constraints are present, write all sections.
 
 <HARD-GATE name="Decision-Doc Prerequisites">
-Read `decision-doc.template.md` from the framework repo:
-```text
-$FETCH_TEMPLATE --section diagnostic --key decision_doc_template_url
-```
-Apply Section filtering above using resolved Domain Constraints before writing.
+Template SSOT: `$FETCH_TEMPLATE --section diagnostic --key decision_doc_template_url`
+Apply Section filtering using resolved Domain Constraints at session start.
 </HARD-GATE>
 
 ---
@@ -41,13 +38,13 @@ After self-review passes (decision-doc already written, Risk Release statuses up
    - Scope (including explicit exclusions)
    - Assumptions & Risks (all items with risk levels and Verification content)
 2. Ask user: "Are these decisions correct? Any items to re-open?"
-3. If any item is flagged: trigger RS on the corresponding gate; re-close all invalidated gates before proceeding.
+3. If any item is flagged: load `$SKILL_DIR/runners/rs-reopen-runner/SKILL.md` on the corresponding gate; re-close all invalidated gates before proceeding.
    > **DC-triggered RS baseline:** when RS is triggered from DC, use the already-written decision-doc as the authoritative baseline snapshot — do not reconstruct state from conversation memory. RS step 2 (clear conclusion zones) and step 3 (propose 3-state labeling) are executed against the decision-doc's recorded state.
-4. Only after user's explicit confirmation that everything is correct, write terminal state:
+4. Only after user's explicit confirmation:
 
 ```bash
-# session-state.md at <cycle_id>/{cache_subdir}/session-state.md
-current_state: Delivered
+$GATE_CONTROL gate-close --gate DC --payload '{"user_confirmed": true}'
+$GATE_CONTROL deliver
 ```
 
 5. Tell user the next step.

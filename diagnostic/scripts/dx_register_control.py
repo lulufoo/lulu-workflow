@@ -1,0 +1,386 @@
+#!/usr/bin/env python3
+"""Register control for diagnostic sessions.
+
+Subcommands:
+    register-append        Append prior or assumption entry (G0 capture)
+    register-update        Update an existing register entry
+    register-batch-apply   RS batch labeling and deletions
+    sync-registers-to-doc  Render registers into decision-doc sections
+    resolve-context        Register-focused context (includes reply_header)
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+from dx_decision_doc_schema import (
+    is_section_active,
+    load_decision_doc,
+    render_assumptions_body,
+    render_user_prior_body,
+    replace_section,
+    save_decision_doc,
+)
+from dx_domain_constraints_schema import load_domain_constraints
+from dx_gate_state_schema import is_gate_closed, load_gate_state
+from dx_register_schema import (
+    PRIOR_KINDS,
+    REGISTER_STATES,
+    RISK_LEVELS,
+    find_duplicate_assumption,
+    find_duplicate_prior,
+    load_registers,
+    next_assumption_id,
+    next_prior_id,
+    save_registers,
+)
+from dx_session_render import render_reply_header
+from dx_workflow_common import decision_doc_path, gate_state_path, registers_path, session_base_dir
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _emit(payload: dict[str, Any]) -> None:
+    print(json.dumps(payload, ensure_ascii=False, indent=2))
+
+
+def _emit_error(message: str) -> int:
+    print(json.dumps({"ok": False, "error": message}, ensure_ascii=False), file=sys.stderr)
+    return 1
+
+
+def _paths(project_root: Path, cycle_id: str, stage: str) -> dict[str, Path]:
+    return {
+        "gate_state": project_root / gate_state_path(cycle_id, stage),
+        "registers": project_root / registers_path(cycle_id, stage),
+        "decision_doc": project_root / decision_doc_path(cycle_id, stage),
+        "session_dir": project_root / session_base_dir(cycle_id, stage),
+    }
+
+
+def _active_register_source(gate_state: dict[str, Any]) -> str:
+    active = str(gate_state.get("active_gate", "open"))
+    if active == "open":
+        return "open"
+    if active in {"Q", "E", "D", "X", "R", "V", "RR"}:
+        return active
+    return "open"
+
+
+def sync_registers_to_doc(
+    decision_doc_file: Path,
+    registers_file: Path,
+    *,
+    r_gate_closed: bool,
+    constraints: dict[str, Any] | None = None,
+) -> None:
+    if constraints is None:
+        constraints_path = decision_doc_file.parent / "domain-constraints.json"
+        if constraints_path.exists():
+            constraints = load_domain_constraints(constraints_path)
+    registers = load_registers(registers_file, r_gate_closed=r_gate_closed)
+    doc = load_decision_doc(decision_doc_file)
+    if constraints is None or is_section_active(constraints, "user_prior"):
+        doc = replace_section(doc, "user_prior", render_user_prior_body(registers), constraints=constraints)
+    if constraints is None or is_section_active(constraints, "assumptions"):
+        doc = replace_section(doc, "assumptions", render_assumptions_body(registers), constraints=constraints)
+    save_decision_doc(decision_doc_file, doc)
+
+
+def cmd_register_append(
+    project_root: Path,
+    cycle_id: str,
+    stage: str,
+    *,
+    register_kind: str,
+    payload: dict[str, Any],
+) -> int:
+    paths = _paths(project_root, cycle_id, stage)
+    try:
+        gate_state = load_gate_state(paths["gate_state"])
+        r_closed = is_gate_closed(gate_state, "R")
+        registers = load_registers(paths["registers"], r_gate_closed=r_closed)
+        source = _active_register_source(gate_state)
+
+        if register_kind == "prior":
+            kind = str(payload.get("kind", "")).strip()
+            text = str(payload.get("text", "")).strip()
+            if kind not in PRIOR_KINDS:
+                return _emit_error(f"invalid prior kind: {kind!r}")
+            if not text:
+                return _emit_error("text is required")
+            duplicate = find_duplicate_prior(registers, kind=kind, text=text)
+            if duplicate:
+                _emit({"ok": True, "duplicate": True, "entry": duplicate})
+                return 0
+            entry_id = next_prior_id(registers)
+            entry = {
+                "id": entry_id,
+                "kind": kind,
+                "text": text,
+                "state": "pending",
+                "source": source,
+                "created_at": _now_iso(),
+            }
+            registers["prior"].append(entry)
+            registers["next_prior_seq"] = int(registers.get("next_prior_seq", 1)) + 1
+        elif register_kind == "assumption":
+            text = str(payload.get("text", "")).strip()
+            if not text:
+                return _emit_error("text is required")
+            duplicate = find_duplicate_assumption(registers, text)
+            if duplicate:
+                _emit({"ok": True, "duplicate": True, "entry": duplicate})
+                return 0
+            entry_id = next_assumption_id(registers)
+            entry = {
+                "id": entry_id,
+                "text": text,
+                "state": "pending",
+                "source": source,
+                "risk": None,
+                "consequence": None,
+                "verification": None,
+                "created_at": _now_iso(),
+            }
+            registers["assumptions"].append(entry)
+            registers["next_assumption_seq"] = int(registers.get("next_assumption_seq", 1)) + 1
+        else:
+            return _emit_error(f"invalid register kind: {register_kind!r}")
+
+        save_registers(paths["registers"], registers, r_gate_closed=r_closed)
+        sync_registers_to_doc(paths["decision_doc"], paths["registers"], r_gate_closed=r_closed)
+    except (FileNotFoundError, ValueError) as exc:
+        return _emit_error(str(exc))
+
+    _emit({"ok": True, "entry": entry, "source": source})
+    return 0
+
+
+def cmd_register_update(
+    project_root: Path,
+    cycle_id: str,
+    stage: str,
+    *,
+    entry_id: str,
+    payload: dict[str, Any],
+) -> int:
+    paths = _paths(project_root, cycle_id, stage)
+    try:
+        gate_state = load_gate_state(paths["gate_state"])
+        r_closed = is_gate_closed(gate_state, "R")
+        registers = load_registers(paths["registers"], r_gate_closed=r_closed)
+        target = _find_entry(registers, entry_id)
+        if target is None:
+            return _emit_error(f"entry not found: {entry_id}")
+
+        if "state" in payload:
+            state = str(payload["state"])
+            if state not in REGISTER_STATES:
+                return _emit_error(f"invalid state: {state!r}")
+            target["state"] = state
+
+        if "text" in payload:
+            text = str(payload["text"]).strip()
+            if not text:
+                return _emit_error("text must be non-empty")
+            target["text"] = text
+
+        if "risk" in payload:
+            if not r_closed:
+                return _emit_error("risk cannot be set before R gate is closed")
+            risk = payload["risk"]
+            if risk is not None and str(risk) not in RISK_LEVELS:
+                return _emit_error(f"invalid risk: {risk!r}")
+            target["risk"] = risk
+
+        for field in ("consequence", "verification"):
+            if field in payload:
+                target[field] = payload[field]
+
+        if "release_tracking" in payload:
+            target["release_tracking"] = bool(payload["release_tracking"])
+
+        save_registers(paths["registers"], registers, r_gate_closed=r_closed)
+        sync_registers_to_doc(paths["decision_doc"], paths["registers"], r_gate_closed=r_closed)
+    except (FileNotFoundError, ValueError) as exc:
+        return _emit_error(str(exc))
+
+    _emit({"ok": True, "entry": target})
+    return 0
+
+
+def _find_entry(registers: dict[str, Any], entry_id: str) -> dict[str, Any] | None:
+    for collection in ("prior", "assumptions"):
+        for entry in registers.get(collection, []):
+            if isinstance(entry, dict) and str(entry.get("id")) == entry_id:
+                return entry
+    return None
+
+
+def cmd_register_batch_apply(
+    project_root: Path,
+    cycle_id: str,
+    stage: str,
+    *,
+    operations: list[dict[str, Any]],
+) -> int:
+    paths = _paths(project_root, cycle_id, stage)
+    try:
+        gate_state = load_gate_state(paths["gate_state"])
+        r_closed = is_gate_closed(gate_state, "R")
+        registers = load_registers(paths["registers"], r_gate_closed=r_closed)
+
+        for op in operations:
+            entry_id = str(op.get("id", ""))
+            action = str(op.get("action", ""))
+            target = _find_entry(registers, entry_id)
+            if target is None:
+                return _emit_error(f"entry not found: {entry_id}")
+            if action == "delete":
+                collection = "prior" if entry_id.startswith("P") else "assumptions"
+                registers[collection] = [
+                    e for e in registers[collection] if str(e.get("id")) != entry_id
+                ]
+            elif action == "set_state":
+                state = str(op.get("state", ""))
+                if state not in REGISTER_STATES:
+                    return _emit_error(f"invalid state: {state!r}")
+                if state == "invalidated":
+                    collection = "prior" if entry_id.startswith("P") else "assumptions"
+                    registers[collection] = [
+                        e for e in registers[collection] if str(e.get("id")) != entry_id
+                    ]
+                else:
+                    target["state"] = state
+            else:
+                return _emit_error(f"invalid action: {action!r}")
+
+        save_registers(paths["registers"], registers, r_gate_closed=r_closed)
+        sync_registers_to_doc(paths["decision_doc"], paths["registers"], r_gate_closed=r_closed)
+    except (FileNotFoundError, ValueError) as exc:
+        return _emit_error(str(exc))
+
+    _emit({"ok": True, "applied": len(operations)})
+    return 0
+
+
+def cmd_sync_registers(project_root: Path, cycle_id: str, stage: str) -> int:
+    paths = _paths(project_root, cycle_id, stage)
+    try:
+        gate_state = load_gate_state(paths["gate_state"])
+        r_closed = is_gate_closed(gate_state, "R")
+        sync_registers_to_doc(paths["decision_doc"], paths["registers"], r_gate_closed=r_closed)
+    except (FileNotFoundError, ValueError) as exc:
+        return _emit_error(str(exc))
+    _emit({"ok": True})
+    return 0
+
+
+def cmd_resolve_context(project_root: Path, cycle_id: str, stage: str) -> int:
+    paths = _paths(project_root, cycle_id, stage)
+    try:
+        gate_state = load_gate_state(paths["gate_state"])
+        r_closed = is_gate_closed(gate_state, "R")
+        registers = load_registers(paths["registers"], r_gate_closed=r_closed)
+    except (FileNotFoundError, ValueError) as exc:
+        return _emit_error(str(exc))
+
+    _emit(
+        {
+            "ok": True,
+            "registers_path": paths["registers"].as_posix(),
+            "decision_doc_path": paths["decision_doc"].as_posix(),
+            "active_gate": gate_state["active_gate"],
+            "registers": registers,
+            "reply_header": render_reply_header(gate_state, registers),
+        }
+    )
+    return 0
+
+
+def _load_payload(raw: str) -> dict[str, Any]:
+    data = json.loads(raw)
+    if not isinstance(data, dict):
+        raise ValueError("payload must be a JSON object")
+    return data
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Diagnostic register control.")
+    parser.add_argument("--project-root", default=".", help="Project root directory.")
+    parser.add_argument("--cycle-id", required=True, help="Cycle ID.")
+    parser.add_argument("--stage", default="diagnostic", help="Diagnostic stage name.")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    append = sub.add_parser("register-append", help="Append a register entry.")
+    append.add_argument("--kind", required=True, choices=["prior", "assumption"])
+    append.add_argument("--payload", required=True, help="JSON payload string.")
+
+    update = sub.add_parser("register-update", help="Update a register entry.")
+    update.add_argument("--id", required=True, dest="entry_id")
+    update.add_argument("--payload", required=True, help="JSON payload string.")
+
+    batch = sub.add_parser("register-batch-apply", help="Apply RS batch operations.")
+    batch.add_argument("--operations", required=True, help="JSON array string.")
+
+    sub.add_parser("sync-registers-to-doc", help="Render registers into decision-doc.")
+    sub.add_parser("resolve-context", help="Return register context JSON.")
+
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+    project_root = Path(args.project_root).resolve()
+    cycle_id = args.cycle_id.strip()
+    stage = args.stage.strip()
+
+    if args.command == "register-append":
+        try:
+            payload = _load_payload(args.payload)
+        except (json.JSONDecodeError, ValueError) as exc:
+            return _emit_error(str(exc))
+        return cmd_register_append(
+            project_root,
+            cycle_id,
+            stage,
+            register_kind=args.kind.strip(),
+            payload=payload,
+        )
+    if args.command == "register-update":
+        try:
+            payload = _load_payload(args.payload)
+        except (json.JSONDecodeError, ValueError) as exc:
+            return _emit_error(str(exc))
+        return cmd_register_update(
+            project_root,
+            cycle_id,
+            stage,
+            entry_id=args.entry_id.strip(),
+            payload=payload,
+        )
+    if args.command == "register-batch-apply":
+        try:
+            operations = json.loads(args.operations)
+        except json.JSONDecodeError as exc:
+            return _emit_error(str(exc))
+        if not isinstance(operations, list):
+            return _emit_error("operations must be a JSON array")
+        return cmd_register_batch_apply(project_root, cycle_id, stage, operations=operations)
+    if args.command == "sync-registers-to-doc":
+        return cmd_sync_registers(project_root, cycle_id, stage)
+    if args.command == "resolve-context":
+        return cmd_resolve_context(project_root, cycle_id, stage)
+    return _emit_error(f"unknown command: {args.command}")
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

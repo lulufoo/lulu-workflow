@@ -10,20 +10,20 @@ from cycle_schema import write_stage as write_cycle_state  # noqa: E402
 from invalidation_hook import invalidate_downstream  # noqa: E402
 from start_gate import check_gate, get_topic_doc  # noqa: E402
 from transition_table import load_stage_order  # noqa: E402
-from workflow_sessions import current_effective_delivered, get_sessions  # noqa: E402
+from workflow_sessions import current_effective_delivered, get_sessions, parse_frontmatter  # noqa: E402
 
-from dx_archive import run as run_archive
+from dx_archive import run as archive_diagnostic_session
+from dx_gate_control import cmd_init_session, cmd_migrate_session
+from dx_migrate_session import needs_migration
 from dx_workflow_common import (
     CACHE_DIR,
     detect_cycle_type,
     load_container_meta,
+    session_base_dir,
     session_state_path,
     write_active_context,
     write_session_state,
 )
-
-
-
 
 
 def _find_latest_delivered_stage(cycle_id: str, cycle_type: str,
@@ -77,6 +77,7 @@ def main() -> int:
     project_root = Path(args.project_root).resolve()
     cycle_id = args.cycle_id.strip()
     stage = args.stage.strip()
+    conversation_id = args.conversation_id.strip()
 
     cycle_type = detect_cycle_type(cycle_id)
     cache_dir = project_root / CACHE_DIR
@@ -85,6 +86,18 @@ def main() -> int:
     except ValueError as e:
         print(f"错误：{e}")
         return 1
+
+    if conversation_id:
+        # archive: deferred when --conversation-id omitted; enabled below when provided
+        archive_rc = archive_diagnostic_session(
+            project_root,
+            exclude_conv_id=conversation_id,
+        )
+        if archive_rc != 0:
+            return archive_rc
+    # archive: deferred  archive_rc = run_archive(project_root, exclude_conv_id=conversation_id)
+    # archive: deferred  if archive_rc != 0:
+    # archive: deferred      return archive_rc
 
     # Step 2: re-open detection
     if current_effective_delivered(cycle_id, stage, cache_dir):
@@ -117,16 +130,44 @@ def main() -> int:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # archive: deferred  archive_rc = run_archive(project_root, exclude_conv_id=cycle_id)
-    # archive: deferred  if archive_rc != 0:
-    # archive: deferred      return archive_rc
-
+    session_dir = project_root / session_base_dir(cycle_id, stage)
     ss_path = project_root / session_state_path(cycle_id, stage)
+
+    if needs_migration(session_dir):
+        migrate_rc = cmd_migrate_session(project_root, cycle_id, stage)
+        if migrate_rc != 0:
+            return migrate_rc
+        write_active_context(
+            project_root,
+            cycle_id,
+            conversation_id=conversation_id or None,
+            stage=stage,
+            cycle_type=cycle_type,
+        )
+        write_cycle_state(cycle_id, stage, cache_dir)
+        print(f"""
+旧版诊断会话已迁移至 gate-state 架构。
+
+会话目录：{session_dir.as_posix()}
+请继续执行当前 active_gate 对应的 runner。
+""")
+        return 0
+
+    if ss_path.exists() and (session_dir / "gate-state.json").exists():
+        state = parse_frontmatter(ss_path.read_text(encoding="utf-8")).get("current_state", "")
+        if state == "InProgress":
+            print("错误：会话已在进行中，请勿重复 start。", file=sys.stderr)
+            return 1
+
+    init_rc = cmd_init_session(project_root, cycle_id, stage)
+    if init_rc != 0:
+        return init_rc
+
     write_session_state(ss_path, "InProgress")
     write_active_context(
         project_root,
         cycle_id,
-        conversation_id=args.conversation_id.strip() or None,
+        conversation_id=conversation_id or None,
         stage=stage,
         cycle_type=cycle_type,
     )

@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "omitted_sections": [],
+  "x_dimensions": [
+    "acceptance_criteria",
+    "impact_surface",
+    "external_dependencies",
+    "implementation_sketch",
+    "gap_check"
+  ],
+  "role": {
+    "persona": "product_thinker",
+    "instruction": "You are acting as a product thinker. Frame all questions and analyses from the perspective of user value, business impact, and product strategy. Use product vocabulary (user journey, feature scope, adoption, rollout) rather than technical vocabulary."
+  }
+}

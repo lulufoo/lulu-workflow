@@ -15,7 +15,7 @@
 | Condition | Action |
 |-----------|--------|
 | High-risk or user-flagged items exist | Proceed to Risk Release |
-| No high-risk + AI/user consensus medium/low need no explicit verification (batch-confirmed) | Write decision-doc → proceed to DC directly (skip Risk Release) |
+| No high-risk + AI/user consensus medium/low need no explicit verification (batch-confirmed) | Proceed to DC directly (skip Risk Release) |
 | Prior gate pass criterion no longer holds | Trigger RS (Reopen State Handler) |
 | Information insufficient to decide | Output "Unable to Decide" with justification (see below) |
 | Intent input has fundamental error | Apply G5: exit loop, tell user to fix and restart |

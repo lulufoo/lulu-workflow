@@ -175,6 +175,28 @@ def _seed_gate_for_stage(tmp_path: Path, to_stage: str) -> None:
         _seed_tech_plan_delivered_refs(cd, _FID, tmp_path)
 
 
+def _seed_diagnostic_config(tmp_path: Path) -> None:
+    """Seed workflow-config + local decision-doc template for dx_start init-session."""
+    cfg_dir = tmp_path / "skill-config" / "lulu-dev-workflow"
+    cfg_dir.mkdir(parents=True)
+    local_template = tmp_path / "decision-doc.template.md"
+    local_template.write_text(
+        "# Decision: {title}\n\n"
+        "## 1. User Prior\n\n- placeholder\n\n"
+        "## 2. Problem Definition\n\nTBD\n\n"
+        "## 3. Direction Comparison\n\nTBD\n\n"
+        "## 4. Decision Rationale\n\nTBD\n\n"
+        "## 5. Scope\n\nTBD\n\n"
+        "## 6. Assumptions & Risks\n\nTBD\n\n"
+        "## 7. Execution Analysis\n\n### 7.1 Acceptance Criteria\n\nTBD\n",
+        encoding="utf-8",
+    )
+    (cfg_dir / "workflow-config.json").write_text(
+        json.dumps({"diagnostic": {"decision_doc_template_url": local_template.as_uri()}}),
+        encoding="utf-8",
+    )
+
+
 # ---------------------------------------------------------------------------
 # Source inspection: --cycle-id replaces --conversation-id
 # ---------------------------------------------------------------------------
@@ -256,6 +278,7 @@ class TestArgparseBehavior:
         assert result.returncode != 0
 
     def test_conversation_id_accepted_diagnostic(self, tmp_path):
+        _seed_diagnostic_config(tmp_path)
         result = self._run_with_conv_id(
             "diagnostic",
             tmp_path,
@@ -285,6 +308,7 @@ class TestArgparseBehavior:
 
 class TestSessionPath:
     def _run_diagnostic(self, tmp_path):
+        _seed_diagnostic_config(tmp_path)
         return subprocess.run(
             [sys.executable, str(_start_py("diagnostic")),
              "--project-root", str(tmp_path),
@@ -350,6 +374,7 @@ class TestSessionPath:
         assert ss.exists(), f"Expected session-state.md at {ss}"
 
     def _run_diagnostic_with_stage(self, tmp_path, stage: str):
+        _seed_diagnostic_config(tmp_path)
         return subprocess.run(
             [sys.executable, str(_start_py("diagnostic")),
              "--project-root", str(tmp_path),
@@ -376,6 +401,7 @@ class TestSessionPath:
     def test_product_diagnostic_active_context_stage_value(self, tmp_path):
         import json
 
+        _seed_diagnostic_config(tmp_path)
         result = subprocess.run(
             [sys.executable, str(_start_py("diagnostic")),
              "--project-root", str(tmp_path),

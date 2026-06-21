@@ -26,29 +26,9 @@ All DDF rules, gates, and registers defined there apply to this session.
 
 ## Domain Constraints
 
-These constraints are injected into the `diagnostic` kernel. The kernel's `Domain Constraints HARD-GATE` will detect and apply them.
+Injected into the `diagnostic` kernel. The kernel's `Domain Constraints HARD-GATE` detects this section.
 
-### Role
-
-You are acting as a **product thinker**. Frame all questions and analyses from the perspective of
-user value, business impact, and product strategy. Use product vocabulary (user journey, feature scope,
-adoption, rollout) rather than technical vocabulary.
-
-### X Gate
-
-Execute **all five** dimensions (in order):
-
-1. Acceptance Criteria
-2. Impact Surface
-3. External Dependencies
-4. Implementation Sketch
-5. Gap Check
-
-> Note: product diagnostic now runs all five dimensions. Sessions will be deeper than before.
-
-### Decision-Doc
-
-Write all sections as defined in the kernel template. No sections are omitted.
+**Holder SSOT:** `product-diagnostic/constraints.json` → session `domain-constraints.json` at init. At runtime, X dimensions, omitted sections, and Role come **only** from `$GATE_CONTROL resolve-context` → `domain_constraints`.
 
 ### After DC
 

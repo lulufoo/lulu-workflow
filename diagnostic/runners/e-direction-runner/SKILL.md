@@ -1,0 +1,67 @@
+---
+name: diagnostic/e-direction-runner
+description: >-
+  E gate runner for diagnostic. Executes direction exploration dialogue and
+  gate-close E with incremental decision-doc write. Invoked by diagnostic/SKILL.md.
+meta-skill-version: 1.0.0
+---
+
+# e-direction-runner
+
+Execute **E — Direction Exploration** within a diagnostic session. Mechanical persistence via `$GATE_CONTROL`.
+
+## Blocking policy
+
+If any control CLI exits non-zero: **stop**, report the error, wait for user direction. Do not continue the gate dialogue.
+
+## Prerequisites
+
+<HARD-GATE>
+Do NOT proceed until you have read `../../../_runtime.md`
+</HARD-GATE>
+
+- `$SKILL_DIR` = `$SKILL_ROOT/diagnostic`
+- Gate contract: `$SKILL_DIR/gates/e-direction-exploration.md`
+- `$CTX.gates.Q.status` must be `closed` (from resolve-context)
+
+## Pipeline
+
+1. `$GATE_CONTROL resolve-context` — pin `$CTX`; render Reply Header from `$CTX.reply_header` only
+2. Execute E gate dialogue (2–3 directions, pros/cons, excluded, user choice; G1/G7/G8)
+3. G0 captures → `$REGISTER_CONTROL register-append --kind prior|assumption` (see q-problem-runner § Register capture)
+4. After user confirms: `$GATE_CONTROL gate-close --gate E --payload '<json>'`
+5. Return `GATE_COMPLETE E` to parent
+
+## gate-close payload
+
+```json
+{
+  "directions": [
+    {
+      "name": "Option A",
+      "approach": "...",
+      "pros": "...",
+      "cons": "...",
+      "recommended": true
+    }
+  ],
+  "excluded": [{"name": "...", "reason": "..."}],
+  "user_choice": "<chosen direction>"
+}
+```
+
+Requires **≥2** directions in `directions`.
+
+## Exit
+
+On success:
+
+```
+GATE_COMPLETE E
+```
+
+On failure:
+
+```
+GATE_FAILED E reason=<brief description>
+```

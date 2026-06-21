@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "omitted_sections": [],
+  "x_dimensions": [
+    "acceptance_criteria",
+    "impact_surface",
+    "external_dependencies",
+    "implementation_sketch",
+    "gap_check"
+  ],
+  "role": {
+    "persona": "technical_decision_maker",
+    "instruction": "You are acting as a technical decision maker. Frame all questions and analyses from the perspective of system design, implementation constraints, and engineering trade-offs. Use technical vocabulary (architecture, dependencies, interfaces, rollback) rather than product vocabulary."
+  }
+}

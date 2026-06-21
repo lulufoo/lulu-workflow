@@ -4,6 +4,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+from dx_io import atomic_write_text
+
 _SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
@@ -42,6 +44,22 @@ def session_state_path(cycle_id: str, stage: str = STAGE) -> Path:
     return session_base_dir(cycle_id, stage) / "session-state.md"
 
 
+def gate_state_path(cycle_id: str, stage: str = STAGE) -> Path:
+    return session_base_dir(cycle_id, stage) / "gate-state.json"
+
+
+def registers_path(cycle_id: str, stage: str = STAGE) -> Path:
+    return session_base_dir(cycle_id, stage) / "registers.json"
+
+
+def decision_doc_path(cycle_id: str, stage: str = STAGE) -> Path:
+    return session_base_dir(cycle_id, stage) / "decision-doc.md"
+
+
+def domain_constraints_path(cycle_id: str, stage: str = STAGE) -> Path:
+    return session_base_dir(cycle_id, stage) / "domain-constraints.json"
+
+
 def write_session_state(path: Path, current_state: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     now = datetime.now(timezone.utc).isoformat()
@@ -52,7 +70,7 @@ def write_session_state(path: Path, current_state: str) -> None:
         f"updated_at: {now}\n"
         f"---\n"
     )
-    path.write_text(content, encoding="utf-8")
+    atomic_write_text(path, content)
 
 
 def normalize_tool_path(raw_path: str, project_root: Path) -> str:
