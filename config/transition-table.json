@@ -1,27 +1,23 @@
 {
   "version": 2,
   "topic_doc_stage": {
-    "product-diagnostic": "product-diagnostic",
-    "product-plan": "product-plan",
-    "tech-diagnostic": "tech-diagnostic",
-    "tech-design": "tech-design",
-    "tech-plan": "tech-plan",
-    "tech-work-order": "tech-plan",
-    "tech-code": null
+    "product-diagnostic": "product-arch",
+    "product-spec": "product-arch",
+    "tech-diagnostic": "tech-arch",
+    "tech-design": "tech-arch"
   },
   "topic": [
     { "from": null, "to": ["product-diagnostic"], "note": "recommended for full-feature work" },
     { "from": null, "to": ["tech-diagnostic"], "note": "for pure tech work" },
-    { "from": "product-diagnostic", "to": ["product-plan"] },
-    { "from": "product-plan", "to": ["tech-diagnostic"] },
-    { "from": "tech-diagnostic", "to": ["tech-design", "tech-plan"] },
-    { "from": "tech-design", "to": ["tech-plan"] },
-    { "from": "tech-plan", "to": [], "note": "shaping 循环完成；推荐创建 feature 并引用此 topic" }
+    { "from": "product-diagnostic", "to": ["product-arch"] },
+    { "from": "product-arch", "to": ["tech-diagnostic"] },
+    { "from": "tech-diagnostic", "to": ["tech-arch"] },
+    { "from": "tech-arch", "to": [], "note": "shaping 循环完成；推荐创建 feature 并引用此 topic" }
   ],
   "feature": [
     { "from": null, "to": ["product-diagnostic", "tech-diagnostic"] },
-    { "from": "product-diagnostic", "to": ["product-plan"] },
-    { "from": "product-plan", "to": ["tech-diagnostic"] },
+    { "from": "product-diagnostic", "to": ["product-spec"] },
+    { "from": "product-spec", "to": ["tech-diagnostic"] },
     { "from": "tech-diagnostic", "to": ["tech-design", "tech-plan"] },
     { "from": "tech-design", "to": ["tech-plan"] },
     { "from": "tech-plan", "to": ["tech-work-order"] },

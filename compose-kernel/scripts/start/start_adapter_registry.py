@@ -23,6 +23,11 @@ _REGISTRY: dict[str, tuple[str, str, str]] = {
         "tech_design_start_adapter",
         "TechDesignStartAdapter",
     ),
+    "product-spec": (
+        "product-spec/scripts/start/product_spec_start_adapter.py",
+        "product_spec_start_adapter",
+        "ProductSpecStartAdapter",
+    ),
 }
 
 

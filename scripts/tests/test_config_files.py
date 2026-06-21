@@ -22,7 +22,7 @@ def test_transition_table_version():
 
 def test_transition_table_topic_count():
     data = load("transition-table.json")
-    assert len(data["topic"]) == 7
+    assert len(data["topic"]) == 6
 
 
 def test_transition_table_feature_count():
@@ -33,7 +33,7 @@ def test_transition_table_feature_count():
 def test_transition_table_topic_last_entry():
     data = load("transition-table.json")
     last = data["topic"][-1]
-    assert last["from"] == "tech-plan"
+    assert last["from"] == "tech-arch"
     assert last["to"] == []
 
 
@@ -42,14 +42,19 @@ def test_transition_table_has_topic_doc_stage():
     assert "topic_doc_stage" in data
 
 
-def test_topic_doc_stage_tech_code_is_null():
+def test_topic_doc_stage_has_four_keys():
     data = load("transition-table.json")
-    assert data["topic_doc_stage"]["tech-code"] is None
+    assert set(data["topic_doc_stage"].keys()) == {
+        "product-diagnostic",
+        "product-spec",
+        "tech-diagnostic",
+        "tech-design",
+    }
 
 
 def test_topic_doc_stage_key_count():
     data = load("transition-table.json")
-    assert len(data["topic_doc_stage"]) == 7
+    assert len(data["topic_doc_stage"]) == 4
 
 
 def test_transition_table_null_entries_feature():

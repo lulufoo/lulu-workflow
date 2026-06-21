@@ -42,7 +42,8 @@ _CONV_ID_INJECT_SCRIPT_SUFFIXES = (
     "/compose-kernel/scripts/core/start.py",
     "/tech-code/scripts/tc_start.py",
     "/diagnostic/scripts/dx_start.py",
-    "/product-plan/scripts/pp_start.py",
+    "/product-arch/scripts/pa_start.py",
+    "/tech-arch/scripts/ta_start.py",
     "/tech-work-order/scripts/two_start.py",
 )
 

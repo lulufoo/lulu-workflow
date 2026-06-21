@@ -24,7 +24,9 @@ _FLAT_DIAGNOSTIC_STAGES: dict[str, tuple[str, str]] = {
     "product-diagnostic": ("product/diagnostic", "decision-doc.md"),
 }
 _COMPOSE_REVISION_STAGES: dict[str, tuple[str, str]] = {
-    "product-plan": ("product/plan", "product-doc.md"),
+    "product-spec": ("product/spec", "product-doc.md"),
+    "product-arch": ("product/arch", "arch-doc.md"),
+    "tech-arch": ("tech/arch", "arch-doc.md"),
     "tech-design": ("tech/design", "design-doc.md"),
     "tech-plan": ("tech/plan", "tech-doc.md"),
 }

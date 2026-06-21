@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Tests for t8b: start.py gate integration (check_gate, re-open, back-fill, get_topic_doc).
 
-All 5 start.py files (product-plan, tech-plan, tech-work-order, tech-code, diagnostic) must
+All start entrypoints (product-spec, tech-plan, tech-work-order, tech-code, diagnostic) must
 integrate check_gate, current_effective_delivered, invalidate_downstream, and get_topic_doc
 before creating a new session.
 """
@@ -24,12 +24,14 @@ _ENV_COPILOT = {**os.environ, "LULU_PLATFORM": "copilot"}
 _CYCLE_ID = "20260524143022-02cd7e6e"
 _TOPIC_ID = "topic-20260101000000-deadbeef"
 
-_STAGES_WITH_GATE = ["product-plan", "tech-plan", "tech-work-order", "tech-code"]
-_ALL_STAGES = ["diagnostic", "product-plan", "tech-plan", "tech-work-order", "tech-code"]
+_COMPOSE_START_STAGES = frozenset({"tech-plan", "product-spec"})
 
-# Feature cycle order (matches config/state-machine.json)
+_STAGES_WITH_GATE = ["product-spec", "tech-plan", "tech-work-order", "tech-code"]
+_ALL_STAGES = ["diagnostic", "product-spec", "tech-plan", "tech-work-order", "tech-code"]
+
+# Feature cycle order (matches config/transition-table.json)
 _FEATURE_CYCLE = [
-    "product-diagnostic", "product-plan", "tech-diagnostic",
+    "product-diagnostic", "product-spec", "tech-diagnostic",
     "tech-plan", "tech-work-order", "tech-code",
 ]
 
@@ -39,12 +41,14 @@ _FEATURE_CYCLE = [
 # ---------------------------------------------------------------------------
 
 def _start_py(stage: str) -> Path:
-    if stage == "tech-plan":
+    if stage in _COMPOSE_START_STAGES:
         return _LDEV / "compose-kernel" / "scripts" / "core" / "start.py"
-    return _LDEV / stage / "scripts" / ({"tech-code": "tc_start.py", "diagnostic": "dx_start.py", "product-plan": "pp_start.py", "tech-work-order": "two_start.py"}.get(stage, "start.py"))
+    return _LDEV / stage / "scripts" / ({"tech-code": "tc_start.py", "diagnostic": "dx_start.py", "tech-work-order": "two_start.py"}.get(stage, "start.py"))
 
 
 def _scripts_dir(stage: str) -> Path:
+    if stage in _COMPOSE_START_STAGES:
+        return _LDEV / "compose-kernel" / "scripts" / "core"
     return _LDEV / stage / "scripts"
 
 
@@ -111,12 +115,13 @@ def _make_session(
         session_dir = cache_dir / cycle_id / subdir / rev_name
         session_dir.mkdir(parents=True, exist_ok=True)
         ws = session_dir / "workflow-state.md"
-    if ws.name == "workflow-state.md" and stage == "tech-plan":
+    if ws.name == "workflow-state.md" and stage in _COMPOSE_START_STAGES:
+        mode = "product" if stage == "product-spec" else "tech"
         ws.write_text(
             f"---\n"
             f"version: 1\n"
             f"workflow: tech-doc\n"
-            f"mode: tech\n"
+            f"mode: {mode}\n"
             f"cycle_type: feature\n"
             f"current_state: {state}\n"
             f"evaluate_round: 0\n"
@@ -136,8 +141,10 @@ def _make_session(
 
 def _stage_extra_args(stage: str, tmp_path: Path) -> list:
     """Required extra CLI args for each stage start.py."""
-    if stage in ("diagnostic", "product-plan"):
+    if stage == "diagnostic":
         return []
+    if stage == "product-spec":
+        return ["--profile", "product-spec", "--run-mode", "product"]
     if stage == "tech-plan":
         return ["--profile", "tech-plan", "--run-mode", "tech"]
     if stage == "tech-work-order":
@@ -195,6 +202,27 @@ def _upsert_delivered_ref_entry(
     refs_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
+def _seed_product_spec_delivered_refs(
+    cache_dir: Path,
+    cycle_id: str,
+    project_root: Path,
+) -> None:
+    """Seed delivered-refs.json entries required for product-spec start."""
+    del project_root
+    diag_dir = cache_dir / cycle_id / "product" / "diagnostic"
+    diag_dir.mkdir(parents=True, exist_ok=True)
+    decision = diag_dir / "decision-doc.md"
+    if not decision.is_file():
+        decision.write_text("# Decision\n", encoding="utf-8")
+    _upsert_delivered_ref_entry(
+        cache_dir,
+        cycle_id,
+        delivered_type="product-diagnostic",
+        path=decision,
+        profile_id="product-diagnostic",
+    )
+
+
 def _seed_tech_plan_delivered_refs(
     cache_dir: Path,
     cycle_id: str,
@@ -235,6 +263,8 @@ def _run_start(
     args = extra_args if extra_args is not None else _stage_extra_args(stage, tmp_path)
     if stage == "tech-code":
         _seed_work_order_handoff(_cache_dir(tmp_path), cycle_id)
+    if stage == "product-spec":
+        _seed_product_spec_delivered_refs(_cache_dir(tmp_path), cycle_id, tmp_path)
     if stage == "tech-plan":
         _seed_tech_plan_delivered_refs(_cache_dir(tmp_path), cycle_id, tmp_path)
     cmd = [
@@ -270,16 +300,16 @@ class TestGateBlocked:
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID)
         _make_session(cd, _CYCLE_ID, "product-diagnostic", "r1", "Drafting")
-        result = _run_start("product-plan", tmp_path)
+        result = _run_start("product-spec", tmp_path)
         assert result.returncode == 1
         assert "Gate blocked" in result.stderr
 
     def test_gate_blocked_no_session_created(self, tmp_path):
-        """Gate blocked → product-plan session file not created."""
+        """Gate blocked → product-spec session file not created."""
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID)
         _make_session(cd, _CYCLE_ID, "product-diagnostic", "r1", "Drafting")
-        _run_start("product-plan", tmp_path)
+        _run_start("product-spec", tmp_path)
         plan_dir = cd / _CYCLE_ID / "product" / "plan"
         assert not plan_dir.exists() or not any(plan_dir.rglob("workflow-state.md"))
 
@@ -288,7 +318,7 @@ class TestGateBlocked:
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID)
         _make_session(cd, _CYCLE_ID, "product-diagnostic", "r1", "Delivered")
-        _make_session(cd, _CYCLE_ID, "product-plan", "r1", "Drafting")
+        _make_session(cd, _CYCLE_ID, "product-spec", "r1", "Drafting")
         result = _run_start("tech-plan", tmp_path)
         assert result.returncode == 1
         assert "Gate blocked" in result.stderr
@@ -307,20 +337,20 @@ class TestGatePasses:
         assert result.returncode == 0, result.stderr
 
     def test_null_blocks_product_plan(self, tmp_path):
-        """No cycle-state.json: product-plan is not the first stage → blocked."""
+        """No cycle-state.json: product-spec is not the first stage → blocked."""
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID)
-        result = _run_start("product-plan", tmp_path)
+        result = _run_start("product-spec", tmp_path)
         assert result.returncode == 1
         assert "Gate blocked" in result.stderr
 
     def test_prior_delivered_allows_product_plan(self, tmp_path):
-        """product-diagnostic Delivered + cycle-state.json set → product-plan allowed."""
+        """product-diagnostic Delivered + cycle-state.json set → product-spec allowed."""
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID)
         _make_session(cd, _CYCLE_ID, "product-diagnostic", "r1", "Delivered")
         _make_cycle_state(cd, _CYCLE_ID, "product-diagnostic")
-        result = _run_start("product-plan", tmp_path)
+        result = _run_start("product-spec", tmp_path)
         assert result.returncode == 0, result.stderr
 
     def test_all_prior_delivered_tech_plan(self, tmp_path):
@@ -380,10 +410,10 @@ class TestReopen:
         """Re-open: to_stage Delivered session gets historical: true in frontmatter."""
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID)
-        ws = _make_session(cd, _CYCLE_ID, "product-plan", "r1", "Delivered")
-        _make_session_state(cd, _CYCLE_ID, "product-plan", active=1)
-        _make_cycle_state(cd, _CYCLE_ID, "product-plan")
-        result = _run_start("product-plan", tmp_path)
+        ws = _make_session(cd, _CYCLE_ID, "product-spec", "r1", "Delivered")
+        _make_session_state(cd, _CYCLE_ID, "product-spec", active=1)
+        _make_cycle_state(cd, _CYCLE_ID, "product-spec")
+        result = _run_start("product-spec", tmp_path)
         assert result.returncode == 0, result.stderr
         assert "historical: true" in ws.read_text(encoding="utf-8")
 
@@ -391,19 +421,19 @@ class TestReopen:
         """Re-open must NOT delete old revision files."""
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID)
-        ws = _make_session(cd, _CYCLE_ID, "product-plan", "r1", "Delivered")
-        _make_cycle_state(cd, _CYCLE_ID, "product-plan")
-        _run_start("product-plan", tmp_path)
+        ws = _make_session(cd, _CYCLE_ID, "product-spec", "r1", "Delivered")
+        _make_cycle_state(cd, _CYCLE_ID, "product-spec")
+        _run_start("product-spec", tmp_path)
         assert ws.exists(), "Old revision workflow-state.md must still exist"
 
     def test_invalidates_downstream(self, tmp_path):
         """Re-open: downstream stages are Invalidated."""
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID)
-        _make_session(cd, _CYCLE_ID, "product-plan", "r1", "Delivered")
+        _make_session(cd, _CYCLE_ID, "product-spec", "r1", "Delivered")
         downstream_ws = _make_session(cd, _CYCLE_ID, "tech-diagnostic", "r1", "InProgress")
-        _make_cycle_state(cd, _CYCLE_ID, "product-plan")
-        result = _run_start("product-plan", tmp_path)
+        _make_cycle_state(cd, _CYCLE_ID, "product-spec")
+        result = _run_start("product-spec", tmp_path)
         assert result.returncode == 0, result.stderr
         assert "Invalidated" in downstream_ws.read_text(encoding="utf-8")
 
@@ -411,9 +441,9 @@ class TestReopen:
         """Re-open + gate passes → new session is still created."""
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID)
-        _make_session(cd, _CYCLE_ID, "product-plan", "r1", "Delivered")
-        _make_cycle_state(cd, _CYCLE_ID, "product-plan")
-        result = _run_start("product-plan", tmp_path)
+        _make_session(cd, _CYCLE_ID, "product-spec", "r1", "Delivered")
+        _make_cycle_state(cd, _CYCLE_ID, "product-spec")
+        result = _run_start("product-spec", tmp_path)
         assert result.returncode == 0, result.stderr
 
 
@@ -426,14 +456,14 @@ class TestBackfill:
         """Back-fill: to_stage < latest Delivered → invalidate_downstream from to_stage."""
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID)
-        # product-diagnostic Delivered + cycle-state.json → gate OK for product-plan
+        # product-diagnostic Delivered + cycle-state.json → gate OK for product-spec
         _make_session(cd, _CYCLE_ID, "product-diagnostic", "r1", "Delivered")
         _make_cycle_state(cd, _CYCLE_ID, "product-diagnostic")
-        # No product-plan session (re-open won't trigger)
+        # No product-spec session (re-open won't trigger)
         # Later stages Delivered → back-fill fires
         tech_diag_ws = _make_session(cd, _CYCLE_ID, "tech-diagnostic", "r1", "Delivered")
         tech_plan_ws = _make_session(cd, _CYCLE_ID, "tech-plan", "r1", "Delivered")
-        result = _run_start("product-plan", tmp_path)
+        result = _run_start("product-spec", tmp_path)
         assert result.returncode == 0, result.stderr
         assert "Invalidated" in tech_diag_ws.read_text(encoding="utf-8")
         assert "Invalidated" in tech_plan_ws.read_text(encoding="utf-8")
@@ -444,7 +474,7 @@ class TestBackfill:
         _make_cycles_json(cd, _CYCLE_ID)
         _make_session(cd, _CYCLE_ID, "product-diagnostic", "r1", "Delivered")
         _make_cycle_state(cd, _CYCLE_ID, "product-diagnostic")
-        result = _run_start("product-plan", tmp_path)
+        result = _run_start("product-spec", tmp_path)
         assert result.returncode == 0, result.stderr
 
 
@@ -459,7 +489,7 @@ class TestGetTopicDoc:
         _make_cycles_json(cd, _CYCLE_ID, extra={"topic_id": _TOPIC_ID})
         _make_session(cd, _CYCLE_ID, "product-diagnostic", "r1", "Delivered")
         _make_cycle_state(cd, _CYCLE_ID, "product-diagnostic")
-        result = _run_start("product-plan", tmp_path)
+        result = _run_start("product-spec", tmp_path)
         assert result.returncode == 1
         assert "Error" in result.stderr or "topic" in result.stderr.lower() or "Gate blocked" in result.stderr
 
@@ -467,7 +497,7 @@ class TestGetTopicDoc:
         """ValueError prevents session creation."""
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID, extra={"topic_id": _TOPIC_ID})
-        _run_start("product-plan", tmp_path)
+        _run_start("product-spec", tmp_path)
         plan_dir = cd / _CYCLE_ID / "product" / "plan"
         assert not plan_dir.exists() or not any(plan_dir.rglob("workflow-state.md"))
 
@@ -477,7 +507,7 @@ class TestGetTopicDoc:
         _make_cycles_json(cd, _CYCLE_ID)
         _make_session(cd, _CYCLE_ID, "product-diagnostic", "r1", "Delivered")
         _make_cycle_state(cd, _CYCLE_ID, "product-diagnostic")
-        result = _run_start("product-plan", tmp_path)
+        result = _run_start("product-spec", tmp_path)
         assert result.returncode == 0, result.stderr
 
     def test_valid_topic_no_delivered_session_created(self, tmp_path):
@@ -487,7 +517,7 @@ class TestGetTopicDoc:
         _make_cycles_json(cd, _TOPIC_ID)
         _make_session(cd, _CYCLE_ID, "product-diagnostic", "r1", "Delivered")
         _make_cycle_state(cd, _CYCLE_ID, "product-diagnostic")
-        result = _run_start("product-plan", tmp_path)
+        result = _run_start("product-spec", tmp_path)
         assert result.returncode == 0, result.stderr
 
     def test_topic_id_not_in_topics_json_exits_1(self, tmp_path):
@@ -497,7 +527,7 @@ class TestGetTopicDoc:
         _make_cycles_json(cd, "topic-other-000-aabbccdd")
         _make_session(cd, _CYCLE_ID, "product-diagnostic", "r1", "Delivered")
         _make_cycle_state(cd, _CYCLE_ID, "product-diagnostic")
-        result = _run_start("product-plan", tmp_path)
+        result = _run_start("product-spec", tmp_path)
         assert result.returncode == 1
 
 

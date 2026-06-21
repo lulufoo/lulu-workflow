@@ -163,22 +163,22 @@ class TestCheckGate:
         assert msg == "OK"
 
     def test_null_blocks_non_first_stage(self, tmp_path):
-        """No cycle-state.json: product-plan is not a valid NULL entry → blocked."""
+        """No cycle-state.json: product-spec is not a valid NULL entry → blocked."""
         from start_gate import check_gate
-        ok, msg = check_gate("feat-a", "product-plan", "feature", tmp_path)
+        ok, msg = check_gate("feat-a", "product-spec", "feature", tmp_path)
         assert ok is False
         assert "NULL" in msg or "product-diagnostic" in msg or "tech-diagnostic" in msg
         assert "STOP" in msg
         assert "start.py" in msg
 
     def test_gap_scenario_blocked_by_transition_table(self, tmp_path):
-        """current=product-plan, Delivered: jumping to tech-plan (skipping tech-diagnostic) → blocked."""
+        """current=product-spec, Delivered: jumping to tech-plan (skipping tech-diagnostic) → blocked."""
         from start_gate import check_gate
-        _make_cycle_state(tmp_path, "feat-a", "product-plan")
-        _make_workflow_state(tmp_path, "feat-a", "product-plan", "r1", "Delivered")
+        _make_cycle_state(tmp_path, "feat-a", "product-spec")
+        _make_workflow_state(tmp_path, "feat-a", "product-spec", "r1", "Delivered")
         ok, msg = check_gate("feat-a", "tech-plan", "feature", tmp_path)
         assert ok is False
-        assert "product-plan" in msg or "tech-diagnostic" in msg
+        assert "product-spec" in msg or "tech-diagnostic" in msg
         assert "STOP" in msg
 
     def test_tech_plan_to_tech_design_blocked_with_stop(self, tmp_path):
@@ -193,20 +193,20 @@ class TestCheckGate:
         assert "STOP" in msg
 
     def test_valid_advance_after_delivery(self, tmp_path):
-        """current=product-diagnostic (Delivered): advance to product-plan → allowed."""
+        """current=product-diagnostic (Delivered): advance to product-spec → allowed."""
         from start_gate import check_gate
         _make_cycle_state(tmp_path, "feat-a", "product-diagnostic")
         _make_workflow_state(tmp_path, "feat-a", "product-diagnostic", "r1", "Delivered")
-        ok, msg = check_gate("feat-a", "product-plan", "feature", tmp_path)
+        ok, msg = check_gate("feat-a", "product-spec", "feature", tmp_path)
         assert ok is True
         assert msg == "OK"
 
     def test_advance_blocked_if_not_delivered(self, tmp_path):
-        """current=product-diagnostic (InProgress): advance to product-plan → blocked."""
+        """current=product-diagnostic (InProgress): advance to product-spec → blocked."""
         from start_gate import check_gate
         _make_cycle_state(tmp_path, "feat-a", "product-diagnostic")
         _make_workflow_state(tmp_path, "feat-a", "product-diagnostic", "r1", "InProgress")
-        ok, msg = check_gate("feat-a", "product-plan", "feature", tmp_path)
+        ok, msg = check_gate("feat-a", "product-spec", "feature", tmp_path)
         assert ok is False
         assert "product-diagnostic" in msg
         assert "STOP" in msg
@@ -215,8 +215,8 @@ class TestCheckGate:
     def test_reentry_always_allowed(self, tmp_path):
         """Re-entering the current stage is always allowed (no session required)."""
         from start_gate import check_gate
-        _make_cycle_state(tmp_path, "feat-a", "product-plan")
-        ok, msg = check_gate("feat-a", "product-plan", "feature", tmp_path)
+        _make_cycle_state(tmp_path, "feat-a", "product-spec")
+        ok, msg = check_gate("feat-a", "product-spec", "feature", tmp_path)
         assert ok is True
 
     def test_stage_not_in_cycle_always_allowed(self, tmp_path):
@@ -226,11 +226,11 @@ class TestCheckGate:
         assert ok is True
 
     def test_topic_cycle_valid_advance(self, tmp_path):
-        """Topic cycle: current=product-diagnostic (Delivered) → product-plan allowed."""
+        """Topic cycle: current=product-diagnostic (Delivered) → product-arch allowed."""
         from start_gate import check_gate
         _make_cycle_state(tmp_path, "topic-a", "product-diagnostic")
         _make_workflow_state(tmp_path, "topic-a", "product-diagnostic", "r1", "Delivered")
-        ok, msg = check_gate("topic-a", "product-plan", "topic", tmp_path)
+        ok, msg = check_gate("topic-a", "product-arch", "topic", tmp_path)
         assert ok is True
 
     def test_stale_cycle_state_treated_as_null(self, tmp_path):
@@ -243,7 +243,7 @@ class TestCheckGate:
     def test_full_feature_cycle_sequence(self, tmp_path):
         """Walk through all feature cycle stages in order; each advance requires Delivered."""
         from start_gate import check_gate
-        stages = ["product-diagnostic", "product-plan", "tech-diagnostic",
+        stages = ["product-diagnostic", "product-spec", "tech-diagnostic",
                   "tech-plan", "tech-work-order", "tech-code"]
         for i, stage in enumerate(stages):
             if i == 0:
@@ -355,14 +355,14 @@ class TestGetTopicDoc:
         with pytest.raises(ValueError):
             get_topic_doc("feat-a", "tech-plan", tmp_path)
 
-    def test_tech_code_null_ref_stage_returns_none(self, tmp_path):
+    def test_tech_code_unmapped_returns_none(self, tmp_path):
         from start_gate import get_topic_doc
         topic_id = "topic-20260101000000-aabbccdd"
         self._write_features_json(tmp_path, "feat-a",
                                   {"name": "x", "execution_mode": "guided",
                                    "topic_id": topic_id})
         self._write_topics_json(tmp_path, topic_id, {"name": "t", "execution_mode": "guided"})
-        # tech-code maps to null in topic_doc_stage
+        # tech-code not in topic_doc_stage
         result = get_topic_doc("feat-a", "tech-code", tmp_path)
         assert result is None
 
@@ -383,32 +383,32 @@ class TestGetTopicDoc:
 # ---------------------------------------------------------------------------
 
 class TestInvalidateDownstream:
-    def test_reopen_product_plan_invalidates_downstream(self, tmp_path):
-        """Re-opening product-plan: all downstream stages become Invalidated."""
+    def test_reopen_product_spec_invalidates_downstream(self, tmp_path):
+        """Re-opening product-spec: all downstream stages become Invalidated."""
         from invalidation_hook import invalidate_downstream
         from workflow_sessions import get_sessions
-        _make_workflow_state(tmp_path, "feat-a", "product-plan", "r1", "Delivered")
+        _make_workflow_state(tmp_path, "feat-a", "product-spec", "r1", "Delivered")
         _make_workflow_state(tmp_path, "feat-a", "tech-diagnostic", "r1", "InProgress")
         _make_workflow_state(tmp_path, "feat-a", "tech-plan", "r1", "Delivered")
         _make_workflow_state(tmp_path, "feat-a", "tech-work-order", "r1", "Drafting")
 
-        invalidate_downstream("feat-a", "product-plan", "feature", tmp_path)
+        invalidate_downstream("feat-a", "product-spec", "feature", tmp_path)
 
         assert all(s.state == "Invalidated" for s in get_sessions("feat-a", "tech-diagnostic", tmp_path))
         assert all(s.state == "Invalidated" for s in get_sessions("feat-a", "tech-plan", tmp_path))
         assert all(s.state == "Invalidated" for s in get_sessions("feat-a", "tech-work-order", tmp_path))
 
-    def test_backfill_product_diagnostic_invalidates_product_plan_and_later(self, tmp_path):
-        """Back-fill: re-open product-diagnostic → product-plan and all later stages Invalidated."""
+    def test_backfill_product_diagnostic_invalidates_product_spec_and_later(self, tmp_path):
+        """Back-fill: re-open product-diagnostic → product-spec and all later stages Invalidated."""
         from invalidation_hook import invalidate_downstream
         from workflow_sessions import get_sessions
-        _make_workflow_state(tmp_path, "feat-a", "product-plan", "r1", "Delivered")
+        _make_workflow_state(tmp_path, "feat-a", "product-spec", "r1", "Delivered")
         _make_workflow_state(tmp_path, "feat-a", "tech-diagnostic", "r1", "Delivered")
         _make_workflow_state(tmp_path, "feat-a", "tech-plan", "r1", "Delivered")
 
         invalidate_downstream("feat-a", "product-diagnostic", "feature", tmp_path)
 
-        assert all(s.state == "Invalidated" for s in get_sessions("feat-a", "product-plan", tmp_path))
+        assert all(s.state == "Invalidated" for s in get_sessions("feat-a", "product-spec", tmp_path))
         assert all(s.state == "Invalidated" for s in get_sessions("feat-a", "tech-diagnostic", tmp_path))
         assert all(s.state == "Invalidated" for s in get_sessions("feat-a", "tech-plan", tmp_path))
 
@@ -416,24 +416,24 @@ class TestInvalidateDownstream:
         """from_stage sessions are NOT touched by invalidate_downstream."""
         from invalidation_hook import invalidate_downstream
         from workflow_sessions import get_sessions
-        _make_workflow_state(tmp_path, "feat-a", "product-plan", "r1", "Delivered")
+        _make_workflow_state(tmp_path, "feat-a", "product-spec", "r1", "Delivered")
         _make_workflow_state(tmp_path, "feat-a", "tech-diagnostic", "r1", "InProgress")
 
-        invalidate_downstream("feat-a", "product-plan", "feature", tmp_path)
+        invalidate_downstream("feat-a", "product-spec", "feature", tmp_path)
 
-        product_plan = get_sessions("feat-a", "product-plan", tmp_path)
-        assert len(product_plan) == 1
-        assert product_plan[0].state == "Delivered"
+        product_spec = get_sessions("feat-a", "product-spec", tmp_path)
+        assert len(product_spec) == 1
+        assert product_spec[0].state == "Delivered"
 
     def test_already_invalidated_stays_invalidated_idempotent(self, tmp_path):
         """Idempotent: already-Invalidated session stays Invalidated, no error on repeat call."""
         from invalidation_hook import invalidate_downstream
         from workflow_sessions import get_sessions
-        _make_workflow_state(tmp_path, "feat-a", "product-plan", "r1", "Delivered")
+        _make_workflow_state(tmp_path, "feat-a", "product-spec", "r1", "Delivered")
         _make_workflow_state(tmp_path, "feat-a", "tech-diagnostic", "r1", "Invalidated")
 
-        invalidate_downstream("feat-a", "product-plan", "feature", tmp_path)
-        invalidate_downstream("feat-a", "product-plan", "feature", tmp_path)
+        invalidate_downstream("feat-a", "product-spec", "feature", tmp_path)
+        invalidate_downstream("feat-a", "product-spec", "feature", tmp_path)
 
         tech_diag = get_sessions("feat-a", "tech-diagnostic", tmp_path)
         assert all(s.state == "Invalidated" for s in tech_diag)
@@ -448,7 +448,7 @@ class TestInvalidateDownstream:
         ws = session_dir / "workflow-state.md"
         ws.write_text("---\ncurrent_state: InProgress\n---\n", encoding="utf-8")
 
-        invalidate_downstream("feat-a", "product-plan", "feature", tmp_path)
+        invalidate_downstream("feat-a", "product-spec", "feature", tmp_path)
 
         assert "InProgress" in ws.read_text()
 
@@ -463,60 +463,58 @@ class TestCrossContainerIsolation:
         from invalidation_hook import invalidate_downstream
         from workflow_sessions import get_sessions
         _make_workflow_state(tmp_path, "topic-a", "product-diagnostic", "r1", "Delivered")
-        _make_workflow_state(tmp_path, "topic-a", "product-plan", "r1", "Delivered")
-        _make_workflow_state(tmp_path, "feat-a", "product-plan", "r1", "Delivered")
+        _make_workflow_state(tmp_path, "topic-a", "product-arch", "r1", "Delivered")
+        _make_workflow_state(tmp_path, "feat-a", "product-spec", "r1", "Delivered")
         _make_workflow_state(tmp_path, "feat-a", "tech-diagnostic", "r1", "Delivered")
 
         invalidate_downstream("topic-a", "product-diagnostic", "topic", tmp_path)
 
-        feat_plan = get_sessions("feat-a", "product-plan", tmp_path)
+        feat_spec = get_sessions("feat-a", "product-spec", tmp_path)
         feat_diag = get_sessions("feat-a", "tech-diagnostic", tmp_path)
-        assert all(s.state == "Delivered" for s in feat_plan)
+        assert all(s.state == "Delivered" for s in feat_spec)
         assert all(s.state == "Delivered" for s in feat_diag)
 
     def test_topic_reopen_product_diagnostic_invalidates_all_later(self, tmp_path):
-        """Topic re-open product-diagnostic → product-plan, tech-diagnostic, tech-plan Invalidated."""
+        """Topic re-open product-diagnostic → product-arch, tech-diagnostic, tech-arch Invalidated."""
         from invalidation_hook import invalidate_downstream
         from workflow_sessions import get_sessions
-        _make_workflow_state(tmp_path, "topic-a", "product-plan", "r1", "Delivered")
+        _make_workflow_state(tmp_path, "topic-a", "product-arch", "r1", "Delivered")
         _make_workflow_state(tmp_path, "topic-a", "tech-diagnostic", "r1", "Delivered")
-        _make_workflow_state(tmp_path, "topic-a", "tech-plan", "r1", "Delivered")
+        _make_workflow_state(tmp_path, "topic-a", "tech-arch", "r1", "Delivered")
 
         invalidate_downstream("topic-a", "product-diagnostic", "topic", tmp_path)
 
-        assert all(s.state == "Invalidated" for s in get_sessions("topic-a", "product-plan", tmp_path))
+        assert all(s.state == "Invalidated" for s in get_sessions("topic-a", "product-arch", tmp_path))
         assert all(s.state == "Invalidated" for s in get_sessions("topic-a", "tech-diagnostic", tmp_path))
-        assert all(s.state == "Invalidated" for s in get_sessions("topic-a", "tech-plan", tmp_path))
+        assert all(s.state == "Invalidated" for s in get_sessions("topic-a", "tech-arch", tmp_path))
 
-    def test_topic_reopen_product_plan_invalidates_tech(self, tmp_path):
-        """Topic re-open product-plan → tech-diagnostic, tech-plan Invalidated; product-plan unchanged."""
+    def test_topic_reopen_product_arch_invalidates_tech(self, tmp_path):
+        """Topic re-open product-arch → tech-diagnostic, tech-arch Invalidated; product-arch unchanged."""
         from invalidation_hook import invalidate_downstream
         from workflow_sessions import get_sessions
-        _make_workflow_state(tmp_path, "topic-a", "product-plan", "r1", "Delivered")
+        _make_workflow_state(tmp_path, "topic-a", "product-arch", "r1", "Delivered")
         _make_workflow_state(tmp_path, "topic-a", "tech-diagnostic", "r1", "Delivered")
-        _make_workflow_state(tmp_path, "topic-a", "tech-plan", "r1", "Delivered")
+        _make_workflow_state(tmp_path, "topic-a", "tech-arch", "r1", "Delivered")
 
-        invalidate_downstream("topic-a", "product-plan", "topic", tmp_path)
+        invalidate_downstream("topic-a", "product-arch", "topic", tmp_path)
 
-        product_plan = get_sessions("topic-a", "product-plan", tmp_path)
-        assert all(s.state == "Delivered" for s in product_plan)
+        product_arch = get_sessions("topic-a", "product-arch", tmp_path)
+        assert all(s.state == "Delivered" for s in product_arch)
         assert all(s.state == "Invalidated" for s in get_sessions("topic-a", "tech-diagnostic", tmp_path))
-        assert all(s.state == "Invalidated" for s in get_sessions("topic-a", "tech-plan", tmp_path))
+        assert all(s.state == "Invalidated" for s in get_sessions("topic-a", "tech-arch", tmp_path))
 
-    def test_topic_reopen_tech_diagnostic_invalidates_tech_design_and_plan(self, tmp_path):
-        """Topic re-open tech-diagnostic → tech-design and tech-plan Invalidated."""
+    def test_topic_reopen_tech_diagnostic_invalidates_tech_arch(self, tmp_path):
+        """Topic re-open tech-diagnostic → tech-arch Invalidated."""
         from invalidation_hook import invalidate_downstream
         from workflow_sessions import get_sessions
         _make_workflow_state(tmp_path, "topic-a", "tech-diagnostic", "r1", "Delivered")
-        _make_workflow_state(tmp_path, "topic-a", "tech-design", "r1", "Delivered")
-        _make_workflow_state(tmp_path, "topic-a", "tech-plan", "r1", "Delivered")
+        _make_workflow_state(tmp_path, "topic-a", "tech-arch", "r1", "Delivered")
 
         invalidate_downstream("topic-a", "tech-diagnostic", "topic", tmp_path)
 
         tech_diag = get_sessions("topic-a", "tech-diagnostic", tmp_path)
         assert all(s.state == "Delivered" for s in tech_diag)
-        assert all(s.state == "Invalidated" for s in get_sessions("topic-a", "tech-design", tmp_path))
-        assert all(s.state == "Invalidated" for s in get_sessions("topic-a", "tech-plan", tmp_path))
+        assert all(s.state == "Invalidated" for s in get_sessions("topic-a", "tech-arch", tmp_path))
 
 
 # ---------------------------------------------------------------------------
@@ -565,22 +563,34 @@ class TestTopicRefExtended:
             )
         return session_dir
 
-    def test_tech_work_order_maps_to_tech_plan_stage(self, tmp_path):
-        """feature.tech-work-order: topic_doc_stage["tech-work-order"] == "tech-plan"
-        → get_topic_doc looks in topic's tech-plan sessions and returns path."""
+    def test_tech_design_maps_to_tech_arch_stage(self, tmp_path):
+        """feature.tech-design: topic_doc_stage maps to tech-arch → get_topic_doc returns path."""
         from start_gate import get_topic_doc
         topic_id = "topic-20260101000000-aabbccdd"
         self._write_features_json(tmp_path, "feat-a",
                                   {"name": "x", "execution_mode": "guided", "topic_id": topic_id})
         self._write_topics_json(tmp_path, topic_id, {"name": "t", "execution_mode": "guided"})
-        session_dir = self._make_delivered_session(tmp_path, topic_id, "tech-plan")
+        session_dir = self._make_delivered_session(tmp_path, topic_id, "tech-arch")
 
-        result = get_topic_doc("feat-a", "tech-work-order", tmp_path)
+        result = get_topic_doc("feat-a", "tech-design", tmp_path)
 
         assert result == session_dir
 
-    def test_tech_code_null_ref_stage_returns_none_extended(self, tmp_path):
-        """feature.tech-code: topic_doc_stage["tech-code"] is null → returns None (no error)."""
+    def test_tech_plan_unmapped_returns_none(self, tmp_path):
+        """feature.tech-plan: not in topic_doc_stage → returns None."""
+        from start_gate import get_topic_doc
+        topic_id = "topic-20260101000000-aabbccdd"
+        self._write_features_json(tmp_path, "feat-a",
+                                  {"name": "x", "execution_mode": "guided", "topic_id": topic_id})
+        self._write_topics_json(tmp_path, topic_id, {"name": "t", "execution_mode": "guided"})
+        self._make_delivered_session(tmp_path, topic_id, "tech-arch")
+
+        result = get_topic_doc("feat-a", "tech-plan", tmp_path)
+
+        assert result is None
+
+    def test_tech_code_unmapped_returns_none_extended(self, tmp_path):
+        """feature.tech-code: not in topic_doc_stage → returns None (no error)."""
         from start_gate import get_topic_doc
         topic_id = "topic-20260101000000-aabbccdd"
         self._write_features_json(tmp_path, "feat-a",
@@ -591,16 +601,16 @@ class TestTopicRefExtended:
 
         assert result is None
 
-    def test_valid_topic_delivered_session_returns_path(self, tmp_path):
-        """topic_id valid + corresponding stage has Delivered session → returns session path."""
+    def test_product_spec_maps_to_product_arch(self, tmp_path):
+        """feature.product-spec: topic_doc_stage maps to product-arch → returns session path."""
         from start_gate import get_topic_doc
         topic_id = "topic-20260101000000-aabbccdd"
         self._write_features_json(tmp_path, "feat-a",
                                   {"name": "x", "execution_mode": "guided", "topic_id": topic_id})
         self._write_topics_json(tmp_path, topic_id, {"name": "t", "execution_mode": "guided"})
-        session_dir = self._make_delivered_session(tmp_path, topic_id, "tech-plan")
+        session_dir = self._make_delivered_session(tmp_path, topic_id, "product-arch")
 
-        result = get_topic_doc("feat-a", "tech-plan", tmp_path)
+        result = get_topic_doc("feat-a", "product-spec", tmp_path)
 
         assert result == session_dir
 

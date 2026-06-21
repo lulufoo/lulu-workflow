@@ -85,4 +85,4 @@ class TestTechPlanEvalAdapter:
 
     def test_unknown_workflow_raises(self):
         with pytest.raises(ValueError, match="unknown workflow"):
-            load_adapter("product-plan")
+            load_adapter("product-arch")

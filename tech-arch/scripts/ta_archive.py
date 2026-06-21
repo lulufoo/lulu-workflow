@@ -8,7 +8,7 @@ _SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
-from archive_common import PRODUCT_PLAN_CONFIG as PRODUCT_CONFIG, run_archive  # noqa: E402
+from archive_common import TECH_ARCH_CONFIG, run_archive  # noqa: E402
 
 
 def run(
@@ -16,12 +16,12 @@ def run(
     exclude_conv_id: str,
     dry_run: bool = False,
 ) -> int:
-    return run_archive(project_root, PRODUCT_CONFIG, exclude_conv_id, dry_run=dry_run)
+    return run_archive(project_root, TECH_ARCH_CONFIG, exclude_conv_id, dry_run=dry_run)
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Restore current product conv from archive and move Delivered convs to cold storage.",
+        description="Restore current tech-arch conv from archive and move Delivered convs to cold storage.",
     )
     parser.add_argument("--project-root", default=".", help="Project root directory.")
     parser.add_argument(

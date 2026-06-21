@@ -12,7 +12,7 @@ from subagent_config import ensure_platform_config  # noqa: E402
 from platform_schema import detect_platform  # noqa: E402
 from platforms.paths import gitignore_entry  # noqa: E402
 
-from pp_workflow_common import (  # noqa: E402
+from ta_workflow_common import (  # noqa: E402
     SKILL_ROOT,
     resolve_workflow_config_path,
 )
@@ -61,13 +61,13 @@ def main() -> int:
 
     _start_py = str(SKILL_ROOT / "scripts" / "start.py").replace(str(Path.home()), "~")
     print(f"""
-product-plan 初始化完成。
+tech-arch 初始化完成。
 
 {config_note}
 
 下一步：
 1. 若尚未 configure，先应用 workflow-config.json。
-2. 开始第一个产品文档，运行 start 命令：
+2. 开始第一个技术架构文档，运行 start 命令：
 
    python3 {_start_py} \\
      --project-root "$(pwd)" --cycle-id "<your-cycle-id>"

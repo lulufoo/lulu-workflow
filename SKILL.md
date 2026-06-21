@@ -3,9 +3,9 @@ name: lulu-dev-workflow
 description: >-
   Top-level development workflow framework. Use when mentioning lulu-dev-workflow,
   开发工作流, dev workflow, product doc workflow, 产品文档流程, or any sub-stage
-  (product-diagnostic, tech-diagnostic, diagnostic, product-plan, tech-design, tech-plan, tech-work-order, tech-code).
+  (product-diagnostic, tech-diagnostic, diagnostic, product-spec, product-arch, tech-arch, tech-design, tech-plan, tech-work-order, tech-code).
 disable-model-invocation: true
-argument-hint: "[d=diagnostic | pd=product-diagnostic | td=tech-diagnostic | p=product-plan | ds=tech-design | t=tech-plan | w=tech-work-order | c=tech-code]"
+argument-hint: "[d=diagnostic | pd=product-diagnostic | td=tech-diagnostic | ps=product-spec | pa=product-arch | ta=tech-arch | ds=tech-design | t=tech-plan | w=tech-work-order | c=tech-code]"
 ---
 
 # lulu-dev-workflow
@@ -124,7 +124,9 @@ After `$CYCLE_ID` is confirmed, route stage work via sub-SKILLs — do not re-ru
 | `product-diagnostic` / `pd` | Product diagnostic | Read [product-diagnostic/SKILL.md](./product-diagnostic/SKILL.md) |
 | `tech-diagnostic` / `td` | Tech diagnostic | Read [tech-diagnostic/SKILL.md](./tech-diagnostic/SKILL.md) |
 | `diagnostic` / `d` | Generic kernel (no `### After DC`) | Read [diagnostic/SKILL.md](./diagnostic/SKILL.md) — use `pd` / `td` for domain routing |
-| `product-plan` / `p` | Product plan | Read [product-plan/SKILL.md](./product-plan/SKILL.md) |
+| `product-spec` / `ps` | Product spec (feature) | Read [product-spec/SKILL.md](./product-spec/SKILL.md) |
+| `product-arch` / `pa` | Product arch (topic) | Read [product-arch/SKILL.md](./product-arch/SKILL.md) |
+| `tech-arch` / `ta` | Tech arch (topic) | Read [tech-arch/SKILL.md](./tech-arch/SKILL.md) |
 | `tech-design` / `ds` | Tech design | Read [tech-design/SKILL.md](./tech-design/SKILL.md) |
 | `tech-plan` / `t` | Tech plan | Read [tech-plan/SKILL.md](./tech-plan/SKILL.md) |
 | `tech-work-order` / `w` | Tech work order | Read [tech-work-order/SKILL.md](./tech-work-order/SKILL.md) |

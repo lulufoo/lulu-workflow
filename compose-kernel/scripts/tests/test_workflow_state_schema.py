@@ -42,7 +42,7 @@ _VALID_DATA = {
     "cycle_type": "feature",
     "current_state": "Drafting",
     "evaluate_round": "0",
-    "delivered_refs": '[{"type":"product-plan","path":"/path/to/product-doc.md"}]',
+    "delivered_refs": '[{"type":"product-spec","path":"/path/to/product-doc.md"}]',
     "carry_forward_ref": "",
     "updated_at": "2024-01-01T00:00:00+00:00",
 }
@@ -107,7 +107,7 @@ class TestMarkHistorical:
         init_drafting(
             path,
             mode="product",
-            delivered_refs=[DeliveredRef(type="product-plan", path="/p.md")],
+            delivered_refs=[DeliveredRef(type="product-spec", path="/p.md")],
         )
         save_workflow_state(path, {"current_state": "Delivered"})
         mark_historical(path)
@@ -124,12 +124,12 @@ class TestMarkInvalidated:
         init_drafting(
             path,
             mode="product",
-            delivered_refs=[DeliveredRef(type="product-plan", path="/p.md")],
+            delivered_refs=[DeliveredRef(type="product-spec", path="/p.md")],
         )
         mark_invalidated(path)
         loaded = load_workflow_state(path)
         assert loaded["current_state"] == "Invalidated"
-        assert delivered_path(loaded, "product-plan") == "/p.md"
+        assert delivered_path(loaded, "product-spec") == "/p.md"
 
 
 class TestReadCurrentState:
@@ -157,12 +157,12 @@ class TestSaveLoadRoundTrip:
         init_drafting(
             path,
             mode="product",
-            delivered_refs=[DeliveredRef(type="product-plan", path="/p.md")],
+            delivered_refs=[DeliveredRef(type="product-spec", path="/p.md")],
         )
         save_workflow_state(path, {"current_state": "Evaluating", "evaluate_round": "1"})
         loaded = load_workflow_state(path)
         assert loaded["current_state"] == "Evaluating"
-        assert delivered_path(loaded, "product-plan") == "/p.md"
+        assert delivered_path(loaded, "product-spec") == "/p.md"
 
 
 class TestCli:

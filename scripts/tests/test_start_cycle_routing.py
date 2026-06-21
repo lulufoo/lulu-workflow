@@ -11,7 +11,8 @@ from typing import Optional
 import pytest
 
 _SRC = Path(__file__).resolve().parents[3]  # lulu-dev-skills/
-_STAGES = ["diagnostic", "product-plan", "tech-plan", "tech-work-order", "tech-code"]
+_COMPOSE_START_STAGES = frozenset({"tech-plan", "product-spec"})
+_STAGES = ["diagnostic", "product-spec", "tech-plan", "tech-work-order", "tech-code"]
 
 # Use tech-work-order's two_workflow_common for unit tests of shared functions.
 _TWO_SCRIPTS = _SRC / "lulu-dev-workflow" / "tech-work-order" / "scripts"
@@ -23,21 +24,24 @@ _TOPIC_ID = "topic-20260524143022-aabbccdd"
 _CONV_ID = "test-conv-t4-routing"
 _ENV_COPILOT = {**os.environ, "LULU_PLATFORM": "copilot"}
 _FEATURE_CYCLE = [
-    "product-diagnostic", "product-plan", "tech-diagnostic",
+    "product-diagnostic", "product-spec", "tech-diagnostic",
     "tech-plan", "tech-work-order", "tech-code",
 ]
 # Topic cycles end at tech-plan; tech-work-order and tech-code are feature-only.
-_TOPIC_CONTAINER_STAGES = ["diagnostic", "product-plan", "tech-plan"]
+_TOPIC_CONTAINER_STAGES = ["diagnostic", "product-arch", "tech-arch"]
+_TOPIC_CYCLE = [
+    "product-diagnostic", "product-arch", "tech-diagnostic", "tech-arch",
+]
 
 
 def _start_py(stage: str) -> Path:
-    if stage == "tech-plan":
+    if stage in _COMPOSE_START_STAGES:
         return _SRC / "lulu-dev-workflow" / "compose-kernel" / "scripts" / "core" / "start.py"
-    return _SRC / "lulu-dev-workflow" / stage / "scripts" / ({"tech-code": "tc_start.py", "diagnostic": "dx_start.py", "product-plan": "pp_start.py", "tech-work-order": "two_start.py"}.get(stage, "start.py"))
+    return _SRC / "lulu-dev-workflow" / stage / "scripts" / ({"tech-code": "tc_start.py", "diagnostic": "dx_start.py", "product-arch": "pa_start.py", "tech-arch": "ta_start.py", "tech-work-order": "two_start.py"}.get(stage, "start.py"))
 
 
 def _scripts_dir(stage: str) -> Path:
-    if stage == "tech-plan":
+    if stage in _COMPOSE_START_STAGES:
         return _SRC / "lulu-dev-workflow" / "compose-kernel" / "scripts" / "core"
     return _SRC / "lulu-dev-workflow" / stage / "scripts"
 
@@ -113,6 +117,26 @@ def _upsert_delivered_ref_entry(
     refs_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
+def _seed_product_spec_delivered_refs(
+    cache_dir: Path,
+    cycle_id: str,
+    project_root: Path,
+) -> None:
+    del project_root
+    diag_dir = cache_dir / cycle_id / "product" / "diagnostic"
+    diag_dir.mkdir(parents=True, exist_ok=True)
+    decision = diag_dir / "decision-doc.md"
+    if not decision.is_file():
+        decision.write_text("# Decision\n", encoding="utf-8")
+    _upsert_delivered_ref_entry(
+        cache_dir,
+        cycle_id,
+        delivered_type="product-diagnostic",
+        path=decision,
+        profile_id="product-diagnostic",
+    )
+
+
 def _seed_tech_plan_delivered_refs(
     cache_dir: Path,
     cycle_id: str,
@@ -144,14 +168,19 @@ def _seed_tech_plan_delivered_refs(
 
 
 def _seed_gate_for_stage(cache_dir: Path, cycle_id: str, to_stage: str, project_root: Path) -> None:
-    if to_stage not in _FEATURE_CYCLE:
+    cycle_order = _TOPIC_CYCLE if cycle_id.startswith("topic-") else _FEATURE_CYCLE
+    if to_stage not in cycle_order and to_stage != "diagnostic":
         return
-    idx = _FEATURE_CYCLE.index(to_stage)
-    prior = _FEATURE_CYCLE[:idx]
+    if to_stage == "diagnostic":
+        return
+    idx = cycle_order.index(to_stage)
+    prior = cycle_order[:idx]
     for stage in prior:
         _make_session(cache_dir, cycle_id, stage, "r1", "Delivered")
     if prior:
         _make_cycle_state(cache_dir, cycle_id, prior[-1])
+    if to_stage == "product-spec":
+        _seed_product_spec_delivered_refs(cache_dir, cycle_id, project_root)
     if to_stage == "tech-plan":
         _seed_tech_plan_delivered_refs(cache_dir, cycle_id, project_root)
 
@@ -181,7 +210,11 @@ def _stage_extra_args(stage: str, tmp_path: Path) -> list:
     """Return required extra CLI args for each stage."""
     if stage == "diagnostic":
         return []
-    elif stage == "product-plan":
+    if stage == "product-spec":
+        return ["--profile", "product-spec", "--run-mode", "product"]
+    elif stage == "product-arch":
+        return []
+    elif stage == "tech-arch":
         return []
     elif stage == "tech-plan":
         return ["--profile", "tech-plan", "--run-mode", "tech"]
@@ -355,21 +388,21 @@ class TestTopicIdSessionPath:
         ss = cd / _TOPIC_ID / "diagnostic" / "session-state.md"
         assert ss.exists(), f"Expected session-state.md at {ss}"
 
-    def test_product_plan_topic_session_uses_topic_dir(self, tmp_path):
+    def test_product_arch_topic_session_uses_topic_dir(self, tmp_path):
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _TOPIC_ID)
-        _seed_gate_for_stage(cd, _TOPIC_ID, "product-plan", tmp_path)
+        _seed_gate_for_stage(cd, _TOPIC_ID, "product-arch", tmp_path)
         result = subprocess.run(
             [
-                sys.executable, str(_start_py("product-plan")),
+                sys.executable, str(_start_py("product-arch")),
                 "--project-root", str(tmp_path),
                 "--cycle-id", _TOPIC_ID,
             ],
             capture_output=True, text=True, env=_ENV_COPILOT,
-            cwd=str(_scripts_dir("product-plan")),
+            cwd=str(_scripts_dir("product-arch")),
         )
         assert result.returncode == 0, result.stderr
-        ss = cd / _TOPIC_ID / "product" / "plan" / "session-state.md"
+        ss = cd / _TOPIC_ID / "product" / "arch" / "session-state.md"
         assert ss.exists(), f"Expected session-state.md at {ss}"
 
 

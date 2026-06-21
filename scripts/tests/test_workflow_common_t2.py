@@ -8,13 +8,14 @@ from pathlib import Path
 import pytest
 
 _SRC = Path(__file__).resolve().parents[3]  # lulu-dev-skills/
-_STAGES = ["diagnostic", "product-plan", "tech-work-order", "tech-code"]
+_STAGES = ["diagnostic", "product-arch", "tech-arch", "tech-work-order", "tech-code"]
 # tech-plan uses compose-kernel/scripts/core/workflow_common.py (no STAGE / session_base_dir).
 _FID = "20260524143022-02cd7e6e"
 
 _EXPECTED_CACHE_SUBDIR = {
     "diagnostic": "diagnostic",
-    "product-plan": "product/plan",
+    "product-arch": "product/arch",
+    "tech-arch": "tech/arch",
     "tech-work-order": "tech/work-order",
     "tech-code": "tech/code",
 }
@@ -22,7 +23,8 @@ _EXPECTED_CACHE_SUBDIR = {
 
 _STAGE_WC = {
     "diagnostic": "dx_workflow_common.py",
-    "product-plan": "pp_workflow_common.py",
+    "product-arch": "pa_workflow_common.py",
+    "tech-arch": "ta_workflow_common.py",
     "tech-work-order": "two_workflow_common.py",
     "tech-code": "tc_workflow_common.py",
 }
@@ -82,7 +84,7 @@ class TestSessionBaseDir:
         assert str(result).endswith(f"{_FID}/{expected}")
 
     def test_cycle_id_with_hyphen_no_escaping(self):
-        mod = _load_wc("product-plan")
+        mod = _load_wc("product-arch")
         result = mod.session_base_dir(_FID)
         assert _FID in str(result)
         assert "%" not in str(result)
@@ -93,7 +95,7 @@ class TestSessionBaseDir:
         "20260524143022-02cd7e6e",
     ])
     def test_accepts_any_string_cycle_id_without_error(self, fid):
-        mod = _load_wc("product-plan")
+        mod = _load_wc("product-arch")
         result = mod.session_base_dir(fid)
         assert fid in str(result)
 

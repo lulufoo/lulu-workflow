@@ -127,7 +127,7 @@ def test_read_context_uses_delivered_refs_scope_doc(tmp_path: Path):
     init_drafting(
         ws,
         mode="product",
-        delivered_refs=[DeliveredRef(type="product-plan", path=str(product_doc.resolve()))],
+        delivered_refs=[DeliveredRef(type="product-spec", path=str(product_doc.resolve()))],
     )
     ctx = _run(cycle_dir, "read-context", round_n=None)
     assert ctx["decision_doc_path"] == str(product_doc.resolve())

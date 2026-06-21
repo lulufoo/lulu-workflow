@@ -1,12 +1,20 @@
 ---
 name: tech-arch
 description: >-
-  Placeholder for tech-arch stage (Phase 2). Not user-invoked in Phase 1.
+  Topic-cycle technical architecture shaping stage. Use when cycle_type is topic and
+  tech-diagnostic is Delivered.
 disable-model-invocation: true
 ---
 
 # tech-arch
 
-Phase 2 placeholder. Topic registry and architecture workflow not implemented yet.
+Topic shaping terminal stage: technical architecture document after tech-diagnostic.
 
-Use `tech-plan` for technical planning in Phase 1.
+**Scope:** Topic cycles only. Feature technical planning uses `tech-plan` / `tech-design`.
+
+## Start
+
+```bash
+python3 "$SKILL_ROOT/tech-arch/scripts/ta_start.py" \
+  --project-root "$(pwd)" --cycle-id "$CYCLE_ID"
+```

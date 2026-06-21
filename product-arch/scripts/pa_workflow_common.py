@@ -24,8 +24,8 @@ _SCRIPTS_DIR = Path(__file__).resolve().parent
 _PLATFORM = detect_platform()
 WORKFLOW_DIR = workflow_dir(_PLATFORM)
 CACHE_DIR = cache_dir(_PLATFORM)
-STAGE = "product-plan"
-CACHE_SUBDIR = "product/plan"
+STAGE = "product-arch"
+CACHE_SUBDIR = "product/arch"
 PLATFORM_CONFIG_PATH = WORKFLOW_DIR / "config.json"
 SHARED_CONFIG_DEFAULT = Path("skill-config/lulu-dev-workflow/workflow-config.json")
 HOOKS_JSON_PATH = hooks_config_path(_PLATFORM)
@@ -111,7 +111,7 @@ def write_md_state(path: Path, current_state: str, evaluate_round: int = 0) -> N
     content = (
         f"---\n"
         f"version: 1\n"
-        f"workflow: product-plan\n"
+        f"workflow: product-arch\n"
         f"current_state: {current_state}\n"
         f"evaluate_round: {evaluate_round}\n"
         f"updated_at: {now}\n"

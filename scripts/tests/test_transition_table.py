@@ -14,10 +14,12 @@ class TestKnownStages:
         from transition_table import known_stages
 
         stages = known_stages("topic")
-        assert "tech-design" in stages
-        assert "tech-plan" in stages
+        assert "product-arch" in stages
+        assert "tech-arch" in stages
         assert "tech-work-order" not in stages
         assert "tech-code" not in stages
+        assert "tech-design" not in stages
+        assert "tech-plan" not in stages
 
     def test_feature_includes_execution_stages(self):
         from transition_table import known_stages

@@ -8,7 +8,7 @@ from delivered_refs_schema import DeliveredRef, record_delivered_ref
 
 
 def product_delivered_refs(product_path: str = "/p.md") -> list[DeliveredRef]:
-    return [DeliveredRef(type="product-plan", path=product_path)]
+    return [DeliveredRef(type="product-spec", path=product_path)]
 
 
 def tech_diagnostic_refs(decision_path: Path | str) -> list[DeliveredRef]:

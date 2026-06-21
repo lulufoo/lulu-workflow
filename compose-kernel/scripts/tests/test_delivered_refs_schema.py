@@ -20,14 +20,14 @@ def test_init_scope_ref_tech_plan_product_mode():
         "mode": "product",
         "delivered_refs": serialize_delivered_refs(
             [
-                DeliveredRef(type="product-plan", path="/abs/product-doc.md"),
+                DeliveredRef(type="product-spec", path="/abs/product-doc.md"),
                 DeliveredRef(type="tech-diagnostic", path="/abs/decision.md"),
             ],
         ),
     }
     ref = init_scope_ref_from_state(state, "tech-plan")
     assert ref is not None
-    assert ref.type == "product-plan"
+    assert ref.type == "product-spec"
     assert ref.path == "/abs/product-doc.md"
 
 
@@ -74,16 +74,41 @@ def test_backfill_from_delivered_tech_diagnostic(tmp_path: Path):
     assert entry["path"] == str(decision.resolve())
 
 
-def test_backfill_from_delivered_product_plan(tmp_path: Path):
-    cycle_id = "feat-backfill-plan"
-    rev = tmp_path / ".cache/cursor/lulu-dev-workflow" / cycle_id / "product" / "plan" / "revision1"
+def test_backfill_from_delivered_product_arch(tmp_path: Path):
+    cycle_id = "feat-backfill-arch"
+    rev = tmp_path / ".cache/cursor/lulu-dev-workflow" / cycle_id / "product" / "arch" / "revision1"
+    rev.mkdir(parents=True)
+    arch_doc = rev / "arch-doc.md"
+    arch_doc.write_text("# Arch\n", encoding="utf-8")
+    (rev / "workflow-state.md").write_text(
+        "---\n"
+        "version: 1\n"
+        "workflow: product-arch\n"
+        "mode: product\n"
+        "cycle_type: topic\n"
+        "current_state: Delivered\n"
+        "evaluate_round: 0\n"
+        "delivered_refs: []\n"
+        "carry_forward_ref: \"\"\n"
+        "updated_at: 2026-01-02T00:00:00+00:00\n"
+        "---\n",
+        encoding="utf-8",
+    )
+    backfill_delivered_refs_from_cycle(cycle_id, tmp_path)
+    data = load_delivered_refs_file(cycle_id, tmp_path)
+    assert data["entries"]["product-arch"]["path"] == str(arch_doc.resolve())
+
+
+def test_backfill_from_delivered_product_spec(tmp_path: Path):
+    cycle_id = "feat-backfill-spec"
+    rev = tmp_path / ".cache/cursor/lulu-dev-workflow" / cycle_id / "product" / "spec" / "revision1"
     rev.mkdir(parents=True)
     product_doc = rev / "product-doc.md"
     product_doc.write_text("# Product\n", encoding="utf-8")
     (rev / "workflow-state.md").write_text(
         "---\n"
         "version: 1\n"
-        "workflow: product-doc\n"
+        "workflow: product-spec\n"
         "mode: product\n"
         "cycle_type: feature\n"
         "current_state: Delivered\n"
@@ -96,4 +121,4 @@ def test_backfill_from_delivered_product_plan(tmp_path: Path):
     )
     backfill_delivered_refs_from_cycle(cycle_id, tmp_path)
     data = load_delivered_refs_file(cycle_id, tmp_path)
-    assert data["entries"]["product-plan"]["path"] == str(product_doc.resolve())
+    assert data["entries"]["product-spec"]["path"] == str(product_doc.resolve())

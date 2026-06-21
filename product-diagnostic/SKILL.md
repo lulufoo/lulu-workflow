@@ -30,7 +30,12 @@ Prose for the kernel `Domain Constraints HARD-GATE`. Machine constraints: holder
 
 ### After DC
 
-Tell user: "Product diagnostic is complete. The next step is `/product-plan` (alias: `pp`)."
+Read `$CYCLE_TYPE` from `_runtime.md` § Session Foundation.
+
+- **feature:** Tell user: "Product diagnostic is complete. The next step is `/product-spec` (alias: `ps`)."
+- **topic:** Tell user: "Product diagnostic is complete. The next step is `/product-arch` (alias: `pa`)."
+
+If `$CYCLE_TYPE` is unset, read `_transitions.md`, list allowed next stages for `product-diagnostic` under the matching `cycle_type` key, and wait for explicit user selection.
 
 ## start
 

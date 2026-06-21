@@ -12,8 +12,8 @@ from start_gate import check_gate, get_topic_doc  # noqa: E402
 from transition_table import load_stage_order  # noqa: E402
 from workflow_sessions import current_effective_delivered, get_sessions  # noqa: E402
 
-from pp_archive import run as run_archive
-from pp_workflow_common import (
+from ta_archive import run as run_archive
+from ta_workflow_common import (
     CACHE_DIR,
     detect_cycle_type,
     load_container_meta,
@@ -26,7 +26,7 @@ from pp_workflow_common import (
 )
 
 
-_TO_STAGE = "product-plan"
+_TO_STAGE = "tech-arch"
 
 
 
@@ -144,12 +144,12 @@ def main() -> int:
 会话已启动。
 
 会话状态文件：{ss_path.as_posix()}
-当前产品文档：revision{active_doc}
+当前技术架构文档：revision{active_doc}
 状态文件：{ws_path.as_posix()}
 当前状态：Drafting
 评估轮次：0
 
-工作流已就绪，可以开始产品文档起草。
+工作流已就绪，可以开始技术架构文档起草。
 """)
     return 0
 

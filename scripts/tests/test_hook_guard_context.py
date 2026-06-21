@@ -93,10 +93,10 @@ class TestReadActiveStage:
 
         monkeypatch.chdir(tmp_path)
         active_context_schema.write_entry(tmp_path, "cursor", "conv-a", _FID_A, "tech-plan")
-        active_context_schema.write_entry(tmp_path, "cursor", "conv-b", _FID_B, "product-plan")
+        active_context_schema.write_entry(tmp_path, "cursor", "conv-b", _FID_B, "product-arch")
 
         assert hook_entry._read_active_stage("cursor", "conv-a") == "tech-plan"
-        assert hook_entry._read_active_stage("cursor", "conv-b") == "product-plan"
+        assert hook_entry._read_active_stage("cursor", "conv-b") == "product-arch"
 
     def test_empty_conversation_id_returns_none(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
@@ -122,7 +122,7 @@ class TestShouldInjectConversationId:
         "command",
         [
             "python3 ~/.cursor/skills/lulu-dev-workflow/diagnostic/scripts/dx_start.py --cycle-id fid1",
-            "python lulu-dev-workflow/product-plan/scripts/pp_start.py --project-root /tmp",
+            "python lulu-dev-workflow/product-arch/scripts/pa_start.py --project-root /tmp",
             "python3 ~/.cursor/skills/lulu-dev-workflow/compose-kernel/scripts/core/start.py --cycle-id fid1",
             "python3 ~/.cursor/skills/lulu-dev-workflow/tech-work-order/scripts/two_start.py --cycle-id fid1",
             "python3 ~/.cursor/skills/lulu-dev-workflow/tech-code/scripts/tc_start.py --cycle-id fid1",

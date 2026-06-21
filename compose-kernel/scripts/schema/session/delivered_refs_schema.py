@@ -146,7 +146,7 @@ def delivered_path(state: dict[str, Any], delivered_type: str) -> str:
 
 
 def product_ref_from_state(state: dict[str, Any]) -> str:
-    return delivered_path(state, "product-plan")
+    return delivered_path(state, "product-spec")
 
 
 def init_scope_ref_from_state(
@@ -159,7 +159,7 @@ def init_scope_ref_from_state(
     if profile_id == "tech-plan":
         if mode == "product":
             for ref in refs:
-                if ref.type == "product-plan":
+                if ref.type == "product-spec":
                     return ref
             return None
         for ref in refs:

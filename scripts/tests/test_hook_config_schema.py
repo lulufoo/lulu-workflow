@@ -133,7 +133,7 @@ class TestResolveRwGuard:
     def test_expands_platform_in_defaults(self, tmp_path: Path):
         from hook_config_schema import resolve_rw_guard
 
-        resolved = resolve_rw_guard(tmp_path, "product-plan", platform="cursor")
+        resolved = resolve_rw_guard(tmp_path, "product-arch", platform="cursor")
         assert resolved["enable"] is True
         assert resolved["readDirs"] == ["."]
         assert resolved["writeDirs"] == [".cache/cursor/lulu-dev-workflow"]
@@ -149,7 +149,7 @@ class TestResolveRwGuard:
 
         target, _ = ensure_hook_config(tmp_path, platform="cursor")
         payload = json.loads(target.read_text(encoding="utf-8"))
-        payload["rwGuard"]["stages"]["product-plan"] = {"enable": False}
+        payload["rwGuard"]["stages"]["product-arch"] = {"enable": False}
         target.write_text(json.dumps(payload), encoding="utf-8")
-        resolved = resolve_rw_guard(tmp_path, "product-plan", platform="cursor")
+        resolved = resolve_rw_guard(tmp_path, "product-arch", platform="cursor")
         assert resolved["enable"] is False

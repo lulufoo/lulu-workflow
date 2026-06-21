@@ -135,7 +135,7 @@ class TestWriteEntry:
         from active_context_schema import read_all, write_entry
 
         write_entry(tmp_path, "cursor", "conv-a", _FID, "tech-plan")
-        write_entry(tmp_path, "cursor", "conv-b", "other-fid", "product-plan")
+        write_entry(tmp_path, "cursor", "conv-b", "other-fid", "product-arch")
         data = read_all(tmp_path, "cursor")
         assert data["conv-a"]["cycle_id"] == _FID
         assert data["conv-b"]["cycle_id"] == "other-fid"

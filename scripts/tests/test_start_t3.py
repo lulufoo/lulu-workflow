@@ -11,22 +11,26 @@ from typing import Optional
 import pytest
 
 _SRC = Path(__file__).resolve().parents[3]  # lulu-dev-skills/
-_STAGES = ["diagnostic", "product-plan", "tech-plan", "tech-work-order", "tech-code"]
+_STAGES = ["diagnostic", "product-arch", "tech-arch", "tech-plan", "tech-work-order", "tech-code"]
 # compose-kernel start.py never integrated run_archive; other stages defer via comment.
 _STAGES_WITH_DEFERRED_ARCHIVE = [s for s in _STAGES if s != "tech-plan"]
 _FID = "20260524143022-02cd7e6e"
 _CONV_ID = "test-conversation-aaa"
 _ENV_COPILOT = {**os.environ, "LULU_PLATFORM": "copilot"}
 _FEATURE_CYCLE = [
-    "product-diagnostic", "product-plan", "tech-diagnostic",
+    "product-diagnostic", "product-spec", "tech-diagnostic",
     "tech-plan", "tech-work-order", "tech-code",
 ]
+_TOPIC_CYCLE = [
+    "product-diagnostic", "product-arch", "tech-diagnostic", "tech-arch",
+]
+_TOPIC_ID = "topic-20260524143022-aabbccdd"
 
 
 def _start_py(stage: str) -> Path:
     if stage == "tech-plan":
         return _SRC / "lulu-dev-workflow" / "compose-kernel" / "scripts" / "core" / "start.py"
-    return _SRC / "lulu-dev-workflow" / stage / "scripts" / ({"tech-code": "tc_start.py", "diagnostic": "dx_start.py", "product-plan": "pp_start.py", "tech-work-order": "two_start.py"}.get(stage, "start.py"))
+    return _SRC / "lulu-dev-workflow" / stage / "scripts" / ({"tech-code": "tc_start.py", "diagnostic": "dx_start.py", "product-arch": "pa_start.py", "tech-arch": "ta_start.py", "tech-work-order": "two_start.py"}.get(stage, "start.py"))
 
 
 def _scripts_dir(stage: str) -> Path:
@@ -160,19 +164,20 @@ def _seed_tech_plan_delivered_refs(
         )
 
 
-def _seed_gate_for_stage(tmp_path: Path, to_stage: str) -> None:
-    if to_stage not in _FEATURE_CYCLE:
+def _seed_gate_for_stage(tmp_path: Path, to_stage: str, *, cycle_id: str = _FID) -> None:
+    cycle_order = _TOPIC_CYCLE if cycle_id.startswith("topic-") else _FEATURE_CYCLE
+    if to_stage not in cycle_order:
         return
     cd = _cache_dir(tmp_path)
-    _make_cycles_json(cd, _FID)
-    idx = _FEATURE_CYCLE.index(to_stage)
-    prior = _FEATURE_CYCLE[:idx]
+    _make_cycles_json(cd, cycle_id)
+    idx = cycle_order.index(to_stage)
+    prior = cycle_order[:idx]
     for stage in prior:
-        _make_session(cd, _FID, stage, "r1")
+        _make_session(cd, cycle_id, stage, "r1")
     if prior:
-        _make_cycle_state(cd, _FID, prior[-1])
+        _make_cycle_state(cd, cycle_id, prior[-1])
     if to_stage == "tech-plan":
-        _seed_tech_plan_delivered_refs(cd, _FID, tmp_path)
+        _seed_tech_plan_delivered_refs(cd, cycle_id, tmp_path)
 
 
 def _seed_diagnostic_config(tmp_path: Path) -> None:
@@ -287,14 +292,14 @@ class TestArgparseBehavior:
         assert result.returncode == 0, result.stderr
 
     def test_start_without_conv_id_no_context_write(self, tmp_path):
-        _seed_gate_for_stage(tmp_path, "product-plan")
+        _seed_gate_for_stage(tmp_path, "product-arch", cycle_id=_TOPIC_ID)
         env = {k: v for k, v in _ENV_COPILOT.items() if k != "LULU_CONVERSATION_ID"}
         result = subprocess.run(
-            [sys.executable, str(_start_py("product-plan")),
+            [sys.executable, str(_start_py("product-arch")),
              "--project-root", str(tmp_path),
-             "--cycle-id", _FID],
+             "--cycle-id", _TOPIC_ID],
             capture_output=True, text=True, env=env,
-            cwd=str(_scripts_dir("product-plan")),
+            cwd=str(_scripts_dir("product-arch")),
         )
         assert result.returncode == 0, result.stderr
         assert "conversation_id" in result.stderr
@@ -317,14 +322,14 @@ class TestSessionPath:
             cwd=str(_scripts_dir("diagnostic")),
         )
 
-    def _run_product(self, tmp_path):
-        _seed_gate_for_stage(tmp_path, "product-plan")
+    def _run_product_arch(self, tmp_path):
+        _seed_gate_for_stage(tmp_path, "product-arch", cycle_id=_TOPIC_ID)
         return subprocess.run(
-            [sys.executable, str(_start_py("product-plan")),
+            [sys.executable, str(_start_py("product-arch")),
              "--project-root", str(tmp_path),
-             "--cycle-id", _FID],
+             "--cycle-id", _TOPIC_ID],
             capture_output=True, text=True, env=_ENV_COPILOT,
-            cwd=str(_scripts_dir("product-plan")),
+            cwd=str(_scripts_dir("product-arch")),
         )
 
     def _run_tech(self, tmp_path):
@@ -438,9 +443,9 @@ class TestSessionPath:
         assert _CONV_ID in data
         assert data[_CONV_ID]["stage"] == "tech-plan"
 
-    def test_product_session_file_at_feature_first_path(self, tmp_path):
-        self._run_product(tmp_path)
-        ss = _cache_dir(tmp_path) / _FID / "product" / "plan" / "session-state.md"
+    def test_product_arch_session_file_at_topic_path(self, tmp_path):
+        self._run_product_arch(tmp_path)
+        ss = _cache_dir(tmp_path) / _TOPIC_ID / "product" / "arch" / "session-state.md"
         assert ss.exists(), f"Expected session-state.md at {ss}"
 
     def test_tech_session_file_at_feature_first_path(self, tmp_path):

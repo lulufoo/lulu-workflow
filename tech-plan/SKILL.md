@@ -63,11 +63,11 @@ python3 "$SKILL_ROOT/compose-kernel/scripts/core/start.py" \
 ```
 
 - Upstream documents are read from `{cycle_id}/delivered-refs.json` (written when prior stages **deliver**). `start.py` validates required entries via the profile StartAdapter, then snapshots them into `workflow-state.md` → `delivered_refs`.
-- **product mode** requires a delivered `product-plan` entry; **tech mode** requires `tech-design` or `tech-diagnostic`.
+- **product mode** requires a delivered `product-spec` entry; **tech mode** requires `tech-design` or `tech-diagnostic`.
 - Initializing reads the snapshot from `workflow-state.delivered_refs` (not the file on disk).
 - `--carry-forward-ref` is optional in both modes. Provide it when re-entering
   tech flow to use a previous tech-doc as the draft starting point.
-- `--run-mode`: use `product` when product-plan context applies; otherwise `tech`.
+- `--run-mode`: use `product` when product-spec context applies; otherwise `tech`.
 
 > If start.py exits non-zero ("Gate blocked: <stage> is not Delivered"): tell the user which prior stage must be delivered first. Do not retry start.
 

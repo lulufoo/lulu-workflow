@@ -1,0 +1,22 @@
+{
+  "id": "product-doc-quality",
+  "legacy_alias": "pdqa",
+  "label": "Product Document Quality (PDQA)",
+  "eval_target": {
+    "path": "{compose_doc}"
+  },
+  "remediation_target": {
+    "path": "{compose_doc}"
+  },
+  "sots": [],
+  "method": {
+    "kind": "external",
+    "source": "{pst_product_eval_framework_url}",
+    "focus": "Independent PDQA audit on product-doc (11 dimensions, 4 layers); not compose Round/probe iteration"
+  },
+  "review": {
+    "seq": 1,
+    "output_path": "product-review-e{M}1.md",
+    "template": "eval/review.template.md"
+  }
+}

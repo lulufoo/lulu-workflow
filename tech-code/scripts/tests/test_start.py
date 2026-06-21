@@ -19,7 +19,7 @@ _START = _SCRIPTS / "tc_start.py"
 _FID = "20260604102312-e2b86e89"
 _ENV_COPILOT = {**os.environ, "LULU_PLATFORM": "copilot"}
 _FEATURE_CYCLE = [
-    "product-diagnostic", "product-plan", "tech-diagnostic",
+    "product-diagnostic", "product-spec", "tech-diagnostic",
     "tech-plan", "tech-work-order", "tech-code",
 ]
 

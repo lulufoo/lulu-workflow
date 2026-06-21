@@ -45,8 +45,8 @@ class TechPlanStartAdapter:
             return errors
         data = load_delivered_refs_file(cycle_id, project_root)
         if run_mode == "product":
-            if not entry_path_ok(data, "product-plan"):
-                errors.append("missing delivered-refs entry: product-plan")
+            if not entry_path_ok(data, "product-spec"):
+                errors.append("missing delivered-refs entry: product-spec")
         else:
             has_design = entry_path_ok(data, "tech-design")
             has_diag = entry_path_ok(data, "tech-diagnostic")
@@ -65,7 +65,7 @@ class TechPlanStartAdapter:
     ) -> list[DeliveredRef]:
         data = load_delivered_refs_file(cycle_id, project_root)
         if run_mode == "product":
-            types = ["product-plan", "tech-design"]
+            types = ["product-spec", "tech-design"]
         elif entry_path_ok(data, "tech-design"):
             types = ["tech-design"]
         else:

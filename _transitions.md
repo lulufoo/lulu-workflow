@@ -27,6 +27,6 @@ Each stage's autonomous overrides govern how delivery and handoff are executed. 
 Any participant may trigger a Stage Rollback when new information shows a prior stage's output is no longer valid:
 
 - **Trigger:** state the target stage to roll back to (any prior stage, any number of levels back)
-- **Effect on Product Line:** rolling back to `product-diagnostic` invalidates `product-plan` + entire tech line; rolling back to `product-plan` invalidates entire tech line.
+- **Effect on Product Line:** rolling back to `product-diagnostic` invalidates `product-spec` + entire tech line; rolling back to `product-spec` invalidates entire tech line.
 - **Effect on Tech Line:** rolling back to `tech-diagnostic` invalidates `tech-plan`, `tech-work-order`, `tech-code`.
 - **AI must announce:** "[target stage] and all downstream stages are invalidated. Restarting from [target stage]."
