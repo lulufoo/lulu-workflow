@@ -20,7 +20,6 @@ from compose_session import (  # noqa: E402
     stage_name,
     workflow_state_path,
 )
-from session_control import start_evaluating  # noqa: E402
 from session_info import session_snapshot, stage_transitions  # noqa: E402
 from workflow_state_schema import init_drafting, save_workflow_state  # noqa: E402
 

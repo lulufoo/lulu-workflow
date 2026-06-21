@@ -216,7 +216,7 @@ class TechDesignEvalAdapter:
     def enter_evaluating(
         self, cycle_id: str, project_root: Path
     ) -> dict[str, Any]:
-        from eval_enter import init_evaluate_state_for_session  # noqa: WPS433
+        from evaluate_state_ops import init_evaluate_state_for_session  # noqa: WPS433
         from session_evaluating import enter_evaluating_state  # noqa: WPS433
 
         result = enter_evaluating_state(

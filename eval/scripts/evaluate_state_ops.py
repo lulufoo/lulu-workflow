@@ -23,6 +23,7 @@ from evaluate_state_schema import (
     save_evaluate_state,
     validate_evaluate_state,
 )
+from workflow_adapter import WorkflowAdapter
 
 _VALID_MODES = frozenset({"product", "tech"})
 
@@ -103,6 +104,19 @@ def init_evaluate_state_for_corpus(
         build_initial_evaluate_state_for_corpus(corpus, cycle_type=cycle_type),
         merge=False,
     )
+
+
+def init_evaluate_state_for_session(
+    adapter: WorkflowAdapter,
+    cycle_id: str,
+    project_root: Path,
+) -> Path:
+    """Initialize evaluate-state.md for the adapter's active revision."""
+    es_path = adapter.resolve_evaluate_state_path(cycle_id, project_root)
+    corpus = adapter.resolve_eval_corpus(cycle_id, project_root)
+    cycle_type = adapter.detect_cycle_type(cycle_id)
+    init_evaluate_state_for_corpus(es_path, corpus, cycle_type=cycle_type)
+    return es_path
 
 
 def init_evaluate_state(
