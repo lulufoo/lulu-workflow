@@ -2,7 +2,7 @@
 """Session control for compose orchestrators.
 
 Subcommands:
-    start-evaluating     Drafting -> Evaluating (+ evaluate-state.md init)
+    start-evaluating     Drafting -> Evaluating (workflow-state only; use begin-eval-round for evaluate-state)
     ready-for-delivery   Drafting|Evaluating -> ReadyForDelivery
     deliver              ReadyForDelivery -> Delivered (+ human-delivery-gate.md)
     abandon-evaluation   Evaluating -> Drafting (requires evaluate-state abandoned)
@@ -37,7 +37,7 @@ from human_delivery_gate_schema import write_approved  # noqa: E402
 from session_state_schema import load_active_doc_from_cycle  # noqa: E402
 from workflow_common import parse_frontmatter_fields  # noqa: E402
 from workflow_profile_paths import evaluate_state_path as profile_evaluate_state_path  # noqa: E402
-from session_evaluating import transition_to_evaluating  # noqa: E402
+from session_evaluating import enter_evaluating_state  # noqa: E402
 from transition_registry import is_allowed  # noqa: E402
 from workflow_state_schema import load_workflow_state, save_workflow_state  # noqa: E402
 
@@ -163,7 +163,7 @@ def start_evaluating(
     if not _require_transition(_CMD_START_EVALUATING, current, "Evaluating"):
         return _failure(_CMD_START_EVALUATING, current)
 
-    entry = transition_to_evaluating(cycle_id, project_root, profile_id=profile_id)
+    entry = enter_evaluating_state(cycle_id, project_root, profile_id=profile_id)
     if not entry.get("ok"):
         return {
             "ok": False,

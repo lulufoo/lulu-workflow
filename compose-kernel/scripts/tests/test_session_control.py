@@ -102,7 +102,7 @@ class TestStartEvaluating:
         ws = _seed_session(tmp_path)
         init_drafting(ws, mode="product", delivered_refs=product_delivered_refs("/p.md"))
 
-        result = start_evaluating(_CYCLE, tmp_path)
+        result = _ADAPTER.enter_evaluating(_CYCLE, tmp_path)
 
         assert result["ok"] is True
         assert result["current_state"] == "Evaluating"
@@ -119,7 +119,7 @@ class TestStartEvaluating:
         ws = _seed_session(tmp_path)
         init_drafting(ws, mode="tech")
 
-        result = start_evaluating(_CYCLE, tmp_path)
+        result = _ADAPTER.enter_evaluating(_CYCLE, tmp_path)
 
         assert result["ok"] is True
         es = load_evaluate_state(ws.parent / "evaluate-state.md")
@@ -131,15 +131,27 @@ class TestStartEvaluating:
         ws = _seed_session(tmp_path)
         init_drafting(ws, mode="tech", evaluate_round=1)
         save_workflow_state(ws, {"current_state": "Drafting", "evaluate_round": "1"})
-        result = start_evaluating(_CYCLE, tmp_path)
+        result = _ADAPTER.enter_evaluating(_CYCLE, tmp_path)
         assert result["evaluate_round"] == 2
         loaded = load_workflow_state(ws)
         assert loaded["evaluate_round"] == "2"
 
+    def test_start_evaluating_state_only(self, tmp_path: Path):
+        ws = _seed_session(tmp_path)
+        init_drafting(ws, mode="tech")
+
+        result = start_evaluating(_CYCLE, tmp_path)
+
+        assert result["ok"] is True
+        assert result["current_state"] == "Evaluating"
+        loaded = load_workflow_state(ws)
+        assert loaded["current_state"] == "Evaluating"
+        assert not (ws.parent / "evaluate-state.md").exists()
+
     def test_idempotent_when_already_evaluating(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
         init_drafting(ws, mode="tech")
-        start_evaluating(_CYCLE, tmp_path)
+        _ADAPTER.enter_evaluating(_CYCLE, tmp_path)
         es_path = ws.parent / "evaluate-state.md"
         es = load_evaluate_state(es_path)
         es = merge_current_dimension(es, "e2", "in_progress", corpus=_corpus(tmp_path))

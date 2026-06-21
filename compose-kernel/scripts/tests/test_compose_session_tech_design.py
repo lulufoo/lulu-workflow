@@ -8,8 +8,11 @@ from pathlib import Path
 
 import bootstrap  # noqa: F401
 from bootstrap import CORE  # noqa: E402
+from workflow_paths import EVAL_SCRIPTS  # noqa: E402
 
 sys.path.insert(0, str(CORE))
+sys.path.insert(0, str(EVAL_SCRIPTS))
+from workflow_adapter_loader import load_adapter  # noqa: E402
 from compose_session import (  # noqa: E402
     eval_workflow_id,
     load_active_doc_for_profile,
@@ -67,11 +70,11 @@ class TestComposeSessionTechDesign:
         assert payload["profile_id"] == "tech-design"
         assert payload["next_stages"] == ["tech-plan"]
 
-    def test_start_evaluating_creates_evaluate_state(self, tmp_path: Path):
+    def test_adapter_enter_evaluating_creates_evaluate_state(self, tmp_path: Path):
         _seed_design_session(tmp_path)
-        result = start_evaluating(_CYCLE, tmp_path, profile_id=_PROFILE)
+        adapter = load_adapter(_PROFILE)
+        result = adapter.enter_evaluating(_CYCLE, tmp_path)
         assert result["ok"] is True
-        assert result["profile_id"] == "tech-design"
         es = (
             tmp_path
             / _CACHE

@@ -241,10 +241,16 @@ class ProductSpecEvalAdapter:
         cycle_id: str,
         project_root: Path,
     ) -> dict[str, Any]:
-        from session_evaluating import transition_to_evaluating  # noqa: WPS433
+        from eval_enter import init_evaluate_state_for_session  # noqa: WPS433
+        from session_evaluating import enter_evaluating_state  # noqa: WPS433
 
-        return transition_to_evaluating(
+        result = enter_evaluating_state(
             cycle_id,
             project_root,
             profile_id=_PROFILE["profile_id"],
         )
+        if not result.get("ok"):
+            return result
+        if result.get("transitioned"):
+            init_evaluate_state_for_session(self, cycle_id, project_root)
+        return result
