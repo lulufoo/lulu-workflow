@@ -40,8 +40,47 @@ _SCHEMA: list[dict[str, Any]] = [
     {"field": "document_preamble_addon", "type": "string", "required": False,
      "description": "Markdown appended after intent-registry document_preamble"},
     {"field": "blocks", "type": "object", "required": True,
-     "description": "block_key → { heading, intents[], reader_note? }"},
+     "description": "block_key → { heading, intents[], guidance, contract }"},
 ]
+
+
+def _normalize_contract(raw: Any) -> dict[str, list[str]]:
+    """Return normalized contract with required/forbidden string lists."""
+    if not isinstance(raw, dict):
+        return {"required": [], "forbidden": []}
+    result: dict[str, list[str]] = {}
+    for key in ("required", "forbidden"):
+        items = raw.get(key)
+        if not isinstance(items, list):
+            result[key] = []
+            continue
+        result[key] = [
+            str(item).strip()
+            for item in items
+            if str(item).strip()
+        ]
+    return result
+
+
+def _validate_block_contract(block_key: str, contract: Any) -> list[str]:
+    """Validate contract object shape for a block."""
+    errors: list[str] = []
+    if not isinstance(contract, dict):
+        errors.append(f"blocks.{block_key}.contract must be an object")
+        return errors
+    for key in ("required", "forbidden"):
+        items = contract.get(key)
+        if items is None:
+            continue
+        if not isinstance(items, list):
+            errors.append(f"blocks.{block_key}.contract.{key} must be a list when present")
+            continue
+        for index, item in enumerate(items):
+            if not str(item).strip():
+                errors.append(
+                    f"blocks.{block_key}.contract.{key}[{index}] must be a non-empty string"
+                )
+    return errors
 
 
 def get_schema() -> list[dict[str, Any]]:
@@ -158,11 +197,18 @@ def validate_outline_registry(data: dict[str, Any]) -> list[str]:
                     f"intent {intent_key!r} appears in more than one outline block"
                 )
             seen_intents.add(intent_key)
-        reader_note = entry.get("reader_note")
-        if reader_note is not None and (
-            not isinstance(reader_note, str) or not reader_note.strip()
-        ):
-            errors.append(f"blocks.{key}.reader_note must be a non-empty string when present")
+        guidance = entry.get("guidance")
+        if entry.get("reader_note") is not None:
+            errors.append(f"blocks.{key}.reader_note is not supported")
+            continue
+        if not isinstance(guidance, str) or not guidance.strip():
+            errors.append(f"blocks.{key}.guidance is required")
+            continue
+        contract = entry.get("contract")
+        if contract is None:
+            errors.append(f"blocks.{key}.contract is required")
+        else:
+            errors.extend(_validate_block_contract(key, contract))
 
     for key in blocks:
         if str(key).upper() not in order_keys:
@@ -183,9 +229,10 @@ def normalize_outline_registry(data: dict[str, Any]) -> dict[str, Any]:
             "heading": str(entry.get("heading", "")).strip(),
             "intents": intents,
         }
-        reader_note = entry.get("reader_note")
-        if isinstance(reader_note, str) and reader_note.strip():
-            normalized["reader_note"] = reader_note.strip()
+        guidance = entry.get("guidance")
+        if isinstance(guidance, str) and guidance.strip():
+            normalized["guidance"] = guidance.strip()
+            normalized["contract"] = _normalize_contract(entry.get("contract"))
         blocks[key] = normalized
     result: dict[str, Any] = {
         "version": "1",

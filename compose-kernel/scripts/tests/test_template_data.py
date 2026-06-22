@@ -80,6 +80,7 @@ LEGACY_SECTION_REGISTRY: dict[str, Any] = {
 
 OUTLINE_REGISTRY_FEATURE: dict[str, Any] = {
     "version": "1",
+    "$schema_id": "outline-schema",
     "cycle_type": "feature",
     "outline_order": ["OV", "BD", "DS", "PL", "VF"],
     "document_preamble_addon": (
@@ -89,28 +90,48 @@ OUTLINE_REGISTRY_FEATURE: dict[str, Any] = {
     "blocks": {
         "OV": {
             "heading": "Overview",
-            "intents": ["CTX", "GO", "SC"],
-            "reader_note": "Compact overview arc.",
+            "intents": ["CTX", "GO"],
+            "guidance": "Compact overview arc.",
+            "contract": {
+                "required": ["Completion criteria tied to the stated goal"],
+                "forbidden": ["Path inventories or scope tables"],
+            },
         },
         "BD": {
             "heading": "Boundaries",
-            "intents": ["NG", "I"],
-            "reader_note": "Exclusions and invariants.",
+            "intents": ["SC", "NG", "I"],
+            "guidance": "Exclusions and invariants.",
+            "contract": {
+                "required": ["Checkable invariants list"],
+                "forbidden": ["Architecture or design decisions"],
+            },
         },
         "DS": {
             "heading": "Design",
             "intents": ["AR", "KD"],
-            "reader_note": "Structure and decisions.",
+            "guidance": "Structure and decisions.",
+            "contract": {
+                "required": ["[E] Interface Contract block when module boundaries appear"],
+                "forbidden": ["Task decomposition or checkbox steps"],
+            },
         },
         "PL": {
             "heading": "Implementation Plan",
             "intents": ["SK", "T"],
-            "reader_note": "Execution thread.",
+            "guidance": "Execution thread.",
+            "contract": {
+                "required": ["SK opens with Execution arc lead-in before the phase table"],
+                "forbidden": ["Prose-only task lists without checkbox steps"],
+            },
         },
         "VF": {
             "heading": "Verification",
             "intents": ["VF"],
-            "reader_note": "Verify AC and tasks.",
+            "guidance": "Verify AC and tasks.",
+            "contract": {
+                "required": ["AC-to-task-id traceability"],
+                "forbidden": ["Implementation steps or execution instructions"],
+            },
         },
     },
 }

@@ -17,7 +17,8 @@ section_body = Write( I* ; F ; C )  |  intent
 | Form | `F` | outline + domain + role + intent | How content is carried and organized |
 | Expression | `C` | `### Role Fields` + domain + intent + F | How to write inside F |
 | Envelope | `intent` | section-registry (`intent` + `intent_boundary`) | What belongs in this intent slice |
-| Outline | `reader_note` | outline-registry (feature only) | Block-level presentation guidance |
+| Outline | `guidance` | outline-registry (feature only) | Block-level form and presentation guidance for F derivation |
+| Outline | `contract` | outline-registry (feature only) | Structural required/forbidden constraints for C derivation |
 
 `I* = I*_scope ∪ I*_impl` (either list may be empty).
 
@@ -25,7 +26,7 @@ section_body = Write( I* ; F ; C )  |  intent
 
 **Intent text:** Use `sections.{key}.intent` when present; else `sections.{key}.desc` (legacy).
 
-**F priority (conflict resolution):** outline `reader_note` (feature) > domain `expression_conventions` > role `expressive_tendency` > intent text. `intent_boundary` defers substance to other intents — do not repeat it in body.
+**F priority (conflict resolution):** outline `guidance` (feature) > domain `expression_conventions` > role `expressive_tendency` > intent text. `intent_boundary` defers substance to other intents — do not repeat it in body.
 
 ## Content (I*) — scope vs implementation
 
@@ -48,18 +49,18 @@ F describes how a section's content is carried and organized. It has three field
 
 - `carrier` — the primary container type for the content (the main vehicle through which information is presented)
 - `structure` — the internal organization of the carrier: layout, hierarchy, diagram type and its communicative purpose
-- `forbidden` — forms explicitly excluded for this section, derived from intent_boundary, outline reader_note, and derivation conflicts
+- `forbidden` — forms explicitly excluded for this section, derived from intent_boundary, outline `guidance`, and derivation conflicts
 
-All three fields are derived natural-language descriptions, not enum values. F is derived per section; its value depends on outline reader_note (feature), domain conventions, role expressive tendency, and intent — in that priority order when they conflict.
+All three fields are derived natural-language descriptions, not enum values. F is derived per section; its value depends on outline `guidance` (feature), domain conventions, role expressive tendency, and intent — in that priority order when they conflict.
 
 ## Expression (C) — definition
 
 C is the set of writing constraints that govern how content is expressed inside F. It is a collection of `(d, c)` pairs where:
 
 - `d` — the writing dimension (e.g., granularity, vocabulary, abstraction level, tone, completeness bar)
-- `c` — the criterion for that dimension, derived from `### Role Fields`, domain instance, intent, outline reader_note, or `expression_conventions` (including codebase-grounding clauses)
+- `c` — the criterion for that dimension, derived from `### Role Fields`, domain instance, intent, outline `guidance`, outline `contract.required`/`contract.forbidden`, or `expression_conventions` (including codebase-grounding clauses)
 
-C has 2–5 pairs per section. Every `c` must be traceable to a specific `### Role Fields` field, `expression_conventions`, outline `reader_note`, or intent clause; no pair is invented without grounding in these sources.
+C has 2–5 pairs per section. Every `c` must be traceable to a specific `### Role Fields` field, `expression_conventions`, outline `guidance`, outline `contract`, or intent clause; no pair is invented without grounding in these sources.
 
 ## Constraints
 

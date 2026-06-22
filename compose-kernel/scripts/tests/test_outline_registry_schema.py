@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from outline_registry_schema import (  # noqa: E402
     get_schema,
     load_outline_registry,
+    normalize_outline_registry,
     validate_outline_registry,
 )
 from test_template_data import OUTLINE_REGISTRY_FEATURE  # noqa: E402
@@ -40,9 +41,47 @@ def test_outline_order_and_intent_map(outline_path: Path):
         for intent in loaded["blocks"][block]["intents"]
     }
     assert intent_map["CTX"] == "OV"
+    assert intent_map["SC"] == "BD"
     assert intent_map["T"] == "PL"
     assert intent_map["VF"] == "VF"
     assert len(intent_map) == 10
+
+
+def test_normalize_preserves_guidance_and_contract():
+    loaded = normalize_outline_registry(OUTLINE_REGISTRY_FEATURE)
+    pl = loaded["blocks"]["PL"]
+    assert pl["guidance"] == "Execution thread."
+    assert pl["contract"]["required"] == [
+        "SK opens with Execution arc lead-in before the phase table"
+    ]
+    assert pl["contract"]["forbidden"] == [
+        "Prose-only task lists without checkbox steps"
+    ]
+
+
+def test_validate_rejects_reader_note():
+    payload = {
+        "version": "1",
+        "outline_order": ["OV"],
+        "blocks": {
+            "OV": {
+                "heading": "Overview",
+                "intents": ["CTX"],
+                "reader_note": "Legacy note.",
+            },
+        },
+    }
+    errors = validate_outline_registry(payload)
+    assert any("reader_note is not supported" in err for err in errors)
+
+
+def test_validate_rejects_invalid_contract():
+    payload = dict(OUTLINE_REGISTRY_FEATURE)
+    payload["blocks"] = dict(payload["blocks"])
+    payload["blocks"]["PL"] = dict(payload["blocks"]["PL"])
+    payload["blocks"]["PL"]["contract"] = {"required": [""]}
+    errors = validate_outline_registry(payload)
+    assert any("contract.required[0]" in err for err in errors)
 
 
 def test_validate_rejects_duplicate_intent():
