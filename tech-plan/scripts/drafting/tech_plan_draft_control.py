@@ -150,16 +150,21 @@ def _validate_compose_doc_seeded(compose_doc: Path, project_root: Path) -> str |
     if not compose_doc.exists():
         return f"compose document not found: {compose_doc}"
     from section_registry_schema import section_order  # noqa: WPS433
-    from compose_doc_schema import section_body_by_key  # noqa: WPS433
+    from compose_doc_schema import section_body_by_key, section_display_heading  # noqa: WPS433
 
     raw = compose_doc.read_text(encoding="utf-8")
     empty: list[str] = []
+    untitled: list[str] = []
     for key in section_order(project_root):
         body = section_body_by_key(raw, key, project_root=project_root).strip()
         if not body:
             empty.append(key)
+        elif not section_display_heading(raw, key, project_root=project_root).strip():
+            untitled.append(key)
     if empty:
         return f"compose document sections with empty body: {', '.join(empty)}"
+    if untitled:
+        return f"compose document sections missing display title: {', '.join(untitled)}"
     return None
 
 

@@ -8,6 +8,9 @@ Sequential synthesis (not independent factors):
 
 ```text
 section_body = Write( I* ; F ; C )  |  intent
+
+display_title = specialize( sections.{key}.heading ; substance(content) )
+  — presentation layer only; not part of body
 ```
 
 | Factor | Symbol | Source | Role |
@@ -19,10 +22,11 @@ section_body = Write( I* ; F ; C )  |  intent
 | Envelope | `intent` | section-registry (`intent` + `intent_boundary`) | What belongs in this intent slice |
 | Outline | `guidance` | outline-registry (feature only) | Block-level form and presentation guidance for F derivation |
 | Outline | `contract` | outline-registry (feature only) | Structural required/forbidden constraints for C derivation |
+| Display title | `display_title` | `sections.{key}.heading` + `I*_scope` / content substance | H3 label on intent anchor line (feature) or H2 (topic) |
 
 `I* = I*_scope ∪ I*_impl` (either list may be empty).
 
-**Order (strict):** Filter `I*` → Derive `F` → Derive `C` → Write body.
+**Order (strict):** Filter `I*` → Derive `F` → Derive `C` → Write body → Derive display title.
 
 **Intent text:** Use `sections.{key}.intent` when present; else `sections.{key}.desc` (legacy).
 
@@ -72,3 +76,4 @@ C has 2–5 pairs per section. Every `c` must be traceable to a specific `### Ro
 - `I*_scope` that adds capabilities, scope, or boundaries not in decision-doc
 - `I*_impl` without verified codebase read, or that adds capabilities beyond decision-doc
 - speculative paths, APIs, or behavior not grounded in decision or read code
+- verbatim `sections.{key}.heading` as document display title (infer via `display_title` instead)

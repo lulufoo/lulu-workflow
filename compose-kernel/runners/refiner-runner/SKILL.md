@@ -37,13 +37,15 @@ GAP_ITEM_ID, COMPOSE_DOC_PATH
 
 For intent gaps, read decision-doc from `$CTX.decision_doc_path` and locate the paragraph(s) behind `intent_criteria.decision_intent`.
 
+For display-title updates: `$FETCH_COMPOSE section-registry` → `sections.{section_key}.heading` as type anchor (same rules as initializing-runner I2e).
+
 ## Step 3 — Draft
 
 ### KW (`scope: subsection`)
 
 Preserve sub-section content; satisfy Target criteria.
 
-Optional: when section is still a registry placeholder title, propose a content-derived display title for the H2 line.
+When editing an intent block (`<!-- section-key:… -->`), re-derive `display_title` from `sections.{key}.heading` + updated body (initializing-runner I2e rules).
 
 ### Upstream (`scope: section`)
 
@@ -63,7 +65,8 @@ Read full active section body + decision-doc relevant passages + section kw bloc
 ## Step 5 — Write
 
 1. Write confirmed content to `COMPOSE_DOC_PATH` within the section located by `<!-- section-key:{section_key} -->`.
-   - You may change the H2 display text before the anchor comment.
+   - **Feature docs:** keep or update `### {display_title} <!-- section-key:{section_key} -->` on the anchor line.
+   - **Topic docs:** you may change the H2 display text before the anchor comment.
    - **Never remove or alter** `<!-- section-key:… -->`.
 2. `write-refiner-artifact --json …`
 3. `update-gap-status --status resolved`

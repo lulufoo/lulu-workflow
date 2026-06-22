@@ -15,10 +15,10 @@ Use `$COMPOSE_PROFILE` from parent dispatch; kernel default applies only when om
 
 ## Scope
 
-Steps I1–I4 only:
+Steps I1–I4 only (I2 includes I2e):
 
 1. Load decision-doc, narrow codebase context, section-registry (with `intent`), outline-registry when `$CYCLE_TYPE` is `feature`, section-kw-criteria, and Plan Scope Constraints.
-2. Compose each section body: Filter `I*` → Derive `F` → Derive `C` → Write body (see Theory).
+2. Compose each section: Filter `I*` → Derive `F` → Derive `C` → Write body → Derive display title (see Theory).
 3. Optionally write R0 rows to anchor-ledger.
 4. Write `$OUTPUT_DOC_PATH` (or `{REVISION_DIR}/tech-doc.md` when `OUTPUT_DOC_PATH` is absent).
 
@@ -28,7 +28,7 @@ Do not ask the user questions. Do not run InDialogue, Reopen, Evaluating, or del
 
 See [`../../references/compose-theory.md`](../../references/compose-theory.md).
 
-**Order (strict):** I2a Filter `I*` → I2b Derive `F` → I2c Derive `C` → I2d Write body.
+**Order (strict):** I2a Filter `I*` → I2b Derive `F` → I2c Derive `C` → I2d Write body → I2e Derive display title.
 
 ## Parent-Provided Inputs
 
@@ -74,10 +74,11 @@ Do **not** fetch `decision-doc-mapping` or spec-template URLs.
 ```text
 fill_results[section_key] = {
   content: "",
+  display_title: "",
   status: "X"
 }
 ```
-### Step I2 — Compose (per `section_key`, strict I2a → I2d)
+### Step I2 — Compose (per `section_key`, strict I2a → I2e)
 
 For each key in `section_order`:
 
@@ -121,6 +122,14 @@ F.forbidden: <derived from intent_boundary + forms eliminated in L1/L2>
 - Set `fill_results[section_key].content` to the section markdown body (no H2 line).
 - Keep `status: "X"`.
 
+#### I2e — Derive display title
+
+- **Input:** `sections.{key}.heading` · `fill_results[section_key].content` · `I*_scope` (not `I*_impl` paths/APIs)
+- **Action:** Infer a short localized chapter title: use `heading` as type anchor; extract one domain theme from content substance; combine (~8–20 chars); distinguish sibling intents in the same outline block
+- **Forbidden:** verbatim registry `heading`; file paths; API names; copying the first body sentence
+- **Output:** `fill_results[section_key].display_title`; empty content → `（待补）`
+- Keep `status: "X"`.
+
 ### Step I3 — Ancillary (optional)
 
 - R0-grade User Prior / Known Constraints → `anchor-ledger.md` (`Committed at Round = 0`). Include codebase reference paths from I1 when used. Do not stack `[Anchored]` in body.
@@ -128,8 +137,8 @@ F.forbidden: <derived from intent_boundary + forms eliminated in L1/L2>
 ### Step I4 — Write document
 
 1. **Preamble:** `document_preamble` with placeholders substituted. When `$CYCLE_TYPE` is `feature`, append `document_preamble_addon` from outline-registry after substitution.
-2. **Feature assembly (`$CYCLE_TYPE` is `feature`):** For each key in `outline_order`, write `## {blocks.{key}.heading}` then for each intent in `blocks.{key}.intents` write `<!-- section-key:{intent} -->` on its own line followed by `fill_results[intent].content`. Separate outline blocks with `---` when not the last block.
-3. **Topic assembly:** For each key in `section_order`, write `heading_line` + `fill_results[section_key].content`.
+2. **Feature assembly (`$CYCLE_TYPE` is `feature`):** For each key in `outline_order`, write `## {blocks.{key}.heading}` then for each intent in `blocks.{key}.intents` write `### {fill_results[intent].display_title} <!-- section-key:{intent} -->`, a blank line, then `fill_results[intent].content`. Separate outline blocks with `---` when not the last block.
+3. **Topic assembly:** For each key in `section_order`, write `## {fill_results[section_key].display_title} <!-- section-key:{section_key} -->`, a blank line, then `fill_results[section_key].content`.
 4. Write the assembled document to `$OUTPUT_DOC_PATH`.
 5. All sections remain draft (`X`) until Round probe (when Round is wired).
 

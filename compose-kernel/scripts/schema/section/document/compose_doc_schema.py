@@ -2,7 +2,7 @@
 """Authoritative read helpers for profile compose documents (section-keyed markdown).
 
 Section bodies are located by `<!-- section-key:KEY -->` anchors (preferred):
-either on the H2 line (legacy 10-H2) or inside outline blocks (feature 5-H2).
+on H2 (topic / legacy), or on H3 inside outline H2 blocks (feature).
 Legacy registry heading match is a final fallback.
 
 CLI:
@@ -49,10 +49,14 @@ _SECTION_KEY_ANCHOR_RE = re.compile(
     re.IGNORECASE,
 )
 _SECTION_HEADER_WITH_KEY_RE = re.compile(
-    r"^##\s+(.*?)\s*<!--\s*section-key:\s*([A-Za-z0-9_]+)\s*-->\s*$",
+    r"^#{2,3}\s+(.*?)\s*<!--\s*section-key:\s*([A-Za-z0-9_]+)\s*-->\s*$",
     re.MULTILINE | re.IGNORECASE,
 )
 _H2_RE = re.compile(r"^##\s+", re.MULTILINE)
+_H3_WITH_KEY_RE = re.compile(
+    r"^###\s+.*<!--\s*section-key:",
+    re.MULTILINE | re.IGNORECASE,
+)
 
 
 def get_schema() -> list[dict]:
@@ -120,19 +124,48 @@ def format_section_heading(section_key: str, display_title: str) -> str:
     return f"## {title} <!-- section-key:{key} -->"
 
 
+def format_section_intent_heading(section_key: str, display_title: str) -> str:
+    """Return H3 line with stable section-key anchor for feature outline-block assembly."""
+    key = section_key.strip().upper()
+    title = display_title.strip() or "（待补）"
+    return f"### {title} <!-- section-key:{key} -->"
+
+
 def format_section_intent_anchor(section_key: str) -> str:
-    """Return intent anchor comment for outline-block assembly."""
+    """Return intent anchor comment for outline-block assembly (legacy bare anchor)."""
     key = section_key.strip().upper()
     return f"<!-- section-key:{key} -->"
+
+
+def _display_heading_from_anchor_line(body: str, match: re.Match[str]) -> str:
+    """Extract display title when anchor sits on or immediately follows an H2/H3 header line."""
+    line_start = body.rfind("\n", 0, match.start()) + 1
+    line_end = body.find("\n", match.start())
+    if line_end == -1:
+        line_end = len(body)
+    line = body[line_start:line_end]
+    header_match = _SECTION_HEADER_WITH_KEY_RE.match(line)
+    if header_match and header_match.group(2).upper() == match.group(1).upper():
+        return header_match.group(1).strip()
+    prev = body[:line_start].rstrip("\n")
+    if not prev:
+        return ""
+    prev_line = prev.rsplit("\n", 1)[-1]
+    prev_match = _SECTION_HEADER_WITH_KEY_RE.match(prev_line)
+    if prev_match and prev_match.group(2).upper() == match.group(1).upper():
+        return prev_match.group(1).strip()
+    return ""
 
 
 def _next_boundary(body: str, start: int, anchor_positions: list[int]) -> int:
     """Return end offset for section body starting at start."""
     next_h2 = _H2_RE.search(body, start)
     h2_pos = next_h2.start() if next_h2 else len(body)
+    next_h3 = _H3_WITH_KEY_RE.search(body, start)
+    h3_pos = next_h3.start() if next_h3 else len(body)
     later_anchors = [pos for pos in anchor_positions if pos > start]
     anchor_pos = later_anchors[0] if later_anchors else len(body)
-    return min(h2_pos, anchor_pos)
+    return min(h2_pos, h3_pos, anchor_pos)
 
 
 def _parse_sections_by_intent_anchors(
@@ -147,18 +180,8 @@ def _parse_sections_by_intent_anchors(
     anchor_positions = [match.start() for match in anchor_matches]
     for index, match in enumerate(anchor_matches):
         key = match.group(1).upper()
-        line_start = body.rfind("\n", 0, match.start()) + 1
-        line_end = body.find("\n", match.start())
-        if line_end == -1:
-            line_end = len(body)
-        line = body[line_start:line_end]
-        h2_match = _SECTION_HEADER_WITH_KEY_RE.match(line)
-        if h2_match:
-            display = h2_match.group(1).strip()
-            start = match.end()
-        else:
-            display = ""
-            start = match.end()
+        display = _display_heading_from_anchor_line(body, match)
+        start = match.end()
         end = _next_boundary(body, start, anchor_positions)
         sections[key] = {
             "display_heading": display,
@@ -211,11 +234,16 @@ def section_display_heading(
     *,
     project_root: Path | None = None,
 ) -> str:
-    """Return human display title for a section (from anchor or registry fallback)."""
+    """Return human display title for a section (from document anchor line)."""
     key = section_key.strip().upper()
     parsed = parse_sections(text, project_root=project_root)
     if key in parsed:
-        return parsed[key]["display_heading"]
+        heading = parsed[key]["display_heading"]
+        if heading:
+            return heading
+    body = _strip_frontmatter(text)
+    if _SECTION_KEY_ANCHOR_RE.search(body):
+        return ""
     return section_heading(key, project_root=project_root)
 
 

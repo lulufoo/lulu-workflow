@@ -15,7 +15,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from section_registry_schema import section_heading, summary_section_key  # noqa: E402
-from compose_doc_schema import format_section_heading  # noqa: E402
+from compose_doc_schema import format_section_heading, format_section_intent_heading  # noqa: E402
 from test_registry_fixtures import fourth_section_key  # noqa: E402
 from compose_doc_schema import (  # noqa: E402
     extract_presentation,
@@ -132,22 +132,29 @@ class TestSectionKeyAnchors:
         assert section_body_by_key(raw, key) == "Legacy body."
 
     def test_outline_block_intent_anchors(self, tmp_path: Path):
-        from compose_doc_schema import parse_sections, section_body_by_key
+        from compose_doc_schema import (
+            parse_sections,
+            section_body_by_key,
+            section_display_heading,
+        )
 
         doc = """---
 ---
 
 ## Overview
 
-<!-- section-key:CTX -->
+### 现状与代码入口 <!-- section-key:CTX -->
+
 Context body.
 
-<!-- section-key:GO -->
+### 迁移后的目标形态 <!-- section-key:GO -->
+
 Goal body.
 
 ## Boundaries
 
-<!-- section-key:NG -->
+### 迁移相关的排除项 <!-- section-key:NG -->
+
 Non-goals body.
 """
         raw = doc
@@ -156,8 +163,19 @@ Non-goals body.
         assert section_body_by_key(raw, "CTX") == "Context body."
         assert section_body_by_key(raw, "GO") == "Goal body."
         assert section_body_by_key(raw, "NG") == "Non-goals body."
-        assert parsed["CTX"]["display_heading"] == ""
-        assert parsed["NG"]["display_heading"] == ""
+        assert parsed["CTX"]["display_heading"] == "现状与代码入口"
+        assert parsed["NG"]["display_heading"] == "迁移相关的排除项"
+        assert section_display_heading(raw, "GO") == "迁移后的目标形态"
+
+    def test_format_section_intent_heading(self):
+        line = format_section_intent_heading("sc", "沉淀库改造的变更范围")
+        assert line == "### 沉淀库改造的变更范围 <!-- section-key:SC -->"
+
+    def test_bare_anchor_legacy_display_heading_empty(self, tmp_path: Path):
+        from compose_doc_schema import section_display_heading
+
+        doc = "## Boundaries\n\n<!-- section-key:SC -->\nBody.\n"
+        assert section_display_heading(doc, "SC") == ""
 
 
 class TestResolveFromCycle:

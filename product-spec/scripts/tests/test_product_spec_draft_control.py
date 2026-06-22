@@ -63,7 +63,7 @@ def _minimal_product_doc(*, section_order: list[str] | None = None) -> str:
     order = section_order or _SECTION_ORDER
     blocks = []
     for key in order:
-        blocks.append(f"<!-- section-key:{key} -->\nBody for {key}.")
+        blocks.append(f"### {key} section title <!-- section-key:{key} -->\n\nBody for {key}.")
     return "# Product\n\n" + "\n\n".join(blocks) + "\n"
 
 
@@ -120,7 +120,8 @@ class TestProductSpecDraftControl:
         _seed_product_registry(tmp_path, section_order=["PB", "GO"])
         revision = _seed_session(tmp_path)
         (revision / "product-doc.md").write_text(
-            "<!-- section-key:PB -->\n\n<!-- section-key:GO -->\nHas body\n",
+            "### PB title <!-- section-key:PB -->\n\n"
+            "### GO title <!-- section-key:GO -->\n\nHas body\n",
             encoding="utf-8",
         )
         result = init_complete(_CYCLE, tmp_path)

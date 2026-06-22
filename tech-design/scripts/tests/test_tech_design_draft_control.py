@@ -66,7 +66,7 @@ def _seed_design_registry(
 def _minimal_design_doc() -> str:
     blocks = []
     for key in _DESIGN_ORDER:
-        blocks.append(f"<!-- section-key:{key} -->\nBody for {key}.")
+        blocks.append(f"### {key} section title <!-- section-key:{key} -->\n\nBody for {key}.")
     return "# Design\n\n" + "\n\n".join(blocks) + "\n"
 
 
@@ -123,7 +123,8 @@ class TestTechDesignDraftControl:
         _seed_design_registry(tmp_path, section_order=["CTX", "GO"])
         revision = _seed_session(tmp_path)
         (revision / "design-doc.md").write_text(
-            "<!-- section-key:CTX -->\n\n<!-- section-key:GO -->\nHas body\n",
+            "### CTX title <!-- section-key:CTX -->\n\n"
+            "### GO title <!-- section-key:GO -->\n\nHas body\n",
             encoding="utf-8",
         )
         result = init_complete(_CYCLE, tmp_path)

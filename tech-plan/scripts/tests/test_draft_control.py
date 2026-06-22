@@ -131,6 +131,25 @@ class TestInitComplete:
         assert result["ok"] is False
         assert "empty body" in result["reason"]
 
+    def test_fails_when_section_missing_display_title(self, tmp_path: Path):
+        from section_registry_schema import section_order  # noqa: WPS433
+
+        revision = _seed_session(tmp_path)
+        key = first_section_key()
+        lines = ["---\n"]
+        for section_key in section_order():
+            if section_key == key:
+                lines.append(f"\n<!-- section-key:{section_key} -->\n\nBody.\n")
+            else:
+                lines.append(
+                    f"\n### Title for {section_key} <!-- section-key:{section_key} -->\n\n"
+                    f"{section_key} body.\n"
+                )
+        (revision / "tech-doc.md").write_text("".join(lines), encoding="utf-8")
+        result = init_complete(_CYCLE, tmp_path)
+        assert result["ok"] is False
+        assert "missing display title" in result["reason"]
+
     def test_idempotent_when_already_ready(self, tmp_path: Path):
         revision = _seed_session(tmp_path)
         _write_compose_doc(revision)
