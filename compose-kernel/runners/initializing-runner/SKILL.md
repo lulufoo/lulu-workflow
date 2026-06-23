@@ -56,26 +56,17 @@ All compose and scope macros (`$FETCH_COMPOSE`, `$RESOLVE_PLAN_ROLE`, `$RESOLVE_
 
 ### Step I1 — Load
 
-1. Run `$RESOLVE_PLAN_ROLE` with `$CYCLE_ID` and `--profile $COMPOSE_PROFILE`; read stdout as Plan Scope Constraints; keep `### Role` and `### Role Fields`.
-2. Run `$RESOLVE_DOMAIN` with `$CYCLE_ID` and `--profile $COMPOSE_PROFILE`; read stdout; keep as `domain instance`.
-3. Run `$FETCH_COMPOSE section-registry --profile $COMPOSE_PROFILE`; parse JSON. Cache `section_order`, `document_preamble`, `sections.{key}.heading`, `sections.{key}.intent` (fallback `desc`), `sections.{key}.intent_boundary`.
-4. Run `$FETCH_COMPOSE outline-registry --profile $COMPOSE_PROFILE`; cache `outline_order`, `blocks.{key}.heading`, `blocks.{key}.intents`, `blocks.{key}.guidance`, `blocks.{key}.contract`, `document_preamble_addon`.
-5. Run `$FETCH_COMPOSE section-kw-criteria --profile $COMPOSE_PROFILE`; cache each `## {section_key}` block.
-6. Read `$SCOPE_DOC_PATH` **full text** once; keep in memory for all sections.
-7. Initialize `fill_results` from `section_order`: each entry has `content`, `status: "X"`, internal `draft: true`.
-8. **Codebase read scope** — parse from scope doc Impact Surface, Implementation Sketch, and explicit reference implementations (paths, modules, or globs). Do not scan the whole repo.
-9. **Codebase context** — read only scoped files under `$PROJECT_ROOT`; keep structural facts (paths, entry points, dialog patterns, vendor layout, public symbols). Skip when scope is empty.
-10. When `$CYCLE_TYPE` is `feature` and codebase context is non-empty, note reference paths for I3 anchor-ledger R0 (`Ref: {path}`).
+1. `$RESOLVE_PLAN_ROLE` → Plan Scope Constraints (`### Role`, `### Role Fields`).
+2. `$RESOLVE_DOMAIN` → `domain instance`.
+3. `$FETCH_COMPOSE section-registry` (JSON) → `section_order`, `document_preamble`, per-section `heading` / `intent` (else `desc`) / `intent_boundary`.
+4. `$FETCH_COMPOSE outline-registry` → `outline_order`, per-block `heading` / `intents` / `guidance` / `contract`, `document_preamble_addon`.
+5. `$FETCH_COMPOSE section-kw-criteria` → each `## {section_key}` block.
+6. Read `$SCOPE_DOC_PATH` full text once (shared across I2).
+7. Init `fill_results` from `section_order` (`content: ""`, `display_title: ""`, `status: "X"`, draft).
+8. If `$CYCLE_TYPE` is `feature` and codebase context exists → note `Ref: {path}` for I3 R0.
 
-Do **not** fetch `decision-doc-mapping` or spec-template URLs.
+Do **not** fetch spec-template URLs.
 
-```text
-fill_results[section_key] = {
-  content: "",
-  display_title: "",
-  status: "X"
-}
-```
 ### Step I2 — Compose (per `section_key`, strict I2a → I2e)
 
 For each key in `section_order`:
