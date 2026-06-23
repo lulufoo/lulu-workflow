@@ -35,7 +35,7 @@ def test_get_schema_includes_outline_order():
 
 def test_outline_order_and_intent_map(outline_path: Path):
     loaded = load_outline_registry(outline_path)
-    assert loaded["outline_order"] == ["OV", "BD", "DS", "PL", "VF"]
+    assert loaded["outline_order"] == ["OV", "BD", "DS", "IV", "PL", "VF"]
     intent_map = {
         intent: block
         for block in loaded["outline_order"]
@@ -43,6 +43,7 @@ def test_outline_order_and_intent_map(outline_path: Path):
     }
     assert intent_map["CTX"] == "OV"
     assert intent_map["SC"] == "BD"
+    assert intent_map["I"] == "IV"
     assert intent_map["T"] == "PL"
     assert intent_map["VF"] == "VF"
     assert len(intent_map) == 10
@@ -51,9 +52,9 @@ def test_outline_order_and_intent_map(outline_path: Path):
 def test_normalize_preserves_guidance_and_contract():
     loaded = normalize_outline_registry(OUTLINE_REGISTRY_FEATURE)
     pl = loaded["blocks"]["PL"]
-    assert pl["guidance"] == "Execution thread."
+    assert pl["guidance"] == "Single execution thread: SK H3 before T H3."
     assert pl["contract"]["required"] == [
-        "SK opens with Execution arc lead-in before the phase table"
+        "SK opens with Execution arc lead-in before the phase table",
     ]
     assert pl["contract"]["forbidden"] == [
         "Prose-only task lists without checkbox steps"

@@ -108,6 +108,33 @@ def test_append_intent_sequence(doc_path: Path):
     assert raw.index("---") < raw.index("## Boundaries")
 
 
+def test_append_intent_invariants_block_after_design(doc_path: Path):
+    """I maps to IV block; persists after AR/KD with its own H2 heading."""
+    outline = OUTLINE_REGISTRY_FEATURE
+    init_doc(doc_path, preamble="# Feature\n\n", preamble_addon="addon\n\n")
+    for key, title, body in [
+        ("CTX", "Context", "ctx"),
+        ("GO", "Goal", "goal"),
+        ("SC", "Scope", "scope"),
+        ("NG", "Non-Goals", "ng"),
+        ("AR", "Architecture", "ar"),
+        ("KD", "Decisions", "kd"),
+        ("I", "Invariants", "inv"),
+    ]:
+        append_intent(
+            doc_path,
+            section_key=key,
+            display_title=title,
+            body=body,
+            outline=outline,
+        )
+    raw = doc_path.read_text(encoding="utf-8")
+    assert raw.index("## Design") < raw.index("## Invariants")
+    assert raw.index("## Invariants") < raw.index("### Invariants <!-- section-key:I -->")
+    assert "## Boundaries" in raw
+    assert raw.count("## Boundaries") == 1
+
+
 def test_append_intent_rejects_duplicate_anchor(doc_path: Path):
     init_doc(doc_path, preamble="# Plan\n\n")
     outline = OUTLINE_REGISTRY_FEATURE

@@ -82,43 +82,54 @@ OUTLINE_REGISTRY_FEATURE: dict[str, Any] = {
     "version": "1",
     "$schema_id": "outline-schema",
     "cycle_type": "feature",
-    "outline_order": ["OV", "BD", "DS", "PL", "VF"],
+    "outline_order": ["OV", "BD", "DS", "IV", "PL", "VF"],
     "document_preamble_addon": (
-        "**Outline:** Overview → Boundaries → Design → Implementation Plan → Verification. "
-        "Probes resolve intent by `<!-- section-key:… -->` anchors inside each block.\n\n"
+        "**Reading arc (execution-first):** Overview → Boundaries → Design → Invariants → "
+        "Implementation Plan → Verification. Each H2 block is one reading step for the next "
+        "executor. Probes and refiner writes resolve by `<!-- section-key:… -->` anchors "
+        "inside blocks.\n\n"
     ),
     "blocks": {
         "OV": {
             "heading": "Overview",
             "intents": ["CTX", "GO"],
-            "guidance": "Compact overview arc.",
+            "guidance": "One compact opening arc; CTX H3 before GO H3; no scope tables or architecture in this block.",
             "contract": {
-                "required": ["Completion criteria tied to the stated goal"],
-                "forbidden": ["Path inventories or scope tables"],
+                "required": ["Two H3 intents in narrative order (context before goal)"],
+                "forbidden": ["Path inventories or scope tables (belongs in BD)"],
             },
         },
         "BD": {
             "heading": "Boundaries",
-            "intents": ["SC", "NG", "I"],
-            "guidance": "Exclusions and invariants.",
+            "intents": ["SC", "NG"],
+            "guidance": "Two H3 intents as scope box: surfaces in play, then exclusions; tables preferred over prose when enumerating.",
             "contract": {
-                "required": ["Checkable invariants list"],
-                "forbidden": ["Architecture or design decisions"],
+                "required": ["H3 order: SC → NG"],
+                "forbidden": ["Checkable invariants list (belongs in IV)"],
             },
         },
         "DS": {
             "heading": "Design",
             "intents": ["AR", "KD"],
-            "guidance": "Structure and decisions.",
+            "guidance": "Two H3 intents: structure before decisions.",
             "contract": {
-                "required": ["[E] Interface Contract block when module boundaries appear"],
-                "forbidden": ["Task decomposition or checkbox steps"],
+                "required": ["H3 order: AR → KD"],
+                "forbidden": ["Task decomposition or checkbox steps (belongs in PL)"],
+            },
+        },
+        "IV": {
+            "heading": "Invariants",
+            "intents": ["I"],
+            "guidance": "Single I H3; checkable invariant list as primary carrier.",
+            "contract": {
+                "required": ["Checkable invariants as a list"],
+                "forbidden": ["Phase tables or checkbox steps (belongs in PL)"],
             },
         },
         "PL": {
             "heading": "Implementation Plan",
             "intents": ["SK", "T"],
-            "guidance": "Execution thread.",
+            "guidance": "Single execution thread: SK H3 before T H3.",
             "contract": {
                 "required": ["SK opens with Execution arc lead-in before the phase table"],
                 "forbidden": ["Prose-only task lists without checkbox steps"],
@@ -127,10 +138,10 @@ OUTLINE_REGISTRY_FEATURE: dict[str, Any] = {
         "VF": {
             "heading": "Verification",
             "intents": ["VF"],
-            "guidance": "Verify AC and tasks.",
+            "guidance": "Single VF H3; checklist or table as primary carrier.",
             "contract": {
                 "required": ["AC-to-task-id traceability"],
-                "forbidden": ["Implementation steps or execution instructions"],
+                "forbidden": ["Implementation steps or execution instructions (belongs in PL)"],
             },
         },
     },
