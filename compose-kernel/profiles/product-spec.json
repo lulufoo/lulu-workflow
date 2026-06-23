@@ -26,9 +26,6 @@
     "adapter_module": "product-spec/scripts/eval/product_spec_eval_adapter.py",
     "adapter_class": "ProductSpecEvalAdapter"
   },
-  "upstream_ssot": {
-    "decision_doc_rel": "product/diagnostic/decision-doc.md"
-  },
   "delivery_index": {
     "layout": "revision",
     "state_file": "workflow-state.md",

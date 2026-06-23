@@ -38,7 +38,7 @@ class StartAdapter(Protocol):
         run_mode: str = "tech",
         carry_forward_ref: str = "",
     ) -> list[DeliveredRef]:
-        """Ordered scope SSOT refs: [0]=primary; [1]+ optional attachments (unused by kernel v1)."""
+        """Ordered compose intent SSOT refs (typically one ref: scope_refs[0])."""
 
     def post_start_guidance(
         self,

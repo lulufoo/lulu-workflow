@@ -26,12 +26,6 @@
     "adapter_module": "tech-plan/scripts/eval/tech_plan_eval_adapter.py",
     "adapter_class": "TechPlanEvalAdapter"
   },
-  "upstream_ssot": {
-    "decision_doc_rel": "tech/diagnostic/decision-doc.md",
-    "supplementary_refs": [
-      { "type": "tech-design", "ctx_key": "design_doc_path" }
-    ]
-  },
   "delivery_index": {
     "layout": "revision",
     "state_file": "workflow-state.md",

@@ -43,7 +43,7 @@ def _seed_registry_cache(project_root: Path) -> None:
 
 def _setup_cycle(tmp_path: Path) -> Path:
     _seed_registry_cache(tmp_path)
-    cycle_dir = tmp_path / _CYCLE_ID
+    cycle_dir = tmp_path / ".cache/cursor/lulu-dev-workflow" / _CYCLE_ID
     plan_base = cycle_dir / "tech" / "plan"
     revision = plan_base / "revision1"
     revision.mkdir(parents=True)
@@ -57,7 +57,35 @@ def _setup_cycle(tmp_path: Path) -> Path:
         "current_step: RoundIteration\nround: 1\n---\n",
         encoding="utf-8",
     )
+    diag_dir = cycle_dir / "tech" / "diagnostic"
+    diag_dir.mkdir(parents=True, exist_ok=True)
+    decision = diag_dir / "decision-doc.md"
+    decision.write_text("# Decision\n", encoding="utf-8")
+    from delivered_refs_schema import DeliveredRef  # noqa: WPS433
+    from init_drafting_helpers import tech_plan_scope_refs  # noqa: WPS433
+    from workflow_state_schema import init_drafting  # noqa: WPS433
+
+    refs = [DeliveredRef(type="tech-diagnostic", path=str(decision.resolve()))]
+    init_drafting(
+        revision / "workflow-state.md",
+        mode="tech",
+        delivered_refs=refs,
+        scope_refs=tech_plan_scope_refs(refs),
+    )
     return cycle_dir
+
+
+def _run_fail(cycle_dir: Path, *args: str, round_n: str | None = "1") -> subprocess.CompletedProcess[str]:
+    cmd = [sys.executable, str(_SCRIPT), "--cycle-dir", str(cycle_dir)]
+    if round_n is not None:
+        cmd.extend(["--round", round_n])
+    cmd.extend(args)
+    return subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
 
 
 def _run(cycle_dir: Path, *args: str, round_n: str | None = "1") -> dict:
@@ -99,52 +127,58 @@ def test_read_context(tmp_path: Path):
     ctx = _run(cycle_dir, "read-context", round_n=None)
     assert ctx["round"] == 1
     assert (cycle_dir / "tech" / "plan" / "anchor-ledger.md").exists()
-    assert ctx["decision_doc_path"].endswith("tech/diagnostic/decision-doc.md")
+    assert ctx["scope_doc_path"].endswith("tech/diagnostic/decision-doc.md")
 
 
 def test_read_context_uses_scope_refs_primary_not_product(tmp_path: Path):
-    cycle_dir = tmp_path / ".cache/cursor/lulu-dev-workflow" / _CYCLE_ID
-    _seed_registry_cache(tmp_path)
-    plan_base = cycle_dir / "tech" / "plan"
-    revision = plan_base / "revision1"
-    revision.mkdir(parents=True)
-    (plan_base / "session-state.md").write_text(
-        "---\nversion: 1\nactive_doc: 1\n---\n",
-        encoding="utf-8",
-    )
-    (revision / "tech-doc.md").write_text(minimal_compose_doc_markdown(), encoding="utf-8")
-    (revision / "drafting-progress.md").write_text(
-        f"---\nversion: 1\ncycle_id: {_CYCLE_ID}\n"
-        "current_step: RoundIteration\nround: 1\n---\n",
-        encoding="utf-8",
-    )
+    cycle_dir = _setup_cycle(tmp_path)
+    revision = cycle_dir / "tech" / "plan" / "revision1"
     from delivered_refs_schema import DeliveredRef  # noqa: WPS433
-    from workflow_state_schema import init_drafting  # noqa: WPS433
+    from workflow_state_schema import init_drafting, load_workflow_state, save_workflow_state  # noqa: WPS433
 
     product_doc = tmp_path / "product-doc.md"
     product_doc.write_text("# Product\n", encoding="utf-8")
-    decision_doc = tmp_path / "decision-doc.md"
-    decision_doc.write_text("# Decision\n", encoding="utf-8")
+    decision_doc = Path(
+        cycle_dir / "tech" / "diagnostic" / "decision-doc.md",
+    )
     ws = revision / "workflow-state.md"
+    state = load_workflow_state(ws)
+    state["delivered_refs"] = (
+        '[{"type":"product-spec","path":"'
+        + str(product_doc.resolve())
+        + '"},{"type":"tech-diagnostic","path":"'
+        + str(decision_doc.resolve())
+        + '"}]'
+    )
+    save_workflow_state(ws, state, merge=True)
+    ctx = _run(cycle_dir, "read-context", round_n=None)
+    assert ctx["scope_doc_path"] == str(decision_doc.resolve())
+    assert any(r["type"] == "product-spec" for r in ctx["delivered_refs"])
+
+
+def test_read_context_scope_primary_design_doc(tmp_path: Path):
+    cycle_dir = _setup_cycle(tmp_path)
+    revision = cycle_dir / "tech" / "plan" / "revision1"
+    from delivered_refs_schema import DeliveredRef  # noqa: WPS433
+    from init_drafting_helpers import tech_plan_scope_refs  # noqa: WPS433
+    from workflow_state_schema import init_drafting  # noqa: WPS433
+
+    design_doc = tmp_path / "design-doc.md"
+    design_doc.write_text("# Design\n", encoding="utf-8")
+    refs = [DeliveredRef(type="tech-design", path=str(design_doc.resolve()))]
     init_drafting(
-        ws,
-        mode="product",
-        delivered_refs=[
-            DeliveredRef(type="product-spec", path=str(product_doc.resolve())),
-            DeliveredRef(type="tech-diagnostic", path=str(decision_doc.resolve())),
-        ],
-        scope_refs=[
-            DeliveredRef(type="tech-diagnostic", path=str(decision_doc.resolve())),
-            DeliveredRef(type="product-spec", path=str(product_doc.resolve())),
-        ],
+        revision / "workflow-state.md",
+        mode="tech",
+        delivered_refs=refs,
+        scope_refs=tech_plan_scope_refs(refs),
     )
     ctx = _run(cycle_dir, "read-context", round_n=None)
-    assert ctx["decision_doc_path"] == str(decision_doc.resolve())
+    assert ctx["scope_doc_path"] == str(design_doc.resolve())
 
 
-def test_read_context_supplementary_design_doc_from_scope(tmp_path: Path):
-    cycle_dir = tmp_path / ".cache/cursor/lulu-dev-workflow" / _CYCLE_ID
+def test_read_context_fails_without_workflow_state(tmp_path: Path):
     _seed_registry_cache(tmp_path)
+    cycle_dir = tmp_path / ".cache/cursor/lulu-dev-workflow" / _CYCLE_ID
     plan_base = cycle_dir / "tech" / "plan"
     revision = plan_base / "revision1"
     revision.mkdir(parents=True)
@@ -158,29 +192,27 @@ def test_read_context_supplementary_design_doc_from_scope(tmp_path: Path):
         "current_step: RoundIteration\nround: 1\n---\n",
         encoding="utf-8",
     )
+    proc = _run_fail(cycle_dir, "read-context", round_n=None)
+    assert proc.returncode != 0
+    assert "workflow-state not found" in proc.stderr
+
+
+def test_read_context_fails_when_scope_doc_missing(tmp_path: Path):
+    cycle_dir = _setup_cycle(tmp_path)
+    revision = cycle_dir / "tech" / "plan" / "revision1"
     from delivered_refs_schema import DeliveredRef  # noqa: WPS433
     from workflow_state_schema import init_drafting  # noqa: WPS433
 
-    decision_doc = tmp_path / "decision-doc.md"
-    decision_doc.write_text("# Decision\n", encoding="utf-8")
-    design_doc = tmp_path / "design-doc.md"
-    design_doc.write_text("# Design\n", encoding="utf-8")
-    ws = revision / "workflow-state.md"
+    missing = tmp_path / "missing-decision.md"
     init_drafting(
-        ws,
+        revision / "workflow-state.md",
         mode="tech",
-        delivered_refs=[
-            DeliveredRef(type="tech-diagnostic", path=str(decision_doc.resolve())),
-            DeliveredRef(type="tech-design", path=str(design_doc.resolve())),
-        ],
-        scope_refs=[
-            DeliveredRef(type="tech-diagnostic", path=str(decision_doc.resolve())),
-            DeliveredRef(type="tech-design", path=str(design_doc.resolve())),
-        ],
+        delivered_refs=[DeliveredRef(type="tech-diagnostic", path=str(missing))],
+        scope_refs=[DeliveredRef(type="tech-diagnostic", path=str(missing))],
     )
-    ctx = _run(cycle_dir, "read-context", round_n=None)
-    assert ctx["decision_doc_path"] == str(decision_doc.resolve())
-    assert ctx["design_doc_path"] == str(design_doc.resolve())
+    proc = _run_fail(cycle_dir, "read-context", round_n=None)
+    assert proc.returncode != 0
+    assert "scope doc not found" in proc.stderr
 
 
 def test_append_skip_any_section(tmp_path: Path):

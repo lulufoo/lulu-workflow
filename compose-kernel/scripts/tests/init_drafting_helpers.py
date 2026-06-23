@@ -22,17 +22,11 @@ def tech_diagnostic_refs(decision_path: Path | str) -> list[DeliveredRef]:
 
 
 def tech_plan_scope_refs(delivered_refs: list[DeliveredRef]) -> list[DeliveredRef]:
-    out: list[DeliveredRef] = []
     primary = first_ref(delivered_refs, "tech-design") or first_ref(
         delivered_refs,
         "tech-diagnostic",
     )
-    if primary is not None:
-        out.append(primary)
-    product = first_ref(delivered_refs, "product-spec")
-    if product is not None:
-        out.append(product)
-    return out
+    return [primary] if primary is not None else []
 
 
 def tech_design_scope_refs(delivered_refs: list[DeliveredRef]) -> list[DeliveredRef]:

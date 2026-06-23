@@ -21,7 +21,7 @@ GAP_ITEM_ID, COMPOSE_DOC_PATH
 
 `read-gap-item` → `$GAP.refiner` includes `gap_kind`, `scope`, and KW / Upstream / Intent fields.
 
-`read-context` → `$CTX.decision_doc_path` for intent gaps; `$CTX.compose_doc_path` for the active document path.
+`read-context` → `$CTX.scope_doc_path` for intent gaps; `$CTX.compose_doc_path` for the active document path.
 
 ## Step 0 — Load gap item
 
@@ -29,13 +29,13 @@ GAP_ITEM_ID, COMPOSE_DOC_PATH
 |----------|---------------|
 | `kw` | `kw_criteria.kw{target_kw}` |
 | `upstream_violation` / `upstream_coverage` | `upstream_criteria.expected` |
-| `intent_coverage` / `intent_violation` | `intent_criteria.expected` + `## {section_key}` kw block + decision-doc excerpts cited in `intent_criteria.decision_intent` |
+| `intent_coverage` / `intent_violation` | `intent_criteria.expected` + `## {section_key}` kw block + scope doc excerpts cited in `intent_criteria.decision_intent` |
 
 **Anchor:** `intent_gap`. **Target:** table above.
 
 `$ROUND_CONTROL`: `{SKILL_ROOT}/compose-kernel/SKILL.md` → Script Macros. Use `$ROUND_CONTROL read-section-body --section {section_key}` to load section bodies (not H2 title grep).
 
-For intent gaps, read decision-doc from `$CTX.decision_doc_path` and locate the paragraph(s) behind `intent_criteria.decision_intent`.
+For intent gaps, read scope doc from `$CTX.scope_doc_path` and locate the paragraph(s) behind `intent_criteria.decision_intent`.
 
 For display-title updates: `$FETCH_COMPOSE section-registry` → `sections.{section_key}.heading` as type anchor (same rules as initializing-runner I2e).
 

@@ -89,9 +89,6 @@ class TechPlanStartAdapter:
         )
         if primary is not None:
             out.append(primary)
-        product = first_ref(delivered_refs, "product-spec")
-        if product is not None:
-            out.append(product)
         return out
 
     def delivered_ref_for_init(

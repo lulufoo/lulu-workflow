@@ -97,10 +97,8 @@ from compose_doc_schema import section_body_by_key, section_display_heading  # n
 from workflow_common import parse_frontmatter_fields  # noqa: E402
 from delivered_refs_schema import (  # noqa: E402
     parse_delivered_refs,
-    parse_scope_refs,
     primary_scope_ref_from_state,
 )
-from upstream_ssot import resolve_supplementary_paths  # noqa: E402
 from workflow_state_schema import load_workflow_state  # noqa: E402
 
 _CMD_ROUND_PROBE_INPUT = "round-probe-input"
@@ -469,31 +467,23 @@ def cmd_read_context(cycle_dir: Path) -> int:
             "skips": _read_skips(skip_path),
             "round": _read_round(revision_dir),
             "compose_doc_path": doc_path,
-            "decision_doc_path": "",
+            "scope_doc_path": "",
             "revision_dir": str(revision_dir.resolve()),
         }
     profile_id = get_active_profile()
     ws_path = workflow_state_path(cycle_id, project_root, profile_id)
-    if ws_path.exists():
-        state = load_workflow_state(ws_path)
-        delivered_refs = parse_delivered_refs(state)
-        scope_refs = parse_scope_refs(state)
-        payload["delivered_refs"] = [ref.to_dict() for ref in delivered_refs]
-        scope_ref = primary_scope_ref_from_state(state)
-        if scope_ref is not None:
-            payload["decision_doc_path"] = str(Path(scope_ref.path).resolve())
-        for ctx_key, path in resolve_supplementary_paths(
-            profile_id,
-            scope_refs,
-            delivered_refs,
-        ).items():
-            payload[ctx_key] = path
-    if not payload["decision_doc_path"]:
-        from workflow_profile_paths import decision_doc_path  # noqa: WPS433
-
-        payload["decision_doc_path"] = str(
-            (project_root / decision_doc_path(cycle_id, profile_id)).resolve(),
-        )
+    if not ws_path.exists():
+        return _fail(f"workflow-state not found: {ws_path}")
+    state = load_workflow_state(ws_path)
+    delivered_refs = parse_delivered_refs(state)
+    payload["delivered_refs"] = [ref.to_dict() for ref in delivered_refs]
+    scope_ref = primary_scope_ref_from_state(state)
+    if scope_ref is None:
+        return _fail("missing primary scope ref in workflow-state")
+    scope_path = Path(scope_ref.path).resolve()
+    if not scope_path.is_file():
+        return _fail(f"scope doc not found: {scope_path}")
+    payload["scope_doc_path"] = str(scope_path)
 
     _emit(payload)
     return 0

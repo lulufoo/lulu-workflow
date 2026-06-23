@@ -45,12 +45,7 @@ from workflow_common import (  # noqa: E402
     detect_cycle_type,
 )
 from workflow_profile_paths import doc_dir, document_path  # noqa: E402
-from delivered_refs_schema import delivered_path  # noqa: E402
 from tech_plan_start_adapter import TechPlanStartAdapter  # noqa: E402
-from workflow_state_schema import (  # noqa: E402
-    load_workflow_state,
-    resolve_workflow_state_path_from_cycle,
-)
 
 _CMD_BEGIN_INIT = "begin-init"
 _PROFILE_ID = "tech-plan"
@@ -96,26 +91,19 @@ def _failure(command: str, reason: str, **extra: Any) -> dict[str, Any]:
 def _format_init_dispatch_input(
     *,
     revision_dir: Path,
-    decision_doc: Path,
+    scope_doc: Path,
     output_doc: Path,
     cycle_type: str,
     cycle_id: str,
-    design_doc: Path | None = None,
 ) -> str:
     lines = [
         f"REVISION_DIR:         {revision_dir.resolve().as_posix()}",
-        f"DECISION_DOC_PATH:    {decision_doc.resolve().as_posix()}",
+        f"SCOPE_DOC_PATH:       {scope_doc.resolve().as_posix()}",
         f"OUTPUT_DOC_PATH:      {output_doc.resolve().as_posix()}",
         f"COMPOSE_PROFILE:      {_PROFILE_ID}",
+        f"CYCLE_TYPE:           {cycle_type}",
+        f"CYCLE_ID:             {cycle_id}",
     ]
-    if design_doc is not None:
-        lines.append(f"DESIGN_DOC_PATH:      {design_doc.resolve().as_posix()}")
-    lines.extend(
-        [
-            f"CYCLE_TYPE:           {cycle_type}",
-            f"CYCLE_ID:             {cycle_id}",
-        ]
-    )
     return "\n".join(lines)
 
 
@@ -126,23 +114,16 @@ def _init_dispatch_input(cycle_id: str, project_root: Path) -> str:
     adapter = TechPlanStartAdapter()
     init_ref = adapter.delivered_ref_for_init(cycle_id, project_root)
     if init_ref is None:
-        raise ValueError("no delivered ref available for Initializing")
-    ws_path = resolve_workflow_state_path_from_cycle(
-        cycle_id,
-        project_root,
-        profile_id=_PROFILE_ID,
-    )
-    design_path = ""
-    if ws_path.exists():
-        design_path = delivered_path(load_workflow_state(ws_path), "tech-design")
-    design_doc = Path(design_path) if design_path else None
+        raise ValueError("no scope ref available for Initializing")
+    scope_path = Path(init_ref.path).resolve()
+    if not scope_path.is_file():
+        raise ValueError(f"scope doc not found: {scope_path}")
     return _format_init_dispatch_input(
         revision_dir=revision_dir,
-        decision_doc=Path(init_ref.path),
+        scope_doc=scope_path,
         output_doc=output_doc,
         cycle_type=detect_cycle_type(cycle_id),
         cycle_id=cycle_id,
-        design_doc=design_doc,
     )
 
 

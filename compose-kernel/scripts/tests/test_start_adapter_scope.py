@@ -34,14 +34,13 @@ def test_primary_scope_ref_from_state():
         "scope_refs": serialize_delivered_refs(
             [
                 DeliveredRef(type="tech-design", path="/abs/design.md"),
-                DeliveredRef(type="product-spec", path="/abs/product.md"),
             ],
         ),
     }
     ref = primary_scope_ref_from_state(state)
     assert ref is not None
     assert ref.type == "tech-design"
-    assert parse_scope_refs(state)[1].type == "product-spec"
+    assert len(parse_scope_refs(state)) == 1
 
 
 def test_tech_plan_resolve_scope_refs_primary_tech_chain():
@@ -57,7 +56,7 @@ def test_tech_plan_resolve_scope_refs_primary_tech_chain():
     assert refs[0].type == "tech-design"
 
 
-def test_tech_plan_resolve_scope_refs_appends_product_spec():
+def test_tech_plan_resolve_scope_refs_primary_only_with_product_delivered():
     adapter = TechPlanStartAdapter()
     refs = adapter.resolve_scope_refs(
         delivered_refs=[
@@ -66,9 +65,8 @@ def test_tech_plan_resolve_scope_refs_appends_product_spec():
         ],
         run_mode="product",
     )
-    assert len(refs) == 2
+    assert len(refs) == 1
     assert refs[0].type == "tech-diagnostic"
-    assert refs[1].type == "product-spec"
 
 
 def test_tech_design_resolve_scope_refs():

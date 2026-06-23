@@ -1,8 +1,8 @@
 ---
 name: initializing-runner
 description: >-
-  Autonomous Initializing step for compose-profile drafting. Loads decision-doc,
-  narrow codebase context, and frameworks; composes per-section body via I* / F
+  Autonomous Initializing step for compose-profile drafting. Loads upstream scope
+  doc, narrow codebase context, and frameworks; composes per-section body via I* / F
   / C; writes the initial draft and returns control to the parent Initializing
   step.
 ---
@@ -17,7 +17,7 @@ Use `$COMPOSE_PROFILE` from parent dispatch; kernel default applies only when om
 
 Steps I1–I4 only (I2 includes I2e):
 
-1. Load decision-doc, narrow codebase context, section-registry (with `intent`), outline-registry when `$CYCLE_TYPE` is `feature`, section-kw-criteria, and Plan Scope Constraints.
+1. Load scope doc, narrow codebase context, section-registry (with `intent`), outline-registry when `$CYCLE_TYPE` is `feature`, section-kw-criteria, and Plan Scope Constraints.
 2. Compose each section: Filter `I*` → Derive `F` → Derive `C` → Write body → Derive display title (see Theory).
 3. Optionally write R0 rows to anchor-ledger.
 4. Write `$OUTPUT_DOC_PATH` (or `{REVISION_DIR}/tech-doc.md` when `OUTPUT_DOC_PATH` is absent).
@@ -35,10 +35,9 @@ See [`../../references/compose-theory.md`](../../references/compose-theory.md).
 | Variable | Purpose |
 |---|---|
 | `$REVISION_DIR` | Absolute path to `revision{N}/` |
-| `$DECISION_DOC_PATH` | Absolute path to decision-doc |
+| `$SCOPE_DOC_PATH` | Absolute path to compose intent SSOT (design-doc or decision-doc) |
 | `$OUTPUT_DOC_PATH` | Absolute path to output document (design-doc.md or tech-doc.md) |
 | `$COMPOSE_PROFILE` | Compose profile id from parent dispatch |
-| `$DESIGN_DOC_PATH` | Optional supplementary design context when parent provides it (decision-doc remains SSOT) |
 | `$CYCLE_TYPE` | `feature` |
 | `$CYCLE_ID` | Active cycle id |
 
@@ -62,12 +61,11 @@ All compose and scope macros (`$FETCH_COMPOSE`, `$RESOLVE_PLAN_ROLE`, `$RESOLVE_
 3. Run `$FETCH_COMPOSE section-registry --profile $COMPOSE_PROFILE`; parse JSON. Cache `section_order`, `document_preamble`, `sections.{key}.heading`, `sections.{key}.intent` (fallback `desc`), `sections.{key}.intent_boundary`.
 4. Run `$FETCH_COMPOSE outline-registry --profile $COMPOSE_PROFILE`; cache `outline_order`, `blocks.{key}.heading`, `blocks.{key}.intents`, `blocks.{key}.guidance`, `blocks.{key}.contract`, `document_preamble_addon`.
 5. Run `$FETCH_COMPOSE section-kw-criteria --profile $COMPOSE_PROFILE`; cache each `## {section_key}` block.
-6. Read `$DECISION_DOC_PATH` **full text** once; keep in memory for all sections.
-7. When `$DESIGN_DOC_PATH` is provided, read it **full text** once as supplementary context (decision-doc remains scope SSOT).
-8. Initialize `fill_results` from `section_order`: each entry has `content`, `status: "X"`, internal `draft: true`.
-9. **Codebase read scope** — parse from decision Impact Surface, Implementation Sketch, and explicit reference implementations (paths, modules, or globs). Do not scan the whole repo.
-10. **Codebase context** — read only scoped files under `$PROJECT_ROOT`; keep structural facts (paths, entry points, dialog patterns, vendor layout, public symbols). Skip when scope is empty.
-11. When `$CYCLE_TYPE` is `feature` and codebase context is non-empty, note reference paths for I3 anchor-ledger R0 (`Ref: {path}`).
+6. Read `$SCOPE_DOC_PATH` **full text** once; keep in memory for all sections.
+7. Initialize `fill_results` from `section_order`: each entry has `content`, `status: "X"`, internal `draft: true`.
+8. **Codebase read scope** — parse from scope doc Impact Surface, Implementation Sketch, and explicit reference implementations (paths, modules, or globs). Do not scan the whole repo.
+9. **Codebase context** — read only scoped files under `$PROJECT_ROOT`; keep structural facts (paths, entry points, dialog patterns, vendor layout, public symbols). Skip when scope is empty.
+10. When `$CYCLE_TYPE` is `feature` and codebase context is non-empty, note reference paths for I3 anchor-ledger R0 (`Ref: {path}`).
 
 Do **not** fetch `decision-doc-mapping` or spec-template URLs.
 
@@ -84,7 +82,7 @@ For each key in `section_order`:
 
 #### I2a — Filter `I*`
 
-- **Input:** decision full text · `sections.{key}.intent` (else `desc`) · `intent_boundary` · kw `## {key}`
+- **Input:** scope doc full text · `sections.{key}.intent` (else `desc`) · `intent_boundary` · kw `## {key}`
 - **Action:** Include only if content matches `intent` and supports at least one KW dimension (semantic; do not label KW numbers). Exclude intents that belong to other sections' `intent` / `intent_boundary`.
 - **Output `I*`:** filtered decision content for this section (may be empty)
 
@@ -149,7 +147,7 @@ Initializing complete.
   Profile: <COMPOSE_PROFILE>
   Output: <OUTPUT_DOC_PATH>
   Synthesized sections: <space-separated section keys from section_order>
-  Decision SSOT: <DECISION_DOC_PATH>
+  Scope SSOT: <SCOPE_DOC_PATH>
   Codebase scope: <paths read, or "none">
   Draft status: pending Round validation (all sections X until probe)
   Next step: RoundIteration, or parent pause gate (user may skip Round and Evaluate/Deliver)

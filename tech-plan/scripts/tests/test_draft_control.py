@@ -80,7 +80,7 @@ class TestBeginInit:
         assert f"REVISION_DIR:         {(revision).resolve().as_posix()}" in result["dispatch_input"]
         assert f"CYCLE_ID:             {_CYCLE}" in result["dispatch_input"]
         assert "CYCLE_TYPE:           feature" in result["dispatch_input"]
-        assert "tech/diagnostic/decision-doc.md" in result["dispatch_input"]
+        assert "SCOPE_DOC_PATH:" in result["dispatch_input"]
 
     def test_ready_ok(self, tmp_path: Path):
         revision = _seed_session(tmp_path)

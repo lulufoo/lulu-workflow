@@ -51,7 +51,7 @@ _SCHEMA: list[dict] = [
     {"field": "delivered_refs", "type": "string", "required": True,
      "description": "JSON array of {type, path} upstream delivered documents (start snapshot)"},
     {"field": "scope_refs", "type": "string", "required": False,
-     "description": "JSON array; [0]=primary scope SSOT, [1]+ optional attachments (start snapshot)"},
+     "description": "JSON array; compose intent SSOT snapshot ([0]=primary; not used for Eval)"},
     {"field": "carry_forward_ref", "type": "string", "required": True,
      "description": "Absolute path to previous compose doc revision (may be empty)"},
     {"field": "updated_at", "type": "string", "required": True,
