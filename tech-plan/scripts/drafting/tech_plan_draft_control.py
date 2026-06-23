@@ -73,7 +73,7 @@ def _ensure_round_dir(cycle_id: str, project_root: Path, *, round_n: int) -> Non
 
 def _compose_doc_path(cycle_id: str, project_root: Path) -> Path:
     active_doc = load_active_doc_from_cycle(cycle_id, project_root, profile_id=_PROFILE_ID)
-    return project_root / document_path(cycle_id, active_doc, _PROFILE_ID)
+    return project_root / document_path(cycle_id, active_doc, _PROFILE_ID, project_root)
 
 
 def _success(command: str, **extra: Any) -> dict[str, Any]:
@@ -109,7 +109,7 @@ def _format_init_dispatch_input(
 
 def _init_dispatch_input(cycle_id: str, project_root: Path) -> str:
     active_doc = load_active_doc_from_cycle(cycle_id, project_root, profile_id=_PROFILE_ID)
-    revision_dir = project_root / doc_dir(cycle_id, active_doc, _PROFILE_ID)
+    revision_dir = project_root / doc_dir(cycle_id, active_doc, _PROFILE_ID, project_root)
     output_doc = _compose_doc_path(cycle_id, project_root)
     adapter = TechPlanStartAdapter()
     init_ref = adapter.delivered_ref_for_init(cycle_id, project_root)

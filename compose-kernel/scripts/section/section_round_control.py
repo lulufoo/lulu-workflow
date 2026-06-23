@@ -46,7 +46,7 @@ import kernel_bootstrap  # noqa: E402
 kernel_bootstrap.ensure_kernel_paths()
 from compose_profile_context import get_active_profile, set_active_profile  # noqa: E402
 from compose_session import workflow_state_path  # noqa: E402
-from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, KERNEL_TEMPLATES, load_profile  # noqa: E402
+from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, KERNEL_TEMPLATES, resolve_compose_session_base  # noqa: E402
 from probe_report_schema import (  # noqa: E402
     find_item,
     intent_open_items,
@@ -119,16 +119,28 @@ def _fail(message: str, code: int = 1) -> int:
 
 
 def _compose_base(cycle_dir: Path) -> Path:
-    profile = load_profile(get_active_profile())
-    return cycle_dir / profile["cache_subdir"]
+    project_root = project_root_from_cycle_dir(cycle_dir)
+    return resolve_compose_session_base(
+        project_root,
+        cycle_dir.name,
+        get_active_profile(),
+    )
 
 
-def _document_filename() -> str:
-    return load_profile(get_active_profile())["document"]["filename"]
+def _document_filename(cycle_dir: Path) -> str:
+    from workflow_paths import load_profile  # noqa: WPS433
+
+    project_root = project_root_from_cycle_dir(cycle_dir)
+    profile = load_profile(
+        get_active_profile(),
+        project_root=project_root,
+        cycle_id=cycle_dir.name,
+    )
+    return profile["document"]["filename"]
 
 
-def _compose_document(revision_dir: Path) -> Path:
-    return revision_dir / _document_filename()
+def _compose_document(revision_dir: Path, cycle_dir: Path) -> Path:
+    return revision_dir / _document_filename(cycle_dir)
 
 
 def _load_drafting_progress(path: Path) -> dict[str, Any]:
@@ -387,7 +399,7 @@ def round_probe_input(cycle_dir: Path) -> dict[str, Any]:
         return payload
 
     round_n = max(1, int(data.get("round", "1")))
-    compose_doc = _compose_document(revision_dir)
+    compose_doc = _compose_document(revision_dir, cycle_dir)
     round_dir_path = round_directory(revision_dir, round_n)
     pointer = _load_pointer_if_exists(cycle_dir, round_n)
     if pointer is None:
@@ -449,7 +461,7 @@ def _update_anchor_row(path: Path, anchor_id: str, status: str) -> None:
 
 def cmd_read_context(cycle_dir: Path) -> int:
     revision_dir = _active_revision_dir(cycle_dir)
-    compose_doc = _compose_document(revision_dir)
+    compose_doc = _compose_document(revision_dir, cycle_dir)
     anchor_path, skip_path = _ledger_paths(cycle_dir)
 
     _ensure_ledger(anchor_path, "anchor-ledger.template.md")
@@ -755,7 +767,7 @@ def cmd_read_upstream_context(cycle_dir: Path, *, round_n: int) -> int:
 
 def cmd_read_section_body(cycle_dir: Path, *, section: str) -> int:
     revision_dir = _active_revision_dir(cycle_dir)
-    compose_doc = _compose_document(revision_dir)
+    compose_doc = _compose_document(revision_dir, cycle_dir)
     if not compose_doc.exists():
         raise FileNotFoundError(f"{compose_doc.name} not found: {compose_doc}")
     raw = compose_doc.read_text(encoding="utf-8")

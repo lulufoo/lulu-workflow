@@ -34,6 +34,7 @@ from session_control import (  # noqa: E402
 )
 from workflow_state_schema import init_drafting, load_workflow_state, save_workflow_state
 from init_drafting_helpers import product_delivered_refs  # noqa: E402
+from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, seed_profile_pointer_for_tests  # noqa: E402
 from delivered_refs_schema import (  # noqa: E402
     load_delivered_refs_file,
     delivered_path,
@@ -61,8 +62,9 @@ def _dim_map(es: dict, tmp_path: Path) -> dict[str, str]:
 
 
 def _seed_session(tmp_path: Path, active_doc: int = 1) -> Path:
+    seed_profile_pointer_for_tests(tmp_path, _CYCLE, DEFAULT_COMPOSE_PROFILE_ID)
     base = tmp_path / _CACHE / _CYCLE / "tech" / "plan"
-    base.mkdir(parents=True)
+    base.mkdir(parents=True, exist_ok=True)
     (base / "session-state.md").write_text(
         f"---\nversion: 1\nactive_doc: {active_doc}\nupdated_at: 2024-01-01T00:00:00+00:00\n---\n",
         encoding="utf-8",

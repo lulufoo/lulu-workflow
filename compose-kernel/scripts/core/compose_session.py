@@ -25,10 +25,15 @@ from workflow_profile_paths import (  # noqa: E402
 )
 
 
-def resolve_profile(profile_id: str) -> dict[str, Any]:
+def resolve_profile(
+    profile_id: str,
+    *,
+    project_root: Path | None = None,
+    cycle_id: str | None = None,
+) -> dict[str, Any]:
     """Load compose profile; ``profile_id`` is the stage name (e.g. tech-plan)."""
     pid = profile_id.strip()
-    profile = load_profile(pid)
+    profile = load_profile(pid, project_root=project_root, cycle_id=cycle_id)
     if profile.get("profile_id") != pid:
         raise ValueError(
             f"profile_id mismatch: requested {pid!r}, "
@@ -37,9 +42,18 @@ def resolve_profile(profile_id: str) -> dict[str, Any]:
     return profile
 
 
-def stage_name(profile_id: str) -> str:
+def stage_name(
+    profile_id: str,
+    *,
+    project_root: Path | None = None,
+    cycle_id: str | None = None,
+) -> str:
     """Return transition-table stage key for this profile."""
-    name = resolve_profile(profile_id).get("stage_name", profile_id)
+    name = resolve_profile(
+        profile_id,
+        project_root=project_root,
+        cycle_id=cycle_id,
+    ).get("stage_name", profile_id)
     if name != profile_id:
         raise ValueError(
             f"stage_name {name!r} != profile {profile_id!r} "
@@ -48,9 +62,18 @@ def stage_name(profile_id: str) -> str:
     return name
 
 
-def eval_workflow_id(profile_id: str) -> str:
+def eval_workflow_id(
+    profile_id: str,
+    *,
+    project_root: Path | None = None,
+    cycle_id: str | None = None,
+) -> str:
     """Return eval adapter workflow id from profile eval section."""
-    eval_cfg = resolve_profile(profile_id).get("eval") or {}
+    eval_cfg = resolve_profile(
+        profile_id,
+        project_root=project_root,
+        cycle_id=cycle_id,
+    ).get("eval") or {}
     workflow_id = eval_cfg.get("workflow_id")
     if not workflow_id:
         raise ValueError(f"profile {profile_id!r} has no eval.workflow_id")
@@ -62,7 +85,7 @@ def load_active_doc_for_profile(
     project_root: Path,
     profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
 ) -> int:
-    path = project_root / session_state_path(cycle_id, profile_id)
+    path = project_root / session_state_path(cycle_id, profile_id, project_root)
     return load_active_doc(path, default=1)
 
 
@@ -72,7 +95,7 @@ def workflow_state_path(
     profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
 ) -> Path:
     active_doc = load_active_doc_for_profile(cycle_id, project_root, profile_id)
-    return project_root / state_path(cycle_id, active_doc, profile_id)
+    return project_root / state_path(cycle_id, active_doc, profile_id, project_root)
 
 
 def document_file_path(
@@ -81,7 +104,7 @@ def document_file_path(
     profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
 ) -> Path:
     active_doc = load_active_doc_for_profile(cycle_id, project_root, profile_id)
-    return project_root / document_path(cycle_id, active_doc, profile_id)
+    return project_root / document_path(cycle_id, active_doc, profile_id, project_root)
 
 
 def approval_gate_path(
@@ -90,7 +113,7 @@ def approval_gate_path(
     profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
 ) -> Path:
     active_doc = load_active_doc_for_profile(cycle_id, project_root, profile_id)
-    return project_root / profile_approval_path(cycle_id, active_doc, profile_id)
+    return project_root / profile_approval_path(cycle_id, active_doc, profile_id, project_root)
 
 
 def load_document_presentation(
@@ -99,7 +122,7 @@ def load_document_presentation(
     profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
 ) -> dict[str, Any]:
     active_doc = load_active_doc_for_profile(cycle_id, project_root, profile_id)
-    doc_path = project_root / document_path(cycle_id, active_doc, profile_id)
+    doc_path = project_root / document_path(cycle_id, active_doc, profile_id, project_root)
     payload = extract_presentation(doc_path, revision=active_doc)
     payload["revision"] = active_doc
     return payload

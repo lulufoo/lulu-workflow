@@ -40,7 +40,7 @@ See [`../../references/compose-theory.md`](../../references/compose-theory.md).
 
 Self-resolved: `$PROJECT_ROOT` = `$(pwd)` · `$OUTPUT_DOC_PATH` from parent input (fallback `{REVISION_DIR}/tech-doc.md`)
 
-All compose and scope macros (`$FETCH_COMPOSE`, `$RESOLVE_PLAN_ROLE`, `$RESOLVE_DOMAIN`, `$COMPOSE_DOC_CONTROL`) **must** pass `--profile "$COMPOSE_PROFILE"`.
+All compose and scope macros (`$FETCH_COMPOSE`, `$RESOLVE_PLAN_ROLE`, `$RESOLVE_DOMAIN`, `$COMPOSE_DOC_CONTROL`) **must** pass `--profile "$COMPOSE_PROFILE"`. `$FETCH_COMPOSE` **must** also pass `--cycle-id "$CYCLE_ID"`.
 
 ## Script Macros
 
@@ -58,9 +58,9 @@ All compose and scope macros (`$FETCH_COMPOSE`, `$RESOLVE_PLAN_ROLE`, `$RESOLVE_
 
 1. `$RESOLVE_PLAN_ROLE` → Plan Scope Constraints (`### Role`, `### Role Fields`).
 2. `$RESOLVE_DOMAIN` → `domain instance`.
-3. `$FETCH_COMPOSE section-registry` (JSON) → `section_order`, `document_preamble`, per-section `heading` / `intent` (else `desc`) / `intent_boundary`.
-4. `$FETCH_COMPOSE outline-registry` → `outline_order`, per-block `heading` / `intents` / `guidance` / `contract`, `document_preamble_addon`.
-5. `$FETCH_COMPOSE section-kw-criteria` → each `## {section_key}` block.
+3. `$FETCH_COMPOSE section-registry --cycle-id "$CYCLE_ID"` (JSON) → `section_order`, `document_preamble`, per-section `heading` / `intent` (else `desc`) / `intent_boundary`.
+4. `$FETCH_COMPOSE outline-registry --cycle-id "$CYCLE_ID"` → `outline_order`, per-block `heading` / `intents` / `guidance` / `contract`, `document_preamble_addon`.
+5. `$FETCH_COMPOSE section-kw-criteria --cycle-id "$CYCLE_ID"` → each `## {section_key}` block.
 6. Read `$SCOPE_DOC_PATH` full text once (shared across I2).
 7. **Init document:** Substitute placeholders in `document_preamble`; append `document_preamble_addon`. Write via:
 

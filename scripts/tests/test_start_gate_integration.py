@@ -143,14 +143,55 @@ def _make_session(
     return ws
 
 
+def _compose_start_args(profile_id: str, *extra: str) -> list[str]:
+    return [
+        "--profile",
+        profile_id,
+        "--profile-path",
+        str(_LDEV / profile_id / "compose-profile.json"),
+        *extra,
+    ]
+
+
+def _seed_diagnostic_config(tmp_path: Path) -> None:
+    """Seed workflow-config + local decision-doc template for dx_start init-session."""
+    cfg_dir = tmp_path / "skill-config" / "lulu-dev-workflow"
+    cfg_dir.mkdir(parents=True)
+    local_template = tmp_path / "decision-doc.template.md"
+    local_template.write_text(
+        "# Decision: {title}\n\n"
+        "## 1. User Prior\n\n- placeholder\n\n"
+        "## 2. Problem Definition\n\nTBD\n\n"
+        "## 3. Direction Comparison\n\nTBD\n\n"
+        "## 4. Decision Rationale\n\nTBD\n\n"
+        "## 5. Scope\n\nTBD\n\n"
+        "## 6. Assumptions & Risks\n\nTBD\n\n"
+        "## 7. Execution Analysis\n\n### 7.1 Acceptance Criteria\n\nTBD\n",
+        encoding="utf-8",
+    )
+    (cfg_dir / "workflow-config.json").write_text(
+        json.dumps({"diagnostic": {"decision_doc_template_url": local_template.as_uri()}}),
+        encoding="utf-8",
+    )
+
+
+def _diag_holder_args(stage: str = "product-diagnostic") -> list[str]:
+    return [
+        "--stage",
+        stage,
+        "--constraints",
+        str(_LDEV / stage / "constraints.json"),
+    ]
+
+
 def _stage_extra_args(stage: str, tmp_path: Path) -> list:
     """Required extra CLI args for each stage start.py."""
     if stage == "diagnostic":
-        return []
+        return _diag_holder_args("product-diagnostic")
     if stage == "product-spec":
-        return ["--profile", "product-spec", "--run-mode", "product"]
+        return _compose_start_args("product-spec", "--run-mode", "product")
     if stage == "tech-plan":
-        return ["--profile", "tech-plan", "--run-mode", "tech"]
+        return _compose_start_args("tech-plan", "--run-mode", "tech")
     if stage == "tech-work-order":
         tech_ref = tmp_path / "tech-doc.md"
         tech_ref.write_text("# Tech Doc\n", encoding="utf-8")
@@ -267,6 +308,8 @@ def _run_start(
     args = extra_args if extra_args is not None else _stage_extra_args(stage, tmp_path)
     if stage == "tech-code":
         _seed_work_order_handoff(_cache_dir(tmp_path), cycle_id)
+    if stage == "diagnostic":
+        _seed_diagnostic_config(tmp_path)
     if stage == "product-spec":
         _seed_product_spec_delivered_refs(_cache_dir(tmp_path), cycle_id, tmp_path)
     if stage == "tech-plan":
@@ -337,7 +380,11 @@ class TestGatePasses:
         """No cycle-state.json: product-diagnostic (first stage) is allowed."""
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID)
-        result = _run_start("diagnostic", tmp_path, extra_args=["--stage", "product-diagnostic"])
+        result = _run_start(
+            "diagnostic",
+            tmp_path,
+            extra_args=_diag_holder_args("product-diagnostic"),
+        )
         assert result.returncode == 0, result.stderr
 
     def test_null_blocks_product_plan(self, tmp_path):
@@ -376,12 +423,7 @@ class TestGatePasses:
         result = _run_start(
             "tech-plan",
             tmp_path,
-            extra_args=[
-                "--profile",
-                "tech-plan",
-                "--run-mode",
-                "tech",
-            ],
+            extra_args=_compose_start_args("tech-plan", "--run-mode", "tech"),
         )
         assert result.returncode == 0, result.stderr or result.stdout
         ws_path = cd / _CYCLE_ID / "tech" / "plan" / "revision1" / "workflow-state.md"

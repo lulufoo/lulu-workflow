@@ -25,6 +25,7 @@ from compose_doc_schema import (  # noqa: E402
 )
 
 from init_drafting_helpers import product_delivered_refs  # noqa: E402
+from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, seed_profile_pointer_for_tests  # noqa: E402
 
 _SCRIPT = SCHEMA_SECTION_DOCUMENT / "compose_doc_schema.py"
 
@@ -50,8 +51,9 @@ def _write_compose_doc(path: Path, *, title: str = "", summary: str = "Goal.") -
 
 def _setup_cycle(tmp_path: Path, *, active_doc: int = 1) -> tuple[Path, str]:
     cycle_id = "feat-session-info"
+    seed_profile_pointer_for_tests(tmp_path, cycle_id, DEFAULT_COMPOSE_PROFILE_ID)
     base = tmp_path / ".cache" / "cursor" / "lulu-dev-workflow" / cycle_id / "tech" / "plan"
-    base.mkdir(parents=True)
+    base.mkdir(parents=True, exist_ok=True)
     (base / "session-state.md").write_text(
         f"---\nversion: 1\nactive_doc: {active_doc}\n---\n",
         encoding="utf-8",

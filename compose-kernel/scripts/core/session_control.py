@@ -62,7 +62,7 @@ def _evaluate_state_path(
         project_root,
         profile_id=profile_id,
     )
-    rel = profile_evaluate_state_path(cycle_id, active_doc, profile_id)
+    rel = profile_evaluate_state_path(cycle_id, active_doc, profile_id, project_root)
     return project_root / rel
 
 

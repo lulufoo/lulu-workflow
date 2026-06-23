@@ -251,7 +251,7 @@ def resolve_workflow_state_path_from_cycle(
 ) -> Path:
     """Resolve revision{N}/workflow-state.md via session-state.md active_doc."""
     active_doc = load_active_doc_from_cycle(cycle_id, project_root, profile_id=profile_id)
-    return project_root / state_path(cycle_id, active_doc, profile_id)
+    return project_root / state_path(cycle_id, active_doc, profile_id, project_root)
 
 
 def init_drafting(

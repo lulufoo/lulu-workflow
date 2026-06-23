@@ -2,6 +2,10 @@
 
 > Referenced by: initializing-runner, refiner-runner (and any runner that generates section body content).
 
+## Profile SSOT
+
+Compose stage configuration lives at `{WORKFLOW_ROOT}/{stage}/compose-profile.json` (not under `compose-kernel/profiles/`). After `start`, runtime resolves the same file via session cache pointer `.compose-profile-path` under `{cache_subdir}/`.
+
 ## Formula
 
 Sequential synthesis (not independent factors):

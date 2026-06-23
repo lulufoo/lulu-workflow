@@ -103,7 +103,7 @@ def is_current_session_active(
 
     if not cycle_id:
         return False
-    base = project_root / session_base_dir(cycle_id, profile_id)
+    base = project_root / session_base_dir(cycle_id, profile_id, project_root)
     if not base.exists():
         return False
     for state_file in base.glob("revision*/workflow-state.md"):

@@ -8,7 +8,7 @@ from delivered_refs_schema import DeliveredRef, record_delivered_ref
 from start_scope_helpers import first_ref
 from session_state_schema import bump_active_doc
 from workflow_common import CACHE_DIR
-from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID
+from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, seed_profile_pointer_for_tests
 from workflow_profile_paths import state_path
 from workflow_state_schema import init_drafting
 
@@ -75,8 +75,9 @@ def seed_tech_plan_session(
     if refs is None:
         refs = [DeliveredRef(type="tech-diagnostic", path=str(decision.resolve()))]
     seed_delivered_refs_file(project_root, cycle_id, refs)
+    seed_profile_pointer_for_tests(project_root, cycle_id, profile_id)
     active_doc = bump_active_doc(cycle_id, project_root, profile_id)
-    ws_path = project_root / state_path(cycle_id, active_doc, profile_id)
+    ws_path = project_root / state_path(cycle_id, active_doc, profile_id, project_root)
     scope_refs = tech_plan_scope_refs(refs)
     init_drafting(ws_path, mode=mode, delivered_refs=refs, scope_refs=scope_refs)
     return ws_path

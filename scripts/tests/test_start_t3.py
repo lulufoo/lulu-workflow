@@ -11,6 +11,7 @@ from typing import Optional
 import pytest
 
 _SRC = Path(__file__).resolve().parents[3]  # lulu-dev-skills/
+_LDEV = _SRC / "lulu-dev-workflow"
 _STAGES = ["diagnostic", "product-arch", "tech-arch", "tech-plan", "tech-work-order", "tech-code"]
 # compose-kernel start.py never integrated run_archive; other stages defer via comment.
 _STAGES_WITH_DEFERRED_ARCHIVE = [s for s in _STAGES if s != "tech-plan"]
@@ -25,6 +26,24 @@ _TOPIC_CYCLE = [
     "product-diagnostic", "product-arch", "tech-diagnostic", "tech-arch",
 ]
 _TOPIC_ID = "topic-20260524143022-aabbccdd"
+_KERNEL_START = _LDEV / "compose-kernel" / "scripts" / "core" / "start.py"
+_COMPOSE_WRAPPER_STAGES = frozenset({"tech-plan", "product-spec", "tech-design"})
+
+
+def _start_argparse_source(stage: str) -> str:
+    src = _start_py(stage).read_text(encoding="utf-8")
+    if stage in _COMPOSE_WRAPPER_STAGES or "from start import" in src:
+        src += "\n" + _KERNEL_START.read_text(encoding="utf-8")
+    return src
+
+
+def _diag_holder_args(stage: str = "product-diagnostic") -> list[str]:
+    return [
+        "--stage",
+        stage,
+        "--constraints",
+        str(_LDEV / stage / "constraints.json"),
+    ]
 
 
 def _start_py(stage: str) -> Path:
@@ -207,14 +226,14 @@ def _seed_diagnostic_config(tmp_path: Path) -> None:
 class TestArgparseSource:
     @pytest.mark.parametrize("stage", _STAGES)
     def test_cycle_id_arg_declared(self, stage):
-        src = _start_py(stage).read_text(encoding="utf-8")
+        src = _start_argparse_source(stage)
         assert '"--cycle-id"' in src or "'--cycle-id'" in src, (
             f"{stage}/start.py: --cycle-id not declared in argparse"
         )
 
     @pytest.mark.parametrize("stage", _STAGES)
     def test_conversation_id_arg_declared(self, stage):
-        src = _start_py(stage).read_text(encoding="utf-8")
+        src = _start_argparse_source(stage)
         assert '"--conversation-id"' in src or "'--conversation-id'" in src, (
             f"{stage}/start.py: --conversation-id not declared in argparse"
         )
@@ -285,7 +304,14 @@ class TestArgparseBehavior:
         result = self._run_with_conv_id(
             "diagnostic",
             tmp_path,
-            extra=["--cycle-id", _FID, "--stage", "tech-diagnostic"],
+            extra=[
+                "--cycle-id",
+                _FID,
+                "--stage",
+                "tech-diagnostic",
+                "--constraints",
+                str(_LDEV / "tech-diagnostic" / "constraints.json"),
+            ],
         )
         assert result.returncode == 0, result.stderr
 
@@ -337,6 +363,7 @@ class TestSessionPath:
              "--project-root", str(tmp_path),
              "--cycle-id", _FID,
              "--profile", "tech-plan",
+             "--profile-path", str(_LDEV / "tech-plan" / "compose-profile.json"),
              "--run-mode", "tech"],
             capture_output=True, text=True, env=_ENV_COPILOT,
             cwd=str(_scripts_dir("tech-plan")),
@@ -382,7 +409,8 @@ class TestSessionPath:
             [sys.executable, str(_start_py("diagnostic")),
              "--project-root", str(tmp_path),
              "--cycle-id", _FID,
-             "--stage", stage],
+             "--stage", stage,
+             "--constraints", str(_LDEV / stage / "constraints.json")],
             capture_output=True, text=True, env=_ENV_COPILOT,
             cwd=str(_scripts_dir("diagnostic")),
         )
@@ -410,6 +438,7 @@ class TestSessionPath:
              "--project-root", str(tmp_path),
              "--cycle-id", _FID,
              "--stage", "product-diagnostic",
+             "--constraints", str(_LDEV / "product-diagnostic" / "constraints.json"),
              "--conversation-id", _CONV_ID],
             capture_output=True, text=True, env=_ENV_COPILOT,
             cwd=str(_scripts_dir("diagnostic")),
@@ -430,6 +459,8 @@ class TestSessionPath:
             [sys.executable, str(_start_py("tech-plan")),
              "--project-root", str(tmp_path),
              "--cycle-id", _FID,
+             "--profile", "tech-plan",
+             "--profile-path", str(_LDEV / "tech-plan" / "compose-profile.json"),
              "--run-mode", "tech",
              "--conversation-id", _CONV_ID],
             capture_output=True, text=True, env=_ENV_COPILOT,

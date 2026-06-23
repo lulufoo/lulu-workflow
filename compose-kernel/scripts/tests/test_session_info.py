@@ -24,7 +24,7 @@ from session_info import (  # noqa: E402
     session_snapshot,
     stage_transitions,
 )
-from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID  # noqa: E402
+from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, seed_profile_pointer_for_tests  # noqa: E402
 from workflow_state_schema import save_workflow_state  # noqa: E402
 from init_drafting_helpers import product_delivered_refs  # noqa: E402
 
@@ -41,6 +41,7 @@ def _expected_next_stages(cycle_id: str) -> list[str]:
 
 def _setup_cycle(tmp_path: Path) -> tuple[Path, str]:
     cycle_id = "feat-session-info"
+    seed_profile_pointer_for_tests(tmp_path, cycle_id, DEFAULT_COMPOSE_PROFILE_ID)
     base = tmp_path / ".cache" / "cursor" / "lulu-dev-workflow" / cycle_id / "tech" / "plan"
     revision = base / "revision1"
     revision.mkdir(parents=True)
@@ -113,6 +114,7 @@ class TestStageTransitions:
     def test_matches_transition_table_for_topic(self, tmp_path: Path):
         project_root, _ = _setup_cycle(tmp_path)
         cycle_id = "topic-session-info"
+        seed_profile_pointer_for_tests(tmp_path, cycle_id, DEFAULT_COMPOSE_PROFILE_ID)
         payload = stage_transitions(cycle_id, project_root)
         assert payload == {
             "profile_id": "tech-plan",

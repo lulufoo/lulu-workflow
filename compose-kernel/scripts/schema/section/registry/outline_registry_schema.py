@@ -125,6 +125,8 @@ def fetch_outline_registry(
     platform: str | None = None,
     force: bool = False,
     profile_id: str | None = None,
+    cycle_id: str | None = None,
+    conversation_id: str | None = None,
 ) -> dict[str, Any]:
     """Fetch outline registry via workflow-config template URL."""
     _ensure_workflow_scripts()
@@ -139,6 +141,8 @@ def fetch_outline_registry(
         platform=platform,
         force=force,
         profile_id=pid,
+        cycle_id=cycle_id,
+        conversation_id=conversation_id,
     )
     data = json.loads(content)
     errors = validate_outline_registry(data)
@@ -149,6 +153,8 @@ def fetch_outline_registry(
         platform=platform,
         force=False,
         profile_id=pid,
+        cycle_id=cycle_id,
+        conversation_id=conversation_id,
     )
     errors = validate_outline_section_alignment(data, section_registry)
     if errors:

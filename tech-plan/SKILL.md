@@ -58,6 +58,7 @@ python3 "$SKILL_DIR/scripts/tech-plan_start.py" \
   --project-root "$(pwd)" \
   --cycle-id "<cycle_id>" \
   --profile tech-plan \
+  --profile-path "$SKILL_DIR/compose-profile.json" \
   --run-mode product|tech \
   [--carry-forward-ref "<absolute-path-to-previous-tech-doc.md>"]  # optional
 ```
@@ -269,7 +270,7 @@ Macro expansion: `../_runtime.md` § Script Macros → Macro expansion. Non-zero
 | `$SESSION_CONTROL` | `python3 "$SKILL_ROOT/compose-kernel/scripts/core/session_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile tech-plan <subcommand>` |
 | `$DRAFT_CONTROL` | `python3 "$SKILL_DIR/scripts/drafting/tech_plan_draft_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
 | `$ROUND_CONTROL` | `python3 "$SKILL_ROOT/compose-kernel/scripts/section/section_round_control.py" --cycle-dir "$CACHE_DIR/$CYCLE_ID" --profile tech-plan --round {N} <subcommand>` |
-| `$FETCH_COMPOSE` | `python3 "$SKILL_ROOT/compose-kernel/scripts/io/fetch_compose_framework.py" --role <role> --profile tech-plan --project-root "$(pwd)"` |
+| `$FETCH_COMPOSE` | `python3 "$SKILL_ROOT/compose-kernel/scripts/io/fetch_compose_framework.py" --role <role> --profile tech-plan --project-root "$(pwd)" --cycle-id "$CYCLE_ID"` |
 | `$RESOLVE_PLAN_ROLE` | `python3 "$SKILL_ROOT/compose-kernel/scripts/scope/scope_resolver.py" resolve-role --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile tech-plan` |
 | `$EVAL_CONTROL` | `python3 "$SKILL_DIR/scripts/tech-plan_eval_control.py" --workflow tech-plan --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
 

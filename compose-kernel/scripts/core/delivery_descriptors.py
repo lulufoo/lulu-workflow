@@ -7,7 +7,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator
 
-from workflow_paths import COMPOSE_KERNEL_ROOT, PROFILES_DIR, WORKFLOW_ROOT, load_profile
+from workflow_paths import (
+    ACTIVE_COMPOSE_STAGE_IDS,
+    COMPOSE_KERNEL_ROOT,
+    WORKFLOW_ROOT,
+    load_profile,
+)
 
 _DELIVERY_SOURCES_PATH = COMPOSE_KERNEL_ROOT / "config" / "delivery-sources.json"
 _DEFAULT_TERMINAL = "Delivered"
@@ -120,18 +125,18 @@ def _diagnostic_constraints_paths() -> list[Path]:
     return paths
 
 
+def _compose_stage_ids(sources: dict) -> tuple[str, ...]:
+    raw = sources.get("compose_stage_ids")
+    if isinstance(raw, list) and raw:
+        return tuple(str(item).strip() for item in raw if str(item).strip())
+    return ACTIVE_COMPOSE_STAGE_IDS
+
+
 def iter_delivery_descriptors() -> Iterator[DeliveryDescriptor]:
     seen: set[str] = set()
     sources = _load_delivery_sources()
-    compose_mode = sources.get("compose_profiles", "auto")
-    if compose_mode == "auto":
-        profile_paths = sorted(PROFILES_DIR.glob("*.json"))
-    else:
-        raise ValueError(
-            f"unsupported compose_profiles value: {compose_mode!r} (expected 'auto')",
-        )
-    for path in profile_paths:
-        desc = _compose_descriptor(path.stem)
+    for stage_id in _compose_stage_ids(sources):
+        desc = _compose_descriptor(stage_id)
         if desc is not None and desc.stage_name not in seen:
             seen.add(desc.stage_name)
             yield desc

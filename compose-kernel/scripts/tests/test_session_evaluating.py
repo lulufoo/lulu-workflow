@@ -11,6 +11,7 @@ from bootstrap import CORE  # noqa: E402
 
 sys.path.insert(0, str(CORE))
 from session_evaluating import enter_evaluating_state  # noqa: E402
+from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, seed_profile_pointer_for_tests  # noqa: E402
 from workflow_state_schema import init_drafting, load_workflow_state, save_workflow_state  # noqa: E402
 
 _CYCLE = "feat-eval-state"
@@ -18,8 +19,9 @@ _CACHE = Path(".cache/cursor/lulu-dev-workflow")
 
 
 def _seed_session(tmp_path: Path) -> Path:
+    seed_profile_pointer_for_tests(tmp_path, _CYCLE, DEFAULT_COMPOSE_PROFILE_ID)
     base = tmp_path / _CACHE / _CYCLE / "tech" / "plan"
-    base.mkdir(parents=True)
+    base.mkdir(parents=True, exist_ok=True)
     (base / "session-state.md").write_text(
         "---\nversion: 1\nactive_doc: 1\n---\n",
         encoding="utf-8",

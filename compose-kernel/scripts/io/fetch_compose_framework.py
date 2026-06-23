@@ -38,17 +38,31 @@ def fetch_compose_framework(
     project_root: Path,
     *,
     profile_id: str | None = None,
+    cycle_id: str | None = None,
+    conversation_id: str | None = None,
     platform: Optional[str] = None,
     force: bool = False,
 ) -> str:
     pid = profile_id or DEFAULT_COMPOSE_PROFILE_ID
+    root = project_root.resolve()
     try:
-        section = framework_section(pid)
-        config_key = resolve_config_key(role, pid)
+        section = framework_section(
+            pid,
+            project_root=root,
+            cycle_id=cycle_id,
+            conversation_id=conversation_id,
+        )
+        config_key = resolve_config_key(
+            role,
+            pid,
+            project_root=root,
+            cycle_id=cycle_id,
+            conversation_id=conversation_id,
+        )
         return fetch_template(
             section=section,
             key=config_key,
-            project_root=project_root,
+            project_root=root,
             platform=platform,
             force=force,
         )
@@ -72,6 +86,16 @@ def main(argv: Optional[list[str]] = None) -> int:
         help="Compose profile id (default: tech-plan)",
     )
     parser.add_argument(
+        "--cycle-id",
+        default="",
+        help="Cycle ID for session profile pointer (fallback: env / active-context)",
+    )
+    parser.add_argument(
+        "--conversation-id",
+        default="",
+        help="Conversation ID for active-context cycle fallback",
+    )
+    parser.add_argument(
         "--project-root",
         default=".",
         help="Project root (default: current directory)",
@@ -93,6 +117,8 @@ def main(argv: Optional[list[str]] = None) -> int:
             role=args.role,
             project_root=Path(args.project_root).resolve(),
             profile_id=args.profile.strip(),
+            cycle_id=args.cycle_id.strip() or None,
+            conversation_id=args.conversation_id.strip() or None,
             platform=args.platform,
             force=args.force,
         )

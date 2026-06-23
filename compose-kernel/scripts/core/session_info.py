@@ -113,7 +113,12 @@ def stage_transitions(
     """Return allowed next stages from transition-table.json for this profile."""
     cycle_type = detect_cycle_type(cycle_id)
     transitions = load_transitions(cycle_type)
-    next_stages = sorted(transitions.get(stage_name(profile_id), set()))
+    next_stages = sorted(
+        transitions.get(
+            stage_name(profile_id, project_root=project_root, cycle_id=cycle_id),
+            set(),
+        ),
+    )
     return {"profile_id": profile_id, "next_stages": next_stages}
 
 

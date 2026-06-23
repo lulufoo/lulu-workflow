@@ -24,7 +24,7 @@ Terminal runner subagent. Probes **one Dimension** per invocation (from EvalCorp
 4. Read `{$SKILL_ROOT}/eval/scripts/url_fetch.py` — use `read_ref()` for all URL/path loads
 5. Read `{$SKILL_ROOT}/eval/scripts/codebase_sot.py` — use `resolve_codebase_ref()` for codebase SoT
 6. Run `$RESOLVE_PLAN_ROLE` with `CYCLE_ID` and workflow profile (`--profile tech-design` for design-doc); apply Plan Scope Constraints for probe narrative
-7. `$FETCH_COMPOSE`: `{SKILL_ROOT}/compose-kernel/SKILL.md` → Script Macros — pass `--profile tech-plan` or `--profile tech-design` when loading section-registry
+7. `$FETCH_COMPOSE`: `{SKILL_ROOT}/compose-kernel/SKILL.md` → Script Macros — pass `--profile` and `--cycle-id "$CYCLE_ID"` when loading section-registry
 8. Follow steps below
 
 ---
@@ -87,7 +87,7 @@ Builtin `procedure_id: intent_gap_probes`. Criteria **A** = url SoT:
 
 1. Load **A** from SoT (P1–P4 definitions and applicability in **A**; for tech-design also run D1–D3 supplements after applicable P probes).
 2. Do **not** parse `<!-- state-vector: … -->`. Do **not** load `layer-standards` or L Diagnostic Criteria.
-3. Load **R** via `$FETCH_COMPOSE section-registry` with `--profile tech-plan` or `--profile tech-design` (same `PROJECT_ROOT`).
+3. Load **R** via `$FETCH_COMPOSE section-registry` with `--profile tech-plan` or `--profile tech-design` and `--cycle-id "$CYCLE_ID"` (same `PROJECT_ROOT`).
 4. For each `K` in **R** `section_order`:
    - Load section body via `<!-- section-key:K -->` in **B** (not H2 display titles).
    - Split sub-sections (one coherent intent unit; skip empty / boilerplate-only).

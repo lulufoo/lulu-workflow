@@ -26,6 +26,8 @@ def resolve_fetched_instance_path(
     scheme_key: str,
     project_root: Path | None = None,
     profile_id: str | None = None,
+    cycle_id: str | None = None,
+    conversation_id: str | None = None,
 ) -> Path:
     """Return template cache path for a compose scheme role; fetch when cache is empty."""
     root = effective_project_root(project_root)
@@ -36,15 +38,32 @@ def resolve_fetched_instance_path(
     from fetch_template import cache_path  # noqa: WPS433
     from subagent_config import detect_platform  # noqa: WPS433
 
-    section = framework_section(pid)
-    config_key = resolve_config_key(scheme_key, pid)
+    section = framework_section(
+        pid,
+        project_root=root,
+        cycle_id=cycle_id,
+        conversation_id=conversation_id,
+    )
+    config_key = resolve_config_key(
+        scheme_key,
+        pid,
+        project_root=root,
+        cycle_id=cycle_id,
+        conversation_id=conversation_id,
+    )
     cached = cache_path(root, detect_platform(), section, config_key)
     if cached.exists() and cached.read_text(encoding="utf-8").strip():
         return cached
 
     from fetch_compose_framework import fetch_compose_framework  # noqa: WPS433
 
-    content = fetch_compose_framework(scheme_key, root, profile_id=pid)
+    content = fetch_compose_framework(
+        scheme_key,
+        root,
+        profile_id=pid,
+        cycle_id=cycle_id,
+        conversation_id=conversation_id,
+    )
     if not content.strip():
         raise FileNotFoundError(f"empty template for {scheme_key}")
     cached.parent.mkdir(parents=True, exist_ok=True)

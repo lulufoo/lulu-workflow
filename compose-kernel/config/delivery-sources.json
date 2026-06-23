@@ -1,6 +1,10 @@
 {
-  "version": 1,
-  "compose_profiles": "auto",
+  "version": 2,
+  "compose_stage_ids": [
+    "tech-plan",
+    "tech-design",
+    "product-spec"
+  ],
   "diagnostic_constraints": [
     "product-diagnostic/constraints.json",
     "tech-diagnostic/constraints.json"

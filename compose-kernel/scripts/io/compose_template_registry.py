@@ -42,8 +42,19 @@ def scheme_template_keys() -> frozenset[str]:
     return frozenset(keys)
 
 
-def framework_section(profile_id: str | None = None) -> str:
-    profile = load_profile(profile_id or DEFAULT_COMPOSE_PROFILE_ID)
+def framework_section(
+    profile_id: str | None = None,
+    *,
+    project_root: Path | None = None,
+    cycle_id: str | None = None,
+    conversation_id: str | None = None,
+) -> str:
+    profile = load_profile(
+        profile_id or DEFAULT_COMPOSE_PROFILE_ID,
+        project_root=project_root,
+        cycle_id=cycle_id,
+        conversation_id=conversation_id,
+    )
     section = profile.get("framework_section")
     if not section:
         raise ComposeTemplateError(
@@ -52,13 +63,25 @@ def framework_section(profile_id: str | None = None) -> str:
     return str(section)
 
 
-def resolve_config_key(scheme_key: str, profile_id: str | None = None) -> str:
+def resolve_config_key(
+    scheme_key: str,
+    profile_id: str | None = None,
+    *,
+    project_root: Path | None = None,
+    cycle_id: str | None = None,
+    conversation_id: str | None = None,
+) -> str:
     if scheme_key not in scheme_template_keys():
         raise ComposeTemplateError(
             f"Invalid compose template role {scheme_key!r}; "
             f"expected one of: {', '.join(sorted(scheme_template_keys()))}",
         )
-    profile = load_profile(profile_id or DEFAULT_COMPOSE_PROFILE_ID)
+    profile = load_profile(
+        profile_id or DEFAULT_COMPOSE_PROFILE_ID,
+        project_root=project_root,
+        cycle_id=cycle_id,
+        conversation_id=conversation_id,
+    )
     templates = profile.get("framework_templates") or {}
     config_key = templates.get(scheme_key)
     if not config_key:

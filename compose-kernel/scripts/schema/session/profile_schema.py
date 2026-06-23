@@ -13,7 +13,7 @@ _CORE = _SCRIPTS / "core"
 if str(_CORE) not in sys.path:
     sys.path.insert(0, str(_CORE))
 
-from workflow_paths import KERNEL_SCHEMES, PROFILES_DIR  # noqa: E402
+from workflow_paths import ACTIVE_COMPOSE_STAGE_IDS, KERNEL_SCHEMES, compose_profile_path  # noqa: E402
 
 _COMPOSE_PROFILE_REQUIRED = frozenset(
     {
@@ -90,9 +90,11 @@ def _validate_profile(path: Path) -> list[str]:
         return [f"{path.name}: invalid JSON: {exc}"]
 
     profile_id = data.get("profile_id")
-    expected_id = path.stem
+    expected_id = path.parent.name
     if profile_id != expected_id:
-        errors.append(f"{path.name}: profile_id {profile_id!r} != filename {expected_id!r}")
+        errors.append(
+            f"{path.as_posix()}: profile_id {profile_id!r} != stage dir {expected_id!r}",
+        )
 
     if data.get("status") == "placeholder_phase2":
         return errors
@@ -103,7 +105,11 @@ def _validate_profile(path: Path) -> list[str]:
 
 def validate_all() -> list[str]:
     errors: list[str] = []
-    for path in sorted(PROFILES_DIR.glob("*.json")):
+    for stage_id in ACTIVE_COMPOSE_STAGE_IDS:
+        path = compose_profile_path(stage_id)
+        if not path.is_file():
+            errors.append(f"missing compose profile: {path.as_posix()}")
+            continue
         errors.extend(_validate_profile(path))
     return errors
 
@@ -120,7 +126,7 @@ def main() -> int:
         for err in errors:
             print(err, file=sys.stderr)
         return 1
-    print(f"OK: {len(list(PROFILES_DIR.glob('*.json')))} profile(s) valid")
+    print(f"OK: {len(ACTIVE_COMPOSE_STAGE_IDS)} compose profile(s) valid")
     return 0
 
 

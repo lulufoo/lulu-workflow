@@ -18,7 +18,7 @@ import kernel_bootstrap  # noqa: E402
 kernel_bootstrap.ensure_kernel_paths()
 from workflow_paths import EVAL_SCRIPTS, WORKFLOW_SCRIPTS, load_profile, shell_path  # noqa: E402
 
-_PROFILE = load_profile("tech-plan")
+_WORKFLOW_ID = "tech-plan"
 
 from session_state_schema import load_active_doc_from_cycle  # noqa: E402
 from workflow_common import (  # noqa: E402
@@ -85,7 +85,7 @@ class TechPlanEvalAdapter:
     ) -> Path:
         active_doc = load_active_doc_from_cycle(cycle_id, project_root, profile_id="tech-plan")
 
-        return project_root / doc_dir(cycle_id, active_doc, "tech-plan") / "evaluate-state.md"
+        return project_root / doc_dir(cycle_id, active_doc, _WORKFLOW_ID, project_root) / "evaluate-state.md"
 
     def session_context(
         self, cycle_id: str, project_root: Path
@@ -110,11 +110,11 @@ class TechPlanEvalAdapter:
         root = project_root.resolve()
         return {
             "compose_doc": (
-                root / document_path(cycle_id, active_doc, "tech-plan")
+                root / document_path(cycle_id, active_doc, _WORKFLOW_ID, project_root)
             ).as_posix(),
             "evaluate_state": es_path.resolve().as_posix(),
             "evaluate_dir": (
-                root / eval_round_dir(cycle_id, active_doc, evaluate_round, "tech-plan")
+                root / eval_round_dir(cycle_id, active_doc, evaluate_round, _WORKFLOW_ID, project_root)
             ).as_posix(),
         }
 
@@ -154,7 +154,7 @@ class TechPlanEvalAdapter:
         )
 
     def dimension_defs_dir(self) -> Path:
-        return shell_path(_PROFILE, "dimension_defs_dir")
+        return shell_path(load_profile(_WORKFLOW_ID), "dimension_defs_dir")
 
     @staticmethod
     def _empty_corpus_bind() -> dict[str, str]:
@@ -223,7 +223,7 @@ class TechPlanEvalAdapter:
         result = enter_evaluating_state(
             cycle_id,
             project_root,
-            profile_id=_PROFILE["profile_id"],
+            profile_id=_WORKFLOW_ID,
         )
         if not result.get("ok"):
             return result

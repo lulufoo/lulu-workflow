@@ -26,7 +26,8 @@ from compose_session import (  # noqa: E402
     workflow_state_path,
 )
 from session_info import session_snapshot, stage_transitions  # noqa: E402
-from workflow_state_schema import init_drafting, save_workflow_state  # noqa: E402
+from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, seed_profile_pointer_for_tests  # noqa: E402
+from workflow_state_schema import init_drafting  # noqa: E402
 
 _CYCLE = "feature-composesession001-abc12345"
 _PROFILE = "tech-design"
@@ -34,6 +35,7 @@ _CACHE = Path(".cache/cursor/lulu-dev-workflow")
 
 
 def _seed_design_session(tmp_path: Path) -> None:
+    seed_profile_pointer_for_tests(tmp_path, _CYCLE, _PROFILE)
     base = tmp_path / _CACHE / _CYCLE / "tech" / "design"
     revision = base / "revision1"
     revision.mkdir(parents=True)
@@ -70,6 +72,7 @@ class TestComposeSessionTechDesign:
         assert payload["compose_doc"]["title"] == "Design X"
 
     def test_stage_transitions(self, tmp_path: Path):
+        seed_profile_pointer_for_tests(tmp_path, _CYCLE, _PROFILE)
         payload = stage_transitions(_CYCLE, tmp_path, profile_id=_PROFILE)
         assert payload["profile_id"] == "tech-design"
         assert payload["next_stages"] == ["tech-plan"]

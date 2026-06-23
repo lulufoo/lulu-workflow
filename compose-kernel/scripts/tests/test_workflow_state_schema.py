@@ -22,6 +22,7 @@ from workflow_state_schema import (
     save_workflow_state,
     validate_workflow_state,
 )
+from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, seed_profile_pointer_for_tests  # noqa: E402
 
 _REQUIRED_FIELD_NAMES = {
     "version",
@@ -140,8 +141,9 @@ class TestReadCurrentState:
 class TestResolveWorkflowStatePathFromCycle:
     def test_resolves_active_doc(self, tmp_path: Path):
         cycle_id = "feat-a"
+        seed_profile_pointer_for_tests(tmp_path, cycle_id, DEFAULT_COMPOSE_PROFILE_ID)
         base = tmp_path / ".cache" / "cursor" / "lulu-dev-workflow" / cycle_id / "tech" / "plan"
-        base.mkdir(parents=True)
+        base.mkdir(parents=True, exist_ok=True)
         (base / "session-state.md").write_text(
             "---\nversion: 1\nactive_doc: 2\nupdated_at: 2024-01-01T00:00:00+00:00\n---\n",
             encoding="utf-8",

@@ -41,7 +41,9 @@ def test_validate_all_passes_current_profiles() -> None:
 
 
 def test_placeholder_skips_full_contract(tmp_path: Path) -> None:
-    path = tmp_path / "tech-arch.json"
+    stage_dir = tmp_path / "tech-arch"
+    stage_dir.mkdir()
+    path = stage_dir / "compose-profile.json"
     path.write_text(
         json.dumps(
             {
@@ -56,7 +58,9 @@ def test_placeholder_skips_full_contract(tmp_path: Path) -> None:
 
 
 def test_active_profile_missing_shell_paths_fails(tmp_path: Path) -> None:
-    path = tmp_path / "tech-foo.json"
+    stage_dir = tmp_path / "tech-foo"
+    stage_dir.mkdir()
+    path = stage_dir / "compose-profile.json"
     data = dict(_MINIMAL_ACTIVE_PROFILE)
     del data["shell_paths"]
     path.write_text(json.dumps(data), encoding="utf-8")
@@ -65,6 +69,8 @@ def test_active_profile_missing_shell_paths_fails(tmp_path: Path) -> None:
 
 
 def test_unknown_active_profile_validates_without_whitelist(tmp_path: Path) -> None:
-    path = tmp_path / "tech-foo.json"
+    stage_dir = tmp_path / "tech-foo"
+    stage_dir.mkdir()
+    path = stage_dir / "compose-profile.json"
     path.write_text(json.dumps(_MINIMAL_ACTIVE_PROFILE), encoding="utf-8")
     assert _validate_profile(path) == []

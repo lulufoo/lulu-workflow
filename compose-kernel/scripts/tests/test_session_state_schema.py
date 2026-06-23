@@ -22,11 +22,16 @@ from session_state_schema import (
     save_active_doc,
 )
 from workflow_common import CACHE_DIR
-from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, load_profile
+from workflow_paths import (
+    DEFAULT_COMPOSE_PROFILE_ID,
+    compose_profile_path,
+    load_profile_json,
+    seed_profile_pointer_for_tests,
+)
 
 _REQUIRED_FIELD_NAMES = {"version", "active_doc", "updated_at"}
 _CYCLE_ID = "feat-test-session-state"
-_CACHE_SUBDIR = load_profile(DEFAULT_COMPOSE_PROFILE_ID)["cache_subdir"]
+_CACHE_SUBDIR = load_profile_json(compose_profile_path(DEFAULT_COMPOSE_PROFILE_ID))["cache_subdir"]
 
 
 def _write_session_state(path: Path, active_doc: int) -> None:
@@ -37,6 +42,7 @@ def _write_session_state(path: Path, active_doc: int) -> None:
 
 
 def _seed_cycle(tmp_path: Path, *, active_doc: Optional[int] = None) -> Path:
+    seed_profile_pointer_for_tests(tmp_path, _CYCLE_ID, DEFAULT_COMPOSE_PROFILE_ID)
     base = tmp_path / CACHE_DIR / _CYCLE_ID / _CACHE_SUBDIR
     base.mkdir(parents=True, exist_ok=True)
     if active_doc is not None:
@@ -143,6 +149,7 @@ class TestBumpActiveDoc:
 
 class TestResolvePath:
     def test_points_to_session_state(self, tmp_path: Path):
+        _seed_cycle(tmp_path)
         expected = tmp_path / CACHE_DIR / _CYCLE_ID / _CACHE_SUBDIR / "session-state.md"
         assert resolve_path(_CYCLE_ID, tmp_path) == expected
 

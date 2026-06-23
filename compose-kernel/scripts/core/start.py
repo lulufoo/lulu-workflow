@@ -39,11 +39,15 @@ from workflow_state_schema import init_drafting, mark_historical
 
 from scope_resolver import resolve_role_summary, ScopeResolverError  # noqa: E402
 
-from workflow_paths import load_profile  # noqa: E402
+from workflow_paths import (  # noqa: E402
+    read_profile_for_start,
+    validate_compose_profile_path,
+    write_profile_pointer,
+)
 
 
 def _bump_active_doc(cycle_id: str, project_root: Path, profile_id: str) -> int:
-    path = project_root / profile_session_state_path(cycle_id, profile_id)
+    path = project_root / profile_session_state_path(cycle_id, profile_id, project_root)
     active_doc = next_doc_round(path)
     save_active_doc(path, active_doc)
     return active_doc
@@ -86,8 +90,13 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--profile",
-        default="tech-plan",
-        help="Compose profile id (default: tech-plan).",
+        required=True,
+        help="Compose profile / stage id.",
+    )
+    parser.add_argument(
+        "--profile-path",
+        required=True,
+        help="Path to compose-profile.json ($SKILL_DIR/compose-profile.json).",
     )
     parser.add_argument(
         "--carry-forward-ref",
@@ -108,8 +117,20 @@ def run_start(
 ) -> int:
     project_root = Path(args.project_root).resolve()
     cycle_id = args.cycle_id.strip()
-    profile = load_profile(args.profile.strip())
-    profile_id = profile["profile_id"]
+    profile_id = args.profile.strip()
+    profile_json_path = Path(args.profile_path).expanduser()
+    if not profile_json_path.is_absolute():
+        profile_json_path = (project_root / profile_json_path).resolve()
+    try:
+        validate_compose_profile_path(profile_id, profile_json_path)
+        profile = read_profile_for_start(profile_json_path, profile_id)
+    except ValueError as exc:
+        print(f"错误：{exc}", file=sys.stderr)
+        return 1
+    cache_subdir = str(profile.get("cache_subdir", "")).strip()
+    if not cache_subdir:
+        print("错误：profile 缺少 cache_subdir", file=sys.stderr)
+        return 1
     to_stage = profile["stage_name"]
 
     cycle_type = detect_cycle_type(cycle_id)
@@ -180,6 +201,8 @@ def run_start(
         print(f"Gate blocked: {reason}", file=sys.stderr)
         sys.exit(1)
 
+    write_profile_pointer(project_root, cycle_id, cache_subdir, profile_json_path)
+
     try:
         topic_doc = get_topic_doc(cycle_id, to_stage, cache_dir)
         if topic_doc:
@@ -189,7 +212,7 @@ def run_start(
         sys.exit(1)
 
     active_doc = _bump_active_doc(cycle_id, project_root, profile_id)
-    ss_path = project_root / profile_session_state_path(cycle_id, profile_id)
+    ss_path = project_root / profile_session_state_path(cycle_id, profile_id, project_root)
     write_active_context(
         project_root,
         cycle_id,
@@ -199,7 +222,7 @@ def run_start(
     )
     write_cycle_state(cycle_id, to_stage, cache_dir)
 
-    ws_path = project_root / profile_state_path(cycle_id, active_doc, profile_id)
+    ws_path = project_root / profile_state_path(cycle_id, active_doc, profile_id, project_root)
     init_drafting(
         ws_path,
         mode=run_mode,

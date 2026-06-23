@@ -49,7 +49,7 @@ def resolve_path(
     profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
 ) -> Path:
     """Return absolute path to session-state.md for a cycle."""
-    return project_root / session_state_path(cycle_id, profile_id)
+    return project_root / session_state_path(cycle_id, profile_id, project_root)
 
 
 def load_active_doc(path: Path, *, default: int | None = None) -> int:

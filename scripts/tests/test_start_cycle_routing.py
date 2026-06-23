@@ -210,18 +210,62 @@ def _seed_work_order_handoff(cache_dir: Path, cycle_id: str, active_doc: int = 1
 
 
 
+_LDEV = _SRC / "lulu-dev-workflow"
+
+
+def _compose_start_args(profile_id: str, *extra: str) -> list[str]:
+    return [
+        "--profile",
+        profile_id,
+        "--profile-path",
+        str(_LDEV / profile_id / "compose-profile.json"),
+        *extra,
+    ]
+
+
+def _seed_diagnostic_config(tmp_path: Path) -> None:
+    """Seed workflow-config + local decision-doc template for dx_start init-session."""
+    cfg_dir = tmp_path / "skill-config" / "lulu-dev-workflow"
+    cfg_dir.mkdir(parents=True)
+    local_template = tmp_path / "decision-doc.template.md"
+    local_template.write_text(
+        "# Decision: {title}\n\n"
+        "## 1. User Prior\n\n- placeholder\n\n"
+        "## 2. Problem Definition\n\nTBD\n\n"
+        "## 3. Direction Comparison\n\nTBD\n\n"
+        "## 4. Decision Rationale\n\nTBD\n\n"
+        "## 5. Scope\n\nTBD\n\n"
+        "## 6. Assumptions & Risks\n\nTBD\n\n"
+        "## 7. Execution Analysis\n\n### 7.1 Acceptance Criteria\n\nTBD\n",
+        encoding="utf-8",
+    )
+    (cfg_dir / "workflow-config.json").write_text(
+        json.dumps({"diagnostic": {"decision_doc_template_url": local_template.as_uri()}}),
+        encoding="utf-8",
+    )
+
+
+def _diag_holder_args(stage: str = "product-diagnostic") -> list[str]:
+    return [
+        "--stage",
+        stage,
+        "--constraints",
+        str(_LDEV / stage / "constraints.json"),
+    ]
+
+
 def _stage_extra_args(stage: str, tmp_path: Path) -> list:
     """Return required extra CLI args for each stage."""
     if stage == "diagnostic":
-        return []
+        return _diag_holder_args("product-diagnostic")
     if stage == "product-spec":
-        return ["--profile", "product-spec", "--run-mode", "product"]
+        return _compose_start_args("product-spec", "--run-mode", "product")
     elif stage == "product-arch":
         return []
     elif stage == "tech-arch":
         return []
     elif stage == "tech-plan":
-        return ["--profile", "tech-plan", "--run-mode", "tech"]
+        return _compose_start_args("tech-plan", "--run-mode", "tech")
     elif stage == "tech-work-order":
         tech_ref = tmp_path / "tech-doc.md"
         tech_ref.write_text("# Tech Doc\n", encoding="utf-8")
@@ -328,6 +372,8 @@ class TestActiveContextContainerType:
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID)
         _seed_gate_for_stage(cd, _CYCLE_ID, stage, tmp_path)
+        if stage == "diagnostic":
+            _seed_diagnostic_config(tmp_path)
         extra = _stage_extra_args(stage, tmp_path)
         cmd = [
             sys.executable, str(_start_py(stage)),
@@ -351,6 +397,8 @@ class TestActiveContextContainerType:
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _TOPIC_ID)
         _seed_gate_for_stage(cd, _TOPIC_ID, stage, tmp_path)
+        if stage == "diagnostic":
+            _seed_diagnostic_config(tmp_path)
         extra = _stage_extra_args(stage, tmp_path)
         cmd = [
             sys.executable, str(_start_py(stage)),
@@ -379,6 +427,7 @@ class TestTopicIdSessionPath:
     def test_diagnostic_topic_session_uses_topic_dir(self, tmp_path):
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _TOPIC_ID)
+        _seed_diagnostic_config(tmp_path)
         result = subprocess.run(
             [
                 sys.executable, str(_start_py("diagnostic")),
@@ -504,6 +553,7 @@ class TestActiveContextBackwardCompat:
             json.dumps({_CYCLE_ID: {"name": "Old Feature", "execution_mode": "guided"}}),
             encoding="utf-8",
         )
+        _seed_diagnostic_config(tmp_path)
         result = subprocess.run(
             [
                 sys.executable, str(_start_py("diagnostic")),

@@ -161,7 +161,7 @@ def read_current_step(path: Path, *, default: str | None = None) -> str | None:
 def resolve_drafting_progress_path_from_cycle(cycle_id: str, project_root: Path) -> Path:
     """Resolve revision{N}/drafting-progress.md via session-state.md active_doc."""
     active_doc = load_active_doc_from_cycle(cycle_id, project_root, profile_id="tech-plan")
-    return project_root / doc_dir(cycle_id, active_doc, "tech-plan") / "drafting-progress.md"
+    return project_root / doc_dir(cycle_id, active_doc, "tech-plan", project_root) / "drafting-progress.md"
 
 
 def _cli() -> int:

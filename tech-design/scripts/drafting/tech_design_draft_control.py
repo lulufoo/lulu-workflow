@@ -52,7 +52,7 @@ _STEP_FREE_EDIT = "FreeEdit"
 
 def _active_doc(cycle_id: str, project_root: Path) -> int:
     return load_active_doc(
-        project_root / session_state_path(cycle_id, PROFILE_ID),
+        project_root / session_state_path(cycle_id, PROFILE_ID, project_root),
         default=1,
     )
 
@@ -77,6 +77,7 @@ def _design_doc_path(cycle_id: str, project_root: Path) -> Path:
         cycle_id,
         _active_doc(cycle_id, project_root),
         PROFILE_ID,
+        project_root,
     )
 
 
@@ -113,8 +114,8 @@ def _format_init_dispatch_input(
 
 def _init_dispatch_input(cycle_id: str, project_root: Path) -> str:
     active_doc = _active_doc(cycle_id, project_root)
-    revision_dir = project_root / doc_dir(cycle_id, active_doc, PROFILE_ID)
-    output_doc = project_root / document_path(cycle_id, active_doc, PROFILE_ID)
+    revision_dir = project_root / doc_dir(cycle_id, active_doc, PROFILE_ID, project_root)
+    output_doc = project_root / document_path(cycle_id, active_doc, PROFILE_ID, project_root)
     adapter = TechDesignStartAdapter()
     init_ref = adapter.delivered_ref_for_init(cycle_id, project_root)
     if init_ref is None:

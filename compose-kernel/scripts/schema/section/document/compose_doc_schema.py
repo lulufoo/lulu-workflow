@@ -300,10 +300,10 @@ def resolve_compose_doc_path_from_cycle(
 ) -> tuple[Path, int]:
     """Resolve revision compose document via session-state.md active_doc."""
     active_doc = load_active_doc(
-        project_root / session_state_path(cycle_id, profile_id),
+        project_root / session_state_path(cycle_id, profile_id, project_root),
         default=1,
     )
-    return project_root / document_path(cycle_id, active_doc, profile_id), active_doc
+    return project_root / document_path(cycle_id, active_doc, profile_id, project_root), active_doc
 
 
 def load_presentation_from_cycle(

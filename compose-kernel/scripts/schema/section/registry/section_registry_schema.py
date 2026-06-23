@@ -46,6 +46,8 @@ def resolve_section_registry_path(
     project_root: Path | None = None,
     *,
     profile_id: str | None = None,
+    cycle_id: str | None = None,
+    conversation_id: str | None = None,
 ) -> Path:
     """Return fetched template cache path; fetch from framework when cache is empty."""
     root = _effective_project_root(project_root)
@@ -56,12 +58,28 @@ def resolve_section_registry_path(
     from subagent_config import detect_platform  # noqa: WPS433
 
     pid = profile_id or get_active_profile()
-    section = framework_section(pid)
-    config_key = resolve_config_key(_REGISTRY_SCHEME_KEY, pid)
+    section = framework_section(
+        pid,
+        project_root=root,
+        cycle_id=cycle_id,
+        conversation_id=conversation_id,
+    )
+    config_key = resolve_config_key(
+        _REGISTRY_SCHEME_KEY,
+        pid,
+        project_root=root,
+        cycle_id=cycle_id,
+        conversation_id=conversation_id,
+    )
     cached = cache_path(root, detect_platform(), section, config_key)
     if cached.exists() and cached.read_text(encoding="utf-8").strip():
         return cached
-    fetch_section_registry(root, profile_id=pid)
+    fetch_section_registry(
+        root,
+        profile_id=pid,
+        cycle_id=cycle_id,
+        conversation_id=conversation_id,
+    )
     if cached.exists() and cached.read_text(encoding="utf-8").strip():
         return cached
     raise FileNotFoundError(
@@ -82,6 +100,8 @@ def fetch_section_registry(
     platform: str | None = None,
     force: bool = False,
     profile_id: str | None = None,
+    cycle_id: str | None = None,
+    conversation_id: str | None = None,
 ) -> dict[str, Any]:
     """Fetch section registry via workflow-config template URL."""
     _ensure_workflow_scripts()
@@ -95,6 +115,8 @@ def fetch_section_registry(
         platform=platform,
         force=force,
         profile_id=pid,
+        cycle_id=cycle_id,
+        conversation_id=conversation_id,
     )
     data = json.loads(content)
     errors = validate_section_registry(data)

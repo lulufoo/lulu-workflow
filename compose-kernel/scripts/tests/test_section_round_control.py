@@ -30,6 +30,7 @@ from bootstrap import CORE, SECTION  # noqa: E402
 _SCRIPT = SECTION / "section_round_control.py"
 _CYCLE_ID = "test-cycle"
 from test_template_data import LEGACY_SECTION_REGISTRY, seed_template_cache  # noqa: E402
+from workflow_paths import seed_profile_pointer_for_tests  # noqa: E402
 
 
 def _seed_registry_cache(project_root: Path) -> None:
@@ -42,6 +43,7 @@ def _seed_registry_cache(project_root: Path) -> None:
 
 
 def _setup_cycle(tmp_path: Path) -> Path:
+    seed_profile_pointer_for_tests(tmp_path, _CYCLE_ID, "tech-plan")
     _seed_registry_cache(tmp_path)
     cycle_dir = tmp_path / ".cache/cursor/lulu-dev-workflow" / _CYCLE_ID
     plan_base = cycle_dir / "tech" / "plan"
@@ -178,6 +180,7 @@ def test_read_context_scope_primary_design_doc(tmp_path: Path):
 
 def test_read_context_fails_without_workflow_state(tmp_path: Path):
     _seed_registry_cache(tmp_path)
+    seed_profile_pointer_for_tests(tmp_path, _CYCLE_ID, "tech-plan")
     cycle_dir = tmp_path / ".cache/cursor/lulu-dev-workflow" / _CYCLE_ID
     plan_base = cycle_dir / "tech" / "plan"
     revision = plan_base / "revision1"

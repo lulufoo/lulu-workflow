@@ -122,11 +122,11 @@ def read_current_step(path: Path, *, default: str | None = None) -> str | None:
 
 def _active_doc(cycle_id: str, project_root: Path) -> int:
     return load_active_doc(
-        project_root / session_state_path(cycle_id, PROFILE_ID),
+        project_root / session_state_path(cycle_id, PROFILE_ID, project_root),
         default=1,
     )
 
 
 def resolve_drafting_progress_path_from_cycle(cycle_id: str, project_root: Path) -> Path:
     active_doc = _active_doc(cycle_id, project_root)
-    return project_root / doc_dir(cycle_id, active_doc, PROFILE_ID) / "drafting-progress.md"
+    return project_root / doc_dir(cycle_id, active_doc, PROFILE_ID, project_root) / "drafting-progress.md"
