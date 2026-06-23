@@ -3,8 +3,8 @@ name: initializing-runner
 description: >-
   Autonomous Initializing step for compose-profile drafting. Loads upstream scope
   doc, narrow codebase context, and frameworks; composes per-section body via I* / F
-  / C; writes the initial draft and returns control to the parent Initializing
-  step.
+  / C; persists each section incrementally and returns control to the parent
+  Initializing step.
 ---
 
 # initializing-runner
@@ -15,11 +15,10 @@ Use `$COMPOSE_PROFILE` from parent dispatch; kernel default applies only when om
 
 ## Scope
 
-Steps I1–I3 only (I2 includes I2e):
+Steps I1–I2 only (I2 includes I2a–I2f):
 
 1. Load scope doc, narrow codebase context, section-registry (with `intent`), outline-registry, section-kw-criteria, and Plan Scope Constraints.
-2. Compose each section: Filter `I*` → Derive `F` → Derive `C` → Write body → Derive display title (see Theory).
-3. Write `$OUTPUT_DOC_PATH` via outline assembly (or `{REVISION_DIR}/tech-doc.md` when `OUTPUT_DOC_PATH` is absent).
+2. Compose and persist each section: Filter `I*` → Derive `F` → Derive `C` → Write body → Derive display title → Persist section (see Theory).
 
 Do not ask the user questions. Do not run InDialogue, Reopen, Evaluating, or delivery work.
 
@@ -27,7 +26,7 @@ Do not ask the user questions. Do not run InDialogue, Reopen, Evaluating, or del
 
 See [`../../references/compose-theory.md`](../../references/compose-theory.md).
 
-**Order (strict):** I2a Filter `I*` → I2b Derive `F` → I2c Derive `C` → I2d Write body → I2e Derive display title.
+**Order (strict):** I2a Filter `I*` → I2b Derive `F` → I2c Derive `C` → I2d Write body → I2e Derive display title → I2f Persist section.
 
 ## Parent-Provided Inputs
 
@@ -42,7 +41,7 @@ See [`../../references/compose-theory.md`](../../references/compose-theory.md).
 
 Self-resolved: `$PROJECT_ROOT` = `$(pwd)` · `$OUTPUT_DOC_PATH` from parent input (fallback `{REVISION_DIR}/tech-doc.md`)
 
-All compose and scope macros (`$FETCH_COMPOSE`, `$RESOLVE_PLAN_ROLE`, `$RESOLVE_DOMAIN`) **must** pass `--profile "$COMPOSE_PROFILE"`.
+All compose and scope macros (`$FETCH_COMPOSE`, `$RESOLVE_PLAN_ROLE`, `$RESOLVE_DOMAIN`, `$COMPOSE_DOC_CONTROL`) **must** pass `--profile "$COMPOSE_PROFILE"`.
 
 ## Script Macros
 
@@ -50,6 +49,9 @@ All compose and scope macros (`$FETCH_COMPOSE`, `$RESOLVE_PLAN_ROLE`, `$RESOLVE_
 |-------|---------|
 | `$RESOLVE_PLAN_ROLE` | `python3 "$SKILL_ROOT/compose-kernel/scripts/scope/scope_resolver.py" resolve-role --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile "$COMPOSE_PROFILE"` |
 | `$RESOLVE_DOMAIN` | `python3 "$SKILL_ROOT/compose-kernel/scripts/scope/scope_resolver.py" resolve-domain --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile "$COMPOSE_PROFILE"` |
+| `$COMPOSE_DOC_CONTROL` | `python3 "$SKILL_ROOT/compose-kernel/scripts/section/compose_doc_control.py"` |
+
+`$COMPOSE_DOC_CONTROL` subcommands: `--help` · `init-doc` · `append-intent`.
 
 ## Execution Contract
 
@@ -61,11 +63,20 @@ All compose and scope macros (`$FETCH_COMPOSE`, `$RESOLVE_PLAN_ROLE`, `$RESOLVE_
 4. `$FETCH_COMPOSE outline-registry` → `outline_order`, per-block `heading` / `intents` / `guidance` / `contract`, `document_preamble_addon`.
 5. `$FETCH_COMPOSE section-kw-criteria` → each `## {section_key}` block.
 6. Read `$SCOPE_DOC_PATH` full text once (shared across I2).
-7. Init `fill_results` from `section_order` (`content: ""`, `display_title: ""`, `status: "X"`, draft).
+7. **Init document:** Substitute placeholders in `document_preamble`; append `document_preamble_addon`. Write via:
+
+```bash
+$COMPOSE_DOC_CONTROL init-doc \
+  --path "$OUTPUT_DOC_PATH" \
+  --preamble "<substituted document_preamble markdown>" \
+  --preamble-addon "<document_preamble_addon markdown>"
+```
+
+Prefer `--preamble-file` / `--preamble-addon-file` when content is multiline.
 
 Do **not** fetch spec-template URLs.
 
-### Step I2 — Compose (per `section_key`, strict I2a → I2e)
+### Step I2 — Compose (per `section_key`, strict I2a → I2f)
 
 For each key in `section_order`:
 
@@ -102,27 +113,37 @@ F.forbidden: <derived from intent_boundary + forms eliminated in L1/L2>
 
 #### I2d — Write body
 
-- **Input:** `I*` · `F` · `C` · `intent` · `intent_boundary`
+- **Input:** `I*` · `F` · `C` · `intent` · `intent_boundary` · upstream section bodies already persisted in `$OUTPUT_DOC_PATH` (when de-duplicating)
 - Scaffold per `F`; rewrite `I*` into slots; obey every `(d, c)` and `intent`.
 - When high-priority `C` requires named blocks, ordering, step lists, tables, diagrams, or forbidden-form exclusions, realize them explicitly in body structure.
-- **De-duplication:** Do not repeat the same boundary constraint across sections when `intent_boundary` defers elsewhere; upstream sections stay compact.
-- Set `fill_results[section_key].content` to the section markdown body (no H2 line).
-- Keep `status: "X"`.
+- **De-duplication:** Do not repeat the same boundary constraint across sections when `intent_boundary` defers elsewhere; upstream sections stay compact. Read upstream bodies from `$OUTPUT_DOC_PATH` via `compose_doc_schema.py --section-body` when needed.
+- **Output:** `$SECTION_BODY` — section markdown body (no H2 line).
 
 #### I2e — Derive display title
 
-- **Input:** `sections.{key}.heading` · `fill_results[section_key].content` · `I*_scope` (not `I*_impl` paths/APIs)
+- **Input:** `sections.{key}.heading` · `$SECTION_BODY` · `I*_scope` (not `I*_impl` paths/APIs)
 - **Action:** Infer a short localized chapter title: use `heading` as type anchor; extract one domain theme from content substance; combine (~8–20 chars); distinguish sibling intents in the same outline block
 - **Forbidden:** verbatim registry `heading`; file paths; API names; copying the first body sentence
-- **Output:** `fill_results[section_key].display_title`; empty content → `（待补）`
-- Keep `status: "X"`.
+- **Output:** `$DISPLAY_TITLE`; empty `$SECTION_BODY` → `（待补）`
 
-### Step I3 — Write document
+#### I2f — Persist section
 
-1. **Preamble:** Substitute placeholders in `document_preamble`; append `document_preamble_addon` from outline-registry.
-2. **Outline assembly:** For each key in `outline_order`, write `## {blocks.{key}.heading}`; for each intent in `blocks.{key}.intents`, write `### {fill_results[intent].display_title} <!-- section-key:{intent} -->`, a blank line, then `fill_results[intent].content`; separate outline blocks with `---` when not the last block.
-3. Write the assembled document to `$OUTPUT_DOC_PATH`.
-4. All sections remain draft (`X`) until Round probe (when Round is wired).
+- **Input:** `$SECTION_BODY` · `$DISPLAY_TITLE` · `section_key` · outline-registry (loaded in I1)
+- **Action:** Append to `$OUTPUT_DOC_PATH`:
+
+```bash
+$COMPOSE_DOC_CONTROL append-intent \
+  --path "$OUTPUT_DOC_PATH" \
+  --section "{section_key}" \
+  --display-title "$DISPLAY_TITLE" \
+  --body-file "<temp path with $SECTION_BODY>" \
+  --profile "$COMPOSE_PROFILE" \
+  --project-root "$(pwd)"
+```
+
+Script writes outline H2 (first intent in block), H3 anchor line, body, and block `---` per outline-registry. Fail on duplicate `section-key` anchor.
+
+All sections remain draft until Round probe (when Round is wired).
 
 ## Return Summary
 

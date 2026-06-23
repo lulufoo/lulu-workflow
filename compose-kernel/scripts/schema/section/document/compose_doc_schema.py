@@ -56,6 +56,7 @@ _H3_WITH_KEY_RE = re.compile(
     r"^###\s+.*<!--\s*section-key:",
     re.MULTILINE | re.IGNORECASE,
 )
+_HRULE_RE = re.compile(r"^\s*---\s*$", re.MULTILINE)
 
 
 def get_schema() -> list[dict]:
@@ -164,7 +165,9 @@ def _next_boundary(body: str, start: int, anchor_positions: list[int]) -> int:
     h3_pos = next_h3.start() if next_h3 else len(body)
     later_anchors = [pos for pos in anchor_positions if pos > start]
     anchor_pos = later_anchors[0] if later_anchors else len(body)
-    return min(h2_pos, h3_pos, anchor_pos)
+    rule_match = _HRULE_RE.search(body, start)
+    rule_pos = rule_match.start() if rule_match else len(body)
+    return min(h2_pos, h3_pos, anchor_pos, rule_pos)
 
 
 def _parse_sections_by_intent_anchors(

@@ -26,13 +26,13 @@ display_title = specialize( sections.{key}.heading ; substance(content) )
 
 `I* = I*_scope ∪ I*_impl` (either list may be empty).
 
-**Order (strict):** Filter `I*` → Derive `F` → Derive `C` → Write body → Derive display title.
+**Order (strict):** Filter `I*` → Derive `F` → Derive `C` → Write body → Derive display title → Persist section.
 
 **Intent text:** Use `sections.{key}.intent` when present; else `sections.{key}.desc` (legacy).
 
 **F priority (conflict resolution):** outline `guidance` > domain `expression_conventions` > role `expressive_tendency` > intent text. `intent_boundary` defers substance to other intents — do not repeat it in body.
 
-**Document assembly:** Compose documents are assembled from outline-registry only — outline H2 blocks, intent H3 lines with `<!-- section-key:KEY -->`, then body. Round readers locate sections by that anchor.
+**Document assembly:** Compose documents use outline-registry for structure — outline H2 blocks, intent H3 lines with `<!-- section-key:KEY -->`, then body. Initializing persists each intent via `$COMPOSE_DOC_CONTROL append-intent` immediately after display title derivation. Round readers locate sections by that anchor.
 
 ## Content (I*) — scope vs implementation
 
