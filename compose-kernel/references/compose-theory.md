@@ -20,9 +20,9 @@ display_title = specialize( sections.{key}.heading ; substance(content) )
 | Form | `F` | outline + domain + role + intent | How content is carried and organized |
 | Expression | `C` | `### Role Fields` + domain + intent + F | How to write inside F |
 | Envelope | `intent` | section-registry (`intent` + `intent_boundary`) | What belongs in this intent slice |
-| Outline | `guidance` | outline-registry (feature only) | Block-level form and presentation guidance for F derivation |
-| Outline | `contract` | outline-registry (feature only) | Structural required/forbidden constraints for C derivation |
-| Display title | `display_title` | `sections.{key}.heading` + `I*_scope` / content substance | H3 label on intent anchor line (feature) or H2 (topic) |
+| Outline | `guidance` | outline-registry | Block-level form and presentation guidance for F derivation |
+| Outline | `contract` | outline-registry | Structural required/forbidden constraints for C derivation |
+| Display title | `display_title` | `sections.{key}.heading` + `I*_scope` / content substance | H3 label on intent anchor line under outline H2 blocks |
 
 `I* = I*_scope ∪ I*_impl` (either list may be empty).
 
@@ -30,7 +30,9 @@ display_title = specialize( sections.{key}.heading ; substance(content) )
 
 **Intent text:** Use `sections.{key}.intent` when present; else `sections.{key}.desc` (legacy).
 
-**F priority (conflict resolution):** outline `guidance` (feature) > domain `expression_conventions` > role `expressive_tendency` > intent text. `intent_boundary` defers substance to other intents — do not repeat it in body.
+**F priority (conflict resolution):** outline `guidance` > domain `expression_conventions` > role `expressive_tendency` > intent text. `intent_boundary` defers substance to other intents — do not repeat it in body.
+
+**Document assembly:** Compose documents are assembled from outline-registry only — outline H2 blocks, intent H3 lines with `<!-- section-key:KEY -->`, then body. Round readers locate sections by that anchor.
 
 ## Content (I*) — scope vs implementation
 
@@ -55,7 +57,7 @@ F describes how a section's content is carried and organized. It has three field
 - `structure` — the internal organization of the carrier: layout, hierarchy, diagram type and its communicative purpose
 - `forbidden` — forms explicitly excluded for this section, derived from intent_boundary, outline `guidance`, and derivation conflicts
 
-All three fields are derived natural-language descriptions, not enum values. F is derived per section; its value depends on outline `guidance` (feature), domain conventions, role expressive tendency, and intent — in that priority order when they conflict.
+All three fields are derived natural-language descriptions, not enum values. F is derived per section; its value depends on outline `guidance`, domain conventions, role expressive tendency, and intent — in that priority order when they conflict.
 
 ## Expression (C) — definition
 

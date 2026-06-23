@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Authoritative read helpers for profile compose documents (section-keyed markdown).
 
-Section bodies are located by `<!-- section-key:KEY -->` anchors (preferred):
-on H2 (topic / legacy), or on H3 inside outline H2 blocks (feature).
-Legacy registry heading match is a final fallback.
+Section bodies are located by `<!-- section-key:KEY -->` anchors on H3 inside outline H2 blocks (canonical).
+Flat H2 anchors and legacy registry heading match are read fallbacks only.
 
 CLI:
     python3 compose_doc_schema.py --schema

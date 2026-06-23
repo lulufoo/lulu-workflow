@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Load feature compose stage outline registry (presentation blocks → intent keys).
+"""Load compose stage outline registry (presentation blocks → intent keys).
 
 CLI:
     python3 outline_registry_schema.py --schema
@@ -34,7 +34,7 @@ _SCHEMA: list[dict[str, Any]] = [
     {"field": "$schema_id", "type": "string", "required": False,
      "description": "Fixed value: outline-schema when present"},
     {"field": "cycle_type", "type": "string", "required": False,
-     "description": "Must be 'feature' when present"},
+     "description": "Optional cycle-type label when present"},
     {"field": "outline_order", "type": "list[string]", "required": True,
      "description": "Ordered block keys for document assembly"},
     {"field": "document_preamble_addon", "type": "string", "required": False,
@@ -124,22 +124,63 @@ def fetch_outline_registry(
     *,
     platform: str | None = None,
     force: bool = False,
+    profile_id: str | None = None,
 ) -> dict[str, Any]:
     """Fetch outline registry via workflow-config template URL."""
     _ensure_workflow_scripts()
+    from compose_profile_context import get_active_profile  # noqa: WPS433
     from fetch_compose_framework import fetch_compose_framework  # noqa: WPS433
+    from section_registry_schema import fetch_section_registry  # noqa: WPS433
 
+    pid = profile_id or get_active_profile()
     content = fetch_compose_framework(
         _OUTLINE_SCHEME_KEY,
         project_root.resolve(),
         platform=platform,
         force=force,
+        profile_id=pid,
     )
     data = json.loads(content)
     errors = validate_outline_registry(data)
     if errors:
         raise ValueError("; ".join(errors))
+    section_registry = fetch_section_registry(
+        project_root,
+        platform=platform,
+        force=False,
+        profile_id=pid,
+    )
+    errors = validate_outline_section_alignment(data, section_registry)
+    if errors:
+        raise ValueError("; ".join(errors))
     return normalize_outline_registry(data)
+
+
+def validate_outline_section_alignment(
+    outline: dict[str, Any],
+    section_registry: dict[str, Any],
+) -> list[str]:
+    """Ensure outline intents match section_order exactly."""
+    errors: list[str] = []
+    section_order = [
+        str(key).upper() for key in (section_registry.get("section_order") or [])
+    ]
+    outline_intents: set[str] = set()
+    for block_key in outline.get("outline_order") or []:
+        block = (outline.get("blocks") or {}).get(block_key) or {}
+        for intent in block.get("intents") or []:
+            outline_intents.add(str(intent).upper())
+
+    section_set = set(section_order)
+    for key in section_set:
+        if key not in outline_intents:
+            errors.append(
+                f"section_order key {key!r} missing from outline blocks intents",
+            )
+    for intent in sorted(outline_intents):
+        if intent not in section_set:
+            errors.append(f"outline intent {intent!r} not listed in section_order")
+    return errors
 
 
 def validate_outline_registry(data: dict[str, Any]) -> list[str]:
@@ -151,10 +192,6 @@ def validate_outline_registry(data: dict[str, Any]) -> list[str]:
     schema_id = data.get("$schema_id")
     if schema_id is not None and schema_id != SCHEMA_ID:
         errors.append(f"$schema_id must be {SCHEMA_ID!r} when present")
-
-    cycle_type = data.get("cycle_type")
-    if cycle_type is not None and str(cycle_type).strip() != "feature":
-        errors.append(f"cycle_type must be 'feature' when present; got {cycle_type!r}")
 
     order = data.get("outline_order")
     if not isinstance(order, list) or not order:

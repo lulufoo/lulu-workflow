@@ -15,6 +15,7 @@ from outline_registry_schema import (  # noqa: E402
     load_outline_registry,
     normalize_outline_registry,
     validate_outline_registry,
+    validate_outline_section_alignment,
 )
 from test_template_data import OUTLINE_REGISTRY_FEATURE  # noqa: E402
 
@@ -93,8 +94,38 @@ def test_validate_rejects_duplicate_intent():
     assert any("more than one outline block" in err for err in errors)
 
 
-def test_validate_requires_feature_cycle_type_when_present():
-    payload = dict(OUTLINE_REGISTRY_FEATURE)
-    payload["cycle_type"] = "topic"
-    errors = validate_outline_registry(payload)
-    assert any("cycle_type" in err for err in errors)
+def test_validate_outline_section_alignment():
+    outline = normalize_outline_registry(OUTLINE_REGISTRY_FEATURE)
+    section_registry = {
+        "version": "1",
+        "section_order": [
+            "CTX",
+            "GO",
+            "SC",
+            "NG",
+            "I",
+            "AR",
+            "KD",
+            "SK",
+            "T",
+            "VF",
+        ],
+        "document_preamble": "# Test",
+        "sections": {key: {"heading": key, "intent": "x"} for key in [
+            "CTX", "GO", "SC", "NG", "I", "AR", "KD", "SK", "T", "VF",
+        ]},
+    }
+    assert validate_outline_section_alignment(outline, section_registry) == []
+
+
+def test_validate_outline_section_alignment_reports_mismatch():
+    outline = normalize_outline_registry(OUTLINE_REGISTRY_FEATURE)
+    section_registry = {"section_order": ["CTX", "GO"], "sections": {}}
+    errors = validate_outline_section_alignment(outline, section_registry)
+    assert any("not listed in section_order" in err for err in errors)
+    section_registry_extra = {
+        "section_order": ["CTX", "GO", "MISSING"],
+        "sections": {},
+    }
+    errors = validate_outline_section_alignment(outline, section_registry_extra)
+    assert any("missing from outline blocks intents" in err for err in errors)

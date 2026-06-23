@@ -15,12 +15,11 @@ Use `$COMPOSE_PROFILE` from parent dispatch; kernel default applies only when om
 
 ## Scope
 
-Steps I1–I4 only (I2 includes I2e):
+Steps I1–I3 only (I2 includes I2e):
 
-1. Load scope doc, narrow codebase context, section-registry (with `intent`), outline-registry when `$CYCLE_TYPE` is `feature`, section-kw-criteria, and Plan Scope Constraints.
+1. Load scope doc, narrow codebase context, section-registry (with `intent`), outline-registry, section-kw-criteria, and Plan Scope Constraints.
 2. Compose each section: Filter `I*` → Derive `F` → Derive `C` → Write body → Derive display title (see Theory).
-3. Optionally write R0 rows to anchor-ledger.
-4. Write `$OUTPUT_DOC_PATH` (or `{REVISION_DIR}/tech-doc.md` when `OUTPUT_DOC_PATH` is absent).
+3. Write `$OUTPUT_DOC_PATH` via outline assembly (or `{REVISION_DIR}/tech-doc.md` when `OUTPUT_DOC_PATH` is absent).
 
 Do not ask the user questions. Do not run InDialogue, Reopen, Evaluating, or delivery work.
 
@@ -63,7 +62,6 @@ All compose and scope macros (`$FETCH_COMPOSE`, `$RESOLVE_PLAN_ROLE`, `$RESOLVE_
 5. `$FETCH_COMPOSE section-kw-criteria` → each `## {section_key}` block.
 6. Read `$SCOPE_DOC_PATH` full text once (shared across I2).
 7. Init `fill_results` from `section_order` (`content: ""`, `display_title: ""`, `status: "X"`, draft).
-8. If `$CYCLE_TYPE` is `feature` and codebase context exists → note `Ref: {path}` for I3 R0.
 
 Do **not** fetch spec-template URLs.
 
@@ -79,11 +77,11 @@ For each key in `section_order`:
 
 #### I2b — Derive `F`
 
-- **Input:** `### Role Fields` · domain instance · `intent` · outline `guidance` for the block containing this intent (feature)
+- **Input:** `### Role Fields` · domain instance · `intent` · outline `guidance` for the block containing this intent
 - **Derive (three-step narrowing; priority on conflict: outline guidance > domain > role > intent):**
   1. **L1 — domain → lawful form space:** Read `expression_conventions` from the domain instance; establish what forms are idiomatic and legitimate in this domain. Forms outside this space are unconditionally excluded.
   2. **L2 — role × domain → preferred subset:** Read `expressive_tendency` from `### Role Fields` and `information_nature` from the domain instance; within the lawful space, narrow to forms that match both the role's expressive preference and the domain's characteristic information types.
-  3. **L3 — intent + outline → concrete selection:** Read `intent` to determine this section's specific information nature; from the preferred subset, select the carrier and structure that best serve it. Apply outline `guidance` when present (feature). Extract exclusion from `intent_boundary` — clauses go to `F.forbidden`. When `intent` names optional blocks (e.g. Interface Contract, Existing Assets, Task Detail with steps), select carriers that include them when `I*` supports it.
+  3. **L3 — intent + outline → concrete selection:** Read `intent` to determine this section's specific information nature; from the preferred subset, select the carrier and structure that best serve it. Apply outline `guidance` when present. Extract exclusion from `intent_boundary` — clauses go to `F.forbidden`. When `intent` names optional blocks (e.g. Interface Contract, Existing Assets, Task Detail with steps), select carriers that include them when `I*` supports it.
 - **Output (required):**
 
 ```text
@@ -119,17 +117,12 @@ F.forbidden: <derived from intent_boundary + forms eliminated in L1/L2>
 - **Output:** `fill_results[section_key].display_title`; empty content → `（待补）`
 - Keep `status: "X"`.
 
-### Step I3 — Ancillary (optional)
+### Step I3 — Write document
 
-- R0-grade User Prior / Known Constraints → `anchor-ledger.md` (`Committed at Round = 0`). Include codebase reference paths from I1 when used. Do not stack `[Anchored]` in body.
-
-### Step I4 — Write document
-
-1. **Preamble:** `document_preamble` with placeholders substituted. When `$CYCLE_TYPE` is `feature`, append `document_preamble_addon` from outline-registry after substitution.
-2. **Feature assembly (`$CYCLE_TYPE` is `feature`):** For each key in `outline_order`, write `## {blocks.{key}.heading}` then for each intent in `blocks.{key}.intents` write `### {fill_results[intent].display_title} <!-- section-key:{intent} -->`, a blank line, then `fill_results[intent].content`. Separate outline blocks with `---` when not the last block.
-3. **Topic assembly:** For each key in `section_order`, write `## {fill_results[section_key].display_title} <!-- section-key:{section_key} -->`, a blank line, then `fill_results[section_key].content`.
-4. Write the assembled document to `$OUTPUT_DOC_PATH`.
-5. All sections remain draft (`X`) until Round probe (when Round is wired).
+1. **Preamble:** Substitute placeholders in `document_preamble`; append `document_preamble_addon` from outline-registry.
+2. **Outline assembly:** For each key in `outline_order`, write `## {blocks.{key}.heading}`; for each intent in `blocks.{key}.intents`, write `### {fill_results[intent].display_title} <!-- section-key:{intent} -->`, a blank line, then `fill_results[intent].content`; separate outline blocks with `---` when not the last block.
+3. Write the assembled document to `$OUTPUT_DOC_PATH`.
+4. All sections remain draft (`X`) until Round probe (when Round is wired).
 
 ## Return Summary
 

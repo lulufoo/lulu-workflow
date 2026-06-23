@@ -65,8 +65,7 @@ Read full active section body + decision-doc relevant passages + section kw bloc
 ## Step 5 — Write
 
 1. Write confirmed content to `COMPOSE_DOC_PATH` within the section located by `<!-- section-key:{section_key} -->`.
-   - **Feature docs:** keep or update `### {display_title} <!-- section-key:{section_key} -->` on the anchor line.
-   - **Topic docs:** you may change the H2 display text before the anchor comment.
+   - Keep or update `### {display_title} <!-- section-key:{section_key} -->` on the anchor line.
    - **Never remove or alter** `<!-- section-key:… -->`.
 2. `write-refiner-artifact --json …`
 3. `update-gap-status --status resolved`
