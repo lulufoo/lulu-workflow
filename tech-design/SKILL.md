@@ -68,8 +68,6 @@ To resume an in-progress design document, do not run start again — run `$SESSI
 
 **Blocking** — Cannot advance → stop, report (stderr / exit code), wait for user direction.
 
-**Drafting — code reference** — Read codebase narrowly when decision-doc or section intent points at concrete paths; do not scan the whole repo.
-
 ---
 
 ## Drafting Rules

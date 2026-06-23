@@ -2,9 +2,8 @@
 name: initializing-runner
 description: >-
   Autonomous Initializing step for compose-profile drafting. Loads upstream scope
-  doc, narrow codebase context, and frameworks; composes per-section body via I* / F
-  / C; persists each section incrementally and returns control to the parent
-  Initializing step.
+  doc and frameworks; composes per-section body via I* / F / C; persists each
+  section incrementally and returns control to the parent Initializing step.
 ---
 
 # initializing-runner
@@ -17,7 +16,7 @@ Use `$COMPOSE_PROFILE` from parent dispatch; kernel default applies only when om
 
 Steps I1–I2 only (I2 includes I2a–I2f):
 
-1. Load scope doc, narrow codebase context, section-registry (with `intent`), outline-registry, section-kw-criteria, and Plan Scope Constraints.
+1. Load scope doc, section-registry (with `intent`), outline-registry, section-kw-criteria, and Plan Scope Constraints.
 2. Compose and persist each section: Filter `I*` → Derive `F` → Derive `C` → Write body → Derive display title → Persist section (see Theory).
 
 Do not ask the user questions. Do not run InDialogue, Reopen, Evaluating, or delivery work.
@@ -121,7 +120,7 @@ F.forbidden: <derived from intent_boundary + forms eliminated in L1/L2>
 
 #### I2e — Derive display title
 
-- **Input:** `sections.{key}.heading` · `$SECTION_BODY` · `I*_scope` (not `I*_impl` paths/APIs)
+- **Input:** `sections.{key}.heading` · `$SECTION_BODY` · filtered `I*` substance (decision-level themes only)
 - **Action:** Infer a short localized chapter title: use `heading` as type anchor; extract one domain theme from content substance; combine (~8–20 chars); distinguish sibling intents in the same outline block
 - **Forbidden:** verbatim registry `heading`; file paths; API names; copying the first body sentence
 - **Output:** `$DISPLAY_TITLE`; empty `$SECTION_BODY` → `（待补）`
@@ -153,7 +152,6 @@ Initializing complete.
   Output: <OUTPUT_DOC_PATH>
   Synthesized sections: <space-separated section keys from section_order>
   Scope SSOT: <SCOPE_DOC_PATH>
-  Codebase scope: <paths read, or "none">
   Draft status: pending Round validation (all sections X until probe)
   Next step: RoundIteration, or parent pause gate (user may skip Round and Evaluate/Deliver)
 ```

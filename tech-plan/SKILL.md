@@ -94,8 +94,6 @@ Outer session transitions via `$SESSION_CONTROL` only (`compose-kernel/transitio
 **Blocking** — Cannot advance → stop, report (stderr / exit code), wait for user direction.
 `$SESSION_CONTROL`, `$DRAFT_CONTROL`, `$ROUND_CONTROL`, or `$SESSION_INFO` non-zero exit → apply Blocking.
 
-**Drafting — code reference** — Reference relevant source code for the current section; read narrowly, not the whole codebase.
-
 ---
 
 ## Operating Rules
