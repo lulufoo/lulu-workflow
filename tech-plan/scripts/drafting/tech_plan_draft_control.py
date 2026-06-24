@@ -127,26 +127,20 @@ def _init_dispatch_input(cycle_id: str, project_root: Path) -> str:
     )
 
 
-def _validate_compose_doc_seeded(compose_doc: Path, project_root: Path) -> str | None:
-    if not compose_doc.exists():
-        return f"compose document not found: {compose_doc}"
-    from section_registry_schema import section_order  # noqa: WPS433
-    from compose_doc_schema import section_body_by_key, section_display_heading  # noqa: WPS433
+def _revision_dir(cycle_id: str, project_root: Path) -> Path:
+    active_doc = load_active_doc_from_cycle(cycle_id, project_root, profile_id=_PROFILE_ID)
+    return (project_root / doc_dir(cycle_id, active_doc, _PROFILE_ID, project_root)).resolve()
 
-    raw = compose_doc.read_text(encoding="utf-8")
-    empty: list[str] = []
-    untitled: list[str] = []
-    for key in section_order(project_root):
-        body = section_body_by_key(raw, key, project_root=project_root).strip()
-        if not body:
-            empty.append(key)
-        elif not section_display_heading(raw, key, project_root=project_root).strip():
-            untitled.append(key)
-    if empty:
-        return f"compose document sections with empty body: {', '.join(empty)}"
-    if untitled:
-        return f"compose document sections missing display title: {', '.join(untitled)}"
-    return None
+
+def _validate_init_complete(cycle_id: str, project_root: Path) -> str | None:
+    from init_compose_validation import validate_init_artifacts  # noqa: WPS433
+
+    return validate_init_artifacts(
+        _revision_dir(cycle_id, project_root),
+        _compose_doc_path(cycle_id, project_root),
+        project_root,
+        _PROFILE_ID,
+    )
 
 
 def begin_init(cycle_id: str, project_root: Path) -> dict[str, Any]:
@@ -178,7 +172,7 @@ def init_complete(cycle_id: str, project_root: Path) -> dict[str, Any]:
     progress_path = resolve_drafting_progress_path_from_cycle(cycle_id, project_root)
     compose_doc = _compose_doc_path(cycle_id, project_root)
 
-    seed_error = _validate_compose_doc_seeded(compose_doc, project_root)
+    seed_error = _validate_init_complete(cycle_id, project_root)
     if seed_error:
         return _failure(_CMD_INIT_COMPLETE, seed_error)
 

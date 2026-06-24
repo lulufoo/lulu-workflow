@@ -11,8 +11,11 @@ import pytest
 _SCRIPTS_ROOT = Path(__file__).resolve().parents[1]
 _DRAFTING = _SCRIPTS_ROOT / "drafting"
 _KERNEL_TESTS = _SCRIPTS_ROOT.parents[1] / "compose-kernel" / "scripts" / "tests"
+_KERNEL_SECTION = _SCRIPTS_ROOT.parents[1] / "compose-kernel" / "scripts" / "section"
 if str(_KERNEL_TESTS) not in sys.path:
     sys.path.insert(0, str(_KERNEL_TESTS))
+if str(_KERNEL_SECTION) not in sys.path:
+    sys.path.insert(0, str(_KERNEL_SECTION))
 if str(_DRAFTING) not in sys.path:
     sys.path.insert(0, str(_DRAFTING))
 import bootstrap  # noqa: F401, E402
@@ -67,6 +70,12 @@ def _minimal_product_doc(*, section_order: list[str] | None = None) -> str:
     return "# Product\n\n" + "\n\n".join(blocks) + "\n"
 
 
+def _seed_init_artifacts(revision: Path, section_keys: list[str]) -> None:
+    from init_compose_validation import write_minimal_init_work_artifacts  # noqa: WPS433
+
+    write_minimal_init_work_artifacts(revision, section_keys)
+
+
 def _seed_session(tmp_path: Path) -> Path:
     base = tmp_path / _CACHE / _CYCLE / "product" / "spec" / "revision1"
     base.mkdir(parents=True)
@@ -89,6 +98,10 @@ def _seed_session(tmp_path: Path) -> Path:
         delivered_refs=refs,
         scope_refs=product_spec_scope_refs(refs),
     )
+    from workflow_paths import seed_profile_pointer_for_tests  # noqa: WPS433
+
+    seed_profile_pointer_for_tests(tmp_path, _CYCLE, "product-spec")
+    _seed_init_artifacts(base, _SECTION_ORDER)
     return base
 
 
@@ -119,6 +132,7 @@ class TestProductSpecDraftControl:
     def test_init_complete_rejects_empty_section(self, tmp_path: Path):
         _seed_product_registry(tmp_path, section_order=["PB", "GO"])
         revision = _seed_session(tmp_path)
+        _seed_init_artifacts(revision, ["PB", "GO"])
         (revision / "product-doc.md").write_text(
             "### PB title <!-- section-key:PB -->\n\n"
             "### GO title <!-- section-key:GO -->\n\nHas body\n",

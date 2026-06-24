@@ -2,8 +2,8 @@
 name: initializing-runner
 description: >-
   Autonomous Initializing step for compose-profile drafting. Loads upstream scope
-  doc and frameworks; composes per-section body via I* / F / C; persists each
-  section incrementally and returns control to the parent Initializing step.
+  doc and frameworks; composes per-section body via I* / F / C derive artifacts;
+  validates draft quality; persists each section incrementally.
 ---
 
 # initializing-runner
@@ -14,16 +14,20 @@ Use `$COMPOSE_PROFILE` from parent dispatch; kernel default applies only when om
 
 ## Scope
 
-Steps I1–I2 only (I2 includes I2a–I2f):
+**Pipeline:** I1 Load → I2 Compose (per section) → I3 Validate → Return.
 
-1. Load scope doc, section-registry, section-form-registry, outline-registry, section-kw-criteria, and Plan Scope Constraints.
-2. Compose and persist each section: Filter `I*` → Derive `F` → Derive `C` → Write body → Derive display title → Persist section (see Theory).
+Init writes a readable draft from scope substance only.
 
-Do not ask the user questions. Do not run InDialogue, Reopen, Evaluating, or delivery work.
+- **Must:** operationalize scope content; explicit 待决 for scope gaps; readable `F` structure.
+- **Must not:** scope-external speculation; decision paste; empty shell sections.
+
+Round still owns formal gap closure. Do not ask the user questions. Do not run InDialogue, Reopen, Evaluating, or delivery work.
 
 ## Theory (Compose)
 
 See [`../../references/compose-theory.md`](../../references/compose-theory.md).
+
+Derive artifact contract: [`../../references/init-draft-quality.md`](../../references/init-draft-quality.md).
 
 **Order (strict):** I2a Filter `I*` → I2b Derive `F` → I2c Derive `C` → I2d Write body → I2e Derive display title → I2f Persist section.
 
@@ -40,7 +44,7 @@ See [`../../references/compose-theory.md`](../../references/compose-theory.md).
 
 Self-resolved: `$PROJECT_ROOT` = `$(pwd)` · `$OUTPUT_DOC_PATH` from parent input (fallback `{REVISION_DIR}/tech-doc.md`)
 
-All compose and scope macros (`$FETCH_COMPOSE`, `$RESOLVE_PLAN_ROLE`, `$RESOLVE_DOMAIN`, `$COMPOSE_DOC_CONTROL`) **must** pass `--profile "$COMPOSE_PROFILE"`. `$FETCH_COMPOSE` **must** also pass `--cycle-id "$CYCLE_ID"`.
+All compose and scope macros **must** pass `--profile "$COMPOSE_PROFILE"`. `$FETCH_COMPOSE` **must** also pass `--cycle-id "$CYCLE_ID"`.
 
 ## Script Macros
 
@@ -49,6 +53,7 @@ All compose and scope macros (`$FETCH_COMPOSE`, `$RESOLVE_PLAN_ROLE`, `$RESOLVE_
 | `$RESOLVE_PLAN_ROLE` | `python3 "$SKILL_ROOT/compose-kernel/scripts/scope/scope_resolver.py" resolve-role --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile "$COMPOSE_PROFILE"` |
 | `$RESOLVE_DOMAIN` | `python3 "$SKILL_ROOT/compose-kernel/scripts/scope/scope_resolver.py" resolve-domain --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile "$COMPOSE_PROFILE"` |
 | `$COMPOSE_DOC_CONTROL` | `python3 "$SKILL_ROOT/compose-kernel/scripts/section/compose_doc_control.py"` |
+| `$INIT_COMPOSE_VALIDATE` | `python3 "$SKILL_ROOT/compose-kernel/scripts/section/init_compose_validation.py" validate --revision-dir "$REVISION_DIR" --compose-doc "$OUTPUT_DOC_PATH" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)"` |
 
 `$COMPOSE_DOC_CONTROL` subcommands: `--help` · `init-doc` · `append-intent` (use `--body-file` + `--display-title-file` in I2f).
 
@@ -58,12 +63,12 @@ All compose and scope macros (`$FETCH_COMPOSE`, `$RESOLVE_PLAN_ROLE`, `$RESOLVE_
 
 1. `$RESOLVE_PLAN_ROLE` → Plan Scope Constraints (`### Role`, `### Role Fields`).
 2. `$RESOLVE_DOMAIN` → `domain instance`.
-3. `$FETCH_COMPOSE section-registry --cycle-id "$CYCLE_ID"` (JSON) → `section_order`, `document_preamble`, per-section `heading` / `intent` (else `desc`) / `intent_boundary` (no guidance / contract)
+3. `$FETCH_COMPOSE section-registry --cycle-id "$CYCLE_ID"` (JSON) → `section_order`, `document_preamble`, per-section `heading` / `intent` (else `desc`) / `intent_boundary`
    `$FETCH_COMPOSE section-form-registry --cycle-id "$CYCLE_ID"` → `sections.{key}.guidance` / `contract`
 4. `$FETCH_COMPOSE outline-registry --cycle-id "$CYCLE_ID"` → `outline_order`, per-block `heading` / `intents`.
 5. `$FETCH_COMPOSE section-kw-criteria --cycle-id "$CYCLE_ID"` → each `## {section_key}` block.
 6. Read `$SCOPE_DOC_PATH` full text once (shared across I2).
-7. **Init document:** Substitute placeholders in `document_preamble` (section-registry only). Write via:
+7. **Init document:** Substitute placeholders in `document_preamble`. Write via:
 
 ```bash
 $COMPOSE_DOC_CONTROL init-doc \
@@ -73,64 +78,60 @@ $COMPOSE_DOC_CONTROL init-doc \
 
 Prefer `--preamble-file` when content is multiline.
 
-Do **not** append outline-registry content to the deliverable document header. Composition hints belong in section-form-registry, section `intent`, and Plan Scope Constraints.
+Do **not** append outline-registry content to the deliverable header. Do **not** fetch spec-template URLs.
 
-Do **not** fetch spec-template URLs.
+**Done:** `$OUTPUT_DOC_PATH` exists with preamble only.
 
 ### Step I2 — Compose (per `section_key`, strict I2a → I2f)
 
-For each key in `section_order`:
+For each key in `section_order`, produce three artifacts under `$REVISION_DIR`:
+
+```text
+_derive-{section_key}.json   # I2a–I2c (must exist before I2d)
+_body-{section_key}.txt      # I2d
+_title-{section_key}.txt     # I2e
+```
+
+Field schema: [`init-draft-quality.md`](../../references/init-draft-quality.md).
 
 #### I2a — Filter `I*`
 
-- **Input:** scope doc full text · `sections.{key}.intent` (else `desc`) · `intent_boundary` · kw `## {key}`
-- **Action:** Include only if content matches `intent` and supports at least one KW dimension (semantic; do not label KW numbers). Exclude intents that belong to other sections' `intent` / `intent_boundary`.
-- **Output `I*`:** filtered decision content for this section (may be empty)
+- **Input:** scope doc · `sections.{key}.intent` (else `desc`) · `intent_boundary` · kw `## {key}`
+- **Action:** Include scope substance matching `intent` and at least one KW dimension (semantic; do not label KW numbers). Exclude content belonging to other sections. **Must-effort:** extract all matching scope substance; use `gaps` for scope absences — do not silently omit.
+- **Output:** write `i_star`, `scope_refs`, `gaps`, `kw_init` into `_derive-{key}.json`
+- **Done:** derive file exists with `i_star` / `scope_refs` / `gaps` populated per contract
 
 #### I2b — Derive `F`
 
 - **Input:** `### Role Fields` · domain instance · `intent` · `sections.{key}.guidance`
-- **Derive (three-step narrowing; priority on conflict: section guidance > domain > role > intent):**
-  1. **L1 — domain → lawful form space:** Read `expression_conventions` from the domain instance; establish what forms are idiomatic and legitimate in this domain. Forms outside this space are unconditionally excluded.
-  2. **L2 — role × domain → preferred subset:** Read `expressive_tendency` from `### Role Fields` and `information_nature` from the domain instance; within the lawful space, narrow to forms that match both the role's expressive preference and the domain's characteristic information types.
-  3. **L3 — intent + section guidance → concrete selection:** Read `intent` to determine this section's specific information nature; from the preferred subset, select the carrier and structure that best serve it. Apply section `guidance` when present. Extract exclusion from `intent_boundary` — clauses go to `F.forbidden`. When `intent` names optional blocks (e.g. Interface Contract, Existing Assets, Task Detail with steps), select carriers that include them when `I*` supports it.
-- **Output (required):**
-
-```text
-F.carrier:   <derived from L1 → L2 → L3>
-F.structure: <derived from L1 → L2 → L3; "none" if no diagram>
-F.forbidden: <derived from intent_boundary + forms eliminated in L1/L2>
-```
+- **Action:** Three-step narrowing (section guidance > domain > role > intent). See compose-theory · Form (F).
+- **Output:** write `f.carrier`, `f.structure`, `f.forbidden` into `_derive-{key}.json`
+- **Done:** `f.carrier` non-empty in derive file
 
 #### I2c — Derive `C`
 
-- **Input:** `### Role Fields` · domain instance · `intent` · `sections.{key}.contract` · `F` from I2b
-- **Derive (four steps):**
-  1. **Role Fields → candidate constraints:** Read each Role Field; map to writing dimensions — `vocabulary_domain` → vocabulary, `cognitive_framework` → abstraction level, `priority_tendency` → emphasis and granularity, `completion_bar` → completeness criterion.
-  2. **domain + intent → filter:** Add `expression_conventions` as baseline constraints; drop Role-derived clauses that conflict with this section's nature or target other section types.
-  3. **F → concretize:** Cross remaining constraints with `F.carrier` and `F.structure`; concretize each dimension into carrier-specific criteria.
-  4. **contract → structural constraints:** Read section `contract.required` / `contract.forbidden` when present; add them as high-priority `C` constraints, overriding weaker clauses on conflict.
-- **Output:** `C = {(d, c), …}` — 2–5 pairs; every `c` traceable to a specific Role Field, `intent`, section `contract`, or `expression_conventions`.
+- **Input:** `### Role Fields` · domain instance · `intent` · `sections.{key}.contract` · `F`
+- **Action:** Derive 2–5 `(d, c, source)` pairs traceable to Role, intent, contract, or `expression_conventions`. Finalize `kw_init` booleans with matching `gaps` for false dimensions when scope lacks substance.
+- **Output:** write `c` and finalized `kw_init` into `_derive-{key}.json`
+- **Done:** derive file complete; **do not start I2d until derive validates mentally against init-draft-quality**
 
 #### I2d — Write body
 
-- **Input:** `I*` · `F` · `C` · `intent` · `intent_boundary` · upstream section bodies already persisted in `$OUTPUT_DOC_PATH` (when de-duplicating)
-- Scaffold per `F`; rewrite `I*` into slots; obey every `(d, c)` and `intent`.
-- When high-priority `C` requires named blocks, ordering, step lists, tables, diagrams, or forbidden-form exclusions, realize them explicitly in body structure.
-- **De-duplication:** Do not repeat the same boundary constraint across sections when `intent_boundary` defers elsewhere; upstream sections stay compact. Read upstream bodies from `$OUTPUT_DOC_PATH` via `compose_doc_schema.py --section-body` when needed.
-- **Output:** `$REVISION_DIR/_body-{section_key}.txt` (section body, no H2 line).
+- **Input:** `_derive-{key}.json` · `intent` · `intent_boundary` · upstream bodies in `$OUTPUT_DOC_PATH` (de-duplication)
+- **Action:** Scaffold per `F`; rewrite `I*` into slots; obey every `C` pair and `intent`. Mark scope gaps with `> **待决：** …` when `gaps` present.
+- **De-duplication:** Do not repeat boundary constraints deferred by `intent_boundary`. Read upstream via `compose_doc_schema.py --section-body` when needed.
+- **Output:** `$REVISION_DIR/_body-{section_key}.txt` (no H2 line)
+- **Done:** body file exists; non-empty; ≥3 non-blank lines when `i_star` non-empty
 
 #### I2e — Derive display title
 
-- **Input:** `sections.{key}.heading` · body file · filtered `I*` substance (decision-level themes only)
-- **Action:** Infer a short localized chapter title: use `heading` as type anchor; extract one domain theme from content substance; combine (~8–20 chars); distinguish sibling intents in the same outline block
-- **Forbidden:** verbatim registry `heading`; file paths; API names; copying the first body sentence
-- **Output:** `$REVISION_DIR/_title-{section_key}.txt` (single-line `$DISPLAY_TITLE`); empty body file → `（待补）`
+- **Input:** `sections.{key}.heading` · body file · `i_star` substance
+- **Action:** Short localized title (~8–20 chars): type anchor from `heading` + one domain theme from substance.
+- **Forbidden:** verbatim registry `heading`; file paths; API names; copying first body sentence
+- **Output:** `$REVISION_DIR/_title-{section_key}.txt`; empty `i_star` → `（待补）`
+- **Done:** title file exists with one non-empty line
 
 #### I2f — Persist section
-
-- **Input:** body file · display-title file · `section_key` · outline-registry (loaded in I1)
-- **Action:** Append to `$OUTPUT_DOC_PATH`:
 
 ```bash
 $COMPOSE_DOC_CONTROL append-intent \
@@ -142,9 +143,17 @@ $COMPOSE_DOC_CONTROL append-intent \
   --project-root "$(pwd)"
 ```
 
-Script writes outline H2 (first intent in block), H3 anchor line, body, and block `---` per outline-registry. Fail on duplicate `section-key` anchor.
+- **Done:** `$OUTPUT_DOC_PATH` contains `<!-- section-key:{key} -->` for this section
 
-All sections remain draft until Round probe (when Round is wired).
+All sections remain draft until Round probe.
+
+### Step I3 — Validate
+
+1. Run `$INIT_COMPOSE_VALIDATE`.
+2. On failure → read stderr; fix cited sections (return to I2 for those keys); re-run I3.
+3. On success → Return Summary.
+
+**Done:** `$INIT_COMPOSE_VALIDATE` exit 0.
 
 ## Return Summary
 
@@ -152,6 +161,7 @@ All sections remain draft until Round probe (when Round is wired).
 Initializing complete.
   Profile: <COMPOSE_PROFILE>
   Output: <OUTPUT_DOC_PATH>
+  Derive artifacts: <REVISION_DIR>/_derive-*.json
   Synthesized sections: <space-separated section keys from section_order>
   Scope SSOT: <SCOPE_DOC_PATH>
   Draft status: pending Round validation (all sections X until probe)

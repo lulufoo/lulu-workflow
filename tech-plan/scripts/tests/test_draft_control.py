@@ -10,8 +10,11 @@ _SCRIPTS_ROOT = Path(__file__).resolve().parents[1]
 _WORKFLOW_ROOT = _SCRIPTS_ROOT.parents[1]
 _DRAFTING = _SCRIPTS_ROOT / "drafting"
 _KERNEL_TESTS = _WORKFLOW_ROOT / "compose-kernel" / "scripts" / "tests"
+_KERNEL_SECTION = _WORKFLOW_ROOT / "compose-kernel" / "scripts" / "section"
 if str(_KERNEL_TESTS) not in sys.path:
     sys.path.insert(0, str(_KERNEL_TESTS))
+if str(_KERNEL_SECTION) not in sys.path:
+    sys.path.insert(0, str(_KERNEL_SECTION))
 if str(_DRAFTING) not in sys.path:
     sys.path.insert(0, str(_DRAFTING))
 import bootstrap  # noqa: F401
@@ -63,11 +66,18 @@ def _seed_session(tmp_path: Path, *, active_doc: int = 1) -> Path:
         delivered_refs=refs,
         scope_refs=tech_plan_scope_refs(refs),
     )
+    from workflow_paths import seed_profile_pointer_for_tests  # noqa: WPS433
+
+    seed_profile_pointer_for_tests(tmp_path, _CYCLE, "tech-plan")
     return revision
 
 
 def _write_compose_doc(revision: Path) -> None:
+    from init_compose_validation import write_minimal_init_work_artifacts  # noqa: WPS433
+    from section_registry_schema import section_order  # noqa: WPS433
+
     (revision / "tech-doc.md").write_text(minimal_compose_doc_markdown(), encoding="utf-8")
+    write_minimal_init_work_artifacts(revision, section_order())
 
 
 class TestBeginInit:
@@ -123,6 +133,7 @@ class TestInitComplete:
 
     def test_fails_when_section_body_empty(self, tmp_path: Path):
         revision = _seed_session(tmp_path)
+        _write_compose_doc(revision)
         (revision / "tech-doc.md").write_text(
             minimal_compose_doc_markdown().replace(f"{first_section_key()}.\n", "\n", 1),
             encoding="utf-8",
@@ -135,6 +146,7 @@ class TestInitComplete:
         from section_registry_schema import section_order  # noqa: WPS433
 
         revision = _seed_session(tmp_path)
+        _write_compose_doc(revision)
         key = first_section_key()
         lines = ["---\n"]
         for section_key in section_order():

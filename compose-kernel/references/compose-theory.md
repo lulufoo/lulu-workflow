@@ -35,6 +35,10 @@ display_title = specialize( sections.{key}.heading ; substance($SECTION_BODY) )
 
 **Document assembly:** Compose documents use outline-registry for structure — outline H2 blocks, intent H3 lines with `<!-- section-key:KEY -->`, then body. Initializing persists each intent via `$COMPOSE_DOC_CONTROL append-intent` immediately after display title derivation. Round readers locate sections by that anchor.
 
+## Init draft quality floor
+
+Initializing must operationalize scope substance in readable form; scope-external speculation remains prohibited. Per-section `_derive-{key}.json` records I2a–I2c before body write; `$INIT_COMPOSE_VALIDATE` gates Init completion. **Best-effort applies to scope-external speculation only** — not to scope-internal completeness or readable `F` structure. Contract: [`init-draft-quality.md`](init-draft-quality.md).
+
 ## Content (I*) — definition
 
 **I*** — filtered substance grounded in the scope doc (`$SCOPE_DOC_PATH`), supplemented by codebase facts when section intent requires existing-system grounding

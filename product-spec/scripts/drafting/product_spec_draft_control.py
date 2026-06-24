@@ -144,20 +144,20 @@ def _section_order_for_profile(project_root: Path) -> list[str]:
     return [str(key) for key in data.get("section_order", [])]
 
 
-def _validate_product_doc_seeded(product_doc: Path, project_root: Path) -> str | None:
-    if not product_doc.exists():
-        return f"compose document not found: {product_doc}"
-    from compose_doc_schema import section_body_by_key  # noqa: WPS433
+def _revision_dir(cycle_id: str, project_root: Path) -> Path:
+    active_doc = _active_doc(cycle_id, project_root)
+    return (project_root / doc_dir(cycle_id, active_doc, PROFILE_ID, project_root)).resolve()
 
-    raw = product_doc.read_text(encoding="utf-8")
-    empty: list[str] = []
-    for key in _section_order_for_profile(project_root):
-        body = section_body_by_key(raw, key).strip()
-        if not body:
-            empty.append(key)
-    if empty:
-        return f"compose document sections with empty body: {', '.join(empty)}"
-    return None
+
+def _validate_init_complete(cycle_id: str, project_root: Path) -> str | None:
+    from init_compose_validation import validate_init_artifacts  # noqa: WPS433
+
+    return validate_init_artifacts(
+        _revision_dir(cycle_id, project_root),
+        _product_doc_path(cycle_id, project_root),
+        project_root,
+        PROFILE_ID,
+    )
 
 
 def begin_init(cycle_id: str, project_root: Path) -> dict[str, Any]:
@@ -189,7 +189,7 @@ def init_complete(cycle_id: str, project_root: Path) -> dict[str, Any]:
     progress_path = resolve_drafting_progress_path_from_cycle(cycle_id, project_root)
     product_doc = _product_doc_path(cycle_id, project_root)
 
-    seed_error = _validate_product_doc_seeded(product_doc, project_root)
+    seed_error = _validate_init_complete(cycle_id, project_root)
     if seed_error:
         return _failure(_CMD_INIT_COMPLETE, seed_error)
 
