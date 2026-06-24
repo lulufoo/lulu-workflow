@@ -170,58 +170,46 @@ def test_summary_section_key_prefers_go(monkeypatch):
     assert summary_section_key() == "NS"
 
 
-def test_validate_tech_design_section_registry_with_form():
-    errors = validate_section_registry(
-        json.loads(
-            (
-                Path(__file__).resolve().parent / "fixtures" / "tech_design_section_registry.json"
-            ).read_text(encoding="utf-8")
-        )
-    )
+def test_validate_tech_design_section_registry_intent_only():
+    errors = validate_section_registry(TECH_DESIGN_INTENT)
     assert errors == []
 
 
-def test_normalize_preserves_section_guidance_and_contract():
-    payload = {
-        "version": "1",
-        "section_order": ["CTX"],
-        "document_preamble": "preamble\n",
-        "sections": {
-            "CTX": {
-                "heading": "Context",
-                "aliases": [],
-                "upstream": [],
-                "relations": {},
-                "intent": "Problem domain.",
-                "guidance": "Narrative first.",
-                "contract": {"required": ["Open with trigger"], "forbidden": ["Scope tables"]},
-            }
-        },
-    }
-    normalized = normalize_section_registry(payload)
-    assert normalized["sections"]["CTX"]["guidance"] == "Narrative first."
-    assert normalized["sections"]["CTX"]["contract"]["required"] == ["Open with trigger"]
+def test_validate_rejects_guidance_in_section_registry():
+    payload = json.loads(json.dumps(TECH_DESIGN_INTENT))
+    payload["sections"]["CTX"]["guidance"] = "Narrative first."
+    errors = validate_section_registry(payload)
+    assert any("guidance is not supported" in err for err in errors)
+
+
+def test_validate_rejects_contract_in_section_registry():
+    payload = json.loads(json.dumps(TECH_DESIGN_INTENT))
+    payload["sections"]["CTX"]["contract"] = {"required": ["x"], "forbidden": []}
+    errors = validate_section_registry(payload)
+    assert any("contract is not supported" in err for err in errors)
+
+
+_FIXTURES = Path(__file__).resolve().parent / "fixtures"
+TECH_DESIGN_INTENT = json.loads(
+    (_FIXTURES / "tech_design_section_registry.json").read_text(encoding="utf-8")
+)
+TECH_DESIGN_FORM = json.loads(
+    (_FIXTURES / "tech_design_section_form_registry.json").read_text(encoding="utf-8")
+)
 
 
 def test_section_guidance_and_contract_accessors(tmp_path: Path):
-    registry_path = tmp_path / "section-registry.json"
-    payload = {
-        "version": "1",
-        "section_order": ["CTX"],
-        "document_preamble": "preamble\n",
-        "sections": {
-            "CTX": {
-                "heading": "Context",
-                "aliases": [],
-                "upstream": [],
-                "relations": {},
-                "intent": "Problem domain.",
-                "guidance": "Narrative first.",
-                "contract": {"required": ["Open with trigger"], "forbidden": []},
-            }
-        },
-    }
-    registry_path.write_text(json.dumps(payload), encoding="utf-8")
-    loaded = load_section_registry(registry_path)
-    assert loaded["sections"]["CTX"]["guidance"] == "Narrative first."
-    assert loaded["sections"]["CTX"]["contract"]["required"] == ["Open with trigger"]
+    from section_form_registry_schema import (  # noqa: E402
+        load_section_form_registry,
+        merge_section_form_into_registry,
+    )
+
+    intent_path = tmp_path / "section-registry.json"
+    form_path = tmp_path / "section-form-registry.json"
+    intent_path.write_text(json.dumps(TECH_DESIGN_INTENT), encoding="utf-8")
+    form_path.write_text(json.dumps(TECH_DESIGN_FORM), encoding="utf-8")
+    intent = load_section_registry(intent_path)
+    form = load_section_form_registry(form_path, intent_registry=intent)
+    merged = merge_section_form_into_registry(intent, form)
+    assert merged["sections"]["CTX"]["guidance"]
+    assert merged["sections"]["CTX"]["contract"]["required"]

@@ -15,6 +15,7 @@
   "framework_section": "tech-design",
   "framework_templates": {
     "section-registry": "tdt_section_registry_url",
+    "section-form-registry": "tdt_section_form_registry_url",
     "section-kw-criteria": "tdt_section_kw_criteria_url",
     "outline-registry": "tdt_outline_registry_url",
     "role-instance": "tdt_feature_role_instance_url",

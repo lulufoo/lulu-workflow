@@ -241,12 +241,12 @@ def validate_section_registry(data: dict[str, Any]) -> list[str]:
                     errors.append(
                         f"sections.{key}.relations.{rel_key} invalid relation: {rel_type!r}"
                     )
-        guidance = entry.get("guidance")
-        if guidance is not None and (not isinstance(guidance, str) or not guidance.strip()):
-            errors.append(f"sections.{key}.guidance must be a non-empty string when present")
-        contract = entry.get("contract")
-        if contract is not None:
-            errors.extend(_validate_section_contract(key, contract))
+        if entry.get("guidance") is not None:
+            errors.append(f"sections.{key}.guidance is not supported; use section-form-registry")
+            continue
+        if entry.get("contract") is not None:
+            errors.append(f"sections.{key}.contract is not supported; use section-form-registry")
+            continue
 
     for key in sections:
         if str(key).upper() not in order_keys:
@@ -287,12 +287,6 @@ def normalize_section_registry(data: dict[str, Any]) -> dict[str, Any]:
         intent_boundary = entry.get("intent_boundary")
         if isinstance(intent_boundary, str) and intent_boundary.strip():
             normalized["intent_boundary"] = intent_boundary.strip()
-        guidance = entry.get("guidance")
-        if isinstance(guidance, str) and guidance.strip():
-            normalized["guidance"] = guidance.strip()
-        contract = entry.get("contract")
-        if contract is not None:
-            normalized["contract"] = _normalize_contract(contract)
         sections[key] = normalized
     return {
         "version": "1",
@@ -406,20 +400,16 @@ def section_intent_text(section_key: str, project_root: Path | None = None) -> s
 
 def section_guidance(section_key: str, project_root: Path | None = None) -> str:
     """Return form guidance for a section when present."""
-    key = normalize_section(section_key, project_root=project_root)
-    guidance = _active_registry(project_root)["sections"][key].get("guidance")
-    if isinstance(guidance, str):
-        return guidance.strip()
-    return ""
+    from section_form_registry_schema import section_form_guidance  # noqa: WPS433
+
+    return section_form_guidance(section_key, project_root=project_root)
 
 
 def section_contract(section_key: str, project_root: Path | None = None) -> dict[str, list[str]]:
     """Return normalized contract for a section when present."""
-    key = normalize_section(section_key, project_root=project_root)
-    contract = _active_registry(project_root)["sections"][key].get("contract")
-    if contract is not None:
-        return _normalize_contract(contract)
-    return {"required": [], "forbidden": []}
+    from section_form_registry_schema import section_form_contract  # noqa: WPS433
+
+    return section_form_contract(section_key, project_root=project_root)
 
 
 def initial_fill_results(project_root: Path | None = None) -> dict[str, dict[str, str]]:

@@ -1,0 +1,160 @@
+{
+  "version": "1",
+  "$schema_id": "section-form-schema",
+  "profile_id": "tech-design",
+  "section_order": [
+    "CTX",
+    "GO",
+    "SC",
+    "NG",
+    "I",
+    "ST",
+    "KD",
+    "IF",
+    "OQ",
+    "VD",
+    "OD"
+  ],
+  "sections": {
+    "CTX": {
+      "guidance": "Problem-domain narrative first (trigger and current state in reviewable prose); optional concrete anchors support the story; compact opening arc; no structure diagrams.",
+      "contract": {
+        "required": [
+          "Opens with problem-domain narrative before path or code inventories",
+          "States user-perceived or system-behavior consequence, not code structure alone"
+        ],
+        "forbidden": [
+          "Opening paragraphs that lead with file:line or DOM id chains",
+          "Describing the current state solely through code structure or component names without stating user-perceived or system-behavior consequence",
+          "Scope or exclusion tables",
+          "Structure or flow diagrams",
+          "Checkbox steps, Run commands, or phase markers"
+        ]
+      }
+    },
+    "GO": {
+      "guidance": "Observable before→after success state; operationalize the problem CTX established; compact outcomes prose.",
+      "contract": {
+        "required": [
+          "Opens by operationalizing the CTX transitional connection — do not jump directly to before/after enumeration without establishing the design response"
+        ],
+        "forbidden": [
+          "Background narrative duplicating CTX",
+          "Scope tables or architecture diagrams"
+        ]
+      }
+    },
+    "SC": {
+      "guidance": "Functional, module, interface, and data surfaces in play; tables preferred over prose when enumerating.",
+      "contract": {
+        "required": [
+          "Surfaces covered by this design in structured or tabular form when more than two items"
+        ],
+        "forbidden": [
+          "Checkable invariants list (belongs in I)",
+          "Exclusion essays (belongs in NG)"
+        ]
+      }
+    },
+    "NG": {
+      "guidance": "Directional exclusions protecting the design outcome; when mixing out-of-scope and rejected directions, use a table distinguishing nature (out-of-scope / rejected direction) and protected boundary.",
+      "contract": {
+        "required": [
+          "Each exclusion identifies what design boundary or success state it protects"
+        ],
+        "forbidden": [
+          "Trade-off or rejected-option comparison essays (belongs in KD)",
+          "Interface contract tables"
+        ]
+      }
+    },
+    "I": {
+      "guidance": "Checkable invariant list as primary carrier.",
+      "contract": {
+        "required": [
+          "Checkable invariants as a list when present"
+        ],
+        "forbidden": [
+          "Phase tables or checkbox steps"
+        ]
+      }
+    },
+    "ST": {
+      "guidance": "When design changes user interaction or component state, make state/path behavior scannable: named states, transition triggers, and path end-states must be explicit. Use the lightest structured view that removes inference (named-state prose, comparison tables, path tables, or diagrams) — do not default to diagrams when narrative or tables suffice. When the design involves more than three components with non-obvious dependency directions, lead with a system-level diagram (Mermaid flowchart or tool-agnostic equivalent) before the component responsibility table; the diagram covers system placement and data-flow direction, the table covers component responsibilities — do not duplicate between them.",
+      "contract": {
+        "required": [
+          "When design changes interaction or component state: explicit named states, transition triggers, and path end-states in a structured view (tool-agnostic)",
+          "When cross-boundary paths are non-obvious: explicit trigger-to-boundary path in a structured view (tool-agnostic)"
+        ],
+        "forbidden": [
+          "Field-level API or schema tables",
+          "Rejected-option essays",
+          "Checkbox steps or file edit lists",
+          "Decorative diagrams without behavioral semantics",
+          "Diagram-only blocks that omit named states or end-states when interaction or state changes"
+        ]
+      }
+    },
+    "KD": {
+      "guidance": "Decision-comparison prose or table; chosen vs rejected paths readable without rereading Solution Shape.",
+      "contract": {
+        "required": [
+          "Decision comparison table or equivalent structured comparison when multiple paths were considered"
+        ],
+        "forbidden": [
+          "Adopted direction rationale consisting solely of stakeholder authorization references without design reasoning",
+          "Module graph or dependency diagrams duplicating Solution Shape",
+          "Interface field tables",
+          "Phase tags, Done conditions, Owner, or Timing tables"
+        ]
+      }
+    },
+    "IF": {
+      "guidance": "Cross-boundary interface semantics in structured, field-aligned form; do not infer contracts from structure prose in prior blocks.",
+      "contract": {
+        "required": [
+          "Cross-boundary semantics in structured, field-aligned form when more than one field or endpoint (tool-agnostic)"
+        ],
+        "forbidden": [
+          "Module responsibility prose duplicating Solution Shape",
+          "Implementation steps or file patches"
+        ]
+      }
+    },
+    "OQ": {
+      "guidance": "Unresolved assumptions and risks; each item labeled blocks-plan or non-blocking; identify design assumption left open, not implementation uncertainty alone.",
+      "contract": {
+        "required": [
+          "blocks-plan or non-blocking label on each row"
+        ],
+        "forbidden": [
+          "Run commands, test file paths, or checkbox steps",
+          "SK/T/VF-style phase or task tables",
+          "OQ item descriptions that state only an implementation uncertainty without identifying the design assumption or dimension it leaves open"
+        ]
+      }
+    },
+    "VD": {
+      "guidance": "Test strategy and AC mapping; cross-reference OQ assumptions; include falsifiable pass signal per verification method; when shared modal or multi-panel UI, state semantic regression scope for sibling flows (no Run commands).",
+      "contract": {
+        "required": [
+          "Each verification method includes a distinguishable pass signal — what a passing result looks like, not only the action performed",
+          "Cross-reference applicable OQ assumptions"
+        ],
+        "forbidden": [
+          "Run commands or test file paths"
+        ]
+      }
+    },
+    "OD": {
+      "guidance": "Rollout, degradation, rollback, and observability strategy at design level — not runbooks.",
+      "contract": {
+        "required": [],
+        "forbidden": [
+          "Run commands, test file paths, or checkbox steps",
+          "Runbooks, metric threshold tables, or repair scripts"
+        ]
+      }
+    }
+  }
+}

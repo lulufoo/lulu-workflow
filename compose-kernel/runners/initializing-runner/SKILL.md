@@ -16,7 +16,7 @@ Use `$COMPOSE_PROFILE` from parent dispatch; kernel default applies only when om
 
 Steps I1–I2 only (I2 includes I2a–I2f):
 
-1. Load scope doc, section-registry (with `intent`), outline-registry, section-kw-criteria, and Plan Scope Constraints.
+1. Load scope doc, section-registry, section-form-registry, outline-registry, section-kw-criteria, and Plan Scope Constraints.
 2. Compose and persist each section: Filter `I*` → Derive `F` → Derive `C` → Write body → Derive display title → Persist section (see Theory).
 
 Do not ask the user questions. Do not run InDialogue, Reopen, Evaluating, or delivery work.
@@ -58,7 +58,8 @@ All compose and scope macros (`$FETCH_COMPOSE`, `$RESOLVE_PLAN_ROLE`, `$RESOLVE_
 
 1. `$RESOLVE_PLAN_ROLE` → Plan Scope Constraints (`### Role`, `### Role Fields`).
 2. `$RESOLVE_DOMAIN` → `domain instance`.
-3. `$FETCH_COMPOSE section-registry --cycle-id "$CYCLE_ID"` (JSON) → `section_order`, `document_preamble`, per-section `heading` / `intent` (else `desc`) / `intent_boundary` / `guidance` / `contract`.
+3. `$FETCH_COMPOSE section-registry --cycle-id "$CYCLE_ID"` (JSON) → `section_order`, `document_preamble`, per-section `heading` / `intent` (else `desc`) / `intent_boundary` (no guidance / contract)
+   `$FETCH_COMPOSE section-form-registry --cycle-id "$CYCLE_ID"` → `sections.{key}.guidance` / `contract`
 4. `$FETCH_COMPOSE outline-registry --cycle-id "$CYCLE_ID"` → `outline_order`, per-block `heading` / `intents`.
 5. `$FETCH_COMPOSE section-kw-criteria --cycle-id "$CYCLE_ID"` → each `## {section_key}` block.
 6. Read `$SCOPE_DOC_PATH` full text once (shared across I2).
@@ -72,7 +73,7 @@ $COMPOSE_DOC_CONTROL init-doc \
 
 Prefer `--preamble-file` when content is multiline.
 
-Do **not** append outline-registry content to the deliverable document header. Composition hints belong in section `guidance` / `contract`, section `intent`, and Plan Scope Constraints.
+Do **not** append outline-registry content to the deliverable document header. Composition hints belong in section-form-registry, section `intent`, and Plan Scope Constraints.
 
 Do **not** fetch spec-template URLs.
 

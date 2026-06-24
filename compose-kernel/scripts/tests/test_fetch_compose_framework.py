@@ -45,6 +45,7 @@ class TestResolveConfigKey:
                 "domain-instance",
                 "outline-registry",
                 "role-instance",
+                "section-form-registry",
                 "section-kw-criteria",
                 "section-registry",
             }

@@ -23,8 +23,8 @@ display_title = specialize( sections.{key}.heading ; substance($SECTION_BODY) )
 | Form | `F` | section guidance + domain + role + intent | How content is carried and organized |
 | Expression | `C` | `### Role Fields` + domain + intent + F | How to write inside F |
 | Envelope | `intent` | section-registry (`intent` + `intent_boundary`) | What belongs in this intent slice |
-| Section form | `guidance` | section-registry | Per-intent form guidance for F derivation |
-| Section form | `contract` | section-registry | Per-intent required/forbidden constraints for C derivation |
+| Section form | `guidance` | section-form-registry | Per-intent form guidance for F derivation |
+| Section form | `contract` | section-form-registry | Per-intent required/forbidden constraints for C derivation |
 | Display title | `display_title` | `sections.{key}.heading` + content substance | H3 label on intent anchor line under outline H2 blocks |
 
 **Order (strict):** Filter `I*` → Derive `F` → Derive `C` → Write body → Derive display title → Persist section.
