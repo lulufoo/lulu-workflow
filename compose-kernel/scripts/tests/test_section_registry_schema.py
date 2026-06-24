@@ -15,6 +15,7 @@ from section_registry_schema import (  # noqa: E402
     initial_fill_results,
     load_section_registry,
     normalize_section,
+    normalize_section_registry,
     section_heading,
     section_keys,
     section_order,
@@ -167,3 +168,60 @@ def test_summary_section_key_prefers_go(monkeypatch):
         lambda project_root=None: ("NS", "NG"),
     )
     assert summary_section_key() == "NS"
+
+
+def test_validate_tech_design_section_registry_with_form():
+    errors = validate_section_registry(
+        json.loads(
+            (
+                Path(__file__).resolve().parent / "fixtures" / "tech_design_section_registry.json"
+            ).read_text(encoding="utf-8")
+        )
+    )
+    assert errors == []
+
+
+def test_normalize_preserves_section_guidance_and_contract():
+    payload = {
+        "version": "1",
+        "section_order": ["CTX"],
+        "document_preamble": "preamble\n",
+        "sections": {
+            "CTX": {
+                "heading": "Context",
+                "aliases": [],
+                "upstream": [],
+                "relations": {},
+                "intent": "Problem domain.",
+                "guidance": "Narrative first.",
+                "contract": {"required": ["Open with trigger"], "forbidden": ["Scope tables"]},
+            }
+        },
+    }
+    normalized = normalize_section_registry(payload)
+    assert normalized["sections"]["CTX"]["guidance"] == "Narrative first."
+    assert normalized["sections"]["CTX"]["contract"]["required"] == ["Open with trigger"]
+
+
+def test_section_guidance_and_contract_accessors(tmp_path: Path):
+    registry_path = tmp_path / "section-registry.json"
+    payload = {
+        "version": "1",
+        "section_order": ["CTX"],
+        "document_preamble": "preamble\n",
+        "sections": {
+            "CTX": {
+                "heading": "Context",
+                "aliases": [],
+                "upstream": [],
+                "relations": {},
+                "intent": "Problem domain.",
+                "guidance": "Narrative first.",
+                "contract": {"required": ["Open with trigger"], "forbidden": []},
+            }
+        },
+    }
+    registry_path.write_text(json.dumps(payload), encoding="utf-8")
+    loaded = load_section_registry(registry_path)
+    assert loaded["sections"]["CTX"]["guidance"] == "Narrative first."
+    assert loaded["sections"]["CTX"]["contract"]["required"] == ["Open with trigger"]

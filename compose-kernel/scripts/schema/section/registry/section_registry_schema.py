@@ -38,6 +38,45 @@ _RELATION_TYPES = frozenset(
 _REGISTRY_SCHEME_KEY = "section-registry"
 
 
+def _normalize_contract(raw: Any) -> dict[str, list[str]]:
+    """Return normalized contract with required/forbidden string lists."""
+    if not isinstance(raw, dict):
+        return {"required": [], "forbidden": []}
+    result: dict[str, list[str]] = {}
+    for key in ("required", "forbidden"):
+        items = raw.get(key)
+        if not isinstance(items, list):
+            result[key] = []
+            continue
+        result[key] = [
+            str(item).strip()
+            for item in items
+            if str(item).strip()
+        ]
+    return result
+
+
+def _validate_section_contract(section_key: str, contract: Any) -> list[str]:
+    """Validate contract object shape for a section."""
+    errors: list[str] = []
+    if not isinstance(contract, dict):
+        errors.append(f"sections.{section_key}.contract must be an object")
+        return errors
+    for key in ("required", "forbidden"):
+        items = contract.get(key)
+        if items is None:
+            continue
+        if not isinstance(items, list):
+            errors.append(f"sections.{section_key}.contract.{key} must be a list when present")
+            continue
+        for index, item in enumerate(items):
+            if not str(item).strip():
+                errors.append(
+                    f"sections.{section_key}.contract.{key}[{index}] must be a non-empty string"
+                )
+    return errors
+
+
 def _effective_project_root(project_root: Path | None) -> Path:
     return (project_root or Path.cwd()).resolve()
 
@@ -202,6 +241,12 @@ def validate_section_registry(data: dict[str, Any]) -> list[str]:
                     errors.append(
                         f"sections.{key}.relations.{rel_key} invalid relation: {rel_type!r}"
                     )
+        guidance = entry.get("guidance")
+        if guidance is not None and (not isinstance(guidance, str) or not guidance.strip()):
+            errors.append(f"sections.{key}.guidance must be a non-empty string when present")
+        contract = entry.get("contract")
+        if contract is not None:
+            errors.extend(_validate_section_contract(key, contract))
 
     for key in sections:
         if str(key).upper() not in order_keys:
@@ -242,6 +287,12 @@ def normalize_section_registry(data: dict[str, Any]) -> dict[str, Any]:
         intent_boundary = entry.get("intent_boundary")
         if isinstance(intent_boundary, str) and intent_boundary.strip():
             normalized["intent_boundary"] = intent_boundary.strip()
+        guidance = entry.get("guidance")
+        if isinstance(guidance, str) and guidance.strip():
+            normalized["guidance"] = guidance.strip()
+        contract = entry.get("contract")
+        if contract is not None:
+            normalized["contract"] = _normalize_contract(contract)
         sections[key] = normalized
     return {
         "version": "1",
@@ -353,6 +404,24 @@ def section_intent_text(section_key: str, project_root: Path | None = None) -> s
     return str(entry.get("desc", "")).strip()
 
 
+def section_guidance(section_key: str, project_root: Path | None = None) -> str:
+    """Return form guidance for a section when present."""
+    key = normalize_section(section_key, project_root=project_root)
+    guidance = _active_registry(project_root)["sections"][key].get("guidance")
+    if isinstance(guidance, str):
+        return guidance.strip()
+    return ""
+
+
+def section_contract(section_key: str, project_root: Path | None = None) -> dict[str, list[str]]:
+    """Return normalized contract for a section when present."""
+    key = normalize_section(section_key, project_root=project_root)
+    contract = _active_registry(project_root)["sections"][key].get("contract")
+    if contract is not None:
+        return _normalize_contract(contract)
+    return {"required": [], "forbidden": []}
+
+
 def initial_fill_results(project_root: Path | None = None) -> dict[str, dict[str, str]]:
     """Return empty per-section fill map keyed by heading name."""
     registry = _active_registry(project_root)
@@ -427,6 +496,16 @@ def main(argv: list[str] | None = None) -> int:
         metavar="SECTION",
         help="Print intent_boundary for section",
     )
+    parser.add_argument(
+        "--section-guidance",
+        metavar="SECTION",
+        help="Print guidance for section when present",
+    )
+    parser.add_argument(
+        "--section-contract",
+        metavar="SECTION",
+        help="Print contract JSON for section when present",
+    )
     parser.add_argument("--schema", action="store_true", help="Print loaded registry JSON")
     args = parser.parse_args(argv)
 
@@ -468,6 +547,28 @@ def main(argv: list[str] | None = None) -> int:
     if args.section_intent_boundary:
         try:
             print(section_intent_boundary(args.section_intent_boundary, project_root=project_root))
+        except ValueError as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
+        return 0
+
+    if args.section_guidance:
+        try:
+            print(section_guidance(args.section_guidance, project_root=project_root))
+        except ValueError as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
+        return 0
+
+    if args.section_contract:
+        try:
+            json.dump(
+                section_contract(args.section_contract, project_root=project_root),
+                sys.stdout,
+                indent=2,
+                ensure_ascii=False,
+            )
+            sys.stdout.write("\n")
         except ValueError as exc:
             print(str(exc), file=sys.stderr)
             return 1

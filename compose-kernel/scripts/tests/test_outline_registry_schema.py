@@ -17,7 +17,16 @@ from outline_registry_schema import (  # noqa: E402
     validate_outline_registry,
     validate_outline_section_alignment,
 )
+from section_registry_schema import normalize_section_registry  # noqa: E402
 from test_template_data import OUTLINE_REGISTRY_FEATURE  # noqa: E402
+
+_FIXTURES = Path(__file__).resolve().parent / "fixtures"
+TECH_DESIGN_OUTLINE = json.loads(
+    (_FIXTURES / "tech_design_outline_registry.json").read_text(encoding="utf-8")
+)
+TECH_DESIGN_SECTION = json.loads(
+    (_FIXTURES / "tech_design_section_registry.json").read_text(encoding="utf-8")
+)
 
 
 @pytest.fixture
@@ -137,3 +146,50 @@ def test_validate_outline_section_alignment_reports_mismatch():
     }
     errors = validate_outline_section_alignment(outline, section_registry_extra)
     assert any("missing from outline blocks intents" in err for err in errors)
+
+
+def test_validate_slim_outline_with_assembly():
+    errors = validate_outline_registry(TECH_DESIGN_OUTLINE)
+    assert errors == []
+
+
+def test_tech_design_outline_section_alignment():
+    outline = normalize_outline_registry(TECH_DESIGN_OUTLINE)
+    section = normalize_section_registry(TECH_DESIGN_SECTION)
+    assert validate_outline_section_alignment(outline, section) == []
+
+
+def test_normalize_slim_outline_preserves_assembly():
+    loaded = normalize_outline_registry(TECH_DESIGN_OUTLINE)
+    assert loaded["blocks"]["SI"]["assembly"]["transitions"]
+    assert "guidance" not in loaded["blocks"]["SH"]
+
+
+def test_validate_slim_block_heading_intents_only():
+    payload = {
+        "version": "1",
+        "outline_order": ["SH"],
+        "blocks": {
+            "SH": {
+                "heading": "Solution Shape",
+                "intents": ["ST"],
+            },
+        },
+    }
+    assert validate_outline_registry(payload) == []
+
+
+def test_validate_rejects_contract_without_guidance():
+    payload = {
+        "version": "1",
+        "outline_order": ["SH"],
+        "blocks": {
+            "SH": {
+                "heading": "Solution Shape",
+                "intents": ["ST"],
+                "contract": {"required": ["x"], "forbidden": []},
+            },
+        },
+    }
+    errors = validate_outline_registry(payload)
+    assert any("contract without guidance" in err for err in errors)
