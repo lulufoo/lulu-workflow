@@ -50,7 +50,7 @@ All compose and scope macros (`$FETCH_COMPOSE`, `$RESOLVE_PLAN_ROLE`, `$RESOLVE_
 | `$RESOLVE_DOMAIN` | `python3 "$SKILL_ROOT/compose-kernel/scripts/scope/scope_resolver.py" resolve-domain --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile "$COMPOSE_PROFILE"` |
 | `$COMPOSE_DOC_CONTROL` | `python3 "$SKILL_ROOT/compose-kernel/scripts/section/compose_doc_control.py"` |
 
-`$COMPOSE_DOC_CONTROL` subcommands: `--help` · `init-doc` · `append-intent`.
+`$COMPOSE_DOC_CONTROL` subcommands: `--help` · `init-doc` · `append-intent` (use `--body-file` + `--display-title-file` in I2f).
 
 ## Execution Contract
 
@@ -116,26 +116,26 @@ F.forbidden: <derived from intent_boundary + forms eliminated in L1/L2>
 - Scaffold per `F`; rewrite `I*` into slots; obey every `(d, c)` and `intent`.
 - When high-priority `C` requires named blocks, ordering, step lists, tables, diagrams, or forbidden-form exclusions, realize them explicitly in body structure.
 - **De-duplication:** Do not repeat the same boundary constraint across sections when `intent_boundary` defers elsewhere; upstream sections stay compact. Read upstream bodies from `$OUTPUT_DOC_PATH` via `compose_doc_schema.py --section-body` when needed.
-- **Output:** `$SECTION_BODY` — section markdown body (no H2 line).
+- **Output:** `$REVISION_DIR/_body-{section_key}.txt` (section body, no H2 line).
 
 #### I2e — Derive display title
 
-- **Input:** `sections.{key}.heading` · `$SECTION_BODY` · filtered `I*` substance (decision-level themes only)
+- **Input:** `sections.{key}.heading` · body file · filtered `I*` substance (decision-level themes only)
 - **Action:** Infer a short localized chapter title: use `heading` as type anchor; extract one domain theme from content substance; combine (~8–20 chars); distinguish sibling intents in the same outline block
 - **Forbidden:** verbatim registry `heading`; file paths; API names; copying the first body sentence
-- **Output:** `$DISPLAY_TITLE`; empty `$SECTION_BODY` → `（待补）`
+- **Output:** `$REVISION_DIR/_title-{section_key}.txt` (single-line `$DISPLAY_TITLE`); empty body file → `（待补）`
 
 #### I2f — Persist section
 
-- **Input:** `$SECTION_BODY` · `$DISPLAY_TITLE` · `section_key` · outline-registry (loaded in I1)
+- **Input:** body file · display-title file · `section_key` · outline-registry (loaded in I1)
 - **Action:** Append to `$OUTPUT_DOC_PATH`:
 
 ```bash
 $COMPOSE_DOC_CONTROL append-intent \
   --path "$OUTPUT_DOC_PATH" \
   --section "{section_key}" \
-  --display-title "$DISPLAY_TITLE" \
-  --body-file "<temp path with $SECTION_BODY>" \
+  --display-title-file "$REVISION_DIR/_title-{section_key}.txt" \
+  --body-file "$REVISION_DIR/_body-{section_key}.txt" \
   --profile "$COMPOSE_PROFILE" \
   --project-root "$(pwd)"
 ```

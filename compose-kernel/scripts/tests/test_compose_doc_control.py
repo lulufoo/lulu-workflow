@@ -17,7 +17,9 @@ from compose_doc_control import (  # noqa: E402
     build_outline_intent_layout,
     compose_preamble,
     init_doc,
+    main,
     render_intent_fragment,
+    _resolve_display_title,
 )
 from compose_doc_schema import parse_sections, section_body_by_key  # noqa: E402
 from test_template_data import OUTLINE_REGISTRY_FEATURE  # noqa: E402
@@ -165,3 +167,54 @@ def test_append_intent_unknown_section(doc_path: Path):
             body="",
             outline=OUTLINE_REGISTRY_FEATURE,
         )
+
+
+def test_resolve_display_title_first_line_from_file(tmp_path: Path):
+    title_file = tmp_path / "_title-CTX.txt"
+    title_file.write_text("现状\nignored\n", encoding="utf-8")
+    assert _resolve_display_title(inline=None, file_path=title_file) == "现状"
+
+
+def test_append_intent_display_title_file(doc_path: Path, tmp_path: Path):
+    init_doc(doc_path, preamble="# Feature\n\n", preamble_addon="addon\n\n")
+    outline_path = tmp_path / "outline-registry.json"
+    outline_path.write_text(json.dumps(OUTLINE_REGISTRY_FEATURE), encoding="utf-8")
+    body_file = tmp_path / "_body-CTX.txt"
+    body_file.write_text("Context.", encoding="utf-8")
+    title_file = tmp_path / "_title-CTX.txt"
+    title_file.write_text("现状\n", encoding="utf-8")
+    rc = main(
+        [
+            "append-intent",
+            "--path",
+            str(doc_path),
+            "--section",
+            "CTX",
+            "--display-title-file",
+            str(title_file),
+            "--body-file",
+            str(body_file),
+            "--outline-path",
+            str(outline_path),
+        ]
+    )
+    assert rc == 0
+    raw = doc_path.read_text(encoding="utf-8")
+    assert "### 现状 <!-- section-key:CTX -->" in raw
+    assert section_body_by_key(raw, "CTX") == "Context."
+
+
+def test_append_intent_requires_display_title(doc_path: Path):
+    init_doc(doc_path, preamble="# Plan\n\n")
+    rc = main(
+        [
+            "append-intent",
+            "--path",
+            str(doc_path),
+            "--section",
+            "CTX",
+            "--body",
+            "Body.",
+        ]
+    )
+    assert rc == 1

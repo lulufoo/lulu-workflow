@@ -3,7 +3,9 @@
 
 Subcommands:
     init-doc        Write document preamble (create or overwrite)
-    append-intent   Append one outline intent block (H2/H3/body/---)
+    append-intent   Append one outline intent block (H2/H3/body/---);
+                    requires --display-title or --display-title-file, and body via
+                    --body or --body-file
 
 CLI details: ``python3 compose_doc_control.py --help``
 """
@@ -47,6 +49,16 @@ def _read_text_arg(*, inline: str | None, file_path: Path | None) -> str:
         return file_path.read_text(encoding="utf-8")
     if inline is not None:
         return inline
+    return ""
+
+
+def _resolve_display_title(*, inline: str | None, file_path: Path | None) -> str:
+    """Return display title from inline string or first line of title file."""
+    if file_path is not None:
+        lines = file_path.read_text(encoding="utf-8").splitlines()
+        return lines[0].strip() if lines else ""
+    if inline is not None:
+        return inline.strip()
     return ""
 
 
@@ -170,7 +182,17 @@ def cmd_append_intent(args: argparse.Namespace) -> int:
     if not path.exists():
         print(f"compose document not found: {path}", file=sys.stderr)
         return 1
+    if args.display_title is None and args.display_title_file is None:
+        print(
+            "append-intent requires --display-title or --display-title-file",
+            file=sys.stderr,
+        )
+        return 1
     body = _read_text_arg(inline=args.body, file_path=args.body_file)
+    display_title = _resolve_display_title(
+        inline=args.display_title,
+        file_path=args.display_title_file.resolve() if args.display_title_file else None,
+    )
     profile_id = (args.profile or DEFAULT_COMPOSE_PROFILE_ID).strip() or DEFAULT_COMPOSE_PROFILE_ID
     project_root = args.project_root.resolve()
     try:
@@ -182,7 +204,7 @@ def cmd_append_intent(args: argparse.Namespace) -> int:
         append_intent(
             path,
             section_key=args.section,
-            display_title=args.display_title,
+            display_title=display_title,
             body=body,
             outline=outline,
         )
@@ -207,7 +229,8 @@ def _build_parser() -> argparse.ArgumentParser:
     append_parser = sub.add_parser("append-intent", help="Append one intent block")
     append_parser.add_argument("--path", type=Path, required=True)
     append_parser.add_argument("--section", type=str, required=True)
-    append_parser.add_argument("--display-title", type=str, required=True)
+    append_parser.add_argument("--display-title", type=str, default=None)
+    append_parser.add_argument("--display-title-file", type=Path, default=None)
     append_parser.add_argument("--body", type=str, default=None)
     append_parser.add_argument("--body-file", type=Path, default=None)
     append_parser.add_argument("--outline-path", type=Path, default=None)
