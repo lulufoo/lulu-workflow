@@ -37,7 +37,7 @@ display_title = specialize( sections.{key}.heading ; substance($SECTION_BODY) )
 
 ## Content (I*) — definition
 
-**I*** — filtered substance traceable to the scope doc (`$SCOPE_DOC_PATH`):
+**I*** — filtered substance grounded in the scope doc (`$SCOPE_DOC_PATH`), supplemented by codebase facts when section intent requires existing-system grounding
 
 - Produced in I2a: match `intent` (else `desc`), `intent_boundary`, and section KW criteria (`## {key}`).
 - Covers goals, boundaries, exclusions, decisions, invariants, phases at the decision level.
@@ -45,7 +45,7 @@ display_title = specialize( sections.{key}.heading ; substance($SECTION_BODY) )
 - Must not introduce capabilities, scope, or boundaries beyond the scope doc.
 - May be empty when no matching substance exists.
 
-Initializing does not read the codebase to inject paths, APIs, or patterns into `I*`. Implementation detail added later (Round refiner, FreeEdit, or Eval) is outside Init `I*` derivation.
+When section intent requires existing-system grounding, Initializing reads relevant codebase surfaces to complete `I*`. Speculative detail not anchored to the scope doc's impact surface belongs to Round refiner, FreeEdit, or Eval.
 
 ## Form (F) — definition
 
