@@ -77,6 +77,13 @@ def test_validate_rejects_reader_note():
     assert any("reader_note is not supported" in err for err in errors)
 
 
+def test_validate_rejects_document_preamble_addon():
+    payload = dict(OUTLINE_REGISTRY_FEATURE)
+    payload["document_preamble_addon"] = "legacy addon"
+    errors = validate_outline_registry(payload)
+    assert any("document_preamble_addon is not supported" in err for err in errors)
+
+
 def test_validate_rejects_invalid_contract():
     payload = dict(OUTLINE_REGISTRY_FEATURE)
     payload["blocks"] = dict(payload["blocks"])

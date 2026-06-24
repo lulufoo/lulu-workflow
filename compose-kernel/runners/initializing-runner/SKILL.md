@@ -59,19 +59,20 @@ All compose and scope macros (`$FETCH_COMPOSE`, `$RESOLVE_PLAN_ROLE`, `$RESOLVE_
 1. `$RESOLVE_PLAN_ROLE` → Plan Scope Constraints (`### Role`, `### Role Fields`).
 2. `$RESOLVE_DOMAIN` → `domain instance`.
 3. `$FETCH_COMPOSE section-registry --cycle-id "$CYCLE_ID"` (JSON) → `section_order`, `document_preamble`, per-section `heading` / `intent` (else `desc`) / `intent_boundary`.
-4. `$FETCH_COMPOSE outline-registry --cycle-id "$CYCLE_ID"` → `outline_order`, per-block `heading` / `intents` / `guidance` / `contract`, `document_preamble_addon`.
+4. `$FETCH_COMPOSE outline-registry --cycle-id "$CYCLE_ID"` → `outline_order`, per-block `heading` / `intents` / `guidance` / `contract`.
 5. `$FETCH_COMPOSE section-kw-criteria --cycle-id "$CYCLE_ID"` → each `## {section_key}` block.
 6. Read `$SCOPE_DOC_PATH` full text once (shared across I2).
-7. **Init document:** Substitute placeholders in `document_preamble`; append `document_preamble_addon`. Write via:
+7. **Init document:** Substitute placeholders in `document_preamble` (section-registry only). Write via:
 
 ```bash
 $COMPOSE_DOC_CONTROL init-doc \
   --path "$OUTPUT_DOC_PATH" \
-  --preamble "<substituted document_preamble markdown>" \
-  --preamble-addon "<document_preamble_addon markdown>"
+  --preamble "<substituted document_preamble markdown>"
 ```
 
-Prefer `--preamble-file` / `--preamble-addon-file` when content is multiline.
+Prefer `--preamble-file` when content is multiline.
+
+Do **not** append outline-registry content to the deliverable document header. Composition hints belong in outline `guidance` / `contract`, section `intent`, and Plan Scope Constraints.
 
 Do **not** fetch spec-template URLs.
 

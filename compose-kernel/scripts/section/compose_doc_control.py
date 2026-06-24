@@ -91,21 +91,17 @@ def build_outline_intent_layout(outline: dict[str, Any]) -> dict[str, dict[str, 
     return layout
 
 
-def compose_preamble(*, preamble: str, preamble_addon: str = "") -> str:
+def compose_preamble(*, preamble: str) -> str:
     """Return normalized preamble markdown."""
     text = preamble
-    if preamble_addon:
-        if text and not text.endswith("\n"):
-            text += "\n"
-        text += preamble_addon
     if text and not text.endswith("\n"):
         text += "\n"
     return text
 
 
-def init_doc(path: Path, *, preamble: str, preamble_addon: str = "") -> None:
+def init_doc(path: Path, *, preamble: str) -> None:
     """Create or overwrite compose document with preamble only."""
-    _atomic_write(path, compose_preamble(preamble=preamble, preamble_addon=preamble_addon))
+    _atomic_write(path, compose_preamble(preamble=preamble))
 
 
 def _section_anchor_present(text: str, section_key: str) -> bool:
@@ -168,11 +164,10 @@ def append_intent(
 def cmd_init_doc(args: argparse.Namespace) -> int:
     path = args.path.resolve()
     preamble = _read_text_arg(inline=args.preamble, file_path=args.preamble_file)
-    addon = _read_text_arg(inline=args.preamble_addon, file_path=args.preamble_addon_file)
-    if not preamble.strip() and not addon.strip():
+    if not preamble.strip():
         print("init-doc requires --preamble or --preamble-file", file=sys.stderr)
         return 1
-    init_doc(path, preamble=preamble, preamble_addon=addon)
+    init_doc(path, preamble=preamble)
     print(path.as_posix())
     return 0
 
@@ -223,8 +218,6 @@ def _build_parser() -> argparse.ArgumentParser:
     init_parser.add_argument("--path", type=Path, required=True)
     init_parser.add_argument("--preamble", type=str, default=None)
     init_parser.add_argument("--preamble-file", type=Path, default=None)
-    init_parser.add_argument("--preamble-addon", type=str, default=None)
-    init_parser.add_argument("--preamble-addon-file", type=Path, default=None)
 
     append_parser = sub.add_parser("append-intent", help="Append one intent block")
     append_parser.add_argument("--path", type=Path, required=True)

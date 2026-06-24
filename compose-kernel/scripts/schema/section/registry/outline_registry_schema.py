@@ -37,8 +37,6 @@ _SCHEMA: list[dict[str, Any]] = [
      "description": "Optional cycle-type label when present"},
     {"field": "outline_order", "type": "list[string]", "required": True,
      "description": "Ordered block keys for document assembly"},
-    {"field": "document_preamble_addon", "type": "string", "required": False,
-     "description": "Markdown appended after intent-registry document_preamble"},
     {"field": "blocks", "type": "object", "required": True,
      "description": "block_key → { heading, intents[], guidance, contract }"},
 ]
@@ -213,9 +211,8 @@ def validate_outline_registry(data: dict[str, Any]) -> list[str]:
     if len(order_keys) != len(set(order_keys)):
         errors.append("outline_order contains duplicate keys")
 
-    addon = data.get("document_preamble_addon")
-    if addon is not None and not isinstance(addon, str):
-        errors.append("document_preamble_addon must be a string when present")
+    if data.get("document_preamble_addon") is not None:
+        errors.append("document_preamble_addon is not supported")
 
     seen_intents: set[str] = set()
     for key in order_keys:
@@ -286,9 +283,6 @@ def normalize_outline_registry(data: dict[str, Any]) -> dict[str, Any]:
         result["cycle_type"] = str(data["cycle_type"]).strip()
     if data.get("$schema_id"):
         result["$schema_id"] = str(data["$schema_id"]).strip()
-    addon = data.get("document_preamble_addon")
-    if isinstance(addon, str) and addon.strip():
-        result["document_preamble_addon"] = addon
     return result
 
 

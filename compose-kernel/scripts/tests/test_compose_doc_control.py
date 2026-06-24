@@ -38,14 +38,13 @@ def doc_path(tmp_path: Path) -> Path:
 
 
 def test_compose_preamble_trailing_newline():
-    assert compose_preamble(preamble="# Title\n", preamble_addon="addon\n").endswith("\n")
+    assert compose_preamble(preamble="# Title\n").endswith("\n")
 
 
 def test_init_doc_overwrites(doc_path: Path):
-    init_doc(doc_path, preamble="# Plan\n\n", preamble_addon="**Outline:** test\n\n")
+    init_doc(doc_path, preamble="# Plan\n\n")
     text = doc_path.read_text(encoding="utf-8")
     assert text.startswith("# Plan")
-    assert "**Outline:** test" in text
 
 
 def test_build_outline_intent_layout_first_and_last_block():
@@ -77,7 +76,7 @@ def test_render_intent_fragment_last_in_block_adds_separator():
 
 def test_append_intent_sequence(doc_path: Path):
     outline = OUTLINE_REGISTRY_FEATURE
-    init_doc(doc_path, preamble="# Feature\n\n", preamble_addon="addon\n\n")
+    init_doc(doc_path, preamble="# Feature\n\n")
     append_intent(
         doc_path,
         section_key="CTX",
@@ -113,7 +112,7 @@ def test_append_intent_sequence(doc_path: Path):
 def test_append_intent_invariants_block_after_design(doc_path: Path):
     """I maps to IV block; persists after AR/KD with its own H2 heading."""
     outline = OUTLINE_REGISTRY_FEATURE
-    init_doc(doc_path, preamble="# Feature\n\n", preamble_addon="addon\n\n")
+    init_doc(doc_path, preamble="# Feature\n\n")
     for key, title, body in [
         ("CTX", "Context", "ctx"),
         ("GO", "Goal", "goal"),
@@ -176,7 +175,7 @@ def test_resolve_display_title_first_line_from_file(tmp_path: Path):
 
 
 def test_append_intent_display_title_file(doc_path: Path, tmp_path: Path):
-    init_doc(doc_path, preamble="# Feature\n\n", preamble_addon="addon\n\n")
+    init_doc(doc_path, preamble="# Feature\n\n")
     outline_path = tmp_path / "outline-registry.json"
     outline_path.write_text(json.dumps(OUTLINE_REGISTRY_FEATURE), encoding="utf-8")
     body_file = tmp_path / "_body-CTX.txt"

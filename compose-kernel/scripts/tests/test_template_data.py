@@ -83,12 +83,6 @@ OUTLINE_REGISTRY_FEATURE: dict[str, Any] = {
     "$schema_id": "outline-schema",
     "cycle_type": "feature",
     "outline_order": ["OV", "BD", "DS", "IV", "PL", "VF"],
-    "document_preamble_addon": (
-        "**Reading arc (execution-first):** Overview → Boundaries → Design → Invariants → "
-        "Implementation Plan → Verification. Each H2 block is one reading step for the next "
-        "executor. Probes and refiner writes resolve by `<!-- section-key:… -->` anchors "
-        "inside blocks.\n\n"
-    ),
     "blocks": {
         "OV": {
             "heading": "Overview",
