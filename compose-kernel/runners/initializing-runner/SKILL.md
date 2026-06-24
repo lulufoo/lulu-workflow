@@ -59,7 +59,7 @@ All compose and scope macros (`$FETCH_COMPOSE`, `$RESOLVE_PLAN_ROLE`, `$RESOLVE_
 1. `$RESOLVE_PLAN_ROLE` → Plan Scope Constraints (`### Role`, `### Role Fields`).
 2. `$RESOLVE_DOMAIN` → `domain instance`.
 3. `$FETCH_COMPOSE section-registry --cycle-id "$CYCLE_ID"` (JSON) → `section_order`, `document_preamble`, per-section `heading` / `intent` (else `desc`) / `intent_boundary` / `guidance` / `contract`.
-4. `$FETCH_COMPOSE outline-registry --cycle-id "$CYCLE_ID"` → `outline_order`, per-block `heading` / `intents` / `assembly` (when present).
+4. `$FETCH_COMPOSE outline-registry --cycle-id "$CYCLE_ID"` → `outline_order`, per-block `heading` / `intents`.
 5. `$FETCH_COMPOSE section-kw-criteria --cycle-id "$CYCLE_ID"` → each `## {section_key}` block.
 6. Read `$SCOPE_DOC_PATH` full text once (shared across I2).
 7. **Init document:** Substitute placeholders in `document_preamble` (section-registry only). Write via:
@@ -72,7 +72,7 @@ $COMPOSE_DOC_CONTROL init-doc \
 
 Prefer `--preamble-file` when content is multiline.
 
-Do **not** append outline-registry content to the deliverable document header. Composition hints belong in section `guidance` / `contract`, block `assembly`, section `intent`, and Plan Scope Constraints.
+Do **not** append outline-registry content to the deliverable document header. Composition hints belong in section `guidance` / `contract`, section `intent`, and Plan Scope Constraints.
 
 Do **not** fetch spec-template URLs.
 
@@ -92,7 +92,7 @@ For each key in `section_order`:
 - **Derive (three-step narrowing; priority on conflict: section guidance > domain > role > intent):**
   1. **L1 — domain → lawful form space:** Read `expression_conventions` from the domain instance; establish what forms are idiomatic and legitimate in this domain. Forms outside this space are unconditionally excluded.
   2. **L2 — role × domain → preferred subset:** Read `expressive_tendency` from `### Role Fields` and `information_nature` from the domain instance; within the lawful space, narrow to forms that match both the role's expressive preference and the domain's characteristic information types.
-  3. **L3 — intent + section guidance → concrete selection:** Read `intent` to determine this section's specific information nature; from the preferred subset, select the carrier and structure that best serve it. Apply section `guidance` when present. Merge block `assembly.forbidden` into `F.forbidden` when present. Extract exclusion from `intent_boundary` — clauses go to `F.forbidden`. When `intent` names optional blocks (e.g. Interface Contract, Existing Assets, Task Detail with steps), select carriers that include them when `I*` supports it.
+  3. **L3 — intent + section guidance → concrete selection:** Read `intent` to determine this section's specific information nature; from the preferred subset, select the carrier and structure that best serve it. Apply section `guidance` when present. Extract exclusion from `intent_boundary` — clauses go to `F.forbidden`. When `intent` names optional blocks (e.g. Interface Contract, Existing Assets, Task Detail with steps), select carriers that include them when `I*` supports it.
 - **Output (required):**
 
 ```text
@@ -113,7 +113,7 @@ F.forbidden: <derived from intent_boundary + forms eliminated in L1/L2>
 
 #### I2d — Write body
 
-- **Input:** `I*` · `F` · `C` · `intent` · `intent_boundary` · block `assembly.transitions` when this intent is not the first in its outline block · upstream section bodies already persisted in `$OUTPUT_DOC_PATH` (when de-duplicating)
+- **Input:** `I*` · `F` · `C` · `intent` · `intent_boundary` · upstream section bodies already persisted in `$OUTPUT_DOC_PATH` (when de-duplicating)
 - Scaffold per `F`; rewrite `I*` into slots; obey every `(d, c)` and `intent`.
 - When high-priority `C` requires named blocks, ordering, step lists, tables, diagrams, or forbidden-form exclusions, realize them explicitly in body structure.
 - **De-duplication:** Do not repeat the same boundary constraint across sections when `intent_boundary` defers elsewhere; upstream sections stay compact. Read upstream bodies from `$OUTPUT_DOC_PATH` via `compose_doc_schema.py --section-body` when needed.

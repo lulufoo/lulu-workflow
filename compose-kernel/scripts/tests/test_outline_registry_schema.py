@@ -148,7 +148,7 @@ def test_validate_outline_section_alignment_reports_mismatch():
     assert any("missing from outline blocks intents" in err for err in errors)
 
 
-def test_validate_slim_outline_with_assembly():
+def test_validate_slim_outline():
     errors = validate_outline_registry(TECH_DESIGN_OUTLINE)
     assert errors == []
 
@@ -159,10 +159,27 @@ def test_tech_design_outline_section_alignment():
     assert validate_outline_section_alignment(outline, section) == []
 
 
-def test_normalize_slim_outline_preserves_assembly():
+def test_normalize_slim_outline_heading_intents_only():
     loaded = normalize_outline_registry(TECH_DESIGN_OUTLINE)
-    assert loaded["blocks"]["SI"]["assembly"]["transitions"]
+    assert loaded["blocks"]["SI"]["intents"] == ["CTX", "GO"]
+    assert "assembly" not in loaded["blocks"]["SI"]
     assert "guidance" not in loaded["blocks"]["SH"]
+
+
+def test_validate_rejects_assembly():
+    payload = {
+        "version": "1",
+        "outline_order": ["SI"],
+        "blocks": {
+            "SI": {
+                "heading": "Situation & Intent",
+                "intents": ["CTX", "GO"],
+                "assembly": {"forbidden": ["tables"]},
+            },
+        },
+    }
+    errors = validate_outline_registry(payload)
+    assert any("assembly is not supported" in err for err in errors)
 
 
 def test_validate_slim_block_heading_intents_only():

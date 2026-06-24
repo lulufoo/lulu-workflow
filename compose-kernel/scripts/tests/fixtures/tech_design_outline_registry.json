@@ -6,28 +6,11 @@
   "blocks": {
     "SI": {
       "heading": "Situation & Intent",
-      "intents": ["CTX", "GO"],
-      "assembly": {
-        "transitions": [
-          "CTX body closes with a transitional statement connecting the problem to what the design must address; GO body opens by operationalizing that connection — do not jump directly to before/after enumeration without establishing the design response"
-        ],
-        "forbidden": [
-          "Scope or exclusion tables",
-          "Structure or flow diagrams",
-          "Checkbox steps, Run commands, or phase markers"
-        ]
-      }
+      "intents": ["CTX", "GO"]
     },
     "BD": {
       "heading": "Boundaries",
-      "intents": ["SC", "NG", "I"],
-      "assembly": {
-        "forbidden": [
-          "Trade-off or rejected-option comparison essays",
-          "Interface contract tables",
-          "Architecture diagrams"
-        ]
-      }
+      "intents": ["SC", "NG", "I"]
     },
     "SH": {
       "heading": "Solution Shape",
@@ -43,12 +26,7 @@
     },
     "RD": {
       "heading": "Sign-off Readiness",
-      "intents": ["OQ", "VD", "OD"],
-      "assembly": {
-        "transitions": [
-          "OQ rows cross-reference VD assumptions where applicable"
-        ]
-      }
+      "intents": ["OQ", "VD", "OD"]
     }
   }
 }

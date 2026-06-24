@@ -38,7 +38,7 @@ _SCHEMA: list[dict[str, Any]] = [
     {"field": "outline_order", "type": "list[string]", "required": True,
      "description": "Ordered block keys for document assembly"},
     {"field": "blocks", "type": "object", "required": True,
-     "description": "block_key → { heading, intents[], guidance?, contract?, assembly? }"},
+     "description": "block_key → { heading, intents[], guidance?, contract? }"},
 ]
 
 
@@ -77,45 +77,6 @@ def _validate_block_contract(block_key: str, contract: Any) -> list[str]:
             if not str(item).strip():
                 errors.append(
                     f"blocks.{block_key}.contract.{key}[{index}] must be a non-empty string"
-                )
-    return errors
-
-
-def _normalize_assembly(raw: Any) -> dict[str, list[str]]:
-    """Return normalized assembly with transitions/forbidden string lists."""
-    if not isinstance(raw, dict):
-        return {"transitions": [], "forbidden": []}
-    result: dict[str, list[str]] = {}
-    for key in ("transitions", "forbidden"):
-        items = raw.get(key)
-        if not isinstance(items, list):
-            result[key] = []
-            continue
-        result[key] = [
-            str(item).strip()
-            for item in items
-            if str(item).strip()
-        ]
-    return result
-
-
-def _validate_block_assembly(block_key: str, assembly: Any) -> list[str]:
-    """Validate assembly object shape for a block."""
-    errors: list[str] = []
-    if not isinstance(assembly, dict):
-        errors.append(f"blocks.{block_key}.assembly must be an object")
-        return errors
-    for key in ("transitions", "forbidden"):
-        items = assembly.get(key)
-        if items is None:
-            continue
-        if not isinstance(items, list):
-            errors.append(f"blocks.{block_key}.assembly.{key} must be a list when present")
-            continue
-        for index, item in enumerate(items):
-            if not str(item).strip():
-                errors.append(
-                    f"blocks.{block_key}.assembly.{key}[{index}] must be a non-empty string"
                 )
     return errors
 
@@ -280,10 +241,11 @@ def validate_outline_registry(data: dict[str, Any]) -> list[str]:
         if entry.get("reader_note") is not None:
             errors.append(f"blocks.{key}.reader_note is not supported")
             continue
+        if entry.get("assembly") is not None:
+            errors.append(f"blocks.{key}.assembly is not supported")
+            continue
         has_guidance = isinstance(guidance, str) and guidance.strip()
         contract = entry.get("contract")
-        assembly = entry.get("assembly")
-        has_assembly = assembly is not None
         if has_guidance:
             if contract is None:
                 errors.append(f"blocks.{key}.contract is required when guidance is present")
@@ -292,10 +254,8 @@ def validate_outline_registry(data: dict[str, Any]) -> list[str]:
         elif contract is not None:
             errors.append(
                 f"blocks.{key}.contract without guidance is not supported; "
-                "use sections.{key}.contract or omit both for assembly-only blocks"
+                "use sections.{key}.contract or omit both for slim blocks"
             )
-        if has_assembly:
-            errors.extend(_validate_block_assembly(key, assembly))
 
     for key in blocks:
         if str(key).upper() not in order_keys:
@@ -320,11 +280,6 @@ def normalize_outline_registry(data: dict[str, Any]) -> dict[str, Any]:
         if isinstance(guidance, str) and guidance.strip():
             normalized["guidance"] = guidance.strip()
             normalized["contract"] = _normalize_contract(entry.get("contract"))
-        assembly = entry.get("assembly")
-        if isinstance(assembly, dict):
-            normalized_assembly = _normalize_assembly(assembly)
-            if normalized_assembly["transitions"] or normalized_assembly["forbidden"]:
-                normalized["assembly"] = normalized_assembly
         blocks[key] = normalized
     result: dict[str, Any] = {
         "version": "1",
@@ -376,22 +331,6 @@ def outline_intent_map(project_root: Path | None = None) -> dict[str, str]:
         for intent_key in registry["blocks"][block_key]["intents"]:
             mapping[intent_key] = block_key
     return mapping
-
-
-def outline_block_assembly(
-    section_key: str,
-    project_root: Path | None = None,
-) -> dict[str, list[str]]:
-    """Return normalized assembly for the block containing section_key."""
-    key = str(section_key).strip().upper()
-    registry = _active_outline(project_root)
-    block_key = outline_intent_map(project_root).get(key)
-    if not block_key:
-        return {"transitions": [], "forbidden": []}
-    assembly = registry["blocks"][block_key].get("assembly")
-    if isinstance(assembly, dict):
-        return _normalize_assembly(assembly)
-    return {"transitions": [], "forbidden": []}
 
 
 def main(argv: list[str] | None = None) -> int:
