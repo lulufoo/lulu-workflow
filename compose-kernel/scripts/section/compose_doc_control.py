@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""Incremental compose document writer for initializing-runner I2f.
+"""Incremental compose document writer for initializing-runner I2f / I2g.
 
 Subcommands:
-    init-doc        Write document preamble (create or overwrite)
-    append-intent   Append one outline intent block (H2/H3/body/---);
-                    requires --display-title or --display-title-file, and body via
-                    --body or --body-file
+    init-doc              Write document preamble (create or overwrite)
+    append-intent         Append one outline intent block (H2/H3/body/---)
+    patch-block-heading   Replace outline H2 placeholder with reader block title
 
 CLI details: ``python3 compose_doc_control.py --help``
 """
@@ -161,6 +160,45 @@ def append_intent(
     _atomic_write(path, existing + fragment)
 
 
+def patch_block_heading(
+    path: Path,
+    *,
+    block_key: str,
+    title: str,
+    outline: dict[str, Any],
+) -> None:
+    """Replace the unique ``## {blocks.{key}.heading}`` placeholder with reader title."""
+    bk = block_key.strip().upper()
+    blocks = outline.get("blocks") or {}
+    block = blocks.get(bk)
+    if not isinstance(block, dict):
+        raise ValueError(f"block {bk!r} not found in outline-registry")
+
+    placeholder = str(block.get("heading", "")).strip()
+    if not placeholder:
+        raise ValueError(f"blocks.{bk}.heading is empty")
+
+    new_title = title.strip()
+    if not new_title:
+        raise ValueError("block display title is empty")
+
+    text = path.read_text(encoding="utf-8")
+    pattern = re.compile(rf"^##\s+{re.escape(placeholder)}\s*$", re.MULTILINE)
+    matches = list(pattern.finditer(text))
+    if not matches:
+        raise ValueError(
+            f"placeholder heading not found for block {bk}: ## {placeholder}",
+        )
+    if len(matches) > 1:
+        raise ValueError(
+            f"ambiguous placeholder heading for block {bk}: {len(matches)} matches",
+        )
+
+    start, end = matches[0].span()
+    replacement = f"## {new_title}"
+    _atomic_write(path, text[:start] + replacement + text[end:])
+
+
 def cmd_init_doc(args: argparse.Namespace) -> int:
     path = args.path.resolve()
     preamble = _read_text_arg(inline=args.preamble, file_path=args.preamble_file)
@@ -210,6 +248,43 @@ def cmd_append_intent(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_patch_block_heading(args: argparse.Namespace) -> int:
+    path = args.path.resolve()
+    if not path.exists():
+        print(f"compose document not found: {path}", file=sys.stderr)
+        return 1
+    if args.title is None and args.title_file is None:
+        print(
+            "patch-block-heading requires --title or --title-file",
+            file=sys.stderr,
+        )
+        return 1
+    title = _resolve_display_title(
+        inline=args.title,
+        file_path=args.title_file.resolve() if args.title_file else None,
+    )
+    profile_id = (args.profile or DEFAULT_COMPOSE_PROFILE_ID).strip() or DEFAULT_COMPOSE_PROFILE_ID
+    project_root = args.project_root.resolve()
+    try:
+        outline = _load_outline(
+            outline_path=args.outline_path.resolve() if args.outline_path else None,
+            project_root=project_root,
+            profile_id=profile_id,
+        )
+        patch_block_heading(
+            path,
+            block_key=args.block_key,
+            title=title,
+            outline=outline,
+        )
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    block_key = args.block_key.strip().upper()
+    print(f"{path.as_posix()}:{block_key}")
+    return 0
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Incremental compose document control")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -230,6 +305,18 @@ def _build_parser() -> argparse.ArgumentParser:
     append_parser.add_argument("--profile", default=DEFAULT_COMPOSE_PROFILE_ID)
     append_parser.add_argument("--project-root", type=Path, default=Path("."))
 
+    patch_parser = sub.add_parser(
+        "patch-block-heading",
+        help="Replace outline H2 placeholder with reader block title",
+    )
+    patch_parser.add_argument("--path", type=Path, required=True)
+    patch_parser.add_argument("--block-key", type=str, required=True)
+    patch_parser.add_argument("--title", type=str, default=None)
+    patch_parser.add_argument("--title-file", type=Path, default=None)
+    patch_parser.add_argument("--outline-path", type=Path, default=None)
+    patch_parser.add_argument("--profile", default=DEFAULT_COMPOSE_PROFILE_ID)
+    patch_parser.add_argument("--project-root", type=Path, default=Path("."))
+
     return parser
 
 
@@ -239,6 +326,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_init_doc(args)
     if args.command == "append-intent":
         return cmd_append_intent(args)
+    if args.command == "patch-block-heading":
+        return cmd_patch_block_heading(args)
     return 1
 
 

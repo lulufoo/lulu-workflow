@@ -18,6 +18,7 @@ from compose_doc_control import (  # noqa: E402
     compose_preamble,
     init_doc,
     main,
+    patch_block_heading,
     render_intent_fragment,
     _resolve_display_title,
 )
@@ -217,3 +218,74 @@ def test_append_intent_requires_display_title(doc_path: Path):
         ]
     )
     assert rc == 1
+
+
+def test_patch_block_heading_replaces_si_placeholder(doc_path: Path):
+    outline = OUTLINE_REGISTRY_FEATURE
+    init_doc(doc_path, preamble="# Feature\n\n")
+    append_intent(
+        doc_path,
+        section_key="CTX",
+        display_title="现状",
+        body="Context.",
+        outline=outline,
+    )
+    append_intent(
+        doc_path,
+        section_key="GO",
+        display_title="目标",
+        body="Goal.",
+        outline=outline,
+    )
+    patch_block_heading(
+        doc_path,
+        block_key="OV",
+        title="1. 问题与目标",
+        outline=outline,
+    )
+    raw = doc_path.read_text(encoding="utf-8")
+    assert "## 1. 问题与目标" in raw
+    assert "## Overview" not in raw
+    assert "### 现状 <!-- section-key:CTX -->" in raw
+    assert "### 目标 <!-- section-key:GO -->" in raw
+
+
+def test_patch_block_heading_cli(doc_path: Path, tmp_path: Path):
+    outline_path = tmp_path / "outline-registry.json"
+    outline_path.write_text(json.dumps(OUTLINE_REGISTRY_FEATURE), encoding="utf-8")
+    init_doc(doc_path, preamble="# Feature\n\n")
+    append_intent(
+        doc_path,
+        section_key="CTX",
+        display_title="现状",
+        body="Context.",
+        outline=OUTLINE_REGISTRY_FEATURE,
+    )
+    title_file = tmp_path / "_title-block-OV.txt"
+    title_file.write_text("1. 问题与目标\n", encoding="utf-8")
+    rc = main(
+        [
+            "patch-block-heading",
+            "--path",
+            str(doc_path),
+            "--block-key",
+            "OV",
+            "--title-file",
+            str(title_file),
+            "--outline-path",
+            str(outline_path),
+        ]
+    )
+    assert rc == 0
+    assert "## 1. 问题与目标" in doc_path.read_text(encoding="utf-8")
+
+
+def test_patch_block_heading_fails_when_placeholder_missing(doc_path: Path):
+    init_doc(doc_path, preamble="# Feature\n\n")
+    with pytest.raises(ValueError, match="placeholder heading not found"):
+        patch_block_heading(
+            doc_path,
+            block_key="OV",
+            title="1. 问题与目标",
+            outline=OUTLINE_REGISTRY_FEATURE,
+        )

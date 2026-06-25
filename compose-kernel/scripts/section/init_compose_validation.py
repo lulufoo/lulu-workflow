@@ -2,7 +2,7 @@
 """Validate Initializing derive artifacts and compose document seed.
 
 Subcommands:
-    validate    Check revision-dir derive/body/title artifacts and compose doc
+    validate    Check revision-dir derive/body/title/block-title artifacts and compose doc
 
 CLI details: ``python3 init_compose_validation.py --help``
 """
@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any, Iterable
@@ -25,12 +26,17 @@ kernel_bootstrap.ensure_kernel_paths()
 
 from compose_doc_schema import section_body_by_key, section_display_heading  # noqa: E402
 from fetch_compose_framework import fetch_compose_framework  # noqa: E402
+from outline_registry_schema import normalize_outline_registry  # noqa: E402
 
 _MIN_BODY_LINES_WITH_I_STAR = 3
 _PROHIBITED_BODY_PATTERNS = ("[Source:", "decision-doc-mapping")
 _KW_INIT_KEYS = ("what", "why", "alternatives", "failure")
 _C_MIN = 2
 _C_MAX = 5
+_SECTION_KEY_ANCHOR_RE = re.compile(
+    r"<!--\s*section-key:\s*([A-Za-z0-9_]+)\s*-->",
+    re.IGNORECASE,
+)
 
 
 def section_order_for_profile(project_root: Path, profile_id: str) -> list[str]:
@@ -41,6 +47,48 @@ def section_order_for_profile(project_root: Path, profile_id: str) -> list[str]:
     )
     data = json.loads(raw)
     return [str(key).upper() for key in data.get("section_order") or []]
+
+
+def outline_registry_for_profile(
+    project_root: Path,
+    profile_id: str,
+) -> dict[str, Any] | None:
+    try:
+        raw = fetch_compose_framework(
+            "outline-registry",
+            project_root,
+            profile_id=profile_id,
+        )
+    except Exception:
+        return None
+    return normalize_outline_registry(json.loads(raw))
+
+
+def flatten_outline_intents(outline: dict[str, Any]) -> list[str]:
+    keys: list[str] = []
+    for block_key in outline.get("outline_order") or []:
+        bk = str(block_key).upper()
+        block = (outline.get("blocks") or {}).get(bk) or {}
+        keys.extend(str(item).upper() for item in block.get("intents") or [])
+    return keys
+
+
+def block_h2_above_intent(raw_doc: str, first_intent_key: str) -> str:
+    """Return the nearest H2 heading above the first anchor for an intent key."""
+    key = first_intent_key.strip().upper()
+    anchor_pos: int | None = None
+    for match in _SECTION_KEY_ANCHOR_RE.finditer(raw_doc):
+        if match.group(1).upper() == key:
+            anchor_pos = match.start()
+            break
+    if anchor_pos is None:
+        return ""
+
+    h2_title = ""
+    for line in raw_doc[:anchor_pos].splitlines():
+        if line.startswith("## ") and not line.startswith("### "):
+            h2_title = line[3:].strip()
+    return h2_title
 
 
 def minimal_derive_payload(
@@ -255,6 +303,56 @@ def _validate_title_file(title_path: Path, *, section_key: str) -> list[str]:
     return []
 
 
+def _validate_block_title_file(
+    title_path: Path,
+    *,
+    block_key: str,
+) -> list[str]:
+    if not title_path.is_file():
+        return [f"{block_key}: missing block title file {title_path.name}"]
+    lines = title_path.read_text(encoding="utf-8").splitlines()
+    if not lines or not lines[0].strip():
+        return [f"{block_key}: empty block title file"]
+    return []
+
+
+def _validate_block_titles(
+    revision_dir: Path,
+    raw_doc: str,
+    outline: dict[str, Any],
+) -> list[str]:
+    errors: list[str] = []
+    blocks = outline.get("blocks") or {}
+    for block_key in outline.get("outline_order") or []:
+        bk = str(block_key).upper()
+        block = blocks.get(bk) or {}
+        heading = str(block.get("heading", "")).strip()
+        intents = [str(item).upper() for item in block.get("intents") or []]
+        if not intents:
+            continue
+
+        title_path = revision_dir / f"_title-block-{bk}.txt"
+        title_errors = _validate_block_title_file(title_path, block_key=bk)
+        errors.extend(title_errors)
+        if title_errors:
+            continue
+
+        expected_title = title_path.read_text(encoding="utf-8").splitlines()[0].strip()
+        doc_h2 = block_h2_above_intent(raw_doc, intents[0])
+        if not doc_h2:
+            errors.append(f"{bk}: compose document missing block H2 above {intents[0]}")
+            continue
+        if doc_h2 != expected_title:
+            errors.append(
+                f"{bk}: block H2 {doc_h2!r} != _title-block file {expected_title!r}",
+            )
+        if expected_title != "（待补）" and doc_h2 == heading:
+            errors.append(
+                f"{bk}: block H2 still English placeholder {heading!r}",
+            )
+    return errors
+
+
 def validate_init_artifacts(
     revision_dir: Path,
     compose_doc: Path,
@@ -296,6 +394,15 @@ def validate_init_artifacts(
             errors.append(f"compose document empty body: {key}")
         elif not section_display_heading(raw_doc, key, project_root=project_root).strip():
             errors.append(f"compose document missing display title: {key}")
+
+    outline = outline_registry_for_profile(project_root, profile_id)
+    if outline is not None:
+        flat = flatten_outline_intents(outline)
+        if flat and flat != keys:
+            errors.append(
+                f"section_order != flatten(outline.intents): {keys!r} vs {flat!r}",
+            )
+        errors.extend(_validate_block_titles(revision_dir, raw_doc, outline))
 
     if not errors:
         return None

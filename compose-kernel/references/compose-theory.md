@@ -15,6 +15,9 @@ section_body = Write( I* ; F ; C )  |  intent
 
 display_title = specialize( sections.{key}.heading ; substance($SECTION_BODY) )
   — presentation layer only; not part of body
+
+block_title = specialize( blocks.{id}.heading ; substance(block intent bodies) )
+  — H2 presentation layer; derived at last_in_block, patched after all intents in block persist
 ```
 
 | Factor | Symbol | Source | Role |
@@ -26,14 +29,15 @@ display_title = specialize( sections.{key}.heading ; substance($SECTION_BODY) )
 | Section form | `guidance` | section-form-registry | Per-intent form guidance for F derivation |
 | Section form | `contract` | section-form-registry | Per-intent required/forbidden constraints for C derivation |
 | Display title | `display_title` | `sections.{key}.heading` + content substance | H3 label on intent anchor line under outline H2 blocks |
+| Block title | `block_title` | `blocks.{id}.heading` + block intent substance | H2 reader label; placeholder = registry heading until I2g |
 
-**Order (strict):** Filter `I*` → Derive `F` → Derive `C` → Write body → Derive display title → Persist section.
+**Order (strict):** Filter `I*` → Derive `F` → Derive `C` → Write body → Derive display title → Persist section → [when last intent in block] I2g Block close (derive block title → patch H2).
 
 **Intent text:** Use `sections.{key}.intent` when present; else `sections.{key}.desc` (legacy).
 
 **F priority (conflict resolution):** section `guidance` > domain `expression_conventions` > role `expressive_tendency` > intent text. `intent_boundary` defers substance to other intents — do not repeat it in body.
 
-**Document assembly:** Compose documents use outline-registry for structure — outline H2 blocks, intent H3 lines with `<!-- section-key:KEY -->`, then body. Initializing persists each intent via `$COMPOSE_DOC_CONTROL append-intent` immediately after display title derivation. Round readers locate sections by that anchor.
+**Document assembly:** Compose documents use outline-registry for structure — outline H2 blocks, intent H3 lines with `<!-- section-key:KEY -->`, then body. Initializing persists each intent via `$COMPOSE_DOC_CONTROL append-intent` immediately after display title derivation; when the last intent in a block is persisted, `$COMPOSE_DOC_CONTROL patch-block-heading` replaces the English H2 placeholder with the inferred block title. Round readers locate sections by section-key anchor, not H2 text.
 
 ## Init draft quality floor
 
@@ -82,3 +86,4 @@ C has 2–5 pairs per section. Every `c` must be traceable to a specific `### Ro
 - `I*` that adds capabilities, scope, or boundaries not in scope doc
 - speculative paths, APIs, or behavior not grounded in scope doc (Init does not invent implementation detail)
 - verbatim `sections.{key}.heading` as document display title (infer via `display_title` instead)
+- verbatim `blocks.{id}.heading` as final block H2 (infer via `block_title` in I2g instead)

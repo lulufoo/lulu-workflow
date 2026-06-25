@@ -3,7 +3,8 @@ name: initializing-runner
 description: >-
   Autonomous Initializing step for compose-profile drafting. Loads upstream scope
   doc and frameworks; composes per-section body via I* / F / C derive artifacts;
-  validates draft quality; persists each section incrementally.
+  refines outline block H2 titles at block close; validates draft quality;
+  persists each section incrementally.
 ---
 
 # initializing-runner
@@ -29,7 +30,7 @@ See [`../../references/compose-theory.md`](../../references/compose-theory.md).
 
 Derive artifact contract: [`../../references/init-draft-quality.md`](../../references/init-draft-quality.md).
 
-**Order (strict):** I2a Filter `I*` → I2b Derive `F` → I2c Derive `C` → I2d Write body → I2e Derive display title → I2f Persist section.
+**Order (strict):** I2a Filter `I*` → I2b Derive `F` → I2c Derive `C` → I2d Write body → I2e Derive display title → I2f Persist section → [when `last_in_block`] I2g Block close.
 
 ## Parent-Provided Inputs
 
@@ -52,10 +53,11 @@ All compose and scope macros **must** pass `--profile "$COMPOSE_PROFILE"`. `$FET
 |-------|---------|
 | `$RESOLVE_PLAN_ROLE` | `python3 "$SKILL_ROOT/compose-kernel/scripts/scope/scope_resolver.py" resolve-role --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile "$COMPOSE_PROFILE"` |
 | `$RESOLVE_DOMAIN` | `python3 "$SKILL_ROOT/compose-kernel/scripts/scope/scope_resolver.py" resolve-domain --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile "$COMPOSE_PROFILE"` |
+| `$RESOLVE_OUTLINE_LAYOUT` | `python3 "$SKILL_ROOT/compose-kernel/scripts/section/outline_layout.py" resolve --section "{section_key}" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)"` |
 | `$COMPOSE_DOC_CONTROL` | `python3 "$SKILL_ROOT/compose-kernel/scripts/section/compose_doc_control.py"` |
 | `$INIT_COMPOSE_VALIDATE` | `python3 "$SKILL_ROOT/compose-kernel/scripts/section/init_compose_validation.py" validate --revision-dir "$REVISION_DIR" --compose-doc "$OUTPUT_DOC_PATH" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)"` |
 
-`$COMPOSE_DOC_CONTROL` subcommands: `--help` · `init-doc` · `append-intent` (use `--body-file` + `--display-title-file` in I2f).
+`$COMPOSE_DOC_CONTROL` subcommands: `--help` · `init-doc` · `append-intent` · `patch-block-heading`.
 
 ## Execution Contract
 
@@ -82,17 +84,20 @@ Do **not** append outline-registry content to the deliverable header. Do **not**
 
 **Done:** `$OUTPUT_DOC_PATH` exists with preamble only.
 
-### Step I2 — Compose (per `section_key`, strict I2a → I2f)
+### Step I2 — Compose (per `section_key`, strict I2a → I2f [→ I2g])
 
-For each key in `section_order`, produce three artifacts under `$REVISION_DIR`:
+For each key in `section_order`, produce section artifacts under `$REVISION_DIR`:
 
 ```text
 _derive-{section_key}.json   # I2a–I2c (must exist before I2d)
 _body-{section_key}.txt      # I2d
 _title-{section_key}.txt     # I2e
+_title-block-{block_key}.txt # I2g (last_in_block only)
 ```
 
 Field schema: [`init-draft-quality.md`](../../references/init-draft-quality.md).
+
+After each I2f, resolve layout and run **I2g** when the current key is the last intent in its outline block (`last_in_block` from `$RESOLVE_OUTLINE_LAYOUT` JSON). Single-intent blocks (`first_in_block == last_in_block`) close in the same iteration.
 
 #### I2a — Filter `I*`
 
@@ -145,15 +150,44 @@ $COMPOSE_DOC_CONTROL append-intent \
 
 - **Done:** `$OUTPUT_DOC_PATH` contains `<!-- section-key:{key} -->` for this section
 
+Block-first keys still write English `## {blocks.{id}.heading}` placeholder via `append-intent`; no block title args on this step.
+
+#### I2g — Block close (when `last_in_block`)
+
+At the last intent in an outline block: infer reader H2 from whole-block substance, then replace the English placeholder.
+
+**1. Derive block title**
+
+- **Input:** `block_intents[]` bodies (`_body-*.txt`) · optional `_title-*.txt` · registry `intent` per intent · `blocks.{block_key}.heading` (semantic anchor)
+- **Action:** One localized reader-facing H2 title for the whole block; may include numbering aligned with v4-style docs.
+- **Forbidden:** verbatim English `block.heading`; summarizing a single intent only
+- **Output:** `$REVISION_DIR/_title-block-{block_key}.txt` (one line); no block substance → `（待补）`
+- **Done:** block title file exists with one non-empty line
+
+**2. Patch block H2**
+
+```bash
+$COMPOSE_DOC_CONTROL patch-block-heading \
+  --path "$OUTPUT_DOC_PATH" \
+  --block-key "{block_key}" \
+  --title-file "$REVISION_DIR/_title-block-{block_key}.txt" \
+  --profile "$COMPOSE_PROFILE" \
+  --project-root "$(pwd)"
+```
+
+- **Action:** Replace the unique `## {blocks.{block_key}.heading}` placeholder with the block title file content.
+- **Done:** document H2 for the block matches `_title-block-{block_key}.txt`; H3 anchors unchanged
+- **Failure:** blocking; stderr cites `block_key`
+
 All sections remain draft until Round probe.
 
 ### Step I3 — Validate
 
 1. Run `$INIT_COMPOSE_VALIDATE`.
-2. On failure → read stderr; fix cited sections (return to I2 for those keys); re-run I3.
+2. On failure → read stderr; fix cited sections (return to I2 for those keys; block title failures → re-run I2g for that block's last intent); re-run I3.
 3. On success → Return Summary.
 
-**Done:** `$INIT_COMPOSE_VALIDATE` exit 0.
+**Done:** `$INIT_COMPOSE_VALIDATE` exit 0. When outline-registry is present: each block H2 ≠ English placeholder (unless `（待补）`); `_title-block-*.txt` matches document H2.
 
 ## Return Summary
 
@@ -162,6 +196,7 @@ Initializing complete.
   Profile: <COMPOSE_PROFILE>
   Output: <OUTPUT_DOC_PATH>
   Derive artifacts: <REVISION_DIR>/_derive-*.json
+  Block titles: <REVISION_DIR>/_title-block-*.txt
   Synthesized sections: <space-separated section keys from section_order>
   Scope SSOT: <SCOPE_DOC_PATH>
   Draft status: pending Round validation (all sections X until probe)
