@@ -116,6 +116,25 @@ TECH_PLAN_SECTION_FORM_REGISTRY: dict[str, Any] = json.loads(
     (_FIXTURES_DIR / "tech_plan_section_form_registry.json").read_text(encoding="utf-8")
 )
 
+OUTLINE_REGISTRY_PRODUCT_SPEC: dict[str, Any] = {
+    "version": "1",
+    "$schema_id": "outline-schema",
+    "cycle_type": "feature",
+    "outline_order": ["BG", "US", "SC", "FL", "NG", "AC"],
+    "blocks": {
+        "BG": {"heading": "Background / Goal", "intents": ["PB", "RN", "GO"]},
+        "US": {"heading": "Users & Scenarios", "intents": ["UR", "SN"]},
+        "SC": {"heading": "Scope", "intents": ["SC", "IO"]},
+        "FL": {"heading": "Key Flow", "intents": ["FL"]},
+        "NG": {"heading": "Boundaries / Non-Goals", "intents": ["NG"]},
+        "AC": {"heading": "Acceptance", "intents": ["AC"]},
+    },
+}
+
+PRODUCT_SPEC_SECTION_FORM_REGISTRY: dict[str, Any] = json.loads(
+    (_FIXTURES_DIR / "product_spec_section_form_registry.json").read_text(encoding="utf-8")
+)
+
 FEATURE_ROLE_INSTANCE: dict[str, Any] = {
     "version": "1",
     "$schema_id": "role-schema",
@@ -237,6 +256,31 @@ def seed_tech_plan_test_caches(project_root: Path) -> None:
         "tech-plan",
         "tpt_section_form_registry_url",
         TECH_PLAN_SECTION_FORM_REGISTRY,
+    )
+
+
+def seed_product_spec_test_caches(project_root: Path) -> None:
+    """Seed minimal product-spec template caches for pytest (under project_root/.cache)."""
+    product_registry = json.loads(
+        (_FIXTURES_DIR / "product_spec_section_registry.json").read_text(encoding="utf-8")
+    )
+    seed_template_cache(
+        project_root,
+        "product-spec",
+        "pst_section_registry_url",
+        product_registry,
+    )
+    seed_template_cache(
+        project_root,
+        "product-spec",
+        "pst_outline_registry_url",
+        OUTLINE_REGISTRY_PRODUCT_SPEC,
+    )
+    seed_template_cache(
+        project_root,
+        "product-spec",
+        "pst_section_form_registry_url",
+        PRODUCT_SPEC_SECTION_FORM_REGISTRY,
     )
 
 

@@ -40,6 +40,12 @@ class TestResolveConfigKey:
         with pytest.raises(ComposeTemplateError, match="Invalid compose template role"):
             resolve_config_key("intent-eval-framework")
 
+    def test_resolve_config_key_product_spec(self) -> None:
+        assert resolve_config_key("section-form-registry", "product-spec") == (
+            "pst_section_form_registry_url"
+        )
+        assert resolve_config_key("outline-registry", "product-spec") == "pst_outline_registry_url"
+
     def test_scheme_keys(self) -> None:
         assert scheme_template_keys() == frozenset(
             {

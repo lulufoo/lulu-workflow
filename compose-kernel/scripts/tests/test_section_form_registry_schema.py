@@ -27,6 +27,12 @@ TECH_DESIGN_INTENT = json.loads(
 TECH_DESIGN_FORM = json.loads(
     (_FIXTURES / "tech_design_section_form_registry.json").read_text(encoding="utf-8")
 )
+PRODUCT_SPEC_INTENT = json.loads(
+    (_FIXTURES / "product_spec_section_registry.json").read_text(encoding="utf-8")
+)
+PRODUCT_SPEC_FORM = json.loads(
+    (_FIXTURES / "product_spec_section_form_registry.json").read_text(encoding="utf-8")
+)
 
 
 def test_get_schema_includes_section_order():
@@ -42,6 +48,13 @@ def test_validate_tech_design_form_registry():
 def test_validate_form_alignment():
     intent = normalize_section_registry(TECH_DESIGN_INTENT)
     form = normalize_section_form_registry(TECH_DESIGN_FORM)
+    assert validate_section_form_alignment(form, intent) == []
+
+
+def test_validate_product_spec_form_alignment():
+    intent = normalize_section_registry(PRODUCT_SPEC_INTENT)
+    form = normalize_section_form_registry(PRODUCT_SPEC_FORM)
+    assert validate_section_form_registry(PRODUCT_SPEC_FORM) == []
     assert validate_section_form_alignment(form, intent) == []
 
 
