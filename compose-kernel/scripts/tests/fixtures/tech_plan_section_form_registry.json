@@ -1,0 +1,167 @@
+{
+  "version": "1",
+  "$schema_id": "section-form-schema",
+  "profile_id": "tech-plan",
+  "section_order": [
+    "CTX",
+    "GO",
+    "SC",
+    "NG",
+    "AR",
+    "KD",
+    "I",
+    "SK",
+    "T",
+    "VF"
+  ],
+  "sections": {
+    "CTX": {
+      "guidance": "Narrative prose carrier; situational lead-in before optional path or code anchors; compact opening arc; no diagrams or enumeration tables.",
+      "contract": {
+        "required": [
+          "Opens with narrative prose before path, file, or code inventories",
+          "When concrete anchors appear: they follow situational lead-in rather than opening the section"
+        ],
+        "forbidden": [
+          "Opening paragraphs that lead with file:line chains or path inventories",
+          "Scope, exclusion, or touch-surface enumeration tables",
+          "Architecture or flow diagrams",
+          "Before→after or success-criteria table carriers",
+          "Checkbox steps, phase markers, task ids, or verification checklist tables"
+        ]
+      }
+    },
+    "GO": {
+      "guidance": "Compact outcomes prose or Before→After table carrier; at most one upstream bridging phrase; no enumeration or architecture blocks.",
+      "contract": {
+        "required": [
+          "When table carrier is used: two-column Before→After or equivalent success-state view",
+          "At most one transitional bridging phrase before the outcomes block"
+        ],
+        "forbidden": [
+          "Multi-paragraph upstream problem narrative rehash",
+          "Scope or path inventory enumeration tables",
+          "Architecture diagrams or module-responsibility graphs",
+          "Phase tables, checkbox steps, or verification command blocks"
+        ]
+      }
+    },
+    "SC": {
+      "guidance": "Enumeration carrier; prefer tabular or two-column layout when item count exceeds two; avoid essay-length single paragraphs for long lists.",
+      "contract": {
+        "required": [
+          "When more than two enumeration items appear: structured or tabular carrier rather than inline prose only"
+        ],
+        "forbidden": [
+          "Numbered invariant checklist carrier",
+          "Architecture diagram as primary carrier",
+          "Option-comparison tables with rationale columns",
+          "Phase tables, checkbox task blocks, or verification checklist rows"
+        ]
+      }
+    },
+    "NG": {
+      "guidance": "Bullet or short two-column table carrier; one row or bullet per exclusion line; no multi-row comparison tables.",
+      "contract": {
+        "required": [
+          "Each exclusion occupies one bullet or one table row — no nested rationale essays inside a single row"
+        ],
+        "forbidden": [
+          "Multi-row option-comparison tables with rationale columns",
+          "Numbered invariant checklist carrier",
+          "Architecture diagrams or module graphs",
+          "Phase tables or checkbox task blocks"
+        ]
+      }
+    },
+    "AR": {
+      "guidance": "Component-responsibility prose, comparison table, or flow diagram carrier; optional [E] Interface Contract fenced block; diagrams only with stated structural or flow semantics.",
+      "contract": {
+        "required": [
+          "[Optional] [E] Interface Contract fenced block when module-boundary vocabulary appears in body",
+          "When diagram carrier is used: structural or flow semantics stated in caption or adjacent lead-in prose"
+        ],
+        "forbidden": [
+          "Decorative diagrams without structural or flow semantics in caption or lead-in",
+          "Phase tables with Done When columns",
+          "Checkbox task lists or per-file edit blocks",
+          "Verification checklist or trace-table carrier"
+        ]
+      }
+    },
+    "KD": {
+      "guidance": "Short insight paragraph plus compact comparison table carrier; inline Must Close Before tags in prose or row text — not a SK-style phase table.",
+      "contract": {
+        "required": [
+          "When multiple option rows appear: comparison table or equivalent row-aligned carrier",
+          "When open-assumption rows appear: inline Must Close Before tag in the same bullet or row"
+        ],
+        "forbidden": [
+          "Full module graph diagram repeating AR layout without row-level decision columns",
+          "Numbered invariant checklist carrier",
+          "SK-style phase table with Done When, Depends On, or reversibility columns",
+          "Checkbox task bodies or verification checklist rows"
+        ]
+      }
+    },
+    "I": {
+      "guidance": "Numbered or bulleted list carrier; each line a self-contained sentence; no comparison-table or phase-table carriers.",
+      "contract": {
+        "required": [
+          "When constraint lines appear: numbered or bulleted list carrier",
+          "Each list item is a complete sentence — not pointer-only bullets"
+        ],
+        "forbidden": [
+          "Pointer-only bullets without constraint text in the same line",
+          "Option-comparison tables with rationale columns",
+          "Phase tables, checkbox steps, or run-command checklist rows"
+        ]
+      }
+    },
+    "SK": {
+      "guidance": "Execution arc prose lead-in, then phase table carrier; columns or row notes for Done When, Depends On, Parallel, and reversibility; phase granularity only.",
+      "contract": {
+        "required": [
+          "Execution arc prose lead-in immediately before the phase table",
+          "Phase table carrier with Done When column",
+          "When dependency or reversibility facts appear in body: Depends On and reversibility as columns or row notes in the same table"
+        ],
+        "forbidden": [
+          "Checkbox steps or 2–5 minute task-granularity lists",
+          "Per-file change lists or Task Detail fenced blocks",
+          "Verification checklist or AC trace-table carrier"
+        ]
+      }
+    },
+    "T": {
+      "guidance": "Task Index and Change Overview section headings; optional [C] Task Detail fenced block; checkbox-step carrier when paths appear; SK phase id in index or trace column.",
+      "contract": {
+        "required": [
+          "Task Index section with SK phase id in a trace column or inline reference",
+          "[Optional] [C] Task Detail fenced block using checkbox-step list carrier",
+          "When file paths appear in task lines: checkbox-step carrier rather than prose-only paragraphs"
+        ],
+        "forbidden": [
+          "Prose-only task lists when file paths are present in the same section",
+          "SK-style phase table with Done When columns",
+          "Verification checklist or AC trace-table carrier"
+        ]
+      }
+    },
+    "VF": {
+      "guidance": "Checklist or trace-table carrier; row-aligned AC label and task-id columns when both appear; assumption-close rows as checklist lines, not task or phase bodies.",
+      "contract": {
+        "required": [
+          "Checklist or trace-table carrier as the primary structure",
+          "When AC labels and task ids both appear: row-aligned AC-to-task-id trace columns",
+          "When assumption-close rows appear: checklist rows — not SK phase tables or T checkbox bodies"
+        ],
+        "forbidden": [
+          "Checkbox implementation task bodies",
+          "Architecture diagram carrier",
+          "SK-style phase planning table with Done When columns"
+        ]
+      }
+    }
+  }
+}

@@ -23,6 +23,7 @@ class TestResolveConfigKey:
         [
             ("section-kw-criteria", "tpt_section_kw_criteria_url"),
             ("section-registry", "tpt_section_registry_url"),
+            ("section-form-registry", "tpt_section_form_registry_url"),
             ("outline-registry", "tpt_outline_registry_url"),
             ("role-instance", "tpt_feature_role_instance_url"),
             ("domain-instance", "tpt_feature_domain_instance_url"),

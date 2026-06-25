@@ -84,42 +84,21 @@ OUTLINE_REGISTRY_FEATURE: dict[str, Any] = {
     "cycle_type": "feature",
     "outline_order": ["OV", "BD", "DS", "IV", "PL", "VF"],
     "blocks": {
-        "OV": {
-            "heading": "Overview",
-            "intents": ["CTX", "GO"],
-            "guidance": "One compact opening arc; CTX H3 before GO H3; no scope tables or architecture in this block.",
-            "contract": {
-                "required": ["Two H3 intents in narrative order (context before goal)"],
-                "forbidden": ["Path inventories or scope tables (belongs in BD)"],
-            },
-        },
-        "BD": {
-            "heading": "Boundaries",
-            "intents": ["SC", "NG"],
-            "guidance": "Two H3 intents as scope box: surfaces in play, then exclusions; tables preferred over prose when enumerating.",
-            "contract": {
-                "required": ["H3 order: SC → NG"],
-                "forbidden": ["Checkable invariants list (belongs in IV)"],
-            },
-        },
-        "DS": {
-            "heading": "Design",
-            "intents": ["AR", "KD"],
-            "guidance": "Two H3 intents: structure before decisions.",
-            "contract": {
-                "required": ["H3 order: AR → KD"],
-                "forbidden": ["Task decomposition or checkbox steps (belongs in PL)"],
-            },
-        },
-        "IV": {
-            "heading": "Invariants",
-            "intents": ["I"],
-            "guidance": "Single I H3; checkable invariant list as primary carrier.",
-            "contract": {
-                "required": ["Checkable invariants as a list"],
-                "forbidden": ["Phase tables or checkbox steps (belongs in PL)"],
-            },
-        },
+        "OV": {"heading": "Overview", "intents": ["CTX", "GO"]},
+        "BD": {"heading": "Boundaries", "intents": ["SC", "NG"]},
+        "DS": {"heading": "Design", "intents": ["AR", "KD"]},
+        "IV": {"heading": "Invariants", "intents": ["I"]},
+        "PL": {"heading": "Implementation Plan", "intents": ["SK", "T"]},
+        "VF": {"heading": "Verification", "intents": ["VF"]},
+    },
+}
+
+OUTLINE_REGISTRY_WITH_BLOCK_FORM: dict[str, Any] = {
+    "version": "1",
+    "$schema_id": "outline-schema",
+    "cycle_type": "feature",
+    "outline_order": ["PL"],
+    "blocks": {
         "PL": {
             "heading": "Implementation Plan",
             "intents": ["SK", "T"],
@@ -129,17 +108,13 @@ OUTLINE_REGISTRY_FEATURE: dict[str, Any] = {
                 "forbidden": ["Prose-only task lists without checkbox steps"],
             },
         },
-        "VF": {
-            "heading": "Verification",
-            "intents": ["VF"],
-            "guidance": "Single VF H3; checklist or table as primary carrier.",
-            "contract": {
-                "required": ["AC-to-task-id traceability"],
-                "forbidden": ["Implementation steps or execution instructions (belongs in PL)"],
-            },
-        },
     },
 }
+
+_FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
+TECH_PLAN_SECTION_FORM_REGISTRY: dict[str, Any] = json.loads(
+    (_FIXTURES_DIR / "tech_plan_section_form_registry.json").read_text(encoding="utf-8")
+)
 
 FEATURE_ROLE_INSTANCE: dict[str, Any] = {
     "version": "1",
@@ -250,6 +225,18 @@ def seed_tech_plan_test_caches(project_root: Path) -> None:
         "tech-plan",
         "tpt_feature_domain_instance_url",
         FEATURE_DOMAIN_INSTANCE,
+    )
+    seed_template_cache(
+        project_root,
+        "tech-plan",
+        "tpt_outline_registry_url",
+        OUTLINE_REGISTRY_FEATURE,
+    )
+    seed_template_cache(
+        project_root,
+        "tech-plan",
+        "tpt_section_form_registry_url",
+        TECH_PLAN_SECTION_FORM_REGISTRY,
     )
 
 

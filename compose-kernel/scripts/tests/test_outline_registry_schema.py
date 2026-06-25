@@ -18,7 +18,7 @@ from outline_registry_schema import (  # noqa: E402
     validate_outline_section_alignment,
 )
 from section_registry_schema import normalize_section_registry  # noqa: E402
-from test_template_data import OUTLINE_REGISTRY_FEATURE  # noqa: E402
+from test_template_data import OUTLINE_REGISTRY_FEATURE, OUTLINE_REGISTRY_WITH_BLOCK_FORM  # noqa: E402
 
 _FIXTURES = Path(__file__).resolve().parent / "fixtures"
 TECH_DESIGN_OUTLINE = json.loads(
@@ -59,7 +59,7 @@ def test_outline_order_and_intent_map(outline_path: Path):
 
 
 def test_normalize_preserves_guidance_and_contract():
-    loaded = normalize_outline_registry(OUTLINE_REGISTRY_FEATURE)
+    loaded = normalize_outline_registry(OUTLINE_REGISTRY_WITH_BLOCK_FORM)
     pl = loaded["blocks"]["PL"]
     assert pl["guidance"] == "Single execution thread: SK H3 before T H3."
     assert pl["contract"]["required"] == [
@@ -94,7 +94,7 @@ def test_validate_rejects_document_preamble_addon():
 
 
 def test_validate_rejects_invalid_contract():
-    payload = dict(OUTLINE_REGISTRY_FEATURE)
+    payload = dict(OUTLINE_REGISTRY_WITH_BLOCK_FORM)
     payload["blocks"] = dict(payload["blocks"])
     payload["blocks"]["PL"] = dict(payload["blocks"]["PL"])
     payload["blocks"]["PL"]["contract"] = {"required": [""]}
