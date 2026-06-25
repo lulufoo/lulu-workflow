@@ -6,6 +6,21 @@
 
 Compose stage configuration lives at `{WORKFLOW_ROOT}/{stage}/compose-profile.json` (not under `compose-kernel/profiles/`). After `start`, runtime resolves the same file via session cache pointer `.compose-profile-path` under `{cache_subdir}/`.
 
+## Framework templates
+
+Scheme keys: `schemes/compose-template-scheme.json`. Each profile maps them via `compose-profile.json` → `framework_templates`.
+
+| Template | Role |
+|----------|------|
+| `section-registry` | Intent SSOT: `intent`, boundary, upstream graph, `section_order` |
+| `section-form-registry` | Per-intent F/C: `guidance`, `contract` (optional) |
+| `section-kw-criteria` | Per-intent completeness dimensions |
+| `role-instance` | Stage author lens → F/C |
+| `domain-instance` | Stage domain lens → F/C |
+| `outline-registry` | Block→intent document layout |
+
+**Axes:** registry = *what* · kw-criteria = *how complete* · form / role / domain = *how to write* · outline = *where*.
+
 ## Formula
 
 Sequential synthesis (not independent factors):
