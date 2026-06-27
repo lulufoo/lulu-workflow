@@ -22,7 +22,10 @@ def _write_wo_session_state(cycle_dir: Path, round_id: str = "1") -> None:
     )
     round_dir = wo_dir / f"r{round_id}" / "tasks" / "t1"
     round_dir.mkdir(parents=True, exist_ok=True)
-    (round_dir / "task.md").write_text("# t1\n", encoding="utf-8")
+    (round_dir / "task.md").write_text(
+        "---\ntarget_repo: repo-a\nexecution_worktree: feature_worktree\n---\n# t1\n",
+        encoding="utf-8",
+    )
 
 
 def _write_code_session_state(cycle_dir: Path, session_id: str = "1") -> Path:
@@ -42,7 +45,6 @@ def _write_workspace(session_dir: Path, worktree_path: Path, extra: dict | None 
     payload = {
         "worktree_path": str(worktree_path.resolve()).rstrip("/") + "/",
         "project_root": str(session_dir.resolve()),
-        "primary_repo": "repo-a",
         "branch": "wt/feat-test",
         "created_at": "2024-01-01T00:00:00+00:00",
     }
@@ -161,7 +163,7 @@ class TestResolveTaskContext:
         (session_dir / "code-task-list.md").write_text("- [ ] t1 · task\n", encoding="utf-8")
         task_md = cycle_dir / "tech" / "work-order" / "r1" / "tasks" / "t1" / "task.md"
         task_md.write_text(
-            "---\nexecution_worktree: feature_worktree\ntdd_exempt: true\n---\n# t1\n",
+            "---\ntarget_repo: repo-a\nexecution_worktree: feature_worktree\ntdd_exempt: true\n---\n# t1\n",
             encoding="utf-8",
         )
         result = resolve_task_context(cycle_dir, "t1", project_root)

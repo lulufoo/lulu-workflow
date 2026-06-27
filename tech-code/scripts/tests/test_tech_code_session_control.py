@@ -62,7 +62,6 @@ def _write_workspace(session_dir: Path, worktree_path: Path, extra: dict | None 
     payload = {
         "worktree_path": str(worktree_path.resolve()).rstrip("/") + "/",
         "project_root": str(session_dir.resolve()),
-        "primary_repo": "repo-a",
         "branch": "wt/feat-test",
         "created_at": "2024-01-01T00:00:00+00:00",
     }

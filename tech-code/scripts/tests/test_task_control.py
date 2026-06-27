@@ -80,7 +80,6 @@ def _setup_cycle(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
             {
                 "worktree_path": str(worktree.resolve()).rstrip("/") + "/",
                 "project_root": str(project_root.resolve()),
-                "primary_repo": "repo-a",
                 "branch": "wt/feat-test",
                 "created_at": "2024-01-01T00:00:00+00:00",
             }

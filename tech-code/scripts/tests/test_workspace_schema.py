@@ -21,12 +21,11 @@ from tc_workspace_schema import (
 )
 
 
-_REQUIRED_FIELD_NAMES = {"worktree_path", "project_root", "primary_repo", "branch", "created_at"}
+_REQUIRED_FIELD_NAMES = {"worktree_path", "project_root", "branch", "created_at"}
 
 _VALID_DATA = {
     "worktree_path": "/abs/path/wt/",
     "project_root": "/abs/path/project",
-    "primary_repo": "owner/repo",
     "branch": "wt/feat-slug",
     "created_at": "2024-01-01T00:00:00+00:00",
 }

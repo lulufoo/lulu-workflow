@@ -66,7 +66,6 @@ def test_write_workspace_extra_repo_only_still_writes_extra_index(tmp_path: Path
     workspace_path = write_workspace(cycle_dir, 1, "slug-1", paths, tasks, project_root)
     payload = json.loads(workspace_path.read_text(encoding="utf-8"))
 
-    assert payload["primary_repo"] == "repo-b"
     assert payload["extra_worktrees"]["repo-b"]["path"].endswith("slug-1-repo-b/")
     assert payload["extra_worktrees"]["repo-b"]["branch"] == "wt/feat-slug-1-repo-b"
 
@@ -83,7 +82,6 @@ def test_write_workspace_extra_repo_first_does_not_depend_on_repo_order(tmp_path
     workspace_path = write_workspace(cycle_dir, 1, "slug-1", paths, tasks, project_root)
     payload = json.loads(workspace_path.read_text(encoding="utf-8"))
 
-    assert payload["primary_repo"] == "repo-a"
     assert payload["extra_worktrees"]["repo-b"]["path"].endswith("slug-1-repo-b/")
     assert payload["extra_worktrees"]["repo-b"]["branch"] == "wt/feat-slug-1-repo-b"
 

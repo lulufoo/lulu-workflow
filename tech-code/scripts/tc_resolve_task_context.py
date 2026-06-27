@@ -125,14 +125,18 @@ def resolve_task_context(
     workspace = load_workspace(workspace_json_path)
 
     fm = _read_frontmatter_optional(work_order_task_path)
-    if fm is not None:
-        target_repo = str(fm.get("target_repo", workspace.get("primary_repo", "")))
-        execution_worktree = str(fm.get("execution_worktree", ""))
-        execution_worktree_path = str(fm.get("execution_worktree_path", ""))
-    else:
-        target_repo = str(workspace.get("primary_repo", ""))
-        execution_worktree = "feature_worktree"
-        execution_worktree_path = ""
+    if fm is None:
+        raise ValueError(f"task frontmatter not found or invalid: {work_order_task_path}")
+
+    target_repo = str(fm.get("target_repo", ""))
+    if not target_repo:
+        raise ValueError(f"task {task_id}: missing target_repo")
+
+    execution_worktree = str(fm.get("execution_worktree", ""))
+    if not execution_worktree:
+        raise ValueError(f"task {task_id}: missing execution_worktree")
+
+    execution_worktree_path = str(fm.get("execution_worktree_path", ""))
 
     worktree_abs_path, branch = _resolve_worktree_for_task(
         workspace=workspace,

@@ -182,18 +182,10 @@ def write_workspace(
     project_root: Path,
 ) -> Path:
     """Write s{N}/workspace.json and return the written path."""
-    repos = list(dict.fromkeys(t["target_repo"] for t in tasks))
-    feature_repos = list(dict.fromkeys(
-        t["target_repo"] for t in tasks
-        if t["execution_worktree"] == "feature_worktree"
-    ))
-    primary_repo = feature_repos[0] if feature_repos else (repos[0] if repos else "")
-
     worktree_path = (project_root / paths["worktree_dir"]).resolve().as_posix().rstrip("/") + "/"
     payload: dict = {
         "worktree_path": worktree_path,
         "project_root": str(project_root.resolve()),
-        "primary_repo": primary_repo,
         "branch": paths["branch"],
         "created_at": datetime.now(timezone.utc).isoformat(),
     }

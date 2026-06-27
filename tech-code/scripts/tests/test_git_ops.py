@@ -153,7 +153,6 @@ def test_validate_session_worktrees_clean_success(tmp_path: Path, monkeypatch):
         json.dumps({
             "worktree_path": "/primary/",
             "project_root": str(tmp_path),
-            "primary_repo": "repo-a",
             "branch": "wt/feat-test",
             "created_at": "2024-01-01T00:00:00+00:00",
             "extra_worktrees": {"repo-b": {"path": "/extra/", "branch": "wt/feat-b"}},

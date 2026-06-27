@@ -18,8 +18,6 @@ _SCHEMA: list[dict] = [
      "description": "Absolute path to the primary worktree (trailing slash)"},
     {"field": "project_root", "type": "string", "required": True,
      "description": "Absolute path to the project root"},
-    {"field": "primary_repo", "type": "string", "required": True,
-     "description": "target_repo value of the first task (may be empty string)"},
     {"field": "branch", "type": "string", "required": True,
      "description": "Git branch name for the primary worktree"},
     {"field": "created_at", "type": "string", "required": True,
