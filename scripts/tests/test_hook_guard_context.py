@@ -93,7 +93,14 @@ class TestReadActiveStage:
 
         monkeypatch.chdir(tmp_path)
         active_context_schema.write_entry(tmp_path, "cursor", "conv-a", _FID_A, "tech-plan")
-        active_context_schema.write_entry(tmp_path, "cursor", "conv-b", _FID_B, "product-arch")
+        active_context_schema.write_entry(
+            tmp_path,
+            "cursor",
+            "conv-b",
+            _FID_B,
+            "product-arch",
+            cycle_type="topic",
+        )
 
         assert hook_entry._read_active_stage("cursor", "conv-a") == "tech-plan"
         assert hook_entry._read_active_stage("cursor", "conv-b") == "product-arch"
@@ -422,6 +429,25 @@ class TestRwGuard:
         _make_workflow_state(_cache_dir(tmp_path), _CYCLE_ID, "tech-plan", "Drafting")
         target = tmp_path / "README.md"
         target.write_text("hello", encoding="utf-8")
+        payload = _write_payload(
+            conversation_id="conv-a",
+            tool_name="Read",
+            file_path=str(target),
+        )
+        monkeypatch.setattr(sys, "stdin", io.StringIO(payload))
+        captured = io.StringIO()
+        monkeypatch.setattr(sys, "stdout", captured)
+        assert hook_entry.main() == 0
+        assert json.loads(captured.getvalue())["permission"] == "allow"
+
+    def test_read_inside_platform_skills_allows(self, tmp_path, monkeypatch):
+        import active_context_schema
+        monkeypatch.chdir(tmp_path)
+        active_context_schema.write_entry(
+            tmp_path, "cursor", "conv-a", _CYCLE_ID, "tech-plan"
+        )
+        _make_workflow_state(_cache_dir(tmp_path), _CYCLE_ID, "tech-plan", "Drafting")
+        target = Path.home() / ".cursor/skills/other-skill/SKILL.md"
         payload = _write_payload(
             conversation_id="conv-a",
             tool_name="Read",

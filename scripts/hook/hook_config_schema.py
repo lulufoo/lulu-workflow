@@ -14,6 +14,7 @@ SKILL_ROOT = SCRIPTS_DIR.parent
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
+from platforms.paths import platform_skills_root  # noqa: E402
 from workflow_config_schema import detect_platform, read_platform_config  # noqa: E402
 
 _DEFAULT_HOOK_CONFIG_PATH = "skill-config/lulu-dev-workflow/hook-config.json"
@@ -24,12 +25,12 @@ _DEFAULT_HOOK_CONFIG: dict[str, Any] = {
         "enable": True,
         "bypassWriteWhenDelivered": True,
         "defaults": {
-            "readDirs": ["."],
+            "readDirs": [".", "{platform-skills}"],
             "writeDirs": [".cache/{platform}/lulu-dev-workflow"],
         },
         "stages": {
             "tech-code": {
-                "readDirs": ["."],
+                "readDirs": [".", "{platform-skills}"],
                 "writeDirs": ["."],
             },
         },
@@ -139,9 +140,13 @@ def ensure_hook_config(
 
 
 def expand_path_template(path: str, platform: Optional[str] = None) -> str:
-    """Expand `{platform}` in a configured directory template."""
+    """Expand supported placeholders in a configured directory template."""
     plat = detect_platform(platform)
-    return path.replace("{platform}", plat)
+    return (
+        path
+        .replace("{platform}", plat)
+        .replace("{platform-skills}", platform_skills_root(plat).as_posix())
+    )
 
 
 def resolve_rw_guard(

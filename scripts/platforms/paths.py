@@ -25,6 +25,12 @@ _SKILL_INSTALL_ROOT: dict[str, Path] = {
     "claude": Path.home() / ".claude" / "skills" / SKILL_NAME,
 }
 
+_PLATFORM_SKILLS_ROOT: dict[str, Path] = {
+    "cursor": Path.home() / ".cursor" / "skills",
+    "copilot": Path.home() / ".copilot" / "skills",
+    "claude": Path.home() / ".claude" / "skills",
+}
+
 CLAUDE_PRE_TOOL_USE_MATCHER = "Write|Edit|Read|Bash"
 CURSOR_PRE_TOOL_USE_MATCHER = "Write|Edit|Read|Shell"
 
@@ -39,6 +45,10 @@ def cache_dir(platform: str) -> Path:
 
 def hooks_config_path(platform: str) -> Path:
     return _HOOKS_CONFIG_PATH[platform]
+
+
+def platform_skills_root(platform: str) -> Path:
+    return _PLATFORM_SKILLS_ROOT[platform]
 
 
 def gitignore_entry(platform: str) -> str | None:

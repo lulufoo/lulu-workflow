@@ -38,7 +38,7 @@ class TestDefaultHookConfig:
         stages = default_hook_config()["rwGuard"]["stages"]
         assert stages == {
             "tech-code": {
-                "readDirs": ["."],
+                "readDirs": [".", "{platform-skills}"],
                 "writeDirs": ["."],
             },
         }
@@ -135,13 +135,27 @@ class TestResolveRwGuard:
 
         resolved = resolve_rw_guard(tmp_path, "product-arch", platform="cursor")
         assert resolved["enable"] is True
-        assert resolved["readDirs"] == ["."]
+        assert resolved["readDirs"] == [
+            ".",
+            (Path.home() / ".cursor/skills").as_posix(),
+        ]
         assert resolved["writeDirs"] == [".cache/cursor/lulu-dev-workflow"]
+
+    def test_expands_platform_skills_template(self):
+        from hook_config_schema import expand_path_template
+
+        assert expand_path_template("{platform-skills}", "copilot") == (
+            Path.home() / ".copilot/skills"
+        ).as_posix()
 
     def test_tech_code_allows_project_root_writes(self, tmp_path: Path):
         from hook_config_schema import resolve_rw_guard
 
         resolved = resolve_rw_guard(tmp_path, "tech-code", platform="copilot")
+        assert resolved["readDirs"] == [
+            ".",
+            (Path.home() / ".copilot/skills").as_posix(),
+        ]
         assert resolved["writeDirs"] == ["."]
 
     def test_stage_enable_override(self, tmp_path: Path):
