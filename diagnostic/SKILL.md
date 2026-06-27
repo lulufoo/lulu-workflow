@@ -162,7 +162,7 @@ Do not persist generated display text. `$CTX`, gate contracts, and control comma
 
 ### Global rules
 
-**G1.** One question at a time — never stack multiple questions in a single message; require user-authored answers.
+**G1.** Ask One question at a time — never stack multiple questions in a single message. MUST NOT use checkbox, multiple-choice, button, or other selection UI.
 
 **G2.** Multiple choice preferred; open-ended is fine when options are not enumerable.
 
