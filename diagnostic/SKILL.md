@@ -164,7 +164,7 @@ Do not persist generated display text. `$CTX`, gate contracts, and control comma
 
 **G1.** Ask One question at a time — never stack multiple questions in a single message. MUST NOT use checkbox, multiple-choice, button, or other selection UI.
 
-**G2.** Multiple choice preferred; open-ended is fine when options are not enumerable.
+**G2.** Prefer plain-text options when they help the user answer one clear question; use open-ended prompts when the options cannot be enumerated. Do not use selection UI.
 
 **G3.** Each gate has a pass criterion. Do not advance until the criterion is met.
 
