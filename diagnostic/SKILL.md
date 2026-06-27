@@ -118,6 +118,33 @@ Gate contracts (dialogue semantics): `$SKILL_DIR/gates/*.md` — each spine/glob
 
 ---
 
+## User-Facing Projection Rules
+
+Before every user-visible reply, project internal workflow state into plain-language task wording.
+
+Use only:
+
+- `$CTX` from the active runner's mandatory `resolve-context`
+- The active runner/gate contract
+- Gate routing next-step information
+- `$CTX.domain_constraints`
+
+Do not infer the active phase from conversation wording, visible prompts, or memory.
+
+Do not expose gate IDs, runner names, CLI commands, payload names, or internal state fields unless the user explicitly asks about implementation.
+
+Render:
+
+- Workflow identifiers as user-facing task meaning
+- Completion criteria as the user's needed answer or confirmation
+- Remaining internal steps as remaining work, not as internal labels
+
+Apply this projection at stage start, gate handoff, gate questions, confirmation prompts, blocked/override/incomplete/invalidation messages, and delivery messages.
+
+Do not persist generated display text. `$CTX`, gate contracts, and control command stdout remain the state sources.
+
+---
+
 ## Execution Rules
 
 ### Core principles
