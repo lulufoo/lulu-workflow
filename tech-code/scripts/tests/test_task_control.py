@@ -36,7 +36,7 @@ def _write_wo_session_state(cycle_dir: Path) -> None:
     task_dir = wo_dir / "r1" / "tasks" / "t1"
     task_dir.mkdir(parents=True, exist_ok=True)
     (task_dir / "task.md").write_text(
-        "---\ntarget_repo: repo-a\ntask_worktree: primary\n---\n# First task\n",
+        "---\ntarget_repo: repo-a\nexecution_worktree: feature_worktree\n---\n# First task\n",
         encoding="utf-8",
     )
 

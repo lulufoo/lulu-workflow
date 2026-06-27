@@ -43,19 +43,30 @@ from tc_workspace_schema import assess_workspace_file, load_workspace, save_work
 # ---------------------------------------------------------------------------
 
 _EXIT_CONTRACT_KEYS = {"commit", "commit_ref_md", "code_log"}
+_EXECUTION_WORKTREE_VALUES = {"feature_worktree", "extra_repo_worktree", "custom_path"}
 
 
 def _validate_single_task(task_id: str, fm: dict) -> list:
     """Return list of error strings; empty list means valid."""
     errors = []
 
-    tw = fm.get("task_worktree", "")
-    if not tw:
-        errors.append(f"{task_id}: missing task_worktree")
-    elif tw != "primary":
-        p = Path(tw)
-        if p.is_absolute():
-            errors.append(f"{task_id}: task_worktree must be 'primary' or a relative path, got '{tw}'")
+    ew = fm.get("execution_worktree", "")
+    if not ew:
+        errors.append(f"{task_id}: missing execution_worktree")
+    elif ew not in _EXECUTION_WORKTREE_VALUES:
+        errors.append(
+            f"{task_id}: execution_worktree must be one of "
+            f"{sorted(_EXECUTION_WORKTREE_VALUES)}, got '{ew}'"
+        )
+
+    if ew == "custom_path":
+        ewp = fm.get("execution_worktree_path", "")
+        if not ewp:
+            errors.append(f"{task_id}: missing execution_worktree_path for custom_path")
+        elif Path(ewp).is_absolute():
+            errors.append(
+                f"{task_id}: execution_worktree_path must be relative, got '{ewp}'"
+            )
 
     ec = fm.get("exit_contract")
     if not isinstance(ec, dict):
@@ -71,7 +82,7 @@ def _validate_single_task(task_id: str, fm: dict) -> list:
 
 
 def validate_tasks(cycle_dir: Path) -> list:
-    """Validate all task.md files; return list of {task_id, target_repo, task_worktree}."""
+    """Validate all task.md files; return normalized task execution records."""
     wo_ss = cycle_dir / "tech" / "work-order" / "session-state.md"
     if not wo_ss.exists():
         print(f"Error: work-order session-state.md not found: {wo_ss}", file=sys.stderr)
@@ -102,7 +113,8 @@ def validate_tasks(cycle_dir: Path) -> list:
         task_records.append({
             "task_id": task_id,
             "target_repo": fm.get("target_repo", ""),
-            "task_worktree": fm.get("task_worktree", "primary"),
+            "execution_worktree": fm.get("execution_worktree", ""),
+            "execution_worktree_path": fm.get("execution_worktree_path", ""),
         })
 
     if all_errors:
@@ -113,15 +125,15 @@ def validate_tasks(cycle_dir: Path) -> list:
     repo_worktree: dict = {}
     for rec in task_records:
         repo = rec["target_repo"]
-        tw = rec["task_worktree"]
-        if repo in repo_worktree and repo_worktree[repo] != tw:
+        execution_key = (rec["execution_worktree"], rec["execution_worktree_path"])
+        if repo in repo_worktree and repo_worktree[repo] != execution_key:
             print(
                 f"Schema conflict: tasks targeting '{repo}' use different worktrees: "
-                f"'{repo_worktree[repo]}' vs '{tw}'",
+                f"'{repo_worktree[repo]}' vs '{execution_key}'",
                 file=sys.stderr,
             )
             sys.exit(1)
-        repo_worktree[repo] = tw
+        repo_worktree[repo] = execution_key
 
     return task_records
 
@@ -171,7 +183,11 @@ def write_workspace(
 ) -> Path:
     """Write s{N}/workspace.json and return the written path."""
     repos = list(dict.fromkeys(t["target_repo"] for t in tasks))
-    primary_repo = repos[0] if repos else ""
+    feature_repos = list(dict.fromkeys(
+        t["target_repo"] for t in tasks
+        if t["execution_worktree"] == "feature_worktree"
+    ))
+    primary_repo = feature_repos[0] if feature_repos else (repos[0] if repos else "")
 
     worktree_path = (project_root / paths["worktree_dir"]).resolve().as_posix().rstrip("/") + "/"
     payload: dict = {
@@ -182,20 +198,22 @@ def write_workspace(
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
 
-    if len(repos) > 1:
-        extra = {}
-        for repo in repos[1:]:
-            tw_records = [t for t in tasks if t["target_repo"] == repo]
-            if tw_records and tw_records[0]["task_worktree"] != "primary":
-                base = paths["worktree_dir"].rstrip("/")
-                suffix = repo.replace("/", "-")
-                rel_path = f"{base}-{suffix}/"
-                extra[repo] = {
-                    "path": (project_root / rel_path).resolve().as_posix().rstrip("/") + "/",
-                    "branch": f"{paths['branch']}-{suffix}",
-                }
-        if extra:
-            payload["extra_worktrees"] = extra
+    extra = {}
+    base = paths["worktree_dir"].rstrip("/")
+    for task in tasks:
+        if task["execution_worktree"] != "extra_repo_worktree":
+            continue
+        repo = task["target_repo"]
+        if repo in extra:
+            continue
+        suffix = repo.replace("/", "-")
+        rel_path = f"{base}-{suffix}/"
+        extra[repo] = {
+            "path": (project_root / rel_path).resolve().as_posix().rstrip("/") + "/",
+            "branch": f"{paths['branch']}-{suffix}",
+        }
+    if extra:
+        payload["extra_worktrees"] = extra
 
     dest = cycle_dir / "tech" / "code" / f"s{session_idx}" / "workspace.json"
     save_workspace(dest, payload)

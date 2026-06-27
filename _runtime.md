@@ -42,8 +42,10 @@ Resolve `$CYCLE_ID`, `$CYCLE_TYPE`, `$EXECUTION_MODE` before stage work. Stage i
 
 ## Execution mode
 
-- `guided` — lead, ask, wait at gates
-- `autonomous` — execute only; tech-line auto-chains feature cycles
+- `guided` — ask and wait at gates.
+- `autonomous` — self-service mode; choose defaults only at gates that do not need human decisions.
+
+Autonomous mode does not skip workflow steps; all stage, hook, prepare, and worktree constraints still apply.
 
 Change mode: user sends `SET_EXECUTION_MODE: <mode>` → `$RUNTIME_CONTROL set-execution-mode --cycle-id "$CYCLE_ID" --mode <mode>`; non-zero exit → stop; announce `Execution mode → <mode>`.
 

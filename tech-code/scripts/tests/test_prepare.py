@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from tc_git_ops import normalize_repo_path  # noqa: E402
 from tc_prepare import (  # noqa: E402
     build_worktree_paths,
@@ -40,8 +41,8 @@ def test_write_workspace_writes_absolute_paths(tmp_path: Path):
 
     paths = {"worktree_dir": ".cache/worktrees/slug-1/", "branch": "wt/feat-slug-1"}
     tasks = [
-        {"task_id": "t1", "target_repo": "repo-a", "task_worktree": "primary"},
-        {"task_id": "t2", "target_repo": "repo-b", "task_worktree": ".cache/worktrees/repo-b"},
+        {"task_id": "t1", "target_repo": "repo-a", "execution_worktree": "feature_worktree"},
+        {"task_id": "t2", "target_repo": "repo-b", "execution_worktree": "extra_repo_worktree"},
     ]
 
     workspace_path = write_workspace(cycle_dir, 1, "slug-1", paths, tasks, project_root)
@@ -54,9 +55,42 @@ def test_write_workspace_writes_absolute_paths(tmp_path: Path):
     assert payload["extra_worktrees"]["repo-b"]["path"].endswith("/")
 
 
+def test_write_workspace_extra_repo_only_still_writes_extra_index(tmp_path: Path):
+    cycle_dir = tmp_path / ".cache" / "copilot" / "lulu-dev-workflow" / "fid-123"
+    project_root = tmp_path
+    paths = {"worktree_dir": ".cache/worktrees/slug-1/", "branch": "wt/feat-slug-1"}
+    tasks = [
+        {"task_id": "t1", "target_repo": "repo-b", "execution_worktree": "extra_repo_worktree"},
+    ]
+
+    workspace_path = write_workspace(cycle_dir, 1, "slug-1", paths, tasks, project_root)
+    payload = json.loads(workspace_path.read_text(encoding="utf-8"))
+
+    assert payload["primary_repo"] == "repo-b"
+    assert payload["extra_worktrees"]["repo-b"]["path"].endswith("slug-1-repo-b/")
+    assert payload["extra_worktrees"]["repo-b"]["branch"] == "wt/feat-slug-1-repo-b"
+
+
+def test_write_workspace_extra_repo_first_does_not_depend_on_repo_order(tmp_path: Path):
+    cycle_dir = tmp_path / ".cache" / "copilot" / "lulu-dev-workflow" / "fid-123"
+    project_root = tmp_path
+    paths = {"worktree_dir": ".cache/worktrees/slug-1/", "branch": "wt/feat-slug-1"}
+    tasks = [
+        {"task_id": "t1", "target_repo": "repo-b", "execution_worktree": "extra_repo_worktree"},
+        {"task_id": "t2", "target_repo": "repo-a", "execution_worktree": "feature_worktree"},
+    ]
+
+    workspace_path = write_workspace(cycle_dir, 1, "slug-1", paths, tasks, project_root)
+    payload = json.loads(workspace_path.read_text(encoding="utf-8"))
+
+    assert payload["primary_repo"] == "repo-a"
+    assert payload["extra_worktrees"]["repo-b"]["path"].endswith("slug-1-repo-b/")
+    assert payload["extra_worktrees"]["repo-b"]["branch"] == "wt/feat-slug-1-repo-b"
+
+
 _TASK_MD = """---
 target_repo: repo-a
-task_worktree: primary
+execution_worktree: feature_worktree
 exit_contract:
   commit: required
   commit_ref_md: required
@@ -127,7 +161,7 @@ def _setup_validate_session(tmp_path: Path) -> tuple[Path, Path]:
         1,
         "slug-1",
         {"worktree_dir": str(worktree.relative_to(tmp_path)) + "/", "branch": "wt/feat-slug-1"},
-        [{"task_id": "t1", "target_repo": "repo-a", "task_worktree": "primary"}],
+        [{"task_id": "t1", "target_repo": "repo-a", "execution_worktree": "feature_worktree"}],
         tmp_path,
     )
     return cycle_dir, worktree
@@ -256,7 +290,7 @@ def _git_cfg() -> dict:
 
 
 def _minimal_tasks():
-    return [{"task_id": "t1", "target_repo": "repo-a", "task_worktree": "primary"}]
+    return [{"task_id": "t1", "target_repo": "repo-a", "execution_worktree": "feature_worktree"}]
 
 
 def test_ensure_workspace_first_create(tmp_path: Path):

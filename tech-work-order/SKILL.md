@@ -150,9 +150,10 @@ Step 2 — Generate `tasks/t{N}/task.md` one by one:
 - `target_repo`：target_files 所在 git repo 名称（不含路径）
   - 文件位于 worktree repo 内 → 填 worktree repo 名（如 `lulu-dev-skills`）
   - 文件位于 workflow 项目内 → 填 workflow 项目 repo 名（如 `lulu-workbench`）
-- `task_worktree`：该 task 的操作目录（task 级，区别于 workspace.json 的 session 级 `worktree_path`）
-  - target_repo 与主 worktree repo 相同 → 填 `"primary"`
-  - target_repo 不同 → 填相对于项目根目录的 worktree 路径（Preparing 阶段自动创建）
+- `execution_worktree`：该 task 的执行位置（task 级，区别于 workspace.json 的 session 级 `worktree_path`）
+  - target_repo 与主 worktree repo 相同 → 填 `"feature_worktree"`
+  - target_repo 不同且需要 Preparing 阶段自动创建额外 worktree → 填 `"extra_repo_worktree"`，并通过 `target_repo` 查 `workspace.json.extra_worktrees[repo].path`
+  - 需要指定项目根目录下的自定义相对路径 → 填 `"custom_path"`，并额外填写 `execution_worktree_path`
 - `exit_contract`：固定值，所有 task 必填：
   ```yaml
   exit_contract:

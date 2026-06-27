@@ -138,7 +138,7 @@ class TestResolveTaskContext:
         )
         task_md = cycle_dir / "tech" / "work-order" / "r1" / "tasks" / "t1" / "task.md"
         task_md.write_text(
-            "---\ntarget_repo: repo-b\ntask_worktree: primary\n---\n# t1\n",
+            "---\ntarget_repo: repo-b\nexecution_worktree: extra_repo_worktree\n---\n# t1\n",
             encoding="utf-8",
         )
         result = resolve_task_context(cycle_dir, "t1", project_root)
@@ -160,7 +160,10 @@ class TestResolveTaskContext:
         session_dir = cycle_dir / "tech" / "code" / "s1"
         (session_dir / "code-task-list.md").write_text("- [ ] t1 · task\n", encoding="utf-8")
         task_md = cycle_dir / "tech" / "work-order" / "r1" / "tasks" / "t1" / "task.md"
-        task_md.write_text("---\ntdd_exempt: true\n---\n# t1\n", encoding="utf-8")
+        task_md.write_text(
+            "---\nexecution_worktree: feature_worktree\ntdd_exempt: true\n---\n# t1\n",
+            encoding="utf-8",
+        )
         result = resolve_task_context(cycle_dir, "t1", project_root)
         assert result["tdd_exempt"] is True
 

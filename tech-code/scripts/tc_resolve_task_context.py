@@ -27,11 +27,21 @@ def _resolve_worktree_for_task(
     workspace: dict,
     project_root: Path,
     target_repo: str,
-    task_worktree: str,
+    execution_worktree: str,
+    execution_worktree_path: str,
 ) -> tuple[str, str]:
     """Map task frontmatter to (worktree_abs_path, branch)."""
-    extra = workspace.get("extra_worktrees") or {}
-    if target_repo in extra:
+    if execution_worktree == "feature_worktree":
+        path = workspace.get("worktree_path", "")
+        branch = workspace.get("branch", "")
+        if not path or not branch:
+            raise ValueError("workspace.json missing worktree_path or branch")
+        return path.rstrip("/"), branch
+
+    if execution_worktree == "extra_repo_worktree":
+        extra = workspace.get("extra_worktrees") or {}
+        if target_repo not in extra:
+            raise ValueError(f"extra_worktree for {target_repo!r} not found")
         info = extra[target_repo]
         path = info.get("path", "")
         branch = info.get("branch", "")
@@ -39,18 +49,18 @@ def _resolve_worktree_for_task(
             raise ValueError(f"extra_worktree for {target_repo!r} missing path or branch")
         return path.rstrip("/"), branch
 
-    if task_worktree == "primary":
-        path = workspace.get("worktree_path", "")
+    if execution_worktree == "custom_path":
+        if not execution_worktree_path:
+            raise ValueError("missing execution_worktree_path for custom_path")
+        path = Path(execution_worktree_path)
+        if path.is_absolute():
+            raise ValueError("execution_worktree_path must be relative")
         branch = workspace.get("branch", "")
-        if not path or not branch:
-            raise ValueError("workspace.json missing worktree_path or branch")
-        return path.rstrip("/"), branch
+        if not branch:
+            raise ValueError("workspace.json missing branch for custom_path")
+        return str((project_root / path).resolve()), branch
 
-    resolved = (project_root / task_worktree).resolve()
-    branch = workspace.get("branch", "")
-    if not branch:
-        raise ValueError("workspace.json missing branch for non-primary task_worktree")
-    return str(resolved), branch
+    raise ValueError(f"invalid execution_worktree: {execution_worktree!r}")
 
 
 def _read_frontmatter_optional(task_path: Path) -> dict | None:
@@ -117,16 +127,19 @@ def resolve_task_context(
     fm = _read_frontmatter_optional(work_order_task_path)
     if fm is not None:
         target_repo = str(fm.get("target_repo", workspace.get("primary_repo", "")))
-        task_worktree = str(fm.get("task_worktree", "primary"))
+        execution_worktree = str(fm.get("execution_worktree", ""))
+        execution_worktree_path = str(fm.get("execution_worktree_path", ""))
     else:
         target_repo = str(workspace.get("primary_repo", ""))
-        task_worktree = "primary"
+        execution_worktree = "feature_worktree"
+        execution_worktree_path = ""
 
     worktree_abs_path, branch = _resolve_worktree_for_task(
         workspace=workspace,
         project_root=project_root,
         target_repo=target_repo,
-        task_worktree=task_worktree,
+        execution_worktree=execution_worktree,
+        execution_worktree_path=execution_worktree_path,
     )
 
     config = load_workflow_config(project_root)
