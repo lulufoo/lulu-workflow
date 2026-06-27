@@ -99,9 +99,17 @@ On invalidation trigger: do not `gate-close`; load RS runner before `$RS_COMMIT`
 Do NOT rely on memory or prior context for gate execution steps.
 </HARD-GATE>
 
+Global gates:
+
 | Gate | File | Load condition |
 |------|------|----------------|
 | **G0** | `$SKILL_DIR/runners/g0-parallel-registers-runner/SKILL.md` | Identification hit · **parallel** |
+| **RS** | `$SKILL_DIR/runners/rs-reopen-runner/SKILL.md` | Invalidation · **not parallel** |
+
+Spine gates:
+
+| Gate | File | Load condition |
+|------|------|----------------|
 | O | `$SKILL_DIR/runners/o-open-channel-runner/SKILL.md` | After `$DX_START` · `active_gate` is `O` |
 | Q | `$SKILL_DIR/runners/q-problem-runner/SKILL.md` | O closed |
 | E | `$SKILL_DIR/runners/e-direction-runner/SKILL.md` | Q closed |
@@ -111,7 +119,6 @@ Do NOT rely on memory or prior context for gate execution steps.
 | V | `$SKILL_DIR/runners/v-verification-runner/SKILL.md` | R closed · `skipped_gates` empty |
 | RR | `$SKILL_DIR/runners/rr-risk-release-runner/SKILL.md` | V closed · RR-scope items |
 | DC | `$SKILL_DIR/runners/dc-delivery-runner/SKILL.md` | R exit `dc` or verification complete |
-| **RS** | `$SKILL_DIR/runners/rs-reopen-runner/SKILL.md` | Invalidation · **not parallel** |
 | Human Decision | `$SKILL_DIR/runners/hd-human-decision-runner/SKILL.md` | RR exit `human_decision` |
 
 Gate contracts (dialogue semantics): `$SKILL_DIR/gates/*.md` — each spine/global runner names its contract in Prerequisites; Gate Routing loads runners only, not gate files directly. Global: `g0-parallel-registers.md` · `rs-reopen-state-handler.md`.
@@ -124,14 +131,14 @@ Before every user-visible reply, project internal workflow state into plain-lang
 
 Use only:
 
-- `$CTX` from the active runner's mandatory `resolve-context`
+- Pinned `$CTX`
 - The active runner/gate contract
 - Gate routing next-step information
 - `$CTX.domain_constraints`
 
 Do not infer the active phase from conversation wording, visible prompts, or memory.
 
-Do not expose gate IDs, runner names, CLI commands, payload names, or internal state fields unless the user explicitly asks about implementation.
+Do not expose internal identifiers in normal guidance unless the user asks about implementation or failure details are needed.
 
 Render:
 
