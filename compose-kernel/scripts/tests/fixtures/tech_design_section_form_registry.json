@@ -17,142 +17,248 @@
   ],
   "sections": {
     "CTX": {
-      "guidance": "Problem-domain narrative first (trigger and current state in reviewable prose); optional concrete anchors support the story; compact opening arc; no structure diagrams.",
-      "contract": {
+      "presentation": {
+        "guidance": "Prose is the natural carrier for causal narrative; concrete anchors are optional and must not dominate.",
+        "allowed": [
+          {"carrier": "Causal narrative prose (trigger → current state → cost)", "structure": "prose"}
+        ],
+        "forbidden": [
+          "Before/after comparison tables (belongs in GO)",
+          "Scope or exclusion tables (belongs in SC/NG)",
+          "Structure or flow diagrams"
+        ]
+      },
+      "expression": {
         "required": [
           "Opens with problem-domain narrative before path or code inventories",
           "States user-perceived or system-behavior consequence, not code structure alone"
         ],
         "forbidden": [
           "Opening paragraphs that lead with file:line or DOM id chains",
-          "Describing the current state solely through code structure or component names without stating user-perceived or system-behavior consequence",
-          "Scope or exclusion tables",
-          "Structure or flow diagrams",
           "Checkbox steps, Run commands, or phase markers"
         ]
       }
     },
     "GO": {
-      "guidance": "Observable before→after success state; operationalize the problem CTX established; compact outcomes prose.",
-      "contract": {
-        "required": [
-          "Opens by operationalizing the CTX transitional connection — do not jump directly to before/after enumeration without establishing the design response"
+      "presentation": {
+        "guidance": "Comparative semantics fit contrast carriers; structural outcomes must cover engineering-visible dimensions, not only user-visible behavior.",
+        "allowed": [
+          {"carrier": "Before → after comparison table (one row per dimension)", "structure": "table"}
         ],
         "forbidden": [
-          "Background narrative duplicating CTX",
+          "Narrative prose goal statements without before/after contrast",
+          "Checkable invariants list (belongs in I)",
           "Scope tables or architecture diagrams"
+        ]
+      },
+      "expression": {
+        "required": [
+          "Goal statements must be observable: pass/fail judgeable, not only directional",
+          "Cover both behavior-visible and structure-visible dimensions in the contrast view"
+        ],
+        "forbidden": [
+          "Background narrative duplicating CTX"
         ]
       }
     },
     "SC": {
-      "guidance": "Functional, module, interface, and data surfaces in play; tables preferred over prose when enumerating.",
-      "contract": {
-        "required": [
-          "Surfaces covered by this design in structured or tabular form when more than two items"
+      "presentation": {
+        "guidance": "Scope content is a mapping relation (surface → change nature); mapping structure is the natural carrier when implementation locations are identifiable.",
+        "allowed": [
+          {"carrier": "Scope mapping table (surface → change nature)", "structure": "table"}
         ],
         "forbidden": [
           "Checkable invariants list (belongs in I)",
-          "Exclusion essays (belongs in NG)"
+          "Rejected-direction comparison (belongs in KD)",
+          "Exclusion list (belongs in NG)"
         ]
+      },
+      "expression": {
+        "required": [
+          "Surfaces covered by this design in structured form when more than two items"
+        ],
+        "forbidden": []
       }
     },
     "NG": {
-      "guidance": "Directional exclusions protecting the design outcome; when mixing out-of-scope and rejected directions, use a table distinguishing nature (out-of-scope / rejected direction) and protected boundary.",
-      "contract": {
-        "required": [
-          "Each exclusion identifies what design boundary or success state it protects"
+      "presentation": {
+        "guidance": "Each exclusion must bind to the design boundary or invariant it protects; listing 'what we won't do' alone does not carry boundary semantics. Rationale belongs in KD.",
+        "allowed": [
+          {"carrier": "Exclusion list (excluded path | protected boundary/invariant)", "structure": "table"}
         ],
         "forbidden": [
-          "Trade-off or rejected-option comparison essays (belongs in KD)",
-          "Interface contract tables"
+          "Comparison table with rationale column (belongs in KD)",
+          "Trade-off reasoning prose (belongs in KD)",
+          "Interface contract tables (belongs in IF)"
+        ]
+      },
+      "expression": {
+        "required": [
+          "Each exclusion identifies what design boundary or invariant it protects"
+        ],
+        "forbidden": [
+          "Repeating the in-scope list from SC"
         ]
       }
     },
     "I": {
-      "guidance": "Checkable invariant list as primary carrier.",
-      "contract": {
-        "required": [
-          "Checkable invariants as a list when present"
+      "presentation": {
+        "guidance": "Invariants are a set of independent propositions; each self-contained — covering one item alone still allows a true/false judgment. Nested dependencies or pure reference chains break this independence.",
+        "allowed": [
+          {"carrier": "Numbered independent constraint list (each self-contained)", "structure": "list"}
         ],
         "forbidden": [
+          "Full API response field tables (belongs in IF)",
           "Phase tables or checkbox steps"
+        ]
+      },
+      "expression": {
+        "required": [
+          "Each invariant is semantically self-contained when present"
+        ],
+        "forbidden": [
+          "Items that only say 'see IF'/'see GO' without invariant content"
         ]
       }
     },
     "ST": {
-      "guidance": "When design changes user interaction or component state, make state/path behavior scannable: named states, transition triggers, and path end-states must be explicit. Use the lightest structured view that removes inference (named-state prose, comparison tables, path tables, or diagrams) — do not default to diagrams when narrative or tables suffice. When the design involves more than three components with non-obvious dependency directions, lead with a system-level diagram (Mermaid flowchart or tool-agnostic equivalent) before the component responsibility table; the diagram covers system placement and data-flow direction, the table covers component responsibilities — do not duplicate between them.",
-      "contract": {
-        "required": [
-          "When design changes interaction or component state: explicit named states, transition triggers, and path end-states in a structured view (tool-agnostic)",
-          "When cross-boundary paths are non-obvious: explicit trigger-to-boundary path in a structured view (tool-agnostic)"
+      "presentation": {
+        "guidance": "Select carrier by whether a reviewer can read relationship semantics directly without inference; carrier is determined by the relationship type in the content. When content contains dependency relations, a directed form (A → B) carries directional semantics — a responsibility assignment table does not carry direction and does not satisfy this criterion. When content contains state transitions, a state/trigger/terminal-state structured view carries state-machine semantics — narrative sentences do not satisfy this criterion.",
+        "allowed": [
+          {"carrier": "Directed dependency table (caller → interface → callee)", "structure": "table"},
+          {"carrier": "Dependency graph (Mermaid flowchart)", "structure": "diagram"},
+          {"carrier": "State machine view (state | trigger | terminal state)", "structure": "table"},
+          {"carrier": "Cross-boundary data flow table (source → boundary → target)", "structure": "table"}
         ],
         "forbidden": [
-          "Field-level API or schema tables",
-          "Rejected-option essays",
-          "Checkbox steps or file edit lists",
-          "Decorative diagrams without behavioral semantics",
-          "Diagram-only blocks that omit named states or end-states when interaction or state changes"
+          "Responsibility assignment table (pure responsibility column, no direction)",
+          "Narrative sentences describing state transitions",
+          "Field-level API or schema tables (belongs in IF)"
+        ]
+      },
+      "expression": {
+        "required": [
+          "When design introduces new modules, components, or services: annotate name and responsibility boundary",
+          "All names must be identifiable system artifacts — existing ones or explicitly marked as new"
+        ],
+        "forbidden": [
+          "Opening with architectural positioning or design rationale (belongs in KD)",
+          "Rejected-option comparison and rationale (belongs in KD)",
+          "Task steps, file edit lists, or Run commands (belongs in tech-plan)",
+          "Decorative diagrams that carry no structural semantics",
+          "Placeholder names like 'some module' or 'related service'"
         ]
       }
     },
     "KD": {
-      "guidance": "Decision-comparison prose or table; chosen vs rejected paths readable without rereading Solution Shape.",
-      "contract": {
-        "required": [
-          "Decision comparison table or equivalent structured comparison when multiple paths were considered"
+      "presentation": {
+        "guidance": "When multiple paths were genuinely considered, a comparison structure is the natural carrier for reasoning semantics; row count is determined by paths actually considered. When only a single direction was considered, do not force a comparison table.",
+        "allowed": [
+          {"carrier": "Direction comparison table (direction | conclusion | design rationale | reopen condition)", "structure": "table"},
+          {"carrier": "Narrative reasoning (single decision, no genuine alternatives)", "structure": "prose"}
         ],
         "forbidden": [
-          "Adopted direction rationale consisting solely of stakeholder authorization references without design reasoning",
-          "Module graph or dependency diagrams duplicating Solution Shape",
-          "Interface field tables",
-          "Phase tags, Done conditions, Owner, or Timing tables"
+          "Module relationship view duplicating ST",
+          "Interface field tables (belongs in IF)",
+          "Phase tags, Owner, or Timing tables (belongs in tech-plan)"
+        ]
+      },
+      "expression": {
+        "required": [
+          "Design reasoning for the selected direction beyond stakeholder authorization",
+          "Comparable contrast view when multiple paths were genuinely considered"
+        ],
+        "forbidden": [
+          "Selected direction rationale consisting solely of stakeholder authorization references"
         ]
       }
     },
     "IF": {
-      "guidance": "Cross-boundary interface semantics in structured, field-aligned form; do not infer contracts from structure prose in prior blocks.",
-      "contract": {
-        "required": [
-          "Cross-boundary semantics in structured, field-aligned form when more than one field or endpoint (tool-agnostic)"
+      "presentation": {
+        "guidance": "Contract content type determines carrier: input/output paths map to result → terminal-state structure; field/type definitions map to field-constraint tables; naming conventions/flag semantics map to the corresponding structured form.",
+        "allowed": [
+          {"carrier": "Contract behavior table (input | success terminal | warning/empty | failure terminal)", "structure": "table"},
+          {"carrier": "Field constraint table (field name | type | semantics | constraint)", "structure": "table"},
+          {"carrier": "Naming convention / flag semantics table", "structure": "table"}
         ],
         "forbidden": [
-          "Module responsibility prose duplicating Solution Shape",
+          "Module responsibility prose duplicating ST",
           "Implementation steps or file patches"
+        ]
+      },
+      "expression": {
+        "required": [
+          "Cross-boundary semantics in structured form when more than one field or endpoint",
+          "Success, warning, and failure terminal-state semantics when interaction or visible result changes",
+          "Data schema, naming convention, feature flag, or compatibility contract in appropriate structured form when more than one element",
+          "Contract entry must include function name, command name, typed field definition, or schema name — behavioral description alone does not satisfy this requirement"
+        ],
+        "forbidden": [
+          "Standalone path-specific prose duplicating table row content"
         ]
       }
     },
     "OQ": {
-      "guidance": "Unresolved assumptions and risks; each item labeled blocks-plan or non-blocking; identify design assumption left open, not implementation uncertainty alone.",
-      "contract": {
-        "required": [
-          "blocks-plan or non-blocking label on each row"
+      "presentation": {
+        "guidance": "Tracking semantics (question × blocking status × closure path) is the natural carrier; each entry must have a closure path.",
+        "allowed": [
+          {"carrier": "Question tracking table (item | status | related design gap | closure condition)", "structure": "table"}
         ],
         "forbidden": [
           "Run commands, test file paths, or checkbox steps",
-          "SK/T/VF-style phase or task tables",
-          "OQ item descriptions that state only an implementation uncertainty without identifying the design assumption or dimension it leaves open"
+          "Phase or task breakdown tables (belongs in tech-plan)"
+        ]
+      },
+      "expression": {
+        "required": [
+          "blocks-plan or non-blocking label on each item"
+        ],
+        "forbidden": [
+          "Items that only repeat IF/VD content without unresolved assumptions"
         ]
       }
     },
     "VD": {
-      "guidance": "Test strategy and AC mapping; cross-reference OQ assumptions; include falsifiable pass signal per verification method; when shared modal or multi-panel UI, state semantic regression scope for sibling flows (no Run commands).",
-      "contract": {
-        "required": [
-          "Each verification method includes a distinguishable pass signal — what a passing result looks like, not only the action performed",
-          "Cross-reference applicable OQ assumptions"
+      "presentation": {
+        "guidance": "Acceptance intent, verification method, and pass signal together form a complete evidence chain; items without a pass signal cannot be used for acceptance.",
+        "allowed": [
+          {"carrier": "Acceptance matrix (acceptance intent | verification method | pass signal | design error signal)", "structure": "table"}
         ],
         "forbidden": [
+          "Standalone test strategy tables that largely duplicate acceptance matrix rows",
           "Run commands or test file paths"
+        ]
+      },
+      "expression": {
+        "required": [
+          "Each acceptance intent paired with verification method and a judgeable pass signal",
+          "At least one falsifiable condition (explicit failure state)",
+          "Cross-reference applicable OQ assumptions when closing verification gaps"
+        ],
+        "forbidden": [
+          "Repeating NG exclusion list as regression test prose"
         ]
       }
     },
     "OD": {
-      "guidance": "Rollout, degradation, rollback, and observability strategy at design level — not runbooks.",
-      "contract": {
-        "required": [],
+      "presentation": {
+        "guidance": "Content is risk narrative; prose is the natural carrier for reasoning continuity; structured view is clearer when multiple independent risk dimensions are listed in parallel.",
+        "allowed": [
+          {"carrier": "Risk narrative prose (reasoning continuity)", "structure": "prose"},
+          {"carrier": "Risk dimension table (when multiple independent dimensions)", "structure": "table"}
+        ],
         "forbidden": [
-          "Run commands, test file paths, or checkbox steps",
-          "Runbooks, metric threshold tables, or repair scripts"
+          "Five-heading chain (observability/release/degradation/rollback/risk each one sentence, no reasoning continuity)",
+          "Runbooks, metric threshold tables, or repair scripts",
+          "Verbatim copy of SC surface change table"
+        ]
+      },
+      "expression": {
+        "required": [
+          "Explicit rollback scope and data consistency stance"
+        ],
+        "forbidden": [
+          "Run commands, test file paths, or checkbox steps"
         ]
       }
     }

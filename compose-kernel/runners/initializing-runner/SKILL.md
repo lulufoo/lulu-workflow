@@ -66,7 +66,7 @@ All compose and scope macros **must** pass `--profile "$COMPOSE_PROFILE"`. `$FET
 1. `$RESOLVE_PLAN_ROLE` → Plan Scope Constraints (`### Role`, `### Role Fields`).
 2. `$RESOLVE_DOMAIN` → `domain instance`.
 3. `$FETCH_COMPOSE section-registry --cycle-id "$CYCLE_ID"` (JSON) → `section_order`, `document_preamble`, per-section `heading` / `intent` (else `desc`) / `intent_boundary`
-   `$FETCH_COMPOSE section-form-registry --cycle-id "$CYCLE_ID"` → `sections.{key}.guidance` / `contract`
+   `$FETCH_COMPOSE section-form-registry --cycle-id "$CYCLE_ID"` → `sections.{key}.presentation` / `expression`
 4. `$FETCH_COMPOSE outline-registry --cycle-id "$CYCLE_ID"` → `outline_order`, per-block `heading` / `intents`.
 5. `$FETCH_COMPOSE section-kw-criteria --cycle-id "$CYCLE_ID"` → each `## {section_key}` block.
 6. Read `$SCOPE_DOC_PATH` full text once (shared across I2).
@@ -108,15 +108,15 @@ After each I2f, resolve layout and run **I2g** when the current key is the last 
 
 #### I2b — Derive `F`
 
-- **Input:** `### Role Fields` · domain instance · `intent` · `sections.{key}.guidance`
-- **Action:** Three-step narrowing (section guidance > domain > role > intent). See compose-theory · Form (F).
+- **Input:** `### Role Fields` · domain instance · `intent` · `sections.{key}.presentation` (`guidance`, `allowed`, `forbidden`)
+- **Action:** Three-step narrowing (section presentation > domain > role > intent). See compose-theory · Form (F). Select `f.carrier` from `presentation.allowed`; `f.structure` from selected entry's `structure` field; `f.forbidden` from `presentation.forbidden`.
 - **Output:** write `f.carrier`, `f.structure`, `f.forbidden` into `_derive-{key}.json`
 - **Done:** `f.carrier` non-empty in derive file
 
 #### I2c — Derive `C`
 
-- **Input:** `### Role Fields` · domain instance · `intent` · `sections.{key}.contract` · `F`
-- **Action:** Derive 2–5 `(d, c, source)` pairs traceable to Role, intent, contract, or `expression_conventions`. Finalize `kw_init` booleans with matching `gaps` for false dimensions when scope lacks substance.
+- **Input:** `### Role Fields` · domain instance · `intent` · `sections.{key}.expression` · `F`
+- **Action:** Derive 2–5 `(d, c, source)` pairs traceable to Role, intent, expression, or `expression_conventions`. Finalize `kw_init` booleans with matching `gaps` for false dimensions when scope lacks substance.
 - **Output:** write `c` and finalized `kw_init` into `_derive-{key}.json`
 - **Done:** derive file complete; **do not start I2d until derive validates mentally against init-draft-quality**
 

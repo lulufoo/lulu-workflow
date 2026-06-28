@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Load compose stage section form registry (guidance + contract per section key).
+"""Load compose stage section form registry (presentation + expression per section key).
+
+Supports two formats (backward-compatible):
+  Legacy:  { guidance: str, contract: { required, forbidden } }
+  Current: { presentation: { guidance, allowed, forbidden }, expression: { required, forbidden } }
 
 CLI:
     python3 section_form_registry_schema.py --schema
@@ -43,7 +47,7 @@ _SCHEMA: list[dict[str, Any]] = [
     {"field": "section_order", "type": "list[string]", "required": True,
      "description": "Section keys; must match section-registry order"},
     {"field": "sections", "type": "object", "required": True,
-     "description": "section_key → { guidance, contract }"},
+     "description": "section_key → { presentation, expression } (current) or { guidance, contract } (legacy)"},
 ]
 
 _FORBIDDEN_SECTION_KEYS = frozenset(
@@ -93,6 +97,50 @@ def validate_section_form_alignment(
     return errors
 
 
+def _validate_allowed_entry(key: str, idx: int, item: Any) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(item, dict):
+        errors.append(f"sections.{key}.presentation.allowed[{idx}] must be an object")
+        return errors
+    carrier = item.get("carrier")
+    structure = item.get("structure")
+    if not isinstance(carrier, str) or not carrier.strip():
+        errors.append(f"sections.{key}.presentation.allowed[{idx}].carrier must be a non-empty string")
+    if not isinstance(structure, str) or not structure.strip():
+        errors.append(f"sections.{key}.presentation.allowed[{idx}].structure must be a non-empty string")
+    return errors
+
+
+def _validate_presentation_entry(key: str, entry: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    presentation = entry.get("presentation")
+    expression = entry.get("expression")
+    if not isinstance(presentation, dict):
+        errors.append(f"sections.{key}.presentation must be an object")
+        return errors
+    guidance = presentation.get("guidance")
+    if not isinstance(guidance, str) or not guidance.strip():
+        errors.append(f"sections.{key}.presentation.guidance must be a non-empty string")
+    allowed = presentation.get("allowed")
+    if allowed is not None:
+        if not isinstance(allowed, list):
+            errors.append(f"sections.{key}.presentation.allowed must be a list when present")
+        else:
+            for idx, item in enumerate(allowed):
+                errors.extend(_validate_allowed_entry(key, idx, item))
+    forbidden = presentation.get("forbidden")
+    if forbidden is not None:
+        if not isinstance(forbidden, list):
+            errors.append(f"sections.{key}.presentation.forbidden must be a list when present")
+        else:
+            for idx, item in enumerate(forbidden):
+                if not isinstance(item, str):
+                    errors.append(f"sections.{key}.presentation.forbidden[{idx}] must be a string")
+    if expression is not None:
+        errors.extend(_validate_section_contract(key, expression))
+    return errors
+
+
 def validate_section_form_registry(data: dict[str, Any]) -> list[str]:
     """Validate section form registry payload."""
     errors: list[str] = []
@@ -125,20 +173,24 @@ def validate_section_form_registry(data: dict[str, Any]) -> list[str]:
         for forbidden in _FORBIDDEN_SECTION_KEYS:
             if forbidden in entry:
                 errors.append(f"sections.{key}.{forbidden} is not supported")
-        guidance = entry.get("guidance")
-        contract = entry.get("contract")
-        has_guidance = isinstance(guidance, str) and guidance.strip()
-        if guidance is not None and not has_guidance:
-            errors.append(f"sections.{key}.guidance must be a non-empty string when present")
-        if has_guidance:
-            if contract is None:
-                errors.append(f"sections.{key}.contract is required when guidance is present")
-            else:
-                errors.extend(_validate_section_contract(key, contract))
-        elif contract is not None:
-            errors.append(
-                f"sections.{key}.contract without guidance is not supported"
-            )
+        if "presentation" in entry:
+            errors.extend(_validate_presentation_entry(key, entry))
+        else:
+            # Legacy format: { guidance, contract }
+            guidance = entry.get("guidance")
+            contract = entry.get("contract")
+            has_guidance = isinstance(guidance, str) and guidance.strip()
+            if guidance is not None and not has_guidance:
+                errors.append(f"sections.{key}.guidance must be a non-empty string when present")
+            if has_guidance:
+                if contract is None:
+                    errors.append(f"sections.{key}.contract is required when guidance is present")
+                else:
+                    errors.extend(_validate_section_contract(key, contract))
+            elif contract is not None:
+                errors.append(
+                    f"sections.{key}.contract without guidance is not supported"
+                )
 
     for key in sections:
         if str(key).upper() not in order_keys:
@@ -155,10 +207,35 @@ def normalize_section_form_registry(data: dict[str, Any]) -> dict[str, Any]:
     for key in order:
         entry = dict(sections_raw.get(key) or {})
         normalized: dict[str, Any] = {}
-        guidance = entry.get("guidance")
-        if isinstance(guidance, str) and guidance.strip():
-            normalized["guidance"] = guidance.strip()
-            normalized["contract"] = _normalize_contract(entry.get("contract"))
+        if "presentation" in entry:
+            # Current format: { presentation, expression }
+            pres = entry["presentation"]
+            if isinstance(pres, dict):
+                normalized_pres: dict[str, Any] = {}
+                guidance = pres.get("guidance")
+                if isinstance(guidance, str) and guidance.strip():
+                    normalized_pres["guidance"] = guidance.strip()
+                allowed = pres.get("allowed")
+                if isinstance(allowed, list):
+                    normalized_pres["allowed"] = [
+                        {"carrier": str(a.get("carrier", "")).strip(),
+                         "structure": str(a.get("structure", "")).strip()}
+                        for a in allowed if isinstance(a, dict)
+                    ]
+                forbidden = pres.get("forbidden")
+                if isinstance(forbidden, list):
+                    normalized_pres["forbidden"] = [
+                        str(f).strip() for f in forbidden if isinstance(f, str) and str(f).strip()
+                    ]
+                normalized["presentation"] = normalized_pres
+            expr = entry.get("expression")
+            normalized["expression"] = _normalize_contract(expr)
+        else:
+            # Legacy format: { guidance, contract }
+            guidance = entry.get("guidance")
+            if isinstance(guidance, str) and guidance.strip():
+                normalized["guidance"] = guidance.strip()
+                normalized["contract"] = _normalize_contract(entry.get("contract"))
         sections[key] = normalized
     result: dict[str, Any] = {
         "version": "1",
@@ -176,15 +253,18 @@ def merge_section_form_into_registry(
     intent_registry: dict[str, Any],
     form_registry: dict[str, Any],
 ) -> dict[str, Any]:
-    """Return intent registry copy with guidance/contract merged from form registry."""
+    """Return intent registry copy with form fields merged from form registry."""
     merged = json.loads(json.dumps(intent_registry))
     for key in merged["section_order"]:
         form_entry = form_registry["sections"].get(key) or {}
         section = merged["sections"][key]
-        if form_entry.get("guidance"):
+        if form_entry.get("presentation"):
+            section["presentation"] = form_entry["presentation"]
+            section["expression"] = form_entry.get("expression", {"required": [], "forbidden": []})
+        elif form_entry.get("guidance"):
             section["guidance"] = form_entry["guidance"]
-        if form_entry.get("contract") is not None:
-            section["contract"] = dict(form_entry["contract"])
+            if form_entry.get("contract") is not None:
+                section["contract"] = dict(form_entry["contract"])
     return merged
 
 
@@ -344,7 +424,16 @@ def section_form_guidance(section_key: str, project_root: Path | None = None) ->
     form = _optional_form_registry(project_root)
     if not form:
         return ""
-    guidance = form["sections"].get(key, {}).get("guidance")
+    entry = form["sections"].get(key, {})
+    # Current format
+    pres = entry.get("presentation")
+    if isinstance(pres, dict):
+        guidance = pres.get("guidance")
+        if isinstance(guidance, str):
+            return guidance.strip()
+        return ""
+    # Legacy format
+    guidance = entry.get("guidance")
     if isinstance(guidance, str):
         return guidance.strip()
     return ""
@@ -354,14 +443,19 @@ def section_form_contract(
     section_key: str,
     project_root: Path | None = None,
 ) -> dict[str, list[str]]:
-    """Return normalized contract for a section when present."""
+    """Return normalized expression/contract for a section when present."""
     from section_registry_schema import normalize_section  # noqa: WPS433
 
     key = normalize_section(section_key, project_root=project_root)
     form = _optional_form_registry(project_root)
     if not form:
         return {"required": [], "forbidden": []}
-    contract = form["sections"].get(key, {}).get("contract")
+    entry = form["sections"].get(key, {})
+    # Current format
+    if "expression" in entry:
+        return _normalize_contract(entry["expression"])
+    # Legacy format
+    contract = entry.get("contract")
     if contract is not None:
         return _normalize_contract(contract)
     return {"required": [], "forbidden": []}

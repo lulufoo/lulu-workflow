@@ -43,9 +43,9 @@ $REVISION_DIR/_title-block-{block_key}.txt  # I2g (last_in_block only)
 | `i_star` | yes | String; filtered scope substance (tech-neutral). May be `""` |
 | `scope_refs` | yes | Array of strings; decision headings or paraphrase anchors used |
 | `gaps` | yes | Array of gap objects (may be empty when `i_star` non-empty) |
-| `f.carrier` | yes | Non-empty string |
-| `f.structure` | yes | String (`"none"` if no diagram) |
-| `f.forbidden` | yes | String (may describe none) |
+| `f.carrier` | yes | Non-empty string; selected from `presentation.allowed[].carrier` |
+| `f.structure` | yes | String from `presentation.allowed[].structure` of the selected entry (`"none"` if no diagram) |
+| `f.forbidden` | yes | String; derived from `presentation.forbidden` (may describe none) |
 | `c` | yes | 2–5 objects, each `{ "d", "c", "source" }` — all non-empty strings |
 | `kw_init` | yes | `{ "what", "why", "alternatives", "failure" }` booleans |
 

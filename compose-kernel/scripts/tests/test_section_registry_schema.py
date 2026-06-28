@@ -211,5 +211,5 @@ def test_section_guidance_and_contract_accessors(tmp_path: Path):
     intent = load_section_registry(intent_path)
     form = load_section_form_registry(form_path, intent_registry=intent)
     merged = merge_section_form_into_registry(intent, form)
-    assert merged["sections"]["CTX"]["guidance"]
-    assert merged["sections"]["CTX"]["contract"]["required"]
+    assert merged["sections"]["CTX"]["presentation"]["guidance"]
+    assert merged["sections"]["CTX"]["expression"]["required"]

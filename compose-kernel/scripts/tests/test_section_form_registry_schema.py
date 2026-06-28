@@ -77,9 +77,9 @@ def test_merge_section_form_into_registry():
     intent = normalize_section_registry(TECH_DESIGN_INTENT)
     form = normalize_section_form_registry(TECH_DESIGN_FORM)
     merged = merge_section_form_into_registry(intent, form)
-    assert merged["sections"]["CTX"]["guidance"]
-    assert merged["sections"]["CTX"]["contract"]["required"]
-    assert "guidance" not in intent["sections"]["CTX"]
+    assert merged["sections"]["CTX"]["presentation"]["guidance"]
+    assert merged["sections"]["CTX"]["expression"]["required"]
+    assert "presentation" not in intent["sections"]["CTX"]
 
 
 def test_load_form_registry_with_alignment(tmp_path: Path):
@@ -89,4 +89,4 @@ def test_load_form_registry_with_alignment(tmp_path: Path):
     form_path.write_text(json.dumps(TECH_DESIGN_FORM), encoding="utf-8")
     intent = normalize_section_registry(TECH_DESIGN_INTENT)
     loaded = load_section_form_registry(form_path, intent_registry=intent)
-    assert loaded["sections"]["GO"]["contract"]["required"]
+    assert loaded["sections"]["GO"]["expression"]["required"]
