@@ -21,13 +21,13 @@
         "cycle_type": "feature",
         "upstream_cache_subdir": "product/spec",
         "doc_filename": "product-doc.md",
-        "loaded_message": "I've loaded the product context document for this tech diagnostic."
+        "loaded_message": "Loaded upstream product context for scope and constraints only. Do not use it for role, architecture direction, or acceptance criteria."
       },
       {
         "cycle_type": "topic",
         "upstream_cache_subdir": "product/arch",
         "doc_filename": "arch-doc.md",
-        "loaded_message": "I've loaded the product context document for this tech diagnostic."
+        "loaded_message": "Loaded upstream product context for scope and constraints only. Do not use it for role, architecture direction, or acceptance criteria."
       }
     ]
   },
