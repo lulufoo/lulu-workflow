@@ -26,7 +26,7 @@ Do NOT proceed until you have read `../../../_runtime.md`
 ## Pipeline
 
 1. `$GATE_CONTROL resolve-context` — pin `$CTX`
-2. Apply Role from `$CTX.domain_constraints` if present
+2. Read `$CTX.domain_constraints.role.instruction` and follow it for all subsequent dialogue in this gate. Missing `role`: skip.
 3. Gate contract § Before entering — do not start D dialogue until complete
 4. Execute D gate (G1/G7/G8; on identification hit → G0 runner → `G0_COMPLETE` → continue)
 5. `$GATE_CONTROL gate-close --gate D --payload '<json>'`

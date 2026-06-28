@@ -27,7 +27,7 @@ Do NOT proceed until you have read `../../../_runtime.md`
 ## Pipeline
 
 1. `$GATE_CONTROL resolve-context` — pin `$CTX`
-2. Apply Role from `$CTX.domain_constraints` if present
+2. Read `$CTX.domain_constraints.role.instruction` and follow it for all subsequent dialogue in this gate. Missing `role`: skip.
 3. For each assumption: assign Verification per risk (H → full format; M/L → `Accepted` after G8 batch confirm)
 4. Select exit with user: `rr` (high-risk or release-tracking items) or `dc` (all M/L accepted, no RR needed)
 5. `$GATE_CONTROL gate-close --gate V --payload '<json>'`

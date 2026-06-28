@@ -26,7 +26,7 @@ Do NOT proceed until you have read `../../../_runtime.md`
 ## Pipeline
 
 1. `$GATE_CONTROL resolve-context` — pin `$CTX`; read `$CTX.domain_constraints.x_dimensions` for active dimensions only
-2. Apply Role from `$CTX.domain_constraints` if present
+2. Read `$CTX.domain_constraints.role.instruction` and follow it for all subsequent dialogue in this gate. Missing `role`: skip.
 3. Execute active X dimensions one at a time (G1/G7/G8 per dimension); skip dimensions not in `x_dimensions`
 4. During dialogue: on identification hit → G0 runner → `G0_COMPLETE` → continue (see gate contract for X-specific moments)
 5. `$GATE_CONTROL gate-close --gate X --payload '<json>'` (only fields for active dimensions required)
