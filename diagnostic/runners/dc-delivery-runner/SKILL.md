@@ -31,7 +31,8 @@ Do NOT proceed until you have read `../../../_runtime.md`
 3. Present key sections in conversation (from `$CTX` / gate contract); G8 user confirmation
 4. `$GATE_CONTROL gate-close --gate DC --payload '{"user_confirmed": true}'`
 5. `$GATE_CONTROL deliver`
-6. Return `GATE_COMPLETE DC Delivered`
+6. Tell the user `$CTX.after_dc.user_message`
+7. Return `GATE_COMPLETE DC Delivered`
 
 ## gate-close payload
 

@@ -24,13 +24,9 @@ Do NOT proceed until you have read `../_runtime.md` and loaded:
 ---
 
 <HARD-GATE name="Domain Constraints">
-**Runtime SSOT:** `$GATE_CONTROL resolve-context` → `domain_constraints` (`x_dimensions`, `omitted_sections`, `role`), `context_loading`, `after_dc`. Do not infer these from holder SKILL prose or memory.
 
-**Role:** If `role.instruction` is present, apply it at the start of gate **O** (Open Channel).
+**Runtime SSOT:** Pin `$CTX` via `$GATE_CONTROL resolve-context`. Authoritative fields: `domain_constraints` (`x_dimensions`, `omitted_sections`, `role`), `context_loading`, `after_dc`. Do not infer from holder SKILL prose or memory.
 
-**Context loading (gate O):** Read `$CTX.context_loading` from resolve-context. If `status` is `loaded`, load `resolved_doc_path` read-only and tell the user `loaded_message`.
-
-**After DC:** Tell the user `$CTX.after_dc.user_message` (next steps from `config/transition-table.json`).
 </HARD-GATE>
 
 ---
