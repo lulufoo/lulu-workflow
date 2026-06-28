@@ -27,10 +27,11 @@ Do NOT proceed until you have read `../../../_runtime.md`
 ## Pipeline
 
 1. `$GATE_CONTROL resolve-context` — pin `$CTX`
-2. Context loading per `$SKILL_DIR/gates/o-open-channel.md`
-3. Open channel dialogue — on identification hit → G0 runner → `G0_COMPLETE` → continue
-4. After user confirms ready for Q (G8): `$GATE_CONTROL gate-close --gate O --payload '{"user_confirmed": true}'`
-5. Return `GATE_COMPLETE O` to parent
+2. Apply Role from `$CTX.domain_constraints` if present
+3. Context loading per `$SKILL_DIR/gates/o-open-channel.md`
+4. Open channel dialogue — on identification hit → G0 runner → `G0_COMPLETE` → continue
+5. After user confirms ready for Q (G8): `$GATE_CONTROL gate-close --gate O --payload '{"user_confirmed": true}'`
+6. Return `GATE_COMPLETE O` to parent
 
 ## gate-close payload
 

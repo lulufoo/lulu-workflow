@@ -27,10 +27,11 @@ Do NOT proceed until you have read `../../../_runtime.md`
 ## Pipeline
 
 1. `$GATE_CONTROL resolve-context` — pin `$CTX`
-2. Execute E gate dialogue (2–3 directions, pros/cons, excluded, user choice; G1/G7/G8)
-3. During dialogue: on identification hit → G0 runner → `G0_COMPLETE` → continue
-4. After user confirms: `$GATE_CONTROL gate-close --gate E --payload '<json>'`
-5. Return `GATE_COMPLETE E` to parent
+2. Apply Role from `$CTX.domain_constraints` if present
+3. Execute E gate dialogue (2–3 directions, pros/cons, excluded, user choice; G1/G7/G8)
+4. During dialogue: on identification hit → G0 runner → `G0_COMPLETE` → continue
+5. After user confirms: `$GATE_CONTROL gate-close --gate E --payload '<json>'`
+6. Return `GATE_COMPLETE E` to parent
 
 ## gate-close payload
 

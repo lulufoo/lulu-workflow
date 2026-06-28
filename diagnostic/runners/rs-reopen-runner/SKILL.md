@@ -50,11 +50,12 @@ Do NOT proceed until you have read `../../../_runtime.md`
 ## Pipeline
 
 1. `$GATE_CONTROL resolve-context` — pin `$CTX`; baseline before proposals (not conversation memory)
-2. Confirm reopen gate `G` with user (G8)
-3. Propose 3-state labeling for all register entries per gate contract Step 3; user confirms (G8)
-4. `$RS_COMMIT` with `--gate <G>` and `--operations '<json array>'` (use `[]` if no register changes)
-5. Pin `$CTX` from stdout (`reenter`, `gates`, `registers`, `domain_constraints`)
-6. Return `RS_COMPLETE reenter=<G>` — load gate `G` runner via kernel § Gate routing
+2. Apply Role from `$CTX.domain_constraints` if present
+3. Confirm reopen gate `G` with user (G8)
+4. Propose 3-state labeling for all register entries per gate contract Step 3; user confirms (G8)
+5. `$RS_COMMIT` with `--gate <G>` and `--operations '<json array>'` (use `[]` if no register changes)
+6. Pin `$CTX` from stdout (`reenter`, `gates`, `registers`, `domain_constraints`)
+7. Return `RS_COMPLETE reenter=<G>` — load gate `G` runner via kernel § Gate routing
 
 <HARD-GATE name="RS commit">
 - Do **not** call `$RS_COMMIT` before G8 confirms `G` and register operations.

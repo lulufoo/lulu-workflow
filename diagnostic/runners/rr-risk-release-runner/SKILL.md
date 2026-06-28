@@ -27,13 +27,14 @@ Do NOT proceed until you have read `../../../_runtime.md`
 ## Pipeline
 
 1. `$GATE_CONTROL resolve-context` — pin `$CTX`
-2. For each RR-scope item: check Release condition vs verification result (G8 confirm per item)
-3. Select exit with user:
+2. Apply Role from `$CTX.domain_constraints` if present
+3. For each RR-scope item: check Release condition vs verification result (G8 confirm per item)
+4. Select exit with user:
    - `dc` — all scope items released, no new pending from V/RR
    - `return_r` — all scope items released, new pending assumptions from V/RR
    - `human_decision` — any scope item still unreleased
-4. `$GATE_CONTROL gate-close --gate RR --payload '<json>'`
-5. Return `GATE_COMPLETE RR exit=<dc|return_r|human_decision>` or load Human Decision runner
+5. `$GATE_CONTROL gate-close --gate RR --payload '<json>'`
+6. Return `GATE_COMPLETE RR exit=<dc|return_r|human_decision>` or load Human Decision runner
 
 ## gate-close payload
 

@@ -26,15 +26,16 @@ Do NOT proceed until you have read `../../../_runtime.md`
 ## Pipeline
 
 1. `$GATE_CONTROL resolve-context` — pin `$CTX`
-2. Gate contract § Before entering — prior sign-off, then assumption coverage (G8)
-3. Gate contract § Execute — risk + consequence (G8 confirm)
-4. Select exit with user:
+2. Apply Role from `$CTX.domain_constraints` if present
+3. Gate contract § Before entering — prior sign-off, then assumption coverage (G8)
+4. Gate contract § Execute — risk + consequence (G8 confirm)
+5. Select exit with user:
    - `rs` — known failure → RS runner (identify `reopen_gate`)
    - `loop_b` — uncertain assumptions → V
    - `dc` — all resolved → skip V/RR
-5. `$GATE_CONTROL gate-close --gate R --payload '<json>'`
-6. On `exit=rs`: load `$SKILL_DIR/runners/rs-reopen-runner/SKILL.md` with `reopen_gate`
-7. Otherwise return `GATE_COMPLETE R exit=<loop_b|dc>`
+6. `$GATE_CONTROL gate-close --gate R --payload '<json>'`
+7. On `exit=rs`: load `$SKILL_DIR/runners/rs-reopen-runner/SKILL.md` with `reopen_gate`
+8. Otherwise return `GATE_COMPLETE R exit=<loop_b|dc>`
 
 ## gate-close payload
 

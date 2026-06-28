@@ -27,10 +27,11 @@ Do NOT proceed until you have read `../../../_runtime.md`
 ## Pipeline
 
 1. `$GATE_CONTROL resolve-context` — pin `$CTX`
-2. For each assumption: assign Verification per risk (H → full format; M/L → `Accepted` after G8 batch confirm)
-3. Select exit with user: `rr` (high-risk or release-tracking items) or `dc` (all M/L accepted, no RR needed)
-4. `$GATE_CONTROL gate-close --gate V --payload '<json>'`
-5. Return `GATE_COMPLETE V exit=<rr|dc>`
+2. Apply Role from `$CTX.domain_constraints` if present
+3. For each assumption: assign Verification per risk (H → full format; M/L → `Accepted` after G8 batch confirm)
+4. Select exit with user: `rr` (high-risk or release-tracking items) or `dc` (all M/L accepted, no RR needed)
+5. `$GATE_CONTROL gate-close --gate V --payload '<json>'`
+6. Return `GATE_COMPLETE V exit=<rr|dc>`
 
 ## gate-close payload
 

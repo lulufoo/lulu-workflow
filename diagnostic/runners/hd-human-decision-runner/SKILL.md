@@ -26,10 +26,11 @@ Do NOT proceed until you have read `../../../_runtime.md`
 ## Pipeline
 
 1. `$GATE_CONTROL resolve-context` — pin `$CTX`
-2. Present failure context; user selects exit (G8):
+2. Apply Role from `$CTX.domain_constraints` if present
+3. Present failure context; user selects exit (G8):
    - **Upstream wrong** → identify reopen gate → load `$SKILL_DIR/runners/rs-reopen-runner/SKILL.md`
    - **No solution** → output Unable to Decide (directions ≥2, stuck gate, unlock condition); session incomplete
-3. Return `HD_COMPLETE exit=rs|unable` or hand off to RS runner
+4. Return `HD_COMPLETE exit=rs|unable` or hand off to RS runner
 
 ## Exit
 

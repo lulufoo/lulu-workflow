@@ -27,12 +27,13 @@ Do NOT proceed until you have read `../../../_runtime.md`
 ## Pipeline
 
 1. `$GATE_CONTROL resolve-context` — pin `$CTX`
-2. `$GATE_CONTROL check-delivery-ready` — fix every reported error before presenting
-3. Present key sections in conversation (from `$CTX` / gate contract); G8 user confirmation
-4. `$GATE_CONTROL gate-close --gate DC --payload '{"user_confirmed": true}'`
-5. `$GATE_CONTROL deliver`
-6. Tell the user `$CTX.after_dc.user_message`
-7. Return `GATE_COMPLETE DC Delivered`
+2. Apply Role from `$CTX.domain_constraints` if present
+3. `$GATE_CONTROL check-delivery-ready` — fix every reported error before presenting
+4. Present key sections in conversation (from `$CTX` / gate contract); G8 user confirmation
+5. `$GATE_CONTROL gate-close --gate DC --payload '{"user_confirmed": true}'`
+6. `$GATE_CONTROL deliver`
+7. Tell the user `$CTX.after_dc.user_message`
+8. Return `GATE_COMPLETE DC Delivered`
 
 ## gate-close payload
 

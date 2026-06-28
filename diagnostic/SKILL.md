@@ -166,8 +166,6 @@ Do not persist generated display text. `$CTX`, gate contracts, and control comma
 
 **G4. Context refresh** — Pin `$CTX` from the active gate runner pipeline step 1 (`resolve-context`), or from G0 `$REGISTER_COMMIT` / `$RS_COMMIT` stdout when those run. Do not chain an extra `resolve-context` after those commands. Do **not** show `reply_header` or hand-write gate/register status blocks; read `gates` / `registers` from `$CTX` only. Do **not** read session data files directly.
 
-**G4c. Role** — After pinning `$CTX`, if `$CTX.domain_constraints.role.instruction` is present, apply it for the active gate (before first user-visible reply; once per gate).
-
 **G5.** Upstream input error — if the intent input itself has a fundamental error, exit the loop; tell the user to fix the input and restart.
 
 **G6. Override Guard (reactive)** — when override signal detected ("skip" / "just implement it" / etc.):
