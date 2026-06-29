@@ -32,9 +32,9 @@ Do NOT proceed until you have read `../../../_runtime.md`
    - `role.instruction` — persona and language stance
    - `domain.instruction` — domain boundary constraints
 3. `$GATE_CONTROL check-delivery-ready` — fix every reported error before continuing
-4. **AI Semantic Review** — read `$SKILL_DIR/session-invariants.yaml` and all existing `gate-payloads/*.json` under the session directory; compare against registers. On blocker: load RS runner, reopen at the checklist `reopen_gate` (earliest involved gate); do not present delivery content to the user
+4. **AI Semantic Review** (required) — read `session-invariants.yaml` + `gate-payloads/*.json`; cross-check `$CTX.registers`. Blocker → RS runner (earliest checklist `reopen_gate`); do not present delivery content.
 5. `$SESSION_INTEGRITY render` — generate `decision-doc.md`
-6. Read `decision-doc.md` (G4 DC exception); present key sections in conversation; G8 user confirmation
+6. Read `decision-doc.md`; present key sections in conversation; G8 user confirmation
 7. `$GATE_CONTROL gate-close --gate DC --payload '{"user_confirmed": true}'`
 8. `$GATE_CONTROL deliver`
 9. Tell the user `$CTX.after_dc.user_message`

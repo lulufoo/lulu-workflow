@@ -21,8 +21,6 @@ Before presenting to user:
 2. Run **AI Semantic Review** per `$SKILL_DIR/session-invariants.yaml` (see runner pipeline step 4).
 3. Run `$SESSION_INTEGRITY render`.
 
-Do **not** open session data files directly except `decision-doc.md` after render (G4 DC exception).
-
 ---
 
 ## DC - Delivery Confirmation
