@@ -40,6 +40,7 @@ Do NOT proceed until you have read `../_runtime.md` and loaded:
 | `$REGISTER_CONTROL` | `python3 "$SKILL_DIR/scripts/dx_register_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>"` |
 | `$REGISTER_COMMIT` | `python3 "$SKILL_DIR/scripts/dx_register_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" register-commit --operations '<json array>'` |
 | `$RS_COMMIT` | `python3 "$SKILL_DIR/scripts/dx_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" rs-commit --gate "<G>" --operations '<json array>'` |
+| `$SESSION_INTEGRITY` | `python3 "$SKILL_DIR/scripts/dx_session_integrity.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>"` |
 
 Subcommand contracts: module docstrings / `--help`.
 
@@ -165,6 +166,8 @@ Do not persist generated display text. `$CTX`, gate contracts, and control comma
 **G3.** Each gate has a pass criterion. Do not advance until the criterion is met.
 
 **G4. Context refresh** — Pin `$CTX` from the active gate runner pipeline step 1 (`resolve-context`), or from G0 `$REGISTER_COMMIT` / `$RS_COMMIT` stdout when those run. Do not chain an extra `resolve-context` after those commands. Do **not** show `reply_header` or hand-write gate/register status blocks; read `gates` / `registers` from `$CTX` only. Do **not** read session data files directly.
+
+**G4 exception (DC only):** After `$SESSION_INTEGRITY render` in the DC runner pipeline, you **may** read `decision-doc.md` to present key sections to the user for confirmation. During DC AI Semantic Review (before render), you **may** read `gate-payloads/*.json` and `$SKILL_DIR/session-invariants.yaml` only.
 
 **G5.** Upstream input error — if the intent input itself has a fundamental error, exit the loop; tell the user to fix the input and restart.
 

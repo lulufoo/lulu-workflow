@@ -31,12 +31,14 @@ Do NOT proceed until you have read `../../../_runtime.md`
    - `objective` — session intent; frame the entire gate within this goal
    - `role.instruction` — persona and language stance
    - `domain.instruction` — domain boundary constraints
-3. `$GATE_CONTROL check-delivery-ready` — fix every reported error before presenting
-4. Present key sections in conversation (from `$CTX` / gate contract); G8 user confirmation
-5. `$GATE_CONTROL gate-close --gate DC --payload '{"user_confirmed": true}'`
-6. `$GATE_CONTROL deliver`
-7. Tell the user `$CTX.after_dc.user_message`
-8. Return `GATE_COMPLETE DC Delivered`
+3. `$GATE_CONTROL check-delivery-ready` — fix every reported error before continuing
+4. **AI Semantic Review** — read `$SKILL_DIR/session-invariants.yaml` and all existing `gate-payloads/*.json` under the session directory; compare against registers. On blocker: load RS runner, reopen at the checklist `reopen_gate` (earliest involved gate); do not present delivery content to the user
+5. `$SESSION_INTEGRITY render` — generate `decision-doc.md`
+6. Read `decision-doc.md` (G4 DC exception); present key sections in conversation; G8 user confirmation
+7. `$GATE_CONTROL gate-close --gate DC --payload '{"user_confirmed": true}'`
+8. `$GATE_CONTROL deliver`
+9. Tell the user `$CTX.after_dc.user_message`
+10. Return `GATE_COMPLETE DC Delivered`
 
 ## gate-close payload
 

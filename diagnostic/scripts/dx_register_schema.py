@@ -231,3 +231,13 @@ def format_assumption_header_line(entry: dict[str, Any]) -> str:
     risk = entry.get("risk")
     risk_part = f" {risk}" if risk else ""
     return f"[{entry.get('id')}{state} {source}{risk_part}] {entry.get('text')}"
+
+
+def strip_assumption_risk_fields(data: dict[str, Any]) -> dict[str, Any]:
+    """Remove risk fields when R gate is no longer closed (RS invalidate)."""
+    normalized = normalize_registers(data)
+    for entry in normalized.get("assumptions", []):
+        if isinstance(entry, dict):
+            entry.pop("risk", None)
+            entry.pop("consequence", None)
+    return normalized

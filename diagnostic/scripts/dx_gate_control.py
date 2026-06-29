@@ -2,14 +2,14 @@
 """Gate state machine control for diagnostic sessions.
 
 Subcommands:
-    init-session           Bootstrap gate-state, registers, and decision-doc skeleton
+    init-session           Bootstrap gate-state, registers (no decision-doc at init)
     resolve-context        JSON session context for runners (gates, registers, constraints)
     gate-activate          Activate a gate (e.g. re-activate Q after RS)
-    gate-close             Close active gate, patch decision-doc, advance pointer
+    gate-close             Close active gate, write gate-payload, advance pointer
     invalidate-from        RS mechanical invalidation from a gate downstream
     rs-commit              Atomic RS: invalidate-from + register batch + resolve-context
-    check-delivery-ready   Validate decision-doc + gates for DC delivery
-    deliver                Set session-state Delivered (requires DC closed)
+    check-delivery-ready   Structural audit + gates/registers for DC delivery
+    deliver                Set session-state Delivered (requires DC closed + decision-doc)
     migrate-session        Bootstrap gate-state/registers for legacy sessions
 """
 
@@ -25,22 +25,8 @@ _SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
-from fetch_template import fetch_template  # noqa: E402
 
-from dx_decision_doc_schema import (  # noqa: E402
-    GATE_CLOSE_PREREQ,
-    check_decision_doc_ready,
-    clear_sections_downstream,
-    init_decision_doc,
-    load_decision_doc,
-    render_decision_rationale_body,
-    render_direction_body,
-    render_execution_analysis_body,
-    render_problem_body,
-    render_scope_body,
-    replace_section,
-    save_decision_doc,
-)
+from dx_decision_doc_schema import GATE_CLOSE_PREREQ  # noqa: E402
 from dx_after_dc import build_after_dc  # noqa: E402
 from dx_context_loading import build_context_loading  # noqa: E402
 from dx_domain_constraints_schema import (  # noqa: E402
@@ -52,6 +38,11 @@ from dx_domain_constraints_schema import (  # noqa: E402
     load_domain_constraints,
     merge_domain_constraints,
     save_domain_constraints,
+)
+from dx_gate_payload_schema import (  # noqa: E402
+    delete_payloads_from,
+    gate_payload_path,
+    save_gate_payload,
 )
 from dx_gate_state_schema import (  # noqa: E402
     GATE_ORDER,
@@ -73,6 +64,7 @@ from dx_register_schema import (  # noqa: E402
     init_registers,
     load_registers,
     save_registers,
+    strip_assumption_risk_fields,
 )
 from dx_session_render import render_reply_header  # noqa: E402
 from dx_workflow_common import (  # noqa: E402
@@ -80,6 +72,7 @@ from dx_workflow_common import (  # noqa: E402
     decision_doc_path,
     detect_cycle_type,
     domain_constraints_path,
+    gate_payloads_dir,
     gate_state_path,
     registers_path,
     session_base_dir,
@@ -88,7 +81,7 @@ from dx_workflow_common import (  # noqa: E402
 )
 
 from dx_migrate_session import migrate_session_dir, needs_migration  # noqa: E402
-from dx_register_control import apply_register_batch_operations, sync_registers_to_doc  # noqa: E402
+from dx_register_control import apply_register_batch_operations  # noqa: E402
 
 
 def _emit(payload: dict[str, Any]) -> None:
@@ -143,6 +136,9 @@ def _paths(
             cycle_id, stage, project_root=project_root, constraints_path=constraints_path
         ),
         "decision_doc": project_root / decision_doc_path(
+            cycle_id, stage, project_root=project_root, constraints_path=constraints_path
+        ),
+        "payloads_dir": project_root / gate_payloads_dir(
             cycle_id, stage, project_root=project_root, constraints_path=constraints_path
         ),
         "domain_constraints": project_root / domain_constraints_path(
@@ -220,26 +216,11 @@ def cmd_init_session(
         constraints = merge_domain_constraints(constraints, domain_override)
     save_domain_constraints(paths["domain_constraints"], constraints)
 
-    template = fetch_template(
-        "diagnostic",
-        "decision_doc_template_url",
-        project_root,
-    )
-    doc = init_decision_doc(template=template, cycle_id=cycle_id, constraints=constraints)
-    save_decision_doc(paths["decision_doc"], doc)
-
     gate_state = init_gate_state(cycle_id=cycle_id, stage=stage)
     save_gate_state(paths["gate_state"], gate_state)
 
     registers = init_registers(cycle_id=cycle_id, stage=stage)
     save_registers(paths["registers"], registers, r_gate_closed=False)
-
-    sync_registers_to_doc(
-        paths["decision_doc"],
-        paths["registers"],
-        r_gate_closed=False,
-        constraints=constraints,
-    )
 
     _emit(
         {
@@ -616,71 +597,20 @@ def _validate_rr_exit_against_registers(
             raise ValueError("RR exit return_r requires new pending assumptions from V/RR")
 
 
-def _apply_gate_close_doc(
-    doc_path: Path,
+def _persist_gate_payload(
+    paths: dict[str, Path],
     gate: str,
     payload: dict[str, Any],
-    *,
-    constraints: dict[str, Any],
 ) -> None:
-    doc = load_decision_doc(doc_path)
-    if gate == "Q":
-        body = render_problem_body(
-            problem_statement=str(payload.get("problem_statement", "")),
-            constraints=str(payload.get("constraints", "")),
-        )
-        doc = replace_section(doc, "problem", body, constraints=constraints)
-    elif gate == "E":
-        directions = payload.get("directions", [])
-        excluded = payload.get("excluded", [])
-        if not isinstance(excluded, list):
-            excluded = []
-        body = render_direction_body(
-            directions=directions,
-            excluded=excluded,
-            user_choice=str(payload.get("user_choice", "")).strip(),
-        )
-        doc = replace_section(doc, "direction", body, constraints=constraints)
-    elif gate == "D":
-        doc = replace_section(
-            doc,
-            "decision_rationale",
-            render_decision_rationale_body(rationale=str(payload.get("decision_rationale", ""))),
-            constraints=constraints,
-        )
-        doc = replace_section(
-            doc,
-            "scope",
-            render_scope_body(
-                applies_to=str(payload.get("applies_to", "")),
-                excludes=str(payload.get("excludes", "")),
-                execution_approach=str(payload.get("execution_approach", "")),
-            ),
-            constraints=constraints,
-        )
-    elif gate == "X":
-        impact = payload.get("impact_surface", [])
-        deps = payload.get("external_dependencies", [])
-        if not isinstance(impact, list):
-            impact = []
-        if not isinstance(deps, list):
-            deps = []
-        body = render_execution_analysis_body(
-            acceptance_criteria=str(payload.get("acceptance_criteria", "")),
-            gap=str(payload.get("gap", "None")),
-            impact_surface=impact,
-            external_dependencies=deps,
-            key_changes=str(payload.get("key_changes", "")),
-            critical_constraints=str(payload.get("critical_constraints", "")),
-            reversibility=str(payload.get("reversibility", "")),
-            x_dimensions=active_x_dimensions(constraints),
-        )
-        doc = replace_section(doc, "execution_analysis", body, constraints=constraints)
-    elif gate == "R":
-        pass
-    else:
-        raise ValueError(f"unsupported gate for doc patch: {gate}")
-    save_decision_doc(doc_path, doc)
+    save_gate_payload(gate_payload_path(paths["payloads_dir"], gate), payload)
+
+
+def _gate_close_persists_payload(gate: str, payload: dict[str, Any]) -> bool:
+    if gate == "R" and str(payload.get("exit", "")).strip() == "rs":
+        return False
+    if gate == "RR" and str(payload.get("exit", "")).strip() == "human_decision":
+        return False
+    return True
 
 
 def cmd_gate_activate(
@@ -708,12 +638,18 @@ def cmd_gate_activate(
 
 
 def _collect_delivery_errors(
+    project_root: Path,
+    cycle_id: str,
+    stage: str,
     state: dict[str, Any],
     registers: dict[str, Any],
-    doc: str,
+    paths: dict[str, Path],
     *,
-    constraints: dict[str, Any],
+    constraints_path: Path | None = None,
+    require_decision_doc: bool = False,
 ) -> list[str]:
+    from dx_session_integrity import run_structural_audit  # noqa: WPS433
+
     errors: list[str] = []
     if state["active_gate"] != "DC":
         errors.append(f"active_gate must be DC, got {state['active_gate']!r}")
@@ -728,7 +664,17 @@ def _collect_delivery_errors(
     if "RR" not in skipped and not is_gate_closed(state, "RR"):
         errors.append("gate RR is not closed")
 
-    errors.extend(check_decision_doc_ready(doc, constraints=constraints))
+    errors.extend(
+        run_structural_audit(
+            project_root,
+            cycle_id,
+            stage,
+            constraints_path=constraints_path,
+        )
+    )
+
+    if require_decision_doc and not paths["decision_doc"].exists():
+        errors.append("decision-doc not found; run session-integrity render before deliver")
 
     for entry in registers.get("assumptions", []):
         if not isinstance(entry, dict):
@@ -763,14 +709,16 @@ def cmd_check_delivery_ready(
         state = load_gate_state(paths["gate_state"])
         r_closed = is_gate_closed(state, "R")
         registers = load_registers(paths["registers"], r_gate_closed=r_closed)
-        doc = load_decision_doc(paths["decision_doc"])
-        constraints = _load_session_constraints(
+        errors = _collect_delivery_errors(
             project_root,
             cycle_id,
             stage,
+            state,
+            registers,
+            paths,
             constraints_path=constraints_path,
+            require_decision_doc=False,
         )
-        errors = _collect_delivery_errors(state, registers, doc, constraints=constraints)
     except (FileNotFoundError, ValueError) as exc:
         return _emit_error(str(exc))
 
@@ -792,14 +740,16 @@ def cmd_deliver(
             return _emit_error("DC gate must be closed before deliver")
         r_closed = is_gate_closed(state, "R")
         registers = load_registers(paths["registers"], r_gate_closed=r_closed)
-        doc = load_decision_doc(paths["decision_doc"])
-        constraints = _load_session_constraints(
+        errors = _collect_delivery_errors(
             project_root,
             cycle_id,
             stage,
+            state,
+            registers,
+            paths,
             constraints_path=constraints_path,
+            require_decision_doc=True,
         )
-        errors = _collect_delivery_errors(state, registers, doc, constraints=constraints)
         if errors:
             return _emit_error("; ".join(errors))
         ss_path = project_root / session_state_path(
@@ -867,34 +817,16 @@ def cmd_gate_close(
                         r_gate_closed=True,
                     )
                 _apply_r_prior_signoff(paths["registers"])
-                sync_registers_to_doc(
-                    paths["decision_doc"],
-                    paths["registers"],
-                    r_gate_closed=True,
-                    constraints=constraints,
-                )
                 updated = close_gate_r(state, exit_path=exit_path)
             else:
                 if payload.get("assumptions"):
                     _apply_r_register_updates(paths["registers"], payload, exit_path=exit_path)
-                    sync_registers_to_doc(
-                        paths["decision_doc"],
-                        paths["registers"],
-                        r_gate_closed=True,
-                        constraints=constraints,
-                    )
                 updated = state
         elif gate == "V":
             exit_path = str(payload.get("exit", "")).strip()
             registers = load_registers(paths["registers"], r_gate_closed=True)
             _validate_v_exit_against_registers(registers, payload)
             _apply_v_register_updates(paths["registers"], payload)
-            sync_registers_to_doc(
-                paths["decision_doc"],
-                paths["registers"],
-                r_gate_closed=True,
-                constraints=constraints,
-            )
             updated = close_gate_v(state, exit_path=exit_path)
         elif gate == "RR":
             exit_path = str(payload.get("exit", "")).strip()
@@ -902,35 +834,32 @@ def cmd_gate_close(
             _validate_rr_exit_against_registers(registers, payload)
             if exit_path == "human_decision":
                 _apply_rr_register_updates(paths["registers"], payload)
-                sync_registers_to_doc(
-                    paths["decision_doc"],
-                    paths["registers"],
-                    r_gate_closed=True,
-                    constraints=constraints,
-                )
                 updated = state
             else:
                 _apply_rr_register_updates(paths["registers"], payload)
-                sync_registers_to_doc(
-                    paths["decision_doc"],
-                    paths["registers"],
-                    r_gate_closed=True,
-                    constraints=constraints,
-                )
                 updated = close_gate_rr(state, exit_path=exit_path)
         elif gate == "O":
             updated = close_gate(state, gate)
         elif gate == "DC":
             registers = load_registers(paths["registers"], r_gate_closed=True)
-            doc = load_decision_doc(paths["decision_doc"])
-            errors = _collect_delivery_errors(state, registers, doc, constraints=constraints)
+            errors = _collect_delivery_errors(
+                project_root,
+                cycle_id,
+                stage,
+                state,
+                registers,
+                paths,
+                constraints_path=constraints_path,
+                require_decision_doc=True,
+            )
             if errors:
                 return _emit_error("; ".join(errors))
             updated = close_gate(state, gate)
         else:
             updated = close_gate(state, gate)
-            _apply_gate_close_doc(paths["decision_doc"], gate, payload, constraints=constraints)
         save_gate_state(paths["gate_state"], updated)
+        if _gate_close_persists_payload(gate, payload):
+            _persist_gate_payload(paths, gate, payload)
     except (FileNotFoundError, ValueError) as exc:
         return _emit_error(str(exc))
 
@@ -969,22 +898,12 @@ def _run_invalidate_from(
         raise ValueError(f"invalidate-from supports {sorted(RS_INVALIDATE_GATES)}, got {gate!r}")
     updated = invalidate_from_gate(state, gate)
     save_gate_state(paths["gate_state"], updated)
-    doc = load_decision_doc(paths["decision_doc"])
-    doc = clear_sections_downstream(doc, gate)
-    save_decision_doc(paths["decision_doc"], doc)
+    delete_payloads_from(paths["payloads_dir"], gate, GATE_ORDER)
     r_closed = is_gate_closed(updated, "R")
-    constraints = _load_session_constraints(
-        project_root,
-        cycle_id,
-        stage,
-        constraints_path=constraints_path,
-    )
-    sync_registers_to_doc(
-        paths["decision_doc"],
-        paths["registers"],
-        r_gate_closed=r_closed,
-        constraints=constraints,
-    )
+    if not r_closed:
+        raw = json.loads(paths["registers"].read_text(encoding="utf-8"))
+        stripped = strip_assumption_risk_fields(raw)
+        save_registers(paths["registers"], stripped, r_gate_closed=False)
     return updated
 
 

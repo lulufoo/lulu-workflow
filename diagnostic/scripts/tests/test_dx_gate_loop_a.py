@@ -13,13 +13,13 @@ _DIAG_SCRIPTS = Path(__file__).resolve().parents[1]
 if str(_DIAG_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_DIAG_SCRIPTS))
 
-from dx_decision_doc_schema import load_decision_doc  # noqa: E402
 from dx_gate_control import (  # noqa: E402
     cmd_gate_close,
     cmd_init_session,
 )
 from dx_register_control import cmd_register_append  # noqa: E402
-from dx_workflow_common import decision_doc_path, gate_state_path  # noqa: E402
+from dx_workflow_common import gate_state_path  # noqa: E402
+from diagnostic_test_helpers import load_rendered_doc  # noqa: E402
 
 
 def _full_template() -> str:
@@ -154,7 +154,7 @@ def test_loop_a_d_x_r_loop_b_exit(template_config: Path, monkeypatch: pytest.Mon
         == 0
     )
 
-    doc = load_decision_doc(project_root / decision_doc_path(cycle_id, stage))
+    doc = load_rendered_doc(project_root, cycle_id, stage)
     assert "Chose A for stability" in doc
     assert "Add export endpoint" in doc
     assert "SSO supports bulk API" in doc

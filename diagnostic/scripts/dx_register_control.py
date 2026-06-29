@@ -3,7 +3,7 @@
 
 Subcommands:
     register-append        Append prior or assumption entry (G0 capture)
-    register-commit        Atomic G0: append/update ops + sync + full session context
+    register-commit        Atomic G0: append/update ops + full session context
     register-update        Update an existing register entry
     register-batch-apply   RS batch labeling and deletions
     sync-registers-to-doc  Render registers into decision-doc sections
@@ -211,7 +211,7 @@ def apply_register_commit_operations(
     *,
     operations: list[dict[str, Any]],
 ) -> tuple[dict[str, Any], int]:
-    """Apply G0 append/update ops; persist once and sync decision-doc."""
+    """Apply G0 append/update ops; persist registers once."""
     gate_state = load_gate_state(paths["gate_state"])
     r_closed = is_gate_closed(gate_state, "R")
     registers = load_registers(paths["registers"], r_gate_closed=r_closed)
@@ -240,7 +240,6 @@ def apply_register_commit_operations(
             raise ValueError(f"invalid action: {action!r} (use append or update)")
 
     save_registers(paths["registers"], registers, r_gate_closed=r_closed)
-    sync_registers_to_doc(paths["decision_doc"], paths["registers"], r_gate_closed=r_closed)
     return registers, applied
 
 
@@ -293,7 +292,6 @@ def cmd_register_append(
             source=source,
         )
         save_registers(paths["registers"], registers, r_gate_closed=r_closed)
-        sync_registers_to_doc(paths["decision_doc"], paths["registers"], r_gate_closed=r_closed)
     except (FileNotFoundError, ValueError) as exc:
         return _emit_error(str(exc))
 
@@ -322,7 +320,6 @@ def cmd_register_update(
             r_closed=r_closed,
         )
         save_registers(paths["registers"], registers, r_gate_closed=r_closed)
-        sync_registers_to_doc(paths["decision_doc"], paths["registers"], r_gate_closed=r_closed)
     except (FileNotFoundError, ValueError) as exc:
         return _emit_error(str(exc))
 
@@ -343,7 +340,7 @@ def apply_register_batch_operations(
     *,
     operations: list[dict[str, Any]],
 ) -> tuple[dict[str, Any], int]:
-    """Apply RS batch ops; persist registers and sync decision-doc. Returns (registers, applied)."""
+    """Apply RS batch ops; persist registers. Returns (registers, applied)."""
     gate_state = load_gate_state(paths["gate_state"])
     r_closed = is_gate_closed(gate_state, "R")
     registers = load_registers(paths["registers"], r_gate_closed=r_closed)
@@ -374,7 +371,6 @@ def apply_register_batch_operations(
             raise ValueError(f"invalid action: {action!r}")
 
     save_registers(paths["registers"], registers, r_gate_closed=r_closed)
-    sync_registers_to_doc(paths["decision_doc"], paths["registers"], r_gate_closed=r_closed)
     return registers, len(operations)
 
 
@@ -466,7 +462,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Append a register entry (G0 capture).",
         description=(
             "Append User Prior or Assumption. Sets source from active_gate, assigns id, "
-            "dedupes by kind+text (prior) or text (assumption), syncs decision-doc.\n\n"
+            "dedupes by kind+text (prior) or text (assumption).\n\n"
             "Prior payload: {\"kind\": \"judgment|preference|concern|excluded\", \"text\": \"...\"}\n"
             "Assumption payload: {\"text\": \"...\"}"
         ),
@@ -486,7 +482,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "register-commit",
         help="Atomic G0: append/update operations + sync + full session context.",
         description=(
-            "Apply one or more register writes, sync decision-doc once, return full session context.\n\n"
+            "Apply one or more register writes, return full session context.\n\n"
             "Operations JSON array examples:\n"
             '  [{"action":"append","kind":"prior","payload":{"kind":"preference","text":"..."}}]\n'
             '  [{"action":"append","kind":"assumption","payload":{"text":"..."}}]\n'

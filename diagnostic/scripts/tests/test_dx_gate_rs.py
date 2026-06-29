@@ -13,7 +13,6 @@ _DIAG_SCRIPTS = Path(__file__).resolve().parents[1]
 if str(_DIAG_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_DIAG_SCRIPTS))
 
-from dx_decision_doc_schema import load_decision_doc  # noqa: E402
 from dx_gate_control import (  # noqa: E402
     cmd_gate_close,
     cmd_invalidate_from,
@@ -21,7 +20,8 @@ from dx_gate_control import (  # noqa: E402
     cmd_rs_commit,
 )
 from dx_register_control import cmd_register_append, cmd_register_batch_apply  # noqa: E402
-from dx_workflow_common import decision_doc_path, gate_state_path, registers_path  # noqa: E402
+from dx_workflow_common import gate_state_path, registers_path  # noqa: E402
+from diagnostic_test_helpers import gate_payload_exists  # noqa: E402
 from test_dx_gate_loop_a import _close_qe, _full_template  # noqa: E402
 
 
@@ -194,9 +194,9 @@ def test_rs_invalidate_and_register_batch(template_config: Path, monkeypatch: py
     assert gate_state["gates"]["D"]["status"] == "active"
     assert gate_state["gates"]["X"]["status"] == "invalidated"
 
-    doc = load_decision_doc(project_root / decision_doc_path(cycle_id, stage))
-    assert "Add endpoint" not in doc
-    assert "Chose A" not in doc
+    assert not gate_payload_exists(project_root, cycle_id, "D")
+    assert not gate_payload_exists(project_root, cycle_id, "X")
+    assert gate_payload_exists(project_root, cycle_id, "E")
 
     assert (
         cmd_register_batch_apply(
@@ -267,6 +267,67 @@ def test_rs_commit_atomic(template_config: Path, monkeypatch: pytest.MonkeyPatch
     assert payload["gates"]["D"]["status"] == "active"
     assert payload["gates"]["X"]["status"] == "invalidated"
 
-    doc = load_decision_doc(project_root / decision_doc_path(cycle_id, stage))
-    assert "Add endpoint" not in doc
-    assert "Chose A" not in doc
+    assert not gate_payload_exists(project_root, cycle_id, "D")
+    assert not gate_payload_exists(project_root, cycle_id, "X")
+
+
+def test_invalidate_from_d_after_r_closed_strips_risk(
+    template_config: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from dx_register_control import cmd_register_commit  # noqa: WPS433
+
+    project_root = template_config
+    cycle_id = "feature-rs-005"
+    stage = "diagnostic"
+    monkeypatch.chdir(project_root)
+
+    _close_through_d(project_root, cycle_id, stage)
+    cmd_register_append(
+        project_root,
+        cycle_id,
+        stage,
+        register_kind="assumption",
+        payload={"text": "High-risk assumption"},
+    )
+    cmd_gate_close(
+        project_root,
+        cycle_id,
+        stage,
+        "X",
+        {
+            "acceptance_criteria": "Users export CSV",
+            "gap": "None",
+            "impact_surface": [],
+            "external_dependencies": [],
+            "key_changes": "Add endpoint",
+            "critical_constraints": "none",
+            "reversibility": "easy",
+        },
+    )
+    assert (
+        cmd_gate_close(
+            project_root,
+            cycle_id,
+            stage,
+            "R",
+            {
+                "exit": "loop_b",
+                "assumptions": [{"id": "A1", "risk": "H", "consequence": "blocked"}],
+            },
+        )
+        == 0
+    )
+
+    assert cmd_invalidate_from(project_root, cycle_id, stage, "D") == 0
+
+    registers = json.loads(
+        (project_root / registers_path(cycle_id, stage)).read_text(encoding="utf-8")
+    )
+    assumption = registers["assumptions"][0]
+    assert "risk" not in assumption
+    assert "consequence" not in assumption
+
+    capsys.readouterr()
+    assert cmd_register_commit(project_root, cycle_id, stage, operations=[]) == 0

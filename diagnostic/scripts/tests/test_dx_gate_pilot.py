@@ -22,6 +22,12 @@ from dx_gate_control import (  # noqa: E402
 )
 from dx_register_control import cmd_register_append  # noqa: E402
 from dx_workflow_common import decision_doc_path, gate_state_path, registers_path  # noqa: E402
+from diagnostic_test_helpers import (  # noqa: E402
+    gate_payload_exists,
+    list_gate_payloads,
+    load_gate_payload_file,
+    load_rendered_doc,
+)
 from test_dx_gate_loop_a import _close_o  # noqa: E402
 
 
@@ -102,7 +108,11 @@ def test_init_and_q_e_gate_close(template_config: Path, monkeypatch: pytest.Monk
     }
     assert cmd_gate_close(project_root, cycle_id, stage, "E", e_payload) == 0
 
-    doc = load_decision_doc(project_root / decision_doc_path(cycle_id, stage))
+    assert gate_payload_exists(project_root, cycle_id, "Q")
+    assert gate_payload_exists(project_root, cycle_id, "E")
+    assert not (project_root / decision_doc_path(cycle_id, stage)).exists()
+
+    doc = load_rendered_doc(project_root, cycle_id, stage)
     assert "用户无法批量导出报表" in doc
     assert "服务端导出" in doc
     assert "User Choice:** A" in doc
@@ -154,9 +164,8 @@ def test_invalidate_from_e_resets_downstream(template_config: Path, monkeypatch:
 
     assert cmd_invalidate_from(project_root, cycle_id, stage, "E") == 0
 
-    doc = load_decision_doc(project_root / decision_doc_path(cycle_id, stage))
-    direction_body = doc.split("## 3. Direction Comparison", 1)[1]
-    assert "**User Choice:** TBD" in direction_body
+    assert not gate_payload_exists(project_root, cycle_id, "E")
+    assert gate_payload_exists(project_root, cycle_id, "Q")
 
     gate_state = json.loads(
         (project_root / gate_state_path(cycle_id, stage)).read_text(encoding="utf-8")
@@ -201,11 +210,9 @@ def test_invalidate_from_q_clears_direction_section(
 
     assert cmd_invalidate_from(project_root, cycle_id, stage, "Q") == 0
 
-    doc = load_decision_doc(project_root / decision_doc_path(cycle_id, stage))
-    problem_body = doc.split("## 2. Problem Definition", 1)[1].split("## 3.", 1)[0]
-    assert "TBD" in problem_body
-    direction_body = doc.split("## 3. Direction Comparison", 1)[1]
-    assert "**User Choice:** TBD" in direction_body
+    assert not gate_payload_exists(project_root, cycle_id, "Q")
+    assert not gate_payload_exists(project_root, cycle_id, "E")
+    assert list_gate_payloads(project_root, cycle_id) == ["O"]
 
 
 def test_gate_close_e_rejects_four_directions(
@@ -395,6 +402,6 @@ def test_register_commit_g0_returns_full_ctx(
     assert "gates" in payload
     assert "domain_constraints" in payload
 
-    doc = load_decision_doc(project_root / decision_doc_path(cycle_id, stage))
+    doc = load_rendered_doc(project_root, cycle_id, stage)
     assert "Prefer incremental rollout" in doc
     assert "API is ready" in doc

@@ -2,9 +2,9 @@
 
 ## Decision-Doc Format
 
-Decision-doc is maintained incrementally by `$GATE_CONTROL gate-close` and `$REGISTER_CONTROL sync-registers-to-doc`. Section layout and filtering: `dx_decision_doc_schema.py` / control `--help`.
+Decision-doc is **not** maintained during execution. Gate payloads live in `gate-payloads/<G>.json`; `$SESSION_INTEGRITY render` builds `decision-doc.md` once before user confirmation. Section layout: `dx_decision_doc_schema.py` / `$SESSION_INTEGRITY render --help`.
 
-**Section filtering:** If Domain Constraints omit sections, control scripts skip them at init and patch. If no Domain Constraints are present, write all sections.
+**Section filtering:** If Domain Constraints omit sections, render skips them. If no Domain Constraints are present, write all sections.
 
 <HARD-GATE name="Decision-Doc Prerequisites">
 Template SSOT: `$FETCH_TEMPLATE --section diagnostic --key decision_doc_template_url`
@@ -15,7 +15,13 @@ Apply Section filtering using `$CTX.domain_constraints` after `resolve-context`.
 
 ## Self-Review (before Delivery)
 
-Before presenting to user, run `$GATE_CONTROL check-delivery-ready`. Fix every error in stdout before continuing. Do **not** open session data files directly.
+Before presenting to user:
+
+1. Run `$GATE_CONTROL check-delivery-ready` (structural audit). Fix every error in stdout before continuing.
+2. Run **AI Semantic Review** per `$SKILL_DIR/session-invariants.yaml` (see runner pipeline step 4).
+3. Run `$SESSION_INTEGRITY render`.
+
+Do **not** open session data files directly except `decision-doc.md` after render (G4 DC exception).
 
 ---
 
@@ -26,8 +32,9 @@ Before presenting to user, run `$GATE_CONTROL check-delivery-ready`. Fix every e
 - Path 2: V direct — no high-risk, medium/low batch-confirmed, no Risk Release needed
 - Path 3: RR exit 1 — all Released, Assumption Log has no new `[待验证]` entries
 
-After `check-delivery-ready` passes:
-1. Present the following key sections **in the conversation** (from `$CTX` / prior gate-close content — do not show file paths):
+After structural audit and AI review pass, and after render:
+
+1. Present the following key sections **from `decision-doc.md`** in the conversation (do not show file paths):
    - Decision Rationale
    - Scope (including explicit exclusions)
    - Assumptions & Risks (all items with risk levels and Verification content)

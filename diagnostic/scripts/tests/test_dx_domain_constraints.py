@@ -18,6 +18,7 @@ from dx_domain_constraints_schema import load_domain_constraints  # noqa: E402
 from dx_gate_control import cmd_gate_close, cmd_init_session, cmd_resolve_context  # noqa: E402
 from dx_register_control import cmd_register_append, cmd_register_update  # noqa: E402
 from dx_workflow_common import decision_doc_path, domain_constraints_path  # noqa: E402
+from diagnostic_test_helpers import load_rendered_doc  # noqa: E402
 from test_dx_gate_loop_a import _close_qe, _full_template  # noqa: E402
 
 
@@ -58,7 +59,9 @@ def test_init_strips_omitted_sections(template_config: Path, monkeypatch: pytest
         == 0
     )
 
-    doc = load_decision_doc(project_root / decision_doc_path(cycle_id, stage))
+    assert not (project_root / decision_doc_path(cycle_id, stage)).exists()
+
+    doc = load_rendered_doc(project_root, cycle_id, stage)
     assert "## 5. Scope" not in doc
     assert "## 7. Execution Analysis" not in doc
     assert "## 4. Decision Rationale" in doc
@@ -110,7 +113,9 @@ def test_x_gate_close_respects_x_dimensions(template_config: Path, monkeypatch: 
         == 0
     )
 
-    doc = load_decision_doc(project_root / decision_doc_path(cycle_id, stage))
+    assert not (project_root / decision_doc_path(cycle_id, stage)).exists()
+
+    doc = load_rendered_doc(project_root, cycle_id, stage)
     assert "Users can export" in doc
     assert "### 7.2 Impact Surface" not in doc
     assert "### 7.4 Implementation Sketch" not in doc
@@ -155,7 +160,9 @@ def test_release_tracking_column_in_assumptions_table(
         payload={"release_tracking": True},
     )
 
-    doc = load_decision_doc(project_root / decision_doc_path(cycle_id, stage))
+    assert not (project_root / decision_doc_path(cycle_id, stage)).exists()
+
+    doc = load_rendered_doc(project_root, cycle_id, stage)
     assert "Release Tracking" in doc
     assert "Yes" in doc
     assert "Tracked item" in doc

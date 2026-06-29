@@ -35,7 +35,7 @@ Propose reopen gate `G` (Q / E / D / X); G8 before `$RS_COMMIT`.
 
 ## Consequences (script SSOT)
 
-- Gate + decision-doc invalidation: **`$GATE_CONTROL` only** (DAG scope).
+- Gate + payload invalidation: **`$GATE_CONTROL` only** (DAG scope; deletes downstream `gate-payloads/*.json`, strips risk when R reopens).
 - Registers: **not** auto-modified — `$RS_COMMIT` only.
 
 ## Prerequisites

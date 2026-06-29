@@ -13,7 +13,6 @@ _DIAG_SCRIPTS = Path(__file__).resolve().parents[1]
 if str(_DIAG_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_DIAG_SCRIPTS))
 
-from dx_decision_doc_schema import load_decision_doc  # noqa: E402
 from dx_gate_control import (  # noqa: E402
     cmd_check_delivery_ready,
     cmd_deliver,
@@ -21,11 +20,8 @@ from dx_gate_control import (  # noqa: E402
     cmd_init_session,
 )
 from dx_register_control import cmd_register_append  # noqa: E402
-from dx_workflow_common import (  # noqa: E402
-    decision_doc_path,
-    gate_state_path,
-    session_state_path,
-)
+from dx_workflow_common import gate_state_path, session_state_path  # noqa: E402
+from diagnostic_test_helpers import load_rendered_doc, render_session_doc  # noqa: E402
 from test_dx_gate_loop_a import _close_qe, _full_template  # noqa: E402
 
 
@@ -127,7 +123,7 @@ def test_loop_b_v_rr_dc_deliver(template_config: Path, monkeypatch: pytest.Monke
     )
     assert gate_state["active_gate"] == "RR"
 
-    doc = load_decision_doc(project_root / decision_doc_path(cycle_id, stage))
+    doc = load_rendered_doc(project_root, cycle_id, stage)
     assert "integration test" in doc
 
     assert (
@@ -151,6 +147,8 @@ def test_loop_b_v_rr_dc_deliver(template_config: Path, monkeypatch: pytest.Monke
 
     ready = cmd_check_delivery_ready(project_root, cycle_id, stage)
     assert ready == 0
+
+    render_session_doc(project_root, cycle_id, stage)
 
     assert (
         cmd_gate_close(

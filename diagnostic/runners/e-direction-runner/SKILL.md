@@ -2,7 +2,7 @@
 name: diagnostic/e-direction-runner
 description: >-
   E gate runner for diagnostic. Executes direction exploration dialogue and
-  gate-close E with incremental decision-doc write. Invoked by diagnostic/SKILL.md.
+  gate-close E with gate-payload write. Invoked by diagnostic/SKILL.md.
 meta-skill-version: 1.0.0
 ---
 

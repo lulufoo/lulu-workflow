@@ -2,7 +2,7 @@
 name: diagnostic/q-problem-runner
 description: >-
   Q gate runner for diagnostic. Executes problem clarification dialogue and
-  gate-close Q with incremental decision-doc write. Invoked by diagnostic/SKILL.md.
+  gate-close Q with gate-payload write. Invoked by diagnostic/SKILL.md.
 meta-skill-version: 1.0.0
 ---
 
