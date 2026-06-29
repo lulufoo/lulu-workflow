@@ -46,6 +46,22 @@ Before design drafting or evaluation:
 
 > Prerequisite: diagnostic `decision-doc` Delivered for this cycle.
 
+**Phase 0 — Inductive layer (optional):**
+
+Before running start.py, ask the user:
+
+> "是否先执行归纳层（Inductive Runner）？归纳层会读取 decision-doc，与你协作提炼技术方案的代码锚定细节，产出 inductive-scope.md 供后续 Initializing 使用。(Y/N)"
+
+- **Y** → Dispatch inductive-runner:
+
+```text
+Load {actual $SKILL_ROOT}/tech-design/inductive-runner/SKILL.md and follow its instructions.
+```
+
+  Await completion. When inductive-runner returns, continue to Phase 1 below. Compose Initializing will read both `decision-doc.md` and `inductive-scope.md` (if present) as scope input.
+
+- **N** → Proceed directly to Phase 1.
+
 **Phase 1:** Identify active cycle — `_runtime.md` § Session Foundation. Do not run start.py until `$CYCLE_ID` is confirmed.
 
 **Phase 2:** Run start
@@ -80,7 +96,7 @@ To resume an in-progress design document, do not run start again — run `$SESSI
 
 #### Step 1 — Initializing
 
-Compose design-doc from decision-doc (`I*` / `F` / `C` per section; see initializing-runner Theory). No mapping paste.
+Compose design-doc from decision-doc (`I*` / `F` / `C` per section; see initializing-runner Theory). No mapping paste. If `inductive-scope.md` exists in the design cache dir, read it alongside `decision-doc.md` as additional grounding — its resolved design decisions and code references enrich the scope substance.
 
 1. Run `$DRAFT_CONTROL begin-init`.
    - On failure → Blocking.
