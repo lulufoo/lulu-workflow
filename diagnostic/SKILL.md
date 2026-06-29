@@ -25,7 +25,7 @@ Do NOT proceed until you have read `../_runtime.md` and loaded:
 
 <HARD-GATE name="Domain Constraints">
 
-**Runtime SSOT:** Pin `$CTX` via `$GATE_CONTROL resolve-context`. Authoritative fields: `domain_constraints` (`x_dimensions`, `omitted_sections`, `role`), `context_loading`, `after_dc`. Do not infer from holder SKILL prose or memory.
+**Runtime SSOT:** Pin `$CTX` via `$GATE_CONTROL resolve-context`. Authoritative fields: `domain_constraints` (`objective`, `role`, `domain`, `x_dimensions`, `omitted_sections`), `context_loading`, `after_dc`. Do not infer from holder SKILL prose or memory.
 
 </HARD-GATE>
 

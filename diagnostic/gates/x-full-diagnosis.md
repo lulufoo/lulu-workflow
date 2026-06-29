@@ -4,7 +4,7 @@
 
 **Prerequisites:** D closed
 
-**Dimension list:** After `$GATE_CONTROL resolve-context`, execute **only** dimensions listed in `$CTX.domain_constraints.x_dimensions`; skip all others. Do not read holder SKILL or infer dimensions from prose.
+**Dimension list:** After `$GATE_CONTROL resolve-context`, execute **only** dimensions listed in `$CTX.domain_constraints.x_dimensions`; skip all others. Do not read holder SKILL or infer dimensions from prose. If `$CTX.domain_constraints.domain.dimension_framing[<dim>]` is present for a dimension, use it as the Core question for that dimension instead of the table default.
 
 **Execute one dimension, one question at a time (apply G7 for each Core question). After presenting each dimension's result, ask "Is this [dimension name] correct? (y / adjust)" before proceeding to the next. (G8)**
 

@@ -26,7 +26,10 @@ Do NOT proceed until you have read `../../../_runtime.md`
 ## Pipeline
 
 1. `$GATE_CONTROL resolve-context` — pin `$CTX`
-2. Read `$CTX.domain_constraints.role.instruction` and follow it for all subsequent dialogue in this gate. Missing `role`: skip.
+2. Read and apply from `$CTX.domain_constraints` for all subsequent dialogue in this gate:
+   - `objective` — session intent; frame the entire gate within this goal
+   - `role.instruction` — persona and language stance
+   - `domain.instruction` — domain boundary constraints
 3. Gate contract § Before entering — prior sign-off, then assumption coverage (G8)
 4. Gate contract § Execute — risk + consequence (G8 confirm)
 5. Select exit with user:

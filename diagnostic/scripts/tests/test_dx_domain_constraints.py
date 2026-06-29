@@ -212,11 +212,16 @@ def test_resolve_context_includes_role_for_product_diagnostic(
     role = payload["domain_constraints"]["role"]
     assert role["persona"] == "product_thinker"
     assert role["instruction"]
+    constraints = payload["domain_constraints"]
+    assert constraints["objective"]
+    assert constraints["domain"]["name"] == "product"
+    assert constraints["domain"]["instruction"]
+    assert len(constraints["domain"]["dimension_framing"]) == 5
     assert payload["after_dc"]["next_steps"] == ["product-spec"]
 
 
 def test_load_constraints_config_from_explicit_path() -> None:
-    from dx_domain_constraints_schema import load_constraints_config
+    from dx_domain_constraints_schema import ALL_X_DIMENSIONS, load_constraints_config
 
     product = load_constraints_config(_holder_constraints("product-diagnostic"))
     tech = load_constraints_config(_holder_constraints("tech-diagnostic"))
@@ -229,6 +234,45 @@ def test_load_constraints_config_from_explicit_path() -> None:
     assert product["role"]["persona"] == "product_thinker"
     assert tech["role"]["persona"] == "technical_decision_maker"
     assert tech.get("context_loading", {}).get("sources")
+    for holder in (product, tech):
+        assert holder["objective"]
+        assert holder["domain"]["name"]
+        assert holder["domain"]["instruction"]
+        assert set(holder["domain"]["dimension_framing"]) == set(ALL_X_DIMENSIONS)
+
+
+def test_holder_constraints_require_objective_and_domain() -> None:
+    from dx_domain_constraints_schema import load_constraints_config
+
+    base = json.loads(_holder_constraints("product-diagnostic").read_text(encoding="utf-8"))
+    missing_objective = {k: v for k, v in base.items() if k != "objective"}
+    with pytest.raises(ValueError, match="objective is required"):
+        load_constraints_config_from_dict(missing_objective, stage="product-diagnostic")
+
+    missing_domain_instruction = json.loads(
+        _holder_constraints("product-diagnostic").read_text(encoding="utf-8")
+    )
+    missing_domain_instruction["domain"] = {
+        "name": "product",
+        "instruction": "",
+        "dimension_framing": missing_domain_instruction["domain"]["dimension_framing"],
+    }
+    with pytest.raises(ValueError, match="domain.instruction is required"):
+        load_constraints_config_from_dict(missing_domain_instruction, stage="product-diagnostic")
+
+
+def load_constraints_config_from_dict(data: dict, *, stage: str) -> dict:
+    import tempfile
+
+    from dx_domain_constraints_schema import load_constraints_config
+
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as handle:
+        json.dump(data, handle)
+        path = Path(handle.name)
+    try:
+        return load_constraints_config(path, stage=stage)
+    finally:
+        path.unlink(missing_ok=True)
 
 
 def test_session_cache_subdir_from_constraints_path(

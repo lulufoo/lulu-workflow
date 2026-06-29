@@ -50,7 +50,10 @@ Do NOT proceed until you have read `../../../_runtime.md`
 ## Pipeline
 
 1. `$GATE_CONTROL resolve-context` — pin `$CTX`; baseline before proposals (not conversation memory)
-2. Read `$CTX.domain_constraints.role.instruction` and follow it for all subsequent dialogue in this gate. Missing `role`: skip.
+2. Read and apply from `$CTX.domain_constraints` for all subsequent dialogue in this gate:
+   - `objective` — session intent; frame the entire gate within this goal
+   - `role.instruction` — persona and language stance
+   - `domain.instruction` — domain boundary constraints
 3. Confirm reopen gate `G` with user (G8)
 4. Propose 3-state labeling for all register entries per gate contract Step 3; user confirms (G8)
 5. `$RS_COMMIT` with `--gate <G>` and `--operations '<json array>'` (use `[]` if no register changes)

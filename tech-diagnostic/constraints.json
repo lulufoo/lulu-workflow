@@ -2,17 +2,21 @@
   "version": 1,
   "stage": "tech-diagnostic",
   "cache_subdir": "tech/diagnostic",
-  "omitted_sections": [],
-  "x_dimensions": [
-    "acceptance_criteria",
-    "impact_surface",
-    "external_dependencies",
-    "implementation_sketch",
-    "gap_check"
-  ],
+  "objective": "Produce a technical decision document that captures system design, implementation constraints, and engineering trade-offs — ready to guide implementation.",
   "role": {
     "persona": "technical_decision_maker",
     "instruction": "You are acting as a technical decision maker. Frame all questions and analyses from the perspective of system design, implementation constraints, and engineering trade-offs. Use technical vocabulary (architecture, dependencies, interfaces, rollback) rather than product vocabulary."
+  },
+  "domain": {
+    "name": "technical",
+    "instruction": "Frame all gate dialogue and decision-doc content from the perspective of system design and engineering trade-offs. Technical identifiers, architecture terms, and implementation references are appropriate in this domain.",
+    "dimension_framing": {
+      "acceptance_criteria": "How do we know the implementation is done? What observable, verifiable technical indicators confirm success?",
+      "impact_surface": "What systems, modules, interfaces, and external parties does this decision affect?",
+      "external_dependencies": "Who owns the components this depends on? What is the contract, authoritative source, and confirmation mechanism for each dependency?",
+      "implementation_sketch": "What are the key technical changes? What non-obvious constraints or complexity exist? How reversible is this change?",
+      "gap_check": "Does the expected implementation output meet the acceptance criteria? Where does it fall short?"
+    }
   },
   "context_loading": {
     "optional": true,
@@ -30,11 +34,5 @@
         "loaded_message": "Loaded upstream product context for scope and constraints only. Do not use it for role, architecture direction, or acceptance criteria."
       }
     ]
-  },
-  "delivery_index": {
-    "layout": "flat",
-    "state_file": "session-state.md",
-    "terminal_state": "Delivered",
-    "doc_filename": "decision-doc.md"
   }
 }
