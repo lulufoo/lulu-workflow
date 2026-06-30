@@ -9,7 +9,7 @@ disable-model-invocation: true
 # tech-design
 
 > **Prerequisite:** Delivered `decision-doc` from `tech-diagnostic`.
-> **Phase 2:** Full Drafting lifecycle (Initializing → Round → FreeEdit) + Evaluating + Delivery wired.
+> **Phase 2:** Full Drafting lifecycle (Inductive → Initializing → FreeEdit) + Evaluating + Delivery wired.
 
 Produce **design-doc.md** — technical solution design for human sign-off before `tech-plan`.
 
@@ -56,10 +56,12 @@ python3 "$SKILL_DIR/scripts/tech-design_start.py" \
   --cycle-id "<cycle_id>" \
   --profile tech-design \
   --profile-path "$SKILL_DIR/compose-profile.json" \
-  --run-mode tech
+  --run-mode product|tech
 ```
 
-- Requires `tech-diagnostic` in `{cycle_id}/delivered-refs.json` (written when tech-diagnostic **delivers**). `start.py` snapshots it into `workflow-state.delivered_refs`; Initializing reads the snapshot.
+- **tech mode** (default): requires `tech-diagnostic` in `{cycle_id}/delivered-refs.json`. Evaluating runs d1 + d2.
+- **product mode**: requires both `tech-diagnostic` **and** `product-spec` in `{cycle_id}/delivered-refs.json`. Evaluating adds d3 (`intent-alignment`) — GAP/GHOST detection against the product-spec. Use `--run-mode product` when product-spec context applies.
+- `start.py` validates required entries via the profile StartAdapter, then snapshots them into `workflow-state.delivered_refs`; Initializing reads the snapshot.
 
 To resume an in-progress design document, do not run start again — run `$SESSION_INFO --view session`.
 
@@ -73,10 +75,10 @@ To resume an in-progress design document, do not run start again — run `$SESSI
 
 ## Drafting Rules
 
-**Entry:** Step 0 → Step 1 → Step 2 → Step 3, or resume via `$SESSION_INFO --view session`.
-**Drafting states:** `Inductive → Initialized → RoundIteration → FreeEdit`.
+**Entry:** Step 0 → Step 1 → Step 2, or resume via `$SESSION_INFO --view session`.
+**Drafting states:** `Inductive → Initialized → FreeEdit`.
 
-**After Initializing completes:** present summary; user may enter **Step 2 — RoundIteration**, **Evaluating**, or **Deliver** (skip Round/FreeEdit).
+**After Initializing completes:** present summary; user may enter **Step 2 — FreeEdit**, **Evaluating**, or **Deliver** (skip FreeEdit).
 
 #### Step 0 — Inductive (mandatory)
 
@@ -116,19 +118,12 @@ Await completion (`$SUBAGENT_AWAIT_SYNC`).
 
 2. Run `$DRAFT_CONTROL init-complete`. On failure → Blocking.
 
-3. **Pause gate:** Present runner return summary and `design-doc.md` path. Ask: Round refine, Evaluate, or Deliver?
+3. **Pause gate:** Present runner return summary and `design-doc.md` path. Ask: FreeEdit, Evaluate, or Deliver?
+   - **FreeEdit** → run `$DRAFT_CONTROL advance-to-freeedit`. On failure → Blocking. Proceed to **Step 2 — FreeEdit**.
+   - **Evaluate** → **Evaluating Rules** below (skip FreeEdit).
+   - **Deliver** → **ReadyForDelivery Rules** below (skip FreeEdit).
 
-#### Step 2 — RoundIteration
-
-Same section-gated loop as tech-plan (see `tech-plan/SKILL.md` Step 2). Use `$ROUND_CONTROL` with `--profile tech-design`.
-
-**Entry:** `$DRAFT_CONTROL begin-round` → parse JSON `round` as **N**.
-
-Per round N: **2a** probe (`round-probe-input` → prober-runner) → **2b** gap display → **2c** refiner → **2d** convergence check. On converge → `$DRAFT_CONTROL advance-to-freeedit` or `advance-round`.
-
-Prober/refiner: pass `--profile tech-design` on `$FETCH_COMPOSE section-registry` / `section-kw-criteria`.
-
-#### Step 3 — FreeEdit
+#### Step 2 — FreeEdit
 
 User-driven edits on `design-doc.md`. When done → Evaluate or Deliver.
 
@@ -140,12 +135,17 @@ When eval-rules completes, follow its exit branch:
 
 - **Deliver** → **ReadyForDelivery Rules** below.
 
+- **Continue editing** → enter **Step 2 — FreeEdit** (Evaluating fix resume; skip Step 0 and Step 1).
+
 **Dimensions (feature):**
 
-| Dim | Id | Focus |
-|-----|-----|-------|
-| d1 | `codebase-consistency` | Explicit code/module/interface citations in ST/IF/CTX vs repo |
-| d2 | `solution-quality` | P1–P4 + design supplements (D1–D3) on design-doc |
+| Dim | Id | Mode | Focus |
+|-----|-----|------|-------|
+| d1 | `codebase-consistency` | tech + product | Explicit code/module/interface citations in ST/IF/CTX vs repo |
+| d2 | `solution-quality` | tech + product | P1–P4 + design supplements (D1–D3) on design-doc |
+| d3 | `intent-alignment` | product only | GAP/GHOST detection — design-doc vs product-spec (SDCA framework) |
+
+d3 is silently skipped when `product_ref` is absent (tech mode or product mode without product-spec delivered-ref).
 
 ### ReadyForDelivery Rules
 
@@ -167,9 +167,8 @@ When eval-rules completes, follow its exit branch:
 
 | Document | When |
 |----------|------|
-| `{SKILL_ROOT}/compose-kernel/references/gap-display.md` | Round Iteration **2b** |
-| `{SKILL_ROOT}/compose-kernel/runners/prober-runner/SKILL.md` | Round **2a** |
-| `{SKILL_ROOT}/compose-kernel/runners/refiner-runner/SKILL.md` | Round **2c** |
+| `{SKILL_ROOT}/compose-kernel/runners/inductive-runner/SKILL.md` | Step 0 — inductive-runner |
+| `{SKILL_ROOT}/compose-kernel/runners/initializing-runner/SKILL.md` | Step 1 — initializing-runner |
 | `{$SKILL_ROOT}/eval/eval-rules.md` | Evaluating (user-initiated) |
 
 Template SSOT: [tech-design templates on GitHub](https://github.com/lulufoo/lulu-workflow-framework/tree/main/lulu-dev-workflow/template/tech-design)
@@ -184,7 +183,6 @@ Template SSOT: [tech-design templates on GitHub](https://github.com/lulufoo/lulu
 | `$SESSION_CONTROL` | `python3 "$SKILL_ROOT/compose-kernel/scripts/core/session_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile tech-design <subcommand>` |
 | `{SKILL_ROOT}/compose-kernel/runners/initializing-runner/SKILL.md` | Step 1 — initializing-runner |
 | `$DRAFT_CONTROL` | `python3 "$SKILL_DIR/scripts/drafting/tech_design_draft_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
-| `$ROUND_CONTROL` | `python3 "$SKILL_ROOT/compose-kernel/scripts/section/section_round_control.py" --cycle-dir "$CACHE_DIR/$CYCLE_ID" --profile tech-design --round {N} <subcommand>` |
 | `$RESOLVE_PLAN_ROLE` | `python3 "$SKILL_ROOT/compose-kernel/scripts/scope/scope_resolver.py" resolve-role --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile tech-design` |
 | `$FETCH_COMPOSE` | `python3 "$SKILL_ROOT/compose-kernel/scripts/io/fetch_compose_framework.py" --role <role> --profile tech-design --project-root "$(pwd)" --cycle-id "$CYCLE_ID"` |
 | `$EVAL_CONTROL` | `python3 "$SKILL_DIR/scripts/tech-design_eval_control.py" --workflow tech-design --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |

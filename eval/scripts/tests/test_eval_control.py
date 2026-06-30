@@ -38,6 +38,7 @@ from eval_control import (  # noqa: E402
     check_dimension_artifact_remediation,
     check_dimension_sot_remediation,
     check_sot_remediation,
+    collect_review_issues,
     complete_round,
     compute_fix_severity,
     dispatch_list,
@@ -605,3 +606,59 @@ class TestBuildEvalLoopPayload:
         payload = build_eval_loop_payload(_CYCLE, tmp_path)
         assert payload["ok"] is True
         assert payload["dispatch"] == ["e2", "e3"]
+
+
+class TestCollectReviewIssuesPrefix:
+    """Regression: collect_review_issues must use corpus-derived prefix, not hardcoded."""
+
+    def test_design_review_prefix_collected(self, tmp_path: Path):
+        """design-review-e*.md files must be scanned when corpus uses design-review prefix."""
+        _TECH_DESIGN_EVAL = _EVAL_SCRIPTS.parents[1] / "tech-design" / "scripts" / "eval"
+        if str(_TECH_DESIGN_EVAL) not in sys.path:
+            sys.path.insert(0, str(_TECH_DESIGN_EVAL))
+        from tech_design_eval_adapter import TechDesignEvalAdapter  # noqa: WPS433
+        from workflow_paths import seed_profile_pointer_for_tests  # noqa: WPS433
+
+        cycle = "feat-design-collect"
+        cache = Path(".cache/cursor/lulu-dev-workflow")
+        base = tmp_path / cache / cycle / "tech" / "design"
+        base.mkdir(parents=True)
+        (base / "session-state.md").write_text(
+            "---\nversion: 1\nactive_doc: 1\nupdated_at: 2024-01-01T00:00:00+00:00\n---\n",
+            encoding="utf-8",
+        )
+        seed_profile_pointer_for_tests(tmp_path, cycle, "tech-design")
+        ws = base / "revision1" / "workflow-state.md"
+        ws.parent.mkdir(parents=True, exist_ok=True)
+        (ws.parent / "design-doc.md").write_text("# design\n", encoding="utf-8")
+        from workflow_state_schema import init_drafting  # noqa: WPS433
+
+        init_drafting(ws, mode="tech")
+
+        adapter = TechDesignEvalAdapter()
+        token = eval_control._ADAPTER_CTX.set(adapter)
+        try:
+            eval_dir = ws.parent / "evaluate1"
+            eval_dir.mkdir(parents=True, exist_ok=True)
+            review_header = (
+                "# Design Review — D1 | revision1 round 1\n\n"
+                "**Date:** 2026-01-01\n**Refs:** codebase\n\n"
+                "| ID | root_cause | sot_ref | location | severity | evidence | description | status | decision |\n"
+                "|----|------------|---------|----------|----------|----------|-------------|--------|----------|\n"
+            )
+            review_content = (
+                review_header
+                + "| d1-1 | WO-ERROR | — | design-doc §1 | minor | ev | desc | pending | — |\n"
+            )
+            (eval_dir / "design-review-e11.md").write_text(review_content, encoding="utf-8")
+            (eval_dir / "tech-review-e11.md").write_text(review_content, encoding="utf-8")
+
+            issues, paths = collect_review_issues(eval_dir, cycle_id=cycle, project_root=tmp_path)
+        finally:
+            eval_control._ADAPTER_CTX.reset(token)
+
+        collected_names = [Path(p).name for p in paths]
+        assert "design-review-e11.md" in collected_names, "design-review file must be collected"
+        assert "tech-review-e11.md" not in collected_names, "wrong-prefix file must be ignored"
+        assert len(issues) == 1
+        assert issues[0]["dimension"] == "d1"

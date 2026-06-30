@@ -35,11 +35,17 @@ class TechDesignStartAdapter:
         run_mode: str,
         carry_forward_ref: str = "",
     ) -> list[str]:
-        del run_mode, carry_forward_ref
+        del carry_forward_ref
+        errors: list[str] = []
+        if run_mode not in ("product", "tech"):
+            errors.append(f"invalid run_mode: {run_mode!r}")
+            return errors
         data = load_delivered_refs_file(cycle_id, project_root)
         if not entry_path_ok(data, "tech-diagnostic"):
-            return ["missing delivered-refs entry: tech-diagnostic"]
-        return []
+            errors.append("missing delivered-refs entry: tech-diagnostic")
+        if run_mode == "product" and not entry_path_ok(data, "product-spec"):
+            errors.append("missing delivered-refs entry: product-spec")
+        return errors
 
     def resolve_delivered_refs(
         self,
@@ -48,12 +54,16 @@ class TechDesignStartAdapter:
         *,
         run_mode: str,
     ) -> list[DeliveredRef]:
-        del run_mode
         data = load_delivered_refs_file(cycle_id, project_root)
-        ref = ref_from_file_entry("tech-diagnostic", data)
-        if ref is None or not Path(ref.path).is_file():
-            return []
-        return [ref]
+        types = ["tech-diagnostic"]
+        if run_mode == "product":
+            types.append("product-spec")
+        refs: list[DeliveredRef] = []
+        for dtype in types:
+            ref = ref_from_file_entry(dtype, data)
+            if ref is not None and Path(ref.path).is_file():
+                refs.append(ref)
+        return refs
 
     def resolve_scope_refs(
         self,
@@ -62,9 +72,14 @@ class TechDesignStartAdapter:
         run_mode: str = "tech",
         carry_forward_ref: str = "",
     ) -> list[DeliveredRef]:
-        del run_mode, carry_forward_ref
+        del carry_forward_ref
         primary = first_ref(delivered_refs, "tech-diagnostic")
-        return [primary] if primary is not None else []
+        out = [primary] if primary is not None else []
+        if run_mode == "product":
+            product = first_ref(delivered_refs, "product-spec")
+            if product is not None:
+                out.append(product)
+        return out
 
     def delivered_ref_for_init(
         self,
@@ -80,8 +95,13 @@ class TechDesignStartAdapter:
         carry_forward_ref: str,
         scope_refs: list[DeliveredRef],
     ) -> str:
-        del run_mode, carry_forward_ref, scope_refs
+        del carry_forward_ref, scope_refs
+        if run_mode == "product":
+            return (
+                "设计阶段（产品模式）：Inductive → Initializing 完成后暂停；可选 FreeEdit、"
+                "Evaluating（d1 代码库一致性 + d2 方案质量 + d3 产品意图对齐）或 Deliver。"
+            )
         return (
-            "设计阶段：Initializing 完成后暂停；可选 Evaluating（d1 代码库一致性 + "
-            "d2 方案质量）或 Deliver。"
+            "设计阶段：Inductive → Initializing 完成后暂停；可选 FreeEdit、"
+            "Evaluating（d1 代码库一致性 + d2 方案质量）或 Deliver。"
         )

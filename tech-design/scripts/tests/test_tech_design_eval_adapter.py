@@ -26,12 +26,15 @@ _CACHE = Path(".cache/cursor/lulu-dev-workflow")
 
 
 def _seed_session(tmp_path: Path) -> Path:
+    from workflow_paths import seed_profile_pointer_for_tests  # noqa: WPS433
+
     base = tmp_path / _CACHE / _CYCLE / "tech" / "design"
     base.mkdir(parents=True)
     (base / "session-state.md").write_text(
         "---\nversion: 1\nactive_doc: 1\nupdated_at: 2024-01-01T00:00:00+00:00\n---\n",
         encoding="utf-8",
     )
+    seed_profile_pointer_for_tests(tmp_path, _CYCLE, "tech-design")
     rev = base / "revision1"
     rev.mkdir(parents=True)
     (rev / "design-doc.md").write_text("# design\n", encoding="utf-8")
@@ -43,7 +46,7 @@ class TestTechDesignEvalAdapter:
         adapter = TechDesignEvalAdapter()
         assert adapter.corpus_ref_for_mode("tech") == TECH_DESIGN_COMPOSED_CORPUS_REF
 
-    def test_resolve_eval_corpus(self, tmp_path: Path):
+    def test_resolve_eval_corpus_tech_mode(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
         init_drafting(ws, mode="tech")
         adapter = TechDesignEvalAdapter()
@@ -53,6 +56,20 @@ class TestTechDesignEvalAdapter:
         assert corpus["scope"] == "tech-design"
         assert corpus["dimensions"][0]["review"]["output_path"] == "design-review-e{M}1.md"
         assert corpus_fingerprint(ids, cycle_type="feature")
+
+    def test_resolve_eval_corpus_product_mode(self, tmp_path: Path):
+        ws = _seed_session(tmp_path)
+        from init_drafting_helpers import product_delivered_refs  # noqa: WPS433
+
+        init_drafting(ws, mode="product", delivered_refs=product_delivered_refs("/p.md"))
+        adapter = TechDesignEvalAdapter()
+        corpus = adapter.resolve_eval_corpus(_CYCLE, tmp_path)
+        assert [d["id"] for d in corpus["dimensions"]] == [
+            "codebase-consistency",
+            "solution-quality",
+            "intent-alignment",
+        ]
+        assert corpus["dimensions"][2]["review"]["output_path"] == "design-review-e{M}3.md"
 
     def test_eval_paths_compose_doc(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
@@ -86,6 +103,8 @@ class TestTechDesignEvalAdapter:
         assert "tech/design/revision1" in es_path.as_posix()
 
     def test_resolve_eval_corpus_topic_blocks(self, tmp_path: Path):
+        from workflow_paths import seed_profile_pointer_for_tests  # noqa: WPS433
+
         cycle = "topic-design-blocked"
         base = tmp_path / _CACHE / cycle / "tech" / "design"
         base.mkdir(parents=True)
@@ -93,6 +112,7 @@ class TestTechDesignEvalAdapter:
             "---\nversion: 1\nactive_doc: 1\n---\n",
             encoding="utf-8",
         )
+        seed_profile_pointer_for_tests(tmp_path, cycle, "tech-design")
         ws = base / "revision1" / "workflow-state.md"
         ws.parent.mkdir(parents=True, exist_ok=True)
         init_drafting(ws, mode="tech")

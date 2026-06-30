@@ -11,6 +11,7 @@ from typing import Any
 _DIMENSION_DEF_FILES = {
     "codebase-consistency": "codebase-consistency.json",
     "solution-quality": "solution-quality.json",
+    "intent-alignment": "intent-alignment.json",
 }
 
 _DESIGN_QUALITY_CONFIG_KEY = "tdt_design_quality_framework_url"
@@ -21,9 +22,19 @@ _TOPIC_EVAL_BLOCKED = (
 )
 
 
-def select_dimension_ids() -> list[str]:
-    """Return ordered dimension ids for tech-design Evaluating."""
-    return ["codebase-consistency", "solution-quality"]
+def select_dimension_ids(
+    mode: str = "tech",
+    product_ref: str = "",
+) -> list[str]:
+    """Return ordered dimension ids for tech-design Evaluating.
+
+    When mode='product' and product_ref is non-empty, intent-alignment (d3)
+    is appended. Otherwise d3 is silently skipped.
+    """
+    ids = ["codebase-consistency", "solution-quality"]
+    if mode == "product" and product_ref:
+        ids.append("intent-alignment")
+    return ids
 
 
 def design_quality_config_key(cycle_type: str) -> str:
@@ -39,10 +50,21 @@ def require_feature_eval(cycle_type: str) -> None:
         raise ValueError(f"unsupported cycle_type for eval: {cycle_type!r}")
 
 
-def load_dimension_defs(dimension_defs_dir: Path) -> dict[str, dict[str, Any]]:
-    """Load all dimension definition files keyed by dimension id."""
+def load_dimension_defs(
+    dimension_defs_dir: Path,
+    *,
+    ids: list[str] | None = None,
+) -> dict[str, dict[str, Any]]:
+    """Load dimension definition files keyed by dimension id.
+
+    Only loads files for the requested ids (or all known ids when ids=None).
+    """
+    targets = ids if ids is not None else list(_DIMENSION_DEF_FILES.keys())
     result: dict[str, dict[str, Any]] = {}
-    for dim_id, filename in _DIMENSION_DEF_FILES.items():
+    for dim_id in targets:
+        filename = _DIMENSION_DEF_FILES.get(dim_id)
+        if filename is None:
+            raise KeyError(f"unknown dimension id: {dim_id!r}")
         path = dimension_defs_dir / filename
         if not path.is_file():
             raise FileNotFoundError(f"missing dimension def: {path}")
@@ -57,9 +79,15 @@ def select_dimension_defs(
     *,
     cycle_type: str,
     dimension_defs_dir: Path,
+    mode: str = "tech",
+    product_ref: str = "",
 ) -> list[dict[str, Any]]:
-    """Return ordered dimension definitions for compose_corpus."""
+    """Return ordered dimension definitions for compose_corpus.
+
+    Passes mode and product_ref to select_dimension_ids to determine whether
+    intent-alignment (d3) is included.
+    """
     require_feature_eval(cycle_type)
-    defs = load_dimension_defs(dimension_defs_dir)
-    ids = select_dimension_ids()
+    ids = select_dimension_ids(mode=mode, product_ref=product_ref)
+    defs = load_dimension_defs(dimension_defs_dir, ids=ids)
     return [copy.deepcopy(defs[dim_id]) for dim_id in ids]

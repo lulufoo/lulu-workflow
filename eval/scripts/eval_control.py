@@ -164,7 +164,22 @@ _CMD_SOT_REMEDIATION_COMPLETE = "sot-remediation-complete"
 _CMD_CHECK_SOT_REMEDIATION = "check-sot-remediation"
 _CMD_COMPLETE_ROUND = "complete-round"
 
-_REVIEW_FILE_RE = re.compile(r"tech-review-e\d+(\d+)\.md$")
+def _review_prefix_from_corpus(corpus: dict[str, Any]) -> str:
+    """Derive the review file prefix from the corpus output_path template.
+
+    The corpus already encodes the prefix in each dimension's review.output_path,
+    e.g. "design-review-e{M}1.md" → prefix "design-review".
+    This keeps eval independent of stage-specific naming conventions.
+    """
+    dims = corpus.get("dimensions", [])
+    if dims:
+        output_path = dims[0].get("review", {}).get("output_path", "")
+        m = re.match(r"^(.+?)-e\{M\}\d+\.md$", output_path)
+        if m:
+            return m.group(1)
+    return ""
+
+
 _ENTRY_V3_KEYS = (
     "version",
     "eval_status",
@@ -352,11 +367,15 @@ def dimension_from_review_path(
     cycle_id: str,
     project_root: Path,
 ) -> str:
-    match = _REVIEW_FILE_RE.search(path.name)
+    corpus = _load_corpus(cycle_id, project_root)
+    prefix = _review_prefix_from_corpus(corpus)
+    if not prefix:
+        return ""
+    review_re = re.compile(rf"{re.escape(prefix)}-e\d+(\d+)\.md$")
+    match = review_re.search(path.name)
     if not match:
         return ""
     seq = int(match.group(1))
-    corpus = _load_corpus(cycle_id, project_root)
     for item in corpus["dimensions"]:
         if item["review"]["seq"] == seq:
             return str(item.get("legacy_alias") or item["id"])
@@ -374,12 +393,22 @@ def collect_review_issues(
     if not eval_dir.is_dir():
         return issues, review_paths
 
-    for path in sorted(eval_dir.glob("tech-review-e*.md")):
-        dimension = dimension_from_review_path(
-            path,
-            cycle_id=cycle_id,
-            project_root=project_root,
-        )
+    corpus = _load_corpus(cycle_id, project_root)
+    prefix = _review_prefix_from_corpus(corpus)
+    if not prefix:
+        return issues, review_paths
+    review_re = re.compile(rf"{re.escape(prefix)}-e\d+(\d+)\.md$")
+
+    for path in sorted(eval_dir.glob(f"{prefix}-e*.md")):
+        match = review_re.search(path.name)
+        if not match:
+            continue
+        seq = int(match.group(1))
+        dimension = ""
+        for item in corpus["dimensions"]:
+            if item["review"]["seq"] == seq:
+                dimension = str(item.get("legacy_alias") or item["id"])
+                break
         if not dimension:
             continue
         review_paths.append(path.as_posix())

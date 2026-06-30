@@ -21,7 +21,6 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
-from compose_profile_context import set_active_profile  # noqa: E402
 from tech_design_drafting_progress_schema import (  # noqa: E402
     PROFILE_ID,
     load_drafting_progress,
@@ -29,9 +28,8 @@ from tech_design_drafting_progress_schema import (  # noqa: E402
     resolve_drafting_progress_path_from_cycle,
     save_drafting_progress,
 )
-from section_round_control import init_round_dir_if_needed  # noqa: E402
 from session_state_schema import load_active_doc  # noqa: E402
-from workflow_common import CACHE_DIR, detect_cycle_type  # noqa: E402
+from workflow_common import detect_cycle_type  # noqa: E402
 from tech_design_start_adapter import TechDesignStartAdapter  # noqa: E402
 from workflow_profile_paths import (  # noqa: E402
     doc_dir,
@@ -74,21 +72,6 @@ def _active_doc(cycle_id: str, project_root: Path) -> int:
         project_root / session_state_path(cycle_id, PROFILE_ID, project_root),
         default=1,
     )
-
-
-def _cycle_dir(cycle_id: str, project_root: Path) -> Path:
-    return (project_root / CACHE_DIR / cycle_id).resolve()
-
-
-def _ensure_round_dir(cycle_id: str, project_root: Path, *, round_n: int) -> None:
-    set_active_profile(PROFILE_ID)
-    cycle_dir = _cycle_dir(cycle_id, project_root)
-    if not cycle_dir.exists():
-        return
-    try:
-        init_round_dir_if_needed(cycle_dir, round_n=round_n)
-    except FileNotFoundError:
-        return
 
 
 def _design_doc_path(cycle_id: str, project_root: Path) -> Path:
@@ -179,18 +162,6 @@ def _init_dispatch_input(cycle_id: str, project_root: Path) -> str:
         cycle_id=cycle_id,
         inductive_dir=ind_dir if ind_dir.is_dir() else None,
     )
-
-
-def _section_order_for_profile(project_root: Path) -> list[str]:
-    from fetch_compose_framework import fetch_compose_framework  # noqa: WPS433
-
-    raw = fetch_compose_framework(
-        "section-registry",
-        project_root,
-        profile_id=PROFILE_ID,
-    )
-    data = json.loads(raw)
-    return [str(key) for key in data.get("section_order", [])]
 
 
 def _revision_dir(cycle_id: str, project_root: Path) -> Path:
@@ -355,76 +326,21 @@ def init_complete(cycle_id: str, project_root: Path) -> dict[str, Any]:
 
 
 def begin_round(cycle_id: str, project_root: Path) -> dict[str, Any]:
-    progress_path = resolve_drafting_progress_path_from_cycle(cycle_id, project_root)
-    if not progress_path.exists():
-        return _failure(
-            _CMD_BEGIN_ROUND,
-            "drafting-progress.md not found; run init-complete first",
-        )
-
-    step = read_current_step(progress_path)
-    if step == _STEP_ROUND:
-        data = load_drafting_progress(progress_path)
-        round_n = max(1, int(data.get("round", "1")))
-        _ensure_round_dir(cycle_id, project_root, round_n=round_n)
-        return _success(
-            _CMD_BEGIN_ROUND,
-            current_step=_STEP_ROUND,
-            round=round_n,
-        )
-
-    if step != _STEP_INITIALIZED:
-        return _failure(
-            _CMD_BEGIN_ROUND,
-            f"cannot begin round: current_step is {step!r} (expected Initialized)",
-            current_step=step,
-        )
-
-    save_drafting_progress(
-        progress_path,
-        {
-            "version": "1",
-            "cycle_id": cycle_id,
-            "current_step": _STEP_ROUND,
-            "round": "1",
-        },
-        merge=False,
+    del cycle_id, project_root
+    return _failure(
+        _CMD_BEGIN_ROUND,
+        "Round Iteration has been removed from tech-design; "
+        "call advance-to-freeedit directly after init-complete.",
     )
-    _ensure_round_dir(cycle_id, project_root, round_n=1)
-    return _success(_CMD_BEGIN_ROUND, current_step=_STEP_ROUND, round=1)
 
 
 def advance_round(cycle_id: str, project_root: Path) -> dict[str, Any]:
-    progress_path = resolve_drafting_progress_path_from_cycle(cycle_id, project_root)
-    if not progress_path.exists():
-        return _failure(
-            _CMD_ADVANCE_ROUND,
-            "drafting-progress.md not found; run begin-round first",
-        )
-
-    data = load_drafting_progress(progress_path)
-    step = data.get("current_step")
-    if step != _STEP_ROUND:
-        return _failure(
-            _CMD_ADVANCE_ROUND,
-            f"cannot advance round: current_step is {step!r} (expected RoundIteration)",
-            current_step=step,
-        )
-
-    current_round = max(1, int(data.get("round", "1")))
-    new_round = current_round + 1
-    save_drafting_progress(
-        progress_path,
-        {
-            "version": "1",
-            "cycle_id": data.get("cycle_id", cycle_id),
-            "current_step": _STEP_ROUND,
-            "round": str(new_round),
-        },
-        merge=False,
+    del cycle_id, project_root
+    return _failure(
+        _CMD_ADVANCE_ROUND,
+        "Round Iteration has been removed from tech-design; "
+        "call advance-to-freeedit directly after init-complete.",
     )
-    _ensure_round_dir(cycle_id, project_root, round_n=new_round)
-    return _success(_CMD_ADVANCE_ROUND, current_step=_STEP_ROUND, round=new_round)
 
 
 def advance_to_freeedit(cycle_id: str, project_root: Path) -> dict[str, Any]:
@@ -432,7 +348,7 @@ def advance_to_freeedit(cycle_id: str, project_root: Path) -> dict[str, Any]:
     if not progress_path.exists():
         return _failure(
             _CMD_ADVANCE_TO_FREEEDIT,
-            "drafting-progress.md not found; run begin-round first",
+            "drafting-progress.md not found; run init-complete first",
         )
 
     data = load_drafting_progress(progress_path)
@@ -440,10 +356,11 @@ def advance_to_freeedit(cycle_id: str, project_root: Path) -> dict[str, Any]:
     if step == _STEP_FREE_EDIT:
         return _success(_CMD_ADVANCE_TO_FREEEDIT, current_step=_STEP_FREE_EDIT)
 
-    if step != _STEP_ROUND:
+    if step not in (_STEP_INITIALIZED, _STEP_ROUND):
         return _failure(
             _CMD_ADVANCE_TO_FREEEDIT,
-            f"cannot advance to FreeEdit: current_step is {step!r} (expected RoundIteration)",
+            f"cannot advance to FreeEdit: current_step is {step!r} "
+            f"(expected Initialized or RoundIteration)",
             current_step=step,
         )
 
@@ -491,9 +408,9 @@ def _cli() -> int:
     sub.add_parser(_CMD_INDUCTIVE_COMPLETE, help="Complete Inductive (validate per-section outputs)")
     sub.add_parser(_CMD_BEGIN_INIT, help="Begin Initializing (gate + dispatch input)")
     sub.add_parser(_CMD_INIT_COMPLETE, help="Complete Initializing")
-    sub.add_parser(_CMD_BEGIN_ROUND, help="Begin Round Iteration")
-    sub.add_parser(_CMD_ADVANCE_ROUND, help="Increment round counter")
-    sub.add_parser(_CMD_ADVANCE_TO_FREEEDIT, help="Transition to FreeEdit")
+    sub.add_parser(_CMD_BEGIN_ROUND, help="[Deprecated] Was Round Iteration; now returns failure")
+    sub.add_parser(_CMD_ADVANCE_ROUND, help="[Deprecated] Was round increment; now returns failure")
+    sub.add_parser(_CMD_ADVANCE_TO_FREEEDIT, help="Transition Initialized -> FreeEdit")
     sub.add_parser(_CMD_STATUS, help="Read drafting-progress snapshot")
 
     args = parser.parse_args()

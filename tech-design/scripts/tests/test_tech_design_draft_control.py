@@ -239,55 +239,37 @@ class TestTechDesignDraftControl:
         assert "empty body" in result["reason"]
 
 
-class TestTechDesignBeginRound:
-    def test_transitions_ready_to_round_iteration(self, tmp_path: Path):
-        revision = _ready_session(tmp_path)
-        result = begin_round(_CYCLE, tmp_path)
-        assert result["ok"] is True
-        assert result["current_step"] == "RoundIteration"
-        assert result["round"] == 1
-        progress = (revision / "drafting-progress.md").read_text(encoding="utf-8")
-        assert "current_step: RoundIteration" in progress
-        assert "round: 1" in progress
-        assert (revision / "round-1" / "section-pointer.json").exists()
-
-    def test_idempotent_when_already_round_iteration(self, tmp_path: Path):
+class TestTechDesignDeprecatedRound:
+    def test_begin_round_returns_failure(self, tmp_path: Path):
         _ready_session(tmp_path)
-        begin_round(_CYCLE, tmp_path)
-        result = begin_round(_CYCLE, tmp_path)
-        assert result["ok"] is True
-        assert result["round"] == 1
-
-    def test_fails_without_progress(self, tmp_path: Path):
-        _seed_session(tmp_path)
         result = begin_round(_CYCLE, tmp_path)
         assert result["ok"] is False
+        assert "removed" in result["reason"]
 
-
-class TestTechDesignAdvanceRound:
-    def test_increments_round(self, tmp_path: Path):
-        revision = _ready_session(tmp_path)
-        begin_round(_CYCLE, tmp_path)
+    def test_advance_round_returns_failure(self, tmp_path: Path):
+        _ready_session(tmp_path)
         result = advance_round(_CYCLE, tmp_path)
-        assert result["ok"] is True
-        assert result["round"] == 2
-        progress = (revision / "drafting-progress.md").read_text(encoding="utf-8")
-        assert "round: 2" in progress
+        assert result["ok"] is False
+        assert "removed" in result["reason"]
 
 
 class TestTechDesignAdvanceToFreeedit:
-    def test_transitions_to_freeedit(self, tmp_path: Path):
+    def test_transitions_initialized_to_freeedit(self, tmp_path: Path):
         revision = _ready_session(tmp_path)
-        begin_round(_CYCLE, tmp_path)
         result = advance_to_freeedit(_CYCLE, tmp_path)
         assert result["ok"] is True
         assert result["current_step"] == "FreeEdit"
         progress = (revision / "drafting-progress.md").read_text(encoding="utf-8")
         assert "current_step: FreeEdit" in progress
 
+    def test_fails_without_init_complete(self, tmp_path: Path):
+        _seed_session(tmp_path)
+        result = advance_to_freeedit(_CYCLE, tmp_path)
+        assert result["ok"] is False
+        assert "init-complete" in result["reason"]
+
     def test_idempotent_when_already_freeedit(self, tmp_path: Path):
         _ready_session(tmp_path)
-        begin_round(_CYCLE, tmp_path)
         advance_to_freeedit(_CYCLE, tmp_path)
         result = advance_to_freeedit(_CYCLE, tmp_path)
         assert result["ok"] is True
@@ -295,11 +277,9 @@ class TestTechDesignAdvanceToFreeedit:
 
 
 class TestTechDesignDraftStatus:
-    def test_returns_round_and_step(self, tmp_path: Path):
+    def test_returns_step_after_init_complete(self, tmp_path: Path):
         _ready_session(tmp_path)
-        begin_round(_CYCLE, tmp_path)
         result = draft_status(_CYCLE, tmp_path)
         assert result["ok"] is True
-        assert result["current_step"] == "RoundIteration"
-        assert result["round"] == 1
+        assert result["current_step"] == "Initialized"
         assert result["cycle_id"] == _CYCLE

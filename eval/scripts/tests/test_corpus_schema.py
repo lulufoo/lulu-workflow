@@ -53,11 +53,7 @@ def _feature_base_corpus() -> dict:
 class TestGetSchema:
     def test_has_bind_placeholders(self):
         schema = get_schema()
-        assert "compose_doc" in schema["bind_placeholders"]
-        assert "tpt_intent_eval_framework_url" in schema["bind_placeholders"]
-        assert "tpt_tech_conformance_url" in schema["bind_placeholders"]
-        assert "upstream_doc_path" in schema["bind_placeholders"]
-        assert "tdt_design_quality_framework_url" in schema["bind_placeholders"]
+        assert schema["bind_placeholders"] == ["compose_doc", "product_ref", "cycle_type", "M"]
         assert schema["enums"]["sot_kind"] == ["url", "codebase"]
         assert schema["enums"]["codebase_strategy"] == ["all"]
 

@@ -40,10 +40,6 @@ _SCHEMA: dict[str, Any] = {
         "product_ref",
         "cycle_type",
         "M",
-        "tpt_intent_eval_framework_url",
-        "tpt_tech_conformance_url",
-        "upstream_doc_path",
-        "tdt_design_quality_framework_url",
     ],
 }
 

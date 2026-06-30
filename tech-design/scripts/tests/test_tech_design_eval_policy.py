@@ -21,10 +21,23 @@ _DIMENSION_DEFS = _TECH_DESIGN / "dimension-defs"
 
 
 class TestTechDesignEvalPolicy:
-    def test_select_dimension_ids(self):
+    def test_select_dimension_ids_tech_mode(self):
         assert select_dimension_ids() == [
             "codebase-consistency",
             "solution-quality",
+        ]
+
+    def test_select_dimension_ids_product_mode_no_ref(self):
+        assert select_dimension_ids(mode="product", product_ref="") == [
+            "codebase-consistency",
+            "solution-quality",
+        ]
+
+    def test_select_dimension_ids_product_mode_with_ref(self):
+        assert select_dimension_ids(mode="product", product_ref="/p.md") == [
+            "codebase-consistency",
+            "solution-quality",
+            "intent-alignment",
         ]
 
     def test_design_quality_config_key(self):
@@ -34,7 +47,7 @@ class TestTechDesignEvalPolicy:
         with pytest.raises(ValueError, match="topic cycles do not evaluate in tech-design"):
             require_feature_eval("topic")
 
-    def test_select_dimension_defs_feature(self):
+    def test_select_dimension_defs_feature_tech(self):
         defs = select_dimension_defs(
             cycle_type="feature",
             dimension_defs_dir=_DIMENSION_DEFS,
@@ -44,6 +57,20 @@ class TestTechDesignEvalPolicy:
             "solution-quality",
         ]
         assert defs[0]["eval_target"]["path"] == "{compose_doc}"
+
+    def test_select_dimension_defs_feature_product(self):
+        defs = select_dimension_defs(
+            cycle_type="feature",
+            dimension_defs_dir=_DIMENSION_DEFS,
+            mode="product",
+            product_ref="/p.md",
+        )
+        assert [d["id"] for d in defs] == [
+            "codebase-consistency",
+            "solution-quality",
+            "intent-alignment",
+        ]
+        assert defs[2]["legacy_alias"] == "d3"
 
     def test_select_dimension_defs_topic_blocks(self):
         with pytest.raises(ValueError, match="topic cycles do not evaluate in tech-design"):

@@ -85,3 +85,21 @@ class TestCorpusCompose:
         )
         assert corpus["id"] == "tech-design-composed"
         assert corpus["dimensions"][1]["review"]["output_path"] == "design-review-e{M}2.md"
+
+    def test_compose_tech_design_product_mode(self):
+        dims = [
+            load_dimension_def(_TECH_DESIGN_DIMENSION_DEFS / "codebase-consistency.json"),
+            load_dimension_def(_TECH_DESIGN_DIMENSION_DEFS / "solution-quality.json"),
+            load_dimension_def(_TECH_DESIGN_DIMENSION_DEFS / "intent-alignment.json"),
+        ]
+        corpus = compose_corpus(
+            corpus_id="tech-design-composed",
+            corpus_version="1",
+            scope="tech-design",
+            dimensions=dims,
+            review_output_prefix="design-review",
+        )
+        assert len(corpus["dimensions"]) == 3
+        assert corpus["dimensions"][2]["id"] == "intent-alignment"
+        assert corpus["dimensions"][2]["review"]["output_path"] == "design-review-e{M}3.md"
+        assert corpus["dimensions"][2]["review"]["seq"] == 3

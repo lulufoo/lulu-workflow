@@ -1,0 +1,28 @@
+{
+  "id": "intent-alignment",
+  "legacy_alias": "d3",
+  "label": "Product Intent Alignment",
+  "eval_target": {
+    "path": "{compose_doc}"
+  },
+  "remediation_target": {
+    "path": "{compose_doc}"
+  },
+  "sots": [
+    {
+      "kind": "url",
+      "role": "primary",
+      "ref": "{product_ref}"
+    }
+  ],
+  "method": {
+    "kind": "external",
+    "source": "{tdt_product_tech_spec_crosscheck_url}",
+    "focus": "Intent alignment — does design-doc faithfully address product requirements? Detect GAP (Spec requirement without design coverage) and GHOST (design decision without Spec origin)."
+  },
+  "review": {
+    "seq": 3,
+    "output_path": "design-review-e{M}3.md",
+    "template": "eval/review.template.md"
+  }
+}

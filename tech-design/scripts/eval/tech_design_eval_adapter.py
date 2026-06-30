@@ -148,9 +148,14 @@ class TechDesignEvalAdapter:
         )
 
         cycle_type = detect_cycle_type(cycle_id)
+        state = self.load_workflow_state(cycle_id, project_root)
+        mode = state.get("mode", "tech")
+        product_ref = delivered_path(state, "product-spec")
         dimensions = select_dimension_defs(
             cycle_type=cycle_type,
             dimension_defs_dir=self.dimension_defs_dir(),
+            mode=mode,
+            product_ref=product_ref,
         )
         return compose_corpus(
             corpus_id=TECH_DESIGN_COMPOSED_CORPUS_ID,
@@ -167,6 +172,7 @@ class TechDesignEvalAdapter:
     def _empty_corpus_bind() -> dict[str, str]:
         return {
             "tdt_design_quality_framework_url": "",
+            "tdt_product_tech_spec_crosscheck_url": "",
         }
 
     def corpus_bind_extensions(
@@ -190,8 +196,12 @@ class TechDesignEvalAdapter:
         framework_url = str(
             section.get("tdt_design_quality_framework_url", ""),
         ).strip()
+        crosscheck_url = str(
+            section.get("tdt_product_tech_spec_crosscheck_url", ""),
+        ).strip()
         return {
             "tdt_design_quality_framework_url": framework_url,
+            "tdt_product_tech_spec_crosscheck_url": crosscheck_url,
         }
 
     def detect_cycle_type(self, cycle_id: str) -> str:
