@@ -171,59 +171,26 @@ class TestInitComplete:
 
 
 class TestBeginRound:
-    def test_transitions_ready_to_round_iteration(self, tmp_path: Path):
-        revision = _seed_session(tmp_path)
-        _write_compose_doc(revision)
-        init_complete(_CYCLE, tmp_path)
-        result = begin_round(_CYCLE, tmp_path)
-        assert result["ok"] is True
-        assert result["current_step"] == "RoundIteration"
-        assert result["round"] == 1
-        progress = (revision / "drafting-progress.md").read_text(encoding="utf-8")
-        assert "current_step: RoundIteration" in progress
-        assert "round: 1" in progress
-        pointer = revision / "round-1" / "section-pointer.json"
-        assert pointer.exists()
-
-    def test_idempotent_when_already_round_iteration(self, tmp_path: Path):
-        revision = _seed_session(tmp_path)
-        _write_compose_doc(revision)
-        init_complete(_CYCLE, tmp_path)
-        begin_round(_CYCLE, tmp_path)
-        result = begin_round(_CYCLE, tmp_path)
-        assert result["ok"] is True
-        assert result["round"] == 1
-
-    def test_fails_without_progress(self, tmp_path: Path):
+    def test_deprecated_always_fails(self, tmp_path: Path):
         _seed_session(tmp_path)
         result = begin_round(_CYCLE, tmp_path)
         assert result["ok"] is False
+        assert "removed" in result["reason"].lower()
 
 
 class TestAdvanceRound:
-    def _begin(self, tmp_path: Path) -> Path:
-        revision = _seed_session(tmp_path)
-        _write_compose_doc(revision)
-        init_complete(_CYCLE, tmp_path)
-        begin_round(_CYCLE, tmp_path)
-        return revision
-
-    def test_increments_round(self, tmp_path: Path):
-        revision = self._begin(tmp_path)
+    def test_deprecated_always_fails(self, tmp_path: Path):
+        _seed_session(tmp_path)
         result = advance_round(_CYCLE, tmp_path)
-        assert result["ok"] is True
-        assert result["round"] == 2
-        progress = (revision / "drafting-progress.md").read_text(encoding="utf-8")
-        assert "round: 2" in progress
-        assert "current_step: RoundIteration" in progress
+        assert result["ok"] is False
+        assert "removed" in result["reason"].lower()
 
 
 class TestAdvanceToFreeedit:
-    def test_transitions_to_freeedit(self, tmp_path: Path):
+    def test_transitions_ready_to_freeedit(self, tmp_path: Path):
         revision = _seed_session(tmp_path)
         _write_compose_doc(revision)
         init_complete(_CYCLE, tmp_path)
-        begin_round(_CYCLE, tmp_path)
         result = advance_to_freeedit(_CYCLE, tmp_path)
         assert result["ok"] is True
         assert result["current_step"] == "FreeEdit"
@@ -234,23 +201,26 @@ class TestAdvanceToFreeedit:
         revision = _seed_session(tmp_path)
         _write_compose_doc(revision)
         init_complete(_CYCLE, tmp_path)
-        begin_round(_CYCLE, tmp_path)
         advance_to_freeedit(_CYCLE, tmp_path)
         result = advance_to_freeedit(_CYCLE, tmp_path)
         assert result["ok"] is True
         assert result["current_step"] == "FreeEdit"
 
+    def test_fails_without_progress(self, tmp_path: Path):
+        _seed_session(tmp_path)
+        result = advance_to_freeedit(_CYCLE, tmp_path)
+        assert result["ok"] is False
+
 
 class TestDraftStatus:
-    def test_returns_round_and_step(self, tmp_path: Path):
+    def test_returns_freeedit_step(self, tmp_path: Path):
         revision = _seed_session(tmp_path)
         _write_compose_doc(revision)
         init_complete(_CYCLE, tmp_path)
-        begin_round(_CYCLE, tmp_path)
+        advance_to_freeedit(_CYCLE, tmp_path)
         result = draft_status(_CYCLE, tmp_path)
         assert result["ok"] is True
-        assert result["current_step"] == "RoundIteration"
-        assert result["round"] == 1
+        assert result["current_step"] == "FreeEdit"
         assert result["cycle_id"] == _CYCLE
 
 

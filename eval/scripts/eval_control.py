@@ -115,7 +115,7 @@ def _dispatch_dim_allowed(cycle_id: str, project_root: Path, dim: str) -> bool:
 
 
 def dispatch_list(cycle_id: str, project_root: Path) -> list[str]:
-    """Return legacy eval dimension dispatch (e1/e2/e3) for eval-rules."""
+    """Return legacy eval dimension dispatch (e2/e3/e4) for eval-rules."""
     return dispatch_legacy_for_corpus(_load_corpus(cycle_id, project_root))
 
 

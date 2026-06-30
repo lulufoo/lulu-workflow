@@ -9,9 +9,9 @@ from pathlib import Path
 from typing import Any
 
 _DIMENSION_DEF_FILES = {
-    "intent-alignment": "intent-alignment.json",
     "codebase-consistency": "codebase-consistency.json",
     "solution-quality": "solution-quality.json",
+    "tech-conformance": "tech-conformance.json",
 }
 
 _INTENT_EVAL_CONFIG_KEY = "tpt_intent_eval_framework_url"
@@ -22,16 +22,20 @@ _TOPIC_EVAL_BLOCKED = (
 )
 
 
-def select_dimension_ids(*, product_ref: str, mode: str) -> list[str]:
-    """Return ordered dimension ids for this session."""
-    if mode == "product" and not product_ref.strip():
-        raise ValueError(
-            "mode is 'product' but product_ref is empty; "
-            "provide product_ref or use mode 'tech'."
-        )
+def select_dimension_ids(
+    *,
+    tech_design_ref: str = "",
+    tech_diagnostic_ref: str = "",
+) -> list[str]:
+    """Return ordered dimension ids for this session.
+
+    Dispatch rules:
+    - codebase-consistency + solution-quality: always
+    - tech-conformance: any tech upstream present (design-doc or decision-doc)
+    """
     ids = ["codebase-consistency", "solution-quality"]
-    if product_ref.strip():
-        ids.insert(0, "intent-alignment")
+    if tech_design_ref.strip() or tech_diagnostic_ref.strip():
+        ids.append("tech-conformance")
     return ids
 
 
@@ -64,13 +68,16 @@ def load_dimension_defs(dimension_defs_dir: Path) -> dict[str, dict[str, Any]]:
 
 def select_dimension_defs(
     *,
-    product_ref: str,
-    mode: str,
     cycle_type: str,
     dimension_defs_dir: Path,
+    tech_design_ref: str = "",
+    tech_diagnostic_ref: str = "",
 ) -> list[dict[str, Any]]:
     """Return ordered dimension definitions for compose_corpus."""
     require_feature_eval(cycle_type)
     defs = load_dimension_defs(dimension_defs_dir)
-    ids = select_dimension_ids(product_ref=product_ref, mode=mode)
+    ids = select_dimension_ids(
+        tech_design_ref=tech_design_ref,
+        tech_diagnostic_ref=tech_diagnostic_ref,
+    )
     return [copy.deepcopy(defs[dim_id]) for dim_id in ids]

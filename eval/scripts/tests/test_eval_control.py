@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 _EVAL_SCRIPTS = Path(__file__).resolve().parents[1]
+_TECH_PLAN_EVAL = _EVAL_SCRIPTS.parents[1] / "tech-plan" / "scripts" / "eval"
 _KERNEL_CORE = _EVAL_SCRIPTS.parents[1] / "compose-kernel" / "scripts" / "core"
 _KERNEL_SCHEMA_SESSION = (
     _EVAL_SCRIPTS.parents[1] / "compose-kernel" / "scripts" / "schema" / "session"
@@ -19,6 +20,7 @@ sys.path.insert(0, str(_KERNEL_CORE))
 sys.path.insert(0, str(_KERNEL_SCHEMA_SESSION))
 sys.path.insert(0, str(_KERNEL_TESTS))
 sys.path.insert(0, str(_EVAL_SCRIPTS))
+sys.path.insert(0, str(_TECH_PLAN_EVAL))
 
 from tech_plan_eval_adapter import TechPlanEvalAdapter  # noqa: E402
 import eval_control  # noqa: E402
@@ -117,12 +119,15 @@ _REVIEW_E2_DONE = (
 
 
 def _seed_session(tmp_path: Path, *, active_doc: int = 1) -> Path:
+    from workflow_paths import seed_profile_pointer_for_tests  # noqa: WPS433
+
     base = tmp_path / _CACHE / _CYCLE / "tech" / "plan"
     base.mkdir(parents=True)
     (base / "session-state.md").write_text(
         f"---\nversion: 1\nactive_doc: {active_doc}\nupdated_at: 2024-01-01T00:00:00+00:00\n---\n",
         encoding="utf-8",
     )
+    seed_profile_pointer_for_tests(tmp_path, _CYCLE, "tech-plan")
     return base / f"revision{active_doc}" / "workflow-state.md"
 
 
@@ -138,7 +143,7 @@ def _setup_evaluating(tmp_path: Path, *, mode: str = "product") -> Path:
     return ws
 
 
-def _write_review(ws: Path, content: str, *, filename: str = "tech-review-e12.md") -> Path:
+def _write_review(ws: Path, content: str, *, filename: str = "tech-review-e11.md") -> Path:
     eval_dir = ws.parent / "evaluate1"
     eval_dir.mkdir(parents=True, exist_ok=True)
     path = eval_dir / filename
@@ -191,9 +196,19 @@ class TestDispatchList:
     def test_product_mode(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
         init_drafting(ws, mode="product", delivered_refs=product_delivered_refs("/p.md"))
-        assert dispatch_list(_CYCLE, tmp_path) == ["e1", "e2", "e3"]
+        assert dispatch_list(_CYCLE, tmp_path) == ["e2", "e3"]
 
-    def test_tech_mode(self, tmp_path: Path):
+    def test_tech_mode_with_diagnostic_upstream(self, tmp_path: Path):
+        from delivered_refs_schema import DeliveredRef  # noqa: WPS433
+
+        ws = _seed_session(tmp_path)
+        decision = tmp_path / "decision-doc.md"
+        decision.write_text("# Decision\n", encoding="utf-8")
+        refs = [DeliveredRef(type="tech-diagnostic", path=str(decision.resolve()))]
+        init_drafting(ws, mode="tech", delivered_refs=refs)
+        assert dispatch_list(_CYCLE, tmp_path) == ["e2", "e3", "e4"]
+
+    def test_tech_mode_without_upstream(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
         init_drafting(ws, mode="tech")
         assert dispatch_list(_CYCLE, tmp_path) == ["e2", "e3"]
@@ -212,7 +227,7 @@ class TestInitRound:
         assert es["corpus_ref"] == COMPOSED_CORPUS_REF
         assert es.get("corpus_fingerprint")
         dim_map = _dim_map(es, tmp_path)
-        assert dim_map == {"e1": "pending", "e2": "pending", "e3": "pending"}
+        assert dim_map == {"e2": "pending", "e3": "pending"}
 
     def test_tech_mode(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
@@ -222,11 +237,12 @@ class TestInitRound:
         dim_map = _dim_map(es, tmp_path)
         assert dim_map == {"e2": "pending", "e3": "pending"}
 
-    def test_product_mode_without_product_ref_blocks(self, tmp_path: Path):
+    def test_product_mode_without_delivered_refs_uses_base_dims(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
         init_drafting(ws, mode="product", delivered_refs=[])
-        with pytest.raises(ValueError, match="product_ref is empty"):
-            init_round(_CYCLE, tmp_path, mode="product")
+        init_round(_CYCLE, tmp_path, mode="product")
+        es = load_evaluate_state(ws.parent / "evaluate-state.md")
+        assert _dim_map(es, tmp_path) == {"e2": "pending", "e3": "pending"}
 
 
 class TestBeginEvalRound:
@@ -235,7 +251,7 @@ class TestBeginEvalRound:
         init_drafting(ws, mode="product", delivered_refs=product_delivered_refs("/p.md"))
         result = begin_eval_round(_CYCLE, tmp_path)
         assert result["ok"] is True
-        assert result["dispatch"] == ["e1", "e2", "e3"]
+        assert result["dispatch"] == ["e2", "e3"]
 
     def test_rejects_v1_evaluate_state(self, tmp_path: Path):
         ws = _setup_evaluating(tmp_path)
@@ -261,7 +277,7 @@ class TestBeginEvalRound:
         assert result["evaluate_round"] == 2
         es = load_evaluate_state(ws.parent / "evaluate-state.md")
         assert es["fix_phase"] == "probe"
-        assert _dim_map(es, tmp_path)["e1"] == "pending"
+        assert _dim_map(es, tmp_path)["e2"] == "pending"
 
     def test_rejects_re_evaluate_when_abandoned(self, tmp_path: Path):
         ws = _setup_complete_round_ready(tmp_path)
@@ -405,9 +421,9 @@ class TestArtifactRemediation:
             + "| e2-1 | SOT-DEFECT | product §1 | loc | medium | ev | desc "
             "| pending | — |\n",
         )
-        for dim in ("e1", "e2", "e3"):
+        for dim in dispatch_list(_CYCLE, tmp_path):
             es = load_evaluate_state(ws.parent / "evaluate-state.md")
-            es = _merge_dim(es, dim, "probed", tmp_path) if dim in dispatch_list(_CYCLE, tmp_path) else es
+            es = _merge_dim(es, dim, "probed", tmp_path)
             save_evaluate_state(ws.parent / "evaluate-state.md", es)
         result = begin_artifact_remediation(_CYCLE, tmp_path)
         assert result["ok"] is True
@@ -452,8 +468,7 @@ class TestArtifactRemediation:
             {"fix_phase": "artifact-remediation"},
         )
         _write_review(ws, _REVIEW_E2_DONE)
-        _write_review(ws, _REVIEW_HEADER, filename="tech-review-e11.md")
-        _write_review(ws, _REVIEW_HEADER, filename="tech-review-e13.md")
+        _write_review(ws, _REVIEW_HEADER, filename="tech-review-e12.md")
         for dim in dispatch_list(_CYCLE, tmp_path):
             es = load_evaluate_state(ws.parent / "evaluate-state.md")
             es = _merge_dim(es, dim, "probed", tmp_path)
@@ -471,8 +486,7 @@ class TestArtifactRemediation:
             {"fix_phase": "artifact-remediation"},
         )
         _write_review(ws, _REVIEW_E2_DONE)
-        _write_review(ws, _REVIEW_HEADER, filename="tech-review-e11.md")
-        _write_review(ws, _REVIEW_HEADER, filename="tech-review-e13.md")
+        _write_review(ws, _REVIEW_HEADER, filename="tech-review-e12.md")
         for dim in dispatch_list(_CYCLE, tmp_path):
             es = load_evaluate_state(ws.parent / "evaluate-state.md")
             es = _merge_dim(es, dim, "probed", tmp_path)
@@ -483,7 +497,6 @@ class TestArtifactRemediation:
         es = load_evaluate_state(ws.parent / "evaluate-state.md")
         dim_map = _dim_map(es, tmp_path)
         assert dim_map["e2"] == "complete"
-        assert dim_map["e1"] == "complete"
         assert dim_map["e3"] == "complete"
 
 
@@ -499,9 +512,9 @@ class TestSotRemediation:
             _REVIEW_HEADER
             + "| e2-1 | SOT-DEFECT | product §1 | loc | critical | ev | desc "
             "| escalated | escalate |\n",
+            filename="tech-review-e11.md",
         )
-        _write_review(ws, _REVIEW_HEADER, filename="tech-review-e11.md")
-        _write_review(ws, _REVIEW_HEADER, filename="tech-review-e13.md")
+        _write_review(ws, _REVIEW_HEADER, filename="tech-review-e12.md")
         for dim in dispatch_list(_CYCLE, tmp_path):
             es = load_evaluate_state(ws.parent / "evaluate-state.md")
             es = _merge_dim(es, dim, "probed", tmp_path)
@@ -522,8 +535,7 @@ class TestSotRemediation:
             {"fix_phase": "sot-remediation"},
         )
         _write_review(ws, _REVIEW_E2_DONE)
-        _write_review(ws, _REVIEW_HEADER, filename="tech-review-e11.md")
-        _write_review(ws, _REVIEW_HEADER, filename="tech-review-e13.md")
+        _write_review(ws, _REVIEW_HEADER, filename="tech-review-e12.md")
         for dim in dispatch_list(_CYCLE, tmp_path):
             es = load_evaluate_state(ws.parent / "evaluate-state.md")
             es = _merge_dim(es, dim, "probed", tmp_path)
@@ -592,4 +604,4 @@ class TestBuildEvalLoopPayload:
         _setup_evaluating(tmp_path)
         payload = build_eval_loop_payload(_CYCLE, tmp_path)
         assert payload["ok"] is True
-        assert payload["dispatch"] == ["e1", "e2", "e3"]
+        assert payload["dispatch"] == ["e2", "e3"]

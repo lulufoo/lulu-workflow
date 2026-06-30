@@ -44,11 +44,11 @@ class TestCorpusCompose:
         )
         assert feature_fp != topic_fp
 
-    def test_compose_product_session(self):
+    def test_compose_tech_plan_session(self):
         dims = [
-            load_dimension_def(_TECH_PLAN_DIMENSION_DEFS / "intent-alignment.json"),
             load_dimension_def(_TECH_PLAN_DIMENSION_DEFS / "codebase-consistency.json"),
             load_dimension_def(_TECH_PLAN_DIMENSION_DEFS / "solution-quality.json"),
+            load_dimension_def(_TECH_PLAN_DIMENSION_DEFS / "tech-conformance.json"),
         ]
         corpus = compose_corpus(
             corpus_id="tech-plan-composed",

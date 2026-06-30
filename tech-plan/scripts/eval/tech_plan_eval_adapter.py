@@ -137,14 +137,14 @@ class TechPlanEvalAdapter:
         )
 
         state = self.load_workflow_state(cycle_id, project_root)
-        mode = state["mode"]
-        product_ref = delivered_path(state, "product-spec")
+        tech_design_ref = delivered_path(state, "tech-design")
+        tech_diagnostic_ref = delivered_path(state, "tech-diagnostic")
         cycle_type = detect_cycle_type(cycle_id)
         dimensions = select_dimension_defs(
-            product_ref=product_ref,
-            mode=mode,
             cycle_type=cycle_type,
             dimension_defs_dir=self.dimension_defs_dir(),
+            tech_design_ref=tech_design_ref,
+            tech_diagnostic_ref=tech_diagnostic_ref,
         )
         return compose_corpus(
             corpus_id=COMPOSED_CORPUS_ID,
@@ -159,13 +159,16 @@ class TechPlanEvalAdapter:
     @staticmethod
     def _empty_corpus_bind() -> dict[str, str]:
         return {
-            "tpt_product_tech_spec_crosscheck_url": "",
             "tpt_intent_eval_framework_url": "",
+            "tpt_tech_conformance_url": "",
+            "upstream_doc_path": "",
         }
 
     def corpus_bind_extensions(
         self, cycle_id: str, project_root: Path
     ) -> dict[str, str]:
+        import json  # noqa: WPS433
+
         from subagent_config import detect_platform, resolve_workflow_config_path  # noqa: WPS433
 
         plat = detect_platform(None)
@@ -173,26 +176,29 @@ class TechPlanEvalAdapter:
         if not config_path.exists():
             return self._empty_corpus_bind()
         try:
-            import json
-
             config = json.loads(config_path.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
             return self._empty_corpus_bind()
         section = config.get("tech-plan")
         if not isinstance(section, dict):
             return self._empty_corpus_bind()
-        crosscheck_url = str(
-            section.get("tpt_product_tech_spec_crosscheck_url", "")
-        ).strip()
         cycle_type = detect_cycle_type(cycle_id)
         intent_key = intent_eval_config_key(cycle_type)
         tpt_intent_eval_framework_url = str(
             section.get(intent_key, "")
             or section.get("tpt_intent_eval_framework_url", ""),
         ).strip()
+        tpt_tech_conformance_url = str(
+            section.get("tpt_tech_conformance_url", "")
+        ).strip()
+        state = self.load_workflow_state(cycle_id, project_root)
+        tech_design_path = delivered_path(state, "tech-design")
+        tech_diagnostic_path = delivered_path(state, "tech-diagnostic")
+        upstream_doc_path = tech_design_path or tech_diagnostic_path
         return {
-            "tpt_product_tech_spec_crosscheck_url": crosscheck_url,
             "tpt_intent_eval_framework_url": tpt_intent_eval_framework_url,
+            "tpt_tech_conformance_url": tpt_tech_conformance_url,
+            "upstream_doc_path": upstream_doc_path,
         }
 
     def detect_cycle_type(self, cycle_id: str) -> str:

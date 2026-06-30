@@ -21,22 +21,34 @@ _DIMENSION_DEFS = _TECH_PLAN / "dimension-defs"
 
 
 class TestTechPlanEvalPolicy:
-    def test_product_ref_includes_e1(self):
-        assert select_dimension_ids(product_ref="/p.md", mode="tech") == [
-            "intent-alignment",
+    def test_no_tech_upstream_returns_base_dimensions(self):
+        assert select_dimension_ids() == [
             "codebase-consistency",
             "solution-quality",
         ]
 
-    def test_tech_mode_without_product_ref(self):
-        assert select_dimension_ids(product_ref="", mode="tech") == [
+    def test_tech_design_upstream_adds_tech_conformance(self):
+        assert select_dimension_ids(tech_design_ref="/d.md") == [
             "codebase-consistency",
             "solution-quality",
+            "tech-conformance",
         ]
 
-    def test_product_mode_without_product_ref_blocks(self):
-        with pytest.raises(ValueError, match="product_ref is empty"):
-            select_dimension_ids(product_ref="", mode="product")
+    def test_tech_diagnostic_upstream_adds_tech_conformance(self):
+        assert select_dimension_ids(tech_diagnostic_ref="/decision.md") == [
+            "codebase-consistency",
+            "solution-quality",
+            "tech-conformance",
+        ]
+
+    def test_both_tech_upstreams_present_adds_tech_conformance_once(self):
+        assert select_dimension_ids(
+            tech_design_ref="/d.md", tech_diagnostic_ref="/decision.md"
+        ) == [
+            "codebase-consistency",
+            "solution-quality",
+            "tech-conformance",
+        ]
 
     def test_intent_eval_config_key_is_shared(self):
         assert intent_eval_config_key("feature") == "tpt_intent_eval_framework_url"
@@ -47,10 +59,8 @@ class TestTechPlanEvalPolicy:
         with pytest.raises(ValueError, match="topic cycles do not evaluate in tech-plan"):
             require_feature_eval("topic")
 
-    def test_select_dimension_defs_feature(self):
+    def test_select_dimension_defs_no_upstream(self):
         defs = select_dimension_defs(
-            product_ref="",
-            mode="tech",
             cycle_type="feature",
             dimension_defs_dir=_DIMENSION_DEFS,
         )
@@ -59,11 +69,33 @@ class TestTechPlanEvalPolicy:
             "solution-quality",
         ]
 
+    def test_select_dimension_defs_with_tech_design_upstream(self):
+        defs = select_dimension_defs(
+            cycle_type="feature",
+            dimension_defs_dir=_DIMENSION_DEFS,
+            tech_design_ref="/d.md",
+        )
+        assert [d["id"] for d in defs] == [
+            "codebase-consistency",
+            "solution-quality",
+            "tech-conformance",
+        ]
+
+    def test_select_dimension_defs_with_tech_diagnostic_upstream(self):
+        defs = select_dimension_defs(
+            cycle_type="feature",
+            dimension_defs_dir=_DIMENSION_DEFS,
+            tech_diagnostic_ref="/decision.md",
+        )
+        assert [d["id"] for d in defs] == [
+            "codebase-consistency",
+            "solution-quality",
+            "tech-conformance",
+        ]
+
     def test_select_dimension_defs_topic_blocks(self):
         with pytest.raises(ValueError, match="topic cycles do not evaluate in tech-plan"):
             select_dimension_defs(
-                product_ref="",
-                mode="tech",
                 cycle_type="topic",
                 dimension_defs_dir=_DIMENSION_DEFS,
             )

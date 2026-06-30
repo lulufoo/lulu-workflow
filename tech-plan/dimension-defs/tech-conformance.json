@@ -1,0 +1,28 @@
+{
+  "id": "tech-conformance",
+  "legacy_alias": "e4",
+  "label": "Tech Upstream Conformance",
+  "eval_target": {
+    "path": "{compose_doc}"
+  },
+  "remediation_target": {
+    "path": "{compose_doc}"
+  },
+  "sots": [
+    {
+      "kind": "url",
+      "role": "primary",
+      "ref": "{upstream_doc_path}"
+    }
+  ],
+  "method": {
+    "kind": "external",
+    "source": "{tpt_tech_conformance_url}",
+    "focus": "Does tech-doc faithfully implement the upstream tech intent document (design-doc or decision-doc): decisions and constraints operationalized in Tasks/SK/VF sections"
+  },
+  "review": {
+    "seq": 4,
+    "output_path": "tech-review-e{M}4.md",
+    "template": "eval/review.template.md"
+  }
+}

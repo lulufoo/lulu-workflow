@@ -3,15 +3,14 @@ name: tech-plan
 description: >-
   Use when: 技术方案, 技术设计, tech design, tech-doc, 技术文档, 架构设计,
   技术规格, 技术实现方案, tech-doc workflow, 技术文档流程, 技术文档状态迁移,
-  lulu-dev-workflow tech-plan, E1 E2 E3 评估, Round Iteration, tech review, tech delivered.
+  lulu-dev-workflow tech-plan, E2 E3 E4 评估, tech review, tech delivered.
 disable-model-invocation: true
 ---
 
 # tech-plan
 
-> **Prerequisite:** Run `diagnostic` SKILL before starting this workflow.
-> The decision-doc produced by diagnostic is the required input context.
-> Path: `$CACHE_DIR/<cycle_id>/tech/diagnostic/decision-doc.md`
+> **Upstream (via `start`):** **tech mode** requires a delivered `tech-design` or `tech-diagnostic` scope doc.
+> **product mode** requires a delivered `product-spec`. Initializing reads the scope snapshot from `workflow-state.delivered_refs`.
 
 Drive a tech document workflow with explicit per-session state files and a hook
 that gates state transitions.
@@ -38,7 +37,7 @@ Do NOT proceed until you have read `../_runtime.md` and loaded:
 <HARD-GATE name="Compose kernel macros">
 Do NOT proceed until you have read `{SKILL_ROOT}/compose-kernel/SKILL.md` and loaded:
 
-- `$FETCH_COMPOSE` / `$ROUND_CONTROL` from `## Script Macros`
+- `$FETCH_COMPOSE` from `## Script Macros`
 - Fetch constraint: templates via `$FETCH_COMPOSE` only; do not read `workflow-config.json` directly
 
 </HARD-GATE>
@@ -93,7 +92,7 @@ Outer session transitions via `$SESSION_CONTROL` only (`compose-kernel/transitio
 ## Principles
 
 **Blocking** — Cannot advance → stop, report (stderr / exit code), wait for user direction.
-`$SESSION_CONTROL`, `$DRAFT_CONTROL`, `$ROUND_CONTROL`, or `$SESSION_INFO` non-zero exit → apply Blocking.
+`$SESSION_CONTROL`, `$DRAFT_CONTROL`, or `$SESSION_INFO` non-zero exit → apply Blocking.
 
 ---
 
@@ -102,18 +101,18 @@ Outer session transitions via `$SESSION_CONTROL` only (`compose-kernel/transitio
 ### General
 
 1. Session reads: `$SESSION_INFO --view session` — `active_doc`, `workflow_state`; never infer state from tech-doc body or file existence.
-2. State writes: `$SESSION_CONTROL` / `$DRAFT_CONTROL` / `$ROUND_CONTROL` only; during Evaluating follow eval-rules (do not Write cache state files directly).
+2. State writes: `$SESSION_CONTROL` / `$DRAFT_CONTROL` only; during Evaluating follow eval-rules (do not Write cache state files directly).
 3. Path guard blocks writes outside `$CACHE_DIR/` while a session is active.
 4. Evaluating: follow `{$SKILL_ROOT}/eval/eval-rules.md` only.
 
 ### Drafting Rules
 
-**Entry:** fix resume → Step 3; otherwise Steps 1 → 2.
-**Drafting states**: `Ready → RoundIteration → FreeEdit`.
+**Entry:** Evaluating fix resume → Step 2; otherwise Step 1.
+**Drafting states**: `Ready → FreeEdit`.
 
 #### Step 1 — Initializing
 
-Compose draft from decision-doc (`I*` / `F` / `C` per section; see initializing-runner Theory). No mapping paste.
+Compose draft from upstream scope doc (`design-doc` or `decision-doc`; `I*` / `F` / `C` per section; see initializing-runner Theory). No mapping paste.
 
 1. Run `$DRAFT_CONTROL begin-init`. 
 
@@ -131,88 +130,9 @@ Await completion (`$SUBAGENT_AWAIT_SYNC`).
 
 2. Run `$DRAFT_CONTROL init-complete`. On failure → apply Blocking.
 
-#### Step 2 — RoundIteration
+3. Run `$DRAFT_CONTROL advance-to-freeedit`. On failure → apply Blocking. Proceed to **Step 2 — FreeEdit**.
 
-- **Macro:** `begin-round` enters or resumes `RoundIteration`; `advance-round` increments macro N (stay in `RoundIteration`).
-- **Per round N:** section-gated loop (2a–2d) — probe and decide **one `ACTIVE_SECTION` at a time** until every registry section is `stable`.
-
-**Entry:** run `$DRAFT_CONTROL begin-round`.
-- On failure → apply Blocking.
-- On success → parse stdout JSON `round` as **N** for `$ROUND_CONTROL` (macro includes `--round {N}`).
-
-##### Per round N
-
-Repeat **2a–2d** until every registry section is `stable`.
-
-##### 2a. Probe active section
-
-1. Run `$ROUND_CONTROL round-probe-input`; pin stdout as prober `## Input`. Includes `ACTIVE_SECTION`, `ROUND_DIR`, `ROUND_N`.
-2. Dispatch prober-runner (stdout → `## Input`):
-
-```text
-Load {actual $SKILL_ROOT}/compose-kernel/runners/prober-runner/SKILL.md and follow its instructions.
-
-## Input
-{round-probe-input stdout}
-```
-
-Await `$SUBAGENT_AWAIT_SYNC`.
-
-##### 2b. Present gaps
-
-1. `$ROUND_CONTROL read-probe-report` — pin stdout as **`$PROBE`**.
-2. `$ROUND_CONTROL read-section-pointer` — pin stdout as **`$POINTER`**.
-3. Read `{SKILL_ROOT}/compose-kernel/references/gap-display.md`; render user copy from **`$PROBE` + `$POINTER` only** (do not read probe files on disk).
-
-- **KW0 gate:** `$PROBE.kw0_pending_count` > 0 → pending rows only (gap-display pipeline step 1); user edits tech-doc → **2a** (skip 2c).
-- **Rewind:** upstream edit → `$ROUND_CONTROL rewind-section --to {section}` → **2a**.
-
-##### 2c. Human decide
-
-**Gate:** After 2b presentation and wait (gap-display template footer); proceed only on explicit `{id} {accept|skip|redirect}` — do not infer.
-
-Each decision → `$ROUND_CONTROL update-gap-decision --id {id} --decision {accept|skip|redirect}`.
-
-- `accept` → refiner dispatch (`$ROUND_CONTROL read-gap-item --id {id}` for payload):
-
-```text
-Load {actual $SKILL_ROOT}/compose-kernel/runners/refiner-runner/SKILL.md and follow its instructions.
-
-## Input
-{read-gap-item stdout}
-```
-
-Await `$SUBAGENT_AWAIT_SYNC`.
-- `skip` / `redirect` → decision recorded only (skip also appends skip ledger)
-- After refiner accept path → **2a** (re-probe same section).
-
-Refiner input includes `ROUND_DIR`, `GAP_ITEM_ID`, `COMPOSE_DOC_PATH`, `CYCLE_*`, `ROUND_N`.
-
-##### 2d. Section advance
-
-When `$PROBE.undecided_count` 0 and `$PROBE.kw0_pending_count` 0 (after 2b presentation):
-
-1. `$ROUND_CONTROL mark-section-stable --section {ACTIVE_SECTION}`
-2. `$ROUND_CONTROL advance-section`
-
-If not all stable → **2a** for new active section. If all stable → **2e**.
-
-##### 2e. Round convergence
-
-`$ROUND_CONTROL check-convergence --no-accept --gaps-resolved`
-
-- `converged: true` → present convergence summary; ask **1** / **2** — stop and wait; do not infer.
-
-  > 1. Enter FreeEdit
-  > 2. Continue to the next round
-
-  - **1** → `$DRAFT_CONTROL advance-to-freeedit`. On failure → Blocking. Then **Step 3 — FreeEdit**.
-
-  - **2** → `$DRAFT_CONTROL advance-round`. On failure → Blocking. Re-parse stdout `round` as the new N; continue **2a–2d**.
-
-- `converged: false` → `$DRAFT_CONTROL advance-round`. On failure → Blocking. Re-parse stdout `round` as the new N; continue **2a–2d**.
-
-#### Step 3 — FreeEdit
+#### Step 2 — FreeEdit
 
 Entry: `advance-to-freeedit` success, or Evaluating fix resume.
 
@@ -233,7 +153,7 @@ When eval-rules completes, follow its exit branch:
 
 - **Deliver** → **ReadyForDelivery Rules** below.
 
-- **Continue editing** → enter **Step 3 — FreeEdit** (Evaluating fix resume; skip Steps 1–2).
+- **Continue editing** → enter **Step 2 — FreeEdit** (Evaluating fix resume; skip Step 1).
 
 ### ReadyForDelivery Rules
 
@@ -255,7 +175,6 @@ When eval-rules completes, follow its exit branch:
 | Document | When |
 |----------|------|
 | `{SKILL_ROOT}/compose-kernel/runners/initializing-runner/SKILL.md` | Step 1 — initializing-runner |
-| `{SKILL_ROOT}/compose-kernel/references/gap-display.md` | Round Iteration **2b** step 3 — render from pinned `$PROBE` + `$POINTER` (parent runs steps 1–2) |
 | `{$SKILL_ROOT}/eval/eval-rules.md` | Evaluating Rules |
 
 ---
@@ -269,7 +188,6 @@ Macro expansion: `../_runtime.md` § Script Macros → Macro expansion. Non-zero
 | `$SESSION_INFO` | `python3 "$SKILL_ROOT/compose-kernel/scripts/core/session_info.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile tech-plan --view <view>` |
 | `$SESSION_CONTROL` | `python3 "$SKILL_ROOT/compose-kernel/scripts/core/session_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile tech-plan <subcommand>` |
 | `$DRAFT_CONTROL` | `python3 "$SKILL_DIR/scripts/drafting/tech_plan_draft_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
-| `$ROUND_CONTROL` | `python3 "$SKILL_ROOT/compose-kernel/scripts/section/section_round_control.py" --cycle-dir "$CACHE_DIR/$CYCLE_ID" --profile tech-plan --round {N} <subcommand>` |
 | `$FETCH_COMPOSE` | `python3 "$SKILL_ROOT/compose-kernel/scripts/io/fetch_compose_framework.py" --role <role> --profile tech-plan --project-root "$(pwd)" --cycle-id "$CYCLE_ID"` |
 | `$RESOLVE_PLAN_ROLE` | `python3 "$SKILL_ROOT/compose-kernel/scripts/scope/scope_resolver.py" resolve-role --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile tech-plan` |
 | `$EVAL_CONTROL` | `python3 "$SKILL_DIR/scripts/tech-plan_eval_control.py" --workflow tech-plan --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |

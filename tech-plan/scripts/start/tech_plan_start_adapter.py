@@ -117,6 +117,6 @@ class TechPlanStartAdapter:
                 "（读取模板 + 架构约束 + product-doc）。"
             )
         return (
-            "技改模式：E1 意图对齐评估将跳过，仅执行 E2（代码库一致性）"
-            " + E3（方案质量 / TPEF）。"
+            "技改模式：执行 E2（代码库一致性）+ E3（方案质量 / TPEF）"
+            " + E4（tech-conformance，对照上游 design-doc 或 decision-doc）。"
         )

@@ -64,6 +64,8 @@ class TestSaveLoad:
         assert loaded["round"] == "1"
 
     def test_resolve_from_cycle(self, tmp_path: Path):
+        from workflow_paths import seed_profile_pointer_for_tests  # noqa: WPS433
+
         cycle_id = "feat-schema"
         base = tmp_path / ".cache" / "cursor" / "lulu-dev-workflow" / cycle_id / "tech" / "plan"
         revision = base / "revision2"
@@ -72,5 +74,6 @@ class TestSaveLoad:
             "---\nversion: 1\nactive_doc: 2\n---\n",
             encoding="utf-8",
         )
+        seed_profile_pointer_for_tests(tmp_path, cycle_id, "tech-plan")
         path = resolve_drafting_progress_path_from_cycle(cycle_id, tmp_path)
         assert path == revision / "drafting-progress.md"
