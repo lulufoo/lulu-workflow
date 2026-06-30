@@ -74,7 +74,7 @@ To resume an in-progress design document, do not run start again — run `$SESSI
 ## Drafting Rules
 
 **Entry:** Step 0 → Step 1 → Step 2 → Step 3, or resume via `$SESSION_INFO --view session`.
-**Drafting states:** `Inductive → Ready → RoundIteration → FreeEdit`.
+**Drafting states:** `Inductive → Initialized → RoundIteration → FreeEdit`.
 
 **After Initializing completes:** present summary; user may enter **Step 2 — RoundIteration**, **Evaluating**, or **Deliver** (skip Round/FreeEdit).
 
@@ -99,7 +99,7 @@ Await completion (`$SUBAGENT_AWAIT_SYNC`).
 
 #### Step 1 — Initializing
 
-Compose design-doc (`I*` / `F` / `C` per section; see initializing-runner Theory). No mapping paste. **`decision-doc.md` is the scope SSOT.** When inductive produced per-section scope files, `begin-init` passes their directory as `GROUNDING_DIR`; init reads each section's slice as code-anchored grounding **alongside** decision-doc (decision-doc stays the completeness anchor — grounding enriches, never replaces).
+Compose design-doc (`I*` / `F` / `C` per section; see initializing-runner Theory). No mapping paste. **`decision-doc.md` is the scope SSOT.** When inductive produced per-section scope files, `begin-init` passes their directory as `INDUCTIVE_DIR`; init reads each section's slice as code-anchored substance **alongside** decision-doc (decision-doc stays the completeness anchor — inductive slice enriches, never replaces).
 
 1. Run `$DRAFT_CONTROL begin-init`.
    - On failure → Blocking.

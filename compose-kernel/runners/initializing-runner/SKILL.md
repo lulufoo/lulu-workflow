@@ -42,7 +42,7 @@ Derive artifact contract: [`../../references/init-draft-quality.md`](../../refer
 | `$COMPOSE_PROFILE` | Compose profile id from parent dispatch |
 | `$CYCLE_TYPE` | `feature` |
 | `$CYCLE_ID` | Active cycle id |
-| `$GROUNDING_DIR` | **Optional.** Dir of inductive per-section scope slices (`<section>.md`). Absent → no grounding; SSOT-only behavior |
+| `$INDUCTIVE_DIR` | **Optional.** Dir of inductive per-section scope slices (`<section>.md`). Absent → SSOT-only behavior |
 
 Self-resolved: `$PROJECT_ROOT` = `$(pwd)` · `$OUTPUT_DOC_PATH` from parent input (fallback `{REVISION_DIR}/tech-doc.md`)
 
@@ -55,7 +55,7 @@ All compose and scope macros **must** pass `--profile "$COMPOSE_PROFILE"`. `$FET
 | `$RESOLVE_PLAN_ROLE` | `python3 "$SKILL_ROOT/compose-kernel/scripts/scope/scope_resolver.py" resolve-role --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile "$COMPOSE_PROFILE"` |
 | `$RESOLVE_DOMAIN` | `python3 "$SKILL_ROOT/compose-kernel/scripts/scope/scope_resolver.py" resolve-domain --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile "$COMPOSE_PROFILE"` |
 | `$RESOLVE_OUTLINE_LAYOUT` | `python3 "$SKILL_ROOT/compose-kernel/scripts/section/outline_layout.py" resolve --section "{section_key}" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)"` |
-| `$RESOLVE_GROUNDING` | `python3 "$SKILL_ROOT/compose-kernel/scripts/scope/scope_resolver.py" resolve-grounding --section "{section_key}" --grounding-dir "$GROUNDING_DIR" --project-root "$(pwd)"` |
+| `$RESOLVE_INDUCTIVE` | `python3 "$SKILL_ROOT/compose-kernel/scripts/scope/scope_resolver.py" resolve-inductive --section "{section_key}" --inductive-dir "$INDUCTIVE_DIR" --project-root "$(pwd)"` |
 | `$COMPOSE_DOC_CONTROL` | `python3 "$SKILL_ROOT/compose-kernel/scripts/section/compose_doc_control.py"` |
 | `$INIT_COMPOSE_VALIDATE` | `python3 "$SKILL_ROOT/compose-kernel/scripts/section/init_compose_validation.py" validate --revision-dir "$REVISION_DIR" --compose-doc "$OUTPUT_DOC_PATH" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)"` |
 
@@ -103,8 +103,8 @@ After each I2f, resolve layout and run **I2g** when the current key is the last 
 
 #### I2a — Filter `I*`
 
-- **Input:** scope doc (`$SCOPE_DOC_PATH`, the SSOT) · **optional** per-section grounding slice · `sections.{key}.intent` (else `desc`) · `intent_boundary` · kw `## {key}`
-- **Grounding (only when `$GROUNDING_DIR` is set):** run `$RESOLVE_GROUNDING` for this `{section_key}`. If it prints a path, read that slice as **secondary, code-anchored substance** for this section. The scope doc stays the **SSOT and completeness anchor**: judge `gaps` against the scope doc, not the slice; grounding **enriches** `i_star` (adds code-anchored HOW), it never overrides or substitutes a scope decision. Empty output → SSOT only.
+- **Input:** scope doc (`$SCOPE_DOC_PATH`, the SSOT) · **optional** inductive scope slice · `sections.{key}.intent` (else `desc`) · `intent_boundary` · kw `## {key}`
+- **Inductive slice (only when `$INDUCTIVE_DIR` is set):** run `$RESOLVE_INDUCTIVE` for this `{section_key}`. If it prints a path, read that slice as **secondary, code-anchored substance** for this section. The scope doc stays the **SSOT and completeness anchor**: judge `gaps` against the scope doc, not the slice; the inductive slice **enriches** `i_star` (adds code-anchored HOW), it never overrides or substitutes a scope decision. Empty output → SSOT only.
 - **Action:** Include scope substance matching `intent` and at least one KW dimension (semantic; do not label KW numbers). Fold in the grounding slice's matching substance when present. Exclude content belonging to other sections. **Must-effort:** extract all matching scope substance; use `gaps` for scope absences — do not silently omit.
 - **Output:** write `i_star`, `scope_refs`, `gaps`, `kw_init` into `_derive-{key}.json`
 - **Done:** derive file exists with `i_star` / `scope_refs` / `gaps` populated per contract

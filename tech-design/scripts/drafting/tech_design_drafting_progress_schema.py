@@ -32,7 +32,7 @@ _REQUIRED_FIELDS = {s["field"] for s in _SCHEMA if s["required"]}
 _OPTIONAL_SCHEMA_FIELDS = {s["field"] for s in _SCHEMA if not s["required"]}
 _SCHEMA_FIELD_NAMES = _REQUIRED_FIELDS | _OPTIONAL_SCHEMA_FIELDS
 _REQUIRED_KEY_ORDER = ["version", "cycle_id", "current_step"]
-_VALID_STEPS = frozenset({"Inductive", "Ready", "RoundIteration", "FreeEdit"})
+_VALID_STEPS = frozenset({"Inductive", "Initialized", "RoundIteration", "FreeEdit"})
 
 
 def validate_drafting_progress(data: dict) -> list[str]:

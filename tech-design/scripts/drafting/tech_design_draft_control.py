@@ -49,7 +49,7 @@ _CMD_ADVANCE_ROUND = "advance-round"
 _CMD_ADVANCE_TO_FREEEDIT = "advance-to-freeedit"
 _CMD_STATUS = "status"
 _STEP_INDUCTIVE = "Inductive"
-_STEP_READY = "Ready"
+_STEP_INITIALIZED = "Initialized"
 _STEP_ROUND = "RoundIteration"
 _STEP_FREE_EDIT = "FreeEdit"
 
@@ -103,7 +103,7 @@ def _inductive_out_dir(cycle_id: str, project_root: Path) -> Path:
     return (project_root / session_base_dir(cycle_id, PROFILE_ID, project_root)).resolve()
 
 
-def _grounding_dir(cycle_id: str, project_root: Path) -> Path:
+def _inductive_dir(cycle_id: str, project_root: Path) -> Path:
     return _inductive_out_dir(cycle_id, project_root) / _INDUCTIVE_SUBDIR
 
 
@@ -137,7 +137,7 @@ def _format_init_dispatch_input(
     output_doc: Path,
     cycle_type: str,
     cycle_id: str,
-    grounding_dir: Path | None,
+    inductive_dir: Path | None,
 ) -> str:
     lines = [
         f"REVISION_DIR:         {revision_dir.resolve().as_posix()}",
@@ -147,8 +147,8 @@ def _format_init_dispatch_input(
         f"CYCLE_TYPE:           {cycle_type}",
         f"CYCLE_ID:             {cycle_id}",
     ]
-    if grounding_dir is not None:
-        lines.append(f"GROUNDING_DIR:        {grounding_dir.resolve().as_posix()}")
+    if inductive_dir is not None:
+        lines.append(f"INDUCTIVE_DIR:        {inductive_dir.resolve().as_posix()}")
     return "\n".join(lines)
 
 
@@ -157,15 +157,14 @@ def _init_dispatch_input(cycle_id: str, project_root: Path) -> str:
     revision_dir = project_root / doc_dir(cycle_id, active_doc, PROFILE_ID, project_root)
     output_doc = project_root / document_path(cycle_id, active_doc, PROFILE_ID, project_root)
     scope_path = _resolve_scope_doc(cycle_id, project_root)
-    grounding_dir = _grounding_dir(cycle_id, project_root)
-    grounding = grounding_dir if grounding_dir.is_dir() else None
+    ind_dir = _inductive_dir(cycle_id, project_root)
     return _format_init_dispatch_input(
         revision_dir=revision_dir,
         scope_doc=scope_path,
         output_doc=output_doc,
         cycle_type=detect_cycle_type(cycle_id),
         cycle_id=cycle_id,
-        grounding_dir=grounding,
+        inductive_dir=ind_dir if ind_dir.is_dir() else None,
     )
 
 
@@ -242,26 +241,23 @@ def inductive_complete(cycle_id: str, project_root: Path) -> dict[str, Any]:
             current_step=step,
         )
 
-    grounding_dir = _grounding_dir(cycle_id, project_root)
+    ind_dir = _inductive_dir(cycle_id, project_root)
     section_files = (
-        sorted(
-            p.name
-            for p in grounding_dir.glob("*.md")
-        )
-        if grounding_dir.is_dir()
+        sorted(p.name for p in ind_dir.glob("*.md"))
+        if ind_dir.is_dir()
         else []
     )
     if not section_files:
         return _failure(
             _CMD_INDUCTIVE_COMPLETE,
-            f"no per-section scope files under {grounding_dir.as_posix()}",
+            f"no per-section scope files under {ind_dir.as_posix()}",
             current_step=step,
         )
 
     return _success(
         _CMD_INDUCTIVE_COMPLETE,
         current_step=_STEP_INDUCTIVE,
-        grounding_dir=grounding_dir.as_posix(),
+        inductive_dir=ind_dir.as_posix(),
         section_files=section_files,
     )
 
@@ -276,7 +272,7 @@ def begin_init(cycle_id: str, project_root: Path) -> dict[str, Any]:
         )
 
     step = read_current_step(progress_path)
-    if step in (_STEP_INDUCTIVE, _STEP_READY):
+    if step in (_STEP_INDUCTIVE, _STEP_INITIALIZED):
         return _success(
             _CMD_BEGIN_INIT,
             current_step=step,
@@ -285,7 +281,7 @@ def begin_init(cycle_id: str, project_root: Path) -> dict[str, Any]:
 
     return _failure(
         _CMD_BEGIN_INIT,
-        f"cannot start Initializing: current_step is {step!r} (expected Inductive or Ready)",
+        f"cannot start Initializing: current_step is {step!r} (expected Inductive or Initialized)",
         current_step=step,
     )
 
@@ -300,7 +296,7 @@ def init_complete(cycle_id: str, project_root: Path) -> dict[str, Any]:
 
     if progress_path.exists():
         step = read_current_step(progress_path)
-        if step not in (None, _STEP_READY, _STEP_INDUCTIVE):
+        if step not in (None, _STEP_INITIALIZED, _STEP_INDUCTIVE):
             return _failure(
                 _CMD_INIT_COMPLETE,
                 f"drafting-progress already at {step!r}; cannot re-initialize",
@@ -308,12 +304,12 @@ def init_complete(cycle_id: str, project_root: Path) -> dict[str, Any]:
             )
         existing = load_drafting_progress(progress_path)
         if (
-            existing.get("current_step") == _STEP_READY
+            existing.get("current_step") == _STEP_INITIALIZED
             and existing.get("cycle_id") == cycle_id
         ):
             return _success(
                 _CMD_INIT_COMPLETE,
-                current_step=_STEP_READY,
+                current_step=_STEP_INITIALIZED,
                 design_doc=design_doc.resolve().as_posix(),
             )
 
@@ -322,13 +318,13 @@ def init_complete(cycle_id: str, project_root: Path) -> dict[str, Any]:
         {
             "version": "1",
             "cycle_id": cycle_id,
-            "current_step": _STEP_READY,
+            "current_step": _STEP_INITIALIZED,
         },
         merge=False,
     )
     return _success(
         _CMD_INIT_COMPLETE,
-        current_step=_STEP_READY,
+        current_step=_STEP_INITIALIZED,
         design_doc=design_doc.resolve().as_posix(),
     )
 
@@ -352,10 +348,10 @@ def begin_round(cycle_id: str, project_root: Path) -> dict[str, Any]:
             round=round_n,
         )
 
-    if step != _STEP_READY:
+    if step != _STEP_INITIALIZED:
         return _failure(
             _CMD_BEGIN_ROUND,
-            f"cannot begin round: current_step is {step!r} (expected Ready)",
+            f"cannot begin round: current_step is {step!r} (expected Initialized)",
             current_step=step,
         )
 

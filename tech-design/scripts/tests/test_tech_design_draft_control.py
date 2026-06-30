@@ -117,7 +117,7 @@ def _ready_session(tmp_path: Path) -> Path:
     return revision
 
 
-def _grounding_dir(tmp_path: Path) -> Path:
+def _inductive_dir(tmp_path: Path) -> Path:
     return tmp_path / _CACHE / _CYCLE / "tech" / "design" / "inductive-scope"
 
 
@@ -144,22 +144,22 @@ class TestTechDesignInductive:
         missing = inductive_complete(_CYCLE, tmp_path)
         assert missing["ok"] is False
 
-        grounding = _grounding_dir(tmp_path)
-        grounding.mkdir(parents=True, exist_ok=True)
-        (grounding / "ST.md").write_text("<!-- section-key:ST -->\n", encoding="utf-8")
+        ind = _inductive_dir(tmp_path)
+        ind.mkdir(parents=True, exist_ok=True)
+        (ind / "ST.md").write_text("<!-- section-key:ST -->\n", encoding="utf-8")
         ok = inductive_complete(_CYCLE, tmp_path)
         assert ok["ok"] is True
         assert "ST.md" in ok["section_files"]
 
-    def test_begin_init_after_inductive_includes_grounding_dir(self, tmp_path: Path):
+    def test_begin_init_after_inductive_includes_inductive_dir(self, tmp_path: Path):
         _seed_session(tmp_path)
         begin_inductive(_CYCLE, tmp_path)
-        grounding = _grounding_dir(tmp_path)
-        grounding.mkdir(parents=True, exist_ok=True)
-        (grounding / "ST.md").write_text("<!-- section-key:ST -->\n", encoding="utf-8")
+        ind = _inductive_dir(tmp_path)
+        ind.mkdir(parents=True, exist_ok=True)
+        (ind / "ST.md").write_text("<!-- section-key:ST -->\n", encoding="utf-8")
         result = begin_init(_CYCLE, tmp_path)
         assert result["ok"] is True
-        assert "GROUNDING_DIR:" in result["dispatch_input"]
+        assert "INDUCTIVE_DIR:" in result["dispatch_input"]
 
 
 class TestTechDesignDraftControl:
@@ -177,7 +177,7 @@ class TestTechDesignDraftControl:
         _seed_session(tmp_path)
         result = init_complete(_CYCLE, tmp_path)
         assert result["ok"] is True
-        assert result["current_step"] == "Ready"
+        assert result["current_step"] == "Initialized"
         assert "design-doc.md" in result["design_doc"]
 
     def test_init_complete_rejects_empty_section(self, tmp_path: Path):

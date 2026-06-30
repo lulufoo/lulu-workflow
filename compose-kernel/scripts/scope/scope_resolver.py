@@ -138,17 +138,17 @@ def resolve_role_summary(
     return resolve_cycle_type(cycle_id=cycle_id, cycle_type=cycle_type)
 
 
-def resolve_grounding_path(section: str, grounding_dir: Path | None) -> str | None:
-    """Return the abspath of `{grounding_dir}/{section}.md` if it exists, else None.
+def resolve_inductive_slice(section: str, inductive_dir: Path | None) -> str | None:
+    """Return the abspath of `{inductive_dir}/{section}.md` if it exists, else None.
 
     Used by Initializing per section: the optional inductive per-section scope
     slice that enriches (never replaces) the decision-doc SSOT. Empty/absent
-    grounding dir → no slice (init falls back to the SSOT alone).
+    inductive dir → no slice (init falls back to the SSOT alone).
     """
     key = (section or "").strip()
-    if grounding_dir is None or not key:
+    if inductive_dir is None or not key:
         return None
-    candidate = Path(grounding_dir) / f"{key}.md"
+    candidate = Path(inductive_dir) / f"{key}.md"
     if candidate.is_file():
         return str(candidate.resolve())
     return None
@@ -210,12 +210,12 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
 
     grounding = sub.add_parser(
-        "resolve-grounding",
+        "resolve-inductive",
         help="Print the per-section inductive scope slice path (empty if none)",
     )
     grounding.add_argument("--section", required=True, help="Section key (e.g. ST, IF)")
     grounding.add_argument(
-        "--grounding-dir",
+        "--inductive-dir",
         type=Path,
         help="Inductive per-section scope dir (omit/absent → no slice)",
     )
@@ -238,9 +238,9 @@ def main(argv: Optional[list[str]] = None) -> int:
             return 1
         return 0
 
-    if args.command == "resolve-grounding":
-        grounding_dir = getattr(args, "grounding_dir", None)
-        path = resolve_grounding_path(args.section, grounding_dir)
+    if args.command == "resolve-inductive":
+        inductive_dir = getattr(args, "inductive_dir", None)
+        path = resolve_inductive_slice(args.section, inductive_dir)
         if path:
             sys.stdout.write(path)
         return 0
