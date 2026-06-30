@@ -20,7 +20,8 @@
     "outline-registry": "tdt_outline_registry_url",
     "role-instance": "tdt_feature_role_instance_url",
     "domain-instance": "tdt_feature_domain_instance_url",
-    "inductive-scan-criteria": "tdt_inductive_scan_criteria_url"
+    "inductive-scan-criteria": "tdt_inductive_scan_criteria_url",
+    "structural-probe-criteria": "tdt_structural_probe_criteria_url"
   },
   "eval": {
     "enabled": true,

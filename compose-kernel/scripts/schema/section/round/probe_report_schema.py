@@ -51,18 +51,44 @@ def kw0_pending_items(report: dict[str, Any]) -> list[dict[str, Any]]:
 _GAP_KINDS_KW = frozenset({"kw", "kw0_pending"})
 _GAP_KINDS_UPSTREAM = frozenset({"upstream_violation", "upstream_coverage"})
 _GAP_KINDS_INTENT = frozenset({"intent_coverage", "intent_violation"})
-_GAP_KINDS_ALL = _GAP_KINDS_KW | _GAP_KINDS_UPSTREAM | _GAP_KINDS_INTENT
+_GAP_KINDS_STRUCTURAL = frozenset({"structural"})
+_GAP_KINDS_ALL = _GAP_KINDS_KW | _GAP_KINDS_UPSTREAM | _GAP_KINDS_INTENT | _GAP_KINDS_STRUCTURAL
 _SCOPES_KW = frozenset({"subsection"})
 _SCOPES_SECTION = frozenset({"section"})
+_SCOPES_ALL = _SCOPES_KW | _SCOPES_SECTION
 _UPSTREAM_CRITERIA_KEYS = ("upstream_intent", "expected", "observed")
 _INTENT_CRITERIA_KEYS = ("decision_intent", "expected", "observed")
+_REPAIR_CLASSES = frozenset({"mechanical", "kw_subsection", "semantic_review"})
+_FIX_MODES = frozenset({"auto", "confirm"})
+
+_REPAIR_CLASS_FOR_GAP_KIND: dict[str, str] = {
+    "structural": "mechanical",
+    "kw0_pending": "mechanical",
+    "kw": "kw_subsection",
+    "upstream_violation": "semantic_review",
+    "upstream_coverage": "semantic_review",
+    "intent_violation": "semantic_review",
+    "intent_coverage": "semantic_review",
+}
+
+_FIX_MODE_FOR_REPAIR_CLASS: dict[str, str] = {
+    "mechanical": "auto",
+    "kw_subsection": "auto",
+    "semantic_review": "confirm",
+}
 
 _SCHEMA: dict[str, Any] = {
     "version": "3",
     "kind": "probe",
     "item_fields": [
         "id",
+        "check_id",
         "gap_kind",
+        "repair_class",
+        "fix_mode",
+        "fixer_action",
+        "handled_by",
+        "degraded_from",
         "scope",
         "section_key",
         "section",
@@ -80,14 +106,31 @@ _SCHEMA: dict[str, Any] = {
         "decision",
     ],
     "enums": {
-        "gap_kind": [
-            "kw",
-            "kw0_pending",
-            "upstream_violation",
-            "upstream_coverage",
-            "intent_coverage",
-            "intent_violation",
-        ],
+        "gap_kind": {
+            "values": [
+                "kw",
+                "kw0_pending",
+                "upstream_violation",
+                "upstream_coverage",
+                "intent_coverage",
+                "intent_violation",
+                "structural",
+            ],
+            "description": "Gap classification by source and semantics. See gap-kinds.md for full definitions.",
+        },
+        "repair_class": {
+            "values": ["mechanical", "kw_subsection", "semantic_review"],
+            "description": (
+                "How and who fixes this gap. "
+                "mechanical=script auto-fix; "
+                "kw_subsection=LLM auto-fill (confirm override allowed); "
+                "semantic_review=LLM+human confirm required."
+            ),
+        },
+        "fix_mode": {
+            "values": ["auto", "confirm"],
+            "description": "Derived from repair_class. auto=no blocking prompt; confirm=human must approve.",
+        },
         "scope": ["subsection", "section"],
         "status": list(_STATUSES),
         "decision": list(_DECISIONS),
@@ -101,7 +144,10 @@ def get_schema() -> dict[str, Any]:
 
     schema = dict(_SCHEMA)
     enums = dict(_SCHEMA["enums"])
-    enums["section_key"] = list(section_keys())
+    enums["section_key"] = {
+        "values": list(section_keys()),
+        "description": "Registry section key for the probed section.",
+    }
     schema["enums"] = enums
     return schema
 
@@ -121,8 +167,22 @@ def _is_intent_gap(gap_kind: str) -> bool:
     return gap_kind in _GAP_KINDS_INTENT
 
 
+def _is_structural_gap(gap_kind: str) -> bool:
+    return gap_kind in _GAP_KINDS_STRUCTURAL
+
+
 def _is_section_gap(gap_kind: str) -> bool:
     return _is_upstream_gap(gap_kind) or _is_intent_gap(gap_kind)
+
+
+def infer_repair_class(gap_kind: str) -> str:
+    """Return the canonical repair_class for a gap_kind."""
+    return _REPAIR_CLASS_FOR_GAP_KIND.get(gap_kind, "kw_subsection")
+
+
+def infer_fix_mode(repair_class: str) -> str:
+    """Return the canonical fix_mode for a repair_class."""
+    return _FIX_MODE_FOR_REPAIR_CLASS.get(repair_class, "confirm")
 
 
 def upstream_open_items(report: dict[str, Any]) -> list[dict[str, Any]]:
@@ -149,6 +209,15 @@ def upstream_undecided_items(report: dict[str, Any]) -> list[dict[str, Any]]:
         item
         for item in undecided_items(report)
         if _is_upstream_gap(str(item.get("gap_kind", "")).lower())
+    ]
+
+
+def structural_open_items(report: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return open structural gap items."""
+    return [
+        item
+        for item in open_items(report)
+        if str(item.get("gap_kind", "")).lower() == "structural"
     ]
 
 
@@ -192,8 +261,20 @@ def validate_probe_item(item: dict[str, Any], *, index: int = 0) -> list[str]:
     if _is_section_gap(gap_kind):
         if scope not in _SCOPES_SECTION:
             errors.append(f"{prefix}: section-level gaps require scope section")
-    elif scope not in _SCOPES_KW:
+    elif scope not in _SCOPES_ALL:
         errors.append(f"{prefix}: invalid scope: {scope!r}")
+
+    repair_class = str(item.get("repair_class") or infer_repair_class(gap_kind)).lower()
+    if repair_class not in _REPAIR_CLASSES:
+        errors.append(f"{prefix}: invalid repair_class: {repair_class!r}")
+
+    fix_mode = str(item.get("fix_mode") or infer_fix_mode(repair_class)).lower()
+    if fix_mode not in _FIX_MODES:
+        errors.append(f"{prefix}: invalid fix_mode: {fix_mode!r}")
+
+    degraded_from = item.get("degraded_from")
+    if degraded_from is not None and str(degraded_from) not in _REPAIR_CLASSES:
+        errors.append(f"{prefix}: invalid degraded_from: {degraded_from!r}")
 
     if gap_kind == "kw0_pending" and str(item.get("status", "")).lower() != "kw0_pending":
         errors.append(f"{prefix}: gap_kind kw0_pending requires status kw0_pending")
@@ -307,6 +388,13 @@ def validate_probe_item(item: dict[str, Any], *, index: int = 0) -> list[str]:
     if status == "no_gap" and item.get("intent_gap"):
         errors.append(f"{prefix}: no_gap items must have empty intent_gap")
 
+    if _is_structural_gap(gap_kind) and status in ("open", "resolved"):
+        if item.get("intent_gap") is None:
+            errors.append(f"{prefix}: intent_gap required for structural gaps when status is {status}")
+        for forbidden in ("target_kw", "kw_criteria", "upstream_section", "upstream_criteria", "intent_criteria"):
+            if item.get(forbidden) is not None:
+                errors.append(f"{prefix}: structural gaps must not include {forbidden}")
+
     return errors
 
 
@@ -375,9 +463,17 @@ def normalize_probe_item(item: dict[str, Any]) -> dict[str, Any]:
     """Return item with normalized v3 fields."""
     gap_kind = str(item.get("gap_kind") or _default_gap_kind(item)).lower()
     default_scope = "section" if _is_section_gap(gap_kind) else "subsection"
+    repair_class = str(item.get("repair_class") or infer_repair_class(gap_kind)).lower()
+    fix_mode = str(item.get("fix_mode") or infer_fix_mode(repair_class)).lower()
     normalized: dict[str, Any] = {
         "id": str(item.get("id", "")),
+        "check_id": str(item.get("check_id", "")) or None,
         "gap_kind": gap_kind,
+        "repair_class": repair_class,
+        "fix_mode": fix_mode,
+        "fixer_action": item.get("fixer_action"),
+        "handled_by": item.get("handled_by"),
+        "degraded_from": item.get("degraded_from"),
         "scope": str(item.get("scope") or default_scope).lower(),
         "section_key": str(item.get("section_key", "")).upper(),
         "section": str(item.get("section", "")),
@@ -495,12 +591,18 @@ def update_probe_item_status(
 def refiner_payload(item: dict[str, Any]) -> dict[str, Any]:
     """Return refiner-runner dispatch fields from a probe gap item."""
     gap_kind = str(item.get("gap_kind", "kw")).lower()
+    repair_class = str(item.get("repair_class") or infer_repair_class(gap_kind)).lower()
     payload: dict[str, Any] = {
         "gap_item_id": item["id"],
         "section": item["section"],
         "section_key": item["section_key"],
         "scope": item.get("scope"),
         "gap_kind": gap_kind,
+        "repair_class": repair_class,
+        "fix_mode": str(item.get("fix_mode") or infer_fix_mode(repair_class)).lower(),
+        "degraded_from": item.get("degraded_from"),
+        "check_id": item.get("check_id"),
+        "fixer_action": item.get("fixer_action"),
         "sub_section_text": item["sub_section_text"],
         "intent_gap": item["intent_gap"],
     }

@@ -51,6 +51,7 @@ Pass **`--profile`** on `$FETCH_COMPOSE` to match parent `$ROUND_CONTROL`.
 
 | Step | Macro calls |
 |------|-------------|
+| 0 | `$FETCH_COMPOSE structural-probe-criteria` → criteria path · `python3 structural_probe.py run --doc-path … --section {ACTIVE_SECTION} --criteria …` |
 | 1 | `$ROUND_CONTROL`: `read-context` · `read-section-pointer` · `read-upstream-context` · `read-section-body` · `$FETCH_COMPOSE section-kw-criteria` |
 | 3 | `update-anchor-status` |
 | 4 | `write-probe-report` |
@@ -60,6 +61,26 @@ Pass **`--profile`** on `$FETCH_COMPOSE` to match parent `$ROUND_CONTROL`.
 `read-section-body --section {ACTIVE_SECTION}` → active section `body` (located by `<!-- section-key:… -->`; do not grep H2 display titles).
 
 Dependency graph SSOT: `$FETCH_COMPOSE section-registry` with matching `--profile`. Exposed via `read-upstream-context`.
+
+`structural_probe.py` output items → merged into probe report as `gap_kind: structural` with `repair_class: mechanical`, `fix_mode: auto`. Structural items use id pattern `{ACTIVE_SECTION}-S-{check_id}-{slug}`.
+
+## Step 0 — Structural pre-probe
+
+Run **after Step 1** has built `$SKIP_KEYS`.
+
+1. `$FETCH_COMPOSE structural-probe-criteria --profile <same as $ROUND_CONTROL>` → resolve criteria file path.
+   - If fetch fails because profile lacks `framework_templates.structural-probe-criteria`, skip Step 0 silently.
+2. Run:
+   ```
+   python3 structural_probe.py run \
+       --doc-path {COMPOSE_DOC_PATH} \
+       --section {ACTIVE_SECTION} \
+       --criteria <criteria_path>
+   ```
+3. Pin stdout items as `$STRUCTURAL_ITEMS_RAW`. If exit code ≠ 0, emit a warning and continue with `$STRUCTURAL_ITEMS_RAW = []`.
+4. After Step 1 builds `$SKIP_KEYS`, filter `$STRUCTURAL_ITEMS_RAW` → `$STRUCTURAL_ITEMS` where `skip_key` ∉ `$SKIP_KEYS`. Carry `$STRUCTURAL_ITEMS` into Step 4 merge.
+
+**If any structural items are found**: do **not** block Step 2/2b/2c. Structural and semantic probes run independently; both feed Step 4.
 
 ## Step 1 — Load context
 
@@ -74,6 +95,8 @@ Read scope doc **full text** from `$CTX.scope_doc_path` once; keep for Step 2c.
 `$FETCH_COMPOSE section-kw-criteria --profile <same as $ROUND_CONTROL>` → locate `## {ACTIVE_SECTION}` block (section **key**, not document display title).
 
 Build `$SKIP_KEYS` = non-empty `skip_key` values from `$CTX.skips`.
+
+Filter `$STRUCTURAL_ITEMS_RAW` (from Step 0) → `$STRUCTURAL_ITEMS` where `skip_key` ∉ `$SKIP_KEYS`.
 
 ## Step 2 — KW diagnose (sub-section)
 
@@ -148,6 +171,10 @@ Unchanged; scope to active section.
 
 ## Step 4 — Write probe report
 
-Merge **KW items → Upstream items → Decision intent items**. Include open counts in return summary.
+Merge **Structural items → KW items → Upstream items → Decision intent items**. Structural items lead the list so `repair_class: mechanical` gaps surface first.
 
-**Return footer:** Open gaps · KW0 pending · Upstream open · **Intent open**
+Every item in the report carries `repair_class`, `fix_mode`, `handled_by` (initially `null`), and `degraded_from` (initially `null`) as per schema v3.
+
+Include open counts in return summary.
+
+**Return footer:** Open gaps · Structural open · KW0 pending · Upstream open · **Intent open**

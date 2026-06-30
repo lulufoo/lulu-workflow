@@ -25,11 +25,14 @@ GAP_ITEM_ID, COMPOSE_DOC_PATH
 
 ## Step 0 — Load gap item
 
+`read-gap-item` → `$GAP.refiner` includes `gap_kind`, `repair_class`, `fix_mode`, `degraded_from`, and KW / Upstream / Intent fields.
+
 | gap_kind | Target source |
 |----------|---------------|
 | `kw` | `kw_criteria.kw{target_kw}` |
 | `upstream_violation` / `upstream_coverage` | `upstream_criteria.expected` |
 | `intent_coverage` / `intent_violation` | `intent_criteria.expected` + `## {section_key}` kw block + scope doc excerpts cited in `intent_criteria.decision_intent` |
+| `structural` | `intent_gap` (describes specific defect) + `fixer_action` from structural-probe-criteria |
 
 **Anchor:** `intent_gap`. **Target:** table above.
 
@@ -38,6 +41,49 @@ GAP_ITEM_ID, COMPOSE_DOC_PATH
 For intent gaps, read scope doc from `$CTX.scope_doc_path` and locate the paragraph(s) behind `intent_criteria.decision_intent`.
 
 For display-title updates: `$FETCH_COMPOSE section-registry` → `sections.{section_key}.heading` as type anchor (same rules as initializing-runner I2e).
+
+## Step 0.5 — repair_class routing
+
+Route by `$GAP.refiner.repair_class` **before** drafting:
+
+### mechanical (fix_mode: auto)
+
+Applies to `gap_kind: structural` and `gap_kind: kw0_pending`.
+
+1. Run:
+   ```
+   python3 mechanical_fixer.py apply-mechanical-fix \
+       --doc-path {COMPOSE_DOC_PATH} \
+       --gap-item '<$GAP.refiner JSON>'
+   ```
+2. **Exit 0** → fix applied. Set `handled_by: script`. Call `update-gap-status --status resolved`. Show user:
+   ```
+   ✔ Auto-fixed [{GAP_ITEM_ID}] ({gap_kind}): {result.message}
+   ```
+   **Stop. Do not enter Step 3.**
+3. **Exit 2 (DEGRADE)** → script cannot handle this item. Update in-memory item:
+   - `repair_class → kw_subsection`, `fix_mode → auto`, `degraded_from → mechanical`, `handled_by → null`
+   - Call `update-gap-status` to keep `open`. Show user:
+     ```
+     ⚠ Degraded [{GAP_ITEM_ID}]: mechanical fix unavailable — routing to LLM (kw_subsection).
+     ```
+   - Fall through to **kw_subsection** path below.
+4. **Exit 1 (hard error)** → emit error, abort refinement for this item.
+
+### kw_subsection (fix_mode: auto or confirm)
+
+Applies to `gap_kind: kw` and degraded items.
+
+- If `fix_mode: auto`: draft + apply without blocking prompt. Set `handled_by: llm`.
+- If `fix_mode: confirm` (profile override): present draft to user for approval before Step 5 write.
+
+Proceed to **Step 3 (KW draft path)**.
+
+### semantic_review (fix_mode: confirm)
+
+Applies to `gap_kind: upstream_*` and `intent_*`.
+
+**Always requires human confirmation before write.** Proceed to **Step 3** (Upstream or Decision intent draft path) and present draft before Step 5.
 
 ## Step 3 — Draft
 
@@ -72,9 +118,22 @@ Read full active section body + decision-doc relevant passages + section kw bloc
 
 After write, orchestrator re-probes: KW + upstream + decision intent.
 
+## Step 6 — Handling summary
+
+After Step 5 write (or auto-fix in Step 0.5), emit a one-line handling summary using `handled_by` and `degraded_from`:
+
+| handled_by | degraded_from | Summary line |
+|------------|---------------|--------------|
+| `script` | — | `✔ script [{GAP_ITEM_ID}] {gap_kind} — {result.message}` |
+| `llm` | — | `✔ llm [{GAP_ITEM_ID}] {gap_kind} — auto-filled` |
+| `llm` | `mechanical` | `✔ llm [{GAP_ITEM_ID}] {gap_kind} — degraded from mechanical; LLM-filled` |
+| `llm+human` | — | `✔ llm+human [{GAP_ITEM_ID}] {gap_kind} — confirmed by user` |
+
+Set `handled_by` on the gap item via `update-gap-status` extended payload before writing the refiner artifact.
+
 ## Return
 
 ```text
-Refiner complete — {GAP_ITEM_ID} ({gap_kind}).
+Refiner complete — {GAP_ITEM_ID} ({gap_kind}) | repair_class: {repair_class} | handled_by: {handled_by}.
   Next: orchestrator re-probes active section
 ```

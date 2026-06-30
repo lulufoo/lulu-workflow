@@ -56,6 +56,7 @@ class TestResolveConfigKey:
                 "section-form-registry",
                 "section-kw-criteria",
                 "section-registry",
+                "structural-probe-criteria",
             }
         )
 

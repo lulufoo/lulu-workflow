@@ -1,0 +1,44 @@
+{
+  "version": "1",
+  "profile_id": "tech-design",
+  "_note": "Structural probe check definitions for tech-design. Loaded via $FETCH_COMPOSE --role structural-probe-criteria. Each check maps to a gap_kind=structural item when triggered; repair_class is always mechanical. The mechanical_fixer.py whitelist determines whether auto-fix applies; unhandled items degrade to kw_subsection.",
+  "checks": [
+    {
+      "check_id": "anchor_missing",
+      "description": "Section heading is present in document but the <!-- section-key:KEY --> anchor comment is absent or KEY mismatches the registered section_key.",
+      "enabled": true,
+      "scope": "section",
+      "fixer_action": "insert_anchor",
+      "intent_gap_template": "Section {section_key} is missing its <!-- section-key:{section_key} --> anchor comment, or the comment key does not match the registry."
+    },
+    {
+      "check_id": "heading_depth",
+      "description": "Top-level section heading is not H2, or a sub-section heading depth does not match the compose-template declaration (expected H3).",
+      "enabled": true,
+      "scope": "section",
+      "fixer_action": "normalize_heading",
+      "config": {
+        "section_heading_level": 2,
+        "subsection_heading_level": 3
+      },
+      "intent_gap_template": "Section {section_key} heading level is {observed_level}, expected {expected_level}."
+    },
+    {
+      "check_id": "required_subsection_missing",
+      "description": "A sub-section declared as required in section-kw-criteria (KW0 level) is entirely absent from the section body.",
+      "enabled": false,
+      "scope": "subsection",
+      "fixer_action": null,
+      "intent_gap_template": "Required sub-section '{subsection_title}' is missing from section {section_key}."
+    },
+    {
+      "check_id": "placeholder_remaining",
+      "description": "Sub-section body contains unreplaced placeholder or TODO text (e.g. 'TODO', '<!-- TODO -->', '(placeholder)', 'TBD') with no other substantive content.",
+      "enabled": true,
+      "scope": "subsection",
+      "fixer_action": null,
+      "placeholder_patterns": ["^\\s*TODO\\s*$", "^\\s*TBD\\s*$", "<!--\\s*TODO[^>]*-->", "^\\s*\\(placeholder\\)\\s*$"],
+      "intent_gap_template": "Sub-section '{subsection_title}' in {section_key} contains only a placeholder and has not been filled in."
+    }
+  ]
+}

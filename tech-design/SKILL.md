@@ -82,7 +82,7 @@ To resume an in-progress design document, do not run start again — run `$SESSI
 
 Anchor the decision-doc in code before composing. Always run — no opt-in prompt.
 
-The inductive-runner is a **human-driven gate spine** (Gate 1 Shape → Gate 2 Grounding → Gate 3 Refine → Gate 4 Recompose): AI recommends, the **user** decides each open point and closes each gate. It **MUST run inline in this conversation**, the same way a `/diagnostic` gate runner is loaded. **Do NOT dispatch it as a subagent** (`$SUBAGENT_*`): a subagent has no interactive channel back to the user, so it would auto-generate every section in one autonomous pass and skip the per-section dialogue.
+**Inductive-runner** is a human-driven 4-gate spine (Shape → Grounding → Refine → Recompose): AI recommends; the **user** closes each gate. Run it **inline in this conversation** (same as `/diagnostic` gate runners). **No `$SUBAGENT_*`** — subagents cannot interact with the user.
 
 1. Run `$DRAFT_CONTROL begin-inductive`.
    - On failure → Blocking.

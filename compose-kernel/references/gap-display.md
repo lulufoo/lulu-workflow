@@ -4,6 +4,8 @@ Display contract for user-facing gap presentation. **Does not invoke scripts** �
 
 **Invariant:** Display-only. Never mutate `probe-{seq}.json` on disk. Refiner uses original `intent_gap` from `$PROBE.items`.
 
+> **gap_kind 语义定义**（什么意思 / 由谁检测 / `repair_class` / 触发条件）见 [`gap-kinds.md`](gap-kinds.md)。本文件只定义展示标签与渲染规则。
+
 ---
 
 ## Prerequisites
@@ -38,11 +40,15 @@ Per item:
 |-------|-----|
 | `id` | ID column; user decision token |
 | `gap_kind` | Grouping and issue label |
+| `repair_class` | Route: `mechanical` → auto-handled section; others → user decision table |
+| `fix_mode` | `auto` = no prompt needed; `confirm` = user must decide |
+| `handled_by` | Post-refiner audit trail (shown in handling summary, not in gap table) |
+| `degraded_from` | If set, show degradation note in paraphrase |
 | `target_kw` | KW check-item label (`gap_kind: kw` only) |
 | `intent_gap` | Paraphrase source → plain summary |
 | `sub_section_summary` | Optional subject in plain sentence |
 | `upstream_section` | Upstream sub-header and sentence subject |
-| `decision` | Filter: show only `"—"` |
+| `decision` | Filter: show only `"—"` for user decision table; `mechanical` items bypass this filter |
 | `status` | Filter: `open` or `kw0_pending` |
 
 Do not surface full `kw_criteria` or `intent_criteria` in the user table (refiner-only).
@@ -61,15 +67,18 @@ Footer counts come from **`$PROBE`**, not re-counted from `items`.
 ## Render pipeline
 
 1. **KW0 gate:** If `$PROBE.kw0_pending_count` > 0 → show only filtered rows with `status: kw0_pending`; omit Upstream and Decision intent; footer + prompt → **stop and wait** (skip 2c).
-2. **Filter items:** Include only rows where `decision === "—"` and `status` ∈ `{open, kw0_pending}`. Omit `no_gap`, `resolved`, and decided rows.
-3. **Group:**
-   - **KW** — `gap_kind` ∈ `kw`, `kw0_pending`
+2. **Split by repair_class:**
+   - **`mechanical` items** (`repair_class: mechanical`, `fix_mode: auto`) — render in a separate **「自动处理·仅知会」** section (no user decision needed). Include `gap_kind: structural` and `gap_kind: kw0_pending` items.
+   - **Non-mechanical items** — proceed to step 3 user decision table.
+3. **Filter non-mechanical items:** Include only rows where `decision === "—"` and `status` ∈ `{open, kw0_pending}`. Omit `no_gap`, `resolved`, and decided rows.
+4. **Group non-mechanical:**
+   - **KW** — `gap_kind` ∈ `kw`
    - **Upstream** — `gap_kind` ∈ `upstream_violation`, `upstream_coverage`; sub-header `Upstream（vs {upstream_section}）`; one table per upstream section; **violation before coverage** within the same upstream.
    - **Decision intent** — `gap_kind` ∈ `intent_violation`, `intent_coverage`; sub-header `Decision intent`; **violation before coverage**.
-4. **Label** — maps below; never show raw `KW2` or enum names alone.
-5. **Paraphrase** — `intent_gap` → plain summary (user locale below).
-6. **Footer** — `$POINTER.sections` statuses + `$PROBE` counts.
-7. **Prompt footer** — template below → **stop and wait**; do not infer decisions or enter 2c.
+5. **Label** — maps below; never show raw `KW2` or enum names alone.
+6. **Paraphrase** — `intent_gap` → plain summary (user locale below). If `degraded_from` is set, prefix with `（自动修复失败，改由 LLM 处理）`.
+7. **Footer** — `$POINTER.sections` statuses + `$PROBE` counts.
+8. **Prompt footer** — template below → **stop and wait**; do not infer decisions or enter 2c.
 
 Omit empty groups.
 
@@ -100,6 +109,12 @@ Omit empty groups.
 | `intent_coverage` | 决策还没写进本节 |
 | `intent_violation` | 与决策冲突 |
 
+### Structural type (`gap_kind`)
+
+| gap_kind | Label (user locale) |
+|----------|---------------------|
+| `structural` | 结构缺陷（自动修复） |
+
 ### KW0 pending
 
 | Check | Plain summary (user locale) |
@@ -125,6 +140,11 @@ Omit empty groups.
 ```text
 Round {N} / {ACTIVE_SECTION} — 待决缺口
 
+【自动处理·仅知会】
+| 编号 | 类型 | 说明 |
+| {id} | 结构缺陷（自动修复） | … |
+（以上条目由脚本/LLM 自动处理，无需决策）
+
 KW
 | 编号 | 检查项 | 简单说就是 |
 | {id} | … | … |
@@ -138,11 +158,13 @@ Decision intent
 | {id} | … | … |
 
 Section 状态： {section_key} {status} · …
-Undecided: {n} · KW0 pending: {n} · Upstream undecided: {n} · Intent undecided: {n} · Probe seq: {seq}
+Undecided: {n} · Structural auto: {n} · KW0 pending: {n} · Upstream undecided: {n} · Intent undecided: {n} · Probe seq: {seq}
 
 请你决定（Round {N} / {ACTIVE_SECTION}）
 例如：{id} accept · {id} skip（多条 accept 可一次 refiner 合并处理）。
 ```
+
+Omit 【自动处理·仅知会】 block when there are no `mechanical` items.
 
 After this block: **stop and wait** for the user's next message.
 
