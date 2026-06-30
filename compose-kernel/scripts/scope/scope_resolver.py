@@ -138,6 +138,22 @@ def resolve_role_summary(
     return resolve_cycle_type(cycle_id=cycle_id, cycle_type=cycle_type)
 
 
+def resolve_grounding_path(section: str, grounding_dir: Path | None) -> str | None:
+    """Return the abspath of `{grounding_dir}/{section}.md` if it exists, else None.
+
+    Used by Initializing per section: the optional inductive per-section scope
+    slice that enriches (never replaces) the decision-doc SSOT. Empty/absent
+    grounding dir → no slice (init falls back to the SSOT alone).
+    """
+    key = (section or "").strip()
+    if grounding_dir is None or not key:
+        return None
+    candidate = Path(grounding_dir) / f"{key}.md"
+    if candidate.is_file():
+        return str(candidate.resolve())
+    return None
+
+
 def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Compose stage profile plan scope role resolver")
     parser.add_argument(
@@ -193,6 +209,22 @@ def main(argv: Optional[list[str]] = None) -> int:
         help="Override path to domain instance JSON for resolved cycle_type",
     )
 
+    grounding = sub.add_parser(
+        "resolve-grounding",
+        help="Print the per-section inductive scope slice path (empty if none)",
+    )
+    grounding.add_argument("--section", required=True, help="Section key (e.g. ST, IF)")
+    grounding.add_argument(
+        "--grounding-dir",
+        type=Path,
+        help="Inductive per-section scope dir (omit/absent → no slice)",
+    )
+    grounding.add_argument(
+        "--project-root",
+        default=".",
+        help="Project root (reserved)",
+    )
+
     args = parser.parse_args(argv)
 
     project_root = Path(args.project_root).resolve()
@@ -204,6 +236,13 @@ def main(argv: Optional[list[str]] = None) -> int:
             for err in errors:
                 print(err, file=sys.stderr)
             return 1
+        return 0
+
+    if args.command == "resolve-grounding":
+        grounding_dir = getattr(args, "grounding_dir", None)
+        path = resolve_grounding_path(args.section, grounding_dir)
+        if path:
+            sys.stdout.write(path)
         return 0
 
     if args.command == "resolve-domain":

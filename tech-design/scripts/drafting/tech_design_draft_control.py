@@ -36,18 +36,24 @@ from tech_design_start_adapter import TechDesignStartAdapter  # noqa: E402
 from workflow_profile_paths import (  # noqa: E402
     doc_dir,
     document_path,
+    session_base_dir,
     session_state_path,
 )
 
+_CMD_BEGIN_INDUCTIVE = "begin-inductive"
+_CMD_INDUCTIVE_COMPLETE = "inductive-complete"
 _CMD_BEGIN_INIT = "begin-init"
 _CMD_INIT_COMPLETE = "init-complete"
 _CMD_BEGIN_ROUND = "begin-round"
 _CMD_ADVANCE_ROUND = "advance-round"
 _CMD_ADVANCE_TO_FREEEDIT = "advance-to-freeedit"
 _CMD_STATUS = "status"
+_STEP_INDUCTIVE = "Inductive"
 _STEP_READY = "Ready"
 _STEP_ROUND = "RoundIteration"
 _STEP_FREE_EDIT = "FreeEdit"
+
+_INDUCTIVE_SUBDIR = "inductive-scope"
 
 
 def _active_doc(cycle_id: str, project_root: Path) -> int:
@@ -93,6 +99,37 @@ def _failure(command: str, reason: str, **extra: Any) -> dict[str, Any]:
     return payload
 
 
+def _inductive_out_dir(cycle_id: str, project_root: Path) -> Path:
+    return (project_root / session_base_dir(cycle_id, PROFILE_ID, project_root)).resolve()
+
+
+def _grounding_dir(cycle_id: str, project_root: Path) -> Path:
+    return _inductive_out_dir(cycle_id, project_root) / _INDUCTIVE_SUBDIR
+
+
+def _resolve_scope_doc(cycle_id: str, project_root: Path) -> Path:
+    adapter = TechDesignStartAdapter()
+    init_ref = adapter.delivered_ref_for_init(cycle_id, project_root)
+    if init_ref is None:
+        raise ValueError("no scope ref available")
+    scope_path = Path(init_ref.path).resolve()
+    if not scope_path.is_file():
+        raise ValueError(f"scope doc not found: {scope_path}")
+    return scope_path
+
+
+def _inductive_dispatch_input(cycle_id: str, project_root: Path) -> str:
+    scope_path = _resolve_scope_doc(cycle_id, project_root)
+    out_dir = _inductive_out_dir(cycle_id, project_root)
+    lines = [
+        f"COMPOSE_PROFILE:      {PROFILE_ID}",
+        f"CYCLE_ID:             {cycle_id}",
+        f"SCOPE_DOC:            {scope_path.as_posix()}",
+        f"INDUCTIVE_OUT_DIR:    {out_dir.as_posix()}",
+    ]
+    return "\n".join(lines)
+
+
 def _format_init_dispatch_input(
     *,
     revision_dir: Path,
@@ -100,6 +137,7 @@ def _format_init_dispatch_input(
     output_doc: Path,
     cycle_type: str,
     cycle_id: str,
+    grounding_dir: Path | None,
 ) -> str:
     lines = [
         f"REVISION_DIR:         {revision_dir.resolve().as_posix()}",
@@ -109,6 +147,8 @@ def _format_init_dispatch_input(
         f"CYCLE_TYPE:           {cycle_type}",
         f"CYCLE_ID:             {cycle_id}",
     ]
+    if grounding_dir is not None:
+        lines.append(f"GROUNDING_DIR:        {grounding_dir.resolve().as_posix()}")
     return "\n".join(lines)
 
 
@@ -116,19 +156,16 @@ def _init_dispatch_input(cycle_id: str, project_root: Path) -> str:
     active_doc = _active_doc(cycle_id, project_root)
     revision_dir = project_root / doc_dir(cycle_id, active_doc, PROFILE_ID, project_root)
     output_doc = project_root / document_path(cycle_id, active_doc, PROFILE_ID, project_root)
-    adapter = TechDesignStartAdapter()
-    init_ref = adapter.delivered_ref_for_init(cycle_id, project_root)
-    if init_ref is None:
-        raise ValueError("no scope ref available for Initializing")
-    scope_path = Path(init_ref.path).resolve()
-    if not scope_path.is_file():
-        raise ValueError(f"scope doc not found: {scope_path}")
+    scope_path = _resolve_scope_doc(cycle_id, project_root)
+    grounding_dir = _grounding_dir(cycle_id, project_root)
+    grounding = grounding_dir if grounding_dir.is_dir() else None
     return _format_init_dispatch_input(
         revision_dir=revision_dir,
         scope_doc=scope_path,
         output_doc=output_doc,
         cycle_type=detect_cycle_type(cycle_id),
         cycle_id=cycle_id,
+        grounding_dir=grounding,
     )
 
 
@@ -160,27 +197,95 @@ def _validate_init_complete(cycle_id: str, project_root: Path) -> str | None:
     )
 
 
-def begin_init(cycle_id: str, project_root: Path) -> dict[str, Any]:
+def begin_inductive(cycle_id: str, project_root: Path) -> dict[str, Any]:
     progress_path = resolve_drafting_progress_path_from_cycle(cycle_id, project_root)
-    dispatch_input = _init_dispatch_input(cycle_id, project_root)
+    dispatch_input = _inductive_dispatch_input(cycle_id, project_root)
+
+    if progress_path.exists():
+        step = read_current_step(progress_path)
+        if step not in (None, _STEP_INDUCTIVE):
+            return _failure(
+                _CMD_BEGIN_INDUCTIVE,
+                f"cannot start Inductive: current_step is {step!r} (expected absent or Inductive)",
+                current_step=step,
+            )
+
+    save_drafting_progress(
+        progress_path,
+        {
+            "version": "1",
+            "cycle_id": cycle_id,
+            "current_step": _STEP_INDUCTIVE,
+        },
+        merge=False,
+    )
+    return _success(
+        _CMD_BEGIN_INDUCTIVE,
+        current_step=_STEP_INDUCTIVE,
+        dispatch_input=dispatch_input,
+    )
+
+
+def inductive_complete(cycle_id: str, project_root: Path) -> dict[str, Any]:
+    progress_path = resolve_drafting_progress_path_from_cycle(cycle_id, project_root)
     if not progress_path.exists():
-        return _success(
-            _CMD_BEGIN_INIT,
-            current_step=None,
-            dispatch_input=dispatch_input,
+        return _failure(
+            _CMD_INDUCTIVE_COMPLETE,
+            "drafting-progress.md not found; run begin-inductive first",
         )
 
     step = read_current_step(progress_path)
-    if step == _STEP_READY:
+    if step != _STEP_INDUCTIVE:
+        return _failure(
+            _CMD_INDUCTIVE_COMPLETE,
+            f"cannot complete Inductive: current_step is {step!r} (expected Inductive)",
+            current_step=step,
+        )
+
+    grounding_dir = _grounding_dir(cycle_id, project_root)
+    section_files = (
+        sorted(
+            p.name
+            for p in grounding_dir.glob("*.md")
+        )
+        if grounding_dir.is_dir()
+        else []
+    )
+    if not section_files:
+        return _failure(
+            _CMD_INDUCTIVE_COMPLETE,
+            f"no per-section scope files under {grounding_dir.as_posix()}",
+            current_step=step,
+        )
+
+    return _success(
+        _CMD_INDUCTIVE_COMPLETE,
+        current_step=_STEP_INDUCTIVE,
+        grounding_dir=grounding_dir.as_posix(),
+        section_files=section_files,
+    )
+
+
+def begin_init(cycle_id: str, project_root: Path) -> dict[str, Any]:
+    progress_path = resolve_drafting_progress_path_from_cycle(cycle_id, project_root)
+    if not progress_path.exists():
+        return _failure(
+            _CMD_BEGIN_INIT,
+            "cannot start Initializing: Inductive not run (run begin-inductive first)",
+            current_step=None,
+        )
+
+    step = read_current_step(progress_path)
+    if step in (_STEP_INDUCTIVE, _STEP_READY):
         return _success(
             _CMD_BEGIN_INIT,
-            current_step=_STEP_READY,
-            dispatch_input=dispatch_input,
+            current_step=step,
+            dispatch_input=_init_dispatch_input(cycle_id, project_root),
         )
 
     return _failure(
         _CMD_BEGIN_INIT,
-        f"cannot start Initializing: current_step is {step!r} (expected absent or Ready)",
+        f"cannot start Initializing: current_step is {step!r} (expected Inductive or Ready)",
         current_step=step,
     )
 
@@ -195,7 +300,7 @@ def init_complete(cycle_id: str, project_root: Path) -> dict[str, Any]:
 
     if progress_path.exists():
         step = read_current_step(progress_path)
-        if step not in (None, _STEP_READY):
+        if step not in (None, _STEP_READY, _STEP_INDUCTIVE):
             return _failure(
                 _CMD_INIT_COMPLETE,
                 f"drafting-progress already at {step!r}; cannot re-initialize",
@@ -361,6 +466,8 @@ def _cli() -> int:
         help="Project root directory",
     )
     sub = parser.add_subparsers(dest="command", required=True)
+    sub.add_parser(_CMD_BEGIN_INDUCTIVE, help="Begin Inductive (gate + dispatch input)")
+    sub.add_parser(_CMD_INDUCTIVE_COMPLETE, help="Complete Inductive (validate per-section outputs)")
     sub.add_parser(_CMD_BEGIN_INIT, help="Begin Initializing (gate + dispatch input)")
     sub.add_parser(_CMD_INIT_COMPLETE, help="Complete Initializing")
     sub.add_parser(_CMD_BEGIN_ROUND, help="Begin Round Iteration")
@@ -373,6 +480,14 @@ def _cli() -> int:
     cycle_id = args.cycle_id.strip()
 
     try:
+        if args.command == _CMD_BEGIN_INDUCTIVE:
+            result = begin_inductive(cycle_id, project_root)
+            if result.get("ok"):
+                print(result["dispatch_input"])
+                return 0
+            return _emit(result)
+        if args.command == _CMD_INDUCTIVE_COMPLETE:
+            return _emit(inductive_complete(cycle_id, project_root))
         if args.command == _CMD_BEGIN_INIT:
             result = begin_init(cycle_id, project_root)
             if result.get("ok"):

@@ -50,6 +50,7 @@ class TestResolveConfigKey:
         assert scheme_template_keys() == frozenset(
             {
                 "domain-instance",
+                "inductive-scan-criteria",
                 "outline-registry",
                 "role-instance",
                 "section-form-registry",

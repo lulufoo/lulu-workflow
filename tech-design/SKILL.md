@@ -46,22 +46,6 @@ Before design drafting or evaluation:
 
 > Prerequisite: diagnostic `decision-doc` Delivered for this cycle.
 
-**Phase 0 — Inductive layer (optional):**
-
-Before running start.py, ask the user:
-
-> "是否先执行归纳层（Inductive Runner）？归纳层会读取 decision-doc，与你协作提炼技术方案的代码锚定细节，产出 inductive-scope.md 供后续 Initializing 使用。(Y/N)"
-
-- **Y** → Dispatch inductive-runner:
-
-```text
-Load {actual $SKILL_ROOT}/tech-design/inductive-runner/SKILL.md and follow its instructions.
-```
-
-  Await completion. When inductive-runner returns, continue to Phase 1 below. Compose Initializing will read both `decision-doc.md` and `inductive-scope.md` (if present) as scope input.
-
-- **N** → Proceed directly to Phase 1.
-
 **Phase 1:** Identify active cycle — `_runtime.md` § Session Foundation. Do not run start.py until `$CYCLE_ID` is confirmed.
 
 **Phase 2:** Run start
@@ -89,14 +73,33 @@ To resume an in-progress design document, do not run start again — run `$SESSI
 
 ## Drafting Rules
 
-**Entry:** Step 1 → Step 2 → Step 3, or resume via `$SESSION_INFO --view session`.
-**Drafting states:** `Ready → RoundIteration → FreeEdit`.
+**Entry:** Step 0 → Step 1 → Step 2 → Step 3, or resume via `$SESSION_INFO --view session`.
+**Drafting states:** `Inductive → Ready → RoundIteration → FreeEdit`.
 
 **After Initializing completes:** present summary; user may enter **Step 2 — RoundIteration**, **Evaluating**, or **Deliver** (skip Round/FreeEdit).
 
+#### Step 0 — Inductive (mandatory)
+
+Anchor the decision-doc in code before composing. Always run — no opt-in prompt.
+
+1. Run `$DRAFT_CONTROL begin-inductive`.
+   - On failure → Blocking.
+   - On success → dispatch inductive-runner (stdout → `## Input`):
+
+```text
+Load {actual $SKILL_ROOT}/compose-kernel/runners/inductive-runner/SKILL.md and follow its instructions.
+
+## Input
+{begin-inductive stdout}
+```
+
+Await completion (`$SUBAGENT_AWAIT_SYNC`).
+
+2. Run `$DRAFT_CONTROL inductive-complete`. On failure → Blocking. It emits per-section scope files under `inductive-scope/` consumed by Step 1.
+
 #### Step 1 — Initializing
 
-Compose design-doc from decision-doc (`I*` / `F` / `C` per section; see initializing-runner Theory). No mapping paste. If `inductive-scope.md` exists in the design cache dir, read it alongside `decision-doc.md` as additional grounding — its resolved design decisions and code references enrich the scope substance.
+Compose design-doc (`I*` / `F` / `C` per section; see initializing-runner Theory). No mapping paste. **`decision-doc.md` is the scope SSOT.** When inductive produced per-section scope files, `begin-init` passes their directory as `GROUNDING_DIR`; init reads each section's slice as code-anchored grounding **alongside** decision-doc (decision-doc stays the completeness anchor — grounding enriches, never replaces).
 
 1. Run `$DRAFT_CONTROL begin-init`.
    - On failure → Blocking.

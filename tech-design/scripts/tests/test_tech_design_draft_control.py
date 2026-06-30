@@ -22,9 +22,11 @@ import bootstrap  # noqa: F401, E402
 from tech_design_draft_control import (  # noqa: E402
     advance_round,
     advance_to_freeedit,
+    begin_inductive,
     begin_init,
     begin_round,
     draft_status,
+    inductive_complete,
     init_complete,
 )
 from test_template_data import seed_template_cache  # noqa: E402
@@ -115,9 +117,55 @@ def _ready_session(tmp_path: Path) -> Path:
     return revision
 
 
+def _grounding_dir(tmp_path: Path) -> Path:
+    return tmp_path / _CACHE / _CYCLE / "tech" / "design" / "inductive-scope"
+
+
+class TestTechDesignInductive:
+    def test_begin_inductive_persists_state_and_dispatch(self, tmp_path: Path):
+        revision = _seed_session(tmp_path)
+        result = begin_inductive(_CYCLE, tmp_path)
+        assert result["ok"] is True
+        assert "COMPOSE_PROFILE:      tech-design" in result["dispatch_input"]
+        assert "SCOPE_DOC:" in result["dispatch_input"]
+        assert "INDUCTIVE_OUT_DIR:" in result["dispatch_input"]
+        progress = (revision / "drafting-progress.md").read_text(encoding="utf-8")
+        assert "current_step: Inductive" in progress
+
+    def test_begin_init_requires_inductive_first(self, tmp_path: Path):
+        _seed_session(tmp_path)
+        result = begin_init(_CYCLE, tmp_path)
+        assert result["ok"] is False
+        assert "Inductive" in result["reason"]
+
+    def test_inductive_complete_requires_section_files(self, tmp_path: Path):
+        _seed_session(tmp_path)
+        begin_inductive(_CYCLE, tmp_path)
+        missing = inductive_complete(_CYCLE, tmp_path)
+        assert missing["ok"] is False
+
+        grounding = _grounding_dir(tmp_path)
+        grounding.mkdir(parents=True, exist_ok=True)
+        (grounding / "ST.md").write_text("<!-- section-key:ST -->\n", encoding="utf-8")
+        ok = inductive_complete(_CYCLE, tmp_path)
+        assert ok["ok"] is True
+        assert "ST.md" in ok["section_files"]
+
+    def test_begin_init_after_inductive_includes_grounding_dir(self, tmp_path: Path):
+        _seed_session(tmp_path)
+        begin_inductive(_CYCLE, tmp_path)
+        grounding = _grounding_dir(tmp_path)
+        grounding.mkdir(parents=True, exist_ok=True)
+        (grounding / "ST.md").write_text("<!-- section-key:ST -->\n", encoding="utf-8")
+        result = begin_init(_CYCLE, tmp_path)
+        assert result["ok"] is True
+        assert "GROUNDING_DIR:" in result["dispatch_input"]
+
+
 class TestTechDesignDraftControl:
     def test_begin_init_dispatch_includes_profile(self, tmp_path: Path):
         revision = _seed_session(tmp_path)
+        begin_inductive(_CYCLE, tmp_path)
         result = begin_init(_CYCLE, tmp_path)
         assert result["ok"] is True
         assert "COMPOSE_PROFILE:      tech-design" in result["dispatch_input"]
