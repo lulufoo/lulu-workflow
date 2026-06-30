@@ -82,20 +82,20 @@ To resume an in-progress design document, do not run start again — run `$SESSI
 
 Anchor the decision-doc in code before composing. Always run — no opt-in prompt.
 
+The inductive-runner is a **human-driven gate spine** (Gate 1 Shape → Gate 2 Grounding → Gate 3 Refine → Gate 4 Recompose): AI recommends, the **user** decides each open point and closes each gate. It **MUST run inline in this conversation**, the same way a `/diagnostic` gate runner is loaded. **Do NOT dispatch it as a subagent** (`$SUBAGENT_*`): a subagent has no interactive channel back to the user, so it would auto-generate every section in one autonomous pass and skip the per-section dialogue.
+
 1. Run `$DRAFT_CONTROL begin-inductive`.
    - On failure → Blocking.
-   - On success → dispatch inductive-runner (stdout → `## Input`):
+   - On success → read the runner SKILL and follow its gate spine **interactively in this conversation**, with `begin-inductive` stdout as its `## Input`:
 
 ```text
-Load {actual $SKILL_ROOT}/compose-kernel/runners/inductive-runner/SKILL.md and follow its instructions.
+Load {actual $SKILL_ROOT}/compose-kernel/runners/inductive-runner/SKILL.md and follow its instructions in this conversation (interactive, human-driven — NOT a subagent).
 
 ## Input
 {begin-inductive stdout}
 ```
 
-Await completion (`$SUBAGENT_AWAIT_SYNC`).
-
-2. Run `$DRAFT_CONTROL inductive-complete`. On failure → Blocking. It emits per-section scope files under `inductive-scope/` consumed by Step 1.
+2. After the gate spine completes (user confirms Gate 4 recompose), run `$DRAFT_CONTROL inductive-complete`. On failure → Blocking. It emits per-section scope files under `inductive-scope/` consumed by Step 1.
 
 #### Step 1 — Initializing
 
