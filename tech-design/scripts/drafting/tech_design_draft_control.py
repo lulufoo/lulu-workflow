@@ -54,6 +54,19 @@ _STEP_ROUND = "RoundIteration"
 _STEP_FREE_EDIT = "FreeEdit"
 
 _INDUCTIVE_SUBDIR = "inductive-scope"
+_INDUCTIVE_GATE_STATE_FILE = "inductive-gate-state.json"
+
+
+def _inductive_g4_closed(cycle_id: str, project_root: Path) -> bool:
+    """Return True iff the inductive gate-state G4 is closed."""
+    gate_state_path = _inductive_out_dir(cycle_id, project_root) / _INDUCTIVE_GATE_STATE_FILE
+    if not gate_state_path.exists():
+        return False
+    try:
+        data = json.loads(gate_state_path.read_text(encoding="utf-8"))
+        return str(data.get("gates", {}).get("G4", {}).get("status", "")).lower() == "closed"
+    except Exception:
+        return False
 
 
 def _active_doc(cycle_id: str, project_root: Path) -> int:
@@ -241,18 +254,21 @@ def inductive_complete(cycle_id: str, project_root: Path) -> dict[str, Any]:
             current_step=step,
         )
 
+    if not _inductive_g4_closed(cycle_id, project_root):
+        out_dir = _inductive_out_dir(cycle_id, project_root)
+        return _failure(
+            _CMD_INDUCTIVE_COMPLETE,
+            f"inductive Gate 4 not closed; run inductive-runner to G4 close before completing "
+            f"(gate state: {(out_dir / _INDUCTIVE_GATE_STATE_FILE).as_posix()})",
+            current_step=step,
+        )
+
     ind_dir = _inductive_dir(cycle_id, project_root)
     section_files = (
         sorted(p.name for p in ind_dir.glob("*.md"))
         if ind_dir.is_dir()
         else []
     )
-    if not section_files:
-        return _failure(
-            _CMD_INDUCTIVE_COMPLETE,
-            f"no per-section scope files under {ind_dir.as_posix()}",
-            current_step=step,
-        )
 
     return _success(
         _CMD_INDUCTIVE_COMPLETE,
@@ -273,6 +289,15 @@ def begin_init(cycle_id: str, project_root: Path) -> dict[str, Any]:
 
     step = read_current_step(progress_path)
     if step in (_STEP_INDUCTIVE, _STEP_INITIALIZED):
+        if step == _STEP_INDUCTIVE and not _inductive_g4_closed(cycle_id, project_root):
+            out_dir = _inductive_out_dir(cycle_id, project_root)
+            return _failure(
+                _CMD_BEGIN_INIT,
+                "cannot start Initializing: inductive Gate 4 not closed; "
+                "complete the inductive runner (G4 close) before beginning Initializing "
+                f"(gate state: {(out_dir / _INDUCTIVE_GATE_STATE_FILE).as_posix()})",
+                current_step=step,
+            )
         return _success(
             _CMD_BEGIN_INIT,
             current_step=step,

@@ -33,8 +33,11 @@ The parent passes these in the `## Input` block; do not hardcode stage paths.
 ## Session Paths (derived)
 
 ```
-INDUCTIVE_DIR   = $INDUCTIVE_OUT_DIR/inductive-scope          # per-section scope files (the only scope artifacts init reads)
-INDUCTIVE_DQI   = $INDUCTIVE_OUT_DIR/inductive-dqi.json
+INDUCTIVE_DIR         = $INDUCTIVE_OUT_DIR/inductive-scope          # per-section scope files (the only scope artifacts init reads)
+INDUCTIVE_DQI         = $INDUCTIVE_OUT_DIR/inductive-dqi.json
+INDUCTIVE_GATE_STATE  = $INDUCTIVE_OUT_DIR/inductive-gate-state.json
+INDUCTIVE_SECTION_PTR = $INDUCTIVE_OUT_DIR/inductive-section-pointer.json
+INDUCTIVE_EP_LEDGER   = $INDUCTIVE_OUT_DIR/exposed-points.json
 ```
 
 ---
@@ -44,6 +47,8 @@ INDUCTIVE_DQI   = $INDUCTIVE_OUT_DIR/inductive-dqi.json
 | Macro | Command |
 |-------|---------|
 | `$FETCH_COMPOSE` | `python3 "$SKILL_ROOT/compose-kernel/scripts/io/fetch_compose_framework.py" --role <role> --profile "$COMPOSE_PROFILE" --project-root "$(pwd)" --cycle-id "$CYCLE_ID"` |
+| `$INDUCTIVE_GATE_CTL` | `python3 "$SKILL_ROOT/compose-kernel/scripts/inductive/inductive_gate_control.py" --out-dir "$INDUCTIVE_OUT_DIR"` |
+| `$INDUCTIVE_SECTION_CTL` | `python3 "$SKILL_ROOT/compose-kernel/scripts/inductive/inductive_section_control.py" --out-dir "$INDUCTIVE_OUT_DIR"` |
 
 Before Gate 3, fetch two roles (do not read `workflow-config.json` directly):
 - `$FETCH_COMPOSE --role inductive-scan-criteria` → `SCAN_CRITERIA`: the coverage ladder (`coverage_sections`), methods + weights, KW stop-gate semantics, and mandatory coverage.
@@ -83,13 +88,14 @@ The gates progressively refine the **same architecture view** from coarse to fin
 
 ## Roles & Global Rules
 
+- **Who fixes what (load-bearing — never violate).** Every *how-to-fix* decision is the **user's**. The **AI only recommends** (leaning + rationale + implication). The **scripts only move state and keep the ledger** — never a semantic judgement about content. **Gate 4 only finds and names problems; it never fixes them.** A fix is always made back in the gate that owns it (Gate 3 for a section, Gate 1 for shape), through the normal AI-recommends → user-decides loop — never auto-applied and never patched inside the auditor.
 - **AI leads the spine, the user drives the descent.** AI knows the next gate and exposes the section ladder + the open points at the current section (recommendations). The **user chooses** which point to expand, whether to skip it, and when to move on or stop.
 - **AI output is a recommendation, not a verdict.** Phrase as "I lean X because…; the implication is…; expand this?" — leave the decision to the human.
-- **AI gates, it does not auto-advance.** AI blocks moving to the next section until the current section's blocking points are resolved or explicitly skipped by the user. AI never self-judges "good enough" — gate close is the user's.
-- **Parallel inlet, open the whole session:** at any section, the user may inject a point AI missed ("add a fallback design"); register it (`source: human_inlet`) under the relevant section and treat it like any other open point — do not side-channel append it.
+- **Focus guard, not auto-advance.** Sections are peers on the ladder; `activate-section <S>` to any section is always permitted — the user may jump into any section at any time. All state-mutating operations (`register-ep`, `update-ep`, `commit-section`, `skip-section`) must target the `active_section`: run `$INDUCTIVE_SECTION_CTL activate-section --section <S>` first to shift focus. AI must not discover into a section other than the current `active_section`.
+- **`human_inlet` is a peer discovery source, not a safety net.** At any section, the user may propose a design point AI did not surface — this is a first-class `human_inlet` EP, on equal footing with AI-scan EPs. Register it via `$INDUCTIVE_SECTION_CTL register-ep --json '{"source":"human_inlet","method":"human_inlet","kw":"<KW criterion it leaves false>",...}'` under the current `active_section`. The remaining EP lifecycle (resolve/defer/fold into figure) is identical to an AI-scan EP.
 - **One point at a time** — never batch multiple decisions into one prompt.
-- Fetch `SCAN_CRITERIA` once before Gate 3 (`$FETCH_COMPOSE --role inductive-scan-criteria`); it configures the coverage ladder (`coverage_sections`), the methods + weights, the KW stop-gate semantics, and mandatory coverage.
-- Fetch `section-form-registry` once before Gate 3 (`$FETCH_COMPOSE --role section-form-registry`); cache each touched section's `presentation.allowed` / `presentation.forbidden`. Every Gate 3 figure uses an allowed carrier for its section and obeys the forbidden list — no `file:line` / code-edit prose as the body form.
+- **Session state persists across turns.** At the start of each new turn, call `$INDUCTIVE_GATE_CTL resolve-context` to restore `active_gate`, `active_section`, open-EP count, and `architecture_view`. Never rely on conversation memory alone.
+- Fetch both pre-Gate-3 roles once and cache (see **Script Macros**): `SCAN_CRITERIA` (coverage ladder + methods/weights + KW semantics + mandatory coverage) and `section-form-registry` (each touched section's `presentation.allowed` / `presentation.forbidden`).
 
 ---
 
@@ -108,7 +114,9 @@ The gates progressively refine the **same architecture view** from coarse to fin
 
 **Present:** the architecture view (As-Is/To-Be diagram + scope + affected files + spine + traces_to) + the shape-level load-bearing claims.
 
-**Close criterion:** the user confirms the spine, the To-Be structure, and the boundary (e.g. "形状确认" / "shape confirmed"). Corrections are folded in and the view re-presented until confirmed. On confirmation, the load-bearing claims become **shape constraints** — invariants Gate 3 must respect and must not re-open.
+**Close criterion:** the user confirms the spine, the To-Be structure, and the boundary (e.g. "形状确认" / "shape confirmed"). Corrections are folded in and the view re-presented until confirmed. On confirmation, call `$INDUCTIVE_GATE_CTL gate-close --gate G1 --payload '{"architecture_view": {...}, "shape_constraints": [...]}'` — this persists the `architecture_view` to the DQI, freezes the load-bearing claims into **shape constraints** (invariants Gate 3 must respect and must not re-open), and advances the spine to Gate 2.
+
+**Session init (once per session, at Gate 1 start):** call `$INDUCTIVE_GATE_CTL init-session --sections <coverage_sections CSV> --mandatory <mandatory_coverage_prompt CSV>` to seed both the gate state and section pointer. Skip if resuming an existing session — `$INDUCTIVE_GATE_CTL resolve-context` will confirm the current active gate.
 
 ---
 
@@ -120,76 +128,67 @@ The gates progressively refine the **same architecture view** from coarse to fin
 2. **Surface upward only if a divergence breaks the shape** — i.e. the spine or topology is wrong. Then stop and reopen Gate 1 with the specific shape correction.
 3. Otherwise stay silent: record grounding notes as fuel for Gate 3. **Do not** present a confirmation table and **do not** ask the user to confirm grounding.
 
-**Close criterion (automatic):** no shape-breaking divergence. Proceed to Gate 3 without a user checkpoint. (A shape-breaking divergence is the only thing that interrupts the user.)
+**Close criterion (automatic):** no shape-breaking divergence. Call `$INDUCTIVE_GATE_CTL gate-close --gate G2` (no payload — automatic close) to advance the spine to Gate 3; do not pause for a user checkpoint. (A shape-breaking divergence is the only thing that interrupts the user — then `$INDUCTIVE_GATE_CTL gate-reopen --gate G1` instead and correct the shape.)
 
 ---
 
 ## Gate 3 — Refine (section ladder)
 
-**Goal:** refine the architecture view **one section at a time along the coverage ladder, coarse → fine**. At each section: discover the open points in that design dimension, let the user expand and decide them, then move on. Discover and decide are interleaved per section — not two global batches. This is what makes convergence feel like understanding an architecture, not triaging a bug list.
+**Goal:** refine the architecture view **one section at a time along the coverage ladder, coarse → fine**. At each section: discover the open points in that design dimension, let the user expand and decide them, then commit the section result. Discover and decide are interleaved per section — not two global batches. This is what makes convergence feel like understanding an architecture, not triaging a bug list.
 
-**Ladder (from `SCAN_CRITERIA.expose_axis.coverage_sections`, ordered):** walk the sections in the order the fetched criteria declare (tech-design example: `I` → `ST` → `KD` → `IF` → `VD` → `OD`).
-The ladder is a scaffold, not a script: AI prunes sections with no open point and may surface a lateral point before moving on. Sections **not** in `coverage_sections` are **peeled** — covered by the Gate 1 shape or the deferred bucket, not re-discovered here.
+**Ladder (from `SCAN_CRITERIA.expose_axis.coverage_sections`, ordered):** the ladder is a **peer list with a default sequence** (tech-design example: `I` → `ST` → `KD` → `IF` → `VD` → `OD`). Sections may be visited in any order — the user may jump to any section at any time via `activate-section`. The default order is AI's recommendation and the coverage checklist; it is not a lock. Sections **not** in `coverage_sections` are **peeled** — covered by the Gate 1 shape or the deferred bucket, not re-discovered here.
 
-**Two axes inside a step:**
-- **methods = the action.** At section S, run the `methods` whose `sections` include S; each scans (view + on-demand grounding) and emits candidate gaps of its type (`finds`).
-- **KW = the ruler, not a loop.** A candidate is a real open point only if it leaves one of S's KW criteria false (section-kw-criteria). KW is evaluated to (a) qualify candidates and (b) decide when S is clear enough to leave (default KW3). **Never iterate once per KW** — the iteration unit is the open point.
+**Two discovery sources inside a step:**
+- **AI methods = the action.** At section S, run the `methods` whose `sections` include S; each scans (view + on-demand grounding) and emits candidate gaps of its type (`finds`).
+- **`human_inlet` = peer discovery source.** The user may propose a design point at any section, at any time. This is a first-class EP on equal footing with AI-scan EPs — not a safety net. See Global Rules for the `register-ep` call.
+- **KW = the ruler, not a loop.** A candidate (from either source) is a real open point only if it leaves one of S's KW criteria false. KW is evaluated to (a) qualify candidates and (b) signal when S is clear enough to commit (default KW3). **Never iterate once per KW** — the iteration unit is the open point.
 
-**Per section step S (start at the coarsest in the ladder):**
+**State management for Gate 3:**
+- Resume / start: `$INDUCTIVE_GATE_CTL resolve-context` — confirms `active_gate=G3`, `active_section`, and open-EP count. (Session was seeded at Gate 1 start.)
+- Switch focus: `$INDUCTIVE_SECTION_CTL activate-section --section <S>` (free; previous active section transitions to `open` if uncommitted).
+- Register EP: `$INDUCTIVE_SECTION_CTL register-ep --json '{...}'`
+- Update EP: `$INDUCTIVE_SECTION_CTL update-ep --id <id> --status resolved|deferred [--resolution ...]`
+- Commit section: `$INDUCTIVE_SECTION_CTL commit-section --section <S> --content <markdown>` (AI supplies the section body via `--content`; the script validates no blocking-open EPs → writes `<S>.md` → marks `cleared`)
+
+**Per section step S (default order; user may reorder):**
 
 1. **Ground on demand (background):** read only the code S needs as fuel. No audit table.
-2. **Discover in S's dimension:** run S's methods; keep a candidate only if it leaves a KW criterion of S false. **First subtract the shape constraints** (Gate 1 confirmed claims): a point those already settle is not an open point — do not re-surface it with shape-contradicting options. If a constraint settles only part of a point, keep the open residue. A gap that belongs to a different section (dimension) is **not** pulled up — it waits for that section's step.
+2. **Discover in S's dimension:** run S's methods; keep a candidate only if it leaves a KW criterion of S false. **First subtract the shape constraints** (Gate 1 confirmed claims): a point those already settle is not an open point — do not re-surface it with shape-contradicting options. If a constraint settles only part of a point, keep the open residue. A gap that belongs to a different section (dimension) is **not** registered here — it waits for that section's `activate-section` step (focus guard).
 
-```
-id:           EP-NNN
-section:      <section ID — the ladder step; routes the resolution into that section's file>
-block:        <To-Be architecture block it hangs under>
-method:       <method ID that surfaced it>
-kw:           <the KW criterion of this section it leaves false>
-type:         broken_invariant | undecided | undefined_contract
-description:  <design gap in this dimension>
-code_refs:    [<file::symbol (line)>, ...]
-confidence:   direct | inferred
-blocking:     true | false
-source:       ai_scan | human_inlet
-status:       open
-```
+> Register each open point via `register-ep --json` under the `active_section`. The EP field contract — `id` · `section` · `block` · `method` · `kw` · `type` · `description` · `code_refs` · `confidence` · `blocking` · `source` · `status` (+ `resolution` when resolved) — and its allowed values live in `inductive_exposed_points_schema.py` (no `tier` field). Key bindings: `section` must equal `active_section`; `method` is the surfacing method ID or `human_inlet`; `kw` is the KW criterion it leaves false.
 
 3. **Draw S's figure + recommend (not a dump):** present S's figure in the carrier its section prescribes (`presentation.allowed`; e.g. a dependency/flow/state-machine diagram for a structure section, a contract/field table for an interface section), obeying `presentation.forbidden` (no `file:line`/code-edit prose). Within S the figure deepens across KW (coarse → fine); earlier sections' figures stay as the map — do not overwrite them. Hang S's open points under their blocks (blocking marked) as recommendations — "in this dimension these are open; which to expand?".
-4. **User drives:** the user expands a point, skips it, or injects one AI missed (parallel inlet). For each expanded point, decide it **one at a time** — AI gives leaning + rationale + implication; user decides; record `status → resolved` + `resolution` and fold the decision into S's figure. Skipped → `status: deferred`.
-5. **Section stop-gate:** AI **blocks moving on** until every `blocking` point in S is resolved or explicitly skipped by the user. (S reaches KW3-level clarity — its KW criteria up to the target hold.)
-6. **Next section:** AI proposes the next section on the ladder; the user confirms, or stops if the solution is detailed enough.
+4. **User drives:** the user expands a point, skips it, or proposes one via `human_inlet` (peer, not just "AI missed"). For each expanded point, decide it **one at a time** — AI gives leaning + rationale + implication; user decides; call `update-ep --status resolved` + `resolution` and fold the decision into S's figure. Skipped → `update-ep --status deferred`.
+5. **Section soft gate + commit:** when every `blocking` EP in S is resolved or deferred, AI surfaces a soft reminder ("S is clear to commit — any residual points?") and proposes `commit-section`. The user confirms; **AI assembles S's figure(s) + resolved decisions into the section body** (the `<!-- section-key:S -->` markdown shown under **Write outputs**) and passes it as `--content`: `$INDUCTIVE_SECTION_CTL commit-section --section <S> --content <markdown>`. The script validates no blocking-open EP, writes `<S>.md`, and marks the section `cleared`. Uncommitted blocking EPs block `commit-section` (hard gate at commit, not at navigation).
+6. **Next section:** AI recommends the next section from the default order (or the user names one); call `activate-section` to shift focus.
 
-**Mandatory coverage:** the `mandatory_coverage_prompt` sections (tech-design example: `OD`, `VD`) must be reached or consciously skipped. For any with no point, explicitly ask whether a degradation / rollback / observability / verification point should be added — the guaranteed hearing for the human inlet.
+**Mandatory coverage:** `$SCAN_CRITERIA.mandatory_coverage_prompt` sections (tech-design example: `OD`, `VD`) must reach `cleared` or `skipped` before G3 can close. For any with no discovered point, explicitly ask whether a degradation / rollback / observability / verification point should be added — the guaranteed hearing for `human_inlet`.
 
-**Close criterion:** every `blocking` point across visited sections is resolved or deferred, and the user confirms the ladder is detailed enough.
+**Close criterion:** call `$INDUCTIVE_SECTION_CTL check-coverage` — all `coverage_sections` are `cleared` or `skipped`, no `(blocking ∧ open)` EP remains, mandatory sections covered; then call `$INDUCTIVE_GATE_CTL gate-close --gate G3 --payload '{...}'` after user confirms the ladder is detailed enough.
 
 ---
 
-## Gate 4 — Recompose + Output
+## Gate 4 — Recompose + Audit
 
-**Goal:** verify the resolved set re-forms a single coherent solution, then write outputs. This gate prevents the decomposition from losing the whole.
+**Goal:** audit the already-committed section files for cross-section coherence. This gate prevents the decomposition from losing the whole. It **only finds and names problems — it never fixes them**: it does not discover new EPs, does not run methods, does not write section files, and changes no decision. Every finding is routed back to the gate that owns it (see step 2).
 
-1. Reassemble the resolved decisions and self-check:
+1. Call `$INDUCTIVE_SECTION_CTL recompose-check` to audit the committed artifacts (reads `inductive-scope/<S>.md` files + `exposed-points.json` + `architecture_view`):
    - **reforms_shape** — do the resolved points still constitute the Gate 1 shape?
    - **shape_absorbed** — is every confirmed shape constraint folded into its owning section file (topology → `ST`, invariants/spine → `I`, boundary → its section)? No load-bearing constraint may live only in working memory — `_overview` is a cold-start scaffold, not an output, so anything it held must now have a section home.
    - **conflicts** — do any two decisions contradict (e.g. lifecycle vs state authority)?
    - **buildable / reversible / verifiable** — does the integrated solution hold as one whole?
-2. Present the recompose self-check. If `reforms_shape` / `shape_absorbed` is false or conflicts exist, return to Gate 1 (shape) or to the relevant Gate 3 section (the conflicting / unabsorbed points).
+2. Present the recompose self-check — **naming each problem, not fixing it**. Route every finding back to the gate that owns it; Gate 4 registers no EP and changes no decision (the fix is made there through the normal AI-recommends → user-decides loop):
+   - **Section-level** (`shape_absorbed=false`, or a `conflict` owned by one section): move the spine back first — `$INDUCTIVE_GATE_CTL gate-reopen --gate G3` — then `$INDUCTIVE_SECTION_CTL rewind-section --to <S>` for each affected section. `rewind-section` alone only moves the section pointer; `gate-reopen` is what returns the spine to Gate 3, so the two stay consistent. Fix via the Gate 3 step-4 loop, re-`commit-section`, then re-run `recompose-check`.
+   - **Cross-section conflict** (a contradiction owned by no single section, e.g. lifecycle in `ST` vs state authority in `I`): the user picks **one owning section** to host the reconciliation. `activate-section` it, register the reconciliation as a normal EP there (focus guard applies — it lives under that one `active_section`), decide it one at a time, then re-`commit-section` any other affected section to match.
+   - **Shape-level** (`reforms_shape=false`): `$INDUCTIVE_GATE_CTL gate-reopen --gate G1`, correct the shape with the user, then re-descend the spine. Committed `<S>.md` files and the EP ledger survive a reopen — only gate status resets.
 
-**Close criterion:** the user confirms the integrated solution is coherent.
+**Close criterion:** `recompose_check` passes all fields; call `$INDUCTIVE_GATE_CTL gate-close --gate G4 --payload '<recompose_check JSON>'` after the user confirms the integrated solution is coherent.
 
 ### Write outputs
 
-Write **per-section files** — the only scope artifacts init reads. One write pass at Gate 4 only. There is **no merged document** and **no `_overview` file**: the global architecture view is persisted structurally in `INDUCTIVE_DQI.architecture_view`, and its load-bearing constraints are absorbed into the section files (the `shape_absorbed` check above).
+**Per-section files** are written incrementally during Gate 3 at `commit-section` — not here. Gate 4 only finalises the DQI. There is **no merged document** and **no `_overview` file**.
 
-**Per-section files** under `INDUCTIVE_DIR/` — one per touched section, in `coverage_sections` order:
-
-```
-INDUCTIVE_DIR/<SECTION>.md     ← one file per touched section (ST.md, I.md, IF.md, OD.md, …)
-```
-
-Each `<SECTION>.md` holds that section's figure(s) — deepening across KW where it refined — and resolved decisions, drawn in the section's `presentation.allowed` carrier, obeying `presentation.forbidden`:
+Each `<SECTION>.md` written at `commit-section` holds that section's figure(s) — deepening across KW where it refined — and resolved decisions, drawn in the section's `presentation.allowed` carrier, obeying `presentation.forbidden`:
 
 ```markdown
 <!-- section-key:<SECTION> -->
@@ -204,35 +203,7 @@ Each `<SECTION>.md` holds that section's figure(s) — deepening across KW where
 
 > The `<!-- section-key:KEY -->` anchor is what the grounding resolver maps and compose Initializing reads to load a section's slice as its `I*` grounding (alongside the decision-doc SSOT).
 
-**`INDUCTIVE_DQI`** (`inductive-dqi.json`):
-
-```json
-{
-  "version": "1",
-  "source_scope_doc": "<path>",
-  "architecture_view": {
-    "as_is": "<structural before: blocks + topology>",
-    "to_be": "<structural after: blocks + topology>",
-    "scope": { "in": ["..."], "out": ["..."] },
-    "affected_files": ["<file/module block>", "..."],
-    "spine": "<center of gravity>",
-    "traces_to": "<upstream direction>"
-  },
-  "exposed_points": [
-    {
-      "id": "EP-001", "section": "OD", "block": "<To-Be block>",
-      "method": "operability_check", "kw": "<KW criterion left false>",
-      "type": "undecided", "description": "...", "code_refs": ["..."],
-      "confidence": "inferred", "blocking": true,
-      "source": "human_inlet", "status": "resolved", "resolution": "..."
-    }
-  ],
-  "recompose_check": {
-    "reforms_shape": true, "shape_absorbed": true, "conflicts": [],
-    "buildable": true, "reversible": true, "verifiable": true
-  }
-}
-```
+**`INDUCTIVE_DQI`** (`inductive-dqi.json`) is assembled by `$INDUCTIVE_GATE_CTL` — not hand-written. Top-level keys: `version`, `source_scope_doc`, `architecture_view`, `exposed_points`, `recompose_check`. It aggregates the already-documented parts: `architecture_view` + `shape_constraints` (the G1 close payload), an `exposed_points` snapshot (the EP ledger; per-EP contract in `inductive_exposed_points_schema.py`), and `recompose_check` (the G4 close payload).
 
 ### Return
 
@@ -250,15 +221,12 @@ Control returns to the parent compose stage.
 
 ## Constraints
 
-- **One architecture view, a stack of figures:** all gates refine the same view coarse→fine; each section step gets its *own figure* in that section's carrier (deepening across KW within), and earlier figures stay as the map — do not overwrite, and do not emit a flat prose/audit/checklist artifact per step.
-- **Form carrier per figure:** every figure uses one of its section's `presentation.allowed` carriers and obeys `presentation.forbidden` — never `file:line` / code-edit prose as the body form.
-- Gate 1 is shape-first: a coarse architecture view (As-Is/To-Be + scope + affected files), no sections, no code reading, no implementation detail. Load-bearing claims stay at shape altitude; implementation risks belong to Gate 3. On confirmation they become shape constraints.
-- Gate 2 is background: no user checkpoint; interrupt only to reopen Gate 1 on a shape-breaking divergence.
-- Gate 3 advances **one section at a time** along `coverage_sections`. Discover **only in the current section's dimension** — a gap belonging to another section waits for that section's step. Subtract shape constraints before exposing a point. AI blocks moving on until the section's blocking points are resolved or skipped; the user drives which points to expand and when to move on.
-- **Two axes, not a tier enum:** the cross-section ladder (`coverage_sections`) and the within-section KW gradient. **`methods` discover (action); KW judges (ruler) — never iterate once per KW.** The iteration unit is the open point.
-- Sections are never the Gate 1 driver and never the Gate 1 grouping. In Gate 3 the section **is** the dialogue step; the **persisted output is filed per section** (KW-layered within).
-- Read code only as each section requires; do not scan unrelated modules.
-- Decisions are taken one point at a time; do not batch.
-- Do not write the per-section files or `inductive-dqi.json` until Gate 4 (Recompose). There is no merged document and no `_overview` file: the global architecture view lives in `INDUCTIVE_DQI.architecture_view`, and its load-bearing constraints must be absorbed into the owning section files (`shape_absorbed`).
-- Do not generate exposed points for content already fully resolved in the scope doc or fixed by a shape constraint.
-- **Stage-agnostic:** never hardcode a stage's cache subdir or upstream path — use the dispatch inputs; never hardcode the section set — use the fetched `coverage_sections`.
+The mechanical invariants the gates above must not violate (the *why* is in **Method**; these are the hard guardrails):
+
+- **One view, a figure stack per section:** each section step gets its own figure in that section's `presentation.allowed` carrier (deepening across KW within), obeys `presentation.forbidden` — never `file:line` / code-edit prose, never a flat prose/audit/checklist artifact, never overwrite an earlier section's figure.
+- **Two axes, not a tier enum:** the cross-section ladder (`coverage_sections`) and the within-section KW gradient. `methods` discover (action); KW judges (ruler) — never iterate once per KW; the iteration unit is the open point.
+- **Gate altitudes:** Gate 1 is shape-first (no sections, no code, no implementation detail; load-bearing claims at shape altitude → shape constraints on confirm). Gate 2 is background (no checkpoint; interrupt only on a shape-breaking divergence). Gate 3 is the only discovery gate and the only dialogue-by-section gate; Gate 4 audits and **never discovers or fixes** — it names problems and routes them back to the owning gate, where the fix is user-decided.
+- **Focus guard is mechanical:** sections are peers with a default order; `activate-section` to any section is free, but every state-mutating command (`register-ep`, `update-ep`, `commit-section`, `skip-section`) is rejected unless its target equals `active_section`.
+- **Write timing:** per-section `<S>.md` is written at `commit-section` (Gate 3); `inductive-dqi.json` is finalized in Gate 4. No merged document, no `_overview` file.
+- **Lazy, one at a time:** read code only as each section requires (no unrelated scans); decide one point at a time (no batching); never raise an EP for content already settled by the scope doc or a shape constraint.
+- **Stage-agnostic:** never hardcode a stage's cache subdir / upstream path / section set — use the dispatch inputs and the fetched `coverage_sections`.

@@ -121,6 +121,34 @@ def _inductive_dir(tmp_path: Path) -> Path:
     return tmp_path / _CACHE / _CYCLE / "tech" / "design" / "inductive-scope"
 
 
+def _inductive_out_dir(tmp_path: Path) -> Path:
+    return tmp_path / _CACHE / _CYCLE / "tech" / "design"
+
+
+def _write_g4_closed_gate_state(tmp_path: Path) -> None:
+    """Write a minimal inductive-gate-state.json with G4 closed."""
+    import json
+
+    out_dir = _inductive_out_dir(tmp_path)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    gate_state = {
+        "version": "1",
+        "cycle_id": _CYCLE,
+        "stage": "tech-design",
+        "active_gate": "G4",
+        "gates": {
+            "G1": {"status": "closed", "closed_at": "2026-01-01T00:00:00+00:00", "payload": None},
+            "G2": {"status": "closed", "closed_at": "2026-01-01T00:00:00+00:00", "payload": None},
+            "G3": {"status": "closed", "closed_at": "2026-01-01T00:00:00+00:00", "payload": None},
+            "G4": {"status": "closed", "closed_at": "2026-01-01T00:00:00+00:00", "payload": None},
+        },
+        "updated_at": "2026-01-01T00:00:00+00:00",
+    }
+    (out_dir / "inductive-gate-state.json").write_text(
+        json.dumps(gate_state, indent=2), encoding="utf-8"
+    )
+
+
 class TestTechDesignInductive:
     def test_begin_inductive_persists_state_and_dispatch(self, tmp_path: Path):
         revision = _seed_session(tmp_path)
@@ -138,15 +166,25 @@ class TestTechDesignInductive:
         assert result["ok"] is False
         assert "Inductive" in result["reason"]
 
-    def test_inductive_complete_requires_section_files(self, tmp_path: Path):
+    def test_inductive_complete_requires_g4_closed(self, tmp_path: Path):
         _seed_session(tmp_path)
         begin_inductive(_CYCLE, tmp_path)
+
+        # Case 1: no gate state at all -> fail
         missing = inductive_complete(_CYCLE, tmp_path)
         assert missing["ok"] is False
+        assert "Gate 4" in missing["reason"]
 
+        # Case 2: section files exist but G4 not closed -> still fail
         ind = _inductive_dir(tmp_path)
         ind.mkdir(parents=True, exist_ok=True)
         (ind / "ST.md").write_text("<!-- section-key:ST -->\n", encoding="utf-8")
+        still_missing = inductive_complete(_CYCLE, tmp_path)
+        assert still_missing["ok"] is False
+        assert "Gate 4" in still_missing["reason"]
+
+        # Case 3: G4 closed -> succeed (section_files list from disk)
+        _write_g4_closed_gate_state(tmp_path)
         ok = inductive_complete(_CYCLE, tmp_path)
         assert ok["ok"] is True
         assert "ST.md" in ok["section_files"]
@@ -157,6 +195,12 @@ class TestTechDesignInductive:
         ind = _inductive_dir(tmp_path)
         ind.mkdir(parents=True, exist_ok=True)
         (ind / "ST.md").write_text("<!-- section-key:ST -->\n", encoding="utf-8")
+        # G4 not closed -> begin_init must fail
+        blocked = begin_init(_CYCLE, tmp_path)
+        assert blocked["ok"] is False
+        assert "Gate 4" in blocked["reason"]
+        # G4 closed -> begin_init succeeds and includes INDUCTIVE_DIR
+        _write_g4_closed_gate_state(tmp_path)
         result = begin_init(_CYCLE, tmp_path)
         assert result["ok"] is True
         assert "INDUCTIVE_DIR:" in result["dispatch_input"]
@@ -166,6 +210,7 @@ class TestTechDesignDraftControl:
     def test_begin_init_dispatch_includes_profile(self, tmp_path: Path):
         revision = _seed_session(tmp_path)
         begin_inductive(_CYCLE, tmp_path)
+        _write_g4_closed_gate_state(tmp_path)
         result = begin_init(_CYCLE, tmp_path)
         assert result["ok"] is True
         assert "COMPOSE_PROFILE:      tech-design" in result["dispatch_input"]
