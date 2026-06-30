@@ -135,6 +135,7 @@ def cmd_resolve_context(out_dir: Path, _args: argparse.Namespace) -> None:
     symbols = header_gate_symbols(state)
 
     section_status: dict[str, Any] = {}
+    frontier: dict[str, Any] = {}
     active_section = None
     open_ep_count = 0
 
@@ -142,6 +143,7 @@ def cmd_resolve_context(out_dir: Path, _args: argparse.Namespace) -> None:
         sec_result = _run_section_ctl(out_dir, "status")
         if sec_result.get("ok"):
             section_status = sec_result.get("sections", {})
+            frontier = sec_result.get("frontier", {})
             active_section = sec_result.get("active_section")
             open_ep_count = sec_result.get("open_blocking_ep_count", 0)
 
@@ -160,6 +162,7 @@ def cmd_resolve_context(out_dir: Path, _args: argparse.Namespace) -> None:
         "gates": {g: state["gates"][g]["status"] for g in GATE_ORDER},
         "active_section": active_section,
         "section_statuses": section_status,
+        "frontier": frontier,
         "open_blocking_ep_count": open_ep_count,
         "architecture_view": architecture_view,
     })

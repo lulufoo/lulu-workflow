@@ -9,8 +9,14 @@ Section statuses:
   untouched  - not yet visited
   active     - current focus (only one at a time)
   open       - visited but uncommitted (blocking EPs or user left early)
-  cleared    - committed via commit-section (file written)
+  cleared    - section bucket built + frontier reached target (file written)
   skipped    - explicitly skipped by user
+
+Per-section frontier_kw (0..4) is the within-section granularity gradient:
+  0 = no maturity reached yet; 1..4 = KW1..KW4 (readable -> traceable ->
+  boundary-clear -> sign-off-ready). A section is clear enough to leave at the
+  target (default 3 = KW3). frontier_kw is an AI-declared maturity marker
+  (set-frontier); the script never infers KW truth.
 
 MUST NOT import or reuse compose-kernel round section_pointer_schema.
 """
@@ -26,6 +32,11 @@ SECTION_STATUSES = frozenset({"untouched", "active", "open", "cleared", "skipped
 # Statuses that count as done for the coverage predicate
 DONE_STATUSES = frozenset({"cleared", "skipped"})
 
+# Within-section granularity gradient bounds + default clear target.
+FRONTIER_KW_MIN = 0
+FRONTIER_KW_MAX = 4
+FRONTIER_TARGET_DEFAULT = 3
+
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -34,10 +45,20 @@ def _now_iso() -> str:
 def _default_section_entry() -> dict[str, Any]:
     return {
         "status": "untouched",
+        "frontier_kw": 0,
         "activated_at": None,
         "cleared_at": None,
         "skip_reason": None,
     }
+
+
+def _clamp_frontier(value: Any) -> int:
+    """Coerce a frontier_kw value into the valid 0..4 range."""
+    try:
+        kw = int(value)
+    except (TypeError, ValueError):
+        return FRONTIER_KW_MIN
+    return max(FRONTIER_KW_MIN, min(FRONTIER_KW_MAX, kw))
 
 
 def init_section_pointer(
@@ -95,6 +116,14 @@ def validate_section_pointer(data: dict[str, Any]) -> list[str]:
         status = str(entry.get("status", "")).lower()
         if status not in SECTION_STATUSES:
             errors.append(f"sections.{key}.status invalid: {status!r}")
+        frontier = entry.get("frontier_kw")
+        if not isinstance(frontier, int) or not (
+            FRONTIER_KW_MIN <= frontier <= FRONTIER_KW_MAX
+        ):
+            errors.append(
+                f"sections.{key}.frontier_kw must be an int in "
+                f"{FRONTIER_KW_MIN}..{FRONTIER_KW_MAX}, got {frontier!r}"
+            )
 
     active_count = sum(
         1
@@ -124,6 +153,7 @@ def normalize_section_pointer(data: dict[str, Any]) -> dict[str, Any]:
             status = "untouched"
         sections[key] = {
             "status": status,
+            "frontier_kw": _clamp_frontier(entry.get("frontier_kw", 0)),
             "activated_at": entry.get("activated_at"),
             "cleared_at": entry.get("cleared_at"),
             "skip_reason": entry.get("skip_reason"),
@@ -205,6 +235,25 @@ def clear_section(
     entry = dict(updated["sections"][section])
     entry["status"] = "cleared"
     entry["cleared_at"] = _now_iso()
+    updated["sections"][section] = entry
+    updated["updated_at"] = _now_iso()
+    return updated
+
+
+def set_frontier(
+    pointer: dict[str, Any], section: str, kw: int
+) -> dict[str, Any]:
+    """Set a section's AI-declared frontier_kw (within-section maturity, 0..4)."""
+    updated = normalize_section_pointer(pointer)
+    if section not in updated["coverage_order"]:
+        raise ValueError(f"unknown section: {section!r}")
+    if not isinstance(kw, int) or not (FRONTIER_KW_MIN <= kw <= FRONTIER_KW_MAX):
+        raise ValueError(
+            f"frontier_kw must be an int in {FRONTIER_KW_MIN}..{FRONTIER_KW_MAX}, got {kw!r}"
+        )
+
+    entry = dict(updated["sections"][section])
+    entry["frontier_kw"] = kw
     updated["sections"][section] = entry
     updated["updated_at"] = _now_iso()
     return updated

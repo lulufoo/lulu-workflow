@@ -1,7 +1,7 @@
 {
   "version": "1",
   "profile_id": "tech-design",
-  "_note": "Gate 3 (Refine) configuration. Two axes: (1) cross-section ladder = expose_axis.coverage_sections (ordered, authoritative; independent of compose section_order); (2) within-section gradient = KW (section-kw-criteria), used as a ruler/stop-gate, not a per-level loop. methods are the discovery ACTION (generate candidate gaps); KW is the declarative acceptance predicate — an open point = a method-found gap that leaves a KW criterion false. Iteration unit = one open point, never section*KW. Sections also are the output storage axis (per-section files). Domain variation is a post-MVP extension point (see deferred).",
+  "_note": "Gate 3 (Refine) configuration. Two axes: (1) cross-section COVERAGE/BREADTH axis = expose_axis.coverage_sections (ordered default + coverage checklist; NOT a granularity ladder — crossing sections changes design dimension, not resolution; independent of compose section_order); (2) within-section GRANULARITY gradient = KW (section-kw-criteria), the only coarse->fine axis, used as a ruler/stop-gate, not a per-level loop. Gate 3 traverses by FRONTIER SWEEP: each sweep surfaces every unsettled section's coarsest open point at its current frontier_kw and advances all sections' maturity together — not one section drilled to KW3 before the next. methods are the discovery ACTION (generate candidate gaps); KW is the declarative acceptance predicate — an open point = a method-found gap that leaves a KW criterion false. Iteration unit = one open point, never section*KW. Sections also are the output storage axis (per-section files). Domain variation is a post-MVP extension point (see deferred).",
   "shape_extraction": {
     "_note": "Gate 1 only. A coarse architecture view (not prose, not sections). Carrier artifact refined by later gates. Confirmed load-bearing claims become shape constraints that Gate 3 discovery subtracts. Field set and per-field render rules live here — do not hardcode them in the runner SKILL.",
     "artifact_label": "architecture view",
@@ -48,7 +48,7 @@
     }
   },
   "expose_axis": {
-    "_note": "coverage_sections = the ordered Gate 3 discovery ladder (walk one section step at a time, coarse->fine). Within a section, methods (action) generate candidate gaps; KW (ruler) qualifies which are real open points and decides when the section is clear enough to leave (default KW3). Figures use the section's carrier from section-form-registry. Sections not listed (CTX/GO/SC/NG/OQ) are peeled — no Gate 3 discovery (covered by Gate 1 shape or the deferred bucket).",
+    "_note": "coverage_sections = the ordered Gate 3 coverage/breadth axis + default sweep order (NOT a granularity ladder; crossing sections changes dimension, not resolution). Gate 3 walks by frontier sweep: each sweep surfaces every unsettled section's coarsest open point at its current frontier_kw, advancing all sections' maturity together — coarse->fine lives in the within-section KW gradient, not the cross-section order. Within a section, methods (action) generate candidate gaps; KW (ruler) qualifies which are real open points and decides when the section is clear enough to leave (default KW3). Figures use the section's carrier from section-form-registry. Sections not listed (CTX/GO/SC/NG/OQ) are peeled — no Gate 3 discovery (covered by Gate 1 shape or the deferred bucket).",
     "coverage_sections": ["I", "ST", "KD", "IF", "VD", "OD"],
     "section_weights": {
       "I": "required",

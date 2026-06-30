@@ -11,9 +11,11 @@ Subcommands:
     check-coverage      Evaluate G3 gate-close coverage predicate (JSON result)
     list-sections       Return section statuses + EP ledger summary (for G4 audit)
     activate-section    Switch active_section focus (free; prev active -> open)
+    set-frontier        Set active section's AI-declared frontier_kw (0..4)
     register-ep         Append a new EP to the ledger
     update-ep           Update an EP's status / resolution
-    commit-section      Validate guard + no-blocking-open, write <S>.md, mark cleared
+    append-to-section   Append a figure/decision fragment to the section bucket <S>.md
+    clear-section       Validate guard + no-blocking-open + frontier>=target, mark cleared
     skip-section        Mark a section skipped (mandatory requires reason)
     rewind-section      Reopen a section for G4 audit failure path
     recompose-check     Audit committed artifacts for G4 self-check
@@ -36,6 +38,7 @@ if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
 from inductive_section_pointer_schema import (  # noqa: E402
+    FRONTIER_TARGET_DEFAULT,
     activate_section,
     check_coverage,
     clear_section,
@@ -43,6 +46,7 @@ from inductive_section_pointer_schema import (  # noqa: E402
     load_section_pointer,
     rewind_section,
     save_section_pointer,
+    set_frontier,
     skip_section,
     validate_section_pointer,
 )
@@ -133,10 +137,12 @@ def cmd_status(out_dir: Path, _args: argparse.Namespace) -> None:
 
     open_count = len(blocking_open_eps(ledger))
     section_statuses = {k: v["status"] for k, v in ptr["sections"].items()}
+    frontier = {k: v.get("frontier_kw", 0) for k, v in ptr["sections"].items()}
     _ok({
         "active_section": ptr.get("active_section"),
         "coverage_order": ptr["coverage_order"],
         "sections": section_statuses,
+        "frontier": frontier,
         "open_blocking_ep_count": open_count,
         "mandatory": ptr.get("mandatory", []),
     })
@@ -171,6 +177,7 @@ def cmd_list_sections(out_dir: Path, _args: argparse.Namespace) -> None:
         sec_eps = eps_for_section(ledger, key)
         sections_summary[key] = {
             "status": entry["status"],
+            "frontier_kw": entry.get("frontier_kw", 0),
             "ep_count": len(sec_eps),
             "resolved_count": sum(1 for e in sec_eps if e["status"] == "resolved"),
             "deferred_count": sum(1 for e in sec_eps if e["status"] == "deferred"),
@@ -197,6 +204,26 @@ def cmd_activate_section(out_dir: Path, args: argparse.Namespace) -> None:
 
     save_section_pointer(_pointer_path(out_dir), updated)
     _ok({"active_section": section})
+
+
+def cmd_set_frontier(out_dir: Path, args: argparse.Namespace) -> None:
+    section = args.section.strip().upper()
+    ptr = _load_pointer(out_dir)
+    active = ptr.get("active_section")
+
+    if section != active:
+        _fail(
+            f"focus guard: section={section!r} != active_section={active!r}; "
+            "call activate-section to switch focus first"
+        )
+
+    try:
+        updated = set_frontier(ptr, section, args.kw)
+    except ValueError as exc:
+        _fail(str(exc))
+
+    save_section_pointer(_pointer_path(out_dir), updated)
+    _ok({"section": section, "frontier_kw": args.kw})
 
 
 def cmd_register_ep(out_dir: Path, args: argparse.Namespace) -> None:
@@ -263,9 +290,35 @@ def cmd_update_ep(out_dir: Path, args: argparse.Namespace) -> None:
     _ok({"updated": ep_id, "status": status})
 
 
-def cmd_commit_section(out_dir: Path, args: argparse.Namespace) -> None:
+def cmd_append_to_section(out_dir: Path, args: argparse.Namespace) -> None:
     section = args.section.strip().upper()
     content: str = args.content
+
+    ptr = _load_pointer(out_dir)
+    active = ptr.get("active_section")
+
+    # Focus guard (mutation layer) — discovery may scan cross-section, writes may not.
+    if section != active:
+        _fail(
+            f"focus guard: section={section!r} != active_section={active!r}; "
+            "call activate-section to switch focus first"
+        )
+
+    # Append the fragment to the section bucket (incremental; no clear here).
+    section_file = _section_file_path(out_dir, section)
+    section_file.parent.mkdir(parents=True, exist_ok=True)
+    existing = section_file.read_text(encoding="utf-8") if section_file.exists() else ""
+    prefix = "\n\n" if existing.strip() else ""
+    fragment = content if content.endswith("\n") else content + "\n"
+    with section_file.open("a", encoding="utf-8") as fh:
+        fh.write(prefix + fragment)
+
+    _ok({"section": section, "file": str(section_file), "appended": True})
+
+
+def cmd_clear_section(out_dir: Path, args: argparse.Namespace) -> None:
+    section = args.section.strip().upper()
+    target_kw: int = args.target_kw
 
     ptr = _load_pointer(out_dir)
     active = ptr.get("active_section")
@@ -277,28 +330,35 @@ def cmd_commit_section(out_dir: Path, args: argparse.Namespace) -> None:
             "call activate-section to switch focus first"
         )
 
-    # No blocking-open EPs for this section
+    # Frontier must have reached the target (default KW3).
+    frontier = ptr["sections"][section].get("frontier_kw", 0)
+    if frontier < target_kw:
+        _fail(
+            f"cannot clear {section!r}: frontier_kw={frontier} < target {target_kw}; "
+            "call set-frontier once the section reaches the target maturity"
+        )
+
+    # No blocking-open EPs for this section.
     ledger = _load_ledger(out_dir)
     blocking = blocking_open_eps(ledger, section=section)
     if blocking:
         _fail(
-            f"cannot commit {section!r}: {len(blocking)} blocking open EP(s): "
+            f"cannot clear {section!r}: {len(blocking)} blocking open EP(s): "
             + ", ".join(ep["id"] for ep in blocking)
         )
 
-    # Write section file
+    # Bucket must have been built (append-to-section) before clearing.
     section_file = _section_file_path(out_dir, section)
-    section_file.parent.mkdir(parents=True, exist_ok=True)
-    section_file.write_text(content, encoding="utf-8")
+    if not section_file.exists() or not section_file.read_text(encoding="utf-8").strip():
+        _fail(
+            f"cannot clear {section!r}: section bucket {section_file} is empty; "
+            "append-to-section before clearing"
+        )
 
-    # Update section pointer
     updated_ptr = clear_section(ptr, section)
     save_section_pointer(_pointer_path(out_dir), updated_ptr)
 
-    _ok({
-        "committed": section,
-        "file": str(section_file),
-    })
+    _ok({"cleared": section, "file": str(section_file)})
 
 
 def cmd_skip_section(out_dir: Path, args: argparse.Namespace) -> None:
@@ -445,6 +505,11 @@ def _build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("activate-section", help="Switch active_section focus")
     p.add_argument("--section", required=True, metavar="S")
 
+    # set-frontier
+    p = sub.add_parser("set-frontier", help="Set active section's frontier_kw (0..4)")
+    p.add_argument("--section", required=True, metavar="S")
+    p.add_argument("--kw", required=True, type=int, metavar="N", help="0..4 (KW level reached)")
+
     # register-ep
     p = sub.add_parser("register-ep", help="Append a new EP to the ledger")
     p.add_argument("--json", required=True, dest="json", metavar="JSON", help="EP JSON object")
@@ -460,17 +525,31 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--resolution", default=None, metavar="TEXT")
 
-    # commit-section
+    # append-to-section
     p = sub.add_parser(
-        "commit-section",
-        help="Validate guard + no-blocking-open, write <S>.md, mark cleared",
+        "append-to-section",
+        help="Append a figure/decision fragment to the section bucket <S>.md",
     )
     p.add_argument("--section", required=True, metavar="S")
     p.add_argument(
         "--content",
         required=True,
         metavar="MARKDOWN",
-        help="Markdown content for <S>.md",
+        help="Markdown fragment to append to <S>.md",
+    )
+
+    # clear-section
+    p = sub.add_parser(
+        "clear-section",
+        help="Validate guard + no-blocking-open + frontier>=target, mark cleared",
+    )
+    p.add_argument("--section", required=True, metavar="S")
+    p.add_argument(
+        "--target-kw",
+        type=int,
+        default=FRONTIER_TARGET_DEFAULT,
+        metavar="N",
+        help=f"Minimum frontier_kw required to clear (default {FRONTIER_TARGET_DEFAULT})",
     )
 
     # skip-section
@@ -502,9 +581,11 @@ def main() -> None:
         "check-coverage": cmd_check_coverage,
         "list-sections": cmd_list_sections,
         "activate-section": cmd_activate_section,
+        "set-frontier": cmd_set_frontier,
         "register-ep": cmd_register_ep,
         "update-ep": cmd_update_ep,
-        "commit-section": cmd_commit_section,
+        "append-to-section": cmd_append_to_section,
+        "clear-section": cmd_clear_section,
         "skip-section": cmd_skip_section,
         "rewind-section": cmd_rewind_section,
         "recompose-check": cmd_recompose_check,
