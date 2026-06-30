@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import importlib.util
 import json
 import sys
 from pathlib import Path
@@ -109,6 +110,49 @@ def parse_args() -> argparse.Namespace:
         help="Cursor/Copilot conversation ID for active-context indexing.",
     )
     return parser.parse_known_args()[0]
+
+
+def _profile_path_from_args(args: argparse.Namespace) -> Path:
+    profile_json_path = Path(args.profile_path).expanduser()
+    if not profile_json_path.is_absolute():
+        profile_json_path = (Path(args.project_root).resolve() / profile_json_path).resolve()
+    return profile_json_path
+
+
+def load_start_adapter(profile: dict, profile_json_path: Path) -> StartAdapter:
+    """Instantiate the StartAdapter declared by profile.start."""
+    start_config = profile.get("start") or {}
+    adapter_module = str(start_config.get("adapter_module", "")).strip()
+    adapter_class = str(start_config.get("adapter_class", "")).strip()
+    if not adapter_module:
+        raise ValueError("profile.start.adapter_module is required")
+    if not adapter_class:
+        raise ValueError("profile.start.adapter_class is required")
+
+    workflow_root = profile_json_path.resolve().parent.parent
+    adapter_path = Path(adapter_module)
+    if not adapter_path.is_absolute():
+        adapter_path = (workflow_root / adapter_path).resolve()
+    if not adapter_path.is_file():
+        raise ValueError(f"start.adapter_module not found: {adapter_path.as_posix()}")
+
+    module_name = f"_compose_start_adapter_{profile.get('profile_id', profile_json_path.parent.name)}"
+    spec = importlib.util.spec_from_file_location(module_name, adapter_path)
+    if spec is None or spec.loader is None:
+        raise ValueError(f"cannot load start.adapter_module: {adapter_path.as_posix()}")
+
+    adapter_dir = str(adapter_path.parent)
+    if adapter_dir not in sys.path:
+        sys.path.insert(0, adapter_dir)
+
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    adapter_type = getattr(module, adapter_class, None)
+    if adapter_type is None:
+        raise ValueError(
+            f"adapter class {adapter_class!r} not found in {adapter_path.as_posix()}",
+        )
+    return adapter_type()
 
 
 def run_start(
@@ -267,11 +311,16 @@ carry_forward：{carry_forward_ref or '（无）'}
 
 
 def main() -> int:
-    print(
-        "错误：请通过 stage start 脚本启动（例如 product-spec/scripts/product-spec_start.py）。",
-        file=sys.stderr,
-    )
-    return 1
+    args = parse_args()
+    profile_json_path = _profile_path_from_args(args)
+    try:
+        validate_compose_profile_path(args.profile, profile_json_path)
+        profile = read_profile_for_start(profile_json_path, args.profile)
+        adapter = load_start_adapter(profile, profile_json_path)
+    except ValueError as exc:
+        print(f"错误：{exc}", file=sys.stderr)
+        return 1
+    return run_start(args, adapter)
 
 
 if __name__ == "__main__":

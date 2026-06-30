@@ -51,7 +51,7 @@ Before design drafting or evaluation:
 **Phase 2:** Run start
 
 ```bash
-python3 "$SKILL_DIR/scripts/tech-design_start.py" \
+python3 "$SKILL_ROOT/compose-kernel/scripts/core/start.py" \
   --project-root "$(pwd)" \
   --cycle-id "<cycle_id>" \
   --profile tech-design \
@@ -182,7 +182,7 @@ Template SSOT: [tech-design templates on GitHub](https://github.com/lulufoo/lulu
 | `$SESSION_INFO` | `python3 "$SKILL_ROOT/compose-kernel/scripts/core/session_info.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile tech-design --view <view>` |
 | `$SESSION_CONTROL` | `python3 "$SKILL_ROOT/compose-kernel/scripts/core/session_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile tech-design <subcommand>` |
 | `{SKILL_ROOT}/compose-kernel/runners/initializing-runner/SKILL.md` | Step 1 — initializing-runner |
-| `$DRAFT_CONTROL` | `python3 "$SKILL_DIR/scripts/drafting/tech_design_draft_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
+| `$DRAFT_CONTROL` | `python3 "$SKILL_ROOT/compose-kernel/scripts/section/draft_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile tech-design <subcommand>` |
 | `$RESOLVE_PLAN_ROLE` | `python3 "$SKILL_ROOT/compose-kernel/scripts/scope/scope_resolver.py" resolve-role --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile tech-design` |
 | `$FETCH_COMPOSE` | `python3 "$SKILL_ROOT/compose-kernel/scripts/io/fetch_compose_framework.py" --role <role> --profile tech-design --project-root "$(pwd)" --cycle-id "$CYCLE_ID"` |
 | `$EVAL_CONTROL` | `python3 "$SKILL_DIR/scripts/tech-design_eval_control.py" --workflow tech-design --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |

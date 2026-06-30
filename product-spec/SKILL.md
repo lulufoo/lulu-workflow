@@ -9,7 +9,7 @@ disable-model-invocation: true
 # product-spec
 
 > **Prerequisite:** Delivered `decision-doc` from `product-diagnostic`.
-> **Phase 2 (MVP):** Initializing + Evaluating + Delivery. Round Iteration / FreeEdit are **deferred** — do not run them unless explicitly re-enabled.
+> **Phase 2 (MVP):** Initializing + Evaluating + Delivery. FreeEdit is disabled for this profile.
 
 Produce **product-doc.md** — feature product specification for human sign-off before `tech-diagnostic`.
 
@@ -51,7 +51,7 @@ Before product drafting or evaluation:
 **Phase 2:** Run start
 
 ```bash
-python3 "$SKILL_DIR/scripts/product-spec_start.py" \
+python3 "$SKILL_ROOT/compose-kernel/scripts/core/start.py" \
   --project-root "$(pwd)" \
   --cycle-id "<cycle_id>" \
   --profile product-spec \
@@ -77,7 +77,7 @@ To resume an in-progress product document, do not run start again — run `$SESS
 ## Drafting Rules
 
 **Entry:** Step 1 — Initializing only, or resume via `$SESSION_INFO --view session`.
-**Drafting state (MVP):** `Ready` after `init-complete`. Do **not** enter RoundIteration or FreeEdit.
+**Drafting state (MVP):** `Initialized` after `init-complete`. Do **not** enter FreeEdit.
 
 **After Initializing completes:** present summary; user may enter **Evaluating** or **Deliver** only.
 
@@ -102,7 +102,7 @@ Await completion (`$SUBAGENT_AWAIT_SYNC`).
 
 3. **Pause gate:** Present runner return summary and `product-doc.md` path. Ask: Evaluate, or Deliver?
 
-> **Out of scope (deferred):** Round Iteration (`begin-round`, `$ROUND_CONTROL`, prober/refiner) and FreeEdit. If the user asks to refine by section, use direct edits on `product-doc.md` and re-run `init-complete` validation only when re-seeding from scratch — do not invoke round macros.
+> **Out of scope (deferred):** FreeEdit. If the user asks to refine by section, use direct edits on `product-doc.md` and re-run `init-complete` validation only when re-seeding from scratch.
 
 ### Evaluating Rules
 
@@ -112,7 +112,7 @@ When eval-rules completes, follow its exit branch:
 
 - **Deliver** → **ReadyForDelivery Rules** below.
 
-**Evaluating (feature):** Independent **PDQA** on `product-doc.md` — not compose Round/probe iteration.
+**Evaluating (feature):** Independent **PDQA** on `product-doc.md`.
 
 Load rubric via `pst_product_eval_framework_url` → legacy [`12-product-doc-evaluation-framework.md`](https://github.com/lulufoo/lulu-workflow-framework/blob/main/lulu-dev-workflow/template/product-plan/12-product-doc-evaluation-framework.md) (11 dimensions, 4 layers).
 
@@ -154,7 +154,7 @@ Template SSOT: [product-spec templates on GitHub](https://github.com/lulufoo/lul
 | `$SESSION_INFO` | `python3 "$SKILL_ROOT/compose-kernel/scripts/core/session_info.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile product-spec --view <view>` |
 | `$SESSION_CONTROL` | `python3 "$SKILL_ROOT/compose-kernel/scripts/core/session_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile product-spec <subcommand>` |
 | `{SKILL_ROOT}/compose-kernel/runners/initializing-runner/SKILL.md` | Step 1 — initializing-runner |
-| `$DRAFT_CONTROL` | `python3 "$SKILL_DIR/scripts/drafting/product_spec_draft_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` — MVP: `begin-init`, `init-complete`, `status` only |
+| `$DRAFT_CONTROL` | `python3 "$SKILL_ROOT/compose-kernel/scripts/section/draft_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile product-spec <subcommand>` — MVP: `begin-init`, `init-complete`, `status` only |
 | `$RESOLVE_PLAN_ROLE` | `python3 "$SKILL_ROOT/compose-kernel/scripts/scope/scope_resolver.py" resolve-role --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile product-spec` |
 | `$FETCH_COMPOSE` | `python3 "$SKILL_ROOT/compose-kernel/scripts/io/fetch_compose_framework.py" --role <role> --profile product-spec --project-root "$(pwd)" --cycle-id "$CYCLE_ID"` |
 | `$EVAL_CONTROL` | `python3 "$SKILL_DIR/scripts/product-spec_eval_control.py" --workflow product-spec --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |

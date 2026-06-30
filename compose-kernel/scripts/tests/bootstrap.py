@@ -13,12 +13,10 @@ SCOPE = _KERNEL_SCRIPTS / "scope"
 IO = _KERNEL_SCRIPTS / "io"
 SCHEMA_SECTION = _KERNEL_SCRIPTS / "schema" / "section"
 SCHEMA_SECTION_REGISTRY = SCHEMA_SECTION / "registry"
-SCHEMA_SECTION_ROUND = SCHEMA_SECTION / "round"
 SCHEMA_SECTION_DOCUMENT = SCHEMA_SECTION / "document"
 SCHEMA_SECTION_SCOPE = SCHEMA_SECTION / "scope"
 SCHEMA_SESSION = _KERNEL_SCRIPTS / "schema" / "session"
 START = _KERNEL_SCRIPTS / "start"
-TECH_PLAN_DRAFTING = _TESTS.parent.parent.parent / "tech-plan" / "scripts" / "drafting"
 
 # Bare module names owned exclusively by compose-kernel (stage trees use prefixed names).
 _MODULE_OWNERS = {
@@ -52,13 +50,12 @@ _COMPOSE_PATHS = (
     SECTION,
     SCOPE,
     IO,
+    SCHEMA_SECTION,
     SCHEMA_SECTION_REGISTRY,
-    SCHEMA_SECTION_ROUND,
     SCHEMA_SECTION_DOCUMENT,
     SCHEMA_SECTION_SCOPE,
     SCHEMA_SESSION,
     START,
-    TECH_PLAN_DRAFTING,
     _TESTS,
 )
 

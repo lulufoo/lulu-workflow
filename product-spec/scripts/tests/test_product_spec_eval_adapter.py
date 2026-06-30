@@ -27,6 +27,8 @@ _CACHE = Path(".cache/cursor/lulu-dev-workflow")
 
 
 def _seed_session(tmp_path: Path) -> Path:
+    from workflow_paths import seed_profile_pointer_for_tests  # noqa: WPS433
+
     base = tmp_path / _CACHE / _CYCLE / "product" / "spec"
     base.mkdir(parents=True)
     (base / "session-state.md").write_text(
@@ -47,6 +49,7 @@ def _seed_session(tmp_path: Path) -> Path:
             DeliveredRef(type="product-diagnostic", path=str(diag.resolve())),
         ],
     )
+    seed_profile_pointer_for_tests(tmp_path, _CYCLE, "product-spec")
     return ws
 
 

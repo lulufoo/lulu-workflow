@@ -119,7 +119,8 @@ class TestStartEvaluating:
         assert "skip_evaluate_requested" not in loaded
         es = load_evaluate_state(ws.parent / "evaluate-state.md")
         dim_map = _dim_map(es, tmp_path)
-        assert dim_map["e1"] == "pending"
+        assert dim_map["e2"] == "pending"
+        assert dim_map["e3"] == "pending"
 
     def test_from_drafting_tech_mode(self, tmp_path: Path):
         ws = _seed_session(tmp_path)

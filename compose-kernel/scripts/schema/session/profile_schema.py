@@ -23,6 +23,8 @@ _COMPOSE_PROFILE_REQUIRED = frozenset(
         "cache_subdir",
         "framework_section",
         "framework_templates",
+        "drafting",
+        "start",
         "cycle_types",
     }
 )
@@ -33,6 +35,9 @@ _COMPOSE_SHELL_PATH_KEYS = frozenset(
     }
 )
 _COMPOSE_SCHEME_PATH = KERNEL_SCHEMES / "compose-template-scheme.json"
+_DRAFTING_REQUIRED = frozenset({"inductive", "freeedit", "post_init_options"})
+_POST_INIT_OPTIONS = frozenset({"freeedit", "evaluate", "deliver"})
+_START_REQUIRED = frozenset({"adapter_module", "adapter_class"})
 
 
 def _load_scheme() -> dict:
@@ -79,6 +84,31 @@ def _validate_active_compose_profile(path: Path, data: dict) -> list[str]:
                 f"{path.name}: unknown framework_templates key {scheme_key!r}; "
                 f"allowed: {', '.join(sorted(allowed))}",
             )
+    drafting = data.get("drafting")
+    if isinstance(drafting, dict):
+        for key in _DRAFTING_REQUIRED:
+            if key not in drafting:
+                errors.append(f"{path.name}: missing drafting.{key}")
+        for key in ("inductive", "freeedit"):
+            if key in drafting and not isinstance(drafting[key], bool):
+                errors.append(f"{path.name}: drafting.{key} must be a boolean")
+        post_init_options = drafting.get("post_init_options")
+        if not isinstance(post_init_options, list) or not post_init_options:
+            errors.append(f"{path.name}: drafting.post_init_options must be a non-empty list")
+        else:
+            for value in post_init_options:
+                if value not in _POST_INIT_OPTIONS:
+                    errors.append(
+                        f"{path.name}: unknown drafting.post_init_options value {value!r}; "
+                        f"allowed: {', '.join(sorted(_POST_INIT_OPTIONS))}",
+                    )
+    start = data.get("start")
+    if isinstance(start, dict):
+        for key in _START_REQUIRED:
+            if key not in start:
+                errors.append(f"{path.name}: missing start.{key}")
+            elif not isinstance(start[key], str) or not start[key].strip():
+                errors.append(f"{path.name}: start.{key} must be a non-empty string")
     return errors
 
 

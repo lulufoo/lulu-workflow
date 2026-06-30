@@ -202,6 +202,6 @@ Initializing complete.
   Block titles: <REVISION_DIR>/_title-block-*.txt
   Synthesized sections: <space-separated section keys from section_order>
   Scope SSOT: <SCOPE_DOC_PATH>
-  Draft status: pending Round validation (all sections X until probe)
-  Next step: RoundIteration, or parent pause gate (user may skip Round and Evaluate/Deliver)
+  Draft status: Initialized
+  Next step: parent pause gate (FreeEdit, Evaluate, or Deliver according to profile options)
 ```

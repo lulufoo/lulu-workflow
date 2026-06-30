@@ -12,7 +12,7 @@ description: >
 
 Terminal runner subagent. Probes **one Dimension** per invocation (from EvalCorpus dispatch).
 
-> Drafting Round Iteration (`prober-runner`) complements drafting maturity checks; Evaluating-stage dimensions are composed from workflow `dimension-defs/` (`tech-plan` or `tech-design` per `--workflow`).
+> Evaluating-stage dimensions are composed from workflow `dimension-defs/` (`tech-plan` or `tech-design` per `--workflow`).
 
 ---
 

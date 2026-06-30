@@ -106,6 +106,8 @@ class TestTechPlanEvalAdapter:
             adapter.resolve_eval_corpus(cycle, tmp_path)
 
     def test_eval_control_main_rejects_direct_invocation(self):
+        if str(_EVAL_SCRIPTS) not in sys.path:
+            sys.path.insert(0, str(_EVAL_SCRIPTS))
         from eval_control import main  # noqa: WPS433
 
         assert main() != 0

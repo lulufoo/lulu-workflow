@@ -12,7 +12,6 @@ from section_dependency_schema import (  # noqa: E402
     stable_upstream_edges,
     upstream_edges,
 )
-from section_pointer_schema import init_section_pointer, mark_section_stable  # noqa: E402
 from section_registry_schema import load_section_registry  # noqa: E402
 from test_registry_fixtures import fourth_section_key  # noqa: E402
 
@@ -44,8 +43,11 @@ def test_stable_upstream_filters_pointer(tmp_path: Path):
     section_key = fourth_section_key()
     upstream = reg["sections"][section_key]["upstream"]
     graph = load_dependency_graph(registry_path)
-    pointer = init_section_pointer(round_n=1, revision=1, cycle_id="c1")
-    for key in upstream[:2]:
-        pointer = mark_section_stable(pointer, key)
+    pointer = {
+        "sections": {
+            key: {"status": "stable" if key in upstream[:2] else "pending"}
+            for key in reg["section_order"]
+        },
+    }
     stable = stable_upstream_edges(section_key, graph, pointer)
     assert {edge["upstream_section"] for edge in stable} == set(upstream[:2])

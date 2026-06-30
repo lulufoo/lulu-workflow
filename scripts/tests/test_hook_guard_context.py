@@ -130,9 +130,9 @@ class TestShouldInjectConversationId:
         [
             "python3 ~/.cursor/skills/lulu-dev-workflow/diagnostic/scripts/dx_start.py --cycle-id fid1",
             "python lulu-dev-workflow/product-arch/scripts/pa_start.py --project-root /tmp",
-            "python3 ~/.cursor/skills/lulu-dev-workflow/product-spec/scripts/product-spec_start.py --cycle-id fid1",
-            "python3 ~/.cursor/skills/lulu-dev-workflow/tech-plan/scripts/tech-plan_start.py --cycle-id fid1",
-            "python3 ~/.cursor/skills/lulu-dev-workflow/tech-design/scripts/tech-design_start.py --cycle-id fid1",
+            "python3 ~/.cursor/skills/lulu-dev-workflow/compose-kernel/scripts/core/start.py --profile product-spec --cycle-id fid1",
+            "python3 ~/.cursor/skills/lulu-dev-workflow/compose-kernel/scripts/core/start.py --profile tech-plan --cycle-id fid1",
+            "python3 ~/.cursor/skills/lulu-dev-workflow/compose-kernel/scripts/core/start.py --profile tech-design --cycle-id fid1",
             "python3 ~/.cursor/skills/lulu-dev-workflow/tech-work-order/scripts/two_start.py --cycle-id fid1",
             "python3 ~/.cursor/skills/lulu-dev-workflow/tech-code/scripts/tc_start.py --cycle-id fid1",
         ],

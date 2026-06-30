@@ -1,6 +1,6 @@
 # Compose Theory
 
-> Referenced by: initializing-runner, refiner-runner (and any runner that generates section body content).
+> Referenced by: initializing-runner (and any runner that generates section body content).
 
 ## Profile SSOT
 
@@ -52,7 +52,7 @@ block_title = specialize( blocks.{id}.heading ; substance(block intent bodies) )
 
 **F priority (conflict resolution):** section `presentation` > domain `expression_conventions` > role `expressive_tendency` > intent text. `intent_boundary` defers substance to other intents — do not repeat it in body.
 
-**Document assembly:** Compose documents use outline-registry for structure — outline H2 blocks, intent H3 lines with `<!-- section-key:KEY -->`, then body. Initializing persists each intent via `$COMPOSE_DOC_CONTROL append-intent` immediately after display title derivation; when the last intent in a block is persisted, `$COMPOSE_DOC_CONTROL patch-block-heading` replaces the English H2 placeholder with the inferred block title. Round readers locate sections by section-key anchor, not H2 text.
+**Document assembly:** Compose documents use outline-registry for structure — outline H2 blocks, intent H3 lines with `<!-- section-key:KEY -->`, then body. Initializing persists each intent via `$COMPOSE_DOC_CONTROL append-intent` immediately after display title derivation; when the last intent in a block is persisted, `$COMPOSE_DOC_CONTROL patch-block-heading` replaces the English H2 placeholder with the inferred block title. Downstream compose tools locate sections by section-key anchor, not H2 text.
 
 ## Init draft quality floor
 

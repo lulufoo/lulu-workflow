@@ -11,6 +11,15 @@
     "filename": "tech-doc.md",
     "schema": "section-keyed"
   },
+  "drafting": {
+    "inductive": false,
+    "freeedit": true,
+    "post_init_options": ["freeedit", "evaluate", "deliver"]
+  },
+  "start": {
+    "adapter_module": "tech-plan/scripts/start/tech_plan_start_adapter.py",
+    "adapter_class": "TechPlanStartAdapter"
+  },
   "cache_subdir": "tech/plan",
   "framework_section": "tech-plan",
   "framework_templates": {
@@ -19,8 +28,7 @@
     "section-kw-criteria": "tpt_section_kw_criteria_url",
     "outline-registry": "tpt_outline_registry_url",
     "role-instance": "tpt_feature_role_instance_url",
-    "domain-instance": "tpt_feature_domain_instance_url",
-    "structural-probe-criteria": "tpt_structural_probe_criteria_url"
+    "domain-instance": "tpt_feature_domain_instance_url"
   },
   "eval": {
     "enabled": true,

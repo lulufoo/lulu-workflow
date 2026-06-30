@@ -11,6 +11,15 @@
     "filename": "product-doc.md",
     "schema": "section-keyed"
   },
+  "drafting": {
+    "inductive": false,
+    "freeedit": false,
+    "post_init_options": ["evaluate", "deliver"]
+  },
+  "start": {
+    "adapter_module": "product-spec/scripts/start/product_spec_start_adapter.py",
+    "adapter_class": "ProductSpecStartAdapter"
+  },
   "cache_subdir": "product/spec",
   "framework_section": "product-spec",
   "framework_templates": {

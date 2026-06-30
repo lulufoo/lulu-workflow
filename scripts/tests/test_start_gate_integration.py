@@ -25,6 +25,7 @@ _CYCLE_ID = "20260524143022-02cd7e6e"
 _TOPIC_ID = "topic-20260101000000-deadbeef"
 
 _COMPOSE_START_STAGES = frozenset({"tech-plan", "product-spec"})
+_KERNEL_START = _LDEV / "compose-kernel" / "scripts" / "core" / "start.py"
 
 _STAGES_WITH_GATE = ["product-spec", "tech-plan", "tech-work-order", "tech-code"]
 _ALL_STAGES = ["diagnostic", "product-spec", "tech-plan", "tech-work-order", "tech-code"]
@@ -40,19 +41,15 @@ _FEATURE_CYCLE = [
 # Helpers
 # ---------------------------------------------------------------------------
 
-_COMPOSE_START_SCRIPT = {
-    "product-spec": "product-spec_start.py",
-    "tech-plan": "tech-plan_start.py",
-}
-
-
 def _start_py(stage: str) -> Path:
     if stage in _COMPOSE_START_STAGES:
-        return _LDEV / stage / "scripts" / _COMPOSE_START_SCRIPT[stage]
+        return _KERNEL_START
     return _LDEV / stage / "scripts" / ({"tech-code": "tc_start.py", "diagnostic": "dx_start.py", "tech-work-order": "two_start.py"}.get(stage, "start.py"))
 
 
 def _scripts_dir(stage: str) -> Path:
+    if stage in _COMPOSE_START_STAGES:
+        return _KERNEL_START.parent
     return _LDEV / stage / "scripts"
 
 

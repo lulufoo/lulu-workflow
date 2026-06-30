@@ -18,7 +18,7 @@ Per-section frontier_kw (0..4) is the within-section granularity gradient:
   target (default 3 = KW3). frontier_kw is an AI-declared maturity marker
   (set-frontier); the script never infers KW truth.
 
-MUST NOT import or reuse compose-kernel round section_pointer_schema.
+This schema is self-contained and does not reuse any retired section-loop schema.
 """
 
 from __future__ import annotations

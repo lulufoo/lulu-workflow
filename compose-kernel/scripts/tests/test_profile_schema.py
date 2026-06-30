@@ -32,6 +32,15 @@ _MINIMAL_ACTIVE_PROFILE = {
         "role-instance": "tpt_feature_role_instance_url",
         "domain-instance": "tpt_feature_domain_instance_url",
     },
+    "drafting": {
+        "inductive": False,
+        "freeedit": True,
+        "post_init_options": ["freeedit", "evaluate", "deliver"],
+    },
+    "start": {
+        "adapter_module": "tech-foo/scripts/start/tech_foo_start_adapter.py",
+        "adapter_class": "TechFooStartAdapter",
+    },
     "cycle_types": ["feature"],
 }
 
@@ -66,6 +75,43 @@ def test_active_profile_missing_shell_paths_fails(tmp_path: Path) -> None:
     path.write_text(json.dumps(data), encoding="utf-8")
     errors = _validate_profile(path)
     assert any("missing required field 'shell_paths'" in err for err in errors)
+
+
+def test_active_profile_missing_drafting_fails(tmp_path: Path) -> None:
+    stage_dir = tmp_path / "tech-foo"
+    stage_dir.mkdir()
+    path = stage_dir / "compose-profile.json"
+    data = dict(_MINIMAL_ACTIVE_PROFILE)
+    del data["drafting"]
+    path.write_text(json.dumps(data), encoding="utf-8")
+    errors = _validate_profile(path)
+    assert any("missing required field 'drafting'" in err for err in errors)
+
+
+def test_active_profile_rejects_unknown_post_init_option(tmp_path: Path) -> None:
+    stage_dir = tmp_path / "tech-foo"
+    stage_dir.mkdir()
+    path = stage_dir / "compose-profile.json"
+    data = dict(_MINIMAL_ACTIVE_PROFILE)
+    data["drafting"] = {
+        "inductive": False,
+        "freeedit": True,
+        "post_init_options": ["freeedit", "round"],
+    }
+    path.write_text(json.dumps(data), encoding="utf-8")
+    errors = _validate_profile(path)
+    assert any("unknown drafting.post_init_options value 'round'" in err for err in errors)
+
+
+def test_active_profile_missing_start_adapter_class_fails(tmp_path: Path) -> None:
+    stage_dir = tmp_path / "tech-foo"
+    stage_dir.mkdir()
+    path = stage_dir / "compose-profile.json"
+    data = dict(_MINIMAL_ACTIVE_PROFILE)
+    data["start"] = {"adapter_module": "tech-foo/scripts/start/tech_foo_start_adapter.py"}
+    path.write_text(json.dumps(data), encoding="utf-8")
+    errors = _validate_profile(path)
+    assert any("missing start.adapter_class" in err for err in errors)
 
 
 def test_unknown_active_profile_validates_without_whitelist(tmp_path: Path) -> None:

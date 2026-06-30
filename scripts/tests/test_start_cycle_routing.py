@@ -11,6 +11,8 @@ from typing import Optional
 import pytest
 
 _SRC = Path(__file__).resolve().parents[3]  # lulu-dev-skills/
+_LDEV = _SRC / "lulu-dev-workflow"
+_KERNEL_START = _LDEV / "compose-kernel" / "scripts" / "core" / "start.py"
 _COMPOSE_START_STAGES = frozenset({"tech-plan", "product-spec"})
 _STAGES = ["diagnostic", "product-spec", "tech-plan", "tech-work-order", "tech-code"]
 
@@ -34,19 +36,15 @@ _TOPIC_CYCLE = [
 ]
 
 
-_COMPOSE_START_SCRIPT = {
-    "product-spec": "product-spec_start.py",
-    "tech-plan": "tech-plan_start.py",
-}
-
-
 def _start_py(stage: str) -> Path:
     if stage in _COMPOSE_START_STAGES:
-        return _SRC / "lulu-dev-workflow" / stage / "scripts" / _COMPOSE_START_SCRIPT[stage]
+        return _KERNEL_START
     return _SRC / "lulu-dev-workflow" / stage / "scripts" / ({"tech-code": "tc_start.py", "diagnostic": "dx_start.py", "product-arch": "pa_start.py", "tech-arch": "ta_start.py", "tech-work-order": "two_start.py"}.get(stage, "start.py"))
 
 
 def _scripts_dir(stage: str) -> Path:
+    if stage in _COMPOSE_START_STAGES:
+        return _KERNEL_START.parent
     return _SRC / "lulu-dev-workflow" / stage / "scripts"
 
 

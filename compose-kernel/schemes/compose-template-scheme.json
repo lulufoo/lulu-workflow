@@ -7,7 +7,6 @@
     { "key": "role-instance", "format": "json", "required": "always" },
     { "key": "domain-instance", "format": "json", "required": "always" },
     { "key": "outline-registry", "format": "json", "required": "always" },
-    { "key": "inductive-scan-criteria", "format": "json", "required": "optional" },
-    { "key": "structural-probe-criteria", "format": "json", "required": "optional" }
+    { "key": "inductive-scan-criteria", "format": "json", "required": "optional" }
   ]
 }

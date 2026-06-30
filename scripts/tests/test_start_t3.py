@@ -27,12 +27,11 @@ _TOPIC_CYCLE = [
 ]
 _TOPIC_ID = "topic-20260524143022-aabbccdd"
 _KERNEL_START = _LDEV / "compose-kernel" / "scripts" / "core" / "start.py"
-_COMPOSE_WRAPPER_STAGES = frozenset({"tech-plan", "product-spec", "tech-design"})
 
 
 def _start_argparse_source(stage: str) -> str:
     src = _start_py(stage).read_text(encoding="utf-8")
-    if stage in _COMPOSE_WRAPPER_STAGES or "from start import" in src:
+    if "from start import" in src:
         src += "\n" + _KERNEL_START.read_text(encoding="utf-8")
     return src
 
@@ -48,11 +47,13 @@ def _diag_holder_args(stage: str = "product-diagnostic") -> list[str]:
 
 def _start_py(stage: str) -> Path:
     if stage == "tech-plan":
-        return _SRC / "lulu-dev-workflow" / "tech-plan" / "scripts" / "tech-plan_start.py"
+        return _KERNEL_START
     return _SRC / "lulu-dev-workflow" / stage / "scripts" / ({"tech-code": "tc_start.py", "diagnostic": "dx_start.py", "product-arch": "pa_start.py", "tech-arch": "ta_start.py", "tech-work-order": "two_start.py"}.get(stage, "start.py"))
 
 
 def _scripts_dir(stage: str) -> Path:
+    if stage == "tech-plan":
+        return _KERNEL_START.parent
     return _SRC / "lulu-dev-workflow" / stage / "scripts"
 
 

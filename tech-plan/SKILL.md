@@ -53,7 +53,7 @@ Do NOT proceed until you have read `{SKILL_ROOT}/compose-kernel/SKILL.md` and lo
 **Phase 2: Run start**
 
 ```bash
-python3 "$SKILL_DIR/scripts/tech-plan_start.py" \
+python3 "$SKILL_ROOT/compose-kernel/scripts/core/start.py" \
   --project-root "$(pwd)" \
   --cycle-id "<cycle_id>" \
   --profile tech-plan \
@@ -108,7 +108,7 @@ Outer session transitions via `$SESSION_CONTROL` only (`compose-kernel/transitio
 ### Drafting Rules
 
 **Entry:** Evaluating fix resume → Step 2; otherwise Step 1.
-**Drafting states**: `Ready → FreeEdit`.
+**Drafting states**: `Initialized → FreeEdit`.
 
 #### Step 1 — Initializing
 
@@ -187,7 +187,7 @@ Macro expansion: `../_runtime.md` § Script Macros → Macro expansion. Non-zero
 |-------|---------|
 | `$SESSION_INFO` | `python3 "$SKILL_ROOT/compose-kernel/scripts/core/session_info.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile tech-plan --view <view>` |
 | `$SESSION_CONTROL` | `python3 "$SKILL_ROOT/compose-kernel/scripts/core/session_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile tech-plan <subcommand>` |
-| `$DRAFT_CONTROL` | `python3 "$SKILL_DIR/scripts/drafting/tech_plan_draft_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
+| `$DRAFT_CONTROL` | `python3 "$SKILL_ROOT/compose-kernel/scripts/section/draft_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile tech-plan <subcommand>` |
 | `$FETCH_COMPOSE` | `python3 "$SKILL_ROOT/compose-kernel/scripts/io/fetch_compose_framework.py" --role <role> --profile tech-plan --project-root "$(pwd)" --cycle-id "$CYCLE_ID"` |
 | `$RESOLVE_PLAN_ROLE` | `python3 "$SKILL_ROOT/compose-kernel/scripts/scope/scope_resolver.py" resolve-role --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile tech-plan` |
 | `$EVAL_CONTROL` | `python3 "$SKILL_DIR/scripts/tech-plan_eval_control.py" --workflow tech-plan --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
