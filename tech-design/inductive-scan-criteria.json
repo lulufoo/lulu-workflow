@@ -3,8 +3,49 @@
   "profile_id": "tech-design",
   "_note": "Gate 3 (Refine) configuration. Two axes: (1) cross-section ladder = expose_axis.coverage_sections (ordered, authoritative; independent of compose section_order); (2) within-section gradient = KW (section-kw-criteria), used as a ruler/stop-gate, not a per-level loop. methods are the discovery ACTION (generate candidate gaps); KW is the declarative acceptance predicate — an open point = a method-found gap that leaves a KW criterion false. Iteration unit = one open point, never section*KW. Sections also are the output storage axis (per-section files). Domain variation is a post-MVP extension point (see deferred).",
   "shape_extraction": {
-    "_note": "Gate 1 only. A coarse architecture view (not prose, not sections). Carrier artifact refined by later gates. Confirmed load-bearing claims become shape constraints that Gate 3 discovery subtracts.",
-    "must_include": ["as_is", "to_be", "scope", "affected_files", "spine", "traces_to"]
+    "_note": "Gate 1 only. A coarse architecture view (not prose, not sections). Carrier artifact refined by later gates. Confirmed load-bearing claims become shape constraints that Gate 3 discovery subtracts. Field set and per-field render rules live here — do not hardcode them in the runner SKILL.",
+    "artifact_label": "architecture view",
+    "required": ["as_is", "to_be", "scope", "spine", "traces_to"],
+    "optional": ["affected_files"],
+    "fields": {
+      "as_is": {
+        "label": "As-Is",
+        "paired_with": "to_be",
+        "present_as": "As-Is → To-Be (paired before→after block with to_be)",
+        "guidance": "Current-state structural snapshot: main components/containers, their topology and relations",
+        "carrier": "ASCII block diagram",
+        "forbidden": ["prose paragraph", "file:line detail", "implementation detail"]
+      },
+      "to_be": {
+        "label": "To-Be",
+        "paired_with": "as_is",
+        "present_as": "As-Is → To-Be (paired before→after block with as_is)",
+        "guidance": "Target-state structural shape after the change: main components/containers, topology and relations",
+        "carrier": "ASCII block diagram",
+        "forbidden": ["prose paragraph", "file:line detail", "implementation detail"]
+      },
+      "scope": {
+        "label": "Change scope",
+        "guidance": "Which capability/domain is In, which is explicitly Out (capability-level, not a file list)",
+        "carrier": "bulleted In/Out list"
+      },
+      "affected_files": {
+        "label": "Affected files (coarse)",
+        "guidance": "The module/file blocks the change lands in, one line each",
+        "carrier": "bullet list",
+        "forbidden": ["line-level detail", "code paths"]
+      },
+      "spine": {
+        "label": "Spine",
+        "guidance": "One line naming the center of gravity: what fundamentally becomes what",
+        "carrier": "single sentence"
+      },
+      "traces_to": {
+        "label": "traces_to",
+        "guidance": "Which upstream direction/goal this realizes",
+        "carrier": "reference label"
+      }
+    }
   },
   "expose_axis": {
     "_note": "coverage_sections = the ordered Gate 3 discovery ladder (walk one section step at a time, coarse->fine). Within a section, methods (action) generate candidate gaps; KW (ruler) qualifies which are real open points and decides when the section is clear enough to leave (default KW3). Figures use the section's carrier from section-form-registry. Sections not listed (CTX/GO/SC/NG/OQ) are peeled — no Gate 3 discovery (covered by Gate 1 shape or the deferred bucket).",
