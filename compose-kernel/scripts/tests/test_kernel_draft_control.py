@@ -5,6 +5,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 import bootstrap  # noqa: F401
 import draft_control  # noqa: E402
 import drafting_progress_schema as progress_schema  # noqa: E402
@@ -28,12 +30,22 @@ def test_begin_inductive_rejects_non_inductive_profile(tmp_path: Path) -> None:
     assert "drafting.inductive is false" in result["reason"]
 
 
-def test_advance_to_freeedit_rejects_profile_without_freeedit(tmp_path: Path) -> None:
+def test_advance_to_freeedit_rejects_profile_without_freeedit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # All shipped profiles now enable freeedit; force a disabled profile to
+    # keep the rejection branch covered.
     seed_tech_plan_session(tmp_path, cycle_id=_CYCLE, profile_id="product-spec")
     progress_schema.save_drafting_progress(
         _progress_path(tmp_path, "product-spec"),
         {"version": "1", "cycle_id": _CYCLE, "current_step": "Initialized"},
         profile_id="product-spec",
+    )
+    monkeypatch.setattr(
+        draft_control,
+        "load_profile",
+        lambda *args, **kwargs: {"drafting": {"freeedit": False}},
     )
 
     result = draft_control.advance_to_freeedit(_CYCLE, tmp_path, profile_id="product-spec")

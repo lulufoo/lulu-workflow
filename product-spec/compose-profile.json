@@ -13,8 +13,8 @@
   },
   "drafting": {
     "inductive": false,
-    "freeedit": false,
-    "post_init_options": ["evaluate", "deliver"]
+    "freeedit": true,
+    "post_init_options": ["freeedit", "evaluate", "deliver"]
   },
   "start": {
     "adapter_module": "product-spec/scripts/start/product_spec_start_adapter.py",

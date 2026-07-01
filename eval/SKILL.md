@@ -87,22 +87,17 @@ Example (WO-MISS):
 
 ## Mechanical command
 
-`$EVAL_CONTROL` — eval-domain state machine. **Invoke via compose stage eval entry scripts** (inject `WorkflowAdapter`); do not call `eval_control.py` directly.
+`$EVAL_CONTROL` — eval-domain state machine. **Invoke via the generic profile-driven entry** (`eval/scripts/eval_entry.py`); do not call `eval_control.py` directly.
 
-Examples:
+The entry reads `--workflow` (= compose profile id) and dynamically loads the `WorkflowAdapter`
+declared by that profile's `eval.adapter_module` / `eval.adapter_class` — no stage name is
+hardcoded here (mirrors `start.py`'s `StartAdapter` loading).
 
 ```bash
-# tech-plan
-python3 {$SKILL_ROOT}/tech-plan/scripts/tech-plan_eval_control.py \
-  --workflow tech-plan \
+python3 {$SKILL_ROOT}/eval/scripts/eval_entry.py \
+  --workflow <profile-id> \
   --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand> [args...]
 ```
-
-| Stage | Entry script |
-|-------|----------------|
-| tech-plan | `tech-plan/scripts/tech-plan_eval_control.py` |
-| tech-design | `tech-design/scripts/tech-design_eval_control.py` |
-| product-spec | `product-spec/scripts/product-spec_eval_control.py` |
 
 | Concern | SSOT |
 |---------|------|

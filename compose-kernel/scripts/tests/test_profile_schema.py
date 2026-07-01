@@ -41,6 +41,10 @@ _MINIMAL_ACTIVE_PROFILE = {
         "adapter_module": "tech-foo/scripts/start/tech_foo_start_adapter.py",
         "adapter_class": "TechFooStartAdapter",
     },
+    "eval": {
+        "adapter_module": "tech-foo/scripts/eval/tech_foo_eval_adapter.py",
+        "adapter_class": "TechFooEvalAdapter",
+    },
     "cycle_types": ["feature"],
 }
 
@@ -112,6 +116,17 @@ def test_active_profile_missing_start_adapter_class_fails(tmp_path: Path) -> Non
     path.write_text(json.dumps(data), encoding="utf-8")
     errors = _validate_profile(path)
     assert any("missing start.adapter_class" in err for err in errors)
+
+
+def test_active_profile_missing_eval_adapter_class_fails(tmp_path: Path) -> None:
+    stage_dir = tmp_path / "tech-foo"
+    stage_dir.mkdir()
+    path = stage_dir / "compose-profile.json"
+    data = dict(_MINIMAL_ACTIVE_PROFILE)
+    data["eval"] = {"adapter_module": "tech-foo/scripts/eval/tech_foo_eval_adapter.py"}
+    path.write_text(json.dumps(data), encoding="utf-8")
+    errors = _validate_profile(path)
+    assert any("missing eval.adapter_class" in err for err in errors)
 
 
 def test_unknown_active_profile_validates_without_whitelist(tmp_path: Path) -> None:

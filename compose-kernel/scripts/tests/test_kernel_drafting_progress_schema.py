@@ -26,13 +26,11 @@ def test_tech_plan_rejects_inductive() -> None:
     assert any("invalid current_step" in err for err in errors)
 
 
-def test_product_spec_rejects_freeedit() -> None:
-    errors = schema.validate_drafting_progress(
+def test_product_spec_allows_freeedit() -> None:
+    assert schema.validate_drafting_progress(
         {"version": "1", "cycle_id": "C1", "current_step": "FreeEdit"},
         profile_id="product-spec",
-    )
-
-    assert any("invalid current_step" in err for err in errors)
+    ) == []
 
 
 def test_save_and_load_drafting_progress(tmp_path: Path) -> None:

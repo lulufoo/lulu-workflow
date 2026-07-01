@@ -25,6 +25,7 @@ _COMPOSE_PROFILE_REQUIRED = frozenset(
         "framework_templates",
         "drafting",
         "start",
+        "eval",
         "cycle_types",
     }
 )
@@ -38,6 +39,7 @@ _COMPOSE_SCHEME_PATH = KERNEL_SCHEMES / "compose-template-scheme.json"
 _DRAFTING_REQUIRED = frozenset({"inductive", "freeedit", "post_init_options"})
 _POST_INIT_OPTIONS = frozenset({"freeedit", "evaluate", "deliver"})
 _START_REQUIRED = frozenset({"adapter_module", "adapter_class"})
+_EVAL_REQUIRED = frozenset({"adapter_module", "adapter_class"})
 
 
 def _load_scheme() -> dict:
@@ -109,6 +111,13 @@ def _validate_active_compose_profile(path: Path, data: dict) -> list[str]:
                 errors.append(f"{path.name}: missing start.{key}")
             elif not isinstance(start[key], str) or not start[key].strip():
                 errors.append(f"{path.name}: start.{key} must be a non-empty string")
+    eval_block = data.get("eval")
+    if isinstance(eval_block, dict):
+        for key in _EVAL_REQUIRED:
+            if key not in eval_block:
+                errors.append(f"{path.name}: missing eval.{key}")
+            elif not isinstance(eval_block[key], str) or not eval_block[key].strip():
+                errors.append(f"{path.name}: eval.{key} must be a non-empty string")
     return errors
 
 

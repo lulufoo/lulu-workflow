@@ -2,9 +2,11 @@
 """Eval control for lulu-dev-workflow eval domain.
 
 Owns mechanical writes to evaluate-state.md. Workflow-specific paths and state
-transitions go through an injected WorkflowAdapter (stage eval entry scripts).
+transitions go through an injected WorkflowAdapter, loaded per-profile by
+eval_entry.py (dynamic ``profile.eval.adapter_module`` / ``adapter_class``
+loading, mirrors start.py's StartAdapter loading).
 
-Invoke via stage entrypoints (e.g. tech-plan/scripts/tech-plan_eval_control.py).
+Invoke via eval_entry.py (e.g. `python3 eval_entry.py --workflow tech-plan ...`).
 Do not run this module directly as __main__.
 
 Subcommands:
@@ -91,8 +93,8 @@ def _adapter() -> WorkflowAdapter:
     adapter = _ADAPTER_CTX.get()
     if adapter is None:
         raise RuntimeError(
-            "WorkflowAdapter not set; invoke via stage eval entrypoint "
-            "(e.g. tech-plan/scripts/tech-plan_eval_control.py)",
+            "WorkflowAdapter not set; invoke via eval_entry.py "
+            "(profile-driven adapter loading)",
         )
     return adapter
 
@@ -2087,8 +2089,8 @@ def run_eval(args: argparse.Namespace, adapter: WorkflowAdapter) -> int:
 
 def main() -> int:
     print(
-        "错误：请通过 stage eval 入口调用（例如 "
-        "tech-plan/scripts/tech-plan_eval_control.py）。",
+        "错误：请通过 eval_entry.py 调用（例如 "
+        "python3 eval_entry.py --workflow tech-plan ...）。",
         file=sys.stderr,
     )
     return 1
