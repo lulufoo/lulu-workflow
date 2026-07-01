@@ -17,8 +17,8 @@ from corpus_compose import (  # noqa: E402
     load_dimension_def,
 )
 
-_TECH_PLAN_DIMENSION_DEFS = Path(__file__).resolve().parents[3] / "tech-plan" / "dimension-defs"
-_TECH_DESIGN_DIMENSION_DEFS = Path(__file__).resolve().parents[3] / "tech-design" / "dimension-defs"
+_TECH_PLAN_DIMENSION_DEFS = Path(__file__).resolve().parents[3] / "lulu-plan" / "dimension-defs"
+_TECH_DESIGN_DIMENSION_DEFS = Path(__file__).resolve().parents[3] / "lulu-design" / "dimension-defs"
 
 
 class TestCorpusCompose:
@@ -51,12 +51,12 @@ class TestCorpusCompose:
             load_dimension_def(_TECH_PLAN_DIMENSION_DEFS / "tech-conformance.json"),
         ]
         corpus = compose_corpus(
-            corpus_id="tech-plan-composed",
+            corpus_id="lulu-plan-composed",
             corpus_version="1",
-            scope="tech-plan",
+            scope="lulu-plan",
             dimensions=dims,
         )
-        assert corpus["id"] == "tech-plan-composed"
+        assert corpus["id"] == "lulu-plan-composed"
         assert is_composed_corpus_ref(COMPOSED_CORPUS_REF)
         assert is_composed_corpus_ref(TECH_DESIGN_COMPOSED_CORPUS_REF)
         assert corpus["dimensions"][0]["review"]["seq"] == 1
@@ -65,9 +65,9 @@ class TestCorpusCompose:
     def test_compose_rejects_empty(self):
         with pytest.raises(ValueError, match="non-empty"):
             compose_corpus(
-                corpus_id="tech-plan-composed",
+                corpus_id="lulu-plan-composed",
                 corpus_version="1",
-                scope="tech-plan",
+                scope="lulu-plan",
                 dimensions=[],
             )
 
@@ -77,13 +77,13 @@ class TestCorpusCompose:
             load_dimension_def(_TECH_DESIGN_DIMENSION_DEFS / "solution-quality.json"),
         ]
         corpus = compose_corpus(
-            corpus_id="tech-design-composed",
+            corpus_id="lulu-design-composed",
             corpus_version="1",
-            scope="tech-design",
+            scope="lulu-design",
             dimensions=dims,
             review_output_prefix="design-review",
         )
-        assert corpus["id"] == "tech-design-composed"
+        assert corpus["id"] == "lulu-design-composed"
         assert corpus["dimensions"][1]["review"]["output_path"] == "design-review-e{M}2.md"
 
     def test_compose_tech_design_product_mode(self):
@@ -93,9 +93,9 @@ class TestCorpusCompose:
             load_dimension_def(_TECH_DESIGN_DIMENSION_DEFS / "intent-alignment.json"),
         ]
         corpus = compose_corpus(
-            corpus_id="tech-design-composed",
+            corpus_id="lulu-design-composed",
             corpus_version="1",
-            scope="tech-design",
+            scope="lulu-design",
             dimensions=dims,
             review_output_prefix="design-review",
         )

@@ -10,12 +10,12 @@ from pathlib import Path
 import pytest
 
 _EVAL_SCRIPTS = Path(__file__).resolve().parents[1]
-_TECH_PLAN_EVAL = _EVAL_SCRIPTS.parents[1] / "tech-plan" / "scripts" / "eval"
-_KERNEL_CORE = _EVAL_SCRIPTS.parents[1] / "compose-kernel" / "scripts" / "core"
+_TECH_PLAN_EVAL = _EVAL_SCRIPTS.parents[1] / "lulu-plan" / "scripts" / "eval"
+_KERNEL_CORE = _EVAL_SCRIPTS.parents[1] / "compose" / "scripts" / "core"
 _KERNEL_SCHEMA_SESSION = (
-    _EVAL_SCRIPTS.parents[1] / "compose-kernel" / "scripts" / "schema" / "session"
+    _EVAL_SCRIPTS.parents[1] / "compose" / "scripts" / "schema" / "session"
 )
-_KERNEL_TESTS = _EVAL_SCRIPTS.parents[1] / "compose-kernel" / "scripts" / "tests"
+_KERNEL_TESTS = _EVAL_SCRIPTS.parents[1] / "compose" / "scripts" / "tests"
 sys.path.insert(0, str(_KERNEL_CORE))
 sys.path.insert(0, str(_KERNEL_SCHEMA_SESSION))
 sys.path.insert(0, str(_KERNEL_TESTS))
@@ -122,13 +122,13 @@ _REVIEW_E2_DONE = (
 def _seed_session(tmp_path: Path, *, active_doc: int = 1) -> Path:
     from workflow_paths import seed_profile_pointer_for_tests  # noqa: WPS433
 
-    base = tmp_path / _CACHE / _CYCLE / "tech" / "plan"
+    base = tmp_path / _CACHE / _CYCLE / "lulu-plan"
     base.mkdir(parents=True)
     (base / "session-state.md").write_text(
         f"---\nversion: 1\nactive_doc: {active_doc}\nupdated_at: 2024-01-01T00:00:00+00:00\n---\n",
         encoding="utf-8",
     )
-    seed_profile_pointer_for_tests(tmp_path, _CYCLE, "tech-plan")
+    seed_profile_pointer_for_tests(tmp_path, _CYCLE, "lulu-plan")
     return base / f"revision{active_doc}" / "workflow-state.md"
 
 
@@ -205,7 +205,7 @@ class TestDispatchList:
         ws = _seed_session(tmp_path)
         decision = tmp_path / "decision-doc.md"
         decision.write_text("# Decision\n", encoding="utf-8")
-        refs = [DeliveredRef(type="tech-diagnostic", path=str(decision.resolve()))]
+        refs = [DeliveredRef(type="lulu-approach", path=str(decision.resolve()))]
         init_drafting(ws, mode="tech", delivered_refs=refs)
         assert dispatch_list(_CYCLE, tmp_path) == ["e2", "e3", "e4"]
 
@@ -613,7 +613,7 @@ class TestCollectReviewIssuesPrefix:
 
     def test_design_review_prefix_collected(self, tmp_path: Path):
         """design-review-e*.md files must be scanned when corpus uses design-review prefix."""
-        _TECH_DESIGN_EVAL = _EVAL_SCRIPTS.parents[1] / "tech-design" / "scripts" / "eval"
+        _TECH_DESIGN_EVAL = _EVAL_SCRIPTS.parents[1] / "lulu-design" / "scripts" / "eval"
         if str(_TECH_DESIGN_EVAL) not in sys.path:
             sys.path.insert(0, str(_TECH_DESIGN_EVAL))
         from tech_design_eval_adapter import TechDesignEvalAdapter  # noqa: WPS433
@@ -621,13 +621,13 @@ class TestCollectReviewIssuesPrefix:
 
         cycle = "feat-design-collect"
         cache = Path(".cache/cursor/lulu-dev-workflow")
-        base = tmp_path / cache / cycle / "tech" / "design"
+        base = tmp_path / cache / cycle / "lulu-design"
         base.mkdir(parents=True)
         (base / "session-state.md").write_text(
             "---\nversion: 1\nactive_doc: 1\nupdated_at: 2024-01-01T00:00:00+00:00\n---\n",
             encoding="utf-8",
         )
-        seed_profile_pointer_for_tests(tmp_path, cycle, "tech-design")
+        seed_profile_pointer_for_tests(tmp_path, cycle, "lulu-design")
         ws = base / "revision1" / "workflow-state.md"
         ws.parent.mkdir(parents=True, exist_ok=True)
         (ws.parent / "design-doc.md").write_text("# design\n", encoding="utf-8")

@@ -24,7 +24,7 @@ _DEFAULT_URL = (
 
 class TestConfigureWorkflowConfig:
     def test_writes_to_resolved_skill_config_path(self, tmp_path: Path) -> None:
-        payload = {"version": 1, "tech-plan": {"tpt_tech_conformance_url": "https://example.com/tc.md"}}
+        payload = {"version": 1, "lulu-plan": {"tpt_tech_conformance_url": "https://example.com/tc.md"}}
 
         def stub_fetch(owner: str, repo: str, ref: str, path: str) -> str:
             assert owner == "lulufoo"

@@ -21,7 +21,7 @@ if str(HOOK_DIR) not in sys.path:
 from hook_config_schema import ensure_hook_config  # noqa: E402
 from platforms.init.register import register_hook  # noqa: E402
 
-SUB_WORKFLOWS = ["product-arch", "tech-arch", "tech-plan", "tech-work-order", "tech-code"]
+SUB_WORKFLOWS = ["lulu-blueprint", "lulu-arch", "lulu-plan", "lulu-tasks", "lulu-code"]
 
 
 def ensure_copilot_platform_config(project_root: Path) -> None:
@@ -29,10 +29,10 @@ def ensure_copilot_platform_config(project_root: Path) -> None:
 
 
 _INIT_SCRIPT = {
-    "tech-code": "tc_init.py",
-    "product-arch": "pa_init.py",
-    "tech-arch": "ta_init.py",
-    "tech-work-order": "two_init.py",
+    "lulu-code": "tc_init.py",
+    "lulu-blueprint": "pa_init.py",
+    "lulu-arch": "ta_init.py",
+    "lulu-tasks": "tt_init.py",
 }
 
 

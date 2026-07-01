@@ -8,25 +8,25 @@ from pathlib import Path
 import pytest
 
 _SRC = Path(__file__).resolve().parents[3]  # lulu-dev-skills/
-_STAGES = ["diagnostic", "product-arch", "tech-arch", "tech-work-order", "tech-code"]
-# tech-plan uses compose-kernel/scripts/core/workflow_common.py (no STAGE / session_base_dir).
+_STAGES = ["decision", "lulu-blueprint", "lulu-arch", "lulu-tasks", "lulu-code"]
+# lulu-plan uses compose/scripts/core/workflow_common.py (no STAGE / session_base_dir).
 _FID = "20260524143022-02cd7e6e"
 
 _EXPECTED_CACHE_SUBDIR = {
-    "diagnostic": "diagnostic",
-    "product-arch": "product/arch",
-    "tech-arch": "tech/arch",
-    "tech-work-order": "tech/work-order",
-    "tech-code": "tech/code",
+    "decision": "decision",
+    "lulu-blueprint": "lulu-blueprint",
+    "lulu-arch": "lulu-arch",
+    "lulu-tasks": "lulu-tasks",
+    "lulu-code": "lulu-code",
 }
 
 
 _STAGE_WC = {
-    "diagnostic": "dx_workflow_common.py",
-    "product-arch": "pa_workflow_common.py",
-    "tech-arch": "ta_workflow_common.py",
-    "tech-work-order": "two_workflow_common.py",
-    "tech-code": "tc_workflow_common.py",
+    "decision": "dec_workflow_common.py",
+    "lulu-blueprint": "pa_workflow_common.py",
+    "lulu-arch": "ta_workflow_common.py",
+    "lulu-tasks": "tt_workflow_common.py",
+    "lulu-code": "tc_workflow_common.py",
 }
 
 
@@ -38,6 +38,9 @@ def _workflow_common_path(stage: str) -> Path:
 def _load_wc(stage: str):
     """Load a stage's workflow_common.py as a uniquely-named module."""
     path = _workflow_common_path(stage)
+    scripts_dir = path.parent
+    if str(scripts_dir) not in sys.path:
+        sys.path.insert(0, str(scripts_dir))
     mod_name = f"wc_{stage.replace('-', '_')}"
     sys.modules.pop(mod_name, None)
     spec = importlib.util.spec_from_file_location(mod_name, path)
@@ -84,7 +87,7 @@ class TestSessionBaseDir:
         assert str(result).endswith(f"{_FID}/{expected}")
 
     def test_cycle_id_with_hyphen_no_escaping(self):
-        mod = _load_wc("product-arch")
+        mod = _load_wc("lulu-blueprint")
         result = mod.session_base_dir(_FID)
         assert _FID in str(result)
         assert "%" not in str(result)
@@ -95,14 +98,14 @@ class TestSessionBaseDir:
         "20260524143022-02cd7e6e",
     ])
     def test_accepts_any_string_cycle_id_without_error(self, fid):
-        mod = _load_wc("product-arch")
+        mod = _load_wc("lulu-blueprint")
         result = mod.session_base_dir(fid)
         assert fid in str(result)
 
 
 class TestCodeStageConstraints:
     def test_session_base_dir_does_not_call_code_hot_root(self):
-        mod = _load_wc("tech-code")
+        mod = _load_wc("lulu-code")
         called = []
         original_fn = mod.code_hot_root
 
@@ -117,10 +120,10 @@ class TestCodeStageConstraints:
         )
 
     def test_code_hot_root_function_still_exists(self):
-        mod = _load_wc("tech-code")
+        mod = _load_wc("lulu-code")
         assert callable(mod.code_hot_root)
 
     def test_code_hot_root_source_has_archive_only_comment(self):
-        path = _SRC / "lulu-dev-workflow/tech-code/scripts/tc_workflow_common.py"
+        path = _SRC / "lulu-dev-workflow/lulu-code/scripts/tc_workflow_common.py"
         source = path.read_text(encoding="utf-8")
         assert "# archive-only" in source

@@ -1,4 +1,4 @@
-"""Cross-tree pytest hooks for lulu-dev-workflow (compose-kernel import hygiene)."""
+"""Cross-tree pytest hooks for lulu-dev-workflow (compose import hygiene)."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from pathlib import Path
 def _refresh_compose_paths() -> None:
     bootstrap_path = (
         Path(__file__).resolve().parent
-        / "compose-kernel"
+        / "compose"
         / "scripts"
         / "tests"
         / "bootstrap.py"
@@ -28,6 +28,6 @@ def pytest_configure(config) -> None:
 
 
 def pytest_collect_directory(path, parent):
-    if path.as_posix().endswith("compose-kernel/scripts/tests"):
+    if path.as_posix().endswith("compose/scripts/tests"):
         _refresh_compose_paths()
     return None

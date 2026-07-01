@@ -92,18 +92,18 @@ class TestReadActiveStage:
         import active_context_schema
 
         monkeypatch.chdir(tmp_path)
-        active_context_schema.write_entry(tmp_path, "cursor", "conv-a", _FID_A, "tech-plan")
+        active_context_schema.write_entry(tmp_path, "cursor", "conv-a", _FID_A, "lulu-plan")
         active_context_schema.write_entry(
             tmp_path,
             "cursor",
             "conv-b",
             _FID_B,
-            "product-arch",
+            "lulu-blueprint",
             cycle_type="topic",
         )
 
-        assert hook_entry._read_active_stage("cursor", "conv-a") == "tech-plan"
-        assert hook_entry._read_active_stage("cursor", "conv-b") == "product-arch"
+        assert hook_entry._read_active_stage("cursor", "conv-a") == "lulu-plan"
+        assert hook_entry._read_active_stage("cursor", "conv-b") == "lulu-blueprint"
 
     def test_empty_conversation_id_returns_none(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
@@ -118,7 +118,7 @@ class TestReadActiveStage:
         ctx = tmp_path / ".cache/cursor/lulu-dev-workflow/active-context.json"
         ctx.parent.mkdir(parents=True, exist_ok=True)
         ctx.write_text(
-            json.dumps({"cycle_id": _FID_A, "stage": "tech-plan"}),
+            json.dumps({"cycle_id": _FID_A, "stage": "lulu-plan"}),
             encoding="utf-8",
         )
         assert hook_entry._read_active_stage("cursor", "conv-a") is None
@@ -128,13 +128,13 @@ class TestShouldInjectConversationId:
     @pytest.mark.parametrize(
         "command",
         [
-            "python3 ~/.cursor/skills/lulu-dev-workflow/diagnostic/scripts/dx_start.py --cycle-id fid1",
-            "python lulu-dev-workflow/product-arch/scripts/pa_start.py --project-root /tmp",
-            "python3 ~/.cursor/skills/lulu-dev-workflow/compose-kernel/scripts/core/start.py --profile product-spec --cycle-id fid1",
-            "python3 ~/.cursor/skills/lulu-dev-workflow/compose-kernel/scripts/core/start.py --profile tech-plan --cycle-id fid1",
-            "python3 ~/.cursor/skills/lulu-dev-workflow/compose-kernel/scripts/core/start.py --profile tech-design --cycle-id fid1",
-            "python3 ~/.cursor/skills/lulu-dev-workflow/tech-work-order/scripts/two_start.py --cycle-id fid1",
-            "python3 ~/.cursor/skills/lulu-dev-workflow/tech-code/scripts/tc_start.py --cycle-id fid1",
+            "python3 ~/.cursor/skills/lulu-dev-workflow/decision/scripts/dec_start.py --cycle-id fid1",
+            "python lulu-dev-workflow/lulu-blueprint/scripts/pa_start.py --project-root /tmp",
+            "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/core/start.py --profile lulu-spec --cycle-id fid1",
+            "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/core/start.py --profile lulu-plan --cycle-id fid1",
+            "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/core/start.py --profile lulu-design --cycle-id fid1",
+            "python3 ~/.cursor/skills/lulu-dev-workflow/lulu-tasks/scripts/tt_start.py --cycle-id fid1",
+            "python3 ~/.cursor/skills/lulu-dev-workflow/lulu-code/scripts/tc_start.py --cycle-id fid1",
         ],
     )
     def test_start_py_invocation(self, command):
@@ -149,7 +149,7 @@ class TestShouldInjectConversationId:
             "git status",
             "python3 cycle_control.py --project-root /tmp start --name test",
             "python3 ~/.cursor/skills/lulu-dev-workflow/scripts/hook/hook_guard.py",
-            "python3 ~/.cursor/skills/lulu-dev-workflow/tech-plan/scripts/drafting/tech_plan_draft_control.py --cycle-id fid1",
+            "python3 ~/.cursor/skills/lulu-dev-workflow/lulu-plan/scripts/drafting/tech_plan_draft_control.py --cycle-id fid1",
             "python3 ~/.cursor/skills/lulu-dev-workflow/scripts/cycle_control.py start --name test",
         ],
     )
@@ -157,7 +157,7 @@ class TestShouldInjectConversationId:
         assert hook_entry._should_inject_conversation_id(command) is False
 
     def test_already_has_conv_id(self):
-        cmd = "python3 ~/.cursor/skills/lulu-dev-workflow/diagnostic/scripts/dx_start.py --conversation-id existing"
+        cmd = "python3 ~/.cursor/skills/lulu-dev-workflow/decision/scripts/dec_start.py --conversation-id existing"
         assert hook_entry._should_inject_conversation_id(cmd) is False
 
 
@@ -193,7 +193,7 @@ class TestMainRouting:
         ctx = tmp_path / ".cache/cursor/lulu-dev-workflow/active-context.json"
         ctx.parent.mkdir(parents=True, exist_ok=True)
         ctx.write_text(
-            json.dumps({"cycle_id": _FID_A, "stage": "tech-plan"}),
+            json.dumps({"cycle_id": _FID_A, "stage": "lulu-plan"}),
             encoding="utf-8",
         )
 
@@ -221,7 +221,7 @@ class TestMainRouting:
 
     def test_shell_workflow_command_injects_conv_id(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
-        cmd = "python3 ~/.cursor/skills/lulu-dev-workflow/diagnostic/scripts/dx_start.py --cycle-id fid1 --project-root /tmp"
+        cmd = "python3 ~/.cursor/skills/lulu-dev-workflow/decision/scripts/dec_start.py --cycle-id fid1 --project-root /tmp"
         payload = json.dumps({
             "tool_name": "Shell",
             "tool_input": {"command": cmd},
@@ -237,7 +237,7 @@ class TestMainRouting:
 
     def test_shell_already_has_conv_id_no_duplicate(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
-        cmd = "python3 ~/.cursor/skills/lulu-dev-workflow/diagnostic/scripts/dx_start.py --conversation-id existing"
+        cmd = "python3 ~/.cursor/skills/lulu-dev-workflow/decision/scripts/dec_start.py --conversation-id existing"
         payload = json.dumps({
             "tool_name": "Shell",
             "tool_input": {"command": cmd},
@@ -253,7 +253,7 @@ class TestMainRouting:
 
     def test_shell_workflow_command_no_conv_id_allows(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
-        cmd = "python3 ~/.cursor/skills/lulu-dev-workflow/diagnostic/scripts/dx_start.py --cycle-id fid1"
+        cmd = "python3 ~/.cursor/skills/lulu-dev-workflow/decision/scripts/dec_start.py --cycle-id fid1"
         payload = json.dumps({
             "tool_name": "Shell",
             "tool_input": {"command": cmd},
@@ -270,11 +270,11 @@ class TestMainRouting:
         import active_context_schema
         monkeypatch.chdir(tmp_path)
         active_context_schema.write_entry(
-            tmp_path, "cursor", "conv-a", _CYCLE_ID, "tech-plan"
+            tmp_path, "cursor", "conv-a", _CYCLE_ID, "lulu-plan"
         )
-        _make_workflow_state(_cache_dir(tmp_path), _CYCLE_ID, "tech-plan", "Drafting")
+        _make_workflow_state(_cache_dir(tmp_path), _CYCLE_ID, "lulu-plan", "Drafting")
         cache_file = (
-            _cache_dir(tmp_path) / _CYCLE_ID / "tech/plan/revision1/note.md"
+            _cache_dir(tmp_path) / _CYCLE_ID / "lulu-plan/revision1/note.md"
         )
         cache_file.parent.mkdir(parents=True, exist_ok=True)
 
@@ -292,9 +292,9 @@ class TestDeliveredBypass:
         import active_context_schema
         monkeypatch.chdir(tmp_path)
         active_context_schema.write_entry(
-            tmp_path, "cursor", "conv-a", _CYCLE_ID, "tech-plan"
+            tmp_path, "cursor", "conv-a", _CYCLE_ID, "lulu-plan"
         )
-        _make_workflow_state(_cache_dir(tmp_path), _CYCLE_ID, "tech-plan", "Delivered")
+        _make_workflow_state(_cache_dir(tmp_path), _CYCLE_ID, "lulu-plan", "Delivered")
 
         payload = _write_payload(
             conversation_id="conv-a",
@@ -313,9 +313,9 @@ class TestDeliveredBypass:
         import active_context_schema
         monkeypatch.chdir(tmp_path)
         active_context_schema.write_entry(
-            tmp_path, "cursor", "conv-a", _CYCLE_ID, "tech-plan"
+            tmp_path, "cursor", "conv-a", _CYCLE_ID, "lulu-plan"
         )
-        _make_workflow_state(_cache_dir(tmp_path), _CYCLE_ID, "tech-plan", "Drafting")
+        _make_workflow_state(_cache_dir(tmp_path), _CYCLE_ID, "lulu-plan", "Drafting")
 
         payload = _write_payload(
             conversation_id="conv-a",
@@ -337,10 +337,10 @@ class TestDeliveredBypass:
         import active_context_schema
         monkeypatch.chdir(tmp_path)
         active_context_schema.write_entry(
-            tmp_path, "cursor", "conv-a", _CYCLE_ID, "tech-plan"
+            tmp_path, "cursor", "conv-a", _CYCLE_ID, "lulu-plan"
         )
         _make_workflow_state(
-            _cache_dir(tmp_path), _CYCLE_ID, "tech-plan", "Invalidated"
+            _cache_dir(tmp_path), _CYCLE_ID, "lulu-plan", "Invalidated"
         )
 
         payload = _write_payload(
@@ -360,10 +360,10 @@ class TestDeliveredBypass:
         import active_context_schema
         monkeypatch.chdir(tmp_path)
         active_context_schema.write_entry(
-            tmp_path, "cursor", "conv-a", _CYCLE_ID, "diagnostic"
+            tmp_path, "cursor", "conv-a", _CYCLE_ID, "decision"
         )
         _make_workflow_state(
-            _cache_dir(tmp_path), _CYCLE_ID, "diagnostic", "Delivered"
+            _cache_dir(tmp_path), _CYCLE_ID, "decision", "Delivered"
         )
 
         payload = _write_payload(
@@ -385,7 +385,7 @@ class TestRwGuard:
         import active_context_schema
         monkeypatch.chdir(tmp_path)
         active_context_schema.write_entry(
-            tmp_path, "cursor", "conv-a", _CYCLE_ID, "tech-code"
+            tmp_path, "cursor", "conv-a", _CYCLE_ID, "lulu-code"
         )
         target = tmp_path / "src" / "main.py"
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -408,9 +408,9 @@ class TestRwGuard:
         cfg_path.write_text(json.dumps(cfg), encoding="utf-8")
 
         active_context_schema.write_entry(
-            tmp_path, "cursor", "conv-a", _CYCLE_ID, "tech-plan"
+            tmp_path, "cursor", "conv-a", _CYCLE_ID, "lulu-plan"
         )
-        _make_workflow_state(_cache_dir(tmp_path), _CYCLE_ID, "tech-plan", "Drafting")
+        _make_workflow_state(_cache_dir(tmp_path), _CYCLE_ID, "lulu-plan", "Drafting")
         target = tmp_path / "src" / "main.py"
         target.parent.mkdir(parents=True, exist_ok=True)
         payload = _write_payload(conversation_id="conv-a", file_path=str(target))
@@ -424,9 +424,9 @@ class TestRwGuard:
         import active_context_schema
         monkeypatch.chdir(tmp_path)
         active_context_schema.write_entry(
-            tmp_path, "cursor", "conv-a", _CYCLE_ID, "tech-plan"
+            tmp_path, "cursor", "conv-a", _CYCLE_ID, "lulu-plan"
         )
-        _make_workflow_state(_cache_dir(tmp_path), _CYCLE_ID, "tech-plan", "Drafting")
+        _make_workflow_state(_cache_dir(tmp_path), _CYCLE_ID, "lulu-plan", "Drafting")
         target = tmp_path / "README.md"
         target.write_text("hello", encoding="utf-8")
         payload = _write_payload(
@@ -444,9 +444,9 @@ class TestRwGuard:
         import active_context_schema
         monkeypatch.chdir(tmp_path)
         active_context_schema.write_entry(
-            tmp_path, "cursor", "conv-a", _CYCLE_ID, "tech-plan"
+            tmp_path, "cursor", "conv-a", _CYCLE_ID, "lulu-plan"
         )
-        _make_workflow_state(_cache_dir(tmp_path), _CYCLE_ID, "tech-plan", "Drafting")
+        _make_workflow_state(_cache_dir(tmp_path), _CYCLE_ID, "lulu-plan", "Drafting")
         target = Path.home() / ".cursor/skills/other-skill/SKILL.md"
         payload = _write_payload(
             conversation_id="conv-a",
@@ -464,9 +464,9 @@ class TestRwGuard:
 
         monkeypatch.chdir(tmp_path)
         active_context_schema.write_entry(
-            tmp_path, "cursor", "conv-a", _CYCLE_ID, "tech-plan"
+            tmp_path, "cursor", "conv-a", _CYCLE_ID, "lulu-plan"
         )
-        _make_workflow_state(_cache_dir(tmp_path), _CYCLE_ID, "tech-plan", "Drafting")
+        _make_workflow_state(_cache_dir(tmp_path), _CYCLE_ID, "lulu-plan", "Drafting")
         outside = Path("/tmp/lulu-hook-read-outside-test.md")
         payload = _write_payload(
             conversation_id="conv-a",
@@ -495,10 +495,10 @@ class TestClaudePlatformOutput:
             ["hook_guard.py", "--platform", "claude"],
         )
         active_context_schema.write_entry(
-            tmp_path, "claude", "sess-1", _CYCLE_ID, "tech-plan"
+            tmp_path, "claude", "sess-1", _CYCLE_ID, "lulu-plan"
         )
         cache = tmp_path / ".cache/claude/lulu-dev-workflow"
-        _make_workflow_state(cache, _CYCLE_ID, "tech-plan", "Drafting")
+        _make_workflow_state(cache, _CYCLE_ID, "lulu-plan", "Drafting")
         payload = json.dumps(
             {
                 "session_id": "sess-1",

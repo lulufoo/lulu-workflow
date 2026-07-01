@@ -39,60 +39,60 @@ class TestResolveSubagentModel:
         from subagent_config import resolve_subagent_model
 
         self._write_workflow_config(tmp_path, {
-            "tech-code": {"subagent": {"cursor": "Auto", "copilot": "GPT-5.4"}}
+            "lulu-code": {"subagent": {"cursor": "Auto", "copilot": "GPT-5.4"}}
         })
-        assert resolve_subagent_model(tmp_path, "tech-code", "cursor") == "Auto"
+        assert resolve_subagent_model(tmp_path, "lulu-code", "cursor") == "Auto"
 
     def test_returns_model_for_copilot(self, tmp_path):
         from subagent_config import resolve_subagent_model
 
         self._write_workflow_config(tmp_path, {
-            "tech-code": {"subagent": {"cursor": "Auto", "copilot": "GPT-5.4"}}
+            "lulu-code": {"subagent": {"cursor": "Auto", "copilot": "GPT-5.4"}}
         })
-        assert resolve_subagent_model(tmp_path, "tech-code", "copilot") == "GPT-5.4"
+        assert resolve_subagent_model(tmp_path, "lulu-code", "copilot") == "GPT-5.4"
 
     def test_missing_platform_key_returns_none(self, tmp_path):
         from subagent_config import resolve_subagent_model
 
         self._write_workflow_config(tmp_path, {
-            "tech-code": {"subagent": {"cursor": "Auto"}}
+            "lulu-code": {"subagent": {"cursor": "Auto"}}
         })
-        assert resolve_subagent_model(tmp_path, "tech-code", "copilot") is None
+        assert resolve_subagent_model(tmp_path, "lulu-code", "copilot") is None
 
     def test_empty_string_returns_none(self, tmp_path):
         from subagent_config import resolve_subagent_model
 
         self._write_workflow_config(tmp_path, {
-            "tech-code": {"subagent": {"cursor": ""}}
+            "lulu-code": {"subagent": {"cursor": ""}}
         })
-        assert resolve_subagent_model(tmp_path, "tech-code", "cursor") is None
+        assert resolve_subagent_model(tmp_path, "lulu-code", "cursor") is None
 
     def test_whitespace_only_returns_none(self, tmp_path):
         from subagent_config import resolve_subagent_model
 
         self._write_workflow_config(tmp_path, {
-            "tech-code": {"subagent": {"cursor": "   "}}
+            "lulu-code": {"subagent": {"cursor": "   "}}
         })
-        assert resolve_subagent_model(tmp_path, "tech-code", "cursor") is None
+        assert resolve_subagent_model(tmp_path, "lulu-code", "cursor") is None
 
     def test_missing_subagent_key_returns_none(self, tmp_path):
         from subagent_config import resolve_subagent_model
 
         self._write_workflow_config(tmp_path, {
-            "tech-code": {"test_command": "npm test"}
+            "lulu-code": {"test_command": "npm test"}
         })
-        assert resolve_subagent_model(tmp_path, "tech-code", "cursor") is None
+        assert resolve_subagent_model(tmp_path, "lulu-code", "cursor") is None
 
     def test_missing_stage_returns_none(self, tmp_path):
         from subagent_config import resolve_subagent_model
 
         self._write_workflow_config(tmp_path, {})
-        assert resolve_subagent_model(tmp_path, "tech-code", "cursor") is None
+        assert resolve_subagent_model(tmp_path, "lulu-code", "cursor") is None
 
     def test_missing_workflow_config_returns_none(self, tmp_path):
         from subagent_config import resolve_subagent_model
 
-        assert resolve_subagent_model(tmp_path, "tech-code", "cursor") is None
+        assert resolve_subagent_model(tmp_path, "lulu-code", "cursor") is None
 
     def test_invalid_workflow_config_json_returns_none(self, tmp_path):
         from subagent_config import resolve_subagent_model
@@ -100,7 +100,7 @@ class TestResolveSubagentModel:
         cfg_path = tmp_path / "skill-config/lulu-dev-workflow/workflow-config.json"
         cfg_path.parent.mkdir(parents=True, exist_ok=True)
         cfg_path.write_text("{not json", encoding="utf-8")
-        assert resolve_subagent_model(tmp_path, "tech-code", "cursor") is None
+        assert resolve_subagent_model(tmp_path, "lulu-code", "cursor") is None
 
     def test_custom_workflow_config_path_from_platform_config(self, tmp_path):
         from subagent_config import resolve_subagent_model
@@ -111,9 +111,9 @@ class TestResolveSubagentModel:
         cfg_path = tmp_path / "custom/my-config.json"
         cfg_path.parent.mkdir(parents=True, exist_ok=True)
         cfg_path.write_text(json.dumps({
-            "tech-code": {"subagent": {"cursor": "Auto"}}
+            "lulu-code": {"subagent": {"cursor": "Auto"}}
         }), encoding="utf-8")
-        assert resolve_subagent_model(tmp_path, "tech-code", "cursor") == "Auto"
+        assert resolve_subagent_model(tmp_path, "lulu-code", "cursor") == "Auto"
 
 
 class TestPlatformConfigPath:
@@ -187,7 +187,7 @@ class TestResolveSubagentCli:
     def test_stdout_json_with_model(self, tmp_path):
         import subprocess
         self._write_workflow_config(tmp_path, {
-            "tech-code": {"subagent": {"cursor": "Auto", "copilot": "GPT-5.4"}}
+            "lulu-code": {"subagent": {"cursor": "Auto", "copilot": "GPT-5.4"}}
         })
 
         result = subprocess.run(
@@ -198,7 +198,7 @@ class TestResolveSubagentCli:
                 "--project-root",
                 str(tmp_path),
                 "--stage",
-                "tech-code",
+                "lulu-code",
                 "--platform",
                 "cursor",
             ],
@@ -219,7 +219,7 @@ class TestResolveSubagentCli:
                 "--project-root",
                 str(tmp_path),
                 "--stage",
-                "tech-code",
+                "lulu-code",
             ],
             capture_output=True,
             text=True,

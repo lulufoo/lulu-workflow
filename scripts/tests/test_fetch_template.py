@@ -18,34 +18,34 @@ class TestParseBlobUrl:
     def test_parses_github_blob_url(self):
         url = (
             "https://github.com/lulufoo/lulu-workflow-framework/blob/main/"
-            "lulu-dev-workflow/template/tech-plan/20-tech-plan-spec-template.md"
+            "lulu-dev-workflow/template/plan/44-tech-plan-tech-doc-template.md"
         )
         parsed = parse_blob_url(url)
         assert parsed["owner"] == "lulufoo"
         assert parsed["repo"] == "lulu-workflow-framework"
         assert parsed["ref"] == "main"
-        assert parsed["path"].endswith("20-tech-plan-spec-template.md")
+        assert parsed["path"].endswith("44-tech-plan-tech-doc-template.md")
 
     def test_parses_multi_segment_ref(self):
         url = (
             "https://github.com/lulufoo/lulu-workflow-framework/blob/release/2026.06/"
-            "lulu-dev-workflow/template/tech-plan/20-tech-plan-spec-template.md"
+            "lulu-dev-workflow/template/plan/44-tech-plan-tech-doc-template.md"
         )
         parsed = parse_blob_url(url)
         assert parsed["ref"] == "release/2026.06"
         assert parsed["path"] == (
-            "lulu-dev-workflow/template/tech-plan/20-tech-plan-spec-template.md"
+            "lulu-dev-workflow/template/plan/44-tech-plan-tech-doc-template.md"
         )
 
     def test_parses_multi_segment_ref_with_nested_path(self):
         url = (
             "https://github.com/lulufoo/lulu-workflow-framework/blob/release/candidate/v2/"
-            "lulu-dev-workflow/template/diagnostic/decision-doc.template.md"
+            "lulu-dev-workflow/template/decision/decision-doc.template.md"
         )
         parsed = parse_blob_url(url)
         assert parsed["ref"] == "release/candidate/v2"
         assert parsed["path"] == (
-            "lulu-dev-workflow/template/diagnostic/decision-doc.template.md"
+            "lulu-dev-workflow/template/decision/decision-doc.template.md"
         )
 
     def test_rejects_blob_url_with_ref_only(self):
@@ -79,9 +79,9 @@ class TestFetchTemplate:
 
     def test_cache_hit_skips_gh(self, tmp_path):
         self._write_config(tmp_path, {
-            "tech-plan": {"tpt_url": "https://github.com/o/r/blob/main/path.md"},
+            "lulu-plan": {"tpt_url": "https://github.com/o/r/blob/main/path.md"},
         })
-        cache = cache_path(tmp_path, "cursor", "tech-plan", "tpt_url")
+        cache = cache_path(tmp_path, "cursor", "lulu-plan", "tpt_url")
         cache.parent.mkdir(parents=True, exist_ok=True)
         cache.write_text("# cached\n", encoding="utf-8")
 
@@ -89,7 +89,7 @@ class TestFetchTemplate:
             raise AssertionError("gh should not be called on cache hit")
 
         content = fetch_template(
-            "tech-plan",
+            "lulu-plan",
             "tpt_url",
             tmp_path,
             platform="cursor",
@@ -99,32 +99,32 @@ class TestFetchTemplate:
 
     def test_cache_miss_fetches_and_writes_cache(self, tmp_path):
         url = "https://github.com/o/r/blob/main/template.md"
-        self._write_config(tmp_path, {"tech-plan": {"tpt_url": url}})
+        self._write_config(tmp_path, {"lulu-plan": {"tpt_url": url}})
 
         def mock_fetch(owner, repo, ref, path):
             assert (owner, repo, ref, path) == ("o", "r", "main", "template.md")
             return "# fetched\n"
 
         content = fetch_template(
-            "tech-plan",
+            "lulu-plan",
             "tpt_url",
             tmp_path,
             platform="cursor",
             gh_fetcher=mock_fetch,
         )
         assert content == "# fetched\n"
-        cache = cache_path(tmp_path, "cursor", "tech-plan", "tpt_url")
+        cache = cache_path(tmp_path, "cursor", "lulu-plan", "tpt_url")
         assert cache.read_text(encoding="utf-8") == "# fetched\n"
 
     def test_force_bypasses_cache(self, tmp_path):
         url = "https://github.com/o/r/blob/main/template.md"
-        self._write_config(tmp_path, {"tech-plan": {"tpt_url": url}})
-        cache = cache_path(tmp_path, "cursor", "tech-plan", "tpt_url")
+        self._write_config(tmp_path, {"lulu-plan": {"tpt_url": url}})
+        cache = cache_path(tmp_path, "cursor", "lulu-plan", "tpt_url")
         cache.parent.mkdir(parents=True, exist_ok=True)
         cache.write_text("# stale\n", encoding="utf-8")
 
         content = fetch_template(
-            "tech-plan",
+            "lulu-plan",
             "tpt_url",
             tmp_path,
             platform="cursor",
@@ -135,48 +135,48 @@ class TestFetchTemplate:
         assert cache.read_text(encoding="utf-8") == "# fresh\n"
 
     def test_empty_url_exits_without_cache_write(self, tmp_path):
-        self._write_config(tmp_path, {"tech-plan": {"tpt_url": ""}})
+        self._write_config(tmp_path, {"lulu-plan": {"tpt_url": ""}})
         with pytest.raises(FetchTemplateError, match="Empty URL"):
-            fetch_template("tech-plan", "tpt_url", tmp_path, platform="cursor")
-        cache = cache_path(tmp_path, "cursor", "tech-plan", "tpt_url")
+            fetch_template("lulu-plan", "tpt_url", tmp_path, platform="cursor")
+        cache = cache_path(tmp_path, "cursor", "lulu-plan", "tpt_url")
         assert not cache.exists()
 
     def test_missing_section_raises(self, tmp_path):
-        self._write_config(tmp_path, {"tech-plan": {}})
+        self._write_config(tmp_path, {"lulu-plan": {}})
         with pytest.raises(FetchTemplateError, match="Missing key"):
-            fetch_template("tech-plan", "tpt_url", tmp_path, platform="cursor")
+            fetch_template("lulu-plan", "tpt_url", tmp_path, platform="cursor")
 
     def test_config_not_found_raises(self, tmp_path):
         with pytest.raises(FetchTemplateError, match="workflow-config not found"):
-            fetch_template("tech-plan", "tpt_url", tmp_path, platform="cursor")
+            fetch_template("lulu-plan", "tpt_url", tmp_path, platform="cursor")
 
     def test_gh_failure_does_not_write_cache(self, tmp_path):
         url = "https://github.com/o/r/blob/main/template.md"
-        self._write_config(tmp_path, {"tech-plan": {"tpt_url": url}})
+        self._write_config(tmp_path, {"lulu-plan": {"tpt_url": url}})
 
         def fail_fetch(*_args):
             raise FetchTemplateError("gh api failed")
 
         with pytest.raises(FetchTemplateError, match="gh api failed"):
             fetch_template(
-                "tech-plan",
+                "lulu-plan",
                 "tpt_url",
                 tmp_path,
                 platform="cursor",
                 gh_fetcher=fail_fetch,
             )
-        cache = cache_path(tmp_path, "cursor", "tech-plan", "tpt_url")
+        cache = cache_path(tmp_path, "cursor", "lulu-plan", "tpt_url")
         assert not cache.exists()
 
     def test_empty_cache_file_refetches(self, tmp_path):
         url = "https://github.com/o/r/blob/main/template.md"
-        self._write_config(tmp_path, {"tech-plan": {"tpt_url": url}})
-        cache = cache_path(tmp_path, "cursor", "tech-plan", "tpt_url")
+        self._write_config(tmp_path, {"lulu-plan": {"tpt_url": url}})
+        cache = cache_path(tmp_path, "cursor", "lulu-plan", "tpt_url")
         cache.parent.mkdir(parents=True, exist_ok=True)
         cache.write_text("   \n", encoding="utf-8")
 
         content = fetch_template(
-            "tech-plan",
+            "lulu-plan",
             "tpt_url",
             tmp_path,
             platform="cursor",
@@ -187,19 +187,19 @@ class TestFetchTemplate:
     def test_fetches_diagnostic_template(self, tmp_path):
         url = (
             "https://github.com/lulufoo/lulu-workflow-framework/blob/main/"
-            "lulu-dev-workflow/template/diagnostic/decision-doc.template.md"
+            "lulu-dev-workflow/template/decision/decision-doc.template.md"
         )
-        self._write_config(tmp_path, {"diagnostic": {"decision_doc_template_url": url}})
+        self._write_config(tmp_path, {"decision": {"decision_doc_template_url": url}})
 
         def mock_fetch(owner, repo, ref, path):
             assert owner == "lulufoo"
             assert repo == "lulu-workflow-framework"
             assert ref == "main"
-            assert path == "lulu-dev-workflow/template/diagnostic/decision-doc.template.md"
+            assert path == "lulu-dev-workflow/template/decision/decision-doc.template.md"
             return "# diagnostic template\n"
 
         content = fetch_template(
-            "diagnostic",
+            "decision",
             "decision_doc_template_url",
             tmp_path,
             platform="cursor",
@@ -213,7 +213,7 @@ class TestMainCli:
         cfg_path = tmp_path / "skill-config/lulu-dev-workflow/workflow-config.json"
         cfg_path.parent.mkdir(parents=True, exist_ok=True)
         cfg_path.write_text(json.dumps({
-            "tech-plan": {
+            "lulu-plan": {
                 "tpt_url": "https://github.com/o/r/blob/main/template.md",
             },
         }), encoding="utf-8")
@@ -228,7 +228,7 @@ class TestMainCli:
         mod.fetch_template = stub
         try:
             code = main([
-                "--section", "tech-plan",
+                "--section", "lulu-plan",
                 "--key", "tpt_url",
                 "--project-root", str(tmp_path),
                 "--platform", "cursor",
@@ -241,7 +241,7 @@ class TestMainCli:
 
     def test_cli_failure_returns_exit_1(self, tmp_path, capsys):
         code = main([
-            "--section", "tech-plan",
+            "--section", "lulu-plan",
             "--key", "tpt_url",
             "--project-root", str(tmp_path),
             "--platform", "cursor",

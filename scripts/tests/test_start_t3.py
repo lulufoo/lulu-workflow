@@ -12,21 +12,21 @@ import pytest
 
 _SRC = Path(__file__).resolve().parents[3]  # lulu-dev-skills/
 _LDEV = _SRC / "lulu-dev-workflow"
-_STAGES = ["diagnostic", "product-arch", "tech-arch", "tech-plan", "tech-work-order", "tech-code"]
-# compose-kernel start.py never integrated run_archive; other stages defer via comment.
-_STAGES_WITH_DEFERRED_ARCHIVE = [s for s in _STAGES if s != "tech-plan"]
+_STAGES = ["decision", "lulu-blueprint", "lulu-arch", "lulu-plan", "lulu-tasks", "lulu-code"]
+# compose start.py never integrated run_archive; other stages defer via comment.
+_STAGES_WITH_DEFERRED_ARCHIVE = [s for s in _STAGES if s != "lulu-plan"]
 _FID = "20260524143022-02cd7e6e"
 _CONV_ID = "test-conversation-aaa"
 _ENV_COPILOT = {**os.environ, "LULU_PLATFORM": "copilot"}
 _FEATURE_CYCLE = [
-    "product-diagnostic", "product-spec", "tech-diagnostic",
-    "tech-plan", "tech-work-order", "tech-code",
+    "lulu-bet", "lulu-spec", "lulu-approach",
+    "lulu-plan", "lulu-tasks", "lulu-code",
 ]
 _TOPIC_CYCLE = [
-    "product-diagnostic", "product-arch", "tech-diagnostic", "tech-arch",
+    "lulu-bet", "lulu-blueprint", "lulu-approach", "lulu-arch",
 ]
 _TOPIC_ID = "topic-20260524143022-aabbccdd"
-_KERNEL_START = _LDEV / "compose-kernel" / "scripts" / "core" / "start.py"
+_KERNEL_START = _LDEV / "compose" / "scripts" / "core" / "start.py"
 
 
 def _start_argparse_source(stage: str) -> str:
@@ -36,7 +36,7 @@ def _start_argparse_source(stage: str) -> str:
     return src
 
 
-def _diag_holder_args(stage: str = "product-diagnostic") -> list[str]:
+def _diag_holder_args(stage: str = "lulu-bet") -> list[str]:
     return [
         "--stage",
         stage,
@@ -46,13 +46,13 @@ def _diag_holder_args(stage: str = "product-diagnostic") -> list[str]:
 
 
 def _start_py(stage: str) -> Path:
-    if stage == "tech-plan":
+    if stage == "lulu-plan":
         return _KERNEL_START
-    return _SRC / "lulu-dev-workflow" / stage / "scripts" / ({"tech-code": "tc_start.py", "diagnostic": "dx_start.py", "product-arch": "pa_start.py", "tech-arch": "ta_start.py", "tech-work-order": "two_start.py"}.get(stage, "start.py"))
+    return _SRC / "lulu-dev-workflow" / stage / "scripts" / ({"lulu-code": "tc_start.py", "decision": "dec_start.py", "lulu-blueprint": "pa_start.py", "lulu-arch": "ta_start.py", "lulu-tasks": "tt_start.py"}.get(stage, "start.py"))
 
 
 def _scripts_dir(stage: str) -> Path:
-    if stage == "tech-plan":
+    if stage == "lulu-plan":
         return _KERNEL_START.parent
     return _SRC / "lulu-dev-workflow" / stage / "scripts"
 
@@ -63,7 +63,7 @@ def _cache_dir(tmp_path: Path) -> Path:
 
 def _seed_work_order_handoff(tmp_path: Path, cycle_id: str, active_doc: int = 1) -> None:
     cd = _cache_dir(tmp_path)
-    wo_dir = cd / cycle_id / "tech" / "work-order"
+    wo_dir = cd / cycle_id / "lulu-tasks"
     wo_dir.mkdir(parents=True, exist_ok=True)
     (wo_dir / "session-state.md").write_text(
         f"---\nactive_doc: {active_doc}\nupdated_at: 2026-06-01T00:00:00+00:00\n---\n",
@@ -160,7 +160,7 @@ def _seed_tech_plan_delivered_refs(
     design_path: Optional[Path] = None,
 ) -> None:
     del project_root
-    diag_dir = cache_dir / cycle_id / "tech" / "diagnostic"
+    diag_dir = cache_dir / cycle_id / "lulu-approach"
     diag_dir.mkdir(parents=True, exist_ok=True)
     decision = diag_dir / "decision-doc.md"
     if not decision.is_file():
@@ -168,17 +168,17 @@ def _seed_tech_plan_delivered_refs(
     _upsert_delivered_ref_entry(
         cache_dir,
         cycle_id,
-        delivered_type="tech-diagnostic",
+        delivered_type="lulu-approach",
         path=decision,
-        profile_id="tech-diagnostic",
+        profile_id="lulu-approach",
     )
     if design_path is not None:
         _upsert_delivered_ref_entry(
             cache_dir,
             cycle_id,
-            delivered_type="tech-design",
+            delivered_type="lulu-design",
             path=design_path,
-            profile_id="tech-design",
+            profile_id="lulu-design",
         )
 
 
@@ -194,12 +194,12 @@ def _seed_gate_for_stage(tmp_path: Path, to_stage: str, *, cycle_id: str = _FID)
         _make_session(cd, cycle_id, stage, "r1")
     if prior:
         _make_cycle_state(cd, cycle_id, prior[-1])
-    if to_stage == "tech-plan":
+    if to_stage == "lulu-plan":
         _seed_tech_plan_delivered_refs(cd, cycle_id, tmp_path)
 
 
 def _seed_diagnostic_config(tmp_path: Path) -> None:
-    """Seed workflow-config + local decision-doc template for dx_start init-session."""
+    """Seed workflow-config + local decision-doc template for dec_start init-session."""
     cfg_dir = tmp_path / "skill-config" / "lulu-dev-workflow"
     cfg_dir.mkdir(parents=True)
     local_template = tmp_path / "decision-doc.template.md"
@@ -215,7 +215,7 @@ def _seed_diagnostic_config(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     (cfg_dir / "workflow-config.json").write_text(
-        json.dumps({"diagnostic": {"decision_doc_template_url": local_template.as_uri()}}),
+        json.dumps({"decision": {"decision_doc_template_url": local_template.as_uri()}}),
         encoding="utf-8",
     )
 
@@ -294,37 +294,37 @@ class TestArgparseBehavior:
 
     def test_cycle_id_missing_diagnostic_exits_nonzero(self):
         result = subprocess.run(
-            [sys.executable, str(_start_py("diagnostic")), "--project-root", "."],
+            [sys.executable, str(_start_py("decision")), "--project-root", "."],
             capture_output=True, text=True, env=_ENV_COPILOT,
-            cwd=str(_scripts_dir("diagnostic")),
+            cwd=str(_scripts_dir("decision")),
         )
         assert result.returncode != 0
 
     def test_conversation_id_accepted_diagnostic(self, tmp_path):
         _seed_diagnostic_config(tmp_path)
         result = self._run_with_conv_id(
-            "diagnostic",
+            "decision",
             tmp_path,
             extra=[
                 "--cycle-id",
                 _FID,
                 "--stage",
-                "tech-diagnostic",
+                "lulu-approach",
                 "--constraints",
-                str(_LDEV / "tech-diagnostic" / "constraints.json"),
+                str(_LDEV / "lulu-approach" / "constraints.json"),
             ],
         )
         assert result.returncode == 0, result.stderr
 
     def test_start_without_conv_id_no_context_write(self, tmp_path):
-        _seed_gate_for_stage(tmp_path, "product-arch", cycle_id=_TOPIC_ID)
+        _seed_gate_for_stage(tmp_path, "lulu-blueprint", cycle_id=_TOPIC_ID)
         env = {k: v for k, v in _ENV_COPILOT.items() if k != "LULU_CONVERSATION_ID"}
         result = subprocess.run(
-            [sys.executable, str(_start_py("product-arch")),
+            [sys.executable, str(_start_py("lulu-blueprint")),
              "--project-root", str(tmp_path),
              "--cycle-id", _TOPIC_ID],
             capture_output=True, text=True, env=env,
-            cwd=str(_scripts_dir("product-arch")),
+            cwd=str(_scripts_dir("lulu-blueprint")),
         )
         assert result.returncode == 0, result.stderr
         assert "conversation_id" in result.stderr
@@ -340,59 +340,59 @@ class TestSessionPath:
     def _run_diagnostic(self, tmp_path):
         _seed_diagnostic_config(tmp_path)
         return subprocess.run(
-            [sys.executable, str(_start_py("diagnostic")),
+            [sys.executable, str(_start_py("decision")),
              "--project-root", str(tmp_path),
              "--cycle-id", _FID],
             capture_output=True, text=True, env=_ENV_COPILOT,
-            cwd=str(_scripts_dir("diagnostic")),
+            cwd=str(_scripts_dir("decision")),
         )
 
     def _run_product_arch(self, tmp_path):
-        _seed_gate_for_stage(tmp_path, "product-arch", cycle_id=_TOPIC_ID)
+        _seed_gate_for_stage(tmp_path, "lulu-blueprint", cycle_id=_TOPIC_ID)
         return subprocess.run(
-            [sys.executable, str(_start_py("product-arch")),
+            [sys.executable, str(_start_py("lulu-blueprint")),
              "--project-root", str(tmp_path),
              "--cycle-id", _TOPIC_ID],
             capture_output=True, text=True, env=_ENV_COPILOT,
-            cwd=str(_scripts_dir("product-arch")),
+            cwd=str(_scripts_dir("lulu-blueprint")),
         )
 
     def _run_tech(self, tmp_path):
-        _seed_gate_for_stage(tmp_path, "tech-plan")
+        _seed_gate_for_stage(tmp_path, "lulu-plan")
         return subprocess.run(
-            [sys.executable, str(_start_py("tech-plan")),
+            [sys.executable, str(_start_py("lulu-plan")),
              "--project-root", str(tmp_path),
              "--cycle-id", _FID,
-             "--profile", "tech-plan",
-             "--profile-path", str(_LDEV / "tech-plan" / "compose-profile.json"),
+             "--profile", "lulu-plan",
+             "--profile-path", str(_LDEV / "lulu-plan" / "compose-profile.json"),
              "--run-mode", "tech"],
             capture_output=True, text=True, env=_ENV_COPILOT,
-            cwd=str(_scripts_dir("tech-plan")),
+            cwd=str(_scripts_dir("lulu-plan")),
         )
 
     def _run_work_order(self, tmp_path):
-        _seed_gate_for_stage(tmp_path, "tech-work-order")
-        # tech-work-order requires --tech-ref (existing file)
+        _seed_gate_for_stage(tmp_path, "lulu-tasks")
+        # lulu-tasks requires --tech-ref (existing file)
         tech_ref = tmp_path / "tech-doc.md"
         tech_ref.write_text("# Tech Doc\n", encoding="utf-8")
         return subprocess.run(
-            [sys.executable, str(_start_py("tech-work-order")),
+            [sys.executable, str(_start_py("lulu-tasks")),
              "--project-root", str(tmp_path),
              "--cycle-id", _FID,
              "--tech-ref", str(tech_ref)],
             capture_output=True, text=True, env=_ENV_COPILOT,
-            cwd=str(_scripts_dir("tech-work-order")),
+            cwd=str(_scripts_dir("lulu-tasks")),
         )
 
     def _run_code(self, tmp_path):
-        _seed_gate_for_stage(tmp_path, "tech-code")
+        _seed_gate_for_stage(tmp_path, "lulu-code")
         _seed_work_order_handoff(tmp_path, _FID)
         return subprocess.run(
-            [sys.executable, str(_start_py("tech-code")),
+            [sys.executable, str(_start_py("lulu-code")),
              "--project-root", str(tmp_path),
              "--cycle-id", _FID],
             capture_output=True, text=True, env=_ENV_COPILOT,
-            cwd=str(_scripts_dir("tech-code")),
+            cwd=str(_scripts_dir("lulu-code")),
         )
 
     def test_diagnostic_exits_zero(self, tmp_path):
@@ -401,33 +401,33 @@ class TestSessionPath:
 
     def test_diagnostic_session_file_at_feature_first_path(self, tmp_path):
         self._run_diagnostic(tmp_path)
-        ss = _cache_dir(tmp_path) / _FID / "diagnostic" / "session-state.md"
+        ss = _cache_dir(tmp_path) / _FID / "decision" / "session-state.md"
         assert ss.exists(), f"Expected session-state.md at {ss}"
 
     def _run_diagnostic_with_stage(self, tmp_path, stage: str):
         _seed_diagnostic_config(tmp_path)
         return subprocess.run(
-            [sys.executable, str(_start_py("diagnostic")),
+            [sys.executable, str(_start_py("decision")),
              "--project-root", str(tmp_path),
              "--cycle-id", _FID,
              "--stage", stage,
              "--constraints", str(_LDEV / stage / "constraints.json")],
             capture_output=True, text=True, env=_ENV_COPILOT,
-            cwd=str(_scripts_dir("diagnostic")),
+            cwd=str(_scripts_dir("decision")),
         )
 
     def test_product_diagnostic_stage_exits_zero(self, tmp_path):
-        result = self._run_diagnostic_with_stage(tmp_path, "product-diagnostic")
+        result = self._run_diagnostic_with_stage(tmp_path, "lulu-bet")
         assert result.returncode == 0, result.stderr
 
     def test_product_diagnostic_stage_writes_nested_path(self, tmp_path):
-        self._run_diagnostic_with_stage(tmp_path, "product-diagnostic")
-        ss = _cache_dir(tmp_path) / _FID / "product" / "diagnostic" / "session-state.md"
+        self._run_diagnostic_with_stage(tmp_path, "lulu-bet")
+        ss = _cache_dir(tmp_path) / _FID / "lulu-bet" / "session-state.md"
         assert ss.exists(), f"Expected session-state.md at {ss}"
 
     def test_tech_diagnostic_stage_writes_nested_path(self, tmp_path):
-        self._run_diagnostic_with_stage(tmp_path, "tech-diagnostic")
-        ss = _cache_dir(tmp_path) / _FID / "tech" / "diagnostic" / "session-state.md"
+        self._run_diagnostic_with_stage(tmp_path, "lulu-approach")
+        ss = _cache_dir(tmp_path) / _FID / "lulu-approach" / "session-state.md"
         assert ss.exists(), f"Expected session-state.md at {ss}"
 
     def test_product_diagnostic_active_context_stage_value(self, tmp_path):
@@ -435,60 +435,60 @@ class TestSessionPath:
 
         _seed_diagnostic_config(tmp_path)
         result = subprocess.run(
-            [sys.executable, str(_start_py("diagnostic")),
+            [sys.executable, str(_start_py("decision")),
              "--project-root", str(tmp_path),
              "--cycle-id", _FID,
-             "--stage", "product-diagnostic",
-             "--constraints", str(_LDEV / "product-diagnostic" / "constraints.json"),
+             "--stage", "lulu-bet",
+             "--constraints", str(_LDEV / "lulu-bet" / "constraints.json"),
              "--conversation-id", _CONV_ID],
             capture_output=True, text=True, env=_ENV_COPILOT,
-            cwd=str(_scripts_dir("diagnostic")),
+            cwd=str(_scripts_dir("decision")),
         )
         assert result.returncode == 0, result.stderr
         ctx = _cache_dir(tmp_path) / "active-context.json"
         assert ctx.exists(), f"Expected active-context.json at {ctx}"
         data = json.loads(ctx.read_text(encoding="utf-8"))
         assert _CONV_ID in data, f"missing conv key: {data}"
-        assert data[_CONV_ID]["stage"] == "product-diagnostic"
+        assert data[_CONV_ID]["stage"] == "lulu-bet"
         assert data[_CONV_ID]["cycle_id"] == _FID
 
     def test_start_writes_conv_indexed_context(self, tmp_path):
         import json
 
-        _seed_gate_for_stage(tmp_path, "tech-plan")
+        _seed_gate_for_stage(tmp_path, "lulu-plan")
         result = subprocess.run(
-            [sys.executable, str(_start_py("tech-plan")),
+            [sys.executable, str(_start_py("lulu-plan")),
              "--project-root", str(tmp_path),
              "--cycle-id", _FID,
-             "--profile", "tech-plan",
-             "--profile-path", str(_LDEV / "tech-plan" / "compose-profile.json"),
+             "--profile", "lulu-plan",
+             "--profile-path", str(_LDEV / "lulu-plan" / "compose-profile.json"),
              "--run-mode", "tech",
              "--conversation-id", _CONV_ID],
             capture_output=True, text=True, env=_ENV_COPILOT,
-            cwd=str(_scripts_dir("tech-plan")),
+            cwd=str(_scripts_dir("lulu-plan")),
         )
         assert result.returncode == 0, result.stderr
         ctx = _cache_dir(tmp_path) / "active-context.json"
         data = json.loads(ctx.read_text(encoding="utf-8"))
         assert _CONV_ID in data
-        assert data[_CONV_ID]["stage"] == "tech-plan"
+        assert data[_CONV_ID]["stage"] == "lulu-plan"
 
     def test_product_arch_session_file_at_topic_path(self, tmp_path):
         self._run_product_arch(tmp_path)
-        ss = _cache_dir(tmp_path) / _TOPIC_ID / "product" / "arch" / "session-state.md"
+        ss = _cache_dir(tmp_path) / _TOPIC_ID / "lulu-blueprint" / "session-state.md"
         assert ss.exists(), f"Expected session-state.md at {ss}"
 
     def test_tech_session_file_at_feature_first_path(self, tmp_path):
         self._run_tech(tmp_path)
-        ss = _cache_dir(tmp_path) / _FID / "tech" / "plan" / "session-state.md"
+        ss = _cache_dir(tmp_path) / _FID / "lulu-plan" / "session-state.md"
         assert ss.exists(), f"Expected session-state.md at {ss}"
 
     def test_work_order_session_file_at_feature_first_path(self, tmp_path):
         self._run_work_order(tmp_path)
-        ss = _cache_dir(tmp_path) / _FID / "tech" / "work-order" / "session-state.md"
+        ss = _cache_dir(tmp_path) / _FID / "lulu-tasks" / "session-state.md"
         assert ss.exists(), f"Expected session-state.md at {ss}"
 
     def test_code_session_file_at_feature_first_path(self, tmp_path):
         self._run_code(tmp_path)
-        ss = _cache_dir(tmp_path) / _FID / "tech" / "code" / "session-state.md"
+        ss = _cache_dir(tmp_path) / _FID / "lulu-code" / "session-state.md"
         assert ss.exists(), f"Expected session-state.md at {ss}"

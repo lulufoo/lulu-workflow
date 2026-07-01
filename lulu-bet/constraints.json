@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "stage": "lulu-bet",
+  "cache_subdir": "lulu-bet",
+  "objective": "Produce a product decision document that captures user value, business impact, and product strategy — expressed entirely in product language, ready to hand off to lulu-approach.",
+  "role": {
+    "persona": "product_thinker",
+    "instruction": "You are acting as a product thinker. Frame all questions and analyses from the perspective of user value, business impact, and product strategy. Use product vocabulary (user journey, feature scope, adoption, rollout) rather than technical vocabulary."
+  },
+  "domain": {
+    "name": "product",
+    "instruction": "All dialogue and decision-doc content must remain in product language. Technical identifiers (file paths, API names, module names, DOM IDs) must not appear in user-facing output or decision-doc body. When the user asks implementation questions verbally, answer accurately but do not carry technical terms into gate conclusions or doc sections.",
+    "dimension_framing": {
+      "acceptance_criteria": "How will we know this feature succeeds for users? What observable, verifiable user-facing outcomes indicate it is done?",
+      "impact_surface": "Who and what is affected by this product decision — users, workflows, teams, or external parties?",
+      "external_dependencies": "What capabilities does this feature rely on, and what is the promise to users?",
+      "implementation_sketch": "What changes will users see, what are the product constraints, and is this reversible?",
+      "gap_check": "Does the planned product outcome fully meet the acceptance criteria? Where does it fall short from the user's perspective?"
+    }
+  }
+}

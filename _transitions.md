@@ -14,11 +14,11 @@ When a stage delivers:
 **Trigger conditions:** `$EXECUTION_MODE == "autonomous"` AND `cycle_type == "feature"`
 
 **Auto-chain whitelist** (on delivery, immediately start the next stage without user selection):
-`tech-plan` → `tech-work-order` → `tech-code`
+`lulu-plan` → `lulu-tasks` → `lulu-code`
 
 Does **not** trigger for **Guided mode**.
 
-Each stage's autonomous overrides govern how delivery and handoff are executed. See `Autonomous Overrides` sections in `tech-plan/SKILL.md`, `tech-work-order/SKILL.md`, and `tech-code/SKILL.md`.
+Each stage's autonomous overrides govern how delivery and handoff are executed. See `Autonomous Overrides` sections in `lulu-plan/SKILL.md`, `lulu-tasks/SKILL.md`, and `lulu-code/SKILL.md`.
 
 ---
 
@@ -27,6 +27,6 @@ Each stage's autonomous overrides govern how delivery and handoff are executed. 
 Any participant may trigger a Stage Rollback when new information shows a prior stage's output is no longer valid:
 
 - **Trigger:** state the target stage to roll back to (any prior stage, any number of levels back)
-- **Effect on Product Line:** rolling back to `product-diagnostic` invalidates `product-spec` + entire tech line; rolling back to `product-spec` invalidates entire tech line.
-- **Effect on Tech Line:** rolling back to `tech-diagnostic` invalidates `tech-plan`, `tech-work-order`, `tech-code`.
+- **Effect on Product Line:** rolling back to `lulu-bet` invalidates `lulu-spec` + entire tech line; rolling back to `lulu-spec` invalidates entire tech line.
+- **Effect on Tech Line:** rolling back to `lulu-approach` invalidates `lulu-plan`, `lulu-tasks`, `lulu-code`.
 - **AI must announce:** "[target stage] and all downstream stages are invalidated. Restarting from [target stage]."

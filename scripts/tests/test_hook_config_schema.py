@@ -37,7 +37,7 @@ class TestDefaultHookConfig:
 
         stages = default_hook_config()["rwGuard"]["stages"]
         assert stages == {
-            "tech-code": {
+            "lulu-code": {
                 "readDirs": [".", "{platform-skills}"],
                 "writeDirs": ["."],
             },
@@ -133,7 +133,7 @@ class TestResolveRwGuard:
     def test_expands_platform_in_defaults(self, tmp_path: Path):
         from hook_config_schema import resolve_rw_guard
 
-        resolved = resolve_rw_guard(tmp_path, "product-arch", platform="cursor")
+        resolved = resolve_rw_guard(tmp_path, "lulu-blueprint", platform="cursor")
         assert resolved["enable"] is True
         assert resolved["readDirs"] == [
             ".",
@@ -151,7 +151,7 @@ class TestResolveRwGuard:
     def test_tech_code_allows_project_root_writes(self, tmp_path: Path):
         from hook_config_schema import resolve_rw_guard
 
-        resolved = resolve_rw_guard(tmp_path, "tech-code", platform="copilot")
+        resolved = resolve_rw_guard(tmp_path, "lulu-code", platform="copilot")
         assert resolved["readDirs"] == [
             ".",
             (Path.home() / ".copilot/skills").as_posix(),
@@ -163,7 +163,7 @@ class TestResolveRwGuard:
 
         target, _ = ensure_hook_config(tmp_path, platform="cursor")
         payload = json.loads(target.read_text(encoding="utf-8"))
-        payload["rwGuard"]["stages"]["product-arch"] = {"enable": False}
+        payload["rwGuard"]["stages"]["lulu-blueprint"] = {"enable": False}
         target.write_text(json.dumps(payload), encoding="utf-8")
-        resolved = resolve_rw_guard(tmp_path, "product-arch", platform="cursor")
+        resolved = resolve_rw_guard(tmp_path, "lulu-blueprint", platform="cursor")
         assert resolved["enable"] is False

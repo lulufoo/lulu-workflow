@@ -9,7 +9,7 @@ from typing import List, Optional
 
 _CONFIG_PATH = Path(__file__).resolve().parents[1] / "config" / "transition-table.json"
 
-LEGACY_STAGES = frozenset({"diagnostic"})
+LEGACY_STAGES = frozenset({"decision"})
 
 
 def load_transitions(cycle_type: str) -> dict:

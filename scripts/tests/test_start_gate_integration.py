@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Tests for t8b: start.py gate integration (check_gate, re-open, back-fill, get_topic_doc).
 
-All start entrypoints (product-spec, tech-plan, tech-work-order, tech-code, diagnostic) must
+All start entrypoints (lulu-spec, lulu-plan, lulu-tasks, lulu-code, diagnostic) must
 integrate check_gate, current_effective_delivered, invalidate_downstream, and get_topic_doc
 before creating a new session.
 """
@@ -24,16 +24,16 @@ _ENV_COPILOT = {**os.environ, "LULU_PLATFORM": "copilot"}
 _CYCLE_ID = "20260524143022-02cd7e6e"
 _TOPIC_ID = "topic-20260101000000-deadbeef"
 
-_COMPOSE_START_STAGES = frozenset({"tech-plan", "product-spec"})
-_KERNEL_START = _LDEV / "compose-kernel" / "scripts" / "core" / "start.py"
+_COMPOSE_START_STAGES = frozenset({"lulu-plan", "lulu-spec"})
+_KERNEL_START = _LDEV / "compose" / "scripts" / "core" / "start.py"
 
-_STAGES_WITH_GATE = ["product-spec", "tech-plan", "tech-work-order", "tech-code"]
-_ALL_STAGES = ["diagnostic", "product-spec", "tech-plan", "tech-work-order", "tech-code"]
+_STAGES_WITH_GATE = ["lulu-spec", "lulu-plan", "lulu-tasks", "lulu-code"]
+_ALL_STAGES = ["decision", "lulu-spec", "lulu-plan", "lulu-tasks", "lulu-code"]
 
 # Feature cycle order (matches config/transition-table.json)
 _FEATURE_CYCLE = [
-    "product-diagnostic", "product-spec", "tech-diagnostic",
-    "tech-plan", "tech-work-order", "tech-code",
+    "lulu-bet", "lulu-spec", "lulu-approach",
+    "lulu-plan", "lulu-tasks", "lulu-code",
 ]
 
 
@@ -44,7 +44,7 @@ _FEATURE_CYCLE = [
 def _start_py(stage: str) -> Path:
     if stage in _COMPOSE_START_STAGES:
         return _KERNEL_START
-    return _LDEV / stage / "scripts" / ({"tech-code": "tc_start.py", "diagnostic": "dx_start.py", "tech-work-order": "two_start.py"}.get(stage, "start.py"))
+    return _LDEV / stage / "scripts" / ({"lulu-code": "tc_start.py", "decision": "dec_start.py", "lulu-tasks": "tt_start.py"}.get(stage, "start.py"))
 
 
 def _scripts_dir(stage: str) -> Path:
@@ -74,7 +74,7 @@ def _make_session_state(cache_dir: Path, cycle_id: str, stage: str, active: int 
     from workflow_sessions import stage_subdir
     p = cache_dir / cycle_id / stage_subdir(stage) / "session-state.md"
     p.parent.mkdir(parents=True, exist_ok=True)
-    field = "active_session" if stage == "tech-code" else "active_doc"
+    field = "active_session" if stage == "lulu-code" else "active_doc"
     p.write_text(f"---\n{field}: {active}\n---\n", encoding="utf-8")
     return p
 
@@ -117,7 +117,7 @@ def _make_session(
         session_dir.mkdir(parents=True, exist_ok=True)
         ws = session_dir / "workflow-state.md"
     if ws.name == "workflow-state.md" and stage in _COMPOSE_START_STAGES:
-        mode = "product" if stage == "product-spec" else "tech"
+        mode = "product" if stage == "lulu-spec" else "tech"
         ws.write_text(
             f"---\n"
             f"version: 1\n"
@@ -151,7 +151,7 @@ def _compose_start_args(profile_id: str, *extra: str) -> list[str]:
 
 
 def _seed_diagnostic_config(tmp_path: Path) -> None:
-    """Seed workflow-config + local decision-doc template for dx_start init-session."""
+    """Seed workflow-config + local decision-doc template for dec_start init-session."""
     cfg_dir = tmp_path / "skill-config" / "lulu-dev-workflow"
     cfg_dir.mkdir(parents=True)
     local_template = tmp_path / "decision-doc.template.md"
@@ -167,12 +167,12 @@ def _seed_diagnostic_config(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     (cfg_dir / "workflow-config.json").write_text(
-        json.dumps({"diagnostic": {"decision_doc_template_url": local_template.as_uri()}}),
+        json.dumps({"decision": {"decision_doc_template_url": local_template.as_uri()}}),
         encoding="utf-8",
     )
 
 
-def _diag_holder_args(stage: str = "product-diagnostic") -> list[str]:
+def _diag_holder_args(stage: str = "lulu-bet") -> list[str]:
     return [
         "--stage",
         stage,
@@ -183,23 +183,23 @@ def _diag_holder_args(stage: str = "product-diagnostic") -> list[str]:
 
 def _stage_extra_args(stage: str, tmp_path: Path) -> list:
     """Required extra CLI args for each stage start.py."""
-    if stage == "diagnostic":
-        return _diag_holder_args("product-diagnostic")
-    if stage == "product-spec":
-        return _compose_start_args("product-spec", "--run-mode", "product")
-    if stage == "tech-plan":
-        return _compose_start_args("tech-plan", "--run-mode", "tech")
-    if stage == "tech-work-order":
+    if stage == "decision":
+        return _diag_holder_args("lulu-bet")
+    if stage == "lulu-spec":
+        return _compose_start_args("lulu-spec", "--run-mode", "product")
+    if stage == "lulu-plan":
+        return _compose_start_args("lulu-plan", "--run-mode", "tech")
+    if stage == "lulu-tasks":
         tech_ref = tmp_path / "tech-doc.md"
         tech_ref.write_text("# Tech Doc\n", encoding="utf-8")
         return ["--tech-ref", str(tech_ref)]
-    if stage == "tech-code":
+    if stage == "lulu-code":
         return []
     return []
 
 
 def _seed_work_order_handoff(cache_dir: Path, cycle_id: str, active_doc: int = 1) -> None:
-    wo_dir = cache_dir / cycle_id / "tech" / "work-order"
+    wo_dir = cache_dir / cycle_id / "lulu-tasks"
     wo_dir.mkdir(parents=True, exist_ok=True)
     (wo_dir / "session-state.md").write_text(
         f"---\nactive_doc: {active_doc}\nupdated_at: 2026-06-01T00:00:00+00:00\n---\n",
@@ -249,9 +249,9 @@ def _seed_product_spec_delivered_refs(
     cycle_id: str,
     project_root: Path,
 ) -> None:
-    """Seed delivered-refs.json entries required for product-spec start."""
+    """Seed delivered-refs.json entries required for lulu-spec start."""
     del project_root
-    diag_dir = cache_dir / cycle_id / "product" / "diagnostic"
+    diag_dir = cache_dir / cycle_id / "lulu-bet"
     diag_dir.mkdir(parents=True, exist_ok=True)
     decision = diag_dir / "decision-doc.md"
     if not decision.is_file():
@@ -259,9 +259,9 @@ def _seed_product_spec_delivered_refs(
     _upsert_delivered_ref_entry(
         cache_dir,
         cycle_id,
-        delivered_type="product-diagnostic",
+        delivered_type="lulu-bet",
         path=decision,
-        profile_id="product-diagnostic",
+        profile_id="lulu-bet",
     )
 
 
@@ -272,9 +272,9 @@ def _seed_tech_plan_delivered_refs(
     *,
     design_path: Path | None = None,
 ) -> None:
-    """Seed delivered-refs.json entries required for tech-plan start (tech mode)."""
+    """Seed delivered-refs.json entries required for lulu-plan start (tech mode)."""
     del project_root
-    diag_dir = cache_dir / cycle_id / "tech" / "diagnostic"
+    diag_dir = cache_dir / cycle_id / "lulu-approach"
     diag_dir.mkdir(parents=True, exist_ok=True)
     decision = diag_dir / "decision-doc.md"
     if not decision.is_file():
@@ -282,17 +282,17 @@ def _seed_tech_plan_delivered_refs(
     _upsert_delivered_ref_entry(
         cache_dir,
         cycle_id,
-        delivered_type="tech-diagnostic",
+        delivered_type="lulu-approach",
         path=decision,
-        profile_id="tech-diagnostic",
+        profile_id="lulu-approach",
     )
     if design_path is not None:
         _upsert_delivered_ref_entry(
             cache_dir,
             cycle_id,
-            delivered_type="tech-design",
+            delivered_type="lulu-design",
             path=design_path,
-            profile_id="tech-design",
+            profile_id="lulu-design",
         )
 
 
@@ -303,13 +303,13 @@ def _run_start(
     extra_args: list = None,
 ) -> subprocess.CompletedProcess:
     args = extra_args if extra_args is not None else _stage_extra_args(stage, tmp_path)
-    if stage == "tech-code":
+    if stage == "lulu-code":
         _seed_work_order_handoff(_cache_dir(tmp_path), cycle_id)
-    if stage == "diagnostic":
+    if stage == "decision":
         _seed_diagnostic_config(tmp_path)
-    if stage == "product-spec":
+    if stage == "lulu-spec":
         _seed_product_spec_delivered_refs(_cache_dir(tmp_path), cycle_id, tmp_path)
-    if stage == "tech-plan":
+    if stage == "lulu-plan":
         _seed_tech_plan_delivered_refs(_cache_dir(tmp_path), cycle_id, tmp_path)
     cmd = [
         sys.executable, str(_start_py(stage)),
@@ -343,27 +343,27 @@ class TestGateBlocked:
         """Gate blocked: prior stage Drafting → exit 1 with 'Gate blocked' on stderr."""
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID)
-        _make_session(cd, _CYCLE_ID, "product-diagnostic", "r1", "Drafting")
-        result = _run_start("product-spec", tmp_path)
+        _make_session(cd, _CYCLE_ID, "lulu-bet", "r1", "Drafting")
+        result = _run_start("lulu-spec", tmp_path)
         assert result.returncode == 1
         assert "Gate blocked" in result.stderr
 
     def test_gate_blocked_no_session_created(self, tmp_path):
-        """Gate blocked → product-spec session file not created."""
+        """Gate blocked → lulu-spec session file not created."""
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID)
-        _make_session(cd, _CYCLE_ID, "product-diagnostic", "r1", "Drafting")
-        _run_start("product-spec", tmp_path)
-        plan_dir = cd / _CYCLE_ID / "product" / "plan"
+        _make_session(cd, _CYCLE_ID, "lulu-bet", "r1", "Drafting")
+        _run_start("lulu-spec", tmp_path)
+        plan_dir = cd / _CYCLE_ID / "lulu-blueprint"
         assert not plan_dir.exists() or not any(plan_dir.rglob("workflow-state.md"))
 
     def test_intermediate_drafting_blocks_downstream(self, tmp_path):
         """Intermediate stage Drafting blocks further downstream stages."""
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID)
-        _make_session(cd, _CYCLE_ID, "product-diagnostic", "r1", "Delivered")
-        _make_session(cd, _CYCLE_ID, "product-spec", "r1", "Drafting")
-        result = _run_start("tech-plan", tmp_path)
+        _make_session(cd, _CYCLE_ID, "lulu-bet", "r1", "Delivered")
+        _make_session(cd, _CYCLE_ID, "lulu-spec", "r1", "Drafting")
+        result = _run_start("lulu-plan", tmp_path)
         assert result.returncode == 1
         assert "Gate blocked" in result.stderr
 
@@ -374,73 +374,73 @@ class TestGateBlocked:
 
 class TestGatePasses:
     def test_first_stage_product_diagnostic_allowed(self, tmp_path):
-        """No cycle-state.json: product-diagnostic (first stage) is allowed."""
+        """No cycle-state.json: lulu-bet (first stage) is allowed."""
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID)
         result = _run_start(
-            "diagnostic",
+            "decision",
             tmp_path,
-            extra_args=_diag_holder_args("product-diagnostic"),
+            extra_args=_diag_holder_args("lulu-bet"),
         )
         assert result.returncode == 0, result.stderr
 
     def test_null_blocks_product_plan(self, tmp_path):
-        """No cycle-state.json: product-spec is not the first stage → blocked."""
+        """No cycle-state.json: lulu-spec is not the first stage → blocked."""
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID)
-        result = _run_start("product-spec", tmp_path)
+        result = _run_start("lulu-spec", tmp_path)
         assert result.returncode == 1
         assert "Gate blocked" in result.stderr
 
     def test_prior_delivered_allows_product_plan(self, tmp_path):
-        """product-diagnostic Delivered + cycle-state.json set → product-spec allowed."""
+        """lulu-bet Delivered + cycle-state.json set → lulu-spec allowed."""
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID)
-        _make_session(cd, _CYCLE_ID, "product-diagnostic", "r1", "Delivered")
-        _make_cycle_state(cd, _CYCLE_ID, "product-diagnostic")
-        result = _run_start("product-spec", tmp_path)
+        _make_session(cd, _CYCLE_ID, "lulu-bet", "r1", "Delivered")
+        _make_cycle_state(cd, _CYCLE_ID, "lulu-bet")
+        result = _run_start("lulu-spec", tmp_path)
         assert result.returncode == 0, result.stderr
 
     def test_all_prior_delivered_tech_plan(self, tmp_path):
-        """All prior stages Delivered + cycle-state.json set → tech-plan gate passes."""
+        """All prior stages Delivered + cycle-state.json set → lulu-plan gate passes."""
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID)
-        _all_prior_delivered(cd, _CYCLE_ID, "tech-plan")
-        result = _run_start("tech-plan", tmp_path)
+        _all_prior_delivered(cd, _CYCLE_ID, "lulu-plan")
+        result = _run_start("lulu-plan", tmp_path)
         assert result.returncode == 0, result.stderr
 
     def test_start_snapshots_delivered_refs(self, tmp_path):
         """start.py snapshots delivered-refs.json into workflow-state.delivered_refs."""
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID)
-        _all_prior_delivered(cd, _CYCLE_ID, "tech-plan")
+        _all_prior_delivered(cd, _CYCLE_ID, "lulu-plan")
         design = tmp_path / "design-doc.md"
         design.write_text("# Design\n", encoding="utf-8")
         _seed_tech_plan_delivered_refs(cd, _CYCLE_ID, tmp_path, design_path=design)
         result = _run_start(
-            "tech-plan",
+            "lulu-plan",
             tmp_path,
-            extra_args=_compose_start_args("tech-plan", "--run-mode", "tech"),
+            extra_args=_compose_start_args("lulu-plan", "--run-mode", "tech"),
         )
         assert result.returncode == 0, result.stderr or result.stdout
-        ws_path = cd / _CYCLE_ID / "tech" / "plan" / "revision1" / "workflow-state.md"
+        ws_path = cd / _CYCLE_ID / "lulu-plan" / "revision1" / "workflow-state.md"
         assert ws_path.exists()
         scripts_root = _LDEV / "scripts"
         if str(scripts_root) not in sys.path:
             sys.path.insert(0, str(scripts_root))
         from workflow_sessions import parse_frontmatter  # noqa: WPS433
 
-        sys.path.insert(0, str(_LDEV / "compose-kernel" / "scripts" / "schema" / "session"))
+        sys.path.insert(0, str(_LDEV / "compose" / "scripts" / "schema" / "session"))
         from delivered_refs_schema import parse_delivered_refs  # noqa: WPS433
 
         refs = parse_delivered_refs(parse_frontmatter(ws_path.read_text(encoding="utf-8")))
-        assert any(r.type == "tech-design" and r.path == str(design.resolve()) for r in refs)
+        assert any(r.type == "lulu-design" and r.path == str(design.resolve()) for r in refs)
 
     def test_diagnostic_always_passes(self, tmp_path):
         """diagnostic stage not in cycle → gate always OK."""
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID)
-        result = _run_start("diagnostic", tmp_path)
+        result = _run_start("decision", tmp_path)
         assert result.returncode == 0, result.stderr
 
 
@@ -453,10 +453,10 @@ class TestReopen:
         """Re-open: to_stage Delivered session gets historical: true in frontmatter."""
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID)
-        ws = _make_session(cd, _CYCLE_ID, "product-spec", "r1", "Delivered")
-        _make_session_state(cd, _CYCLE_ID, "product-spec", active=1)
-        _make_cycle_state(cd, _CYCLE_ID, "product-spec")
-        result = _run_start("product-spec", tmp_path)
+        ws = _make_session(cd, _CYCLE_ID, "lulu-spec", "r1", "Delivered")
+        _make_session_state(cd, _CYCLE_ID, "lulu-spec", active=1)
+        _make_cycle_state(cd, _CYCLE_ID, "lulu-spec")
+        result = _run_start("lulu-spec", tmp_path)
         assert result.returncode == 0, result.stderr
         assert "historical: true" in ws.read_text(encoding="utf-8")
 
@@ -464,19 +464,19 @@ class TestReopen:
         """Re-open must NOT delete old revision files."""
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID)
-        ws = _make_session(cd, _CYCLE_ID, "product-spec", "r1", "Delivered")
-        _make_cycle_state(cd, _CYCLE_ID, "product-spec")
-        _run_start("product-spec", tmp_path)
+        ws = _make_session(cd, _CYCLE_ID, "lulu-spec", "r1", "Delivered")
+        _make_cycle_state(cd, _CYCLE_ID, "lulu-spec")
+        _run_start("lulu-spec", tmp_path)
         assert ws.exists(), "Old revision workflow-state.md must still exist"
 
     def test_invalidates_downstream(self, tmp_path):
         """Re-open: downstream stages are Invalidated."""
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID)
-        _make_session(cd, _CYCLE_ID, "product-spec", "r1", "Delivered")
-        downstream_ws = _make_session(cd, _CYCLE_ID, "tech-diagnostic", "r1", "InProgress")
-        _make_cycle_state(cd, _CYCLE_ID, "product-spec")
-        result = _run_start("product-spec", tmp_path)
+        _make_session(cd, _CYCLE_ID, "lulu-spec", "r1", "Delivered")
+        downstream_ws = _make_session(cd, _CYCLE_ID, "lulu-approach", "r1", "InProgress")
+        _make_cycle_state(cd, _CYCLE_ID, "lulu-spec")
+        result = _run_start("lulu-spec", tmp_path)
         assert result.returncode == 0, result.stderr
         assert "Invalidated" in downstream_ws.read_text(encoding="utf-8")
 
@@ -484,9 +484,9 @@ class TestReopen:
         """Re-open + gate passes → new session is still created."""
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID)
-        _make_session(cd, _CYCLE_ID, "product-spec", "r1", "Delivered")
-        _make_cycle_state(cd, _CYCLE_ID, "product-spec")
-        result = _run_start("product-spec", tmp_path)
+        _make_session(cd, _CYCLE_ID, "lulu-spec", "r1", "Delivered")
+        _make_cycle_state(cd, _CYCLE_ID, "lulu-spec")
+        result = _run_start("lulu-spec", tmp_path)
         assert result.returncode == 0, result.stderr
 
 
@@ -499,14 +499,14 @@ class TestBackfill:
         """Back-fill: to_stage < latest Delivered → invalidate_downstream from to_stage."""
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID)
-        # product-diagnostic Delivered + cycle-state.json → gate OK for product-spec
-        _make_session(cd, _CYCLE_ID, "product-diagnostic", "r1", "Delivered")
-        _make_cycle_state(cd, _CYCLE_ID, "product-diagnostic")
-        # No product-spec session (re-open won't trigger)
+        # lulu-bet Delivered + cycle-state.json → gate OK for lulu-spec
+        _make_session(cd, _CYCLE_ID, "lulu-bet", "r1", "Delivered")
+        _make_cycle_state(cd, _CYCLE_ID, "lulu-bet")
+        # No lulu-spec session (re-open won't trigger)
         # Later stages Delivered → back-fill fires
-        tech_diag_ws = _make_session(cd, _CYCLE_ID, "tech-diagnostic", "r1", "Delivered")
-        tech_plan_ws = _make_session(cd, _CYCLE_ID, "tech-plan", "r1", "Delivered")
-        result = _run_start("product-spec", tmp_path)
+        tech_diag_ws = _make_session(cd, _CYCLE_ID, "lulu-approach", "r1", "Delivered")
+        tech_plan_ws = _make_session(cd, _CYCLE_ID, "lulu-plan", "r1", "Delivered")
+        result = _run_start("lulu-spec", tmp_path)
         assert result.returncode == 0, result.stderr
         assert "Invalidated" in tech_diag_ws.read_text(encoding="utf-8")
         assert "Invalidated" in tech_plan_ws.read_text(encoding="utf-8")
@@ -515,9 +515,9 @@ class TestBackfill:
         """No back-fill when no later stages are Delivered."""
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID)
-        _make_session(cd, _CYCLE_ID, "product-diagnostic", "r1", "Delivered")
-        _make_cycle_state(cd, _CYCLE_ID, "product-diagnostic")
-        result = _run_start("product-spec", tmp_path)
+        _make_session(cd, _CYCLE_ID, "lulu-bet", "r1", "Delivered")
+        _make_cycle_state(cd, _CYCLE_ID, "lulu-bet")
+        result = _run_start("lulu-spec", tmp_path)
         assert result.returncode == 0, result.stderr
 
 
@@ -530,9 +530,9 @@ class TestGetTopicDoc:
         """Feature has topic_id but cycles.json absent → ValueError → exit 1."""
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID, extra={"topic_id": _TOPIC_ID})
-        _make_session(cd, _CYCLE_ID, "product-diagnostic", "r1", "Delivered")
-        _make_cycle_state(cd, _CYCLE_ID, "product-diagnostic")
-        result = _run_start("product-spec", tmp_path)
+        _make_session(cd, _CYCLE_ID, "lulu-bet", "r1", "Delivered")
+        _make_cycle_state(cd, _CYCLE_ID, "lulu-bet")
+        result = _run_start("lulu-spec", tmp_path)
         assert result.returncode == 1
         assert "Error" in result.stderr or "topic" in result.stderr.lower() or "Gate blocked" in result.stderr
 
@@ -540,17 +540,17 @@ class TestGetTopicDoc:
         """ValueError prevents session creation."""
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID, extra={"topic_id": _TOPIC_ID})
-        _run_start("product-spec", tmp_path)
-        plan_dir = cd / _CYCLE_ID / "product" / "plan"
+        _run_start("lulu-spec", tmp_path)
+        plan_dir = cd / _CYCLE_ID / "lulu-blueprint"
         assert not plan_dir.exists() or not any(plan_dir.rglob("workflow-state.md"))
 
     def test_no_topic_id_session_created(self, tmp_path):
         """No topic_id → get_topic_doc returns None → session created normally."""
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID)
-        _make_session(cd, _CYCLE_ID, "product-diagnostic", "r1", "Delivered")
-        _make_cycle_state(cd, _CYCLE_ID, "product-diagnostic")
-        result = _run_start("product-spec", tmp_path)
+        _make_session(cd, _CYCLE_ID, "lulu-bet", "r1", "Delivered")
+        _make_cycle_state(cd, _CYCLE_ID, "lulu-bet")
+        result = _run_start("lulu-spec", tmp_path)
         assert result.returncode == 0, result.stderr
 
     def test_valid_topic_no_delivered_session_created(self, tmp_path):
@@ -558,9 +558,9 @@ class TestGetTopicDoc:
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID, extra={"topic_id": _TOPIC_ID})
         _make_cycles_json(cd, _TOPIC_ID)
-        _make_session(cd, _CYCLE_ID, "product-diagnostic", "r1", "Delivered")
-        _make_cycle_state(cd, _CYCLE_ID, "product-diagnostic")
-        result = _run_start("product-spec", tmp_path)
+        _make_session(cd, _CYCLE_ID, "lulu-bet", "r1", "Delivered")
+        _make_cycle_state(cd, _CYCLE_ID, "lulu-bet")
+        result = _run_start("lulu-spec", tmp_path)
         assert result.returncode == 0, result.stderr
 
     def test_topic_id_not_in_topics_json_exits_1(self, tmp_path):
@@ -568,9 +568,9 @@ class TestGetTopicDoc:
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID, extra={"topic_id": _TOPIC_ID})
         _make_cycles_json(cd, "topic-other-000-aabbccdd")
-        _make_session(cd, _CYCLE_ID, "product-diagnostic", "r1", "Delivered")
-        _make_cycle_state(cd, _CYCLE_ID, "product-diagnostic")
-        result = _run_start("product-spec", tmp_path)
+        _make_session(cd, _CYCLE_ID, "lulu-bet", "r1", "Delivered")
+        _make_cycle_state(cd, _CYCLE_ID, "lulu-bet")
+        result = _run_start("lulu-spec", tmp_path)
         assert result.returncode == 1
 
 
@@ -583,13 +583,13 @@ class TestAllStagesGateIntegration:
 
     @pytest.mark.parametrize("stage", _STAGES_WITH_GATE)
     def test_gate_blocked_all_stages(self, stage, tmp_path):
-        """Each gated start.py exits 1 when product-diagnostic is Drafting."""
+        """Each gated start.py exits 1 when lulu-bet is Drafting."""
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID)
-        _make_session(cd, _CYCLE_ID, "product-diagnostic", "r1", "Drafting")
+        _make_session(cd, _CYCLE_ID, "lulu-bet", "r1", "Drafting")
         result = _run_start(stage, tmp_path)
         assert result.returncode == 1, (
-            f"{stage}: expected exit 1 when product-diagnostic is Drafting"
+            f"{stage}: expected exit 1 when lulu-bet is Drafting"
         )
         assert "Gate blocked" in result.stderr
 

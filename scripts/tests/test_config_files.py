@@ -33,7 +33,7 @@ def test_transition_table_feature_count():
 def test_transition_table_topic_last_entry():
     data = load("transition-table.json")
     last = data["topic"][-1]
-    assert last["from"] == "tech-arch"
+    assert last["from"] == "lulu-arch"
     assert last["to"] == []
 
 
@@ -45,10 +45,10 @@ def test_transition_table_has_topic_doc_stage():
 def test_topic_doc_stage_has_four_keys():
     data = load("transition-table.json")
     assert set(data["topic_doc_stage"].keys()) == {
-        "product-diagnostic",
-        "product-spec",
-        "tech-diagnostic",
-        "tech-design",
+        "lulu-bet",
+        "lulu-spec",
+        "lulu-approach",
+        "lulu-design",
     }
 
 
@@ -61,8 +61,8 @@ def test_transition_table_null_entries_feature():
     data = load("transition-table.json")
     null_entries = [e for e in data["feature"] if e.get("from") is None]
     null_targets = {t for e in null_entries for t in e.get("to", [])}
-    assert "product-diagnostic" in null_targets
-    assert "tech-diagnostic" in null_targets
+    assert "lulu-bet" in null_targets
+    assert "lulu-approach" in null_targets
 
 
 def test_no_old_state_names():

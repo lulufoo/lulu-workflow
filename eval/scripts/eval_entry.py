@@ -3,7 +3,7 @@
 
 Dynamically loads the WorkflowAdapter declared by a stage's
 ``compose-profile.json`` (``eval.adapter_module`` / ``eval.adapter_class``),
-mirroring how ``compose-kernel/scripts/core/start.py`` loads a StartAdapter.
+mirroring how ``compose/scripts/core/start.py`` loads a StartAdapter.
 Replaces the deleted per-stage ``{stage}_eval_control.py`` boilerplate
 entrypoints; invoke via the ``$EVAL_CONTROL`` macro (see ``eval/SKILL.md``).
 """
@@ -20,7 +20,7 @@ if str(_EVAL_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_EVAL_SCRIPTS))
 
 _WORKFLOW_ROOT = _EVAL_SCRIPTS.parent.parent
-_KERNEL_SCRIPTS = _WORKFLOW_ROOT / "compose-kernel" / "scripts"
+_KERNEL_SCRIPTS = _WORKFLOW_ROOT / "compose" / "scripts"
 if str(_KERNEL_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_KERNEL_SCRIPTS))
 import kernel_bootstrap  # noqa: E402

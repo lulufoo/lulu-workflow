@@ -1,27 +1,27 @@
 {
   "version": 2,
   "topic_doc_stage": {
-    "product-diagnostic": "product-arch",
-    "product-spec": "product-arch",
-    "tech-diagnostic": "tech-arch",
-    "tech-design": "tech-arch"
+    "lulu-bet": "lulu-blueprint",
+    "lulu-spec": "lulu-blueprint",
+    "lulu-approach": "lulu-arch",
+    "lulu-design": "lulu-arch"
   },
   "topic": [
-    { "from": null, "to": ["product-diagnostic"], "note": "recommended for full-feature work" },
-    { "from": null, "to": ["tech-diagnostic"], "note": "for pure tech work" },
-    { "from": "product-diagnostic", "to": ["product-arch"] },
-    { "from": "product-arch", "to": ["tech-diagnostic"] },
-    { "from": "tech-diagnostic", "to": ["tech-arch"] },
-    { "from": "tech-arch", "to": [], "note": "shaping 循环完成；推荐创建 feature 并引用此 topic" }
+    { "from": null, "to": ["lulu-bet"], "note": "recommended for full-feature work" },
+    { "from": null, "to": ["lulu-approach"], "note": "for pure tech work" },
+    { "from": "lulu-bet", "to": ["lulu-blueprint"] },
+    { "from": "lulu-blueprint", "to": ["lulu-approach"] },
+    { "from": "lulu-approach", "to": ["lulu-arch"] },
+    { "from": "lulu-arch", "to": [], "note": "shaping 循环完成；推荐创建 feature 并引用此 topic" }
   ],
   "feature": [
-    { "from": null, "to": ["product-diagnostic", "tech-diagnostic"] },
-    { "from": "product-diagnostic", "to": ["product-spec"] },
-    { "from": "product-spec", "to": ["tech-diagnostic"] },
-    { "from": "tech-diagnostic", "to": ["tech-design", "tech-plan"] },
-    { "from": "tech-design", "to": ["tech-plan"] },
-    { "from": "tech-plan", "to": ["tech-work-order"] },
-    { "from": "tech-work-order", "to": ["tech-code"] },
-    { "from": "tech-code", "to": [] }
+    { "from": null, "to": ["lulu-bet", "lulu-approach"] },
+    { "from": "lulu-bet", "to": ["lulu-spec"] },
+    { "from": "lulu-spec", "to": ["lulu-approach"] },
+    { "from": "lulu-approach", "to": ["lulu-design", "lulu-plan"] },
+    { "from": "lulu-design", "to": ["lulu-plan"] },
+    { "from": "lulu-plan", "to": ["lulu-tasks"] },
+    { "from": "lulu-tasks", "to": ["lulu-code"] },
+    { "from": "lulu-code", "to": [] }
   ]
 }

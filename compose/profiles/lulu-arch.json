@@ -1,0 +1,11 @@
+{
+  "profile_id": "lulu-arch",
+  "stage_name": "lulu-arch",
+  "shell_dir": "lulu-arch",
+  "document": {
+    "filename": "arch-doc.md",
+    "schema": "section-keyed"
+  },
+  "cache_subdir": "lulu-arch",
+  "status": "placeholder_phase2"
+}

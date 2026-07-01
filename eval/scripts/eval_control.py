@@ -6,7 +6,7 @@ transitions go through an injected WorkflowAdapter, loaded per-profile by
 eval_entry.py (dynamic ``profile.eval.adapter_module`` / ``adapter_class``
 loading, mirrors start.py's StartAdapter loading).
 
-Invoke via eval_entry.py (e.g. `python3 eval_entry.py --workflow tech-plan ...`).
+Invoke via eval_entry.py (e.g. `python3 eval_entry.py --workflow lulu-plan ...`).
 Do not run this module directly as __main__.
 
 Subcommands:
@@ -42,7 +42,7 @@ _EVAL_LIB = Path(__file__).resolve().parent
 sys.path.insert(0, str(_EVAL_LIB))
 
 _WORKFLOW_ROOT = _EVAL_LIB.parent.parent
-_KERNEL_SCRIPTS = _WORKFLOW_ROOT / "compose-kernel" / "scripts"
+_KERNEL_SCRIPTS = _WORKFLOW_ROOT / "compose" / "scripts"
 if str(_KERNEL_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_KERNEL_SCRIPTS))
 import kernel_bootstrap  # noqa: E402
@@ -207,7 +207,7 @@ def _bind_vars(
 ) -> dict[str, str]:
     bind = {
         "compose_doc": paths["compose_doc"],
-        "product_ref": delivered_path(state, "product-spec"),
+        "product_ref": delivered_path(state, "lulu-spec"),
         "cycle_type": _adapter().detect_cycle_type(cycle_id),
         "M": str(evaluate_round),
     }
@@ -606,7 +606,7 @@ def build_eval_loop_payload(
         active_doc=active_doc,
         N=active_doc,
         cycle_type=_adapter().detect_cycle_type(cycle_id),
-        product_ref=delivered_path(state, "product-spec"),
+        product_ref=delivered_path(state, "lulu-spec"),
         project_root=project_root.resolve().as_posix(),
         paths=paths,
     )
@@ -804,7 +804,7 @@ def _build_runner_input(
                 runner_input["PRODUCT_REF"] = ref
                 break
     if "PRODUCT_REF" not in runner_input:
-        pref = delivered_path(state, "product-spec")
+        pref = delivered_path(state, "lulu-spec")
         if pref and any(s.get("kind") == "url" for s in sots):
             runner_input["PRODUCT_REF"] = pref
     return runner_input
@@ -1146,7 +1146,7 @@ def _build_remediation_runner_input(
         "EVALUATE_ROUND": str(evaluate_round),
         "PROJECT_ROOT": project_root.resolve().as_posix(),
     }
-    product_ref = delivered_path(state, "product-spec")
+    product_ref = delivered_path(state, "lulu-spec")
     if product_ref:
         runner_input["PRODUCT_REF"] = product_ref
     return runner_input
@@ -1889,7 +1889,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--workflow",
         required=True,
-        help="Workflow id (e.g. tech-plan)",
+        help="Workflow id (e.g. lulu-plan)",
     )
     parser.add_argument("--cycle-id", required=True, help="Cycle ID")
     parser.add_argument(
@@ -2090,7 +2090,7 @@ def run_eval(args: argparse.Namespace, adapter: WorkflowAdapter) -> int:
 def main() -> int:
     print(
         "错误：请通过 eval_entry.py 调用（例如 "
-        "python3 eval_entry.py --workflow tech-plan ...）。",
+        "python3 eval_entry.py --workflow lulu-plan ...）。",
         file=sys.stderr,
     )
     return 1

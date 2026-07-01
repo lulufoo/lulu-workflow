@@ -18,7 +18,7 @@ Terminal runner subagent. Resolves **SoT Remediation** (`SOT-DEFECT`, `UNRESOLVA
 1. Read `{$SKILL_ROOT}/eval/SKILL.md`
 2. Read `{$SKILL_ROOT}/eval/issue-taxonomy.json`
 3. Read `{$SKILL_ROOT}/eval/review.template.md`
-4. Read `{$SKILL_ROOT}/tech-work-order/eval-runner/SKILL.md` — **Attribution Protocol** and **Evidence Format per Root Cause** sections only
+4. Read `{$SKILL_ROOT}/lulu-tasks/eval-runner/SKILL.md` — **Attribution Protocol** and **Evidence Format per Root Cause** sections only
 5. Follow steps below
 
 ---

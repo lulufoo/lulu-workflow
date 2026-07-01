@@ -19,7 +19,7 @@ class SessionContext:
 
 
 class WorkflowAdapter(Protocol):
-    """Port implemented by each workflow (e.g. tech-plan)."""
+    """Port implemented by each workflow (e.g. lulu-plan)."""
 
     def resolve_workflow_state_path(
         self, cycle_id: str, project_root: Path

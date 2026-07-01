@@ -9,7 +9,7 @@ from typing import List, Optional
 
 _VALID_STATES = frozenset({"Drafting", "Evaluating", "TDABlocked", "Delivered", "Invalidated"})
 
-STAGE_FLAT = frozenset({"diagnostic", "product-diagnostic", "tech-diagnostic"})
+STAGE_FLAT = frozenset({"decision", "lulu-bet", "lulu-approach"})
 _FLAT_VALID_STATES = frozenset({"InProgress", "Delivered", "Invalidated"})
 _STAGE_REVISION_PAT = re.compile(r"^(revision|r|s)\d+$")
 
@@ -17,7 +17,7 @@ _STAGE_FLAT = STAGE_FLAT
 
 
 def stage_subdir(stage: str) -> str:
-    """Convert stage name to cache subdirectory: product-spec → product/spec."""
+    """Convert stage name to cache subdirectory: lulu-spec → lulu-spec."""
     return stage.replace("-", "/", 1)
 
 

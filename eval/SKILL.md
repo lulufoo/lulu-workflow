@@ -10,7 +10,7 @@ meta-skill-version: 1.0.0
 
 Library SKILL — not a workflow stage. Runners Read this file; eval-rules never dispatches it.
 
-**WO (tech-plan v2):** `tech-doc.md` — EvalCorpus v4; e3 uses `41-tech-plan-intent-evaluation-framework.md` (A, `tpt_intent_eval_framework_url`) + builtin `intent_gap_probes` procedure.
+**WO (lulu-plan v2):** `tech-doc.md` — EvalCorpus v4; e3 uses `41-lulu-plan-intent-evaluation-framework.md` (A, `tpt_intent_eval_framework_url`) + builtin `intent_gap_probes` procedure.
 
 ---
 
@@ -51,7 +51,7 @@ SSOT: `{$SKILL_ROOT}/eval/issue-taxonomy.json`. `root_cause` must be one of four
 
 - Header SSOT: `{$SKILL_ROOT}/eval/review.template.md`
 - Validate via: `python3 {$SKILL_ROOT}/eval/scripts/review_schema.py --schema`
-- **tech-plan output path:** `{revision}/evaluate{M}/{review.output_path}` from EvalCorpus (e.g. `tech-review-e{M}1.md`)
+- **lulu-plan output path:** `{revision}/evaluate{M}/{review.output_path}` from EvalCorpus (e.g. `tech-review-e{M}1.md`)
 
 Probe runners: Read template, substitute `{{DIM_LABEL}}`, `{{REV}}`, `{{M}}`, `{{DATE}}`, `{{REFS}}`; append issue rows; never alter header/separator row order.
 

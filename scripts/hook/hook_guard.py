@@ -39,12 +39,12 @@ _WORKFLOW_PY_PATH = re.compile(
 )
 
 _CONV_ID_INJECT_SCRIPT_SUFFIXES = (
-    "/compose-kernel/scripts/core/start.py",
-    "/tech-code/scripts/tc_start.py",
-    "/diagnostic/scripts/dx_start.py",
-    "/product-arch/scripts/pa_start.py",
-    "/tech-arch/scripts/ta_start.py",
-    "/tech-work-order/scripts/two_start.py",
+    "/compose/scripts/core/start.py",
+    "/lulu-code/scripts/tc_start.py",
+    "/decision/scripts/dec_start.py",
+    "/lulu-blueprint/scripts/pa_start.py",
+    "/lulu-arch/scripts/ta_start.py",
+    "/lulu-tasks/scripts/tt_start.py",
 )
 
 

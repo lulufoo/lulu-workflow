@@ -1,0 +1,45 @@
+{
+  "profile_id": "lulu-plan",
+  "stage_name": "lulu-plan",
+  "cycle_types": ["feature"],
+  "shell_dir": "lulu-plan",
+  "shell_paths": {
+    "hook_guard": "scripts/hook/hook_guard.py",
+    "dimension_defs_dir": "lulu-plan/dimension-defs"
+  },
+  "document": {
+    "filename": "tech-doc.md",
+    "schema": "section-keyed"
+  },
+  "drafting": {
+    "inductive": false,
+    "freeedit": true,
+    "post_init_options": ["freeedit", "evaluate", "deliver"]
+  },
+  "start": {
+    "adapter_module": "lulu-plan/scripts/start/tech_plan_start_adapter.py",
+    "adapter_class": "TechPlanStartAdapter"
+  },
+  "cache_subdir": "lulu-plan",
+  "framework_section": "lulu-plan",
+  "framework_templates": {
+    "section-registry": "tpt_section_registry_url",
+    "section-form-registry": "tpt_section_form_registry_url",
+    "section-kw-criteria": "tpt_section_kw_criteria_url",
+    "outline-registry": "tpt_outline_registry_url",
+    "role-instance": "tpt_feature_role_instance_url",
+    "domain-instance": "tpt_feature_domain_instance_url"
+  },
+  "eval": {
+    "enabled": true,
+    "workflow_id": "lulu-plan",
+    "adapter_module": "lulu-plan/scripts/eval/tech_plan_eval_adapter.py",
+    "adapter_class": "TechPlanEvalAdapter"
+  },
+  "delivery_index": {
+    "layout": "revision",
+    "state_file": "workflow-state.md",
+    "terminal_state": "Delivered",
+    "doc_filename": "tech-doc.md"
+  }
+}

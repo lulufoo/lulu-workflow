@@ -9,8 +9,8 @@ from transition_table import load_stage_order  # noqa: E402
 from workflow_sessions import get_sessions  # noqa: E402
 
 _SKILL_ROOT = Path(__file__).resolve().parents[1]
-_KERNEL_CORE = _SKILL_ROOT / "compose-kernel" / "scripts" / "core"
-_KERNEL_SCHEMA_SESSION = _SKILL_ROOT / "compose-kernel" / "scripts" / "schema" / "session"
+_KERNEL_CORE = _SKILL_ROOT / "compose" / "scripts" / "core"
+_KERNEL_SCHEMA_SESSION = _SKILL_ROOT / "compose" / "scripts" / "schema" / "session"
 
 
 def _is_tech_plan_workflow_state(state_path: Path) -> bool:

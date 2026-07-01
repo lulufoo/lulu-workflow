@@ -85,7 +85,7 @@ class TestResolveSessionContext:
                 {
                     "conv-123": {
                         "cycle_id": cycle_id,
-                        "stage": "tech-plan",
+                        "stage": "lulu-plan",
                         "cycle_type": "feature",
                     }
                 }
@@ -102,7 +102,7 @@ class TestResolveSessionContext:
         assert payload["conversation_id"] == "conv-123"
         assert payload["cycle_id"] == cycle_id
         assert payload["cycle_type"] == "feature"
-        assert payload["stage"] == "tech-plan"
+        assert payload["stage"] == "lulu-plan"
         assert payload["execution_mode"] == "autonomous"
 
     def test_cli_conversation_id_overrides_env(self, tmp_path: Path):
@@ -122,7 +122,7 @@ class TestResolveSessionContext:
                 {
                     "cli-conv": {
                         "cycle_id": cycle_id,
-                        "stage": "tech-plan",
+                        "stage": "lulu-plan",
                         "cycle_type": "feature",
                     }
                 }
@@ -155,7 +155,7 @@ class TestResolveSessionContext:
                 {
                     "conv-456": {
                         "cycle_id": "feature-20260101000000-22222222",
-                        "stage": "tech-code",
+                        "stage": "lulu-code",
                     }
                 }
             )

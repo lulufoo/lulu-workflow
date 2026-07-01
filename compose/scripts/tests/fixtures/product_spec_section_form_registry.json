@@ -1,0 +1,161 @@
+{
+  "version": "1",
+  "$schema_id": "section-form-schema",
+  "profile_id": "lulu-spec",
+  "section_order": [
+    "PB",
+    "RN",
+    "GO",
+    "UR",
+    "SN",
+    "SC",
+    "IO",
+    "FL",
+    "NG",
+    "AC"
+  ],
+  "sections": {
+    "PB": {
+      "guidance": "Problem-domain narrative carrier; verified situational facts; compact opening arc; no goal tables or capability lists.",
+      "contract": {
+        "required": [
+          "Opens with problem narrative before goal or enumeration blocks"
+        ],
+        "forbidden": [
+          "Before→after or success-state table carriers (belongs in GO)",
+          "Capability or scope enumeration tables (belongs in SC)",
+          "User scenario narrative (belongs in SN)",
+          "Happy-path step lists (belongs in FL)",
+          "Acceptance item lists (belongs in AC)",
+          "File paths, APIs, or stack choices"
+        ]
+      }
+    },
+    "RN": {
+      "guidance": "Why-now trigger narrative; at most one bridging phrase from PB; urgency or window framing; no capability or flow content.",
+      "contract": {
+        "required": [
+          "At most one transitional bridging phrase before trigger/urgency content"
+        ],
+        "forbidden": [
+          "Before→after goal table carriers (belongs in GO)",
+          "Capability or I/O enumerations (belongs in SC/IO)",
+          "Step-by-step flow (belongs in FL)",
+          "Acceptance criteria (belongs in AC)"
+        ]
+      }
+    },
+    "GO": {
+      "guidance": "Observable before→after or success-state prose/table carrier; at most one upstream bridging phrase; brief rejected-direction note inline when decision-doc compares options.",
+      "contract": {
+        "required": [
+          "When table carrier is used: two-column Before→After or equivalent success-state view",
+          "At most one transitional bridging phrase before the outcomes block"
+        ],
+        "forbidden": [
+          "Multi-paragraph PB problem rehash",
+          "Capability or scope enumeration tables (belongs in SC)",
+          "User scenario narrative (belongs in SN)",
+          "Happy-path step lists (belongs in FL)",
+          "Acceptance item lists (belongs in AC)"
+        ]
+      }
+    },
+    "UR": {
+      "guidance": "User role list or short persona carrier; enumeration when more than one primary user; no scenario story bodies.",
+      "contract": {
+        "required": [
+          "When multiple user roles appear: structured list or table carrier rather than inline prose only"
+        ],
+        "forbidden": [
+          "Full scenario narrative with steps (belongs in SN)",
+          "Capability or I/O object enumerations (belongs in SC/IO)",
+          "Happy-path flow steps (belongs in FL)",
+          "Acceptance criteria (belongs in AC)"
+        ]
+      }
+    },
+    "SN": {
+      "guidance": "Scenario narrative carrier with at least one concrete example slot; users established upstream — do not re-enumerate UR.",
+      "contract": {
+        "required": [
+          "[Optional] One concrete scenario example slot with situational context"
+        ],
+        "forbidden": [
+          "Capability or I/O object enumerations (belongs in SC/IO)",
+          "Step-by-step happy-path flow (belongs in FL)",
+          "Acceptance criteria lists (belongs in AC)",
+          "Non-goal exclusion lists (belongs in NG)"
+        ]
+      }
+    },
+    "SC": {
+      "guidance": "Capability enumeration carrier; prefer list or table when item count exceeds two; no step-by-step flow.",
+      "contract": {
+        "required": [
+          "H3 narrative order relative to IO: SC capabilities before I/O surfaces in document flow",
+          "When more than two capability items appear: structured or list carrier rather than inline prose only"
+        ],
+        "forbidden": [
+          "Happy-path step narrative (belongs in FL)",
+          "Non-goals or exclusions (belongs in NG)",
+          "Acceptance checks (belongs in AC)"
+        ]
+      }
+    },
+    "IO": {
+      "guidance": "I/O object enumeration carrier following SC; list or table form; map objects to SC capabilities when both appear.",
+      "contract": {
+        "required": [
+          "When I/O objects appear: structured list or table carrier"
+        ],
+        "forbidden": [
+          "Happy-path step narrative (belongs in FL)",
+          "Non-goal restatement (belongs in NG)",
+          "Acceptance item lists (belongs in AC)"
+        ]
+      }
+    },
+    "FL": {
+      "guidance": "Single happy-path flow carrier: entry → main path steps → exit condition; no acceptance or scope expansion.",
+      "contract": {
+        "required": [
+          "Single happy-path flow structure (entry, main path, exit condition)"
+        ],
+        "forbidden": [
+          "Acceptance item lists (belongs in AC)",
+          "Non-goal restatement (belongs in NG)",
+          "New capability expansion (belongs in SC)"
+        ]
+      }
+    },
+    "NG": {
+      "guidance": "Bullet or short two-column exclusion carrier; one row or bullet per exclusion with brief boundary-protection note; do not repeat SC body.",
+      "contract": {
+        "required": [
+          "Each exclusion occupies one bullet or one table row — no nested rationale essays inside a single row"
+        ],
+        "forbidden": [
+          "Repeating SC scope body verbatim",
+          "Happy-path steps (belongs in FL)",
+          "Acceptance standards (belongs in AC)"
+        ]
+      }
+    },
+    "AC": {
+      "guidance": "Observable acceptance checklist or trace-table carrier; row-aligned trace-back to GO or FL when decision-doc names goal or flow ids.",
+      "contract": {
+        "required": [
+          "Observable acceptance item list as primary structure",
+          "When decision-doc names goal or flow ids: trace-back labels to GO or FL in the same row or adjacent column"
+        ],
+        "forbidden": [
+          "New capabilities or scope expansion (belongs in SC)",
+          "Flow step restatement (belongs in FL)",
+          "Non-goal items (belongs in NG)",
+          "Implementation steps or technical design"
+        ]
+      }
+    }
+  }
+}

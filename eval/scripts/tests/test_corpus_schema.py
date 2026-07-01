@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tech-plan" / "scripts"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "lulu-plan" / "scripts"))
 
 from corpus_compose import COMPOSED_CORPUS_REF, compose_corpus, load_dimension_def  # noqa: E402
 from corpus_schema import (  # noqa: E402
@@ -30,9 +30,9 @@ def _feature_tech_upstream_corpus() -> dict:
         load_dimension_def(_DIMENSION_DEFS / "tech-conformance.json"),
     ]
     return compose_corpus(
-        corpus_id="tech-plan-composed",
+        corpus_id="lulu-plan-composed",
         corpus_version="1",
-        scope="tech-plan",
+        scope="lulu-plan",
         dimensions=dims,
     )
 
@@ -43,9 +43,9 @@ def _feature_base_corpus() -> dict:
         load_dimension_def(_DIMENSION_DEFS / "solution-quality.json"),
     ]
     return compose_corpus(
-        corpus_id="tech-plan-composed",
+        corpus_id="lulu-plan-composed",
         corpus_version="1",
-        scope="tech-plan",
+        scope="lulu-plan",
         dimensions=dims,
     )
 
@@ -87,7 +87,7 @@ class TestValidateCorpus:
             {
                 "id": "x",
                 "version": "3",
-                "scope": "tech-plan",
+                "scope": "lulu-plan",
                 "context": "offline",
                 "dimension_dispatch": "parallel",
                 "dimensions": [dim, dict(dim)],
@@ -102,7 +102,7 @@ class TestExpandCorpus:
         "product_ref": "/abs/product-doc.md",
         "cycle_type": "feature",
         "M": "1",
-        "tpt_intent_eval_framework_url": "https://github.com/o/r/blob/main/41-tech-plan-intent-evaluation-framework.md",
+        "tpt_intent_eval_framework_url": "https://github.com/o/r/blob/main/41-lulu-plan-intent-evaluation-framework.md",
         "tpt_tech_conformance_url": "https://github.com/o/r/blob/main/tech-conformance.md",
         "upstream_doc_path": "/abs/design-doc.md",
     }
@@ -153,7 +153,7 @@ class TestExpandCorpus:
             {
                 "id": "x",
                 "version": "3",
-                "scope": "tech-plan",
+                "scope": "lulu-plan",
                 "context": "offline",
                 "dimension_dispatch": "parallel",
                 "dimensions": [dim],

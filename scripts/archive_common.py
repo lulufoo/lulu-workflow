@@ -40,48 +40,48 @@ class StageArchiveConfig:
 
 
 PRODUCT_SPEC_CONFIG = StageArchiveConfig(
-    stage="product-spec",
-    hot_subdir="product/spec",
+    stage="lulu-spec",
+    hot_subdir="lulu-spec",
     session_counter_field="active_doc",
     doc_dir_fmt="revision{}",
     terminal_states=frozenset({"Delivered"}),
 )
 
 PRODUCT_ARCH_CONFIG = StageArchiveConfig(
-    stage="product-arch",
-    hot_subdir="product/arch",
+    stage="lulu-blueprint",
+    hot_subdir="lulu-blueprint",
     session_counter_field="active_doc",
     doc_dir_fmt="revision{}",
     terminal_states=frozenset({"Delivered"}),
 )
 
 TECH_ARCH_CONFIG = StageArchiveConfig(
-    stage="tech-arch",
-    hot_subdir="tech/arch",
+    stage="lulu-arch",
+    hot_subdir="lulu-arch",
     session_counter_field="active_doc",
     doc_dir_fmt="revision{}",
     terminal_states=frozenset({"Delivered"}),
 )
 
 TECH_PLAN_CONFIG = StageArchiveConfig(
-    stage="tech-plan",
-    hot_subdir="tech/plan",
+    stage="lulu-plan",
+    hot_subdir="lulu-plan",
     session_counter_field="active_doc",
     doc_dir_fmt="revision{}",
     terminal_states=frozenset({"Delivered"}),
 )
 
 TECH_WORK_ORDER_CONFIG = StageArchiveConfig(
-    stage="tech-work-order",
-    hot_subdir="tech/work-order",
+    stage="lulu-tasks",
+    hot_subdir="lulu-tasks",
     session_counter_field="active_doc",
     doc_dir_fmt="r{}",
     terminal_states=frozenset({"Delivered"}),
 )
 
 DIAGNOSTIC_CONFIG = StageArchiveConfig(
-    stage="diagnostic",
-    hot_subdir="diagnostic",
+    stage="decision",
+    hot_subdir="decision",
     session_counter_field="",
     doc_dir_fmt="",
     terminal_states=frozenset({"Delivered"}),
@@ -90,8 +90,8 @@ DIAGNOSTIC_CONFIG = StageArchiveConfig(
 )
 
 TECH_CODE_CONFIG = StageArchiveConfig(
-    stage="tech-code",
-    hot_subdir="tech/code",
+    stage="lulu-code",
+    hot_subdir="lulu-code",
     session_counter_field="active_session",
     doc_dir_fmt="s{}",
     terminal_states=frozenset({"Delivered"}),

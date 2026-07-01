@@ -14,29 +14,29 @@ class TestKnownStages:
         from transition_table import known_stages
 
         stages = known_stages("topic")
-        assert "product-arch" in stages
-        assert "tech-arch" in stages
-        assert "tech-work-order" not in stages
-        assert "tech-code" not in stages
-        assert "tech-design" not in stages
-        assert "tech-plan" not in stages
+        assert "lulu-blueprint" in stages
+        assert "lulu-arch" in stages
+        assert "lulu-tasks" not in stages
+        assert "lulu-code" not in stages
+        assert "lulu-design" not in stages
+        assert "lulu-plan" not in stages
 
     def test_feature_includes_execution_stages(self):
         from transition_table import known_stages
 
         stages = known_stages("feature")
-        assert "tech-design" in stages
-        assert "tech-work-order" in stages
-        assert "tech-code" in stages
+        assert "lulu-design" in stages
+        assert "lulu-tasks" in stages
+        assert "lulu-code" in stages
 
     def test_allowed_stages_includes_diagnostic_legacy(self):
         from transition_table import allowed_stages
 
-        assert "diagnostic" in allowed_stages("topic")
-        assert "diagnostic" in allowed_stages("feature")
+        assert "decision" in allowed_stages("topic")
+        assert "decision" in allowed_stages("feature")
         from transition_table import known_stages
 
-        assert "diagnostic" not in known_stages("feature")
+        assert "decision" not in known_stages("feature")
 
     def test_known_stages_match_non_null_from_keys(self):
         from transition_table import known_stages, load_transitions

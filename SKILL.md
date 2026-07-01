@@ -3,9 +3,9 @@ name: lulu-dev-workflow
 description: >-
   Top-level development workflow framework. Use when mentioning lulu-dev-workflow,
   开发工作流, dev workflow, product doc workflow, 产品文档流程, or any sub-stage
-  (product-diagnostic, tech-diagnostic, diagnostic, product-spec, product-arch, tech-arch, tech-design, tech-plan, tech-work-order, tech-code).
+  (lulu-bet, lulu-approach, decision, lulu-spec, lulu-blueprint, lulu-arch, lulu-design, lulu-plan, lulu-tasks, lulu-code).
 disable-model-invocation: true
-argument-hint: "[d=diagnostic | pd=product-diagnostic | td=tech-diagnostic | ps=product-spec | pa=product-arch | ta=tech-arch | ds=tech-design | t=tech-plan | w=tech-work-order | c=tech-code]"
+argument-hint: "[d=decision | pd=lulu-bet | td=lulu-approach | ps=lulu-spec | pa=lulu-blueprint | ta=lulu-arch | ds=lulu-design | t=lulu-plan | w=lulu-tasks | c=lulu-code]"
 ---
 
 # lulu-dev-workflow
@@ -17,7 +17,7 @@ under this directory.
 > - `_runtime.md` — Script Macros + Platform / Session / Execution Mode (all sub-skills)
 > - `_slowpath.md` — Feature Resolution Slow Path (loaded on demand)
 > - `_transitions.md` — Stage Transitions + Rollback (loaded at delivery)
-> - `_subagent.md` — Sub-agent Context (tech-code, tech-work-order only)
+> - `_subagent.md` — Sub-agent Context (lulu-code, lulu-tasks only)
 
 ## Scope
 
@@ -50,7 +50,7 @@ Do **not** call `cycle_schema.py` or bare `python3 .../cycle_control.py` paths �
 1. **Machine install** — `lulu-meta-skill install`
 2. **Project init** — `$CYCLE_CONTROL init-project` (once per repo; safe to re-run)
 3. **Workflow config** — skip if config file already exists at resolved path; else `$CYCLE_CONTROL configure`
-4. **First work** — Enter any sub-SKILL (e.g. `/tech-diagnostic`). Cycle binding via `_runtime.md` § Session Foundation.
+4. **First work** — Enter any sub-SKILL (e.g. `/lulu-approach`). Cycle binding via `_runtime.md` § Session Foundation.
 
 ## Commands
 
@@ -121,13 +121,13 @@ After `$CYCLE_ID` is confirmed, route stage work via sub-SKILLs — do not re-ru
 
 | Key | Sub-SKILL | Action |
 |---|---|---|
-| `product-diagnostic` / `pd` | Product diagnostic | Read [product-diagnostic/SKILL.md](./product-diagnostic/SKILL.md) |
-| `tech-diagnostic` / `td` | Tech diagnostic | Read [tech-diagnostic/SKILL.md](./tech-diagnostic/SKILL.md) |
-| `diagnostic` / `d` | Generic kernel (no `### After DC`) | Read [diagnostic/SKILL.md](./diagnostic/SKILL.md) — use `pd` / `td` for domain routing |
-| `product-spec` / `ps` | Product spec (feature) | Read [product-spec/SKILL.md](./product-spec/SKILL.md) |
-| `product-arch` / `pa` | Product arch (topic) | Read [product-arch/SKILL.md](./product-arch/SKILL.md) |
-| `tech-arch` / `ta` | Tech arch (topic) | Read [tech-arch/SKILL.md](./tech-arch/SKILL.md) |
-| `tech-design` / `ds` | Tech design | Read [tech-design/SKILL.md](./tech-design/SKILL.md) |
-| `tech-plan` / `t` | Tech plan | Read [tech-plan/SKILL.md](./tech-plan/SKILL.md) |
-| `tech-work-order` / `w` | Tech work order | Read [tech-work-order/SKILL.md](./tech-work-order/SKILL.md) |
-| `tech-code` / `c` | Tech code | Read [tech-code/SKILL.md](./tech-code/SKILL.md) |
+| `lulu-bet` / `pd` | Product diagnostic | Read [lulu-bet/SKILL.md](./lulu-bet/SKILL.md) |
+| `lulu-approach` / `td` | Tech diagnostic | Read [lulu-approach/SKILL.md](./lulu-approach/SKILL.md) |
+| `decision` / `d` | Generic kernel (no `### After DC`) | Read [decision/SKILL.md](./decision/SKILL.md) — use `pd` / `td` for domain routing |
+| `lulu-spec` / `ps` | Product spec (feature) | Read [lulu-spec/SKILL.md](./lulu-spec/SKILL.md) |
+| `lulu-blueprint` / `pa` | Product arch (topic) | Read [lulu-blueprint/SKILL.md](./lulu-blueprint/SKILL.md) |
+| `lulu-arch` / `ta` | Tech arch (topic) | Read [lulu-arch/SKILL.md](./lulu-arch/SKILL.md) |
+| `lulu-design` / `ds` | Tech design | Read [lulu-design/SKILL.md](./lulu-design/SKILL.md) |
+| `lulu-plan` / `t` | Tech plan | Read [lulu-plan/SKILL.md](./lulu-plan/SKILL.md) |
+| `lulu-tasks` / `w` | Tech work order | Read [lulu-tasks/SKILL.md](./lulu-tasks/SKILL.md) |
+| `lulu-code` / `c` | Tech code | Read [lulu-code/SKILL.md](./lulu-code/SKILL.md) |

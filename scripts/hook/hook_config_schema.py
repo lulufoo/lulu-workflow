@@ -29,7 +29,7 @@ _DEFAULT_HOOK_CONFIG: dict[str, Any] = {
             "writeDirs": [".cache/{platform}/lulu-dev-workflow"],
         },
         "stages": {
-            "tech-code": {
+            "lulu-code": {
                 "readDirs": [".", "{platform-skills}"],
                 "writeDirs": ["."],
             },

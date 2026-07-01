@@ -52,12 +52,12 @@ class TestIsLegacyFlat:
     def test_flat_dict_is_legacy(self):
         from active_context_schema import is_legacy_flat
 
-        assert is_legacy_flat({"cycle_id": "x", "stage": "tech-plan"}) is True
+        assert is_legacy_flat({"cycle_id": "x", "stage": "lulu-plan"}) is True
 
     def test_conv_indexed_is_not_legacy(self):
         from active_context_schema import is_legacy_flat
 
-        data = {"conv-a": {"cycle_id": "x", "stage": "tech-plan"}}
+        data = {"conv-a": {"cycle_id": "x", "stage": "lulu-plan"}}
         assert is_legacy_flat(data) is False
 
     def test_non_dict_is_not_legacy(self):
@@ -87,7 +87,7 @@ class TestReadAll:
         path = _ctx_file(tmp_path)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(
-            json.dumps({"cycle_id": "x", "stage": "tech-plan"}),
+            json.dumps({"cycle_id": "x", "stage": "lulu-plan"}),
             encoding="utf-8",
         )
         assert read_all(tmp_path, "cursor") == {}
@@ -100,7 +100,7 @@ class TestReadAll:
         path.write_text(
             json.dumps(
                 {
-                    "good": {"cycle_id": _FID, "stage": "tech-plan"},
+                    "good": {"cycle_id": _FID, "stage": "lulu-plan"},
                     "bad": {"cycle_id": _FID, "stage": "unknown-stage"},
                 }
             ),
@@ -127,20 +127,20 @@ class TestWriteEntry:
     def test_write_and_read_single_entry(self, tmp_path):
         from active_context_schema import read_all, write_entry
 
-        write_entry(tmp_path, "cursor", "conv-a", _FID, "tech-plan")
+        write_entry(tmp_path, "cursor", "conv-a", _FID, "lulu-plan")
         data = read_all(tmp_path, "cursor")
-        assert data["conv-a"] == {"cycle_id": _FID, "stage": "tech-plan", "cycle_type": "feature"}
+        assert data["conv-a"] == {"cycle_id": _FID, "stage": "lulu-plan", "cycle_type": "feature"}
 
     def test_merge_write_preserves_other_keys(self, tmp_path):
         from active_context_schema import read_all, write_entry
 
-        write_entry(tmp_path, "cursor", "conv-a", _FID, "tech-plan")
+        write_entry(tmp_path, "cursor", "conv-a", _FID, "lulu-plan")
         write_entry(
             tmp_path,
             "cursor",
             "conv-b",
             "other-fid",
-            "product-arch",
+            "lulu-blueprint",
             cycle_type="topic",
         )
         data = read_all(tmp_path, "cursor")
@@ -153,22 +153,22 @@ class TestWriteEntry:
         path = _ctx_file(tmp_path)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(
-            json.dumps({"cycle_id": "old", "stage": "tech-plan"}),
+            json.dumps({"cycle_id": "old", "stage": "lulu-plan"}),
             encoding="utf-8",
         )
-        write_entry(tmp_path, "cursor", "conv-new", _FID, "tech-diagnostic")
+        write_entry(tmp_path, "cursor", "conv-new", _FID, "lulu-approach")
         raw = json.loads(path.read_text(encoding="utf-8"))
         assert "cycle_id" not in raw
-        assert raw["conv-new"]["stage"] == "tech-diagnostic"
+        assert raw["conv-new"]["stage"] == "lulu-approach"
 
     def test_write_tech_design_stage(self, tmp_path):
         from active_context_schema import read_all, write_entry
 
-        write_entry(tmp_path, "cursor", "conv-a", _FID, "tech-design")
+        write_entry(tmp_path, "cursor", "conv-a", _FID, "lulu-design")
         data = read_all(tmp_path, "cursor")
         assert data["conv-a"] == {
             "cycle_id": _FID,
-            "stage": "tech-design",
+            "stage": "lulu-design",
             "cycle_type": "feature",
         }
 
@@ -181,7 +181,7 @@ class TestWriteEntry:
                 "cursor",
                 "conv-a",
                 "topic-20260101000000-aabbccdd",
-                "tech-work-order",
+                "lulu-tasks",
                 cycle_type="topic",
             )
 
@@ -193,11 +193,11 @@ class TestWriteEntry:
             "cursor",
             "conv-a",
             _FID,
-            "tech-work-order",
+            "lulu-tasks",
             cycle_type="feature",
         )
         data = read_all(tmp_path, "cursor")
-        assert data["conv-a"]["stage"] == "tech-work-order"
+        assert data["conv-a"]["stage"] == "lulu-tasks"
 
     def test_read_filters_topic_invalid_stage(self, tmp_path):
         from active_context_schema import read_all
@@ -209,7 +209,7 @@ class TestWriteEntry:
                 {
                     "conv-a": {
                         "cycle_id": "topic-20260101000000-aabbccdd",
-                        "stage": "tech-work-order",
+                        "stage": "lulu-tasks",
                         "cycle_type": "topic",
                     }
                 }
@@ -226,11 +226,11 @@ class TestWriteEntry:
             "cursor",
             "conv-a",
             _FID,
-            "diagnostic",
+            "decision",
             cycle_type="feature",
         )
         data = read_all(tmp_path, "cursor")
-        assert data["conv-a"]["stage"] == "diagnostic"
+        assert data["conv-a"]["stage"] == "decision"
 
     def test_invalid_stage_raises(self, tmp_path):
         from active_context_schema import write_entry
@@ -241,7 +241,7 @@ class TestWriteEntry:
     def test_empty_conv_id_no_op(self, tmp_path, capsys):
         from active_context_schema import write_entry
 
-        write_entry(tmp_path, "cursor", "", _FID, "tech-plan")
+        write_entry(tmp_path, "cursor", "", _FID, "lulu-plan")
         assert not _ctx_file(tmp_path).exists()
         err = capsys.readouterr().err
         assert "conversation_id" in err

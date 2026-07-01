@@ -83,7 +83,7 @@ def _cli(argv: Optional[list[str]] = None) -> int:
         parents=[parent],
         help="Resolve subagent model for a workflow stage.",
     )
-    get_model.add_argument("--stage", required=True, help="Workflow stage name (e.g. tech-code).")
+    get_model.add_argument("--stage", required=True, help="Workflow stage name (e.g. lulu-code).")
 
     configure = sub.add_parser(
         _CMD_CONFIGURE,

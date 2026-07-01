@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "compose_stage_ids": [
+    "lulu-plan",
+    "lulu-design",
+    "lulu-spec"
+  ],
+  "decision_constraints": [
+    "lulu-bet/constraints.json",
+    "lulu-approach/constraints.json"
+  ]
+}
