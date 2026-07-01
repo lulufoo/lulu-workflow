@@ -280,7 +280,7 @@ def test_run_archive_integration_matches_session_base_dir(project_root: Path) ->
     other = "conv-other"
     cycle_id = "feat-int"
     stage = "lulu-bet"
-    constraints_stage_path = Path(__file__).resolve().parents[3] / stage / "constraints.json"
+    constraints_stage_path = Path(__file__).resolve().parents[3] / stage / "constraints-feature.json"
     expected_hot = project_root / session_base_dir(
         cycle_id,
         stage,

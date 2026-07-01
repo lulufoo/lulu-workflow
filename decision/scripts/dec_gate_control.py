@@ -284,7 +284,6 @@ def build_resolve_context_payload(
             project_root,
             cycle_id,
             constraints,
-            cycle_type,
             cache_dir=cache_dir,
         ),
         "after_dc": build_after_dc(stage, cycle_type),

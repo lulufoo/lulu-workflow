@@ -3,9 +3,9 @@ name: lulu-dev-workflow
 description: >-
   Top-level development workflow framework. Use when mentioning lulu-dev-workflow,
   开发工作流, dev workflow, product doc workflow, 产品文档流程, or any sub-stage
-  (lulu-bet, lulu-approach, decision, lulu-spec, lulu-blueprint, lulu-arch, lulu-design, lulu-plan, lulu-tasks, lulu-code).
+  (lulu-bet, lulu-approach, lulu-spec, lulu-blueprint, lulu-arch, lulu-design, lulu-plan, lulu-tasks, lulu-code).
 disable-model-invocation: true
-argument-hint: "[d=decision | pd=lulu-bet | td=lulu-approach | ps=lulu-spec | pa=lulu-blueprint | ta=lulu-arch | ds=lulu-design | t=lulu-plan | w=lulu-tasks | c=lulu-code]"
+argument-hint: "[pd=lulu-bet | td=lulu-approach | ps=lulu-spec | pa=lulu-blueprint | ta=lulu-arch | ds=lulu-design | t=lulu-plan | w=lulu-tasks | c=lulu-code]"
 ---
 
 # lulu-dev-workflow
@@ -121,11 +121,10 @@ After `$CYCLE_ID` is confirmed, route stage work via sub-SKILLs — do not re-ru
 
 | Key | Sub-SKILL | Action |
 |---|---|---|
-| `lulu-bet` / `pd` | Product diagnostic | Read [lulu-bet/SKILL.md](./lulu-bet/SKILL.md) |
-| `lulu-approach` / `td` | Tech diagnostic | Read [lulu-approach/SKILL.md](./lulu-approach/SKILL.md) |
-| `decision` / `d` | Generic kernel (no `### After DC`) | Read [decision/SKILL.md](./decision/SKILL.md) — use `pd` / `td` for domain routing |
-| `lulu-spec` / `ps` | Product spec (feature) | Read [lulu-spec/SKILL.md](./lulu-spec/SKILL.md) |
+| `lulu-bet` / `pd` | Product decision | Read [lulu-bet/SKILL.md](./lulu-bet/SKILL.md) |
 | `lulu-blueprint` / `pa` | Product arch (topic) | Read [lulu-blueprint/SKILL.md](./lulu-blueprint/SKILL.md) |
+| `lulu-spec` / `ps` | Product spec (feature) | Read [lulu-spec/SKILL.md](./lulu-spec/SKILL.md) |
+| `lulu-approach` / `td` | Tech decision | Read [lulu-approach/SKILL.md](./lulu-approach/SKILL.md) |
 | `lulu-arch` / `ta` | Tech arch (topic) | Read [lulu-arch/SKILL.md](./lulu-arch/SKILL.md) |
 | `lulu-design` / `ds` | Tech design | Read [lulu-design/SKILL.md](./lulu-design/SKILL.md) |
 | `lulu-plan` / `t` | Tech plan | Read [lulu-plan/SKILL.md](./lulu-plan/SKILL.md) |

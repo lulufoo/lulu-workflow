@@ -6,7 +6,9 @@
     "lulu-spec"
   ],
   "decision_constraints": [
-    "lulu-bet/constraints.json",
-    "lulu-approach/constraints.json"
+    "lulu-bet/constraints-feature.json",
+    "lulu-bet/constraints-topic.json",
+    "lulu-approach/constraints-feature.json",
+    "lulu-approach/constraints-topic.json"
   ]
 }

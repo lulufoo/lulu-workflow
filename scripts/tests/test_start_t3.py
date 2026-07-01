@@ -41,7 +41,7 @@ def _diag_holder_args(stage: str = "lulu-bet") -> list[str]:
         "--stage",
         stage,
         "--constraints",
-        str(_LDEV / stage / "constraints.json"),
+        str(_LDEV / stage / "constraints-feature.json"),
     ]
 
 
@@ -311,7 +311,7 @@ class TestArgparseBehavior:
                 "--stage",
                 "lulu-approach",
                 "--constraints",
-                str(_LDEV / "lulu-approach" / "constraints.json"),
+                str(_LDEV / "lulu-approach" / "constraints-feature.json"),
             ],
         )
         assert result.returncode == 0, result.stderr
@@ -411,7 +411,7 @@ class TestSessionPath:
              "--project-root", str(tmp_path),
              "--cycle-id", _FID,
              "--stage", stage,
-             "--constraints", str(_LDEV / stage / "constraints.json")],
+             "--constraints", str(_LDEV / stage / "constraints-feature.json")],
             capture_output=True, text=True, env=_ENV_COPILOT,
             cwd=str(_scripts_dir("decision")),
         )
@@ -439,7 +439,7 @@ class TestSessionPath:
              "--project-root", str(tmp_path),
              "--cycle-id", _FID,
              "--stage", "lulu-bet",
-             "--constraints", str(_LDEV / "lulu-bet" / "constraints.json"),
+             "--constraints", str(_LDEV / "lulu-bet" / "constraints-feature.json"),
              "--conversation-id", _CONV_ID],
             capture_output=True, text=True, env=_ENV_COPILOT,
             cwd=str(_scripts_dir("decision")),

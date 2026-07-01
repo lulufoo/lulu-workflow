@@ -177,7 +177,7 @@ def _diag_holder_args(stage: str = "lulu-bet") -> list[str]:
         "--stage",
         stage,
         "--constraints",
-        str(_LDEV / stage / "constraints.json"),
+        str(_LDEV / stage / "constraints-feature.json"),
     ]
 
 

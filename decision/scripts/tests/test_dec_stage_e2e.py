@@ -26,7 +26,7 @@ _WORKFLOW_ROOT = Path(__file__).resolve().parents[3]
 
 
 def _holder_constraints(stage: str) -> Path:
-    return _WORKFLOW_ROOT / stage / "constraints.json"
+    return _WORKFLOW_ROOT / stage / "constraints-feature.json"
 
 
 @pytest.fixture

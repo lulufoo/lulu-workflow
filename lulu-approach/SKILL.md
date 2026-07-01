@@ -22,7 +22,7 @@ All DDF rules, gates, and registers defined there apply to this session.
 
 `$SKILL_DIR` = `$SKILL_ROOT/lulu-approach`
 
-Machine constraints SSOT: `$SKILL_DIR/constraints.json` (passed to decision CLI via `--constraints`).
+Machine constraints SSOT: `$SKILL_DIR/constraints-$CYCLE_TYPE.json` (resolve `$CYCLE_TYPE` from `_runtime.md` § Session Foundation; passed to decision CLI via `--constraints`).
 
 ## start
 
@@ -32,9 +32,9 @@ Execute `$DEC_START` from `decision/SKILL.md` § Start with:
 
 ```bash
 --stage lulu-approach \
---constraints "$SKILL_DIR/constraints.json"
+--constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json"
 ```
 
-Pass the same `--constraints "$SKILL_DIR/constraints.json"` on every `$GATE_CONTROL` / `$REGISTER_*` invocation.
+Pass the same `--constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json"` on every `$GATE_CONTROL` / `$REGISTER_*` invocation.
 
 > If `$DEC_START` exits non-zero ("Gate blocked: <stage> is not Delivered"): tell the user which prior stage must be delivered first. Do not retry start.

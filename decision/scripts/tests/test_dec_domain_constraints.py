@@ -40,7 +40,7 @@ _WORKFLOW_ROOT = Path(__file__).resolve().parents[3]
 
 
 def _holder_constraints(stage: str) -> Path:
-    return _WORKFLOW_ROOT / stage / "constraints.json"
+    return _WORKFLOW_ROOT / stage / "constraints-feature.json"
 
 
 def test_init_strips_omitted_sections(template_config: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -240,7 +240,7 @@ def test_load_constraints_config_from_explicit_path() -> None:
     assert tech["cache_subdir"] == "lulu-approach"
     assert product["role"]["persona"] == "product_thinker"
     assert tech["role"]["persona"] == "technical_decision_maker"
-    assert tech.get("context_loading", {}).get("sources")
+    assert tech.get("context_loading", {}).get("source")
     for holder in (product, tech):
         assert holder["objective"]
         assert holder["domain"]["name"]

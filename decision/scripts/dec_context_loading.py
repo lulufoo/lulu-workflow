@@ -48,7 +48,6 @@ def build_context_loading(
     project_root: Path,
     cycle_id: str,
     constraints: dict[str, Any],
-    cycle_type: str,
     *,
     cache_dir: Path,
 ) -> dict[str, Any]:
@@ -57,34 +56,28 @@ def build_context_loading(
     if not isinstance(cfg, dict):
         return {"status": "skipped"}
 
-    sources = cfg.get("sources")
-    if not isinstance(sources, list):
+    src = cfg.get("source")
+    if not isinstance(src, dict):
         return {"status": "skipped"}
 
     optional = bool(cfg.get("optional", True))
-    for src in sources:
-        if not isinstance(src, dict):
-            continue
-        if str(src.get("cycle_type", "")).strip() != cycle_type:
-            continue
-        subdir = str(src.get("upstream_cache_subdir", "")).strip()
-        doc_name = str(src.get("doc_filename", "")).strip()
-        if not subdir or not doc_name:
-            continue
-        resolved = _find_delivered_doc(cache_dir, cycle_id, subdir, doc_name)
-        loaded_message = str(src.get("loaded_message", "")).strip()
-        if resolved is not None:
-            return {
-                "status": "loaded",
-                "resolved_doc_path": resolved.resolve().as_posix(),
-                "loaded_message": loaded_message,
-                "optional": optional,
-            }
+    subdir = str(src.get("upstream_cache_subdir", "")).strip()
+    doc_name = str(src.get("doc_filename", "")).strip()
+    if not subdir or not doc_name:
+        return {"status": "skipped", "optional": optional}
+
+    resolved = _find_delivered_doc(cache_dir, cycle_id, subdir, doc_name)
+    loaded_message = str(src.get("loaded_message", "")).strip()
+    if resolved is not None:
         return {
-            "status": "not_found",
-            "resolved_doc_path": "",
+            "status": "loaded",
+            "resolved_doc_path": resolved.resolve().as_posix(),
             "loaded_message": loaded_message,
             "optional": optional,
         }
-
-    return {"status": "skipped", "optional": optional}
+    return {
+        "status": "not_found",
+        "resolved_doc_path": "",
+        "loaded_message": loaded_message,
+        "optional": optional,
+    }

@@ -83,30 +83,21 @@ def _normalize_context_loading(data: dict[str, Any]) -> dict[str, Any] | None:
     if not isinstance(raw, dict):
         return None
     optional = bool(raw.get("optional", True))
-    sources_raw = raw.get("sources")
-    if not isinstance(sources_raw, list):
+    source_raw = raw.get("source")
+    if not isinstance(source_raw, dict):
         return None
-    sources: list[dict[str, str]] = []
-    for item in sources_raw:
-        if not isinstance(item, dict):
-            continue
-        cycle_type = str(item.get("cycle_type", "")).strip()
-        subdir = str(item.get("upstream_cache_subdir", "")).strip()
-        doc_filename = str(item.get("doc_filename", "")).strip()
-        if not cycle_type or not subdir or not doc_filename:
-            continue
-        entry: dict[str, str] = {
-            "cycle_type": cycle_type,
-            "upstream_cache_subdir": subdir,
-            "doc_filename": doc_filename,
-        }
-        loaded_message = str(item.get("loaded_message", "")).strip()
-        if loaded_message:
-            entry["loaded_message"] = loaded_message
-        sources.append(entry)
-    if not sources:
+    subdir = str(source_raw.get("upstream_cache_subdir", "")).strip()
+    doc_filename = str(source_raw.get("doc_filename", "")).strip()
+    if not subdir or not doc_filename:
         return None
-    return {"optional": optional, "sources": sources}
+    source: dict[str, str] = {
+        "upstream_cache_subdir": subdir,
+        "doc_filename": doc_filename,
+    }
+    loaded_message = str(source_raw.get("loaded_message", "")).strip()
+    if loaded_message:
+        source["loaded_message"] = loaded_message
+    return {"optional": optional, "source": source}
 
 
 def default_kernel_constraints(*, stage: str) -> dict[str, Any]:
@@ -183,8 +174,8 @@ def validate_domain_constraints(data: dict[str, Any]) -> list[str]:
     if context_loading is not None:
         if not isinstance(context_loading, dict):
             errors.append("context_loading must be an object")
-        elif not isinstance(context_loading.get("sources"), list):
-            errors.append("context_loading.sources must be a list")
+        elif not isinstance(context_loading.get("source"), dict):
+            errors.append("context_loading.source must be an object")
     domain = data.get("domain")
     if domain is not None:
         if not isinstance(domain, dict):
