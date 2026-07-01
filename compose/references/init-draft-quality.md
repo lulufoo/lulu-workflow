@@ -22,7 +22,7 @@ Round still owns formal KW / upstream / intent gap closure.
 ```text
 $REVISION_DIR/_derive-{section_key}.json   # I2a–I2c (write before I2d)
 $REVISION_DIR/_body-{section_key}.txt       # I2d
-$REVISION_DIR/_title-{section_key}.txt      # I2e
+$REVISION_DIR/_title-display.json           # I2e (section_key → display title)
 ```
 
 `section_key` is uppercase registry key (e.g. `GO`, `NS`).
@@ -30,7 +30,7 @@ $REVISION_DIR/_title-{section_key}.txt      # I2e
 ## Per-block artifacts
 
 ```text
-$REVISION_DIR/_title-block-{block_key}.txt  # I2g (last_in_block only)
+$REVISION_DIR/_title-block.json             # I2g (block_key → reader H2; last_in_block only)
 ```
 
 `block_key` is uppercase outline block id (e.g. `SI`, `BD`). Written once when the last intent in that block completes I2f.
@@ -67,9 +67,9 @@ When no scope substance matches this section:
 2. Body may be a single honest placeholder, e.g. `（本节 scope 无可用 substance，待 Round 补）`.
 3. Display title → `（待补）`.
 
-### Block title (`_title-block-{block_key}.txt`)
+### Block title (`_title-block.json` entry)
 
-1. One non-empty line; localized reader-facing H2 for the whole outline block.
+1. One non-empty string value per `block_key`; localized reader-facing H2 for the whole outline block.
 2. Must not verbatim-copy `blocks.{block_key}.heading` (English registry heading).
 3. When block has no substance across intents → `（待补）`.
 4. Must match the document `##` line above the block's first intent anchor after I2g.
@@ -87,4 +87,4 @@ When no scope substance matches this section:
 
 ## Validate command
 
-`init_compose_validation.py validate` checks derive files, body/title files, compose-doc anchors, and (when outline-registry is available) block title files plus `section_order == flatten(outline.intents)`. See script `--help` for exit codes and stderr format.
+`init_compose_validation.py validate` checks derive files, body files, `_title-display.json`, compose-doc anchors, and (when outline-registry is available) `_title-block.json` plus `section_order == flatten(outline.intents)`. See script `--help` for exit codes and stderr format.

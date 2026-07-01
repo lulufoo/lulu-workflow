@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Incremental compose document writer for initializing-runner I2f / I2g.
+"""Incremental compose document writer for initializing-runner I2e–I2g.
 
 Subcommands:
     init-doc              Write document preamble (create or overwrite)
+    set-display-title     Persist one section display title in _title-display.json
+    set-block-title       Persist one block reader title in _title-block.json
     append-intent         Append one outline intent block (H2/H3/body/---)
     patch-block-heading   Replace outline H2 placeholder with reader block title
 
@@ -27,6 +29,17 @@ import kernel_bootstrap  # noqa: E402
 kernel_bootstrap.ensure_kernel_paths()
 
 from compose_doc_schema import format_section_intent_heading  # noqa: E402
+from init_artifact_paths import block_titles_path, body_path, display_titles_path  # noqa: E402
+from init_block_titles_schema import (  # noqa: E402
+    get_block_title,
+    load_block_titles,
+    set_block_title,
+)
+from init_display_titles_schema import (  # noqa: E402
+    get_display_title,
+    load_display_titles,
+    set_display_title,
+)
 from outline_registry_schema import load_outline_registry, normalize_outline_registry  # noqa: E402
 from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID  # noqa: E402
 
@@ -48,16 +61,6 @@ def _read_text_arg(*, inline: str | None, file_path: Path | None) -> str:
         return file_path.read_text(encoding="utf-8")
     if inline is not None:
         return inline
-    return ""
-
-
-def _resolve_display_title(*, inline: str | None, file_path: Path | None) -> str:
-    """Return display title from inline string or first line of title file."""
-    if file_path is not None:
-        lines = file_path.read_text(encoding="utf-8").splitlines()
-        return lines[0].strip() if lines else ""
-    if inline is not None:
-        return inline.strip()
     return ""
 
 
@@ -199,6 +202,50 @@ def patch_block_heading(
     _atomic_write(path, text[:start] + replacement + text[end:])
 
 
+def _resolve_append_inputs(args: argparse.Namespace) -> tuple[str, str] | None:
+    """Return (display_title, body) or None when argv combination is invalid."""
+    has_revision = args.revision_dir is not None
+    has_inline_title = args.display_title is not None
+    has_inline_body = args.body is not None
+
+    if has_revision and (has_inline_title or has_inline_body):
+        print(
+            "append-intent: --revision-dir is mutually exclusive with "
+            "--display-title and --body",
+            file=sys.stderr,
+        )
+        return None
+
+    if has_revision:
+        revision_dir = args.revision_dir.resolve()
+        section = args.section.strip().upper()
+        body_file = body_path(revision_dir, section)
+        if not body_file.is_file():
+            print(f"body artifact not found: {body_file}", file=sys.stderr)
+            return None
+        body = body_file.read_text(encoding="utf-8")
+        try:
+            titles = load_display_titles(display_titles_path(revision_dir))
+        except ValueError as exc:
+            print(str(exc), file=sys.stderr)
+            return None
+        display_title = get_display_title(titles, section)
+        if not display_title:
+            print(
+                f"display title missing in _title-display.json for section {section}",
+                file=sys.stderr,
+            )
+            return None
+        return display_title, body
+
+    if args.display_title is None:
+        print("append-intent requires --display-title or --revision-dir", file=sys.stderr)
+        return None
+    display_title = args.display_title.strip()
+    body = args.body if args.body is not None else ""
+    return display_title, body
+
+
 def cmd_init_doc(args: argparse.Namespace) -> int:
     path = args.path.resolve()
     preamble = _read_text_arg(inline=args.preamble, file_path=args.preamble_file)
@@ -210,22 +257,47 @@ def cmd_init_doc(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_set_display_title(args: argparse.Namespace) -> int:
+    try:
+        out_path = set_display_title(
+            args.revision_dir.resolve(),
+            args.section,
+            args.title,
+        )
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    key = args.section.strip().upper()
+    print(f"{out_path.as_posix()}:{key}")
+    return 0
+
+
+def cmd_set_block_title(args: argparse.Namespace) -> int:
+    try:
+        out_path = set_block_title(
+            args.revision_dir.resolve(),
+            args.block_key,
+            args.title,
+        )
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    key = args.block_key.strip().upper()
+    print(f"{out_path.as_posix()}:{key}")
+    return 0
+
+
 def cmd_append_intent(args: argparse.Namespace) -> int:
     path = args.path.resolve()
     if not path.exists():
         print(f"compose document not found: {path}", file=sys.stderr)
         return 1
-    if args.display_title is None and args.display_title_file is None:
-        print(
-            "append-intent requires --display-title or --display-title-file",
-            file=sys.stderr,
-        )
+
+    resolved = _resolve_append_inputs(args)
+    if resolved is None:
         return 1
-    body = _read_text_arg(inline=args.body, file_path=args.body_file)
-    display_title = _resolve_display_title(
-        inline=args.display_title,
-        file_path=args.display_title_file.resolve() if args.display_title_file else None,
-    )
+    display_title, body = resolved
+
     profile_id = (args.profile or DEFAULT_COMPOSE_PROFILE_ID).strip() or DEFAULT_COMPOSE_PROFILE_ID
     project_root = args.project_root.resolve()
     try:
@@ -248,21 +320,50 @@ def cmd_append_intent(args: argparse.Namespace) -> int:
     return 0
 
 
+def _resolve_patch_title(args: argparse.Namespace) -> str | None:
+    has_revision = args.revision_dir is not None
+    has_inline = args.title is not None
+    if has_revision and has_inline:
+        print(
+            "patch-block-heading: --revision-dir is mutually exclusive with --title",
+            file=sys.stderr,
+        )
+        return None
+    if has_revision:
+        revision_dir = args.revision_dir.resolve()
+        block_key = args.block_key.strip().upper()
+        try:
+            titles = load_block_titles(block_titles_path(revision_dir))
+        except ValueError as exc:
+            print(str(exc), file=sys.stderr)
+            return None
+        title = get_block_title(titles, block_key)
+        if not title:
+            print(
+                f"block title missing in _title-block.json for block {block_key}",
+                file=sys.stderr,
+            )
+            return None
+        return title
+    if args.title is None:
+        print(
+            "patch-block-heading requires --title or --revision-dir",
+            file=sys.stderr,
+        )
+        return None
+    return args.title.strip()
+
+
 def cmd_patch_block_heading(args: argparse.Namespace) -> int:
     path = args.path.resolve()
     if not path.exists():
         print(f"compose document not found: {path}", file=sys.stderr)
         return 1
-    if args.title is None and args.title_file is None:
-        print(
-            "patch-block-heading requires --title or --title-file",
-            file=sys.stderr,
-        )
+
+    title = _resolve_patch_title(args)
+    if title is None:
         return 1
-    title = _resolve_display_title(
-        inline=args.title,
-        file_path=args.title_file.resolve() if args.title_file else None,
-    )
+
     profile_id = (args.profile or DEFAULT_COMPOSE_PROFILE_ID).strip() or DEFAULT_COMPOSE_PROFILE_ID
     project_root = args.project_root.resolve()
     try:
@@ -294,13 +395,28 @@ def _build_parser() -> argparse.ArgumentParser:
     init_parser.add_argument("--preamble", type=str, default=None)
     init_parser.add_argument("--preamble-file", type=Path, default=None)
 
+    display_parser = sub.add_parser(
+        "set-display-title",
+        help="Set one section display title in _title-display.json",
+    )
+    display_parser.add_argument("--revision-dir", type=Path, required=True)
+    display_parser.add_argument("--section", type=str, required=True)
+    display_parser.add_argument("--title", type=str, required=True)
+
+    block_title_parser = sub.add_parser(
+        "set-block-title",
+        help="Set one block reader title in _title-block.json",
+    )
+    block_title_parser.add_argument("--revision-dir", type=Path, required=True)
+    block_title_parser.add_argument("--block-key", type=str, required=True)
+    block_title_parser.add_argument("--title", type=str, required=True)
+
     append_parser = sub.add_parser("append-intent", help="Append one intent block")
     append_parser.add_argument("--path", type=Path, required=True)
     append_parser.add_argument("--section", type=str, required=True)
+    append_parser.add_argument("--revision-dir", type=Path, default=None)
     append_parser.add_argument("--display-title", type=str, default=None)
-    append_parser.add_argument("--display-title-file", type=Path, default=None)
     append_parser.add_argument("--body", type=str, default=None)
-    append_parser.add_argument("--body-file", type=Path, default=None)
     append_parser.add_argument("--outline-path", type=Path, default=None)
     append_parser.add_argument("--profile", default=DEFAULT_COMPOSE_PROFILE_ID)
     append_parser.add_argument("--project-root", type=Path, default=Path("."))
@@ -311,8 +427,8 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     patch_parser.add_argument("--path", type=Path, required=True)
     patch_parser.add_argument("--block-key", type=str, required=True)
+    patch_parser.add_argument("--revision-dir", type=Path, default=None)
     patch_parser.add_argument("--title", type=str, default=None)
-    patch_parser.add_argument("--title-file", type=Path, default=None)
     patch_parser.add_argument("--outline-path", type=Path, default=None)
     patch_parser.add_argument("--profile", default=DEFAULT_COMPOSE_PROFILE_ID)
     patch_parser.add_argument("--project-root", type=Path, default=Path("."))
@@ -324,6 +440,10 @@ def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     if args.command == "init-doc":
         return cmd_init_doc(args)
+    if args.command == "set-display-title":
+        return cmd_set_display_title(args)
+    if args.command == "set-block-title":
+        return cmd_set_block_title(args)
     if args.command == "append-intent":
         return cmd_append_intent(args)
     if args.command == "patch-block-heading":

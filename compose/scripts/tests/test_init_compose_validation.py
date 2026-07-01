@@ -92,7 +92,10 @@ def test_validate_empty_i_star_requires_gaps(revision_dir: Path, tmp_path: Path)
         encoding="utf-8",
     )
     (revision_dir / f"_body-{key}.txt").write_text("（待补）\n", encoding="utf-8")
-    (revision_dir / f"_title-{key}.txt").write_text("（待补）\n", encoding="utf-8")
+    (revision_dir / "_title-display.json").write_text(
+        json.dumps({key: "（待补）"}, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
     compose_doc = revision_dir / "tech-doc.md"
     compose_doc.write_text(minimal_compose_doc_markdown(), encoding="utf-8")
 
@@ -144,7 +147,10 @@ def test_validate_block_titles_when_outline_present(revision_dir: Path, tmp_path
     compose_doc = revision_dir / "design-doc.md"
     init_doc(compose_doc, preamble="# Feature\n\n")
     write_minimal_init_work_artifacts(revision_dir, ["CTX", "GO"])
-    (revision_dir / "_title-block-OV.txt").write_text("1. 问题与目标\n", encoding="utf-8")
+    (revision_dir / "_title-block.json").write_text(
+        json.dumps({"OV": "1. 问题与目标"}, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
     append_intent(
         compose_doc,
         section_key="CTX",

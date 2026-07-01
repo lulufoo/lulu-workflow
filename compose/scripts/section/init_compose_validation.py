@@ -27,6 +27,19 @@ kernel_bootstrap.ensure_kernel_paths()
 from compose_doc_schema import section_body_by_key, section_display_heading  # noqa: E402
 from fetch_compose_framework import fetch_compose_framework  # noqa: E402
 from outline_registry_schema import normalize_outline_registry  # noqa: E402
+from init_artifact_paths import (  # noqa: E402
+    block_titles_path,
+    body_path,
+    derive_path,
+    display_titles_path,
+)
+from init_block_titles_schema import get_block_title, load_block_titles, validate_block_titles  # noqa: E402
+from init_display_titles_schema import (  # noqa: E402
+    get_display_title,
+    load_display_titles,
+    save_display_titles,
+    validate_display_titles,
+)
 
 _MIN_BODY_LINES_WITH_I_STAR = 3
 _PROHIBITED_BODY_PATTERNS = ("[Source:", "decision-doc-mapping")
@@ -147,7 +160,7 @@ def write_minimal_derive_artifacts(
     revision_dir.mkdir(parents=True, exist_ok=True)
     for key in section_keys:
         payload = minimal_derive_payload(key, i_star=i_star)
-        path = revision_dir / f"_derive-{payload['section_key']}.json"
+        path = derive_path(revision_dir, payload['section_key'])
         path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
@@ -166,11 +179,13 @@ def write_minimal_init_work_artifacts(
             f"Scope-aligned substance line two.\n\n"
             f"Scope-aligned substance line three.\n"
         )
-        (revision_dir / f"_body-{section}.txt").write_text(body, encoding="utf-8")
-        (revision_dir / f"_title-{section}.txt").write_text(
-            f"Topic {section}\n",
-            encoding="utf-8",
-        )
+        body_path(revision_dir, section).write_text(body, encoding="utf-8")
+
+    display_map: dict[str, str] = {}
+    for key in section_keys:
+        section = key.strip().upper()
+        display_map[section] = f"Topic {section}"
+    save_display_titles(display_titles_path(revision_dir), display_map)
 
 
 def _load_derive(path: Path) -> dict[str, Any]:
@@ -268,16 +283,16 @@ def _validate_derive_document(data: dict[str, Any], *, expected_key: str) -> lis
 
 
 def _validate_body_file(
-    body_path: Path,
+    body_file: Path,
     *,
     section_key: str,
     i_star: str,
 ) -> list[str]:
     errors: list[str] = []
-    if not body_path.is_file():
-        return [f"{section_key}: missing body file {body_path.name}"]
+    if not body_file.is_file():
+        return [f"{section_key}: missing body file {body_file.name}"]
 
-    body = body_path.read_text(encoding="utf-8")
+    body = body_file.read_text(encoding="utf-8")
     if not body.strip():
         return [f"{section_key}: empty body file"]
 
@@ -295,25 +310,24 @@ def _validate_body_file(
     return errors
 
 
-def _validate_title_file(title_path: Path, *, section_key: str) -> list[str]:
-    if not title_path.is_file():
-        return [f"{section_key}: missing title file {title_path.name}"]
-    if not title_path.read_text(encoding="utf-8").splitlines():
-        return [f"{section_key}: empty title file"]
-    return []
-
-
-def _validate_block_title_file(
-    title_path: Path,
-    *,
-    block_key: str,
+def _validate_section_display_titles(
+    revision_dir: Path,
+    section_keys: Iterable[str],
 ) -> list[str]:
-    if not title_path.is_file():
-        return [f"{block_key}: missing block title file {title_path.name}"]
-    lines = title_path.read_text(encoding="utf-8").splitlines()
-    if not lines or not lines[0].strip():
-        return [f"{block_key}: empty block title file"]
-    return []
+    errors: list[str] = []
+    path = display_titles_path(revision_dir)
+    if not path.is_file():
+        return [f"missing display titles file {path.name}"]
+    try:
+        data = load_display_titles(path)
+    except (json.JSONDecodeError, ValueError) as exc:
+        return [f"invalid {path.name}: {exc}"]
+    errors.extend(validate_display_titles(data))
+    for key in section_keys:
+        section = str(key).strip().upper()
+        if not get_display_title(data, section):
+            errors.append(f"{section}: missing display title in {path.name}")
+    return errors
 
 
 def _validate_block_titles(
@@ -322,6 +336,16 @@ def _validate_block_titles(
     outline: dict[str, Any],
 ) -> list[str]:
     errors: list[str] = []
+    path = block_titles_path(revision_dir)
+    block_map: dict[str, str] = {}
+    if path.is_file():
+        try:
+            block_map = load_block_titles(path)
+        except (json.JSONDecodeError, ValueError) as exc:
+            errors.append(f"invalid {path.name}: {exc}")
+            return errors
+        errors.extend(validate_block_titles(block_map))
+
     blocks = outline.get("blocks") or {}
     for block_key in outline.get("outline_order") or []:
         bk = str(block_key).upper()
@@ -331,20 +355,18 @@ def _validate_block_titles(
         if not intents:
             continue
 
-        title_path = revision_dir / f"_title-block-{bk}.txt"
-        title_errors = _validate_block_title_file(title_path, block_key=bk)
-        errors.extend(title_errors)
-        if title_errors:
+        expected_title = get_block_title(block_map, bk)
+        if not expected_title:
+            errors.append(f"{bk}: missing block title in {path.name}")
             continue
 
-        expected_title = title_path.read_text(encoding="utf-8").splitlines()[0].strip()
         doc_h2 = block_h2_above_intent(raw_doc, intents[0])
         if not doc_h2:
             errors.append(f"{bk}: compose document missing block H2 above {intents[0]}")
             continue
         if doc_h2 != expected_title:
             errors.append(
-                f"{bk}: block H2 {doc_h2!r} != _title-block file {expected_title!r}",
+                f"{bk}: block H2 {doc_h2!r} != _title-block.json entry {expected_title!r}",
             )
         if expected_title != "（待补）" and doc_h2 == heading:
             errors.append(
@@ -371,12 +393,12 @@ def validate_init_artifacts(
 
     raw_doc = compose_doc.read_text(encoding="utf-8")
     for key in keys:
-        derive_path = revision_dir / f"_derive-{key}.json"
-        if not derive_path.is_file():
+        derive_file = derive_path(revision_dir, key)
+        if not derive_file.is_file():
             errors.append(f"missing derive: {key}")
             continue
         try:
-            derive = _load_derive(derive_path)
+            derive = _load_derive(derive_file)
         except ValueError as exc:
             errors.append(f"invalid derive {key}: {exc}")
             continue
@@ -384,16 +406,16 @@ def validate_init_artifacts(
         errors.extend(_validate_derive_document(derive, expected_key=key))
 
         i_star = str(derive.get("i_star", ""))
-        body_path = revision_dir / f"_body-{key}.txt"
-        title_path = revision_dir / f"_title-{key}.txt"
-        errors.extend(_validate_body_file(body_path, section_key=key, i_star=i_star))
-        errors.extend(_validate_title_file(title_path, section_key=key))
+        section_body_path = body_path(revision_dir, key)
+        errors.extend(_validate_body_file(section_body_path, section_key=key, i_star=i_star))
 
         body = section_body_by_key(raw_doc, key, project_root=project_root).strip()
         if not body:
             errors.append(f"compose document empty body: {key}")
         elif not section_display_heading(raw_doc, key, project_root=project_root).strip():
             errors.append(f"compose document missing display title: {key}")
+
+    errors.extend(_validate_section_display_titles(revision_dir, keys))
 
     outline = outline_registry_for_profile(project_root, profile_id)
     if outline is not None:

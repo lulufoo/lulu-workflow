@@ -59,7 +59,7 @@ All compose and scope macros **must** pass `--profile "$COMPOSE_PROFILE"`. `$FET
 | `$COMPOSE_DOC_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/section/compose_doc_control.py"` |
 | `$INIT_COMPOSE_VALIDATE` | `python3 "$SKILL_ROOT/compose/scripts/section/init_compose_validation.py" validate --revision-dir "$REVISION_DIR" --compose-doc "$OUTPUT_DOC_PATH" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)"` |
 
-`$COMPOSE_DOC_CONTROL` subcommands: `--help` · `init-doc` · `append-intent` · `patch-block-heading`.
+`$COMPOSE_DOC_CONTROL` subcommands: `--help` · `init-doc` · `set-display-title` · `set-block-title` · `append-intent` · `patch-block-heading`.
 
 ## Execution Contract
 
@@ -93,8 +93,8 @@ For each key in `section_order`, produce section artifacts under `$REVISION_DIR`
 ```text
 _derive-{section_key}.json   # I2a–I2c (must exist before I2d)
 _body-{section_key}.txt      # I2d
-_title-{section_key}.txt     # I2e
-_title-block-{block_key}.txt # I2g (last_in_block only)
+_title-display.json          # I2e (section_key → display title)
+_title-block.json            # I2g (block_key → reader H2; last_in_block only)
 ```
 
 Field schema: [`init-draft-quality.md`](../../references/init-draft-quality.md).
@@ -136,8 +136,15 @@ After each I2f, resolve layout and run **I2g** when the current key is the last 
 - **Input:** `sections.{key}.heading` · body file · `i_star` substance
 - **Action:** Short localized title (~8–20 chars): type anchor from `heading` + one domain theme from substance.
 - **Forbidden:** verbatim registry `heading`; file paths; API names; copying first body sentence
-- **Output:** `$REVISION_DIR/_title-{section_key}.txt`; empty `i_star` → `（待补）`
-- **Done:** title file exists with one non-empty line
+- **Output:** persist via `set-display-title` into `_title-display.json`; empty `i_star` → `（待补）`
+- **Done:** `_title-display.json` has a non-empty entry for this `section_key`
+
+```bash
+$COMPOSE_DOC_CONTROL set-display-title \
+  --revision-dir "$REVISION_DIR" \
+  --section "{section_key}" \
+  --title "<localized display title>"
+```
 
 #### I2f — Persist section
 
@@ -145,8 +152,7 @@ After each I2f, resolve layout and run **I2g** when the current key is the last 
 $COMPOSE_DOC_CONTROL append-intent \
   --path "$OUTPUT_DOC_PATH" \
   --section "{section_key}" \
-  --display-title-file "$REVISION_DIR/_title-{section_key}.txt" \
-  --body-file "$REVISION_DIR/_body-{section_key}.txt" \
+  --revision-dir "$REVISION_DIR" \
   --profile "$COMPOSE_PROFILE" \
   --project-root "$(pwd)"
 ```
@@ -161,11 +167,18 @@ At the last intent in an outline block: infer reader H2 from whole-block substan
 
 **1. Derive block title**
 
-- **Input:** `block_intents[]` bodies (`_body-*.txt`) · optional `_title-*.txt` · registry `intent` per intent · `blocks.{block_key}.heading` (semantic anchor)
+- **Input:** `block_intents[]` bodies (`_body-*.txt`) · optional `_title-display.json` entries · registry `intent` per intent · `blocks.{block_key}.heading` (semantic anchor)
 - **Action:** One localized reader-facing H2 title for the whole block; may include numbering aligned with v4-style docs.
 - **Forbidden:** verbatim English `block.heading`; summarizing a single intent only
-- **Output:** `$REVISION_DIR/_title-block-{block_key}.txt` (one line); no block substance → `（待补）`
-- **Done:** block title file exists with one non-empty line
+- **Output:** persist via `set-block-title` into `_title-block.json`; no block substance → `（待补）`
+- **Done:** `_title-block.json` has a non-empty entry for this `block_key`
+
+```bash
+$COMPOSE_DOC_CONTROL set-block-title \
+  --revision-dir "$REVISION_DIR" \
+  --block-key "{block_key}" \
+  --title "<localized block H2>"
+```
 
 **2. Patch block H2**
 
@@ -173,13 +186,13 @@ At the last intent in an outline block: infer reader H2 from whole-block substan
 $COMPOSE_DOC_CONTROL patch-block-heading \
   --path "$OUTPUT_DOC_PATH" \
   --block-key "{block_key}" \
-  --title-file "$REVISION_DIR/_title-block-{block_key}.txt" \
+  --revision-dir "$REVISION_DIR" \
   --profile "$COMPOSE_PROFILE" \
   --project-root "$(pwd)"
 ```
 
-- **Action:** Replace the unique `## {blocks.{block_key}.heading}` placeholder with the block title file content.
-- **Done:** document H2 for the block matches `_title-block-{block_key}.txt`; H3 anchors unchanged
+- **Action:** Replace the unique `## {blocks.{block_key}.heading}` placeholder with the `_title-block.json` entry for `{block_key}`.
+- **Done:** document H2 for the block matches `_title-block.json` for `{block_key}`; H3 anchors unchanged
 - **Failure:** blocking; stderr cites `block_key`
 
 All sections remain draft until Round probe.
@@ -190,7 +203,7 @@ All sections remain draft until Round probe.
 2. On failure → read stderr; fix cited sections (return to I2 for those keys; block title failures → re-run I2g for that block's last intent); re-run I3.
 3. On success → Return Summary.
 
-**Done:** `$INIT_COMPOSE_VALIDATE` exit 0. When outline-registry is present: each block H2 ≠ English placeholder (unless `（待补）`); `_title-block-*.txt` matches document H2.
+**Done:** `$INIT_COMPOSE_VALIDATE` exit 0. When outline-registry is present: each block H2 ≠ English placeholder (unless `（待补）`); `_title-block.json` entries match document H2.
 
 ## Return Summary
 
@@ -199,7 +212,8 @@ Initializing complete.
   Profile: <COMPOSE_PROFILE>
   Output: <OUTPUT_DOC_PATH>
   Derive artifacts: <REVISION_DIR>/_derive-*.json
-  Block titles: <REVISION_DIR>/_title-block-*.txt
+  Display titles: <REVISION_DIR>/_title-display.json
+  Block titles: <REVISION_DIR>/_title-block.json
   Synthesized sections: <space-separated section keys from section_order>
   Scope SSOT: <SCOPE_DOC_PATH>
   Draft status: Initialized
