@@ -22,7 +22,6 @@ class TestDefaultHookConfig:
         cfg = default_hook_config()
         assert cfg["version"] == 1
         assert cfg["rwGuard"]["enable"] is True
-        assert cfg["rwGuard"]["bypassWriteWhenDelivered"] is True
 
     def test_returns_deep_copy(self):
         from hook_config_schema import default_hook_config
@@ -67,7 +66,7 @@ class TestResolveHookConfigPath:
         from hook_config_schema import resolve_hook_config_path
 
         assert resolve_hook_config_path(tmp_path, "cursor") == (
-            tmp_path / "skill-config/lulu-dev-workflow/hook-config.json"
+            tmp_path / "skill-config/lulu-dev-workflow/workflow-guard-config.json"
         )
 
     def test_custom_path_from_platform_config(self, tmp_path: Path):
@@ -94,7 +93,7 @@ class TestLoadHookConfig:
     def test_reads_valid_file(self, tmp_path: Path):
         from hook_config_schema import load_hook_config
 
-        target = tmp_path / "skill-config/lulu-dev-workflow/hook-config.json"
+        target = tmp_path / "skill-config/lulu-dev-workflow/workflow-guard-config.json"
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(
             json.dumps({"version": 1, "rwGuard": {"enable": False}}),
@@ -117,7 +116,7 @@ class TestEnsureHookConfig:
     def test_does_not_overwrite_existing(self, tmp_path: Path):
         from hook_config_schema import ensure_hook_config
 
-        target = tmp_path / "skill-config/lulu-dev-workflow/hook-config.json"
+        target = tmp_path / "skill-config/lulu-dev-workflow/workflow-guard-config.json"
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(
             json.dumps({"version": 1, "rwGuard": {"enable": False}}),

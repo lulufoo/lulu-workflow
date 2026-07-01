@@ -58,7 +58,7 @@ Work is bound to a **cycle** with `$CYCLE_TYPE` = `topic` or `feature` (see `_ru
 | Platform vars | `$PLATFORM`, `$SKILL_ROOT`, `$CACHE_DIR`, `$WORKFLOW_DIR` |
 | Session | Read `_runtime.md` § Session Foundation when session variables are needed |
 | Session vars | `$CYCLE_ID`, `$CYCLE_TYPE`, `$EXECUTION_MODE` |
-| Project config | `workflow-config.json` at resolved `workflowConfig` path (see ## Command Semantics → configure); `hook-config.json` at resolved `hookConfig` path (created by init if missing) |
+| Project config | `workflow-config.json` at resolved `workflowConfig` path (see ## Command Semantics → configure); `workflow-guard-config.json` at resolved `hookConfig` path (created by init if missing) |
 
 ## Command Flow
 
@@ -80,7 +80,7 @@ Work is bound to a **cycle** with `$CYCLE_TYPE` = `topic` or `feature` (see `_ru
 
 **Run:** `$CYCLE_CONTROL init-project`
 
-**Done:** Report success or stderr; creates `hook-config.json` at resolved `hookConfig` path if missing; does **not** create `workflow-config.json`.
+**Done:** Report success or stderr; creates `workflow-guard-config.json` at resolved `hookConfig` path if missing; does **not** create `workflow-config.json`.
 
 ### `configure` — When workflow-config is missing
 
@@ -114,9 +114,9 @@ Work is bound to a **cycle** with `$CYCLE_TYPE` = `topic` or `feature` (see `_ru
 
 ### init
 
-- **Creates:** platform `config.json` pointer(s) if missing; **`hook-config.json`** at resolved `hookConfig` path if missing (from skill default template; does not overwrite existing file).
+- **Creates:** platform `config.json` pointer(s) if missing; **`workflow-guard-config.json`** at resolved `hookConfig` path if missing (from skill default template; does not overwrite existing file).
 - **Does not:** create `workflow-config.json` (use `configure`).
-- **Safe:** re-run allowed (idempotent hooks registration and hook-config bootstrap).
+- **Safe:** re-run allowed (idempotent hooks registration and workflow-guard-config bootstrap).
 
 ## Script Macros
 

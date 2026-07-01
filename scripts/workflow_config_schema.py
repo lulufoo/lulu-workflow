@@ -17,7 +17,7 @@ _WORKFLOW_DIR_MAP = {
 }
 
 _DEFAULT_WORKFLOW_CONFIG_PATH = "skill-config/lulu-dev-workflow/workflow-config.json"
-_DEFAULT_HOOK_CONFIG_PATH = "skill-config/lulu-dev-workflow/hook-config.json"
+_DEFAULT_HOOK_CONFIG_PATH = "skill-config/lulu-dev-workflow/workflow-guard-config.json"
 _DEFAULT_CONFIGURE_BLOB_URL = (
     "https://github.com/lulufoo/lulu-workflow-framework/blob/main/template/workflow-config.json"
 )

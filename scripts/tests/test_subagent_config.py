@@ -19,7 +19,7 @@ class TestDefaults:
         cfg = default_platform_config()
         assert cfg["version"] == 1
         assert cfg["workflowConfig"] == "skill-config/lulu-dev-workflow/workflow-config.json"
-        assert cfg["hookConfig"] == "skill-config/lulu-dev-workflow/hook-config.json"
+        assert cfg["hookConfig"] == "skill-config/lulu-dev-workflow/workflow-guard-config.json"
         assert "subagents" not in cfg
 
 
@@ -161,7 +161,7 @@ class TestEnsurePlatformConfig:
         ensure_platform_config(tmp_path, platform="cursor")
         cfg = read_platform_config(tmp_path, platform="cursor")
         assert cfg["workflowConfig"] == "skill-config/lulu-dev-workflow/workflow-config.json"
-        assert cfg["hookConfig"] == "skill-config/lulu-dev-workflow/hook-config.json"
+        assert cfg["hookConfig"] == "skill-config/lulu-dev-workflow/workflow-guard-config.json"
         assert "subagents" not in cfg
 
     def test_does_not_overwrite_existing_config(self, tmp_path):

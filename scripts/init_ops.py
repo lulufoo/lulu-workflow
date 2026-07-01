@@ -68,7 +68,7 @@ def run_init_project(project_root: Path, platform: str) -> int:
 
     hook_path, hook_created = ensure_hook_config(project_root, platform=platform)
     if hook_created:
-        print(f"\n[lulu-dev-workflow init] Created hook-config: {hook_path}")
+        print(f"\n[lulu-dev-workflow init] Created workflow-guard-config: {hook_path}")
 
     print("\n[lulu-dev-workflow init] All sub-workflows initialized successfully.")
     return 0

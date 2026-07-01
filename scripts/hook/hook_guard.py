@@ -118,13 +118,12 @@ def _evaluate_rw_guard(
         return None
 
     if is_write_tool(tool_name):
-        if guard.get("bypassWriteWhenDelivered") and entry:
-            if current_effective_delivered(
-                entry["cycle_id"],
-                stage,
-                _workflow_cache_dir(platform),
-            ):
-                return None
+        if entry and current_effective_delivered(
+            entry["cycle_id"],
+            stage,
+            _workflow_cache_dir(platform),
+        ):
+            return None
 
     dir_templates = allowed_dirs_for_tool(
         tool_name,

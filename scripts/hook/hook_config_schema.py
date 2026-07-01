@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Schema and I/O for hook-config.json (rwGuard)."""
+"""Schema and I/O for workflow-guard-config.json (rwGuard)."""
 
 from __future__ import annotations
 
@@ -17,13 +17,12 @@ if str(SCRIPTS_DIR) not in sys.path:
 from platforms.paths import platform_skills_root  # noqa: E402
 from workflow_config_schema import detect_platform, read_platform_config  # noqa: E402
 
-_DEFAULT_HOOK_CONFIG_PATH = "skill-config/lulu-dev-workflow/hook-config.json"
+_DEFAULT_HOOK_CONFIG_PATH = "skill-config/lulu-dev-workflow/workflow-guard-config.json"
 
 _DEFAULT_HOOK_CONFIG: dict[str, Any] = {
     "version": 1,
     "rwGuard": {
         "enable": True,
-        "bypassWriteWhenDelivered": True,
         "defaults": {
             "readDirs": [".", "{platform-skills}"],
             "writeDirs": [".cache/{platform}/lulu-dev-workflow"],
@@ -39,7 +38,7 @@ _DEFAULT_HOOK_CONFIG: dict[str, Any] = {
 
 
 def default_hook_config() -> dict[str, Any]:
-    """Return a deep copy of the built-in default hook-config payload."""
+    """Return a deep copy of the built-in default workflow-guard-config payload."""
     return copy.deepcopy(_DEFAULT_HOOK_CONFIG)
 
 
@@ -47,7 +46,7 @@ def resolve_hook_config_path(
     project_root: Path,
     platform: Optional[str] = None,
 ) -> Path:
-    """Return path to hook-config.json via platform config pointer."""
+    """Return path to workflow-guard-config.json via platform config pointer."""
     platform_cfg = read_platform_config(project_root, platform)
     hook_config_rel = platform_cfg.get("hookConfig", _DEFAULT_HOOK_CONFIG_PATH)
     return project_root / hook_config_rel
@@ -66,10 +65,9 @@ def validate_hook_config(data: object) -> list[str]:
         errors.append("rwGuard must be an object")
         return errors
 
-    for key in ("enable", "bypassWriteWhenDelivered"):
-        value = rw_guard.get(key)
-        if value is not None and not isinstance(value, bool):
-            errors.append(f"rwGuard.{key} must be a boolean")
+    enable = rw_guard.get("enable")
+    if enable is not None and not isinstance(enable, bool):
+        errors.append("rwGuard.enable must be a boolean")
 
     defaults = rw_guard.get("defaults")
     if defaults is not None:
@@ -109,7 +107,7 @@ def load_hook_config(
     project_root: Path,
     platform: Optional[str] = None,
 ) -> dict[str, Any]:
-    """Load hook-config.json; missing or invalid file falls back to built-in default."""
+    """Load workflow-guard-config.json; missing or invalid file falls back to built-in default."""
     target = resolve_hook_config_path(project_root, platform)
     if not target.exists():
         return default_hook_config()
@@ -126,7 +124,7 @@ def ensure_hook_config(
     project_root: Path,
     platform: Optional[str] = None,
 ) -> tuple[Path, bool]:
-    """Write default hook-config.json when missing. Returns (path, created)."""
+    """Write default workflow-guard-config.json when missing. Returns (path, created)."""
     target = resolve_hook_config_path(project_root, platform)
     if target.exists():
         return target, False
@@ -160,7 +158,6 @@ def resolve_rw_guard(
     plat = detect_platform(platform)
 
     global_enable = rw_guard.get("enable", True)
-    bypass = rw_guard.get("bypassWriteWhenDelivered", True)
     defaults = rw_guard.get("defaults") or {}
     stage_cfg = (rw_guard.get("stages") or {}).get(stage) or {}
 
@@ -170,7 +167,6 @@ def resolve_rw_guard(
 
     return {
         "enable": bool(stage_enable),
-        "bypassWriteWhenDelivered": bool(bypass),
         "readDirs": [expand_path_template(item, plat) for item in read_dirs],
         "writeDirs": [expand_path_template(item, plat) for item in write_dirs],
     }
