@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+from cycle_log_schema import append_cycle_log  # noqa: E402
 from cycle_schema import write_stage as write_cycle_state  # noqa: E402
 from invalidation_hook import invalidate_downstream  # noqa: E402
 from start_gate import check_gate, get_topic_doc  # noqa: E402
@@ -285,7 +286,17 @@ def main() -> int:
         ws_path,
         mode="work-order",
         task_list_ref=tl_path.as_posix(),
+        master_conversation_id=args.conversation_id.strip(),
     )
+
+    conv_id = args.conversation_id.strip()
+    if conv_id:
+        append_cycle_log(
+            cache_dir / cycle_id,
+            level="INFO",
+            stage=_TO_STAGE,
+            message=f"code session s{active_session} started (master_conversation_id={conv_id})",
+        )
 
     save_workflow_state(ws_path, {"current_state": "Preparing"})
 

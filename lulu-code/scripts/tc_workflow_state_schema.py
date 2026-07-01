@@ -39,6 +39,8 @@ _SCHEMA: list[dict] = [
      "description": "ISO 8601 last-update timestamp"},
     {"field": "historical", "type": "string", "required": False,
      "description": "Set to true when session is superseded by reopen"},
+    {"field": "master_conversation_id", "type": "string", "required": False,
+     "description": "conversation_id of the orchestrating session that ran Starting"},
 ]
 
 _REQUIRED_FIELDS = {s["field"] for s in _SCHEMA if s["required"]}
@@ -164,7 +166,13 @@ def resolve_workflow_state_path(cycle_dir: Path) -> Path:
     return code_dir / f"s{active}" / "workflow-state.md"
 
 
-def init_starting(path: Path, *, mode: str, task_list_ref: str) -> None:
+def init_starting(
+    path: Path,
+    *,
+    mode: str,
+    task_list_ref: str,
+    master_conversation_id: str = "",
+) -> None:
     """Initialize workflow-state.md in Starting state."""
     data = {
         "version": "1",
@@ -175,6 +183,8 @@ def init_starting(path: Path, *, mode: str, task_list_ref: str) -> None:
         "current_task": "",
         "current_phase": "",
     }
+    if master_conversation_id:
+        data["master_conversation_id"] = master_conversation_id
     save_workflow_state(path, data, merge=False)
 
 

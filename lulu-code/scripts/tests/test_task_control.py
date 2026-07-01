@@ -26,6 +26,12 @@ from tc_workflow_state_schema import init_preparing, save_workflow_state  # noqa
 _SCRIPT = Path(__file__).resolve().parents[1] / "tc_task_control.py"
 
 
+@pytest.fixture(autouse=True)
+def _clean_conversation_id_env(monkeypatch):
+    """Tests that omit conversation_id must not accidentally see an ambient env var."""
+    monkeypatch.delenv("LULU_CONVERSATION_ID", raising=False)
+
+
 def _write_wo_session_state(cycle_dir: Path) -> None:
     wo_dir = cycle_dir / "lulu-tasks"
     wo_dir.mkdir(parents=True, exist_ok=True)
@@ -102,6 +108,70 @@ class TestResolveContext:
         assert result["task_id"] == "t1"
         assert "model" not in result
         assert result["branch"] == "wt/feat-test"
+
+    def test_blocks_orchestrator_conversation(self, tmp_path: Path, monkeypatch):
+        cycle_dir, project_root, _, session_dir = _setup_cycle(tmp_path)
+        save_workflow_state(
+            session_dir / "workflow-state.md",
+            {"master_conversation_id": "parent-conv"},
+        )
+        monkeypatch.setattr("tc_task_control.detect_platform", lambda: "cursor")
+        with pytest.raises(ValueError, match="SUBAGENT_REQUIRED"):
+            resolve_context_cmd(
+                cycle_dir,
+                "t1",
+                project_root,
+                conversation_id="parent-conv",
+            )
+        cycle_log = (cycle_dir / "cycle-log.md").read_text(encoding="utf-8")
+        assert "[ERROR] lulu-code" in cycle_log
+        assert "task t1:" in cycle_log
+        assert "command blocked" in cycle_log
+
+    def test_allows_different_conversation(self, tmp_path: Path, monkeypatch):
+        cycle_dir, project_root, _, session_dir = _setup_cycle(tmp_path)
+        save_workflow_state(
+            session_dir / "workflow-state.md",
+            {"master_conversation_id": "parent-conv"},
+        )
+        monkeypatch.setattr("tc_task_control.detect_platform", lambda: "cursor")
+        result = resolve_context_cmd(
+            cycle_dir,
+            "t1",
+            project_root,
+            conversation_id="subagent-conv",
+        )
+        assert result["task_id"] == "t1"
+
+
+class TestSubagentGateCoversAllSubcommands:
+    """The hard gate must not be bypassable by skipping resolve-context entirely."""
+
+    def test_enter_phase_blocks_orchestrator_without_resolve_context(self, tmp_path: Path, monkeypatch):
+        cycle_dir, project_root, _, session_dir = _setup_cycle(tmp_path)
+        save_workflow_state(
+            session_dir / "workflow-state.md",
+            {"master_conversation_id": "parent-conv"},
+        )
+        monkeypatch.setattr("tc_task_control.detect_platform", lambda: "cursor")
+        with pytest.raises(ValueError, match="SUBAGENT_REQUIRED"):
+            enter_phase_cmd(
+                cycle_dir,
+                "t1",
+                project_root,
+                "WriteTests",
+                conversation_id="parent-conv",
+            )
+
+    def test_mark_done_blocks_orchestrator_without_resolve_context(self, tmp_path: Path, monkeypatch):
+        cycle_dir, project_root, _, session_dir = _setup_cycle(tmp_path)
+        save_workflow_state(
+            session_dir / "workflow-state.md",
+            {"master_conversation_id": "parent-conv"},
+        )
+        monkeypatch.setattr("tc_task_control.detect_platform", lambda: "cursor")
+        with pytest.raises(ValueError, match="SUBAGENT_REQUIRED"):
+            mark_done_cmd(cycle_dir, "t1", project_root, conversation_id="parent-conv")
 
 
 class TestEnterPhase:
@@ -225,6 +295,74 @@ class TestIntegrationHappyPath:
 
 
 class TestCLI:
+    def test_resolve_context_cli_blocks_orchestrator(self, tmp_path: Path, monkeypatch):
+        # --conversation-id is placed AFTER the subcommand + its own args, matching how
+        # hook_guard.py actually injects it (appended to the end of the whole command).
+        # A previous version of this test placed the flag before the subcommand, which
+        # masked a real argparse bug: with subcommands present, args registered only on
+        # the top-level parser cannot be parsed once they trail the subcommand's own args.
+        cycle_dir, project_root, _, session_dir = _setup_cycle(tmp_path)
+        save_workflow_state(
+            session_dir / "workflow-state.md",
+            {"master_conversation_id": "parent-conv"},
+        )
+        monkeypatch.setattr("tc_task_control.detect_platform", lambda: "cursor")
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(_SCRIPT),
+                "--cycle-dir",
+                str(cycle_dir),
+                "--project-root",
+                str(project_root),
+                "resolve-context",
+                "--task-id",
+                "t1",
+                "--conversation-id",
+                "parent-conv",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 1
+        assert "SUBAGENT_REQUIRED" in result.stderr
+        cycle_log = (cycle_dir / "cycle-log.md").read_text(encoding="utf-8")
+        assert "[ERROR] lulu-code" in cycle_log
+
+    def test_enter_phase_cli_blocks_orchestrator_with_trailing_conversation_id(
+        self, tmp_path: Path, monkeypatch
+    ):
+        # Same trailing-flag ordering, but on a subcommand other than resolve-context,
+        # proving the gate covers every subcommand (not just resolve-context) and that
+        # argparse accepts --conversation-id after each subcommand's own flags.
+        cycle_dir, project_root, _, session_dir = _setup_cycle(tmp_path)
+        save_workflow_state(
+            session_dir / "workflow-state.md",
+            {"master_conversation_id": "parent-conv"},
+        )
+        monkeypatch.setattr("tc_task_control.detect_platform", lambda: "cursor")
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(_SCRIPT),
+                "--cycle-dir",
+                str(cycle_dir),
+                "--project-root",
+                str(project_root),
+                "enter-phase",
+                "--task-id",
+                "t1",
+                "--phase",
+                "WriteTests",
+                "--conversation-id",
+                "parent-conv",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 1
+        assert "SUBAGENT_REQUIRED" in result.stderr
+
     def test_resolve_context_cli(self, tmp_path: Path):
         cycle_dir, project_root, _, _ = _setup_cycle(tmp_path)
         result = subprocess.run(

@@ -135,6 +135,7 @@ class TestShouldInjectConversationId:
             "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/core/start.py --profile lulu-design --cycle-id fid1",
             "python3 ~/.cursor/skills/lulu-dev-workflow/lulu-tasks/scripts/tt_start.py --cycle-id fid1",
             "python3 ~/.cursor/skills/lulu-dev-workflow/lulu-code/scripts/tc_start.py --cycle-id fid1",
+            "python3 ~/.cursor/skills/lulu-dev-workflow/lulu-code/scripts/tc_task_control.py resolve-context --task-id t1",
         ],
     )
     def test_start_py_invocation(self, command):

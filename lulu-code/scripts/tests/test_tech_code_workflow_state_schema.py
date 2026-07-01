@@ -70,6 +70,10 @@ class TestGetSchema:
         historical = next(s for s in get_schema() if s["field"] == "historical")
         assert historical["required"] is False
 
+    def test_master_conversation_id_is_optional(self):
+        field = next(s for s in get_schema() if s["field"] == "master_conversation_id")
+        assert field["required"] is False
+
     def test_current_state_description_mentions_enum(self):
         state_field = next(s for s in get_schema() if s["field"] == "current_state")
         assert "Starting" in state_field["description"]
@@ -167,6 +171,17 @@ class TestInitStarting:
         assert loaded["task_list_ref"] == "/ref/list.md"
         assert loaded["current_task"] == ""
         assert loaded["current_phase"] == ""
+
+    def test_master_conversation_id_optional(self, tmp_path: Path):
+        p = tmp_path / "s1" / "workflow-state.md"
+        init_starting(
+            p,
+            mode="work-order",
+            task_list_ref="/ref/list.md",
+            master_conversation_id="conv-parent",
+        )
+        loaded = load_workflow_state(p)
+        assert loaded["master_conversation_id"] == "conv-parent"
 
 
 class TestInitPreparing:

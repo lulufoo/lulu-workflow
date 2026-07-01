@@ -41,6 +41,7 @@ _WORKFLOW_PY_PATH = re.compile(
 _CONV_ID_INJECT_SCRIPT_SUFFIXES = (
     "/compose/scripts/core/start.py",
     "/lulu-code/scripts/tc_start.py",
+    "/lulu-code/scripts/tc_task_control.py",
     "/decision/scripts/dec_start.py",
     "/lulu-blueprint/scripts/pa_start.py",
     "/lulu-arch/scripts/ta_start.py",

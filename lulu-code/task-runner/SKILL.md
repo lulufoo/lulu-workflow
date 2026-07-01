@@ -54,10 +54,6 @@ Parse stdout JSON as `$CTX`. Required fields include:
 `work_order_task_path`, `task_output_dir`, `code_task_list_path`, `worktree_abs_path`,
 `branch`, `tdd_exempt`, `commit_message_template`, `test_command`.
 
-<HARD-GATE>
-Before any `commit-*` subcommand, load `docs/git/git-workflow-standard.md`.
-</HARD-GATE>
-
 All code edits and test runs: cwd = `$CTX.worktree_abs_path`.
 
 ## Phase loop

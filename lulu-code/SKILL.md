@@ -70,9 +70,7 @@ Task phases (under Executing): `WriteTests` → `VerifyRed` → `WriteImpl` → 
 
 ## Starting
 
-**Step 1: Load `docs/git/git-workflow-standard.md`** — required before any git operations.
-
-**Step 2: Run `start.py`**
+**Step 1: Run `start.py`**
 
 ```bash
 python3 "$SKILL_DIR/scripts/tc_start.py" \
