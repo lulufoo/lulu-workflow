@@ -4,7 +4,7 @@
 Since the compose SKILL closed-loop refactor, `$DRAFT_CONTROL` is defined
 once (generically, via `<profile_id>`) in the compose engine SKILL;
 holders no longer redefine it locally (see
-docs/biz/compose-skill-closed-loop-finishing.md §10 item 5).
+docs/biz/compose-business-ssot.md §8.2).
 """
 
 from __future__ import annotations

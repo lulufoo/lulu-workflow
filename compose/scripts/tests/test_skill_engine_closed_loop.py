@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Hard-gate tests for the compose SKILL orchestration layer closed loop.
 
-See docs/biz/compose-skill-closed-loop-finishing.md §10 for the acceptance
-criteria this file encodes.
+See docs/biz/compose-business-ssot.md §8.2 for the acceptance criteria
+this file encodes.
 """
 
 from __future__ import annotations

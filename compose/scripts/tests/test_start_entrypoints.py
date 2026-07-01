@@ -5,7 +5,7 @@ Since the compose SKILL closed-loop refactor, the `start.py` invocation is
 defined once (generically) in the compose engine SKILL's `$START_COMPOSE`
 macro / § start; holders reference `$START_COMPOSE` with their concrete
 `--profile <stage>` flag rather than repeating the raw script invocation
-(see docs/biz/compose-skill-closed-loop-finishing.md §10 item 5).
+(see docs/biz/compose-business-ssot.md §8.2).
 """
 
 from __future__ import annotations
