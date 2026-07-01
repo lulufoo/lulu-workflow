@@ -136,8 +136,8 @@ After each I2f, resolve layout and run **I2g** when the current key is the last 
 - **Input:** `sections.{key}.heading` · body file · `i_star` substance
 - **Action:** Short localized title (~8–20 chars): type anchor from `heading` + one domain theme from substance.
 - **Forbidden:** verbatim registry `heading`; file paths; API names; copying first body sentence
-- **Output:** persist via `set-display-title` into `_title-display.json`; empty `i_star` → `（待补）`
-- **Done:** `_title-display.json` has a non-empty entry for this `section_key`
+- **Output:** persist via `set-display-title`; empty `i_star` → `（待补）`
+- **Done:** `set-display-title` exits 0
 
 ```bash
 $COMPOSE_DOC_CONTROL set-display-title \
@@ -170,8 +170,8 @@ At the last intent in an outline block: infer reader H2 from whole-block substan
 - **Input:** `block_intents[]` bodies (`_body-*.txt`) · optional `_title-display.json` entries · registry `intent` per intent · `blocks.{block_key}.heading` (semantic anchor)
 - **Action:** One localized reader-facing H2 title for the whole block; may include numbering aligned with v4-style docs.
 - **Forbidden:** verbatim English `block.heading`; summarizing a single intent only
-- **Output:** persist via `set-block-title` into `_title-block.json`; no block substance → `（待补）`
-- **Done:** `_title-block.json` has a non-empty entry for this `block_key`
+- **Output:** persist via `set-block-title`; no block substance → `（待补）`
+- **Done:** `set-block-title` exits 0
 
 ```bash
 $COMPOSE_DOC_CONTROL set-block-title \
@@ -191,8 +191,8 @@ $COMPOSE_DOC_CONTROL patch-block-heading \
   --project-root "$(pwd)"
 ```
 
-- **Action:** Replace the unique `## {blocks.{block_key}.heading}` placeholder with the `_title-block.json` entry for `{block_key}`.
-- **Done:** document H2 for the block matches `_title-block.json` for `{block_key}`; H3 anchors unchanged
+- **Action:** Replace the unique `## {blocks.{block_key}.heading}` placeholder with the block title derived in step 1.
+- **Done:** `patch-block-heading` exits 0; H3 anchors unchanged
 - **Failure:** blocking; stderr cites `block_key`
 
 All sections remain draft until Round probe.
@@ -203,7 +203,7 @@ All sections remain draft until Round probe.
 2. On failure → read stderr; fix cited sections (return to I2 for those keys; block title failures → re-run I2g for that block's last intent); re-run I3.
 3. On success → Return Summary.
 
-**Done:** `$INIT_COMPOSE_VALIDATE` exit 0. When outline-registry is present: each block H2 ≠ English placeholder (unless `（待补）`); `_title-block.json` entries match document H2.
+**Done:** `$INIT_COMPOSE_VALIDATE` exit 0.
 
 ## Return Summary
 
