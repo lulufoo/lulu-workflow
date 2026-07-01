@@ -12,7 +12,7 @@ description: >-
 
 Run this sub-skill only when dispatched from a compose stage `start` (inductive path) — e.g. `lulu-design`.
 
-Produces per-section scope files under `inductive-scope/` (one `<SECTION>.md` per touched section) and `inductive-dqi.json` in the stage's compose cache dir. Compose Initializing reads each section's slice on demand (per-section grounding) — there is no merged document.
+Produces per-section scope files under `inductive-scope/` (one `<SECTION>.md` per touched section) and `inductive-dqi.json` under the active revision dir (`revision{active_doc}/`). Compose Initializing reads each section's slice on demand (per-section grounding) — there is no merged document.
 After completion, control returns to the parent compose stage to proceed with compose Initializing.
 
 This runner is **stage-agnostic**: `coverage_sections`, section weights, and discovery `methods` are profile data fetched as `inductive-scan-criteria` — the authoritative list is whatever the fetched criteria declare.
@@ -28,7 +28,7 @@ The parent passes these in the `## Input` block; do not hardcode stage paths.
 | `$COMPOSE_PROFILE` | Compose profile id (drives every `$FETCH_COMPOSE`) |
 | `$CYCLE_ID` | Active cycle id |
 | `$SCOPE_DOC` | Upstream scope SSOT path (Gate 1 reads this — e.g. `decision-doc.md`) |
-| `$INDUCTIVE_OUT_DIR` | Output dir for inductive artifacts (the stage's compose cache dir) |
+| `$INDUCTIVE_OUT_DIR` | Active revision dir (`revision{active_doc}/`) for inductive state bundle |
 
 ## Session Paths (derived)
 

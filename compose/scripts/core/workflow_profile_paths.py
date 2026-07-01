@@ -37,6 +37,18 @@ def doc_dir(
     return session_base_dir(cycle_id, profile_id, project_root) / f"revision{doc_round}"
 
 
+def inductive_out_dir(
+    cycle_id: str,
+    profile_id: str,
+    project_root: Path,
+) -> Path:
+    """Inductive state bundle root: revision{active_doc}/ alongside drafting artifacts."""
+    from session_state_schema import load_active_doc_from_cycle  # noqa: WPS433
+
+    active_doc = load_active_doc_from_cycle(cycle_id, project_root, profile_id=profile_id)
+    return doc_dir(cycle_id, active_doc, profile_id, project_root)
+
+
 def state_path(
     cycle_id: str,
     doc_round: int,

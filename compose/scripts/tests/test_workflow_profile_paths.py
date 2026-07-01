@@ -14,6 +14,7 @@ from workflow_profile_paths import (
     doc_dir,
     document_path,
     eval_round_dir,
+    inductive_out_dir,
     session_state_path,
 )
 
@@ -36,6 +37,9 @@ def test_tech_design_paths(project_root: Path):
     )
     assert document_path(cycle, 1, "lulu-design", project_root).name == "design-doc.md"
     assert approval_path(cycle, 1, "lulu-design", project_root).name == "human-delivery-gate.md"
+    assert inductive_out_dir(cycle, "lulu-design", project_root).as_posix().endswith(
+        "lulu-design/revision1",
+    )
 
 
 def test_tech_plan_paths_unchanged(project_root: Path):

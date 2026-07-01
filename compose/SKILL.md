@@ -60,7 +60,9 @@ python3 "$SKILL_ROOT/compose/scripts/core/start.py" \
 - **Run-mode legality is this profile's `StartAdapter.validate_for_start`'s responsibility**, not this engine's — it rejects an unsupported `<run_mode>` (or a missing required upstream ref for the given mode) with an explicit error list. This engine does not enumerate which run-modes each profile supports.
 - On non-zero exit ("Gate blocked: ..." or a validation error list): tell the user which prior stage must be delivered first, or which run-mode is invalid for this profile. Do not retry start.
 
-To resume an in-progress document, do not run start again — run `$SESSION_INFO --view session`.
+To resume an in-progress document on the **same revision**, do not run start again — run `$SESSION_INFO --view session` (Inductive resume: `resolve-context` on the active revision).
+
+To **abandon a partial revision** and begin fresh after fixes, run `$START_COMPOSE` again — it bumps `active_doc`, creates a new `revision{N}/`, and Step 0 Inductive seeds a new state bundle there (prior revision artifacts remain on disk but are not read).
 
 ---
 
@@ -86,7 +88,7 @@ Load {actual $SKILL_ROOT}/compose/runners/inductive-runner/SKILL.md and follow i
 {begin-inductive stdout}
 ```
 
-2. After the gate spine completes (user confirms Gate 4 recompose), run `$DRAFT_CONTROL inductive-complete`. On failure → Blocking. It emits per-section scope files under `inductive-scope/` consumed by Step 1.
+2. After the gate spine completes (user confirms Gate 4 recompose), run `$DRAFT_CONTROL inductive-complete`. On failure → Blocking. It emits per-section scope files under `revision{active_doc}/inductive-scope/` consumed by Step 1.
 
 ### Step 1 — Initializing
 

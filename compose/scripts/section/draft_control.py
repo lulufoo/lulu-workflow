@@ -28,7 +28,7 @@ from init_compose_validation import validate_init_artifacts  # noqa: E402
 from start_adapter import primary_scope_from_workflow  # noqa: E402
 from workflow_common import detect_cycle_type  # noqa: E402
 from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, load_profile  # noqa: E402
-from workflow_profile_paths import doc_dir, session_base_dir  # noqa: E402
+from workflow_profile_paths import doc_dir, inductive_out_dir  # noqa: E402
 
 _CMD_BEGIN_INDUCTIVE = "begin-inductive"
 _CMD_INDUCTIVE_COMPLETE = "inductive-complete"
@@ -84,7 +84,7 @@ def _scope_doc(cycle_id: str, project_root: Path, profile_id: str) -> Path:
 
 
 def _inductive_out_dir(cycle_id: str, project_root: Path, profile_id: str) -> Path:
-    return (project_root / session_base_dir(cycle_id, profile_id, project_root)).resolve()
+    return (project_root / inductive_out_dir(cycle_id, profile_id, project_root)).resolve()
 
 
 def _inductive_dir(cycle_id: str, project_root: Path, profile_id: str) -> Path:

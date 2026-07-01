@@ -81,3 +81,28 @@ def seed_tech_plan_session(
     scope_refs = tech_plan_scope_refs(refs)
     init_drafting(ws_path, mode=mode, delivered_refs=refs, scope_refs=scope_refs)
     return ws_path
+
+
+def seed_tech_design_session(
+    project_root: Path,
+    *,
+    cycle_id: str,
+    mode: str = "tech",
+    delivered_refs: list[DeliveredRef] | None = None,
+) -> Path:
+    """Seed lulu-design session with lulu-approach decision-doc scope."""
+    cache_dir = project_root / CACHE_DIR
+    diag_dir = cache_dir / cycle_id / "lulu-approach"
+    diag_dir.mkdir(parents=True, exist_ok=True)
+    decision = diag_dir / "decision-doc.md"
+    decision.write_text("# Decision\n", encoding="utf-8")
+    refs = delivered_refs
+    if refs is None:
+        refs = [DeliveredRef(type="lulu-approach", path=str(decision.resolve()))]
+    seed_delivered_refs_file(project_root, cycle_id, refs)
+    seed_profile_pointer_for_tests(project_root, cycle_id, "lulu-design")
+    active_doc = bump_active_doc(cycle_id, project_root, "lulu-design")
+    ws_path = project_root / state_path(cycle_id, active_doc, "lulu-design", project_root)
+    scope_refs = tech_design_scope_refs(refs)
+    init_drafting(ws_path, mode=mode, delivered_refs=refs, scope_refs=scope_refs)
+    return ws_path
