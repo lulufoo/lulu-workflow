@@ -75,7 +75,7 @@ To **abandon a partial revision** and begin fresh after fixes, run `$START_COMPO
 
 Anchor the upstream scope doc in code before composing. Always run when enabled — no opt-in prompt. Profiles with `drafting.inductive: false` skip directly to Step 1.
 
-**Inductive-runner** is a human-driven 4-gate spine (Shape → Grounding → Refine → Recompose): AI recommends; the **user** closes each gate. Run it **inline in this conversation** (same as `/diagnostic` gate runners). **No `$SUBAGENT_*`** — subagents cannot interact with the user.
+**Inductive-runner** is a human-driven 4-gate spine (Shape → Grounding → Refine → Recompose): AI recommends; the **user** closes each gate. Run it **inline in this conversation** (same as `/decision` gate runners). **No `$SUBAGENT_*`** — subagents cannot interact with the user.
 
 1. Run `$DRAFT_CONTROL begin-inductive`.
    - On failure → Blocking.

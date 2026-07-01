@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Session integrity control for diagnostic: structural audit and decision-doc render.
+"""Session integrity control for decision: structural audit and decision-doc render.
 
 Subcommands:
     audit --mode structural   Validate gate-payloads + registers + gate-state
@@ -282,10 +282,10 @@ def cmd_render(
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Diagnostic session integrity control.")
+    parser = argparse.ArgumentParser(description="Decision session integrity control.")
     parser.add_argument("--project-root", default=".", help="Project root directory.")
     parser.add_argument("--cycle-id", required=True, help="Cycle ID.")
-    parser.add_argument("--stage", default=KERNEL_STAGE, help="Diagnostic stage name.")
+    parser.add_argument("--stage", default=KERNEL_STAGE, help="Decision stage name.")
     parser.add_argument("--constraints", default="", help="Path to holder constraints.json.")
     sub = parser.add_subparsers(dest="command", required=True)
 

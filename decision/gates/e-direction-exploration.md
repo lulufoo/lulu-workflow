@@ -1,4 +1,4 @@
-> Part of diagnostic-workflow · gate contract · via `$SKILL_DIR/runners/e-direction-runner/SKILL.md`
+> Part of decision-workflow · gate contract · via `$SKILL_DIR/runners/e-direction-runner/SKILL.md`
 
 #### E — Direction Exploration
 

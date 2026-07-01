@@ -1,7 +1,7 @@
 ---
 name: decision/g0-parallel-registers-runner
 description: >-
-  G0 global parallel gate for diagnostic. Captures User Prior and Assumption
+  G0 global parallel gate for decision. Captures User Prior and Assumption
   entries via register-commit when identification hits during spine or RS
   gate dialogue. Invoked by decision/SKILL.md Gate routing.
 meta-skill-version: 1.0.0

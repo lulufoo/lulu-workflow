@@ -1,7 +1,7 @@
 ---
 name: decision/dc-delivery-runner
 description: >-
-  DC gate runner for diagnostic. Self-review, user confirmation, gate-close DC,
+  DC gate runner for decision. Self-review, user confirmation, gate-close DC,
   and session delivery. Invoked by decision/SKILL.md.
 meta-skill-version: 1.0.0
 ---

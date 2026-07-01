@@ -1,4 +1,4 @@
-"""Shared helpers for diagnostic script tests."""
+"""Shared helpers for decision script tests."""
 
 from __future__ import annotations
 

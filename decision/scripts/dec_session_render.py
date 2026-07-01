@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Session render helpers for diagnostic (legacy reply_header stub)."""
+"""Session render helpers for decision (legacy reply_header stub)."""
 
 from __future__ import annotations
 

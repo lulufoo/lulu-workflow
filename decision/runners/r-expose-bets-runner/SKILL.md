@@ -1,7 +1,7 @@
 ---
 name: decision/r-expose-bets-runner
 description: >-
-  R gate runner for diagnostic. Risk classification, register updates, and R exit
+  R gate runner for decision. Risk classification, register updates, and R exit
   routing (Loop B, DC, or RS). Invoked by decision/SKILL.md.
 meta-skill-version: 1.0.0
 ---

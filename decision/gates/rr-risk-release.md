@@ -1,4 +1,4 @@
-> Part of diagnostic-workflow · gate contract · via `$SKILL_DIR/runners/rr-risk-release-runner/SKILL.md`
+> Part of decision-workflow · gate contract · via `$SKILL_DIR/runners/rr-risk-release-runner/SKILL.md`
 
 #### RR - Risk Release
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Schema and I/O for diagnostic domain-constraints.json."""
+"""Schema and I/O for decision domain-constraints.json."""
 
 from __future__ import annotations
 

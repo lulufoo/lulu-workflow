@@ -1,7 +1,7 @@
 ---
 name: decision/v-verification-runner
 description: >-
-  V gate runner for diagnostic. Verification column updates and Loop B exit
+  V gate runner for decision. Verification column updates and Loop B exit
   routing (RR or DC). Invoked by decision/SKILL.md.
 meta-skill-version: 1.0.0
 ---

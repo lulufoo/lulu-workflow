@@ -1,7 +1,7 @@
 ---
 name: decision/rr-risk-release-runner
 description: >-
-  RR gate runner for diagnostic Loop B. Risk release verification and RR exit
+  RR gate runner for decision Loop B. Risk release verification and RR exit
   routing (DC, return R, or Human Decision). Invoked by decision/SKILL.md.
 meta-skill-version: 1.0.0
 ---

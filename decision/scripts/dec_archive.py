@@ -4,7 +4,7 @@
 Hot:  cache/<cycle_id>/<cache_subdir>/  (indexed via platform active-context.json)
 Cold: cache/_archive/<conversation_id>/<cache_subdir>/
 
-Stages: diagnostic, lulu-bet, lulu-approach.
+Stages: decision, lulu-bet, lulu-approach.
 Does not scan legacy cache/decision/<conversation_id>/ paths.
 """
 
@@ -12,7 +12,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from dec_archive_cycle import run_diagnostic_cycle_archive
+from dec_archive_cycle import run_decision_cycle_archive
 
 
 def run(
@@ -20,7 +20,7 @@ def run(
     exclude_conv_id: str,
     dry_run: bool = False,
 ) -> int:
-    return run_diagnostic_cycle_archive(
+    return run_decision_cycle_archive(
         project_root,
         exclude_conv_id,
         dry_run=dry_run,
@@ -30,7 +30,7 @@ def run(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Restore current diagnostic conv from archive and move Delivered convs "
+            "Restore current decision conv from archive and move Delivered convs "
             "to cold storage (cycle-based layout)."
         ),
     )

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for diagnostic Loop B gates (V / RR / DC) and delivery."""
+"""Tests for decision Loop B gates (V / RR / DC) and delivery."""
 
 from __future__ import annotations
 

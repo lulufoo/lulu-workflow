@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Register control for diagnostic sessions.
+"""Register control for decision sessions.
 
 Subcommands:
     register-append        Append prior or assumption entry (G0 capture)
@@ -446,10 +446,10 @@ def _load_payload(raw: str) -> dict[str, Any]:
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Diagnostic register control.")
+    parser = argparse.ArgumentParser(description="Decision register control.")
     parser.add_argument("--project-root", default=".", help="Project root directory.")
     parser.add_argument("--cycle-id", required=True, help="Cycle ID.")
-    parser.add_argument("--stage", default="decision", help="Diagnostic stage name.")
+    parser.add_argument("--stage", default="decision", help="Decision stage name.")
     parser.add_argument(
         "--constraints",
         default="",

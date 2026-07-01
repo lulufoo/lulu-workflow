@@ -26,7 +26,7 @@ from platforms.paths import cache_dir  # noqa: E402
 
 from dec_session_paths import find_session_dir, session_cache_subdir  # noqa: E402
 
-DIAGNOSTIC_ARCHIVE_STAGES = frozenset(
+DECISION_ARCHIVE_STAGES = frozenset(
     {
         "decision",
         "lulu-bet",
@@ -186,7 +186,7 @@ def restore_current_session(
         return True, messages
 
     stage = entry["stage"]
-    if stage not in DIAGNOSTIC_ARCHIVE_STAGES:
+    if stage not in DECISION_ARCHIVE_STAGES:
         return True, messages
 
     cycle_id = entry["cycle_id"]
@@ -262,7 +262,7 @@ def archive_other_delivered_sessions(
             continue
 
         stage = entry["stage"]
-        if stage not in DIAGNOSTIC_ARCHIVE_STAGES:
+        if stage not in DECISION_ARCHIVE_STAGES:
             continue
 
         cycle_id = entry["cycle_id"]
@@ -315,7 +315,7 @@ def archive_other_delivered_sessions(
     return ok, messages
 
 
-def run_diagnostic_cycle_archive(
+def run_decision_cycle_archive(
     project_root: Path,
     exclude_conv_id: str,
     *,

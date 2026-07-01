@@ -79,7 +79,7 @@ TECH_WORK_ORDER_CONFIG = StageArchiveConfig(
     terminal_states=frozenset({"Delivered"}),
 )
 
-DIAGNOSTIC_CONFIG = StageArchiveConfig(
+DECISION_CONFIG = StageArchiveConfig(
     stage="decision",
     hot_subdir="decision",
     session_counter_field="",
@@ -103,7 +103,7 @@ ALL_STAGE_CONFIGS = (
     TECH_ARCH_CONFIG,
     TECH_PLAN_CONFIG,
     TECH_WORK_ORDER_CONFIG,
-    DIAGNOSTIC_CONFIG,
+    DECISION_CONFIG,
     TECH_CODE_CONFIG,
 )
 

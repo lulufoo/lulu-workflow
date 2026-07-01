@@ -184,7 +184,7 @@ class TestFetchTemplate:
         )
         assert content == "# refetched\n"
 
-    def test_fetches_diagnostic_template(self, tmp_path):
+    def test_fetches_decision_template(self, tmp_path):
         url = (
             "https://github.com/lulufoo/lulu-workflow-framework/blob/main/"
             "lulu-dev-workflow/template/decision/decision-doc.template.md"

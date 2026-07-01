@@ -1,14 +1,14 @@
 ---
 name: decision/q-problem-runner
 description: >-
-  Q gate runner for diagnostic. Executes problem clarification dialogue and
+  Q gate runner for decision. Executes problem clarification dialogue and
   gate-close Q with gate-payload write. Invoked by decision/SKILL.md.
 meta-skill-version: 1.0.0
 ---
 
 # q-problem-runner
 
-Execute **Q — Problem Clarification** within a diagnostic session. Mechanical persistence via `$GATE_CONTROL` and `$REGISTER_CONTROL`.
+Execute **Q — Problem Clarification** within a decision session. Mechanical persistence via `$GATE_CONTROL` and `$REGISTER_CONTROL`.
 
 ## Blocking policy
 

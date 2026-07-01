@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Schema and I/O for diagnostic gate-state.json."""
+"""Schema and I/O for decision gate-state.json."""
 
 from __future__ import annotations
 

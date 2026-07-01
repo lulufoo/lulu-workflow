@@ -198,7 +198,7 @@ def _seed_gate_for_stage(tmp_path: Path, to_stage: str, *, cycle_id: str = _FID)
         _seed_tech_plan_delivered_refs(cd, cycle_id, tmp_path)
 
 
-def _seed_diagnostic_config(tmp_path: Path) -> None:
+def _seed_decision_config(tmp_path: Path) -> None:
     """Seed workflow-config + local decision-doc template for dec_start init-session."""
     cfg_dir = tmp_path / "skill-config" / "lulu-dev-workflow"
     cfg_dir.mkdir(parents=True)
@@ -292,7 +292,7 @@ class TestArgparseBehavior:
             cwd=str(_scripts_dir(stage)),
         )
 
-    def test_cycle_id_missing_diagnostic_exits_nonzero(self):
+    def test_cycle_id_missing_decision_exits_nonzero(self):
         result = subprocess.run(
             [sys.executable, str(_start_py("decision")), "--project-root", "."],
             capture_output=True, text=True, env=_ENV_COPILOT,
@@ -300,8 +300,8 @@ class TestArgparseBehavior:
         )
         assert result.returncode != 0
 
-    def test_conversation_id_accepted_diagnostic(self, tmp_path):
-        _seed_diagnostic_config(tmp_path)
+    def test_conversation_id_accepted_decision(self, tmp_path):
+        _seed_decision_config(tmp_path)
         result = self._run_with_conv_id(
             "decision",
             tmp_path,
@@ -337,8 +337,8 @@ class TestArgparseBehavior:
 # ---------------------------------------------------------------------------
 
 class TestSessionPath:
-    def _run_diagnostic(self, tmp_path):
-        _seed_diagnostic_config(tmp_path)
+    def _run_decision(self, tmp_path):
+        _seed_decision_config(tmp_path)
         return subprocess.run(
             [sys.executable, str(_start_py("decision")),
              "--project-root", str(tmp_path),
@@ -395,17 +395,17 @@ class TestSessionPath:
             cwd=str(_scripts_dir("lulu-code")),
         )
 
-    def test_diagnostic_exits_zero(self, tmp_path):
-        result = self._run_diagnostic(tmp_path)
+    def test_decision_exits_zero(self, tmp_path):
+        result = self._run_decision(tmp_path)
         assert result.returncode == 0, result.stderr
 
-    def test_diagnostic_session_file_at_feature_first_path(self, tmp_path):
-        self._run_diagnostic(tmp_path)
+    def test_decision_session_file_at_feature_first_path(self, tmp_path):
+        self._run_decision(tmp_path)
         ss = _cache_dir(tmp_path) / _FID / "decision" / "session-state.md"
         assert ss.exists(), f"Expected session-state.md at {ss}"
 
-    def _run_diagnostic_with_stage(self, tmp_path, stage: str):
-        _seed_diagnostic_config(tmp_path)
+    def _run_decision_with_stage(self, tmp_path, stage: str):
+        _seed_decision_config(tmp_path)
         return subprocess.run(
             [sys.executable, str(_start_py("decision")),
              "--project-root", str(tmp_path),
@@ -417,23 +417,23 @@ class TestSessionPath:
         )
 
     def test_product_diagnostic_stage_exits_zero(self, tmp_path):
-        result = self._run_diagnostic_with_stage(tmp_path, "lulu-bet")
+        result = self._run_decision_with_stage(tmp_path, "lulu-bet")
         assert result.returncode == 0, result.stderr
 
     def test_product_diagnostic_stage_writes_nested_path(self, tmp_path):
-        self._run_diagnostic_with_stage(tmp_path, "lulu-bet")
+        self._run_decision_with_stage(tmp_path, "lulu-bet")
         ss = _cache_dir(tmp_path) / _FID / "lulu-bet" / "session-state.md"
         assert ss.exists(), f"Expected session-state.md at {ss}"
 
     def test_tech_diagnostic_stage_writes_nested_path(self, tmp_path):
-        self._run_diagnostic_with_stage(tmp_path, "lulu-approach")
+        self._run_decision_with_stage(tmp_path, "lulu-approach")
         ss = _cache_dir(tmp_path) / _FID / "lulu-approach" / "session-state.md"
         assert ss.exists(), f"Expected session-state.md at {ss}"
 
     def test_product_diagnostic_active_context_stage_value(self, tmp_path):
         import json
 
-        _seed_diagnostic_config(tmp_path)
+        _seed_decision_config(tmp_path)
         result = subprocess.run(
             [sys.executable, str(_start_py("decision")),
              "--project-root", str(tmp_path),

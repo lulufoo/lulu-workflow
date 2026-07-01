@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for diagnostic gate/register pilot (Q + E)."""
+"""Tests for decision gate/register pilot (Q + E)."""
 
 from __future__ import annotations
 

@@ -1,14 +1,14 @@
 ---
 name: decision/e-direction-runner
 description: >-
-  E gate runner for diagnostic. Executes direction exploration dialogue and
+  E gate runner for decision. Executes direction exploration dialogue and
   gate-close E with gate-payload write. Invoked by decision/SKILL.md.
 meta-skill-version: 1.0.0
 ---
 
 # e-direction-runner
 
-Execute **E — Direction Exploration** within a diagnostic session. Mechanical persistence via `$GATE_CONTROL`.
+Execute **E — Direction Exploration** within a decision session. Mechanical persistence via `$GATE_CONTROL`.
 
 ## Blocking policy
 

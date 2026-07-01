@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Migrate legacy diagnostic sessions (pre gate-state) to incremental architecture."""
+"""Migrate legacy decision sessions (pre gate-state) to incremental architecture."""
 
 from __future__ import annotations
 

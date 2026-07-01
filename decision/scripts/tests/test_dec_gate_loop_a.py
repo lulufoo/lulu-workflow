@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for diagnostic Loop A gates (D / X / R)."""
+"""Tests for decision Loop A gates (D / X / R)."""
 
 from __future__ import annotations
 

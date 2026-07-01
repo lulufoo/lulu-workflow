@@ -12,7 +12,7 @@ from start_gate import check_gate, get_topic_doc  # noqa: E402
 from transition_table import load_stage_order  # noqa: E402
 from workflow_sessions import current_effective_delivered, get_sessions, parse_frontmatter  # noqa: E402
 
-from dec_archive import run as archive_diagnostic_session
+from dec_archive import run as archive_decision_session
 from dec_gate_control import cmd_init_session, cmd_migrate_session
 from dec_migrate_session import needs_migration
 from dec_workflow_common import (
@@ -56,18 +56,18 @@ def _mark_historical(cycle_id: str, stage: str, cache_dir: Path) -> None:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Start a diagnostic workflow session.")
+    parser = argparse.ArgumentParser(description="Start a decision workflow session.")
     parser.add_argument("--project-root", default=".", help="Project root directory.")
     parser.add_argument("--cycle-id", required=True, help="Cycle ID (from cycle_init.py).")
     parser.add_argument(
         "--stage",
         default="decision",
-        help="Diagnostic stage name (holder SKILL passes its name; default: diagnostic).",
+        help="Decision stage name (holder SKILL passes its name; default: decision).",
     )
     parser.add_argument(
         "--constraints",
         default="",
-        help="Path to holder constraints.json (required for non-diagnostic holder stages).",
+        help="Path to holder constraints.json (required for holder stages such as lulu-bet and lulu-approach).",
     )
     parser.add_argument(
         "--conversation-id",
@@ -95,7 +95,7 @@ def main() -> int:
 
     if conversation_id:
         # archive: deferred when --conversation-id omitted; enabled below when provided
-        archive_rc = archive_diagnostic_session(
+        archive_rc = archive_decision_session(
             project_root,
             exclude_conv_id=conversation_id,
         )

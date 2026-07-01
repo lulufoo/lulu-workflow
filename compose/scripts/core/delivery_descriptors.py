@@ -84,7 +84,7 @@ def _compose_descriptor(profile_id: str) -> DeliveryDescriptor | None:
     )
 
 
-def _diagnostic_descriptor(constraints_path: Path) -> DeliveryDescriptor | None:
+def _decision_descriptor(constraints_path: Path) -> DeliveryDescriptor | None:
     try:
         data = json.loads(constraints_path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
@@ -141,7 +141,7 @@ def iter_delivery_descriptors() -> Iterator[DeliveryDescriptor]:
             seen.add(desc.stage_name)
             yield desc
     for constraints_path in _decision_constraints_paths():
-        desc = _diagnostic_descriptor(constraints_path)
+        desc = _decision_descriptor(constraints_path)
         if desc is not None and desc.stage_name not in seen:
             seen.add(desc.stage_name)
             yield desc

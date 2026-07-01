@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Schema and I/O for diagnostic decision-doc.md section patching."""
+"""Schema and I/O for decision decision-doc.md section patching."""
 
 from __future__ import annotations
 

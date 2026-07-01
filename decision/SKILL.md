@@ -2,7 +2,7 @@
 name: decision
 ---
 
-# diagnostic-workflow
+# decision-workflow
 
 > Framework reference: [diagnostic-decision-framework.md](https://github.com/lulufoo/lulu-workflow-framework/blob/main/lulu-dev-workflow/diagnostic/diagnostic-decision-framework.md)
 
@@ -58,7 +58,7 @@ On success, follow stdout (new session ready, or legacy session migrated). Do **
 
 When `$DEC_START` receives `--conversation-id`:
 
-1. **Restore:** if this conversation's diagnostic session is in cold storage, move it back to `cache/<cycle_id>/<cache_subdir>/` (from active-context + session snapshot).
+1. **Restore:** if this conversation's decision session is in cold storage, move it back to `cache/<cycle_id>/<cache_subdir>/` (from active-context + session snapshot).
 2. **Archive:** other conversations with decision-family stages (`decision`, `lulu-bet`, `lulu-approach`) and `session-state: Delivered` are moved to `cache/_archive/<conversation_id>/<cache_subdir>/`.
 
 SSOT for conversation → cycle mapping: platform `active-context.json`. Does **not** use `cache/decision/<conversation_id>/`.

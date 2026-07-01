@@ -29,7 +29,7 @@ class TestKnownStages:
         assert "lulu-tasks" in stages
         assert "lulu-code" in stages
 
-    def test_allowed_stages_includes_diagnostic_legacy(self):
+    def test_allowed_stages_includes_decision(self):
         from transition_table import allowed_stages
 
         assert "decision" in allowed_stages("topic")

@@ -1,7 +1,7 @@
 ---
 name: decision/x-full-diagnosis-runner
 description: >-
-  X gate runner for diagnostic. Full diagnosis dialogue and gate-close X with
+  X gate runner for decision. Full diagnosis dialogue and gate-close X with
   execution analysis sections. Invoked by decision/SKILL.md.
 meta-skill-version: 1.0.0
 ---

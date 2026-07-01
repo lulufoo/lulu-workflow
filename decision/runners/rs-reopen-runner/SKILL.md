@@ -1,7 +1,7 @@
 ---
 name: decision/rs-reopen-runner
 description: >-
-  RS global gate for diagnostic. Reopen and invalidation when a prior gate's pass
+  RS global gate for decision. Reopen and invalidation when a prior gate's pass
   criterion fails. Not parallel; load before $RS_COMMIT. Invoked by decision/SKILL.md Gate routing.
 meta-skill-version: 1.0.0
 ---

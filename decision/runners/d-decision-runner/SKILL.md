@@ -1,7 +1,7 @@
 ---
 name: decision/d-decision-runner
 description: >-
-  D gate runner for diagnostic. Decision rationale, scope, and execution
+  D gate runner for decision. Decision rationale, scope, and execution
   approach dialogue with gate-close D. Invoked by decision/SKILL.md.
 meta-skill-version: 1.0.0
 ---

@@ -13,7 +13,7 @@ if str(_CORE) not in sys.path:
 from delivery_descriptors import iter_delivery_descriptors  # noqa: E402
 
 
-def test_iter_delivery_includes_diagnostic_from_manifest():
+def test_iter_delivery_includes_decision_holders_from_manifest():
     stages = {d.stage_name for d in iter_delivery_descriptors()}
     assert "lulu-bet" in stages
     assert "lulu-approach" in stages

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Tests for t8b: start.py gate integration (check_gate, re-open, back-fill, get_topic_doc).
 
-All start entrypoints (lulu-spec, lulu-plan, lulu-tasks, lulu-code, diagnostic) must
+All start entrypoints (lulu-spec, lulu-plan, lulu-tasks, lulu-code, decision) must
 integrate check_gate, current_effective_delivered, invalidate_downstream, and get_topic_doc
 before creating a new session.
 """
@@ -150,7 +150,7 @@ def _compose_start_args(profile_id: str, *extra: str) -> list[str]:
     ]
 
 
-def _seed_diagnostic_config(tmp_path: Path) -> None:
+def _seed_decision_config(tmp_path: Path) -> None:
     """Seed workflow-config + local decision-doc template for dec_start init-session."""
     cfg_dir = tmp_path / "skill-config" / "lulu-dev-workflow"
     cfg_dir.mkdir(parents=True)
@@ -306,7 +306,7 @@ def _run_start(
     if stage == "lulu-code":
         _seed_work_order_handoff(_cache_dir(tmp_path), cycle_id)
     if stage == "decision":
-        _seed_diagnostic_config(tmp_path)
+        _seed_decision_config(tmp_path)
     if stage == "lulu-spec":
         _seed_product_spec_delivered_refs(_cache_dir(tmp_path), cycle_id, tmp_path)
     if stage == "lulu-plan":
@@ -436,8 +436,8 @@ class TestGatePasses:
         refs = parse_delivered_refs(parse_frontmatter(ws_path.read_text(encoding="utf-8")))
         assert any(r.type == "lulu-design" and r.path == str(design.resolve()) for r in refs)
 
-    def test_diagnostic_always_passes(self, tmp_path):
-        """diagnostic stage not in cycle → gate always OK."""
+    def test_decision_always_passes(self, tmp_path):
+        """decision stage not in cycle → gate always OK."""
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID)
         result = _run_start("decision", tmp_path)

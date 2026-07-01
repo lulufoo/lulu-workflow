@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Gate state machine control for diagnostic sessions.
+"""Gate state machine control for decision sessions.
 
 Subcommands:
     init-session           Bootstrap gate-state, registers (no decision-doc at init)
@@ -1000,14 +1000,14 @@ def _load_payload(raw: str) -> dict[str, Any]:
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Diagnostic gate state control.")
+    parser = argparse.ArgumentParser(description="Decision gate state control.")
     parser.add_argument("--project-root", default=".", help="Project root directory.")
     parser.add_argument("--cycle-id", required=True, help="Cycle ID.")
-    parser.add_argument("--stage", default="decision", help="Diagnostic stage name.")
+    parser.add_argument("--stage", default="decision", help="Decision stage name.")
     parser.add_argument(
         "--constraints",
         default="",
-        help="Path to holder constraints.json (required for non-diagnostic stages at init).",
+        help="Path to holder constraints.json (required for holder stages at init).",
     )
     sub = parser.add_subparsers(dest="command", required=True)
 

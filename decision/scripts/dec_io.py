@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Atomic file I/O helpers for diagnostic session artifacts."""
+"""Atomic file I/O helpers for decision session artifacts."""
 
 from __future__ import annotations
 

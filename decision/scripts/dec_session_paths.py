@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Session directory resolution for diagnostic (no holder path inference)."""
+"""Session directory resolution for decision (no holder path inference)."""
 
 from __future__ import annotations
 

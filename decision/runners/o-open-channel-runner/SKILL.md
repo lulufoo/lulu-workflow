@@ -1,7 +1,7 @@
 ---
 name: decision/o-open-channel-runner
 description: >-
-  O gate runner for diagnostic. Open channel prior dump and gate-close O before Q.
+  O gate runner for decision. Open channel prior dump and gate-close O before Q.
   Invoked by decision/SKILL.md.
 meta-skill-version: 1.0.0
 ---

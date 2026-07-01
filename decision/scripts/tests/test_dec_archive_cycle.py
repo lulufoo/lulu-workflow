@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for cycle-based diagnostic archive (dec_archive_cycle)."""
+"""Tests for cycle-based decision archive (dec_archive_cycle)."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ from dec_archive_cycle import (  # noqa: E402
     is_session_delivered,
     resolve_session_dir,
     restore_current_session,
-    run_diagnostic_cycle_archive,
+    run_decision_cycle_archive,
 )
 from dec_workflow_common import session_base_dir  # noqa: E402
 
@@ -202,7 +202,7 @@ def test_skip_exclude_conv_id(project_root: Path) -> None:
     assert hot.exists()
 
 
-def test_skip_non_diagnostic_stage(project_root: Path) -> None:
+def test_skip_non_decision_family_stage(project_root: Path) -> None:
     current = "conv-current"
     other = "conv-plan"
     cycle_id = "feat-plan"
@@ -267,7 +267,7 @@ def test_dry_run_no_move(project_root: Path) -> None:
     )
     hot = _setup_session(project_root, cycle_id, stage, subdir, current_state="Delivered")
 
-    rc = run_diagnostic_cycle_archive(
+    rc = run_decision_cycle_archive(
         project_root, current, platform=_PLATFORM, dry_run=True
     )
     assert rc == 0
@@ -301,7 +301,7 @@ def test_run_archive_integration_matches_session_base_dir(project_root: Path) ->
     )
     _write_session_state(expected_hot, "Delivered")
 
-    rc = run_diagnostic_cycle_archive(project_root, current, platform=_PLATFORM)
+    rc = run_decision_cycle_archive(project_root, current, platform=_PLATFORM)
     assert rc == 0
     assert not expected_hot.exists()
     cold = cold_session_dir(project_root, other, "lulu-bet", platform=_PLATFORM)

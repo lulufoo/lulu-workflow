@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Schema and I/O for diagnostic registers.json."""
+"""Schema and I/O for decision registers.json."""
 
 from __future__ import annotations
 

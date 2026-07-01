@@ -218,7 +218,7 @@ class TestWriteEntry:
         )
         assert read_all(tmp_path, "cursor") == {}
 
-    def test_diagnostic_legacy_allowed(self, tmp_path):
+    def test_decision_stage_allowed(self, tmp_path):
         from active_context_schema import read_all, write_entry
 
         write_entry(

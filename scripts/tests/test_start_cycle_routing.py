@@ -221,7 +221,7 @@ def _compose_start_args(profile_id: str, *extra: str) -> list[str]:
     ]
 
 
-def _seed_diagnostic_config(tmp_path: Path) -> None:
+def _seed_decision_config(tmp_path: Path) -> None:
     """Seed workflow-config + local decision-doc template for dec_start init-session."""
     cfg_dir = tmp_path / "skill-config" / "lulu-dev-workflow"
     cfg_dir.mkdir(parents=True)
@@ -371,7 +371,7 @@ class TestActiveContextContainerType:
         _make_cycles_json(cd, _CYCLE_ID)
         _seed_gate_for_stage(cd, _CYCLE_ID, stage, tmp_path)
         if stage == "decision":
-            _seed_diagnostic_config(tmp_path)
+            _seed_decision_config(tmp_path)
         extra = _stage_extra_args(stage, tmp_path)
         cmd = [
             sys.executable, str(_start_py(stage)),
@@ -396,7 +396,7 @@ class TestActiveContextContainerType:
         _make_cycles_json(cd, _TOPIC_ID)
         _seed_gate_for_stage(cd, _TOPIC_ID, stage, tmp_path)
         if stage == "decision":
-            _seed_diagnostic_config(tmp_path)
+            _seed_decision_config(tmp_path)
         extra = _stage_extra_args(stage, tmp_path)
         cmd = [
             sys.executable, str(_start_py(stage)),
@@ -422,10 +422,10 @@ class TestActiveContextContainerType:
 
 
 class TestTopicIdSessionPath:
-    def test_diagnostic_topic_session_uses_topic_dir(self, tmp_path):
+    def test_decision_topic_session_uses_topic_dir(self, tmp_path):
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _TOPIC_ID)
-        _seed_diagnostic_config(tmp_path)
+        _seed_decision_config(tmp_path)
         result = subprocess.run(
             [
                 sys.executable, str(_start_py("decision")),
@@ -551,7 +551,7 @@ class TestActiveContextBackwardCompat:
             json.dumps({_CYCLE_ID: {"name": "Old Feature", "execution_mode": "guided"}}),
             encoding="utf-8",
         )
-        _seed_diagnostic_config(tmp_path)
+        _seed_decision_config(tmp_path)
         result = subprocess.run(
             [
                 sys.executable, str(_start_py("decision")),

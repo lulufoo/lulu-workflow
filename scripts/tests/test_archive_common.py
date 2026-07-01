@@ -12,7 +12,7 @@ if str(_SCRIPTS) not in sys.path:
 
 from archive_common import (  # noqa: E402
     ALL_STAGE_CONFIGS,
-    DIAGNOSTIC_CONFIG,
+    DECISION_CONFIG,
     PRODUCT_SPEC_CONFIG as PRODUCT_CONFIG,
     TECH_CODE_CONFIG as CODE_CONFIG,
     TECH_WORK_ORDER_CONFIG as WORK_ORDER_CONFIG,
@@ -205,14 +205,14 @@ def test_ready_for_delivery_skips(project_root):
     assert (project_root / hot_conv_dir(PRODUCT_CONFIG, "other")).exists()
 
 
-def test_diagnostic_no_session_state_skips(project_root):
-    """Legacy conv-layout only; runtime diagnostic uses dec_archive_cycle (cycle-based)."""
+def test_decision_no_session_state_skips(project_root):
+    """Legacy conv-layout only; runtime decision uses dec_archive_cycle (cycle-based)."""
     other = "legacy-conv"
-    conv = project_root / hot_conv_dir(DIAGNOSTIC_CONFIG, other)
+    conv = project_root / hot_conv_dir(DECISION_CONFIG, other)
     conv.mkdir(parents=True)
     (conv / "decision-doc.md").write_text("# doc", encoding="utf-8")
-    assert is_conv_terminal(conv, DIAGNOSTIC_CONFIG) is None
-    run_archive(project_root, DIAGNOSTIC_CONFIG, exclude_conv_id="current")
+    assert is_conv_terminal(conv, DECISION_CONFIG) is None
+    run_archive(project_root, DECISION_CONFIG, exclude_conv_id="current")
     assert conv.exists()
 
 

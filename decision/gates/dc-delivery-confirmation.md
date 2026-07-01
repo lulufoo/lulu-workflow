@@ -1,4 +1,4 @@
-> Part of diagnostic-workflow · gate contract · via `$SKILL_DIR/runners/dc-delivery-runner/SKILL.md`
+> Part of decision-workflow · gate contract · via `$SKILL_DIR/runners/dc-delivery-runner/SKILL.md`
 
 ## Decision-Doc Format
 
