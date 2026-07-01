@@ -32,6 +32,23 @@ Cycle creation and selection run in sub-SKILLs via `_runtime.md` § Session Foun
 Do **not** drive drafting, evaluating, or delivery here — sub-SKILLs own those steps.
 Do **not** call `cycle_schema.py` or bare `python3 .../cycle_control.py` paths — use `$CYCLE_CONTROL` only.
 
+## Stage lines
+
+Work is bound to a **cycle** with `$CYCLE_TYPE` = `topic` or `feature` (see `_runtime.md` § Session Foundation → `_slowpath.md`).
+
+| Line | Purpose | Typical path |
+|------|---------|--------------|
+| **topic** | Shaping — product/tech architecture exploration before committing to a feature | `lulu-bet` → `lulu-blueprint` → `lulu-approach` → `lulu-arch` |
+| **feature** | Delivery — spec through implementation for one feature | `lulu-bet` → `lulu-spec` → `lulu-approach` → `lulu-design` → `lulu-plan` → `lulu-tasks` → `lulu-code` |
+
+**Shared decision stages:** `lulu-bet` (product) and `lulu-approach` (tech) appear on both lines. After each decision, `$CYCLE_TYPE` determines the next stage — e.g. `lulu-spec` (feature) vs `lulu-blueprint` (topic).
+
+**Branching (feature only):** after `lulu-approach`, next stage may be `lulu-design` or `lulu-plan` directly.
+
+**Topic completion:** when `lulu-arch` delivers, the shaping loop ends; create a **feature** cycle referencing this topic to continue into delivery.
+
+**SSOT:** allowed transitions and completion notes — `config/transition-table.json`. Runtime presentation rules — `_transitions.md`.
+
 ## Prerequisites
 
 | Layer | Requirement |
