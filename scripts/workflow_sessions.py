@@ -17,8 +17,8 @@ _STAGE_FLAT = STAGE_FLAT
 
 
 def stage_subdir(stage: str) -> str:
-    """Convert stage name to cache subdirectory: lulu-spec → lulu-spec."""
-    return stage.replace("-", "/", 1)
+    """Return cache subdirectory for stage (flat id, e.g. lulu-design)."""
+    return stage
 
 
 _stage_subdir = stage_subdir

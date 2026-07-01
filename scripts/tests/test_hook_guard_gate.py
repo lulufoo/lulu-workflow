@@ -201,6 +201,18 @@ class TestCheckGate:
         assert ok is True
         assert msg == "OK"
 
+    def test_compose_flat_path_design_to_plan(self, tmp_path):
+        """current=lulu-design (Delivered at lulu-design/revision1/): advance to lulu-plan."""
+        from start_gate import check_gate
+        _make_cycle_state(tmp_path, "feat-a", "lulu-design")
+        _make_workflow_state(tmp_path, "feat-a", "lulu-design", "r1", "Delivered")
+        flat_ws = tmp_path / "feat-a" / "lulu-design" / "revision1" / "workflow-state.md"
+        assert flat_ws.exists()
+        assert not (tmp_path / "feat-a" / "lulu" / "design").exists()
+        ok, msg = check_gate("feat-a", "lulu-plan", "feature", tmp_path)
+        assert ok is True
+        assert msg == "OK"
+
     def test_advance_blocked_if_not_delivered(self, tmp_path):
         """current=lulu-bet (InProgress): advance to lulu-spec → blocked."""
         from start_gate import check_gate

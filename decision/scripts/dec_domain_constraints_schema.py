@@ -33,9 +33,7 @@ KERNEL_STAGE = "decision"
 
 
 def default_cache_subdir(stage: str) -> str:
-    if stage == KERNEL_STAGE:
-        return KERNEL_STAGE
-    return stage.replace("-", "/", 1)
+    return stage
 
 
 def _normalize_role(data: dict[str, Any]) -> dict[str, str] | None:

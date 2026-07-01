@@ -11,9 +11,7 @@ from dec_domain_constraints_schema import KERNEL_STAGE, load_domain_constraints
 
 
 def default_cache_subdir(stage: str) -> str:
-    if stage == KERNEL_STAGE:
-        return KERNEL_STAGE
-    return stage.replace("-", "/", 1)
+    return stage
 
 
 def find_session_dir(project_root: Path, cycle_id: str, stage: str, cache_root: Path) -> Path | None:
