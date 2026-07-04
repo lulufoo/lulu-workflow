@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -55,9 +56,14 @@ from inductive_gate_state_schema import (  # noqa: E402
 )
 
 
-# ---------------------------------------------------------------------------
-# Path helpers
-# ---------------------------------------------------------------------------
+_CURSOR_CONVERSATION_UUID = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    re.IGNORECASE,
+)
+
+
+def _cursor_conversation_id_valid(conv_id: str) -> bool:
+    return bool(_CURSOR_CONVERSATION_UUID.match(conv_id.strip()))
 
 def _gate_state_path(out_dir: Path) -> Path:
     return out_dir / "inductive-gate-state.json"
@@ -108,8 +114,13 @@ def cmd_init_session(out_dir: Path, args: argparse.Namespace) -> None:
     master_conv = resolve_conversation_id(getattr(args, "conversation_id", "") or "") or ""
     if detect_platform() == "cursor" and not master_conv:
         _fail(
-            "init-session requires --conversation-id on Cursor "
-            "(hook-injected) so grounding SUBAGENT_REQUIRED can be enforced"
+            "init-session failed: platform session identity missing; "
+            "retry the same command without extra shell flags."
+        )
+    if detect_platform() == "cursor" and not _cursor_conversation_id_valid(master_conv):
+        _fail(
+            "init-session failed: invalid platform session identity; "
+            "retry the same command without extra shell flags."
         )
 
     cycle_id = args.cycle_id or ""
@@ -387,7 +398,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--conversation-id",
         default="",
-        help="Orchestrating parent conversation id (Cursor hook); stored for grounding SUBAGENT_REQUIRED gate",
+        help="Platform session identity (hook-only; omit from agent command templates)",
     )
 
     # resolve-context

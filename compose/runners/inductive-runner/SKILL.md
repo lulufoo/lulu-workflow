@@ -120,7 +120,7 @@ The gates progressively refine the **same shape artifact** from coarse to fine. 
 
 **Close criterion:** the user confirms the spine, the To-Be structure, and the boundary (e.g. "形状确认" / "shape confirmed"). Corrections are folded in and the view re-presented until confirmed. On confirmation, call `$INDUCTIVE_GATE_CTL gate-close --gate G1 --payload '{"architecture_view": {...}, "shape_constraints": [...]}'` — this persists the `architecture_view` to the DQI, freezes the load-bearing claims into **shape constraints** (invariants Gate 3 must respect and must not re-open), and advances the spine to Gate 2.
 
-**Session init (once per session, at Gate 1 start):** call `$INDUCTIVE_GATE_CTL init-session --sections <coverage_sections CSV> --mandatory <mandatory_coverage_prompt CSV> --conversation-id <parent conversation id>` to seed both the gate state and section pointer. On **Cursor**, `--conversation-id` is **required** (hook-injected) — it records the orchestrating parent for the grounding subagent dispatch gate. Skip if resuming an existing session — `$INDUCTIVE_GATE_CTL resolve-context` will confirm the current active gate.
+**Session init (once per session, at Gate 1 start):** call `$INDUCTIVE_GATE_CTL init-session --sections <coverage_sections CSV> --mandatory <mandatory_coverage_prompt CSV> --cycle-id <cycle_id> --stage <compose stage>` to seed both the gate state and section pointer. Skip if resuming an existing session — `$INDUCTIVE_GATE_CTL resolve-context` will confirm the current active gate.
 
 ---
 

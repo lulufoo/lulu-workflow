@@ -50,6 +50,16 @@ _CONV_ID_INJECT_SCRIPT_SUFFIXES = (
     "/lulu-tasks/scripts/tt_start.py",
 )
 
+# Inductive grounding controls: always bind to the hook conversation id (override agent typos).
+_INDUCTIVE_CONV_OVERRIDE_SUFFIXES = (
+    "/compose/scripts/inductive/inductive_gate_control.py",
+    "/compose/scripts/inductive/inductive_grounding_control.py",
+)
+
+_CONV_ID_ARG = re.compile(
+    r'--conversation-id(?:=(\S+)|\s+"([^"]*)"|\'([^\']*)\'|\s+(\S+))'
+)
+
 
 def _emit_response(
     platform_mod,
@@ -78,6 +88,27 @@ def _should_inject_conversation_id(command: str) -> bool:
     if not _WORKFLOW_PY_PATH.search(command):
         return False
     return any(suffix in command for suffix in _CONV_ID_INJECT_SCRIPT_SUFFIXES)
+
+
+def _should_override_conversation_id(command: str) -> bool:
+    if not re.search(r"\bpython3?\b", command):
+        return False
+    if not _WORKFLOW_PY_PATH.search(command):
+        return False
+    return any(suffix in command for suffix in _INDUCTIVE_CONV_OVERRIDE_SUFFIXES)
+
+
+def _apply_conversation_id(command: str, conv_id: str) -> Optional[str]:
+    """Append or replace --conversation-id for workflow shell commands."""
+    if not conv_id:
+        return None
+    if _should_override_conversation_id(command):
+        if _CONV_ID_ARG.search(command):
+            return _CONV_ID_ARG.sub(f"--conversation-id {conv_id}", command, count=1)
+        return f"{command} --conversation-id {conv_id}"
+    if _should_inject_conversation_id(command):
+        return f"{command} --conversation-id {conv_id}"
+    return None
 
 
 def _workflow_cache_dir(platform: str) -> Path:
@@ -184,8 +215,8 @@ def main() -> int:
             try:
                 command = tool_input.get("command", "")
                 conv_id = (normalized.get("conversation_id") or "").strip()
-                if conv_id and _should_inject_conversation_id(command):
-                    new_cmd = f"{command} --conversation-id {conv_id}"
+                new_cmd = _apply_conversation_id(command, conv_id)
+                if new_cmd:
                     _emit_response(
                         platform_mod,
                         {

@@ -163,6 +163,26 @@ class TestShouldInjectConversationId:
         cmd = "python3 ~/.cursor/skills/lulu-dev-workflow/decision/scripts/dec_start.py --conversation-id existing"
         assert hook_entry._should_inject_conversation_id(cmd) is False
 
+    def test_inductive_override_replaces_agent_conv_id(self):
+        cmd = (
+            "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/inductive/"
+            "inductive_gate_control.py init-session --out-dir /tmp/r1 --sections I "
+            '--conversation-id "feature-20260703084622-3b3a7fdd-lulu-design"'
+        )
+        updated = hook_entry._apply_conversation_id(cmd, "9001dc22-85f1-404b-869c-2e471433da4d")
+        assert updated is not None
+        assert "9001dc22-85f1-404b-869c-2e471433da4d" in updated
+        assert "feature-20260703084622-3b3a7fdd-lulu-design" not in updated
+
+    def test_inductive_injects_when_flag_absent(self):
+        cmd = (
+            "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/inductive/"
+            "inductive_grounding_control.py record-grounding --out-dir /tmp/r1 --json '{}'"
+        )
+        updated = hook_entry._apply_conversation_id(cmd, "9001dc22-85f1-404b-869c-2e471433da4d")
+        assert updated is not None
+        assert updated.endswith("--conversation-id 9001dc22-85f1-404b-869c-2e471433da4d")
+
 
 class TestMainRouting:
     def test_no_conversation_id_allows(self, tmp_path, monkeypatch):

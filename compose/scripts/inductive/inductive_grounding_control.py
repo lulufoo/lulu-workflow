@@ -12,7 +12,7 @@ Subcommands:
     check-grounding      Verify every unsettled section has a receipt (--sweep)
 
 All subcommands print JSON to stdout; exit 0 on success, exit 1 on failure.
-Global flags: --out-dir PATH (required), --conversation-id (hook-injected).
+Global flags: --out-dir PATH (required). Platform session identity is hook-managed.
 """
 
 from __future__ import annotations
@@ -101,16 +101,16 @@ def _check_subagent_dispatch(out_dir: Path, conversation_id: str) -> None:
     master = _load_master_conversation_id(out_dir)
     if not master:
         raise ValueError(
-            f"{_MASTER_CONVERSATION_REQUIRED_PREFIX} init-session must record "
-            "--conversation-id on Cursor before record-grounding. Re-run "
-            "$INDUCTIVE_GATE_CTL init-session with --conversation-id."
+            f"{_MASTER_CONVERSATION_REQUIRED_PREFIX} init-session must complete "
+            "before record-grounding. Re-run $INDUCTIVE_GATE_CTL init-session, "
+            "then dispatch g3-shallow-grounding-runner."
         )
 
     conv_id = resolve_conversation_id(conversation_id)
     if not conv_id:
         raise ValueError(
-            f"{_CONVERSATION_ID_REQUIRED_PREFIX} record-grounding requires "
-            "--conversation-id (hook-injected on Cursor). Retry the command."
+            f"{_CONVERSATION_ID_REQUIRED_PREFIX} record-grounding failed: "
+            "caller session identity missing; retry via dispatched subagent."
         )
 
     if master == conv_id:

@@ -12,6 +12,10 @@ _INDUCTIVE_DIR = Path(__file__).resolve().parent.parent / "inductive"
 _GROUNDING_CTL = _INDUCTIVE_DIR / "inductive_grounding_control.py"
 _GATE_CTL = _INDUCTIVE_DIR / "inductive_gate_control.py"
 
+# Cursor-style UUIDs for SUBAGENT_REQUIRED tests (init-session validates UUID on Cursor).
+_PARENT_CONV = "11111111-1111-4111-8111-111111111111"
+_SUBAGENT_CONV = "22222222-2222-4222-8222-222222222222"
+
 sys.path.insert(0, str(_INDUCTIVE_DIR))
 from inductive_grounding_schema import (  # noqa: E402
     MAX_FACT_CHARS,
@@ -36,7 +40,7 @@ def _run(out_dir: Path, *args: str) -> tuple[int, dict]:
     return res.returncode, payload
 
 
-def _seed_session(out_dir: Path, *, master_conv: str = "parent-conv") -> None:
+def _seed_session(out_dir: Path, *, master_conv: str = _PARENT_CONV) -> None:
     res = subprocess.run(
         [
             sys.executable,
@@ -163,12 +167,12 @@ def test_check_sweep_coverage_rejects_frontier_kw_mismatch():
 
 def test_record_grounding_blocks_parent_conversation(tmp_path: Path, monkeypatch):
     monkeypatch.delenv("LULU_PLATFORM", raising=False)
-    _seed_session(tmp_path, master_conv="parent-conv")
+    _seed_session(tmp_path, master_conv=_PARENT_CONV)
     payload = json.dumps([_receipt("I"), _receipt("ST")])
     code, result = _run(
         tmp_path,
         "--conversation-id",
-        "parent-conv",
+        _PARENT_CONV,
         "record-grounding",
         "--sweep",
         "1",
@@ -216,7 +220,7 @@ def test_record_grounding_requires_master_conversation(tmp_path: Path, monkeypat
     code, result = _run(
         tmp_path,
         "--conversation-id",
-        "subagent-conv",
+        _SUBAGENT_CONV,
         "record-grounding",
         "--sweep",
         "1",
@@ -228,12 +232,12 @@ def test_record_grounding_requires_master_conversation(tmp_path: Path, monkeypat
 
 
 def test_record_grounding_allows_subagent_conversation(tmp_path: Path):
-    _seed_session(tmp_path, master_conv="parent-conv")
+    _seed_session(tmp_path, master_conv=_PARENT_CONV)
     payload = json.dumps([_receipt("I"), _receipt("ST")])
     code, result = _run(
         tmp_path,
         "--conversation-id",
-        "subagent-conv",
+        _SUBAGENT_CONV,
         "record-grounding",
         "--sweep",
         "1",
@@ -245,12 +249,12 @@ def test_record_grounding_allows_subagent_conversation(tmp_path: Path):
 
 
 def test_check_grounding_passes_when_all_covered(tmp_path: Path):
-    _seed_session(tmp_path, master_conv="parent-conv")
+    _seed_session(tmp_path, master_conv=_PARENT_CONV)
     payload = json.dumps([_receipt("I"), _receipt("ST")])
     code, _ = _run(
         tmp_path,
         "--conversation-id",
-        "subagent-conv",
+        _SUBAGENT_CONV,
         "record-grounding",
         "--sweep",
         "1",
@@ -265,12 +269,12 @@ def test_check_grounding_passes_when_all_covered(tmp_path: Path):
 
 
 def test_check_grounding_fails_when_section_missing(tmp_path: Path):
-    _seed_session(tmp_path, master_conv="parent-conv")
+    _seed_session(tmp_path, master_conv=_PARENT_CONV)
     payload = json.dumps([_receipt("I")])
     _run(
         tmp_path,
         "--conversation-id",
-        "subagent-conv",
+        _SUBAGENT_CONV,
         "record-grounding",
         "--sweep",
         "1",
@@ -310,7 +314,31 @@ def test_init_session_requires_conversation_id_on_cursor(tmp_path: Path, monkeyp
     )
     payload = json.loads(res.stdout)
     assert res.returncode == 1
-    assert "conversation-id" in payload.get("error", "").lower()
+    assert "platform session identity" in payload.get("error", "").lower()
+
+
+def test_init_session_rejects_non_uuid_master_on_cursor(tmp_path: Path, monkeypatch):
+    monkeypatch.delenv("LULU_PLATFORM", raising=False)
+    res = subprocess.run(
+        [
+            sys.executable,
+            str(_GATE_CTL),
+            "--out-dir",
+            str(tmp_path),
+            "init-session",
+            "--sections",
+            "I",
+            "--mandatory",
+            "",
+            "--conversation-id",
+            "feature-20260703084622-3b3a7fdd-lulu-design",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    payload = json.loads(res.stdout)
+    assert res.returncode == 1
+    assert "invalid platform session identity" in payload.get("error", "").lower()
 
 
 def test_schema_max_facts_constant():
