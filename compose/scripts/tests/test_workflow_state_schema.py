@@ -10,7 +10,6 @@ import pytest
 import bootstrap  # noqa: F401
 from bootstrap import CORE, SCHEMA_SESSION  # noqa: E402
 
-from delivered_refs_schema import DeliveredRef, delivered_path, parse_delivered_refs
 from workflow_state_schema import (
     get_schema,
     init_drafting,
@@ -31,7 +30,6 @@ _REQUIRED_FIELD_NAMES = {
     "cycle_type",
     "current_state",
     "evaluate_round",
-    "delivered_refs",
     "carry_forward_ref",
     "updated_at",
 }
@@ -43,7 +41,6 @@ _VALID_DATA = {
     "cycle_type": "feature",
     "current_state": "Drafting",
     "evaluate_round": "0",
-    "delivered_refs": '[{"type":"lulu-spec","path":"/path/to/product-doc.md"}]',
     "carry_forward_ref": "",
     "updated_at": "2024-01-01T00:00:00+00:00",
 }
@@ -86,11 +83,9 @@ class TestValidateWorkflowState:
 class TestInitDrafting:
     def test_writes_valid_drafting_state(self, tmp_path: Path):
         path = tmp_path / "revision1" / "workflow-state.md"
-        refs = [DeliveredRef(type="lulu-approach", path="/abs/decision.md")]
         init_drafting(
             path,
             mode="tech",
-            delivered_refs=refs,
             carry_forward_ref="/old/tech-doc.md",
         )
         loaded = load_workflow_state(path)
@@ -99,17 +94,13 @@ class TestInitDrafting:
         assert loaded["cycle_type"] == "feature"
         assert loaded["evaluate_round"] == "0"
         assert loaded["carry_forward_ref"] == "/old/tech-doc.md"
-        assert delivered_path(loaded, "lulu-approach") == "/abs/decision.md"
+        assert "delivered_refs" not in loaded
 
 
 class TestMarkHistorical:
     def test_idempotent(self, tmp_path: Path):
         path = tmp_path / "workflow-state.md"
-        init_drafting(
-            path,
-            mode="product",
-            delivered_refs=[DeliveredRef(type="lulu-spec", path="/p.md")],
-        )
+        init_drafting(path, mode="product")
         save_workflow_state(path, {"current_state": "Delivered"})
         mark_historical(path)
         first = load_workflow_state(path)
@@ -122,15 +113,11 @@ class TestMarkHistorical:
 class TestMarkInvalidated:
     def test_preserves_other_fields(self, tmp_path: Path):
         path = tmp_path / "workflow-state.md"
-        init_drafting(
-            path,
-            mode="product",
-            delivered_refs=[DeliveredRef(type="lulu-spec", path="/p.md")],
-        )
+        init_drafting(path, mode="product")
         mark_invalidated(path)
         loaded = load_workflow_state(path)
         assert loaded["current_state"] == "Invalidated"
-        assert delivered_path(loaded, "lulu-spec") == "/p.md"
+        assert loaded["mode"] == "product"
 
 
 class TestReadCurrentState:
@@ -156,15 +143,11 @@ class TestResolveWorkflowStatePathFromCycle:
 class TestSaveLoadRoundTrip:
     def test_merge_preserves_unmentioned_fields(self, tmp_path: Path):
         path = tmp_path / "workflow-state.md"
-        init_drafting(
-            path,
-            mode="product",
-            delivered_refs=[DeliveredRef(type="lulu-spec", path="/p.md")],
-        )
+        init_drafting(path, mode="product", carry_forward_ref="/old.md")
         save_workflow_state(path, {"current_state": "Evaluating", "evaluate_round": "1"})
         loaded = load_workflow_state(path)
         assert loaded["current_state"] == "Evaluating"
-        assert delivered_path(loaded, "lulu-spec") == "/p.md"
+        assert loaded["carry_forward_ref"] == "/old.md"
 
 
 class TestCli:

@@ -26,7 +26,6 @@ from session_info import (  # noqa: E402
 )
 from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, seed_profile_pointer_for_tests  # noqa: E402
 from workflow_state_schema import save_workflow_state  # noqa: E402
-from init_drafting_helpers import product_delivered_refs  # noqa: E402
 
 import bootstrap  # noqa: F401
 from bootstrap import CORE  # noqa: E402
@@ -63,7 +62,7 @@ def _setup_cycle(tmp_path: Path) -> tuple[Path, str]:
     from workflow_state_schema import init_drafting  # noqa: WPS433
 
     ws_path = revision / "workflow-state.md"
-    init_drafting(ws_path, mode="product", delivered_refs=product_delivered_refs("/p.md"))
+    init_drafting(ws_path, mode="product")
     save_workflow_state(ws_path, {"current_state": "ReadyForDelivery"})
     return tmp_path, cycle_id
 

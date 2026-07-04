@@ -60,7 +60,7 @@ from evaluate_state_schema import (  # noqa: E402
     save_evaluate_state,
 )
 from session_control import resume_after_eval  # noqa: E402
-from init_drafting_helpers import product_delivered_refs  # noqa: E402
+from init_drafting_helpers import product_delivered_refs, seed_frozen_delivered  # noqa: E402
 from workflow_state_schema import (  # noqa: E402
     init_drafting,
     load_workflow_state,
@@ -134,11 +134,9 @@ def _seed_session(tmp_path: Path, *, active_doc: int = 1) -> Path:
 
 def _setup_evaluating(tmp_path: Path, *, mode: str = "product") -> Path:
     ws = _seed_session(tmp_path)
-    init_drafting(
-        ws,
-        mode=mode,
-        delivered_refs=product_delivered_refs("/p.md") if mode == "product" else [],
-    )
+    init_drafting(ws, mode=mode)
+    if mode == "product":
+        seed_frozen_delivered(ws, product_delivered_refs("/p.md"))
     save_workflow_state(ws, {"current_state": "Evaluating", "evaluate_round": "1"})
     _init_evaluate_state(ws.parent / "evaluate-state.md", cycle_id=_CYCLE, tmp_path=tmp_path)
     return ws
@@ -196,7 +194,8 @@ def _setup_complete_round_ready(
 class TestDispatchList:
     def test_product_mode(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="product", delivered_refs=product_delivered_refs("/p.md"))
+        init_drafting(ws, mode="product")
+        seed_frozen_delivered(ws, product_delivered_refs("/p.md"))
         assert dispatch_list(_CYCLE, tmp_path) == ["e2", "e3"]
 
     def test_tech_mode_with_diagnostic_upstream(self, tmp_path: Path):
@@ -206,7 +205,8 @@ class TestDispatchList:
         decision = tmp_path / "decision-doc.md"
         decision.write_text("# Decision\n", encoding="utf-8")
         refs = [DeliveredRef(type="lulu-approach", path=str(decision.resolve()))]
-        init_drafting(ws, mode="tech", delivered_refs=refs)
+        init_drafting(ws, mode="tech")
+        seed_frozen_delivered(ws, refs)
         assert dispatch_list(_CYCLE, tmp_path) == ["e2", "e3", "e4"]
 
     def test_tech_mode_without_upstream(self, tmp_path: Path):
@@ -218,7 +218,8 @@ class TestDispatchList:
 class TestInitRound:
     def test_product_mode(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="product", delivered_refs=product_delivered_refs("/p.md"))
+        init_drafting(ws, mode="product")
+        seed_frozen_delivered(ws, product_delivered_refs("/p.md"))
         result = init_round(_CYCLE, tmp_path, mode="product")
         assert result["ok"] is True
         es = load_evaluate_state(ws.parent / "evaluate-state.md")
@@ -240,7 +241,7 @@ class TestInitRound:
 
     def test_product_mode_without_delivered_refs_uses_base_dims(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="product", delivered_refs=[])
+        init_drafting(ws, mode="product")
         init_round(_CYCLE, tmp_path, mode="product")
         es = load_evaluate_state(ws.parent / "evaluate-state.md")
         assert _dim_map(es, tmp_path) == {"e2": "pending", "e3": "pending"}
@@ -249,7 +250,8 @@ class TestInitRound:
 class TestBeginEvalRound:
     def test_from_drafting_enters_evaluating(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="product", delivered_refs=product_delivered_refs("/p.md"))
+        init_drafting(ws, mode="product")
+        seed_frozen_delivered(ws, product_delivered_refs("/p.md"))
         result = begin_eval_round(_CYCLE, tmp_path)
         assert result["ok"] is True
         assert result["dispatch"] == ["e2", "e3"]

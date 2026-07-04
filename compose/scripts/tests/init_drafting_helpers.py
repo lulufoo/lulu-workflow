@@ -4,13 +4,55 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from delivered_refs_schema import DeliveredRef, record_delivered_ref
+from delivered_refs_schema import DeliveredRef, load_delivered_refs_file, record_delivered_ref
+from resolved_refs_schema import freeze_delivered_copy, write_resolved_refs
 from start_scope_helpers import first_ref
 from session_state_schema import bump_active_doc
 from workflow_common import CACHE_DIR
 from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, seed_profile_pointer_for_tests
 from workflow_profile_paths import state_path
 from workflow_state_schema import init_drafting
+
+
+def seed_frozen_delivered(ws_path: Path, refs: list[DeliveredRef]) -> None:
+    """Write ① delivered-refs.json into the revision dir from an explicit ref list."""
+    entries = {
+        r.type: {
+            "delivered_type": r.type,
+            "path": r.path,
+            "revision": 1,
+            "profile_id": r.type,
+            "delivered_at": "",
+            "source_workflow_state": "",
+        }
+        for r in refs
+    }
+    freeze_delivered_copy(ws_path.parent, {"version": 1, "entries": entries})
+
+
+def seed_provenance_artifacts(
+    ws_path: Path,
+    *,
+    cycle_id: str,
+    project_root: Path,
+    stage: str,
+    mode: str,
+    scope_refs: list[DeliveredRef],
+    intent_baseline_refs: list[DeliveredRef] | None = None,
+    norm_constraint_refs: list[DeliveredRef] | None = None,
+) -> None:
+    """Mirror start.py: freeze ① and materialize ② into the revision dir."""
+    revision_dir = ws_path.parent
+    freeze_delivered_copy(revision_dir, load_delivered_refs_file(cycle_id, project_root))
+    write_resolved_refs(
+        revision_dir,
+        cycle_id=cycle_id,
+        stage=stage,
+        run_mode=mode,
+        scope_ref=scope_refs[0] if scope_refs else None,
+        intent_baseline_refs=intent_baseline_refs or [],
+        norm_constraint_refs=norm_constraint_refs or [],
+    )
 
 
 def product_delivered_refs(product_path: str = "/p.md") -> list[DeliveredRef]:
@@ -78,8 +120,15 @@ def seed_tech_plan_session(
     seed_profile_pointer_for_tests(project_root, cycle_id, profile_id)
     active_doc = bump_active_doc(cycle_id, project_root, profile_id)
     ws_path = project_root / state_path(cycle_id, active_doc, profile_id, project_root)
-    scope_refs = tech_plan_scope_refs(refs)
-    init_drafting(ws_path, mode=mode, delivered_refs=refs, scope_refs=scope_refs)
+    init_drafting(ws_path, mode=mode)
+    seed_provenance_artifacts(
+        ws_path,
+        cycle_id=cycle_id,
+        project_root=project_root,
+        stage=profile_id,
+        mode=mode,
+        scope_refs=tech_plan_scope_refs(refs),
+    )
     return ws_path
 
 
@@ -103,6 +152,19 @@ def seed_tech_design_session(
     seed_profile_pointer_for_tests(project_root, cycle_id, "lulu-design")
     active_doc = bump_active_doc(cycle_id, project_root, "lulu-design")
     ws_path = project_root / state_path(cycle_id, active_doc, "lulu-design", project_root)
-    scope_refs = tech_design_scope_refs(refs)
-    init_drafting(ws_path, mode=mode, delivered_refs=refs, scope_refs=scope_refs)
+    init_drafting(ws_path, mode=mode)
+    intent_refs = []
+    if mode == "product":
+        spec = first_ref(refs, "lulu-spec")
+        if spec is not None:
+            intent_refs = [spec]
+    seed_provenance_artifacts(
+        ws_path,
+        cycle_id=cycle_id,
+        project_root=project_root,
+        stage="lulu-design",
+        mode=mode,
+        scope_refs=tech_design_scope_refs(refs),
+        intent_baseline_refs=intent_refs,
+    )
     return ws_path

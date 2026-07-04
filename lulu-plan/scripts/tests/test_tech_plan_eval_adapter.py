@@ -19,6 +19,7 @@ import bootstrap  # noqa: F401
 from tech_plan_eval_adapter import TechPlanEvalAdapter  # noqa: E402
 from corpus_compose import COMPOSED_CORPUS_REF  # noqa: E402
 from workflow_state_schema import init_drafting  # noqa: E402
+from init_drafting_helpers import seed_frozen_delivered  # noqa: E402
 
 _CYCLE = "feat-adapter"
 _CACHE = Path(".cache/cursor/lulu-dev-workflow")
@@ -59,7 +60,8 @@ class TestTechPlanEvalAdapter:
         design_doc = tmp_path / "design-doc.md"
         design_doc.write_text("# Design\n", encoding="utf-8")
         refs = [DeliveredRef(type="lulu-design", path=str(design_doc.resolve()))]
-        init_drafting(ws, mode="tech", delivered_refs=refs)
+        init_drafting(ws, mode="tech")
+        seed_frozen_delivered(ws, refs)
         adapter = TechPlanEvalAdapter()
         corpus = adapter.resolve_eval_corpus(_CYCLE, tmp_path)
         ids = [d["id"] for d in corpus["dimensions"]]
@@ -74,7 +76,8 @@ class TestTechPlanEvalAdapter:
         decision_doc = tmp_path / "decision-doc.md"
         decision_doc.write_text("# Decision\n", encoding="utf-8")
         refs = [DeliveredRef(type="lulu-approach", path=str(decision_doc.resolve()))]
-        init_drafting(ws, mode="tech", delivered_refs=refs)
+        init_drafting(ws, mode="tech")
+        seed_frozen_delivered(ws, refs)
         adapter = TechPlanEvalAdapter()
         corpus = adapter.resolve_eval_corpus(_CYCLE, tmp_path)
         ids = [d["id"] for d in corpus["dimensions"]]

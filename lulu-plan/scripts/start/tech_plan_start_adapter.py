@@ -91,6 +91,23 @@ class TechPlanStartAdapter:
             out.append(primary)
         return out
 
+    def resolve_intent_baseline_refs(
+        self,
+        *,
+        delivered_refs: list[DeliveredRef],
+        run_mode: str = "tech",
+    ) -> list[DeliveredRef]:
+        del delivered_refs, run_mode
+        return []
+
+    def resolve_norm_constraint_refs(
+        self,
+        *,
+        project_root: Path | None = None,
+    ) -> list[DeliveredRef]:
+        del project_root
+        return []
+
     def delivered_ref_for_init(
         self,
         cycle_id: str,

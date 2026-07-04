@@ -13,10 +13,15 @@ import draft_control  # noqa: E402
 import drafting_progress_schema as progress_schema  # noqa: E402
 from session_state_schema import save_active_doc  # noqa: E402
 from workflow_profile_paths import doc_dir, inductive_out_dir, session_state_path, state_path  # noqa: E402
-from delivered_refs_schema import parse_delivered_refs, parse_scope_refs  # noqa: E402
+from resolved_refs_schema import frozen_delivered_refs  # noqa: E402
 from workflow_state_schema import init_drafting, load_workflow_state  # noqa: E402
 
-from init_drafting_helpers import seed_tech_design_session, seed_tech_plan_session  # noqa: E402
+from init_drafting_helpers import (  # noqa: E402
+    seed_provenance_artifacts,
+    seed_tech_design_session,
+    seed_tech_plan_session,
+    tech_design_scope_refs,
+)
 
 _CYCLE = "feature-draft-generic"
 _PROFILE_DESIGN = "lulu-design"
@@ -60,6 +65,38 @@ def test_begin_inductive_out_dir_under_revision(tmp_path: Path) -> None:
     assert f"INDUCTIVE_OUT_DIR:    {expected}" in dispatch
 
 
+def test_inductive_dispatch_carries_provenance_refs_tech(tmp_path: Path) -> None:
+    seed_tech_design_session(tmp_path, cycle_id=_CYCLE)
+
+    result = draft_control.begin_inductive(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
+
+    dispatch = result["dispatch_input"]
+    assert "INTENT_BASELINE_REFS: []" in dispatch
+    assert "NORM_CONSTRAINT_REFS: []" in dispatch
+
+
+def test_inductive_dispatch_intent_baseline_from_spec_product(tmp_path: Path) -> None:
+    from delivered_refs_schema import DeliveredRef  # noqa: WPS433
+
+    spec_doc = tmp_path / "spec" / "product-doc.md"
+    spec_doc.parent.mkdir(parents=True, exist_ok=True)
+    spec_doc.write_text("# Spec\n", encoding="utf-8")
+    decision = tmp_path / ".cache/cursor/lulu-dev-workflow" / _CYCLE / "lulu-approach" / "decision-doc.md"
+    decision.parent.mkdir(parents=True, exist_ok=True)
+    decision.write_text("# Decision\n", encoding="utf-8")
+    refs = [
+        DeliveredRef(type="lulu-approach", path=str(decision.resolve())),
+        DeliveredRef(type="lulu-spec", path=str(spec_doc.resolve())),
+    ]
+    seed_tech_design_session(tmp_path, cycle_id=_CYCLE, mode="product", delivered_refs=refs)
+
+    result = draft_control.begin_inductive(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
+
+    dispatch = result["dispatch_input"]
+    assert "lulu-spec" in dispatch
+    assert str(spec_doc.resolve()) in dispatch
+
+
 def test_revision2_inductive_isolated_from_revision1(tmp_path: Path) -> None:
     seed_tech_design_session(tmp_path, cycle_id=_CYCLE)
     rev1 = tmp_path / doc_dir(_CYCLE, 1, _PROFILE_DESIGN, tmp_path)
@@ -76,12 +113,16 @@ def test_revision2_inductive_isolated_from_revision1(tmp_path: Path) -> None:
     save_active_doc(ss_path, 2)
     rev1_ws = tmp_path / state_path(_CYCLE, 1, _PROFILE_DESIGN, tmp_path)
     rev1_state = load_workflow_state(rev1_ws)
+    rev1_refs = frozen_delivered_refs(rev1_ws.parent)
     rev2_ws = tmp_path / state_path(_CYCLE, 2, _PROFILE_DESIGN, tmp_path)
-    init_drafting(
+    init_drafting(rev2_ws, mode=rev1_state["mode"])
+    seed_provenance_artifacts(
         rev2_ws,
+        cycle_id=_CYCLE,
+        project_root=tmp_path,
+        stage=_PROFILE_DESIGN,
         mode=rev1_state["mode"],
-        delivered_refs=parse_delivered_refs(rev1_state),
-        scope_refs=parse_scope_refs(rev1_state),
+        scope_refs=tech_design_scope_refs(rev1_refs),
     )
 
     begin_init = draft_control.begin_init(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)

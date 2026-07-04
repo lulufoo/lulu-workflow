@@ -87,38 +87,3 @@ def delivered_path(state: dict[str, Any], delivered_type: str) -> str:
         if ref.type == delivered_type:
             return ref.path
     return ""
-
-
-def parse_scope_refs(state: dict[str, Any]) -> list[DeliveredRef]:
-    """Parse scope_refs JSON array from workflow-state frontmatter."""
-    raw = state.get("scope_refs", "[]")
-    if isinstance(raw, list):
-        items = raw
-    else:
-        text = str(raw).strip() or "[]"
-        items = json.loads(text)
-    if not isinstance(items, list):
-        raise ValueError("scope_refs must be a JSON array")
-    refs: list[DeliveredRef] = []
-    for item in items:
-        if not isinstance(item, dict):
-            raise ValueError("scope_refs items must be objects")
-        dtype = str(item.get("type", "")).strip()
-        path = str(item.get("path", "")).strip()
-        if not dtype or not path:
-            raise ValueError("scope_refs item requires non-empty type and path")
-        refs.append(DeliveredRef(type=dtype, path=path))
-    return refs
-
-
-def primary_scope_ref_from_state(state: dict[str, Any]) -> DeliveredRef | None:
-    """Return scope_refs[0] from workflow-state snapshot."""
-    refs = parse_scope_refs(state)
-    if not refs:
-        return None
-    return refs[0]
-
-
-def scope_doc_path_from_state(state: dict[str, Any]) -> str:
-    ref = primary_scope_ref_from_state(state)
-    return ref.path if ref is not None else ""

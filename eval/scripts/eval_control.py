@@ -48,7 +48,7 @@ if str(_KERNEL_SCRIPTS) not in sys.path:
 import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
-from delivered_refs_schema import delivered_path  # noqa: E402
+from resolved_refs_schema import frozen_delivered_path_by_type  # noqa: E402
 
 from review_io import (  # noqa: E402
     count_resolved,
@@ -197,6 +197,12 @@ _VALID_MODES = frozenset({"product", "tech"})
 _SEVERITY_RANK = {"critical": 3, "medium": 2, "minor": 1}
 
 
+def _product_ref(cycle_id: str, project_root: Path) -> str:
+    """Product baseline (lulu-spec) path from the per-revision frozen copy (①)."""
+    revision_dir = _adapter().resolve_workflow_state_path(cycle_id, project_root).parent
+    return frozen_delivered_path_by_type(revision_dir, "lulu-spec")
+
+
 def _bind_vars(
     cycle_id: str,
     state: dict[str, str],
@@ -207,7 +213,7 @@ def _bind_vars(
 ) -> dict[str, str]:
     bind = {
         "compose_doc": paths["compose_doc"],
-        "product_ref": delivered_path(state, "lulu-spec"),
+        "product_ref": _product_ref(cycle_id, project_root),
         "cycle_type": _adapter().detect_cycle_type(cycle_id),
         "M": str(evaluate_round),
     }
@@ -606,7 +612,7 @@ def build_eval_loop_payload(
         active_doc=active_doc,
         N=active_doc,
         cycle_type=_adapter().detect_cycle_type(cycle_id),
-        product_ref=delivered_path(state, "lulu-spec"),
+        product_ref=_product_ref(cycle_id, project_root),
         project_root=project_root.resolve().as_posix(),
         paths=paths,
     )
@@ -804,7 +810,7 @@ def _build_runner_input(
                 runner_input["PRODUCT_REF"] = ref
                 break
     if "PRODUCT_REF" not in runner_input:
-        pref = delivered_path(state, "lulu-spec")
+        pref = _product_ref(cycle_id, project_root)
         if pref and any(s.get("kind") == "url" for s in sots):
             runner_input["PRODUCT_REF"] = pref
     return runner_input
@@ -1146,7 +1152,7 @@ def _build_remediation_runner_input(
         "EVALUATE_ROUND": str(evaluate_round),
         "PROJECT_ROOT": project_root.resolve().as_posix(),
     }
-    product_ref = delivered_path(state, "lulu-spec")
+    product_ref = _product_ref(cycle_id, project_root)
     if product_ref:
         runner_input["PRODUCT_REF"] = product_ref
     return runner_input

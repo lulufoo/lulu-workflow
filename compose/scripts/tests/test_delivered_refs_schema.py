@@ -7,25 +7,9 @@ from pathlib import Path
 
 import bootstrap  # noqa: F401
 from delivered_refs_schema import (  # noqa: E402
-    DeliveredRef,
     load_delivered_refs_file,
-    parse_scope_refs,
-    primary_scope_ref_from_state,
-    serialize_delivered_refs,
 )
 from delivered_refs_backfill import backfill_delivered_refs_from_cycle  # noqa: E402
-
-
-def test_parse_scope_refs_primary_index():
-    state = {
-        "scope_refs": serialize_delivered_refs(
-            [DeliveredRef(type="lulu-approach", path="/abs/decision.md")],
-        ),
-    }
-    ref = primary_scope_ref_from_state(state)
-    assert ref is not None
-    assert ref.type == "lulu-approach"
-    assert len(parse_scope_refs(state)) == 1
 
 
 def test_backfill_from_delivered_tech_diagnostic(tmp_path: Path):

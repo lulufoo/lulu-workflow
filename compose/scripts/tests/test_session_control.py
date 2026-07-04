@@ -33,12 +33,8 @@ from session_control import (  # noqa: E402
     start_evaluating,
 )
 from workflow_state_schema import init_drafting, load_workflow_state, save_workflow_state
-from init_drafting_helpers import product_delivered_refs  # noqa: E402
 from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, seed_profile_pointer_for_tests  # noqa: E402
-from delivered_refs_schema import (  # noqa: E402
-    load_delivered_refs_file,
-    delivered_path,
-)
+from delivered_refs_schema import load_delivered_refs_file  # noqa: E402
 
 _CYCLE = "feat-test"
 _CACHE = Path(".cache/cursor/lulu-dev-workflow")
@@ -81,11 +77,11 @@ def _setup_abandon_ready(
     product_ref: str = "/p.md",
     carry_forward_ref: str = "/old.md",
 ) -> tuple[Path, Path]:
+    del product_ref
     ws = _seed_session(tmp_path)
     init_drafting(
         ws,
         mode=mode,
-        delivered_refs=product_delivered_refs(product_ref) if mode == "product" else [],
         carry_forward_ref=carry_forward_ref,
         evaluate_round=max(evaluate_round - 1, 0),
     )
@@ -106,7 +102,7 @@ def _setup_abandon_ready(
 class TestStartEvaluating:
     def test_from_drafting_product_mode(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="product", delivered_refs=product_delivered_refs("/p.md"))
+        init_drafting(ws, mode="product")
 
         result = _ADAPTER.enter_evaluating(_CYCLE, tmp_path)
 
@@ -182,7 +178,7 @@ class TestStartEvaluating:
 class TestReadyForDelivery:
     def test_from_drafting_sets_skip_flag(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="product", delivered_refs=product_delivered_refs("/p.md"))
+        init_drafting(ws, mode="product")
 
         result = ready_for_delivery(_CYCLE, tmp_path)
 
@@ -227,7 +223,7 @@ class TestReadyForDelivery:
 class TestDeliver:
     def test_success_from_ready_for_delivery(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="product", delivered_refs=product_delivered_refs("/p.md"))
+        init_drafting(ws, mode="product")
         (ws.parent / "tech-doc.md").write_text("# Tech\n", encoding="utf-8")
         ready_for_delivery(_CYCLE, tmp_path)
 
@@ -285,7 +281,6 @@ class TestAbandonEvaluation:
         assert loaded["evaluate_round"] == "2"
         assert loaded["skip_evaluate_requested"] == "false"
         assert loaded["mode"] == "product"
-        assert delivered_path(loaded, "lulu-spec") == "/p.md"
         assert loaded["carry_forward_ref"] == "/old.md"
 
     def test_failure_when_not_evaluating(self, tmp_path: Path):

@@ -24,7 +24,6 @@ from compose_doc_schema import (  # noqa: E402
     resolve_compose_doc_path_from_cycle,
 )
 
-from init_drafting_helpers import product_delivered_refs  # noqa: E402
 from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, seed_profile_pointer_for_tests  # noqa: E402
 
 _SCRIPT = SCHEMA_SECTION_DOCUMENT / "compose_doc_schema.py"
@@ -65,14 +64,9 @@ def _setup_cycle(tmp_path: Path, *, active_doc: int = 1) -> tuple[Path, str]:
         title="Feature X",
         summary="Deliver a unified session info facade.",
     )
-    from delivered_refs_schema import DeliveredRef  # noqa: WPS433
     from workflow_state_schema import init_drafting  # noqa: WPS433
 
-    init_drafting(
-        revision / "workflow-state.md",
-        mode="product",
-        delivered_refs=product_delivered_refs("/p.md"),
-    )
+    init_drafting(revision / "workflow-state.md", mode="product")
     return tmp_path, cycle_id
 
 

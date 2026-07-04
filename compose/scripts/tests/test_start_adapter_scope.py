@@ -18,29 +18,10 @@ for _rel in (
         sys.path.insert(0, str(_p))
 
 import bootstrap  # noqa: F401
-from delivered_refs_schema import (  # noqa: E402
-    DeliveredRef,
-    parse_scope_refs,
-    primary_scope_ref_from_state,
-    serialize_delivered_refs,
-)
+from delivered_refs_schema import DeliveredRef  # noqa: E402
 from product_spec_start_adapter import ProductSpecStartAdapter  # noqa: E402
 from tech_design_start_adapter import TechDesignStartAdapter  # noqa: E402
 from tech_plan_start_adapter import TechPlanStartAdapter  # noqa: E402
-
-
-def test_primary_scope_ref_from_state():
-    state = {
-        "scope_refs": serialize_delivered_refs(
-            [
-                DeliveredRef(type="lulu-design", path="/abs/design.md"),
-            ],
-        ),
-    }
-    ref = primary_scope_ref_from_state(state)
-    assert ref is not None
-    assert ref.type == "lulu-design"
-    assert len(parse_scope_refs(state)) == 1
 
 
 def test_tech_plan_resolve_scope_refs_primary_tech_chain():
@@ -87,3 +68,40 @@ def test_product_spec_resolve_scope_refs():
     )
     assert len(refs) == 1
     assert refs[0].type == "lulu-bet"
+
+
+def test_tech_design_scope_excludes_spec_in_product_mode():
+    adapter = TechDesignStartAdapter()
+    refs = adapter.resolve_scope_refs(
+        delivered_refs=[
+            DeliveredRef(type="lulu-approach", path="/abs/decision.md"),
+            DeliveredRef(type="lulu-spec", path="/abs/product.md"),
+        ],
+        run_mode="product",
+    )
+    assert [r.type for r in refs] == ["lulu-approach"]
+
+
+def test_tech_design_intent_baseline_is_spec_when_present():
+    adapter = TechDesignStartAdapter()
+    refs = adapter.resolve_intent_baseline_refs(
+        delivered_refs=[
+            DeliveredRef(type="lulu-approach", path="/abs/decision.md"),
+            DeliveredRef(type="lulu-spec", path="/abs/product.md"),
+        ],
+        run_mode="product",
+    )
+    assert [r.type for r in refs] == ["lulu-spec"]
+
+
+def test_tech_design_intent_baseline_empty_without_spec():
+    adapter = TechDesignStartAdapter()
+    refs = adapter.resolve_intent_baseline_refs(
+        delivered_refs=[DeliveredRef(type="lulu-approach", path="/abs/decision.md")],
+    )
+    assert refs == []
+
+
+def test_tech_design_norm_constraint_empty():
+    adapter = TechDesignStartAdapter()
+    assert adapter.resolve_norm_constraint_refs() == []

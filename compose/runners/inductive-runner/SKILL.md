@@ -27,7 +27,9 @@ The parent passes these in the `## Input` block; do not hardcode stage paths.
 |-----|---------|
 | `$COMPOSE_PROFILE` | Compose profile id (drives every `$FETCH_COMPOSE`) |
 | `$CYCLE_ID` | Active cycle id |
-| `$SCOPE_DOC` | Upstream scope SSOT path (Gate 1 reads this — e.g. `decision-doc.md`) |
+| `$SCOPE_DOC` | Upstream scope SSOT path — the 派生父级 (Gate 1 reads this; Gate 5 axis reuses it — e.g. `decision-doc.md`) |
+| `$INTENT_BASELINE_REFS` | JSON array of 意图基准 refs (e.g. `lulu-spec`); empty → Gate 5 algorithm A is skipped |
+| `$NORM_CONSTRAINT_REFS` | JSON array of 规范约束 refs (stage-level); empty → Gate 5 algorithm C is a no-op |
 | `$INDUCTIVE_OUT_DIR` | Active revision dir (`revision{active_doc}/`) for inductive state bundle |
 
 ## Session Paths (derived)
@@ -38,6 +40,8 @@ INDUCTIVE_DQI         = $INDUCTIVE_OUT_DIR/inductive-dqi.json
 INDUCTIVE_GATE_STATE  = $INDUCTIVE_OUT_DIR/inductive-gate-state.json
 INDUCTIVE_SECTION_PTR = $INDUCTIVE_OUT_DIR/inductive-section-pointer.json
 INDUCTIVE_EP_LEDGER   = $INDUCTIVE_OUT_DIR/exposed-points.json
+PROVENANCE_GATE_STATE = $INDUCTIVE_OUT_DIR/provenance-gate-state.json
+PROVENANCE_TRACES     = $INDUCTIVE_OUT_DIR/provenance-trace-{intent,scope,norm}.json   # Gate 5 deltas, one per role
 ```
 
 ---
@@ -49,6 +53,7 @@ INDUCTIVE_EP_LEDGER   = $INDUCTIVE_OUT_DIR/exposed-points.json
 | `$FETCH_COMPOSE` | `python3 "$SKILL_ROOT/compose/scripts/io/fetch_compose_framework.py" --role <role> --profile "$COMPOSE_PROFILE" --project-root "$(pwd)" --cycle-id "$CYCLE_ID"` |
 | `$INDUCTIVE_GATE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_gate_control.py" --out-dir "$INDUCTIVE_OUT_DIR"` |
 | `$INDUCTIVE_SECTION_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_section_control.py" --out-dir "$INDUCTIVE_OUT_DIR"` |
+| `$PROVENANCE_GATE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/provenance_gate_control.py" --out-dir "$INDUCTIVE_OUT_DIR"` |
 
 Fetch schedule (do not read `workflow-config.json` directly):
 - **At Gate 1 start:** `$FETCH_COMPOSE --role inductive-scan-criteria` → `SCAN_CRITERIA`: Gate 1 shape field specs (`shape_extraction.fields`) and Gate 3 configuration (`expose_axis` — coverage axis, methods + weights, KW semantics, mandatory coverage).
@@ -80,7 +85,7 @@ Understanding a design is itself a process: the user resolves a sweep's open poi
 
 ## Pipeline
 
-**Gate 1 Shape → Gate 2 Grounding (background) → Gate 3 Refine (frontier sweep) → Gate 4 Recompose**
+**Gate 1 Shape → Gate 2 Grounding (background) → Gate 3 Refine (frontier sweep) → Gate 4 Recompose → Gate 5 Provenance**
 
 The gates progressively refine the **same shape artifact** from coarse to fine. Each gate has an observable close criterion. Do not advance until it is met.
 
@@ -208,12 +213,39 @@ Each `<SECTION>.md` — built across sweeps via `append-to-section`, finalised a
 
 **`INDUCTIVE_DQI`** (`inductive-dqi.json`) is assembled by `$INDUCTIVE_GATE_CTL` — not hand-written. Top-level keys: `version`, `source_scope_doc`, `architecture_view`, `exposed_points`, `recompose_check`. It aggregates the already-documented parts: `architecture_view` + `shape_constraints` (the G1 close payload), an `exposed_points` snapshot (the EP ledger; per-EP contract in `inductive_exposed_points_schema.py`), and `recompose_check` (the G4 close payload).
 
+On G4 close, proceed to Gate 5 before returning to the parent.
+
+---
+
+## Gate 5 — Provenance (find & name only)
+
+**Goal:** on the G4-coherent section files, **name every deviation** of this stage's output from its upstream references, and drop them into three trace files. Like Gate 4, Gate 5 **only finds and names — it never fixes a decision and never collects sign-off.** All deltas are written `pending-signoff`; sign-off and delivery blocking are a later phase.
+
+**Three upstream roles → three algorithms → three trace files** (role → algorithm → file):
+- **意图基准 (intent-baseline, `$INTENT_BASELINE_REFS`)** → algorithm A → `provenance-trace-intent.json`. Empty refs → skip A.
+- **派生父级 (scope, `$SCOPE_DOC`)** → algorithm B → `provenance-trace-scope.json`.
+- **规范约束 (norm-constraint, `$NORM_CONSTRAINT_REFS`)** → algorithm C → `provenance-trace-norm.json`. Empty refs → C is a no-op.
+
+The full algorithm semantics (per-role default-deny vs violation-scan, what each bucket means) live in `docs/biz/compose-provenance-mechanism.md`; the **allowed `(role, axis) → bucket`** vocabulary and row contract live in `provenance_trace_schema.py` (record-delta validates against it).
+
+**Two axes:**
+- **Axis 1 — overreach/conflict (per section).** For each `inductive-scope/<S>.md` (with its resolved EP `description`/`code_refs`): algorithm A flags product-visible decisions as `扩充意图`/`新增意图`/`不一致` (default-deny); B flags `不一致` with `$SCOPE_DOC` (silence = ok); C flags `违反` (silence = ok). Record each hit with its `section` key; present that section's axis-1 deltas as you finish it (per-section receipt).
+- **Axis 2 — coverage/fulfillment (whole document, once).** After all sections: enumerate each 意图基准 intent item unfulfilled anywhere downstream → `未履行意图` (intent trace); enumerate each 派生父级 explicit decision not carried forward/elaborated/explicitly deferred → `遗漏明确决策` (scope trace). 规范约束 has no axis 2. Axis-2 rows have `section=null`.
+
+**State management:**
+- Init (once, on entry after G4): `$PROVENANCE_GATE_CTL init-session --cycle-id "$CYCLE_ID" --stage "$COMPOSE_PROFILE"` — seeds gate state + three empty traces. Resume: `$PROVENANCE_GATE_CTL resolve-context`.
+- Record a delta: `$PROVENANCE_GATE_CTL record-delta --role <role> --id <id> --axis <1|2> --bucket <bucket> [--section <S>] --upstream-anchor <excerpt> --description <text> [--code-refs a.py:1,b.py:2]` (or `--json '<delta object>'`).
+- Present receipt: `$PROVENANCE_GATE_CTL present` (read-only).
+
+**Close criterion:** both axes scanned, deltas recorded, then `$PROVENANCE_GATE_CTL gate-close` — it presents the full delta list (read-only receipt, **not** a sign-off) and marks G5 closed. A clean stage simply closes with zero deltas.
+
 ### Return
 
 ```
 inductive-runner complete.
 per-section scope → <INDUCTIVE_DIR>/ (<N> sections)
 inductive-dqi.json → <path>
+provenance deltas → intent <A> / scope <B> / norm <C> (all pending-signoff)
 Deferred points: <N> (will appear in design-doc OQ)
 Returning to parent compose stage for compose Initializing.
 ```
@@ -231,7 +263,7 @@ The mechanical invariants the gates above must not violate (the *why* is in **Me
 - **Frontier sweep, not section-at-a-time:** Gate 3 advances all unsettled sections' maturity together — each sweep surfaces every section's coarsest open point at its `frontier_kw`; a section clears only when its `frontier_kw` reaches the target (default KW3) with no blocking-open EP.
 - **Open-point altitude = frontier KW:** every frontier-map open point is *selected* and *worded* at its section's `frontier_kw` row of `KW_CRITERIA` — no deeper-KW substance (signatures / counts / `file:line`) in the problem statement; that detail lives only in the leaning/接地 part. `human_inlet` points are exempt (any altitude, any dimension; AI maps them to a section).
 - **Collaboration baseline:** AI leads cognition (explore / think / surface + a grounded leaning); the user leads decision and progress. AI output is an exploration finding + leaning — never a multiple-choice menu the user answers, never a verdict.
-- **Gate altitudes:** Gate 1 is shape-first (no sections, no implementation detail; load-bearing claims at shape altitude → shape constraints on confirm). Gate 2 is background (no checkpoint; interrupt only on a shape-breaking divergence). Gate 3 is the only discovery gate; Gate 4 audits and **never discovers or fixes** — it names problems and routes them back to the owning gate, where the fix is user-decided.
+- **Gate altitudes:** Gate 1 is shape-first (no sections, no implementation detail; load-bearing claims at shape altitude → shape constraints on confirm). Gate 2 is background (no checkpoint; interrupt only on a shape-breaking divergence). Gate 3 is the only discovery gate; Gate 4 audits and **never discovers or fixes** — it names problems and routes them back to the owning gate, where the fix is user-decided. Gate 5 names upstream-provenance deltas into three trace files and **never fixes a decision nor collects sign-off** (all deltas `pending-signoff`; sign-off is a later phase).
 - **Two-layer focus guard is mechanical:** discovery may scan cross-section (read-only); every state-mutating command (`register-ep`, `update-ep`, `set-frontier`, `append-to-section`, `clear-section`, `skip-section`) is rejected unless its target equals `active_section`.
 - **Write timing:** per-section `<S>.md` is built via `append-to-section` and finalised at `clear-section` (Gate 3); `inductive-dqi.json` is finalized in Gate 4. No merged document, no `_overview` file.
 - **Lazy, one at a time:** examine source material only as each section requires (no unrelated scans); decide one point at a time (no batching); never raise an EP for content already settled by the scope doc or a shape constraint.

@@ -35,7 +35,7 @@ from compose_session import (  # noqa: E402
     workflow_state_path,
 )
 from workflow_common import detect_cycle_type  # noqa: E402
-from delivered_refs_schema import parse_delivered_refs  # noqa: E402
+from resolved_refs_schema import frozen_delivered_refs  # noqa: E402
 from workflow_state_schema import load_workflow_state  # noqa: E402
 
 _VIEW_DELIVERY_PREVIEW = "delivery-preview"
@@ -141,7 +141,7 @@ def session_snapshot(
             "current_state": state["current_state"],
             "mode": state.get("mode", ""),
             "evaluate_round": state.get("evaluate_round", "0"),
-            "delivered_refs": [r.to_dict() for r in parse_delivered_refs(state)],
+            "delivered_refs": [r.to_dict() for r in frozen_delivered_refs(ws_path.parent)],
             "carry_forward_ref": state.get("carry_forward_ref", ""),
         },
         "compose_doc": compose_doc,

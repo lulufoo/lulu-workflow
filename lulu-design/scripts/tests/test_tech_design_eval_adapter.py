@@ -59,9 +59,10 @@ class TestTechDesignEvalAdapter:
 
     def test_resolve_eval_corpus_product_mode(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        from init_drafting_helpers import product_delivered_refs  # noqa: WPS433
+        from init_drafting_helpers import product_delivered_refs, seed_frozen_delivered  # noqa: WPS433
 
-        init_drafting(ws, mode="product", delivered_refs=product_delivered_refs("/p.md"))
+        init_drafting(ws, mode="product")
+        seed_frozen_delivered(ws, product_delivered_refs("/p.md"))
         adapter = TechDesignEvalAdapter()
         corpus = adapter.resolve_eval_corpus(_CYCLE, tmp_path)
         assert [d["id"] for d in corpus["dimensions"]] == [
@@ -87,9 +88,10 @@ class TestTechDesignEvalAdapter:
 
     def test_session_context_product_ref(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        from init_drafting_helpers import product_delivered_refs  # noqa: WPS433
+        from init_drafting_helpers import product_delivered_refs, seed_frozen_delivered  # noqa: WPS433
 
-        init_drafting(ws, mode="product", delivered_refs=product_delivered_refs("/p.md"))
+        init_drafting(ws, mode="product")
+        seed_frozen_delivered(ws, product_delivered_refs("/p.md"))
         adapter = TechDesignEvalAdapter()
         ctx = adapter.session_context(_CYCLE, tmp_path)
         assert ctx.product_ref == "/p.md"

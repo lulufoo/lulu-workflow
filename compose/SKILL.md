@@ -56,7 +56,7 @@ python3 "$SKILL_ROOT/compose/scripts/core/start.py" \
   [--carry-forward-ref "<absolute-path-to-previous-revision>"]  # optional, if this profile's adapter supports it
 ```
 
-- `start.py` validates required upstream entries via this profile's `StartAdapter`, then snapshots them into `workflow-state.delivered_refs`; Initializing reads the snapshot.
+- `start.py` validates required upstream entries via this profile's `StartAdapter`, then writes two per-revision artifacts: a frozen full copy of the cycle `delivered-refs.json` (audit baseline) and the resolver-materialized `resolved-refs.json` (scope/intent/norm); Initializing reads the resolved scope from the latter.
 - **Run-mode legality is this profile's `StartAdapter.validate_for_start`'s responsibility**, not this engine's — it rejects an unsupported `<run_mode>` (or a missing required upstream ref for the given mode) with an explicit error list. This engine does not enumerate which run-modes each profile supports.
 - On non-zero exit ("Gate blocked: ..." or a validation error list): tell the user which prior stage must be delivered first, or which run-mode is invalid for this profile. Do not retry start.
 

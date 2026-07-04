@@ -72,14 +72,27 @@ class TechDesignStartAdapter:
         run_mode: str = "tech",
         carry_forward_ref: str = "",
     ) -> list[DeliveredRef]:
-        del carry_forward_ref
+        del run_mode, carry_forward_ref
         primary = first_ref(delivered_refs, "lulu-approach")
-        out = [primary] if primary is not None else []
-        if run_mode == "product":
-            product = first_ref(delivered_refs, "lulu-spec")
-            if product is not None:
-                out.append(product)
-        return out
+        return [primary] if primary is not None else []
+
+    def resolve_intent_baseline_refs(
+        self,
+        *,
+        delivered_refs: list[DeliveredRef],
+        run_mode: str = "tech",
+    ) -> list[DeliveredRef]:
+        del run_mode
+        spec = first_ref(delivered_refs, "lulu-spec")
+        return [spec] if spec is not None else []
+
+    def resolve_norm_constraint_refs(
+        self,
+        *,
+        project_root: Path | None = None,
+    ) -> list[DeliveredRef]:
+        del project_root
+        return []
 
     def delivered_ref_for_init(
         self,

@@ -38,7 +38,7 @@ from workflow_state_schema import (  # noqa: E402
     resolve_workflow_state_path_from_cycle,
     save_workflow_state,
 )
-from delivered_refs_schema import delivered_path  # noqa: E402
+from resolved_refs_schema import frozen_delivered_path_by_type  # noqa: E402
 
 sys.path.insert(0, str(EVAL_SCRIPTS))
 from workflow_adapter import SessionContext  # noqa: E402
@@ -91,6 +91,7 @@ class TechDesignEvalAdapter:
         self, cycle_id: str, project_root: Path
     ) -> SessionContext:
         state = self.load_workflow_state(cycle_id, project_root)
+        revision_dir = self.resolve_workflow_state_path(cycle_id, project_root).parent
         return SessionContext(
             active_doc=load_active_doc_from_cycle(
                 cycle_id,
@@ -98,7 +99,7 @@ class TechDesignEvalAdapter:
                 profile_id=_WORKFLOW_ID,
             ),
             mode=state["mode"],
-            product_ref=delivered_path(state, "lulu-spec"),
+            product_ref=frozen_delivered_path_by_type(revision_dir, "lulu-spec"),
             cycle_type=detect_cycle_type(cycle_id),
         )
 
@@ -150,7 +151,8 @@ class TechDesignEvalAdapter:
         cycle_type = detect_cycle_type(cycle_id)
         state = self.load_workflow_state(cycle_id, project_root)
         mode = state.get("mode", "tech")
-        product_ref = delivered_path(state, "lulu-spec")
+        revision_dir = self.resolve_workflow_state_path(cycle_id, project_root).parent
+        product_ref = frozen_delivered_path_by_type(revision_dir, "lulu-spec")
         dimensions = select_dimension_defs(
             cycle_type=cycle_type,
             dimension_defs_dir=self.dimension_defs_dir(),

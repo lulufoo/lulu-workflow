@@ -24,7 +24,6 @@ _CORE = _SCRIPTS / "core"
 if str(_CORE) not in sys.path:
     sys.path.insert(0, str(_CORE))
 
-from delivered_refs_schema import serialize_delivered_refs  # noqa: E402
 from session_state_schema import load_active_doc_from_cycle
 from workflow_common import (
     parse_frontmatter_fields,
@@ -48,10 +47,6 @@ _SCHEMA: list[dict] = [
      "description": "Session state from transition-whitelist"},
     {"field": "evaluate_round", "type": "string", "required": True,
      "description": "Evaluation round counter (non-negative integer as string)"},
-    {"field": "delivered_refs", "type": "string", "required": True,
-     "description": "JSON array of {type, path} upstream delivered documents (start snapshot)"},
-    {"field": "scope_refs", "type": "string", "required": False,
-     "description": "JSON array; compose intent SSOT snapshot ([0]=primary; not used for Eval)"},
     {"field": "carry_forward_ref", "type": "string", "required": True,
      "description": "Absolute path to previous compose doc revision (may be empty)"},
     {"field": "updated_at", "type": "string", "required": True,
@@ -73,8 +68,6 @@ _REQUIRED_KEY_ORDER = [
     "cycle_type",
     "current_state",
     "evaluate_round",
-    "delivered_refs",
-    "scope_refs",
     "carry_forward_ref",
     "updated_at",
 ]
@@ -145,24 +138,6 @@ def validate_workflow_state(data: dict) -> list[str]:
     historical = data.get("historical")
     if historical is not None and historical not in _HISTORICAL_VALUES:
         errors.append(f"invalid historical: {historical!r} (allowed: 'true' or omit)")
-
-    delivered_refs = data.get("delivered_refs")
-    if delivered_refs is not None:
-        try:
-            from delivered_refs_schema import parse_delivered_refs
-
-            parse_delivered_refs({"delivered_refs": delivered_refs})
-        except (ValueError, json.JSONDecodeError) as exc:
-            errors.append(f"invalid delivered_refs: {exc}")
-
-    scope_refs = data.get("scope_refs")
-    if scope_refs is not None:
-        try:
-            from delivered_refs_schema import parse_scope_refs
-
-            parse_scope_refs({"scope_refs": scope_refs})
-        except (ValueError, json.JSONDecodeError) as exc:
-            errors.append(f"invalid scope_refs: {exc}")
 
     if data.get("current_state") == "Delivered" and "skip_evaluate_requested" in data:
         errors.append(
@@ -259,24 +234,16 @@ def init_drafting(
     *,
     mode: str,
     cycle_type: str = "feature",
-    delivered_refs: list | None = None,
-    scope_refs: list | None = None,
     carry_forward_ref: str = "",
     evaluate_round: int = 0,
 ) -> None:
-    """Initialize workflow-state.md in Drafting state."""
-    from delivered_refs_schema import DeliveredRef
+    """Initialize workflow-state.md in Drafting state.
 
-    refs = delivered_refs or []
-    normalized = [
-        r if isinstance(r, DeliveredRef) else DeliveredRef(str(r["type"]), str(r["path"]))
-        for r in refs
-    ]
-    scope = scope_refs or []
-    normalized_scope = [
-        r if isinstance(r, DeliveredRef) else DeliveredRef(str(r["type"]), str(r["path"]))
-        for r in scope
-    ]
+    workflow-state carries pure session-control state. The frozen upstream
+    baseline (delivered-refs.json copy) and the resolved three provenance refs
+    (resolved-refs.json) are written to the revision dir by ``start.py``; see
+    ``resolved_refs_schema``.
+    """
     data = {
         "version": "1",
         "workflow": "tech-doc",
@@ -284,11 +251,8 @@ def init_drafting(
         "cycle_type": cycle_type,
         "current_state": "Drafting",
         "evaluate_round": str(evaluate_round),
-        "delivered_refs": serialize_delivered_refs(normalized),
         "carry_forward_ref": carry_forward_ref,
     }
-    if normalized_scope:
-        data["scope_refs"] = serialize_delivered_refs(normalized_scope)
     save_workflow_state(path, data, merge=False)
 
 

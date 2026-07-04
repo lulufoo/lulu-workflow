@@ -129,7 +129,7 @@ class TestResolveScopeRefs:
         types = [r.type for r in scope]
         assert types == ["lulu-approach"]
 
-    def test_product_mode_scope_has_both(self, tmp_path: Path):
+    def test_product_mode_scope_is_approach_only(self, tmp_path: Path):
         diag = _seed_diag_ref(tmp_path, _CYCLE)
         spec = _seed_product_ref(tmp_path, _CYCLE)
         from delivered_refs_schema import DeliveredRef  # noqa: WPS433
@@ -139,9 +139,22 @@ class TestResolveScopeRefs:
             DeliveredRef(type="lulu-spec", path=str(spec.resolve())),
         ]
         scope = _ADAPTER.resolve_scope_refs(delivered_refs=all_refs, run_mode="product")
-        types = [r.type for r in scope]
-        assert "lulu-approach" in types
-        assert "lulu-spec" in types
+        assert [r.type for r in scope] == ["lulu-approach"]
+
+    def test_product_mode_intent_baseline_is_spec(self, tmp_path: Path):
+        diag = _seed_diag_ref(tmp_path, _CYCLE)
+        spec = _seed_product_ref(tmp_path, _CYCLE)
+        from delivered_refs_schema import DeliveredRef  # noqa: WPS433
+
+        all_refs = [
+            DeliveredRef(type="lulu-approach", path=str(diag.resolve())),
+            DeliveredRef(type="lulu-spec", path=str(spec.resolve())),
+        ]
+        baseline = _ADAPTER.resolve_intent_baseline_refs(
+            delivered_refs=all_refs,
+            run_mode="product",
+        )
+        assert [r.type for r in baseline] == ["lulu-spec"]
 
 
 class TestPostStartGuidance:

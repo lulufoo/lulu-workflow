@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import argparse
-import importlib.util
 import json
 import sys
 from pathlib import Path
@@ -23,9 +22,10 @@ from workflow_sessions import current_effective_delivered, get_sessions  # noqa:
 from invalidation_hook import invalidate_downstream  # noqa: E402
 
 from delivered_refs_backfill import backfill_delivered_refs_from_cycle  # noqa: E402
-from delivered_refs_schema import serialize_delivered_refs  # noqa: E402
+from delivered_refs_schema import load_delivered_refs_file, serialize_delivered_refs  # noqa: E402
+from resolved_refs_schema import freeze_delivered_copy, write_resolved_refs  # noqa: E402
 from session_state_schema import load_active_doc, next_doc_round, save_active_doc
-from start_adapter import StartAdapter
+from start_adapter import StartAdapter, load_start_adapter
 from workflow_profile_paths import (
     session_state_path as profile_session_state_path,
     state_path as profile_state_path,
@@ -117,42 +117,6 @@ def _profile_path_from_args(args: argparse.Namespace) -> Path:
     if not profile_json_path.is_absolute():
         profile_json_path = (Path(args.project_root).resolve() / profile_json_path).resolve()
     return profile_json_path
-
-
-def load_start_adapter(profile: dict, profile_json_path: Path) -> StartAdapter:
-    """Instantiate the StartAdapter declared by profile.start."""
-    start_config = profile.get("start") or {}
-    adapter_module = str(start_config.get("adapter_module", "")).strip()
-    adapter_class = str(start_config.get("adapter_class", "")).strip()
-    if not adapter_module:
-        raise ValueError("profile.start.adapter_module is required")
-    if not adapter_class:
-        raise ValueError("profile.start.adapter_class is required")
-
-    workflow_root = profile_json_path.resolve().parent.parent
-    adapter_path = Path(adapter_module)
-    if not adapter_path.is_absolute():
-        adapter_path = (workflow_root / adapter_path).resolve()
-    if not adapter_path.is_file():
-        raise ValueError(f"start.adapter_module not found: {adapter_path.as_posix()}")
-
-    module_name = f"_compose_start_adapter_{profile.get('profile_id', profile_json_path.parent.name)}"
-    spec = importlib.util.spec_from_file_location(module_name, adapter_path)
-    if spec is None or spec.loader is None:
-        raise ValueError(f"cannot load start.adapter_module: {adapter_path.as_posix()}")
-
-    adapter_dir = str(adapter_path.parent)
-    if adapter_dir not in sys.path:
-        sys.path.insert(0, adapter_dir)
-
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    adapter_type = getattr(module, adapter_class, None)
-    if adapter_type is None:
-        raise ValueError(
-            f"adapter class {adapter_class!r} not found in {adapter_path.as_posix()}",
-        )
-    return adapter_type()
 
 
 def run_start(
@@ -271,9 +235,27 @@ def run_start(
         ws_path,
         mode=run_mode,
         cycle_type=cycle_type,
-        delivered_refs=delivered_refs,
-        scope_refs=scope_refs,
         carry_forward_ref=carry_forward_ref,
+    )
+
+    # Per-revision provenance artifacts (see resolved_refs_schema):
+    #   ① frozen full copy of the mutable cycle delivered-refs.json (audit baseline)
+    #   ② stage-resolved three refs — the only artifact compose consumers read
+    revision_dir = ws_path.parent
+    intent_baseline_refs = adapter.resolve_intent_baseline_refs(
+        delivered_refs=delivered_refs,
+        run_mode=run_mode,
+    )
+    norm_constraint_refs = adapter.resolve_norm_constraint_refs(project_root=project_root)
+    freeze_delivered_copy(revision_dir, load_delivered_refs_file(cycle_id, project_root))
+    write_resolved_refs(
+        revision_dir,
+        cycle_id=cycle_id,
+        stage=profile_id,
+        run_mode=run_mode,
+        scope_ref=scope_refs[0],
+        intent_baseline_refs=intent_baseline_refs,
+        norm_constraint_refs=norm_constraint_refs,
     )
 
     try:
@@ -302,7 +284,7 @@ Profile：     {profile_id}
 Cycle type：  {role_summary}
 评估轮次：    0
 delivered_refs：{refs_json}
-scope_refs：  {scope_json}
+scope（派生）：{scope_json}
 carry_forward：{carry_forward_ref or '（无）'}
 
 {note}

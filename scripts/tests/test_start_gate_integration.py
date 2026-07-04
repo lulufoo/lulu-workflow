@@ -409,8 +409,8 @@ class TestGatePasses:
         result = _run_start("lulu-plan", tmp_path)
         assert result.returncode == 0, result.stderr
 
-    def test_start_snapshots_delivered_refs(self, tmp_path):
-        """start.py snapshots delivered-refs.json into workflow-state.delivered_refs."""
+    def test_start_freezes_and_resolves_refs(self, tmp_path):
+        """start.py freezes ① delivered-refs.json copy and materializes ② resolved-refs.json."""
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID)
         _all_prior_delivered(cd, _CYCLE_ID, "lulu-plan")
@@ -423,18 +423,14 @@ class TestGatePasses:
             extra_args=_compose_start_args("lulu-plan", "--run-mode", "tech"),
         )
         assert result.returncode == 0, result.stderr or result.stdout
-        ws_path = cd / _CYCLE_ID / "lulu-plan" / "revision1" / "workflow-state.md"
-        assert ws_path.exists()
-        scripts_root = _LDEV / "scripts"
-        if str(scripts_root) not in sys.path:
-            sys.path.insert(0, str(scripts_root))
-        from workflow_sessions import parse_frontmatter  # noqa: WPS433
-
-        sys.path.insert(0, str(_LDEV / "compose" / "scripts" / "schema" / "session"))
-        from delivered_refs_schema import parse_delivered_refs  # noqa: WPS433
-
-        refs = parse_delivered_refs(parse_frontmatter(ws_path.read_text(encoding="utf-8")))
-        assert any(r.type == "lulu-design" and r.path == str(design.resolve()) for r in refs)
+        revision = cd / _CYCLE_ID / "lulu-plan" / "revision1"
+        # ① frozen full copy of the cycle delivered-refs.json (audit baseline)
+        frozen = json.loads((revision / "delivered-refs.json").read_text(encoding="utf-8"))
+        assert frozen["entries"]["lulu-design"]["path"] == str(design.resolve())
+        # ② stage-resolved three-ref product (tech-mode scope = lulu-design)
+        resolved = json.loads((revision / "resolved-refs.json").read_text(encoding="utf-8"))
+        assert resolved["scope_ref"]["type"] == "lulu-design"
+        assert resolved["scope_ref"]["path"] == str(design.resolve())
 
     def test_decision_always_passes(self, tmp_path):
         """decision stage not in cycle → gate always OK."""

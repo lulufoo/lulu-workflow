@@ -21,7 +21,7 @@ from workflow_paths import EVAL_SCRIPTS, load_profile, shell_path  # noqa: E402
 
 _WORKFLOW_ID = "lulu-spec"
 
-from delivered_refs_schema import delivered_path  # noqa: E402
+from resolved_refs_schema import has_resolved_refs, resolved_scope_ref  # noqa: E402
 from session_state_schema import load_active_doc_from_cycle  # noqa: E402
 from workflow_common import (  # noqa: E402
     CACHE_DIR,
@@ -191,8 +191,9 @@ class ProductSpecEvalAdapter:
     ) -> dict[str, str]:
         from subagent_config import detect_platform, resolve_workflow_config_path  # noqa: WPS433
 
-        state = self.load_workflow_state(cycle_id, project_root)
-        decision_ref = delivered_path(state, "lulu-bet")
+        revision_dir = self.resolve_workflow_state_path(cycle_id, project_root).parent
+        scope = resolved_scope_ref(revision_dir) if has_resolved_refs(revision_dir) else None
+        decision_ref = scope.path if scope is not None else ""
 
         plat = detect_platform(None)
         config_path = resolve_workflow_config_path(project_root.resolve(), plat)

@@ -31,7 +31,7 @@ from workflow_profile_paths import (  # noqa: E402
     document_path,
     eval_round_dir,
 )
-from delivered_refs_schema import delivered_path  # noqa: E402
+from resolved_refs_schema import frozen_delivered_path_by_type  # noqa: E402
 from workflow_state_schema import (  # noqa: E402
     load_workflow_state,
     resolve_workflow_state_path_from_cycle,
@@ -91,10 +91,11 @@ class TechPlanEvalAdapter:
         self, cycle_id: str, project_root: Path
     ) -> SessionContext:
         state = self.load_workflow_state(cycle_id, project_root)
+        revision_dir = self.resolve_workflow_state_path(cycle_id, project_root).parent
         return SessionContext(
             active_doc=load_active_doc_from_cycle(cycle_id, project_root, profile_id="lulu-plan"),
             mode=state["mode"],
-            product_ref=delivered_path(state, "lulu-spec"),
+            product_ref=frozen_delivered_path_by_type(revision_dir, "lulu-spec"),
             cycle_type=detect_cycle_type(cycle_id),
         )
 
@@ -136,9 +137,9 @@ class TechPlanEvalAdapter:
             compose_corpus,
         )
 
-        state = self.load_workflow_state(cycle_id, project_root)
-        tech_design_ref = delivered_path(state, "lulu-design")
-        tech_diagnostic_ref = delivered_path(state, "lulu-approach")
+        revision_dir = self.resolve_workflow_state_path(cycle_id, project_root).parent
+        tech_design_ref = frozen_delivered_path_by_type(revision_dir, "lulu-design")
+        tech_diagnostic_ref = frozen_delivered_path_by_type(revision_dir, "lulu-approach")
         cycle_type = detect_cycle_type(cycle_id)
         dimensions = select_dimension_defs(
             cycle_type=cycle_type,
@@ -191,9 +192,9 @@ class TechPlanEvalAdapter:
         tpt_tech_conformance_url = str(
             section.get("tpt_tech_conformance_url", "")
         ).strip()
-        state = self.load_workflow_state(cycle_id, project_root)
-        tech_design_path = delivered_path(state, "lulu-design")
-        tech_diagnostic_path = delivered_path(state, "lulu-approach")
+        revision_dir = self.resolve_workflow_state_path(cycle_id, project_root).parent
+        tech_design_path = frozen_delivered_path_by_type(revision_dir, "lulu-design")
+        tech_diagnostic_path = frozen_delivered_path_by_type(revision_dir, "lulu-approach")
         upstream_doc_path = tech_design_path or tech_diagnostic_path
         return {
             "tpt_intent_eval_framework_url": tpt_intent_eval_framework_url,

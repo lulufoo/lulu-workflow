@@ -24,8 +24,13 @@ from drafting_progress_schema import (  # noqa: E402
     resolve_drafting_progress_path_from_cycle,
     save_drafting_progress,
 )
+from delivered_refs_schema import serialize_delivered_refs  # noqa: E402
 from init_compose_validation import validate_init_artifacts  # noqa: E402
-from start_adapter import primary_scope_from_workflow  # noqa: E402
+from start_adapter import (  # noqa: E402
+    intent_baseline_from_workflow,
+    norm_constraint_from_workflow,
+    primary_scope_from_workflow,
+)
 from workflow_common import detect_cycle_type  # noqa: E402
 from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, load_profile  # noqa: E402
 from workflow_profile_paths import doc_dir, inductive_out_dir  # noqa: E402
@@ -109,10 +114,14 @@ def _format_inductive_dispatch_input(
     project_root: Path,
     profile_id: str,
 ) -> str:
+    intent_refs = intent_baseline_from_workflow(cycle_id, project_root, profile_id)
+    norm_refs = norm_constraint_from_workflow(cycle_id, project_root, profile_id)
     lines = [
         f"COMPOSE_PROFILE:      {profile_id}",
         f"CYCLE_ID:             {cycle_id}",
         f"SCOPE_DOC:            {_scope_doc(cycle_id, project_root, profile_id).as_posix()}",
+        f"INTENT_BASELINE_REFS: {serialize_delivered_refs(intent_refs)}",
+        f"NORM_CONSTRAINT_REFS: {serialize_delivered_refs(norm_refs)}",
         f"INDUCTIVE_OUT_DIR:    {_inductive_out_dir(cycle_id, project_root, profile_id).as_posix()}",
     ]
     return "\n".join(lines)

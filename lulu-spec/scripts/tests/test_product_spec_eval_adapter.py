@@ -21,6 +21,7 @@ from corpus_compose import PRODUCT_SPEC_COMPOSED_CORPUS_REF, corpus_fingerprint 
 from delivered_refs_schema import DeliveredRef  # noqa: E402
 from product_spec_eval_policy import select_dimension_ids  # noqa: E402
 from workflow_state_schema import init_drafting  # noqa: E402
+from init_drafting_helpers import seed_delivered_refs_file, seed_provenance_artifacts  # noqa: E402
 
 _CYCLE = "feat-lulu-spec-adapter"
 _CACHE = Path(".cache/cursor/lulu-dev-workflow")
@@ -42,14 +43,18 @@ def _seed_session(tmp_path: Path) -> Path:
     diag.parent.mkdir(parents=True, exist_ok=True)
     diag.write_text("# decision\n", encoding="utf-8")
     ws = rev / "workflow-state.md"
-    init_drafting(
-        ws,
-        mode="product",
-        delivered_refs=[
-            DeliveredRef(type="lulu-bet", path=str(diag.resolve())),
-        ],
-    )
+    refs = [DeliveredRef(type="lulu-bet", path=str(diag.resolve()))]
+    seed_delivered_refs_file(tmp_path, _CYCLE, refs)
+    init_drafting(ws, mode="product")
     seed_profile_pointer_for_tests(tmp_path, _CYCLE, "lulu-spec")
+    seed_provenance_artifacts(
+        ws,
+        cycle_id=_CYCLE,
+        project_root=tmp_path,
+        stage="lulu-spec",
+        mode="product",
+        scope_refs=refs,
+    )
     return ws
 
 
