@@ -40,6 +40,7 @@ INDUCTIVE_DQI         = $INDUCTIVE_OUT_DIR/inductive-dqi.json
 INDUCTIVE_GATE_STATE  = $INDUCTIVE_OUT_DIR/inductive-gate-state.json
 INDUCTIVE_SECTION_PTR = $INDUCTIVE_OUT_DIR/inductive-section-pointer.json
 INDUCTIVE_EP_LEDGER   = $INDUCTIVE_OUT_DIR/exposed-points.json
+INDUCTIVE_GROUNDING   = $INDUCTIVE_OUT_DIR/grounding-notes.json
 PROVENANCE_GATE_STATE = $INDUCTIVE_OUT_DIR/provenance-gate-state.json
 PROVENANCE_TRACES     = $INDUCTIVE_OUT_DIR/provenance-trace-{intent,scope,norm}.json   # Gate 5 deltas, one per role
 ```
@@ -53,6 +54,7 @@ PROVENANCE_TRACES     = $INDUCTIVE_OUT_DIR/provenance-trace-{intent,scope,norm}.
 | `$FETCH_COMPOSE` | `python3 "$SKILL_ROOT/compose/scripts/io/fetch_compose_framework.py" --role <role> --profile "$COMPOSE_PROFILE" --project-root "$(pwd)" --cycle-id "$CYCLE_ID"` |
 | `$INDUCTIVE_GATE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_gate_control.py" --out-dir "$INDUCTIVE_OUT_DIR"` |
 | `$INDUCTIVE_SECTION_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_section_control.py" --out-dir "$INDUCTIVE_OUT_DIR"` |
+| `$INDUCTIVE_GROUNDING_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_grounding_control.py" --out-dir "$INDUCTIVE_OUT_DIR"` |
 | `$PROVENANCE_GATE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/provenance_gate_control.py" --out-dir "$INDUCTIVE_OUT_DIR"` |
 
 Fetch schedule (do not read `workflow-config.json` directly):
@@ -118,7 +120,7 @@ The gates progressively refine the **same shape artifact** from coarse to fine. 
 
 **Close criterion:** the user confirms the spine, the To-Be structure, and the boundary (e.g. "形状确认" / "shape confirmed"). Corrections are folded in and the view re-presented until confirmed. On confirmation, call `$INDUCTIVE_GATE_CTL gate-close --gate G1 --payload '{"architecture_view": {...}, "shape_constraints": [...]}'` — this persists the `architecture_view` to the DQI, freezes the load-bearing claims into **shape constraints** (invariants Gate 3 must respect and must not re-open), and advances the spine to Gate 2.
 
-**Session init (once per session, at Gate 1 start):** call `$INDUCTIVE_GATE_CTL init-session --sections <coverage_sections CSV> --mandatory <mandatory_coverage_prompt CSV>` to seed both the gate state and section pointer. Skip if resuming an existing session — `$INDUCTIVE_GATE_CTL resolve-context` will confirm the current active gate.
+**Session init (once per session, at Gate 1 start):** call `$INDUCTIVE_GATE_CTL init-session --sections <coverage_sections CSV> --mandatory <mandatory_coverage_prompt CSV> --conversation-id <parent conversation id>` to seed both the gate state and section pointer. On **Cursor**, `--conversation-id` is **required** (hook-injected) — it records the orchestrating parent for the grounding subagent dispatch gate. Skip if resuming an existing session — `$INDUCTIVE_GATE_CTL resolve-context` will confirm the current active gate.
 
 ---
 
@@ -126,9 +128,11 @@ The gates progressively refine the **same shape artifact** from coarse to fine. 
 
 **Goal:** a fast, autonomous sanity-check that the confirmed shape's spine/topology is not fundamentally wrong. **Not** a user-facing audit; **not** an exhaustive line-level grounding (that happens lazily per section in Gate 3).
 
+**Read discipline (context guard):** confirm existence and topology only — main blocks exist / can exist, key relations are plausible. **Do not** read whole files; **do not** drop to line-level or signature-level detail. Use symbol locate + minimal line ranges if needed. G2 stays inline (no subagent in this phase).
+
 1. Examine only enough to confirm the spine and the To-Be topology are real (the main blocks exist / can exist, the key relations are plausible).
 2. **Surface upward only if a divergence breaks the shape** — i.e. the spine or topology is wrong. Then stop and reopen Gate 1 with the specific shape correction.
-3. Otherwise stay silent: record grounding notes as fuel for Gate 3. **Do not** present a confirmation table and **do not** ask the user to confirm grounding.
+3. Otherwise stay silent: keep any notes mental or minimal — distilled per-section grounding is persisted in Gate 3 via `$INDUCTIVE_GROUNDING_CTL`. **Do not** present a confirmation table and **do not** ask the user to confirm grounding.
 
 **Close criterion (automatic):** no shape-breaking divergence. Call `$INDUCTIVE_GATE_CTL gate-close --gate G2` (no payload — automatic close) to advance the spine to Gate 3; do not pause for a user checkpoint. (A shape-breaking divergence is the only thing that interrupts the user — then `$INDUCTIVE_GATE_CTL gate-reopen --gate G1` instead and correct the shape.)
 
@@ -156,19 +160,34 @@ The gates progressively refine the **same shape artifact** from coarse to fine. 
 
 **Per sweep:**
 
-1. **Ground on demand (background):** examine only the source material the unsettled sections need as fuel. No audit table.
-2. **Discover across sections (read-only):** for each unsettled section S, run S's methods at its `frontier_kw`; keep a candidate only if it leaves **the `frontier_kw` row of S in `KW_CRITERIA`** false — a concern that belongs to a deeper KW row is *not* in scope this sweep (it surfaces in a later sweep once S advances). **First subtract the shape constraints** (Gate 1 confirmed claims): a point those already settle is not an open point — do not re-surface it with shape-contradicting options; if a constraint settles only part of a point, keep the open residue. Discovery may scan any section (read-only); **registering** a point requires activating that section (mutation focus guard). (`human_inlet` points are exempt from this `frontier_kw` filter — see Global Rules.)
+1. **Shallow ground (subagent, whole sweep):** dispatch `g3-shallow-grounding-runner` via `$SUBAGENT_TOOL` with `$SUBAGENT_AWAIT_SYNC`:
 
-> Register each open point via `register-ep --json` under the `active_section`. The EP field contract — `id` · `section` · `block` · `method` · `kw` · `type` · `description` · `code_refs` · `confidence` · `blocking` · `source` · `status` (+ `resolution` when resolved) — and its allowed values live in `inductive_exposed_points_schema.py` (no `tier` field). Key bindings: `section` must equal `active_section`; `method` is the surfacing method ID or `human_inlet`; `kw` is the KW criterion it leaves false.
+```text
+Load {actual $SKILL_ROOT}/compose/runners/g3-shallow-grounding-runner/SKILL.md and follow its instructions.
 
-3. **Draw the frontier map as an exploration finding (not a menu, not a dump):** present **each unsettled section's coarsest open point** (one per section) as two paired parts:
+## Input
+SWEEP: <K>
+INDUCTIVE_OUT_DIR: {actual $INDUCTIVE_OUT_DIR}
+COMPOSE_PROFILE: {actual $COMPOSE_PROFILE}
+CYCLE_ID: {actual $CYCLE_ID}
+PROJECT_ROOT: $(pwd)
+```
+
+Then run `$INDUCTIVE_GROUNDING_CTL check-grounding --sweep <K>` **once** — immediately after the subagent returns, as the step-1 gate before step 2. Must pass before step 2. **Do not** re-run `check-grounding` later in the same sweep (e.g. after `set-frontier`) — receipts are frozen at grounding-time `frontier_kw`; advancing a section invalidates its sweep-K receipt for re-check; only a new sweep's step 1 re-validates. **Ignore** the subagent Task return beyond confirming completion — fuel step 2 only via `$INDUCTIVE_GROUNDING_CTL list-grounding --sweep <K>`. **Do not** read source inline in step 1.
+2. **Discover across sections (read-only, receipts as fuel):** for each unsettled section S, run S's methods at its `frontier_kw` **using only** sweep receipts from step 1 — **do not** inline-read source again in this step (re-read happens only in step 4 when the user expands a chosen point). Keep a candidate only if it leaves **the `frontier_kw` row of S in `KW_CRITERIA`** false — a concern that belongs to a deeper KW row is *not* in scope this sweep (it surfaces in a later sweep once S advances). **First subtract the shape constraints** (Gate 1 confirmed claims): a point those already settle is not an open point — do not re-surface it with shape-contradicting options; if a constraint settles only part of a point, keep the open residue. Discovery may scan any section (read-only); **registering** a point requires activating that section (mutation focus guard). (`human_inlet` points are exempt from this `frontier_kw` filter — see Global Rules.)
+
+   **Register before you present (mandatory):** for each open point kept from discovery, `activate-section` its section, then `register-ep --json` with `status: open` **before** step 3. Step 3 presents EPs already in `exposed-points.json` — not a substitute for registration. The frontier map needs at least one registered open EP per unsettled section surfaced this sweep (or an explicit `deferred` EP if the user already chose to skip).
+
+> EP field contract — `id` · `section` · `block` · `method` · `kw` · `type` · `description` · `code_refs` · `confidence` · `blocking` · `source` · `status` (+ `resolution` when resolved) — and allowed values live in `inductive_exposed_points_schema.py` (no `tier` field). Key bindings: `section` must equal `active_section`; `method` is the surfacing method ID or `human_inlet`; `kw` is the KW criterion it leaves false.
+
+3. **Draw the frontier map as an exploration finding (not a menu, not a dump):** present **each unsettled section's coarsest open point** (one per section, keyed to its registered EP id) as two paired parts:
    - **the problem, stated plainly** — worded at that section's `frontier_kw` altitude from `KW_CRITERIA` (e.g. at KW1 just *name which decision / constraint / contract is undecided*); **no signatures, counts, or `file:line` evidence in this part** — that depth belongs to deeper KW rows;
    - **my reading / leaning (接地)** — a grounded recommendation that *may* carry the concrete detail (signature, count, code anchor) the problem line withholds. This is where exploration touches ground; it never replaces the user's decision.
 
    The problem part describes; the leaning part grounds. This is the coarse, roughly uniform-resolution view of the whole change; earlier sweeps' deeper figures stay as the map — never overwrite them. Hand it back to the driver as exploration, not a quiz: *"I explored each dimension — these are the coarsest open problems I found and my reading of each; you decide which to deepen, skip, or add one I missed."* — never "pick option A/B/C".
-4. **User drives, one point at a time:** the user picks a point to expand, skips it, or proposes one via `human_inlet`. For the chosen point: `activate-section` its section → AI gives leaning + rationale + implication → user decides → `update-ep --status resolved` + `resolution`, then `append-to-section` folds the decision into that section's figure. Skipped → `update-ep --status deferred`.
+4. **User drives, one point at a time:** the user picks a point to expand, skips it, or proposes one via `human_inlet`. For the chosen point: `activate-section` its section → AI gives leaning + rationale + implication → user decides → `update-ep --status resolved` + `resolution`, then `append-to-section` folds the decision into that section's figure. Skipped → `update-ep --status deferred`. **Point expansion (deep grounding) stays inline** for now — targeted Read only for the chosen point; no whole-file reads.
 5. **Advance maturity:** once a section's points for this sweep are resolved/deferred, `set-frontier` it to its new KW.
-6. **Re-sweep or clear:** the user re-sweeps (recompute frontiers → step 2; the map deepens), or — for any section that reached the target with no blocking-open EP — confirms `clear-section`. A blocking-open EP, an unmet frontier, or an empty bucket blocks `clear-section` (hard gate at clear, not at navigation).
+6. **Re-sweep or clear:** the user re-sweeps (recompute frontiers → step 1; the map deepens), or — for any section that reached the target with no blocking-open EP — confirms `clear-section`. A blocking-open EP, an unmet frontier, or an empty bucket blocks `clear-section` (hard gate at clear, not at navigation).
 
 **Mandatory coverage:** `$SCAN_CRITERIA.mandatory_coverage_prompt` sections must reach `cleared` or `skipped` before G3 can close. For any with no discovered point, explicitly ask whether a coverage point should be added for this section — the guaranteed hearing for `human_inlet`.
 
@@ -266,5 +285,5 @@ The mechanical invariants the gates above must not violate (the *why* is in **Me
 - **Gate altitudes:** Gate 1 is shape-first (no sections, no implementation detail; load-bearing claims at shape altitude → shape constraints on confirm). Gate 2 is background (no checkpoint; interrupt only on a shape-breaking divergence). Gate 3 is the only discovery gate; Gate 4 audits and **never discovers or fixes** — it names problems and routes them back to the owning gate, where the fix is user-decided. Gate 5 names upstream-provenance deltas into three trace files and **never fixes a decision nor collects sign-off** (all deltas `pending-signoff`; sign-off is a later phase).
 - **Two-layer focus guard is mechanical:** discovery may scan cross-section (read-only); every state-mutating command (`register-ep`, `update-ep`, `set-frontier`, `append-to-section`, `clear-section`, `skip-section`) is rejected unless its target equals `active_section`.
 - **Write timing:** per-section `<S>.md` is built via `append-to-section` and finalised at `clear-section` (Gate 3); `inductive-dqi.json` is finalized in Gate 4. No merged document, no `_overview` file.
-- **Lazy, one at a time:** examine source material only as each section requires (no unrelated scans); decide one point at a time (no batching); never raise an EP for content already settled by the scope doc or a shape constraint.
+- **Lazy, one at a time:** examine source material only as each section requires (no unrelated scans); decide one point at a time (no batching); never raise an EP for content already settled by the scope doc or a shape constraint. Gate 3 shallow grounding runs in a dispatched subagent (whole sweep); leanings and decisions stay inline. Deep point expansion stays inline until a future runner is added.
 - **Stage-agnostic:** never hardcode a stage's cache subdir / upstream path / section set — use the dispatch inputs and the fetched `coverage_sections`.

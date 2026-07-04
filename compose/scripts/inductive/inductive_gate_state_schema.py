@@ -34,22 +34,28 @@ def _default_gate_entry(*, status: str) -> dict[str, Any]:
     return {"status": status, "closed_at": None, "payload": None}
 
 
-def init_gate_state(*, cycle_id: str, stage: str) -> dict[str, Any]:
+def init_gate_state(
+    *,
+    cycle_id: str,
+    stage: str,
+    master_conversation_id: str = "",
+) -> dict[str, Any]:
     """Return a new gate state with G1 active."""
     gates: dict[str, dict[str, Any]] = {}
     for gate in GATE_ORDER:
         status = "active" if gate == "G1" else "pending"
         gates[gate] = _default_gate_entry(status=status)
-    return normalize_gate_state(
-        {
-            "version": "1",
-            "cycle_id": cycle_id,
-            "stage": stage,
-            "active_gate": "G1",
-            "gates": gates,
-            "updated_at": _now_iso(),
-        }
-    )
+    data: dict[str, Any] = {
+        "version": "1",
+        "cycle_id": cycle_id,
+        "stage": stage,
+        "active_gate": "G1",
+        "gates": gates,
+        "updated_at": _now_iso(),
+    }
+    if master_conversation_id.strip():
+        data["master_conversation_id"] = master_conversation_id.strip()
+    return normalize_gate_state(data)
 
 
 def validate_gate_state(data: dict[str, Any]) -> list[str]:
@@ -110,7 +116,7 @@ def normalize_gate_state(data: dict[str, Any]) -> dict[str, Any]:
     if active not in GATE_ORDER:
         active = "G1"
 
-    return {
+    normalized: dict[str, Any] = {
         "version": "1",
         "cycle_id": str(data.get("cycle_id", "")),
         "stage": str(data.get("stage", "")),
@@ -118,6 +124,10 @@ def normalize_gate_state(data: dict[str, Any]) -> dict[str, Any]:
         "gates": gates,
         "updated_at": data.get("updated_at") or _now_iso(),
     }
+    master = str(data.get("master_conversation_id", "")).strip()
+    if master:
+        normalized["master_conversation_id"] = master
+    return normalized
 
 
 def load_gate_state(path: Path) -> dict[str, Any]:

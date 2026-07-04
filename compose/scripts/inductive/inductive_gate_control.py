@@ -36,6 +36,13 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
+_SCRIPTS = Path(__file__).resolve().parents[3] / "scripts"
+if str(_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS))
+
+from active_context_schema import resolve_conversation_id  # noqa: E402
+from platform_schema import detect_platform  # noqa: E402
+
 from inductive_gate_state_schema import (  # noqa: E402
     GATE_ORDER,
     close_gate,
@@ -98,9 +105,20 @@ def cmd_init_session(out_dir: Path, args: argparse.Namespace) -> None:
     if gate_path.exists():
         _fail(f"gate state already exists: {gate_path}; use resolve-context to resume")
 
+    master_conv = resolve_conversation_id(getattr(args, "conversation_id", "") or "") or ""
+    if detect_platform() == "cursor" and not master_conv:
+        _fail(
+            "init-session requires --conversation-id on Cursor "
+            "(hook-injected) so grounding SUBAGENT_REQUIRED can be enforced"
+        )
+
     cycle_id = args.cycle_id or ""
     stage = args.stage or ""
-    state = init_gate_state(cycle_id=cycle_id, stage=stage)
+    state = init_gate_state(
+        cycle_id=cycle_id,
+        stage=stage,
+        master_conversation_id=master_conv,
+    )
     save_gate_state(gate_path, state)
 
     # Delegate section pointer + EP ledger init
@@ -366,6 +384,11 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--mandatory", default="", help="Comma-separated mandatory section keys")
     p.add_argument("--cycle-id", default="", help="Cycle id for traceability")
     p.add_argument("--stage", default="", help="Compose stage id (e.g. lulu-design)")
+    p.add_argument(
+        "--conversation-id",
+        default="",
+        help="Orchestrating parent conversation id (Cursor hook); stored for grounding SUBAGENT_REQUIRED gate",
+    )
 
     # resolve-context
     sub.add_parser(

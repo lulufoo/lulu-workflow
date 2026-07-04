@@ -75,7 +75,7 @@ To **abandon a partial revision** and begin fresh after fixes, run `$START_COMPO
 
 Anchor the upstream scope doc in code before composing. Always run when enabled — no opt-in prompt. Profiles with `drafting.inductive: false` skip directly to Step 1.
 
-**Inductive-runner** is a human-driven 4-gate spine (Shape → Grounding → Refine → Recompose): AI recommends; the **user** closes each gate. Run it **inline in this conversation** (same as `/decision` gate runners). **No `$SUBAGENT_*`** — subagents cannot interact with the user.
+**Inductive-runner** is a human-driven gate spine (Shape → Grounding → Refine → Recompose → Provenance): AI recommends; the **user** closes each gate. Run the gate spine **inline in this conversation** (same as `/decision` gate runners). **Exception:** Gate 3 step 1 shallow grounding is dispatched to `g3-shallow-grounding-runner` via `$SUBAGENT_TOOL` — read-only, no user interaction, facts-only receipts. All leanings, EP registration, and gate closes stay inline; subagents cannot interact with the user.
 
 1. Run `$DRAFT_CONTROL begin-inductive`.
    - On failure → Blocking.
@@ -159,6 +159,7 @@ Dimension set, evaluation framework, and eval-mode branching (e.g. tech vs produ
 | Document | When |
 |----------|------|
 | `{SKILL_ROOT}/compose/runners/inductive-runner/SKILL.md` | Step 0 — inductive-runner (`drafting.inductive: true` profiles only) |
+| `{SKILL_ROOT}/compose/runners/g3-shallow-grounding-runner/SKILL.md` | Step 0 — Gate 3 shallow grounding subagent (dispatched from inductive-runner) |
 | `{SKILL_ROOT}/compose/runners/initializing-runner/SKILL.md` | Step 1 — initializing-runner |
 | `{$SKILL_ROOT}/eval/eval-rules.md` | Evaluating (user-initiated) |
 

@@ -136,6 +136,8 @@ class TestShouldInjectConversationId:
             "python3 ~/.cursor/skills/lulu-dev-workflow/lulu-tasks/scripts/tt_start.py --cycle-id fid1",
             "python3 ~/.cursor/skills/lulu-dev-workflow/lulu-code/scripts/tc_start.py --cycle-id fid1",
             "python3 ~/.cursor/skills/lulu-dev-workflow/lulu-code/scripts/tc_task_control.py resolve-context --task-id t1",
+            "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/inductive/inductive_gate_control.py init-session --out-dir /tmp/r1 --sections I",
+            "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/inductive/inductive_grounding_control.py record-grounding --out-dir /tmp/r1 --json '{}'",
         ],
     )
     def test_start_py_invocation(self, command):
