@@ -16,11 +16,12 @@ Subcommands:
     init-session     Seed gate state + three empty trace files
     resolve-context  Return gate status + per-role delta counts (resume entry)
     record-delta     Append one named delta to a role's trace file
+                      (must run in a dispatched g5-provenance-runner subagent)
     present          Read-only receipt: all deltas grouped by role
     gate-close       Require trace files exist, present summary, mark G5 closed
 
 All subcommands print JSON to stdout; exit 0 on success, exit 1 on failure.
-Global flag: --out-dir PATH (required).
+Global flag: --out-dir PATH (required). Platform session identity is hook-managed.
 """
 
 from __future__ import annotations
@@ -36,6 +37,11 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
+_SCRIPTS = Path(__file__).resolve().parents[3] / "scripts"
+if str(_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS))
+
+from inductive_subagent_guard import require_subagent_dispatch  # noqa: E402
 from provenance_trace_schema import (  # noqa: E402
     ROLES,
     append_delta,
@@ -125,6 +131,17 @@ def _build_delta(args: argparse.Namespace) -> dict[str, Any]:
 
 def cmd_record_delta(out_dir: Path, args: argparse.Namespace) -> None:
     try:
+        require_subagent_dispatch(
+            out_dir,
+            args.conversation_id or "",
+            record_command="record-delta",
+            runner_skill="g5-provenance-runner",
+            operation_label="Gate 5 provenance scan",
+        )
+    except ValueError as exc:
+        _fail(str(exc))
+
+    try:
         state = load_gate_state(out_dir)
     except (FileNotFoundError, ValueError) as exc:
         _fail(str(exc))
@@ -189,6 +206,11 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--out-dir", required=True, metavar="PATH",
                         help="$INDUCTIVE_OUT_DIR: revision dir for trace + gate state files")
+    parser.add_argument(
+        "--conversation-id",
+        default="",
+        help="Injected by hook_guard on Cursor; used for SUBAGENT_REQUIRED gate",
+    )
     sub = parser.add_subparsers(dest="subcommand", required=True)
 
     p = sub.add_parser("init-session", help="Seed gate state + empty trace files")

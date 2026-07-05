@@ -248,23 +248,31 @@ On G4 close, proceed to Gate 5 before returning to the parent.
 
 **Goal:** on the G4-coherent section files, **name every deviation** of this stage's output from its upstream references, and drop them into three trace files. Like Gate 4, Gate 5 **only finds and names — it never fixes a decision and never collects sign-off.** All deltas are written `pending-signoff`; sign-off and delivery blocking are a later phase.
 
-**Three upstream roles → three algorithms → three trace files** (role → algorithm → file):
-- **意图基准 (intent-baseline, `$INTENT_BASELINE_REFS`)** → algorithm A → `provenance-trace-intent.json`. Empty refs → skip A.
-- **派生父级 (scope, `$SCOPE_DOC`)** → algorithm B → `provenance-trace-scope.json`.
-- **规范约束 (norm-constraint, `$NORM_CONSTRAINT_REFS`)** → algorithm C → `provenance-trace-norm.json`. Empty refs → C is a no-op.
+**Read discipline (context guard):** runs in `g5-provenance-runner` subagent only — **do not** inline-read section files, `$SCOPE_DOC`, or upstream refs during G5.
 
-The full algorithm semantics (per-role default-deny vs violation-scan, what each bucket means) live in `docs/biz/compose-provenance-mechanism.md`; the **allowed `(role, axis) → bucket`** vocabulary and row contract live in `provenance_trace_schema.py` (record-delta validates against it).
+1. Call `$PROVENANCE_GATE_CTL init-session --cycle-id "$CYCLE_ID" --stage "$COMPOSE_PROFILE"` (once, on entry after G4) — seeds gate state + three empty traces. Resume: `$PROVENANCE_GATE_CTL resolve-context`.
+2. **Provenance scan (subagent):** dispatch `g5-provenance-runner` via `$SUBAGENT_TOOL` with `$SUBAGENT_AWAIT_SYNC`:
 
-**Two axes:**
-- **Axis 1 — overreach/conflict (per section).** For each `inductive-scope/<S>.md` (with its resolved EP `description`/`code_refs`): algorithm A flags product-visible decisions as `扩充意图`/`新增意图`/`不一致` (default-deny); B flags `不一致` with `$SCOPE_DOC` (silence = ok); C flags `违反` (silence = ok). Record each hit with its `section` key; present that section's axis-1 deltas as you finish it (per-section receipt).
-- **Axis 2 — coverage/fulfillment (whole document, once).** After all sections: enumerate each 意图基准 intent item unfulfilled anywhere downstream → `未履行意图` (intent trace); enumerate each 派生父级 explicit decision not carried forward/elaborated/explicitly deferred → `遗漏明确决策` (scope trace). 规范约束 has no axis 2. Axis-2 rows have `section=null`.
+```text
+Load {actual $SKILL_ROOT}/compose/runners/g5-provenance-runner/SKILL.md and follow its instructions.
 
-**State management:**
-- Init (once, on entry after G4): `$PROVENANCE_GATE_CTL init-session --cycle-id "$CYCLE_ID" --stage "$COMPOSE_PROFILE"` — seeds gate state + three empty traces. Resume: `$PROVENANCE_GATE_CTL resolve-context`.
-- Record a delta: `$PROVENANCE_GATE_CTL record-delta --role <role> --id <id> --axis <1|2> --bucket <bucket> [--section <S>] --upstream-anchor <excerpt> --description <text> [--code-refs a.py:1,b.py:2]` (or `--json '<delta object>'`).
-- Present receipt: `$PROVENANCE_GATE_CTL present` (read-only).
+## Input
+INDUCTIVE_OUT_DIR: {actual $INDUCTIVE_OUT_DIR}
+SCOPE_DOC: {actual $SCOPE_DOC}
+INTENT_BASELINE_REFS: {actual $INTENT_BASELINE_REFS}
+NORM_CONSTRAINT_REFS: {actual $NORM_CONSTRAINT_REFS}
+COMPOSE_PROFILE: {actual $COMPOSE_PROFILE}
+CYCLE_ID: {actual $CYCLE_ID}
+PROJECT_ROOT: $(pwd)
+```
 
-**Close criterion:** both axes scanned, deltas recorded, then `$PROVENANCE_GATE_CTL gate-close` — it presents the full delta list (read-only receipt, **not** a sign-off) and marks G5 closed. A clean stage simply closes with zero deltas.
+Do **not** paste section-file or upstream-ref contents in the Task prompt — the subagent reads them from disk. **Ignore** the Task return beyond confirming completion — read the actual deltas only via `$PROVENANCE_GATE_CTL present` next.
+
+Role/algorithm/file mapping, axis semantics, and bucket vocabulary are the subagent's own SSOT (its Pipeline + `docs/biz/compose-provenance-mechanism.md` §2 + `provenance_trace_schema.py`) — not repeated here.
+
+3. Call `$PROVENANCE_GATE_CTL present` (read-only) and show the user the full delta list — a receipt, **not** a sign-off.
+
+**Close criterion:** call `$PROVENANCE_GATE_CTL gate-close` — it re-presents the full delta list (read-only receipt) and marks G5 closed. A clean stage simply closes with zero deltas.
 
 ### Return
 

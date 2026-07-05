@@ -10,6 +10,10 @@ from pathlib import Path
 
 _INDUCTIVE_DIR = Path(__file__).resolve().parent.parent / "inductive"
 _GATE_CTL = _INDUCTIVE_DIR / "provenance_gate_control.py"
+_INDUCTIVE_GATE_CTL = _INDUCTIVE_DIR / "inductive_gate_control.py"
+
+_PARENT_CONV = "33333333-3333-4333-8333-333333333333"
+_SUBAGENT_CONV = "44444444-4444-4444-8444-444444444444"
 
 sys.path.insert(0, str(_INDUCTIVE_DIR))
 from provenance_trace_schema import (  # noqa: E402
@@ -32,6 +36,24 @@ def _run(out_dir: Path, *args: str) -> tuple[int, dict]:
     except json.JSONDecodeError:
         payload = {"ok": False, "raw": res.stdout, "stderr": res.stderr}
     return res.returncode, payload
+
+
+def _seed_master_conversation(out_dir: Path, *, master_conv: str = _PARENT_CONV) -> None:
+    """Seed inductive-gate-state.json's master_conversation_id (record-delta guard)."""
+    res = subprocess.run(
+        [
+            sys.executable, str(_INDUCTIVE_GATE_CTL), "--out-dir", str(out_dir),
+            "init-session", "--sections", "I,ST", "--mandatory", "",
+            "--cycle-id", "c1", "--conversation-id", master_conv,
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert res.returncode == 0, res.stdout + res.stderr
+
+
+def _run_delta(out_dir: Path, conv_id: str, *args: str) -> tuple[int, dict]:
+    return _run(out_dir, "--conversation-id", conv_id, *args)
 
 
 # --- schema ---------------------------------------------------------------
@@ -132,15 +154,18 @@ def test_init_twice_fails(tmp_path: Path):
 
 
 def test_record_and_close_flow(tmp_path: Path):
+    _seed_master_conversation(tmp_path)
     _run(tmp_path, "init-session", "--stage", "lulu-design")
-    code, payload = _run(
-        tmp_path, "record-delta",
+    code, payload = _run_delta(
+        tmp_path, _SUBAGENT_CONV,
+        "record-delta",
         "--role", "scope", "--id", "s1", "--axis", "1", "--bucket", "不一致",
         "--section", "ST", "--upstream-anchor", "X", "--description", "与X矛盾",
     )
     assert code == 0, payload
-    code, payload = _run(
-        tmp_path, "record-delta",
+    code, payload = _run_delta(
+        tmp_path, _SUBAGENT_CONV,
+        "record-delta",
         "--role", "intent-baseline", "--id", "i1", "--axis", "2", "--bucket", "未履行意图",
         "--upstream-anchor", "Y", "--description", "未履行Y",
     )
@@ -154,9 +179,11 @@ def test_record_and_close_flow(tmp_path: Path):
 
 
 def test_record_invalid_bucket_rejected(tmp_path: Path):
+    _seed_master_conversation(tmp_path)
     _run(tmp_path, "init-session")
-    code, payload = _run(
-        tmp_path, "record-delta",
+    code, payload = _run_delta(
+        tmp_path, _SUBAGENT_CONV,
+        "record-delta",
         "--role", "scope", "--id", "s1", "--axis", "1", "--bucket", "扩充意图",
         "--section", "ST", "--upstream-anchor", "X", "--description", "d",
     )
@@ -165,12 +192,40 @@ def test_record_invalid_bucket_rejected(tmp_path: Path):
 
 
 def test_record_after_close_rejected(tmp_path: Path):
+    _seed_master_conversation(tmp_path)
     _run(tmp_path, "init-session")
     _run(tmp_path, "gate-close")
-    code, payload = _run(
-        tmp_path, "record-delta",
+    code, payload = _run_delta(
+        tmp_path, _SUBAGENT_CONV,
+        "record-delta",
         "--role", "scope", "--id", "s1", "--axis", "1", "--bucket", "不一致",
         "--section", "ST", "--upstream-anchor", "X", "--description", "d",
     )
     assert code == 1
     assert "closed" in payload["error"]
+
+
+def test_record_delta_blocks_parent_conversation(tmp_path: Path):
+    _seed_master_conversation(tmp_path)
+    _run(tmp_path, "init-session")
+    code, payload = _run_delta(
+        tmp_path, _PARENT_CONV,
+        "record-delta",
+        "--role", "scope", "--id", "s1", "--axis", "1", "--bucket", "不一致",
+        "--section", "ST", "--upstream-anchor", "X", "--description", "d",
+    )
+    assert code == 1
+    assert "SUBAGENT_REQUIRED" in payload.get("error", "")
+
+
+def test_record_delta_allows_subagent(tmp_path: Path):
+    _seed_master_conversation(tmp_path)
+    _run(tmp_path, "init-session")
+    code, payload = _run_delta(
+        tmp_path, _SUBAGENT_CONV,
+        "record-delta",
+        "--role", "scope", "--id", "s1", "--axis", "1", "--bucket", "不一致",
+        "--section", "ST", "--upstream-anchor", "X", "--description", "d",
+    )
+    assert code == 0, payload
+    assert payload.get("recorded") == "s1"
