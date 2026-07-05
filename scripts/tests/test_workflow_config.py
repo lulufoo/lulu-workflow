@@ -14,7 +14,10 @@ if str(_SCRIPTS) not in sys.path:
 
 from workflow_config_schema import (  # noqa: E402
     apply_workflow_config_from_url,
+    get_stage_config_bucket,
+    get_stage_config_value,
     load_stage_config,
+    nest_compose_stage_config,
     resolve_stage_config_path,
     resolve_workflow_config_path,
     split_monolith_payload,
@@ -92,6 +95,68 @@ class TestSplitMonolithPayload:
         assert stages["lulu-code"] == {"test_command": "npm test"}
         assert stages["decision"] == {"decision_doc_template_url": "https://example.com/d.md"}
 
+    def test_nests_compose_stage_from_profile(self) -> None:
+        manifest, stages = split_monolith_payload(
+            {
+                "version": 1,
+                "lulu-design": {
+                    "tdt_section_registry_url": "https://example.com/registry.json",
+                    "tdt_design_quality_framework_url": "https://example.com/quality.md",
+                    "tdt_design_doc_template_url": "https://example.com/dead.md",
+                },
+            }
+        )
+        assert manifest["layout"] == "stages"
+        assert stages["lulu-design"]["compose"]["tdt_section_registry_url"].endswith(
+            "registry.json"
+        )
+        assert stages["lulu-design"]["eval"]["tdt_design_quality_framework_url"].endswith(
+            "quality.md"
+        )
+        assert "tdt_design_doc_template_url" not in stages["lulu-design"]["compose"]
+        assert "tdt_design_doc_template_url" not in stages["lulu-design"].get("eval", {})
+
+
+class TestNestedComposeEvalConfig:
+    def test_get_stage_config_value_reads_compose_bucket(self, tmp_path: Path) -> None:
+        write_stage_config(
+            tmp_path,
+            "lulu-design",
+            {
+                "compose": {"tdt_section_registry_url": "https://example.com/r.json"},
+                "eval": {"tdt_design_quality_framework_url": "https://example.com/q.md"},
+            },
+        )
+        assert get_stage_config_value(
+            tmp_path, "lulu-design", "tdt_section_registry_url"
+        ).endswith("r.json")
+        assert get_stage_config_value(
+            tmp_path, "lulu-design", "tdt_design_quality_framework_url"
+        ).endswith("q.md")
+
+    def test_get_stage_config_bucket_eval(self, tmp_path: Path) -> None:
+        write_stage_config(
+            tmp_path,
+            "lulu-plan",
+            {
+                "compose": {"tpt_section_registry_url": "https://example.com/r.json"},
+                "eval": {"tpt_tech_conformance_url": "https://example.com/tc.md"},
+            },
+        )
+        eval_cfg = get_stage_config_bucket(tmp_path, "lulu-plan", "eval")
+        assert eval_cfg["tpt_tech_conformance_url"].endswith("tc.md")
+
+    def test_nest_compose_stage_config_uses_profile(self) -> None:
+        nested = nest_compose_stage_config(
+            "lulu-spec",
+            {
+                "pst_section_registry_url": "https://example.com/r.json",
+                "pst_product_eval_framework_url": "https://example.com/e.md",
+            },
+        )
+        assert nested["compose"]["pst_section_registry_url"].endswith("r.json")
+        assert nested["eval"]["pst_product_eval_framework_url"].endswith("e.md")
+
 
 class TestConfigureWorkflowConfig:
     def test_writes_stages_layout(self, tmp_path: Path) -> None:
@@ -124,7 +189,9 @@ class TestConfigureWorkflowConfig:
         assert target == expected_root
         assert (target / "manifest.json").exists()
         stage_cfg = json.loads((target / "stages" / "lulu-plan.json").read_text())
-        assert stage_cfg == {"tpt_tech_conformance_url": "https://example.com/tc.md"}
+        assert stage_cfg == {
+            "eval": {"tpt_tech_conformance_url": "https://example.com/tc.md"},
+        }
         assert workflow_config_is_present(tmp_path, "cursor")
 
     def test_cli_configure_prints_root(self, tmp_path: Path, monkeypatch) -> None:

@@ -33,7 +33,16 @@ _DEFAULT_CONFIGURE_BLOB_URL = (
     "https://github.com/lulufoo/lulu-workflow-framework/blob/main/template/workflow-config.json"
 )
 RESERVED_TOP_LEVEL_KEYS = frozenset({"version", "layout"})
+_STAGE_CONFIG_BUCKETS = frozenset({"compose", "eval"})
 _STAGE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
+_WORKFLOW_ROOT = Path(__file__).resolve().parents[1]
+_COMPOSE_PROFILE_FILENAME = "compose-profile.json"
+_DROP_ORPHAN_CONFIG_KEYS = frozenset(
+    {
+        "tdt_design_doc_template_url",
+        "tpt_spec_template_url",
+    }
+)
 
 
 def detect_platform(platform: Optional[str] = None) -> str:
@@ -251,6 +260,114 @@ def get_stage_config(project_root: Path, stage: str, platform: Optional[str] = N
     return load_stage_config(project_root, stage, platform)
 
 
+def compose_framework_config_keys(stage: str) -> frozenset[str]:
+    """Compose URL field names from compose-profile.json → framework_templates values."""
+    profile_path = _WORKFLOW_ROOT / stage / _COMPOSE_PROFILE_FILENAME
+    if not profile_path.is_file():
+        return frozenset()
+    try:
+        profile = json.loads(profile_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return frozenset()
+    templates = profile.get("framework_templates") or {}
+    if not isinstance(templates, dict):
+        return frozenset()
+    return frozenset(str(value) for value in templates.values() if value)
+
+
+def lookup_stage_config_value(cfg: dict, key: str) -> Optional[str]:
+    """Resolve one URL/key from nested compose/eval or flat legacy stage config."""
+    if not isinstance(cfg, dict):
+        return None
+    for bucket in ("compose", "eval"):
+        section = cfg.get(bucket)
+        if isinstance(section, dict) and key in section:
+            value = str(section.get(key, "")).strip()
+            return value or None
+    if key in cfg and key not in _STAGE_CONFIG_BUCKETS:
+        value = str(cfg.get(key, "")).strip()
+        return value or None
+    return None
+
+
+def stage_config_has_key(cfg: dict, key: str) -> bool:
+    if not isinstance(cfg, dict):
+        return False
+    for bucket in ("compose", "eval"):
+        section = cfg.get(bucket)
+        if isinstance(section, dict) and key in section:
+            return True
+    return key in cfg and key not in _STAGE_CONFIG_BUCKETS
+
+
+def get_stage_config_value(
+    project_root: Path,
+    stage: str,
+    key: str,
+    platform: Optional[str] = None,
+) -> str:
+    cfg = load_stage_config(project_root, stage, platform)
+    return lookup_stage_config_value(cfg, key) or ""
+
+
+def get_stage_config_bucket(
+    project_root: Path,
+    stage: str,
+    bucket: str,
+    platform: Optional[str] = None,
+) -> dict:
+    if bucket not in _STAGE_CONFIG_BUCKETS:
+        raise ValueError(f"invalid workflow config bucket: {bucket!r}")
+    cfg = load_stage_config(project_root, stage, platform)
+    section = cfg.get(bucket)
+    if isinstance(section, dict):
+        return dict(section)
+
+    compose_keys = compose_framework_config_keys(stage)
+    if not compose_keys:
+        return {}
+    if bucket == "compose":
+        return {
+            key: value
+            for key, value in cfg.items()
+            if key in compose_keys and key not in _STAGE_CONFIG_BUCKETS
+        }
+    return {
+        key: value
+        for key, value in cfg.items()
+        if key not in compose_keys and key not in _STAGE_CONFIG_BUCKETS
+    }
+
+
+def nest_compose_stage_config(stage: str, flat_cfg: dict) -> dict:
+    """Split a flat stage dict into compose/eval using compose-profile SSOT."""
+    if not isinstance(flat_cfg, dict) or not flat_cfg:
+        return flat_cfg if isinstance(flat_cfg, dict) else {}
+    if "compose" in flat_cfg or "eval" in flat_cfg:
+        return flat_cfg
+
+    compose_keys = compose_framework_config_keys(stage)
+    if not compose_keys:
+        return flat_cfg
+
+    compose: dict = {}
+    eval_cfg: dict = {}
+    for key, value in flat_cfg.items():
+        if key in _DROP_ORPHAN_CONFIG_KEYS:
+            continue
+        if key in compose_keys:
+            compose[key] = value
+        else:
+            eval_cfg[key] = value
+
+    nested: dict = {}
+    if compose:
+        nested["compose"] = compose
+    if eval_cfg:
+        nested["eval"] = eval_cfg
+    return nested or flat_cfg
+
+
 def split_monolith_payload(payload: dict) -> tuple[dict, dict[str, dict]]:
     """Split a monolith workflow-config dict into manifest + per-stage configs."""
     if not isinstance(payload, dict):
@@ -266,7 +383,7 @@ def split_monolith_payload(payload: dict) -> tuple[dict, dict[str, dict]]:
         if key in RESERVED_TOP_LEVEL_KEYS:
             continue
         if isinstance(value, dict):
-            stages[key] = value
+            stages[key] = nest_compose_stage_config(key, value)
     return manifest, stages
 
 

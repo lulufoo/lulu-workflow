@@ -168,10 +168,10 @@ class TechPlanEvalAdapter:
     def corpus_bind_extensions(
         self, cycle_id: str, project_root: Path
     ) -> dict[str, str]:
-        from subagent_config import detect_platform, get_stage_config  # noqa: WPS433
+        from subagent_config import detect_platform, get_stage_config_bucket  # noqa: WPS433
 
         plat = detect_platform(None)
-        section = get_stage_config(project_root.resolve(), "lulu-plan", plat)
+        section = get_stage_config_bucket(project_root.resolve(), "lulu-plan", "eval", plat)
         if not section:
             return self._empty_corpus_bind()
         cycle_type = detect_cycle_type(cycle_id)

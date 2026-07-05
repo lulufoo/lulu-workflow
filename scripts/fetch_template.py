@@ -12,7 +12,13 @@ import sys
 from pathlib import Path
 from typing import Callable, Optional
 
-from subagent_config import detect_platform, load_stage_config, workflow_config_is_present
+from subagent_config import (
+    detect_platform,
+    get_stage_config_value,
+    load_stage_config,
+    stage_config_has_key,
+    workflow_config_is_present,
+)
 
 CACHE_ROOT_NAME = "lulu-dev-workflow"
 CACHE_TEMPLATE_SUBDIR = ".template"
@@ -144,12 +150,12 @@ def read_config_url(
     except ValueError as exc:
         raise FetchTemplateError(str(exc)) from exc
 
-    if key not in section_cfg:
+    if not stage_config_has_key(section_cfg, key):
         raise FetchTemplateError(
             f"Missing key [{section}][{key!r}] in workflow stage config"
         )
 
-    url = str(section_cfg.get(key, "")).strip()
+    url = get_stage_config_value(project_root, section, key, platform)
     if not url:
         raise FetchTemplateError(
             f"Empty URL for [{section}][{key!r}] in workflow stage config"
