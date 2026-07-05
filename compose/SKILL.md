@@ -82,7 +82,7 @@ Anchor the upstream scope doc in code before composing. Always run when enabled 
    - On success → read the runner SKILL and follow its gate spine **interactively in this conversation**, with `begin-inductive` stdout as its `## Input`:
 
 ```text
-Load {actual $SKILL_ROOT}/compose/runners/inductive-runner/SKILL.md and follow its instructions in this conversation (interactive, human-driven — NOT a subagent).
+Load {actual $SKILL_ROOT}/compose/inductive-runner/SKILL.md and follow its instructions in this conversation (interactive, human-driven — NOT a subagent).
 
 ## Input
 {begin-inductive stdout}
@@ -99,7 +99,7 @@ Compose the compose document from the upstream scope doc (`I*` / `F` / `C` per s
    - On success → dispatch initializing-runner (stdout → `## Input`):
 
 ```text
-Load {actual $SKILL_ROOT}/compose/runners/initializing-runner/SKILL.md and follow its instructions.
+Load {actual $SKILL_ROOT}/compose/initializing-runner/SKILL.md and follow its instructions.
 
 ## Input
 {begin-init stdout}
@@ -158,10 +158,13 @@ Dimension set, evaluation framework, and eval-mode branching (e.g. tech vs produ
 
 | Document | When |
 |----------|------|
-| `{SKILL_ROOT}/compose/runners/inductive-runner/SKILL.md` | Step 0 — inductive-runner (`drafting.inductive: true` profiles only) |
-| `{SKILL_ROOT}/compose/runners/g2-grounding-runner/SKILL.md` | Step 0 — Gate 2 topology grounding subagent (dispatched from inductive-runner) |
-| `{SKILL_ROOT}/compose/runners/g3-shallow-grounding-runner/SKILL.md` | Step 0 — Gate 3 shallow grounding subagent (dispatched from inductive-runner) |
-| `{SKILL_ROOT}/compose/runners/initializing-runner/SKILL.md` | Step 1 — initializing-runner |
+| `{SKILL_ROOT}/compose/inductive-runner/SKILL.md` | Step 0 — inductive-runner (`drafting.inductive: true` profiles only) |
+| `{SKILL_ROOT}/compose/inductive-runner/g2-grounding-runner/SKILL.md` | Step 0 — Gate 2 topology grounding subagent (dispatched from inductive-runner) |
+| `{SKILL_ROOT}/compose/inductive-runner/g3-shallow-grounding-runner/SKILL.md` | Step 0 — Gate 3 shallow grounding subagent (dispatched from inductive-runner) |
+| `{SKILL_ROOT}/compose/inductive-runner/g3-deep-grounding-runner/SKILL.md` | Step 0 — Gate 3 deep grounding subagent (dispatched from inductive-runner) |
+| `{SKILL_ROOT}/compose/inductive-runner/g4-recompose-runner/SKILL.md` | Step 0 — Gate 4 recompose audit subagent (dispatched from inductive-runner) |
+| `{SKILL_ROOT}/compose/inductive-runner/g5-provenance-runner/SKILL.md` | Step 0 — Gate 5 provenance subagent (dispatched from inductive-runner) |
+| `{SKILL_ROOT}/compose/initializing-runner/SKILL.md` | Step 1 — initializing-runner |
 | `{$SKILL_ROOT}/eval/eval-rules.md` | Evaluating (user-initiated) |
 
 ---

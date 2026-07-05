@@ -26,9 +26,9 @@ Round still owns formal gap closure. Do not ask the user questions. Do not run I
 
 ## Theory (Compose)
 
-See [`../../references/compose-theory.md`](../../references/compose-theory.md).
+See [`../references/compose-theory.md`](../references/compose-theory.md).
 
-Derive artifact contract: [`../../references/init-draft-quality.md`](../../references/init-draft-quality.md).
+Derive artifact contract: [`../references/init-draft-quality.md`](../references/init-draft-quality.md).
 
 **Order (strict):** I2a Filter `I*` → I2b Derive `F` → I2c Derive `C` → I2d Write body → I2e Derive display title → I2f Persist section → [when `last_in_block`] I2g Block close.
 
@@ -97,7 +97,7 @@ _title-display.json          # I2e (section_key → display title)
 _title-block.json            # I2g (block_key → reader H2; last_in_block only)
 ```
 
-Field schema: [`init-draft-quality.md`](../../references/init-draft-quality.md).
+Field schema: [`init-draft-quality.md`](../references/init-draft-quality.md).
 
 After each I2f, resolve layout and run **I2g** when the current key is the last intent in its outline block (`last_in_block` from `$RESOLVE_OUTLINE_LAYOUT` JSON). Single-intent blocks (`first_in_block == last_in_block`) close in the same iteration.
 

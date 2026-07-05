@@ -132,7 +132,7 @@ The gates progressively refine the **same shape artifact** from coarse to fine. 
 1. **Topology ground (subagent):** dispatch `g2-grounding-runner` via `$SUBAGENT_TOOL` with `$SUBAGENT_AWAIT_SYNC`:
 
 ```text
-Load {actual $SKILL_ROOT}/compose/runners/g2-grounding-runner/SKILL.md and follow its instructions.
+Load {actual $SKILL_ROOT}/compose/inductive-runner/g2-grounding-runner/SKILL.md and follow its instructions.
 
 ## Input
 INDUCTIVE_OUT_DIR: {actual $INDUCTIVE_OUT_DIR}
@@ -176,7 +176,7 @@ Then run `$INDUCTIVE_GATE_CTL g2-check-report` **once** — immediately after th
 Dispatch `g3-shallow-grounding-runner` via `$SUBAGENT_TOOL` with `$SUBAGENT_AWAIT_SYNC`:
 
 ```text
-Load {actual $SKILL_ROOT}/compose/runners/g3-shallow-grounding-runner/SKILL.md and follow its instructions.
+Load {actual $SKILL_ROOT}/compose/inductive-runner/g3-shallow-grounding-runner/SKILL.md and follow its instructions.
 
 ## Input
 SWEEP: <K>
@@ -211,7 +211,7 @@ The user picks a point to expand, skips it, or proposes one via `human_inlet`. F
 **4a. Deep-ground it (subagent, one point):** dispatch `g3-deep-grounding-runner` via `$SUBAGENT_TOOL` with `$SUBAGENT_AWAIT_SYNC`:
 
 ```text
-Load {actual $SKILL_ROOT}/compose/runners/g3-deep-grounding-runner/SKILL.md and follow its instructions.
+Load {actual $SKILL_ROOT}/compose/inductive-runner/g3-deep-grounding-runner/SKILL.md and follow its instructions.
 
 ## Input
 EP_ID: {actual EP id}
@@ -269,7 +269,7 @@ Both are mechanical (file-presence / ledger checks) — no semantic judgement, s
 Dispatch `g4-recompose-runner` via `$SUBAGENT_TOOL` with `$SUBAGENT_AWAIT_SYNC`:
 
 ```text
-Load {actual $SKILL_ROOT}/compose/runners/g4-recompose-runner/SKILL.md and follow its instructions.
+Load {actual $SKILL_ROOT}/compose/inductive-runner/g4-recompose-runner/SKILL.md and follow its instructions.
 
 ## Input
 INDUCTIVE_OUT_DIR: {actual $INDUCTIVE_OUT_DIR}
@@ -313,7 +313,7 @@ On G4 close, proceed to Gate 5 before returning to the parent.
 2. **Provenance scan (subagent):** dispatch `g5-provenance-runner` via `$SUBAGENT_TOOL` with `$SUBAGENT_AWAIT_SYNC`:
 
 ```text
-Load {actual $SKILL_ROOT}/compose/runners/g5-provenance-runner/SKILL.md and follow its instructions.
+Load {actual $SKILL_ROOT}/compose/inductive-runner/g5-provenance-runner/SKILL.md and follow its instructions.
 
 ## Input
 INDUCTIVE_OUT_DIR: {actual $INDUCTIVE_OUT_DIR}
