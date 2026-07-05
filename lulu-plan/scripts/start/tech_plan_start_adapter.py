@@ -21,11 +21,18 @@ from delivered_refs_schema import (  # noqa: E402
     ref_from_file_entry,
 )
 from start_adapter import primary_scope_from_workflow  # noqa: E402
-from start_scope_helpers import first_ref  # noqa: E402
+from start_scope_helpers import first_ref, infer_product_or_tech  # noqa: E402
 
 
 class TechPlanStartAdapter:
     """Start rules for lulu-plan compose profile."""
+
+    def infer_run_mode(
+        self,
+        cycle_id: str,
+        project_root: Path,
+    ) -> str:
+        return infer_product_or_tech(cycle_id, project_root)
 
     def validate_for_start(
         self,

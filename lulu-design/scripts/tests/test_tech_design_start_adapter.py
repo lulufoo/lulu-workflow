@@ -58,10 +58,6 @@ def _seed_product_ref(tmp_path: Path, cycle_id: str) -> Path:
 
 
 class TestValidateForStart:
-    def test_rejects_invalid_run_mode(self, tmp_path: Path):
-        errors = _ADAPTER.validate_for_start(_CYCLE, tmp_path, run_mode="invalid")
-        assert any("run_mode" in e for e in errors)
-
     def test_tech_mode_requires_tech_diagnostic(self, tmp_path: Path):
         errors = _ADAPTER.validate_for_start(_CYCLE, tmp_path, run_mode="tech")
         assert any("lulu-approach" in e for e in errors)
@@ -81,6 +77,30 @@ class TestValidateForStart:
         _seed_product_ref(tmp_path, _CYCLE)
         errors = _ADAPTER.validate_for_start(_CYCLE, tmp_path, run_mode="product")
         assert errors == []
+
+
+class TestInferRunMode:
+    def test_tech_when_no_spec(self, tmp_path: Path):
+        _seed_diag_ref(tmp_path, _CYCLE)
+        assert _ADAPTER.infer_run_mode(_CYCLE, tmp_path) == "tech"
+
+    def test_product_when_spec_present(self, tmp_path: Path):
+        _seed_diag_ref(tmp_path, _CYCLE)
+        _seed_product_ref(tmp_path, _CYCLE)
+        assert _ADAPTER.infer_run_mode(_CYCLE, tmp_path) == "product"
+
+    def test_tech_when_spec_path_missing(self, tmp_path: Path):
+        _seed_diag_ref(tmp_path, _CYCLE)
+        record_delivered_ref(
+            _CYCLE,
+            tmp_path,
+            delivered_type="lulu-spec",
+            path="/nonexistent/product-doc.md",
+            revision=1,
+            profile_id="lulu-spec",
+            source_workflow_state="/nonexistent/ws.md",
+        )
+        assert _ADAPTER.infer_run_mode(_CYCLE, tmp_path) == "tech"
 
 
 class TestResolveDeliveredRefs:
@@ -155,6 +175,22 @@ class TestResolveScopeRefs:
             run_mode="product",
         )
         assert [r.type for r in baseline] == ["lulu-spec"]
+
+
+    def test_product_mode_intent_baseline_empty_in_tech_mode(self, tmp_path: Path):
+        diag = _seed_diag_ref(tmp_path, _CYCLE)
+        spec = _seed_product_ref(tmp_path, _CYCLE)
+        from delivered_refs_schema import DeliveredRef  # noqa: WPS433
+
+        all_refs = [
+            DeliveredRef(type="lulu-approach", path=str(diag.resolve())),
+            DeliveredRef(type="lulu-spec", path=str(spec.resolve())),
+        ]
+        baseline = _ADAPTER.resolve_intent_baseline_refs(
+            delivered_refs=all_refs,
+            run_mode="tech",
+        )
+        assert baseline == []
 
 
 class TestPostStartGuidance:

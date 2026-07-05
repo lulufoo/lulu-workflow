@@ -34,11 +34,10 @@ Identify active cycle per `_runtime.md` § Session Foundation, then run `$START_
 
 ```bash
 --profile lulu-design \
---profile-path "$SKILL_DIR/compose-profile.json" \
---run-mode tech|product
+--profile-path "$SKILL_DIR/compose-profile.json"
 ```
 
-`tech` is the default (design-doc only needs `lulu-approach`); use `product` when lulu-spec context applies (Evaluating then also runs against it).
+Run mode is inferred at start: `product` when cycle `delivered-refs.json` contains a valid `lulu-spec` entry; otherwise `tech`. Do not pass `--run-mode`.
 
 To resume an in-progress document, do not run start again — run `$SESSION_INFO --view session`.
 

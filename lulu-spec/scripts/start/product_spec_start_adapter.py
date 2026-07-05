@@ -28,6 +28,14 @@ from workflow_common import detect_cycle_type  # noqa: E402
 class ProductSpecStartAdapter:
     """Start rules for lulu-spec compose profile (feature cycles only)."""
 
+    def infer_run_mode(
+        self,
+        cycle_id: str,
+        project_root: Path,
+    ) -> str:
+        del cycle_id, project_root
+        return "product"
+
     def validate_for_start(
         self,
         cycle_id: str,

@@ -36,10 +36,9 @@ Identify active cycle per `_runtime.md` § Session Foundation, then run `$START_
 ```bash
 --profile lulu-plan \
 --profile-path "$SKILL_DIR/compose-profile.json" \
---run-mode tech|product \
 [--carry-forward-ref "<absolute-path-to-previous-tech-doc.md>"]  # optional, re-entry
 ```
 
-Use `product` when lulu-spec context applies; otherwise `tech`. `--carry-forward-ref`: provide when re-entering tech flow with a previous tech-doc as the draft starting point (re-entry = new iteration; never continue in the old directory).
+Run mode is inferred at start: `product` when cycle `delivered-refs.json` contains a valid `lulu-spec` entry; otherwise `tech`. Do not pass `--run-mode`. `--carry-forward-ref`: provide when re-entering tech flow with a previous tech-doc as the draft starting point (re-entry = new iteration; never continue in the old directory).
 
 To resume an in-progress document, do not run start again — run `$SESSION_INFO --view session`.

@@ -33,6 +33,11 @@ def _seed_product_diagnostic(tmp_path: Path, cycle_id: str) -> Path:
     return decision
 
 
+def test_infer_run_mode_is_product(tmp_path: Path) -> None:
+    adapter = ProductSpecStartAdapter()
+    assert adapter.infer_run_mode("feat-a", tmp_path) == "product"
+
+
 def test_validate_rejects_topic_cycle(tmp_path: Path) -> None:
     adapter = ProductSpecStartAdapter()
     errors = adapter.validate_for_start(

@@ -84,12 +84,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--project-root", default=".", help="Project root directory.")
     parser.add_argument("--cycle-id", required=True, help="Cycle ID (from cycle_init.py).")
     parser.add_argument(
-        "--run-mode",
-        required=True,
-        choices=["product", "tech"],
-        help="Workflow mode: 'product' or 'tech'.",
-    )
-    parser.add_argument(
         "--profile",
         required=True,
         help="Compose profile / stage id.",
@@ -143,7 +137,6 @@ def run_start(
 
     cycle_type = detect_cycle_type(cycle_id)
 
-    run_mode = args.run_mode
     carry_forward_ref = args.carry_forward_ref.strip()
 
     if carry_forward_ref and not Path(carry_forward_ref).exists():
@@ -153,6 +146,8 @@ def run_start(
     cache_dir = project_root / CACHE_DIR
 
     backfill_delivered_refs_from_cycle(cycle_id, project_root)  # reconcile index from cache
+
+    run_mode = adapter.infer_run_mode(cycle_id, project_root)
 
     start_errors = adapter.validate_for_start(
         cycle_id,

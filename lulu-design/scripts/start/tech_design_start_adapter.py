@@ -21,11 +21,18 @@ from delivered_refs_schema import (  # noqa: E402
     ref_from_file_entry,
 )
 from start_adapter import primary_scope_from_workflow  # noqa: E402
-from start_scope_helpers import first_ref  # noqa: E402
+from start_scope_helpers import first_ref, infer_product_or_tech  # noqa: E402
 
 
 class TechDesignStartAdapter:
     """Start rules for lulu-design compose profile."""
+
+    def infer_run_mode(
+        self,
+        cycle_id: str,
+        project_root: Path,
+    ) -> str:
+        return infer_product_or_tech(cycle_id, project_root)
 
     def validate_for_start(
         self,
@@ -82,7 +89,8 @@ class TechDesignStartAdapter:
         delivered_refs: list[DeliveredRef],
         run_mode: str = "tech",
     ) -> list[DeliveredRef]:
-        del run_mode
+        if run_mode != "product":
+            return []
         spec = first_ref(delivered_refs, "lulu-spec")
         return [spec] if spec is not None else []
 

@@ -26,6 +26,13 @@ from delivered_refs_schema import DeliveredRef
 class StartAdapter(Protocol):
     """Profile-specific start validation and provenance-ref derivation rules."""
 
+    def infer_run_mode(
+        self,
+        cycle_id: str,
+        project_root: Path,
+    ) -> str:
+        """Infer run_mode (``product`` or ``tech``) from cycle delivered-refs."""
+
     def validate_for_start(
         self,
         cycle_id: str,

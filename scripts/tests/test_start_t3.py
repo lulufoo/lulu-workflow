@@ -364,8 +364,7 @@ class TestSessionPath:
              "--project-root", str(tmp_path),
              "--cycle-id", _FID,
              "--profile", "lulu-plan",
-             "--profile-path", str(_LDEV / "lulu-plan" / "compose-profile.json"),
-             "--run-mode", "tech"],
+             "--profile-path", str(_LDEV / "lulu-plan" / "compose-profile.json")],
             capture_output=True, text=True, env=_ENV_COPILOT,
             cwd=str(_scripts_dir("lulu-plan")),
         )
@@ -462,7 +461,6 @@ class TestSessionPath:
              "--cycle-id", _FID,
              "--profile", "lulu-plan",
              "--profile-path", str(_LDEV / "lulu-plan" / "compose-profile.json"),
-             "--run-mode", "tech",
              "--conversation-id", _CONV_ID],
             capture_output=True, text=True, env=_ENV_COPILOT,
             cwd=str(_scripts_dir("lulu-plan")),

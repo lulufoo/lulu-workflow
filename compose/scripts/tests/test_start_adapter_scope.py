@@ -102,6 +102,21 @@ def test_tech_design_intent_baseline_empty_without_spec():
     assert refs == []
 
 
+def test_tech_design_infer_run_mode():
+    adapter = TechDesignStartAdapter()
+    assert adapter.infer_run_mode.__name__ == "infer_run_mode"
+
+
+def test_tech_plan_infer_run_mode():
+    adapter = TechPlanStartAdapter()
+    assert adapter.infer_run_mode.__name__ == "infer_run_mode"
+
+
+def test_product_spec_infer_run_mode():
+    adapter = ProductSpecStartAdapter()
+    assert adapter.infer_run_mode("feat-x", Path("/tmp")) == "product"
+
+
 def test_tech_design_norm_constraint_empty():
     adapter = TechDesignStartAdapter()
     assert adapter.resolve_norm_constraint_refs() == []

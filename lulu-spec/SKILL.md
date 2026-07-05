@@ -34,11 +34,10 @@ Identify active cycle per `_runtime.md` § Session Foundation, then run `$START_
 
 ```bash
 --profile lulu-spec \
---profile-path "$SKILL_DIR/compose-profile.json" \
---run-mode product
+--profile-path "$SKILL_DIR/compose-profile.json"
 ```
 
-Requires `lulu-bet` in delivered-refs for this feature cycle. Topic cycles are rejected at start with explicit stderr.
+Requires `lulu-bet` in delivered-refs for this feature cycle. Run mode is always `product` (inferred). Do not pass `--run-mode`.
 
 To resume an in-progress document, do not run start again — run `$SESSION_INFO --view session`.
 

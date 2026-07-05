@@ -257,13 +257,13 @@ def _stage_extra_args(stage: str, tmp_path: Path) -> list:
     if stage == "decision":
         return _diag_holder_args("lulu-bet")
     if stage == "lulu-spec":
-        return _compose_start_args("lulu-spec", "--run-mode", "product")
+        return _compose_start_args("lulu-spec")
     elif stage == "lulu-blueprint":
         return []
     elif stage == "lulu-arch":
         return []
     elif stage == "lulu-plan":
-        return _compose_start_args("lulu-plan", "--run-mode", "tech")
+        return _compose_start_args("lulu-plan")
     elif stage == "lulu-tasks":
         tech_ref = tmp_path / "tech-doc.md"
         tech_ref.write_text("# Tech Doc\n", encoding="utf-8")

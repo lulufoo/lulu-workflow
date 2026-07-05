@@ -12,7 +12,7 @@ description: >-
 
 Shared compose engine consumed by stage holder skills (`lulu-design`, `lulu-plan`, `lulu-spec`). Holders declare their profile id and a HARD-GATE to Read this file in full; this engine owns the reusable orchestration, scripts, and schemas so holders stay thin.
 
-Wherever this document says `<profile_id>`, substitute the calling holder's stage id (e.g. `lulu-design`). Wherever it says `<run_mode>`, substitute a value this profile's `StartAdapter` accepts (`product` and/or `tech` — see § start).
+Wherever this document says `<profile_id>`, substitute the calling holder's stage id (e.g. `lulu-design`).
 
 `DEFAULT_COMPOSE_PROFILE_ID` (`lulu-plan`) is for kernel tests and `load_profile()` fallbacks only. Production invocations must pass `--profile` via the macros below.
 
@@ -52,13 +52,12 @@ python3 "$SKILL_ROOT/compose/scripts/core/start.py" \
   --cycle-id "<cycle_id>" \
   --profile <profile_id> \
   --profile-path "$SKILL_DIR/compose-profile.json" \
-  --run-mode <run_mode> \
   [--carry-forward-ref "<absolute-path-to-previous-revision>"]  # optional, if this profile's adapter supports it
 ```
 
-- `start.py` validates required upstream entries via this profile's `StartAdapter`, then writes two per-revision artifacts: a frozen full copy of the cycle `delivered-refs.json` (audit baseline) and the resolver-materialized `resolved-refs.json` (scope/intent/norm); Initializing reads the resolved scope from the latter.
-- **Run-mode legality is this profile's `StartAdapter.validate_for_start`'s responsibility**, not this engine's — it rejects an unsupported `<run_mode>` (or a missing required upstream ref for the given mode) with an explicit error list. This engine does not enumerate which run-modes each profile supports.
-- On non-zero exit ("Gate blocked: ..." or a validation error list): tell the user which prior stage must be delivered first, or which run-mode is invalid for this profile. Do not retry start.
+- `start.py` validates required upstream entries via this profile's `StartAdapter`, infers `run_mode` (`product` or `tech`) from cycle `delivered-refs.json`, then writes two per-revision artifacts: a frozen full copy of the cycle `delivered-refs.json` (audit baseline) and the resolver-materialized `resolved-refs.json` (scope/intent/norm); Initializing reads the resolved scope from the latter.
+- **Run-mode inference is this profile's `StartAdapter.infer_run_mode`'s responsibility** — typically `product` when a valid `lulu-spec` entry exists, otherwise `tech`. Do not pass `--run-mode`; it is not a CLI parameter.
+- On non-zero exit ("Gate blocked: ..." or a validation error list): tell the user which prior stage must be delivered first. Do not retry start.
 
 To resume an in-progress document on the **same revision**, do not run start again — run `$SESSION_INFO --view session` (Inductive resume: `resolve-context` on the active revision).
 
@@ -177,7 +176,7 @@ Fetch compose framework templates on demand; **do not** read `workflow-config.js
 
 | Macro | Command |
 |-------|---------|
-| `$START_COMPOSE` | `python3 "$SKILL_ROOT/compose/scripts/core/start.py" --project-root "$(pwd)" --cycle-id "$CYCLE_ID" --profile <profile_id> --profile-path "$SKILL_DIR/compose-profile.json" --run-mode <run_mode>` |
+| `$START_COMPOSE` | `python3 "$SKILL_ROOT/compose/scripts/core/start.py" --project-root "$(pwd)" --cycle-id "$CYCLE_ID" --profile <profile_id> --profile-path "$SKILL_DIR/compose-profile.json"` |
 | `$SESSION_INFO` | `python3 "$SKILL_ROOT/compose/scripts/core/session_info.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile <profile_id> --view <view>` |
 | `$SESSION_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/core/session_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile <profile_id> <subcommand>` — drives outer session transitions via `compose/transitions/compose-session.json`; do not load that file directly |
 | `$DRAFT_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/section/draft_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile <profile_id> <subcommand>` |
