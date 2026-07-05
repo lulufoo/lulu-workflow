@@ -581,9 +581,18 @@ def cmd_deep_grounding_list(out_dir: Path, args: argparse.Namespace) -> None:
 # ---------------------------------------------------------------------------
 
 def _build_parser() -> argparse.ArgumentParser:
+    # hook_guard appends --conversation-id after the subcommand and its args.
+    conv_id_parent = argparse.ArgumentParser(add_help=False)
+    conv_id_parent.add_argument(
+        "--conversation-id",
+        default="",
+        help="Injected by hook_guard; platform session identity (omit from agent templates).",
+    )
+
     parser = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
+        parents=[conv_id_parent],
     )
     parser.add_argument(
         "--out-dir",
@@ -595,25 +604,29 @@ def _build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="subcommand", required=True)
 
     # init-session
-    p = sub.add_parser("init-session", help="Seed gate state + section pointer")
+    p = sub.add_parser(
+        "init-session",
+        help="Seed gate state + section pointer",
+        parents=[conv_id_parent],
+    )
     p.add_argument("--sections", required=True, help="Comma-separated coverage_sections")
     p.add_argument("--mandatory", default="", help="Comma-separated mandatory section keys")
     p.add_argument("--cycle-id", default="", help="Cycle id for traceability")
     p.add_argument("--stage", default="", help="Compose stage id (e.g. lulu-design)")
-    p.add_argument(
-        "--conversation-id",
-        default="",
-        help="Platform session identity (hook-only; omit from agent command templates)",
-    )
 
     # resolve-context
     sub.add_parser(
         "resolve-context",
         help="Return active_gate, active_section, open-EP count (multi-turn resume entry)",
+        parents=[conv_id_parent],
     )
 
     # gate-close
-    p = sub.add_parser("gate-close", help="Close a gate with payload validation")
+    p = sub.add_parser(
+        "gate-close",
+        help="Close a gate with payload validation",
+        parents=[conv_id_parent],
+    )
     p.add_argument("--gate", required=True, metavar="G", help="G1 | G2 | G3 | G4")
     p.add_argument(
         "--payload",
@@ -626,6 +639,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser(
         "gate-reopen",
         help="Reopen a previously closed gate (e.g. G4 audit failure → reopen G3)",
+        parents=[conv_id_parent],
     )
     p.add_argument(
         "--gate",
@@ -640,24 +654,49 @@ def _build_parser() -> argparse.ArgumentParser:
              "atomically pairs gate-reopen with rewind-section",
     )
 
-    sub.add_parser("g2-check-report", help="Validate g2-topology-report (facade)")
-    sub.add_parser("g2-list-report", help="Read g2-topology-report summary (facade)")
+    sub.add_parser(
+        "g2-check-report",
+        help="Validate g2-topology-report (facade)",
+        parents=[conv_id_parent],
+    )
+    sub.add_parser(
+        "g2-list-report",
+        help="Read g2-topology-report summary (facade)",
+        parents=[conv_id_parent],
+    )
 
-    p = sub.add_parser("grounding-check", help="Validate sweep grounding receipts (facade)")
+    p = sub.add_parser(
+        "grounding-check",
+        help="Validate sweep grounding receipts (facade)",
+        parents=[conv_id_parent],
+    )
     p.add_argument("--sweep", type=int, required=True)
 
-    p = sub.add_parser("grounding-list", help="List sweep grounding receipts (facade)")
+    p = sub.add_parser(
+        "grounding-list",
+        help="List sweep grounding receipts (facade)",
+        parents=[conv_id_parent],
+    )
     p.add_argument("--sweep", type=int, required=True)
 
     p = sub.add_parser(
         "deep-grounding-list",
         help="List the deep grounding receipt for one open point (facade)",
+        parents=[conv_id_parent],
     )
     p.add_argument("--sweep", type=int, required=True)
     p.add_argument("--ep-id", required=True)
 
-    sub.add_parser("g4-check-report", help="Validate g4-recompose-report (facade)")
-    sub.add_parser("g4-list-report", help="Read g4-recompose-report summary (facade)")
+    sub.add_parser(
+        "g4-check-report",
+        help="Validate g4-recompose-report (facade)",
+        parents=[conv_id_parent],
+    )
+    sub.add_parser(
+        "g4-list-report",
+        help="Read g4-recompose-report summary (facade)",
+        parents=[conv_id_parent],
+    )
 
     return parser
 

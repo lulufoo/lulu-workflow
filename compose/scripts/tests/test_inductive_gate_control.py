@@ -208,6 +208,23 @@ def test_g2_facade_list_forwards_summary(tmp_path: Path):
     assert result.get("verdict") == "ok"
 
 
+def test_gate_close_accepts_hook_injected_conversation_id(tmp_path: Path):
+    """hook_guard appends --conversation-id after subcommand args."""
+    _seed_session(tmp_path)
+    _run_gate(tmp_path, "gate-close", "--gate", "G1", "--payload", _g1_payload())
+    _record_ok_g2_report(tmp_path)
+    code, result = _run_gate(
+        tmp_path,
+        "gate-close",
+        "--gate",
+        "G2",
+        "--conversation-id",
+        _SUBAGENT_CONV,
+    )
+    assert code == 0, result
+    assert result.get("closed") == "G2"
+
+
 def test_g2_facade_check_shape_breaking_exit1_then_list_succeeds(tmp_path: Path):
     _seed_session(tmp_path)
     _run_gate(tmp_path, "gate-close", "--gate", "G1", "--payload", _g1_payload())
