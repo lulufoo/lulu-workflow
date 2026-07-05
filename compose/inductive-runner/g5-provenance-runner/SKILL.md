@@ -36,7 +36,7 @@ INTENT_BASELINE_REFS    JSON array of {type,path} refs (意图基准, algorithm 
 NORM_CONSTRAINT_REFS    JSON array of {type,path} refs (规范约束, algorithm C); [] to skip C
 COMPOSE_PROFILE         compose profile id
 CYCLE_ID                active cycle id
-PROJECT_ROOT            project root (usually $(pwd))
+PROJECT_ROOT            absolute project root, resolved by the orchestrator
 ```
 
 Self-resolved: `$SKILL_ROOT` from workflow install path.

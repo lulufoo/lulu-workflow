@@ -31,7 +31,7 @@ SWEEP: <K>
 INDUCTIVE_OUT_DIR: {actual $INDUCTIVE_OUT_DIR}
 COMPOSE_PROFILE: {actual $COMPOSE_PROFILE}
 CYCLE_ID: {actual $CYCLE_ID}
-PROJECT_ROOT: $(pwd)
+PROJECT_ROOT: {actual $PROJECT_ROOT}
 ```
 
 Then run `$INDUCTIVE_GATE_CTL grounding-check --sweep <K>` **once** — immediately after the subagent returns, as the gate before step 2. Must pass before step 2. **Do not** re-run `grounding-check` later in the same sweep (e.g. after `set-frontier`) — receipts are frozen at grounding-time `frontier_kw`; advancing a section invalidates its sweep-K receipt for re-check; only a new sweep's step 1 re-validates. **Ignore** the subagent Task return beyond confirming completion — fuel step 2 only via `$INDUCTIVE_GATE_CTL grounding-list --sweep <K>`. **Do not** read source inline in step 1.
@@ -70,7 +70,7 @@ SWEEP: {actual current sweep number}
 INDUCTIVE_OUT_DIR: {actual $INDUCTIVE_OUT_DIR}
 COMPOSE_PROFILE: {actual $COMPOSE_PROFILE}
 CYCLE_ID: {actual $CYCLE_ID}
-PROJECT_ROOT: $(pwd)
+PROJECT_ROOT: {actual $PROJECT_ROOT}
 ```
 
 Then run `$INDUCTIVE_GATE_CTL deep-grounding-list --sweep <K> --ep-id <EP_ID>` **once** — immediately after the subagent returns — to fetch its receipt as fuel for 4b. **Ignore** the subagent Task return beyond confirming completion. **Do not** read source inline for this point — that is the deep-grounding-runner's job (targeted Read only, no whole-file reads).

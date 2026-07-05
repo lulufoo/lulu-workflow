@@ -243,6 +243,40 @@ def test_gate_reopen_g1_facade_deletes_g2_report(tmp_path: Path):
     assert not report_path.exists()
 
 
+def test_gate_reopen_g3_with_sections_rewinds_atomically(tmp_path: Path):
+    _drive_single_section_to_g4(tmp_path)
+
+    status_before = _run_section(tmp_path, "status")[1]
+    assert status_before["sections"]["I"] == "cleared"
+
+    code, result = _run_gate(tmp_path, "gate-reopen", "--gate", "G3", "--sections", "I")
+    assert code == 0, result
+    assert result.get("rewound_sections") == ["I"]
+    assert result.get("active_gate") == "G3"
+
+    status_after = _run_section(tmp_path, "status")[1]
+    assert status_after["sections"]["I"] == "active"
+
+
+def test_gate_reopen_sections_rejected_for_non_g3_gate(tmp_path: Path):
+    _drive_single_section_to_g4(tmp_path)
+
+    code, result = _run_gate(tmp_path, "gate-reopen", "--gate", "G1", "--sections", "I")
+    assert code != 0
+    assert "G3" in str(result.get("error", ""))
+
+
+def test_gate_reopen_g3_without_sections_leaves_sections_untouched(tmp_path: Path):
+    _drive_single_section_to_g4(tmp_path)
+
+    code, result = _run_gate(tmp_path, "gate-reopen", "--gate", "G3")
+    assert code == 0, result
+    assert result.get("rewound_sections") == []
+
+    status_after = _run_section(tmp_path, "status")[1]
+    assert status_after["sections"]["I"] == "cleared"
+
+
 def test_grounding_facade_check_forwards_success(tmp_path: Path):
     _seed_session(tmp_path)
     payload = json.dumps([_grounding_receipt("I"), _grounding_receipt("ST")])

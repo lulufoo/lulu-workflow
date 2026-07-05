@@ -17,7 +17,7 @@ Load {actual $SKILL_ROOT}/compose/inductive-runner/g2-grounding-runner/SKILL.md 
 INDUCTIVE_OUT_DIR: {actual $INDUCTIVE_OUT_DIR}
 COMPOSE_PROFILE: {actual $COMPOSE_PROFILE}
 CYCLE_ID: {actual $CYCLE_ID}
-PROJECT_ROOT: $(pwd)
+PROJECT_ROOT: {actual $PROJECT_ROOT}
 ```
 
 Do **not** paste `architecture_view` in the Task prompt — the subagent reads `$INDUCTIVE_DQI` from disk.

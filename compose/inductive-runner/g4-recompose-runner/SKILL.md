@@ -32,7 +32,7 @@ Plain-text block from the orchestrating inductive-runner:
 INDUCTIVE_OUT_DIR     absolute path to revision{N}/ inductive state bundle
 COMPOSE_PROFILE       compose profile id
 CYCLE_ID              active cycle id
-PROJECT_ROOT          project root (usually $(pwd))
+PROJECT_ROOT          absolute project root, resolved by the orchestrator
 ```
 
 Self-resolved: `$SKILL_ROOT` from workflow install path.

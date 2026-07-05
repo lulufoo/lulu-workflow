@@ -21,7 +21,7 @@ INTENT_BASELINE_REFS: {actual $INTENT_BASELINE_REFS}
 NORM_CONSTRAINT_REFS: {actual $NORM_CONSTRAINT_REFS}
 COMPOSE_PROFILE: {actual $COMPOSE_PROFILE}
 CYCLE_ID: {actual $CYCLE_ID}
-PROJECT_ROOT: $(pwd)
+PROJECT_ROOT: {actual $PROJECT_ROOT}
 ```
 
 Do **not** paste section-file or upstream-ref contents in the Task prompt — the subagent reads them from disk. **Ignore** the Task return beyond confirming completion — read the actual deltas only via `$PROVENANCE_GATE_CTL present` next.

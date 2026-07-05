@@ -34,7 +34,7 @@ Load {actual $SKILL_ROOT}/compose/inductive-runner/g4-recompose-runner/SKILL.md 
 INDUCTIVE_OUT_DIR: {actual $INDUCTIVE_OUT_DIR}
 COMPOSE_PROFILE: {actual $COMPOSE_PROFILE}
 CYCLE_ID: {actual $CYCLE_ID}
-PROJECT_ROOT: $(pwd)
+PROJECT_ROOT: {actual $PROJECT_ROOT}
 ```
 
 Do **not** paste section-file contents in the Task prompt — the subagent reads `inductive-scope/<S>.md`, `exposed-points.json`, and `$INDUCTIVE_DQI` from disk.
@@ -47,12 +47,12 @@ Present the recompose self-check — **naming each problem, not fixing it**. Rou
 
 | Finding | Route |
 |---|---|
-| `shape_absorbed=false`, or a `conflict` with a single `owning_section` | **Section-level.** `$INDUCTIVE_GATE_CTL gate-reopen --gate G3` (also clears the stale semantic report) → `$INDUCTIVE_G3_SECTION_CTL rewind-section --to <S>` for each affected section → fix via the `gates/g3-refine.md` step-4 loop (`append-to-section`) → re-`clear-section`. |
+| `shape_absorbed=false`, or a `conflict` with a single `owning_section` | **Section-level.** `$INDUCTIVE_GATE_CTL gate-reopen --gate G3 --sections <S1,S2,...>` — atomically reopens G3, clears the stale semantic report, **and** rewinds every listed section in the same call (no separate `rewind-section` step; a G3 reopen can never be left half-paired) → fix via the `gates/g3-refine.md` step-4 loop (`append-to-section`) → re-`clear-section`. |
 | a `conflict` with no `owning_section` (cross-section) | **Cross-section.** User picks **one owning section** to host the reconciliation → `activate-section` it → register the reconciliation as a normal EP there (focus guard applies) → decide it one at a time → re-`append-to-section` + `clear-section` any other affected section to match. |
 | `reforms_shape=false` | **Shape-level.** `$INDUCTIVE_GATE_CTL gate-reopen --gate G1` (cascades: clears the stale G2/G4 reports too) → correct the shape with the user via `gates/g1-shape.md` → re-descend the spine. |
 | `buildable=false` / `reversible=false` / `verifiable=false` | Same as a cross-section or section-level conflict, whichever the subagent's `facts` implicate; if the whole design is unsound, treat as shape-level. |
 
-`rewind-section` alone only moves the section pointer; `gate-reopen` is what returns the spine to Gate 3 (or Gate 1), so the two stay consistent — always pair them. Committed `<S>.md` files and the EP ledger survive a reopen — only gate status (and the now-stale g4 report) resets.
+`gate-reopen --sections` is the only path back into Gate 3 for the section-level row above — it is atomic (gate status + affected sections move together in one call), so the spine can never be left half-paired (gate reopened, section still `cleared`, or vice versa). Committed `<S>.md` files and the EP ledger survive a reopen — only gate status, the rewound sections' `cleared` marker, and the now-stale g4 report reset.
 
 ### Step 4 — Close
 

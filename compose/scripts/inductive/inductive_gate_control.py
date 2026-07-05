@@ -12,7 +12,11 @@ Subcommands:
                         architecture_view summary (multi-turn resume entry point)
     gate-close          Close a gate with payload validation and prereq check
     gate-reopen         Reopen a gate; downstream gates reset to pending
-                        (also deletes the stale g2/g4 report where applicable)
+                        (also deletes the stale g2/g4 report where applicable).
+                        --sections is accepted only with --gate G3: atomically
+                        rewinds each listed section (subprocess to section
+                        control) in the same call, so a G3 reopen can never be
+                        left half-paired (gate reopened, section still 'cleared').
     g2-check-report     Facade: subprocess to inductive_g2_control check-g2-report
     g2-list-report      Facade: subprocess to inductive_g2_control list-g2-report
     grounding-check     Facade: subprocess to inductive_g3_grounding_control (shallow)
@@ -432,8 +436,15 @@ def cmd_gate_reopen(out_dir: Path, args: argparse.Namespace) -> None:
     Sets the target gate to 'reopened' and resets all downstream gates to 'pending'.
     The active_gate is moved back to the target gate so gate-close can be called
     again after the issue is resolved.
+
+    --sections (G3 only) atomically pairs the reopen with rewind-section for each
+    listed section, so the caller can never leave the spine half-paired (gate
+    reopened but the affected section still 'cleared').
     """
     gate: str = args.gate.upper()
+    sections_arg = (getattr(args, "sections", "") or "").strip()
+    if sections_arg and gate != "G3":
+        _fail("--sections is only valid with --gate G3 (pairs reopen with rewind-section)")
     if gate not in GATE_ORDER:
         _fail(f"invalid gate: {gate!r}; must be one of {GATE_ORDER}")
 
@@ -489,11 +500,20 @@ def cmd_gate_reopen(out_dir: Path, args: argparse.Namespace) -> None:
             _fail(payload.get("error") or "delete-recompose-report failed")
         deleted_g4_report = bool(payload.get("deleted"))
 
+    rewound_sections: list[str] = []
+    if sections_arg:
+        for section in [s.strip().upper() for s in sections_arg.split(",") if s.strip()]:
+            result = _run_section_ctl(out_dir, "rewind-section", "--to", section)
+            if not result.get("ok"):
+                _fail(f"rewind-section failed for {section!r}: " + result.get("error", "unknown"))
+            rewound_sections.append(section)
+
     _ok({
         "reopened": gate,
         "active_gate": updated["active_gate"],
         "deleted_g2_report": deleted_g2_report,
         "deleted_g4_report": deleted_g4_report,
+        "rewound_sections": rewound_sections,
         "note": (
             "downstream gates reset to pending; "
             "resolve the issue then call gate-close again"
@@ -612,6 +632,12 @@ def _build_parser() -> argparse.ArgumentParser:
         required=True,
         metavar="G",
         help="G1 | G2 | G3 | G4 — gate to reopen; downstream gates reset to pending",
+    )
+    p.add_argument(
+        "--sections",
+        default="",
+        help="Comma-separated section keys to rewind (only valid with --gate G3); "
+             "atomically pairs gate-reopen with rewind-section",
     )
 
     sub.add_parser("g2-check-report", help="Validate g2-topology-report (facade)")
