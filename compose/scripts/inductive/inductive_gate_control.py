@@ -14,8 +14,10 @@ Subcommands:
     gate-reopen         Reopen a gate; downstream gates reset to pending
     g2-check-report     Facade: subprocess to inductive_g2_control check-g2-report
     g2-list-report      Facade: subprocess to inductive_g2_control list-g2-report
-    grounding-check     Facade: subprocess to inductive_g3_grounding_control
-    grounding-list      Facade: subprocess to inductive_g3_grounding_control
+    grounding-check     Facade: subprocess to inductive_g3_grounding_control (shallow)
+    grounding-list      Facade: subprocess to inductive_g3_grounding_control (shallow)
+    deep-grounding-list Facade: subprocess to inductive_g3_grounding_control
+                        (mode=deep, one open point via --ep-id)
 
 Payload per gate:
     G1: {"architecture_view": {...}, "shape_constraints": [...]}
@@ -458,6 +460,23 @@ def cmd_grounding_list(out_dir: Path, args: argparse.Namespace) -> None:
     )
 
 
+def cmd_deep_grounding_list(out_dir: Path, args: argparse.Namespace) -> None:
+    if args.sweep is None:
+        _fail("--sweep is required")
+    if not args.ep_id:
+        _fail("--ep-id is required")
+    _forward_ctl(
+        _g3_grounding_ctl(out_dir),
+        "list-grounding",
+        "--sweep",
+        str(args.sweep),
+        "--mode",
+        "deep",
+        "--ep-id",
+        args.ep_id,
+    )
+
+
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
@@ -525,6 +544,13 @@ def _build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("grounding-list", help="List sweep grounding receipts (facade)")
     p.add_argument("--sweep", type=int, required=True)
 
+    p = sub.add_parser(
+        "deep-grounding-list",
+        help="List the deep grounding receipt for one open point (facade)",
+    )
+    p.add_argument("--sweep", type=int, required=True)
+    p.add_argument("--ep-id", required=True)
+
     return parser
 
 
@@ -543,6 +569,7 @@ def main() -> None:
         "g2-list-report": cmd_g2_list_report,
         "grounding-check": cmd_grounding_check,
         "grounding-list": cmd_grounding_list,
+        "deep-grounding-list": cmd_deep_grounding_list,
     }
 
     handler = dispatch.get(args.subcommand)

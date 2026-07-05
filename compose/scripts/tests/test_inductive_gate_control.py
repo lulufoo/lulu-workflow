@@ -138,6 +138,19 @@ def _grounding_receipt(section: str, sweep: int = 1) -> dict:
     }
 
 
+def _deep_grounding_receipt(section: str, ep_id: str, sweep: int = 1) -> dict:
+    return {
+        "sweep": sweep,
+        "mode": "deep",
+        "section": section,
+        "ep_id": ep_id,
+        "frontier_kw": 1,
+        "code_refs": ["main.js::init (L12-18)"],
+        "facts": [f"{section} {ep_id} concrete signature confirmed"],
+        "produced_by": "subagent",
+    }
+
+
 def _record_ok_g2_report(tmp_path: Path) -> None:
     _run_g2(
         tmp_path,
@@ -241,6 +254,42 @@ def test_grounding_facade_list_forwards_receipts(tmp_path: Path):
     assert result.get("count") == 2
     sections = {r["section"] for r in result.get("receipts", [])}
     assert sections == {"I", "ST"}
+
+
+def test_deep_grounding_list_facade_forwards_single_point_receipt(tmp_path: Path):
+    _seed_session(tmp_path)
+    _run_g3_grounding(
+        tmp_path,
+        "--conversation-id",
+        _SUBAGENT_CONV,
+        "record-grounding",
+        "--sweep",
+        "1",
+        "--json",
+        json.dumps(_deep_grounding_receipt("I", "EP-001")),
+    )
+    _run_g3_grounding(
+        tmp_path,
+        "--conversation-id",
+        _SUBAGENT_CONV,
+        "record-grounding",
+        "--sweep",
+        "1",
+        "--json",
+        json.dumps(_deep_grounding_receipt("I", "EP-002")),
+    )
+
+    code, result = _run_gate(tmp_path, "deep-grounding-list", "--sweep", "1", "--ep-id", "EP-001")
+    assert code == 0, result
+    assert result.get("count") == 1
+    assert result["receipts"][0]["ep_id"] == "EP-001"
+
+
+def test_deep_grounding_list_facade_requires_ep_id(tmp_path: Path):
+    _seed_session(tmp_path)
+    code, result = _run_gate(tmp_path, "deep-grounding-list", "--sweep", "1")
+    assert code != 0
+    assert "ep-id" in str(result).lower()
 
 
 def test_gate_close_g2_uses_subprocess_not_import(tmp_path: Path):

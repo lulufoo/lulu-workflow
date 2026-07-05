@@ -1,15 +1,22 @@
 #!/usr/bin/env python3
-"""Inductive grounding receipt control (Gate 3 shallow grounding subagent output).
+"""Inductive grounding receipt control (Gate 3 shallow + deep grounding subagent output).
 
-Persists distilled grounding facts to grounding-notes.json. Shallow grounding
-for a sweep must run in a dispatched subagent — record-grounding rejects calls
-from the orchestrating parent conversation on Cursor (SUBAGENT_REQUIRED).
+Persists distilled grounding facts to grounding-notes.json. Both shallow
+(whole-sweep) and deep (single open point) grounding must run in a dispatched
+subagent — record-grounding rejects calls from the orchestrating parent
+conversation on Cursor (SUBAGENT_REQUIRED); the required runner_skill is
+derived from each receipt's own `mode` field.
 
 Subcommands:
     unsettled-sections   List unsettled coverage sections + frontier_kw
-    record-grounding     Append one or more receipts (--json object or array)
-    list-grounding       List receipts for a sweep (--sweep required)
+    record-grounding     Append one or more receipts of a single mode
+                          (--json object or array; --sweep sets the default)
+    list-grounding       List receipts for a sweep (--sweep required;
+                          --mode shallow|deep|g2, default shallow;
+                          --ep-id optionally narrows mode=deep to one point)
     check-grounding      Verify every unsettled section has a receipt (--sweep)
+                          — shallow coverage predicate only, not meaningful
+                          for mode=deep (single-point, not sweep-wide)
 
 All subcommands print JSON to stdout; exit 0 on success, exit 1 on failure.
 Global flags: --out-dir PATH (required). Platform session identity is hook-managed.
@@ -80,18 +87,13 @@ def cmd_unsettled_sections(out_dir: Path, _args: argparse.Namespace) -> None:
     _ok({"unsettled": sections, "count": len(sections)})
 
 
-def cmd_record_grounding(out_dir: Path, args: argparse.Namespace) -> None:
-    try:
-        require_subagent_dispatch(
-            out_dir,
-            args.conversation_id or "",
-            record_command="record-grounding",
-            runner_skill="g3-shallow-grounding-runner",
-            operation_label="shallow grounding",
-        )
-    except ValueError as exc:
-        _fail(str(exc))
+_MODE_RUNNER_SKILL = {
+    "shallow": "g3-shallow-grounding-runner",
+    "deep": "g3-deep-grounding-runner",
+}
 
+
+def cmd_record_grounding(out_dir: Path, args: argparse.Namespace) -> None:
     if not args.json:
         _fail("--json is required")
 
@@ -115,6 +117,25 @@ def cmd_record_grounding(out_dir: Path, args: argparse.Namespace) -> None:
         if args.sweep is not None:
             receipt.setdefault("sweep", args.sweep)
 
+    modes = {str(r.get("mode", "shallow")).lower() for r in receipts}
+    if len(modes) != 1:
+        _fail(f"record-grounding requires a single mode per call, got {sorted(modes)}")
+    mode = next(iter(modes))
+    runner_skill = _MODE_RUNNER_SKILL.get(mode)
+    if runner_skill is None:
+        _fail(f"no dispatch runner registered for mode {mode!r}")
+
+    try:
+        require_subagent_dispatch(
+            out_dir,
+            args.conversation_id or "",
+            record_command="record-grounding",
+            runner_skill=runner_skill,
+            operation_label=f"{mode} grounding",
+        )
+    except ValueError as exc:
+        _fail(str(exc))
+
     path = grounding_notes_path(out_dir)
     ledger = load_ledger(path)
     try:
@@ -136,8 +157,17 @@ def cmd_list_grounding(out_dir: Path, args: argparse.Namespace) -> None:
     except ValueError as exc:
         _fail(str(exc))
     mode = args.mode or "shallow"
-    receipts = receipts_for_sweep(ledger, args.sweep, mode=mode)
-    _ok({"sweep": args.sweep, "mode": mode, "receipts": receipts, "count": len(receipts)})
+    ep_id = getattr(args, "ep_id", None)
+    receipts = receipts_for_sweep(ledger, args.sweep, mode=mode, ep_id=ep_id)
+    _ok(
+        {
+            "sweep": args.sweep,
+            "mode": mode,
+            "ep_id": ep_id,
+            "receipts": receipts,
+            "count": len(receipts),
+        }
+    )
 
 
 def cmd_check_grounding(out_dir: Path, args: argparse.Namespace) -> None:
@@ -182,6 +212,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("list-grounding", help="List receipts for one sweep")
     p.add_argument("--sweep", type=int, required=True)
     p.add_argument("--mode", default="shallow", choices=["shallow", "deep", "g2"])
+    p.add_argument("--ep-id", default=None, help="Filter to one EP id (mode=deep)")
 
     p = sub.add_parser("check-grounding", help="Verify sweep coverage for unsettled sections")
     p.add_argument("--sweep", type=int, required=True)

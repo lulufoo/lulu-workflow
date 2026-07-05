@@ -343,3 +343,126 @@ def test_init_session_rejects_non_uuid_master_on_cursor(tmp_path: Path, monkeypa
 
 def test_schema_max_facts_constant():
     assert MAX_FACTS == 8
+
+
+def _deep_receipt(section: str, ep_id: str, sweep: int = 1, *, frontier_kw: int = 1) -> dict:
+    return {
+        "sweep": sweep,
+        "mode": "deep",
+        "section": section,
+        "ep_id": ep_id,
+        "frontier_kw": frontier_kw,
+        "code_refs": ["main.js::init (L12-18)"],
+        "facts": [f"{section} {ep_id} concrete signature confirmed"],
+        "produced_by": "subagent",
+    }
+
+
+def test_record_grounding_deep_mode_requires_ep_id(tmp_path: Path):
+    _seed_session(tmp_path)
+    receipt = _deep_receipt("I", "EP-001")
+    del receipt["ep_id"]
+    code, result = _run(
+        tmp_path,
+        "--conversation-id",
+        _SUBAGENT_CONV,
+        "record-grounding",
+        "--sweep",
+        "1",
+        "--json",
+        json.dumps(receipt),
+    )
+    assert code == 1
+    assert "ep_id" in result.get("error", "")
+
+
+def test_record_grounding_deep_mode_succeeds_with_ep_id(tmp_path: Path):
+    _seed_session(tmp_path)
+    code, result = _run(
+        tmp_path,
+        "--conversation-id",
+        _SUBAGENT_CONV,
+        "record-grounding",
+        "--sweep",
+        "1",
+        "--json",
+        json.dumps(_deep_receipt("I", "EP-001")),
+    )
+    assert code == 0, result
+    assert result.get("count") == 1
+
+
+def test_record_grounding_deep_mode_requires_deep_runner_dispatch(tmp_path: Path):
+    _seed_session(tmp_path, master_conv=_PARENT_CONV)
+    code, result = _run(
+        tmp_path,
+        "--conversation-id",
+        _PARENT_CONV,
+        "record-grounding",
+        "--sweep",
+        "1",
+        "--json",
+        json.dumps(_deep_receipt("I", "EP-001")),
+    )
+    assert code == 1
+    assert "SUBAGENT_REQUIRED" in result.get("error", "")
+    assert "g3-deep-grounding-runner" in result.get("error", "")
+
+
+def test_record_grounding_rejects_mixed_modes_in_one_call(tmp_path: Path):
+    _seed_session(tmp_path)
+    payload = json.dumps([_receipt("I"), _deep_receipt("ST", "EP-002")])
+    code, result = _run(
+        tmp_path,
+        "--conversation-id",
+        _SUBAGENT_CONV,
+        "record-grounding",
+        "--sweep",
+        "1",
+        "--json",
+        payload,
+    )
+    assert code == 1
+    assert "single mode" in result.get("error", "")
+
+
+def test_deep_receipts_same_section_distinct_ep_ids_do_not_collide(tmp_path: Path):
+    _seed_session(tmp_path)
+    for ep_id in ("EP-001", "EP-002"):
+        code, result = _run(
+            tmp_path,
+            "--conversation-id",
+            _SUBAGENT_CONV,
+            "record-grounding",
+            "--sweep",
+            "1",
+            "--json",
+            json.dumps(_deep_receipt("I", ep_id)),
+        )
+        assert code == 0, result
+
+    code, result = _run(tmp_path, "list-grounding", "--sweep", "1", "--mode", "deep")
+    assert code == 0, result
+    assert result.get("count") == 2
+
+
+def test_list_grounding_filters_by_ep_id(tmp_path: Path):
+    _seed_session(tmp_path)
+    for ep_id in ("EP-001", "EP-002"):
+        _run(
+            tmp_path,
+            "--conversation-id",
+            _SUBAGENT_CONV,
+            "record-grounding",
+            "--sweep",
+            "1",
+            "--json",
+            json.dumps(_deep_receipt("I", ep_id)),
+        )
+
+    code, result = _run(
+        tmp_path, "list-grounding", "--sweep", "1", "--mode", "deep", "--ep-id", "EP-002"
+    )
+    assert code == 0, result
+    assert result.get("count") == 1
+    assert result["receipts"][0]["ep_id"] == "EP-002"

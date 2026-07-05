@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Schema and I/O for grounding-notes.json (inductive grounding receipts).
 
-Each receipt is one sweep's shallow (or future deep/g2) grounding result for
-one section. Facts are distilled — never source code dumps.
+Each receipt is one sweep's shallow (whole-sweep, all unsettled sections) or
+deep (single user-chosen open point) grounding result. Facts are distilled —
+never source code dumps.
 
 Adjustable thinness limits (schema constants):
   MAX_FACT_CHARS   max length per fact string
@@ -21,7 +22,10 @@ Required fields per receipt:
   created_at   ISO timestamp
 
 Optional:
-  need_clarification  str — subagent could not proceed without user input
+  ep_id                the open point's EP id — required for mode=deep
+                        (disambiguates multiple points expanded in the same
+                        section within one sweep; unused for shallow)
+  need_clarification    str — subagent could not proceed without user input
 """
 
 from __future__ import annotations
@@ -94,6 +98,9 @@ def validate_receipt(receipt: dict[str, Any]) -> list[str]:
     if mode in {"shallow", "deep"} and not str(receipt.get("section", "")).strip():
         errors.append(f"receipt {rid!r}: section is required for mode {mode!r}")
 
+    if mode == "deep" and not str(receipt.get("ep_id", "")).strip():
+        errors.append(f"receipt {rid!r}: ep_id is required for mode 'deep'")
+
     code_refs = receipt.get("code_refs")
     if not isinstance(code_refs, list):
         errors.append(f"receipt {rid!r}: code_refs must be a list")
@@ -137,6 +144,7 @@ def normalize_receipt(receipt: dict[str, Any]) -> dict[str, Any]:
         "sweep": int(receipt.get("sweep", 0)),
         "mode": str(receipt.get("mode", "")).lower(),
         "section": str(receipt.get("section", "")),
+        "ep_id": str(receipt.get("ep_id", "") or ""),
         "frontier_kw": int(receipt.get("frontier_kw", 0)),
         "code_refs": list(receipt.get("code_refs") or []),
         "facts": [str(f) for f in (receipt.get("facts") or [])],
@@ -196,11 +204,12 @@ def next_receipt_id(ledger: dict[str, Any]) -> str:
     return f"GN-{n:03d}"
 
 
-def _receipt_key(receipt: dict[str, Any]) -> tuple[int, str, str]:
+def _receipt_key(receipt: dict[str, Any]) -> tuple[int, str, str, str]:
     return (
         int(receipt.get("sweep", 0)),
         str(receipt.get("mode", "")).lower(),
         str(receipt.get("section", "")),
+        str(receipt.get("ep_id", "") or ""),
     )
 
 
@@ -234,12 +243,16 @@ def receipts_for_sweep(
     sweep: int,
     *,
     mode: str = "shallow",
+    ep_id: str | None = None,
 ) -> list[dict[str, Any]]:
-    return [
+    receipts = [
         r
         for r in (ledger.get("receipts") or [])
         if r.get("sweep") == sweep and str(r.get("mode", "")).lower() == mode
     ]
+    if ep_id:
+        receipts = [r for r in receipts if str(r.get("ep_id", "")) == ep_id]
+    return receipts
 
 
 def check_sweep_coverage(
