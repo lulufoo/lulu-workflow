@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 _INDUCTIVE_DIR = Path(__file__).resolve().parent.parent / "inductive"
-_GROUNDING_CTL = _INDUCTIVE_DIR / "inductive_grounding_control.py"
+_GROUNDING_CTL = _INDUCTIVE_DIR / "inductive_g3_grounding_control.py"
 _GATE_CTL = _INDUCTIVE_DIR / "inductive_gate_control.py"
 
 # Cursor-style UUIDs for SUBAGENT_REQUIRED tests (init-session validates UUID on Cursor).
@@ -17,7 +17,7 @@ _PARENT_CONV = "11111111-1111-4111-8111-111111111111"
 _SUBAGENT_CONV = "22222222-2222-4222-8222-222222222222"
 
 sys.path.insert(0, str(_INDUCTIVE_DIR))
-from inductive_grounding_schema import (  # noqa: E402
+from g3_grounding_notes_schema import (  # noqa: E402
     MAX_FACT_CHARS,
     MAX_FACTS,
     append_receipts,

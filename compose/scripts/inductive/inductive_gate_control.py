@@ -2,18 +2,24 @@
 """Inductive runner outer gate spine control.
 
 Manages the G1->G2->G3->G4 gate state machine for the inductive runner.
-Delegates all G3 section / EP operations to inductive_section_control.py
-via subprocess ($INDUCTIVE_SECTION_CTL).
+Delegates all G3 section / EP operations to inductive_g3_section_control.py
+via subprocess ($INDUCTIVE_G3_SECTION_CTL). G2/G3 grounding reads are
+facade subcommands that subprocess to artifact controls.
 
 Subcommands:
     init-session        Seed gate state + delegate init-pointer to section control
     resolve-context     Return active_gate, active_section, open-EP count,
                         architecture_view summary (multi-turn resume entry point)
     gate-close          Close a gate with payload validation and prereq check
+    gate-reopen         Reopen a gate; downstream gates reset to pending
+    g2-check-report     Facade: subprocess to inductive_g2_control check-g2-report
+    g2-list-report      Facade: subprocess to inductive_g2_control list-g2-report
+    grounding-check     Facade: subprocess to inductive_g3_grounding_control
+    grounding-list      Facade: subprocess to inductive_g3_grounding_control
 
 Payload per gate:
     G1: {"architecture_view": {...}, "shape_constraints": [...]}
-    G2: {}  (automatic close; no user payload required)
+    G2: {}  (requires g2-topology-report.json with verdict=ok)
     G3: must pass check-coverage (delegated to section control)
     G4: {"reforms_shape": bool, "shape_absorbed": bool, "conflicts": [...],
          "buildable": bool, "reversible": bool, "verifiable": bool}
@@ -74,8 +80,18 @@ def _dqi_path(out_dir: Path) -> Path:
 
 
 def _section_ctl(out_dir: Path) -> list[str]:
-    """Return the base argv for invoking inductive_section_control.py."""
-    script = _HERE / "inductive_section_control.py"
+    """Return the base argv for invoking inductive_g3_section_control.py."""
+    script = _HERE / "inductive_g3_section_control.py"
+    return [sys.executable, str(script), "--out-dir", str(out_dir)]
+
+
+def _g2_ctl(out_dir: Path) -> list[str]:
+    script = _HERE / "inductive_g2_control.py"
+    return [sys.executable, str(script), "--out-dir", str(out_dir)]
+
+
+def _g3_grounding_ctl(out_dir: Path) -> list[str]:
+    script = _HERE / "inductive_g3_grounding_control.py"
     return [sys.executable, str(script), "--out-dir", str(out_dir)]
 
 
@@ -87,6 +103,21 @@ def _run_section_ctl(out_dir: Path, *extra_args: str) -> dict[str, Any]:
         return json.loads(result.stdout)
     except json.JSONDecodeError:
         return {"ok": False, "error": result.stdout or result.stderr}
+
+
+def _forward_ctl(base_argv: list[str], *extra_args: str) -> None:
+    """Run a child control CLI and forward stdout/exit code unchanged."""
+    cmd = base_argv + list(extra_args)
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.stdout:
+        sys.stdout.write(result.stdout)
+        if not result.stdout.endswith("\n"):
+            sys.stdout.write("\n")
+    elif result.returncode != 0:
+        message = result.stderr.strip() or "subprocess failed"
+        print(json.dumps({"ok": False, "error": message}, indent=2, ensure_ascii=False))
+    if result.returncode != 0:
+        sys.exit(result.returncode)
 
 
 # ---------------------------------------------------------------------------
@@ -236,6 +267,8 @@ def cmd_gate_close(out_dir: Path, args: argparse.Namespace) -> None:
     # Gate-specific validation
     if gate == "G1":
         _validate_g1_payload(payload)
+    elif gate == "G2":
+        _validate_g2_close(out_dir)
     elif gate == "G3":
         _validate_g3_close(out_dir)
     elif gate == "G4":
@@ -272,6 +305,17 @@ def _validate_g1_payload(payload: dict[str, Any]) -> None:
     missing = [f for f in required if not av.get(f)]
     if missing:
         _fail(f"architecture_view missing fields: {missing}")
+
+
+def _validate_g2_close(out_dir: Path) -> None:
+    cmd = _g2_ctl(out_dir) + ["check-g2-report"]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        _fail(result.stdout or result.stderr or "G2 gate-close rejected: g2 check failed")
+    if result.returncode != 0 or not payload.get("ok"):
+        _fail(payload.get("error") or "G2 gate-close rejected: g2 topology report check failed")
 
 
 def _validate_g3_close(out_dir: Path) -> None:
@@ -361,14 +405,57 @@ def cmd_gate_reopen(out_dir: Path, args: argparse.Namespace) -> None:
     updated = reopen_gate(state, gate)
     save_gate_state(gate_path, updated)
 
+    deleted_g2_report = False
+    if gate == "G1":
+        cmd = _g2_ctl(out_dir) + ["delete-g2-report"]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        try:
+            payload = json.loads(result.stdout)
+        except json.JSONDecodeError:
+            _fail(result.stdout or result.stderr or "delete-g2-report failed")
+        if result.returncode != 0 or not payload.get("ok"):
+            _fail(payload.get("error") or "delete-g2-report failed")
+        deleted_g2_report = bool(payload.get("deleted"))
+
     _ok({
         "reopened": gate,
         "active_gate": updated["active_gate"],
+        "deleted_g2_report": deleted_g2_report,
         "note": (
             "downstream gates reset to pending; "
             "resolve the issue then call gate-close again"
         ),
     })
+
+
+def cmd_g2_check_report(out_dir: Path, _args: argparse.Namespace) -> None:
+    _forward_ctl(_g2_ctl(out_dir), "check-g2-report")
+
+
+def cmd_g2_list_report(out_dir: Path, _args: argparse.Namespace) -> None:
+    _forward_ctl(_g2_ctl(out_dir), "list-g2-report")
+
+
+def cmd_grounding_check(out_dir: Path, args: argparse.Namespace) -> None:
+    if args.sweep is None:
+        _fail("--sweep is required")
+    _forward_ctl(
+        _g3_grounding_ctl(out_dir),
+        "check-grounding",
+        "--sweep",
+        str(args.sweep),
+    )
+
+
+def cmd_grounding_list(out_dir: Path, args: argparse.Namespace) -> None:
+    if args.sweep is None:
+        _fail("--sweep is required")
+    _forward_ctl(
+        _g3_grounding_ctl(out_dir),
+        "list-grounding",
+        "--sweep",
+        str(args.sweep),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -429,6 +516,15 @@ def _build_parser() -> argparse.ArgumentParser:
         help="G1 | G2 | G3 | G4 — gate to reopen; downstream gates reset to pending",
     )
 
+    sub.add_parser("g2-check-report", help="Validate g2-topology-report (facade)")
+    sub.add_parser("g2-list-report", help="Read g2-topology-report summary (facade)")
+
+    p = sub.add_parser("grounding-check", help="Validate sweep grounding receipts (facade)")
+    p.add_argument("--sweep", type=int, required=True)
+
+    p = sub.add_parser("grounding-list", help="List sweep grounding receipts (facade)")
+    p.add_argument("--sweep", type=int, required=True)
+
     return parser
 
 
@@ -443,6 +539,10 @@ def main() -> None:
         "resolve-context": cmd_resolve_context,
         "gate-close": cmd_gate_close,
         "gate-reopen": cmd_gate_reopen,
+        "g2-check-report": cmd_g2_check_report,
+        "g2-list-report": cmd_g2_list_report,
+        "grounding-check": cmd_grounding_check,
+        "grounding-list": cmd_grounding_list,
     }
 
     handler = dispatch.get(args.subcommand)

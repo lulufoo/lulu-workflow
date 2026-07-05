@@ -41,6 +41,7 @@ INDUCTIVE_GATE_STATE  = $INDUCTIVE_OUT_DIR/inductive-gate-state.json
 INDUCTIVE_SECTION_PTR = $INDUCTIVE_OUT_DIR/inductive-section-pointer.json
 INDUCTIVE_EP_LEDGER   = $INDUCTIVE_OUT_DIR/exposed-points.json
 INDUCTIVE_GROUNDING   = $INDUCTIVE_OUT_DIR/grounding-notes.json
+INDUCTIVE_G2_REPORT   = $INDUCTIVE_OUT_DIR/g2-topology-report.json
 PROVENANCE_GATE_STATE = $INDUCTIVE_OUT_DIR/provenance-gate-state.json
 PROVENANCE_TRACES     = $INDUCTIVE_OUT_DIR/provenance-trace-{intent,scope,norm}.json   # Gate 5 deltas, one per role
 ```
@@ -53,8 +54,7 @@ PROVENANCE_TRACES     = $INDUCTIVE_OUT_DIR/provenance-trace-{intent,scope,norm}.
 |-------|---------|
 | `$FETCH_COMPOSE` | `python3 "$SKILL_ROOT/compose/scripts/io/fetch_compose_framework.py" --role <role> --profile "$COMPOSE_PROFILE" --project-root "$(pwd)" --cycle-id "$CYCLE_ID"` |
 | `$INDUCTIVE_GATE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_gate_control.py" --out-dir "$INDUCTIVE_OUT_DIR"` |
-| `$INDUCTIVE_SECTION_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_section_control.py" --out-dir "$INDUCTIVE_OUT_DIR"` |
-| `$INDUCTIVE_GROUNDING_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_grounding_control.py" --out-dir "$INDUCTIVE_OUT_DIR"` |
+| `$INDUCTIVE_G3_SECTION_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_g3_section_control.py" --out-dir "$INDUCTIVE_OUT_DIR"` |
 | `$PROVENANCE_GATE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/provenance_gate_control.py" --out-dir "$INDUCTIVE_OUT_DIR"` |
 
 Fetch schedule (do not read `workflow-config.json` directly):
@@ -99,8 +99,8 @@ The gates progressively refine the **same shape artifact** from coarse to fine. 
 - **Who fixes what (load-bearing — never violate).** Every *how-to-fix* decision is the **user's**. The **AI only recommends** (leaning + rationale + implication). The **scripts only move state and keep the ledger** — never a semantic judgement about content. **Gate 4 only finds and names problems; it never fixes them.** A fix is always made back in the gate that owns it (Gate 3 for a section, Gate 1 for shape), through the normal AI-recommends → user-decides loop — never auto-applied and never patched inside the auditor.
 - **AI leads the spine, the user drives the descent.** AI knows the next gate and, each sweep, exposes the **frontier map** — every unsettled section's coarsest open point (recommendations). The **user chooses** which point to expand, whether to skip it, when to re-sweep, and when to stop.
 - **AI output is a recommendation, not a verdict.** Phrase as "I lean X because…; the implication is…; expand this?" — leave the decision to the human.
-- **Two-layer focus guard.** Sections are peers; `activate-section <S>` is always permitted. **Discovery is global (read-only):** a sweep may scan *all* unsettled sections to build the frontier map. **Mutation is focus-guarded:** every state-mutating operation (`register-ep`, `update-ep`, `set-frontier`, `append-to-section`, `clear-section`, `skip-section`) must target the `active_section` — run `$INDUCTIVE_SECTION_CTL activate-section --section <S>` first to shift focus. You may *see* a gap in any section during a sweep, but to *register/decide* it you must activate that section.
-- **`human_inlet` is a peer discovery source, not a safety net.** The user may raise a design point in **any dimension, at any altitude, at any time** — on equal footing with the AI-scan frontier map. It is **AI's job to map** that free-form point to its owning section: run `$INDUCTIVE_SECTION_CTL activate-section --section <mapped S>` first, then `register-ep --json '{"source":"human_inlet","method":"human_inlet","kw":"<KW criterion it leaves false>",...}'` (the mutation focus guard still applies — the EP lands under the mapped `active_section`). A `human_inlet` point is **exempt from the frontier-altitude filter** — it need not be the section's coarsest open point nor sit at the current `frontier_kw`; never reject it for being "off-frontier". If it maps to no `coverage_section` (it belongs to a peeled section or the shape), **say where it goes** — fold it into a shape constraint or the deferred bucket — never silently drop it. The remaining EP lifecycle (resolve/defer/fold into figure) is identical to an AI-scan EP.
+- **Two-layer focus guard.** Sections are peers; `activate-section <S>` is always permitted. **Discovery is global (read-only):** a sweep may scan *all* unsettled sections to build the frontier map. **Mutation is focus-guarded:** every state-mutating operation (`register-ep`, `update-ep`, `set-frontier`, `append-to-section`, `clear-section`, `skip-section`) must target the `active_section` — run `$INDUCTIVE_G3_SECTION_CTL activate-section --section <S>` first to shift focus. You may *see* a gap in any section during a sweep, but to *register/decide* it you must activate that section.
+- **`human_inlet` is a peer discovery source, not a safety net.** The user may raise a design point in **any dimension, at any altitude, at any time** — on equal footing with the AI-scan frontier map. It is **AI's job to map** that free-form point to its owning section: run `$INDUCTIVE_G3_SECTION_CTL activate-section --section <mapped S>` first, then `register-ep --json '{"source":"human_inlet","method":"human_inlet","kw":"<KW criterion it leaves false>",...}'` (the mutation focus guard still applies — the EP lands under the mapped `active_section`). A `human_inlet` point is **exempt from the frontier-altitude filter** — it need not be the section's coarsest open point nor sit at the current `frontier_kw`; never reject it for being "off-frontier". If it maps to no `coverage_section` (it belongs to a peeled section or the shape), **say where it goes** — fold it into a shape constraint or the deferred bucket — never silently drop it. The remaining EP lifecycle (resolve/defer/fold into figure) is identical to an AI-scan EP.
 - **One point at a time** — never batch multiple decisions into one prompt.
 - **Session state persists across turns.** At the start of each new turn, call `$INDUCTIVE_GATE_CTL resolve-context` to restore `active_gate`, `active_section`, open-EP count, and `architecture_view`. Never rely on conversation memory alone.
 - Fetch per schedule (see **Script Macros**): `SCAN_CRITERIA` at Gate 1 start (`shape_extraction.fields` for Gate 1 + `expose_axis` for Gate 3); `section-form-registry` (carriers) and `KW_CRITERIA` (per-section KW altitude rows) before Gate 3.
@@ -128,13 +128,30 @@ The gates progressively refine the **same shape artifact** from coarse to fine. 
 
 **Goal:** a fast, autonomous sanity-check that the confirmed shape's spine/topology is not fundamentally wrong. **Not** a user-facing audit; **not** an exhaustive line-level grounding (that happens lazily per section in Gate 3).
 
-**Read discipline (context guard):** confirm existence and topology only — main blocks exist / can exist, key relations are plausible. **Do not** read whole files; **do not** drop to line-level or signature-level detail. Use symbol locate + minimal line ranges if needed. G2 stays inline (no subagent in this phase).
+**Read discipline (context guard):** confirm existence and topology only — main blocks exist / can exist, key relations are plausible. **Do not** read whole files; **do not** drop to line-level or signature-level detail in persisted facts. Gate 2 source reads run in `g2-grounding-runner` subagent only — **do not** inline-read project source during G2.
 
-1. Examine only enough to confirm the spine and the To-Be topology are real (the main blocks exist / can exist, the key relations are plausible).
-2. **Surface upward only if a divergence breaks the shape** — i.e. the spine or topology is wrong. Then stop and reopen Gate 1 with the specific shape correction.
-3. Otherwise stay silent: keep any notes mental or minimal — distilled per-section grounding is persisted in Gate 3 via `$INDUCTIVE_GROUNDING_CTL`. **Do not** present a confirmation table and **do not** ask the user to confirm grounding.
+1. **Topology ground (subagent):** dispatch `g2-grounding-runner` via `$SUBAGENT_TOOL` with `$SUBAGENT_AWAIT_SYNC`:
 
-**Close criterion (automatic):** no shape-breaking divergence. Call `$INDUCTIVE_GATE_CTL gate-close --gate G2` (no payload — automatic close) to advance the spine to Gate 3; do not pause for a user checkpoint. (A shape-breaking divergence is the only thing that interrupts the user — then `$INDUCTIVE_GATE_CTL gate-reopen --gate G1` instead and correct the shape.)
+```text
+Load {actual $SKILL_ROOT}/compose/runners/g2-grounding-runner/SKILL.md and follow its instructions.
+
+## Input
+INDUCTIVE_OUT_DIR: {actual $INDUCTIVE_OUT_DIR}
+COMPOSE_PROFILE: {actual $COMPOSE_PROFILE}
+CYCLE_ID: {actual $CYCLE_ID}
+PROJECT_ROOT: $(pwd)
+```
+
+Do **not** paste `architecture_view` in the Task prompt — the subagent reads `$INDUCTIVE_DQI` from disk.
+
+Then run `$INDUCTIVE_GATE_CTL g2-check-report` **once** — immediately after the subagent returns. **`g2-check-report` exit 1 on `shape_breaking` is an expected branch — still run `$INDUCTIVE_GATE_CTL g2-list-report` next.** **Ignore** the Task return beyond confirming completion — decide next step only via `$INDUCTIVE_GATE_CTL g2-list-report`.
+
+2. **If `verdict=ok`:** stay silent (no user checkpoint). Call `$INDUCTIVE_GATE_CTL gate-close --gate G2` (no payload) to advance to Gate 3.
+3. **If `verdict=shape_breaking`:** present `divergences[]` from `$INDUCTIVE_GATE_CTL g2-list-report` stdout only; call `$INDUCTIVE_GATE_CTL gate-reopen --gate G1` and correct the shape with the user.
+
+**Breaking SSOT:** only a **direct contradiction** with G1 `architecture_view` / `shape_constraints` is shape-breaking. **To-Be gaps (not yet implemented) are not breaking** — route those to Gate 3.
+
+**Close criterion (automatic when ok):** `g2-topology-report.json` exists with `verdict=ok`. Mechanical gate-close rejects missing report or `shape_breaking`. No user checkpoint on success.
 
 ---
 
@@ -151,12 +168,12 @@ The gates progressively refine the **same shape artifact** from coarse to fine. 
 
 **State management for Gate 3:**
 - Resume / start: `$INDUCTIVE_GATE_CTL resolve-context` — confirms `active_gate=G3`, `active_section`, per-section `frontier`, and open-EP count. (Session was seeded at Gate 1 start.)
-- Switch focus: `$INDUCTIVE_SECTION_CTL activate-section --section <S>` (free; previous active section transitions to `open` if uncleared).
-- Register EP: `$INDUCTIVE_SECTION_CTL register-ep --json '{...}'`
-- Update EP: `$INDUCTIVE_SECTION_CTL update-ep --id <id> --status resolved|deferred [--resolution ...]`
-- Declare maturity: `$INDUCTIVE_SECTION_CTL set-frontier --section <S> --kw <0-4>` (AI declares S's reached KW once this sweep's S-points are resolved/deferred).
-- Append to bucket: `$INDUCTIVE_SECTION_CTL append-to-section --section <S> --content <markdown>` (folds one resolved figure/decision into `<S>.md`; incremental, called per decision).
-- Clear section: `$INDUCTIVE_SECTION_CTL clear-section --section <S>` (validates `frontier_kw ≥ target` + no blocking-open EP + non-empty bucket → marks `cleared`).
+- Switch focus: `$INDUCTIVE_G3_SECTION_CTL activate-section --section <S>` (free; previous active section transitions to `open` if uncleared).
+- Register EP: `$INDUCTIVE_G3_SECTION_CTL register-ep --json '{...}'`
+- Update EP: `$INDUCTIVE_G3_SECTION_CTL update-ep --id <id> --status resolved|deferred [--resolution ...]`
+- Declare maturity: `$INDUCTIVE_G3_SECTION_CTL set-frontier --section <S> --kw <0-4>` (AI declares S's reached KW once this sweep's S-points are resolved/deferred).
+- Append to bucket: `$INDUCTIVE_G3_SECTION_CTL append-to-section --section <S> --content <markdown>` (folds one resolved figure/decision into `<S>.md`; incremental, called per decision).
+- Clear section: `$INDUCTIVE_G3_SECTION_CTL clear-section --section <S>` (validates `frontier_kw ≥ target` + no blocking-open EP + non-empty bucket → marks `cleared`).
 
 **Per sweep:**
 
@@ -173,7 +190,7 @@ CYCLE_ID: {actual $CYCLE_ID}
 PROJECT_ROOT: $(pwd)
 ```
 
-Then run `$INDUCTIVE_GROUNDING_CTL check-grounding --sweep <K>` **once** — immediately after the subagent returns, as the step-1 gate before step 2. Must pass before step 2. **Do not** re-run `check-grounding` later in the same sweep (e.g. after `set-frontier`) — receipts are frozen at grounding-time `frontier_kw`; advancing a section invalidates its sweep-K receipt for re-check; only a new sweep's step 1 re-validates. **Ignore** the subagent Task return beyond confirming completion — fuel step 2 only via `$INDUCTIVE_GROUNDING_CTL list-grounding --sweep <K>`. **Do not** read source inline in step 1.
+Then run `$INDUCTIVE_GATE_CTL grounding-check --sweep <K>` **once** — immediately after the subagent returns, as the step-1 gate before step 2. Must pass before step 2. **Do not** re-run `grounding-check` later in the same sweep (e.g. after `set-frontier`) — receipts are frozen at grounding-time `frontier_kw`; advancing a section invalidates its sweep-K receipt for re-check; only a new sweep's step 1 re-validates. **Ignore** the subagent Task return beyond confirming completion — fuel step 2 only via `$INDUCTIVE_GATE_CTL grounding-list --sweep <K>`. **Do not** read source inline in step 1.
 2. **Discover across sections (read-only, receipts as fuel):** for each unsettled section S, run S's methods at its `frontier_kw` **using only** sweep receipts from step 1 — **do not** inline-read source again in this step (re-read happens only in step 4 when the user expands a chosen point). Keep a candidate only if it leaves **the `frontier_kw` row of S in `KW_CRITERIA`** false — a concern that belongs to a deeper KW row is *not* in scope this sweep (it surfaces in a later sweep once S advances). **First subtract the shape constraints** (Gate 1 confirmed claims): a point those already settle is not an open point — do not re-surface it with shape-contradicting options; if a constraint settles only part of a point, keep the open residue. Discovery may scan any section (read-only); **registering** a point requires activating that section (mutation focus guard). (`human_inlet` points are exempt from this `frontier_kw` filter — see Global Rules.)
 
    **Register before you present (mandatory):** for each open point kept from discovery, `activate-section` its section, then `register-ep --json` with `status: open` **before** step 3. Step 3 presents EPs already in `exposed-points.json` — not a substitute for registration. The frontier map needs at least one registered open EP per unsettled section surfaced this sweep (or an explicit `deferred` EP if the user already chose to skip).
@@ -191,7 +208,7 @@ Then run `$INDUCTIVE_GROUNDING_CTL check-grounding --sweep <K>` **once** — imm
 
 **Mandatory coverage:** `$SCAN_CRITERIA.mandatory_coverage_prompt` sections must reach `cleared` or `skipped` before G3 can close. For any with no discovered point, explicitly ask whether a coverage point should be added for this section — the guaranteed hearing for `human_inlet`.
 
-**Close criterion:** call `$INDUCTIVE_SECTION_CTL check-coverage` — all `coverage_sections` are `cleared` or `skipped`, no `(blocking ∧ open)` EP remains, mandatory sections covered; then call `$INDUCTIVE_GATE_CTL gate-close --gate G3 --payload '{...}'` after user confirms the view is detailed enough.
+**Close criterion:** call `$INDUCTIVE_G3_SECTION_CTL check-coverage` — all `coverage_sections` are `cleared` or `skipped`, no `(blocking ∧ open)` EP remains, mandatory sections covered; then call `$INDUCTIVE_GATE_CTL gate-close --gate G3 --payload '{...}'` after user confirms the view is detailed enough.
 
 ---
 
@@ -199,13 +216,13 @@ Then run `$INDUCTIVE_GROUNDING_CTL check-grounding --sweep <K>` **once** — imm
 
 **Goal:** audit the already-committed section files for cross-section coherence. This gate prevents the decomposition from losing the whole. It **only finds and names problems — it never fixes them**: it does not discover new EPs, does not run methods, does not write section files, and changes no decision. Every finding is routed back to the gate that owns it (see step 2).
 
-1. Call `$INDUCTIVE_SECTION_CTL recompose-check` to audit the committed artifacts (reads `inductive-scope/<S>.md` files + `exposed-points.json` + `architecture_view`):
+1. Call `$INDUCTIVE_G3_SECTION_CTL recompose-check` to audit the committed artifacts (reads `inductive-scope/<S>.md` files + `exposed-points.json` + `architecture_view`):
    - **reforms_shape** — do the resolved points still constitute the Gate 1 shape?
    - **shape_absorbed** — is every confirmed shape constraint folded into its owning section file? No load-bearing constraint may live only in working memory — `_overview` is a cold-start scaffold, not an output, so anything it held must now have a section home.
    - **conflicts** — do any two decisions contradict?
    - **buildable / reversible / verifiable** — does the integrated solution hold as one whole?
 2. Present the recompose self-check — **naming each problem, not fixing it**. Route every finding back to the gate that owns it; Gate 4 registers no EP and changes no decision (the fix is made there through the normal AI-recommends → user-decides loop):
-   - **Section-level** (`shape_absorbed=false`, or a `conflict` owned by one section): move the spine back first — `$INDUCTIVE_GATE_CTL gate-reopen --gate G3` — then `$INDUCTIVE_SECTION_CTL rewind-section --to <S>` for each affected section. `rewind-section` alone only moves the section pointer; `gate-reopen` is what returns the spine to Gate 3, so the two stay consistent. Fix via the Gate 3 step-4 loop (`append-to-section`), re-`clear-section`, then re-run `recompose-check`.
+   - **Section-level** (`shape_absorbed=false`, or a `conflict` owned by one section): move the spine back first — `$INDUCTIVE_GATE_CTL gate-reopen --gate G3` — then `$INDUCTIVE_G3_SECTION_CTL rewind-section --to <S>` for each affected section. `rewind-section` alone only moves the section pointer; `gate-reopen` is what returns the spine to Gate 3, so the two stay consistent. Fix via the Gate 3 step-4 loop (`append-to-section`), re-`clear-section`, then re-run `recompose-check`.
    - **Cross-section conflict** (a contradiction owned by no single section): the user picks **one owning section** to host the reconciliation. `activate-section` it, register the reconciliation as a normal EP there (focus guard applies — it lives under that one `active_section`), decide it one at a time, then re-`append-to-section` + `clear-section` any other affected section to match.
    - **Shape-level** (`reforms_shape=false`): `$INDUCTIVE_GATE_CTL gate-reopen --gate G1`, correct the shape with the user, then re-descend the spine. Committed `<S>.md` files and the EP ledger survive a reopen — only gate status resets.
 

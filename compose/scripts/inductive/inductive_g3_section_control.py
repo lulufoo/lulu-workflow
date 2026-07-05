@@ -3,7 +3,7 @@
 
 Manages the parallel section pointer and EP ledger for inductive Gate 3.
 Called by inductive_gate_control.py (outer gate spine) and the SKILL via
-$INDUCTIVE_SECTION_CTL.
+$INDUCTIVE_G3_SECTION_CTL.
 
 Subcommands:
     init-pointer        Seed inductive-section-pointer.json + empty EP ledger
@@ -37,7 +37,7 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
-from inductive_section_pointer_schema import (  # noqa: E402
+from g3_section_pointer_schema import (  # noqa: E402
     FRONTIER_TARGET_DEFAULT,
     activate_section,
     check_coverage,

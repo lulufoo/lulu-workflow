@@ -13,10 +13,10 @@ import sys
 from pathlib import Path
 
 _INDUCTIVE_DIR = Path(__file__).resolve().parent.parent / "inductive"
-_SECTION_CTL = _INDUCTIVE_DIR / "inductive_section_control.py"
+_SECTION_CTL = _INDUCTIVE_DIR / "inductive_g3_section_control.py"
 
 sys.path.insert(0, str(_INDUCTIVE_DIR))
-from inductive_section_pointer_schema import (  # noqa: E402
+from g3_section_pointer_schema import (  # noqa: E402
     FRONTIER_TARGET_DEFAULT,
     init_section_pointer,
     normalize_section_pointer,

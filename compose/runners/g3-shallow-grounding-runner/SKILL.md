@@ -13,7 +13,7 @@ Terminal runner subagent. Dispatched from **inline** inductive-runner at Gate 3 
 
 ## Shared receipt contract
 
-Receipt field contract, thinness limits, and validation live in `inductive_grounding_schema.py` (read-only reference — write only via `$INDUCTIVE_GROUNDING_CTL record-grounding`).
+Receipt field contract, thinness limits, and validation live in `g3_grounding_notes_schema.py` (read-only reference — write only via `$INDUCTIVE_G3_GROUNDING_CTL record-grounding`).
 
 **Hard boundaries (never violate):**
 - Read-only — no EP registration, no section mutation, no gate-close.
@@ -39,13 +39,12 @@ Self-resolved: `$SKILL_ROOT` from workflow install path.
 
 | Macro | Command |
 |-------|---------|
-| `$INDUCTIVE_GROUNDING_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_grounding_control.py" --out-dir "$INDUCTIVE_OUT_DIR"` |
-| `$INDUCTIVE_SECTION_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_section_control.py" --out-dir "$INDUCTIVE_OUT_DIR"` |
+| `$INDUCTIVE_G3_GROUNDING_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_g3_grounding_control.py" --out-dir "$INDUCTIVE_OUT_DIR"` |
 | `$FETCH_COMPOSE` | `python3 "$SKILL_ROOT/compose/scripts/io/fetch_compose_framework.py" --role <role> --profile "$COMPOSE_PROFILE" --project-root "$PROJECT_ROOT" --cycle-id "$CYCLE_ID"` |
 
 ## Pipeline
 
-1. `$INDUCTIVE_GROUNDING_CTL unsettled-sections` → list of `{section, status, frontier_kw}`.
+1. `$INDUCTIVE_G3_GROUNDING_CTL unsettled-sections` → list of `{section, status, frontier_kw}`.
 2. `$FETCH_COMPOSE --role inductive-scan-criteria` → `SCAN_CRITERIA` (methods + shape constraints source).
 3. `$FETCH_COMPOSE --role section-kw-criteria` → `KW_CRITERIA`.
 4. Load shape constraints from `$INDUCTIVE_OUT_DIR/inductive-dqi.json` (`shape_constraints` + `architecture_view`) — subtract settled claims before emitting facts.
@@ -53,13 +52,13 @@ Self-resolved: `$SKILL_ROOT` from workflow install path.
    - Run applicable `methods` (read-only scan + on-demand grounding).
    - Distill into one receipt: `{sweep, mode:"shallow", section, frontier_kw, code_refs, facts}`.
    - If blocked without user input, set `need_clarification` on that section's receipt and keep facts minimal.
-6. `$INDUCTIVE_GROUNDING_CTL record-grounding --sweep <SWEEP> --json '<array of receipts>'`.
+6. `$INDUCTIVE_G3_GROUNDING_CTL record-grounding --sweep <SWEEP> --json '<array of receipts>'`.
 7. Return the compact template below — **stop**. Do not run any further control commands.
 
 **Forbidden after step 6 (never violate):**
-- `$INDUCTIVE_GROUNDING_CTL check-grounding` — **parent only**, immediately after this subagent returns (step 1 gate).
+- `$INDUCTIVE_GATE_CTL grounding-check` — **parent only**, immediately after this subagent returns (step 1 gate).
 - Highlights, bullet summaries, leanings, decisions, or any prose beyond the Return template.
-- Re-stating `facts` / `code_refs` from receipts — they live in `grounding-notes.json`; parent reads via `list-grounding`.
+- Re-stating `facts` / `code_refs` from receipts — they live in `grounding-notes.json`; parent reads via `$INDUCTIVE_GATE_CTL grounding-list`.
 
 ## Return
 
@@ -72,4 +71,4 @@ receipts: GN-001 .. GN-00N (<N> sections)
 written: grounding-notes.json
 ```
 
-The orchestrating inductive-runner ignores Task return body except to confirm completion, runs `$INDUCTIVE_GROUNDING_CTL check-grounding --sweep <SWEEP>`, then `$INDUCTIVE_GROUNDING_CTL list-grounding --sweep <SWEEP>` before step 2.
+The orchestrating inductive-runner ignores Task return body except to confirm completion, runs `$INDUCTIVE_GATE_CTL grounding-check --sweep <SWEEP>`, then `$INDUCTIVE_GATE_CTL grounding-list --sweep <SWEEP>` before step 2.

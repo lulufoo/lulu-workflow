@@ -31,9 +31,7 @@ _SCRIPTS = Path(__file__).resolve().parents[3] / "scripts"
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
-from active_context_schema import resolve_conversation_id  # noqa: E402
-from inductive_gate_state_schema import load_gate_state  # noqa: E402
-from inductive_grounding_schema import (  # noqa: E402
+from g3_grounding_notes_schema import (  # noqa: E402
     append_receipts,
     check_sweep_coverage,
     grounding_notes_path,
@@ -42,12 +40,8 @@ from inductive_grounding_schema import (  # noqa: E402
     receipts_for_sweep,
     save_ledger,
 )
-from inductive_section_pointer_schema import DONE_STATUSES, load_section_pointer  # noqa: E402
-from platform_schema import detect_platform  # noqa: E402
-
-_SUBAGENT_REQUIRED_PREFIX = "SUBAGENT_REQUIRED:"
-_MASTER_CONVERSATION_REQUIRED_PREFIX = "MASTER_CONVERSATION_REQUIRED:"
-_CONVERSATION_ID_REQUIRED_PREFIX = "CONVERSATION_ID_REQUIRED:"
+from g3_section_pointer_schema import DONE_STATUSES, load_section_pointer  # noqa: E402
+from inductive_subagent_guard import require_subagent_dispatch  # noqa: E402
 
 
 def _ok(payload: dict[str, Any]) -> None:
@@ -57,10 +51,6 @@ def _ok(payload: dict[str, Any]) -> None:
 def _fail(message: str) -> None:
     print(json.dumps({"ok": False, "error": message}, indent=2, ensure_ascii=False))
     sys.exit(1)
-
-
-def _gate_state_path(out_dir: Path) -> Path:
-    return out_dir / "inductive-gate-state.json"
 
 
 def _load_unsettled_sections(out_dir: Path) -> list[dict[str, Any]]:
@@ -82,46 +72,6 @@ def _load_unsettled_sections(out_dir: Path) -> list[dict[str, Any]]:
     return result
 
 
-def _load_master_conversation_id(out_dir: Path) -> str:
-    gate_path = _gate_state_path(out_dir)
-    if not gate_path.exists():
-        return ""
-    try:
-        state = load_gate_state(gate_path)
-    except (FileNotFoundError, ValueError):
-        return ""
-    return str(state.get("master_conversation_id", "")).strip()
-
-
-def _check_subagent_dispatch(out_dir: Path, conversation_id: str) -> None:
-    """Reject record-grounding when invoked from the orchestrating parent."""
-    if detect_platform() != "cursor":
-        return
-
-    master = _load_master_conversation_id(out_dir)
-    if not master:
-        raise ValueError(
-            f"{_MASTER_CONVERSATION_REQUIRED_PREFIX} init-session must complete "
-            "before record-grounding. Re-run $INDUCTIVE_GATE_CTL init-session, "
-            "then dispatch g3-shallow-grounding-runner."
-        )
-
-    conv_id = resolve_conversation_id(conversation_id)
-    if not conv_id:
-        raise ValueError(
-            f"{_CONVERSATION_ID_REQUIRED_PREFIX} record-grounding failed: "
-            "caller session identity missing; retry via dispatched subagent."
-        )
-
-    if master == conv_id:
-        raise ValueError(
-            f"{_SUBAGENT_REQUIRED_PREFIX} shallow grounding must run in a dispatched "
-            "g3-shallow-grounding-runner subagent via $SUBAGENT_TOOL "
-            "(run_in_background: false). Do not record grounding inline from the "
-            "orchestrating conversation. Dispatch the subagent and retry."
-        )
-
-
 def cmd_unsettled_sections(out_dir: Path, _args: argparse.Namespace) -> None:
     try:
         sections = _load_unsettled_sections(out_dir)
@@ -132,7 +82,13 @@ def cmd_unsettled_sections(out_dir: Path, _args: argparse.Namespace) -> None:
 
 def cmd_record_grounding(out_dir: Path, args: argparse.Namespace) -> None:
     try:
-        _check_subagent_dispatch(out_dir, args.conversation_id or "")
+        require_subagent_dispatch(
+            out_dir,
+            args.conversation_id or "",
+            record_command="record-grounding",
+            runner_skill="g3-shallow-grounding-runner",
+            operation_label="shallow grounding",
+        )
     except ValueError as exc:
         _fail(str(exc))
 

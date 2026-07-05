@@ -137,7 +137,7 @@ class TestShouldInjectConversationId:
             "python3 ~/.cursor/skills/lulu-dev-workflow/lulu-code/scripts/tc_start.py --cycle-id fid1",
             "python3 ~/.cursor/skills/lulu-dev-workflow/lulu-code/scripts/tc_task_control.py resolve-context --task-id t1",
             "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/inductive/inductive_gate_control.py init-session --out-dir /tmp/r1 --sections I",
-            "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/inductive/inductive_grounding_control.py record-grounding --out-dir /tmp/r1 --json '{}'",
+            "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/inductive/inductive_g3_grounding_control.py record-grounding --out-dir /tmp/r1 --json '{}'",
         ],
     )
     def test_start_py_invocation(self, command):
@@ -177,7 +177,7 @@ class TestShouldInjectConversationId:
     def test_inductive_injects_when_flag_absent(self):
         cmd = (
             "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/inductive/"
-            "inductive_grounding_control.py record-grounding --out-dir /tmp/r1 --json '{}'"
+            "inductive_g3_grounding_control.py record-grounding --out-dir /tmp/r1 --json '{}'"
         )
         updated = hook_entry._apply_conversation_id(cmd, "9001dc22-85f1-404b-869c-2e471433da4d")
         assert updated is not None
