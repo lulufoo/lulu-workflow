@@ -42,6 +42,7 @@ INDUCTIVE_SECTION_PTR = $INDUCTIVE_OUT_DIR/inductive-section-pointer.json
 INDUCTIVE_EP_LEDGER   = $INDUCTIVE_OUT_DIR/exposed-points.json
 INDUCTIVE_GROUNDING   = $INDUCTIVE_OUT_DIR/grounding-notes.json
 INDUCTIVE_G2_REPORT   = $INDUCTIVE_OUT_DIR/g2-topology-report.json
+INDUCTIVE_G4_REPORT   = $INDUCTIVE_OUT_DIR/g4-recompose-report.json
 PROVENANCE_GATE_STATE = $INDUCTIVE_OUT_DIR/provenance-gate-state.json
 PROVENANCE_TRACES     = $INDUCTIVE_OUT_DIR/provenance-trace-{intent,scope,norm}.json   # Gate 5 deltas, one per role
 ```
@@ -244,40 +245,59 @@ The user re-sweeps (recompute frontiers → step 1; the map deepens), or — for
 
 ## Gate 4 — Recompose + Audit
 
-**Goal:** audit the already-committed section files for cross-section coherence. This gate prevents the decomposition from losing the whole. It **only finds and names problems — it never fixes them**: it does not discover new EPs, does not run methods, does not write section files, and changes no decision. Every finding is routed back to the gate that owns it (see step 2).
+**Goal:** audit the already-committed section files for cross-section coherence. This gate prevents the decomposition from losing the whole. It **only finds and names problems — it never fixes them**: it does not discover new EPs, does not run methods, does not write section files, and changes no decision. Every finding is routed back to the gate that owns it (step 3 table).
 
-1. Call `$INDUCTIVE_G3_SECTION_CTL recompose-check` to audit the committed artifacts (reads `inductive-scope/<S>.md` files + `exposed-points.json` + `architecture_view`):
-   - **reforms_shape** — do the resolved points still constitute the Gate 1 shape?
-   - **shape_absorbed** — is every confirmed shape constraint folded into its owning section file? No load-bearing constraint may live only in working memory — `_overview` is a cold-start scaffold, not an output, so anything it held must now have a section home.
-   - **conflicts** — do any two decisions contradict?
-   - **buildable / reversible / verifiable** — does the integrated solution hold as one whole?
-2. Present the recompose self-check — **naming each problem, not fixing it**. Route every finding back to the gate that owns it; Gate 4 registers no EP and changes no decision (the fix is made there through the normal AI-recommends → user-decides loop):
-   - **Section-level** (`shape_absorbed=false`, or a `conflict` owned by one section): move the spine back first — `$INDUCTIVE_GATE_CTL gate-reopen --gate G3` — then `$INDUCTIVE_G3_SECTION_CTL rewind-section --to <S>` for each affected section. `rewind-section` alone only moves the section pointer; `gate-reopen` is what returns the spine to Gate 3, so the two stay consistent. Fix via the Gate 3 step-4 loop (`append-to-section`), re-`clear-section`, then re-run `recompose-check`.
-   - **Cross-section conflict** (a contradiction owned by no single section): the user picks **one owning section** to host the reconciliation. `activate-section` it, register the reconciliation as a normal EP there (focus guard applies — it lives under that one `active_section`), decide it one at a time, then re-`append-to-section` + `clear-section` any other affected section to match.
-   - **Shape-level** (`reforms_shape=false`): `$INDUCTIVE_GATE_CTL gate-reopen --gate G1`, correct the shape with the user, then re-descend the spine. Committed `<S>.md` files and the EP ledger survive a reopen — only gate status resets.
+**Read discipline (context guard):** the **semantic** half of the audit (`conflicts` / `buildable` / `reversible` / `verifiable`) runs in `g4-recompose-runner` subagent only — **do not** inline-read section files, the EP ledger, or the DQI during G4. The **structural** half (`reforms_shape` / `shape_absorbed`) is mechanical and stays a direct script call (step 1) — it needs no subagent.
 
-**Close criterion:** `recompose_check` passes all fields; call `$INDUCTIVE_GATE_CTL gate-close --gate G4 --payload '<recompose_check JSON>'` after the user confirms the integrated solution is coherent.
+### Audit spine
 
-### Write outputs
+1. **Structural check** (script) → `reforms_shape` / `shape_absorbed`.
+2. **Semantic audit** (subagent) → gate: fetch its verdict via `g4-check-report` / `g4-list-report`.
+3. **Present + route** — name each problem, route it to the gate that owns it; fix there, then re-run from step 1.
+4. **Close** — report-driven; no payload the caller can forge.
 
-**Per-section files** are built incrementally during Gate 3 via `append-to-section` and finalised at `clear-section` — not here. Gate 4 only finalises the DQI. There is **no merged document** and **no `_overview` file**.
+### Step 1 — Structural check
 
-Each `<SECTION>.md` — built across sweeps via `append-to-section`, finalised at `clear-section` — holds that section's figure(s) — deepening across KW where it refined — and resolved decisions, drawn in the section's `presentation.allowed` carrier, obeying `presentation.forbidden`:
+Call `$INDUCTIVE_G3_SECTION_CTL recompose-check` to audit the committed artifacts (reads `inductive-scope/<S>.md` files + `exposed-points.json` + `architecture_view`):
+- **reforms_shape** — do the resolved points still constitute the Gate 1 shape?
+- **shape_absorbed** — is every confirmed shape constraint folded into its owning section file? No load-bearing constraint may live only in working memory — `_overview` is a cold-start scaffold, not an output, so anything it held must now have a section home.
 
-```markdown
-<!-- section-key:<SECTION> -->
-### [<SECTION>] <localized section label>
+Both are mechanical (file-presence / ledger checks) — no semantic judgement, so no subagent is needed here.
 
-<the section's figure(s) in its form carrier — coarse→fine across KW where it deepened>
-- <resolved decision (one bullet), with code anchor>
+### Step 2 — Semantic audit (subagent)
 
-> 代码引用：<this section's code_refs, deduplicated>
-> 待决（deferred）：<this section's deferred points — become OQ in design-doc>
+Dispatch `g4-recompose-runner` via `$SUBAGENT_TOOL` with `$SUBAGENT_AWAIT_SYNC`:
+
+```text
+Load {actual $SKILL_ROOT}/compose/runners/g4-recompose-runner/SKILL.md and follow its instructions.
+
+## Input
+INDUCTIVE_OUT_DIR: {actual $INDUCTIVE_OUT_DIR}
+COMPOSE_PROFILE: {actual $COMPOSE_PROFILE}
+CYCLE_ID: {actual $CYCLE_ID}
+PROJECT_ROOT: $(pwd)
 ```
 
-> The `<!-- section-key:KEY -->` anchor is what the grounding resolver maps and compose Initializing reads to load a section's slice as its `I*` grounding (alongside the decision-doc SSOT).
+Do **not** paste section-file contents in the Task prompt — the subagent reads `inductive-scope/<S>.md`, `exposed-points.json`, and `$INDUCTIVE_DQI` from disk.
 
-**`INDUCTIVE_DQI`** (`inductive-dqi.json`) is assembled by `$INDUCTIVE_GATE_CTL` — not hand-written. Top-level keys: `version`, `source_scope_doc`, `architecture_view`, `exposed_points`, `recompose_check`. It aggregates the already-documented parts: `architecture_view` + `shape_constraints` (the G1 close payload), an `exposed_points` snapshot (the EP ledger; per-EP contract in `inductive_exposed_points_schema.py`), and `recompose_check` (the G4 close payload).
+Then run `$INDUCTIVE_GATE_CTL g4-check-report` **once** — immediately after the subagent returns. **Exit 1 (unresolved conflicts, or `buildable`/`reversible`/`verifiable`=false) is an expected branch — still run `$INDUCTIVE_GATE_CTL g4-list-report` next** to get the findings for step 3. **Ignore** the Task return beyond confirming completion — decide next step only via `$INDUCTIVE_GATE_CTL g4-list-report`. **Do not** read source inline in this step.
+
+### Step 3 — Present + route
+
+Present the recompose self-check — **naming each problem, not fixing it**. Route every finding back to the gate that owns it; Gate 4 registers no EP and changes no decision (the fix is made there through the normal AI-recommends → user-decides loop). After the fix, re-run from step 1 (structural + semantic must both be re-checked — a stale verdict is never reused).
+
+| Finding | Route |
+|---|---|
+| `shape_absorbed=false`, or a `conflict` with a single `owning_section` | **Section-level.** `$INDUCTIVE_GATE_CTL gate-reopen --gate G3` (also clears the stale semantic report) → `$INDUCTIVE_G3_SECTION_CTL rewind-section --to <S>` for each affected section → fix via the Gate 3 step-4 loop (`append-to-section`) → re-`clear-section`. |
+| a `conflict` with no `owning_section` (cross-section) | **Cross-section.** User picks **one owning section** to host the reconciliation → `activate-section` it → register the reconciliation as a normal EP there (focus guard applies) → decide it one at a time → re-`append-to-section` + `clear-section` any other affected section to match. |
+| `reforms_shape=false` | **Shape-level.** `$INDUCTIVE_GATE_CTL gate-reopen --gate G1` (cascades: clears the stale G2/G4 reports too) → correct the shape with the user → re-descend the spine. |
+| `buildable=false` / `reversible=false` / `verifiable=false` | Same as a cross-section or section-level conflict, whichever the subagent's `facts` implicate; if the whole design is unsound, treat as shape-level. |
+
+`rewind-section` alone only moves the section pointer; `gate-reopen` is what returns the spine to Gate 3 (or Gate 1), so the two stay consistent — always pair them. Committed `<S>.md` files and the EP ledger survive a reopen — only gate status (and the now-stale g4 report) resets.
+
+### Step 4 — Close
+
+**Close criterion:** call `$INDUCTIVE_GATE_CTL gate-close --gate G4` (no payload — **report-driven**, mirroring G2). Internally it re-runs `recompose-check` and reads `g4-recompose-report.json`, merges both, and rejects the close if any of `reforms_shape` / `shape_absorbed` / `conflicts==[]` / `buildable` / `reversible` / `verifiable` fails — a caller-supplied payload can never substitute for the actual report. On success it writes the merged predicates to `$INDUCTIVE_DQI.recompose_check` and advances to Gate 5. Call this only after the user confirms the integrated solution is coherent.
 
 On G4 close, proceed to Gate 5 before returning to the parent.
 
@@ -328,6 +348,31 @@ Control returns to the parent compose stage.
 
 ---
 
+## Output Contract
+
+Artifacts are written progressively across gates, not authored fresh at the end — this section is the data contract, not a step to execute.
+
+**Per-section files** are built incrementally during Gate 3 via `append-to-section` and finalised at `clear-section`. Gate 4 never writes them. There is **no merged document** and **no `_overview` file**.
+
+Each `<SECTION>.md` — built across sweeps via `append-to-section`, finalised at `clear-section` — holds that section's figure(s) — deepening across KW where it refined — and resolved decisions, drawn in the section's `presentation.allowed` carrier, obeying `presentation.forbidden`:
+
+```markdown
+<!-- section-key:<SECTION> -->
+### [<SECTION>] <localized section label>
+
+<the section's figure(s) in its form carrier — coarse→fine across KW where it deepened>
+- <resolved decision (one bullet), with code anchor>
+
+> 代码引用：<this section's code_refs, deduplicated>
+> 待决（deferred）：<this section's deferred points — become OQ in design-doc>
+```
+
+> The `<!-- section-key:KEY -->` anchor is what the grounding resolver maps and compose Initializing reads to load a section's slice as its `I*` grounding (alongside the decision-doc SSOT).
+
+**`INDUCTIVE_DQI`** (`inductive-dqi.json`) is assembled by `$INDUCTIVE_GATE_CTL` — not hand-written. Top-level keys: `version`, `source_scope_doc`, `architecture_view`, `exposed_points`, `recompose_check`. It aggregates the already-documented parts: `architecture_view` + `shape_constraints` (the G1 close payload), an `exposed_points` snapshot (the EP ledger; per-EP contract in `inductive_exposed_points_schema.py`), and `recompose_check` (the merged structural + semantic predicates written on G4 close — see Gate 4 step 4).
+
+---
+
 ## Constraints
 
 The mechanical invariants the gates above must not violate (the *why* is in **Method**; these are the hard guardrails):
@@ -337,4 +382,4 @@ The mechanical invariants the gates above must not violate (the *why* is in **Me
 - **Frontier sweep, not section-at-a-time:** Gate 3 advances all unsettled sections' maturity together — each sweep surfaces every section's coarsest open point at its `frontier_kw`; a section clears only when its `frontier_kw` reaches the target (default KW3) with no blocking-open EP.
 - **Open-point altitude = frontier KW:** every frontier-map open point is *selected* and *worded* at its section's `frontier_kw` row of `KW_CRITERIA` — no deeper-KW substance (signatures / counts / `file:line`) in the problem statement; that detail lives only in the leaning/接地 part. `human_inlet` points are exempt (any altitude, any dimension; AI maps them to a section).
 - **Collaboration baseline:** AI leads cognition (explore / think / surface + a grounded leaning); the user leads decision and progress. AI output is an exploration finding + leaning — never a multiple-choice menu the user answers, never a verdict.
-- **Lazy, one at a time:** examine source material only as each section requires (no unrelated scans); decide one point at a time (no batching); never raise an EP for content already settled by the scope doc or a shape constraint. Gate 3 shallow grounding runs in a dispatched subagent (whole sweep, step 1); deep grounding for the chosen point also runs in a dispatched subagent (one point, step 4a); leanings and decisions stay inline (step 3–4b).
+- **Lazy, one at a time:** examine source material only as each section requires (no unrelated scans); decide one point at a time (no batching); never raise an EP for content already settled by the scope doc or a shape constraint. Gate 3 shallow grounding runs in a dispatched subagent (whole sweep, step 1); deep grounding for the chosen point also runs in a dispatched subagent (one point, step 4a); leanings and decisions stay inline (step 3–4b). Gate 4's semantic audit (`conflicts` / `buildable` / `reversible` / `verifiable`) also runs in a dispatched subagent (step 2) — only its mechanical structural half (`reforms_shape` / `shape_absorbed`, step 1) is a direct script call.

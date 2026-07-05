@@ -12,19 +12,24 @@ Subcommands:
                         architecture_view summary (multi-turn resume entry point)
     gate-close          Close a gate with payload validation and prereq check
     gate-reopen         Reopen a gate; downstream gates reset to pending
+                        (also deletes the stale g2/g4 report where applicable)
     g2-check-report     Facade: subprocess to inductive_g2_control check-g2-report
     g2-list-report      Facade: subprocess to inductive_g2_control list-g2-report
     grounding-check     Facade: subprocess to inductive_g3_grounding_control (shallow)
     grounding-list      Facade: subprocess to inductive_g3_grounding_control (shallow)
     deep-grounding-list Facade: subprocess to inductive_g3_grounding_control
                         (mode=deep, one open point via --ep-id)
+    g4-check-report     Facade: subprocess to inductive_g4_control check-recompose-report
+    g4-list-report      Facade: subprocess to inductive_g4_control list-recompose-report
 
 Payload per gate:
     G1: {"architecture_view": {...}, "shape_constraints": [...]}
     G2: {}  (requires g2-topology-report.json with verdict=ok)
     G3: must pass check-coverage (delegated to section control)
-    G4: {"reforms_shape": bool, "shape_absorbed": bool, "conflicts": [...],
-         "buildable": bool, "reversible": bool, "verifiable": bool}
+    G4: none accepted from the caller — report-driven. gate-close internally
+        merges structural {reforms_shape, shape_absorbed} (recompose-check)
+        with semantic {conflicts, buildable, reversible, verifiable}
+        (g4-recompose-report.json via g4-recompose-runner) and validates that.
 
 All subcommands print JSON to stdout and exit 0 on success, exit 1 on failure.
 
@@ -94,6 +99,11 @@ def _g2_ctl(out_dir: Path) -> list[str]:
 
 def _g3_grounding_ctl(out_dir: Path) -> list[str]:
     script = _HERE / "inductive_g3_grounding_control.py"
+    return [sys.executable, str(script), "--out-dir", str(out_dir)]
+
+
+def _g4_ctl(out_dir: Path) -> list[str]:
+    script = _HERE / "inductive_g4_control.py"
     return [sys.executable, str(script), "--out-dir", str(out_dir)]
 
 
@@ -274,7 +284,11 @@ def cmd_gate_close(out_dir: Path, args: argparse.Namespace) -> None:
     elif gate == "G3":
         _validate_g3_close(out_dir)
     elif gate == "G4":
-        _validate_g4_payload(out_dir, payload)
+        # G4 is report-driven: any caller-supplied --payload is ignored in favor
+        # of the merged structural (recompose-check) + semantic (g4-recompose-runner
+        # report) predicates, so gate-close can never be satisfied by AI-recalled
+        # field values.
+        payload = _validate_g4_close(out_dir)
 
     # Close the gate and persist
     updated = close_gate(state, gate, payload=payload if payload else None)
@@ -285,7 +299,7 @@ def cmd_gate_close(out_dir: Path, args: argparse.Namespace) -> None:
         _write_dqi_field(out_dir, "architecture_view", payload["architecture_view"])
         _write_dqi_field(out_dir, "shape_constraints", payload.get("shape_constraints", []))
 
-    # For G4: write recompose_check to DQI
+    # For G4: write merged recompose_check to DQI
     if gate == "G4":
         _write_dqi_field(out_dir, "recompose_check", payload)
 
@@ -327,24 +341,62 @@ def _validate_g3_close(out_dir: Path) -> None:
         _fail("G3 coverage predicate not met: " + "; ".join(str(e) for e in errors))
 
 
-def _validate_g4_payload(out_dir: Path, payload: dict[str, Any]) -> None:
-    required_bool = ("reforms_shape", "shape_absorbed", "buildable", "reversible", "verifiable")
-    missing = [f for f in required_bool if payload.get(f) is None]
-    if missing:
-        _fail(f"G4 payload missing fields: {missing}")
+def _validate_g4_close(out_dir: Path) -> dict[str, Any]:
+    """Merge structural (recompose-check) + semantic (g4-recompose-report) predicates.
 
-    if not payload.get("reforms_shape"):
+    Structural (reforms_shape / shape_absorbed) come from
+    inductive_g3_section_control.py recompose-check (mechanical, script-checkable).
+    Semantic (conflicts / buildable / reversible / verifiable) come from the
+    g4-recompose-runner subagent's report, read via inductive_g4_control.py
+    list-recompose-report. Neither is supplied by the caller — G4 cannot be
+    closed by an AI-recalled payload.
+    """
+    struct = _run_section_ctl(out_dir, "recompose-check")
+    recompose = struct.get("recompose_check") or {}
+    if not recompose:
+        _fail(struct.get("error") or "recompose-check failed to return recompose_check")
+
+    cmd = _g4_ctl(out_dir) + ["list-recompose-report"]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    try:
+        semantic = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        _fail(result.stdout or result.stderr or "list-recompose-report failed")
+    if result.returncode != 0 or not semantic.get("ok"):
+        _fail(
+            semantic.get("error")
+            or "g4 recompose report unreadable; dispatch g4-recompose-runner first"
+        )
+
+    merged = {
+        "reforms_shape": recompose.get("reforms_shape"),
+        "shape_absorbed": recompose.get("shape_absorbed"),
+        "conflicts": semantic.get("conflicts", []),
+        "buildable": semantic.get("buildable"),
+        "reversible": semantic.get("reversible"),
+        "verifiable": semantic.get("verifiable"),
+    }
+
+    if not merged["reforms_shape"]:
         _fail("G4 gate-close rejected: reforms_shape=false; reopen G1 to correct shape")
 
-    if not payload.get("shape_absorbed"):
-        _fail("G4 gate-close rejected: shape_absorbed=false; rewind affected sections")
+    if not merged["shape_absorbed"]:
+        struct_errors = recompose.get("errors") or []
+        detail = f" ({'; '.join(struct_errors)})" if struct_errors else ""
+        _fail(f"G4 gate-close rejected: shape_absorbed=false; rewind affected sections{detail}")
 
-    conflicts = payload.get("conflicts") or []
+    conflicts = merged["conflicts"] or []
     if conflicts:
         _fail(
             f"G4 gate-close rejected: {len(conflicts)} conflict(s) unresolved; "
             "rewind affected sections to resolve"
         )
+
+    for field in ("buildable", "reversible", "verifiable"):
+        if not merged.get(field):
+            _fail(f"G4 gate-close rejected: {field}=false")
+
+    return merged
 
 
 # ---------------------------------------------------------------------------
@@ -419,10 +471,25 @@ def cmd_gate_reopen(out_dir: Path, args: argparse.Namespace) -> None:
             _fail(payload.get("error") or "delete-g2-report failed")
         deleted_g2_report = bool(payload.get("deleted"))
 
+    # G4's semantic report is downstream of both G1 and G3 — a stale report must
+    # not be readable as if it still reflects the post-fix state.
+    deleted_g4_report = False
+    if gate in ("G1", "G3"):
+        cmd = _g4_ctl(out_dir) + ["delete-recompose-report"]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        try:
+            payload = json.loads(result.stdout)
+        except json.JSONDecodeError:
+            _fail(result.stdout or result.stderr or "delete-recompose-report failed")
+        if result.returncode != 0 or not payload.get("ok"):
+            _fail(payload.get("error") or "delete-recompose-report failed")
+        deleted_g4_report = bool(payload.get("deleted"))
+
     _ok({
         "reopened": gate,
         "active_gate": updated["active_gate"],
         "deleted_g2_report": deleted_g2_report,
+        "deleted_g4_report": deleted_g4_report,
         "note": (
             "downstream gates reset to pending; "
             "resolve the issue then call gate-close again"
@@ -436,6 +503,14 @@ def cmd_g2_check_report(out_dir: Path, _args: argparse.Namespace) -> None:
 
 def cmd_g2_list_report(out_dir: Path, _args: argparse.Namespace) -> None:
     _forward_ctl(_g2_ctl(out_dir), "list-g2-report")
+
+
+def cmd_g4_check_report(out_dir: Path, _args: argparse.Namespace) -> None:
+    _forward_ctl(_g4_ctl(out_dir), "check-recompose-report")
+
+
+def cmd_g4_list_report(out_dir: Path, _args: argparse.Namespace) -> None:
+    _forward_ctl(_g4_ctl(out_dir), "list-recompose-report")
 
 
 def cmd_grounding_check(out_dir: Path, args: argparse.Namespace) -> None:
@@ -551,6 +626,9 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--sweep", type=int, required=True)
     p.add_argument("--ep-id", required=True)
 
+    sub.add_parser("g4-check-report", help="Validate g4-recompose-report (facade)")
+    sub.add_parser("g4-list-report", help="Read g4-recompose-report summary (facade)")
+
     return parser
 
 
@@ -570,6 +648,8 @@ def main() -> None:
         "grounding-check": cmd_grounding_check,
         "grounding-list": cmd_grounding_list,
         "deep-grounding-list": cmd_deep_grounding_list,
+        "g4-check-report": cmd_g4_check_report,
+        "g4-list-report": cmd_g4_list_report,
     }
 
     handler = dispatch.get(args.subcommand)
