@@ -58,7 +58,7 @@ Work is bound to a **cycle** with `$CYCLE_TYPE` = `topic` or `feature` (see `_ru
 | Platform vars | `$PLATFORM`, `$SKILL_ROOT`, `$CACHE_DIR`, `$WORKFLOW_DIR` |
 | Session | Read `_runtime.md` § Session Foundation when session variables are needed |
 | Session vars | `$CYCLE_ID`, `$CYCLE_TYPE`, `$EXECUTION_MODE` |
-| Project config | `workflow-config.json` at resolved `workflowConfig` path (see ## Command Semantics → configure); `workflow-guard-config.json` at resolved `hookConfig` path (created by init if missing) |
+| Project config | Workflow config at resolved `workflowConfig` root (see ## Command Semantics → configure); `workflow-guard-config.json` at resolved `hookConfig` path (created by init if missing) |
 
 ## Command Flow
 
@@ -66,7 +66,7 @@ Work is bound to a **cycle** with `$CYCLE_TYPE` = `topic` or `feature` (see `_ru
 
 1. **Machine install** — `lulu-meta-skill install`
 2. **Project init** — `$CYCLE_CONTROL init-project` (once per repo; safe to re-run)
-3. **Workflow config** — skip if config file already exists at resolved path; else `$CYCLE_CONTROL configure`
+3. **Workflow config** — skip if workflow config is already present at resolved root; else `$CYCLE_CONTROL configure`
 4. **First work** — Enter any sub-SKILL (e.g. `/lulu-approach`). Cycle binding via `_runtime.md` § Session Foundation.
 
 ## Commands
@@ -80,11 +80,11 @@ Work is bound to a **cycle** with `$CYCLE_TYPE` = `topic` or `feature` (see `_ru
 
 **Run:** `$CYCLE_CONTROL init-project`
 
-**Done:** Report success or stderr; creates `workflow-guard-config.json` at resolved `hookConfig` path if missing; does **not** create `workflow-config.json`.
+**Done:** Report success or stderr; creates `workflow-guard-config.json` at resolved `hookConfig` path if missing; does **not** create workflow config (use `configure`).
 
 ### `configure` — When workflow-config is missing
 
-**When:** Resolved config path has no file (see ## Command Semantics → configure).
+**When:** Workflow config is not present at resolved root (see ## Command Semantics → configure).
 
 **Run:** `$CYCLE_CONTROL configure` [`--url "<blob-url>"`]
 
@@ -102,9 +102,9 @@ Work is bound to a **cycle** with `$CYCLE_TYPE` = `topic` or `feature` (see `_ru
 
 ### configure
 
-- **Target path:** `workflowConfig` in platform config (default `skill-config/lulu-dev-workflow/workflow-config.json`).
-- **Success stdout:** absolute path of file written.
-- **Anti-pattern:** Do not write to `$WORKFLOW_DIR/workflow-config.json` unless `workflowConfig` points there.
+- **Target:** `workflowConfig` in platform config (default `skill-config/lulu-dev-workflow/`).
+- **Success stdout:** absolute path of config root written (`manifest.json` + `stages/`).
+- **Anti-pattern:** Do not write workflow config under `$WORKFLOW_DIR/` unless `workflowConfig` points there.
 - **Inspect only:** `$CYCLE_CONTROL resolve-config-path` (no download).
 
 ### archive
@@ -115,7 +115,7 @@ Work is bound to a **cycle** with `$CYCLE_TYPE` = `topic` or `feature` (see `_ru
 ### init
 
 - **Creates:** platform `config.json` pointer(s) if missing; **`workflow-guard-config.json`** at resolved `hookConfig` path if missing (from skill default template; does not overwrite existing file).
-- **Does not:** create `workflow-config.json` (use `configure`).
+- **Does not:** create workflow config (use `configure`).
 - **Safe:** re-run allowed (idempotent hooks registration and workflow-guard-config bootstrap).
 
 ## Script Macros

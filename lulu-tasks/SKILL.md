@@ -107,7 +107,7 @@ Hook enforces all transition pre-conditions. Denial messages are self-explanator
 
 ### General
 
-1. Read `$WORKFLOW_DIR/workflow-config.json` → `lulu-tasks` section before driving the workflow.
+1. Do not read workflow-config files directly; load framework templates via `$FETCH_TEMPLATE` when entering Drafting (Rule D1).
 2. Read `session-state.md` → `active_doc: N` to determine current work-order round.
 3. `r{N}/workflow-state.md` is the authoritative current state — write it to request a transition.
 4. Never infer state from document body or file existence; always read `workflow-state.md`.

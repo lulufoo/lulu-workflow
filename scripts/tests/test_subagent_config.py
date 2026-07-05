@@ -18,7 +18,7 @@ class TestDefaults:
 
         cfg = default_platform_config()
         assert cfg["version"] == 1
-        assert cfg["workflowConfig"] == "skill-config/lulu-dev-workflow/workflow-config.json"
+        assert cfg["workflowConfig"] == "skill-config/lulu-dev-workflow/"
         assert cfg["hookConfig"] == "skill-config/lulu-dev-workflow/workflow-guard-config.json"
         assert "subagents" not in cfg
 
@@ -137,7 +137,7 @@ class TestResolveWorkflowConfigPath:
         from subagent_config import resolve_workflow_config_path
 
         assert resolve_workflow_config_path(tmp_path, "cursor") == (
-            tmp_path / "skill-config/lulu-dev-workflow/workflow-config.json"
+            tmp_path / "skill-config/lulu-dev-workflow"
         )
 
     def test_custom_path_from_platform_config(self, tmp_path):
@@ -160,7 +160,7 @@ class TestEnsurePlatformConfig:
 
         ensure_platform_config(tmp_path, platform="cursor")
         cfg = read_platform_config(tmp_path, platform="cursor")
-        assert cfg["workflowConfig"] == "skill-config/lulu-dev-workflow/workflow-config.json"
+        assert cfg["workflowConfig"] == "skill-config/lulu-dev-workflow/"
         assert cfg["hookConfig"] == "skill-config/lulu-dev-workflow/workflow-guard-config.json"
         assert "subagents" not in cfg
 

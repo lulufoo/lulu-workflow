@@ -28,7 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from tc_code_task_list import first_pending, parse_tasks  # noqa: E402
 from tc_git_ops import prepare_worktrees, validate_worktrees  # noqa: E402
 from tc_session_state_schema import load_session_state, load_work_order_round  # noqa: E402
-from tc_workflow_common import resolve_workflow_config_path  # noqa: E402
+from tc_workflow_common import load_stage_config, workflow_config_is_present  # noqa: E402
 from tc_workflow_state_schema import (  # noqa: E402
     load_workflow_state,
     resolve_workflow_state_path,
@@ -143,12 +143,13 @@ def validate_tasks(cycle_dir: Path) -> list:
 # ---------------------------------------------------------------------------
 
 def load_git_config(project_root: Path) -> dict:
-    """Read workflow-config.json and return lulu-code.git section."""
-    config_path = resolve_workflow_config_path(project_root)
-    if not config_path.exists():
-        raise FileNotFoundError(f"workflow-config.json not found: {config_path}")
-    cfg = json.loads(config_path.read_text(encoding="utf-8"))
-    return cfg.get("lulu-code", {}).get("git", {})
+    """Read lulu-code.git from stage workflow config."""
+    if not workflow_config_is_present(project_root):
+        raise FileNotFoundError(
+            f"workflow-config not found under {project_root.as_posix()}"
+        )
+    code_cfg = load_stage_config(project_root, "lulu-code")
+    return code_cfg.get("git", {})
 
 
 def _derive_slug(cycle_id: str) -> str:

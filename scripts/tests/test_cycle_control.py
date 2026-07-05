@@ -80,7 +80,7 @@ class TestCycleControlResolveConfigPath:
             "resolve-config-path",
         )
         assert result.returncode == 0
-        assert "workflow-config.json" in result.stdout
+        assert "skill-config/lulu-dev-workflow" in result.stdout
 
 
 class TestCycleControlList:

@@ -15,6 +15,7 @@ from platforms.paths import gitignore_entry  # noqa: E402
 from ta_workflow_common import (  # noqa: E402
     SKILL_ROOT,
     resolve_workflow_config_path,
+    workflow_config_is_present,
 )
 
 _PLATFORM = detect_platform()
@@ -49,9 +50,9 @@ def main() -> int:
     ensure_platform_config(project_root, platform=_PLATFORM)
     ensure_gitignore_entry(project_root)
 
-    config_path = resolve_workflow_config_path(project_root)
-    config_path_display = config_path.as_posix()
-    if config_path.exists():
+    config_root = resolve_workflow_config_path(project_root)
+    config_path_display = config_root.as_posix()
+    if workflow_config_is_present(project_root):
         config_note = f"workflow-config 已存在：{config_path_display}"
     else:
         config_note = (

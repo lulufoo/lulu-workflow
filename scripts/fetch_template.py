@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 from typing import Callable, Optional
 
-from subagent_config import detect_platform, resolve_workflow_config_path
+from subagent_config import detect_platform, load_stage_config, workflow_config_is_present
 
 CACHE_ROOT_NAME = "lulu-dev-workflow"
 CACHE_TEMPLATE_SUBDIR = ".template"
@@ -128,30 +128,31 @@ def atomic_write(path: Path, content: str) -> None:
     tmp_path.replace(path)
 
 
-def read_config_url(config_path: Path, section: str, key: str) -> str:
-    if not config_path.exists():
-        raise FetchTemplateError(f"workflow-config not found: {config_path}")
+def read_config_url(
+    project_root: Path,
+    section: str,
+    key: str,
+    platform: Optional[str] = None,
+) -> str:
+    if not workflow_config_is_present(project_root, platform):
+        raise FetchTemplateError(
+            f"workflow-config not found under {project_root.as_posix()}"
+        )
 
     try:
-        config = json.loads(config_path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError) as exc:
-        raise FetchTemplateError(f"Invalid workflow-config: {config_path}") from exc
-
-    section_cfg = config.get(section)
-    if not isinstance(section_cfg, dict):
-        raise FetchTemplateError(
-            f"Missing section [{section!r}] in {config_path.as_posix()}"
-        )
+        section_cfg = load_stage_config(project_root, section, platform)
+    except ValueError as exc:
+        raise FetchTemplateError(str(exc)) from exc
 
     if key not in section_cfg:
         raise FetchTemplateError(
-            f"Missing key [{section}][{key!r}] in {config_path.as_posix()}"
+            f"Missing key [{section}][{key!r}] in workflow stage config"
         )
 
     url = str(section_cfg.get(key, "")).strip()
     if not url:
         raise FetchTemplateError(
-            f"Empty URL for [{section}][{key!r}] in {config_path.as_posix()}"
+            f"Empty URL for [{section}][{key!r}] in workflow stage config"
         )
     return url
 
@@ -189,8 +190,7 @@ def fetch_template(
         if cached.strip():
             return cached
 
-    config_path = resolve_workflow_config_path(project_root, plat)
-    url = read_config_url(config_path, section, key)
+    url = read_config_url(project_root, section, key, plat)
 
     local_path = resolve_local_template_path(url, project_root)
     if local_path is not None:

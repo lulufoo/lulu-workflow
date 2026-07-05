@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Shared subagent model resolution from workflow-config.json.
+"""Shared subagent model resolution from workflow-config.
 
 Thin re-export layer; implementation lives in workflow_config_schema.py.
 """
@@ -14,11 +14,15 @@ from workflow_config_schema import (  # noqa: F401
     ensure_platform_config,
     extract_subagent_model,
     get_stage_config,
+    load_stage_config,
     load_workflow_config,
     platform_config_path,
     read_platform_config,
+    resolve_stage_config_path,
     resolve_subagent_model,
     resolve_workflow_config_path,
+    resolve_workflow_config_root,
+    workflow_config_is_present,
     write_platform_config,
 )
 
@@ -30,10 +34,14 @@ __all__ = [
     "ensure_platform_config",
     "extract_subagent_model",
     "get_stage_config",
+    "load_stage_config",
     "load_workflow_config",
     "platform_config_path",
     "read_platform_config",
+    "resolve_stage_config_path",
     "resolve_subagent_model",
     "resolve_workflow_config_path",
+    "resolve_workflow_config_root",
+    "workflow_config_is_present",
     "write_platform_config",
 ]

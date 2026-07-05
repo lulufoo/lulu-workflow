@@ -168,20 +168,11 @@ class TechPlanEvalAdapter:
     def corpus_bind_extensions(
         self, cycle_id: str, project_root: Path
     ) -> dict[str, str]:
-        import json  # noqa: WPS433
-
-        from subagent_config import detect_platform, resolve_workflow_config_path  # noqa: WPS433
+        from subagent_config import detect_platform, get_stage_config  # noqa: WPS433
 
         plat = detect_platform(None)
-        config_path = resolve_workflow_config_path(project_root.resolve(), plat)
-        if not config_path.exists():
-            return self._empty_corpus_bind()
-        try:
-            config = json.loads(config_path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
-            return self._empty_corpus_bind()
-        section = config.get("lulu-plan")
-        if not isinstance(section, dict):
+        section = get_stage_config(project_root.resolve(), "lulu-plan", plat)
+        if not section:
             return self._empty_corpus_bind()
         cycle_type = detect_cycle_type(cycle_id)
         intent_key = intent_eval_config_key(cycle_type)

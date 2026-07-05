@@ -23,7 +23,13 @@ CACHE_DIR = cache_dir(_PLATFORM)
 STAGE = "lulu-code"
 CACHE_SUBDIR = "lulu-code"
 PLATFORM_CONFIG_PATH = WORKFLOW_DIR / "config.json"
-SHARED_CONFIG_DEFAULT = Path("skill-config/lulu-dev-workflow/workflow-config.json")
+from subagent_config import (  # noqa: E402
+    load_stage_config,
+    resolve_workflow_config_path,
+    workflow_config_is_present,
+)
+
+SHARED_CONFIG_DEFAULT = Path("skill-config/lulu-dev-workflow/")
 
 # ---------------------------------------------------------------------------
 # Path helpers
@@ -90,17 +96,6 @@ def write_json(path: Path, payload: Any) -> None:
     with path.open("w", encoding="utf-8") as handle:
         json.dump(payload, handle, indent=2, ensure_ascii=True)
         handle.write("\n")
-
-
-def resolve_workflow_config_path(project_root: Path = Path(".")) -> Path:
-    """Get shared workflow-config.json path via platform config pointer."""
-    platform_cfg_path = project_root / PLATFORM_CONFIG_PATH
-    if platform_cfg_path.exists():
-        platform_cfg = read_json(platform_cfg_path, default={})
-        wf_path = platform_cfg.get("workflowConfig")
-        if wf_path:
-            return project_root / wf_path
-    return project_root / SHARED_CONFIG_DEFAULT
 
 
 # ---------------------------------------------------------------------------

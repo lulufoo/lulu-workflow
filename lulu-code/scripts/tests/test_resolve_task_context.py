@@ -200,15 +200,17 @@ class TestResolveTaskContext:
         result = resolve_task_context(cycle_dir, "t1", project_root, include_model=True)
         assert result["model"] == "Auto"
 
-    def test_custom_workflow_config_path_missing_raises(self, tmp_path: Path):
+    def test_custom_workflow_config_path_missing_returns_none(self, tmp_path: Path):
         cycle_dir, project_root, _ = _setup_happy_path(tmp_path)
         _write_platform_config(project_root, "custom/missing-config.json")
-        with pytest.raises(ValueError, match="workflow-config.json not found"):
-            resolve_task_context(cycle_dir, "t1", project_root)
+        result = resolve_task_context(cycle_dir, "t1", project_root)
+        assert result["test_command"] == ""
+        assert result["commit_message_template"] == ""
 
     def test_missing_workflow_config(self, tmp_path: Path):
         cycle_dir, project_root, _ = _setup_happy_path(tmp_path)
         config_path = project_root / "skill-config" / "lulu-dev-workflow" / "workflow-config.json"
         config_path.unlink()
-        with pytest.raises(ValueError, match="workflow-config.json not found"):
-            resolve_task_context(cycle_dir, "t1", project_root)
+        result = resolve_task_context(cycle_dir, "t1", project_root)
+        assert result["test_command"] == ""
+        assert result["commit_message_template"] == ""

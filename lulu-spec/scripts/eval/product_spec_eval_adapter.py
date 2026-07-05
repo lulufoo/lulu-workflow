@@ -189,27 +189,15 @@ class ProductSpecEvalAdapter:
         cycle_id: str,
         project_root: Path,
     ) -> dict[str, str]:
-        from subagent_config import detect_platform, resolve_workflow_config_path  # noqa: WPS433
+        from subagent_config import detect_platform, get_stage_config  # noqa: WPS433
 
         revision_dir = self.resolve_workflow_state_path(cycle_id, project_root).parent
         scope = resolved_scope_ref(revision_dir) if has_resolved_refs(revision_dir) else None
         decision_ref = scope.path if scope is not None else ""
 
         plat = detect_platform(None)
-        config_path = resolve_workflow_config_path(project_root.resolve(), plat)
-        framework_url = ""
-        if config_path.is_file():
-            try:
-                import json
-
-                config = json.loads(config_path.read_text(encoding="utf-8"))
-                section = config.get("lulu-spec")
-                if isinstance(section, dict):
-                    framework_url = str(
-                        section.get("pst_product_eval_framework_url", ""),
-                    ).strip()
-            except (json.JSONDecodeError, OSError):
-                framework_url = ""
+        section = get_stage_config(project_root.resolve(), "lulu-spec", plat)
+        framework_url = str(section.get("pst_product_eval_framework_url", "")).strip()
 
         return {
             "decision_ref": decision_ref,

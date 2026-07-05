@@ -14,17 +14,91 @@ if str(_SCRIPTS) not in sys.path:
 
 from workflow_config_schema import (  # noqa: E402
     apply_workflow_config_from_url,
+    load_stage_config,
+    resolve_stage_config_path,
     resolve_workflow_config_path,
+    split_monolith_payload,
+    workflow_config_is_present,
+    write_stage_configs,
 )
+from workflow_config_test_helpers import write_monolith_config, write_stage_config  # noqa: E402
 
 _DEFAULT_URL = (
     "https://github.com/lulufoo/lulu-workflow-framework/blob/main/template/workflow-config.json"
 )
 
 
+class TestStageConfigLoader:
+    def test_load_stage_from_stages_layout(self, tmp_path: Path) -> None:
+        write_stage_config(tmp_path, "lulu-code", {"test_command": "npm test"})
+        assert load_stage_config(tmp_path, "lulu-code") == {"test_command": "npm test"}
+
+    def test_load_stage_from_legacy_monolith_pointer(self, tmp_path: Path) -> None:
+        monolith = tmp_path / "custom" / "workflow-config.json"
+        monolith.parent.mkdir(parents=True)
+        monolith.write_text(
+            json.dumps({"lulu-code": {"test_command": "pnpm test"}}),
+            encoding="utf-8",
+        )
+        cfg_path = tmp_path / ".cursor/lulu-dev-workflow/config.json"
+        cfg_path.parent.mkdir(parents=True)
+        cfg_path.write_text(
+            json.dumps({"workflowConfig": "custom/workflow-config.json"}),
+            encoding="utf-8",
+        )
+        assert load_stage_config(tmp_path, "lulu-code", "cursor") == {
+            "test_command": "pnpm test",
+        }
+
+    def test_legacy_monolith_in_config_dir_fallback(self, tmp_path: Path) -> None:
+        write_monolith_config(
+            tmp_path,
+            {"lulu-plan": {"tpt_url": "https://example.com/t.md"}},
+        )
+        assert load_stage_config(tmp_path, "lulu-plan") == {
+            "tpt_url": "https://example.com/t.md",
+        }
+
+    def test_missing_stage_returns_empty_dict(self, tmp_path: Path) -> None:
+        write_stage_config(tmp_path, "lulu-code", {"test_command": "npm test"})
+        assert load_stage_config(tmp_path, "lulu-plan") == {}
+
+    def test_legacy_pointer_falls_back_to_stages_dir(self, tmp_path: Path) -> None:
+        write_stage_config(tmp_path, "lulu-code", {"test_command": "npm test"})
+        cfg_path = tmp_path / ".cursor/lulu-dev-workflow/config.json"
+        cfg_path.parent.mkdir(parents=True)
+        cfg_path.write_text(
+            json.dumps(
+                {"workflowConfig": "skill-config/lulu-dev-workflow/workflow-config.json"}
+            ),
+            encoding="utf-8",
+        )
+        assert workflow_config_is_present(tmp_path, "cursor")
+        assert load_stage_config(tmp_path, "lulu-code", "cursor") == {
+            "test_command": "npm test",
+        }
+
+
+class TestSplitMonolithPayload:
+    def test_splits_version_and_stages(self) -> None:
+        manifest, stages = split_monolith_payload(
+            {
+                "version": 1,
+                "lulu-code": {"test_command": "npm test"},
+                "decision": {"decision_doc_template_url": "https://example.com/d.md"},
+            }
+        )
+        assert manifest == {"version": 1, "layout": "stages"}
+        assert stages["lulu-code"] == {"test_command": "npm test"}
+        assert stages["decision"] == {"decision_doc_template_url": "https://example.com/d.md"}
+
+
 class TestConfigureWorkflowConfig:
-    def test_writes_to_resolved_skill_config_path(self, tmp_path: Path) -> None:
-        payload = {"version": 1, "lulu-plan": {"tpt_tech_conformance_url": "https://example.com/tc.md"}}
+    def test_writes_stages_layout(self, tmp_path: Path) -> None:
+        payload = {
+            "version": 1,
+            "lulu-plan": {"tpt_tech_conformance_url": "https://example.com/tc.md"},
+        }
 
         def stub_fetch(owner: str, repo: str, ref: str, path: str) -> str:
             assert owner == "lulufoo"
@@ -46,12 +120,14 @@ class TestConfigureWorkflowConfig:
         finally:
             ft.gh_api_fetch = original
 
-        expected = resolve_workflow_config_path(tmp_path, "cursor")
-        assert target == expected
-        written = json.loads(expected.read_text(encoding="utf-8"))
-        assert written == payload
+        expected_root = resolve_workflow_config_path(tmp_path, "cursor")
+        assert target == expected_root
+        assert (target / "manifest.json").exists()
+        stage_cfg = json.loads((target / "stages" / "lulu-plan.json").read_text())
+        assert stage_cfg == {"tpt_tech_conformance_url": "https://example.com/tc.md"}
+        assert workflow_config_is_present(tmp_path, "cursor")
 
-    def test_cli_configure_prints_path(self, tmp_path: Path, monkeypatch) -> None:
+    def test_cli_configure_prints_root(self, tmp_path: Path, monkeypatch) -> None:
         monkeypatch.setattr(
             "fetch_template.gh_api_fetch",
             lambda owner, repo, ref, path: json.dumps({"version": 1}),
@@ -71,7 +147,7 @@ class TestConfigureWorkflowConfig:
             check=False,
         )
         assert result.returncode == 0
-        assert result.stdout.strip().endswith("skill-config/lulu-dev-workflow/workflow-config.json")
+        assert result.stdout.strip().endswith("skill-config/lulu-dev-workflow")
 
     def test_cli_resolve_path(self, tmp_path: Path) -> None:
         result = subprocess.run(
@@ -89,7 +165,31 @@ class TestConfigureWorkflowConfig:
             check=False,
         )
         assert result.returncode == 0
-        assert result.stdout.strip().endswith("skill-config/lulu-dev-workflow/workflow-config.json")
+        assert result.stdout.strip().endswith("skill-config/lulu-dev-workflow")
+
+    def test_cli_resolve_stage_path(self, tmp_path: Path) -> None:
+        write_stage_config(tmp_path, "lulu-code", {"test_command": "npm test"})
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(_SCRIPTS / "workflow_config.py"),
+                "resolve-stage-path",
+                "--project-root",
+                str(tmp_path),
+                "--stage",
+                "lulu-code",
+                "--platform",
+                "cursor",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.returncode == 0
+        assert result.stdout.strip().endswith(
+            "skill-config/lulu-dev-workflow/stages/lulu-code.json"
+        )
+        assert resolve_stage_config_path(tmp_path, "lulu-code", "cursor").exists()
 
     def test_invalid_json_raises(self, tmp_path: Path, monkeypatch) -> None:
         monkeypatch.setattr(
@@ -98,3 +198,15 @@ class TestConfigureWorkflowConfig:
         )
         with pytest.raises(ValueError, match="not valid JSON"):
             apply_workflow_config_from_url(tmp_path, _DEFAULT_URL, platform="cursor")
+
+    def test_write_stage_configs(self, tmp_path: Path) -> None:
+        root = tmp_path / "cfg"
+        write_stage_configs(
+            root,
+            {"version": 2, "layout": "stages"},
+            {"lulu-code": {"test_command": "make test"}},
+        )
+        assert json.loads((root / "manifest.json").read_text())["version"] == 2
+        assert json.loads((root / "stages" / "lulu-code.json").read_text())[
+            "test_command"
+        ] == "make test"

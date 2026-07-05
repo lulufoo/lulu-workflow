@@ -1,12 +1,20 @@
 #!/usr/bin/env python3
-"""Authoritative I/O for workflow-config.json and platform config pointer.
+"""Authoritative I/O for workflow-config and platform config pointer.
 
 Library module — CLI lives in workflow_config.py.
+
+Layout:
+  skill-config/lulu-dev-workflow/
+    manifest.json
+    stages/{stage}.json
+
+Legacy: workflowConfig may point at a monolith workflow-config.json file.
 """
 
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -16,11 +24,16 @@ _WORKFLOW_DIR_MAP = {
     platform: paths["workflow_dir"] for platform, paths in PLATFORM_PATHS.items()
 }
 
-_DEFAULT_WORKFLOW_CONFIG_PATH = "skill-config/lulu-dev-workflow/workflow-config.json"
+_DEFAULT_WORKFLOW_CONFIG_DIR = "skill-config/lulu-dev-workflow/"
+_LEGACY_WORKFLOW_CONFIG_FILENAME = "workflow-config.json"
+_STAGES_SUBDIR = "stages"
+_MANIFEST_FILENAME = "manifest.json"
 _DEFAULT_HOOK_CONFIG_PATH = "skill-config/lulu-dev-workflow/workflow-guard-config.json"
 _DEFAULT_CONFIGURE_BLOB_URL = (
     "https://github.com/lulufoo/lulu-workflow-framework/blob/main/template/workflow-config.json"
 )
+RESERVED_TOP_LEVEL_KEYS = frozenset({"version", "layout"})
+_STAGE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
 
 
 def detect_platform(platform: Optional[str] = None) -> str:
@@ -30,7 +43,7 @@ def detect_platform(platform: Optional[str] = None) -> str:
 def default_platform_config() -> dict:
     return {
         "version": 1,
-        "workflowConfig": _DEFAULT_WORKFLOW_CONFIG_PATH,
+        "workflowConfig": _DEFAULT_WORKFLOW_CONFIG_DIR,
         "hookConfig": _DEFAULT_HOOK_CONFIG_PATH,
     }
 
@@ -70,30 +83,263 @@ def ensure_platform_config(project_root: Path, platform: Optional[str] = None) -
         write_platform_config(project_root, default_platform_config(), platform)
 
 
+def _workflow_config_rel(project_root: Path, platform: Optional[str] = None) -> str:
+    platform_cfg = read_platform_config(project_root, platform)
+    rel = platform_cfg.get("workflowConfig", _DEFAULT_WORKFLOW_CONFIG_DIR)
+    return str(rel).strip() or _DEFAULT_WORKFLOW_CONFIG_DIR
+
+
+def is_legacy_monolith_path(path: Path) -> bool:
+    """True when the configured pointer targets a single JSON file."""
+    return path.suffix.lower() == ".json"
+
+
 def resolve_workflow_config_path(
     project_root: Path,
     platform: Optional[str] = None,
 ) -> Path:
-    """Return path to workflow-config.json via platform config pointer."""
-    platform_cfg = read_platform_config(project_root, platform)
-    workflow_config_rel = platform_cfg.get("workflowConfig", _DEFAULT_WORKFLOW_CONFIG_PATH)
-    return project_root / workflow_config_rel
+    """Return the configured workflowConfig pointer (directory or legacy monolith file)."""
+    return project_root / _workflow_config_rel(project_root, platform)
+
+
+def resolve_workflow_config_root(
+    project_root: Path,
+    platform: Optional[str] = None,
+) -> Path:
+    """Return the directory that holds manifest.json and stages/."""
+    pointer = resolve_workflow_config_path(project_root, platform)
+    if is_legacy_monolith_path(pointer):
+        return pointer.parent
+    return pointer
+
+
+def _legacy_monolith_in_root(root: Path) -> Path:
+    return root / _LEGACY_WORKFLOW_CONFIG_FILENAME
+
+
+def _validate_stage_name(stage: str) -> None:
+    if not stage or not _STAGE_NAME_RE.fullmatch(stage):
+        raise ValueError(f"invalid workflow stage name: {stage!r}")
+
+
+def _stage_file_in_root(root: Path, stage: str) -> Path:
+    return root / _STAGES_SUBDIR / f"{stage}.json"
+
+
+def _load_stage_from_stages_dir(root: Path, stage: str) -> dict:
+    stage_path = _stage_file_in_root(root, stage)
+    if not stage_path.exists():
+        return {}
+    return _read_json_object(stage_path, label=f"stage config [{stage}]")
+
+
+def _config_root_from_pointer(pointer: Path) -> Path:
+    if is_legacy_monolith_path(pointer):
+        return pointer.parent
+    return pointer
+
+
+def _stages_layout_present(root: Path) -> bool:
+    if (root / _MANIFEST_FILENAME).exists():
+        return True
+    stages_dir = root / _STAGES_SUBDIR
+    return stages_dir.is_dir() and any(stages_dir.glob("*.json"))
+
+
+def resolve_stage_config_path(
+    project_root: Path,
+    stage: str,
+    platform: Optional[str] = None,
+) -> Path:
+    """Return stages/{stage}.json under the config root."""
+    _validate_stage_name(stage)
+    root = resolve_workflow_config_root(project_root, platform)
+    return _stage_file_in_root(root, stage)
+
+
+def _read_json_object(path: Path, *, label: str) -> dict:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        raise ValueError(f"{label} unreadable: {path}") from exc
+    if not isinstance(payload, dict):
+        raise ValueError(f"{label} root must be a JSON object: {path}")
+    return payload
+
+
+def _load_stage_from_legacy_monolith(monolith_path: Path, stage: str) -> dict:
+    if not monolith_path.exists():
+        return {}
+    try:
+        config = _read_json_object(monolith_path, label="workflow-config.json")
+    except ValueError:
+        return {}
+    section = config.get(stage)
+    return section if isinstance(section, dict) else {}
+
+
+def load_stage_config(project_root: Path, stage: str, platform: Optional[str] = None) -> dict:
+    """Load one stage config. Missing stage file → {}."""
+    _validate_stage_name(stage)
+    pointer = resolve_workflow_config_path(project_root, platform)
+    root = _config_root_from_pointer(pointer)
+
+    if is_legacy_monolith_path(pointer):
+        stage_cfg = _load_stage_from_legacy_monolith(pointer, stage)
+        if stage_cfg:
+            return stage_cfg
+        return _load_stage_from_stages_dir(root, stage)
+
+    stage_cfg = _load_stage_from_stages_dir(root, stage)
+    if stage_cfg:
+        return stage_cfg
+
+    return _load_stage_from_legacy_monolith(_legacy_monolith_in_root(root), stage)
+
+
+def workflow_config_is_present(project_root: Path, platform: Optional[str] = None) -> bool:
+    pointer = resolve_workflow_config_path(project_root, platform)
+    root = _config_root_from_pointer(pointer)
+
+    if is_legacy_monolith_path(pointer) and pointer.exists():
+        return True
+    if _stages_layout_present(root):
+        return True
+    return _legacy_monolith_in_root(root).exists()
 
 
 def load_workflow_config(project_root: Path, platform: Optional[str] = None) -> dict:
-    """Load and parse workflow-config.json. Raises ValueError if missing or unreadable."""
-    workflow_config_path = resolve_workflow_config_path(project_root, platform)
-    if not workflow_config_path.exists():
-        raise ValueError(f"workflow-config.json not found: {workflow_config_path}")
-    try:
-        return json.loads(workflow_config_path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError) as exc:
-        raise ValueError(f"workflow-config.json unreadable: {workflow_config_path}") from exc
+    """Load merged workflow config (manifest + all stages). Raises ValueError if absent."""
+    if not workflow_config_is_present(project_root, platform):
+        pointer = resolve_workflow_config_path(project_root, platform)
+        raise ValueError(f"workflow-config not found: {pointer}")
+
+    pointer = resolve_workflow_config_path(project_root, platform)
+    if is_legacy_monolith_path(pointer):
+        return _read_json_object(pointer, label="workflow-config.json")
+
+    root = pointer
+    merged: dict = {}
+    manifest_path = root / _MANIFEST_FILENAME
+    if manifest_path.exists():
+        merged.update(_read_json_object(manifest_path, label="workflow manifest"))
+
+    stages_dir = root / _STAGES_SUBDIR
+    if stages_dir.is_dir():
+        for stage_path in sorted(stages_dir.glob("*.json")):
+            merged[stage_path.stem] = _read_json_object(
+                stage_path,
+                label=f"stage config [{stage_path.stem}]",
+            )
+
+    legacy_path = _legacy_monolith_in_root(root)
+    if legacy_path.exists():
+        legacy = _read_json_object(legacy_path, label="legacy workflow-config.json")
+        for key, value in legacy.items():
+            if key in RESERVED_TOP_LEVEL_KEYS:
+                if key not in merged:
+                    merged[key] = value
+            elif isinstance(value, dict) and key not in merged:
+                merged[key] = value
+
+    if not merged:
+        raise ValueError(f"workflow-config not found: {pointer}")
+    return merged
 
 
 def get_stage_config(project_root: Path, stage: str, platform: Optional[str] = None) -> dict:
-    config = load_workflow_config(project_root, platform)
-    return config.get(stage) or {}
+    return load_stage_config(project_root, stage, platform)
+
+
+def split_monolith_payload(payload: dict) -> tuple[dict, dict[str, dict]]:
+    """Split a monolith workflow-config dict into manifest + per-stage configs."""
+    if not isinstance(payload, dict):
+        raise ValueError("workflow-config root must be a JSON object")
+
+    manifest: dict = {}
+    if "version" in payload:
+        manifest["version"] = payload["version"]
+    manifest["layout"] = "stages"
+
+    stages: dict[str, dict] = {}
+    for key, value in payload.items():
+        if key in RESERVED_TOP_LEVEL_KEYS:
+            continue
+        if isinstance(value, dict):
+            stages[key] = value
+    return manifest, stages
+
+
+def write_stage_configs(
+    root: Path,
+    manifest: dict,
+    stages: dict[str, dict],
+) -> None:
+    """Write manifest.json and stages/*.json under root."""
+    from fetch_template import atomic_write  # noqa: WPS433
+
+    root.mkdir(parents=True, exist_ok=True)
+    stages_dir = root / _STAGES_SUBDIR
+    stages_dir.mkdir(parents=True, exist_ok=True)
+
+    manifest_text = json.dumps(manifest, indent=2, ensure_ascii=False) + "\n"
+    atomic_write(root / _MANIFEST_FILENAME, manifest_text)
+
+    for stage, stage_cfg in sorted(stages.items()):
+        _validate_stage_name(stage)
+        if not isinstance(stage_cfg, dict):
+            raise ValueError(f"stage [{stage}] must be a JSON object")
+        stage_text = json.dumps(stage_cfg, indent=2, ensure_ascii=False) + "\n"
+        atomic_write(stages_dir / f"{stage}.json", stage_text)
+
+
+def _migrate_platform_config_pointer_to_dir(
+    project_root: Path,
+    root: Path,
+    platform: Optional[str] = None,
+) -> None:
+    rel_root = root.relative_to(project_root.resolve()).as_posix()
+    if not rel_root.endswith("/"):
+        rel_root = f"{rel_root}/"
+
+    platform_cfg = read_platform_config(project_root, platform)
+    current = str(platform_cfg.get("workflowConfig", "")).strip()
+    if current.endswith(".json"):
+        platform_cfg["workflowConfig"] = rel_root
+        write_platform_config(project_root, platform_cfg, platform)
+
+
+def apply_workflow_config_from_url(
+    project_root: Path,
+    url: str,
+    *,
+    platform: Optional[str] = None,
+) -> Path:
+    """Download monolith workflow-config JSON and write stages/ layout."""
+    from fetch_template import gh_api_fetch, parse_blob_url  # noqa: WPS433
+
+    parsed = parse_blob_url(url.strip())
+    content = gh_api_fetch(
+        parsed["owner"],
+        parsed["repo"],
+        parsed["ref"],
+        parsed["path"],
+    )
+    try:
+        payload = json.loads(content)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"downloaded workflow-config is not valid JSON: {exc}") from exc
+
+    manifest, stages = split_monolith_payload(payload)
+    root = resolve_workflow_config_root(project_root, platform)
+    write_stage_configs(root, manifest, stages)
+
+    legacy_path = _legacy_monolith_in_root(root)
+    if legacy_path.exists():
+        legacy_path.unlink()
+
+    _migrate_platform_config_pointer_to_dir(project_root, root, platform)
+    return root
 
 
 def extract_subagent_model(
@@ -115,46 +361,13 @@ def resolve_subagent_model(
     stage: str,
     platform: Optional[str] = None,
 ) -> Optional[str]:
-    workflow_config_path = resolve_workflow_config_path(project_root, platform)
-
-    if not workflow_config_path.exists():
+    if not workflow_config_is_present(project_root, platform):
         return None
     try:
-        workflow_config = json.loads(workflow_config_path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
+        stage_cfg = load_stage_config(project_root, stage, platform)
+    except ValueError:
         return None
-
-    stage_cfg = workflow_config.get(stage) or {}
     return extract_subagent_model(stage_cfg, platform)
-
-
-def apply_workflow_config_from_url(
-    project_root: Path,
-    url: str,
-    *,
-    platform: Optional[str] = None,
-) -> Path:
-    """Download workflow-config JSON from a GitHub blob URL and write to resolved path."""
-    from fetch_template import atomic_write, gh_api_fetch, parse_blob_url  # noqa: WPS433
-
-    parsed = parse_blob_url(url.strip())
-    content = gh_api_fetch(
-        parsed["owner"],
-        parsed["repo"],
-        parsed["ref"],
-        parsed["path"],
-    )
-    try:
-        payload = json.loads(content)
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"downloaded workflow-config is not valid JSON: {exc}") from exc
-    if not isinstance(payload, dict):
-        raise ValueError("downloaded workflow-config root must be a JSON object")
-
-    normalized = json.dumps(payload, indent=2, ensure_ascii=False) + "\n"
-    target = resolve_workflow_config_path(project_root, platform)
-    atomic_write(target, normalized)
-    return target
 
 
 def default_configure_blob_url() -> str:

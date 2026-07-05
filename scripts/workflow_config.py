@@ -3,8 +3,9 @@
 
 Subcommands:
     get-model       Resolve subagent model for a workflow stage (JSON stdout)
-    configure       Download workflow-config.json to workflowConfig path
-    resolve-path    Print resolved workflow-config.json path
+    configure           Download workflow-config and write stages/ layout
+    resolve-path        Print resolved workflowConfig root path
+    resolve-stage-path  Print resolved stages/{stage}.json path
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ from fetch_template import FetchTemplateError  # noqa: E402
 from workflow_config_schema import (  # noqa: E402
     apply_workflow_config_from_url,
     default_configure_blob_url,
+    resolve_stage_config_path,
     resolve_subagent_model,
     resolve_workflow_config_path,
 )
@@ -26,6 +28,7 @@ from workflow_config_schema import (  # noqa: E402
 _CMD_GET_MODEL = "get-model"
 _CMD_CONFIGURE = "configure"
 _CMD_RESOLVE_PATH = "resolve-path"
+_CMD_RESOLVE_STAGE_PATH = "resolve-stage-path"
 
 
 def _add_project_args(parser: argparse.ArgumentParser) -> None:
@@ -72,6 +75,12 @@ def _cmd_resolve_path(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_resolve_stage_path(args: argparse.Namespace) -> int:
+    path = resolve_stage_config_path(args.project_root, args.stage, args.platform)
+    print(path.as_posix())
+    return 0
+
+
 def _cli(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Workflow config utilities.")
     parent = argparse.ArgumentParser(add_help=False)
@@ -88,7 +97,7 @@ def _cli(argv: Optional[list[str]] = None) -> int:
     configure = sub.add_parser(
         _CMD_CONFIGURE,
         parents=[parent],
-        help="Download workflow-config.json to workflowConfig path.",
+        help="Download workflow-config and write stages/ layout.",
     )
     configure.add_argument(
         "--url",
@@ -99,8 +108,15 @@ def _cli(argv: Optional[list[str]] = None) -> int:
     sub.add_parser(
         _CMD_RESOLVE_PATH,
         parents=[parent],
-        help="Print resolved workflow-config.json path.",
+        help="Print resolved workflowConfig root path.",
     )
+
+    resolve_stage = sub.add_parser(
+        _CMD_RESOLVE_STAGE_PATH,
+        parents=[parent],
+        help="Print resolved stages/{stage}.json path.",
+    )
+    resolve_stage.add_argument("--stage", required=True, help="Workflow stage name.")
 
     args = parser.parse_args(argv)
     args.project_root = args.project_root.resolve()
@@ -111,6 +127,8 @@ def _cli(argv: Optional[list[str]] = None) -> int:
         return _cmd_configure(args)
     if args.command == _CMD_RESOLVE_PATH:
         return _cmd_resolve_path(args)
+    if args.command == _CMD_RESOLVE_STAGE_PATH:
+        return _cmd_resolve_stage_path(args)
 
     parser.print_help()
     return 2
