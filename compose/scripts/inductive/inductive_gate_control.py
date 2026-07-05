@@ -351,10 +351,22 @@ def _validate_g4_close(out_dir: Path) -> dict[str, Any]:
     list-recompose-report. Neither is supplied by the caller — G4 cannot be
     closed by an AI-recalled payload.
     """
+    # Structural predicates first (mirrors SKILL step 1 -> step 2 ordering) — a
+    # structural failure should surface as itself, not be masked by "report
+    # missing" when the semantic half was never even dispatched yet.
     struct = _run_section_ctl(out_dir, "recompose-check")
     recompose = struct.get("recompose_check") or {}
     if not recompose:
         _fail(struct.get("error") or "recompose-check failed to return recompose_check")
+
+    struct_errors = recompose.get("errors") or []
+    struct_detail = f" ({'; '.join(struct_errors)})" if struct_errors else ""
+
+    if not recompose.get("reforms_shape"):
+        _fail(f"G4 gate-close rejected: reforms_shape=false; reopen G1 to correct shape{struct_detail}")
+
+    if not recompose.get("shape_absorbed"):
+        _fail(f"G4 gate-close rejected: shape_absorbed=false; rewind affected sections{struct_detail}")
 
     cmd = _g4_ctl(out_dir) + ["list-recompose-report"]
     result = subprocess.run(cmd, capture_output=True, text=True)
@@ -376,14 +388,6 @@ def _validate_g4_close(out_dir: Path) -> dict[str, Any]:
         "reversible": semantic.get("reversible"),
         "verifiable": semantic.get("verifiable"),
     }
-
-    if not merged["reforms_shape"]:
-        _fail("G4 gate-close rejected: reforms_shape=false; reopen G1 to correct shape")
-
-    if not merged["shape_absorbed"]:
-        struct_errors = recompose.get("errors") or []
-        detail = f" ({'; '.join(struct_errors)})" if struct_errors else ""
-        _fail(f"G4 gate-close rejected: shape_absorbed=false; rewind affected sections{detail}")
 
     conflicts = merged["conflicts"] or []
     if conflicts:

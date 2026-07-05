@@ -189,6 +189,38 @@ def test_validate_report_requires_bool_predicates():
     assert any("buildable" in e for e in errors)
 
 
+def test_validate_report_requires_facts_when_clean():
+    errors = validate_report(
+        {
+            "version": "1",
+            "conflicts": [],
+            "buildable": True,
+            "reversible": True,
+            "verifiable": True,
+            "facts": [],
+            "produced_by": "subagent",
+            "created_at": "2026-01-01T00:00:00+00:00",
+        }
+    )
+    assert any("clean verdict" in e for e in errors)
+
+
+def test_validate_report_allows_empty_facts_when_not_clean():
+    errors = validate_report(
+        {
+            "version": "1",
+            "conflicts": [],
+            "buildable": False,
+            "reversible": True,
+            "verifiable": True,
+            "facts": [],
+            "produced_by": "subagent",
+            "created_at": "2026-01-01T00:00:00+00:00",
+        }
+    )
+    assert not any("clean verdict" in e for e in errors)
+
+
 def test_validate_report_rejects_conflict_with_owning_section_not_in_sections():
     errors = validate_report(
         {
@@ -324,7 +356,7 @@ def test_gate_close_g4_rejects_unresolved_conflicts(tmp_path: Path):
 
 
 def test_gate_close_g4_ignores_caller_supplied_payload(tmp_path: Path):
-    """G4 is report-driven: a forged --payload claiming success must not bypass the report."""
+    """G4 is report-driven: a forged --payload claiming success must not bypass the missing report."""
     _drive_to_g4(tmp_path)
     forged = json.dumps(
         {
@@ -339,6 +371,43 @@ def test_gate_close_g4_ignores_caller_supplied_payload(tmp_path: Path):
     code, result = _run_gate(tmp_path, "gate-close", "--gate", "G4", "--payload", forged)
     assert code == 1
     assert "recompose" in result.get("error", "").lower()
+
+
+def test_gate_close_g4_forged_payload_cannot_override_real_conflicts(tmp_path: Path):
+    """Stronger anti-forgery case: a real conflicting report is on disk; a forged
+    all-clean --payload must not be able to paper over it."""
+    _drive_to_g4(tmp_path)
+    conflicting = _ok_recompose_report(
+        conflicts=[
+            {
+                "description": "I and ST disagree on ownership of the retry policy",
+                "sections": ["I", "ST"],
+                "owning_section": None,
+            }
+        ],
+    )
+    _run_g4(
+        tmp_path,
+        "--conversation-id",
+        _SUBAGENT_CONV,
+        "record-recompose-report",
+        "--json",
+        json.dumps(conflicting),
+    )
+
+    forged = json.dumps(
+        {
+            "reforms_shape": True,
+            "shape_absorbed": True,
+            "conflicts": [],
+            "buildable": True,
+            "reversible": True,
+            "verifiable": True,
+        }
+    )
+    code, result = _run_gate(tmp_path, "gate-close", "--gate", "G4", "--payload", forged)
+    assert code == 1
+    assert "conflict" in result.get("error", "").lower()
 
 
 def test_gate_reopen_g3_deletes_g4_report(tmp_path: Path):

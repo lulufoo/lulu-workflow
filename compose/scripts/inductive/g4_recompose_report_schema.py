@@ -132,6 +132,18 @@ def validate_report(data: dict[str, Any]) -> list[str]:
             elif len(fact) > MAX_FACT_CHARS:
                 errors.append(f"facts[{i}] exceeds {MAX_FACT_CHARS} chars")
 
+    # A "clean" verdict (no conflicts, everything true) still needs an audit
+    # trail — mirrors g2_topology_report_schema's "verdict ok requires facts".
+    is_clean = (
+        isinstance(conflicts, list)
+        and not conflicts
+        and data.get("buildable") is True
+        and data.get("reversible") is True
+        and data.get("verifiable") is True
+    )
+    if is_clean and isinstance(facts, list) and not any(str(f).strip() for f in facts):
+        errors.append("a clean verdict (no conflicts, all true) requires non-empty facts")
+
     return errors
 
 
