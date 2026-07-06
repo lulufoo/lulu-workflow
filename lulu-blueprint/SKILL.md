@@ -45,4 +45,4 @@ To resume an in-progress document, do not run start again — run `$SESSION_INFO
 
 ## Reference documents
 
-Template SSOT (staged locally): `lulu-blueprint/templates/` — sync target: [blueprint templates on GitHub](https://github.com/lulufoo/lulu-workflow-framework/tree/main/lulu-dev-workflow/template/blueprint)
+Template SSOT: [blueprint templates on GitHub](https://github.com/lulufoo/lulu-workflow-framework/tree/main/lulu-dev-workflow/template/blueprint) (`skill-config` → `pbt_*_url`)

@@ -45,4 +45,4 @@ To resume an in-progress document, do not run start again — run `$SESSION_INFO
 
 ## Reference documents
 
-Template SSOT (staged locally): `lulu-arch/templates/` — sync target: [arch templates on GitHub](https://github.com/lulufoo/lulu-workflow-framework/tree/main/lulu-dev-workflow/template/arch)
+Template SSOT: [arch templates on GitHub](https://github.com/lulufoo/lulu-workflow-framework/tree/main/lulu-dev-workflow/template/arch) (`skill-config` → `tat_*_url`)
