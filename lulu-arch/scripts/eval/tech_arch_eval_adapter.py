@@ -113,7 +113,7 @@ class TechArchEvalAdapter:
                 profile_id=_WORKFLOW_ID,
             ),
             mode=state["mode"],
-            product_ref="",
+            upstream_baseline_ref="",
             cycle_type=detect_cycle_type(cycle_id),
         )
 

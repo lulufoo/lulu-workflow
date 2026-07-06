@@ -74,10 +74,10 @@ def _setup_abandon_ready(
     *,
     mode: str = "product",
     evaluate_round: int = 1,
-    product_ref: str = "/p.md",
+    upstream_baseline_ref: str = "/p.md",
     carry_forward_ref: str = "/old.md",
 ) -> tuple[Path, Path]:
-    del product_ref
+    del upstream_baseline_ref
     ws = _seed_session(tmp_path)
     init_drafting(
         ws,

@@ -24,15 +24,15 @@ _TOPIC_EVAL_BLOCKED = (
 
 def select_dimension_ids(
     mode: str = "tech",
-    product_ref: str = "",
+    upstream_baseline_ref: str = "",
 ) -> list[str]:
     """Return ordered dimension ids for lulu-design Evaluating.
 
-    When mode='product' and product_ref is non-empty, intent-alignment (d3)
+    When mode='product' and upstream_baseline_ref is non-empty, intent-alignment (d3)
     is appended. Otherwise d3 is silently skipped.
     """
     ids = ["codebase-consistency", "solution-quality"]
-    if mode == "product" and product_ref:
+    if mode == "product" and upstream_baseline_ref:
         ids.append("intent-alignment")
     return ids
 
@@ -80,14 +80,14 @@ def select_dimension_defs(
     cycle_type: str,
     dimension_defs_dir: Path,
     mode: str = "tech",
-    product_ref: str = "",
+    upstream_baseline_ref: str = "",
 ) -> list[dict[str, Any]]:
     """Return ordered dimension definitions for compose_corpus.
 
-    Passes mode and product_ref to select_dimension_ids to determine whether
+    Passes mode and upstream_baseline_ref to select_dimension_ids to determine whether
     intent-alignment (d3) is included.
     """
     require_feature_eval(cycle_type)
-    ids = select_dimension_ids(mode=mode, product_ref=product_ref)
+    ids = select_dimension_ids(mode=mode, upstream_baseline_ref=upstream_baseline_ref)
     defs = load_dimension_defs(dimension_defs_dir, ids=ids)
     return [copy.deepcopy(defs[dim_id]) for dim_id in ids]

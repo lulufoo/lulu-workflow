@@ -48,8 +48,6 @@ if str(_KERNEL_SCRIPTS) not in sys.path:
 import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
-from resolved_refs_schema import frozen_delivered_path_by_type  # noqa: E402
-
 from review_io import (  # noqa: E402
     count_resolved,
     has_escalated,
@@ -61,7 +59,6 @@ from review_io import (  # noqa: E402
 from review_schema import validate_review_file  # noqa: E402
 from corpus_schema import (  # noqa: E402
     expand_corpus,
-    load_corpus_by_ref,
     resolve_dim_id,
 )
 from evaluate_state_schema import (  # noqa: E402
@@ -87,6 +84,7 @@ from evaluate_state_ops import (  # noqa: E402
 from workflow_adapter import WorkflowAdapter  # noqa: E402
 
 _ADAPTER_CTX: ContextVar[WorkflowAdapter | None] = ContextVar("workflow_adapter", default=None)
+_WORKFLOW_ID_CTX: ContextVar[str | None] = ContextVar("workflow_id", default=None)
 
 
 def _adapter() -> WorkflowAdapter:
@@ -97,6 +95,20 @@ def _adapter() -> WorkflowAdapter:
             "(profile-driven adapter loading)",
         )
     return adapter
+
+
+def _workflow_id() -> str:
+    workflow_id = _WORKFLOW_ID_CTX.get()
+    if not workflow_id:
+        raise RuntimeError(
+            "WORKFLOW_ID not set; invoke via eval_entry.py (--workflow)",
+        )
+    return workflow_id
+
+
+def _upstream_baseline_ref(cycle_id: str, project_root: Path) -> str:
+    """Upstream baseline doc path from the active workflow adapter session context."""
+    return _adapter().session_context(cycle_id, project_root).upstream_baseline_ref
 
 
 def _load_corpus(cycle_id: str, project_root: Path):
@@ -197,12 +209,6 @@ _VALID_MODES = frozenset({"product", "tech"})
 _SEVERITY_RANK = {"critical": 3, "medium": 2, "minor": 1}
 
 
-def _product_ref(cycle_id: str, project_root: Path) -> str:
-    """Product baseline (lulu-spec) path from the per-revision frozen copy (①)."""
-    revision_dir = _adapter().resolve_workflow_state_path(cycle_id, project_root).parent
-    return frozen_delivered_path_by_type(revision_dir, "lulu-spec")
-
-
 def _bind_vars(
     cycle_id: str,
     state: dict[str, str],
@@ -213,7 +219,7 @@ def _bind_vars(
 ) -> dict[str, str]:
     bind = {
         "compose_doc": paths["compose_doc"],
-        "product_ref": _product_ref(cycle_id, project_root),
+        "upstream_baseline_ref": _upstream_baseline_ref(cycle_id, project_root),
         "cycle_type": _adapter().detect_cycle_type(cycle_id),
         "M": str(evaluate_round),
     }
@@ -430,16 +436,10 @@ def build_dimensions(
     *,
     corpus: dict[str, Any] | None = None,
 ) -> list[dict[str, str]]:
-    if corpus is None:
-        ref = eval_state.get("corpus_ref", "")
-        if ref:
-            from corpus_compose import is_composed_corpus_ref
-
-            if is_composed_corpus_ref(ref):
-                raise ValueError(
-                    "composed corpus requires explicit corpus for build_dimensions",
-                )
-            corpus = load_corpus_by_ref(ref)
+    if corpus is None and eval_state.get("corpus_ref", ""):
+        raise ValueError(
+            "corpus is required for build_dimensions when evaluate-state has corpus_ref",
+        )
     dim_map = dimension_status_legacy_map(eval_state, corpus=corpus)
     counts = parse_issue_counts(eval_state.get("issue_counts", "{}"))
     if corpus is None:
@@ -612,7 +612,7 @@ def build_eval_loop_payload(
         active_doc=active_doc,
         N=active_doc,
         cycle_type=_adapter().detect_cycle_type(cycle_id),
-        product_ref=_product_ref(cycle_id, project_root),
+        upstream_baseline_ref=_upstream_baseline_ref(cycle_id, project_root),
         project_root=project_root.resolve().as_posix(),
         paths=paths,
     )
@@ -738,6 +738,7 @@ def begin_eval_round(cycle_id: str, project_root: Path) -> dict[str, Any]:
 
 def _format_runner_dispatch_input(runner_input: dict[str, str]) -> str:
     lines = [
+        f"WORKFLOW_ID:           {runner_input['WORKFLOW_ID']}",
         f"DIMENSION_ID:          {runner_input['DIMENSION_ID']}",
         f"DIMENSION:             {runner_input['DIMENSION']}",
         f"DIMENSION_LABEL:       {runner_input['DIMENSION_LABEL']}",
@@ -753,9 +754,9 @@ def _format_runner_dispatch_input(runner_input: dict[str, str]) -> str:
         f"METHOD_JSON:           {runner_input['METHOD_JSON']}",
         f"METHOD_FOCUS:          {runner_input['METHOD_FOCUS']}",
     ]
-    product_ref = runner_input.get("PRODUCT_REF", "")
-    if product_ref:
-        lines.append(f"PRODUCT_REF:           {product_ref}")
+    upstream_baseline_ref = runner_input.get("UPSTREAM_BASELINE_REF", "")
+    if upstream_baseline_ref:
+        lines.append(f"UPSTREAM_BASELINE_REF: {upstream_baseline_ref}")
     return "\n".join(lines)
 
 
@@ -788,6 +789,7 @@ def _build_runner_input(
     sots = dim_def.get("sots", [])
     method = dim_def.get("method", {})
     runner_input: dict[str, str] = {
+        "WORKFLOW_ID": _workflow_id(),
         "DIMENSION_ID": str(dim_def["id"]),
         "DIMENSION": dispatch_key,
         "DIMENSION_LABEL": str(dim_def["label"]),
@@ -807,12 +809,12 @@ def _build_runner_input(
         if sot.get("kind") == "url":
             ref = str(sot.get("ref", ""))
             if ref and ref != paths["compose_doc"]:
-                runner_input["PRODUCT_REF"] = ref
+                runner_input["UPSTREAM_BASELINE_REF"] = ref
                 break
-    if "PRODUCT_REF" not in runner_input:
-        pref = _product_ref(cycle_id, project_root)
+    if "UPSTREAM_BASELINE_REF" not in runner_input:
+        pref = _upstream_baseline_ref(cycle_id, project_root)
         if pref and any(s.get("kind") == "url" for s in sots):
-            runner_input["PRODUCT_REF"] = pref
+            runner_input["UPSTREAM_BASELINE_REF"] = pref
     return runner_input
 
 
@@ -1140,6 +1142,7 @@ def _build_remediation_runner_input(
     dim_def = _dimension_def(expanded, dim)
     dispatch_key = str(dim_def.get("legacy_alias") or dim_def["id"])
     runner_input: dict[str, str] = {
+        "WORKFLOW_ID": _workflow_id(),
         "DIMENSION_ID": str(dim_def["id"]),
         "DIMENSION": dispatch_key,
         "DIMENSION_LABEL": str(dim_def["label"]),
@@ -1152,14 +1155,15 @@ def _build_remediation_runner_input(
         "EVALUATE_ROUND": str(evaluate_round),
         "PROJECT_ROOT": project_root.resolve().as_posix(),
     }
-    product_ref = _product_ref(cycle_id, project_root)
-    if product_ref:
-        runner_input["PRODUCT_REF"] = product_ref
+    upstream_baseline_ref = _upstream_baseline_ref(cycle_id, project_root)
+    if upstream_baseline_ref:
+        runner_input["UPSTREAM_BASELINE_REF"] = upstream_baseline_ref
     return runner_input
 
 
 def _format_remediation_dispatch_input(data: dict[str, str]) -> str:
     lines = [
+        f"WORKFLOW_ID:           {data['WORKFLOW_ID']}",
         f"DIMENSION_ID:          {data['DIMENSION_ID']}",
         f"DIMENSION:             {data['DIMENSION']}",
         f"DIMENSION_LABEL:       {data['DIMENSION_LABEL']}",
@@ -1172,8 +1176,8 @@ def _format_remediation_dispatch_input(data: dict[str, str]) -> str:
         f"EVALUATE_ROUND:        {data['EVALUATE_ROUND']}",
         f"PROJECT_ROOT:          {data['PROJECT_ROOT']}",
     ]
-    if data.get("PRODUCT_REF"):
-        lines.append(f"PRODUCT_REF:           {data['PRODUCT_REF']}")
+    if data.get("UPSTREAM_BASELINE_REF"):
+        lines.append(f"UPSTREAM_BASELINE_REF: {data['UPSTREAM_BASELINE_REF']}")
     return "\n".join(lines)
 
 
@@ -2013,7 +2017,8 @@ def run_eval(args: argparse.Namespace, adapter: WorkflowAdapter) -> int:
     """Run eval subcommand with an injected WorkflowAdapter (stage entrypoint)."""
     project_root = args.project_root.resolve()
     cycle_id = args.cycle_id.strip()
-    token = _ADAPTER_CTX.set(adapter)
+    adapter_token = _ADAPTER_CTX.set(adapter)
+    workflow_token = _WORKFLOW_ID_CTX.set(args.workflow.strip())
 
     try:
         if args.command == _CMD_INIT_ROUND:
@@ -2088,7 +2093,8 @@ def run_eval(args: argparse.Namespace, adapter: WorkflowAdapter) -> int:
         print(str(exc), file=sys.stderr)
         return 1
     finally:
-        _ADAPTER_CTX.reset(token)
+        _ADAPTER_CTX.reset(adapter_token)
+        _WORKFLOW_ID_CTX.reset(workflow_token)
 
     return 1
 

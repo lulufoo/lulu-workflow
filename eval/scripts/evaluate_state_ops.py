@@ -7,25 +7,21 @@ import fcntl
 from pathlib import Path
 from typing import Any
 
-from corpus_compose import COMPOSED_CORPUS_REF, corpus_fingerprint, is_composed_corpus_ref
+from corpus_compose import corpus_fingerprint, is_composed_corpus_ref
 from corpus_schema import (
     corpus_ref,
     dispatch_ids,
     dispatch_legacy_aliases,
-    load_corpus_by_ref,
     resolve_dim_id,
 )
 from evaluate_state_schema import (
     build_initial_evaluate_state,
-    load_evaluate_state,
     merge_dimension_status,
     parse_frontmatter_fields,
     save_evaluate_state,
     validate_evaluate_state,
 )
 from workflow_adapter import WorkflowAdapter
-
-_VALID_MODES = frozenset({"product", "tech"})
 
 
 def dispatch_dims_for_corpus(corpus: dict[str, Any]) -> list[str]:
@@ -36,28 +32,6 @@ def dispatch_dims_for_corpus(corpus: dict[str, Any]) -> list[str]:
 def dispatch_legacy_for_corpus(corpus: dict[str, Any]) -> list[str]:
     """Return legacy dispatch aliases (e1/e2/e3) for a corpus document."""
     return dispatch_legacy_aliases(corpus)
-
-
-def dispatch_dims_for_corpus_ref(corpus_ref_str: str) -> list[str]:
-    """Return canonical dimension ids for a static corpus reference."""
-    corpus = load_corpus_by_ref(corpus_ref_str)
-    return dispatch_ids(corpus)
-
-
-def dispatch_legacy_for_corpus_ref(corpus_ref_str: str) -> list[str]:
-    """Return legacy dispatch aliases (e1/e2/e3) for a static corpus reference."""
-    corpus = load_corpus_by_ref(corpus_ref_str)
-    return dispatch_legacy_aliases(corpus)
-
-
-def dispatch_dims_for_mode(*, mode: str, corpus_ref_for_mode) -> list[str]:
-    """Return canonical dimension ids for workflow mode (static corpus legacy)."""
-    return dispatch_dims_for_corpus_ref(corpus_ref_for_mode(mode))
-
-
-def dispatch_legacy_for_mode(*, mode: str, corpus_ref_for_mode) -> list[str]:
-    """Return legacy aliases for workflow mode (static corpus legacy)."""
-    return dispatch_legacy_for_corpus_ref(corpus_ref_for_mode(mode))
 
 
 def build_initial_evaluate_state_for_corpus(
@@ -77,19 +51,6 @@ def build_initial_evaluate_state_for_corpus(
         corpus_fingerprint=fingerprint,
         dimension_dispatch=str(corpus.get("dimension_dispatch", "parallel")),
     )
-
-
-def build_initial_evaluate_state_for_mode(
-    *,
-    mode: str,
-    corpus_ref_for_mode,
-) -> dict[str, str]:
-    """Return v3 frontmatter for a new evaluate-state from workflow mode."""
-    if mode not in _VALID_MODES:
-        raise ValueError(f"invalid mode: {mode!r} (allowed: {sorted(_VALID_MODES)})")
-    ref = corpus_ref_for_mode(mode)
-    corpus = load_corpus_by_ref(ref)
-    return build_initial_evaluate_state_for_corpus(corpus)
 
 
 def init_evaluate_state_for_corpus(
@@ -119,40 +80,19 @@ def init_evaluate_state_for_session(
     return es_path
 
 
-def init_evaluate_state(
-    path: Path,
-    *,
-    mode: str,
-    corpus_ref_for_mode,
-) -> None:
-    """Initialize evaluate-state.md v3 for workflow mode (static corpus legacy)."""
-    save_evaluate_state(
-        path,
-        build_initial_evaluate_state_for_mode(
-            mode=mode,
-            corpus_ref_for_mode=corpus_ref_for_mode,
-        ),
-        merge=False,
-    )
-
-
 def _resolve_dim_key(
     data: dict[str, str],
     dim: str,
     *,
     corpus: dict[str, Any] | None = None,
 ) -> str:
-    if corpus is not None:
-        return resolve_dim_id(corpus, dim)
-    ref = data.get("corpus_ref", "")
-    if not ref:
-        return dim
-    if is_composed_corpus_ref(ref):
+    if corpus is None:
+        if not data.get("corpus_ref", ""):
+            return dim
         raise ValueError(
-            "composed corpus requires explicit corpus when resolving dimensions",
+            "resolve dimension: explicit corpus required when evaluate-state has corpus_ref",
         )
-    loaded = load_corpus_by_ref(ref)
-    return resolve_dim_id(loaded, dim)
+    return resolve_dim_id(corpus, dim)
 
 
 def merge_current_dimension(
@@ -177,14 +117,11 @@ def dimension_status_legacy_map(
 
     canonical = parse_dimension_status(eval_data.get("dimension_status", "{}"))
     if corpus is None:
-        ref = eval_data.get("corpus_ref", "")
-        if not ref:
+        if not eval_data.get("corpus_ref", ""):
             return canonical
-        if is_composed_corpus_ref(ref):
-            raise ValueError(
-                "composed corpus requires explicit corpus for legacy dimension map",
-            )
-        corpus = load_corpus_by_ref(ref)
+        raise ValueError(
+            "legacy dimension map: explicit corpus required when evaluate-state has corpus_ref",
+        )
     result: dict[str, str] = {}
     for dim in corpus["dimensions"]:
         alias = str(dim.get("legacy_alias") or dim["id"])

@@ -10,7 +10,7 @@ meta-skill-version: 1.0.0
 
 Library SKILL — not a workflow stage. Runners Read this file; eval-rules never dispatches it.
 
-**WO (lulu-plan v2):** `tech-doc.md` — EvalCorpus v4; e3 uses `41-lulu-plan-intent-evaluation-framework.md` (A, `tpt_intent_eval_framework_url`) + builtin `intent_gap_probes` procedure.
+Eval dimensions, SoT URLs, and quality frameworks are declared per workflow profile in `dimension-defs/` and resolved by the active `WorkflowAdapter` — not hardcoded here.
 
 ---
 
@@ -51,7 +51,7 @@ SSOT: `{$SKILL_ROOT}/eval/issue-taxonomy.json`. `root_cause` must be one of four
 
 - Header SSOT: `{$SKILL_ROOT}/eval/review.template.md`
 - Validate via: `python3 {$SKILL_ROOT}/eval/scripts/review_schema.py --schema`
-- **lulu-plan output path:** `{revision}/evaluate{M}/{review.output_path}` from EvalCorpus (e.g. `tech-review-e{M}1.md`)
+- Review output path: `{revision}/evaluate{M}/{review.output_path}` from EvalCorpus (e.g. `tech-review-e{M}1.md`)
 
 Probe runners: Read template, substitute `{{DIM_LABEL}}`, `{{REV}}`, `{{M}}`, `{{DATE}}`, `{{REFS}}`; append issue rows; never alter header/separator row order.
 
@@ -63,10 +63,10 @@ All probe rows must fill columns per `review_schema.py` `required_at_probe`. Rem
 
 | `root_cause` | `sot_ref` | `location` | `evidence` | `description` |
 |--------------|-----------|------------|------------|-----------------|
-| `SOT-DEFECT` | SoT passage ref (§ / file) | tech-doc gap location | Exact SoT quote + gap + why it blocks | One-line summary |
-| `WO-MISS` | SoT passage stating requirement | tech-doc §/line missing/wrong | SoT quote + gap vs SoT | What tech-doc fails to reflect |
-| `WO-ERROR` | `—` | tech-doc §/line | Criterion violated (dim framework ref) + excerpt | Self-quality violation |
-| `UNRESOLVABLE` | search target or `—` | best-known tech-doc loc | What was searched; why no evidence | Why classification pending |
+| `SOT-DEFECT` | SoT passage ref (§ / file) | eval-target gap location | Exact SoT quote + gap + why it blocks | One-line summary |
+| `WO-MISS` | SoT passage stating requirement | eval-target §/line missing/wrong | SoT quote + gap vs SoT | What eval-target fails to reflect |
+| `WO-ERROR` | `—` | eval-target §/line | Criterion violated (dim framework ref) + excerpt | Self-quality violation |
+| `UNRESOLVABLE` | search target or `—` | best-known eval-target loc | What was searched; why no evidence | Why classification pending |
 
 Probe row defaults: `status: pending`, `decision: —`
 
@@ -80,8 +80,56 @@ Example (WO-MISS):
 
 ## Remediation row usage
 
-- **Artifact Remediation:** `WO-MISS` / `WO-ERROR` — use `location` + `description` + `evidence` to fix `tech-doc.md`
+- **Artifact Remediation:** `WO-MISS` / `WO-ERROR` — use `location` + `description` + `evidence` to fix `REMEDIATION_TARGET_PATH`
 - **SoT Remediation:** `SOT-DEFECT` / `UNRESOLVABLE` — AskQuestion from row fields; Reclassify → `WO-*` applies Artifact fix inline in same session
+
+---
+
+## SoT Remediation — Attribution Protocol
+
+Used by `eval-sot-remediation-runner` to route every SOT issue interactively.
+
+### Evidence format per root cause
+
+```
+SOT-DEFECT:
+  evidence_sot_quote: "<exact passage from SoT>"
+  evidence_gap:       "<what is missing/ambiguous/contradictory and why it blocks>"
+  sot_source:         "<SoT file §section>"
+
+WO-MISS:
+  evidence_sot_quote: "<SoT passage stating the requirement>"
+  evidence_target_loc: "<eval-target §/line>"
+  description:        "<what is missing or wrong>"
+
+WO-ERROR:
+  evidence_target_loc: "<eval-target §/line>"
+  criterion:          "<dimension framework ref>"
+  description:        "<specific quality violation>"
+
+UNRESOLVABLE:
+  evidence_attempt:   "<what was searched and why evidence could not be located>"
+```
+
+### Interactive template (always AskQuestion)
+
+```
+Issue [{id}] — {root_cause}
+{description}
+SoT source: {sot_ref}
+Evidence: {evidence}
+
+Options:
+  Escalate — cannot resolve; mark escalated
+  Reclassify — change root_cause to WO-MISS or WO-ERROR (apply inline Artifact fix if WO-*)
+  Ignore — skip this issue
+```
+
+Routing outcomes:
+- `Escalate` → row `status: escalated`, `decision: escalate`
+- `Reclassify → WO-*` → update `root_cause`; apply Artifact fix inline to `REMEDIATION_TARGET_PATH`; row `status: fixed`, `decision: reclassify`
+- `Ignore` → row `status: ignored`, `decision: ignore`
+- `UNRESOLVABLE → Reclassify → SOT-DEFECT` → treat as Escalate
 
 ---
 

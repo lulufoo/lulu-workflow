@@ -28,13 +28,13 @@ class TestTechDesignEvalPolicy:
         ]
 
     def test_select_dimension_ids_product_mode_no_ref(self):
-        assert select_dimension_ids(mode="product", product_ref="") == [
+        assert select_dimension_ids(mode="product", upstream_baseline_ref="") == [
             "codebase-consistency",
             "solution-quality",
         ]
 
     def test_select_dimension_ids_product_mode_with_ref(self):
-        assert select_dimension_ids(mode="product", product_ref="/p.md") == [
+        assert select_dimension_ids(mode="product", upstream_baseline_ref="/p.md") == [
             "codebase-consistency",
             "solution-quality",
             "intent-alignment",
@@ -63,7 +63,7 @@ class TestTechDesignEvalPolicy:
             cycle_type="feature",
             dimension_defs_dir=_DIMENSION_DEFS,
             mode="product",
-            product_ref="/p.md",
+            upstream_baseline_ref="/p.md",
         )
         assert [d["id"] for d in defs] == [
             "codebase-consistency",

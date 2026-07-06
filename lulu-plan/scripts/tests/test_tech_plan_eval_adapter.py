@@ -16,8 +16,10 @@ for p in (_EVAL_SHELL, _EVAL_SCRIPTS, _KERNEL_TESTS):
         sys.path.insert(0, str(p))
 
 import bootstrap  # noqa: F401
-from tech_plan_eval_adapter import TechPlanEvalAdapter  # noqa: E402
-from corpus_compose import COMPOSED_CORPUS_REF  # noqa: E402
+from tech_plan_eval_adapter import (  # noqa: E402
+    LULU_PLAN_COMPOSED_CORPUS_REF,
+    TechPlanEvalAdapter,
+)
 from workflow_state_schema import init_drafting  # noqa: E402
 from init_drafting_helpers import seed_frozen_delivered  # noqa: E402
 
@@ -41,8 +43,8 @@ def _seed_session(tmp_path: Path) -> Path:
 class TestTechPlanEvalAdapter:
     def test_corpus_ref_for_mode_is_composed(self):
         adapter = TechPlanEvalAdapter()
-        assert adapter.corpus_ref_for_mode("product") == COMPOSED_CORPUS_REF
-        assert adapter.corpus_ref_for_mode("tech") == COMPOSED_CORPUS_REF
+        assert adapter.corpus_ref_for_mode("product") == LULU_PLAN_COMPOSED_CORPUS_REF
+        assert adapter.corpus_ref_for_mode("tech") == LULU_PLAN_COMPOSED_CORPUS_REF
 
     def test_resolve_eval_corpus_no_tech_upstream(self, tmp_path: Path):
         ws = _seed_session(tmp_path)

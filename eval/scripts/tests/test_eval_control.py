@@ -68,7 +68,7 @@ from workflow_state_schema import (  # noqa: E402
 )
 
 _CYCLE = "feat-eval-control"
-from corpus_compose import COMPOSED_CORPUS_REF  # noqa: E402
+from tech_plan_eval_adapter import LULU_PLAN_COMPOSED_CORPUS_REF, TechPlanEvalAdapter  # noqa: E402
 
 _CACHE = Path(".cache/cursor/lulu-dev-workflow")
 _ADAPTER = TechPlanEvalAdapter()
@@ -87,10 +87,12 @@ def _init_evaluate_state(path: Path, *, cycle_id: str, tmp_path: Path) -> None:
 
 
 @pytest.fixture(autouse=True)
-def _set_eval_adapter():
-    token = eval_control._ADAPTER_CTX.set(_ADAPTER)
+def _set_eval_context():
+    adapter_token = eval_control._ADAPTER_CTX.set(_ADAPTER)
+    workflow_token = eval_control._WORKFLOW_ID_CTX.set("lulu-plan")
     yield
-    eval_control._ADAPTER_CTX.reset(token)
+    eval_control._ADAPTER_CTX.reset(adapter_token)
+    eval_control._WORKFLOW_ID_CTX.reset(workflow_token)
 
 _REVIEW_HEADER = (
     "# Tech Review — E2 | revision1 round 1\n\n"
@@ -226,7 +228,7 @@ class TestInitRound:
         assert es["version"] == "3"
         assert es["eval_status"] == "active"
         assert es["fix_phase"] == "probe"
-        assert es["corpus_ref"] == COMPOSED_CORPUS_REF
+        assert es["corpus_ref"] == LULU_PLAN_COMPOSED_CORPUS_REF
         assert es.get("corpus_fingerprint")
         dim_map = _dim_map(es, tmp_path)
         assert dim_map == {"e2": "pending", "e3": "pending"}
@@ -298,6 +300,7 @@ class TestBeginDimension:
         es = load_evaluate_state(ws.parent / "evaluate-state.md")
         assert _dim_map(es, tmp_path)["e2"] == "in_progress"
         ri = result["runner_input"]
+        assert ri["WORKFLOW_ID"] == "lulu-plan"
         assert ri["CYCLE_ID"] == _CYCLE
         assert ri["DIMENSION_ID"] == "codebase-consistency"
         assert ri["DIMENSION"] == "e2"
@@ -306,6 +309,7 @@ class TestBeginDimension:
         assert sots[0]["ref"] == {"root": ".", "strategy": "all"}
         assert "METHOD_JSON" in ri
         assert "EXECUTION_MODE" not in ri
+        assert "WORKFLOW_ID" in result["dispatch_input"]
         assert "EVAL_TARGET_PATH" in result["dispatch_input"]
 
     def test_accepts_canonical_dim_id(self, tmp_path: Path):
@@ -349,13 +353,15 @@ class TestFinishDimensionProbe:
         errors: list[str] = []
 
         def _run(dim: str) -> None:
-            token = eval_control._ADAPTER_CTX.set(_ADAPTER)
+            adapter_token = eval_control._ADAPTER_CTX.set(_ADAPTER)
+            workflow_token = eval_control._WORKFLOW_ID_CTX.set("lulu-plan")
             try:
                 finish_dimension_probe(_CYCLE, tmp_path, dim=dim)
             except ValueError as exc:
                 errors.append(str(exc))
             finally:
-                eval_control._ADAPTER_CTX.reset(token)
+                eval_control._ADAPTER_CTX.reset(adapter_token)
+                eval_control._WORKFLOW_ID_CTX.reset(workflow_token)
 
         t1 = threading.Thread(target=_run, args=("e2",))
         t2 = threading.Thread(target=_run, args=("e3",))
@@ -638,7 +644,8 @@ class TestCollectReviewIssuesPrefix:
         init_drafting(ws, mode="tech")
 
         adapter = TechDesignEvalAdapter()
-        token = eval_control._ADAPTER_CTX.set(adapter)
+        adapter_token = eval_control._ADAPTER_CTX.set(adapter)
+        workflow_token = eval_control._WORKFLOW_ID_CTX.set("lulu-design")
         try:
             eval_dir = ws.parent / "evaluate1"
             eval_dir.mkdir(parents=True, exist_ok=True)
@@ -657,7 +664,8 @@ class TestCollectReviewIssuesPrefix:
 
             issues, paths = collect_review_issues(eval_dir, cycle_id=cycle, project_root=tmp_path)
         finally:
-            eval_control._ADAPTER_CTX.reset(token)
+            eval_control._ADAPTER_CTX.reset(adapter_token)
+            eval_control._WORKFLOW_ID_CTX.reset(workflow_token)
 
         collected_names = [Path(p).name for p in paths]
         assert "design-review-e11.md" in collected_names, "design-review file must be collected"

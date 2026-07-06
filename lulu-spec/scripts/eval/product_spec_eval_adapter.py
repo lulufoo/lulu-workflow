@@ -46,6 +46,12 @@ from product_spec_eval_policy import select_dimension_defs  # noqa: E402
 
 _VALID_EXECUTION_MODES = frozenset({"guided", "autonomous"})
 
+PRODUCT_SPEC_COMPOSED_CORPUS_ID = "lulu-spec-composed"
+PRODUCT_SPEC_COMPOSED_CORPUS_VERSION = "1"
+PRODUCT_SPEC_COMPOSED_CORPUS_REF = (
+    f"{PRODUCT_SPEC_COMPOSED_CORPUS_ID}@{PRODUCT_SPEC_COMPOSED_CORPUS_VERSION}"
+)
+
 
 class ProductSpecEvalAdapter:
     """WorkflowAdapter for lulu-spec cache layout and state machine."""
@@ -109,7 +115,7 @@ class ProductSpecEvalAdapter:
                 profile_id=_WORKFLOW_ID,
             ),
             mode=state["mode"],
-            product_ref="",
+            upstream_baseline_ref="",
             cycle_type=detect_cycle_type(cycle_id),
         )
 
@@ -146,8 +152,6 @@ class ProductSpecEvalAdapter:
             raise ValueError(
                 f"invalid mode: {mode!r} (allowed: ['product', 'tech'])",
             )
-        from corpus_compose import PRODUCT_SPEC_COMPOSED_CORPUS_REF  # noqa: WPS433
-
         return PRODUCT_SPEC_COMPOSED_CORPUS_REF
 
     def resolve_eval_corpus(
@@ -155,11 +159,7 @@ class ProductSpecEvalAdapter:
         cycle_id: str,
         project_root: Path,
     ) -> dict[str, Any]:
-        from corpus_compose import (  # noqa: WPS433
-            PRODUCT_SPEC_COMPOSED_CORPUS_ID,
-            PRODUCT_SPEC_COMPOSED_CORPUS_VERSION,
-            compose_corpus,
-        )
+        from corpus_compose import compose_corpus  # noqa: WPS433
 
         cycle_type = detect_cycle_type(cycle_id)
         dimensions = select_dimension_defs(

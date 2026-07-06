@@ -12,7 +12,7 @@ description: >
 
 Terminal runner subagent. Probes **one Dimension** per invocation (from EvalCorpus dispatch).
 
-> Evaluating-stage dimensions are composed from workflow `dimension-defs/` (`lulu-plan` or `lulu-design` per `--workflow`).
+> Evaluating-stage dimensions are composed from the active workflow profile's `dimension-defs/` (resolved via `--workflow` / `$EVAL_CONTROL` adapter).
 
 ---
 
@@ -23,8 +23,8 @@ Terminal runner subagent. Probes **one Dimension** per invocation (from EvalCorp
 3. Read `{$SKILL_ROOT}/eval/review.template.md`
 4. Read `{$SKILL_ROOT}/eval/scripts/url_fetch.py` — use `read_ref()` for all URL/path loads
 5. Read `{$SKILL_ROOT}/eval/scripts/codebase_sot.py` — use `resolve_codebase_ref()` for codebase SoT
-6. Run `$RESOLVE_PLAN_ROLE` with `CYCLE_ID` and workflow profile (`--profile lulu-design` for design-doc); apply Plan Scope Constraints for probe narrative
-7. `$FETCH_COMPOSE`: `{SKILL_ROOT}/compose/SKILL.md` → Script Macros — pass `--profile` and `--cycle-id "$CYCLE_ID"` when loading section-registry
+6. Run `$RESOLVE_PLAN_ROLE` with `CYCLE_ID` and `--profile {WORKFLOW_ID}`; apply Plan Scope Constraints for probe narrative
+7. `$FETCH_COMPOSE`: `{SKILL_ROOT}/compose/SKILL.md` → Script Macros — pass `--profile {WORKFLOW_ID}` and `--cycle-id "$CYCLE_ID"` when loading section-registry
 8. Follow steps below
 
 ---
@@ -34,6 +34,7 @@ Terminal runner subagent. Probes **one Dimension** per invocation (from EvalCorp
 Plain-text block from `$EVAL_CONTROL begin-dimension` (all lines required unless noted):
 
 ```
+WORKFLOW_ID           active compose profile id (e.g. lulu-plan, lulu-arch)
 DIMENSION_ID          canonical dimension id (e.g. codebase-consistency)
 DIMENSION             dispatch key for finish-dimension-probe (legacy e1/e2/e3 or id)
 DIMENSION_LABEL       human-readable label for review header
@@ -50,10 +51,10 @@ METHOD_JSON           JSON object: EvalMethod (kind + source)
 METHOD_FOCUS          one-line evaluation intent (header REFS anchor)
 ```
 
-Optional legacy field (when present on url SoT for product doc):
+Optional field (when dimension SoT requires an upstream baseline document):
 
 ```
-PRODUCT_REF           absolute path (only when SOTS_JSON references product doc)
+UPSTREAM_BASELINE_REF absolute path to upstream baseline doc (from adapter session context)
 ```
 
 ---
@@ -67,8 +68,8 @@ PRODUCT_REF           absolute path (only when SOTS_JSON references product doc)
    - `codebase` · `ref.root` + `ref.strategy` → `resolve_codebase_ref(ref, project_root=Path(PROJECT_ROOT))` yields repo root; with `strategy: all`, read code files narrowly as needed (do not batch-load the entire repo)
 4. Load EvalMethod **M**:
    - `external` · `source` (https URL or absolute path) → `read_ref(source, project_root=Path(PROJECT_ROOT))` as rubric
-   - `builtin` · `source.procedure_id: codebase_consistency` → compare B against code read from codebase SoT root per METHOD_FOCUS; for **lulu-design d1**, probe only sub-sections that **explicitly cite** modules, paths, interfaces, or schema names — skip the rest
-   - `builtin` · `source.procedure_id: intent_gap_probes` → follow **solution-quality (e3)** procedure below; criteria from url SoT **A**
+   - `builtin` · `source.procedure_id: codebase_consistency` → compare B against code read from codebase SoT root per `METHOD_FOCUS` (dimension-def may constrain probe scope, e.g. cite-only sub-sections)
+   - `builtin` · `source.procedure_id: intent_gap_probes` → follow **intent_gap_probes** procedure below; criteria **A** from url SoT in `SOTS_JSON`
 
 When `SOTS_JSON` is empty, **M** carries both rubric and basis.
 
@@ -78,16 +79,13 @@ When `SOTS_JSON` is empty, **M** carries both rubric and basis.
 
 Evaluate **B** using loaded SoT content and **M** / `METHOD_FOCUS`.
 
-### solution-quality (e3 / lulu-plan d3, lulu-design d2)
+### intent_gap_probes
 
-Builtin `procedure_id: intent_gap_probes`. Criteria **A** = url SoT:
+Builtin `procedure_id: intent_gap_probes`. Criteria **A** = first url SoT in `SOTS_JSON` (loaded via `read_ref`).
 
-- **lulu-plan:** `41-lulu-plan-intent-evaluation-framework.md` via `tpt_intent_eval_framework_url`
-- **lulu-design:** `48-lulu-design-design-quality-framework.md` via `tdt_design_quality_framework_url` (P1–P4 + D1–D3 supplements)
-
-1. Load **A** from SoT (P1–P4 definitions and applicability in **A**; for lulu-design also run D1–D3 supplements after applicable P probes).
+1. Load **A** from SoT (P1–P4 definitions and applicability in **A**; run any profile-specific supplements defined in **A** after applicable P probes).
 2. Do **not** parse `<!-- state-vector: … -->`. Do **not** load `layer-standards` or L Diagnostic Criteria.
-3. Load **R** via `$FETCH_COMPOSE section-registry` with `--profile lulu-plan` or `--profile lulu-design` and `--cycle-id "$CYCLE_ID"` (same `PROJECT_ROOT`).
+3. Load **R** via `$FETCH_COMPOSE section-registry` with `--profile {WORKFLOW_ID}` and `--cycle-id "$CYCLE_ID"` (same `PROJECT_ROOT`).
 4. For each `K` in **R** `section_order`:
    - Load section body via `<!-- section-key:K -->` in **B** (not H2 display titles).
    - Split sub-sections (one coherent intent unit; skip empty / boilerplate-only).

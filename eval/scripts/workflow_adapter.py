@@ -14,7 +14,7 @@ class SessionContext:
 
     active_doc: int
     mode: str
-    product_ref: str
+    upstream_baseline_ref: str
     cycle_type: str
 
 

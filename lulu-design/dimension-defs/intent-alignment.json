@@ -12,7 +12,7 @@
     {
       "kind": "url",
       "role": "primary",
-      "ref": "{product_ref}"
+      "ref": "{upstream_baseline_ref}"
     }
   ],
   "method": {

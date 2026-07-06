@@ -9,10 +9,9 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "lulu-plan" / "scripts"))
 
-from corpus_compose import COMPOSED_CORPUS_REF, compose_corpus, load_dimension_def  # noqa: E402
+from corpus_compose import compose_corpus, load_dimension_def  # noqa: E402
 from corpus_schema import (  # noqa: E402
     corpus_ref,
-    default_dimension_defs_dir,
     dispatch_ids,
     expand_corpus,
     get_schema,
@@ -20,7 +19,8 @@ from corpus_schema import (  # noqa: E402
     validate_corpus,
 )
 
-_DIMENSION_DEFS = default_dimension_defs_dir()
+_DIMENSION_DEFS = Path(__file__).resolve().parents[3] / "lulu-plan" / "dimension-defs"
+_LULU_PLAN_COMPOSED_CORPUS_REF = "lulu-plan-composed@1"
 
 
 def _feature_tech_upstream_corpus() -> dict:
@@ -53,7 +53,12 @@ def _feature_base_corpus() -> dict:
 class TestGetSchema:
     def test_has_bind_placeholders(self):
         schema = get_schema()
-        assert schema["bind_placeholders"] == ["compose_doc", "product_ref", "cycle_type", "M"]
+        assert schema["bind_placeholders"] == [
+            "compose_doc",
+            "upstream_baseline_ref",
+            "cycle_type",
+            "M",
+        ]
         assert schema["enums"]["sot_kind"] == ["url", "codebase"]
         assert schema["enums"]["codebase_strategy"] == ["all"]
 
@@ -99,7 +104,7 @@ class TestValidateCorpus:
 class TestExpandCorpus:
     _BIND = {
         "compose_doc": "/abs/tech-doc.md",
-        "product_ref": "/abs/product-doc.md",
+        "upstream_baseline_ref": "/abs/product-doc.md",
         "cycle_type": "feature",
         "M": "1",
         "tpt_intent_eval_framework_url": "https://github.com/o/r/blob/main/41-lulu-plan-intent-evaluation-framework.md",
@@ -170,7 +175,7 @@ class TestExpandCorpus:
 class TestHelpers:
     def test_corpus_ref(self):
         data = _feature_tech_upstream_corpus()
-        assert corpus_ref(data) == COMPOSED_CORPUS_REF
+        assert corpus_ref(data) == _LULU_PLAN_COMPOSED_CORPUS_REF
 
     def test_dispatch_ids(self):
         data = _feature_base_corpus()

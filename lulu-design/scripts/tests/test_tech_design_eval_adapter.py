@@ -16,8 +16,11 @@ for p in (_EVAL_SHELL, _EVAL_SCRIPTS, _KERNEL_TESTS):
         sys.path.insert(0, str(p))
 
 import bootstrap  # noqa: F401
-from tech_design_eval_adapter import TechDesignEvalAdapter  # noqa: E402
-from corpus_compose import TECH_DESIGN_COMPOSED_CORPUS_REF, corpus_fingerprint  # noqa: E402
+from tech_design_eval_adapter import (  # noqa: E402
+    TECH_DESIGN_COMPOSED_CORPUS_REF,
+    TechDesignEvalAdapter,
+)
+from corpus_compose import corpus_fingerprint  # noqa: E402
 from tech_design_eval_policy import select_dimension_ids  # noqa: E402
 from workflow_state_schema import init_drafting  # noqa: E402
 
@@ -86,7 +89,7 @@ class TestTechDesignEvalAdapter:
         )
         assert paths["compose_doc"].endswith("/lulu-design/revision1/design-doc.md")
 
-    def test_session_context_product_ref(self, tmp_path: Path):
+    def test_session_context_upstream_baseline_ref(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
         from init_drafting_helpers import product_delivered_refs, seed_frozen_delivered  # noqa: WPS433
 
@@ -94,7 +97,7 @@ class TestTechDesignEvalAdapter:
         seed_frozen_delivered(ws, product_delivered_refs("/p.md"))
         adapter = TechDesignEvalAdapter()
         ctx = adapter.session_context(_CYCLE, tmp_path)
-        assert ctx.product_ref == "/p.md"
+        assert ctx.upstream_baseline_ref == "/p.md"
 
     def test_resolve_evaluate_state_path(self, tmp_path: Path):
         ws = _seed_session(tmp_path)

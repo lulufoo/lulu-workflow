@@ -47,6 +47,12 @@ from tech_design_eval_policy import select_dimension_defs  # noqa: E402
 
 _VALID_EXECUTION_MODES = frozenset({"guided", "autonomous"})
 
+TECH_DESIGN_COMPOSED_CORPUS_ID = "lulu-design-composed"
+TECH_DESIGN_COMPOSED_CORPUS_VERSION = "1"
+TECH_DESIGN_COMPOSED_CORPUS_REF = (
+    f"{TECH_DESIGN_COMPOSED_CORPUS_ID}@{TECH_DESIGN_COMPOSED_CORPUS_VERSION}"
+)
+
 
 class TechDesignEvalAdapter:
     """WorkflowAdapter for lulu-design cache layout and state machine."""
@@ -99,7 +105,7 @@ class TechDesignEvalAdapter:
                 profile_id=_WORKFLOW_ID,
             ),
             mode=state["mode"],
-            product_ref=frozen_delivered_path_by_type(revision_dir, "lulu-spec"),
+            upstream_baseline_ref=frozen_delivered_path_by_type(revision_dir, "lulu-spec"),
             cycle_type=detect_cycle_type(cycle_id),
         )
 
@@ -135,29 +141,23 @@ class TechDesignEvalAdapter:
             raise ValueError(
                 f"invalid mode: {mode!r} (allowed: ['product', 'tech'])",
             )
-        from corpus_compose import TECH_DESIGN_COMPOSED_CORPUS_REF  # noqa: WPS433
-
         return TECH_DESIGN_COMPOSED_CORPUS_REF
 
     def resolve_eval_corpus(
         self, cycle_id: str, project_root: Path
     ) -> dict[str, Any]:
-        from corpus_compose import (  # noqa: WPS433
-            TECH_DESIGN_COMPOSED_CORPUS_ID,
-            TECH_DESIGN_COMPOSED_CORPUS_VERSION,
-            compose_corpus,
-        )
+        from corpus_compose import compose_corpus  # noqa: WPS433
 
         cycle_type = detect_cycle_type(cycle_id)
         state = self.load_workflow_state(cycle_id, project_root)
         mode = state.get("mode", "tech")
         revision_dir = self.resolve_workflow_state_path(cycle_id, project_root).parent
-        product_ref = frozen_delivered_path_by_type(revision_dir, "lulu-spec")
+        upstream_baseline_ref = frozen_delivered_path_by_type(revision_dir, "lulu-spec")
         dimensions = select_dimension_defs(
             cycle_type=cycle_type,
             dimension_defs_dir=self.dimension_defs_dir(),
             mode=mode,
-            product_ref=product_ref,
+            upstream_baseline_ref=upstream_baseline_ref,
         )
         return compose_corpus(
             corpus_id=TECH_DESIGN_COMPOSED_CORPUS_ID,

@@ -9,13 +9,14 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from corpus_compose import (  # noqa: E402
-    COMPOSED_CORPUS_REF,
-    TECH_DESIGN_COMPOSED_CORPUS_REF,
     compose_corpus,
     corpus_fingerprint,
     is_composed_corpus_ref,
     load_dimension_def,
 )
+
+_LULU_PLAN_COMPOSED_CORPUS_REF = "lulu-plan-composed@1"
+_TECH_DESIGN_COMPOSED_CORPUS_REF = "lulu-design-composed@1"
 
 _TECH_PLAN_DIMENSION_DEFS = Path(__file__).resolve().parents[3] / "lulu-plan" / "dimension-defs"
 _TECH_DESIGN_DIMENSION_DEFS = Path(__file__).resolve().parents[3] / "lulu-design" / "dimension-defs"
@@ -57,8 +58,8 @@ class TestCorpusCompose:
             dimensions=dims,
         )
         assert corpus["id"] == "lulu-plan-composed"
-        assert is_composed_corpus_ref(COMPOSED_CORPUS_REF)
-        assert is_composed_corpus_ref(TECH_DESIGN_COMPOSED_CORPUS_REF)
+        assert is_composed_corpus_ref(_LULU_PLAN_COMPOSED_CORPUS_REF)
+        assert is_composed_corpus_ref(_TECH_DESIGN_COMPOSED_CORPUS_REF)
         assert corpus["dimensions"][0]["review"]["seq"] == 1
         assert corpus["dimensions"][2]["review"]["output_path"] == "tech-review-e{M}3.md"
 

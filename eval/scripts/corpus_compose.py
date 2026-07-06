@@ -12,27 +12,6 @@ from typing import Any
 
 from corpus_schema import corpus_ref, validate_corpus
 
-COMPOSED_CORPUS_ID = "lulu-plan-composed"
-COMPOSED_CORPUS_VERSION = "1"
-COMPOSED_CORPUS_REF = f"{COMPOSED_CORPUS_ID}@{COMPOSED_CORPUS_VERSION}"
-
-TECH_DESIGN_COMPOSED_CORPUS_ID = "lulu-design-composed"
-TECH_DESIGN_COMPOSED_CORPUS_VERSION = "1"
-TECH_DESIGN_COMPOSED_CORPUS_REF = (
-    f"{TECH_DESIGN_COMPOSED_CORPUS_ID}@{TECH_DESIGN_COMPOSED_CORPUS_VERSION}"
-)
-
-PRODUCT_SPEC_COMPOSED_CORPUS_ID = "lulu-spec-composed"
-PRODUCT_SPEC_COMPOSED_CORPUS_VERSION = "1"
-PRODUCT_SPEC_COMPOSED_CORPUS_REF = (
-    f"{PRODUCT_SPEC_COMPOSED_CORPUS_ID}@{PRODUCT_SPEC_COMPOSED_CORPUS_VERSION}"
-)
-
-_COMPOSED_CORPUS_REFS = frozenset({
-    COMPOSED_CORPUS_REF,
-    TECH_DESIGN_COMPOSED_CORPUS_REF,
-    PRODUCT_SPEC_COMPOSED_CORPUS_REF,
-})
 _COMPOSED_CORPUS_REF_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*-composed@\d+$")
 
 
@@ -109,6 +88,4 @@ def compose_corpus(
 
 def is_composed_corpus_ref(ref: str) -> bool:
     """Return True when ref points at a dynamic composed EvalCorpus."""
-    if ref in _COMPOSED_CORPUS_REFS:
-        return True
     return bool(_COMPOSED_CORPUS_REF_PATTERN.match(ref))

@@ -27,6 +27,7 @@ Terminal runner subagent. Resolves **Artifact Remediation** (`WO-MISS`, `WO-ERRO
 Plain-text block from `$EVAL_CONTROL begin-dimension-artifact-remediation`:
 
 ```
+WORKFLOW_ID
 DIMENSION_ID
 DIMENSION
 DIMENSION_LABEL
@@ -38,7 +39,7 @@ EVALUATE_STATE_PATH       read-only
 REVIEW_OUTPUT_PATH        filename relative to EVALUATE_DIR
 EVALUATE_ROUND
 PROJECT_ROOT
-PRODUCT_REF               optional
+UPSTREAM_BASELINE_REF     optional
 ```
 
 ---

@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from corpus_compose import COMPOSED_CORPUS_REF  # noqa: E402
+_LULU_PLAN_COMPOSED_CORPUS_REF = "lulu-plan-composed@1"
 from evaluate_state_schema import (  # noqa: E402
     all_dims_at_least,
     build_initial_evaluate_state,
@@ -33,7 +33,7 @@ class TestBuildInitial:
     def test_builds_pending_dims(self):
         data = build_initial_evaluate_state(
             dimension_ids=["intent-alignment", "codebase-consistency"],
-            corpus_ref=COMPOSED_CORPUS_REF,
+            corpus_ref=_LULU_PLAN_COMPOSED_CORPUS_REF,
         )
         assert data["version"] == "3"
         dim_map = parse_dimension_status(data["dimension_status"])
@@ -73,12 +73,12 @@ class TestIo:
         path = tmp_path / "evaluate-state.md"
         data = build_initial_evaluate_state(
             dimension_ids=["intent-alignment"],
-            corpus_ref=COMPOSED_CORPUS_REF,
+            corpus_ref=_LULU_PLAN_COMPOSED_CORPUS_REF,
         )
         save_evaluate_state(path, data, merge=False)
         loaded = load_evaluate_state(path)
         assert loaded["version"] == "3"
-        assert loaded["corpus_ref"] == COMPOSED_CORPUS_REF
+        assert loaded["corpus_ref"] == _LULU_PLAN_COMPOSED_CORPUS_REF
         assert is_v3_state(loaded)
 
 

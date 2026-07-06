@@ -16,8 +16,11 @@ for p in (_EVAL_SHELL, _EVAL_SCRIPTS, _KERNEL_TESTS):
         sys.path.insert(0, str(p))
 
 import bootstrap  # noqa: F401
-from product_spec_eval_adapter import ProductSpecEvalAdapter  # noqa: E402
-from corpus_compose import PRODUCT_SPEC_COMPOSED_CORPUS_REF, corpus_fingerprint  # noqa: E402
+from product_spec_eval_adapter import (  # noqa: E402
+    PRODUCT_SPEC_COMPOSED_CORPUS_REF,
+    ProductSpecEvalAdapter,
+)
+from corpus_compose import corpus_fingerprint  # noqa: E402
 from delivered_refs_schema import DeliveredRef  # noqa: E402
 from product_spec_eval_policy import select_dimension_ids  # noqa: E402
 from workflow_state_schema import init_drafting  # noqa: E402

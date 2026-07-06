@@ -37,7 +37,7 @@ _SCHEMA: dict[str, Any] = {
     },
     "bind_placeholders": [
         "compose_doc",
-        "product_ref",
+        "upstream_baseline_ref",
         "cycle_type",
         "M",
     ],
@@ -245,38 +245,6 @@ def resolve_dim_id(data: dict[str, Any], dim: str) -> str:
         if item.get("id") == dim or item.get("legacy_alias") == dim:
             return str(item["id"])
     raise ValueError(f"unknown dimension: {dim!r}")
-
-
-def default_dimension_defs_dir() -> Path:
-    """Return lulu-plan feature Evaluating dimension definition directory."""
-    return Path(__file__).resolve().parents[2] / "lulu-plan" / "dimension-defs"
-
-
-def default_corpus_dir() -> Path:
-    """Legacy static EvalCorpus directory (retired; lulu-plan uses dynamic compose)."""
-    return Path(__file__).resolve().parents[2] / "lulu-plan" / "corpora"
-
-
-def load_corpus_by_ref(
-    ref: str,
-    *,
-    corpus_dir: Path | None = None,
-) -> dict[str, Any]:
-    """Load corpus by id@version reference."""
-    if "@" not in ref:
-        raise ValueError(f"invalid corpus_ref: {ref!r} (expected id@version)")
-    corpus_id = ref.split("@", 1)[0]
-    base = corpus_dir or default_corpus_dir()
-    path = base / f"{corpus_id}.json"
-    data = load_corpus(path)
-    errors = validate_corpus(data)
-    if errors:
-        raise ValueError(f"corpus invalid ({path}): {'; '.join(errors)}")
-    if corpus_ref(data) != ref:
-        raise ValueError(
-            f"corpus_ref mismatch: {ref!r} vs {corpus_ref(data)!r}",
-        )
-    return data
 
 
 def dispatch_legacy_aliases(data: dict[str, Any]) -> list[str]:

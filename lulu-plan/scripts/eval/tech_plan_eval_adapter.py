@@ -50,6 +50,12 @@ from tech_plan_eval_policy import (  # noqa: E402
 
 _VALID_EXECUTION_MODES = frozenset({"guided", "autonomous"})
 
+LULU_PLAN_COMPOSED_CORPUS_ID = "lulu-plan-composed"
+LULU_PLAN_COMPOSED_CORPUS_VERSION = "1"
+LULU_PLAN_COMPOSED_CORPUS_REF = (
+    f"{LULU_PLAN_COMPOSED_CORPUS_ID}@{LULU_PLAN_COMPOSED_CORPUS_VERSION}"
+)
+
 
 class TechPlanEvalAdapter:
     """WorkflowAdapter for lulu-plan cache layout and state machine."""
@@ -95,7 +101,7 @@ class TechPlanEvalAdapter:
         return SessionContext(
             active_doc=load_active_doc_from_cycle(cycle_id, project_root, profile_id="lulu-plan"),
             mode=state["mode"],
-            product_ref=frozen_delivered_path_by_type(revision_dir, "lulu-spec"),
+            upstream_baseline_ref=frozen_delivered_path_by_type(revision_dir, "lulu-spec"),
             cycle_type=detect_cycle_type(cycle_id),
         )
 
@@ -124,18 +130,12 @@ class TechPlanEvalAdapter:
             raise ValueError(
                 f"invalid mode: {mode!r} (allowed: ['product', 'tech'])",
             )
-        from corpus_compose import COMPOSED_CORPUS_REF  # noqa: WPS433
-
-        return COMPOSED_CORPUS_REF
+        return LULU_PLAN_COMPOSED_CORPUS_REF
 
     def resolve_eval_corpus(
         self, cycle_id: str, project_root: Path
     ) -> dict[str, Any]:
-        from corpus_compose import (  # noqa: WPS433
-            COMPOSED_CORPUS_ID,
-            COMPOSED_CORPUS_VERSION,
-            compose_corpus,
-        )
+        from corpus_compose import compose_corpus  # noqa: WPS433
 
         revision_dir = self.resolve_workflow_state_path(cycle_id, project_root).parent
         tech_design_ref = frozen_delivered_path_by_type(revision_dir, "lulu-design")
@@ -148,8 +148,8 @@ class TechPlanEvalAdapter:
             tech_diagnostic_ref=tech_diagnostic_ref,
         )
         return compose_corpus(
-            corpus_id=COMPOSED_CORPUS_ID,
-            corpus_version=COMPOSED_CORPUS_VERSION,
+            corpus_id=LULU_PLAN_COMPOSED_CORPUS_ID,
+            corpus_version=LULU_PLAN_COMPOSED_CORPUS_VERSION,
             scope="lulu-plan",
             dimensions=dimensions,
         )
