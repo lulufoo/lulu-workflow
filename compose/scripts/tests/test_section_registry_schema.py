@@ -189,13 +189,13 @@ def test_validate_rejects_contract_in_section_registry():
     assert any("contract is not supported" in err for err in errors)
 
 
-_FIXTURES = Path(__file__).resolve().parent / "fixtures"
-TECH_DESIGN_INTENT = json.loads(
-    (_FIXTURES / "tech_design_section_registry.json").read_text(encoding="utf-8")
+from framework_template_sources import (  # noqa: E402
+    tech_design_section_form_registry,
+    tech_design_section_registry,
 )
-TECH_DESIGN_FORM = json.loads(
-    (_FIXTURES / "tech_design_section_form_registry.json").read_text(encoding="utf-8")
-)
+
+TECH_DESIGN_INTENT = tech_design_section_registry()
+TECH_DESIGN_FORM = tech_design_section_form_registry()
 
 
 def test_section_guidance_and_contract_accessors(tmp_path: Path):

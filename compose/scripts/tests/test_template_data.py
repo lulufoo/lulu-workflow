@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Inline template payloads for lulu-plan script tests (not runtime SSOT)."""
+"""Test cache seeding helpers; framework templates load from lulu-workflow-framework SSOT."""
 
 from __future__ import annotations
 
@@ -111,61 +111,17 @@ OUTLINE_REGISTRY_WITH_BLOCK_FORM: dict[str, Any] = {
     },
 }
 
-_FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
-TECH_PLAN_SECTION_FORM_REGISTRY: dict[str, Any] = json.loads(
-    (_FIXTURES_DIR / "tech_plan_section_form_registry.json").read_text(encoding="utf-8")
+from framework_template_sources import (  # noqa: E402
+    product_spec_inductive_scan_criteria,
+    product_spec_outline_registry,
+    product_spec_section_form_registry,
+    product_spec_section_registry,
+    tech_plan_feature_domain_instance,
+    tech_plan_feature_role_instance,
+    tech_plan_outline_registry,
+    tech_plan_section_form_registry,
+    tech_plan_section_registry,
 )
-
-OUTLINE_REGISTRY_PRODUCT_SPEC: dict[str, Any] = {
-    "version": "1",
-    "$schema_id": "outline-schema",
-    "cycle_type": "feature",
-    "outline_order": ["BG", "US", "SC", "FL", "NG", "AC"],
-    "blocks": {
-        "BG": {"heading": "Background / Goal", "intents": ["PB", "RN", "GO"]},
-        "US": {"heading": "Users & Scenarios", "intents": ["UR", "SN"]},
-        "SC": {"heading": "Scope", "intents": ["SC", "IO"]},
-        "FL": {"heading": "Key Flow", "intents": ["FL"]},
-        "NG": {"heading": "Boundaries / Non-Goals", "intents": ["NG"]},
-        "AC": {"heading": "Acceptance", "intents": ["AC"]},
-    },
-}
-
-PRODUCT_SPEC_SECTION_FORM_REGISTRY: dict[str, Any] = json.loads(
-    (_FIXTURES_DIR / "product_spec_section_form_registry.json").read_text(encoding="utf-8")
-)
-PRODUCT_SPEC_INDUCTIVE_SCAN_CRITERIA: dict[str, Any] = json.loads(
-    (_FIXTURES_DIR / "product_spec_inductive_scan_criteria.json").read_text(encoding="utf-8")
-)
-
-FEATURE_ROLE_INSTANCE: dict[str, Any] = {
-    "version": "1",
-    "$schema_id": "role-schema",
-    "cycle_type": "feature",
-    "role_id": "technical_expert",
-    "role_prompt": "You are acting as a **technical expert** optimizing for execution momentum.",
-    "cognitive_framework": "implementability, verifiability, rollback, next-step clarity",
-    "priority_tendency": "SK and T sections first for execution momentum",
-    "vocabulary_domain": ["file paths", "checkbox steps", "acceptance criteria"],
-    "expressive_tendency": "bite-sized checkbox task blocks",
-    "completion_bar": "next step is obvious",
-}
-
-FEATURE_DOMAIN_INSTANCE: dict[str, Any] = {
-    "version": "1",
-    "$schema_id": "domain-schema",
-    "cycle_type": "feature",
-    "domain_id": "tech_plan_feature",
-    "cognitive_frame": "execution readiness grounded in design traceability",
-    "information_nature": [
-        "executable next steps and file touch points",
-        "structural relationships between components",
-        "verification commands and acceptance checks",
-    ],
-    "expression_conventions": "action-oriented narrative; checkbox steps when allowed",
-    "intent_anchor": "decision-doc remains SSOT for scope and boundaries",
-    "audience_type": "agent or engineer about to implement the next step",
-}
 
 TOPIC_ROLE_INSTANCE: dict[str, Any] = {
     "version": "1",
@@ -229,7 +185,7 @@ def seed_template_cache(project_root: Path, section: str, key: str, payload: dic
 
 
 def seed_tech_plan_test_caches(project_root: Path) -> None:
-    """Seed minimal lulu-plan template caches for pytest (under project_root/.cache)."""
+    """Seed lulu-plan template caches for pytest from lulu-workflow-framework SSOT."""
     seed_template_cache(
         project_root,
         "lulu-plan",
@@ -240,56 +196,53 @@ def seed_tech_plan_test_caches(project_root: Path) -> None:
         project_root,
         "lulu-plan",
         "tpt_feature_role_instance_url",
-        FEATURE_ROLE_INSTANCE,
+        tech_plan_feature_role_instance(),
     )
     seed_template_cache(
         project_root,
         "lulu-plan",
         "tpt_feature_domain_instance_url",
-        FEATURE_DOMAIN_INSTANCE,
+        tech_plan_feature_domain_instance(),
     )
     seed_template_cache(
         project_root,
         "lulu-plan",
         "tpt_outline_registry_url",
-        OUTLINE_REGISTRY_FEATURE,
+        tech_plan_outline_registry(),
     )
     seed_template_cache(
         project_root,
         "lulu-plan",
         "tpt_section_form_registry_url",
-        TECH_PLAN_SECTION_FORM_REGISTRY,
+        tech_plan_section_form_registry(),
     )
 
 
 def seed_product_spec_test_caches(project_root: Path) -> None:
-    """Seed minimal lulu-spec template caches for pytest (under project_root/.cache)."""
-    product_registry = json.loads(
-        (_FIXTURES_DIR / "product_spec_section_registry.json").read_text(encoding="utf-8")
-    )
+    """Seed lulu-spec template caches for pytest from lulu-workflow-framework SSOT."""
     seed_template_cache(
         project_root,
         "lulu-spec",
         "pst_section_registry_url",
-        product_registry,
+        product_spec_section_registry(),
     )
     seed_template_cache(
         project_root,
         "lulu-spec",
         "pst_outline_registry_url",
-        OUTLINE_REGISTRY_PRODUCT_SPEC,
+        product_spec_outline_registry(),
     )
     seed_template_cache(
         project_root,
         "lulu-spec",
         "pst_section_form_registry_url",
-        PRODUCT_SPEC_SECTION_FORM_REGISTRY,
+        product_spec_section_form_registry(),
     )
     seed_template_cache(
         project_root,
         "lulu-spec",
         "pst_inductive_scan_criteria_url",
-        PRODUCT_SPEC_INDUCTIVE_SCAN_CRITERIA,
+        product_spec_inductive_scan_criteria(),
     )
 
 

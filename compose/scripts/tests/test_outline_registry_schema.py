@@ -19,14 +19,13 @@ from outline_registry_schema import (  # noqa: E402
 )
 from section_registry_schema import normalize_section_registry  # noqa: E402
 from test_template_data import OUTLINE_REGISTRY_FEATURE, OUTLINE_REGISTRY_WITH_BLOCK_FORM  # noqa: E402
+from framework_template_sources import (  # noqa: E402
+    tech_design_outline_registry,
+    tech_design_section_registry,
+)
 
-_FIXTURES = Path(__file__).resolve().parent / "fixtures"
-TECH_DESIGN_OUTLINE = json.loads(
-    (_FIXTURES / "tech_design_outline_registry.json").read_text(encoding="utf-8")
-)
-TECH_DESIGN_SECTION = json.loads(
-    (_FIXTURES / "tech_design_section_registry.json").read_text(encoding="utf-8")
-)
+TECH_DESIGN_OUTLINE = tech_design_outline_registry()
+TECH_DESIGN_SECTION = tech_design_section_registry()
 
 
 @pytest.fixture

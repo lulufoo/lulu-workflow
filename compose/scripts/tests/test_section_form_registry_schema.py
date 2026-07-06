@@ -19,20 +19,17 @@ from section_form_registry_schema import (  # noqa: E402
     validate_section_form_registry,
 )
 from section_registry_schema import normalize_section_registry  # noqa: E402
+from framework_template_sources import (  # noqa: E402
+    product_spec_section_form_registry,
+    product_spec_section_registry,
+    tech_design_section_form_registry,
+    tech_design_section_registry,
+)
 
-_FIXTURES = Path(__file__).resolve().parent / "fixtures"
-TECH_DESIGN_INTENT = json.loads(
-    (_FIXTURES / "tech_design_section_registry.json").read_text(encoding="utf-8")
-)
-TECH_DESIGN_FORM = json.loads(
-    (_FIXTURES / "tech_design_section_form_registry.json").read_text(encoding="utf-8")
-)
-PRODUCT_SPEC_INTENT = json.loads(
-    (_FIXTURES / "product_spec_section_registry.json").read_text(encoding="utf-8")
-)
-PRODUCT_SPEC_FORM = json.loads(
-    (_FIXTURES / "product_spec_section_form_registry.json").read_text(encoding="utf-8")
-)
+TECH_DESIGN_INTENT = tech_design_section_registry()
+TECH_DESIGN_FORM = tech_design_section_form_registry()
+PRODUCT_SPEC_INTENT = product_spec_section_registry()
+PRODUCT_SPEC_FORM = product_spec_section_form_registry()
 
 
 def test_get_schema_includes_section_order():
