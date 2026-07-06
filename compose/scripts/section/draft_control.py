@@ -46,6 +46,7 @@ _STEP_INITIALIZED = "Initialized"
 _STEP_FREE_EDIT = "FreeEdit"
 _INDUCTIVE_SUBDIR = "inductive-scope"
 _INDUCTIVE_GATE_STATE_FILE = "inductive-gate-state.json"
+_PROVENANCE_GATE_STATE_FILE = "provenance-gate-state.json"
 
 
 def _success(command: str, **extra: Any) -> dict[str, Any]:
@@ -107,6 +108,31 @@ def _inductive_g4_closed(cycle_id: str, project_root: Path, profile_id: str) -> 
     except json.JSONDecodeError:
         return False
     return str(data.get("gates", {}).get("G4", {}).get("status", "")).lower() == "closed"
+
+
+def _inductive_g5_closed(cycle_id: str, project_root: Path, profile_id: str) -> bool:
+    gate_state_path = (
+        _inductive_out_dir(cycle_id, project_root, profile_id) / _PROVENANCE_GATE_STATE_FILE
+    )
+    if not gate_state_path.exists():
+        return False
+    try:
+        data = json.loads(gate_state_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return False
+    return str(data.get("status", "")).lower() == "closed"
+
+
+def _inductive_spine_gate_failure(
+    cycle_id: str,
+    project_root: Path,
+    profile_id: str,
+) -> str | None:
+    if not _inductive_g4_closed(cycle_id, project_root, profile_id):
+        return "inductive Gate 4 not closed"
+    if not _inductive_g5_closed(cycle_id, project_root, profile_id):
+        return "inductive Gate 5 not closed"
+    return None
 
 
 def _format_inductive_dispatch_input(
@@ -200,8 +226,9 @@ def inductive_complete(
             f"cannot complete Inductive: current_step is {step!r} (expected Inductive)",
             current_step=step,
         )
-    if not _inductive_g4_closed(cycle_id, project_root, profile_id):
-        return _failure(_CMD_INDUCTIVE_COMPLETE, "inductive Gate 4 not closed")
+    gate_reason = _inductive_spine_gate_failure(cycle_id, project_root, profile_id)
+    if gate_reason:
+        return _failure(_CMD_INDUCTIVE_COMPLETE, gate_reason)
     inductive_dir = _inductive_dir(cycle_id, project_root, profile_id)
     section_files = sorted(p.name for p in inductive_dir.glob("*.md")) if inductive_dir.is_dir() else []
     return _success(
@@ -228,12 +255,18 @@ def begin_init(
                 "cannot start Initializing: Inductive not run",
                 current_step=step,
             )
-        if step == _STEP_INDUCTIVE and not _inductive_g4_closed(cycle_id, project_root, profile_id):
-            return _failure(
-                _CMD_BEGIN_INIT,
-                "cannot start Initializing: inductive Gate 4 not closed",
-                current_step=step,
+        if step == _STEP_INDUCTIVE:
+            gate_reason = _inductive_spine_gate_failure(
+                cycle_id,
+                project_root,
+                profile_id,
             )
+            if gate_reason:
+                return _failure(
+                    _CMD_BEGIN_INIT,
+                    f"cannot start Initializing: {gate_reason}",
+                    current_step=step,
+                )
     elif step not in (None, _STEP_INITIALIZED):
         return _failure(
             _CMD_BEGIN_INIT,

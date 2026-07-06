@@ -87,7 +87,7 @@ Load {actual $SKILL_ROOT}/compose/inductive-runner/SKILL.md and follow its instr
 {begin-inductive stdout}
 ```
 
-2. After the gate spine completes (user confirms Gate 4 recompose), run `$DRAFT_CONTROL inductive-complete`. On failure → Blocking. It emits per-section scope files under `revision{active_doc}/inductive-scope/` consumed by Step 1.
+2. After the gate spine completes (G4 recompose and G5 provenance both closed), run `$DRAFT_CONTROL inductive-complete`. On failure → Blocking. It emits per-section scope files under `revision{active_doc}/inductive-scope/` consumed by Step 1.
 
 ### Step 1 — Initializing
 

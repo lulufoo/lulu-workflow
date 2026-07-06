@@ -43,6 +43,27 @@ def _write_g4_closed(revision_dir: Path) -> None:
     (scope_dir / "ST.md").write_text("# ST\n", encoding="utf-8")
 
 
+def _write_g5_closed(revision_dir: Path) -> None:
+    revision_dir.mkdir(parents=True, exist_ok=True)
+    gate_path = revision_dir / "provenance-gate-state.json"
+    gate_path.write_text(
+        json.dumps({"version": "1", "gate": "G5", "status": "closed"}),
+        encoding="utf-8",
+    )
+
+
+def _seed_inductive_progress(tmp_path: Path, *, revision: int = 1) -> Path:
+    rev_dir = tmp_path / doc_dir(_CYCLE, revision, _PROFILE_DESIGN, tmp_path)
+    progress_schema.save_drafting_progress(
+        _progress_path(tmp_path, _PROFILE_DESIGN, revision=revision),
+        {"version": "1", "cycle_id": _CYCLE, "current_step": "Inductive"},
+        profile_id=_PROFILE_DESIGN,
+        project_root=tmp_path,
+        cycle_id=_CYCLE,
+    )
+    return rev_dir
+
+
 def test_begin_inductive_rejects_non_inductive_profile(tmp_path: Path) -> None:
     seed_tech_plan_session(tmp_path, cycle_id=_CYCLE, profile_id="lulu-plan")
 
@@ -95,6 +116,40 @@ def test_inductive_dispatch_intent_baseline_from_spec_product(tmp_path: Path) ->
     dispatch = result["dispatch_input"]
     assert "lulu-spec" in dispatch
     assert str(spec_doc.resolve()) in dispatch
+
+
+def test_inductive_complete_rejects_g4_without_g5(tmp_path: Path) -> None:
+    seed_tech_design_session(tmp_path, cycle_id=_CYCLE)
+    rev_dir = _seed_inductive_progress(tmp_path)
+    _write_g4_closed(rev_dir)
+
+    result = draft_control.inductive_complete(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
+
+    assert result["ok"] is False
+    assert result["reason"] == "inductive Gate 5 not closed"
+
+
+def test_inductive_complete_succeeds_when_g4_and_g5_closed(tmp_path: Path) -> None:
+    seed_tech_design_session(tmp_path, cycle_id=_CYCLE)
+    rev_dir = _seed_inductive_progress(tmp_path)
+    _write_g4_closed(rev_dir)
+    _write_g5_closed(rev_dir)
+
+    result = draft_control.inductive_complete(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
+
+    assert result["ok"] is True
+    assert result["command"] == "inductive-complete"
+
+
+def test_begin_init_rejects_inductive_step_without_g5(tmp_path: Path) -> None:
+    seed_tech_design_session(tmp_path, cycle_id=_CYCLE)
+    rev_dir = _seed_inductive_progress(tmp_path)
+    _write_g4_closed(rev_dir)
+
+    result = draft_control.begin_init(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
+
+    assert result["ok"] is False
+    assert "inductive Gate 5 not closed" in result["reason"]
 
 
 def test_revision2_inductive_isolated_from_revision1(tmp_path: Path) -> None:
