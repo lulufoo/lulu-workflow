@@ -550,30 +550,25 @@ class TestTopicRefExtended:
         data[topic_id] = meta
         tj.write_text(json.dumps(data), encoding="utf-8")
 
-    def _make_delivered_session(self, cache_dir: Path, cycle_id: str, stage: str,
-                                revision: str = "r1") -> Path:
-        from workflow_sessions import STAGE_FLAT, stage_subdir
-        subdir = stage_subdir(stage)
-        if stage in STAGE_FLAT:
-            session_dir = cache_dir / cycle_id / subdir
-            session_dir.mkdir(parents=True, exist_ok=True)
-            (session_dir / "session-state.md").write_text(
-                "---\ncurrent_state: Delivered\nupdated_at: 2026-06-01T00:00:00+00:00\n---\n",
-                encoding="utf-8",
-            )
-        else:
-            rev_name = (
-                f"revision{revision.lstrip('r')}"
-                if re.match(r"^r\d+$", revision)
-                else revision
-            )
-            session_dir = cache_dir / cycle_id / subdir / rev_name
-            session_dir.mkdir(parents=True, exist_ok=True)
-            (session_dir / "workflow-state.md").write_text(
-                "---\ncurrent_state: Delivered\nupdated_at: 2026-06-01T00:00:00+00:00\n---\n",
-                encoding="utf-8",
-            )
-        return session_dir
+    def _make_delivered_ref(self, cache_dir: Path, cycle_id: str, stage: str) -> Path:
+        """Write an entry for ``stage`` into {cycle_id}/delivered-refs.json and return its file path."""
+        refs_path = cache_dir / cycle_id / "delivered-refs.json"
+        data = json.loads(refs_path.read_text()) if refs_path.exists() else {"version": 1, "entries": {}}
+        doc_dir = cache_dir / cycle_id / stage / "revision1"
+        doc_dir.mkdir(parents=True, exist_ok=True)
+        doc_path = doc_dir / f"{stage}-doc.md"
+        doc_path.write_text("# doc\n", encoding="utf-8")
+        data.setdefault("entries", {})[stage] = {
+            "delivered_type": stage,
+            "path": str(doc_path.resolve()),
+            "revision": 1,
+            "profile_id": stage,
+            "delivered_at": "2026-06-01T00:00:00+00:00",
+            "source_workflow_state": "",
+        }
+        refs_path.parent.mkdir(parents=True, exist_ok=True)
+        refs_path.write_text(json.dumps(data), encoding="utf-8")
+        return doc_path
 
     def test_tech_design_maps_to_tech_arch_stage(self, tmp_path):
         """feature.lulu-design: topic_doc_stage maps to lulu-arch → get_topic_doc returns path."""
@@ -582,11 +577,11 @@ class TestTopicRefExtended:
         self._write_features_json(tmp_path, "feat-a",
                                   {"name": "x", "execution_mode": "guided", "topic_id": topic_id})
         self._write_topics_json(tmp_path, topic_id, {"name": "t", "execution_mode": "guided"})
-        session_dir = self._make_delivered_session(tmp_path, topic_id, "lulu-arch")
+        doc_path = self._make_delivered_ref(tmp_path, topic_id, "lulu-arch")
 
         result = get_topic_doc("feat-a", "lulu-design", tmp_path)
 
-        assert result == session_dir
+        assert result == doc_path
 
     def test_tech_plan_unmapped_returns_none(self, tmp_path):
         """feature.lulu-plan: not in topic_doc_stage → returns None."""
@@ -595,7 +590,7 @@ class TestTopicRefExtended:
         self._write_features_json(tmp_path, "feat-a",
                                   {"name": "x", "execution_mode": "guided", "topic_id": topic_id})
         self._write_topics_json(tmp_path, topic_id, {"name": "t", "execution_mode": "guided"})
-        self._make_delivered_session(tmp_path, topic_id, "lulu-arch")
+        self._make_delivered_ref(tmp_path, topic_id, "lulu-arch")
 
         result = get_topic_doc("feat-a", "lulu-plan", tmp_path)
 
@@ -614,20 +609,20 @@ class TestTopicRefExtended:
         assert result is None
 
     def test_product_spec_maps_to_product_arch(self, tmp_path):
-        """feature.lulu-spec: topic_doc_stage maps to lulu-blueprint → returns session path."""
+        """feature.lulu-spec: topic_doc_stage maps to lulu-blueprint → returns delivered path."""
         from start_gate import get_topic_doc
         topic_id = "topic-20260101000000-aabbccdd"
         self._write_features_json(tmp_path, "feat-a",
                                   {"name": "x", "execution_mode": "guided", "topic_id": topic_id})
         self._write_topics_json(tmp_path, topic_id, {"name": "t", "execution_mode": "guided"})
-        session_dir = self._make_delivered_session(tmp_path, topic_id, "lulu-blueprint")
+        doc_path = self._make_delivered_ref(tmp_path, topic_id, "lulu-blueprint")
 
         result = get_topic_doc("feat-a", "lulu-spec", tmp_path)
 
-        assert result == session_dir
+        assert result == doc_path
 
     def test_valid_topic_no_delivered_session_returns_none_extended(self, tmp_path):
-        """topic_id valid + no Delivered session in ref stage → returns None."""
+        """topic_id valid + no delivered-refs entry for ref stage → returns None."""
         from start_gate import get_topic_doc
         topic_id = "topic-20260101000000-aabbccdd"
         self._write_features_json(tmp_path, "feat-a",
@@ -658,6 +653,33 @@ class TestTopicRefExtended:
 
         with pytest.raises(ValueError):
             get_topic_doc("feat-a", "lulu-plan", tmp_path)
+
+    def test_get_topic_ref_returns_type_and_path(self, tmp_path):
+        """get_topic_ref returns {type, path} — type is the topic's ref stage name."""
+        from start_gate import get_topic_ref
+        topic_id = "topic-20260101000000-aabbccdd"
+        self._write_features_json(tmp_path, "feat-a",
+                                  {"name": "x", "execution_mode": "guided", "topic_id": topic_id})
+        self._write_topics_json(tmp_path, topic_id, {"name": "t", "execution_mode": "guided"})
+        doc_path = self._make_delivered_ref(tmp_path, topic_id, "lulu-arch")
+
+        result = get_topic_ref("feat-a", "lulu-design", tmp_path)
+
+        assert result == {"type": "lulu-arch", "path": str(doc_path.resolve())}
+
+    def test_get_topic_ref_deleted_doc_file_returns_none(self, tmp_path):
+        """delivered-refs entry exists but its file was removed → returns None (no stale path)."""
+        from start_gate import get_topic_ref
+        topic_id = "topic-20260101000000-aabbccdd"
+        self._write_features_json(tmp_path, "feat-a",
+                                  {"name": "x", "execution_mode": "guided", "topic_id": topic_id})
+        self._write_topics_json(tmp_path, topic_id, {"name": "t", "execution_mode": "guided"})
+        doc_path = self._make_delivered_ref(tmp_path, topic_id, "lulu-arch")
+        doc_path.unlink()
+
+        result = get_topic_ref("feat-a", "lulu-design", tmp_path)
+
+        assert result is None
 
 
 # ---------------------------------------------------------------------------

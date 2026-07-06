@@ -18,12 +18,7 @@
       "gap_check": "Does the expected implementation output meet the acceptance criteria? Where does it fall short?"
     }
   },
-  "context_loading": {
-    "optional": true,
-    "source": {
-      "upstream_cache_subdir": "lulu-spec",
-      "doc_filename": "product-doc.md",
-      "loaded_message": "Loaded upstream product context for scope and constraints only. Do not use it for role, architecture direction, or acceptance criteria."
-    }
+  "context": {
+    "sources": []
   }
 }

@@ -17,5 +17,8 @@
       "implementation_sketch": "What is the shape of this direction, what are its product constraints, and how reversible is committing to it?",
       "gap_check": "Does the proposed direction fully address the strategic need? Where does it fall short from the user's or business's perspective?"
     }
+  },
+  "context": {
+    "sources": []
   }
 }

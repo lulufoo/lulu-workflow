@@ -74,28 +74,49 @@ def _normalize_domain(data: dict[str, Any]) -> dict[str, Any] | None:
     return result or None
 
 
-def _normalize_context_loading(data: dict[str, Any]) -> dict[str, Any] | None:
-    raw = data.get("context_loading")
-    if raw is None:
-        return None
+def _normalize_context_source(raw: Any) -> dict[str, Any] | None:
+    """Normalize one resolved ``context.sources[]`` entry.
+
+    ``kind: "upstream"`` — same-cycle prior stage doc. ``kind: "topic"`` —
+    cross-cycle topic-line doc. Every entry has the exact same four fields
+    (``kind``, ``status``, ``resolved_doc_path``, ``loaded_message``)
+    regardless of kind, because ``scripts/context_loading.py::build_context_loading``
+    (the only writer) always produces this shape — decision itself never
+    computes a source; a holder's own resolver script resolves once, hands
+    the result to ``$DEC_START`` via ``--domain-constraints-file``, and decision
+    just stores/reads it verbatim from then on (see ``merge_domain_constraints``).
+    """
     if not isinstance(raw, dict):
         return None
-    optional = bool(raw.get("optional", True))
-    source_raw = raw.get("source")
-    if not isinstance(source_raw, dict):
+    kind = str(raw.get("kind", "")).strip()
+    if kind not in ("upstream", "topic"):
         return None
-    subdir = str(source_raw.get("upstream_cache_subdir", "")).strip()
-    doc_filename = str(source_raw.get("doc_filename", "")).strip()
-    if not subdir or not doc_filename:
-        return None
-    source: dict[str, str] = {
-        "upstream_cache_subdir": subdir,
-        "doc_filename": doc_filename,
+    result: dict[str, Any] = {
+        "kind": kind,
+        "status": str(raw.get("status", "")).strip(),
+        "resolved_doc_path": str(raw.get("resolved_doc_path", "")).strip(),
     }
-    loaded_message = str(source_raw.get("loaded_message", "")).strip()
+    loaded_message = str(raw.get("loaded_message", "")).strip()
     if loaded_message:
-        source["loaded_message"] = loaded_message
-    return {"optional": optional, "source": source}
+        result["loaded_message"] = loaded_message
+    return result
+
+
+def _normalize_context(data: dict[str, Any]) -> dict[str, Any] | None:
+    raw = data.get("context")
+    if not isinstance(raw, dict):
+        return None
+    if raw.get("status") == "skipped":
+        return {"status": "skipped"}
+    raw_sources = raw.get("sources")
+    if not isinstance(raw_sources, list):
+        return None
+    sources = [
+        normalized
+        for normalized in (_normalize_context_source(item) for item in raw_sources)
+        if normalized is not None
+    ]
+    return {"sources": sources}
 
 
 def default_kernel_constraints(*, stage: str) -> dict[str, Any]:
@@ -142,9 +163,9 @@ def normalize_domain_constraints(data: dict[str, Any]) -> dict[str, Any]:
     domain = _normalize_domain(data)
     if domain:
         normalized["domain"] = domain
-    context_loading = _normalize_context_loading(data)
-    if context_loading:
-        normalized["context_loading"] = context_loading
+    context = _normalize_context(data)
+    if context:
+        normalized["context"] = context
     return normalized
 
 
@@ -168,12 +189,22 @@ def validate_domain_constraints(data: dict[str, Any]) -> list[str]:
             errors.append("role must be an object")
         elif not str(role.get("instruction", "")).strip():
             errors.append("role.instruction is required when role is present")
-    context_loading = data.get("context_loading")
-    if context_loading is not None:
-        if not isinstance(context_loading, dict):
-            errors.append("context_loading must be an object")
-        elif not isinstance(context_loading.get("source"), dict):
-            errors.append("context_loading.source must be an object")
+    context = data.get("context")
+    if context is not None:
+        if not isinstance(context, dict):
+            errors.append("context must be an object")
+        elif context.get("status") != "skipped":
+            sources = context.get("sources")
+            if not isinstance(sources, list):
+                errors.append("context.sources must be an array")
+            else:
+                for idx, src in enumerate(sources):
+                    if not isinstance(src, dict):
+                        errors.append(f"context.sources[{idx}] must be an object")
+                    elif src.get("kind") not in ("upstream", "topic"):
+                        errors.append(
+                            f"context.sources[{idx}].kind must be 'upstream' or 'topic'"
+                        )
     domain = data.get("domain")
     if domain is not None:
         if not isinstance(domain, dict):
@@ -272,6 +303,12 @@ def merge_domain_constraints(
             merged["domain"] = merged_domain
         else:
             merged["domain"] = override_domain
+    if "context" in override:
+        # Whole-block replace, not a field-level merge: the override is the
+        # already-resolved payload from the holder's own resolver script
+        # (see scripts/context_loading.py) — decision never computes this
+        # itself, it only stores whatever it's handed here.
+        merged["context"] = override["context"]
     return normalize_domain_constraints(merged)
 
 

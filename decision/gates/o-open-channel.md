@@ -5,7 +5,7 @@
 **Prerequisites:** `$DEC_START` complete · `active_gate` is `O`
 
 **Execute:**
-1. If `$CTX.context_loading.status` is `loaded`: load `$CTX.context_loading.resolved_doc_path` read-only; tell the user `$CTX.context_loading.loaded_message`. If `not_found` and not optional, proceed without upstream doc.
+1. For each entry in `$CTX.context.sources`: if `status` is `loaded`, load `resolved_doc_path` read-only and tell the user its `loaded_message`. If `not_found`, skip it silently.
 2. Invite the user to share existing knowledge:
 
    > "Before we begin — share what you'd like me to know: direction preferences, concerns, or options you've already ruled out. It doesn't need to be complete; you can add more at any point."

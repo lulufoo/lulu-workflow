@@ -29,6 +29,10 @@ _KERNEL_START = _LDEV / "compose" / "scripts" / "core" / "start.py"
 
 _STAGES_WITH_GATE = ["lulu-spec", "lulu-plan", "lulu-tasks", "lulu-code"]
 _ALL_STAGES = ["decision", "lulu-spec", "lulu-plan", "lulu-tasks", "lulu-code"]
+# decision performs no topic_id/get_topic_ref validation of its own — that check now
+# lives entirely in the holder's own resolver (lulu-bet/lulu-approach resolve_context.py)
+# or the compose adapter's resolve_norm_constraint_refs, never in the shared kernel itself.
+_STAGES_VALIDATING_TOPIC_LINKAGE = ["lulu-spec", "lulu-plan", "lulu-tasks", "lulu-code"]
 
 # Feature cycle order (matches config/transition-table.json)
 _FEATURE_CYCLE = [
@@ -439,6 +443,31 @@ class TestGatePasses:
         result = _run_start("decision", tmp_path)
         assert result.returncode == 0, result.stderr
 
+    def test_topic_doc_merged_into_norm_constraint_refs(self, tmp_path):
+        """Feature with topic_id whose topic lulu-blueprint is delivered → norm_constraint_refs
+        in resolved-refs.json carries the topic's delivered doc (see topic_doc_stage mapping)."""
+        cd = _cache_dir(tmp_path)
+        _make_cycles_json(cd, _CYCLE_ID, extra={"topic_id": _TOPIC_ID})
+        _make_cycles_json(cd, _TOPIC_ID)
+        _make_session(cd, _CYCLE_ID, "lulu-bet", "r1", "Delivered")
+        _make_cycle_state(cd, _CYCLE_ID, "lulu-bet")
+        _seed_product_spec_delivered_refs(cd, _CYCLE_ID, tmp_path)
+        topic_doc = tmp_path / "topic-product-doc.md"
+        topic_doc.write_text("# Topic Product Doc\n", encoding="utf-8")
+        _upsert_delivered_ref_entry(
+            cd, _TOPIC_ID,
+            delivered_type="lulu-blueprint",
+            path=topic_doc,
+            profile_id="lulu-blueprint",
+        )
+        result = _run_start("lulu-spec", tmp_path)
+        assert result.returncode == 0, result.stderr or result.stdout
+        resolved = json.loads(
+            (cd / _CYCLE_ID / "lulu-spec" / "revision1" / "resolved-refs.json").read_text(encoding="utf-8")
+        )
+        norm_refs = resolved["norm_constraint_refs"]
+        assert {"type": "lulu-blueprint", "path": str(topic_doc.resolve())} in norm_refs
+
 
 # ---------------------------------------------------------------------------
 # TestReopen
@@ -569,6 +598,25 @@ class TestGetTopicDoc:
         result = _run_start("lulu-spec", tmp_path)
         assert result.returncode == 1
 
+    def test_topic_delivered_doc_printed_from_delivered_refs(self, tmp_path):
+        """Topic's lulu-blueprint delivered → 'Topic doc:' printed with its delivered-refs path."""
+        cd = _cache_dir(tmp_path)
+        _make_cycles_json(cd, _CYCLE_ID, extra={"topic_id": _TOPIC_ID})
+        _make_cycles_json(cd, _TOPIC_ID)
+        _make_session(cd, _CYCLE_ID, "lulu-bet", "r1", "Delivered")
+        _make_cycle_state(cd, _CYCLE_ID, "lulu-bet")
+        topic_doc = tmp_path / "topic-product-doc.md"
+        topic_doc.write_text("# Topic Product Doc\n", encoding="utf-8")
+        _upsert_delivered_ref_entry(
+            cd, _TOPIC_ID,
+            delivered_type="lulu-blueprint",
+            path=topic_doc,
+            profile_id="lulu-blueprint",
+        )
+        result = _run_start("lulu-spec", tmp_path)
+        assert result.returncode == 0, result.stderr
+        assert f"Topic doc: {topic_doc.resolve()}" in result.stdout
+
 
 # ---------------------------------------------------------------------------
 # TestAllStagesGateIntegration
@@ -589,9 +637,9 @@ class TestAllStagesGateIntegration:
         )
         assert "Gate blocked" in result.stderr
 
-    @pytest.mark.parametrize("stage", _ALL_STAGES)
+    @pytest.mark.parametrize("stage", _STAGES_VALIDATING_TOPIC_LINKAGE)
     def test_topic_missing_topics_json_all_stages(self, stage, tmp_path):
-        """All start.py: feature with topic_id + no cycles.json → exit 1."""
+        """All topic-aware start.py: feature with topic_id + no registered topic cycle → exit 1."""
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID, extra={"topic_id": _TOPIC_ID})
         _all_prior_delivered(cd, _CYCLE_ID, stage)
@@ -599,6 +647,15 @@ class TestAllStagesGateIntegration:
         assert result.returncode == 1, (
             f"{stage}: expected exit 1 due to missing cycles.json"
         )
+
+    def test_decision_start_ignores_broken_topic_linkage(self, tmp_path):
+        """decision (shared kernel) never calls get_topic_ref itself, so a feature with an
+        unregistered topic_id does not block $DEC_START — only the holder's own resolver
+        script (or a compose adapter) surfaces that error, never decision."""
+        cd = _cache_dir(tmp_path)
+        _make_cycles_json(cd, _CYCLE_ID, extra={"topic_id": _TOPIC_ID})
+        result = _run_start("decision", tmp_path)
+        assert result.returncode == 0, result.stderr
 
     @pytest.mark.parametrize("stage", _STAGES_WITH_GATE)
     def test_reopen_marks_historical_all_stages(self, stage, tmp_path):

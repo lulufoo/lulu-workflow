@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import argparse
+import json
 import re
 import sys
 from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 from cycle_schema import write_stage as write_cycle_state  # noqa: E402
 from invalidation_hook import invalidate_downstream  # noqa: E402
-from start_gate import check_gate, get_topic_doc  # noqa: E402
+from start_gate import check_gate  # noqa: E402
 from transition_table import load_stage_order  # noqa: E402
 from workflow_sessions import current_effective_delivered, get_sessions, parse_frontmatter  # noqa: E402
 
@@ -74,7 +78,29 @@ def parse_args() -> argparse.Namespace:
         default="",
         help="Cursor/Copilot conversation ID for active-context indexing.",
     )
+    parser.add_argument(
+        "--domain-constraints-file",
+        default="",
+        help=(
+            "Optional path to a JSON file containing a domain-constraints override, "
+            "written to disk by the holder's own resolver script (e.g. resolve_context.py) "
+            "— decision performs no path resolution itself, it only reads this file as-is "
+            "at init time. Never pass JSON content directly on the command line."
+        ),
+    )
     return parser.parse_known_args()[0]
+
+
+def _load_domain_override_file(raw_path: str) -> dict[str, Any] | None:
+    if not raw_path:
+        return None
+    path = Path(raw_path).expanduser()
+    if not path.is_file():
+        raise FileNotFoundError(f"--domain-constraints-file not found: {path}")
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError("--domain-constraints-file content must be a JSON object")
+    return data
 
 
 def main() -> int:
@@ -127,14 +153,11 @@ def main() -> int:
         print(f"Gate blocked: {reason}", file=sys.stderr)
         sys.exit(1)
 
-    # Step 5: get_topic_doc (feature containers only, if topic_id exists)
     try:
-        topic_doc = get_topic_doc(cycle_id, stage, cache_dir)
-        if topic_doc:
-            print(f"Topic doc: {topic_doc}")
-    except ValueError as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+        domain_override = _load_domain_override_file(args.domain_constraints_file.strip())
+    except (FileNotFoundError, json.JSONDecodeError, ValueError) as e:
+        print(f"错误：--domain-constraints-file {e}", file=sys.stderr)
+        return 1
 
     session_dir = project_root / session_base_dir(
         cycle_id,
@@ -185,6 +208,7 @@ def main() -> int:
         cycle_id,
         stage,
         constraints_path=constraints_path,
+        domain_override=domain_override,
     )
     if init_rc != 0:
         return init_rc

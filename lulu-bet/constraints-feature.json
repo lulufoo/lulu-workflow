@@ -17,5 +17,8 @@
       "implementation_sketch": "What changes will users see, what are the product constraints, and is this reversible?",
       "gap_check": "Does the planned product outcome fully meet the acceptance criteria? Where does it fall short from the user's perspective?"
     }
+  },
+  "context": {
+    "sources": []
   }
 }

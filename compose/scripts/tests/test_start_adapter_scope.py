@@ -119,4 +119,4 @@ def test_product_spec_infer_run_mode():
 
 def test_tech_design_norm_constraint_empty():
     adapter = TechDesignStartAdapter()
-    assert adapter.resolve_norm_constraint_refs() == []
+    assert adapter.resolve_norm_constraint_refs(cycle_id="feat-x") == []

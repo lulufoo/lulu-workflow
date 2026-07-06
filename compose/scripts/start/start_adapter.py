@@ -72,9 +72,16 @@ class StartAdapter(Protocol):
     def resolve_norm_constraint_refs(
         self,
         *,
+        cycle_id: str,
         project_root: Path | None = None,
     ) -> list[DeliveredRef]:
-        """规范约束 refs from stage config (may be empty)."""
+        """规范约束 refs from stage config (may be empty).
+
+        Sole writer of this list, including cross-cycle topic-line refs (see
+        ``start_gate.get_topic_ref``) when the profile opts in — the compose
+        orchestrator only calls this and persists the result, it never
+        appends to it itself.
+        """
 
     def post_start_guidance(
         self,

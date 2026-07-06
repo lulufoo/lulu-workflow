@@ -22,7 +22,12 @@ from delivered_refs_schema import (  # noqa: E402
 )
 from start_adapter import primary_scope_from_workflow  # noqa: E402
 from start_scope_helpers import first_ref  # noqa: E402
-from workflow_common import detect_cycle_type  # noqa: E402
+from workflow_common import CACHE_DIR, detect_cycle_type  # noqa: E402
+
+_WORKFLOW_SCRIPTS = _WORKFLOW_ROOT / "scripts"
+if str(_WORKFLOW_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_WORKFLOW_SCRIPTS))
+from start_gate import get_topic_ref  # noqa: E402
 
 
 class ProductSpecStartAdapter:
@@ -89,10 +94,13 @@ class ProductSpecStartAdapter:
     def resolve_norm_constraint_refs(
         self,
         *,
+        cycle_id: str,
         project_root: Path | None = None,
     ) -> list[DeliveredRef]:
-        del project_root
-        return []
+        if project_root is None:
+            return []
+        ref = get_topic_ref(cycle_id, "lulu-spec", project_root / CACHE_DIR)
+        return [DeliveredRef(type=ref["type"], path=ref["path"])] if ref is not None else []
 
     def delivered_ref_for_init(
         self,

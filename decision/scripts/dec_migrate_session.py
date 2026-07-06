@@ -217,10 +217,11 @@ def migrate_session_dir(
     dc_path = session_dir / "domain-constraints.json"
     if dc_path.is_file():
         constraints = load_domain_constraints(dc_path)
-    elif constraints_path is not None:
-        constraints = load_constraints_config(constraints_path, stage=stage)
     else:
-        constraints = default_kernel_constraints(stage=stage)
+        if constraints_path is not None:
+            constraints = load_constraints_config(constraints_path, stage=stage)
+        else:
+            constraints = default_kernel_constraints(stage=stage)
     save_domain_constraints(dc_path, constraints)
 
     active_gate, skipped = infer_progress(doc, constraints=constraints, delivered=delivered)

@@ -28,7 +28,6 @@ if str(_SCRIPTS) not in sys.path:
 
 from dec_decision_doc_schema import GATE_CLOSE_PREREQ  # noqa: E402
 from dec_after_dc import build_after_dc  # noqa: E402
-from dec_context_loading import build_context_loading  # noqa: E402
 from dec_domain_constraints_schema import (  # noqa: E402
     KERNEL_STAGE,
     active_x_dimensions,
@@ -68,7 +67,6 @@ from dec_register_schema import (  # noqa: E402
 )
 from dec_session_render import render_reply_header  # noqa: E402
 from dec_workflow_common import (  # noqa: E402
-    CACHE_DIR,
     decision_doc_path,
     detect_cycle_type,
     domain_constraints_path,
@@ -264,7 +262,6 @@ def build_resolve_context_payload(
         constraints_path=constraints_path,
     )
     cycle_type = detect_cycle_type(cycle_id)
-    cache_dir = project_root / CACHE_DIR
     return {
         "cycle_id": cycle_id,
         "stage": stage,
@@ -280,12 +277,10 @@ def build_resolve_context_payload(
         "domain_constraints": constraints,
         "registers": registers,
         "reply_header": render_reply_header(gate_state, registers),
-        "context_loading": build_context_loading(
-            project_root,
-            cycle_id,
-            constraints,
-            cache_dir=cache_dir,
-        ),
+        # decision never resolves context itself — this is a pure read of
+        # whatever the holder's own resolver script handed to $DEC_START at init
+        # time via --domain-constraints-file (frozen into the session's own copy).
+        "context": constraints.get("context") or {"status": "skipped"},
         "after_dc": build_after_dc(stage, cycle_type),
     }
 

@@ -110,9 +110,10 @@ class TechPlanStartAdapter:
     def resolve_norm_constraint_refs(
         self,
         *,
+        cycle_id: str,
         project_root: Path | None = None,
     ) -> list[DeliveredRef]:
-        del project_root
+        del cycle_id, project_root
         return []
 
     def delivered_ref_for_init(

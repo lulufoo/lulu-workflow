@@ -22,7 +22,10 @@ from workflow_sessions import current_effective_delivered, get_sessions  # noqa:
 from invalidation_hook import invalidate_downstream  # noqa: E402
 
 from delivered_refs_backfill import backfill_delivered_refs_from_cycle  # noqa: E402
-from delivered_refs_schema import load_delivered_refs_file, serialize_delivered_refs  # noqa: E402
+from delivered_refs_schema import (  # noqa: E402
+    load_delivered_refs_file,
+    serialize_delivered_refs,
+)
 from resolved_refs_schema import freeze_delivered_copy, write_resolved_refs  # noqa: E402
 from session_state_schema import load_active_doc, next_doc_round, save_active_doc
 from start_adapter import StartAdapter, load_start_adapter
@@ -241,7 +244,10 @@ def run_start(
         delivered_refs=delivered_refs,
         run_mode=run_mode,
     )
-    norm_constraint_refs = adapter.resolve_norm_constraint_refs(project_root=project_root)
+    norm_constraint_refs = adapter.resolve_norm_constraint_refs(
+        cycle_id=cycle_id,
+        project_root=project_root,
+    )
     freeze_delivered_copy(revision_dir, load_delivered_refs_file(cycle_id, project_root))
     write_resolved_refs(
         revision_dir,
