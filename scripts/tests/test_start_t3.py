@@ -14,7 +14,9 @@ _SRC = Path(__file__).resolve().parents[3]  # lulu-dev-skills/
 _LDEV = _SRC / "lulu-dev-workflow"
 _STAGES = ["decision", "lulu-blueprint", "lulu-arch", "lulu-plan", "lulu-tasks", "lulu-code"]
 # compose start.py never integrated run_archive; other stages defer via comment.
-_STAGES_WITH_DEFERRED_ARCHIVE = [s for s in _STAGES if s not in ("lulu-plan", "lulu-arch")]
+_STAGES_WITH_DEFERRED_ARCHIVE = [
+    s for s in _STAGES if s not in ("lulu-plan", "lulu-arch", "lulu-blueprint")
+]
 _FID = "20260524143022-02cd7e6e"
 _CONV_ID = "test-conversation-aaa"
 _ENV_COPILOT = {**os.environ, "LULU_PLATFORM": "copilot"}
@@ -46,13 +48,13 @@ def _diag_holder_args(stage: str = "lulu-bet") -> list[str]:
 
 
 def _start_py(stage: str) -> Path:
-    if stage in ("lulu-plan", "lulu-arch"):
+    if stage in ("lulu-plan", "lulu-arch", "lulu-blueprint"):
         return _KERNEL_START
-    return _SRC / "lulu-dev-workflow" / stage / "scripts" / ({"lulu-code": "tc_start.py", "decision": "dec_start.py", "lulu-blueprint": "pa_start.py", "lulu-tasks": "tt_start.py"}.get(stage, "start.py"))
+    return _SRC / "lulu-dev-workflow" / stage / "scripts" / ({"lulu-code": "tc_start.py", "decision": "dec_start.py", "lulu-tasks": "tt_start.py"}.get(stage, "start.py"))
 
 
 def _scripts_dir(stage: str) -> Path:
-    if stage in ("lulu-plan", "lulu-arch"):
+    if stage in ("lulu-plan", "lulu-arch", "lulu-blueprint"):
         return _KERNEL_START.parent
     return _SRC / "lulu-dev-workflow" / stage / "scripts"
 
@@ -182,6 +184,26 @@ def _seed_tech_plan_delivered_refs(
         )
 
 
+def _seed_lulu_bet_delivered_refs(
+    cache_dir: Path,
+    cycle_id: str,
+    project_root: Path,
+) -> None:
+    del project_root
+    diag_dir = cache_dir / cycle_id / "lulu-bet"
+    diag_dir.mkdir(parents=True, exist_ok=True)
+    decision = diag_dir / "decision-doc.md"
+    if not decision.is_file():
+        decision.write_text("# Decision\n", encoding="utf-8")
+    _upsert_delivered_ref_entry(
+        cache_dir,
+        cycle_id,
+        delivered_type="lulu-bet",
+        path=decision,
+        profile_id="lulu-bet",
+    )
+
+
 def _seed_gate_for_stage(tmp_path: Path, to_stage: str, *, cycle_id: str = _FID) -> None:
     cycle_order = _TOPIC_CYCLE if cycle_id.startswith("topic-") else _FEATURE_CYCLE
     if to_stage not in cycle_order:
@@ -196,6 +218,8 @@ def _seed_gate_for_stage(tmp_path: Path, to_stage: str, *, cycle_id: str = _FID)
         _make_cycle_state(cd, cycle_id, prior[-1])
     if to_stage == "lulu-plan":
         _seed_tech_plan_delivered_refs(cd, cycle_id, tmp_path)
+    if to_stage == "lulu-blueprint":
+        _seed_lulu_bet_delivered_refs(cd, cycle_id, tmp_path)
 
 
 def _seed_decision_config(tmp_path: Path) -> None:
@@ -322,7 +346,9 @@ class TestArgparseBehavior:
         result = subprocess.run(
             [sys.executable, str(_start_py("lulu-blueprint")),
              "--project-root", str(tmp_path),
-             "--cycle-id", _TOPIC_ID],
+             "--cycle-id", _TOPIC_ID,
+             "--profile", "lulu-blueprint",
+             "--profile-path", str(_LDEV / "lulu-blueprint" / "compose-profile.json")],
             capture_output=True, text=True, env=env,
             cwd=str(_scripts_dir("lulu-blueprint")),
         )
@@ -352,7 +378,9 @@ class TestSessionPath:
         return subprocess.run(
             [sys.executable, str(_start_py("lulu-blueprint")),
              "--project-root", str(tmp_path),
-             "--cycle-id", _TOPIC_ID],
+             "--cycle-id", _TOPIC_ID,
+             "--profile", "lulu-blueprint",
+             "--profile-path", str(_LDEV / "lulu-blueprint" / "compose-profile.json")],
             capture_output=True, text=True, env=_ENV_COPILOT,
             cwd=str(_scripts_dir("lulu-blueprint")),
         )

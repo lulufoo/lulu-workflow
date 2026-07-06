@@ -8,13 +8,12 @@ from pathlib import Path
 import pytest
 
 _SRC = Path(__file__).resolve().parents[3]  # lulu-dev-skills/
-_STAGES = ["decision", "lulu-blueprint", "lulu-tasks", "lulu-code"]
+_STAGES = ["decision", "lulu-tasks", "lulu-code"]
 # lulu-plan uses compose/scripts/core/workflow_common.py (no STAGE / session_base_dir).
 _FID = "20260524143022-02cd7e6e"
 
 _EXPECTED_CACHE_SUBDIR = {
     "decision": "decision",
-    "lulu-blueprint": "lulu-blueprint",
     "lulu-tasks": "lulu-tasks",
     "lulu-code": "lulu-code",
 }
@@ -22,7 +21,6 @@ _EXPECTED_CACHE_SUBDIR = {
 
 _STAGE_WC = {
     "decision": "dec_workflow_common.py",
-    "lulu-blueprint": "pa_workflow_common.py",
     "lulu-tasks": "tt_workflow_common.py",
     "lulu-code": "tc_workflow_common.py",
 }
@@ -84,19 +82,13 @@ class TestSessionBaseDir:
         expected = _EXPECTED_CACHE_SUBDIR[stage]
         assert str(result).endswith(f"{_FID}/{expected}")
 
-    def test_cycle_id_with_hyphen_no_escaping(self):
-        mod = _load_wc("lulu-blueprint")
-        result = mod.session_base_dir(_FID)
-        assert _FID in str(result)
-        assert "%" not in str(result)
-
     @pytest.mark.parametrize("fid", [
         "20260101000000-aaaaaaaa",
         "20991231235959-ffffffff",
         "20260524143022-02cd7e6e",
     ])
     def test_accepts_any_string_cycle_id_without_error(self, fid):
-        mod = _load_wc("lulu-blueprint")
+        mod = _load_wc("lulu-tasks")
         result = mod.session_base_dir(fid)
         assert fid in str(result)
 

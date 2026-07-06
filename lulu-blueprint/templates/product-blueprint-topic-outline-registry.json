@@ -1,0 +1,29 @@
+{
+  "version": "1",
+  "$schema_id": "outline-schema",
+  "profile_id": "lulu-blueprint",
+  "cycle_type": "topic",
+  "outline_order": ["SI", "BD", "PS", "PR", "OQ"],
+  "blocks": {
+    "SI": {
+      "heading": "Situation & Direction",
+      "intents": ["SI"]
+    },
+    "BD": {
+      "heading": "Boundaries",
+      "intents": ["BD"]
+    },
+    "PS": {
+      "heading": "Product Shape",
+      "intents": ["PS"]
+    },
+    "PR": {
+      "heading": "Product Rationale",
+      "intents": ["PR"]
+    },
+    "OQ": {
+      "heading": "Open Questions",
+      "intents": ["OQ"]
+    }
+  }
+}

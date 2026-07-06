@@ -129,7 +129,7 @@ class TestShouldInjectConversationId:
         "command",
         [
             "python3 ~/.cursor/skills/lulu-dev-workflow/decision/scripts/dec_start.py --cycle-id fid1",
-            "python lulu-dev-workflow/lulu-blueprint/scripts/pa_start.py --project-root /tmp",
+            "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/core/start.py --profile lulu-blueprint --cycle-id fid1",
             "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/core/start.py --profile lulu-spec --cycle-id fid1",
             "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/core/start.py --profile lulu-plan --cycle-id fid1",
             "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/core/start.py --profile lulu-design --cycle-id fid1",

@@ -1,0 +1,30 @@
+{
+  "id": "blueprint-quality",
+  "legacy_alias": "bq",
+  "label": "Topic Product Architecture Quality (Intent Probes)",
+  "eval_target": {
+    "path": "{compose_doc}"
+  },
+  "remediation_target": {
+    "path": "{compose_doc}"
+  },
+  "sots": [
+    {
+      "kind": "url",
+      "role": "primary",
+      "ref": "{pbt_blueprint_quality_framework_url}"
+    }
+  ],
+  "method": {
+    "kind": "builtin",
+    "source": {
+      "procedure_id": "intent_gap_probes"
+    },
+    "focus": "P1–P4 intent gap probes on product-doc + blueprint-only supplements (downstream register, OQ disposition, PS/PR inheritability for lulu-approach, scope register)"
+  },
+  "review": {
+    "seq": 1,
+    "output_path": "blueprint-review-e{M}1.md",
+    "template": "eval/review.template.md"
+  }
+}

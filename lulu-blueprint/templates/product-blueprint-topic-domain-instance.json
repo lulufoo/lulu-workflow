@@ -1,0 +1,17 @@
+{
+  "version": "1",
+  "$schema_id": "domain-schema",
+  "cycle_type": "topic",
+  "domain_id": "product_blueprint_topic",
+  "cognitive_frame": "topic product architecture shaping before any feature cycle is opened; frames every question as: is the topic-level product direction sound, are cross-feature capability boundaries visible, can downstream lulu-approach inherit product premises without re-deriving partitions — not whether a single feature's PRD or technical architecture is complete",
+  "information_nature": [
+    "topic-level capability boundaries and value evolution spanning multiple future features",
+    "cross-cutting product constraints, exclusions, and invariants",
+    "product decisions and trade-off rationale at shaping granularity",
+    "assumptions that gate opening the next feature cycle",
+    "capability and journey views at milestone granularity"
+  ],
+  "expression_conventions": "analytical product prose — causal chains for SI are allowed; avoid technical architecture narrative, implementation register, or single-feature PRD detail; diagrams express capability partition, dependency, or cross-domain journey at topic level; tables express comparison or enumeration of product paths; all claims trace to decision-doc; no user-story backlogs, acceptance criteria matrices, or technical module specs",
+  "intent_anchor": "all content must be traceable to the lulu-bet decision-doc SSOT; no intents beyond decision-doc scope; no enterprise-wide portfolio restructuring unless authorized there; downstream feature cycles inherit topic product structure from this document without guessing capability partitions",
+  "audience_type": "product leads validating topic direction, stakeholders judging feature-cycle readiness, reviewers deciding whether shaping is complete — actionable at milestone granularity until feature decomposition begins"
+}

@@ -1,0 +1,45 @@
+{
+  "profile_id": "lulu-blueprint",
+  "stage_name": "lulu-blueprint",
+  "cycle_types": ["topic"],
+  "shell_dir": "lulu-blueprint",
+  "shell_paths": {
+    "hook_guard": "scripts/hook/hook_guard.py",
+    "dimension_defs_dir": "lulu-blueprint/dimension-defs"
+  },
+  "document": {
+    "filename": "product-doc.md",
+    "schema": "section-keyed"
+  },
+  "drafting": {
+    "inductive": false,
+    "freeedit": true,
+    "post_init_options": ["freeedit", "evaluate", "deliver"]
+  },
+  "start": {
+    "adapter_module": "lulu-blueprint/scripts/start/product_blueprint_start_adapter.py",
+    "adapter_class": "ProductBlueprintStartAdapter"
+  },
+  "cache_subdir": "lulu-blueprint",
+  "framework_section": "lulu-blueprint",
+  "framework_templates": {
+    "section-registry": "pbt_section_registry_url",
+    "section-form-registry": "pbt_section_form_registry_url",
+    "section-kw-criteria": "pbt_section_kw_criteria_url",
+    "outline-registry": "pbt_outline_registry_url",
+    "role-instance": "pbt_topic_role_instance_url",
+    "domain-instance": "pbt_topic_domain_instance_url"
+  },
+  "eval": {
+    "enabled": true,
+    "workflow_id": "lulu-blueprint",
+    "adapter_module": "lulu-blueprint/scripts/eval/product_blueprint_eval_adapter.py",
+    "adapter_class": "ProductBlueprintEvalAdapter"
+  },
+  "delivery_index": {
+    "layout": "revision",
+    "state_file": "workflow-state.md",
+    "terminal_state": "Delivered",
+    "doc_filename": "product-doc.md"
+  }
+}
