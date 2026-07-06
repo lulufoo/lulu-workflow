@@ -8,9 +8,9 @@ from pathlib import Path
 from typing import Iterator
 
 from workflow_paths import (
-    ACTIVE_COMPOSE_STAGE_IDS,
     COMPOSE_ROOT,
     WORKFLOW_ROOT,
+    active_compose_stage_ids,
     load_profile,
 )
 
@@ -125,17 +125,9 @@ def _decision_constraints_paths() -> list[Path]:
     return paths
 
 
-def _compose_stage_ids(sources: dict) -> tuple[str, ...]:
-    raw = sources.get("compose_stage_ids")
-    if isinstance(raw, list) and raw:
-        return tuple(str(item).strip() for item in raw if str(item).strip())
-    return ACTIVE_COMPOSE_STAGE_IDS
-
-
 def iter_delivery_descriptors() -> Iterator[DeliveryDescriptor]:
     seen: set[str] = set()
-    sources = _load_delivery_sources()
-    for stage_id in _compose_stage_ids(sources):
+    for stage_id in active_compose_stage_ids():
         desc = _compose_descriptor(stage_id)
         if desc is not None and desc.stage_name not in seen:
             seen.add(desc.stage_name)

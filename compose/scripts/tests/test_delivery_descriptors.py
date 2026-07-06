@@ -17,5 +17,6 @@ def test_iter_delivery_includes_decision_holders_from_manifest():
     stages = {d.stage_name for d in iter_delivery_descriptors()}
     assert "lulu-bet" in stages
     assert "lulu-approach" in stages
+    assert "lulu-design" in stages
     assert "lulu-plan" in stages
     assert "lulu-spec" in stages

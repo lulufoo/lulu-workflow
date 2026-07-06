@@ -30,12 +30,35 @@ SCHEMA_SCRIPTS = COMPOSE_ROOT / "scripts" / "schema"
 
 PROFILE_POINTER_NAME = ".compose-profile-path"
 COMPOSE_PROFILE_FILENAME = "compose-profile.json"
-ACTIVE_COMPOSE_STAGE_IDS = ("lulu-plan", "lulu-design", "lulu-spec")
-
-# Legacy: lulu-arch placeholder only
-PROFILES_DIR = COMPOSE_ROOT / "profiles"
 
 _profile_cache: dict[str, dict[str, Any]] = {}
+
+
+def active_compose_stage_ids(*, workflow_root: Path | None = None) -> tuple[str, ...]:
+    """Discover active compose stages by scanning for compose-profile.json.
+
+    A stage counts as active when ``{workflow_root}/{dir_name}/compose-profile.json``
+    exists, parses as JSON, ``profile_id`` matches ``dir_name``, and ``status`` is
+    not ``placeholder_phase2``.
+    """
+    root = (workflow_root or WORKFLOW_ROOT).resolve()
+    ids: list[str] = []
+    for candidate in sorted(root.iterdir(), key=lambda path: path.name):
+        if not candidate.is_dir():
+            continue
+        profile_path = candidate / COMPOSE_PROFILE_FILENAME
+        if not profile_path.is_file():
+            continue
+        try:
+            data = load_profile_json(profile_path)
+        except (OSError, json.JSONDecodeError):
+            continue
+        if data.get("status") == "placeholder_phase2":
+            continue
+        if str(data.get("profile_id", "")).strip() != candidate.name:
+            continue
+        ids.append(candidate.name)
+    return tuple(ids)
 
 
 def compose_profile_path(profile_id: str) -> Path:

@@ -6,6 +6,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -32,6 +33,7 @@ _COMPOSED_CORPUS_REFS = frozenset({
     TECH_DESIGN_COMPOSED_CORPUS_REF,
     PRODUCT_SPEC_COMPOSED_CORPUS_REF,
 })
+_COMPOSED_CORPUS_REF_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*-composed@\d+$")
 
 
 def corpus_fingerprint(
@@ -107,4 +109,6 @@ def compose_corpus(
 
 def is_composed_corpus_ref(ref: str) -> bool:
     """Return True when ref points at a dynamic composed EvalCorpus."""
-    return ref in _COMPOSED_CORPUS_REFS
+    if ref in _COMPOSED_CORPUS_REFS:
+        return True
+    return bool(_COMPOSED_CORPUS_REF_PATTERN.match(ref))

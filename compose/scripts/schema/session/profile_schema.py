@@ -13,7 +13,11 @@ _CORE = _SCRIPTS / "core"
 if str(_CORE) not in sys.path:
     sys.path.insert(0, str(_CORE))
 
-from workflow_paths import ACTIVE_COMPOSE_STAGE_IDS, KERNEL_SCHEMES, compose_profile_path  # noqa: E402
+from workflow_paths import (  # noqa: E402
+    KERNEL_SCHEMES,
+    active_compose_stage_ids,
+    compose_profile_path,
+)
 
 _COMPOSE_PROFILE_REQUIRED = frozenset(
     {
@@ -144,7 +148,7 @@ def _validate_profile(path: Path) -> list[str]:
 
 def validate_all() -> list[str]:
     errors: list[str] = []
-    for stage_id in ACTIVE_COMPOSE_STAGE_IDS:
+    for stage_id in active_compose_stage_ids():
         path = compose_profile_path(stage_id)
         if not path.is_file():
             errors.append(f"missing compose profile: {path.as_posix()}")
@@ -165,7 +169,8 @@ def main() -> int:
         for err in errors:
             print(err, file=sys.stderr)
         return 1
-    print(f"OK: {len(ACTIVE_COMPOSE_STAGE_IDS)} compose profile(s) valid")
+    stage_ids = active_compose_stage_ids()
+    print(f"OK: {len(stage_ids)} compose profile(s) valid")
     return 0
 
 

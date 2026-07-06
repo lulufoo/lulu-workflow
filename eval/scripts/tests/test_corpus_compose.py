@@ -103,3 +103,8 @@ class TestCorpusCompose:
         assert corpus["dimensions"][2]["id"] == "intent-alignment"
         assert corpus["dimensions"][2]["review"]["output_path"] == "design-review-e{M}3.md"
         assert corpus["dimensions"][2]["review"]["seq"] == 3
+
+    def test_is_composed_corpus_ref_matches_generic_pattern(self):
+        assert is_composed_corpus_ref("lulu-arch-composed@1")
+        assert not is_composed_corpus_ref("lulu-arch-composed")
+        assert not is_composed_corpus_ref("static-corpus@1")
