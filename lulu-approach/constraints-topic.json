@@ -22,8 +22,8 @@
     "optional": true,
     "source": {
       "upstream_cache_subdir": "lulu-blueprint",
-      "doc_filename": "arch-doc.md",
-      "loaded_message": "Loaded upstream product context for scope and constraints only. Do not use it for role, architecture direction, or acceptance criteria."
+      "doc_filename": "product-doc.md",
+      "loaded_message": "Loaded upstream product architecture decision context for scope and constraints only. Do not use it for technical decision role, architecture direction, or acceptance criteria."
     }
   }
 }

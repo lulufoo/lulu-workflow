@@ -8,14 +8,13 @@ from pathlib import Path
 import pytest
 
 _SRC = Path(__file__).resolve().parents[3]  # lulu-dev-skills/
-_STAGES = ["decision", "lulu-blueprint", "lulu-arch", "lulu-tasks", "lulu-code"]
+_STAGES = ["decision", "lulu-blueprint", "lulu-tasks", "lulu-code"]
 # lulu-plan uses compose/scripts/core/workflow_common.py (no STAGE / session_base_dir).
 _FID = "20260524143022-02cd7e6e"
 
 _EXPECTED_CACHE_SUBDIR = {
     "decision": "decision",
     "lulu-blueprint": "lulu-blueprint",
-    "lulu-arch": "lulu-arch",
     "lulu-tasks": "lulu-tasks",
     "lulu-code": "lulu-code",
 }
@@ -24,7 +23,6 @@ _EXPECTED_CACHE_SUBDIR = {
 _STAGE_WC = {
     "decision": "dec_workflow_common.py",
     "lulu-blueprint": "pa_workflow_common.py",
-    "lulu-arch": "ta_workflow_common.py",
     "lulu-tasks": "tt_workflow_common.py",
     "lulu-code": "tc_workflow_common.py",
 }

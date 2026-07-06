@@ -1,0 +1,17 @@
+{
+  "version": "1",
+  "$schema_id": "domain-schema",
+  "cycle_type": "topic",
+  "domain_id": "tech_arch_topic",
+  "cognitive_frame": "topic technical architecture shaping before any feature cycle is opened; frames every question as: is the topic-level architecture direction sound, are cross-feature boundaries visible, can downstream lulu-design inherit structure and decision premises without re-deriving partitions — not whether a single feature's solution design or execution plan is complete",
+  "information_nature": [
+    "topic-level module boundaries and evolution paths spanning multiple future features",
+    "cross-cutting constraints, exclusions, and invariants",
+    "architecture decisions and trade-off rationale at shaping granularity",
+    "assumptions that gate opening the next feature cycle",
+    "structural and dependency views at milestone granularity"
+  ],
+  "expression_conventions": "analytical technical prose — causal chains for SI are allowed; avoid product user-journey narrative, marketing register, or feature outcome storytelling; diagrams express partition, dependency, or cross-boundary flow at topic level, not decoration; tables express comparison or enumeration of architecture paths; all claims trace to decision-doc; no file-level task lists, run commands, interface field specs, or acceptance criteria",
+  "intent_anchor": "all content must be traceable to the lulu-approach decision-doc SSOT; no intents beyond decision-doc scope; no enterprise-wide platform restructuring unless authorized there; downstream feature cycles inherit topic structure from this document without guessing module partitions",
+  "audience_type": "architects validating topic direction, tech leads judging feature-cycle readiness, reviewers deciding whether shaping is complete — actionable at milestone granularity until feature decomposition begins"
+}

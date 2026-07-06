@@ -13,7 +13,7 @@ import pytest
 _SRC = Path(__file__).resolve().parents[3]  # lulu-dev-skills/
 _LDEV = _SRC / "lulu-dev-workflow"
 _KERNEL_START = _LDEV / "compose" / "scripts" / "core" / "start.py"
-_COMPOSE_START_STAGES = frozenset({"lulu-plan", "lulu-spec"})
+_COMPOSE_START_STAGES = frozenset({"lulu-plan", "lulu-spec", "lulu-arch"})
 _STAGES = ["decision", "lulu-spec", "lulu-plan", "lulu-tasks", "lulu-code"]
 
 # Use lulu-tasks's tt_workflow_common for unit tests of shared functions.
@@ -29,7 +29,7 @@ _FEATURE_CYCLE = [
     "lulu-bet", "lulu-spec", "lulu-approach",
     "lulu-plan", "lulu-tasks", "lulu-code",
 ]
-# Topic cycles end at lulu-plan; lulu-tasks and lulu-code are feature-only.
+# Topic cycles end at lulu-arch; lulu-tasks and lulu-code are feature-only.
 _TOPIC_CONTAINER_STAGES = ["decision", "lulu-blueprint", "lulu-arch"]
 _TOPIC_CYCLE = [
     "lulu-bet", "lulu-blueprint", "lulu-approach", "lulu-arch",
@@ -39,7 +39,7 @@ _TOPIC_CYCLE = [
 def _start_py(stage: str) -> Path:
     if stage in _COMPOSE_START_STAGES:
         return _KERNEL_START
-    return _SRC / "lulu-dev-workflow" / stage / "scripts" / ({"lulu-code": "tc_start.py", "decision": "dec_start.py", "lulu-blueprint": "pa_start.py", "lulu-arch": "ta_start.py", "lulu-tasks": "tt_start.py"}.get(stage, "start.py"))
+    return _SRC / "lulu-dev-workflow" / stage / "scripts" / ({"lulu-code": "tc_start.py", "decision": "dec_start.py", "lulu-blueprint": "pa_start.py", "lulu-tasks": "tt_start.py"}.get(stage, "start.py"))
 
 
 def _scripts_dir(stage: str) -> Path:
@@ -185,6 +185,8 @@ def _seed_gate_for_stage(cache_dir: Path, cycle_id: str, to_stage: str, project_
         _seed_product_spec_delivered_refs(cache_dir, cycle_id, project_root)
     if to_stage == "lulu-plan":
         _seed_tech_plan_delivered_refs(cache_dir, cycle_id, project_root)
+    if to_stage == "lulu-arch":
+        _seed_tech_plan_delivered_refs(cache_dir, cycle_id, project_root)
 
 
 def _seed_work_order_handoff(cache_dir: Path, cycle_id: str, active_doc: int = 1) -> None:
@@ -261,7 +263,7 @@ def _stage_extra_args(stage: str, tmp_path: Path) -> list:
     elif stage == "lulu-blueprint":
         return []
     elif stage == "lulu-arch":
-        return []
+        return _compose_start_args("lulu-arch")
     elif stage == "lulu-plan":
         return _compose_start_args("lulu-plan")
     elif stage == "lulu-tasks":

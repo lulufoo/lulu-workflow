@@ -1,0 +1,48 @@
+{
+  "version": "1",
+  "profile_id": "lulu-arch",
+  "section_order": ["SI", "BD", "SH", "KD", "OQ"],
+  "document_preamble": "# {Topic Name} · Technical Architecture\n\n**Date:** YYYY-MM-DD\n**Version:** v1\n**Status:** Draft\n\n**Decision-doc:** `{/<cycle_id>/lulu-approach/decision-doc.md}`\n\n**Chain domain:** Topic technical architecture shaping — structural consensus for a multi-feature topic, reviewable before opening a feature cycle; not enterprise architecture, not feature solution design (lulu-design), not execution specs (lulu-plan). Register rules and audience: see domain-instance.\n\n---\n",
+  "sections": {
+    "SI": {
+      "heading": "Situation & Direction",
+      "aliases": ["situation", "direction", "background", "architecture direction"],
+      "upstream": [],
+      "relations": {},
+      "intent": "Problem domain and convergence direction for architecture exploration: (1) trigger — why architecture shaping happens now; (2) current technical situation — verified system and constraint state; (3) impact — cost of leaving architecture uncertainty unresolved; (4) direction — the topic-level architecture direction this exploration converges toward (observable, reviewable, not an implementation checklist).",
+      "intent_boundary": "Scope boundaries, excluded architecture paths, structural partitioning, key decision detail, and open questions belong to BD, SH, KD, and OQ. Interface fields, acceptance criteria, verification commands, and task breakdown belong to downstream feature-cycle lulu-design / lulu-plan."
+    },
+    "BD": {
+      "heading": "Boundaries",
+      "aliases": ["boundaries", "scope", "excluded paths", "invariants"],
+      "upstream": ["SI"],
+      "relations": { "SI": "operationalize" },
+      "intent": "The boundary set for this architecture exploration as a whole: which systems or capability domains are in scope for shaping; architecture paths explicitly not chosen; technical constraints and invariants that must hold across future features. Scope, exclusions, and constraints are presented together to protect the direction in SI from dilution.",
+      "intent_boundary": "Structural shape and module relationships belong to SH. Trade-off comparison and adopt/reject rationale belong to KD. Blocking assumptions belong to OQ. Enterprise-wide platform restructuring and single-feature solution design are out of scope unless authorized in decision-doc."
+    },
+    "SH": {
+      "heading": "Structure Shape",
+      "aliases": ["structure", "shape", "modules", "subsystems", "partitioning"],
+      "upstream": ["SI", "BD"],
+      "relations": { "SI": "operationalize", "BD": "preserve_invariant" },
+      "intent": "Topic-level structural view: core modules or subsystems, responsibility partitioning, dependency direction, relationship to existing assets; how future features attach to this structure (milestone granularity, not file-level tasks). When cross-boundary interaction paths matter at topic level, name the architecturally significant boundaries or lifecycle stages sufficient for downstream lulu-design to inherit structure without re-deriving partitions — not field-level contracts or per-request state machines.",
+      "intent_boundary": "Field-level contracts and API semantics belong to downstream lulu-design IF. Execution order and change lists belong to lulu-plan. Decision rationale belongs to KD."
+    },
+    "KD": {
+      "heading": "Architecture Rationale",
+      "aliases": ["architecture decisions", "trade-offs", "alternatives", "rationale"],
+      "upstream": ["SH", "BD"],
+      "relations": { "SH": "instantiate", "BD": "preserve_invariant" },
+      "intent": "Adopted architecture judgments, rejected alternative directions and rationale (including explicitly rejected paths), reversibility, and evolution premises. Rationale is architecture-level trade-off reasoning, not authorization statements alone and not feature-level design detail.",
+      "intent_boundary": "Structural layout and module diagrams belong to SH. Assumptions awaiting closure belong to OQ. Implementation tactics, interface fields, and verification mapping belong to downstream lulu-design / lulu-plan."
+    },
+    "OQ": {
+      "heading": "Open Questions",
+      "aliases": ["open questions", "assumptions", "risks", "unresolved items"],
+      "upstream": ["SH", "KD"],
+      "relations": { "SH": "operationalize", "KD": "operationalize" },
+      "intent": "Architecture assumptions, open questions, and risks not yet closed at topic level; each item labeled whether it blocks opening a new feature cycle (blocks-next-cycle or non-blocking) and anchored to the gap in SI, SH, or KD it closes.",
+      "intent_boundary": "Closed decisions belong to KD. Feature acceptance criteria, verification matrices, and operational runbooks belong to downstream lulu-design."
+    }
+  }
+}

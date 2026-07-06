@@ -48,7 +48,6 @@ _CONV_ID_INJECT_SCRIPT_SUFFIXES = (
     "/lulu-code/scripts/tc_task_control.py",
     "/decision/scripts/dec_start.py",
     "/lulu-blueprint/scripts/pa_start.py",
-    "/lulu-arch/scripts/ta_start.py",
     "/lulu-tasks/scripts/tt_start.py",
 )
 

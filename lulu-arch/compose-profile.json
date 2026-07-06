@@ -1,0 +1,45 @@
+{
+  "profile_id": "lulu-arch",
+  "stage_name": "lulu-arch",
+  "cycle_types": ["topic"],
+  "shell_dir": "lulu-arch",
+  "shell_paths": {
+    "hook_guard": "scripts/hook/hook_guard.py",
+    "dimension_defs_dir": "lulu-arch/dimension-defs"
+  },
+  "document": {
+    "filename": "arch-doc.md",
+    "schema": "section-keyed"
+  },
+  "drafting": {
+    "inductive": false,
+    "freeedit": true,
+    "post_init_options": ["freeedit", "evaluate", "deliver"]
+  },
+  "start": {
+    "adapter_module": "lulu-arch/scripts/start/tech_arch_start_adapter.py",
+    "adapter_class": "TechArchStartAdapter"
+  },
+  "cache_subdir": "lulu-arch",
+  "framework_section": "lulu-arch",
+  "framework_templates": {
+    "section-registry": "tat_section_registry_url",
+    "section-form-registry": "tat_section_form_registry_url",
+    "section-kw-criteria": "tat_section_kw_criteria_url",
+    "outline-registry": "tat_outline_registry_url",
+    "role-instance": "tat_topic_role_instance_url",
+    "domain-instance": "tat_topic_domain_instance_url"
+  },
+  "eval": {
+    "enabled": true,
+    "workflow_id": "lulu-arch",
+    "adapter_module": "lulu-arch/scripts/eval/tech_arch_eval_adapter.py",
+    "adapter_class": "TechArchEvalAdapter"
+  },
+  "delivery_index": {
+    "layout": "revision",
+    "state_file": "workflow-state.md",
+    "terminal_state": "Delivered",
+    "doc_filename": "arch-doc.md"
+  }
+}

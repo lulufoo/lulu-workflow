@@ -1,0 +1,30 @@
+{
+  "id": "arch-quality",
+  "legacy_alias": "aq",
+  "label": "Topic Architecture Quality (Intent Probes)",
+  "eval_target": {
+    "path": "{compose_doc}"
+  },
+  "remediation_target": {
+    "path": "{compose_doc}"
+  },
+  "sots": [
+    {
+      "kind": "url",
+      "role": "primary",
+      "ref": "{tat_arch_quality_framework_url}"
+    }
+  ],
+  "method": {
+    "kind": "builtin",
+    "source": {
+      "procedure_id": "intent_gap_probes"
+    },
+    "focus": "P1–P4 intent gap probes on arch-doc + arch-only supplements (downstream register, OQ disposition, SH/KD structure inheritability for lulu-design, scope register)"
+  },
+  "review": {
+    "seq": 1,
+    "output_path": "arch-review-e{M}1.md",
+    "template": "eval/review.template.md"
+  }
+}

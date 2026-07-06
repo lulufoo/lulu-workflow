@@ -14,7 +14,7 @@ _SRC = Path(__file__).resolve().parents[3]  # lulu-dev-skills/
 _LDEV = _SRC / "lulu-dev-workflow"
 _STAGES = ["decision", "lulu-blueprint", "lulu-arch", "lulu-plan", "lulu-tasks", "lulu-code"]
 # compose start.py never integrated run_archive; other stages defer via comment.
-_STAGES_WITH_DEFERRED_ARCHIVE = [s for s in _STAGES if s != "lulu-plan"]
+_STAGES_WITH_DEFERRED_ARCHIVE = [s for s in _STAGES if s not in ("lulu-plan", "lulu-arch")]
 _FID = "20260524143022-02cd7e6e"
 _CONV_ID = "test-conversation-aaa"
 _ENV_COPILOT = {**os.environ, "LULU_PLATFORM": "copilot"}
@@ -46,13 +46,13 @@ def _diag_holder_args(stage: str = "lulu-bet") -> list[str]:
 
 
 def _start_py(stage: str) -> Path:
-    if stage == "lulu-plan":
+    if stage in ("lulu-plan", "lulu-arch"):
         return _KERNEL_START
-    return _SRC / "lulu-dev-workflow" / stage / "scripts" / ({"lulu-code": "tc_start.py", "decision": "dec_start.py", "lulu-blueprint": "pa_start.py", "lulu-arch": "ta_start.py", "lulu-tasks": "tt_start.py"}.get(stage, "start.py"))
+    return _SRC / "lulu-dev-workflow" / stage / "scripts" / ({"lulu-code": "tc_start.py", "decision": "dec_start.py", "lulu-blueprint": "pa_start.py", "lulu-tasks": "tt_start.py"}.get(stage, "start.py"))
 
 
 def _scripts_dir(stage: str) -> Path:
-    if stage == "lulu-plan":
+    if stage in ("lulu-plan", "lulu-arch"):
         return _KERNEL_START.parent
     return _SRC / "lulu-dev-workflow" / stage / "scripts"
 
