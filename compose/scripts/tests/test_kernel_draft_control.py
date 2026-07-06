@@ -17,6 +17,7 @@ from resolved_refs_schema import frozen_delivered_refs  # noqa: E402
 from workflow_state_schema import init_drafting, load_workflow_state  # noqa: E402
 
 from init_drafting_helpers import (  # noqa: E402
+    seed_product_spec_session,
     seed_provenance_artifacts,
     seed_tech_design_session,
     seed_tech_plan_session,
@@ -71,6 +72,18 @@ def test_begin_inductive_rejects_non_inductive_profile(tmp_path: Path) -> None:
 
     assert result["ok"] is False
     assert "drafting.inductive is false" in result["reason"]
+
+
+def test_begin_inductive_succeeds_for_lulu_spec(tmp_path: Path) -> None:
+    seed_product_spec_session(tmp_path, cycle_id=_CYCLE)
+
+    result = draft_control.begin_inductive(_CYCLE, tmp_path, profile_id="lulu-spec")
+
+    assert result["ok"] is True
+    dispatch = result["dispatch_input"]
+    assert "COMPOSE_PROFILE:      lulu-spec" in dispatch
+    assert "INTENT_BASELINE_REFS: []" in dispatch
+    assert "lulu-bet" in dispatch or "decision-doc.md" in dispatch
 
 
 def test_begin_inductive_out_dir_under_revision(tmp_path: Path) -> None:

@@ -134,6 +134,9 @@ OUTLINE_REGISTRY_PRODUCT_SPEC: dict[str, Any] = {
 PRODUCT_SPEC_SECTION_FORM_REGISTRY: dict[str, Any] = json.loads(
     (_FIXTURES_DIR / "product_spec_section_form_registry.json").read_text(encoding="utf-8")
 )
+PRODUCT_SPEC_INDUCTIVE_SCAN_CRITERIA: dict[str, Any] = json.loads(
+    (_FIXTURES_DIR / "product_spec_inductive_scan_criteria.json").read_text(encoding="utf-8")
+)
 
 FEATURE_ROLE_INSTANCE: dict[str, Any] = {
     "version": "1",
@@ -281,6 +284,12 @@ def seed_product_spec_test_caches(project_root: Path) -> None:
         "lulu-spec",
         "pst_section_form_registry_url",
         PRODUCT_SPEC_SECTION_FORM_REGISTRY,
+    )
+    seed_template_cache(
+        project_root,
+        "lulu-spec",
+        "pst_inductive_scan_criteria_url",
+        PRODUCT_SPEC_INDUCTIVE_SCAN_CRITERIA,
     )
 
 

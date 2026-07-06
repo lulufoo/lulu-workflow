@@ -168,3 +168,34 @@ def seed_tech_design_session(
         intent_baseline_refs=intent_refs,
     )
     return ws_path
+
+
+def seed_product_spec_session(
+    project_root: Path,
+    *,
+    cycle_id: str,
+    delivered_refs: list[DeliveredRef] | None = None,
+) -> Path:
+    """Seed lulu-spec session with lulu-bet decision-doc scope."""
+    cache_dir = project_root / CACHE_DIR
+    diag_dir = cache_dir / cycle_id / "lulu-bet"
+    diag_dir.mkdir(parents=True, exist_ok=True)
+    decision = diag_dir / "decision-doc.md"
+    decision.write_text("# Decision\n", encoding="utf-8")
+    refs = delivered_refs
+    if refs is None:
+        refs = [DeliveredRef(type="lulu-bet", path=str(decision.resolve()))]
+    seed_delivered_refs_file(project_root, cycle_id, refs)
+    seed_profile_pointer_for_tests(project_root, cycle_id, "lulu-spec")
+    active_doc = bump_active_doc(cycle_id, project_root, "lulu-spec")
+    ws_path = project_root / state_path(cycle_id, active_doc, "lulu-spec", project_root)
+    init_drafting(ws_path, mode="product")
+    seed_provenance_artifacts(
+        ws_path,
+        cycle_id=cycle_id,
+        project_root=project_root,
+        stage="lulu-spec",
+        mode="product",
+        scope_refs=product_spec_scope_refs(refs),
+    )
+    return ws_path

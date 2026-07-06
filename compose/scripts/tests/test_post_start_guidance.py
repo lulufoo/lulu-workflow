@@ -57,3 +57,4 @@ def test_product_spec_post_start_guidance():
         scope_refs=[],
     )
     assert "lulu-bet" in note
+    assert "Inductive" in note

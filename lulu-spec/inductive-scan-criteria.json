@@ -1,0 +1,148 @@
+{
+  "version": "1",
+  "profile_id": "lulu-spec",
+  "_note": "Gate 3 (Refine) configuration for feature product-doc. Pairing (intent SSOT): pst_section_registry_url → 20-product-spec-section-registry.json intent chain PB→RN→GO→UR→SN→SC→IO→FL→NG→AC. Pairing (KW SSOT): pst_section_kw_criteria_url → 21-product-spec-section-kw-criteria.md per-section KW0–KW4 rows. Gate 3 coverage axis is narrow (6 sections): timing, users, scenarios, flow, exclusions, acceptance — mirroring design's peel of shape-level sections (GO/SC/NG analog) to Gate 1. Peeled PB/GO/SC/IO still appear in product-doc via Initializing. Two axes: (1) coverage_sections breadth; (2) per-section KW gradient (default leave at KW3). Frontier sweep; methods discover; KW qualifies.",
+  "shape_extraction": {
+    "_note": "Gate 1 only. Coarse product shape (architecture_view in DQI). Peeled from Gate 3: PB←as_is, GO←to_be, SC←scope.In, IO←affected_files (optional). scope.Out seeds NG but NG stays in Gate 3 for row-level exclusions. Shape constraints gate discovery on the 6 coverage sections.",
+    "artifact_label": "product shape view",
+    "registry_pairing": "pst_section_registry_url",
+    "peeled_from_gate3": ["PB", "GO", "SC", "IO"],
+    "required": [
+      "as_is",
+      "to_be",
+      "scope",
+      "spine",
+      "traces_to"
+    ],
+    "optional": [
+      "affected_files"
+    ],
+    "fields": {
+      "as_is": {
+        "label": "As-Is (Problem / PB altitude)",
+        "maps_to_section": "PB",
+        "paired_with": "to_be",
+        "present_as": "As-Is → To-Be (paired before→after block with to_be)",
+        "guidance": "Registry PB intent: core problem plus verified situational facts (not guesses); must trace to decision-doc. PB is peeled — this field is the PB section substance for Initializing.",
+        "carrier": "short narrative block or bullet list",
+        "forbidden": [
+          "goal tables or quantified outcomes (belongs in to_be / GO)",
+          "why-now urgency without basis (belongs in RN — Gate 3)",
+          "user role lists (belongs in UR — Gate 3)",
+          "capability enumeration (belongs in scope / SC)",
+          "implementation detail",
+          "acceptance criteria"
+        ]
+      },
+      "to_be": {
+        "label": "To-Be (Goal / GO altitude, coarse)",
+        "maps_to_section": "GO",
+        "paired_with": "as_is",
+        "present_as": "As-Is → To-Be (paired before→after block with as_is)",
+        "guidance": "Registry GO intent at shape altitude: observable before→after or success state aligned with decision-doc; verifiable in principle by AC. GO is peeled — GO section prose expands in Initializing/FreeEdit, not Gate 3.",
+        "carrier": "short narrative block or two-column before→after table",
+        "forbidden": [
+          "user scenarios (belongs in SN — Gate 3)",
+          "capability or I/O lists (belongs in scope / SC / IO)",
+          "step-by-step flow (belongs in FL — Gate 3)",
+          "acceptance item lists (belongs in AC — Gate 3)",
+          "implementation detail"
+        ]
+      },
+      "scope": {
+        "label": "Change scope (capability-level)",
+        "maps_to_section": "SC",
+        "guidance": "Capability-level In (SC enumeration seed — SC peeled, lands in Initializing) and Out (coarse exclusion seed for NG). Gate 3 NG refines row-level exclusions against this Out list; do not duplicate SC feature enumeration here.",
+        "carrier": "bulleted In/Out list"
+      },
+      "affected_files": {
+        "label": "Affected surfaces (coarse)",
+        "maps_to_section": "IO",
+        "guidance": "Optional coarse hint for IO section: user-visible surfaces (screens, workflows, channels) — one line each. IO peeled — full I/O object model in Initializing/FreeEdit.",
+        "carrier": "bullet list",
+        "forbidden": [
+          "code paths",
+          "full I/O object model with SC mapping (belongs in IO section)"
+        ]
+      },
+      "spine": {
+        "label": "Spine",
+        "guidance": "One line: center of gravity — product outcome this spec must deliver (PB problem → GO success).",
+        "carrier": "single sentence"
+      },
+      "traces_to": {
+        "label": "traces_to",
+        "guidance": "Reference label(s) into upstream decision-doc (bet, direction, or goal id) — mandatory anchor.",
+        "carrier": "reference label or bullet list"
+      }
+    }
+  },
+  "expose_axis": {
+    "_note": "coverage_sections = Gate 3 breadth axis only (6 sections, NOT full registry). Peeled: PB, GO, SC, IO — see shape_extraction.peeled_from_gate3. Default sweep order follows intent chain among listed sections: RN→UR→SN→FL→NG→AC. Full product-doc still uses all registry keys via Initializing.",
+    "coverage_sections": [
+      "RN",
+      "UR",
+      "SN",
+      "FL",
+      "NG",
+      "AC"
+    ],
+    "section_weights": {
+      "RN": "required",
+      "UR": "required",
+      "SN": "required",
+      "FL": "required",
+      "NG": "required",
+      "AC": "required"
+    },
+    "level_clear_semantics": "KW SSOT: fetch pst_section_kw_criteria_url via $FETCH_COMPOSE --role section-kw-criteria before Gate 3. Each ## {section_key} block defines KW0–KW4 for that section only. Default leave at KW3. Iteration unit = one open point.",
+    "carrier_source": "section-form-registry (pst_section_form_registry_url): sections.{key}.presentation.allowed carriers; obey presentation.forbidden.",
+    "methods": {
+      "_note": "Discovery ACTION for the 6 coverage sections only. subtract shape_constraints (from G1) before registering EPs.",
+      "trigger_gap": {
+        "weight": "required",
+        "sections": ["RN"],
+        "finds": "Registry RN: missing or unverifiable trigger, urgency, or window — or inconsistent with G1 as_is (PB) / decision-doc timing (PB operationalize)"
+      },
+      "user_scenario_gap": {
+        "weight": "required",
+        "sections": ["UR", "SN"],
+        "finds": "Registry UR/SN: users, roles, or situations from PB/decision-doc without concrete persona, scenario narrative, or reproducible example (UR operationalize → SN operationalize)"
+      },
+      "flow_gap": {
+        "weight": "required",
+        "sections": ["FL"],
+        "finds": "Registry FL: no happy-path (entry, main steps, exit/goal-reached) when G1 to_be or SN scenarios imply user flow; references G1 scope for capability context, not SC enumeration"
+      },
+      "exclusion_gap": {
+        "weight": "required",
+        "sections": ["NG"],
+        "finds": "Registry NG: exclusion row missing, overlaps G1 scope Out, or fails to protect a GO/SC boundary named in decision-doc or shape_constraints (NG respect_exclude; GO/SC substance from G1/Init)"
+      },
+      "acceptance_gap": {
+        "weight": "required",
+        "sections": ["AC", "FL"],
+        "finds": "Registry AC: G1 to_be or FL outcome without observable acceptance row; AC item missing trace-back to to_be, G1 scope.In capability, or FL when decision-doc names goal, capability, or flow ids (AC←GO via G1 to_be; AC←SC via G1 scope/Init; FL decompose)"
+      }
+    },
+    "mandatory_coverage_prompt": [
+      "RN",
+      "NG",
+      "AC"
+    ]
+  },
+  "deferred": {
+    "_note": "Post-MVP. IO/SC detail discovery or domain-specific methods — re-enable via domain_profiles without changing gate spine.",
+    "methods": [
+      "io_instantiate_gap",
+      "decision_gap",
+      "scope_ambiguity",
+      "stakeholder_conflict",
+      "metric_gap",
+      "dependency_check",
+      "operability_check",
+      "verified_fact_challenge"
+    ],
+    "domain_profiles": "future: e.g. expand coverage_sections with SC/IO when decision-doc is thin"
+  }
+}

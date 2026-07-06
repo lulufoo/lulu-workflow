@@ -117,4 +117,7 @@ class ProductSpecStartAdapter:
         scope_refs: list[DeliveredRef],
     ) -> str:
         del run_mode, carry_forward_ref, scope_refs
-        return "产品规格阶段：Initializing 完成后进入 Drafting，以上游 lulu-bet 为 scope SSOT。"
+        return (
+            "产品规格阶段：Drafting 从 Inductive（Step 0）开始，"
+            "归纳完成后 Initializing 生成 product-doc；以上游 lulu-bet decision-doc 为 scope SSOT。"
+        )

@@ -45,6 +45,9 @@ class TestResolveConfigKey:
             "pst_section_form_registry_url"
         )
         assert resolve_config_key("outline-registry", "lulu-spec") == "pst_outline_registry_url"
+        assert resolve_config_key("inductive-scan-criteria", "lulu-spec") == (
+            "pst_inductive_scan_criteria_url"
+        )
 
     def test_scheme_keys(self) -> None:
         assert scheme_template_keys() == frozenset(
@@ -61,6 +64,36 @@ class TestResolveConfigKey:
 
 
 class TestFetchComposeFramework:
+    def test_fetch_product_spec_inductive_scan_criteria(self, tmp_path: Path) -> None:
+        import fetch_compose_framework as mod
+
+        root = Path(__file__).resolve().parents[4]
+        content = mod.fetch_compose_framework(
+            "inductive-scan-criteria",
+            root,
+            profile_id="lulu-spec",
+        )
+        data = __import__("json").loads(content)
+        assert data["profile_id"] == "lulu-spec"
+        assert data["expose_axis"]["coverage_sections"] == [
+            "RN",
+            "UR",
+            "SN",
+            "FL",
+            "NG",
+            "AC",
+        ]
+        assert data["shape_extraction"]["peeled_from_gate3"] == [
+            "PB",
+            "GO",
+            "SC",
+            "IO",
+        ]
+        assert "trigger_gap" in data["expose_axis"]["methods"]
+        assert "exclusion_gap" in data["expose_axis"]["methods"]
+        assert "io_instantiate_gap" in data["deferred"]["methods"]
+        assert len(data["expose_axis"]["coverage_sections"]) == 6
+
     def test_fetch_tech_design_outline_registry(self, tmp_path: Path) -> None:
         import fetch_compose_framework as mod
 
