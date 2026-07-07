@@ -50,13 +50,10 @@ python3 "$SKILL_DIR/scripts/tc_session_control.py" \
 
 - `recoverable: false` → ## Starting
 - `recoverable: true`:
+  - **Feature container** (`$CYCLE_TYPE == feature`): Announce `current_state`, `active_session`, and `current_task` (Executing only); auto-resume into ## `{resume_section}` — do not ask Yes/No.
+  - **Topic container** (`$CYCLE_TYPE == topic`): Show the same fields; ask to resume. **Yes** → ## `{resume_section}` · **No** → ## Starting.
 
-<HARD-GATE>
-Show `current_state`, `active_session`, and `current_task` (Executing only); ask to resume.
-
-- **Yes** → ## `{resume_section}`
-- **No** → ## Starting
-</HARD-GATE>
+> lulu-code is on the feature stage line only (`transition-table.json`); topic exception documents fallback if `/lulu-code` is invoked on a topic cycle.
 
 ---
 
@@ -140,7 +137,11 @@ Load {actual $SKILL_ROOT}/lulu-code/task-runner/SKILL.md and follow its instruct
 
 1. If sub-agent returned `TASK_FAILED` → apply § Blocking policy.
 
-2. Run:
+2. **Feature container** (`$CYCLE_TYPE == feature`): On `TASK_COMPLETE`, auto-confirm — proceed to `confirm-task-ready` and Step 3 without waiting for user approval.
+
+   **Topic container** (`$CYCLE_TYPE == topic`): Wait for explicit user confirmation before running `confirm-task-ready`.
+
+3. Run:
 
 ```bash
 python3 "$SKILL_DIR/scripts/tc_session_control.py" \
@@ -150,11 +151,11 @@ python3 "$SKILL_DIR/scripts/tc_session_control.py" \
 
 On non-zero exit → apply § Blocking policy.
 
-3. On success, parse stdout JSON and **immediately output**:
+4. On success, parse stdout JSON and **immediately output**:
    - `next_task_id` set → `CHECKPOINT t{X}: commit SHA <initial_commit>, task commit recorded, advancing to <next_task_id>.`
    - `next_task_id` null → `CHECKPOINT t{X}: commit SHA <initial_commit>, task commit recorded, advancing to Closing.`
 
-4. Do not run advance-pointer until the CHECKPOINT line is output.
+5. Do not run advance-pointer until the CHECKPOINT line is output.
 
 **Step 3: Advance pointer**
 
@@ -174,6 +175,10 @@ Read stdout JSON:
 ---
 
 ## Closing
+
+**Feature container** (`$CYCLE_TYPE == feature`): Auto-complete delivery — run `deliver` without user confirmation.
+
+**Topic container** (`$CYCLE_TYPE == topic`): Wait for explicit user confirmation before running `deliver`.
 
 Run:
 
