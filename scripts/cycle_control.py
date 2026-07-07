@@ -128,7 +128,7 @@ def cmd_start(args: argparse.Namespace) -> int:
         args.project_root,
         name=args.name,
         cycle_type=args.cycle_type,
-        mode=args.mode,
+        mode="guided",
         topic_id=args.topic_id,
         platform=args.platform,
     )
@@ -228,12 +228,6 @@ def _cli(argv: Optional[list[str]] = None) -> int:
         default="feature",
         dest="cycle_type",
         help="Container type (default: feature).",
-    )
-    start.add_argument(
-        "--mode",
-        choices=["guided", "autonomous"],
-        default="guided",
-        help="Execution mode (default: guided).",
     )
     start.add_argument(
         "--topic-id",
