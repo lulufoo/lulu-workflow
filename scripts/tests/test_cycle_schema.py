@@ -268,17 +268,13 @@ class TestCLIMode:
         data = json.loads((self._cache_dir(tmp_path) / "cycles.json").read_text())
         assert data[fid] == {"name": "my-feature", "execution_mode": "guided"}
 
-    def test_mode_copilot_writes_object(self, tmp_path):
+    def test_start_rejects_mode_guided_flag(self, tmp_path):
         result = self._run(tmp_path, name="my-feature", extra_args=["--mode", "guided"])
-        fid = result.stdout.strip().splitlines()[-1]
-        data = json.loads((self._cache_dir(tmp_path) / "cycles.json").read_text())
-        assert data[fid] == {"name": "my-feature", "execution_mode": "guided"}
+        assert result.returncode != 0
 
-    def test_mode_autonomous_writes_object(self, tmp_path):
+    def test_start_rejects_mode_autonomous_flag(self, tmp_path):
         result = self._run(tmp_path, name="my-feature", extra_args=["--mode", "autonomous"])
-        fid = result.stdout.strip().splitlines()[-1]
-        data = json.loads((self._cache_dir(tmp_path) / "cycles.json").read_text())
-        assert data[fid] == {"name": "my-feature", "execution_mode": "autonomous"}
+        assert result.returncode != 0
 
     def test_invalid_mode_exits_nonzero(self, tmp_path):
         result = self._run(tmp_path, name="my-feature", extra_args=["--mode", "invalid_mode"])

@@ -187,12 +187,35 @@ class TestSetExecutionModeFacade:
             cycle_id,
             "--mode",
             "autonomous",
+            "--internal",
         )
         assert result.returncode == 0, result.stderr
         payload = json.loads(result.stdout.strip())
         assert payload == {"cycle_id": cycle_id, "execution_mode": "autonomous"}
         data = json.loads((cache / "cycles.json").read_text())
         assert data[cycle_id]["execution_mode"] == "autonomous"
+
+    def test_requires_internal_exit_one(self, tmp_path: Path):
+        cache = tmp_path / ".cache" / "cursor" / "lulu-dev-workflow"
+        cache.mkdir(parents=True)
+        cycle_id = "feature-20260101000000-33333333"
+        (cache / "cycles.json").write_text(
+            json.dumps({cycle_id: {"name": "demo", "execution_mode": "guided"}})
+        )
+        result = _run(
+            "--project-root",
+            str(tmp_path),
+            "set-execution-mode",
+            "--cycle-id",
+            cycle_id,
+            "--mode",
+            "autonomous",
+        )
+        assert result.returncode == 1
+        payload = json.loads(result.stdout.strip())
+        assert payload["ok"] is False
+        assert payload["command"] == "set-execution-mode"
+        assert "--internal" in payload["message"]
 
     def test_unknown_cycle_exit_one(self, tmp_path: Path):
         cache = tmp_path / ".cache" / "cursor" / "lulu-dev-workflow"
@@ -206,6 +229,7 @@ class TestSetExecutionModeFacade:
             "feature-20260101000000-44444444",
             "--mode",
             "guided",
+            "--internal",
         )
         assert result.returncode == 1
         payload = json.loads(result.stdout.strip())

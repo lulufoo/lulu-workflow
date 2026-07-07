@@ -45,11 +45,22 @@ class TestCycleControlStart:
     def test_start_writes_cycles_json(self, tmp_path):
         result = _run(
             "--project-root", str(tmp_path),
-            "start", "--name", "my-feature", "--mode", "autonomous",
+            "start", "--name", "my-feature",
         )
+        assert result.returncode == 0, result.stderr
         fid = result.stdout.strip().splitlines()[-1]
         data = json.loads((self._cache_dir(tmp_path) / "cycles.json").read_text())
-        assert data[fid] == {"name": "my-feature", "execution_mode": "autonomous"}
+        assert data[fid] == {"name": "my-feature", "execution_mode": "guided"}
+
+    def test_start_without_mode_always_guided(self, tmp_path):
+        result = _run(
+            "--project-root", str(tmp_path),
+            "start", "--name", "always-guided",
+        )
+        assert result.returncode == 0, result.stderr
+        fid = result.stdout.strip().splitlines()[-1]
+        data = json.loads((self._cache_dir(tmp_path) / "cycles.json").read_text())
+        assert data[fid]["execution_mode"] == "guided"
 
     def test_start_invalid_project_root(self):
         result = _run(
@@ -92,7 +103,17 @@ class TestCycleControlList:
 
     def test_list_shows_entries(self, tmp_path):
         _run("--project-root", str(tmp_path), "start", "--name", "alpha", "--type", "topic")
-        _run("--project-root", str(tmp_path), "start", "--name", "beta", "--mode", "autonomous")
+        start = _run("--project-root", str(tmp_path), "start", "--name", "beta")
+        assert start.returncode == 0, start.stderr
+        cycle_id = start.stdout.strip().splitlines()[-1]
+        set_mode = _run(
+            "--project-root", str(tmp_path),
+            "set-execution-mode",
+            "--cycle-id", cycle_id,
+            "--mode", "autonomous",
+            "--internal",
+        )
+        assert set_mode.returncode == 0, set_mode.stderr
         result = _run("--project-root", str(tmp_path), "list")
         assert result.returncode == 0
         assert "[topic]" in result.stdout
@@ -103,7 +124,8 @@ class TestCycleControlList:
 
 class TestCycleControlInfo:
     def test_info_json(self, tmp_path):
-        start = _run("--project-root", str(tmp_path), "start", "--name", "feat", "--mode", "guided")
+        start = _run("--project-root", str(tmp_path), "start", "--name", "feat")
+        assert start.returncode == 0, start.stderr
         cycle_id = start.stdout.strip().splitlines()[-1]
         result = _run("--project-root", str(tmp_path), "info", "--cycle-id", cycle_id)
         assert result.returncode == 0
@@ -141,7 +163,25 @@ class TestCycleControlSetExecutionMode:
         return tmp_path / ".cache" / "copilot" / "lulu-dev-workflow"
 
     def test_set_execution_mode_success(self, tmp_path):
-        start = _run("--project-root", str(tmp_path), "start", "--name", "feat", "--mode", "guided")
+        start = _run("--project-root", str(tmp_path), "start", "--name", "feat")
+        assert start.returncode == 0, start.stderr
+        cycle_id = start.stdout.strip().splitlines()[-1]
+        result = _run(
+            "--project-root", str(tmp_path),
+            "set-execution-mode",
+            "--cycle-id", cycle_id,
+            "--mode", "autonomous",
+            "--internal",
+        )
+        assert result.returncode == 0, result.stderr
+        payload = json.loads(result.stdout.strip())
+        assert payload == {"cycle_id": cycle_id, "execution_mode": "autonomous"}
+        data = json.loads((self._cache_dir(tmp_path) / "cycles.json").read_text())
+        assert data[cycle_id]["execution_mode"] == "autonomous"
+
+    def test_set_execution_mode_requires_internal(self, tmp_path):
+        start = _run("--project-root", str(tmp_path), "start", "--name", "feat")
+        assert start.returncode == 0, start.stderr
         cycle_id = start.stdout.strip().splitlines()[-1]
         result = _run(
             "--project-root", str(tmp_path),
@@ -149,11 +189,11 @@ class TestCycleControlSetExecutionMode:
             "--cycle-id", cycle_id,
             "--mode", "autonomous",
         )
-        assert result.returncode == 0, result.stderr
+        assert result.returncode == 1
         payload = json.loads(result.stdout.strip())
-        assert payload == {"cycle_id": cycle_id, "execution_mode": "autonomous"}
-        data = json.loads((self._cache_dir(tmp_path) / "cycles.json").read_text())
-        assert data[cycle_id]["execution_mode"] == "autonomous"
+        assert payload["ok"] is False
+        assert payload["command"] == "set-execution-mode"
+        assert "--internal" in payload["message"]
 
     def test_set_execution_mode_unknown_cycle(self, tmp_path):
         cache = self._cache_dir(tmp_path)
@@ -164,6 +204,7 @@ class TestCycleControlSetExecutionMode:
             "set-execution-mode",
             "--cycle-id", "feature-20990101000000-00000000",
             "--mode", "guided",
+            "--internal",
         )
         assert result.returncode != 0
         payload = json.loads(result.stdout.strip())
