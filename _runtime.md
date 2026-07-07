@@ -40,14 +40,22 @@ Resolve `$CYCLE_ID`, `$CYCLE_TYPE`, `$EXECUTION_MODE` before stage work. Stage i
 
 `cycle_id`→`$CYCLE_ID` · `cycle_type`→`$CYCLE_TYPE` · `execution_mode`→`$EXECUTION_MODE`
 
-## Execution mode
+## Execution mode (phase identifier)
 
-- `guided` — ask and wait at gates.
-- `autonomous` — self-service mode; choose defaults only at gates that do not need human decisions.
+`guided` and `autonomous` are **stage identifiers** persisted in `.cache/$PLATFORM/lulu-dev-workflow/cycles.json` (`execution_mode`). They are not user-switchable execution modes.
 
-Autonomous mode does not skip workflow steps; all stage, hook, prepare, and worktree constraints still apply.
+- `guided` — plan stage: ask and wait at gates.
+- `autonomous` — tasks/code stage: choose defaults only at gates that do not need human decisions.
 
-Change mode: user sends `SET_EXECUTION_MODE: <mode>` → `$RUNTIME_CONTROL set-execution-mode --cycle-id "$CYCLE_ID" --mode <mode>`; non-zero exit → stop; announce `Execution mode → <mode>`.
+New cycles start with `execution_mode=guided` (see `../_slowpath.md`). After lulu-plan delivery on a **feature** container, the delivery hook writes `execution_mode=autonomous` before handoff:
+
+`$RUNTIME_CONTROL set-execution-mode --cycle-id "$CYCLE_ID" --mode autonomous --internal`
+
+Non-zero exit → **Blocking** (no deliver/handoff). Topic-container plan delivery skips this hook.
+
+`$RUNTIME_CONTROL set-execution-mode` is **internal only** (`--internal` required). Users must not send `SET_EXECUTION_MODE` or call `set-execution-mode` directly.
+
+Autonomous stage does not skip workflow steps; all stage, hook, prepare, and worktree constraints still apply.
 
 ## Feature Tracking Convention
 
