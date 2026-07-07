@@ -11,20 +11,18 @@
    M. New feature — type a description to create
    ```
 
-   Ask both in one message:
+   Ask:
    > `Cycle: enter number to select, or type a description to create [default: "<name>" — only when derived]`
-   > `Execution mode: (1) guided [default]  (2) autonomous`
 
-2. Parse (one reply covers both; unanswered → default):
-   - **Feature:** integer → `cycle_id ← cycles.json[n]`; `$EXECUTION_MODE ← mode from cycles.json`; **DONE**
-   - **Mode:** `2` → `autonomous`; else → `guided`
+2. Parse (unanswered → default when applicable):
+   - **Integer:** → `cycle_id ← cycles.json[n]`; **DONE** (existing cycle — `$EXECUTION_MODE` is the stage identifier from cycles.json)
    - **New topic** (description or N): `name ← input`; `$CYCLE_TYPE ← topic`
    - **New feature** (description or M): `name ← input`; `$CYCLE_TYPE ← feature`
 
 3. If a new name is resolved (not an integer selection), run `$CYCLE_CONTROL start`:
-   - topic: `--name "<name>" --type topic --mode "<mode>"`
-   - feature: `--name "<name>" --type feature --mode "<mode>"` [`--topic-id <id>` when associating with an existing topic]
-   - stdout last line → `$CYCLE_ID`; `$EXECUTION_MODE ← mode`
+   - topic: `--name "<name>" --type topic`
+   - feature: `--name "<name>" --type feature` [`--topic-id <id>` when associating with an existing topic]
+   - stdout last line → `$CYCLE_ID`; new cycles start with `$EXECUTION_MODE ← guided`
    - append footer (`LULU-DEV-WORKFLOW: $CYCLE_ID`)
 
 `$CYCLE_CONTROL` macro: parent `SKILL.md` § Script Macros; macro expansion: `../_runtime.md` § Script Macros → Macro expansion. `start` subcommand: `cycle_control.py` `--help`.
