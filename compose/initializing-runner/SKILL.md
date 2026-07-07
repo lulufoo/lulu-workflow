@@ -103,16 +103,16 @@ After each I2f, resolve layout and run **I2g** when the current key is the last 
 
 #### I2a — Filter `I*`
 
-- **Input:** scope doc (`$SCOPE_DOC_PATH`, the SSOT) · **optional** inductive scope slice · `sections.{key}.intent` (else `desc`) · `intent_boundary` · kw `## {key}`
+- **Input:** scope doc (`$SCOPE_DOC_PATH`, the SSOT) · **optional** inductive scope slice · `sections.{key}.intent` (else `desc`) · `intent_boundary` (exclusion — belongs elsewhere) · kw `## {key}`
 - **Inductive slice (only when `$INDUCTIVE_DIR` is set):** run `$RESOLVE_INDUCTIVE` for this `{section_key}`. If it prints a path, read that slice as **secondary, code-anchored substance** for this section. The scope doc stays the **SSOT and completeness anchor**: judge `gaps` against the scope doc, not the slice; the inductive slice **enriches** `i_star` (adds code-anchored HOW), it never overrides or substitutes a scope decision. Empty output → SSOT only.
-- **Action:** Include scope substance matching `intent` and at least one KW dimension (semantic; do not label KW numbers). Fold in the grounding slice's matching substance when present. Exclude content belonging to other sections. **Must-effort:** extract all matching scope substance; use `gaps` for scope absences — do not silently omit.
+- **Action:** Include scope substance matching `intent` and at least one KW dimension (semantic; do not label KW numbers). Fold in the grounding slice's matching substance when present. Exclude any substance `intent_boundary` defers to other sections. **Must-effort:** extract all matching scope substance; use `gaps` for scope absences — do not silently omit.
 - **Output:** write `i_star`, `scope_refs`, `gaps`, `kw_init` into `_derive-{key}.json`
 - **Done:** derive file exists with `i_star` / `scope_refs` / `gaps` populated per contract
 
 #### I2b — Derive `F`
 
-- **Input:** `### Role Fields` · domain instance · `intent` · `sections.{key}.presentation` (`guidance`, `allowed`, `forbidden`)
-- **Action:** Three-step narrowing (section presentation > domain > role > intent). See compose-theory · Form (F). Select `f.carrier` from `presentation.allowed`; `f.structure` from selected entry's `structure` field; `f.forbidden` from `presentation.forbidden`.
+- **Input:** `### Role Fields` · domain instance · `intent` · `intent_boundary` · `sections.{key}.presentation` (`guidance`, `allowed`, `forbidden`)
+- **Action:** Three-step narrowing (section presentation > domain > role > intent). See compose-theory · Form (F). Select `f.carrier` from `presentation.allowed`; `f.structure` from selected entry's `structure` field; `f.forbidden` from `presentation.forbidden` plus substance `intent_boundary` defers elsewhere.
 - **Output:** write `f.carrier`, `f.structure`, `f.forbidden` into `_derive-{key}.json`
 - **Done:** `f.carrier` non-empty in derive file
 
@@ -125,8 +125,8 @@ After each I2f, resolve layout and run **I2g** when the current key is the last 
 
 #### I2d — Write body
 
-- **Input:** `_derive-{key}.json` · `intent` · `intent_boundary` · upstream bodies in `$OUTPUT_DOC_PATH` (de-duplication)
-- **Action:** Scaffold per `F`; rewrite `I*` into slots; obey every `C` pair and `intent`. Mark scope gaps with `> **待决：** …` when `gaps` present.
+- **Input:** `_derive-{key}.json` · `intent` · `intent_boundary` (exclusion) · upstream bodies in `$OUTPUT_DOC_PATH` (de-duplication)
+- **Action:** Scaffold per `F`; rewrite `I*` into slots; obey every `C` pair, `intent`, and `intent_boundary` (author nothing it defers). Mark scope gaps with `> **待决：** …` when `gaps` present.
 - **De-duplication:** Do not repeat boundary constraints deferred by `intent_boundary`. Read upstream via `compose_doc_schema.py --section-body` when needed.
 - **Output:** `$REVISION_DIR/_body-{section_key}.txt` (no H2 line)
 - **Done:** body file exists; non-empty; ≥3 non-blank lines when `i_star` non-empty

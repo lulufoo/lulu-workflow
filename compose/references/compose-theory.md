@@ -40,7 +40,7 @@ block_title = specialize( blocks.{id}.heading ; substance(block intent bodies) )
 | Content | `I*` | scope doc × intent + KW | Filtered decision substance for this section — what to say |
 | Form | `F` | section guidance + domain + role + intent | How content is carried and organized |
 | Expression | `C` | `### Role Fields` + domain + intent + F | How to write inside F |
-| Envelope | `intent` | section-registry (`intent` + `intent_boundary`) | What belongs in this intent slice |
+| Envelope | `intent` | section-registry (`intent` + `intent_boundary`) | `intent` = what belongs; `intent_boundary` = what belongs elsewhere (exclude, do not author) |
 | Section form | `presentation` | section-form-registry | Per-intent carrier selection guidance, allowed carriers, and forbidden carriers for F derivation |
 | Section form | `expression` | section-form-registry | Per-intent required/forbidden expression constraints for C derivation |
 | Display title | `display_title` | `sections.{key}.heading` + content substance | H3 label on intent anchor line under outline H2 blocks |
@@ -50,7 +50,7 @@ block_title = specialize( blocks.{id}.heading ; substance(block intent bodies) )
 
 **Intent text:** Use `sections.{key}.intent` when present; else `sections.{key}.desc` (legacy).
 
-**F priority (conflict resolution):** section `presentation` > domain `expression_conventions` > role `expressive_tendency` > intent text. `intent_boundary` defers substance to other intents — do not repeat it in body.
+**F priority (conflict resolution):** section `presentation` > domain `expression_conventions` > role `expressive_tendency` > intent text. `intent_boundary` is an exclusion list — it names substance belonging to other intents; author none of it here.
 
 **Document assembly:** Compose documents use outline-registry for structure — outline H2 blocks, intent H3 lines with `<!-- section-key:KEY -->`, then body. Initializing persists each intent via `$COMPOSE_DOC_CONTROL append-intent` immediately after display title derivation; when the last intent in a block is persisted, `$COMPOSE_DOC_CONTROL patch-block-heading` replaces the English H2 placeholder with the inferred block title. Downstream compose tools locate sections by section-key anchor, not H2 text.
 

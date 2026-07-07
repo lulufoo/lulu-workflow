@@ -18,23 +18,23 @@ class TestParseBlobUrl:
     def test_parses_github_blob_url(self):
         url = (
             "https://github.com/lulufoo/lulu-workflow-framework/blob/main/"
-            "lulu-dev-workflow/template/plan/44-tech-plan-tech-doc-template.md"
+            "lulu-dev-workflow/template/plan/43-tech-plan-section-kw-criteria.md"
         )
         parsed = parse_blob_url(url)
         assert parsed["owner"] == "lulufoo"
         assert parsed["repo"] == "lulu-workflow-framework"
         assert parsed["ref"] == "main"
-        assert parsed["path"].endswith("44-tech-plan-tech-doc-template.md")
+        assert parsed["path"].endswith("43-tech-plan-section-kw-criteria.md")
 
     def test_parses_multi_segment_ref(self):
         url = (
             "https://github.com/lulufoo/lulu-workflow-framework/blob/release/2026.06/"
-            "lulu-dev-workflow/template/plan/44-tech-plan-tech-doc-template.md"
+            "lulu-dev-workflow/template/plan/43-tech-plan-section-kw-criteria.md"
         )
         parsed = parse_blob_url(url)
         assert parsed["ref"] == "release/2026.06"
         assert parsed["path"] == (
-            "lulu-dev-workflow/template/plan/44-tech-plan-tech-doc-template.md"
+            "lulu-dev-workflow/template/plan/43-tech-plan-section-kw-criteria.md"
         )
 
     def test_parses_multi_segment_ref_with_nested_path(self):
