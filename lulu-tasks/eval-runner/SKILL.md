@@ -37,7 +37,7 @@ If evidence cannot be located → label the finding `UNRESOLVABLE` and surface t
 
 - SOT defective → evaluation cannot proceed on that region → escalate (never fix silently)
 - SOT valid, work-order wrong → fix work-order inline or return to Drafting
-- **SOT issues always require AskQuestion — regardless of `execution_mode`. This constraint is not bypassed in autonomous mode.**
+- **SOT issues always require AskQuestion — hard constraint; no bypass.**
 
 P1 is a prerequisite for P2: without evidence, SOT auditability cannot be exercised.
 
@@ -58,7 +58,6 @@ Received via the invocation prompt from `lulu-tasks/SKILL.md` Rule E2:
 | `TEMPLATE_KEY_TWCA` | string | Always `twca_url` |
 | `TEMPLATE_KEY_WOQA` | string | Always `woqa_url` |
 | `PROJECT_ROOT` | path | Project root for `$FETCH_TEMPLATE` |
-| `execution_mode` | enum | `guided` (prompt each issue) \| `autonomous` (auto-fix WO issues, always prompt SOT issues) |
 | evaluate-state.md | file content | Pasted in prompt under `## Current Evaluation State` section; used for resume |
 
 All report files are written to `{session_dir}/evaluate{M}/`.
@@ -119,9 +118,9 @@ UNRESOLVABLE:
 
 ### Issue Routing by Root Cause
 
-**WO-MISS / WO-ERROR — WO template:**
+**WO-MISS / WO-ERROR — default Fix (no AskQuestion):**
 
-Present via AskQuestion (guided mode) or auto-fix (autonomous mode for WO-MISS / WO-ERROR):
+Apply the suggested fix inline; record decision `fix` and status `Fixed`. Do not invoke AskQuestion for WO issues.
 
 ```
 Issue [{#}] — {root_cause}
@@ -130,12 +129,10 @@ Location: {evidence_wo_loc}
 Criterion: {criterion} (for WO-ERROR)
 SOT source: {evidence_sot_quote} (for WO-MISS)
 
-Options:
-  Fix — apply suggested fix inline
-  Ignore — record as noted, continue
+Action: Fix — apply suggested fix inline
 ```
 
-**SOT-DEFECT / UNRESOLVABLE — SOT template (always AskQuestion, any mode):**
+**SOT-DEFECT / UNRESOLVABLE — SOT template (always AskQuestion):**
 
 Step 1:
 ```
