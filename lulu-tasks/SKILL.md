@@ -36,7 +36,9 @@ Also read `../_subagent.md` (for `$SUBAGENT_TOOL` / `$SUBAGENT_AWAIT_*`).
 
 **Step 2: Confirm tech-ref path**
 
-Ask the user for the absolute path to the Delivered `tech-doc.md`. Do not auto-detect.
+**Feature container (`$CYCLE_TYPE == "feature"`):** Auto-parse `tech-ref` from the lulu-plan Delivered output in the current conversation (latest `tech-doc.md` path). Do **not** ask.
+
+**Topic container:** Ask the user for the absolute path to the Delivered `tech-doc.md`. Do not auto-detect.
 
 > "Please provide the absolute path to the Delivered tech-doc.md for this work order."
 
@@ -136,7 +138,8 @@ Step 1 — Generate `r{N}/task-list.md`:
 3. Produce task list: task_id / title / target files / dependencies / tdd_exempt flag
 4. Produce Mermaid dependency graph (acyclic)
 5. Record exclusions (changes not included in this work order + reasons)
-6. Wait for user to confirm the task breakdown before proceeding
+6. **Feature container:** Proceed to task.md generation without asking.
+   **Topic container:** Wait for user to confirm the task breakdown before proceeding.
 
 Step 2 — Generate `tasks/t{N}/task.md` one by one:
 1. Write acceptance criteria first (test case descriptions: normal / boundary / edge cases)
@@ -162,8 +165,9 @@ Step 2 — Generate `tasks/t{N}/task.md` one by one:
     code_log: required
   ```
 
-After all task.md files are generated, ask: "All task.md files generated. Proceed to Evaluating?"
-Only write `workflow-state.md: Evaluating` after user confirms.
+After all task.md files are generated:
+- **Feature container:** Write `workflow-state.md: Evaluating` immediately.
+- **Topic container:** Ask: "All task.md files generated. Proceed to Evaluating?" Only write `workflow-state.md: Evaluating` after user confirms.
 
 **Test-First constraint:** For each task, ask "What test proves this change is correct?" before "What function is needed?" Acceptance criteria always precede function specs.
 
@@ -173,7 +177,9 @@ When returning from Evaluating or ReadyForDelivery to Drafting:
 1. Read `evaluate-state.md` → check `fix_severity` and issue summary from last round
 2. Do **not** re-run the two-step flow; directly edit the flagged task files
 3. If `post_split_scan_required: true`: before re-entering Evaluating, grep all task files for original task_id references and update them. Write `post_split_scan_done: true` in `evaluate-state.md` only after scan completes. A pending scan (`post_split_scan_done: false`) blocks the Drafting → Evaluating transition.
-4. After fixes (and split scan if required), ask: "All issues fixed. Re-enter Evaluating?"
+4. After fixes (and split scan if required):
+   - **Feature container:** Write `workflow-state.md: Evaluating` immediately.
+   - **Topic container:** Ask: "All issues fixed. Re-enter Evaluating?" Only write `workflow-state.md: Evaluating` after user confirms.
 
 **Rule D4 — TDD exemption**
 
@@ -252,13 +258,14 @@ TEMPLATE_KEY_TDA:  tda_url
 TEMPLATE_KEY_TWCA: twca_url
 TEMPLATE_KEY_WOQA: woqa_url
 PROJECT_ROOT: {project root absolute path}
-execution_mode: {guided | autonomous}
 
 ## Current Evaluation State
 {full content of evaluate-state.md}
 ```
 
 The `## Current Evaluation State` section enables resume: eval-runner reads `current_dimension` and skips already-completed phases. If `evaluate-state.md` does not yet exist, eval-runner starts from TDA.
+
+During evaluation, eval-runner applies WO issues with default decision **Fix** (no AskQuestion). SOT issues always require AskQuestion.
 
 Await sub-agent completion (`$SUBAGENT_AWAIT_SYNC`). Read returned `exit_code` and proceed to Rule E3.
 
@@ -268,7 +275,7 @@ After eval-runner returns, read `evaluate-state.md → current_dimension` as the
 
 | `current_dimension` | `failure_type` | Action |
 |--------------------|---------------|--------|
-| `DONE` | — | Write `workflow-state.md: current_state: ReadyForDelivery` (AI-governed; hook allows). Await human writing `human-delivery-gate.md`, then write `current_state: Delivered`. |
+| `DONE` | — | Write `workflow-state.md: current_state: ReadyForDelivery` (AI-governed; hook allows). **Feature container:** Auto-complete delivery per Rule R1. **Topic container:** Await human writing `human-delivery-gate.md`, then write `current_state: Delivered`. |
 | `FAILED` | `sot_defect` | Write `workflow-state.md: current_state: TDABlocked`. Present the blocking report path to user. Inform: SOT defect found — resolve tech-doc, then start a new work-order round. |
 | `FAILED` | `structural` | Write `workflow-state.md: current_state: Drafting`. Present the blocking report path to user. Fix structural issues, then re-enter Evaluating. |
 
@@ -278,10 +285,8 @@ After eval-runner returns, read `evaluate-state.md → current_dimension` as the
 
 After hook allows entry to ReadyForDelivery:
 1. Display final `task-list.md` summary (task count, dependency graph, any exclusions)
-2. Wait for explicit delivery confirmation from user
-3. Write `r{N}/human-delivery-gate.md`
-4. Write `r{N}/workflow-state.md` → `current_state: Delivered`
-5. Output the full list of `tasks/t{N}/task.md` paths for the TDD session to consume
+2. **Feature container:** Auto-complete delivery — write `r{N}/human-delivery-gate.md`, write `r{N}/workflow-state.md` → `current_state: Delivered`, output the full list of `tasks/t{N}/task.md` paths, then auto handoff to `lulu-code` per `_transitions.md` (auto-chain).
+3. **Topic container:** Wait for explicit delivery confirmation from user, then write `r{N}/human-delivery-gate.md`, write `r{N}/workflow-state.md` → `current_state: Delivered`, and output the full list of `tasks/t{N}/task.md` paths for the TDD session to consume.
 
 <DELIVERY-GATE>
 Before presenting next stages to the user, read `../_transitions.md` and follow the Stage Transitions rules.
@@ -364,26 +369,7 @@ One report file per phase. All phases use the same issue row format:
 
 ## work-order → TDD handoff
 
-- `tech_ref`: user-provided at `start`; never auto-detected; the two workflow directories are fully decoupled.
+- `tech_ref`: **Feature container** — auto-parsed from lulu-plan Delivered output at `start`. **Topic container** — user-provided at `start`; never auto-detected. The two workflow directories are fully decoupled.
 - `task.md` is self-contained: constraints and context sections explicitly copy from tech-doc so the TDD session only reads `task.md`.
 - `tdd_exempt: true` tasks: TDD SKILL skips Red/Green/Refactor constraints.
 - Execution order: follow the topological sort of the dependency graph in `task-list.md`.
-## Execution Mode: Apply
-
-Read `$EXECUTION_MODE` from Session Foundation (set by parent `../_runtime.md`). Default: `guided`.
-
-| Mode | Behavior |
-|------|---------|
-| `guided` | Current behavior — all rules apply as documented |
-| `autonomous` | Apply the overrides below; all other rules unchanged |
-
-### Autonomous Overrides
-
-| Rule | Autonomous Behavior |
-|------|-----------------------|
-| `start` Step 2 — tech-ref path | **Feature container (autonomous):** auto-parse `tech-ref` from the lulu-plan Delivered output in the current conversation (latest `tech-doc.md` path). Do **not** ask. For topic containers or guided mode: unchanged (always ask). |
-| Drafting D2 Step 1 — confirm task breakdown | Auto-confirm. Proceed to task.md generation without asking. |
-| Drafting D2 Step 2 — "Proceed to Evaluating?" | Auto-confirm. Enter Evaluating without asking. |
-| Drafting D3 re-entry — "All issues fixed. Re-enter Evaluating?" | Auto-confirm. |
-| Evaluating E2 — eval-runner per-issue AskQuestion (WO issues) | Default: Fix. Apply fix without asking. SOT issues always require AskQuestion regardless of mode. |
-| ReadyForDelivery R1 — delivery confirmation | **Feature container (autonomous):** auto-complete delivery — write `human-delivery-gate.md`, set `current_state: Delivered`; then auto handoff to `lulu-code` (auto-chain). For topic containers or guided mode: unchanged (wait for explicit user confirmation). |
