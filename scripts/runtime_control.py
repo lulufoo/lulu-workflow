@@ -100,6 +100,7 @@ def cmd_set_execution_mode(args: argparse.Namespace) -> int:
         platform=plat,
         cycle_id=args.cycle_id,
         mode=args.mode,
+        internal=args.internal,
     )
     return cycle_cmd_set_execution_mode(facade_args)
 
@@ -141,6 +142,11 @@ def main() -> int:
         required=True,
         choices=sorted({"guided", "autonomous"}),
         help="New execution mode.",
+    )
+    set_mode.add_argument(
+        "--internal",
+        action="store_true",
+        help="Internal-only gate; required for set-execution-mode.",
     )
     set_mode.set_defaults(handler=cmd_set_execution_mode)
 

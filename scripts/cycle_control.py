@@ -162,6 +162,19 @@ def cmd_validate(args: argparse.Namespace) -> int:
 
 
 def cmd_set_execution_mode(args: argparse.Namespace) -> int:
+    if not getattr(args, "internal", False):
+        print(
+            json.dumps(
+                {
+                    "ok": False,
+                    "command": _CMD_SET_EXECUTION_MODE,
+                    "current_state": getattr(args, "cycle_id", ""),
+                    "message": "set-execution-mode requires --internal. Pause execution and wait for user direction.",
+                },
+                separators=(",", ":"),
+            )
+        )
+        return 1
     cache_dir = resolve_cache_dir(args.project_root, args.platform)
     try:
         payload = set_execution_mode(cache_dir, args.cycle_id, args.mode)
@@ -279,6 +292,11 @@ def _cli(argv: Optional[list[str]] = None) -> int:
         required=True,
         choices=sorted({"guided", "autonomous"}),
         help="New execution mode.",
+    )
+    set_mode.add_argument(
+        "--internal",
+        action="store_true",
+        help="Internal-only gate; required for set-execution-mode.",
     )
     set_mode.set_defaults(handler=cmd_set_execution_mode)
 
