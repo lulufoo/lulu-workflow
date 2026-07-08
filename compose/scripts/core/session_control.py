@@ -7,6 +7,8 @@ Subcommands:
     deliver              ReadyForDelivery -> Delivered (+ human-delivery-gate.md)
     abandon-evaluation   Evaluating -> Drafting (requires evaluate-state abandoned)
     resume-after-eval    Evaluating -> Drafting after eval complete-round (fix exit)
+    write-demand-manifest  Persist AI-enumerated demand units as <prefix>-demands.json
+                           (producer profiles with a demand_manifest block only)
 """
 
 from __future__ import annotations
@@ -24,13 +26,19 @@ if str(_SCRIPTS) not in sys.path:
 import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
-from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID  # noqa: E402
+from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, load_profile  # noqa: E402
 
 from compose_session import (  # noqa: E402
     approval_gate_path,
     document_file_path,
     load_active_doc_for_profile,
     workflow_state_path,
+)
+from demand_manifest_schema import (  # noqa: E402
+    build_manifest,
+    manifest_filename,
+    parse_units,
+    write_manifest,
 )
 from delivered_refs_schema import record_delivered_ref  # noqa: E402
 from human_delivery_gate_schema import write_approved  # noqa: E402
@@ -46,6 +54,7 @@ _CMD_READY = "ready-for-delivery"
 _CMD_DELIVER = "deliver"
 _CMD_ABANDON = "abandon-evaluation"
 _CMD_RESUME_AFTER_EVAL = "resume-after-eval"
+_CMD_WRITE_DEMAND_MANIFEST = "write-demand-manifest"
 _EXPECTED_DELIVER_STATE = "ReadyForDelivery"
 _EXPECTED_ABANDON_STATE = "Evaluating"
 _EXPECTED_EVALUATING_STATE = "Evaluating"
@@ -255,6 +264,59 @@ def deliver(
     return _success(_CMD_DELIVER, "Delivered", profile_id=profile_id)
 
 
+def write_demand_manifest(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    units_json: str,
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+) -> dict[str, Any]:
+    """Persist an AI-enumerated demand list as ``<prefix>-demands.json``.
+
+    Mechanical only: the AI performs the semantic atomization and passes the
+    units via ``--units-json``; this step mints ids, validates, and writes the
+    manifest beside the delivered document. Stages without a ``demand_manifest``
+    profile block are a no-op (degrade invariant, design §5.11).
+    """
+    profile = load_profile(profile_id, project_root=project_root, cycle_id=cycle_id)
+    block = profile.get("demand_manifest")
+    if not isinstance(block, dict) or not block:
+        return {
+            "ok": True,
+            "command": _CMD_WRITE_DEMAND_MANIFEST,
+            "skipped": True,
+            "profile_id": profile_id,
+            "reason": (
+                f"profile {profile_id!r} declares no demand_manifest block; "
+                "no manifest produced"
+            ),
+        }
+
+    id_prefix = str(block.get("id_prefix", "")).strip()
+    if not id_prefix:
+        return {
+            "ok": False,
+            "command": _CMD_WRITE_DEMAND_MANIFEST,
+            "profile_id": profile_id,
+            "reason": "demand_manifest.id_prefix is missing or empty in the profile",
+        }
+
+    units = parse_units(units_json)
+    manifest = build_manifest(units, id_prefix)
+    doc_path = document_file_path(cycle_id, project_root, profile_id)
+    out_path = doc_path.parent / manifest_filename(id_prefix)
+    write_manifest(out_path, manifest)
+
+    return {
+        "ok": True,
+        "command": _CMD_WRITE_DEMAND_MANIFEST,
+        "profile_id": profile_id,
+        "id_prefix": id_prefix,
+        "path": str(out_path.resolve()),
+        "demand_count": len(manifest["demands"]),
+    }
+
+
 def abandon_evaluation(
     cycle_id: str,
     project_root: Path,
@@ -427,6 +489,15 @@ def _cli() -> int:
         _CMD_RESUME_AFTER_EVAL,
         help="Transition Evaluating -> Drafting after complete-round (fix exit)",
     )
+    manifest_parser = sub.add_parser(
+        _CMD_WRITE_DEMAND_MANIFEST,
+        help="Write <prefix>-demands.json from AI-enumerated units (producer profiles only)",
+    )
+    manifest_parser.add_argument(
+        "--units-json",
+        required=True,
+        help='JSON array of demand units (inline or "@file"); each needs section + summary',
+    )
 
     args = parser.parse_args()
     project_root = args.project_root.resolve()
@@ -446,6 +517,15 @@ def _cli() -> int:
             return _emit(abandon_evaluation(cycle_id, project_root, profile_id=profile_id))
         if args.command == _CMD_RESUME_AFTER_EVAL:
             return _emit(resume_after_eval(cycle_id, project_root, profile_id=profile_id))
+        if args.command == _CMD_WRITE_DEMAND_MANIFEST:
+            return _emit(
+                write_demand_manifest(
+                    cycle_id,
+                    project_root,
+                    units_json=args.units_json,
+                    profile_id=profile_id,
+                ),
+            )
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 1

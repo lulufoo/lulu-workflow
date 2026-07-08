@@ -9,18 +9,22 @@ Required fields per EP:
   id          - EP-NNN (unique, monotone)
   section     - section key (must equal active_section at registration)
   block       - To-Be architecture block it hangs under
-  method      - method ID from inductive-scan-criteria, or "human_inlet"
+  method      - method ID from inductive-scan-criteria, "human_inlet",
+                or "intent_coverage" (free string; not enum-validated)
   kw          - KW criterion this EP leaves false
   type        - broken_invariant | undecided | undefined_contract
   description - design gap description
-  code_refs   - list of "file::symbol (line)" strings
+  code_refs   - list of "file::symbol (line)" strings (may be empty,
+                e.g. an intent_baseline EP grounded in the figure, not code)
   confidence  - direct | inferred
   blocking    - bool
-  source      - ai_scan | human_inlet
+  source      - ai_scan | human_inlet | intent_baseline
   status      - open | resolved | deferred
 
 Optional fields:
   resolution  - decision text (required when status=resolved)
+  intent_ref  - demand id (e.g. "SPEC-3") this EP fulfills; may attach to
+                any source, not only intent_baseline (dedup: same gap, multi origin)
 
 MUST NOT include a 'tier' field.
 """
@@ -34,7 +38,7 @@ from typing import Any
 
 EP_STATUSES = frozenset({"open", "resolved", "deferred"})
 EP_TYPES = frozenset({"broken_invariant", "undecided", "undefined_contract"})
-EP_SOURCES = frozenset({"ai_scan", "human_inlet"})
+EP_SOURCES = frozenset({"ai_scan", "human_inlet", "intent_baseline"})
 EP_CONFIDENCES = frozenset({"direct", "inferred"})
 
 _REQUIRED_FIELDS = (
@@ -98,6 +102,10 @@ def validate_ep(ep: dict[str, Any]) -> list[str]:
     if status == "resolved" and not ep.get("resolution"):
         errors.append(f"EP {ep_id!r}: resolution is required when status=resolved")
 
+    if "intent_ref" in ep and ep["intent_ref"] is not None:
+        if not isinstance(ep["intent_ref"], str):
+            errors.append(f"EP {ep_id!r}: intent_ref must be a string when present")
+
     return errors
 
 
@@ -117,6 +125,7 @@ def normalize_ep(ep: dict[str, Any]) -> dict[str, Any]:
         "source": str(ep.get("source", "")),
         "status": str(ep.get("status", "open")),
         "resolution": ep.get("resolution"),
+        "intent_ref": ep.get("intent_ref"),
         "registered_at": ep.get("registered_at") or _now_iso(),
         "updated_at": ep.get("updated_at") or _now_iso(),
     }

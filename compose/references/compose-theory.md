@@ -50,6 +50,29 @@ block_title = specialize( blocks.{id}.heading ; substance(block intent bodies) )
 
 **Intent text:** Use `sections.{key}.intent` when present; else `sections.{key}.desc` (legacy).
 
+### Inductive generation (`Induce`) — dual of `Write`
+
+`Write` is deductive (known substance → organized prose, whole→parts). `Induce` is inductive (unknown substance → discover, ground, decide, fold, parts→whole): the inductive-runner produces `I*` enrichment, which `Write` then consumes.
+
+```text
+inductive_scope[section]  ⊕=  Expand( open_point )
+open_point = Expose(source)      # kept iff ( frontier_KW row false  ∧  ¬Settled )
+```
+
+- `Expand` = ground → AI leaning → **user decides** ⇒ one user-approved intent (user-approval is load-bearing).
+- `⊕=` = append to that section's figure; accretes across sweeps, deepens by KW; never overwrites another section.
+- Handoff: `inductive_scope[S] → I*(S) → Write(I* ; F ; C) | intent`.
+
+`Expose` has three peer sources (the discovery action; profile-declared via `scan-criteria`, plugin-style):
+
+| source | probe | gap predicate | frontier_KW |
+|--------|-------|---------------|:---:|
+| `ai_scan` | run `methods` over code reality | KW row false | applies |
+| `human_inlet` | user proposes; AI maps to a section | user assertion | exempt |
+| `intent_baseline` | `intent_coverage` method: demand manifest vs section figure | fulfillment false | applies |
+
+All three subtract `¬Settled` (`scope_doc ∪ shape_constraints`) and land as per-section EPs in one ledger. Design SSOT: `docs/biz/inductive-intent-baseline-source.md`.
+
 **F priority (conflict resolution):** section `presentation` > domain `expression_conventions` > role `expressive_tendency` > intent text. `intent_boundary` is an exclusion list — it names substance belonging to other intents; author none of it here.
 
 **Document assembly:** Compose documents use outline-registry for structure — outline H2 blocks, intent H3 lines with `<!-- section-key:KEY -->`, then body. Initializing persists each intent via `$COMPOSE_DOC_CONTROL append-intent` immediately after display title derivation; when the last intent in a block is persisted, `$COMPOSE_DOC_CONTROL patch-block-heading` replaces the English H2 placeholder with the inferred block title. Downstream compose tools locate sections by section-key anchor, not H2 text.

@@ -42,5 +42,9 @@
     "state_file": "workflow-state.md",
     "terminal_state": "Delivered",
     "doc_filename": "product-doc.md"
+  },
+  "demand_manifest": {
+    "id_prefix": "SPEC",
+    "unit_rule": "one demand per section-level product decision"
   }
 }
