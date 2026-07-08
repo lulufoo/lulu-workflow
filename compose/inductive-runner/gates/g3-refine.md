@@ -46,7 +46,7 @@ For each unsettled section S, run S's methods at its `frontier_kw` **using only*
 
 ### Step 3 — Present frontier map
 
-Present **each unsettled section's coarsest open point** (one per section, keyed to its registered EP id) as two paired parts:
+Present **each unsettled section's coarsest open point** (one per section, keyed to its registered EP id), each **tagged with its provenance** from the EP `source` — `ai_scan` → `[code]`, `human_inlet` → `[you]`, `intent_baseline` → `[product-intent · <intent_ref>]`; any point that carries an `intent_ref` (whatever its `source`) shows the `SPEC-n` tag, so demand-driven points are visible at a glance — as two paired parts:
 - **the problem, stated plainly** — worded at that section's `frontier_kw` altitude from `KW_CRITERIA` (e.g. at KW1 just *name which decision / constraint / contract is undecided*); **no signatures, counts, or `file:line` evidence in this part** — that depth belongs to step 4a;
 - **my reading / leaning (接地)** — a grounded recommendation that *may* carry the concrete detail (signature, count, code anchor) the problem line withholds. This is where exploration touches ground; it never replaces the user's decision.
 
