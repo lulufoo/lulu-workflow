@@ -21,7 +21,7 @@ Non-zero exit → stop. Map stdout JSON: `platform`→`$PLATFORM`, `skill_root`�
 
 ## Session Foundation
 
-Resolve `$CYCLE_ID`, `$CYCLE_TYPE`, `$EXECUTION_MODE` before stage work. Stage is defined by the active sub-SKILL, not session bootstrap.
+Establish `$CYCLE_ID`, `$CYCLE_TYPE`, `$EXECUTION_MODE` via the steps below before stage work. Stage is defined by the active sub-SKILL, not session bootstrap. **Not set at section entry.**
 
 **1. Detect ambiguity** — user message contains any of: `switch` · `new` · `choose` · different feature · explicit new topic/feature.
 
@@ -33,12 +33,16 @@ Resolve `$CYCLE_ID`, `$CYCLE_TYPE`, `$EXECUTION_MODE` before stage work. Stage i
 
 - **CASE 2 — No ambiguity**
   → run `$RUNTIME_CONTROL resolve-session-context` (exit 0 always)
-  → if stdout `cycle_id` empty: read `../_slowpath.md`
+  → if stdout `cycle_id` empty: read `../_slowpath.md`; **stop** (do not invoke stage commands)
   → else: **DONE** (step 3)
 
 **3. Map stdout** (CASE 2, `cycle_id` present)
 
 `cycle_id`→`$CYCLE_ID` · `cycle_type`→`$CYCLE_TYPE` · `execution_mode`→`$EXECUTION_MODE`
+
+<HARD-GATE>
+Empty `cycle_id` → slowpath only. Do not infer `$CYCLE_ID` from files or cache.
+</HARD-GATE>
 
 ## Execution mode (phase identifier)
 
