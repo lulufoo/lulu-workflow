@@ -29,7 +29,7 @@ The parent passes these in the `## Input` block; do not hardcode stage paths.
 | `$CYCLE_ID` | Active cycle id |
 | `$SCOPE_DOC` | Upstream scope SSOT path — the 派生父级 (Gate 1 reads this; Gate 5 axis reuses it — e.g. `decision-doc.md`) |
 | `$INTENT_BASELINE_REFS` | JSON array of 意图基准 refs (e.g. `lulu-spec`); a G3 generative source (via the `intent_coverage` method) **and** the G5 algorithm-A safety-net; empty → both no-op |
-| `$NORM_CONSTRAINT_REFS` | JSON array of 规范约束 refs (stage-level); empty → Gate 5 algorithm C is a no-op |
+| `$NORM_CONSTRAINT_REFS` | JSON array of 规范约束 refs (stage-level); a G3 generation-time precondition (leanings form *within* it — a boundary, not a gate) **and** the G5 algorithm-C audit baseline; empty → both no-op |
 | `$INDUCTIVE_OUT_DIR` | Active revision dir (`revision{active_doc}/`) for inductive state bundle |
 
 ## Session Paths (derived)
