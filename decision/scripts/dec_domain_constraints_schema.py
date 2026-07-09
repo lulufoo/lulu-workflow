@@ -49,6 +49,27 @@ def _normalize_role(data: dict[str, Any]) -> dict[str, str] | None:
     return None
 
 
+def _normalize_dimension_profile(raw: Any) -> dict[str, dict[str, str]]:
+    """Canonical per-dimension ``{question, depth}`` map."""
+    profile: dict[str, dict[str, str]] = {}
+    if not isinstance(raw, dict):
+        return profile
+    for key, value in raw.items():
+        dim = str(key)
+        if dim not in ALL_X_DIMENSIONS or not isinstance(value, dict):
+            continue
+        entry: dict[str, str] = {}
+        question = str(value.get("question", "")).strip()
+        depth = str(value.get("depth", "")).strip()
+        if question:
+            entry["question"] = question
+        if depth:
+            entry["depth"] = depth
+        if entry:
+            profile[dim] = entry
+    return profile
+
+
 def _normalize_domain(data: dict[str, Any]) -> dict[str, Any] | None:
     raw = data.get("domain")
     if not isinstance(raw, dict):
@@ -62,15 +83,9 @@ def _normalize_domain(data: dict[str, Any]) -> dict[str, Any] | None:
         result["name"] = name
     if instruction:
         result["instruction"] = instruction
-    framing_raw = raw.get("dimension_framing")
-    if isinstance(framing_raw, dict):
-        framing = {
-            str(k): str(v).strip()
-            for k, v in framing_raw.items()
-            if str(k) in ALL_X_DIMENSIONS and str(v).strip()
-        }
-        if framing:
-            result["dimension_framing"] = framing
+    profile = _normalize_dimension_profile(raw.get("dimension_profile"))
+    if profile:
+        result["dimension_profile"] = profile
     return result or None
 
 
@@ -214,16 +229,25 @@ def validate_domain_constraints(data: dict[str, Any]) -> list[str]:
                 errors.append("domain.name must be a string")
             if not isinstance(domain.get("instruction", ""), str):
                 errors.append("domain.instruction must be a string")
-            framing = domain.get("dimension_framing")
-            if framing is not None:
-                if not isinstance(framing, dict):
-                    errors.append("domain.dimension_framing must be an object")
+            profile = domain.get("dimension_profile")
+            if profile is not None:
+                if not isinstance(profile, dict):
+                    errors.append("domain.dimension_profile must be an object")
                 else:
-                    for key, value in framing.items():
+                    for key, value in profile.items():
                         if key not in ALL_X_DIMENSIONS:
-                            errors.append(f"invalid dimension_framing key: {key!r}")
-                        elif not str(value).strip():
-                            errors.append(f"dimension_framing[{key!r}] must be non-empty")
+                            errors.append(f"invalid dimension_profile key: {key!r}")
+                        elif not isinstance(value, dict):
+                            errors.append(f"dimension_profile[{key!r}] must be an object")
+                        else:
+                            if not str(value.get("question", "")).strip():
+                                errors.append(
+                                    f"dimension_profile[{key!r}].question must be non-empty"
+                                )
+                            if not str(value.get("depth", "")).strip():
+                                errors.append(
+                                    f"dimension_profile[{key!r}].depth must be non-empty"
+                                )
     stage = str(data.get("stage", "")).strip()
     if stage and stage != KERNEL_STAGE:
         if not str(data.get("objective", "")).strip():
@@ -296,10 +320,16 @@ def merge_domain_constraints(
         override_domain = override["domain"]
         if isinstance(base_domain, dict) and isinstance(override_domain, dict):
             merged_domain = {**base_domain, **override_domain}
-            base_framing = base_domain.get("dimension_framing")
-            override_framing = override_domain.get("dimension_framing")
-            if isinstance(base_framing, dict) and isinstance(override_framing, dict):
-                merged_domain["dimension_framing"] = {**base_framing, **override_framing}
+            base_profile = base_domain.get("dimension_profile")
+            override_profile = override_domain.get("dimension_profile")
+            if isinstance(base_profile, dict) and isinstance(override_profile, dict):
+                merged_profile = {**base_profile}
+                for dim, entry in override_profile.items():
+                    if isinstance(entry, dict) and isinstance(merged_profile.get(dim), dict):
+                        merged_profile[dim] = {**merged_profile[dim], **entry}
+                    else:
+                        merged_profile[dim] = entry
+                merged_domain["dimension_profile"] = merged_profile
             merged["domain"] = merged_domain
         else:
             merged["domain"] = override_domain
@@ -339,8 +369,12 @@ def domain_instruction(constraints: dict[str, Any]) -> str:
     return ""
 
 
-def domain_dimension_framing(constraints: dict[str, Any]) -> dict[str, str]:
+def domain_dimension_profile(constraints: dict[str, Any]) -> dict[str, dict[str, str]]:
     domain = constraints.get("domain")
-    if isinstance(domain, dict) and isinstance(domain.get("dimension_framing"), dict):
-        return {str(k): str(v) for k, v in domain["dimension_framing"].items()}
+    if isinstance(domain, dict) and isinstance(domain.get("dimension_profile"), dict):
+        return {
+            str(k): {str(kk): str(vv) for kk, vv in v.items()}
+            for k, v in domain["dimension_profile"].items()
+            if isinstance(v, dict)
+        }
     return {}
