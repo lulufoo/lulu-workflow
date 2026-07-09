@@ -232,8 +232,8 @@ def test_domain_override_context_frozen_after_init(
     cache_dir.mkdir(parents=True, exist_ok=True)
     cj = cache_dir / "cycles.json"
     cj.write_text(json.dumps({
-        cycle_id: {"name": "feature", "execution_mode": "guided", "topic_id": topic_id},
-        topic_id: {"name": "topic", "execution_mode": "guided"},
+        cycle_id: {"name": "feature", "topic_id": topic_id},
+        topic_id: {"name": "topic"},
     }), encoding="utf-8")
     topic_doc_dir = cache_dir / topic_id / topic_stage / "revision1"
     topic_doc_dir.mkdir(parents=True, exist_ok=True)

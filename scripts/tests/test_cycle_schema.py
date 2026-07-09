@@ -91,7 +91,7 @@ class TestUpdateFeaturesJson:
         from cycle_schema import append_cycle as update_cycles_json
         update_cycles_json(tmp_path, "20260524143022-02cd7e6e", "my-feature")
         data = json.loads((tmp_path / "cycles.json").read_text())
-        assert data == {"20260524143022-02cd7e6e": {"name": "my-feature", "execution_mode": "guided"}}
+        assert data == {"20260524143022-02cd7e6e": {"name": "my-feature"}}
 
     def test_appends_without_overwriting_existing_entry(self, tmp_path):
         from cycle_schema import append_cycle as update_cycles_json
@@ -101,7 +101,7 @@ class TestUpdateFeaturesJson:
         update_cycles_json(tmp_path, "20260524143022-02cd7e6e", "new-feat")
         data = json.loads((tmp_path / "cycles.json").read_text())
         assert data["20260524000000-11111111"] == "existing-feat"
-        assert data["20260524143022-02cd7e6e"] == {"name": "new-feat", "execution_mode": "guided"}
+        assert data["20260524143022-02cd7e6e"] == {"name": "new-feat"}
 
     def test_multiple_sequential_calls_accumulate(self, tmp_path):
         from cycle_schema import append_cycle as update_cycles_json
@@ -114,7 +114,7 @@ class TestUpdateFeaturesJson:
         from cycle_schema import append_cycle as update_cycles_json
         update_cycles_json(tmp_path, "20260524143022-02cd7e6e", "cache restructure")
         data = json.loads((tmp_path / "cycles.json").read_text())
-        assert data["20260524143022-02cd7e6e"] == {"name": "cache restructure", "execution_mode": "guided"}
+        assert data["20260524143022-02cd7e6e"] == {"name": "cache restructure"}
 
 
 # ---------------------------------------------------------------------------
@@ -160,7 +160,7 @@ class TestCLI:
         fid = result.stdout.strip().splitlines()[-1]
         fj = self._cache_dir(tmp_path) / "cycles.json"
         data = json.loads(fj.read_text())
-        assert data[fid] == {"name": "my-feature", "execution_mode": "guided"}
+        assert data[fid] == {"name": "my-feature"}
 
     def test_consecutive_calls_append_features_json(self, tmp_path):
         self._run(tmp_path, name="feat-0")
@@ -183,110 +183,6 @@ class TestCLI:
         """Regression: start must never write ACTIVE_SESSION."""
         self._run(tmp_path)
         assert not (self._cache_dir(tmp_path) / "ACTIVE_SESSION").exists()
-
-
-# ---------------------------------------------------------------------------
-# update_features_json — mode parameter (new behavior)
-# ---------------------------------------------------------------------------
-
-class TestUpdateFeaturesJsonMode:
-    def test_default_writes_object_with_guided(self, tmp_path):
-        from cycle_schema import append_cycle as update_cycles_json
-        update_cycles_json(tmp_path, "20260524143022-02cd7e6e", "my-feature")
-        data = json.loads((tmp_path / "cycles.json").read_text())
-        assert data["20260524143022-02cd7e6e"] == {"name": "my-feature", "execution_mode": "guided"}
-
-    def test_explicit_copilot_writes_object(self, tmp_path):
-        from cycle_schema import append_cycle as update_cycles_json
-        update_cycles_json(tmp_path, "20260524143022-02cd7e6e", "my-feature", "guided")
-        data = json.loads((tmp_path / "cycles.json").read_text())
-        assert data["20260524143022-02cd7e6e"] == {"name": "my-feature", "execution_mode": "guided"}
-
-    def test_autonomous_writes_object(self, tmp_path):
-        from cycle_schema import append_cycle as update_cycles_json
-        update_cycles_json(tmp_path, "20260524143022-02cd7e6e", "my-feature", "autonomous")
-        data = json.loads((tmp_path / "cycles.json").read_text())
-        assert data["20260524143022-02cd7e6e"] == {"name": "my-feature", "execution_mode": "autonomous"}
-
-    def test_old_slug_entries_preserved(self, tmp_path):
-        """Old slug entries must not be modified (no migration)."""
-        from cycle_schema import append_cycle as update_cycles_json
-        (tmp_path / "cycles.json").write_text(
-            json.dumps(
-                {
-                    "20260524000000-11111111": {
-                        "name": "legacy-assisted",
-                        "execution_mode": "assisted",
-                    },
-                    "20260524000000-22222222": {
-                        "name": "legacy-self-service",
-                        "execution_mode": "self-service",
-                    },
-                }
-            )
-        )
-        update_cycles_json(tmp_path, "20260524143022-02cd7e6e", "new-feat")
-        data = json.loads((tmp_path / "cycles.json").read_text())
-        assert data["20260524000000-11111111"] == {
-            "name": "legacy-assisted",
-            "execution_mode": "assisted",
-        }
-        assert data["20260524000000-22222222"] == {
-            "name": "legacy-self-service",
-            "execution_mode": "self-service",
-        }
-        assert data["20260524143022-02cd7e6e"] == {
-            "name": "new-feat",
-            "execution_mode": "guided",
-        }
-
-
-# ---------------------------------------------------------------------------
-# CLI — --mode flag (new behavior)
-# ---------------------------------------------------------------------------
-
-class TestCLIMode:
-    def _run(self, tmp_path, name="test-feature", extra_args=None):
-        cmd = [
-            sys.executable,
-            str(_CYCLE_CONTROL),
-            "--project-root", str(tmp_path),
-            "start",
-            "--name", name,
-            "--type", "feature",
-        ]
-        if extra_args:
-            cmd.extend(extra_args)
-        return subprocess.run(cmd, capture_output=True, text=True, env=_ENV_COPILOT)
-
-    def _cache_dir(self, tmp_path):
-        return tmp_path / ".cache" / "copilot" / "lulu-dev-workflow"
-
-    def test_no_mode_flag_writes_copilot_object(self, tmp_path):
-        result = self._run(tmp_path, name="my-feature")
-        fid = result.stdout.strip().splitlines()[-1]
-        data = json.loads((self._cache_dir(tmp_path) / "cycles.json").read_text())
-        assert data[fid] == {"name": "my-feature", "execution_mode": "guided"}
-
-    def test_start_rejects_mode_guided_flag(self, tmp_path):
-        result = self._run(tmp_path, name="my-feature", extra_args=["--mode", "guided"])
-        assert result.returncode != 0
-
-    def test_start_rejects_mode_autonomous_flag(self, tmp_path):
-        result = self._run(tmp_path, name="my-feature", extra_args=["--mode", "autonomous"])
-        assert result.returncode != 0
-
-    def test_invalid_mode_exits_nonzero(self, tmp_path):
-        result = self._run(tmp_path, name="my-feature", extra_args=["--mode", "invalid_mode"])
-        assert result.returncode != 0
-
-    def test_old_mode_assisted_exits_nonzero(self, tmp_path):
-        result = self._run(tmp_path, name="my-feature", extra_args=["--mode", "assisted"])
-        assert result.returncode != 0
-
-    def test_old_mode_self_service_exits_nonzero(self, tmp_path):
-        result = self._run(tmp_path, name="my-feature", extra_args=["--mode", "self-service"])
-        assert result.returncode != 0
 
 
 # ---------------------------------------------------------------------------
@@ -349,14 +245,7 @@ class TestUpdateTopicsJson:
         tid = "topic-20260524143022-aabbccdd"
         update_cycles_json(tmp_path, tid, "my-topic")
         data = json.loads((tmp_path / "cycles.json").read_text())
-        assert data == {tid: {"name": "my-topic", "execution_mode": "guided"}}
-
-    def test_mode_autonomous(self, tmp_path):
-        from cycle_schema import append_cycle as update_cycles_json
-        tid = "topic-20260524143022-aabbccdd"
-        update_cycles_json(tmp_path, tid, "my-topic", "autonomous")
-        data = json.loads((tmp_path / "cycles.json").read_text())
-        assert data[tid]["execution_mode"] == "autonomous"
+        assert data == {tid: {"name": "my-topic"}}
 
     def test_two_consecutive_calls_independent(self, tmp_path):
         from cycle_schema import append_cycle as update_cycles_json
@@ -371,12 +260,12 @@ class TestUpdateTopicsJson:
 
     def test_old_entries_unchanged(self, tmp_path):
         from cycle_schema import append_cycle as update_cycles_json
-        existing = {"topic-20260524000000-oldentry": {"name": "old", "execution_mode": "guided"}}
+        existing = {"topic-20260524000000-oldentry": {"name": "old"}}
         (tmp_path / "cycles.json").write_text(json.dumps(existing))
         tid = "topic-20260524143022-aabbccdd"
         update_cycles_json(tmp_path, tid, "new-topic")
         data = json.loads((tmp_path / "cycles.json").read_text())
-        assert data["topic-20260524000000-oldentry"] == {"name": "old", "execution_mode": "guided"}
+        assert data["topic-20260524000000-oldentry"] == {"name": "old"}
         assert tid in data
 
 
@@ -425,7 +314,7 @@ class TestUpdateFeaturesJsonTopicId:
     def test_old_entries_no_topic_id_unchanged(self, tmp_path):
         """Old entries lacking topic_id must not be modified when appending new entry."""
         from cycle_schema import append_cycle as update_cycles_json
-        old = {"20260524000000-11111111": {"name": "old-feat", "execution_mode": "guided"}}
+        old = {"20260524000000-11111111": {"name": "old-feat"}}
         (tmp_path / "cycles.json").write_text(json.dumps(old))
         update_cycles_json(tmp_path, "20260524143022-02cd7e6e", "new-feat")
         data = json.loads((tmp_path / "cycles.json").read_text())
@@ -472,7 +361,6 @@ class TestCLITypeTopic:
         data = json.loads(tj.read_text())
         assert tid in data
         assert data[tid]["name"] == "my-topic"
-        assert data[tid]["execution_mode"] == "guided"
 
     def test_topic_container_dir_created(self, tmp_path):
         result = self._run(tmp_path)
@@ -544,36 +432,3 @@ class TestCLITypeFeature:
                            extra_args=["--topic-id", "topic-99999999999999-ffffffff"])
         assert result.returncode != 0
         assert result.stderr.strip() != "", "stderr should have an error message"
-
-
-class TestSetExecutionMode:
-    def test_updates_existing_cycle(self, tmp_path):
-        from cycle_schema import append_cycle, resolve_cache_dir, set_execution_mode
-
-        cache_dir = resolve_cache_dir(tmp_path, "cursor")
-        cache_dir.mkdir(parents=True)
-        cycle_id = "feature-20260101000000-55555555"
-        append_cycle(cache_dir, cycle_id, "demo", "guided")
-        payload = set_execution_mode(cache_dir, cycle_id, "autonomous")
-        assert payload == {"cycle_id": cycle_id, "execution_mode": "autonomous"}
-        data = json.loads((cache_dir / "cycles.json").read_text())
-        assert data[cycle_id]["execution_mode"] == "autonomous"
-
-    def test_invalid_mode_raises(self, tmp_path):
-        from cycle_schema import resolve_cache_dir, set_execution_mode
-
-        cache_dir = resolve_cache_dir(tmp_path, "cursor")
-        cache_dir.mkdir(parents=True)
-        cycle_id = "feature-20260101000000-66666666"
-        (cache_dir / "cycles.json").write_text(json.dumps({cycle_id: {"name": "demo", "execution_mode": "guided"}}))
-        with pytest.raises(ValueError, match="invalid execution_mode"):
-            set_execution_mode(cache_dir, cycle_id, "turbo")
-
-    def test_unknown_cycle_raises(self, tmp_path):
-        from cycle_schema import resolve_cache_dir, set_execution_mode
-
-        cache_dir = resolve_cache_dir(tmp_path, "cursor")
-        cache_dir.mkdir(parents=True)
-        (cache_dir / "cycles.json").write_text("{}")
-        with pytest.raises(ValueError, match="not found"):
-            set_execution_mode(cache_dir, "feature-20260101000000-77777777", "guided")

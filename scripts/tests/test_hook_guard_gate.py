@@ -354,14 +354,14 @@ class TestGetTopicDoc:
 
     def test_no_topic_id_returns_none(self, tmp_path):
         from start_gate import get_topic_doc
-        self._write_features_json(tmp_path, "feat-a", {"name": "x", "execution_mode": "guided"})
+        self._write_features_json(tmp_path, "feat-a", {"name": "x"})
         result = get_topic_doc("feat-a", "lulu-plan", tmp_path)
         assert result is None
 
     def test_invalid_topic_id_raises_value_error(self, tmp_path):
         from start_gate import get_topic_doc
         self._write_features_json(tmp_path, "feat-a",
-                                  {"name": "x", "execution_mode": "guided",
+                                  {"name": "x",
                                    "topic_id": "topic-20260101000000-deadbeef"})
         # cycles.json does not exist → ValueError
         with pytest.raises(ValueError):
@@ -371,9 +371,9 @@ class TestGetTopicDoc:
         from start_gate import get_topic_doc
         topic_id = "topic-20260101000000-aabbccdd"
         self._write_features_json(tmp_path, "feat-a",
-                                  {"name": "x", "execution_mode": "guided",
+                                  {"name": "x",
                                    "topic_id": topic_id})
-        self._write_topics_json(tmp_path, topic_id, {"name": "t", "execution_mode": "guided"})
+        self._write_topics_json(tmp_path, topic_id, {"name": "t"})
         # lulu-code not in topic_doc_stage
         result = get_topic_doc("feat-a", "lulu-code", tmp_path)
         assert result is None
@@ -382,9 +382,9 @@ class TestGetTopicDoc:
         from start_gate import get_topic_doc
         topic_id = "topic-20260101000000-aabbccdd"
         self._write_features_json(tmp_path, "feat-a",
-                                  {"name": "x", "execution_mode": "guided",
+                                  {"name": "x",
                                    "topic_id": topic_id})
-        self._write_topics_json(tmp_path, topic_id, {"name": "t", "execution_mode": "guided"})
+        self._write_topics_json(tmp_path, topic_id, {"name": "t"})
         # No session files → None
         result = get_topic_doc("feat-a", "lulu-plan", tmp_path)
         assert result is None
@@ -575,8 +575,8 @@ class TestTopicRefExtended:
         from start_gate import get_topic_doc
         topic_id = "topic-20260101000000-aabbccdd"
         self._write_features_json(tmp_path, "feat-a",
-                                  {"name": "x", "execution_mode": "guided", "topic_id": topic_id})
-        self._write_topics_json(tmp_path, topic_id, {"name": "t", "execution_mode": "guided"})
+                                  {"name": "x", "topic_id": topic_id})
+        self._write_topics_json(tmp_path, topic_id, {"name": "t"})
         doc_path = self._make_delivered_ref(tmp_path, topic_id, "lulu-arch")
 
         result = get_topic_doc("feat-a", "lulu-design", tmp_path)
@@ -588,8 +588,8 @@ class TestTopicRefExtended:
         from start_gate import get_topic_doc
         topic_id = "topic-20260101000000-aabbccdd"
         self._write_features_json(tmp_path, "feat-a",
-                                  {"name": "x", "execution_mode": "guided", "topic_id": topic_id})
-        self._write_topics_json(tmp_path, topic_id, {"name": "t", "execution_mode": "guided"})
+                                  {"name": "x", "topic_id": topic_id})
+        self._write_topics_json(tmp_path, topic_id, {"name": "t"})
         self._make_delivered_ref(tmp_path, topic_id, "lulu-arch")
 
         result = get_topic_doc("feat-a", "lulu-plan", tmp_path)
@@ -601,8 +601,8 @@ class TestTopicRefExtended:
         from start_gate import get_topic_doc
         topic_id = "topic-20260101000000-aabbccdd"
         self._write_features_json(tmp_path, "feat-a",
-                                  {"name": "x", "execution_mode": "guided", "topic_id": topic_id})
-        self._write_topics_json(tmp_path, topic_id, {"name": "t", "execution_mode": "guided"})
+                                  {"name": "x", "topic_id": topic_id})
+        self._write_topics_json(tmp_path, topic_id, {"name": "t"})
 
         result = get_topic_doc("feat-a", "lulu-code", tmp_path)
 
@@ -613,8 +613,8 @@ class TestTopicRefExtended:
         from start_gate import get_topic_doc
         topic_id = "topic-20260101000000-aabbccdd"
         self._write_features_json(tmp_path, "feat-a",
-                                  {"name": "x", "execution_mode": "guided", "topic_id": topic_id})
-        self._write_topics_json(tmp_path, topic_id, {"name": "t", "execution_mode": "guided"})
+                                  {"name": "x", "topic_id": topic_id})
+        self._write_topics_json(tmp_path, topic_id, {"name": "t"})
         doc_path = self._make_delivered_ref(tmp_path, topic_id, "lulu-blueprint")
 
         result = get_topic_doc("feat-a", "lulu-spec", tmp_path)
@@ -626,8 +626,8 @@ class TestTopicRefExtended:
         from start_gate import get_topic_doc
         topic_id = "topic-20260101000000-aabbccdd"
         self._write_features_json(tmp_path, "feat-a",
-                                  {"name": "x", "execution_mode": "guided", "topic_id": topic_id})
-        self._write_topics_json(tmp_path, topic_id, {"name": "t", "execution_mode": "guided"})
+                                  {"name": "x", "topic_id": topic_id})
+        self._write_topics_json(tmp_path, topic_id, {"name": "t"})
 
         result = get_topic_doc("feat-a", "lulu-plan", tmp_path)
 
@@ -637,7 +637,7 @@ class TestTopicRefExtended:
         """topic_id field present but empty string → returns None, no error."""
         from start_gate import get_topic_doc
         self._write_features_json(tmp_path, "feat-a",
-                                  {"name": "x", "execution_mode": "guided", "topic_id": ""})
+                                  {"name": "x", "topic_id": ""})
 
         result = get_topic_doc("feat-a", "lulu-plan", tmp_path)
 
@@ -647,9 +647,9 @@ class TestTopicRefExtended:
         """topic_id not in cycles.json → ValueError raised."""
         from start_gate import get_topic_doc
         self._write_features_json(tmp_path, "feat-a",
-                                  {"name": "x", "execution_mode": "guided",
+                                  {"name": "x",
                                    "topic_id": "topic-does-not-exist"})
-        self._write_topics_json(tmp_path, "topic-other", {"name": "t", "execution_mode": "guided"})
+        self._write_topics_json(tmp_path, "topic-other", {"name": "t"})
 
         with pytest.raises(ValueError):
             get_topic_doc("feat-a", "lulu-plan", tmp_path)
@@ -659,8 +659,8 @@ class TestTopicRefExtended:
         from start_gate import get_topic_ref
         topic_id = "topic-20260101000000-aabbccdd"
         self._write_features_json(tmp_path, "feat-a",
-                                  {"name": "x", "execution_mode": "guided", "topic_id": topic_id})
-        self._write_topics_json(tmp_path, topic_id, {"name": "t", "execution_mode": "guided"})
+                                  {"name": "x", "topic_id": topic_id})
+        self._write_topics_json(tmp_path, topic_id, {"name": "t"})
         doc_path = self._make_delivered_ref(tmp_path, topic_id, "lulu-arch")
 
         result = get_topic_ref("feat-a", "lulu-design", tmp_path)
@@ -672,8 +672,8 @@ class TestTopicRefExtended:
         from start_gate import get_topic_ref
         topic_id = "topic-20260101000000-aabbccdd"
         self._write_features_json(tmp_path, "feat-a",
-                                  {"name": "x", "execution_mode": "guided", "topic_id": topic_id})
-        self._write_topics_json(tmp_path, topic_id, {"name": "t", "execution_mode": "guided"})
+                                  {"name": "x", "topic_id": topic_id})
+        self._write_topics_json(tmp_path, topic_id, {"name": "t"})
         doc_path = self._make_delivered_ref(tmp_path, topic_id, "lulu-arch")
         doc_path.unlink()
 
@@ -691,7 +691,7 @@ class TestBackwardCompat:
         """Old cycles.json entry without topic_id field → loads, treated as no topic."""
         from start_gate import get_topic_doc
         fj = tmp_path / "cycles.json"
-        fj.write_text(json.dumps({"feat-old": {"name": "legacy", "execution_mode": "cursor"}}),
+        fj.write_text(json.dumps({"feat-old": {"name": "legacy"}}),
                       encoding="utf-8")
 
         result = get_topic_doc("feat-old", "lulu-plan", tmp_path)

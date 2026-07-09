@@ -21,7 +21,7 @@ Non-zero exit → stop. Map stdout JSON: `platform`→`$PLATFORM`, `skill_root`�
 
 ## Session Foundation
 
-Establish `$CYCLE_ID`, `$CYCLE_TYPE`, `$EXECUTION_MODE` via the steps below before stage work. Stage is defined by the active sub-SKILL, not session bootstrap. **Not set at section entry.**
+Establish `$CYCLE_ID`, `$CYCLE_TYPE` via the steps below before stage work. Stage is defined by the active sub-SKILL, not session bootstrap. **Not set at section entry.**
 
 **1. Detect ambiguity** — user message contains any of: `switch` · `new` · `choose` · different feature · explicit new topic/feature.
 
@@ -38,28 +38,11 @@ Establish `$CYCLE_ID`, `$CYCLE_TYPE`, `$EXECUTION_MODE` via the steps below befo
 
 **3. Map stdout** (CASE 2, `cycle_id` present)
 
-`cycle_id`→`$CYCLE_ID` · `cycle_type`→`$CYCLE_TYPE` · `execution_mode`→`$EXECUTION_MODE`
+`cycle_id`→`$CYCLE_ID` · `cycle_type`→`$CYCLE_TYPE`
 
 <HARD-GATE>
 Empty `cycle_id` → slowpath only. Do not infer `$CYCLE_ID` from files or cache.
 </HARD-GATE>
-
-## Execution mode (phase identifier)
-
-`guided` and `autonomous` are **stage identifiers** persisted in `.cache/$PLATFORM/lulu-dev-workflow/cycles.json` (`execution_mode`). They are not user-switchable execution modes.
-
-- `guided` — plan stage: ask and wait at gates.
-- `autonomous` — tasks/code stage: choose defaults only at gates that do not need human decisions.
-
-New cycles start with `execution_mode=guided` (see `../_slowpath.md`). After lulu-plan delivery on a **feature** container, the delivery hook writes `execution_mode=autonomous` before handoff:
-
-`$RUNTIME_CONTROL set-execution-mode --cycle-id "$CYCLE_ID" --mode autonomous --internal`
-
-Non-zero exit → **Blocking** (no deliver/handoff). Topic-container plan delivery skips this hook.
-
-`$RUNTIME_CONTROL set-execution-mode` is **internal only** (`--internal` required). Users must not send `SET_EXECUTION_MODE` or call `set-execution-mode` directly.
-
-Autonomous stage does not skip workflow steps; all stage, hook, prepare, and worktree constraints still apply.
 
 ## Feature Tracking Convention
 

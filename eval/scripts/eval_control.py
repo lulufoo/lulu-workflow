@@ -204,7 +204,6 @@ _ENTRY_V3_KEYS = (
     "dimension_dispatch",
 )
 _EXPECTED_EVALUATING_STATE = "Evaluating"
-_VALID_EXECUTION_MODES = frozenset({"guided", "autonomous"})
 _VALID_MODES = frozenset({"product", "tech"})
 _SEVERITY_RANK = {"critical": 3, "medium": 2, "minor": 1}
 
@@ -249,11 +248,6 @@ def _expanded_corpus(
 
 def _canonical_dim(cycle_id: str, project_root: Path, dim: str) -> str:
     return resolve_dim_id(_load_corpus(cycle_id, project_root), dim)
-
-
-def resolve_execution_mode(cycle_id: str, project_root: Path) -> str:
-    """Return guided|autonomous from cycles.json (default guided)."""
-    return _adapter().resolve_execution_mode(cycle_id, project_root)
 
 
 def _success(command: str, **extra: Any) -> dict[str, Any]:

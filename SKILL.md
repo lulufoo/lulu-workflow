@@ -57,7 +57,7 @@ Work is bound to a **cycle** with `$CYCLE_TYPE` = `topic` or `feature` (see `_ru
 | Runtime | Read `_runtime.md` § Script Macros + § Platform Context when platform vars are needed |
 | Platform vars | `$PLATFORM`, `$SKILL_ROOT`, `$CACHE_DIR`, `$WORKFLOW_DIR` |
 | Session | Read `_runtime.md` § Session Foundation when session variables are needed |
-| Session vars | `$CYCLE_ID`, `$CYCLE_TYPE`, `$EXECUTION_MODE` |
+| Session vars | `$CYCLE_ID`, `$CYCLE_TYPE` |
 | Project config | Workflow config at resolved `workflowConfig` root (see ## Command Semantics → configure); `workflow-guard-config.json` at resolved `hookConfig` path (created by init if missing) |
 
 ## Command Flow

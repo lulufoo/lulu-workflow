@@ -12,8 +12,6 @@ from uuid import uuid4
 
 from workflow_config_schema import detect_platform  # noqa: E402
 
-VALID_EXECUTION_MODES = frozenset({"guided", "autonomous"})
-
 
 def resolve_cache_dir(project_root: Path, platform: Optional[str] = None) -> Path:
     plat = detect_platform(platform)
@@ -44,11 +42,10 @@ def append_cycle(
     cache_dir: Path,
     cycle_id: str,
     name: str,
-    mode: str = "guided",
     topic_id: Optional[str] = None,
 ) -> None:
     data = load_cycles(cache_dir)
-    entry = {"name": name, "execution_mode": mode}
+    entry = {"name": name}
     if topic_id is not None:
         entry["topic_id"] = topic_id
     data[cycle_id] = entry
@@ -82,14 +79,9 @@ def format_cycles_list(cache_dir: Path) -> str:
     lines = ["Cycles:"]
     for index, cycle_id in enumerate(sorted(cycles.keys()), start=1):
         entry = cycles[cycle_id]
-        if isinstance(entry, dict):
-            name = entry.get("name", cycle_id)
-            mode = entry.get("execution_mode", "guided")
-        else:
-            name = str(entry)
-            mode = "guided"
+        name = entry.get("name", cycle_id) if isinstance(entry, dict) else str(entry)
         kind = cycle_type_from_id(cycle_id)
-        lines.append(f"[{kind}]   {index}. {name} [{mode}]")
+        lines.append(f"[{kind}]   {index}. {name}")
     return "\n".join(lines)
 
 
@@ -98,32 +90,16 @@ def build_cycle_info(cache_dir: Path, cycle_id: str) -> Optional[dict]:
     if entry is None:
         return None
     if not isinstance(entry, dict):
-        entry = {"name": str(entry), "execution_mode": "guided"}
+        entry = {"name": str(entry)}
     info = {
         "cycle_id": cycle_id,
         "cycle_type": cycle_type_from_id(cycle_id),
         "name": entry.get("name"),
-        "execution_mode": entry.get("execution_mode", "guided"),
         "current_stage": read_stage(cycle_id, cache_dir),
     }
     if "topic_id" in entry:
         info["topic_id"] = entry["topic_id"]
     return info
-
-
-def set_execution_mode(cache_dir: Path, cycle_id: str, mode: str) -> dict[str, str]:
-    if mode not in VALID_EXECUTION_MODES:
-        raise ValueError(f"invalid execution_mode: {mode!r}")
-    data = load_cycles(cache_dir)
-    if cycle_id not in data:
-        raise ValueError(f"cycle-id {cycle_id!r} not found in cycles.json")
-    entry = data[cycle_id]
-    if not isinstance(entry, dict):
-        entry = {"name": str(entry), "execution_mode": "guided"}
-        data[cycle_id] = entry
-    entry["execution_mode"] = mode
-    save_cycles(cache_dir, data)
-    return {"cycle_id": cycle_id, "execution_mode": mode}
 
 
 def ensure_container_dir(cache_dir: Path, cycle_id: str) -> Path:

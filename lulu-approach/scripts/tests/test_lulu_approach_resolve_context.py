@@ -77,8 +77,8 @@ def test_feature_template_resolves_topic_and_upstream(tmp_path):
     """lulu-approach(feature): upstream lulu-spec + topic lulu-arch both resolve."""
     cache_dir = tmp_path / platform_cache_dir(detect_platform())
     topic_id = "topic-20260101000000-aabbccdd"
-    _write_cycles_json(cache_dir, "feature-a", {"name": "x", "execution_mode": "guided", "topic_id": topic_id})
-    _write_cycles_json(cache_dir, topic_id, {"name": "t", "execution_mode": "guided"})
+    _write_cycles_json(cache_dir, "feature-a", {"name": "x", "topic_id": topic_id})
+    _write_cycles_json(cache_dir, topic_id, {"name": "t"})
     upstream_doc = _make_upstream_doc(cache_dir, "feature-a", "lulu-spec", "product-doc.md")
     topic_doc = _write_topic_delivered_ref(cache_dir, topic_id, "lulu-arch")
 

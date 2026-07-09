@@ -43,21 +43,3 @@ Run mode is inferred at start: `product` when cycle `delivered-refs.json` contai
 
 To resume an in-progress document, do not run start again — run `$SESSION_INFO --view session`.
 
-## Delivery hook
-
-**Scope:** **feature** container only. **Topic** container plan delivery **skips** this hook (no `set-execution-mode` call; `execution_mode` stays unchanged).
-
-When compose **ReadyForDelivery Rules** reach step 3 (explicit delivery confirmation) and before step 4 (`$SESSION_CONTROL deliver`):
-
-1. Run:
-
-```bash
-$RUNTIME_CONTROL set-execution-mode --cycle-id "$CYCLE_ID" --mode autonomous --internal
-```
-
-2. **exit 0** — Read `.cache/$PLATFORM/lulu-dev-workflow/cycles.json` and verify `execution_mode==autonomous`. Then continue step 4: `$SESSION_CONTROL deliver` and handoff per `_transitions.md`.
-
-3. **exit non-zero** — **Blocking**: do **not** run `$SESSION_CONTROL deliver`; do **not** handoff. Report stderr/JSON message to the user. `cycles.json` remains at its pre-hook state (no partial-write).
-
-Compose kernel (`compose/SKILL.md`, `compose/scripts/`) is unchanged; this holder section injects the hook timing only.
-

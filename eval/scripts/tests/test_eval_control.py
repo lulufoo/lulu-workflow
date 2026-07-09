@@ -45,7 +45,6 @@ from eval_control import (  # noqa: E402
     finish_dimension_probe,
     init_round,
     probe_complete,
-    resolve_execution_mode,
     sot_remediation_complete,
 )
 from evaluate_state_ops import (  # noqa: E402
@@ -601,11 +600,6 @@ class TestResumeAfterEval:
         save_evaluate_state(ws.parent / "evaluate-state.md", {"eval_status": "abandoned"})
         result = resume_after_eval(_CYCLE, tmp_path)
         assert result["ok"] is False
-
-
-class TestResolveExecutionMode:
-    def test_defaults_to_guided(self, tmp_path: Path):
-        assert resolve_execution_mode(_CYCLE, tmp_path) == "guided"
 
 
 class TestBuildEvalLoopPayload:

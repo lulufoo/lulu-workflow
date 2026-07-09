@@ -56,7 +56,7 @@ def _make_cycles_json(cache_dir: Path, cycle_id: str, name: str = "Test Cycle") 
     cache_dir.mkdir(parents=True, exist_ok=True)
     cj = cache_dir / "cycles.json"
     data = json.loads(cj.read_text(encoding="utf-8")) if cj.exists() else {}
-    data[cycle_id] = {"name": name, "execution_mode": "guided"}
+    data[cycle_id] = {"name": name}
     cj.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
@@ -552,7 +552,7 @@ class TestActiveContextBackwardCompat:
         cd.mkdir(parents=True, exist_ok=True)
         fj = cd / "cycles.json"
         fj.write_text(
-            json.dumps({_CYCLE_ID: {"name": "Old Feature", "execution_mode": "guided"}}),
+            json.dumps({_CYCLE_ID: {"name": "Old Feature"}}),
             encoding="utf-8",
         )
         _seed_decision_config(tmp_path)

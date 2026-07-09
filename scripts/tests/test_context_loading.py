@@ -74,8 +74,8 @@ def test_lulu_bet_topic_cycle_has_no_predecessor_or_topic_returns_skipped(tmp_pa
 
 def test_lulu_bet_feature_cycle_topic_source_loaded(tmp_path):
     topic_id = "topic-20260101000000-aabbccdd"
-    _write_cycles_json(tmp_path, "feature-a", {"name": "x", "execution_mode": "guided", "topic_id": topic_id})
-    _write_cycles_json(tmp_path, topic_id, {"name": "t", "execution_mode": "guided"})
+    _write_cycles_json(tmp_path, "feature-a", {"name": "x", "topic_id": topic_id})
+    _write_cycles_json(tmp_path, topic_id, {"name": "t"})
     doc = _write_topic_delivered_ref(tmp_path, topic_id, "lulu-blueprint")
 
     result = build_context_loading("feature-a", "lulu-bet", cache_dir=tmp_path)
@@ -91,7 +91,7 @@ def test_lulu_bet_feature_cycle_topic_source_loaded(tmp_path):
 
 
 def test_lulu_bet_feature_cycle_topic_source_not_found_without_topic_id(tmp_path):
-    _write_cycles_json(tmp_path, "feature-a", {"name": "x", "execution_mode": "guided"})
+    _write_cycles_json(tmp_path, "feature-a", {"name": "x"})
     result = build_context_loading("feature-a", "lulu-bet", cache_dir=tmp_path)
     assert result["sources"] == [
         {
@@ -105,15 +105,15 @@ def test_lulu_bet_feature_cycle_topic_source_not_found_without_topic_id(tmp_path
 
 def test_lulu_bet_feature_cycle_never_has_an_upstream_source(tmp_path):
     """lulu-bet is a feature-graph entry point — only a topic source can ever apply."""
-    _write_cycles_json(tmp_path, "feature-a", {"name": "x", "execution_mode": "guided"})
+    _write_cycles_json(tmp_path, "feature-a", {"name": "x"})
     result = build_context_loading("feature-a", "lulu-bet", cache_dir=tmp_path)
     assert [src["kind"] for src in result["sources"]] == ["topic"]
 
 
 def test_lulu_approach_feature_cycle_upstream_and_topic_both_resolved(tmp_path):
     topic_id = "topic-20260101000000-aabbccdd"
-    _write_cycles_json(tmp_path, "feature-a", {"name": "x", "execution_mode": "guided", "topic_id": topic_id})
-    _write_cycles_json(tmp_path, topic_id, {"name": "t", "execution_mode": "guided"})
+    _write_cycles_json(tmp_path, "feature-a", {"name": "x", "topic_id": topic_id})
+    _write_cycles_json(tmp_path, topic_id, {"name": "t"})
     upstream_doc = _make_upstream_doc(tmp_path, "feature-a", "lulu-spec", "product-doc.md")
     topic_doc = _write_topic_delivered_ref(tmp_path, topic_id, "lulu-arch")
 
@@ -128,7 +128,7 @@ def test_lulu_approach_feature_cycle_upstream_and_topic_both_resolved(tmp_path):
 
 
 def test_lulu_approach_feature_cycle_upstream_not_found_when_undelivered(tmp_path):
-    _write_cycles_json(tmp_path, "feature-a", {"name": "x", "execution_mode": "guided"})
+    _write_cycles_json(tmp_path, "feature-a", {"name": "x"})
     result = build_context_loading("feature-a", "lulu-approach", cache_dir=tmp_path)
     by_kind = {src["kind"]: src for src in result["sources"]}
     assert by_kind["upstream"] == {

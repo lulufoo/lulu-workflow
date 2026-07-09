@@ -65,7 +65,6 @@ class TestResolveSessionContext:
             "cycle_id": "",
             "cycle_type": "",
             "stage": "",
-            "execution_mode": "",
         }
 
     def test_full_payload_from_active_context_and_cycles(self, tmp_path: Path):
@@ -77,7 +76,7 @@ class TestResolveSessionContext:
         cache.mkdir(parents=True)
         cycle_id = "feature-20260101000000-11111111"
         (cache / "cycles.json").write_text(
-            json.dumps({cycle_id: {"name": "demo", "execution_mode": "autonomous"}})
+            json.dumps({cycle_id: {"name": "demo"}})
         )
         active = tmp_path / ".cache" / "cursor" / "lulu-dev-workflow" / "active-context.json"
         active.write_text(
@@ -103,7 +102,6 @@ class TestResolveSessionContext:
         assert payload["cycle_id"] == cycle_id
         assert payload["cycle_type"] == "feature"
         assert payload["stage"] == "lulu-plan"
-        assert payload["execution_mode"] == "autonomous"
 
     def test_cli_conversation_id_overrides_env(self, tmp_path: Path):
         env = {
@@ -114,7 +112,7 @@ class TestResolveSessionContext:
         cache.mkdir(parents=True)
         cycle_id = "feature-20260101000000-55555555"
         (cache / "cycles.json").write_text(
-            json.dumps({cycle_id: {"name": "demo", "execution_mode": "guided"}})
+            json.dumps({cycle_id: {"name": "demo"}})
         )
         active = cache / "active-context.json"
         active.write_text(
@@ -140,98 +138,3 @@ class TestResolveSessionContext:
         payload = json.loads(result.stdout.strip())
         assert payload["conversation_id"] == "cli-conv"
         assert payload["cycle_id"] == cycle_id
-
-    def test_execution_mode_defaults_guided_when_cycle_missing(self, tmp_path: Path):
-        env = {
-            **_ENV_CLEAN,
-            "LULU_CONVERSATION_ID": "conv-456",
-        }
-        cache = tmp_path / ".cache" / "cursor" / "lulu-dev-workflow"
-        cache.mkdir(parents=True)
-        (cache / "cycles.json").write_text("{}")
-        active = cache / "active-context.json"
-        active.write_text(
-            json.dumps(
-                {
-                    "conv-456": {
-                        "cycle_id": "feature-20260101000000-22222222",
-                        "stage": "lulu-code",
-                    }
-                }
-            )
-        )
-        result = _run(
-            "--project-root",
-            str(tmp_path),
-            "resolve-session-context",
-            env=env,
-        )
-        assert result.returncode == 0, result.stderr
-        payload = json.loads(result.stdout.strip())
-        assert payload["execution_mode"] == "guided"
-
-
-class TestSetExecutionModeFacade:
-    def test_updates_cycles_json(self, tmp_path: Path):
-        cache = tmp_path / ".cache" / "cursor" / "lulu-dev-workflow"
-        cache.mkdir(parents=True)
-        cycle_id = "feature-20260101000000-33333333"
-        (cache / "cycles.json").write_text(
-            json.dumps({cycle_id: {"name": "demo", "execution_mode": "guided"}})
-        )
-        result = _run(
-            "--project-root",
-            str(tmp_path),
-            "set-execution-mode",
-            "--cycle-id",
-            cycle_id,
-            "--mode",
-            "autonomous",
-            "--internal",
-        )
-        assert result.returncode == 0, result.stderr
-        payload = json.loads(result.stdout.strip())
-        assert payload == {"cycle_id": cycle_id, "execution_mode": "autonomous"}
-        data = json.loads((cache / "cycles.json").read_text())
-        assert data[cycle_id]["execution_mode"] == "autonomous"
-
-    def test_requires_internal_exit_one(self, tmp_path: Path):
-        cache = tmp_path / ".cache" / "cursor" / "lulu-dev-workflow"
-        cache.mkdir(parents=True)
-        cycle_id = "feature-20260101000000-33333333"
-        (cache / "cycles.json").write_text(
-            json.dumps({cycle_id: {"name": "demo", "execution_mode": "guided"}})
-        )
-        result = _run(
-            "--project-root",
-            str(tmp_path),
-            "set-execution-mode",
-            "--cycle-id",
-            cycle_id,
-            "--mode",
-            "autonomous",
-        )
-        assert result.returncode == 1
-        payload = json.loads(result.stdout.strip())
-        assert payload["ok"] is False
-        assert payload["command"] == "set-execution-mode"
-        assert "--internal" in payload["message"]
-
-    def test_unknown_cycle_exit_one(self, tmp_path: Path):
-        cache = tmp_path / ".cache" / "cursor" / "lulu-dev-workflow"
-        cache.mkdir(parents=True)
-        (cache / "cycles.json").write_text("{}")
-        result = _run(
-            "--project-root",
-            str(tmp_path),
-            "set-execution-mode",
-            "--cycle-id",
-            "feature-20260101000000-44444444",
-            "--mode",
-            "guided",
-            "--internal",
-        )
-        assert result.returncode == 1
-        payload = json.loads(result.stdout.strip())
-        assert payload["ok"] is False
-        assert payload["command"] == "set-execution-mode"
