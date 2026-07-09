@@ -10,6 +10,7 @@ Subcommands:
     list                  Print cycles.json summary for Feature Resolution
     info                  JSON metadata for one cycle (--cycle-id)
     validate              Exit 0 when cycle exists in index and on disk
+    topic-digest          Topic association candidates for New feature (JSON)
 """
 
 from __future__ import annotations
@@ -24,6 +25,7 @@ from fetch_template import FetchTemplateError  # noqa: E402
 from cycle_schema import (  # noqa: E402
     append_cycle,
     build_cycle_info,
+    build_topic_digest,
     cycle_exists,
     ensure_container_dir,
     format_cycles_list,
@@ -48,6 +50,7 @@ _CMD_ARCHIVE = "archive"
 _CMD_LIST = "list"
 _CMD_INFO = "info"
 _CMD_VALIDATE = "validate"
+_CMD_TOPIC_DIGEST = "topic-digest"
 
 
 def _add_project_args(parser: argparse.ArgumentParser) -> None:
@@ -162,6 +165,13 @@ def cmd_archive(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_topic_digest(args: argparse.Namespace) -> int:
+    cache_dir = resolve_cache_dir(args.project_root, args.platform)
+    payload = build_topic_digest(cache_dir, args.stage)
+    print(json.dumps(payload, ensure_ascii=False, indent=2))
+    return 0
+
+
 def _cli(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="lulu-dev-workflow cycle control.")
     _add_project_args(parser)
@@ -241,6 +251,17 @@ def _cli(argv: Optional[list[str]] = None) -> int:
     )
     validate.add_argument("--cycle-id", required=True, help="Cycle ID to validate.")
     validate.set_defaults(handler=cmd_validate)
+
+    topic_digest = sub.add_parser(
+        _CMD_TOPIC_DIGEST,
+        help="Emit topic association candidates (JSON) for New feature.",
+    )
+    topic_digest.add_argument(
+        "--stage",
+        required=True,
+        help="Current sub-SKILL stage name (e.g. lulu-approach).",
+    )
+    topic_digest.set_defaults(handler=cmd_topic_digest)
 
     args = parser.parse_args(argv)
     args.project_root = args.project_root.resolve()

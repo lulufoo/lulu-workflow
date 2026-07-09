@@ -7,10 +7,13 @@ import json
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 from uuid import uuid4
 
+from transition_table import topic_doc_stage_for  # noqa: E402
 from workflow_config_schema import detect_platform  # noqa: E402
+
+_EXCERPT_MAX_CHARS = 400
 
 
 def resolve_cache_dir(project_root: Path, platform: Optional[str] = None) -> Path:
@@ -132,6 +135,79 @@ def write_stage(cycle_id: str, stage: str, cache_dir: Path) -> None:
         ),
         encoding="utf-8",
     )
+
+
+def _excerpt_from_doc(path: Path, max_chars: int = _EXCERPT_MAX_CHARS) -> str:
+    text = path.read_text(encoding="utf-8")
+    # Collapse leading whitespace; keep content readable for relevance matching.
+    collapsed = "\n".join(line.rstrip() for line in text.splitlines()).strip()
+    if len(collapsed) <= max_chars:
+        return collapsed
+    return collapsed[:max_chars].rstrip()
+
+
+def _topic_delivered_doc_path(cache_dir: Path, topic_id: str, ref_stage: str) -> Optional[Path]:
+    refs_path = cache_dir / topic_id / "delivered-refs.json"
+    if not refs_path.is_file():
+        return None
+    try:
+        data = json.loads(refs_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    entry = (data.get("entries") or {}).get(ref_stage)
+    if not isinstance(entry, dict):
+        return None
+    raw_path = str(entry.get("path", "")).strip()
+    if not raw_path:
+        return None
+    path = Path(raw_path)
+    if not path.is_file():
+        return None
+    return path
+
+
+def build_topic_digest(cache_dir: Path, stage: str) -> dict[str, Any]:
+    """Build topic association candidates for a feature-line stage.
+
+    Looks up ``topic_doc_stage[stage]``; when unmapped returns
+    ``applicable: false``. Otherwise lists topics that have delivered the
+    mapped ref-stage document, each with a short excerpt.
+    """
+    ref_stage = topic_doc_stage_for(stage)
+    if ref_stage is None:
+        return {
+            "applicable": False,
+            "stage": stage,
+            "ref_stage": None,
+            "topics": [],
+        }
+
+    topics: list[dict[str, Any]] = []
+    for cycle_id, entry in sorted(load_cycles(cache_dir).items()):
+        if cycle_type_from_id(cycle_id) != "topic":
+            continue
+        name = entry.get("name", cycle_id) if isinstance(entry, dict) else str(entry)
+        doc_path = _topic_delivered_doc_path(cache_dir, cycle_id, ref_stage)
+        if doc_path is None:
+            continue
+        topics.append(
+            {
+                "topic_id": cycle_id,
+                "name": name,
+                "ref_stage": ref_stage,
+                "doc_path": str(doc_path.resolve()),
+                "excerpt": _excerpt_from_doc(doc_path),
+            }
+        )
+
+    return {
+        "applicable": True,
+        "stage": stage,
+        "ref_stage": ref_stage,
+        "topics": topics,
+    }
 
 
 def prune_cycles(cache_dir: Path, keep: int, project_root: Path) -> None:
