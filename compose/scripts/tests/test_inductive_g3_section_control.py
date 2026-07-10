@@ -156,3 +156,77 @@ def test_clear_succeeds_when_ready(tmp_path):
     assert code == 0 and payload["cleared"] == "I"
     code, status = _run(tmp_path, "status")
     assert status["sections"]["I"] == "cleared"
+
+
+# --- section-SoT command surface (A2) ---------------------------------------
+
+def test_seed_decision_appends_with_seed_scope_provenance(tmp_path):
+    _seed(tmp_path, active="ST")
+    code, payload = _run(
+        tmp_path,
+        "seed-decision",
+        "--section",
+        "ST",
+        "--kw",
+        "1",
+        "--text",
+        "限流器置于 API 网关层",
+    )
+    assert code == 0, payload
+    assert payload["id"] == "ST-d1"
+    sec = json.loads(
+        (tmp_path / "inductive-scope" / "ST.json").read_text(encoding="utf-8")
+    )
+    assert sec["decisions"][0]["trigger"] == "seed"
+    assert sec["decisions"][0]["means"] == "scope"
+    assert sec["decisions"][0]["confidence"] == "direct"
+    assert sec["decisions"][0]["text"] == "限流器置于 API 网关层"
+    assert sec["decisions"][0]["code_refs"] == []
+
+
+def test_add_open_requires_trigger_and_means(tmp_path):
+    _seed(tmp_path, active="ST")
+    code, payload = _run(
+        tmp_path,
+        "add-open",
+        "--section",
+        "ST",
+        "--kw",
+        "2",
+        "--problem",
+        "状态是否共享？",
+    )
+    assert code == 1
+    assert not payload.get("ok", True)
+    assert "trigger" in payload.get("error", "").lower() or "means" in payload.get(
+        "error", ""
+    ).lower()
+
+
+def test_add_open_and_get_section(tmp_path):
+    _seed(tmp_path, active="ST")
+    code, payload = _run(
+        tmp_path,
+        "add-open",
+        "--section",
+        "ST",
+        "--kw",
+        "2",
+        "--trigger",
+        "ai",
+        "--means",
+        "probe",
+        "--problem",
+        "网关多实例时限流状态是否共享？",
+        "--leaning",
+        "分布式令牌桶",
+        "--blocking",
+        "true",
+    )
+    assert code == 0, payload
+    assert payload["id"] == "ST-o1"
+    code, got = _run(tmp_path, "get-section", "--section", "ST")
+    assert code == 0, got
+    assert got["section"]["open"][0]["trigger"] == "ai"
+    assert got["section"]["open"][0]["means"] == "probe"
+    assert got["section"]["open"][0]["blocking"] is True

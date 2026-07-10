@@ -6,12 +6,15 @@ Called by inductive_gate_control.py (outer gate spine) and the SKILL via
 $INDUCTIVE_G3_SECTION_CTL.
 
 Subcommands:
-    init-pointer        Seed inductive-section-pointer.json + empty EP ledger
+    init-pointer        Seed inductive-section-pointer.json + empty EP ledger + _index.json
     status              Return active_section, per-section statuses, open-EP count
     check-coverage      Evaluate G3 gate-close coverage predicate (JSON result)
     list-sections       Return section statuses + EP ledger summary (for G4 audit)
     activate-section    Switch active_section focus (free; prev active -> open)
     set-frontier        Set active section's AI-declared frontier_kw (0..4)
+    seed-decision       Append Seed decision to <S>.json (trigger=seed, means=scope)
+    add-open            Append open point to <S>.json
+    get-section         Return <S>.json contents
     register-ep         Append a new EP to the ledger
     update-ep           Update an EP's status / resolution
     append-to-section   Append a figure/decision fragment to the section bucket <S>.md
@@ -61,6 +64,16 @@ from inductive_exposed_points_schema import (  # noqa: E402
     save_ledger,
     update_ep_status,
     validate_ep,
+)
+from inductive_section_schema import (  # noqa: E402
+    ensure_section,
+    load_section,
+    mint_decision_id,
+    mint_open_id,
+    next_decision_seq,
+    next_open_seq,
+    save_index,
+    save_section,
 )
 
 
@@ -120,7 +133,7 @@ def cmd_init_pointer(out_dir: Path, args: argparse.Namespace) -> None:
     if ledger_path.exists():
         _fail(f"EP ledger already exists: {ledger_path}")
 
-    cycle_id = args.cycle_id or ""
+    cycle_id = args.cycle_id or "_"
     ptr = init_section_pointer(
         coverage_sections=sections,
         mandatory=mandatory,
@@ -128,6 +141,18 @@ def cmd_init_pointer(out_dir: Path, args: argparse.Namespace) -> None:
     )
     save_section_pointer(ptr_path, ptr)
     save_ledger(ledger_path, init_ledger())
+    # section-SoT index (design §2); empty sections created lazily on first write
+    save_index(
+        out_dir,
+        {
+            "version": "1",
+            "cycle_id": cycle_id,
+            "profile": "",
+            "scope_ref": "",
+            "section_order_ref": "section-registry",
+            "last_checkpoint": None,
+        },
+    )
     _ok({"message": "section pointer initialized", "sections": sections, "mandatory": mandatory})
 
 
@@ -290,19 +315,102 @@ def cmd_update_ep(out_dir: Path, args: argparse.Namespace) -> None:
     _ok({"updated": ep_id, "status": status})
 
 
-def cmd_append_to_section(out_dir: Path, args: argparse.Namespace) -> None:
-    section = args.section.strip().upper()
-    content: str = args.content
-
-    ptr = _load_pointer(out_dir)
+def _focus_guard(ptr: dict[str, Any], section: str) -> None:
     active = ptr.get("active_section")
-
-    # Focus guard (mutation layer) — discovery may scan cross-section, writes may not.
     if section != active:
         _fail(
             f"focus guard: section={section!r} != active_section={active!r}; "
             "call activate-section to switch focus first"
         )
+
+
+def cmd_seed_decision(out_dir: Path, args: argparse.Namespace) -> None:
+    """Append a Seed-era decision with trigger=seed · means=scope (design §5/§14)."""
+    section = args.section.strip().upper()
+    ptr = _load_pointer(out_dir)
+    _focus_guard(ptr, section)
+
+    doc = ensure_section(out_dir, section)
+    seq = next_decision_seq(doc)
+    decision: dict[str, Any] = {
+        "id": mint_decision_id(section, seq),
+        "kw": args.kw,
+        "text": args.text,
+        "trigger": "seed",
+        "means": "scope",
+        "confidence": "direct",
+        "intent_ref": None,
+        "code_refs": [],
+    }
+    if args.rationale:
+        decision["rationale"] = args.rationale
+    doc["decisions"].append(decision)
+    if doc["status"] == "untouched":
+        doc["status"] = "active"
+    try:
+        save_section(out_dir, doc)
+    except ValueError as exc:
+        _fail(str(exc))
+    _ok({"id": decision["id"], "section": section})
+
+
+def cmd_add_open(out_dir: Path, args: argparse.Namespace) -> None:
+    """Append an open point to section JSON (design §6/§14)."""
+    section = args.section.strip().upper()
+    ptr = _load_pointer(out_dir)
+    _focus_guard(ptr, section)
+
+    trigger = (args.trigger or "").strip().lower()
+    means = (args.means or "").strip().lower()
+    if not trigger or not means:
+        _fail("add-open requires --trigger and --means")
+
+    doc = ensure_section(out_dir, section)
+    seq = next_open_seq(doc)
+    blocking = str(args.blocking).lower() in {"1", "true", "yes"}
+    open_item: dict[str, Any] = {
+        "id": mint_open_id(section, seq),
+        "kw": args.kw,
+        "trigger": trigger,
+        "means": means,
+        "blocking": blocking,
+        "problem": args.problem,
+    }
+    if args.leaning:
+        open_item["leaning"] = args.leaning
+    if args.confidence:
+        open_item["confidence"] = args.confidence
+    if args.intent_ref:
+        open_item["intent_ref"] = args.intent_ref
+    if args.hangs_under:
+        open_item["hangs_under"] = args.hangs_under
+    doc["open"].append(open_item)
+    if doc["status"] == "untouched":
+        doc["status"] = "active"
+    try:
+        save_section(out_dir, doc)
+    except ValueError as exc:
+        _fail(str(exc))
+    _ok({"id": open_item["id"], "section": section})
+
+
+def cmd_get_section(out_dir: Path, args: argparse.Namespace) -> None:
+    section = args.section.strip().upper()
+    try:
+        doc = load_section(out_dir, section)
+    except FileNotFoundError:
+        doc = ensure_section(out_dir, section)
+    except ValueError as exc:
+        _fail(str(exc))
+    _ok({"section": doc})
+
+
+def cmd_append_to_section(out_dir: Path, args: argparse.Namespace) -> None:
+    section = args.section.strip().upper()
+    content: str = args.content
+
+    ptr = _load_pointer(out_dir)
+    _focus_guard(ptr, section)
 
     # Append the fragment to the section bucket (incremental; no clear here).
     section_file = _section_file_path(out_dir, section)
@@ -510,6 +618,43 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--section", required=True, metavar="S")
     p.add_argument("--kw", required=True, type=int, metavar="N", help="0..4 (KW level reached)")
 
+    # seed-decision (section-SoT)
+    p = sub.add_parser(
+        "seed-decision",
+        help="Append a Seed decision to <S>.json (trigger=seed, means=scope)",
+    )
+    p.add_argument("--section", required=True, metavar="S")
+    p.add_argument("--kw", required=True, type=int, metavar="N")
+    p.add_argument("--text", required=True, metavar="TEXT")
+    p.add_argument("--rationale", default=None, metavar="TEXT")
+
+    # add-open (section-SoT)
+    p = sub.add_parser("add-open", help="Append an open point to <S>.json")
+    p.add_argument("--section", required=True, metavar="S")
+    p.add_argument("--kw", required=True, type=int, metavar="N")
+    p.add_argument("--trigger", default=None, metavar="T", help="human|ai (required)")
+    p.add_argument(
+        "--means",
+        default=None,
+        metavar="M",
+        help="probe|direct|view|ai_scan|intent_baseline (required)",
+    )
+    p.add_argument("--problem", required=True, metavar="TEXT")
+    p.add_argument("--leaning", default=None, metavar="TEXT")
+    p.add_argument(
+        "--blocking",
+        default="true",
+        metavar="BOOL",
+        help="true|false (default true)",
+    )
+    p.add_argument("--confidence", default=None, metavar="C")
+    p.add_argument("--intent-ref", default=None, dest="intent_ref", metavar="ID")
+    p.add_argument("--hangs-under", default=None, dest="hangs_under", metavar="ID")
+
+    # get-section (section-SoT)
+    p = sub.add_parser("get-section", help="Return <S>.json contents")
+    p.add_argument("--section", required=True, metavar="S")
+
     # register-ep
     p = sub.add_parser("register-ep", help="Append a new EP to the ledger")
     p.add_argument("--json", required=True, dest="json", metavar="JSON", help="EP JSON object")
@@ -582,6 +727,9 @@ def main() -> None:
         "list-sections": cmd_list_sections,
         "activate-section": cmd_activate_section,
         "set-frontier": cmd_set_frontier,
+        "seed-decision": cmd_seed_decision,
+        "add-open": cmd_add_open,
+        "get-section": cmd_get_section,
         "register-ep": cmd_register_ep,
         "update-ep": cmd_update_ep,
         "append-to-section": cmd_append_to_section,
