@@ -17,11 +17,13 @@
 
 ### Step 1 — Structural check
 
-Call `$INDUCTIVE_G3_SECTION_CTL recompose-check` to audit the committed artifacts (reads `inductive-scope/<S>.md` files + `exposed-points.json` + `architecture_view`):
-- **reforms_shape** — do the resolved points still constitute the Gate 1 shape?
-- **shape_absorbed** — is every confirmed shape constraint folded into its owning section file? No load-bearing constraint may live only in working memory — `_overview` is a cold-start scaffold, not an output, so anything it held must now have a section home.
+Call `$INDUCTIVE_G3_SECTION_CTL recompose-check` (structural half — design Turn 61):
+- **reforms_shape** — `_index.last_checkpoint == "shape"` (Shape-confirm mark present)
+- **shape_absorbed** — every cleared section has `<S>.json` (or legacy `.md`); no blocking∧open
 
-Both are mechanical (file-presence / ledger checks) — no semantic judgement, so no subagent is needed here.
+Semantic meaning of "still matches confirmed spine" is assessed in step 2 against the checkpoint baseline (not a frozen `architecture_view` SoT).
+
+Both structural predicates are mechanical — no semantic judgement, so no subagent is needed here.
 
 ### Step 2 — Semantic audit (subagent)
 
@@ -37,7 +39,7 @@ CYCLE_ID: {actual $CYCLE_ID}
 PROJECT_ROOT: {actual $PROJECT_ROOT}
 ```
 
-Do **not** paste section-file contents in the Task prompt — the subagent reads `inductive-scope/<S>.md`, `exposed-points.json`, and `$INDUCTIVE_DQI` from disk.
+Do **not** paste section-file contents in the Task prompt — the subagent reads `inductive-scope/<S>.json` (and legacy `.md` if any) from disk. Compare HEAD decisions against the Shape-confirm checkpoint baseline when judging drift.
 
 Then run `$INDUCTIVE_GATE_CTL g4-check-report` **once** — immediately after the subagent returns. **Exit 1 (unresolved conflicts, or `buildable`/`reversible`/`verifiable`=false) is an expected branch — still run `$INDUCTIVE_GATE_CTL g4-list-report` next** to get the findings for step 3. **Ignore** the Task return beyond confirming completion — decide next step only via `$INDUCTIVE_GATE_CTL g4-list-report`. **Do not** read source inline in this step.
 

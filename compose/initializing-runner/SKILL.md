@@ -103,8 +103,8 @@ After each I2f, resolve layout and run **I2g** when the current key is the last 
 
 #### I2a — Filter `I*`
 
-- **Input:** scope doc (`$SCOPE_DOC_PATH`, the SSOT) · **optional** inductive scope slice · `sections.{key}.intent` (else `desc`) · `intent_boundary` (exclusion — belongs elsewhere) · kw `## {key}`
-- **Inductive slice (only when `$INDUCTIVE_DIR` is set):** run `$RESOLVE_INDUCTIVE` for this `{section_key}`. If it prints a path, read that slice as **secondary, code-anchored substance** for this section. The scope doc stays the **SSOT and completeness anchor**: judge `gaps` against the scope doc, not the slice; the inductive slice **enriches** `i_star` (adds code-anchored HOW), it never overrides or substitutes a scope decision. Empty output → SSOT only.
+- **Input:** **inductive section slice (primary when present)** · scope doc (`$SCOPE_DOC_PATH`, Audit/completeness cross-check) · `sections.{key}.intent` (else `desc`) · `intent_boundary` (exclusion — belongs elsewhere) · kw `## {key}`
+- **Inductive slice (only when `$INDUCTIVE_DIR` is set):** run `$RESOLVE_INDUCTIVE` for this `{section_key}`. Prefer `<SECTION>.json` (section-SoT). If JSON: use `decisions[].text` as the **primary** `i_star` substance (same contract as `view --synthesis off`). If legacy `.md`: read as before. Scope doc is **not** a parallel SoT — use it to judge remaining `gaps` / completeness only (design §9). Empty resolver output → scope-doc-only fallback.
 - **Action:** Include scope substance matching `intent` and at least one KW dimension (semantic; do not label KW numbers). Fold in the grounding slice's matching substance when present. Exclude any substance `intent_boundary` defers to other sections. **Must-effort:** extract all matching scope substance; use `gaps` for scope absences — do not silently omit.
 - **Output:** write `i_star`, `scope_refs`, `gaps`, `kw_init` into `_derive-{key}.json`
 - **Done:** derive file exists with `i_star` / `scope_refs` / `gaps` populated per contract

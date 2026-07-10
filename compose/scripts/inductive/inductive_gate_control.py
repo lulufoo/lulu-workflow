@@ -333,6 +333,16 @@ def _validate_g1_payload(payload: dict[str, Any]) -> None:
 
 
 def _validate_g2_close(out_dir: Path) -> None:
+    """G2 folded into per-open attach-code-refs (design Turn 44 / plan C2).
+
+    If ``g2-topology-report.json`` is absent → auto-pass (independent G2 gate
+    no longer required; Shape-confirm + Audit cover the early global check).
+    If present → still require ``verdict=ok`` (legacy / optional topology pass).
+    """
+    report_path = Path(out_dir) / "g2-topology-report.json"
+    if not report_path.exists():
+        return
+
     cmd = _g2_ctl(out_dir) + ["check-g2-report"]
     result = subprocess.run(cmd, capture_output=True, text=True)
     try:

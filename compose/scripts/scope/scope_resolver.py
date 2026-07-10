@@ -139,18 +139,27 @@ def resolve_role_summary(
 
 
 def resolve_inductive_slice(section: str, inductive_dir: Path | None) -> str | None:
-    """Return the abspath of `{inductive_dir}/{section}.md` if it exists, else None.
+    """Return the abspath of a per-section inductive slice if it exists, else None.
 
-    Used by Initializing per section: the optional inductive per-section scope
-    slice that enriches (never replaces) the decision-doc SSOT. Empty/absent
-    inductive dir → no slice (init falls back to the SSOT alone).
+    Prefer ``{inductive_dir}/{section}.json`` (section-SoT). Legacy
+    ``{section}.md`` is accepted only if JSON is absent (clean cutover still
+    allows reading leftover md during transition tests).
+
+    Used by Initializing: the inductive slice is the **primary material** for
+    that section's decisions (fidelity projection of ``decisions[].text``);
+    the upstream scope doc is the Audit-time completeness cross-check, not a
+    parallel SoT. Empty/absent inductive dir → no slice.
     """
     key = (section or "").strip()
     if inductive_dir is None or not key:
         return None
-    candidate = Path(inductive_dir) / f"{key}.md"
-    if candidate.is_file():
-        return str(candidate.resolve())
+    root = Path(inductive_dir)
+    json_candidate = root / f"{key}.json"
+    if json_candidate.is_file():
+        return str(json_candidate.resolve())
+    md_candidate = root / f"{key}.md"
+    if md_candidate.is_file():
+        return str(md_candidate.resolve())
     return None
 
 

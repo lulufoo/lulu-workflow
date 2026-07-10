@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from scope_resolver import (  # noqa: E402
     ScopeResolverError,
     resolve_domain_markdown,
+    resolve_inductive_slice,
     resolve_role_markdown,
     resolve_role_summary,
 )
@@ -108,3 +109,47 @@ class TestResolveDomain:
     def test_requires_cycle(self):
         with pytest.raises(ScopeResolverError, match="requires"):
             resolve_domain_markdown()
+
+
+class TestResolveInductive:
+    def test_prefers_json_over_md(self, tmp_path: Path):
+        d = tmp_path / "inductive-scope"
+        d.mkdir()
+        (d / "ST.json").write_text(
+            json.dumps(
+                {
+                    "key": "ST",
+                    "status": "cleared",
+                    "frontier_kw": 3,
+                    "decisions": [
+                        {
+                            "id": "ST-d1",
+                            "kw": 1,
+                            "text": "hello",
+                            "trigger": "seed",
+                            "means": "scope",
+                            "confidence": "direct",
+                        }
+                    ],
+                    "open": [],
+                    "deferred": [],
+                }
+            ),
+            encoding="utf-8",
+        )
+        (d / "ST.md").write_text("# legacy\n", encoding="utf-8")
+        path = resolve_inductive_slice("ST", d)
+        assert path is not None
+        assert path.endswith("ST.json")
+
+    def test_falls_back_to_md(self, tmp_path: Path):
+        d = tmp_path / "inductive-scope"
+        d.mkdir()
+        (d / "IF.md").write_text("# IF\n", encoding="utf-8")
+        path = resolve_inductive_slice("IF", d)
+        assert path is not None
+        assert path.endswith("IF.md")
+
+    def test_missing_returns_none(self, tmp_path: Path):
+        assert resolve_inductive_slice("ST", tmp_path / "missing") is None
+        assert resolve_inductive_slice("ST", None) is None
