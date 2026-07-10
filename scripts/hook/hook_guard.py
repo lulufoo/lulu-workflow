@@ -101,16 +101,39 @@ def _should_override_conversation_id(command: str) -> bool:
 
 
 def _apply_conversation_id(command: str, conv_id: str) -> Optional[str]:
-    """Append or replace --conversation-id for workflow shell commands."""
+    """Append or replace --conversation-id for workflow shell commands.
+
+    Operates per newline-separated statement, not on the whole command blob:
+    a multi-line Shell call may mix an injectable script (e.g.
+    inductive_gate_control.py) with a non-injectable one (e.g.
+    inductive_g3_section_control.py, which has no --conversation-id flag and
+    needs none — see inductive_subagent_guard). Matching on the full string
+    would append the flag once at the very end, landing on whichever
+    statement happens to be last (wrong target, and on a trailing empty line
+    when the command ends with "\\n" it becomes a bare, invalid statement).
+    """
     if not conv_id:
         return None
-    if _should_override_conversation_id(command):
-        if _CONV_ID_ARG.search(command):
-            return _CONV_ID_ARG.sub(f"--conversation-id {conv_id}", command, count=1)
-        return f"{command} --conversation-id {conv_id}"
-    if _should_inject_conversation_id(command):
-        return f"{command} --conversation-id {conv_id}"
-    return None
+    lines = command.split("\n")
+    changed = False
+    for idx, line in enumerate(lines):
+        if not line.strip():
+            continue
+        if _should_override_conversation_id(line):
+            if _CONV_ID_ARG.search(line):
+                new_line = _CONV_ID_ARG.sub(f"--conversation-id {conv_id}", line, count=1)
+            else:
+                new_line = f"{line} --conversation-id {conv_id}"
+        elif _should_inject_conversation_id(line):
+            new_line = f"{line} --conversation-id {conv_id}"
+        else:
+            continue
+        if new_line != line:
+            lines[idx] = new_line
+            changed = True
+    if not changed:
+        return None
+    return "\n".join(lines)
 
 
 def _workflow_cache_dir(platform: str) -> Path:

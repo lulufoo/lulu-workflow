@@ -183,6 +183,43 @@ class TestShouldInjectConversationId:
         assert updated is not None
         assert updated.endswith("--conversation-id 9001dc22-85f1-404b-869c-2e471433da4d")
 
+    def test_multiline_command_injects_only_matching_line(self):
+        """Regression: a multi-line Shell call mixing inductive_gate_control.py
+        (injectable) with inductive_g3_section_control.py (not injectable — no
+        --conversation-id flag, no subagent-required command) must not append
+        the flag to the whole blob's tail. Previously this produced a bare
+        trailing "--conversation-id <id>" line that zsh ran as its own
+        (failing) command.
+        """
+        cmd = (
+            'OUT="/tmp/r1"\n'
+            'python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/inductive/'
+            'inductive_gate_control.py --out-dir "$OUT" gate-close --gate G3\n'
+            'python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/inductive/'
+            'inductive_g3_section_control.py --out-dir "$OUT" recompose-check 2>&1\n'
+        )
+        updated = hook_entry._apply_conversation_id(cmd, "9001dc22-85f1-404b-869c-2e471433da4d")
+        assert updated is not None
+        lines = updated.split("\n")
+        assert lines[0] == 'OUT="/tmp/r1"'
+        assert lines[1].endswith(
+            "gate-close --gate G3 --conversation-id 9001dc22-85f1-404b-869c-2e471433da4d"
+        )
+        # The section-control line has no flag registered and no
+        # subagent-required command — must be left untouched.
+        assert lines[2].endswith("recompose-check 2>&1")
+        assert "--conversation-id" not in lines[2]
+        # No stray trailing statement — never a bare "--conversation-id ..." line.
+        assert lines[3] == ""
+
+    def test_multiline_command_no_injectable_line_returns_none(self):
+        cmd = (
+            'OUT="/tmp/r1"\n'
+            'python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/inductive/'
+            'inductive_g3_section_control.py --out-dir "$OUT" recompose-check 2>&1\n'
+        )
+        assert hook_entry._apply_conversation_id(cmd, "9001dc22-85f1-404b-869c-2e471433da4d") is None
+
 
 class TestMainRouting:
     def test_no_conversation_id_allows(self, tmp_path, monkeypatch):
