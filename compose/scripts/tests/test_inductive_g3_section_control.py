@@ -431,3 +431,42 @@ def test_view_synthesis_on_returns_context_bundle_json(tmp_path):
     assert payload["bundle"]["sections"][0]["key"] == "ST"
     assert "decisions" in payload["bundle"]["sections"][0]
     assert "open" in payload["bundle"]["sections"][0]
+
+
+# --- section-SoT recompose / checkpoint (C1) --------------------------------
+
+def test_checkpoint_sets_last_checkpoint(tmp_path):
+    _seed(tmp_path, active="I")
+    code, payload = _run(tmp_path, "checkpoint", "--name", "shape")
+    assert code == 0, payload
+    assert payload["last_checkpoint"] == "shape"
+    idx = json.loads(
+        (tmp_path / "inductive-scope" / "_index.json").read_text(encoding="utf-8")
+    )
+    assert idx["last_checkpoint"] == "shape"
+
+
+def test_recompose_check_requires_shape_checkpoint(tmp_path):
+    _seed(tmp_path, active="I")
+    _run(tmp_path, "set-frontier", "--section", "I", "--kw", str(FRONTIER_TARGET_DEFAULT))
+    _run(tmp_path, "append-to-section", "--section", "I", "--content", "body")
+    _run(tmp_path, "clear-section", "--section", "I")
+    code, payload = _run(tmp_path, "recompose-check")
+    assert code == 1
+    assert payload.get("ok") is False
+    errors = payload.get("recompose_check", {}).get("errors", [])
+    assert any("shape checkpoint" in e for e in errors)
+
+
+def test_recompose_check_passes_with_shape_checkpoint(tmp_path):
+    _seed(tmp_path, active="I")
+    _run(tmp_path, "set-frontier", "--section", "I", "--kw", str(FRONTIER_TARGET_DEFAULT))
+    _run(tmp_path, "append-to-section", "--section", "I", "--content", "body")
+    _run(tmp_path, "clear-section", "--section", "I")
+    _run(tmp_path, "checkpoint", "--name", "shape")
+    code, payload = _run(tmp_path, "recompose-check")
+    assert code == 0, payload
+    rc = payload["recompose_check"]
+    assert rc["reforms_shape"] is True
+    assert rc["shape_absorbed"] is True
+    assert rc["errors"] == []

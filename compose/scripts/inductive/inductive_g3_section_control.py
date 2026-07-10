@@ -773,6 +773,13 @@ def cmd_skip_section(out_dir: Path, args: argparse.Namespace) -> None:
         _fail(str(exc))
 
     save_section_pointer(_pointer_path(out_dir), updated)
+    if section_path(out_dir, section).exists():
+        try:
+            doc = load_section(out_dir, section)
+            doc["status"] = "skipped"
+            save_section(out_dir, doc)
+        except ValueError as exc:
+            _fail(str(exc))
     _ok({"skipped": section, "reason": reason})
 
 
@@ -786,21 +793,33 @@ def cmd_rewind_section(out_dir: Path, args: argparse.Namespace) -> None:
         _fail(str(exc))
 
     save_section_pointer(_pointer_path(out_dir), updated)
+    # Keep section JSON status in sync (status command mirrors from JSON)
+    doc = ensure_section(out_dir, section)
+    doc["status"] = "active"
+    try:
+        save_section(out_dir, doc)
+    except ValueError as exc:
+        _fail(str(exc))
     _ok({"rewound_to": section})
 
 
 def cmd_recompose_check(out_dir: Path, _args: argparse.Namespace) -> None:
-    """Audit committed section artifacts for G4 recompose self-check.
+    """Audit committed section artifacts for G4 recompose self-check (structural).
 
-    Reads: inductive-scope/<S>.md files, exposed-points.json,
-           inductive-dqi.json (architecture_view).
-    Returns a recompose_check result with errors list.
-    Does NOT discover new EPs.
+    Mechanical half (design Turn 61 / plan C1):
+      - cleared sections have <S>.json (or legacy .md)
+      - no blocking∧open items
+      - _index.last_checkpoint == \"shape\" (Shape-confirm Git/checkpoint mark)
+
+    Semantic half (reforms_shape/shape_absorbed meaning vs confirmed spine) is
+    assessed by g4-recompose-runner against the checkpoint; this script only
+    checks that the checkpoint mark exists and artifacts are present.
+    Does NOT discover new open points.
     """
     ptr = _load_pointer(out_dir)
     errors: list[str] = []
 
-    # Check shape_absorbed: every cleared section must have its .json (or legacy .md)
+    # Cleared sections must have a section file
     for key in ptr["coverage_order"]:
         status = ptr["sections"][key]["status"]
         if status == "cleared":
@@ -811,7 +830,6 @@ def cmd_recompose_check(out_dir: Path, _args: argparse.Namespace) -> None:
                     f"cleared section {key!r} has no file at {jp} or {sf}"
                 )
 
-    # Check no blocking-open items remain (section JSON SoT)
     blocking = blocking_open_items(out_dir)
     if blocking:
         errors.append(
@@ -819,21 +837,25 @@ def cmd_recompose_check(out_dir: Path, _args: argparse.Namespace) -> None:
             + ", ".join(str(o.get("id")) for o in blocking)
         )
 
-    # Check architecture_view exists in DQI
-    dqi_path = out_dir / "inductive-dqi.json"
-    architecture_view_present = False
-    if dqi_path.exists():
-        try:
-            dqi = json.loads(dqi_path.read_text(encoding="utf-8"))
-            architecture_view_present = bool(dqi.get("architecture_view"))
-        except Exception:
-            errors.append("inductive-dqi.json is unreadable or malformed")
-    else:
-        errors.append("inductive-dqi.json not found (Gate 1 must close first)")
+    # Shape baseline mark (replaces frozen architecture_view dependency)
+    shape_checkpoint_present = False
+    try:
+        index = load_index(out_dir)
+        shape_checkpoint_present = index.get("last_checkpoint") == "shape"
+    except FileNotFoundError:
+        errors.append("inductive-scope/_index.json not found (init-pointer / Seed first)")
+    except ValueError as exc:
+        errors.append(f"_index.json invalid: {exc}")
 
-    # Structural checks (semantic checks remain AI responsibility per design §9)
-    reforms_shape = architecture_view_present and not any(
-        "architecture_view" in e for e in errors
+    if not shape_checkpoint_present:
+        errors.append(
+            "shape checkpoint missing: last_checkpoint must be 'shape' "
+            "(run checkpoint --name shape after Shape-confirm)"
+        )
+
+    # reforms_shape (mechanical): checkpoint mark present and no checkpoint-related errors
+    reforms_shape = shape_checkpoint_present and not any(
+        "shape checkpoint" in e or "_index.json" in e for e in errors
     )
 
     result = {
@@ -845,9 +867,10 @@ def cmd_recompose_check(out_dir: Path, _args: argparse.Namespace) -> None:
         "verifiable": None,
         "errors": errors,
         "_note": (
-            "reforms_shape/shape_absorbed are script-checkable structural predicates. "
-            "conflicts/buildable/reversible/verifiable are AI-assessed semantic predicates "
-            "and must be filled in by the AI before gate-close G4."
+            "reforms_shape/shape_absorbed here are script-checkable structural "
+            "predicates (checkpoint mark + cleared files + no blocking opens). "
+            "Semantic comparison of confirmed spine vs HEAD is AI-assessed in "
+            "g4-recompose-runner before gate-close G4."
         ),
     }
 
@@ -855,6 +878,25 @@ def cmd_recompose_check(out_dir: Path, _args: argparse.Namespace) -> None:
     print(json.dumps({"ok": ok, "recompose_check": result}, indent=2, ensure_ascii=False))
     if not ok:
         sys.exit(1)
+
+
+def cmd_checkpoint(out_dir: Path, args: argparse.Namespace) -> None:
+    """Record last_checkpoint on _index.json (e.g. shape after Shape-confirm)."""
+    name = (args.name or "").strip()
+    if not name:
+        _fail("--name is required (e.g. shape)")
+    try:
+        index = load_index(out_dir)
+    except FileNotFoundError:
+        _fail("inductive-scope/_index.json not found; run init-pointer first")
+    except ValueError as exc:
+        _fail(str(exc))
+    index["last_checkpoint"] = name
+    try:
+        save_index(out_dir, index)
+    except ValueError as exc:
+        _fail(str(exc))
+    _ok({"last_checkpoint": name})
 
 
 # ---------------------------------------------------------------------------
@@ -1056,6 +1098,13 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Audit committed artifacts for G4 self-check (structural predicates only)",
     )
 
+    # checkpoint (section-SoT)
+    p = sub.add_parser(
+        "checkpoint",
+        help="Set _index.last_checkpoint (e.g. shape after Shape-confirm)",
+    )
+    p.add_argument("--name", required=True, metavar="NAME", help="e.g. shape")
+
     return parser
 
 
@@ -1086,6 +1135,7 @@ def main() -> None:
         "skip-section": cmd_skip_section,
         "rewind-section": cmd_rewind_section,
         "recompose-check": cmd_recompose_check,
+        "checkpoint": cmd_checkpoint,
     }
 
     handler = dispatch.get(args.subcommand)

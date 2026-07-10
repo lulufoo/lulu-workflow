@@ -298,10 +298,15 @@ def cmd_gate_close(out_dir: Path, args: argparse.Namespace) -> None:
     updated = close_gate(state, gate, payload=payload if payload else None)
     save_gate_state(gate_path, updated)
 
-    # For G1: write architecture_view to DQI
-    if gate == "G1" and payload.get("architecture_view"):
-        _write_dqi_field(out_dir, "architecture_view", payload["architecture_view"])
-        _write_dqi_field(out_dir, "shape_constraints", payload.get("shape_constraints", []))
+    # For G1: write architecture_view to DQI (legacy resume aid) + shape checkpoint mark
+    if gate == "G1":
+        if payload.get("architecture_view"):
+            _write_dqi_field(out_dir, "architecture_view", payload["architecture_view"])
+            _write_dqi_field(
+                out_dir, "shape_constraints", payload.get("shape_constraints", [])
+            )
+        # section-SoT: Shape-confirm baseline = _index.last_checkpoint == "shape"
+        _run_section_ctl(out_dir, "checkpoint", "--name", "shape")
 
     # For G4: write merged recompose_check to DQI
     if gate == "G4":
