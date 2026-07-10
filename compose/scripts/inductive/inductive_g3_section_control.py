@@ -67,6 +67,8 @@ from inductive_exposed_points_schema import (  # noqa: E402
 )
 from inductive_section_schema import (  # noqa: E402
     ensure_section,
+    index_path,
+    load_index,
     load_section,
     mint_decision_id,
     mint_open_id,
@@ -74,6 +76,8 @@ from inductive_section_schema import (  # noqa: E402
     next_open_seq,
     save_index,
     save_section,
+    section_dir,
+    section_path,
 )
 
 
@@ -528,6 +532,112 @@ def cmd_attach_code_refs(out_dir: Path, args: argparse.Namespace) -> None:
     _ok({"id": target_id, "code_refs": existing, "section": section})
 
 
+def _resolve_view_scope(out_dir: Path, scope: str) -> list[str]:
+    """Resolve --scope into section keys (design §14.3)."""
+    scope = (scope or "all").strip()
+    if scope == "all":
+        ptr = _load_pointer(out_dir)
+        keys = list(ptr.get("coverage_order") or [])
+        # Also include any on-disk section JSON not in coverage_order
+        d = section_dir(out_dir)
+        if d.exists():
+            for p in sorted(d.glob("*.json")):
+                if p.name == "_index.json":
+                    continue
+                key = p.stem
+                if key not in keys:
+                    keys.append(key)
+        return keys
+    if scope.startswith("code:"):
+        # MVP: code: glob filter not fully implemented — fail clearly
+        _fail("view --scope code:<glob> not implemented in MVP; use all or ST,IF")
+    return [s.strip().upper() for s in scope.split(",") if s.strip()]
+
+
+def assemble_fidelity_markdown(out_dir: Path, keys: list[str]) -> str:
+    """Mechanical assembly of decisions[].text (view --synthesis off / compose init)."""
+    parts: list[str] = []
+    for key in keys:
+        path = section_path(out_dir, key)
+        if not path.exists():
+            continue
+        doc = load_section(out_dir, key)
+        texts = [str(d.get("text", "")).strip() for d in doc.get("decisions", [])]
+        texts = [t for t in texts if t]
+        if not texts:
+            continue
+        parts.append(f"## {key}\n")
+        parts.append("\n\n".join(texts))
+        parts.append("")
+    return "\n".join(parts).rstrip() + ("\n" if parts else "")
+
+
+def build_view_bundle(
+    out_dir: Path, keys: list[str], granularity: str | None = None
+) -> dict[str, Any]:
+    """Context bundle for view --synthesis on (script packs; AI synthesizes)."""
+    try:
+        index = load_index(out_dir)
+    except FileNotFoundError:
+        index = {"version": "1", "cycle_id": "_", "last_checkpoint": None}
+    sections: list[dict[str, Any]] = []
+    for i, key in enumerate(keys):
+        path = section_path(out_dir, key)
+        if path.exists():
+            doc = load_section(out_dir, key)
+        else:
+            doc = {
+                "key": key,
+                "status": "untouched",
+                "frontier_kw": 0,
+                "decisions": [],
+                "open": [],
+                "deferred": [],
+            }
+        sections.append(
+            {
+                "key": doc["key"],
+                "registry_label": key,
+                "order": i,
+                "status": doc.get("status"),
+                "frontier_kw": doc.get("frontier_kw", 0),
+                "decisions": doc.get("decisions", []),
+                "open": doc.get("open", []),
+                "deferred": doc.get("deferred", []),
+            }
+        )
+    bundle: dict[str, Any] = {"index": index, "sections": sections}
+    if granularity is not None:
+        bundle["granularity"] = granularity
+    return bundle
+
+
+def cmd_view(out_dir: Path, args: argparse.Namespace) -> None:
+    """view --synthesis off|on (design §14.3)."""
+    synthesis = (args.synthesis or "off").strip().lower()
+    if synthesis not in {"off", "on"}:
+        _fail("--synthesis must be off or on")
+    keys = _resolve_view_scope(out_dir, args.scope)
+    if not keys:
+        _fail("view scope resolved to empty section list")
+
+    if synthesis == "off":
+        md = assemble_fidelity_markdown(out_dir, keys)
+        _ok({"synthesis": "off", "scope": keys, "markdown": md})
+        return
+
+    granularity = args.granularity or ""
+    bundle = build_view_bundle(out_dir, keys, granularity=granularity or None)
+    _ok(
+        {
+            "synthesis": "on",
+            "scope": keys,
+            "granularity": granularity,
+            "bundle": bundle,
+        }
+    )
+
+
 def cmd_append_to_section(out_dir: Path, args: argparse.Namespace) -> None:
     section = args.section.strip().upper()
     content: str = args.content
@@ -816,6 +926,31 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Comma-separated code refs",
     )
 
+    # view (section-SoT)
+    p = sub.add_parser(
+        "view",
+        help="Extract a view: synthesis off=mechanical markdown; on=context bundle",
+    )
+    p.add_argument(
+        "--synthesis",
+        required=True,
+        choices=["off", "on"],
+        metavar="MODE",
+        help="off = decisions[].text assembly; on = JSON context bundle for AI",
+    )
+    p.add_argument(
+        "--scope",
+        default="all",
+        metavar="SCOPE",
+        help="all | ST,IF | (code:glob deferred)",
+    )
+    p.add_argument(
+        "--granularity",
+        default="",
+        metavar="HINT",
+        help="Free-text hint for synthesis:on (passed through; script does not interpret)",
+    )
+
     # register-ep
     p = sub.add_parser("register-ep", help="Append a new EP to the ledger")
     p.add_argument("--json", required=True, dest="json", metavar="JSON", help="EP JSON object")
@@ -895,6 +1030,7 @@ def main() -> None:
         "defer-open": cmd_defer_open,
         "update-decision": cmd_update_decision,
         "attach-code-refs": cmd_attach_code_refs,
+        "view": cmd_view,
         "register-ep": cmd_register_ep,
         "update-ep": cmd_update_ep,
         "append-to-section": cmd_append_to_section,

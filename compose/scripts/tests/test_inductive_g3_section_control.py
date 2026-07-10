@@ -361,3 +361,58 @@ def test_update_decision_and_attach_code_refs(tmp_path):
     assert d["text"] == "修订稿"
     assert d["rationale"] == "更准"
     assert d["code_refs"] == ["gateway/router.go::HTTPIngress (L88)"]
+
+
+# --- section-SoT view (B1) --------------------------------------------------
+
+def test_view_synthesis_off_assembles_decisions_text_only(tmp_path):
+    _seed(tmp_path, active="ST")
+    _run(tmp_path, "seed-decision", "--section", "ST", "--kw", "1", "--text", "A-decision")
+    _run(tmp_path, "activate-section", "--section", "I")
+    _run(tmp_path, "seed-decision", "--section", "I", "--kw", "1", "--text", "B-decision")
+    _run(
+        tmp_path,
+        "add-open",
+        "--section",
+        "I",
+        "--kw",
+        "2",
+        "--trigger",
+        "ai",
+        "--means",
+        "ai_scan",
+        "--problem",
+        "should-not-appear-in-off",
+        "--blocking",
+        "false",
+    )
+    code, payload = _run(
+        tmp_path, "view", "--synthesis", "off", "--scope", "all"
+    )
+    assert code == 0, payload
+    md = payload["markdown"]
+    assert "A-decision" in md and "B-decision" in md
+    assert "should-not-appear-in-off" not in md
+    assert "## ST" in md or "# ST" in md
+
+
+def test_view_synthesis_on_returns_context_bundle_json(tmp_path):
+    _seed(tmp_path, active="ST")
+    _run(tmp_path, "seed-decision", "--section", "ST", "--kw", "1", "--text", "A")
+    code, payload = _run(
+        tmp_path,
+        "view",
+        "--synthesis",
+        "on",
+        "--scope",
+        "ST",
+        "--granularity",
+        "架构大局",
+    )
+    assert code == 0, payload
+    assert "index" in payload["bundle"]
+    assert "sections" in payload["bundle"]
+    assert payload["granularity"] == "架构大局"
+    assert payload["bundle"]["sections"][0]["key"] == "ST"
+    assert "decisions" in payload["bundle"]["sections"][0]
+    assert "open" in payload["bundle"]["sections"][0]
