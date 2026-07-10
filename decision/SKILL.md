@@ -126,7 +126,9 @@ Gate contracts (dialogue semantics): `$SKILL_DIR/gates/*.md` — each spine/glob
 
 ## User-Facing Projection Rules
 
-Before every user-visible reply, project internal workflow state into plain-language task wording.
+Before every user-visible reply, project internal workflow **machinery** into user-facing task meaning. Projection controls *identifier visibility only* — it renders gate names, register codes, phase labels, and control flow into task language. It does **not** lower the domain register: technical vocabulary required by `domain_constraints` is preserved.
+
+**Precedence (conflict resolution):** `domain.instruction` > `role.instruction` > this section's plain-language rule. "Plain language" means *do not expose internal identifiers* — never *do not use domain/technical vocabulary*. When "say it plainly" and "use technical terms" appear to conflict, they are on different axes: strip the internal label, keep the technical term.
 
 Use only:
 
