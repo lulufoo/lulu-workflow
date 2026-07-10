@@ -2,14 +2,14 @@
 """Inductive runner outer gate spine control.
 
 Manages the G1->G2->G3->G4 gate state machine for the inductive runner.
-Delegates all G3 section / EP operations to inductive_g3_section_control.py
-via subprocess ($INDUCTIVE_G3_SECTION_CTL). G2/G3 grounding reads are
-facade subcommands that subprocess to artifact controls.
+Delegates section-SoT operations to inductive_g3_section_control.py via
+subprocess ($INDUCTIVE_G3_SECTION_CTL). G2/G3 grounding reads are facade
+subcommands that subprocess to artifact controls.
 
 Subcommands:
     init-session        Seed gate state + delegate init-pointer to section control
-    resolve-context     Return active_gate, active_section, open-EP count,
-                        architecture_view summary (multi-turn resume entry point)
+    resolve-context     Return active_gate, active_section, blocking-open count,
+                        optional DQI architecture_view (resume aid, not SoT)
     gate-close          Close a gate with payload validation and prereq check
     gate-reopen         Reopen a gate; downstream gates reset to pending
                         (also deletes the stale g2/g4 report where applicable).
@@ -215,18 +215,19 @@ def cmd_resolve_context(out_dir: Path, _args: argparse.Namespace) -> None:
     section_status: dict[str, Any] = {}
     frontier: dict[str, Any] = {}
     active_section = None
-    open_ep_count = 0
+    open_count = 0
 
-    if state["active_gate"] in {"G3", "G4"}:
-        sec_result = _run_section_ctl(out_dir, "status")
-        if sec_result.get("ok"):
-            section_status = sec_result.get("sections", {})
-            frontier = sec_result.get("frontier", {})
-            active_section = sec_result.get("active_section")
-            open_ep_count = sec_result.get(
-                "open_blocking_open_count",
-                sec_result.get("open_blocking_ep_count", 0),
-            )
+    # Always aggregate section-SoT status (Seed/Shape happen in G1; opens may exist
+    # before G3). Pointer may be absent only if init-session failed mid-way.
+    sec_result = _run_section_ctl(out_dir, "status")
+    if sec_result.get("ok"):
+        section_status = sec_result.get("sections", {})
+        frontier = sec_result.get("frontier", {})
+        active_section = sec_result.get("active_section")
+        open_count = sec_result.get(
+            "open_blocking_open_count",
+            sec_result.get("open_blocking_ep_count", 0),
+        )
 
     architecture_view = None
     dqi_p = _dqi_path(out_dir)
@@ -244,7 +245,8 @@ def cmd_resolve_context(out_dir: Path, _args: argparse.Namespace) -> None:
         "active_section": active_section,
         "section_statuses": section_status,
         "frontier": frontier,
-        "open_blocking_ep_count": open_ep_count,
+        "open_blocking_open_count": open_count,
+        "open_blocking_ep_count": open_count,  # deprecated alias
         "architecture_view": architecture_view,
     })
 
@@ -653,7 +655,7 @@ def _build_parser() -> argparse.ArgumentParser:
     # resolve-context
     sub.add_parser(
         "resolve-context",
-        help="Return active_gate, active_section, open-EP count (multi-turn resume entry)",
+        help="Return active_gate, active_section, blocking-open count (multi-turn resume)",
         parents=[conv_id_parent],
     )
 

@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
-"""Schema and I/O for exposed-points.json (EP ledger).
+"""DEPRECATED — section-SoT uses ``inductive_section_schema.py``.
+
+This module formerly owned ``exposed-points.json`` (EP ledger). Runtime
+inductive control no longer imports it; opens live in ``<SECTION>.json``
+``open[]`` / ``deferred[]``. Kept only so historical tests/docs that still
+mention the path do not break imports if revived. Do not use for new work.
+
+---
+Original docstring (historical):
+Schema and I/O for exposed-points.json (EP ledger).
 
 Each EP represents a candidate design gap discovered during Gate 3.
 EPs are appended incrementally as they are registered; status is

@@ -22,7 +22,7 @@ Required fields per receipt:
   created_at   ISO timestamp
 
 Optional:
-  ep_id                the open point's EP id — required for mode=deep
+  ep_id                open point id (e.g. ST-o1; legacy field name) — required for mode=deep
                         (disambiguates multiple points expanded in the same
                         section within one sweep; unused for shallow)
   need_clarification    str — subagent could not proceed without user input

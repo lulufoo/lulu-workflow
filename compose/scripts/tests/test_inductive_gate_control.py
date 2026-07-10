@@ -244,6 +244,39 @@ def test_gate_close_g1_rejects_missing_user_confirmed(tmp_path: Path):
     assert "user_confirmed" in str(result)
 
 
+def test_resolve_context_reports_blocking_open_count(tmp_path: Path):
+    _seed_session(tmp_path)
+    code, payload = _run_section(tmp_path, "activate-section", "--section", "ST")
+    assert code == 0, payload
+    code, payload = _run_section(
+        tmp_path,
+        "add-open",
+        "--section",
+        "ST",
+        "--kw",
+        "2",
+        "--trigger",
+        "ai",
+        "--means",
+        "ai_scan",
+        "--problem",
+        "gap",
+        "--blocking",
+        "true",
+    )
+    assert code == 0, payload
+    code, result = _run_gate(tmp_path, "resolve-context")
+    assert code == 0, result
+    assert result.get("active_gate") == "G1"
+    assert result.get("active_section") == "ST"
+    count = result.get("open_blocking_open_count")
+    if count is None:
+        count = result.get("open_blocking_ep_count")
+    assert count == 1, result
+    # DQI architecture_view is optional resume aid — absent until G1 writes it
+    assert "architecture_view" in result
+
+
 def test_g2_facade_check_forwards_success(tmp_path: Path):
     _seed_session(tmp_path)
     _run_gate(tmp_path, "gate-close", "--gate", "G1", "--payload", _g1_payload())

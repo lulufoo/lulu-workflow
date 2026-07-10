@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Tests for the inductive Gate 3 frontier-sweep machine.
+"""Tests for inductive section-SoT command surface (Gate 3 control).
 
-Covers the frontier_kw state plus the set-frontier / seed-decision /
-clear-section subcommands that replaced the one-shot commit-section.
+Covers frontier_kw, seed-decision / add-open / settle / clear / view /
+checkpoint, and fail-fast of removed EP/.md commands.
 """
 
 from __future__ import annotations
@@ -43,24 +43,6 @@ def _seed(out_dir: Path, active: str = "I") -> None:
     assert code == 0, payload
     code, payload = _run(out_dir, "activate-section", "--section", active)
     assert code == 0, payload
-
-
-def _blocking_ep_json(section: str) -> str:
-    return json.dumps(
-        {
-            "section": section,
-            "block": "blk",
-            "method": "impl_gap",
-            "kw": "KW1",
-            "type": "undecided",
-            "description": "a blocking gap",
-            "code_refs": [],
-            "confidence": "direct",
-            "blocking": True,
-            "source": "ai_scan",
-            "status": "open",
-        }
-    )
 
 
 # --- schema layer -----------------------------------------------------------
@@ -249,6 +231,29 @@ def test_init_pointer_does_not_create_ep_ledger(tmp_path):
     assert code == 0, payload
     assert not (tmp_path / "exposed-points.json").exists()
     assert (tmp_path / "inductive-scope" / "_index.json").exists()
+
+
+def test_check_coverage_passes_when_all_cleared(tmp_path):
+    _seed(tmp_path, active="I")
+    _run(tmp_path, "seed-decision", "--section", "I", "--kw", "1", "--text", "I body")
+    _run(tmp_path, "set-frontier", "--section", "I", "--kw", str(FRONTIER_TARGET_DEFAULT))
+    _run(tmp_path, "clear-section", "--section", "I")
+    _run(tmp_path, "activate-section", "--section", "ST")
+    _run(tmp_path, "seed-decision", "--section", "ST", "--kw", "1", "--text", "ST body")
+    _run(tmp_path, "set-frontier", "--section", "ST", "--kw", str(FRONTIER_TARGET_DEFAULT))
+    _run(tmp_path, "clear-section", "--section", "ST")
+    code, payload = _run(tmp_path, "check-coverage")
+    assert code == 0, payload
+    assert payload.get("ok") is True
+
+
+def test_skip_and_list_sections(tmp_path):
+    _seed(tmp_path, active="ST")
+    code, payload = _run(tmp_path, "skip-section", "--section", "ST", "--reason", "n/a")
+    assert code == 0, payload
+    code, payload = _run(tmp_path, "list-sections")
+    assert code == 0, payload
+    assert payload["sections"]["ST"]["status"] == "skipped"
 
 
 # --- section-SoT command surface (A2) ---------------------------------------

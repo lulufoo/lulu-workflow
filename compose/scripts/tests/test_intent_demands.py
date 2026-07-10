@@ -85,24 +85,6 @@ def test_is_generation_guaranteed_empty_refs():
     assert is_generation_guaranteed(None) is False
 
 
-def _ep(ep_id: str, status: str, intent_ref: str | None) -> dict:
-    return {
-        "id": ep_id,
-        "section": "ST",
-        "block": "b",
-        "method": "intent_coverage",
-        "kw": "KW1",
-        "type": "undecided",
-        "description": "d",
-        "code_refs": [],
-        "confidence": "inferred",
-        "blocking": False,
-        "source": "intent_baseline",
-        "status": status,
-        "intent_ref": intent_ref,
-    }
-
-
 def test_deferred_intent_refs(tmp_path: Path):
     scope = tmp_path / "inductive-scope"
     scope.mkdir(parents=True)

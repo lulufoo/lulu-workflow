@@ -1048,14 +1048,14 @@ def _build_parser() -> argparse.ArgumentParser:
     # append-to-section
     p = sub.add_parser(
         "append-to-section",
-        help="REMOVED — use seed-decision / update-decision / settle-open",
+        help="REMOVED — use seed-decision / update-decision / settle-open on <S>.json",
     )
     p.add_argument("--section", required=True, metavar="S")
     p.add_argument(
         "--content",
         required=True,
         metavar="MARKDOWN",
-        help="Markdown fragment to append to <S>.md",
+        help="Ignored (command removed)",
     )
 
     # clear-section
