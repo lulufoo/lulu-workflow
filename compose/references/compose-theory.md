@@ -55,13 +55,13 @@ block_title = specialize( blocks.{id}.heading ; substance(block intent bodies) )
 `Write` is deductive (known substance → organized prose, whole→parts). `Induce` is inductive (unknown substance → discover, ground, decide, fold, parts→whole): the inductive-runner produces per-section JSON SoT; `Write` / Initializing consumes a **mechanical fidelity projection** of `decisions[].text` as primary `I*` (design §9).
 
 ```text
-inductive_scope[section]  ⊕=  Expand( open_point )
-open_point = Expose(source)      # kept iff ( frontier_KW row false  ∧  ¬Settled )
+section_json[S].decisions  ⊕=  Expand( open_point )   # via settle-open
+open_point = Expose(trigger × means)  # kept iff ( frontier_KW row false  ∧  ¬Settled )
 ```
 
-- `Expand` = ground → AI leaning → **user decides** ⇒ one user-approved intent (user-approval is load-bearing).
-- `⊕=` = append to that section's figure; accretes across sweeps, deepens by KW; never overwrites another section.
-- Handoff: `inductive_scope[S] → I*(S) → Write(I* ; F ; C) | intent`.
+- `Expand` = ground (`attach-code-refs`) → AI leaning → **user decides** (auto/manual/ignore batch) ⇒ `settle-open` / `defer-open` (I6).
+- `⊕=` = append into that section's `decisions[]`; deepens by KW; never overwrites another section.
+- Handoff: `section_json[S].decisions[].text` (mechanical) → `I*(S)` → `Write(I* ; F ; C) | intent`.
 
 `Expose` discovers open points via **trigger × means** (design §6). All sources subtract `¬Settled` (`decisions[]` only — I5) and land in the owning section's `open[]` (not a separate EP ledger):
 
