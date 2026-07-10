@@ -190,6 +190,47 @@ def _record_ok_g2_report(tmp_path: Path) -> None:
     )
 
 
+def test_gate_close_g1_accepts_user_confirmed_without_architecture_view(tmp_path: Path):
+    """Shape-confirm baseline is checkpoint; DQI architecture_view is optional."""
+    _seed_session(tmp_path)
+    code, result = _run_gate(
+        tmp_path,
+        "gate-close",
+        "--gate",
+        "G1",
+        "--payload",
+        json.dumps({"user_confirmed": True}),
+    )
+    assert code == 0, result
+    assert result.get("closed") == "G1"
+    index = json.loads((tmp_path / "inductive-scope" / "_index.json").read_text(encoding="utf-8"))
+    assert index.get("last_checkpoint") == "shape"
+
+
+def test_gate_close_g1_rejects_missing_user_confirmed(tmp_path: Path):
+    _seed_session(tmp_path)
+    code, result = _run_gate(
+        tmp_path,
+        "gate-close",
+        "--gate",
+        "G1",
+        "--payload",
+        json.dumps(
+            {
+                "architecture_view": {
+                    "as_is": "a",
+                    "to_be": "b",
+                    "scope": {"in": ["x"], "out": []},
+                    "spine": "s",
+                    "traces_to": ["upstream"],
+                }
+            }
+        ),
+    )
+    assert code != 0
+    assert "user_confirmed" in str(result)
+
+
 def test_g2_facade_check_forwards_success(tmp_path: Path):
     _seed_session(tmp_path)
     _run_gate(tmp_path, "gate-close", "--gate", "G1", "--payload", _g1_payload())

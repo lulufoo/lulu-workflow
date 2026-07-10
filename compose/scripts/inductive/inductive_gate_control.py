@@ -27,8 +27,8 @@ Subcommands:
     g4-list-report      Facade: subprocess to inductive_g4_control list-recompose-report
 
 Payload per gate:
-    G1: {"architecture_view": {...}, "shape_constraints": [...]}
-    G2: {}  (requires g2-topology-report.json with verdict=ok)
+    G1: {"user_confirmed": true} required; architecture_view/shape_constraints optional resume aid only
+    G2: {}  (absent report auto-passes; present report requires verdict=ok)
     G3: must pass check-coverage (delegated to section control)
     G4: none accepted from the caller — report-driven. gate-close internally
         merges structural {reforms_shape, shape_absorbed} (recompose-check)
@@ -323,9 +323,19 @@ def cmd_gate_close(out_dir: Path, args: argparse.Namespace) -> None:
 # ---------------------------------------------------------------------------
 
 def _validate_g1_payload(payload: dict[str, Any]) -> None:
-    if not payload.get("architecture_view"):
-        _fail("G1 payload must include 'architecture_view'")
-    av = payload["architecture_view"]
+    """Shape-confirm close: user confirmation is hard; DQI view is optional aid.
+
+    Design §7 / I11: authoritative baseline is ``checkpoint("shape")``, not a
+    frozen ``architecture_view``. If a resume-aid view is supplied, it must be
+    complete; absence is allowed.
+    """
+    if not payload.get("user_confirmed"):
+        _fail("G1 payload must include 'user_confirmed': true")
+    av = payload.get("architecture_view")
+    if av is None:
+        return
+    if not isinstance(av, dict):
+        _fail("architecture_view must be an object when provided")
     required = ("as_is", "to_be", "scope", "spine", "traces_to")
     missing = [f for f in required if not av.get(f)]
     if missing:

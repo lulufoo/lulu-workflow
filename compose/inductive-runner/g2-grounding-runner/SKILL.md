@@ -1,14 +1,17 @@
 ---
 name: g2-grounding-runner
 description: >-
-  Read-only subagent for inductive Gate 2 topology grounding. Validates the
-  confirmed shape spine against observed code topology, writes a thin
-  g2-topology-report.json verdict to disk. Does not interact with the user.
+  DEPRECATED optional read-only subagent for legacy inductive Gate 2 topology
+  grounding. Prefer attach-code-refs inside capability ④. Validates confirmed
+  shape claims (from section JSON / checkpoint) against observed code topology,
+  writes a thin g2-topology-report.json verdict. Does not interact with the user.
 ---
 
 # g2-grounding-runner
 
-Terminal runner subagent. Dispatched from **inline** inductive-runner at Gate 2 (one subagent per G2 pass).
+> **Deprecated (section-SoT):** Independent G2 is folded into capability **④** `attach-code-refs` (design Turn 44). Prefer **not** to dispatch this runner. Kept only for optional legacy topology passes when a report must exist for `verdict=ok` close.
+
+Terminal runner subagent. Dispatched from **inline** inductive-runner at Gate 2 only when the parent explicitly chooses the legacy path (one subagent per G2 pass).
 
 **Scope:** This SKILL registers **`$INDUCTIVE_G2_CTL` only** (write report). It does **not** register `$INDUCTIVE_GATE_CTL`. Check/list and gate-close/reopen are **parent** (`inductive-runner`) steps — not subagent commands.
 
@@ -17,11 +20,11 @@ Terminal runner subagent. Dispatched from **inline** inductive-runner at Gate 2 
 Report field contract, thinness limits, and validation live in `g2_topology_report_schema.py` (read-only reference — write only via `$INDUCTIVE_G2_CTL record-g2-report`).
 
 **Hard boundaries (never violate):**
-- Read-only — no EP registration, no section mutation, no gate-close.
+- Read-only — no `add-open`, no section mutation, no gate-close.
 - Topology only — no line-level detail in `facts`; `code_refs` belong in `divergences` only.
 - No whole-file reads — Grep/symbol locate, then Read minimal line ranges if needed.
 - **To-Be gaps are not breaking** — unimplemented future structure is for Gate 3, not G2.
-- **Breaking = direct contradiction** with G1 `architecture_view` or `shape_constraints` only.
+- **Breaking = direct contradiction** with Shape-confirm claims from section JSON / checkpoint — **not** with DQI as SoT.
 
 ## Required Inputs
 
@@ -36,7 +39,7 @@ PROJECT_ROOT          absolute project root, resolved by the orchestrator
 
 Self-resolved: `$SKILL_ROOT` from workflow install path.
 
-Do **not** paste `architecture_view` or `shape_constraints` in the Task prompt — read them from `$INDUCTIVE_OUT_DIR/inductive-dqi.json`.
+Do **not** paste shape claims in the Task prompt — read section JSON / `_index.json` from disk.
 
 ## Script Macros
 
@@ -47,10 +50,10 @@ Do **not** paste `architecture_view` or `shape_constraints` in the Task prompt �
 
 ## Pipeline
 
-1. Read `$INDUCTIVE_OUT_DIR/inductive-dqi.json` → `architecture_view` + `shape_constraints` (G1 SSOT for shape claims).
+1. Read `$INDUCTIVE_OUT_DIR/inductive-scope/_index.json` → require `last_checkpoint == "shape"`. Load coarse shape claims from relevant `<S>.json` `decisions[]` (I/ST/SC etc.). DQI `architecture_view` / `shape_constraints` are **optional non-authoritative hints only** — never the sole SSOT.
 2. `$FETCH_COMPOSE --role inductive-scan-criteria` → `SCAN_CRITERIA` (topology scan methods if needed).
 3. Read-only scan: confirm spine / To-Be topology blocks exist or can exist; key relations are plausible.
-4. For each `shape_constraints[]` entry, optionally record a checklist row (`confirmed` | `not_applicable` | `contradiction`).
+4. Optionally record checklist rows (`confirmed` | `not_applicable` | `contradiction`) against the section-derived claims.
 5. If a **shape-breaking** contradiction exists → build report with `verdict: shape_breaking` and `divergences[]` (each with `shape_claim`, `finding`, optional `code_refs`).
 6. Otherwise → `verdict: ok` with up to 5 topology-level `facts[]` (no line numbers in facts).
 7. `$INDUCTIVE_G2_CTL record-g2-report --json '<report object>'`.

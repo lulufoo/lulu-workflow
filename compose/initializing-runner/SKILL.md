@@ -17,10 +17,10 @@ Use `$COMPOSE_PROFILE` from parent dispatch; kernel default applies only when om
 
 **Pipeline:** I1 Load → I2 Compose (per section) → I3 Validate → Return.
 
-Init writes a readable draft from scope substance only.
+Init writes a readable draft from **inductive section SoT** (`decisions[].text`) when `$INDUCTIVE_DIR` is present; otherwise from scope substance only (design §9).
 
-- **Must:** operationalize scope content; explicit 待决 for scope gaps; readable `F` structure.
-- **Must not:** scope-external speculation; decision paste; empty shell sections.
+- **Must:** operationalize inductive/scope content; explicit 待决 for gaps; readable `F` structure.
+- **Must not:** invent beyond inductive/scope; decision paste; empty shell sections; treat scope as a parallel SoT when inductive JSON exists.
 
 Round still owns formal gap closure. Do not ask the user questions. Do not run InDialogue, Reopen, Evaluating, or delivery work.
 
@@ -42,7 +42,7 @@ Derive artifact contract: [`../references/init-draft-quality.md`](../references/
 | `$COMPOSE_PROFILE` | Compose profile id from parent dispatch |
 | `$CYCLE_TYPE` | `feature` |
 | `$CYCLE_ID` | Active cycle id |
-| `$INDUCTIVE_DIR` | **Optional.** Dir of inductive per-section scope slices (`<section>.md`). Absent → SSOT-only behavior |
+| `$INDUCTIVE_DIR` | **Optional.** Dir of inductive per-section SoT (`<SECTION>.json`; legacy `.md` tolerated). Absent → scope-doc-only fallback |
 
 Self-resolved: `$PROJECT_ROOT` = `$(pwd)` · `$OUTPUT_DOC_PATH` from parent input (fallback `{REVISION_DIR}/tech-doc.md`)
 
@@ -103,9 +103,9 @@ After each I2f, resolve layout and run **I2g** when the current key is the last 
 
 #### I2a — Filter `I*`
 
-- **Input:** **inductive section slice (primary when present)** · scope doc (`$SCOPE_DOC_PATH`, Audit/completeness cross-check) · `sections.{key}.intent` (else `desc`) · `intent_boundary` (exclusion — belongs elsewhere) · kw `## {key}`
-- **Inductive slice (only when `$INDUCTIVE_DIR` is set):** run `$RESOLVE_INDUCTIVE` for this `{section_key}`. Prefer `<SECTION>.json` (section-SoT). If JSON: use `decisions[].text` as the **primary** `i_star` substance (same contract as `view --synthesis off`). If legacy `.md`: read as before. Scope doc is **not** a parallel SoT — use it to judge remaining `gaps` / completeness only (design §9). Empty resolver output → scope-doc-only fallback.
-- **Action:** Include scope substance matching `intent` and at least one KW dimension (semantic; do not label KW numbers). Fold in the grounding slice's matching substance when present. Exclude any substance `intent_boundary` defers to other sections. **Must-effort:** extract all matching scope substance; use `gaps` for scope absences — do not silently omit.
+- **Input:** **inductive section SoT (primary when present)** · scope doc (`$SCOPE_DOC_PATH`, completeness cross-check only) · `sections.{key}.intent` (else `desc`) · `intent_boundary` (exclusion — belongs elsewhere) · kw `## {key}`
+- **Inductive slice (only when `$INDUCTIVE_DIR` is set):** run `$RESOLVE_INDUCTIVE` for this `{section_key}`. Prefer `<SECTION>.json` (section-SoT). If JSON: assemble `decisions[].text` as the **primary** `i_star` substance (same contract as `view --synthesis off` — mechanical fidelity, I2/V5). If legacy `.md`: read as before. Empty resolver output → scope-doc-only fallback.
+- **Action:** When inductive JSON is present, **`i_star` comes from `decisions[].text` first** — do not rebuild a parallel narrative from scope. Use `$SCOPE_DOC_PATH` only to judge remaining `gaps` / completeness (design §9: scope is not a parallel SoT). When inductive is absent, include scope substance matching `intent` and at least one KW dimension (semantic; do not label KW numbers). Exclude any substance `intent_boundary` defers to other sections. **Must-effort:** do not silently omit matching inductive decisions; use `gaps` for absences.
 - **Output:** write `i_star`, `scope_refs`, `gaps`, `kw_init` into `_derive-{key}.json`
 - **Done:** derive file exists with `i_star` / `scope_refs` / `gaps` populated per contract
 

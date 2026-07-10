@@ -11,7 +11,7 @@ description: >-
 
 Run this sub-skill only when dispatched from a compose stage `start` (inductive path) — e.g. `lulu-design`.
 
-**Design SSOT:** `docs/biz/inductive-scope-section-sot-design.md` (+ theory). Implementation plan: `docs/superpowers/plans/2026-07-10-inductive-scope-section-sot.md`.
+**Design SSOT (how):** `docs/biz/inductive-scope-section-sot-design.md` · **theory (why):** `docs/biz/inductive-scope-section-sot-theory.md`.
 
 Produces **per-section JSON** under `inductive-scope/` (`<SECTION>.json` + `_index.json`) under the active revision dir. Compose Initializing reads a **mechanical fidelity projection** of `decisions[].text` (same as `view --synthesis off`). After completion, control returns to the parent compose stage for Initializing.
 
@@ -38,14 +38,14 @@ The parent passes these in the `## Input` block; do not hardcode stage paths.
 INDUCTIVE_DIR         = $INDUCTIVE_OUT_DIR/inductive-scope          # <SECTION>.json + _index.json (SoT)
 INDUCTIVE_DQI         = $INDUCTIVE_OUT_DIR/inductive-dqi.json       # optional resume aid; not SoT
 INDUCTIVE_GATE_STATE  = $INDUCTIVE_OUT_DIR/inductive-gate-state.json
-INDUCTIVE_SECTION_PTR = $INDUCTIVE_OUT_DIR/inductive-section-pointer.json
+INDUCTIVE_SECTION_PTR = $INDUCTIVE_OUT_DIR/inductive-section-pointer.json  # routing aid; status also on section JSON
 INDUCTIVE_GROUNDING   = $INDUCTIVE_OUT_DIR/grounding-notes.json     # optional receipts
 INDUCTIVE_G4_REPORT   = $INDUCTIVE_OUT_DIR/g4-recompose-report.json
 PROVENANCE_GATE_STATE = $INDUCTIVE_OUT_DIR/provenance-gate-state.json
 PROVENANCE_TRACES     = $INDUCTIVE_OUT_DIR/provenance-trace-{intent,scope,norm}.json
 ```
 
-> **Removed as SoT:** `exposed-points.json` (opens live in `<S>.json` `open[]`), frozen `architecture_view` as truth (shape is a view; baseline = `checkpoint --name shape`).
+> **Not SoT:** `exposed-points.json`, frozen `architecture_view` / `shape_constraints` as truth. Opens live in `<S>.json` `open[]`. Shape baseline for G4 = `checkpoint --name shape` (Git / `_index.last_checkpoint`), not a frozen view file.
 
 ---
 
@@ -59,40 +59,62 @@ PROVENANCE_TRACES     = $INDUCTIVE_OUT_DIR/provenance-trace-{intent,scope,norm}.
 | `$PROVENANCE_GATE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/provenance_gate_control.py" --out-dir "$INDUCTIVE_OUT_DIR"` |
 
 Fetch schedule:
-- **At Shape-confirm / G1 start:** `$FETCH_COMPOSE --role inductive-scan-criteria` → `SCAN_CRITERIA`
-- **Before detect / refine:** `$FETCH_COMPOSE --role section-form-registry`; `$FETCH_COMPOSE --role section-kw-criteria` → `KW_CRITERIA` (altitude register)
+- **Before Seed / Shape-confirm:** `$FETCH_COMPOSE --role inductive-scan-criteria` → `SCAN_CRITERIA`; `$FETCH_COMPOSE --role section-registry` (map scope statements → sections)
+- **Before detect / refine:** `$FETCH_COMPOSE --role section-form-registry`; `$FETCH_COMPOSE --role section-kw-criteria` → `KW_CRITERIA`
 
-**Primary CRUD (section-SoT):** `seed-decision`, `add-open`, `settle-open`, `defer-open`, `update-decision`, `attach-code-refs`, `get-section`, `view --synthesis off|on`, `checkpoint --name shape`, `set-frontier`, `clear-section`. See `$INDUCTIVE_G3_SECTION_CTL --help`.
+**Primary CRUD (section-SoT):** `seed-decision`, `add-open`, `update-open`, `settle-open`, `defer-open`, `update-decision`, `attach-code-refs`, `get-section`, `view --synthesis off|on`, `checkpoint --name shape`, `set-frontier`, `activate-section`, `clear-section`, `skip-section`, `rewind-section`, `check-coverage`. See `$INDUCTIVE_G3_SECTION_CTL --help`.
 
 ---
 
-## Method (capability surface)
+## Method (capability surface — design §7)
 
-Inductive work discovers missing design decisions (parts → whole). **SoT = per-section JSON.** Views and collision are read-only observations; mutations land only via section commands (I1/I12).
+Inductive work discovers missing design decisions (parts → whole). **SoT = per-section JSON.** Mutations land only via section commands (I1/I12). Progress is Exit-predicate driven, not sweep-count driven.
 
-**Control model (user-driven — design §7):**
+### Control spine
 
-1. **Seed** — `seed-decision` from `$SCOPE_DOC` into mapped sections (`trigger=seed`, `means=scope`).
-2. **Shape-confirm** — `view --synthesis on --granularity 架构大局` → user confirms/corrects → corrections via section commands → `$INDUCTIVE_G3_SECTION_CTL checkpoint --name shape` → `gate-close G1` (legacy payload still accepted for resume) → **stop and await user**.
-3. **G2** — folded: `gate-close G2` auto-passes without topology report (see `gates/g2-grounding.md`). Topology grounding happens per-open via `attach-code-refs`.
-4. **Capabilities (user triggers; do not auto-sweep):**
-   - ① **view** — fidelity projection (`synthesis off` = compose init input; `on` = AI-shaped bundle)
-   - ② **碰撞 (human/probe)** — questioning observation; gaps → `add-open --trigger human --means probe`
-   - ③ **detect** — on demand: `ai_scan` / `intent_baseline` / `ai/probe` (4 lenses at `frontier_kw`) → `add-open --trigger ai --means …`
-   - ④ **process batch** — auto/manual: `attach-code-refs` → `settle-open` / `defer-open`
-   - ⑤ **user-proposed** — `add-open --trigger human --means direct` → immediately ④
-5. **Exit** — coverage sections cleared/skipped ∧ no blocking∧open ∧ (manifest demands fulfilled∨deferred if present)
-6. **Audit (user-triggered close):** G4 internal (hard) · G5 external (soft) → Handoff
+1. **Seed** — Map `$SCOPE_DOC` decision units into sections via `seed-decision` (`trigger=seed`, `means=scope`, `confidence=direct`). Registry maps structural → ST, boundary → SC, goals → GO, invariants → I, etc. **I4:** never invent beyond scope. Git commit `"seeded"`.
+2. **Shape-confirm (I11)** — After Seed: `view --synthesis on --granularity <arch-overview hint>` → user confirms/corrects → corrections via `seed-decision` / `update-decision` / `add-open` → re-view until confirmed → `checkpoint --name shape` → `gate-close G1` → **stop and await user**. Do **not** auto-detect.
+3. **G2 folded** — `gate-close G2` auto-passes without topology report. Per-open grounding = `attach-code-refs` inside capability ④.
+4. **User-driven capabilities** (below) until Exit.
+5. **Exit** — run `check-coverage`: ∀ coverage section cleared∨skipped ∧ no (blocking∧open) ∧ (if demand manifest: all fulfilled∨deferred).
+6. **Audit (user-triggered):** G4 internal hard · G5 external soft → Handoff (`view --synthesis off` / Initializing).
 
-**Discovery skeleton (Expose):** section + `frontier_kw` ruler; methods measure; evidence differs (code / demand / methodology). `trigger=human` exempt from altitude filter; `trigger=ai` applies it. `ai/probe` MVP lenses: failure / boundary / assumption / seam (design §6.1).
+### Global observation (anytime after Seed — **not** Gate-3-only; I13)
 
-**Collaboration:** AI leads cognition + spine; user leads decision and progress. Scripts never judge content semantics.
+| # | Capability | Contract | Lands via |
+|---|------------|----------|-----------|
+| ① | **view** | Fidelity projection. **V1** source=section SoT only · **V2** no invent / gaps stay gaps · **V3** shape free · **V4** non-authoritative · **V5** `synthesis:off` = compose-init mechanical assembly. **No inference** when presenting as View. | Corrections → section commands |
+| ② | **碰撞 (human/probe)** | Questioning observation. AI may infer but **must** label ✅ Verified (anchor) / ⚠️ Inferred / say unknown. Multi-readings OK; **never** decide for the user. | Gaps → `add-open --trigger human --means probe` → ④ |
+
+Do **not** mix ① and ②: stuffing inference into a View violates V2.
+
+### Advance actions (mutate SoT)
+
+| # | Capability | Notes |
+|---|------------|-------|
+| ③ | **detect** [sections] | User asks only. Subtract **Settled** (`decisions[]`) first (**I5**). Run `ai_scan` / `intent_baseline` / `ai/probe` (4 lenses at `frontier_kw`) → `add-open --trigger ai --means …`. Present batch (problem+leaning). |
+| ④ | **process batch** | Informed choice after seeing problem+leaning: **auto** (authorized continuous settle) / **manual** (pause per point) / **ignore** (`defer-open`). Path: `attach-code-refs` → `settle-open` / `defer-open`. One git commit per settle/defer (**I8**). Then ①/② to confirm. |
+| ⑤ | **user-proposed** | `add-open --trigger human --means direct` (or `means=view` if found while viewing) → **immediately** ④. |
+
+**② vs ③ vs ⑤:** ② = ad-hoc dialogue questions; ③ = systematic section batch; ⑤ = user already asserts a gap (often after ②).
+
+**Discovery skeleton:** section + `frontier_kw` ruler; methods measure; evidence differs (code / demand / methodology). `trigger=human` altitude-exempt; `trigger=ai` applies `frontier_kw`. Provenance vocabulary: `trigger ∈ {human,ai,seed}` × `means ∈ {probe,direct,view,ai_scan,intent_baseline,scope}` (`seed`/`scope` Seed-only).
+
+**`ai/probe` MVP lenses (design §6.1):** failure / boundary / assumption / seam — silence ∧ KW-false → gap; no correctness judging (G4). Dedup identity = (section, KW row, topic); collide → attach provenance via `update-open`, do not duplicate.
+
+**`frontier_kw`:** re-judge via `set-frontier` only when that section's `decisions` change (`seed-decision` / `settle-open` / `update-decision`). No global refresh.
+
+**Lazy consistency (I8):** after `update-decision` on id=X, single-hop re-read opens with `hangs_under==X` (+ citing sections); conflict → `add-open`. No cascade engine.
+
+**Collaboration:** AI leads cognition + spine; user leads decision and progress. Scripts never judge content semantics. Output = finding + leaning — never a verdict menu.
 
 ---
 
 ## Pipeline
 
-**Seed + Shape-confirm (G1) → G2 (auto/folded) → Refine capabilities (G3) → Audit G4 → Audit G5**
+**Capability surface is primary.** Gates are checkpoints / audits around it:
+
+**Seed + Shape-confirm (G1) → G2 (auto/folded) → Refine (G3 hosts ③④⑤; ①② global) → Audit G4 → Audit G5**
 
 ### Gate routing
 
@@ -106,37 +128,43 @@ Do NOT rely on memory for gate execution steps.
 |------|------|-----------------|
 | G1 — Shape-confirm | `gates/g1-shape.md` | Session start or `active_gate=G1` |
 | G2 — Folded grounding | `gates/g2-grounding.md` | G1 closed — usually auto-close |
-| G3 — Refine (capabilities) | `gates/g3-refine.md` | G2 closed |
-| G4 — Internal audit | `gates/g4-recompose.md` | User ready; G3 exit met |
-| G5 — External audit | `gates/g5-provenance.md` | G4 closed |
+| G3 — Refine (③④⑤) | `gates/g3-refine.md` | G2 closed |
+| G4 — Internal audit (hard) | `gates/g4-recompose.md` | User ready; G3 exit met |
+| G5 — External audit (soft) | `gates/g5-provenance.md` | G4 closed |
 
 ---
 
 ## Roles & Global Rules
 
-- **Collaboration baseline:** AI leads cognition and the spine; user leads decision and progress. Output = finding + leaning — never a verdict menu.
-- **Who fixes what:** User decides how to fix; AI recommends; scripts move state only. G4 finds/names — never patches.
-- **Focus guard:** Discovery may scan cross-section (read-only). Mutations (`seed-decision`, `add-open`, `settle-open`, `set-frontier`, `clear-section`, …) require `activate-section` first.
+- **Who fixes what:** User decides how to fix; AI recommends; scripts move state only. G4/G5 find/name — never patch.
+- **Focus guard:** Discovery may scan cross-section (read-only). Mutations require `activate-section` first.
 - **Human inlet:** `add-open --trigger human --means probe|direct|view` — any altitude; AI maps owning section.
-- **AI detect:** never automatic; user asks. Sources: `ai_scan`, `intent_baseline`, `probe` (black-box lenses).
+- **AI detect:** never automatic; user asks.
+- **intent_coverage:** when a demand manifest exists, mount-or-create opens with `intent_ref` before inventing duplicates.
 - **Session state:** each turn start with `$INDUCTIVE_GATE_CTL resolve-context`.
 
 ---
 
 ## Output Contract
 
-**SoT:** `inductive-scope/<SECTION>.json` with `decisions[]` / `open[]` / `deferred[]` + `_index.json` (`last_checkpoint`).
+**SoT:** `inductive-scope/<SECTION>.json` — minimum fields:
 
-**Compose init input:** `$INDUCTIVE_G3_SECTION_CTL view --synthesis off --scope <S|all>` (mechanical `decisions[].text` assembly) — same bytes the resolver may materialize for Initializing.
+- `decisions[]`: `id`, `kw`, `text`, `trigger`, `means`, `intent_ref`, `confidence`, optional `rationale` / `code_refs`
+- `open[]`: `id`, `kw`, `trigger`, `means`, `blocking`, `problem`, `leaning`, `confidence`, optional `intent_ref` / `hangs_under` / `code_refs`
+- `deferred[]`: deferred opens (+ optional `intent_ref` / `note`)
+- `_index.json`: `cycle_id`, `scope_ref`, `last_checkpoint`
 
-**DQI** remains a resume/audit aid written by gate-control; it is **not** the decision SoT.
+**Compose init input:** `$INDUCTIVE_G3_SECTION_CTL view --synthesis off --scope <S|all>` — mechanical `decisions[].text` assembly (I2/V5).
+
+**DQI** = optional resume/audit aid from gate-control; **not** decision SoT.
 
 ---
 
 ## Constraints
 
-- Single SoT = section JSON; views non-authoritative (V1–V5).
-- No AI hand-written JSON (I12) — only section-control commands.
+- Single SoT = section JSON (I1). Views non-authoritative (I3 / V1–V5). I13: View ≠ 碰撞.
+- No AI hand-written JSON (I12) — section-control commands only.
+- I5: subtract Settled before detect. I6: informed batch auto/manual/ignore. I7: coarse views stay coarse (no file:line in arch overview).
 - G2 not an independent discovery gate; ground via `attach-code-refs`.
-- G4 structural: shape checkpoint + cleared files + no blocking opens; semantic half in `g4-recompose-runner`.
-- Clean cutover: no migration of legacy `.md` / EP ledger as SoT.
+- G4 hard / G5 soft; both user-triggered at delivery time.
+- Clean cutover: no legacy `.md` / EP ledger as SoT.

@@ -160,11 +160,11 @@ Dimension set, evaluation framework, and eval-mode branching (e.g. tech vs produ
 | Document | When |
 |----------|------|
 | `{SKILL_ROOT}/compose/inductive-runner/SKILL.md` | Step 0 — inductive-runner (`drafting.inductive: true` profiles only) |
-| `{SKILL_ROOT}/compose/inductive-runner/g2-grounding-runner/SKILL.md` | Step 0 — Gate 2 topology grounding subagent (dispatched from inductive-runner) |
-| `{SKILL_ROOT}/compose/inductive-runner/g3-shallow-grounding-runner/SKILL.md` | Step 0 — Gate 3 shallow grounding subagent (dispatched from inductive-runner) |
-| `{SKILL_ROOT}/compose/inductive-runner/g3-deep-grounding-runner/SKILL.md` | Step 0 — Gate 3 deep grounding subagent (dispatched from inductive-runner) |
-| `{SKILL_ROOT}/compose/inductive-runner/g4-recompose-runner/SKILL.md` | Step 0 — Gate 4 recompose audit subagent (dispatched from inductive-runner) |
-| `{SKILL_ROOT}/compose/inductive-runner/g5-provenance-runner/SKILL.md` | Step 0 — Gate 5 provenance subagent (dispatched from inductive-runner) |
+| `{SKILL_ROOT}/compose/inductive-runner/g2-grounding-runner/SKILL.md` | Step 0 — **deprecated** optional G2 topology subagent (prefer `attach-code-refs` in capability ④) |
+| `{SKILL_ROOT}/compose/inductive-runner/g3-shallow-grounding-runner/SKILL.md` | Step 0 — optional G3 shallow grounding subagent (detect facts only; parent `add-open`) |
+| `{SKILL_ROOT}/compose/inductive-runner/g3-deep-grounding-runner/SKILL.md` | Step 0 — optional G3 deep grounding subagent (one open; parent settles) |
+| `{SKILL_ROOT}/compose/inductive-runner/g4-recompose-runner/SKILL.md` | Step 0 — Gate 4 internal-audit subagent (section JSON + shape checkpoint) |
+| `{SKILL_ROOT}/compose/inductive-runner/g5-provenance-runner/SKILL.md` | Step 0 — Gate 5 external-audit subagent (section JSON provenance) |
 | `{SKILL_ROOT}/compose/initializing-runner/SKILL.md` | Step 1 — initializing-runner |
 | `{$SKILL_ROOT}/eval/eval-rules.md` | Evaluating (user-initiated) |
 
