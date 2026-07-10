@@ -405,6 +405,129 @@ def cmd_get_section(out_dir: Path, args: argparse.Namespace) -> None:
     _ok({"section": doc})
 
 
+def _find_open(doc: dict[str, Any], open_id: str) -> dict[str, Any] | None:
+    return next((o for o in doc.get("open", []) if o.get("id") == open_id), None)
+
+
+def _find_decision(doc: dict[str, Any], decision_id: str) -> dict[str, Any] | None:
+    return next((d for d in doc.get("decisions", []) if d.get("id") == decision_id), None)
+
+
+def cmd_settle_open(out_dir: Path, args: argparse.Namespace) -> None:
+    """Move open → decisions, inheriting trigger/means/intent_ref (design §14)."""
+    section = args.section.strip().upper()
+    ptr = _load_pointer(out_dir)
+    _focus_guard(ptr, section)
+
+    doc = ensure_section(out_dir, section)
+    open_item = _find_open(doc, args.open_id)
+    if open_item is None:
+        _fail(f"open not found: {args.open_id!r}")
+
+    seq = next_decision_seq(doc)
+    decision: dict[str, Any] = {
+        "id": mint_decision_id(section, seq),
+        "kw": open_item.get("kw", args.kw if hasattr(args, "kw") and args.kw is not None else 1),
+        "text": args.text,
+        "trigger": open_item["trigger"],
+        "means": open_item["means"],
+        "confidence": (args.confidence or open_item.get("confidence") or "inferred"),
+        "intent_ref": open_item.get("intent_ref"),
+        "code_refs": list(open_item.get("code_refs") or []),
+    }
+    if args.rationale:
+        decision["rationale"] = args.rationale
+    elif open_item.get("leaning") and not args.rationale:
+        # keep leaning only if caller did not supply rationale — optional
+        pass
+
+    doc["open"] = [o for o in doc["open"] if o.get("id") != args.open_id]
+    doc["decisions"].append(decision)
+    try:
+        save_section(out_dir, doc)
+    except ValueError as exc:
+        _fail(str(exc))
+    _ok({"decision_id": decision["id"], "settled": args.open_id, "section": section})
+
+
+def cmd_defer_open(out_dir: Path, args: argparse.Namespace) -> None:
+    section = args.section.strip().upper()
+    ptr = _load_pointer(out_dir)
+    _focus_guard(ptr, section)
+
+    doc = ensure_section(out_dir, section)
+    open_item = _find_open(doc, args.open_id)
+    if open_item is None:
+        _fail(f"open not found: {args.open_id!r}")
+
+    deferred = {
+        "id": open_item["id"],
+        "kw": open_item.get("kw"),
+        "note": args.note or "",
+    }
+    if open_item.get("intent_ref"):
+        deferred["intent_ref"] = open_item["intent_ref"]
+
+    doc["open"] = [o for o in doc["open"] if o.get("id") != args.open_id]
+    doc["deferred"].append(deferred)
+    try:
+        save_section(out_dir, doc)
+    except ValueError as exc:
+        _fail(str(exc))
+    _ok({"deferred": args.open_id, "section": section})
+
+
+def cmd_update_decision(out_dir: Path, args: argparse.Namespace) -> None:
+    section = args.section.strip().upper()
+    ptr = _load_pointer(out_dir)
+    _focus_guard(ptr, section)
+
+    doc = ensure_section(out_dir, section)
+    decision = _find_decision(doc, args.decision_id)
+    if decision is None:
+        _fail(f"decision not found: {args.decision_id!r}")
+
+    if args.text is not None:
+        decision["text"] = args.text
+    if args.rationale is not None:
+        decision["rationale"] = args.rationale
+    try:
+        save_section(out_dir, doc)
+    except ValueError as exc:
+        _fail(str(exc))
+    _ok({"updated": args.decision_id, "section": section})
+
+
+def cmd_attach_code_refs(out_dir: Path, args: argparse.Namespace) -> None:
+    section = args.section.strip().upper()
+    ptr = _load_pointer(out_dir)
+    _focus_guard(ptr, section)
+
+    refs = [r.strip() for r in args.refs.split(",") if r.strip()]
+    if not refs:
+        _fail("--refs must provide at least one code ref")
+
+    doc = ensure_section(out_dir, section)
+    target_id = args.id
+    decision = _find_decision(doc, target_id)
+    open_item = _find_open(doc, target_id) if decision is None else None
+    if decision is None and open_item is None:
+        _fail(f"id not found in decisions or open: {target_id!r}")
+
+    item = decision if decision is not None else open_item
+    assert item is not None
+    existing = list(item.get("code_refs") or [])
+    for ref in refs:
+        if ref not in existing:
+            existing.append(ref)
+    item["code_refs"] = existing
+    try:
+        save_section(out_dir, doc)
+    except ValueError as exc:
+        _fail(str(exc))
+    _ok({"id": target_id, "code_refs": existing, "section": section})
+
+
 def cmd_append_to_section(out_dir: Path, args: argparse.Namespace) -> None:
     section = args.section.strip().upper()
     content: str = args.content
@@ -655,6 +778,44 @@ def _build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("get-section", help="Return <S>.json contents")
     p.add_argument("--section", required=True, metavar="S")
 
+    # settle-open (section-SoT)
+    p = sub.add_parser(
+        "settle-open",
+        help="Move open → decisions (inherit trigger/means/intent_ref)",
+    )
+    p.add_argument("--section", required=True, metavar="S")
+    p.add_argument("--open-id", required=True, dest="open_id", metavar="ID")
+    p.add_argument("--text", required=True, metavar="TEXT")
+    p.add_argument("--rationale", default=None, metavar="TEXT")
+    p.add_argument("--confidence", default=None, metavar="C")
+
+    # defer-open (section-SoT)
+    p = sub.add_parser("defer-open", help="Move open → deferred")
+    p.add_argument("--section", required=True, metavar="S")
+    p.add_argument("--open-id", required=True, dest="open_id", metavar="ID")
+    p.add_argument("--note", default="", metavar="TEXT")
+
+    # update-decision (section-SoT)
+    p = sub.add_parser("update-decision", help="Patch a decision text/rationale")
+    p.add_argument("--section", required=True, metavar="S")
+    p.add_argument("--decision-id", required=True, dest="decision_id", metavar="ID")
+    p.add_argument("--text", default=None, metavar="TEXT")
+    p.add_argument("--rationale", default=None, metavar="TEXT")
+
+    # attach-code-refs (section-SoT)
+    p = sub.add_parser(
+        "attach-code-refs",
+        help="Append code_refs to a decision or open item",
+    )
+    p.add_argument("--section", required=True, metavar="S")
+    p.add_argument("--id", required=True, metavar="ID", help="decision or open id")
+    p.add_argument(
+        "--refs",
+        required=True,
+        metavar="REFS",
+        help="Comma-separated code refs",
+    )
+
     # register-ep
     p = sub.add_parser("register-ep", help="Append a new EP to the ledger")
     p.add_argument("--json", required=True, dest="json", metavar="JSON", help="EP JSON object")
@@ -730,6 +891,10 @@ def main() -> None:
         "seed-decision": cmd_seed_decision,
         "add-open": cmd_add_open,
         "get-section": cmd_get_section,
+        "settle-open": cmd_settle_open,
+        "defer-open": cmd_defer_open,
+        "update-decision": cmd_update_decision,
+        "attach-code-refs": cmd_attach_code_refs,
         "register-ep": cmd_register_ep,
         "update-ep": cmd_update_ep,
         "append-to-section": cmd_append_to_section,

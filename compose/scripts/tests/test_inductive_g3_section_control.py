@@ -230,3 +230,134 @@ def test_add_open_and_get_section(tmp_path):
     assert got["section"]["open"][0]["trigger"] == "ai"
     assert got["section"]["open"][0]["means"] == "probe"
     assert got["section"]["open"][0]["blocking"] is True
+
+
+# --- section-SoT command surface (A3) ---------------------------------------
+
+def test_settle_open_moves_to_decisions_and_inherits_trigger_means(tmp_path):
+    _seed(tmp_path, active="ST")
+    _run(
+        tmp_path,
+        "add-open",
+        "--section",
+        "ST",
+        "--kw",
+        "2",
+        "--trigger",
+        "ai",
+        "--means",
+        "probe",
+        "--problem",
+        "共享？",
+        "--leaning",
+        "Redis",
+        "--intent-ref",
+        "SPEC-1",
+        "--blocking",
+        "true",
+    )
+    code, payload = _run(
+        tmp_path,
+        "settle-open",
+        "--section",
+        "ST",
+        "--open-id",
+        "ST-o1",
+        "--text",
+        "用 Redis 令牌桶共享状态",
+        "--rationale",
+        "多实例必须共享计数",
+        "--confidence",
+        "direct",
+    )
+    assert code == 0, payload
+    assert payload["decision_id"] == "ST-d1"
+    code, got = _run(tmp_path, "get-section", "--section", "ST")
+    sec = got["section"]
+    assert sec["open"] == []
+    d = sec["decisions"][0]
+    assert d["text"] == "用 Redis 令牌桶共享状态"
+    assert d["trigger"] == "ai"
+    assert d["means"] == "probe"
+    assert d["intent_ref"] == "SPEC-1"
+    assert d["rationale"] == "多实例必须共享计数"
+    assert d["confidence"] == "direct"
+
+
+def test_defer_open_moves_to_deferred(tmp_path):
+    _seed(tmp_path, active="ST")
+    _run(
+        tmp_path,
+        "add-open",
+        "--section",
+        "ST",
+        "--kw",
+        "3",
+        "--trigger",
+        "human",
+        "--means",
+        "direct",
+        "--problem",
+        "HA later",
+        "--blocking",
+        "false",
+    )
+    code, payload = _run(
+        tmp_path,
+        "defer-open",
+        "--section",
+        "ST",
+        "--open-id",
+        "ST-o1",
+        "--note",
+        "本轮不展开",
+    )
+    assert code == 0, payload
+    code, got = _run(tmp_path, "get-section", "--section", "ST")
+    sec = got["section"]
+    assert sec["open"] == []
+    assert sec["deferred"][0]["id"] == "ST-o1"
+    assert sec["deferred"][0]["note"] == "本轮不展开"
+
+
+def test_update_decision_and_attach_code_refs(tmp_path):
+    _seed(tmp_path, active="ST")
+    _run(
+        tmp_path,
+        "seed-decision",
+        "--section",
+        "ST",
+        "--kw",
+        "1",
+        "--text",
+        "初稿",
+    )
+    code, payload = _run(
+        tmp_path,
+        "update-decision",
+        "--section",
+        "ST",
+        "--decision-id",
+        "ST-d1",
+        "--text",
+        "修订稿",
+        "--rationale",
+        "更准",
+    )
+    assert code == 0, payload
+    code, payload = _run(
+        tmp_path,
+        "attach-code-refs",
+        "--section",
+        "ST",
+        "--id",
+        "ST-d1",
+        "--refs",
+        "gateway/router.go::HTTPIngress (L88)",
+    )
+    assert code == 0, payload
+    code, got = _run(tmp_path, "get-section", "--section", "ST")
+    d = got["section"]["decisions"][0]
+    assert d["text"] == "修订稿"
+    assert d["rationale"] == "更准"
+    assert d["code_refs"] == ["gateway/router.go::HTTPIngress (L88)"]
