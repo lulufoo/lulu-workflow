@@ -280,6 +280,40 @@ def empty_section(key: str, status: str = "untouched", frontier_kw: int = 0) -> 
     }
 
 
+def list_section_keys(out_dir: Path) -> list[str]:
+    """Return section keys that have a JSON file on disk (excluding _index)."""
+    d = section_dir(out_dir)
+    if not d.exists():
+        return []
+    return sorted(
+        p.stem for p in d.glob("*.json") if p.name != "_index.json"
+    )
+
+
+def blocking_open_items(
+    out_dir: Path, section: str | None = None
+) -> list[dict[str, Any]]:
+    """Open items with blocking=True from section JSON (section-SoT Exit predicate)."""
+    keys = [section] if section else list_section_keys(out_dir)
+    found: list[dict[str, Any]] = []
+    for key in keys:
+        if not key:
+            continue
+        path = section_path(out_dir, key)
+        if not path.exists():
+            continue
+        try:
+            doc = load_section(out_dir, key)
+        except (ValueError, FileNotFoundError):
+            continue
+        for o in doc.get("open") or []:
+            if o.get("blocking") is True:
+                item = dict(o)
+                item.setdefault("section", key)
+                found.append(item)
+    return found
+
+
 def load_section(out_dir: Path, key: str) -> dict[str, Any]:
     path = section_path(out_dir, key)
     if not path.exists():

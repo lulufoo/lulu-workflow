@@ -21,10 +21,13 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
-from inductive_exposed_points_schema import load_ledger  # noqa: E402
+from inductive_section_schema import (  # noqa: E402
+    list_section_keys,
+    load_section,
+    section_path,
+)
 
 _MANIFEST_GLOB = "*-demands.json"
-_LEDGER_FILENAME = "exposed-points.json"
 
 
 def find_demand_manifest(ref_path: str | Path) -> Path | None:
@@ -84,21 +87,27 @@ def is_generation_guaranteed(
 
 
 def deferred_intent_refs(out_dir: str | Path) -> set[str]:
-    """``intent_ref`` ids carried by *deferred* EPs (expected-absent → silence, S1).
+    """``intent_ref`` ids carried by *deferred* items in section JSON (S1 silence).
 
     Per the shared convention (design §5.5): a demand whose only trace is a
-    deferred EP was explicitly skipped by the user, so its absence downstream is
-    expected and must not be flagged.
+    deferred item was explicitly skipped by the user, so its absence downstream
+    is expected and must not be flagged.
+
+    Reads ``inductive-scope/<S>.json`` deferred arrays (section-SoT). Legacy
+    ``exposed-points.json`` is no longer consulted.
     """
-    ledger_path = Path(out_dir) / _LEDGER_FILENAME
-    if not ledger_path.exists():
-        return set()
-    ledger = load_ledger(ledger_path)
+    root = Path(out_dir)
     refs: set[str] = set()
-    for ep in ledger.get("eps") or []:
-        if str(ep.get("status", "")).lower() != "deferred":
+    for key in list_section_keys(root):
+        path = section_path(root, key)
+        if not path.exists():
             continue
-        ref = ep.get("intent_ref")
-        if isinstance(ref, str) and ref.strip():
-            refs.add(ref.strip())
+        try:
+            doc = load_section(root, key)
+        except (ValueError, FileNotFoundError):
+            continue
+        for item in doc.get("deferred") or []:
+            ref = item.get("intent_ref")
+            if isinstance(ref, str) and ref.strip():
+                refs.add(ref.strip())
     return refs

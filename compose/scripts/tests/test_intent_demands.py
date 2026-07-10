@@ -104,23 +104,93 @@ def _ep(ep_id: str, status: str, intent_ref: str | None) -> dict:
 
 
 def test_deferred_intent_refs(tmp_path: Path):
-    ledger = {
-        "version": "1",
-        "eps": [
-            _ep("EP-001", "deferred", "SPEC-1"),
-            _ep("EP-002", "resolved", "SPEC-2"),
-            _ep("EP-003", "deferred", "SPEC-3"),
-            _ep("EP-004", "deferred", None),
-        ],
-        "updated_at": "2026-01-01T00:00:00+00:00",
-    }
-    # EP-002 resolved needs a resolution to pass validation.
-    ledger["eps"][1]["resolution"] = "done"
-    (tmp_path / "exposed-points.json").write_text(
-        json.dumps(ledger), encoding="utf-8"
+    scope = tmp_path / "inductive-scope"
+    scope.mkdir(parents=True)
+    (scope / "ST.json").write_text(
+        json.dumps(
+            {
+                "key": "ST",
+                "status": "active",
+                "frontier_kw": 1,
+                "decisions": [],
+                "open": [],
+                "deferred": [
+                    {"id": "ST-o1", "kw": 2, "note": "skip", "intent_ref": "SPEC-1"},
+                    {"id": "ST-o2", "kw": 2, "note": "skip", "intent_ref": "SPEC-3"},
+                    {"id": "ST-o3", "kw": 2, "note": "no ref"},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (scope / "IF.json").write_text(
+        json.dumps(
+            {
+                "key": "IF",
+                "status": "active",
+                "frontier_kw": 1,
+                "decisions": [
+                    {
+                        "id": "IF-d1",
+                        "kw": 1,
+                        "text": "done",
+                        "trigger": "ai",
+                        "means": "intent_baseline",
+                        "confidence": "direct",
+                        "intent_ref": "SPEC-2",
+                    }
+                ],
+                "open": [],
+                "deferred": [],
+            }
+        ),
+        encoding="utf-8",
     )
     assert deferred_intent_refs(tmp_path) == {"SPEC-1", "SPEC-3"}
 
 
 def test_deferred_intent_refs_no_ledger(tmp_path: Path):
     assert deferred_intent_refs(tmp_path) == set()
+
+
+def test_check_coverage_blocks_on_section_open(tmp_path: Path):
+    """Exit predicate reads section JSON open[], not exposed-points ledger."""
+    import subprocess
+    import sys
+
+    ctl = Path(__file__).resolve().parent.parent / "inductive" / "inductive_g3_section_control.py"
+
+    def run(*args: str) -> tuple[int, dict]:
+        res = subprocess.run(
+            [sys.executable, str(ctl), "--out-dir", str(tmp_path), *args],
+            capture_output=True,
+            text=True,
+        )
+        try:
+            payload = json.loads(res.stdout)
+        except json.JSONDecodeError:
+            payload = {"ok": False, "raw": res.stdout, "stderr": res.stderr}
+        return res.returncode, payload
+
+    code, payload = run("init-pointer", "--sections", "I,ST", "--mandatory", "")
+    assert code == 0, payload
+    run("activate-section", "--section", "ST")
+    run(
+        "add-open",
+        "--section",
+        "ST",
+        "--kw",
+        "1",
+        "--trigger",
+        "ai",
+        "--means",
+        "probe",
+        "--problem",
+        "gap",
+        "--blocking",
+        "true",
+    )
+    code, cov = run("check-coverage")
+    assert code == 1
+    assert cov.get("ok") is False
+    assert any("blocking open" in e for e in cov.get("errors", []))

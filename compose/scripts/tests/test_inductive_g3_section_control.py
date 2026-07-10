@@ -143,9 +143,24 @@ def test_clear_blocked_by_blocking_open_ep(tmp_path):
     _seed(tmp_path, active="ST")
     _run(tmp_path, "set-frontier", "--section", "ST", "--kw", str(FRONTIER_TARGET_DEFAULT))
     _run(tmp_path, "append-to-section", "--section", "ST", "--content", "body")
-    _run(tmp_path, "register-ep", "--json", _blocking_ep_json("ST"))
+    _run(
+        tmp_path,
+        "add-open",
+        "--section",
+        "ST",
+        "--kw",
+        "2",
+        "--trigger",
+        "ai",
+        "--means",
+        "ai_scan",
+        "--problem",
+        "a blocking gap",
+        "--blocking",
+        "true",
+    )
     code, payload = _run(tmp_path, "clear-section", "--section", "ST")
-    assert code == 1 and "blocking open EP" in payload["error"]
+    assert code == 1 and "blocking open" in payload["error"]
 
 
 def test_clear_succeeds_when_ready(tmp_path):

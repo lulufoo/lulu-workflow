@@ -66,8 +66,10 @@ from inductive_exposed_points_schema import (  # noqa: E402
     validate_ep,
 )
 from inductive_section_schema import (  # noqa: E402
+    blocking_open_items,
     ensure_section,
     index_path,
+    list_section_keys,
     load_index,
     load_section,
     mint_decision_id,
@@ -162,11 +164,19 @@ def cmd_init_pointer(out_dir: Path, args: argparse.Namespace) -> None:
 
 def cmd_status(out_dir: Path, _args: argparse.Namespace) -> None:
     ptr = _load_pointer(out_dir)
-    ledger = _load_ledger(out_dir)
 
-    open_count = len(blocking_open_eps(ledger))
+    open_count = len(blocking_open_items(out_dir))
     section_statuses = {k: v["status"] for k, v in ptr["sections"].items()}
     frontier = {k: v.get("frontier_kw", 0) for k, v in ptr["sections"].items()}
+    # Mirror frontier_kw from section JSON when present
+    for key in list_section_keys(out_dir):
+        try:
+            doc = load_section(out_dir, key)
+            frontier[key] = doc.get("frontier_kw", frontier.get(key, 0))
+            if key in section_statuses:
+                section_statuses[key] = doc.get("status", section_statuses[key])
+        except (ValueError, FileNotFoundError):
+            pass
     _ok({
         "active_section": ptr.get("active_section"),
         "coverage_order": ptr["coverage_order"],
@@ -179,16 +189,15 @@ def cmd_status(out_dir: Path, _args: argparse.Namespace) -> None:
 
 def cmd_check_coverage(out_dir: Path, _args: argparse.Namespace) -> None:
     ptr = _load_pointer(out_dir)
-    ledger = _load_ledger(out_dir)
 
     cov = check_coverage(ptr)
 
-    blocking = blocking_open_eps(ledger)
+    blocking = blocking_open_items(out_dir)
     if blocking:
         cov["ok"] = False
         cov["errors"].append(
-            f"{len(blocking)} blocking open EP(s) remain: "
-            + ", ".join(ep["id"] for ep in blocking)
+            f"{len(blocking)} blocking open item(s) remain: "
+            + ", ".join(str(o.get("id")) for o in blocking)
         )
 
     print(json.dumps(cov, indent=2, ensure_ascii=False))
@@ -198,27 +207,44 @@ def cmd_check_coverage(out_dir: Path, _args: argparse.Namespace) -> None:
 
 def cmd_list_sections(out_dir: Path, _args: argparse.Namespace) -> None:
     ptr = _load_pointer(out_dir)
-    ledger = _load_ledger(out_dir)
 
     sections_summary: dict[str, Any] = {}
     for key in ptr["coverage_order"]:
         entry = ptr["sections"][key]
-        sec_eps = eps_for_section(ledger, key)
+        open_items: list[dict[str, Any]] = []
+        deferred_count = 0
+        decision_count = 0
+        frontier_kw = entry.get("frontier_kw", 0)
+        status = entry["status"]
+        path = section_path(out_dir, key)
+        if path.exists():
+            try:
+                doc = load_section(out_dir, key)
+                open_items = list(doc.get("open") or [])
+                deferred_count = len(doc.get("deferred") or [])
+                decision_count = len(doc.get("decisions") or [])
+                frontier_kw = doc.get("frontier_kw", frontier_kw)
+                status = doc.get("status", status)
+            except ValueError:
+                pass
         sections_summary[key] = {
-            "status": entry["status"],
-            "frontier_kw": entry.get("frontier_kw", 0),
-            "ep_count": len(sec_eps),
-            "resolved_count": sum(1 for e in sec_eps if e["status"] == "resolved"),
-            "deferred_count": sum(1 for e in sec_eps if e["status"] == "deferred"),
-            "open_blocking_count": len(blocking_open_eps(ledger, section=key)),
-            "section_file_exists": _section_file_path(out_dir, key).exists(),
+            "status": status,
+            "frontier_kw": frontier_kw,
+            "decision_count": decision_count,
+            "open_count": len(open_items),
+            "deferred_count": deferred_count,
+            "open_blocking_count": len(
+                [o for o in open_items if o.get("blocking") is True]
+            ),
+            "section_file_exists": path.exists()
+            or _section_file_path(out_dir, key).exists(),
         }
 
     _ok({
         "active_section": ptr.get("active_section"),
         "coverage_order": ptr["coverage_order"],
         "sections": sections_summary,
-        "total_ep_count": len(ledger.get("eps") or []),
+        "total_open_count": sum(s["open_count"] for s in sections_summary.values()),
     })
 
 
@@ -238,13 +264,7 @@ def cmd_activate_section(out_dir: Path, args: argparse.Namespace) -> None:
 def cmd_set_frontier(out_dir: Path, args: argparse.Namespace) -> None:
     section = args.section.strip().upper()
     ptr = _load_pointer(out_dir)
-    active = ptr.get("active_section")
-
-    if section != active:
-        _fail(
-            f"focus guard: section={section!r} != active_section={active!r}; "
-            "call activate-section to switch focus first"
-        )
+    _focus_guard(ptr, section)
 
     try:
         updated = set_frontier(ptr, section, args.kw)
@@ -252,6 +272,15 @@ def cmd_set_frontier(out_dir: Path, args: argparse.Namespace) -> None:
         _fail(str(exc))
 
     save_section_pointer(_pointer_path(out_dir), updated)
+    # Cache frontier on section JSON SoT as well (design §4.1)
+    doc = ensure_section(out_dir, section)
+    doc["frontier_kw"] = args.kw
+    if doc["status"] == "untouched":
+        doc["status"] = "active"
+    try:
+        save_section(out_dir, doc)
+    except ValueError as exc:
+        _fail(str(exc))
     _ok({"section": section, "frontier_kw": args.kw})
 
 
@@ -679,27 +708,45 @@ def cmd_clear_section(out_dir: Path, args: argparse.Namespace) -> None:
             "call set-frontier once the section reaches the target maturity"
         )
 
-    # No blocking-open EPs for this section.
-    ledger = _load_ledger(out_dir)
-    blocking = blocking_open_eps(ledger, section=section)
+    # No blocking-open items for this section (section JSON SoT).
+    blocking = blocking_open_items(out_dir, section=section)
     if blocking:
         _fail(
-            f"cannot clear {section!r}: {len(blocking)} blocking open EP(s): "
-            + ", ".join(ep["id"] for ep in blocking)
+            f"cannot clear {section!r}: {len(blocking)} blocking open item(s): "
+            + ", ".join(str(o.get("id")) for o in blocking)
         )
 
-    # Bucket must have been built (append-to-section) before clearing.
-    section_file = _section_file_path(out_dir, section)
-    if not section_file.exists() or not section_file.read_text(encoding="utf-8").strip():
+    # Bucket: section JSON with decisions, or legacy <S>.md
+    json_path = section_path(out_dir, section)
+    md_path = _section_file_path(out_dir, section)
+    has_json_body = False
+    if json_path.exists():
+        try:
+            doc = load_section(out_dir, section)
+            has_json_body = bool(doc.get("decisions"))
+            # Keep pointer frontier in sync with section JSON when clearing
+            if "frontier_kw" in doc:
+                ptr = set_frontier(ptr, section, int(doc["frontier_kw"]))
+        except ValueError as exc:
+            _fail(str(exc))
+    has_md_body = md_path.exists() and bool(md_path.read_text(encoding="utf-8").strip())
+    if not has_json_body and not has_md_body:
         _fail(
-            f"cannot clear {section!r}: section bucket {section_file} is empty; "
-            "append-to-section before clearing"
+            f"cannot clear {section!r}: no decisions in {json_path} and "
+            f"legacy bucket {md_path} is empty; seed-decision or append-to-section first"
         )
 
     updated_ptr = clear_section(ptr, section)
     save_section_pointer(_pointer_path(out_dir), updated_ptr)
+    if json_path.exists():
+        try:
+            doc = load_section(out_dir, section)
+            doc["status"] = "cleared"
+            save_section(out_dir, doc)
+        except ValueError as exc:
+            _fail(str(exc))
 
-    _ok({"cleared": section, "file": str(section_file)})
+    _ok({"cleared": section, "file": str(json_path if has_json_body else md_path)})
 
 
 def cmd_skip_section(out_dir: Path, args: argparse.Namespace) -> None:
@@ -751,24 +798,25 @@ def cmd_recompose_check(out_dir: Path, _args: argparse.Namespace) -> None:
     Does NOT discover new EPs.
     """
     ptr = _load_pointer(out_dir)
-    ledger = _load_ledger(out_dir)
-
     errors: list[str] = []
 
-    # Check shape_absorbed: every cleared section must have its .md file
+    # Check shape_absorbed: every cleared section must have its .json (or legacy .md)
     for key in ptr["coverage_order"]:
         status = ptr["sections"][key]["status"]
         if status == "cleared":
+            jp = section_path(out_dir, key)
             sf = _section_file_path(out_dir, key)
-            if not sf.exists():
-                errors.append(f"cleared section {key!r} has no file at {sf}")
+            if not jp.exists() and not sf.exists():
+                errors.append(
+                    f"cleared section {key!r} has no file at {jp} or {sf}"
+                )
 
-    # Check no blocking-open EPs remain (should be caught at G3 close, but guard here too)
-    blocking = blocking_open_eps(ledger)
+    # Check no blocking-open items remain (section JSON SoT)
+    blocking = blocking_open_items(out_dir)
     if blocking:
         errors.append(
-            f"{len(blocking)} blocking open EP(s) not resolved: "
-            + ", ".join(ep["id"] for ep in blocking)
+            f"{len(blocking)} blocking open item(s) not resolved: "
+            + ", ".join(str(o.get("id")) for o in blocking)
         )
 
     # Check architecture_view exists in DQI
