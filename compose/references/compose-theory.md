@@ -37,7 +37,7 @@ block_title = specialize( blocks.{id}.heading ; substance(block intent bodies) )
 
 | Factor | Symbol | Source | Role |
 |--------|--------|--------|------|
-| Content | `I*` | scope doc × intent + KW | Filtered decision substance for this section — what to say |
+| Content | `I*` | inductive `decisions[].text` (primary when `$INDUCTIVE_DIR`) × intent + KW; else scope doc | Filtered decision substance for this section — what to say |
 | Form | `F` | section guidance + domain + role + intent | How content is carried and organized |
 | Expression | `C` | `### Role Fields` + domain + intent + F | How to write inside F |
 | Envelope | `intent` | section-registry (`intent` + `intent_boundary`) | `intent` = what belongs; `intent_boundary` = what belongs elsewhere (exclude, do not author) |
@@ -52,7 +52,7 @@ block_title = specialize( blocks.{id}.heading ; substance(block intent bodies) )
 
 ### Inductive generation (`Induce`) — dual of `Write`
 
-`Write` is deductive (known substance → organized prose, whole→parts). `Induce` is inductive (unknown substance → discover, ground, decide, fold, parts→whole): the inductive-runner produces `I*` enrichment, which `Write` then consumes.
+`Write` is deductive (known substance → organized prose, whole→parts). `Induce` is inductive (unknown substance → discover, ground, decide, fold, parts→whole): the inductive-runner produces per-section JSON SoT; `Write` / Initializing consumes a **mechanical fidelity projection** of `decisions[].text` as primary `I*` (design §9).
 
 ```text
 inductive_scope[section]  ⊕=  Expand( open_point )
@@ -84,12 +84,12 @@ Initializing must operationalize scope substance in readable form; scope-externa
 
 ## Content (I*) — definition
 
-**I*** — filtered substance grounded in the scope doc (`$SCOPE_DOC_PATH`), best-effort supplemented by available codebase facts
+**I*** — filtered substance for this section. When `$INDUCTIVE_DIR` is set: **primary** = mechanical assembly of inductive `decisions[].text` (`resolve-inductive-fidelity` / `view --synthesis off`); scope doc is completeness cross-check only (design §9). When inductive absent: grounded in the scope doc (`$SCOPE_DOC_PATH`), best-effort supplemented by available codebase facts.
 
 - Produced in I2a: match `intent` (else `desc`), `intent_boundary`, and section KW criteria (`## {key}`).
 - Covers goals, boundaries, exclusions, decisions, invariants, phases at the decision level.
-- Rewrite as operational prose; not scope-doc verbatim paste.
-- Must not introduce capabilities, scope, or boundaries beyond the scope doc.
+- Rewrite as operational prose; not scope-doc verbatim paste (and not hand-rewriting inductive JSON beyond `decisions[].text`).
+- Must not introduce capabilities, scope, or boundaries beyond inductive SoT / scope doc.
 - May be empty when no matching substance exists.
 
 **Codebase grounding (best-effort default):** Initializing attempts to bind scope-doc semantic names to identifiable system artifacts. No match → no-op, not an error. Names still unresolvable after the attempt must be flagged in OQ as blocks-plan.

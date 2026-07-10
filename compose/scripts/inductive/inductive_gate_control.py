@@ -189,6 +189,8 @@ def cmd_init_session(out_dir: Path, args: argparse.Namespace) -> None:
         "--sections", sections,
         "--mandatory", mandatory,
         "--cycle-id", cycle_id,
+        "--profile", stage,
+        "--scope-ref", getattr(args, "scope_ref", "") or "",
     )
     if not ptr_result.get("ok"):
         _fail("section pointer init failed: " + ptr_result.get("error", "unknown"))
@@ -640,7 +642,13 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--sections", required=True, help="Comma-separated coverage_sections")
     p.add_argument("--mandatory", default="", help="Comma-separated mandatory section keys")
     p.add_argument("--cycle-id", default="", help="Cycle id for traceability")
-    p.add_argument("--stage", default="", help="Compose stage id (e.g. lulu-design)")
+    p.add_argument("--stage", default="", help="Compose stage id (e.g. lulu-design); stored as _index.profile")
+    p.add_argument(
+        "--scope-ref",
+        default="",
+        dest="scope_ref",
+        help="Upstream scope path (stored on _index.scope_ref)",
+    )
 
     # resolve-context
     sub.add_parser(

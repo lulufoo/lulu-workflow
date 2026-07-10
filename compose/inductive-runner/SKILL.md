@@ -74,8 +74,8 @@ Inductive work discovers missing design decisions (parts → whole). **SoT = per
 
 ### Control spine
 
-1. **Seed** — Map `$SCOPE_DOC` decision units into sections via `seed-decision` (`trigger=seed`, `means=scope`, `confidence=direct`). Registry maps structural → ST, boundary → SC, goals → GO, invariants → I, etc. **I4:** never invent beyond scope. Git commit `"seeded"`.
-2. **Shape-confirm (I11)** — After Seed: `view --synthesis on --granularity <arch-overview hint>` → user confirms/corrects → corrections via `seed-decision` / `update-decision` / `add-open` → re-view until confirmed → `checkpoint --name shape` → `gate-close G1` → **stop and await user**. Do **not** auto-detect.
+1. **Seed** — For each mapped section: `activate-section` → `seed-decision` (`trigger=seed`, `means=scope`, `confidence=direct`) → AI re-judges KW → `set-frontier`. Registry maps structural → ST, boundary → SC, goals → GO, invariants → I, etc. **I4:** never invent beyond scope. Git commit `"seeded"`.
+2. **Shape-confirm (I11)** — After Seed: `view --synthesis on --granularity <arch-overview hint>` → user confirms/corrects → corrections via section commands (+ `set-frontier` when decisions change) → re-view until confirmed → `gate-close G1` (records `checkpoint --name shape`) → **stop and await user**. Do **not** auto-detect.
 3. **G2 folded** — `gate-close G2` auto-passes without topology report. Per-open grounding = `attach-code-refs` inside capability ④.
 4. **User-driven capabilities** (below) until Exit.
 5. **Exit** — run `check-coverage`: ∀ coverage section cleared∨skipped ∧ no (blocking∧open) ∧ (if demand manifest: all fulfilled∨deferred).

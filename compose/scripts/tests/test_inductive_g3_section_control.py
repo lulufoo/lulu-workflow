@@ -223,6 +223,27 @@ def test_deprecated_append_to_section_fails(tmp_path):
     assert "REMOVED" in payload["error"] or "removed" in payload["error"]
 
 
+def test_deprecated_register_ep_fails(tmp_path):
+    _seed(tmp_path, active="I")
+    code, payload = _run(
+        tmp_path,
+        "register-ep",
+        "--json",
+        json.dumps({"section": "I", "description": "x"}),
+    )
+    assert code == 1
+    assert "removed" in payload["error"].lower() or "REMOVED" in payload["error"]
+
+
+def test_deprecated_update_ep_fails(tmp_path):
+    _seed(tmp_path, active="I")
+    code, payload = _run(
+        tmp_path, "update-ep", "--id", "EP-001", "--status", "resolved"
+    )
+    assert code == 1
+    assert "removed" in payload["error"].lower() or "REMOVED" in payload["error"]
+
+
 def test_init_pointer_does_not_create_ep_ledger(tmp_path):
     code, payload = _run(tmp_path, "init-pointer", "--sections", "I,ST", "--mandatory", "")
     assert code == 0, payload

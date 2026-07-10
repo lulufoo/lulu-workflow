@@ -98,6 +98,10 @@ def _seed_session(out_dir: Path) -> None:
             "",
             "--cycle-id",
             "c1",
+            "--stage",
+            "lulu-design",
+            "--scope-ref",
+            "approach/approach-doc.md",
             "--conversation-id",
             _PARENT_CONV,
         ],
@@ -105,6 +109,11 @@ def _seed_session(out_dir: Path) -> None:
         text=True,
     )
     assert res.returncode == 0, res.stdout + res.stderr
+    index = json.loads(
+        (out_dir / "inductive-scope" / "_index.json").read_text(encoding="utf-8")
+    )
+    assert index.get("profile") == "lulu-design"
+    assert index.get("scope_ref") == "approach/approach-doc.md"
 
 
 def _g1_payload() -> str:
@@ -205,6 +214,10 @@ def test_gate_close_g1_accepts_user_confirmed_without_architecture_view(tmp_path
     assert result.get("closed") == "G1"
     index = json.loads((tmp_path / "inductive-scope" / "_index.json").read_text(encoding="utf-8"))
     assert index.get("last_checkpoint") == "shape"
+    # best-effort: when tests run inside a git repo, SHA is recorded
+    assert "checkpoint_git_sha" in index
+    if index["checkpoint_git_sha"] is not None:
+        assert len(index["checkpoint_git_sha"]) >= 7
 
 
 def test_gate_close_g1_rejects_missing_user_confirmed(tmp_path: Path):

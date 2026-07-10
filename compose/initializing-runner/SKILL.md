@@ -216,7 +216,8 @@ Initializing complete.
   Display titles: <REVISION_DIR>/_title-display.json
   Block titles: <REVISION_DIR>/_title-block.json
   Synthesized sections: <space-separated section keys from section_order>
-  Scope SSOT: <SCOPE_DOC_PATH>
+  Inductive SoT: <INDUCTIVE_DIR or none>
+  Scope cross-check: <SCOPE_DOC_PATH>
   Draft status: Initialized
   Next step: parent pause gate (FreeEdit, Evaluate, or Deliver according to profile options)
 ```

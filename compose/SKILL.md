@@ -91,7 +91,7 @@ Load {actual $SKILL_ROOT}/compose/inductive-runner/SKILL.md and follow its instr
 
 ### Step 1 — Initializing
 
-Compose the compose document from the upstream scope doc (`I*` / `F` / `C` per section; see initializing-runner Theory). No mapping paste. The upstream scope doc stays the completeness anchor. When Step 0 produced per-section scope files, `begin-init` passes their directory as `INDUCTIVE_DIR`; init reads each section's slice as code-anchored substance **alongside** the upstream scope doc (enriches, never replaces).
+Compose the compose document via `I*` / `F` / `C` per section (see initializing-runner). No mapping paste. When Step 0 produced per-section SoT under `revision{active_doc}/inductive-scope/`, `begin-init` passes that directory as `INDUCTIVE_DIR`; Initializing takes **mechanical `decisions[].text`** (via `resolve-inductive-fidelity` / `view --synthesis off`) as the **primary** I2a material. The upstream scope doc is a **completeness cross-check only** — not a parallel SoT (design §9). Absent inductive dir → scope-doc-only fallback.
 
 1. Run `$DRAFT_CONTROL begin-init`.
    - On failure → Blocking.
