@@ -63,15 +63,16 @@ open_point = Expose(source)      # kept iff ( frontier_KW row false  ∧  ¬Sett
 - `⊕=` = append to that section's figure; accretes across sweeps, deepens by KW; never overwrites another section.
 - Handoff: `inductive_scope[S] → I*(S) → Write(I* ; F ; C) | intent`.
 
-`Expose` has three peer sources (the discovery action; profile-declared via `scan-criteria`, plugin-style):
+`Expose` discovers open points via **trigger × means** (design §6). All sources subtract `¬Settled` (`decisions[]` only — I5) and land in the owning section's `open[]` (not a separate EP ledger):
 
-| source | probe | gap predicate | frontier_KW |
-|--------|-------|---------------|:---:|
-| `ai_scan` | run `methods` over code reality | KW row false | applies |
-| `human_inlet` | user proposes; AI maps to a section | user assertion | exempt |
-| `intent_baseline` | `intent_coverage` method: demand manifest vs section figure | fulfillment false | applies |
+| trigger | means | probe | gap predicate | frontier_KW |
+|---------|-------|-------|---------------|:---:|
+| ai | `ai_scan` | run `methods` over code | KW row false | applies |
+| ai | `intent_baseline` | demand manifest vs section | fulfillment false | applies |
+| ai | `probe` | 4 black-box lenses (failure/boundary/assumption/seam) | silence ∧ KW-false | applies |
+| human | `probe` / `direct` / `view` | user question / assertion / view-found gap | user assertion | exempt |
 
-All three subtract `¬Settled` (`scope_doc ∪ shape_constraints`) and land as per-section EPs in one ledger. Design SSOT: `docs/biz/inductive-intent-baseline-source.md`.
+Seed is **not** an Expose source: it writes `decisions` with `trigger=seed` · `means=scope`. Design SSOT: `docs/biz/inductive-scope-section-sot-design.md` (+ `docs/biz/inductive-intent-baseline-source.md` for intent_baseline).
 
 **F priority (conflict resolution):** section `presentation` > domain `expression_conventions` > role `expressive_tendency` > intent text. `intent_boundary` is an exclusion list — it names substance belonging to other intents; author none of it here.
 

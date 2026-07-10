@@ -45,7 +45,7 @@ PROVENANCE_GATE_STATE = $INDUCTIVE_OUT_DIR/provenance-gate-state.json
 PROVENANCE_TRACES     = $INDUCTIVE_OUT_DIR/provenance-trace-{intent,scope,norm}.json
 ```
 
-> **Not SoT:** `exposed-points.json`, frozen `architecture_view` / `shape_constraints` as truth. Opens live in `<S>.json` `open[]`. Shape baseline for G4 = `checkpoint --name shape` (Git / `_index.last_checkpoint`), not a frozen view file.
+> **Not SoT:** `exposed-points.json`, frozen `architecture_view` / `shape_constraints` as truth. Opens live in `<S>.json` `open[]`. Shape baseline for G4 = `checkpoint --name shape` (`_index.last_checkpoint` + `checkpoint_git_sha`), not a frozen view file.
 
 ---
 
@@ -63,6 +63,8 @@ Fetch schedule:
 - **Before detect / refine:** `$FETCH_COMPOSE --role section-form-registry`; `$FETCH_COMPOSE --role section-kw-criteria` → `KW_CRITERIA`
 
 **Primary CRUD (section-SoT):** `seed-decision`, `add-open`, `update-open`, `settle-open`, `defer-open`, `update-decision`, `attach-code-refs`, `get-section`, `view --synthesis off|on`, `checkpoint --name shape`, `set-frontier`, `activate-section`, `clear-section`, `skip-section`, `rewind-section`, `check-coverage`. See `$INDUCTIVE_G3_SECTION_CTL --help`.
+
+**Removed (fail-fast if called):** `register-ep`, `update-ep`, `append-to-section` — use the section-SoT commands above.
 
 ---
 

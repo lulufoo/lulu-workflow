@@ -179,7 +179,7 @@ def cmd_init_session(out_dir: Path, args: argparse.Namespace) -> None:
     )
     save_gate_state(gate_path, state)
 
-    # Delegate section pointer + EP ledger init
+    # Delegate section pointer + section-SoT _index init
     sections: str = args.sections or ""
     mandatory: str = args.mandatory or ""
 
@@ -221,7 +221,10 @@ def cmd_resolve_context(out_dir: Path, _args: argparse.Namespace) -> None:
             section_status = sec_result.get("sections", {})
             frontier = sec_result.get("frontier", {})
             active_section = sec_result.get("active_section")
-            open_ep_count = sec_result.get("open_blocking_ep_count", 0)
+            open_ep_count = sec_result.get(
+                "open_blocking_open_count",
+                sec_result.get("open_blocking_ep_count", 0),
+            )
 
     architecture_view = None
     dqi_p = _dqi_path(out_dir)

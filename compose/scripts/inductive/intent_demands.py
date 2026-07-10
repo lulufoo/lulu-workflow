@@ -2,12 +2,13 @@
 """Shared intent_baseline predicates (design SSOT §5.5).
 
 Mechanical only — presence / derivation checks over the delivered demand
-manifest and the EP ledger. Downstream coverage audits (G5 algorithm A axis 2,
-d3 direction A) use these to decide whether a check that a *generative* G3
-source already covers should be treated as a **safety net** (a non-empty result
-is a regression alarm) rather than a **primary** discovery. This module never
-judges content — the "downgrade or not" call is mechanical (does a manifest
-exist?), and the semantic matching stays in the AI runner / eval adapter.
+manifest and section JSON ``deferred[]`` (section-SoT). Downstream coverage
+audits (G5 algorithm A axis 2, d3 direction A) use these to decide whether a
+check that a *generative* G3 source already covers should be treated as a
+**safety net** (a non-empty result is a regression alarm) rather than a
+**primary** discovery. This module never judges content — the "downgrade or
+not" call is mechanical (does a manifest exist?), and the semantic matching
+stays in the AI runner / eval adapter.
 """
 
 from __future__ import annotations

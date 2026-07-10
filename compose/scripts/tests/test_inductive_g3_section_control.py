@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Tests for the inductive Gate 3 frontier-sweep machine.
 
-Covers the frontier_kw state plus the set-frontier / append-to-section /
+Covers the frontier_kw state plus the set-frontier / seed-decision /
 clear-section subcommands that replaced the one-shot commit-section.
 """
 
@@ -116,18 +116,19 @@ def test_status_reports_frontier(tmp_path):
     assert payload["frontier"] == {"I": 2, "ST": 0}
 
 
-def test_append_accumulates_bucket(tmp_path):
+def test_seed_decision_accumulates_decisions(tmp_path):
     _seed(tmp_path, active="I")
-    _run(tmp_path, "append-to-section", "--section", "I", "--content", "first")
-    _run(tmp_path, "append-to-section", "--section", "I", "--content", "second")
-    bucket = (tmp_path / "inductive-scope" / "I.md").read_text(encoding="utf-8")
-    assert "first" in bucket and "second" in bucket
-    assert bucket.index("first") < bucket.index("second")
+    _run(tmp_path, "seed-decision", "--section", "I", "--kw", "1", "--text", "first")
+    _run(tmp_path, "seed-decision", "--section", "I", "--kw", "1", "--text", "second")
+    code, payload = _run(tmp_path, "get-section", "--section", "I")
+    assert code == 0
+    texts = [d["text"] for d in payload["section"]["decisions"]]
+    assert texts == ["first", "second"]
 
 
 def test_clear_blocked_by_low_frontier(tmp_path):
     _seed(tmp_path, active="I")
-    _run(tmp_path, "append-to-section", "--section", "I", "--content", "body")
+    _run(tmp_path, "seed-decision", "--section", "I", "--kw", "1", "--text", "body")
     code, payload = _run(tmp_path, "clear-section", "--section", "I")
     assert code == 1 and "frontier_kw" in payload["error"]
 
@@ -136,13 +137,13 @@ def test_clear_blocked_by_empty_bucket(tmp_path):
     _seed(tmp_path, active="I")
     _run(tmp_path, "set-frontier", "--section", "I", "--kw", str(FRONTIER_TARGET_DEFAULT))
     code, payload = _run(tmp_path, "clear-section", "--section", "I")
-    assert code == 1 and "empty" in payload["error"]
+    assert code == 1 and "no decisions" in payload["error"]
 
 
-def test_clear_blocked_by_blocking_open_ep(tmp_path):
+def test_clear_blocked_by_blocking_open(tmp_path):
     _seed(tmp_path, active="ST")
     _run(tmp_path, "set-frontier", "--section", "ST", "--kw", str(FRONTIER_TARGET_DEFAULT))
-    _run(tmp_path, "append-to-section", "--section", "ST", "--content", "body")
+    _run(tmp_path, "seed-decision", "--section", "ST", "--kw", "1", "--text", "body")
     _run(
         tmp_path,
         "add-open",
@@ -166,11 +167,67 @@ def test_clear_blocked_by_blocking_open_ep(tmp_path):
 def test_clear_succeeds_when_ready(tmp_path):
     _seed(tmp_path, active="I")
     _run(tmp_path, "set-frontier", "--section", "I", "--kw", str(FRONTIER_TARGET_DEFAULT))
-    _run(tmp_path, "append-to-section", "--section", "I", "--content", "the I figure")
+    _run(tmp_path, "seed-decision", "--section", "I", "--kw", "1", "--text", "the I figure")
     code, payload = _run(tmp_path, "clear-section", "--section", "I")
     assert code == 0 and payload["cleared"] == "I"
     code, status = _run(tmp_path, "status")
     assert status["sections"]["I"] == "cleared"
+
+
+def test_update_open_patches_fields(tmp_path):
+    _seed(tmp_path, active="ST")
+    code, payload = _run(
+        tmp_path,
+        "add-open",
+        "--section",
+        "ST",
+        "--kw",
+        "2",
+        "--trigger",
+        "ai",
+        "--means",
+        "ai_scan",
+        "--problem",
+        "gap",
+        "--leaning",
+        "old",
+    )
+    assert code == 0
+    oid = payload["id"]
+    code, payload = _run(
+        tmp_path,
+        "update-open",
+        "--section",
+        "ST",
+        "--open-id",
+        oid,
+        "--leaning",
+        "new leaning",
+        "--provenance-note",
+        "also from intent_baseline",
+        "--blocking",
+        "false",
+    )
+    assert code == 0, payload
+    assert payload["open"]["leaning"].startswith("new leaning")
+    assert "also from intent_baseline" in payload["open"]["leaning"]
+    assert payload["open"]["blocking"] is False
+
+
+def test_deprecated_append_to_section_fails(tmp_path):
+    _seed(tmp_path, active="I")
+    code, payload = _run(
+        tmp_path, "append-to-section", "--section", "I", "--content", "x"
+    )
+    assert code == 1
+    assert "REMOVED" in payload["error"] or "removed" in payload["error"]
+
+
+def test_init_pointer_does_not_create_ep_ledger(tmp_path):
+    code, payload = _run(tmp_path, "init-pointer", "--sections", "I,ST", "--mandatory", "")
+    assert code == 0, payload
+    assert not (tmp_path / "exposed-points.json").exists()
+    assert (tmp_path / "inductive-scope" / "_index.json").exists()
 
 
 # --- section-SoT command surface (A2) ---------------------------------------
@@ -449,7 +506,7 @@ def test_checkpoint_sets_last_checkpoint(tmp_path):
 def test_recompose_check_requires_shape_checkpoint(tmp_path):
     _seed(tmp_path, active="I")
     _run(tmp_path, "set-frontier", "--section", "I", "--kw", str(FRONTIER_TARGET_DEFAULT))
-    _run(tmp_path, "append-to-section", "--section", "I", "--content", "body")
+    _run(tmp_path, "seed-decision", "--section", "I", "--kw", "1", "--text", "body")
     _run(tmp_path, "clear-section", "--section", "I")
     code, payload = _run(tmp_path, "recompose-check")
     assert code == 1
@@ -461,12 +518,15 @@ def test_recompose_check_requires_shape_checkpoint(tmp_path):
 def test_recompose_check_passes_with_shape_checkpoint(tmp_path):
     _seed(tmp_path, active="I")
     _run(tmp_path, "set-frontier", "--section", "I", "--kw", str(FRONTIER_TARGET_DEFAULT))
-    _run(tmp_path, "append-to-section", "--section", "I", "--content", "body")
+    _run(tmp_path, "seed-decision", "--section", "I", "--kw", "1", "--text", "body")
     _run(tmp_path, "clear-section", "--section", "I")
-    _run(tmp_path, "checkpoint", "--name", "shape")
+    code, ck = _run(tmp_path, "checkpoint", "--name", "shape")
+    assert code == 0, ck
     code, payload = _run(tmp_path, "recompose-check")
     assert code == 0, payload
     rc = payload["recompose_check"]
     assert rc["reforms_shape"] is True
     assert rc["shape_absorbed"] is True
     assert rc["errors"] == []
+    # git sha best-effort (present when cwd is a git repo)
+    assert "checkpoint_git_sha" in rc

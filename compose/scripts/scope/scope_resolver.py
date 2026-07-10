@@ -11,6 +11,7 @@ CLI:
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 from typing import Optional
@@ -138,12 +139,30 @@ def resolve_role_summary(
     return resolve_cycle_type(cycle_id=cycle_id, cycle_type=cycle_type)
 
 
+def assemble_inductive_fidelity_text(section_json_path: Path) -> str:
+    """Mechanical ``decisions[].text`` assembly for one section (I2 / V5).
+
+    Same contract as ``inductive_g3_section_control.view --synthesis off`` for a
+    single section — zero LLM synthesis. Used by Initializing I2a.
+    """
+    data = json.loads(section_json_path.read_text(encoding="utf-8"))
+    texts = [
+        str(d.get("text", "")).strip()
+        for d in (data.get("decisions") or [])
+        if isinstance(d, dict)
+    ]
+    texts = [t for t in texts if t]
+    if not texts:
+        return ""
+    key = str(data.get("key") or section_json_path.stem)
+    return f"## {key}\n\n" + "\n\n".join(texts) + "\n"
+
+
 def resolve_inductive_slice(section: str, inductive_dir: Path | None) -> str | None:
     """Return the abspath of a per-section inductive slice if it exists, else None.
 
     Prefer ``{inductive_dir}/{section}.json`` (section-SoT). Legacy
-    ``{section}.md`` is accepted only if JSON is absent (clean cutover still
-    allows reading leftover md during transition tests).
+    ``{section}.md`` is accepted only if JSON is absent (transition only).
 
     Used by Initializing: the inductive slice is the **primary material** for
     that section's decisions (fidelity projection of ``decisions[].text``);
@@ -161,6 +180,21 @@ def resolve_inductive_slice(section: str, inductive_dir: Path | None) -> str | N
     if md_candidate.is_file():
         return str(md_candidate.resolve())
     return None
+
+
+def resolve_inductive_fidelity(
+    section: str, inductive_dir: Path | None
+) -> str | None:
+    """Return mechanical fidelity markdown for a section, or None if no JSON SoT.
+
+    Prefer this over hand-reading JSON in Initializing (I2/I12). Legacy ``.md``
+    paths return None here — caller falls back to reading the md file.
+    """
+    path = resolve_inductive_slice(section, inductive_dir)
+    if not path or not path.endswith(".json"):
+        return None
+    text = assemble_inductive_fidelity_text(Path(path))
+    return text if text.strip() else ""
 
 
 def main(argv: Optional[list[str]] = None) -> int:
@@ -234,6 +268,22 @@ def main(argv: Optional[list[str]] = None) -> int:
         help="Project root (reserved)",
     )
 
+    fidelity = sub.add_parser(
+        "resolve-inductive-fidelity",
+        help="Print mechanical decisions[].text markdown for a section (I2/V5)",
+    )
+    fidelity.add_argument("--section", required=True, help="Section key (e.g. ST, IF)")
+    fidelity.add_argument(
+        "--inductive-dir",
+        type=Path,
+        help="Inductive per-section scope dir (omit/absent → empty)",
+    )
+    fidelity.add_argument(
+        "--project-root",
+        default=".",
+        help="Project root (reserved)",
+    )
+
     args = parser.parse_args(argv)
 
     project_root = Path(args.project_root).resolve()
@@ -252,6 +302,14 @@ def main(argv: Optional[list[str]] = None) -> int:
         path = resolve_inductive_slice(args.section, inductive_dir)
         if path:
             sys.stdout.write(path)
+        return 0
+
+    if args.command == "resolve-inductive-fidelity":
+        inductive_dir = getattr(args, "inductive_dir", None)
+        text = resolve_inductive_fidelity(args.section, inductive_dir)
+        if text is None:
+            return 0
+        sys.stdout.write(text)
         return 0
 
     if args.command == "resolve-domain":

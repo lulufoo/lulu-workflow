@@ -56,6 +56,7 @@ All compose and scope macros **must** pass `--profile "$COMPOSE_PROFILE"`. `$FET
 | `$RESOLVE_DOMAIN` | `python3 "$SKILL_ROOT/compose/scripts/scope/scope_resolver.py" resolve-domain --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile "$COMPOSE_PROFILE"` |
 | `$RESOLVE_OUTLINE_LAYOUT` | `python3 "$SKILL_ROOT/compose/scripts/section/outline_layout.py" resolve --section "{section_key}" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)"` |
 | `$RESOLVE_INDUCTIVE` | `python3 "$SKILL_ROOT/compose/scripts/scope/scope_resolver.py" resolve-inductive --section "{section_key}" --inductive-dir "$INDUCTIVE_DIR" --project-root "$(pwd)"` |
+| `$RESOLVE_INDUCTIVE_FIDELITY` | `python3 "$SKILL_ROOT/compose/scripts/scope/scope_resolver.py" resolve-inductive-fidelity --section "{section_key}" --inductive-dir "$INDUCTIVE_DIR" --project-root "$(pwd)"` |
 | `$COMPOSE_DOC_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/section/compose_doc_control.py"` |
 | `$INIT_COMPOSE_VALIDATE` | `python3 "$SKILL_ROOT/compose/scripts/section/init_compose_validation.py" validate --revision-dir "$REVISION_DIR" --compose-doc "$OUTPUT_DOC_PATH" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)"` |
 
@@ -104,7 +105,7 @@ After each I2f, resolve layout and run **I2g** when the current key is the last 
 #### I2a — Filter `I*`
 
 - **Input:** **inductive section SoT (primary when present)** · scope doc (`$SCOPE_DOC_PATH`, completeness cross-check only) · `sections.{key}.intent` (else `desc`) · `intent_boundary` (exclusion — belongs elsewhere) · kw `## {key}`
-- **Inductive slice (only when `$INDUCTIVE_DIR` is set):** run `$RESOLVE_INDUCTIVE` for this `{section_key}`. Prefer `<SECTION>.json` (section-SoT). If JSON: assemble `decisions[].text` as the **primary** `i_star` substance (same contract as `view --synthesis off` — mechanical fidelity, I2/V5). If legacy `.md`: read as before. Empty resolver output → scope-doc-only fallback.
+- **Inductive slice (only when `$INDUCTIVE_DIR` is set):** Prefer mechanical fidelity via `$RESOLVE_INDUCTIVE_FIDELITY` (same contract as `view --synthesis off` — `decisions[].text` only; I2/V5/I12). If that prints non-empty markdown, use it as the **primary** `i_star` substance. If empty/absent, fall back to `$RESOLVE_INDUCTIVE` path: JSON → do not hand-synthesize beyond `decisions[].text`; legacy `.md` → read as before. Empty resolver output → scope-doc-only fallback.
 - **Action:** When inductive JSON is present, **`i_star` comes from `decisions[].text` first** — do not rebuild a parallel narrative from scope. Use `$SCOPE_DOC_PATH` only to judge remaining `gaps` / completeness (design §9: scope is not a parallel SoT). When inductive is absent, include scope substance matching `intent` and at least one KW dimension (semantic; do not label KW numbers). Exclude any substance `intent_boundary` defers to other sections. **Must-effort:** do not silently omit matching inductive decisions; use `gaps` for absences.
 - **Output:** write `i_star`, `scope_refs`, `gaps`, `kw_init` into `_derive-{key}.json`
 - **Done:** derive file exists with `i_star` / `scope_refs` / `gaps` populated per contract

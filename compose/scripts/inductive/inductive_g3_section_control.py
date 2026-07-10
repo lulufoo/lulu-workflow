@@ -1,37 +1,36 @@
 #!/usr/bin/env python3
-"""Inductive Gate 3 section machine — inner section control.
+"""Inductive Gate 3 section machine — section-SoT control (design §14).
 
-Manages the parallel section pointer and EP ledger for inductive Gate 3.
+Manages the section pointer + per-section JSON SoT under inductive-scope/.
 Called by inductive_gate_control.py (outer gate spine) and the SKILL via
 $INDUCTIVE_G3_SECTION_CTL.
 
-Subcommands:
-    init-pointer        Seed inductive-section-pointer.json + empty EP ledger + _index.json
-    status              Return active_section, per-section statuses, open-EP count
-    check-coverage      Evaluate G3 gate-close coverage predicate (JSON result)
-    list-sections       Return section statuses + EP ledger summary (for G4 audit)
-    activate-section    Switch active_section focus (free; prev active -> open)
-    set-frontier        Set active section's AI-declared frontier_kw (0..4)
-    seed-decision       Append Seed decision to <S>.json (trigger=seed, means=scope)
-    add-open            Append open point to <S>.json
-    get-section         Return <S>.json contents
-    register-ep         Append a new EP to the ledger
-    update-ep           Update an EP's status / resolution
-    append-to-section   Append a figure/decision fragment to the section bucket <S>.md
-    clear-section       Validate guard + no-blocking-open + frontier>=target, mark cleared
-    skip-section        Mark a section skipped (mandatory requires reason)
-    rewind-section      Reopen a section for G4 audit failure path
-    recompose-check     Audit committed artifacts for G4 self-check
+Primary subcommands (section-SoT):
+    init-pointer        Seed pointer + _index.json (no EP ledger)
+    status              active_section, statuses, blocking open count
+    check-coverage      G3 Exit predicate
+    list-sections       Section statuses + open/deferred/decision counts
+    activate-section    Switch active_section focus
+    set-frontier        Cache AI-declared frontier_kw (0..4)
+    seed-decision       Append Seed decision (trigger=seed, means=scope)
+    add-open / update-open / settle-open / defer-open
+    update-decision / attach-code-refs / get-section
+    view                synthesis off|on
+    checkpoint          last_checkpoint + optional git SHA (G4 baseline)
+    clear-section / skip-section / rewind-section / recompose-check
+
+Deprecated (fail-fast): register-ep, update-ep, append-to-section
+→ use add-open / update-open / seed-decision / update-decision / settle-open.
 
 All subcommands print JSON to stdout and exit 0 on success, exit 1 on failure.
-
-Global flag: --out-dir PATH (required for all subcommands)
+Global flag: --out-dir PATH (required).
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -52,18 +51,6 @@ from g3_section_pointer_schema import (  # noqa: E402
     set_frontier,
     skip_section,
     validate_section_pointer,
-)
-from inductive_exposed_points_schema import (  # noqa: E402
-    append_ep,
-    blocking_open_eps,
-    eps_for_section,
-    init_ledger,
-    load_ledger,
-    next_ep_id,
-    normalize_ep,
-    save_ledger,
-    update_ep_status,
-    validate_ep,
 )
 from inductive_section_schema import (  # noqa: E402
     blocking_open_items,
@@ -91,20 +78,8 @@ def _pointer_path(out_dir: Path) -> Path:
     return out_dir / "inductive-section-pointer.json"
 
 
-def _ledger_path(out_dir: Path) -> Path:
-    return out_dir / "exposed-points.json"
-
-
-def _section_file_path(out_dir: Path, section: str) -> Path:
-    return out_dir / "inductive-scope" / f"{section}.md"
-
-
 def _load_pointer(out_dir: Path) -> dict[str, Any]:
     return load_section_pointer(_pointer_path(out_dir))
-
-
-def _load_ledger(out_dir: Path) -> dict[str, Any]:
-    return load_ledger(_ledger_path(out_dir))
 
 
 # ---------------------------------------------------------------------------
@@ -135,28 +110,27 @@ def cmd_init_pointer(out_dir: Path, args: argparse.Namespace) -> None:
     if ptr_path.exists():
         _fail(f"section pointer already exists: {ptr_path}")
 
-    ledger_path = _ledger_path(out_dir)
-    if ledger_path.exists():
-        _fail(f"EP ledger already exists: {ledger_path}")
-
     cycle_id = args.cycle_id or "_"
+    profile = (getattr(args, "profile", None) or "").strip()
+    scope_ref = (getattr(args, "scope_ref", None) or "").strip()
     ptr = init_section_pointer(
         coverage_sections=sections,
         mandatory=mandatory,
         cycle_id=cycle_id,
     )
     save_section_pointer(ptr_path, ptr)
-    save_ledger(ledger_path, init_ledger())
     # section-SoT index (design §2); empty sections created lazily on first write
+    # No exposed-points.json — opens live in <S>.json (design §10).
     save_index(
         out_dir,
         {
             "version": "1",
             "cycle_id": cycle_id,
-            "profile": "",
-            "scope_ref": "",
+            "profile": profile,
+            "scope_ref": scope_ref,
             "section_order_ref": "section-registry",
             "last_checkpoint": None,
+            "checkpoint_git_sha": None,
         },
     )
     _ok({"message": "section pointer initialized", "sections": sections, "mandatory": mandatory})
@@ -182,7 +156,8 @@ def cmd_status(out_dir: Path, _args: argparse.Namespace) -> None:
         "coverage_order": ptr["coverage_order"],
         "sections": section_statuses,
         "frontier": frontier,
-        "open_blocking_ep_count": open_count,
+        "open_blocking_open_count": open_count,
+        "open_blocking_ep_count": open_count,  # alias (deprecated name)
         "mandatory": ptr.get("mandatory", []),
     })
 
@@ -236,8 +211,7 @@ def cmd_list_sections(out_dir: Path, _args: argparse.Namespace) -> None:
             "open_blocking_count": len(
                 [o for o in open_items if o.get("blocking") is True]
             ),
-            "section_file_exists": path.exists()
-            or _section_file_path(out_dir, key).exists(),
+            "section_file_exists": path.exists(),
         }
 
     _ok({
@@ -285,67 +259,13 @@ def cmd_set_frontier(out_dir: Path, args: argparse.Namespace) -> None:
 
 
 def cmd_register_ep(out_dir: Path, args: argparse.Namespace) -> None:
-    try:
-        ep_data: dict[str, Any] = json.loads(args.json)
-    except json.JSONDecodeError as exc:
-        _fail(f"invalid JSON: {exc}")
+    _fail('register-ep is removed (section-SoT). Use add-open / update-open.')
 
-    ptr = _load_pointer(out_dir)
-    active = ptr.get("active_section")
-    if not active:
-        _fail("no active_section; call activate-section first")
-
-    ep_section = str(ep_data.get("section", "")).strip().upper()
-    if ep_section != active:
-        _fail(
-            f"focus guard: EP.section={ep_section!r} != active_section={active!r}; "
-            "call activate-section to switch focus first"
-        )
-
-    ledger = _load_ledger(out_dir)
-
-    if not ep_data.get("id"):
-        ep_data["id"] = next_ep_id(ledger)
-
-    errors = validate_ep(normalize_ep(ep_data))
-    if errors:
-        _fail("EP validation failed: " + "; ".join(errors))
-
-    updated = append_ep(ledger, ep_data)
-    save_ledger(_ledger_path(out_dir), updated)
-    _ok({"registered": ep_data["id"]})
 
 
 def cmd_update_ep(out_dir: Path, args: argparse.Namespace) -> None:
-    ep_id: str = args.id
-    status: str = args.status
-    resolution: str | None = args.resolution
+    _fail('update-ep is removed (section-SoT). Use update-open / settle-open / defer-open.')
 
-    ptr = _load_pointer(out_dir)
-    active = ptr.get("active_section")
-    ledger = _load_ledger(out_dir)
-
-    # Focus guard: EP must belong to active_section
-    target_ep = next(
-        (ep for ep in (ledger.get("eps") or []) if ep["id"] == ep_id), None
-    )
-    if target_ep is None:
-        _fail(f"EP not found: {ep_id!r}")
-
-    ep_section = str(target_ep.get("section", "")).strip().upper()
-    if active and ep_section != active:
-        _fail(
-            f"focus guard: EP.section={ep_section!r} != active_section={active!r}; "
-            "call activate-section to switch focus first"
-        )
-
-    try:
-        updated = update_ep_status(ledger, ep_id, status=status, resolution=resolution)
-    except ValueError as exc:
-        _fail(str(exc))
-
-    save_ledger(_ledger_path(out_dir), updated)
-    _ok({"updated": ep_id, "status": status})
 
 
 def _focus_guard(ptr: dict[str, Any], section: str) -> None:
@@ -425,6 +345,48 @@ def cmd_add_open(out_dir: Path, args: argparse.Namespace) -> None:
     except ValueError as exc:
         _fail(str(exc))
     _ok({"id": open_item["id"], "section": section})
+
+
+
+def cmd_update_open(out_dir: Path, args: argparse.Namespace) -> None:
+    """Patch an open item (design §14.2) — dedup / provenance attach path."""
+    section = args.section.strip().upper()
+    ptr = _load_pointer(out_dir)
+    _focus_guard(ptr, section)
+
+    doc = ensure_section(out_dir, section)
+    open_item = _find_open(doc, args.open_id)
+    if open_item is None:
+        _fail(f"open not found: {args.open_id!r}")
+
+    if args.problem is not None:
+        open_item["problem"] = args.problem
+    if args.leaning is not None:
+        open_item["leaning"] = args.leaning
+    if args.blocking is not None:
+        open_item["blocking"] = str(args.blocking).lower() in {"1", "true", "yes"}
+    if args.confidence is not None:
+        open_item["confidence"] = args.confidence
+    if args.intent_ref is not None:
+        open_item["intent_ref"] = args.intent_ref
+    if args.hangs_under is not None:
+        open_item["hangs_under"] = args.hangs_under
+    if args.trigger is not None:
+        open_item["trigger"] = args.trigger.strip().lower()
+    if args.means is not None:
+        open_item["means"] = args.means.strip().lower()
+    # Optional provenance note attached into leaning (dedup collide path)
+    if getattr(args, "provenance_note", None):
+        note = args.provenance_note.strip()
+        if note:
+            prev = open_item.get("leaning") or ""
+            open_item["leaning"] = (prev + "\n" + note).strip() if prev else note
+
+    try:
+        save_section(out_dir, doc)
+    except ValueError as exc:
+        _fail(str(exc))
+    _ok({"updated": args.open_id, "section": section, "open": open_item})
 
 
 def cmd_get_section(out_dir: Path, args: argparse.Namespace) -> None:
@@ -668,22 +630,8 @@ def cmd_view(out_dir: Path, args: argparse.Namespace) -> None:
 
 
 def cmd_append_to_section(out_dir: Path, args: argparse.Namespace) -> None:
-    section = args.section.strip().upper()
-    content: str = args.content
+    _fail('append-to-section is removed (section-SoT). Use seed-decision / update-decision / settle-open.')
 
-    ptr = _load_pointer(out_dir)
-    _focus_guard(ptr, section)
-
-    # Append the fragment to the section bucket (incremental; no clear here).
-    section_file = _section_file_path(out_dir, section)
-    section_file.parent.mkdir(parents=True, exist_ok=True)
-    existing = section_file.read_text(encoding="utf-8") if section_file.exists() else ""
-    prefix = "\n\n" if existing.strip() else ""
-    fragment = content if content.endswith("\n") else content + "\n"
-    with section_file.open("a", encoding="utf-8") as fh:
-        fh.write(prefix + fragment)
-
-    _ok({"section": section, "file": str(section_file), "appended": True})
 
 
 def cmd_clear_section(out_dir: Path, args: argparse.Namespace) -> None:
@@ -716,37 +664,33 @@ def cmd_clear_section(out_dir: Path, args: argparse.Namespace) -> None:
             + ", ".join(str(o.get("id")) for o in blocking)
         )
 
-    # Bucket: section JSON with decisions, or legacy <S>.md
+    # Bucket: section JSON with decisions (design §10 — .md no longer SoT)
     json_path = section_path(out_dir, section)
-    md_path = _section_file_path(out_dir, section)
     has_json_body = False
     if json_path.exists():
         try:
             doc = load_section(out_dir, section)
             has_json_body = bool(doc.get("decisions"))
-            # Keep pointer frontier in sync with section JSON when clearing
             if "frontier_kw" in doc:
                 ptr = set_frontier(ptr, section, int(doc["frontier_kw"]))
         except ValueError as exc:
             _fail(str(exc))
-    has_md_body = md_path.exists() and bool(md_path.read_text(encoding="utf-8").strip())
-    if not has_json_body and not has_md_body:
+    if not has_json_body:
         _fail(
-            f"cannot clear {section!r}: no decisions in {json_path} and "
-            f"legacy bucket {md_path} is empty; seed-decision or append-to-section first"
+            f"cannot clear {section!r}: no decisions in {json_path}; "
+            "seed-decision or settle-open first"
         )
 
     updated_ptr = clear_section(ptr, section)
     save_section_pointer(_pointer_path(out_dir), updated_ptr)
-    if json_path.exists():
-        try:
-            doc = load_section(out_dir, section)
-            doc["status"] = "cleared"
-            save_section(out_dir, doc)
-        except ValueError as exc:
-            _fail(str(exc))
+    try:
+        doc = load_section(out_dir, section)
+        doc["status"] = "cleared"
+        save_section(out_dir, doc)
+    except ValueError as exc:
+        _fail(str(exc))
 
-    _ok({"cleared": section, "file": str(json_path if has_json_body else md_path)})
+    _ok({"cleared": section, "file": str(json_path)})
 
 
 def cmd_skip_section(out_dir: Path, args: argparse.Namespace) -> None:
@@ -807,28 +751,26 @@ def cmd_recompose_check(out_dir: Path, _args: argparse.Namespace) -> None:
     """Audit committed section artifacts for G4 recompose self-check (structural).
 
     Mechanical half (design Turn 61 / plan C1):
-      - cleared sections have <S>.json (or legacy .md)
+      - cleared sections have <S>.json
       - no blocking∧open items
-      - _index.last_checkpoint == \"shape\" (Shape-confirm Git/checkpoint mark)
+      - _index.last_checkpoint == \"shape\" (Shape-confirm mark)
+      - checkpoint_git_sha reported when recorded (G4 semantic baseline)
 
     Semantic half (reforms_shape/shape_absorbed meaning vs confirmed spine) is
-    assessed by g4-recompose-runner against the checkpoint; this script only
-    checks that the checkpoint mark exists and artifacts are present.
+    assessed by g4-recompose-runner against checkpoint_git_sha / Git history;
+    this script only checks that the checkpoint mark exists and artifacts are present.
     Does NOT discover new open points.
     """
     ptr = _load_pointer(out_dir)
     errors: list[str] = []
 
-    # Cleared sections must have a section file
+    # Cleared sections must have section JSON
     for key in ptr["coverage_order"]:
         status = ptr["sections"][key]["status"]
         if status == "cleared":
             jp = section_path(out_dir, key)
-            sf = _section_file_path(out_dir, key)
-            if not jp.exists() and not sf.exists():
-                errors.append(
-                    f"cleared section {key!r} has no file at {jp} or {sf}"
-                )
+            if not jp.exists():
+                errors.append(f"cleared section {key!r} has no file at {jp}")
 
     blocking = blocking_open_items(out_dir)
     if blocking:
@@ -839,9 +781,11 @@ def cmd_recompose_check(out_dir: Path, _args: argparse.Namespace) -> None:
 
     # Shape baseline mark (replaces frozen architecture_view dependency)
     shape_checkpoint_present = False
+    checkpoint_git_sha = None
     try:
         index = load_index(out_dir)
         shape_checkpoint_present = index.get("last_checkpoint") == "shape"
+        checkpoint_git_sha = index.get("checkpoint_git_sha")
     except FileNotFoundError:
         errors.append("inductive-scope/_index.json not found (init-pointer / Seed first)")
     except ValueError as exc:
@@ -859,6 +803,7 @@ def cmd_recompose_check(out_dir: Path, _args: argparse.Namespace) -> None:
     )
 
     result = {
+        "checkpoint_git_sha": checkpoint_git_sha,
         "reforms_shape": reforms_shape,
         "shape_absorbed": len(errors) == 0,
         "conflicts": [],
@@ -880,8 +825,26 @@ def cmd_recompose_check(out_dir: Path, _args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+def _git_head_sha(cwd: Path | None = None) -> str | None:
+    """Best-effort HEAD SHA for Shape-confirm baseline (design Turn 61 / I8)."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=str(cwd or Path.cwd()),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError:
+        return None
+    if result.returncode != 0:
+        return None
+    sha = (result.stdout or "").strip()
+    return sha or None
+
+
 def cmd_checkpoint(out_dir: Path, args: argparse.Namespace) -> None:
-    """Record last_checkpoint on _index.json (e.g. shape after Shape-confirm)."""
+    """Record last_checkpoint (+ git SHA) on _index.json (Shape-confirm baseline)."""
     name = (args.name or "").strip()
     if not name:
         _fail("--name is required (e.g. shape)")
@@ -892,11 +855,14 @@ def cmd_checkpoint(out_dir: Path, args: argparse.Namespace) -> None:
     except ValueError as exc:
         _fail(str(exc))
     index["last_checkpoint"] = name
+    sha = _git_head_sha()
+    if sha:
+        index["checkpoint_git_sha"] = sha
     try:
         save_index(out_dir, index)
     except ValueError as exc:
         _fail(str(exc))
-    _ok({"last_checkpoint": name})
+    _ok({"last_checkpoint": name, "checkpoint_git_sha": index.get("checkpoint_git_sha")})
 
 
 # ---------------------------------------------------------------------------
@@ -918,19 +884,21 @@ def _build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="subcommand", required=True)
 
     # init-pointer
-    p = sub.add_parser("init-pointer", help="Seed section pointer + EP ledger")
+    p = sub.add_parser("init-pointer", help="Seed section pointer + _index.json (section-SoT)")
     p.add_argument("--sections", required=True, help="Comma-separated coverage_sections")
     p.add_argument("--mandatory", default="", help="Comma-separated mandatory section keys")
     p.add_argument("--cycle-id", default="", help="Cycle id for traceability")
+    p.add_argument("--profile", default="", help="Compose profile id (stored on _index)")
+    p.add_argument("--scope-ref", default="", dest="scope_ref", help="Upstream scope path (stored on _index)")
 
     # status
-    sub.add_parser("status", help="Return active_section, statuses, open-EP count")
+    sub.add_parser("status", help="Return active_section, statuses, blocking open count")
 
     # check-coverage
     sub.add_parser("check-coverage", help="Evaluate G3 gate-close coverage predicate")
 
     # list-sections
-    sub.add_parser("list-sections", help="Return section statuses + EP summary for G4 audit")
+    sub.add_parser("list-sections", help="Return section statuses + open/deferred/decision counts")
 
     # activate-section
     p = sub.add_parser("activate-section", help="Switch active_section focus")
@@ -973,6 +941,27 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--confidence", default=None, metavar="C")
     p.add_argument("--intent-ref", default=None, dest="intent_ref", metavar="ID")
     p.add_argument("--hangs-under", default=None, dest="hangs_under", metavar="ID")
+
+
+    # update-open (section-SoT)
+    p = sub.add_parser("update-open", help="Patch an open item (dedup / provenance attach)")
+    p.add_argument("--section", required=True, metavar="S")
+    p.add_argument("--open-id", required=True, dest="open_id", metavar="ID")
+    p.add_argument("--problem", default=None, metavar="TEXT")
+    p.add_argument("--leaning", default=None, metavar="TEXT")
+    p.add_argument("--blocking", default=None, metavar="BOOL")
+    p.add_argument("--confidence", default=None, metavar="C")
+    p.add_argument("--intent-ref", default=None, dest="intent_ref", metavar="ID")
+    p.add_argument("--hangs-under", default=None, dest="hangs_under", metavar="ID")
+    p.add_argument("--trigger", default=None, metavar="T")
+    p.add_argument("--means", default=None, metavar="M")
+    p.add_argument(
+        "--provenance-note",
+        default=None,
+        dest="provenance_note",
+        metavar="TEXT",
+        help="Append a provenance note into leaning (dedup collide)",
+    )
 
     # get-section (section-SoT)
     p = sub.add_parser("get-section", help="Return <S>.json contents")
@@ -1042,11 +1031,11 @@ def _build_parser() -> argparse.ArgumentParser:
     )
 
     # register-ep
-    p = sub.add_parser("register-ep", help="Append a new EP to the ledger")
+    p = sub.add_parser("register-ep", help="REMOVED — use add-open / update-open")
     p.add_argument("--json", required=True, dest="json", metavar="JSON", help="EP JSON object")
 
     # update-ep
-    p = sub.add_parser("update-ep", help="Update EP status / resolution")
+    p = sub.add_parser("update-ep", help="REMOVED — use update-open / settle-open / defer-open")
     p.add_argument("--id", required=True, metavar="EP_ID")
     p.add_argument(
         "--status",
@@ -1059,7 +1048,7 @@ def _build_parser() -> argparse.ArgumentParser:
     # append-to-section
     p = sub.add_parser(
         "append-to-section",
-        help="Append a figure/decision fragment to the section bucket <S>.md",
+        help="REMOVED — use seed-decision / update-decision / settle-open",
     )
     p.add_argument("--section", required=True, metavar="S")
     p.add_argument(
@@ -1101,7 +1090,7 @@ def _build_parser() -> argparse.ArgumentParser:
     # checkpoint (section-SoT)
     p = sub.add_parser(
         "checkpoint",
-        help="Set _index.last_checkpoint (e.g. shape after Shape-confirm)",
+        help="Set _index.last_checkpoint + checkpoint_git_sha (Shape-confirm baseline)",
     )
     p.add_argument("--name", required=True, metavar="NAME", help="e.g. shape")
 
@@ -1122,6 +1111,7 @@ def main() -> None:
         "set-frontier": cmd_set_frontier,
         "seed-decision": cmd_seed_decision,
         "add-open": cmd_add_open,
+        "update-open": cmd_update_open,
         "get-section": cmd_get_section,
         "settle-open": cmd_settle_open,
         "defer-open": cmd_defer_open,

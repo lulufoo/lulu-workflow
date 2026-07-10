@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from scope_resolver import (  # noqa: E402
     ScopeResolverError,
     resolve_domain_markdown,
+    resolve_inductive_fidelity,
     resolve_inductive_slice,
     resolve_role_markdown,
     resolve_role_summary,
@@ -141,6 +142,46 @@ class TestResolveInductive:
         path = resolve_inductive_slice("ST", d)
         assert path is not None
         assert path.endswith("ST.json")
+
+    def test_fidelity_assembles_decisions_text(self, tmp_path: Path):
+        d = tmp_path / "inductive-scope"
+        d.mkdir()
+        (d / "ST.json").write_text(
+            json.dumps(
+                {
+                    "key": "ST",
+                    "status": "active",
+                    "frontier_kw": 1,
+                    "decisions": [
+                        {
+                            "id": "ST-d1",
+                            "kw": 1,
+                            "text": "first claim",
+                            "trigger": "seed",
+                            "means": "scope",
+                            "confidence": "direct",
+                        },
+                        {
+                            "id": "ST-d2",
+                            "kw": 2,
+                            "text": "second claim",
+                            "trigger": "ai",
+                            "means": "ai_scan",
+                            "confidence": "inferred",
+                        },
+                    ],
+                    "open": [],
+                    "deferred": [],
+                }
+            ),
+            encoding="utf-8",
+        )
+        text = resolve_inductive_fidelity("ST", d)
+        assert text is not None
+        assert "## ST" in text
+        assert "first claim" in text
+        assert "second claim" in text
+        assert "open" not in text.lower() or "second claim" in text
 
     def test_falls_back_to_md(self, tmp_path: Path):
         d = tmp_path / "inductive-scope"

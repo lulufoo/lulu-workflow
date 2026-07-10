@@ -464,7 +464,7 @@ def _drive_single_section_to_g4(tmp_path: Path) -> None:
     assert code == 0
 
     _run_section(tmp_path, "activate-section", "--section", "I")
-    _run_section(tmp_path, "append-to-section", "--section", "I", "--content", "## I\nBody text.\n")
+    _run_section(tmp_path, "seed-decision", "--section", "I", "--kw", "1", "--text", "Body text.")
     _run_section(tmp_path, "set-frontier", "--section", "I", "--kw", "3")
     code, result = _run_section(tmp_path, "clear-section", "--section", "I")
     assert code == 0, result
