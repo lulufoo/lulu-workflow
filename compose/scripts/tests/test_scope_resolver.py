@@ -113,7 +113,7 @@ class TestResolveDomain:
 
 
 class TestResolveInductive:
-    def test_prefers_json_over_md(self, tmp_path: Path):
+    def test_prefers_json_ignores_sibling_md(self, tmp_path: Path):
         d = tmp_path / "inductive-scope"
         d.mkdir()
         (d / "ST.json").write_text(
@@ -183,13 +183,12 @@ class TestResolveInductive:
         assert "second claim" in text
         assert "open" not in text.lower() or "second claim" in text
 
-    def test_falls_back_to_md(self, tmp_path: Path):
+    def test_md_only_is_not_a_slice(self, tmp_path: Path):
         d = tmp_path / "inductive-scope"
         d.mkdir()
         (d / "IF.md").write_text("# IF\n", encoding="utf-8")
-        path = resolve_inductive_slice("IF", d)
-        assert path is not None
-        assert path.endswith("IF.md")
+        assert resolve_inductive_slice("IF", d) is None
+        assert resolve_inductive_fidelity("IF", d) is None
 
     def test_missing_returns_none(self, tmp_path: Path):
         assert resolve_inductive_slice("ST", tmp_path / "missing") is None

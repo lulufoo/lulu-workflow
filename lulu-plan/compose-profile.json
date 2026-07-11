@@ -14,7 +14,8 @@
   "drafting": {
     "inductive": false,
     "freeedit": true,
-    "post_init_options": ["freeedit", "evaluate", "deliver"]
+    "code_grounding": true,
+    "post_init_options": ["freeedit", "evaluate"]
   },
   "start": {
     "adapter_module": "lulu-plan/scripts/start/tech_plan_start_adapter.py",

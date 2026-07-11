@@ -35,6 +35,7 @@ _MINIMAL_ACTIVE_PROFILE = {
     "drafting": {
         "inductive": False,
         "freeedit": True,
+        "code_grounding": False,
         "post_init_options": ["freeedit", "evaluate", "deliver"],
     },
     "start": {
@@ -100,6 +101,7 @@ def test_active_profile_rejects_unknown_post_init_option(tmp_path: Path) -> None
     data["drafting"] = {
         "inductive": False,
         "freeedit": True,
+        "code_grounding": False,
         "post_init_options": ["freeedit", "round"],
     }
     path.write_text(json.dumps(data), encoding="utf-8")

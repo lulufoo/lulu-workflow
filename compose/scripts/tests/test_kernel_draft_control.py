@@ -41,7 +41,19 @@ def _write_g4_closed(revision_dir: Path) -> None:
     )
     scope_dir = revision_dir / "inductive-scope"
     scope_dir.mkdir(parents=True, exist_ok=True)
-    (scope_dir / "ST.md").write_text("# ST\n", encoding="utf-8")
+    (scope_dir / "ST.json").write_text(
+        json.dumps(
+            {
+                "key": "ST",
+                "status": "cleared",
+                "frontier_kw": 0,
+                "decisions": [],
+                "open": [],
+                "deferred": [],
+            }
+        ),
+        encoding="utf-8",
+    )
 
 
 def _write_g5_closed(revision_dir: Path) -> None:
@@ -152,6 +164,7 @@ def test_inductive_complete_succeeds_when_g4_and_g5_closed(tmp_path: Path) -> No
 
     assert result["ok"] is True
     assert result["command"] == "inductive-complete"
+    assert result["section_files"] == ["ST.json"]
 
 
 def test_begin_init_rejects_inductive_step_without_g5(tmp_path: Path) -> None:

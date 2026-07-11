@@ -159,10 +159,10 @@ def assemble_inductive_fidelity_text(section_json_path: Path) -> str:
 
 
 def resolve_inductive_slice(section: str, inductive_dir: Path | None) -> str | None:
-    """Return the abspath of a per-section inductive slice if it exists, else None.
+    """Return the abspath of a per-section inductive JSON SoT if it exists, else None.
 
-    Prefer ``{inductive_dir}/{section}.json`` (section-SoT). Legacy
-    ``{section}.md`` is accepted only if JSON is absent (transition only).
+    Only ``{inductive_dir}/{section}.json`` is accepted. Legacy ``{section}.md``
+    is not a SoT and is never returned.
 
     Used by Initializing: the inductive slice is the **primary material** for
     that section's decisions (fidelity projection of ``decisions[].text``);
@@ -176,9 +176,6 @@ def resolve_inductive_slice(section: str, inductive_dir: Path | None) -> str | N
     json_candidate = root / f"{key}.json"
     if json_candidate.is_file():
         return str(json_candidate.resolve())
-    md_candidate = root / f"{key}.md"
-    if md_candidate.is_file():
-        return str(md_candidate.resolve())
     return None
 
 
@@ -187,8 +184,8 @@ def resolve_inductive_fidelity(
 ) -> str | None:
     """Return mechanical fidelity markdown for a section, or None if no JSON SoT.
 
-    Prefer this over hand-reading JSON in Initializing (I2/I12). Legacy ``.md``
-    paths return None here — caller falls back to reading the md file.
+    Prefer this over hand-reading JSON in Initializing (I2/I12). Missing JSON
+    returns None — there is no ``.md`` fallback.
     """
     path = resolve_inductive_slice(section, inductive_dir)
     if not path or not path.endswith(".json"):

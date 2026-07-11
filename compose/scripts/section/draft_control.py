@@ -230,7 +230,11 @@ def inductive_complete(
     if gate_reason:
         return _failure(_CMD_INDUCTIVE_COMPLETE, gate_reason)
     inductive_dir = _inductive_dir(cycle_id, project_root, profile_id)
-    section_files = sorted(p.name for p in inductive_dir.glob("*.md")) if inductive_dir.is_dir() else []
+    section_files = (
+        sorted(p.name for p in inductive_dir.glob("*.json") if p.name != "_index.json")
+        if inductive_dir.is_dir()
+        else []
+    )
     return _success(
         _CMD_INDUCTIVE_COMPLETE,
         current_step=_STEP_INDUCTIVE,

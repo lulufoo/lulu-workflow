@@ -91,7 +91,7 @@ Load {actual $SKILL_ROOT}/compose/inductive-runner/SKILL.md and follow its instr
 
 ### Step 1 — Initializing
 
-Compose the compose document via `I*` / `F` / `C` per section (see initializing-runner). No mapping paste. When Step 0 produced per-section SoT under `revision{active_doc}/inductive-scope/`, `begin-init` passes that directory as `INDUCTIVE_DIR`; Initializing takes **mechanical `decisions[].text`** (via `resolve-inductive-fidelity` / `view --synthesis off`) as the **primary** I2a material. The upstream scope doc is a **completeness cross-check only** — not a parallel SoT (design §9). Absent inductive dir → scope-doc-only fallback.
+Compose the compose document via `I*` / `F` / `C` per section (see initializing-runner). No mapping paste. When Step 0 produced per-section SoT under `revision{active_doc}/inductive-scope/`, `begin-init` passes that directory as `INDUCTIVE_DIR`. I2a obtains `I*` only via **`$RESOLVE_I_STAR`** (`i_star_control resolve-i-star`), which keys off profile `drafting.inductive` (`true` → inductive-scope `{S}.json` `decisions[].text`; `false` → `_partition.json` by `home`). Do not inclusive-match the full scope per section. The upstream scope doc is a **completeness cross-check only**. Non-inductive profiles must materialize Partition in I0; `init-complete` validates `_partition.json` when `drafting.inductive` is false.
 
 1. Run `$DRAFT_CONTROL begin-init`.
    - On failure → Blocking.
@@ -108,19 +108,19 @@ Await completion (`$SUBAGENT_AWAIT_SYNC`).
 
 2. Run `$DRAFT_CONTROL init-complete`. On failure → Blocking.
 
-3. **Pause gate:** Present runner return summary and the compose document path. Ask: FreeEdit, Evaluate, or Deliver?
-   - **FreeEdit** → run `$DRAFT_CONTROL advance-to-freeedit`. On failure → Blocking. Proceed to **Step 2 — FreeEdit**.
-   - **Evaluate** → **Evaluating Rules** below (skip FreeEdit).
-   - **Deliver** → **ReadyForDelivery Rules** below (skip FreeEdit).
-
+3. **Pause gate:** Present runner return summary and the compose document path. Offer **only** the options listed in this profile's `drafting.post_init_options` (do not invent options absent from the list).
+   - **freeedit** (when listed) → run `$DRAFT_CONTROL advance-to-freeedit`. On failure → Blocking. Proceed to **Step 2 — FreeEdit**.
+   - **evaluate** (when listed) → **Evaluating Rules** below (skip FreeEdit).
+   - **deliver** (when listed) → **ReadyForDelivery Rules** below (skip FreeEdit).
+   - If `deliver` is listed without a prior Evaluating round in this revision, prefer routing the user to **evaluate** first (Eval is the delivery quality gate).
 ### Step 2 — FreeEdit
 
 Entry: `advance-to-freeedit` success, or Evaluating fix resume.
 
 - User drives edits; AI assists on request.
-- When user signals done, ask: Evaluate or deliver directly?
+- When user signals done, ask using remaining `drafting.post_init_options` that still apply (typically Evaluate; Deliver only if listed and Evaluating already completed for this revision):
   - **Evaluate** → **Evaluating Rules** below.
-  - **Deliver** → **ReadyForDelivery Rules** below.
+  - **Deliver** (only if listed) → **ReadyForDelivery Rules** below.
 
 ---
 

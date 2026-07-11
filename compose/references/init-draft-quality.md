@@ -40,28 +40,31 @@ $REVISION_DIR/_title-block.json             # I2g (block_key → reader H2; last
 | Field | Required | Rules |
 |-------|----------|-------|
 | `section_key` | yes | Must match filename key |
-| `i_star` | yes | String; filtered scope substance (tech-neutral). May be `""` |
-| `scope_refs` | yes | Array of strings; decision headings or paraphrase anchors used |
+| `i_star` | yes | String; filtered substance for this section (tech-neutral). May be `""` |
+| `scope_refs` | yes | Array of strings; scope anchors used (non-empty when any scope substance was considered) |
+| `code_refs` | yes | Array of strings; codebase anchors as `path` or `path#symbol` (may be `[]`) |
 | `gaps` | yes | Array of gap objects (may be empty when `i_star` non-empty) |
 | `f.carrier` | yes | Non-empty string; selected from `presentation.allowed[].carrier` |
 | `f.structure` | yes | String from `presentation.allowed[].structure` of the selected entry (`"none"` if no diagram) |
 | `f.forbidden` | yes | String; derived from `presentation.forbidden` (may describe none) |
 | `c` | yes | 2–5 objects, each `{ "d", "c", "source" }` — all non-empty strings |
-| `kw_init` | yes | `{ "what", "why", "alternatives", "failure" }` booleans |
+
+**Removed:** `kw_init` (do not emit).
 
 ### Gap object
 
 | Field | Required | Values |
 |-------|----------|--------|
-| `kind` | yes | `scope_absent` |
+| `kind` | yes | `scope_absent` · `unfounded` |
 | `note` | yes | Non-empty explanation |
-| `dimension` | when KW-related | `what` · `why` · `alternatives` · `failure` |
+| `dimension` | optional | `what` · `why` · `alternatives` · `failure` (KW-related absences) |
 
-When scope lacks substance for a KW dimension: set `kw_init.<dim>` to `false` and add a `scope_absent` gap with matching `dimension`.
+- `scope_absent` — scope/upstream lacks substance for this section (or a KW dimension).
+- `unfounded` — body would need a claim with neither scope nor code provenance; mark gap + body `待决`, do not invent.
 
 ### Empty `i_star`
 
-When no scope substance matches this section:
+When no substance is assigned to this section:
 
 1. `gaps` must contain at least one object explaining why.
 2. Body may be a single honest placeholder, e.g. `（本节 scope 无可用 substance，待 Round 补）`.
@@ -80,6 +83,14 @@ When no scope substance matches this section:
 2. Body must reflect `f.carrier` structure (lists, tables, phased blocks as declared).
 3. Scope gaps still require `gaps` entries and optional `> **待决：** …` in body — not invented fill.
 
+### Partition (when `drafting.inductive` is false)
+
+```text
+$REVISION_DIR/_partition.json   # JSON array of {id, text, home}
+```
+
+I2a takes `i_star` from `$RESOLVE_I_STAR` (py keys off `drafting.inductive`). Do not re-scan the full scope for inclusive matching.
+
 ## Body prohibitions
 
 - `[Source:` (decision paste marker)
@@ -87,4 +98,4 @@ When no scope substance matches this section:
 
 ## Validate command
 
-`init_compose_validation.py validate` checks derive files, body files, `_title-display.json`, compose-doc anchors, and (when outline-registry is available) `_title-block.json` plus `section_order == flatten(outline.intents)`. See script `--help` for exit codes and stderr format.
+`init_compose_validation.py validate` checks derive files, body files, `_title-display.json`, compose-doc anchors, and (when outline-registry is available) `_title-block.json` plus `section_order == flatten(outline.intents)`. When `drafting.inductive` is false, also requires a valid `$REVISION_DIR/_partition.json`. See script `--help` for exit codes and stderr format.

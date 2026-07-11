@@ -33,6 +33,9 @@ from init_artifact_paths import (  # noqa: E402
     derive_path,
     display_titles_path,
 )
+from partition_schema import partition_path, validate_partition_atoms  # noqa: E402
+from workflow_paths import load_profile  # noqa: E402
+
 from init_block_titles_schema import get_block_title, load_block_titles, validate_block_titles  # noqa: E402
 from init_display_titles_schema import (  # noqa: E402
     get_display_title,
@@ -43,7 +46,8 @@ from init_display_titles_schema import (  # noqa: E402
 
 _MIN_BODY_LINES_WITH_I_STAR = 3
 _PROHIBITED_BODY_PATTERNS = ("[Source:", "decision-doc-mapping")
-_KW_INIT_KEYS = ("what", "why", "alternatives", "failure")
+_GAP_KINDS = frozenset({"scope_absent", "unfounded"})
+_GAP_DIMENSIONS = frozenset({"what", "why", "alternatives", "failure"})
 _C_MIN = 2
 _C_MAX = 5
 _SECTION_KEY_ANCHOR_RE = re.compile(
@@ -124,6 +128,7 @@ def minimal_derive_payload(
         "section_key": key,
         "i_star": i_star,
         "scope_refs": ["Decision: sample reference"],
+        "code_refs": [],
         "gaps": gaps,
         "f": {
             "carrier": "prose",
@@ -142,12 +147,6 @@ def minimal_derive_payload(
                 "source": "role_fields.vocabulary_domain",
             },
         ],
-        "kw_init": {
-            "what": bool(i_star.strip()),
-            "why": False,
-            "alternatives": False,
-            "failure": False,
-        },
     }
 
 
@@ -164,6 +163,26 @@ def write_minimal_derive_artifacts(
         path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
+def write_minimal_partition(
+    revision_dir: Path,
+    section_keys: Iterable[str],
+) -> Path:
+    """Write a minimal valid ``_partition.json`` (one atom per key) for tests."""
+    revision_dir.mkdir(parents=True, exist_ok=True)
+    atoms: list[dict[str, str]] = []
+    for index, key in enumerate(section_keys, start=1):
+        atoms.append(
+            {
+                "id": f"A-{index}",
+                "text": f"Minimal atom for {str(key).strip().upper()}.",
+                "home": str(key).strip().upper(),
+            }
+        )
+    path = partition_path(revision_dir)
+    path.write_text(json.dumps(atoms, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return path
+
+
 def write_minimal_init_work_artifacts(
     revision_dir: Path,
     section_keys: Iterable[str],
@@ -172,6 +191,7 @@ def write_minimal_init_work_artifacts(
 ) -> None:
     """Write derive, body, and title files for Init validation tests and fixtures."""
     write_minimal_derive_artifacts(revision_dir, section_keys, i_star=i_star)
+
     for key in section_keys:
         section = key.strip().upper()
         body = (
@@ -204,13 +224,15 @@ def _validate_gap(entry: Any, *, section_key: str, index: int) -> list[str]:
     if not isinstance(entry, dict):
         return [f"{prefix} must be an object"]
     kind = entry.get("kind")
-    if kind != "scope_absent":
-        errors.append(f"{prefix}.kind must be 'scope_absent'")
+    if kind not in _GAP_KINDS:
+        errors.append(
+            f"{prefix}.kind must be one of {sorted(_GAP_KINDS)} (got {kind!r})",
+        )
     note = entry.get("note")
     if not isinstance(note, str) or not note.strip():
         errors.append(f"{prefix}.note must be a non-empty string")
     dimension = entry.get("dimension")
-    if dimension is not None and dimension not in _KW_INIT_KEYS:
+    if dimension is not None and dimension not in _GAP_DIMENSIONS:
         errors.append(f"{prefix}.dimension invalid: {dimension!r}")
     return errors
 
@@ -233,6 +255,20 @@ def _validate_derive_document(data: dict[str, Any], *, expected_key: str) -> lis
         errors.append(f"{key}: scope_refs must be an array")
     elif not scope_refs:
         errors.append(f"{key}: scope_refs must not be empty")
+    else:
+        for index, ref in enumerate(scope_refs):
+            if not isinstance(ref, str) or not ref.strip():
+                errors.append(f"{key}: scope_refs[{index}] must be a non-empty string")
+
+    code_refs = data.get("code_refs")
+    if code_refs is None:
+        errors.append(f"{key}: missing code_refs (use [] when none)")
+    elif not isinstance(code_refs, list):
+        errors.append(f"{key}: code_refs must be an array")
+    else:
+        for index, ref in enumerate(code_refs):
+            if not isinstance(ref, str) or not ref.strip():
+                errors.append(f"{key}: code_refs[{index}] must be a non-empty string")
 
     gaps = data.get("gaps")
     if not isinstance(gaps, list):
@@ -267,13 +303,8 @@ def _validate_derive_document(data: dict[str, Any], *, expected_key: str) -> lis
                 if not isinstance(val, str) or not val.strip():
                     errors.append(f"{key}: c[{index}].{sub} must be a non-empty string")
 
-    kw_init = data.get("kw_init")
-    if not isinstance(kw_init, dict):
-        errors.append(f"{key}: kw_init must be an object")
-    else:
-        for sub in _KW_INIT_KEYS:
-            if not isinstance(kw_init.get(sub), bool):
-                errors.append(f"{key}: kw_init.{sub} must be a boolean")
+    if "kw_init" in data:
+        errors.append(f"{key}: kw_init is removed; omit the field")
 
     i_star = str(data.get("i_star", "")).strip()
     if not i_star and isinstance(gaps, list) and not gaps:
@@ -391,7 +422,26 @@ def validate_init_artifacts(
     keys = section_order_for_profile(project_root, profile_id)
     errors: list[str] = []
 
+    profile = load_profile(profile_id, project_root=project_root)
+    inductive = (profile.get("drafting") or {}).get("inductive") is True
+    if not inductive:
+        part = partition_path(revision_dir)
+        if not part.is_file():
+            errors.append(
+                "missing _partition.json (required when drafting.inductive is false)",
+            )
+        else:
+            try:
+                data = json.loads(part.read_text(encoding="utf-8"))
+            except json.JSONDecodeError as exc:
+                errors.append(f"invalid _partition.json: {exc}")
+            else:
+                errors.extend(
+                    validate_partition_atoms(data, allowed_homes=keys),
+                )
+
     raw_doc = compose_doc.read_text(encoding="utf-8")
+
     for key in keys:
         derive_file = derive_path(revision_dir, key)
         if not derive_file.is_file():

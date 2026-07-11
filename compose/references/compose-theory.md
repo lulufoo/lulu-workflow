@@ -37,7 +37,7 @@ block_title = specialize( blocks.{id}.heading ; substance(block intent bodies) )
 
 | Factor | Symbol | Source | Role |
 |--------|--------|--------|------|
-| Content | `I*` | inductive `decisions[].text` (primary when `$INDUCTIVE_DIR`) × intent + KW; else scope doc | Filtered decision substance for this section — what to say |
+| Content | `I*` | `$RESOLVE_I_STAR` / `i_star_control resolve-i-star` (keys off `drafting.inductive`: `false` → `_partition.json` by `home`; `true` → inductive-scope `{S}.json` `decisions[].text`); scope doc = completeness cross-check only | Filtered decision substance for this section — what to say |
 | Form | `F` | section guidance + domain + role + intent | How content is carried and organized |
 | Expression | `C` | `### Role Fields` + domain + intent + F | How to write inside F |
 | Envelope | `intent` | section-registry (`intent` + `intent_boundary`) | `intent` = what belongs; `intent_boundary` = what belongs elsewhere (exclude, do not author) |
@@ -84,15 +84,16 @@ Initializing must operationalize scope substance in readable form; scope-externa
 
 ## Content (I*) — definition
 
-**I*** — filtered substance for this section. When `$INDUCTIVE_DIR` is set: **primary** = mechanical assembly of inductive `decisions[].text` (`resolve-inductive-fidelity` / `view --synthesis off`); scope doc is completeness cross-check only (design §9). When inductive absent: grounded in the scope doc (`$SCOPE_DOC_PATH`), best-effort supplemented by available codebase facts.
+**I*** — filtered substance for this section. Obtained mechanically via `resolve-i-star` (profile `drafting.inductive`): `false` → Partition atoms with `home` = this section; `true` → inductive `decisions[].text` from `{S}.json` only. Scope doc is completeness cross-check only — do not inclusive-match the full scope against this section's intent. Code grounding (when `drafting.code_grounding`) may add path/symbol detail at Write with `code_refs`.
 
-- Produced in I2a: match `intent` (else `desc`), `intent_boundary`, and section KW criteria (`## {key}`).
+- Produced in I2a from `resolve-i-star` (not from per-section inclusive scope scan).
 - Covers goals, boundaries, exclusions, decisions, invariants, phases at the decision level.
 - Rewrite as operational prose; not scope-doc verbatim paste (and not hand-rewriting inductive JSON beyond `decisions[].text`).
-- Must not introduce capabilities, scope, or boundaries beyond inductive SoT / scope doc.
+- Must not introduce capabilities, scope, or boundaries beyond inductive SoT / Partition / grounded code.
 - May be empty when no matching substance exists.
+- Must not restate propositions whose `home` is another section — cite by anchor instead.
 
-**Codebase grounding (best-effort default):** Initializing attempts to bind scope-doc semantic names to identifiable system artifacts. No match → no-op, not an error. Names still unresolvable after the attempt must be flagged in OQ as blocks-plan.
+**Codebase grounding (profile flag):** Driven by `drafting.code_grounding` (boolean; orthogonal to `drafting.inductive`). When `true` (e.g. lulu-plan): at Write, bind named symbols in `I*` / registry-required path fields to real artifacts under `$PROJECT_ROOT` (Grep/Glob/Read, bounded); success → body increment + `_derive-.code_refs` as `path` or `path#symbol`; failure → no invented paths, `gaps` + body `待决`. When `false` (e.g. lulu-design): Init does not run this pass — code refs come from inductive `attach-code-refs` upstream if at all. Grounding never writes back to `_partition.json`.
 
 ## Form (F) — definition
 
@@ -123,6 +124,6 @@ C has 2–5 pairs per section. Every `c` must be traceable to a specific `### Ro
 
 - scope-doc verbatim paste, `[Source: …]`, `decision-doc-mapping`
 - `I*` that adds capabilities, scope, or boundaries not in scope doc
-- speculative paths, APIs, or behavior not grounded in scope doc (Init does not invent implementation detail)
+- speculative paths, APIs, or behavior not grounded in scope / Partition / inductive SoT, and not obtained via `drafting.code_grounding` (when enabled: ground or `待决` — never invent)
 - verbatim `sections.{key}.heading` as document display title (infer via `display_title` instead)
 - verbatim `blocks.{id}.heading` as final block H2 (infer via `block_title` in I2g instead)

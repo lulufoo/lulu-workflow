@@ -17,6 +17,7 @@ from init_compose_validation import (  # noqa: E402
     minimal_derive_payload,
     validate_init_artifacts,
     write_minimal_init_work_artifacts,
+    write_minimal_partition,
 )
 from test_registry_fixtures import first_section_key, minimal_compose_doc_markdown  # noqa: E402
 from test_template_data import LEGACY_SECTION_REGISTRY, OUTLINE_REGISTRY_FEATURE, seed_template_cache  # noqa: E402
@@ -37,7 +38,9 @@ def revision_dir(tmp_path: Path) -> Path:
 def test_validate_passes_with_minimal_work_artifacts(revision_dir: Path, tmp_path: Path):
     from section_registry_schema import section_order  # noqa: WPS433
 
-    write_minimal_init_work_artifacts(revision_dir, section_order())
+    keys = section_order()
+    write_minimal_init_work_artifacts(revision_dir, keys)
+    write_minimal_partition(revision_dir, keys)
     compose_doc = revision_dir / "tech-doc.md"
     compose_doc.write_text(minimal_compose_doc_markdown(), encoding="utf-8")
 
@@ -50,7 +53,29 @@ def test_validate_passes_with_minimal_work_artifacts(revision_dir: Path, tmp_pat
     assert error is None
 
 
+def test_validate_fails_when_partition_missing_for_non_inductive(
+    revision_dir: Path, tmp_path: Path
+):
+    from section_registry_schema import section_order  # noqa: WPS433
+
+    write_minimal_init_work_artifacts(revision_dir, section_order())
+    compose_doc = revision_dir / "tech-doc.md"
+    compose_doc.write_text(minimal_compose_doc_markdown(), encoding="utf-8")
+
+    error = validate_init_artifacts(
+        revision_dir,
+        compose_doc,
+        tmp_path,
+        "lulu-plan",
+    )
+    assert error is not None
+    assert "missing _partition.json" in error
+
+
 def test_validate_fails_when_derive_missing(revision_dir: Path, tmp_path: Path):
+    from section_registry_schema import section_order  # noqa: WPS433
+
+    write_minimal_partition(revision_dir, section_order())
     compose_doc = revision_dir / "tech-doc.md"
     compose_doc.write_text(minimal_compose_doc_markdown(), encoding="utf-8")
 
@@ -67,7 +92,9 @@ def test_validate_fails_when_derive_missing(revision_dir: Path, tmp_path: Path):
 def test_validate_fails_on_thin_body(revision_dir: Path, tmp_path: Path):
     from section_registry_schema import section_order  # noqa: WPS433
 
-    write_minimal_init_work_artifacts(revision_dir, section_order())
+    keys = section_order()
+    write_minimal_init_work_artifacts(revision_dir, keys)
+    write_minimal_partition(revision_dir, keys)
     key = first_section_key()
     (revision_dir / f"_body-{key}.txt").write_text("Only one line.\n", encoding="utf-8")
     compose_doc = revision_dir / "tech-doc.md"
@@ -84,6 +111,9 @@ def test_validate_fails_on_thin_body(revision_dir: Path, tmp_path: Path):
 
 
 def test_validate_empty_i_star_requires_gaps(revision_dir: Path, tmp_path: Path):
+    from section_registry_schema import section_order  # noqa: WPS433
+
+    write_minimal_partition(revision_dir, section_order())
     key = first_section_key()
     payload = minimal_derive_payload(key, i_star="")
     payload["gaps"] = []
