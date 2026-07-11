@@ -16,28 +16,29 @@ if str(_HOOK) not in sys.path:
 
 
 class TestDefaultHookConfig:
-    def test_version_and_rw_guard(self):
+    def test_version_and_guards(self):
         from hook_config_schema import default_hook_config
 
         cfg = default_hook_config()
-        assert cfg["version"] == 1
-        assert cfg["rwGuard"]["enable"] is True
+        assert cfg["version"] == 2
+        assert cfg["internalPathGuard"]["enable"] is True
+        assert cfg["externalPathGuard"]["enabled"] is False
 
     def test_returns_deep_copy(self):
         from hook_config_schema import default_hook_config
 
         first = default_hook_config()
         second = default_hook_config()
-        first["rwGuard"]["enable"] = False
-        assert second["rwGuard"]["enable"] is True
+        first["internalPathGuard"]["enable"] = False
+        assert second["internalPathGuard"]["enable"] is True
 
     def test_includes_tech_code_stage(self):
         from hook_config_schema import default_hook_config
 
-        stages = default_hook_config()["rwGuard"]["stages"]
+        stages = default_hook_config()["internalPathGuard"]["stages"]
         assert stages == {
             "lulu-code": {
-                "readDirs": [".", "{platform-skills}"],
+                "readDirs": ["."],
                 "writeDirs": ["."],
             },
         }
@@ -54,11 +55,18 @@ class TestValidateHookConfig:
 
         assert validate_hook_config([]) == ["root must be a JSON object"]
 
+    def test_rejects_legacy_rw_guard_version(self):
+        from hook_config_schema import validate_hook_config
+
+        errors = validate_hook_config({"version": 1, "rwGuard": {}})
+        assert "version must be 2" in errors
+        assert "internalPathGuard must be an object" in errors
+
     def test_rejects_bad_version(self):
         from hook_config_schema import validate_hook_config
 
-        errors = validate_hook_config({"version": 2, "rwGuard": {}})
-        assert "version must be 1" in errors
+        errors = validate_hook_config({"version": 1, "internalPathGuard": {}})
+        assert "version must be 2" in errors
 
 
 class TestResolveHookConfigPath:
@@ -96,11 +104,29 @@ class TestLoadHookConfig:
         target = tmp_path / "skill-config/lulu-dev-workflow/workflow-guard-config.json"
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(
-            json.dumps({"version": 1, "rwGuard": {"enable": False}}),
+            json.dumps(
+                {
+                    "version": 2,
+                    "internalPathGuard": {"enable": False},
+                    "externalPathGuard": {"enabled": True},
+                }
+            ),
             encoding="utf-8",
         )
         loaded = load_hook_config(tmp_path, "cursor")
-        assert loaded["rwGuard"]["enable"] is False
+        assert loaded["internalPathGuard"]["enable"] is False
+        assert loaded["externalPathGuard"]["enabled"] is True
+
+    def test_legacy_rw_guard_falls_back_to_default(self, tmp_path: Path):
+        from hook_config_schema import default_hook_config, load_hook_config
+
+        target = tmp_path / "skill-config/lulu-dev-workflow/workflow-guard-config.json"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(
+            json.dumps({"version": 1, "rwGuard": {"enable": False}}),
+            encoding="utf-8",
+        )
+        assert load_hook_config(tmp_path, "cursor") == default_hook_config()
 
 
 class TestEnsureHookConfig:
@@ -119,50 +145,64 @@ class TestEnsureHookConfig:
         target = tmp_path / "skill-config/lulu-dev-workflow/workflow-guard-config.json"
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(
-            json.dumps({"version": 1, "rwGuard": {"enable": False}}),
+            json.dumps(
+                {
+                    "version": 2,
+                    "internalPathGuard": {"enable": False},
+                }
+            ),
             encoding="utf-8",
         )
         path, created = ensure_hook_config(tmp_path, platform="cursor")
         assert created is False
         assert path == target
-        assert json.loads(target.read_text(encoding="utf-8"))["rwGuard"]["enable"] is False
+        assert (
+            json.loads(target.read_text(encoding="utf-8"))["internalPathGuard"]["enable"]
+            is False
+        )
 
 
-class TestResolveRwGuard:
+class TestResolveInternalPathGuard:
     def test_expands_platform_in_defaults(self, tmp_path: Path):
-        from hook_config_schema import resolve_rw_guard
+        from hook_config_schema import resolve_internal_path_guard
 
-        resolved = resolve_rw_guard(tmp_path, "lulu-blueprint", platform="cursor")
+        resolved = resolve_internal_path_guard(tmp_path, "lulu-blueprint", platform="cursor")
         assert resolved["enable"] is True
-        assert resolved["readDirs"] == [
-            ".",
-            (Path.home() / ".cursor/skills").as_posix(),
-        ]
+        assert resolved["readDirs"] == ["."]
         assert resolved["writeDirs"] == [".cache/cursor/lulu-dev-workflow"]
 
-    def test_expands_platform_skills_template(self):
+    def test_expands_platform_template(self):
         from hook_config_schema import expand_path_template
 
-        assert expand_path_template("{platform-skills}", "copilot") == (
-            Path.home() / ".copilot/skills"
-        ).as_posix()
+        assert expand_path_template(".cache/{platform}/lulu-dev-workflow", "copilot") == (
+            ".cache/copilot/lulu-dev-workflow"
+        )
+        # {platform-skills} is no longer expanded — external paths belong to externalPathGuard
+        assert expand_path_template("{platform-skills}", "copilot") == "{platform-skills}"
 
     def test_tech_code_allows_project_root_writes(self, tmp_path: Path):
-        from hook_config_schema import resolve_rw_guard
+        from hook_config_schema import resolve_internal_path_guard
 
-        resolved = resolve_rw_guard(tmp_path, "lulu-code", platform="copilot")
-        assert resolved["readDirs"] == [
-            ".",
-            (Path.home() / ".copilot/skills").as_posix(),
-        ]
+        resolved = resolve_internal_path_guard(tmp_path, "lulu-code", platform="copilot")
+        assert resolved["readDirs"] == ["."]
         assert resolved["writeDirs"] == ["."]
 
     def test_stage_enable_override(self, tmp_path: Path):
-        from hook_config_schema import ensure_hook_config, resolve_rw_guard
+        from hook_config_schema import ensure_hook_config, resolve_internal_path_guard
 
         target, _ = ensure_hook_config(tmp_path, platform="cursor")
         payload = json.loads(target.read_text(encoding="utf-8"))
-        payload["rwGuard"]["stages"]["lulu-blueprint"] = {"enable": False}
+        payload["internalPathGuard"]["stages"]["lulu-blueprint"] = {"enable": False}
         target.write_text(json.dumps(payload), encoding="utf-8")
-        resolved = resolve_rw_guard(tmp_path, "lulu-blueprint", platform="cursor")
+        resolved = resolve_internal_path_guard(tmp_path, "lulu-blueprint", platform="cursor")
         assert resolved["enable"] is False
+
+
+class TestResolveExternalPathGuard:
+    def test_defaults_when_missing_block(self, tmp_path: Path):
+        from hook_config_schema import ensure_hook_config, resolve_external_path_guard
+
+        ensure_hook_config(tmp_path, platform="cursor")
+        resolved = resolve_external_path_guard(tmp_path, platform="cursor")
+        assert resolved["enabled"] is False
+        assert resolved["sessionAllow"] is False

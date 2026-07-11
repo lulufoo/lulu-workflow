@@ -26,5 +26,13 @@ _hook_common = _load_hook_common()
 agent_stop_message = _hook_common.agent_stop_message
 deny_rw_boundary = _hook_common.deny_rw_boundary
 deny_cache_boundary = _hook_common.deny_cache_boundary
+deny_internal_path_guard = _hook_common.deny_internal_path_guard
+deny_external_path_guard = _hook_common.deny_external_path_guard
 
-__all__ = ["agent_stop_message", "deny_cache_boundary", "deny_rw_boundary"]
+__all__ = [
+    "agent_stop_message",
+    "deny_cache_boundary",
+    "deny_external_path_guard",
+    "deny_internal_path_guard",
+    "deny_rw_boundary",
+]

@@ -18,10 +18,18 @@ for path in (_HOOK_DIR, _SCRIPTS_DIR):
         sys.path.insert(0, str(path))
 
 from active_context_schema import get_entry  # noqa: E402
-from hook_config_schema import resolve_rw_guard  # noqa: E402
+from hook_config_schema import (  # noqa: E402
+    resolve_external_path_guard,
+    resolve_internal_path_guard,
+)
 from platforms.hook.loader import load_hook_adapter  # noqa: E402
 from platforms.paths import cache_dir as platform_cache_dir  # noqa: E402
-from rw_guard import (  # noqa: E402
+from external_path_guard import (  # noqa: E402
+    check_external_read,
+    check_external_write,
+    is_outside_project,
+)
+from internal_path_guard import (  # noqa: E402
     allowed_dirs_for_tool,
     extract_tool_path,
     is_rw_tool,
@@ -31,7 +39,10 @@ from rw_guard import (  # noqa: E402
     resolve_allowed_dirs,
 )
 from transition_table import allowed_stages  # noqa: E402
-from workflow_hook_common import deny_rw_boundary  # noqa: E402
+from workflow_hook_common import (  # noqa: E402
+    deny_external_path_guard,
+    deny_internal_path_guard,
+)
 from workflow_sessions import current_effective_delivered  # noqa: E402
 
 _WORKFLOW_PY_PATH = re.compile(
@@ -163,16 +174,53 @@ def _tool_kind(tool_name: str) -> str:
     return "Write"
 
 
-def _evaluate_rw_guard(
+def _evaluate_external_path_guard(
+    *,
+    platform: str,
+    tool_name: str,
+    target: Path,
+    session_id: str,
+) -> Optional[dict]:
+    guard = resolve_external_path_guard(Path.cwd(), platform=platform)
+    if not guard.get("enabled", False):
+        return None
+
+    tool_kind = _tool_kind(tool_name)
+    if is_write_tool(tool_name):
+        denied = check_external_write(
+            [str(target)],
+            write_allow=guard.get("writeAllowExternalPaths", []),
+            session_allow=bool(guard.get("sessionAllow", False)),
+            session_id=session_id,
+            platform=platform,
+        )
+    else:
+        denied = check_external_read(
+            str(target),
+            read_allow=guard.get("readAllowExternalPaths", []),
+            session_allow=bool(guard.get("sessionAllow", False)),
+            session_id=session_id,
+            platform=platform,
+        )
+    if denied is None:
+        return None
+    return deny_external_path_guard(
+        tool_kind=tool_kind,
+        target_path=Path(denied),
+    )
+
+
+def _evaluate_internal_path_guard(
     *,
     platform: str,
     stage: str,
     tool_name: str,
     tool_input: object,
     entry,
+    target: Path,
 ) -> Optional[dict]:
     project_root = Path.cwd()
-    guard = resolve_rw_guard(project_root, stage, platform=platform)
+    guard = resolve_internal_path_guard(project_root, stage, platform=platform)
     if not guard.get("enable", True):
         return None
 
@@ -189,16 +237,11 @@ def _evaluate_rw_guard(
         read_dirs=guard.get("readDirs", ["."]),
         write_dirs=guard.get("writeDirs", [platform_cache_dir(platform).as_posix()]),
     )
-    raw_path = extract_tool_path(tool_name, tool_input)
-    if not raw_path:
-        return None
-
-    target = normalize_tool_path(raw_path, project_root)
     allowed_roots = resolve_allowed_dirs(project_root, dir_templates)
     if path_under_any_allowed(target, allowed_roots):
         return None
 
-    return deny_rw_boundary(
+    return deny_internal_path_guard(
         stage=stage,
         tool_kind=_tool_kind(tool_name),
         allowed_dirs=allowed_roots,
@@ -261,19 +304,43 @@ def main() -> int:
             _emit_response(platform_mod, {"permission": "allow"})
             return 0
 
+        raw_path = extract_tool_path(tool_name, tool_input)
+        if not raw_path:
+            _emit_response(platform_mod, {"permission": "allow"})
+            return 0
+
+        project_root = Path.cwd().resolve()
+        target = normalize_tool_path(raw_path, project_root)
         conv_id = (normalized.get("conversation_id") or "").strip()
+
+        if is_outside_project(target, project_root):
+            deny = _evaluate_external_path_guard(
+                platform=args.platform,
+                tool_name=tool_name,
+                target=target,
+                session_id=conv_id or "unknown",
+            )
+            if deny is not None:
+                _emit_response(
+                    platform_mod, deny, tool_name=tool_name, tool_input=tool_input
+                )
+                return 0
+            _emit_response(platform_mod, {"permission": "allow"})
+            return 0
+
         stage = _read_active_stage(args.platform, conv_id)
         if stage is None:
             _emit_response(platform_mod, {"permission": "allow"})
             return 0
 
         entry = _read_active_entry(args.platform, conv_id)
-        deny = _evaluate_rw_guard(
+        deny = _evaluate_internal_path_guard(
             platform=args.platform,
             stage=stage,
             tool_name=tool_name,
             tool_input=tool_input,
             entry=entry,
+            target=target,
         )
         if deny is not None:
             _emit_response(platform_mod, deny, tool_name=tool_name, tool_input=tool_input)

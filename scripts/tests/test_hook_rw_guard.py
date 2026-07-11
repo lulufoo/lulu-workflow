@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for scripts/hook/rw_guard.py."""
+"""Tests for scripts/hook/internal_path_guard.py."""
 
 import sys
 from pathlib import Path
@@ -9,7 +9,7 @@ _HOOK = _SCRIPTS / "hook"
 if str(_HOOK) not in sys.path:
     sys.path.insert(0, str(_HOOK))
 
-from rw_guard import (  # noqa: E402
+from internal_path_guard import (  # noqa: E402
     allowed_dirs_for_tool,
     extract_tool_path,
     normalize_tool_path,

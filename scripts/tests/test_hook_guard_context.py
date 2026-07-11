@@ -464,7 +464,7 @@ class TestRwGuard:
         hook_config_schema.ensure_hook_config(tmp_path, platform="cursor")
         cfg_path = hook_config_schema.resolve_hook_config_path(tmp_path, "cursor")
         cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
-        cfg["rwGuard"]["enable"] = False
+        cfg["internalPathGuard"]["enable"] = False
         cfg_path.write_text(json.dumps(cfg), encoding="utf-8")
 
         active_context_schema.write_entry(
@@ -502,7 +502,20 @@ class TestRwGuard:
 
     def test_read_inside_platform_skills_allows(self, tmp_path, monkeypatch):
         import active_context_schema
+        import hook_config_schema
+
         monkeypatch.chdir(tmp_path)
+        hook_config_schema.ensure_hook_config(tmp_path, platform="cursor")
+        cfg_path = hook_config_schema.resolve_hook_config_path(tmp_path, "cursor")
+        cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+        cfg["externalPathGuard"] = {
+            "enabled": True,
+            "readAllowExternalPaths": ["~/.cursor/"],
+            "writeAllowExternalPaths": [],
+            "sessionAllow": False,
+        }
+        cfg_path.write_text(json.dumps(cfg), encoding="utf-8")
+
         active_context_schema.write_entry(
             tmp_path, "cursor", "conv-a", _CYCLE_ID, "lulu-plan"
         )
@@ -521,8 +534,20 @@ class TestRwGuard:
 
     def test_read_outside_project_denies(self, tmp_path, monkeypatch):
         import active_context_schema
+        import hook_config_schema
 
         monkeypatch.chdir(tmp_path)
+        hook_config_schema.ensure_hook_config(tmp_path, platform="cursor")
+        cfg_path = hook_config_schema.resolve_hook_config_path(tmp_path, "cursor")
+        cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+        cfg["externalPathGuard"] = {
+            "enabled": True,
+            "readAllowExternalPaths": ["~/.cursor/"],
+            "writeAllowExternalPaths": [],
+            "sessionAllow": False,
+        }
+        cfg_path.write_text(json.dumps(cfg), encoding="utf-8")
+
         active_context_schema.write_entry(
             tmp_path, "cursor", "conv-a", _CYCLE_ID, "lulu-plan"
         )
@@ -539,7 +564,65 @@ class TestRwGuard:
         assert hook_entry.main() == 0
         result = json.loads(captured.getvalue())
         assert result["permission"] == "deny"
-        assert "Read blocked" in result.get("agent_message", "")
+        assert "externalPathGuard" in result.get("agent_message", "")
+
+    def test_no_stage_still_denies_external_when_enabled(self, tmp_path, monkeypatch):
+        import hook_config_schema
+
+        monkeypatch.chdir(tmp_path)
+        hook_config_schema.ensure_hook_config(tmp_path, platform="cursor")
+        cfg_path = hook_config_schema.resolve_hook_config_path(tmp_path, "cursor")
+        cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+        cfg["externalPathGuard"] = {
+            "enabled": True,
+            "readAllowExternalPaths": [],
+            "writeAllowExternalPaths": [],
+            "sessionAllow": False,
+        }
+        cfg_path.write_text(json.dumps(cfg), encoding="utf-8")
+
+        payload = _write_payload(
+            conversation_id="missing",
+            tool_name="Read",
+            file_path="/tmp/lulu-hook-no-stage-external.md",
+        )
+        monkeypatch.setattr(sys, "stdin", io.StringIO(payload))
+        captured = io.StringIO()
+        monkeypatch.setattr(sys, "stdout", captured)
+        assert hook_entry.main() == 0
+        result = json.loads(captured.getvalue())
+        assert result["permission"] == "deny"
+
+    def test_delivered_does_not_bypass_external_write(self, tmp_path, monkeypatch):
+        import active_context_schema
+        import hook_config_schema
+
+        monkeypatch.chdir(tmp_path)
+        hook_config_schema.ensure_hook_config(tmp_path, platform="cursor")
+        cfg_path = hook_config_schema.resolve_hook_config_path(tmp_path, "cursor")
+        cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+        cfg["externalPathGuard"] = {
+            "enabled": True,
+            "readAllowExternalPaths": [],
+            "writeAllowExternalPaths": [],
+            "sessionAllow": False,
+        }
+        cfg_path.write_text(json.dumps(cfg), encoding="utf-8")
+
+        active_context_schema.write_entry(
+            tmp_path, "cursor", "conv-a", _CYCLE_ID, "lulu-plan"
+        )
+        _make_workflow_state(_cache_dir(tmp_path), _CYCLE_ID, "lulu-plan", "Delivered")
+        payload = _write_payload(
+            conversation_id="conv-a",
+            file_path="/tmp/lulu-hook-delivered-external.txt",
+        )
+        monkeypatch.setattr(sys, "stdin", io.StringIO(payload))
+        captured = io.StringIO()
+        monkeypatch.setattr(sys, "stdout", captured)
+        assert hook_entry.main() == 0
+        result = json.loads(captured.getvalue())
+        assert result["permission"] == "deny"
 
 
 class TestClaudePlatformOutput:
