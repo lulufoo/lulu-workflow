@@ -41,7 +41,7 @@ $REVISION_DIR/_title-block.json             # I2g (block_key → reader H2; last
 |-------|----------|-------|
 | `section_key` | yes | Must match filename key |
 | `i_star` | yes | String; filtered substance for this section (tech-neutral). May be `""` |
-| `scope_refs` | yes | Array of strings; scope anchors used (non-empty when any scope substance was considered) |
+| `scope_refs` | yes | Array of strings; scope anchors used (non-empty when any scope substance was considered). Derivation sections may include in-document upstream section anchors (e.g. `AR`, `SK-P1`) |
 | `code_refs` | yes | Array of strings; codebase anchors as `path` or `path#symbol` (may be `[]`) |
 | `gaps` | yes | Array of gap objects (may be empty when `i_star` non-empty) |
 | `f.carrier` | yes | Non-empty string; selected from `presentation.allowed[].carrier` |
@@ -69,6 +69,8 @@ When no substance is assigned to this section:
 1. `gaps` must contain at least one object explaining why.
 2. Body may be a single honest placeholder, e.g. `（本节 scope 无可用 substance，待 Round 补）`.
 3. Display title → `（待补）`.
+
+**Exception — derivation sections** (Partition path; see initializing-runner I2d Upstream derivation): rule 1 always applies (the gap entry notes the derivation source). **When derivation produces work items**, body and display title come from them and rules 2–3 do not apply. **When upstream bodies are also empty** (nothing to decompose), rules 2–3 apply unchanged (placeholder body + `（待补）` title) — never invent filler.
 
 ### Block title (`_title-block.json` entry)
 

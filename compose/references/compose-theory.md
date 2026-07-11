@@ -90,10 +90,10 @@ Initializing must operationalize scope substance in readable form; scope-externa
 - Covers goals, boundaries, exclusions, decisions, invariants, phases at the decision level.
 - Rewrite as operational prose; not scope-doc verbatim paste (and not hand-rewriting inductive JSON beyond `decisions[].text`).
 - Must not introduce capabilities, scope, or boundaries beyond inductive SoT / Partition / grounded code.
-- May be empty when no matching substance exists.
+- May be empty when no matching substance exists. On a **derivation section** (registry `relations` mark an upstream key `decompose` / `instantiate`), empty `I*` still yields a body: Write derives work items from those upstream sections' committed bodies — projection of decided content, never new decisions (see initializing-runner I2d).
 - Must not restate propositions whose `home` is another section — cite by anchor instead.
 
-**Codebase grounding (profile flag):** Driven by `drafting.code_grounding` (boolean; orthogonal to `drafting.inductive`). When `true` (e.g. lulu-plan): at Write, bind named symbols in `I*` / registry-required path fields to real artifacts under `$PROJECT_ROOT` (Grep/Glob/Read, bounded); success → body increment + `_derive-.code_refs` as `path` or `path#symbol`; failure → no invented paths, `gaps` + body `待决`. When `false` (e.g. lulu-design): Init does not run this pass — code refs come from inductive `attach-code-refs` upstream if at all. Grounding never writes back to `_partition.json`.
+**Codebase grounding (profile flag):** Driven by `drafting.code_grounding` (boolean; orthogonal to `drafting.inductive`). When `true`: at Write, bind named symbols in `I*` / registry-required path fields to real artifacts under `$PROJECT_ROOT` (Grep/Glob/Read, bounded); success → body increment + `_derive-.code_refs` as `path` or `path#symbol`; failure → no invented paths, `gaps` + body `待决`. When `false`: Init does not run this pass — code refs come from inductive `attach-code-refs` upstream if at all. Grounding never writes back to `_partition.json`.
 
 ## Form (F) — definition
 
@@ -124,6 +124,6 @@ C has 2–5 pairs per section. Every `c` must be traceable to a specific `### Ro
 
 - scope-doc verbatim paste, `[Source: …]`, `decision-doc-mapping`
 - `I*` that adds capabilities, scope, or boundaries not in scope doc
-- speculative paths, APIs, or behavior not grounded in scope / Partition / inductive SoT, and not obtained via `drafting.code_grounding` (when enabled: ground or `待决` — never invent)
+- speculative paths, APIs, or behavior not grounded in scope / Partition / inductive SoT / committed upstream-body decomposition on a derivation section, and not obtained via `drafting.code_grounding` (when enabled: ground or `待决` — never invent)
 - verbatim `sections.{key}.heading` as document display title (infer via `display_title` instead)
 - verbatim `blocks.{id}.heading` as final block H2 (infer via `block_title` in I2g instead)

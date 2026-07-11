@@ -20,8 +20,8 @@ Use `$COMPOSE_PROFILE` from parent dispatch; kernel default applies only when om
 
 Init writes a readable draft from substance resolved by `$RESOLVE_I_STAR` (keys off `drafting.inductive`: inductive `{S}.json` or `_partition.json`), then Write. I0 still builds Partition when inductive is absent. Design SSOT: `docs/biz/compose-section-partition-design.md`.
 
-- **Must:** operationalize inductive/partition substance; explicit 待决 for gaps; readable `F` structure; single home per atom (no cross-section restatement of the same proposition).
-- **Must not:** invent beyond inductive/partition/scope; decision paste; empty shell sections; inclusive re-scan of full scope when Partition or inductive SoT is present.
+- **Must:** operationalize inductive/partition substance; explicit 待决 for gaps; readable `F` structure; single home per atom (no cross-section restatement of the same proposition); on the Partition path, derive work items for derivation sections by decomposing committed upstream bodies (I2d Upstream derivation).
+- **Must not:** invent beyond inductive/partition/scope/upstream-derivation sources; decide open choices during derivation; decision paste; empty shell sections; inclusive re-scan of full scope when Partition or inductive SoT is present.
 
 Round still owns formal gap closure. Do not ask the user questions. Do not run InDialogue, Reopen, Evaluating, or delivery work.
 
@@ -75,7 +75,7 @@ Internal only (not for I2a): `scope_resolver resolve-inductive` / `resolve-induc
 
 1. `$RESOLVE_PLAN_ROLE` → Plan Scope Constraints (`### Role`, `### Role Fields`).
 2. `$RESOLVE_DOMAIN` → `domain instance`.
-3. `$FETCH_COMPOSE section-registry --cycle-id "$CYCLE_ID"` (JSON) → `section_order`, `document_preamble`, per-section `heading` / `intent` (else `desc`) / `intent_boundary`
+3. `$FETCH_COMPOSE section-registry --cycle-id "$CYCLE_ID"` (JSON) → `section_order`, `document_preamble`, per-section `heading` / `intent` (else `desc`) / `intent_boundary` / `relations`
    `$FETCH_COMPOSE section-form-registry --cycle-id "$CYCLE_ID"` → `sections.{key}.presentation` / `expression`
 4. `$FETCH_COMPOSE outline-registry --cycle-id "$CYCLE_ID"` → `outline_order`, per-block `heading` / `intents`.
 5. `$FETCH_COMPOSE section-kw-criteria --cycle-id "$CYCLE_ID"` → each `## {section_key}` block (Fill completeness for **named** atoms only — do not pull foreign homes to satisfy KW).
@@ -164,17 +164,22 @@ Stdout → `i_star`. Empty stdout with exit 0 → `i_star=""` + `scope_absent` g
 
 - **Input:** `_derive-{key}.json` · `intent` · `intent_boundary` · upstream bodies in `$OUTPUT_DOC_PATH` (cross-section **reference**, never restate foreign homes) · registry `relations` for incremental cross-refs
 - **Action:** Scaffold per `F`; rewrite `I*` into slots; obey every `C` pair, `intent`, and `intent_boundary`. Mark gaps with `> **待决：** …`. Foreign propositions → anchor cite only (e.g.「见 `I-2`」).
+- **Upstream derivation (Partition path, derivation sections):** a *derivation section* has a registry `relations` edge `decompose` / `instantiate` to an upstream key (e.g. `SK` ← `AR`; `T` ← `SK`/`AR`). When mapped atoms underspecify the breakdown, derive the missing work items (phases, tasks, per-file edits, commands, ordering) from `own i_star + committed upstream-section bodies + code grounding` only — projection of decided content, not invention. Rules:
+  - **Decompose, never decide:** a work item hitting an undecided choice → `待决` (cite its VF Must-Close row when one exists), do not pick.
+  - **Cite the source anchor** per item (e.g.「按 `AR` 契约」·「对应 `SK` P1」) and append it to derive `scope_refs`.
+  - Empty `i_star`: keep the I2a `scope_absent` gap and note the derivation source in it.
+  - Never write derivation results back to `_partition.json`.
 - **Code grounding (only when `$CODE_GROUNDING` is true):** For body increments that need concrete paths/symbols named in `i_star` or registry, Grep/Glob/Read under `$PROJECT_ROOT` with bounded queries. Success → append `code_refs` as `path` or `path#symbol`. Failure → do not invent; add `gaps` (`scope_absent` or note) + `待决`. Never write grounding results back to `_partition.json`.
-- **Unfounded:** If a claim would enter body with neither scope nor code provenance → do not author as fact; `gaps.kind=unfounded` + `待决`.
-- **Output:** `$REVISION_DIR/_body-{section_key}.txt` (no H2 line); update derive `code_refs` / `gaps` if grounding ran
-- **Done:** body file exists; non-empty; ≥3 non-blank lines when `i_star` non-empty
+- **Unfounded:** If a claim would enter body with neither scope, upstream-derivation anchor, nor code provenance → do not author as fact; `gaps.kind=unfounded` + `待决`.
+- **Output:** `$REVISION_DIR/_body-{section_key}.txt` (no H2 line); update derive `scope_refs` / `code_refs` / `gaps` if derivation or grounding ran
+- **Done:** body file exists; non-empty; ≥3 non-blank lines when `i_star` non-empty or derivation produced content
 
 #### I2e — Derive display title
 
 - **Input:** `sections.{key}.heading` · body file · `i_star` substance
 - **Action:** Short localized title (~8–20 chars): type anchor from `heading` + one domain theme from substance.
 - **Forbidden:** verbatim registry `heading`; file paths; API names; copying first body sentence
-- **Output:** persist via `set-display-title`; empty `i_star` → `（待补）`
+- **Output:** persist via `set-display-title`; empty `i_star` and no derived body → `（待补）`
 - **Done:** `set-display-title` exits 0
 
 ```bash
