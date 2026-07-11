@@ -50,6 +50,7 @@ _WORKFLOW_PY_PATH = re.compile(
 )
 
 _CONV_ID_INJECT_SCRIPT_SUFFIXES = (
+    "/scripts/runtime_control.py",
     "/compose/scripts/core/start.py",
     "/compose/scripts/inductive/inductive_gate_control.py",
     "/compose/scripts/inductive/inductive_g3_grounding_control.py",
@@ -100,7 +101,12 @@ def _should_inject_conversation_id(command: str) -> bool:
         return False
     if not _WORKFLOW_PY_PATH.search(command):
         return False
-    return any(suffix in command for suffix in _CONV_ID_INJECT_SCRIPT_SUFFIXES)
+    if not any(suffix in command for suffix in _CONV_ID_INJECT_SCRIPT_SUFFIXES):
+        return False
+    # runtime_control only accepts --conversation-id on resolve-session-context.
+    if "/scripts/runtime_control.py" in command:
+        return "resolve-session-context" in command
+    return True
 
 
 def _should_override_conversation_id(command: str) -> bool:
