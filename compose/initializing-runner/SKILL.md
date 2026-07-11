@@ -101,8 +101,8 @@ When inductive SoT is present, **skip I0** (homes already live in per-section `d
 
 When absent:
 
-1. **Atomize** `$SCOPE_DOC_PATH` once (whole doc). Merge same-fact restatements into one atom. Do not split by source section-key.
-2. **Assign `home`:** for each atom, choose exactly one key in current `section_order` using registry projection only: `section_order` + intent text (`intent` else `desc`) + `intent_boundary` when present. Tie-break: invariants > structure/contract > success > contact > context; AR vs SK/T → structure→AR, phase/task→SK/T, ties prefer AR. May map into SK/T even if upstream lacked those keys.
+1. **Atomize** `$SCOPE_DOC_PATH` once (whole doc). Merge same-fact restatements into one atom. Do not split by source section-key. Treat a **figure** (a block whose meaning is its whole topology/layout) as **one atom**, text kept intact; never split it into edge/node claims. Boundary aids (fences, titled blocks, box-drawing runs) are heuristics, not an allowlist.
+2. **Assign `home`:** for each atom, choose exactly one key in current `section_order` using registry projection only: `section_order` + intent text (`intent` else `desc`) + `intent_boundary` when present. Tie-break: invariants > structure/contract > success > contact > context; **figures → structural key (usually AR), never SK/T by default**; AR vs SK/T → structure→AR, phase/task→SK/T, ties prefer AR. May map into SK/T even if upstream lacked those keys.
 3. **Persist** via `$PARTITION_CTL write` (atoms = JSON array `{id:A-n, text, home}` only):
 
 ```bash
