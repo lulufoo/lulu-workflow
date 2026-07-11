@@ -54,7 +54,7 @@ def test_outline_order_and_intent_map(outline_path: Path):
     assert intent_map["I"] == "IV"
     assert intent_map["T"] == "PL"
     assert intent_map["VF"] == "VF"
-    assert len(intent_map) == 10
+    assert len(intent_map) == 9
 
 
 def test_normalize_preserves_guidance_and_contract():
@@ -118,7 +118,6 @@ def test_validate_outline_section_alignment():
             "CTX",
             "GO",
             "SC",
-            "NG",
             "I",
             "AR",
             "KD",
@@ -128,7 +127,7 @@ def test_validate_outline_section_alignment():
         ],
         "document_preamble": "# Test",
         "sections": {key: {"heading": key, "intent": "x"} for key in [
-            "CTX", "GO", "SC", "NG", "I", "AR", "KD", "SK", "T", "VF",
+            "CTX", "GO", "SC", "I", "AR", "KD", "SK", "T", "VF",
         ]},
     }
     assert validate_outline_section_alignment(outline, section_registry) == []

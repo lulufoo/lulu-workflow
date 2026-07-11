@@ -117,7 +117,6 @@ def test_append_intent_invariants_block_after_design(doc_path: Path):
         ("CTX", "Context", "ctx"),
         ("GO", "Goal", "goal"),
         ("SC", "Scope", "scope"),
-        ("NG", "Non-Goals", "ng"),
         ("AR", "Architecture", "ar"),
         ("KD", "Decisions", "kd"),
         ("I", "Invariants", "inv"),

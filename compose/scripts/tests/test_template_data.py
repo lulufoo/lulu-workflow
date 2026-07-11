@@ -85,7 +85,7 @@ OUTLINE_REGISTRY_FEATURE: dict[str, Any] = {
     "outline_order": ["OV", "BD", "DS", "IV", "PL", "VF"],
     "blocks": {
         "OV": {"heading": "Overview", "intents": ["CTX", "GO"]},
-        "BD": {"heading": "Boundaries", "intents": ["SC", "NG"]},
+        "BD": {"heading": "Boundaries", "intents": ["SC"]},
         "DS": {"heading": "Design", "intents": ["AR", "KD"]},
         "IV": {"heading": "Invariants", "intents": ["I"]},
         "PL": {"heading": "Implementation Plan", "intents": ["SK", "T"]},
