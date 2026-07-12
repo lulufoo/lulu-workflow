@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Incremental compose document writer for initializing-runner I2f–I2g.
+"""Incremental compose document writer for initializing-runner.
+
+Section-keyed subcommands serve I2f–I2g (``display_layer=false``); the
+``append-chapter`` subcommand serves P2 (``display_layer=true``, M4a) — the
+two grammars never mix in one document (see ``chapter_doc_schema.py``).
 
 Subcommands:
     init-doc              Write document preamble (create or overwrite)
@@ -7,6 +11,7 @@ Subcommands:
     set-block-title       Persist one block reader title in _title-block.json
     append-intent         Append one outline intent block (H2/H3/body/---)
     patch-block-heading   Replace outline H2 placeholder with reader block title
+    append-chapter        Append one chapter fragment (fact-first display layer, M4a)
 
 CLI details: ``python3 compose_doc_control.py --help``
 """
@@ -28,6 +33,12 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
+from chapter_artifact_paths import chapter_body_path, chapter_derive_path  # noqa: E402
+from chapter_doc_schema import (  # noqa: E402
+    chapter_anchor_present,
+    format_chapter_anchor,
+    has_any_chapter_anchor,
+)
 from compose_doc_schema import format_section_intent_heading  # noqa: E402
 from init_artifact_paths import block_titles_path, body_path, derive_path  # noqa: E402
 from init_block_titles_schema import (  # noqa: E402
@@ -196,6 +207,148 @@ def patch_block_heading(
     start, end = matches[0].span()
     replacement = f"## {new_title}"
     _atomic_write(path, text[:start] + replacement + text[end:])
+
+
+def render_chapter_fragment(cid: str, display_title: str, body: str, *, is_first: bool) -> str:
+    """Return markdown fragment for one chapter append (fact-first display layer, M4a).
+
+    No outline dependency, no block grouping (design SSOT §11.4 Minor#9: the
+    display_layer path has no I2g / no outline block H2). Chapter separation
+    is purely call-order — the caller (Init runner) drives display order by
+    iterating ``_chapters.json`` and skipping ``op=="drop"``; this function
+    only decides whether to prepend a visual ``---`` separator."""
+    lines: list[str] = []
+    if not is_first:
+        lines.extend(["", "---", ""])
+    lines.append(format_chapter_anchor(cid))
+    title = display_title.strip() or "（待补）"
+    lines.append(f"## {title}")
+    lines.append("")
+    stripped_body = body.strip()
+    if stripped_body:
+        lines.append(stripped_body)
+    fragment = "\n".join(lines)
+    if not fragment.endswith("\n"):
+        fragment += "\n"
+    return fragment
+
+
+def append_chapter(
+    path: Path,
+    *,
+    cid: str,
+    display_title: str,
+    body: str,
+) -> None:
+    """Append one chapter fragment to an existing compose document (P2, M4a).
+
+    Dual to ``append_intent`` but chapter-scoped: reads no outline (§11.4
+    Minor#9), assembles from ``_chapters.json``-driven caller order + one
+    chapter's ``_derive-{cid}.json`` (title) + ``_body-{cid}.txt`` (prose)."""
+    key = str(cid).strip()
+    if not key:
+        raise ValueError("cid must be a non-empty string")
+    if not display_title.strip():
+        # Same rule as the CLI's --revision-dir path (_read_chapter_derive_display_title)
+        # and inline path (_resolve_append_chapter_inputs) — enforced here too so any
+        # direct Python caller gets the same guarantee, not just the CLI (N2, round-2
+        # Grok review of M4a). render_chapter_fragment's own （待补）fallback stays as a
+        # defensive default for lower-level direct callers of that function.
+        raise ValueError("display_title must be a non-empty string")
+
+    existing = path.read_text(encoding="utf-8") if path.exists() else ""
+    if chapter_anchor_present(existing, key):
+        raise ValueError(f"chapter anchor already present: {key}")
+
+    fragment = render_chapter_fragment(
+        key,
+        display_title,
+        body,
+        is_first=not has_any_chapter_anchor(existing),
+    )
+    if existing and not existing.endswith("\n"):
+        existing += "\n"
+    _atomic_write(path, existing + fragment)
+
+
+def _read_chapter_derive_display_title(revision_dir: Path, cid: str) -> str | None:
+    key = str(cid).strip()
+    path = chapter_derive_path(revision_dir, key)
+    if not path.is_file():
+        print(f"chapter derive artifact not found: {path}", file=sys.stderr)
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        print(f"invalid chapter derive JSON in {path.name}: {exc}", file=sys.stderr)
+        return None
+    title = str((data or {}).get("display_title", "")).strip()
+    if not title:
+        print(f"display_title missing in chapter derive for {key}", file=sys.stderr)
+        return None
+    return title
+
+
+def _resolve_append_chapter_inputs(args: argparse.Namespace) -> tuple[str, str] | None:
+    """Return (display_title, body) or None when argv combination is invalid."""
+    has_revision = args.revision_dir is not None
+    has_inline_title = args.display_title is not None
+    has_inline_body = args.body is not None
+
+    if has_revision and (has_inline_title or has_inline_body):
+        print(
+            "append-chapter: --revision-dir is mutually exclusive with "
+            "--display-title and --body",
+            file=sys.stderr,
+        )
+        return None
+
+    if has_revision:
+        revision_dir = args.revision_dir.resolve()
+        cid = args.chapter_id.strip()
+        body_file = chapter_body_path(revision_dir, cid)
+        if not body_file.is_file():
+            print(f"chapter body artifact not found: {body_file}", file=sys.stderr)
+            return None
+        body = body_file.read_text(encoding="utf-8")
+        display_title = _read_chapter_derive_display_title(revision_dir, cid)
+        if display_title is None:
+            return None
+        return display_title, body
+
+    # Inline path (tests / ad-hoc): no derive read.
+    if args.display_title is None:
+        print("append-chapter requires --display-title or --revision-dir", file=sys.stderr)
+        return None
+    display_title = args.display_title.strip()
+    if not display_title:
+        # Same requirement as the --revision-dir path (_read_chapter_derive_display_title):
+        # a placeholder title must never be written to the compose document (m6, round-1
+        # Grok review of M4a).
+        print("append-chapter: --display-title must be non-empty", file=sys.stderr)
+        return None
+    body = args.body if args.body is not None else ""
+    return display_title, body
+
+
+def cmd_append_chapter(args: argparse.Namespace) -> int:
+    path = args.path.resolve()
+    if not path.exists():
+        print(f"compose document not found: {path}", file=sys.stderr)
+        return 1
+
+    resolved = _resolve_append_chapter_inputs(args)
+    if resolved is None:
+        return 1
+    display_title, body = resolved
+
+    try:
+        append_chapter(path, cid=args.chapter_id, display_title=display_title, body=body)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    print(f"{path.as_posix()}:{args.chapter_id.strip()}")
+    return 0
 
 
 def _resolve_append_inputs(args: argparse.Namespace) -> tuple[str, str] | None:
@@ -443,6 +596,16 @@ def _build_parser() -> argparse.ArgumentParser:
     patch_parser.add_argument("--profile", default=DEFAULT_COMPOSE_PROFILE_ID)
     patch_parser.add_argument("--project-root", type=Path, default=Path("."))
 
+    append_chapter_parser = sub.add_parser(
+        "append-chapter",
+        help="Append one chapter fragment (fact-first display layer, M4a)",
+    )
+    append_chapter_parser.add_argument("--path", type=Path, required=True)
+    append_chapter_parser.add_argument("--chapter-id", type=str, required=True)
+    append_chapter_parser.add_argument("--revision-dir", type=Path, default=None)
+    append_chapter_parser.add_argument("--display-title", type=str, default=None)
+    append_chapter_parser.add_argument("--body", type=str, default=None)
+
     return parser
 
 
@@ -458,6 +621,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_append_intent(args)
     if args.command == "patch-block-heading":
         return cmd_patch_block_heading(args)
+    if args.command == "append-chapter":
+        return cmd_append_chapter(args)
     return 1
 
 

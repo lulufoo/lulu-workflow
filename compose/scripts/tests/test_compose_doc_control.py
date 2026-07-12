@@ -13,12 +13,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "section"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from compose_doc_control import (  # noqa: E402
+    append_chapter,
     append_intent,
     build_outline_intent_layout,
     compose_preamble,
     init_doc,
     main,
     patch_block_heading,
+    render_chapter_fragment,
     render_intent_fragment,
 )
 from compose_doc_schema import parse_sections, section_body_by_key  # noqa: E402
@@ -385,3 +387,197 @@ def test_patch_block_heading_fails_when_placeholder_missing(doc_path: Path):
             title="1. 问题与目标",
             outline=OUTLINE_REGISTRY_FEATURE,
         )
+
+
+# --- append-chapter (fact-first display layer, M4a) ---
+
+
+def test_render_chapter_fragment_first_no_separator():
+    fragment = render_chapter_fragment("chap-1", "架构", "Body one.", is_first=True)
+    assert fragment.startswith("<!-- chapter:chap-1 -->\n## 架构\n\nBody one.")
+    assert "---" not in fragment
+
+
+def test_render_chapter_fragment_not_first_has_separator():
+    fragment = render_chapter_fragment("chap-2", "验证", "Body two.", is_first=False)
+    assert fragment.startswith("\n---\n\n<!-- chapter:chap-2 -->")
+
+
+def test_append_chapter_inline(doc_path: Path):
+    init_doc(doc_path, preamble="# Feature\n\n")
+    append_chapter(doc_path, cid="chap-1", display_title="架构", body="Body one.")
+    raw = doc_path.read_text(encoding="utf-8")
+    assert "<!-- chapter:chap-1 -->" in raw
+    assert "## 架构" in raw
+    assert "Body one." in raw
+
+
+def test_append_chapter_second_gets_separator(doc_path: Path):
+    init_doc(doc_path, preamble="# Feature\n\n")
+    append_chapter(doc_path, cid="chap-1", display_title="架构", body="Body one.")
+    append_chapter(doc_path, cid="chap-2", display_title="验证", body="Body two.")
+    raw = doc_path.read_text(encoding="utf-8")
+    assert raw.count("<!-- chapter:") == 2
+    assert "---" in raw
+    from chapter_doc_schema import chapter_body_by_id  # noqa: WPS433
+
+    assert "Body one." in chapter_body_by_id(raw, "chap-1")
+    assert "Body two." in chapter_body_by_id(raw, "chap-2")
+    assert "Body two." not in chapter_body_by_id(raw, "chap-1")
+
+
+def test_append_chapter_rejects_duplicate(doc_path: Path):
+    init_doc(doc_path, preamble="# Feature\n\n")
+    append_chapter(doc_path, cid="chap-1", display_title="架构", body="Body one.")
+    with pytest.raises(ValueError, match="already present"):
+        append_chapter(doc_path, cid="chap-1", display_title="架构again", body="Body again.")
+
+
+def test_append_chapter_rejects_empty_display_title(doc_path: Path):
+    """Round-2 Grok review N2: append_chapter itself (not just the CLI) must
+    reject an empty/whitespace display_title, so any direct Python caller
+    gets the same guarantee as the CLI (render_chapter_fragment's （待补）
+    fallback stays a lower-level defensive default only)."""
+    init_doc(doc_path, preamble="# Feature\n\n")
+    with pytest.raises(ValueError, match="display_title"):
+        append_chapter(doc_path, cid="chap-1", display_title="   ", body="Body one.")
+    assert "chapter:chap-1" not in doc_path.read_text(encoding="utf-8")
+
+
+def test_append_chapter_rejects_empty_cid(doc_path: Path):
+    init_doc(doc_path, preamble="# Feature\n\n")
+    with pytest.raises(ValueError, match="non-empty"):
+        append_chapter(doc_path, cid="   ", display_title="架构", body="Body one.")
+
+
+def test_append_chapter_preserves_case_sensitive_id(doc_path: Path):
+    init_doc(doc_path, preamble="# Feature\n\n")
+    append_chapter(doc_path, cid="Chap-1", display_title="架构", body="Body one.")
+    raw = doc_path.read_text(encoding="utf-8")
+    assert "<!-- chapter:Chap-1 -->" in raw
+    assert "<!-- chapter:chap-1 -->" not in raw
+
+
+def test_append_chapter_cli_revision_dir(doc_path: Path, tmp_path: Path):
+    revision_dir = tmp_path / "revision1"
+    revision_dir.mkdir()
+    (revision_dir / "_body-chap-1.txt").write_text("Chapter body.", encoding="utf-8")
+    (revision_dir / "_derive-chap-1.json").write_text(
+        json.dumps({"display_title": "架构"}, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    init_doc(doc_path, preamble="# Feature\n\n")
+    rc = main(
+        [
+            "append-chapter",
+            "--path",
+            str(doc_path),
+            "--chapter-id",
+            "chap-1",
+            "--revision-dir",
+            str(revision_dir),
+        ]
+    )
+    assert rc == 0
+    raw = doc_path.read_text(encoding="utf-8")
+    assert "<!-- chapter:chap-1 -->" in raw
+    assert "## 架构" in raw
+    from chapter_doc_schema import chapter_body_by_id  # noqa: WPS433
+
+    assert "Chapter body." in chapter_body_by_id(raw, "chap-1")
+
+
+def test_append_chapter_cli_inline(doc_path: Path):
+    init_doc(doc_path, preamble="# Feature\n\n")
+    rc = main(
+        [
+            "append-chapter",
+            "--path",
+            str(doc_path),
+            "--chapter-id",
+            "chap-1",
+            "--display-title",
+            "架构",
+            "--body",
+            "Body inline.",
+        ]
+    )
+    assert rc == 0
+    assert "Body inline." in doc_path.read_text(encoding="utf-8")
+
+
+def test_append_chapter_cli_rejects_mixed_revision_and_inline(doc_path: Path, tmp_path: Path):
+    revision_dir = tmp_path / "revision1"
+    revision_dir.mkdir()
+    init_doc(doc_path, preamble="# Feature\n\n")
+    rc = main(
+        [
+            "append-chapter",
+            "--path",
+            str(doc_path),
+            "--chapter-id",
+            "chap-1",
+            "--revision-dir",
+            str(revision_dir),
+            "--display-title",
+            "架构",
+        ]
+    )
+    assert rc == 1
+
+
+def test_append_chapter_cli_missing_body_artifact(doc_path: Path, tmp_path: Path):
+    revision_dir = tmp_path / "revision1"
+    revision_dir.mkdir()
+    init_doc(doc_path, preamble="# Feature\n\n")
+    rc = main(
+        [
+            "append-chapter",
+            "--path",
+            str(doc_path),
+            "--chapter-id",
+            "chap-1",
+            "--revision-dir",
+            str(revision_dir),
+        ]
+    )
+    assert rc == 1
+
+
+def test_append_chapter_cli_requires_display_title_or_revision_dir(doc_path: Path):
+    init_doc(doc_path, preamble="# Feature\n\n")
+    rc = main(
+        [
+            "append-chapter",
+            "--path",
+            str(doc_path),
+            "--chapter-id",
+            "chap-1",
+            "--body",
+            "Body.",
+        ]
+    )
+    assert rc == 1
+
+
+def test_append_chapter_cli_rejects_empty_inline_display_title(doc_path: Path):
+    """Round-1 Grok review m6: inline path must reject an empty/whitespace
+    --display-title the same way the --revision-dir path rejects a missing
+    display_title — never write a （待补）placeholder into the doc via the
+    inline arg path."""
+    init_doc(doc_path, preamble="# Feature\n\n")
+    rc = main(
+        [
+            "append-chapter",
+            "--path",
+            str(doc_path),
+            "--chapter-id",
+            "chap-1",
+            "--display-title",
+            "   ",
+            "--body",
+            "Body.",
+        ]
+    )
+    assert rc == 1
+    assert "chapter:chap-1" not in doc_path.read_text(encoding="utf-8")

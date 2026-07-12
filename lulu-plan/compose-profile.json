@@ -15,6 +15,7 @@
     "inductive": false,
     "freeedit": true,
     "code_grounding": true,
+    "display_layer": true,
     "post_init_options": ["freeedit", "evaluate"]
   },
   "start": {

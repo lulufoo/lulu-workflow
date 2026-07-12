@@ -1,0 +1,196 @@
+{
+  "version": "1",
+  "section_order": [
+    "PB",
+    "RN",
+    "GO",
+    "UR",
+    "SN",
+    "SC",
+    "IO",
+    "FL",
+    "NG",
+    "AC"
+  ],
+  "document_preamble": "# {Feature Name} 产品文档\n\n**日期：** YYYY-MM-DD\n**版本：** v1.0\n**状态：** Draft\n\n**文档引用：**\n- Decision-doc: `{/<cycle_id>/product/diagnostic/decision-doc.md}`\n\n---\n",
+  "sections": {
+    "PB": {
+      "heading": "Problem",
+      "aliases": [
+        "problem",
+        "背景",
+        "核心问题"
+      ],
+      "upstream": [],
+      "relations": {},
+      "intent": "当前要解决的核心问题与 verified 情境事实；须可追溯到 decision-doc。",
+      "intent_boundary": "目标结果、为什么现在做、用户、范围、流程、非目标、验收条件 belong to GO, RN, UR, SN, SC, IO, FL, NG, AC。",
+      "presence": "required"
+    },
+    "RN": {
+      "heading": "Why Now",
+      "aliases": [
+        "why now",
+        "为什么现在做",
+        "trigger"
+      ],
+      "upstream": [
+        "PB"
+      ],
+      "relations": {
+        "PB": "operationalize"
+      },
+      "intent": "为什么现在要做这件事：触发因素、紧迫性、窗口期；须与 PB 一致。",
+      "intent_boundary": "目标量化结果、功能清单、流程步骤 belong to GO, SC, FL, AC。",
+      "presence": "required"
+    },
+    "GO": {
+      "heading": "Goal",
+      "aliases": [
+        "goal",
+        "目标",
+        "目标结果"
+      ],
+      "upstream": [
+        "PB",
+        "RN"
+      ],
+      "relations": {
+        "PB": "operationalize",
+        "RN": "operationalize"
+      },
+      "intent": "一份可观察的目标结果或 before→after 成功态；须与 decision 对齐、可被 AC 验证。",
+      "intent_boundary": "用户画像、功能点枚举、主流程步骤、非目标列表 belong to UR, SN, SC, FL, NG。",
+      "presence": "required"
+    },
+    "UR": {
+      "heading": "Users",
+      "aliases": [
+        "users",
+        "用户",
+        "主要用户"
+      ],
+      "upstream": [
+        "PB"
+      ],
+      "relations": {
+        "PB": "operationalize"
+      },
+      "intent": "主要用户是谁：角色、诉求、与核心问题的关系。",
+      "intent_boundary": "典型场景叙事、功能范围、流程、验收 belong to SN, SC, FL, AC。",
+      "presence": "required"
+    },
+    "SN": {
+      "heading": "Scenarios",
+      "aliases": [
+        "scenarios",
+        "场景",
+        "使用场景"
+      ],
+      "upstream": [
+        "UR"
+      ],
+      "relations": {
+        "UR": "operationalize"
+      },
+      "intent": "使用场景与至少一个典型示例：用户在什么情境下如何使用。",
+      "intent_boundary": "功能点清单、I/O 对象、逐步流程、验收标准 belong to SC, IO, FL, AC。",
+      "presence": "required"
+    },
+    "SC": {
+      "heading": "Scope",
+      "aliases": [
+        "scope",
+        "功能范围",
+        "范围"
+      ],
+      "upstream": [
+        "GO",
+        "SN"
+      ],
+      "relations": {
+        "GO": "operationalize",
+        "SN": "operationalize"
+      },
+      "intent": "本轮能力范围与明确功能点：做什么、覆盖哪些能力。",
+      "intent_boundary": "输入输出对象细节、逐步流程、非目标、验收条件 belong to IO, FL, NG, AC。",
+      "presence": "required"
+    },
+    "IO": {
+      "heading": "I/O Surfaces",
+      "aliases": [
+        "io",
+        "输入输出",
+        "操作对象"
+      ],
+      "upstream": [
+        "SC"
+      ],
+      "relations": {
+        "SC": "instantiate"
+      },
+      "intent": "主要输入、输出或操作对象：用户或系统交互的实体与边界。",
+      "intent_boundary": "逐步流程、非目标、验收判定 belong to FL, NG, AC。",
+      "presence": "required"
+    },
+    "FL": {
+      "heading": "Flow",
+      "aliases": [
+        "flow",
+        "流程",
+        "关键流程"
+      ],
+      "upstream": [
+        "SN",
+        "SC"
+      ],
+      "relations": {
+        "SN": "operationalize",
+        "SC": "operationalize"
+      },
+      "intent": "至少一条主流程：入口、主路径、结束条件或目标达成标志。",
+      "intent_boundary": "验收条件枚举、非目标、新功能点 belong to AC, NG, SC。",
+      "presence": "required"
+    },
+    "NG": {
+      "heading": "Non-Goals",
+      "aliases": [
+        "non-goals",
+        "边界",
+        "非目标"
+      ],
+      "upstream": [
+        "GO",
+        "SC"
+      ],
+      "relations": {
+        "GO": "operationalize",
+        "SC": "respect_exclude"
+      },
+      "intent": "当前明确不做什么——摘要式 exclusion，每项附一行说明所保护的 GO 或 SC 边界；不重述 SC 正文。",
+      "intent_boundary": "功能范围正文复述、流程步骤、验收标准 belong to SC, FL, AC。",
+      "presence": "required"
+    },
+    "AC": {
+      "heading": "Acceptance",
+      "aliases": [
+        "acceptance",
+        "验收",
+        "验收条件"
+      ],
+      "upstream": [
+        "GO",
+        "SC",
+        "FL"
+      ],
+      "relations": {
+        "GO": "operationalize",
+        "SC": "instantiate",
+        "FL": "decompose"
+      },
+      "intent": "如何判断 Goal 已达成：可观察、可讨论的完成条件；FL 完成后的关键流程结果；当 decision-doc 含 goal 或 flow id 时须有 trace-back 标注。",
+      "intent_boundary": "新功能点、范围扩张、非目标 belong to SC, NG。",
+      "presence": "required"
+    }
+  }
+}

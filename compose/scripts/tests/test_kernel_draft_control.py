@@ -248,3 +248,97 @@ def test_advance_to_freeedit_accepts_legacy_ready(tmp_path: Path) -> None:
 
     assert result["ok"] is True
     assert result["current_step"] == "FreeEdit"
+
+
+def test_begin_init_k2_requires_facts_when_display_layer(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """K2: inductive + display_layer → missing _facts.json is a hard error."""
+    seed_tech_design_session(tmp_path, cycle_id=_CYCLE)
+    rev_dir = _seed_inductive_progress(tmp_path)
+    _write_g4_closed(rev_dir)
+    _write_g5_closed(rev_dir)
+
+    monkeypatch.setattr(
+        draft_control,
+        "_drafting_config",
+        lambda *a, **k: {"inductive": True, "display_layer": True},
+    )
+
+    result = draft_control.begin_init(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
+    assert result["ok"] is False
+    assert "_facts.json missing" in result["reason"]
+    assert "projection" in result["reason"]
+
+
+def test_begin_init_k2_passes_when_facts_present(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seed_tech_design_session(tmp_path, cycle_id=_CYCLE)
+    rev_dir = _seed_inductive_progress(tmp_path)
+    _write_g4_closed(rev_dir)
+    _write_g5_closed(rev_dir)
+    (rev_dir / "_facts.json").write_text(
+        json.dumps(
+            [{"id": "F-1", "text": "projected", "lens_tags": ["ST"], "source": ["ST-d1"]}],
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        draft_control,
+        "_drafting_config",
+        lambda *a, **k: {"inductive": True, "display_layer": True},
+    )
+
+    result = draft_control.begin_init(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
+    assert result["ok"] is True
+    assert "REVISION_DIR:" in result["dispatch_input"]
+    assert "INDUCTIVE_DIR:" not in result["dispatch_input"]
+
+
+def test_begin_init_real_design_profile_requires_facts(tmp_path: Path) -> None:
+    """Lock K0b flip: real lulu-design display_layer=true triggers the gate."""
+    profile = json.loads(
+        (
+            Path(__file__).resolve().parents[3]
+            / "lulu-design"
+            / "compose-profile.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert profile["drafting"]["inductive"] is True
+    assert profile["drafting"]["display_layer"] is True
+
+    seed_tech_design_session(tmp_path, cycle_id=_CYCLE)
+    rev_dir = _seed_inductive_progress(tmp_path)
+    _write_g4_closed(rev_dir)
+    _write_g5_closed(rev_dir)
+    assert not (rev_dir / "_facts.json").exists()
+
+    result = draft_control.begin_init(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
+    assert result["ok"] is False
+    assert "_facts.json missing" in result["reason"]
+
+
+def test_begin_init_without_display_layer_skips_facts_gate(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Legacy inductive path (display_layer false) must not require _facts.json."""
+    seed_tech_design_session(tmp_path, cycle_id=_CYCLE)
+    rev_dir = _seed_inductive_progress(tmp_path)
+    _write_g4_closed(rev_dir)
+    _write_g5_closed(rev_dir)
+    assert not (rev_dir / "_facts.json").exists()
+
+    monkeypatch.setattr(
+        draft_control,
+        "_drafting_config",
+        lambda *a, **k: {"inductive": True, "display_layer": False},
+    )
+
+    result = draft_control.begin_init(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
+    assert result["ok"] is True

@@ -1,0 +1,43 @@
+{
+  "version": "1",
+  "$schema_id": "outline-schema",
+  "cycle_type": "topic",
+  "candidates": [
+    {
+      "block": "cand-SI",
+      "anchor_lenses": [
+        "SI"
+      ]
+    },
+    {
+      "block": "cand-BD",
+      "anchor_lenses": [
+        "BD"
+      ]
+    },
+    {
+      "block": "cand-PS",
+      "anchor_lenses": [
+        "PS"
+      ]
+    },
+    {
+      "block": "cand-PR",
+      "anchor_lenses": [
+        "PR"
+      ]
+    },
+    {
+      "block": "cand-OQ",
+      "anchor_lenses": [
+        "OQ"
+      ]
+    }
+  ],
+  "rules": [
+    "空可选视角 OQ→可 drop 对应 cand-OQ",
+    "瘦章→优先与相邻同主题候选合并（须 derived_from 仍 ⊆ candidates[].block）",
+    "胖章→按主题拆；派生章仍须 derived_from 指向本 candidates[].block",
+    "PR 默认同 cand-PR；若 P0 零事实则由 Pd 从 PS instantiate 补事实后再组织"
+  ]
+}

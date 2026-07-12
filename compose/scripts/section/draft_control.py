@@ -25,6 +25,7 @@ from drafting_progress_schema import (  # noqa: E402
     save_drafting_progress,
 )
 from delivered_refs_schema import serialize_delivered_refs  # noqa: E402
+from facts_schema import facts_path  # noqa: E402
 from init_compose_validation import validate_init_artifacts  # noqa: E402
 from start_adapter import (  # noqa: E402
     intent_baseline_from_workflow,
@@ -169,7 +170,10 @@ def _format_init_dispatch_input(
         f"CYCLE_ID:             {cycle_id}",
     ]
     inductive_dir = _inductive_dir(cycle_id, project_root, profile_id)
-    if inductive_dir.is_dir():
+    # K2 display_layer path consumes projected _facts.json (P0 Branch A) —
+    # do not advertise INDUCTIVE_DIR as if Init still reads decisions[] here.
+    drafting = _drafting_config(cycle_id, project_root, profile_id)
+    if inductive_dir.is_dir() and drafting.get("display_layer") is not True:
         lines.append(f"INDUCTIVE_DIR:        {inductive_dir.as_posix()}")
     return "\n".join(lines)
 
@@ -277,6 +281,23 @@ def begin_init(
             f"cannot start Initializing: current_step is {step!r} (expected absent or Initialized)",
             current_step=step,
         )
+    # K2 handshake gate: inductive + display_layer → _facts.json must already
+    # exist (projection ran after inductive-complete). Validate-only; never
+    # project or re-atomize here.
+    if (
+        drafting.get("inductive") is True
+        and drafting.get("display_layer") is True
+    ):
+        rev = _revision_dir(cycle_id, project_root, profile_id)
+        path = facts_path(rev)
+        if not path.is_file():
+            return _failure(
+                _CMD_BEGIN_INIT,
+                "cannot start Initializing: _facts.json missing — run inductive "
+                "facts projection after inductive-complete before begin-init "
+                f"(expected {path.as_posix()})",
+                current_step=step,
+            )
     return _success(
         _CMD_BEGIN_INIT,
         current_step=step,

@@ -11,9 +11,14 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from outline_registry_schema import (  # noqa: E402
+    candidate_anchor_lenses,
+    candidate_ids,
     get_schema,
     load_outline_registry,
     normalize_outline_registry,
+    outline_intent_map,
+    outline_order,
+    validate_outline_candidates_alignment,
     validate_outline_registry,
     validate_outline_section_alignment,
 )
@@ -192,6 +197,237 @@ def test_validate_slim_block_heading_intents_only():
         },
     }
     assert validate_outline_registry(payload) == []
+
+
+_VALID_CANDIDATES_PAYLOAD = {
+    "version": "1",
+    "candidates": [
+        {"block": "cand-CTX", "anchor_lenses": ["CTX"]},
+        {"block": "cand-AR", "anchor_lenses": ["AR", "SC"]},
+    ],
+    "rules": ["空可选视角→删", "瘦→并"],
+}
+
+
+def test_validate_candidates_shape_accepts_valid_payload():
+    assert validate_outline_registry(_VALID_CANDIDATES_PAYLOAD) == []
+
+
+def test_validate_candidates_shape_rejects_coexistence_with_legacy_fields():
+    payload = dict(_VALID_CANDIDATES_PAYLOAD)
+    payload["outline_order"] = ["OV"]
+    errors = validate_outline_registry(payload)
+    assert any("cannot coexist with outline_order/blocks" in err for err in errors)
+
+
+def test_validate_rejects_orphan_rules_without_candidates():
+    payload = {
+        "version": "1",
+        "outline_order": ["OV"],
+        "blocks": {"OV": {"heading": "Overview", "intents": ["CTX"]}},
+        "rules": ["空可选视角→删"],
+    }
+    errors = validate_outline_registry(payload)
+    assert any("rules without candidates is not supported" in err for err in errors)
+
+
+def test_validate_candidates_shape_rejects_document_preamble_addon():
+    payload = dict(_VALID_CANDIDATES_PAYLOAD)
+    payload["document_preamble_addon"] = "legacy addon"
+    errors = validate_outline_registry(payload)
+    assert any("unexpected top-level fields" in err for err in errors)
+
+
+def test_validate_candidates_shape_rejects_duplicate_block():
+    payload = {
+        "version": "1",
+        "candidates": [
+            {"block": "cand-AR", "anchor_lenses": ["AR"]},
+            {"block": "cand-AR", "anchor_lenses": ["SC"]},
+        ],
+    }
+    errors = validate_outline_registry(payload)
+    assert any("block duplicate" in err for err in errors)
+
+
+def test_validate_candidates_shape_rejects_empty_candidates():
+    payload = {"version": "1", "candidates": []}
+    errors = validate_outline_registry(payload)
+    assert any("candidates must be a non-empty array" in err for err in errors)
+
+
+def test_validate_candidates_shape_rejects_lowercase_anchor_lens():
+    payload = {
+        "version": "1",
+        "candidates": [{"block": "cand-ar", "anchor_lenses": ["ar"]}],
+    }
+    errors = validate_outline_registry(payload)
+    assert any("must be uppercase lens key" in err for err in errors)
+
+
+def test_validate_candidates_shape_rejects_unknown_entry_field():
+    payload = {
+        "version": "1",
+        "candidates": [{"block": "cand-AR", "anchor_lenses": ["AR"], "extra": 1}],
+    }
+    errors = validate_outline_registry(payload)
+    assert any("unexpected fields" in err for err in errors)
+
+
+def test_normalize_candidates_shape():
+    normalized = normalize_outline_registry(_VALID_CANDIDATES_PAYLOAD)
+    assert normalized == {
+        "version": "1",
+        "candidates": [
+            {"block": "cand-CTX", "anchor_lenses": ["CTX"]},
+            {"block": "cand-AR", "anchor_lenses": ["AR", "SC"]},
+        ],
+        "rules": ["空可选视角→删", "瘦→并"],
+    }
+    assert "outline_order" not in normalized
+    assert "blocks" not in normalized
+
+
+def test_validate_outline_candidates_alignment_passes_with_full_coverage():
+    outline = normalize_outline_registry(_VALID_CANDIDATES_PAYLOAD)
+    section_registry = {
+        "section_order": ["CTX", "AR", "SC"],
+        "sections": {
+            "CTX": {"presence": "required"},
+            "AR": {"presence": "required"},
+            "SC": {"presence": "optional"},
+        },
+    }
+    assert validate_outline_candidates_alignment(outline, section_registry) == []
+
+
+def test_validate_outline_candidates_alignment_allows_optional_lens_with_no_candidate():
+    outline = normalize_outline_registry(
+        {"version": "1", "candidates": [{"block": "cand-CTX", "anchor_lenses": ["CTX"]}]},
+    )
+    section_registry = {
+        "section_order": ["CTX", "NG"],
+        "sections": {"CTX": {"presence": "required"}, "NG": {"presence": "optional"}},
+    }
+    assert validate_outline_candidates_alignment(outline, section_registry) == []
+
+
+def test_validate_outline_candidates_alignment_rejects_uncovered_required_lens():
+    outline = normalize_outline_registry(
+        {"version": "1", "candidates": [{"block": "cand-CTX", "anchor_lenses": ["CTX"]}]},
+    )
+    section_registry = {
+        "section_order": ["CTX", "AR"],
+        "sections": {"CTX": {"presence": "required"}, "AR": {"presence": "required"}},
+    }
+    errors = validate_outline_candidates_alignment(outline, section_registry)
+    assert any("required lens 'AR' has no anchoring candidate" in err for err in errors)
+
+
+def test_validate_outline_candidates_alignment_rejects_unknown_anchor_lens():
+    outline = normalize_outline_registry(
+        {"version": "1", "candidates": [{"block": "cand-ZZ", "anchor_lenses": ["ZZ"]}]},
+    )
+    section_registry = {"section_order": ["CTX"], "sections": {"CTX": {"presence": "required"}}}
+    errors = validate_outline_candidates_alignment(outline, section_registry)
+    assert any("not in section_order" in err for err in errors)
+
+
+def test_candidate_accessors(monkeypatch):
+    import outline_registry_schema as schema_mod  # noqa: E402
+
+    fake_registry = normalize_outline_registry(_VALID_CANDIDATES_PAYLOAD)
+    monkeypatch.setattr(schema_mod, "_active_outline", lambda project_root=None: fake_registry)
+    assert candidate_ids() == ("cand-CTX", "cand-AR")
+    assert candidate_anchor_lenses() == {"cand-CTX": ["CTX"], "cand-AR": ["AR", "SC"]}
+
+
+def test_legacy_accessors_hard_error_on_candidates_shape(monkeypatch):
+    import outline_registry_schema as schema_mod  # noqa: E402
+
+    fake_registry = normalize_outline_registry(_VALID_CANDIDATES_PAYLOAD)
+    monkeypatch.setattr(schema_mod, "_active_outline", lambda project_root=None: fake_registry)
+    with pytest.raises(ValueError, match="candidates-shaped"):
+        outline_order()
+    with pytest.raises(ValueError, match="candidates-shaped"):
+        outline_intent_map()
+
+
+def test_candidate_accessors_hard_error_on_legacy_shape(monkeypatch):
+    import outline_registry_schema as schema_mod  # noqa: E402
+
+    fake_registry = normalize_outline_registry(OUTLINE_REGISTRY_FEATURE)
+    monkeypatch.setattr(schema_mod, "_active_outline", lambda project_root=None: fake_registry)
+    with pytest.raises(ValueError, match="legacy blocks-shaped"):
+        candidate_ids()
+    with pytest.raises(ValueError, match="legacy blocks-shaped"):
+        candidate_anchor_lenses()
+
+
+def test_candidates_dispatch_treats_explicit_null_as_candidates_shape():
+    payload = {
+        "version": "1",
+        "candidates": None,
+        "outline_order": ["OV"],
+        "blocks": {"OV": {"heading": "Overview", "intents": ["CTX"]}},
+    }
+    errors = validate_outline_registry(payload)
+    assert any("cannot coexist with outline_order/blocks" in err for err in errors)
+    assert any("candidates must be a non-empty array" in err for err in errors)
+
+
+def test_validate_candidates_shape_preserves_block_case():
+    payload = {
+        "version": "1",
+        "candidates": [{"block": "Cand-Mixed", "anchor_lenses": ["AR"]}],
+    }
+    assert validate_outline_registry(payload) == []
+    normalized = normalize_outline_registry(payload)
+    assert normalized["candidates"][0]["block"] == "Cand-Mixed"
+
+
+def test_validate_candidates_shape_rejects_duplicate_anchor_lens_in_one_entry():
+    payload = {
+        "version": "1",
+        "candidates": [{"block": "cand-AR", "anchor_lenses": ["AR", "ar"]}],
+    }
+    errors = validate_outline_registry(payload)
+    assert any("anchor_lenses duplicate" in err for err in errors)
+
+
+def test_validate_outline_candidates_alignment_treats_null_presence_as_required():
+    outline = normalize_outline_registry(
+        {"version": "1", "candidates": [{"block": "cand-CTX", "anchor_lenses": ["CTX"]}]},
+    )
+    section_registry = {
+        "section_order": ["CTX", "AR"],
+        "sections": {"CTX": {"presence": "required"}, "AR": {"presence": None}},
+    }
+    errors = validate_outline_candidates_alignment(outline, section_registry)
+    assert any("required lens 'AR' has no anchoring candidate" in err for err in errors)
+
+
+def test_load_outline_registry_round_trips_candidates_shape(tmp_path: Path):
+    path = tmp_path / "outline-registry.json"
+    path.write_text(json.dumps(_VALID_CANDIDATES_PAYLOAD), encoding="utf-8")
+    loaded = load_outline_registry(path)
+    assert loaded["candidates"] == [
+        {"block": "cand-CTX", "anchor_lenses": ["CTX"]},
+        {"block": "cand-AR", "anchor_lenses": ["AR", "SC"]},
+    ]
+    assert "outline_order" not in loaded
+
+
+def test_get_schema_marks_legacy_fields_optional():
+    fields = {entry["field"]: entry for entry in get_schema()}
+    assert fields["outline_order"]["required"] is False
+    assert fields["blocks"]["required"] is False
+
+
+def test_get_schema_includes_candidates_and_rules():
+    fields = {entry["field"] for entry in get_schema()}
+    assert "candidates" in fields
+    assert "rules" in fields
 
 
 def test_validate_rejects_contract_without_guidance():

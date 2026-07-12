@@ -1,0 +1,236 @@
+{
+  "version": "1",
+  "profile_id": "tech-design",
+  "section_order": [
+    "CTX",
+    "GO",
+    "SC",
+    "NG",
+    "I",
+    "ST",
+    "KD",
+    "IF",
+    "OQ",
+    "VD",
+    "OD"
+  ],
+  "document_preamble": "# {功能名称} · 技术方案\n\n**Date:** YYYY-MM-DD\n**Version:** v1\n**Status:** 草稿\n\n**Decision-doc:** `{/<cycle_id>/tech/diagnostic/decision-doc.md}`\n\n**Chain domain:** 技术方案设计 — tech-plan 前的人机设计共识；非企业架构、非施工规格。\n\n---\n",
+  "sections": {
+    "CTX": {
+      "heading": "上下文",
+      "aliases": [
+        "上下文",
+        "背景",
+        "当前状态",
+        "触发原因"
+      ],
+      "upstream": [],
+      "relations": {},
+      "intent": "设计的问题域——三个必要要素：(1) 触发原因：为何是现在；(2) 已验证的当前状态：实际存在的情况；(3) 影响：当前状态对用户感知或系统层面造成的问题代价（不仅是结构性描述，还要说明它导致了什么问题或代价）。同时包含相关系统接触面、外部依赖事实，以及当决策指向具体参考实现或模式时需要对齐的参考实现或模式。先以可评审的叙述文本呈现问题域主线（触发原因、当前状态、影响），再附可选的具体锚点；代码或路径事实是故事的支撑，而非替代。",
+      "intent_boundary": "方案选择、结构布局、模块划分、接口字段、关键决策、验证命令及任务属于 GO、ST、KD、IF、VD、OD 和 tech-plan。前→后的成功状态枚举属于 GO。企业架构重新设计和平台重构不在范围之内，除非在 decision-doc 中获得授权。",
+      "presence": "required"
+    },
+    "GO": {
+      "heading": "设计结果",
+      "aliases": [
+        "目标",
+        "目的",
+        "结果",
+        "成功标准"
+      ],
+      "upstream": [
+        "CTX"
+      ],
+      "relations": {
+        "CTX": "operationalize"
+      },
+      "intent": "评审者在设计充分时能够达成共识的可观测成功状态：行为或结构层面的前→后对比。可以简洁形式表述成功结果。可在语义层面引用验收标准，无需追溯到任务或命令。",
+      "intent_boundary": "背景问题叙述属于 CTX——不得重述 CTX 内容。排除项属于 NG。范围接触面属于 SC。模块布局属于 ST。阶段、复选框、SK/T、指标阈值和运行命令属于 tech-plan。",
+      "presence": "required"
+    },
+    "SC": {
+      "heading": "范围",
+      "aliases": [
+        "范围",
+        "适用于",
+        "影响面"
+      ],
+      "upstream": [
+        "GO"
+      ],
+      "relations": {
+        "GO": "operationalize"
+      },
+      "intent": "本设计所覆盖的功能、模块、接口和数据接触面——此功能涉及的内容。当 decision-doc 指向具体实现区域时，这些接触面应在设计系统中可识别。",
+      "intent_boundary": "明确的范围外项目和被拒绝的方向属于 NG。可检验的不变量属于 I。文件级任务步骤属于 tech-plan。状态机和结构行为细节属于 ST。",
+      "presence": "required"
+    },
+    "NG": {
+      "heading": "非目标",
+      "aliases": [
+        "非目标",
+        "排除的方向",
+        "范围外方向"
+      ],
+      "upstream": [
+        "GO",
+        "SC"
+      ],
+      "relations": {
+        "GO": "respect_exclude",
+        "SC": "respect_exclude"
+      },
+      "intent": "明确不被选择或不被追求的路径和能力——保护设计结果的方向性排除项。在摘要层面命名被拒绝的方向；完整的选项比较和理由属于 KD。",
+      "intent_boundary": "范围内枚举属于 SC。权衡论述和采纳/拒绝比较属于 KD。任务延迟属于 tech-plan。",
+      "presence": "required"
+    },
+    "I": {
+      "heading": "不变量",
+      "aliases": [
+        "不变量",
+        "硬约束",
+        "必须始终成立"
+      ],
+      "upstream": [
+        "GO",
+        "NG"
+      ],
+      "relations": {
+        "GO": "operationalize",
+        "NG": "respect_exclude"
+      },
+      "intent": "在预期运行系统中必须始终为真的可检验陈述——包括来自 decision-doc 的约束级用户前提。不包括实现技巧或运维手册步骤。",
+      "intent_boundary": "选项比较属于 KD。字段级 API 契约属于 IF。运维手册和操作步骤仅属于 OD 策略或 tech-plan。",
+      "presence": "required"
+    },
+    "ST": {
+      "heading": "结构",
+      "aliases": [
+        "结构",
+        "系统结构",
+        "模块边界",
+        "组件"
+      ],
+      "upstream": [
+        "GO",
+        "NG",
+        "I"
+      ],
+      "relations": {
+        "GO": "operationalize",
+        "NG": "respect_exclude",
+        "I": "preserve_invariant"
+      },
+      "intent": "在现有系统中的定位、模块或组件、职责、依赖方向、跨边界数据或控制流、与现有资产的关系，以及组件内部的结构级行为——包括命名状态、转换触发器，以及在交互或控制流不显而易见时的路径终态语义，足以支撑 IF 和 tech-plan 而无需重新推导行为。",
+      "intent_boundary": "字段级 API 契约属于 IF。已选择或已拒绝的方案属于 KD。执行顺序、文件编辑列表和任务步骤属于 tech-plan。",
+      "presence": "required"
+    },
+    "KD": {
+      "heading": "关键决策",
+      "aliases": [
+        "关键决策",
+        "决策锚点",
+        "替代方案",
+        "权衡取舍"
+      ],
+      "upstream": [
+        "ST",
+        "I"
+      ],
+      "relations": {
+        "ST": "instantiate",
+        "I": "preserve_invariant"
+      },
+      "intent": "人类采纳的设计选择、含理由的被拒绝替代方案（包括明确拒绝的 AI 提议路径）、已确认的设计前提，以及可逆性和数据语义等设计层面的选择。在选项比较之前先陈述核心设计洞察。理由必须包含设计推理，而非仅有利益相关者授权。",
+      "intent_boundary": "结构布局和状态路径属于 ST。接口字段属于 IF。阶段标签、负责人和时间安排属于 tech-plan 或不含项目元数据的 OQ。",
+      "presence": "required"
+    },
+    "IF": {
+      "heading": "接口",
+      "aliases": [
+        "接口",
+        "API",
+        "契约",
+        "命名契约"
+      ],
+      "upstream": [
+        "ST",
+        "KD"
+      ],
+      "relations": {
+        "ST": "instantiate",
+        "KD": "instantiate"
+      },
+      "intent": "跨模块契约：API、事件、数据模式、命名规范、错误语义和兼容性期望——可在语义层面验证。当设计改变跨边界或用户可见的结果时，包含成功、警告和失败路径的终态语义。",
+      "intent_boundary": "模块图和依赖方向属于 ST。实现步骤、变更项和具体文件补丁属于 tech-plan。协议或技术选型（如 REST vs GraphQL、同步 vs 异步）属于 KD，而非 IF；IF 仅覆盖所选契约形式内的设计选择（字段结构、错误分类、版本控制策略等）。",
+      "presence": "required"
+    },
+    "OQ": {
+      "heading": "待决问题",
+      "aliases": [
+        "待决问题",
+        "假设",
+        "风险",
+        "未解决项"
+      ],
+      "upstream": [
+        "ST",
+        "KD",
+        "IF"
+      ],
+      "relations": {
+        "ST": "operationalize",
+        "KD": "operationalize",
+        "IF": "operationalize"
+      },
+      "intent": "尚未关闭的未解决假设、待决问题和风险陈述；每个条目标记为 \"阻塞计划\" 或 \"非阻塞\"。识别待解的设计假设，而非仅有实现层面的不确定性。",
+      "intent_boundary": "已关闭的决策属于 KD。验证映射属于 VD。运行命令和任务关联属于 tech-plan。",
+      "presence": "required"
+    },
+    "VD": {
+      "heading": "验证设计",
+      "aliases": [
+        "验证设计",
+        "测试策略",
+        "验收标准映射"
+      ],
+      "upstream": [
+        "GO",
+        "IF",
+        "OQ"
+      ],
+      "relations": {
+        "GO": "operationalize",
+        "IF": "operationalize",
+        "OQ": "respect_exclude"
+      },
+      "intent": "在评审时证明设计正确的方式：从验收标准到具有可区分通过信号的验证方法的语义映射，加上可证伪性——什么可观测结果会表明设计有误或不完整。当验证关闭某个待决假设时，交叉引用相关的 OQ 条目。",
+      "intent_boundary": "运行命令、测试文件路径、复选框步骤和负责人/时间安排表属于 tech-plan。成功状态定义属于 GO。可证伪性是设计层面的判断（\"什么可观测结果表明设计有误\"）——而非测试命令、失败案例枚举或运维手册步骤。",
+      "presence": "required"
+    },
+    "OD": {
+      "heading": "可运维性与发布设计",
+      "aliases": [
+        "可运维性",
+        "发布设计",
+        "可观测性",
+        "发布策略"
+      ],
+      "upstream": [
+        "ST",
+        "KD",
+        "IF",
+        "OQ"
+      ],
+      "relations": {
+        "ST": "instantiate",
+        "KD": "instantiate",
+        "IF": "operationalize",
+        "OQ": "respect_exclude"
+      },
+      "intent": "设计层面的可运维性与发布：观测内容和健康标准、发布策略决策、降级和故障语义、回滚和数据修复策略——不包括运维手册或脚本。策略选择必须基于设计推理（与 ST/KD/IF 一致），而非仅有利益相关者授权。",
+      "intent_boundary": "指标阈值、告警配置、发布运维手册、切换操作规程和修复脚本仅属于下游执行或运维文档。详细的回滚文件列表在已枚举的情况下属于 SC。",
+      "presence": "required"
+    }
+  }
+}

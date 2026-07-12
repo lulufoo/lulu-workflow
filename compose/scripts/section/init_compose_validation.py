@@ -24,9 +24,19 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
+from chapter_artifact_paths import chapter_body_path, chapter_derive_path  # noqa: E402
+from chapter_doc_schema import chapter_anchor_present, chapter_body_by_id  # noqa: E402
+from chapters_schema import chapters_path, load_chapters  # noqa: E402
 from compose_doc_schema import section_body_by_key, section_display_heading  # noqa: E402
+from display_layer_gates import run_display_layer_gates  # noqa: E402
+from facts_schema import facts_path, load_facts  # noqa: E402
 from fetch_compose_framework import fetch_compose_framework  # noqa: E402
 from outline_registry_schema import normalize_outline_registry  # noqa: E402
+from section_registry_schema import (  # noqa: E402
+    dependency_graph_subset,
+    normalize_section_registry,
+)
+from pd_derivation import normalize_dependency_graph  # noqa: E402
 from init_artifact_paths import (  # noqa: E402
     block_titles_path,
     body_path,
@@ -89,6 +99,43 @@ def section_headings_for_profile(project_root: Path, profile_id: str) -> dict[st
         str(key).upper(): str((val or {}).get("heading", "")).strip()
         for key, val in sections.items()
     }
+
+
+def section_presence_map_for_profile(project_root: Path, profile_id: str) -> dict[str, str]:
+    """section_key -> presence ('required'|'optional', default 'required').
+
+    Mirrors ``section_registry_schema.section_presence_map`` but fetches by
+    explicit ``profile_id`` (same pattern as ``section_headings_for_profile``)
+    rather than the active-session-cached accessor, since this validator is
+    invoked with an explicit ``--profile`` flag, not an active compose
+    session. Feeds ``display_layer_gates.check_c1`` (design SSOT §11.4
+    Blocker#1)."""
+    raw = fetch_compose_framework(
+        "section-registry",
+        project_root,
+        profile_id=profile_id,
+    )
+    data = json.loads(raw)
+    sections = data.get("sections") or {}
+    result: dict[str, str] = {}
+    for key, val in sections.items():
+        presence = (val or {}).get("presence")
+        if presence not in ("required", "optional"):
+            presence = "required"
+        result[str(key).upper()] = presence
+    return result
+
+
+def dependency_graph_for_profile(project_root: Path, profile_id: str) -> dict[str, Any]:
+    """Dependency-graph subset for C1 derivation-vs-true-gap classification (K1)."""
+    raw = fetch_compose_framework(
+        "section-registry",
+        project_root,
+        profile_id=profile_id,
+    )
+    data = json.loads(raw)
+    normalized = normalize_section_registry(data)
+    return normalize_dependency_graph(dependency_graph_subset(normalized))
 
 
 def outline_registry_for_profile(
@@ -468,6 +515,117 @@ def _validate_block_titles(
     return errors
 
 
+def validate_display_layer_artifacts(
+    revision_dir: Path,
+    compose_doc: Path,
+    project_root: Path,
+    profile_id: str,
+) -> str | None:
+    """Return first error summary or None — ``display_layer=true`` P3 validation.
+
+    Bypasses the entire section-keyed check suite this function's caller runs
+    for the legacy path (design SSOT §10#8d); validates the fact-first
+    artifact set instead:
+
+    1. outline↔display_layer pairing (§11.4 Major#6: candidates-shaped outline
+       is required, not optional — a legacy blocks-shaped outline is a hard
+       error here, never a silent L5-skip);
+    2. ``_facts.json`` / ``_chapters.json`` existence + schema-valid (§11.4
+       Minor#8);
+    3. M2 placement/coverage gates via ``display_layer_gates`` — fed all three
+       of ``presence_map`` / ``section_order`` / ``candidate_ids`` (§11.4
+       Blocker#1: omitting ``section_order`` makes the C1 coverage gate
+       silently no-op);
+    4. chapter-artifact existence (non-drop chapter has non-empty
+       ``_body-{cid}.txt`` + ``_derive-{cid}.json`` with a ``display_title``);
+    5. assembly completeness (§11.4 Major#3): every non-drop chapter's anchor
+       is present in the compose document with a non-empty segment — this is
+       a **structural** presence check, not proposition-level content
+       fidelity (that gate is dropped by design, §8.1/§11.4).
+    """
+    errors: list[str] = []
+
+    outline = outline_registry_for_profile(project_root, profile_id)
+    if outline is None:
+        return "display_layer=true: failed to fetch/parse outline-registry for this profile"
+    if not outline.get("candidates"):
+        return (
+            "display_layer=true requires a non-empty candidates-shaped outline-registry "
+            "(legacy outline_order/blocks, or an empty/null candidates list, is incompatible; "
+            "design SSOT §11.4 Major#6)"
+        )
+    candidate_id_list = [
+        str(candidate.get("block", "")).strip() for candidate in outline.get("candidates") or []
+    ]
+
+    try:
+        facts = load_facts(facts_path(revision_dir))
+    except ValueError as exc:
+        return f"invalid or missing _facts.json: {exc}"
+
+    try:
+        chapters = load_chapters(chapters_path(revision_dir))
+    except ValueError as exc:
+        return f"invalid or missing _chapters.json: {exc}"
+
+    presence_map = section_presence_map_for_profile(project_root, profile_id)
+    section_order = section_order_for_profile(project_root, profile_id)
+    dependency_graph = dependency_graph_for_profile(project_root, profile_id)
+
+    gate_result = run_display_layer_gates(
+        facts,
+        chapters,
+        presence_map=presence_map,
+        section_order=section_order,
+        candidate_ids=candidate_id_list,
+        dependency_graph=dependency_graph,
+    )
+    errors.extend(gate_result["errors"])
+
+    raw_doc = compose_doc.read_text(encoding="utf-8")
+    for chapter in chapters:
+        if chapter.get("op") == "drop":
+            continue
+        cid = str(chapter.get("id", "")).strip()
+
+        derive_file = chapter_derive_path(revision_dir, cid)
+        if not derive_file.is_file():
+            errors.append(f"chapter {cid!r}: missing {derive_file.name}")
+        else:
+            try:
+                derive_data = json.loads(derive_file.read_text(encoding="utf-8"))
+            except json.JSONDecodeError as exc:
+                errors.append(f"chapter {cid!r}: invalid {derive_file.name}: {exc}")
+                derive_data = {}
+            title = str((derive_data or {}).get("display_title", "")).strip()
+            if not title:
+                errors.append(f"chapter {cid!r}: display_title missing in {derive_file.name}")
+
+        body_file = chapter_body_path(revision_dir, cid)
+        if not body_file.is_file():
+            errors.append(f"chapter {cid!r}: missing {body_file.name}")
+        elif not body_file.read_text(encoding="utf-8").strip():
+            errors.append(f"chapter {cid!r}: empty body file {body_file.name}")
+
+        if not chapter_anchor_present(raw_doc, cid):
+            errors.append(f"chapter {cid!r}: missing chapter anchor in compose document")
+        else:
+            segment_lines = chapter_body_by_id(raw_doc, cid).splitlines()
+            # First line is the rendered "## {title}" heading (render_chapter_fragment) —
+            # strip it before the emptiness check so a stale/short-circuited append that
+            # wrote only the heading does not pass as "non-empty content" (m1, round-1
+            # Grok review of M4a).
+            first_line = segment_lines[0].strip() if segment_lines else ""
+            if first_line.startswith("## ") and not first_line.startswith("### "):
+                segment_lines = segment_lines[1:]
+            if not "\n".join(segment_lines).strip():
+                errors.append(f"chapter {cid!r}: compose document empty chapter body")
+
+    if not errors:
+        return None
+    return "; ".join(errors)
+
+
 def validate_init_artifacts(
     revision_dir: Path,
     compose_doc: Path,
@@ -481,10 +639,13 @@ def validate_init_artifacts(
     if not compose_doc.is_file():
         return f"compose document not found: {compose_doc}"
 
+    profile = load_profile(profile_id, project_root=project_root)
+    if (profile.get("drafting") or {}).get("display_layer") is True:
+        return validate_display_layer_artifacts(revision_dir, compose_doc, project_root, profile_id)
+
     keys = section_order_for_profile(project_root, profile_id)
     errors: list[str] = []
 
-    profile = load_profile(profile_id, project_root=project_root)
     inductive = (profile.get("drafting") or {}).get("inductive") is True
     if not inductive:
         part = partition_path(revision_dir)

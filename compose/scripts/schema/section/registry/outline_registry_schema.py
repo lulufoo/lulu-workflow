@@ -35,10 +35,17 @@ _SCHEMA: list[dict[str, Any]] = [
      "description": "Fixed value: outline-schema when present"},
     {"field": "cycle_type", "type": "string", "required": False,
      "description": "Optional cycle-type label when present"},
-    {"field": "outline_order", "type": "list[string]", "required": True,
-     "description": "Ordered block keys for document assembly"},
-    {"field": "blocks", "type": "object", "required": True,
-     "description": "block_key → { heading, intents[], guidance?, contract? }"},
+    {"field": "outline_order", "type": "list[string]", "required": False,
+     "description": "Legacy shape: ordered block keys for document assembly "
+                     "(required unless candidates present; mutually exclusive with it)"},
+    {"field": "blocks", "type": "object", "required": False,
+     "description": "Legacy shape: block_key -> { heading, intents[], guidance?, contract? } "
+                     "(required unless candidates present; mutually exclusive with it)"},
+    {"field": "candidates", "type": "list[object]", "required": False,
+     "description": "M3 shape: [{ block, anchor_lenses[] }] static chapter candidates "
+                     "(mutually exclusive with outline_order/blocks)"},
+    {"field": "rules", "type": "list[string]", "required": False,
+     "description": "M3 shape: advisory merge/split/trim rules text (only valid with candidates)"},
 ]
 
 
@@ -154,7 +161,15 @@ def fetch_outline_registry(
         cycle_id=cycle_id,
         conversation_id=conversation_id,
     )
-    errors = validate_outline_section_alignment(data, section_registry)
+    # Exclusive dispatch (Grok review Major#5): the legacy alignment check
+    # would flag every section_order key as "missing from outline blocks
+    # intents" if run against a candidates-shaped file — never run both.
+    # Key presence (not "value is not None"), same discipline as validate/
+    # normalize (Grok impl review Minor#8 follow-up).
+    if "candidates" in data:
+        errors = validate_outline_candidates_alignment(data, section_registry)
+    else:
+        errors = validate_outline_section_alignment(data, section_registry)
     if errors:
         raise ValueError("; ".join(errors))
     return normalize_outline_registry(data)
@@ -187,8 +202,139 @@ def validate_outline_section_alignment(
     return errors
 
 
+_CANDIDATE_TOP_LEVEL_ALLOWED = frozenset({"version", "$schema_id", "cycle_type", "candidates", "rules"})
+_CANDIDATE_ENTRY_REQUIRED = frozenset({"block", "anchor_lenses"})
+
+
+def _validate_candidate_entry(index: int, entry: Any) -> list[str]:
+    """Validate one ``candidates[]`` entry (M3 shape)."""
+    prefix = f"candidates[{index}]"
+    if not isinstance(entry, dict):
+        return [f"{prefix} must be an object"]
+    errors: list[str] = []
+    block = entry.get("block")
+    if not isinstance(block, str) or not block.strip():
+        errors.append(f"{prefix}.block must be a non-empty string")
+
+    anchors = entry.get("anchor_lenses")
+    if not isinstance(anchors, list) or not anchors:
+        errors.append(f"{prefix}.anchor_lenses must be a non-empty list")
+    else:
+        seen: set[str] = set()
+        for a_index, lens in enumerate(anchors):
+            if not isinstance(lens, str) or not lens.strip():
+                errors.append(f"{prefix}.anchor_lenses[{a_index}] must be a non-empty string")
+                continue
+            lens_key = lens.strip().upper()
+            if lens_key != lens.strip():
+                errors.append(f"{prefix}.anchor_lenses[{a_index}] must be uppercase lens key")
+            if lens_key in seen:
+                errors.append(f"{prefix}.anchor_lenses duplicate: {lens_key!r}")
+            seen.add(lens_key)
+
+    extra = set(entry) - _CANDIDATE_ENTRY_REQUIRED
+    if extra:
+        errors.append(f"{prefix}: unexpected fields {sorted(extra)}")
+    return errors
+
+
+def _validate_candidates_shape(data: dict[str, Any]) -> list[str]:
+    """Validate the M3 ``candidates``/``rules`` outline shape.
+
+    Mutually exclusive with the legacy ``outline_order``/``blocks`` shape
+    (design SSOT §11.3 M3, Grok review dispatch discipline)."""
+    errors: list[str] = []
+    # Key *presence* (not "value is not None") — an explicit ``"outline_order":
+    # null`` alongside ``candidates`` must still be flagged (Grok impl review
+    # Minor#8 follow-up), not silently ignored because ``.get()`` returned None.
+    if "outline_order" in data or "blocks" in data:
+        errors.append(
+            "candidates shape cannot coexist with outline_order/blocks "
+            "(mutually exclusive; author one shape per file, not both)",
+        )
+
+    candidates = data.get("candidates")
+    if not isinstance(candidates, list) or not candidates:
+        errors.append("candidates must be a non-empty array")
+    else:
+        seen_blocks: set[str] = set()
+        for index, entry in enumerate(candidates):
+            errors.extend(_validate_candidate_entry(index, entry))
+            if isinstance(entry, dict):
+                block = entry.get("block")
+                # Deliberately not case-folded: ``block`` is a free stable id
+                # (must equal `_chapters.json[].derived_from` verbatim), not a
+                # lens key (Grok review Major#1).
+                if isinstance(block, str) and block.strip():
+                    block_norm = block.strip()
+                    if block_norm in seen_blocks:
+                        errors.append(f"candidates[{index}].block duplicate: {block_norm!r}")
+                    seen_blocks.add(block_norm)
+
+    rules = data.get("rules")
+    if rules is not None and (
+        not isinstance(rules, list)
+        or any(not isinstance(r, str) or not r.strip() for r in rules)
+    ):
+        errors.append("rules must be an array of non-empty strings when present")
+
+    extra = set(data) - _CANDIDATE_TOP_LEVEL_ALLOWED
+    if extra:
+        errors.append(f"unexpected top-level fields for candidates shape: {sorted(extra)}")
+
+    return errors
+
+
+def validate_outline_candidates_alignment(
+    outline: dict[str, Any],
+    section_registry: dict[str, Any],
+) -> list[str]:
+    """Ensure candidates shape aligns with section-registry (M3, candidates branch only).
+
+    Mirrors ``validate_outline_section_alignment`` for the legacy shape, but is
+    **not symmetric**: only ``⋃ anchor_lenses ⊆ section_order`` (candidates must
+    not anchor unknown lenses) plus ``{required lenses} ⊆ ⋃ anchor_lenses``
+    (a required lens with zero anchoring candidates can never form a legally
+    placed chapter — L3's ``lens_tags ∩ anchor_lenses`` would be structurally
+    unsatisfiable for it). ``optional`` lenses may have zero candidates (章级
+    需求2 — legal absence), so full bidirectional coverage is deliberately
+    **not** required (Grok review Major#2)."""
+    errors: list[str] = []
+    section_order = [
+        str(key).upper() for key in (section_registry.get("section_order") or [])
+    ]
+    section_set = set(section_order)
+    sections = section_registry.get("sections") or {}
+
+    anchor_union: set[str] = set()
+    for candidate in outline.get("candidates") or []:
+        for lens in candidate.get("anchor_lenses") or []:
+            lens_key = str(lens).strip().upper()
+            anchor_union.add(lens_key)
+            if lens_key not in section_set:
+                errors.append(
+                    f"candidates anchor_lenses {lens_key!r} not in section_order "
+                    f"{sorted(section_set)}",
+                )
+
+    for key in section_order:
+        # Same defensive default as ``display_layer_gates.check_c1``: missing
+        # key, explicit ``null``, or an invalid value all collapse to
+        # "required" — only an explicit valid "optional" opts out (Grok
+        # implementation review finding #2, consistency with Minor#6).
+        presence = (sections.get(key) or {}).get("presence")
+        if presence not in ("required", "optional"):
+            presence = "required"
+        if presence == "required" and key not in anchor_union:
+            errors.append(
+                f"required lens {key!r} has no anchoring candidate "
+                "(candidates anchor_lenses coverage gap)",
+            )
+    return errors
+
+
 def validate_outline_registry(data: dict[str, Any]) -> list[str]:
-    """Validate outline registry payload."""
+    """Validate outline registry payload (legacy blocks shape, or M3 candidates shape)."""
     errors: list[str] = []
     if data.get("version") != "1":
         errors.append(f"invalid version: {data.get('version')!r} (expected '1')")
@@ -196,6 +342,20 @@ def validate_outline_registry(data: dict[str, Any]) -> list[str]:
     schema_id = data.get("$schema_id")
     if schema_id is not None and schema_id != SCHEMA_ID:
         errors.append(f"$schema_id must be {SCHEMA_ID!r} when present")
+
+    # Shape dispatch runs first (Grok review Minor#8) — before the legacy
+    # branch's own early-return on missing outline_order, so a candidates-
+    # shaped file never falls through to legacy-only error messages. Key
+    # presence (not "value is not None"): an explicit ``"candidates": null``
+    # must still dispatch to the candidates branch and fail there with a
+    # clear "must be a non-empty array" error, not silently pass as legacy
+    # (Grok implementation review Minor#8 follow-up).
+    if "candidates" in data:
+        errors.extend(_validate_candidates_shape(data))
+        return errors
+
+    if "rules" in data:
+        errors.append("rules without candidates is not supported")
 
     order = data.get("outline_order")
     if not isinstance(order, list) or not order:
@@ -264,8 +424,41 @@ def validate_outline_registry(data: dict[str, Any]) -> list[str]:
     return errors
 
 
+def _normalize_candidates_shape(data: dict[str, Any]) -> dict[str, Any]:
+    """Return normalized outline registry (M3 candidates shape)."""
+    candidates: list[dict[str, Any]] = []
+    for entry in data.get("candidates") or []:
+        if not isinstance(entry, dict):
+            continue
+        anchors = [
+            str(a).strip().upper()
+            for a in entry.get("anchor_lenses") or []
+            if str(a).strip()
+        ]
+        candidates.append(
+            {
+                "block": str(entry.get("block", "")).strip(),
+                "anchor_lenses": anchors,
+            },
+        )
+    result: dict[str, Any] = {
+        "version": "1",
+        "candidates": candidates,
+    }
+    rules = data.get("rules")
+    if isinstance(rules, list) and rules:
+        result["rules"] = [str(r).strip() for r in rules if str(r).strip()]
+    if data.get("cycle_type"):
+        result["cycle_type"] = str(data["cycle_type"]).strip()
+    if data.get("$schema_id"):
+        result["$schema_id"] = str(data["$schema_id"]).strip()
+    return result
+
+
 def normalize_outline_registry(data: dict[str, Any]) -> dict[str, Any]:
-    """Return normalized outline registry."""
+    """Return normalized outline registry (legacy blocks shape, or M3 candidates shape)."""
+    if "candidates" in data:
+        return _normalize_candidates_shape(data)
     order = [str(key).upper() for key in data["outline_order"]]
     blocks_raw = data.get("blocks") or {}
     blocks: dict[str, dict[str, Any]] = {}
@@ -318,19 +511,61 @@ def _active_outline(project_root: Path | None = None) -> dict[str, Any]:
     return _outline_for_path(str(resolve_outline_registry_path(project_root)))
 
 
+def _require_legacy_shape(registry: dict[str, Any]) -> None:
+    if "outline_order" not in registry:
+        raise ValueError(
+            "outline registry is candidates-shaped (no outline_order); "
+            "use candidate_ids()/candidate_anchor_lenses() instead (M3, "
+            "design SSOT §11.3; Grok review Major#4)",
+        )
+
+
+def _require_candidates_shape(registry: dict[str, Any]) -> None:
+    if "candidates" not in registry:
+        raise ValueError(
+            "outline registry is legacy blocks-shaped (no candidates); "
+            "use outline_order()/outline_intent_map() instead. Callers doing "
+            "M2 check_l5 wiring must pass candidate_ids=None on legacy outlines "
+            "(an empty tuple would make every chapter's derived_from 'unknown', "
+            "not 'candidates disabled') — Grok M3 implementation review finding #3.",
+        )
+
+
 def outline_order(project_root: Path | None = None) -> tuple[str, ...]:
-    """Return ordered outline block keys."""
-    return tuple(_active_outline(project_root)["outline_order"])
+    """Return ordered outline block keys (legacy blocks shape only)."""
+    registry = _active_outline(project_root)
+    _require_legacy_shape(registry)
+    return tuple(registry["outline_order"])
 
 
 def outline_intent_map(project_root: Path | None = None) -> dict[str, str]:
-    """Return intent_key → outline_block_key map."""
+    """Return intent_key → outline_block_key map (legacy blocks shape only)."""
     registry = _active_outline(project_root)
+    _require_legacy_shape(registry)
     mapping: dict[str, str] = {}
     for block_key in registry["outline_order"]:
         for intent_key in registry["blocks"][block_key]["intents"]:
             mapping[intent_key] = block_key
     return mapping
+
+
+def candidate_ids(project_root: Path | None = None) -> tuple[str, ...]:
+    """Return candidate block ids (M3 candidates shape only).
+
+    Feeds ``display_layer_gates.check_l5``'s ``candidate_ids`` param; values
+    must match ``_chapters.json[].derived_from`` verbatim — no case-folding,
+    ``block`` is a free stable id, not a lens key (design SSOT §11.3).
+    """
+    registry = _active_outline(project_root)
+    _require_candidates_shape(registry)
+    return tuple(c["block"] for c in registry["candidates"])
+
+
+def candidate_anchor_lenses(project_root: Path | None = None) -> dict[str, list[str]]:
+    """Return block -> anchor_lenses map (M3 candidates shape only)."""
+    registry = _active_outline(project_root)
+    _require_candidates_shape(registry)
+    return {c["block"]: list(c["anchor_lenses"]) for c in registry["candidates"]}
 
 
 def main(argv: list[str] | None = None) -> int:

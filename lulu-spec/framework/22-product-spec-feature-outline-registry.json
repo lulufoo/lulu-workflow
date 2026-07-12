@@ -1,0 +1,38 @@
+{
+  "version": "1",
+  "$schema_id": "outline-schema",
+  "cycle_type": "feature",
+  "candidates": [
+    {
+      "block": "cand-BG",
+      "anchor_lenses": ["PB", "RN", "GO"]
+    },
+    {
+      "block": "cand-US",
+      "anchor_lenses": ["UR", "SN"]
+    },
+    {
+      "block": "cand-SC",
+      "anchor_lenses": ["SC", "IO"]
+    },
+    {
+      "block": "cand-FL",
+      "anchor_lenses": ["FL"]
+    },
+    {
+      "block": "cand-NG",
+      "anchor_lenses": ["NG"]
+    },
+    {
+      "block": "cand-AC",
+      "anchor_lenses": ["AC"]
+    }
+  ],
+  "rules": [
+    "空可选视角→可 drop 对应候选章（本 profile 暂无 optional；全 required）",
+    "瘦章（单锚+少事实）→优先与相邻同主题候选合并（参考原 BG/US/SC 分组）",
+    "胖章（异质度高）→按主题拆，派生章仍须 derived_from 指向本 candidates[].block",
+    "PB/RN/GO 默认同属 cand-BG；UR/SN 默认同属 cand-US；SC/IO 默认同属 cand-SC；内容驱动时可拆，但各 required 视角须仍被某章 anchor_lenses 覆盖",
+    "IO/AC 在 section-registry 有 instantiate/decompose 边——Init Pd 可在投影后对零覆盖 required 派生视角尾追事实"
+  ]
+}

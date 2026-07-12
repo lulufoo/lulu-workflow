@@ -95,7 +95,10 @@ def _validate_active_compose_profile(path: Path, data: dict) -> list[str]:
         for key in _DRAFTING_REQUIRED:
             if key not in drafting:
                 errors.append(f"{path.name}: missing drafting.{key}")
-        for key in ("inductive", "freeedit", "code_grounding"):
+        # "display_layer" is deliberately absent from _DRAFTING_REQUIRED: it is
+        # increment-1's opt-in flag (design SSOT §11.3 M3), not a contract every
+        # profile must declare; type-checked only when a profile chooses to set it.
+        for key in ("inductive", "freeedit", "code_grounding", "display_layer"):
             if key in drafting and not isinstance(drafting[key], bool):
                 errors.append(f"{path.name}: drafting.{key} must be a boolean")
         post_init_options = drafting.get("post_init_options")

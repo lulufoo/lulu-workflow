@@ -36,6 +36,8 @@ _RELATION_TYPES = frozenset(
 )
 
 _REGISTRY_SCHEME_KEY = "section-registry"
+_PRESENCE_VALUES = frozenset({"required", "optional"})
+_PRESENCE_DEFAULT = "required"
 
 
 def _normalize_contract(raw: Any) -> dict[str, list[str]]:
@@ -209,6 +211,12 @@ def validate_section_registry(data: dict[str, Any]) -> list[str]:
             errors.append(
                 f"sections.{key}.intent_boundary must be a non-empty string when present"
             )
+        presence = entry.get("presence")
+        if presence is not None and presence not in _PRESENCE_VALUES:
+            errors.append(
+                f"sections.{key}.presence must be one of {sorted(_PRESENCE_VALUES)} "
+                f"(got {presence!r})"
+            )
         has_intent = isinstance(intent, str) and intent.strip()
         has_desc = isinstance(desc, str) and desc.strip()
         if not has_intent and not has_desc:
@@ -287,6 +295,8 @@ def normalize_section_registry(data: dict[str, Any]) -> dict[str, Any]:
         intent_boundary = entry.get("intent_boundary")
         if isinstance(intent_boundary, str) and intent_boundary.strip():
             normalized["intent_boundary"] = intent_boundary.strip()
+        presence = entry.get("presence")
+        normalized["presence"] = presence if presence in _PRESENCE_VALUES else _PRESENCE_DEFAULT
         sections[key] = normalized
     return {
         "version": "1",
@@ -353,6 +363,19 @@ def section_headings(project_root: Path | None = None) -> dict[str, str]:
     """Return section_key → H2 heading map."""
     registry = _active_registry(project_root)
     return {key: registry["sections"][key]["heading"] for key in registry["section_order"]}
+
+
+def section_presence_map(project_root: Path | None = None) -> dict[str, str]:
+    """Return section_key -> presence ('required'|'optional', default 'required').
+
+    Design SSOT: docs/biz/compose-fact-first-display-layer-design.md §3.2, §11.3
+    (M3, 需求2). Feeds ``display_layer_gates.check_c1``'s ``presence_map`` param.
+    """
+    registry = _active_registry(project_root)
+    return {
+        key: registry["sections"][key].get("presence", _PRESENCE_DEFAULT)
+        for key in registry["section_order"]
+    }
 
 
 def section_aliases(project_root: Path | None = None) -> dict[str, str]:
