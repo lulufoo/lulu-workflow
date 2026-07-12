@@ -50,6 +50,17 @@ _GAP_KINDS = frozenset({"scope_absent", "unfounded"})
 _GAP_DIMENSIONS = frozenset({"what", "why", "alternatives", "failure"})
 _C_MIN = 2
 _C_MAX = 5
+
+# Display title (`display_title` in derive → H3) hard gates.
+_TITLE_PLACEHOLDER = "（待补）"
+_TITLE_MAX_LEN = 40
+# Code tokens: ASCII identifier-call (foo(), no CJK false positive), path sep,
+# symbol anchor, or a source file extension.
+_TITLE_CODE_TOKEN_RE = re.compile(
+    r"[/`]|[A-Za-z_][A-Za-z0-9_]*\(|#[A-Za-z0-9_]"
+    r"|\.(?:py|ts|js|jsx|tsx|rs|md|json|rb|go|html|css|sh|toml|ya?ml)\b",
+    re.IGNORECASE,
+)
 _SECTION_KEY_ANCHOR_RE = re.compile(
     r"<!--\s*section-key:\s*([A-Za-z0-9_]+)\s*-->",
     re.IGNORECASE,
@@ -64,6 +75,20 @@ def section_order_for_profile(project_root: Path, profile_id: str) -> list[str]:
     )
     data = json.loads(raw)
     return [str(key).upper() for key in data.get("section_order") or []]
+
+
+def section_headings_for_profile(project_root: Path, profile_id: str) -> dict[str, str]:
+    raw = fetch_compose_framework(
+        "section-registry",
+        project_root,
+        profile_id=profile_id,
+    )
+    data = json.loads(raw)
+    sections = data.get("sections") or {}
+    return {
+        str(key).upper(): str((val or {}).get("heading", "")).strip()
+        for key, val in sections.items()
+    }
 
 
 def outline_registry_for_profile(
@@ -124,9 +149,11 @@ def minimal_derive_payload(
                 "note": "No matching scope substance for this section.",
             },
         ]
+    display_title = _TITLE_PLACEHOLDER if not i_star.strip() else f"主题{key}"
     return {
         "section_key": key,
         "i_star": i_star,
+        "display_title": display_title,
         "scope_refs": ["Decision: sample reference"],
         "code_refs": [],
         "gaps": gaps,
@@ -204,7 +231,7 @@ def write_minimal_init_work_artifacts(
     display_map: dict[str, str] = {}
     for key in section_keys:
         section = key.strip().upper()
-        display_map[section] = f"Topic {section}"
+        display_map[section] = minimal_derive_payload(section, i_star=i_star)["display_title"]
     save_display_titles(display_titles_path(revision_dir), display_map)
 
 
@@ -216,6 +243,32 @@ def _load_derive(path: Path) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise ValueError("derive root must be an object")
     return data
+
+
+def _validate_display_title(value: Any, *, section_key: str, heading: str = "") -> list[str]:
+    """Hard-gate the derive `display_title` (reader H3) authored at I2c."""
+    key = section_key.upper()
+    if not isinstance(value, str) or not value.strip():
+        return [f"{key}: display_title must be a non-empty string"]
+    title = value.strip()
+    if title == _TITLE_PLACEHOLDER:
+        return []
+    errors: list[str] = []
+    if len(title) > _TITLE_MAX_LEN:
+        errors.append(
+            f"{key}: display_title too long ({len(title)}>{_TITLE_MAX_LEN}); "
+            f"use a concise theme, not a body sentence",
+        )
+    if heading and title.lower() == heading.strip().lower():
+        errors.append(
+            f"{key}: display_title must not reuse the registry heading: {title!r}",
+        )
+    if _TITLE_CODE_TOKEN_RE.search(title):
+        errors.append(
+            f"{key}: display_title must not contain code tokens "
+            f"(path / symbol / API / file ext): {title!r}",
+        )
+    return errors
 
 
 def _validate_gap(entry: Any, *, section_key: str, index: int) -> list[str]:
@@ -237,7 +290,12 @@ def _validate_gap(entry: Any, *, section_key: str, index: int) -> list[str]:
     return errors
 
 
-def _validate_derive_document(data: dict[str, Any], *, expected_key: str) -> list[str]:
+def _validate_derive_document(
+    data: dict[str, Any],
+    *,
+    expected_key: str,
+    heading: str = "",
+) -> list[str]:
     errors: list[str] = []
     key = expected_key.upper()
     section_key = data.get("section_key")
@@ -249,6 +307,10 @@ def _validate_derive_document(data: dict[str, Any], *, expected_key: str) -> lis
             errors.append(f"{key}: missing {field}")
         elif not isinstance(data[field], str):
             errors.append(f"{key}: {field} must be a string")
+
+    errors.extend(
+        _validate_display_title(data.get("display_title"), section_key=key, heading=heading),
+    )
 
     scope_refs = data.get("scope_refs")
     if not isinstance(scope_refs, list):
@@ -441,6 +503,15 @@ def validate_init_artifacts(
                 )
 
     raw_doc = compose_doc.read_text(encoding="utf-8")
+    headings = section_headings_for_profile(project_root, profile_id)
+
+    display_map: dict[str, str] = {}
+    display_path = display_titles_path(revision_dir)
+    if display_path.is_file():
+        try:
+            display_map = load_display_titles(display_path)
+        except (json.JSONDecodeError, ValueError):
+            display_map = {}  # non-empty / format error reported below
 
     for key in keys:
         derive_file = derive_path(revision_dir, key)
@@ -453,7 +524,9 @@ def validate_init_artifacts(
             errors.append(f"invalid derive {key}: {exc}")
             continue
 
-        errors.extend(_validate_derive_document(derive, expected_key=key))
+        errors.extend(
+            _validate_derive_document(derive, expected_key=key, heading=headings.get(key, "")),
+        )
 
         i_star = str(derive.get("i_star", ""))
         section_body_path = body_path(revision_dir, key)
@@ -462,8 +535,24 @@ def validate_init_artifacts(
         body = section_body_by_key(raw_doc, key, project_root=project_root).strip()
         if not body:
             errors.append(f"compose document empty body: {key}")
-        elif not section_display_heading(raw_doc, key, project_root=project_root).strip():
-            errors.append(f"compose document missing display title: {key}")
+
+        # Single SoT: _title-display.json projection and document H3 must equal
+        # derive.display_title (catches manual set-display-title / doc drift).
+        derive_title = str(derive.get("display_title", "")).strip()
+        doc_title = section_display_heading(raw_doc, key, project_root=project_root).strip()
+        if body:
+            if not doc_title:
+                errors.append(f"compose document missing display title: {key}")
+            elif derive_title and doc_title != derive_title:
+                errors.append(
+                    f"{key}: document H3 {doc_title!r} != derive display_title {derive_title!r}",
+                )
+        proj_title = get_display_title(display_map, key)
+        if derive_title and proj_title and proj_title != derive_title:
+            errors.append(
+                f"{key}: _title-display.json {proj_title!r} != derive display_title "
+                f"{derive_title!r}",
+            )
 
     errors.extend(_validate_section_display_titles(revision_dir, keys))
 

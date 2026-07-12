@@ -13,9 +13,13 @@ def section_headings_map() -> dict[str, str]:
 
 
 def minimal_compose_doc_markdown() -> str:
+    # H3 must equal the derive display_title (single SoT enforced by validator).
+    from init_compose_validation import minimal_derive_payload
+
     parts = ["---\n\n"]
     for key in section_order():
-        heading_line = format_section_heading(key, section_heading(key))
+        title = minimal_derive_payload(key)["display_title"]
+        heading_line = format_section_heading(key, title)
         parts.append(f"{heading_line}\n\n{key}.\n\n")
     return "".join(parts)
 

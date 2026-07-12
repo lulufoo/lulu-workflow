@@ -28,10 +28,10 @@ Sequential synthesis (not independent factors):
 ```text
 section_body = Write( I* ; F ; C )  |  intent
 
-display_title = specialize( sections.{key}.heading ; substance($SECTION_BODY) )
-  — presentation layer only; not part of body
+display_title = author( i_star ; C )   # H3; a derive field authored at I2c (derivation sections: at I2d)
+  — presentation layer only; not part of body; single SoT in derive, rendered to the doc H3 at I2f
 
-block_title = specialize( blocks.{id}.heading ; substance(block intent bodies) )
+block_title = number( outline_order ) + localize( blocks.{id}.heading )   # H2; neutral, not body-derived
   — H2 presentation layer; derived at last_in_block, patched after all intents in block persist
 ```
 
@@ -43,10 +43,10 @@ block_title = specialize( blocks.{id}.heading ; substance(block intent bodies) )
 | Envelope | `intent` | section-registry (`intent` + `intent_boundary`) | `intent` = what belongs; `intent_boundary` = what belongs elsewhere (exclude, do not author) |
 | Section form | `presentation` | section-form-registry | Per-intent carrier selection guidance, allowed carriers, and forbidden carriers for F derivation |
 | Section form | `expression` | section-form-registry | Per-intent required/forbidden expression constraints for C derivation |
-| Display title | `display_title` | `sections.{key}.heading` + content substance | H3 label on intent anchor line under outline H2 blocks |
-| Block title | `block_title` | `blocks.{id}.heading` + block intent substance | H2 reader label; placeholder = registry heading until I2g |
+| Display title | `display_title` | derive field authored at I2c from `i_star` + `C` (derivation: I2d) | H3 label; single SoT in derive, projected to doc H3 + `_title-display.json` at I2f |
+| Block title | `block_title` | `blocks.{id}.heading` (neutral localize) + `outline_order` numbering | H2 reader label; not body-derived; placeholder = registry heading until I2g |
 
-**Order (strict):** Filter `I*` → Derive `F` → Derive `C` → Write body → Derive display title → Persist section → [when last intent in block] I2g Block close (derive block title → patch H2).
+**Order (strict):** Filter `I*` → Derive `F` → Derive `C` (author `display_title`) → Write body → Persist section (`append-intent` renders H3 from derive `display_title`) → [when last intent in block] I2g Block close (derive block title → patch H2).
 
 **Intent text:** Use `sections.{key}.intent` when present; else `sections.{key}.desc` (legacy).
 
@@ -76,7 +76,7 @@ Seed is **not** an Expose source: it writes `decisions` with `trigger=seed` · `
 
 **F priority (conflict resolution):** section `presentation` > domain `expression_conventions` > role `expressive_tendency` > intent text. `intent_boundary` is an exclusion list — it names substance belonging to other intents; author none of it here.
 
-**Document assembly:** Compose documents use outline-registry for structure — outline H2 blocks, intent H3 lines with `<!-- section-key:KEY -->`, then body. Initializing persists each intent via `$COMPOSE_DOC_CONTROL append-intent` immediately after display title derivation; when the last intent in a block is persisted, `$COMPOSE_DOC_CONTROL patch-block-heading` replaces the English H2 placeholder with the inferred block title. Downstream compose tools locate sections by section-key anchor, not H2 text.
+**Document assembly:** Compose documents use outline-registry for structure — outline H2 blocks, intent H3 lines with `<!-- section-key:KEY -->`, then body. Initializing persists each intent via `$COMPOSE_DOC_CONTROL append-intent`, which reads the derive `display_title` for the H3; when the last intent in a block is persisted, `$COMPOSE_DOC_CONTROL patch-block-heading` replaces the English H2 placeholder with the block title. Downstream compose tools locate sections by section-key anchor, not H2 text.
 
 ## Init draft quality floor
 
@@ -125,5 +125,5 @@ C has 2–5 pairs per section. Every `c` must be traceable to a specific `### Ro
 - scope-doc verbatim paste, `[Source: …]`, `decision-doc-mapping`
 - `I*` that adds capabilities, scope, or boundaries not in scope doc
 - speculative paths, APIs, or behavior not grounded in scope / Partition / inductive SoT / committed upstream-body decomposition on a derivation section, and not obtained via `drafting.code_grounding` (when enabled: ground or `待决` — never invent)
-- verbatim `sections.{key}.heading` as document display title (infer via `display_title` instead)
-- verbatim `blocks.{id}.heading` as final block H2 (infer via `block_title` in I2g instead)
+- verbatim `sections.{key}.heading` as `display_title` (author from `i_star` + `C` instead)
+- verbatim `blocks.{id}.heading` as final block H2 (neutral localize + `outline_order` numbering in I2g instead)

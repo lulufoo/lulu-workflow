@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Incremental compose document writer for initializing-runner I2e–I2g.
+"""Incremental compose document writer for initializing-runner I2f–I2g.
 
 Subcommands:
     init-doc              Write document preamble (create or overwrite)
@@ -29,17 +29,13 @@ import kernel_bootstrap  # noqa: E402
 kernel_bootstrap.ensure_kernel_paths()
 
 from compose_doc_schema import format_section_intent_heading  # noqa: E402
-from init_artifact_paths import block_titles_path, body_path, display_titles_path  # noqa: E402
+from init_artifact_paths import block_titles_path, body_path, derive_path  # noqa: E402
 from init_block_titles_schema import (  # noqa: E402
     get_block_title,
     load_block_titles,
     set_block_title,
 )
-from init_display_titles_schema import (  # noqa: E402
-    get_display_title,
-    load_display_titles,
-    set_display_title,
-)
+from init_display_titles_schema import set_display_title  # noqa: E402
 from outline_registry_schema import load_outline_registry, normalize_outline_registry  # noqa: E402
 from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID  # noqa: E402
 
@@ -224,20 +220,13 @@ def _resolve_append_inputs(args: argparse.Namespace) -> tuple[str, str] | None:
             print(f"body artifact not found: {body_file}", file=sys.stderr)
             return None
         body = body_file.read_text(encoding="utf-8")
-        try:
-            titles = load_display_titles(display_titles_path(revision_dir))
-        except ValueError as exc:
-            print(str(exc), file=sys.stderr)
+        display_title = _read_derive_display_title(revision_dir, section)
+        if display_title is None:
             return None
-        display_title = get_display_title(titles, section)
-        if not display_title:
-            print(
-                f"display title missing in _title-display.json for section {section}",
-                file=sys.stderr,
-            )
-            return None
+        # Projection into _title-display.json happens after append succeeds (see cmd).
         return display_title, body
 
+    # Inline path (tests / ad-hoc): no derive read, no _title-display.json projection.
     if args.display_title is None:
         print("append-intent requires --display-title or --revision-dir", file=sys.stderr)
         return None
@@ -255,6 +244,24 @@ def cmd_init_doc(args: argparse.Namespace) -> int:
     init_doc(path, preamble=preamble)
     print(path.as_posix())
     return 0
+
+
+def _read_derive_display_title(revision_dir: Path, section_key: str) -> str | None:
+    key = section_key.strip().upper()
+    path = derive_path(revision_dir, key)
+    if not path.is_file():
+        print(f"derive artifact not found: {path}", file=sys.stderr)
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        print(f"invalid derive JSON in {path.name}: {exc}", file=sys.stderr)
+        return None
+    title = str((data or {}).get("display_title", "")).strip()
+    if not title:
+        print(f"display_title missing in derive for section {key}", file=sys.stderr)
+        return None
+    return title
 
 
 def cmd_set_display_title(args: argparse.Namespace) -> int:
@@ -313,6 +320,9 @@ def cmd_append_intent(args: argparse.Namespace) -> int:
             body=body,
             outline=outline,
         )
+        # Persist the projection only after the section is safely appended.
+        if args.revision_dir is not None:
+            set_display_title(args.revision_dir.resolve(), args.section, display_title)
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 1

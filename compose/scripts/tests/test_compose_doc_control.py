@@ -173,8 +173,8 @@ def test_append_intent_revision_dir(doc_path: Path, tmp_path: Path):
     outline_path = tmp_path / "outline-registry.json"
     outline_path.write_text(json.dumps(OUTLINE_REGISTRY_FEATURE), encoding="utf-8")
     (revision_dir / "_body-CTX.txt").write_text("Context.", encoding="utf-8")
-    (revision_dir / "_title-display.json").write_text(
-        json.dumps({"CTX": "现状"}, ensure_ascii=False) + "\n",
+    (revision_dir / "_derive-CTX.json").write_text(
+        json.dumps({"section_key": "CTX", "display_title": "现状"}, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
     init_doc(doc_path, preamble="# Feature\n\n")
@@ -195,6 +195,9 @@ def test_append_intent_revision_dir(doc_path: Path, tmp_path: Path):
     raw = doc_path.read_text(encoding="utf-8")
     assert "### 现状 <!-- section-key:CTX -->" in raw
     assert section_body_by_key(raw, "CTX") == "Context."
+    # _title-display.json is written by append-intent as a projection of derive
+    projection = json.loads((revision_dir / "_title-display.json").read_text(encoding="utf-8"))
+    assert projection["CTX"] == "现状"
 
 
 def test_append_intent_inline_display_title(doc_path: Path, tmp_path: Path):
@@ -224,13 +227,13 @@ def test_append_intent_inline_display_title(doc_path: Path, tmp_path: Path):
 
 
 
-def test_append_intent_revision_dir_rejects_invalid_display_json(doc_path: Path, tmp_path: Path):
+def test_append_intent_revision_dir_rejects_invalid_derive_json(doc_path: Path, tmp_path: Path):
     revision_dir = tmp_path / "revision1"
     revision_dir.mkdir()
     outline_path = tmp_path / "outline-registry.json"
     outline_path.write_text(json.dumps(OUTLINE_REGISTRY_FEATURE), encoding="utf-8")
     (revision_dir / "_body-CTX.txt").write_text("Context.", encoding="utf-8")
-    (revision_dir / "_title-display.json").write_text("{not json", encoding="utf-8")
+    (revision_dir / "_derive-CTX.json").write_text("{not json", encoding="utf-8")
     init_doc(doc_path, preamble="# Feature\n\n")
     rc = main(
         [

@@ -31,7 +31,7 @@ See [`../references/compose-theory.md`](../references/compose-theory.md).
 
 Derive artifact contract: [`../references/init-draft-quality.md`](../references/init-draft-quality.md).
 
-**Order (strict):** [I0 when required] → I2a Filter `I*` → I2b Derive `F` → I2c Derive `C` → I2d Write body → I2e Derive display title → I2f Persist section → [when `last_in_block`] I2g Block close.
+**Order (strict):** [I0 when required] → I2a Filter `I*` → I2b Derive `F` → I2c Derive `C` (+ author `display_title`) → I2d Write body → I2f Persist section (renders H3 from derive `display_title`) → [when `last_in_block`] I2g Block close.
 
 ## Parent-Provided Inputs
 
@@ -122,9 +122,9 @@ $PARTITION_CTL write \
 For each key in `section_order`, produce section artifacts under `$REVISION_DIR`:
 
 ```text
-_derive-{section_key}.json   # I2a–I2c (must exist before I2d)
+_derive-{section_key}.json   # I2a–I2c (must exist before I2d); holds display_title
 _body-{section_key}.txt      # I2d
-_title-display.json          # I2e (section_key → display title)
+_title-display.json          # I2f projection of derive display_title (section_key → H3)
 _title-block.json            # I2g (block_key → reader H2; last_in_block only)
 ```
 
@@ -155,9 +155,9 @@ Stdout → `i_star`. Empty stdout with exit 0 → `i_star=""` + `scope_absent` g
 
 #### I2c — Derive `C`
 
-- **Input:** `### Role Fields` · domain instance · `intent` · `sections.{key}.expression` · `F`
-- **Action:** Derive 2–5 `(d, c, source)` pairs traceable to Role, intent, expression, or `expression_conventions`. If a KW dimension lacks named-atom substance, add `scope_absent` gap (no `kw_init`).
-- **Output:** write `c` into `_derive-{key}.json`
+- **Input:** `### Role Fields` · domain instance · `intent` · `sections.{key}.expression` · `F` · `sections.{key}.heading` · `i_star`
+- **Action:** Derive 2–5 `(d, c, source)` pairs traceable to Role, intent, expression, or `expression_conventions`. If a KW dimension lacks named-atom substance, add `scope_absent` gap (no `kw_init`). Then author `display_title` (reader H3) here from this section's substance (`i_star` + `C`) — the only creative title decision; I2f consumes it mechanically. **Derivation section with empty `i_star`:** write `display_title = （待补）` provisionally and finalize it in I2d from the derived work items. Empty `i_star` with no derivation → `display_title = （待补）` (final). See init-draft-quality Display title rules.
+- **Output:** write `c` and `display_title` into `_derive-{key}.json`
 - **Done:** derive file complete; **do not start I2d until derive validates mentally against init-draft-quality**
 
 #### I2d — Write body
@@ -171,25 +171,12 @@ Stdout → `i_star`. Empty stdout with exit 0 → `i_star=""` + `scope_absent` g
   - Never write derivation results back to `_partition.json`.
 - **Code grounding (only when `$CODE_GROUNDING` is true):** For body increments that need concrete paths/symbols named in `i_star` or registry, Grep/Glob/Read under `$PROJECT_ROOT` with bounded queries. Success → append `code_refs` as `path` or `path#symbol`. Failure → do not invent; add `gaps` (`scope_absent` or note) + `待决`. Never write grounding results back to `_partition.json`.
 - **Unfounded:** If a claim would enter body with neither scope, upstream-derivation anchor, nor code provenance → do not author as fact; `gaps.kind=unfounded` + `待决`.
-- **Output:** `$REVISION_DIR/_body-{section_key}.txt` (no H2 line); update derive `scope_refs` / `code_refs` / `gaps` if derivation or grounding ran
+- **Output:** `$REVISION_DIR/_body-{section_key}.txt` (no H2 line); update derive `scope_refs` / `code_refs` / `gaps` if derivation or grounding ran. **On a derivation section, overwrite the provisional `display_title` from the derived work items** (still per Display title rules).
 - **Done:** body file exists; non-empty; ≥3 non-blank lines when `i_star` non-empty or derivation produced content
 
-#### I2e — Derive display title
-
-- **Input:** `sections.{key}.heading` · body file · `i_star` substance
-- **Action:** Short localized title (~8–20 chars): type anchor from `heading` + one domain theme from substance.
-- **Forbidden:** verbatim registry `heading`; file paths; API names; copying first body sentence
-- **Output:** persist via `set-display-title`; empty `i_star` and no derived body → `（待补）`
-- **Done:** `set-display-title` exits 0
-
-```bash
-$COMPOSE_DOC_CONTROL set-display-title \
-  --revision-dir "$REVISION_DIR" \
-  --section "{section_key}" \
-  --title "<localized display title>"
-```
-
 #### I2f — Persist section
+
+Mechanical — `append-intent` reads the derive `display_title` (authored in I2c), renders the H3, and persists it to `_title-display.json`. There is no separate title step; do **not** re-author the title here.
 
 ```bash
 $COMPOSE_DOC_CONTROL append-intent \
@@ -200,20 +187,20 @@ $COMPOSE_DOC_CONTROL append-intent \
   --project-root "$(pwd)"
 ```
 
-- **Done:** `$OUTPUT_DOC_PATH` contains `<!-- section-key:{key} -->` for this section
+- **Done:** `$OUTPUT_DOC_PATH` contains `<!-- section-key:{key} -->` for this section, and `_title-display.json` holds this section's H3
 
 Block-first keys still write English `## {blocks.{id}.heading}` placeholder via `append-intent`; no block title args on this step.
 
 #### I2g — Block close (when `last_in_block`)
 
-At the last intent in an outline block: infer reader H2 from whole-block substance, then replace the English placeholder.
+At the last intent in an outline block: derive a neutral reader H2 from the outline block heading, then replace the English placeholder.
 
 **1. Derive block title**
 
-- **Input:** `block_intents[]` bodies (`_body-*.txt`) · optional `_title-display.json` entries · registry `intent` per intent · `blocks.{block_key}.heading` (semantic anchor)
-- **Action:** One localized reader-facing H2 title for the whole block; may include numbering aligned with v4-style docs.
-- **Forbidden:** verbatim English `block.heading`; summarizing a single intent only
-- **Output:** persist via `set-block-title`; no block substance → `（待补）`
+- **Input:** `blocks.{block_key}.heading`
+- **Action:** `{n}. {neutral Chinese label from heading}` (`n` = 1-based `outline_order` index)
+- **Forbidden:** English `heading` as the title; feature-specific or body-derived H2 text
+- **Output:** persist via `set-block-title`; missing/empty outline heading → `（待补）`
 - **Done:** `set-block-title` exits 0
 
 ```bash
