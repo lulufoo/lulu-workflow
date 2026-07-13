@@ -12,7 +12,7 @@
 2. **Seed (if not done):** For each mapped section that receives scope substance:
    1. `$INDUCTIVE_G3_SECTION_CTL activate-section --section <S>` (focus guard — required before any write)
    2. `$INDUCTIVE_G3_SECTION_CTL seed-decision --section <S> --kw <N> --text …` (`trigger=seed`, `means=scope`)
-   3. AI re-judges KW maturity for that section → `$INDUCTIVE_G3_SECTION_CTL set-frontier --section <S> --kw <N>` (design §4.1 — only when `decisions` change)
+   3. AI re-judges KW maturity for that section → `$INDUCTIVE_G3_SECTION_CTL set-frontier --section <S> --kw <N>` (only when `decisions` change)
    Use `section-registry` mapping (structural→ST, boundary→SC, goals→GO, invariants→I, …). **I4:** do not invent beyond the scope. Prefer a git commit `"seeded"`.
 3. **Present shape view:** `$INDUCTIVE_G3_SECTION_CTL view --synthesis on --scope all --granularity <arch-overview hint>` (e.g. default perspective from `SCAN_CRITERIA.shape_extraction` — **hint only**, not a shape schema; V3). Content must come from section SoT; gaps stay gaps (V2). Coarse altitude only — no file:line in the overview (I7).
 4. **User confirms or corrects.** Corrections → `activate-section` + `seed-decision` / `update-decision` / `add-open` on owning sections → re-`set-frontier` if decisions changed → re-`view` until confirmed.

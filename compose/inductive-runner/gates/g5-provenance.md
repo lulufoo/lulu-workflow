@@ -4,7 +4,7 @@
 
 **Prerequisites:** `$INDUCTIVE_GATE_CTL resolve-context` / `$PROVENANCE_GATE_CTL resolve-context` reports `active_gate` is `G5` (G4 closed).
 
-**Goal:** on the G4-coherent section JSON, **name every deviation** of this stage's output from its upstream references, and drop them into three trace files (design §7 / §12.12 — external audit). Like Gate 4, Gate 5 **only finds and names — it never fixes a decision and never collects sign-off.** All deltas are written `pending-signoff`; sign-off and delivery blocking are a later phase. **Soft:** does not hard-block gate-close.
+**Goal:** on the G4-coherent section JSON, **name every deviation** of this stage's output from its upstream references, and drop them into three trace files (external provenance audit). Like Gate 4, Gate 5 **only finds and names — it never fixes a decision and never collects sign-off.** All deltas are written `pending-signoff`; sign-off and delivery blocking are a later phase. **Soft:** does not hard-block gate-close.
 
 **Read discipline (context guard):** runs in `g5-provenance-runner` subagent only — **do not** inline-read section JSON, `$SCOPE_DOC`, or upstream refs during G5.
 

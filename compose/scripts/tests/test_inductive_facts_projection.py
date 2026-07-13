@@ -220,8 +220,8 @@ def test_cli_project_empty_hard_errors(tmp_path: Path, monkeypatch, capsys) -> N
     assert not (rev / "_facts.json").exists()
 
 
-def test_pd_tail_append_after_projection() -> None:
-    """§3: projection sets F-1..F-m; Step 3 continuous tail append."""
+def test_derive_tail_append_after_projection() -> None:
+    """Projection sets F-1..F-m; Step 3 continuous tail append."""
     base = proj.project_decisions_to_facts(
         section_order=["SK", "T"],
         sections_by_key={

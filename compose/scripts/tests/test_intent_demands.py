@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for intent_demands shared predicates (design §5.5)."""
+"""Tests for intent_demands shared predicates."""
 
 from __future__ import annotations
 

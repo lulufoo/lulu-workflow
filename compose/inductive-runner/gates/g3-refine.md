@@ -4,7 +4,7 @@
 
 **Prerequisites:** `$INDUCTIVE_GATE_CTL resolve-context` reports `active_gate` is `G3` (G2 closed).
 
-**Goal:** refine section SoT via **advance** capabilities (design §7 ③④⑤). **Do not** auto-sweep after Shape-confirm — wait for the user.
+**Goal:** refine section SoT via **advance** capabilities ③④⑤. **Do not** auto-sweep after Shape-confirm — wait for the user.
 
 **Global observation (① view / ② 碰撞)** lives in the parent SKILL — available **anytime after Seed**, including during G3. This gate file does **not** own them (I13). When the user asks for a view or collision mid-refine, follow the parent contracts, then return here for ③④⑤.
 

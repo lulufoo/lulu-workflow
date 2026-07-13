@@ -20,7 +20,7 @@ Wherever this document says `<profile_id>`, substitute the calling holder's stag
 
 Authoring SSOT: `{WORKFLOW_ROOT}/{stage}/compose-profile.json` (lulu-plan, lulu-design, lulu-spec). At session start, `start` writes `.compose-profile-path` under `{cache_subdir}/` pointing at that file. Runtime `load_profile()` resolves via the pointer when `project_root` and `cycle_id` are set; delivery/schema tools read the authoring file directly.
 
-This engine reads `drafting.inductive` from the profile directly to conditionalize Step 0 below (static editorial configuration, not session state — direct SKILL reads are allowed for this field).
+This engine reads `drafting.inductive` from the profile directly to conditionalize Drafting Step 0 below (static editorial configuration, not session state — direct SKILL reads are allowed for this field).
 
 ---
 
@@ -42,9 +42,9 @@ Before drafting or evaluation:
 
 ## start — Session-level, run before each compose document
 
-**Step 1:** Identify active cycle — `_runtime.md` § Session Foundation. Do not run `$START_COMPOSE` until `$CYCLE_ID` is confirmed.
+**Start 1:** Identify active cycle — `_runtime.md` § Session Foundation. Do not run `$START_COMPOSE` until `$CYCLE_ID` is confirmed.
 
-**Step 2:** Run `$START_COMPOSE`.
+**Start 2:** Run `$START_COMPOSE`.
 
 ```bash
 python3 "$SKILL_ROOT/compose/scripts/core/start.py" \
@@ -61,18 +61,18 @@ python3 "$SKILL_ROOT/compose/scripts/core/start.py" \
 
 To resume an in-progress document on the **same revision**, do not run start again — run `$SESSION_INFO --view session` (Inductive resume: `resolve-context` on the active revision).
 
-To **abandon a partial revision** and begin fresh after fixes, run `$START_COMPOSE` again — it bumps `active_doc`, creates a new `revision{N}/`, and Step 0 Inductive seeds a new state bundle there (prior revision artifacts remain on disk but are not read).
+To **abandon a partial revision** and begin fresh after fixes, run `$START_COMPOSE` again — it bumps `active_doc`, creates a new `revision{N}/`, and Drafting Step 0 Inductive seeds a new state bundle there (prior revision artifacts remain on disk but are not read).
 
 ---
 
 ## Drafting Rules
 
-**Entry:** Step 0 (if enabled) → Step 1 → Step 2; or Evaluating fix resume → Step 2; or resume via `$SESSION_INFO --view session`.
+**Entry:** Drafting Step 0 (if enabled) → Drafting Step 1 → Drafting Step 2; or Evaluating fix resume → Drafting Step 2; or resume via `$SESSION_INFO --view session`.
 **Drafting states:** `[Inductive →] Initialized → FreeEdit` — Inductive only when this profile's `drafting.inductive` is `true`.
 
-### Step 0 — Inductive (only when `drafting.inductive` is `true` for this profile)
+### Drafting Step 0 — Inductive (only when `drafting.inductive` is `true` for this profile)
 
-Anchor the upstream scope doc in code before composing. Always run when enabled — no opt-in prompt. Profiles with `drafting.inductive: false` skip directly to Step 1.
+Anchor the upstream scope doc in code before composing. Always run when enabled — no opt-in prompt. Profiles with `drafting.inductive: false` skip directly to Drafting Step 1.
 
 **Inductive-runner** is a human-driven gate spine (Shape → Grounding → Refine → Recompose → Provenance): AI recommends; the **user** closes each gate. Run the gate spine **inline in this conversation** (same as `/decision` gate runners). **Exceptions (subagents):** Gate 2 topology grounding → `g2-grounding-runner`; Gate 3 step 1 shallow grounding → `g3-shallow-grounding-runner` — both via `$SUBAGENT_TOOL`, read-only, no user interaction. All leanings, EP registration, and gate closes stay inline; subagents cannot interact with the user.
 
@@ -99,9 +99,9 @@ $INDUCTIVE_FACTS_PROJ project \
 
 (Default `--inductive-dir` = `{revision-dir}/inductive-scope`.)
 
-### Step 1 — Initializing
+### Drafting Step 1 — Initializing
 
-Compose the compose document via fact-first Init (see initializing-runner Steps 1–6). No mapping paste. Init reads **projected `_facts.json`**, not `inductive-scope/*.json` prose. When `drafting.inductive` is true (K2), Step 0's projection must have written `_facts.json` first — `begin-init` hard-errors if it is missing; initializing-runner then skips its Step 2 atomization and validates the projected facts. The upstream scope doc is a **completeness cross-check only**.
+Compose the compose document via fact-first Init (see initializing-runner Steps 1–6). No mapping paste. Init reads **projected `_facts.json`**, not `inductive-scope/*.json` prose. When `drafting.inductive` is true (K2), Drafting Step 0's projection must have written `_facts.json` first — `begin-init` hard-errors if it is missing; initializing-runner then skips its Step 2 atomization and validates the projected facts. The upstream scope doc is a **completeness cross-check only**.
 
 1. Run `$DRAFT_CONTROL begin-init`.
    - On failure → Blocking.
@@ -119,17 +119,17 @@ Await completion (`$SUBAGENT_AWAIT_SYNC`).
 2. Run `$DRAFT_CONTROL init-complete`. On failure → Blocking.
 
 3. **Pause gate:** Present runner return summary and the compose document path. Offer **only** the options listed in this profile's `drafting.post_init_options` (do not invent options absent from the list).
-   - **freeedit** (when listed) → run `$DRAFT_CONTROL advance-to-freeedit`. On failure → Blocking. Proceed to **Step 2 — FreeEdit**.
+   - **freeedit** (when listed) → run `$DRAFT_CONTROL advance-to-freeedit`. On failure → Blocking. Proceed to **Drafting Step 2 — FreeEdit**.
    - **evaluate** (when listed) → **Evaluating Rules** below (skip FreeEdit).
    - **deliver** (when listed) → **ReadyForDelivery Rules** below (skip FreeEdit).
    - If `deliver` is listed without a prior Evaluating round in this revision, prefer routing the user to **evaluate** first (Eval is the delivery quality gate).
-### Step 2 — FreeEdit
+### Drafting Step 2 — FreeEdit
 
 Entry: `advance-to-freeedit` success, or Evaluating fix resume.
 
 - User drives edits; AI assists on request.
 - Prefer **structured** edits over hand-editing the assembled compose `.md` (`.md` is a one-way projection):
-  - **Tier A (same revision, presentation):** edit `_body-{cid}.txt` / `_derive-{cid}.json` (optionally sync existing fact `text` in `_facts.json`); validate; rebuild the compose doc via `$COMPOSE_DOC_CONTROL init-doc` then per-chapter `append-chapter` in `_chapters.json` order. Skip Step 0 / Step 1.
+  - **Tier A (same revision, presentation):** edit `_body-{cid}.txt` / `_derive-{cid}.json` (optionally sync existing fact `text` in `_facts.json`); validate; rebuild the compose doc via `$COMPOSE_DOC_CONTROL init-doc` then per-chapter `append-chapter` in `_chapters.json` order. Skip Drafting Step 0 / Drafting Step 1.
   - **Tier B (new revision, structure/facts topology):** do **not** patch chapter set / `lens_tags` in place — run `$START_COMPOSE` for a new revision (initializing-runner Steps 2–6). Leave Evaluating-fix-resume.
   - If the user insists on editing the assembled `.md`: warn that the next rebuild / new revision will overwrite; do not reverse-parse `.md` into JSON.
 - When user signals done, ask using remaining `drafting.post_init_options` that still apply (typically Evaluate; Deliver only if listed and Evaluating already completed for this revision):
@@ -145,7 +145,7 @@ Read `{$SKILL_ROOT}/eval/eval-rules.md` and follow its instructions (only when t
 When eval-rules completes, follow its exit branch:
 
 - **Deliver** → **ReadyForDelivery Rules** below.
-- **Continue editing** → enter **Step 2 — FreeEdit** (Evaluating fix resume; skip Step 0 / Step 1).
+- **Continue editing** → enter **Drafting Step 2 — FreeEdit** (Evaluating fix resume; skip Drafting Step 0 / Drafting Step 1).
 
 Dimension set, evaluation framework, and eval-mode branching (e.g. tech vs product mode dimension gating) are owned by `eval/eval-rules.md` and this profile's eval adapter — this engine performs a single handoff and does not enumerate dimensions.
 
@@ -173,13 +173,13 @@ Dimension set, evaluation framework, and eval-mode branching (e.g. tech vs produ
 
 | Document | When |
 |----------|------|
-| `{SKILL_ROOT}/compose/inductive-runner/SKILL.md` | Step 0 — inductive-runner (`drafting.inductive: true` profiles only) |
-| `{SKILL_ROOT}/compose/inductive-runner/g2-grounding-runner/SKILL.md` | Step 0 — **deprecated** optional G2 topology subagent (prefer `attach-code-refs` in capability ④) |
-| `{SKILL_ROOT}/compose/inductive-runner/g3-shallow-grounding-runner/SKILL.md` | Step 0 — optional G3 shallow grounding subagent (detect facts only; parent `add-open`) |
-| `{SKILL_ROOT}/compose/inductive-runner/g3-deep-grounding-runner/SKILL.md` | Step 0 — optional G3 deep grounding subagent (one open; parent settles) |
-| `{SKILL_ROOT}/compose/inductive-runner/g4-recompose-runner/SKILL.md` | Step 0 — Gate 4 internal-audit subagent (section JSON + shape checkpoint) |
-| `{SKILL_ROOT}/compose/inductive-runner/g5-provenance-runner/SKILL.md` | Step 0 — Gate 5 external-audit subagent (section JSON provenance) |
-| `{SKILL_ROOT}/compose/initializing-runner/SKILL.md` | Step 1 — initializing-runner |
+| `{SKILL_ROOT}/compose/inductive-runner/SKILL.md` | Drafting Step 0 — inductive-runner (`drafting.inductive: true` profiles only) |
+| `{SKILL_ROOT}/compose/inductive-runner/g2-grounding-runner/SKILL.md` | Drafting Step 0 — **deprecated** optional G2 topology subagent (prefer `attach-code-refs` in capability ④) |
+| `{SKILL_ROOT}/compose/inductive-runner/g3-shallow-grounding-runner/SKILL.md` | Drafting Step 0 — optional G3 shallow grounding subagent (detect facts only; parent `add-open`) |
+| `{SKILL_ROOT}/compose/inductive-runner/g3-deep-grounding-runner/SKILL.md` | Drafting Step 0 — optional G3 deep grounding subagent (one open; parent settles) |
+| `{SKILL_ROOT}/compose/inductive-runner/g4-recompose-runner/SKILL.md` | Drafting Step 0 — Gate 4 internal-audit subagent (section JSON + shape checkpoint) |
+| `{SKILL_ROOT}/compose/inductive-runner/g5-provenance-runner/SKILL.md` | Drafting Step 0 — Gate 5 external-audit subagent (section JSON provenance) |
+| `{SKILL_ROOT}/compose/initializing-runner/SKILL.md` | Drafting Step 1 — initializing-runner |
 | `{$SKILL_ROOT}/eval/eval-rules.md` | Evaluating (user-initiated) |
 
 ---

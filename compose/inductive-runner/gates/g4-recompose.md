@@ -4,7 +4,7 @@
 
 **Prerequisites:** `$INDUCTIVE_GATE_CTL resolve-context` reports `active_gate` is `G4` (G3 closed). User asked for delivery audit.
 
-**Goal:** audit already-committed section JSON for **internal coherence** (design §7 / §12.12). Gate 4 **only finds and names problems — it never fixes them**: it does not discover new opens, does not run detect methods, does not write section files, and changes no decision. Every finding is routed back to the gate that owns it (step 3 table).
+**Goal:** audit already-committed section JSON for **internal coherence**. Gate 4 **only finds and names problems — it never fixes them**: it does not discover new opens, does not run detect methods, does not write section files, and changes no decision. Every finding is routed back to the gate that owns it (step 3 table).
 
 **Read discipline (context guard):** the **semantic** half (`conflicts` / `buildable` / `reversible` / `verifiable`) runs in `g4-recompose-runner` only — **do not** inline-read section JSON or DQI during G4. The **structural** half (`reforms_shape` / `shape_absorbed`) is mechanical via script (step 1).
 

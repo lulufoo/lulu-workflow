@@ -68,7 +68,7 @@ Fetch schedule:
 
 ---
 
-## Method (capability surface — design §7)
+## Method (capability surface)
 
 Inductive work discovers missing design decisions (parts → whole). **SoT = per-section JSON.** Mutations land only via section commands (I1/I12). Progress is Exit-predicate driven, not sweep-count driven.
 
@@ -102,7 +102,7 @@ Do **not** mix ① and ②: stuffing inference into a View violates V2.
 
 **Discovery skeleton:** section + `frontier_kw` ruler; methods measure; evidence differs (code / demand / methodology). `trigger=human` altitude-exempt; `trigger=ai` applies `frontier_kw`. Provenance vocabulary: `trigger ∈ {human,ai,seed}` × `means ∈ {probe,direct,view,ai_scan,intent_baseline,scope}` (`seed`/`scope` Seed-only).
 
-**`ai/probe` MVP lenses (design §6.1):** failure / boundary / assumption / seam — silence ∧ KW-false → gap; no correctness judging (G4). Dedup identity = (section, KW row, topic); collide → attach provenance via `update-open`, do not duplicate.
+**`ai/probe` MVP lenses:** failure / boundary / assumption / seam — silence ∧ KW-false → gap; no correctness judging (G4). Dedup identity = (section, KW row, topic); collide → attach provenance via `update-open`, do not duplicate.
 
 **`frontier_kw`:** re-judge via `set-frontier` only when that section's `decisions` change (`seed-decision` / `settle-open` / `update-decision`). No global refresh.
 

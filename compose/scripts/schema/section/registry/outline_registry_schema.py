@@ -242,7 +242,7 @@ def _validate_candidates_shape(data: dict[str, Any]) -> list[str]:
     """Validate the M3 ``candidates``/``rules`` outline shape.
 
     Mutually exclusive with the legacy ``outline_order``/``blocks`` shape
-    (design SSOT §11.3 M3, Grok review dispatch discipline)."""
+    (M3 candidates pairing; one shape per file)."""
     errors: list[str] = []
     # Key *presence* (not "value is not None") — an explicit ``"outline_order":
     # null`` alongside ``candidates`` must still be flagged (Grok impl review
@@ -515,8 +515,8 @@ def _require_legacy_shape(registry: dict[str, Any]) -> None:
     if "outline_order" not in registry:
         raise ValueError(
             "outline registry is candidates-shaped (no outline_order); "
-            "use candidate_ids()/candidate_anchor_lenses() instead (M3, "
-            "design SSOT §11.3; Grok review Major#4)",
+            "use candidate_ids()/candidate_anchor_lenses() instead "
+            "(M3 candidates shape)",
         )
 
 
@@ -554,7 +554,7 @@ def candidate_ids(project_root: Path | None = None) -> tuple[str, ...]:
 
     Feeds ``display_layer_gates.check_l5``'s ``candidate_ids`` param; values
     must match ``_chapters.json[].derived_from`` verbatim — no case-folding,
-    ``block`` is a free stable id, not a lens key (design SSOT §11.3).
+    ``block`` is a free stable id, not a lens key (no case-folding).
     """
     registry = _active_outline(project_root)
     _require_candidates_shape(registry)

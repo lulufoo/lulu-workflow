@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Shared intent_baseline predicates (design SSOT §5.5).
+"""Shared intent_baseline predicates (intent-baseline coverage helpers).
 
 Mechanical only — presence / derivation checks over the delivered demand
 manifest and section JSON ``deferred[]`` (section-SoT). Downstream coverage
@@ -34,7 +34,7 @@ _MANIFEST_GLOB = "*-demands.json"
 def find_demand_manifest(ref_path: str | Path) -> Path | None:
     """Return the demand-manifest sibling of a delivered intent-baseline ref, if any.
 
-    A demand manifest is written beside its producing document (design §5.10) as
+    A demand manifest is written beside its producing document as
     ``<prefix>-demands.json``; the consumer locates it by that suffix without
     needing to know the prefix.
     """
@@ -72,9 +72,9 @@ def is_generation_guaranteed(
     """True iff ``source`` is the intent baseline AND some ref has a non-empty manifest.
 
     A non-empty manifest means the demands were in scope at Gate 3, whose close
-    gate requires each demand fulfilled-or-deferred (design §5.4) — so downstream
-    coverage audits for this source become safety nets. Missing / empty manifest
-    → False (audits stay primary; degrade invariant §5.11).
+    gate requires each demand fulfilled-or-deferred — so downstream coverage
+    audits for this source become safety nets. Missing / empty manifest
+    → False (audits stay primary; degrade when no manifest).
     """
     if source != "intent_baseline":
         return False
@@ -90,9 +90,8 @@ def is_generation_guaranteed(
 def deferred_intent_refs(out_dir: str | Path) -> set[str]:
     """``intent_ref`` ids carried by *deferred* items in section JSON (S1 silence).
 
-    Per the shared convention (design §5.5): a demand whose only trace is a
-    deferred item was explicitly skipped by the user, so its absence downstream
-    is expected and must not be flagged.
+    A demand whose only trace is a deferred item was explicitly skipped by the
+    user, so its absence downstream is expected and must not be flagged.
 
     Reads ``inductive-scope/<S>.json`` deferred arrays (section-SoT). Legacy
     ``exposed-points.json`` is no longer consulted.

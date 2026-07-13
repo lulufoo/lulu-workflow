@@ -124,8 +124,7 @@ def validate_display_layer_artifacts(
     if not outline.get("candidates"):
         return (
             "fact-first Init requires a non-empty candidates-shaped outline-registry "
-            "(legacy outline_order/blocks, or an empty/null candidates list, is incompatible; "
-            "design SSOT §11.4 Major#6)"
+            "(legacy outline_order/blocks, or an empty/null candidates list, is incompatible)"
         )
     candidate_id_list = [
         str(candidate.get("block", "")).strip() for candidate in outline.get("candidates") or []

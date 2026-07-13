@@ -10,9 +10,9 @@ Pure functions only — no file I/O, no markdown parsing. Callers load
 Wired into ``init_compose_validation.validate_display_layer_artifacts`` (fact-first
 Init Step 6). Module name keeps the historical ``display_layer_*`` prefix. That
 caller also adds chapter-artifact-existence and assembly-completeness gates
-outside this module — see design §11 M4a row and §11.2 "边界" note.
+outside this module (M4a structural assembly; this module stays placement-only).
 
-Gate coverage (design §8.2): L1, L3, L4, L5, C1, Q1.
+Gate coverage: L1, L3, L4, L5, C1, Q1.
 L2 ("placement consistency") is **not** a function here — with a single
 placement SoT (``_chapters.json``) it holds by construction. There is no
 markdown projection-fidelity half: the design deliberately drops
@@ -144,8 +144,8 @@ def check_l5(
     """Chapter genealogy reachability: derived_from ⊆ static candidates.
 
     ``candidate_ids`` comes from the outline-registry static candidate set
-    (design §3.3), an M3 deliverable. Defensive default (M3 not ready yet):
-    when ``candidate_ids`` is ``None``, this check is skipped entirely."""
+    (candidates-shaped outline). When ``candidate_ids`` is ``None``, this
+    check is skipped entirely (caller opts out / not wired yet)."""
     if candidate_ids is None:
         return []
     allowed = set(candidate_ids)
@@ -184,7 +184,7 @@ def check_c1(
     a lens missing from ``presence_map`` defaults to ``required``.
 
     When ``dependency_graph`` is provided, zero-coverage messages distinguish
-    derivation lenses (re-run Step 2→3) from true gaps (Round) — K1 derive design §2.2.
+    derivation lenses (re-run Step 2→3) from true gaps (Round).
     """
     if section_order is None:
         return []
