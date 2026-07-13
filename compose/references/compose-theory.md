@@ -35,8 +35,8 @@ display_title = author( chapter substance )   # H2 under <!-- chapter:{cid} -->
 | Factor | Symbol | Source | Role |
 |--------|--------|--------|------|
 | Content | facts | `_facts.json` (K2 projects inductive `decisions[]`) | Filtered decision substance — what to say |
-| Form | `F` | section guidance + domain + role + lens intent | How content is carried and organized (authoring lens) |
-| Expression | `C` | Role Fields + domain + intent + F | How to write inside F |
+| Form | `F` | `section-form-registry` keyed by `form_lens` (+ domain + role) | How content for that lens is carried and organized |
+| Expression | `C` | Role Fields + domain + that lens's `expression` + F | How to write inside F for that `form_lens` |
 | Envelope | lens / intent | section-registry (`intent` + `intent_boundary`) | what belongs vs belongs elsewhere |
 | Section form | `presentation` / `expression` | section-form-registry | Carrier / expression constraints for authoring |
 | Display title | `display_title` | `_derive-{cid}.json` at P2 | Chapter H2; projected by `append-chapter` |
@@ -69,7 +69,9 @@ open_point = Expose(trigger × means)  # kept iff ( frontier_KW row false  ∧  
 
 Seed is **not** an Expose source: it writes `decisions` with `trigger=seed` · `means=scope`. Design SSOT: `docs/biz/inductive-scope-section-sot-design.md` (+ `docs/biz/inductive-intent-baseline-source.md` for intent_baseline).
 
-**F priority (conflict resolution):** section `presentation` > domain `expression_conventions` > role `expressive_tendency` > intent text. `intent_boundary` is an exclusion list — it names substance belonging to other intents; author none of it here.
+**F priority (conflict resolution):** lens `presentation` (via `form_lens`) > domain `expression_conventions` > role `expressive_tendency` > intent text. `intent_boundary` is an exclusion list — it names substance belonging to other intents; author none of it here.
+
+**§7.4 placement heuristic (content-kind memo, not a lens total order):** invariants > structure/contract > success > contact > context — used by P1/P2 as AI reference only.
 
 **Document assembly:** Compose documents use chapter anchors — `<!-- chapter:{cid} -->`, then `## {display_title}`, then body. Initializing persists each chapter via `$COMPOSE_DOC_CONTROL append-chapter`, which reads `_derive-{cid}.json` / `_body-{cid}.txt`. Downstream compose/eval tools locate chapters by chapter anchor, not H2 text. Section-key grammar retired (K3-d).
 
@@ -91,28 +93,28 @@ Initializing must operationalize fact substance into readable chapters; scope-ex
 
 ## Form (F) — definition
 
-F describes how a section's content is carried and organized. It has three fields:
+F describes how a fact group's content is carried and organized for a given `form_lens`. It has three fields:
 
 - `carrier` — the primary container type for the content (the main vehicle through which information is presented)
 - `structure` — the internal organization of the carrier: layout, hierarchy, diagram type and its communicative purpose
-- `forbidden` — forms explicitly excluded for this section, derived from intent_boundary, section `guidance`, and derivation conflicts
+- `forbidden` — forms explicitly excluded for this lens, derived from intent_boundary, section `guidance`, and derivation conflicts
 
-All three fields are derived natural-language descriptions, not enum values. F is derived per section; its value depends on section `guidance`, domain conventions, role expressive tendency, and intent — in that priority order when they conflict.
+All three fields are derived natural-language descriptions, not enum values. F is derived **per `form_lens`** (from `section-form-registry` for that lens), not once for the whole chapter. Its value depends on that lens's `presentation`/`guidance`, domain conventions, role expressive tendency, and intent — in that priority order when they conflict.
 
 ## Expression (C) — definition
 
-C is the set of writing constraints that govern how content is expressed inside F. It is a collection of `(d, c)` pairs where:
+C is the set of writing constraints that govern how content is expressed inside F for a given `form_lens`. It is a collection of `(d, c)` pairs where:
 
 - `d` — the writing dimension (e.g., granularity, vocabulary, abstraction level, tone, completeness bar)
-- `c` — the criterion for that dimension, derived from `### Role Fields`, domain instance, intent, section `presentation`, section `expression.required`/`expression.forbidden`, or `expression_conventions`
+- `c` — the criterion for that dimension, derived from `### Role Fields`, domain instance, intent, that lens's `presentation`, that lens's `expression.required`/`expression.forbidden`, or `expression_conventions`
 
-`expression_conventions` may include grounding clauses (e.g. cite paths only when verified elsewhere); they govern **how** to write, not **what** Init injects into `I*`.
+`expression_conventions` may include grounding clauses (e.g. cite paths only when verified elsewhere); they govern **how** to write, not **what** Init injects into facts.
 
-C has 2–5 pairs per section. Every `c` must be traceable to a specific `### Role Fields` field, `expression_conventions`, section `presentation`, section `expression`, or intent clause; no pair is invented without grounding in these sources.
+C has 2–5 pairs per `form_lens`. Every `c` must be traceable to a specific `### Role Fields` field, `expression_conventions`, lens `presentation`, lens `expression`, or intent clause; no pair is invented without grounding in these sources.
 
 ## Constraints
 
-**Derivation:** Read `### Role Fields` and `domain instance` for F and C; infer per section dynamically. No static dimension tables, vocabulary enums, or form lookup configs.
+**Derivation:** Read `### Role Fields` and `domain instance` for shared authoring constraints; bind F/C **per distinct `form_lens`** in the chapter (P2 Bind). No static dimension tables, vocabulary enums, or form lookup configs beyond `section-form-registry`.
 
 **Prohibited:**
 

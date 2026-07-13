@@ -108,3 +108,47 @@ class TestResolveDomain:
     def test_requires_cycle(self):
         with pytest.raises(ScopeResolverError, match="requires"):
             resolve_domain_markdown()
+
+
+class TestScopeResolverCliProfile:
+    """--profile must work before and after the subcommand (Init macro friction fix)."""
+
+    def test_profile_after_subcommand_accepted(self, capsys):
+        from scope_resolver import main
+
+        assert (
+            main(
+                [
+                    "resolve-role",
+                    "--cycle-type",
+                    "feature",
+                    "--project-root",
+                    ".",
+                    "--profile",
+                    "lulu-plan",
+                ],
+            )
+            == 0
+        )
+        out = capsys.readouterr().out
+        assert "## Plan Scope Constraints" in out
+
+    def test_profile_before_subcommand_accepted(self, capsys):
+        from scope_resolver import main
+
+        assert (
+            main(
+                [
+                    "--profile",
+                    "lulu-plan",
+                    "--project-root",
+                    ".",
+                    "resolve-role",
+                    "--cycle-type",
+                    "feature",
+                ],
+            )
+            == 0
+        )
+        out = capsys.readouterr().out
+        assert "## Plan Scope Constraints" in out

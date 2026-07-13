@@ -45,14 +45,15 @@ Derive artifact contract: [`../references/init-draft-quality.md`](../references/
 
 Self-resolved: `$PROJECT_ROOT` = `$(pwd)` · `$OUTPUT_DOC_PATH` from parent input (fallback `{REVISION_DIR}/tech-doc.md`) · `$CODE_GROUNDING` = profile `drafting.code_grounding` (boolean)
 
-All compose and scope macros **must** pass `--profile "$COMPOSE_PROFILE"`. `$FETCH_COMPOSE` **must** also pass `--cycle-id "$CYCLE_ID"`.
+All macros that declare `--profile` **must** pass `--profile "$COMPOSE_PROFILE"` (prefer `--profile` before the subcommand on `$RESOLVE_*`). `$FACTS_CTL filter` does **not** take `--profile` — pass only `--revision-dir` / `--lens`. `$FETCH_COMPOSE` includes `--cycle-id` in the macro.
 
 ## Script Macros
 
 | Macro | Command |
 |-------|---------|
-| `$RESOLVE_PLAN_ROLE` | `python3 "$SKILL_ROOT/compose/scripts/scope/scope_resolver.py" resolve-role --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile "$COMPOSE_PROFILE"` |
-| `$RESOLVE_DOMAIN` | `python3 "$SKILL_ROOT/compose/scripts/scope/scope_resolver.py" resolve-domain --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile "$COMPOSE_PROFILE"` |
+| `$RESOLVE_PLAN_ROLE` | `python3 "$SKILL_ROOT/compose/scripts/scope/scope_resolver.py" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)" resolve-role --cycle-id "$CYCLE_ID"` |
+| `$RESOLVE_DOMAIN` | `python3 "$SKILL_ROOT/compose/scripts/scope/scope_resolver.py" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)" resolve-domain --cycle-id "$CYCLE_ID"` |
+| `$FETCH_COMPOSE` | `python3 "$SKILL_ROOT/compose/scripts/io/fetch_compose_framework.py" --role <role> --profile "$COMPOSE_PROFILE" --project-root "$(pwd)" --cycle-id "$CYCLE_ID"` |
 | `$COMPOSE_DOC_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/section/compose_doc_control.py"` |
 | `$INIT_COMPOSE_VALIDATE` | `python3 "$SKILL_ROOT/compose/scripts/section/init_compose_validation.py" validate --revision-dir "$REVISION_DIR" --compose-doc "$OUTPUT_DOC_PATH" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)"` |
 | `$FACTS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/facts_control.py"` |
@@ -76,10 +77,10 @@ All compose and scope macros **must** pass `--profile "$COMPOSE_PROFILE"`. `$FET
 
 1. `$RESOLVE_PLAN_ROLE` → Plan Scope Constraints (`### Role`, `### Role Fields`).
 2. `$RESOLVE_DOMAIN` → `domain instance`.
-3. `$FETCH_COMPOSE section-registry --cycle-id "$CYCLE_ID"` (JSON) → `section_order`, `document_preamble`, per-section `heading` / `intent` (else `desc`) / `intent_boundary` / `relations` / `presence` (used at Step P1)
-   `$FETCH_COMPOSE section-form-registry --cycle-id "$CYCLE_ID"` → `sections.{key}.presentation` / `expression`
-4. `$FETCH_COMPOSE outline-registry --cycle-id "$CYCLE_ID"` → candidates-shaped: `candidates[].{block, anchor_lenses}` + `rules` (advisory text). Consumed at Step P1.
-5. `$FETCH_COMPOSE section-kw-criteria --cycle-id "$CYCLE_ID"` → each `## {section_key}` block (Fill completeness for **named** atoms only).
+3. `$FETCH_COMPOSE --role section-registry` (JSON) → `section_order`, `document_preamble`, per-section `heading` / `intent` (else `desc`) / `intent_boundary` / `relations` / `presence` (used at Step P1)
+   `$FETCH_COMPOSE --role section-form-registry` → `sections.{key}.presentation` / `expression`
+4. `$FETCH_COMPOSE --role outline-registry` → candidates-shaped: `candidates[].{block, anchor_lenses}` + `rules` (advisory text). Consumed at Step P1.
+5. `$FETCH_COMPOSE --role section-kw-criteria` → each `## {section_key}` block (Fill completeness for **named** atoms only).
 6. Read `$SCOPE_DOC_PATH` full text once.
 7. Read profile `drafting.code_grounding` → `$CODE_GROUNDING`.
 8. **Init document:** Substitute placeholders in `document_preamble`. Write via:
@@ -106,8 +107,8 @@ Design SSOT: `docs/biz/compose-fact-first-theory/compose-fact-first-display-laye
 
 **Handshake with `drafting.inductive` (K2):** when `drafting.inductive` is true, the inductive discovery loop remains the fact producer. Its settled `decisions[]` are projected once (at inductive completion) into the unified `_facts.json`. Init's P0 therefore **does not re-atomize `$SCOPE_DOC_PATH`**; it consumes the already-projected `_facts.json` (validate-only), then proceeds to Pd/P1. If `_facts.json` is absent, this is a hard error (projection must run first) — never silently fall back to re-atomization.
 
-**Must:** tag every atom with N:M `lens_tags` (zero, one, or many — never a single `home`); run Step Pd for zero-coverage required derivation lenses before P1; place every fact in exactly one non-drop chapter; keep chapter `anchor_lenses` a subset of `section_order`; resolve every author-time `F-id` citation into a human-readable chapter reference before persisting `_body-{cid}.txt`; run `$INIT_COMPOSE_VALIDATE` before Return.
-**Must not:** write a `fact:` or `section-key:` anchor into `$OUTPUT_DOC_PATH` (chapter anchors only, §11.4 item 1); invent a chapter with `derived_from` outside the outline-registry `candidates` set; decide open choices during P0/Pd/P1 (待决 same discipline).
+**Must:** tag every atom with N:M `lens_tags` (zero, one, or many — never a single `home`); run Step Pd for zero-coverage required derivation lenses before P1; place every fact in exactly one non-drop chapter; keep chapter `anchor_lenses` a subset of `section_order`; before persisting `_body-{cid}.txt`, resolve every author-time `F-id` citation into a human-readable chapter reference (write-side discipline — `$INIT_COMPOSE_VALIDATE` does **not** scan for raw `F-id`; Eval owns residual checks); run `$INIT_COMPOSE_VALIDATE` before Return.
+**Must not:** write a `fact:` or `section-key:` anchor into `$OUTPUT_DOC_PATH` (chapter anchors only, §11.4 item 1 — write-side / Eval; P3 does not substring-scan); invent a chapter with `derived_from` outside the outline-registry `candidates` set; decide open choices during P0/Pd/P1 (待决 same discipline).
 
 ### Step P0 — Fact atomization
 
@@ -156,7 +157,8 @@ $PD_CTL plan \
 ```
 
 Use stdout `order` (upstream-first). `true_gaps` → flag Round; do **not** invent. Partial coverage (`facts>0`) never appears in `triggered`. Cycle → Blocking (non-zero exit).
-3. **Input:** for each `L` in `order`, read upstream facts from plan stdout `upstreams[L].upstream_facts` (or `$FACTS_CTL filter --lens U`). Optional code grounding when `$CODE_GROUNDING` is true. **Do not** read `_body` / `.md` prose.
+**If `order` is empty:** skip Emit / `$PD_CTL append` / `$PD_CTL audit`; run `$FACTS_CTL validate` only → Pd Done (no derivation lenses fired).
+3. **Input:** for each `L` in `order`, read upstream facts from plan stdout `upstreams[L].upstream_facts` (or `$FACTS_CTL filter --revision-dir "$REVISION_DIR" --lens U` — no `--profile`). Optional code grounding when `$CODE_GROUNDING` is true. **Do not** read `_body` / `.md` prose.
 4. **Emit (AI):** each work item → one object `{text, lens_tags:[L], source?}` (prefer upstream `F-id`s in `source`; freeform anchors allowed; no F-id integrity check). Undecided → embed `待决：…` in `text` (or a 待决 fact), never invent a choice. Write the array to a temp `derived.json`. Same-pass cascade: later lenses **see** facts you already decided for earlier lenses in `order`.
 5. **Append once** (contiguous `F-(k+1)..`):
 
@@ -182,14 +184,14 @@ $PD_CTL audit \
 Empty upstream → audit skips that lens; C1 at P3 is the backstop.
 7. `$FACTS_CTL validate --revision-dir "$REVISION_DIR" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)"` must exit 0.
 
-**Must not:** decide open choices; read prose; write facts for non-triggered lenses; strip/re-derive by `source` in-place (re-derive ⇒ re-run atomization then Pd — inductive: re-run `$INDUCTIVE_FACTS_PROJ project` then Pd; deductive: re-run P0 then Pd — full re-run model); skip `$PD_CTL plan` / `append` / `audit` and invent triggers or ids by hand.
+**Must not:** decide open choices; read prose; write facts for non-triggered lenses; strip/re-derive by `source` in-place (re-derive ⇒ re-run atomization then Pd — inductive: re-run `$INDUCTIVE_FACTS_PROJ project` then Pd; deductive: re-run P0 then Pd — full re-run model); skip `$PD_CTL plan` when deriving; invent triggers or ids by hand. When `order` is non-empty, do not skip `append` / `audit`.
 
-**Done:** `_facts.json` includes any Pd-derived facts; `$PD_CTL audit` and `$FACTS_CTL validate` exit 0.
+**Done:** `_facts.json` includes any Pd-derived facts; when `order` was non-empty, `$PD_CTL audit` exit 0; `$FACTS_CTL validate` exit 0.
 
 ### Step P1 — Global organization
 
-- **Input:** `_facts.json` (compact index of `{id, text, lens_tags}` — never full prose; `lens_tags` is required here to derive each fact's `form_lens`) · outline-registry `candidates` (static, `{block, anchor_lenses}`) + `rules` (advisory merge/split/trim text) · `section_presence_map` (from section-registry `presence`, via `$FETCH_COMPOSE section-registry`).
-- **Action (D1 hybrid, semantic — AI, not script):** start from lens-anchored candidates; content-adaptively merge/split/drop/reorder using `rules` as heuristics and topic clustering as the north star (§5 D1). For each fact, assign exactly one chapter + one `form_lens` (∈ that fact's own `lens_tags` ∩ the chosen chapter's `anchor_lenses`) — priority-derive the placement using the §7.4 heuristic as reference, not a mechanical lookup (§5 D2/§8.1). A required lens with zero anchoring candidates is a modeling gap — do not silently drop it. An optional lens may legitimately end up with zero facts — do not fabricate content to fill it.
+- **Input:** `_facts.json` (compact index of `{id, text, lens_tags}` — never full prose; `lens_tags` is required here to derive each fact's `form_lens`) · outline-registry `candidates` (static, `{block, anchor_lenses}`) + `rules` (advisory merge/split/trim text) · `section_presence_map` (from section-registry `presence`, via `$FETCH_COMPOSE --role section-registry`).
+- **Action (D1 hybrid, semantic — AI, not script):** start from lens-anchored candidates; content-adaptively merge/split/drop/reorder using `rules` as heuristics and topic clustering as the north star (§5 D1). For each fact, assign exactly one chapter + one `form_lens` (∈ that fact's own `lens_tags` ∩ the chosen chapter's `anchor_lenses`) — priority-derive the placement using the §7.4 heuristic (**content-kind memo, not a lens total order:** invariants > structure/contract > success > contact > context) as reference, not a mechanical lookup (§5 D2/§8.1). A required lens with zero anchoring candidates is a modeling gap — do not silently drop it. An optional lens may legitimately end up with zero facts — do not fabricate content to fill it.
 - **Output:** write `_chapters.json` (chapters = JSON array `{id, anchor_lenses, derived_from, op, facts:[{fid, form_lens}]}` only — `op` ∈ `keep|merge|split|drop`; `derived_from` cites the static `candidates[].block` id(s)):
 
 ```bash
@@ -215,10 +217,10 @@ _body-{cid}.txt      # chapter prose (no H2 line, no anchor)
 
 - **Input:** this chapter's `facts[]` (`{fid, form_lens}`) resolved against `_facts.json` · `section-form-registry` entries for each distinct `form_lens` (`{carrier, structure}`) · this chapter's `anchor_lenses`.
 - **Action — five sub-steps in order, semantic (AI) unless noted:**
-  1. **P2.1 Group (mechanical):** partition this chapter's `facts[]` by `form_lens` — the highest-§7.4-priority `anchor_lenses` entry's `form_lens` → primary-axis group; any other `anchor_lenses` entry's `form_lens` → cross-cut group (merged chapters only; single-anchor chapters have an empty cross-cut group). P1 already guarantees every fact's `form_lens` ∈ this chapter's `anchor_lenses` — do not place a fact under a `form_lens` outside that set.
-  2. **P2.2 Bind (semi-semantic — derived by priority rule, not free choice):** for each distinct `form_lens` ℓ present in this chapter, resolve `F_ℓ` `{carrier, structure}` from `section-form-registry[ℓ]` and `C_ℓ` (2–5 `(d,c)` pairs) from ℓ's `expression` + Role Fields + domain (F priority: `presentation` > domain `expression_conventions` > role `expressive_tendency` > intent text). Write `display_title` and `lens_forms[]` to `_derive-{cid}.json`.
+  1. **P2.1 Group (mechanical):** partition this chapter's `facts[]` by `form_lens` — the highest-§7.4-priority `anchor_lenses` entry (heuristic: invariants > structure/contract > success > contact > context) → primary-axis group; any other `anchor_lenses` entry's `form_lens` → cross-cut group (merged chapters only; single-anchor chapters have an empty cross-cut group). P1 already guarantees every fact's `form_lens` ∈ this chapter's `anchor_lenses` — do not place a fact under a `form_lens` outside that set.
+  2. **P2.2 Bind (semi-semantic — derived by priority rule, not free choice):** for each distinct `form_lens` ℓ present in this chapter, resolve `F_ℓ` `{carrier, structure}` from `section-form-registry[ℓ]` and `C_ℓ` (2–5 `(d,c)` pairs) from ℓ's `expression` + Role Fields + domain (F priority: `presentation` > domain `expression_conventions` > role `expressive_tendency` > intent text). **Required:** write `display_title` to `_derive-{cid}.json`. **Advisory (optional):** also write `lens_forms[]` (one entry per distinct `form_lens`) for observability — P3 / `append-chapter` only require `display_title`; omitting `lens_forms` still passes Init.
   3. **P2.3 Arrange:** one orienting lead sentence derived from `anchor_lenses` intent + `covered_lenses` (`anchor_lenses` ∪ every placed fact's `lens_tags`); order the primary axis by §7.4 priority; append cross-cut groups after the primary axis, bounded and clearly labeled — never interleaved into it.
-  4. **P2.4 Weave:** realize each group as prose under its own `F_ℓ`/`C_ℓ`; content ⊆ this chapter's `facts[]` — never invent a proposition. While drafting, an author may cite another fact by `F-id`; before writing `_body-{cid}.txt` to disk, resolve every such citation into a human-readable chapter reference (e.g. "见「架构」章") — the persisted file must contain no raw `F-id`. Mark gaps with `> **待决：** …`.
+  4. **P2.4 Weave:** realize each group as prose under its own `F_ℓ`/`C_ℓ`; content ⊆ this chapter's `facts[]` — never invent a proposition. While drafting, an author may cite another fact by `F-id`; before writing `_body-{cid}.txt` to disk, resolve every such citation into a human-readable chapter reference (e.g. "见「架构」章") — the persisted file must contain no raw `F-id` (write-side; not a P3 gate). Mark gaps with `> **待决：** …`. Write `_body-{cid}.txt` (no H2 line, no anchor).
   5. **P2.5 Close (mechanical):** assemble into `$OUTPUT_DOC_PATH`:
 
 ```bash

@@ -150,7 +150,16 @@ def cmd_audit(args: argparse.Namespace) -> int:
 
     triggered = [str(t).strip().upper() for t in args.triggered.split(",") if t.strip()]
     if not triggered:
-        return _fail("--triggered must be a non-empty comma-separated lens list")
+        # Empty plan.order — no lenses fired; audit is a no-op success.
+        return _ok(
+            {
+                "ok": True,
+                "command": "audit",
+                "triggered": [],
+                "facts_after": len(after),
+                "skipped": "empty-triggered",
+            }
+        )
 
     try:
         graph, _order, _presence = _graph_and_maps(

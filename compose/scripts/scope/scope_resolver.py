@@ -171,6 +171,11 @@ def main(argv: Optional[list[str]] = None) -> int:
         help="Project root (reserved; roles load from skill package)",
     )
     resolve.add_argument(
+        "--profile",
+        default=argparse.SUPPRESS,
+        help="Compose profile id (also accepted on the parent parser)",
+    )
+    resolve.add_argument(
         "--role-instance-path",
         type=Path,
         help="Override path to role instance JSON for resolved cycle_type",
@@ -187,6 +192,11 @@ def main(argv: Optional[list[str]] = None) -> int:
         "--project-root",
         default=".",
         help="Project root (reserved; domain instance loads from skill package)",
+    )
+    domain.add_argument(
+        "--profile",
+        default=argparse.SUPPRESS,
+        help="Compose profile id (also accepted on the parent parser)",
     )
     domain.add_argument(
         "--domain-instance-path",

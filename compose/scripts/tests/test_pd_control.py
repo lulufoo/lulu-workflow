@@ -180,6 +180,30 @@ def test_cli_append_and_audit_round_trip(tmp_path: Path, monkeypatch, capsys) ->
     assert "T" in err
 
 
+def test_cmd_audit_empty_triggered_is_noop_success(tmp_path: Path, capsys) -> None:
+    rev = tmp_path / "rev-empty"
+    before_facts = [{"id": "F-1", "text": "only", "lens_tags": ["AR"]}]
+    _seed_facts(rev, before_facts)
+    before = tmp_path / "before.json"
+    before.write_text(json.dumps(before_facts), encoding="utf-8")
+    assert (
+        mod.cmd_audit(
+            argparse.Namespace(
+                revision_dir=rev,
+                before_file=before,
+                triggered="",
+                profile="lulu-plan",
+                project_root=tmp_path,
+            ),
+        )
+        == 0
+    )
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    assert payload["triggered"] == []
+    assert payload["skipped"] == "empty-triggered"
+
+
 def test_cli_classify(tmp_path: Path, monkeypatch, capsys) -> None:
     _patch_graph(monkeypatch)
     rev = tmp_path / "rev"

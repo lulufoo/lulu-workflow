@@ -1,9 +1,9 @@
 ---
 name: compose
 description: >-
-  Profile-driven compose engine (I*/F/C), session control, start orchestration,
-  drafting control, evaluation handoff, and delivery for structured document
-  stages (lulu-design, lulu-plan, lulu-spec). Consumed by stage holder
+  Profile-driven compose engine (facts / chapters / F·C), session control, start
+  orchestration, drafting control, evaluation handoff, and delivery for structured
+  document stages (lulu-design, lulu-plan, lulu-spec). Consumed by stage holder
   skills — holders declare identity (profile id, HARD-GATEs, produced
   document); all Drafting/Evaluating/Delivery orchestration lives here.
 ---
@@ -87,8 +87,8 @@ Load {actual $SKILL_ROOT}/compose/inductive-runner/SKILL.md and follow its instr
 {begin-inductive stdout}
 ```
 
-2. After the gate spine completes (G4 recompose and G5 provenance both closed), run `$DRAFT_CONTROL inductive-complete`. On failure → Blocking. It emits per-section scope files under `revision{active_doc}/inductive-scope/` consumed by Step 1.
-3. **K2 projection (when `drafting.inductive` is true):** run `$INDUCTIVE_FACTS_PROJ project` once so Init can consume `_facts.json` without re-atomizing. On failure → Blocking.
+2. After the gate spine completes (G4 recompose and G5 provenance both closed), run `$DRAFT_CONTROL inductive-complete`. On failure → Blocking. It emits per-section scope files under `revision{active_doc}/inductive-scope/` for **K2 projection** (not for Init to re-read as prose).
+3. **K2 projection (when `drafting.inductive` is true):** run `$INDUCTIVE_FACTS_PROJ project` once so Init consumes `_facts.json` only. On failure → Blocking.
 
 ```bash
 $INDUCTIVE_FACTS_PROJ project \
@@ -101,7 +101,7 @@ $INDUCTIVE_FACTS_PROJ project \
 
 ### Step 1 — Initializing
 
-Compose the compose document via fact-first Init (see initializing-runner I1 → P0–P3). No mapping paste. When Step 0 produced per-section SoT under `revision{active_doc}/inductive-scope/`, parent projects it to `_facts.json` before `begin-init`. When `drafting.inductive` is true (K2), Step 0's projection must have written `_facts.json` first — `begin-init` hard-errors if it is missing; initializing-runner then skips P0 atomization and validates the projected facts. The upstream scope doc is a **completeness cross-check only**.
+Compose the compose document via fact-first Init (see initializing-runner I1 → P0–P3). No mapping paste. Init reads **projected `_facts.json`**, not `inductive-scope/*.json` prose. When `drafting.inductive` is true (K2), Step 0's projection must have written `_facts.json` first — `begin-init` hard-errors if it is missing; initializing-runner then skips P0 atomization and validates the projected facts. The upstream scope doc is a **completeness cross-check only**.
 
 1. Run `$DRAFT_CONTROL begin-init`.
    - On failure → Blocking.
@@ -129,9 +129,9 @@ Entry: `advance-to-freeedit` success, or Evaluating fix resume.
 
 - User drives edits; AI assists on request.
 - Prefer **structured** edits over hand-editing the assembled compose `.md` (`.md` is a one-way projection):
-  - **Tier A (same revision, presentation):** edit `_body-{cid}.txt` / `_derive-{cid}.json` (optionally sync existing fact `text` in `_facts.json`); validate; rebuild the compose doc via `init-doc` + per-chapter `append-chapter` (or `reproject` when available). Skip Step 0 / Step 1.
+  - **Tier A (same revision, presentation):** edit `_body-{cid}.txt` / `_derive-{cid}.json` (optionally sync existing fact `text` in `_facts.json`); validate; rebuild the compose doc via `$COMPOSE_DOC_CONTROL init-doc` then per-chapter `append-chapter` in `_chapters.json` order. Skip Step 0 / Step 1.
   - **Tier B (new revision, structure/facts topology):** do **not** patch chapter set / `lens_tags` in place — run `$START_COMPOSE` for a new revision (P0–P3). Leave Evaluating-fix-resume.
-  - If the user insists on editing the assembled `.md`: warn that the next reproject / new revision will overwrite; do not reverse-parse `.md` into JSON.
+  - If the user insists on editing the assembled `.md`: warn that the next rebuild / new revision will overwrite; do not reverse-parse `.md` into JSON.
 - When user signals done, ask using remaining `drafting.post_init_options` that still apply (typically Evaluate; Deliver only if listed and Evaluating already completed for this revision):
   - **Evaluate** → **Evaluating Rules** below.
   - **Deliver** (only if listed) → **ReadyForDelivery Rules** below.
@@ -197,7 +197,7 @@ Fetch compose framework templates on demand; **do not** read `workflow-config.js
 | `$SESSION_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/core/session_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile <profile_id> <subcommand>` — drives outer session transitions via `compose/transitions/compose-session.json`; do not load that file directly |
 | `$DRAFT_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/section/draft_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile <profile_id> <subcommand>` |
 | `$INDUCTIVE_FACTS_PROJ` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_facts_projection.py"` (K2; after inductive-complete when `drafting.inductive` is true) |
-| `$RESOLVE_PLAN_ROLE` | `python3 "$SKILL_ROOT/compose/scripts/scope/scope_resolver.py" resolve-role --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile <profile_id>` |
+| `$RESOLVE_PLAN_ROLE` | `python3 "$SKILL_ROOT/compose/scripts/scope/scope_resolver.py" --profile <profile_id> --project-root "$(pwd)" resolve-role --cycle-id "$CYCLE_ID"` |
 | `$FETCH_COMPOSE` | `python3 "$SKILL_ROOT/compose/scripts/io/fetch_compose_framework.py" --role <role> --profile <profile_id> --project-root "$(pwd)" --cycle-id "$CYCLE_ID"` |
 | `$EVAL_CONTROL` | `python3 "$SKILL_ROOT/eval/scripts/eval_entry.py" --workflow <profile_id> --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
 | `$COMPOSE_DOC_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/section/compose_doc_control.py" <subcommand> [args...]` |
