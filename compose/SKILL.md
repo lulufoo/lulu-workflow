@@ -163,7 +163,7 @@ Dimension set, evaluation framework, and eval-mode branching (e.g. tech vs produ
 
 ## Delivery Rules
 
-1. **Demand manifest (producer profiles only — those whose `compose-profile.json` declares a `demand_manifest` block):** enumerate the delivered document's demands per the block's `unit_rule` (one unit per the described decision granularity), each carrying its target `section` + a one-line `summary`; then run `$SESSION_CONTROL write-demand-manifest --units-json '<JSON array>'`. This atomization is the semantic step **you** perform — the script only mints ids, validates, and writes `<prefix>-demands.json` beside the delivered doc for a downstream stage's `intent_baseline` (design rationale, source repo, why-only: `docs/biz/inductive-intent-baseline-source.md` §5.10). Profiles without the block: skip this step (the script no-ops if called anyway). On failure → Blocking.
+1. **Demand manifest (producer profiles only — those whose `compose-profile.json` declares a `demand_manifest` block):** enumerate the delivered document's demands per the block's `unit_rule` (one unit per the described decision granularity), each carrying its target `section` + a one-line `summary`; then run `$SESSION_CONTROL write-demand-manifest --units-json '<JSON array>'`. This atomization is the semantic step **you** perform — the script only mints ids, validates, and writes `<prefix>-demands.json` beside the delivered doc for a downstream stage's `intent_baseline`. Profiles without the block: skip this step (the script no-ops if called anyway). On failure → Blocking.
 
 2. Run `$SESSION_INFO --view stage-transitions`. On non-zero exit → Blocking. On success: prompt next stages when present.
 

@@ -16,7 +16,7 @@ Terminal runner subagent. Dispatched from **inline** inductive-runner at Gate 5 
 
 ## Shared trace contract
 
-Delta field contract, bucket vocabulary per (role, axis), and axis-1/axis-2 shape rules live in `provenance_trace_schema.py` (read-only reference — write only via `$PROVENANCE_GATE_CTL record-delta`). Algorithm semantics (why each bucket exists, default-deny vs silence-is-ok per role) live in [`../../references/provenance-algorithm-semantics.md`](../../references/provenance-algorithm-semantics.md) — read there, do not re-derive. (Design rationale, source repo, why-only, for future changes to that semantics doc itself: `docs/biz/compose-provenance-mechanism.md` §2.)
+Delta field contract, bucket vocabulary per (role, axis), and axis-1/axis-2 shape rules live in `provenance_trace_schema.py` (read-only reference — write only via `$PROVENANCE_GATE_CTL record-delta`). Algorithm semantics (why each bucket exists, default-deny vs silence-is-ok per role) live in [`../../references/provenance-algorithm-semantics.md`](../../references/provenance-algorithm-semantics.md) — read there, do not re-derive.
 
 **Hard boundaries (never violate):**
 - Read-only over already-committed artifacts — no `add-open`, no section mutation, no gate-close.

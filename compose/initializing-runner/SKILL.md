@@ -17,8 +17,6 @@ Use `$COMPOSE_PROFILE` from parent dispatch; kernel default applies only when om
 
 **Pipeline:** Step 1 Load → Step 2 Atomize facts (inductive: validate projected `_facts.json` only; deductive: atomize scope) → Step 3 Derive facts → Step 4 Organize chapters → Step 5 Write chapters → Step 6 Validate → Return.
 
-Design rationale (source repo, why-only): `docs/biz/compose-fact-first-theory/compose-fact-first-display-layer-design.md` §4/§11.4 (M4a); Step 3: `compose-fact-first-k1-pd-design.md`; K2 inductive handshake: `compose-fact-first-k2-inductive-design.md`; K3-d storage unification: `compose-fact-first-k3-storage-unification-design.md`.
-
 Init substance: display-layer Steps 2–6 + K2 projection (`decisions[]` → `_facts.json`). Discovery loop still owns `decisions[]` as engine state.
 
 - **Must:** operationalize display-layer facts (or inductive SoT via K2 projection only); explicit 待决 for gaps; readable chapter bodies.
@@ -103,12 +101,12 @@ Do **not** append outline-registry content to the deliverable header. Do **not**
 
 `section_order` means the profile's *lens* set (same registry, reframed as intent lenses — see [Theory](../references/compose-theory.md)).
 
-**Precondition (pairing invariant, §11.4 Major#6):** outline-registry must be candidates-shaped (`candidates`/`rules`, §3.3) — `$INIT_COMPOSE_VALIDATE` hard-errors otherwise.
+**Precondition (pairing invariant):** outline-registry must be candidates-shaped (`candidates`/`rules`) — `$INIT_COMPOSE_VALIDATE` hard-errors otherwise.
 
-**Handshake with `drafting.inductive` (K2):** when `drafting.inductive` is true, the inductive discovery loop remains the fact producer. Its settled `decisions[]` are projected once (at inductive completion) into the unified `_facts.json`. Init's Step 2 therefore **does not re-atomize `$SCOPE_DOC_PATH`**; it consumes the already-projected `_facts.json` (validate-only), then proceeds to Step 3/4. If `_facts.json` is absent, this is a hard error (projection must run first) — never silently fall back to re-atomization.
+**Handshake with `drafting.inductive` (K2):** operative branch is Step 2 Branch A (validate-only; never re-atomize).
 
 **Must:** tag every atom with N:M `lens_tags` (zero, one, or many — never a single `home`); run Step 3 for zero-coverage required derivation lenses before Step 4; place every fact in exactly one non-drop chapter; keep chapter `anchor_lenses` a subset of `section_order`; before persisting `_body-{cid}.txt`, resolve every author-time `F-id` citation into a human-readable chapter reference (write-side discipline — `$INIT_COMPOSE_VALIDATE` does **not** scan for raw `F-id`; Eval owns residual checks); run `$INIT_COMPOSE_VALIDATE` before Return.
-**Must not:** write a `fact:` or `section-key:` anchor into `$OUTPUT_DOC_PATH` (chapter anchors only, §11.4 item 1 — write-side / Eval; Step 6 does not substring-scan); invent a chapter with `derived_from` outside the outline-registry `candidates` set; decide open choices during Steps 2/3/4 (待决 same discipline).
+**Must not:** write a `fact:` or `section-key:` anchor into `$OUTPUT_DOC_PATH` (chapter anchors only — write-side / Eval; Step 6 does not substring-scan); invent a chapter with `derived_from` outside the outline-registry `candidates` set; decide open choices during Steps 2/3/4 (待决 same discipline).
 
 ### Step 2 — Atomize facts
 
@@ -191,7 +189,7 @@ Empty upstream → audit skips that lens; C1 at Step 6 is the backstop.
 ### Step 4 — Organize chapters
 
 - **Input:** `_facts.json` (compact index of `{id, text, lens_tags}` — never full prose; `lens_tags` is required here to derive each fact's `form_lens`) · outline-registry `candidates` (static, `{block, anchor_lenses}`) + `rules` (advisory merge/split/trim text) · `section_presence_map` (from section-registry `presence`, via `$FETCH_COMPOSE --role section-registry`).
-- **Action (D1 hybrid, semantic — AI, not script):** start from lens-anchored candidates; content-adaptively merge/split/drop/reorder using `rules` as heuristics and topic clustering as the north star (§5 D1). For each fact, assign exactly one chapter + one `form_lens` (∈ that fact's own `lens_tags` ∩ the chosen chapter's `anchor_lenses`) — priority-derive the placement using the §7.4 heuristic (**content-kind memo, not a lens total order:** invariants > structure/contract > success > contact > context) as reference, not a mechanical lookup (§5 D2/§8.1). A required lens with zero anchoring candidates is a modeling gap — do not silently drop it. An optional lens may legitimately end up with zero facts — do not fabricate content to fill it.
+- **Action (hybrid, semantic — AI, not script):** start from lens-anchored candidates; content-adaptively merge/split/drop/reorder using `rules` as heuristics and topic clustering as the north star. For each fact, assign exactly one chapter + one `form_lens` (∈ that fact's own `lens_tags` ∩ the chosen chapter's `anchor_lenses`) — priority-derive the placement using the placement heuristic (**content-kind memo, not a lens total order:** invariants > structure/contract > success > contact > context) as reference, not a mechanical lookup. A required lens with zero anchoring candidates is a modeling gap — do not silently drop it. An optional lens may legitimately end up with zero facts — do not fabricate content to fill it.
 - **Output:** write `_chapters.json` (chapters = JSON array `{id, anchor_lenses, derived_from, op, facts:[{fid, form_lens}]}` only — `op` ∈ `keep|merge|split|drop`; `derived_from` cites the static `candidates[].block` id(s)):
 
 ```bash
@@ -217,9 +215,9 @@ _body-{cid}.txt      # chapter prose (no H2 line, no anchor)
 
 - **Input:** this chapter's `facts[]` (`{fid, form_lens}`) resolved against `_facts.json` · `section-form-registry` entries for each distinct `form_lens` (`{carrier, structure}`) · this chapter's `anchor_lenses`.
 - **Action — five sub-steps in order, semantic (AI) unless noted:**
-  1. **5.1 Group (mechanical):** partition this chapter's `facts[]` by `form_lens` — the highest-§7.4-priority `anchor_lenses` entry (heuristic: invariants > structure/contract > success > contact > context) → primary-axis group; any other `anchor_lenses` entry's `form_lens` → cross-cut group (merged chapters only; single-anchor chapters have an empty cross-cut group). Step 4 already guarantees every fact's `form_lens` ∈ this chapter's `anchor_lenses` — do not place a fact under a `form_lens` outside that set.
+  1. **5.1 Group (mechanical):** partition this chapter's `facts[]` by `form_lens` — the highest-priority `anchor_lenses` entry (heuristic: invariants > structure/contract > success > contact > context) → primary-axis group; any other `anchor_lenses` entry's `form_lens` → cross-cut group (merged chapters only; single-anchor chapters have an empty cross-cut group). Step 4 already guarantees every fact's `form_lens` ∈ this chapter's `anchor_lenses` — do not place a fact under a `form_lens` outside that set.
   2. **5.2 Bind (semi-semantic — derived by priority rule, not free choice):** for each distinct `form_lens` ℓ present in this chapter, resolve `F_ℓ` `{carrier, structure}` from `section-form-registry[ℓ]` and `C_ℓ` (2–5 `(d,c)` pairs) from ℓ's `expression` + Role Fields + domain (F priority: `presentation` > domain `expression_conventions` > role `expressive_tendency` > intent text). **Required:** write `display_title` to `_derive-{cid}.json`. **Advisory (optional):** also write `lens_forms[]` (one entry per distinct `form_lens`) for observability — Step 6 / `append-chapter` only require `display_title`; omitting `lens_forms` still passes Init.
-  3. **5.3 Arrange:** one orienting lead sentence derived from `anchor_lenses` intent + `covered_lenses` (`anchor_lenses` ∪ every placed fact's `lens_tags`); order the primary axis by §7.4 priority; append cross-cut groups after the primary axis, bounded and clearly labeled — never interleaved into it.
+  3. **5.3 Arrange:** one orienting lead sentence derived from `anchor_lenses` intent + `covered_lenses` (`anchor_lenses` ∪ every placed fact's `lens_tags`); order the primary axis by priority; append cross-cut groups after the primary axis, bounded and clearly labeled — never interleaved into it.
   4. **5.4 Weave:** realize each group as prose under its own `F_ℓ`/`C_ℓ`; content ⊆ this chapter's `facts[]` — never invent a proposition. While drafting, an author may cite another fact by `F-id`; before writing `_body-{cid}.txt` to disk, resolve every such citation into a human-readable chapter reference (e.g. "见「架构」章") — the persisted file must contain no raw `F-id` (write-side; not a Step 6 gate). Mark gaps with `> **待决：** …`. Write `_body-{cid}.txt` (no H2 line, no anchor).
   5. **5.5 Close (mechanical):** assemble into `$OUTPUT_DOC_PATH`:
 
@@ -232,7 +230,7 @@ $COMPOSE_DOC_CONTROL append-chapter \
 
 - **Done:** `$OUTPUT_DOC_PATH` contains `<!-- chapter:{cid} -->` for this chapter with non-empty rendered content.
 
-Chapter titles are flat `## {display_title}` from `_derive-{cid}.json`. Theory (source repo, why-only): `docs/biz/compose-fact-first-theory/compose-fact-first-p2-write-theory.md` (algebraic account); implementation contract: `compose-fact-first-p2-proceduralize-design.md`.
+Chapter titles are flat `## {display_title}` from `_derive-{cid}.json`.
 
 ### Step 6 — Validate
 

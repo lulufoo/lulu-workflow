@@ -67,7 +67,7 @@ open_point = Expose(trigger × means)  # kept iff ( frontier_KW row false  ∧  
 | ai | `probe` | 4 black-box lenses (failure/boundary/assumption/seam) | silence ∧ KW-false | applies |
 | human | `probe` / `direct` / `view` | user question / assertion / view-found gap | user assertion | exempt |
 
-Seed is **not** an Expose source: it writes `decisions` with `trigger=seed` · `means=scope`. Design rationale (source repo, why-only): `docs/biz/inductive-scope-section-sot-design.md` (+ `docs/biz/inductive-intent-baseline-source.md` for intent_baseline).
+Seed is **not** an Expose source: it writes `decisions` with `trigger=seed` · `means=scope`.
 
 **F priority (conflict resolution):** lens `presentation` (via `form_lens`) > domain `expression_conventions` > role `expressive_tendency` > intent text. `intent_boundary` is an exclusion list — it names substance belonging to other intents; author none of it here.
 
