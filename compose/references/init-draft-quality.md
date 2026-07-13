@@ -1,6 +1,6 @@
 # Init Draft Quality
 
-> Referenced by: initializing-runner (P0–P3 chapter artifacts, P3 validate).  
+> Referenced by: initializing-runner (Steps 2–6 chapter artifacts, Step 6 validate).  
 > Theory: [`compose-theory.md`](compose-theory.md).
 
 ## Purpose
@@ -20,10 +20,10 @@ Round still owns formal KW / upstream / intent gap closure.
 ## Per-chapter artifacts (fact-first)
 
 ```text
-$REVISION_DIR/_facts.json              # fact store (P0; K2 projects inductive decisions[])
-$REVISION_DIR/_chapters.json           # chapter plan (P1)
-$REVISION_DIR/_derive-{cid}.json       # P2 chapter derive (display_title, …)
-$REVISION_DIR/_body-{cid}.txt          # P2 chapter body
+$REVISION_DIR/_facts.json              # fact store (Step 2; K2 projects inductive decisions[])
+$REVISION_DIR/_chapters.json           # chapter plan (Step 4)
+$REVISION_DIR/_derive-{cid}.json       # Step 5 chapter derive (display_title, …)
+$REVISION_DIR/_body-{cid}.txt          # Step 5 chapter body
 $OUTPUT_DOC_PATH                       # assembled via append-chapter (<!-- chapter:{cid} -->)
 ```
 
@@ -34,7 +34,7 @@ $OUTPUT_DOC_PATH                       # assembled via append-chapter (<!-- chap
 | Field | Required | Rules |
 |-------|----------|-------|
 | `display_title` | yes | Reader H2 under the chapter anchor; concise localized string, no code tokens; `（待补）` when substance missing |
-| other fields | per runner | As authored in P2; validator hard-gates non-empty `display_title` on every non-drop chapter |
+| other fields | per runner | As authored in Step 5; validator hard-gates non-empty `display_title` on every non-drop chapter |
 
 ### Display title
 

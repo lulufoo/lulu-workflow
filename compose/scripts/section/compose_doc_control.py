@@ -92,7 +92,7 @@ def append_chapter(
     display_title: str,
     body: str,
 ) -> None:
-    """Append one chapter fragment to an existing compose document (P2)."""
+    """Append one chapter fragment to an existing compose document (Step 5)."""
     key = str(cid).strip()
     if not key:
         raise ValueError("cid must be a non-empty string")

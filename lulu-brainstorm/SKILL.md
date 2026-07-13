@@ -17,7 +17,7 @@ blurry dissatisfaction or wish and "no idea". This SKILL expands the space of po
 "walls" are real vs. self-imposed. The solution path is meant to **emerge from the user**, not to be
 designed by a process.
 
-> **Design rationale (why) — SSOT:** `docs/biz/brainstorm-divergence-theory.md` in the source repo.
+> **Design rationale (source repo, why-only):** `docs/biz/brainstorm-divergence-theory.md`.
 > This SKILL orchestrates behavior; the theory doc holds the reasoning, the cognitive-science
 > grounding, and the rejected alternatives. Read it before changing anything here.
 

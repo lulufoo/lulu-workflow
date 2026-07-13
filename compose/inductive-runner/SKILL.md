@@ -11,7 +11,7 @@ description: >-
 
 Run this sub-skill only when dispatched from a compose stage `start` (inductive path) — e.g. `lulu-design`.
 
-**Design SSOT (how):** `docs/biz/inductive-scope-section-sot-design.md` · **theory (why):** `docs/biz/inductive-scope-section-sot-theory.md`.
+**Design rationale (source repo, why-only):** `docs/biz/inductive-scope-section-sot-design.md` · `docs/biz/inductive-scope-section-sot-theory.md`.
 
 Produces **per-section JSON** under `inductive-scope/` (`<SECTION>.json` + `_index.json`) under the active revision dir. Compose Initializing reads a **mechanical fidelity projection** of `decisions[].text` (same as `view --synthesis off`). After completion, control returns to the parent compose stage for Initializing.
 

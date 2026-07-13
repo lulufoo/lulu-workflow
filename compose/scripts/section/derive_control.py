@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CLI for kernel step Pd mechanical shell (K1).
+"""CLI for kernel Step 3 (derive) mechanical shell (K1).
 
 Subcommands:
     plan     Compute triggers + topo order + true gaps (reads ``_facts.json``)
@@ -7,7 +7,7 @@ Subcommands:
     append   Append derived facts (contiguous ids) and write ``_facts.json``
     classify Classify zero-coverage required lenses (derivation vs true gap)
 
-Design SSOT: docs/biz/compose-fact-first-theory/compose-fact-first-k1-pd-design.md §2/§5.
+Design rationale (source repo, why-only): docs/biz/compose-fact-first-theory/compose-fact-first-k1-pd-design.md §2/§5.
 Scripts never invent derived work-item text — only mechanical shell.
 """
 
@@ -34,14 +34,14 @@ from facts_schema import (  # noqa: E402
     save_facts,
 )
 from fetch_compose_framework import fetch_compose_framework  # noqa: E402
-from pd_derivation import (  # noqa: E402
-    PdCycleError,
+from derive_shell import (  # noqa: E402
+    DeriveCycleError,
     append_derived_facts,
-    check_pd_nonempty_self_audit,
+    check_derive_nonempty_self_audit,
     classify_zero_required_lenses,
     derivation_upstreams,
+    derive_triggers,
     normalize_dependency_graph,
-    pd_triggers,
     topo_order_triggered,
     true_coverage_gaps,
     upstream_fact_count,
@@ -104,10 +104,10 @@ def cmd_plan(args: argparse.Namespace) -> int:
     except Exception as exc:  # noqa: BLE001
         return _fail(f"section-registry unavailable: {exc}")
 
-    triggered = pd_triggers(section_order, presence_map, facts, graph)
+    triggered = derive_triggers(section_order, presence_map, facts, graph)
     try:
         order = topo_order_triggered(triggered, graph) if triggered else []
-    except PdCycleError as exc:
+    except DeriveCycleError as exc:
         return _fail(str(exc))
     gaps = true_coverage_gaps(section_order, presence_map, facts, graph)
     upstreams = {
@@ -169,7 +169,7 @@ def cmd_audit(args: argparse.Namespace) -> int:
     except Exception as exc:  # noqa: BLE001
         return _fail(f"section-registry unavailable: {exc}")
 
-    errors = check_pd_nonempty_self_audit(before, after, triggered, graph)
+    errors = check_derive_nonempty_self_audit(before, after, triggered, graph)
     if errors:
         for err in errors:
             print(err, file=sys.stderr)
@@ -249,19 +249,19 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
 
-    plan_p = sub.add_parser("plan", help="List Pd triggers in topo order + true gaps")
+    plan_p = sub.add_parser("plan", help="List Step 3 triggers in topo order + true gaps")
     plan_p.add_argument("--revision-dir", type=Path, required=True)
     plan_p.add_argument("--profile", type=str, required=True)
     plan_p.add_argument("--project-root", type=Path, default=Path.cwd())
     plan_p.set_defaults(func=cmd_plan)
 
-    audit_p = sub.add_parser("audit", help="Cascade-aware Pd self-audit")
+    audit_p = sub.add_parser("audit", help="Cascade-aware Step 3 self-audit")
     audit_p.add_argument("--revision-dir", type=Path, required=True)
     audit_p.add_argument(
         "--before-file",
         type=Path,
         required=True,
-        help="P0 facts JSON snapshot taken before Pd append",
+        help="Step 2 facts JSON snapshot taken before Step 3 append",
     )
     audit_p.add_argument(
         "--triggered",

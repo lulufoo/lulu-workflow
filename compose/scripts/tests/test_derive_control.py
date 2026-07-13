@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CLI / control tests for pd_control.py (K1 mechanical shell).
+"""CLI / control tests for derive_control.py (K1 mechanical shell, Step 3 — Derive facts).
 
 Uses in-process cmd_* calls so ``_graph_and_maps`` can be monkeypatched
 (subprocess cannot see the patch).
@@ -15,7 +15,7 @@ from pathlib import Path
 _SECTION = Path(__file__).resolve().parent.parent / "section"
 sys.path.insert(0, str(_SECTION))
 
-import pd_control as mod  # noqa: E402
+import derive_control as mod  # noqa: E402
 
 _PLANISH_GRAPH = {
     "sections": {
@@ -81,13 +81,13 @@ def test_cli_plan_triggers_and_true_gaps(tmp_path: Path, monkeypatch, capsys) ->
 def test_cli_append_and_audit_round_trip(tmp_path: Path, monkeypatch, capsys) -> None:
     _patch_graph(monkeypatch)
     rev = tmp_path / "rev"
-    p0 = [
+    step2_facts = [
         {"id": "F-1", "text": "ar", "lens_tags": ["AR"]},
         {"id": "F-2", "text": "sk", "lens_tags": ["SK"]},
     ]
-    _seed_facts(rev, p0)
-    before = tmp_path / "p0.json"
-    before.write_text(json.dumps(p0), encoding="utf-8")
+    _seed_facts(rev, step2_facts)
+    before = tmp_path / "before-facts.json"
+    before.write_text(json.dumps(step2_facts), encoding="utf-8")
     derived = tmp_path / "derived.json"
     derived.write_text(
         json.dumps(

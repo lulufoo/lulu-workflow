@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-13
 **Version:** v1
-**Status:** Draft (Init simulation — P0→Pd→P1→P2→P3)
+**Status:** Draft (Init simulation — Steps 2–6)
 
 **Decision-doc:** `topic-20260706060746-54e47acc/lulu-approach/decision-doc.md`
 

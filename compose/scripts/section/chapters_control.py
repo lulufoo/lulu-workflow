@@ -8,8 +8,8 @@ Subcommands:
 
 CLI details: ``python3 chapters_control.py --help``
 
-Design SSOT: docs/biz/compose-fact-first-theory/compose-fact-first-display-layer-design.md §3.4, §11.2 (M2).
-Consumed by fact-first Init (P1 / P3) via ``display_layer_gates.py``.
+Design rationale (source repo, why-only): docs/biz/compose-fact-first-theory/compose-fact-first-display-layer-design.md §3.4, §11.2 (M2).
+Consumed by fact-first Init (Step 4 / Step 6) via ``display_layer_gates.py``.
 """
 
 from __future__ import annotations

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for pd_derivation.py (kernel K1 mechanical shell)."""
+"""Tests for derive_shell.py (kernel K1 mechanical shell, Step 3 — Derive facts)."""
 
 from __future__ import annotations
 
@@ -9,15 +9,15 @@ from pathlib import Path
 _SECTION = Path(__file__).resolve().parent.parent / "section"
 sys.path.insert(0, str(_SECTION))
 
-from pd_derivation import (  # noqa: E402
-    PdCycleError,
+from derive_shell import (  # noqa: E402
+    DeriveCycleError,
     append_derived_facts,
-    check_pd_nonempty_self_audit,
+    check_derive_nonempty_self_audit,
     classify_zero_required_lenses,
     derivation_upstreams,
+    derive_triggers,
     has_derivation,
     normalize_dependency_graph,
-    pd_triggers,
     topo_order_triggered,
     true_coverage_gaps,
     upstream_fact_count,
@@ -62,7 +62,7 @@ def test_has_derivation_and_upstreams():
     assert derivation_upstreams("T", g) == ["SK", "AR"]
 
 
-def test_pd_triggers_zero_only_required_with_edge():
+def test_derive_triggers_zero_only_required_with_edge():
     g = _planish_graph()
     order = ["AR", "SK", "T", "GO"]
     presence = {"AR": "required", "SK": "required", "T": "required", "GO": "optional"}
@@ -70,26 +70,26 @@ def test_pd_triggers_zero_only_required_with_edge():
         {"id": "F-1", "text": "ar fact", "lens_tags": ["AR"]},
         {"id": "F-2", "text": "sk fact", "lens_tags": ["SK"]},
     ]
-    assert pd_triggers(order, presence, facts, g) == ["T"]
+    assert derive_triggers(order, presence, facts, g) == ["T"]
 
 
-def test_pd_triggers_skips_partial_coverage_zero_only():
+def test_derive_triggers_skips_partial_coverage_zero_only():
     """required ∧ facts>0 ∧ derivation edge → do NOT trigger (zero-only)."""
     g = _planish_graph()
     order = ["T"]
     presence = {"T": "required"}
     facts = [{"id": "F-1", "text": "partial T", "lens_tags": ["T"]}]
-    assert pd_triggers(order, presence, facts, g) == []
+    assert derive_triggers(order, presence, facts, g) == []
 
 
-def test_pd_triggers_skips_optional_and_true_gaps():
+def test_derive_triggers_skips_optional_and_true_gaps():
     g = _planish_graph()
     order = ["T", "GO", "ZZ"]
     # ZZ required, zero facts, no derivation edge → true gap, not trigger
     g["sections"]["ZZ"] = {"upstream": [], "relations": {}}
     presence = {"T": "required", "GO": "optional", "ZZ": "required"}
     facts = [{"id": "F-1", "text": "sk", "lens_tags": ["SK"]}]
-    assert pd_triggers(order, presence, facts, g) == ["T"]
+    assert derive_triggers(order, presence, facts, g) == ["T"]
     assert true_coverage_gaps(order, presence, facts, g) == ["ZZ"]
 
 
@@ -111,8 +111,8 @@ def test_topo_order_raises_on_cycle():
     )
     try:
         topo_order_triggered(["A", "B"], g)
-        assert False, "expected PdCycleError"
-    except PdCycleError as exc:
+        assert False, "expected DeriveCycleError"
+    except DeriveCycleError as exc:
         assert "cycle" in str(exc).lower()
 
 
@@ -141,7 +141,7 @@ def test_append_derived_facts_contiguous_ids_and_source():
 
 
 def test_cascade_visibility_via_append_then_filter():
-    """Later lens sees earlier Pd appends (same-pass cascade)."""
+    """Later lens sees earlier Step 3 appends (same-pass cascade)."""
     g = _graph(
         SK={"upstream": ["AR"], "relations": {"AR": "decompose"}},
         T={"upstream": ["SK"], "relations": {"SK": "decompose"}},
@@ -149,7 +149,7 @@ def test_cascade_visibility_via_append_then_filter():
     )
     facts = [{"id": "F-1", "text": "ar", "lens_tags": ["AR"]}]
     presence = {"SK": "required", "T": "required", "AR": "required"}
-    assert pd_triggers(["AR", "SK", "T"], presence, facts, g) == ["SK", "T"]
+    assert derive_triggers(["AR", "SK", "T"], presence, facts, g) == ["SK", "T"]
     order = topo_order_triggered(["SK", "T"], g)
     assert order == ["SK", "T"]
     facts = append_derived_facts(
@@ -170,8 +170,8 @@ def test_self_audit_flags_empty_emit_when_upstream_nonempty():
         {"id": "F-1", "text": "sk", "lens_tags": ["SK"]},
         {"id": "F-2", "text": "ar", "lens_tags": ["AR"]},
     ]
-    after = list(before)  # Pd emitted nothing for T
-    errors = check_pd_nonempty_self_audit(before, after, ["T"], g)
+    after = list(before)  # Step 3 emitted nothing for T
+    errors = check_derive_nonempty_self_audit(before, after, ["T"], g)
     assert len(errors) == 1
     assert "T" in errors[0]
 
@@ -180,14 +180,14 @@ def test_self_audit_skips_empty_upstream():
     g = _planish_graph()
     before = [{"id": "F-1", "text": "go only", "lens_tags": ["GO"]}]
     after = list(before)
-    assert check_pd_nonempty_self_audit(before, after, ["T"], g) == []
+    assert check_derive_nonempty_self_audit(before, after, ["T"], g) == []
 
 
 def test_self_audit_cascade_aware_uses_facts_after():
     """Major: SK derived mid-pass must count as upstream for T (facts_after).
 
-    Before-only upstream counting would skip T (SK empty at P0) and miss the
-    silent-T failure after SK was appended in the same Pd pass.
+    Before-only upstream counting would skip T (SK empty at Step 2) and miss the
+    silent-T failure after SK was appended in the same Step 3 pass.
     """
     g = _graph(
         AR={"upstream": [], "relations": {}},
@@ -205,7 +205,7 @@ def test_self_audit_cascade_aware_uses_facts_after():
             "source": ["F-1"],
         },
     ]
-    errors = check_pd_nonempty_self_audit(before, after, ["SK", "T"], g)
+    errors = check_derive_nonempty_self_audit(before, after, ["SK", "T"], g)
     assert len(errors) == 1
     assert "T" in errors[0]
     # SK itself gained a new fact → no error for SK
@@ -227,7 +227,7 @@ def test_self_audit_accepts_daijue_as_emit():
             "source": ["F-1"],
         },
     ]
-    assert check_pd_nonempty_self_audit(before, after, ["T"], g) == []
+    assert check_derive_nonempty_self_audit(before, after, ["T"], g) == []
 
 
 def test_classify_zero_required_lenses_buckets():
@@ -265,27 +265,27 @@ def test_normalize_dependency_graph_lowercases_relations():
 
 
 def test_planish_e2e_append_c1_pass_with_source():
-    """§7.3 mechanical e2e: P0 T=0 → Pd append → C1 pass + source preserved."""
+    """§7.3 mechanical e2e: Step 2 T=0 → Step 3 append → C1 pass + source preserved."""
     from display_layer_gates import check_c1
 
     g = _planish_graph()
     order = ["AR", "SK", "T", "GO"]
     presence = {"AR": "required", "SK": "required", "T": "required", "GO": "optional"}
-    p0 = [
+    step2_facts = [
         {"id": "F-1", "text": "ar contract", "lens_tags": ["AR"]},
         {"id": "F-2", "text": "sk phase", "lens_tags": ["SK"]},
     ]
-    assert pd_triggers(order, presence, p0, g) == ["T"]
-    assert true_coverage_gaps(order, presence, p0, g) == []
+    assert derive_triggers(order, presence, step2_facts, g) == ["T"]
+    assert true_coverage_gaps(order, presence, step2_facts, g) == []
     c1_before = check_c1(
-        p0,
+        step2_facts,
         presence_map=presence,
         section_order=order,
         dependency_graph=g,
     )
     assert any("T" in e and "derivation lens" in e for e in c1_before)
     after = append_derived_facts(
-        p0,
+        step2_facts,
         [
             {
                 "text": "implement phase gate",
@@ -296,7 +296,7 @@ def test_planish_e2e_append_c1_pass_with_source():
     )
     assert after[-1]["id"] == "F-3"
     assert after[-1]["source"] == ["F-2", "按 AR 契约"]
-    assert check_pd_nonempty_self_audit(p0, after, ["T"], g) == []
+    assert check_derive_nonempty_self_audit(step2_facts, after, ["T"], g) == []
     assert (
         check_c1(
             after,

@@ -34,7 +34,7 @@ from section_registry_schema import (  # noqa: E402
     dependency_graph_subset,
     normalize_section_registry,
 )
-from pd_derivation import normalize_dependency_graph  # noqa: E402
+from derive_shell import normalize_dependency_graph  # noqa: E402
 
 
 def section_order_for_profile(project_root: Path, profile_id: str) -> list[str]:
@@ -104,7 +104,7 @@ def validate_display_layer_artifacts(
     project_root: Path,
     profile_id: str,
 ) -> str | None:
-    """Return first error summary or None — fact-first P3 validation.
+    """Return first error summary or None — fact-first Step 6 validation.
 
     Validates the fact-first artifact set:
 

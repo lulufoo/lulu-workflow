@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Mechanical shell for kernel step Pd (deductive derivation, K1).
+"""Mechanical shell for kernel Step 3 (deductive derivation, K1).
 
-Design SSOT: docs/biz/compose-fact-first-theory/compose-fact-first-k1-pd-design.md §2.
+Design rationale (source repo, why-only): docs/biz/compose-fact-first-theory/compose-fact-first-k1-pd-design.md §2.
 
-Pd = AI semantic step + this mechanical shell. Scripts never invent derived
+Step 3 = AI semantic step + this mechanical shell. Scripts never invent derived
 work-item text — they only:
   * decide which required lenses trigger (zero-only + derivation edge);
   * order triggered lenses topologically (upstream-first, cascade-visible);
@@ -86,13 +86,13 @@ def derivation_upstreams(lens: str, graph: dict[str, Any]) -> list[str]:
     return out
 
 
-def pd_triggers(
+def derive_triggers(
     section_order: list[str],
     presence_map: dict[str, str],
     facts: list[dict[str, Any]],
     graph: dict[str, Any],
 ) -> list[str]:
-    """Lenses that trigger Pd (zero-only): required ∧ 0 facts ∧ has derivation.
+    """Lenses that trigger Step 3 (zero-only): required ∧ 0 facts ∧ has derivation.
 
     Partial coverage (facts > 0) never triggers — intentional I2d regression
     (K1 design §2.2 zero-only). Order follows ``section_order``.
@@ -123,7 +123,7 @@ def true_coverage_gaps(
     facts: list[dict[str, Any]],
     graph: dict[str, Any],
 ) -> list[str]:
-    """Required ∧ 0 facts ∧ **no** derivation edge — Pd must not invent."""
+    """Required ∧ 0 facts ∧ **no** derivation edge — Step 3 must not invent."""
     coverage = lenses_present(facts)
     normalized_presence = {
         _upper(k): str(v).strip().lower() for k, v in (presence_map or {}).items()
@@ -152,7 +152,7 @@ def classify_zero_required_lenses(
 ) -> dict[str, list[str]]:
     """Split zero-coverage required lenses into derivation vs true-gap buckets.
 
-    Used by P3 routing (re-P0→Pd vs Round) and to enrich C1 messages.
+    Used by Step 6 routing (re-run Step 2→3 vs Round) and to enrich C1 messages.
     """
     coverage = lenses_present(facts)
     normalized_presence = {
@@ -176,7 +176,7 @@ def classify_zero_required_lenses(
     return {"derivation": derivation, "true_gaps": true_gaps}
 
 
-class PdCycleError(ValueError):
+class DeriveCycleError(ValueError):
     """Raised when derivation edges among triggered lenses form a cycle."""
 
 
@@ -188,7 +188,7 @@ def topo_order_triggered(
 
     Only edges whose both ends are in ``triggered`` constrain order. A lens
     that derives from a non-triggered upstream is free to run whenever (its
-    upstream facts already exist from P0 / earlier Pd).
+    upstream facts already exist from Step 2 / earlier Step 3).
     """
     nodes = [_upper(t) for t in triggered]
     node_set = set(nodes)
@@ -216,8 +216,8 @@ def topo_order_triggered(
 
     if len(ordered) != len(nodes):
         stuck = [n for n in nodes if n not in ordered]
-        raise PdCycleError(
-            f"Pd derivation cycle among triggered lenses: {stuck}",
+        raise DeriveCycleError(
+            f"Step 3 derivation cycle among triggered lenses: {stuck}",
         )
     return ordered
 
@@ -263,7 +263,7 @@ def upstream_fact_count(
     return total
 
 
-def check_pd_nonempty_self_audit(
+def check_derive_nonempty_self_audit(
     facts_before: list[dict[str, Any]],
     facts_after: list[dict[str, Any]],
     triggered: list[str],
@@ -273,7 +273,7 @@ def check_pd_nonempty_self_audit(
     lens must gain ≥1 new fact (cascade-aware).
 
     Grok K1 impl review Major: counting upstream on ``facts_before`` missed
-    same-pass Pd appends (SK derived mid-pass → T still silent). Upstream
+    same-pass Step 3 appends (SK derived mid-pass → T still silent). Upstream
     emptiness is therefore judged on ``facts_after``; novelty still uses
     ``before_ids``.
 
@@ -293,7 +293,7 @@ def check_pd_nonempty_self_audit(
         ]
         if not new_for_lens:
             errors.append(
-                f"Pd self-audit: lens {key!r} had non-empty upstream facts "
-                "but Pd emitted no derived fact (and no 待决 fact)",
+                f"Step 3 self-audit: lens {key!r} had non-empty upstream facts "
+                "but Step 3 emitted no derived fact (and no 待决 fact)",
             )
     return errors

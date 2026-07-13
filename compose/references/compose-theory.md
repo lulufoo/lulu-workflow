@@ -39,15 +39,15 @@ display_title = author( chapter substance )   # H2 under <!-- chapter:{cid} -->
 | Expression | `C` | Role Fields + domain + that lens's `expression` + F | How to write inside F for that `form_lens` |
 | Envelope | lens / intent | section-registry (`intent` + `intent_boundary`) | what belongs vs belongs elsewhere |
 | Section form | `presentation` / `expression` | section-form-registry | Carrier / expression constraints for authoring |
-| Display title | `display_title` | `_derive-{cid}.json` at P2 | Chapter H2; projected by `append-chapter` |
+| Display title | `display_title` | `_derive-{cid}.json` at Step 5 | Chapter H2; projected by `append-chapter` |
 
-**Order (strict):** Atomize/validate facts (P0) → Pd → Organize chapters (P1) → Per-chapter write (P2: `_derive-{cid}.json` + `_body-{cid}.txt`) → `append-chapter` → Validate (P3).
+**Order (strict):** Atomize/validate facts (Step 2) → Derive (Step 3) → Organize chapters (Step 4) → Per-chapter write (Step 5: `_derive-{cid}.json` + `_body-{cid}.txt`) → `append-chapter` → Validate (Step 6).
 
 **Intent text:** Use `sections.{key}.intent` when present; else `sections.{key}.desc` (legacy).
 
 ### Inductive generation (`Induce`) — dual of `Write`
 
-`Write` is deductive (known substance → organized prose). `Induce` is inductive (unknown substance → discover, ground, decide, fold): the inductive-runner produces per-section JSON SoT; K2 projects settled `decisions[].text` into `_facts.json` for Init P0 (not a legacy `$RESOLVE_I_STAR` read).
+`Write` is deductive (known substance → organized prose). `Induce` is inductive (unknown substance → discover, ground, decide, fold): the inductive-runner produces per-section JSON SoT; K2 projects settled `decisions[].text` into `_facts.json` for Init Step 2 (not a legacy `$RESOLVE_I_STAR` read).
 
 ```text
 section_json[S].decisions  ⊕=  Expand( open_point )   # via settle-open
@@ -56,7 +56,7 @@ open_point = Expose(trigger × means)  # kept iff ( frontier_KW row false  ∧  
 
 - `Expand` = ground (`attach-code-refs`) → AI leaning → **user decides** (auto/manual/ignore batch) ⇒ `settle-open` / `defer-open`.
 - `⊕=` = append into that section's `decisions[]`; deepens by KW; never overwrites another section.
-- Handoff: `decisions[].text` → `$INDUCTIVE_FACTS_PROJ project` → `_facts.json` → P0–P3.
+- Handoff: `decisions[].text` → `$INDUCTIVE_FACTS_PROJ project` → `_facts.json` → Steps 2–6.
 
 `Expose` discovers open points via **trigger × means**. All sources subtract `¬Settled` (`decisions[]` only) and land in the owning section's `open[]`:
 
@@ -67,11 +67,11 @@ open_point = Expose(trigger × means)  # kept iff ( frontier_KW row false  ∧  
 | ai | `probe` | 4 black-box lenses (failure/boundary/assumption/seam) | silence ∧ KW-false | applies |
 | human | `probe` / `direct` / `view` | user question / assertion / view-found gap | user assertion | exempt |
 
-Seed is **not** an Expose source: it writes `decisions` with `trigger=seed` · `means=scope`. Design SSOT: `docs/biz/inductive-scope-section-sot-design.md` (+ `docs/biz/inductive-intent-baseline-source.md` for intent_baseline).
+Seed is **not** an Expose source: it writes `decisions` with `trigger=seed` · `means=scope`. Design rationale (source repo, why-only): `docs/biz/inductive-scope-section-sot-design.md` (+ `docs/biz/inductive-intent-baseline-source.md` for intent_baseline).
 
 **F priority (conflict resolution):** lens `presentation` (via `form_lens`) > domain `expression_conventions` > role `expressive_tendency` > intent text. `intent_boundary` is an exclusion list — it names substance belonging to other intents; author none of it here.
 
-**§7.4 placement heuristic (content-kind memo, not a lens total order):** invariants > structure/contract > success > contact > context — used by P1/P2 as AI reference only.
+**§7.4 placement heuristic (content-kind memo, not a lens total order):** invariants > structure/contract > success > contact > context — used by Step 4/Step 5 as AI reference only.
 
 **Document assembly:** Compose documents use chapter anchors — `<!-- chapter:{cid} -->`, then `## {display_title}`, then body. Initializing persists each chapter via `$COMPOSE_DOC_CONTROL append-chapter`, which reads `_derive-{cid}.json` / `_body-{cid}.txt`. Downstream compose/eval tools locate chapters by chapter anchor, not H2 text. Section-key grammar retired (K3-d).
 
@@ -114,7 +114,7 @@ C has 2–5 pairs per `form_lens`. Every `c` must be traceable to a specific `##
 
 ## Constraints
 
-**Derivation:** Read `### Role Fields` and `domain instance` for shared authoring constraints; bind F/C **per distinct `form_lens`** in the chapter (P2 Bind). No static dimension tables, vocabulary enums, or form lookup configs beyond `section-form-registry`.
+**Derivation:** Read `### Role Fields` and `domain instance` for shared authoring constraints; bind F/C **per distinct `form_lens`** in the chapter (Step 5.2 Bind). No static dimension tables, vocabulary enums, or form lookup configs beyond `section-form-registry`.
 
 **Prohibited:**
 

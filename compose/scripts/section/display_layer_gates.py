@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""P3 placement gates for the fact-first display layer (increment 1, M2).
+"""Step 6 placement gates for the fact-first display layer (increment 1, M2).
 
-Design SSOT: docs/biz/compose-fact-first-theory/compose-fact-first-display-layer-design.md §8.2, §11.2.
+Design rationale (source repo, why-only): docs/biz/compose-fact-first-theory/compose-fact-first-display-layer-design.md §8.2, §11.2.
 
 Pure functions only — no file I/O, no markdown parsing. Callers load
 ``_facts.json`` / ``_chapters.json`` via ``facts_schema.load_facts`` /
 ``chapters_schema.load_chapters`` and pass the normalized lists in.
 
 Wired into ``init_compose_validation.validate_display_layer_artifacts`` (fact-first
-Init P3). Module name keeps the historical ``display_layer_*`` prefix. That
+Init Step 6). Module name keeps the historical ``display_layer_*`` prefix. That
 caller also adds chapter-artifact-existence and assembly-completeness gates
 outside this module — see design §11 M4a row and §11.2 "边界" note.
 
@@ -184,7 +184,7 @@ def check_c1(
     a lens missing from ``presence_map`` defaults to ``required``.
 
     When ``dependency_graph`` is provided, zero-coverage messages distinguish
-    derivation lenses (re-run P0→Pd) from true gaps (Round) — K1 Pd design §2.2.
+    derivation lenses (re-run Step 2→3) from true gaps (Round) — K1 derive design §2.2.
     """
     if section_order is None:
         return []
@@ -202,12 +202,12 @@ def check_c1(
             presence = "required"
         if presence == "required" and coverage.get(key, 0) == 0:
             if dependency_graph is not None:
-                from pd_derivation import has_derivation  # local import: avoid cycle
+                from derive_shell import has_derivation  # local import: avoid cycle
 
                 if has_derivation(key, dependency_graph):
                     errors.append(
                         f"C1: required lens {key!r} has zero tagging facts "
-                        "(derivation lens — re-run P0→Pd or Round)",
+                        "(derivation lens — re-run Step 2→3 or Round)",
                     )
                 else:
                     errors.append(
@@ -236,7 +236,7 @@ def run_display_layer_gates(
     candidate_ids: list[str] | None = None,
     dependency_graph: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Run all P3 gates; return ``{"errors": [...], "q1_audit": {...}}``.
+    """Run all Step 6 gates; return ``{"errors": [...], "q1_audit": {...}}``.
 
     ``errors`` aggregates L1/L3/L4/L5/C1 (blocking); ``q1_audit`` is
     advisory-only (never contributes to ``errors``)."""

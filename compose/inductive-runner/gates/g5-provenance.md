@@ -26,7 +26,7 @@ PROJECT_ROOT: {actual $PROJECT_ROOT}
 
 Do **not** paste section-file or upstream-ref contents in the Task prompt — the subagent reads `inductive-scope/<S>.json` (and `$SCOPE_DOC` / refs) from disk. **Ignore** the Task return beyond confirming completion — read the actual deltas only via `$PROVENANCE_GATE_CTL present` next.
 
-Role/algorithm/file mapping, axis semantics, and bucket vocabulary are the subagent's own SSOT (its Pipeline + `docs/biz/compose-provenance-mechanism.md` §2 + `provenance_trace_schema.py`) — not repeated here.
+Role/algorithm/file mapping, axis semantics, and bucket vocabulary are the subagent's own SSOT (its Pipeline + [`../../references/provenance-algorithm-semantics.md`](../../references/provenance-algorithm-semantics.md) + `provenance_trace_schema.py`) — not repeated here.
 
 3. Call `$PROVENANCE_GATE_CTL present` (read-only) and show the user the full delta list — a receipt, **not** a sign-off.
 

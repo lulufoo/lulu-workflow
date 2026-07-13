@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """Schema and I/O for revision ``_chapters.json`` (fact-first display chapters).
 
-Design SSOT: docs/biz/compose-fact-first-theory/compose-fact-first-display-layer-design.md §3.4.
+Design rationale (source repo, why-only): docs/biz/compose-fact-first-theory/compose-fact-first-display-layer-design.md §3.4.
 Shape: JSON array of chapter objects — no envelope.
 
-Written by P1 (global organization); consumed by P2 (per-chapter write) and
-P3 (placement gates L1-L5/C1/Q1). This module validates the **structural**
+Written by Step 4 (global organization); consumed by Step 5 (per-chapter write) and
+Step 6 (placement gates L1-L5/C1/Q1). This module validates the **structural**
 shape only (M1 scope): field types, ``op`` enum, per-chapter fact-ref shape,
 ``id``/``fid`` uniqueness. Cross-file consistency against ``_facts.json``
-(e.g. L1 exactly-once, L3 legal placement) is a P3 gate concern and lives in
+(e.g. L1 exactly-once, L3 legal placement) is a Step 6 gate concern and lives in
 ``init_compose_validation.py`` (design §11 M2) — not wired here yet.
 
 ``anchor_lenses`` is the chapter's **declared** identity (used for L3 legal
@@ -142,7 +142,7 @@ def validate_chapters(
 
                 # form_lens: intra-file half of §3.4 `form_lens ∈ lens_tags ∩ anchor_lenses`.
                 # The `∈ anchor_lenses` + uppercase + section_order checks are decidable here;
-                # the `∈ lens_tags` half needs _facts.json → P3/L3 gate in M2.
+                # the `∈ lens_tags` half needs _facts.json → Step 6/L3 gate in M2.
                 form_lens = fact_ref.get("form_lens")
                 if not isinstance(form_lens, str) or not form_lens.strip():
                     errors.append(f"{fprefix}.form_lens must be a non-empty string")

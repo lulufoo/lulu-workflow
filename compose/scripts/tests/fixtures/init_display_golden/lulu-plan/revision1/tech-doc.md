@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-13
 **Version:** v1
-**Status:** Draft (Init simulation — P2 write)
+**Status:** Draft (Init simulation — Step 5 write)
 
 **Document References:**
 - Decision-doc: `feature-20260711132809-d8f00b88/lulu-approach/decision-doc.md`

@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """Schema and I/O for revision ``_facts.json`` (compose fact-first SoT).
 
-Design SSOT: docs/biz/compose-fact-first-theory/compose-fact-first-display-layer-design.md §3.1;
+Design rationale (source repo, why-only): docs/biz/compose-fact-first-theory/compose-fact-first-display-layer-design.md §3.1;
 K1 ``source`` field: docs/biz/compose-fact-first-theory/compose-fact-first-k1-pd-design.md §3.
 
 Shape: JSON array of ``{id, text, lens_tags}`` plus optional ``source``
-(non-empty string array; Pd-derived facts only) — no envelope.
+(non-empty string array; Step-3-derived facts only) — no envelope.
 
 ``_facts.json`` replaces the single-``home`` ``_partition.json`` atom for the
 fact-first display layer (increment 1, M1). A fact's ``lens_tags`` is an N:M
 membership set (zero, one, or many lens keys) — deliberately **not** a single
 ``home``. Empty ``lens_tags`` is schema-legal (Q1 quarantine candidate,
-audited downstream by P3 gates, not blocked here). Display placement
+audited downstream by Step 6 gates, not blocked here). Display placement
 (``display_home`` / ``form_lens`` / chapter membership) is **not** a fact
 field — it lives in ``_chapters.json`` (chapters_schema.py) to avoid double
 bookkeeping (Grok review Blocker#1).

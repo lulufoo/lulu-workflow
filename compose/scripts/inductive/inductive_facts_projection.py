@@ -4,7 +4,7 @@
 Subcommands:
     project   Traverse section_order × decisions[] → write ``facts_path(revision)``
 
-Design SSOT: docs/biz/compose-fact-first-theory/compose-fact-first-k2-inductive-design.md
+Design rationale (source repo, why-only): docs/biz/compose-fact-first-theory/compose-fact-first-k2-inductive-design.md
 §2–§5. Scripts never invent semantics — only renumber / tag / source-pack / save.
 """
 

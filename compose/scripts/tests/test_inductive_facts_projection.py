@@ -17,7 +17,7 @@ sys.path.insert(0, str(_SECTION))
 
 import inductive_facts_projection as proj  # noqa: E402
 from facts_schema import load_facts  # noqa: E402
-from pd_derivation import append_derived_facts  # noqa: E402
+from derive_shell import append_derived_facts  # noqa: E402
 
 
 def _decision(
@@ -221,7 +221,7 @@ def test_cli_project_empty_hard_errors(tmp_path: Path, monkeypatch, capsys) -> N
 
 
 def test_pd_tail_append_after_projection() -> None:
-    """§3: projection sets F-1..F-m; Pd continuous tail append."""
+    """§3: projection sets F-1..F-m; Step 3 continuous tail append."""
     base = proj.project_decisions_to_facts(
         section_order=["SK", "T"],
         sections_by_key={

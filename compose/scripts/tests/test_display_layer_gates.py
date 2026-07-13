@@ -230,7 +230,7 @@ def test_c1_treats_invalid_presence_value_as_required():
 
 
 def test_c1_with_dependency_graph_distinguishes_derivation_vs_true_gap():
-    from pd_derivation import normalize_dependency_graph
+    from derive_shell import normalize_dependency_graph
 
     facts = [_fact("F-1", ["AR"])]
     graph = normalize_dependency_graph(
@@ -251,7 +251,7 @@ def test_c1_with_dependency_graph_distinguishes_derivation_vs_true_gap():
         section_order=["AR", "T", "ZZ"],
         dependency_graph=graph,
     )
-    assert any("T" in e and "derivation lens" in e and "P0→Pd" in e for e in errors)
+    assert any("T" in e and "derivation lens" in e and "Step 2→3" in e for e in errors)
     assert any("ZZ" in e and "true gap" in e and "Round" in e for e in errors)
     assert not any("'AR'" in e for e in errors)
 

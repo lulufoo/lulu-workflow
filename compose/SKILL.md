@@ -101,7 +101,7 @@ $INDUCTIVE_FACTS_PROJ project \
 
 ### Step 1 — Initializing
 
-Compose the compose document via fact-first Init (see initializing-runner I1 → P0–P3). No mapping paste. Init reads **projected `_facts.json`**, not `inductive-scope/*.json` prose. When `drafting.inductive` is true (K2), Step 0's projection must have written `_facts.json` first — `begin-init` hard-errors if it is missing; initializing-runner then skips P0 atomization and validates the projected facts. The upstream scope doc is a **completeness cross-check only**.
+Compose the compose document via fact-first Init (see initializing-runner Steps 1–6). No mapping paste. Init reads **projected `_facts.json`**, not `inductive-scope/*.json` prose. When `drafting.inductive` is true (K2), Step 0's projection must have written `_facts.json` first — `begin-init` hard-errors if it is missing; initializing-runner then skips its Step 2 atomization and validates the projected facts. The upstream scope doc is a **completeness cross-check only**.
 
 1. Run `$DRAFT_CONTROL begin-init`.
    - On failure → Blocking.
@@ -130,7 +130,7 @@ Entry: `advance-to-freeedit` success, or Evaluating fix resume.
 - User drives edits; AI assists on request.
 - Prefer **structured** edits over hand-editing the assembled compose `.md` (`.md` is a one-way projection):
   - **Tier A (same revision, presentation):** edit `_body-{cid}.txt` / `_derive-{cid}.json` (optionally sync existing fact `text` in `_facts.json`); validate; rebuild the compose doc via `$COMPOSE_DOC_CONTROL init-doc` then per-chapter `append-chapter` in `_chapters.json` order. Skip Step 0 / Step 1.
-  - **Tier B (new revision, structure/facts topology):** do **not** patch chapter set / `lens_tags` in place — run `$START_COMPOSE` for a new revision (P0–P3). Leave Evaluating-fix-resume.
+  - **Tier B (new revision, structure/facts topology):** do **not** patch chapter set / `lens_tags` in place — run `$START_COMPOSE` for a new revision (initializing-runner Steps 2–6). Leave Evaluating-fix-resume.
   - If the user insists on editing the assembled `.md`: warn that the next rebuild / new revision will overwrite; do not reverse-parse `.md` into JSON.
 - When user signals done, ask using remaining `drafting.post_init_options` that still apply (typically Evaluate; Deliver only if listed and Evaluating already completed for this revision):
   - **Evaluate** → **Evaluating Rules** below.
@@ -163,7 +163,7 @@ Dimension set, evaluation framework, and eval-mode branching (e.g. tech vs produ
 
 ## Delivery Rules
 
-1. **Demand manifest (producer profiles only — those whose `compose-profile.json` declares a `demand_manifest` block):** enumerate the delivered document's demands per the block's `unit_rule` (one unit per the described decision granularity), each carrying its target `section` + a one-line `summary`; then run `$SESSION_CONTROL write-demand-manifest --units-json '<JSON array>'`. This atomization is the semantic step **you** perform — the script only mints ids, validates, and writes `<prefix>-demands.json` beside the delivered doc for a downstream stage's `intent_baseline` (design: `docs/biz/inductive-intent-baseline-source.md` §5.10). Profiles without the block: skip this step (the script no-ops if called anyway). On failure → Blocking.
+1. **Demand manifest (producer profiles only — those whose `compose-profile.json` declares a `demand_manifest` block):** enumerate the delivered document's demands per the block's `unit_rule` (one unit per the described decision granularity), each carrying its target `section` + a one-line `summary`; then run `$SESSION_CONTROL write-demand-manifest --units-json '<JSON array>'`. This atomization is the semantic step **you** perform — the script only mints ids, validates, and writes `<prefix>-demands.json` beside the delivered doc for a downstream stage's `intent_baseline` (design rationale, source repo, why-only: `docs/biz/inductive-intent-baseline-source.md` §5.10). Profiles without the block: skip this step (the script no-ops if called anyway). On failure → Blocking.
 
 2. Run `$SESSION_INFO --view stage-transitions`. On non-zero exit → Blocking. On success: prompt next stages when present.
 

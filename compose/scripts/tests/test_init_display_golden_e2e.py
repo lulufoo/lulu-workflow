@@ -8,7 +8,7 @@ Committed fixtures under ``fixtures/init_display_golden/{profile}/revision1``:
   that pass ``validate_init_artifacts`` against live local registries
 
 This is the mechanical half of the K3-b/b' gate (golden + validate). It does
-**not** replace a live Initializing agent session (P2 prose authorship).
+**not** replace a live Initializing agent session (Step 5 prose authorship).
 """
 
 from __future__ import annotations

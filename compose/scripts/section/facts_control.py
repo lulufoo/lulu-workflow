@@ -9,9 +9,9 @@ Subcommands:
 
 CLI details: ``python3 facts_control.py --help``
 
-Design SSOT: docs/biz/compose-fact-first-theory/compose-fact-first-display-layer-design.md §3.1, §11 (M1);
+Design rationale (source repo, why-only): docs/biz/compose-fact-first-theory/compose-fact-first-display-layer-design.md §3.1, §11 (M1);
 optional ``source`` field: compose-fact-first-k1-pd-design.md §3.
-Wired into fact-first Init (P0 / Pd / P3).
+Wired into fact-first Init (Step 2 / Step 3 / Step 6).
 """
 
 from __future__ import annotations

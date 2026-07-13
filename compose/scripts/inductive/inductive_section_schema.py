@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Schema and I/O for per-section inductive-scope JSON (section-SoT).
 
-Design SSOT: docs/biz/inductive-scope-section-sot-design.md §2 / §14.
+Design rationale (source repo, why-only): docs/biz/inductive-scope-section-sot-design.md §2 / §14.
 AI never hand-writes these files — only scripts via this module (I12).
 """
 
