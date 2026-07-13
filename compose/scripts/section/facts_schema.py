@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Schema and I/O for revision ``_facts.json`` (compose fact-first SoT).
 
-Design rationale (source repo, why-only): docs/biz/compose-fact-first-theory/compose-fact-first-display-layer-design.md §3.1;
-K1 ``source`` field: docs/biz/compose-fact-first-theory/compose-fact-first-k1-pd-design.md §3.
+Design rationale (source repo, why-only): docs/biz/compose-fact-first-theory/archive/compose-fact-first-display-layer-design.md §3.1;
+K1 ``source`` field: docs/biz/compose-fact-first-theory/archive/compose-fact-first-k1-pd-design.md §3.
 
 Shape: JSON array of ``{id, text, lens_tags}`` plus optional ``source``
 (non-empty string array; Step-3-derived facts only) — no envelope.

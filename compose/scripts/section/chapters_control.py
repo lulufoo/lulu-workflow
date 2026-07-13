@@ -8,7 +8,7 @@ Subcommands:
 
 CLI details: ``python3 chapters_control.py --help``
 
-Design rationale (source repo, why-only): docs/biz/compose-fact-first-theory/compose-fact-first-display-layer-design.md §3.4, §11.2 (M2).
+Design rationale (source repo, why-only): docs/biz/compose-fact-first-theory/archive/compose-fact-first-display-layer-design.md §3.4, §11.2 (M2).
 Consumed by fact-first Init (Step 4 / Step 6) via ``display_layer_gates.py``.
 """
 

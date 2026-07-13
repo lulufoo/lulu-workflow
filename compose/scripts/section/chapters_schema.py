@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Schema and I/O for revision ``_chapters.json`` (fact-first display chapters).
 
-Design rationale (source repo, why-only): docs/biz/compose-fact-first-theory/compose-fact-first-display-layer-design.md §3.4.
+Design rationale (source repo, why-only): docs/biz/compose-fact-first-theory/archive/compose-fact-first-display-layer-design.md §3.4.
 Shape: JSON array of chapter objects — no envelope.
 
 Written by Step 4 (global organization); consumed by Step 5 (per-chapter write) and

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Mechanical shell for kernel Step 3 (deductive derivation, K1).
 
-Design rationale (source repo, why-only): docs/biz/compose-fact-first-theory/compose-fact-first-k1-pd-design.md §2.
+Design rationale (source repo, why-only): docs/biz/compose-fact-first-theory/archive/compose-fact-first-k1-pd-design.md §2.
 
 Step 3 = AI semantic step + this mechanical shell. Scripts never invent derived
 work-item text — they only:
