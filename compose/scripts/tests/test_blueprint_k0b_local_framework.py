@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""K0b: lulu-blueprint local candidates outline + presence (fact-first only)."""
+"""K0b: lulu-blueprint candidates outline + presence (upstream framework SSOT)."""
 
 from __future__ import annotations
 
@@ -18,7 +18,12 @@ _SECTION_SCHEMA = (
     / "registry"
 )
 sys.path.insert(0, str(_SECTION_SCHEMA))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from framework_template_sources import (  # noqa: E402
+    product_blueprint_outline_registry,
+    product_blueprint_section_registry,
+)
 from outline_registry_schema import (  # noqa: E402
     normalize_outline_registry,
     validate_outline_candidates_alignment,
@@ -29,17 +34,18 @@ from section_registry_schema import (  # noqa: E402
     validate_section_registry,
 )
 
-_FRAMEWORK = _REPO / "lulu-dev-workflow" / "lulu-blueprint" / "framework"
-_SECTION_PATH = _FRAMEWORK / "product-blueprint-topic-section-registry.json"
-_OUTLINE_PATH = _FRAMEWORK / "product-blueprint-topic-outline-registry.json"
 _SKILL_CONFIG = (
     _REPO / "skill-config" / "lulu-dev-workflow" / "stages" / "lulu-blueprint.json"
 )
 _PROFILE = _REPO / "lulu-dev-workflow" / "lulu-blueprint" / "compose-profile.json"
+_GH_BLUEPRINT = (
+    "https://github.com/lulufoo/lulu-workflow-framework/blob/main/"
+    "lulu-dev-workflow/template/blueprint/"
+)
 
 
 def test_blueprint_k0b_section_registry_presence_and_edges() -> None:
-    data = json.loads(_SECTION_PATH.read_text(encoding="utf-8"))
+    data = product_blueprint_section_registry()
     assert validate_section_registry(data) == []
     normalized = normalize_section_registry(data)
     for key in normalized["section_order"]:
@@ -49,15 +55,13 @@ def test_blueprint_k0b_section_registry_presence_and_edges() -> None:
 
 
 def test_blueprint_k0b_outline_is_candidates_shaped() -> None:
-    data = json.loads(_OUTLINE_PATH.read_text(encoding="utf-8"))
+    data = product_blueprint_outline_registry()
     assert "candidates" in data
     assert "outline_order" not in data
     assert "blocks" not in data
     assert validate_outline_registry(data) == []
     outline = normalize_outline_registry(data)
-    section = normalize_section_registry(
-        json.loads(_SECTION_PATH.read_text(encoding="utf-8"))
-    )
+    section = normalize_section_registry(product_blueprint_section_registry())
     assert validate_outline_candidates_alignment(outline, section) == []
     blocks = {c["block"]: c["anchor_lenses"] for c in outline["candidates"]}
     assert blocks == {
@@ -69,13 +73,15 @@ def test_blueprint_k0b_outline_is_candidates_shaped() -> None:
     }
 
 
-def test_blueprint_k0b_skill_config_points_local() -> None:
+def test_blueprint_k0b_skill_config_points_upstream() -> None:
     cfg = json.loads(_SKILL_CONFIG.read_text(encoding="utf-8"))
     compose = cfg["compose"]
-    assert compose["pbt_section_registry_url"].startswith("lulu-dev-workflow/")
-    assert compose["pbt_outline_registry_url"].startswith("lulu-dev-workflow/")
-    assert (_REPO / compose["pbt_section_registry_url"]).is_file()
-    assert (_REPO / compose["pbt_outline_registry_url"]).is_file()
+    assert compose["pbt_section_registry_url"] == (
+        f"{_GH_BLUEPRINT}product-blueprint-topic-section-registry.json"
+    )
+    assert compose["pbt_outline_registry_url"] == (
+        f"{_GH_BLUEPRINT}product-blueprint-topic-outline-registry.json"
+    )
     for remote_key in (
         "pbt_section_form_registry_url",
         "pbt_section_kw_criteria_url",
