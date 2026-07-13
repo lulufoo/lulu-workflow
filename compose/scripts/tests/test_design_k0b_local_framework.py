@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""K0b: lulu-design local candidates outline + presence (fact-first only)."""
+"""K0b: lulu-design candidates outline + presence (upstream framework SSOT)."""
 
 from __future__ import annotations
 
@@ -18,7 +18,12 @@ _SECTION_SCHEMA = (
     / "registry"
 )
 sys.path.insert(0, str(_SECTION_SCHEMA))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from framework_template_sources import (  # noqa: E402
+    tech_design_outline_registry,
+    tech_design_section_registry,
+)
 from outline_registry_schema import (  # noqa: E402
     normalize_outline_registry,
     validate_outline_candidates_alignment,
@@ -29,17 +34,18 @@ from section_registry_schema import (  # noqa: E402
     validate_section_registry,
 )
 
-_FRAMEWORK = _REPO / "lulu-dev-workflow" / "lulu-design" / "framework"
-_SECTION_PATH = _FRAMEWORK / "42-tech-design-section-registry.json"
-_OUTLINE_PATH = _FRAMEWORK / "45-tech-design-feature-outline-registry.json"
 _SKILL_CONFIG = (
     _REPO / "skill-config" / "lulu-dev-workflow" / "stages" / "lulu-design.json"
 )
 _PROFILE = _REPO / "lulu-dev-workflow" / "lulu-design" / "compose-profile.json"
+_GH_DESIGN = (
+    "https://github.com/lulufoo/lulu-workflow-framework/blob/main/"
+    "lulu-dev-workflow/template/design/"
+)
 
 
 def test_design_k0b_section_registry_has_presence() -> None:
-    data = json.loads(_SECTION_PATH.read_text(encoding="utf-8"))
+    data = tech_design_section_registry()
     assert validate_section_registry(data) == []
     normalized = normalize_section_registry(data)
     for key in normalized["section_order"]:
@@ -47,15 +53,13 @@ def test_design_k0b_section_registry_has_presence() -> None:
 
 
 def test_design_k0b_outline_is_candidates_shaped() -> None:
-    data = json.loads(_OUTLINE_PATH.read_text(encoding="utf-8"))
+    data = tech_design_outline_registry()
     assert "candidates" in data
     assert "outline_order" not in data
     assert "blocks" not in data
     assert validate_outline_registry(data) == []
     outline = normalize_outline_registry(data)
-    section = normalize_section_registry(
-        json.loads(_SECTION_PATH.read_text(encoding="utf-8"))
-    )
+    section = normalize_section_registry(tech_design_section_registry())
     assert validate_outline_candidates_alignment(outline, section) == []
     blocks = {c["block"] for c in outline["candidates"]}
     assert blocks == {
@@ -68,13 +72,15 @@ def test_design_k0b_outline_is_candidates_shaped() -> None:
     }
 
 
-def test_design_k0b_skill_config_points_local() -> None:
+def test_design_k0b_skill_config_points_upstream() -> None:
     cfg = json.loads(_SKILL_CONFIG.read_text(encoding="utf-8"))
     compose = cfg["compose"]
-    assert compose["tdt_section_registry_url"].startswith("lulu-dev-workflow/")
-    assert compose["tdt_outline_registry_url"].startswith("lulu-dev-workflow/")
-    assert (_REPO / compose["tdt_section_registry_url"]).is_file()
-    assert (_REPO / compose["tdt_outline_registry_url"]).is_file()
+    assert compose["tdt_section_registry_url"] == (
+        f"{_GH_DESIGN}42-tech-design-section-registry.json"
+    )
+    assert compose["tdt_outline_registry_url"] == (
+        f"{_GH_DESIGN}45-tech-design-feature-outline-registry.json"
+    )
 
 
 def test_design_k0b_profile_has_no_display_layer_flag() -> None:
