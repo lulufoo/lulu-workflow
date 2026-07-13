@@ -3,7 +3,7 @@
 
 One trace file per upstream role (axis semantics: compose/references/
 provenance-algorithm-semantics.md; design rationale, source repo, why-only:
-docs/biz/compose-provenance-mechanism.md):
+docs/domain/compose/provenance-ssot/compose-provenance-mechanism.md):
 
     provenance-trace-intent.json   role=intent-baseline  (意图基准 / axis 1+2)
     provenance-trace-scope.json    role=scope            (派生父级 / axis 1+2)

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Step 6 placement gates for the fact-first display layer (increment 1, M2).
 
-Design rationale (source repo, why-only): docs/biz/compose-fact-first-theory/archive/compose-fact-first-display-layer-design.md §8.2, §11.2.
+Design rationale (source repo, why-only): docs/domain/compose/mechanism-ssot/compose-display-architecture.md;
+process how archive: docs/domain/compose/archive-2.0/compose-fact-first-display-layer-design.md §8.2, §11.2.
 
 Pure functions only — no file I/O, no markdown parsing. Callers load
 ``_facts.json`` / ``_chapters.json`` via ``facts_schema.load_facts`` /

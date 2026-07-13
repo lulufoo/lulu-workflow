@@ -4,8 +4,9 @@
 Subcommands:
     project   Traverse section_order × decisions[] → write ``facts_path(revision)``
 
-Design rationale (source repo, why-only): docs/biz/compose-fact-first-theory/archive/compose-fact-first-k2-inductive-design.md
-§2–§5. Scripts never invent semantics — only renumber / tag / source-pack / save.
+Design rationale (source repo, why-only): docs/domain/compose/inductive-ssot/compose-inductive-architecture.md (K2 projection exit);
+process how archive: docs/domain/compose/archive-2.0/compose-fact-first-k2-inductive-design.md §2–§5.
+Scripts never invent semantics — only renumber / tag / source-pack / save.
 """
 
 from __future__ import annotations

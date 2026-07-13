@@ -7,7 +7,8 @@ Subcommands:
     append   Append derived facts (contiguous ids) and write ``_facts.json``
     classify Classify zero-coverage required lenses (derivation vs true gap)
 
-Design rationale (source repo, why-only): docs/biz/compose-fact-first-theory/archive/compose-fact-first-k1-pd-design.md §2/§5.
+Design rationale (source repo, why-only): docs/domain/compose/mechanism-ssot/compose-fact-architecture.md (Pd);
+process how archive: docs/domain/compose/archive-2.0/compose-fact-first-k1-pd-design.md §2/§5.
 Scripts never invent derived work-item text — only mechanical shell.
 """
 

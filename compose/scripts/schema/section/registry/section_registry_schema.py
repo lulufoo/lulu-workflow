@@ -368,7 +368,8 @@ def section_headings(project_root: Path | None = None) -> dict[str, str]:
 def section_presence_map(project_root: Path | None = None) -> dict[str, str]:
     """Return section_key -> presence ('required'|'optional', default 'required').
 
-    Design rationale (source repo, why-only): docs/biz/compose-fact-first-theory/archive/compose-fact-first-display-layer-design.md §3.2, §11.3
+    Design rationale (source repo, why-only): docs/domain/compose/mechanism-ssot/compose-lens-architecture.md;
+    process how archive: docs/domain/compose/archive-2.0/compose-fact-first-display-layer-design.md §3.2, §11.3
     (M3, 需求2). Feeds ``display_layer_gates.check_c1``'s ``presence_map`` param.
     """
     registry = _active_registry(project_root)

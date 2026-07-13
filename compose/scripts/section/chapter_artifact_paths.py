@@ -4,7 +4,8 @@
 Case-preserving ``cid`` — chapter ids (``_chapters.json[].id``, e.g.
 ``chap-3``) are free stable strings, not uppercase lens keys; case-folding
 would silently mangle the path into e.g. ``_derive-CHAP-3.json`` (design
-rationale, source repo, why-only: docs/biz/compose-fact-first-theory/archive/compose-fact-first-display-layer-design.md §11.4 Major#4).
+rationale, source repo, why-only: docs/domain/compose/mechanism-ssot/compose-display-architecture.md;
+process how archive: docs/domain/compose/archive-2.0/compose-fact-first-display-layer-design.md §11.4 Major#4).
 """
 
 from __future__ import annotations
