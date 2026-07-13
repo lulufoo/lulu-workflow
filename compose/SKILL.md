@@ -88,7 +88,7 @@ Load {actual $SKILL_ROOT}/compose/inductive-runner/SKILL.md and follow its instr
 ```
 
 2. After the gate spine completes (G4 recompose and G5 provenance both closed), run `$DRAFT_CONTROL inductive-complete`. On failure → Blocking. It emits per-section scope files under `revision{active_doc}/inductive-scope/` consumed by Step 1.
-3. **K2 projection (only when this profile also has `drafting.display_layer: true`):** run `$INDUCTIVE_FACTS_PROJ project` once so Init can consume `_facts.json` without re-atomizing. On failure → Blocking. Skip this step when `display_layer` is absent/false (legacy I* path keeps reading `decisions[]` via `$RESOLVE_I_STAR`).
+3. **K2 projection (when `drafting.inductive` is true):** run `$INDUCTIVE_FACTS_PROJ project` once so Init can consume `_facts.json` without re-atomizing. On failure → Blocking.
 
 ```bash
 $INDUCTIVE_FACTS_PROJ project \
@@ -101,7 +101,7 @@ $INDUCTIVE_FACTS_PROJ project \
 
 ### Step 1 — Initializing
 
-Compose the compose document via `I*` / `F` / `C` per section (see initializing-runner). No mapping paste. When Step 0 produced per-section SoT under `revision{active_doc}/inductive-scope/`, `begin-init` passes that directory as `INDUCTIVE_DIR`. When both `drafting.inductive` and `drafting.display_layer` are true (K2), Step 0's projection must have written `_facts.json` first — `begin-init` hard-errors if it is missing; initializing-runner then skips P0 atomization and validates the projected facts. On the legacy `display_layer=false` path, I2a obtains `I*` only via **`$RESOLVE_I_STAR`** (`i_star_control resolve-i-star`), which keys off profile `drafting.inductive` (`true` → inductive-scope `{S}.json` `decisions[].text`; `false` → `_partition.json` by `home`). Do not inclusive-match the full scope per section. The upstream scope doc is a **completeness cross-check only**. Non-inductive profiles must materialize Partition in I0; `init-complete` validates `_partition.json` when `drafting.inductive` is false.
+Compose the compose document via fact-first Init (see initializing-runner I1 → P0–P3). No mapping paste. When Step 0 produced per-section SoT under `revision{active_doc}/inductive-scope/`, parent projects it to `_facts.json` before `begin-init`. When `drafting.inductive` is true (K2), Step 0's projection must have written `_facts.json` first — `begin-init` hard-errors if it is missing; initializing-runner then skips P0 atomization and validates the projected facts. The upstream scope doc is a **completeness cross-check only**.
 
 1. Run `$DRAFT_CONTROL begin-init`.
    - On failure → Blocking.
@@ -128,7 +128,7 @@ Await completion (`$SUBAGENT_AWAIT_SYNC`).
 Entry: `advance-to-freeedit` success, or Evaluating fix resume.
 
 - User drives edits; AI assists on request.
-- When this profile has `drafting.display_layer: true`, prefer **structured** edits over hand-editing the assembled compose `.md` (`.md` is a one-way projection):
+- Prefer **structured** edits over hand-editing the assembled compose `.md` (`.md` is a one-way projection):
   - **Tier A (same revision, presentation):** edit `_body-{cid}.txt` / `_derive-{cid}.json` (optionally sync existing fact `text` in `_facts.json`); validate; rebuild the compose doc via `init-doc` + per-chapter `append-chapter` (or `reproject` when available). Skip Step 0 / Step 1.
   - **Tier B (new revision, structure/facts topology):** do **not** patch chapter set / `lens_tags` in place — run `$START_COMPOSE` for a new revision (P0–P3). Leave Evaluating-fix-resume.
   - If the user insists on editing the assembled `.md`: warn that the next reproject / new revision will overwrite; do not reverse-parse `.md` into JSON.
@@ -196,7 +196,7 @@ Fetch compose framework templates on demand; **do not** read `workflow-config.js
 | `$SESSION_INFO` | `python3 "$SKILL_ROOT/compose/scripts/core/session_info.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile <profile_id> --view <view>` |
 | `$SESSION_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/core/session_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile <profile_id> <subcommand>` — drives outer session transitions via `compose/transitions/compose-session.json`; do not load that file directly |
 | `$DRAFT_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/section/draft_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile <profile_id> <subcommand>` |
-| `$INDUCTIVE_FACTS_PROJ` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_facts_projection.py"` (K2; after inductive-complete when `drafting.display_layer` is true) |
+| `$INDUCTIVE_FACTS_PROJ` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_facts_projection.py"` (K2; after inductive-complete when `drafting.inductive` is true) |
 | `$RESOLVE_PLAN_ROLE` | `python3 "$SKILL_ROOT/compose/scripts/scope/scope_resolver.py" resolve-role --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile <profile_id>` |
 | `$FETCH_COMPOSE` | `python3 "$SKILL_ROOT/compose/scripts/io/fetch_compose_framework.py" --role <role> --profile <profile_id> --project-root "$(pwd)" --cycle-id "$CYCLE_ID"` |
 | `$EVAL_CONTROL` | `python3 "$SKILL_ROOT/eval/scripts/eval_entry.py" --workflow <profile_id> --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |

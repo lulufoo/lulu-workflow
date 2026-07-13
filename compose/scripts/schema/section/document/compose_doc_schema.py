@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
-"""Authoritative read helpers for profile compose documents (section-keyed markdown).
+"""Authoritative read helpers for profile compose documents (presentation).
 
-Section bodies are located by `<!-- section-key:KEY -->` anchors on H3 inside outline H2 blocks (canonical).
-Flat H2 anchors and legacy registry heading match are read fallbacks only.
+Compose documents use chapter anchors (``<!-- chapter:{cid} -->``). Section-key
+grammar retired in K3-d.
 
 CLI:
     python3 compose_doc_schema.py --schema
     python3 compose_doc_schema.py --read  --path <compose-doc.md>
     python3 compose_doc_schema.py --read  --cycle-id <id> --project-root . [--profile <profile_id>]
-    python3 compose_doc_schema.py --section-body --path <compose-doc.md> --section KEY
 """
 
 from __future__ import annotations
@@ -26,7 +25,7 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
-from section_registry_schema import section_heading, summary_section_key
+from chapter_doc_schema import parse_chapter_bodies  # noqa: E402
 from session_state_schema import load_active_doc
 from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID
 from workflow_profile_paths import document_path, session_state_path
@@ -37,26 +36,11 @@ _SCHEMA: list[dict] = [
     {"field": "revision", "type": "integer", "required": True,
      "description": "Active document round from session-state.md"},
     {"field": "title", "type": "string", "required": True,
-     "description": "First H1 heading, or lead line from summary section"},
+     "description": "First H1 heading, or lead line from first chapter / body"},
     {"field": "summary", "type": "string", "required": True,
-     "description": "Summary section body (registry summary_section_key), truncated"},
+     "description": "First chapter body (or whole-doc lead), truncated"},
 ]
 _SUMMARY_MAX_LEN = 300
-
-_SECTION_KEY_ANCHOR_RE = re.compile(
-    r"<!--\s*section-key:\s*([A-Za-z0-9_]+)\s*-->",
-    re.IGNORECASE,
-)
-_SECTION_HEADER_WITH_KEY_RE = re.compile(
-    r"^#{2,3}\s+(.*?)\s*<!--\s*section-key:\s*([A-Za-z0-9_]+)\s*-->\s*$",
-    re.MULTILINE | re.IGNORECASE,
-)
-_H2_RE = re.compile(r"^##\s+", re.MULTILINE)
-_H3_WITH_KEY_RE = re.compile(
-    r"^###\s+.*<!--\s*section-key:",
-    re.MULTILINE | re.IGNORECASE,
-)
-_HRULE_RE = re.compile(r"^\s*---\s*$", re.MULTILINE)
 
 
 def get_schema() -> list[dict]:
@@ -81,20 +65,6 @@ def _first_h1(text: str) -> str:
     return ""
 
 
-def _section_body_by_heading(text: str, heading: str) -> str:
-    pattern = re.compile(
-        rf"^##\s+{re.escape(heading)}\s*$",
-        re.IGNORECASE | re.MULTILINE,
-    )
-    match = pattern.search(text)
-    if not match:
-        return ""
-    start = match.end()
-    next_heading = re.search(r"^##\s+", text[start:], re.MULTILINE)
-    end = start + next_heading.start() if next_heading else len(text)
-    return text[start:end].strip()
-
-
 def _first_content_line(text: str) -> str:
     for line in text.splitlines():
         stripped = line.strip()
@@ -117,151 +87,14 @@ def _truncate_summary(text: str, *, max_len: int = _SUMMARY_MAX_LEN) -> str:
     return collapsed[: max_len - 1] + "…"
 
 
-def format_section_heading(section_key: str, display_title: str) -> str:
-    """Return H2 line with stable section-key anchor for compose document writers."""
-    key = section_key.strip().upper()
-    title = display_title.strip() or "（待命名）"
-    return f"## {title} <!-- section-key:{key} -->"
-
-
-def format_section_intent_heading(section_key: str, display_title: str) -> str:
-    """Return H3 line with stable section-key anchor for feature outline-block assembly."""
-    key = section_key.strip().upper()
-    title = display_title.strip() or "（待补）"
-    return f"### {title} <!-- section-key:{key} -->"
-
-
-def format_section_intent_anchor(section_key: str) -> str:
-    """Return intent anchor comment for outline-block assembly (legacy bare anchor)."""
-    key = section_key.strip().upper()
-    return f"<!-- section-key:{key} -->"
-
-
-def _display_heading_from_anchor_line(body: str, match: re.Match[str]) -> str:
-    """Extract display title when anchor sits on or immediately follows an H2/H3 header line."""
-    line_start = body.rfind("\n", 0, match.start()) + 1
-    line_end = body.find("\n", match.start())
-    if line_end == -1:
-        line_end = len(body)
-    line = body[line_start:line_end]
-    header_match = _SECTION_HEADER_WITH_KEY_RE.match(line)
-    if header_match and header_match.group(2).upper() == match.group(1).upper():
-        return header_match.group(1).strip()
-    prev = body[:line_start].rstrip("\n")
-    if not prev:
-        return ""
-    prev_line = prev.rsplit("\n", 1)[-1]
-    prev_match = _SECTION_HEADER_WITH_KEY_RE.match(prev_line)
-    if prev_match and prev_match.group(2).upper() == match.group(1).upper():
-        return prev_match.group(1).strip()
-    return ""
-
-
-def _next_boundary(body: str, start: int, anchor_positions: list[int]) -> int:
-    """Return end offset for section body starting at start."""
-    next_h2 = _H2_RE.search(body, start)
-    h2_pos = next_h2.start() if next_h2 else len(body)
-    next_h3 = _H3_WITH_KEY_RE.search(body, start)
-    h3_pos = next_h3.start() if next_h3 else len(body)
-    later_anchors = [pos for pos in anchor_positions if pos > start]
-    anchor_pos = later_anchors[0] if later_anchors else len(body)
-    rule_match = _HRULE_RE.search(body, start)
-    rule_pos = rule_match.start() if rule_match else len(body)
-    return min(h2_pos, h3_pos, anchor_pos, rule_pos)
-
-
-def _parse_sections_by_intent_anchors(
-    body: str,
-) -> dict[str, dict[str, str]]:
-    """Parse intent-key bodies from standalone section-key anchors."""
-    sections: dict[str, dict[str, str]] = {}
-    anchor_matches = list(_SECTION_KEY_ANCHOR_RE.finditer(body))
-    if not anchor_matches:
-        return sections
-
-    anchor_positions = [match.start() for match in anchor_matches]
-    for index, match in enumerate(anchor_matches):
-        key = match.group(1).upper()
-        display = _display_heading_from_anchor_line(body, match)
-        start = match.end()
-        end = _next_boundary(body, start, anchor_positions)
-        sections[key] = {
-            "display_heading": display,
-            "body": body[start:end].strip(),
-        }
-    return sections
-
-
-def parse_sections(
-    text: str,
-    *,
-    project_root: Path | None = None,
-) -> dict[str, dict[str, str]]:
-    """Parse compose document into section_key → {display_heading, body}."""
-    body = _strip_frontmatter(text)
-    sections = _parse_sections_by_intent_anchors(body)
-    if sections:
-        return sections
-
-    matches = list(_SECTION_HEADER_WITH_KEY_RE.finditer(body))
-    for index, match in enumerate(matches):
-        key = match.group(2).upper()
-        display = match.group(1).strip()
-        start = match.end()
-        end = matches[index + 1].start() if index + 1 < len(matches) else len(body)
-        sections[key] = {
-            "display_heading": display,
-            "body": body[start:end].strip(),
-        }
-
-    if sections:
-        return sections
-
-    from section_registry_schema import section_order  # noqa: WPS433
-
-    for key in section_order(project_root):
-        heading = section_heading(key, project_root=project_root)
-        legacy_body = _section_body_by_heading(body, heading)
-        if legacy_body or heading:
-            sections[key] = {
-                "display_heading": heading,
-                "body": legacy_body,
-            }
-    return sections
-
-
-def section_display_heading(
-    text: str,
-    section_key: str,
-    *,
-    project_root: Path | None = None,
-) -> str:
-    """Return human display title for a section (from document anchor line)."""
-    key = section_key.strip().upper()
-    parsed = parse_sections(text, project_root=project_root)
-    if key in parsed:
-        heading = parsed[key]["display_heading"]
-        if heading:
-            return heading
-    body = _strip_frontmatter(text)
-    if _SECTION_KEY_ANCHOR_RE.search(body):
-        return ""
-    return section_heading(key, project_root=project_root)
-
-
-def section_body_by_key(
-    text: str,
-    section_key: str,
-    *,
-    project_root: Path | None = None,
-) -> str:
-    """Return section body located by section-key anchor or legacy heading."""
-    key = section_key.strip().upper()
-    parsed = parse_sections(text, project_root=project_root)
-    if key in parsed:
-        return parsed[key]["body"]
-    body = _strip_frontmatter(text)
-    return _section_body_by_heading(body, section_heading(key, project_root=project_root))
+def _summary_source(raw: str, body: str) -> str:
+    """Prefer first chapter body (document order); else whole body."""
+    chapters = parse_chapter_bodies(raw)
+    if chapters:
+        for segment in chapters.values():
+            if segment.strip():
+                return segment
+    return body
 
 
 def extract_presentation(path: Path, *, revision: int | None = None) -> dict:
@@ -271,8 +104,7 @@ def extract_presentation(path: Path, *, revision: int | None = None) -> dict:
 
     raw = path.read_text(encoding="utf-8")
     body = _strip_frontmatter(raw)
-    summary_key = summary_section_key()
-    summary_body = section_body_by_key(raw, summary_key)
+    summary_body = _summary_source(raw, body)
 
     title = _first_h1(body)
     if not title:
@@ -325,13 +157,11 @@ def load_presentation_from_cycle(
 
 def _cli() -> int:
     parser = argparse.ArgumentParser(
-        description="Compose document (section-keyed markdown) presentation utilities",
+        description="Compose document presentation utilities",
     )
     parser.add_argument("--schema", action="store_true", help="Print JSON schema array and exit")
     parser.add_argument("--read", action="store_true", help="Print presentation payload as JSON")
-    parser.add_argument("--section-body", action="store_true", help="Print section body JSON")
     parser.add_argument("--path", type=Path, help="Path to compose document markdown")
-    parser.add_argument("--section", type=str, help="Section key for --section-body")
     parser.add_argument("--cycle-id", type=str, help="Cycle ID for --read")
     parser.add_argument("--project-root", type=Path, default=Path("."), help="Project root")
     parser.add_argument(
@@ -347,20 +177,6 @@ def _cli() -> int:
 
     project_root = args.project_root.resolve()
     profile_id = args.profile.strip() or DEFAULT_COMPOSE_PROFILE_ID
-
-    if args.section_body:
-        if not args.path or not args.section:
-            parser.error("--section-body requires --path and --section")
-        raw = args.path.resolve().read_text(encoding="utf-8")
-        key = args.section.strip().upper()
-        body = section_body_by_key(raw, key, project_root=project_root)
-        payload = {
-            "section_key": key,
-            "display_heading": section_display_heading(raw, key, project_root=project_root),
-            "body": body,
-        }
-        print(json.dumps(payload, indent=2, ensure_ascii=False))
-        return 0
 
     if args.read:
         try:

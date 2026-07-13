@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Schema and I/O for revision ``_facts.json`` (compose fact-first SoT).
 
-Design SSOT: docs/biz/compose-fact-first-display-layer-design.md §3.1;
+Design SSOT: docs/biz/compose-fact-first-theory/compose-fact-first-display-layer-design.md §3.1;
 K1 ``source`` field: docs/biz/compose-fact-first-theory/compose-fact-first-k1-pd-design.md §3.
 
 Shape: JSON array of ``{id, text, lens_tags}`` plus optional ``source``

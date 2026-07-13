@@ -1,7 +1,9 @@
 {
   "profile_id": "lulu-blueprint",
   "stage_name": "lulu-blueprint",
-  "cycle_types": ["topic"],
+  "cycle_types": [
+    "topic"
+  ],
   "shell_dir": "lulu-blueprint",
   "shell_paths": {
     "hook_guard": "scripts/hook/hook_guard.py",
@@ -9,14 +11,17 @@
   },
   "document": {
     "filename": "product-doc.md",
-    "schema": "section-keyed"
+    "schema": "chapter"
   },
   "drafting": {
     "inductive": false,
     "freeedit": true,
     "code_grounding": false,
-    "display_layer": true,
-    "post_init_options": ["freeedit", "evaluate", "deliver"]
+    "post_init_options": [
+      "freeedit",
+      "evaluate",
+      "deliver"
+    ]
   },
   "start": {
     "adapter_module": "lulu-blueprint/scripts/start/product_blueprint_start_adapter.py",

@@ -1,0 +1,123 @@
+[
+  {
+    "id": "chap-si",
+    "anchor_lenses": [
+      "CTX",
+      "GO"
+    ],
+    "derived_from": [
+      "cand-SI"
+    ],
+    "op": "keep",
+    "facts": [
+      {
+        "fid": "F-1",
+        "form_lens": "CTX"
+      },
+      {
+        "fid": "F-2",
+        "form_lens": "GO"
+      }
+    ]
+  },
+  {
+    "id": "chap-bd",
+    "anchor_lenses": [
+      "SC",
+      "NG",
+      "I"
+    ],
+    "derived_from": [
+      "cand-BD"
+    ],
+    "op": "keep",
+    "facts": [
+      {
+        "fid": "F-3",
+        "form_lens": "SC"
+      },
+      {
+        "fid": "F-4",
+        "form_lens": "NG"
+      },
+      {
+        "fid": "F-5",
+        "form_lens": "I"
+      }
+    ]
+  },
+  {
+    "id": "chap-sh",
+    "anchor_lenses": [
+      "ST"
+    ],
+    "derived_from": [
+      "cand-SH"
+    ],
+    "op": "keep",
+    "facts": [
+      {
+        "fid": "F-6",
+        "form_lens": "ST"
+      }
+    ]
+  },
+  {
+    "id": "chap-rs",
+    "anchor_lenses": [
+      "KD"
+    ],
+    "derived_from": [
+      "cand-RS"
+    ],
+    "op": "keep",
+    "facts": [
+      {
+        "fid": "F-7",
+        "form_lens": "KD"
+      }
+    ]
+  },
+  {
+    "id": "chap-ct",
+    "anchor_lenses": [
+      "IF"
+    ],
+    "derived_from": [
+      "cand-CT"
+    ],
+    "op": "keep",
+    "facts": [
+      {
+        "fid": "F-8",
+        "form_lens": "IF"
+      }
+    ]
+  },
+  {
+    "id": "chap-rd",
+    "anchor_lenses": [
+      "OQ",
+      "VD",
+      "OD"
+    ],
+    "derived_from": [
+      "cand-RD"
+    ],
+    "op": "keep",
+    "facts": [
+      {
+        "fid": "F-9",
+        "form_lens": "OQ"
+      },
+      {
+        "fid": "F-10",
+        "form_lens": "VD"
+      },
+      {
+        "fid": "F-11",
+        "form_lens": "OD"
+      }
+    ]
+  }
+]

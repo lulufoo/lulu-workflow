@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""K0b: lulu-design local candidates outline + presence + display_layer flip."""
+"""K0b: lulu-design local candidates outline + presence (fact-first only)."""
 
 from __future__ import annotations
 
@@ -77,7 +77,7 @@ def test_design_k0b_skill_config_points_local() -> None:
     assert (_REPO / compose["tdt_outline_registry_url"]).is_file()
 
 
-def test_design_k0b_profile_display_layer_true() -> None:
+def test_design_k0b_profile_has_no_display_layer_flag() -> None:
     profile = json.loads(_PROFILE.read_text(encoding="utf-8"))
     assert profile["drafting"]["inductive"] is True
-    assert profile["drafting"]["display_layer"] is True
+    assert "display_layer" not in profile.get("drafting", {})

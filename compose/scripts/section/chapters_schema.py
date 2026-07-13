@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Schema and I/O for revision ``_chapters.json`` (fact-first display chapters).
 
-Design SSOT: docs/biz/compose-fact-first-display-layer-design.md §3.4.
+Design SSOT: docs/biz/compose-fact-first-theory/compose-fact-first-display-layer-design.md §3.4.
 Shape: JSON array of chapter objects — no envelope.
 
 Written by P1 (global organization); consumed by P2 (per-chapter write) and
@@ -177,7 +177,7 @@ def normalize_chapter(entry: dict[str, Any]) -> dict[str, Any]:
     """Coerce a chapter to canonical shape (uppercase lens keys, stripped strings).
 
     Defensive on missing keys so it can run **before** validation on the save
-    path (matching ``partition_schema.save_partition`` / ``facts_schema.save_facts``
+    path (matching ``facts_schema.save_facts``
     "normalize→validate" order), keeping lowercase input lenient and consistent
     across all three schemas (Opus review M-1)."""
     return {

@@ -1,0 +1,10 @@
+| 纳入 | 排除 |
+|------|------|
+| `plan_tasks.json` master/sub 树 | SQLite / 新 DB |
+| MCP create/get/list/complete | 改动 read_later |
+| `archive_document` 扩展 master/sub task id 自动关联+完成 | UI 创建任务 |
+| Tauri `services/plan_task/` | parent 一次性完成 |
+| Workbench UI 列表/详情/拷贝/双向关联 | 归档触发策略；Meili 任务索引；已完成历史展示 |
+| Skills 对接与端到端闭环 | |
+
+验收要对齐：schema+测试、MCP tools 可用、归档扩展自动关联+完成子项与父任务自动完成、双向可查、Workbench UI、Skills 闭环，且 read_later 与无参归档行为不变。

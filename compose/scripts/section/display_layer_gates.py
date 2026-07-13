@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """P3 placement gates for the fact-first display layer (increment 1, M2).
 
-Design SSOT: docs/biz/compose-fact-first-display-layer-design.md §8.2, §11.2.
+Design SSOT: docs/biz/compose-fact-first-theory/compose-fact-first-display-layer-design.md §8.2, §11.2.
 
 Pure functions only — no file I/O, no markdown parsing. Callers load
 ``_facts.json`` / ``_chapters.json`` via ``facts_schema.load_facts`` /
 ``chapters_schema.load_chapters`` and pass the normalized lists in.
 
-Wired into ``init_compose_validation.py``'s ``drafting.display_layer`` branch
-as of M4a (``validate_display_layer_artifacts``), which also adds the
-chapter-artifact-existence and assembly-completeness gates that live outside
-this module — see design §11 M4a row and §11.2 "边界" note.
+Wired into ``init_compose_validation.validate_display_layer_artifacts`` (fact-first
+Init P3). Module name keeps the historical ``display_layer_*`` prefix. That
+caller also adds chapter-artifact-existence and assembly-completeness gates
+outside this module — see design §11 M4a row and §11.2 "边界" note.
 
 Gate coverage (design §8.2): L1, L3, L4, L5, C1, Q1.
 L2 ("placement consistency") is **not** a function here — with a single

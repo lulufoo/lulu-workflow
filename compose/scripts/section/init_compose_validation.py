@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Validate Initializing derive artifacts and compose document seed.
+"""Validate Initializing display-layer artifacts and compose document seed.
 
 Subcommands:
-    validate    Check revision-dir derive/body/title/block-title artifacts and compose doc
+    validate    Check revision-dir facts/chapters/derive/body and compose doc
 
 CLI details: ``python3 init_compose_validation.py --help``
 """
@@ -11,10 +11,9 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import sys
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 _SECTION = Path(__file__).resolve().parent
 _SCRIPTS = _SECTION.parent
@@ -27,7 +26,6 @@ kernel_bootstrap.ensure_kernel_paths()
 from chapter_artifact_paths import chapter_body_path, chapter_derive_path  # noqa: E402
 from chapter_doc_schema import chapter_anchor_present, chapter_body_by_id  # noqa: E402
 from chapters_schema import chapters_path, load_chapters  # noqa: E402
-from compose_doc_schema import section_body_by_key, section_display_heading  # noqa: E402
 from display_layer_gates import run_display_layer_gates  # noqa: E402
 from facts_schema import facts_path, load_facts  # noqa: E402
 from fetch_compose_framework import fetch_compose_framework  # noqa: E402
@@ -37,44 +35,6 @@ from section_registry_schema import (  # noqa: E402
     normalize_section_registry,
 )
 from pd_derivation import normalize_dependency_graph  # noqa: E402
-from init_artifact_paths import (  # noqa: E402
-    block_titles_path,
-    body_path,
-    derive_path,
-    display_titles_path,
-)
-from partition_schema import partition_path, validate_partition_atoms  # noqa: E402
-from workflow_paths import load_profile  # noqa: E402
-
-from init_block_titles_schema import get_block_title, load_block_titles, validate_block_titles  # noqa: E402
-from init_display_titles_schema import (  # noqa: E402
-    get_display_title,
-    load_display_titles,
-    save_display_titles,
-    validate_display_titles,
-)
-
-_MIN_BODY_LINES_WITH_I_STAR = 3
-_PROHIBITED_BODY_PATTERNS = ("[Source:", "decision-doc-mapping")
-_GAP_KINDS = frozenset({"scope_absent", "unfounded"})
-_GAP_DIMENSIONS = frozenset({"what", "why", "alternatives", "failure"})
-_C_MIN = 2
-_C_MAX = 5
-
-# Display title (`display_title` in derive → H3) hard gates.
-_TITLE_PLACEHOLDER = "（待补）"
-_TITLE_MAX_LEN = 40
-# Code tokens: ASCII identifier-call (foo(), no CJK false positive), path sep,
-# symbol anchor, or a source file extension.
-_TITLE_CODE_TOKEN_RE = re.compile(
-    r"[/`]|[A-Za-z_][A-Za-z0-9_]*\(|#[A-Za-z0-9_]"
-    r"|\.(?:py|ts|js|jsx|tsx|rs|md|json|rb|go|html|css|sh|toml|ya?ml)\b",
-    re.IGNORECASE,
-)
-_SECTION_KEY_ANCHOR_RE = re.compile(
-    r"<!--\s*section-key:\s*([A-Za-z0-9_]+)\s*-->",
-    re.IGNORECASE,
-)
 
 
 def section_order_for_profile(project_root: Path, profile_id: str) -> list[str]:
@@ -87,29 +47,14 @@ def section_order_for_profile(project_root: Path, profile_id: str) -> list[str]:
     return [str(key).upper() for key in data.get("section_order") or []]
 
 
-def section_headings_for_profile(project_root: Path, profile_id: str) -> dict[str, str]:
-    raw = fetch_compose_framework(
-        "section-registry",
-        project_root,
-        profile_id=profile_id,
-    )
-    data = json.loads(raw)
-    sections = data.get("sections") or {}
-    return {
-        str(key).upper(): str((val or {}).get("heading", "")).strip()
-        for key, val in sections.items()
-    }
-
-
 def section_presence_map_for_profile(project_root: Path, profile_id: str) -> dict[str, str]:
     """section_key -> presence ('required'|'optional', default 'required').
 
     Mirrors ``section_registry_schema.section_presence_map`` but fetches by
-    explicit ``profile_id`` (same pattern as ``section_headings_for_profile``)
-    rather than the active-session-cached accessor, since this validator is
-    invoked with an explicit ``--profile`` flag, not an active compose
-    session. Feeds ``display_layer_gates.check_c1`` (design SSOT §11.4
-    Blocker#1)."""
+    explicit ``profile_id`` rather than the active-session-cached accessor,
+    since this validator is invoked with an explicit ``--profile`` flag.
+    Feeds ``display_layer_gates.check_c1``.
+    """
     raw = fetch_compose_framework(
         "section-registry",
         project_root,
@@ -153,404 +98,32 @@ def outline_registry_for_profile(
     return normalize_outline_registry(json.loads(raw))
 
 
-def flatten_outline_intents(outline: dict[str, Any]) -> list[str]:
-    keys: list[str] = []
-    for block_key in outline.get("outline_order") or []:
-        bk = str(block_key).upper()
-        block = (outline.get("blocks") or {}).get(bk) or {}
-        keys.extend(str(item).upper() for item in block.get("intents") or [])
-    return keys
-
-
-def block_h2_above_intent(raw_doc: str, first_intent_key: str) -> str:
-    """Return the nearest H2 heading above the first anchor for an intent key."""
-    key = first_intent_key.strip().upper()
-    anchor_pos: int | None = None
-    for match in _SECTION_KEY_ANCHOR_RE.finditer(raw_doc):
-        if match.group(1).upper() == key:
-            anchor_pos = match.start()
-            break
-    if anchor_pos is None:
-        return ""
-
-    h2_title = ""
-    for line in raw_doc[:anchor_pos].splitlines():
-        if line.startswith("## ") and not line.startswith("### "):
-            h2_title = line[3:].strip()
-    return h2_title
-
-
-def minimal_derive_payload(
-    section_key: str,
-    *,
-    i_star: str = "Sample substance for this section.",
-) -> dict[str, Any]:
-    """Return a minimal valid derive document (for tests and fixtures)."""
-    key = section_key.strip().upper()
-    gaps: list[dict[str, str]] = []
-    if not i_star.strip():
-        gaps = [
-            {
-                "kind": "scope_absent",
-                "dimension": "what",
-                "note": "No matching scope substance for this section.",
-            },
-        ]
-    display_title = _TITLE_PLACEHOLDER if not i_star.strip() else f"主题{key}"
-    return {
-        "section_key": key,
-        "i_star": i_star,
-        "display_title": display_title,
-        "scope_refs": ["Decision: sample reference"],
-        "code_refs": [],
-        "gaps": gaps,
-        "f": {
-            "carrier": "prose",
-            "structure": "2 short paragraphs",
-            "forbidden": "task breakdown",
-        },
-        "c": [
-            {
-                "d": "granularity",
-                "c": "decision-level only",
-                "source": "role_fields.completion_bar",
-            },
-            {
-                "d": "vocabulary",
-                "c": "tech-neutral operational prose",
-                "source": "role_fields.vocabulary_domain",
-            },
-        ],
-    }
-
-
-def write_minimal_derive_artifacts(
-    revision_dir: Path,
-    section_keys: Iterable[str],
-    *,
-    i_star: str = "Sample substance for this section.",
-) -> None:
-    revision_dir.mkdir(parents=True, exist_ok=True)
-    for key in section_keys:
-        payload = minimal_derive_payload(key, i_star=i_star)
-        path = derive_path(revision_dir, payload['section_key'])
-        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-
-
-def write_minimal_partition(
-    revision_dir: Path,
-    section_keys: Iterable[str],
-) -> Path:
-    """Write a minimal valid ``_partition.json`` (one atom per key) for tests."""
-    revision_dir.mkdir(parents=True, exist_ok=True)
-    atoms: list[dict[str, str]] = []
-    for index, key in enumerate(section_keys, start=1):
-        atoms.append(
-            {
-                "id": f"A-{index}",
-                "text": f"Minimal atom for {str(key).strip().upper()}.",
-                "home": str(key).strip().upper(),
-            }
-        )
-    path = partition_path(revision_dir)
-    path.write_text(json.dumps(atoms, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    return path
-
-
-def write_minimal_init_work_artifacts(
-    revision_dir: Path,
-    section_keys: Iterable[str],
-    *,
-    i_star: str = "Sample substance for this section.",
-) -> None:
-    """Write derive, body, and title files for Init validation tests and fixtures."""
-    write_minimal_derive_artifacts(revision_dir, section_keys, i_star=i_star)
-
-    for key in section_keys:
-        section = key.strip().upper()
-        body = (
-            f"Operational summary for {section}.\n\n"
-            f"Scope-aligned substance line two.\n\n"
-            f"Scope-aligned substance line three.\n"
-        )
-        body_path(revision_dir, section).write_text(body, encoding="utf-8")
-
-    display_map: dict[str, str] = {}
-    for key in section_keys:
-        section = key.strip().upper()
-        display_map[section] = minimal_derive_payload(section, i_star=i_star)["display_title"]
-    save_display_titles(display_titles_path(revision_dir), display_map)
-
-
-def _load_derive(path: Path) -> dict[str, Any]:
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"invalid JSON: {exc}") from exc
-    if not isinstance(data, dict):
-        raise ValueError("derive root must be an object")
-    return data
-
-
-def _validate_display_title(value: Any, *, section_key: str, heading: str = "") -> list[str]:
-    """Hard-gate the derive `display_title` (reader H3) authored at I2c."""
-    key = section_key.upper()
-    if not isinstance(value, str) or not value.strip():
-        return [f"{key}: display_title must be a non-empty string"]
-    title = value.strip()
-    if title == _TITLE_PLACEHOLDER:
-        return []
-    errors: list[str] = []
-    if len(title) > _TITLE_MAX_LEN:
-        errors.append(
-            f"{key}: display_title too long ({len(title)}>{_TITLE_MAX_LEN}); "
-            f"use a concise theme, not a body sentence",
-        )
-    if heading and title.lower() == heading.strip().lower():
-        errors.append(
-            f"{key}: display_title must not reuse the registry heading: {title!r}",
-        )
-    if _TITLE_CODE_TOKEN_RE.search(title):
-        errors.append(
-            f"{key}: display_title must not contain code tokens "
-            f"(path / symbol / API / file ext): {title!r}",
-        )
-    return errors
-
-
-def _validate_gap(entry: Any, *, section_key: str, index: int) -> list[str]:
-    errors: list[str] = []
-    prefix = f"{section_key} gaps[{index}]"
-    if not isinstance(entry, dict):
-        return [f"{prefix} must be an object"]
-    kind = entry.get("kind")
-    if kind not in _GAP_KINDS:
-        errors.append(
-            f"{prefix}.kind must be one of {sorted(_GAP_KINDS)} (got {kind!r})",
-        )
-    note = entry.get("note")
-    if not isinstance(note, str) or not note.strip():
-        errors.append(f"{prefix}.note must be a non-empty string")
-    dimension = entry.get("dimension")
-    if dimension is not None and dimension not in _GAP_DIMENSIONS:
-        errors.append(f"{prefix}.dimension invalid: {dimension!r}")
-    return errors
-
-
-def _validate_derive_document(
-    data: dict[str, Any],
-    *,
-    expected_key: str,
-    heading: str = "",
-) -> list[str]:
-    errors: list[str] = []
-    key = expected_key.upper()
-    section_key = data.get("section_key")
-    if section_key != key:
-        errors.append(f"{key}: section_key mismatch ({section_key!r})")
-
-    for field in ("i_star",):
-        if field not in data:
-            errors.append(f"{key}: missing {field}")
-        elif not isinstance(data[field], str):
-            errors.append(f"{key}: {field} must be a string")
-
-    errors.extend(
-        _validate_display_title(data.get("display_title"), section_key=key, heading=heading),
-    )
-
-    scope_refs = data.get("scope_refs")
-    if not isinstance(scope_refs, list):
-        errors.append(f"{key}: scope_refs must be an array")
-    elif not scope_refs:
-        errors.append(f"{key}: scope_refs must not be empty")
-    else:
-        for index, ref in enumerate(scope_refs):
-            if not isinstance(ref, str) or not ref.strip():
-                errors.append(f"{key}: scope_refs[{index}] must be a non-empty string")
-
-    code_refs = data.get("code_refs")
-    if code_refs is None:
-        errors.append(f"{key}: missing code_refs (use [] when none)")
-    elif not isinstance(code_refs, list):
-        errors.append(f"{key}: code_refs must be an array")
-    else:
-        for index, ref in enumerate(code_refs):
-            if not isinstance(ref, str) or not ref.strip():
-                errors.append(f"{key}: code_refs[{index}] must be a non-empty string")
-
-    gaps = data.get("gaps")
-    if not isinstance(gaps, list):
-        errors.append(f"{key}: gaps must be an array")
-    else:
-        for index, entry in enumerate(gaps):
-            errors.extend(_validate_gap(entry, section_key=key, index=index))
-
-    f_obj = data.get("f")
-    if not isinstance(f_obj, dict):
-        errors.append(f"{key}: f must be an object")
-    else:
-        carrier = f_obj.get("carrier")
-        if not isinstance(carrier, str) or not carrier.strip():
-            errors.append(f"{key}: f.carrier must be a non-empty string")
-        for sub in ("structure", "forbidden"):
-            if sub not in f_obj or not isinstance(f_obj[sub], str):
-                errors.append(f"{key}: f.{sub} must be a string")
-
-    c_list = data.get("c")
-    if not isinstance(c_list, list):
-        errors.append(f"{key}: c must be an array")
-    elif not (_C_MIN <= len(c_list) <= _C_MAX):
-        errors.append(f"{key}: c must have {_C_MIN}–{_C_MAX} entries")
-    else:
-        for index, entry in enumerate(c_list):
-            if not isinstance(entry, dict):
-                errors.append(f"{key}: c[{index}] must be an object")
-                continue
-            for sub in ("d", "c", "source"):
-                val = entry.get(sub)
-                if not isinstance(val, str) or not val.strip():
-                    errors.append(f"{key}: c[{index}].{sub} must be a non-empty string")
-
-    if "kw_init" in data:
-        errors.append(f"{key}: kw_init is removed; omit the field")
-
-    i_star = str(data.get("i_star", "")).strip()
-    if not i_star and isinstance(gaps, list) and not gaps:
-        errors.append(f"{key}: empty i_star requires at least one gaps entry")
-
-    return errors
-
-
-def _validate_body_file(
-    body_file: Path,
-    *,
-    section_key: str,
-    i_star: str,
-) -> list[str]:
-    errors: list[str] = []
-    if not body_file.is_file():
-        return [f"{section_key}: missing body file {body_file.name}"]
-
-    body = body_file.read_text(encoding="utf-8")
-    if not body.strip():
-        return [f"{section_key}: empty body file"]
-
-    for pattern in _PROHIBITED_BODY_PATTERNS:
-        if pattern in body:
-            errors.append(f"{section_key}: prohibited pattern in body: {pattern!r}")
-
-    if i_star.strip():
-        non_blank_lines = [line for line in body.splitlines() if line.strip()]
-        if len(non_blank_lines) < _MIN_BODY_LINES_WITH_I_STAR:
-            errors.append(
-                f"{section_key}: thin body ({len(non_blank_lines)} non-blank lines; "
-                f"need {_MIN_BODY_LINES_WITH_I_STAR} when i_star non-empty)",
-            )
-    return errors
-
-
-def _validate_section_display_titles(
-    revision_dir: Path,
-    section_keys: Iterable[str],
-) -> list[str]:
-    errors: list[str] = []
-    path = display_titles_path(revision_dir)
-    if not path.is_file():
-        return [f"missing display titles file {path.name}"]
-    try:
-        data = load_display_titles(path)
-    except (json.JSONDecodeError, ValueError) as exc:
-        return [f"invalid {path.name}: {exc}"]
-    errors.extend(validate_display_titles(data))
-    for key in section_keys:
-        section = str(key).strip().upper()
-        if not get_display_title(data, section):
-            errors.append(f"{section}: missing display title in {path.name}")
-    return errors
-
-
-def _validate_block_titles(
-    revision_dir: Path,
-    raw_doc: str,
-    outline: dict[str, Any],
-) -> list[str]:
-    errors: list[str] = []
-    path = block_titles_path(revision_dir)
-    block_map: dict[str, str] = {}
-    if path.is_file():
-        try:
-            block_map = load_block_titles(path)
-        except (json.JSONDecodeError, ValueError) as exc:
-            errors.append(f"invalid {path.name}: {exc}")
-            return errors
-        errors.extend(validate_block_titles(block_map))
-
-    blocks = outline.get("blocks") or {}
-    for block_key in outline.get("outline_order") or []:
-        bk = str(block_key).upper()
-        block = blocks.get(bk) or {}
-        heading = str(block.get("heading", "")).strip()
-        intents = [str(item).upper() for item in block.get("intents") or []]
-        if not intents:
-            continue
-
-        expected_title = get_block_title(block_map, bk)
-        if not expected_title:
-            errors.append(f"{bk}: missing block title in {path.name}")
-            continue
-
-        doc_h2 = block_h2_above_intent(raw_doc, intents[0])
-        if not doc_h2:
-            errors.append(f"{bk}: compose document missing block H2 above {intents[0]}")
-            continue
-        if doc_h2 != expected_title:
-            errors.append(
-                f"{bk}: block H2 {doc_h2!r} != _title-block.json entry {expected_title!r}",
-            )
-        if expected_title != "（待补）" and doc_h2 == heading:
-            errors.append(
-                f"{bk}: block H2 still English placeholder {heading!r}",
-            )
-    return errors
-
-
 def validate_display_layer_artifacts(
     revision_dir: Path,
     compose_doc: Path,
     project_root: Path,
     profile_id: str,
 ) -> str | None:
-    """Return first error summary or None — ``display_layer=true`` P3 validation.
+    """Return first error summary or None — fact-first P3 validation.
 
-    Bypasses the entire section-keyed check suite this function's caller runs
-    for the legacy path (design SSOT §10#8d); validates the fact-first
-    artifact set instead:
+    Validates the fact-first artifact set:
 
-    1. outline↔display_layer pairing (§11.4 Major#6: candidates-shaped outline
-       is required, not optional — a legacy blocks-shaped outline is a hard
-       error here, never a silent L5-skip);
-    2. ``_facts.json`` / ``_chapters.json`` existence + schema-valid (§11.4
-       Minor#8);
-    3. M2 placement/coverage gates via ``display_layer_gates`` — fed all three
-       of ``presence_map`` / ``section_order`` / ``candidate_ids`` (§11.4
-       Blocker#1: omitting ``section_order`` makes the C1 coverage gate
-       silently no-op);
+    1. candidates-shaped outline pairing (required);
+    2. ``_facts.json`` / ``_chapters.json`` existence + schema-valid;
+    3. M2 placement/coverage gates via ``display_layer_gates``;
     4. chapter-artifact existence (non-drop chapter has non-empty
        ``_body-{cid}.txt`` + ``_derive-{cid}.json`` with a ``display_title``);
-    5. assembly completeness (§11.4 Major#3): every non-drop chapter's anchor
-       is present in the compose document with a non-empty segment — this is
-       a **structural** presence check, not proposition-level content
-       fidelity (that gate is dropped by design, §8.1/§11.4).
+    5. assembly completeness: every non-drop chapter's anchor is present
+       in the compose document with a non-empty segment.
     """
     errors: list[str] = []
 
     outline = outline_registry_for_profile(project_root, profile_id)
     if outline is None:
-        return "display_layer=true: failed to fetch/parse outline-registry for this profile"
+        return "failed to fetch/parse outline-registry for this profile"
     if not outline.get("candidates"):
         return (
-            "display_layer=true requires a non-empty candidates-shaped outline-registry "
+            "fact-first Init requires a non-empty candidates-shaped outline-registry "
             "(legacy outline_order/blocks, or an empty/null candidates list, is incompatible; "
             "design SSOT §11.4 Major#6)"
         )
@@ -611,10 +184,6 @@ def validate_display_layer_artifacts(
             errors.append(f"chapter {cid!r}: missing chapter anchor in compose document")
         else:
             segment_lines = chapter_body_by_id(raw_doc, cid).splitlines()
-            # First line is the rendered "## {title}" heading (render_chapter_fragment) —
-            # strip it before the emptiness check so a stale/short-circuited append that
-            # wrote only the heading does not pass as "non-empty content" (m1, round-1
-            # Grok review of M4a).
             first_line = segment_lines[0].strip() if segment_lines else ""
             if first_line.startswith("## ") and not first_line.startswith("### "):
                 segment_lines = segment_lines[1:]
@@ -639,96 +208,9 @@ def validate_init_artifacts(
     if not compose_doc.is_file():
         return f"compose document not found: {compose_doc}"
 
-    profile = load_profile(profile_id, project_root=project_root)
-    if (profile.get("drafting") or {}).get("display_layer") is True:
-        return validate_display_layer_artifacts(revision_dir, compose_doc, project_root, profile_id)
-
-    keys = section_order_for_profile(project_root, profile_id)
-    errors: list[str] = []
-
-    inductive = (profile.get("drafting") or {}).get("inductive") is True
-    if not inductive:
-        part = partition_path(revision_dir)
-        if not part.is_file():
-            errors.append(
-                "missing _partition.json (required when drafting.inductive is false)",
-            )
-        else:
-            try:
-                data = json.loads(part.read_text(encoding="utf-8"))
-            except json.JSONDecodeError as exc:
-                errors.append(f"invalid _partition.json: {exc}")
-            else:
-                errors.extend(
-                    validate_partition_atoms(data, allowed_homes=keys),
-                )
-
-    raw_doc = compose_doc.read_text(encoding="utf-8")
-    headings = section_headings_for_profile(project_root, profile_id)
-
-    display_map: dict[str, str] = {}
-    display_path = display_titles_path(revision_dir)
-    if display_path.is_file():
-        try:
-            display_map = load_display_titles(display_path)
-        except (json.JSONDecodeError, ValueError):
-            display_map = {}  # non-empty / format error reported below
-
-    for key in keys:
-        derive_file = derive_path(revision_dir, key)
-        if not derive_file.is_file():
-            errors.append(f"missing derive: {key}")
-            continue
-        try:
-            derive = _load_derive(derive_file)
-        except ValueError as exc:
-            errors.append(f"invalid derive {key}: {exc}")
-            continue
-
-        errors.extend(
-            _validate_derive_document(derive, expected_key=key, heading=headings.get(key, "")),
-        )
-
-        i_star = str(derive.get("i_star", ""))
-        section_body_path = body_path(revision_dir, key)
-        errors.extend(_validate_body_file(section_body_path, section_key=key, i_star=i_star))
-
-        body = section_body_by_key(raw_doc, key, project_root=project_root).strip()
-        if not body:
-            errors.append(f"compose document empty body: {key}")
-
-        # Single SoT: _title-display.json projection and document H3 must equal
-        # derive.display_title (catches manual set-display-title / doc drift).
-        derive_title = str(derive.get("display_title", "")).strip()
-        doc_title = section_display_heading(raw_doc, key, project_root=project_root).strip()
-        if body:
-            if not doc_title:
-                errors.append(f"compose document missing display title: {key}")
-            elif derive_title and doc_title != derive_title:
-                errors.append(
-                    f"{key}: document H3 {doc_title!r} != derive display_title {derive_title!r}",
-                )
-        proj_title = get_display_title(display_map, key)
-        if derive_title and proj_title and proj_title != derive_title:
-            errors.append(
-                f"{key}: _title-display.json {proj_title!r} != derive display_title "
-                f"{derive_title!r}",
-            )
-
-    errors.extend(_validate_section_display_titles(revision_dir, keys))
-
-    outline = outline_registry_for_profile(project_root, profile_id)
-    if outline is not None:
-        flat = flatten_outline_intents(outline)
-        if flat and flat != keys:
-            errors.append(
-                f"section_order != flatten(outline.intents): {keys!r} vs {flat!r}",
-            )
-        errors.extend(_validate_block_titles(revision_dir, raw_doc, outline))
-
-    if not errors:
-        return None
-    return "; ".join(errors)
+    return validate_display_layer_artifacts(
+        revision_dir, compose_doc, project_root, profile_id,
+    )
 
 
 def cmd_validate(args: argparse.Namespace) -> int:

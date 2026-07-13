@@ -169,12 +169,8 @@ def _format_init_dispatch_input(
         f"CYCLE_TYPE:           {detect_cycle_type(cycle_id)}",
         f"CYCLE_ID:             {cycle_id}",
     ]
-    inductive_dir = _inductive_dir(cycle_id, project_root, profile_id)
-    # K2 display_layer path consumes projected _facts.json (P0 Branch A) —
-    # do not advertise INDUCTIVE_DIR as if Init still reads decisions[] here.
-    drafting = _drafting_config(cycle_id, project_root, profile_id)
-    if inductive_dir.is_dir() and drafting.get("display_layer") is not True:
-        lines.append(f"INDUCTIVE_DIR:        {inductive_dir.as_posix()}")
+    # K3-d: Init always consumes projected _facts.json — never advertise
+    # INDUCTIVE_DIR as if Init still reads decisions[] here.
     return "\n".join(lines)
 
 
@@ -281,13 +277,9 @@ def begin_init(
             f"cannot start Initializing: current_step is {step!r} (expected absent or Initialized)",
             current_step=step,
         )
-    # K2 handshake gate: inductive + display_layer → _facts.json must already
-    # exist (projection ran after inductive-complete). Validate-only; never
-    # project or re-atomize here.
-    if (
-        drafting.get("inductive") is True
-        and drafting.get("display_layer") is True
-    ):
+    # K2: inductive profiles — _facts.json must already exist (projection ran
+    # after inductive-complete). Validate-only; never project or re-atomize here.
+    if drafting.get("inductive") is True:
         rev = _revision_dir(cycle_id, project_root, profile_id)
         path = facts_path(rev)
         if not path.is_file():

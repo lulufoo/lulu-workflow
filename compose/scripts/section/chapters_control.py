@@ -8,10 +8,8 @@ Subcommands:
 
 CLI details: ``python3 chapters_control.py --help``
 
-Design SSOT: docs/biz/compose-fact-first-display-layer-design.md §3.4, §11.2 (M2).
-Not wired into any SKILL flow yet — M2 data/gate layer only; the
-``drafting.display_layer`` profile-flag branch that consumes these files
-via ``display_layer_gates.py`` lands in M4.
+Design SSOT: docs/biz/compose-fact-first-theory/compose-fact-first-display-layer-design.md §3.4, §11.2 (M2).
+Consumed by fact-first Init (P1 / P3) via ``display_layer_gates.py``.
 """
 
 from __future__ import annotations

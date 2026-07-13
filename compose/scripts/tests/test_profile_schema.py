@@ -131,7 +131,7 @@ def test_active_profile_missing_eval_adapter_class_fails(tmp_path: Path) -> None
     assert any("missing eval.adapter_class" in err for err in errors)
 
 
-def test_active_profile_accepts_display_layer_bool(tmp_path: Path) -> None:
+def test_active_profile_rejects_retired_display_layer(tmp_path: Path) -> None:
     stage_dir = tmp_path / "tech-foo"
     stage_dir.mkdir()
     path = stage_dir / "compose-profile.json"
@@ -139,19 +139,8 @@ def test_active_profile_accepts_display_layer_bool(tmp_path: Path) -> None:
     data["drafting"] = dict(data["drafting"])
     data["drafting"]["display_layer"] = True
     path.write_text(json.dumps(data), encoding="utf-8")
-    assert _validate_profile(path) == []
-
-
-def test_active_profile_rejects_non_bool_display_layer(tmp_path: Path) -> None:
-    stage_dir = tmp_path / "tech-foo"
-    stage_dir.mkdir()
-    path = stage_dir / "compose-profile.json"
-    data = dict(_MINIMAL_ACTIVE_PROFILE)
-    data["drafting"] = dict(data["drafting"])
-    data["drafting"]["display_layer"] = "yes"
-    path.write_text(json.dumps(data), encoding="utf-8")
     errors = _validate_profile(path)
-    assert any("drafting.display_layer must be a boolean" in err for err in errors)
+    assert any("display_layer retired" in err for err in errors)
 
 
 def test_active_profile_omits_display_layer_without_error(tmp_path: Path) -> None:

@@ -1,7 +1,9 @@
 {
   "profile_id": "lulu-design",
   "stage_name": "lulu-design",
-  "cycle_types": ["feature"],
+  "cycle_types": [
+    "feature"
+  ],
   "shell_dir": "lulu-design",
   "shell_paths": {
     "hook_guard": "scripts/hook/hook_guard.py",
@@ -9,14 +11,17 @@
   },
   "document": {
     "filename": "design-doc.md",
-    "schema": "section-keyed"
+    "schema": "chapter"
   },
   "drafting": {
     "inductive": true,
     "freeedit": true,
     "code_grounding": false,
-    "display_layer": true,
-    "post_init_options": ["freeedit", "evaluate", "deliver"]
+    "post_init_options": [
+      "freeedit",
+      "evaluate",
+      "deliver"
+    ]
   },
   "start": {
     "adapter_module": "lulu-design/scripts/start/tech_design_start_adapter.py",

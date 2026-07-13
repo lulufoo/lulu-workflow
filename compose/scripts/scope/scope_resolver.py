@@ -139,61 +139,6 @@ def resolve_role_summary(
     return resolve_cycle_type(cycle_id=cycle_id, cycle_type=cycle_type)
 
 
-def assemble_inductive_fidelity_text(section_json_path: Path) -> str:
-    """Mechanical ``decisions[].text`` assembly for one section (I2 / V5).
-
-    Same contract as ``inductive_g3_section_control.view --synthesis off`` for a
-    single section — zero LLM synthesis. Used by Initializing I2a.
-    """
-    data = json.loads(section_json_path.read_text(encoding="utf-8"))
-    texts = [
-        str(d.get("text", "")).strip()
-        for d in (data.get("decisions") or [])
-        if isinstance(d, dict)
-    ]
-    texts = [t for t in texts if t]
-    if not texts:
-        return ""
-    key = str(data.get("key") or section_json_path.stem)
-    return f"## {key}\n\n" + "\n\n".join(texts) + "\n"
-
-
-def resolve_inductive_slice(section: str, inductive_dir: Path | None) -> str | None:
-    """Return the abspath of a per-section inductive JSON SoT if it exists, else None.
-
-    Only ``{inductive_dir}/{section}.json`` is accepted. Legacy ``{section}.md``
-    is not a SoT and is never returned.
-
-    Used by Initializing: the inductive slice is the **primary material** for
-    that section's decisions (fidelity projection of ``decisions[].text``);
-    the upstream scope doc is the Audit-time completeness cross-check, not a
-    parallel SoT. Empty/absent inductive dir → no slice.
-    """
-    key = (section or "").strip()
-    if inductive_dir is None or not key:
-        return None
-    root = Path(inductive_dir)
-    json_candidate = root / f"{key}.json"
-    if json_candidate.is_file():
-        return str(json_candidate.resolve())
-    return None
-
-
-def resolve_inductive_fidelity(
-    section: str, inductive_dir: Path | None
-) -> str | None:
-    """Return mechanical fidelity markdown for a section, or None if no JSON SoT.
-
-    Prefer this over hand-reading JSON in Initializing (I2/I12). Missing JSON
-    returns None — there is no ``.md`` fallback.
-    """
-    path = resolve_inductive_slice(section, inductive_dir)
-    if not path or not path.endswith(".json"):
-        return None
-    text = assemble_inductive_fidelity_text(Path(path))
-    return text if text.strip() else ""
-
-
 def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Compose stage profile plan scope role resolver")
     parser.add_argument(
@@ -249,38 +194,6 @@ def main(argv: Optional[list[str]] = None) -> int:
         help="Override path to domain instance JSON for resolved cycle_type",
     )
 
-    grounding = sub.add_parser(
-        "resolve-inductive",
-        help="Print the per-section inductive scope slice path (empty if none)",
-    )
-    grounding.add_argument("--section", required=True, help="Section key (e.g. ST, IF)")
-    grounding.add_argument(
-        "--inductive-dir",
-        type=Path,
-        help="Inductive per-section scope dir (omit/absent → no slice)",
-    )
-    grounding.add_argument(
-        "--project-root",
-        default=".",
-        help="Project root (reserved)",
-    )
-
-    fidelity = sub.add_parser(
-        "resolve-inductive-fidelity",
-        help="Print mechanical decisions[].text markdown for a section (I2/V5)",
-    )
-    fidelity.add_argument("--section", required=True, help="Section key (e.g. ST, IF)")
-    fidelity.add_argument(
-        "--inductive-dir",
-        type=Path,
-        help="Inductive per-section scope dir (omit/absent → empty)",
-    )
-    fidelity.add_argument(
-        "--project-root",
-        default=".",
-        help="Project root (reserved)",
-    )
-
     args = parser.parse_args(argv)
 
     project_root = Path(args.project_root).resolve()
@@ -292,21 +205,6 @@ def main(argv: Optional[list[str]] = None) -> int:
             for err in errors:
                 print(err, file=sys.stderr)
             return 1
-        return 0
-
-    if args.command == "resolve-inductive":
-        inductive_dir = getattr(args, "inductive_dir", None)
-        path = resolve_inductive_slice(args.section, inductive_dir)
-        if path:
-            sys.stdout.write(path)
-        return 0
-
-    if args.command == "resolve-inductive-fidelity":
-        inductive_dir = getattr(args, "inductive_dir", None)
-        text = resolve_inductive_fidelity(args.section, inductive_dir)
-        if text is None:
-            return 0
-        sys.stdout.write(text)
         return 0
 
     if args.command == "resolve-domain":

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""K0b: lulu-arch local candidates outline + presence + display_layer flip."""
+"""K0b: lulu-arch local candidates outline + presence (fact-first only)."""
 
 from __future__ import annotations
 
@@ -89,7 +89,7 @@ def test_arch_k0b_skill_config_points_local() -> None:
     assert cfg["eval"]["tat_arch_quality_framework_url"].startswith("https://")
 
 
-def test_arch_k0b_profile_display_layer_true() -> None:
+def test_arch_k0b_profile_has_no_display_layer_flag() -> None:
     profile = json.loads(_PROFILE.read_text(encoding="utf-8"))
     assert profile["drafting"]["inductive"] is False
-    assert profile["drafting"]["display_layer"] is True
+    assert "display_layer" not in profile.get("drafting", {})

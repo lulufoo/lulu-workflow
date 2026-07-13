@@ -1,7 +1,9 @@
 {
   "profile_id": "lulu-spec",
   "stage_name": "lulu-spec",
-  "cycle_types": ["feature"],
+  "cycle_types": [
+    "feature"
+  ],
   "shell_dir": "lulu-spec",
   "shell_paths": {
     "hook_guard": "scripts/hook/hook_guard.py",
@@ -9,14 +11,17 @@
   },
   "document": {
     "filename": "product-doc.md",
-    "schema": "section-keyed"
+    "schema": "chapter"
   },
   "drafting": {
     "inductive": true,
     "freeedit": true,
     "code_grounding": false,
-    "display_layer": true,
-    "post_init_options": ["freeedit", "evaluate", "deliver"]
+    "post_init_options": [
+      "freeedit",
+      "evaluate",
+      "deliver"
+    ]
   },
   "start": {
     "adapter_module": "lulu-spec/scripts/start/product_spec_start_adapter.py",

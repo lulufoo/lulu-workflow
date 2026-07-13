@@ -1,22 +1,18 @@
 #!/usr/bin/env python3
-"""Chapter-level document anchor grammar (fact-first display layer, M4a).
+"""Chapter-level document anchor grammar (fact-first display layer).
 
-Dual to ``compose_doc_schema.py``'s ``<!-- section-key:KEY -->`` grammar, but
-chapter-scoped: ``<!-- chapter:{cid} -->``. The two grammars are flag-branch
-alternatives, never mixed in one document — ``display_layer=true`` writes
-only chapter anchors, ``display_layer=false``(/absent) writes only
-section-key anchors (design SSOT
-docs/biz/compose-fact-first-display-layer-design.md §10#7, §11.4).
+Canonical compose-document grammar: ``<!-- chapter:{cid} -->``.
+Section-key grammar retired in K3-d.
 
 ``cid`` is deliberately **not** case-folded: it is a free stable id from
 ``_chapters.json[].id`` (e.g. ``chap-3``), not an uppercase lens key (design
 SSOT §11.4 Major#4).
 
 Write-side + Init-internal-read (``compose_doc_control append-chapter``,
-``init_compose_validation`` display_layer assembly gate). Downstream Eval
-reads chapter anchors **from EvalTarget B only** via
-``eval/scripts/eval_target_units.py`` (K3-c option 1) — this module stays
-compose-side and is **not** imported by eval.
+``init_compose_validation`` assembly gate). Downstream Eval reads chapter
+anchors **from EvalTarget B only** via ``eval/scripts/eval_target_units.py``
+(K3-c/d option 1) — this module stays compose-side and is **not** imported
+by eval.
 """
 
 from __future__ import annotations

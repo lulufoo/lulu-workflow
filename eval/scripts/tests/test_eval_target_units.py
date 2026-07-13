@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for eval_target_units (K3-c option 1 — units from B only)."""
+"""Tests for eval_target_units (K3-d — chapter-only units from B)."""
 
 from __future__ import annotations
 
@@ -28,21 +28,17 @@ More detail.
 Only beta body.
 """
 
-_FIXTURE_SECTION_KEY = """# Title
+_FIXTURE_SECTION_KEY_LEGACY = """# Title
 
 ## Overview <!-- section-key:OV -->
 
 OV body paragraph.
-
-## Boundary <!-- section-key:BD -->
-
-BD body.
 """
 
 
 def test_detect_shape_chapter() -> None:
     assert etu.detect_shape(_FIXTURE_CHAPTER) == "chapter"
-    assert etu.detect_shape(_FIXTURE_SECTION_KEY) == "section-key"
+    assert etu.detect_shape(_FIXTURE_SECTION_KEY_LEGACY) == "unknown"
     assert etu.detect_shape("# plain\n") == "unknown"
 
 
@@ -56,11 +52,11 @@ def test_chapter_units_non_empty() -> None:
     assert "Only beta body" in view["containers"][1]["units"][0]["text"]
 
 
-def test_section_key_units() -> None:
-    view = etu.units_from_eval_target(_FIXTURE_SECTION_KEY)
-    assert view["shape"] == "section-key"
-    assert [c["id"] for c in view["containers"]] == ["OV", "BD"]
-    assert any("OV body" in u["text"] for u in view["containers"][0]["units"])
+def test_section_key_legacy_is_unknown() -> None:
+    view = etu.units_from_eval_target(_FIXTURE_SECTION_KEY_LEGACY)
+    assert view["shape"] == "unknown"
+    assert view["empty"] is True
+    assert view["containers"] == []
 
 
 def test_prior_units_and_severity_hints() -> None:

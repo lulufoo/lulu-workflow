@@ -1,0 +1,24 @@
+{
+  "profiles": {
+    "lulu-plan": {
+      "doc": "tech-doc.md",
+      "source": "cache-sim"
+    },
+    "lulu-arch": {
+      "doc": "arch-doc.md",
+      "source": "cache-sim"
+    },
+    "lulu-design": {
+      "doc": "design-doc.md",
+      "source": "minimal-generated"
+    },
+    "lulu-spec": {
+      "doc": "product-doc.md",
+      "source": "minimal-generated"
+    },
+    "lulu-blueprint": {
+      "doc": "blueprint-doc.md",
+      "source": "minimal-generated"
+    }
+  }
+}
