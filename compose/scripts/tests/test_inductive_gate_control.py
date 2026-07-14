@@ -251,8 +251,6 @@ def test_resolve_context_reports_blocking_open_count(tmp_path: Path):
     code, payload = _run_section(
         tmp_path,
         "add-open",
-        "--section",
-        "ST",
         "--kw",
         "2",
         "--trigger",
@@ -263,6 +261,8 @@ def test_resolve_context_reports_blocking_open_count(tmp_path: Path):
         "gap",
         "--blocking",
         "true",
+        "--detected-under",
+        "ST",
     )
     assert code == 0, payload
     code, result = _run_gate(tmp_path, "resolve-context")
@@ -510,7 +510,18 @@ def _drive_single_section_to_g4(tmp_path: Path) -> None:
     assert code == 0
 
     _run_section(tmp_path, "activate-section", "--section", "I")
-    _run_section(tmp_path, "seed-decision", "--section", "I", "--kw", "1", "--text", "Body text.")
+    _run_section(
+        tmp_path,
+        "seed-decision",
+        "--section",
+        "I",
+        "--lens-tags",
+        "I",
+        "--kw",
+        "1",
+        "--text",
+        "Body text.",
+    )
     _run_section(tmp_path, "set-frontier", "--section", "I", "--kw", "3")
     code, result = _run_section(tmp_path, "clear-section", "--section", "I")
     assert code == 0, result

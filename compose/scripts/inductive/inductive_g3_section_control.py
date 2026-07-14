@@ -1,26 +1,23 @@
 #!/usr/bin/env python3
-"""Inductive Gate 3 section machine — section-SoT control (design §14).
+"""Inductive Gate 3 section machine — fact-native triple store (K4).
 
-Manages the section pointer + per-section JSON SoT under inductive-scope/.
-Called by inductive_gate_control.py (outer gate spine) and the SKILL via
-$INDUCTIVE_G3_SECTION_CTL.
+Manages three stores under --out-dir (= revision / INDUCTIVE_OUT_DIR):
+  - maturity: inductive-scope/<S>.json (via inductive_section_schema)
+  - opens:    inductive-opens.json (via opens_schema)
+  - facts:    _facts.json (via facts_schema)
 
-Primary subcommands (section-SoT):
-    init-pointer        Seed pointer + _index.json (no EP ledger)
-    status              active_section, statuses, blocking open count
-    check-coverage      G3 Exit predicate
-    list-sections       Section statuses + open/deferred/decision counts
-    activate-section    Switch active_section focus
-    set-frontier        Cache AI-declared frontier_kw (0..4)
-    seed-decision       Append Seed decision (trigger=seed, means=scope)
-    add-open / update-open / settle-open / defer-open
-    update-decision / attach-code-refs / get-section
-    view                synthesis off|on
-    checkpoint          last_checkpoint + optional git SHA (G4 baseline)
+Design: docs/domain/compose/archive-2.0/compose-fact-first-k4-fact-native-design.md §6–§7.
+
+Primary subcommands:
+    init-pointer / status / check-coverage / list-sections
+    activate-section / set-frontier
+    seed-decision (writes facts; alias for seed)
+    add-open / update-open / settle-open / defer-open / reject-open
+    update-decision (updates fact by F-n) / attach-code-refs (O- only)
+    get-section / view / checkpoint
     clear-section / skip-section / rewind-section / recompose-check
 
 Deprecated (fail-fast): register-ep, update-ep, append-to-section
-→ use add-open / update-open / seed-decision / update-decision / settle-open.
 
 All subcommands print JSON to stdout and exit 0 on success, exit 1 on failure.
 Global flag: --out-dir PATH (required).
@@ -36,8 +33,11 @@ from pathlib import Path
 from typing import Any
 
 _HERE = Path(__file__).resolve().parent
-if str(_HERE) not in sys.path:
-    sys.path.insert(0, str(_HERE))
+_SCRIPTS = _HERE.parent
+_SECTION = _SCRIPTS / "section"
+for _p in (_HERE, _SECTION, _SCRIPTS):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
 
 from g3_section_pointer_schema import (  # noqa: E402
     FRONTIER_TARGET_DEFAULT,
@@ -50,23 +50,31 @@ from g3_section_pointer_schema import (  # noqa: E402
     save_section_pointer,
     set_frontier,
     skip_section,
-    validate_section_pointer,
 )
 from inductive_section_schema import (  # noqa: E402
-    blocking_open_items,
     ensure_section,
-    index_path,
     list_section_keys,
     load_index,
     load_section,
-    mint_decision_id,
-    mint_open_id,
-    next_decision_seq,
-    next_open_seq,
     save_index,
     save_section,
     section_dir,
     section_path,
+)
+from opens_schema import (  # noqa: E402
+    blocking_open_items,
+    load_opens,
+    mint_open_id,
+    next_open_seq,
+    opens_path,
+    save_opens,
+)
+from facts_schema import (  # noqa: E402
+    facts_path,
+    filter_by_lens,
+    lenses_present,
+    load_facts,
+    save_facts,
 )
 
 
@@ -80,6 +88,72 @@ def _pointer_path(out_dir: Path) -> Path:
 
 def _load_pointer(out_dir: Path) -> dict[str, Any]:
     return load_section_pointer(_pointer_path(out_dir))
+
+
+def _load_opens(out_dir: Path) -> list[dict[str, Any]]:
+    return load_opens(opens_path(out_dir))
+
+
+def _save_opens(out_dir: Path, opens: list[dict[str, Any]]) -> None:
+    save_opens(opens_path(out_dir), opens)
+
+
+def _load_facts_optional(out_dir: Path) -> list[dict[str, Any]]:
+    path = facts_path(out_dir)
+    if not path.is_file():
+        return []
+    return load_facts(path)
+
+
+def _allowed_lenses(out_dir: Path) -> list[str]:
+    ptr = _load_pointer(out_dir)
+    return [str(k).strip().upper() for k in ptr.get("coverage_order") or []]
+
+
+def _save_facts_inductive(out_dir: Path, facts: list[dict[str, Any]]) -> None:
+    """Inductive write path: force allowed_lenses + non-empty lens_tags already asserted."""
+    save_facts(facts_path(out_dir), facts, allowed_lenses=_allowed_lenses(out_dir))
+
+
+def _parse_lens_tags(raw: str) -> list[str]:
+    return [t.strip().upper() for t in (raw or "").split(",") if t.strip()]
+
+
+def _assert_nonempty_lens_tags(tags: list[str], where: str) -> None:
+    if not tags:
+        _fail(f"{where}: lens_tags must be non-empty (inductive write path)")
+
+
+def _next_fact_id(facts: list[dict[str, Any]]) -> int:
+    """Next F-n sequence (max-based; aligns with opens next_open_seq)."""
+    max_n = 0
+    for fact in facts:
+        if not isinstance(fact, dict):
+            continue
+        fid = str(fact.get("id", ""))
+        if fid.startswith("F-"):
+            try:
+                max_n = max(max_n, int(fid[2:]))
+            except ValueError:
+                continue
+    return max_n + 1
+
+
+def _find_open(
+    opens: list[dict[str, Any]], open_id: str
+) -> dict[str, Any] | None:
+    return next((o for o in opens if o.get("id") == open_id), None)
+
+
+def _find_fact(
+    facts: list[dict[str, Any]], fact_id: str
+) -> dict[str, Any] | None:
+    return next((f for f in facts if f.get("id") == fact_id), None)
+
+
+def _text_excerpt(text: str, limit: int = 80) -> str:
+    t = text.strip()
+    return t if len(t) <= limit else t[:limit]
 
 
 # ---------------------------------------------------------------------------
@@ -119,8 +193,6 @@ def cmd_init_pointer(out_dir: Path, args: argparse.Namespace) -> None:
         cycle_id=cycle_id,
     )
     save_section_pointer(ptr_path, ptr)
-    # section-SoT index (design §2); empty sections created lazily on first write
-    # No exposed-points.json — opens live in <S>.json (design §10).
     save_index(
         out_dir,
         {
@@ -138,11 +210,10 @@ def cmd_init_pointer(out_dir: Path, args: argparse.Namespace) -> None:
 
 def cmd_status(out_dir: Path, _args: argparse.Namespace) -> None:
     ptr = _load_pointer(out_dir)
-
-    open_count = len(blocking_open_items(out_dir))
+    opens = _load_opens(out_dir)
+    open_count = len(blocking_open_items(opens))
     section_statuses = {k: v["status"] for k, v in ptr["sections"].items()}
     frontier = {k: v.get("frontier_kw", 0) for k, v in ptr["sections"].items()}
-    # Mirror frontier_kw from section JSON when present
     for key in list_section_keys(out_dir):
         try:
             doc = load_section(out_dir, key)
@@ -164,10 +235,9 @@ def cmd_status(out_dir: Path, _args: argparse.Namespace) -> None:
 
 def cmd_check_coverage(out_dir: Path, _args: argparse.Namespace) -> None:
     ptr = _load_pointer(out_dir)
-
     cov = check_coverage(ptr)
 
-    blocking = blocking_open_items(out_dir)
+    blocking = blocking_open_items(_load_opens(out_dir))
     if blocking:
         cov["ok"] = False
         cov["errors"].append(
@@ -182,34 +252,39 @@ def cmd_check_coverage(out_dir: Path, _args: argparse.Namespace) -> None:
 
 def cmd_list_sections(out_dir: Path, _args: argparse.Namespace) -> None:
     ptr = _load_pointer(out_dir)
+    opens = _load_opens(out_dir)
+    facts = _load_facts_optional(out_dir)
+    fact_counts = lenses_present(facts)
 
     sections_summary: dict[str, Any] = {}
     for key in ptr["coverage_order"]:
         entry = ptr["sections"][key]
-        open_items: list[dict[str, Any]] = []
-        deferred_count = 0
-        decision_count = 0
         frontier_kw = entry.get("frontier_kw", 0)
         status = entry["status"]
         path = section_path(out_dir, key)
         if path.exists():
             try:
                 doc = load_section(out_dir, key)
-                open_items = list(doc.get("open") or [])
-                deferred_count = len(doc.get("deferred") or [])
-                decision_count = len(doc.get("decisions") or [])
                 frontier_kw = doc.get("frontier_kw", frontier_kw)
                 status = doc.get("status", status)
             except ValueError:
                 pass
+        key_opens = [
+            o for o in opens
+            if o.get("detected_under") == key and o.get("status") == "open"
+        ]
+        key_deferred = [
+            o for o in opens
+            if o.get("detected_under") == key and o.get("status") == "deferred"
+        ]
         sections_summary[key] = {
             "status": status,
             "frontier_kw": frontier_kw,
-            "decision_count": decision_count,
-            "open_count": len(open_items),
-            "deferred_count": deferred_count,
+            "decision_count": fact_counts.get(key, 0),
+            "open_count": len(key_opens),
+            "deferred_count": len(key_deferred),
             "open_blocking_count": len(
-                [o for o in open_items if o.get("blocking") is True]
+                [o for o in key_opens if o.get("blocking") is True]
             ),
             "section_file_exists": path.exists(),
         }
@@ -218,7 +293,9 @@ def cmd_list_sections(out_dir: Path, _args: argparse.Namespace) -> None:
         "active_section": ptr.get("active_section"),
         "coverage_order": ptr["coverage_order"],
         "sections": sections_summary,
-        "total_open_count": sum(s["open_count"] for s in sections_summary.values()),
+        "total_open_count": sum(
+            1 for o in opens if o.get("status") == "open"
+        ),
     })
 
 
@@ -246,7 +323,6 @@ def cmd_set_frontier(out_dir: Path, args: argparse.Namespace) -> None:
         _fail(str(exc))
 
     save_section_pointer(_pointer_path(out_dir), updated)
-    # Cache frontier on section JSON SoT as well (design §4.1)
     doc = ensure_section(out_dir, section)
     doc["frontier_kw"] = args.kw
     if doc["status"] == "untouched":
@@ -259,13 +335,11 @@ def cmd_set_frontier(out_dir: Path, args: argparse.Namespace) -> None:
 
 
 def cmd_register_ep(out_dir: Path, args: argparse.Namespace) -> None:
-    _fail('register-ep is removed (section-SoT). Use add-open / update-open.')
-
+    _fail("register-ep is removed (section-SoT). Use add-open / update-open.")
 
 
 def cmd_update_ep(out_dir: Path, args: argparse.Namespace) -> None:
-    _fail('update-ep is removed (section-SoT). Use update-open / settle-open / defer-open.')
-
+    _fail("update-ep is removed (section-SoT). Use update-open / settle-open / defer-open.")
 
 
 def _focus_guard(ptr: dict[str, Any], section: str) -> None:
@@ -278,54 +352,85 @@ def _focus_guard(ptr: dict[str, Any], section: str) -> None:
 
 
 def cmd_seed_decision(out_dir: Path, args: argparse.Namespace) -> None:
-    """Append a Seed-era decision with trigger=seed · means=scope (design §5/§14)."""
-    section = args.section.strip().upper()
-    ptr = _load_pointer(out_dir)
-    _focus_guard(ptr, section)
+    """Append a seed fact (origin.type=seed); optional --section for maturity focus."""
+    lens_tags = _parse_lens_tags(args.lens_tags)
+    _assert_nonempty_lens_tags(lens_tags, "seed-decision")
 
-    doc = ensure_section(out_dir, section)
-    seq = next_decision_seq(doc)
-    decision: dict[str, Any] = {
-        "id": mint_decision_id(section, seq),
-        "kw": args.kw,
+    section = (getattr(args, "section", None) or "").strip().upper() or None
+    if section:
+        ptr = _load_pointer(out_dir)
+        _focus_guard(ptr, section)
+        doc = ensure_section(out_dir, section)
+        if doc["status"] == "untouched":
+            doc["status"] = "active"
+        try:
+            save_section(out_dir, doc)
+        except ValueError as exc:
+            _fail(str(exc))
+
+    origin_refs = [
+        r.strip() for r in (getattr(args, "origin_ref", None) or "").split(",") if r.strip()
+    ]
+    if not origin_refs:
+        try:
+            idx = load_index(out_dir)
+            scope_ref = (idx.get("scope_ref") or "").strip()
+            if scope_ref:
+                origin_refs.append(scope_ref)
+        except (FileNotFoundError, ValueError):
+            pass
+        origin_refs.append(_text_excerpt(args.text))
+
+    facts = _load_facts_optional(out_dir)
+    fact_id = f"F-{_next_fact_id(facts)}"
+    fact: dict[str, Any] = {
+        "id": fact_id,
         "text": args.text,
-        "trigger": "seed",
-        "means": "scope",
-        "confidence": "direct",
-        "intent_ref": None,
-        "code_refs": [],
+        "lens_tags": lens_tags,
+        "origin": {"type": "seed", "ref": origin_refs},
     }
-    if args.rationale:
-        decision["rationale"] = args.rationale
-    doc["decisions"].append(decision)
-    if doc["status"] == "untouched":
-        doc["status"] = "active"
+    facts.append(fact)
     try:
-        save_section(out_dir, doc)
+        _save_facts_inductive(out_dir, facts)
     except ValueError as exc:
         _fail(str(exc))
-    _ok({"id": decision["id"], "section": section})
+
+    payload: dict[str, Any] = {"id": fact_id, "fact_id": fact_id, "lens_tags": lens_tags}
+    if section:
+        payload["section"] = section
+    if getattr(args, "kw", None) is not None:
+        payload["kw_hint"] = args.kw
+    _ok(payload)
 
 
 def cmd_add_open(out_dir: Path, args: argparse.Namespace) -> None:
-    """Append an open point to section JSON (design §6/§14)."""
-    section = args.section.strip().upper()
-    ptr = _load_pointer(out_dir)
-    _focus_guard(ptr, section)
-
+    """Append an open to inductive-opens.json (no focus-guard)."""
     trigger = (args.trigger or "").strip().lower()
     means = (args.means or "").strip().lower()
     if not trigger or not means:
         _fail("add-open requires --trigger and --means")
 
-    doc = ensure_section(out_dir, section)
-    seq = next_open_seq(doc)
+    opens = _load_opens(out_dir)
+    seq = next_open_seq(opens)
     blocking = str(args.blocking).lower() in {"1", "true", "yes"}
+    detected_raw = getattr(args, "detected_under", None)
+    if detected_raw is None or str(detected_raw).strip() == "":
+        detected_under = None
+    else:
+        detected_under = str(detected_raw).strip().upper()
+        allowed = set(_allowed_lenses(out_dir))
+        if allowed and detected_under not in allowed:
+            _fail(
+                f"add-open: detected_under={detected_under!r} not in "
+                f"coverage_order {sorted(allowed)}"
+            )
+
     open_item: dict[str, Any] = {
-        "id": mint_open_id(section, seq),
+        "id": mint_open_id(seq),
+        "status": "open",
+        "source": {"trigger": trigger, "means": means},
+        "detected_under": detected_under,
         "kw": args.kw,
-        "trigger": trigger,
-        "means": means,
         "blocking": blocking,
         "problem": args.problem,
     }
@@ -337,27 +442,23 @@ def cmd_add_open(out_dir: Path, args: argparse.Namespace) -> None:
         open_item["intent_ref"] = args.intent_ref
     if args.hangs_under:
         open_item["hangs_under"] = args.hangs_under
-    doc["open"].append(open_item)
-    if doc["status"] == "untouched":
-        doc["status"] = "active"
+
+    opens.append(open_item)
     try:
-        save_section(out_dir, doc)
+        _save_opens(out_dir, opens)
     except ValueError as exc:
         _fail(str(exc))
-    _ok({"id": open_item["id"], "section": section})
-
+    _ok({"id": open_item["id"], "detected_under": detected_under})
 
 
 def cmd_update_open(out_dir: Path, args: argparse.Namespace) -> None:
-    """Patch an open item (design §14.2) — dedup / provenance attach path."""
-    section = args.section.strip().upper()
-    ptr = _load_pointer(out_dir)
-    _focus_guard(ptr, section)
-
-    doc = ensure_section(out_dir, section)
-    open_item = _find_open(doc, args.open_id)
+    """Patch an open by id (doc-level; no --section)."""
+    opens = _load_opens(out_dir)
+    open_item = _find_open(opens, args.open_id)
     if open_item is None:
         _fail(f"open not found: {args.open_id!r}")
+    if open_item.get("status") != "open":
+        _fail(f"open {args.open_id!r} is not status=open (got {open_item.get('status')!r})")
 
     if args.problem is not None:
         open_item["problem"] = args.problem
@@ -371,11 +472,16 @@ def cmd_update_open(out_dir: Path, args: argparse.Namespace) -> None:
         open_item["intent_ref"] = args.intent_ref
     if args.hangs_under is not None:
         open_item["hangs_under"] = args.hangs_under
-    if args.trigger is not None:
-        open_item["trigger"] = args.trigger.strip().lower()
-    if args.means is not None:
-        open_item["means"] = args.means.strip().lower()
-    # Optional provenance note attached into leaning (dedup collide path)
+    if args.trigger is not None or args.means is not None:
+        source = dict(open_item.get("source") or {})
+        if args.trigger is not None:
+            source["trigger"] = args.trigger.strip().lower()
+        if args.means is not None:
+            source["means"] = args.means.strip().lower()
+        open_item["source"] = source
+    if getattr(args, "detected_under", None) is not None:
+        raw = str(args.detected_under).strip()
+        open_item["detected_under"] = None if not raw else raw.upper()
     if getattr(args, "provenance_note", None):
         note = args.provenance_note.strip()
         if note:
@@ -383,10 +489,10 @@ def cmd_update_open(out_dir: Path, args: argparse.Namespace) -> None:
             open_item["leaning"] = (prev + "\n" + note).strip() if prev else note
 
     try:
-        save_section(out_dir, doc)
+        _save_opens(out_dir, opens)
     except ValueError as exc:
         _fail(str(exc))
-    _ok({"updated": args.open_id, "section": section, "open": open_item})
+    _ok({"updated": args.open_id, "open": open_item})
 
 
 def cmd_get_section(out_dir: Path, args: argparse.Namespace) -> None:
@@ -400,136 +506,155 @@ def cmd_get_section(out_dir: Path, args: argparse.Namespace) -> None:
     _ok({"section": doc})
 
 
-def _find_open(doc: dict[str, Any], open_id: str) -> dict[str, Any] | None:
-    return next((o for o in doc.get("open", []) if o.get("id") == open_id), None)
-
-
-def _find_decision(doc: dict[str, Any], decision_id: str) -> dict[str, Any] | None:
-    return next((d for d in doc.get("decisions", []) if d.get("id") == decision_id), None)
-
-
 def cmd_settle_open(out_dir: Path, args: argparse.Namespace) -> None:
-    """Move open → decisions, inheriting trigger/means/intent_ref (design §14)."""
-    section = args.section.strip().upper()
-    ptr = _load_pointer(out_dir)
-    _focus_guard(ptr, section)
-
-    doc = ensure_section(out_dir, section)
-    open_item = _find_open(doc, args.open_id)
+    """Settle open → 1:N facts (origin.type=discovered); code_refs stay on open."""
+    opens = _load_opens(out_dir)
+    open_item = _find_open(opens, args.open_id)
     if open_item is None:
         _fail(f"open not found: {args.open_id!r}")
+    if open_item.get("status") != "open":
+        _fail(f"open {args.open_id!r} is not status=open (got {open_item.get('status')!r})")
 
-    seq = next_decision_seq(doc)
-    decision: dict[str, Any] = {
-        "id": mint_decision_id(section, seq),
-        "kw": open_item.get("kw", args.kw if hasattr(args, "kw") and args.kw is not None else 1),
-        "text": args.text,
-        "trigger": open_item["trigger"],
-        "means": open_item["means"],
-        "confidence": (args.confidence or open_item.get("confidence") or "inferred"),
-        "intent_ref": open_item.get("intent_ref"),
-        "code_refs": list(open_item.get("code_refs") or []),
-    }
-    if args.rationale:
-        decision["rationale"] = args.rationale
-    elif open_item.get("leaning") and not args.rationale:
-        # keep leaning only if caller did not supply rationale — optional
-        pass
-
-    doc["open"] = [o for o in doc["open"] if o.get("id") != args.open_id]
-    doc["decisions"].append(decision)
+    facts_file = Path(args.facts_file)
+    if not facts_file.is_file():
+        _fail(f"facts-file not found: {facts_file}")
     try:
-        save_section(out_dir, doc)
+        entries = json.loads(facts_file.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        _fail(f"invalid facts-file JSON: {exc}")
+    if not isinstance(entries, list) or not entries:
+        _fail("--facts-file must be a non-empty JSON array")
+
+    facts = _load_facts_optional(out_dir)
+    fact_ids: list[str] = []
+    n = _next_fact_id(facts)
+    for i, entry in enumerate(entries):
+        if not isinstance(entry, dict):
+            _fail(f"facts-file[{i}] must be an object")
+        text = str(entry.get("text") or "").strip()
+        if not text:
+            _fail(f"facts-file[{i}]: text required")
+        tags_raw = entry.get("lens_tags")
+        if not isinstance(tags_raw, list):
+            _fail(f"facts-file[{i}]: lens_tags must be an array")
+        lens_tags = [str(t).strip().upper() for t in tags_raw if str(t).strip()]
+        _assert_nonempty_lens_tags(lens_tags, f"facts-file[{i}]")
+        fact_id = f"F-{n}"
+        facts.append({
+            "id": fact_id,
+            "text": text,
+            "lens_tags": lens_tags,
+            "origin": {"type": "discovered", "ref": [args.open_id]},
+        })
+        fact_ids.append(fact_id)
+        n += 1
+
+    open_item["status"] = "settled"
+    open_item["resolved_by"] = fact_ids
+    # code_refs remain on open (not copied to fact — facts_schema has no code_refs)
+
+    try:
+        _save_facts_inductive(out_dir, facts)
+        _save_opens(out_dir, opens)
     except ValueError as exc:
         _fail(str(exc))
-    _ok({"decision_id": decision["id"], "settled": args.open_id, "section": section})
+    _ok({"fact_ids": fact_ids, "settled": args.open_id})
+
+
+def cmd_reject_open(out_dir: Path, args: argparse.Namespace) -> None:
+    opens = _load_opens(out_dir)
+    open_item = _find_open(opens, args.open_id)
+    if open_item is None:
+        _fail(f"open not found: {args.open_id!r}")
+    if open_item.get("status") != "open":
+        _fail(f"open {args.open_id!r} is not status=open (got {open_item.get('status')!r})")
+    reason = (args.reason or "").strip()
+    if not reason:
+        _fail("reject-open requires non-empty --reason")
+    open_item["status"] = "rejected"
+    open_item["reason"] = reason
+    open_item["resolved_by"] = []
+    try:
+        _save_opens(out_dir, opens)
+    except ValueError as exc:
+        _fail(str(exc))
+    _ok({"rejected": args.open_id, "reason": reason})
 
 
 def cmd_defer_open(out_dir: Path, args: argparse.Namespace) -> None:
-    section = args.section.strip().upper()
-    ptr = _load_pointer(out_dir)
-    _focus_guard(ptr, section)
-
-    doc = ensure_section(out_dir, section)
-    open_item = _find_open(doc, args.open_id)
+    opens = _load_opens(out_dir)
+    open_item = _find_open(opens, args.open_id)
     if open_item is None:
         _fail(f"open not found: {args.open_id!r}")
-
-    deferred = {
-        "id": open_item["id"],
-        "kw": open_item.get("kw"),
-        "note": args.note or "",
-    }
-    if open_item.get("intent_ref"):
-        deferred["intent_ref"] = open_item["intent_ref"]
-
-    doc["open"] = [o for o in doc["open"] if o.get("id") != args.open_id]
-    doc["deferred"].append(deferred)
+    if open_item.get("status") != "open":
+        _fail(f"open {args.open_id!r} is not status=open (got {open_item.get('status')!r})")
+    note = (args.note or "").strip()
+    if not note:
+        _fail("defer-open requires non-empty --note")
+    open_item["status"] = "deferred"
+    open_item["note"] = note
+    open_item["resolved_by"] = []
     try:
-        save_section(out_dir, doc)
+        _save_opens(out_dir, opens)
     except ValueError as exc:
         _fail(str(exc))
-    _ok({"deferred": args.open_id, "section": section})
+    _ok({"deferred": args.open_id})
 
 
 def cmd_update_decision(out_dir: Path, args: argparse.Namespace) -> None:
-    section = args.section.strip().upper()
-    ptr = _load_pointer(out_dir)
-    _focus_guard(ptr, section)
+    """Update a fact by F-n (compat alias: update-decision)."""
+    fact_id = (args.decision_id or args.id or "").strip()
+    if not fact_id:
+        _fail("update-decision requires --id (F-n)")
+    if not fact_id.startswith("F-"):
+        _fail(f"update-decision id must be F-n, got {fact_id!r}")
 
-    doc = ensure_section(out_dir, section)
-    decision = _find_decision(doc, args.decision_id)
-    if decision is None:
-        _fail(f"decision not found: {args.decision_id!r}")
-
+    facts = _load_facts_optional(out_dir)
+    fact = _find_fact(facts, fact_id)
+    if fact is None:
+        _fail(f"fact not found: {fact_id!r}")
     if args.text is not None:
-        decision["text"] = args.text
-    if args.rationale is not None:
-        decision["rationale"] = args.rationale
+        fact["text"] = args.text
     try:
-        save_section(out_dir, doc)
+        _save_facts_inductive(out_dir, facts)
     except ValueError as exc:
         _fail(str(exc))
-    _ok({"updated": args.decision_id, "section": section})
+    _ok({"updated": fact_id, "fact": fact})
 
 
 def cmd_attach_code_refs(out_dir: Path, args: argparse.Namespace) -> None:
-    section = args.section.strip().upper()
-    ptr = _load_pointer(out_dir)
-    _focus_guard(ptr, section)
-
+    """Attach code_refs to an open (O- only; facts have no code_refs field)."""
+    target_id = args.id.strip()
     refs = [r.strip() for r in args.refs.split(",") if r.strip()]
     if not refs:
         _fail("--refs must provide at least one code ref")
+    if not target_id.startswith("O-"):
+        _fail(
+            f"attach-code-refs only supports O- open ids "
+            f"(facts have no code_refs field); got {target_id!r}"
+        )
 
-    doc = ensure_section(out_dir, section)
-    target_id = args.id
-    decision = _find_decision(doc, target_id)
-    open_item = _find_open(doc, target_id) if decision is None else None
-    if decision is None and open_item is None:
-        _fail(f"id not found in decisions or open: {target_id!r}")
-
-    item = decision if decision is not None else open_item
-    assert item is not None
-    existing = list(item.get("code_refs") or [])
+    opens = _load_opens(out_dir)
+    open_item = _find_open(opens, target_id)
+    if open_item is None:
+        _fail(f"open not found: {target_id!r}")
+    existing = list(open_item.get("code_refs") or [])
     for ref in refs:
         if ref not in existing:
             existing.append(ref)
-    item["code_refs"] = existing
+    open_item["code_refs"] = existing
     try:
-        save_section(out_dir, doc)
+        _save_opens(out_dir, opens)
     except ValueError as exc:
         _fail(str(exc))
-    _ok({"id": target_id, "code_refs": existing, "section": section})
+    _ok({"id": target_id, "code_refs": existing})
 
 
 def _resolve_view_scope(out_dir: Path, scope: str) -> list[str]:
-    """Resolve --scope into section keys (design §14.3)."""
     scope = (scope or "all").strip()
     if scope == "all":
         ptr = _load_pointer(out_dir)
         keys = list(ptr.get("coverage_order") or [])
-        # Also include any on-disk section JSON not in coverage_order
         d = section_dir(out_dir)
         if d.exists():
             for p in sorted(d.glob("*.json")):
@@ -540,20 +665,20 @@ def _resolve_view_scope(out_dir: Path, scope: str) -> list[str]:
                     keys.append(key)
         return keys
     if scope.startswith("code:"):
-        # MVP: code: glob filter not fully implemented — fail clearly
         _fail("view --scope code:<glob> not implemented in MVP; use all or ST,IF")
     return [s.strip().upper() for s in scope.split(",") if s.strip()]
 
 
 def assemble_fidelity_markdown(out_dir: Path, keys: list[str]) -> str:
-    """Mechanical assembly of decisions[].text (view --synthesis off / compose init)."""
+    """Mechanical assembly of fact texts by lens_tags (view --synthesis off)."""
+    facts = _load_facts_optional(out_dir)
     parts: list[str] = []
     for key in keys:
-        path = section_path(out_dir, key)
-        if not path.exists():
-            continue
-        doc = load_section(out_dir, key)
-        texts = [str(d.get("text", "")).strip() for d in doc.get("decisions", [])]
+        texts = [
+            str(f.get("text", "")).strip()
+            for f in facts
+            if key in (f.get("lens_tags") or [])
+        ]
         texts = [t for t in texts if t]
         if not texts:
             continue
@@ -566,7 +691,7 @@ def assemble_fidelity_markdown(out_dir: Path, keys: list[str]) -> str:
 def build_view_bundle(
     out_dir: Path, keys: list[str], granularity: str | None = None
 ) -> dict[str, Any]:
-    """Context bundle for view --synthesis on (script packs; AI synthesizes)."""
+    """Context bundle for view --synthesis on: sections + opens + facts."""
     try:
         index = load_index(out_dir)
     except FileNotFoundError:
@@ -577,14 +702,7 @@ def build_view_bundle(
         if path.exists():
             doc = load_section(out_dir, key)
         else:
-            doc = {
-                "key": key,
-                "status": "untouched",
-                "frontier_kw": 0,
-                "decisions": [],
-                "open": [],
-                "deferred": [],
-            }
+            doc = {"key": key, "status": "untouched", "frontier_kw": 0}
         sections.append(
             {
                 "key": doc["key"],
@@ -592,19 +710,31 @@ def build_view_bundle(
                 "order": i,
                 "status": doc.get("status"),
                 "frontier_kw": doc.get("frontier_kw", 0),
-                "decisions": doc.get("decisions", []),
-                "open": doc.get("open", []),
-                "deferred": doc.get("deferred", []),
             }
         )
-    bundle: dict[str, Any] = {"index": index, "sections": sections}
+    opens = _load_opens(out_dir)
+    facts = _load_facts_optional(out_dir)
+    facts_summary = [
+        {
+            "id": f.get("id"),
+            "text": f.get("text"),
+            "lens_tags": f.get("lens_tags", []),
+            **({"origin": f["origin"]} if "origin" in f else {}),
+        }
+        for f in facts
+    ]
+    bundle: dict[str, Any] = {
+        "index": index,
+        "sections": sections,
+        "opens": opens,
+        "facts": facts_summary,
+    }
     if granularity is not None:
         bundle["granularity"] = granularity
     return bundle
 
 
 def cmd_view(out_dir: Path, args: argparse.Namespace) -> None:
-    """view --synthesis off|on (design §14.3)."""
     synthesis = (args.synthesis or "off").strip().lower()
     if synthesis not in {"off", "on"}:
         _fail("--synthesis must be off or on")
@@ -630,8 +760,10 @@ def cmd_view(out_dir: Path, args: argparse.Namespace) -> None:
 
 
 def cmd_append_to_section(out_dir: Path, args: argparse.Namespace) -> None:
-    _fail('append-to-section is removed (section-SoT). Use seed-decision / update-decision / settle-open.')
-
+    _fail(
+        "append-to-section is removed (section-SoT). "
+        "Use seed-decision / update-decision / settle-open."
+    )
 
 
 def cmd_clear_section(out_dir: Path, args: argparse.Namespace) -> None:
@@ -641,14 +773,12 @@ def cmd_clear_section(out_dir: Path, args: argparse.Namespace) -> None:
     ptr = _load_pointer(out_dir)
     active = ptr.get("active_section")
 
-    # Focus guard
     if section != active:
         _fail(
             f"focus guard: section={section!r} != active_section={active!r}; "
             "call activate-section to switch focus first"
         )
 
-    # Frontier must have reached the target (default KW3).
     frontier = ptr["sections"][section].get("frontier_kw", 0)
     if frontier < target_kw:
         _fail(
@@ -656,35 +786,41 @@ def cmd_clear_section(out_dir: Path, args: argparse.Namespace) -> None:
             "call set-frontier once the section reaches the target maturity"
         )
 
-    # No blocking-open items for this section (section JSON SoT).
-    blocking = blocking_open_items(out_dir, section=section)
-    if blocking:
+    # Per-section clear: only opens homed on this lens block (detected_under==section).
+    # Global blocking (any lens / null home) remains Exit/check-coverage's job.
+    section_blocking = [
+        o
+        for o in blocking_open_items(_load_opens(out_dir))
+        if str(o.get("detected_under") or "").strip().upper() == section
+    ]
+    if section_blocking:
         _fail(
-            f"cannot clear {section!r}: {len(blocking)} blocking open item(s): "
-            + ", ".join(str(o.get("id")) for o in blocking)
+            f"cannot clear {section!r}: {len(section_blocking)} blocking open "
+            f"item(s) under this lens: "
+            + ", ".join(str(o.get("id")) for o in section_blocking)
         )
 
-    # Bucket: section JSON with decisions (design §10 — .md no longer SoT)
+    facts = _load_facts_optional(out_dir)
+    lens_facts = filter_by_lens(facts, section)
+    if not lens_facts:
+        _fail(
+            f"cannot clear {section!r}: no facts with lens_tags containing {section!r}; "
+            "seed-decision or settle-open first"
+        )
+
     json_path = section_path(out_dir, section)
-    has_json_body = False
     if json_path.exists():
         try:
             doc = load_section(out_dir, section)
-            has_json_body = bool(doc.get("decisions"))
             if "frontier_kw" in doc:
                 ptr = set_frontier(ptr, section, int(doc["frontier_kw"]))
         except ValueError as exc:
             _fail(str(exc))
-    if not has_json_body:
-        _fail(
-            f"cannot clear {section!r}: no decisions in {json_path}; "
-            "seed-decision or settle-open first"
-        )
 
     updated_ptr = clear_section(ptr, section)
     save_section_pointer(_pointer_path(out_dir), updated_ptr)
     try:
-        doc = load_section(out_dir, section)
+        doc = load_section(out_dir, section) if json_path.exists() else ensure_section(out_dir, section)
         doc["status"] = "cleared"
         save_section(out_dir, doc)
     except ValueError as exc:
@@ -700,7 +836,6 @@ def cmd_skip_section(out_dir: Path, args: argparse.Namespace) -> None:
     ptr = _load_pointer(out_dir)
     active = ptr.get("active_section")
 
-    # Focus guard
     if section != active:
         _fail(
             f"focus guard: section={section!r} != active_section={active!r}; "
@@ -737,7 +872,6 @@ def cmd_rewind_section(out_dir: Path, args: argparse.Namespace) -> None:
         _fail(str(exc))
 
     save_section_pointer(_pointer_path(out_dir), updated)
-    # Keep section JSON status in sync (status command mirrors from JSON)
     doc = ensure_section(out_dir, section)
     doc["status"] = "active"
     try:
@@ -748,23 +882,17 @@ def cmd_rewind_section(out_dir: Path, args: argparse.Namespace) -> None:
 
 
 def cmd_recompose_check(out_dir: Path, _args: argparse.Namespace) -> None:
-    """Audit committed section artifacts for G4 recompose self-check (structural).
+    """Audit committed artifacts for G4 recompose self-check (structural).
 
-    Mechanical half (design Turn 61 / plan C1):
+    Mechanical half:
       - cleared sections have <S>.json
-      - no blocking∧open items
-      - _index.last_checkpoint == \"shape\" (Shape-confirm mark)
-      - checkpoint_git_sha reported when recorded (G4 semantic baseline)
-
-    Semantic half (reforms_shape/shape_absorbed meaning vs confirmed spine) is
-    assessed by g4-recompose-runner against checkpoint_git_sha / Git history;
-    this script only checks that the checkpoint mark exists and artifacts are present.
-    Does NOT discover new open points.
+      - no blocking∧open items (from opens list)
+      - _index.last_checkpoint == \"shape\"
+      - lenses_present(facts) must not include any lens whose pointer is untouched
     """
     ptr = _load_pointer(out_dir)
     errors: list[str] = []
 
-    # Cleared sections must have section JSON
     for key in ptr["coverage_order"]:
         status = ptr["sections"][key]["status"]
         if status == "cleared":
@@ -772,14 +900,30 @@ def cmd_recompose_check(out_dir: Path, _args: argparse.Namespace) -> None:
             if not jp.exists():
                 errors.append(f"cleared section {key!r} has no file at {jp}")
 
-    blocking = blocking_open_items(out_dir)
+    blocking = blocking_open_items(_load_opens(out_dir))
     if blocking:
         errors.append(
             f"{len(blocking)} blocking open item(s) not resolved: "
             + ", ".join(str(o.get("id")) for o in blocking)
         )
 
-    # Shape baseline mark (replaces frozen architecture_view dependency)
+    # Facts without maturity ledger (lens present but pointer untouched)
+    facts = _load_facts_optional(out_dir)
+    present = lenses_present(facts)
+    orphan_lenses: list[str] = []
+    for lens in sorted(present):
+        entry = ptr["sections"].get(lens)
+        if entry is None:
+            orphan_lenses.append(lens)
+            continue
+        if entry.get("status") == "untouched":
+            orphan_lenses.append(lens)
+    if orphan_lenses:
+        errors.append(
+            "facts present for lenses with untouched section pointer: "
+            + ", ".join(orphan_lenses)
+        )
+
     shape_checkpoint_present = False
     checkpoint_git_sha = None
     try:
@@ -797,7 +941,6 @@ def cmd_recompose_check(out_dir: Path, _args: argparse.Namespace) -> None:
             "(run checkpoint --name shape after Shape-confirm)"
         )
 
-    # reforms_shape (mechanical): checkpoint mark present and no checkpoint-related errors
     reforms_shape = shape_checkpoint_present and not any(
         "shape checkpoint" in e or "_index.json" in e for e in errors
     )
@@ -813,8 +956,8 @@ def cmd_recompose_check(out_dir: Path, _args: argparse.Namespace) -> None:
         "errors": errors,
         "_note": (
             "reforms_shape/shape_absorbed here are script-checkable structural "
-            "predicates (checkpoint mark + cleared files + no blocking opens). "
-            "Semantic comparison of confirmed spine vs HEAD is AI-assessed in "
+            "predicates (checkpoint mark + cleared files + no blocking opens + "
+            "no facts-without-maturity). Semantic comparison is AI-assessed in "
             "g4-recompose-runner before gate-close G4."
         ),
     }
@@ -826,7 +969,6 @@ def cmd_recompose_check(out_dir: Path, _args: argparse.Namespace) -> None:
 
 
 def _git_head_sha(cwd: Path | None = None) -> str | None:
-    """Best-effort HEAD SHA for Shape-confirm baseline (design Turn 61 / I8)."""
     try:
         result = subprocess.run(
             ["git", "rev-parse", "HEAD"],
@@ -844,7 +986,6 @@ def _git_head_sha(cwd: Path | None = None) -> str | None:
 
 
 def cmd_checkpoint(out_dir: Path, args: argparse.Namespace) -> None:
-    """Record last_checkpoint (+ git SHA) on _index.json (Shape-confirm baseline)."""
     name = (args.name or "").strip()
     if not name:
         _fail("--name is required (e.g. shape)")
@@ -878,50 +1019,41 @@ def _build_parser() -> argparse.ArgumentParser:
         "--out-dir",
         required=True,
         metavar="PATH",
-        help="$INDUCTIVE_OUT_DIR: directory for inductive state files and artifacts",
+        help="$INDUCTIVE_OUT_DIR: revision dir for inductive state + _facts.json",
     )
 
     sub = parser.add_subparsers(dest="subcommand", required=True)
 
-    # init-pointer
-    p = sub.add_parser("init-pointer", help="Seed section pointer + _index.json (section-SoT)")
+    p = sub.add_parser("init-pointer", help="Seed section pointer + _index.json")
     p.add_argument("--sections", required=True, help="Comma-separated coverage_sections")
     p.add_argument("--mandatory", default="", help="Comma-separated mandatory section keys")
     p.add_argument("--cycle-id", default="", help="Cycle id for traceability")
     p.add_argument("--profile", default="", help="Compose profile id (stored on _index)")
-    p.add_argument("--scope-ref", default="", dest="scope_ref", help="Upstream scope path (stored on _index)")
+    p.add_argument("--scope-ref", default="", dest="scope_ref", help="Upstream scope path")
 
-    # status
     sub.add_parser("status", help="Return active_section, statuses, blocking open count")
-
-    # check-coverage
     sub.add_parser("check-coverage", help="Evaluate G3 gate-close coverage predicate")
+    sub.add_parser("list-sections", help="Section statuses + fact/open counts")
 
-    # list-sections
-    sub.add_parser("list-sections", help="Return section statuses + open/deferred/decision counts")
-
-    # activate-section
     p = sub.add_parser("activate-section", help="Switch active_section focus")
     p.add_argument("--section", required=True, metavar="S")
 
-    # set-frontier
     p = sub.add_parser("set-frontier", help="Set active section's frontier_kw (0..4)")
     p.add_argument("--section", required=True, metavar="S")
-    p.add_argument("--kw", required=True, type=int, metavar="N", help="0..4 (KW level reached)")
+    p.add_argument("--kw", required=True, type=int, metavar="N", help="0..4")
 
-    # seed-decision (section-SoT)
     p = sub.add_parser(
         "seed-decision",
-        help="Append a Seed decision to <S>.json (trigger=seed, means=scope)",
+        help="Append a seed fact to _facts.json (origin.type=seed)",
     )
-    p.add_argument("--section", required=True, metavar="S")
-    p.add_argument("--kw", required=True, type=int, metavar="N")
+    p.add_argument("--section", default=None, metavar="S", help="Focus + ensure maturity")
+    p.add_argument("--lens-tags", required=True, dest="lens_tags", metavar="TAGS")
     p.add_argument("--text", required=True, metavar="TEXT")
-    p.add_argument("--rationale", default=None, metavar="TEXT")
+    p.add_argument("--origin-ref", default=None, dest="origin_ref", metavar="REFS")
+    p.add_argument("--kw", default=None, type=int, metavar="N", help="Hint only; not stored on fact")
+    p.add_argument("--rationale", default=None, metavar="TEXT", help="Ignored (compat)")
 
-    # add-open (section-SoT)
-    p = sub.add_parser("add-open", help="Append an open point to <S>.json")
-    p.add_argument("--section", required=True, metavar="S")
+    p = sub.add_parser("add-open", help="Append an open to inductive-opens.json")
     p.add_argument("--kw", required=True, type=int, metavar="N")
     p.add_argument("--trigger", default=None, metavar="T", help="human|ai (required)")
     p.add_argument(
@@ -931,21 +1063,14 @@ def _build_parser() -> argparse.ArgumentParser:
         help="probe|direct|view|ai_scan|intent_baseline (required)",
     )
     p.add_argument("--problem", required=True, metavar="TEXT")
+    p.add_argument("--detected-under", default=None, dest="detected_under", metavar="S")
     p.add_argument("--leaning", default=None, metavar="TEXT")
-    p.add_argument(
-        "--blocking",
-        default="true",
-        metavar="BOOL",
-        help="true|false (default true)",
-    )
+    p.add_argument("--blocking", default="true", metavar="BOOL")
     p.add_argument("--confidence", default=None, metavar="C")
     p.add_argument("--intent-ref", default=None, dest="intent_ref", metavar="ID")
     p.add_argument("--hangs-under", default=None, dest="hangs_under", metavar="ID")
 
-
-    # update-open (section-SoT)
-    p = sub.add_parser("update-open", help="Patch an open item (dedup / provenance attach)")
-    p.add_argument("--section", required=True, metavar="S")
+    p = sub.add_parser("update-open", help="Patch an open by id")
     p.add_argument("--open-id", required=True, dest="open_id", metavar="ID")
     p.add_argument("--problem", default=None, metavar="TEXT")
     p.add_argument("--leaning", default=None, metavar="TEXT")
@@ -955,144 +1080,95 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--hangs-under", default=None, dest="hangs_under", metavar="ID")
     p.add_argument("--trigger", default=None, metavar="T")
     p.add_argument("--means", default=None, metavar="M")
+    p.add_argument("--detected-under", default=None, dest="detected_under", metavar="S")
     p.add_argument(
         "--provenance-note",
         default=None,
         dest="provenance_note",
         metavar="TEXT",
-        help="Append a provenance note into leaning (dedup collide)",
     )
 
-    # get-section (section-SoT)
-    p = sub.add_parser("get-section", help="Return <S>.json contents")
+    p = sub.add_parser("get-section", help="Return maturity <S>.json")
     p.add_argument("--section", required=True, metavar="S")
 
-    # settle-open (section-SoT)
     p = sub.add_parser(
         "settle-open",
-        help="Move open → decisions (inherit trigger/means/intent_ref)",
+        help="Settle open → 1:N facts via --facts-file JSON array",
     )
-    p.add_argument("--section", required=True, metavar="S")
     p.add_argument("--open-id", required=True, dest="open_id", metavar="ID")
-    p.add_argument("--text", required=True, metavar="TEXT")
-    p.add_argument("--rationale", default=None, metavar="TEXT")
-    p.add_argument("--confidence", default=None, metavar="C")
-
-    # defer-open (section-SoT)
-    p = sub.add_parser("defer-open", help="Move open → deferred")
-    p.add_argument("--section", required=True, metavar="S")
-    p.add_argument("--open-id", required=True, dest="open_id", metavar="ID")
-    p.add_argument("--note", default="", metavar="TEXT")
-
-    # update-decision (section-SoT)
-    p = sub.add_parser("update-decision", help="Patch a decision text/rationale")
-    p.add_argument("--section", required=True, metavar="S")
-    p.add_argument("--decision-id", required=True, dest="decision_id", metavar="ID")
-    p.add_argument("--text", default=None, metavar="TEXT")
-    p.add_argument("--rationale", default=None, metavar="TEXT")
-
-    # attach-code-refs (section-SoT)
-    p = sub.add_parser(
-        "attach-code-refs",
-        help="Append code_refs to a decision or open item",
-    )
-    p.add_argument("--section", required=True, metavar="S")
-    p.add_argument("--id", required=True, metavar="ID", help="decision or open id")
     p.add_argument(
-        "--refs",
+        "--facts-file",
         required=True,
-        metavar="REFS",
-        help="Comma-separated code refs",
+        dest="facts_file",
+        metavar="PATH",
+        help='JSON array of {"text","lens_tags":[...]}',
     )
 
-    # view (section-SoT)
+    p = sub.add_parser("reject-open", help="Reject an open (status=rejected)")
+    p.add_argument("--open-id", required=True, dest="open_id", metavar="ID")
+    p.add_argument("--reason", required=True, metavar="TEXT")
+
+    p = sub.add_parser("defer-open", help="Defer an open (status=deferred)")
+    p.add_argument("--open-id", required=True, dest="open_id", metavar="ID")
+    p.add_argument("--note", required=True, metavar="TEXT")
+
+    p = sub.add_parser("update-decision", help="Update a fact by F-n (compat alias)")
+    p.add_argument("--id", default=None, metavar="F-n", help="Fact id")
+    p.add_argument(
+        "--decision-id",
+        default=None,
+        dest="decision_id",
+        metavar="F-n",
+        help="Compat alias for --id",
+    )
+    p.add_argument("--text", default=None, metavar="TEXT")
+    p.add_argument("--rationale", default=None, metavar="TEXT", help="Ignored (compat)")
+    p.add_argument("--section", default=None, metavar="S", help="Ignored (compat)")
+
+    p = sub.add_parser("attach-code-refs", help="Append code_refs to an open (O- only)")
+    p.add_argument("--id", required=True, metavar="ID", help="Open id O-n")
+    p.add_argument("--refs", required=True, metavar="REFS", help="Comma-separated code refs")
+
     p = sub.add_parser(
         "view",
-        help="Extract a view: synthesis off=mechanical markdown; on=context bundle",
+        help="Extract a view: synthesis off=fact text by lens; on=bundle",
     )
-    p.add_argument(
-        "--synthesis",
-        required=True,
-        choices=["off", "on"],
-        metavar="MODE",
-        help="off = decisions[].text assembly; on = JSON context bundle for AI",
-    )
-    p.add_argument(
-        "--scope",
-        default="all",
-        metavar="SCOPE",
-        help="all | ST,IF | (code:glob deferred)",
-    )
-    p.add_argument(
-        "--granularity",
-        default="",
-        metavar="HINT",
-        help="Free-text hint for synthesis:on (passed through; script does not interpret)",
-    )
+    p.add_argument("--synthesis", required=True, choices=["off", "on"], metavar="MODE")
+    p.add_argument("--scope", default="all", metavar="SCOPE")
+    p.add_argument("--granularity", default="", metavar="HINT")
 
-    # register-ep
     p = sub.add_parser("register-ep", help="REMOVED — use add-open / update-open")
-    p.add_argument("--json", required=True, dest="json", metavar="JSON", help="EP JSON object")
+    p.add_argument("--json", required=True, dest="json", metavar="JSON")
 
-    # update-ep
     p = sub.add_parser("update-ep", help="REMOVED — use update-open / settle-open / defer-open")
     p.add_argument("--id", required=True, metavar="EP_ID")
-    p.add_argument(
-        "--status",
-        required=True,
-        choices=["resolved", "deferred"],
-        metavar="STATUS",
-    )
+    p.add_argument("--status", required=True, choices=["resolved", "deferred"], metavar="STATUS")
     p.add_argument("--resolution", default=None, metavar="TEXT")
 
-    # append-to-section
-    p = sub.add_parser(
-        "append-to-section",
-        help="REMOVED — use seed-decision / update-decision / settle-open on <S>.json",
-    )
+    p = sub.add_parser("append-to-section", help="REMOVED")
     p.add_argument("--section", required=True, metavar="S")
-    p.add_argument(
-        "--content",
-        required=True,
-        metavar="MARKDOWN",
-        help="Ignored (command removed)",
-    )
+    p.add_argument("--content", required=True, metavar="MARKDOWN")
 
-    # clear-section
-    p = sub.add_parser(
-        "clear-section",
-        help="Validate guard + no-blocking-open + frontier>=target, mark cleared",
-    )
+    p = sub.add_parser("clear-section", help="Clear when frontier+facts+no blocking opens")
     p.add_argument("--section", required=True, metavar="S")
     p.add_argument(
         "--target-kw",
         type=int,
         default=FRONTIER_TARGET_DEFAULT,
         metavar="N",
-        help=f"Minimum frontier_kw required to clear (default {FRONTIER_TARGET_DEFAULT})",
     )
 
-    # skip-section
     p = sub.add_parser("skip-section", help="Mark a section skipped")
     p.add_argument("--section", required=True, metavar="S")
     p.add_argument("--reason", default="", metavar="TEXT")
 
-    # rewind-section
-    p = sub.add_parser("rewind-section", help="Reopen a section (G4 audit failure path)")
+    p = sub.add_parser("rewind-section", help="Reopen a section")
     p.add_argument("--to", required=True, metavar="S")
 
-    # recompose-check
-    sub.add_parser(
-        "recompose-check",
-        help="Audit committed artifacts for G4 self-check (structural predicates only)",
-    )
+    sub.add_parser("recompose-check", help="G4 structural predicates")
 
-    # checkpoint (section-SoT)
-    p = sub.add_parser(
-        "checkpoint",
-        help="Set _index.last_checkpoint + checkpoint_git_sha (Shape-confirm baseline)",
-    )
-    p.add_argument("--name", required=True, metavar="NAME", help="e.g. shape")
+    p = sub.add_parser("checkpoint", help="Set _index.last_checkpoint + git sha")
+    p.add_argument("--name", required=True, metavar="NAME")
 
     return parser
 
@@ -1114,6 +1190,7 @@ def main() -> None:
         "update-open": cmd_update_open,
         "get-section": cmd_get_section,
         "settle-open": cmd_settle_open,
+        "reject-open": cmd_reject_open,
         "defer-open": cmd_defer_open,
         "update-decision": cmd_update_decision,
         "attach-code-refs": cmd_attach_code_refs,

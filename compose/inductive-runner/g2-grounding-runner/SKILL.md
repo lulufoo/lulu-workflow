@@ -2,14 +2,14 @@
 name: g2-grounding-runner
 description: >-
   DEPRECATED optional read-only subagent for legacy inductive Gate 2 topology
-  grounding. Prefer attach-code-refs inside capability ④. Validates confirmed
+  grounding. Prefer attach-code-refs inside Class 2 processing. Validates confirmed
   shape claims (from section JSON / checkpoint) against observed code topology,
   writes a thin g2-topology-report.json verdict. Does not interact with the user.
 ---
 
 # g2-grounding-runner
 
-> **Deprecated (section-SoT):** Independent G2 is folded into capability **④** `attach-code-refs` (design Turn 44). Prefer **not** to dispatch this runner. Kept only for optional legacy topology passes when a report must exist for `verdict=ok` close.
+> **Deprecated (section-SoT):** Independent G2 is folded into Class 2 `attach-code-refs` (design Turn 44). Prefer **not** to dispatch this runner. Kept only for optional legacy topology passes when a report must exist for `verdict=ok` close.
 
 Terminal runner subagent. Dispatched from **inline** inductive-runner at Gate 2 only when the parent explicitly chooses the legacy path (one subagent per G2 pass).
 
@@ -24,7 +24,7 @@ Report field contract, thinness limits, and validation live in `g2_topology_repo
 - Topology only — no line-level detail in `facts`; `code_refs` belong in `divergences` only.
 - No whole-file reads — Grep/symbol locate, then Read minimal line ranges if needed.
 - **To-Be gaps are not breaking** — unimplemented future structure is for Gate 3, not G2.
-- **Breaking = direct contradiction** with Shape-confirm claims from section JSON / checkpoint — **not** with DQI as SoT.
+- **Breaking = direct contradiction** with Shape-confirm claims from `_facts.json` / checkpoint — **not** with DQI as SoT.
 
 ## Required Inputs
 
@@ -50,7 +50,7 @@ Do **not** paste shape claims in the Task prompt — read section JSON / `_index
 
 ## Pipeline
 
-1. Read `$INDUCTIVE_OUT_DIR/inductive-scope/_index.json` → require `last_checkpoint == "shape"`. Load coarse shape claims from relevant `<S>.json` `decisions[]` (I/ST/SC etc.). DQI `architecture_view` / `shape_constraints` are **optional non-authoritative hints only** — never the sole SSOT.
+1. Read `$INDUCTIVE_OUT_DIR/inductive-scope/_index.json` → require `last_checkpoint == "shape"`. Load coarse shape claims from `$INDUCTIVE_OUT_DIR/_facts.json` filtered by relevant `lens_tags` (I/ST/SC etc.). Maturity `<S>.json` is status/frontier only — not body. DQI `architecture_view` / `shape_constraints` are **optional non-authoritative hints only** — never the sole SSOT.
 2. `$FETCH_COMPOSE --role inductive-scan-criteria` → `SCAN_CRITERIA` (topology scan methods if needed).
 3. Read-only scan: confirm spine / To-Be topology blocks exist or can exist; key relations are plausible.
 4. Optionally record checklist rows (`confirmed` | `not_applicable` | `contradiction`) against the section-derived claims.

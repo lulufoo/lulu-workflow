@@ -2,9 +2,10 @@
 name: initializing-runner
 description: >-
   Autonomous Initializing step for compose-profile drafting. Loads upstream scope
-  doc and frameworks; atomizes facts (or validates K2 projection); organizes
-  chapters; composes per-chapter bodies via fact-first display-layer pipeline
-  (Steps 1–6); validates draft quality; persists each chapter incrementally.
+  doc and frameworks; atomizes facts (or validates discovery-written inductive
+  `_facts.json`); organizes chapters; composes per-chapter bodies via fact-first
+  display-layer pipeline (Steps 1–6); validates draft quality; persists each
+  chapter incrementally.
 ---
 
 # initializing-runner
@@ -15,12 +16,12 @@ Use `$COMPOSE_PROFILE` from parent dispatch; kernel default applies only when om
 
 ## Scope
 
-**Pipeline:** Step 1 Load → Step 2 Atomize facts (inductive: validate projected `_facts.json` only; deductive: atomize scope) → Step 3 Derive facts → Step 4 Organize chapters → Step 5 Write chapters → Step 6 Validate → Return.
+**Pipeline:** Step 1 Load → Step 2 Atomize facts (inductive: validate discovery-written `_facts.json` only; deductive: atomize scope) → Step 3 Derive facts → Step 4 Organize chapters → Step 5 Write chapters → Step 6 Validate → Return.
 
-Init substance: display-layer Steps 2–6 + K2 projection (`decisions[]` → `_facts.json`). Discovery loop still owns `decisions[]` as engine state.
+Init substance: display-layer Steps 2–6. Inductive discovery loop owns `_facts.json` as engine state (K4; no projection). Deductive Init atomizes scope into facts.
 
-- **Must:** operationalize display-layer facts (or inductive SoT via K2 projection only); explicit 待决 for gaps; readable chapter bodies.
-- **Must not:** invent beyond facts/scope/upstream-derivation sources; decide open choices during derivation; decision paste; empty shell chapters; recreate `_partition.json` or reassemble `decisions[].text`; write `section-key:` anchors (chapter anchors only).
+- **Must:** operationalize display-layer facts (inductive: validate-only on discovery-written `_facts.json`; deductive: atomize scope); explicit 待决 for gaps; readable chapter bodies.
+- **Must not:** invent beyond facts/scope/upstream-derivation sources; decide open choices during derivation; decision paste; empty shell chapters; recreate `_partition.json` or reassemble fact text by hand; write `section-key:` anchors (chapter anchors only); invoke retired `$INDUCTIVE_FACTS_PROJ project`.
 
 Round still owns formal gap closure. Do not ask the user questions. Do not run InDialogue, Reopen, Evaluating, or delivery work.
 
@@ -57,7 +58,6 @@ All macros that declare `--profile` **must** pass `--profile "$COMPOSE_PROFILE"`
 | `$FACTS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/facts_control.py"` |
 | `$CHAPTERS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/chapters_control.py"` |
 | `$DERIVE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/derive_control.py"` (K1 Step 3 mechanical shell) |
-| `$INDUCTIVE_FACTS_PROJ` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_facts_projection.py"` (K2; inductive) |
 
 `$COMPOSE_DOC_CONTROL` subcommands: `--help` · `init-doc` · `append-chapter`.
 
@@ -67,7 +67,7 @@ All macros that declare `--profile` **must** pass `--profile "$COMPOSE_PROFILE"`
 
 `$DERIVE_CTL` subcommands: `--help` · `plan` · `append` · `audit` · `classify`. Scripts never invent derived text — only triggers / topo-order / id append / self-audit.
 
-`$INDUCTIVE_FACTS_PROJ` subcommands: `--help` · `project` (decisions[] → `_facts.json`; invoked by parent compose engine after inductive-complete, not by this runner).
+> **K4:** `$INDUCTIVE_FACTS_PROJ project` is **retired**. Inductive `_facts.json` is written by the discovery loop (`seed-decision` / `settle-open`). Do not invoke projection from this runner.
 
 ## Execution Contract
 
@@ -103,14 +103,14 @@ Do **not** append outline-registry content to the deliverable header. Do **not**
 
 **Precondition (pairing invariant):** outline-registry must be candidates-shaped (`candidates`/`rules`) — `$INIT_COMPOSE_VALIDATE` hard-errors otherwise.
 
-**Handshake with `drafting.inductive` (K2):** operative branch is Step 2 Branch A (validate-only; never re-atomize).
+**Handshake with `drafting.inductive` (K4):** operative branch is Step 2 Branch A (validate-only; never re-atomize).
 
 **Must:** tag every atom with N:M `lens_tags` (zero, one, or many — never a single `home`); run Step 3 for zero-coverage required derivation lenses before Step 4; place every fact in exactly one non-drop chapter; keep chapter `anchor_lenses` a subset of `section_order`; before persisting `_body-{cid}.txt`, resolve every author-time `F-id` citation into a human-readable chapter reference (write-side discipline — `$INIT_COMPOSE_VALIDATE` does **not** scan for raw `F-id`; Eval owns residual checks); run `$INIT_COMPOSE_VALIDATE` before Return.
 **Must not:** write a `fact:` or `section-key:` anchor into `$OUTPUT_DOC_PATH` (chapter anchors only — write-side / Eval; Step 6 does not substring-scan); invent a chapter with `derived_from` outside the outline-registry `candidates` set; decide open choices during Steps 2/3/4 (待决 same discipline).
 
 ### Step 2 — Atomize facts
 
-**Branch A — inductive profile (`drafting.inductive=true`, K2):** projection already wrote `_facts.json` (parent ran `$INDUCTIVE_FACTS_PROJ project` after inductive-complete). **Do not** atomize `$SCOPE_DOC_PATH`. Only validate:
+**Branch A — inductive profile (`drafting.inductive=true`, K4):** discovery loop already wrote `_facts.json` (`seed-decision` / `settle-open`). **Do not** atomize `$SCOPE_DOC_PATH`. Only validate:
 
 ```bash
 $FACTS_CTL validate \
@@ -182,7 +182,7 @@ $DERIVE_CTL audit \
 Empty upstream → audit skips that lens; C1 at Step 6 is the backstop.
 7. `$FACTS_CTL validate --revision-dir "$REVISION_DIR" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)"` must exit 0.
 
-**Must not:** decide open choices; read prose; write facts for non-triggered lenses; strip/re-derive by `source` in-place (re-derive ⇒ re-run atomization then Step 3 — inductive: re-run `$INDUCTIVE_FACTS_PROJ project` then Step 3; deductive: re-run Step 2 then Step 3 — full re-run model); skip `$DERIVE_CTL plan` when deriving; invent triggers or ids by hand. When `order` is non-empty, do not skip `append` / `audit`.
+**Must not:** decide open choices; read prose; write facts for non-triggered lenses; strip/re-derive by `source` in-place (re-derive ⇒ full re-run — inductive: **Blocking** — return to inductive-runner to `seed-decision` / `settle-open` missing substance, then re-enter Init at Step 2 Branch A; do **not** run retired projection; deductive: re-run Step 2 then Step 3); skip `$DERIVE_CTL plan` when deriving; invent triggers or ids by hand. When `order` is non-empty, do not skip `append` / `audit`.
 
 **Done:** `_facts.json` includes any Step-3-derived facts; when `order` was non-empty, `$DERIVE_CTL audit` exit 0; `$FACTS_CTL validate` exit 0.
 
@@ -236,7 +236,7 @@ Chapter titles are flat `## {display_title}` from `_derive-{cid}.json`.
 
 1. Run `$INIT_COMPOSE_VALIDATE` (fact-first gate suite — L1/L3/L4/L5/C1 placement/coverage gates + chapter-artifact existence + assembly completeness).
 2. On failure → read stderr; route by gap type:
-   - **C1 on a derivation lens** (required lens with `decompose`/`instantiate` edge still at zero facts) → **re-run atomization then Step 3** (inductive: `$INDUCTIVE_FACTS_PROJ project` then Step 3; deductive: Step 2 then Step 3 — full re-run; do not patch in place) or flag Round;
+   - **C1 on a derivation lens** (required lens with `decompose`/`instantiate` edge still at zero facts) → **full re-run** (inductive: **Blocking** — return control to inductive-runner; add missing facts via `seed-decision` / `settle-open`, then re-enter Init Step 2 Branch A — never invoke retired `$INDUCTIVE_FACTS_PROJ project`; deductive: re-run Step 2 then Step 3 — do not patch in place) or flag Round;
    - **true coverage gap** (required, zero facts, **no** derivation edge) → Round / modeling fix — Step 3 will not invent;
    - **placement / candidate / L\*** issues → return to Step 4;
    - missing/empty chapter artifacts or missing chapter anchors → return to Step 5;

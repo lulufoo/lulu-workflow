@@ -34,7 +34,7 @@ display_title = author( chapter substance )   # H2 under <!-- chapter:{cid} -->
 
 | Factor | Symbol | Source | Role |
 |--------|--------|--------|------|
-| Content | facts | `_facts.json` (K2 projects inductive `decisions[]`) | Filtered decision substance — what to say |
+| Content | facts | `_facts.json` (inductive: discovery-written; deductive: atomized) | Filtered decision substance — what to say |
 | Form | `F` | `section-form-registry` keyed by `form_lens` (+ domain + role) | How content for that lens is carried and organized |
 | Expression | `C` | Role Fields + domain + that lens's `expression` + F | How to write inside F for that `form_lens` |
 | Envelope | lens / intent | section-registry (`intent` + `intent_boundary`) | what belongs vs belongs elsewhere |
@@ -47,18 +47,18 @@ display_title = author( chapter substance )   # H2 under <!-- chapter:{cid} -->
 
 ### Inductive generation (`Induce`) — dual of `Write`
 
-`Write` is deductive (known substance → organized prose). `Induce` is inductive (unknown substance → discover, ground, decide, fold): the inductive-runner produces per-section JSON SoT; K2 projects settled `decisions[].text` into `_facts.json` for Init Step 2 (not a legacy `$RESOLVE_I_STAR` read).
+`Write` is deductive (known substance → organized prose). `Induce` is inductive (unknown substance → discover, ground, decide, fold): the inductive-runner writes `_facts.json` directly (K4; no projection) and tracks opens in `inductive-opens.json`.
 
 ```text
-section_json[S].decisions  ⊕=  Expand( open_point )   # via settle-open
+_facts.json  ⊕=  Expand( open_point )   # via settle-open → 1:N facts
 open_point = Expose(trigger × means)  # kept iff ( frontier_KW row false  ∧  ¬Settled )
 ```
 
-- `Expand` = ground (`attach-code-refs`) → AI leaning → **user decides** (auto/manual/ignore batch) ⇒ `settle-open` / `defer-open`.
-- `⊕=` = append into that section's `decisions[]`; deepens by KW; never overwrites another section.
-- Handoff: `decisions[].text` → `$INDUCTIVE_FACTS_PROJ project` → `_facts.json` → Steps 2–6.
+- `Expand` = ground (`attach-code-refs` on `O-`) → AI leaning → **user decides** (auto/manual/ignore batch) ⇒ `settle-open` / `defer-open` / `reject-open`.
+- `⊕=` = append facts with `lens_tags`; deepens by KW on maturity ledger; never overwrites another lens's facts in place.
+- Handoff: discovery-written `_facts.json` → Init Steps 2–6 (validate-only on inductive).
 
-`Expose` discovers open points via **trigger × means**. All sources subtract `¬Settled` (`decisions[]` only) and land in the owning section's `open[]`:
+`Expose` discovers open points via **trigger × means**. All sources subtract `¬Settled` (facts whose `lens_tags` cover the lens) and land in `inductive-opens.json`:
 
 | trigger | means | probe | gap predicate | frontier_KW |
 |---------|-------|-------|---------------|:---:|
@@ -81,7 +81,7 @@ Initializing must operationalize fact substance into readable chapters; scope-ex
 
 ## Content (facts) — definition
 
-**Facts** — filtered substance in `_facts.json`. Display-layer Init reads facts (K2 projects inductive `decisions[].text`). Scope doc is completeness cross-check only. Code grounding (when `drafting.code_grounding`) may add path/symbol detail at Write with `code_refs`.
+**Facts** — filtered substance in `_facts.json`. Display-layer Init reads facts (inductive: discovery-written; no K2 projection). Scope doc is completeness cross-check only. Code grounding (when `drafting.code_grounding`) may add path/symbol detail at Write with `code_refs`.
 
 - Covers goals, boundaries, exclusions, decisions, invariants, phases at the decision level.
 - Rewrite as operational prose; not scope-doc verbatim paste (and not hand-rewriting inductive JSON beyond projection).

@@ -335,3 +335,120 @@ def test_control_write_round_trips_source(tmp_path: Path):
     assert write.returncode == 0, write.stderr
     on_disk = json.loads((rev / "_facts.json").read_text(encoding="utf-8"))
     assert on_disk[0]["source"] == ["F-3"]
+
+
+def test_validate_rejects_origin_null():
+    errors = validate_facts(
+        [{"id": "F-1", "text": "x", "lens_tags": ["T"], "origin": None}],
+        allowed_lenses=["T"],
+    )
+    assert any("origin" in e and "null" in e.lower() for e in errors)
+
+
+def test_validate_rejects_origin_bad_type():
+    errors = validate_facts(
+        [
+            {
+                "id": "F-1",
+                "text": "x",
+                "lens_tags": ["T"],
+                "origin": {"type": "unknown", "ref": ["O-1"]},
+            }
+        ],
+        allowed_lenses=["T"],
+    )
+    assert any("origin.type" in e for e in errors)
+
+
+def test_validate_rejects_origin_empty_ref():
+    errors = validate_facts(
+        [
+            {
+                "id": "F-1",
+                "text": "x",
+                "lens_tags": ["T"],
+                "origin": {"type": "discovered", "ref": []},
+            }
+        ],
+        allowed_lenses=["T"],
+    )
+    assert any("origin.ref" in e for e in errors)
+
+
+def test_normalize_and_save_round_trip_preserves_origin(tmp_path: Path):
+    """K4 Phase 1a: normalize/save must not silently strip ``origin``."""
+    facts = [
+        {"id": "F-1", "text": "upstream", "lens_tags": ["SK"]},
+        {
+            "id": "F-2",
+            "text": "discovered",
+            "lens_tags": ["T"],
+            "origin": {"type": "discovered", "ref": ["O-1"]},
+        },
+        {
+            "id": "F-3",
+            "text": "seeded",
+            "lens_tags": ["FL"],
+            "origin": {
+                "type": "seed",
+                "ref": ["scope:decision-doc.md", "主路径：进入计划任务页"],
+            },
+        },
+    ]
+    path = tmp_path / "_facts.json"
+    save_facts(path, facts, allowed_lenses=["SK", "T", "FL"])
+    loaded = load_facts(path)
+    assert "origin" not in loaded[0]
+    assert loaded[1]["origin"] == {"type": "discovered", "ref": ["O-1"]}
+    assert loaded[2]["origin"]["type"] == "seed"
+    assert loaded[2]["origin"]["ref"][0] == "scope:decision-doc.md"
+    assert normalize_fact(facts[1])["origin"]["ref"] == ["O-1"]
+
+
+def test_facts_without_origin_still_valid():
+    """Backward compatible: existing facts without origin remain legal."""
+    assert (
+        validate_facts(
+            [{"id": "F-1", "text": "x", "lens_tags": ["T"]}],
+            allowed_lenses=["T"],
+        )
+        == []
+    )
+
+
+def test_save_facts_rejects_incomplete_origin_with_value_error(tmp_path: Path):
+    """Malformed origin must raise ValueError, not KeyError/TypeError."""
+    path = tmp_path / "_facts.json"
+    try:
+        save_facts(
+            path,
+            [
+                {
+                    "id": "F-1",
+                    "text": "x",
+                    "lens_tags": ["T"],
+                    "origin": {"type": "seed"},
+                }
+            ],
+            allowed_lenses=["T"],
+        )
+        raise AssertionError("expected ValueError")
+    except ValueError as exc:
+        assert "origin.ref" in str(exc)
+
+    try:
+        save_facts(
+            path,
+            [
+                {
+                    "id": "F-1",
+                    "text": "x",
+                    "lens_tags": ["T"],
+                    "origin": {"type": "discovered", "ref": None},
+                }
+            ],
+            allowed_lenses=["T"],
+        )
+        raise AssertionError("expected ValueError")
+    except ValueError as exc:
+        assert "origin.ref" in str(exc)

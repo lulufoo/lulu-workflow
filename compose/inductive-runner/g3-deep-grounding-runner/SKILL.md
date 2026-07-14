@@ -9,7 +9,7 @@ description: >-
 
 # g3-deep-grounding-runner
 
-Terminal runner subagent. Dispatched from **inline** inductive-runner during Gate 3 capability **④** expand (one subagent per chosen open — never a whole detect pass, never more than one point per invocation). Parent owns `add-open` / `attach-code-refs` / `settle-open`.
+Terminal runner subagent. Dispatched from **inline** inductive-runner during Gate 3 Class 2 processing (Lane B), one chosen open at a time (never a whole detect pass, never more than one point per invocation). Parent owns `add-open` / `attach-code-refs` / `settle-open`.
 
 ## Shared receipt contract
 
@@ -26,8 +26,8 @@ Receipt field contract, thinness limits, and validation live in `g3_grounding_no
 Plain-text block from the orchestrating inductive-runner:
 
 ```
-OPEN_ID               the chosen open's id from <S>.json open[] (e.g. ST-o1); legacy alias EP_ID
-SECTION               section key this open belongs to (must equal active_section)
+OPEN_ID               the chosen open's id from inductive-opens.json (e.g. O-1); legacy alias EP_ID
+SECTION               optional detected_under / focus section for this open (may be null)
 FRONTIER_KW           int 0..4 — altitude this open was surfaced at
 PROBLEM               one-line problem statement from the open
 SWEEP                 positive int — current detect-pass / receipt batch id
@@ -73,4 +73,4 @@ receipt: GN-NNN
 written: grounding-notes.json
 ```
 
-The orchestrating inductive-runner ignores the Task return body except to confirm completion, then runs `$INDUCTIVE_GATE_CTL deep-grounding-list --sweep <SWEEP> --ep-id <OPEN_ID>` to fuel capability ④ leaning / `attach-code-refs`.
+The orchestrating inductive-runner ignores the Task return body except to confirm completion, then runs `$INDUCTIVE_GATE_CTL deep-grounding-list --sweep <SWEEP> --ep-id <OPEN_ID>` to fuel Class 2 leaning / `attach-code-refs`.

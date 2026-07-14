@@ -22,7 +22,8 @@ Required fields per receipt:
   created_at   ISO timestamp
 
 Optional:
-  ep_id                open point id (e.g. ST-o1; legacy field name) — required for mode=deep
+  ep_id                open point id (e.g. O-1; field name kept for schema compat;
+                       open_id accepted as write alias) — required for mode=deep
                         (disambiguates multiple points expanded in the same
                         section within one sweep; unused for shallow)
   need_clarification    str — subagent could not proceed without user input
@@ -98,8 +99,12 @@ def validate_receipt(receipt: dict[str, Any]) -> list[str]:
     if mode in {"shallow", "deep"} and not str(receipt.get("section", "")).strip():
         errors.append(f"receipt {rid!r}: section is required for mode {mode!r}")
 
-    if mode == "deep" and not str(receipt.get("ep_id", "")).strip():
-        errors.append(f"receipt {rid!r}: ep_id is required for mode 'deep'")
+    if mode == "deep":
+        ep = str(receipt.get("ep_id", "") or receipt.get("open_id", "")).strip()
+        if not ep:
+            errors.append(
+                f"receipt {rid!r}: ep_id (or open_id) is required for mode 'deep'"
+            )
 
     code_refs = receipt.get("code_refs")
     if not isinstance(code_refs, list):
@@ -139,12 +144,13 @@ def validate_receipt(receipt: dict[str, Any]) -> list[str]:
 
 
 def normalize_receipt(receipt: dict[str, Any]) -> dict[str, Any]:
+    ep = str(receipt.get("ep_id", "") or receipt.get("open_id", "") or "")
     return {
         "id": str(receipt.get("id", "")),
         "sweep": int(receipt.get("sweep", 0)),
         "mode": str(receipt.get("mode", "")).lower(),
         "section": str(receipt.get("section", "")),
-        "ep_id": str(receipt.get("ep_id", "") or ""),
+        "ep_id": ep,
         "frontier_kw": int(receipt.get("frontier_kw", 0)),
         "code_refs": list(receipt.get("code_refs") or []),
         "facts": [str(f) for f in (receipt.get("facts") or [])],

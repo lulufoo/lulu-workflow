@@ -169,8 +169,8 @@ def _format_init_dispatch_input(
         f"CYCLE_TYPE:           {detect_cycle_type(cycle_id)}",
         f"CYCLE_ID:             {cycle_id}",
     ]
-    # K3-d: Init always consumes projected _facts.json — never advertise
-    # INDUCTIVE_DIR as if Init still reads decisions[] here.
+    # K4: Init consumes discovery-written _facts.json — never advertise
+    # INDUCTIVE_DIR as if Init still reads decisions[] / projection here.
     return "\n".join(lines)
 
 
@@ -277,16 +277,16 @@ def begin_init(
             f"cannot start Initializing: current_step is {step!r} (expected absent or Initialized)",
             current_step=step,
         )
-    # K2: inductive profiles — _facts.json must already exist (projection ran
-    # after inductive-complete). Validate-only; never project or re-atomize here.
+    # K4: inductive profiles — _facts.json must already exist (written by
+    # seed/settle during discovery). Validate-only; never project or re-atomize.
     if drafting.get("inductive") is True:
         rev = _revision_dir(cycle_id, project_root, profile_id)
         path = facts_path(rev)
         if not path.is_file():
             return _failure(
                 _CMD_BEGIN_INIT,
-                "cannot start Initializing: _facts.json missing — run inductive "
-                "facts projection after inductive-complete before begin-init "
+                "cannot start Initializing: _facts.json missing — seed/settle "
+                "during inductive must have written _facts.json "
                 f"(expected {path.as_posix()})",
                 current_step=step,
             )

@@ -1,58 +1,43 @@
 > Part of inductive-runner · gate execution entry · loaded from `../SKILL.md`
 
-# Gate 3 — Refine (advance actions ③④⑤)
+# Gate 3 — Refine (dialogue flow)
 
 **Prerequisites:** `$INDUCTIVE_GATE_CTL resolve-context` reports `active_gate` is `G3` (G2 closed).
 
-**Goal:** refine section SoT via **advance** capabilities ③④⑤. **Do not** auto-sweep after Shape-confirm — wait for the user.
+**Goal:** refine section SoT toward Exit. This file orchestrates **when** each capability is used; **what** each capability is (means / tools / provenance) lives in `../references/g3-capabilities.md`; **how** it sounds to the user follows `../references/inductive-presentation.md`. **Do not** auto-sweep after Shape-confirm — wait for the user.
 
-**Global observation (① view / ② 碰撞)** lives in the parent SKILL — available **anytime after Seed**, including during G3. This gate file does **not** own them (I13). When the user asks for a view or collision mid-refine, follow the parent contracts, then return here for ③④⑤.
-
-**Setup:** breadth = `SCAN_CRITERIA.expose_axis.coverage_sections`; depth = per-section `frontier_kw`. Discovery sources (trigger × means): human `probe|direct|view`; ai `ai_scan|intent_baseline|probe`. KW is the ruler. Mutations via `$INDUCTIVE_G3_SECTION_CTL` only after `activate-section`.
+**Setup:** breadth = `SCAN_CRITERIA.expose_axis.coverage_sections`; depth = per-section `frontier_kw` (the ruler). Mutations via `$INDUCTIVE_G3_SECTION_CTL` only after `activate-section`.
 
 **Norm precondition:** if `$NORM_CONSTRAINT_REFS` non-empty, hold as generation boundary (not a gate). Empty → inert.
 
-## ③ Detect (only when asked)
+G3 runs as two lanes: **Lane A** is the free hub the session sits in; **Lane B** is a per-open channel entered on demand and returned from.
 
-**I5 first:** subtract Settled — do not re-open claims already in `decisions[]` (or already confirmed in the shape checkpoint) unless the user reopens them.
+## Lane A — Discovery hub (the free state the session sits in)
 
-For unsettled sections at `frontier_kw`:
+The default state. The user senses and discovers freely; any surfaced open hands off to Lane B.
 
-1. **ai_scan** — run applicable `SCAN_CRITERIA` methods over code; qualify with KW.
-2. **intent_baseline** — `intent_coverage` vs demand manifest when present (mount-or-create with `intent_ref`).
-3. **ai/probe** — black-box 4 lenses (failure / boundary / assumption / seam) at current `frontier_kw`; silence ∧ KW-false → gap; question form + ✅/⚠️; **no** correctness judging (G4).
+- **Sense** (baseline; global — available anytime after Seed; may produce no open):
+  - free-dialogue sensing — discuss / look around; no script.
+  - **View** (ref Class 3) — perception on user intent; contract in ref.
+- **Discover** (produces `open` → Lane B) — ref Class 1:
+  - **Class 1A — user-triggered** (collision / direct / view-derived, ref): **global — available anytime after Seed** (also in G1), not G3-only.
+  - **Class 1B — AI detect**: **G3-scoped**; **only when the user asks** (never automatic). **I5 first:** subtract Settled before detecting. Optionally dispatch `g3-shallow-grounding-runner` for code facts (ref); parent owns `add-open`. Present the batch as problem + leaning for Lane B.
+- **Sense convergence → exit:** run `$INDUCTIVE_G3_SECTION_CTL check-coverage`; when Exit holds → `$INDUCTIVE_GATE_CTL gate-close --gate G3`. This is Lane A's exit action. Do **not** enter G4 until the user asks for delivery audit.
 
-Each hit → `add-open --trigger ai --means <ai_scan|intent_baseline|probe> …`. Dedup by (section, KW row, topic): if an open already exists, `update-open` to attach provenance — do not duplicate. Present a **batch** (problem + leaning) for user selection.
+## Lane B — Open-processing channel (per open)
 
-Optional: dispatch `g3-shallow-grounding-runner` / `g3-deep-grounding-runner` for code facts only — they must **not** call `add-open`; parent does. Prefer `attach-code-refs` on the open/decision being processed.
+Entered when the user chooses to process — a single open or a batch. Opens may accumulate in Lane A and sit unprocessed while sensing / discovery continues; entry is user-authorized, not forced by an open's mere existence. Consumes `open` → settle or defer per **Class 2** (ref) — do not restate the per-mode path here.
 
-## ④ Process batch
+1. User picks **auto / manual / ignore** after seeing problem + leaning (I6 informed authorization).
+2. Run the chosen Class 2 mode; optionally dispatch `g3-deep-grounding-runner` for the chosen open (ref). One git commit per settle / defer (I8).
+3. After settles that change facts for a lens: re-judge KW → `set-frontier` (only then).
+4. Return to Lane A — user may sense / confirm / request the next discovery.
 
-User picks **auto** / **manual** / **ignore** after seeing problem+leaning (I6 informed authorization):
+**Lazy consistency (I8):** after `update-decision` on id=X, single-hop re-read `hangs_under==X` opens; conflict → `add-open`.
 
-| Mode | Runner behavior | Scripts |
-|------|-----------------|---------|
-| auto | User authorized continuous settle for this batch | `attach-code-refs` → `settle-open` |
-| manual | Pause per point for user adjust | same + wait |
-| ignore | Skip / park | `defer-open --note …` |
+## Maturity
 
-- `settle-open --text …` inherits `trigger` / `means` / `intent_ref` (I10).
-- One git commit per settle/defer (I8).
-- After settles that change `decisions`: AI re-judges KW → `set-frontier` (only then).
-- Then user may ①/② (parent) to confirm; request next ③ batch.
+Gates Lane A's Exit check (`check-coverage` requires every coverage section cleared∨skipped):
 
-**Lazy consistency:** if `update-decision` on id=X, single-hop re-read `hangs_under==X` opens; conflict → `add-open`.
-
-## ⑤ User-proposed open
-
-`add-open --trigger human --means direct …` (or `--means view` if the gap was found while viewing) → **immediately** ④ (no detect batch required).
-
-## Maturity & clear
-
-- `clear-section` when frontier ≥ target and no blocking open (reads section JSON).
+- `clear-section` when frontier ≥ target and no blocking open.
 - `skip-section` / `rewind-section` as needed via section-control.
-
-## Close G3
-
-When Exit holds: `$INDUCTIVE_G3_SECTION_CTL check-coverage` ok → `$INDUCTIVE_GATE_CTL gate-close --gate G3`.  
-Do **not** enter G4 until the user asks for delivery audit.

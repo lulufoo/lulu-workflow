@@ -7,7 +7,8 @@ K1 ``source``: living docs/domain/compose/mechanism-ssot/compose-fact-architectu
 process how: docs/domain/compose/archive-2.0/compose-fact-first-k1-pd-design.md §3.
 
 Shape: JSON array of ``{id, text, lens_tags}`` plus optional ``source``
-(non-empty string array; Step-3-derived facts only) — no envelope.
+(non-empty string array; Step-3-derived facts only) and optional ``origin``
+(``{type, ref}`` structured provenance; K4 Phase 1a) — no envelope.
 
 ``_facts.json`` replaces the single-``home`` ``_partition.json`` atom for the
 fact-first display layer (increment 1, M1). A fact's ``lens_tags`` is an N:M
@@ -21,6 +22,12 @@ bookkeeping (Grok review Blocker#1).
 ``source`` is private provenance (lightweight strings / upstream ``F-id``
 hints). Gates never read it. K1 does not enforce referential integrity on
 ``F-id`` strings inside ``source`` (typed ``derives-from`` edges = increment 2).
+
+``origin`` (K4) is structured provenance: ``type ∈ {seed, discovered, derived}``
+and non-empty ``ref`` string array (scope anchors / open ids / upstream F-ids).
+Optional and backward-compatible — existing facts without ``origin`` remain valid.
+Inductive non-empty ``lens_tags`` is enforced on the inductive write path only
+(not here) — see K4 design §4.3.
 """
 
 from __future__ import annotations
@@ -33,7 +40,8 @@ from typing import Any
 FACTS_BASENAME = "_facts.json"
 _FACT_ID_RE = re.compile(r"^F-(\d+)$")
 _FACT_REQUIRED = ("id", "text", "lens_tags")
-_FACT_OPTIONAL = frozenset({"source"})
+_FACT_OPTIONAL = frozenset({"source", "origin"})
+ORIGIN_TYPES = frozenset({"seed", "discovered", "derived"})
 
 
 def facts_path(revision_dir: Path) -> Path:
@@ -53,6 +61,34 @@ def _validate_source(prefix: str, source: Any) -> list[str]:
             errors.append(
                 f"{prefix}.source[{s_index}] must be a non-empty string",
             )
+    return errors
+
+
+def _validate_origin(prefix: str, origin: Any) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(origin, dict):
+        errors.append(f"{prefix}.origin must be an object {{type, ref}}")
+        return errors
+    otype = origin.get("type")
+    if not isinstance(otype, str) or otype.strip().lower() not in ORIGIN_TYPES:
+        errors.append(
+            f"{prefix}.origin.type must be one of {sorted(ORIGIN_TYPES)}, "
+            f"got {otype!r}"
+        )
+    ref = origin.get("ref")
+    if not isinstance(ref, list):
+        errors.append(f"{prefix}.origin.ref must be an array")
+    elif not ref:
+        errors.append(f"{prefix}.origin.ref must be a non-empty array when present")
+    else:
+        for r_index, item in enumerate(ref):
+            if not isinstance(item, str) or not item.strip():
+                errors.append(
+                    f"{prefix}.origin.ref[{r_index}] must be a non-empty string",
+                )
+    extra = set(origin) - {"type", "ref"}
+    if extra:
+        errors.append(f"{prefix}.origin unexpected fields {sorted(extra)}")
     return errors
 
 
@@ -140,6 +176,15 @@ def validate_facts(
             else:
                 errors.extend(_validate_source(prefix, entry["source"]))
 
+        if "origin" in entry:
+            if entry["origin"] is None:
+                errors.append(
+                    f"{prefix}.origin must be an object when present "
+                    "(null is not allowed; omit the field instead)",
+                )
+            else:
+                errors.extend(_validate_origin(prefix, entry["origin"]))
+
         extra = set(entry) - set(_FACT_REQUIRED) - _FACT_OPTIONAL
         if extra:
             errors.append(f"{prefix}: unexpected fields {sorted(extra)}")
@@ -155,6 +200,12 @@ def normalize_fact(entry: dict[str, Any]) -> dict[str, Any]:
     }
     if "source" in entry and entry["source"] is not None:
         out["source"] = [str(s).strip() for s in entry["source"]]
+    if "origin" in entry and entry["origin"] is not None:
+        origin = entry["origin"]
+        out["origin"] = {
+            "type": str(origin["type"]).strip().lower(),
+            "ref": [str(r).strip() for r in origin["ref"]],
+        }
     return out
 
 
@@ -178,8 +229,16 @@ def save_facts(
     *,
     allowed_lenses: list[str] | None = None,
 ) -> None:
-    """Validate and write facts array (preserves optional ``source``)."""
+    """Validate and write facts array (preserves optional ``source`` / ``origin``).
+
+    Validate raw input first so malformed optional fields raise ValueError
+    instead of KeyError/TypeError inside normalize.
+    """
+    errors = validate_facts(facts, allowed_lenses=allowed_lenses)
+    if errors:
+        raise ValueError("; ".join(errors))
     normalized = [normalize_fact(f) for f in facts]
+    # Re-validate after normalize (uppercase tags, stripped strings).
     errors = validate_facts(normalized, allowed_lenses=allowed_lenses)
     if errors:
         raise ValueError("; ".join(errors))

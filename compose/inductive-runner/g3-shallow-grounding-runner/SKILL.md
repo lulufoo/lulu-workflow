@@ -9,7 +9,7 @@ description: >-
 
 # g3-shallow-grounding-runner
 
-Terminal runner subagent. Dispatched from **inline** inductive-runner during Gate 3 capability **③ detect** (optional; one subagent per detect pass). Parent owns `add-open`.
+Terminal runner subagent. Dispatched from **inline** inductive-runner during Gate 3 Class 1B detect on Lane A (optional dispatch; one subagent per detect pass). Parent owns `add-open`.
 
 ## Shared receipt contract
 
@@ -47,7 +47,7 @@ Self-resolved: `$SKILL_ROOT` from workflow install path.
 1. `$INDUCTIVE_G3_GROUNDING_CTL unsettled-sections` → list of `{section, status, frontier_kw}`.
 2. `$FETCH_COMPOSE --role inductive-scan-criteria` → `SCAN_CRITERIA` (methods).
 3. `$FETCH_COMPOSE --role section-kw-criteria` → `KW_CRITERIA`.
-4. **Subtract Settled (I5):** for each unsettled section, read `$INDUCTIVE_OUT_DIR/inductive-scope/<S>.json` → treat `decisions[]` text as already-settled claims. Do **not** use DQI `architecture_view` / `shape_constraints` as SoT; optional non-authoritative hint only.
+4. **Subtract Settled (I5):** for each unsettled section, read `$INDUCTIVE_OUT_DIR/_facts.json` and treat facts whose `lens_tags` contain `<S>` as already-settled claims. Do **not** read `inductive-scope/<S>.json` for body/decisions (maturity-only). Do **not** use DQI `architecture_view` / `shape_constraints` as SoT; optional non-authoritative hint only.
 5. **For each unsettled section** at its `frontier_kw`:
    - Run applicable `methods` (read-only scan + on-demand grounding).
    - Distill into one receipt: `{sweep, mode:"shallow", section, frontier_kw, code_refs, facts}`.

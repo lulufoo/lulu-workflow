@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Tests for per-section JSON schema (section-SoT)."""
+"""Tests for per-section maturity schema (K4 slim — key/status/frontier_kw only)."""
 
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 
@@ -11,12 +10,9 @@ _INDUCTIVE_DIR = Path(__file__).resolve().parent.parent / "inductive"
 sys.path.insert(0, str(_INDUCTIVE_DIR))
 
 from inductive_section_schema import (  # noqa: E402
+    empty_section,
     load_index,
     load_section,
-    mint_decision_id,
-    mint_open_id,
-    next_decision_seq,
-    next_open_seq,
     save_index,
     save_section,
     validate_index,
@@ -28,17 +24,22 @@ def test_validate_section_rejects_missing_key():
     bad = {
         "status": "active",
         "frontier_kw": 1,
-        "decisions": [],
-        "open": [],
-        "deferred": [],
     }
     errs = validate_section(bad)
     assert any("key" in e for e in errs)
 
 
-def test_mint_ids_are_stable_and_section_prefixed():
-    assert mint_decision_id("ST", 1) == "ST-d1"
-    assert mint_open_id("ST", 1) == "ST-o1"
+def test_validate_section_rejects_legacy_body_fields():
+    sec = {
+        "key": "ST",
+        "status": "active",
+        "frontier_kw": 1,
+        "decisions": [],
+        "open": [],
+        "deferred": [],
+    }
+    errs = validate_section(sec)
+    assert any("unexpected" in e for e in errs)
 
 
 def test_validate_index_requires_version_and_cycle():
@@ -47,38 +48,21 @@ def test_validate_index_requires_version_and_cycle():
     assert any("cycle_id" in e for e in errs)
 
 
-def test_validate_section_rejects_seed_without_scope_means():
-    sec = {
-        "key": "ST",
-        "status": "active",
-        "frontier_kw": 1,
-        "decisions": [
-            {
-                "id": "ST-d1",
-                "kw": 1,
-                "text": "x",
-                "trigger": "seed",
-                "means": "ai_scan",
-                "confidence": "direct",
-            }
-        ],
-        "open": [],
-        "deferred": [],
-    }
-    errs = validate_section(sec)
-    assert any("seed" in e and "scope" in e for e in errs)
-
-
 def test_validate_section_accepts_minimal_valid():
     sec = {
         "key": "ST",
         "status": "untouched",
         "frontier_kw": 0,
-        "decisions": [],
-        "open": [],
-        "deferred": [],
     }
     assert validate_section(sec) == []
+
+
+def test_empty_section_has_no_body_arrays():
+    doc = empty_section("RN")
+    assert doc == {"key": "RN", "status": "untouched", "frontier_kw": 0}
+    assert "decisions" not in doc
+    assert "open" not in doc
+    assert "deferred" not in doc
 
 
 def test_load_save_section_roundtrip(tmp_path: Path):
@@ -87,26 +71,12 @@ def test_load_save_section_roundtrip(tmp_path: Path):
         "key": "ST",
         "status": "active",
         "frontier_kw": 1,
-        "decisions": [
-            {
-                "id": "ST-d1",
-                "kw": 1,
-                "text": "限流器置于网关",
-                "trigger": "seed",
-                "means": "scope",
-                "confidence": "direct",
-                "code_refs": [],
-            }
-        ],
-        "open": [],
-        "deferred": [],
     }
     save_section(out_dir, sec)
     loaded = load_section(out_dir, "ST")
     assert loaded["key"] == "ST"
-    assert loaded["decisions"][0]["text"] == "限流器置于网关"
-    assert next_decision_seq(loaded) == 2
-    assert next_open_seq(loaded) == 1
+    assert loaded["status"] == "active"
+    assert loaded["frontier_kw"] == 1
 
 
 def test_load_save_index_roundtrip(tmp_path: Path):

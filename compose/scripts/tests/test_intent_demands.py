@@ -17,6 +17,7 @@ from intent_demands import (  # noqa: E402
     is_generation_guaranteed,
     load_manifest_demands,
 )
+from opens_schema import save_opens, opens_path  # noqa: E402
 
 
 def _write_manifest(directory: Path, demands: list[dict]) -> Path:
@@ -27,6 +28,32 @@ def _write_manifest(directory: Path, demands: list[dict]) -> Path:
         encoding="utf-8",
     )
     return path
+
+
+def _minimal_open(
+    oid: str,
+    *,
+    status: str = "open",
+    intent_ref: str | None = None,
+    blocking: bool = False,
+    note: str | None = None,
+) -> dict:
+    item: dict = {
+        "id": oid,
+        "status": status,
+        "source": {"trigger": "ai", "means": "probe"},
+        "kw": 1,
+        "blocking": blocking,
+        "problem": "gap",
+        "resolved_by": [],
+    }
+    if intent_ref is not None:
+        item["intent_ref"] = intent_ref
+    if note is not None:
+        item["note"] = note
+    if status == "deferred" and note is None:
+        item["note"] = "skip"
+    return item
 
 
 def test_find_manifest_beside_ref_doc(tmp_path: Path):
@@ -86,47 +113,15 @@ def test_is_generation_guaranteed_empty_refs():
 
 
 def test_deferred_intent_refs(tmp_path: Path):
-    scope = tmp_path / "inductive-scope"
-    scope.mkdir(parents=True)
-    (scope / "ST.json").write_text(
-        json.dumps(
-            {
-                "key": "ST",
-                "status": "active",
-                "frontier_kw": 1,
-                "decisions": [],
-                "open": [],
-                "deferred": [
-                    {"id": "ST-o1", "kw": 2, "note": "skip", "intent_ref": "SPEC-1"},
-                    {"id": "ST-o2", "kw": 2, "note": "skip", "intent_ref": "SPEC-3"},
-                    {"id": "ST-o3", "kw": 2, "note": "no ref"},
-                ],
-            }
-        ),
-        encoding="utf-8",
-    )
-    (scope / "IF.json").write_text(
-        json.dumps(
-            {
-                "key": "IF",
-                "status": "active",
-                "frontier_kw": 1,
-                "decisions": [
-                    {
-                        "id": "IF-d1",
-                        "kw": 1,
-                        "text": "done",
-                        "trigger": "ai",
-                        "means": "intent_baseline",
-                        "confidence": "direct",
-                        "intent_ref": "SPEC-2",
-                    }
-                ],
-                "open": [],
-                "deferred": [],
-            }
-        ),
-        encoding="utf-8",
+    """K4: deferred intent_refs come from inductive-opens.json, not section JSON."""
+    save_opens(
+        opens_path(tmp_path),
+        [
+            _minimal_open("O-1", status="deferred", intent_ref="SPEC-1", note="skip"),
+            _minimal_open("O-2", status="deferred", intent_ref="SPEC-3", note="skip"),
+            _minimal_open("O-3", status="deferred", note="no ref"),
+            _minimal_open("O-4", status="open", intent_ref="SPEC-2", blocking=True),
+        ],
     )
     assert deferred_intent_refs(tmp_path) == {"SPEC-1", "SPEC-3"}
 
@@ -135,8 +130,8 @@ def test_deferred_intent_refs_no_ledger(tmp_path: Path):
     assert deferred_intent_refs(tmp_path) == set()
 
 
-def test_check_coverage_blocks_on_section_open(tmp_path: Path):
-    """Exit predicate reads section JSON open[], not exposed-points ledger."""
+def test_check_coverage_blocks_on_doc_open(tmp_path: Path):
+    """Exit predicate reads inductive-opens.json blocking opens (K4)."""
     import subprocess
     import sys
 
@@ -157,10 +152,8 @@ def test_check_coverage_blocks_on_section_open(tmp_path: Path):
     code, payload = run("init-pointer", "--sections", "I,ST", "--mandatory", "")
     assert code == 0, payload
     run("activate-section", "--section", "ST")
-    run(
+    code, add_payload = run(
         "add-open",
-        "--section",
-        "ST",
         "--kw",
         "1",
         "--trigger",
@@ -171,7 +164,10 @@ def test_check_coverage_blocks_on_section_open(tmp_path: Path):
         "gap",
         "--blocking",
         "true",
+        "--detected-under",
+        "ST",
     )
+    assert code == 0, add_payload
     code, cov = run("check-coverage")
     assert code == 1
     assert cov.get("ok") is False

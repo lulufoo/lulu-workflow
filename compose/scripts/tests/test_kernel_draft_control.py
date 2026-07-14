@@ -47,9 +47,6 @@ def _write_g4_closed(revision_dir: Path) -> None:
                 "key": "ST",
                 "status": "cleared",
                 "frontier_kw": 0,
-                "decisions": [],
-                "open": [],
-                "deferred": [],
             }
         ),
         encoding="utf-8",
@@ -269,7 +266,7 @@ def test_begin_init_k2_requires_facts_when_inductive(
     result = draft_control.begin_init(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
     assert result["ok"] is False
     assert "_facts.json missing" in result["reason"]
-    assert "projection" in result["reason"]
+    assert "seed/settle" in result["reason"]
 
 
 def test_begin_init_k2_passes_when_facts_present(

@@ -157,13 +157,14 @@ def cmd_list_grounding(out_dir: Path, args: argparse.Namespace) -> None:
     except ValueError as exc:
         _fail(str(exc))
     mode = args.mode or "shallow"
-    ep_id = getattr(args, "ep_id", None)
+    ep_id = getattr(args, "ep_id", None) or getattr(args, "open_id", None)
     receipts = receipts_for_sweep(ledger, args.sweep, mode=mode, ep_id=ep_id)
     _ok(
         {
             "sweep": args.sweep,
             "mode": mode,
             "ep_id": ep_id,
+            "open_id": ep_id,
             "receipts": receipts,
             "count": len(receipts),
         }
@@ -212,7 +213,13 @@ def _build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("list-grounding", help="List receipts for one sweep")
     p.add_argument("--sweep", type=int, required=True)
     p.add_argument("--mode", default="shallow", choices=["shallow", "deep", "g2"])
-    p.add_argument("--ep-id", default=None, help="Filter to one EP id (mode=deep)")
+    p.add_argument("--ep-id", default=None, dest="ep_id", help="Filter to one open id (mode=deep; O-n)")
+    p.add_argument(
+        "--open-id",
+        default=None,
+        dest="open_id",
+        help="Alias for --ep-id (K4 open id O-n)",
+    )
 
     p = sub.add_parser("check-grounding", help="Verify sweep coverage for unsettled sections")
     p.add_argument("--sweep", type=int, required=True)

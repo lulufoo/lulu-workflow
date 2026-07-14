@@ -87,21 +87,11 @@ Load {actual $SKILL_ROOT}/compose/inductive-runner/SKILL.md and follow its instr
 {begin-inductive stdout}
 ```
 
-2. After the gate spine completes (G4 recompose and G5 provenance both closed), run `$DRAFT_CONTROL inductive-complete`. On failure → Blocking. It emits per-section scope files under `revision{active_doc}/inductive-scope/` for **K2 projection** (not for Init to re-read as prose).
-3. **K2 projection (when `drafting.inductive` is true):** run `$INDUCTIVE_FACTS_PROJ project` once so Init consumes `_facts.json` only. On failure → Blocking.
-
-```bash
-$INDUCTIVE_FACTS_PROJ project \
-  --revision-dir "<revision{active_doc} path>" \
-  --profile <profile_id> \
-  --project-root "$(pwd)"
-```
-
-(Default `--inductive-dir` = `{revision-dir}/inductive-scope`.)
+2. After the gate spine completes (G4 recompose and G5 provenance both closed), run `$DRAFT_CONTROL inductive-complete`. On failure → Blocking. After inductive-complete, `_facts.json` must already have been written by the discovery loop (seed / settle-open); `begin-init` will validate it exists. Maturity ledgers under `revision{active_doc}/inductive-scope/` are not Init prose input.
 
 ### Drafting Step 1 — Initializing
 
-Compose the compose document via fact-first Init (see initializing-runner Steps 1–6). No mapping paste. Init reads **projected `_facts.json`**, not `inductive-scope/*.json` prose. When `drafting.inductive` is true (K2), Drafting Step 0's projection must have written `_facts.json` first — `begin-init` hard-errors if it is missing; initializing-runner then skips its Step 2 atomization and validates the projected facts. The upstream scope doc is a **completeness cross-check only**.
+Compose the compose document via fact-first Init (see initializing-runner Steps 1–6). No mapping paste. Init reads **`_facts.json`**, not `inductive-scope/*.json` prose. When `drafting.inductive` is true (K4), the discovery loop must have written `_facts.json` first — `begin-init` hard-errors if it is missing; initializing-runner then skips its Step 2 atomization and validates the facts. The upstream scope doc is a **completeness cross-check only**.
 
 1. Run `$DRAFT_CONTROL begin-init`.
    - On failure → Blocking.
@@ -174,7 +164,7 @@ Dimension set, evaluation framework, and eval-mode branching (e.g. tech vs produ
 | Document | When |
 |----------|------|
 | `{SKILL_ROOT}/compose/inductive-runner/SKILL.md` | Drafting Step 0 — inductive-runner (`drafting.inductive: true` profiles only) |
-| `{SKILL_ROOT}/compose/inductive-runner/g2-grounding-runner/SKILL.md` | Drafting Step 0 — **deprecated** optional G2 topology subagent (prefer `attach-code-refs` in capability ④) |
+| `{SKILL_ROOT}/compose/inductive-runner/g2-grounding-runner/SKILL.md` | Drafting Step 0 — **deprecated** optional G2 topology subagent (prefer `attach-code-refs` in Class 2 processing) |
 | `{SKILL_ROOT}/compose/inductive-runner/g3-shallow-grounding-runner/SKILL.md` | Drafting Step 0 — optional G3 shallow grounding subagent (detect facts only; parent `add-open`) |
 | `{SKILL_ROOT}/compose/inductive-runner/g3-deep-grounding-runner/SKILL.md` | Drafting Step 0 — optional G3 deep grounding subagent (one open; parent settles) |
 | `{SKILL_ROOT}/compose/inductive-runner/g4-recompose-runner/SKILL.md` | Drafting Step 0 — Gate 4 internal-audit subagent (section JSON + shape checkpoint) |
@@ -196,7 +186,7 @@ Fetch compose framework templates on demand; **do not** read `workflow-config.js
 | `$SESSION_INFO` | `python3 "$SKILL_ROOT/compose/scripts/core/session_info.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile <profile_id> --view <view>` |
 | `$SESSION_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/core/session_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile <profile_id> <subcommand>` — drives outer session transitions via `compose/transitions/compose-session.json`; do not load that file directly |
 | `$DRAFT_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/section/draft_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile <profile_id> <subcommand>` |
-| `$INDUCTIVE_FACTS_PROJ` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_facts_projection.py"` (K2; after inductive-complete when `drafting.inductive` is true) |
+| `$INDUCTIVE_FACTS_PROJ` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_facts_projection.py"` (K4 retired — `project` fail-fast; facts written by discovery loop) |
 | `$RESOLVE_PLAN_ROLE` | `python3 "$SKILL_ROOT/compose/scripts/scope/scope_resolver.py" --profile <profile_id> --project-root "$(pwd)" resolve-role --cycle-id "$CYCLE_ID"` |
 | `$FETCH_COMPOSE` | `python3 "$SKILL_ROOT/compose/scripts/io/fetch_compose_framework.py" --role <role> --profile <profile_id> --project-root "$(pwd)" --cycle-id "$CYCLE_ID"` |
 | `$EVAL_CONTROL` | `python3 "$SKILL_ROOT/eval/scripts/eval_entry.py" --workflow <profile_id> --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |

@@ -2,10 +2,10 @@
 """Shared intent_baseline predicates (intent-baseline coverage helpers).
 
 Mechanical only — presence / derivation checks over the delivered demand
-manifest and section JSON ``deferred[]`` (section-SoT). Downstream coverage
-audits (G5 algorithm A axis 2, d3 direction A) use these to decide whether a
-check that a *generative* G3 source already covers should be treated as a
-**safety net** (a non-empty result is a regression alarm) rather than a
+manifest and deferred opens in ``inductive-opens.json`` (K4). Downstream
+coverage audits (G5 algorithm A axis 2, d3 direction A) use these to decide
+whether a check that a *generative* G3 source already covers should be treated
+as a **safety net** (a non-empty result is a regression alarm) rather than a
 **primary** discovery. This module never judges content — the "downgrade or
 not" call is mechanical (does a manifest exist?), and the semantic matching
 stays in the AI runner / eval adapter.
@@ -22,11 +22,7 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
-from inductive_section_schema import (  # noqa: E402
-    list_section_keys,
-    load_section,
-    section_path,
-)
+from opens_schema import load_opens, opens_path  # noqa: E402
 
 _MANIFEST_GLOB = "*-demands.json"
 
@@ -88,26 +84,20 @@ def is_generation_guaranteed(
 
 
 def deferred_intent_refs(out_dir: str | Path) -> set[str]:
-    """``intent_ref`` ids carried by *deferred* items in section JSON (S1 silence).
+    """``intent_ref`` ids on deferred opens (K4; S1 silence for G5).
 
-    A demand whose only trace is a deferred item was explicitly skipped by the
+    A demand whose only trace is a deferred open was explicitly skipped by the
     user, so its absence downstream is expected and must not be flagged.
 
-    Reads ``inductive-scope/<S>.json`` deferred arrays (section-SoT). Legacy
-    ``exposed-points.json`` is no longer consulted.
+    Reads ``inductive-opens.json`` entries with ``status=deferred``. Missing
+    file → empty set. Invalid opens JSON → raises (no silent empty).
     """
-    root = Path(out_dir)
+    opens = load_opens(opens_path(Path(out_dir)))
     refs: set[str] = set()
-    for key in list_section_keys(root):
-        path = section_path(root, key)
-        if not path.exists():
+    for item in opens:
+        if item.get("status") != "deferred":
             continue
-        try:
-            doc = load_section(root, key)
-        except (ValueError, FileNotFoundError):
-            continue
-        for item in doc.get("deferred") or []:
-            ref = item.get("intent_ref")
-            if isinstance(ref, str) and ref.strip():
-                refs.add(ref.strip())
+        ref = item.get("intent_ref")
+        if isinstance(ref, str) and ref.strip():
+            refs.add(ref.strip())
     return refs
