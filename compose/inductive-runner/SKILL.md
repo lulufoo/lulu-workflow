@@ -119,8 +119,7 @@ Do **not** mix ① and ②: stuffing inference into a View violates V2.
 ### Gate routing
 
 <HARD-GATE>
-Before executing any gate, read the corresponding gate file first. Every gate file's first step is `$INDUCTIVE_GATE_CTL resolve-context` (Gate 5: `$PROVENANCE_GATE_CTL resolve-context`).
-On a `gate-reopen`, load the target gate's file next.
+Before executing any gate, read the corresponding gate file first.
 Do NOT rely on memory for gate execution steps.
 </HARD-GATE>
 
@@ -141,7 +140,6 @@ Do NOT rely on memory for gate execution steps.
 - **Human inlet:** `add-open --trigger human --means probe|direct|view` — any altitude; AI maps owning section.
 - **AI detect:** never automatic; user asks.
 - **intent_coverage:** when a demand manifest exists, mount-or-create opens with `intent_ref` before inventing duplicates.
-- **Session state:** each turn start with `$INDUCTIVE_GATE_CTL resolve-context`.
 
 ---
 
