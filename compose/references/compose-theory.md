@@ -67,7 +67,7 @@ open_point = Expose(trigger × means)  # kept iff ( frontier_KW row false  ∧  
 | ai | `probe` | 4 black-box lenses (failure/boundary/assumption/seam) | silence ∧ KW-false | applies |
 | human | `probe` / `direct` / `view` | user question / assertion / view-found gap | user assertion | exempt |
 
-Seed is **not** an Expose source: it writes `decisions` with `trigger=seed` · `means=scope`.
+Seed is **not** an Expose source: it writes `_facts.json` directly with `origin.type=seed` (hybrid `origin.ref`: scope path + excerpt; no open stamp).
 
 **F priority (conflict resolution):** lens `presentation` (via `form_lens`) > domain `expression_conventions` > role `expressive_tendency` > intent text. `intent_boundary` is an exclusion list — it names substance belonging to other intents; author none of it here.
 
@@ -84,7 +84,7 @@ Initializing must operationalize fact substance into readable chapters; scope-ex
 **Facts** — filtered substance in `_facts.json`. Display-layer Init reads facts (inductive: discovery-written; no K2 projection). Scope doc is completeness cross-check only. Code grounding (when `drafting.code_grounding`) may add path/symbol detail at Write with `code_refs`.
 
 - Covers goals, boundaries, exclusions, decisions, invariants, phases at the decision level.
-- Rewrite as operational prose; not scope-doc verbatim paste (and not hand-rewriting inductive JSON beyond projection).
+- Rewrite as operational prose; not scope-doc verbatim paste (and not hand-rewriting inductive JSON — use section-control commands).
 - Must not introduce capabilities, scope, or boundaries beyond inductive SoT / facts / grounded code.
 - May leave a chapter as `（待补）` when coverage is intentionally open; do not invent filler.
 - Must not restate propositions whose home chapter already carries them — cite by chapter reference instead.

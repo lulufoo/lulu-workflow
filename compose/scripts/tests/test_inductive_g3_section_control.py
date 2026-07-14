@@ -8,6 +8,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 _INDUCTIVE_DIR = Path(__file__).resolve().parent.parent / "inductive"
 _SECTION_CTL = _INDUCTIVE_DIR / "inductive_g3_section_control.py"
 
@@ -638,3 +640,191 @@ def test_add_open_rejects_unknown_detected_under(tmp_path):
     )
     assert code == 1
     assert "detected_under" in payload.get("error", "")
+
+
+def test_update_open_rejects_unknown_detected_under(tmp_path):
+    _seed(tmp_path, active="I")
+    code, add_payload = _run(
+        tmp_path,
+        "add-open",
+        "--kw",
+        "1",
+        "--trigger",
+        "ai",
+        "--means",
+        "probe",
+        "--problem",
+        "gap",
+        "--detected-under",
+        "I",
+    )
+    assert code == 0, add_payload
+    code, payload = _run(
+        tmp_path,
+        "update-open",
+        "--open-id",
+        "O-1",
+        "--detected-under",
+        "ZZ",
+    )
+    assert code == 1
+    assert "detected_under" in payload.get("error", "")
+    opens = json.loads((tmp_path / "inductive-opens.json").read_text(encoding="utf-8"))
+    assert opens[0]["detected_under"] == "I"
+
+
+def _seed_open_for_settle(tmp_path: Path) -> None:
+    _seed(tmp_path, active="ST")
+    code, add_payload = _run(
+        tmp_path,
+        "add-open",
+        "--kw",
+        "1",
+        "--trigger",
+        "ai",
+        "--means",
+        "probe",
+        "--problem",
+        "gap",
+    )
+    assert code == 0, add_payload
+
+
+def test_settle_rolls_back_facts_when_opens_save_fails(tmp_path, monkeypatch, capsys):
+    """S1: empty facts_before + ValueError → unlink facts; open stays open."""
+    import inductive_g3_section_control as ctl
+
+    _seed_open_for_settle(tmp_path)
+    assert not (tmp_path / "_facts.json").exists()
+
+    monkeypatch.setattr(
+        ctl,
+        "_save_opens",
+        lambda out_dir, opens: (_ for _ in ()).throw(
+            ValueError("simulated opens write failure")
+        ),
+    )
+
+    facts_after = [
+        {
+            "id": "F-1",
+            "text": "orphan candidate",
+            "lens_tags": ["ST"],
+            "origin": {"type": "discovered", "ref": ["O-1"]},
+        }
+    ]
+    opens_after = json.loads(
+        (tmp_path / "inductive-opens.json").read_text(encoding="utf-8")
+    )
+    opens_after[0]["status"] = "settled"
+    opens_after[0]["resolved_by"] = ["F-1"]
+
+    with pytest.raises(SystemExit) as exc:
+        ctl._commit_facts_then_opens(
+            tmp_path,
+            facts_before=[],
+            facts_after=facts_after,
+            opens_after=opens_after,
+        )
+    assert exc.value.code == 1
+    err = json.loads(capsys.readouterr().out)
+    assert err.get("ok") is False
+    assert "rolled back" in err.get("error", "")
+    assert not (tmp_path / "_facts.json").exists()
+    opens = json.loads((tmp_path / "inductive-opens.json").read_text(encoding="utf-8"))
+    assert opens[0]["status"] == "open"
+
+
+def test_settle_rolls_back_to_prior_facts_when_opens_fails(tmp_path, monkeypatch, capsys):
+    """S1: non-empty facts_before must be restored after opens boom."""
+    import inductive_g3_section_control as ctl
+
+    _seed_open_for_settle(tmp_path)
+    prior = [
+        {
+            "id": "F-1",
+            "text": "seed fact",
+            "lens_tags": ["ST"],
+            "origin": {"type": "seed", "ref": ["D-1"]},
+        }
+    ]
+    (tmp_path / "_facts.json").write_text(
+        json.dumps(prior, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
+    monkeypatch.setattr(
+        ctl,
+        "_save_opens",
+        lambda out_dir, opens: (_ for _ in ()).throw(OSError("disk full")),
+    )
+
+    facts_after = prior + [
+        {
+            "id": "F-2",
+            "text": "orphan candidate",
+            "lens_tags": ["ST"],
+            "origin": {"type": "discovered", "ref": ["O-1"]},
+        }
+    ]
+    opens_after = json.loads(
+        (tmp_path / "inductive-opens.json").read_text(encoding="utf-8")
+    )
+    opens_after[0]["status"] = "settled"
+    opens_after[0]["resolved_by"] = ["F-2"]
+
+    with pytest.raises(SystemExit) as exc:
+        ctl._commit_facts_then_opens(
+            tmp_path,
+            facts_before=prior,
+            facts_after=facts_after,
+            opens_after=opens_after,
+        )
+    assert exc.value.code == 1
+    err = json.loads(capsys.readouterr().out)
+    assert "rolled back" in err.get("error", "")
+    restored = json.loads((tmp_path / "_facts.json").read_text(encoding="utf-8"))
+    assert [f["id"] for f in restored] == ["F-1"]
+    assert restored[0]["text"] == "seed fact"
+    opens = json.loads((tmp_path / "inductive-opens.json").read_text(encoding="utf-8"))
+    assert opens[0]["status"] == "open"
+
+
+def test_settle_rolls_back_on_opens_oserror(tmp_path, monkeypatch, capsys):
+    """S1: OSError from opens save (realistic I/O) must trigger facts rollback."""
+    import inductive_g3_section_control as ctl
+
+    _seed_open_for_settle(tmp_path)
+
+    monkeypatch.setattr(
+        ctl,
+        "_save_opens",
+        lambda out_dir, opens: (_ for _ in ()).throw(OSError("permission denied")),
+    )
+
+    facts_after = [
+        {
+            "id": "F-1",
+            "text": "orphan candidate",
+            "lens_tags": ["ST"],
+            "origin": {"type": "discovered", "ref": ["O-1"]},
+        }
+    ]
+    opens_after = json.loads(
+        (tmp_path / "inductive-opens.json").read_text(encoding="utf-8")
+    )
+    opens_after[0]["status"] = "settled"
+    opens_after[0]["resolved_by"] = ["F-1"]
+
+    with pytest.raises(SystemExit) as exc:
+        ctl._commit_facts_then_opens(
+            tmp_path,
+            facts_before=[],
+            facts_after=facts_after,
+            opens_after=opens_after,
+        )
+    assert exc.value.code == 1
+    err = json.loads(capsys.readouterr().out)
+    assert "rolled back" in err.get("error", "")
+    assert not (tmp_path / "_facts.json").exists()
+    opens = json.loads((tmp_path / "inductive-opens.json").read_text(encoding="utf-8"))
+    assert opens[0]["status"] == "open"

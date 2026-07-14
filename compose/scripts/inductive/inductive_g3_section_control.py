@@ -26,6 +26,7 @@ Global flag: --out-dir PATH (required).
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import subprocess
 import sys
@@ -68,6 +69,7 @@ from opens_schema import (  # noqa: E402
     next_open_seq,
     opens_path,
     save_opens,
+    validate_opens,
 )
 from facts_schema import (  # noqa: E402
     facts_path,
@@ -75,6 +77,7 @@ from facts_schema import (  # noqa: E402
     lenses_present,
     load_facts,
     save_facts,
+    validate_facts,
 )
 
 
@@ -122,6 +125,65 @@ def _parse_lens_tags(raw: str) -> list[str]:
 def _assert_nonempty_lens_tags(tags: list[str], where: str) -> None:
     if not tags:
         _fail(f"{where}: lens_tags must be non-empty (inductive write path)")
+
+
+def _normalize_detected_under(raw: str | None) -> str | None:
+    if raw is None or str(raw).strip() == "":
+        return None
+    return str(raw).strip().upper()
+
+
+def _assert_detected_under_allowed(out_dir: Path, detected_under: str | None) -> None:
+    """Non-null detected_under must be in coverage_order (same as add-open)."""
+    if detected_under is None:
+        return
+    allowed = set(_allowed_lenses(out_dir))
+    if allowed and detected_under not in allowed:
+        _fail(
+            f"detected_under={detected_under!r} not in "
+            f"coverage_order {sorted(allowed)}"
+        )
+
+
+def _commit_facts_then_opens(
+    out_dir: Path,
+    *,
+    facts_before: list[dict[str, Any]],
+    facts_after: list[dict[str, Any]],
+    opens_after: list[dict[str, Any]],
+) -> None:
+    """Validate both stores, write facts then opens; roll back facts if opens fails."""
+    allowed = _allowed_lenses(out_dir)
+    ferrs = validate_facts(facts_after, allowed_lenses=allowed or None)
+    if ferrs:
+        _fail("; ".join(ferrs))
+    oerrs = validate_opens(opens_after)
+    if oerrs:
+        _fail("; ".join(oerrs))
+
+    try:
+        _save_facts_inductive(out_dir, facts_after)
+    except (ValueError, OSError) as exc:
+        _fail(str(exc))
+
+    try:
+        _save_opens(out_dir, opens_after)
+    except (ValueError, OSError) as exc:
+        # Roll back facts so we never leave discovered orphans with open still open.
+        # OSError is the realistic post-validate failure (disk/permission); ValueError
+        # remains for schema-layer raises inside save helpers.
+        try:
+            fpath = facts_path(out_dir)
+            if facts_before:
+                _save_facts_inductive(out_dir, facts_before)
+            elif fpath.is_file():
+                fpath.unlink()
+        except (ValueError, OSError) as rollback_exc:
+            _fail(
+                f"opens save failed ({exc}); facts rollback also failed "
+                f"({rollback_exc}) — manual repair needed"
+            )
+        _fail(f"opens save failed after facts write; facts rolled back: {exc}")
 
 
 def _next_fact_id(facts: list[dict[str, Any]]) -> int:
@@ -413,17 +475,10 @@ def cmd_add_open(out_dir: Path, args: argparse.Namespace) -> None:
     opens = _load_opens(out_dir)
     seq = next_open_seq(opens)
     blocking = str(args.blocking).lower() in {"1", "true", "yes"}
-    detected_raw = getattr(args, "detected_under", None)
-    if detected_raw is None or str(detected_raw).strip() == "":
-        detected_under = None
-    else:
-        detected_under = str(detected_raw).strip().upper()
-        allowed = set(_allowed_lenses(out_dir))
-        if allowed and detected_under not in allowed:
-            _fail(
-                f"add-open: detected_under={detected_under!r} not in "
-                f"coverage_order {sorted(allowed)}"
-            )
+    detected_under = _normalize_detected_under(
+        getattr(args, "detected_under", None)
+    )
+    _assert_detected_under_allowed(out_dir, detected_under)
 
     open_item: dict[str, Any] = {
         "id": mint_open_id(seq),
@@ -480,8 +535,9 @@ def cmd_update_open(out_dir: Path, args: argparse.Namespace) -> None:
             source["means"] = args.means.strip().lower()
         open_item["source"] = source
     if getattr(args, "detected_under", None) is not None:
-        raw = str(args.detected_under).strip()
-        open_item["detected_under"] = None if not raw else raw.upper()
+        detected_under = _normalize_detected_under(args.detected_under)
+        _assert_detected_under_allowed(out_dir, detected_under)
+        open_item["detected_under"] = detected_under
     if getattr(args, "provenance_note", None):
         note = args.provenance_note.strip()
         if note:
@@ -525,7 +581,8 @@ def cmd_settle_open(out_dir: Path, args: argparse.Namespace) -> None:
     if not isinstance(entries, list) or not entries:
         _fail("--facts-file must be a non-empty JSON array")
 
-    facts = _load_facts_optional(out_dir)
+    facts_before = _load_facts_optional(out_dir)
+    facts = copy.deepcopy(facts_before)
     fact_ids: list[str] = []
     n = _next_fact_id(facts)
     for i, entry in enumerate(entries):
@@ -553,11 +610,12 @@ def cmd_settle_open(out_dir: Path, args: argparse.Namespace) -> None:
     open_item["resolved_by"] = fact_ids
     # code_refs remain on open (not copied to fact — facts_schema has no code_refs)
 
-    try:
-        _save_facts_inductive(out_dir, facts)
-        _save_opens(out_dir, opens)
-    except ValueError as exc:
-        _fail(str(exc))
+    _commit_facts_then_opens(
+        out_dir,
+        facts_before=facts_before,
+        facts_after=facts,
+        opens_after=opens,
+    )
     _ok({"fact_ids": fact_ids, "settled": args.open_id})
 
 
