@@ -1,5 +1,0 @@
-行动层 v1 技术架构的触发是：在既有 Tauri App、knowledge MCP 与 skills 体系上，要把「计划任务创建→执行→归档→双向可见」做成可落地闭环，覆盖 master/sub 持久化、MCP 任务接口、归档关联自动完成与 Workbench 管理 UI。
-
-收敛方向为**方向 A**：独立 `plan_tasks.json` 存储 + 扩展归档索引（对齐 read_later 模式；新增 MCP task tools；扩展 `archive_document`；Workbench 新 service + UI）。明确排除方向 B（任务嵌入 corpus index）与方向 C（协议先行、存储后置）。
-
-方向落地须同时遵守硬约束：创建仅走 MCP/SKILL（UI 不创建）；完成粒度是 `sub_task_id`；Workbench 不内嵌 AI；Read Later 不改；任务↔归档双向索引；MCP 为 Cursor 侧权威接口；协议支持 `master_task_id → sub_task_id`。

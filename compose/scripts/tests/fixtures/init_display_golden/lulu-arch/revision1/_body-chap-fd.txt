@@ -1,9 +1,0 @@
-特征依赖顺序（里程碑链）：
-
-1. 定 schema + MCP 契约（本 arch 收敛）
-2. Tauri `plan_task` service + MCP tools
-3. 扩展 `archive_document`
-4. Workbench UI
-5. Skills + 端到端验证
-
-后序特征不得跳过前序契约；UI 不得成为写入口。
