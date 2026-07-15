@@ -98,6 +98,10 @@ def _seed_session(out_dir: Path) -> None:
             "",
             "--cycle-id",
             "c1",
+            "--stage",
+            "lulu-design",
+            "--scope-ref",
+            "approach/approach-doc.md",
             "--conversation-id",
             _PARENT_CONV,
         ],
@@ -105,6 +109,11 @@ def _seed_session(out_dir: Path) -> None:
         text=True,
     )
     assert res.returncode == 0, res.stdout + res.stderr
+    index = json.loads(
+        (out_dir / "inductive-scope" / "_index.json").read_text(encoding="utf-8")
+    )
+    assert index.get("profile") == "lulu-design"
+    assert index.get("scope_ref") == "approach/approach-doc.md"
 
 
 def _g1_payload() -> str:
@@ -188,6 +197,84 @@ def _record_ok_g2_report(tmp_path: Path) -> None:
         "--json",
         _ok_g2_report(),
     )
+
+
+def test_gate_close_g1_accepts_user_confirmed_without_architecture_view(tmp_path: Path):
+    """Shape-confirm baseline is checkpoint; DQI architecture_view is optional."""
+    _seed_session(tmp_path)
+    code, result = _run_gate(
+        tmp_path,
+        "gate-close",
+        "--gate",
+        "G1",
+        "--payload",
+        json.dumps({"user_confirmed": True}),
+    )
+    assert code == 0, result
+    assert result.get("closed") == "G1"
+    index = json.loads((tmp_path / "inductive-scope" / "_index.json").read_text(encoding="utf-8"))
+    assert index.get("last_checkpoint") == "shape"
+    # best-effort: when tests run inside a git repo, SHA is recorded
+    assert "checkpoint_git_sha" in index
+    if index["checkpoint_git_sha"] is not None:
+        assert len(index["checkpoint_git_sha"]) >= 7
+
+
+def test_gate_close_g1_rejects_missing_user_confirmed(tmp_path: Path):
+    _seed_session(tmp_path)
+    code, result = _run_gate(
+        tmp_path,
+        "gate-close",
+        "--gate",
+        "G1",
+        "--payload",
+        json.dumps(
+            {
+                "architecture_view": {
+                    "as_is": "a",
+                    "to_be": "b",
+                    "scope": {"in": ["x"], "out": []},
+                    "spine": "s",
+                    "traces_to": ["upstream"],
+                }
+            }
+        ),
+    )
+    assert code != 0
+    assert "user_confirmed" in str(result)
+
+
+def test_resolve_context_reports_blocking_open_count(tmp_path: Path):
+    _seed_session(tmp_path)
+    code, payload = _run_section(tmp_path, "activate-section", "--section", "ST")
+    assert code == 0, payload
+    code, payload = _run_section(
+        tmp_path,
+        "add-open",
+        "--kw",
+        "2",
+        "--trigger",
+        "ai",
+        "--means",
+        "ai_scan",
+        "--problem",
+        "gap",
+        "--blocking",
+        "true",
+        "--detected-under",
+        "ST",
+    )
+    assert code == 0, payload
+    code, result = _run_gate(tmp_path, "resolve-context")
+    assert code == 0, result
+    assert result.get("active_gate") == "G1"
+    assert result.get("active_section") == "ST"
+    count = result.get("open_blocking_open_count")
+    if count is None:
+        count = result.get("open_blocking_ep_count")
+    assert count == 1, result
+    # DQI architecture_view is optional resume aid — absent until G1 writes it
+    assert "architecture_view" in result
 
 
 def test_g2_facade_check_forwards_success(tmp_path: Path):
@@ -423,7 +510,18 @@ def _drive_single_section_to_g4(tmp_path: Path) -> None:
     assert code == 0
 
     _run_section(tmp_path, "activate-section", "--section", "I")
-    _run_section(tmp_path, "append-to-section", "--section", "I", "--content", "## I\nBody text.\n")
+    _run_section(
+        tmp_path,
+        "seed-decision",
+        "--section",
+        "I",
+        "--lens-tags",
+        "I",
+        "--kw",
+        "1",
+        "--text",
+        "Body text.",
+    )
     _run_section(tmp_path, "set-frontier", "--section", "I", "--kw", "3")
     code, result = _run_section(tmp_path, "clear-section", "--section", "I")
     assert code == 0, result

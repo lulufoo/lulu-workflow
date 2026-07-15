@@ -2,7 +2,7 @@
   "version": 1,
   "stage": "lulu-approach",
   "cache_subdir": "lulu-approach",
-  "objective": "Produce a technical decision document that captures system design direction, architectural constraints, and engineering trade-offs for this topic — ready to guide the technical architecture work in lulu-arch.",
+  "objective": "Produce a technical decision document that captures system design direction, architectural constraints, and engineering trade-offs for this topic — forming a complete, self-consistent technical decision document for this architecture direction.",
   "role": {
     "persona": "technical_decision_maker",
     "instruction": "You are acting as a technical decision maker. Frame all questions and analyses from the perspective of system design, architectural constraints, and engineering trade-offs. Use technical vocabulary (architecture, dependencies, interfaces, rollback) rather than product vocabulary."
@@ -10,12 +10,27 @@
   "domain": {
     "name": "technical",
     "instruction": "Frame all gate dialogue and decision-doc content from the perspective of system design and engineering trade-offs for this architecture topic, which may span multiple future features. Technical identifiers, architecture terms, and implementation references are appropriate in this domain.",
-    "dimension_framing": {
-      "acceptance_criteria": "How do we know this architecture direction is sound? What observable, verifiable technical indicators confirm it can support lulu-arch's follow-on work?",
-      "impact_surface": "What systems, modules, interfaces, and external parties does this architecture decision affect?",
-      "external_dependencies": "Who owns the components this depends on? What is the contract, authoritative source, and confirmation mechanism for each dependency?",
-      "implementation_sketch": "What is the shape of this architecture direction? What non-obvious constraints or complexity exist? How reversible is committing to it?",
-      "gap_check": "Does the proposed architecture direction meet the acceptance criteria? Where does it fall short?"
+    "dimension_profile": {
+      "acceptance_criteria": {
+        "question": "How do we know this architecture direction is sound? What observable, verifiable technical indicators confirm it can support follow-on architecture work?",
+        "depth": "Direction-level signals that validate the architecture direction — not feature-level implementation details."
+      },
+      "impact_surface": {
+        "question": "What systems, modules, interfaces, and external parties does this architecture decision affect?",
+        "depth": "Subsystem/architecture-domain level, spanning potential future features — not module or file level."
+      },
+      "external_dependencies": {
+        "question": "Who owns the components this depends on? What is the contract, authoritative source, and confirmation mechanism for each dependency?",
+        "depth": "Cross-cutting dependencies/contracts this direction commits to — not feature-specific integration details."
+      },
+      "implementation_sketch": {
+        "question": "What is the shape of this architecture direction? What non-obvious constraints or complexity exist? How reversible is committing to it?",
+        "depth": "The shape of the direction and its structural constraints — not a concrete implementation plan."
+      },
+      "gap_check": {
+        "question": "Does the proposed architecture direction meet the acceptance criteria? Where does it fall short?",
+        "depth": "One-line verdict against the direction's acceptance criteria."
+      }
     }
   },
   "context": {

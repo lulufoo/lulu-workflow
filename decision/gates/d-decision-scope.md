@@ -14,7 +14,7 @@ Do not start D dialogue until the above is complete.
 **Execute:**
 1. **Decision Rationale:** state which option was chosen and why, referencing E trade-offs; state why others were excluded.
 2. **Scope:** state what this decision covers; then state explicit exclusions — what it does NOT cover.
-3. **Execution Approach:** capture the user's preferred implementation sequencing, step dependencies, and parallel vs. serial constraints. Distinct from X: X captures *what* to do; Execution Approach captures *how to sequence* it.
+3. **Execution Approach:** capture how in-scope items sequence — their grouping into phases, dependencies, and parallel vs. serial constraints — at decision granularity. Not work breakdown, scheduling, or staffing. X = *what*; Execution Approach = *how to sequence*.
 
 **Confirmation (G8):** Ask user: "Does this decision rationale, scope, and execution approach look correct?" Do not declare D closed until user explicitly confirms.
 

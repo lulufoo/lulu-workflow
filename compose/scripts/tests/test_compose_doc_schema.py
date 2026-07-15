@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for lulu-plan compose_doc_schema.py."""
+"""Tests for compose_doc_schema.py (presentation + chapter summary, K3-d)."""
 
 from __future__ import annotations
 
@@ -9,14 +9,11 @@ import sys
 from pathlib import Path
 
 import bootstrap  # noqa: F401
-from bootstrap import SCHEMA_SECTION_DOCUMENT, SECTION  # noqa: E402
+from bootstrap import SCHEMA_SECTION_DOCUMENT  # noqa: E402
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from section_registry_schema import section_heading, summary_section_key  # noqa: E402
-from compose_doc_schema import format_section_heading, format_section_intent_heading  # noqa: E402
-from test_registry_fixtures import fourth_section_key  # noqa: E402
 from compose_doc_schema import (  # noqa: E402
     extract_presentation,
     get_schema,
@@ -30,19 +27,19 @@ _SCRIPT = SCHEMA_SECTION_DOCUMENT / "compose_doc_schema.py"
 
 
 def _write_compose_doc(path: Path, *, title: str = "", summary: str = "Goal.") -> None:
-    summary_key = summary_section_key()
-    kd_key = fourth_section_key()
     lines = ["---", ""]
     if title:
         lines.extend([f"# {title}", ""])
     lines.extend([
-        format_section_heading(summary_key, section_heading(summary_key)),
+        "<!-- chapter:chap-ov -->",
+        "## Overview",
         "",
         summary,
         "",
-        format_section_heading(kd_key, section_heading(kd_key)),
+        "<!-- chapter:chap-kd -->",
+        "## Key decisions",
         "",
-        f"{kd_key}.",
+        "KD body.",
         "",
     ])
     path.write_text("\n".join(lines), encoding="utf-8")
@@ -77,18 +74,20 @@ class TestGetSchema:
 
 
 class TestExtractPresentation:
-    def test_reads_h1_title_and_summary_section(self, tmp_path: Path):
+    def test_reads_h1_title_and_first_chapter_summary(self, tmp_path: Path):
         path = tmp_path / "tech-doc.md"
         _write_compose_doc(path, title="Feature X", summary="Deliver unified reads.")
         payload = extract_presentation(path, revision=1)
         assert payload["title"] == "Feature X"
-        assert payload["summary"] == "Deliver unified reads."
+        assert "Deliver unified reads." in payload["summary"]
         assert payload["revision"] == 1
 
     def test_falls_back_to_summary_lead_when_no_h1(self, tmp_path: Path):
         path = tmp_path / "tech-doc.md"
         _write_compose_doc(path, summary="Summary lead line.")
         payload = extract_presentation(path)
+        # Without H1, title comes from first content in first chapter segment
+        # (chapter H2 "Overview" is skipped by _first_content_line).
         assert payload["title"] == "Summary lead line."
 
     def test_truncates_long_summary(self, tmp_path: Path):
@@ -102,76 +101,12 @@ class TestExtractPresentation:
         with pytest.raises(ValueError, match="not found"):
             extract_presentation(tmp_path / "missing.md")
 
-
-class TestSectionKeyAnchors:
-    def test_section_body_by_key_uses_anchor(self, tmp_path: Path):
-        from compose_doc_schema import section_body_by_key, section_display_heading
-
-        path = tmp_path / "tech-doc.md"
-        key = summary_section_key()
-        path.write_text(
-            f"---\n\n{format_section_heading(key, 'Custom title')}\n\nAnchor body.\n",
-            encoding="utf-8",
-        )
-        raw = path.read_text(encoding="utf-8")
-        assert section_body_by_key(raw, key) == "Anchor body."
-        assert section_display_heading(raw, key) == "Custom title"
-
-    def test_legacy_heading_fallback(self, tmp_path: Path):
-        from compose_doc_schema import section_body_by_key
-
-        key = summary_section_key()
-        heading = section_heading(key)
-        path = tmp_path / "legacy.md"
-        path.write_text(f"---\n\n## {heading}\n\nLegacy body.\n", encoding="utf-8")
-        raw = path.read_text(encoding="utf-8")
-        assert section_body_by_key(raw, key) == "Legacy body."
-
-    def test_outline_block_intent_anchors(self, tmp_path: Path):
-        from compose_doc_schema import (
-            parse_sections,
-            section_body_by_key,
-            section_display_heading,
-        )
-
-        doc = """---
----
-
-## Overview
-
-### 现状与代码入口 <!-- section-key:CTX -->
-
-Context body.
-
-### 迁移后的目标形态 <!-- section-key:GO -->
-
-Goal body.
-
-## Boundaries
-
-### 迁移相关的排除项 <!-- section-key:NG -->
-
-Non-goals body.
-"""
-        raw = doc
-        parsed = parse_sections(raw)
-        assert set(parsed) >= {"CTX", "GO", "NG"}
-        assert section_body_by_key(raw, "CTX") == "Context body."
-        assert section_body_by_key(raw, "GO") == "Goal body."
-        assert section_body_by_key(raw, "NG") == "Non-goals body."
-        assert parsed["CTX"]["display_heading"] == "现状与代码入口"
-        assert parsed["NG"]["display_heading"] == "迁移相关的排除项"
-        assert section_display_heading(raw, "GO") == "迁移后的目标形态"
-
-    def test_format_section_intent_heading(self):
-        line = format_section_intent_heading("sc", "沉淀库改造的变更范围")
-        assert line == "### 沉淀库改造的变更范围 <!-- section-key:SC -->"
-
-    def test_bare_anchor_legacy_display_heading_empty(self, tmp_path: Path):
-        from compose_doc_schema import section_display_heading
-
-        doc = "## Boundaries\n\n<!-- section-key:SC -->\nBody.\n"
-        assert section_display_heading(doc, "SC") == ""
+    def test_h1_only_fallback_without_chapters(self, tmp_path: Path):
+        path = tmp_path / "plain.md"
+        path.write_text("# Plain Title\n\nLead paragraph.\n", encoding="utf-8")
+        payload = extract_presentation(path)
+        assert payload["title"] == "Plain Title"
+        assert "Lead paragraph." in payload["summary"]
 
 
 class TestResolveFromCycle:
@@ -187,7 +122,7 @@ class TestResolveFromCycle:
         payload = load_presentation_from_cycle(cycle_id, project_root)
         assert payload["revision"] == 1
         assert payload["title"] == "Feature X"
-        assert payload["summary"] == "Deliver a unified session info facade."
+        assert "session info facade" in payload["summary"]
 
 
 class TestCli:

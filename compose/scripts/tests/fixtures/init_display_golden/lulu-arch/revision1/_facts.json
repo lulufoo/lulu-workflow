@@ -1,0 +1,79 @@
+[
+  {
+    "id": "F-1",
+    "text": "在 Tauri App + knowledge MCP + skills 既有体系上，需设计行动层 v1 技术架构：计划任务持久化（master/sub 树）、MCP 任务接口、归档关联与自动完成、Workbench 管理 UI，支撑 SKILL/MCP 创建→执行→归档→双向可见闭环。",
+    "lens_tags": [
+      "SI"
+    ]
+  },
+  {
+    "id": "F-2",
+    "text": "收敛方向：方向 A — 独立任务存储 + 扩展归档索引（plan_tasks.json 独立持久化对齐 read_later；新增 MCP task tools；扩展 archive_document；Workbench 新 service + UI）。排除方向 B（任务嵌入 corpus index）与方向 C（协议先行存储后置）。",
+    "lens_tags": [
+      "SI"
+    ]
+  },
+  {
+    "id": "F-3",
+    "text": "硬约束：创建仅走 MCP/SKILL，Workbench UI 不创建；完成粒度为 sub_task_id，不支持 parent 一次性完成；Workbench 不内嵌 AI（执行在 Cursor）；Read Later 模块不改；任务↔归档双向索引；MCP 为 Cursor 侧权威接口；协议支持 master_task_id → sub_task_id。",
+    "lens_tags": [
+      "BD",
+      "SI"
+    ]
+  },
+  {
+    "id": "F-4",
+    "text": "范围内：plan_tasks.json master/sub 树；MCP create/get/list/complete；archive_document 扩展 master/sub task id 自动关联+完成；Tauri services/plan_task/；Workbench UI 列表/详情/拷贝/双向关联；Skills 对接。",
+    "lens_tags": [
+      "BD"
+    ]
+  },
+  {
+    "id": "F-5",
+    "text": "范围外：SQLite/新 DB；改动 read_later；UI 创建；parent 一次性完成；归档触发策略；Meili 任务索引；已完成历史展示。",
+    "lens_tags": [
+      "BD"
+    ]
+  },
+  {
+    "id": "F-6",
+    "text": "结构形状：plan_tasks.json 独立持久化层（对齐 read_later 模式）与知识归档层分离；MCP 为唯一写入口；archive_document 扩展 task_ref 并在同调用链关联+完成子项；Tauri plan_task service 承载 CRUD；Workbench UI 只读管理与双向可见。",
+    "lens_tags": [
+      "SH"
+    ]
+  },
+  {
+    "id": "F-7",
+    "text": "影响面分区：Tauri 后端（plan_task 新增、archive_write 修改、local_http 路由）；knowledge MCP（task tools + archive 扩展）；corpus index 可选 task_ref；本地 plan_tasks.json；Workbench 任务 UI；Skills 对接。",
+    "lens_tags": [
+      "SH",
+      "FD"
+    ]
+  },
+  {
+    "id": "F-8",
+    "text": "特征依赖顺序：1) 定 schema + MCP 契约（本 arch）→ 2) Tauri plan_task service + MCP tools → 3) 扩展 archive_document → 4) Workbench UI → 5) Skills + 端到端验证。",
+    "lens_tags": [
+      "FD"
+    ]
+  },
+  {
+    "id": "F-9",
+    "text": "验收要点：plan_tasks.json schema+测试；MCP task tools 可用；archive 扩展自动关联+完成子项+父任务自动完成；双向可查；Workbench UI；Skills 闭环；read_later 与无参归档不变。",
+    "lens_tags": [
+      "BD",
+      "SH"
+    ]
+  },
+  {
+    "id": "F-10",
+    "text": "采纳方向 A 的架构理由：与现有 read_later JSON 持久化模式一致，行动层与知识层存储分离，MCP 作为唯一写入口，降低与 corpus index 耦合及 UI 创建越权风险。排除 SQLite（v1 过重）、改 read_later（硬约束）、Cursor 直写任务文件（违反 MCP 权威）。",
+    "lens_tags": [
+      "KD"
+    ],
+    "source": [
+      "F-6",
+      "F-7"
+    ]
+  }
+]

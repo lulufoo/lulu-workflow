@@ -41,7 +41,16 @@ def _write_g4_closed(revision_dir: Path) -> None:
     )
     scope_dir = revision_dir / "inductive-scope"
     scope_dir.mkdir(parents=True, exist_ok=True)
-    (scope_dir / "ST.md").write_text("# ST\n", encoding="utf-8")
+    (scope_dir / "ST.json").write_text(
+        json.dumps(
+            {
+                "key": "ST",
+                "status": "cleared",
+                "frontier_kw": 0,
+            }
+        ),
+        encoding="utf-8",
+    )
 
 
 def _write_g5_closed(revision_dir: Path) -> None:
@@ -152,6 +161,7 @@ def test_inductive_complete_succeeds_when_g4_and_g5_closed(tmp_path: Path) -> No
 
     assert result["ok"] is True
     assert result["command"] == "inductive-complete"
+    assert result["section_files"] == ["ST.json"]
 
 
 def test_begin_init_rejects_inductive_step_without_g5(tmp_path: Path) -> None:
@@ -235,3 +245,77 @@ def test_advance_to_freeedit_accepts_legacy_ready(tmp_path: Path) -> None:
 
     assert result["ok"] is True
     assert result["current_step"] == "FreeEdit"
+
+
+def test_begin_init_k2_requires_facts_when_inductive(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """K2: inductive Init → missing _facts.json is a hard error."""
+    seed_tech_design_session(tmp_path, cycle_id=_CYCLE)
+    rev_dir = _seed_inductive_progress(tmp_path)
+    _write_g4_closed(rev_dir)
+    _write_g5_closed(rev_dir)
+
+    monkeypatch.setattr(
+        draft_control,
+        "_drafting_config",
+        lambda *a, **k: {"inductive": True},
+    )
+
+    result = draft_control.begin_init(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
+    assert result["ok"] is False
+    assert "_facts.json missing" in result["reason"]
+    assert "seed/settle" in result["reason"]
+
+
+def test_begin_init_k2_passes_when_facts_present(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seed_tech_design_session(tmp_path, cycle_id=_CYCLE)
+    rev_dir = _seed_inductive_progress(tmp_path)
+    _write_g4_closed(rev_dir)
+    _write_g5_closed(rev_dir)
+    (rev_dir / "_facts.json").write_text(
+        json.dumps(
+            [{"id": "F-1", "text": "projected", "lens_tags": ["ST"], "source": ["ST-d1"]}],
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        draft_control,
+        "_drafting_config",
+        lambda *a, **k: {"inductive": True},
+    )
+
+    result = draft_control.begin_init(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
+    assert result["ok"] is True
+    assert "REVISION_DIR:" in result["dispatch_input"]
+    assert "INDUCTIVE_DIR:" not in result["dispatch_input"]
+
+
+def test_begin_init_real_design_profile_requires_facts(tmp_path: Path) -> None:
+    """Lock: real lulu-design inductive profile requires projected _facts.json."""
+    profile = json.loads(
+        (
+            Path(__file__).resolve().parents[3]
+            / "lulu-design"
+            / "compose-profile.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert profile["drafting"]["inductive"] is True
+    assert "display_layer" not in profile.get("drafting", {})
+
+    seed_tech_design_session(tmp_path, cycle_id=_CYCLE)
+    rev_dir = _seed_inductive_progress(tmp_path)
+    _write_g4_closed(rev_dir)
+    _write_g5_closed(rev_dir)
+    assert not (rev_dir / "_facts.json").exists()
+
+    result = draft_control.begin_init(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
+    assert result["ok"] is False
+    assert "_facts.json missing" in result["reason"]
+

@@ -35,6 +35,7 @@ _MINIMAL_ACTIVE_PROFILE = {
     "drafting": {
         "inductive": False,
         "freeedit": True,
+        "code_grounding": False,
         "post_init_options": ["freeedit", "evaluate", "deliver"],
     },
     "start": {
@@ -100,6 +101,7 @@ def test_active_profile_rejects_unknown_post_init_option(tmp_path: Path) -> None
     data["drafting"] = {
         "inductive": False,
         "freeedit": True,
+        "code_grounding": False,
         "post_init_options": ["freeedit", "round"],
     }
     path.write_text(json.dumps(data), encoding="utf-8")
@@ -127,6 +129,27 @@ def test_active_profile_missing_eval_adapter_class_fails(tmp_path: Path) -> None
     path.write_text(json.dumps(data), encoding="utf-8")
     errors = _validate_profile(path)
     assert any("missing eval.adapter_class" in err for err in errors)
+
+
+def test_active_profile_rejects_retired_display_layer(tmp_path: Path) -> None:
+    stage_dir = tmp_path / "tech-foo"
+    stage_dir.mkdir()
+    path = stage_dir / "compose-profile.json"
+    data = dict(_MINIMAL_ACTIVE_PROFILE)
+    data["drafting"] = dict(data["drafting"])
+    data["drafting"]["display_layer"] = True
+    path.write_text(json.dumps(data), encoding="utf-8")
+    errors = _validate_profile(path)
+    assert any("display_layer retired" in err for err in errors)
+
+
+def test_active_profile_omits_display_layer_without_error(tmp_path: Path) -> None:
+    stage_dir = tmp_path / "tech-foo"
+    stage_dir.mkdir()
+    path = stage_dir / "compose-profile.json"
+    path.write_text(json.dumps(_MINIMAL_ACTIVE_PROFILE), encoding="utf-8")
+    assert "display_layer" not in _MINIMAL_ACTIVE_PROFILE["drafting"]
+    assert _validate_profile(path) == []
 
 
 def test_unknown_active_profile_validates_without_whitelist(tmp_path: Path) -> None:

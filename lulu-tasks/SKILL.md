@@ -285,11 +285,13 @@ After eval-runner returns, read `evaluate-state.md → current_dimension` as the
 
 After hook allows entry to ReadyForDelivery:
 1. Display final `task-list.md` summary (task count, dependency graph, any exclusions)
-2. **Feature container:** Auto-complete delivery — write `r{N}/human-delivery-gate.md`, write `r{N}/workflow-state.md` → `current_state: Delivered`, output the full list of `tasks/t{N}/task.md` paths, then auto handoff to `lulu-code` per `_transitions.md` (auto-chain).
+2. **Feature container:** Auto-complete delivery — write `r{N}/human-delivery-gate.md`, write `r{N}/workflow-state.md` → `current_state: Delivered`, output the full list of `tasks/t{N}/task.md` paths, then immediately start `lulu-code` without waiting for user stage selection (this stage's inline handoff; overrides the generic wait-for-selection rule in `_transitions.md`).
 3. **Topic container:** Wait for explicit delivery confirmation from user, then write `r{N}/human-delivery-gate.md`, write `r{N}/workflow-state.md` → `current_state: Delivered`, and output the full list of `tasks/t{N}/task.md` paths for the TDD session to consume.
 
 <DELIVERY-GATE>
 Before presenting next stages to the user, read `../_transitions.md` and follow the Stage Transitions rules.
+
+**Exception — Feature container after Rule R1 step 2:** Do not present next stages; proceed directly to `lulu-code` per Rule R1.
 </DELIVERY-GATE>
 
 ---

@@ -17,14 +17,14 @@ blurry dissatisfaction or wish and "no idea". This SKILL expands the space of po
 "walls" are real vs. self-imposed. The solution path is meant to **emerge from the user**, not to be
 designed by a process.
 
-> **Design rationale (why) — SSOT:** `docs/biz/brainstorm-divergence-theory.md` in the source repo.
-> This SKILL orchestrates behavior; the theory doc holds the reasoning, the cognitive-science
-> grounding, and the rejected alternatives. Read it before changing anything here.
-
 > **Mental picture (room metaphor):** the user's current framing is a **room** they assume is the
 > whole world. A **false wall** looks load-bearing but pushes over; a **real wall** is truly
 > load-bearing. Brainstorming = find the false walls, push them, and let the room get bigger — then
 > the user spots a **door** (direction) they could not see before.
+
+> **Authoring note:** cognitive-science why and rejected alternatives live only in the source
+> repository's domain brainstorm theory SSOT (`docs/domain/brainstorm/brainstorm-divergence-theory.md`) (not shipped with installs). Do not seek them at
+> runtime. Before changing this SKILL in the source repo, read that theory first.
 
 ---
 

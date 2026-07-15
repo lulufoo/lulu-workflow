@@ -2,14 +2,14 @@
 """Inductive runner outer gate spine control.
 
 Manages the G1->G2->G3->G4 gate state machine for the inductive runner.
-Delegates all G3 section / EP operations to inductive_g3_section_control.py
-via subprocess ($INDUCTIVE_G3_SECTION_CTL). G2/G3 grounding reads are
-facade subcommands that subprocess to artifact controls.
+Delegates section-SoT operations to inductive_g3_section_control.py via
+subprocess ($INDUCTIVE_G3_SECTION_CTL). G2/G3 grounding reads are facade
+subcommands that subprocess to artifact controls.
 
 Subcommands:
     init-session        Seed gate state + delegate init-pointer to section control
-    resolve-context     Return active_gate, active_section, open-EP count,
-                        architecture_view summary (multi-turn resume entry point)
+    resolve-context     Return active_gate, active_section, blocking-open count,
+                        optional DQI architecture_view (resume aid, not SoT)
     gate-close          Close a gate with payload validation and prereq check
     gate-reopen         Reopen a gate; downstream gates reset to pending
                         (also deletes the stale g2/g4 report where applicable).
@@ -27,8 +27,8 @@ Subcommands:
     g4-list-report      Facade: subprocess to inductive_g4_control list-recompose-report
 
 Payload per gate:
-    G1: {"architecture_view": {...}, "shape_constraints": [...]}
-    G2: {}  (requires g2-topology-report.json with verdict=ok)
+    G1: {"user_confirmed": true} required; architecture_view/shape_constraints optional resume aid only
+    G2: {}  (absent report auto-passes; present report requires verdict=ok)
     G3: must pass check-coverage (delegated to section control)
     G4: none accepted from the caller — report-driven. gate-close internally
         merges structural {reforms_shape, shape_absorbed} (recompose-check)
@@ -179,7 +179,7 @@ def cmd_init_session(out_dir: Path, args: argparse.Namespace) -> None:
     )
     save_gate_state(gate_path, state)
 
-    # Delegate section pointer + EP ledger init
+    # Delegate section pointer + section-SoT _index init
     sections: str = args.sections or ""
     mandatory: str = args.mandatory or ""
 
@@ -189,6 +189,8 @@ def cmd_init_session(out_dir: Path, args: argparse.Namespace) -> None:
         "--sections", sections,
         "--mandatory", mandatory,
         "--cycle-id", cycle_id,
+        "--profile", stage,
+        "--scope-ref", getattr(args, "scope_ref", "") or "",
     )
     if not ptr_result.get("ok"):
         _fail("section pointer init failed: " + ptr_result.get("error", "unknown"))
@@ -213,15 +215,19 @@ def cmd_resolve_context(out_dir: Path, _args: argparse.Namespace) -> None:
     section_status: dict[str, Any] = {}
     frontier: dict[str, Any] = {}
     active_section = None
-    open_ep_count = 0
+    open_count = 0
 
-    if state["active_gate"] in {"G3", "G4"}:
-        sec_result = _run_section_ctl(out_dir, "status")
-        if sec_result.get("ok"):
-            section_status = sec_result.get("sections", {})
-            frontier = sec_result.get("frontier", {})
-            active_section = sec_result.get("active_section")
-            open_ep_count = sec_result.get("open_blocking_ep_count", 0)
+    # Always aggregate section-SoT status (Seed/Shape happen in G1; opens may exist
+    # before G3). Pointer may be absent only if init-session failed mid-way.
+    sec_result = _run_section_ctl(out_dir, "status")
+    if sec_result.get("ok"):
+        section_status = sec_result.get("sections", {})
+        frontier = sec_result.get("frontier", {})
+        active_section = sec_result.get("active_section")
+        open_count = sec_result.get(
+            "open_blocking_open_count",
+            sec_result.get("open_blocking_ep_count", 0),
+        )
 
     architecture_view = None
     dqi_p = _dqi_path(out_dir)
@@ -239,7 +245,8 @@ def cmd_resolve_context(out_dir: Path, _args: argparse.Namespace) -> None:
         "active_section": active_section,
         "section_statuses": section_status,
         "frontier": frontier,
-        "open_blocking_ep_count": open_ep_count,
+        "open_blocking_open_count": open_count,
+        "open_blocking_ep_count": open_count,  # deprecated alias
         "architecture_view": architecture_view,
     })
 
@@ -298,10 +305,15 @@ def cmd_gate_close(out_dir: Path, args: argparse.Namespace) -> None:
     updated = close_gate(state, gate, payload=payload if payload else None)
     save_gate_state(gate_path, updated)
 
-    # For G1: write architecture_view to DQI
-    if gate == "G1" and payload.get("architecture_view"):
-        _write_dqi_field(out_dir, "architecture_view", payload["architecture_view"])
-        _write_dqi_field(out_dir, "shape_constraints", payload.get("shape_constraints", []))
+    # For G1: write architecture_view to DQI (legacy resume aid) + shape checkpoint mark
+    if gate == "G1":
+        if payload.get("architecture_view"):
+            _write_dqi_field(out_dir, "architecture_view", payload["architecture_view"])
+            _write_dqi_field(
+                out_dir, "shape_constraints", payload.get("shape_constraints", [])
+            )
+        # section-SoT: Shape-confirm baseline = _index.last_checkpoint == "shape"
+        _run_section_ctl(out_dir, "checkpoint", "--name", "shape")
 
     # For G4: write merged recompose_check to DQI
     if gate == "G4":
@@ -318,9 +330,19 @@ def cmd_gate_close(out_dir: Path, args: argparse.Namespace) -> None:
 # ---------------------------------------------------------------------------
 
 def _validate_g1_payload(payload: dict[str, Any]) -> None:
-    if not payload.get("architecture_view"):
-        _fail("G1 payload must include 'architecture_view'")
-    av = payload["architecture_view"]
+    """Shape-confirm close: user confirmation is hard; DQI view is optional aid.
+
+    Design §7 / I11: authoritative baseline is ``checkpoint("shape")``, not a
+    frozen ``architecture_view``. If a resume-aid view is supplied, it must be
+    complete; absence is allowed.
+    """
+    if not payload.get("user_confirmed"):
+        _fail("G1 payload must include 'user_confirmed': true")
+    av = payload.get("architecture_view")
+    if av is None:
+        return
+    if not isinstance(av, dict):
+        _fail("architecture_view must be an object when provided")
     required = ("as_is", "to_be", "scope", "spine", "traces_to")
     missing = [f for f in required if not av.get(f)]
     if missing:
@@ -328,6 +350,16 @@ def _validate_g1_payload(payload: dict[str, Any]) -> None:
 
 
 def _validate_g2_close(out_dir: Path) -> None:
+    """G2 folded into per-open attach-code-refs (design Turn 44 / plan C2).
+
+    If ``g2-topology-report.json`` is absent → auto-pass (independent G2 gate
+    no longer required; Shape-confirm + Audit cover the early global check).
+    If present → still require ``verdict=ok`` (legacy / optional topology pass).
+    """
+    report_path = Path(out_dir) / "g2-topology-report.json"
+    if not report_path.exists():
+        return
+
     cmd = _g2_ctl(out_dir) + ["check-g2-report"]
     result = subprocess.run(cmd, capture_output=True, text=True)
     try:
@@ -612,12 +644,18 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--sections", required=True, help="Comma-separated coverage_sections")
     p.add_argument("--mandatory", default="", help="Comma-separated mandatory section keys")
     p.add_argument("--cycle-id", default="", help="Cycle id for traceability")
-    p.add_argument("--stage", default="", help="Compose stage id (e.g. lulu-design)")
+    p.add_argument("--stage", default="", help="Compose stage id (e.g. lulu-design); stored as _index.profile")
+    p.add_argument(
+        "--scope-ref",
+        default="",
+        dest="scope_ref",
+        help="Upstream scope path (stored on _index.scope_ref)",
+    )
 
     # resolve-context
     sub.add_parser(
         "resolve-context",
-        help="Return active_gate, active_section, open-EP count (multi-turn resume entry)",
+        help="Return active_gate, active_section, blocking-open count (multi-turn resume)",
         parents=[conv_id_parent],
     )
 

@@ -25,12 +25,6 @@ _SKILL_INSTALL_ROOT: dict[str, Path] = {
     "claude": Path.home() / ".claude" / "skills" / SKILL_NAME,
 }
 
-_PLATFORM_SKILLS_ROOT: dict[str, Path] = {
-    "cursor": Path.home() / ".cursor" / "skills",
-    "copilot": Path.home() / ".copilot" / "skills",
-    "claude": Path.home() / ".claude" / "skills",
-}
-
 CLAUDE_PRE_TOOL_USE_MATCHER = "Write|Edit|Read|Bash"
 CURSOR_PRE_TOOL_USE_MATCHER = "Write|Edit|Read|Shell"
 
@@ -47,10 +41,6 @@ def hooks_config_path(platform: str) -> Path:
     return _HOOKS_CONFIG_PATH[platform]
 
 
-def platform_skills_root(platform: str) -> Path:
-    return _PLATFORM_SKILLS_ROOT[platform]
-
-
 def gitignore_entry(platform: str) -> str | None:
     return _GITIGNORE_ENTRY.get(platform)
 
@@ -62,3 +52,9 @@ def hook_guard_command(platform: str) -> str:
     if platform in ("copilot", "claude"):
         command += f" --platform {platform}"
     return command
+
+
+def hook_prompt_command(platform: str) -> str:
+    """Return beforeSubmitPrompt command for externalPathGuard.sessionAllow."""
+    root = _SKILL_INSTALL_ROOT[platform]
+    return f"python3 {root / 'scripts' / 'hook' / 'hook_prompt.py'} --platform {platform}"

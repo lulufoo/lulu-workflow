@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Schema and I/O for workflow-guard-config.json (rwGuard)."""
+"""Schema and I/O for workflow-guard-config.json (internal/external path guards)."""
 
 from __future__ import annotations
 
@@ -14,25 +14,30 @@ SKILL_ROOT = SCRIPTS_DIR.parent
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
-from platforms.paths import platform_skills_root  # noqa: E402
 from workflow_config_schema import detect_platform, read_platform_config  # noqa: E402
 
 _DEFAULT_HOOK_CONFIG_PATH = "skill-config/lulu-dev-workflow/workflow-guard-config.json"
 
 _DEFAULT_HOOK_CONFIG: dict[str, Any] = {
-    "version": 1,
-    "rwGuard": {
+    "version": 2,
+    "internalPathGuard": {
         "enable": True,
         "defaults": {
-            "readDirs": [".", "{platform-skills}"],
+            "readDirs": ["."],
             "writeDirs": [".cache/{platform}/lulu-dev-workflow"],
         },
         "stages": {
             "lulu-code": {
-                "readDirs": [".", "{platform-skills}"],
+                "readDirs": ["."],
                 "writeDirs": ["."],
             },
         },
+    },
+    "externalPathGuard": {
+        "enabled": False,
+        "writeAllowExternalPaths": [],
+        "readAllowExternalPaths": ["~/.cursor/", "~/.copilot/", "~/.claude/"],
+        "sessionAllow": False,
     },
 }
 
@@ -58,40 +63,82 @@ def validate_hook_config(data: object) -> list[str]:
     if not isinstance(data, dict):
         return ["root must be a JSON object"]
     version = data.get("version")
-    if version != 1:
-        errors.append("version must be 1")
-    rw_guard = data.get("rwGuard")
-    if not isinstance(rw_guard, dict):
-        errors.append("rwGuard must be an object")
+    if version != 2:
+        errors.append("version must be 2")
+
+    internal = data.get("internalPathGuard")
+    if not isinstance(internal, dict):
+        errors.append("internalPathGuard must be an object")
         return errors
 
-    enable = rw_guard.get("enable")
+    enable = internal.get("enable")
     if enable is not None and not isinstance(enable, bool):
-        errors.append("rwGuard.enable must be a boolean")
+        errors.append("internalPathGuard.enable must be a boolean")
 
-    defaults = rw_guard.get("defaults")
+    defaults = internal.get("defaults")
     if defaults is not None:
         if not isinstance(defaults, dict):
-            errors.append("rwGuard.defaults must be an object")
+            errors.append("internalPathGuard.defaults must be an object")
         else:
-            errors.extend(_validate_dir_list(defaults.get("readDirs"), "rwGuard.defaults.readDirs"))
-            errors.extend(_validate_dir_list(defaults.get("writeDirs"), "rwGuard.defaults.writeDirs"))
+            errors.extend(
+                _validate_dir_list(
+                    defaults.get("readDirs"), "internalPathGuard.defaults.readDirs"
+                )
+            )
+            errors.extend(
+                _validate_dir_list(
+                    defaults.get("writeDirs"), "internalPathGuard.defaults.writeDirs"
+                )
+            )
 
-    stages = rw_guard.get("stages")
+    stages = internal.get("stages")
     if stages is not None:
         if not isinstance(stages, dict):
-            errors.append("rwGuard.stages must be an object")
+            errors.append("internalPathGuard.stages must be an object")
         else:
             for stage, stage_cfg in stages.items():
                 if not isinstance(stage_cfg, dict):
-                    errors.append(f"rwGuard.stages.{stage} must be an object")
+                    errors.append(f"internalPathGuard.stages.{stage} must be an object")
                     continue
-                prefix = f"rwGuard.stages.{stage}"
-                enable = stage_cfg.get("enable")
-                if enable is not None and not isinstance(enable, bool):
+                prefix = f"internalPathGuard.stages.{stage}"
+                stage_enable = stage_cfg.get("enable")
+                if stage_enable is not None and not isinstance(stage_enable, bool):
                     errors.append(f"{prefix}.enable must be a boolean")
-                errors.extend(_validate_dir_list(stage_cfg.get("readDirs"), f"{prefix}.readDirs"))
-                errors.extend(_validate_dir_list(stage_cfg.get("writeDirs"), f"{prefix}.writeDirs"))
+                errors.extend(
+                    _validate_dir_list(stage_cfg.get("readDirs"), f"{prefix}.readDirs")
+                )
+                errors.extend(
+                    _validate_dir_list(stage_cfg.get("writeDirs"), f"{prefix}.writeDirs")
+                )
+
+    errors.extend(_validate_external_path_guard(data.get("externalPathGuard")))
+    return errors
+
+
+def _validate_external_path_guard(value: object) -> list[str]:
+    if value is None:
+        return []
+    if not isinstance(value, dict):
+        return ["externalPathGuard must be an object"]
+    errors: list[str] = []
+    enabled = value.get("enabled")
+    if enabled is not None and not isinstance(enabled, bool):
+        errors.append("externalPathGuard.enabled must be a boolean")
+    session_allow = value.get("sessionAllow")
+    if session_allow is not None and not isinstance(session_allow, bool):
+        errors.append("externalPathGuard.sessionAllow must be a boolean")
+    errors.extend(
+        _validate_dir_list(
+            value.get("writeAllowExternalPaths"),
+            "externalPathGuard.writeAllowExternalPaths",
+        )
+    )
+    errors.extend(
+        _validate_dir_list(
+            value.get("readAllowExternalPaths"),
+            "externalPathGuard.readAllowExternalPaths",
+        )
+    )
     return errors
 
 
@@ -140,33 +187,64 @@ def ensure_hook_config(
 def expand_path_template(path: str, platform: Optional[str] = None) -> str:
     """Expand supported placeholders in a configured directory template."""
     plat = detect_platform(platform)
-    return (
-        path
-        .replace("{platform}", plat)
-        .replace("{platform-skills}", platform_skills_root(plat).as_posix())
-    )
+    return path.replace("{platform}", plat)
 
 
-def resolve_rw_guard(
+def resolve_internal_path_guard(
     project_root: Path,
     stage: str,
     platform: Optional[str] = None,
 ) -> dict[str, Any]:
-    """Resolve effective rwGuard settings for a stage."""
+    """Resolve effective internalPathGuard settings for a stage."""
     config = load_hook_config(project_root, platform)
-    rw_guard = config.get("rwGuard") or {}
+    internal = config.get("internalPathGuard") or {}
     plat = detect_platform(platform)
 
-    global_enable = rw_guard.get("enable", True)
-    defaults = rw_guard.get("defaults") or {}
-    stage_cfg = (rw_guard.get("stages") or {}).get(stage) or {}
+    global_enable = internal.get("enable", True)
+    defaults = internal.get("defaults") or {}
+    stage_cfg = (internal.get("stages") or {}).get(stage) or {}
 
     stage_enable = stage_cfg.get("enable", global_enable)
     read_dirs = stage_cfg.get("readDirs", defaults.get("readDirs", ["."]))
-    write_dirs = stage_cfg.get("writeDirs", defaults.get("writeDirs", [f".cache/{plat}/lulu-dev-workflow"]))
+    write_dirs = stage_cfg.get(
+        "writeDirs",
+        defaults.get("writeDirs", [f".cache/{plat}/lulu-dev-workflow"]),
+    )
 
     return {
         "enable": bool(stage_enable),
         "readDirs": [expand_path_template(item, plat) for item in read_dirs],
         "writeDirs": [expand_path_template(item, plat) for item in write_dirs],
+    }
+
+
+# Backward-compatible alias during rename.
+resolve_rw_guard = resolve_internal_path_guard
+
+
+def resolve_external_path_guard(
+    project_root: Path,
+    platform: Optional[str] = None,
+) -> dict[str, Any]:
+    """Resolve effective externalPathGuard settings."""
+    config = load_hook_config(project_root, platform)
+    external = config.get("externalPathGuard") or {}
+    defaults = default_hook_config()["externalPathGuard"]
+    return {
+        "enabled": bool(external.get("enabled", defaults["enabled"])),
+        "writeAllowExternalPaths": list(
+            external.get(
+                "writeAllowExternalPaths",
+                defaults["writeAllowExternalPaths"],
+            )
+            or []
+        ),
+        "readAllowExternalPaths": list(
+            external.get(
+                "readAllowExternalPaths",
+                defaults["readAllowExternalPaths"],
+            )
+            or []
+        ),
+        "sessionAllow": bool(external.get("sessionAllow", defaults["sessionAllow"])),
     }

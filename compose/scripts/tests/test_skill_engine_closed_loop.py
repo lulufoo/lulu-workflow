@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Hard-gate tests for the compose SKILL orchestration layer closed loop.
 
-See docs/biz/compose-business-ssot.md §8.2 for the acceptance criteria
-this file encodes.
+Acceptance criteria for holder thin-shell + engine closed loop:
+this file is the executable SSOT (see also docs/domain/compose/business-ssot/compose-business-ssot.md §7).
 """
 
 from __future__ import annotations

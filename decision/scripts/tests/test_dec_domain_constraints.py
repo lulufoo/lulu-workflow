@@ -223,7 +223,7 @@ def test_resolve_context_includes_role_for_product_diagnostic(
     assert constraints["objective"]
     assert constraints["domain"]["name"] == "product"
     assert constraints["domain"]["instruction"]
-    assert len(constraints["domain"]["dimension_framing"]) == 5
+    assert len(constraints["domain"]["dimension_profile"]) == 5
     assert payload["after_dc"]["next_steps"] == ["lulu-spec"]
 
 
@@ -249,7 +249,7 @@ def test_load_constraints_config_from_explicit_path() -> None:
         assert holder["objective"]
         assert holder["domain"]["name"]
         assert holder["domain"]["instruction"]
-        assert set(holder["domain"]["dimension_framing"]) == set(ALL_X_DIMENSIONS)
+        assert set(holder["domain"]["dimension_profile"]) == set(ALL_X_DIMENSIONS)
 
 
 def test_holder_constraints_require_objective_and_domain() -> None:
@@ -266,7 +266,7 @@ def test_holder_constraints_require_objective_and_domain() -> None:
     missing_domain_instruction["domain"] = {
         "name": "product",
         "instruction": "",
-        "dimension_framing": missing_domain_instruction["domain"]["dimension_framing"],
+        "dimension_profile": missing_domain_instruction["domain"]["dimension_profile"],
     }
     with pytest.raises(ValueError, match="domain.instruction is required"):
         load_constraints_config_from_dict(missing_domain_instruction, stage="lulu-bet")

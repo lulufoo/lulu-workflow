@@ -1,0 +1,118 @@
+[
+  {
+    "id": "chap-bg",
+    "anchor_lenses": [
+      "PB",
+      "RN",
+      "GO"
+    ],
+    "derived_from": [
+      "cand-BG"
+    ],
+    "op": "keep",
+    "facts": [
+      {
+        "fid": "F-1",
+        "form_lens": "PB"
+      },
+      {
+        "fid": "F-2",
+        "form_lens": "RN"
+      },
+      {
+        "fid": "F-3",
+        "form_lens": "GO"
+      }
+    ]
+  },
+  {
+    "id": "chap-us",
+    "anchor_lenses": [
+      "UR",
+      "SN"
+    ],
+    "derived_from": [
+      "cand-US"
+    ],
+    "op": "keep",
+    "facts": [
+      {
+        "fid": "F-4",
+        "form_lens": "UR"
+      },
+      {
+        "fid": "F-5",
+        "form_lens": "SN"
+      }
+    ]
+  },
+  {
+    "id": "chap-sc",
+    "anchor_lenses": [
+      "SC",
+      "IO"
+    ],
+    "derived_from": [
+      "cand-SC"
+    ],
+    "op": "keep",
+    "facts": [
+      {
+        "fid": "F-6",
+        "form_lens": "SC"
+      },
+      {
+        "fid": "F-7",
+        "form_lens": "IO"
+      }
+    ]
+  },
+  {
+    "id": "chap-fl",
+    "anchor_lenses": [
+      "FL"
+    ],
+    "derived_from": [
+      "cand-FL"
+    ],
+    "op": "keep",
+    "facts": [
+      {
+        "fid": "F-8",
+        "form_lens": "FL"
+      }
+    ]
+  },
+  {
+    "id": "chap-ng",
+    "anchor_lenses": [
+      "NG"
+    ],
+    "derived_from": [
+      "cand-NG"
+    ],
+    "op": "keep",
+    "facts": [
+      {
+        "fid": "F-9",
+        "form_lens": "NG"
+      }
+    ]
+  },
+  {
+    "id": "chap-ac",
+    "anchor_lenses": [
+      "AC"
+    ],
+    "derived_from": [
+      "cand-AC"
+    ],
+    "op": "keep",
+    "facts": [
+      {
+        "fid": "F-10",
+        "form_lens": "AC"
+      }
+    ]
+  }
+]

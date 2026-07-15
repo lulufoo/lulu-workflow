@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Schema and I/O for the three provenance trace files (Gate G5).
 
-One trace file per upstream role (see docs/biz/compose-provenance-mechanism.md):
+One trace file per upstream role (axis semantics: compose/references/
+provenance-algorithm-semantics.md; design rationale, source repo, why-only:
+docs/domain/compose/provenance-ssot/compose-provenance-mechanism.md):
 
     provenance-trace-intent.json   role=intent-baseline  (意图基准 / axis 1+2)
     provenance-trace-scope.json    role=scope            (派生父级 / axis 1+2)
@@ -10,7 +12,7 @@ One trace file per upstream role (see docs/biz/compose-provenance-mechanism.md):
 Each delta row records ONE named deviation found by G5. G5 is a
 find-and-name-only gate: rows are always written with
 status='pending-signoff' and signoff=null; sign-off / delivery blocking is
-a later phase (contract §4).
+a later phase.
 """
 
 from __future__ import annotations

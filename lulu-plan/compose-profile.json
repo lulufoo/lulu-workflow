@@ -1,7 +1,9 @@
 {
   "profile_id": "lulu-plan",
   "stage_name": "lulu-plan",
-  "cycle_types": ["feature"],
+  "cycle_types": [
+    "feature"
+  ],
   "shell_dir": "lulu-plan",
   "shell_paths": {
     "hook_guard": "scripts/hook/hook_guard.py",
@@ -9,12 +11,16 @@
   },
   "document": {
     "filename": "tech-doc.md",
-    "schema": "section-keyed"
+    "schema": "chapter"
   },
   "drafting": {
     "inductive": false,
     "freeedit": true,
-    "post_init_options": ["freeedit", "evaluate", "deliver"]
+    "code_grounding": true,
+    "post_init_options": [
+      "freeedit",
+      "evaluate"
+    ]
   },
   "start": {
     "adapter_module": "lulu-plan/scripts/start/tech_plan_start_adapter.py",

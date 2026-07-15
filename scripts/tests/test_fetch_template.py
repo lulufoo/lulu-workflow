@@ -168,21 +168,30 @@ class TestFetchTemplate:
         cache = cache_path(tmp_path, "cursor", "lulu-plan", "tpt_url")
         assert not cache.exists()
 
-    def test_empty_cache_file_refetches(self, tmp_path):
-        url = "https://github.com/o/r/blob/main/template.md"
-        self._write_config(tmp_path, {"lulu-plan": {"tpt_url": url}})
+    def test_local_path_wins_over_stale_cache(self, tmp_path):
+        """K0b: switching a key to a repo-local path must not keep serving GitHub cache."""
+        local = tmp_path / "lulu-dev-workflow" / "local-template.json"
+        local.parent.mkdir(parents=True, exist_ok=True)
+        local.write_text('{"local": true}\n', encoding="utf-8")
+        self._write_config(
+            tmp_path,
+            {"lulu-plan": {"tpt_url": "lulu-dev-workflow/local-template.json"}},
+        )
         cache = cache_path(tmp_path, "cursor", "lulu-plan", "tpt_url")
         cache.parent.mkdir(parents=True, exist_ok=True)
-        cache.write_text("   \n", encoding="utf-8")
+        cache.write_text('{"stale": true}\n', encoding="utf-8")
+
+        def fail_fetch(*_args):
+            raise AssertionError("gh should not be called for local path")
 
         content = fetch_template(
             "lulu-plan",
             "tpt_url",
             tmp_path,
             platform="cursor",
-            gh_fetcher=lambda *_: "# refetched\n",
+            gh_fetcher=fail_fetch,
         )
-        assert content == "# refetched\n"
+        assert content == '{"local": true}\n'
 
     def test_fetches_decision_template(self, tmp_path):
         url = (

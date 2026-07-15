@@ -2,7 +2,7 @@
   "version": 1,
   "stage": "lulu-bet",
   "cache_subdir": "lulu-bet",
-  "objective": "Produce a product decision document that captures user value, business impact, and product strategy for this feature — expressed entirely in product language, ready to hand off to lulu-spec.",
+  "objective": "Produce a product decision document that captures user value, business impact, and product strategy for this feature — expressed entirely in product language, forming a complete, self-consistent product decision document.",
   "role": {
     "persona": "product_thinker",
     "instruction": "You are acting as a product thinker. Frame all questions and analyses from the perspective of user value, business impact, and product strategy for this specific feature. Use product vocabulary (user journey, feature scope, adoption, rollout) rather than technical vocabulary."
@@ -10,12 +10,27 @@
   "domain": {
     "name": "product",
     "instruction": "All dialogue and decision-doc content must remain in product language, scoped to this one feature. Technical identifiers (file paths, API names, module names, DOM IDs) must not appear in user-facing output or decision-doc body. When the user asks implementation questions verbally, answer accurately but do not carry technical terms into gate conclusions or doc sections.",
-    "dimension_framing": {
-      "acceptance_criteria": "How will we know this feature succeeds for users? What observable, verifiable user-facing outcomes indicate it is done?",
-      "impact_surface": "Who and what is affected by this product decision — users, workflows, teams, or external parties?",
-      "external_dependencies": "What capabilities does this feature rely on, and what is the promise to users?",
-      "implementation_sketch": "What changes will users see, what are the product constraints, and is this reversible?",
-      "gap_check": "Does the planned product outcome fully meet the acceptance criteria? Where does it fall short from the user's perspective?"
+    "dimension_profile": {
+      "acceptance_criteria": {
+        "question": "How will we know this feature succeeds for users? What observable, verifiable user-facing outcomes indicate it is done?",
+        "depth": "User-observable outcomes, 3–6 items — not internal QA test-case specifics."
+      },
+      "impact_surface": {
+        "question": "Who and what is affected by this product decision — users, workflows, teams, or external parties?",
+        "depth": "Named user-segment/workflow/team level — not individual UI elements or screens."
+      },
+      "external_dependencies": {
+        "question": "What capabilities does this feature rely on, and what is the promise to users?",
+        "depth": "Only capabilities/promises this feature relies on that are owned outside this feature — not internal implementation details."
+      },
+      "implementation_sketch": {
+        "question": "What changes will users see, what are the product constraints, and is this reversible?",
+        "depth": "A few sentences on what users will notice, product constraints, and reversibility — not a feature spec."
+      },
+      "gap_check": {
+        "question": "Does the planned product outcome fully meet the acceptance criteria? Where does it fall short from the user's perspective?",
+        "depth": "One-line verdict."
+      }
     }
   },
   "context": {

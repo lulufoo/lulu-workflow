@@ -65,7 +65,7 @@ def _make_cycles_json(cache_dir: Path, cycle_id: str, extra: dict = None, name: 
     cache_dir.mkdir(parents=True, exist_ok=True)
     cj = cache_dir / "cycles.json"
     data = json.loads(cj.read_text(encoding="utf-8")) if cj.exists() else {}
-    meta = {"name": name, "execution_mode": "copilot"}
+    meta = {"name": name}
     if extra:
         meta.update(extra)
     data[cycle_id] = meta

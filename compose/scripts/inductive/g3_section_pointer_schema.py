@@ -227,7 +227,7 @@ def activate_section(
 def clear_section(
     pointer: dict[str, Any], section: str
 ) -> dict[str, Any]:
-    """Mark section cleared (called after commit-section writes the .md)."""
+    """Mark section cleared (after clear-section validates decisions + frontier)."""
     updated = normalize_section_pointer(pointer)
     if section not in updated["coverage_order"]:
         raise ValueError(f"unknown section: {section!r}")

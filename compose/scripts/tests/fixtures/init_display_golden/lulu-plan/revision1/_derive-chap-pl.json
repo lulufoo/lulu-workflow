@@ -1,0 +1,22 @@
+{
+  "display_title": "阶段与任务",
+  "lens_forms": [
+    {
+      "form_lens": "SK",
+      "carrier": "ordered task list",
+      "structure": "phase headings with checkboxable steps",
+      "c": [
+        {"d": "granularity", "c": "one actionable step per bullet"},
+        {"d": "vocabulary", "c": "prefer concrete paths and verbs over abstract goals"}
+      ]
+    },
+    {
+      "form_lens": "T",
+      "carrier": "work-item list",
+      "structure": "derived tasks grouped under owning SK phases",
+      "c": [
+        {"d": "completeness", "c": "each item traces to an upstream SK/AR fact or is marked 待决"}
+      ]
+    }
+  ]
+}

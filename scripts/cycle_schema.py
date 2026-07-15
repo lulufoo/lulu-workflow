@@ -7,12 +7,13 @@ import json
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 from uuid import uuid4
 
+from transition_table import topic_doc_stage_for  # noqa: E402
 from workflow_config_schema import detect_platform  # noqa: E402
 
-VALID_EXECUTION_MODES = frozenset({"guided", "autonomous"})
+_EXCERPT_MAX_CHARS = 400
 
 
 def resolve_cache_dir(project_root: Path, platform: Optional[str] = None) -> Path:
@@ -44,11 +45,10 @@ def append_cycle(
     cache_dir: Path,
     cycle_id: str,
     name: str,
-    mode: str = "guided",
     topic_id: Optional[str] = None,
 ) -> None:
     data = load_cycles(cache_dir)
-    entry = {"name": name, "execution_mode": mode}
+    entry = {"name": name}
     if topic_id is not None:
         entry["topic_id"] = topic_id
     data[cycle_id] = entry
@@ -82,14 +82,9 @@ def format_cycles_list(cache_dir: Path) -> str:
     lines = ["Cycles:"]
     for index, cycle_id in enumerate(sorted(cycles.keys()), start=1):
         entry = cycles[cycle_id]
-        if isinstance(entry, dict):
-            name = entry.get("name", cycle_id)
-            mode = entry.get("execution_mode", "guided")
-        else:
-            name = str(entry)
-            mode = "guided"
+        name = entry.get("name", cycle_id) if isinstance(entry, dict) else str(entry)
         kind = cycle_type_from_id(cycle_id)
-        lines.append(f"[{kind}]   {index}. {name} [{mode}]")
+        lines.append(f"[{kind}]   {index}. {name}")
     return "\n".join(lines)
 
 
@@ -98,32 +93,16 @@ def build_cycle_info(cache_dir: Path, cycle_id: str) -> Optional[dict]:
     if entry is None:
         return None
     if not isinstance(entry, dict):
-        entry = {"name": str(entry), "execution_mode": "guided"}
+        entry = {"name": str(entry)}
     info = {
         "cycle_id": cycle_id,
         "cycle_type": cycle_type_from_id(cycle_id),
         "name": entry.get("name"),
-        "execution_mode": entry.get("execution_mode", "guided"),
         "current_stage": read_stage(cycle_id, cache_dir),
     }
     if "topic_id" in entry:
         info["topic_id"] = entry["topic_id"]
     return info
-
-
-def set_execution_mode(cache_dir: Path, cycle_id: str, mode: str) -> dict[str, str]:
-    if mode not in VALID_EXECUTION_MODES:
-        raise ValueError(f"invalid execution_mode: {mode!r}")
-    data = load_cycles(cache_dir)
-    if cycle_id not in data:
-        raise ValueError(f"cycle-id {cycle_id!r} not found in cycles.json")
-    entry = data[cycle_id]
-    if not isinstance(entry, dict):
-        entry = {"name": str(entry), "execution_mode": "guided"}
-        data[cycle_id] = entry
-    entry["execution_mode"] = mode
-    save_cycles(cache_dir, data)
-    return {"cycle_id": cycle_id, "execution_mode": mode}
 
 
 def ensure_container_dir(cache_dir: Path, cycle_id: str) -> Path:
@@ -156,6 +135,79 @@ def write_stage(cycle_id: str, stage: str, cache_dir: Path) -> None:
         ),
         encoding="utf-8",
     )
+
+
+def _excerpt_from_doc(path: Path, max_chars: int = _EXCERPT_MAX_CHARS) -> str:
+    text = path.read_text(encoding="utf-8")
+    # Collapse leading whitespace; keep content readable for relevance matching.
+    collapsed = "\n".join(line.rstrip() for line in text.splitlines()).strip()
+    if len(collapsed) <= max_chars:
+        return collapsed
+    return collapsed[:max_chars].rstrip()
+
+
+def _topic_delivered_doc_path(cache_dir: Path, topic_id: str, ref_stage: str) -> Optional[Path]:
+    refs_path = cache_dir / topic_id / "delivered-refs.json"
+    if not refs_path.is_file():
+        return None
+    try:
+        data = json.loads(refs_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    entry = (data.get("entries") or {}).get(ref_stage)
+    if not isinstance(entry, dict):
+        return None
+    raw_path = str(entry.get("path", "")).strip()
+    if not raw_path:
+        return None
+    path = Path(raw_path)
+    if not path.is_file():
+        return None
+    return path
+
+
+def build_topic_digest(cache_dir: Path, stage: str) -> dict[str, Any]:
+    """Build topic association candidates for a feature-line stage.
+
+    Looks up ``topic_doc_stage[stage]``; when unmapped returns
+    ``applicable: false``. Otherwise lists topics that have delivered the
+    mapped ref-stage document, each with a short excerpt.
+    """
+    ref_stage = topic_doc_stage_for(stage)
+    if ref_stage is None:
+        return {
+            "applicable": False,
+            "stage": stage,
+            "ref_stage": None,
+            "topics": [],
+        }
+
+    topics: list[dict[str, Any]] = []
+    for cycle_id, entry in sorted(load_cycles(cache_dir).items()):
+        if cycle_type_from_id(cycle_id) != "topic":
+            continue
+        name = entry.get("name", cycle_id) if isinstance(entry, dict) else str(entry)
+        doc_path = _topic_delivered_doc_path(cache_dir, cycle_id, ref_stage)
+        if doc_path is None:
+            continue
+        topics.append(
+            {
+                "topic_id": cycle_id,
+                "name": name,
+                "ref_stage": ref_stage,
+                "doc_path": str(doc_path.resolve()),
+                "excerpt": _excerpt_from_doc(doc_path),
+            }
+        )
+
+    return {
+        "applicable": True,
+        "stage": stage,
+        "ref_stage": ref_stage,
+        "topics": topics,
+    }
 
 
 def prune_cycles(cache_dir: Path, keep: int, project_root: Path) -> None:

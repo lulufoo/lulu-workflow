@@ -40,7 +40,7 @@ _COMPOSE_SHELL_PATH_KEYS = frozenset(
     }
 )
 _COMPOSE_SCHEME_PATH = KERNEL_SCHEMES / "compose-template-scheme.json"
-_DRAFTING_REQUIRED = frozenset({"inductive", "freeedit", "post_init_options"})
+_DRAFTING_REQUIRED = frozenset({"inductive", "freeedit", "code_grounding", "post_init_options"})
 _POST_INIT_OPTIONS = frozenset({"freeedit", "evaluate", "deliver"})
 _START_REQUIRED = frozenset({"adapter_module", "adapter_class"})
 _EVAL_REQUIRED = frozenset({"adapter_module", "adapter_class"})
@@ -95,7 +95,12 @@ def _validate_active_compose_profile(path: Path, data: dict) -> list[str]:
         for key in _DRAFTING_REQUIRED:
             if key not in drafting:
                 errors.append(f"{path.name}: missing drafting.{key}")
-        for key in ("inductive", "freeedit"):
+        if "display_layer" in drafting:
+            errors.append(
+                f"{path.name}: drafting.display_layer retired "
+                "(fact-first Init is the only path; remove the key)",
+            )
+        for key in ("inductive", "freeedit", "code_grounding"):
             if key in drafting and not isinstance(drafting[key], bool):
                 errors.append(f"{path.name}: drafting.{key} must be a boolean")
         post_init_options = drafting.get("post_init_options")
@@ -108,6 +113,11 @@ def _validate_active_compose_profile(path: Path, data: dict) -> list[str]:
                         f"{path.name}: unknown drafting.post_init_options value {value!r}; "
                         f"allowed: {', '.join(sorted(_POST_INIT_OPTIONS))}",
                     )
+            if "evaluate" not in post_init_options and "deliver" in post_init_options:
+                errors.append(
+                    f"{path.name}: drafting.post_init_options may not include "
+                    "'deliver' without 'evaluate' (Eval is the delivery gate)",
+                )
     start = data.get("start")
     if isinstance(start, dict):
         for key in _START_REQUIRED:

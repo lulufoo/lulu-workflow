@@ -11,6 +11,7 @@ CLI:
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 from typing import Optional
@@ -138,22 +139,6 @@ def resolve_role_summary(
     return resolve_cycle_type(cycle_id=cycle_id, cycle_type=cycle_type)
 
 
-def resolve_inductive_slice(section: str, inductive_dir: Path | None) -> str | None:
-    """Return the abspath of `{inductive_dir}/{section}.md` if it exists, else None.
-
-    Used by Initializing per section: the optional inductive per-section scope
-    slice that enriches (never replaces) the decision-doc SSOT. Empty/absent
-    inductive dir → no slice (init falls back to the SSOT alone).
-    """
-    key = (section or "").strip()
-    if inductive_dir is None or not key:
-        return None
-    candidate = Path(inductive_dir) / f"{key}.md"
-    if candidate.is_file():
-        return str(candidate.resolve())
-    return None
-
-
 def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Compose stage profile plan scope role resolver")
     parser.add_argument(
@@ -186,6 +171,11 @@ def main(argv: Optional[list[str]] = None) -> int:
         help="Project root (reserved; roles load from skill package)",
     )
     resolve.add_argument(
+        "--profile",
+        default=argparse.SUPPRESS,
+        help="Compose profile id (also accepted on the parent parser)",
+    )
+    resolve.add_argument(
         "--role-instance-path",
         type=Path,
         help="Override path to role instance JSON for resolved cycle_type",
@@ -204,25 +194,14 @@ def main(argv: Optional[list[str]] = None) -> int:
         help="Project root (reserved; domain instance loads from skill package)",
     )
     domain.add_argument(
+        "--profile",
+        default=argparse.SUPPRESS,
+        help="Compose profile id (also accepted on the parent parser)",
+    )
+    domain.add_argument(
         "--domain-instance-path",
         type=Path,
         help="Override path to domain instance JSON for resolved cycle_type",
-    )
-
-    grounding = sub.add_parser(
-        "resolve-inductive",
-        help="Print the per-section inductive scope slice path (empty if none)",
-    )
-    grounding.add_argument("--section", required=True, help="Section key (e.g. ST, IF)")
-    grounding.add_argument(
-        "--inductive-dir",
-        type=Path,
-        help="Inductive per-section scope dir (omit/absent → no slice)",
-    )
-    grounding.add_argument(
-        "--project-root",
-        default=".",
-        help="Project root (reserved)",
     )
 
     args = parser.parse_args(argv)
@@ -236,13 +215,6 @@ def main(argv: Optional[list[str]] = None) -> int:
             for err in errors:
                 print(err, file=sys.stderr)
             return 1
-        return 0
-
-    if args.command == "resolve-inductive":
-        inductive_dir = getattr(args, "inductive_dir", None)
-        path = resolve_inductive_slice(args.section, inductive_dir)
-        if path:
-            sys.stdout.write(path)
         return 0
 
     if args.command == "resolve-domain":

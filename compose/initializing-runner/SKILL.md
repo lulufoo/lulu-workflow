@@ -2,9 +2,10 @@
 name: initializing-runner
 description: >-
   Autonomous Initializing step for compose-profile drafting. Loads upstream scope
-  doc and frameworks; composes per-section body via I* / F / C derive artifacts;
-  refines outline block H2 titles at block close; validates draft quality;
-  persists each section incrementally.
+  doc and frameworks; atomizes facts (or validates discovery-written inductive
+  `_facts.json`); organizes chapters; composes per-chapter bodies via fact-first
+  display-layer pipeline (Steps 1–6); validates draft quality; persists each
+  chapter incrementally.
 ---
 
 # initializing-runner
@@ -15,12 +16,12 @@ Use `$COMPOSE_PROFILE` from parent dispatch; kernel default applies only when om
 
 ## Scope
 
-**Pipeline:** I1 Load → I2 Compose (per section) → I3 Validate → Return.
+**Pipeline:** Step 1 Load → Step 2 Atomize facts (inductive: validate discovery-written `_facts.json` only; deductive: atomize scope) → Step 3 Derive facts → Step 4 Organize chapters → Step 5 Write chapters → Step 6 Validate → Return.
 
-Init writes a readable draft from scope substance only.
+Init substance: display-layer Steps 2–6. Inductive discovery loop owns `_facts.json` as engine state (K4; no projection). Deductive Init atomizes scope into facts.
 
-- **Must:** operationalize scope content; explicit 待决 for scope gaps; readable `F` structure.
-- **Must not:** scope-external speculation; decision paste; empty shell sections.
+- **Must:** operationalize display-layer facts (inductive: validate-only on discovery-written `_facts.json`; deductive: atomize scope); explicit 待决 for gaps; readable chapter bodies.
+- **Must not:** invent beyond facts/scope/upstream-derivation sources; decide open choices during derivation; decision paste; empty shell chapters; recreate `_partition.json` or reassemble fact text by hand; write `section-key:` anchors (chapter anchors only); invoke retired `$INDUCTIVE_FACTS_PROJ project`.
 
 Round still owns formal gap closure. Do not ask the user questions. Do not run InDialogue, Reopen, Evaluating, or delivery work.
 
@@ -29,8 +30,6 @@ Round still owns formal gap closure. Do not ask the user questions. Do not run I
 See [`../references/compose-theory.md`](../references/compose-theory.md).
 
 Derive artifact contract: [`../references/init-draft-quality.md`](../references/init-draft-quality.md).
-
-**Order (strict):** I2a Filter `I*` → I2b Derive `F` → I2c Derive `C` → I2d Write body → I2e Derive display title → I2f Persist section → [when `last_in_block`] I2g Block close.
 
 ## Parent-Provided Inputs
 
@@ -42,37 +41,47 @@ Derive artifact contract: [`../references/init-draft-quality.md`](../references/
 | `$COMPOSE_PROFILE` | Compose profile id from parent dispatch |
 | `$CYCLE_TYPE` | `feature` |
 | `$CYCLE_ID` | Active cycle id |
-| `$INDUCTIVE_DIR` | **Optional.** Dir of inductive per-section scope slices (`<section>.md`). Absent → SSOT-only behavior |
 
-Self-resolved: `$PROJECT_ROOT` = `$(pwd)` · `$OUTPUT_DOC_PATH` from parent input (fallback `{REVISION_DIR}/tech-doc.md`)
+Self-resolved: `$PROJECT_ROOT` = `$(pwd)` · `$OUTPUT_DOC_PATH` from parent input (fallback `{REVISION_DIR}/tech-doc.md`) · `$CODE_GROUNDING` = profile `drafting.code_grounding` (boolean)
 
-All compose and scope macros **must** pass `--profile "$COMPOSE_PROFILE"`. `$FETCH_COMPOSE` **must** also pass `--cycle-id "$CYCLE_ID"`.
+All macros that declare `--profile` **must** pass `--profile "$COMPOSE_PROFILE"` (prefer `--profile` before the subcommand on `$RESOLVE_*`). `$FACTS_CTL filter` does **not** take `--profile` — pass only `--revision-dir` / `--lens`. `$FETCH_COMPOSE` includes `--cycle-id` in the macro.
 
 ## Script Macros
 
 | Macro | Command |
 |-------|---------|
-| `$RESOLVE_PLAN_ROLE` | `python3 "$SKILL_ROOT/compose/scripts/scope/scope_resolver.py" resolve-role --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile "$COMPOSE_PROFILE"` |
-| `$RESOLVE_DOMAIN` | `python3 "$SKILL_ROOT/compose/scripts/scope/scope_resolver.py" resolve-domain --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile "$COMPOSE_PROFILE"` |
-| `$RESOLVE_OUTLINE_LAYOUT` | `python3 "$SKILL_ROOT/compose/scripts/section/outline_layout.py" resolve --section "{section_key}" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)"` |
-| `$RESOLVE_INDUCTIVE` | `python3 "$SKILL_ROOT/compose/scripts/scope/scope_resolver.py" resolve-inductive --section "{section_key}" --inductive-dir "$INDUCTIVE_DIR" --project-root "$(pwd)"` |
+| `$RESOLVE_PLAN_ROLE` | `python3 "$SKILL_ROOT/compose/scripts/scope/scope_resolver.py" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)" resolve-role --cycle-id "$CYCLE_ID"` |
+| `$RESOLVE_DOMAIN` | `python3 "$SKILL_ROOT/compose/scripts/scope/scope_resolver.py" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)" resolve-domain --cycle-id "$CYCLE_ID"` |
+| `$FETCH_COMPOSE` | `python3 "$SKILL_ROOT/compose/scripts/io/fetch_compose_framework.py" --role <role> --profile "$COMPOSE_PROFILE" --project-root "$(pwd)" --cycle-id "$CYCLE_ID"` |
 | `$COMPOSE_DOC_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/section/compose_doc_control.py"` |
 | `$INIT_COMPOSE_VALIDATE` | `python3 "$SKILL_ROOT/compose/scripts/section/init_compose_validation.py" validate --revision-dir "$REVISION_DIR" --compose-doc "$OUTPUT_DOC_PATH" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)"` |
+| `$FACTS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/facts_control.py"` |
+| `$CHAPTERS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/chapters_control.py"` |
+| `$DERIVE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/derive_control.py"` (K1 Step 3 mechanical shell) |
 
-`$COMPOSE_DOC_CONTROL` subcommands: `--help` · `init-doc` · `set-display-title` · `set-block-title` · `append-intent` · `patch-block-heading`.
+`$COMPOSE_DOC_CONTROL` subcommands: `--help` · `init-doc` · `append-chapter`.
+
+`$FACTS_CTL` subcommands: `--help` · `write` · `filter` · `validate` · `status`.
+
+`$CHAPTERS_CTL` subcommands: `--help` · `write` · `validate` · `status`.
+
+`$DERIVE_CTL` subcommands: `--help` · `plan` · `append` · `audit` · `classify`. Scripts never invent derived text — only triggers / topo-order / id append / self-audit.
+
+> **K4:** `$INDUCTIVE_FACTS_PROJ project` is **retired**. Inductive `_facts.json` is written by the discovery loop (`seed-decision` / `settle-open`). Do not invoke projection from this runner.
 
 ## Execution Contract
 
-### Step I1 — Load
+### Step 1 — Load
 
 1. `$RESOLVE_PLAN_ROLE` → Plan Scope Constraints (`### Role`, `### Role Fields`).
 2. `$RESOLVE_DOMAIN` → `domain instance`.
-3. `$FETCH_COMPOSE section-registry --cycle-id "$CYCLE_ID"` (JSON) → `section_order`, `document_preamble`, per-section `heading` / `intent` (else `desc`) / `intent_boundary`
-   `$FETCH_COMPOSE section-form-registry --cycle-id "$CYCLE_ID"` → `sections.{key}.presentation` / `expression`
-4. `$FETCH_COMPOSE outline-registry --cycle-id "$CYCLE_ID"` → `outline_order`, per-block `heading` / `intents`.
-5. `$FETCH_COMPOSE section-kw-criteria --cycle-id "$CYCLE_ID"` → each `## {section_key}` block.
-6. Read `$SCOPE_DOC_PATH` full text once (shared across I2).
-7. **Init document:** Substitute placeholders in `document_preamble`. Write via:
+3. `$FETCH_COMPOSE --role section-registry` (JSON) → `section_order`, `document_preamble`, per-section `heading` / `intent` (else `desc`) / `intent_boundary` / `relations` / `presence` (used at Step 4)
+   `$FETCH_COMPOSE --role section-form-registry` → `sections.{key}.presentation` / `expression`
+4. `$FETCH_COMPOSE --role outline-registry` → candidates-shaped: `candidates[].{block, anchor_lenses}` + `rules` (advisory text). Consumed at Step 4.
+5. `$FETCH_COMPOSE --role section-kw-criteria` → each `## {section_key}` block (Fill completeness for **named** atoms only).
+6. Read `$SCOPE_DOC_PATH` full text once.
+7. Read profile `drafting.code_grounding` → `$CODE_GROUNDING`.
+8. **Init document:** Substitute placeholders in `document_preamble`. Write via:
 
 ```bash
 $COMPOSE_DOC_CONTROL init-doc \
@@ -84,123 +93,154 @@ Prefer `--preamble-file` when content is multiline.
 
 Do **not** append outline-registry content to the deliverable header. Do **not** fetch spec-template URLs.
 
-**Done:** `$OUTPUT_DOC_PATH` exists with preamble only.
+**Done:** `$OUTPUT_DOC_PATH` exists with preamble only. Proceed to Step 2.
 
-### Step I2 — Compose (per `section_key`, strict I2a → I2f [→ I2g])
+---
 
-For each key in `section_order`, produce section artifacts under `$REVISION_DIR`:
+#### Pipeline invariants (Steps 2–6)
+
+`section_order` means the profile's *lens* set (same registry, reframed as intent lenses — see [Theory](../references/compose-theory.md)).
+
+**Precondition (pairing invariant):** outline-registry must be candidates-shaped (`candidates`/`rules`) — `$INIT_COMPOSE_VALIDATE` hard-errors otherwise.
+
+**Handshake with `drafting.inductive` (K4):** operative branch is Step 2 Branch A (validate-only; never re-atomize).
+
+**Must:** tag every atom with N:M `lens_tags` (zero, one, or many — never a single `home`); run Step 3 for zero-coverage required derivation lenses before Step 4; place every fact in exactly one non-drop chapter; keep chapter `anchor_lenses` a subset of `section_order`; before persisting `_body-{cid}.txt`, resolve every author-time `F-id` citation into a human-readable chapter reference (write-side discipline — `$INIT_COMPOSE_VALIDATE` does **not** scan for raw `F-id`; Eval owns residual checks); run `$INIT_COMPOSE_VALIDATE` before Return.
+**Must not:** write a `fact:` or `section-key:` anchor into `$OUTPUT_DOC_PATH` (chapter anchors only — write-side / Eval; Step 6 does not substring-scan); invent a chapter with `derived_from` outside the outline-registry `candidates` set; decide open choices during Steps 2/3/4 (待决 same discipline).
+
+### Step 2 — Atomize facts
+
+**Branch A — inductive profile (`drafting.inductive=true`, K4):** discovery loop already wrote `_facts.json` (`seed-decision` / `settle-open`). **Do not** atomize `$SCOPE_DOC_PATH`. Only validate:
+
+```bash
+$FACTS_CTL validate \
+  --revision-dir "$REVISION_DIR" \
+  --profile "$COMPOSE_PROFILE" \
+  --project-root "$(pwd)"
+```
+
+Missing / invalid `_facts.json` → Blocking (never re-atomize from scope). **Done:** validate exit 0 → proceed to Step 3.
+
+**Branch B — deductive / non-inductive (`drafting.inductive` absent/false):**
+
+1. **Atomize** `$SCOPE_DOC_PATH` once (whole doc) — merge same-fact restatements into one atom; do not split by source section; a figure is one atom, kept intact.
+2. **Tag `lens_tags`:** for each atom, choose the set (zero, one, or many) of `section_order` keys whose intent the atom answers — using registry projection only (`intent` else `desc`, `intent_boundary` when present). This is N:M: an atom may tag no lens (quarantine candidate, audited by Q1), one lens, or several.
+3. **Persist** via `$FACTS_CTL write` (facts = JSON array `{id:F-n, text, lens_tags}` — optional `source` only for Step-3-derived facts later; Step 2 atoms omit `source`):
+
+```bash
+$FACTS_CTL write \
+  --revision-dir "$REVISION_DIR" \
+  --profile "$COMPOSE_PROFILE" \
+  --project-root "$(pwd)" \
+  --facts-file "<path to facts JSON>"
+```
+
+4. `$FACTS_CTL validate --revision-dir "$REVISION_DIR" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)"` must exit 0.
+
+**Done (Branch B):** `$REVISION_DIR/_facts.json` exists and validates — **Step 2 atoms only**; Step 3 may append derived facts before Step 4.
+
+### Step 3 — Derive facts（演绎派生，仅有派生边的 required 视角）
+
+Runs **between** Step 2 and Step 4. **Step 3 = AI semantic step + mechanical shell** (`$DERIVE_CTL`): CLI decides *which* lenses trigger and how ids append; **you** project work-item text from upstream **facts** (never prose).
+
+**Must (CLI shell first):**
+1. **Snapshot Step 2** (for audit): copy `$REVISION_DIR/_facts.json` → a temp `pre-derive-facts.json`.
+2. **Plan triggers** (zero-only + topo order + true gaps):
+
+```bash
+$DERIVE_CTL plan \
+  --revision-dir "$REVISION_DIR" \
+  --profile "$COMPOSE_PROFILE" \
+  --project-root "$(pwd)"
+```
+
+Use stdout `order` (upstream-first). `true_gaps` → flag Round; do **not** invent. Partial coverage (`facts>0`) never appears in `triggered`. Cycle → Blocking (non-zero exit).
+**If `order` is empty:** skip Emit / `$DERIVE_CTL append` / `$DERIVE_CTL audit`; run `$FACTS_CTL validate` only → Step 3 Done (no derivation lenses fired).
+3. **Input:** for each `L` in `order`, read upstream facts from plan stdout `upstreams[L].upstream_facts` (or `$FACTS_CTL filter --revision-dir "$REVISION_DIR" --lens U` — no `--profile`). Optional code grounding when `$CODE_GROUNDING` is true. **Do not** read `_body` / `.md` prose.
+4. **Emit (AI):** each work item → one object `{text, lens_tags:[L], source?}` (prefer upstream `F-id`s in `source`; freeform anchors allowed; no F-id integrity check). Undecided → embed `待决：…` in `text` (or a 待决 fact), never invent a choice. Write the array to a temp `derived.json`. Same-pass cascade: later lenses **see** facts you already decided for earlier lenses in `order`.
+5. **Append once** (contiguous `F-(k+1)..`):
+
+```bash
+$DERIVE_CTL append \
+  --revision-dir "$REVISION_DIR" \
+  --derived-file "<path to derived.json>" \
+  --profile "$COMPOSE_PROFILE" \
+  --project-root "$(pwd)"
+```
+
+6. **Self-audit** (cascade-aware; Blocking on fail):
+
+```bash
+$DERIVE_CTL audit \
+  --revision-dir "$REVISION_DIR" \
+  --before-file "<path to pre-derive-facts.json>" \
+  --triggered "<comma-separated order from plan>" \
+  --profile "$COMPOSE_PROFILE" \
+  --project-root "$(pwd)"
+```
+
+Empty upstream → audit skips that lens; C1 at Step 6 is the backstop.
+7. `$FACTS_CTL validate --revision-dir "$REVISION_DIR" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)"` must exit 0.
+
+**Must not:** decide open choices; read prose; write facts for non-triggered lenses; strip/re-derive by `source` in-place (re-derive ⇒ full re-run — inductive: **Blocking** — return to inductive-runner to `seed-decision` / `settle-open` missing substance, then re-enter Init at Step 2 Branch A; do **not** run retired projection; deductive: re-run Step 2 then Step 3); skip `$DERIVE_CTL plan` when deriving; invent triggers or ids by hand. When `order` is non-empty, do not skip `append` / `audit`.
+
+**Done:** `_facts.json` includes any Step-3-derived facts; when `order` was non-empty, `$DERIVE_CTL audit` exit 0; `$FACTS_CTL validate` exit 0.
+
+### Step 4 — Organize chapters
+
+- **Input:** `_facts.json` (compact index of `{id, text, lens_tags}` — never full prose; `lens_tags` is required here to derive each fact's `form_lens`) · outline-registry `candidates` (static, `{block, anchor_lenses}`) + `rules` (advisory merge/split/trim text) · `section_presence_map` (from section-registry `presence`, via `$FETCH_COMPOSE --role section-registry`).
+- **Action (hybrid, semantic — AI, not script):** start from lens-anchored candidates; content-adaptively merge/split/drop/reorder using `rules` as heuristics and topic clustering as the north star. For each fact, assign exactly one chapter + one `form_lens` (∈ that fact's own `lens_tags` ∩ the chosen chapter's `anchor_lenses`) — priority-derive the placement using the placement heuristic (**content-kind memo, not a lens total order:** invariants > structure/contract > success > contact > context) as reference, not a mechanical lookup. A required lens with zero anchoring candidates is a modeling gap — do not silently drop it. An optional lens may legitimately end up with zero facts — do not fabricate content to fill it.
+- **Output:** write `_chapters.json` (chapters = JSON array `{id, anchor_lenses, derived_from, op, facts:[{fid, form_lens}]}` only — `op` ∈ `keep|merge|split|drop`; `derived_from` cites the static `candidates[].block` id(s)):
+
+```bash
+$CHAPTERS_CTL write \
+  --revision-dir "$REVISION_DIR" \
+  --profile "$COMPOSE_PROFILE" \
+  --project-root "$(pwd)" \
+  --chapters-file "<path to chapters JSON>"
+```
+
+- `$CHAPTERS_CTL validate --revision-dir "$REVISION_DIR" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)"` must exit 0 (structural shape only — L1/L3/L4/L5/C1 cross-file gates run at Step 6).
+- **Done:** `$REVISION_DIR/_chapters.json` exists and validates; every fact with non-empty `lens_tags` is assigned to exactly one non-drop chapter.
+
+### Step 5 — Write chapters (per non-`drop` chapter in `_chapters.json` order)
+
+For each chapter, produce:
 
 ```text
-_derive-{section_key}.json   # I2a–I2c (must exist before I2d)
-_body-{section_key}.txt      # I2d
-_title-display.json          # I2e (section_key → display title)
-_title-block.json            # I2g (block_key → reader H2; last_in_block only)
+_derive-{cid}.json   # {"display_title": "...", "lens_forms": [{"form_lens": "...", "carrier": "...", "structure": "...", "c": [{"d": "...", "c": "..."}]}]}
+                     # (lens_forms is optional — one entry per distinct form_lens in this chapter, written at Step 5.2)
+_body-{cid}.txt      # chapter prose (no H2 line, no anchor)
 ```
 
-Field schema: [`init-draft-quality.md`](../references/init-draft-quality.md).
-
-After each I2f, resolve layout and run **I2g** when the current key is the last intent in its outline block (`last_in_block` from `$RESOLVE_OUTLINE_LAYOUT` JSON). Single-intent blocks (`first_in_block == last_in_block`) close in the same iteration.
-
-#### I2a — Filter `I*`
-
-- **Input:** scope doc (`$SCOPE_DOC_PATH`, the SSOT) · **optional** inductive scope slice · `sections.{key}.intent` (else `desc`) · `intent_boundary` (exclusion — belongs elsewhere) · kw `## {key}`
-- **Inductive slice (only when `$INDUCTIVE_DIR` is set):** run `$RESOLVE_INDUCTIVE` for this `{section_key}`. If it prints a path, read that slice as **secondary, code-anchored substance** for this section. The scope doc stays the **SSOT and completeness anchor**: judge `gaps` against the scope doc, not the slice; the inductive slice **enriches** `i_star` (adds code-anchored HOW), it never overrides or substitutes a scope decision. Empty output → SSOT only.
-- **Action:** Include scope substance matching `intent` and at least one KW dimension (semantic; do not label KW numbers). Fold in the grounding slice's matching substance when present. Exclude any substance `intent_boundary` defers to other sections. **Must-effort:** extract all matching scope substance; use `gaps` for scope absences — do not silently omit.
-- **Output:** write `i_star`, `scope_refs`, `gaps`, `kw_init` into `_derive-{key}.json`
-- **Done:** derive file exists with `i_star` / `scope_refs` / `gaps` populated per contract
-
-#### I2b — Derive `F`
-
-- **Input:** `### Role Fields` · domain instance · `intent` · `intent_boundary` · `sections.{key}.presentation` (`guidance`, `allowed`, `forbidden`)
-- **Action:** Three-step narrowing (section presentation > domain > role > intent). See compose-theory · Form (F). Select `f.carrier` from `presentation.allowed`; `f.structure` from selected entry's `structure` field; `f.forbidden` from `presentation.forbidden` plus substance `intent_boundary` defers elsewhere.
-- **Output:** write `f.carrier`, `f.structure`, `f.forbidden` into `_derive-{key}.json`
-- **Done:** `f.carrier` non-empty in derive file
-
-#### I2c — Derive `C`
-
-- **Input:** `### Role Fields` · domain instance · `intent` · `sections.{key}.expression` · `F`
-- **Action:** Derive 2–5 `(d, c, source)` pairs traceable to Role, intent, expression, or `expression_conventions`. Finalize `kw_init` booleans with matching `gaps` for false dimensions when scope lacks substance.
-- **Output:** write `c` and finalized `kw_init` into `_derive-{key}.json`
-- **Done:** derive file complete; **do not start I2d until derive validates mentally against init-draft-quality**
-
-#### I2d — Write body
-
-- **Input:** `_derive-{key}.json` · `intent` · `intent_boundary` (exclusion) · upstream bodies in `$OUTPUT_DOC_PATH` (de-duplication)
-- **Action:** Scaffold per `F`; rewrite `I*` into slots; obey every `C` pair, `intent`, and `intent_boundary` (author nothing it defers). Mark scope gaps with `> **待决：** …` when `gaps` present.
-- **De-duplication:** Do not repeat boundary constraints deferred by `intent_boundary`. Read upstream via `compose_doc_schema.py --section-body` when needed.
-- **Output:** `$REVISION_DIR/_body-{section_key}.txt` (no H2 line)
-- **Done:** body file exists; non-empty; ≥3 non-blank lines when `i_star` non-empty
-
-#### I2e — Derive display title
-
-- **Input:** `sections.{key}.heading` · body file · `i_star` substance
-- **Action:** Short localized title (~8–20 chars): type anchor from `heading` + one domain theme from substance.
-- **Forbidden:** verbatim registry `heading`; file paths; API names; copying first body sentence
-- **Output:** persist via `set-display-title`; empty `i_star` → `（待补）`
-- **Done:** `set-display-title` exits 0
+- **Input:** this chapter's `facts[]` (`{fid, form_lens}`) resolved against `_facts.json` · `section-form-registry` entries for each distinct `form_lens` (`{carrier, structure}`) · this chapter's `anchor_lenses`.
+- **Action — five sub-steps in order, semantic (AI) unless noted:**
+  1. **5.1 Group (mechanical):** partition this chapter's `facts[]` by `form_lens` — the highest-priority `anchor_lenses` entry (heuristic: invariants > structure/contract > success > contact > context) → primary-axis group; any other `anchor_lenses` entry's `form_lens` → cross-cut group (merged chapters only; single-anchor chapters have an empty cross-cut group). Step 4 already guarantees every fact's `form_lens` ∈ this chapter's `anchor_lenses` — do not place a fact under a `form_lens` outside that set.
+  2. **5.2 Bind (semi-semantic — derived by priority rule, not free choice):** for each distinct `form_lens` ℓ present in this chapter, resolve `F_ℓ` `{carrier, structure}` from `section-form-registry[ℓ]` and `C_ℓ` (2–5 `(d,c)` pairs) from ℓ's `expression` + Role Fields + domain (F priority: `presentation` > domain `expression_conventions` > role `expressive_tendency` > intent text). **Required:** write `display_title` to `_derive-{cid}.json`. **Advisory (optional):** also write `lens_forms[]` (one entry per distinct `form_lens`) for observability — Step 6 / `append-chapter` only require `display_title`; omitting `lens_forms` still passes Init.
+  3. **5.3 Arrange:** one orienting lead sentence derived from `anchor_lenses` intent + `covered_lenses` (`anchor_lenses` ∪ every placed fact's `lens_tags`); order the primary axis by priority; append cross-cut groups after the primary axis, bounded and clearly labeled — never interleaved into it.
+  4. **5.4 Weave:** realize each group as prose under its own `F_ℓ`/`C_ℓ`; content ⊆ this chapter's `facts[]` — never invent a proposition. While drafting, an author may cite another fact by `F-id`; before writing `_body-{cid}.txt` to disk, resolve every such citation into a human-readable chapter reference (e.g. "见「架构」章") — the persisted file must contain no raw `F-id` (write-side; not a Step 6 gate). Mark gaps with `> **待决：** …`. Write `_body-{cid}.txt` (no H2 line, no anchor).
+  5. **5.5 Close (mechanical):** assemble into `$OUTPUT_DOC_PATH`:
 
 ```bash
-$COMPOSE_DOC_CONTROL set-display-title \
-  --revision-dir "$REVISION_DIR" \
-  --section "{section_key}" \
-  --title "<localized display title>"
-```
-
-#### I2f — Persist section
-
-```bash
-$COMPOSE_DOC_CONTROL append-intent \
+$COMPOSE_DOC_CONTROL append-chapter \
   --path "$OUTPUT_DOC_PATH" \
-  --section "{section_key}" \
-  --revision-dir "$REVISION_DIR" \
-  --profile "$COMPOSE_PROFILE" \
-  --project-root "$(pwd)"
+  --chapter-id "{cid}" \
+  --revision-dir "$REVISION_DIR"
 ```
 
-- **Done:** `$OUTPUT_DOC_PATH` contains `<!-- section-key:{key} -->` for this section
+- **Done:** `$OUTPUT_DOC_PATH` contains `<!-- chapter:{cid} -->` for this chapter with non-empty rendered content.
 
-Block-first keys still write English `## {blocks.{id}.heading}` placeholder via `append-intent`; no block title args on this step.
+Chapter titles are flat `## {display_title}` from `_derive-{cid}.json`.
 
-#### I2g — Block close (when `last_in_block`)
+### Step 6 — Validate
 
-At the last intent in an outline block: infer reader H2 from whole-block substance, then replace the English placeholder.
-
-**1. Derive block title**
-
-- **Input:** `block_intents[]` bodies (`_body-*.txt`) · optional `_title-display.json` entries · registry `intent` per intent · `blocks.{block_key}.heading` (semantic anchor)
-- **Action:** One localized reader-facing H2 title for the whole block; may include numbering aligned with v4-style docs.
-- **Forbidden:** verbatim English `block.heading`; summarizing a single intent only
-- **Output:** persist via `set-block-title`; no block substance → `（待补）`
-- **Done:** `set-block-title` exits 0
-
-```bash
-$COMPOSE_DOC_CONTROL set-block-title \
-  --revision-dir "$REVISION_DIR" \
-  --block-key "{block_key}" \
-  --title "<localized block H2>"
-```
-
-**2. Patch block H2**
-
-```bash
-$COMPOSE_DOC_CONTROL patch-block-heading \
-  --path "$OUTPUT_DOC_PATH" \
-  --block-key "{block_key}" \
-  --revision-dir "$REVISION_DIR" \
-  --profile "$COMPOSE_PROFILE" \
-  --project-root "$(pwd)"
-```
-
-- **Action:** Replace the unique `## {blocks.{block_key}.heading}` placeholder with the block title derived in step 1.
-- **Done:** `patch-block-heading` exits 0; H3 anchors unchanged
-- **Failure:** blocking; stderr cites `block_key`
-
-All sections remain draft until Round probe.
-
-### Step I3 — Validate
-
-1. Run `$INIT_COMPOSE_VALIDATE`.
-2. On failure → read stderr; fix cited sections (return to I2 for those keys; block title failures → re-run I2g for that block's last intent); re-run I3.
+1. Run `$INIT_COMPOSE_VALIDATE` (fact-first gate suite — L1/L3/L4/L5/C1 placement/coverage gates + chapter-artifact existence + assembly completeness).
+2. On failure → read stderr; route by gap type:
+   - **C1 on a derivation lens** (required lens with `decompose`/`instantiate` edge still at zero facts) → **full re-run** (inductive: **Blocking** — return control to inductive-runner; add missing facts via `seed-decision` / `settle-open`, then re-enter Init Step 2 Branch A — never invoke retired `$INDUCTIVE_FACTS_PROJ project`; deductive: re-run Step 2 then Step 3 — do not patch in place) or flag Round;
+   - **true coverage gap** (required, zero facts, **no** derivation edge) → Round / modeling fix — Step 3 will not invent;
+   - **placement / candidate / L\*** issues → return to Step 4;
+   - missing/empty chapter artifacts or missing chapter anchors → return to Step 5;
+   then re-run Step 6.
 3. On success → Return Summary.
 
 **Done:** `$INIT_COMPOSE_VALIDATE` exit 0.
@@ -208,14 +248,15 @@ All sections remain draft until Round probe.
 ## Return Summary
 
 ```text
-Initializing complete.
+Initializing complete (fact-first display layer).
   Profile: <COMPOSE_PROFILE>
   Output: <OUTPUT_DOC_PATH>
-  Derive artifacts: <REVISION_DIR>/_derive-*.json
-  Display titles: <REVISION_DIR>/_title-display.json
-  Block titles: <REVISION_DIR>/_title-block.json
-  Synthesized sections: <space-separated section keys from section_order>
-  Scope SSOT: <SCOPE_DOC_PATH>
+  Facts: <REVISION_DIR>/_facts.json (<N> facts; Step 3 derived: <N>)
+  Step 3: covered <M> required derivation lens(es); true gaps flagged: <ids or none>
+  Chapters: <REVISION_DIR>/_chapters.json (<N> chapters, <N> dropped)
+  Chapter artifacts: <REVISION_DIR>/_derive-*.json, _body-*.txt
+  Quarantined facts (empty lens_tags, Q1 audit): <N> — <ids or none>
+  Scope cross-check: <SCOPE_DOC_PATH>
   Draft status: Initialized
-  Next step: parent pause gate (FreeEdit, Evaluate, or Deliver according to profile options)
+  Next step: parent pause gate (options from profile drafting.post_init_options)
 ```

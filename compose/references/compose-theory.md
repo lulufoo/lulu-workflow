@@ -1,6 +1,6 @@
 # Compose Theory
 
-> Referenced by: initializing-runner (and any runner that generates section body content).
+> Referenced by: initializing-runner (and any runner that generates chapter body content).
 
 ## Profile SSOT
 
@@ -23,105 +23,103 @@ Scheme keys: `schemes/compose-template-scheme.json`. Each profile maps them via 
 
 ## Formula
 
-Sequential synthesis (not independent factors):
+Sequential synthesis on the live Init path (fact-first chapters):
 
 ```text
-section_body = Write( I* ; F ; C )  |  intent
+chapter_body = Write( facts ; chapter_plan )  |  lenses / outline candidates
 
-display_title = specialize( sections.{key}.heading ; substance($SECTION_BODY) )
-  — presentation layer only; not part of body
-
-block_title = specialize( blocks.{id}.heading ; substance(block intent bodies) )
-  — H2 presentation layer; derived at last_in_block, patched after all intents in block persist
+display_title = author( chapter substance )   # H2 under <!-- chapter:{cid} -->
+  — presentation layer only; single SoT in _derive-{cid}.json; rendered at append-chapter
 ```
 
 | Factor | Symbol | Source | Role |
 |--------|--------|--------|------|
-| Content | `I*` | scope doc × intent + KW | Filtered decision substance for this section — what to say |
-| Form | `F` | section guidance + domain + role + intent | How content is carried and organized |
-| Expression | `C` | `### Role Fields` + domain + intent + F | How to write inside F |
-| Envelope | `intent` | section-registry (`intent` + `intent_boundary`) | `intent` = what belongs; `intent_boundary` = what belongs elsewhere (exclude, do not author) |
-| Section form | `presentation` | section-form-registry | Per-intent carrier selection guidance, allowed carriers, and forbidden carriers for F derivation |
-| Section form | `expression` | section-form-registry | Per-intent required/forbidden expression constraints for C derivation |
-| Display title | `display_title` | `sections.{key}.heading` + content substance | H3 label on intent anchor line under outline H2 blocks |
-| Block title | `block_title` | `blocks.{id}.heading` + block intent substance | H2 reader label; placeholder = registry heading until I2g |
+| Content | facts | `_facts.json` (inductive: discovery-written; deductive: atomized) | Filtered decision substance — what to say |
+| Form | `F` | `section-form-registry` keyed by `form_lens` (+ domain + role) | How content for that lens is carried and organized |
+| Expression | `C` | Role Fields + domain + that lens's `expression` + F | How to write inside F for that `form_lens` |
+| Envelope | lens / intent | section-registry (`intent` + `intent_boundary`) | what belongs vs belongs elsewhere |
+| Section form | `presentation` / `expression` | section-form-registry | Carrier / expression constraints for authoring |
+| Display title | `display_title` | `_derive-{cid}.json` at Step 5 | Chapter H2; projected by `append-chapter` |
 
-**Order (strict):** Filter `I*` → Derive `F` → Derive `C` → Write body → Derive display title → Persist section → [when last intent in block] I2g Block close (derive block title → patch H2).
+**Order (strict):** Atomize/validate facts (Step 2) → Derive (Step 3) → Organize chapters (Step 4) → Per-chapter write (Step 5: `_derive-{cid}.json` + `_body-{cid}.txt`) → `append-chapter` → Validate (Step 6).
 
 **Intent text:** Use `sections.{key}.intent` when present; else `sections.{key}.desc` (legacy).
 
 ### Inductive generation (`Induce`) — dual of `Write`
 
-`Write` is deductive (known substance → organized prose, whole→parts). `Induce` is inductive (unknown substance → discover, ground, decide, fold, parts→whole): the inductive-runner produces `I*` enrichment, which `Write` then consumes.
+`Write` is deductive (known substance → organized prose). `Induce` is inductive (unknown substance → discover, ground, decide, fold): the inductive-runner writes `_facts.json` directly (K4; no projection) and tracks opens in `inductive-opens.json`.
 
 ```text
-inductive_scope[section]  ⊕=  Expand( open_point )
-open_point = Expose(source)      # kept iff ( frontier_KW row false  ∧  ¬Settled )
+_facts.json  ⊕=  Expand( open_point )   # via settle-open → 1:N facts
+open_point = Expose(trigger × means)  # kept iff ( frontier_KW row false  ∧  ¬Settled )
 ```
 
-- `Expand` = ground → AI leaning → **user decides** ⇒ one user-approved intent (user-approval is load-bearing).
-- `⊕=` = append to that section's figure; accretes across sweeps, deepens by KW; never overwrites another section.
-- Handoff: `inductive_scope[S] → I*(S) → Write(I* ; F ; C) | intent`.
+- `Expand` = ground (`attach-code-refs` on `O-`) → AI leaning → **user decides** (auto/manual/ignore batch) ⇒ `settle-open` / `defer-open` / `reject-open`.
+- `⊕=` = append facts with `lens_tags`; deepens by KW on maturity ledger; never overwrites another lens's facts in place.
+- Handoff: discovery-written `_facts.json` → Init Steps 2–6 (validate-only on inductive).
 
-`Expose` has three peer sources (the discovery action; profile-declared via `scan-criteria`, plugin-style):
+`Expose` discovers open points via **trigger × means**. All sources subtract `¬Settled` (facts whose `lens_tags` cover the lens) and land in `inductive-opens.json`:
 
-| source | probe | gap predicate | frontier_KW |
-|--------|-------|---------------|:---:|
-| `ai_scan` | run `methods` over code reality | KW row false | applies |
-| `human_inlet` | user proposes; AI maps to a section | user assertion | exempt |
-| `intent_baseline` | `intent_coverage` method: demand manifest vs section figure | fulfillment false | applies |
+| trigger | means | probe | gap predicate | frontier_KW |
+|---------|-------|-------|---------------|:---:|
+| ai | `ai_scan` | run `methods` over code | KW row false | applies |
+| ai | `intent_baseline` | demand manifest vs section | fulfillment false | applies |
+| ai | `probe` | 4 black-box lenses (failure/boundary/assumption/seam) | silence ∧ KW-false | applies |
+| human | `probe` / `direct` / `view` | user question / assertion / view-found gap | user assertion | exempt |
 
-All three subtract `¬Settled` (`scope_doc ∪ shape_constraints`) and land as per-section EPs in one ledger. Design SSOT: `docs/biz/inductive-intent-baseline-source.md`.
+Seed is **not** an Expose source: it writes `_facts.json` directly with `origin.type=seed` (hybrid `origin.ref`: scope path + excerpt; no open stamp).
 
-**F priority (conflict resolution):** section `presentation` > domain `expression_conventions` > role `expressive_tendency` > intent text. `intent_boundary` is an exclusion list — it names substance belonging to other intents; author none of it here.
+**F priority (conflict resolution):** lens `presentation` (via `form_lens`) > domain `expression_conventions` > role `expressive_tendency` > intent text. `intent_boundary` is an exclusion list — it names substance belonging to other intents; author none of it here.
 
-**Document assembly:** Compose documents use outline-registry for structure — outline H2 blocks, intent H3 lines with `<!-- section-key:KEY -->`, then body. Initializing persists each intent via `$COMPOSE_DOC_CONTROL append-intent` immediately after display title derivation; when the last intent in a block is persisted, `$COMPOSE_DOC_CONTROL patch-block-heading` replaces the English H2 placeholder with the inferred block title. Downstream compose tools locate sections by section-key anchor, not H2 text.
+**§7.4 placement heuristic (content-kind memo, not a lens total order):** invariants > structure/contract > success > contact > context — used by Step 4/Step 5 as AI reference only.
+
+**Document assembly:** Compose documents use chapter anchors — `<!-- chapter:{cid} -->`, then `## {display_title}`, then body. Initializing persists each chapter via `$COMPOSE_DOC_CONTROL append-chapter`, which reads `_derive-{cid}.json` / `_body-{cid}.txt`. Downstream compose/eval tools locate chapters by chapter anchor, not H2 text. Section-key grammar retired (K3-d).
 
 ## Init draft quality floor
 
-Initializing must operationalize scope substance in readable form; scope-external speculation remains prohibited. Per-section `_derive-{key}.json` records I2a–I2c before body write; `$INIT_COMPOSE_VALIDATE` gates Init completion. **Best-effort applies to scope-external speculation only** — not to scope-internal completeness or readable `F` structure. Contract: [`init-draft-quality.md`](init-draft-quality.md).
+Initializing must operationalize fact substance into readable chapters; scope-external speculation remains prohibited. `$INIT_COMPOSE_VALIDATE` gates Init completion via display-layer checks only. Contract: [`init-draft-quality.md`](init-draft-quality.md).
 
-## Content (I*) — definition
+## Content (facts) — definition
 
-**I*** — filtered substance grounded in the scope doc (`$SCOPE_DOC_PATH`), best-effort supplemented by available codebase facts
+**Facts** — filtered substance in `_facts.json`. Display-layer Init reads facts (inductive: discovery-written; no K2 projection). Scope doc is completeness cross-check only. Code grounding (when `drafting.code_grounding`) may add path/symbol detail at Write with `code_refs`.
 
-- Produced in I2a: match `intent` (else `desc`), `intent_boundary`, and section KW criteria (`## {key}`).
 - Covers goals, boundaries, exclusions, decisions, invariants, phases at the decision level.
-- Rewrite as operational prose; not scope-doc verbatim paste.
-- Must not introduce capabilities, scope, or boundaries beyond the scope doc.
-- May be empty when no matching substance exists.
+- Rewrite as operational prose; not scope-doc verbatim paste (and not hand-rewriting inductive JSON — use section-control commands).
+- Must not introduce capabilities, scope, or boundaries beyond inductive SoT / facts / grounded code.
+- May leave a chapter as `（待补）` when coverage is intentionally open; do not invent filler.
+- Must not restate propositions whose home chapter already carries them — cite by chapter reference instead.
 
-**Codebase grounding (best-effort default):** Initializing attempts to bind scope-doc semantic names to identifiable system artifacts. No match → no-op, not an error. Names still unresolvable after the attempt must be flagged in OQ as blocks-plan.
+**Codebase grounding (profile flag):** Driven by `drafting.code_grounding` (boolean; orthogonal to `drafting.inductive`). When `true`: at Write, bind named symbols in facts / registry-required path fields to real artifacts under `$PROJECT_ROOT` (Grep/Glob/Read, bounded); success → body increment + derive `code_refs` as `path` or `path#symbol`; failure → no invented paths, body `待决`. When `false`: Init does not run this pass — code refs come from inductive `attach-code-refs` upstream if at all. Grounding never writes back into inductive SoT.
 
 ## Form (F) — definition
 
-F describes how a section's content is carried and organized. It has three fields:
+F describes how a fact group's content is carried and organized for a given `form_lens`. It has three fields:
 
 - `carrier` — the primary container type for the content (the main vehicle through which information is presented)
 - `structure` — the internal organization of the carrier: layout, hierarchy, diagram type and its communicative purpose
-- `forbidden` — forms explicitly excluded for this section, derived from intent_boundary, section `guidance`, and derivation conflicts
+- `forbidden` — forms explicitly excluded for this lens, derived from intent_boundary, section `guidance`, and derivation conflicts
 
-All three fields are derived natural-language descriptions, not enum values. F is derived per section; its value depends on section `guidance`, domain conventions, role expressive tendency, and intent — in that priority order when they conflict.
+All three fields are derived natural-language descriptions, not enum values. F is derived **per `form_lens`** (from `section-form-registry` for that lens), not once for the whole chapter. Its value depends on that lens's `presentation`/`guidance`, domain conventions, role expressive tendency, and intent — in that priority order when they conflict.
 
 ## Expression (C) — definition
 
-C is the set of writing constraints that govern how content is expressed inside F. It is a collection of `(d, c)` pairs where:
+C is the set of writing constraints that govern how content is expressed inside F for a given `form_lens`. It is a collection of `(d, c)` pairs where:
 
 - `d` — the writing dimension (e.g., granularity, vocabulary, abstraction level, tone, completeness bar)
-- `c` — the criterion for that dimension, derived from `### Role Fields`, domain instance, intent, section `presentation`, section `expression.required`/`expression.forbidden`, or `expression_conventions`
+- `c` — the criterion for that dimension, derived from `### Role Fields`, domain instance, intent, that lens's `presentation`, that lens's `expression.required`/`expression.forbidden`, or `expression_conventions`
 
-`expression_conventions` may include grounding clauses (e.g. cite paths only when verified elsewhere); they govern **how** to write, not **what** Init injects into `I*`.
+`expression_conventions` may include grounding clauses (e.g. cite paths only when verified elsewhere); they govern **how** to write, not **what** Init injects into facts.
 
-C has 2–5 pairs per section. Every `c` must be traceable to a specific `### Role Fields` field, `expression_conventions`, section `presentation`, section `expression`, or intent clause; no pair is invented without grounding in these sources.
+C has 2–5 pairs per `form_lens`. Every `c` must be traceable to a specific `### Role Fields` field, `expression_conventions`, lens `presentation`, lens `expression`, or intent clause; no pair is invented without grounding in these sources.
 
 ## Constraints
 
-**Derivation:** Read `### Role Fields` and `domain instance` for F and C; infer per section dynamically. No static dimension tables, vocabulary enums, or form lookup configs.
+**Derivation:** Read `### Role Fields` and `domain instance` for shared authoring constraints; bind F/C **per distinct `form_lens`** in the chapter (Step 5.2 Bind). No static dimension tables, vocabulary enums, or form lookup configs beyond `section-form-registry`.
 
 **Prohibited:**
 
 - scope-doc verbatim paste, `[Source: …]`, `decision-doc-mapping`
-- `I*` that adds capabilities, scope, or boundaries not in scope doc
-- speculative paths, APIs, or behavior not grounded in scope doc (Init does not invent implementation detail)
-- verbatim `sections.{key}.heading` as document display title (infer via `display_title` instead)
-- verbatim `blocks.{id}.heading` as final block H2 (infer via `block_title` in I2g instead)
+- facts / chapter prose that adds capabilities, scope, or boundaries not in scope / inductive SoT
+- speculative paths, APIs, or behavior not grounded in scope / facts / inductive SoT / committed upstream decomposition, and not obtained via `drafting.code_grounding` (when enabled: ground or `待决` — never invent)
+- `<!-- section-key:… -->` anchors or section-key Init artifact names (`_title-display.json`, `_partition.json`, `_derive-{section_key}.json`)
+- verbatim `sections.{key}.heading` as chapter `display_title`

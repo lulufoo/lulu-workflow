@@ -25,6 +25,7 @@ from drafting_progress_schema import (  # noqa: E402
     save_drafting_progress,
 )
 from delivered_refs_schema import serialize_delivered_refs  # noqa: E402
+from facts_schema import facts_path  # noqa: E402
 from init_compose_validation import validate_init_artifacts  # noqa: E402
 from start_adapter import (  # noqa: E402
     intent_baseline_from_workflow,
@@ -168,9 +169,8 @@ def _format_init_dispatch_input(
         f"CYCLE_TYPE:           {detect_cycle_type(cycle_id)}",
         f"CYCLE_ID:             {cycle_id}",
     ]
-    inductive_dir = _inductive_dir(cycle_id, project_root, profile_id)
-    if inductive_dir.is_dir():
-        lines.append(f"INDUCTIVE_DIR:        {inductive_dir.as_posix()}")
+    # K4: Init consumes discovery-written _facts.json — never advertise
+    # INDUCTIVE_DIR as if Init still reads decisions[] / projection here.
     return "\n".join(lines)
 
 
@@ -230,7 +230,11 @@ def inductive_complete(
     if gate_reason:
         return _failure(_CMD_INDUCTIVE_COMPLETE, gate_reason)
     inductive_dir = _inductive_dir(cycle_id, project_root, profile_id)
-    section_files = sorted(p.name for p in inductive_dir.glob("*.md")) if inductive_dir.is_dir() else []
+    section_files = (
+        sorted(p.name for p in inductive_dir.glob("*.json") if p.name != "_index.json")
+        if inductive_dir.is_dir()
+        else []
+    )
     return _success(
         _CMD_INDUCTIVE_COMPLETE,
         current_step=_STEP_INDUCTIVE,
@@ -273,6 +277,19 @@ def begin_init(
             f"cannot start Initializing: current_step is {step!r} (expected absent or Initialized)",
             current_step=step,
         )
+    # K4: inductive profiles — _facts.json must already exist (written by
+    # seed/settle during discovery). Validate-only; never project or re-atomize.
+    if drafting.get("inductive") is True:
+        rev = _revision_dir(cycle_id, project_root, profile_id)
+        path = facts_path(rev)
+        if not path.is_file():
+            return _failure(
+                _CMD_BEGIN_INIT,
+                "cannot start Initializing: _facts.json missing — seed/settle "
+                "during inductive must have written _facts.json "
+                f"(expected {path.as_posix()})",
+                current_step=step,
+            )
     return _success(
         _CMD_BEGIN_INIT,
         current_step=step,

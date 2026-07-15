@@ -89,7 +89,7 @@ def _make_cycles_json(cache_dir: Path, cycle_id: str, name: str = "Test Cycle") 
     if cj.exists():
         import json
         data = json.loads(cj.read_text(encoding="utf-8"))
-    data[cycle_id] = {"name": name, "execution_mode": "copilot"}
+    data[cycle_id] = {"name": name}
     import json
     cj.write_text(json.dumps(data, indent=2), encoding="utf-8")
 

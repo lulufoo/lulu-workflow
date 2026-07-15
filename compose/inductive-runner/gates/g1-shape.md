@@ -1,18 +1,26 @@
 > Part of inductive-runner · gate execution entry · loaded from `../SKILL.md`
 
-# Gate 1 — Shape (coarse shape artifact)
+# Gate 1 — Shape-confirm (view checkpoint, not a frozen SoT artifact)
 
 **Prerequisites:** dispatched from parent compose stage `start`, or `$INDUCTIVE_GATE_CTL resolve-context` reports `active_gate` is `G1`.
 
-**Goal:** render the change as a coarse **shape artifact** (`SCAN_CRITERIA.shape_extraction.artifact_label`) — the cold-start structural abstraction, as one coherent whole. Do **not** examine implementation; do **not** organize by section; do **not** drop to implementation detail.
+**Goal (I11):** after Seed, confirm the change as a coarse **shape view** synthesized from facts + maturity. The view is **not** SoT (V4). Corrections land only via section-control commands (I1). Baseline for later G4 = `checkpoint --name shape` (`last_checkpoint` + `checkpoint_git_sha`), not a frozen `architecture_view` file.
 
-1. Read `$SCOPE_DOC` in full (use its decision conclusions as primary source).
-2. Produce one **shape artifact** (the carrier every later gate refines).
-   For each field in `SCAN_CRITERIA.shape_extraction.required` (and `.optional` where applicable): render using the field's `carrier`, obey its `forbidden`, and present `as_is`+`to_be` as a paired before→after block. Field labels, guidance, and render rules are in `SCAN_CRITERIA.shape_extraction.fields` — do not deviate from them.
-3. Append the 1–2 **load-bearing claims you are least sure of**, restricted to **shape altitude** — the spine framing, a boundary call, a structural relation, or an implicit premise the source material can't tell you. **Do not** raise implementation risks here — those belong to Gate 3.
+**Order (hard):** Seed **before** first shape view. Do not synthesize a shape view from `$SCOPE_DOC` alone as a substitute for Seed.
 
-**Present:** the shape artifact (all `shape_extraction.required` fields + any applicable `.optional` fields, rendered per `shape_extraction.fields`) + the shape-level load-bearing claims.
+1. **Session init (once):** `$INDUCTIVE_GATE_CTL init-session --sections <coverage_sections CSV> --mandatory <mandatory CSV> --cycle-id <cycle_id> --stage <compose stage> --scope-ref "$SCOPE_DOC"` (skip if resuming). Forwards profile/scope_ref onto `_index.json`.
+2. **Seed (if not done):** For each mapped section that receives scope substance:
+   1. `$INDUCTIVE_G3_SECTION_CTL activate-section --section <S>` (focus guard — required before maturity writes)
+   2. `$INDUCTIVE_G3_SECTION_CTL seed-decision --section <S> --lens-tags <S> --kw <N> --text …`  
+      (`--lens-tags` required; usually the section key itself, comma-separated for multi-lens seed facts; writes `_facts.json` with `origin.type=seed` — not section `decisions[]`)
+   3. AI re-judges KW maturity for that section → `$INDUCTIVE_G3_SECTION_CTL set-frontier --section <S> --kw <N>` (only when facts for that lens change)
+   Use `section-registry` mapping (structural→ST, boundary→SC, goals→GO, invariants→I, …). **I4:** do not invent beyond the scope. Prefer a git commit `"seeded"`.
+3. **Present shape view:** `$INDUCTIVE_G3_SECTION_CTL view --synthesis on --scope all --granularity <arch-overview hint>` (e.g. default perspective from `SCAN_CRITERIA.shape_extraction` — **hint only**, not a shape schema; V3). Content must come from facts + maturity SoT; gaps stay gaps (V2). Coarse altitude only — no file:line in the overview (I7).
+4. **User confirms or corrects.** Corrections → `activate-section` + `seed-decision` / `update-decision` / `add-open` → re-`set-frontier` if lens facts changed → re-`view` until confirmed.
+5. **Close:** `$INDUCTIVE_GATE_CTL gate-close --gate G1 --payload '{"user_confirmed": true}'`  
+   - **Hard close criterion:** user confirmed.  
+   - `gate-close G1` records `checkpoint --name shape` (authoritative mark + best-effort `checkpoint_git_sha`). Do **not** call `checkpoint` separately before close — one owner.  
+   - Optional resume aid only: you may also include `architecture_view` + `shape_constraints` in the payload for DQI; if present, fields must be complete. **Never** treat DQI as SoT or as G4's shape baseline.
+6. Advance to G2 (usually auto-close — see `g2-grounding.md`).
 
-**Close criterion:** the user confirms the spine, the To-Be structure, and the boundary (e.g. "形状确认" / "shape confirmed"). Corrections are folded in and the view re-presented until confirmed. On confirmation, call `$INDUCTIVE_GATE_CTL gate-close --gate G1 --payload '{"architecture_view": {...}, "shape_constraints": [...]}'` — this persists the `architecture_view` to the DQI, freezes the load-bearing claims into **shape constraints** (invariants Gate 3 must respect and must not re-open), and advances the spine to Gate 2.
-
-**Session init (once per session, at Gate 1 start):** call `$INDUCTIVE_GATE_CTL init-session --sections <coverage_sections CSV> --mandatory <mandatory_coverage_prompt CSV> --cycle-id <cycle_id> --stage <compose stage>` to seed both the gate state and section pointer. Skip if resuming an existing session — `$INDUCTIVE_GATE_CTL resolve-context` will confirm the current active gate.
+**After close:** default-present the confirmed shape view once more, then **stop and await user** — do **not** auto-run detect/sweep. View (Class 3, sensing) and Class 1A discovery (collision / direct / view-derived) remain available anytime after Seed (parent SKILL); neither is Gate-3-only.

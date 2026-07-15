@@ -64,8 +64,8 @@ def test_feature_template_resolves_topic(tmp_path):
     """lulu-bet(feature): topic lulu-blueprint resolves via topic_id."""
     cache_dir = tmp_path / platform_cache_dir(detect_platform())
     topic_id = "topic-20260101000000-aabbccdd"
-    _write_cycles_json(cache_dir, "feature-a", {"name": "x", "execution_mode": "guided", "topic_id": topic_id})
-    _write_cycles_json(cache_dir, topic_id, {"name": "t", "execution_mode": "guided"})
+    _write_cycles_json(cache_dir, "feature-a", {"name": "x", "topic_id": topic_id})
+    _write_cycles_json(cache_dir, topic_id, {"name": "t"})
     topic_doc = _write_topic_delivered_ref(cache_dir, topic_id, "lulu-blueprint")
 
     payload = resolve(tmp_path, "feature-a", _TEMPLATE_FEATURE)

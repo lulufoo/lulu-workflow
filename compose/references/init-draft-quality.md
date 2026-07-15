@@ -1,90 +1,62 @@
 # Init Draft Quality
 
-> Referenced by: initializing-runner (I2 derive artifacts, I3 validate).  
+> Referenced by: initializing-runner (Steps 2–6 chapter artifacts, Step 6 validate).  
 > Theory: [`compose-theory.md`](compose-theory.md).
 
 ## Purpose
 
-Per-section derive artifacts record I2a–I2c before body write. They make Init synthesis inspectable and gate-able without replacing Round probe.
+Chapter derive + body artifacts make Init synthesis inspectable and gate-able without replacing Round probe. Section-key I2 derive / `_title-display.json` / Partition retired (K3-d).
 
 ## Init positioning
 
 | Must | Must not |
 |------|----------|
-| Operationalize scope substance in readable `F` structure | Scope-external speculation |
-| Mark scope gaps explicitly (`gaps` + body `待决`) | Decision verbatim paste |
-| Produce non-shell sections (see empty `i_star` rules) | Empty shell bodies that pass only on non-empty text |
+| Operationalize fact substance into readable chapter bodies | Scope-external speculation |
+| Mark gaps explicitly (`待决` in body when substance missing) | Decision verbatim paste |
+| Produce non-drop chapters with non-empty body + `display_title` | Empty shell chapters / `section-key:` anchors |
 
 Round still owns formal KW / upstream / intent gap closure.
 
-## Per-section artifacts
+## Per-chapter artifacts (fact-first)
 
 ```text
-$REVISION_DIR/_derive-{section_key}.json   # I2a–I2c (write before I2d)
-$REVISION_DIR/_body-{section_key}.txt       # I2d
-$REVISION_DIR/_title-display.json           # I2e (section_key → display title)
+$REVISION_DIR/_facts.json              # fact store (Step 2; K2 projects inductive decisions[])
+$REVISION_DIR/_chapters.json           # chapter plan (Step 4)
+$REVISION_DIR/_derive-{cid}.json       # Step 5 chapter derive (display_title, …)
+$REVISION_DIR/_body-{cid}.txt          # Step 5 chapter body
+$OUTPUT_DOC_PATH                       # assembled via append-chapter (<!-- chapter:{cid} -->)
 ```
 
-`section_key` is uppercase registry key (e.g. `GO`, `NS`).
+`cid` is the chapter id from `_chapters.json` (not a registry section key).
 
-## Per-block artifacts
-
-```text
-$REVISION_DIR/_title-block.json             # I2g (block_key → reader H2; last_in_block only)
-```
-
-`block_key` is uppercase outline block id (e.g. `SI`, `BD`). Written once when the last intent in that block completes I2f.
-
-## `_derive-{key}.json` schema
+## `_derive-{cid}.json` (chapter)
 
 | Field | Required | Rules |
 |-------|----------|-------|
-| `section_key` | yes | Must match filename key |
-| `i_star` | yes | String; filtered scope substance (tech-neutral). May be `""` |
-| `scope_refs` | yes | Array of strings; decision headings or paraphrase anchors used |
-| `gaps` | yes | Array of gap objects (may be empty when `i_star` non-empty) |
-| `f.carrier` | yes | Non-empty string; selected from `presentation.allowed[].carrier` |
-| `f.structure` | yes | String from `presentation.allowed[].structure` of the selected entry (`"none"` if no diagram) |
-| `f.forbidden` | yes | String; derived from `presentation.forbidden` (may describe none) |
-| `c` | yes | 2–5 objects, each `{ "d", "c", "source" }` — all non-empty strings |
-| `kw_init` | yes | `{ "what", "why", "alternatives", "failure" }` booleans |
+| `display_title` | yes | Reader H2 under the chapter anchor; concise localized string, no code tokens; `（待补）` when substance missing |
+| other fields | per runner | As authored in Step 5; validator hard-gates non-empty `display_title` on every non-drop chapter |
 
-### Gap object
+### Display title
 
-| Field | Required | Values |
-|-------|----------|--------|
-| `kind` | yes | `scope_absent` |
-| `note` | yes | Non-empty explanation |
-| `dimension` | when KW-related | `what` · `why` · `alternatives` · `failure` |
+`$COMPOSE_DOC_CONTROL append-chapter` reads `display_title` and renders `## {display_title}` under `<!-- chapter:{cid} -->`.
 
-When scope lacks substance for a KW dimension: set `kw_init.<dim>` to `false` and add a `scope_absent` gap with matching `dimension`.
+1. Concise reader-facing H2 — optionally one theme phrase. Keep it short.
+2. Must not paste a full body / substance sentence.
+3. Must not contain raw code tokens (file paths, API / symbol names, file extensions).
+4. Empty substance → `（待补）`.
+5. Derive `display_title` is the single SoT for the rendered chapter H2.
 
-### Empty `i_star`
+### Body
 
-When no scope substance matches this section:
-
-1. `gaps` must contain at least one object explaining why.
-2. Body may be a single honest placeholder, e.g. `（本节 scope 无可用 substance，待 Round 补）`.
-3. Display title → `（待补）`.
-
-### Block title (`_title-block.json` entry)
-
-1. One non-empty string value per `block_key`; localized reader-facing H2 for the whole outline block.
-2. Must not verbatim-copy `blocks.{block_key}.heading` (English registry heading).
-3. When block has no substance across intents → `（待补）`.
-4. Must match the document `##` line above the block's first intent anchor after I2g.
-
-### Non-empty `i_star`
-
-1. Body must be non-empty with at least three non-blank lines.
-2. Body must reflect `f.carrier` structure (lists, tables, phased blocks as declared).
-3. Scope gaps still require `gaps` entries and optional `> **待决：** …` in body — not invented fill.
+- Non-drop chapters: non-empty `_body-{cid}.txt` and non-empty chapter segment in the compose doc (after stripping the rendered `##` heading).
+- Scope / fact gaps → honest `待决` in body; do not invent fill.
 
 ## Body prohibitions
 
 - `[Source:` (decision paste marker)
 - `decision-doc-mapping`
+- `<!-- section-key:… -->` anchors
 
 ## Validate command
 
-`init_compose_validation.py validate` checks derive files, body files, `_title-display.json`, compose-doc anchors, and (when outline-registry is available) `_title-block.json` plus `section_order == flatten(outline.intents)`. See script `--help` for exit codes and stderr format.
+`init_compose_validation.py validate` always runs the display-layer suite: candidates-shaped outline pairing, `_facts.json` / `_chapters.json`, placement/coverage gates, chapter derive/body files, and chapter anchors in the compose doc. See script `--help` for exit codes and stderr format.

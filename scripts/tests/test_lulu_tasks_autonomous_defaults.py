@@ -40,7 +40,8 @@ def test_lulu_tasks_feature_autonomous_defaults():
     assert "Proceed to task.md generation without asking" in content
     assert "Write `workflow-state.md: Evaluating` immediately" in content
     assert "default decision **Fix**" in content
-    assert "auto handoff to `lulu-code`" in content
+    assert "immediately start `lulu-code`" in content
+    assert "auto-chain" not in content
 
 
 def test_lulu_tasks_sot_askquestion_preserved():

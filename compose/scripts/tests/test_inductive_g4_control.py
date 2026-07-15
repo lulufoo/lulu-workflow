@@ -150,7 +150,16 @@ def _drive_to_g4(tmp_path: Path) -> None:
     code, _ = _run_section(tmp_path, "activate-section", "--section", "I")
     assert code == 0
     code, _ = _run_section(
-        tmp_path, "append-to-section", "--section", "I", "--content", "## I\nBody text.\n"
+        tmp_path,
+        "seed-decision",
+        "--section",
+        "I",
+        "--lens-tags",
+        "I",
+        "--kw",
+        "1",
+        "--text",
+        "Body text.",
     )
     assert code == 0
     code, _ = _run_section(tmp_path, "set-frontier", "--section", "I", "--kw", "3")

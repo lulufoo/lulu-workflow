@@ -10,7 +10,7 @@ Subcommands:
     list                  Print cycles.json summary for Feature Resolution
     info                  JSON metadata for one cycle (--cycle-id)
     validate              Exit 0 when cycle exists in index and on disk
-    set-execution-mode    Update execution_mode for one cycle in cycles.json
+    topic-digest          Topic association candidates for New feature (JSON)
 """
 
 from __future__ import annotations
@@ -25,13 +25,13 @@ from fetch_template import FetchTemplateError  # noqa: E402
 from cycle_schema import (  # noqa: E402
     append_cycle,
     build_cycle_info,
+    build_topic_digest,
     cycle_exists,
     ensure_container_dir,
     format_cycles_list,
     generate_cycle_id,
     prune_cycles,
     resolve_cache_dir,
-    set_execution_mode,
     validate_cycle,
 )
 from init_ops import run_init_project  # noqa: E402
@@ -50,7 +50,7 @@ _CMD_ARCHIVE = "archive"
 _CMD_LIST = "list"
 _CMD_INFO = "info"
 _CMD_VALIDATE = "validate"
-_CMD_SET_EXECUTION_MODE = "set-execution-mode"
+_CMD_TOPIC_DIGEST = "topic-digest"
 
 
 def _add_project_args(parser: argparse.ArgumentParser) -> None:
@@ -98,7 +98,6 @@ def start_cycle(
     *,
     name: str,
     cycle_type: str = "feature",
-    mode: str = "guided",
     topic_id: Optional[str] = None,
     platform: Optional[str] = None,
 ) -> str:
@@ -119,7 +118,7 @@ def start_cycle(
 
     cycle_id = generate_cycle_id(cycle_type)
     ensure_container_dir(cache_dir, cycle_id)
-    append_cycle(cache_dir, cycle_id, name, mode, topic_id=topic_id)
+    append_cycle(cache_dir, cycle_id, name, topic_id=topic_id)
     return cycle_id
 
 
@@ -128,7 +127,6 @@ def cmd_start(args: argparse.Namespace) -> int:
         args.project_root,
         name=args.name,
         cycle_type=args.cycle_type,
-        mode="guided",
         topic_id=args.topic_id,
         platform=args.platform,
     )
@@ -161,44 +159,16 @@ def cmd_validate(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_set_execution_mode(args: argparse.Namespace) -> int:
-    if not getattr(args, "internal", False):
-        print(
-            json.dumps(
-                {
-                    "ok": False,
-                    "command": _CMD_SET_EXECUTION_MODE,
-                    "current_state": getattr(args, "cycle_id", ""),
-                    "message": "set-execution-mode requires --internal. Pause execution and wait for user direction.",
-                },
-                separators=(",", ":"),
-            )
-        )
-        return 1
-    cache_dir = resolve_cache_dir(args.project_root, args.platform)
-    try:
-        payload = set_execution_mode(cache_dir, args.cycle_id, args.mode)
-    except ValueError as exc:
-        print(
-            json.dumps(
-                {
-                    "ok": False,
-                    "command": _CMD_SET_EXECUTION_MODE,
-                    "current_state": args.cycle_id,
-                    "message": f"{exc}. Pause execution and wait for user direction.",
-                },
-                separators=(",", ":"),
-            )
-        )
-        print(str(exc), file=sys.stderr)
-        return 1
-    print(json.dumps(payload, separators=(",", ":")))
-    return 0
-
-
 def cmd_archive(args: argparse.Namespace) -> int:
     cache_dir = resolve_cache_dir(args.project_root, args.platform)
     prune_cycles(cache_dir, args.keep, args.project_root)
+    return 0
+
+
+def cmd_topic_digest(args: argparse.Namespace) -> int:
+    cache_dir = resolve_cache_dir(args.project_root, args.platform)
+    payload = build_topic_digest(cache_dir, args.stage)
+    print(json.dumps(payload, ensure_ascii=False, indent=2))
     return 0
 
 
@@ -282,23 +252,16 @@ def _cli(argv: Optional[list[str]] = None) -> int:
     validate.add_argument("--cycle-id", required=True, help="Cycle ID to validate.")
     validate.set_defaults(handler=cmd_validate)
 
-    set_mode = sub.add_parser(
-        _CMD_SET_EXECUTION_MODE,
-        help="Update execution_mode for one cycle in cycles.json.",
+    topic_digest = sub.add_parser(
+        _CMD_TOPIC_DIGEST,
+        help="Emit topic association candidates (JSON) for New feature.",
     )
-    set_mode.add_argument("--cycle-id", required=True, help="Cycle ID to update.")
-    set_mode.add_argument(
-        "--mode",
+    topic_digest.add_argument(
+        "--stage",
         required=True,
-        choices=sorted({"guided", "autonomous"}),
-        help="New execution mode.",
+        help="Current sub-SKILL stage name (e.g. lulu-approach).",
     )
-    set_mode.add_argument(
-        "--internal",
-        action="store_true",
-        help="Internal-only gate; required for set-execution-mode.",
-    )
-    set_mode.set_defaults(handler=cmd_set_execution_mode)
+    topic_digest.set_defaults(handler=cmd_topic_digest)
 
     args = parser.parse_args(argv)
     args.project_root = args.project_root.resolve()

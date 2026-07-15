@@ -21,11 +21,7 @@ from workflow_paths import EVAL_SCRIPTS, WORKFLOW_SCRIPTS, load_profile, shell_p
 _WORKFLOW_ID = "lulu-plan"
 
 from session_state_schema import load_active_doc_from_cycle  # noqa: E402
-from workflow_common import (  # noqa: E402
-    CACHE_DIR,
-    detect_cycle_type,
-    load_container_meta,
-)
+from workflow_common import detect_cycle_type  # noqa: E402
 from workflow_profile_paths import (  # noqa: E402
     doc_dir,
     document_path,
@@ -47,8 +43,6 @@ from tech_plan_eval_policy import (  # noqa: E402
     intent_eval_config_key,
     select_dimension_defs,
 )
-
-_VALID_EXECUTION_MODES = frozenset({"guided", "autonomous"})
 
 LULU_PLAN_COMPOSED_CORPUS_ID = "lulu-plan-composed"
 LULU_PLAN_COMPOSED_CORPUS_VERSION = "1"
@@ -195,22 +189,6 @@ class TechPlanEvalAdapter:
 
     def detect_cycle_type(self, cycle_id: str) -> str:
         return detect_cycle_type(cycle_id)
-
-    def resolve_execution_mode(
-        self, cycle_id: str, project_root: Path
-    ) -> str:
-        cycle_type = detect_cycle_type(cycle_id)
-        cache_dir = project_root.resolve() / CACHE_DIR
-        try:
-            meta = load_container_meta(cache_dir, cycle_id, cycle_type)
-        except ValueError:
-            return "guided"
-        if not meta:
-            return "guided"
-        mode = meta.get("execution_mode", "guided")
-        if mode not in _VALID_EXECUTION_MODES:
-            return "guided"
-        return mode
 
     def enter_evaluating(
         self, cycle_id: str, project_root: Path

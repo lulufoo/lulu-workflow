@@ -190,17 +190,19 @@ def fetch_template(
 ) -> str:
     plat = detect_platform(platform)
     cache_file = cache_path(project_root, plat, section, key)
+    url = read_config_url(project_root, section, key, plat)
+
+    # Local paths always win over GitHub cache — otherwise switching a config
+    # key from a remote blob URL to a repo-local path would keep serving the
+    # stale cached remote body until --force (K0b plan local templates).
+    local_path = resolve_local_template_path(url, project_root)
+    if local_path is not None:
+        return read_local_file(local_path)
 
     if not force and cache_file.exists():
         cached = cache_file.read_text(encoding="utf-8")
         if cached.strip():
             return cached
-
-    url = read_config_url(project_root, section, key, plat)
-
-    local_path = resolve_local_template_path(url, project_root)
-    if local_path is not None:
-        return read_local_file(local_path)
 
     parsed = parse_blob_url(url)
     content = gh_fetcher(

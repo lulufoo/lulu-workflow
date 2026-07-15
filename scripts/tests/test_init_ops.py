@@ -28,6 +28,12 @@ class TestRegisterCursorHook:
         assert any("lulu-dev-workflow" in e.get("command", "") for e in entries)
         assert any(e.get("matcher") == "Write|Edit|Read|Shell" for e in entries)
 
+    def test_writes_before_submit_prompt_entry(self, tmp_path):
+        register_cursor_hook(tmp_path)
+        payload = json.loads((tmp_path / ".cursor" / "hooks.json").read_text(encoding="utf-8"))
+        prompts = payload["hooks"]["beforeSubmitPrompt"]
+        assert any("hook_prompt.py" in e.get("command", "") for e in prompts)
+
 
 class TestRegisterClaudeHook:
     def test_writes_nested_pre_tool_use(self, tmp_path):

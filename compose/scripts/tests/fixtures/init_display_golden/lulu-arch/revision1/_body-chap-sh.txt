@@ -1,0 +1,3 @@
+结构形状把**行动持久化**与**知识归档**分开：`plan_tasks.json` 独立持久化（对齐 read_later），MCP 作为唯一写入口；`archive_document` 扩展可选 `task_ref`，在同调用链内关联并完成子项；Tauri `plan_task` service 承载 CRUD；Workbench UI 只做管理与双向可见，不创建任务。
+
+影响面按层切开：Tauri 后端（新增 plan_task、改 archive_write、local_http 路由）、knowledge MCP（task tools + archive 扩展）、corpus `index.json` 可选 `task_ref`、本地 `plan_tasks.json`、Workbench 任务 UI、Skills 对接。

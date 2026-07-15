@@ -23,10 +23,9 @@ Terminal runner subagent. Probes **one Dimension** per invocation (from EvalCorp
 3. Read `{$SKILL_ROOT}/eval/review.template.md`
 4. Read `{$SKILL_ROOT}/eval/scripts/url_fetch.py` — use `read_ref()` for all URL/path loads
 5. Read `{$SKILL_ROOT}/eval/scripts/codebase_sot.py` — use `resolve_codebase_ref()` for codebase SoT
-6. Run `$RESOLVE_PLAN_ROLE` with `CYCLE_ID` and `--profile {WORKFLOW_ID}`; apply Plan Scope Constraints for probe narrative
-7. `$FETCH_COMPOSE`: `{SKILL_ROOT}/compose/SKILL.md` → Script Macros — pass `--profile {WORKFLOW_ID}` and `--cycle-id "$CYCLE_ID"` when loading section-registry
+6. Read `{$SKILL_ROOT}/eval/scripts/eval_target_units.py` — split EvalTarget **B** into intent units (chapter anchors); **do not** read `_facts.json` / `_chapters.json`
+7. Run `$RESOLVE_PLAN_ROLE` with `CYCLE_ID` and `--profile {WORKFLOW_ID}`; apply Plan Scope Constraints for probe narrative
 8. Follow steps below
-
 ---
 
 ## Required Inputs
@@ -83,26 +82,36 @@ Evaluate **B** using loaded SoT content and **M** / `METHOD_FOCUS`.
 
 Builtin `procedure_id: intent_gap_probes`. Criteria **A** = first url SoT in `SOTS_JSON` (loaded via `read_ref`).
 
+**Eval model (K3-d):** evaluate **B** only. Content units come from **B**'s chapter anchors. Do **not** open `_facts.json`, `_chapters.json`, `_body-*`, or call compose facts/chapters CLIs.
+
 1. Load **A** from SoT (P1–P4 definitions and applicability in **A**; run any profile-specific supplements defined in **A** after applicable P probes).
 2. Do **not** parse `<!-- state-vector: … -->`. Do **not** load `layer-standards` or L Diagnostic Criteria.
-3. Load **R** via `$FETCH_COMPOSE section-registry` with `--profile {WORKFLOW_ID}` and `--cycle-id "$CYCLE_ID"` (same `PROJECT_ROOT`).
-4. For each `K` in **R** `section_order`:
-   - Load section body via `<!-- section-key:K -->` in **B** (not H2 display titles).
-   - Split sub-sections (one coherent intent unit; skip empty / boilerplate-only).
-   - For each sub-section, run applicable probes per **A** (`Applies when` in each P section).
-   - **P3:** upstream bodies = full sections listed in `sections.K.upstream` from **R**.
-5. **Severity** (default; adjust per Plan Scope `### Role` and **R**):
-   - P1 fail on first `section_order` key → `high`
-   - P1 fail on a key in any later section's `upstream` list → `high`
-   - P2 fail before last key in `section_order` → `high`
-   - P3 fail when `sections.K.upstream` non-empty → `high`
-   - P4 fail on last key in `section_order` → `high`
-   - P1/P2 fail on late approach-style sections (Done-when only) → `medium`
-   - P4 edge cases on early direction-style sections → `medium`
-6. Optional: on last `section_order` key — sanity-check verifiable action or file reference.
-7. `sot_ref` → framework doc `#P{n}` or `#D{n}`; `description` → Gap output from **A**.
+3. Read **B** from `EVAL_TARGET_PATH`. Build the unit view via `eval_target_units.units_from_eval_target(B_text)` (or CLI: `python3 {$SKILL_ROOT}/eval/scripts/eval_target_units.py --path "$EVAL_TARGET_PATH"`).
+4. Branch on `shape`:
+   - **`unknown`** → emit one `UNRESOLVABLE` (B has no chapter anchors); stop further P probes for this dim.
+   - **`empty: true`** → treat as empty artifact; apply **A** only where empty content still applies; otherwise no P findings.
+   - **`chapter`** → follow **Chapter path** below (no section-registry).
+5. For each finding classify `root_cause` per `eval/SKILL.md` and fill all required columns.
+6. `sot_ref` → framework doc `#P{n}` or `#D{n}`; `description` → Gap output from **A**.
+7. `location` → unit `id` (e.g. `chap-a#1`), not line numbers alone.
 
-For each finding classify `root_cause` per `eval/SKILL.md` and fill all required columns.
+#### Chapter path (EvalTarget B)
+
+Traverse `containers` in **document order** (not registry `section_order`).
+
+For each container `C` with units `U`:
+
+1. For each unit in `U`, run applicable probes per **A** (`Applies when`).
+2. **P3:** upstream = `prior_container_units(view, C.id)` (all units from earlier chapters). If no prior chapters, P3 upstream is empty (skip P3 when **A** requires upstream).
+3. **Severity** (chapter ↔ old section_order skeleton; use `severity_hints_chapter(view, C.id)`):
+   - P1 fail on first container → `high`
+   - P1 fail on a container with `has_prior` → `high`
+   - P2 fail when `before_last` → `high`
+   - P3 fail when `has_prior` → `high`
+   - P4 fail on last container → `high`
+   - P1/P2 fail on late approach-style containers → `medium`
+   - P4 edge cases on early direction-style containers → `medium`
+4. Optional: on last container — sanity-check verifiable action or file reference.
 
 Output fields per issue: `id`, `root_cause`, `sot_ref`, `location`, `severity`, `evidence`, `description`, `status: pending`, `decision: —`
 

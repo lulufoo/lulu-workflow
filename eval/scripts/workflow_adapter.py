@@ -70,10 +70,6 @@ class WorkflowAdapter(Protocol):
 
     def detect_cycle_type(self, cycle_id: str) -> str: ...
 
-    def resolve_execution_mode(
-        self, cycle_id: str, project_root: Path
-    ) -> str: ...
-
     def enter_evaluating(
         self, cycle_id: str, project_root: Path
     ) -> dict[str, Any]: ...

@@ -95,3 +95,19 @@ def tech_plan_feature_role_instance() -> dict[str, Any]:
 
 def tech_plan_feature_domain_instance() -> dict[str, Any]:
     return load_framework_json("plan", "47-tech-plan-feature-domain-instance.json")
+
+
+def tech_arch_section_registry() -> dict[str, Any]:
+    return load_framework_json("arch", "tech-arch-topic-section-registry.json")
+
+
+def tech_arch_outline_registry() -> dict[str, Any]:
+    return load_framework_json("arch", "tech-arch-topic-outline-registry.json")
+
+
+def product_blueprint_section_registry() -> dict[str, Any]:
+    return load_framework_json("blueprint", "product-blueprint-topic-section-registry.json")
+
+
+def product_blueprint_outline_registry() -> dict[str, Any]:
+    return load_framework_json("blueprint", "product-blueprint-topic-outline-registry.json")

@@ -43,3 +43,9 @@ def load_stage_order(cycle_type: str) -> List[str]:
         order.append(current)
         current = forward.get(current)
     return order
+
+
+def topic_doc_stage_for(stage: str) -> Optional[str]:
+    """Return topic-line doc stage for a feature-line stage, or None if not mapped."""
+    tt = json.loads(_CONFIG_PATH.read_text(encoding="utf-8"))
+    return tt.get("topic_doc_stage", {}).get(stage)
