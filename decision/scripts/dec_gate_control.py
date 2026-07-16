@@ -6,8 +6,8 @@ Subcommands:
     resolve-context        JSON session context for runners (gates, registers, constraints)
     gate-activate          Activate a gate (e.g. re-activate Q after RS)
     gate-close             Close active gate, write gate-payload, advance pointer
-    invalidate-from        RS mechanical invalidation from a gate downstream
-    rs-commit              Atomic RS: invalidate-from + register batch + resolve-context
+    stale-from             Realign: mark gate + reached downstream stale (no payload delete)
+    rs-commit              Atomic Realign: stale-from + register batch + resolve-context
     check-delivery-ready   Structural audit + gates/registers for DC delivery
     deliver                Set session-state Delivered (requires DC closed + decision-doc)
     migrate-session        Bootstrap gate-state/registers for legacy sessions
@@ -39,23 +39,21 @@ from dec_domain_constraints_schema import (  # noqa: E402
     save_domain_constraints,
 )
 from dec_gate_payload_schema import (  # noqa: E402
-    delete_payloads_from,
     gate_payload_path,
     save_gate_payload,
 )
 from dec_gate_state_schema import (  # noqa: E402
     GATE_ORDER,
-    RS_INVALIDATE_GATES,
-    RS_REOPEN_GATES,
+    RS_REALIGN_GATES,
     activate_gate,
     close_gate,
     close_gate_r,
     close_gate_rr,
     close_gate_v,
     init_gate_state,
-    invalidate_from_gate,
     is_gate_closed,
     load_gate_state,
+    mark_stale_from_gate,
     save_gate_state,
 )
 from dec_register_schema import (  # noqa: E402
@@ -315,8 +313,9 @@ def _validate_gate_close_prereqs(state: dict[str, Any], gate: str) -> str | None
     if state["active_gate"] != gate:
         return f"active_gate is {state['active_gate']!r}, expected {gate!r}"
     entry = state["gates"].get(gate, {})
-    if str(entry.get("status", "")).lower() != "active":
-        return f"gate {gate} is not active"
+    status = str(entry.get("status", "")).lower()
+    if status not in {"active", "stale"}:
+        return f"gate {gate} is not active or stale (got {status!r})"
 
     prior = _required_prior_gate(gate)
     if prior and not is_gate_closed(state, prior):
@@ -418,9 +417,15 @@ def _validate_gate_close_payload(gate: str, payload: dict[str, Any], *, constrai
         if exit_path not in {"loop_b", "dc", "rs"}:
             raise ValueError("exit must be loop_b, dc, or rs")
         if exit_path == "rs":
-            reopen_gate = str(payload.get("reopen_gate", "")).strip()
-            if reopen_gate not in RS_REOPEN_GATES:
-                raise ValueError("reopen_gate must be one of Q, E, D, X for R exit rs")
+            realign_gate = str(
+                payload.get("realign_gate", payload.get("reopen_gate", ""))
+            ).strip()
+            if realign_gate not in RS_REALIGN_GATES:
+                raise ValueError(
+                    "realign_gate must be one of Q, E, D, X for R exit rs"
+                )
+            # Normalize legacy key onto realign_gate for downstream consumers.
+            payload["realign_gate"] = realign_gate
         assumptions = payload.get("assumptions", [])
         if not isinstance(assumptions, list):
             raise ValueError("assumptions must be an array")
@@ -869,36 +874,54 @@ def cmd_gate_close(
     if gate in {"R", "V", "RR"}:
         result["exit"] = payload.get("exit")
     if gate == "R" and payload.get("exit") == "rs":
-        result["reopen_gate"] = payload.get("reopen_gate")
+        result["realign_gate"] = payload.get("realign_gate") or payload.get(
+            "reopen_gate"
+        )
     if gate in {"R", "V"} and payload.get("exit") != "rs":
         result["skipped_gates"] = updated.get("skipped_gates", [])
     _emit(result)
     return 0
 
 
-def _run_invalidate_from(
+def _run_stale_from(
     paths: dict[str, Path],
+    gate: str,
+) -> dict[str, Any]:
+    """Mark G + reached downstream stale; keep payloads; strip risk if R no longer closed."""
+    state = load_gate_state(paths["gate_state"])
+    if gate not in GATE_ORDER:
+        raise ValueError(f"invalid gate: {gate!r}")
+    if gate not in RS_REALIGN_GATES:
+        raise ValueError(
+            f"stale-from / rs-commit supports {list(RS_REALIGN_GATES)}, got {gate!r}"
+        )
+    updated = mark_stale_from_gate(state, gate)
+    save_gate_state(paths["gate_state"], updated)
+    # Update-only: do not delete_payloads_from
+    r_closed = is_gate_closed(updated, "R")
+    if not r_closed and paths["registers"].exists():
+        raw = json.loads(paths["registers"].read_text(encoding="utf-8"))
+        stripped = strip_assumption_risk_fields(raw)
+        save_registers(paths["registers"], stripped, r_gate_closed=False)
+    return updated
+
+
+def cmd_stale_from(
     project_root: Path,
     cycle_id: str,
     stage: str,
     gate: str,
     *,
     constraints_path: Path | None = None,
-) -> dict[str, Any]:
-    state = load_gate_state(paths["gate_state"])
-    if gate not in GATE_ORDER:
-        raise ValueError(f"invalid gate: {gate!r}")
-    if gate not in RS_INVALIDATE_GATES:
-        raise ValueError(f"invalidate-from supports {sorted(RS_INVALIDATE_GATES)}, got {gate!r}")
-    updated = invalidate_from_gate(state, gate)
-    save_gate_state(paths["gate_state"], updated)
-    delete_payloads_from(paths["payloads_dir"], gate, GATE_ORDER)
-    r_closed = is_gate_closed(updated, "R")
-    if not r_closed:
-        raw = json.loads(paths["registers"].read_text(encoding="utf-8"))
-        stripped = strip_assumption_risk_fields(raw)
-        save_registers(paths["registers"], stripped, r_gate_closed=False)
-    return updated
+) -> int:
+    paths = _paths(project_root, cycle_id, stage, constraints_path=constraints_path)
+    try:
+        updated = _run_stale_from(paths, gate)
+    except (FileNotFoundError, ValueError) as exc:
+        return _emit_error(str(exc))
+
+    _emit({"ok": True, "gate": gate, "active_gate": updated["active_gate"]})
+    return 0
 
 
 def cmd_invalidate_from(
@@ -909,21 +932,11 @@ def cmd_invalidate_from(
     *,
     constraints_path: Path | None = None,
 ) -> int:
-    paths = _paths(project_root, cycle_id, stage, constraints_path=constraints_path)
-    try:
-        updated = _run_invalidate_from(
-            paths,
-            project_root,
-            cycle_id,
-            stage,
-            gate,
-            constraints_path=constraints_path,
-        )
-    except (FileNotFoundError, ValueError) as exc:
-        return _emit_error(str(exc))
-
-    _emit({"ok": True, "gate": gate, "active_gate": updated["active_gate"]})
-    return 0
+    """Removed CLI — kept for clear migration error."""
+    del project_root, cycle_id, stage, gate, constraints_path
+    return _emit_error(
+        "invalidate-from is removed; use stale-from or rs-commit (Realign stale sweep)"
+    )
 
 
 def cmd_rs_commit(
@@ -937,16 +950,11 @@ def cmd_rs_commit(
 ) -> int:
     paths = _paths(project_root, cycle_id, stage, constraints_path=constraints_path)
     try:
-        if gate not in RS_REOPEN_GATES:
-            return _emit_error(f"rs-commit gate must be one of {list(RS_REOPEN_GATES)}, got {gate!r}")
-        _run_invalidate_from(
-            paths,
-            project_root,
-            cycle_id,
-            stage,
-            gate,
-            constraints_path=constraints_path,
-        )
+        if gate not in RS_REALIGN_GATES:
+            return _emit_error(
+                f"rs-commit gate must be one of {list(RS_REALIGN_GATES)}, got {gate!r}"
+            )
+        _run_stale_from(paths, gate)
         _, applied = apply_register_batch_operations(paths, operations=operations)
     except (FileNotFoundError, ValueError) as exc:
         return _emit_error(str(exc))
@@ -1022,14 +1030,23 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     close.add_argument("--gate", required=True)
     close.add_argument("--payload", required=True, help="JSON payload string.")
 
-    invalidate = sub.add_parser("invalidate-from", help="Invalidate gate and downstream.")
+    stale = sub.add_parser(
+        "stale-from",
+        help="Mark align gate + reached downstream stale (keep payloads).",
+    )
+    stale.add_argument("--gate", required=True)
+
+    invalidate = sub.add_parser(
+        "invalidate-from",
+        help="Removed — use stale-from / rs-commit.",
+    )
     invalidate.add_argument("--gate", required=True)
 
     rs_commit = sub.add_parser(
         "rs-commit",
-        help="Atomic RS: invalidate-from + register batch + resolve-context.",
+        help="Atomic Realign: stale-from + register batch + resolve-context.",
     )
-    rs_commit.add_argument("--gate", required=True, help="Reopen gate (Q, E, D, or X).")
+    rs_commit.add_argument("--gate", required=True, help="Align gate (Q, E, D, or X).")
     rs_commit.add_argument(
         "--operations",
         required=True,
@@ -1091,6 +1108,14 @@ def main(argv: list[str] | None = None) -> int:
             stage,
             args.gate.strip(),
             payload,
+            constraints_path=constraints_path,
+        )
+    if args.command == "stale-from":
+        return cmd_stale_from(
+            project_root,
+            cycle_id,
+            stage,
+            args.gate.strip(),
             constraints_path=constraints_path,
         )
     if args.command == "invalidate-from":

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for RS reopen flow, R prior sign-off, and R rs exit."""
+"""Tests for RS realign (stale) flow, R prior sign-off, and R rs exit."""
 
 from __future__ import annotations
 
@@ -18,6 +18,7 @@ from dec_gate_control import (  # noqa: E402
     cmd_invalidate_from,
     cmd_init_session,
     cmd_rs_commit,
+    cmd_stale_from,
 )
 from dec_register_control import cmd_register_append, cmd_register_batch_apply  # noqa: E402
 from dec_workflow_common import gate_state_path, registers_path  # noqa: E402
@@ -143,7 +144,7 @@ def test_r_exit_rs_does_not_close_gate(template_config: Path, monkeypatch: pytes
             cycle_id,
             stage,
             "R",
-            {"exit": "rs", "reopen_gate": "D"},
+            {"exit": "rs", "realign_gate": "D"},
         )
         == 0
     )
@@ -155,7 +156,48 @@ def test_r_exit_rs_does_not_close_gate(template_config: Path, monkeypatch: pytes
     assert gate_state["gates"]["R"]["status"] == "active"
 
 
-def test_rs_invalidate_and_register_batch(template_config: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_r_exit_rs_accepts_legacy_reopen_gate_key(
+    template_config: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    project_root = template_config
+    cycle_id = "feature-rs-002b"
+    stage = "decision"
+    monkeypatch.chdir(project_root)
+
+    _close_through_d(project_root, cycle_id, stage)
+    cmd_gate_close(
+        project_root,
+        cycle_id,
+        stage,
+        "X",
+        {
+            "acceptance_criteria": "done",
+            "gap": "None",
+            "impact_surface": [],
+            "external_dependencies": [],
+            "key_changes": "k",
+            "critical_constraints": "c",
+            "reversibility": "easy",
+        },
+    )
+
+    capsys.readouterr()
+    assert (
+        cmd_gate_close(
+            project_root,
+            cycle_id,
+            stage,
+            "R",
+            {"exit": "rs", "reopen_gate": "D"},
+        )
+        == 0
+    )
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+    assert payload["realign_gate"] == "D"
+
+
+def test_stale_from_keeps_payloads(template_config: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     project_root = template_config
     cycle_id = "feature-rs-003"
     stage = "decision"
@@ -185,17 +227,20 @@ def test_rs_invalidate_and_register_batch(template_config: Path, monkeypatch: py
         },
     )
 
-    assert cmd_invalidate_from(project_root, cycle_id, stage, "D") == 0
+    assert cmd_stale_from(project_root, cycle_id, stage, "D") == 0
 
     gate_state = json.loads(
         (project_root / gate_state_path(cycle_id, stage)).read_text(encoding="utf-8")
     )
     assert gate_state["active_gate"] == "D"
-    assert gate_state["gates"]["D"]["status"] == "active"
-    assert gate_state["gates"]["X"]["status"] == "invalidated"
+    assert gate_state["gates"]["D"]["status"] == "stale"
+    assert gate_state["gates"]["X"]["status"] == "stale"
+    assert gate_state["gates"]["R"]["status"] == "stale"
+    # Never-reached pending left alone
+    assert gate_state["gates"]["V"]["status"] == "pending"
 
-    assert not gate_payload_exists(project_root, cycle_id, "D")
-    assert not gate_payload_exists(project_root, cycle_id, "X")
+    assert gate_payload_exists(project_root, cycle_id, "D")
+    assert gate_payload_exists(project_root, cycle_id, "X")
     assert gate_payload_exists(project_root, cycle_id, "E")
 
     assert (
@@ -216,7 +261,9 @@ def test_rs_invalidate_and_register_batch(template_config: Path, monkeypatch: py
     assert registers["assumptions"][0]["state"] == "pending"
 
 
-def test_rs_commit_atomic(template_config: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+def test_rs_commit_atomic_stale(
+    template_config: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     project_root = template_config
     cycle_id = "feature-rs-004"
     stage = "decision"
@@ -264,14 +311,14 @@ def test_rs_commit_atomic(template_config: Path, monkeypatch: pytest.MonkeyPatch
     assert payload["active_gate"] == "D"
     assert payload["applied"] == 1
     assert payload["registers"]["assumptions"][0]["state"] == "pending"
-    assert payload["gates"]["D"]["status"] == "active"
-    assert payload["gates"]["X"]["status"] == "invalidated"
+    assert payload["gates"]["D"]["status"] == "stale"
+    assert payload["gates"]["X"]["status"] == "stale"
 
-    assert not gate_payload_exists(project_root, cycle_id, "D")
-    assert not gate_payload_exists(project_root, cycle_id, "X")
+    assert gate_payload_exists(project_root, cycle_id, "D")
+    assert gate_payload_exists(project_root, cycle_id, "X")
 
 
-def test_invalidate_from_d_after_r_closed_strips_risk(
+def test_stale_from_d_after_r_closed_strips_risk(
     template_config: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -320,7 +367,7 @@ def test_invalidate_from_d_after_r_closed_strips_risk(
         == 0
     )
 
-    assert cmd_invalidate_from(project_root, cycle_id, stage, "D") == 0
+    assert cmd_stale_from(project_root, cycle_id, stage, "D") == 0
 
     registers = json.loads(
         (project_root / registers_path(cycle_id, stage)).read_text(encoding="utf-8")
@@ -331,3 +378,63 @@ def test_invalidate_from_d_after_r_closed_strips_risk(
 
     capsys.readouterr()
     assert cmd_register_commit(project_root, cycle_id, stage, operations=[]) == 0
+
+
+def test_gate_close_preserves_downstream_stale(
+    template_config: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project_root = template_config
+    cycle_id = "feature-rs-006"
+    stage = "decision"
+    monkeypatch.chdir(project_root)
+
+    _close_through_d(project_root, cycle_id, stage)
+    cmd_gate_close(
+        project_root,
+        cycle_id,
+        stage,
+        "X",
+        {
+            "acceptance_criteria": "Users export CSV",
+            "gap": "None",
+            "impact_surface": [],
+            "external_dependencies": [],
+            "key_changes": "Add endpoint",
+            "critical_constraints": "none",
+            "reversibility": "easy",
+        },
+    )
+    assert cmd_stale_from(project_root, cycle_id, stage, "D") == 0
+
+    assert (
+        cmd_gate_close(
+            project_root,
+            cycle_id,
+            stage,
+            "D",
+            {
+                "decision_rationale": "Chose A updated",
+                "applies_to": "export",
+                "excludes": "mobile",
+                "execution_approach": "backend first",
+            },
+        )
+        == 0
+    )
+
+    gate_state = json.loads(
+        (project_root / gate_state_path(cycle_id, stage)).read_text(encoding="utf-8")
+    )
+    assert gate_state["gates"]["D"]["status"] == "closed"
+    assert gate_state["active_gate"] == "X"
+    assert gate_state["gates"]["X"]["status"] == "stale"
+
+
+def test_invalidate_from_removed(template_config: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    project_root = template_config
+    cycle_id = "feature-rs-007"
+    stage = "decision"
+    monkeypatch.chdir(project_root)
+
+    _close_through_d(project_root, cycle_id, stage)
+    assert cmd_invalidate_from(project_root, cycle_id, stage, "D") == 1

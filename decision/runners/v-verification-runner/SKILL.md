@@ -27,14 +27,15 @@ Do NOT proceed until you have read `../../../_runtime.md`
 ## Pipeline
 
 1. `$GATE_CONTROL resolve-context` — pin `$CTX`
-2. Read and apply from `$CTX.domain_constraints` for all subsequent dialogue in this gate:
+2. If `$CTX.gates.V.status == stale`: follow `$SKILL_DIR/references/stale-gate-update.md` then return `GATE_COMPLETE V exit=<from payload>`
+3. Read and apply from `$CTX.domain_constraints` for all subsequent dialogue in this gate:
    - `objective` — session intent; frame the entire gate within this goal
    - `role.instruction` — persona and language stance
    - `domain.instruction` — domain boundary constraints
-3. For each assumption: assign Verification per risk (H → full format; M/L → `Accepted` after G8 batch confirm)
-4. Select exit with user: `rr` (high-risk or release-tracking items) or `dc` (all M/L accepted, no RR needed)
-5. `$GATE_CONTROL gate-close --gate V --payload '<json>'`
-6. Return `GATE_COMPLETE V exit=<rr|dc>`
+4. For each assumption: assign Verification per risk (H → full format; M/L → `Accepted` after G8 batch confirm)
+5. Select exit with user: `rr` (high-risk or release-tracking items) or `dc` (all M/L accepted, no RR needed)
+6. `$GATE_CONTROL gate-close --gate V --payload '<json>'`
+7. Return `GATE_COMPLETE V exit=<rr|dc>`
 
 ## gate-close payload
 

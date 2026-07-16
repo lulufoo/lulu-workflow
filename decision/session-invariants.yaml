@@ -2,12 +2,12 @@
 checks:
   - id: E_D_DIRECTION_MATCH
     description: "E gate 选定的方向与 D gate 的决策是否指向同一路径？"
-    reopen_gate: E
+    realign_gate: E
 
   - id: D_X_PHASE_ALIGN
     description: "D gate 执行方案的主要 Phase 在 X gate 验收标准里是否有对应？"
-    reopen_gate: D
+    realign_gate: D
 
   - id: GAP_ASSUMPTION_ALIGN
     description: "X gate 描述的 gap 是否与 registers 中 assumption 的验证结论矛盾？"
-    reopen_gate: X
+    realign_gate: X

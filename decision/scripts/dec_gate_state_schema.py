@@ -24,10 +24,14 @@ GATE_ORDER: tuple[str, ...] = (
 )
 LOOP_A: tuple[str, ...] = ("O", "Q", "E", "D", "X", "R")
 LOOP_B: tuple[str, ...] = ("V", "RR")
-RS_REOPEN_GATES: tuple[str, ...] = ("Q", "E", "D", "X")
-RS_INVALIDATE_GATES: frozenset[str] = frozenset({"Q", "E", "D", "X", "R"})
+# Align-from gates for Realign (formerly "reopen"); letter code RS = Realign State.
+RS_REALIGN_GATES: tuple[str, ...] = ("Q", "E", "D", "X")
+# Backward-compatible alias while callers migrate.
+RS_REOPEN_GATES: tuple[str, ...] = RS_REALIGN_GATES
 _LEGACY_GATE_IDS: dict[str, str] = {"open": "O"}
-GATE_STATUSES = frozenset({"pending", "active", "closed", "invalidated"})
+GATE_STATUSES = frozenset({"pending", "active", "closed", "stale", "invalidated"})
+# active_gate may be in progress (active) or awaiting Realign update (stale).
+_ACTIVE_GATE_STATUSES = frozenset({"active", "stale"})
 
 
 def _now_iso() -> str:
@@ -84,9 +88,10 @@ def validate_gate_state(data: dict[str, Any]) -> list[str]:
         if isinstance(active_entry, dict):
             active_status = str(active_entry.get("status", "")).lower()
             terminal_closed = active == "DC" and active_status == "closed"
-            if active_status != "active" and not terminal_closed:
+            if active_status not in _ACTIVE_GATE_STATUSES and not terminal_closed:
                 errors.append(
-                    f"active_gate {active!r} must have status active, got {active_status!r}"
+                    f"active_gate {active!r} must have status active or stale, "
+                    f"got {active_status!r}"
                 )
 
     return errors
@@ -181,6 +186,12 @@ def is_gate_closed(state: dict[str, Any], gate: str) -> bool:
     return str(entry.get("status", "")).lower() == "closed"
 
 
+def _focus_next_gate(gates: dict[str, dict[str, Any]], next_gate: str) -> None:
+    """Advance focus to next_gate without wiping an existing stale mark."""
+    if str(gates[next_gate].get("status", "")).lower() != "stale":
+        gates[next_gate]["status"] = "active"
+
+
 def close_gate(state: dict[str, Any], gate: str) -> dict[str, Any]:
     updated = normalize_gate_state(state)
     gates = updated["gates"]
@@ -189,7 +200,7 @@ def close_gate(state: dict[str, Any], gate: str) -> dict[str, Any]:
     idx = gate_index(gate)
     if idx + 1 < len(GATE_ORDER):
         next_gate = GATE_ORDER[idx + 1]
-        gates[next_gate]["status"] = "active"
+        _focus_next_gate(gates, next_gate)
         updated["active_gate"] = next_gate
     else:
         updated["active_gate"] = gate
@@ -202,7 +213,8 @@ def activate_gate(state: dict[str, Any], gate: str) -> dict[str, Any]:
     for g in GATE_ORDER:
         entry = updated["gates"][g]
         if g == gate:
-            entry["status"] = "active"
+            if str(entry.get("status", "")).lower() != "stale":
+                entry["status"] = "active"
         elif str(entry.get("status", "")).lower() == "active":
             entry["status"] = "closed" if g == "O" else "pending"
     updated["active_gate"] = gate
@@ -210,19 +222,36 @@ def activate_gate(state: dict[str, Any], gate: str) -> dict[str, Any]:
     return updated
 
 
-def invalidate_from_gate(state: dict[str, Any], gate: str) -> dict[str, Any]:
+def mark_stale_from_gate(state: dict[str, Any], gate: str) -> dict[str, Any]:
+    """Mark align gate G and reached downstream as stale; never-reached pending left alone.
+
+    Does not delete gate-payloads. Session Realign path is update-only.
+    """
+    if gate not in GATE_ORDER:
+        raise ValueError(f"invalid gate: {gate!r}")
     updated = normalize_gate_state(state)
     for g in downstream_gates(gate):
         entry = updated["gates"][g]
+        status = str(entry.get("status", "")).lower()
         if g == gate:
-            entry["status"] = "active"
-        else:
-            entry["status"] = "invalidated"
+            entry["status"] = "stale"
+            entry["closed_at"] = None
+            continue
+        if status == "pending":
+            continue
+        entry["status"] = "stale"
         entry["closed_at"] = None
     updated["active_gate"] = gate
     updated["skipped_gates"] = []
     updated["updated_at"] = _now_iso()
     return updated
+
+
+def invalidate_from_gate(state: dict[str, Any], gate: str) -> dict[str, Any]:
+    """Removed: session Realign no longer destroys downstream. Use mark_stale_from_gate."""
+    raise ValueError(
+        "invalidate_from_gate is removed; use mark_stale_from_gate / rs-commit (stale sweep)"
+    )
 
 
 def close_gate_r(state: dict[str, Any], *, exit_path: str) -> dict[str, Any]:
@@ -235,7 +264,7 @@ def close_gate_r(state: dict[str, Any], *, exit_path: str) -> dict[str, Any]:
         updated["gates"]["V"]["closed_at"] = None
         updated["gates"]["RR"]["status"] = "pending"
         updated["gates"]["RR"]["closed_at"] = None
-        updated["gates"]["DC"]["status"] = "active"
+        _focus_next_gate(updated["gates"], "DC")
         updated["active_gate"] = "DC"
         updated["skipped_gates"] = ["V", "RR"]
     else:
@@ -251,7 +280,7 @@ def close_gate_v(state: dict[str, Any], *, exit_path: str) -> dict[str, Any]:
     if exit_path == "dc":
         updated["gates"]["RR"]["status"] = "pending"
         updated["gates"]["RR"]["closed_at"] = None
-        updated["gates"]["DC"]["status"] = "active"
+        _focus_next_gate(updated["gates"], "DC")
         updated["active_gate"] = "DC"
         skipped = list(updated.get("skipped_gates") or [])
         if "RR" not in skipped:

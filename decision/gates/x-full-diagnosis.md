@@ -20,6 +20,6 @@
 
 **Additional pass criteria:**
 - Assumptions discovered here: load `$SKILL_DIR/runners/g0-parallel-registers-runner/SKILL.md` immediately (do not defer to R).
-- If Gap (if any) is non-empty: flag the gap explicitly; load `$SKILL_DIR/runners/rs-reopen-runner/SKILL.md` (re-open E or D as appropriate). Do not force-pass.
+- If Gap (if any) is non-empty: flag the gap explicitly; load `$SKILL_DIR/runners/rs-realign-runner/SKILL.md` (realign E or D as appropriate). Do not force-pass.
 
 > Dim 5 (Gap Check) does not produce a separate document section. Its result is written into `### 7.1 Acceptance Criteria > Gap (if any)` in the decision-doc.

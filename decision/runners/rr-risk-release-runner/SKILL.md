@@ -27,17 +27,21 @@ Do NOT proceed until you have read `../../../_runtime.md`
 ## Pipeline
 
 1. `$GATE_CONTROL resolve-context` — pin `$CTX`
-2. Read and apply from `$CTX.domain_constraints` for all subsequent dialogue in this gate:
+2. If `$CTX.gates.RR.status == stale`:
+   - Follow `$SKILL_DIR/references/stale-gate-update.md` steps 1–4 only (three-part update + G8 + `gate-close`; payload must include `exit`)
+   - Do **not** follow that file's step 5 return — go to step 7 below (same exit handoff as non-stale)
+3. Otherwise (not stale) — read and apply from `$CTX.domain_constraints` for all subsequent dialogue in this gate:
    - `objective` — session intent; frame the entire gate within this goal
    - `role.instruction` — persona and language stance
    - `domain.instruction` — domain boundary constraints
-3. For each RR-scope item: check Release condition vs verification result (G8 confirm per item)
-4. Select exit with user:
+4. For each RR-scope item: check Release condition vs verification result (G8 confirm per item)
+5. Select exit with user:
    - `dc` — all scope items released, no new pending from V/RR
    - `return_r` — all scope items released, new pending assumptions from V/RR
    - `human_decision` — any scope item still unreleased
-5. `$GATE_CONTROL gate-close --gate RR --payload '<json>'`
-6. Return `GATE_COMPLETE RR exit=<dc|return_r|human_decision>` or load Human Decision runner
+6. `$GATE_CONTROL gate-close --gate RR --payload '<json>'`
+7. On `exit=human_decision`: load `$SKILL_DIR/runners/hd-human-decision-runner/SKILL.md`
+8. Otherwise return `GATE_COMPLETE RR exit=<dc|return_r>`
 
 ## gate-close payload
 
@@ -55,4 +59,4 @@ Do NOT proceed until you have read `../../../_runtime.md`
 
 ## Exit
 
-`GATE_COMPLETE RR exit=dc|return_r` · `GATE_COMPLETE RR exit=human_decision` → `$SKILL_DIR/runners/hd-human-decision-runner/SKILL.md`
+`GATE_COMPLETE RR exit=dc|return_r` · `exit=human_decision` → `$SKILL_DIR/runners/hd-human-decision-runner/SKILL.md`

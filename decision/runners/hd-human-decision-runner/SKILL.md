@@ -31,7 +31,7 @@ Do NOT proceed until you have read `../../../_runtime.md`
    - `role.instruction` — persona and language stance
    - `domain.instruction` — domain boundary constraints
 3. Present failure context; user selects exit (G8):
-   - **Upstream wrong** → identify reopen gate → load `$SKILL_DIR/runners/rs-reopen-runner/SKILL.md`
+   - **Upstream wrong** → identify align gate → load `$SKILL_DIR/runners/rs-realign-runner/SKILL.md`
    - **No solution** → output Unable to Decide (directions ≥2, stuck gate, unlock condition); session incomplete
 4. Return `HD_COMPLETE exit=rs|unable` or hand off to RS runner
 

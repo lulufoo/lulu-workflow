@@ -28,13 +28,14 @@ Do NOT proceed until you have read `../../../_runtime.md`
 ## Pipeline
 
 1. `$GATE_CONTROL resolve-context` — pin stdout JSON as `$CTX`
-2. Read and apply from `$CTX.domain_constraints` for all subsequent dialogue in this gate:
+2. If `$CTX.gates.Q.status == stale`: follow `$SKILL_DIR/references/stale-gate-update.md` then return `GATE_COMPLETE Q` (skip steps 3–4 normal dialogue)
+3. Read and apply from `$CTX.domain_constraints` for all subsequent dialogue in this gate:
    - `objective` — session intent; frame the entire gate within this goal
    - `role.instruction` — persona and language stance
    - `domain.instruction` — domain boundary constraints
-3. Execute Q gate dialogue (G1/G7/G8; on identification hit → G0 runner → `G0_COMPLETE` → continue)
-4. After user confirms problem + constraints: `$GATE_CONTROL gate-close --gate Q --payload '<json>'`
-5. Return `GATE_COMPLETE Q` to parent
+4. Execute Q gate dialogue (G1/G7/G8; on identification hit → G0 runner → `G0_COMPLETE` → continue; on G9 hit → RS runner)
+5. After user confirms problem + constraints: `$GATE_CONTROL gate-close --gate Q --payload '<json>'`
+6. Return `GATE_COMPLETE Q` to parent
 
 ## gate-close payload
 

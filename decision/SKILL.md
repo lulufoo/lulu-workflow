@@ -74,19 +74,20 @@ SSOT for conversation → cycle mapping: platform `active-context.json`. Does **
 **Global gates (non-spine):**
 
 - **G0 · Parallel Registers** — entire session · parallel on hit · spine uninterrupted (see § Gate routing · G0).
-- **RS · Reopen State Handler** — any gate on invalidation · not parallel · LoopA re-entry (see § Gate routing · RS).
+- **G9 · Upstream-change detect** — any turn · not parallel · on hit load RS (no dedicated G9 runner).
+- **RS · Realign State Handler** — upstream change needs downstream sync · not parallel · LoopA re-entry at align gate `G` (see § Gate routing · RS).
 
 **Spine:** [LoopA] O → Q → E → D → X → R → ([LoopB] V → RR if needed) → DC → `$GATE_CONTROL deliver`.
 
-**Phase grouping** (invalidate scope):
-- [LoopA] O → Q → E → D → X → R — decision construction (reopen at Q / E / D / X)
+**Phase grouping** (realign scope):
+- [LoopA] O → Q → E → D → X → R — decision construction (realign at Q / E / D / X)
 - [LoopB] V → RR — verification release (upstream wrong → RS, not Loop B re-entry)
 - [HD] Human Decision — RR exit `human_decision` (see § Gate routing · HD)
 - [DC] Delivery Confirmation — terminal gate
 
 ### Gate handoff
 
-After a spine runner returns `GATE_COMPLETE`, load the next spine runner per § Gate routing; its pipeline step 1 pins fresh `$CTX`. After `G0_COMPLETE`, resume the active gate dialogue. After `RS_COMPLETE`, load gate `G` runner per § Gate routing.
+After a spine runner returns `GATE_COMPLETE`, load the next spine runner per § Gate routing; its pipeline step 1 pins fresh `$CTX`. After `G0_COMPLETE`, resume the active gate dialogue. After `RS_COMPLETE`, load gate `G` runner per § Gate routing (`gates.G.status` is `stale` → follow `$SKILL_DIR/references/stale-gate-update.md`).
 
 ### Gate routing
 
@@ -94,7 +95,7 @@ After a spine runner returns `GATE_COMPLETE`, load the next spine runner per § 
 Before executing any gate, read the corresponding runner SKILL first.
 Every spine gate runner pipeline step 1 (`$GATE_CONTROL resolve-context`) is mandatory — it pins `$CTX` for that gate. Do not skip it or rely on memory.
 On G0 identification hit during spine or RS subroutine dialogue: load G0 runner before the next user-visible reply; after `G0_COMPLETE`, resume the active gate dialogue.
-On invalidation trigger: do not `gate-close`; load RS runner before `$RS_COMMIT`; after `RS_COMPLETE`, load gate `G` runner per this table.
+On G9 hit (any turn: information revises or contradicts a closed gate): do not advance past the hit; load RS runner before `$RS_COMMIT`; after `RS_COMPLETE`, load gate `G` runner per this table.
 Do NOT rely on memory or prior context for gate execution steps.
 </HARD-GATE>
 
@@ -103,7 +104,8 @@ Global gates:
 | Gate | File | Load condition |
 |------|------|----------------|
 | **G0** | `$SKILL_DIR/runners/g0-parallel-registers-runner/SKILL.md` | Identification hit · **parallel** |
-| **RS** | `$SKILL_DIR/runners/rs-reopen-runner/SKILL.md` | Invalidation · **not parallel** |
+| **G9** | _(no runner)_ → load **RS** | Any turn: revise/contradict a closed gate · **not parallel** |
+| **RS** | `$SKILL_DIR/runners/rs-realign-runner/SKILL.md` | Upstream change → realign · **not parallel** |
 
 Spine gates:
 
@@ -120,7 +122,7 @@ Spine gates:
 | DC | `$SKILL_DIR/runners/dc-delivery-runner/SKILL.md` | R exit `dc` or verification complete |
 | Human Decision | `$SKILL_DIR/runners/hd-human-decision-runner/SKILL.md` | RR exit `human_decision` |
 
-Gate contracts (dialogue semantics): `$SKILL_DIR/gates/*.md` — each spine/global runner names its contract in Prerequisites; Gate Routing loads runners only, not gate files directly. Global: `g0-parallel-registers.md` · `rs-reopen-state-handler.md`.
+Gate contracts (dialogue semantics): `$SKILL_DIR/gates/*.md` — each spine/global runner names its contract in Prerequisites; Gate Routing loads runners only, not gate files directly. Global: `g0-parallel-registers.md` · `rs-realign-state-handler.md`. Stale entry: `$SKILL_DIR/references/stale-gate-update.md`.
 
 ---
 
@@ -147,7 +149,7 @@ Render:
 - Completion criteria as the user's needed answer or confirmation
 - Remaining internal steps as remaining work, not as internal labels
 
-Apply this projection at stage start, gate handoff, gate questions, confirmation prompts, blocked/override/incomplete/invalidation messages, and delivery messages.
+Apply this projection at stage start, gate handoff, gate questions, confirmation prompts, blocked/override/incomplete/realign messages, and delivery messages.
 
 Do not persist generated display text. `$CTX`, gate contracts, and control command stdout remain the state sources.
 
@@ -189,7 +191,7 @@ If user confirms exit → exit gracefully; mark as incomplete.
 
 **G8. Gate close** — User must confirm explicitly; then `$GATE_CONTROL gate-close`. Conversation-only close does not count.
 
-**G9. Reopen check at gate close** — before closing any gate, check: does the evidence gathered in this gate invalidate any prior gate's pass criterion? If yes, do not close current gate; load RS runner per § Gate routing · RS.
+**G9. Upstream-change detect (global · any turn)** — on any user turn, if information revises or contradicts a **closed** gate's conclusion (pass criterion broken **or** context update), do not ignore it: load RS runner per § Gate routing · G9 → RS. Prefer earliest hit among Q / E / D / X. Not a per-turn full scan — identification-hit style (same family as G0). No dedicated G9 runner.
 
 ---
 

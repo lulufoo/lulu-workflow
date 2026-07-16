@@ -1,14 +1,15 @@
 ---
-name: decision/rs-reopen-runner
+name: decision/rs-realign-runner
 description: >-
-  RS global gate for decision. Reopen and invalidation when a prior gate's pass
-  criterion fails. Not parallel; load before $RS_COMMIT. Invoked by decision/SKILL.md Gate routing.
+  RS global gate for decision. Realign State Handler when upstream change
+  requires downstream sync. Not parallel; load before $RS_COMMIT. Invoked by
+  decision/SKILL.md Gate routing.
 meta-skill-version: 1.0.0
 ---
 
-# rs-reopen-runner
+# rs-realign-runner
 
-Execute **RS — Reopen State Handler** (global · not parallel). Dialogue per gate contract; persistence via `$RS_COMMIT`.
+Execute **RS — Realign State Handler** (global · not parallel). Dialogue per gate contract; persistence via `$RS_COMMIT` (stale sweep · no payload delete).
 
 ## Blocking policy
 
@@ -16,26 +17,26 @@ Control CLI non-zero → stop, report error, wait for user direction.
 
 ## Global · not parallel
 
-Runs on invalidation trigger during any gate. No `gate-close` until `RS_COMPLETE`. After success, re-enter LoopA at reopen gate `G` (Q / E / D / X), not V / RR.
+Runs on upstream-change hit during any gate. No spine `gate-close` until `RS_COMPLETE`. After success, re-enter LoopA at align gate `G` (Q / E / D / X), not V / RR.
 
 ## When to load
 
 Load this runner before `$RS_COMMIT` when:
 
-- Prior gate pass criterion no longer holds — any participant, any gate (not only V).
-- **G9:** evidence in current gate invalidates a prior gate → do not `gate-close`; load RS runner.
+- **G9:** any turn — information revises or contradicts a closed gate's conclusion → do not `gate-close` the current gate if blocked; load RS runner.
+- Prior gate pass criterion no longer holds.
 - Loop B upstream wrong → RS (not Loop B re-entry).
 - **R** exit `rs` · **DC** user flags item · **Human Decision** upstream wrong.
 
-Propose reopen gate `G` (Q / E / D / X); G8 before `$RS_COMMIT`.
+Propose align gate `G` (Q / E / D / X); default earliest hit on the spine; G8 before `$RS_COMMIT`.
 
-**Prohibited:** manually invalidate gates, edit gate-state, or enumerate downstream gates.
+**Prohibited:** manually edit gate-state, delete payloads, call `invalidate-from`, or enumerate downstream gates outside `$RS_COMMIT`.
 
 **Not RS:** Loop B-only assumptions while Loop A holds → RR `return_r` to R.
 
 ## Consequences (script SSOT)
 
-- Gate + payload invalidation: **`$GATE_CONTROL` only** (DAG scope; deletes downstream `gate-payloads/*.json`, strips risk when R reopens).
+- Gate stale sweep: **`$GATE_CONTROL` only** (`rs-commit` / `stale-from` — marks `G` + reached downstream `stale`; **keeps** `gate-payloads`; strips risk when R is no longer closed).
 - Registers: **not** auto-modified — `$RS_COMMIT` only.
 
 ## Prerequisites
@@ -44,8 +45,8 @@ Propose reopen gate `G` (Q / E / D / X); G8 before `$RS_COMMIT`.
 Do NOT proceed until you have read `../../../_runtime.md`
 </HARD-GATE>
 
-- Gate contract: `$SKILL_DIR/gates/rs-reopen-state-handler.md`
-- Reopen gate `G` identified (Q / E / D / X) — from trigger context or user
+- Gate contract: `$SKILL_DIR/gates/rs-realign-state-handler.md`
+- Align gate `G` identified (Q / E / D / X) — from trigger context or user
 
 ## Pipeline
 
@@ -54,16 +55,16 @@ Do NOT proceed until you have read `../../../_runtime.md`
    - `objective` — session intent; frame the entire gate within this goal
    - `role.instruction` — persona and language stance
    - `domain.instruction` — domain boundary constraints
-3. Confirm reopen gate `G` with user (G8)
+3. Confirm align gate `G` with user (G8)
 4. Propose 3-state labeling for all register entries per gate contract Step 3; user confirms (G8)
 5. `$RS_COMMIT` with `--gate <G>` and `--operations '<json array>'` (use `[]` if no register changes)
 6. Pin `$CTX` from stdout (`reenter`, `gates`, `registers`, `domain_constraints`)
-7. Return `RS_COMPLETE reenter=<G>` — load gate `G` runner via kernel § Gate routing
+7. Return `RS_COMPLETE reenter=<G>` — load gate `G` runner via kernel § Gate routing (`gates.G.status` is `stale`)
 
 <HARD-GATE name="RS commit">
 - Do **not** call `$RS_COMMIT` before G8 confirms `G` and register operations.
 - Non-zero exit → stop RS, report stderr, wait for user direction.
-- After success, read `reenter`, `gates`, `registers` from stdout only — do not chain `invalidate-from` / `register-batch-apply` / `sync-registers-to-doc` separately for RS.
+- After success, read `reenter`, `gates`, `registers` from stdout only — do not chain `stale-from` / `register-batch-apply` / `sync-registers-to-doc` separately for RS.
 </HARD-GATE>
 
 ## `$RS_COMMIT`

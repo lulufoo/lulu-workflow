@@ -26,19 +26,22 @@ Do NOT proceed until you have read `../../../_runtime.md`
 ## Pipeline
 
 1. `$GATE_CONTROL resolve-context` — pin `$CTX`
-2. Read and apply from `$CTX.domain_constraints` for all subsequent dialogue in this gate:
+2. If `$CTX.gates.R.status == stale`:
+   - Follow `$SKILL_DIR/references/stale-gate-update.md` steps 1–4 only (three-part update + G8 + `gate-close`; payload must include `exit`, and `realign_gate` when `exit=rs`)
+   - Do **not** follow that file's step 5 return — go to step 8 below (same exit handoff as non-stale)
+3. Otherwise (not stale) — read and apply from `$CTX.domain_constraints` for all subsequent dialogue in this gate:
    - `objective` — session intent; frame the entire gate within this goal
    - `role.instruction` — persona and language stance
    - `domain.instruction` — domain boundary constraints
-3. Gate contract § Before entering — prior sign-off, then assumption coverage (G8)
-4. Gate contract § Execute — risk + consequence (G8 confirm)
-5. Select exit with user:
-   - `rs` — known failure → RS runner (identify `reopen_gate`)
+4. Gate contract § Before entering — prior sign-off, then assumption coverage (G8)
+5. Gate contract § Execute — risk + consequence (G8 confirm)
+6. Select exit with user:
+   - `rs` — known failure → RS runner (identify `realign_gate`)
    - `loop_b` — uncertain assumptions → V
    - `dc` — all resolved → skip V/RR
-6. `$GATE_CONTROL gate-close --gate R --payload '<json>'`
-7. On `exit=rs`: load `$SKILL_DIR/runners/rs-reopen-runner/SKILL.md` with `reopen_gate`
-8. Otherwise return `GATE_COMPLETE R exit=<loop_b|dc>`
+7. `$GATE_CONTROL gate-close --gate R --payload '<json>'`
+8. On `exit=rs`: load `$SKILL_DIR/runners/rs-realign-runner/SKILL.md` with `realign_gate`
+9. Otherwise return `GATE_COMPLETE R exit=<loop_b|dc>`
 
 ## gate-close payload
 
@@ -57,7 +60,7 @@ RS exit:
 ```json
 {
   "exit": "rs",
-  "reopen_gate": "D",
+  "realign_gate": "D",
   "assumptions": [{"id": "A1", "risk": "H", "consequence": "..."}]
 }
 ```
@@ -67,4 +70,4 @@ RS exit:
 
 ## Exit
 
-`GATE_COMPLETE R exit=loop_b|dc` · `GATE_COMPLETE R exit=rs reopen_gate=<G>` → RS runner
+`GATE_COMPLETE R exit=loop_b|dc` · `GATE_COMPLETE R exit=rs realign_gate=<G>` → RS runner

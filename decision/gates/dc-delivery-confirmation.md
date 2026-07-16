@@ -36,8 +36,8 @@ After structural audit and AI review pass, and after render:
    - Decision Rationale
    - Scope (including explicit exclusions)
    - Assumptions & Risks (all items with risk levels and Verification content)
-2. Ask user: "Are these decisions correct? Any items to re-open?"
-3. If any item is flagged: load `$SKILL_DIR/runners/rs-reopen-runner/SKILL.md` on the corresponding gate; re-close all invalidated gates before proceeding.
+2. Ask user: "Are these decisions correct? Any items to realign?"
+3. If any item is flagged: load `$SKILL_DIR/runners/rs-realign-runner/SKILL.md` on the corresponding gate; update all `stale` gates before proceeding.
    > **DC-triggered RS baseline:** when RS is triggered from DC, pin fresh `$CTX` via `resolve-context` after any sync — do not reconstruct state from conversation memory alone.
 4. Only after user's explicit confirmation:
 

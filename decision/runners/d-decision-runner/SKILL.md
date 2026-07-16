@@ -26,14 +26,15 @@ Do NOT proceed until you have read `../../../_runtime.md`
 ## Pipeline
 
 1. `$GATE_CONTROL resolve-context` — pin `$CTX`
-2. Read and apply from `$CTX.domain_constraints` for all subsequent dialogue in this gate:
+2. If `$CTX.gates.D.status == stale`: follow `$SKILL_DIR/references/stale-gate-update.md` then return `GATE_COMPLETE D`
+3. Read and apply from `$CTX.domain_constraints` for all subsequent dialogue in this gate:
    - `objective` — session intent; frame the entire gate within this goal
    - `role.instruction` — persona and language stance
    - `domain.instruction` — domain boundary constraints
-3. Gate contract § Before entering — do not start D dialogue until complete
-4. Execute D gate (G1/G7/G8; on identification hit → G0 runner → `G0_COMPLETE` → continue)
-5. `$GATE_CONTROL gate-close --gate D --payload '<json>'`
-6. Return `GATE_COMPLETE D`
+4. Gate contract § Before entering — do not start D dialogue until complete
+5. Execute D gate (G1/G7/G8; on identification hit → G0 runner → `G0_COMPLETE` → continue; on G9 hit → RS runner)
+6. `$GATE_CONTROL gate-close --gate D --payload '<json>'`
+7. Return `GATE_COMPLETE D`
 
 ## gate-close payload
 

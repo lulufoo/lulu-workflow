@@ -17,8 +17,8 @@ from dec_decision_doc_schema import load_decision_doc  # noqa: E402
 from dec_gate_control import (  # noqa: E402
     cmd_gate_close,
     cmd_init_session,
-    cmd_invalidate_from,
     cmd_resolve_context,
+    cmd_stale_from,
 )
 from dec_register_control import cmd_register_append  # noqa: E402
 from dec_workflow_common import decision_doc_path, gate_state_path, registers_path  # noqa: E402
@@ -131,7 +131,9 @@ def test_init_and_q_e_gate_close(template_config: Path, monkeypatch: pytest.Monk
     assert gate_state["active_gate"] == "D"
 
 
-def test_invalidate_from_e_resets_downstream(template_config: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_stale_from_e_marks_reached_downstream(
+    template_config: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     project_root = template_config
     cycle_id = "feature-test-002"
     stage = "decision"
@@ -162,20 +164,22 @@ def test_invalidate_from_e_resets_downstream(template_config: Path, monkeypatch:
         },
     )
 
-    assert cmd_invalidate_from(project_root, cycle_id, stage, "E") == 0
+    assert cmd_stale_from(project_root, cycle_id, stage, "E") == 0
 
-    assert not gate_payload_exists(project_root, cycle_id, "E")
+    assert gate_payload_exists(project_root, cycle_id, "E")
     assert gate_payload_exists(project_root, cycle_id, "Q")
 
     gate_state = json.loads(
         (project_root / gate_state_path(cycle_id, stage)).read_text(encoding="utf-8")
     )
     assert gate_state["active_gate"] == "E"
-    assert gate_state["gates"]["E"]["status"] == "active"
-    assert gate_state["gates"]["D"]["status"] == "invalidated"
+    assert gate_state["gates"]["E"]["status"] == "stale"
+    # D was active (reached) → stale; never-reached X stays pending
+    assert gate_state["gates"]["D"]["status"] == "stale"
+    assert gate_state["gates"]["X"]["status"] == "pending"
 
 
-def test_invalidate_from_q_clears_direction_section(
+def test_stale_from_q_keeps_payloads(
     template_config: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     project_root = template_config
@@ -208,11 +212,18 @@ def test_invalidate_from_q_clears_direction_section(
         },
     )
 
-    assert cmd_invalidate_from(project_root, cycle_id, stage, "Q") == 0
+    assert cmd_stale_from(project_root, cycle_id, stage, "Q") == 0
 
-    assert not gate_payload_exists(project_root, cycle_id, "Q")
-    assert not gate_payload_exists(project_root, cycle_id, "E")
-    assert list_gate_payloads(project_root, cycle_id) == ["O"]
+    assert gate_payload_exists(project_root, cycle_id, "Q")
+    assert gate_payload_exists(project_root, cycle_id, "E")
+    assert set(list_gate_payloads(project_root, cycle_id)) >= {"O", "Q", "E"}
+
+    gate_state = json.loads(
+        (project_root / gate_state_path(cycle_id, stage)).read_text(encoding="utf-8")
+    )
+    assert gate_state["active_gate"] == "Q"
+    assert gate_state["gates"]["Q"]["status"] == "stale"
+    assert gate_state["gates"]["E"]["status"] == "stale"
 
 
 def test_gate_close_e_rejects_four_directions(
