@@ -401,6 +401,69 @@ def test_skip_and_list_sections(tmp_path):
     assert payload["sections"]["ST"]["status"] == "skipped"
 
 
+def test_full_section_order_allows_former_peel_seed(tmp_path):
+    """Init with registry-wide order → former peel key (CTX) is writable."""
+    order = "CTX,GO,SC,NG,I,ST,KD,IF,OQ,VD,OD"
+    code, payload = _run(tmp_path, "init-pointer", "--sections", order, "--mandatory", "")
+    assert code == 0, payload
+    code, payload = _run(tmp_path, "activate-section", "--section", "CTX")
+    assert code == 0, payload
+    code, payload = _run(
+        tmp_path,
+        "seed-decision",
+        "--section",
+        "CTX",
+        "--lens-tags",
+        "CTX",
+        "--text",
+        "trigger and impact from upstream",
+    )
+    assert code == 0, payload
+    assert payload["id"] == "F-1"
+    facts = json.loads((tmp_path / "_facts.json").read_text(encoding="utf-8"))
+    assert facts[0]["lens_tags"] == ["CTX"]
+
+
+def test_skip_requires_activate_first(tmp_path):
+    """Focus guard: skip without activate fails. Use optional-style key OQ for positive skip."""
+    code, payload = _run(tmp_path, "init-pointer", "--sections", "OQ,I", "--mandatory", "")
+    assert code == 0, payload
+    code, payload = _run(
+        tmp_path, "skip-section", "--section", "OQ", "--reason", "no upstream substance"
+    )
+    assert code == 1 and not payload["ok"]
+    assert "focus guard" in payload["error"]
+    code, payload = _run(tmp_path, "activate-section", "--section", "OQ")
+    assert code == 0, payload
+    code, payload = _run(
+        tmp_path, "skip-section", "--section", "OQ", "--reason", "no upstream substance"
+    )
+    assert code == 0, payload
+    code, payload = _run(tmp_path, "activate-section", "--section", "I")
+    assert code == 0, payload
+    _run(tmp_path, "seed-decision", "--section", "I", "--lens-tags", "I", "--text", "body")
+    _run(tmp_path, "set-frontier", "--section", "I", "--kw", str(FRONTIER_TARGET_DEFAULT))
+    _run(tmp_path, "clear-section", "--section", "I")
+    code, payload = _run(tmp_path, "check-coverage")
+    assert code == 0, payload
+    assert payload.get("ok") is True
+
+
+def test_required_lens_left_active_is_not_skipped_after_seed_path(tmp_path):
+    """Agent contract: required/default lens with no skip stays non-skipped (Exit not fake-closed)."""
+    code, payload = _run(tmp_path, "init-pointer", "--sections", "CTX,I", "--mandatory", "")
+    assert code == 0, payload
+    code, payload = _run(tmp_path, "activate-section", "--section", "CTX")
+    assert code == 0, payload
+    # No skip: required lens left active for G3 (SKILL discipline; CLI does not enforce presence).
+    code, status = _run(tmp_path, "status")
+    assert code == 0, status
+    assert status["sections"]["CTX"] == "active"
+    code, payload = _run(tmp_path, "check-coverage")
+    assert code == 1
+    assert any("CTX" in e for e in payload.get("errors", []))
+
+
 def test_add_open_requires_trigger_and_means(tmp_path):
     _seed(tmp_path, active="ST")
     code, payload = _run(

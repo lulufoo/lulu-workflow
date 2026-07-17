@@ -6,7 +6,7 @@
 
 **Goal:** refine section SoT toward Exit. This file orchestrates **when** each capability is used; **what** each capability is (means / tools / provenance) lives in `../references/g3-capabilities.md`; **how** it sounds to the user follows `../references/inductive-presentation.md`. **Do not** auto-sweep after Shape-confirm — wait for the user.
 
-**Setup:** breadth = `SCAN_CRITERIA.expose_axis.coverage_sections`; depth = per-section `frontier_kw` (the ruler). Mutations via `$INDUCTIVE_G3_SECTION_CTL` only after `activate-section`.
+**Setup:** breadth = `section-registry.section_order` (init lens set); depth = per-section `frontier_kw` (the ruler). Mutations via `$INDUCTIVE_G3_SECTION_CTL` only after `activate-section`.
 
 **Norm precondition:** if `$NORM_CONSTRAINT_REFS` non-empty, hold as generation boundary (not a gate). Empty → inert.
 
@@ -37,7 +37,7 @@ Entered when the user chooses to process — a single open or a batch. Opens may
 
 ## Maturity
 
-Gates Lane A's Exit check (`check-coverage` requires every coverage section cleared∨skipped):
+Gates Lane A's Exit check (`check-coverage` requires every **init** lens cleared∨skipped):
 
 - `clear-section` when frontier ≥ target and no blocking open.
 - `skip-section` / `rewind-section` as needed via section-control.

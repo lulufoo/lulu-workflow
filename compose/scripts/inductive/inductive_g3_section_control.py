@@ -1083,7 +1083,11 @@ def _build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="subcommand", required=True)
 
     p = sub.add_parser("init-pointer", help="Seed section pointer + _index.json")
-    p.add_argument("--sections", required=True, help="Comma-separated coverage_sections")
+    p.add_argument(
+        "--sections",
+        required=True,
+        help="Comma-separated section-registry section_order (init/Exit lens set)",
+    )
     p.add_argument("--mandatory", default="", help="Comma-separated mandatory section keys")
     p.add_argument("--cycle-id", default="", help="Cycle id for traceability")
     p.add_argument("--profile", default="", help="Compose profile id (stored on _index)")

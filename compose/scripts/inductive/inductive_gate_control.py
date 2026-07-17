@@ -641,7 +641,11 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Seed gate state + section pointer",
         parents=[conv_id_parent],
     )
-    p.add_argument("--sections", required=True, help="Comma-separated coverage_sections")
+    p.add_argument(
+        "--sections",
+        required=True,
+        help="Comma-separated section-registry section_order (init/Exit lens set)",
+    )
     p.add_argument("--mandatory", default="", help="Comma-separated mandatory section keys")
     p.add_argument("--cycle-id", default="", help="Cycle id for traceability")
     p.add_argument("--stage", default="", help="Compose stage id (e.g. lulu-design); stored as _index.profile")

@@ -8,13 +8,14 @@
 
 **Order (hard):** Seed **before** first shape view. Do not synthesize a shape view from `$SCOPE_DOC` alone as a substitute for Seed.
 
-1. **Session init (once):** `$INDUCTIVE_GATE_CTL init-session --sections <coverage_sections CSV> --mandatory <mandatory CSV> --cycle-id <cycle_id> --stage <compose stage> --scope-ref "$SCOPE_DOC"` (skip if resuming). Forwards profile/scope_ref onto `_index.json`.
-2. **Seed (if not done):** For each mapped section that receives scope substance:
-   1. `$INDUCTIVE_G3_SECTION_CTL activate-section --section <S>` (focus guard — required before maturity writes)
-   2. `$INDUCTIVE_G3_SECTION_CTL seed-decision --section <S> --lens-tags <S> --kw <N> --text …`  
-      (`--lens-tags` required; usually the section key itself, comma-separated for multi-lens seed facts; writes `_facts.json` with `origin.type=seed` — not section `decisions[]`)
-   3. AI re-judges KW maturity for that section → `$INDUCTIVE_G3_SECTION_CTL set-frontier --section <S> --kw <N>` (only when facts for that lens change)
-   Use `section-registry` mapping (structural→ST, boundary→SC, goals→GO, invariants→I, …). **I4:** do not invent beyond the scope. Prefer a git commit `"seeded"`.
+1. **Session init (once):** `$INDUCTIVE_GATE_CTL init-session --sections <SECTION_REGISTRY.section_order as CSV> --mandatory <mandatory CSV> --cycle-id <cycle_id> --stage <compose stage> --scope-ref "$SCOPE_DOC"` (skip if resuming). Forwards profile/scope_ref onto `_index.json`.
+2. **Seed (if not done):** For each key `S` in `SECTION_REGISTRY.section_order`:
+   1. `$INDUCTIVE_G3_SECTION_CTL activate-section --section <S>`
+   2. **Has upstream substance** iff `$SCOPE_DOC` has an excerpt that `section-registry` maps into `S` and that excerpt is usable under **I4** (no invention).
+      - If yes: `$INDUCTIVE_G3_SECTION_CTL seed-decision --section <S> --lens-tags <S> --text …` → re-judge KW → `$INDUCTIVE_G3_SECTION_CTL set-frontier --section <S> --kw <N>` (`--kw` on seed is optional hint; writes `_facts.json` with `origin.type=seed`).
+      - If no and `SECTION_REGISTRY.sections[S].presence` is `optional`: `$INDUCTIVE_G3_SECTION_CTL skip-section --section <S> --reason "no upstream substance"`.
+      - If no and presence is `required` (default): do **not** skip; leave active for G3 discovery / later clear.
+   Mapping: structural→ST, boundary→SC, goals→GO, invariants→I, …. Prefer a git commit `"seeded"`. Former peel keys are first-class init lenses (peel retired for this runner).
 3. **Present shape view:** `$INDUCTIVE_G3_SECTION_CTL view --synthesis on --scope all --granularity <arch-overview hint>` (e.g. default perspective from `SCAN_CRITERIA.shape_extraction` — **hint only**, not a shape schema; V3). Content must come from facts + maturity SoT; gaps stay gaps (V2). Coarse altitude only — no file:line in the overview (I7).
 4. **User confirms or corrects.** Corrections → `activate-section` + `seed-decision` / `update-decision` / `add-open` → re-`set-frontier` if lens facts changed → re-`view` until confirmed.
 5. **Close:** `$INDUCTIVE_GATE_CTL gate-close --gate G1 --payload '{"user_confirmed": true}'`  

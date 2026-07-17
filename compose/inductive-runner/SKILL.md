@@ -19,7 +19,7 @@ Produces **three stores** under the active revision dir (`$INDUCTIVE_OUT_DIR`):
 
 Compose Initializing reads **`_facts.json`** directly (validate-only). After completion, control returns to the parent compose stage for Initializing.
 
-This runner is **stage-agnostic**: `coverage_sections`, section weights, and discovery `methods` are profile data fetched as `inductive-scan-criteria`.
+This runner is **stage-agnostic**: init/Exit lens set = `section-registry.section_order`; discovery `methods` / weights / shape hints / `mandatory_coverage_prompt` = `inductive-scan-criteria`.
 
 ---
 
@@ -65,7 +65,7 @@ PROVENANCE_TRACES     = $INDUCTIVE_OUT_DIR/provenance-trace-{intent,scope,norm}.
 | `$PROVENANCE_GATE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/provenance_gate_control.py" --out-dir "$INDUCTIVE_OUT_DIR"` |
 
 Fetch schedule:
-- **Before Seed / Shape-confirm:** `$FETCH_COMPOSE --role inductive-scan-criteria` → `SCAN_CRITERIA`; `$FETCH_COMPOSE --role section-registry` (map scope statements → sections)
+- **Before Seed / Shape-confirm:** `$FETCH_COMPOSE --role section-registry` → `SECTION_REGISTRY` (`section_order` → `init-session --sections`); `$FETCH_COMPOSE --role inductive-scan-criteria` → `SCAN_CRITERIA` (methods / shape hints / mandatory)
 - **Before detect / refine:** `$FETCH_COMPOSE --role section-form-registry`; `$FETCH_COMPOSE --role section-kw-criteria` → `KW_CRITERIA`
 
 **Primary CRUD (K4 triple store):** `seed-decision` (→ facts), `add-open` / `update-open` / `settle-open` / `defer-open` / `reject-open` (→ opens), `update-decision` (→ fact `F-n`), `attach-code-refs` (`O-` only), `get-section`, `view --synthesis off|on`, `checkpoint --name shape`, `set-frontier`, `activate-section`, `clear-section`, `skip-section`, `rewind-section`, `check-coverage`. See `$INDUCTIVE_G3_SECTION_CTL --help`.
@@ -80,11 +80,11 @@ Inductive work discovers missing design decisions (parts → whole). **SoT = fac
 
 ### Control spine
 
-1. **Seed** — For each mapped section: `activate-section` → `seed-decision --section <S> --lens-tags <S> --text …` (`origin.type=seed` on `_facts.json`) → AI re-judges KW → `set-frontier`. Registry maps structural → ST, boundary → SC, goals → GO, invariants → I, etc. **I4:** never invent beyond scope. Git commit `"seeded"`.
+1. **Seed** — Init from `SECTION_REGISTRY.section_order` (`gates/g1-shape.md`). Per lens: `activate-section` → substance? `seed-decision`+`set-frontier` : (`optional` → `skip-section` / `required` → leave for G3). **I4:** never invent beyond scope. Git commit `"seeded"`.
 2. **Shape-confirm (I11)** — After Seed: `view --synthesis on --granularity <arch-overview hint>` → user confirms/corrects → corrections via commands (+ `set-frontier` when lens facts change) → re-view until confirmed → `gate-close --gate G1` (records `checkpoint --name shape`) → **stop and await user**. Do **not** auto-detect.
 3. **G2 folded** — `gate-close G2` auto-passes without topology report. Per-open grounding = `attach-code-refs` inside Class 2 processing.
 4. **User-driven capabilities** (below) until Exit.
-5. **Exit** — run `check-coverage`: ∀ coverage section cleared∨skipped ∧ no (blocking∧open) ∧ (if demand manifest: all fulfilled∨deferred).
+5. **Exit** — run `check-coverage`: ∀ init lens cleared∨skipped ∧ no (blocking∧open) ∧ (if demand manifest: all fulfilled∨deferred).
 6. **Audit (user-triggered):** G4 internal hard · G5 external soft → Handoff (`view --synthesis off` / Initializing).
 
 ### Capability surface
