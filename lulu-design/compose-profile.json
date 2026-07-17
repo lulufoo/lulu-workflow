@@ -16,7 +16,7 @@
   "drafting": {
     "inductive": true,
     "freeedit": true,
-    "code_grounding": false,
+    "code_grounding": true,
     "post_init_options": [
       "freeedit",
       "evaluate",
