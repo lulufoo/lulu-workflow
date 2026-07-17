@@ -45,7 +45,7 @@ INDUCTIVE_FACTS       = $INDUCTIVE_OUT_DIR/_facts.json              # discovery-
 INDUCTIVE_DQI         = $INDUCTIVE_OUT_DIR/inductive-dqi.json       # optional resume aid; not SoT
 INDUCTIVE_GATE_STATE  = $INDUCTIVE_OUT_DIR/inductive-gate-state.json
 INDUCTIVE_SECTION_PTR = $INDUCTIVE_OUT_DIR/inductive-section-pointer.json  # routing aid; status also on section JSON
-INDUCTIVE_GROUNDING   = $INDUCTIVE_OUT_DIR/grounding-notes.json     # optional receipts
+INDUCTIVE_GROUNDING   = $INDUCTIVE_OUT_DIR/grounding-notes.json     # receipts: shallow→1B; deep→auto/manual leaning
 INDUCTIVE_G4_REPORT   = $INDUCTIVE_OUT_DIR/g4-recompose-report.json
 PROVENANCE_GATE_STATE = $INDUCTIVE_OUT_DIR/provenance-gate-state.json
 PROVENANCE_TRACES     = $INDUCTIVE_OUT_DIR/provenance-trace-{intent,scope,norm}.json
@@ -82,7 +82,7 @@ Inductive work discovers missing design decisions (parts → whole). **SoT = fac
 
 1. **Seed** — Init from `SECTION_REGISTRY.section_order` (`gates/g1-shape.md`). Per lens: `activate-section` → substance? `seed-decision`+`set-frontier` : (`optional` → `skip-section` / `required` → leave for G3). **I4:** never invent beyond scope. Git commit `"seeded"`.
 2. **Shape-confirm (I11)** — After Seed: `view --synthesis on --granularity <arch-overview hint>` → user confirms/corrects → corrections via commands (+ `set-frontier` when lens facts change) → re-view until confirmed → `gate-close --gate G1` (records `checkpoint --name shape`) → **stop and await user**. Do **not** auto-detect.
-3. **G2 folded** — `gate-close G2` auto-passes without topology report. Per-open grounding = `attach-code-refs` inside Class 2 processing.
+3. **G2 folded** — `gate-close G2` auto-passes without topology report. Class 2 per-open path: deep-grounding (`auto`/`manual`) → `attach-code-refs`.
 4. **User-driven capabilities** (below) until Exit.
 5. **Exit** — run `check-coverage`: ∀ init lens cleared∨skipped ∧ no (blocking∧open) ∧ (if demand manifest: all fulfilled∨deferred).
 6. **Audit (user-triggered):** G4 internal hard · G5 external soft → Handoff (`view --synthesis off` / Initializing).

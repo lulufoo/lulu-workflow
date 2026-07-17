@@ -42,7 +42,7 @@ AI actively executes; lands via `add-open --trigger ai` after the parent forms a
 
 AI probe rule: silence ∧ KW-false → gap; no correctness judging (that is G4).
 
-**Tool — `g3-shallow-grounding-runner`** (optional): read-only evidence pass feeding 1B. Writes receipts to `grounding-notes.json`; **never** `add-open` — the parent owns open creation.
+**Tool — `g3-shallow-grounding-runner`** (mandatory for 1B): read-only evidence pass feeding 1B. Writes receipts to `grounding-notes.json`; **never** `add-open` — the parent owns open creation.
 
 ---
 
@@ -52,12 +52,12 @@ Consumes `open` → facts via `settle-open` (1:N) or `deferred`/`rejected`. The 
 
 | Mode | Behavior |
 |------|----------|
-| `auto` | (optional `deep-grounding`) → `attach-code-refs` → `settle-open --facts-file …`, continuous (no per-point pause) |
+| `auto` | deep-grounding (mandatory) → `attach-code-refs` → `settle-open --facts-file …`, continuous (no per-point pause) |
 | `manual` | same path, pausing per point for the user to discuss / adjust before `settle-open` |
-| `ignore` | `defer-open` (park) |
+| `ignore` | `defer-open` (park; no deep-grounding) |
 
 **Tools:**
-- `g3-deep-grounding-runner` (optional): read-only evidence for **one** chosen open; may carry `file:line` / signatures. Never forms the leaning — the parent does.
+- `g3-deep-grounding-runner` (mandatory for `auto`/`manual` before leaning): read-only evidence for **one** chosen open; may carry `file:line` / signatures. Never forms the leaning — the parent does.
 - `attach-code-refs`: fix code anchors onto an **open** (`O-` only; facts have no `code_refs` field).
 - `settle-open`: commit `open` → 1:N facts (`origin.type=discovered`, `ref=[O-n]`); `code_refs` stay on the open; `resolved_by` lists new `F-` ids. One git commit (I8).
 - `defer-open`: park open (`status=deferred` + `note`; keeps `intent_ref`; does **not** copy stamps onto facts). One git commit (I8).

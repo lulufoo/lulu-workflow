@@ -74,7 +74,7 @@ To **abandon a partial revision** and begin fresh after fixes, run `$START_COMPO
 
 Anchor the upstream scope doc in code before composing. Always run when enabled — no opt-in prompt. Profiles with `drafting.inductive: false` skip directly to Drafting Step 1.
 
-**Inductive-runner** is a human-driven gate spine (Shape → Grounding → Refine → Recompose → Provenance): AI recommends; the **user** closes each gate. Run the gate spine **inline in this conversation** (same as `/decision` gate runners). **Exceptions (subagents):** Gate 2 topology grounding → `g2-grounding-runner`; Gate 3 step 1 shallow grounding → `g3-shallow-grounding-runner` — both via `$SUBAGENT_TOOL`, read-only, no user interaction. All leanings, EP registration, and gate closes stay inline; subagents cannot interact with the user.
+**Inductive-runner** is a human-driven gate spine (Shape → Grounding → Refine → Recompose → Provenance): AI recommends; the **user** closes each gate. Run the gate spine **inline in this conversation** (same as `/decision` gate runners). **Exceptions (subagents via `$SUBAGENT_TOOL`, read-only, no user interaction):** deprecated G2 → `g2-grounding-runner`; G3 Class 1B → `g3-shallow-grounding-runner` (mandatory); G3 Class 2 `auto`/`manual` → `g3-deep-grounding-runner` (mandatory). All leanings, EP registration, and gate closes stay inline; subagents cannot interact with the user.
 
 1. Run `$DRAFT_CONTROL begin-inductive`.
    - On failure → Blocking.
@@ -165,8 +165,8 @@ Dimension set, evaluation framework, and eval-mode branching (e.g. tech vs produ
 |----------|------|
 | `{SKILL_ROOT}/compose/inductive-runner/SKILL.md` | Drafting Step 0 — inductive-runner (`drafting.inductive: true` profiles only) |
 | `{SKILL_ROOT}/compose/inductive-runner/g2-grounding-runner/SKILL.md` | Drafting Step 0 — **deprecated** optional G2 topology subagent (prefer `attach-code-refs` in Class 2 processing) |
-| `{SKILL_ROOT}/compose/inductive-runner/g3-shallow-grounding-runner/SKILL.md` | Drafting Step 0 — optional G3 shallow grounding subagent (detect facts only; parent `add-open`) |
-| `{SKILL_ROOT}/compose/inductive-runner/g3-deep-grounding-runner/SKILL.md` | Drafting Step 0 — optional G3 deep grounding subagent (one open; parent settles) |
+| `{SKILL_ROOT}/compose/inductive-runner/g3-shallow-grounding-runner/SKILL.md` | Drafting Step 0 — mandatory G3 shallow grounding (Class 1B; parent `add-open`) |
+| `{SKILL_ROOT}/compose/inductive-runner/g3-deep-grounding-runner/SKILL.md` | Drafting Step 0 — mandatory G3 deep grounding (`auto`/`manual` before leaning; parent settles) |
 | `{SKILL_ROOT}/compose/inductive-runner/g4-recompose-runner/SKILL.md` | Drafting Step 0 — Gate 4 internal-audit subagent (section JSON + shape checkpoint) |
 | `{SKILL_ROOT}/compose/inductive-runner/g5-provenance-runner/SKILL.md` | Drafting Step 0 — Gate 5 external-audit subagent (section JSON provenance) |
 | `{SKILL_ROOT}/compose/initializing-runner/SKILL.md` | Drafting Step 1 — initializing-runner |

@@ -9,7 +9,7 @@ description: >-
 
 # g3-shallow-grounding-runner
 
-Terminal runner subagent. Dispatched from **inline** inductive-runner during Gate 3 Class 1B detect on Lane A (optional dispatch; one subagent per detect pass). Parent owns `add-open`.
+Terminal runner subagent. Dispatched from **inline** inductive-runner during Gate 3 Class 1B detect on Lane A (mandatory; one subagent per detect pass). Parent owns `add-open`.
 
 ## Shared receipt contract
 
