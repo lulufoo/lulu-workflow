@@ -112,6 +112,21 @@ def test_tech_plan_infer_run_mode():
     assert adapter.infer_run_mode.__name__ == "infer_run_mode"
 
 
+def test_tech_plan_resolve_scope_facts_ref():
+    adapter = TechPlanStartAdapter()
+    facts = DeliveredRef(type="lulu-design-facts", path="/abs/_facts.json")
+    refs = adapter.resolve_scope_facts_ref(
+        delivered_refs=[
+            DeliveredRef(type="lulu-design", path="/abs/design.md"),
+            facts,
+        ],
+    )
+    assert refs == [facts]
+    assert adapter.resolve_scope_facts_ref(
+        delivered_refs=[DeliveredRef(type="lulu-design", path="/abs/design.md")],
+    ) == []
+
+
 def test_product_spec_infer_run_mode():
     adapter = ProductSpecStartAdapter()
     assert adapter.infer_run_mode("feat-x", Path("/tmp")) == "product"

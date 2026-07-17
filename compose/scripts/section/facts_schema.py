@@ -40,8 +40,9 @@ from typing import Any
 FACTS_BASENAME = "_facts.json"
 _FACT_ID_RE = re.compile(r"^F-(\d+)$")
 _FACT_REQUIRED = ("id", "text", "lens_tags")
-_FACT_OPTIONAL = frozenset({"source", "origin"})
+_FACT_OPTIONAL = frozenset({"source", "origin", "derivation"})
 ORIGIN_TYPES = frozenset({"seed", "discovered", "derived"})
+DERIVATION_DISPOSITIONS = frozenset({"carried", "quarantined"})
 
 
 def facts_path(revision_dir: Path) -> Path:
@@ -89,6 +90,42 @@ def _validate_origin(prefix: str, origin: Any) -> list[str]:
     extra = set(origin) - {"type", "ref"}
     if extra:
         errors.append(f"{prefix}.origin unexpected fields {sorted(extra)}")
+    return errors
+
+
+def _validate_derivation(prefix: str, derivation: Any) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(derivation, dict):
+        errors.append(
+            f"{prefix}.derivation must be an object {{disposition, upstream_ref}}",
+        )
+        return errors
+    disposition = derivation.get("disposition")
+    if (
+        not isinstance(disposition, str)
+        or disposition.strip().lower() not in DERIVATION_DISPOSITIONS
+    ):
+        errors.append(
+            f"{prefix}.derivation.disposition must be one of "
+            f"{sorted(DERIVATION_DISPOSITIONS)}, got {disposition!r}"
+        )
+    upstream_ref = derivation.get("upstream_ref")
+    if not isinstance(upstream_ref, list):
+        errors.append(f"{prefix}.derivation.upstream_ref must be an array")
+    elif not upstream_ref:
+        errors.append(
+            f"{prefix}.derivation.upstream_ref must be a non-empty array when present",
+        )
+    else:
+        for r_index, item in enumerate(upstream_ref):
+            if not isinstance(item, str) or not item.strip():
+                errors.append(
+                    f"{prefix}.derivation.upstream_ref[{r_index}] "
+                    "must be a non-empty string",
+                )
+    extra = set(derivation) - {"disposition", "upstream_ref"}
+    if extra:
+        errors.append(f"{prefix}.derivation unexpected fields {sorted(extra)}")
     return errors
 
 
@@ -185,6 +222,28 @@ def validate_facts(
             else:
                 errors.extend(_validate_origin(prefix, entry["origin"]))
 
+        if "derivation" in entry:
+            if entry["derivation"] is None:
+                errors.append(
+                    f"{prefix}.derivation must be an object when present "
+                    "(null is not allowed; omit the field instead)",
+                )
+            else:
+                errors.extend(_validate_derivation(prefix, entry["derivation"]))
+                derivation = entry["derivation"]
+                if isinstance(derivation, dict) and isinstance(tags, list):
+                    disposition = str(derivation.get("disposition", "")).strip().lower()
+                    if disposition == "carried" and len(tags) == 0:
+                        errors.append(
+                            f"{prefix}: derivation.disposition=carried requires "
+                            "non-empty lens_tags",
+                        )
+                    if disposition == "quarantined" and len(tags) > 0:
+                        errors.append(
+                            f"{prefix}: derivation.disposition=quarantined requires "
+                            "empty lens_tags",
+                        )
+
         extra = set(entry) - set(_FACT_REQUIRED) - _FACT_OPTIONAL
         if extra:
             errors.append(f"{prefix}: unexpected fields {sorted(extra)}")
@@ -205,6 +264,12 @@ def normalize_fact(entry: dict[str, Any]) -> dict[str, Any]:
         out["origin"] = {
             "type": str(origin["type"]).strip().lower(),
             "ref": [str(r).strip() for r in origin["ref"]],
+        }
+    if "derivation" in entry and entry["derivation"] is not None:
+        derivation = entry["derivation"]
+        out["derivation"] = {
+            "disposition": str(derivation["disposition"]).strip().lower(),
+            "upstream_ref": [str(r).strip() for r in derivation["upstream_ref"]],
         }
     return out
 

@@ -16,7 +16,12 @@ import kernel_bootstrap  # noqa: E402
 kernel_bootstrap.ensure_kernel_paths()
 
 from delivered_refs_schema import record_delivered_ref  # noqa: E402
-from delivery_descriptors import DeliveryDescriptor, iter_delivery_descriptors  # noqa: E402
+from delivery_descriptors import (  # noqa: E402
+    DeliveryDescriptor,
+    facts_delivered_type,
+    iter_delivery_descriptors,
+)
+from facts_schema import FACTS_BASENAME  # noqa: E402
 from workflow_common import CACHE_DIR, parse_frontmatter_fields  # noqa: E402
 
 _REVISION_DIR_PAT = re.compile(r"^(revision|r)(\d+)$", re.IGNORECASE)
@@ -70,6 +75,18 @@ def _record_revision_delivery(
         profile_id=desc.stage_name,
         source_workflow_state=str(ws_path.resolve()),
     )
+    if desc.deliver_facts:
+        facts_file = ws_path.parent / FACTS_BASENAME
+        if facts_file.is_file():
+            record_delivered_ref(
+                cycle_id,
+                project_root,
+                delivered_type=facts_delivered_type(desc.stage_name),
+                path=str(facts_file.resolve()),
+                revision=rev_num,
+                profile_id=desc.stage_name,
+                source_workflow_state=str(ws_path.resolve()),
+            )
 
 
 def _record_flat_delivery(
@@ -96,6 +113,18 @@ def _record_flat_delivery(
         profile_id=desc.stage_name,
         source_workflow_state=str(state_path.resolve()),
     )
+    if desc.deliver_facts:
+        facts_file = stage_dir / FACTS_BASENAME
+        if facts_file.is_file():
+            record_delivered_ref(
+                cycle_id,
+                project_root,
+                delivered_type=facts_delivered_type(desc.stage_name),
+                path=str(facts_file.resolve()),
+                revision=1,
+                profile_id=desc.stage_name,
+                source_workflow_state=str(state_path.resolve()),
+            )
 
 
 def backfill_delivered_refs_from_cycle(cycle_id: str, project_root: Path) -> None:

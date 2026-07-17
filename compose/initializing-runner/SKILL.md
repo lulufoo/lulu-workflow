@@ -37,6 +37,7 @@ Derive artifact contract: [`../references/init-draft-quality.md`](../references/
 |---|---|
 | `$REVISION_DIR` | Absolute path to `revision{N}/` |
 | `$SCOPE_DOC_PATH` | Absolute path to compose intent SSOT (design-doc or decision-doc) |
+| `$SCOPE_FACTS_PATH` | Absolute path to upstream fact package (design `_facts.json`); empty when upstream has no fact package |
 | `$OUTPUT_DOC_PATH` | Absolute path to output document (design-doc.md or tech-doc.md) |
 | `$COMPOSE_PROFILE` | Compose profile id from parent dispatch |
 | `$CYCLE_TYPE` | `feature` |
@@ -123,9 +124,13 @@ Missing / invalid `_facts.json` → Blocking (never re-atomize from scope). **Do
 
 **Branch B — deductive / non-inductive (`drafting.inductive` absent/false):**
 
-1. **Atomize** `$SCOPE_DOC_PATH` once (whole doc) — merge same-fact restatements into one atom; do not split by source section; a figure is one atom, kept intact.
-2. **Tag `lens_tags`:** for each atom, choose the set (zero, one, or many) of `section_order` keys whose intent the atom answers — using registry projection only (`intent` else `desc`, `intent_boundary` when present). This is N:M: an atom may tag no lens (quarantine candidate, audited by Q1), one lens, or several.
-3. **Persist** via `$FACTS_CTL write` (facts = JSON array `{id:F-n, text, lens_tags}` — optional `source` only for Step-3-derived facts later; Step 2 atoms omit `source`):
+1. **Materialize candidates** (exactly one branch; no new step number):
+   - If `$SCOPE_FACTS_PATH` is non-empty → **Import**: read that `_facts.json`. For each upstream fact: assign a new contiguous local `F-n` (do not reuse upstream ids); keep `text` and `origin` (when present) verbatim; never carry upstream `lens_tags`. Match against this stage's Intent SSOT (`intent` else `desc`, `intent_boundary` when present): match → retag Plan `lens_tags` + `derivation.disposition="carried"`; no match → empty `lens_tags` + `derivation.disposition="quarantined"`. Always set `derivation.upstream_ref` to the upstream Design F-id(s).
+   - If `$SCOPE_FACTS_PATH` is empty → **Atomize** `$SCOPE_DOC_PATH` once (whole doc) — merge same-fact restatements into one atom; do not split by source section; a figure is one atom, kept intact. (Tags are applied in sub-step 2.)
+2. **Tag / verify `lens_tags`:**
+   - **Prose-line (Atomize):** for each atom, choose the set (zero, one, or many) of `section_order` keys whose intent the atom answers — using registry projection only. N:M: an atom may tag no lens (quarantine candidate, audited by Q1), one lens, or several.
+   - **Fact-line (Import):** **verify-only** — check `derivation.disposition`↔`lens_tags` (`carried`⇔non-empty, `quarantined`⇔empty). Do **not** re-run match logic.
+3. **Persist** via `$FACTS_CTL write` (facts = JSON array `{id:F-n, text, lens_tags}` — optional `origin` / `derivation` for Import; optional `source` only for Step-3-derived facts later; Prose-line Step 2 atoms omit `source`/`derivation`):
 
 ```bash
 $FACTS_CTL write \
@@ -136,6 +141,8 @@ $FACTS_CTL write \
 ```
 
 4. `$FACTS_CTL validate --revision-dir "$REVISION_DIR" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)"` must exit 0.
+
+**Import mis-match correction:** FreeEdit Tier A must **not** retag `lens_tags` / chapter placement to “fix” Import match vs quarantine. Correction path is FreeEdit Tier B — new revision, re-run Steps 2–6 (full re-Init).
 
 **Done (Branch B):** `$REVISION_DIR/_facts.json` exists and validates — **Step 2 atoms only**; Step 3 may append derived facts before Step 4.
 

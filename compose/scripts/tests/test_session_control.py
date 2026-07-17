@@ -22,6 +22,7 @@ from evaluate_state_ops import (  # noqa: E402
     merge_current_dimension,
 )
 from evaluate_state_schema import load_evaluate_state, save_evaluate_state  # noqa: E402
+import session_control  # noqa: E402
 from session_control import (  # noqa: E402
     _CMD_ABANDON,
     _CMD_DELIVER,
@@ -33,7 +34,11 @@ from session_control import (  # noqa: E402
     start_evaluating,
 )
 from workflow_state_schema import init_drafting, load_workflow_state, save_workflow_state
-from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, seed_profile_pointer_for_tests  # noqa: E402
+from workflow_paths import (  # noqa: E402
+    DEFAULT_COMPOSE_PROFILE_ID,
+    load_profile,
+    seed_profile_pointer_for_tests,
+)
 from delivered_refs_schema import load_delivered_refs_file  # noqa: E402
 
 _CYCLE = "feat-test"
@@ -239,6 +244,105 @@ class TestDeliver:
         assert "confirmed" in gate.read_text(encoding="utf-8")
         refs = load_delivered_refs_file(_CYCLE, tmp_path)
         assert refs["entries"]["lulu-plan"]["path"] == str((ws.parent / "tech-doc.md").resolve())
+        assert "lulu-design-facts" not in refs["entries"]
+        assert "lulu-plan-facts" not in refs["entries"]
+
+    def test_design_deliver_registers_facts_when_present(self, tmp_path: Path):
+        seed_profile_pointer_for_tests(tmp_path, _CYCLE, "lulu-design")
+        base = tmp_path / _CACHE / _CYCLE / "lulu-design"
+        base.mkdir(parents=True, exist_ok=True)
+        (base / "session-state.md").write_text(
+            "---\nversion: 1\nactive_doc: 1\nupdated_at: 2024-01-01T00:00:00+00:00\n---\n",
+            encoding="utf-8",
+        )
+        ws = base / "revision1" / "workflow-state.md"
+        init_drafting(ws, mode="tech")
+        (ws.parent / "design-doc.md").write_text("# Design\n", encoding="utf-8")
+        (ws.parent / "_facts.json").write_text("[]\n", encoding="utf-8")
+        ready_for_delivery(_CYCLE, tmp_path, profile_id="lulu-design")
+
+        result = deliver(_CYCLE, tmp_path, note="design ok", profile_id="lulu-design")
+
+        assert result["ok"] is True
+        refs = load_delivered_refs_file(_CYCLE, tmp_path)
+        assert refs["entries"]["lulu-design"]["path"] == str(
+            (ws.parent / "design-doc.md").resolve()
+        )
+        assert refs["entries"]["lulu-design-facts"]["path"] == str(
+            (ws.parent / "_facts.json").resolve()
+        )
+
+    def test_design_deliver_skips_facts_when_missing(self, tmp_path: Path):
+        seed_profile_pointer_for_tests(tmp_path, _CYCLE, "lulu-design")
+        base = tmp_path / _CACHE / _CYCLE / "lulu-design"
+        base.mkdir(parents=True, exist_ok=True)
+        (base / "session-state.md").write_text(
+            "---\nversion: 1\nactive_doc: 1\nupdated_at: 2024-01-01T00:00:00+00:00\n---\n",
+            encoding="utf-8",
+        )
+        ws = base / "revision1" / "workflow-state.md"
+        init_drafting(ws, mode="tech")
+        (ws.parent / "design-doc.md").write_text("# Design\n", encoding="utf-8")
+        ready_for_delivery(_CYCLE, tmp_path, profile_id="lulu-design")
+
+        result = deliver(_CYCLE, tmp_path, profile_id="lulu-design")
+
+        assert result["ok"] is True
+        refs = load_delivered_refs_file(_CYCLE, tmp_path)
+        assert "lulu-design" in refs["entries"]
+        assert "lulu-design-facts" not in refs["entries"]
+
+    def test_plan_deliver_with_local_facts_does_not_register_facts(
+        self, tmp_path: Path
+    ):
+        """Gate: plan has no deliver_facts; local _facts.json must not be registered."""
+        ws = _seed_session(tmp_path)
+        init_drafting(ws, mode="product")
+        (ws.parent / "tech-doc.md").write_text("# Tech\n", encoding="utf-8")
+        (ws.parent / "_facts.json").write_text("[]\n", encoding="utf-8")
+        ready_for_delivery(_CYCLE, tmp_path)
+
+        result = deliver(_CYCLE, tmp_path, note="plan with facts")
+
+        assert result["ok"] is True
+        refs = load_delivered_refs_file(_CYCLE, tmp_path)
+        assert "lulu-plan" in refs["entries"]
+        assert "lulu-design-facts" not in refs["entries"]
+        assert "lulu-plan-facts" not in refs["entries"]
+
+    def test_design_deliver_skips_facts_when_deliver_facts_false(
+        self, tmp_path: Path, monkeypatch
+    ):
+        """Explicit deliver_facts=false skips registration even when _facts.json exists."""
+
+        def _load_profile_no_facts(profile_id: str, **kwargs):
+            data = dict(load_profile(profile_id, **kwargs))
+            if profile_id == "lulu-design":
+                di = dict(data.get("delivery_index") or {})
+                di["deliver_facts"] = False
+                data["delivery_index"] = di
+            return data
+
+        monkeypatch.setattr(session_control, "load_profile", _load_profile_no_facts)
+        seed_profile_pointer_for_tests(tmp_path, _CYCLE, "lulu-design")
+        base = tmp_path / _CACHE / _CYCLE / "lulu-design"
+        base.mkdir(parents=True, exist_ok=True)
+        (base / "session-state.md").write_text(
+            "---\nversion: 1\nactive_doc: 1\nupdated_at: 2024-01-01T00:00:00+00:00\n---\n",
+            encoding="utf-8",
+        )
+        ws = base / "revision1" / "workflow-state.md"
+        init_drafting(ws, mode="tech")
+        (ws.parent / "design-doc.md").write_text("# Design\n", encoding="utf-8")
+        (ws.parent / "_facts.json").write_text("[]\n", encoding="utf-8")
+        ready_for_delivery(_CYCLE, tmp_path, profile_id="lulu-design")
+
+        result = deliver(_CYCLE, tmp_path, profile_id="lulu-design")
+
+        assert result["ok"] is True
+        refs = load_delivered_refs_file(_CYCLE, tmp_path)
+        assert "lulu-design" in refs["entries"]
+        assert "lulu-design-facts" not in refs["entries"]
 
     def test_failure_from_evaluating(self, tmp_path: Path):
         ws = _seed_session(tmp_path)

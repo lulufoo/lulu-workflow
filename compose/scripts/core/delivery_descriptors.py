@@ -3,11 +3,20 @@
 from __future__ import annotations
 
 import json
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator
 
-from workflow_paths import (
+_CORE = Path(__file__).resolve().parent
+_SCRIPTS = _CORE.parent
+if str(_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS))
+import kernel_bootstrap  # noqa: E402
+
+kernel_bootstrap.ensure_kernel_paths()
+
+from workflow_paths import (  # noqa: E402
     COMPOSE_ROOT,
     WORKFLOW_ROOT,
     active_compose_stage_ids,
@@ -26,6 +35,19 @@ class DeliveryDescriptor:
     state_file: str
     terminal_state: str
     doc_filename: str
+    deliver_facts: bool = False
+
+
+def facts_delivered_type(stage_id: str) -> str:
+    """Parallel delivered-refs type for a stage's fact package."""
+    return f"{stage_id}-facts"
+
+
+def delivery_index_deliver_facts(delivery_index: dict | None) -> bool:
+    """True only when profile/constraints JSON sets deliver_facts to boolean true."""
+    if not isinstance(delivery_index, dict):
+        return False
+    return delivery_index.get("deliver_facts") is True
 
 
 def _descriptor_from_delivery_index(
@@ -52,6 +74,7 @@ def _descriptor_from_delivery_index(
         state_file=state_file,
         terminal_state=terminal_state,
         doc_filename=doc_filename,
+        deliver_facts=delivery_index_deliver_facts(delivery_index),
     )
 
 
@@ -72,16 +95,17 @@ def _compose_descriptor(profile_id: str) -> DeliveryDescriptor | None:
             delivery_index,
             default_doc_filename=doc_filename,
         )
-    if not doc_filename:
-        return None
-    return DeliveryDescriptor(
-        stage_name=stage_name,
-        layout="revision",
-        cache_subdir=cache_subdir,
-        state_file="workflow-state.md",
-        terminal_state=_DEFAULT_TERMINAL,
-        doc_filename=doc_filename,
-    )
+    if doc_filename:
+        return DeliveryDescriptor(
+            stage_name=stage_name,
+            layout="revision",
+            cache_subdir=cache_subdir,
+            state_file="workflow-state.md",
+            terminal_state=_DEFAULT_TERMINAL,
+            doc_filename=doc_filename,
+            deliver_facts=False,
+        )
+    return None
 
 
 def _decision_descriptor(constraints_path: Path) -> DeliveryDescriptor | None:
@@ -103,6 +127,7 @@ def _decision_descriptor(constraints_path: Path) -> DeliveryDescriptor | None:
         state_file="session-state.md",
         terminal_state=_DEFAULT_TERMINAL,
         doc_filename="decision-doc.md",
+        deliver_facts=False,
     )
 
 

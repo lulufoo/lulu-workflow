@@ -27,6 +27,7 @@ from drafting_progress_schema import (  # noqa: E402
 from delivered_refs_schema import serialize_delivered_refs  # noqa: E402
 from facts_schema import facts_path  # noqa: E402
 from init_compose_validation import validate_init_artifacts  # noqa: E402
+from resolved_refs_schema import has_resolved_refs, resolved_facts_ref  # noqa: E402
 from start_adapter import (  # noqa: E402
     intent_baseline_from_workflow,
     norm_constraint_from_workflow,
@@ -161,9 +162,13 @@ def _format_init_dispatch_input(
 ) -> str:
     revision_dir = _revision_dir(cycle_id, project_root, profile_id)
     output_doc = document_file_path(cycle_id, project_root, profile_id)
+    facts_ref = (
+        resolved_facts_ref(revision_dir) if has_resolved_refs(revision_dir) else None
+    )
     lines = [
         f"REVISION_DIR:         {revision_dir.as_posix()}",
         f"SCOPE_DOC_PATH:       {_scope_doc(cycle_id, project_root, profile_id).as_posix()}",
+        f"SCOPE_FACTS_PATH:     {facts_ref.path if facts_ref else ''}",
         f"OUTPUT_DOC_PATH:      {output_doc.resolve().as_posix()}",
         f"COMPOSE_PROFILE:      {profile_id}",
         f"CYCLE_TYPE:           {detect_cycle_type(cycle_id)}",

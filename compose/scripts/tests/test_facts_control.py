@@ -416,6 +416,152 @@ def test_facts_without_origin_still_valid():
     )
 
 
+def test_validate_accepts_carried_and_quarantined_derivation():
+    assert (
+        validate_facts(
+            [
+                {
+                    "id": "F-1",
+                    "text": "kept",
+                    "lens_tags": ["T"],
+                    "derivation": {
+                        "disposition": "carried",
+                        "upstream_ref": ["F-12"],
+                    },
+                },
+                {
+                    "id": "F-2",
+                    "text": "isolated",
+                    "lens_tags": [],
+                    "derivation": {
+                        "disposition": "quarantined",
+                        "upstream_ref": ["F-13"],
+                    },
+                },
+            ],
+            allowed_lenses=["T"],
+        )
+        == []
+    )
+
+
+def test_validate_rejects_derivation_null():
+    errors = validate_facts(
+        [{"id": "F-1", "text": "x", "lens_tags": ["T"], "derivation": None}],
+        allowed_lenses=["T"],
+    )
+    assert any("derivation" in e and "null" in e.lower() for e in errors)
+
+
+def test_validate_rejects_derivation_empty_upstream_ref():
+    errors = validate_facts(
+        [
+            {
+                "id": "F-1",
+                "text": "x",
+                "lens_tags": ["T"],
+                "derivation": {"disposition": "carried", "upstream_ref": []},
+            }
+        ],
+        allowed_lenses=["T"],
+    )
+    assert any("upstream_ref" in e for e in errors)
+
+
+def test_validate_rejects_derivation_bad_disposition():
+    errors = validate_facts(
+        [
+            {
+                "id": "F-1",
+                "text": "x",
+                "lens_tags": ["T"],
+                "derivation": {
+                    "disposition": "rewritten",
+                    "upstream_ref": ["F-1"],
+                },
+            }
+        ],
+        allowed_lenses=["T"],
+    )
+    assert any("disposition" in e for e in errors)
+
+
+def test_validate_rejects_derivation_unknown_field():
+    errors = validate_facts(
+        [
+            {
+                "id": "F-1",
+                "text": "x",
+                "lens_tags": ["T"],
+                "derivation": {
+                    "disposition": "carried",
+                    "upstream_ref": ["F-1"],
+                    "extra": 1,
+                },
+            }
+        ],
+        allowed_lenses=["T"],
+    )
+    assert any("unexpected fields" in e for e in errors)
+
+
+def test_validate_rejects_carried_with_empty_lens_tags():
+    errors = validate_facts(
+        [
+            {
+                "id": "F-1",
+                "text": "x",
+                "lens_tags": [],
+                "derivation": {
+                    "disposition": "carried",
+                    "upstream_ref": ["F-9"],
+                },
+            }
+        ],
+        allowed_lenses=["T"],
+    )
+    assert any("carried" in e and "lens_tags" in e for e in errors)
+
+
+def test_validate_rejects_quarantined_with_nonempty_lens_tags():
+    errors = validate_facts(
+        [
+            {
+                "id": "F-1",
+                "text": "x",
+                "lens_tags": ["T"],
+                "derivation": {
+                    "disposition": "quarantined",
+                    "upstream_ref": ["F-9"],
+                },
+            }
+        ],
+        allowed_lenses=["T"],
+    )
+    assert any("quarantined" in e and "lens_tags" in e for e in errors)
+
+
+def test_normalize_and_save_round_trip_preserves_derivation(tmp_path: Path):
+    facts = [
+        {"id": "F-1", "text": "plain", "lens_tags": ["T"]},
+        {
+            "id": "F-2",
+            "text": "imported",
+            "lens_tags": ["T"],
+            "derivation": {"disposition": "carried", "upstream_ref": ["F-99"]},
+        },
+    ]
+    path = tmp_path / "_facts.json"
+    save_facts(path, facts, allowed_lenses=["T"])
+    loaded = load_facts(path)
+    assert "derivation" not in loaded[0]
+    assert loaded[1]["derivation"] == {
+        "disposition": "carried",
+        "upstream_ref": ["F-99"],
+    }
+    assert normalize_fact(facts[1])["derivation"]["upstream_ref"] == ["F-99"]
+
+
 def test_save_facts_rejects_incomplete_origin_with_value_error(tmp_path: Path):
     """Malformed origin must raise ValueError, not KeyError/TypeError."""
     path = tmp_path / "_facts.json"

@@ -238,7 +238,7 @@ def run_start(
 
     # Per-revision provenance artifacts (see resolved_refs_schema):
     #   ① frozen full copy of the mutable cycle delivered-refs.json (audit baseline)
-    #   ② stage-resolved three refs — the only artifact compose consumers read
+    #   ② stage-resolved three refs (+ optional facts_ref) — compose consumers read this
     revision_dir = ws_path.parent
     intent_baseline_refs = adapter.resolve_intent_baseline_refs(
         delivered_refs=delivered_refs,
@@ -247,6 +247,10 @@ def run_start(
     norm_constraint_refs = adapter.resolve_norm_constraint_refs(
         cycle_id=cycle_id,
         project_root=project_root,
+    )
+    resolve_facts = getattr(adapter, "resolve_scope_facts_ref", None)
+    facts_refs = (
+        resolve_facts(delivered_refs=delivered_refs) if resolve_facts else []
     )
     freeze_delivered_copy(revision_dir, load_delivered_refs_file(cycle_id, project_root))
     write_resolved_refs(
@@ -257,6 +261,7 @@ def run_start(
         scope_ref=scope_refs[0],
         intent_baseline_refs=intent_baseline_refs,
         norm_constraint_refs=norm_constraint_refs,
+        facts_ref=facts_refs[0] if facts_refs else None,
     )
 
     try:

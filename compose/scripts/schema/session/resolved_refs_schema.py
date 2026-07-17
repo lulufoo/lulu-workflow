@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Per-revision frozen upstream baseline (①) and resolved three-ref handoff (②).
+"""Per-revision frozen upstream baseline (①) and resolved ref handoff (②).
 
 At stage start, ``start.py`` writes two per-revision artifacts into the
 revision dir (sibling of ``workflow-state.md``):
@@ -10,9 +10,10 @@ revision dir (sibling of ``workflow-state.md``):
        baseline. Audit / traceability only; compose consumers do NOT read it.
 
     ② resolved-refs.json   — the three provenance refs (scope / intent
-       baseline / norm constraint) the stage resolver settles ONCE at start.
-       This is the ONLY artifact compose consumers read; they never re-derive
-       from the mutable cycle file or from workflow-state.
+       baseline / norm constraint), plus an optional ``facts_ref``, that the
+       stage resolver settles ONCE at start. This is the ONLY artifact compose
+       consumers read; they never re-derive from the mutable cycle file or
+       from workflow-state.
 
 workflow-state.md carries pure session-control state and no longer stores
 ``delivered_refs``.
@@ -68,8 +69,9 @@ def write_resolved_refs(
     scope_ref: DeliveredRef | None,
     intent_baseline_refs: list[DeliveredRef],
     norm_constraint_refs: list[DeliveredRef],
+    facts_ref: DeliveredRef | None = None,
 ) -> Path:
-    """Write ② — the stage-resolved three provenance refs (compose consumption)."""
+    """Write ② — three provenance refs plus optional facts_ref (compose consumption)."""
     payload = {
         "version": _VERSION,
         "cycle_id": cycle_id,
@@ -78,6 +80,7 @@ def write_resolved_refs(
         "scope_ref": _ref_to_dict(scope_ref),
         "intent_baseline_refs": [r.to_dict() for r in intent_baseline_refs],
         "norm_constraint_refs": [r.to_dict() for r in norm_constraint_refs],
+        "facts_ref": _ref_to_dict(facts_ref),
         "frozen_at": _now_iso(),
     }
     path = resolved_refs_path(revision_dir)
@@ -127,6 +130,10 @@ def has_resolved_refs(revision_dir: Path) -> bool:
 
 def resolved_scope_ref(revision_dir: Path) -> DeliveredRef | None:
     return _ref_from_dict(load_resolved_refs(revision_dir).get("scope_ref"))
+
+
+def resolved_facts_ref(revision_dir: Path) -> DeliveredRef | None:
+    return _ref_from_dict(load_resolved_refs(revision_dir).get("facts_ref"))
 
 
 def resolved_intent_baseline_refs(revision_dir: Path) -> list[DeliveredRef]:

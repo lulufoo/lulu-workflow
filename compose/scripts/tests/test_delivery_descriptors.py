@@ -3,14 +3,13 @@
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
-_CORE = Path(__file__).resolve().parents[1] / "core"
-if str(_CORE) not in sys.path:
-    sys.path.insert(0, str(_CORE))
-
-from delivery_descriptors import iter_delivery_descriptors  # noqa: E402
+import bootstrap  # noqa: F401
+from delivery_descriptors import (  # noqa: E402
+    _compose_descriptor,
+    delivery_index_deliver_facts,
+    facts_delivered_type,
+    iter_delivery_descriptors,
+)
 
 
 def test_iter_delivery_includes_decision_holders_from_manifest():
@@ -21,3 +20,28 @@ def test_iter_delivery_includes_decision_holders_from_manifest():
     assert "lulu-design" in stages
     assert "lulu-plan" in stages
     assert "lulu-spec" in stages
+
+
+def test_compose_descriptor_design_deliver_facts_from_profile():
+    desc = _compose_descriptor("lulu-design")
+    assert desc is not None
+    assert desc.deliver_facts is True
+
+
+def test_compose_descriptor_plan_does_not_deliver_facts():
+    desc = _compose_descriptor("lulu-plan")
+    assert desc is not None
+    assert desc.deliver_facts is False
+
+
+def test_facts_delivered_type_derives_from_stage_id():
+    assert facts_delivered_type("lulu-design") == "lulu-design-facts"
+    assert facts_delivered_type("any-stage") == "any-stage-facts"
+
+
+def test_delivery_index_deliver_facts_requires_json_true():
+    assert delivery_index_deliver_facts({"deliver_facts": True}) is True
+    assert delivery_index_deliver_facts({"deliver_facts": False}) is False
+    assert delivery_index_deliver_facts({"deliver_facts": "false"}) is False
+    assert delivery_index_deliver_facts({}) is False
+    assert delivery_index_deliver_facts(None) is False

@@ -74,12 +74,31 @@ class TechPlanStartAdapter:
             types = ["lulu-design"]
         else:
             types = ["lulu-approach"]
+        for doc_type in list(types):
+            facts_type = f"{doc_type}-facts"
+            if entry_path_ok(data, facts_type):
+                types.append(facts_type)
         refs: list[DeliveredRef] = []
         for dtype in types:
             ref = ref_from_file_entry(dtype, data)
             if ref is not None and Path(ref.path).is_file():
                 refs.append(ref)
         return refs
+
+    def resolve_scope_facts_ref(
+        self,
+        *,
+        delivered_refs: list[DeliveredRef],
+    ) -> list[DeliveredRef]:
+        """Optional fact-package ref parallel to scope_ref (derived as ``{scope}-facts``)."""
+        primary = first_ref(delivered_refs, "lulu-design") or first_ref(
+            delivered_refs,
+            "lulu-approach",
+        )
+        if primary is None:
+            return []
+        ref = first_ref(delivered_refs, f"{primary.type}-facts")
+        return [ref] if ref is not None else []
 
     def resolve_scope_refs(
         self,
