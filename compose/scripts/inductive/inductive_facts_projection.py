@@ -4,7 +4,7 @@
 Facts are written directly by the discovery loop (seed / settle-open).
 Do not project decisions[] → _facts.json.
 
-Design: docs/domain/compose/archive-2.0/compose-fact-first-k4-fact-native-design.md §6 / §11 Phase 2.
+Design: docs/domain/archive/compose/archive-2.0/compose-fact-first-k4-fact-native-design.md §6 / §11 Phase 2.
 """
 
 from __future__ import annotations

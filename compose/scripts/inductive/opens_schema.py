@@ -2,7 +2,7 @@
 """Schema and I/O for revision ``inductive-opens.json`` (K4 Phase 1a).
 
 Design rationale (source repo, why-only):
-docs/domain/compose/archive-2.0/compose-fact-first-k4-fact-native-design.md §4.1.
+docs/domain/archive/compose/archive-2.0/compose-fact-first-k4-fact-native-design.md §4.1.
 
 Doc-level flat open list — discovery ledger separate from per-lens maturity
 and from fact membership. Wired by ``inductive_g3_section_control`` (K4 Phase 2).

@@ -2,8 +2,8 @@
 """Schema and I/O for per-section inductive maturity ledger (K4 slim).
 
 Design rationale (source repo, why-only):
-docs/domain/compose/archive-2.0/compose-fact-first-k4-fact-native-design.md §4.2;
-docs/domain/compose/inductive-ssot/compose-inductive-architecture.md.
+docs/domain/archive/compose/archive-2.0/compose-fact-first-k4-fact-native-design.md §4.2;
+docs/domain/ssot/compose/inductive-ssot/compose-inductive-architecture.md.
 
 Section files are maturity-only: ``key`` / ``status`` / ``frontier_kw``.
 Opens live in ``inductive-opens.json``; facts in ``_facts.json``.

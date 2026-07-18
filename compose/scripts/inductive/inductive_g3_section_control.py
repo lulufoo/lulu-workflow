@@ -6,7 +6,7 @@ Manages three stores under --out-dir (= revision / INDUCTIVE_OUT_DIR):
   - opens:    inductive-opens.json (via opens_schema)
   - facts:    _facts.json (via facts_schema)
 
-Design: docs/domain/compose/archive-2.0/compose-fact-first-k4-fact-native-design.md §6–§7.
+Design: docs/domain/archive/compose/archive-2.0/compose-fact-first-k4-fact-native-design.md §6–§7.
 
 Primary subcommands:
     init-pointer / status / check-coverage / list-sections
