@@ -187,6 +187,96 @@ def test_settle_open_one_to_n_facts(tmp_path):
     assert opens[0]["resolved_by"] == ["F-1", "F-2"]
 
 
+def test_seed_decision_declares_anchors(tmp_path):
+    _seed(tmp_path, active="I")
+    code, payload = _run(
+        tmp_path,
+        "seed-decision",
+        "--section", "I",
+        "--lens-tags", "I",
+        "--text", "seed with anchor",
+        "--anchors", json.dumps([{"kind": "path", "value": "a/b/"}]),
+    )
+    assert code == 0, payload
+    facts = json.loads((tmp_path / "_facts.json").read_text(encoding="utf-8"))
+    assert facts[0]["anchors"] == [{"kind": "path", "value": "a/b/"}]
+
+
+def test_seed_decision_rejects_bad_anchors_json(tmp_path):
+    _seed(tmp_path, active="I")
+    code, payload = _run(
+        tmp_path,
+        "seed-decision",
+        "--section", "I",
+        "--lens-tags", "I",
+        "--text", "x",
+        "--anchors", "{not json",
+    )
+    assert code == 1 and not payload["ok"]
+    assert "--anchors must be a JSON array" in payload["error"]
+
+
+def test_settle_open_uses_declared_entry_anchors(tmp_path):
+    _seed(tmp_path, active="ST")
+    _run(
+        tmp_path,
+        "add-open",
+        "--kw", "2", "--trigger", "ai", "--means", "probe",
+        "--problem", "q", "--blocking", "true",
+    )
+    ff = _write_facts_file(
+        tmp_path / "settle.json",
+        [
+            {
+                "text": "declared fact",
+                "lens_tags": ["ST"],
+                "anchors": [{"kind": "artifact", "value": "attachments.json"}],
+            },
+        ],
+    )
+    code, payload = _run(
+        tmp_path, "settle-open", "--open-id", "O-1", "--facts-file", str(ff)
+    )
+    assert code == 0, payload
+    facts = json.loads((tmp_path / "_facts.json").read_text(encoding="utf-8"))
+    assert facts[0]["anchors"] == [{"kind": "artifact", "value": "attachments.json"}]
+
+
+def test_settle_open_fallback_distributes_code_refs(tmp_path):
+    """Undeclared entry: an open code_ref whose symbol/path appears in the fact
+    text is projected as a code_ref anchor (line-number parens stripped)."""
+    _seed(tmp_path, active="ST")
+    _run(
+        tmp_path,
+        "add-open",
+        "--kw", "2", "--trigger", "ai", "--means", "probe",
+        "--problem", "q", "--blocking", "true",
+    )
+    _run(
+        tmp_path,
+        "attach-code-refs",
+        "--id", "O-1",
+        "--refs", "paths.rs::plan_tasks_task_dir (72),other.rs::unused_symbol (9)",
+    )
+    ff = _write_facts_file(
+        tmp_path / "settle.json",
+        [
+            {"text": "uses plan_tasks_task_dir to resolve dir", "lens_tags": ["ST"]},
+        ],
+    )
+    code, payload = _run(
+        tmp_path, "settle-open", "--open-id", "O-1", "--facts-file", str(ff)
+    )
+    assert code == 0, payload
+    facts = json.loads((tmp_path / "_facts.json").read_text(encoding="utf-8"))
+    # matched ref projected (parens stripped); unmatched ref stays on open only
+    assert facts[0]["anchors"] == [
+        {"kind": "code_ref", "value": "paths.rs::plan_tasks_task_dir"},
+    ]
+    opens = json.loads((tmp_path / "inductive-opens.json").read_text(encoding="utf-8"))
+    assert "other.rs::unused_symbol (9)" in opens[0]["code_refs"]
+
+
 def test_reject_open(tmp_path):
     _seed(tmp_path, active="I")
     _run(

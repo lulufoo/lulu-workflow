@@ -140,6 +140,42 @@ def test_append_derived_facts_contiguous_ids_and_source():
     assert out[3]["source"] == ["F-2", "按 AR 契约"]
 
 
+def test_append_derived_facts_inherits_union_of_source_anchors():
+    """A derived fact inherits the deduped union of its source facts' anchors."""
+    base = [
+        {
+            "id": "F-1",
+            "text": "sk",
+            "lens_tags": ["SK"],
+            "anchors": [{"kind": "path", "value": "a/b/"}],
+        },
+        {
+            "id": "F-2",
+            "text": "ar",
+            "lens_tags": ["AR"],
+            "anchors": [
+                {"kind": "path", "value": "a/b/"},  # duplicate across sources
+                {"kind": "symbol", "value": "do_thing"},
+            ],
+        },
+    ]
+    derived = [
+        {"text": "task", "lens_tags": ["T"], "source": ["F-1", "F-2", "按 AR 契约"]},
+    ]
+    out = append_derived_facts(base, derived)
+    assert out[2]["anchors"] == [
+        {"kind": "path", "value": "a/b/"},
+        {"kind": "symbol", "value": "do_thing"},
+    ]
+
+
+def test_append_derived_facts_no_anchors_when_sources_have_none():
+    base = [{"id": "F-1", "text": "sk", "lens_tags": ["SK"]}]
+    derived = [{"text": "task", "lens_tags": ["T"], "source": ["F-1"]}]
+    out = append_derived_facts(base, derived)
+    assert "anchors" not in out[1]
+
+
 def test_cascade_visibility_via_append_then_filter():
     """Later lens sees earlier Step 3 appends (same-pass cascade)."""
     g = _graph(

@@ -504,6 +504,156 @@ def test_display_layer_fails_when_outline_candidates_empty(
     assert "candidates-shaped outline-registry" in error
 
 
+def _seed_discovered_anchor_case(
+    revision_dir: Path,
+    compose_doc: Path,
+    *,
+    anchors: list[dict],
+    body: str,
+) -> None:
+    """Seed one discovered AR fact carrying ``anchors`` with a given chapter body."""
+    _write_facts(
+        revision_dir,
+        [
+            {
+                "id": "F-1",
+                "text": "Attachment copies live under the task dir.",
+                "lens_tags": ["AR"],
+                "origin": {"type": "discovered", "ref": ["O-1"]},
+                "anchors": anchors,
+            },
+        ],
+    )
+    _write_chapters(
+        revision_dir,
+        [
+            {
+                "id": "chap-1",
+                "anchor_lenses": ["AR"],
+                "derived_from": ["cand-1"],
+                "op": "keep",
+                "facts": [{"fid": "F-1", "form_lens": "AR"}],
+            },
+        ],
+    )
+    _write_chapter_artifacts(revision_dir, "chap-1", title="架构", body=body)
+    compose_doc.write_text(
+        _minimal_display_layer_doc("chap-1", "架构", body),
+        encoding="utf-8",
+    )
+
+
+def test_l6_fails_when_discovered_anchor_absent_from_body(
+    display_layer_revision_dir: Path, tmp_path: Path
+):
+    compose_doc = display_layer_revision_dir / "design-doc.md"
+    _seed_discovered_anchor_case(
+        display_layer_revision_dir,
+        compose_doc,
+        anchors=[{"kind": "path", "value": "tasks/{id}/attachments/"}],
+        body="The attachment copies are stored somewhere sensible.",
+    )
+
+    error = validate_display_layer_artifacts(
+        display_layer_revision_dir,
+        compose_doc,
+        tmp_path,
+        "lulu-design",
+    )
+    assert error is not None
+    assert "F-1 anchor" in error
+    assert "missing from body" in error
+
+
+def test_l6_passes_when_discovered_anchor_present_in_body(
+    display_layer_revision_dir: Path, tmp_path: Path
+):
+    compose_doc = display_layer_revision_dir / "design-doc.md"
+    _seed_discovered_anchor_case(
+        display_layer_revision_dir,
+        compose_doc,
+        anchors=[{"kind": "path", "value": "tasks/{id}/attachments/"}],
+        body="Copies land in `tasks/{id}/attachments/` next to the task.",
+    )
+
+    error = validate_display_layer_artifacts(
+        display_layer_revision_dir,
+        compose_doc,
+        tmp_path,
+        "lulu-design",
+    )
+    assert error is None
+
+
+def test_l6_code_ref_matches_symbol_segment_only(
+    display_layer_revision_dir: Path, tmp_path: Path
+):
+    """code_ref coverage is OR over path/symbol segments: the symbol appearing
+    in body (without the path) must pass."""
+    compose_doc = display_layer_revision_dir / "design-doc.md"
+    _seed_discovered_anchor_case(
+        display_layer_revision_dir,
+        compose_doc,
+        anchors=[{"kind": "code_ref", "value": "paths.rs::plan_tasks_task_dir"}],
+        body="The `plan_tasks_task_dir` helper resolves the directory.",
+    )
+
+    error = validate_display_layer_artifacts(
+        display_layer_revision_dir,
+        compose_doc,
+        tmp_path,
+        "lulu-design",
+    )
+    assert error is None
+
+
+def test_l6_ignores_seed_facts_under_s1(
+    display_layer_revision_dir: Path, tmp_path: Path
+):
+    """S1 strictness: only origin.type=discovered facts are enforced; a seed
+    fact whose anchor is absent from body must not fail L6."""
+    compose_doc = display_layer_revision_dir / "design-doc.md"
+    _write_facts(
+        display_layer_revision_dir,
+        [
+            {
+                "id": "F-1",
+                "text": "Seed architecture decision.",
+                "lens_tags": ["AR"],
+                "origin": {"type": "seed", "ref": ["scope"]},
+                "anchors": [{"kind": "path", "value": "never/in/body/"}],
+            },
+        ],
+    )
+    _write_chapters(
+        display_layer_revision_dir,
+        [
+            {
+                "id": "chap-1",
+                "anchor_lenses": ["AR"],
+                "derived_from": ["cand-1"],
+                "op": "keep",
+                "facts": [{"fid": "F-1", "form_lens": "AR"}],
+            },
+        ],
+    )
+    _write_chapter_artifacts(
+        display_layer_revision_dir, "chap-1", title="架构", body="Chapter body."
+    )
+    compose_doc.write_text(
+        _minimal_display_layer_doc("chap-1", "架构", "Chapter body."),
+        encoding="utf-8",
+    )
+
+    error = validate_display_layer_artifacts(
+        display_layer_revision_dir,
+        compose_doc,
+        tmp_path,
+        "lulu-design",
+    )
+    assert error is None
+
+
 def test_display_layer_skips_artifact_checks_for_drop_chapters(
     display_layer_revision_dir: Path, tmp_path: Path
 ):

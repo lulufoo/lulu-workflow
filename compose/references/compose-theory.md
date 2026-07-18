@@ -27,7 +27,7 @@ The theory below is governed by three ontological layers. A fact is **substance 
 
 | Layer | Contains | Answers | Where it lives |
 |-------|----------|---------|----------------|
-| Substance (§1) | Content (facts) | what is true | `_facts.json` — inductive: discovery-written; deductive: atomized (origins §1.2) |
+| Substance (§1) | Content (facts) + anchors (§1.5) | what is true | `_facts.json` — inductive: discovery-written; deductive: atomized (origins §1.2) |
 | Lens / envelope (§2) | lens / intent | whose viewpoint owns it (N:M) | `lens_tags` on each fact + section-registry `intent` |
 | Presentation (§3) | Form (`F`) + Expression (`C`) + Render (`display_title`) | how to carry / write (per `form_lens`) + how to label (per chapter) | F/C at Step 5.2 Bind per `form_lens`; `display_title` in `_derive-{cid}.json`, rendered at `append-chapter` |
 
@@ -84,6 +84,24 @@ Seed is **not** an Expose source: it writes `_facts.json` directly with `origin.
 ### 1.4 Codebase grounding
 
 **Codebase grounding (profile flag):** Driven by `drafting.code_grounding` (boolean; orthogonal to `drafting.inductive`). When `true`: at Write, bind named symbols in facts / registry-required path fields to real artifacts under `$PROJECT_ROOT` (Grep/Glob/Read, bounded); success → body increment + derive `code_refs` as `path` or `path#symbol`; failure → no invented paths, body `待决`. When `false`: Init does not run this pass — code refs come from inductive `attach-code-refs` upstream if at all. Grounding never writes back into inductive SoT.
+
+### 1.5 Fact anchors (born-with identity)
+
+**Anchors** are a fact's machine-relevant evidence tokens — the paths, artifacts, symbols, APIs, and code refs a fact commits to. They live as an optional `anchors[]` field on the fact (`{kind, value}`; `kind ∈ ANCHOR_KINDS`, SSOT `facts_schema.py`). Anchors are **substance, not presentation**: they are lens-invariant (the same path reads the same under any lens) and say *what is true*, never *how it is shown*. This is why they sit on the fact (§1) and not in the presentation layer (§3) — they do not violate the "substance carries no presentation" invariant.
+
+Anchors are acquired **at fact birth**, one write, no later mutation — declare-first, mechanical fallback:
+
+| origin | how anchors are acquired |
+|--------|--------------------------|
+| `seed` | the creator declares `anchors` alongside `--text` (`seed-decision --anchors`) |
+| `discovered` | each `settle-open --facts-file` entry may declare `anchors`; if omitted, the open's `code_refs` are distributed by path/symbol substring to the matching resolved facts (unmatched refs stay on the open) |
+| `derived` | inherited mechanically — union of the `source` facts' anchors |
+
+**Invariant — anchors must survive into the body.** A fact placed in a chapter carries its anchors into that chapter's rendered body; abstracting them away is a fidelity loss. Init's validation enforces this mechanically (the anchor-coverage check: every `discovered` fact's anchors must appear as a normalized substring in its chapter body; `code_ref` matches OR over its `path`/`symbol` segments).
+
+**SoT after settlement.** Once an open is settled, the fact is the live source of truth for its evidence; the `code_refs` remaining on the settled open are historical provenance only. Downstream (Init and later) reads `_facts.json`, not opens — so the two copies are a legitimate "transient upstream → durable substance" projection, not duplicate storage.
+
+**Authoring convention.** In fact `text`, wrapping machine-relevant tokens in backticks is an optional readability hint for humans; it is **not** a data contract — anchors come from the declared `anchors[]` (or the fallback), never from parsing prose.
 
 ## 2. Lens (envelope)
 

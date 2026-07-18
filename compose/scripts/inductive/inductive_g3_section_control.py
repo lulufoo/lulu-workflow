@@ -28,6 +28,7 @@ from __future__ import annotations
 import argparse
 import copy
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -106,6 +107,60 @@ def _load_facts_optional(out_dir: Path) -> list[dict[str, Any]]:
     if not path.is_file():
         return []
     return load_facts(path)
+
+
+# ---------------------------------------------------------------------------
+# Anchor helpers (P4 init-fidelity: born-with anchors, declare-first)
+# ---------------------------------------------------------------------------
+
+def _parse_anchors_arg(raw: str | None) -> list[dict[str, Any]] | None:
+    """Parse a declarative ``--anchors`` JSON array string; None when absent.
+
+    Only ensures the payload is a JSON array so a bad arg fails fast; structural
+    validation (kind whitelist / value) is deferred to facts_schema.save_facts.
+    """
+    if raw is None or not raw.strip():
+        return None
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        _fail(f"--anchors must be a JSON array: {exc}")
+    if not isinstance(parsed, list):
+        _fail("--anchors must be a JSON array")
+    return parsed
+
+
+def _clean_code_ref(ref: str) -> str:
+    """Drop a trailing line-number parenthetical: 'a.rs::sym (72)' -> 'a.rs::sym'."""
+    return re.sub(r"\s*\(\d+\)\s*$", "", ref.strip()).strip()
+
+
+def _code_ref_segments(cleaned: str) -> list[str]:
+    """Split a cleaned code_ref on '::' into non-empty path/symbol segments."""
+    return [seg.strip() for seg in cleaned.split("::") if seg.strip()]
+
+
+def _distribute_code_refs(
+    undeclared: list[dict[str, Any]],
+    code_refs: list[str],
+) -> None:
+    """Fallback (§3.4): attach an open's ``code_refs`` to resolved facts whose
+    text contains a path/symbol segment (OR match). Unmatched refs stay on the
+    open (not projected). Only facts that did not declare anchors participate.
+    Mutates the given facts in place.
+    """
+    for ref in code_refs:
+        cleaned = _clean_code_ref(ref)
+        if not cleaned:
+            continue
+        segments = _code_ref_segments(cleaned)
+        anchor = {"kind": "code_ref", "value": cleaned}
+        for fact in undeclared:
+            text = fact.get("text", "")
+            if any(seg in text for seg in segments):
+                anchors = fact.setdefault("anchors", [])
+                if anchor not in anchors:
+                    anchors.append(anchor)
 
 
 def _allowed_lenses(out_dir: Path) -> list[str]:
@@ -451,6 +506,9 @@ def cmd_seed_decision(out_dir: Path, args: argparse.Namespace) -> None:
         "lens_tags": lens_tags,
         "origin": {"type": "seed", "ref": origin_refs},
     }
+    anchors = _parse_anchors_arg(getattr(args, "anchors", None))
+    if anchors:
+        fact["anchors"] = anchors
     facts.append(fact)
     try:
         _save_facts_inductive(out_dir, facts)
@@ -563,7 +621,13 @@ def cmd_get_section(out_dir: Path, args: argparse.Namespace) -> None:
 
 
 def cmd_settle_open(out_dir: Path, args: argparse.Namespace) -> None:
-    """Settle open → 1:N facts (origin.type=discovered); code_refs stay on open."""
+    """Settle open → 1:N facts (origin.type=discovered).
+
+    Anchors are declare-first: each --facts-file entry may carry ``anchors``
+    ([{kind,value}]). Entries that omit anchors fall back to distributing the
+    open's ``code_refs`` by path/symbol substring (§3.4); unmatched code_refs
+    stay on the open as historical provenance.
+    """
     opens = _load_opens(out_dir)
     open_item = _find_open(opens, args.open_id)
     if open_item is None:
@@ -584,6 +648,7 @@ def cmd_settle_open(out_dir: Path, args: argparse.Namespace) -> None:
     facts_before = _load_facts_optional(out_dir)
     facts = copy.deepcopy(facts_before)
     fact_ids: list[str] = []
+    undeclared: list[dict[str, Any]] = []
     n = _next_fact_id(facts)
     for i, entry in enumerate(entries):
         if not isinstance(entry, dict):
@@ -597,18 +662,33 @@ def cmd_settle_open(out_dir: Path, args: argparse.Namespace) -> None:
         lens_tags = [str(t).strip().upper() for t in tags_raw if str(t).strip()]
         _assert_nonempty_lens_tags(lens_tags, f"facts-file[{i}]")
         fact_id = f"F-{n}"
-        facts.append({
+        fact: dict[str, Any] = {
             "id": fact_id,
             "text": text,
             "lens_tags": lens_tags,
             "origin": {"type": "discovered", "ref": [args.open_id]},
-        })
+        }
+        declared = entry.get("anchors")
+        if declared is not None:
+            # Declared anchors: validated/normalized downstream by save_facts.
+            fact["anchors"] = declared
+        else:
+            undeclared.append(fact)
+        facts.append(fact)
         fact_ids.append(fact_id)
         n += 1
 
+    # Fallback (§3.4): only for facts whose entry did not declare anchors.
+    code_refs = [
+        str(r).strip() for r in (open_item.get("code_refs") or []) if str(r).strip()
+    ]
+    if undeclared and code_refs:
+        _distribute_code_refs(undeclared, code_refs)
+
     open_item["status"] = "settled"
     open_item["resolved_by"] = fact_ids
-    # code_refs remain on open (not copied to fact — facts_schema has no code_refs)
+    # code_refs remain on open as historical provenance; matched ones are
+    # projected to fact.anchors above (declared entries carry their own).
 
     _commit_facts_then_opens(
         out_dir,
@@ -1114,6 +1194,12 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--origin-ref", default=None, dest="origin_ref", metavar="REFS")
     p.add_argument("--kw", default=None, type=int, metavar="N", help="Hint only; not stored on fact")
     p.add_argument("--rationale", default=None, metavar="TEXT", help="Ignored (compat)")
+    p.add_argument(
+        "--anchors",
+        default=None,
+        metavar="JSON",
+        help='Declarative anchors: JSON array of {"kind","value"} (P4)',
+    )
 
     p = sub.add_parser("add-open", help="Append an open to inductive-opens.json")
     p.add_argument("--kw", required=True, type=int, metavar="N")
@@ -1163,7 +1249,7 @@ def _build_parser() -> argparse.ArgumentParser:
         required=True,
         dest="facts_file",
         metavar="PATH",
-        help='JSON array of {"text","lens_tags":[...]}',
+        help='JSON array of {"text","lens_tags":[...],"anchors":[{"kind","value"}]?}',
     )
 
     p = sub.add_parser("reject-open", help="Reject an open (status=rejected)")

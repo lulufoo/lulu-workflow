@@ -236,18 +236,35 @@ def append_derived_facts(
 
     Each item in ``derived`` must supply ``text``, ``lens_tags``, and may
     supply ``source``. Ids in ``derived`` are ignored and reassigned.
+
+    Anchors are inherited mechanically (P4 init-fidelity): a derived fact's
+    ``anchors`` = union of the anchors of the upstream facts named in its
+    ``source`` (deduped by normalize_fact). Cascade-aware — later derived facts
+    can inherit from earlier ones in the same batch.
     """
     out = [normalize_fact(f) for f in facts]
     n = next_fact_id(out)
+    anchors_by_id: dict[str, list[dict[str, Any]]] = {
+        f["id"]: f.get("anchors", []) for f in out
+    }
     for item in derived:
-        entry = {
+        entry: dict[str, Any] = {
             "id": f"F-{n}",
             "text": item["text"],
             "lens_tags": item["lens_tags"],
         }
         if "source" in item and item["source"] is not None:
             entry["source"] = item["source"]
-        out.append(normalize_fact(entry))
+            inherited = [
+                anchor
+                for sid in item["source"]
+                for anchor in anchors_by_id.get(str(sid).strip(), [])
+            ]
+            if inherited:
+                entry["anchors"] = inherited
+        normalized = normalize_fact(entry)
+        out.append(normalized)
+        anchors_by_id[normalized["id"]] = normalized.get("anchors", [])
         n += 1
     return out
 

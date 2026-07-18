@@ -26,6 +26,11 @@ hints). Gates never read it. K1 does not enforce referential integrity on
 ``origin`` (K4) is structured provenance: ``type ∈ {seed, discovered, derived}``
 and non-empty ``ref`` string array (scope anchors / open ids / upstream F-ids).
 Optional and backward-compatible — existing facts without ``origin`` remain valid.
+
+``anchors`` (P4 init-fidelity) is a fact's born-with machine-relevant evidence:
+an array of ``{kind, value}`` where ``kind ∈ ANCHOR_KINDS``. Optional and
+backward-compatible; empty normalizes to omission. Lens-invariant substance
+(not presentation) — the L6 gate requires each anchor to survive into the body.
 Inductive non-empty ``lens_tags`` is enforced on the inductive write path only
 (not here) — see K4 design §4.3.
 """
@@ -40,9 +45,13 @@ from typing import Any
 FACTS_BASENAME = "_facts.json"
 _FACT_ID_RE = re.compile(r"^F-(\d+)$")
 _FACT_REQUIRED = ("id", "text", "lens_tags")
-_FACT_OPTIONAL = frozenset({"source", "origin", "derivation"})
+_FACT_OPTIONAL = frozenset({"source", "origin", "derivation", "anchors"})
 ORIGIN_TYPES = frozenset({"seed", "discovered", "derived"})
 DERIVATION_DISPOSITIONS = frozenset({"carried", "quarantined"})
+# Anchor kinds — SSOT for the machine-relevant evidence tokens a fact carries
+# (born-with identity; P4 init-fidelity). ``code_ref`` keeps whole
+# ``path::symbol`` values; L6 splits on ``::`` at match time (OR coverage).
+ANCHOR_KINDS = frozenset({"path", "artifact", "symbol", "api", "code_ref"})
 
 
 def facts_path(revision_dir: Path) -> Path:
@@ -126,6 +135,30 @@ def _validate_derivation(prefix: str, derivation: Any) -> list[str]:
     extra = set(derivation) - {"disposition", "upstream_ref"}
     if extra:
         errors.append(f"{prefix}.derivation unexpected fields {sorted(extra)}")
+    return errors
+
+
+def _validate_anchors(prefix: str, anchors: Any) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(anchors, list):
+        errors.append(f"{prefix}.anchors must be an array when present")
+        return errors
+    for a_index, item in enumerate(anchors):
+        aprefix = f"{prefix}.anchors[{a_index}]"
+        if not isinstance(item, dict):
+            errors.append(f"{aprefix} must be an object {{kind, value}}")
+            continue
+        kind = item.get("kind")
+        if not isinstance(kind, str) or kind.strip().lower() not in ANCHOR_KINDS:
+            errors.append(
+                f"{aprefix}.kind must be one of {sorted(ANCHOR_KINDS)}, got {kind!r}",
+            )
+        value = item.get("value")
+        if not isinstance(value, str) or not value.strip():
+            errors.append(f"{aprefix}.value must be a non-empty string")
+        extra = set(item) - {"kind", "value"}
+        if extra:
+            errors.append(f"{aprefix} unexpected fields {sorted(extra)}")
     return errors
 
 
@@ -244,6 +277,15 @@ def validate_facts(
                             "empty lens_tags",
                         )
 
+        if "anchors" in entry:
+            if entry["anchors"] is None:
+                errors.append(
+                    f"{prefix}.anchors must be an array when present "
+                    "(null is not allowed; omit the field instead)",
+                )
+            else:
+                errors.extend(_validate_anchors(prefix, entry["anchors"]))
+
         extra = set(entry) - set(_FACT_REQUIRED) - _FACT_OPTIONAL
         if extra:
             errors.append(f"{prefix}: unexpected fields {sorted(extra)}")
@@ -271,6 +313,18 @@ def normalize_fact(entry: dict[str, Any]) -> dict[str, Any]:
             "disposition": str(derivation["disposition"]).strip().lower(),
             "upstream_ref": [str(r).strip() for r in derivation["upstream_ref"]],
         }
+    if "anchors" in entry and entry["anchors"] is not None:
+        seen_anchors: set[tuple[str, str]] = set()
+        normalized_anchors: list[dict[str, str]] = []
+        for anchor in entry["anchors"]:
+            key = (str(anchor["kind"]).strip().lower(), str(anchor["value"]).strip())
+            if key in seen_anchors:
+                continue
+            seen_anchors.add(key)
+            normalized_anchors.append({"kind": key[0], "value": key[1]})
+        # Empty anchors normalize to omission (equivalent to absent; §3.1).
+        if normalized_anchors:
+            out["anchors"] = normalized_anchors
     return out
 
 

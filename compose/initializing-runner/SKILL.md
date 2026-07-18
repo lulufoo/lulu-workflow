@@ -225,7 +225,7 @@ _body-{cid}.txt      # chapter prose (no H2 line, no anchor)
   1. **5.1 Group (mechanical):** partition this chapter's `facts[]` by `form_lens` — the highest-priority `anchor_lenses` entry (heuristic: invariants > structure/contract > success > contact > context) → primary-axis group; any other `anchor_lenses` entry's `form_lens` → cross-cut group (merged chapters only; single-anchor chapters have an empty cross-cut group). Step 4 already guarantees every fact's `form_lens` ∈ this chapter's `anchor_lenses` — do not place a fact under a `form_lens` outside that set.
   2. **5.2 Bind (semi-semantic — derived by priority rule, not free choice):** for each distinct `form_lens` ℓ present in this chapter, resolve `F_ℓ` `{carrier, structure}` from `section-form-registry[ℓ]` and `C_ℓ` (2–5 `(d,c)` pairs) from ℓ's `expression` + Role Fields + domain (F priority: `presentation` > domain `expression_conventions` > role `expressive_tendency` > intent text). **Required:** write `display_title` to `_derive-{cid}.json`. **Advisory (optional):** also write `lens_forms[]` (one entry per distinct `form_lens`) for observability — Step 6 / `append-chapter` only require `display_title`; omitting `lens_forms` still passes Init.
   3. **5.3 Arrange:** one orienting lead sentence derived from `anchor_lenses` intent + `covered_lenses` (`anchor_lenses` ∪ every placed fact's `lens_tags`); order the primary axis by priority; append cross-cut groups after the primary axis, bounded and clearly labeled — never interleaved into it.
-  4. **5.4 Weave:** realize each group as prose under its own `F_ℓ`/`C_ℓ`; content ⊆ this chapter's `facts[]` — never invent a proposition. While drafting, an author may cite another fact by `F-id`; before writing `_body-{cid}.txt` to disk, resolve every such citation into a human-readable chapter reference (e.g. "见「架构」章") — the persisted file must contain no raw `F-id` (write-side; not a Step 6 gate). Mark gaps with `> **待决：** …`. Write `_body-{cid}.txt` (no H2 line, no anchor).
+  4. **5.4 Weave:** realize each group as prose under its own `F_ℓ`/`C_ℓ`; content ⊆ this chapter's `facts[]` — never invent a proposition. **Anchor fidelity:** carry each placed fact's `anchors` (§1.5 `compose-theory.md`) into the body — a `discovered` fact's anchors must appear (Step 6 L6 gate); do not replace an anchor token with a hypernym (see `init-draft-quality.md` § Anchor fidelity). While drafting, an author may cite another fact by `F-id`; before writing `_body-{cid}.txt` to disk, resolve every such citation into a human-readable chapter reference (e.g. "见「架构」章") — the persisted file must contain no raw `F-id` (write-side; not a Step 6 gate). Mark gaps with `> **待决：** …`. Write `_body-{cid}.txt` (no H2 line, no anchor).
   5. **5.5 Close (mechanical):** assemble into `$OUTPUT_DOC_PATH`:
 
 ```bash
@@ -241,11 +241,12 @@ Chapter titles are flat `## {display_title}` from `_derive-{cid}.json`.
 
 ### Step 6 — Validate
 
-1. Run `$INIT_COMPOSE_VALIDATE` (fact-first gate suite — L1/L3/L4/L5/C1 placement/coverage gates + chapter-artifact existence + assembly completeness).
+1. Run `$INIT_COMPOSE_VALIDATE` (fact-first gate suite — L1/L3/L4/L5/C1 placement/coverage gates + chapter-artifact existence + assembly completeness + L6 fact-anchor coverage).
 2. On failure → read stderr; route by gap type:
    - **C1 on a derivation lens** (required lens with `decompose`/`instantiate` edge still at zero facts) → **full re-run** (inductive: **Blocking** — return control to inductive-runner; add missing facts via `seed-decision` / `settle-open`, then re-enter Init Step 2 Branch A — never invoke retired `$INDUCTIVE_FACTS_PROJ project`; deductive: re-run Step 2 then Step 3 — do not patch in place) or flag Round;
    - **true coverage gap** (required, zero facts, **no** derivation edge) → Round / modeling fix — Step 3 will not invent;
    - **placement / candidate / L\*** issues → return to Step 4;
+   - **L6 anchor coverage** (a `discovered` fact's anchor absent from its chapter body) → return to Step 5.4 and weave the missing anchor token into the body (do not weaken the anchor);
    - missing/empty chapter artifacts or missing chapter anchors → return to Step 5;
    then re-run Step 6.
 3. On success → Return Summary.

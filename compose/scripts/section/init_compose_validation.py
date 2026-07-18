@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -98,6 +99,64 @@ def outline_registry_for_profile(
     return normalize_outline_registry(json.loads(raw))
 
 
+def _fact_anchor_covered(anchor: dict[str, Any], body: str) -> bool:
+    """True when an ``{kind, value}`` fact anchor survives into the body text.
+
+    Substring match after normalization. ``code_ref`` values (``path::symbol``)
+    are split on ``::`` and matched OR (any path/symbol segment present passes;
+    §3.1). Trailing line-number parens are stripped.
+    """
+    value = str(anchor.get("value", "")).strip()
+    if not value:
+        return True
+    if str(anchor.get("kind", "")).strip().lower() == "code_ref":
+        cleaned = re.sub(r"\s*\(\d+\)\s*$", "", value).strip()
+        segments = [seg.strip() for seg in cleaned.split("::") if seg.strip()]
+        if segments:
+            return any(seg in body for seg in segments)
+        return cleaned in body
+    return value in body
+
+
+def check_fact_anchor_coverage(
+    revision_dir: Path,
+    facts: list[dict[str, Any]],
+    chapters: list[dict[str, Any]],
+) -> list[str]:
+    """L6: every discovered fact's anchors must survive into its chapter body.
+
+    Strictness S1 (default): only facts with ``origin.type == discovered`` and
+    non-empty ``anchors`` are enforced. Reads ``_body-{cid}.txt`` per non-drop
+    chapter and requires each anchor value to appear (normalized substring).
+    Returns error strings ``chapter_id / fid / anchor`` for any miss.
+    """
+    facts_by_id = {f.get("id"): f for f in facts}
+    errors: list[str] = []
+    for chapter in chapters:
+        if chapter.get("op") == "drop":
+            continue
+        cid = str(chapter.get("id", "")).strip()
+        body_file = chapter_body_path(revision_dir, cid)
+        if not body_file.is_file():
+            continue  # missing/empty body already reported by check #4
+        body = body_file.read_text(encoding="utf-8")
+        for fact_ref in chapter.get("facts", []):
+            fid = str(fact_ref.get("fid", "")).strip()
+            fact = facts_by_id.get(fid)
+            if fact is None:
+                continue
+            origin_type = str((fact.get("origin") or {}).get("type", "")).strip().lower()
+            if origin_type != "discovered":
+                continue
+            for anchor in fact.get("anchors") or []:
+                if not _fact_anchor_covered(anchor, body):
+                    errors.append(
+                        f"chapter {cid!r}: fact {fid} anchor "
+                        f"{anchor.get('kind')}={anchor.get('value')!r} missing from body",
+                    )
+    return errors
+
+
 def validate_display_layer_artifacts(
     revision_dir: Path,
     compose_doc: Path,
@@ -114,7 +173,9 @@ def validate_display_layer_artifacts(
     4. chapter-artifact existence (non-drop chapter has non-empty
        ``_body-{cid}.txt`` + ``_derive-{cid}.json`` with a ``display_title``);
     5. assembly completeness: every non-drop chapter's anchor is present
-       in the compose document with a non-empty segment.
+       in the compose document with a non-empty segment;
+    6. fact-anchor coverage (L6): every discovered fact's ``anchors`` survive
+       into its chapter body (``check_fact_anchor_coverage``; §5 P5).
     """
     errors: list[str] = []
 
@@ -188,6 +249,8 @@ def validate_display_layer_artifacts(
                 segment_lines = segment_lines[1:]
             if not "\n".join(segment_lines).strip():
                 errors.append(f"chapter {cid!r}: compose document empty chapter body")
+
+    errors.extend(check_fact_anchor_coverage(revision_dir, facts, chapters))
 
     if not errors:
         return None
