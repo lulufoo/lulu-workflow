@@ -2,45 +2,42 @@
 
 # Inductive Presentation
 
-Session-wide contract for **user-facing wording** across the whole inductive run (Seed → Shape-confirm → refine → audit handoff). The capability reference says *what* a capability is; the flow layer says *when* it runs; this file says *how it sounds to the user*.
+**Sole user-facing adaptation layer.** Flow *when* = `../gates/g3-refine.md` (English keys + Dialogue stops). This file = **L1 labels** only.
 
-**Language:** the glosses below are plain-English illustrations — **speak them in the user's language** at runtime. Never surface internal tokens verbatim, in any language.
+- SKILL / gates stay English; **L1 landmarks are fixed** (no mid-session synonyms). Surrounding prose follows the user's language.
+- **L0 never to user:** `trigger` / `means` tokens, command names, ids, `KW`, `Class 1B`, `recompose`, `provenance`, bare mechanism talk.
+- **L1 ok:** landmarks below (`G1`…`G5` prefixes allowed). Optional L2 = one first-use gloss only.
+- **Output:** finding + one leaning (not a verdict menu). Process modes: **Auto / Manual / Ignore** only. Stamps / ✅⚠️ stay on disk — never drop for cleaner wording.
+- Collision labels: follow `g3-capabilities.md`.
 
-## Shield rule
+## L1 map (SSOT)
 
-Internal vocabulary never reaches the user: any `trigger` (`human`/`ai`/`seed`) or `means` token (`probe`/`direct`/`view`/`ai_scan`/`intent_baseline`/`scope`), `frontier_kw`, `add-open` / `settle-open` / `defer-open`, `open` / `decision` ids, `KW`, raw section keys as jargon, gate ids. The user hears **intent and conclusions**, not mechanism.
+| Key (orchestration) | L1 | L2 (first use, optional) |
+|---------------------|----|--------------------------|
+| G1 Shape-confirm | **G1 形态确认** | 确认粗轮廓 |
+| G3 Refine | **G3 协作完善** | 形态确认后的协作补齐与定稿 |
+| continue discussion | **继续讨论** | — |
+| view extract | **G3 View 提取** | 只读抽出当前图景 |
+| open-point detect | **G3 开放点探测** | 授权后扫描开放点 |
+| open-point process | **G3 开放点处理** | Auto / Manual / Ignore |
+| continue refine | **继续 G3 协作完善** | 不关闸 |
+| refine close / close-only | **G3 协作完善收口** | 仅结束 G3 |
+| G4 / internal coherence | **G4 自洽检查** | 内部是否互相矛盾 |
+| G5 / upstream alignment | **G5 上游对照** | 对照上游列偏差 |
+| pre-publish check (G4→G5) | **成稿前检查（G4→G5）** | 自洽 → 上游对照 |
+| produce-document | **生成文档** | 须 G4+G5 已关闭 |
 
-## Translation table
+**Retired:** `细化` / `看全貌` / `找缺口` / `lock·talk·skip` / `交付前审计（重组+溯源）` 等口语顶替。
 
-| Internal | Say (gloss) |
-|----------|-------------|
-| `ai_scan` | "I scanned the code" |
-| `intent_baseline` | "I checked it against the requirements" |
-| AI `probe` | "I stress-tested a few failure / edge spots" |
-| detect batch | "I gathered a batch of points that may need deciding" |
-| `open` | "an open point" |
-| `settle-open` | "lock it in" |
-| `defer-open` | "park it for now" |
-| `decision` | "a settled point" |
-| `View` | "the current picture" |
+## Stop → L1
 
-## Label rule
+Behavior SSOT = `g3-refine.md`. Render only:
 
-Follow the collision label contract in `g3-capabilities.md` (✅ Verified / ⚠️ Inferred / unknown) when presenting inference — never present inference as settled fact in wording.
-
-## Output shape
-
-Present **finding + one leaning**, not a verdict menu. Offer the processing choice plainly: "want me to lock it in / talk it through / skip it" (= auto / manual / ignore).
-
-## Per-moment tone
-
-- **Free-dialogue sensing:** discuss / look around plainly; no mechanism talk.
-- **View:** present the current picture as a plain snapshot; still no mechanism talk.
-- **Docking a user gap:** acknowledge simply — "I'll note that as an open point."
-- **AI detect:** report findings, not a scan log.
-- **Processing:** on settle, say what got decided and why in one line.
-- **Convergence:** "this area looks settled — wrap it up?"
-
-## Hard boundary
-
-Shielding is presentation-only. Under the hood every open still carries its `trigger` × `means` stamp and any required ✅ / ⚠️ labels — they feed G5 provenance and I10 inheritance. **Never drop metadata to make the wording cleaner.**
+| Stop | Say |
+|------|-----|
+| E | **G3 协作完善** + 继续讨论 · View 提取 · 开放点探测 · 开放点处理 ·（可时）协作完善收口 |
+| D | **G3 开放点处理**？**Auto** / **Manual** / **Ignore** |
+| P | Short nav (same as E keys) |
+| X | **继续 G3 协作完善** · **G3 协作完善收口** · **成稿前检查（G4→G5）** — 无 **生成文档** |
+| A | **G4 自洽检查 → G5 上游对照**；之后父流程可 **生成文档** |
+| Vague continue | List options from this map; never default close+check+doc |
