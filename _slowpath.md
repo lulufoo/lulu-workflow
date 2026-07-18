@@ -15,7 +15,7 @@
    > `Cycle: enter number to select, or type a description to create [default: "<name>" — only when derived]`
 
 2. Parse (unanswered → default when applicable):
-   - **Integer:** → `cycle_id ← cycles.json[n]`; **DONE** (existing cycle)
+   - **Integer:** → `cycle_id` = the nth entry of the **same sequence `$CYCLE_CONTROL list` prints** (per type: reverse-sort by cycle id / newest first, keep ≤5; types in topic then feature order; indices renumber from 1). Recompute from `cycles.json` with that rule if needed; **do not** index the full ascending key list. **DONE** (existing cycle)
    - **New topic** (description or N): `name ← input`; `$CYCLE_TYPE ← topic`
    - **New feature** (description or M): `name ← input`; `$CYCLE_TYPE ← feature`
 

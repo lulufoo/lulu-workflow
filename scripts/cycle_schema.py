@@ -75,12 +75,38 @@ def validate_cycle(cache_dir: Path, cycle_id: str) -> tuple[bool, str]:
     return True, ""
 
 
+_LIST_PER_TYPE_LIMIT = 5
+_LIST_TYPE_ORDER = ("topic", "feature")
+
+
 def format_cycles_list(cache_dir: Path) -> str:
+    """Format cycles for Feature Resolution list.
+
+    Per type: reverse-sort by cycle id (newest first), keep at most
+    ``_LIST_PER_TYPE_LIMIT``. Types emit in ``_LIST_TYPE_ORDER`` then any
+    other kinds alphabetically. Display indices renumber from 1.
+    """
     cycles = load_cycles(cache_dir)
     if not cycles:
         return "Cycles:\n(no cycles)"
+
+    by_kind: dict[str, list[str]] = {}
+    for cycle_id in cycles:
+        kind = cycle_type_from_id(cycle_id)
+        by_kind.setdefault(kind, []).append(cycle_id)
+
+    ordered_ids: list[str] = []
+    seen: set[str] = set()
+    for kind in _LIST_TYPE_ORDER:
+        if kind not in by_kind:
+            continue
+        ordered_ids.extend(sorted(by_kind[kind], reverse=True)[:_LIST_PER_TYPE_LIMIT])
+        seen.add(kind)
+    for kind in sorted(k for k in by_kind if k not in seen):
+        ordered_ids.extend(sorted(by_kind[kind], reverse=True)[:_LIST_PER_TYPE_LIMIT])
+
     lines = ["Cycles:"]
-    for index, cycle_id in enumerate(sorted(cycles.keys()), start=1):
+    for index, cycle_id in enumerate(ordered_ids, start=1):
         entry = cycles[cycle_id]
         name = entry.get("name", cycle_id) if isinstance(entry, dict) else str(entry)
         kind = cycle_type_from_id(cycle_id)

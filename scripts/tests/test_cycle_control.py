@@ -85,6 +85,14 @@ class TestCycleControlResolveConfigPath:
 
 
 class TestCycleControlList:
+    def _cache_dir(self, tmp_path: Path) -> Path:
+        return tmp_path / ".cache" / "copilot" / "lulu-dev-workflow"
+
+    def _write_cycles(self, tmp_path: Path, data: dict) -> None:
+        cache = self._cache_dir(tmp_path)
+        cache.mkdir(parents=True, exist_ok=True)
+        (cache / "cycles.json").write_text(json.dumps(data), encoding="utf-8")
+
     def test_list_empty(self, tmp_path):
         result = _run("--project-root", str(tmp_path), "list")
         assert result.returncode == 0
@@ -101,6 +109,47 @@ class TestCycleControlList:
         assert "alpha" in result.stdout
         assert "[feature]" in result.stdout
         assert "beta" in result.stdout
+
+    def test_list_newest_first_and_renumbers_from_one(self, tmp_path):
+        self._write_cycles(
+            tmp_path,
+            {
+                "topic-20260101000000-aaaaaaaa": {"name": "old-topic"},
+                "topic-20260601000000-bbbbbbbb": {"name": "new-topic"},
+                "feature-20260201000000-cccccccc": {"name": "old-feature"},
+                "feature-20260701000000-dddddddd": {"name": "new-feature"},
+            },
+        )
+        result = _run("--project-root", str(tmp_path), "list")
+        assert result.returncode == 0, result.stderr
+        lines = [ln for ln in result.stdout.splitlines() if ln.startswith("[")]
+        assert lines == [
+            "[topic]   1. new-topic",
+            "[topic]   2. old-topic",
+            "[feature]   3. new-feature",
+            "[feature]   4. old-feature",
+        ]
+
+    def test_list_truncates_to_five_per_type(self, tmp_path):
+        data = {}
+        for i in range(6):
+            data[f"topic-2026010{i+1:02d}000000-{'a'*8}"] = {"name": f"t{i}"}
+            data[f"feature-2026020{i+1:02d}000000-{'b'*8}"] = {"name": f"f{i}"}
+        self._write_cycles(tmp_path, data)
+        result = _run("--project-root", str(tmp_path), "list")
+        assert result.returncode == 0, result.stderr
+        lines = [ln for ln in result.stdout.splitlines() if ln.startswith("[")]
+        assert len(lines) == 10
+        topic_lines = [ln for ln in lines if ln.startswith("[topic]")]
+        feature_lines = [ln for ln in lines if ln.startswith("[feature]")]
+        assert len(topic_lines) == 5
+        assert len(feature_lines) == 5
+        assert "t5" in topic_lines[0]
+        assert "t0" not in result.stdout
+        assert "f5" in feature_lines[0]
+        assert "f0" not in result.stdout
+        assert lines[0].startswith("[topic]   1.")
+        assert lines[-1].startswith("[feature]   10.")
 
 
 class TestCycleControlInfo:
