@@ -30,13 +30,17 @@ from cycle_delivered_refs import (  # noqa: E402
 
 @dataclass(frozen=True)
 class DeliveredRef:
-    """Upstream delivered document reference."""
+    """Upstream delivered stage reference (doc path + optional fact package)."""
 
     type: str
     path: str
+    facts_path: str = ""
 
     def to_dict(self) -> dict[str, str]:
-        return {"type": self.type, "path": self.path}
+        out: dict[str, str] = {"type": self.type, "path": self.path}
+        if self.facts_path:
+            out["facts_path"] = self.facts_path
+        return out
 
 
 def entry_path_ok(data: dict[str, Any], delivered_type: str) -> bool:
@@ -47,6 +51,17 @@ def entry_path_ok(data: dict[str, Any], delivered_type: str) -> bool:
     return bool(raw) and Path(raw).is_file()
 
 
+def _resolve_entry_facts_path(delivered_type: str, data: dict[str, Any], entry: dict) -> str:
+    """facts_path on stage entry, or legacy parallel ``{stage}-facts`` key (read-only)."""
+    raw = str(entry.get("facts_path", "")).strip()
+    if raw:
+        return raw
+    legacy = (data.get("entries") or {}).get(f"{delivered_type}-facts")
+    if isinstance(legacy, dict):
+        return str(legacy.get("path", "")).strip()
+    return ""
+
+
 def ref_from_file_entry(delivered_type: str, data: dict[str, Any]) -> DeliveredRef | None:
     entry = (data.get("entries") or {}).get(delivered_type)
     if not isinstance(entry, dict):
@@ -54,7 +69,11 @@ def ref_from_file_entry(delivered_type: str, data: dict[str, Any]) -> DeliveredR
     raw_path = str(entry.get("path", "")).strip()
     if not raw_path:
         return None
-    return DeliveredRef(type=delivered_type, path=raw_path)
+    return DeliveredRef(
+        type=delivered_type,
+        path=raw_path,
+        facts_path=_resolve_entry_facts_path(delivered_type, data, entry),
+    )
 
 
 def serialize_delivered_refs(refs: list[DeliveredRef]) -> str:
@@ -78,7 +97,8 @@ def parse_delivered_refs(state: dict[str, Any]) -> list[DeliveredRef]:
         path = str(item.get("path", "")).strip()
         if not dtype or not path:
             raise ValueError("delivered_refs item requires non-empty type and path")
-        refs.append(DeliveredRef(type=dtype, path=path))
+        facts_path = str(item.get("facts_path", "")).strip()
+        refs.append(DeliveredRef(type=dtype, path=path, facts_path=facts_path))
     return refs
 
 

@@ -60,14 +60,19 @@ def record_delivered_ref(
     revision: int | str,
     profile_id: str,
     source_workflow_state: str,
+    facts_path: str | None = None,
 ) -> None:
-    """Upsert one delivered type in {cycle_id}/delivered-refs.json."""
+    """Upsert one stage entry in {cycle_id}/delivered-refs.json.
+
+    Optional ``facts_path`` is stored on the same entry (omit key when None).
+    Legacy parallel key ``{stage}-facts`` is dropped when present.
+    """
     dtype = delivered_type.strip()
     if not dtype:
         raise ValueError("delivered_type must be non-empty")
     data = load_delivered_refs_file(cycle_id, project_root)
     entries = dict(data.get("entries") or {})
-    entries[dtype] = {
+    entry: dict[str, Any] = {
         "delivered_type": dtype,
         "path": str(Path(path).resolve()),
         "revision": revision,
@@ -75,5 +80,9 @@ def record_delivered_ref(
         "delivered_at": datetime.now(timezone.utc).isoformat(),
         "source_workflow_state": source_workflow_state,
     }
+    if facts_path is not None and str(facts_path).strip():
+        entry["facts_path"] = str(Path(facts_path).resolve())
+    entries[dtype] = entry
+    entries.pop(f"{dtype}-facts", None)
     data["entries"] = entries
     save_delivered_refs_file(cycle_id, project_root, data)

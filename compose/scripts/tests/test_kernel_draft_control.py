@@ -335,7 +335,7 @@ def test_begin_init_dispatch_includes_nonempty_scope_facts_path(
         intent_baseline_refs=[],
         norm_constraint_refs=[],
         facts_ref=DeliveredRef(
-            type="lulu-design-facts",
+            type="lulu-design",
             path=str(upstream_facts.resolve()),
         ),
     )

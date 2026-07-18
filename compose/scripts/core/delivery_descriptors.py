@@ -38,11 +38,6 @@ class DeliveryDescriptor:
     deliver_facts: bool = False
 
 
-def facts_delivered_type(stage_id: str) -> str:
-    """Parallel delivered-refs type for a stage's fact package."""
-    return f"{stage_id}-facts"
-
-
 def delivery_index_deliver_facts(delivery_index: dict | None) -> bool:
     """True only when profile/constraints JSON sets deliver_facts to boolean true."""
     if not isinstance(delivery_index, dict):

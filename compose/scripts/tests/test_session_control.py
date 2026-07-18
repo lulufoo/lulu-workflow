@@ -268,9 +268,10 @@ class TestDeliver:
         assert refs["entries"]["lulu-design"]["path"] == str(
             (ws.parent / "design-doc.md").resolve()
         )
-        assert refs["entries"]["lulu-design-facts"]["path"] == str(
+        assert refs["entries"]["lulu-design"]["facts_path"] == str(
             (ws.parent / "_facts.json").resolve()
         )
+        assert "lulu-design-facts" not in refs["entries"]
 
     def test_design_deliver_skips_facts_when_missing(self, tmp_path: Path):
         seed_profile_pointer_for_tests(tmp_path, _CYCLE, "lulu-design")
@@ -290,6 +291,7 @@ class TestDeliver:
         assert result["ok"] is True
         refs = load_delivered_refs_file(_CYCLE, tmp_path)
         assert "lulu-design" in refs["entries"]
+        assert "facts_path" not in refs["entries"]["lulu-design"]
         assert "lulu-design-facts" not in refs["entries"]
 
     def test_plan_deliver_with_local_facts_does_not_register_facts(
@@ -342,6 +344,7 @@ class TestDeliver:
         assert result["ok"] is True
         refs = load_delivered_refs_file(_CYCLE, tmp_path)
         assert "lulu-design" in refs["entries"]
+        assert "facts_path" not in refs["entries"]["lulu-design"]
         assert "lulu-design-facts" not in refs["entries"]
 
     def test_failure_from_evaluating(self, tmp_path: Path):

@@ -41,10 +41,7 @@ from demand_manifest_schema import (  # noqa: E402
     write_manifest,
 )
 from delivered_refs_schema import record_delivered_ref  # noqa: E402
-from delivery_descriptors import (  # noqa: E402
-    delivery_index_deliver_facts,
-    facts_delivered_type,
-)
+from delivery_descriptors import delivery_index_deliver_facts  # noqa: E402
 from facts_schema import facts_path  # noqa: E402
 from human_delivery_gate_schema import write_approved  # noqa: E402
 from session_state_schema import load_active_doc_from_cycle  # noqa: E402
@@ -251,6 +248,13 @@ def deliver(
 
     active_doc = load_active_doc_for_profile(cycle_id, project_root, profile_id)
     compose_path = document_file_path(cycle_id, project_root, profile_id)
+    revision_dir = ws_path.parent
+    profile = load_profile(profile_id, project_root=project_root, cycle_id=cycle_id)
+    facts_file_arg: str | None = None
+    if delivery_index_deliver_facts(profile.get("delivery_index")):
+        facts_file = facts_path(revision_dir)
+        if facts_file.is_file():
+            facts_file_arg = str(facts_file.resolve())
     record_delivered_ref(
         cycle_id,
         project_root,
@@ -259,22 +263,8 @@ def deliver(
         revision=active_doc,
         profile_id=profile_id,
         source_workflow_state=str(ws_path.resolve()),
+        facts_path=facts_file_arg,
     )
-    revision_dir = ws_path.parent
-    profile = load_profile(profile_id, project_root=project_root, cycle_id=cycle_id)
-    if delivery_index_deliver_facts(profile.get("delivery_index")):
-        facts_file = facts_path(revision_dir)
-        if facts_file.is_file():
-            # Type key mirrors doc registration (delivered_type=profile_id) + "-facts".
-            record_delivered_ref(
-                cycle_id,
-                project_root,
-                delivered_type=facts_delivered_type(profile_id),
-                path=str(facts_file.resolve()),
-                revision=active_doc,
-                profile_id=profile_id,
-                source_workflow_state=str(ws_path.resolve()),
-            )
 
     merged = dict(state)
     merged.pop("skip_evaluate_requested", None)

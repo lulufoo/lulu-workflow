@@ -112,16 +112,22 @@ def test_tech_plan_infer_run_mode():
     assert adapter.infer_run_mode.__name__ == "infer_run_mode"
 
 
-def test_tech_plan_resolve_scope_facts_ref():
+def test_tech_plan_resolve_scope_facts_ref(tmp_path: Path):
     adapter = TechPlanStartAdapter()
-    facts = DeliveredRef(type="lulu-design-facts", path="/abs/_facts.json")
+    facts_file = tmp_path / "_facts.json"
+    facts_file.write_text("[]\n", encoding="utf-8")
     refs = adapter.resolve_scope_facts_ref(
         delivered_refs=[
-            DeliveredRef(type="lulu-design", path="/abs/design.md"),
-            facts,
+            DeliveredRef(
+                type="lulu-design",
+                path="/abs/design.md",
+                facts_path=str(facts_file.resolve()),
+            ),
         ],
     )
-    assert refs == [facts]
+    assert len(refs) == 1
+    assert refs[0].type == "lulu-design"
+    assert refs[0].path == str(facts_file.resolve())
     assert adapter.resolve_scope_facts_ref(
         delivered_refs=[DeliveredRef(type="lulu-design", path="/abs/design.md")],
     ) == []

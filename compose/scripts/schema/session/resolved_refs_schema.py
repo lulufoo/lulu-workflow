@@ -26,7 +26,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from delivered_refs_schema import DeliveredRef
+from delivered_refs_schema import DeliveredRef, ref_from_file_entry
 
 FROZEN_DELIVERED_FILE = "delivered-refs.json"
 RESOLVED_REFS_FILE = "resolved-refs.json"
@@ -99,7 +99,8 @@ def _ref_from_dict(item: Any) -> DeliveredRef | None:
     path = str(item.get("path", "")).strip()
     if not dtype or not path:
         return None
-    return DeliveredRef(type=dtype, path=path)
+    facts_path = str(item.get("facts_path", "")).strip()
+    return DeliveredRef(type=dtype, path=path, facts_path=facts_path)
 
 
 def _refs_from_list(items: Any) -> list[DeliveredRef]:
@@ -153,7 +154,7 @@ def frozen_delivered_path_by_type(revision_dir: Path, delivered_type: str) -> st
 
 
 def frozen_delivered_refs(revision_dir: Path) -> list[DeliveredRef]:
-    """Return ① frozen upstream entries as {type, path} refs (audit/display)."""
+    """Return ① frozen upstream stage entries (doc path + optional facts_path)."""
     path = frozen_delivered_path(revision_dir)
     if not path.is_file():
         return []
@@ -164,10 +165,11 @@ def frozen_delivered_refs(revision_dir: Path) -> list[DeliveredRef]:
     if not isinstance(entries, dict):
         return []
     out: list[DeliveredRef] = []
-    for dtype, entry in entries.items():
-        if not isinstance(entry, dict):
+    for dtype in entries:
+        key = str(dtype)
+        if key.endswith("-facts"):
             continue
-        raw_path = str(entry.get("path", "")).strip()
-        if raw_path:
-            out.append(DeliveredRef(type=str(dtype), path=raw_path))
+        ref = ref_from_file_entry(key, data)
+        if ref is not None:
+            out.append(ref)
     return out

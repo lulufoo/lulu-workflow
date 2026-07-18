@@ -7,7 +7,6 @@ import bootstrap  # noqa: F401
 from delivery_descriptors import (  # noqa: E402
     _compose_descriptor,
     delivery_index_deliver_facts,
-    facts_delivered_type,
     iter_delivery_descriptors,
 )
 
@@ -32,11 +31,6 @@ def test_compose_descriptor_plan_does_not_deliver_facts():
     desc = _compose_descriptor("lulu-plan")
     assert desc is not None
     assert desc.deliver_facts is False
-
-
-def test_facts_delivered_type_derives_from_stage_id():
-    assert facts_delivered_type("lulu-design") == "lulu-design-facts"
-    assert facts_delivered_type("any-stage") == "any-stage-facts"
 
 
 def test_delivery_index_deliver_facts_requires_json_true():
