@@ -23,9 +23,19 @@ OPENS_BASENAME = "inductive-opens.json"
 
 OPEN_STATUSES = frozenset({"open", "settled", "deferred", "rejected"})
 # Opens carry discovered provenance only (seed bypasses open → facts directly).
+# Means names are self-describing: human_* / ai_* prefix encodes trigger (phase 1
+# still keeps an independent trigger field; prefix must match).
 TRIGGERS = frozenset({"human", "ai"})
 MEANS = frozenset(
-    {"probe", "direct", "view", "ai_scan", "intent_baseline"}
+    {
+        "human_probe",
+        "ai_probe",
+        "human_direct",
+        "human_view",
+        "ai_scan",
+        "ai_intent_baseline",
+        "ai_scope_scan",
+    }
 )
 CONFIDENCES = frozenset({"direct", "inferred"})
 
@@ -68,6 +78,42 @@ def next_open_seq(opens: list[dict[str, Any]]) -> int:
     return max_n + 1
 
 
+def migrate_means(trigger: str, means: str) -> str:
+    """Map legacy means → prefixed names using trigger (stock mechanical migrate)."""
+    t = str(trigger).strip().lower()
+    m = str(means).strip().lower()
+    if m in MEANS:
+        return m
+    if m == "probe":
+        if t == "human":
+            return "human_probe"
+        if t == "ai":
+            return "ai_probe"
+        return m
+    if m == "direct":
+        return "human_direct"
+    if m == "view":
+        return "human_view"
+    if m == "intent_baseline":
+        return "ai_intent_baseline"
+    # ai_scan already in MEANS; listed in _LEGACY for discoverability only.
+    return m
+
+
+def migrate_open_source(entry: dict[str, Any]) -> dict[str, Any]:
+    """Return a shallow copy with source.means migrated to the prefixed taxonomy."""
+    out = dict(entry)
+    source = out.get("source")
+    if not isinstance(source, dict):
+        return out
+    trigger = str(source.get("trigger", "")).strip().lower()
+    means = str(source.get("means", "")).strip().lower()
+    migrated = migrate_means(trigger, means)
+    if migrated != means:
+        out["source"] = {**source, "means": migrated}
+    return out
+
+
 def _validate_source_stamp(prefix: str, source: Any) -> list[str]:
     errors: list[str] = []
     if not isinstance(source, dict):
@@ -75,10 +121,22 @@ def _validate_source_stamp(prefix: str, source: Any) -> list[str]:
         return errors
     trigger = str(source.get("trigger", "")).strip().lower()
     means = str(source.get("means", "")).strip().lower()
+    # Accept legacy tokens only long enough to migrate; validate against new set.
+    means = migrate_means(trigger, means)
     if trigger not in TRIGGERS:
         errors.append(f"{prefix}.source.trigger invalid: {trigger!r}")
     if means not in MEANS:
         errors.append(f"{prefix}.source.means invalid: {means!r}")
+    elif means.startswith("human_") and trigger != "human":
+        errors.append(
+            f"{prefix}.source means prefix human_ requires trigger=human "
+            f"(got trigger={trigger!r}, means={means!r})"
+        )
+    elif means.startswith("ai_") and trigger != "ai":
+        errors.append(
+            f"{prefix}.source means prefix ai_ requires trigger=ai "
+            f"(got trigger={trigger!r}, means={means!r})"
+        )
     extra = set(source) - {"trigger", "means"}
     if extra:
         errors.append(f"{prefix}.source unexpected fields {sorted(extra)}")
@@ -225,12 +283,17 @@ def validate_opens(opens: Any) -> list[str]:
 
 def normalize_open(entry: dict[str, Any]) -> dict[str, Any]:
     source_raw = entry.get("source") or {}
+    trigger = str(source_raw.get("trigger", "")).strip().lower()
+    means = migrate_means(
+        trigger,
+        str(source_raw.get("means", "")).strip().lower(),
+    )
     out: dict[str, Any] = {
         "id": str(entry["id"]).strip(),
         "status": str(entry["status"]).strip().lower(),
         "source": {
-            "trigger": str(source_raw.get("trigger", "")).strip().lower(),
-            "means": str(source_raw.get("means", "")).strip().lower(),
+            "trigger": trigger,
+            "means": means,
         },
         "kw": entry["kw"],
         "blocking": bool(entry["blocking"]),
@@ -254,25 +317,37 @@ def normalize_open(entry: dict[str, Any]) -> dict[str, Any]:
 
 
 def load_opens(path: Path) -> list[dict[str, Any]]:
-    """Load and validate opens file; missing file → empty list."""
+    """Load and validate opens file; missing file → empty list.
+
+    Legacy means tokens are migrated before validate (stock open files keep loading).
+    """
     if not path.is_file():
         return []
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
         raise ValueError(f"invalid opens JSON: {exc}") from exc
-    errors = validate_opens(data)
+    if not isinstance(data, list):
+        raise ValueError("opens root must be a JSON array")
+    migrated = [
+        migrate_open_source(entry) if isinstance(entry, dict) else entry
+        for entry in data
+    ]
+    errors = validate_opens(migrated)
     if errors:
         raise ValueError("; ".join(errors))
-    return [normalize_open(entry) for entry in data]
+    return [normalize_open(entry) for entry in migrated]
 
 
 def save_opens(path: Path, opens: list[dict[str, Any]]) -> None:
-    """Validate raw, normalize, and write opens array."""
-    errors = validate_opens(opens)
+    """Migrate legacy means, validate, normalize, and write opens array."""
+    migrated = [
+        migrate_open_source(o) if isinstance(o, dict) else o for o in opens
+    ]
+    errors = validate_opens(migrated)
     if errors:
         raise ValueError("; ".join(errors))
-    normalized = [normalize_open(o) for o in opens]
+    normalized = [normalize_open(o) for o in migrated]
     errors = validate_opens(normalized)
     if errors:
         raise ValueError("; ".join(errors))

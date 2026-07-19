@@ -3,8 +3,11 @@
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
+
+import pytest
 
 _SCRIPTS_ROOT = Path(__file__).resolve().parents[1]
 _WORKFLOW_ROOT = _SCRIPTS_ROOT.parents[1]
@@ -16,6 +19,7 @@ for _p in (_KERNEL_TESTS, _START):
 
 import bootstrap  # noqa: F401
 from delivered_refs_schema import record_delivered_ref  # noqa: E402
+from start_scope_helpers import DecisionFactScopeError  # noqa: E402
 from tech_design_start_adapter import TechDesignStartAdapter  # noqa: E402
 
 _CYCLE = "feat-design-start"
@@ -29,8 +33,26 @@ def _write_file(tmp_path: Path, rel: str, content: str = "# stub\n") -> Path:
     return p
 
 
+def _seed_decision_fact(tmp_path: Path) -> Path:
+    fact = tmp_path / "diag" / "decision-fact.json"
+    fact.parent.mkdir(parents=True, exist_ok=True)
+    fact.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "gates": {
+                    "D": [{"id": "D-1", "slot": "D.x", "text": "pick A"}],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    return fact
+
+
 def _seed_diag_ref(tmp_path: Path, cycle_id: str) -> Path:
     doc = _write_file(tmp_path, "diag/decision-doc.md")
+    fact = _seed_decision_fact(tmp_path)
     record_delivered_ref(
         cycle_id,
         tmp_path,
@@ -39,6 +61,7 @@ def _seed_diag_ref(tmp_path: Path, cycle_id: str) -> Path:
         revision=1,
         profile_id="lulu-approach",
         source_workflow_state=str(doc.resolve()),
+        decision_fact_path=str(fact.resolve()),
     )
     return doc
 
@@ -136,30 +159,52 @@ class TestResolveDeliveredRefs:
 
 
 class TestResolveScopeRefs:
-    def test_tech_mode_scope_has_diag_only(self, tmp_path: Path):
+    def test_tech_mode_scope_is_decision_fact(self, tmp_path: Path):
         diag = _seed_diag_ref(tmp_path, _CYCLE)
         spec = _seed_product_ref(tmp_path, _CYCLE)
+        fact = tmp_path / "diag" / "decision-fact.json"
         from delivered_refs_schema import DeliveredRef  # noqa: WPS433
 
         all_refs = [
-            DeliveredRef(type="lulu-approach", path=str(diag.resolve())),
+            DeliveredRef(
+                type="lulu-approach",
+                path=str(diag.resolve()),
+                decision_fact_path=str(fact.resolve()),
+            ),
             DeliveredRef(type="lulu-spec", path=str(spec.resolve())),
         ]
         scope = _ADAPTER.resolve_scope_refs(delivered_refs=all_refs, run_mode="tech")
-        types = [r.type for r in scope]
-        assert types == ["lulu-approach"]
+        assert [r.type for r in scope] == ["lulu-approach"]
+        assert scope[0].path == str(fact.resolve())
 
-    def test_product_mode_scope_is_approach_only(self, tmp_path: Path):
+    def test_product_mode_scope_is_decision_fact(self, tmp_path: Path):
         diag = _seed_diag_ref(tmp_path, _CYCLE)
         spec = _seed_product_ref(tmp_path, _CYCLE)
+        fact = tmp_path / "diag" / "decision-fact.json"
         from delivered_refs_schema import DeliveredRef  # noqa: WPS433
 
         all_refs = [
-            DeliveredRef(type="lulu-approach", path=str(diag.resolve())),
+            DeliveredRef(
+                type="lulu-approach",
+                path=str(diag.resolve()),
+                decision_fact_path=str(fact.resolve()),
+            ),
             DeliveredRef(type="lulu-spec", path=str(spec.resolve())),
         ]
         scope = _ADAPTER.resolve_scope_refs(delivered_refs=all_refs, run_mode="product")
         assert [r.type for r in scope] == ["lulu-approach"]
+        assert scope[0].path == str(fact.resolve())
+
+    def test_scope_requires_decision_fact_path(self, tmp_path: Path):
+        diag = _seed_diag_ref(tmp_path, _CYCLE)
+        from delivered_refs_schema import DeliveredRef  # noqa: WPS433
+
+        with pytest.raises(DecisionFactScopeError, match="required"):
+            _ADAPTER.resolve_scope_refs(
+                delivered_refs=[
+                    DeliveredRef(type="lulu-approach", path=str(diag.resolve())),
+                ],
+            )
 
     def test_product_mode_intent_baseline_is_spec(self, tmp_path: Path):
         diag = _seed_diag_ref(tmp_path, _CYCLE)

@@ -21,7 +21,11 @@ from delivered_refs_schema import (  # noqa: E402
     ref_from_file_entry,
 )
 from start_adapter import primary_scope_from_workflow  # noqa: E402
-from start_scope_helpers import first_ref, infer_product_or_tech  # noqa: E402
+from start_scope_helpers import (  # noqa: E402
+    first_ref,
+    infer_product_or_tech,
+    require_decision_fact_scope,
+)
 
 
 class TechPlanStartAdapter:
@@ -105,15 +109,22 @@ class TechPlanStartAdapter:
         run_mode: str = "tech",
         carry_forward_ref: str = "",
     ) -> list[DeliveredRef]:
+        """Primary scope: design-doc, or approach decision-fact when falling back.
+
+        When primary is ``lulu-design``, path stays the design prose doc (fact package
+        is ``facts_path`` / ``$SCOPE_FACTS_PATH``). When primary is ``lulu-approach``,
+        ``decision_fact_path`` with units is required (no prose fallback).
+        """
         del run_mode, carry_forward_ref
-        out: list[DeliveredRef] = []
         primary = first_ref(delivered_refs, "lulu-design") or first_ref(
             delivered_refs,
             "lulu-approach",
         )
-        if primary is not None:
-            out.append(primary)
-        return out
+        if primary is None:
+            return []
+        if primary.type == "lulu-approach":
+            return [require_decision_fact_scope(primary)]
+        return [primary]
 
     def resolve_intent_baseline_refs(
         self,

@@ -21,7 +21,11 @@ from delivered_refs_schema import (  # noqa: E402
     ref_from_file_entry,
 )
 from start_adapter import primary_scope_from_workflow  # noqa: E402
-from start_scope_helpers import first_ref, infer_product_or_tech  # noqa: E402
+from start_scope_helpers import (  # noqa: E402
+    first_ref,
+    infer_product_or_tech,
+    require_decision_fact_scope,
+)
 from workflow_common import CACHE_DIR  # noqa: E402
 
 _WORKFLOW_SCRIPTS = _WORKFLOW_ROOT / "scripts"
@@ -85,9 +89,17 @@ class TechDesignStartAdapter:
         run_mode: str = "tech",
         carry_forward_ref: str = "",
     ) -> list[DeliveredRef]:
+        """Primary scope SSOT = ``decision_fact_path`` (must have units).
+
+        ``DeliveredRef.path`` on the returned scope ref is what compose dispatches as
+        ``$SCOPE_REF``. Cycle ``entry.path`` (decision-doc.md) stays on the approach
+        entry for human/eval — not compose scope.
+        """
         del run_mode, carry_forward_ref
         primary = first_ref(delivered_refs, "lulu-approach")
-        return [primary] if primary is not None else []
+        if primary is None:
+            return []
+        return [require_decision_fact_scope(primary)]
 
     def resolve_intent_baseline_refs(
         self,

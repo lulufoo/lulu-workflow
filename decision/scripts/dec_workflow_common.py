@@ -99,6 +99,21 @@ def decision_doc_path(
     ) / "decision-doc.md"
 
 
+def decision_fact_path(
+    cycle_id: str,
+    stage: str = STAGE,
+    *,
+    project_root: Optional[Path] = None,
+    constraints_path: Optional[Path] = None,
+) -> Path:
+    return session_base_dir(
+        cycle_id,
+        stage,
+        project_root=project_root,
+        constraints_path=constraints_path,
+    ) / "decision-fact.json"
+
+
 def gate_payloads_dir(
     cycle_id: str,
     stage: str = STAGE,

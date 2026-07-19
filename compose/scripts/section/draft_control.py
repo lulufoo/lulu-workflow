@@ -27,7 +27,12 @@ from drafting_progress_schema import (  # noqa: E402
 from delivered_refs_schema import serialize_delivered_refs  # noqa: E402
 from facts_schema import facts_path  # noqa: E402
 from init_compose_validation import validate_init_artifacts  # noqa: E402
-from resolved_refs_schema import has_resolved_refs, resolved_facts_ref  # noqa: E402
+from decision_fact_claim_schema import ensure_claim_ledger  # noqa: E402
+from resolved_refs_schema import (  # noqa: E402
+    has_resolved_refs,
+    resolved_facts_ref,
+    scope_decision_fact_path,
+)
 from start_adapter import (  # noqa: E402
     intent_baseline_from_workflow,
     norm_constraint_from_workflow,
@@ -137,6 +142,29 @@ def _inductive_spine_gate_failure(
     return None
 
 
+def _ensure_decision_fact_claims(
+    cycle_id: str,
+    project_root: Path,
+    profile_id: str,
+) -> str | None:
+    """Sync claim ledger when ``scope_ref`` is decision-fact.json (else prose_fallback).
+
+    Returns an error reason on hard-fail (missing fact while units ledger exists,
+    corrupt ledger/fact); ``None`` on success.
+    """
+    revision_dir = _revision_dir(cycle_id, project_root, profile_id)
+    fact_path = (
+        scope_decision_fact_path(revision_dir)
+        if has_resolved_refs(revision_dir)
+        else None
+    )
+    try:
+        ensure_claim_ledger(revision_dir, decision_fact_path=fact_path)
+    except (FileNotFoundError, ValueError, OSError, json.JSONDecodeError, UnicodeDecodeError) as exc:
+        return f"decision-fact claim ledger: {exc}"
+    return None
+
+
 def _format_inductive_dispatch_input(
     cycle_id: str,
     project_root: Path,
@@ -147,7 +175,7 @@ def _format_inductive_dispatch_input(
     lines = [
         f"COMPOSE_PROFILE:      {profile_id}",
         f"CYCLE_ID:             {cycle_id}",
-        f"SCOPE_DOC:            {_scope_doc(cycle_id, project_root, profile_id).as_posix()}",
+        f"SCOPE_REF:            {_scope_doc(cycle_id, project_root, profile_id).as_posix()}",
         f"INTENT_BASELINE_REFS: {serialize_delivered_refs(intent_refs)}",
         f"NORM_CONSTRAINT_REFS: {serialize_delivered_refs(norm_refs)}",
         f"INDUCTIVE_OUT_DIR:    {_inductive_out_dir(cycle_id, project_root, profile_id).as_posix()}",
@@ -167,7 +195,7 @@ def _format_init_dispatch_input(
     )
     lines = [
         f"REVISION_DIR:         {revision_dir.as_posix()}",
-        f"SCOPE_DOC_PATH:       {_scope_doc(cycle_id, project_root, profile_id).as_posix()}",
+        f"SCOPE_REF_PATH:       {_scope_doc(cycle_id, project_root, profile_id).as_posix()}",
         f"SCOPE_FACTS_PATH:     {facts_ref.path if facts_ref else ''}",
         f"OUTPUT_DOC_PATH:      {output_doc.resolve().as_posix()}",
         f"COMPOSE_PROFILE:      {profile_id}",
@@ -197,6 +225,9 @@ def begin_inductive(
                 f"cannot start Inductive: current_step is {step!r} (expected absent or Inductive)",
                 current_step=step,
             )
+    claim_err = _ensure_decision_fact_claims(cycle_id, project_root, profile_id)
+    if claim_err:
+        return _failure(_CMD_BEGIN_INDUCTIVE, claim_err)
     dispatch_input = _format_inductive_dispatch_input(cycle_id, project_root, profile_id)
     save_drafting_progress(
         progress_path,
@@ -295,6 +326,9 @@ def begin_init(
                 f"(expected {path.as_posix()})",
                 current_step=step,
             )
+    claim_err = _ensure_decision_fact_claims(cycle_id, project_root, profile_id)
+    if claim_err:
+        return _failure(_CMD_BEGIN_INIT, claim_err, current_step=step)
     return _success(
         _CMD_BEGIN_INIT,
         current_step=step,

@@ -61,10 +61,13 @@ def record_delivered_ref(
     profile_id: str,
     source_workflow_state: str,
     facts_path: str | None = None,
+    decision_fact_path: str | None = None,
 ) -> None:
     """Upsert one stage entry in {cycle_id}/delivered-refs.json.
 
     Optional ``facts_path`` is stored on the same entry (omit key when None).
+    Optional ``decision_fact_path`` registers decision-fact.json beside decision-doc
+    (distinct from compose ``facts_path``).
     Legacy parallel key ``{stage}-facts`` is dropped when present.
     """
     dtype = delivered_type.strip()
@@ -82,6 +85,8 @@ def record_delivered_ref(
     }
     if facts_path is not None and str(facts_path).strip():
         entry["facts_path"] = str(Path(facts_path).resolve())
+    if decision_fact_path is not None and str(decision_fact_path).strip():
+        entry["decision_fact_path"] = str(Path(decision_fact_path).resolve())
     entries[dtype] = entry
     entries.pop(f"{dtype}-facts", None)
     data["entries"] = entries

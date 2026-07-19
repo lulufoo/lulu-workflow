@@ -10,10 +10,12 @@ revision dir (sibling of ``workflow-state.md``):
        baseline. Audit / traceability only; compose consumers do NOT read it.
 
     ② resolved-refs.json   — the three provenance refs (scope / intent
-       baseline / norm constraint), plus an optional ``facts_ref``, that the
-       stage resolver settles ONCE at start. This is the ONLY artifact compose
-       consumers read; they never re-derive from the mutable cycle file or
-       from workflow-state.
+       baseline / norm constraint), plus optional ``facts_ref``, that the
+       stage resolver settles ONCE at start.
+       For decision-holder stages, ``scope_ref.path`` is decision-fact.json
+       (required; no prose fallback). Plan←design may still be design-doc.
+       This is the ONLY artifact compose consumers read; they never re-derive
+       from the mutable cycle file or from workflow-state.
 
 workflow-state.md carries pure session-control state and no longer stores
 ``delivered_refs``.
@@ -71,7 +73,7 @@ def write_resolved_refs(
     norm_constraint_refs: list[DeliveredRef],
     facts_ref: DeliveredRef | None = None,
 ) -> Path:
-    """Write ② — three provenance refs plus optional facts_ref (compose consumption)."""
+    """Write ② — provenance refs plus optional facts_ref."""
     payload = {
         "version": _VERSION,
         "cycle_id": cycle_id,
@@ -100,7 +102,13 @@ def _ref_from_dict(item: Any) -> DeliveredRef | None:
     if not dtype or not path:
         return None
     facts_path = str(item.get("facts_path", "")).strip()
-    return DeliveredRef(type=dtype, path=path, facts_path=facts_path)
+    decision_fact_path = str(item.get("decision_fact_path", "")).strip()
+    return DeliveredRef(
+        type=dtype,
+        path=path,
+        facts_path=facts_path,
+        decision_fact_path=decision_fact_path,
+    )
 
 
 def _refs_from_list(items: Any) -> list[DeliveredRef]:
@@ -135,6 +143,31 @@ def resolved_scope_ref(revision_dir: Path) -> DeliveredRef | None:
 
 def resolved_facts_ref(revision_dir: Path) -> DeliveredRef | None:
     return _ref_from_dict(load_resolved_refs(revision_dir).get("facts_ref"))
+
+
+def is_decision_fact_file(path: Path | str) -> bool:
+    """True when path is a readable decision-fact.json (unit scope SSOT)."""
+    p = Path(path)
+    if not p.is_file():
+        return False
+    if p.name == "decision-fact.json":
+        return True
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return False
+    return isinstance(data, dict) and isinstance(data.get("gates"), dict)
+
+
+def scope_decision_fact_path(revision_dir: Path) -> str | None:
+    """Absolute decision-fact path when ``scope_ref`` is the unit SSOT; else None."""
+    ref = resolved_scope_ref(revision_dir)
+    if ref is None:
+        return None
+    raw = str(ref.path).strip()
+    if not raw or not is_decision_fact_file(raw):
+        return None
+    return str(Path(raw).resolve())
 
 
 def resolved_intent_baseline_refs(revision_dir: Path) -> list[DeliveredRef]:

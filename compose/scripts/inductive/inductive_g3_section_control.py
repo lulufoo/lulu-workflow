@@ -37,7 +37,8 @@ from typing import Any
 _HERE = Path(__file__).resolve().parent
 _SCRIPTS = _HERE.parent
 _SECTION = _SCRIPTS / "section"
-for _p in (_HERE, _SECTION, _SCRIPTS):
+_SCHEMA_SESSION = _SCRIPTS / "schema" / "session"
+for _p in (_HERE, _SECTION, _SCRIPTS, _SCHEMA_SESSION):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
@@ -80,6 +81,8 @@ from facts_schema import (  # noqa: E402
     save_facts,
     validate_facts,
 )
+from decision_fact_claim_schema import sync_and_evaluate_claims  # noqa: E402
+from resolved_refs_schema import has_resolved_refs, scope_decision_fact_path  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -350,6 +353,13 @@ def cmd_status(out_dir: Path, _args: argparse.Namespace) -> None:
     })
 
 
+def _decision_fact_path_for_out_dir(out_dir: Path) -> str | None:
+    """Resolve decision-fact.json when revision scope_ref is the unit SSOT."""
+    if not has_resolved_refs(out_dir):
+        return None
+    return scope_decision_fact_path(out_dir)
+
+
 def cmd_check_coverage(out_dir: Path, _args: argparse.Namespace) -> None:
     ptr = _load_pointer(out_dir)
     cov = check_coverage(ptr)
@@ -361,6 +371,25 @@ def cmd_check_coverage(out_dir: Path, _args: argparse.Namespace) -> None:
             f"{len(blocking)} blocking open item(s) remain: "
             + ", ".join(str(o.get("id")) for o in blocking)
         )
+
+    # D6: claim / orphan gate at Exit (unclaimed exposed; claimed must settle∨defer).
+    try:
+        claims = sync_and_evaluate_claims(
+            out_dir,
+            decision_fact_path=_decision_fact_path_for_out_dir(out_dir),
+            fail_on_unclaimed=False,
+        )
+    except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
+        cov["ok"] = False
+        cov["errors"].append(f"decision-fact claim gate error: {exc}")
+        claims = {"gate_ok": False, "errors": [str(exc)]}
+    cov["decision_fact_claims"] = claims
+    if claims.get("orphan_exposed"):
+        cov["decision_fact_unclaimed"] = list(claims["orphan_exposed"])
+    if not claims.get("gate_ok", True):
+        cov["ok"] = False
+        for err in claims.get("errors") or []:
+            cov["errors"].append(str(err))
 
     print(json.dumps(cov, indent=2, ensure_ascii=False))
     if not cov["ok"]:
@@ -1208,7 +1237,10 @@ def _build_parser() -> argparse.ArgumentParser:
         "--means",
         default=None,
         metavar="M",
-        help="probe|direct|view|ai_scan|intent_baseline (required)",
+        help=(
+            "human_probe|ai_probe|human_direct|human_view|ai_scan|"
+            "ai_intent_baseline|ai_scope_scan (required; legacy means migrated on save)"
+        ),
     )
     p.add_argument("--problem", required=True, metavar="TEXT")
     p.add_argument("--detected-under", default=None, dest="detected_under", metavar="S")

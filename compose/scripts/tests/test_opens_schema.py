@@ -12,6 +12,7 @@ sys.path.insert(0, str(_INDUCTIVE_DIR))
 from opens_schema import (  # noqa: E402
     blocking_open_items,
     load_opens,
+    migrate_means,
     mint_open_id,
     next_open_seq,
     normalize_open,
@@ -25,7 +26,7 @@ def _minimal_open(**overrides):
     base = {
         "id": "O-1",
         "status": "open",
-        "source": {"trigger": "human", "means": "direct"},
+        "source": {"trigger": "human", "means": "human_direct"},
         "kw": 1,
         "blocking": True,
         "problem": "gap",
@@ -152,3 +153,57 @@ def test_blocking_open_items_filters():
     ]
     blocked = blocking_open_items(opens)
     assert [o["id"] for o in blocked] == ["O-1"]
+
+
+def test_migrate_means_stock_map():
+    assert migrate_means("human", "probe") == "human_probe"
+    assert migrate_means("ai", "probe") == "ai_probe"
+    assert migrate_means("human", "direct") == "human_direct"
+    assert migrate_means("human", "view") == "human_view"
+    assert migrate_means("ai", "intent_baseline") == "ai_intent_baseline"
+    assert migrate_means("ai", "ai_scan") == "ai_scan"
+    assert migrate_means("ai", "ai_scope_scan") == "ai_scope_scan"
+
+
+def test_normalize_migrates_legacy_means():
+    n = normalize_open(
+        _minimal_open(source={"trigger": "ai", "means": "probe"})
+    )
+    assert n["source"] == {"trigger": "ai", "means": "ai_probe"}
+
+
+def test_validate_rejects_prefix_trigger_mismatch():
+    errs = validate_opens(
+        [
+            _minimal_open(
+                source={"trigger": "human", "means": "ai_scope_scan"},
+            )
+        ]
+    )
+    assert any("prefix" in e and "trigger" in e for e in errs)
+
+
+def test_save_load_rewrites_legacy_means(tmp_path: Path):
+    path = opens_path(tmp_path)
+    save_opens(
+        path,
+        [_minimal_open(source={"trigger": "human", "means": "direct"})],
+    )
+    loaded = load_opens(path)
+    assert loaded[0]["source"]["means"] == "human_direct"
+    # Disk rewritten with new means.
+    assert '"human_direct"' in path.read_text(encoding="utf-8")
+
+
+def test_ai_scope_scan_accepted():
+    assert (
+        validate_opens(
+            [
+                _minimal_open(
+                    source={"trigger": "ai", "means": "ai_scope_scan"},
+                    intent_ref="D-1",
+                )
+            ]
+        )
+        == []
+    )

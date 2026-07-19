@@ -9,7 +9,8 @@ Subcommands:
     stale-from             Realign: mark gate + reached downstream stale (no payload delete)
     rs-commit              Atomic Realign: stale-from + register batch + resolve-context
     check-delivery-ready   Structural audit + gates/registers for DC delivery
-    deliver                Set session-state Delivered (requires DC closed + decision-doc)
+    deliver                Set session-state Delivered; export decision-fact.json
+                           (requires DC closed + decision-doc)
     migrate-session        Bootstrap gate-state/registers for legacy sessions
 """
 
@@ -27,6 +28,10 @@ if str(_SCRIPTS) not in sys.path:
 
 
 from dec_decision_doc_schema import GATE_CLOSE_PREREQ  # noqa: E402
+from dec_decision_fact_schema import (  # noqa: E402
+    decision_fact_path as decision_fact_file_path,
+    export_decision_fact_audited,
+)
 from dec_after_dc import build_after_dc  # noqa: E402
 from dec_domain_constraints_schema import (  # noqa: E402
     KERNEL_STAGE,
@@ -757,6 +762,12 @@ def cmd_deliver(
             project_root=project_root,
             constraints_path=constraints_path,
         )
+        fact_path = decision_fact_file_path(paths["session_dir"])
+        export_decision_fact_audited(
+            paths["payloads_dir"],
+            fact_path,
+            registers=registers,
+        )
         from cycle_delivered_refs import record_delivered_ref  # noqa: WPS433
 
         record_delivered_ref(
@@ -767,6 +778,7 @@ def cmd_deliver(
             revision=1,
             profile_id=stage,
             source_workflow_state=str(ss_path.resolve()),
+            decision_fact_path=str(fact_path.resolve()),
         )
         write_session_state(ss_path, "Delivered")
     except (FileNotFoundError, ValueError) as exc:
@@ -777,6 +789,7 @@ def cmd_deliver(
             "ok": True,
             "session_state": "Delivered",
             "session_state_path": ss_path.as_posix(),
+            "decision_fact_path": fact_path.as_posix(),
         }
     )
     return 0

@@ -41,7 +41,7 @@ def _minimal_open(
     item: dict = {
         "id": oid,
         "status": status,
-        "source": {"trigger": "ai", "means": "probe"},
+        "source": {"trigger": "ai", "means": "ai_probe"},
         "kw": 1,
         "blocking": blocking,
         "problem": "gap",
@@ -105,6 +105,18 @@ def test_is_generation_guaranteed_false_for_other_source(tmp_path: Path):
     _write_manifest(rev, [{"id": "SPEC-1", "section": "ST", "summary": "a"}])
     refs = [{"type": "lulu-spec", "path": str(rev / "product-doc.md")}]
     assert is_generation_guaranteed(refs, source="scope") is False
+    assert is_generation_guaranteed(refs, source="ai_scope_scan") is False
+
+
+def test_is_generation_guaranteed_accepts_legacy_and_prefixed_role_a(
+    tmp_path: Path,
+):
+    rev = tmp_path / "revision1"
+    _write_manifest(rev, [{"id": "SPEC-1", "section": "ST", "summary": "a"}])
+    refs = [{"type": "lulu-spec", "path": str(rev / "product-doc.md")}]
+    assert is_generation_guaranteed(refs) is True
+    assert is_generation_guaranteed(refs, source="ai_intent_baseline") is True
+    assert is_generation_guaranteed(refs, source="intent_baseline") is True
 
 
 def test_is_generation_guaranteed_empty_refs():

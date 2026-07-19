@@ -6,16 +6,32 @@
 
 **Goal (I11):** after Seed, confirm the change as a coarse **shape view** synthesized from facts + maturity. The view is **not** SoT (V4). Corrections land only via section-control commands (I1). Baseline for later G4 = `checkpoint --name shape` (`last_checkpoint` + `checkpoint_git_sha`), not a frozen `architecture_view` file.
 
-**Order (hard):** Seed **before** first shape view. Do not synthesize a shape view from `$SCOPE_DOC` alone as a substitute for Seed.
+**Order (hard):** Seed **before** first shape view. Do not synthesize a shape view from `$SCOPE_REF` alone as a substitute for Seed.
 
-1. **Session init (once):** `$INDUCTIVE_GATE_CTL init-session --sections <SECTION_REGISTRY.section_order as CSV> --mandatory <mandatory CSV> --cycle-id <cycle_id> --stage <compose stage> --scope-ref "$SCOPE_DOC"` (skip if resuming). Forwards profile/scope_ref onto `_index.json`.
-2. **Seed (if not done):** For each key `S` in `SECTION_REGISTRY.section_order`:
+1. **Session init (once):** `$INDUCTIVE_GATE_CTL init-session --sections <SECTION_REGISTRY.section_order as CSV> --mandatory <mandatory CSV> --cycle-id <cycle_id> --stage <compose stage> --scope-ref "$SCOPE_REF"` (skip if resuming). Forwards profile/scope_ref onto `_index.json`.
+2. **Seed (if not done):** When `$SCOPE_REF` is `decision-fact.json` (begin-inductive also syncs the claim ledger) → Path A. Else → Path B (non-decision prose SSOT only, e.g. plan←design-doc). Decision-holder stages **must** resolve to Path A — no prose fallback from missing/empty `decision_fact_path`.
+
+   **Path A — unit Seed** (`$SCOPE_REF` is decision-fact.json):
+   1. `$DECISION_FACT_CLAIM_CTL ensure` (idempotent; already run at begin-inductive).
+   2. For each key `S` in `SECTION_REGISTRY.section_order`:
+      1. `$INDUCTIVE_G3_SECTION_CTL activate-section --section <S>`
+      2. From `$SCOPE_REF`, select units whose `text` maps into `S` under **I4** (no invention; consumer-side lens map).
+      3. For each selected unit `U` (id + text):
+         - `$DECISION_FACT_CLAIM_CTL set-status --unit-id <U.id> --status claimed --by seed`
+         - `$INDUCTIVE_G3_SECTION_CTL seed-decision --section <S> --lens-tags <S> --text <U.text> --origin-ref <U.id>` → `origin.type=seed`, `origin.ref=[U.id]`
+         - `$DECISION_FACT_CLAIM_CTL set-status --unit-id <U.id> --status settled --by seed` (same Seed pass — claim obligation co-batched with write)
+      4. Re-judge KW → `$INDUCTIVE_G3_SECTION_CTL set-frontier --section <S> --kw <N>`.
+      5. If no unit maps into `S` and presence is `optional`: `skip-section --reason "no upstream substance"`. If `required`: leave active for G3.
+   6. Units left `unclaimed` stay on the explicit orphan ledger (`$DECISION_FACT_CLAIM_CTL check`); do not silently drop them.
+
+   **Path B — prose Seed** (non-decision `$SCOPE_REF`, e.g. design-doc; claim mode may be `prose_fallback`): For each key `S` in `SECTION_REGISTRY.section_order`:
    1. `$INDUCTIVE_G3_SECTION_CTL activate-section --section <S>`
-   2. **Has upstream substance** iff `$SCOPE_DOC` has an excerpt that `section-registry` maps into `S` and that excerpt is usable under **I4** (no invention).
+   2. **Has upstream substance** iff `$SCOPE_REF` has an excerpt that `section-registry` maps into `S` and that excerpt is usable under **I4** (no invention).
       - If yes: `$INDUCTIVE_G3_SECTION_CTL seed-decision --section <S> --lens-tags <S> --text …` → re-judge KW → `$INDUCTIVE_G3_SECTION_CTL set-frontier --section <S> --kw <N>` (`--kw` on seed is optional hint; writes `_facts.json` with `origin.type=seed`).
       - If no and `SECTION_REGISTRY.sections[S].presence` is `optional`: `$INDUCTIVE_G3_SECTION_CTL skip-section --section <S> --reason "no upstream substance"`.
       - If no and presence is `required` (default): do **not** skip; leave active for G3 discovery / later clear.
-   Mapping: structural→ST, boundary→SC, goals→GO, invariants→I, …. Prefer a git commit `"seeded"`. Former peel keys are first-class init lenses (peel retired for this runner).
+
+   Mapping (both paths): structural→ST, boundary→SC, goals→GO, invariants→I, …. Prefer a git commit `"seeded"`. Former peel keys are first-class init lenses (peel retired for this runner).
 3. **Present shape view:** `$INDUCTIVE_G3_SECTION_CTL view --synthesis on --scope all --granularity <arch-overview hint>` (e.g. default perspective from `SCAN_CRITERIA.shape_extraction` — **hint only**, not a shape schema; V3). Content must come from facts + maturity SoT; gaps stay gaps (V2). Coarse altitude only — no file:line in the overview (I7).
 4. **User confirms or corrects.** Corrections → `activate-section` + `seed-decision` / `update-decision` / `add-open` → re-`set-frontier` if lens facts changed → re-`view` until confirmed.
 5. **Close:** `$INDUCTIVE_GATE_CTL gate-close --gate G1 --payload '{"user_confirmed": true}'`  

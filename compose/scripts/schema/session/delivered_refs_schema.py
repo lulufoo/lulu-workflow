@@ -30,16 +30,19 @@ from cycle_delivered_refs import (  # noqa: E402
 
 @dataclass(frozen=True)
 class DeliveredRef:
-    """Upstream delivered stage reference (doc path + optional fact package)."""
+    """Upstream delivered stage reference (doc path + optional packages)."""
 
     type: str
     path: str
     facts_path: str = ""
+    decision_fact_path: str = ""
 
     def to_dict(self) -> dict[str, str]:
         out: dict[str, str] = {"type": self.type, "path": self.path}
         if self.facts_path:
             out["facts_path"] = self.facts_path
+        if self.decision_fact_path:
+            out["decision_fact_path"] = self.decision_fact_path
         return out
 
 
@@ -69,10 +72,12 @@ def ref_from_file_entry(delivered_type: str, data: dict[str, Any]) -> DeliveredR
     raw_path = str(entry.get("path", "")).strip()
     if not raw_path:
         return None
+    decision_fact = str(entry.get("decision_fact_path", "")).strip()
     return DeliveredRef(
         type=delivered_type,
         path=raw_path,
         facts_path=_resolve_entry_facts_path(delivered_type, data, entry),
+        decision_fact_path=decision_fact,
     )
 
 
@@ -98,7 +103,15 @@ def parse_delivered_refs(state: dict[str, Any]) -> list[DeliveredRef]:
         if not dtype or not path:
             raise ValueError("delivered_refs item requires non-empty type and path")
         facts_path = str(item.get("facts_path", "")).strip()
-        refs.append(DeliveredRef(type=dtype, path=path, facts_path=facts_path))
+        decision_fact_path = str(item.get("decision_fact_path", "")).strip()
+        refs.append(
+            DeliveredRef(
+                type=dtype,
+                path=path,
+                facts_path=facts_path,
+                decision_fact_path=decision_fact_path,
+            )
+        )
     return refs
 
 

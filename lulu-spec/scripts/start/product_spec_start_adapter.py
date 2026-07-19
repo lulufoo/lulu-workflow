@@ -21,7 +21,7 @@ from delivered_refs_schema import (  # noqa: E402
     ref_from_file_entry,
 )
 from start_adapter import primary_scope_from_workflow  # noqa: E402
-from start_scope_helpers import first_ref  # noqa: E402
+from start_scope_helpers import first_ref, require_decision_fact_scope  # noqa: E402
 from workflow_common import CACHE_DIR, detect_cycle_type  # noqa: E402
 
 _WORKFLOW_SCRIPTS = _WORKFLOW_ROOT / "scripts"
@@ -78,9 +78,12 @@ class ProductSpecStartAdapter:
         run_mode: str = "tech",
         carry_forward_ref: str = "",
     ) -> list[DeliveredRef]:
+        """Scope SSOT = lulu-bet decision-fact.json when delivered; else decision-doc."""
         del run_mode, carry_forward_ref
         primary = first_ref(delivered_refs, "lulu-bet")
-        return [primary] if primary is not None else []
+        if primary is None:
+            return []
+        return [require_decision_fact_scope(primary)]
 
     def resolve_intent_baseline_refs(
         self,

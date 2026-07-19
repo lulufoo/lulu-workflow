@@ -75,9 +75,10 @@ open_point = Expose(trigger × means)  # kept iff ( frontier_KW row false  ∧  
 | trigger | means | probe | gap predicate | frontier_KW |
 |---------|-------|-------|---------------|:---:|
 | ai | `ai_scan` | run `methods` over code | KW row false | applies |
-| ai | `intent_baseline` | demand manifest vs section | fulfillment false | applies |
-| ai | `probe` | 4 black-box lenses (failure/boundary/assumption/seam) | silence ∧ KW-false | applies |
-| human | `probe` / `direct` / `view` | user question / assertion / view-found gap | user assertion | exempt |
+| ai | `ai_intent_baseline` | demand manifest vs section | fulfillment false | applies |
+| ai | `ai_scope_scan` | decision-fact units vs design lenses | unit unsettled / gap | applies |
+| ai | `ai_probe` | 4 black-box lenses (failure/boundary/assumption/seam) | silence ∧ KW-false | applies |
+| human | `human_probe` / `human_direct` / `human_view` | user question / assertion / view-found gap | user assertion | exempt |
 
 Seed is **not** an Expose source: it writes `_facts.json` directly with `origin.type=seed` (hybrid `origin.ref`: scope path + excerpt; no open stamp).
 

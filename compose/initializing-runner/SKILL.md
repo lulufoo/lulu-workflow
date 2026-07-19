@@ -36,7 +36,7 @@ Derive artifact contract: [`../references/init-draft-quality.md`](../references/
 | Variable | Purpose |
 |---|---|
 | `$REVISION_DIR` | Absolute path to `revision{N}/` |
-| `$SCOPE_DOC_PATH` | Absolute path to compose intent SSOT (design-doc or decision-doc) |
+| `$SCOPE_REF_PATH` | Absolute path to compose scope SSOT (decision holders: `decision-fact.json` required; plan←design may be design-doc) |
 | `$SCOPE_FACTS_PATH` | Absolute path to upstream fact package (design `_facts.json`); empty when upstream has no fact package |
 | `$OUTPUT_DOC_PATH` | Absolute path to output document (design-doc.md or tech-doc.md) |
 | `$COMPOSE_PROFILE` | Compose profile id from parent dispatch |
@@ -59,6 +59,7 @@ All macros that declare `--profile` **must** pass `--profile "$COMPOSE_PROFILE"`
 | `$FACTS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/facts_control.py"` |
 | `$CHAPTERS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/chapters_control.py"` |
 | `$DERIVE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/derive_control.py"` (K1 Step 3 mechanical shell) |
+| `$DECISION_FACT_CLAIM_CTL` | `python3 "$SKILL_ROOT/compose/scripts/core/decision_fact_claim_control.py" --revision-dir "$REVISION_DIR"` |
 
 `$COMPOSE_DOC_CONTROL` subcommands: `--help` · `init-doc` · `append-chapter`.
 
@@ -80,7 +81,7 @@ All macros that declare `--profile` **must** pass `--profile "$COMPOSE_PROFILE"`
    `$FETCH_COMPOSE --role section-form-registry` → `sections.{key}.presentation` / `expression`
 4. `$FETCH_COMPOSE --role outline-registry` → candidates-shaped: `candidates[].{block, anchor_lenses}` + `rules` (advisory text). Consumed at Step 4.
 5. `$FETCH_COMPOSE --role section-kw-criteria` → each `## {section_key}` block (Fill completeness for **named** atoms only).
-6. Read `$SCOPE_DOC_PATH` full text once.
+6. Read `$SCOPE_REF_PATH` once (JSON units or prose, depending on artifact).
 7. Read profile `drafting.code_grounding` → `$CODE_GROUNDING`.
 8. **Init document:** Substitute placeholders in `document_preamble`. Write via:
 
@@ -111,7 +112,7 @@ Do **not** append outline-registry content to the deliverable header. Do **not**
 
 ### Step 2 — Atomize facts
 
-**Branch A — inductive profile (`drafting.inductive=true`, K4):** discovery loop already wrote `_facts.json` (`seed-decision` / `settle-open`). **Do not** atomize `$SCOPE_DOC_PATH`. Only validate:
+**Branch A — inductive profile (`drafting.inductive=true`, K4):** discovery loop already wrote `_facts.json` (`seed-decision` / `settle-open`). **Do not** atomize `$SCOPE_REF_PATH`. Only validate:
 
 ```bash
 $FACTS_CTL validate \
@@ -126,11 +127,13 @@ Missing / invalid `_facts.json` → Blocking (never re-atomize from scope). **Do
 
 1. **Materialize candidates** (exactly one branch; no new step number):
    - If `$SCOPE_FACTS_PATH` is non-empty → **Import**: read that `_facts.json`. For each upstream fact: assign a new contiguous local `F-n` (do not reuse upstream ids); keep `text` and `origin` (when present) verbatim; never carry upstream `lens_tags`. Match against this stage's Intent SSOT (`intent` else `desc`, `intent_boundary` when present): match → retag Plan `lens_tags` + `derivation.disposition="carried"`; no match → empty `lens_tags` + `derivation.disposition="quarantined"`. Always set `derivation.upstream_ref` to the upstream Design F-id(s).
-   - If `$SCOPE_FACTS_PATH` is empty → **Atomize** `$SCOPE_DOC_PATH` once (whole doc) — merge same-fact restatements into one atom; do not split by source section; a figure is one atom, kept intact. (Tags are applied in sub-step 2.)
+   - Else if `$SCOPE_REF_PATH` is `decision-fact.json` → **Unit-import**: `$DECISION_FACT_CLAIM_CTL ensure`. Read units from `$SCOPE_REF_PATH`. For each unit pulled into this stage's lenses: `set-status --status claimed --by init` → emit a local fact `{text, origin:{type:seed, ref:[unit-id]}, lens_tags}` → `set-status --status settled --by init` (same pass). Units left unclaimed stay on the claim ledger (`check`); do not silently drop.
+   - Else (`$SCOPE_FACTS_PATH` empty and `$SCOPE_REF_PATH` is prose) → **Atomize** `$SCOPE_REF_PATH` once (whole doc) — merge same-fact restatements into one atom; do not split by source section; a figure is one atom, kept intact. (Tags are applied in sub-step 2.)
 2. **Tag / verify `lens_tags`:**
    - **Prose-line (Atomize):** for each atom, choose the set (zero, one, or many) of `section_order` keys whose intent the atom answers — using registry projection only. N:M: an atom may tag no lens (quarantine candidate, audited by Q1), one lens, or several.
    - **Fact-line (Import):** **verify-only** — check `derivation.disposition`↔`lens_tags` (`carried`⇔non-empty, `quarantined`⇔empty). Do **not** re-run match logic.
-3. **Persist** via `$FACTS_CTL write` (facts = JSON array `{id:F-n, text, lens_tags}` — optional `origin` / `derivation` for Import; optional `source` only for Step-3-derived facts later; Prose-line Step 2 atoms omit `source`/`derivation`):
+   - **Unit-import:** tag while importing (consumer lens map under I4); treat like Prose-line for Q1 quarantine rules.
+3. **Persist** via `$FACTS_CTL write` (facts = JSON array `{id:F-n, text, lens_tags}` — optional `origin` / `derivation` for Import; optional `source` only for Step-3-derived facts later; Prose-line Step 2 atoms omit `source`/`derivation`; Unit-import carries `origin.type=seed` + `origin.ref=[unit-id]`):
 
 ```bash
 $FACTS_CTL write \
@@ -264,7 +267,7 @@ Initializing complete (fact-first display layer).
   Chapters: <REVISION_DIR>/_chapters.json (<N> chapters, <N> dropped)
   Chapter artifacts: <REVISION_DIR>/_derive-*.json, _body-*.txt
   Quarantined facts (empty lens_tags, Q1 audit): <N> — <ids or none>
-  Scope cross-check: <SCOPE_DOC_PATH>
+  Scope cross-check: <SCOPE_REF_PATH>
   Draft status: Initialized
   Next step: parent pause gate (options from profile drafting.post_init_options)
 ```

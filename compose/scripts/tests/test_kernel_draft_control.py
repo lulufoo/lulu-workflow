@@ -118,6 +118,86 @@ def test_inductive_dispatch_carries_provenance_refs_tech(tmp_path: Path) -> None
     dispatch = result["dispatch_input"]
     assert "INTENT_BASELINE_REFS: []" in dispatch
     assert "NORM_CONSTRAINT_REFS: []" in dispatch
+    assert "SCOPE_REF:" in dispatch
+    assert "DECISION_FACTS_PATH:" not in dispatch
+
+
+def test_inductive_dispatch_scope_ref_is_decision_fact(tmp_path: Path) -> None:
+    from decision_fact_claim_schema import claim_ledger_path, load_claim_ledger  # noqa: E402
+
+    seed_tech_design_session(tmp_path, cycle_id=_CYCLE)
+    rev = tmp_path / doc_dir(_CYCLE, 1, _PROFILE_DESIGN, tmp_path)
+    fact = tmp_path / "decision-fact.json"
+    fact.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "gates": {
+                    "D": [{"id": "D-1", "slot": "D.x", "text": "pick A"}],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    write_resolved_refs(
+        rev,
+        cycle_id=_CYCLE,
+        stage=_PROFILE_DESIGN,
+        run_mode="tech",
+        scope_ref=DeliveredRef(type="lulu-approach", path=str(fact.resolve())),
+        intent_baseline_refs=[],
+        norm_constraint_refs=[],
+    )
+
+    result = draft_control.begin_inductive(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
+    assert result["ok"] is True
+    assert f"SCOPE_REF:            {fact.resolve().as_posix()}" in result["dispatch_input"]
+    assert "DECISION_FACTS_PATH:" not in result["dispatch_input"]
+    ledger = load_claim_ledger(claim_ledger_path(rev))
+    assert ledger["mode"] == "units"
+    assert "D-1" in ledger["units"]
+
+
+def test_begin_inductive_surfaces_claim_wipe_refusal(tmp_path: Path) -> None:
+    """Units ledger + missing fact → structured failure, not uncaught ValueError."""
+    from decision_fact_claim_schema import (  # noqa: E402
+        claim_ledger_path,
+        ensure_claim_ledger,
+    )
+
+    seed_tech_design_session(tmp_path, cycle_id=_CYCLE)
+    rev = tmp_path / doc_dir(_CYCLE, 1, _PROFILE_DESIGN, tmp_path)
+    fact = tmp_path / "decision-fact.json"
+    fact.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "gates": {
+                    "D": [{"id": "D-1", "slot": "D.x", "text": "pick A"}],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    write_resolved_refs(
+        rev,
+        cycle_id=_CYCLE,
+        stage=_PROFILE_DESIGN,
+        run_mode="tech",
+        scope_ref=DeliveredRef(type="lulu-approach", path=str(fact.resolve())),
+        intent_baseline_refs=[],
+        norm_constraint_refs=[],
+    )
+    ensure_claim_ledger(rev, decision_fact_path=str(fact.resolve()))
+    assert claim_ledger_path(rev).is_file()
+    fact.unlink()
+
+    result = draft_control.begin_inductive(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
+    assert result["ok"] is False
+    assert "claim ledger" in result["reason"]
+    assert "refusing to wipe" in result["reason"]
+    # Must not have advanced drafting progress on failure.
+    assert not _progress_path(tmp_path, _PROFILE_DESIGN).exists()
 
 
 def test_inductive_dispatch_intent_baseline_from_spec_product(tmp_path: Path) -> None:

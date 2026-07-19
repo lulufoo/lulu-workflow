@@ -109,3 +109,24 @@ def test_audit_cli_output(template_config: Path, monkeypatch: pytest.MonkeyPatch
     assert payload["ok"] is True
     assert payload["passed"] is True
     assert payload["errors"] == []
+
+
+def test_decision_fact_audit_before_deliver_reports_missing(
+    template_config: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    project_root = template_config
+    cycle_id = "feature-integrity-004"
+    stage = "decision"
+    monkeypatch.chdir(project_root)
+
+    cmd_init_session(project_root, cycle_id, stage)
+    _close_qe(project_root, cycle_id, stage)
+    capsys.readouterr()
+
+    assert cmd_audit(project_root, cycle_id, stage, mode="decision-fact") == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    assert payload["passed"] is False
+    assert any("not found" in e for e in payload["errors"])

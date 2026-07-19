@@ -63,16 +63,20 @@ def load_manifest_demands(ref_path: str | Path) -> list[dict[str, Any]]:
 
 def is_generation_guaranteed(
     intent_baseline_refs: list[Any] | None,
-    source: str = "intent_baseline",
+    source: str = "ai_intent_baseline",
 ) -> bool:
-    """True iff ``source`` is the intent baseline AND some ref has a non-empty manifest.
+    """True iff ``source`` is role-A intent baseline AND some ref has a non-empty manifest.
+
+    Accepts ``ai_intent_baseline`` (current opens means) and legacy
+    ``intent_baseline``. Does **not** treat ``ai_scope_scan`` (role B) as
+    generation-guaranteed.
 
     A non-empty manifest means the demands were in scope at Gate 3, whose close
     gate requires each demand fulfilled-or-deferred — so downstream coverage
     audits for this source become safety nets. Missing / empty manifest
     → False (audits stay primary; degrade when no manifest).
     """
-    if source != "intent_baseline":
+    if source not in {"ai_intent_baseline", "intent_baseline"}:
         return False
     for ref in intent_baseline_refs or []:
         ref_path = ref.get("path") if isinstance(ref, dict) else ref
