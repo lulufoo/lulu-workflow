@@ -18,6 +18,11 @@ def test_backfill_from_delivered_tech_diagnostic(tmp_path: Path):
     diag_dir.mkdir(parents=True)
     decision = diag_dir / "decision-doc.md"
     decision.write_text("# Decision\n", encoding="utf-8")
+    decision_fact = diag_dir / "decision-fact.json"
+    decision_fact.write_text(
+        '{"version":1,"gates":{"Q":[{"id":"Q-1","text":"problem","slot":"Q.problem_statement"}]}}\n',
+        encoding="utf-8",
+    )
     (diag_dir / "session-state.md").write_text(
         "---\ncurrent_state: Delivered\nupdated_at: 2026-01-01T00:00:00+00:00\n---\n",
         encoding="utf-8",
@@ -26,6 +31,7 @@ def test_backfill_from_delivered_tech_diagnostic(tmp_path: Path):
     data = load_delivered_refs_file(cycle_id, tmp_path)
     entry = data["entries"]["lulu-approach"]
     assert entry["path"] == str(decision.resolve())
+    assert entry["decision_fact_path"] == str(decision_fact.resolve())
 
 
 def test_backfill_from_delivered_tech_design(tmp_path: Path):

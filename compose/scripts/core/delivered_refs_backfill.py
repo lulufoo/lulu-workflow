@@ -102,6 +102,11 @@ def _record_flat_delivery(
         facts_file = stage_dir / FACTS_BASENAME
         if facts_file.is_file():
             facts_file_arg = str(facts_file.resolve())
+    # Decision-holder stages (flat): compose scope SSOT is decision-fact.json
+    decision_fact_arg: str | None = None
+    decision_fact = stage_dir / "decision-fact.json"
+    if decision_fact.is_file():
+        decision_fact_arg = str(decision_fact.resolve())
     record_delivered_ref(
         cycle_id,
         project_root,
@@ -111,6 +116,7 @@ def _record_flat_delivery(
         profile_id=desc.stage_name,
         source_workflow_state=str(state_path.resolve()),
         facts_path=facts_file_arg,
+        decision_fact_path=decision_fact_arg,
     )
 
 
