@@ -7,6 +7,7 @@
 **Before entering:**
 1. Review User Prior from `$CTX.registers.prior` — sign off with user (G8); do not recollect via G0.
 2. Review Assumption Log from `$CTX.registers.assumptions` — confirm coverage is complete against D, X, and conversation history; do not collect from scratch.
+3. Read `$CTX.gl` — especially T3 (risk vs mitigation narrative) and confirmation-related exchanges; ensure risk coverage accounts for Grill intents (do not rediscover them only at R).
 
 **Execute:**
 1. For each assumption: assign risk level and describe the consequence if it fails.

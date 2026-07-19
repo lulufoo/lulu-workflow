@@ -77,10 +77,10 @@ SSOT for conversation → cycle mapping: platform `active-context.json`. Does **
 - **G9 · Upstream-change detect** — any turn · not parallel · on hit load RS (no dedicated G9 runner).
 - **RS · Realign State Handler** — upstream change needs downstream sync · not parallel · LoopA re-entry at align gate `G` (see § Gate routing · RS).
 
-**Spine:** [LoopA] O → Q → E → D → X → R → ([LoopB] V → RR if needed) → DC → `$GATE_CONTROL deliver`.
+**Spine:** [LoopA] O → Q → GL → E → D → X → R → ([LoopB] V → RR if needed) → DC → `$GATE_CONTROL deliver`.
 
 **Phase grouping** (realign scope):
-- [LoopA] O → Q → E → D → X → R — decision construction (realign at Q / E / D / X)
+- [LoopA] O → Q → GL → E → D → X → R — decision construction (realign at Q / GL / E / D / X)
 - [LoopB] V → RR — verification release (upstream wrong → RS, not Loop B re-entry)
 - [HD] Human Decision — RR exit `human_decision` (see § Gate routing · HD)
 - [DC] Delivery Confirmation — terminal gate
@@ -113,7 +113,8 @@ Spine gates:
 |------|------|----------------|
 | O | `$SKILL_DIR/runners/o-open-channel-runner/SKILL.md` | After `$DEC_START` · `active_gate` is `O` |
 | Q | `$SKILL_DIR/runners/q-problem-runner/SKILL.md` | O closed |
-| E | `$SKILL_DIR/runners/e-direction-runner/SKILL.md` | Q closed |
+| GL | `$SKILL_DIR/runners/gl-grill-runner/SKILL.md` | Q closed |
+| E | `$SKILL_DIR/runners/e-direction-runner/SKILL.md` | GL closed |
 | D | `$SKILL_DIR/runners/d-decision-runner/SKILL.md` | E closed |
 | X | `$SKILL_DIR/runners/x-full-diagnosis-runner/SKILL.md` | D closed |
 | R | `$SKILL_DIR/runners/r-expose-bets-runner/SKILL.md` | X closed |
@@ -191,14 +192,14 @@ If user confirms exit → exit gracefully; mark as incomplete.
 
 **G8. Gate close** — User must confirm explicitly; then `$GATE_CONTROL gate-close`. Conversation-only close does not count.
 
-**G9. Upstream-change detect (global · any turn)** — on any user turn, if information revises or contradicts a **closed** gate's conclusion (pass criterion broken **or** context update), do not ignore it: load RS runner per § Gate routing · G9 → RS. Prefer earliest hit among Q / E / D / X. Not a per-turn full scan — identification-hit style (same family as G0). No dedicated G9 runner.
+**G9. Upstream-change detect (global · any turn)** — on any user turn, if information revises or contradicts a **closed** gate's conclusion (pass criterion broken **or** context update), do not ignore it: load RS runner per § Gate routing · G9 → RS. Prefer earliest hit among Q / GL / E / D / X. Not a per-turn full scan — identification-hit style (same family as G0). No dedicated G9 runner.
 
 ---
 
 <HARD-GATE name="Session Exit">
 Do NOT exit diagnostic or transition to the next stage until:
 
-- All DDF gates (O → Q / E / D / X → R → [LoopB if uncertain: V / RR] → DC) have passed
+- All DDF gates (O → Q → GL → E / D / X → R → [LoopB if uncertain: V / RR] → DC) have passed
 - `$GATE_CONTROL check-delivery-ready` returns `ready: true`; DC closed; `$GATE_CONTROL deliver` succeeded
 - User has explicitly confirmed readiness to proceed
 

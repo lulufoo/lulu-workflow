@@ -59,7 +59,24 @@ def _close_o(project_root: Path, cycle_id: str, stage: str) -> None:
     )
 
 
+def _gl_payload() -> dict:
+    return {
+        "exchanges": [
+            {"topic": "T1", "question": "Who confirms go-live?", "answer": "Owner A", "na": False},
+            {"topic": "T2", "question": "Human vs machine?", "answer": "Human approves", "na": False},
+            {"topic": "T3", "question": "Risk narrative?", "answer": "Latency is risk", "na": False},
+            {"topic": "T4", "question": "Ops preference?", "answer": "Business hours only", "na": False},
+        ],
+        "user_confirmed": True,
+    }
+
+
+def _close_gl(project_root: Path, cycle_id: str, stage: str) -> None:
+    cmd_gate_close(project_root, cycle_id, stage, "GL", _gl_payload())
+
+
 def _close_qe(project_root: Path, cycle_id: str, stage: str) -> None:
+    """Close O → Q → GL → E (name kept for call-site compatibility)."""
     _close_o(project_root, cycle_id, stage)
     cmd_gate_close(
         project_root,
@@ -68,6 +85,7 @@ def _close_qe(project_root: Path, cycle_id: str, stage: str) -> None:
         "Q",
         {"problem_statement": "problem", "constraints": "none"},
     )
+    _close_gl(project_root, cycle_id, stage)
     cmd_gate_close(
         project_root,
         cycle_id,

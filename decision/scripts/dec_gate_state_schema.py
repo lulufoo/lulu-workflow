@@ -14,6 +14,7 @@ from dec_io import atomic_write_text
 GATE_ORDER: tuple[str, ...] = (
     "O",
     "Q",
+    "GL",
     "E",
     "D",
     "X",
@@ -22,10 +23,11 @@ GATE_ORDER: tuple[str, ...] = (
     "RR",
     "DC",
 )
-LOOP_A: tuple[str, ...] = ("O", "Q", "E", "D", "X", "R")
+LOOP_A: tuple[str, ...] = ("O", "Q", "GL", "E", "D", "X", "R")
 LOOP_B: tuple[str, ...] = ("V", "RR")
 # Align-from gates for Realign (formerly "reopen"); letter code RS = Realign State.
-RS_REALIGN_GATES: tuple[str, ...] = ("Q", "E", "D", "X")
+# Spine id GL (Grill) — not protocol G0/G8/G9 and not RS metavariable "G".
+RS_REALIGN_GATES: tuple[str, ...] = ("Q", "GL", "E", "D", "X")
 # Backward-compatible alias while callers migrate.
 RS_REOPEN_GATES: tuple[str, ...] = RS_REALIGN_GATES
 _LEGACY_GATE_IDS: dict[str, str] = {"open": "O"}
@@ -137,6 +139,17 @@ def normalize_gate_state(data: dict[str, Any]) -> dict[str, Any]:
     active = str(data.get("active_gate", "O"))
     if active not in GATE_ORDER:
         active = "O"
+
+    # Pre-GL sessions may have progressed past Q→E without a GL entry.
+    # If any gate after GL was already reached, treat GL as closed (no payload).
+    gl_status = str(gates["GL"].get("status", "pending")).lower()
+    if gl_status == "pending":
+        later_reached = any(
+            str(gates[g].get("status", "pending")).lower() in {"closed", "active", "stale"}
+            for g in ("E", "D", "X", "R", "V", "RR", "DC")
+        )
+        if later_reached or active in {"E", "D", "X", "R", "V", "RR", "DC"}:
+            gates["GL"] = {"status": "closed", "closed_at": gates["GL"].get("closed_at")}
 
     return {
         "version": "1",
@@ -313,7 +326,7 @@ def reactivate_gate_for_r_rerun(state: dict[str, Any]) -> dict[str, Any]:
 
 def header_gate_symbols(state: dict[str, Any]) -> dict[str, str]:
     symbols: dict[str, str] = {}
-    for gate in ("O", "Q", "E", "D", "X", "R", "V", "RR", "DC"):
+    for gate in ("O", "Q", "GL", "E", "D", "X", "R", "V", "RR", "DC"):
         status = str(state["gates"].get(gate, {}).get("status", "pending")).lower()
         symbols[gate] = "✅" if status == "closed" else "⬜"
     return symbols

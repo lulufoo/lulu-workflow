@@ -41,7 +41,14 @@ from dec_register_schema import (
     save_registers,
 )
 from dec_session_render import render_reply_header
-from dec_workflow_common import decision_doc_path, domain_constraints_path, gate_state_path, registers_path, session_base_dir
+from dec_workflow_common import (
+    decision_doc_path,
+    domain_constraints_path,
+    gate_payloads_dir,
+    gate_state_path,
+    registers_path,
+    session_base_dir,
+)
 
 
 def _now_iso() -> str:
@@ -80,6 +87,9 @@ def _paths(
         "session_dir": project_root / session_base_dir(
             cycle_id, stage, project_root=project_root, constraints_path=constraints_path
         ),
+        "payloads_dir": project_root / gate_payloads_dir(
+            cycle_id, stage, project_root=project_root, constraints_path=constraints_path
+        ),
     }
 
 
@@ -87,7 +97,7 @@ def _active_register_source(gate_state: dict[str, Any]) -> str:
     active = str(gate_state.get("active_gate", "O"))
     if active == "O":
         return "O"
-    if active in {"Q", "E", "D", "X", "R", "V", "RR"}:
+    if active in {"Q", "GL", "E", "D", "X", "R", "V", "RR"}:
         return active
     return "O"
 

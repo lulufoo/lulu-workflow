@@ -28,7 +28,7 @@ from dec_test_helpers import (  # noqa: E402
     load_gate_payload_file,
     load_rendered_doc,
 )
-from test_dec_gate_loop_a import _close_o  # noqa: E402
+from test_dec_gate_loop_a import _close_gl, _close_o, _gl_payload  # noqa: E402
 
 
 @pytest.fixture
@@ -85,6 +85,7 @@ def test_init_and_q_e_gate_close(template_config: Path, monkeypatch: pytest.Monk
     assert (
         cmd_gate_close(project_root, cycle_id, stage, "Q", q_payload) == 0
     )
+    assert cmd_gate_close(project_root, cycle_id, stage, "GL", _gl_payload()) == 0
 
     e_payload = {
         "directions": [
@@ -109,6 +110,7 @@ def test_init_and_q_e_gate_close(template_config: Path, monkeypatch: pytest.Monk
     assert cmd_gate_close(project_root, cycle_id, stage, "E", e_payload) == 0
 
     assert gate_payload_exists(project_root, cycle_id, "Q")
+    assert gate_payload_exists(project_root, cycle_id, "GL")
     assert gate_payload_exists(project_root, cycle_id, "E")
     assert not (project_root / decision_doc_path(cycle_id, stage)).exists()
 
@@ -127,6 +129,7 @@ def test_init_and_q_e_gate_close(template_config: Path, monkeypatch: pytest.Monk
     )
     assert gate_state["gates"]["O"]["status"] == "closed"
     assert gate_state["gates"]["Q"]["status"] == "closed"
+    assert gate_state["gates"]["GL"]["status"] == "closed"
     assert gate_state["gates"]["E"]["status"] == "closed"
     assert gate_state["active_gate"] == "D"
 
@@ -149,6 +152,7 @@ def test_stale_from_e_marks_reached_downstream(
         "Q",
         {"problem_statement": "problem", "constraints": "none"},
     )
+    _close_gl(project_root, cycle_id, stage)
     cmd_gate_close(
         project_root,
         cycle_id,
@@ -167,6 +171,7 @@ def test_stale_from_e_marks_reached_downstream(
     assert cmd_stale_from(project_root, cycle_id, stage, "E") == 0
 
     assert gate_payload_exists(project_root, cycle_id, "E")
+    assert gate_payload_exists(project_root, cycle_id, "GL")
     assert gate_payload_exists(project_root, cycle_id, "Q")
 
     gate_state = json.loads(
@@ -174,6 +179,7 @@ def test_stale_from_e_marks_reached_downstream(
     )
     assert gate_state["active_gate"] == "E"
     assert gate_state["gates"]["E"]["status"] == "stale"
+    assert gate_state["gates"]["GL"]["status"] == "closed"
     # D was active (reached) → stale; never-reached X stays pending
     assert gate_state["gates"]["D"]["status"] == "stale"
     assert gate_state["gates"]["X"]["status"] == "pending"
@@ -197,6 +203,7 @@ def test_stale_from_q_keeps_payloads(
         "Q",
         {"problem_statement": "problem", "constraints": "none"},
     )
+    _close_gl(project_root, cycle_id, stage)
     cmd_gate_close(
         project_root,
         cycle_id,
@@ -215,14 +222,16 @@ def test_stale_from_q_keeps_payloads(
     assert cmd_stale_from(project_root, cycle_id, stage, "Q") == 0
 
     assert gate_payload_exists(project_root, cycle_id, "Q")
+    assert gate_payload_exists(project_root, cycle_id, "GL")
     assert gate_payload_exists(project_root, cycle_id, "E")
-    assert set(list_gate_payloads(project_root, cycle_id)) >= {"O", "Q", "E"}
+    assert set(list_gate_payloads(project_root, cycle_id)) >= {"O", "Q", "GL", "E"}
 
     gate_state = json.loads(
         (project_root / gate_state_path(cycle_id, stage)).read_text(encoding="utf-8")
     )
     assert gate_state["active_gate"] == "Q"
     assert gate_state["gates"]["Q"]["status"] == "stale"
+    assert gate_state["gates"]["GL"]["status"] == "stale"
     assert gate_state["gates"]["E"]["status"] == "stale"
 
 
@@ -244,6 +253,7 @@ def test_gate_close_e_rejects_four_directions(
         "Q",
         {"problem_statement": "problem", "constraints": "none"},
     )
+    _close_gl(project_root, cycle_id, stage)
     rc = cmd_gate_close(
         project_root,
         cycle_id,
@@ -416,3 +426,155 @@ def test_register_commit_g0_returns_full_ctx(
     doc = load_rendered_doc(project_root, cycle_id, stage)
     assert "Prefer incremental rollout" in doc
     assert "API is ready" in doc
+
+
+def test_gate_close_q_advances_to_gl(template_config: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    project_root = template_config
+    cycle_id = "feature-test-gl-advance"
+    stage = "decision"
+    monkeypatch.chdir(project_root)
+    (project_root / ".cursor" / "lulu-dev-workflow").mkdir(parents=True, exist_ok=True)
+
+    cmd_init_session(project_root, cycle_id, stage)
+    _close_o(project_root, cycle_id, stage)
+    assert (
+        cmd_gate_close(
+            project_root,
+            cycle_id,
+            stage,
+            "Q",
+            {"problem_statement": "problem", "constraints": "none"},
+        )
+        == 0
+    )
+    gate_state = json.loads(
+        (project_root / gate_state_path(cycle_id, stage)).read_text(encoding="utf-8")
+    )
+    assert gate_state["active_gate"] == "GL"
+    assert gate_state["gates"]["GL"]["status"] == "active"
+
+
+def test_gate_close_e_blocked_until_gl_closed(
+    template_config: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project_root = template_config
+    cycle_id = "feature-test-e-needs-gl"
+    stage = "decision"
+    monkeypatch.chdir(project_root)
+    (project_root / ".cursor" / "lulu-dev-workflow").mkdir(parents=True, exist_ok=True)
+
+    cmd_init_session(project_root, cycle_id, stage)
+    _close_o(project_root, cycle_id, stage)
+    cmd_gate_close(
+        project_root,
+        cycle_id,
+        stage,
+        "Q",
+        {"problem_statement": "problem", "constraints": "none"},
+    )
+    rc = cmd_gate_close(
+        project_root,
+        cycle_id,
+        stage,
+        "E",
+        {
+            "directions": [
+                {"name": "A", "approach": "a", "pros": "p", "cons": "c"},
+                {"name": "B", "approach": "b", "pros": "p", "cons": "c"},
+            ],
+            "excluded": [],
+            "user_choice": "A",
+        },
+    )
+    assert rc != 0
+
+
+def test_gl_close_rejects_missing_topic(
+    template_config: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project_root = template_config
+    cycle_id = "feature-test-gl-m5"
+    stage = "decision"
+    monkeypatch.chdir(project_root)
+    (project_root / ".cursor" / "lulu-dev-workflow").mkdir(parents=True, exist_ok=True)
+
+    cmd_init_session(project_root, cycle_id, stage)
+    _close_o(project_root, cycle_id, stage)
+    cmd_gate_close(
+        project_root,
+        cycle_id,
+        stage,
+        "Q",
+        {"problem_statement": "problem", "constraints": "none"},
+    )
+    bad = _gl_payload()
+    bad["exchanges"] = [row for row in bad["exchanges"] if row["topic"] != "T3"]
+    assert cmd_gate_close(project_root, cycle_id, stage, "GL", bad) != 0
+
+
+def test_resolve_context_injects_gl(
+    template_config: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import io
+    from contextlib import redirect_stdout
+
+    project_root = template_config
+    cycle_id = "feature-test-ctx-gl"
+    stage = "decision"
+    monkeypatch.chdir(project_root)
+    (project_root / ".cursor" / "lulu-dev-workflow").mkdir(parents=True, exist_ok=True)
+
+    cmd_init_session(project_root, cycle_id, stage)
+    _close_o(project_root, cycle_id, stage)
+    cmd_gate_close(
+        project_root,
+        cycle_id,
+        stage,
+        "Q",
+        {"problem_statement": "problem", "constraints": "none"},
+    )
+    _close_gl(project_root, cycle_id, stage)
+
+    buffer = io.StringIO()
+    with redirect_stdout(buffer):
+        assert cmd_resolve_context(project_root, cycle_id, stage) == 0
+    payload = json.loads(buffer.getvalue())
+    assert payload["gl"] is not None
+    assert len(payload["gl"]["exchanges"]) == 4
+    assert payload["gl"]["user_confirmed"] is True
+
+
+def test_g0_source_is_gl_while_gl_active(
+    template_config: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project_root = template_config
+    cycle_id = "feature-test-g0-gl-source"
+    stage = "decision"
+    monkeypatch.chdir(project_root)
+    (project_root / ".cursor" / "lulu-dev-workflow").mkdir(parents=True, exist_ok=True)
+
+    cmd_init_session(project_root, cycle_id, stage)
+    _close_o(project_root, cycle_id, stage)
+    cmd_gate_close(
+        project_root,
+        cycle_id,
+        stage,
+        "Q",
+        {"problem_statement": "problem", "constraints": "none"},
+    )
+    assert (
+        cmd_register_append(
+            project_root,
+            cycle_id,
+            stage,
+            register_kind="prior",
+            payload={"kind": "preference", "text": "Confirm in business hours"},
+        )
+        == 0
+    )
+    registers = json.loads(
+        (project_root / registers_path(cycle_id, stage)).read_text(encoding="utf-8")
+    )
+    gl_sourced = [p for p in registers["prior"] if p["text"] == "Confirm in business hours"]
+    assert gl_sourced
+    assert gl_sourced[0]["source"] == "GL"

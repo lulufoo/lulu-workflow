@@ -31,7 +31,7 @@ Do NOT proceed until you have read `../../../_runtime.md`
    - `objective` — session intent; frame the entire gate within this goal
    - `role.instruction` — persona and language stance
    - `domain.instruction` — domain boundary constraints
-4. Gate contract § Before entering — do not start D dialogue until complete
+4. Gate contract § Before entering — consult `$CTX.registers.prior` and `$CTX.gl`; do not start D dialogue until complete
 5. Execute D gate (G1/G7/G8; on identification hit → G0 runner → `G0_COMPLETE` → continue; on G9 hit → RS runner)
 6. `$GATE_CONTROL gate-close --gate D --payload '<json>'`
 7. Return `GATE_COMPLETE D`

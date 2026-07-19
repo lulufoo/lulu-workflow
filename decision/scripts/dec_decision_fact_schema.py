@@ -35,11 +35,13 @@ _GATE_TEXT_FIELDS: dict[str, tuple[str, ...]] = {
 }
 
 _GATE_LIST_FIELDS: dict[str, tuple[str, ...]] = {
+    "GL": ("exchanges",),
     "E": ("directions", "excluded"),
     "X": ("impact_surface", "external_dependencies"),
 }
 
 _LIST_ITEM_KEYS: dict[str, tuple[str, ...]] = {
+    "exchanges": ("topic", "question", "answer", "na"),
     "directions": ("name", "approach", "pros", "cons", "recommended"),
     "excluded": ("name", "reason"),
     "impact_surface": ("layer", "area", "change_type", "notes"),
@@ -129,7 +131,7 @@ def _list_item_slot(gate: str, field: str, item: Any) -> str:
     """Content-stable list slot (never array index — insert/reorder must keep ids)."""
     text = _item_text(item, field)
     if isinstance(item, dict):
-        for key in ("name", "dependency", "id"):
+        for key in ("name", "dependency", "id", "topic"):
             token = _slot_token(str(item.get(key, "")))
             if token:
                 return f"{gate}.{field}[{key}={token}]"
@@ -268,7 +270,7 @@ def build_decision_fact(
     previous_ids = _previous_ids_by_slot(previous)
     gates: dict[str, list[dict[str, Any]]] = {}
 
-    for gate in ("Q", "E", "D", "X", "R"):
+    for gate in ("Q", "GL", "E", "D", "X", "R"):
         payload = payloads.get(gate)
         if not isinstance(payload, dict):
             continue

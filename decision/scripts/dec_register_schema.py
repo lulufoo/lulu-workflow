@@ -14,7 +14,7 @@ from dec_io import atomic_write_text
 
 PRIOR_KINDS = frozenset({"judgment", "preference", "concern", "excluded"})
 REGISTER_STATES = frozenset({"pending", "verified", "invalidated"})
-REGISTER_SOURCES = frozenset({"O", "Q", "E", "D", "X", "R", "V", "RR"})
+REGISTER_SOURCES = frozenset({"O", "Q", "GL", "E", "D", "X", "R", "V", "RR"})
 RISK_LEVELS = frozenset({"H", "M", "L"})
 
 

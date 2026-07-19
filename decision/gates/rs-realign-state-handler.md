@@ -12,7 +12,7 @@ RS is a shared relay — all triggers route through RS, then RS re-enters LoopA 
 
 **Step 1 — Identify align point**
 
-Determine which [LoopA] gate is being realigned (Q / E / D / X). Default: earliest closed gate on the spine that the hit revises or contradicts.
+Determine which [LoopA] gate is being realigned (Q / GL / E / D / X). Default: earliest closed gate on the spine that the hit revises or contradicts.
 
 **Step 2 — Mark stale (no destroy)**
 

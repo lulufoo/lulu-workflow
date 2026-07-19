@@ -17,7 +17,7 @@ Control CLI non-zero → stop, report error, wait for user direction.
 
 ## Global · not parallel
 
-Runs on upstream-change hit during any gate. No spine `gate-close` until `RS_COMPLETE`. After success, re-enter LoopA at align gate `G` (Q / E / D / X), not V / RR.
+Runs on upstream-change hit during any gate. No spine `gate-close` until `RS_COMPLETE`. After success, re-enter LoopA at align gate `G` (Q / GL / E / D / X), not V / RR.
 
 ## When to load
 
@@ -28,7 +28,7 @@ Load this runner before `$RS_COMMIT` when:
 - Loop B upstream wrong → RS (not Loop B re-entry).
 - **R** exit `rs` · **DC** user flags item · **Human Decision** upstream wrong.
 
-Propose align gate `G` (Q / E / D / X); default earliest hit on the spine; G8 before `$RS_COMMIT`.
+Propose align gate `G` (Q / GL / E / D / X); default earliest hit on the spine; G8 before `$RS_COMMIT`.
 
 **Prohibited:** manually edit gate-state, delete payloads, call `invalidate-from`, or enumerate downstream gates outside `$RS_COMMIT`.
 
@@ -46,7 +46,7 @@ Do NOT proceed until you have read `../../../_runtime.md`
 </HARD-GATE>
 
 - Gate contract: `$SKILL_DIR/gates/rs-realign-state-handler.md`
-- Align gate `G` identified (Q / E / D / X) — from trigger context or user
+- Align gate `G` identified (Q / GL / E / D / X) — from trigger context or user
 
 ## Pipeline
 

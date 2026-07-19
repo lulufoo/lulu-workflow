@@ -45,6 +45,7 @@ from dec_domain_constraints_schema import (  # noqa: E402
 )
 from dec_gate_payload_schema import (  # noqa: E402
     gate_payload_path,
+    load_gate_payload,
     save_gate_payload,
 )
 from dec_gate_state_schema import (  # noqa: E402
@@ -178,9 +179,13 @@ def _validate_gate_activate_prereqs(state: dict[str, Any], gate: str) -> str | N
         if not is_gate_closed(state, "O"):
             return "gate O must be closed before activating Q"
         return None
-    if gate == "E":
+    if gate == "GL":
         if not is_gate_closed(state, "Q"):
-            return "gate Q must be closed before activating E"
+            return "gate Q must be closed before activating GL"
+        return None
+    if gate == "E":
+        if not is_gate_closed(state, "GL"):
+            return "gate GL must be closed before activating E"
         return None
     prev = {"D": "E", "X": "D", "R": "X", "V": "R", "RR": "V", "DC": "RR"}.get(gate)
     if prev and not is_gate_closed(state, prev):
@@ -265,6 +270,19 @@ def build_resolve_context_payload(
         constraints_path=constraints_path,
     )
     cycle_type = detect_cycle_type(cycle_id)
+    gl_payload: dict[str, Any] | None = None
+    if is_gate_closed(gate_state, "GL"):
+        payloads_dir = resolved_paths.get("payloads_dir")
+        if payloads_dir is None:
+            payloads_dir = project_root / gate_payloads_dir(
+                cycle_id,
+                stage,
+                project_root=project_root,
+                constraints_path=constraints_path,
+            )
+        gl_path = gate_payload_path(payloads_dir, "GL")
+        if gl_path.exists():
+            gl_payload = load_gate_payload(gl_path)
     return {
         "cycle_id": cycle_id,
         "stage": stage,
@@ -279,6 +297,7 @@ def build_resolve_context_payload(
         "skipped_gates": gate_state.get("skipped_gates", []),
         "domain_constraints": constraints,
         "registers": registers,
+        "gl": gl_payload,
         "reply_header": render_reply_header(gate_state, registers),
         # decision never resolves context itself — this is a pure read of
         # whatever the holder's own resolver script handed to $DEC_START at init
@@ -309,7 +328,49 @@ def cmd_resolve_context(
     return 0
 
 
-_IMPLEMENTED_GATES = frozenset({"O", "Q", "E", "D", "X", "R", "V", "RR", "DC"})
+_IMPLEMENTED_GATES = frozenset({"O", "Q", "GL", "E", "D", "X", "R", "V", "RR", "DC"})
+_GL_TOPICS = frozenset({"T1", "T2", "T3", "T4"})
+
+
+def _validate_gl_close_payload(payload: dict[str, Any]) -> None:
+    """Mechanical close predicates M1–M6 for spine gate GL (Grill)."""
+    exchanges = payload.get("exchanges")
+    if not isinstance(exchanges, list) or len(exchanges) < 1:
+        raise ValueError("exchanges must be a non-empty array")
+    seen: set[str] = set()
+    for index, row in enumerate(exchanges):
+        if not isinstance(row, dict):
+            raise ValueError(f"exchanges[{index}] must be an object")
+        topic = str(row.get("topic", "")).strip()
+        if topic not in _GL_TOPICS:
+            raise ValueError(
+                f"exchanges[{index}].topic must be one of {sorted(_GL_TOPICS)}, got {topic!r}"
+            )
+        seen.add(topic)
+        na = row.get("na") is True
+        question = str(row.get("question", "")).strip()
+        answer = str(row.get("answer", "")).strip()
+        if na:
+            if not answer:
+                raise ValueError(
+                    f"exchanges[{index}].answer must be non-empty when na is true"
+                )
+        else:
+            if not question:
+                raise ValueError(
+                    f"exchanges[{index}].question is required when na is not true"
+                )
+            if not answer:
+                raise ValueError(
+                    f"exchanges[{index}].answer is required when na is not true"
+                )
+    missing = sorted(_GL_TOPICS - seen)
+    if missing:
+        raise ValueError(
+            f"exchanges must cover topics {sorted(_GL_TOPICS)}; missing {missing}"
+        )
+    if payload.get("user_confirmed") is not True:
+        raise ValueError("user_confirmed must be true for GL gate-close")
 
 _H_VERIFICATION_PARTS = ("Method:", "Owner:", "Timing:", "Release condition:")
 
@@ -390,6 +451,9 @@ def _validate_gate_close_payload(gate: str, payload: dict[str, Any], *, constrai
     if gate == "Q":
         if not str(payload.get("problem_statement", "")).strip():
             raise ValueError("problem_statement is required")
+        return
+    if gate == "GL":
+        _validate_gl_close_payload(payload)
         return
     if gate == "E":
         directions = payload.get("directions", [])
@@ -658,7 +722,7 @@ def _collect_delivery_errors(
     if state["active_gate"] != "DC":
         errors.append(f"active_gate must be DC, got {state['active_gate']!r}")
 
-    for gate in ("O", "Q", "E", "D", "X", "R"):
+    for gate in ("O", "Q", "GL", "E", "D", "X", "R"):
         if not is_gate_closed(state, gate):
             errors.append(f"gate {gate} is not closed")
 

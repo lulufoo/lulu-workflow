@@ -26,6 +26,35 @@ def _sample_payloads() -> dict:
             "problem_statement": "need micro-routing",
             "constraints": "no full-page nav",
         },
+        "GL": {
+            "exchanges": [
+                {
+                    "topic": "T1",
+                    "question": "Who confirms?",
+                    "answer": "Owner",
+                    "na": False,
+                },
+                {
+                    "topic": "T2",
+                    "question": "Human vs machine?",
+                    "answer": "Human",
+                    "na": False,
+                },
+                {
+                    "topic": "T3",
+                    "question": "Risk?",
+                    "answer": "Latency",
+                    "na": False,
+                },
+                {
+                    "topic": "T4",
+                    "question": "Ops?",
+                    "answer": "Business hours",
+                    "na": False,
+                },
+            ],
+            "user_confirmed": True,
+        },
         "E": {
             "directions": [
                 {
@@ -99,6 +128,7 @@ def test_build_casts_text_and_list_fields() -> None:
     fact = build_decision_fact(_sample_payloads(), registers=_sample_registers())
     assert fact["version"] == 1
     assert "Q" in fact["gates"]
+    assert "GL" in fact["gates"]
     assert "E" in fact["gates"]
     assert "D" in fact["gates"]
     assert "X" in fact["gates"]
@@ -111,6 +141,10 @@ def test_build_casts_text_and_list_fields() -> None:
     q_texts = {u["text"] for u in fact["gates"]["Q"]}
     assert "need micro-routing" in q_texts
     assert "no full-page nav" in q_texts
+
+    gl_slots = {u["slot"] for u in fact["gates"]["GL"]}
+    assert "GL.exchanges[topic=T1]" in gl_slots
+    assert any("topic: T3" in u["text"] for u in fact["gates"]["GL"])
 
     e_ids = [u["id"] for u in fact["gates"]["E"]]
     assert e_ids[0].startswith("E-")
