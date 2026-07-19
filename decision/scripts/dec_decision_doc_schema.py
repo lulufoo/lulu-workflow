@@ -212,7 +212,7 @@ def render_scope_body(
     return (
         f"**Applies to:** {applies_to.strip()}\n\n"
         f"**Explicitly excludes:** {excludes.strip()}\n\n"
-        f"**Execution Approach:** {execution_approach.strip()}"
+        f"**Landing Approach:** {execution_approach.strip()}"
     )
 
 

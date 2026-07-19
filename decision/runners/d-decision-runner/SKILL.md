@@ -43,7 +43,7 @@ Do NOT proceed until you have read `../../../_runtime.md`
   "decision_rationale": "<chosen option and why>",
   "applies_to": "<scope coverage>",
   "excludes": "<explicit exclusions>",
-  "execution_approach": "<sequencing preferences>"
+  "execution_approach": "<landing approach at decision granularity>"
 }
 ```
 
