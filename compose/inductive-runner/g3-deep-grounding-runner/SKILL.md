@@ -9,7 +9,7 @@ description: >-
 
 # g3-deep-grounding-runner
 
-Terminal runner subagent. Dispatched from **inline** inductive-runner during Gate 3 Class 2 `auto`/`manual` (Lane B; mandatory before leaning; `ignore` skips), one chosen open at a time (never a whole detect pass, never more than one point per invocation). Parent owns `add-open` / `attach-code-refs` / `settle-open`.
+Terminal runner subagent. Dispatched from **inline** inductive-runner during Gate 3 Class 2 processing (Lane B), one chosen open at a time (never a whole detect pass, never more than one point per invocation). Parent owns `add-open` / `attach-code-refs` / `settle-open`.
 
 ## Shared receipt contract
 
