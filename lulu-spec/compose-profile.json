@@ -33,7 +33,6 @@
     "section-registry": "pst_section_registry_url",
     "section-form-registry": "pst_section_form_registry_url",
     "section-kw-criteria": "pst_section_kw_criteria_url",
-    "outline-registry": "pst_outline_registry_url",
     "role-instance": "pst_feature_role_instance_url",
     "domain-instance": "pst_feature_domain_instance_url",
     "inductive-scan-criteria": "pst_inductive_scan_criteria_url"

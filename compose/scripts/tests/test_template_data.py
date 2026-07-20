@@ -78,47 +78,12 @@ LEGACY_SECTION_REGISTRY: dict[str, Any] = {
     },
 }
 
-OUTLINE_REGISTRY_FEATURE: dict[str, Any] = {
-    "version": "1",
-    "$schema_id": "outline-schema",
-    "cycle_type": "feature",
-    "outline_order": ["OV", "BD", "DS", "IV", "PL", "VF"],
-    "blocks": {
-        "OV": {"heading": "Overview", "intents": ["CTX", "GO"]},
-        "BD": {"heading": "Boundaries", "intents": ["SC"]},
-        "DS": {"heading": "Design", "intents": ["AR", "KD"]},
-        "IV": {"heading": "Invariants", "intents": ["I"]},
-        "PL": {"heading": "Implementation Plan", "intents": ["SK", "T"]},
-        "VF": {"heading": "Verification", "intents": ["VF"]},
-    },
-}
-
-OUTLINE_REGISTRY_WITH_BLOCK_FORM: dict[str, Any] = {
-    "version": "1",
-    "$schema_id": "outline-schema",
-    "cycle_type": "feature",
-    "outline_order": ["PL"],
-    "blocks": {
-        "PL": {
-            "heading": "Implementation Plan",
-            "intents": ["SK", "T"],
-            "guidance": "Single execution thread: SK H3 before T H3.",
-            "contract": {
-                "required": ["SK opens with Execution arc lead-in before the phase table"],
-                "forbidden": ["Prose-only task lists without checkbox steps"],
-            },
-        },
-    },
-}
-
 from framework_template_sources import (  # noqa: E402
     product_spec_inductive_scan_criteria,
-    product_spec_outline_registry,
     product_spec_section_form_registry,
     product_spec_section_registry,
     tech_plan_feature_domain_instance,
     tech_plan_feature_role_instance,
-    tech_plan_outline_registry,
     tech_plan_section_form_registry,
     tech_plan_section_registry,
 )
@@ -207,12 +172,6 @@ def seed_tech_plan_test_caches(project_root: Path) -> None:
     seed_template_cache(
         project_root,
         "lulu-plan",
-        "tpt_outline_registry_url",
-        tech_plan_outline_registry(),
-    )
-    seed_template_cache(
-        project_root,
-        "lulu-plan",
         "tpt_section_form_registry_url",
         tech_plan_section_form_registry(),
     )
@@ -225,12 +184,6 @@ def seed_product_spec_test_caches(project_root: Path) -> None:
         "lulu-spec",
         "pst_section_registry_url",
         product_spec_section_registry(),
-    )
-    seed_template_cache(
-        project_root,
-        "lulu-spec",
-        "pst_outline_registry_url",
-        product_spec_outline_registry(),
     )
     seed_template_cache(
         project_root,

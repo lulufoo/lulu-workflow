@@ -28,7 +28,6 @@ from chapter_artifact_paths import chapter_body_path, chapter_derive_path  # noq
 from chapter_doc_schema import chapter_anchor_present, chapter_body_by_id  # noqa: E402
 from facts_schema import facts_path, load_facts  # noqa: E402
 from fetch_compose_framework import fetch_compose_framework  # noqa: E402
-from outline_registry_schema import normalize_outline_registry  # noqa: E402
 from section_registry_schema import (  # noqa: E402
     dependency_graph_subset,
     normalize_section_registry,
@@ -80,21 +79,6 @@ def dependency_graph_for_profile(project_root: Path, profile_id: str) -> dict[st
     data = json.loads(raw)
     normalized = normalize_section_registry(data)
     return normalize_dependency_graph(dependency_graph_subset(normalized))
-
-
-def outline_registry_for_profile(
-    project_root: Path,
-    profile_id: str,
-) -> dict[str, Any] | None:
-    try:
-        raw = fetch_compose_framework(
-            "outline-registry",
-            project_root,
-            profile_id=profile_id,
-        )
-    except Exception:
-        return None
-    return normalize_outline_registry(json.loads(raw))
 
 
 def _fact_anchor_covered(anchor: dict[str, Any], body: str) -> bool:
@@ -227,10 +211,6 @@ def validate_display_layer_artifacts(
     ``_chapters.json`` is retired — its presence is an error.
     """
     errors: list[str] = []
-
-    outline = outline_registry_for_profile(project_root, profile_id)
-    if outline is None:
-        return "failed to fetch/parse outline-registry for this profile"
 
     retired_chapters = revision_dir / "_chapters.json"
     if retired_chapters.is_file():

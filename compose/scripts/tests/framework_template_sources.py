@@ -57,8 +57,6 @@ def product_spec_section_form_registry() -> dict[str, Any]:
     return load_framework_json("spec", "25-product-spec-section-form-registry.json")
 
 
-def product_spec_outline_registry() -> dict[str, Any]:
-    return load_framework_json("spec", "22-product-spec-feature-outline-registry.json")
 
 
 def product_spec_inductive_scan_criteria() -> dict[str, Any]:
@@ -73,8 +71,6 @@ def tech_design_section_form_registry() -> dict[str, Any]:
     return load_framework_json("design", "49-tech-design-section-form-registry.json")
 
 
-def tech_design_outline_registry() -> dict[str, Any]:
-    return load_framework_json("design", "45-tech-design-feature-outline-registry.json")
 
 
 def tech_plan_section_registry() -> dict[str, Any]:
@@ -85,8 +81,6 @@ def tech_plan_section_form_registry() -> dict[str, Any]:
     return load_framework_json("plan", "49-tech-plan-section-form-registry.json")
 
 
-def tech_plan_outline_registry() -> dict[str, Any]:
-    return load_framework_json("plan", "45-tech-plan-feature-outline-registry.json")
 
 
 def tech_plan_feature_role_instance() -> dict[str, Any]:
@@ -101,13 +95,9 @@ def tech_arch_section_registry() -> dict[str, Any]:
     return load_framework_json("arch", "tech-arch-topic-section-registry.json")
 
 
-def tech_arch_outline_registry() -> dict[str, Any]:
-    return load_framework_json("arch", "tech-arch-topic-outline-registry.json")
 
 
 def product_blueprint_section_registry() -> dict[str, Any]:
     return load_framework_json("blueprint", "product-blueprint-topic-section-registry.json")
 
 
-def product_blueprint_outline_registry() -> dict[str, Any]:
-    return load_framework_json("blueprint", "product-blueprint-topic-outline-registry.json")

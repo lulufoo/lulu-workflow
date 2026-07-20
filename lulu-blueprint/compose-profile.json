@@ -33,7 +33,6 @@
     "section-registry": "pbt_section_registry_url",
     "section-form-registry": "pbt_section_form_registry_url",
     "section-kw-criteria": "pbt_section_kw_criteria_url",
-    "outline-registry": "pbt_outline_registry_url",
     "role-instance": "pbt_topic_role_instance_url",
     "domain-instance": "pbt_topic_domain_instance_url"
   },

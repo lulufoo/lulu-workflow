@@ -23,10 +23,6 @@ _FAKE_DESIGN_SECTION_URL = (
     "https://github.com/lulufoo/lulu-workflow-framework/blob/main/"
     "lulu-dev-workflow/template/design/42-tech-design-section-registry.json"
 )
-_FAKE_DESIGN_OUTLINE_URL = (
-    "https://github.com/lulufoo/lulu-workflow-framework/blob/main/"
-    "lulu-dev-workflow/template/design/45-tech-design-feature-outline-registry.json"
-)
 
 
 def _ensure_stage_compose(tmp_path: Path, stage: str, compose: dict) -> None:
@@ -64,42 +60,21 @@ _DISPLAY_LAYER_SECTION_REGISTRY = {
     },
 }
 
-_DISPLAY_LAYER_OUTLINE_CANDIDATES = {
-    "version": "1",
-    "$schema_id": "outline-schema",
-    "candidates": [
-        {"block": "cand-1", "anchor_lenses": ["AR"]},
-        {"block": "cand-2", "anchor_lenses": ["GO"]},
-    ],
-}
-
-_DISPLAY_LAYER_OUTLINE_LEGACY = {
-    "version": "1",
-    "$schema_id": "outline-schema",
-    "outline_order": ["OV"],
-    "blocks": {"OV": {"heading": "Overview", "intents": ["AR", "GO"]}},
-}
 
 
-def _seed_display_layer_registries(tmp_path: Path, *, outline: dict | None = None) -> None:
+
+def _seed_display_layer_registries(tmp_path: Path) -> None:
     seed_template_cache(
         tmp_path,
         "lulu-design",
         "tdt_section_registry_url",
         _DISPLAY_LAYER_SECTION_REGISTRY,
     )
-    seed_template_cache(
-        tmp_path,
-        "lulu-design",
-        "tdt_outline_registry_url",
-        outline if outline is not None else _DISPLAY_LAYER_OUTLINE_CANDIDATES,
-    )
     _ensure_stage_compose(
         tmp_path,
         "lulu-design",
         {
             "tdt_section_registry_url": _FAKE_DESIGN_SECTION_URL,
-            "tdt_outline_registry_url": _FAKE_DESIGN_OUTLINE_URL,
         },
     )
 
@@ -304,29 +279,6 @@ def test_dynamic_plan_passes_without_chapters_json(
     )
     assert error is None
 
-
-def test_dynamic_plan_allows_empty_candidates_outline(
-    display_layer_revision_dir: Path, tmp_path: Path
-):
-    _seed_display_layer_registries(
-        tmp_path,
-        outline={
-            "version": "1",
-            "$schema_id": "outline-schema",
-            "candidates": [],
-            "rules": "seed only",
-        },
-    )
-    compose_doc = display_layer_revision_dir / "design-doc.md"
-    _seed_dynamic_plan_happy(display_layer_revision_dir, compose_doc)
-
-    error = validate_display_layer_artifacts(
-        display_layer_revision_dir,
-        compose_doc,
-        tmp_path,
-        "lulu-design",
-    )
-    assert error is None
 
 
 def test_dynamic_plan_incomplete_missing_placement(
@@ -673,48 +625,6 @@ def test_display_layer_does_not_strip_h3_only_first_line_as_title(
     assert error is None
 
 
-def test_display_layer_fails_when_outline_fetch_returns_none(
-    display_layer_revision_dir: Path, tmp_path: Path
-):
-    """Round-1 Grok review m2: an outline-registry fetch/parse failure
-    (``outline_registry_for_profile`` returns ``None``) must be reported
-    distinctly from a legacy-shaped (missing candidates) registry."""
-    compose_doc = display_layer_revision_dir / "design-doc.md"
-    _seed_happy_path(display_layer_revision_dir, compose_doc)
-
-    with mock.patch(
-        "init_compose_validation.outline_registry_for_profile",
-        return_value=None,
-    ):
-        error = validate_display_layer_artifacts(
-            display_layer_revision_dir,
-            compose_doc,
-            tmp_path,
-            "lulu-design",
-        )
-    assert error is not None
-    assert "fetch/parse" in error
-    assert "candidates-shaped" not in error
-
-
-def test_display_layer_allows_empty_candidates_with_plan(
-    display_layer_revision_dir: Path, tmp_path: Path
-):
-    """archive-3.0: empty outline candidates OK when plan SoT is present."""
-    _seed_display_layer_registries(
-        tmp_path,
-        outline={"version": "1", "$schema_id": "outline-schema", "candidates": []},
-    )
-    compose_doc = display_layer_revision_dir / "design-doc.md"
-    _seed_happy_path(display_layer_revision_dir, compose_doc)
-
-    error = validate_display_layer_artifacts(
-        display_layer_revision_dir,
-        compose_doc,
-        tmp_path,
-        "lulu-design",
-    )
-    assert error is None
 
 
 def _seed_discovered_anchor_case(

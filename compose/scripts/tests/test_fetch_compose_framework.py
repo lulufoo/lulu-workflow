@@ -24,7 +24,6 @@ class TestResolveConfigKey:
             ("section-kw-criteria", "tpt_section_kw_criteria_url"),
             ("section-registry", "tpt_section_registry_url"),
             ("section-form-registry", "tpt_section_form_registry_url"),
-            ("outline-registry", "tpt_outline_registry_url"),
             ("role-instance", "tpt_feature_role_instance_url"),
             ("domain-instance", "tpt_feature_domain_instance_url"),
         ],
@@ -33,7 +32,6 @@ class TestResolveConfigKey:
         assert resolve_config_key(role) == expected
 
     def test_resolve_config_key_tech_design(self) -> None:
-        assert resolve_config_key("outline-registry", "lulu-design") == "tdt_outline_registry_url"
         assert resolve_config_key("section-registry", "lulu-design") == "tdt_section_registry_url"
         from compose_template_registry import ComposeTemplateError
 
@@ -44,7 +42,6 @@ class TestResolveConfigKey:
         assert resolve_config_key("section-form-registry", "lulu-spec") == (
             "pst_section_form_registry_url"
         )
-        assert resolve_config_key("outline-registry", "lulu-spec") == "pst_outline_registry_url"
         assert resolve_config_key("inductive-scan-criteria", "lulu-spec") == (
             "pst_inductive_scan_criteria_url"
         )
@@ -54,7 +51,6 @@ class TestResolveConfigKey:
             {
                 "domain-instance",
                 "inductive-scan-criteria",
-                "outline-registry",
                 "role-instance",
                 "section-form-registry",
                 "section-kw-criteria",
@@ -94,55 +90,6 @@ class TestFetchComposeFramework:
         assert "io_instantiate_gap" in data["deferred"]["methods"]
         assert len(data["expose_axis"]["coverage_sections"]) == 6
 
-    def test_fetch_tech_design_outline_registry(self, tmp_path: Path) -> None:
-        import fetch_compose_framework as mod
-
-        root = Path(__file__).resolve().parents[4]
-        content = mod.fetch_compose_framework(
-            "outline-registry",
-            root,
-            profile_id="lulu-design",
-        )
-        data = __import__("json").loads(content)
-        # K0b: local candidates-shaped outline (legacy SI/BD/SH/RS/CT/RD mapped)
-        assert "candidates" in data
-        assert "outline_order" not in data
-        blocks = {c["block"]: c["anchor_lenses"] for c in data["candidates"]}
-        assert blocks["cand-SH"] == ["ST"]
-        assert blocks["cand-SI"] == ["CTX", "GO"]
-        assert set(blocks) == {
-            "cand-SI",
-            "cand-BD",
-            "cand-SH",
-            "cand-RS",
-            "cand-CT",
-            "cand-RD",
-        }
-
-    def test_fetch_product_spec_outline_registry(self, tmp_path: Path) -> None:
-        import fetch_compose_framework as mod
-
-        root = Path(__file__).resolve().parents[4]
-        content = mod.fetch_compose_framework(
-            "outline-registry",
-            root,
-            profile_id="lulu-spec",
-        )
-        data = __import__("json").loads(content)
-        # K0b: local candidates-shaped outline (legacy BG/US/SC/FL/NG/AC mapped)
-        assert "candidates" in data
-        assert "outline_order" not in data
-        blocks = {c["block"]: c["anchor_lenses"] for c in data["candidates"]}
-        assert blocks["cand-BG"] == ["PB", "RN", "GO"]
-        assert blocks["cand-AC"] == ["AC"]
-        assert set(blocks) == {
-            "cand-BG",
-            "cand-US",
-            "cand-SC",
-            "cand-FL",
-            "cand-NG",
-            "cand-AC",
-        }
     def test_delegates_to_fetch_template(self, tmp_path: Path) -> None:
         calls: list[tuple[str, str]] = []
 

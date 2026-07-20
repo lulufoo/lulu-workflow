@@ -142,11 +142,10 @@ def check_l5(
     *,
     candidate_ids: list[str] | None = None,
 ) -> list[str]:
-    """Chapter genealogy reachability: derived_from ⊆ static candidates.
+    """Chapter genealogy reachability: derived_from ⊆ allowed candidate ids.
 
-    ``candidate_ids`` comes from the outline-registry static candidate set
-    (candidates-shaped outline). When ``candidate_ids`` is ``None``, this
-    check is skipped entirely (caller opts out / not wired yet)."""
+    When ``candidate_ids`` is ``None``, this check is skipped (not wired for
+    dynamic chapter plan)."""
     if candidate_ids is None:
         return []
     allowed = set(candidate_ids)

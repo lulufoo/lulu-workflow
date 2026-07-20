@@ -79,11 +79,10 @@ All macros that declare `--profile` **must** pass `--profile "$COMPOSE_PROFILE"`
 2. `$RESOLVE_DOMAIN` → `domain instance`.
 3. `$FETCH_COMPOSE --role section-registry` (JSON) → `section_order`, `document_preamble`, per-section `heading` / `aliases` / `intent` (else `desc`) / `intent_boundary` / `relations` / `presence` (used at Step 4)
    `$FETCH_COMPOSE --role section-form-registry` → `sections.{key}.presentation` / `expression`
-4. `$FETCH_COMPOSE --role outline-registry` → `candidates` / `rules` as **optional seed/heuristic only** (S-gen). Step 4 topology SSOT is dynamic themes→framework, not keep-isomorphic candidates.
-5. `$FETCH_COMPOSE --role section-kw-criteria` → each `## {section_key}` block (Fill completeness for **named** atoms only).
-6. Read `$SCOPE_REF_PATH` once (JSON units or prose, depending on artifact).
-7. Read profile `drafting.code_grounding` → `$CODE_GROUNDING`.
-8. **Init document:** Substitute placeholders in `document_preamble`. Write via:
+4. `$FETCH_COMPOSE --role section-kw-criteria` → each `## {section_key}` block (Fill completeness for **named** atoms only).
+5. Read `$SCOPE_REF_PATH` once (JSON units or prose, depending on artifact).
+6. Read profile `drafting.code_grounding` → `$CODE_GROUNDING`.
+7. **Init document:** Substitute placeholders in `document_preamble`. Write via:
 
 ```bash
 $COMPOSE_DOC_CONTROL init-doc \
@@ -93,8 +92,6 @@ $COMPOSE_DOC_CONTROL init-doc \
 
 Prefer `--preamble-file` when content is multiline.
 
-Do **not** append outline-registry content to the deliverable header. Do **not** fetch spec-template URLs.
-
 **Done:** `$OUTPUT_DOC_PATH` exists with preamble only. Proceed to Step 2.
 
 ---
@@ -103,7 +100,7 @@ Do **not** append outline-registry content to the deliverable header. Do **not**
 
 `section_order` means the profile's *lens* set (same registry, reframed as intent lenses — see [Theory](../references/compose-theory.md)).
 
-**Precondition:** Step 4 must produce `_lens-themes.json` + `_chapter-framework.json` + `_chapter-placement.json`. Outline `candidates`/`rules` are optional seed only. **`_chapters.json` is retired** — must not exist under `$REVISION_DIR`.
+**Precondition:** Step 4 must produce `_lens-themes.json` + `_chapter-framework.json` + `_chapter-placement.json`. **`_chapters.json` is retired** — must not exist under `$REVISION_DIR`.
 
 **Handshake with `drafting.inductive` (K4):** operative branch is Step 2 Branch A (validate-only; never re-atomize).
 
@@ -225,7 +222,7 @@ $CHAPTER_PLAN_CTL write-themes \
 
 #### 4.B — Themes → chapter framework (once, after 4.A)
 
-**Input (shared):** full `lens_themes[]`; optional outline `candidates`/`rules` as heuristics only — **do not** force isomorphism. Section-registry `heading`/`aliases` from Step 1.
+**Input (shared):** full `lens_themes[]` only (cluster from `desc` / H3 from `theme`). Section-registry `heading`/`aliases` from Step 1.
 
 ##### 4.B-1 — Cluster (topology only)
 

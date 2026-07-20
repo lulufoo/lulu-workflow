@@ -17,7 +17,6 @@ Scheme keys: `schemes/compose-template-scheme.json`. Each profile maps them via 
 | `section-kw-criteria` | Per-intent completeness dimensions |
 | `role-instance` | Stage author lens → F/C |
 | `domain-instance` | Stage domain lens → F/C |
-| `outline-registry` | Optional seed/heuristic for chapter clustering (not topology SSOT) |
 
 **Axes:** registry = *what* · kw-criteria = *how complete* · form / role / domain = *how to write* · dynamic chapter plan (Step 4) = *where*.
 
