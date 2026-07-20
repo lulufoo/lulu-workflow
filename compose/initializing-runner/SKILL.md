@@ -286,7 +286,7 @@ For each `FL-x` (global or per-chapter `anchor_form_lens_ids` order):
 1. Resolve `lens_key`, `theme` from `_lens-themes.json`.
 2. `facts_ℓ` = facts in `_chapter-placement.json` with that `form_lens_id` (authoritative). Optional: `filter --lens` then **intersect** placement — never expand beyond placement.
 3. **Derive F** then **Derive C** (S1): `carrier`/`structure` from `section-form-registry[lens_key].presentation.allowed`; `c[]` length 2..5. **Do not Write until F and C Done for this FL.**
-4. **Write `lens_body`:** Scaffold per F; obey every C; content ⊆ `facts_ℓ`; carry anchors (L6); resolve raw `F-id` citations before persist; mark gaps with `> **待决：** …`. Buffer under `### {theme}` (v1: in-memory / chapter buffer — no required `_body-lens-*` file).
+4. **Write `lens_body`:** Scaffold per F; obey every C; content ⊆ `facts_ℓ`; carry anchors (L6); resolve raw `F-id` citations before persist; mark gaps with `> **待决：** …`. `lens_body` must not contain `### {theme}` (v1: in-memory / chapter buffer — no required `_body-lens-*` file).
 
 **Note:** Encourage sectioning in the body. If using heading levels for structure, headings may start at `####`.
 
