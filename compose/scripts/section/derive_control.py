@@ -2,10 +2,11 @@
 """CLI for kernel Step 3 (derive) mechanical shell (K1).
 
 Subcommands:
-    plan     Compute triggers + topo order + true gaps (reads ``_facts.json``)
-    audit    Cascade-aware self-audit after derived facts are appended
-    append   Append derived facts (contiguous ids) and write ``_facts.json``
-    classify Classify zero-coverage required lenses (derivation vs true gap)
+    plan       Legacy zero-only triggers + topo order + true gaps
+    plan-edge  Edge-coverage holes + topo order + true gaps (deductive-runner)
+    audit      Cascade-aware self-audit after derived facts are appended
+    append     Append derived facts (contiguous ids) and write ``_facts.json``
+    classify   Classify zero-coverage required lenses (derivation vs true gap)
 
 Design rationale (source repo, why-only): docs/domain/ssot/compose/mechanism-ssot/compose-fact-architecture.md (Pd);
 process how archive: docs/domain/archive/compose/archive-2.0/compose-fact-first-k1-pd-design.md §2/§5.
@@ -42,6 +43,7 @@ from derive_shell import (  # noqa: E402
     classify_zero_required_lenses,
     derivation_upstreams,
     derive_triggers,
+    edge_hole_triggers,
     normalize_dependency_graph,
     topo_order_triggered,
     true_coverage_gaps,
@@ -129,6 +131,60 @@ def cmd_plan(args: argparse.Namespace) -> int:
             "command": "plan",
             "triggered": triggered,
             "order": order,
+            "true_gaps": gaps,
+            "upstreams": upstreams,
+            "facts_total": len(facts),
+        }
+    )
+
+
+def cmd_plan_edge(args: argparse.Namespace) -> int:
+    """Edge-coverage floor plan for deductive-runner (not zero-only)."""
+    revision_dir = args.revision_dir.resolve()
+    try:
+        facts = load_facts(facts_path(revision_dir))
+    except ValueError as exc:
+        return _fail(str(exc))
+    try:
+        graph, section_order, presence_map = _graph_and_maps(
+            args.project_root.resolve(),
+            args.profile.strip(),
+        )
+    except Exception as exc:  # noqa: BLE001
+        return _fail(f"section-registry unavailable: {exc}")
+
+    edge_holes = edge_hole_triggers(section_order, presence_map, facts, graph)
+    triggered = list(edge_holes.keys())
+    # Also include required zero-coverage derivation lenses (subset of holes).
+    for lens in derive_triggers(section_order, presence_map, facts, graph):
+        if lens not in edge_holes:
+            triggered.append(lens)
+            edge_holes[lens] = []
+    try:
+        order = topo_order_triggered(triggered, graph) if triggered else []
+    except DeriveCycleError as exc:
+        return _fail(str(exc))
+    gaps = true_coverage_gaps(section_order, presence_map, facts, graph)
+    upstreams = {
+        lens: {
+            "upstreams": derivation_upstreams(lens, graph),
+            "upstream_fact_count": upstream_fact_count(facts, lens, graph),
+            "upstream_facts": [
+                item
+                for u in derivation_upstreams(lens, graph)
+                for item in filter_by_lens(facts, u)
+            ],
+            "edge_holes": edge_holes.get(lens, []),
+        }
+        for lens in order
+    }
+    return _ok(
+        {
+            "ok": True,
+            "command": "plan-edge",
+            "triggered": triggered,
+            "order": order,
+            "edge_holes": edge_holes,
             "true_gaps": gaps,
             "upstreams": upstreams,
             "facts_total": len(facts),
@@ -250,11 +306,20 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
 
-    plan_p = sub.add_parser("plan", help="List Step 3 triggers in topo order + true gaps")
+    plan_p = sub.add_parser("plan", help="List zero-only triggers in topo order + true gaps")
     plan_p.add_argument("--revision-dir", type=Path, required=True)
     plan_p.add_argument("--profile", type=str, required=True)
     plan_p.add_argument("--project-root", type=Path, default=Path.cwd())
     plan_p.set_defaults(func=cmd_plan)
+
+    plan_edge_p = sub.add_parser(
+        "plan-edge",
+        help="List edge-coverage holes in topo order + true gaps (deductive-runner)",
+    )
+    plan_edge_p.add_argument("--revision-dir", type=Path, required=True)
+    plan_edge_p.add_argument("--profile", type=str, required=True)
+    plan_edge_p.add_argument("--project-root", type=Path, default=Path.cwd())
+    plan_edge_p.set_defaults(func=cmd_plan_edge)
 
     audit_p = sub.add_parser("audit", help="Cascade-aware Step 3 self-audit")
     audit_p.add_argument("--revision-dir", type=Path, required=True)

@@ -59,26 +59,26 @@ python3 "$SKILL_ROOT/compose/scripts/core/start.py" \
 - **Run-mode inference is this profile's `StartAdapter.infer_run_mode`'s responsibility** — typically `product` when a valid `lulu-spec` entry exists, otherwise `tech`. Do not pass `--run-mode`; it is not a CLI parameter.
 - On non-zero exit ("Gate blocked: ..." or a validation error list): tell the user which prior stage must be delivered first. Do not retry start.
 
-To resume an in-progress document on the **same revision**, do not run start again — run `$SESSION_INFO --view session` (Inductive resume: `resolve-context` on the active revision).
+To resume an in-progress document on the **same revision**, do not run start again — run `$SESSION_INFO --view session` (producer resume: `resolve-context` on the active revision).
 
-To **abandon a partial revision** and begin fresh after fixes, run `$START_COMPOSE` again — it bumps `active_doc`, creates a new `revision{N}/`, and Drafting Step 0 Inductive seeds a new state bundle there (prior revision artifacts remain on disk but are not read).
+To **abandon a partial revision** and begin fresh after fixes, run `$START_COMPOSE` again — it bumps `active_doc`, creates a new `revision{N}/`, and Drafting Step 0 (Inductive or Deductive) seeds a new state bundle there (prior revision artifacts remain on disk but are not read).
 
 ---
 
 ## Drafting Rules
 
-**Entry:** Drafting Step 0 (if enabled) → Drafting Step 1 → Drafting Step 2; or Evaluating fix resume → Drafting Step 2; or resume via `$SESSION_INFO --view session`.
-**Drafting states:** `[Inductive →] Initialized → FreeEdit` — Inductive only when this profile's `drafting.inductive` is `true`.
+**Entry:** Drafting Step 0 (producer) → Drafting Step 1 → Drafting Step 2; or Evaluating fix resume → Drafting Step 2; or resume via `$SESSION_INFO --view session`.
+**Drafting states:** `[Inductive|Deductive →] Initialized → FreeEdit` — Inductive when `drafting.inductive` is `true`; Deductive when `false`.
 
-### Drafting Step 0 — Inductive (only when `drafting.inductive` is `true` for this profile)
+### Drafting Step 0 — Producer facts
 
-Anchor the upstream scope doc in code before composing. Always run when enabled — no opt-in prompt. Profiles with `drafting.inductive: false` skip directly to Drafting Step 1.
+Always run — no opt-in prompt. Branch on `drafting.inductive`.
 
-**Inductive-runner** is a human-driven gate spine (Shape → Grounding → Refine → Recompose → Provenance): AI recommends; the **user** closes each gate. Run the gate spine **inline in this conversation** (same as `/decision` gate runners). **Exceptions (subagents via `$SUBAGENT_TOOL`, read-only, no user interaction):** deprecated G2 → `g2-grounding-runner`; G3 Class 1B → `g3-shallow-grounding-runner` (optional); G3 Class 2 → `g3-deep-grounding-runner` (optional). All leanings, EP registration, and gate closes stay inline; subagents cannot interact with the user.
+#### Step 0a — Inductive (only when `drafting.inductive` is `true`)
 
-1. Run `$DRAFT_CONTROL begin-inductive`.
-   - On failure → Blocking.
-   - On success → read the runner SKILL and follow its gate spine **interactively in this conversation**, with `begin-inductive` stdout as its `## Input`:
+**Inductive-runner** is a human-driven gate spine (Shape → Grounding → Refine → Recompose → Provenance): AI recommends; the **user** closes each gate. Run **inline in this conversation**. **Exceptions (subagents via `$SUBAGENT_TOOL`, read-only):** deprecated G2 → `g2-grounding-runner`; G3 Class 1B → `g3-shallow-grounding-runner` (optional); G3 Class 2 → `g3-deep-grounding-runner` (optional).
+
+1. Run `$DRAFT_CONTROL begin-inductive`. On failure → Blocking. On success → follow inductive-runner with stdout as `## Input`:
 
 ```text
 Load {actual $SKILL_ROOT}/compose/inductive-runner/SKILL.md and follow its instructions in this conversation (interactive, human-driven — NOT a subagent).
@@ -87,11 +87,26 @@ Load {actual $SKILL_ROOT}/compose/inductive-runner/SKILL.md and follow its instr
 {begin-inductive stdout}
 ```
 
-2. After the gate spine completes (G4 recompose and G5 provenance both closed), run `$DRAFT_CONTROL inductive-complete`. On failure → Blocking. After inductive-complete, `_facts.json` must already have been written by the discovery loop (seed / settle-open); `begin-init` will validate it exists. Maturity ledgers under `revision{active_doc}/inductive-scope/` are not Init prose input.
+2. After G4 and G5 close, run `$DRAFT_CONTROL inductive-complete`. On failure → Blocking. `_facts.json` must exist (discovery-written).
+
+#### Step 0b — Deductive (only when `drafting.inductive` is `false`)
+
+**Deductive-runner** materializes upstream + completes lenses (intent ceiling + edge floor) + human confirm gate. Run **inline in this conversation** (interactive confirm — NOT a subagent).
+
+1. Run `$DRAFT_CONTROL begin-deductive`. On failure → Blocking. On success → follow deductive-runner with stdout as `## Input`:
+
+```text
+Load {actual $SKILL_ROOT}/compose/deductive-runner/SKILL.md and follow its instructions in this conversation (interactive, human-driven — NOT a subagent).
+
+## Input
+{begin-deductive stdout}
+```
+
+2. After Steps 1–4 complete (confirm gate clear), run `$DRAFT_CONTROL deductive-complete`. On failure → Blocking. `_facts.json` must exist and pending must be clear.
 
 ### Drafting Step 1 — Initializing
 
-Compose the compose document via fact-first Init (see initializing-runner Steps 1–6). No mapping paste. Init reads **`_facts.json`**, not `inductive-scope/*.json` prose. When `drafting.inductive` is true (K4), the discovery loop must have written `_facts.json` first — `begin-init` hard-errors if it is missing; initializing-runner then skips its Step 2 atomization and validates the facts. The upstream scope doc is a **completeness cross-check only**.
+Compose the document via fact-first Init (see initializing-runner). No mapping paste. Init **validate-only** on producer-written `_facts.json` — never Import/Atomize/Derive. `begin-init` hard-errors if the producer step did not complete or `_facts.json` is missing.
 
 1. Run `$DRAFT_CONTROL begin-init`.
    - On failure → Blocking.
@@ -120,7 +135,7 @@ Entry: `advance-to-freeedit` success, or Evaluating fix resume.
 - User drives edits; AI assists on request.
 - Prefer **structured** edits over hand-editing the assembled compose `.md` (`.md` is a one-way projection):
   - **Tier A (same revision, presentation):** edit `_body-{cid}.txt` / `_derive-{cid}.json` (optionally sync existing fact `text` in `_facts.json`). **H2 SoT** = `_chapter-framework.json` `display_title`; derive title is a copy — keep them equal (edit framework first, then derive, or both). Validate; rebuild via `$COMPOSE_DOC_CONTROL init-doc` then per-chapter `append-chapter` in `$CHAPTER_PLAN_CTL list-chapters` order (`chapter_ids` = framework ∩ placement with facts). Never use `_chapters.json` (retired). Skip Drafting Step 0 / Drafting Step 1.
-  - **Tier B (new revision, structure/facts topology):** do **not** patch chapter set / `lens_tags` in place — run `$START_COMPOSE` for a new revision (initializing-runner Steps 2–6). Leave Evaluating-fix-resume.
+  - **Tier B (new revision, structure/facts topology):** do **not** patch chapter set / `lens_tags` in place — run `$START_COMPOSE` for a new revision, re-run Drafting Step 0 (producer) then Init (Steps 2–5). Leave Evaluating-fix-resume.
   - If the user insists on editing the assembled `.md`: warn that the next rebuild / new revision will overwrite; do not reverse-parse `.md` into JSON.
 - When user signals done, ask using remaining `drafting.post_init_options` that still apply (typically Evaluate; Deliver only if listed and Evaluating already completed for this revision):
   - **Evaluate** → **Evaluating Rules** below.
@@ -163,7 +178,8 @@ Dimension set, evaluation framework, and eval-mode branching (e.g. tech vs produ
 
 | Document | When |
 |----------|------|
-| `{SKILL_ROOT}/compose/inductive-runner/SKILL.md` | Drafting Step 0 — inductive-runner (`drafting.inductive: true` profiles only) |
+| `{SKILL_ROOT}/compose/inductive-runner/SKILL.md` | Drafting Step 0a — inductive-runner (`drafting.inductive: true`) |
+| `{SKILL_ROOT}/compose/deductive-runner/SKILL.md` | Drafting Step 0b — deductive-runner (`drafting.inductive: false`) |
 | `{SKILL_ROOT}/compose/inductive-runner/g2-grounding-runner/SKILL.md` | Drafting Step 0 — **deprecated** optional G2 topology subagent (prefer `attach-code-refs` in Class 2 processing) |
 | `{SKILL_ROOT}/compose/inductive-runner/g3-shallow-grounding-runner/SKILL.md` | Drafting Step 0 — optional G3 shallow grounding subagent (detect facts only; parent `add-open`) |
 | `{SKILL_ROOT}/compose/inductive-runner/g3-deep-grounding-runner/SKILL.md` | Drafting Step 0 — optional G3 deep grounding subagent (one open; parent settles) |

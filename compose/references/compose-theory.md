@@ -18,7 +18,7 @@ Scheme keys: `schemes/compose-template-scheme.json`. Each profile maps them via 
 | `role-instance` | Stage author lens → F/C |
 | `domain-instance` | Stage domain lens → F/C |
 
-**Axes:** registry = *what* · kw-criteria = *how complete* · form / role / domain = *how to write* · dynamic chapter plan (Step 4) = *where*.
+**Axes:** registry = *what* · kw-criteria = *how complete* · form / role / domain = *how to write* · dynamic chapter plan (Init Step 3) = *where*.
 
 ## Ontology (three layers)
 
@@ -26,9 +26,9 @@ The theory below is governed by three ontological layers. A fact is **substance 
 
 | Layer | Contains | Answers | Where it lives |
 |-------|----------|---------|----------------|
-| Substance (§1) | Content (facts) + anchors (§1.5) | what is true | `_facts.json` — inductive: discovery-written; deductive: atomized (origins §1.2) |
+| Substance (§1) | Content (facts) + anchors (§1.5) | what is true | `_facts.json` — producer-written (inductive discovery / deductive Intake+Derive); Init validate-only (origins §1.2) |
 | Lens / envelope (§2) | lens / intent | whose viewpoint owns it (N:M) | `lens_tags` on each fact + section-registry `intent` |
-| Presentation (§3) | Form (`F`) + Expression (`C`) + Render (`display_title` / H3 theme) | how to carry / write (per `form_lens`) + how to label | F/C at Step 5.W per FL; `display_title` copied from framework into `_derive-{cid}.json`; H3 from `_lens-themes.json` |
+| Presentation (§3) | Form (`F`) + Expression (`C`) + Render (`display_title` / H3 theme) | how to carry / write (per `form_lens`) + how to label | F/C at Init Step 4.W per FL; `display_title` copied from framework into `_derive-{cid}.json`; H3 from `_lens-themes.json` |
 
 **Invariant — substance carries no presentation.** One fact may be tagged to several lenses and is rebuilt differently under each; therefore Form/Expression cannot be attributes of the fact. Lens membership is *stored* (`lens_tags`); presentation is *derived on demand*, never persisted onto the fact.
 
@@ -36,7 +36,7 @@ The theory below is governed by three ontological layers. A fact is **substance 
 
 ### 1.1 Facts — definition
 
-**Facts** — filtered substance in `_facts.json`. Display-layer Init reads facts (inductive: discovery-written; no K2 projection). Scope doc is completeness cross-check only. Code grounding (when `drafting.code_grounding`) may add path/symbol detail at Write with `code_refs`.
+**Facts** — filtered substance in `_facts.json`. Display-layer Init **validate-only** on producer-written facts (inductive discovery or deductive-runner; no K2 projection; no Init Atomize/Derive). Scope doc is completeness cross-check only. Code grounding (when `drafting.code_grounding`) may add path/symbol detail at Write with `code_refs`.
 
 - Covers goals, boundaries, exclusions, decisions, invariants, phases at the decision level.
 - Rewrite as operational prose; not scope-doc verbatim paste (and not hand-rewriting inductive JSON — use section-control commands).

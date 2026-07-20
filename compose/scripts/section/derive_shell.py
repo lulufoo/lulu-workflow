@@ -87,16 +87,96 @@ def derivation_upstreams(lens: str, graph: dict[str, Any]) -> list[str]:
     return out
 
 
+def collect_ref_tokens(fact: dict[str, Any]) -> set[str]:
+    """Collect identity-like tokens from ``origin.ref`` and ``source``."""
+    tokens: set[str] = set()
+    origin = fact.get("origin")
+    if isinstance(origin, dict):
+        refs = origin.get("ref")
+        if isinstance(refs, list):
+            for item in refs:
+                text = str(item).strip()
+                if text:
+                    tokens.add(text)
+                    # Also accept bare F-n embedded in longer anchors.
+                    for part in text.replace(",", " ").split():
+                        if part.startswith("F-"):
+                            tokens.add(part)
+    source = fact.get("source")
+    if isinstance(source, list):
+        for item in source:
+            text = str(item).strip()
+            if text:
+                tokens.add(text)
+                for part in text.replace(",", " ").split():
+                    if part.startswith("F-"):
+                        tokens.add(part)
+    return tokens
+
+
+def fact_covers_upstream(fact: dict[str, Any], upstream_id: str) -> bool:
+    """True when ``fact`` cites ``upstream_id`` via origin.ref or source."""
+    uid = str(upstream_id).strip()
+    return uid in collect_ref_tokens(fact)
+
+
+def edge_holes_for_lens(
+    lens: str,
+    facts: list[dict[str, Any]],
+    graph: dict[str, Any],
+) -> list[str]:
+    """Upstream F-ids under derivation edges not covered by any ``lens`` fact."""
+    key = _upper(lens)
+    lens_facts = [f for f in facts if key in (f.get("lens_tags") or [])]
+    uncovered: list[str] = []
+    for u in derivation_upstreams(key, graph):
+        for u_fact in filter_by_lens(facts, u):
+            uid = str(u_fact["id"]).strip()
+            if any(fact_covers_upstream(lf, uid) for lf in lens_facts):
+                continue
+            uncovered.append(uid)
+    return uncovered
+
+
+def edge_hole_triggers(
+    section_order: list[str],
+    presence_map: dict[str, str],
+    facts: list[dict[str, Any]],
+    graph: dict[str, Any],
+) -> dict[str, list[str]]:
+    """Required lenses with derivation edges → list of uncovered upstream F-ids.
+
+    Replaces zero-only as the mechanical floor for deductive-runner (rev.3).
+    """
+    normalized_presence = {
+        _upper(k): str(v).strip().lower() for k, v in (presence_map or {}).items()
+    }
+    out: dict[str, list[str]] = {}
+    for lens in section_order:
+        key = _upper(lens)
+        presence = normalized_presence.get(key, "required")
+        if presence not in ("required", "optional"):
+            presence = "required"
+        if presence != "required":
+            continue
+        if not has_derivation(key, graph):
+            continue
+        holes = edge_holes_for_lens(key, facts, graph)
+        if holes:
+            out[key] = holes
+    return out
+
+
 def derive_triggers(
     section_order: list[str],
     presence_map: dict[str, str],
     facts: list[dict[str, Any]],
     graph: dict[str, Any],
 ) -> list[str]:
-    """Lenses that trigger Step 3 (zero-only): required ∧ 0 facts ∧ has derivation.
+    """Lenses that trigger legacy zero-only plan: required ∧ 0 facts ∧ has derivation.
 
-    Partial coverage (facts > 0) never triggers — intentional I2d regression
-    (K1 design §2.2 zero-only). Order follows ``section_order``.
+    Kept for backward-compatible ``plan``; deductive-runner uses ``plan-edge``.
+    Partial coverage (facts > 0) never triggers — K1 §2.2 zero-only.
     """
     coverage = lenses_present(facts)
     normalized_presence = {
@@ -235,12 +315,14 @@ def append_derived_facts(
     """Append derived facts with contiguous ``F-(k+1)..`` ids.
 
     Each item in ``derived`` must supply ``text``, ``lens_tags``, and may
-    supply ``source``. Ids in ``derived`` are ignored and reassigned.
+    supply ``source`` and/or ``origin`` (both preserved when present). Ids in
+    ``derived`` are ignored and reassigned.
 
     Anchors are inherited mechanically (P4 init-fidelity): a derived fact's
     ``anchors`` = union of the anchors of the upstream facts named in its
-    ``source`` (deduped by normalize_fact). Cascade-aware — later derived facts
-    can inherit from earlier ones in the same batch.
+    ``source``, or when ``source`` is absent, in ``origin.ref`` (deduped by
+    normalize_fact). Cascade-aware — later derived facts can inherit from
+    earlier ones in the same batch.
     """
     out = [normalize_fact(f) for f in facts]
     n = next_fact_id(out)
@@ -253,11 +335,20 @@ def append_derived_facts(
             "text": item["text"],
             "lens_tags": item["lens_tags"],
         }
+        if "origin" in item and item["origin"] is not None:
+            entry["origin"] = item["origin"]
+        inherit_ids: list[Any] = []
         if "source" in item and item["source"] is not None:
             entry["source"] = item["source"]
+            inherit_ids = list(item["source"])
+        elif isinstance(item.get("origin"), dict):
+            refs = item["origin"].get("ref")
+            if isinstance(refs, list):
+                inherit_ids = list(refs)
+        if inherit_ids:
             inherited = [
                 anchor
-                for sid in item["source"]
+                for sid in inherit_ids
                 for anchor in anchors_by_id.get(str(sid).strip(), [])
             ]
             if inherited:

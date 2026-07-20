@@ -1,0 +1,208 @@
+#!/usr/bin/env python3
+"""Tests for deductive_control pending gate + quarantine-unref."""
+
+from __future__ import annotations
+
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+_SCRIPTS = Path(__file__).resolve().parents[1]
+_CTL = _SCRIPTS / "deductive" / "deductive_control.py"
+
+
+def _run(args: list[str], revision_dir: Path) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [
+            sys.executable,
+            str(_CTL),
+            "--revision-dir",
+            str(revision_dir),
+            "--profile",
+            "lulu-plan",
+            "--project-root",
+            str(revision_dir.parent),
+            *args,
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def test_pending_init_add_resolve_gate(tmp_path: Path) -> None:
+    rev = tmp_path / "revision1"
+    rev.mkdir()
+    (rev / "_facts.json").write_text(
+        json.dumps(
+            [{"id": "F-1", "text": "ar", "lens_tags": ["AR"]}],
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    init = _run(["pending-init"], rev)
+    assert init.returncode == 0
+    assert json.loads(init.stdout)["ok"] is True
+
+    add = _run(
+        [
+            "pending-add",
+            "--kind",
+            "edge_hole",
+            "--lens",
+            "T",
+            "--summary",
+            "uncovered SK",
+            "--upstream-ref",
+            "F-1",
+        ],
+        rev,
+    )
+    assert add.returncode == 0
+    pid = json.loads(add.stdout)["id"]
+
+    gate = _run(["gate-check"], rev)
+    assert gate.returncode != 0
+
+    resolve = _run(
+        ["pending-resolve", "--id", pid, "--status", "resolved"],
+        rev,
+    )
+    assert resolve.returncode == 0
+
+    gate2 = _run(["gate-check"], rev)
+    assert gate2.returncode == 0
+    assert json.loads(gate2.stdout)["ok"] is True
+
+
+def test_gate_check_fails_when_pending_file_missing(tmp_path: Path) -> None:
+    rev = tmp_path / "revision1"
+    rev.mkdir()
+    (rev / "_facts.json").write_text(
+        json.dumps(
+            [{"id": "F-1", "text": "ar", "lens_tags": ["AR"]}],
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    out = _run(["gate-check"], rev)
+    assert out.returncode != 0
+    assert "deductive-pending.json missing" in out.stderr
+
+
+def test_gate_check_fails_on_unsettled_unref_quarantine(tmp_path: Path) -> None:
+    rev = tmp_path / "revision1"
+    rev.mkdir()
+    (rev / "_facts.json").write_text(
+        json.dumps(
+            [
+                {
+                    "id": "F-1",
+                    "text": "quarantine orphan",
+                    "lens_tags": [],
+                    "derivation": {
+                        "disposition": "quarantined",
+                        "upstream_ref": ["U-1"],
+                    },
+                }
+            ],
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    assert _run(["pending-init"], rev).returncode == 0
+    out = _run(["gate-check"], rev)
+    assert out.returncode != 0
+    assert "unreferenced quarantine not settled" in out.stderr
+    assert "F-1" in out.stderr
+
+
+def test_gate_check_passes_when_unref_quarantine_settled(tmp_path: Path) -> None:
+    rev = tmp_path / "revision1"
+    rev.mkdir()
+    (rev / "_facts.json").write_text(
+        json.dumps(
+            [
+                {
+                    "id": "F-1",
+                    "text": "quarantine orphan",
+                    "lens_tags": [],
+                    "derivation": {
+                        "disposition": "quarantined",
+                        "upstream_ref": ["U-1"],
+                    },
+                }
+            ],
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    assert _run(["pending-init"], rev).returncode == 0
+    add = _run(
+        [
+            "pending-add",
+            "--kind",
+            "quarantine_unref",
+            "--summary",
+            "F-1 out of scope",
+            "--upstream-ref",
+            "F-1",
+        ],
+        rev,
+    )
+    assert add.returncode == 0
+    pid = json.loads(add.stdout)["id"]
+    assert (
+        _run(
+            ["pending-resolve", "--id", pid, "--status", "out_of_scope"],
+            rev,
+        ).returncode
+        == 0
+    )
+    out = _run(["gate-check"], rev)
+    assert out.returncode == 0
+
+
+def test_quarantine_unref_lists_uncited(tmp_path: Path) -> None:
+    rev = tmp_path / "revision1"
+    rev.mkdir()
+    (rev / "_facts.json").write_text(
+        json.dumps(
+            [
+                {
+                    "id": "F-1",
+                    "text": "cited quarantine",
+                    "lens_tags": [],
+                    "derivation": {
+                        "disposition": "quarantined",
+                        "upstream_ref": ["U-1"],
+                    },
+                },
+                {
+                    "id": "F-2",
+                    "text": "uses F-1",
+                    "lens_tags": ["T"],
+                    "origin": {"type": "derived", "ref": ["F-1"]},
+                },
+                {
+                    "id": "F-3",
+                    "text": "still uncited quarantine",
+                    "lens_tags": [],
+                    "derivation": {
+                        "disposition": "quarantined",
+                        "upstream_ref": ["U-2"],
+                    },
+                },
+            ],
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    _run(["pending-init"], rev)
+    out = _run(["quarantine-unref"], rev)
+    assert out.returncode == 0
+    payload = json.loads(out.stdout)
+    assert payload["ok"] is True
+    assert payload["unreferenced_ids"] == ["F-3"]

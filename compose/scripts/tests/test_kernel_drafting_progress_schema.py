@@ -26,6 +26,21 @@ def test_tech_plan_rejects_inductive() -> None:
     assert any("invalid current_step" in err for err in errors)
 
 
+def test_tech_plan_allows_deductive() -> None:
+    assert schema.validate_drafting_progress(
+        {"version": "1", "cycle_id": "C1", "current_step": "Deductive"},
+        profile_id="lulu-plan",
+    ) == []
+
+
+def test_tech_design_rejects_deductive() -> None:
+    errors = schema.validate_drafting_progress(
+        {"version": "1", "cycle_id": "C1", "current_step": "Deductive"},
+        profile_id="lulu-design",
+    )
+    assert any("invalid current_step" in err for err in errors)
+
+
 def test_product_spec_allows_freeedit() -> None:
     assert schema.validate_drafting_progress(
         {"version": "1", "cycle_id": "C1", "current_step": "FreeEdit"},

@@ -30,6 +30,7 @@ _REQUIRED_FIELDS = {s["field"] for s in _SCHEMA if s["required"]}
 _SCHEMA_FIELD_NAMES = {s["field"] for s in _SCHEMA}
 _REQUIRED_KEY_ORDER = ["version", "cycle_id", "current_step"]
 _STEP_INDUCTIVE = "Inductive"
+_STEP_DEDUCTIVE = "Deductive"
 _STEP_INITIALIZED = "Initialized"
 _STEP_FREE_EDIT = "FreeEdit"
 _LEGACY_STEP_READY = "Ready"
@@ -54,6 +55,9 @@ def allowed_steps(
     steps = {_STEP_INITIALIZED}
     if drafting.get("inductive") is True:
         steps.add(_STEP_INDUCTIVE)
+    else:
+        # Non-inductive profiles use Deductive producer before Init.
+        steps.add(_STEP_DEDUCTIVE)
     if drafting.get("freeedit") is True:
         steps.add(_STEP_FREE_EDIT)
     return frozenset(steps)

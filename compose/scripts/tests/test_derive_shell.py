@@ -16,6 +16,9 @@ from derive_shell import (  # noqa: E402
     classify_zero_required_lenses,
     derivation_upstreams,
     derive_triggers,
+    edge_hole_triggers,
+    edge_holes_for_lens,
+    fact_covers_upstream,
     has_derivation,
     normalize_dependency_graph,
     topo_order_triggered,
@@ -82,6 +85,45 @@ def test_derive_triggers_skips_partial_coverage_zero_only():
     assert derive_triggers(order, presence, facts, g) == []
 
 
+def test_edge_holes_when_partial_t_does_not_cite_upstream():
+    """plan-edge floor: T has facts but no F-id cite → hole remains."""
+    g = _planish_graph()
+    facts = [
+        {"id": "F-1", "text": "sk", "lens_tags": ["SK"]},
+        {"id": "F-2", "text": "ar", "lens_tags": ["AR"]},
+        {"id": "F-3", "text": "orphan T", "lens_tags": ["T"]},
+    ]
+    assert edge_holes_for_lens("T", facts, g) == ["F-1", "F-2"]
+    holes = edge_hole_triggers(
+        ["AR", "SK", "T", "GO"],
+        {"AR": "required", "SK": "required", "T": "required", "GO": "optional"},
+        facts,
+        g,
+    )
+    assert holes == {"T": ["F-1", "F-2"]}
+
+
+def test_edge_holes_cleared_when_t_cites_upstream_fids():
+    g = _planish_graph()
+    facts = [
+        {"id": "F-1", "text": "sk", "lens_tags": ["SK"]},
+        {"id": "F-2", "text": "ar", "lens_tags": ["AR"]},
+        {
+            "id": "F-3",
+            "text": "task from sk/ar",
+            "lens_tags": ["T"],
+            "origin": {"type": "derived", "ref": ["F-1", "F-2"]},
+        },
+    ]
+    assert edge_holes_for_lens("T", facts, g) == []
+    assert edge_hole_triggers(
+        ["AR", "SK", "T"],
+        {"AR": "required", "SK": "required", "T": "required"},
+        facts,
+        g,
+    ) == {}
+
+
 def test_derive_triggers_skips_optional_and_true_gaps():
     g = _planish_graph()
     order = ["T", "GO", "ZZ"]
@@ -138,6 +180,31 @@ def test_append_derived_facts_contiguous_ids_and_source():
     assert out[2]["lens_tags"] == ["T"]
     assert out[2]["source"] == ["F-1"]
     assert out[3]["source"] == ["F-2", "按 AR 契约"]
+
+
+def test_append_derived_facts_preserves_origin():
+    """B2: origin.type/ref must survive append (edge floor + seed provenance)."""
+    base = [
+        {"id": "F-1", "text": "sk", "lens_tags": ["SK"]},
+        {"id": "F-2", "text": "ar", "lens_tags": ["AR"]},
+    ]
+    derived = [
+        {
+            "text": "task from sk/ar",
+            "lens_tags": ["T"],
+            "origin": {"type": "derived", "ref": ["F-1", "F-2"]},
+        },
+        {
+            "text": "human seed",
+            "lens_tags": ["T"],
+            "origin": {"type": "seed", "ref": ["P-1"]},
+        },
+    ]
+    out = append_derived_facts(base, derived)
+    assert out[2]["origin"] == {"type": "derived", "ref": ["F-1", "F-2"]}
+    assert out[3]["origin"] == {"type": "seed", "ref": ["P-1"]}
+    assert fact_covers_upstream(out[2], "F-1")
+    assert fact_covers_upstream(out[2], "F-2")
 
 
 def test_append_derived_facts_inherits_union_of_source_anchors():

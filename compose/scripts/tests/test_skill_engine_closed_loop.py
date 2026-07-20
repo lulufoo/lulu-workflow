@@ -25,6 +25,9 @@ def test_engine_skill_contains_full_orchestration() -> None:
 
     assert "drafting.inductive" in text
     assert "inductive" in text.lower()
+    assert "deductive" in text.lower()
+    assert "begin-deductive" in text
+    assert "deductive-runner" in text
 
 
 def test_engine_evaluating_delegates_without_dimension_table() -> None:

@@ -8,6 +8,7 @@ from pathlib import Path
 _SCRIPTS = Path(__file__).resolve().parent
 _CORE = _SCRIPTS / "core"
 _SECTION = _SCRIPTS / "section"
+_DEDUCTIVE = _SCRIPTS / "deductive"
 _SCOPE = _SCRIPTS / "scope"
 _IO = _SCRIPTS / "io"
 _SCHEMA_SECTION = _SCRIPTS / "schema" / "section"
@@ -23,6 +24,7 @@ def ensure_kernel_paths() -> None:
         _SCRIPTS,
         _CORE,
         _SECTION,
+        _DEDUCTIVE,
         _SCOPE,
         _IO,
         _START,

@@ -26,6 +26,7 @@ from drafting_progress_schema import (  # noqa: E402
 )
 from delivered_refs_schema import serialize_delivered_refs  # noqa: E402
 from facts_schema import facts_path  # noqa: E402
+from deductive_gate import evaluate_deductive_gate  # noqa: E402
 from init_compose_validation import validate_init_artifacts  # noqa: E402
 from decision_fact_claim_schema import ensure_claim_ledger  # noqa: E402
 from resolved_refs_schema import (  # noqa: E402
@@ -44,11 +45,14 @@ from workflow_profile_paths import doc_dir, inductive_out_dir  # noqa: E402
 
 _CMD_BEGIN_INDUCTIVE = "begin-inductive"
 _CMD_INDUCTIVE_COMPLETE = "inductive-complete"
+_CMD_BEGIN_DEDUCTIVE = "begin-deductive"
+_CMD_DEDUCTIVE_COMPLETE = "deductive-complete"
 _CMD_BEGIN_INIT = "begin-init"
 _CMD_INIT_COMPLETE = "init-complete"
 _CMD_ADVANCE_TO_FREEEDIT = "advance-to-freeedit"
 _CMD_STATUS = "status"
 _STEP_INDUCTIVE = "Inductive"
+_STEP_DEDUCTIVE = "Deductive"
 _STEP_INITIALIZED = "Initialized"
 _STEP_FREE_EDIT = "FreeEdit"
 _INDUCTIVE_SUBDIR = "inductive-scope"
@@ -183,6 +187,38 @@ def _format_inductive_dispatch_input(
     return "\n".join(lines)
 
 
+def _format_deductive_dispatch_input(
+    cycle_id: str,
+    project_root: Path,
+    profile_id: str,
+) -> str:
+    revision_dir = _revision_dir(cycle_id, project_root, profile_id)
+    facts_ref = (
+        resolved_facts_ref(revision_dir) if has_resolved_refs(revision_dir) else None
+    )
+    drafting = _drafting_config(cycle_id, project_root, profile_id)
+    code_grounding = bool(drafting.get("code_grounding"))
+    lines = [
+        f"COMPOSE_PROFILE:      {profile_id}",
+        f"CYCLE_ID:             {cycle_id}",
+        f"SCOPE_REF:            {_scope_doc(cycle_id, project_root, profile_id).as_posix()}",
+        f"SCOPE_FACTS_PATH:     {facts_ref.path if facts_ref else ''}",
+        f"DEDUCTIVE_OUT_DIR:    {revision_dir.as_posix()}",
+        f"CODE_GROUNDING:       {str(code_grounding).lower()}",
+    ]
+    return "\n".join(lines)
+
+
+def _deductive_gate_failure(
+    cycle_id: str,
+    project_root: Path,
+    profile_id: str,
+) -> str | None:
+    return evaluate_deductive_gate(
+        _revision_dir(cycle_id, project_root, profile_id),
+    )
+
+
 def _format_init_dispatch_input(
     cycle_id: str,
     project_root: Path,
@@ -279,6 +315,82 @@ def inductive_complete(
     )
 
 
+def begin_deductive(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+) -> dict[str, Any]:
+    if _drafting_config(cycle_id, project_root, profile_id).get("inductive") is True:
+        return _failure(
+            _CMD_BEGIN_DEDUCTIVE,
+            "drafting.inductive is true — use begin-inductive",
+        )
+
+    progress_path = _progress_path(cycle_id, project_root, profile_id)
+    if progress_path.exists():
+        step = read_current_step(progress_path)
+        if step not in (None, _STEP_DEDUCTIVE):
+            return _failure(
+                _CMD_BEGIN_DEDUCTIVE,
+                f"cannot start Deductive: current_step is {step!r} "
+                "(expected absent or Deductive)",
+                current_step=step,
+            )
+    claim_err = _ensure_decision_fact_claims(cycle_id, project_root, profile_id)
+    if claim_err:
+        return _failure(_CMD_BEGIN_DEDUCTIVE, claim_err)
+    dispatch_input = _format_deductive_dispatch_input(
+        cycle_id, project_root, profile_id,
+    )
+    save_drafting_progress(
+        progress_path,
+        {"version": "1", "cycle_id": cycle_id, "current_step": _STEP_DEDUCTIVE},
+        profile_id=profile_id,
+        project_root=project_root,
+        cycle_id=cycle_id,
+        merge=False,
+    )
+    return _success(
+        _CMD_BEGIN_DEDUCTIVE,
+        current_step=_STEP_DEDUCTIVE,
+        dispatch_input=dispatch_input,
+    )
+
+
+def deductive_complete(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+) -> dict[str, Any]:
+    if _drafting_config(cycle_id, project_root, profile_id).get("inductive") is True:
+        return _failure(
+            _CMD_DEDUCTIVE_COMPLETE,
+            "drafting.inductive is true — use inductive-complete",
+        )
+    progress_path = _progress_path(cycle_id, project_root, profile_id)
+    if not progress_path.exists():
+        return _failure(_CMD_DEDUCTIVE_COMPLETE, "drafting-progress.md not found")
+    step = read_current_step(progress_path)
+    if step != _STEP_DEDUCTIVE:
+        return _failure(
+            _CMD_DEDUCTIVE_COMPLETE,
+            f"cannot complete Deductive: current_step is {step!r} (expected Deductive)",
+            current_step=step,
+        )
+    gate_reason = _deductive_gate_failure(cycle_id, project_root, profile_id)
+    if gate_reason:
+        return _failure(_CMD_DEDUCTIVE_COMPLETE, gate_reason)
+    rev = _revision_dir(cycle_id, project_root, profile_id)
+    return _success(
+        _CMD_DEDUCTIVE_COMPLETE,
+        current_step=_STEP_DEDUCTIVE,
+        revision_dir=rev.as_posix(),
+        facts_path=facts_path(rev).as_posix(),
+    )
+
+
 def begin_init(
     cycle_id: str,
     project_root: Path,
@@ -307,15 +419,6 @@ def begin_init(
                     f"cannot start Initializing: {gate_reason}",
                     current_step=step,
                 )
-    elif step not in (None, _STEP_INITIALIZED):
-        return _failure(
-            _CMD_BEGIN_INIT,
-            f"cannot start Initializing: current_step is {step!r} (expected absent or Initialized)",
-            current_step=step,
-        )
-    # K4: inductive profiles — _facts.json must already exist (written by
-    # seed/settle during discovery). Validate-only; never project or re-atomize.
-    if drafting.get("inductive") is True:
         rev = _revision_dir(cycle_id, project_root, profile_id)
         path = facts_path(rev)
         if not path.is_file():
@@ -326,6 +429,21 @@ def begin_init(
                 f"(expected {path.as_posix()})",
                 current_step=step,
             )
+    else:
+        if step not in (_STEP_DEDUCTIVE, _STEP_INITIALIZED):
+            return _failure(
+                _CMD_BEGIN_INIT,
+                "cannot start Initializing: Deductive not run",
+                current_step=step,
+            )
+        if step == _STEP_DEDUCTIVE:
+            gate_reason = _deductive_gate_failure(cycle_id, project_root, profile_id)
+            if gate_reason:
+                return _failure(
+                    _CMD_BEGIN_INIT,
+                    f"cannot start Initializing: {gate_reason}",
+                    current_step=step,
+                )
     claim_err = _ensure_decision_fact_claims(cycle_id, project_root, profile_id)
     if claim_err:
         return _failure(_CMD_BEGIN_INIT, claim_err, current_step=step)
@@ -353,7 +471,12 @@ def init_complete(
         return _failure(_CMD_INIT_COMPLETE, seed_error)
     if progress_path.exists():
         step = read_current_step(progress_path)
-        if step not in (None, _STEP_INITIALIZED, _STEP_INDUCTIVE):
+        if step not in (
+            None,
+            _STEP_INITIALIZED,
+            _STEP_INDUCTIVE,
+            _STEP_DEDUCTIVE,
+        ):
             return _failure(
                 _CMD_INIT_COMPLETE,
                 f"drafting-progress already at {step!r}; cannot re-initialize",
@@ -437,6 +560,8 @@ def _cli() -> int:
     for command in (
         _CMD_BEGIN_INDUCTIVE,
         _CMD_INDUCTIVE_COMPLETE,
+        _CMD_BEGIN_DEDUCTIVE,
+        _CMD_DEDUCTIVE_COMPLETE,
         _CMD_BEGIN_INIT,
         _CMD_INIT_COMPLETE,
         _CMD_ADVANCE_TO_FREEEDIT,
@@ -454,6 +579,10 @@ def _cli() -> int:
             result = begin_inductive(**kwargs)
         elif args.command == _CMD_INDUCTIVE_COMPLETE:
             result = inductive_complete(**kwargs)
+        elif args.command == _CMD_BEGIN_DEDUCTIVE:
+            result = begin_deductive(**kwargs)
+        elif args.command == _CMD_DEDUCTIVE_COMPLETE:
+            result = deductive_complete(**kwargs)
         elif args.command == _CMD_BEGIN_INIT:
             result = begin_init(**kwargs)
         elif args.command == _CMD_INIT_COMPLETE:

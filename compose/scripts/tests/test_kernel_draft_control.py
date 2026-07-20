@@ -85,6 +85,140 @@ def test_begin_inductive_rejects_non_inductive_profile(tmp_path: Path) -> None:
     assert "drafting.inductive is false" in result["reason"]
 
 
+def test_begin_deductive_succeeds_for_lulu_plan(tmp_path: Path) -> None:
+    seed_tech_plan_session(tmp_path, cycle_id=_CYCLE, profile_id="lulu-plan")
+
+    result = draft_control.begin_deductive(_CYCLE, tmp_path, profile_id="lulu-plan")
+
+    assert result["ok"] is True
+    dispatch = result["dispatch_input"]
+    assert "COMPOSE_PROFILE:      lulu-plan" in dispatch
+    assert "DEDUCTIVE_OUT_DIR:" in dispatch
+    assert "/lulu-plan/revision1" in dispatch
+    progress = progress_schema.load_drafting_progress(
+        _progress_path(tmp_path, "lulu-plan"),
+        profile_id="lulu-plan",
+        project_root=tmp_path,
+        cycle_id=_CYCLE,
+    )
+    assert progress["current_step"] == "Deductive"
+
+
+def test_begin_deductive_rejects_inductive_profile(tmp_path: Path) -> None:
+    seed_tech_design_session(tmp_path, cycle_id=_CYCLE)
+
+    result = draft_control.begin_deductive(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
+
+    assert result["ok"] is False
+    assert "begin-inductive" in result["reason"]
+
+
+def test_begin_init_rejects_plan_without_deductive(tmp_path: Path) -> None:
+    seed_tech_plan_session(tmp_path, cycle_id=_CYCLE, profile_id="lulu-plan")
+
+    result = draft_control.begin_init(_CYCLE, tmp_path, profile_id="lulu-plan")
+
+    assert result["ok"] is False
+    assert "Deductive not run" in result["reason"]
+
+
+def test_begin_init_rejects_open_deductive_pending(tmp_path: Path) -> None:
+    seed_tech_plan_session(tmp_path, cycle_id=_CYCLE, profile_id="lulu-plan")
+    rev = tmp_path / doc_dir(_CYCLE, 1, "lulu-plan", tmp_path)
+    progress_schema.save_drafting_progress(
+        _progress_path(tmp_path, "lulu-plan"),
+        {"version": "1", "cycle_id": _CYCLE, "current_step": "Deductive"},
+        profile_id="lulu-plan",
+        project_root=tmp_path,
+        cycle_id=_CYCLE,
+    )
+    (rev / "_facts.json").write_text(
+        json.dumps(
+            [{"id": "F-1", "text": "seed", "lens_tags": ["AR"]}],
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    (rev / "deductive-pending.json").write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "items": [
+                    {
+                        "id": "P-1",
+                        "kind": "edge_hole",
+                        "status": "open",
+                        "lens": "T",
+                        "summary": "uncovered SK",
+                    }
+                ],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    result = draft_control.begin_init(_CYCLE, tmp_path, profile_id="lulu-plan")
+
+    assert result["ok"] is False
+    assert "open deductive pending" in result["reason"]
+
+
+def test_begin_init_rejects_missing_deductive_pending_file(tmp_path: Path) -> None:
+    seed_tech_plan_session(tmp_path, cycle_id=_CYCLE, profile_id="lulu-plan")
+    rev = tmp_path / doc_dir(_CYCLE, 1, "lulu-plan", tmp_path)
+    progress_schema.save_drafting_progress(
+        _progress_path(tmp_path, "lulu-plan"),
+        {"version": "1", "cycle_id": _CYCLE, "current_step": "Deductive"},
+        profile_id="lulu-plan",
+        project_root=tmp_path,
+        cycle_id=_CYCLE,
+    )
+    (rev / "_facts.json").write_text(
+        json.dumps(
+            [{"id": "F-1", "text": "seed", "lens_tags": ["AR"]}],
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    # No deductive-pending.json → hard gate must fail (B1).
+    result = draft_control.begin_init(_CYCLE, tmp_path, profile_id="lulu-plan")
+    assert result["ok"] is False
+    assert "deductive-pending.json missing" in result["reason"]
+
+
+def test_deductive_complete_and_begin_init_when_gate_clear(tmp_path: Path) -> None:
+    seed_tech_plan_session(tmp_path, cycle_id=_CYCLE, profile_id="lulu-plan")
+    rev = tmp_path / doc_dir(_CYCLE, 1, "lulu-plan", tmp_path)
+    progress_schema.save_drafting_progress(
+        _progress_path(tmp_path, "lulu-plan"),
+        {"version": "1", "cycle_id": _CYCLE, "current_step": "Deductive"},
+        profile_id="lulu-plan",
+        project_root=tmp_path,
+        cycle_id=_CYCLE,
+    )
+    (rev / "_facts.json").write_text(
+        json.dumps(
+            [{"id": "F-1", "text": "seed", "lens_tags": ["AR"]}],
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    (rev / "deductive-pending.json").write_text(
+        json.dumps({"version": 1, "items": []}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+    complete = draft_control.deductive_complete(
+        _CYCLE, tmp_path, profile_id="lulu-plan"
+    )
+    assert complete["ok"] is True
+
+    begin = draft_control.begin_init(_CYCLE, tmp_path, profile_id="lulu-plan")
+    assert begin["ok"] is True
+    assert "REVISION_DIR:" in begin["dispatch_input"]
+
+
 def test_begin_inductive_succeeds_for_lulu_spec(tmp_path: Path) -> None:
     seed_product_spec_session(tmp_path, cycle_id=_CYCLE)
 
