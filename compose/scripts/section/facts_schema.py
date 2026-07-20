@@ -16,8 +16,8 @@ membership set (zero, one, or many lens keys) — deliberately **not** a single
 ``home``. Empty ``lens_tags`` is schema-legal (Q1 quarantine candidate,
 audited downstream by Step 6 gates, not blocked here). Display placement
 (``display_home`` / ``form_lens`` / chapter membership) is **not** a fact
-field — it lives in ``_chapters.json`` (chapters_schema.py) to avoid double
-bookkeeping (Grok review Blocker#1).
+field — it lives in ``_chapter-placement.json`` (chapter plan SoT; archive-3.0)
+to avoid double bookkeeping (Grok review Blocker#1).
 
 ``source`` is private provenance (lightweight strings / upstream ``F-id``
 hints). Gates never read it. K1 does not enforce referential integrity on

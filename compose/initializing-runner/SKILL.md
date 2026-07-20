@@ -16,7 +16,7 @@ Use `$COMPOSE_PROFILE` from parent dispatch; kernel default applies only when om
 
 ## Scope
 
-**Pipeline:** Step 1 Load → Step 2 Atomize facts (inductive: validate discovery-written `_facts.json` only; deductive: atomize scope) → Step 3 Derive facts → Step 4 Organize chapters → Step 5 Write chapters → Step 6 Validate → Return.
+**Pipeline:** Step 1 Load → Step 2 Atomize facts (inductive: validate discovery-written `_facts.json` only; deductive: atomize scope) → Step 3 Derive facts → Step 4 Dynamic chapter plan (themes → framework → placement) → Step 5 Write-by-FL then Assemble chapters → Step 6 Validate → Return.
 
 Init substance: display-layer Steps 2–6. Inductive discovery loop owns `_facts.json` as engine state (K4; no projection). Deductive Init atomizes scope into facts.
 
@@ -57,7 +57,7 @@ All macros that declare `--profile` **must** pass `--profile "$COMPOSE_PROFILE"`
 | `$COMPOSE_DOC_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/section/compose_doc_control.py"` |
 | `$INIT_COMPOSE_VALIDATE` | `python3 "$SKILL_ROOT/compose/scripts/section/init_compose_validation.py" validate --revision-dir "$REVISION_DIR" --compose-doc "$OUTPUT_DOC_PATH" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)"` |
 | `$FACTS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/facts_control.py"` |
-| `$CHAPTERS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/chapters_control.py"` |
+| `$CHAPTER_PLAN_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/chapter_plan_control.py"` |
 | `$DERIVE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/derive_control.py"` (K1 Step 3 mechanical shell) |
 | `$DECISION_FACT_CLAIM_CTL` | `python3 "$SKILL_ROOT/compose/scripts/core/decision_fact_claim_control.py" --revision-dir "$REVISION_DIR"` |
 
@@ -65,7 +65,7 @@ All macros that declare `--profile` **must** pass `--profile "$COMPOSE_PROFILE"`
 
 `$FACTS_CTL` subcommands: `--help` · `write` · `filter` · `validate` · `status`.
 
-`$CHAPTERS_CTL` subcommands: `--help` · `write` · `validate` · `status`.
+`$CHAPTER_PLAN_CTL` subcommands: `--help` · `write-themes` · `write-framework` · `propose-placement` · `write-placement` · `list-chapters` · `validate`.
 
 `$DERIVE_CTL` subcommands: `--help` · `plan` · `append` · `audit` · `classify`. Scripts never invent derived text — only triggers / topo-order / id append / self-audit.
 
@@ -79,7 +79,7 @@ All macros that declare `--profile` **must** pass `--profile "$COMPOSE_PROFILE"`
 2. `$RESOLVE_DOMAIN` → `domain instance`.
 3. `$FETCH_COMPOSE --role section-registry` (JSON) → `section_order`, `document_preamble`, per-section `heading` / `intent` (else `desc`) / `intent_boundary` / `relations` / `presence` (used at Step 4)
    `$FETCH_COMPOSE --role section-form-registry` → `sections.{key}.presentation` / `expression`
-4. `$FETCH_COMPOSE --role outline-registry` → candidates-shaped: `candidates[].{block, anchor_lenses}` + `rules` (advisory text). Consumed at Step 4.
+4. `$FETCH_COMPOSE --role outline-registry` → `candidates` / `rules` as **optional seed/heuristic only** (S-gen). Step 4 topology SSOT is dynamic themes→framework, not keep-isomorphic candidates.
 5. `$FETCH_COMPOSE --role section-kw-criteria` → each `## {section_key}` block (Fill completeness for **named** atoms only).
 6. Read `$SCOPE_REF_PATH` once (JSON units or prose, depending on artifact).
 7. Read profile `drafting.code_grounding` → `$CODE_GROUNDING`.
@@ -103,12 +103,12 @@ Do **not** append outline-registry content to the deliverable header. Do **not**
 
 `section_order` means the profile's *lens* set (same registry, reframed as intent lenses — see [Theory](../references/compose-theory.md)).
 
-**Precondition (pairing invariant):** outline-registry must be candidates-shaped (`candidates`/`rules`) — `$INIT_COMPOSE_VALIDATE` hard-errors otherwise.
+**Precondition:** Step 4 must produce `_lens-themes.json` + `_chapter-framework.json` + `_chapter-placement.json`. Outline `candidates`/`rules` are optional seed only. **`_chapters.json` is retired** — must not exist under `$REVISION_DIR`.
 
 **Handshake with `drafting.inductive` (K4):** operative branch is Step 2 Branch A (validate-only; never re-atomize).
 
-**Must:** tag every atom with N:M `lens_tags` (zero, one, or many — never a single `home`); run Step 3 for zero-coverage required derivation lenses before Step 4; place every fact in exactly one non-drop chapter; keep chapter `anchor_lenses` a subset of `section_order`; before persisting `_body-{cid}.txt`, resolve every author-time `F-id` citation into a human-readable chapter reference (write-side discipline — `$INIT_COMPOSE_VALIDATE` does **not** scan for raw `F-id`; Eval owns residual checks); run `$INIT_COMPOSE_VALIDATE` before Return.
-**Must not:** write a `fact:` or `section-key:` anchor into `$OUTPUT_DOC_PATH` (chapter anchors only — write-side / Eval; Step 6 does not substring-scan); invent a chapter with `derived_from` outside the outline-registry `candidates` set; decide open choices during Steps 2/3/4 (待决 same discipline).
+**Must:** tag every atom with N:M `lens_tags` (zero, one, or many — never a single `home`); run Step 3 for zero-coverage required derivation lenses before Step 4; place every fact with non-empty `lens_tags` exactly once in `_chapter-placement.json`; before persisting `_body-{cid}.txt`, resolve every author-time `F-id` citation into a human-readable chapter reference (write-side — `$INIT_COMPOSE_VALIDATE` does **not** scan for raw `F-id`); run `$INIT_COMPOSE_VALIDATE` before Return.
+**Must not:** write a `fact:` or `section-key:` anchor into `$OUTPUT_DOC_PATH` (chapter anchors only); create or keep `_chapters.json`; decide open choices during Steps 2/3/4 (待决 same discipline).
 
 ### Step 2 — Atomize facts
 
@@ -196,41 +196,110 @@ Empty upstream → audit skips that lens; C1 at Step 6 is the backstop.
 
 **Done:** `_facts.json` includes any Step-3-derived facts; when `order` was non-empty, `$DERIVE_CTL audit` exit 0; `$FACTS_CTL validate` exit 0.
 
-### Step 4 — Organize chapters
+### Step 4 — Dynamic chapter plan (themes → framework → placement)
 
-- **Input:** `_facts.json` (compact index of `{id, text, lens_tags}` — never full prose; `lens_tags` is required here to derive each fact's `form_lens`) · outline-registry `candidates` (static, `{block, anchor_lenses}`) + `rules` (advisory merge/split/trim text) · `section_presence_map` (from section-registry `presence`, via `$FETCH_COMPOSE --role section-registry`).
-- **Action (hybrid, semantic — AI, not script):** start from lens-anchored candidates; content-adaptively merge/split/drop/reorder using `rules` as heuristics and topic clustering as the north star. For each fact, assign exactly one chapter + one `form_lens` (∈ that fact's own `lens_tags` ∩ the chosen chapter's `anchor_lenses`) — priority-derive the placement using the placement heuristic (**content-kind memo, not a lens total order:** invariants > structure/contract > success > contact > context) as reference, not a mechanical lookup. A required lens with zero anchoring candidates is a modeling gap — do not silently drop it. An optional lens may legitimately end up with zero facts — do not fabricate content to fill it.
-- **Output:** write `_chapters.json` (chapters = JSON array `{id, anchor_lenses, derived_from, op, facts:[{fid, form_lens}]}` only — `op` ∈ `keep|merge|split|drop`; `derived_from` cites the static `candidates[].block` id(s)):
+Process contract: `docs/domain/archive/compose/archive-3.0/compose-init-dynamic-chapter-framework-design.md`.
+
+**Must not:** dump full `_facts.json` into one model pass to invent themes; invent topology without 4.A→4.B→4.C; create `_chapters.json` (retired).
+
+#### 4.A — Lens → theme + desc (SKILL loop; script filter)
+
+1. `$FACTS_CTL status --revision-dir "$REVISION_DIR"` → lenses to cover (`by_lens` ∪ required lenses from `section_presence_map`).
+2. For each lens `ℓ` (uppercase key):  
+   `facts_ℓ ← $FACTS_CTL filter --revision-dir "$REVISION_DIR" --lens ℓ`  
+   Induct one `{form_lens_id: FL-n, lens_key: ℓ, theme, desc}` — **only** from that filter output.  
+   - `theme`: short H3-ready title (one line).  
+   - `desc`: 1–3 sentences for clustering (not draft prose; not a fact dump).  
+   - Empty filter (required, zero facts): `theme`/`desc` may be `（待补）…` — do not invent propositions.
+3. Persist:
 
 ```bash
-$CHAPTERS_CTL write \
+$CHAPTER_PLAN_CTL write-themes \
   --revision-dir "$REVISION_DIR" \
   --profile "$COMPOSE_PROFILE" \
   --project-root "$(pwd)" \
-  --chapters-file "<path to chapters JSON>"
+  --themes-file "<path to themes JSON>"
 ```
 
-- `$CHAPTERS_CTL validate --revision-dir "$REVISION_DIR" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)"` must exit 0 (structural shape only — L1/L3/L4/L5/C1 cross-file gates run at Step 6).
-- **Done:** `$REVISION_DIR/_chapters.json` exists and validates; every fact with non-empty `lens_tags` is assigned to exactly one non-drop chapter.
+**Done (4.A):** `_lens-themes.json` validates; one entry per covered lens **and** every `presence=required` lens (zero-fact → `theme`/`desc` = `（待补）…`); unique `FL-*`. `write-themes --profile` enforces present∪required ⊆ `lens_keys`.
 
-### Step 5 — Write chapters (per non-`drop` chapter in `_chapters.json` order)
+#### 4.B — Themes → chapter framework (once, after 4.A)
 
-For each chapter, produce:
+- **Input:** full `lens_themes[]` (use `desc` as primary clustering signal; `theme` as H3 seed). Optional outline `candidates`/`rules` as heuristics only — **do not** force isomorphism.
+- **Output:** `_chapter-framework.json` with ordered chapters: `display_title`, `anchor_form_lens_ids` (**array order = write/read order**), `sections[]` same order with `heading` **≡** corresponding `theme`.
+- Persist:
+
+```bash
+$CHAPTER_PLAN_CTL write-framework \
+  --revision-dir "$REVISION_DIR" \
+  --framework-file "<path to framework JSON>"
+```
+
+**Done (4.B):** every theme `FL-*` in exactly one chapter; titles non-empty.
+
+#### 4.C — Materialize placement (C1 mechanical → C2 multi-lens AI → C3 write)
+
+1. **C1 (script):** Run propose — single-lens facts become `mechanical` rows; multi-lens go to `needs_resolution`:
+
+```bash
+$CHAPTER_PLAN_CTL propose-placement --revision-dir "$REVISION_DIR"
+```
+
+2. **C2 (AI):** For each `needs_resolution[]` entry, pick one `form_lens_id` from `candidates` using theme+desc; never expand outside `lens_tags`. Merge into the propose stdout `placement` draft:
+   - Append `{fid, form_lens_id, placement: "ai_resolved", candidates}` under the chapter that owns that FL (`framework` / `fl→chapter`).
+   - If that chapter id is **absent** from the draft `chapters[]` (all its facts were multi-lens), **create** the chapter object first.
+   - `unmapped_facts` → return to **4.A/4.B** (missing theme or FL not in framework); do not invent tags.
+3. **C3:** Persist placement SoT (use `--write` on propose only when `needs_resolution` and `unmapped_facts` are empty; otherwise `write-placement`):
+
+```bash
+$CHAPTER_PLAN_CTL write-placement \
+  --revision-dir "$REVISION_DIR" \
+  --profile "$COMPOSE_PROFILE" \
+  --project-root "$(pwd)" \
+  --placement-file "<path to placement JSON>"
+```
+
+```bash
+$CHAPTER_PLAN_CTL validate \
+  --revision-dir "$REVISION_DIR" \
+  --profile "$COMPOSE_PROFILE" \
+  --project-root "$(pwd)"
+```
+
+**Done (Step 4):** `_lens-themes.json` + `_chapter-framework.json` + `_chapter-placement.json`; every fact with non-empty `lens_tags` placed exactly once; no `_chapters.json`.
+
+### Step 5 — Write-by-FL then Assemble chapters
+
+Keep chapter delivery shell (`_derive-{cid}.json`, `_body-{cid}.txt`, `append-chapter`). **Drop** Group / Arrange-as-axis / mixed-chapter Weave. Restore per-FL Write spine (I2b→I2c→I2d).
+
+Artifacts per chapter:
 
 ```text
-_derive-{cid}.json   # {"display_title": "...", "lens_forms": [{"form_lens": "...", "carrier": "...", "structure": "...", "c": [{"d": "...", "c": "..."}]}]}
-                     # Required: display_title + lens_forms (one entry per distinct form_lens in this chapter; 5.2.a F then 5.2.b C)
-_body-{cid}.txt      # chapter prose (no H2 line, no anchor)
+_derive-{cid}.json   # display_title (copy framework) + lens_forms[] per FL in chapter
+_body-{cid}.txt      # ## omitted; H3 theme sections assembled in framework order
 ```
 
-- **Input:** this chapter's `facts[]` (`{fid, form_lens}`) resolved against `_facts.json` · `section-form-registry` entries for each distinct `form_lens` (`{carrier, structure}`) · this chapter's `anchor_lenses`.
-- **Action — sub-steps in order, semantic (AI) unless noted:**
-  1. **5.1 Group (mechanical):** partition this chapter's `facts[]` by `form_lens` — the highest-priority `anchor_lenses` entry (heuristic: invariants > structure/contract > success > contact > context) → primary-axis group; any other `anchor_lenses` entry's `form_lens` → cross-cut group (merged chapters only; single-anchor chapters have an empty cross-cut group). Step 4 already guarantees every fact's `form_lens` ∈ this chapter's `anchor_lenses` — do not place a fact under a `form_lens` outside that set.
-  2. **5.2.a Derive F (semi-semantic — derived by priority rule, not free choice):** for each distinct `form_lens` ℓ present in this chapter, select `F_ℓ` `{carrier, structure}` from `section-form-registry[ℓ].presentation.allowed` (F priority: `presentation` > domain `expression_conventions` > role `expressive_tendency` > intent text). **`structure` MUST be one of `allowed[].structure`** — do not invent a carrier outside that menu. **Required:** write `display_title` and `lens_forms[]` entries `{form_lens, carrier, structure}` covering every distinct ℓ (`c` may be absent at this stage). **Done:** every ℓ has one entry; `carrier`/`structure` non-empty; each `structure` ∈ that ℓ's `allowed`.
-  3. **5.2.b Derive C (semi-semantic):** for each `lens_forms` entry, derive `C_ℓ` as 2–5 `(d,c)` pairs from ℓ's `expression` + Role Fields + domain; **do not** change `carrier`/`structure` from 5.2.a (if F must change, return to 5.2.a for that ℓ). **Done:** every entry has `c[]` length 2..5 with non-empty `d`/`c` strings. **Do not start 5.4 Weave until Done** — 5.3 Arrange may proceed without waiting.
-  4. **5.3 Arrange:** one orienting lead sentence derived from `anchor_lenses` intent + `covered_lenses` (`anchor_lenses` ∪ every placed fact's `lens_tags`); order the primary axis by priority; append cross-cut groups after the primary axis, bounded and clearly labeled — never interleaved into it. May run before 5.2.b Done.
-  5. **5.4 Weave:** only after 5.2.b Done. For each group in Arrange order (chapter-internal loop — do **not** split into 5.4.a/5.4.b): **Scaffold per `F_ℓ`**; **obey every `C_ℓ` pair**; content ⊆ this chapter's `facts[]` — never invent a proposition. **Anchor fidelity:** carry each placed fact's `anchors` (§1.5 `compose-theory.md`) into the body — a `discovered` fact's anchors must appear (Step 6 L6 gate); do not replace an anchor token with a hypernym (see `init-draft-quality.md` § Anchor fidelity). While drafting, an author may cite another fact by `F-id`; before writing `_body-{cid}.txt` to disk, resolve every such citation into a human-readable chapter reference (e.g. "见「架构」章") — the persisted file must contain no raw `F-id` (write-side; not a Step 6 gate). Mark gaps with `> **待决：** …`. Write `_body-{cid}.txt` (no H2 line, no anchor).
-  6. **5.5 Close (mechanical):** assemble into `$OUTPUT_DOC_PATH`:
+#### 5.W — Write-by-FL
+
+For each `FL-x` (global or per-chapter `anchor_form_lens_ids` order):
+
+1. Resolve `lens_key`, `theme` from `_lens-themes.json`.
+2. `facts_ℓ` = facts in `_chapter-placement.json` with that `form_lens_id` (authoritative). Optional: `filter --lens` then **intersect** placement — never expand beyond placement.
+3. **Derive F** then **Derive C** (S1): `carrier`/`structure` from `section-form-registry[lens_key].presentation.allowed`; `c[]` length 2..5. **Do not Write until F and C Done for this FL.**
+4. **Write `lens_body`:** Scaffold per F; obey every C; content ⊆ `facts_ℓ`; carry anchors (L6); resolve raw `F-id` citations before persist; mark gaps with `> **待决：** …`. Buffer under `### {theme}` (v1: in-memory / chapter buffer — no required `_body-lens-*` file).
+
+#### 5.A — Assemble-by-chapter then Close
+
+Render order = `$CHAPTER_PLAN_CTL list-chapters` (`chapter_ids`: framework ∩ placement **with facts**).
+
+**Skip** framework chapters that are **absent** from placement or have zero facts (do not write `_derive`/`_body`, do not `append-chapter`). Legal SoT omits unused chapters from placement — do **not** write `facts: []` (schema/L4 reject).
+
+For each remaining `cid` in `list-chapters` order:
+
+1. `display_title` ← **copy** framework (do not invent at write time).
+2. Assemble body = optional one-sentence lead (no new facts) + each FL block in `anchor_form_lens_ids` order (`### {theme}` + `lens_body`).
+3. Write `_derive-{cid}.json` (`display_title` + `lens_forms` for every FL in the chapter) and `_body-{cid}.txt`.
+4. Close:
 
 ```bash
 $COMPOSE_DOC_CONTROL append-chapter \
@@ -239,20 +308,29 @@ $COMPOSE_DOC_CONTROL append-chapter \
   --revision-dir "$REVISION_DIR"
 ```
 
-- **Done:** `$OUTPUT_DOC_PATH` contains `<!-- chapter:{cid} -->` for this chapter with non-empty rendered content.
+**Hard gate:** any FL missing F/C/body → do not assemble chapters that include it.
 
-Chapter titles are flat `## {display_title}` from `_derive-{cid}.json`.
+**Done:** every listed chapter (framework ∩ placement with facts) has `<!-- chapter:{cid} -->` and non-empty rendered content. Flat `## {display_title}` from `_derive-{cid}.json`.
 
 ### Step 6 — Validate
 
-1. Run `$INIT_COMPOSE_VALIDATE` (fact-first gate suite — L1/L3/L4/L5/C1 placement/coverage gates + chapter-artifact existence + assembly completeness + L6 fact-anchor coverage).
-2. On failure → read stderr; route by gap type:
-   - **C1 on a derivation lens** (required lens with `decompose`/`instantiate` edge still at zero facts) → **full re-run** (inductive: **Blocking** — return control to inductive-runner; add missing facts via `seed-decision` / `settle-open`, then re-enter Init Step 2 Branch A — never invoke retired `$INDUCTIVE_FACTS_PROJ project`; deductive: re-run Step 2 then Step 3 — do not patch in place) or flag Round;
-   - **true coverage gap** (required, zero facts, **no** derivation edge) → Round / modeling fix — Step 3 will not invent;
-   - **placement / candidate / L\*** issues → return to Step 4;
-   - **L6 anchor coverage** (a `discovered` fact's anchor absent from its chapter body) → return to Step 5.4 and weave the missing anchor token into the body (do not weaken the anchor);
-   - missing/empty chapter artifacts or missing chapter anchors → return to Step 5;
-   then re-run Step 6.
+1. Run `$INIT_COMPOSE_VALIDATE` (placement SoT gates L1/L3/L4/C1 + chapter-artifact existence + assembly completeness + L6; rejects retired `_chapters.json`).
+2. On failure → read stderr; **match the first prefix in this order** (then re-run Step 6):
+
+| Order | Prefix / signal | Return to | Action |
+|------:|-----------------|-----------|--------|
+| 1 | `retired:` | delete file | Remove `_chapters.json`; do not edit themes/framework/placement for this signal |
+| 2 | `L6:` | **5.W** | Write missing fact-anchor token into that FL body (do not weaken) |
+| 3 | `L1:` / `L3:` / `L4:` | **4.C** | Fix placement; `write-placement` |
+| 4 | `C1:` + derivation lens | Step 2–3 full re-run | inductive: **Blocking** → inductive-runner then Init 2 Branch A; deductive: re-run Step 2 then 3 — never patch in place; never `$INDUCTIVE_FACTS_PROJ project` |
+| 5 | `C1:` true coverage gap (no derivation edge) | Round / modeling | Step 3 will not invent |
+| 6 | `4.A:` | **4.A** | Re-induct themes; `write-themes` |
+| 7 | `4.B:` | **4.B** | Fix framework; `write-framework` |
+| 8 | `4.C:` | **4.C** | Fix placement; `write-placement` |
+| 9 | `5.A:` | **5.A** | Re-assemble / `append-chapter` for `list-chapters` only |
+
+Do **not** match bare `anchor` / `display_title` / `empty chapter` — use the prefixes above.
+
 3. On success → Return Summary.
 
 **Done:** `$INIT_COMPOSE_VALIDATE` exit 0.
@@ -265,7 +343,7 @@ Initializing complete (fact-first display layer).
   Output: <OUTPUT_DOC_PATH>
   Facts: <REVISION_DIR>/_facts.json (<N> facts; Step 3 derived: <N>)
   Step 3: covered <M> required derivation lens(es); true gaps flagged: <ids or none>
-  Chapters: <REVISION_DIR>/_chapters.json (<N> chapters, <N> dropped)
+  Chapter plan: <REVISION_DIR>/_lens-themes.json, _chapter-framework.json, _chapter-placement.json (<N> chapters)
   Chapter artifacts: <REVISION_DIR>/_derive-*.json, _body-*.txt
   Quarantined facts (empty lens_tags, Q1 audit): <N> — <ids or none>
   Scope cross-check: <SCOPE_REF_PATH>

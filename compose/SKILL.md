@@ -119,7 +119,7 @@ Entry: `advance-to-freeedit` success, or Evaluating fix resume.
 
 - User drives edits; AI assists on request.
 - Prefer **structured** edits over hand-editing the assembled compose `.md` (`.md` is a one-way projection):
-  - **Tier A (same revision, presentation):** edit `_body-{cid}.txt` / `_derive-{cid}.json` (optionally sync existing fact `text` in `_facts.json`); validate; rebuild the compose doc via `$COMPOSE_DOC_CONTROL init-doc` then per-chapter `append-chapter` in `_chapters.json` order. Skip Drafting Step 0 / Drafting Step 1.
+  - **Tier A (same revision, presentation):** edit `_body-{cid}.txt` / `_derive-{cid}.json` (optionally sync existing fact `text` in `_facts.json`). **H2 SoT** = `_chapter-framework.json` `display_title`; derive title is a copy — keep them equal (edit framework first, then derive, or both). Validate; rebuild via `$COMPOSE_DOC_CONTROL init-doc` then per-chapter `append-chapter` in `$CHAPTER_PLAN_CTL list-chapters` order (`chapter_ids` = framework ∩ placement with facts). Never use `_chapters.json` (retired). Skip Drafting Step 0 / Drafting Step 1.
   - **Tier B (new revision, structure/facts topology):** do **not** patch chapter set / `lens_tags` in place — run `$START_COMPOSE` for a new revision (initializing-runner Steps 2–6). Leave Evaluating-fix-resume.
   - If the user insists on editing the assembled `.md`: warn that the next rebuild / new revision will overwrite; do not reverse-parse `.md` into JSON.
 - When user signals done, ask using remaining `drafting.post_init_options` that still apply (typically Evaluate; Deliver only if listed and Evaluating already completed for this revision):
@@ -191,6 +191,7 @@ Fetch compose framework templates on demand; **do not** read `workflow-config.js
 | `$FETCH_COMPOSE` | `python3 "$SKILL_ROOT/compose/scripts/io/fetch_compose_framework.py" --role <role> --profile <profile_id> --project-root "$(pwd)" --cycle-id "$CYCLE_ID"` |
 | `$EVAL_CONTROL` | `python3 "$SKILL_ROOT/eval/scripts/eval_entry.py" --workflow <profile_id> --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
 | `$COMPOSE_DOC_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/section/compose_doc_control.py" <subcommand> [args...]` |
+| `$CHAPTER_PLAN_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/chapter_plan_control.py"` |
 | `$INIT_COMPOSE_VALIDATE` | `python3 "$SKILL_ROOT/compose/scripts/section/init_compose_validation.py" validate --revision-dir <dir> --compose-doc <path> --profile <profile_id> --project-root "$(pwd)"` |
 
 Subcommands and stdout: script module docstrings or `--help`.

@@ -17,9 +17,9 @@ Scheme keys: `schemes/compose-template-scheme.json`. Each profile maps them via 
 | `section-kw-criteria` | Per-intent completeness dimensions |
 | `role-instance` | Stage author lens → F/C |
 | `domain-instance` | Stage domain lens → F/C |
-| `outline-registry` | Block→intent document layout |
+| `outline-registry` | Optional seed/heuristic for chapter clustering (not topology SSOT) |
 
-**Axes:** registry = *what* · kw-criteria = *how complete* · form / role / domain = *how to write* · outline = *where*.
+**Axes:** registry = *what* · kw-criteria = *how complete* · form / role / domain = *how to write* · dynamic chapter plan (Step 4) = *where*.
 
 ## Ontology (three layers)
 
@@ -29,7 +29,7 @@ The theory below is governed by three ontological layers. A fact is **substance 
 |-------|----------|---------|----------------|
 | Substance (§1) | Content (facts) + anchors (§1.5) | what is true | `_facts.json` — inductive: discovery-written; deductive: atomized (origins §1.2) |
 | Lens / envelope (§2) | lens / intent | whose viewpoint owns it (N:M) | `lens_tags` on each fact + section-registry `intent` |
-| Presentation (§3) | Form (`F`) + Expression (`C`) + Render (`display_title`) | how to carry / write (per `form_lens`) + how to label (per chapter) | F/C at Step 5.2 Bind per `form_lens`; `display_title` in `_derive-{cid}.json`, rendered at `append-chapter` |
+| Presentation (§3) | Form (`F`) + Expression (`C`) + Render (`display_title` / H3 theme) | how to carry / write (per `form_lens`) + how to label | F/C at Step 5.W per FL; `display_title` copied from framework into `_derive-{cid}.json`; H3 from `_lens-themes.json` |
 
 **Invariant — substance carries no presentation.** One fact may be tagged to several lenses and is rebuilt differently under each; therefore Form/Expression cannot be attributes of the fact. Lens membership is *stored* (`lens_tags`); presentation is *derived on demand*, never persisted onto the fact.
 
@@ -112,7 +112,7 @@ A lens is a **viewpoint that owns a subset of substance**. It is the classificat
 
 - `intent` / `intent_boundary` (section-registry) — the lens's inclusion charter and its exclusion list. `intent_boundary` names substance belonging to *other* lenses; author none of it here.
 
-Membership is stored; presentation is derived per lens at Step 5.2 — the two must not be conflated.
+Membership is stored; presentation is derived per lens at Step 5.W — the two must not be conflated.
 
 ### 2.2 Membership: `lens_tags`
 
@@ -147,36 +147,46 @@ C has 2–5 pairs per `form_lens`. Every `c` must be traceable to a specific `##
 
 ### 3.3 F/C priority & binding
 
-**Derivation:** Read `### Role Fields` and `domain instance` for shared authoring constraints; bind F/C **per distinct `form_lens`** in the chapter (Step 5.2 Bind). No static dimension tables, vocabulary enums, or form lookup configs beyond `section-form-registry`.
+**Derivation:** Read `### Role Fields` and `domain instance` for shared authoring constraints; bind F/C **per distinct `form_lens` / FL-x** (Step 5.W) before Write. No static dimension tables, vocabulary enums, or form lookup configs beyond `section-form-registry`.
 
 **F priority (conflict resolution):** lens `presentation` (via `form_lens`) > domain `expression_conventions` > role `expressive_tendency` > intent text. `intent_boundary` is an exclusion list — it names substance belonging to other intents; author none of it here.
 
-**§7.4 placement heuristic (content-kind memo, not a lens total order):** invariants > structure/contract > success > contact > context — used by Step 4/Step 5 as AI reference only.
+**Placement:** fact → chapter × FL-x is decided in Step 4 (`_chapter-placement.json`). Outline `candidates` are optional heuristics only — not the topology SSOT.
 
-### 3.4 Render: `display_title`
-
-The chapter H2 label is authored from chapter substance — a pure display-layer projection, one per chapter (not per lens):
+### 3.4 Render: `display_title` and H3 themes
 
 ```text
-display_title = author( chapter substance )   # H2 under <!-- chapter:{cid} -->
-  — presentation layer only; single SoT in _derive-{cid}.json; rendered at append-chapter
+display_title = copy( framework.display_title )   # H2; SoT in _chapter-framework.json
+  — persisted on _derive-{cid}.json for append-chapter; do not invent at Write time
+
+H3 = themes[FL].theme   # per form_lens block inside the chapter body
 ```
 
 ### 3.5 Document assembly
 
-**Document assembly:** Compose documents use chapter anchors — `<!-- chapter:{cid} -->`, then `## {display_title}`, then body. Initializing persists each chapter via `$COMPOSE_DOC_CONTROL append-chapter`, which reads `_derive-{cid}.json` / `_body-{cid}.txt`. Downstream compose/eval tools locate chapters by chapter anchor, not H2 text. Section-key grammar retired (K3-d).
+**Document assembly:** Compose documents use chapter anchors — `<!-- chapter:{cid} -->`, then `## {display_title}`, then body (H3 theme sections in `anchor_form_lens_ids` order). Initializing persists each chapter via `$COMPOSE_DOC_CONTROL append-chapter`, which reads `_derive-{cid}.json` / `_body-{cid}.txt`. Downstream compose/eval tools locate chapters by chapter anchor, not H2 text. Section-key grammar retired (K3-d).
 
 ## Synthesis pipeline
 
 > Cross-cutting (not a fourth layer): how the three layers combine on the Init path.
 
-Sequential synthesis on the live Init path (fact-first chapters) — substance (§1) is dispatched through lenses (§2) and rendered per presentation (§3):
+Sequential synthesis on the live Init path — substance (§1) is dispatched through lenses (§2) and rendered per presentation (§3):
 
 ```text
-chapter_body = Write( facts ; chapter_plan )  |  lenses / outline candidates
+# per form_lens / FL-x (presentation)
+lens_body = Write( facts_ℓ ; F_ℓ, C_ℓ )
+  — facts_ℓ from _chapter-placement.json; Scaffold per F; obey every C
+
+# per chapter (thin assemble — not a second creative write)
+chapter_body = Assemble(
+  H2 ← copy(framework.display_title),
+  for FL in framework.anchor_form_lens_ids:
+    H3 ← themes[FL].theme,
+    lens_body[FL]
+)
 ```
 
-**Order (strict):** Atomize/validate facts (Step 2) → Derive (Step 3) → Organize chapters (Step 4) → Per-chapter write (Step 5: `_derive-{cid}.json` + `_body-{cid}.txt`) → `append-chapter` → Validate (Step 6).
+**Order (strict):** Atomize/validate facts (Step 2) → Derive (Step 3) → Dynamic chapter plan (Step 4: themes → framework → placement SoT) → Write-by-FL then Assemble (Step 5: `_derive-{cid}.json` + `_body-{cid}.txt`) → `append-chapter` → Validate (Step 6 reads placement). `_chapters.json` retired.
 
 **Intent text:** Use `sections.{key}.intent` when present; else `sections.{key}.desc` (legacy).
 

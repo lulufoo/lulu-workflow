@@ -65,9 +65,9 @@ def init_doc(path: Path, *, preamble: str) -> None:
 def render_chapter_fragment(cid: str, display_title: str, body: str, *, is_first: bool) -> str:
     """Return markdown fragment for one chapter append (fact-first display layer).
 
-    Chapter separation is call-order — the caller iterates ``_chapters.json``
-    skipping ``op=="drop"``; this function only decides whether to prepend
-    a visual ``---`` separator.
+    Chapter separation is call-order — the caller iterates framework ∩ placement
+    chapter ids (``chapter_plan_control list-chapters``); this function only
+    decides whether to prepend a visual ``---`` separator.
     """
     lines: list[str] = []
     if not is_first:

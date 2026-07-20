@@ -26,8 +26,6 @@ kernel_bootstrap.ensure_kernel_paths()
 
 from chapter_artifact_paths import chapter_body_path, chapter_derive_path  # noqa: E402
 from chapter_doc_schema import chapter_anchor_present, chapter_body_by_id  # noqa: E402
-from chapters_schema import chapters_path, load_chapters  # noqa: E402
-from display_layer_gates import run_display_layer_gates  # noqa: E402
 from facts_schema import facts_path, load_facts  # noqa: E402
 from fetch_compose_framework import fetch_compose_framework  # noqa: E402
 from outline_registry_schema import normalize_outline_registry  # noqa: E402
@@ -151,9 +149,68 @@ def check_fact_anchor_coverage(
             for anchor in fact.get("anchors") or []:
                 if not _fact_anchor_covered(anchor, body):
                     errors.append(
-                        f"chapter {cid!r}: fact {fid} anchor "
+                        f"L6: chapter {cid!r}: fact {fid} anchor "
                         f"{anchor.get('kind')}={anchor.get('value')!r} missing from body",
                     )
+    return errors
+
+
+def _check_chapter_artifacts_and_assembly(
+    revision_dir: Path,
+    compose_doc: Path,
+    chapters_view: list[dict[str, Any]],
+    *,
+    framework_titles: dict[str, str] | None = None,
+) -> list[str]:
+    """Artifact existence + assembly completeness for rendered chapters."""
+    errors: list[str] = []
+    raw_doc = compose_doc.read_text(encoding="utf-8")
+    for chapter in chapters_view:
+        if chapter.get("op") == "drop":
+            continue
+        cid = str(chapter.get("id", "")).strip()
+
+        derive_file = chapter_derive_path(revision_dir, cid)
+        if not derive_file.is_file():
+            errors.append(f"5.A: chapter {cid!r}: missing {derive_file.name}")
+        else:
+            try:
+                derive_data = json.loads(derive_file.read_text(encoding="utf-8"))
+            except json.JSONDecodeError as exc:
+                errors.append(f"5.A: chapter {cid!r}: invalid {derive_file.name}: {exc}")
+                derive_data = {}
+            title = str((derive_data or {}).get("display_title", "")).strip()
+            if not title:
+                errors.append(
+                    f"5.A: chapter {cid!r}: display_title missing in {derive_file.name}",
+                )
+            elif framework_titles is not None and cid in framework_titles:
+                expected = framework_titles[cid]
+                if title != expected:
+                    errors.append(
+                        f"5.A: chapter {cid!r}: display_title {title!r} != framework "
+                        f"{expected!r}",
+                    )
+
+        body_file = chapter_body_path(revision_dir, cid)
+        if not body_file.is_file():
+            errors.append(f"5.A: chapter {cid!r}: missing {body_file.name}")
+        elif not body_file.read_text(encoding="utf-8").strip():
+            errors.append(f"5.A: chapter {cid!r}: empty body file {body_file.name}")
+
+        if not chapter_anchor_present(raw_doc, cid):
+            errors.append(
+                f"5.A: chapter {cid!r}: missing chapter anchor in compose document",
+            )
+        else:
+            segment_lines = chapter_body_by_id(raw_doc, cid).splitlines()
+            first_line = segment_lines[0].strip() if segment_lines else ""
+            if first_line.startswith("## ") and not first_line.startswith("### "):
+                segment_lines = segment_lines[1:]
+            if not "\n".join(segment_lines).strip():
+                errors.append(
+                    f"5.A: chapter {cid!r}: compose document empty chapter body",
+                )
     return errors
 
 
@@ -165,92 +222,121 @@ def validate_display_layer_artifacts(
 ) -> str | None:
     """Return first error summary or None — fact-first Step 6 validation.
 
-    Validates the fact-first artifact set:
-
-    1. candidates-shaped outline pairing (required);
-    2. ``_facts.json`` / ``_chapters.json`` existence + schema-valid;
-    3. M2 placement/coverage gates via ``display_layer_gates``;
-    4. chapter-artifact existence (non-drop chapter has non-empty
-       ``_body-{cid}.txt`` + ``_derive-{cid}.json`` with a ``display_title``);
-    5. assembly completeness: every non-drop chapter's anchor is present
-       in the compose document with a non-empty segment;
-    6. fact-anchor coverage (L6): every discovered fact's ``anchors`` survive
-       into its chapter body (``check_fact_anchor_coverage``; §5 P5).
+    Placement SoT only: ``_facts.json`` + ``_lens-themes.json`` +
+    ``_chapter-framework.json`` + ``_chapter-placement.json``.
+    ``_chapters.json`` is retired — its presence is an error.
     """
     errors: list[str] = []
 
     outline = outline_registry_for_profile(project_root, profile_id)
     if outline is None:
         return "failed to fetch/parse outline-registry for this profile"
-    if not outline.get("candidates"):
+
+    retired_chapters = revision_dir / "_chapters.json"
+    if retired_chapters.is_file():
         return (
-            "fact-first Init requires a non-empty candidates-shaped outline-registry "
-            "(legacy outline_order/blocks, or an empty/null candidates list, is incompatible)"
+            "retired: _chapters.json present — delete it; chapter plan SoT is "
+            "_lens-themes.json + _chapter-framework.json + _chapter-placement.json"
         )
-    candidate_id_list = [
-        str(candidate.get("block", "")).strip() for candidate in outline.get("candidates") or []
-    ]
 
     try:
         facts = load_facts(facts_path(revision_dir))
     except ValueError as exc:
         return f"invalid or missing _facts.json: {exc}"
 
-    try:
-        chapters = load_chapters(chapters_path(revision_dir))
-    except ValueError as exc:
-        return f"invalid or missing _chapters.json: {exc}"
+    framework_path = revision_dir / "_chapter-framework.json"
+    placement_path = revision_dir / "_chapter-placement.json"
+    themes_path = revision_dir / "_lens-themes.json"
+    missing = [
+        name
+        for name, path in (
+            ("_lens-themes.json", themes_path),
+            ("_chapter-framework.json", framework_path),
+            ("_chapter-placement.json", placement_path),
+        )
+        if not path.is_file()
+    ]
+    if missing:
+        route_by_file = {
+            "_lens-themes.json": "4.A",
+            "_chapter-framework.json": "4.B",
+            "_chapter-placement.json": "4.C",
+        }
+        route = route_by_file[missing[0]]
+        return f"{route}: chapter plan incomplete: missing {', '.join(missing)}"
 
     presence_map = section_presence_map_for_profile(project_root, profile_id)
     section_order = section_order_for_profile(project_root, profile_id)
     dependency_graph = dependency_graph_for_profile(project_root, profile_id)
 
-    gate_result = run_display_layer_gates(
+    try:
+        from chapter_framework_schema import (
+            fl_to_chapter_id,
+            load_chapter_framework,
+            validate_chapter_framework,
+        )
+        from chapter_placement_schema import (
+            load_chapter_placement,
+            validate_chapter_placement,
+        )
+        from lens_themes_schema import load_lens_themes, themes_by_fl
+        from placement_plan_gates import (
+            placement_chapters_as_l6_view,
+            run_placement_plan_gates,
+        )
+
+        themes = load_lens_themes(themes_path)
+        framework = load_chapter_framework(framework_path)
+        known = set(themes_by_fl(themes))
+        fw_errors = validate_chapter_framework(
+            framework,
+            known_fl_ids=known,
+            themes_by_fl_id=themes_by_fl(themes),
+        )
+        if fw_errors:
+            return "4.B: invalid chapter plan: " + "; ".join(fw_errors)
+        placement = load_chapter_placement(placement_path)
+        pl_errors = validate_chapter_placement(
+            placement,
+            known_fl_ids=known,
+            chapter_ids={c["id"] for c in framework.get("chapters") or []},
+            fl_to_chapter=fl_to_chapter_id(framework),
+        )
+        if pl_errors:
+            return "4.C: invalid chapter plan: " + "; ".join(pl_errors)
+    except ValueError as exc:
+        msg = str(exc)
+        if "_lens-themes" in msg or "lens_themes" in msg:
+            return f"4.A: invalid chapter plan artifacts: {exc}"
+        if "_chapter-framework" in msg or "chapter_framework" in msg:
+            return f"4.B: invalid chapter plan artifacts: {exc}"
+        if "_chapter-placement" in msg or "chapter_placement" in msg:
+            return f"4.C: invalid chapter plan artifacts: {exc}"
+        return f"4.B: invalid chapter plan artifacts: {exc}"
+
+    gate_result = run_placement_plan_gates(
         facts,
-        chapters,
+        placement,
+        themes,
+        framework,
         presence_map=presence_map,
         section_order=section_order,
-        candidate_ids=candidate_id_list,
         dependency_graph=dependency_graph,
     )
     errors.extend(gate_result["errors"])
-
-    raw_doc = compose_doc.read_text(encoding="utf-8")
-    for chapter in chapters:
-        if chapter.get("op") == "drop":
-            continue
-        cid = str(chapter.get("id", "")).strip()
-
-        derive_file = chapter_derive_path(revision_dir, cid)
-        if not derive_file.is_file():
-            errors.append(f"chapter {cid!r}: missing {derive_file.name}")
-        else:
-            try:
-                derive_data = json.loads(derive_file.read_text(encoding="utf-8"))
-            except json.JSONDecodeError as exc:
-                errors.append(f"chapter {cid!r}: invalid {derive_file.name}: {exc}")
-                derive_data = {}
-            title = str((derive_data or {}).get("display_title", "")).strip()
-            if not title:
-                errors.append(f"chapter {cid!r}: display_title missing in {derive_file.name}")
-
-        body_file = chapter_body_path(revision_dir, cid)
-        if not body_file.is_file():
-            errors.append(f"chapter {cid!r}: missing {body_file.name}")
-        elif not body_file.read_text(encoding="utf-8").strip():
-            errors.append(f"chapter {cid!r}: empty body file {body_file.name}")
-
-        if not chapter_anchor_present(raw_doc, cid):
-            errors.append(f"chapter {cid!r}: missing chapter anchor in compose document")
-        else:
-            segment_lines = chapter_body_by_id(raw_doc, cid).splitlines()
-            first_line = segment_lines[0].strip() if segment_lines else ""
-            if first_line.startswith("## ") and not first_line.startswith("### "):
-                segment_lines = segment_lines[1:]
-            if not "\n".join(segment_lines).strip():
-                errors.append(f"chapter {cid!r}: compose document empty chapter body")
-
-    errors.extend(check_fact_anchor_coverage(revision_dir, facts, chapters))
+    chapters_view = placement_chapters_as_l6_view(placement)
+    framework_titles = {
+        c["id"]: c["display_title"] for c in framework.get("chapters") or []
+    }
+    errors.extend(
+        _check_chapter_artifacts_and_assembly(
+            revision_dir,
+            compose_doc,
+            chapters_view,
+            framework_titles=framework_titles,
+        )
+    )
+    errors.extend(check_fact_anchor_coverage(revision_dir, facts, chapters_view))
 
     if not errors:
         return None

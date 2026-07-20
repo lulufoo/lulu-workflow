@@ -111,19 +111,76 @@ def _write_facts(revision_dir: Path, facts: list[dict]) -> None:
     )
 
 
-def _write_chapters(revision_dir: Path, chapters: list[dict]) -> None:
-    (revision_dir / "_chapters.json").write_text(
-        json.dumps(chapters, ensure_ascii=False),
-        encoding="utf-8",
-    )
-
-
 def _write_chapter_artifacts(revision_dir: Path, cid: str, *, title: str, body: str) -> None:
     (revision_dir / f"_derive-{cid}.json").write_text(
         json.dumps({"display_title": title}, ensure_ascii=False),
         encoding="utf-8",
     )
     (revision_dir / f"_body-{cid}.txt").write_text(body, encoding="utf-8")
+
+
+
+def _write_minimal_plan(
+    revision_dir: Path,
+    *,
+    facts: list[dict],
+    cid: str = "chap-1",
+    title: str = "架构",
+    theme: str = "Architecture theme",
+    lens_key: str = "AR",
+) -> None:
+    """Write themes/framework/placement for a single-chapter plan (no _chapters.json)."""
+    fl = "FL-0"
+    (revision_dir / "_lens-themes.json").write_text(
+        json.dumps(
+            {
+                "version": "1",
+                "lens_themes": [
+                    {
+                        "form_lens_id": fl,
+                        "lens_key": lens_key,
+                        "theme": theme,
+                        "desc": f"{theme} desc.",
+                    }
+                ],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    (revision_dir / "_chapter-framework.json").write_text(
+        json.dumps(
+            {
+                "version": "1",
+                "chapters": [
+                    {
+                        "id": cid,
+                        "display_title": title,
+                        "anchor_form_lens_ids": [fl],
+                        "sections": [{"form_lens_id": fl, "heading": theme}],
+                    }
+                ],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    placed = [
+        {"fid": f["id"], "form_lens_id": fl, "placement": "mechanical"}
+        for f in facts
+        if f.get("lens_tags")
+    ]
+    (revision_dir / "_chapter-placement.json").write_text(
+        json.dumps(
+            {
+                "version": "1",
+                "$schema_id": "chapter-placement",
+                "chapters": [{"id": cid, "facts": placed}],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
 
 
 def _minimal_display_layer_doc(cid: str, title: str, body: str) -> str:
@@ -138,28 +195,83 @@ def display_layer_revision_dir(tmp_path: Path) -> Path:
     return path
 
 
-def _seed_happy_path(revision_dir: Path, compose_doc: Path) -> None:
+def _seed_dynamic_plan_happy(revision_dir: Path, compose_doc: Path) -> None:
+    """archive-3.0 path: themes/framework/placement SoT; no _chapters.json."""
     _write_facts(
         revision_dir,
         [{"id": "F-1", "text": "Architecture fact.", "lens_tags": ["AR"]}],
     )
-    _write_chapters(
-        revision_dir,
-        [
+    (revision_dir / "_lens-themes.json").write_text(
+        json.dumps(
             {
-                "id": "chap-1",
-                "anchor_lenses": ["AR"],
-                "derived_from": ["cand-1"],
-                "op": "keep",
-                "facts": [{"fid": "F-1", "form_lens": "AR"}],
+                "version": "1",
+                "lens_themes": [
+                    {
+                        "form_lens_id": "FL-0",
+                        "lens_key": "AR",
+                        "theme": "Architecture theme",
+                        "desc": "Architecture clustering desc.",
+                    }
+                ],
             },
-        ],
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    (revision_dir / "_chapter-framework.json").write_text(
+        json.dumps(
+            {
+                "version": "1",
+                "chapters": [
+                    {
+                        "id": "chap-1",
+                        "display_title": "架构",
+                        "anchor_form_lens_ids": ["FL-0"],
+                        "sections": [
+                            {
+                                "form_lens_id": "FL-0",
+                                "heading": "Architecture theme",
+                            }
+                        ],
+                    }
+                ],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    (revision_dir / "_chapter-placement.json").write_text(
+        json.dumps(
+            {
+                "version": "1",
+                "$schema_id": "chapter-placement",
+                "chapters": [
+                    {
+                        "id": "chap-1",
+                        "facts": [
+                            {
+                                "fid": "F-1",
+                                "form_lens_id": "FL-0",
+                                "placement": "mechanical",
+                            }
+                        ],
+                    }
+                ],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
     )
     _write_chapter_artifacts(revision_dir, "chap-1", title="架构", body="Chapter body.")
     compose_doc.write_text(
         _minimal_display_layer_doc("chap-1", "架构", "Chapter body."),
         encoding="utf-8",
     )
+
+
+def _seed_happy_path(revision_dir: Path, compose_doc: Path) -> None:
+    """archive-3.0 plan SoT (no _chapters.json)."""
+    _seed_dynamic_plan_happy(revision_dir, compose_doc)
 
 
 def test_display_layer_passes_with_minimal_artifacts(
@@ -175,6 +287,113 @@ def test_display_layer_passes_with_minimal_artifacts(
         "lulu-design",
     )
     assert error is None
+
+
+def test_dynamic_plan_passes_without_chapters_json(
+    display_layer_revision_dir: Path, tmp_path: Path
+):
+    compose_doc = display_layer_revision_dir / "design-doc.md"
+    _seed_dynamic_plan_happy(display_layer_revision_dir, compose_doc)
+    assert not (display_layer_revision_dir / "_chapters.json").exists()
+
+    error = validate_display_layer_artifacts(
+        display_layer_revision_dir,
+        compose_doc,
+        tmp_path,
+        "lulu-design",
+    )
+    assert error is None
+
+
+def test_dynamic_plan_allows_empty_candidates_outline(
+    display_layer_revision_dir: Path, tmp_path: Path
+):
+    _seed_display_layer_registries(
+        tmp_path,
+        outline={
+            "version": "1",
+            "$schema_id": "outline-schema",
+            "candidates": [],
+            "rules": "seed only",
+        },
+    )
+    compose_doc = display_layer_revision_dir / "design-doc.md"
+    _seed_dynamic_plan_happy(display_layer_revision_dir, compose_doc)
+
+    error = validate_display_layer_artifacts(
+        display_layer_revision_dir,
+        compose_doc,
+        tmp_path,
+        "lulu-design",
+    )
+    assert error is None
+
+
+def test_dynamic_plan_incomplete_missing_placement(
+    display_layer_revision_dir: Path, tmp_path: Path
+):
+    compose_doc = display_layer_revision_dir / "design-doc.md"
+    _seed_dynamic_plan_happy(display_layer_revision_dir, compose_doc)
+    (display_layer_revision_dir / "_chapter-placement.json").unlink()
+
+    error = validate_display_layer_artifacts(
+        display_layer_revision_dir,
+        compose_doc,
+        tmp_path,
+        "lulu-design",
+    )
+    assert error is not None
+    assert "incomplete" in error and "_chapter-placement.json" in error
+
+
+def test_dynamic_plan_rejects_display_title_mismatch(
+    display_layer_revision_dir: Path, tmp_path: Path
+):
+    compose_doc = display_layer_revision_dir / "design-doc.md"
+    _seed_dynamic_plan_happy(display_layer_revision_dir, compose_doc)
+    _write_chapter_artifacts(
+        display_layer_revision_dir,
+        "chap-1",
+        title="Wrong title",
+        body="Chapter body.",
+    )
+
+    error = validate_display_layer_artifacts(
+        display_layer_revision_dir,
+        compose_doc,
+        tmp_path,
+        "lulu-design",
+    )
+    assert error is not None
+    assert "5.A:" in error
+    assert "display_title" in error and "framework" in error
+
+
+def test_dynamic_plan_rejects_heading_theme_mismatch(
+    display_layer_revision_dir: Path, tmp_path: Path
+):
+    compose_doc = display_layer_revision_dir / "design-doc.md"
+    _seed_dynamic_plan_happy(display_layer_revision_dir, compose_doc)
+    framework = json.loads(
+        (display_layer_revision_dir / "_chapter-framework.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    framework["chapters"][0]["sections"][0]["heading"] = "Wrong heading"
+    (display_layer_revision_dir / "_chapter-framework.json").write_text(
+        json.dumps(framework, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+    error = validate_display_layer_artifacts(
+        display_layer_revision_dir,
+        compose_doc,
+        tmp_path,
+        "lulu-design",
+    )
+    assert error is not None
+    assert error.startswith("4.B:")
+    assert "must equal" in error
 
 
 def test_display_layer_dispatch_via_validate_init_artifacts(
@@ -193,12 +412,19 @@ def test_display_layer_dispatch_via_validate_init_artifacts(
     assert error is None
 
 
-def test_display_layer_requires_candidates_shaped_outline(
+def test_display_layer_requires_chapter_plan_files(
     display_layer_revision_dir: Path, tmp_path: Path
 ):
-    _seed_display_layer_registries(tmp_path, outline=_DISPLAY_LAYER_OUTLINE_LEGACY)
     compose_doc = display_layer_revision_dir / "design-doc.md"
-    _seed_happy_path(display_layer_revision_dir, compose_doc)
+    _write_facts(
+        display_layer_revision_dir,
+        [{"id": "F-1", "text": "Architecture fact.", "lens_tags": ["AR"]}],
+    )
+    _write_chapter_artifacts(display_layer_revision_dir, "chap-1", title="架构", body="Chapter body.")
+    compose_doc.write_text(
+        _minimal_display_layer_doc("chap-1", "架构", "Chapter body."),
+        encoding="utf-8",
+    )
 
     error = validate_display_layer_artifacts(
         display_layer_revision_dir,
@@ -207,7 +433,7 @@ def test_display_layer_requires_candidates_shaped_outline(
         "lulu-design",
     )
     assert error is not None
-    assert "candidates-shaped outline-registry" in error
+    assert "chapter plan incomplete" in error
 
 
 def test_display_layer_fails_when_facts_missing(
@@ -227,12 +453,12 @@ def test_display_layer_fails_when_facts_missing(
     assert "missing _facts.json" in error
 
 
-def test_display_layer_fails_when_chapters_missing(
+def test_display_layer_fails_when_placement_missing(
     display_layer_revision_dir: Path, tmp_path: Path
 ):
     compose_doc = display_layer_revision_dir / "design-doc.md"
     _seed_happy_path(display_layer_revision_dir, compose_doc)
-    (display_layer_revision_dir / "_chapters.json").unlink()
+    (display_layer_revision_dir / "_chapter-placement.json").unlink()
 
     error = validate_display_layer_artifacts(
         display_layer_revision_dir,
@@ -241,7 +467,7 @@ def test_display_layer_fails_when_chapters_missing(
         "lulu-design",
     )
     assert error is not None
-    assert "missing _chapters.json" in error
+    assert "incomplete" in error and "_chapter-placement.json" in error
 
 
 def test_display_layer_fails_when_facts_json_invalid(
@@ -263,14 +489,12 @@ def test_display_layer_fails_when_facts_json_invalid(
     assert "invalid or missing _facts.json" in error
 
 
-def test_display_layer_fails_when_chapters_json_invalid(
+def test_display_layer_fails_when_retired_chapters_json_present(
     display_layer_revision_dir: Path, tmp_path: Path
 ):
-    """m4 (round-1 review test-gap): malformed _chapters.json must be
-    reported, not raise past validate_display_layer_artifacts."""
     compose_doc = display_layer_revision_dir / "design-doc.md"
     _seed_happy_path(display_layer_revision_dir, compose_doc)
-    (display_layer_revision_dir / "_chapters.json").write_text("not json", encoding="utf-8")
+    (display_layer_revision_dir / "_chapters.json").write_text("[]", encoding="utf-8")
 
     error = validate_display_layer_artifacts(
         display_layer_revision_dir,
@@ -279,7 +503,8 @@ def test_display_layer_fails_when_chapters_json_invalid(
         "lulu-design",
     )
     assert error is not None
-    assert "invalid or missing _chapters.json" in error
+    assert "retired:" in error
+    assert "_chapters.json" in error
 
 
 def test_display_layer_fails_when_chapter_body_file_whitespace_only(
@@ -305,25 +530,16 @@ def test_display_layer_fails_when_chapter_body_file_whitespace_only(
 def test_display_layer_fails_on_c1_coverage_gap(
     display_layer_revision_dir: Path, tmp_path: Path
 ):
-    """Regression guard for §11.4 Blocker#1: section_order/presence_map must
-    actually reach run_display_layer_gates, or this required-lens gap would
-    silently no-op."""
+    """section_order/presence_map must reach placement gates for C1."""
     compose_doc = display_layer_revision_dir / "design-doc.md"
-    _write_facts(
+    facts = [{"id": "F-1", "text": "Goal fact.", "lens_tags": ["GO"]}]
+    _write_facts(display_layer_revision_dir, facts)
+    _write_minimal_plan(
         display_layer_revision_dir,
-        [{"id": "F-1", "text": "Goal fact.", "lens_tags": ["GO"]}],
-    )
-    _write_chapters(
-        display_layer_revision_dir,
-        [
-            {
-                "id": "chap-1",
-                "anchor_lenses": ["GO"],
-                "derived_from": ["cand-2"],
-                "op": "keep",
-                "facts": [{"fid": "F-1", "form_lens": "GO"}],
-            },
-        ],
+        facts=facts,
+        title="目标",
+        theme="Goal theme",
+        lens_key="GO",
     )
     _write_chapter_artifacts(display_layer_revision_dir, "chap-1", title="目标", body="Goal body.")
     compose_doc.write_text(
@@ -481,12 +697,10 @@ def test_display_layer_fails_when_outline_fetch_returns_none(
     assert "candidates-shaped" not in error
 
 
-def test_display_layer_fails_when_outline_candidates_empty(
+def test_display_layer_allows_empty_candidates_with_plan(
     display_layer_revision_dir: Path, tmp_path: Path
 ):
-    """Round-1 Grok review m3: an empty/null candidates list must be
-    rejected by the pairing check itself, not silently pass through to L5
-    (which would then fail every chapter with a confusing message)."""
+    """archive-3.0: empty outline candidates OK when plan SoT is present."""
     _seed_display_layer_registries(
         tmp_path,
         outline={"version": "1", "$schema_id": "outline-schema", "candidates": []},
@@ -500,8 +714,7 @@ def test_display_layer_fails_when_outline_candidates_empty(
         tmp_path,
         "lulu-design",
     )
-    assert error is not None
-    assert "candidates-shaped outline-registry" in error
+    assert error is None
 
 
 def _seed_discovered_anchor_case(
@@ -512,30 +725,17 @@ def _seed_discovered_anchor_case(
     body: str,
 ) -> None:
     """Seed one discovered AR fact carrying ``anchors`` with a given chapter body."""
-    _write_facts(
-        revision_dir,
-        [
-            {
-                "id": "F-1",
-                "text": "Attachment copies live under the task dir.",
-                "lens_tags": ["AR"],
-                "origin": {"type": "discovered", "ref": ["O-1"]},
-                "anchors": anchors,
-            },
-        ],
-    )
-    _write_chapters(
-        revision_dir,
-        [
-            {
-                "id": "chap-1",
-                "anchor_lenses": ["AR"],
-                "derived_from": ["cand-1"],
-                "op": "keep",
-                "facts": [{"fid": "F-1", "form_lens": "AR"}],
-            },
-        ],
-    )
+    facts = [
+        {
+            "id": "F-1",
+            "text": "Attachment copies live under the task dir.",
+            "lens_tags": ["AR"],
+            "origin": {"type": "discovered", "ref": ["O-1"]},
+            "anchors": anchors,
+        },
+    ]
+    _write_facts(revision_dir, facts)
+    _write_minimal_plan(revision_dir, facts=facts)
     _write_chapter_artifacts(revision_dir, "chap-1", title="架构", body=body)
     compose_doc.write_text(
         _minimal_display_layer_doc("chap-1", "架构", body),
@@ -561,6 +761,7 @@ def test_l6_fails_when_discovered_anchor_absent_from_body(
         "lulu-design",
     )
     assert error is not None
+    assert "L6:" in error
     assert "F-1 anchor" in error
     assert "missing from body" in error
 
@@ -613,30 +814,17 @@ def test_l6_ignores_seed_facts_under_s1(
     """S1 strictness: only origin.type=discovered facts are enforced; a seed
     fact whose anchor is absent from body must not fail L6."""
     compose_doc = display_layer_revision_dir / "design-doc.md"
-    _write_facts(
-        display_layer_revision_dir,
-        [
-            {
-                "id": "F-1",
-                "text": "Seed architecture decision.",
-                "lens_tags": ["AR"],
-                "origin": {"type": "seed", "ref": ["scope"]},
-                "anchors": [{"kind": "path", "value": "never/in/body/"}],
-            },
-        ],
-    )
-    _write_chapters(
-        display_layer_revision_dir,
-        [
-            {
-                "id": "chap-1",
-                "anchor_lenses": ["AR"],
-                "derived_from": ["cand-1"],
-                "op": "keep",
-                "facts": [{"fid": "F-1", "form_lens": "AR"}],
-            },
-        ],
-    )
+    facts = [
+        {
+            "id": "F-1",
+            "text": "Seed architecture decision.",
+            "lens_tags": ["AR"],
+            "origin": {"type": "seed", "ref": ["scope"]},
+            "anchors": [{"kind": "path", "value": "never/in/body/"}],
+        },
+    ]
+    _write_facts(display_layer_revision_dir, facts)
+    _write_minimal_plan(display_layer_revision_dir, facts=facts)
     _write_chapter_artifacts(
         display_layer_revision_dir, "chap-1", title="架构", body="Chapter body."
     )
@@ -654,41 +842,13 @@ def test_l6_ignores_seed_facts_under_s1(
     assert error is None
 
 
-def test_display_layer_skips_artifact_checks_for_drop_chapters(
+def test_display_layer_plan_path_ignores_unplaced_framework_only_lenses(
     display_layer_revision_dir: Path, tmp_path: Path
 ):
+    """Framework may list only placed chapters; drop-chapter genealogy retired."""
     compose_doc = display_layer_revision_dir / "design-doc.md"
-    _write_facts(
-        display_layer_revision_dir,
-        [{"id": "F-1", "text": "Architecture fact.", "lens_tags": ["AR"]}],
-    )
-    _write_chapters(
-        display_layer_revision_dir,
-        [
-            {
-                "id": "chap-1",
-                "anchor_lenses": ["AR"],
-                "derived_from": ["cand-1"],
-                "op": "keep",
-                "facts": [{"fid": "F-1", "form_lens": "AR"}],
-            },
-            {
-                "id": "chap-2",
-                "anchor_lenses": ["GO"],
-                "derived_from": ["cand-2"],
-                "op": "drop",
-                "facts": [],
-            },
-        ],
-    )
-    _write_chapter_artifacts(display_layer_revision_dir, "chap-1", title="架构", body="Chapter body.")
-    compose_doc.write_text(
-        _minimal_display_layer_doc("chap-1", "架构", "Chapter body."),
-        encoding="utf-8",
-    )
+    _seed_happy_path(display_layer_revision_dir, compose_doc)
 
-    # No _derive-chap-2.json / _body-chap-2.txt / chapter anchor written — a
-    # dropped chapter must never be checked for rendered artifacts.
     error = validate_display_layer_artifacts(
         display_layer_revision_dir,
         compose_doc,
@@ -696,3 +856,5 @@ def test_display_layer_skips_artifact_checks_for_drop_chapters(
         "lulu-design",
     )
     assert error is None
+
+

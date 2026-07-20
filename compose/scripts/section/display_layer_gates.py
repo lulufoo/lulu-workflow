@@ -4,21 +4,21 @@
 Design rationale (source repo, why-only): docs/domain/ssot/compose/mechanism-ssot/compose-display-architecture.md;
 process how archive: docs/domain/archive/compose/archive-2.0/compose-fact-first-display-layer-design.md §8.2, §11.2.
 
-Pure functions only — no file I/O, no markdown parsing. Callers load
-``_facts.json`` / ``_chapters.json`` via ``facts_schema.load_facts`` /
-``chapters_schema.load_chapters`` and pass the normalized lists in.
+Pure functions only — no file I/O, no markdown parsing. Callers pass
+normalized ``facts`` plus a chapters-shaped placement view.
 
-Wired into ``init_compose_validation.validate_display_layer_artifacts`` (fact-first
-Init Step 6). Module name keeps the historical ``display_layer_*`` prefix. That
-caller also adds chapter-artifact-existence and assembly-completeness gates
-outside this module (M4a structural assembly; this module stays placement-only).
+**Live Init Step 6** uses ``placement_plan_gates`` (reads
+``_chapter-placement.json`` + themes/framework). This module remains for
+unit tests and any in-memory chapters-shaped view
+(``placement_chapters_as_l6_view``). ``_chapters.json`` is retired.
 
+Module name keeps the historical ``display_layer_*`` prefix.
 Gate coverage: L1, L3, L4, L5, C1, Q1.
 L2 ("placement consistency") is **not** a function here — with a single
-placement SoT (``_chapters.json``) it holds by construction. There is no
-markdown projection-fidelity half: the design deliberately drops
-proposition-level content-fidelity checking against the rendered document
-(``.md`` is a one-way projection, never read back as SoT); M4a's structural
+placement SoT it holds by construction. There is no markdown
+projection-fidelity half: the design deliberately drops proposition-level
+content-fidelity checking against the rendered document (``.md`` is a
+one-way projection, never read back as SoT); M4a's structural
 assembly-completeness check (anchor + non-empty body present) is the only
 markdown-facing gate and lives in ``init_compose_validation.py``, not here.
 """
@@ -74,7 +74,7 @@ def check_l1(
         count = assigned.get(fid, 0)
         if count == 0:
             errors.append(
-                f"L1: fact {fid!r} should render but is unassigned in _chapters.json",
+                f"L1: fact {fid!r} should render but is unassigned in placement",
             )
         elif count > 1:
             errors.append(

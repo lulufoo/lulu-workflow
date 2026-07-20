@@ -5,7 +5,8 @@ Canonical compose-document grammar: ``<!-- chapter:{cid} -->``.
 Section-key grammar retired in K3-d.
 
 ``cid`` is deliberately **not** case-folded: it is a free stable id from
-``_chapters.json[].id`` (e.g. ``chap-3``), not an uppercase lens key.
+the chapter plan (framework/placement ``chapters[].id``, e.g. ``chap-3``),
+not an uppercase lens key.
 
 Write-side + Init-internal-read (``compose_doc_control append-chapter``,
 ``init_compose_validation`` assembly gate). Downstream Eval reads chapter
