@@ -288,6 +288,8 @@ For each `FL-x` (global or per-chapter `anchor_form_lens_ids` order):
 3. **Derive F** then **Derive C** (S1): `carrier`/`structure` from `section-form-registry[lens_key].presentation.allowed`; `c[]` length 2..5. **Do not Write until F and C Done for this FL.**
 4. **Write `lens_body`:** Scaffold per F; obey every C; content ⊆ `facts_ℓ`; carry anchors (L6); resolve raw `F-id` citations before persist; mark gaps with `> **待决：** …`. Buffer under `### {theme}` (v1: in-memory / chapter buffer — no required `_body-lens-*` file).
 
+**Note:** Encourage sectioning in the body. If using heading levels for structure, headings may start at `####`.
+
 #### 5.A — Assemble-by-chapter then Close
 
 Render order = `$CHAPTER_PLAN_CTL list-chapters` (`chapter_ids`: framework ∩ placement **with facts**).
