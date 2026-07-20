@@ -77,7 +77,7 @@ All macros that declare `--profile` **must** pass `--profile "$COMPOSE_PROFILE"`
 
 1. `$RESOLVE_PLAN_ROLE` → Plan Scope Constraints (`### Role`, `### Role Fields`).
 2. `$RESOLVE_DOMAIN` → `domain instance`.
-3. `$FETCH_COMPOSE --role section-registry` (JSON) → `section_order`, `document_preamble`, per-section `heading` / `intent` (else `desc`) / `intent_boundary` / `relations` / `presence` (used at Step 4)
+3. `$FETCH_COMPOSE --role section-registry` (JSON) → `section_order`, `document_preamble`, per-section `heading` / `aliases` / `intent` (else `desc`) / `intent_boundary` / `relations` / `presence` (used at Step 4)
    `$FETCH_COMPOSE --role section-form-registry` → `sections.{key}.presentation` / `expression`
 4. `$FETCH_COMPOSE --role outline-registry` → `candidates` / `rules` as **optional seed/heuristic only** (S-gen). Step 4 topology SSOT is dynamic themes→framework, not keep-isomorphic candidates.
 5. `$FETCH_COMPOSE --role section-kw-criteria` → each `## {section_key}` block (Fill completeness for **named** atoms only).
@@ -225,9 +225,23 @@ $CHAPTER_PLAN_CTL write-themes \
 
 #### 4.B — Themes → chapter framework (once, after 4.A)
 
-- **Input:** full `lens_themes[]` (use `desc` as primary clustering signal; `theme` as H3 seed). Optional outline `candidates`/`rules` as heuristics only — **do not** force isomorphism.
-- **Output:** `_chapter-framework.json` with ordered chapters: `display_title`, `anchor_form_lens_ids` (**array order = write/read order**), `sections[]` same order with `heading` **≡** corresponding `theme`.
-- Persist:
+**Input (shared):** full `lens_themes[]`; optional outline `candidates`/`rules` as heuristics only — **do not** force isomorphism. Section-registry `heading`/`aliases` from Step 1.
+
+##### 4.B-1 — Cluster (topology only)
+
+- **Signal:** `desc` = primary clustering; `theme` = H3 seed only.
+- **Produce** ordered chapter drafts: `id`, `anchor_form_lens_ids` (**array order = write/read order**), `sections[]` same order with `heading` **≡** corresponding `theme`.
+- **Do not** set final `display_title` here. Chapter `lens_keys` = `anchor_form_lens_ids` ⨝ themes — **4.B-2 only reads them**.
+
+##### 4.B-2 — Name `display_title`
+
+For each chapter from 4.B-1:
+
+1. **Get** `lens_keys` from that chapter's `anchor_form_lens_ids` via `_lens-themes`.
+2. **Get** `material` = ordered `heading` + `aliases` from Step 1 section-registry for each key (anchor order; heading first per lens).
+3. **Generate** `display_title` from `material` only — not from `desc`, `theme`, or facts. Use the chapter's full material (not one lens alone). Language of `display_title` must match that of the chapter's `theme`s.
+
+- **Persist** (after 4.B-1 + 4.B-2; script does not invent titles):
 
 ```bash
 $CHAPTER_PLAN_CTL write-framework \
@@ -235,7 +249,7 @@ $CHAPTER_PLAN_CTL write-framework \
   --framework-file "<path to framework JSON>"
 ```
 
-**Done (4.B):** every theme `FL-*` in exactly one chapter; titles non-empty.
+**Done (4.B):** every theme `FL-*` in exactly one chapter; every `display_title` non-empty and from that chapter's registry `heading`/`aliases` only.
 
 #### 4.C — Materialize placement (C1 mechanical → C2 multi-lens AI → C3 write)
 
