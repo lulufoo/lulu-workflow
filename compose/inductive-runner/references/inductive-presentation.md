@@ -21,7 +21,7 @@
 | open-point detect | **G3 开放点探测** | 授权后扫描开放点 |
 | open-point process | **G3 开放点处理** | Auto / Manual / Ignore |
 | continue refine | **继续 G3 协作完善** | 不关闸 |
-| refine close / close-only | **G3 协作完善收口** | 仅结束 G3 |
+| refine close / close-only | **G3 关闭收口** | 仅关闭 G3 |
 | G4 / internal coherence | **G4 自洽检查** | 内部是否互相矛盾 |
 | G5 / upstream alignment | **G5 上游对照** | 对照上游列偏差 |
 | pre-publish check (G4→G5) | **成稿前检查（G4→G5）** | 自洽 → 上游对照 |
@@ -35,9 +35,9 @@ Behavior SSOT = `g3-refine.md`. Render only:
 
 | Stop | Say |
 |------|-----|
-| E | **G3 协作完善** + 继续讨论 · View 提取 · 开放点探测 · 开放点处理 ·（可时）协作完善收口 |
+| E | **G3 协作完善** + 继续讨论 · View 提取 · 开放点探测 · 开放点处理 ·（可时）**G3 关闭收口** |
 | D | **G3 开放点处理**？**Auto** / **Manual** / **Ignore** |
 | P | Short nav (same as E keys) |
-| X | **继续 G3 协作完善** · **G3 协作完善收口** · **成稿前检查（G4→G5）** — 无 **生成文档** |
+| X | **继续 G3 协作完善** · **G3 关闭收口** · **成稿前检查（G4→G5）** |
 | A | **G4 自洽检查 → G5 上游对照**；之后父流程可 **生成文档** |
-| Vague continue | List options from this map; never default close+check+doc |
+| Vague continue | Options for **current stop only** |

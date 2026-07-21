@@ -20,13 +20,13 @@ Readable next gate ≠ run it. **Before the first user-facing turn in G3, read**
 
 | Stop | When | Do | Do not |
 |------|------|----|--------|
-| **E** | First G3 user turn | Offer: continue discussion · view extract · open-point detect · open-point process (if opens) · refine close (if Exit can hold) | Auto-detect |
+| **E** | First G3 user turn | Offer: continue discussion · view extract · open-point detect · open-point process (if opens) · refine close (if Exit can hold) → selecting refine close enters **X** (no close yet) | Auto-detect |
 | **D** | After Class 1B batch | Offer open-point process + **Auto / Manual / Ignore**; carry mode into Lane B | Default Auto; re-ask mode in Lane B |
 | **P** | Back on Lane A after process | Short nav (E keys) | Auto-close G3; enter G4 |
 | **X** | Close requested or Exit holds | Choose **before** any close: (1) continue refine — no close (2) close-only — `check-coverage` → `gate-close G3`, stop (3) pre-publish check — close → **A** | Offer produce-document; close before choose; run G4/G5/doc without (3) or a later **A** |
 | **A** | User asks pre-publish / G4 / G5 | Announce G4→G5 (bundled), then enter G4 | Enter G4 unasked |
 
-**Vague "keep going":** list options from presentation; never default to close + check + doc.
+**Vague "keep going":** list options for the **current stop only** (presentation Stop→L1); never default to close + check + doc.
 
 ## Lane A — Discovery hub (the free state the session sits in)
 
