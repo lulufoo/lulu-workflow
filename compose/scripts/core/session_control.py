@@ -21,12 +21,16 @@ from typing import Any
 
 _CORE = Path(__file__).resolve().parent
 _SCRIPTS = _CORE.parent
+_AGENDA_SCRIPTS = _SCRIPTS.parent.parent / "agenda" / "scripts"
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
+if str(_AGENDA_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_AGENDA_SCRIPTS))
 import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, load_profile  # noqa: E402
+from agenda_schema import agenda_path, blocking_items, load_agenda  # noqa: E402
 
 from compose_session import (  # noqa: E402
     approval_gate_path,
@@ -113,6 +117,29 @@ def _failure_deliver(current_state: str) -> dict[str, Any]:
             f"预期状态为 {_EXPECTED_DELIVER_STATE}。请暂停执行，等待用户指示。"
         ),
     }
+
+
+def _failure_deliver_agenda(
+    current_state: str,
+    blockers: list[dict[str, Any]],
+) -> dict[str, Any]:
+    ids = [str(b.get("id", "")) for b in blockers]
+    return {
+        "ok": False,
+        "command": _CMD_DELIVER,
+        "current_state": current_state,
+        "message": (
+            "deliver 被拒绝：阶段议程存在未解除的 blocker "
+            f"({', '.join(ids)})。请 released / waived(+reason) / async 后再 deliver。"
+        ),
+        "agenda_blocking": blockers,
+    }
+
+
+def _agenda_blocking_for_revision(revision_dir: Path) -> list[dict[str, Any]]:
+    """Missing agenda.json ⇒ empty (do not fail deliver)."""
+    data = load_agenda(agenda_path(revision_dir))
+    return blocking_items(data)
 
 
 def _failure_abandon(current_state: str, message: str) -> dict[str, Any]:
@@ -244,11 +271,15 @@ def deliver(
     if not _require_transition(_CMD_DELIVER, current, "Delivered"):
         return _failure_deliver(current)
 
+    revision_dir = ws_path.parent
+    agenda_blockers = _agenda_blocking_for_revision(revision_dir)
+    if agenda_blockers:
+        return _failure_deliver_agenda(current, agenda_blockers)
+
     write_approved(approval_gate_path(cycle_id, project_root, profile_id), note=note)
 
     active_doc = load_active_doc_for_profile(cycle_id, project_root, profile_id)
     compose_path = document_file_path(cycle_id, project_root, profile_id)
-    revision_dir = ws_path.parent
     profile = load_profile(profile_id, project_root=project_root, cycle_id=cycle_id)
     facts_file_arg: str | None = None
     if delivery_index_deliver_facts(profile.get("delivery_index")):

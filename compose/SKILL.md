@@ -164,7 +164,9 @@ Dimension set, evaluation framework, and eval-mode branching (e.g. tech vs produ
 
 3. Wait for explicit delivery confirmation.
 
-4. Run `$SESSION_CONTROL deliver`. On failure → Blocking. On success → **Delivery Rules** below.
+4. Run `$SESSION_CONTROL deliver`. On failure → Blocking (including open stage-agenda blockers — resolve via `$AGENDA_CTL` then retry). On success → **Delivery Rules** below.
+
+Stage-agenda items (design-external blockers/notes) live under the revision dir; orchestration: `$SKILL_ROOT/agenda/SKILL.md`. Humans must instruct writes; `deliver` mechanically lists blocking items.
 
 ## Delivery Rules
 
@@ -209,5 +211,6 @@ Fetch compose framework templates on demand; **do not** read `workflow-config.js
 | `$COMPOSE_DOC_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/section/compose_doc_control.py" <subcommand> [args...]` |
 | `$CHAPTER_PLAN_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/chapter_plan_control.py"` |
 | `$INIT_COMPOSE_VALIDATE` | `python3 "$SKILL_ROOT/compose/scripts/section/init_compose_validation.py" validate --revision-dir <dir> --compose-doc <path> --profile <profile_id> --project-root "$(pwd)"` |
+| `$AGENDA_CTL` | `python3 "$SKILL_ROOT/agenda/scripts/agenda_control.py" <subcommand> --project-root "$(pwd)" --cycle-id "$CYCLE_ID" --profile <profile_id> [args...]` — stage agenda; resolves `revision{N}` from session-state (see `$SKILL_ROOT/agenda/SKILL.md`) |
 
 Subcommands and stdout: script module docstrings or `--help`.

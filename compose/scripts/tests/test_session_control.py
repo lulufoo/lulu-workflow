@@ -247,6 +247,90 @@ class TestDeliver:
         assert "lulu-design-facts" not in refs["entries"]
         assert "lulu-plan-facts" not in refs["entries"]
 
+    def test_deliver_blocked_by_open_agenda_blocker(self, tmp_path: Path):
+        ws = _seed_session(tmp_path)
+        init_drafting(ws, mode="product")
+        (ws.parent / "tech-doc.md").write_text("# Tech\n", encoding="utf-8")
+        ready_for_delivery(_CYCLE, tmp_path)
+        (ws.parent / "agenda.json").write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "items": [
+                        {
+                            "id": "A-1",
+                            "class": "blocker",
+                            "status": "open",
+                            "text": "两类翻译清单",
+                            "async": False,
+                        }
+                    ],
+                },
+                ensure_ascii=False,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        result = deliver(_CYCLE, tmp_path, note="should fail")
+
+        assert result["ok"] is False
+        assert result["command"] == _CMD_DELIVER
+        assert result["current_state"] == "ReadyForDelivery"
+        assert "A-1" in result["message"]
+        assert load_workflow_state(ws)["current_state"] == "ReadyForDelivery"
+
+    def test_deliver_succeeds_after_ready_then_agenda_cleared(self, tmp_path: Path):
+        """Regression: ready then add blocker must still fail; clear → deliver ok."""
+        ws = _seed_session(tmp_path)
+        init_drafting(ws, mode="product")
+        (ws.parent / "tech-doc.md").write_text("# Tech\n", encoding="utf-8")
+        ready_for_delivery(_CYCLE, tmp_path)
+        (ws.parent / "agenda.json").write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "items": [
+                        {
+                            "id": "A-1",
+                            "class": "blocker",
+                            "status": "open",
+                            "text": "late blocker",
+                            "async": False,
+                        }
+                    ],
+                },
+                ensure_ascii=False,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        blocked = deliver(_CYCLE, tmp_path)
+        assert blocked["ok"] is False
+
+        (ws.parent / "agenda.json").write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "items": [
+                        {
+                            "id": "A-1",
+                            "class": "blocker",
+                            "status": "released",
+                            "text": "late blocker",
+                            "async": False,
+                        }
+                    ],
+                },
+                ensure_ascii=False,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        result = deliver(_CYCLE, tmp_path, note="cleared")
+        assert result["ok"] is True
+        assert result["current_state"] == "Delivered"
+
     def test_design_deliver_registers_facts_when_present(self, tmp_path: Path):
         seed_profile_pointer_for_tests(tmp_path, _CYCLE, "lulu-design")
         base = tmp_path / _CACHE / _CYCLE / "lulu-design"
