@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from functools import lru_cache
 from pathlib import Path
@@ -38,6 +39,8 @@ _RELATION_TYPES = frozenset(
 _REGISTRY_SCHEME_KEY = "section-registry"
 _PRESENCE_VALUES = frozenset({"required", "optional"})
 _PRESENCE_DEFAULT = "required"
+# Optional co-location key for Init chapter clustering (not a lens / not coverage).
+_CLUSTER_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
 
 def _normalize_contract(raw: Any) -> dict[str, list[str]]:
@@ -217,6 +220,17 @@ def validate_section_registry(data: dict[str, Any]) -> list[str]:
                 f"sections.{key}.presence must be one of {sorted(_PRESENCE_VALUES)} "
                 f"(got {presence!r})"
             )
+        cluster = entry.get("cluster")
+        if cluster is not None:
+            if not isinstance(cluster, str) or not cluster.strip():
+                errors.append(
+                    f"sections.{key}.cluster must be a non-empty string when present"
+                )
+            elif not _CLUSTER_RE.fullmatch(cluster.strip()):
+                errors.append(
+                    f"sections.{key}.cluster must match "
+                    f"[a-z0-9]+(?:-[a-z0-9]+)* (got {cluster!r})"
+                )
         has_intent = isinstance(intent, str) and intent.strip()
         has_desc = isinstance(desc, str) and desc.strip()
         if not has_intent and not has_desc:
@@ -297,6 +311,9 @@ def normalize_section_registry(data: dict[str, Any]) -> dict[str, Any]:
             normalized["intent_boundary"] = intent_boundary.strip()
         presence = entry.get("presence")
         normalized["presence"] = presence if presence in _PRESENCE_VALUES else _PRESENCE_DEFAULT
+        cluster = entry.get("cluster")
+        if isinstance(cluster, str) and cluster.strip():
+            normalized["cluster"] = cluster.strip()
         sections[key] = normalized
     return {
         "version": "1",
@@ -377,6 +394,21 @@ def section_presence_map(project_root: Path | None = None) -> dict[str, str]:
         key: registry["sections"][key].get("presence", _PRESENCE_DEFAULT)
         for key in registry["section_order"]
     }
+
+
+def section_cluster_map(project_root: Path | None = None) -> dict[str, str]:
+    """Return section_key -> cluster slug for lenses that declare ``cluster``.
+
+    Display/Init co-location hint only — not a completeness obligation and not a
+    ``lens_tags`` value. See archive-3.0 compose-design-stability-lenses-cluster-design.
+    """
+    registry = _active_registry(project_root)
+    out: dict[str, str] = {}
+    for key in registry["section_order"]:
+        cluster = registry["sections"][key].get("cluster")
+        if isinstance(cluster, str) and cluster.strip():
+            out[key] = cluster.strip()
+    return out
 
 
 def section_aliases(project_root: Path | None = None) -> dict[str, str]:

@@ -253,6 +253,73 @@ def test_section_presence_map(monkeypatch):
     assert schema_mod.section_presence_map() == {"GO": "required", "NG": "optional"}
 
 
+def test_cluster_preserved_on_normalize():
+    payload = {
+        "version": "1",
+        "section_order": ["OBS", "REL"],
+        "document_preamble": "preamble\n",
+        "sections": {
+            "OBS": {
+                "heading": "Observability",
+                "intent": "x",
+                "cluster": "stability-design",
+            },
+            "REL": {
+                "heading": "Release",
+                "intent": "y",
+                "cluster": "stability-design",
+            },
+        },
+    }
+    assert validate_section_registry(payload) == []
+    normalized = normalize_section_registry(payload)
+    assert normalized["sections"]["OBS"]["cluster"] == "stability-design"
+    assert normalized["sections"]["REL"]["cluster"] == "stability-design"
+
+
+def test_validate_rejects_invalid_cluster_slug():
+    payload = {
+        "version": "1",
+        "section_order": ["GO"],
+        "document_preamble": "preamble\n",
+        "sections": {
+            "GO": {"heading": "Goal", "intent": "x", "cluster": "Stability_Design"},
+        },
+    }
+    errors = validate_section_registry(payload)
+    assert any("sections.GO.cluster must match" in err for err in errors)
+
+
+def test_section_cluster_map(monkeypatch):
+    import section_registry_schema as schema_mod  # noqa: E402
+
+    fake_registry = normalize_section_registry(
+        {
+            "version": "1",
+            "section_order": ["GO", "OBS", "REL"],
+            "document_preamble": "preamble\n",
+            "sections": {
+                "GO": {"heading": "Goal", "intent": "g"},
+                "OBS": {
+                    "heading": "Observability",
+                    "intent": "o",
+                    "cluster": "stability-design",
+                },
+                "REL": {
+                    "heading": "Release",
+                    "intent": "r",
+                    "cluster": "stability-design",
+                },
+            },
+        },
+    )
+    monkeypatch.setattr(schema_mod, "_active_registry", lambda project_root=None: fake_registry)
+    assert schema_mod.section_cluster_map() == {
+        "OBS": "stability-design",
+        "REL": "stability-design",
+    }
+
+
 def test_section_guidance_and_contract_accessors(tmp_path: Path):
     from section_form_registry_schema import (  # noqa: E402
         load_section_form_registry,

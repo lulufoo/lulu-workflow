@@ -148,7 +148,10 @@ $CHAPTER_PLAN_CTL write-themes \
 
 ##### 3.B-1 — Cluster (topology only)
 
-- **Signal:** `desc` = primary clustering; `theme` = H3 seed only.
+- **Signal priority:**
+  1. **Registry `cluster` (hard):** lenses sharing the same non-empty `cluster` slug **must** share one chapter; that chapter is **closed** (do not absorb lenses with a different `cluster` or with no `cluster`). Distinct `cluster` values never merge.
+  2. **`desc` (soft):** primary clustering for lenses with no `cluster`.
+- **`theme`** = H3 seed only (not a co-location signal).
 - **Produce** ordered chapter drafts: `id`, `anchor_form_lens_ids` (**array order = write/read order**), `sections[]` same order with `heading` **≡** corresponding `theme`.
 - **Do not** set final `display_title` here. Chapter `lens_keys` = `anchor_form_lens_ids` ⨝ themes — **3.B-2 only reads them**.
 
@@ -157,8 +160,8 @@ $CHAPTER_PLAN_CTL write-themes \
 For each chapter from 3.B-1:
 
 1. **Get** `lens_keys` from that chapter's `anchor_form_lens_ids` via `_lens-themes`.
-2. **Get** `material` = ordered `heading` + `aliases` from Step 1 section-registry for each key (anchor order; heading first per lens).
-3. **Generate** `display_title` from `material` only — not from `desc`, `theme`, or facts. Use the chapter's full material (not one lens alone). Language of `display_title` must match that of the chapter's `theme`s.
+2. **If** every key in that chapter shares the same non-empty registry `cluster`: **Generate** `display_title` from that `cluster` slug only (humanize the slug into a readable title). Do **not** use member `heading`/`aliases` as primary material. Language must match that of the chapter's `theme`s.
+3. **Else:** **Get** `material` = ordered `heading` + `aliases` from Step 1 section-registry for each key (anchor order; heading first per lens). **Generate** `display_title` from `material` only — not from `desc`, `theme`, or facts. Use the chapter's full material (not one lens alone). Language of `display_title` must match that of the chapter's `theme`s.
 
 - **Persist** (after 3.B-1 + 3.B-2; script does not invent titles):
 
@@ -168,7 +171,7 @@ $CHAPTER_PLAN_CTL write-framework \
   --framework-file "<path to framework JSON>"
 ```
 
-**Done (3.B):** every theme `FL-*` in exactly one chapter; every `display_title` non-empty and from that chapter's registry `heading`/`aliases` only.
+**Done (3.B):** every theme `FL-*` in exactly one chapter; every `display_title` non-empty; same-`cluster` lenses co-located and closed; cluster-chapter titles derived from `cluster` (others from `heading`/`aliases` only).
 
 #### 3.C — Materialize placement (C1 mechanical → C2 multi-lens AI → C3 write)
 
