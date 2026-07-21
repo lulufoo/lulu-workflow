@@ -45,7 +45,7 @@ The default state. The user senses and discovers freely; any surfaced open hands
 Entered when the user chooses open-point process — a single open or a batch. Opens may accumulate in Lane A and sit unprocessed while sensing / discovery continues; entry is user-authorized, not forced by an open's mere existence. Consumes `open` → settle or defer per **Class 2** (ref) — do not restate the per-mode path here.
 
 1. Mode (I6): use Stop D's **Auto / Manual / Ignore** if set; otherwise ask once here.
-2. Run the chosen Class 2 mode; optionally dispatch `g3-deep-grounding-runner` via `$SUBAGENT_TOOL` for the chosen open (ref). One git commit per settle / defer (I8).
+2. Run the chosen Class 2 mode (ref). **Auto:** optional deep on auto path. **Manual:** Manual turn per open (ref); honor skip / Ignore / legal exit. **Ignore:** `defer-open`. One git commit per settle / defer (I8).
 3. After settles that change facts for a lens: re-judge KW → `set-frontier` (only then).
 4. Return to Lane A — **Stop P**.
 

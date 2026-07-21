@@ -7,7 +7,7 @@
 - SKILL / gates stay English; **L1 landmarks are fixed** (no mid-session synonyms). Surrounding prose follows the user's language.
 - **L0 never to user:** `trigger` / `means` tokens, command names, ids, `KW`, `Class 1B`, `recompose`, `provenance`, bare mechanism talk.
 - **L1 ok:** landmarks below (`G1`…`G5` prefixes allowed). Optional L2 = one first-use gloss only.
-- **Output:** finding + one leaning (not a verdict menu). Process modes: **Auto / Manual / Ignore** only. Stamps / ✅⚠️ stay on disk — never drop for cleaner wording.
+- **Output:** detect / Stop D batch = finding + one leaning (not a verdict menu). **Manual** options = Class 2 only (`g3-capabilities.md` Manual turn; `/plain` obligations, no `plain` skill dispatch). Process modes: **Auto / Manual / Ignore** only. Stamps / ✅⚠️ stay on disk — never drop for cleaner wording.
 - Collision labels: follow `g3-capabilities.md`.
 
 ## L1 map (SSOT)
@@ -20,6 +20,7 @@
 | view extract | **G3 View 提取** | 只读抽出当前图景 |
 | open-point detect | **G3 开放点探测** | 授权后扫描开放点 |
 | open-point process | **G3 开放点处理** | Auto / Manual / Ignore |
+| Manual (process mode) | **Manual** | 逐条：可选取证 → `/plain` 义务 + 选项 + 倾向；可改选项/新想法/讨论/跳过/Ignore/退出 |
 | continue refine | **继续 G3 协作完善** | 不关闸 |
 | refine close / close-only | **G3 关闭收口** | 仅关闭 G3 |
 | G4 / internal coherence | **G4 自洽检查** | 内部是否互相矛盾 |

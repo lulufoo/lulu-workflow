@@ -56,8 +56,20 @@ Consumes `open` → facts via `settle-open` (1:N) or `deferred`/`rejected`. The 
 | Mode | Behavior |
 |------|----------|
 | `auto` | (optional `deep-grounding`) → `attach-code-refs` → `settle-open --facts-file …`, continuous (no per-point pause) |
-| `manual` | same path, pausing per point for the user to discuss / adjust before `settle-open` |
+| `manual` | **Manual turn** per open (below) |
 | `ignore` | `defer-open` (park) |
+
+**Manual turn** (Class 2 only — not detect Output):
+1. Lock one open.
+2. **Optional** `g3-deep-grounding-runner` once before options — AI decides; no hard trigger. Parent: `deep-grounding-list`. No second deep after act.
+3. **Plain block** — `/plain` obligations (mention `/plain`; do **not** dispatch `plain` skill): lead with conclusion; zero-context; fixed wording; keep key proper nouns (gloss once). Cover stuck / why / blocking. No standalone `/plain` confirmation closer.
+4. **Options (2–5)** — `/plain` wording; keep proper nouns. Command names are orchestration maps only, not option titles.
+5. **Objective leaning** — recommended option + one-line why; do not select for the user.
+6. **Wait / legal replies:** refine option · new idea (rewrite) · discuss-then-decide (no settle) · **skip** (leave `open`, next Manual turn; ≠ Ignore) · **Ignore** (`defer-open`) · settle when ready.
+7. **Legal exit** (anytime): stop/abandon Manual · return to open-point detect · switch to **Auto**. No prescription after exit.
+8. **Act** — settle tools / `defer-open` / skip-to-next / leave as chosen.
+
+**Manual turn MUST NOT:** batch opens in one ask; second deep after act; deep agent user-facing or settling; dispatch `plain` skill; treat skip as Ignore.
 
 **Tools:**
 - `g3-deep-grounding-runner` (optional): read-only evidence for **one** chosen open; may carry `file:line` / signatures. Never forms the leaning — the parent does.
