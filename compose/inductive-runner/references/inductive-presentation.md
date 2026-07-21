@@ -16,7 +16,7 @@
 |---------------------|----|--------------------------|
 | G1 Shape-confirm | **G1 形态确认** | 确认粗轮廓 |
 | G3 Refine | **G3 协作完善** | 形态确认后的协作补齐与定稿 |
-| continue discussion | **继续讨论** | — |
+| continue discussion | **继续讨论** | 讨论中可碰撞（疑惑/质疑）；有缺口则走开放点处理 |
 | view extract | **G3 View 提取** | 只读抽出当前图景 |
 | open-point detect | **G3 开放点探测** | 授权后扫描开放点 |
 | open-point process | **G3 开放点处理** | Auto / Manual / Ignore |
@@ -36,7 +36,7 @@ Behavior SSOT = `g3-refine.md`. Render only:
 
 | Stop | Say |
 |------|-----|
-| E | **G3 协作完善** + 继续讨论 · View 提取 · 开放点探测 · 开放点处理 ·（可时）**G3 关闭收口** |
+| E | **G3 协作完善** + 继续讨论（讨论中可碰撞（疑惑/质疑）；有缺口则走开放点处理） · View 提取 · 开放点探测 ·（可时）开放点处理 ·（可时）**G3 关闭收口** |
 | D | **G3 开放点处理**？**Auto** / **Manual** / **Ignore** |
 | P | Short nav (same as E keys) |
 | X | **继续 G3 协作完善** · **G3 关闭收口** · **成稿前检查（G4→G5）** |
