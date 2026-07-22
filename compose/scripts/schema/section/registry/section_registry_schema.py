@@ -14,11 +14,15 @@ from typing import Any
 _SCRIPTS = Path(__file__).resolve().parents[3]
 _CORE = _SCRIPTS / "core"
 _IO = _SCRIPTS / "io"
+_INDUCTIVE = _SCRIPTS / "inductive"
 if str(_CORE) not in sys.path:
     sys.path.insert(0, str(_CORE))
 if str(_IO) not in sys.path:
     sys.path.insert(0, str(_IO))
+if str(_INDUCTIVE) not in sys.path:
+    sys.path.insert(0, str(_INDUCTIVE))
 from workflow_paths import WORKFLOW_SCRIPTS  # noqa: E402
+from kw_facets import validate_facets_list  # noqa: E402
 
 
 def _ensure_workflow_scripts() -> None:
@@ -269,6 +273,11 @@ def validate_section_registry(data: dict[str, Any]) -> list[str]:
         if entry.get("contract") is not None:
             errors.append(f"sections.{key}.contract is not supported; use section-form-registry")
             continue
+        if "facets" in entry:
+            try:
+                validate_facets_list(entry.get("facets"), lens=key)
+            except ValueError as exc:
+                errors.append(str(exc))
 
     for key in sections:
         if str(key).upper() not in order_keys:
@@ -314,6 +323,11 @@ def normalize_section_registry(data: dict[str, Any]) -> dict[str, Any]:
         cluster = entry.get("cluster")
         if isinstance(cluster, str) and cluster.strip():
             normalized["cluster"] = cluster.strip()
+        if "facets" in entry:
+            # Validated upstream; normalize shape (id/desc/required only).
+            normalized["facets"] = validate_facets_list(
+                entry.get("facets"), lens=key
+            )
         sections[key] = normalized
     return {
         "version": "1",

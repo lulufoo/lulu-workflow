@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Tests for kw_facets parser and receipt helpers."""
+"""Tests for section-registry facet helpers."""
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -13,41 +14,58 @@ sys.path.insert(0, str(_INDUCTIVE_DIR))
 
 from kw_facets import (  # noqa: E402
     find_active_open_collision,
-    kw_criteria_path,
-    materialize_kw_criteria,
-    parse_kw_criteria_facets,
+    materialize_section_registry,
+    parse_section_registry_facets,
+    section_registry_path,
     silence_must_facets,
     validate_facet_id_for_lens,
 )
 
-_OPS_MD = """
-## I
-
-| KW | Verifiable intent attributes |
-|----|------------------------------|
-| KW1 | Can state something |
-
-## OPS
-
-| KW | Verifiable intent attributes |
-|----|------------------------------|
-| KW1 | Can state operability |
-
-```json
-{
-  "facets": [
-    {"id": "runtime_degradation", "kw": 1, "required": true},
-    {"id": "steady_state_rollback", "kw": 1, "required": true},
-    {"id": "cutover_migration_repair", "kw": 1, "required": true},
-    {"id": "other", "kw": 1, "required": false}
-  ]
+_OPS_REGISTRY = {
+    "version": "1",
+    "section_order": ["I", "OPS"],
+    "document_preamble": "test",
+    "sections": {
+        "I": {
+            "heading": "Intent",
+            "intent": "intent only",
+            "upstream": [],
+            "relations": {},
+        },
+        "OPS": {
+            "heading": "Ops",
+            "intent": "operability",
+            "upstream": [],
+            "relations": {},
+            "facets": [
+                {
+                    "id": "runtime_degradation",
+                    "desc": "Runtime degradation stance.",
+                    "required": True,
+                },
+                {
+                    "id": "steady_state_rollback",
+                    "desc": "Steady-state rollback stance.",
+                    "required": True,
+                },
+                {
+                    "id": "cutover_migration_repair",
+                    "desc": "Cutover migration repair stance.",
+                    "required": True,
+                },
+                {
+                    "id": "other",
+                    "desc": "Unclassified sides.",
+                    "required": False,
+                },
+            ],
+        },
+    },
 }
-```
-"""
 
 
 def test_parse_ops_facets_only():
-    reg = parse_kw_criteria_facets(_OPS_MD)
+    reg = parse_section_registry_facets(_OPS_REGISTRY)
     assert "I" not in reg
     assert "OPS" in reg
     ids = {f["id"] for f in reg["OPS"]}
@@ -59,21 +77,62 @@ def test_parse_ops_facets_only():
     }
     other = next(f for f in reg["OPS"] if f["id"] == "other")
     assert other["required"] is False
+    assert other["desc"]
 
 
 def test_other_must_be_optional():
-    bad = """
-## OPS
-```json
-{"facets": [{"id": "other", "kw": 1, "required": true}]}
-```
-"""
+    bad = {
+        "sections": {
+            "OPS": {
+                "facets": [
+                    {
+                        "id": "other",
+                        "desc": "x",
+                        "required": True,
+                    }
+                ]
+            }
+        }
+    }
     with pytest.raises(ValueError, match="required=false"):
-        parse_kw_criteria_facets(bad)
+        parse_section_registry_facets(bad)
+
+
+def test_rejects_per_facet_kw():
+    bad = {
+        "sections": {
+            "OPS": {
+                "facets": [
+                    {
+                        "id": "other",
+                        "desc": "x",
+                        "required": False,
+                        "kw": 1,
+                    }
+                ]
+            }
+        }
+    }
+    with pytest.raises(ValueError, match="per-facet kw"):
+        parse_section_registry_facets(bad)
+
+
+def test_requires_desc():
+    bad = {
+        "sections": {
+            "OPS": {
+                "facets": [
+                    {"id": "other", "required": False},
+                ]
+            }
+        }
+    }
+    with pytest.raises(ValueError, match="desc"):
+        parse_section_registry_facets(bad)
 
 
 def test_validate_facet_rules():
-    reg = parse_kw_criteria_facets(_OPS_MD)
+    reg = parse_section_registry_facets(_OPS_REGISTRY)
     assert validate_facet_id_for_lens(None, lens="I", registry=reg) == []
     assert validate_facet_id_for_lens("x", lens="I", registry=reg)
     assert validate_facet_id_for_lens(None, lens="OPS", registry=reg)
@@ -88,11 +147,10 @@ def test_validate_facet_rules():
 
 
 def test_silence_and_receipts():
-    reg = parse_kw_criteria_facets(_OPS_MD)
+    reg = parse_section_registry_facets(_OPS_REGISTRY)
     facets = reg["OPS"]
     missing = silence_must_facets(
         lens="OPS",
-        target_kw=1,
         facets=facets,
         opens=[],
         facts=[
@@ -108,7 +166,6 @@ def test_silence_and_receipts():
 
     missing2 = silence_must_facets(
         lens="OPS",
-        target_kw=1,
         facets=facets,
         opens=[
             {
@@ -136,11 +193,12 @@ def test_silence_and_receipts():
     assert missing2 == []
 
 
-def test_materialize_kw_criteria(tmp_path):
-    path = materialize_kw_criteria(tmp_path, _OPS_MD)
-    assert path == kw_criteria_path(tmp_path)
+def test_materialize_section_registry(tmp_path):
+    path = materialize_section_registry(tmp_path, _OPS_REGISTRY)
+    assert path == section_registry_path(tmp_path)
     assert path.is_file()
-    assert "OPS" in parse_kw_criteria_facets(path.read_text(encoding="utf-8"))
+    loaded = json.loads(path.read_text(encoding="utf-8"))
+    assert "OPS" in parse_section_registry_facets(loaded)
 
 
 def test_active_open_collision():

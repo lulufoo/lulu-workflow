@@ -10,7 +10,7 @@ Design: docs/domain/archive/compose/archive-2.0/compose-fact-first-k4-fact-nativ
 
 Primary subcommands:
     init-pointer / status / check-coverage / list-sections
-    activate-section / set-frontier / materialize-kw-criteria
+    activate-section / set-frontier / materialize-section-registry
     seed-decision (writes facts; alias for seed)
     add-open / update-open / settle-open / defer-open / reject-open
     update-decision (updates fact by F-n) / attach-code-refs (O- only)
@@ -21,8 +21,8 @@ Deprecated (fail-fast): register-ep, update-ep, append-to-section
 
 All subcommands print JSON to stdout and exit 0 on success, exit 1 on failure.
 Global flags: --out-dir PATH (required); optional --project-root /
---compose-profile / --compose-cycle-id for facet kw-criteria auto-materialize;
-optional --kw-criteria.
+--compose-profile / --compose-cycle-id for facet section-registry auto-materialize;
+optional --section-registry.
 """
 
 from __future__ import annotations
@@ -86,9 +86,9 @@ from facts_schema import (  # noqa: E402
 from kw_facets import (  # noqa: E402
     facets_for_lens,
     find_active_open_collision,
-    kw_criteria_path,
-    load_kw_criteria_facets,
-    materialize_kw_criteria,
+    load_section_registry_facets,
+    materialize_section_registry,
+    section_registry_path,
     silence_must_facets,
     validate_facet_id_for_lens,
 )
@@ -96,36 +96,25 @@ from decision_fact_claim_schema import sync_and_evaluate_claims  # noqa: E402
 from resolved_refs_schema import has_resolved_refs, scope_decision_fact_path  # noqa: E402
 
 
-def _resolve_kw_criteria_path(out_dir: Path, args: argparse.Namespace) -> Path | None:
-    """Facet SSOT: --kw-criteria, else out_dir/section-kw-criteria.md, else fetch."""
-    explicit = getattr(args, "kw_criteria", None)
+def _resolve_section_registry_path(
+    out_dir: Path, args: argparse.Namespace
+) -> Path | None:
+    """Facet SSOT: --section-registry, else out_dir/section-registry.json, else fetch."""
+    explicit = getattr(args, "section_registry", None)
     if explicit:
         path = Path(explicit)
         if not path.is_file():
-            _fail(f"kw-criteria not found: {path}")
+            _fail(f"section-registry not found: {path}")
         return path
-    local = kw_criteria_path(out_dir)
+    local = section_registry_path(out_dir)
     if local.is_file():
         return local
-    return _try_fetch_kw_criteria(out_dir, args)
+    return _try_fetch_section_registry(out_dir, args)
 
 
-def _try_fetch_kw_criteria(
-    out_dir: Path,
+def _compose_fetch_ids(
     args: argparse.Namespace,
-) -> Path | None:
-    """Materialize from compose framework when --project-root is set.
-
-    Returns None when fetch is unavailable (no project-root / fetch error) so
-    callers keep the empty-registry backward-compatible path.
-    """
-    root_raw = getattr(args, "project_root", None)
-    if not root_raw:
-        return None
-    root = Path(root_raw).resolve()
-    if not root.is_dir():
-        return None
-    # Prefer dedicated fetch flags; fall back to init-pointer's --profile/--cycle-id.
+) -> tuple[str | None, str | None]:
     profile = (
         getattr(args, "compose_profile", None)
         or getattr(args, "profile", None)
@@ -138,6 +127,25 @@ def _try_fetch_kw_criteria(
         or ""
     )
     cycle_id = str(cycle_id).strip() or None
+    return profile, cycle_id
+
+
+def _try_fetch_section_registry(
+    out_dir: Path,
+    args: argparse.Namespace,
+) -> Path | None:
+    """Materialize section-registry when --project-root is set.
+
+    Returns None when fetch is unavailable so callers keep the empty-registry
+    backward-compatible path.
+    """
+    root_raw = getattr(args, "project_root", None)
+    if not root_raw:
+        return None
+    root = Path(root_raw).resolve()
+    if not root.is_dir():
+        return None
+    profile, cycle_id = _compose_fetch_ids(args)
     _io = _SCRIPTS / "io"
     if str(_io) not in sys.path:
         sys.path.insert(0, str(_io))
@@ -150,12 +158,12 @@ def _try_fetch_kw_criteria(
         return None
     try:
         content = fetch_compose_framework(
-            "section-kw-criteria",
+            "section-registry",
             root,
             profile_id=profile,
             cycle_id=cycle_id,
         )
-        return materialize_kw_criteria(out_dir, content)
+        return materialize_section_registry(out_dir, content)
     except (FetchComposeFrameworkError, OSError, ValueError):
         return None
 
@@ -165,44 +173,50 @@ def _load_facet_registry(
     args: argparse.Namespace,
 ) -> dict[str, list[dict[str, Any]]]:
     """Empty registry = no lens declares facets (backward-compatible)."""
-    path = _resolve_kw_criteria_path(out_dir, args)
+    path = _resolve_section_registry_path(out_dir, args)
     if path is None:
         return {}
     try:
-        return load_kw_criteria_facets(path)
+        return load_section_registry_facets(path)
     except (OSError, ValueError, json.JSONDecodeError) as exc:
-        _fail(f"invalid kw-criteria facets: {exc}")
+        _fail(f"invalid section-registry facets: {exc}")
         return {}  # pragma: no cover
 
 
-def cmd_materialize_kw_criteria(out_dir: Path, args: argparse.Namespace) -> None:
-    """Write section-kw-criteria.md under out-dir (--source or --from-fetch)."""
+def cmd_materialize_section_registry(out_dir: Path, args: argparse.Namespace) -> None:
+    """Write section-registry.json under out-dir (--source or --from-fetch)."""
     source = getattr(args, "source", None)
     from_fetch = bool(getattr(args, "from_fetch", False))
     if source and from_fetch:
-        _fail("materialize-kw-criteria: use only one of --source / --from-fetch")
+        _fail(
+            "materialize-section-registry: use only one of --source / --from-fetch"
+        )
     if source:
         src = Path(source)
         if not src.is_file():
-            _fail(f"kw-criteria source not found: {src}")
+            _fail(f"section-registry source not found: {src}")
         try:
             text = src.read_text(encoding="utf-8")
-            path = materialize_kw_criteria(out_dir, text)
+            path = materialize_section_registry(out_dir, text)
         except (OSError, ValueError) as exc:
             _fail(str(exc))
     elif from_fetch:
         if not getattr(args, "project_root", None):
-            _fail("materialize-kw-criteria --from-fetch requires --project-root")
-        path = _try_fetch_kw_criteria(out_dir, args)
+            _fail(
+                "materialize-section-registry --from-fetch requires --project-root"
+            )
+        path = _try_fetch_section_registry(out_dir, args)
         if path is None:
             _fail(
-                "materialize-kw-criteria --from-fetch failed "
+                "materialize-section-registry --from-fetch failed "
                 "(check --project-root / --profile / network)"
             )
     else:
-        _fail("materialize-kw-criteria requires --source PATH or --from-fetch")
+        _fail(
+            "materialize-section-registry requires --source PATH or --from-fetch"
+        )
     try:
-        registry = load_kw_criteria_facets(path)
+        registry = load_section_registry_facets(path)
     except ValueError as exc:
         _fail(str(exc))
     _ok(
@@ -1198,15 +1212,14 @@ def cmd_clear_section(out_dir: Path, args: argparse.Namespace) -> None:
     if facets is not None:
         missing = silence_must_facets(
             lens=section,
-            target_kw=target_kw,
             facets=facets,
             opens=_load_opens(out_dir),
             facts=facts,
         )
         if missing:
             _fail(
-                f"cannot clear {section!r}: silent must facet(s) "
-                f"at kw<={target_kw}: {', '.join(missing)}"
+                f"cannot clear {section!r}: silent must facet(s): "
+                f"{', '.join(missing)}"
             )
 
     json_path = section_path(out_dir, section)
@@ -1423,13 +1436,13 @@ def _build_parser() -> argparse.ArgumentParser:
         help="$INDUCTIVE_OUT_DIR: revision dir for inductive state + _facts.json",
     )
     parser.add_argument(
-        "--kw-criteria",
+        "--section-registry",
         default=None,
-        dest="kw_criteria",
+        dest="section_registry",
         metavar="PATH",
         help=(
-            "Optional section-kw-criteria.md for facet lists; "
-            "default: <out-dir>/section-kw-criteria.md when present"
+            "Optional section-registry.json for facet lists; "
+            "default: <out-dir>/section-registry.json when present"
         ),
     )
     parser.add_argument(
@@ -1437,7 +1450,7 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         dest="project_root",
         metavar="PATH",
-        help="Project root for materialize-kw-criteria --from-fetch / auto-fetch",
+        help="Project root for materialize-section-registry --from-fetch / auto-fetch",
     )
     parser.add_argument(
         "--compose-profile",
@@ -1457,15 +1470,15 @@ def _build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="subcommand", required=True)
 
     p = sub.add_parser(
-        "materialize-kw-criteria",
-        help="Write section-kw-criteria.md under out-dir (facet SSOT for gates)",
+        "materialize-section-registry",
+        help="Write section-registry.json under out-dir (facet SSOT for gates)",
     )
-    p.add_argument("--source", default=None, metavar="PATH", help="Local markdown file")
+    p.add_argument("--source", default=None, metavar="PATH", help="Local JSON file")
     p.add_argument(
         "--from-fetch",
         action="store_true",
         dest="from_fetch",
-        help="Fetch section-kw-criteria via compose framework (--project-root required)",
+        help="Fetch section-registry via compose framework (--project-root required)",
     )
 
     p = sub.add_parser("init-pointer", help="Seed section pointer + _index.json")
@@ -1657,7 +1670,7 @@ def main() -> None:
         "list-sections": cmd_list_sections,
         "activate-section": cmd_activate_section,
         "set-frontier": cmd_set_frontier,
-        "materialize-kw-criteria": cmd_materialize_kw_criteria,
+        "materialize-section-registry": cmd_materialize_section_registry,
         "seed-decision": cmd_seed_decision,
         "add-open": cmd_add_open,
         "update-open": cmd_update_open,

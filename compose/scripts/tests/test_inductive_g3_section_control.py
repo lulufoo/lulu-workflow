@@ -1077,23 +1077,47 @@ def test_settle_rolls_back_on_opens_oserror(tmp_path, monkeypatch, capsys):
 
 # --- facet coverage (lens facet_id) ----------------------------------------
 
-_OPS_KW_CRITERIA = """## OPS
-
-| KW | Verifiable intent attributes |
-|----|------------------------------|
-| KW1 | Can state operability |
-
-```json
-{
-  "facets": [
-    {"id": "runtime_degradation", "kw": 1, "required": true},
-    {"id": "steady_state_rollback", "kw": 1, "required": true},
-    {"id": "cutover_migration_repair", "kw": 1, "required": true},
-    {"id": "other", "kw": 1, "required": false}
-  ]
+_OPS_SECTION_REGISTRY = {
+    "version": "1",
+    "section_order": ["I", "OPS"],
+    "document_preamble": "test",
+    "sections": {
+        "I": {
+            "heading": "Intent",
+            "intent": "intent",
+            "upstream": [],
+            "relations": {},
+        },
+        "OPS": {
+            "heading": "Ops",
+            "intent": "operability",
+            "upstream": [],
+            "relations": {},
+            "facets": [
+                {
+                    "id": "runtime_degradation",
+                    "desc": "Runtime degradation stance.",
+                    "required": True,
+                },
+                {
+                    "id": "steady_state_rollback",
+                    "desc": "Steady-state rollback stance.",
+                    "required": True,
+                },
+                {
+                    "id": "cutover_migration_repair",
+                    "desc": "Cutover migration repair stance.",
+                    "required": True,
+                },
+                {
+                    "id": "other",
+                    "desc": "Unclassified sides.",
+                    "required": False,
+                },
+            ],
+        },
+    },
 }
-```
-"""
 
 
 def _seed_ops(tmp_path: Path) -> Path:
@@ -1103,9 +1127,12 @@ def _seed_ops(tmp_path: Path) -> Path:
     assert code == 0, payload
     code, payload = _run(tmp_path, "activate-section", "--section", "OPS")
     assert code == 0, payload
-    kw = tmp_path / "section-kw-criteria.md"
-    kw.write_text(_OPS_KW_CRITERIA, encoding="utf-8")
-    return kw
+    reg = tmp_path / "section-registry.json"
+    reg.write_text(
+        json.dumps(_OPS_SECTION_REGISTRY, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return reg
 
 
 def test_clear_ops_fails_when_only_migration_fact(tmp_path):
@@ -1277,36 +1304,43 @@ def test_lens_without_facet_list_forbids_facet_id(tmp_path):
     assert "facet_id forbidden" in payload["error"]
 
 
-def test_materialize_kw_criteria_from_source(tmp_path):
+def test_materialize_section_registry_from_source(tmp_path):
     _seed(tmp_path, active="I")
-    src = tmp_path / "src-kw.md"
-    src.write_text(_OPS_KW_CRITERIA, encoding="utf-8")
-    # remove any accidental local copy
-    local = tmp_path / "section-kw-criteria.md"
+    src = tmp_path / "src-registry.json"
+    src.write_text(
+        json.dumps(_OPS_SECTION_REGISTRY, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    local = tmp_path / "section-registry.json"
     if local.exists():
         local.unlink()
     code, payload = _run(
         tmp_path,
-        "materialize-kw-criteria",
+        "materialize-section-registry",
         "--source",
         str(src),
     )
     assert code == 0, payload
-    assert (tmp_path / "section-kw-criteria.md").is_file()
+    assert (tmp_path / "section-registry.json").is_file()
     assert "OPS" in payload.get("facet_lenses", [])
 
 
-def test_clear_uses_materialized_kw_criteria_without_preseeded_local_name(tmp_path):
+def test_clear_uses_materialized_section_registry_without_preseeded_local_name(
+    tmp_path,
+):
     """P0: materialize then clear — gate sees OPS facets."""
     code, payload = _run(
         tmp_path, "init-pointer", "--sections", "OPS,I", "--mandatory", ""
     )
     assert code == 0, payload
     _run(tmp_path, "activate-section", "--section", "OPS")
-    src = tmp_path / "fetched-kw.md"
-    src.write_text(_OPS_KW_CRITERIA, encoding="utf-8")
+    src = tmp_path / "fetched-registry.json"
+    src.write_text(
+        json.dumps(_OPS_SECTION_REGISTRY, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
     code, payload = _run(
-        tmp_path, "materialize-kw-criteria", "--source", str(src)
+        tmp_path, "materialize-section-registry", "--source", str(src)
     )
     assert code == 0, payload
     code, p = _run(

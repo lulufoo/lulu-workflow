@@ -18,7 +18,7 @@ Produces opens in `inductive-opens.json`. Two triggers with **different natures*
 
 **Open identity:** lens has a facet list → active uniqueness `(detected_under, kw, facet_id)` (one `status=open`; else `update-open`); no list → omit `facet_id`. `trigger=human` is altitude-exempt; `trigger=ai` applies `frontier_kw`.
 
-**Facet detect (1B):** for each **required** facet at the working KW, leave a **receipt** = `open` | `deferred` | fact with that `facet_id` (stance N/A OK). `other` is always listed and never required. Clear predicate: `../gates/g3-refine.md` Maturity (script-enforced).
+**Facet detect (1B):** for each **required** facet on the lens (from section-registry `facets[]`; read `desc` for semantic alignment), leave a **receipt** = `open` | `deferred` | fact with that `facet_id` (stance N/A OK). `other` is always listed and never required. Clear checks all must facets (no per-facet KW). Predicate: `../gates/g3-refine.md` Maturity (script-enforced).
 
 ### 1A — User-triggered (recognize & dock)
 
