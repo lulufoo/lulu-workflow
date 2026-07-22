@@ -55,5 +55,5 @@ Entered when the user chooses open-point process — a single open or a batch. O
 
 Gates Lane A's Exit check (`check-coverage`: every **init** lens cleared∨skipped; D6 claim gate — claimed→settled∨deferred, unclaimed exposed):
 
-- `clear-section` when frontier ≥ target, no blocking open under the lens, and every **required** facet on that lens has a receipt (`open` | `deferred` | fact.`facet_id`). Facet lists come from `$INDUCTIVE_OUT_DIR/section-registry.json` (materialize before detect; auto-fetch safety net on the control CLI). No per-facet altitude. Script-enforced; receipts ≠ unblock.
+- `clear-section` when frontier ≥ target, no blocking open under the lens, and the lens has at least one fact with matching `lens_tags`. Optional registry `facets` string seeds are **prompt reminders only** (Class 1B); they do **not** gate clear.
 - `skip-section` / `rewind-section` as needed via section-control.

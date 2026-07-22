@@ -45,8 +45,7 @@ from typing import Any
 FACTS_BASENAME = "_facts.json"
 _FACT_ID_RE = re.compile(r"^F-(\d+)$")
 _FACT_REQUIRED = ("id", "text", "lens_tags")
-_FACT_OPTIONAL = frozenset({"source", "origin", "derivation", "anchors", "facet_id"})
-_FACET_ID_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+_FACT_OPTIONAL = frozenset({"source", "origin", "derivation", "anchors"})
 ORIGIN_TYPES = frozenset({"seed", "discovered", "derived"})
 DERIVATION_DISPOSITIONS = frozenset({"carried", "quarantined"})
 # Anchor kinds — SSOT for the machine-relevant evidence tokens a fact carries
@@ -287,19 +286,6 @@ def validate_facts(
             else:
                 errors.extend(_validate_anchors(prefix, entry["anchors"]))
 
-        if "facet_id" in entry:
-            if entry["facet_id"] is None:
-                errors.append(
-                    f"{prefix}.facet_id must be a string when present "
-                    "(null is not allowed; omit the field instead)",
-                )
-            else:
-                fid = entry["facet_id"]
-                if not isinstance(fid, str) or not _FACET_ID_RE.match(fid.strip()):
-                    errors.append(
-                        f"{prefix}.facet_id must match [a-z][a-z0-9_]*, got {fid!r}",
-                    )
-
         extra = set(entry) - set(_FACT_REQUIRED) - _FACT_OPTIONAL
         if extra:
             errors.append(f"{prefix}: unexpected fields {sorted(extra)}")
@@ -339,8 +325,6 @@ def normalize_fact(entry: dict[str, Any]) -> dict[str, Any]:
         # Empty anchors normalize to omission (equivalent to absent; §3.1).
         if normalized_anchors:
             out["anchors"] = normalized_anchors
-    if "facet_id" in entry and entry["facet_id"] is not None:
-        out["facet_id"] = str(entry["facet_id"]).strip()
     return out
 
 

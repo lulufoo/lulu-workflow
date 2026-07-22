@@ -41,7 +41,10 @@ def test_design_k0b_section_registry_has_presence() -> None:
     assert validate_section_registry(data) == []
     normalized = normalize_section_registry(data)
     for key in normalized["section_order"]:
-        assert normalized["sections"][key]["presence"] == "required"
+        presence = normalized["sections"][key]["presence"]
+        assert presence in {"required", "optional"}
+    assert normalized["sections"]["CMP"]["presence"] == "optional"
+    assert "CMP" in normalized["section_order"]
 
 
 def test_design_k0b_skill_config_points_upstream() -> None:

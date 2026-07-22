@@ -21,7 +21,7 @@ Deprecated (fail-fast): register-ep, update-ep, append-to-section
 
 All subcommands print JSON to stdout and exit 0 on success, exit 1 on failure.
 Global flags: --out-dir PATH (required); optional --project-root /
---compose-profile / --compose-cycle-id for facet section-registry auto-materialize;
+--compose-profile / --compose-cycle-id for section-registry auto-materialize (facet seeds for prompts);
 optional --section-registry.
 """
 
@@ -84,13 +84,9 @@ from facts_schema import (  # noqa: E402
     validate_facts,
 )
 from kw_facets import (  # noqa: E402
-    facets_for_lens,
-    find_active_open_collision,
     load_section_registry_facets,
     materialize_section_registry,
     section_registry_path,
-    silence_must_facets,
-    validate_facet_id_for_lens,
 )
 from decision_fact_claim_schema import sync_and_evaluate_claims  # noqa: E402
 from resolved_refs_schema import has_resolved_refs, scope_decision_fact_path  # noqa: E402
@@ -99,7 +95,7 @@ from resolved_refs_schema import has_resolved_refs, scope_decision_fact_path  # 
 def _resolve_section_registry_path(
     out_dir: Path, args: argparse.Namespace
 ) -> Path | None:
-    """Facet SSOT: --section-registry, else out_dir/section-registry.json, else fetch."""
+    """Section-registry path: --section-registry, else out_dir file, else fetch."""
     explicit = getattr(args, "section_registry", None)
     if explicit:
         path = Path(explicit)
@@ -168,20 +164,6 @@ def _try_fetch_section_registry(
         return None
 
 
-def _load_facet_registry(
-    out_dir: Path,
-    args: argparse.Namespace,
-) -> dict[str, list[dict[str, Any]]]:
-    """Empty registry = no lens declares facets (backward-compatible)."""
-    path = _resolve_section_registry_path(out_dir, args)
-    if path is None:
-        return {}
-    try:
-        return load_section_registry_facets(path)
-    except (OSError, ValueError, json.JSONDecodeError) as exc:
-        _fail(f"invalid section-registry facets: {exc}")
-        return {}  # pragma: no cover
-
 
 def cmd_materialize_section_registry(out_dir: Path, args: argparse.Namespace) -> None:
     """Write section-registry.json under out-dir (--source or --from-fetch)."""
@@ -222,29 +204,11 @@ def cmd_materialize_section_registry(out_dir: Path, args: argparse.Namespace) ->
     _ok(
         {
             "path": str(path),
-            "facet_lenses": sorted(registry.keys()),
+            "seed_lenses": sorted(registry.keys()),
         }
     )
 
 
-def _assert_facet_for_lens(
-    *,
-    facet_id: str | None,
-    lens: str | None,
-    registry: dict[str, list[dict[str, Any]]],
-) -> None:
-    errors = validate_facet_id_for_lens(
-        facet_id,
-        lens=lens,
-        registry=registry,
-    )
-    if errors:
-        _fail("; ".join(errors))
-
-
-# ---------------------------------------------------------------------------
-# Path helpers
-# ---------------------------------------------------------------------------
 
 def _pointer_path(out_dir: Path) -> Path:
     return out_dir / "inductive-section-pointer.json"
@@ -695,24 +659,6 @@ def cmd_seed_decision(out_dir: Path, args: argparse.Namespace) -> None:
     anchors = _parse_anchors_arg(getattr(args, "anchors", None))
     if anchors:
         fact["anchors"] = anchors
-    facet_id = getattr(args, "facet_id", None)
-    if facet_id:
-        facet_id = str(facet_id).strip()
-    registry = _load_facet_registry(out_dir, args)
-    if facet_id:
-        listed = [t for t in lens_tags if facets_for_lens(registry, t) is not None]
-        if not listed:
-            _fail(
-                f"facet_id forbidden: none of lens_tags {lens_tags} "
-                "declare a facet list"
-            )
-        for tag in listed:
-            _assert_facet_for_lens(
-                facet_id=facet_id,
-                lens=tag,
-                registry=registry,
-            )
-        fact["facet_id"] = facet_id
     facts.append(fact)
     try:
         _save_facts_inductive(out_dir, facts)
@@ -742,32 +688,6 @@ def cmd_add_open(out_dir: Path, args: argparse.Namespace) -> None:
     )
     _assert_detected_under_allowed(out_dir, detected_under)
 
-    facet_id = getattr(args, "facet_id", None)
-    if facet_id:
-        facet_id = str(facet_id).strip()
-    registry = _load_facet_registry(out_dir, args)
-    _assert_facet_for_lens(
-        facet_id=facet_id,
-        lens=detected_under,
-        registry=registry,
-    )
-    if facet_id:
-        if detected_under is None:
-            _fail("facet_id requires non-null --detected-under")
-        collision = find_active_open_collision(
-            opens,
-            detected_under=detected_under,
-            kw=args.kw,
-            facet_id=facet_id,
-        )
-        if collision is not None:
-            _fail(
-                f"active open already exists for "
-                f"(detected_under={detected_under!r}, kw={args.kw!r}, "
-                f"facet_id={facet_id!r}): {collision.get('id')!r}; "
-                "use update-open"
-            )
-
     open_item: dict[str, Any] = {
         "id": mint_open_id(seq),
         "status": "open",
@@ -777,8 +697,6 @@ def cmd_add_open(out_dir: Path, args: argparse.Namespace) -> None:
         "blocking": blocking,
         "problem": args.problem,
     }
-    if facet_id:
-        open_item["facet_id"] = facet_id
     if args.leaning:
         open_item["leaning"] = args.leaning
     if args.confidence:
@@ -828,34 +746,11 @@ def cmd_update_open(out_dir: Path, args: argparse.Namespace) -> None:
         detected_under = _normalize_detected_under(args.detected_under)
         _assert_detected_under_allowed(out_dir, detected_under)
         open_item["detected_under"] = detected_under
-    if getattr(args, "facet_id", None) is not None:
-        fid = str(args.facet_id).strip()
-        open_item["facet_id"] = fid
     if getattr(args, "provenance_note", None):
         note = args.provenance_note.strip()
         if note:
             prev = open_item.get("leaning") or ""
             open_item["leaning"] = (prev + "\n" + note).strip() if prev else note
-
-    registry = _load_facet_registry(out_dir, args)
-    _assert_facet_for_lens(
-        facet_id=open_item.get("facet_id"),
-        lens=open_item.get("detected_under"),
-        registry=registry,
-    )
-    if open_item.get("facet_id"):
-        collision = find_active_open_collision(
-            opens,
-            detected_under=open_item.get("detected_under"),
-            kw=open_item.get("kw"),
-            facet_id=str(open_item["facet_id"]),
-            exclude_id=str(open_item.get("id")),
-        )
-        if collision is not None:
-            _fail(
-                f"active open already exists for facet_id="
-                f"{open_item.get('facet_id')!r}: {collision.get('id')!r}"
-            )
 
     try:
         _save_opens(out_dir, opens)
@@ -923,12 +818,6 @@ def cmd_settle_open(out_dir: Path, args: argparse.Namespace) -> None:
             "lens_tags": lens_tags,
             "origin": {"type": "discovered", "ref": [args.open_id]},
         }
-        # Prefer entry facet_id; else copy from open (E2).
-        entry_facet = entry.get("facet_id")
-        if entry_facet is not None and str(entry_facet).strip():
-            fact["facet_id"] = str(entry_facet).strip()
-        elif open_item.get("facet_id"):
-            fact["facet_id"] = str(open_item["facet_id"]).strip()
         declared = entry.get("anchors")
         if declared is not None:
             # Declared anchors: validated/normalized downstream by save_facts.
@@ -1207,21 +1096,6 @@ def cmd_clear_section(out_dir: Path, args: argparse.Namespace) -> None:
             "seed-decision or settle-open first"
         )
 
-    registry = _load_facet_registry(out_dir, args)
-    facets = facets_for_lens(registry, section)
-    if facets is not None:
-        missing = silence_must_facets(
-            lens=section,
-            facets=facets,
-            opens=_load_opens(out_dir),
-            facts=facts,
-        )
-        if missing:
-            _fail(
-                f"cannot clear {section!r}: silent must facet(s): "
-                f"{', '.join(missing)}"
-            )
-
     json_path = section_path(out_dir, section)
     if json_path.exists():
         try:
@@ -1441,7 +1315,7 @@ def _build_parser() -> argparse.ArgumentParser:
         dest="section_registry",
         metavar="PATH",
         help=(
-            "Optional section-registry.json for facet lists; "
+            "Optional section-registry.json (facet seeds for prompts); "
             "default: <out-dir>/section-registry.json when present"
         ),
     )
@@ -1457,7 +1331,7 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         dest="compose_profile",
         metavar="ID",
-        help="Compose profile id for framework fetch (facet auto-materialize)",
+        help="Compose profile id for framework fetch (section-registry auto-materialize)",
     )
     parser.add_argument(
         "--compose-cycle-id",
@@ -1471,7 +1345,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser(
         "materialize-section-registry",
-        help="Write section-registry.json under out-dir (facet SSOT for gates)",
+        help="Write section-registry.json under out-dir (intent + facet seeds for prompts)",
     )
     p.add_argument("--source", default=None, metavar="PATH", help="Local JSON file")
     p.add_argument(
@@ -1519,13 +1393,6 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="JSON",
         help='Declarative anchors: JSON array of {"kind","value"} (P4)',
     )
-    p.add_argument(
-        "--facet-id",
-        default=None,
-        dest="facet_id",
-        metavar="ID",
-        help="Optional facet_id on seed fact (required to count as must-facet receipt)",
-    )
 
     p = sub.add_parser("add-open", help="Append an open to inductive-opens.json")
     p.add_argument("--kw", required=True, type=int, metavar="N")
@@ -1541,13 +1408,6 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--problem", required=True, metavar="TEXT")
     p.add_argument("--detected-under", default=None, dest="detected_under", metavar="S")
-    p.add_argument(
-        "--facet-id",
-        default=None,
-        dest="facet_id",
-        metavar="ID",
-        help="Required when detected_under lens declares a facet list",
-    )
     p.add_argument("--leaning", default=None, metavar="TEXT")
     p.add_argument("--blocking", default="true", metavar="BOOL")
     p.add_argument("--confidence", default=None, metavar="C")
@@ -1565,7 +1425,6 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--trigger", default=None, metavar="T")
     p.add_argument("--means", default=None, metavar="M")
     p.add_argument("--detected-under", default=None, dest="detected_under", metavar="S")
-    p.add_argument("--facet-id", default=None, dest="facet_id", metavar="ID")
     p.add_argument(
         "--provenance-note",
         default=None,

@@ -16,9 +16,9 @@ Stamps are **always** recorded even when hidden from the user's wording — they
 
 Produces opens in `inductive-opens.json`. Two triggers with **different natures**: 1A is recognition/intake (AI recognizes a user-surfaced gap and docks it to processing); 1B is active execution (AI runs the method).
 
-**Open identity:** lens has a facet list → active uniqueness `(detected_under, kw, facet_id)` (one `status=open`; else `update-open`); no list → omit `facet_id`. `trigger=human` is altitude-exempt; `trigger=ai` applies `frontier_kw`.
+**Open identity:** active opens are not keyed by facet. `trigger=human` is altitude-exempt; `trigger=ai` applies `frontier_kw`.
 
-**Facet detect (1B):** for each **required** facet on the lens (from section-registry `facets[]`; read `desc` for semantic alignment), leave a **receipt** = `open` | `deferred` | fact with that `facet_id` (stance N/A OK). `other` is always listed and never required. Clear checks all must facets (no per-facet KW). Predicate: `../gates/g3-refine.md` Maturity (script-enforced).
+**Facet seeds (1B):** when section-registry declares `facets: string[]` on the active lens, paste those short labels into the detect prompt as **non-exhaustive seeds** (friction with demand + Context may open list-external gaps). Seeds are not a closed question set and do **not** create `facet_id` or clear receipts.
 
 ### 1A — User-triggered (recognize & dock)
 

@@ -1075,7 +1075,7 @@ def test_settle_rolls_back_on_opens_oserror(tmp_path, monkeypatch, capsys):
     assert opens[0]["status"] == "open"
 
 
-# --- facet coverage (lens facet_id) ----------------------------------------
+# --- facet seeds (string[] reminders; no clear gate) -----------------------
 
 _OPS_SECTION_REGISTRY = {
     "version": "1",
@@ -1094,49 +1094,25 @@ _OPS_SECTION_REGISTRY = {
             "upstream": [],
             "relations": {},
             "facets": [
-                {
-                    "id": "runtime_degradation",
-                    "desc": "Runtime degradation stance.",
-                    "required": True,
-                },
-                {
-                    "id": "steady_state_rollback",
-                    "desc": "Steady-state rollback stance.",
-                    "required": True,
-                },
-                {
-                    "id": "cutover_migration_repair",
-                    "desc": "Cutover migration repair stance.",
-                    "required": True,
-                },
-                {
-                    "id": "other",
-                    "desc": "Unclassified sides.",
-                    "required": False,
-                },
+                "runtime degradation",
+                "steady-state rollback",
             ],
         },
     },
 }
 
 
-def _seed_ops(tmp_path: Path) -> Path:
+def test_clear_ops_ok_without_facet_receipts(tmp_path):
+    """Seeds are not a clear gate: one OPS fact is enough for facet purposes."""
     code, payload = _run(
         tmp_path, "init-pointer", "--sections", "OPS,I", "--mandatory", ""
     )
     assert code == 0, payload
-    code, payload = _run(tmp_path, "activate-section", "--section", "OPS")
-    assert code == 0, payload
-    reg = tmp_path / "section-registry.json"
-    reg.write_text(
+    _run(tmp_path, "activate-section", "--section", "OPS")
+    (tmp_path / "section-registry.json").write_text(
         json.dumps(_OPS_SECTION_REGISTRY, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
-    return reg
-
-
-def test_clear_ops_fails_when_only_migration_fact(tmp_path):
-    _seed_ops(tmp_path)
     code, p = _run(
         tmp_path,
         "seed-decision",
@@ -1145,89 +1121,26 @@ def test_clear_ops_fails_when_only_migration_fact(tmp_path):
         "--lens-tags",
         "OPS",
         "--text",
-        "cutover migration repair stance",
-        "--facet-id",
-        "cutover_migration_repair",
+        "operability stance for this demand",
     )
     assert code == 0, p
     _run(tmp_path, "set-frontier", "--section", "OPS", "--kw", "1")
-    code, payload = _run(tmp_path, "clear-section", "--section", "OPS", "--target-kw", "1")
-    assert code == 1 and not payload["ok"]
-    assert "silent must facet" in payload["error"]
-    assert "steady_state_rollback" in payload["error"]
-    assert "runtime_degradation" in payload["error"]
-
-
-def test_clear_ops_ok_with_stance_and_facts(tmp_path):
-    _seed_ops(tmp_path)
-    for fid, text in [
-        ("cutover_migration_repair", "migration repair"),
-        ("runtime_degradation", "degradation stance"),
-        ("steady_state_rollback", "no new steady-state rollback protocol"),
-    ]:
-        code, p = _run(
-            tmp_path,
-            "seed-decision",
-            "--section",
-            "OPS",
-            "--lens-tags",
-            "OPS",
-            "--text",
-            text,
-            "--facet-id",
-            fid,
-        )
-        assert code == 0, p
-    _run(tmp_path, "set-frontier", "--section", "OPS", "--kw", "1")
-    code, payload = _run(tmp_path, "clear-section", "--section", "OPS", "--target-kw", "1")
+    code, payload = _run(
+        tmp_path, "clear-section", "--section", "OPS", "--target-kw", "1"
+    )
     assert code == 0, payload
 
 
-def test_clear_ops_facet_receipt_open_still_blocks_if_blocking(tmp_path):
-    _seed_ops(tmp_path)
-    for fid, text in [
-        ("cutover_migration_repair", "migration"),
-        ("runtime_degradation", "degrade"),
-    ]:
-        _run(
-            tmp_path,
-            "seed-decision",
-            "--section",
-            "OPS",
-            "--lens-tags",
-            "OPS",
-            "--text",
-            text,
-            "--facet-id",
-            fid,
-        )
-    code, p = _run(
-        tmp_path,
-        "add-open",
-        "--kw",
-        "1",
-        "--trigger",
-        "ai",
-        "--means",
-        "ai_scan",
-        "--problem",
-        "steady-state rollback gap",
-        "--detected-under",
-        "OPS",
-        "--facet-id",
-        "steady_state_rollback",
-        "--blocking",
-        "true",
+def test_add_open_without_facet_id(tmp_path):
+    code, payload = _run(
+        tmp_path, "init-pointer", "--sections", "OPS,I", "--mandatory", ""
     )
-    assert code == 0, p
-    _run(tmp_path, "set-frontier", "--section", "OPS", "--kw", "1")
-    code, payload = _run(tmp_path, "clear-section", "--section", "OPS", "--target-kw", "1")
-    assert code == 1 and not payload["ok"]
-    assert "blocking open" in payload["error"]
-
-
-def test_add_open_requires_facet_when_list_present(tmp_path):
-    _seed_ops(tmp_path)
+    assert code == 0, payload
+    _run(tmp_path, "activate-section", "--section", "OPS")
+    (tmp_path / "section-registry.json").write_text(
+        json.dumps(_OPS_SECTION_REGISTRY, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
     code, payload = _run(
         tmp_path,
         "add-open",
@@ -1242,66 +1155,7 @@ def test_add_open_requires_facet_when_list_present(tmp_path):
         "--detected-under",
         "OPS",
     )
-    assert code == 1 and not payload["ok"]
-    assert "facet_id required" in payload["error"]
-
-
-def test_settle_open_copies_facet_id(tmp_path):
-    _seed_ops(tmp_path)
-    code, p = _run(
-        tmp_path,
-        "add-open",
-        "--kw",
-        "1",
-        "--trigger",
-        "human",
-        "--means",
-        "human_direct",
-        "--problem",
-        "need degradation stance",
-        "--detected-under",
-        "OPS",
-        "--facet-id",
-        "runtime_degradation",
-    )
-    assert code == 0, p
-    ff = _write_facts_file(
-        tmp_path / "facts.json",
-        [{"text": "degradation settled", "lens_tags": ["OPS"]}],
-    )
-    code, p2 = _run(
-        tmp_path,
-        "settle-open",
-        "--open-id",
-        "O-1",
-        "--facts-file",
-        str(ff),
-    )
-    assert code == 0, p2
-    facts = json.loads((tmp_path / "_facts.json").read_text(encoding="utf-8"))
-    assert facts[0]["facet_id"] == "runtime_degradation"
-
-
-def test_lens_without_facet_list_forbids_facet_id(tmp_path):
-    _seed_ops(tmp_path)
-    code, payload = _run(
-        tmp_path,
-        "add-open",
-        "--kw",
-        "1",
-        "--trigger",
-        "ai",
-        "--means",
-        "ai_scan",
-        "--problem",
-        "gap",
-        "--detected-under",
-        "I",
-        "--facet-id",
-        "other",
-    )
-    assert code == 1 and not payload["ok"]
-    assert "facet_id forbidden" in payload["error"]
+    assert code == 0, payload
 
 
 def test_materialize_section_registry_from_source(tmp_path):
@@ -1322,43 +1176,4 @@ def test_materialize_section_registry_from_source(tmp_path):
     )
     assert code == 0, payload
     assert (tmp_path / "section-registry.json").is_file()
-    assert "OPS" in payload.get("facet_lenses", [])
-
-
-def test_clear_uses_materialized_section_registry_without_preseeded_local_name(
-    tmp_path,
-):
-    """P0: materialize then clear — gate sees OPS facets."""
-    code, payload = _run(
-        tmp_path, "init-pointer", "--sections", "OPS,I", "--mandatory", ""
-    )
-    assert code == 0, payload
-    _run(tmp_path, "activate-section", "--section", "OPS")
-    src = tmp_path / "fetched-registry.json"
-    src.write_text(
-        json.dumps(_OPS_SECTION_REGISTRY, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-    )
-    code, payload = _run(
-        tmp_path, "materialize-section-registry", "--source", str(src)
-    )
-    assert code == 0, payload
-    code, p = _run(
-        tmp_path,
-        "seed-decision",
-        "--section",
-        "OPS",
-        "--lens-tags",
-        "OPS",
-        "--text",
-        "migration only",
-        "--facet-id",
-        "cutover_migration_repair",
-    )
-    assert code == 0, p
-    _run(tmp_path, "set-frontier", "--section", "OPS", "--kw", "1")
-    code, payload = _run(
-        tmp_path, "clear-section", "--section", "OPS", "--target-kw", "1"
-    )
-    assert code == 1 and not payload["ok"]
-    assert "silent must facet" in payload["error"]
+    assert "OPS" in payload.get("seed_lenses", [])

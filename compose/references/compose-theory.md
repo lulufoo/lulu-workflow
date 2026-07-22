@@ -12,13 +12,13 @@ Scheme keys: `schemes/compose-template-scheme.json`. Each profile maps them via 
 
 | Template | Role |
 |----------|------|
-| `section-registry` | Intent SSOT: `intent`, boundary, upstream graph, `section_order`; optional per-lens `facets[]` (legal sides) |
+| `section-registry` | Intent SSOT: `intent`, boundary, upstream graph, `section_order`; optional per-lens `facets` string seeds |
 | `section-form-registry` | Per-intent presentation/expression: `presentation` (`guidance`, `allowed`, `forbidden`), `expression` (optional) |
 | `section-kw-criteria` | Per-intent completeness altitude: KW rows only |
 | `role-instance` | Stage author lens → F/C |
 | `domain-instance` | Stage domain lens → F/C |
 
-**Axes:** registry = *what* (belonging + optional facet sides) · kw-criteria = *how deep* (altitude) · form / role / domain = *how to write* · dynamic chapter plan (Init Step 3) = *where*.
+**Axes:** registry = *what* (belonging + optional facet seeds) · kw-criteria = *how deep* (altitude) · form / role / domain = *how to write* · dynamic chapter plan (Init Step 3) = *where*.
 
 ## Ontology (three layers)
 
@@ -26,11 +26,11 @@ The theory below is governed by three ontological layers. A fact is **substance 
 
 | Layer | Contains | Answers | Where it lives |
 |-------|----------|---------|----------------|
-| Substance (§1) | Content (facts) + anchors (§1.5) + optional `facet_id` tag | what is true (+ which facet receipt a fact fulfills) | `_facts.json` — producer-written (inductive discovery / deductive Intake+Derive); Init validate-only (origins §1.2) |
-| Lens / envelope (§2) | lens / intent / optional facets (§2.4) | whose viewpoint owns it (N:M); which sides must be covered | `lens_tags` + section-registry `intent` + section-registry `facets[]`; opens/facts may carry `facet_id` |
+| Substance (§1) | Content (facts) + anchors (§1.5) | what is true | `_facts.json` — producer-written (inductive discovery / deductive Intake+Derive); Init validate-only (origins §1.2) |
+| Lens / envelope (§2) | lens / intent / optional facet seeds (§2.4) | whose viewpoint owns it (N:M); seed reminders for detect | `lens_tags` + section-registry `intent` + optional `facets` string[] |
 | Presentation (§3) | Form (`F`) + Expression (`C`) + Render (`display_title` / H3 theme) | how to carry / write (per `form_lens`) + how to label | F/C at Init Step 4.W per FL; `display_title` copied from framework into `_derive-{cid}.json`; H3 from `_lens-themes.json` |
 
-**Invariant — substance carries no presentation.** One fact may be tagged to several lenses and is rebuilt differently under each; therefore Form/Expression cannot be attributes of the fact. Lens membership is *stored* (`lens_tags`); presentation is *derived on demand*, never persisted onto the fact. Optional `facet_id` on a fact is a **coverage tag** (envelope receipt), not presentation — Write does not consume it by default (§2.4).
+**Invariant — substance carries no presentation.** One fact may be tagged to several lenses and is rebuilt differently under each; therefore Form/Expression cannot be attributes of the fact. Lens membership is *stored* (`lens_tags`); presentation is *derived on demand*, never persisted onto the fact.
 
 ## 1. Substance
 
@@ -121,20 +121,20 @@ Membership is stored; presentation is derived per lens at Step 5.W — the two m
 
 `frontier_kw` (inductive maturity ledger) — per-lens completeness altitude. Init's Inductive generation (§1.3) reads it via `Expose` to decide whether a lens still needs facts (the `kept iff` predicate lives in §1.3).
 
-### 2.4 Facet coverage: `facet_id`
+### 2.4 Facet seeds
 
-A **facet** is a legal side *of* a lens (charter attribute beside `intent`) that the clear gate may consume so a required side is not silently skipped. It is **not** a sub-lens, **not** a second KW ruler, and does **not** carry per-facet altitude. `desc` is for inductive detect alignment; identity and receipts use `id` / `facet_id` only.
+Optional **facet seeds** are short string labels on a section-registry lens (`facets: string[]`, roughly 3–5 English words each). They are **inductive detect reminders**, not a completeness gate and not open/fact identity.
 
 ```text
 breadth: lens ∈ coverage_sections
-depth:   frontier_kw                 # altitude, per-lens only
-sides:   facet_id on section-registry # optional; only when declared
+depth:   frontier_kw              # altitude, per-lens only
+seeds:   facets string[]          # optional; prompt input only
 ```
 
-- **Declaration:** optional `facets[]` on a section entry in `section-registry` (`id`, `desc`, `required`). Runtime gate SSOT is the revision file `section-registry.json` (materialized from the framework template before detect). No list ⇒ that lens has no facet axis (omit `facet_id` on opens/facts).
-- **Identity (opens):** with a list → active uniqueness `(detected_under, kw, facet_id)`; without a list → `facet_id` forbidden. Contracts: inductive `g3-capabilities` (Open identity / Facet detect).
-- **Receipt / clear:** each **required** facet on the lens needs a receipt (`open` | `deferred` | fact with that `facet_id`, including stance N/A) on every `clear-section` for that lens. `other` is always listed when facets exist and is never required. Predicate: `g3-refine` Maturity; script: `kw_facets.py` + `clear-section`.
-- **Presentation:** facets are not an F/C axis; Write may ignore them unless a later design opts in.
+- **Declaration:** optional `facets` string array on a section entry. No list ⇒ no seed reminder for that lens.
+- **Use:** Class 1B detect pastes seeds into the prompt as a **non-exhaustive** set; demand + Context friction may open gaps outside the list. Design: `compose-inductive-facet-seeds-and-cmp-design.md`.
+- **Not used for:** `clear-section`, `facet_id` fields, must/optional receipts, or closed question spaces.
+- **Presentation:** seeds are not an F/C axis; Write ignores them by default.
 
 ## 3. Presentation
 

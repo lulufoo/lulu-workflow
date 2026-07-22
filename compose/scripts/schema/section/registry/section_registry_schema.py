@@ -324,7 +324,7 @@ def normalize_section_registry(data: dict[str, Any]) -> dict[str, Any]:
         if isinstance(cluster, str) and cluster.strip():
             normalized["cluster"] = cluster.strip()
         if "facets" in entry:
-            # Validated upstream; normalize shape (id/desc/required only).
+            # Validated upstream; normalize to string[] facet seeds.
             normalized["facets"] = validate_facets_list(
                 entry.get("facets"), lens=key
             )

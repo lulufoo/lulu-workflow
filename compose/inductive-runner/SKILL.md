@@ -45,8 +45,8 @@ INDUCTIVE_FACTS       = $INDUCTIVE_OUT_DIR/_facts.json              # discovery-
 INDUCTIVE_DQI         = $INDUCTIVE_OUT_DIR/inductive-dqi.json       # optional resume aid; not SoT
 INDUCTIVE_GATE_STATE  = $INDUCTIVE_OUT_DIR/inductive-gate-state.json
 INDUCTIVE_SECTION_PTR = $INDUCTIVE_OUT_DIR/inductive-section-pointer.json  # routing aid; status also on section JSON
-INDUCTIVE_SECTION_REGISTRY = $INDUCTIVE_OUT_DIR/section-registry.json  # facet SSOT for clear/add-open (materialized)
-INDUCTIVE_KW_CRITERIA = $INDUCTIVE_OUT_DIR/section-kw-criteria.md  # KW altitude rows (fetch for detect; not facet SSOT)
+INDUCTIVE_SECTION_REGISTRY = $INDUCTIVE_OUT_DIR/section-registry.json  # intent + optional facet seeds (materialized for prompts)
+INDUCTIVE_KW_CRITERIA = $INDUCTIVE_OUT_DIR/section-kw-criteria.md  # KW altitude rows (fetch for detect)
 INDUCTIVE_GROUNDING   = $INDUCTIVE_OUT_DIR/grounding-notes.json     # optional receipts
 INDUCTIVE_G4_REPORT   = $INDUCTIVE_OUT_DIR/g4-recompose-report.json
 PROVENANCE_GATE_STATE = $INDUCTIVE_OUT_DIR/provenance-gate-state.json
@@ -69,12 +69,11 @@ PROVENANCE_TRACES     = $INDUCTIVE_OUT_DIR/provenance-trace-{intent,scope,norm}.
 
 Fetch schedule:
 - **Before Seed / Shape-confirm:** `$FETCH_COMPOSE --role section-registry` → `SECTION_REGISTRY` (`section_order` → `init-session --sections`); `$FETCH_COMPOSE --role inductive-scan-criteria` → `SCAN_CRITERIA` (methods / shape hints / mandatory)
-- **Before detect / refine:** `$FETCH_COMPOSE --role section-form-registry`; `$FETCH_COMPOSE --role section-kw-criteria` → `KW_CRITERIA` (altitude rows); **then materialize facet SSOT** (required for facet gates):
+- **Before detect / refine:** `$FETCH_COMPOSE --role section-form-registry`; `$FETCH_COMPOSE --role section-kw-criteria` → `KW_CRITERIA` (altitude rows); materialize section-registry for prompt seeds:
   - `$INDUCTIVE_G3_SECTION_CTL materialize-section-registry --from-fetch`  
-    → writes `$INDUCTIVE_SECTION_REGISTRY` (`section-registry.json`); or `materialize-section-registry --source <path>`
+    → writes `$INDUCTIVE_SECTION_REGISTRY`; or `materialize-section-registry --source <path>`
   - Observable done: `$INDUCTIVE_SECTION_REGISTRY` exists under `$INDUCTIVE_OUT_DIR`
-  - Safety net: `$INDUCTIVE_G3_SECTION_CTL` carries `--project-root` / `--compose-profile` so `clear-section` / `add-open` auto-fetch+cache if the file is missing
-  - Facet `desc` is for inductive detect alignment; clear/schema identity uses `facet_id` only
+  - **Facet seeds (Class 1B):** when the active lens has `facets: string[]`, paste that list into the detect prompt as **non-exhaustive reminders** (not a closed question set; list-external opens allowed). Seeds do **not** gate `clear-section` and there is **no** `facet_id` field.
 
 **Primary CRUD (K4 triple store):** `materialize-section-registry`, `seed-decision` (→ facts), `add-open` / `update-open` / `settle-open` / `defer-open` / `reject-open` (→ opens), `update-decision` (→ fact `F-n`), `attach-code-refs` (`O-` only), `get-section`, `view --synthesis off|on`, `checkpoint --name shape`, `set-frontier`, `activate-section`, `clear-section`, `skip-section`, `rewind-section`, `check-coverage`. See `$INDUCTIVE_G3_SECTION_CTL --help`.
 

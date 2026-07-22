@@ -43,7 +43,6 @@ _OPEN_REQUIRED = ("id", "status", "source", "kw", "blocking", "problem")
 _OPEN_OPTIONAL = frozenset(
     {
         "detected_under",
-        "facet_id",
         "leaning",
         "confidence",
         "intent_ref",
@@ -56,7 +55,6 @@ _OPEN_OPTIONAL = frozenset(
 )
 _OPEN_ID_RE = re.compile(r"^O-(\d+)$")
 _FACT_ID_RE = re.compile(r"^F-\d+$")
-_FACET_ID_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 
 
 def opens_path(out_dir: Path) -> Path:
@@ -213,13 +211,6 @@ def _validate_open(entry: dict[str, Any], *, expected_n: int) -> list[str]:
                 f"{where}: detected_under must be a non-empty string or null"
             )
 
-    if "facet_id" in entry and entry["facet_id"] is not None:
-        fid = entry["facet_id"]
-        if not isinstance(fid, str) or not _FACET_ID_RE.match(fid.strip()):
-            errors.append(
-                f"{where}: facet_id must match [a-z][a-z0-9_]*, got {fid!r}"
-            )
-
     if "confidence" in entry and entry["confidence"] is not None:
         conf = str(entry["confidence"]).strip().lower()
         if conf not in CONFIDENCES:
@@ -313,8 +304,6 @@ def normalize_open(entry: dict[str, Any]) -> dict[str, Any]:
         out["detected_under"] = (
             None if du is None else str(du).strip().upper()
         )
-    if "facet_id" in entry and entry["facet_id"] is not None:
-        out["facet_id"] = str(entry["facet_id"]).strip()
     for opt in ("leaning", "intent_ref", "hangs_under", "note", "reason"):
         if opt in entry and entry[opt] is not None:
             out[opt] = str(entry[opt]).strip()
