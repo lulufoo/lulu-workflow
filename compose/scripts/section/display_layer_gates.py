@@ -13,7 +13,8 @@ unit tests and any in-memory chapters-shaped view
 (``placement_chapters_as_l6_view``). ``_chapters.json`` is retired.
 
 Module name keeps the historical ``display_layer_*`` prefix.
-Gate coverage: L1, L3, L4, L5, C1, Q1.
+Gate coverage: L1, L3, L4, C1, Q1.
+L5 (outline ``derived_from`` genealogy) was removed with outline-registry.
 L2 ("placement consistency") is **not** a function here — with a single
 placement SoT it holds by construction. There is no markdown
 projection-fidelity half: the design deliberately drops proposition-level
@@ -53,8 +54,7 @@ def check_l1(
         for fact_ref in chapter.get("facts", []):
             fid = fact_ref.get("fid")
             # Quarantine / unknown-id checks scan **all** chapters, including
-            # `drop` — a dropped chapter is genealogy-only and (per
-            # chapters_schema) should carry no facts at all, but this gate
+            # `drop` — a dropped chapter should carry no facts, but this gate
             # does not trust that structural invariant blindly (Grok review
             # Major#1: a quarantined fact must not hide in a drop chapter).
             if fid in quarantined:
@@ -119,11 +119,7 @@ def check_l3(
 
 
 def check_l4(chapters: list[dict[str, Any]]) -> list[str]:
-    """No rendered (non-drop) chapter has zero facts; drop chapters must be empty.
-
-    Structurally same invariant as ``chapters_schema.validate_chapters`` —
-    kept here too as defense-in-depth for callers that construct/mutate a
-    chapters list without going through ``validate_chapters``."""
+    """No rendered (non-drop) chapter has zero facts; drop chapters must be empty."""
     errors: list[str] = []
     for chapter in chapters:
         cid = chapter.get("id")
@@ -134,37 +130,6 @@ def check_l4(chapters: list[dict[str, Any]]) -> list[str]:
                 errors.append(f"L4: dropped chapter {cid!r} must have empty facts")
         elif not facts_here:
             errors.append(f"L4: rendered chapter {cid!r} has zero facts (empty chapter)")
-    return errors
-
-
-def check_l5(
-    chapters: list[dict[str, Any]],
-    *,
-    candidate_ids: list[str] | None = None,
-) -> list[str]:
-    """Chapter genealogy reachability: derived_from ⊆ allowed candidate ids.
-
-    When ``candidate_ids`` is ``None``, this check is skipped (not wired for
-    dynamic chapter plan)."""
-    if candidate_ids is None:
-        return []
-    allowed = set(candidate_ids)
-    errors: list[str] = []
-    for chapter in chapters:
-        cid = chapter.get("id")
-        derived = chapter.get("derived_from", [])
-        if not derived:
-            errors.append(
-                f"L5: chapter {cid!r} has no derived_from (orphan; unreachable "
-                "from static candidates)",
-            )
-            continue
-        unknown = [d for d in derived if d not in allowed]
-        if unknown:
-            errors.append(
-                f"L5: chapter {cid!r} derived_from references unknown "
-                f"candidates {unknown}",
-            )
     return errors
 
 
@@ -233,18 +198,16 @@ def run_display_layer_gates(
     *,
     presence_map: dict[str, str] | None = None,
     section_order: list[str] | None = None,
-    candidate_ids: list[str] | None = None,
     dependency_graph: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Run all Step 6 gates; return ``{"errors": [...], "q1_audit": {...}}``.
 
-    ``errors`` aggregates L1/L3/L4/L5/C1 (blocking); ``q1_audit`` is
+    ``errors`` aggregates L1/L3/L4/C1 (blocking); ``q1_audit`` is
     advisory-only (never contributes to ``errors``)."""
     errors: list[str] = []
     errors.extend(check_l1(facts, chapters))
     errors.extend(check_l3(facts, chapters))
     errors.extend(check_l4(chapters))
-    errors.extend(check_l5(chapters, candidate_ids=candidate_ids))
     errors.extend(
         check_c1(
             facts,

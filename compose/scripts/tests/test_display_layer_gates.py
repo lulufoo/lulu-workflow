@@ -14,7 +14,6 @@ from display_layer_gates import (  # noqa: E402
     check_l1,
     check_l3,
     check_l4,
-    check_l5,
     check_q1,
     run_display_layer_gates,
 )
@@ -24,11 +23,10 @@ def _fact(fid, tags):
     return {"id": fid, "text": f"text for {fid}", "lens_tags": tags}
 
 
-def _chapter(cid, anchors, facts, *, op="keep", derived=None):
+def _chapter(cid, anchors, facts, *, op="keep"):
     return {
         "id": cid,
         "anchor_lenses": anchors,
-        "derived_from": derived if derived is not None else [f"cand-{cid}"],
         "op": op,
         "facts": facts,
     }
@@ -80,7 +78,7 @@ def test_l1_rejects_quarantined_fact_placed_anywhere():
 
 def test_l1_rejects_quarantined_fact_hidden_in_drop_chapter():
     """Grok review Major#1: a quarantined fact must not hide in a drop chapter
-    (chapters_schema forbids non-empty drop chapters, but this gate does not
+    (drop chapters should be empty, but this gate does not
     trust that structural invariant blindly)."""
     facts = [_fact("F-1", [])]
     dropped = _chapter("chap-x", ["AR"], [_ref("F-1", "AR")], op="drop")
@@ -152,36 +150,6 @@ def test_l4_accepts_empty_drop_chapter_rejects_nonempty_drop():
     bad = [_chapter("chap-1", ["AR"], [_ref("F-1", "AR")], op="drop")]
     errors = check_l4(bad)
     assert any("dropped chapter" in e for e in errors)
-
-
-# ---- L5 --------------------------------------------------------------
-
-
-def test_l5_skipped_when_candidates_unknown():
-    chapters = [_chapter("chap-1", ["AR"], [_ref("F-1", "AR")], derived=["cand-AR"])]
-    assert check_l5(chapters, candidate_ids=None) == []
-
-
-def test_l5_empty_candidate_list_is_not_treated_as_unknown():
-    """[] (M3 present, empty candidate set) must still be enforced, unlike None (M3 absent)."""
-    chapters = [_chapter("chap-1", ["AR"], [_ref("F-1", "AR")], derived=["cand-AR"])]
-    errors = check_l5(chapters, candidate_ids=[])
-    assert any("unknown" in e for e in errors)
-
-
-def test_l5_accepts_reachable_genealogy():
-    chapters = [_chapter("chap-1", ["AR"], [_ref("F-1", "AR")], derived=["cand-AR"])]
-    assert check_l5(chapters, candidate_ids=["cand-AR", "cand-SC"]) == []
-
-
-def test_l5_rejects_unreachable_and_orphan_chapter():
-    unreachable = _chapter("chap-1", ["AR"], [_ref("F-1", "AR")], derived=["cand-ZZ"])
-    errors = check_l5([unreachable], candidate_ids=["cand-AR"])
-    assert any("unknown" in e for e in errors)
-
-    orphan = _chapter("chap-2", ["AR"], [_ref("F-1", "AR")], derived=[])
-    errors = check_l5([orphan], candidate_ids=["cand-AR"])
-    assert any("orphan" in e for e in errors)
 
 
 # ---- C1 --------------------------------------------------------------
@@ -275,7 +243,6 @@ def test_run_display_layer_gates_aggregates_errors_and_audit():
         facts,
         chapters,
         section_order=["AR"],
-        candidate_ids=["cand-chap-1"],
     )
     assert result["errors"] == []
     assert result["q1_audit"]["quarantined_total"] == 1
@@ -283,17 +250,14 @@ def test_run_display_layer_gates_aggregates_errors_and_audit():
 
 def test_run_display_layer_gates_reports_all_gate_violations_together():
     # F-1 tagged SC but chapter anchors AR -> L3 violation.
-    # Chapter's derived_from is empty and candidate_ids is supplied -> L5 orphan violation.
     # AR has zero tagging facts -> C1 coverage gap.
     facts = [_fact("F-1", ["SC"])]
-    chapters = [_chapter("chap-1", ["AR"], [_ref("F-1", "SC")], derived=[])]
+    chapters = [_chapter("chap-1", ["AR"], [_ref("F-1", "SC")])]
     result = run_display_layer_gates(
         facts,
         chapters,
         section_order=["AR", "SC"],
-        candidate_ids=["cand-chap-1"],
     )
     joined = "; ".join(result["errors"])
     assert "L3" in joined
-    assert "L5" in joined
     assert "C1" in joined and "'AR'" in joined
