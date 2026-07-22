@@ -12,7 +12,7 @@
   "method": {
     "kind": "external",
     "source": "{pst_product_eval_framework_url}",
-    "focus": "Independent PDQA audit on product-doc (11 dimensions, 4 layers); not compose Round/probe iteration"
+    "focus": "Independent PDQA audit on product-doc (12 dimensions, 4 layers, aligned to ten lenses PB→AC); not compose Round/probe iteration"
   },
   "review": {
     "seq": 1,
