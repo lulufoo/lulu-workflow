@@ -55,5 +55,5 @@ Entered when the user chooses open-point process — a single open or a batch. O
 
 Gates Lane A's Exit check (`check-coverage`: every **init** lens cleared∨skipped; D6 claim gate — claimed→settled∨deferred, unclaimed exposed):
 
-- `clear-section` when frontier ≥ target and no blocking open.
+- `clear-section` when frontier ≥ target, no blocking open under the lens, and every **required** facet with `kw ≤ target` has a receipt (`open` | `deferred` | fact.`facet_id`). Facet lists come from `$INDUCTIVE_OUT_DIR/section-kw-criteria.md` (materialize before detect; auto-fetch safety net on the control CLI). Script-enforced; receipts ≠ unblock.
 - `skip-section` / `rewind-section` as needed via section-control.

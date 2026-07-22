@@ -14,11 +14,11 @@ Scheme keys: `schemes/compose-template-scheme.json`. Each profile maps them via 
 |----------|------|
 | `section-registry` | Intent SSOT: `intent`, boundary, upstream graph, `section_order` |
 | `section-form-registry` | Per-intent presentation/expression: `presentation` (`guidance`, `allowed`, `forbidden`), `expression` (optional) |
-| `section-kw-criteria` | Per-intent completeness dimensions |
+| `section-kw-criteria` | Per-intent completeness: KW altitude rows + optional per-lens `facets[]` (fenced JSON) |
 | `role-instance` | Stage author lens → F/C |
 | `domain-instance` | Stage domain lens → F/C |
 
-**Axes:** registry = *what* · kw-criteria = *how complete* · form / role / domain = *how to write* · dynamic chapter plan (Init Step 3) = *where*.
+**Axes:** registry = *what* · kw-criteria = *how complete* (altitude + optional facet sides) · form / role / domain = *how to write* · dynamic chapter plan (Init Step 3) = *where*.
 
 ## Ontology (three layers)
 
@@ -26,11 +26,11 @@ The theory below is governed by three ontological layers. A fact is **substance 
 
 | Layer | Contains | Answers | Where it lives |
 |-------|----------|---------|----------------|
-| Substance (§1) | Content (facts) + anchors (§1.5) | what is true | `_facts.json` — producer-written (inductive discovery / deductive Intake+Derive); Init validate-only (origins §1.2) |
-| Lens / envelope (§2) | lens / intent | whose viewpoint owns it (N:M) | `lens_tags` on each fact + section-registry `intent` |
+| Substance (§1) | Content (facts) + anchors (§1.5) + optional `facet_id` tag | what is true (+ which facet receipt a fact fulfills) | `_facts.json` — producer-written (inductive discovery / deductive Intake+Derive); Init validate-only (origins §1.2) |
+| Lens / envelope (§2) | lens / intent / optional facets (§2.4) | whose viewpoint owns it (N:M); which sides must be covered | `lens_tags` + section-registry `intent` + kw-criteria `facets[]`; opens/facts may carry `facet_id` |
 | Presentation (§3) | Form (`F`) + Expression (`C`) + Render (`display_title` / H3 theme) | how to carry / write (per `form_lens`) + how to label | F/C at Init Step 4.W per FL; `display_title` copied from framework into `_derive-{cid}.json`; H3 from `_lens-themes.json` |
 
-**Invariant — substance carries no presentation.** One fact may be tagged to several lenses and is rebuilt differently under each; therefore Form/Expression cannot be attributes of the fact. Lens membership is *stored* (`lens_tags`); presentation is *derived on demand*, never persisted onto the fact.
+**Invariant — substance carries no presentation.** One fact may be tagged to several lenses and is rebuilt differently under each; therefore Form/Expression cannot be attributes of the fact. Lens membership is *stored* (`lens_tags`); presentation is *derived on demand*, never persisted onto the fact. Optional `facet_id` on a fact is a **coverage tag** (envelope receipt), not presentation — Write does not consume it by default (§2.4).
 
 ## 1. Substance
 
@@ -120,6 +120,21 @@ Membership is stored; presentation is derived per lens at Step 5.W — the two m
 ### 2.3 Lens maturity: `frontier_kw`
 
 `frontier_kw` (inductive maturity ledger) — per-lens completeness altitude. Init's Inductive generation (§1.3) reads it via `Expose` to decide whether a lens still needs facts (the `kept iff` predicate lives in §1.3).
+
+### 2.4 Facet coverage: `facet_id`
+
+A **facet** is a sparse coverage atom *inside* a lens — a declared side that must not be silently skipped when marked required. It is **orthogonal** to `intent` (belonging) and `frontier_kw` (altitude); it is **not** a sub-lens and does **not** carry its own `frontier_kw`.
+
+```text
+breadth: lens ∈ coverage_sections
+depth:   frontier_kw          # altitude, per-lens
+sides:   facet_id @ KW row    # optional; only when declared
+```
+
+- **Declaration:** optional fenced JSON `facets[]` under `## {LENS}` in `section-kw-criteria`. Runtime gate SSOT is the revision file `section-kw-criteria.md` (materialized from the framework template before detect). No block ⇒ that lens has no facet axis (omit `facet_id` on opens/facts).
+- **Identity (opens):** with a list → active uniqueness `(detected_under, kw, facet_id)`; without a list → `facet_id` forbidden. Contracts: inductive `g3-capabilities` (Open identity / Facet detect).
+- **Receipt / clear:** each **required** facet with `kw ≤ clear target` needs a receipt (`open` | `deferred` | fact with that `facet_id`, including stance N/A). `other` is always listed when facets exist and is never required. Predicate: `g3-refine` Maturity; script: `kw_facets.py` + `clear-section`.
+- **Presentation:** facets are not an F/C axis; Write may ignore them unless a later design opts in.
 
 ## 3. Presentation
 

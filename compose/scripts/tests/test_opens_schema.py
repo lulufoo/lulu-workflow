@@ -47,6 +47,12 @@ def test_validate_accepts_empty_and_minimal():
     assert validate_opens([_minimal_open()]) == []
 
 
+def test_validate_accepts_facet_id():
+    assert validate_opens([_minimal_open(facet_id="runtime_degradation")]) == []
+    errs = validate_opens([_minimal_open(facet_id="Bad-Id")])
+    assert any("facet_id" in e for e in errs)
+
+
 def test_validate_rejects_non_contiguous_ids():
     errs = validate_opens(
         [

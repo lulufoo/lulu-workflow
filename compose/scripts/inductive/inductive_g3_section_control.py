@@ -10,7 +10,7 @@ Design: docs/domain/archive/compose/archive-2.0/compose-fact-first-k4-fact-nativ
 
 Primary subcommands:
     init-pointer / status / check-coverage / list-sections
-    activate-section / set-frontier
+    activate-section / set-frontier / materialize-kw-criteria
     seed-decision (writes facts; alias for seed)
     add-open / update-open / settle-open / defer-open / reject-open
     update-decision (updates fact by F-n) / attach-code-refs (O- only)
@@ -20,7 +20,9 @@ Primary subcommands:
 Deprecated (fail-fast): register-ep, update-ep, append-to-section
 
 All subcommands print JSON to stdout and exit 0 on success, exit 1 on failure.
-Global flag: --out-dir PATH (required).
+Global flags: --out-dir PATH (required); optional --project-root /
+--compose-profile / --compose-cycle-id for facet kw-criteria auto-materialize;
+optional --kw-criteria.
 """
 
 from __future__ import annotations
@@ -81,8 +83,149 @@ from facts_schema import (  # noqa: E402
     save_facts,
     validate_facts,
 )
+from kw_facets import (  # noqa: E402
+    facets_for_lens,
+    find_active_open_collision,
+    kw_criteria_path,
+    load_kw_criteria_facets,
+    materialize_kw_criteria,
+    silence_must_facets,
+    validate_facet_id_for_lens,
+)
 from decision_fact_claim_schema import sync_and_evaluate_claims  # noqa: E402
 from resolved_refs_schema import has_resolved_refs, scope_decision_fact_path  # noqa: E402
+
+
+def _resolve_kw_criteria_path(out_dir: Path, args: argparse.Namespace) -> Path | None:
+    """Facet SSOT: --kw-criteria, else out_dir/section-kw-criteria.md, else fetch."""
+    explicit = getattr(args, "kw_criteria", None)
+    if explicit:
+        path = Path(explicit)
+        if not path.is_file():
+            _fail(f"kw-criteria not found: {path}")
+        return path
+    local = kw_criteria_path(out_dir)
+    if local.is_file():
+        return local
+    return _try_fetch_kw_criteria(out_dir, args)
+
+
+def _try_fetch_kw_criteria(
+    out_dir: Path,
+    args: argparse.Namespace,
+) -> Path | None:
+    """Materialize from compose framework when --project-root is set.
+
+    Returns None when fetch is unavailable (no project-root / fetch error) so
+    callers keep the empty-registry backward-compatible path.
+    """
+    root_raw = getattr(args, "project_root", None)
+    if not root_raw:
+        return None
+    root = Path(root_raw).resolve()
+    if not root.is_dir():
+        return None
+    # Prefer dedicated fetch flags; fall back to init-pointer's --profile/--cycle-id.
+    profile = (
+        getattr(args, "compose_profile", None)
+        or getattr(args, "profile", None)
+        or ""
+    )
+    profile = str(profile).strip() or None
+    cycle_id = (
+        getattr(args, "compose_cycle_id", None)
+        or getattr(args, "cycle_id", None)
+        or ""
+    )
+    cycle_id = str(cycle_id).strip() or None
+    _io = _SCRIPTS / "io"
+    if str(_io) not in sys.path:
+        sys.path.insert(0, str(_io))
+    try:
+        from fetch_compose_framework import (  # noqa: WPS433
+            FetchComposeFrameworkError,
+            fetch_compose_framework,
+        )
+    except ImportError:
+        return None
+    try:
+        content = fetch_compose_framework(
+            "section-kw-criteria",
+            root,
+            profile_id=profile,
+            cycle_id=cycle_id,
+        )
+        return materialize_kw_criteria(out_dir, content)
+    except (FetchComposeFrameworkError, OSError, ValueError):
+        return None
+
+
+def _load_facet_registry(
+    out_dir: Path,
+    args: argparse.Namespace,
+) -> dict[str, list[dict[str, Any]]]:
+    """Empty registry = no lens declares facets (backward-compatible)."""
+    path = _resolve_kw_criteria_path(out_dir, args)
+    if path is None:
+        return {}
+    try:
+        return load_kw_criteria_facets(path)
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        _fail(f"invalid kw-criteria facets: {exc}")
+        return {}  # pragma: no cover
+
+
+def cmd_materialize_kw_criteria(out_dir: Path, args: argparse.Namespace) -> None:
+    """Write section-kw-criteria.md under out-dir (--source or --from-fetch)."""
+    source = getattr(args, "source", None)
+    from_fetch = bool(getattr(args, "from_fetch", False))
+    if source and from_fetch:
+        _fail("materialize-kw-criteria: use only one of --source / --from-fetch")
+    if source:
+        src = Path(source)
+        if not src.is_file():
+            _fail(f"kw-criteria source not found: {src}")
+        try:
+            text = src.read_text(encoding="utf-8")
+            path = materialize_kw_criteria(out_dir, text)
+        except (OSError, ValueError) as exc:
+            _fail(str(exc))
+    elif from_fetch:
+        if not getattr(args, "project_root", None):
+            _fail("materialize-kw-criteria --from-fetch requires --project-root")
+        path = _try_fetch_kw_criteria(out_dir, args)
+        if path is None:
+            _fail(
+                "materialize-kw-criteria --from-fetch failed "
+                "(check --project-root / --profile / network)"
+            )
+    else:
+        _fail("materialize-kw-criteria requires --source PATH or --from-fetch")
+    try:
+        registry = load_kw_criteria_facets(path)
+    except ValueError as exc:
+        _fail(str(exc))
+    _ok(
+        {
+            "path": str(path),
+            "facet_lenses": sorted(registry.keys()),
+        }
+    )
+
+
+def _assert_facet_for_lens(
+    *,
+    facet_id: str | None,
+    lens: str | None,
+    registry: dict[str, list[dict[str, Any]]],
+) -> None:
+    errors = validate_facet_id_for_lens(
+        facet_id,
+        lens=lens,
+        registry=registry,
+    )
+    if errors:
+        _fail("; ".join(errors))
 
 
 # ---------------------------------------------------------------------------
@@ -538,6 +681,24 @@ def cmd_seed_decision(out_dir: Path, args: argparse.Namespace) -> None:
     anchors = _parse_anchors_arg(getattr(args, "anchors", None))
     if anchors:
         fact["anchors"] = anchors
+    facet_id = getattr(args, "facet_id", None)
+    if facet_id:
+        facet_id = str(facet_id).strip()
+    registry = _load_facet_registry(out_dir, args)
+    if facet_id:
+        listed = [t for t in lens_tags if facets_for_lens(registry, t) is not None]
+        if not listed:
+            _fail(
+                f"facet_id forbidden: none of lens_tags {lens_tags} "
+                "declare a facet list"
+            )
+        for tag in listed:
+            _assert_facet_for_lens(
+                facet_id=facet_id,
+                lens=tag,
+                registry=registry,
+            )
+        fact["facet_id"] = facet_id
     facts.append(fact)
     try:
         _save_facts_inductive(out_dir, facts)
@@ -567,6 +728,32 @@ def cmd_add_open(out_dir: Path, args: argparse.Namespace) -> None:
     )
     _assert_detected_under_allowed(out_dir, detected_under)
 
+    facet_id = getattr(args, "facet_id", None)
+    if facet_id:
+        facet_id = str(facet_id).strip()
+    registry = _load_facet_registry(out_dir, args)
+    _assert_facet_for_lens(
+        facet_id=facet_id,
+        lens=detected_under,
+        registry=registry,
+    )
+    if facet_id:
+        if detected_under is None:
+            _fail("facet_id requires non-null --detected-under")
+        collision = find_active_open_collision(
+            opens,
+            detected_under=detected_under,
+            kw=args.kw,
+            facet_id=facet_id,
+        )
+        if collision is not None:
+            _fail(
+                f"active open already exists for "
+                f"(detected_under={detected_under!r}, kw={args.kw!r}, "
+                f"facet_id={facet_id!r}): {collision.get('id')!r}; "
+                "use update-open"
+            )
+
     open_item: dict[str, Any] = {
         "id": mint_open_id(seq),
         "status": "open",
@@ -576,6 +763,8 @@ def cmd_add_open(out_dir: Path, args: argparse.Namespace) -> None:
         "blocking": blocking,
         "problem": args.problem,
     }
+    if facet_id:
+        open_item["facet_id"] = facet_id
     if args.leaning:
         open_item["leaning"] = args.leaning
     if args.confidence:
@@ -625,11 +814,34 @@ def cmd_update_open(out_dir: Path, args: argparse.Namespace) -> None:
         detected_under = _normalize_detected_under(args.detected_under)
         _assert_detected_under_allowed(out_dir, detected_under)
         open_item["detected_under"] = detected_under
+    if getattr(args, "facet_id", None) is not None:
+        fid = str(args.facet_id).strip()
+        open_item["facet_id"] = fid
     if getattr(args, "provenance_note", None):
         note = args.provenance_note.strip()
         if note:
             prev = open_item.get("leaning") or ""
             open_item["leaning"] = (prev + "\n" + note).strip() if prev else note
+
+    registry = _load_facet_registry(out_dir, args)
+    _assert_facet_for_lens(
+        facet_id=open_item.get("facet_id"),
+        lens=open_item.get("detected_under"),
+        registry=registry,
+    )
+    if open_item.get("facet_id"):
+        collision = find_active_open_collision(
+            opens,
+            detected_under=open_item.get("detected_under"),
+            kw=open_item.get("kw"),
+            facet_id=str(open_item["facet_id"]),
+            exclude_id=str(open_item.get("id")),
+        )
+        if collision is not None:
+            _fail(
+                f"active open already exists for facet_id="
+                f"{open_item.get('facet_id')!r}: {collision.get('id')!r}"
+            )
 
     try:
         _save_opens(out_dir, opens)
@@ -697,6 +909,12 @@ def cmd_settle_open(out_dir: Path, args: argparse.Namespace) -> None:
             "lens_tags": lens_tags,
             "origin": {"type": "discovered", "ref": [args.open_id]},
         }
+        # Prefer entry facet_id; else copy from open (E2).
+        entry_facet = entry.get("facet_id")
+        if entry_facet is not None and str(entry_facet).strip():
+            fact["facet_id"] = str(entry_facet).strip()
+        elif open_item.get("facet_id"):
+            fact["facet_id"] = str(open_item["facet_id"]).strip()
         declared = entry.get("anchors")
         if declared is not None:
             # Declared anchors: validated/normalized downstream by save_facts.
@@ -975,6 +1193,22 @@ def cmd_clear_section(out_dir: Path, args: argparse.Namespace) -> None:
             "seed-decision or settle-open first"
         )
 
+    registry = _load_facet_registry(out_dir, args)
+    facets = facets_for_lens(registry, section)
+    if facets is not None:
+        missing = silence_must_facets(
+            lens=section,
+            target_kw=target_kw,
+            facets=facets,
+            opens=_load_opens(out_dir),
+            facts=facts,
+        )
+        if missing:
+            _fail(
+                f"cannot clear {section!r}: silent must facet(s) "
+                f"at kw<={target_kw}: {', '.join(missing)}"
+            )
+
     json_path = section_path(out_dir, section)
     if json_path.exists():
         try:
@@ -1188,8 +1422,51 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="PATH",
         help="$INDUCTIVE_OUT_DIR: revision dir for inductive state + _facts.json",
     )
+    parser.add_argument(
+        "--kw-criteria",
+        default=None,
+        dest="kw_criteria",
+        metavar="PATH",
+        help=(
+            "Optional section-kw-criteria.md for facet lists; "
+            "default: <out-dir>/section-kw-criteria.md when present"
+        ),
+    )
+    parser.add_argument(
+        "--project-root",
+        default=None,
+        dest="project_root",
+        metavar="PATH",
+        help="Project root for materialize-kw-criteria --from-fetch / auto-fetch",
+    )
+    parser.add_argument(
+        "--compose-profile",
+        default=None,
+        dest="compose_profile",
+        metavar="ID",
+        help="Compose profile id for framework fetch (facet auto-materialize)",
+    )
+    parser.add_argument(
+        "--compose-cycle-id",
+        default=None,
+        dest="compose_cycle_id",
+        metavar="ID",
+        help="Cycle id for framework fetch (optional)",
+    )
 
     sub = parser.add_subparsers(dest="subcommand", required=True)
+
+    p = sub.add_parser(
+        "materialize-kw-criteria",
+        help="Write section-kw-criteria.md under out-dir (facet SSOT for gates)",
+    )
+    p.add_argument("--source", default=None, metavar="PATH", help="Local markdown file")
+    p.add_argument(
+        "--from-fetch",
+        action="store_true",
+        dest="from_fetch",
+        help="Fetch section-kw-criteria via compose framework (--project-root required)",
+    )
 
     p = sub.add_parser("init-pointer", help="Seed section pointer + _index.json")
     p.add_argument(
@@ -1229,6 +1506,13 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="JSON",
         help='Declarative anchors: JSON array of {"kind","value"} (P4)',
     )
+    p.add_argument(
+        "--facet-id",
+        default=None,
+        dest="facet_id",
+        metavar="ID",
+        help="Optional facet_id on seed fact (required to count as must-facet receipt)",
+    )
 
     p = sub.add_parser("add-open", help="Append an open to inductive-opens.json")
     p.add_argument("--kw", required=True, type=int, metavar="N")
@@ -1244,6 +1528,13 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--problem", required=True, metavar="TEXT")
     p.add_argument("--detected-under", default=None, dest="detected_under", metavar="S")
+    p.add_argument(
+        "--facet-id",
+        default=None,
+        dest="facet_id",
+        metavar="ID",
+        help="Required when detected_under lens declares a facet list",
+    )
     p.add_argument("--leaning", default=None, metavar="TEXT")
     p.add_argument("--blocking", default="true", metavar="BOOL")
     p.add_argument("--confidence", default=None, metavar="C")
@@ -1261,6 +1552,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--trigger", default=None, metavar="T")
     p.add_argument("--means", default=None, metavar="M")
     p.add_argument("--detected-under", default=None, dest="detected_under", metavar="S")
+    p.add_argument("--facet-id", default=None, dest="facet_id", metavar="ID")
     p.add_argument(
         "--provenance-note",
         default=None,
@@ -1365,6 +1657,7 @@ def main() -> None:
         "list-sections": cmd_list_sections,
         "activate-section": cmd_activate_section,
         "set-frontier": cmd_set_frontier,
+        "materialize-kw-criteria": cmd_materialize_kw_criteria,
         "seed-decision": cmd_seed_decision,
         "add-open": cmd_add_open,
         "update-open": cmd_update_open,

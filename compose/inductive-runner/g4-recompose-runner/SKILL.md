@@ -52,7 +52,7 @@ Do **not** paste fact/open contents or DQI in the Task prompt — read from disk
 2. Read `$INDUCTIVE_OUT_DIR/inductive-scope/_index.json` → confirm `last_checkpoint == "shape"`. **Shape baseline = `checkpoint_git_sha` when present**. Use `git show <sha>:…` / `git diff <sha>..HEAD` against that SHA when available. If SHA is null, fall back to HEAD facts only and note the limitation in `facts`. **Do not** treat DQI as SoT.
 3. **Read K4 stores:**
    - `$INDUCTIVE_OUT_DIR/_facts.json` — committed substance (`text`, `lens_tags`, optional `origin`)
-   - `$INDUCTIVE_OUT_DIR/inductive-opens.json` — note `status=deferred` opens (deferred is not itself a conflict; two lenses resolving the *same* topic differently is)
+   - `$INDUCTIVE_OUT_DIR/inductive-opens.json` — note `status=deferred` opens (deferred is not itself a conflict; two lenses resolving the *same* concern / gap differently is)
    - `$INDUCTIVE_OUT_DIR/inductive-scope/<S>.json` — maturity only; **no** `decisions[]`/`deferred[]`
 4. Cross-reference all committed facts (grouped by `lens_tags`) against each other and against the Shape-confirm baseline (re-synthesize confirmed spine from checkpoint-era facts vs HEAD):
    - **conflicts** — any two facts (same lens or different) that contradict. For each: `description`, `sections` (all implicated lenses), `owning_section` (set only if one lens is clearly the right home; else leave unset), optional `code_refs` (reused from related opens only).

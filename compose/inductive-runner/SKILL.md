@@ -45,6 +45,7 @@ INDUCTIVE_FACTS       = $INDUCTIVE_OUT_DIR/_facts.json              # discovery-
 INDUCTIVE_DQI         = $INDUCTIVE_OUT_DIR/inductive-dqi.json       # optional resume aid; not SoT
 INDUCTIVE_GATE_STATE  = $INDUCTIVE_OUT_DIR/inductive-gate-state.json
 INDUCTIVE_SECTION_PTR = $INDUCTIVE_OUT_DIR/inductive-section-pointer.json  # routing aid; status also on section JSON
+INDUCTIVE_KW_CRITERIA = $INDUCTIVE_OUT_DIR/section-kw-criteria.md  # facet SSOT for clear/add-open (materialized)
 INDUCTIVE_GROUNDING   = $INDUCTIVE_OUT_DIR/grounding-notes.json     # optional receipts
 INDUCTIVE_G4_REPORT   = $INDUCTIVE_OUT_DIR/g4-recompose-report.json
 PROVENANCE_GATE_STATE = $INDUCTIVE_OUT_DIR/provenance-gate-state.json
@@ -61,15 +62,19 @@ PROVENANCE_TRACES     = $INDUCTIVE_OUT_DIR/provenance-trace-{intent,scope,norm}.
 |-------|---------|
 | `$FETCH_COMPOSE` | `python3 "$SKILL_ROOT/compose/scripts/io/fetch_compose_framework.py" --role <role> --profile "$COMPOSE_PROFILE" --project-root "$(pwd)" --cycle-id "$CYCLE_ID"` |
 | `$INDUCTIVE_GATE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_gate_control.py" --out-dir "$INDUCTIVE_OUT_DIR"` |
-| `$INDUCTIVE_G3_SECTION_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_g3_section_control.py" --out-dir "$INDUCTIVE_OUT_DIR"` |
+| `$INDUCTIVE_G3_SECTION_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_g3_section_control.py" --out-dir "$INDUCTIVE_OUT_DIR" --project-root "$(pwd)" --compose-profile "$COMPOSE_PROFILE" --compose-cycle-id "$CYCLE_ID"` |
 | `$PROVENANCE_GATE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/provenance_gate_control.py" --out-dir "$INDUCTIVE_OUT_DIR"` |
 | `$DECISION_FACT_CLAIM_CTL` | `python3 "$SKILL_ROOT/compose/scripts/core/decision_fact_claim_control.py" --revision-dir "$INDUCTIVE_OUT_DIR"` |
 
 Fetch schedule:
 - **Before Seed / Shape-confirm:** `$FETCH_COMPOSE --role section-registry` → `SECTION_REGISTRY` (`section_order` → `init-session --sections`); `$FETCH_COMPOSE --role inductive-scan-criteria` → `SCAN_CRITERIA` (methods / shape hints / mandatory)
-- **Before detect / refine:** `$FETCH_COMPOSE --role section-form-registry`; `$FETCH_COMPOSE --role section-kw-criteria` → `KW_CRITERIA`
+- **Before detect / refine:** `$FETCH_COMPOSE --role section-form-registry`; `$FETCH_COMPOSE --role section-kw-criteria` → `KW_CRITERIA`; **then materialize facet SSOT** (required for facet gates):
+  - `$INDUCTIVE_G3_SECTION_CTL materialize-kw-criteria --from-fetch`  
+    → writes `$INDUCTIVE_KW_CRITERIA` (`section-kw-criteria.md`); or pipe/fetch to a temp file and `materialize-kw-criteria --source <path>`
+  - Observable done: `$INDUCTIVE_KW_CRITERIA` exists under `$INDUCTIVE_OUT_DIR`
+  - Safety net: `$INDUCTIVE_G3_SECTION_CTL` carries `--project-root` / `--compose-profile` so `clear-section` / `add-open` auto-fetch+cache if the file is missing
 
-**Primary CRUD (K4 triple store):** `seed-decision` (→ facts), `add-open` / `update-open` / `settle-open` / `defer-open` / `reject-open` (→ opens), `update-decision` (→ fact `F-n`), `attach-code-refs` (`O-` only), `get-section`, `view --synthesis off|on`, `checkpoint --name shape`, `set-frontier`, `activate-section`, `clear-section`, `skip-section`, `rewind-section`, `check-coverage`. See `$INDUCTIVE_G3_SECTION_CTL --help`.
+**Primary CRUD (K4 triple store):** `materialize-kw-criteria`, `seed-decision` (→ facts), `add-open` / `update-open` / `settle-open` / `defer-open` / `reject-open` (→ opens), `update-decision` (→ fact `F-n`), `attach-code-refs` (`O-` only), `get-section`, `view --synthesis off|on`, `checkpoint --name shape`, `set-frontier`, `activate-section`, `clear-section`, `skip-section`, `rewind-section`, `check-coverage`. See `$INDUCTIVE_G3_SECTION_CTL --help`.
 
 **Removed (fail-fast if called):** `register-ep`, `update-ep`, `append-to-section` — use the commands above.
 

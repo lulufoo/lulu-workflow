@@ -1073,3 +1073,258 @@ def test_settle_rolls_back_on_opens_oserror(tmp_path, monkeypatch, capsys):
     assert not (tmp_path / "_facts.json").exists()
     opens = json.loads((tmp_path / "inductive-opens.json").read_text(encoding="utf-8"))
     assert opens[0]["status"] == "open"
+
+
+# --- facet coverage (lens facet_id) ----------------------------------------
+
+_OPS_KW_CRITERIA = """## OPS
+
+| KW | Verifiable intent attributes |
+|----|------------------------------|
+| KW1 | Can state operability |
+
+```json
+{
+  "facets": [
+    {"id": "runtime_degradation", "kw": 1, "required": true},
+    {"id": "steady_state_rollback", "kw": 1, "required": true},
+    {"id": "cutover_migration_repair", "kw": 1, "required": true},
+    {"id": "other", "kw": 1, "required": false}
+  ]
+}
+```
+"""
+
+
+def _seed_ops(tmp_path: Path) -> Path:
+    code, payload = _run(
+        tmp_path, "init-pointer", "--sections", "OPS,I", "--mandatory", ""
+    )
+    assert code == 0, payload
+    code, payload = _run(tmp_path, "activate-section", "--section", "OPS")
+    assert code == 0, payload
+    kw = tmp_path / "section-kw-criteria.md"
+    kw.write_text(_OPS_KW_CRITERIA, encoding="utf-8")
+    return kw
+
+
+def test_clear_ops_fails_when_only_migration_fact(tmp_path):
+    _seed_ops(tmp_path)
+    code, p = _run(
+        tmp_path,
+        "seed-decision",
+        "--section",
+        "OPS",
+        "--lens-tags",
+        "OPS",
+        "--text",
+        "cutover migration repair stance",
+        "--facet-id",
+        "cutover_migration_repair",
+    )
+    assert code == 0, p
+    _run(tmp_path, "set-frontier", "--section", "OPS", "--kw", "1")
+    code, payload = _run(tmp_path, "clear-section", "--section", "OPS", "--target-kw", "1")
+    assert code == 1 and not payload["ok"]
+    assert "silent must facet" in payload["error"]
+    assert "steady_state_rollback" in payload["error"]
+    assert "runtime_degradation" in payload["error"]
+
+
+def test_clear_ops_ok_with_stance_and_facts(tmp_path):
+    _seed_ops(tmp_path)
+    for fid, text in [
+        ("cutover_migration_repair", "migration repair"),
+        ("runtime_degradation", "degradation stance"),
+        ("steady_state_rollback", "no new steady-state rollback protocol"),
+    ]:
+        code, p = _run(
+            tmp_path,
+            "seed-decision",
+            "--section",
+            "OPS",
+            "--lens-tags",
+            "OPS",
+            "--text",
+            text,
+            "--facet-id",
+            fid,
+        )
+        assert code == 0, p
+    _run(tmp_path, "set-frontier", "--section", "OPS", "--kw", "1")
+    code, payload = _run(tmp_path, "clear-section", "--section", "OPS", "--target-kw", "1")
+    assert code == 0, payload
+
+
+def test_clear_ops_facet_receipt_open_still_blocks_if_blocking(tmp_path):
+    _seed_ops(tmp_path)
+    for fid, text in [
+        ("cutover_migration_repair", "migration"),
+        ("runtime_degradation", "degrade"),
+    ]:
+        _run(
+            tmp_path,
+            "seed-decision",
+            "--section",
+            "OPS",
+            "--lens-tags",
+            "OPS",
+            "--text",
+            text,
+            "--facet-id",
+            fid,
+        )
+    code, p = _run(
+        tmp_path,
+        "add-open",
+        "--kw",
+        "1",
+        "--trigger",
+        "ai",
+        "--means",
+        "ai_scan",
+        "--problem",
+        "steady-state rollback gap",
+        "--detected-under",
+        "OPS",
+        "--facet-id",
+        "steady_state_rollback",
+        "--blocking",
+        "true",
+    )
+    assert code == 0, p
+    _run(tmp_path, "set-frontier", "--section", "OPS", "--kw", "1")
+    code, payload = _run(tmp_path, "clear-section", "--section", "OPS", "--target-kw", "1")
+    assert code == 1 and not payload["ok"]
+    assert "blocking open" in payload["error"]
+
+
+def test_add_open_requires_facet_when_list_present(tmp_path):
+    _seed_ops(tmp_path)
+    code, payload = _run(
+        tmp_path,
+        "add-open",
+        "--kw",
+        "1",
+        "--trigger",
+        "ai",
+        "--means",
+        "ai_scan",
+        "--problem",
+        "gap",
+        "--detected-under",
+        "OPS",
+    )
+    assert code == 1 and not payload["ok"]
+    assert "facet_id required" in payload["error"]
+
+
+def test_settle_open_copies_facet_id(tmp_path):
+    _seed_ops(tmp_path)
+    code, p = _run(
+        tmp_path,
+        "add-open",
+        "--kw",
+        "1",
+        "--trigger",
+        "human",
+        "--means",
+        "human_direct",
+        "--problem",
+        "need degradation stance",
+        "--detected-under",
+        "OPS",
+        "--facet-id",
+        "runtime_degradation",
+    )
+    assert code == 0, p
+    ff = _write_facts_file(
+        tmp_path / "facts.json",
+        [{"text": "degradation settled", "lens_tags": ["OPS"]}],
+    )
+    code, p2 = _run(
+        tmp_path,
+        "settle-open",
+        "--open-id",
+        "O-1",
+        "--facts-file",
+        str(ff),
+    )
+    assert code == 0, p2
+    facts = json.loads((tmp_path / "_facts.json").read_text(encoding="utf-8"))
+    assert facts[0]["facet_id"] == "runtime_degradation"
+
+
+def test_lens_without_facet_list_forbids_facet_id(tmp_path):
+    _seed_ops(tmp_path)
+    code, payload = _run(
+        tmp_path,
+        "add-open",
+        "--kw",
+        "1",
+        "--trigger",
+        "ai",
+        "--means",
+        "ai_scan",
+        "--problem",
+        "gap",
+        "--detected-under",
+        "I",
+        "--facet-id",
+        "other",
+    )
+    assert code == 1 and not payload["ok"]
+    assert "facet_id forbidden" in payload["error"]
+
+
+def test_materialize_kw_criteria_from_source(tmp_path):
+    _seed(tmp_path, active="I")
+    src = tmp_path / "src-kw.md"
+    src.write_text(_OPS_KW_CRITERIA, encoding="utf-8")
+    # remove any accidental local copy
+    local = tmp_path / "section-kw-criteria.md"
+    if local.exists():
+        local.unlink()
+    code, payload = _run(
+        tmp_path,
+        "materialize-kw-criteria",
+        "--source",
+        str(src),
+    )
+    assert code == 0, payload
+    assert (tmp_path / "section-kw-criteria.md").is_file()
+    assert "OPS" in payload.get("facet_lenses", [])
+
+
+def test_clear_uses_materialized_kw_criteria_without_preseeded_local_name(tmp_path):
+    """P0: materialize then clear — gate sees OPS facets."""
+    code, payload = _run(
+        tmp_path, "init-pointer", "--sections", "OPS,I", "--mandatory", ""
+    )
+    assert code == 0, payload
+    _run(tmp_path, "activate-section", "--section", "OPS")
+    src = tmp_path / "fetched-kw.md"
+    src.write_text(_OPS_KW_CRITERIA, encoding="utf-8")
+    code, payload = _run(
+        tmp_path, "materialize-kw-criteria", "--source", str(src)
+    )
+    assert code == 0, payload
+    code, p = _run(
+        tmp_path,
+        "seed-decision",
+        "--section",
+        "OPS",
+        "--lens-tags",
+        "OPS",
+        "--text",
+        "migration only",
+        "--facet-id",
+        "cutover_migration_repair",
+    )
+    assert code == 0, p
+    _run(tmp_path, "set-frontier", "--section", "OPS", "--kw", "1")
+    code, payload = _run(
+        tmp_path, "clear-section", "--section", "OPS", "--target-kw", "1"
+    )
+    assert code == 1 and not payload["ok"]
+    assert "silent must facet" in payload["error"]

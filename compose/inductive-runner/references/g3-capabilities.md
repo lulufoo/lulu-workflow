@@ -16,7 +16,9 @@ Stamps are **always** recorded even when hidden from the user's wording — they
 
 Produces opens in `inductive-opens.json`. Two triggers with **different natures**: 1A is recognition/intake (AI recognizes a user-surfaced gap and docks it to processing); 1B is active execution (AI runs the method).
 
-**Dedup identity** = `(detected_under|null, KW row, topic)`; on collision, `update-open` to attach provenance — never duplicate. `trigger=human` is altitude-exempt; `trigger=ai` applies `frontier_kw`.
+**Open identity:** lens has a facet list → active uniqueness `(detected_under, kw, facet_id)` (one `status=open`; else `update-open`); no list → omit `facet_id`. `trigger=human` is altitude-exempt; `trigger=ai` applies `frontier_kw`.
+
+**Facet detect (1B):** for each **required** facet at the working KW, leave a **receipt** = `open` | `deferred` | fact with that `facet_id` (stance N/A OK). `other` is always listed and never required. Clear predicate: `../gates/g3-refine.md` Maturity (script-enforced).
 
 ### 1A — User-triggered (recognize & dock)
 
