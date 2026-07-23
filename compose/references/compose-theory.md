@@ -22,7 +22,7 @@ Scheme keys: `schemes/compose-template-scheme.json`. Each profile maps them via 
 
 ## Ontology (three layers)
 
-The theory below is governed by three ontological layers. A fact is **substance only**; everything about how it appears is rebuilt per consuming lens, never stored on the fact. Reading these as one flat plane is the modelling error the `section → fact + lens` refactor removed.
+The theory below is governed by three ontological layers. A fact is **substance only**; everything about how it appears is rebuilt per consuming lens, never stored on the fact. The three layers are distinct: substance, lens, and presentation. They are not one flat plane.
 
 | Layer | Contains | Answers | Where it lives |
 |-------|----------|---------|----------------|
@@ -30,7 +30,7 @@ The theory below is governed by three ontological layers. A fact is **substance 
 | Lens / envelope (§2) | lens / intent / optional facet seeds (§2.4) | whose viewpoint owns it (N:M); seed reminders for detect | `lens_tags` + section-registry `intent` + optional `facets` string[] |
 | Presentation (§3) | Form (`F`) + Expression (`C`) + Render (`display_title` / H3 theme) | how to carry / write (per `form_lens`) + how to label | F/C at Init Step 4.W per FL; `display_title` copied from framework into `_derive-{cid}.json`; H3 from `_lens-themes.json` |
 
-**Invariant — substance carries no presentation.** One fact may be tagged to several lenses and is rebuilt differently under each; therefore Form/Expression cannot be attributes of the fact. Lens membership is *stored* (`lens_tags`); presentation is *derived on demand*, never persisted onto the fact.
+**Invariant — substance carries no presentation.** One fact may be tagged to several lenses and is rebuilt differently under each. Form and Expression are not attributes of the fact. Lens membership is *stored* (`lens_tags`); presentation is *derived on demand*, never persisted onto the fact.
 
 **Stage-local substance vs delivery.** Within a revision, `_facts.json` is the substance read source for producers and presentation. Cross-stage delivery authority is the delivered document (`.md`); `_facts.json` is a process artifact and is **not** a cross-stage facts package.
 
@@ -85,7 +85,7 @@ Seed is **not** an Expose source: it writes `_facts.json` directly with `origin.
 
 ### 1.4 How facts are born: Deductive materialization (`Deduce`)
 
-`Deduce` is the dual of `Induce`: known upstream → this stage's addressable facts (whole→parts). It writes `_facts.json`; `Write` does not.
+`Deduce` materializes known upstream into this stage's addressable facts (whole→parts) and writes `_facts.json`. `Write` only weaves those facts into prose.
 
 ```text
 Atomize(scope document) → fidelity → Derive → _facts.json
@@ -101,7 +101,7 @@ Atomize(scope document) → fidelity → Derive → _facts.json
 
 ### 1.6 Fact anchors (born-with identity)
 
-**Anchors** are a fact's machine-relevant evidence tokens — the paths, artifacts, symbols, APIs, and code refs a fact commits to. They live as an optional `anchors[]` field on the fact (`{kind, value}`; `kind ∈ ANCHOR_KINDS`, SSOT `facts_schema.py`). Anchors are **substance, not presentation**: they are lens-invariant (the same path reads the same under any lens) and say *what is true*, never *how it is shown*. This is why they sit on the fact (§1) and not in the presentation layer (§3) — they do not violate the "substance carries no presentation" invariant.
+**Anchors** are a fact's machine-relevant evidence tokens — the paths, artifacts, symbols, APIs, and code refs a fact commits to. They live as an optional `anchors[]` field on the fact (`{kind, value}`; `kind ∈ ANCHOR_KINDS`, SSOT `facts_schema.py`). Anchors are **substance, not presentation**: they are lens-invariant (the same path reads the same under any lens) and say *what is true*, never *how it is shown*. They live on the fact (§1), not in the presentation layer (§3).
 
 Anchors are acquired **at fact birth**, one write, no later mutation — declare-first, mechanical fallback:
 
@@ -113,7 +113,7 @@ Anchors are acquired **at fact birth**, one write, no later mutation — declare
 
 **Invariant — anchors must survive into the body.** A fact placed in a chapter carries its anchors into that chapter's rendered body; abstracting them away is a substance loss. Init's validation enforces this mechanically (the anchor-coverage check: every `discovered` fact's anchors must appear as a normalized substring in its chapter body; `code_ref` matches OR over its `path`/`symbol` segments).
 
-**Stage-local SoT after settlement.** Once an open is settled, the fact is the live substance record for its evidence inside the revision; the `code_refs` remaining on the settled open are historical provenance only. Downstream (Init and later) reads `_facts.json`, not opens — a "transient upstream → durable substance" projection, not duplicate storage. This does **not** make `_facts.json` the cross-stage delivery SSOT (see Ontology).
+**After settlement.** The fact holds the evidence; settled-open `code_refs` are provenance only. Downstream reads `_facts.json`, not opens. Cross-stage delivery SSOT remains the document (see Ontology).
 
 **Authoring convention.** In fact `text`, wrapping machine-relevant tokens in backticks is an optional readability hint for humans; it is **not** a data contract — anchors come from the declared `anchors[]` (or the fallback), never from parsing prose.
 
@@ -169,7 +169,7 @@ C is the set of writing constraints that govern how content is expressed inside 
 - `d` — the writing dimension (e.g., granularity, vocabulary, abstraction level, tone, completeness bar)
 - `c` — the criterion for that dimension, derived from `### Role Fields`, domain instance, intent, that lens's `presentation`, that lens's `expression.required`/`expression.forbidden`, or `expression_conventions`
 
-`expression_conventions` may include grounding clauses (e.g. cite paths only when verified elsewhere); they govern **how** to write, not **what** Init injects into facts.
+`expression_conventions` may include grounding clauses (e.g. cite paths only when verified elsewhere). They do not add facts.
 
 C has 2–5 pairs per `form_lens`. Every `c` must be traceable to a specific `### Role Fields` field, `expression_conventions`, lens `presentation`, lens `expression`, or intent clause; no pair is invented without grounding in these sources.
 
