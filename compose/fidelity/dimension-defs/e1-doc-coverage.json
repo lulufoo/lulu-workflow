@@ -1,0 +1,26 @@
+{
+  "id": "e1-doc-coverage",
+  "label": "Doc → facts coverage (no weakening)",
+  "eval_target": {
+    "path": "{facts_path}"
+  },
+  "remediation_target": {
+    "path": "{facts_path}"
+  },
+  "sots": [
+    {
+      "kind": "path",
+      "role": "primary",
+      "ref": "{scope_doc}"
+    }
+  ],
+  "method": {
+    "kind": "builtin",
+    "focus": "E1: Every obligation unit from the input delivery doc must have a corresponding fact, without weakening. Unitize doc via chapter anchors and ##/### headings (mixed); unstructured docs = whole doc + semantic hard-contract scan. Weakening (narrow list, blocking): quantity relaxations; must/forbidden → optional; negative constraints removed; interface fields dropped. Remediate only _facts.json. Do not edit the SoT doc."
+  },
+  "review": {
+    "seq": 1,
+    "output_path": "fidelity-review-e1.md",
+    "template": "eval/review.template.md"
+  }
+}

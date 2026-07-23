@@ -2,7 +2,6 @@
 """CLI for kernel Step 3 (derive) mechanical shell (K1).
 
 Subcommands:
-    plan       Legacy zero-only triggers + topo order + true gaps
     plan-edge  Edge-coverage holes + topo order + true gaps (deductive-runner)
     audit      Cascade-aware self-audit after derived facts are appended
     append     Append derived facts (contiguous ids) and write ``_facts.json``
@@ -54,6 +53,35 @@ from section_registry_schema import (  # noqa: E402
     normalize_section_registry,
 )
 
+_FIDELITY_SCRIPTS = _SCRIPTS.parent / "fidelity" / "scripts"
+if str(_FIDELITY_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_FIDELITY_SCRIPTS))
+from fidelity_evaluate_state_schema import (  # noqa: E402
+    fidelity_evaluate_state_path,
+    gate_allows_derive,
+    load_state,
+)
+
+
+def _require_fidelity_for_derive(revision_dir: Path) -> str | None:
+    """Return error message if Atomize fidelity gate blocks Derive; else None."""
+    path = fidelity_evaluate_state_path(revision_dir)
+    if not path.is_file():
+        return (
+            "fidelity gate missing — run Atomize fidelity Eval "
+            f"(expected {path.name})"
+        )
+    try:
+        data = load_state(path)
+    except (OSError, ValueError) as exc:
+        return f"fidelity gate unreadable: {exc}"
+    if not gate_allows_derive(data):
+        return (
+            f"fidelity gate not open (status={data.get('status')!r}); "
+            "Derive blocked until E1∩E2 passed or skipped"
+        )
+    return None
+
 
 def _ok(payload: dict[str, Any]) -> int:
     print(json.dumps(payload, ensure_ascii=False))
@@ -93,54 +121,12 @@ def _graph_and_maps(
     return graph, section_order, presence_map
 
 
-def cmd_plan(args: argparse.Namespace) -> int:
-    revision_dir = args.revision_dir.resolve()
-    try:
-        facts = load_facts(facts_path(revision_dir))
-    except ValueError as exc:
-        return _fail(str(exc))
-    try:
-        graph, section_order, presence_map = _graph_and_maps(
-            args.project_root.resolve(),
-            args.profile.strip(),
-        )
-    except Exception as exc:  # noqa: BLE001
-        return _fail(f"section-registry unavailable: {exc}")
-
-    triggered = derive_triggers(section_order, presence_map, facts, graph)
-    try:
-        order = topo_order_triggered(triggered, graph) if triggered else []
-    except DeriveCycleError as exc:
-        return _fail(str(exc))
-    gaps = true_coverage_gaps(section_order, presence_map, facts, graph)
-    upstreams = {
-        lens: {
-            "upstreams": derivation_upstreams(lens, graph),
-            "upstream_fact_count": upstream_fact_count(facts, lens, graph),
-            "upstream_facts": [
-                item
-                for u in derivation_upstreams(lens, graph)
-                for item in filter_by_lens(facts, u)
-            ],
-        }
-        for lens in order
-    }
-    return _ok(
-        {
-            "ok": True,
-            "command": "plan",
-            "triggered": triggered,
-            "order": order,
-            "true_gaps": gaps,
-            "upstreams": upstreams,
-            "facts_total": len(facts),
-        }
-    )
-
-
 def cmd_plan_edge(args: argparse.Namespace) -> int:
     """Edge-coverage floor plan for deductive-runner (not zero-only)."""
     revision_dir = args.revision_dir.resolve()
+    gate_err = _require_fidelity_for_derive(revision_dir)
+    if gate_err:
+        return _fail(gate_err)
     try:
         facts = load_facts(facts_path(revision_dir))
     except ValueError as exc:
@@ -306,12 +292,6 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
 
-    plan_p = sub.add_parser("plan", help="List zero-only triggers in topo order + true gaps")
-    plan_p.add_argument("--revision-dir", type=Path, required=True)
-    plan_p.add_argument("--profile", type=str, required=True)
-    plan_p.add_argument("--project-root", type=Path, default=Path.cwd())
-    plan_p.set_defaults(func=cmd_plan)
-
     plan_edge_p = sub.add_parser(
         "plan-edge",
         help="List edge-coverage holes in topo order + true gaps (deductive-runner)",
@@ -333,7 +313,7 @@ def main() -> int:
         "--triggered",
         type=str,
         required=True,
-        help="Comma-separated triggered lens keys (from plan.order)",
+        help="Comma-separated triggered lens keys (from plan-edge.order)",
     )
     audit_p.add_argument("--profile", type=str, required=True)
     audit_p.add_argument("--project-root", type=Path, default=Path.cwd())

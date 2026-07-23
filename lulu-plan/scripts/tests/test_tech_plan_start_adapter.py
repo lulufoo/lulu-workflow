@@ -103,16 +103,13 @@ class TestResolveDeliveredRefs:
 
 
 class TestResolveScopeFactsRef:
-    def test_returns_facts_ref_from_stage_facts_path(self, tmp_path: Path):
-        facts = _seed_design_with_facts(tmp_path, _CYCLE)
+    def test_ignores_stage_facts_path(self, tmp_path: Path):
+        """U17: delivery SSOT=doc — never surface upstream facts_path."""
+        _seed_design_with_facts(tmp_path, _CYCLE)
         delivered = _ADAPTER.resolve_delivered_refs(_CYCLE, tmp_path, run_mode="tech")
-        out = _ADAPTER.resolve_scope_facts_ref(delivered_refs=delivered)
-        assert len(out) == 1
-        assert out[0].type == "lulu-design"
-        assert out[0].path == str(facts.resolve())
+        assert _ADAPTER.resolve_scope_facts_ref(delivered_refs=delivered) == []
 
-    def test_legacy_parallel_facts_key_still_resolves(self, tmp_path: Path):
-        """Read-side compat: only ``lulu-design-facts`` key, no entry.facts_path."""
+    def test_ignores_legacy_parallel_facts_key(self, tmp_path: Path):
         doc = _write_file(tmp_path, "design/design-doc.md")
         facts = _write_file(tmp_path, "design/_facts.json", "[]\n")
         path = delivered_refs_file_path(_CYCLE, tmp_path)
@@ -140,10 +137,7 @@ class TestResolveScopeFactsRef:
         }
         path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         delivered = _ADAPTER.resolve_delivered_refs(_CYCLE, tmp_path, run_mode="tech")
-        out = _ADAPTER.resolve_scope_facts_ref(delivered_refs=delivered)
-        assert len(out) == 1
-        assert out[0].type == "lulu-design"
-        assert out[0].path == str(facts.resolve())
+        assert _ADAPTER.resolve_scope_facts_ref(delivered_refs=delivered) == []
 
     def test_approach_scope_has_no_facts_ref(self, tmp_path: Path):
         decision = _write_file(tmp_path, "approach/decision-doc.md")
@@ -162,18 +156,18 @@ class TestResolveScopeFactsRef:
 
 
 class TestStartWiringFactsRef:
-    def test_getattr_write_resolved_refs_round_trip(self, tmp_path: Path):
-        """Mirror start.py: optional resolve_scope_facts_ref → write_resolved_refs."""
+    def test_getattr_write_resolved_refs_empty_facts(self, tmp_path: Path):
+        """Mirror start.py: resolve_scope_facts_ref is always empty (U17)."""
         from resolved_refs_schema import (  # noqa: WPS433
             resolved_facts_ref,
             write_resolved_refs,
         )
 
-        facts = _seed_design_with_facts(tmp_path, _CYCLE)
+        _seed_design_with_facts(tmp_path, _CYCLE)
         delivered = _ADAPTER.resolve_delivered_refs(_CYCLE, tmp_path, run_mode="tech")
         resolve_facts = getattr(_ADAPTER, "resolve_scope_facts_ref", None)
         assert resolve_facts is not None
-        facts_refs = resolve_facts(delivered_refs=delivered)
+        assert resolve_facts(delivered_refs=delivered) == []
         revision_dir = tmp_path / "revision1"
         revision_dir.mkdir()
         write_resolved_refs(
@@ -184,12 +178,9 @@ class TestStartWiringFactsRef:
             scope_ref=delivered[0],
             intent_baseline_refs=[],
             norm_constraint_refs=[],
-            facts_ref=facts_refs[0] if facts_refs else None,
+            facts_ref=None,
         )
-        loaded = resolved_facts_ref(revision_dir)
-        assert loaded is not None
-        assert loaded.type == "lulu-design"
-        assert loaded.path == str(facts.resolve())
+        assert resolved_facts_ref(revision_dir) is None
 
 
 class TestRecordDropsLegacyFactsKey:

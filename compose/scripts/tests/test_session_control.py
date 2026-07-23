@@ -331,7 +331,8 @@ class TestDeliver:
         assert result["ok"] is True
         assert result["current_state"] == "Delivered"
 
-    def test_design_deliver_registers_facts_when_present(self, tmp_path: Path):
+    def test_design_deliver_does_not_register_facts_when_present(self, tmp_path: Path):
+        """deliver_facts=false: local _facts.json is not registered on deliver."""
         seed_profile_pointer_for_tests(tmp_path, _CYCLE, "lulu-design")
         base = tmp_path / _CACHE / _CYCLE / "lulu-design"
         base.mkdir(parents=True, exist_ok=True)
@@ -352,9 +353,7 @@ class TestDeliver:
         assert refs["entries"]["lulu-design"]["path"] == str(
             (ws.parent / "design-doc.md").resolve()
         )
-        assert refs["entries"]["lulu-design"]["facts_path"] == str(
-            (ws.parent / "_facts.json").resolve()
-        )
+        assert "facts_path" not in refs["entries"]["lulu-design"]
         assert "lulu-design-facts" not in refs["entries"]
 
     def test_design_deliver_skips_facts_when_missing(self, tmp_path: Path):

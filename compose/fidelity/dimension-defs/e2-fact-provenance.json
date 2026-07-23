@@ -1,0 +1,26 @@
+{
+  "id": "e2-fact-provenance",
+  "label": "Fact → doc provenance",
+  "eval_target": {
+    "path": "{facts_path}"
+  },
+  "remediation_target": {
+    "path": "{facts_path}"
+  },
+  "sots": [
+    {
+      "kind": "path",
+      "role": "primary",
+      "ref": "{scope_doc}"
+    }
+  ],
+  "method": {
+    "kind": "builtin",
+    "focus": "E2: Every fact (one unit per F-n) must have a locatable source span in the input delivery doc (chapter/section/paragraph). Synonymous paraphrase allowed; no-anchor guesses are failures. Delete or weaken orphan facts in _facts.json only. Do not edit the SoT doc. Run in parallel with E1; both gate Derive."
+  },
+  "review": {
+    "seq": 2,
+    "output_path": "fidelity-review-e2.md",
+    "template": "eval/review.template.md"
+  }
+}

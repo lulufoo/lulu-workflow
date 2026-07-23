@@ -54,30 +54,6 @@ def _patch_graph(monkeypatch) -> None:
     monkeypatch.setattr(mod, "_graph_and_maps", stub_graph_and_maps)
 
 
-def test_cli_plan_triggers_and_true_gaps(tmp_path: Path, monkeypatch, capsys) -> None:
-    _patch_graph(monkeypatch)
-    rev = tmp_path / "rev"
-    _seed_facts(
-        rev,
-        [
-            {"id": "F-1", "text": "ar", "lens_tags": ["AR"]},
-            {"id": "F-2", "text": "sk", "lens_tags": ["SK"]},
-        ],
-    )
-    args = argparse.Namespace(
-        revision_dir=rev,
-        profile="lulu-plan",
-        project_root=tmp_path,
-    )
-    assert mod.cmd_plan(args) == 0
-    payload = json.loads(capsys.readouterr().out)
-    assert payload["triggered"] == ["T"]
-    assert payload["order"] == ["T"]
-    assert payload["true_gaps"] == ["ZZ"]
-    assert "T" in payload["upstreams"]
-    assert payload["upstreams"]["T"]["upstream_fact_count"] == 2
-
-
 def test_cli_append_and_audit_round_trip(tmp_path: Path, monkeypatch, capsys) -> None:
     _patch_graph(monkeypatch)
     rev = tmp_path / "rev"
@@ -202,6 +178,40 @@ def test_cmd_audit_empty_triggered_is_noop_success(tmp_path: Path, capsys) -> No
     assert payload["ok"] is True
     assert payload["triggered"] == []
     assert payload["skipped"] == "empty-triggered"
+
+
+def test_cli_plan_edge_requires_fidelity_gate(tmp_path: Path, monkeypatch, capsys) -> None:
+    _patch_graph(monkeypatch)
+    rev = tmp_path / "rev"
+    _seed_facts(
+        rev,
+        [
+            {"id": "F-1", "text": "ar", "lens_tags": ["AR"]},
+            {"id": "F-2", "text": "sk", "lens_tags": ["SK"]},
+        ],
+    )
+    args = argparse.Namespace(
+        revision_dir=rev,
+        profile="lulu-plan",
+        project_root=tmp_path,
+    )
+    assert mod.cmd_plan_edge(args) == 1
+    assert "fidelity gate missing" in capsys.readouterr().err
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "fidelity" / "scripts"))
+    from fidelity_evaluate_state_schema import (  # noqa: E402
+        empty_state,
+        fidelity_evaluate_state_path,
+        save_state,
+    )
+
+    data = empty_state(intake="atomize")
+    data["status"] = "passed"
+    save_state(fidelity_evaluate_state_path(rev), data)
+    assert mod.cmd_plan_edge(args) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    assert payload["command"] == "plan-edge"
 
 
 def test_cli_classify(tmp_path: Path, monkeypatch, capsys) -> None:

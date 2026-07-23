@@ -173,9 +173,9 @@ def derive_triggers(
     facts: list[dict[str, Any]],
     graph: dict[str, Any],
 ) -> list[str]:
-    """Lenses that trigger legacy zero-only plan: required ∧ 0 facts ∧ has derivation.
+    """Lenses with required ∧ 0 facts ∧ has derivation (zero-only floor helper).
 
-    Kept for backward-compatible ``plan``; deductive-runner uses ``plan-edge``.
+    Used inside ``plan-edge`` alongside edge-hole detection.
     Partial coverage (facts > 0) never triggers — K1 §2.2 zero-only.
     """
     coverage = lenses_present(facts)

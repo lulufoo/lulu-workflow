@@ -19,7 +19,7 @@ Compose Initializing reads **`_facts.json`** validate-only. After `deductive-com
 
 This runner is **stage-agnostic**: lens set / Intent / derivation edges = `section-registry`; do not hardcode stage lens names.
 
-**Must not:** invent decisions; label off-edge obligations as `derived`; write chapter prose; ask the user during Initializing (confirm only here); read upstream prose during Steps 2–3 (Intake only).
+**Must not:** invent decisions; label off-edge obligations as `derived`; write chapter prose; ask the user during Initializing (confirm only here); read upstream prose during Steps 2–3 (Intake only); Import upstream `_facts.json` as delivery; enter workflow `Evaluating` for fidelity; edit the input delivery doc during fidelity remediation.
 
 ---
 
@@ -30,7 +30,7 @@ This runner is **stage-agnostic**: lens set / Intent / derivation edges = `secti
 | `$COMPOSE_PROFILE` | Compose profile id |
 | `$CYCLE_ID` | Active cycle id |
 | `$SCOPE_REF` | Upstream scope SSOT path (prose or `decision-fact.json`) |
-| `$SCOPE_FACTS_PATH` | Upstream fact package path when registered; empty if none |
+| `$SCOPE_FACTS_PATH` | Always empty for delivered compose docs (facts not delivered; Atomize prose). Reserved for legacy dispatch text only. |
 | `$DEDUCTIVE_OUT_DIR` | Active revision dir (`revision{active_doc}/`) |
 | `$CODE_GROUNDING` | Optional; profile `drafting.code_grounding` (boolean string) |
 
@@ -43,6 +43,7 @@ This runner is **stage-agnostic**: lens set / Intent / derivation edges = `secti
 | `$DERIVE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/derive_control.py"` |
 | `$DEDUCTIVE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/deductive/deductive_control.py" --revision-dir "$DEDUCTIVE_OUT_DIR" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)"` |
 | `$DECISION_FACT_CLAIM_CTL` | `python3 "$SKILL_ROOT/compose/scripts/core/decision_fact_claim_control.py" --revision-dir "$DEDUCTIVE_OUT_DIR"` |
+| `$FIDELITY_EVAL_CONTROL` | `python3 "$SKILL_ROOT/compose/fidelity/scripts/fidelity_control.py" --revision-dir "$DEDUCTIVE_OUT_DIR"` |
 
 `$FACTS_CTL` / `$DERIVE_CTL` / `$DEDUCTIVE_CTL`: see each `--help`. Scripts never invent derived work-item text.
 
@@ -66,9 +67,11 @@ Collaboration: AI projects and proposes; **user** closes the confirm gate; scrip
 
 Materialize upstream into this stage’s `_facts.json`. Exactly one branch:
 
-1. **Import** — when `$SCOPE_FACTS_PATH` is non-empty: read that package; assign new contiguous local `F-n`; keep `text` / `origin` when present; never carry upstream `lens_tags`. Match each fact to this stage Intent SSOT (`intent` else `desc`, `intent_boundary` when present): match → retag + `derivation.disposition=carried`; no match → empty `lens_tags` + `quarantined`. Set `derivation.upstream_ref` to upstream F-id(s). Persist via `$FACTS_CTL write`.
-2. **Unit-import** — else when `$SCOPE_REF` is `decision-fact.json`: `$DECISION_FACT_CLAIM_CTL ensure`; claim→emit local seed facts→settled for units pulled into this stage’s lenses; leave unclaimed on the ledger (do not drop).
-3. **Atomize** — else: atomize `$SCOPE_REF` prose once (whole doc); tag `lens_tags` from Intent SSOT (N:M; zero tags ⇒ quarantine candidate). Persist via `$FACTS_CTL write`.
+1. **Unit-import** — when `$SCOPE_REF` is `decision-fact.json`: `$DECISION_FACT_CLAIM_CTL ensure`; claim→emit local seed facts→settled for units pulled into this stage’s lenses; leave unclaimed on the ledger (do not drop). Then:
+   ```bash
+   $FIDELITY_EVAL_CONTROL mark-skipped --reason unit-import
+   ```
+2. **Atomize** — else: atomize `$SCOPE_REF` prose once (whole doc); tag `lens_tags` from Intent SSOT (N:M; zero tags ⇒ quarantine candidate). Persist via `$FACTS_CTL write`. **Do not** Import upstream `_facts.json` (delivery SSOT = doc). Default: **omit** fact `origin` (optional); if present, `origin.ref` must be a non-empty string array.
 
 Then:
 
@@ -77,11 +80,26 @@ $FACTS_CTL validate --revision-dir "$DEDUCTIVE_OUT_DIR" --profile "$COMPOSE_PROF
 $DEDUCTIVE_CTL pending-init
 ```
 
-**Done:** validate exit 0; pending store ready. Proceed to Step 2.
+**After Atomize only — fidelity gate (E1∥E2, required before Derive):**
+
+```bash
+$FIDELITY_EVAL_CONTROL init --intake atomize
+$FIDELITY_EVAL_CONTROL paths
+```
+
+Run **E1** and **E2** in parallel (subagents OK) using defs under `$SKILL_ROOT/compose/fidelity/dimension-defs/` (`e1-doc-coverage`, `e2-fact-provenance`). SoT = input delivery doc (`scope_doc` from `paths`); EvalTarget + remediation = this revision `_facts.json`. Remediate **only** `_facts.json`. Max **3** rounds; same round must clear both dimensions. On round-cap with remaining blocking issues: ask the user in **plain text with multiple options and a stated lean** (do not use AskQuestion tool).
+
+When E1∩E2 clear:
+
+```bash
+$FIDELITY_EVAL_CONTROL mark-passed
+```
+
+**Done:** validate exit 0; pending store ready; fidelity `passed` or `skipped`. Proceed to Step 2.
 
 ### Step 2 — Derive (floor + ceiling)
 
-Mechanical plan first (edge floor + topo):
+Mechanical plan first (edge floor + topo). **`$DERIVE_CTL plan-edge` hard-fails** unless fidelity status is `passed`|`skipped`.
 
 ```bash
 $DERIVE_CTL plan-edge \

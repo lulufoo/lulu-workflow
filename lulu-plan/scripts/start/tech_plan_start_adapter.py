@@ -90,17 +90,13 @@ class TechPlanStartAdapter:
         *,
         delivered_refs: list[DeliveredRef],
     ) -> list[DeliveredRef]:
-        """Optional fact-package ref from scope stage entry ``facts_path``."""
-        primary = first_ref(delivered_refs, "lulu-design") or first_ref(
-            delivered_refs,
-            "lulu-approach",
-        )
-        if primary is None:
-            return []
-        facts = str(primary.facts_path or "").strip()
-        if not facts or not Path(facts).is_file():
-            return []
-        return [DeliveredRef(type=primary.type, path=facts)]
+        """Upstream fact-package ref — retired for delivery SSOT=doc (U1/U17).
+
+        Always empty: ignore legacy ``facts_path`` / parallel keys so Deductive
+        Intake Atomizes the delivered prose doc. ``delivered_refs`` unused.
+        """
+        del delivered_refs
+        return []
 
     def resolve_scope_refs(
         self,
