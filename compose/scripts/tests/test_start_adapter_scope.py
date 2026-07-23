@@ -330,22 +330,9 @@ def test_tech_plan_infer_run_mode():
     assert adapter.infer_run_mode.__name__ == "infer_run_mode"
 
 
-def test_tech_plan_resolve_scope_facts_ref_always_empty(tmp_path: Path):
+def test_tech_plan_has_no_resolve_scope_facts_ref():
     adapter = TechPlanStartAdapter()
-    facts_file = tmp_path / "_facts.json"
-    facts_file.write_text("[]\n", encoding="utf-8")
-    assert adapter.resolve_scope_facts_ref(
-        delivered_refs=[
-            DeliveredRef(
-                type="lulu-design",
-                path="/abs/design.md",
-                facts_path=str(facts_file.resolve()),
-            ),
-        ],
-    ) == []
-    assert adapter.resolve_scope_facts_ref(
-        delivered_refs=[DeliveredRef(type="lulu-design", path="/abs/design.md")],
-    ) == []
+    assert not hasattr(adapter, "resolve_scope_facts_ref")
 
 
 def test_product_spec_infer_run_mode():

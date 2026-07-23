@@ -59,8 +59,9 @@ def test_backfill_from_delivered_tech_design(tmp_path: Path):
     backfill_delivered_refs_from_cycle(cycle_id, tmp_path)
     data = load_delivered_refs_file(cycle_id, tmp_path)
     assert data["entries"]["lulu-design"]["path"] == str(design_doc.resolve())
-    assert data["entries"]["lulu-design"]["facts_path"] == str(facts.resolve())
+    assert "facts_path" not in data["entries"]["lulu-design"]
     assert "lulu-design-facts" not in data["entries"]
+    assert facts.is_file()  # local process artifact may exist; not delivered
 
 
 def test_backfill_from_delivered_product_spec(tmp_path: Path):

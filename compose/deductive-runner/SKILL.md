@@ -30,7 +30,6 @@ This runner is **stage-agnostic**: lens set / Intent / derivation edges = `secti
 | `$COMPOSE_PROFILE` | Compose profile id |
 | `$CYCLE_ID` | Active cycle id |
 | `$SCOPE_REF` | Upstream scope SSOT path (prose or `decision-fact.json`) |
-| `$SCOPE_FACTS_PATH` | Always empty for delivered compose docs (facts not delivered; Atomize prose). Reserved for legacy dispatch text only. |
 | `$DEDUCTIVE_OUT_DIR` | Active revision dir (`revision{active_doc}/`) |
 | `$CODE_GROUNDING` | Optional; profile `drafting.code_grounding` (boolean string) |
 

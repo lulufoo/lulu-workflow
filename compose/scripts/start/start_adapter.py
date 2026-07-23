@@ -9,7 +9,8 @@ Provenance reference model (materialized handoff):
     below are thin readers of ②.
 
     * scope (派生父级)        -> ``resolve_scope_refs`` → ``$SCOPE_REF``
-      (decision holders: decision-fact.json required with units; plan→design uses design-doc)
+      (decision holders: decision-fact.json required with units; plan→design uses
+      the upstream compose prose doc — delivery SSOT is the document)
     * intent baseline (意图基准) -> ``resolve_intent_baseline_refs``
     * norm constraint (规范约束) -> ``resolve_norm_constraint_refs``
 """

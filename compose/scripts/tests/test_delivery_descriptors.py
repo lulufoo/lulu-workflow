@@ -3,12 +3,14 @@
 
 from __future__ import annotations
 
+import json
+
 import bootstrap  # noqa: F401
 from delivery_descriptors import (  # noqa: E402
     _compose_descriptor,
-    delivery_index_deliver_facts,
     iter_delivery_descriptors,
 )
+from workflow_paths import compose_profile_path  # noqa: E402
 
 
 def test_iter_delivery_includes_decision_holders_from_manifest():
@@ -21,21 +23,15 @@ def test_iter_delivery_includes_decision_holders_from_manifest():
     assert "lulu-spec" in stages
 
 
-def test_compose_descriptor_design_deliver_facts_from_profile():
+def test_compose_descriptor_design_has_no_deliver_facts_switch():
     desc = _compose_descriptor("lulu-design")
     assert desc is not None
-    assert desc.deliver_facts is True
+    assert not hasattr(desc, "deliver_facts")
+    profile = json.loads(compose_profile_path("lulu-design").read_text(encoding="utf-8"))
+    assert "deliver_facts" not in (profile.get("delivery_index") or {})
 
 
-def test_compose_descriptor_plan_does_not_deliver_facts():
+def test_compose_descriptor_plan_ok():
     desc = _compose_descriptor("lulu-plan")
     assert desc is not None
-    assert desc.deliver_facts is False
-
-
-def test_delivery_index_deliver_facts_requires_json_true():
-    assert delivery_index_deliver_facts({"deliver_facts": True}) is True
-    assert delivery_index_deliver_facts({"deliver_facts": False}) is False
-    assert delivery_index_deliver_facts({"deliver_facts": "false"}) is False
-    assert delivery_index_deliver_facts({}) is False
-    assert delivery_index_deliver_facts(None) is False
+    assert desc.stage_name == "lulu-plan"

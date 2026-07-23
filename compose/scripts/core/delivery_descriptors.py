@@ -35,14 +35,6 @@ class DeliveryDescriptor:
     state_file: str
     terminal_state: str
     doc_filename: str
-    deliver_facts: bool = False
-
-
-def delivery_index_deliver_facts(delivery_index: dict | None) -> bool:
-    """True only when profile/constraints JSON sets deliver_facts to boolean true."""
-    if not isinstance(delivery_index, dict):
-        return False
-    return delivery_index.get("deliver_facts") is True
 
 
 def _descriptor_from_delivery_index(
@@ -69,7 +61,6 @@ def _descriptor_from_delivery_index(
         state_file=state_file,
         terminal_state=terminal_state,
         doc_filename=doc_filename,
-        deliver_facts=delivery_index_deliver_facts(delivery_index),
     )
 
 
@@ -98,7 +89,6 @@ def _compose_descriptor(profile_id: str) -> DeliveryDescriptor | None:
             state_file="workflow-state.md",
             terminal_state=_DEFAULT_TERMINAL,
             doc_filename=doc_filename,
-            deliver_facts=False,
         )
     return None
 
@@ -122,7 +112,6 @@ def _decision_descriptor(constraints_path: Path) -> DeliveryDescriptor | None:
         state_file="session-state.md",
         terminal_state=_DEFAULT_TERMINAL,
         doc_filename="decision-doc.md",
-        deliver_facts=False,
     )
 
 

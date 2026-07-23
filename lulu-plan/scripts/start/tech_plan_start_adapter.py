@@ -85,19 +85,6 @@ class TechPlanStartAdapter:
                 refs.append(ref)
         return refs
 
-    def resolve_scope_facts_ref(
-        self,
-        *,
-        delivered_refs: list[DeliveredRef],
-    ) -> list[DeliveredRef]:
-        """Upstream fact-package ref — retired for delivery SSOT=doc (U1/U17).
-
-        Always empty: ignore legacy ``facts_path`` / parallel keys so Deductive
-        Intake Atomizes the delivered prose doc. ``delivered_refs`` unused.
-        """
-        del delivered_refs
-        return []
-
     def resolve_scope_refs(
         self,
         *,
@@ -107,9 +94,10 @@ class TechPlanStartAdapter:
     ) -> list[DeliveredRef]:
         """Primary scope: design-doc, or approach decision-fact when falling back.
 
-        When primary is ``lulu-design``, path stays the design prose doc (fact package
-        is ``facts_path`` / ``$SCOPE_FACTS_PATH``). When primary is ``lulu-approach``,
-        ``decision_fact_path`` with units is required (no prose fallback).
+        When primary is ``lulu-design``, path stays the design prose doc (delivery
+        SSOT = document; Atomize at Deductive Intake). When primary is
+        ``lulu-approach``, ``decision_fact_path`` with units is required (no prose
+        fallback).
         """
         del run_mode, carry_forward_ref
         primary = first_ref(delivered_refs, "lulu-design") or first_ref(

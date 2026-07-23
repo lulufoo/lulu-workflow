@@ -40,7 +40,6 @@ def seed_provenance_artifacts(
     scope_refs: list[DeliveredRef],
     intent_baseline_refs: list[DeliveredRef] | None = None,
     norm_constraint_refs: list[DeliveredRef] | None = None,
-    facts_ref: DeliveredRef | None = None,
 ) -> None:
     """Mirror start.py: freeze ① and materialize ② into the revision dir."""
     revision_dir = ws_path.parent
@@ -53,7 +52,6 @@ def seed_provenance_artifacts(
         scope_ref=scope_refs[0] if scope_refs else None,
         intent_baseline_refs=intent_baseline_refs or [],
         norm_constraint_refs=norm_constraint_refs or [],
-        facts_ref=facts_ref,
     )
 
 

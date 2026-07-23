@@ -510,59 +510,8 @@ def test_begin_init_k2_passes_when_facts_present(
     result = draft_control.begin_init(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
     assert result["ok"] is True
     assert "REVISION_DIR:" in result["dispatch_input"]
-    assert "SCOPE_FACTS_PATH:" in result["dispatch_input"]
+    assert "SCOPE_FACTS_PATH:" not in result["dispatch_input"]
     assert "INDUCTIVE_DIR:" not in result["dispatch_input"]
-    # Empty when resolved-refs has no facts_ref
-    assert "SCOPE_FACTS_PATH:     \n" in result["dispatch_input"] or (
-        "SCOPE_FACTS_PATH:     " in result["dispatch_input"]
-        and result["dispatch_input"].split("SCOPE_FACTS_PATH:")[1].split("\n")[0].strip()
-        == ""
-    )
-
-
-def test_begin_init_dispatch_includes_nonempty_scope_facts_path(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    ws = seed_tech_design_session(tmp_path, cycle_id=_CYCLE)
-    rev_dir = _seed_inductive_progress(tmp_path)
-    _write_g4_closed(rev_dir)
-    _write_g5_closed(rev_dir)
-    (rev_dir / "_facts.json").write_text(
-        json.dumps(
-            [{"id": "F-1", "text": "projected", "lens_tags": ["ST"]}],
-            ensure_ascii=False,
-        ),
-        encoding="utf-8",
-    )
-    upstream_facts = tmp_path / "upstream" / "_facts.json"
-    upstream_facts.parent.mkdir(parents=True, exist_ok=True)
-    upstream_facts.write_text("[]\n", encoding="utf-8")
-    scope = resolved_scope_ref(ws.parent)
-    assert scope is not None
-    write_resolved_refs(
-        rev_dir,
-        cycle_id=_CYCLE,
-        stage=_PROFILE_DESIGN,
-        run_mode="tech",
-        scope_ref=scope,
-        intent_baseline_refs=[],
-        norm_constraint_refs=[],
-        facts_ref=DeliveredRef(
-            type="lulu-design",
-            path=str(upstream_facts.resolve()),
-        ),
-    )
-
-    monkeypatch.setattr(
-        draft_control,
-        "_drafting_config",
-        lambda *a, **k: {"inductive": True},
-    )
-
-    result = draft_control.begin_init(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
-    assert result["ok"] is True
-    assert f"SCOPE_FACTS_PATH:     {upstream_facts.resolve()}" in result["dispatch_input"]
 
 
 def test_begin_init_real_design_profile_requires_facts(tmp_path: Path) -> None:

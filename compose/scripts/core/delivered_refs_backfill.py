@@ -20,7 +20,6 @@ from delivery_descriptors import (  # noqa: E402
     DeliveryDescriptor,
     iter_delivery_descriptors,
 )
-from facts_schema import FACTS_BASENAME  # noqa: E402
 from workflow_common import CACHE_DIR, parse_frontmatter_fields  # noqa: E402
 
 _REVISION_DIR_PAT = re.compile(r"^(revision|r)(\d+)$", re.IGNORECASE)
@@ -65,11 +64,6 @@ def _record_revision_delivery(
     doc_path = ws_path.parent / desc.doc_filename
     if not doc_path.is_file():
         return
-    facts_file_arg: str | None = None
-    if desc.deliver_facts:
-        facts_file = ws_path.parent / FACTS_BASENAME
-        if facts_file.is_file():
-            facts_file_arg = str(facts_file.resolve())
     record_delivered_ref(
         cycle_id,
         project_root,
@@ -78,7 +72,6 @@ def _record_revision_delivery(
         revision=rev_num,
         profile_id=desc.stage_name,
         source_workflow_state=str(ws_path.resolve()),
-        facts_path=facts_file_arg,
     )
 
 
@@ -97,11 +90,6 @@ def _record_flat_delivery(
     doc_path = stage_dir / desc.doc_filename
     if not doc_path.is_file():
         return
-    facts_file_arg: str | None = None
-    if desc.deliver_facts:
-        facts_file = stage_dir / FACTS_BASENAME
-        if facts_file.is_file():
-            facts_file_arg = str(facts_file.resolve())
     # Decision-holder stages (flat): compose scope SSOT is decision-fact.json
     decision_fact_arg: str | None = None
     decision_fact = stage_dir / "decision-fact.json"
@@ -115,7 +103,6 @@ def _record_flat_delivery(
         revision=1,
         profile_id=desc.stage_name,
         source_workflow_state=str(state_path.resolve()),
-        facts_path=facts_file_arg,
         decision_fact_path=decision_fact_arg,
     )
 

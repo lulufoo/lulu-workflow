@@ -36,7 +36,6 @@ Derive artifact contract: [`../references/init-draft-quality.md`](../references/
 |---|---|
 | `$REVISION_DIR` | Absolute path to `revision{N}/` |
 | `$SCOPE_REF_PATH` | Absolute path to compose scope SSOT (cross-check only; not atomized here) |
-| `$SCOPE_FACTS_PATH` | Upstream fact package path when registered; empty if none (Init does not Import) |
 | `$OUTPUT_DOC_PATH` | Absolute path to output document (design-doc.md or tech-doc.md) |
 | `$COMPOSE_PROFILE` | Compose profile id from parent dispatch |
 | `$CYCLE_TYPE` | `feature` |
@@ -102,7 +101,7 @@ Prefer `--preamble-file` when content is multiline.
 
 ### Step 2 — Validate facts
 
-Producer (inductive or deductive) already wrote `_facts.json`. **Do not** atomize `$SCOPE_REF_PATH`, Import `$SCOPE_FACTS_PATH`, or Derive. Only validate:
+Producer (inductive or deductive) already wrote `_facts.json`. **Do not** atomize `$SCOPE_REF_PATH` or Derive. Only validate:
 
 ```bash
 $FACTS_CTL validate \

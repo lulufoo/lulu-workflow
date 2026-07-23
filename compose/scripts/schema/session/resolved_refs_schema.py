@@ -10,10 +10,9 @@ revision dir (sibling of ``workflow-state.md``):
        baseline. Audit / traceability only; compose consumers do NOT read it.
 
     ② resolved-refs.json   — the three provenance refs (scope / intent
-       baseline / norm constraint), plus optional ``facts_ref``, that the
-       stage resolver settles ONCE at start.
+       baseline / norm constraint) that the stage resolver settles ONCE at start.
        For decision-holder stages, ``scope_ref.path`` is decision-fact.json
-       (required; no prose fallback). Plan←design may still be design-doc.
+       (required; no prose fallback). Plan←design uses the design prose doc.
        This is the ONLY artifact compose consumers read; they never re-derive
        from the mutable cycle file or from workflow-state.
 
@@ -71,9 +70,8 @@ def write_resolved_refs(
     scope_ref: DeliveredRef | None,
     intent_baseline_refs: list[DeliveredRef],
     norm_constraint_refs: list[DeliveredRef],
-    facts_ref: DeliveredRef | None = None,
 ) -> Path:
-    """Write ② — provenance refs plus optional facts_ref."""
+    """Write ② — provenance triangle (scope / intent baseline / norm constraint)."""
     payload = {
         "version": _VERSION,
         "cycle_id": cycle_id,
@@ -82,7 +80,6 @@ def write_resolved_refs(
         "scope_ref": _ref_to_dict(scope_ref),
         "intent_baseline_refs": [r.to_dict() for r in intent_baseline_refs],
         "norm_constraint_refs": [r.to_dict() for r in norm_constraint_refs],
-        "facts_ref": _ref_to_dict(facts_ref),
         "frozen_at": _now_iso(),
     }
     path = resolved_refs_path(revision_dir)
@@ -101,12 +98,10 @@ def _ref_from_dict(item: Any) -> DeliveredRef | None:
     path = str(item.get("path", "")).strip()
     if not dtype or not path:
         return None
-    facts_path = str(item.get("facts_path", "")).strip()
     decision_fact_path = str(item.get("decision_fact_path", "")).strip()
     return DeliveredRef(
         type=dtype,
         path=path,
-        facts_path=facts_path,
         decision_fact_path=decision_fact_path,
     )
 
@@ -139,10 +134,6 @@ def has_resolved_refs(revision_dir: Path) -> bool:
 
 def resolved_scope_ref(revision_dir: Path) -> DeliveredRef | None:
     return _ref_from_dict(load_resolved_refs(revision_dir).get("scope_ref"))
-
-
-def resolved_facts_ref(revision_dir: Path) -> DeliveredRef | None:
-    return _ref_from_dict(load_resolved_refs(revision_dir).get("facts_ref"))
 
 
 def is_decision_fact_file(path: Path | str) -> bool:
@@ -187,7 +178,7 @@ def frozen_delivered_path_by_type(revision_dir: Path, delivered_type: str) -> st
 
 
 def frozen_delivered_refs(revision_dir: Path) -> list[DeliveredRef]:
-    """Return ① frozen upstream stage entries (doc path + optional facts_path)."""
+    """Return ① frozen upstream stage entries (doc path; ignore legacy facts keys)."""
     path = frozen_delivered_path(revision_dir)
     if not path.is_file():
         return []
