@@ -1,6 +1,6 @@
 # Compose Theory
 
-> Referenced by: initializing-runner (and any runner that generates chapter body content).
+> Ontological overview — substance, lens, presentation. Shared by compose producers and Init; not a runner procedure.
 
 ## Profile SSOT
 
@@ -26,17 +26,19 @@ The theory below is governed by three ontological layers. A fact is **substance 
 
 | Layer | Contains | Answers | Where it lives |
 |-------|----------|---------|----------------|
-| Substance (§1) | Content (facts) + anchors (§1.5) | what is true | `_facts.json` — producer-written (inductive discovery / deductive Intake+Derive); Init validate-only (origins §1.2) |
+| Substance (§1) | Content (facts) + anchors (§1.6) | what is true (stage-local) | `_facts.json` — producer-written (inductive discovery / deductive materialize+Derive); Init validate-only (origins §1.2) |
 | Lens / envelope (§2) | lens / intent / optional facet seeds (§2.4) | whose viewpoint owns it (N:M); seed reminders for detect | `lens_tags` + section-registry `intent` + optional `facets` string[] |
 | Presentation (§3) | Form (`F`) + Expression (`C`) + Render (`display_title` / H3 theme) | how to carry / write (per `form_lens`) + how to label | F/C at Init Step 4.W per FL; `display_title` copied from framework into `_derive-{cid}.json`; H3 from `_lens-themes.json` |
 
 **Invariant — substance carries no presentation.** One fact may be tagged to several lenses and is rebuilt differently under each; therefore Form/Expression cannot be attributes of the fact. Lens membership is *stored* (`lens_tags`); presentation is *derived on demand*, never persisted onto the fact.
 
+**Stage-local substance vs delivery.** Within a revision, `_facts.json` is the substance read source for producers and presentation. Cross-stage delivery authority is the delivered document (`.md`); `_facts.json` is a process artifact and is **not** a cross-stage facts package.
+
 ## 1. Substance
 
 ### 1.1 Facts — definition
 
-**Facts** — filtered substance in `_facts.json`. Display-layer Init **validate-only** on producer-written facts (inductive discovery or deductive-runner; no K2 projection; no Init Atomize/Derive). Scope doc is completeness cross-check only. Code grounding (when `drafting.code_grounding`) may add path/symbol detail at Write with `code_refs`.
+**Facts** — filtered substance in `_facts.json`. Display-layer Init **validate-only** on producer-written facts (inductive discovery or deductive-runner; no K2 projection; no Init Atomize/Derive). Scope / upstream delivery doc is intake material and completeness cross-check, not a second fact store. Code grounding (when `drafting.code_grounding`) may add path/symbol detail at Write with `code_refs`.
 
 - Covers goals, boundaries, exclusions, decisions, invariants, phases at the decision level.
 - Rewrite as operational prose; not scope-doc verbatim paste (and not hand-rewriting inductive JSON — use section-control commands).
@@ -52,13 +54,13 @@ Every fact in `_facts.json` is born through exactly one of three origins (`origi
 |--------|---------|------------|
 | `seed` | `seed-decision` (Seed/G1) — writes `_facts.json` directly, no open | scope path + excerpt |
 | `discovered` | `settle-open` (G3) — a matured open expands to 1:N facts | `origin.ref = [open_id]` |
-| `derived` | Step 3 derive (`derive_shell.append_derived_facts`, contiguous `F-(k+1)..`) | upstream `source` fact ids |
+| `derived` | deductive Derive — append contiguous derived facts after materialize | upstream `source` / origin.ref fact ids |
 
-Init treats inductive facts as read-only (validate-only) and never writes back into the inductive SoT.
+Init treats producer-written facts as read-only (validate-only) and never writes back into the inductive SoT.
 
 ### 1.3 How facts are born: Inductive generation (`Induce`)
 
-`Write` is deductive (known substance → organized prose). `Induce` is inductive (unknown substance → discover, ground, decide, fold): the inductive-runner writes `_facts.json` directly (K4; no projection) and tracks opens in `inductive-opens.json`.
+`Induce` is inductive (unknown substance → discover, ground, decide, fold): the inductive-runner writes `_facts.json` directly (K4; no projection) and tracks opens in `inductive-opens.json`. `Write` (§3) only weaves already-produced facts into prose — it does **not** produce facts.
 
 ```text
 _facts.json  ⊕=  Expand( open_point )   # via settle-open → 1:N facts
@@ -67,7 +69,7 @@ open_point = Expose(trigger × means)  # kept iff ( frontier_KW row false  ∧  
 
 - `Expand` = ground (`attach-code-refs` on `O-`) → AI leaning → **user decides** (auto/manual/ignore batch) ⇒ `settle-open` / `defer-open` / `reject-open`.
 - `⊕=` = append facts with `lens_tags`; deepens by KW on maturity ledger; never overwrites another lens's facts in place.
-- Handoff: discovery-written `_facts.json` → Init Steps 2–6 (validate-only on inductive).
+- Handoff: discovery-written `_facts.json` → Init (validate-only on inductive).
 
 `Expose` discovers open points via **trigger × means** (gated by each lens's `frontier_kw` maturity — defined in §2.3). All sources subtract `¬Settled` (facts whose `lens_tags` cover the lens) and land in `inductive-opens.json`:
 
@@ -81,11 +83,23 @@ open_point = Expose(trigger × means)  # kept iff ( frontier_KW row false  ∧  
 
 Seed is **not** an Expose source: it writes `_facts.json` directly with `origin.type=seed` (hybrid `origin.ref`: scope path + excerpt; no open stamp).
 
-### 1.4 Codebase grounding
+### 1.4 How facts are born: Deductive materialization (`Deduce`)
+
+`Deduce` is the dual of `Induce`: known upstream → this stage's addressable facts (whole→parts). It writes `_facts.json`; `Write` does not.
+
+```text
+Atomize(scope document) → fidelity → Derive → _facts.json
+```
+
+- **Atomize** — cut facts from the upstream **scope document**; tag `lens_tags` for this stage. Never Import upstream compose `_facts.json` (delivery SSOT = document; see Ontology).
+- **Fidelity** — doc↔facts must clear before Derive.
+- **Derive** — from this stage's facts under Intent (ceiling + edge floor); undecidable gaps → human confirm, not silent invention.
+
+### 1.5 Codebase grounding
 
 **Codebase grounding (profile flag):** Driven by `drafting.code_grounding` (boolean; orthogonal to `drafting.inductive`). When `true`: at Write, bind named symbols in facts / registry-required path fields to real artifacts under `$PROJECT_ROOT` (Grep/Glob/Read, bounded); success → body increment + derive `code_refs` as `path` or `path#symbol`; failure → no invented paths, body `待决`. When `false`: Init does not run this pass — code refs come from inductive `attach-code-refs` upstream if at all. Grounding never writes back into inductive SoT.
 
-### 1.5 Fact anchors (born-with identity)
+### 1.6 Fact anchors (born-with identity)
 
 **Anchors** are a fact's machine-relevant evidence tokens — the paths, artifacts, symbols, APIs, and code refs a fact commits to. They live as an optional `anchors[]` field on the fact (`{kind, value}`; `kind ∈ ANCHOR_KINDS`, SSOT `facts_schema.py`). Anchors are **substance, not presentation**: they are lens-invariant (the same path reads the same under any lens) and say *what is true*, never *how it is shown*. This is why they sit on the fact (§1) and not in the presentation layer (§3) — they do not violate the "substance carries no presentation" invariant.
 
@@ -97,9 +111,9 @@ Anchors are acquired **at fact birth**, one write, no later mutation — declare
 | `discovered` | each `settle-open --facts-file` entry may declare `anchors`; if omitted, the open's `code_refs` are distributed by path/symbol substring to the matching resolved facts (unmatched refs stay on the open) |
 | `derived` | inherited mechanically — union of the `source` facts' anchors |
 
-**Invariant — anchors must survive into the body.** A fact placed in a chapter carries its anchors into that chapter's rendered body; abstracting them away is a fidelity loss. Init's validation enforces this mechanically (the anchor-coverage check: every `discovered` fact's anchors must appear as a normalized substring in its chapter body; `code_ref` matches OR over its `path`/`symbol` segments).
+**Invariant — anchors must survive into the body.** A fact placed in a chapter carries its anchors into that chapter's rendered body; abstracting them away is a substance loss. Init's validation enforces this mechanically (the anchor-coverage check: every `discovered` fact's anchors must appear as a normalized substring in its chapter body; `code_ref` matches OR over its `path`/`symbol` segments).
 
-**SoT after settlement.** Once an open is settled, the fact is the live source of truth for its evidence; the `code_refs` remaining on the settled open are historical provenance only. Downstream (Init and later) reads `_facts.json`, not opens — so the two copies are a legitimate "transient upstream → durable substance" projection, not duplicate storage.
+**Stage-local SoT after settlement.** Once an open is settled, the fact is the live substance record for its evidence inside the revision; the `code_refs` remaining on the settled open are historical provenance only. Downstream (Init and later) reads `_facts.json`, not opens — a "transient upstream → durable substance" projection, not duplicate storage. This does **not** make `_facts.json` the cross-stage delivery SSOT (see Ontology).
 
 **Authoring convention.** In fact `text`, wrapping machine-relevant tokens in backticks is an optional readability hint for humans; it is **not** a data contract — anchors come from the declared `anchors[]` (or the fallback), never from parsing prose.
 
@@ -111,7 +125,7 @@ A lens is a **viewpoint that owns a subset of substance**. It is the classificat
 
 - `intent` / `intent_boundary` (section-registry) — the lens's inclusion charter and its exclusion list. `intent_boundary` names substance belonging to *other* lenses; author none of it here.
 
-Membership is stored; presentation is derived per lens at Step 5.W — the two must not be conflated.
+Membership is stored; presentation is derived per lens at Step 4.W — the two must not be conflated.
 
 ### 2.2 Membership: `lens_tags`
 
@@ -119,7 +133,7 @@ Membership is stored; presentation is derived per lens at Step 5.W — the two m
 
 ### 2.3 Lens maturity: `frontier_kw`
 
-`frontier_kw` (inductive maturity ledger) — per-lens completeness altitude. Init's Inductive generation (§1.3) reads it via `Expose` to decide whether a lens still needs facts (the `kept iff` predicate lives in §1.3).
+`frontier_kw` (inductive maturity ledger) — per-lens completeness altitude. Inductive generation (§1.3) reads it via `Expose` to decide whether a lens still needs facts (the `kept iff` predicate lives in §1.3).
 
 ### 2.4 Facet seeds
 
@@ -161,11 +175,11 @@ C has 2–5 pairs per `form_lens`. Every `c` must be traceable to a specific `##
 
 ### 3.3 F/C priority & binding
 
-**Derivation:** Read `### Role Fields` and `domain instance` for shared authoring constraints; bind F/C **per distinct `form_lens` / FL-x** (Step 5.W) before Write. No static dimension tables, vocabulary enums, or form lookup configs beyond `section-form-registry`.
+**Derivation:** Read `### Role Fields` and `domain instance` for shared authoring constraints; bind F/C **per distinct `form_lens` / FL-x** (Step 4.W) before Write. No static dimension tables, vocabulary enums, or form lookup configs beyond `section-form-registry`.
 
 **F priority (conflict resolution):** lens `presentation` (via `form_lens`) > domain `expression_conventions` > role `expressive_tendency` > intent text. `intent_boundary` is an exclusion list — it names substance belonging to other intents; author none of it here.
 
-**Placement:** fact → chapter × FL-x is decided in Step 4 (`_chapter-placement.json`). Outline `candidates` are optional heuristics only — not the topology SSOT.
+**Placement:** fact → chapter × FL-x is decided in Step 3 (`_chapter-placement.json`). Outline `candidates` are optional heuristics only — not the topology SSOT.
 
 ### 3.4 Render: `display_title` and H3 themes
 
@@ -182,9 +196,9 @@ H3 = themes[FL].theme   # per form_lens block inside the chapter body
 
 ## Synthesis pipeline
 
-> Cross-cutting (not a fourth layer): how the three layers combine on the Init path.
+> Cross-cutting (not a fourth layer): how the three layers combine — producers first, then Init presentation.
 
-Sequential synthesis on the live Init path — substance (§1) is dispatched through lenses (§2) and rendered per presentation (§3):
+Substance (§1) is produced by **Induce** or **Deduce** (§1.3–1.4), then dispatched through lenses (§2) and rendered per presentation (§3):
 
 ```text
 # per form_lens / FL-x (presentation)
@@ -200,7 +214,9 @@ chapter_body = Assemble(
 )
 ```
 
-**Order (strict):** Atomize/validate facts (Step 2) → Derive (Step 3) → Dynamic chapter plan (Step 4: themes → framework → placement SoT) → Write-by-FL then Assemble (Step 5: `_derive-{cid}.json` + `_body-{cid}.txt`) → `append-chapter` → Validate (Step 6 reads placement). `_chapters.json` retired.
+**Producer then Init:** Induce or Deduce (§1.3–1.4) completes before presentation. Init does not Atomize or Derive.
+
+**Init order (strict):** Validate facts (Step 2) → Dynamic chapter plan (Step 3: themes → framework → placement SoT) → Write-by-FL then Assemble (Step 4: `_derive-{cid}.json` + `_body-{cid}.txt`) → `append-chapter` → Validate (Step 5 reads placement). `_chapters.json` retired.
 
 **Intent text:** Use `sections.{key}.intent` when present; else `sections.{key}.desc` (legacy).
 
@@ -217,3 +233,4 @@ Initializing must operationalize fact substance into readable chapters; scope-ex
 - speculative paths, APIs, or behavior not grounded in scope / facts / inductive SoT / committed upstream decomposition, and not obtained via `drafting.code_grounding` (when enabled: ground or `待决` — never invent)
 - `<!-- section-key:… -->` anchors or section-key Init artifact names (`_title-display.json`, `_partition.json`, `_derive-{section_key}.json`)
 - verbatim `sections.{key}.heading` as chapter `display_title`
+- treating stage `_facts.json` as cross-stage delivery SSOT, or Importing upstream compose `_facts.json` as a delivery package
