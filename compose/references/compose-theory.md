@@ -4,7 +4,7 @@
 
 ## Profile & templates
 
-Each compose stage has a `compose-profile.json` that selects framework templates (`section-registry`, form, kw-criteria, role, domain).
+Each compose stage has a `compose-profile.json` that selects framework templates (`section-registry`, `section-form-registry`, `section-kw-criteria`, `role-instance`, `domain-instance`).
 
 | Template | Role |
 |----------|------|
@@ -18,11 +18,11 @@ Each compose stage has a `compose-profile.json` that selects framework templates
 
 ## Ontology (three layers)
 
-The theory below is governed by three ontological layers. A fact is **substance only**; everything about how it appears is rebuilt per consuming lens, never stored on the fact. The three layers are distinct: substance, lens, and presentation. They are not one flat plane.
+The theory below is governed by three ontological layers — substance, lens, and presentation — not one flat plane. A fact is **substance only**; everything about how it appears is rebuilt per consuming lens, never stored on the fact.
 
 | Layer | Contains | Answers | Where it lives |
 |-------|----------|---------|----------------|
-| Substance (§1) | Content (facts) + anchors (§1.5) | what is true (stage-local) | `_facts.json` — producer-written (inductive discovery / deductive materialize+Derive); Init validate-only (origins §1.2) |
+| Substance (§1) | Content (facts) + anchors (§1.5) | what is true (stage-local) | `_facts.json` — producer-written (inductive discovery / deductive materialize + Derive); Init validate-only (origins §1.2) |
 | Lens / envelope (§2) | lens / intent / optional facet seeds (§2.4) | whose viewpoint owns it (N:M); seed reminders for detect | `lens_tags` + section-registry `intent` + optional `facets` string[] |
 | Presentation (§3) | Form (`F`) + Expression (`C`) + Render (`display_title` / H3 theme) | how to carry / write (per `form_lens`) + how to label | F/C per `form_lens`; `display_title` and H3 themes from the chapter plan |
 
@@ -48,7 +48,7 @@ Every fact has exactly one `origin.type`:
 | `discovered` | a matured open expands 1:N into facts | open id |
 | `derived` | deductive Derive after materialize | upstream fact ids |
 
-Init validates producer-written facts; it does not rewrite inductive SoT.
+Init does not rewrite inductive SoT (validate-only — §1.1).
 
 ### 1.3 Inductive generation (`Induce`)
 
@@ -67,27 +67,27 @@ open_point = Expose(trigger × means)  # kept iff ( frontier_KW row false  ∧  
 
 ### 1.4 Deductive materialization (`Deduce`)
 
-`Deduce` materializes known upstream into this stage's addressable facts (whole→parts) and writes `_facts.json`. `Write` only weaves those facts into prose.
+`Deduce` materializes known upstream into this stage's addressable facts (whole→parts) and writes `_facts.json`. `Write` as in §1.3.
 
 ```text
 Atomize(scope document) → fidelity → Derive → _facts.json
 ```
 
-- **Atomize** — facts from the upstream scope document + this stage's `lens_tags`.
+- **Atomize** — facts from the upstream scope document, tagged with this stage's `lens_tags`.
 - **Fidelity** — doc↔facts must clear before Derive.
 - **Derive** — Intent ceiling + edge floor; gaps → human confirm (not silent invention).
 
 ### 1.5 Fact anchors (born-with identity)
 
-**Anchors** are a fact's machine-relevant evidence tokens — the paths, artifacts, symbols, APIs, and code refs a fact commits to. They live as an optional `anchors[]` field on the fact (`{kind, value}`). Anchors are **substance, not presentation**: they are lens-invariant (the same path reads the same under any lens) and say *what is true*, never *how it is shown*. They live on the fact (§1), not in the presentation layer (§3).
+**Anchors** are a fact's machine-relevant evidence tokens — the paths, artifacts, symbols, APIs, and code refs a fact commits to. They live as an optional `anchors[]` field on the fact (`{kind, value}`). Anchors are **substance, not presentation**: they are lens-invariant (the same path reads the same under any lens) and say *what is true*, never *how it is shown*. They belong to substance (§1), not presentation (§3).
 
 Anchors are set at fact birth (one write, no later mutation): declared on seed/discovered, or inherited on derived from `source` facts.
 
 **Invariant — anchors must survive into the body.** A placed fact's anchors appear in that chapter's body.
 
-**After settlement.** The fact holds the evidence; settled-open `code_refs` are provenance only. Downstream reads `_facts.json`, not opens. Cross-stage delivery SSOT remains the document (see Ontology).
+**After settlement.** The fact holds the evidence; `code_refs` on a settled open are provenance only. Downstream reads `_facts.json`, not opens. Cross-stage delivery SSOT remains the document (see Ontology).
 
-**Authoring convention.** In fact `text`, wrapping machine-relevant tokens in backticks is an optional readability hint for humans; it is **not** a data contract — anchors come from the declared `anchors[]` (or the fallback), never from parsing prose.
+**Authoring convention.** In fact `text`, wrapping machine-relevant tokens in backticks is an optional readability hint for humans; it is **not** a data contract — anchors come from declared or inherited `anchors[]`, never from parsing prose.
 
 ## 2. Lens (envelope)
 
@@ -109,7 +109,7 @@ Membership is stored; presentation is derived per lens — the two must not be c
 
 ### 2.4 Facet seeds
 
-Optional **facet seeds** are short string labels on a section-registry lens (`facets: string[]`, roughly 3–5 English words each). They are **inductive detect reminders**, not a completeness gate and not open/fact identity.
+Optional **facet seeds** are short string labels on a section-registry lens (`facets: string[]`, roughly 3–5 English words each). They are **inductive detect reminders**.
 
 ```text
 breadth: lens ∈ coverage_sections
@@ -118,8 +118,7 @@ seeds:   facets string[]          # optional; prompt input only
 ```
 
 - **Declaration:** optional `facets` string array on a section entry. No list ⇒ no seed reminder for that lens.
-- **Use:** optional non-exhaustive detect reminders (not a closed question space).
-- **Not used for:** completeness gates, open/fact identity, or closed question spaces.
+- **Use:** optional non-exhaustive detect reminders — not a completeness gate, not open/fact identity, not a closed question space.
 - **Presentation:** seeds are not an F/C axis; Write ignores them by default.
 
 ## 3. Presentation
@@ -147,7 +146,7 @@ C has 2–5 pairs per `form_lens`. Every `c` must be traceable to role fields, `
 
 ### 3.3 F/C priority & binding
 
-**Binding:** F/C per `form_lens` before Write. **F priority:** lens `presentation` > domain conventions > role tendency > intent. **Placement:** each fact → one chapter × `form_lens` (chapter plan is the topology). Outline `candidates` are optional heuristics only — not the topology.
+**Binding:** F/C per `form_lens` before Write. **F priority:** lens `presentation` > domain conventions > role tendency > intent. **Placement:** each fact → one chapter × `form_lens` (chapter plan is the topology). Outline `candidates` are optional heuristics only — not authoritative for placement.
 
 ### 3.4 Render: `display_title` and H3 themes
 
@@ -162,7 +161,7 @@ H3 = theme per form_lens block inside the chapter body
 
 ## Synthesis pipeline
 
-> Cross-cutting (not a fourth layer): how the three layers combine — producers first, then Init presentation.
+> Cross-cutting (not a fourth layer): how the layers relate in the pipeline — producers first, then Init presentation.
 
 Substance (§1) is produced by **Induce** or **Deduce** (§1.3–1.4), then dispatched through lenses (§2) and rendered per presentation (§3):
 
