@@ -1,7 +1,8 @@
 # Stale gate update (shared)
 
-Use **only** when `$CTX.gates.<self>.status == stale` after `resolve-context`.  
-If status is not `stale`, do **not** follow this file — run the gate's normal contract.
+Use **only** when `$CTX.gates.<self>.status == stale` after `resolve-context`, on the **Per-gate** recovery path after RS.  
+If status is not `stale`, do **not** follow this file — run the gate's normal contract.  
+If the user already chose **Batch** after `$RS_COMMIT`, do **not** use this file — follow `stale-batch-confirm.md` instead (mutually exclusive for one Realign recovery).
 
 ## Steps
 

@@ -4,8 +4,10 @@
 Subcommands:
     init-session           Bootstrap gate-state, registers (no decision-doc at init)
     resolve-context        JSON session context for runners (gates, registers, constraints)
+    get-payload            Read persisted gate-payloads (by gate list or --stale-only)
     gate-activate          Activate a gate (e.g. re-activate Q after RS)
     gate-close             Close active gate, write gate-payload, advance pointer
+    batch-reclose          Atomically re-close consecutive stale align gates (Q/GL/E/D/X)
     stale-from             Realign: mark gate + reached downstream stale (no payload delete)
     rs-commit              Atomic Realign: stale-from + register batch + resolve-context
     check-delivery-ready   Structural audit + gates/registers for DC delivery
@@ -983,6 +985,139 @@ def _run_stale_from(
     return updated
 
 
+def cmd_get_payload(
+    project_root: Path,
+    cycle_id: str,
+    stage: str,
+    *,
+    gates: list[str] | None = None,
+    stale_only: bool = False,
+    constraints_path: Path | None = None,
+) -> int:
+    """Read persisted gate-payloads; never invent from memory."""
+    if not stale_only and not gates:
+        return _emit_error("get-payload requires --gate/--gates or --stale-only")
+    paths = _paths(project_root, cycle_id, stage, constraints_path=constraints_path)
+    try:
+        state = load_gate_state(paths["gate_state"])
+    except (FileNotFoundError, ValueError) as exc:
+        return _emit_error(str(exc))
+
+    if stale_only:
+        requested = [
+            gate
+            for gate in GATE_ORDER
+            if str(state["gates"].get(gate, {}).get("status", "")).lower() == "stale"
+        ]
+    else:
+        requested = list(gates or [])
+        for gate in requested:
+            if gate not in GATE_ORDER:
+                return _emit_error(f"invalid gate: {gate!r}")
+
+    payloads: dict[str, Any] = {}
+    missing: list[str] = []
+    for gate in requested:
+        path = gate_payload_path(paths["payloads_dir"], gate)
+        if path.exists():
+            try:
+                payloads[gate] = load_gate_payload(path)
+            except (FileNotFoundError, ValueError) as exc:
+                return _emit_error(str(exc))
+        else:
+            missing.append(gate)
+
+    _emit({"ok": True, "payloads": payloads, "missing": missing, "requested": requested})
+    return 0
+
+
+def cmd_batch_reclose(
+    project_root: Path,
+    cycle_id: str,
+    stage: str,
+    payloads: dict[str, Any],
+    *,
+    constraints_path: Path | None = None,
+) -> int:
+    """Atomically re-close a consecutive stale prefix of align gates (Q/GL/E/D/X)."""
+    if not isinstance(payloads, dict) or not payloads:
+        return _emit_error("payloads must be a non-empty JSON object (gate -> payload)")
+
+    unknown = sorted(set(payloads) - set(GATE_ORDER))
+    if unknown:
+        return _emit_error(f"unknown gates in payloads: {unknown}")
+
+    ordered = [gate for gate in GATE_ORDER if gate in payloads]
+    if set(ordered) != set(payloads):
+        return _emit_error("payloads keys must be gate ids")
+
+    for gate in ordered:
+        if gate not in RS_REALIGN_GATES:
+            return _emit_error(
+                f"batch-reclose only supports {list(RS_REALIGN_GATES)}, got {gate!r}"
+            )
+        if not isinstance(payloads[gate], dict):
+            return _emit_error(f"payload for {gate} must be a JSON object")
+
+    paths = _paths(project_root, cycle_id, stage, constraints_path=constraints_path)
+    try:
+        state = load_gate_state(paths["gate_state"])
+        constraints = _load_session_constraints(
+            project_root,
+            cycle_id,
+            stage,
+            constraints_path=constraints_path,
+        )
+    except (FileNotFoundError, ValueError) as exc:
+        return _emit_error(str(exc))
+
+    if ordered[0] != state["active_gate"]:
+        return _emit_error(
+            f"batch-reclose must start at active_gate {state['active_gate']!r}, got {ordered[0]!r}"
+        )
+
+    start = GATE_ORDER.index(ordered[0])
+    expected = list(GATE_ORDER[start : start + len(ordered)])
+    if ordered != expected:
+        return _emit_error(
+            f"batch-reclose requires consecutive GATE_ORDER prefix from active_gate; "
+            f"got {ordered}, expected {expected}"
+        )
+
+    for gate in ordered:
+        status = str(state["gates"].get(gate, {}).get("status", "")).lower()
+        if status != "stale":
+            return _emit_error(f"gate {gate} must be stale for batch-reclose (got {status!r})")
+
+    try:
+        for gate in ordered:
+            _validate_gate_close_payload(
+                gate, payloads[gate], constraints=constraints
+            )
+        updated = state
+        for gate in ordered:
+            prereq_error = _validate_gate_close_prereqs(updated, gate)
+            if prereq_error:
+                return _emit_error(prereq_error)
+            updated = close_gate(updated, gate)
+    except ValueError as exc:
+        return _emit_error(str(exc))
+
+    # Validate fully before any write (atomic batch).
+    for gate in ordered:
+        _persist_gate_payload(paths, gate, payloads[gate])
+    save_gate_state(paths["gate_state"], updated)
+
+    _emit(
+        {
+            "ok": True,
+            "closed": ordered,
+            "active_gate": updated["active_gate"],
+        }
+    )
+    return 0
+
+
 def cmd_stale_from(
     project_root: Path,
     cycle_id: str,
@@ -1100,12 +1235,38 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
     sub.add_parser("resolve-context", help="Return session context JSON.")
 
+    get_payload = sub.add_parser(
+        "get-payload",
+        help="Read persisted gate-payloads by gate list or --stale-only.",
+    )
+    get_payload.add_argument("--gate", default="", help="Single gate id.")
+    get_payload.add_argument(
+        "--gates",
+        default="",
+        help="Comma-separated gate ids (e.g. Q,GL,E).",
+    )
+    get_payload.add_argument(
+        "--stale-only",
+        action="store_true",
+        help="Return payloads for all gates currently marked stale.",
+    )
+
     activate = sub.add_parser("gate-activate", help="Activate a gate.")
     activate.add_argument("--gate", required=True)
 
     close = sub.add_parser("gate-close", help="Close the active gate.")
     close.add_argument("--gate", required=True)
     close.add_argument("--payload", required=True, help="JSON payload string.")
+
+    batch = sub.add_parser(
+        "batch-reclose",
+        help="Atomically re-close consecutive stale align gates (Q/GL/E/D/X).",
+    )
+    batch.add_argument(
+        "--payloads",
+        required=True,
+        help="JSON object mapping gate id -> close payload.",
+    )
 
     stale = sub.add_parser(
         "stale-from",
@@ -1166,6 +1327,29 @@ def main(argv: list[str] | None = None) -> int:
             stage,
             constraints_path=constraints_path,
         )
+    if args.command == "get-payload":
+        gates: list[str] = []
+        single = str(getattr(args, "gate", "") or "").strip()
+        multi = str(getattr(args, "gates", "") or "").strip()
+        if single:
+            gates.append(single)
+        if multi:
+            gates.extend(part.strip() for part in multi.split(",") if part.strip())
+        # Deduplicate preserving order
+        seen: set[str] = set()
+        ordered_gates: list[str] = []
+        for gate in gates:
+            if gate not in seen:
+                seen.add(gate)
+                ordered_gates.append(gate)
+        return cmd_get_payload(
+            project_root,
+            cycle_id,
+            stage,
+            gates=ordered_gates or None,
+            stale_only=bool(getattr(args, "stale_only", False)),
+            constraints_path=constraints_path,
+        )
     if args.command == "gate-activate":
         return cmd_gate_activate(
             project_root,
@@ -1185,6 +1369,18 @@ def main(argv: list[str] | None = None) -> int:
             stage,
             args.gate.strip(),
             payload,
+            constraints_path=constraints_path,
+        )
+    if args.command == "batch-reclose":
+        try:
+            payloads = _load_payload(args.payloads)
+        except (json.JSONDecodeError, ValueError) as exc:
+            return _emit_error(str(exc))
+        return cmd_batch_reclose(
+            project_root,
+            cycle_id,
+            stage,
+            payloads,
             constraints_path=constraints_path,
         )
     if args.command == "stale-from":

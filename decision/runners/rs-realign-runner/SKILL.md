@@ -59,12 +59,15 @@ Do NOT proceed until you have read `../../../_runtime.md`
 4. Propose 3-state labeling for all register entries per gate contract Step 3; user confirms (G8)
 5. `$RS_COMMIT` with `--gate <G>` and `--operations '<json array>'` (use `[]` if no register changes)
 6. Pin `$CTX` from stdout (`reenter`, `gates`, `registers`, `domain_constraints`)
-7. Return `RS_COMPLETE reenter=<G>` — load gate `G` runner via kernel § Gate routing (`gates.G.status` is `stale`)
+7. **Recovery path choice (G8)** — AI states whether this looks like a light patch (one-line why) and asks: **Batch** (one checklist confirm) vs **Per-gate** (existing stale update). Uncertain / reject Batch / AI does not claim light patch → Per-gate.
+8. **If Batch** — follow `$SKILL_DIR/references/stale-batch-confirm.md` to completion; return its `BATCH_COMPLETE` (do not also return `RS_COMPLETE`).
+9. **If Per-gate** — Return `RS_COMPLETE reenter=<G>` — load gate `G` runner via kernel § Gate routing (`gates.G.status` is `stale`)
 
 <HARD-GATE name="RS commit">
 - Do **not** call `$RS_COMMIT` before G8 confirms `G` and register operations.
 - Non-zero exit → stop RS, report stderr, wait for user direction.
 - After success, read `reenter`, `gates`, `registers` from stdout only — do not chain `stale-from` / `register-batch-apply` / `sync-registers-to-doc` separately for RS.
+- Do **not** start Batch (`get-payload` / `batch-reclose`) before path-choice G8 selects Batch.
 </HARD-GATE>
 
 ## `$RS_COMMIT`
@@ -86,4 +89,8 @@ Do NOT proceed until you have read `../../../_runtime.md`
 
 ## Exit
 
-`RS_COMPLETE reenter=Q` (or E / D / X) · `RS_FAILED reason=...`
+`RS_COMPLETE reenter=Q` (or GL / E / D / X) · `BATCH_COMPLETE active_gate=<G>` · `RS_FAILED reason=...`
+
+## Batch path
+
+After path-choice G8 selects Batch: `$SKILL_DIR/references/stale-batch-confirm.md` (uses `$GATE_CONTROL get-payload` / `batch-reclose`).

@@ -37,6 +37,8 @@ Do NOT proceed until you have read `../_runtime.md` and loaded:
 |-------|---------|
 | `$DEC_START` | `python3 "$SKILL_DIR/scripts/dec_start.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" [--domain-constraints-file "<path>"]` |
 | `$GATE_CONTROL` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>"` |
+| `$GET_PAYLOAD` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" get-payload` |
+| `$BATCH_RECLOSE` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" batch-reclose --payloads '<json object>'` |
 | `$REGISTER_CONTROL` | `python3 "$SKILL_DIR/scripts/dec_register_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>"` |
 | `$REGISTER_COMMIT` | `python3 "$SKILL_DIR/scripts/dec_register_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" register-commit --operations '<json array>'` |
 | `$RS_COMMIT` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" rs-commit --gate "<G>" --operations '<json array>'` |
@@ -87,7 +89,7 @@ SSOT for conversation → cycle mapping: platform `active-context.json`. Does **
 
 ### Gate handoff
 
-After a spine runner returns `GATE_COMPLETE`, load the next spine runner per § Gate routing; its pipeline step 1 pins fresh `$CTX`. After `G0_COMPLETE`, resume the active gate dialogue. After `RS_COMPLETE`, load gate `G` runner per § Gate routing (`gates.G.status` is `stale` → follow `$SKILL_DIR/references/stale-gate-update.md`).
+After a spine runner returns `GATE_COMPLETE`, load the next spine runner per § Gate routing; its pipeline step 1 pins fresh `$CTX`. After `G0_COMPLETE`, resume the active gate dialogue. After `RS_COMPLETE`, load gate `G` runner per § Gate routing (`gates.G.status` is `stale` → Per-gate: `$SKILL_DIR/references/stale-gate-update.md`). After `BATCH_COMPLETE`, load the runner for stdout / `$CTX.active_gate` (may still be `stale`, e.g. `R` → Per-gate stale update). Path Batch after RS is `$SKILL_DIR/references/stale-batch-confirm.md` (chosen in `rs-realign-runner` before Per-gate entry).
 
 ### Gate routing
 
@@ -95,7 +97,7 @@ After a spine runner returns `GATE_COMPLETE`, load the next spine runner per § 
 Before executing any gate, read the corresponding runner SKILL first.
 Every spine gate runner pipeline step 1 (`$GATE_CONTROL resolve-context`) is mandatory — it pins `$CTX` for that gate. Do not skip it or rely on memory.
 On G0 identification hit during spine or RS subroutine dialogue: load G0 runner before the next user-visible reply; after `G0_COMPLETE`, resume the active gate dialogue.
-On G9 hit (any turn: information revises or contradicts a closed gate): do not advance past the hit; load RS runner before `$RS_COMMIT`; after `RS_COMPLETE`, load gate `G` runner per this table.
+On G9 hit (any turn: information revises or contradicts a closed gate): do not advance past the hit; load RS runner before `$RS_COMMIT`; after `RS_COMPLETE`, load gate `G` runner per this table (Per-gate). After `BATCH_COMPLETE`, load `active_gate` runner per this table.
 Do NOT rely on memory or prior context for gate execution steps.
 </HARD-GATE>
 
@@ -123,7 +125,7 @@ Spine gates:
 | DC | `$SKILL_DIR/runners/dc-delivery-runner/SKILL.md` | R exit `dc` or verification complete |
 | Human Decision | `$SKILL_DIR/runners/hd-human-decision-runner/SKILL.md` | RR exit `human_decision` |
 
-Gate contracts (dialogue semantics): `$SKILL_DIR/gates/*.md` — each spine/global runner names its contract in Prerequisites; Gate Routing loads runners only, not gate files directly. Global: `g0-parallel-registers.md` · `rs-realign-state-handler.md`. Stale entry: `$SKILL_DIR/references/stale-gate-update.md`.
+Gate contracts (dialogue semantics): `$SKILL_DIR/gates/*.md` — each spine/global runner names its contract in Prerequisites; Gate Routing loads runners only, not gate files directly. Global: `g0-parallel-registers.md` · `rs-realign-state-handler.md`. Stale Per-gate: `$SKILL_DIR/references/stale-gate-update.md`. Stale Batch: `$SKILL_DIR/references/stale-batch-confirm.md`.
 
 ---
 
