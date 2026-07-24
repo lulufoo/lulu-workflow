@@ -65,9 +65,18 @@ class TestResolveRole:
         payload = md.split("### Role Fields")[1]
         assert "technical_expert" in payload
 
-    def test_topic_cycle_rejected(self):
-        with pytest.raises(ScopeResolverError, match="invalid cycle_type"):
-            resolve_role_markdown(cycle_id="topic-demo")
+    def test_topic_with_lulu_arch_succeeds(self):
+        md = resolve_role_markdown(cycle_id="topic-demo", profile_id="lulu-arch")
+        assert "## Plan Scope Constraints" in md
+        assert "cycle_type: topic" in md
+        assert "### Role" in md
+        assert "system architect" in md.lower()
+        payload = md.split("### Role Fields")[1]
+        assert "system_architect" in payload
+
+    def test_topic_with_feature_profile_mismatches(self):
+        with pytest.raises(ScopeResolverError, match="cycle_type mismatch"):
+            resolve_role_markdown(cycle_id="topic-demo", profile_id="lulu-plan")
 
     def test_role_fields_exclude_prompt(self):
         data = load_and_validate_role_instance("feature")
@@ -97,9 +106,15 @@ class TestResolveDomain:
         assert "tech_plan_feature" in md
         assert "executable next steps" in md
 
-    def test_topic_cycle_rejected(self):
-        with pytest.raises(ScopeResolverError, match="invalid cycle_type"):
-            resolve_domain_markdown(cycle_id="topic-demo")
+    def test_topic_with_lulu_arch_succeeds(self):
+        md = resolve_domain_markdown(cycle_id="topic-demo", profile_id="lulu-arch")
+        assert "## Domain Instance" in md
+        assert "cycle_type: topic" in md
+        assert "tech_arch_topic" in md
+
+    def test_topic_with_feature_profile_mismatches(self):
+        with pytest.raises(ScopeResolverError, match="cycle_type mismatch"):
+            resolve_domain_markdown(cycle_id="topic-demo", profile_id="lulu-plan")
 
     def test_domain_paths(self):
         root = Path.cwd()

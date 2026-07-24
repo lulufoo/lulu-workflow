@@ -82,6 +82,8 @@ from framework_template_sources import (  # noqa: E402
     product_spec_inductive_scan_criteria,
     product_spec_section_form_registry,
     product_spec_section_registry,
+    tech_arch_topic_domain_instance,
+    tech_arch_topic_role_instance,
     tech_plan_feature_domain_instance,
     tech_plan_feature_role_instance,
     tech_plan_section_form_registry,
@@ -174,6 +176,22 @@ def seed_tech_plan_test_caches(project_root: Path) -> None:
         "lulu-plan",
         "tpt_section_form_registry_url",
         tech_plan_section_form_registry(),
+    )
+
+
+def seed_tech_arch_test_caches(project_root: Path) -> None:
+    """Seed lulu-arch topic role/domain caches for pytest from framework SSOT."""
+    seed_template_cache(
+        project_root,
+        "lulu-arch",
+        "tat_topic_role_instance_url",
+        tech_arch_topic_role_instance(),
+    )
+    seed_template_cache(
+        project_root,
+        "lulu-arch",
+        "tat_topic_domain_instance_url",
+        tech_arch_topic_domain_instance(),
     )
 
 

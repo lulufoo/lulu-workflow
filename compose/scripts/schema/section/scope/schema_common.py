@@ -15,7 +15,7 @@ for _p in (_CORE, _IO):
 
 from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, WORKFLOW_SCRIPTS  # noqa: E402
 
-VALID_CYCLE_TYPES = frozenset({"feature"})
+VALID_CYCLE_TYPES = frozenset({"feature", "topic"})
 
 
 def effective_project_root(project_root: Path | None) -> Path:

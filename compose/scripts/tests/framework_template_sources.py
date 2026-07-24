@@ -95,6 +95,12 @@ def tech_arch_section_registry() -> dict[str, Any]:
     return load_framework_json("arch", "tech-arch-topic-section-registry.json")
 
 
+def tech_arch_topic_role_instance() -> dict[str, Any]:
+    return load_framework_json("arch", "tech-arch-topic-role-instance.json")
+
+
+def tech_arch_topic_domain_instance() -> dict[str, Any]:
+    return load_framework_json("arch", "tech-arch-topic-domain-instance.json")
 
 
 def product_blueprint_section_registry() -> dict[str, Any]:
