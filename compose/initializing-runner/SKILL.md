@@ -156,11 +156,21 @@ $CHAPTER_PLAN_CTL write-themes \
 
 ##### 3.B-2 — Name `display_title`
 
-For each chapter from 3.B-1:
+After 3.B-1: each chapter is an aggregated lens set (`anchor_form_lens_ids`: 1 or N).
+`cluster` = topology only — **not** title material.
 
-1. **Get** `lens_keys` from that chapter's `anchor_form_lens_ids` via `_lens-themes`.
-2. **If** every key in that chapter shares the same non-empty registry `cluster`: **Generate** `display_title` from that `cluster` slug only (humanize the slug into a readable title). Do **not** use member `heading`/`aliases` as primary material. Language must match that of the chapter's `theme`s.
-3. **Else:** **Get** `material` = ordered `heading` + `aliases` from Step 1 section-registry for each key (anchor order; heading first per lens). **Generate** `display_title` from `material` only — not from `desc`, `theme`, or facts. Use the chapter's full material (not one lens alone). Language of `display_title` must match that of the chapter's `theme`s.
+**Material** (chapter-complete, anchor order): registry `heading`/`aliases` + `_lens-themes` `theme`/`desc`.
+**Forbidden:** `cluster`, facts, out-of-chapter lenses.
+
+**Generate** one H2 `display_title` from that material.
+
+**Material vs product:**
+- **Material may use** `theme`/`desc` to disambiguate among **heading-level** phrasings.
+- **Product must stay at `heading` granularity** (aliases = wording hints only).
+- **Do not** promote `theme` to H2; `theme` stays H3 (`sections[].heading`).
+
+Prefer a close rendering of `heading`; change wording only for clear heading-level disambiguation.
+Language must match the chapter's `theme`s.
 
 - **Persist** (after 3.B-1 + 3.B-2; script does not invent titles):
 
@@ -170,7 +180,9 @@ $CHAPTER_PLAN_CTL write-framework \
   --framework-file "<path to framework JSON>"
 ```
 
-**Done (3.B):** every theme `FL-*` in exactly one chapter; every `display_title` non-empty; same-`cluster` lenses co-located and closed; cluster-chapter titles derived from `cluster` (others from `heading`/`aliases` only).
+**Done (3.B):** every `FL-*` in exactly one chapter; `display_title` non-empty;
+same-`cluster` co-located and closed; titles from `heading`/`aliases`/`theme`/`desc` at
+**heading granularity** (never `cluster`; never `theme` as H2).
 
 #### 3.C — Materialize placement (C1 mechanical → C2 multi-lens AI → C3 write)
 
