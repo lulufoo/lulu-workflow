@@ -35,10 +35,10 @@ _SCHEMA: list[dict[str, Any]] = [
      "description": "Unique identifier for this domain slice"},
     {"field": "cognitive_frame", "type": "string", "required": True,
      "description": "Analytical lens this domain uses to frame problems"},
-    {"field": "expression_conventions", "type": "string|object", "required": True,
+    {"field": "expression_conventions", "type": "object", "required": True,
      "description": (
-         "Expressive norms for this domain: non-empty string, or object with "
-         "exactly register/carriers/scannability/altitude (non-empty strings). "
+         "Expressive norms for this domain: object with exactly "
+         "register/carriers/scannability/altitude (non-empty strings). "
          "Consumers receive a normalized multiline labeled string."
      )},
     {"field": "intent_anchor", "type": "string", "required": True,
@@ -82,52 +82,46 @@ def load_domain_instance(path: Path) -> dict[str, Any]:
 
 
 def _validate_expression_conventions(value: Any) -> list[str]:
-    """Validate expression_conventions as non-empty string or exact four-key object."""
-    if isinstance(value, str):
-        if not value.strip():
-            return ["expression_conventions must be a non-empty string"]
-        return []
-    if isinstance(value, dict):
-        errors: list[str] = []
-        expected = set(EXPRESSION_CONVENTION_KEYS)
-        actual = set(value.keys())
-        missing = expected - actual
-        extra = actual - expected
-        if missing:
+    """Validate expression_conventions as exact four-key object."""
+    if not isinstance(value, dict):
+        return [
+            "expression_conventions must be an object with "
+            "register/carriers/scannability/altitude",
+        ]
+    errors: list[str] = []
+    expected = set(EXPRESSION_CONVENTION_KEYS)
+    actual = set(value.keys())
+    missing = expected - actual
+    extra = actual - expected
+    if missing:
+        errors.append(
+            "expression_conventions object missing keys: "
+            + ", ".join(sorted(missing)),
+        )
+    if extra:
+        errors.append(
+            "expression_conventions object has unexpected keys: "
+            + ", ".join(sorted(extra)),
+        )
+    for key in EXPRESSION_CONVENTION_KEYS:
+        item = value.get(key)
+        if not isinstance(item, str) or not item.strip():
             errors.append(
-                "expression_conventions object missing keys: "
-                + ", ".join(sorted(missing)),
+                f"expression_conventions.{key} must be a non-empty string",
             )
-        if extra:
-            errors.append(
-                "expression_conventions object has unexpected keys: "
-                + ", ".join(sorted(extra)),
-            )
-        for key in EXPRESSION_CONVENTION_KEYS:
-            item = value.get(key)
-            if not isinstance(item, str) or not item.strip():
-                errors.append(
-                    f"expression_conventions.{key} must be a non-empty string",
-                )
-        return errors
-    return [
-        "expression_conventions must be a non-empty string or "
-        "object with register/carriers/scannability/altitude",
-    ]
+    return errors
 
 
 def normalize_expression_conventions(value: Any) -> str:
     """Return consumer-facing string; object → multiline `key: value` lines."""
-    if isinstance(value, str):
-        return value
-    if isinstance(value, dict):
-        return "\n".join(
-            f"{key}: {value[key].strip()}"
-            for key in EXPRESSION_CONVENTION_KEYS
+    if not isinstance(value, dict):
+        raise TypeError(
+            "expression_conventions must be a dict before normalize; "
+            f"got {type(value).__name__}",
         )
-    raise TypeError(
-        "expression_conventions must be str or dict before normalize; "
-        f"got {type(value).__name__}",
+    return "\n".join(
+        f"{key}: {value[key].strip()}"
+        for key in EXPRESSION_CONVENTION_KEYS
     )
 
 

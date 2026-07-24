@@ -233,7 +233,7 @@ For each `FL-x` (global or per-chapter `anchor_form_lens_ids` order):
 1. Resolve `lens_key`, `theme` from `_lens-themes.json`.
 2. `facts_ℓ` = facts in `_chapter-placement.json` with that `form_lens_id` (authoritative). Optional: `filter --lens` then **intersect** placement — never expand beyond placement.
 3. **Derive F** (S1): `carrier`/`structure` from `section-form-registry[lens_key].presentation.allowed`. Lock F before Derive C.
-4. **Derive C** (S1): `c[]` length 2..5 from domain `expression_conventions` (Step 1 Load; consumer string), Role Fields / `expressive_tendency`, and this lens's `expression` (traceable; do not invent pairs).
+4. **Derive C** (S1): `c[]` length 2..5 from domain `expression_conventions` (Step 1 Load; four-key object normalized to multiline labeled consumer string), Role Fields / `expressive_tendency`, and this lens's `expression` (traceable; do not invent pairs).
    **C is constrained by F** — every `c[]` item must be executable inside the locked `carrier`/`structure`; C must not prescribe a different primary vehicle.
 5. **Write `lens_body`:** Scaffold per F; obey every C (still inside F); content ⊆ `facts_ℓ`; carry anchors (L6); resolve raw `F-id` citations before persist; mark gaps with `> **待决：** …`. `lens_body` must not contain `### {theme}` (v1: in-memory / chapter buffer — no required `_body-lens-*` file).
    **Do not Write until F and C Done for this FL.**

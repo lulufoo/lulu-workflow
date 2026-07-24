@@ -119,7 +119,12 @@ TOPIC_DOMAIN_INSTANCE: dict[str, Any] = {
     "cycle_type": "topic",
     "domain_id": "tech_plan_topic",
     "cognitive_frame": "technical feasibility and design traceability",
-    "expression_conventions": "technical prose is analytical not narrative",
+    "expression_conventions": {
+        "register": "analytical technical prose; forbid marketing register",
+        "carriers": "follow Derive F/C from section-form-registry",
+        "scannability": "short items over walls; comparable claims in tables",
+        "altitude": "topic-shaping only",
+    },
     "intent_anchor": "all content must be traceable to the decision-doc SSOT",
     "audience_type": "architects who validate structure and evolution",
 }

@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Tests for domain_instance_schema expression_conventions string|object normalize."""
+"""Tests for domain_instance_schema expression_conventions object + normalize."""
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
+import pytest
 from domain_instance_schema import (  # noqa: E402
     load_and_validate_domain_instance,
     normalize_expression_conventions,
@@ -15,6 +16,17 @@ from framework_template_sources import tech_arch_topic_domain_instance  # noqa: 
 from scope_resolver import resolve_domain_markdown  # noqa: E402
 
 
+def _four_key_ec(**overrides: str) -> dict[str, str]:
+    data = {
+        "register": "r",
+        "carriers": "c",
+        "scannability": "s",
+        "altitude": "a",
+    }
+    data.update(overrides)
+    return data
+
+
 def _base_domain(**overrides: object) -> dict:
     data = {
         "version": "1",
@@ -22,7 +34,7 @@ def _base_domain(**overrides: object) -> dict:
         "cycle_type": "topic",
         "domain_id": "test_domain",
         "cognitive_frame": "frame",
-        "expression_conventions": "analytical prose",
+        "expression_conventions": _four_key_ec(),
         "intent_anchor": "anchor",
         "audience_type": "audience",
     }
@@ -31,19 +43,14 @@ def _base_domain(**overrides: object) -> dict:
 
 
 class TestExpressionConventionsValidate:
-    def test_string_ok(self):
+    def test_object_four_keys_ok(self):
         assert validate_domain_instance(_base_domain()) == []
 
-    def test_object_four_keys_ok(self):
-        data = _base_domain(
-            expression_conventions={
-                "register": "r",
-                "carriers": "c",
-                "scannability": "s",
-                "altitude": "a",
-            },
+    def test_string_rejected(self):
+        errors = validate_domain_instance(
+            _base_domain(expression_conventions="analytical prose"),
         )
-        assert validate_domain_instance(data) == []
+        assert any("must be an object" in err for err in errors)
 
     def test_object_missing_key(self):
         data = _base_domain(
@@ -69,24 +76,20 @@ class TestExpressionConventionsValidate:
         errors = validate_domain_instance(data)
         assert any("unexpected keys" in err for err in errors)
 
-    def test_empty_string_rejected(self):
-        errors = validate_domain_instance(_base_domain(expression_conventions="  "))
-        assert any("expression_conventions" in err for err in errors)
+    def test_empty_dim_rejected(self):
+        errors = validate_domain_instance(
+            _base_domain(expression_conventions=_four_key_ec(register="  ")),
+        )
+        assert any("expression_conventions.register" in err for err in errors)
 
 
 class TestExpressionConventionsNormalize:
-    def test_string_passthrough(self):
-        assert normalize_expression_conventions("keep me") == "keep me"
+    def test_string_raises(self):
+        with pytest.raises(TypeError, match="must be a dict"):
+            normalize_expression_conventions("keep me")
 
     def test_object_multiline_labeled(self):
-        text = normalize_expression_conventions(
-            {
-                "register": "r",
-                "carriers": "c",
-                "scannability": "s",
-                "altitude": "a",
-            },
-        )
+        text = normalize_expression_conventions(_four_key_ec())
         assert text == (
             "register: r\n"
             "carriers: c\n"
@@ -120,7 +123,6 @@ class TestLoadAndResolve:
             cycle_type="topic",
             domain_instance_path=path,
         )
-        # Extract JSON fence
         start = md.index("```json") + len("```json")
         end = md.index("```", start)
         data = json.loads(md[start:end])
