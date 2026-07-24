@@ -17,6 +17,13 @@ from schema_common import VALID_CYCLE_TYPES, resolve_fetched_instance_path
 SCHEMA_ID = "domain-schema"
 DOMAIN_SCHEME_KEY = "domain-instance"
 
+EXPRESSION_CONVENTION_KEYS: tuple[str, ...] = (
+    "register",
+    "carriers",
+    "scannability",
+    "altitude",
+)
+
 _SCHEMA: list[dict[str, Any]] = [
     {"field": "version", "type": "string", "required": True,
      "description": "Schema version (currently 1)"},
@@ -30,8 +37,12 @@ _SCHEMA: list[dict[str, Any]] = [
      "description": "Analytical lens this domain uses to frame problems"},
     {"field": "information_nature", "type": "list[string]", "required": True,
      "description": "Characteristic information types this domain works with"},
-    {"field": "expression_conventions", "type": "string", "required": True,
-     "description": "Expressive norms and idiomatic forms for this domain"},
+    {"field": "expression_conventions", "type": "string|object", "required": True,
+     "description": (
+         "Expressive norms for this domain: non-empty string, or object with "
+         "exactly register/carriers/scannability/altitude (non-empty strings). "
+         "Consumers receive a normalized multiline labeled string."
+     )},
     {"field": "intent_anchor", "type": "string", "required": True,
      "description": "How this domain locks intent and prevents drift"},
     {"field": "audience_type", "type": "string", "required": True,
@@ -72,6 +83,66 @@ def load_domain_instance(path: Path) -> dict[str, Any]:
     return data
 
 
+def _validate_expression_conventions(value: Any) -> list[str]:
+    """Validate expression_conventions as non-empty string or exact four-key object."""
+    if isinstance(value, str):
+        if not value.strip():
+            return ["expression_conventions must be a non-empty string"]
+        return []
+    if isinstance(value, dict):
+        errors: list[str] = []
+        expected = set(EXPRESSION_CONVENTION_KEYS)
+        actual = set(value.keys())
+        missing = expected - actual
+        extra = actual - expected
+        if missing:
+            errors.append(
+                "expression_conventions object missing keys: "
+                + ", ".join(sorted(missing)),
+            )
+        if extra:
+            errors.append(
+                "expression_conventions object has unexpected keys: "
+                + ", ".join(sorted(extra)),
+            )
+        for key in EXPRESSION_CONVENTION_KEYS:
+            item = value.get(key)
+            if not isinstance(item, str) or not item.strip():
+                errors.append(
+                    f"expression_conventions.{key} must be a non-empty string",
+                )
+        return errors
+    return [
+        "expression_conventions must be a non-empty string or "
+        "object with register/carriers/scannability/altitude",
+    ]
+
+
+def normalize_expression_conventions(value: Any) -> str:
+    """Return consumer-facing string; object → multiline `key: value` lines."""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        return "\n".join(
+            f"{key}: {value[key].strip()}"
+            for key in EXPRESSION_CONVENTION_KEYS
+        )
+    raise TypeError(
+        "expression_conventions must be str or dict before normalize; "
+        f"got {type(value).__name__}",
+    )
+
+
+def normalize_domain_instance(data: dict[str, Any]) -> dict[str, Any]:
+    """Return a shallow copy with expression_conventions normalized to string."""
+    out = dict(data)
+    if "expression_conventions" in out:
+        out["expression_conventions"] = normalize_expression_conventions(
+            out["expression_conventions"],
+        )
+    return out
+
+
 def validate_domain_instance(
     data: dict[str, Any],
     *,
@@ -99,6 +170,9 @@ def validate_domain_instance(
             elif not all(isinstance(item, str) and item.strip() for item in value):
                 errors.append("information_nature items must be non-empty strings")
             continue
+        if key == "expression_conventions":
+            errors.extend(_validate_expression_conventions(value))
+            continue
         if not isinstance(value, str) or not value.strip():
             errors.append(f"{key} must be a non-empty string")
 
@@ -119,7 +193,7 @@ def load_and_validate_domain_instance(
     errors = validate_domain_instance(data, expected_cycle_type=cycle_type)
     if errors:
         raise ValueError(f"{target.name} invalid: {'; '.join(errors)}")
-    return data
+    return normalize_domain_instance(data)
 
 
 def validate_all_domain_instances(project_root: Path | None = None) -> list[str]:
