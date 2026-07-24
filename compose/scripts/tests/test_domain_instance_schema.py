@@ -22,7 +22,6 @@ def _base_domain(**overrides: object) -> dict:
         "cycle_type": "topic",
         "domain_id": "test_domain",
         "cognitive_frame": "frame",
-        "information_nature": ["a"],
         "expression_conventions": "analytical prose",
         "intent_anchor": "anchor",
         "audience_type": "audience",

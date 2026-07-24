@@ -35,8 +35,6 @@ _SCHEMA: list[dict[str, Any]] = [
      "description": "Unique identifier for this domain slice"},
     {"field": "cognitive_frame", "type": "string", "required": True,
      "description": "Analytical lens this domain uses to frame problems"},
-    {"field": "information_nature", "type": "list[string]", "required": True,
-     "description": "Characteristic information types this domain works with"},
     {"field": "expression_conventions", "type": "string|object", "required": True,
      "description": (
          "Expressive norms for this domain: non-empty string, or object with "
@@ -164,12 +162,6 @@ def validate_domain_instance(
 
     for key in _DOMAIN_FIELD_KEYS:
         value = data.get(key)
-        if key == "information_nature":
-            if not isinstance(value, list) or not value:
-                errors.append("information_nature must be a non-empty list")
-            elif not all(isinstance(item, str) and item.strip() for item in value):
-                errors.append("information_nature items must be non-empty strings")
-            continue
         if key == "expression_conventions":
             errors.extend(_validate_expression_conventions(value))
             continue

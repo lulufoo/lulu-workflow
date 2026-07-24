@@ -104,7 +104,7 @@ class TestResolveDomain:
         assert "## Domain Instance" in md
         assert "cycle_type: feature" in md
         assert "tech_plan_feature" in md
-        assert "executable next steps" in md
+        assert "execution readiness" in md
 
     def test_topic_with_lulu_arch_succeeds(self):
         md = resolve_domain_markdown(cycle_id="topic-demo", profile_id="lulu-arch")
