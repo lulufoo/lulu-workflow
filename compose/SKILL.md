@@ -80,11 +80,11 @@ Required for `lulu-design` multi-subdesign packages (unified `revision/Lx/` layo
 
 1. Resolve `<revision_dir>` from `$SESSION_INFO`.
 2. `$MULTI_SLICE check-root-facts` — if root `_facts.json` exists → `$MULTI_SLICE migrate-root-facts --confirm` (or user removes it), then re-check.
-3. With the user: choose single vs multi; draft tree JSON; run `$MULTI_SLICE lock-tree --tree-json '<json>' --confirm` (writes tree + pointer + `Lx/` dirs). Locked trees are immutable in MVP — re-split means a new revision.
-4. **Structure 2:** inductive loop over `order[]` (full inductive-runner per pointer L; `$POINTER mark-done --confirm` then `advance --confirm`) → `$POINTER phase-switch --confirm` → production loop (Init → edit → evaluate per L; production `mark-done` requires `## Boundary`) → `$MULTI_SLICE assemble-index --confirm` → `$POINTER seam-report` (advisory) → deliver with entry `design-index.md`.
-5. `$POINTER resume` continues the current pointer with no state change. Illegal pointer moves hard-reject.
+3. With the user: choose single vs multi; draft tree JSON; run `$MULTI_SLICE lock-tree --tree-json '<json>' --confirm` (writes tree + pointer + `Lx/` dirs). Locked trees are immutable — re-split means a new revision.
+4. **DAG + `$L_SLICE` (v1.1):** single session focus; switch only via `$L_SLICE switch --to <L> --confirm` (EnterPolicy: deps `inductive: done`). Per focus L, default pipeline is inductive → Init → FreeEdit → Evaluating → `$L_SLICE mark-done --kind production --confirm` (requires `## Boundary`). Sibling L may become `ready` in parallel; do not cut L inside inductive-runner. Fact bucketing: facts `write --target-l <L>` (demotes evaluated targets). Enter Evaluating only when StageGate passes (deps `production: done` — enforced by `$SESSION_CONTROL start-evaluating`). When all relevant L are `production: done` → `$MULTI_SLICE assemble-index --confirm` → `$L_SLICE seam-report` (advisory) → deliver with entry `design-index.md`.
+5. `$L_SLICE resume` / `status` / `ready` — no illegal focus moves (hand-editing pointer JSON is forbidden).
 
-CLI contracts: `$MULTI_SLICE --help`, `$POINTER --help`.
+CLI contracts: `$MULTI_SLICE --help`, `$L_SLICE --help`.
 
 #### Step 0a — Inductive (only when `drafting.inductive` is `true`)
 
@@ -157,6 +157,8 @@ Entry: `advance-to-freeedit` success, or Evaluating fix resume.
 
 ## Evaluating Rules
 
+Before handoff: for multi-L revisions, `$SESSION_CONTROL start-evaluating` enforces StageGate (deps of current focus must be `production: done`). On failure → Blocking; finish or re-evaluate predecessor L first (`$L_SLICE status` / `can-enter-evaluate`).
+
 Read `{$SKILL_ROOT}/eval/eval-rules.md` and follow its instructions (only when the user explicitly chooses Evaluate).
 
 When eval-rules completes, follow its exit branch:
@@ -226,6 +228,6 @@ Fetch compose framework templates on demand; **do not** read `workflow-config.js
 | `$INIT_COMPOSE_VALIDATE` | `python3 "$SKILL_ROOT/compose/scripts/section/init_compose_validation.py" validate --revision-dir <dir> --compose-doc <path> --profile <profile_id> --project-root "$(pwd)"` |
 | `$AGENDA_CTL` | `python3 "$SKILL_ROOT/agenda/scripts/agenda_control.py" <subcommand> --project-root "$(pwd)" --cycle-id "$CYCLE_ID" --profile <profile_id> [args...]` — stage agenda; resolves `revision{N}` from session-state (see `$SKILL_ROOT/agenda/SKILL.md`) |
 | `$MULTI_SLICE` | `python3 "$SKILL_ROOT/compose/scripts/core/multi_slice_control.py" --revision-dir <revision_dir> <subcommand>` — `check-root-facts` / `migrate-root-facts` / `lock-tree` / `assemble-index` |
-| `$POINTER` | `python3 "$SKILL_ROOT/compose/scripts/core/discussion_pointer_control.py" --revision-dir <revision_dir> <subcommand>` — `status` / `resume` / `mark-done` / `advance` / `backtrack` / `phase-switch` / `seam-report` |
+| `$L_SLICE` | `python3 "$SKILL_ROOT/compose/scripts/core/discussion_pointer_control.py" --revision-dir <revision_dir> <subcommand>` — `status` / `resume` / `ready` / `can-admit` / `can-enter-evaluate` / `switch` / `mark-done` / `demote-production` / `seam-report` |
 
 Subcommands and stdout: script module docstrings or `--help`.

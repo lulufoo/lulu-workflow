@@ -65,3 +65,34 @@ def test_rejects_non_drafting(tmp_path: Path) -> None:
 
     assert result["ok"] is False
     assert result["current_state"] == "ReadyForDelivery"
+
+
+def test_stage_gate_blocks_multi_l_when_deps_not_production_done(tmp_path: Path) -> None:
+    from dependency_tree_schema import build_tree, save_dependency_tree
+    from discussion_pointer_schema import build_pointer_from_tree, save_discussion_pointer
+
+    ws = _seed_session(tmp_path)
+    init_drafting(ws, mode="tech")
+    rev = ws.parent
+    tree = build_tree(
+        nodes=[
+            {"id": "L1", "title": "Base", "summary": "a"},
+            {"id": "L2", "title": "Dep", "summary": "b"},
+        ],
+        edges=[{"from": "L2", "to": "L1"}],
+        order=["L1", "L2"],
+        status="locked",
+    )
+    save_dependency_tree(rev, tree)
+    ptr = build_pointer_from_tree(tree)
+    ptr["focus"] = "L2"
+    ptr["by_id"]["L1"]["inductive"] = "done"
+    ptr["by_id"]["L2"]["inductive"] = "done"
+    save_discussion_pointer(rev, ptr, tree=tree)
+
+    result = enter_evaluating_state(_CYCLE, tmp_path)
+
+    assert result["ok"] is False
+    assert "StageGate" in (result.get("error") or result.get("resume", {}).get("action", ""))
+    assert load_workflow_state(ws)["current_state"] == "Drafting"
+

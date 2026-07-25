@@ -165,8 +165,8 @@ def cmd_lock_tree(
             "command": "lock-tree",
             "tree_path": dependency_tree_path(rev).as_posix(),
             "pointer_path": discussion_pointer_path(rev).as_posix(),
-            "order": list(tree["order"]),
-            "pointer": pointer["pointer"],
+            "node_ids": list(tree["order"]),
+            "focus": pointer["focus"],
         }
     )
     return 0
@@ -181,8 +181,6 @@ def cmd_assemble_index(revision_dir: Path, *, confirm: bool) -> int:
         pointer = load_discussion_pointer(rev)
     except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
         return _emit_error(str(exc))
-    if pointer.get("phase") != "production":
-        return _emit_error("assemble-index requires phase=production")
     incomplete = [
         nid
         for nid in tree["order"]

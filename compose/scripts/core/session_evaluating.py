@@ -15,6 +15,7 @@ import kernel_bootstrap  # noqa: E402
 kernel_bootstrap.ensure_kernel_paths()
 
 from compose_session import workflow_state_path  # noqa: E402
+from discussion_pointer_control import stage_gate_for_revision  # noqa: E402
 from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID  # noqa: E402
 from workflow_state_schema import load_workflow_state, save_workflow_state  # noqa: E402
 
@@ -25,7 +26,11 @@ def enter_evaluating_state(
     *,
     profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
 ) -> dict[str, Any]:
-    """Move workflow-state Drafting → Evaluating. Does not touch evaluate-state.md."""
+    """Move workflow-state Drafting → Evaluating. Does not touch evaluate-state.md.
+
+    Multi-L StageGate (v1.1): when ``discussion-pointer.json`` exists, every
+    dependency of the current focus must have ``production: done``.
+    """
     ws_path = workflow_state_path(cycle_id, project_root, profile_id)
     state = load_workflow_state(ws_path)
     current = state["current_state"]
@@ -50,6 +55,23 @@ def enter_evaluating_state(
             "resume": {
                 "entry": current,
                 "action": f"当前状态是 {current}，请先执行完 {current}。",
+            },
+        }
+
+    revision_dir = ws_path.parent
+    gate_ok, gate_reason = stage_gate_for_revision(revision_dir)
+    if not gate_ok:
+        return {
+            "ok": False,
+            "current_state": current,
+            "transitioned": False,
+            "error": gate_reason or "StageGate blocked Evaluating entry",
+            "resume": {
+                "entry": current,
+                "action": (
+                    "StageGate: 前置 L 尚未 production=done，不能进入 Evaluating。"
+                    f" ({gate_reason})"
+                ),
             },
         }
 

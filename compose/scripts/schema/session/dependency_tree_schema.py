@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Schema and I/O for revision ``dependency-tree.json`` (multi-subdesign MVP).
+"""Schema and I/O for revision ``dependency-tree.json`` (multi-subdesign v1.1).
 
 Shape (SSOT for compose multi-L layout)::
 
@@ -8,10 +8,11 @@ Shape (SSOT for compose multi-L layout)::
       "status": "draft" | "locked",
       "nodes": [{"id": "L1", "title": "...", "summary": "..."}],
       "edges": [{"from": "L2", "to": "L1"}],   # from depends on to
-      "order": ["L1", "L2"]
+      "order": ["L1", "L2"]   # node inventory / topo listing — NOT a push constraint
     }
 
-Node progress lives in ``discussion-pointer.json``, not on nodes.
+Node progress lives in ``discussion-pointer.json`` (``focus`` / ``by_id``).
+Admission uses DAG EnterPolicy / StageGate, not ``order`` serial advance.
 """
 
 from __future__ import annotations

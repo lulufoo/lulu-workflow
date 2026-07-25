@@ -7,7 +7,10 @@ Subcommands:
     validate  Validate existing ``_facts.json``
     status    Print fact counts by lens tag (+ unlensed count)
 
-CLI details: ``python3 facts_control.py --help``
+    CLI details: ``python3 facts_control.py --help``
+
+    ``write --target-l Lx`` buckets into ``revision/Lx/_facts.json`` (v1.1).
+    If that L was ``production: done``, demotes it (FreeEdit when it is focus).
 
 Design rationale (source repo, why-only): docs/domain/ssot/compose/mechanism-ssot/compose-fact-architecture.md;
 process how archive: docs/domain/archive/compose/archive-2.0/compose-fact-first-display-layer-design.md §3.1, §11 (M1);
@@ -25,13 +28,18 @@ from typing import Any
 
 _SECTION = Path(__file__).resolve().parent
 _SCRIPTS = _SECTION.parent
-if str(_SCRIPTS) not in sys.path:
-    sys.path.insert(0, str(_SCRIPTS))
+_CORE = _SCRIPTS / "core"
+for _p in (_SCRIPTS, _CORE):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
 import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
-from discussion_pointer_schema import active_slice_dir  # noqa: E402
+from discussion_pointer_schema import (  # noqa: E402
+    active_slice_dir,
+    discussion_pointer_path,
+)
 from fetch_compose_framework import fetch_compose_framework  # noqa: E402
 from facts_schema import (  # noqa: E402
     facts_path,
@@ -44,8 +52,14 @@ from facts_schema import (  # noqa: E402
 )
 
 
-def _slice_dir(revision_dir: Path) -> Path:
-    return active_slice_dir(Path(revision_dir).resolve())
+def _slice_dir(revision_dir: Path, *, target_l: str | None = None) -> Path:
+    rev = Path(revision_dir).resolve()
+    if target_l:
+        tgt = str(target_l).strip()
+        if not tgt:
+            raise ValueError("target-l must be non-empty")
+        return rev / tgt
+    return active_slice_dir(rev)
 
 
 def _section_order(project_root: Path, profile_id: str) -> list[str]:
@@ -69,7 +83,15 @@ def _fail(message: str) -> int:
 
 
 def cmd_write(args: argparse.Namespace) -> int:
-    path = facts_path(_slice_dir(args.revision_dir))
+    rev = Path(args.revision_dir).resolve()
+    target_l = (args.target_l or "").strip() or None
+    try:
+        dest_dir = _slice_dir(rev, target_l=target_l)
+    except ValueError as exc:
+        return _fail(str(exc))
+    if target_l:
+        dest_dir.mkdir(parents=True, exist_ok=True)
+    path = facts_path(dest_dir)
     try:
         if args.facts_file:
             raw = Path(args.facts_file).read_text(encoding="utf-8")
@@ -91,17 +113,39 @@ def cmd_write(args: argparse.Namespace) -> int:
     except ValueError as exc:
         return _fail(str(exc))
 
+    demote: dict[str, Any] | None = None
+    if target_l and discussion_pointer_path(rev).is_file():
+        from discussion_pointer_control import cmd_demote_production  # noqa: WPS433
+        import io
+        from contextlib import redirect_stdout, redirect_stderr
+
+        buf_out, buf_err = io.StringIO(), io.StringIO()
+        with redirect_stdout(buf_out), redirect_stderr(buf_err):
+            code = cmd_demote_production(rev, target=target_l, confirm=True)
+        raw_out = buf_out.getvalue().strip()
+        if raw_out:
+            try:
+                demote = json.loads(raw_out)
+            except json.JSONDecodeError:
+                demote = {"ok": code == 0, "raw": raw_out}
+        elif code != 0:
+            return _fail(buf_err.getvalue().strip() or "demote-production failed")
+
     loaded = load_facts(path)
-    return _ok(
-        {
-            "ok": True,
-            "command": "write",
-            "path": str(path),
-            "facts_total": len(loaded),
-            "by_lens": lenses_present(loaded),
-            "unlensed_total": len(unlensed_fact_ids(loaded)),
-        }
-    )
+    payload: dict[str, Any] = {
+        "ok": True,
+        "command": "write",
+        "path": str(path),
+        "facts_total": len(loaded),
+        "by_lens": lenses_present(loaded),
+        "unlensed_total": len(unlensed_fact_ids(loaded)),
+    }
+    if target_l:
+        payload["target_l"] = target_l
+        payload["bucketed"] = True
+    if demote is not None:
+        payload["demote"] = demote
+    return _ok(payload)
 
 
 def cmd_filter(args: argparse.Namespace) -> int:
@@ -190,6 +234,11 @@ def main() -> int:
         "--facts-file",
         type=Path,
         help="Path to facts JSON array (default: stdin)",
+    )
+    write_p.add_argument(
+        "--target-l",
+        default="",
+        help="Bucket into revision/<L>/_facts.json (default: active focus slice)",
     )
     write_p.add_argument("--profile", type=str, default="")
     write_p.add_argument("--project-root", type=Path, default=Path.cwd())

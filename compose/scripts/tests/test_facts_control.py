@@ -598,3 +598,50 @@ def test_save_facts_rejects_incomplete_origin_with_value_error(tmp_path: Path):
         raise AssertionError("expected ValueError")
     except ValueError as exc:
         assert "origin.ref" in str(exc)
+
+
+def test_write_target_l_buckets_and_demotes(tmp_path: Path) -> None:
+    """v1.1: --target-l writes into Lx and demotes production=done targets."""
+    import argparse
+
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "schema" / "session"))
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "core"))
+    from dependency_tree_schema import build_tree, save_dependency_tree
+    from discussion_pointer_schema import build_pointer_from_tree, load_discussion_pointer, save_discussion_pointer
+    from facts_control import cmd_write
+
+    rev = tmp_path / "revision1"
+    rev.mkdir()
+    tree = build_tree(
+        nodes=[
+            {"id": "L1", "title": "Base", "summary": "a"},
+            {"id": "L2", "title": "Dep", "summary": "b"},
+        ],
+        edges=[{"from": "L2", "to": "L1"}],
+        order=["L1", "L2"],
+        status="locked",
+    )
+    save_dependency_tree(rev, tree)
+    ptr = build_pointer_from_tree(tree)
+    ptr["by_id"]["L1"]["inductive"] = "done"
+    ptr["by_id"]["L1"]["production"] = "done"
+    save_discussion_pointer(rev, ptr, tree=tree)
+    (rev / "L1").mkdir(exist_ok=True)
+    (rev / "L1" / "design-doc.md").write_text("# L1\n\n## Boundary\n\n", encoding="utf-8")
+
+    facts_file = tmp_path / "facts.json"
+    facts_file.write_text(
+        json.dumps([{"id": "F-1", "text": "bucketed", "lens_tags": ["CTX"]}]),
+        encoding="utf-8",
+    )
+    args = argparse.Namespace(
+        revision_dir=rev,
+        facts_file=facts_file,
+        target_l="L1",
+        profile="",
+        project_root=tmp_path,
+    )
+    assert cmd_write(args) == 0
+    assert (rev / "L1" / "_facts.json").is_file()
+    loaded = load_discussion_pointer(rev)
+    assert loaded["by_id"]["L1"]["production"] == "pending"
