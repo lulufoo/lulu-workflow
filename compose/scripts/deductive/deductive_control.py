@@ -160,7 +160,9 @@ def cmd_pending_list(args: argparse.Namespace) -> int:
 
 
 def cmd_quarantine_unref(args: argparse.Namespace) -> int:
-    revision_dir = args.revision_dir.resolve()
+    from discussion_pointer_schema import active_slice_dir
+
+    revision_dir = active_slice_dir(args.revision_dir.resolve())
     try:
         facts = load_facts(facts_path(revision_dir))
     except ValueError as exc:

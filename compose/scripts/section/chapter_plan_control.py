@@ -30,6 +30,7 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
+from discussion_pointer_schema import active_slice_dir  # noqa: E402
 from fetch_compose_framework import fetch_compose_framework  # noqa: E402
 from lens_themes_schema import (  # noqa: E402
     lens_themes_path,
@@ -82,7 +83,7 @@ def _required_lenses(project_root: Path, profile_id: str) -> list[str]:
 
 
 def _load_facts_if_present(revision_dir: Path) -> list[dict[str, Any]]:
-    path = facts_path(revision_dir)
+    path = facts_path(active_slice_dir(Path(revision_dir).resolve()))
     if not path.is_file():
         return []
     return load_facts(path)
@@ -134,8 +135,12 @@ def _render_chapter_ids(framework: dict[str, Any], placement: dict[str, Any]) ->
     ]
 
 
+def _rev(args: argparse.Namespace) -> Path:
+    return active_slice_dir(args.revision_dir.resolve())
+
+
 def cmd_write_themes(args: argparse.Namespace) -> int:
-    revision_dir = args.revision_dir.resolve()
+    revision_dir = _rev(args)
     try:
         data = _read_json(args.themes_file, "themes JSON")
     except ValueError as exc:
@@ -183,7 +188,7 @@ def cmd_write_themes(args: argparse.Namespace) -> int:
 
 
 def cmd_write_framework(args: argparse.Namespace) -> int:
-    revision_dir = args.revision_dir.resolve()
+    revision_dir = _rev(args)
     try:
         data = _read_json(args.framework_file, "framework JSON")
     except ValueError as exc:
@@ -217,7 +222,7 @@ def cmd_write_framework(args: argparse.Namespace) -> int:
 
 
 def cmd_write_placement(args: argparse.Namespace) -> int:
-    revision_dir = args.revision_dir.resolve()
+    revision_dir = _rev(args)
     retired = _reject_retired_chapters(revision_dir)
     if retired:
         return _fail(retired)
@@ -265,7 +270,7 @@ def cmd_write_placement(args: argparse.Namespace) -> int:
 
 
 def cmd_propose_placement(args: argparse.Namespace) -> int:
-    revision_dir = args.revision_dir.resolve()
+    revision_dir = _rev(args)
     retired = _reject_retired_chapters(revision_dir)
     if retired:
         return _fail(retired)
@@ -301,7 +306,7 @@ def cmd_propose_placement(args: argparse.Namespace) -> int:
 
 
 def cmd_list_chapters(args: argparse.Namespace) -> int:
-    revision_dir = args.revision_dir.resolve()
+    revision_dir = _rev(args)
     retired = _reject_retired_chapters(revision_dir)
     if retired:
         return _fail(retired)
@@ -322,7 +327,7 @@ def cmd_list_chapters(args: argparse.Namespace) -> int:
 
 
 def cmd_validate(args: argparse.Namespace) -> int:
-    revision_dir = args.revision_dir.resolve()
+    revision_dir = _rev(args)
     retired = _reject_retired_chapters(revision_dir)
     if retired:
         return _fail(retired)

@@ -19,13 +19,15 @@ from deductive_pending_schema import (  # noqa: E402
     pending_path,
 )
 from derive_shell import collect_ref_tokens  # noqa: E402
+from discussion_pointer_schema import active_slice_dir  # noqa: E402
 from facts_schema import facts_path, load_facts, unlensed_fact_ids  # noqa: E402
 
 _SETTLED = frozenset({"resolved", "escalated", "out_of_scope"})
 
 
 def _unreferenced_quarantine_ids(revision_dir: Path) -> list[str]:
-    facts = load_facts(facts_path(revision_dir))
+    slice_dir = active_slice_dir(Path(revision_dir).resolve())
+    facts = load_facts(facts_path(slice_dir))
     cited: set[str] = set()
     for fact in facts:
         cited |= collect_ref_tokens(fact)
@@ -47,7 +49,7 @@ def _settled_quarantine_refs(pending_data: dict) -> set[str]:
 
 def evaluate_deductive_gate(revision_dir: Path) -> str | None:
     """Return a failure reason string, or ``None`` when the confirm gate is clear."""
-    rev = Path(revision_dir).resolve()
+    rev = active_slice_dir(Path(revision_dir).resolve())
     facts = facts_path(rev)
     if not facts.is_file():
         return f"_facts.json missing (expected {facts.as_posix()})"

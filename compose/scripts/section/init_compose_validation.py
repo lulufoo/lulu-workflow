@@ -26,6 +26,7 @@ kernel_bootstrap.ensure_kernel_paths()
 
 from chapter_artifact_paths import chapter_body_path, chapter_derive_path  # noqa: E402
 from chapter_doc_schema import chapter_anchor_present, chapter_body_by_id  # noqa: E402
+from discussion_pointer_schema import active_slice_dir  # noqa: E402
 from facts_schema import facts_path, load_facts  # noqa: E402
 from fetch_compose_framework import fetch_compose_framework  # noqa: E402
 from section_registry_schema import (  # noqa: E402
@@ -330,6 +331,7 @@ def validate_init_artifacts(
     profile_id: str,
 ) -> str | None:
     """Return first error summary or None when all checks pass."""
+    revision_dir = active_slice_dir(Path(revision_dir).resolve())
     if not revision_dir.is_dir():
         return f"revision dir not found: {revision_dir}"
 

@@ -74,6 +74,18 @@ To **abandon a partial revision** and begin fresh after fixes, run `$START_COMPO
 
 Always run — no opt-in prompt. Branch on `drafting.inductive`.
 
+#### Step 0pre — Multi-subdesign Split (when using Lx package layout)
+
+Required for `lulu-design` multi-subdesign packages (unified `revision/Lx/` layout; single-req = L1 only). **Do not** run `begin-inductive` until the dependency tree is locked.
+
+1. Resolve `<revision_dir>` from `$SESSION_INFO`.
+2. `$MULTI_SLICE check-root-facts` — if root `_facts.json` exists → `$MULTI_SLICE migrate-root-facts --confirm` (or user removes it), then re-check.
+3. With the user: choose single vs multi; draft tree JSON; run `$MULTI_SLICE lock-tree --tree-json '<json>' --confirm` (writes tree + pointer + `Lx/` dirs). Locked trees are immutable in MVP — re-split means a new revision.
+4. **Structure 2:** inductive loop over `order[]` (full inductive-runner per pointer L; `$POINTER mark-done --confirm` then `advance --confirm`) → `$POINTER phase-switch --confirm` → production loop (Init → edit → evaluate per L; production `mark-done` requires `## Boundary`) → `$MULTI_SLICE assemble-index --confirm` → `$POINTER seam-report` (advisory) → deliver with entry `design-index.md`.
+5. `$POINTER resume` continues the current pointer with no state change. Illegal pointer moves hard-reject.
+
+CLI contracts: `$MULTI_SLICE --help`, `$POINTER --help`.
+
 #### Step 0a — Inductive (only when `drafting.inductive` is `true`)
 
 **Inductive-runner** is a human-driven gate spine (Shape → Grounding → Refine → Recompose → Provenance): AI recommends; the **user** closes each gate. Run **inline in this conversation**. **Exceptions (subagents via `$SUBAGENT_TOOL`, read-only):** deprecated G2 → `g2-grounding-runner`; G3 Class 1B → `g3-shallow-grounding-runner` (optional); G3 Class 2 → `g3-deep-grounding-runner` (optional).
@@ -213,5 +225,7 @@ Fetch compose framework templates on demand; **do not** read `workflow-config.js
 | `$CHAPTER_PLAN_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/chapter_plan_control.py"` |
 | `$INIT_COMPOSE_VALIDATE` | `python3 "$SKILL_ROOT/compose/scripts/section/init_compose_validation.py" validate --revision-dir <dir> --compose-doc <path> --profile <profile_id> --project-root "$(pwd)"` |
 | `$AGENDA_CTL` | `python3 "$SKILL_ROOT/agenda/scripts/agenda_control.py" <subcommand> --project-root "$(pwd)" --cycle-id "$CYCLE_ID" --profile <profile_id> [args...]` — stage agenda; resolves `revision{N}` from session-state (see `$SKILL_ROOT/agenda/SKILL.md`) |
+| `$MULTI_SLICE` | `python3 "$SKILL_ROOT/compose/scripts/core/multi_slice_control.py" --revision-dir <revision_dir> <subcommand>` — `check-root-facts` / `migrate-root-facts` / `lock-tree` / `assemble-index` |
+| `$POINTER` | `python3 "$SKILL_ROOT/compose/scripts/core/discussion_pointer_control.py" --revision-dir <revision_dir> <subcommand>` — `status` / `resume` / `mark-done` / `advance` / `backtrack` / `phase-switch` / `seam-report` |
 
 Subcommands and stdout: script module docstrings or `--help`.

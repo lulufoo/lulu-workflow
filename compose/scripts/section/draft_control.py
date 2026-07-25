@@ -25,6 +25,7 @@ from drafting_progress_schema import (  # noqa: E402
     save_drafting_progress,
 )
 from delivered_refs_schema import serialize_delivered_refs  # noqa: E402
+from discussion_pointer_schema import active_slice_dir  # noqa: E402
 from facts_schema import facts_path  # noqa: E402
 from deductive_gate import evaluate_deductive_gate  # noqa: E402
 from init_compose_validation import validate_init_artifacts  # noqa: E402
@@ -374,11 +375,12 @@ def deductive_complete(
     if gate_reason:
         return _failure(_CMD_DEDUCTIVE_COMPLETE, gate_reason)
     rev = _revision_dir(cycle_id, project_root, profile_id)
+    slice_dir = active_slice_dir(rev)
     return _success(
         _CMD_DEDUCTIVE_COMPLETE,
         current_step=_STEP_DEDUCTIVE,
         revision_dir=rev.as_posix(),
-        facts_path=facts_path(rev).as_posix(),
+        facts_path=facts_path(slice_dir).as_posix(),
     )
 
 
@@ -411,7 +413,7 @@ def begin_init(
                     current_step=step,
                 )
         rev = _revision_dir(cycle_id, project_root, profile_id)
-        path = facts_path(rev)
+        path = facts_path(active_slice_dir(rev))
         if not path.is_file():
             return _failure(
                 _CMD_BEGIN_INIT,

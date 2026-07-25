@@ -31,6 +31,7 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
+from discussion_pointer_schema import active_slice_dir  # noqa: E402
 from fetch_compose_framework import fetch_compose_framework  # noqa: E402
 from facts_schema import (  # noqa: E402
     facts_path,
@@ -41,6 +42,10 @@ from facts_schema import (  # noqa: E402
     unlensed_fact_ids,
     validate_facts,
 )
+
+
+def _slice_dir(revision_dir: Path) -> Path:
+    return active_slice_dir(Path(revision_dir).resolve())
 
 
 def _section_order(project_root: Path, profile_id: str) -> list[str]:
@@ -64,8 +69,7 @@ def _fail(message: str) -> int:
 
 
 def cmd_write(args: argparse.Namespace) -> int:
-    revision_dir = args.revision_dir.resolve()
-    path = facts_path(revision_dir)
+    path = facts_path(_slice_dir(args.revision_dir))
     try:
         if args.facts_file:
             raw = Path(args.facts_file).read_text(encoding="utf-8")
@@ -101,7 +105,7 @@ def cmd_write(args: argparse.Namespace) -> int:
 
 
 def cmd_filter(args: argparse.Namespace) -> int:
-    path = facts_path(args.revision_dir.resolve())
+    path = facts_path(_slice_dir(args.revision_dir))
     try:
         facts = load_facts(path)
     except ValueError as exc:
@@ -117,7 +121,7 @@ def cmd_filter(args: argparse.Namespace) -> int:
 
 
 def cmd_validate(args: argparse.Namespace) -> int:
-    path = facts_path(args.revision_dir.resolve())
+    path = facts_path(_slice_dir(args.revision_dir))
     if not path.is_file():
         return _fail(f"facts file not found: {path}")
     try:
@@ -149,7 +153,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
 
 
 def cmd_status(args: argparse.Namespace) -> int:
-    path = facts_path(args.revision_dir.resolve())
+    path = facts_path(_slice_dir(args.revision_dir))
     if not path.is_file():
         return _ok(
             {

@@ -31,6 +31,7 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
+from discussion_pointer_schema import active_slice_dir  # noqa: E402
 from facts_schema import facts_path  # noqa: E402
 from fidelity_evaluate_state_schema import (  # noqa: E402
     empty_state,
@@ -56,7 +57,7 @@ def _fail(message: str) -> int:
 
 
 def cmd_init(args: argparse.Namespace) -> int:
-    rev = args.revision_dir.resolve()
+    rev = active_slice_dir(args.revision_dir.resolve())
     path = fidelity_evaluate_state_path(rev)
     intake = (args.intake or "atomize").strip()
     data = empty_state(intake=intake)
@@ -65,7 +66,7 @@ def cmd_init(args: argparse.Namespace) -> int:
 
 
 def cmd_mark_passed(args: argparse.Namespace) -> int:
-    rev = args.revision_dir.resolve()
+    rev = active_slice_dir(args.revision_dir.resolve())
     path = fidelity_evaluate_state_path(rev)
     if path.is_file():
         data = load_state(path)
@@ -83,7 +84,7 @@ def cmd_mark_skipped(args: argparse.Namespace) -> int:
     reason = (args.reason or "").strip()
     if not reason:
         return _fail("mark-skipped requires --reason")
-    rev = args.revision_dir.resolve()
+    rev = active_slice_dir(args.revision_dir.resolve())
     path = fidelity_evaluate_state_path(rev)
     data = empty_state(intake="unit-import")
     data["status"] = "skipped"
@@ -101,7 +102,7 @@ def cmd_mark_skipped(args: argparse.Namespace) -> int:
 
 
 def cmd_require_for_derive(args: argparse.Namespace) -> int:
-    rev = args.revision_dir.resolve()
+    rev = active_slice_dir(args.revision_dir.resolve())
     path = fidelity_evaluate_state_path(rev)
     if not path.is_file():
         return _fail(
@@ -125,7 +126,7 @@ def cmd_require_for_derive(args: argparse.Namespace) -> int:
 
 
 def cmd_status(args: argparse.Namespace) -> int:
-    rev = args.revision_dir.resolve()
+    rev = active_slice_dir(args.revision_dir.resolve())
     path = fidelity_evaluate_state_path(rev)
     if not path.is_file():
         return _ok({"ok": True, "exists": False, "path": path.as_posix()})
@@ -145,18 +146,19 @@ def cmd_status(args: argparse.Namespace) -> int:
 
 
 def cmd_paths(args: argparse.Namespace) -> int:
-    rev = args.revision_dir.resolve()
+    rev_root = args.revision_dir.resolve()
+    slice_dir = active_slice_dir(rev_root)
     scope = ""
-    if has_resolved_refs(rev):
-        ref = resolved_scope_ref(rev)
+    if has_resolved_refs(rev_root):
+        ref = resolved_scope_ref(rev_root)
         if ref is not None:
             scope = ref.path
     return _ok(
         {
             "ok": True,
             "scope_doc": scope,
-            "facts_path": facts_path(rev).as_posix(),
-            "fidelity_state": fidelity_evaluate_state_path(rev).as_posix(),
+            "facts_path": facts_path(slice_dir).as_posix(),
+            "fidelity_state": fidelity_evaluate_state_path(slice_dir).as_posix(),
             "dimension_defs_dir": (
                 _FIDELITY_SCRIPTS.parent / "dimension-defs"
             ).resolve().as_posix(),

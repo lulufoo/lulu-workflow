@@ -28,6 +28,7 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
+from discussion_pointer_schema import active_slice_dir  # noqa: E402
 from facts_schema import (  # noqa: E402
     facts_path,
     filter_by_lens,
@@ -123,7 +124,7 @@ def _graph_and_maps(
 
 def cmd_plan_edge(args: argparse.Namespace) -> int:
     """Edge-coverage floor plan for deductive-runner (not zero-only)."""
-    revision_dir = args.revision_dir.resolve()
+    revision_dir = active_slice_dir(args.revision_dir.resolve())
     gate_err = _require_fidelity_for_derive(revision_dir)
     if gate_err:
         return _fail(gate_err)
@@ -179,7 +180,7 @@ def cmd_plan_edge(args: argparse.Namespace) -> int:
 
 
 def cmd_audit(args: argparse.Namespace) -> int:
-    revision_dir = args.revision_dir.resolve()
+    revision_dir = active_slice_dir(args.revision_dir.resolve())
     try:
         after = load_facts(facts_path(revision_dir))
     except ValueError as exc:
@@ -228,7 +229,7 @@ def cmd_audit(args: argparse.Namespace) -> int:
 
 
 def cmd_append(args: argparse.Namespace) -> int:
-    revision_dir = args.revision_dir.resolve()
+    revision_dir = active_slice_dir(args.revision_dir.resolve())
     try:
         base = load_facts(facts_path(revision_dir))
     except ValueError as exc:
@@ -262,7 +263,7 @@ def cmd_append(args: argparse.Namespace) -> int:
 
 
 def cmd_classify(args: argparse.Namespace) -> int:
-    revision_dir = args.revision_dir.resolve()
+    revision_dir = active_slice_dir(args.revision_dir.resolve())
     try:
         facts = load_facts(facts_path(revision_dir))
     except ValueError as exc:

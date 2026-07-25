@@ -42,11 +42,22 @@ def inductive_out_dir(
     profile_id: str,
     project_root: Path,
 ) -> Path:
-    """Inductive state bundle root: revision{active_doc}/ alongside drafting artifacts."""
+    """Inductive state bundle root: active slice under revision{active_doc}/.
+
+    When ``discussion-pointer.json`` exists, this is ``revision{N}/Lx`` for the
+    current pointer; otherwise the revision root (legacy).
+    """
+    from discussion_pointer_schema import active_slice_dir  # noqa: WPS433
     from session_state_schema import load_active_doc_from_cycle  # noqa: WPS433
 
     active_doc = load_active_doc_from_cycle(cycle_id, project_root, profile_id=profile_id)
-    return doc_dir(cycle_id, active_doc, profile_id, project_root)
+    rev = doc_dir(cycle_id, active_doc, profile_id, project_root)
+    # active_slice_dir expects an absolute/existing-capable path; resolve via root
+    slice_abs = active_slice_dir(project_root.resolve() / rev)
+    try:
+        return slice_abs.relative_to(project_root.resolve())
+    except ValueError:
+        return Path(slice_abs)
 
 
 def state_path(
@@ -66,7 +77,15 @@ def document_path(
 ) -> Path:
     profile = load_profile(profile_id, project_root=project_root, cycle_id=cycle_id)
     filename = profile["document"]["filename"]
-    return doc_dir(cycle_id, doc_round, profile_id, project_root) / filename
+    rev = doc_dir(cycle_id, doc_round, profile_id, project_root)
+    from discussion_pointer_schema import active_slice_dir  # noqa: WPS433
+
+    slice_abs = active_slice_dir(project_root.resolve() / rev)
+    try:
+        slice_rel = slice_abs.relative_to(project_root.resolve())
+    except ValueError:
+        slice_rel = Path(slice_abs)
+    return slice_rel / filename
 
 
 def approval_path(
