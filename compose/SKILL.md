@@ -76,13 +76,25 @@ Always run — no opt-in prompt. Branch on `drafting.inductive`.
 
 #### Step 0pre — Multi-subdesign Split (when using Lx package layout)
 
-Required for `lulu-design` multi-subdesign packages (unified `revision/Lx/` layout; single-req = L1 only). **Do not** run `begin-inductive` until the dependency tree is locked.
+Required for `lulu-design` multi-subdesign packages (unified `revision/Lx/` layout; single-req = L1 only). **Do not** run `begin-inductive` until `$MULTI_SLICE check-split-ready` succeeds.
 
 1. Resolve `<revision_dir>` from `$SESSION_INFO`.
-2. `$MULTI_SLICE check-root-facts` — if root `_facts.json` exists → `$MULTI_SLICE migrate-root-facts --confirm` (or user removes it), then re-check.
-3. With the user: choose single vs multi; draft tree JSON; run `$MULTI_SLICE lock-tree --tree-json '<json>' --confirm` (writes tree + pointer + `Lx/` dirs). Locked trees are immutable — re-split means a new revision.
-4. **DAG + `$L_SLICE` (v1.1):** single session focus; switch only via `$L_SLICE switch --to <L> --confirm` (EnterPolicy: deps `inductive: done`). Per focus L, default pipeline is inductive → Init → FreeEdit → Evaluating → `$L_SLICE mark-done --kind production --confirm` (requires `## Boundary`). Sibling L may become `ready` in parallel; do not cut L inside inductive-runner. Fact bucketing: facts `write --target-l <L>` (demotes evaluated targets). Enter Evaluating only when StageGate passes (deps `production: done` — enforced by `$SESSION_CONTROL start-evaluating`). When all relevant L are `production: done` → `$MULTI_SLICE assemble-index --confirm` → `$L_SLICE seam-report` (advisory) → deliver with entry `design-index.md`.
-5. `$L_SLICE resume` / `status` / `ready` — no illegal focus moves (hand-editing pointer JSON is forbidden).
+2. `$MULTI_SLICE check-split-ready` — if ok, skip to step 4 (already locked).
+3. Otherwise dispatch **split-runner** inline (not a subagent):
+
+```text
+Load {actual $SKILL_ROOT}/compose/split-runner/SKILL.md and follow its instructions in this conversation (interactive, human-driven — NOT a subagent).
+
+## Input
+REVISION_DIR=<revision_dir from $SESSION_INFO>
+CYCLE_ID=$CYCLE_ID
+COMPOSE_PROFILE=<profile_id>
+```
+
+   Locked trees are immutable this iteration — re-split means a new revision. Multi-L lock requires rulers; single-L rulers exempt.
+4. `$MULTI_SLICE check-split-ready` — non-zero → Blocking.
+5. **DAG + `$L_SLICE` (v1.1):** single session focus; switch only via `$L_SLICE switch --to <L> --confirm` (EnterPolicy: deps `inductive: done`). Per focus L, default pipeline is inductive → Init → FreeEdit → Evaluating → `$L_SLICE mark-done --kind production --confirm` (requires `## Boundary`). Sibling L may become `ready` in parallel; do not cut L inside inductive-runner. **Fact writes (multi-L):** split facts against locked rulers first; each fact must carry `home_l` (+ short `home_rationale`); `$FACTS_CTL write --target-l <home_l>` (G1 divert ok; demotes evaluated targets). Untagged writes hard-reject. Ambiguous ownership → rare human confirm. `home_l=package` only after human confirm with `--package-confirm`. Enter Evaluating only when StageGate passes (deps `production: done` — enforced by `$SESSION_CONTROL start-evaluating`). When all relevant L are `production: done` → `$MULTI_SLICE assemble-index --confirm` → `$L_SLICE seam-report` (advisory) → deliver with entry `design-index.md`.
+6. `$L_SLICE resume` / `status` / `ready` — no illegal focus moves (hand-editing pointer JSON is forbidden).
 
 CLI contracts: `$MULTI_SLICE --help`, `$L_SLICE --help`.
 
@@ -194,6 +206,7 @@ Stage-agenda items (design-external blockers/notes) live under the revision dir;
 
 | Document | When |
 |----------|------|
+| `{SKILL_ROOT}/compose/split-runner/SKILL.md` | Drafting Step 0pre — multi-subdesign split (intake → lock tree+rulers) |
 | `{SKILL_ROOT}/compose/inductive-runner/SKILL.md` | Drafting Step 0a — inductive-runner (`drafting.inductive: true`) |
 | `{SKILL_ROOT}/compose/deductive-runner/SKILL.md` | Drafting Step 0b — deductive-runner (`drafting.inductive: false`) |
 | `{SKILL_ROOT}/compose/inductive-runner/g2-grounding-runner/SKILL.md` | Drafting Step 0 — **deprecated** optional G2 topology subagent (prefer `attach-code-refs` in Class 2 processing) |
@@ -227,7 +240,8 @@ Fetch compose framework templates on demand; **do not** read `workflow-config.js
 | `$CHAPTER_PLAN_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/chapter_plan_control.py"` |
 | `$INIT_COMPOSE_VALIDATE` | `python3 "$SKILL_ROOT/compose/scripts/section/init_compose_validation.py" validate --revision-dir <dir> --compose-doc <path> --profile <profile_id> --project-root "$(pwd)"` |
 | `$AGENDA_CTL` | `python3 "$SKILL_ROOT/agenda/scripts/agenda_control.py" <subcommand> --project-root "$(pwd)" --cycle-id "$CYCLE_ID" --profile <profile_id> [args...]` — stage agenda; resolves `revision{N}` from session-state (see `$SKILL_ROOT/agenda/SKILL.md`) |
-| `$MULTI_SLICE` | `python3 "$SKILL_ROOT/compose/scripts/core/multi_slice_control.py" --revision-dir <revision_dir> <subcommand>` — `check-root-facts` / `migrate-root-facts` / `lock-tree` / `assemble-index` |
+| `$MULTI_SLICE` | `python3 "$SKILL_ROOT/compose/scripts/core/multi_slice_control.py" --revision-dir <revision_dir> <subcommand>` — `check-root-facts` / `migrate-root-facts` / `write-intake` / `complete-intake` / `lock-tree` / `check-split-ready` / `assemble-index` |
 | `$L_SLICE` | `python3 "$SKILL_ROOT/compose/scripts/core/discussion_pointer_control.py" --revision-dir <revision_dir> <subcommand>` — `status` / `resume` / `ready` / `can-admit` / `can-enter-evaluate` / `switch` / `mark-done` / `demote-production` / `seam-report` |
+| `$FACTS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/facts_control.py"` — `write` / `filter` / `validate` / `status` (multi-L: `write` requires `home_l`; package bucket needs `--package-confirm`) |
 
 Subcommands and stdout: script module docstrings or `--help`.

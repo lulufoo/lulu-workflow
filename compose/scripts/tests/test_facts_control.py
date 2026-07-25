@@ -631,13 +631,24 @@ def test_write_target_l_buckets_and_demotes(tmp_path: Path) -> None:
 
     facts_file = tmp_path / "facts.json"
     facts_file.write_text(
-        json.dumps([{"id": "F-1", "text": "bucketed", "lens_tags": ["CTX"]}]),
+        json.dumps(
+            [
+                {
+                    "id": "F-1",
+                    "text": "bucketed",
+                    "lens_tags": ["CTX"],
+                    "home_l": "L1",
+                    "home_rationale": "belongs to L1",
+                }
+            ]
+        ),
         encoding="utf-8",
     )
     args = argparse.Namespace(
         revision_dir=rev,
         facts_file=facts_file,
         target_l="L1",
+        package_confirm=False,
         profile="",
         project_root=tmp_path,
     )

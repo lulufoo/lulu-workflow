@@ -43,6 +43,8 @@ def test_migrate_then_lock_single_l1(tmp_path: Path) -> None:
             rev,
             tree_json=json.dumps(tree),
             tree_file=None,
+            rulers_json=None,
+            rulers_file=None,
             confirm=True,
         )
         == 0
@@ -68,7 +70,14 @@ def test_assemble_index_after_production(tmp_path: Path) -> None:
         "order": ["L1"],
     }
     assert (
-        cmd_lock_tree(rev, tree_json=json.dumps(tree), tree_file=None, confirm=True)
+        cmd_lock_tree(
+            rev,
+            tree_json=json.dumps(tree),
+            tree_file=None,
+            rulers_json=None,
+            rulers_file=None,
+            confirm=True,
+        )
         == 0
     )
     assert cmd_mark_done(rev, confirm=True, kind="inductive") == 0
@@ -91,10 +100,167 @@ def test_lock_tree_rejects_second_lock(tmp_path: Path) -> None:
         "order": ["L1"],
     }
     assert (
-        cmd_lock_tree(rev, tree_json=json.dumps(tree), tree_file=None, confirm=True)
+        cmd_lock_tree(
+            rev,
+            tree_json=json.dumps(tree),
+            tree_file=None,
+            rulers_json=None,
+            rulers_file=None,
+            confirm=True,
+        )
         == 0
     )
     assert (
-        cmd_lock_tree(rev, tree_json=json.dumps(tree), tree_file=None, confirm=True)
+        cmd_lock_tree(
+            rev,
+            tree_json=json.dumps(tree),
+            tree_file=None,
+            rulers_json=None,
+            rulers_file=None,
+            confirm=True,
+        )
         == 1
     )
+
+
+def _sample_rulers() -> dict:
+    return {
+        "version": 1,
+        "cut_axis": "tech_domain",
+        "rulers": {
+            "L1": {
+                "id": "L1",
+                "job": "Core API",
+                "in": ["API surface"],
+                "out": ["UI"],
+                "seam": [
+                    {
+                        "with": "L2",
+                        "owns": "full_plan",
+                        "note": "L1 owns contract shape",
+                    }
+                ],
+                "plan_checklist": ["endpoints listed"],
+            },
+            "L2": {
+                "id": "L2",
+                "job": "UI client",
+                "in": ["screens"],
+                "out": ["API impl"],
+                "seam": [
+                    {
+                        "with": "L1",
+                        "owns": "depend_only",
+                        "note": "depends on L1 contract",
+                    }
+                ],
+                "plan_checklist": ["screens mapped"],
+            },
+        },
+    }
+
+
+def test_multi_l_lock_requires_rulers(tmp_path: Path) -> None:
+    rev = tmp_path / "revision1"
+    rev.mkdir()
+    tree = {
+        "version": 1,
+        "nodes": [
+            {"id": "L1", "title": "A", "summary": "a"},
+            {"id": "L2", "title": "B", "summary": "b"},
+        ],
+        "edges": [{"from": "L2", "to": "L1"}],
+        "order": ["L1", "L2"],
+    }
+    assert (
+        cmd_lock_tree(
+            rev,
+            tree_json=json.dumps(tree),
+            tree_file=None,
+            rulers_json=None,
+            rulers_file=None,
+            confirm=True,
+        )
+        == 1
+    )
+
+
+def test_multi_l_lock_with_rulers_and_check_ready(tmp_path: Path) -> None:
+    from multi_slice_control import cmd_check_split_ready  # noqa: E402
+    from slice_rulers_schema import load_slice_rulers  # noqa: E402
+
+    rev = tmp_path / "revision1"
+    rev.mkdir()
+    tree = {
+        "version": 1,
+        "nodes": [
+            {"id": "L1", "title": "A", "summary": "a"},
+            {"id": "L2", "title": "B", "summary": "b"},
+        ],
+        "edges": [{"from": "L2", "to": "L1"}],
+        "order": ["L1", "L2"],
+    }
+    assert (
+        cmd_lock_tree(
+            rev,
+            tree_json=json.dumps(tree),
+            tree_file=None,
+            rulers_json=json.dumps(_sample_rulers()),
+            rulers_file=None,
+            confirm=True,
+        )
+        == 0
+    )
+    rulers = load_slice_rulers(rev)
+    assert rulers["status"] == "locked"
+    assert rulers["cut_axis"] == "tech_domain"
+    assert cmd_check_split_ready(rev) == 0
+
+
+def test_dual_full_plan_seam_rejected(tmp_path: Path) -> None:
+    rev = tmp_path / "revision1"
+    rev.mkdir()
+    tree = {
+        "version": 1,
+        "nodes": [
+            {"id": "L1", "title": "A", "summary": "a"},
+            {"id": "L2", "title": "B", "summary": "b"},
+        ],
+        "edges": [{"from": "L2", "to": "L1"}],
+        "order": ["L1", "L2"],
+    }
+    bad = _sample_rulers()
+    bad["rulers"]["L2"]["seam"][0]["owns"] = "full_plan"
+    assert (
+        cmd_lock_tree(
+            rev,
+            tree_json=json.dumps(tree),
+            tree_file=None,
+            rulers_json=json.dumps(bad),
+            rulers_file=None,
+            confirm=True,
+        )
+        == 1
+    )
+
+
+def test_intake_complete_requires_slots(tmp_path: Path) -> None:
+    from multi_slice_control import (  # noqa: E402
+        cmd_complete_intake,
+        cmd_write_intake,
+    )
+    from split_intake_schema import empty_intake  # noqa: E402
+
+    rev = tmp_path / "revision1"
+    rev.mkdir()
+    draft = empty_intake()
+    assert (
+        cmd_write_intake(rev, intake_json=json.dumps(draft), intake_file=None) == 0
+    )
+    assert cmd_complete_intake(rev, confirm=True) == 1
+    for key in draft["slots"]:
+        draft["slots"][key] = "N/A"
+    assert (
+        cmd_write_intake(rev, intake_json=json.dumps(draft), intake_file=None) == 0
+    )
+    assert cmd_complete_intake(rev, confirm=True) == 0

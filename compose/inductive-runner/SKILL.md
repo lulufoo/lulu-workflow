@@ -146,7 +146,8 @@ Do NOT rely on memory for gate execution steps.
 
 **Opens:** `inductive-opens.json` — `O-n` with `status`, `source{trigger,means}`, `kw`, `blocking`, `problem`, optional `detected_under` / `leaning` / `intent_ref` / `code_refs` / `resolved_by` / `note` / `reason`.
 
-**Facts:** `_facts.json` — `F-n` with `text`, `lens_tags` (non-empty on inductive write), optional `origin{type,ref}`.
+**Facts:** `_facts.json` — `F-n` with `text`, `lens_tags` (non-empty on inductive write), optional `origin{type,ref}`.  
+**Multi-L (when parent locked a multi-node tree):** treat locked slice rulers as the split ruler. Before write: decompose mixed content into pure-L facts (seam → `full_plan` side + `depend_only` side). Each fact **must** include `home_l` and short `home_rationale`; persist via parent `$FACTS_CTL write --target-l <home_l>` (G1 divert allowed). Untagged writes hard-reject. Cannot split → stop for human (do not silent single-tag). `home_l=package` only after human confirms (`--package-confirm`); AI must not self-select package.
 
 **Compose init input:** `_facts.json` (parent `begin-init` validates existence). `$INDUCTIVE_G3_SECTION_CTL view --synthesis off` assembles fact text by lens (I2/V5).
 
