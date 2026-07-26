@@ -57,7 +57,6 @@ All macros that declare `--profile` **must** pass `--profile "$COMPOSE_PROFILE"`
 | `$FACTS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/facts_control.py"` |
 | `$NARRATIVE_ARC_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/narrative_arc_control.py"` |
 | `$CHAPTER_WRITE_STATE` | `python3 "$SKILL_ROOT/compose/scripts/section/chapter_write_state_control.py"` |
-| `$CHAPTER_PLAN_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/chapter_plan_control.py"` |
 
 `$COMPOSE_DOC_CONTROL` subcommands: `--help` · `init-doc` · `append-chapter` · `assemble-arc`.
 
@@ -66,8 +65,6 @@ All macros that declare `--profile` **must** pass `--profile "$COMPOSE_PROFILE"`
 `$NARRATIVE_ARC_CTL` subcommands: `--help` · `validate` · `write` · `show` · `list-chapters`.
 
 `$CHAPTER_WRITE_STATE` subcommands: `--help` · `sync` · `status` · `begin` · `complete` (serial chapter Write gate).
-
-`$CHAPTER_PLAN_CTL` (legacy archive-3.0 path; not default Init spine): `--help` · `write-themes` · `write-framework` · `propose-placement` · `write-placement` · `list-chapters` · `validate`.
 
 > **K4:** `$INDUCTIVE_FACTS_PROJ project` is **retired**. Do not invoke projection from this runner.
 
@@ -100,7 +97,7 @@ Prefer `--preamble-file` when content is multiline.
 
 Allowed lenses = `section-registry.sections` keys (archive-5.0). Document spine = `_narrative-arc.json`, **not** registry order / Lens aggregation.
 
-**Precondition:** Step 3 must produce `_narrative-arc.json` with `status=write_ready`. **`_chapters.json` is retired.** Legacy `_lens-themes.json` / `_chapter-framework.json` / `_chapter-placement.json` are **not** the default Init spine.
+**Precondition:** Step 3 must produce `_narrative-arc.json` with `status=write_ready`. **Retired (error if present):** `_chapters.json`, `_lens-themes.json`, `_chapter-framework.json`, `_chapter-placement.json`.
 
 **Must:** every non-excluded fact mapped to exactly one arc leaf; every leaf fact in exactly one sub-topic chapter; chapter `lens` ∈ that fact's `lens_tags`; empty `lens_tags` must not reach `write_ready`; before persisting `_body-{cid}.txt`, resolve author-time `F-id` citations; drive 4.W via `$CHAPTER_WRITE_STATE` (one chapter begin→write→complete); run `$INIT_COMPOSE_VALIDATE` before Return.
 **Must not:** use `section_order` (or lens list order) as chapter directory; create or keep `_chapters.json`; decide open choices during Steps 2–3 (待决 same discipline); Import / Atomize / Derive facts.
@@ -187,9 +184,11 @@ Keep chapter delivery shell (`_derive-{cid}.json`, `_body-{cid}.txt`); Assemble 
 Artifacts per write unit (`chapter_id` from `list-chapters`):
 
 ```text
-_derive-{cid}.json   # display_title (= leaf title) + lens — metadata, not doc H2 spine
+_derive-{cid}.json   # per-chapter Write metadata (lens + F/C); not document spine titles
 _body-{cid}.txt      # body for one (arc-leaf, lens) chapter; no leading ##
 ```
+
+Visible group/leaf titles come from `_narrative-arc.json` via `assemble-arc` — not from derive. Do **not** use derive `display_title` (retired).
 
 #### 4.W — Write-by-sub-topic-chapter
 
@@ -216,7 +215,7 @@ For that unit only (from `list-chapters` / status context):
 4. **Derive C** (S1): `c[]` from domain `expression_conventions`, Role Fields, and this lens's `expression` (traceable). **C is constrained by F**.
 5. **Write body:** Scaffold per F; obey every C; content ⊆ `facts_ℓ`; carry anchors (L6); resolve raw `F-id` citations; mark gaps with `> **待决：** …`.
    **Do not Write until F and C Done for this unit.**
-6. Write `_derive-{cid}.json` with `display_title` = unit.display_title (leaf title) and `lens`; write `_body-{cid}.txt`.
+6. Write `_derive-{cid}.json` with `lens` and the F/C decided above; write `_body-{cid}.txt`. Do **not** write `display_title` (retired — titles come from the narrative arc).
 
 ```bash
 $CHAPTER_WRITE_STATE complete --revision-dir "$REVISION_DIR" --chapter "<cid>"

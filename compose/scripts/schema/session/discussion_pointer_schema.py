@@ -262,6 +262,6 @@ def focus_phase(pointer: dict[str, Any], node_id: str | None = None) -> str:
 
 
 def slice_past_init(revision_dir: Path, node_id: str) -> bool:
-    """True when the L slice looks past Init (has framework or design doc)."""
+    """True when the L slice looks past Init (has narrative arc or design doc)."""
     d = Path(revision_dir) / node_id
-    return (d / "_chapter-framework.json").is_file() or (d / "design-doc.md").is_file()
+    return (d / "_narrative-arc.json").is_file() or (d / "design-doc.md").is_file()

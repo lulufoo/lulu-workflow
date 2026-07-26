@@ -401,7 +401,6 @@ def chapter_write_units(data: dict[str, Any]) -> list[dict[str, Any]]:
                         for x in (chapter.get("fact_ids") or [])
                         if str(x).strip()
                     ],
-                    "display_title": leaf_title or lens,
                 }
             )
     return units

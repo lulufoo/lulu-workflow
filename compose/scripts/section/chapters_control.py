@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""RETIRED — ``_chapters.json`` removed (archive-3.0).
+"""DELETED — ``_chapters.json`` and archive-3.0 chapter-plan CLI removed.
 
-Use ``chapter_plan_control.py`` (themes / framework / placement) instead.
+Use ``narrative_arc_control.py`` (``_narrative-arc.json``) instead.
 """
 
 from __future__ import annotations
@@ -12,8 +12,8 @@ import sys
 def main() -> int:
     print(
         "错误：chapters_control / _chapters.json retired. "
-        "Use chapter_plan_control.py "
-        "(write-themes|write-framework|write-placement|list-chapters|validate).",
+        "Use narrative_arc_control.py "
+        "(validate|write|show|list-chapters).",
         file=sys.stderr,
     )
     return 2

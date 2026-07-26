@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 """Path helpers for fact-first display-layer chapter artifacts (M4a).
 
-Case-preserving ``cid`` — chapter ids (``_chapter-framework.json`` /
-``_chapter-placement.json`` ``chapters[].id``, e.g. ``chap-3``) are free
-stable strings, not uppercase lens keys; case-folding would silently mangle
-the path into e.g. ``_derive-CHAP-3.json`` (design rationale, source repo,
-why-only: docs/domain/ssot/compose/mechanism-ssot/compose-display-architecture.md;
-process how archive: docs/domain/archive/compose/archive-2.0/compose-fact-first-display-layer-design.md §11.4 Major#4;
-placement SoT: docs/domain/archive/compose/archive-3.0/).
+Case-preserving ``cid`` — narrative-arc chapter ids are ``{leaf.id}-{lens}``
+(e.g. ``A01-AR``); case-folding would silently mangle paths into e.g.
+``_derive-A01-ar.json``. Design rationale (source repo, why-only):
+docs/domain/ssot/compose/mechanism-ssot/compose-display-architecture.md;
+process how: docs/domain/archive/compose/archive-5.0/.
 """
 
 from __future__ import annotations

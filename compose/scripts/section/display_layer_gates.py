@@ -7,10 +7,10 @@ process how archive: docs/domain/archive/compose/archive-2.0/compose-fact-first-
 Pure functions only — no file I/O, no markdown parsing. Callers pass
 normalized ``facts`` plus a chapters-shaped placement view.
 
-**Live Init Step 6** uses ``placement_plan_gates`` (reads
-``_chapter-placement.json`` + themes/framework). This module remains for
-unit tests and any in-memory chapters-shaped view
-(``placement_chapters_as_l6_view``). ``_chapters.json`` is retired.
+**Live Init Step 6** validates via ``init_compose_validation`` against
+``_narrative-arc.json`` (+ chapter write-state). This module remains for
+unit tests and any in-memory chapters-shaped view. Archive-3.0
+themes/framework/placement and ``_chapters.json`` are retired.
 
 Module name keeps the historical ``display_layer_*`` prefix.
 Gate coverage: L1, L3, L4, C1, Q1.

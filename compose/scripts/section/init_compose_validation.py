@@ -29,11 +29,6 @@ from chapter_doc_schema import chapter_anchor_present, chapter_body_by_id  # noq
 from discussion_pointer_schema import active_slice_dir  # noqa: E402
 from facts_schema import facts_path, load_facts  # noqa: E402
 from fetch_compose_framework import fetch_compose_framework  # noqa: E402
-from section_registry_schema import (  # noqa: E402
-    dependency_graph_subset,
-    normalize_section_registry,
-)
-from derive_shell import normalize_dependency_graph  # noqa: E402
 
 
 def section_order_for_profile(project_root: Path, profile_id: str) -> list[str]:
@@ -47,43 +42,6 @@ def section_order_for_profile(project_root: Path, profile_id: str) -> list[str]:
     if isinstance(sections, dict) and sections:
         return [str(key).upper() for key in sections]
     return [str(key).upper() for key in data.get("section_order") or []]
-
-
-def section_presence_map_for_profile(project_root: Path, profile_id: str) -> dict[str, str]:
-    """section_key -> presence ('required'|'optional', default 'required').
-
-    Mirrors ``section_registry_schema.section_presence_map`` but fetches by
-    explicit ``profile_id`` rather than the active-session-cached accessor,
-    since this validator is invoked with an explicit ``--profile`` flag.
-    Feeds ``display_layer_gates.check_c1``.
-    """
-    raw = fetch_compose_framework(
-        "section-registry",
-        project_root,
-        profile_id=profile_id,
-    )
-    data = json.loads(raw)
-    sections = data.get("sections") or {}
-    result: dict[str, str] = {}
-    for key, val in sections.items():
-        presence = (val or {}).get("presence")
-        if presence not in ("required", "optional"):
-            presence = "required"
-        result[str(key).upper()] = presence
-    return result
-
-
-def dependency_graph_for_profile(project_root: Path, profile_id: str) -> dict[str, Any]:
-    """Dependency-graph subset for C1 derivation-vs-true-gap classification (K1)."""
-    raw = fetch_compose_framework(
-        "section-registry",
-        project_root,
-        profile_id=profile_id,
-    )
-    data = json.loads(raw)
-    normalized = normalize_section_registry(data)
-    return normalize_dependency_graph(dependency_graph_subset(normalized))
-
 
 def _fact_anchor_covered(anchor: dict[str, Any], body: str) -> bool:
     """True when an ``{kind, value}`` fact anchor survives into the body text.
@@ -147,8 +105,6 @@ def _check_chapter_artifacts_and_assembly(
     revision_dir: Path,
     compose_doc: Path,
     chapters_view: list[dict[str, Any]],
-    *,
-    framework_titles: dict[str, str] | None = None,
 ) -> list[str]:
     """Artifact existence + assembly completeness for rendered chapters."""
     errors: list[str] = []
@@ -167,18 +123,10 @@ def _check_chapter_artifacts_and_assembly(
             except json.JSONDecodeError as exc:
                 errors.append(f"5.A: chapter {cid!r}: invalid {derive_file.name}: {exc}")
                 derive_data = {}
-            title = str((derive_data or {}).get("display_title", "")).strip()
-            if not title:
+            if derive_data is not None and not isinstance(derive_data, dict):
                 errors.append(
-                    f"5.A: chapter {cid!r}: display_title missing in {derive_file.name}",
+                    f"5.A: chapter {cid!r}: {derive_file.name} must be a JSON object",
                 )
-            elif framework_titles is not None and cid in framework_titles:
-                expected = framework_titles[cid]
-                if title != expected:
-                    errors.append(
-                        f"5.A: chapter {cid!r}: display_title {title!r} != framework "
-                        f"{expected!r}",
-                    )
 
         body_file = chapter_body_path(revision_dir, cid)
         if not body_file.is_file():
@@ -237,15 +185,11 @@ def _validate_narrative_arc_display_layer(
         return f"3.2: invalid narrative arc: {exc}"
 
     chapters_view: list[dict[str, Any]] = []
-    framework_titles: dict[str, str] = {}
     for leaf in data.get("leaves") or []:
         leaf_id = str(leaf.get("id", "")).strip()
-        leaf_title = str(leaf.get("title", "")).strip()
         for chapter in leaf.get("chapters") or []:
             lens = str(chapter.get("lens", "")).strip().upper()
             cid = f"{leaf_id}-{lens}"
-            display = f"{leaf_title} · {lens}".strip(" ·")
-            framework_titles[cid] = display
             chapters_view.append(
                 {
                     "id": cid,
@@ -262,7 +206,6 @@ def _validate_narrative_arc_display_layer(
             revision_dir,
             compose_doc,
             chapters_view,
-            framework_titles=framework_titles,
         )
     )
     errors_out.extend(check_fact_anchor_coverage(revision_dir, facts, chapters_view))
@@ -277,21 +220,23 @@ def validate_display_layer_artifacts(
     project_root: Path,
     profile_id: str,
 ) -> str | None:
-    """Return first error summary or None — fact-first Step 6 validation.
+    """Return first error summary or None — narrative-arc Init validation.
 
-    Preferred SoT (archive-5.0): ``_facts.json`` + ``_narrative-arc.json``.
-    Legacy SoT: ``_lens-themes.json`` + ``_chapter-framework.json`` +
-    ``_chapter-placement.json``.
-    ``_chapters.json`` is retired — its presence is an error.
+    SoT: ``_facts.json`` + ``_narrative-arc.json`` + chapter write-state.
+    Retired (error if present): ``_chapters.json``, ``_lens-themes.json``,
+    ``_chapter-framework.json``, ``_chapter-placement.json``.
     """
-    errors: list[str] = []
-
-    retired_chapters = revision_dir / "_chapters.json"
-    if retired_chapters.is_file():
-        return (
-            "retired: _chapters.json present — delete it; chapter plan SoT is "
-            "_narrative-arc.json (or legacy themes/framework/placement)"
-        )
+    retired = (
+        ("_chapters.json", "_narrative-arc.json"),
+        ("_lens-themes.json", "_narrative-arc.json"),
+        ("_chapter-framework.json", "_narrative-arc.json"),
+        ("_chapter-placement.json", "_narrative-arc.json"),
+    )
+    for name, sot in retired:
+        if (revision_dir / name).is_file():
+            return (
+                f"retired: {name} present — delete it; chapter plan SoT is {sot}"
+            )
 
     try:
         facts = load_facts(facts_path(revision_dir))
@@ -299,116 +244,17 @@ def validate_display_layer_artifacts(
         return f"invalid or missing _facts.json: {exc}"
 
     arc_path = revision_dir / "_narrative-arc.json"
-    if arc_path.is_file():
-        from chapter_write_state_schema import require_complete  # local import
+    if not arc_path.is_file():
+        return "3.2: missing _narrative-arc.json"
 
-        ws_err = require_complete(revision_dir)
-        if ws_err:
-            return f"4.W: {ws_err}"
-        return _validate_narrative_arc_display_layer(
-            revision_dir, compose_doc, project_root, profile_id, facts,
-        )
+    from chapter_write_state_schema import require_complete  # local import
 
-    framework_path = revision_dir / "_chapter-framework.json"
-    placement_path = revision_dir / "_chapter-placement.json"
-    themes_path = revision_dir / "_lens-themes.json"
-    missing = [
-        name
-        for name, path in (
-            ("_lens-themes.json", themes_path),
-            ("_chapter-framework.json", framework_path),
-            ("_chapter-placement.json", placement_path),
-        )
-        if not path.is_file()
-    ]
-    if missing:
-        route_by_file = {
-            "_lens-themes.json": "4.A",
-            "_chapter-framework.json": "4.B",
-            "_chapter-placement.json": "4.C",
-        }
-        route = route_by_file[missing[0]]
-        return (
-            f"{route}: chapter plan incomplete: missing {', '.join(missing)} "
-            "(or provide _narrative-arc.json)"
-        )
-
-    presence_map = section_presence_map_for_profile(project_root, profile_id)
-    section_order = section_order_for_profile(project_root, profile_id)
-    dependency_graph = dependency_graph_for_profile(project_root, profile_id)
-
-    try:
-        from chapter_framework_schema import (
-            fl_to_chapter_id,
-            load_chapter_framework,
-            validate_chapter_framework,
-        )
-        from chapter_placement_schema import (
-            load_chapter_placement,
-            validate_chapter_placement,
-        )
-        from lens_themes_schema import load_lens_themes, themes_by_fl
-        from placement_plan_gates import (
-            placement_chapters_as_l6_view,
-            run_placement_plan_gates,
-        )
-
-        themes = load_lens_themes(themes_path)
-        framework = load_chapter_framework(framework_path)
-        known = set(themes_by_fl(themes))
-        fw_errors = validate_chapter_framework(
-            framework,
-            known_fl_ids=known,
-            themes_by_fl_id=themes_by_fl(themes),
-        )
-        if fw_errors:
-            return "4.B: invalid chapter plan: " + "; ".join(fw_errors)
-        placement = load_chapter_placement(placement_path)
-        pl_errors = validate_chapter_placement(
-            placement,
-            known_fl_ids=known,
-            chapter_ids={c["id"] for c in framework.get("chapters") or []},
-            fl_to_chapter=fl_to_chapter_id(framework),
-        )
-        if pl_errors:
-            return "4.C: invalid chapter plan: " + "; ".join(pl_errors)
-    except ValueError as exc:
-        msg = str(exc)
-        if "_lens-themes" in msg or "lens_themes" in msg:
-            return f"4.A: invalid chapter plan artifacts: {exc}"
-        if "_chapter-framework" in msg or "chapter_framework" in msg:
-            return f"4.B: invalid chapter plan artifacts: {exc}"
-        if "_chapter-placement" in msg or "chapter_placement" in msg:
-            return f"4.C: invalid chapter plan artifacts: {exc}"
-        return f"4.B: invalid chapter plan artifacts: {exc}"
-
-    gate_result = run_placement_plan_gates(
-        facts,
-        placement,
-        themes,
-        framework,
-        presence_map=presence_map,
-        section_order=section_order,
-        dependency_graph=dependency_graph,
+    ws_err = require_complete(revision_dir)
+    if ws_err:
+        return f"4.W: {ws_err}"
+    return _validate_narrative_arc_display_layer(
+        revision_dir, compose_doc, project_root, profile_id, facts,
     )
-    errors.extend(gate_result["errors"])
-    chapters_view = placement_chapters_as_l6_view(placement)
-    framework_titles = {
-        c["id"]: c["display_title"] for c in framework.get("chapters") or []
-    }
-    errors.extend(
-        _check_chapter_artifacts_and_assembly(
-            revision_dir,
-            compose_doc,
-            chapters_view,
-            framework_titles=framework_titles,
-        )
-    )
-    errors.extend(check_fact_anchor_coverage(revision_dir, facts, chapters_view))
-
-    if not errors:
-        return None
-    return "; ".join(errors)
 
 
 def validate_init_artifacts(

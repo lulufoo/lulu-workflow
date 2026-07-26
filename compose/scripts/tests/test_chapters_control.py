@@ -20,4 +20,4 @@ def test_chapters_control_exits_retired() -> None:
     )
     assert result.returncode == 2
     assert "retired" in result.stderr.lower()
-    assert "chapter_plan_control" in result.stderr
+    assert "narrative_arc_control" in result.stderr

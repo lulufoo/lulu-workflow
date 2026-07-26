@@ -95,8 +95,6 @@ def _check_artifacts(slice_dir: Path, cid: str) -> list[str]:
             data = {}
         if not isinstance(data, dict):
             errors.append("derive must be an object")
-        elif not str(data.get("display_title", "")).strip():
-            errors.append("empty display_title")
     body = chapter_body_path(slice_dir, cid)
     if not body.is_file():
         errors.append(f"missing body: {body.name}")

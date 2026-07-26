@@ -76,17 +76,22 @@ def test_golden_compose_doc_chapter_units_nonempty(profile_id: str) -> None:
 
 
 @pytest.mark.parametrize("profile_id", ["lulu-plan", "lulu-arch"])
-def test_sim_sourced_golden_has_facts_and_plan_sidecars(profile_id: str) -> None:
+def test_sim_sourced_golden_has_facts_and_arc_sidecars(profile_id: str) -> None:
     rev = _revision(profile_id)
     assert (rev / "_facts.json").is_file()
-    assert (rev / "_lens-themes.json").is_file()
-    assert (rev / "_chapter-framework.json").is_file()
-    assert (rev / "_chapter-placement.json").is_file()
-    assert not (rev / "_chapters.json").exists()
+    assert (rev / "_narrative-arc.json").is_file()
+    assert (rev / "_chapter-write-state.json").is_file()
+    for retired in (
+        "_chapters.json",
+        "_lens-themes.json",
+        "_chapter-framework.json",
+        "_chapter-placement.json",
+    ):
+        assert not (rev / retired).exists(), retired
     facts = json.loads((rev / "_facts.json").read_text(encoding="utf-8"))
-    placement = json.loads((rev / "_chapter-placement.json").read_text(encoding="utf-8"))
+    arc = json.loads((rev / "_narrative-arc.json").read_text(encoding="utf-8"))
     assert isinstance(facts, list) and len(facts) >= 1
-    assert isinstance(placement.get("chapters"), list) and len(placement["chapters"]) >= 1
+    assert isinstance(arc.get("leaves"), list) and len(arc["leaves"]) >= 1
     # Sim goldens should keep human-authored prose (not the minimal template sentence).
     body_files = list(rev.glob("_body-*.txt"))
     assert body_files
