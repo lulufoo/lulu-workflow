@@ -56,6 +56,7 @@ All macros that declare `--profile` **must** pass `--profile "$COMPOSE_PROFILE"`
 | `$INIT_COMPOSE_VALIDATE` | `python3 "$SKILL_ROOT/compose/scripts/section/init_compose_validation.py" validate --revision-dir "$REVISION_DIR" --compose-doc "$OUTPUT_DOC_PATH" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)"` |
 | `$FACTS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/facts_control.py"` |
 | `$NARRATIVE_ARC_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/narrative_arc_control.py"` |
+| `$CHAPTER_WRITE_STATE` | `python3 "$SKILL_ROOT/compose/scripts/section/chapter_write_state_control.py"` |
 | `$CHAPTER_PLAN_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/chapter_plan_control.py"` |
 
 `$COMPOSE_DOC_CONTROL` subcommands: `--help` · `init-doc` · `append-chapter` · `assemble-arc`.
@@ -63,6 +64,8 @@ All macros that declare `--profile` **must** pass `--profile "$COMPOSE_PROFILE"`
 `$FACTS_CTL` subcommands: `--help` · `write` · `filter` · `validate` · `status`.
 
 `$NARRATIVE_ARC_CTL` subcommands: `--help` · `validate` · `write` · `show` · `list-chapters`.
+
+`$CHAPTER_WRITE_STATE` subcommands: `--help` · `sync` · `status` · `begin` · `complete` (serial chapter Write gate).
 
 `$CHAPTER_PLAN_CTL` (legacy archive-3.0 path; not default Init spine): `--help` · `write-themes` · `write-framework` · `propose-placement` · `write-placement` · `list-chapters` · `validate`.
 
@@ -99,7 +102,7 @@ Allowed lenses = `section-registry.sections` keys (archive-5.0). Document spine 
 
 **Precondition:** Step 3 must produce `_narrative-arc.json` with `status=write_ready`. **`_chapters.json` is retired.** Legacy `_lens-themes.json` / `_chapter-framework.json` / `_chapter-placement.json` are **not** the default Init spine.
 
-**Must:** every non-excluded fact mapped to exactly one arc leaf; every leaf fact in exactly one sub-topic chapter; chapter `lens` ∈ that fact's `lens_tags`; empty `lens_tags` must not reach `write_ready`; before persisting `_body-{cid}.txt`, resolve author-time `F-id` citations; run `$INIT_COMPOSE_VALIDATE` before Return.
+**Must:** every non-excluded fact mapped to exactly one arc leaf; every leaf fact in exactly one sub-topic chapter; chapter `lens` ∈ that fact's `lens_tags`; empty `lens_tags` must not reach `write_ready`; before persisting `_body-{cid}.txt`, resolve author-time `F-id` citations; drive 4.W via `$CHAPTER_WRITE_STATE` (one chapter begin→write→complete); run `$INIT_COMPOSE_VALIDATE` before Return.
 **Must not:** use `section_order` (or lens list order) as chapter directory; create or keep `_chapters.json`; decide open choices during Steps 2–3 (待决 same discipline); Import / Atomize / Derive facts.
 
 ### Step 2 — Validate facts
@@ -190,14 +193,22 @@ _body-{cid}.txt      # body for one (arc-leaf, lens) chapter; no leading ##
 
 #### 4.W — Write-by-sub-topic-chapter
 
+Serial gate (mechanical): `$CHAPTER_WRITE_STATE`. Write units SoT: `$NARRATIVE_ARC_CTL list-chapters` (same order as `sync`).
+
 ```bash
-$NARRATIVE_ARC_CTL list-chapters \
-  --revision-dir "$REVISION_DIR" \
-  --profile "$COMPOSE_PROFILE" \
-  --project-root "$(pwd)"
+$CHAPTER_WRITE_STATE sync --revision-dir "$REVISION_DIR"
 ```
 
-For each unit in `chapters[]` order:
+Loop until `$CHAPTER_WRITE_STATE status` reports `status=complete` (no `next`):
+
+```bash
+$CHAPTER_WRITE_STATE status --revision-dir "$REVISION_DIR"
+# → next = <cid> (or null when complete)
+
+$CHAPTER_WRITE_STATE begin --revision-dir "$REVISION_DIR" --chapter "<cid>"
+```
+
+For that unit only (from `list-chapters` / status context):
 
 1. `lens` = unit.lens; `facts_ℓ` = facts whose id ∈ unit.fact_ids (authoritative — do not expand).
 2. Load Write form for `lens` from section-form-registry / registry intent.
@@ -207,11 +218,17 @@ For each unit in `chapters[]` order:
    **Do not Write until F and C Done for this unit.**
 6. Write `_derive-{cid}.json` with `display_title` = unit.display_title (leaf title) and `lens`; write `_body-{cid}.txt`.
 
+```bash
+$CHAPTER_WRITE_STATE complete --revision-dir "$REVISION_DIR" --chapter "<cid>"
+```
+
+On `begin`/`complete` failure → stop; fix artifacts or redo the chapter; do not skip ahead. Resume via `status` → `next`.
+
 **Note:** Encourage sectioning in the body. If using heading levels for structure, headings may start at `####`.
 
 #### 4.A — Assemble-from-arc then Close
 
-**Hard gate:** any unit from `list-chapters` missing F/C/body/derive → do not assemble.
+**Hard gate:** `$CHAPTER_WRITE_STATE` must be `complete` (enforced by `assemble-arc` and Step 5). Do not assemble mid-loop.
 
 One shot (tree packaging + omit lens headings by default):
 
@@ -238,9 +255,10 @@ $COMPOSE_DOC_CONTROL assemble-arc \
 |------:|-----------------|-----------|--------|
 | 1 | `retired:` | delete file | Remove `_chapters.json` |
 | 2 | `3.2:` | **3.2** | Fix arc chapters / tags / unresolved |
-| 3 | `L6:` | **4.W** | Write missing fact-anchor token into that chapter body |
-| 4 | `C1:` + derivation / coverage | **Blocking** | Return to parent Drafting Step 0 producer; re-enter Init at Step 2 |
-| 5 | `5.A:` | **4.A** | Re-run `assemble-arc` after fixing missing chapter artifacts |
+| 3 | `4.W:` | **4.W** | Fix write-state (`sync` / finish begin→complete for `next`) |
+| 4 | `L6:` | **4.W** | Write missing fact-anchor token into that chapter body |
+| 5 | `C1:` + derivation / coverage | **Blocking** | Return to parent Drafting Step 0 producer; re-enter Init at Step 2 |
+| 6 | `5.A:` | **4.A** | Re-run `assemble-arc` after fixing missing chapter artifacts |
 
 3. On success → Return Summary.
 
@@ -255,6 +273,7 @@ Initializing complete (narrative-arc display layer).
   Facts: <REVISION_DIR>/_facts.json (<N> facts; producer-written, validate-only)
   Narrative arc: <REVISION_DIR>/_narrative-arc.json (status=write_ready; <N> sub-topic chapters)
   Chapter artifacts: <REVISION_DIR>/_derive-*.json, _body-*.txt
+  Write-state: <REVISION_DIR>/_chapter-write-state.json (status=complete)
   Scope cross-check: <SCOPE_REF_PATH>
   Draft status: Initialized
   Next step: parent pause gate (options from profile drafting.post_init_options)

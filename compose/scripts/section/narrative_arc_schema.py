@@ -371,3 +371,37 @@ def save_narrative_arc(
 
 def is_write_ready(data: dict[str, Any]) -> bool:
     return str(data.get("status", "")).strip() == "write_ready"
+
+
+def chapter_write_units(data: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return Write units in document order: one dict per (leaf × lens) chapter.
+
+    ``chapter_id`` is ``{leaf.id}-{lens}`` (fallback ``{leaf.id}-C{index}``).
+    Shared by ``list-chapters`` and chapter write-state ``sync``.
+    """
+    units: list[dict[str, Any]] = []
+    for leaf in data.get("leaves") or []:
+        if not isinstance(leaf, dict):
+            continue
+        leaf_id = str(leaf.get("id", "")).strip()
+        leaf_title = str(leaf.get("title", "")).strip()
+        for index, chapter in enumerate(leaf.get("chapters") or []):
+            if not isinstance(chapter, dict):
+                continue
+            lens = str(chapter.get("lens", "")).strip().upper()
+            cid = f"{leaf_id}-{lens}" if leaf_id and lens else f"{leaf_id}-C{index}"
+            units.append(
+                {
+                    "chapter_id": cid,
+                    "leaf_id": leaf_id,
+                    "leaf_title": leaf_title,
+                    "lens": lens,
+                    "fact_ids": [
+                        str(x).strip()
+                        for x in (chapter.get("fact_ids") or [])
+                        if str(x).strip()
+                    ],
+                    "display_title": leaf_title or lens,
+                }
+            )
+    return units

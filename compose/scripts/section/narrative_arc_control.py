@@ -31,6 +31,7 @@ from discussion_pointer_schema import active_slice_dir  # noqa: E402
 from facts_schema import facts_path, load_facts  # noqa: E402
 from fetch_compose_framework import fetch_compose_framework  # noqa: E402
 from narrative_arc_schema import (  # noqa: E402
+    chapter_write_units,
     is_write_ready,
     load_narrative_arc,
     narrative_arc_path,
@@ -156,25 +157,7 @@ def cmd_list_chapters(args: argparse.Namespace) -> int:
         return _fail(str(exc))
     if not is_write_ready(data):
         return _fail("list-chapters requires status=write_ready")
-    units: list[dict[str, Any]] = []
-    for leaf in data.get("leaves") or []:
-        leaf_id = str(leaf.get("id", "")).strip()
-        leaf_title = str(leaf.get("title", "")).strip()
-        for index, chapter in enumerate(leaf.get("chapters") or []):
-            lens = str(chapter.get("lens", "")).strip().upper()
-            cid = f"{leaf_id}-{lens}" if leaf_id and lens else f"{leaf_id}-C{index}"
-            units.append(
-                {
-                    "chapter_id": cid,
-                    "leaf_id": leaf_id,
-                    "leaf_title": leaf_title,
-                    "lens": lens,
-                    "fact_ids": list(chapter.get("fact_ids") or []),
-                    # Visible spine titles come from assemble-arc (tree/leaf).
-                    # display_title is leaf-only metadata for derive / debug show.
-                    "display_title": leaf_title or lens,
-                }
-            )
+    units = chapter_write_units(data)
     return _ok({"ok": True, "chapter_ids": [u["chapter_id"] for u in units], "chapters": units})
 
 

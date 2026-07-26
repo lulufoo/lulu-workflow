@@ -506,9 +506,16 @@ def assemble_arc_to_path(
     preamble: str,
     lens_heading: str = "omit",
     tree_mode: str = "auto",
+    skip_write_state: bool = False,
 ) -> dict[str, Any]:
     """Load arc from revision slice, assemble, and write ``path``."""
     slice_dir = active_slice_dir(revision_dir.resolve())
+    if not skip_write_state:
+        from chapter_write_state_schema import require_complete  # local: avoid cycle
+
+        ws_err = require_complete(slice_dir)
+        if ws_err:
+            raise ValueError(ws_err)
     arc_path = narrative_arc_path(slice_dir)
     arc = load_narrative_arc(arc_path)
     text = assemble_arc_markdown(
@@ -544,6 +551,7 @@ def cmd_assemble_arc(args: argparse.Namespace) -> int:
             preamble=preamble,
             lens_heading=args.lens_heading,
             tree_mode=args.tree,
+            skip_write_state=bool(args.skip_write_state),
         )
     except (ValueError, FileNotFoundError, OSError) as exc:
         print(f"错误：{exc}", file=sys.stderr)
@@ -595,6 +603,11 @@ def _build_parser() -> argparse.ArgumentParser:
         choices=sorted(_TREE_MODE_VALUES),
         default="auto",
         help="auto: use tree when present; require: fail without tree; ignore: leaf-flat",
+    )
+    assemble_parser.add_argument(
+        "--skip-write-state",
+        action="store_true",
+        help="Debug/legacy only: skip chapter write-state complete gate",
     )
 
     return parser

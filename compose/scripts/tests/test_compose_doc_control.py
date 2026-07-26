@@ -393,6 +393,7 @@ def test_assemble_arc_cli(tmp_path: Path, doc_path: Path):
             str(rev),
             "--preamble",
             "# Doc\n\n",
+            "--skip-write-state",
         ]
     )
     assert rc == 0
@@ -405,6 +406,7 @@ def test_assemble_arc_cli(tmp_path: Path, doc_path: Path):
             doc_path,
             revision_dir=rev,
             preamble="# Doc\n\n",
+            skip_write_state=True,
         ))
     )
     assert result["ok"] is True

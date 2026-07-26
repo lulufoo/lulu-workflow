@@ -300,6 +300,11 @@ def validate_display_layer_artifacts(
 
     arc_path = revision_dir / "_narrative-arc.json"
     if arc_path.is_file():
+        from chapter_write_state_schema import require_complete  # local import
+
+        ws_err = require_complete(revision_dir)
+        if ws_err:
+            return f"4.W: {ws_err}"
         return _validate_narrative_arc_display_layer(
             revision_dir, compose_doc, project_root, profile_id, facts,
         )
