@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for chapter F/C + domain-marker hard gate (converge Q1–Q4)."""
+"""Tests for chapter F/C + expression_conventions provenance hard gate."""
 
 from __future__ import annotations
 
@@ -25,27 +25,42 @@ def _valid_derive(**overrides: object) -> dict:
         "lens": "AR",
         "form": {"carrier": "prose", "structure": "claim-then-evidence"},
         "expression_c": [
-            "domain.register: precise engineering prose",
-            "domain.carriers: follow Derive F/C",
-            "domain.scannability: short items over walls",
-            "domain.altitude: act without re-deriving intent",
+            "from expression_conventions.register: precise engineering prose",
+            "from expression_conventions.carriers: stay inside chosen form",
+            "from expression_conventions.scannability: short items over walls",
+            "from expression_conventions.altitude: act without re-deriving intent",
         ],
     }
     data.update(overrides)
     return data
 
 
-def test_domain_markers_are_the_four_prefixes():
+def test_domain_markers_are_expression_conventions_keys():
     assert DOMAIN_MARKERS == (
-        "domain.register",
-        "domain.carriers",
-        "domain.scannability",
-        "domain.altitude",
+        "expression_conventions.register",
+        "expression_conventions.carriers",
+        "expression_conventions.scannability",
+        "expression_conventions.altitude",
     )
 
 
 def test_check_derive_fc_passes_valid():
     assert check_derive_fc(_valid_derive()) == []
+
+
+def test_legacy_domain_dot_prefix_alone_does_not_pass():
+    """Brittle domain.* labels are no longer sufficient without SoT key paths."""
+    errs = check_derive_fc(
+        _valid_derive(
+            expression_c=[
+                "domain.register: precise engineering prose",
+                "domain.carriers: follow Derive F/C",
+                "domain.scannability: short items over walls",
+                "domain.altitude: act without re-deriving intent",
+            ],
+        ),
+    )
+    assert any("expression_conventions.register" in e for e in errs)
 
 
 def test_check_derive_fc_requires_form_carrier_and_structure():
@@ -70,18 +85,18 @@ def test_check_derive_fc_requires_nonempty_expression_c_list():
     )
 
 
-def test_check_derive_fc_requires_four_domain_markers_in_expression_c():
+def test_check_derive_fc_requires_four_provenance_markers_in_expression_c():
     errs = check_derive_fc(
         _valid_derive(
             expression_c=[
-                "domain.register: ok",
-                "domain.carriers: ok",
-                "domain.scannability: ok",
+                "from expression_conventions.register: ok",
+                "from expression_conventions.carriers: ok",
+                "from expression_conventions.scannability: ok",
                 # missing altitude
             ],
         ),
     )
-    assert any("domain.altitude" in e for e in errs)
+    assert any("expression_conventions.altitude" in e for e in errs)
 
 
 def test_check_derive_fc_does_not_require_display_title():

@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
-"""Hard gates for Init chapter derive F/C + domain four-key markers.
+"""Hard gates for Init chapter derive F/C + domain four-key provenance.
 
 Shared by ``chapter_write_state_control.complete`` and
-``init_compose_validation`` (Step 5). Converge: flat derive
-``lens`` + ``form{carrier,structure}`` + ``expression_c[]``; domain coverage
-via ``domain.register`` / ``domain.carriers`` / ``domain.scannability`` /
-``domain.altitude`` substrings in joined ``expression_c``. ``display_title``
-is not gated.
+``init_compose_validation`` (Step 5). Flat derive: ``lens`` +
+``form{carrier,structure}`` + ``expression_c[]``. Domain coverage is a
+pre-Write planning checklist: joined ``expression_c`` must contain
+``expression_conventions.register`` / ``.carriers`` / ``.scannability`` /
+``.altitude`` substrings (aligns with domain SoT keys; not brittle
+``domain.*`` labels). ``display_title`` is not gated.
+
+Process how: docs/domain/archive/compose/archive-5.0/compose-expression-c-prewrite-planning-design.md
 """
 
 from __future__ import annotations
@@ -17,16 +20,17 @@ from typing import Any
 
 from chapter_artifact_paths import chapter_body_path, chapter_derive_path
 
+# Provenance markers — match SKILL "from expression_conventions.<key>:" lines.
 DOMAIN_MARKERS: tuple[str, ...] = (
-    "domain.register",
-    "domain.carriers",
-    "domain.scannability",
-    "domain.altitude",
+    "expression_conventions.register",
+    "expression_conventions.carriers",
+    "expression_conventions.scannability",
+    "expression_conventions.altitude",
 )
 
 
 def check_derive_fc(derive: Any) -> list[str]:
-    """Return error strings when derive lacks F/C / domain markers."""
+    """Return error strings when derive lacks F/C / domain provenance markers."""
     if not isinstance(derive, dict):
         return ["derive must be an object"]
 

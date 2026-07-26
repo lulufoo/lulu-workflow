@@ -212,16 +212,16 @@ For that unit only (from `list-chapters` / status context):
 1. `lens` = unit.lens; `facts_ℓ` = facts whose id ∈ unit.fact_ids (authoritative — do not expand).
 2. Load Write form for `lens` from section-form-registry / registry intent.
 3. **Derive F** (S1): same F discipline as prior Init (carrier/structure from form + facts).
-4. **Derive C** (S1): `expression_c[]` from domain `expression_conventions`, Role Fields, and this lens's `expression` (traceable). **C is constrained by F**. Cover all four domain keys as explicit lines prefixed `domain.register:` / `domain.carriers:` / `domain.scannability:` / `domain.altitude:`.
+4. **Derive C** (S1): pre-Write planning checklist in `expression_c[]`. Must include traceable items from each of `expression_conventions.register` / `.carriers` / `.scannability` / `.altitude`, Role Fields, and this lens's `expression`. Fluency/scannability constraints come specifically from `.scannability`. **C is constrained by F**. Prefer lines like `from expression_conventions.<key>: …` (executable rules for this unit — not post-hoc "already done" claims).
 5. **Write body:** Scaffold per F; obey every C; content ⊆ `facts_ℓ`; carry anchors (L6); resolve raw `F-id` citations; mark gaps with `> **待决：** …`.
    **Do not Write until F and C Done for this unit.**
-6. Write `_derive-{cid}.json` with `lens`, `form{carrier,structure}`, and `expression_c[]` (incl. the four `domain.*` lines); write `_body-{cid}.txt`. Do **not** write `display_title` (retired — titles come from the narrative arc).
+6. Write `_derive-{cid}.json` with `lens`, `form{carrier,structure}`, and `expression_c[]` (incl. the four `expression_conventions.*` provenance lines); write `_body-{cid}.txt`. Do **not** write `display_title` (retired — titles come from the narrative arc).
 
 ```bash
 $CHAPTER_WRITE_STATE complete --revision-dir "$REVISION_DIR" --chapter "<cid>"
 ```
 
-`complete` hard-gates (same rules re-checked at Step 5): non-empty body; `form.carrier` + `form.structure`; non-empty `expression_c` containing the four `domain.*` substrings. On `begin`/`complete` failure → stop; fix artifacts or redo the chapter; do not skip ahead. Resume via `status` → `next`.
+`complete` hard-gates (same rules re-checked at Step 5): non-empty body; `form.carrier` + `form.structure`; non-empty `expression_c` containing `expression_conventions.register` / `.carriers` / `.scannability` / `.altitude` substrings. On `begin`/`complete` failure → stop; fix artifacts or redo the chapter; do not skip ahead. Resume via `status` → `next`.
 
 **Note:** Encourage sectioning in the body. If using heading levels for structure, headings may start at `####`.
 

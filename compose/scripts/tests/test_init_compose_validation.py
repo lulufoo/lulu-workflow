@@ -106,10 +106,10 @@ def _valid_derive(cid: str, **overrides: object) -> dict:
         "lens": cid.rsplit("-", 1)[-1],
         "form": {"carrier": "prose", "structure": "claim-then-evidence"},
         "expression_c": [
-            "domain.register: precise engineering prose",
-            "domain.carriers: follow Derive F/C",
-            "domain.scannability: short items over walls",
-            "domain.altitude: act without re-deriving intent",
+            "from expression_conventions.register: precise engineering prose",
+            "from expression_conventions.carriers: stay inside chosen form",
+            "from expression_conventions.scannability: short items over walls",
+            "from expression_conventions.altitude: act without re-deriving intent",
         ],
     }
     data.update(overrides)
