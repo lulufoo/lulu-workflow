@@ -37,14 +37,22 @@ _GH_DESIGN = (
 
 
 def test_design_k0b_section_registry_has_presence() -> None:
+    from section_registry_schema import lens_key_sequence
+
     data = tech_design_section_registry()
     assert validate_section_registry(data) == []
     normalized = normalize_section_registry(data)
-    for key in normalized["section_order"]:
+    keys = lens_key_sequence(normalized)
+    assert "section_order" not in normalized
+    for key in keys:
         presence = normalized["sections"][key]["presence"]
         assert presence in {"required", "optional"}
-    assert normalized["sections"]["CMP"]["presence"] == "optional"
-    assert "CMP" in normalized["section_order"]
+    # Lens V2 optional seams / risks / deps (CMP/OD removed)
+    assert normalized["sections"]["SEAM"]["presence"] == "optional"
+    assert normalized["sections"]["RISK"]["presence"] == "optional"
+    assert normalized["sections"]["DEP"]["presence"] == "optional"
+    assert "CMP" not in keys
+    assert "GOAL" in keys and "SCOPE" in keys and "DECISION" in keys
 
 
 def test_design_k0b_skill_config_points_upstream() -> None:

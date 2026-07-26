@@ -44,8 +44,8 @@ _SCHEMA: list[dict[str, Any]] = [
      "description": "Fixed value: section-form-schema when present"},
     {"field": "profile_id", "type": "string", "required": False,
      "description": "Optional compose profile label when present"},
-    {"field": "section_order", "type": "list[string]", "required": True,
-     "description": "Section keys; must match section-registry order"},
+    {"field": "section_order", "type": "list[string]", "required": False,
+     "description": "Optional; when omitted, lens keys = sections object key order (archive-5.0)"},
     {"field": "sections", "type": "object", "required": True,
      "description": "section_key → { presentation, expression } (current) or { guidance, contract } (legacy)"},
 ]
@@ -81,19 +81,21 @@ def validate_section_form_alignment(
     form: dict[str, Any],
     intent_registry: dict[str, Any],
 ) -> list[str]:
-    """Ensure form section_order matches section-registry exactly."""
+    """Ensure form lens keys match section-registry exactly."""
+    from section_registry_schema import lens_key_sequence
+
     errors: list[str] = []
-    intent_order = [str(key).upper() for key in intent_registry.get("section_order") or []]
-    form_order = [str(key).upper() for key in form.get("section_order") or []]
+    intent_order = lens_key_sequence(intent_registry)
+    form_order = lens_key_sequence(form)
     if intent_order != form_order:
         errors.append(
-            "section_order must match section-registry exactly "
+            "lens key sequence must match section-registry exactly "
             f"(intent={intent_order!r}, form={form_order!r})"
         )
     intent_keys = set(intent_order)
     for key in form_order:
         if key not in intent_keys:
-            errors.append(f"sections.{key} not listed in section-registry section_order")
+            errors.append(f"sections.{key} not listed in section-registry lens keys")
     return errors
 
 
@@ -151,19 +153,24 @@ def validate_section_form_registry(data: dict[str, Any]) -> list[str]:
     if schema_id is not None and schema_id != SCHEMA_ID:
         errors.append(f"$schema_id must be {SCHEMA_ID!r} when present")
 
-    order = data.get("section_order")
-    if not isinstance(order, list) or not order:
-        errors.append("section_order must be a non-empty list")
-        return errors
-
     sections = data.get("sections")
-    if not isinstance(sections, dict):
-        errors.append("sections must be an object")
+    if not isinstance(sections, dict) or not sections:
+        errors.append("sections must be a non-empty object")
         return errors
 
-    order_keys = [str(key).upper() for key in order]
+    order = data.get("section_order")
+    if order is not None and (not isinstance(order, list) or not order):
+        errors.append("section_order must be a non-empty list when present")
+        return errors
+
+    from section_registry_schema import lens_key_sequence
+
+    order_keys = lens_key_sequence(data)
+    if not order_keys:
+        errors.append("sections must declare at least one lens key")
+        return errors
     if len(order_keys) != len(set(order_keys)):
-        errors.append("section_order contains duplicate keys")
+        errors.append("lens key list contains duplicate keys")
 
     for key in order_keys:
         entry = sections.get(key)
@@ -201,7 +208,10 @@ def validate_section_form_registry(data: dict[str, Any]) -> list[str]:
 
 def normalize_section_form_registry(data: dict[str, Any]) -> dict[str, Any]:
     """Return normalized section form registry."""
-    order = [str(key).upper() for key in data["section_order"]]
+    from section_registry_schema import lens_key_sequence
+
+    keep_order = isinstance(data.get("section_order"), list) and bool(data.get("section_order"))
+    order = lens_key_sequence(data)
     sections_raw = data.get("sections") or {}
     sections: dict[str, dict[str, Any]] = {}
     for key in order:
@@ -239,9 +249,10 @@ def normalize_section_form_registry(data: dict[str, Any]) -> dict[str, Any]:
         sections[key] = normalized
     result: dict[str, Any] = {
         "version": "1",
-        "section_order": order,
         "sections": sections,
     }
+    if keep_order:
+        result["section_order"] = order
     if data.get("profile_id"):
         result["profile_id"] = str(data["profile_id"]).strip()
     if data.get("$schema_id"):
@@ -254,8 +265,10 @@ def merge_section_form_into_registry(
     form_registry: dict[str, Any],
 ) -> dict[str, Any]:
     """Return intent registry copy with form fields merged from form registry."""
+    from section_registry_schema import lens_key_sequence
+
     merged = json.loads(json.dumps(intent_registry))
-    for key in merged["section_order"]:
+    for key in lens_key_sequence(merged):
         form_entry = form_registry["sections"].get(key) or {}
         section = merged["sections"][key]
         if form_entry.get("presentation"):

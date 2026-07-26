@@ -65,7 +65,15 @@ def test_validate_rejects_intent_fields_in_form():
 def test_validate_rejects_mismatched_section_order():
     intent = normalize_section_registry(TECH_DESIGN_INTENT)
     form = normalize_section_form_registry(TECH_DESIGN_FORM)
-    form["section_order"] = ["GO", "CTX"]
+    keys = list(form["sections"])
+    if len(keys) < 2:
+        raise AssertionError("expected at least two form sections")
+    # Swap first two keys to break alignment while keeping membership.
+    reordered = {keys[1]: form["sections"][keys[1]], keys[0]: form["sections"][keys[0]]}
+    for k in keys[2:]:
+        reordered[k] = form["sections"][k]
+    form["sections"] = reordered
+    form.pop("section_order", None)
     errors = validate_section_form_alignment(form, intent)
     assert any("must match section-registry" in err for err in errors)
 
@@ -86,4 +94,4 @@ def test_load_form_registry_with_alignment(tmp_path: Path):
     form_path.write_text(json.dumps(TECH_DESIGN_FORM), encoding="utf-8")
     intent = normalize_section_registry(TECH_DESIGN_INTENT)
     loaded = load_section_form_registry(form_path, intent_registry=intent)
-    assert loaded["sections"]["GO"]["expression"]["required"]
+    assert loaded["sections"]["GOAL"]["expression"]["required"]
