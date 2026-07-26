@@ -58,7 +58,7 @@ All macros that declare `--profile` **must** pass `--profile "$COMPOSE_PROFILE"`
 | `$NARRATIVE_ARC_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/narrative_arc_control.py"` |
 | `$CHAPTER_PLAN_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/chapter_plan_control.py"` |
 
-`$COMPOSE_DOC_CONTROL` subcommands: `--help` · `init-doc` · `append-chapter`.
+`$COMPOSE_DOC_CONTROL` subcommands: `--help` · `init-doc` · `append-chapter` · `assemble-arc`.
 
 `$FACTS_CTL` subcommands: `--help` · `write` · `filter` · `validate` · `status`.
 
@@ -177,13 +177,15 @@ $NARRATIVE_ARC_CTL validate \
 
 ### Step 4 — Write-by-sub-topic-chapter then Assemble
 
-Keep chapter delivery shell (`_derive-{cid}.json`, `_body-{cid}.txt`, `append-chapter`).
+Keep chapter delivery shell (`_derive-{cid}.json`, `_body-{cid}.txt`); Assemble via `assemble-arc`.
+
+**Presentation layers (archive-5.0):** `tree` group → arc leaf → lens chapter (`cid`). Visible titles stop at group/leaf; lens chapters are anchors + body (default omit lens heading).
 
 Artifacts per write unit (`chapter_id` from `list-chapters`):
 
 ```text
-_derive-{cid}.json   # display_title + lens
-_body-{cid}.txt      # ## omitted; body for one (arc-leaf, lens) chapter
+_derive-{cid}.json   # display_title (= leaf title) + lens — metadata, not doc H2 spine
+_body-{cid}.txt      # body for one (arc-leaf, lens) chapter; no leading ##
 ```
 
 #### 4.W — Write-by-sub-topic-chapter
@@ -203,30 +205,28 @@ For each unit in `chapters[]` order:
 4. **Derive C** (S1): `c[]` from domain `expression_conventions`, Role Fields, and this lens's `expression` (traceable). **C is constrained by F**.
 5. **Write body:** Scaffold per F; obey every C; content ⊆ `facts_ℓ`; carry anchors (L6); resolve raw `F-id` citations; mark gaps with `> **待决：** …`.
    **Do not Write until F and C Done for this unit.**
+6. Write `_derive-{cid}.json` with `display_title` = unit.display_title (leaf title) and `lens`; write `_body-{cid}.txt`.
 
 **Note:** Encourage sectioning in the body. If using heading levels for structure, headings may start at `####`.
 
-#### 4.A — Assemble-by-chapter then Close
+#### 4.A — Assemble-from-arc then Close
 
-Render order = `$NARRATIVE_ARC_CTL list-chapters` → `chapter_ids`.
+**Hard gate:** any unit from `list-chapters` missing F/C/body/derive → do not assemble.
 
-For each `cid` in that order:
-
-1. `display_title` ← unit.display_title (leaf title · lens); do not invent at assemble time.
-2. Body = the unit body from 4.W (one sub-topic chapter per cid).
-3. Write `_derive-{cid}.json` (`display_title`, `lens`) and `_body-{cid}.txt`.
-4. Close:
+One shot (tree packaging + omit lens headings by default):
 
 ```bash
-$COMPOSE_DOC_CONTROL append-chapter \
+$COMPOSE_DOC_CONTROL assemble-arc \
   --path "$OUTPUT_DOC_PATH" \
-  --chapter-id "{cid}" \
-  --revision-dir "$REVISION_DIR"
+  --revision-dir "$REVISION_DIR" \
+  --preamble "<same substituted document_preamble as Step 1>" \
+  --lens-heading omit \
+  --tree auto
 ```
 
-**Hard gate:** any unit missing F/C/body → do not append that chapter.
+(`--preamble-file` OK for multiline. Overwrites `$OUTPUT_DOC_PATH`. Debug: `--lens-heading show` adds `####` under each anchor.)
 
-**Done:** every listed chapter has `<!-- chapter:{cid} -->` and non-empty rendered content. Flat `## {display_title}` from `_derive-{cid}.json`.
+**Done:** compose doc has group/leaf visible titles when `tree` present (else leaf `##`); every listed `cid` has `<!-- chapter:{cid} -->` + non-empty body; **no** spine titles of the form `{leaf} · {LENS}` or `Context（CTX）` lens H2/H3.
 
 ### Step 5 — Validate
 
@@ -240,7 +240,7 @@ $COMPOSE_DOC_CONTROL append-chapter \
 | 2 | `3.2:` | **3.2** | Fix arc chapters / tags / unresolved |
 | 3 | `L6:` | **4.W** | Write missing fact-anchor token into that chapter body |
 | 4 | `C1:` + derivation / coverage | **Blocking** | Return to parent Drafting Step 0 producer; re-enter Init at Step 2 |
-| 5 | `5.A:` | **4.A** | Re-assemble / `append-chapter` for `list-chapters` only |
+| 5 | `5.A:` | **4.A** | Re-run `assemble-arc` after fixing missing chapter artifacts |
 
 3. On success → Return Summary.
 

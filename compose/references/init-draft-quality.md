@@ -27,7 +27,7 @@ $REVISION_DIR/_chapter-framework.json     # Step 4.B chapter topology + H2 title
 $REVISION_DIR/_chapter-placement.json     # Step 4.C placement SoT (fid → chapter × FL); Step 6 reads this
 $REVISION_DIR/_derive-{cid}.json          # Step 5.A (display_title copy + lens_forms)
 $REVISION_DIR/_body-{cid}.txt             # Step 5.A assembled chapter body
-$OUTPUT_DOC_PATH                          # assembled via append-chapter (<!-- chapter:{cid} -->)
+$OUTPUT_DOC_PATH                          # assembled via assemble-arc (tree/leaf titles + <!-- chapter:{cid} -->)
 ```
 
 `cid` is the chapter id from `_chapter-framework.json` / placement (not a registry section key).
@@ -43,9 +43,9 @@ $OUTPUT_DOC_PATH                          # assembled via append-chapter (<!-- c
 ### Display title
 
 **SoT:** `_chapter-framework.json` `chapters[].display_title` for that `cid`.  
-`_derive-{cid}.json.display_title` is a **copy** for `append-chapter` (not an independent title authority).
+`_derive-{cid}.json.display_title` is **leaf-title metadata** for narrative-arc Init (not a per-lens document H2).
 
-`$COMPOSE_DOC_CONTROL append-chapter` reads derive `display_title` and renders `## {display_title}` under `<!-- chapter:{cid} -->`. Step 6 requires derive title **≡** framework title.
+`$COMPOSE_DOC_CONTROL assemble-arc` builds group/leaf visible titles from `_narrative-arc.json` and emits lens chapters as anchors + body (`--lens-heading omit` default). Legacy chapter-plan path may still use `append-chapter` with `--lens-heading show`.
 
 1. Concise reader-facing H2 — optionally one theme phrase. Keep it short.
 2. Must not paste a full body / substance sentence.

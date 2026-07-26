@@ -170,7 +170,9 @@ def cmd_list_chapters(args: argparse.Namespace) -> int:
                     "leaf_title": leaf_title,
                     "lens": lens,
                     "fact_ids": list(chapter.get("fact_ids") or []),
-                    "display_title": f"{leaf_title} · {lens}".strip(" ·"),
+                    # Visible spine titles come from assemble-arc (tree/leaf).
+                    # display_title is leaf-only metadata for derive / debug show.
+                    "display_title": leaf_title or lens,
                 }
             )
     return _ok({"ok": True, "chapter_ids": [u["chapter_id"] for u in units], "chapters": units})

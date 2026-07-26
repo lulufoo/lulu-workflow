@@ -193,7 +193,11 @@ def _check_chapter_artifacts_and_assembly(
         else:
             segment_lines = chapter_body_by_id(raw_doc, cid).splitlines()
             first_line = segment_lines[0].strip() if segment_lines else ""
-            if first_line.startswith("## ") and not first_line.startswith("### "):
+            # Strip optional visible titles inside the chapter segment (legacy ## /
+            # debug #### lens heading). Leaf/group titles sit outside anchors.
+            if first_line.startswith("#### "):
+                segment_lines = segment_lines[1:]
+            elif first_line.startswith("## ") and not first_line.startswith("### "):
                 segment_lines = segment_lines[1:]
             if not "\n".join(segment_lines).strip():
                 errors.append(
