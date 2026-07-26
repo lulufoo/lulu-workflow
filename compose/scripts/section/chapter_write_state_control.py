@@ -5,7 +5,7 @@ Subcommands:
     sync       Align state order to list-chapters / arc write units
     status     Print next / done_count / status
     begin      Gate + mark chapter in_progress
-    complete   Shallow artifact gate + mark done
+    complete   F/C + domain-marker artifact gate + mark done
 
 CLI: ``python3 chapter_write_state_control.py --help``
 
@@ -29,7 +29,7 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
-from chapter_artifact_paths import chapter_body_path, chapter_derive_path  # noqa: E402
+from chapter_fc_gates import check_chapter_write_artifacts  # noqa: E402
 from chapter_write_state_schema import (  # noqa: E402
     chapter_write_state_path,
     compute_top_status,
@@ -83,24 +83,7 @@ def _load_or_empty(path: Path) -> dict[str, Any]:
 
 
 def _check_artifacts(slice_dir: Path, cid: str) -> list[str]:
-    errors: list[str] = []
-    derive = chapter_derive_path(slice_dir, cid)
-    if not derive.is_file():
-        errors.append(f"missing derive: {derive.name}")
-    else:
-        try:
-            data = json.loads(derive.read_text(encoding="utf-8"))
-        except json.JSONDecodeError as exc:
-            errors.append(f"invalid derive JSON: {exc}")
-            data = {}
-        if not isinstance(data, dict):
-            errors.append("derive must be an object")
-    body = chapter_body_path(slice_dir, cid)
-    if not body.is_file():
-        errors.append(f"missing body: {body.name}")
-    elif not body.read_text(encoding="utf-8").strip():
-        errors.append(f"empty body: {body.name}")
-    return errors
+    return check_chapter_write_artifacts(slice_dir, cid)
 
 
 def cmd_sync(args: argparse.Namespace) -> int:

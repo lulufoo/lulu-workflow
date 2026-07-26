@@ -48,9 +48,22 @@ def _seed_arc(rev: Path) -> None:
     save_narrative_arc(rev / "_narrative-arc.json", _arc())
 
 
-def _write_artifacts(rev: Path, cid: str, *, title: str = "Title", body: str = "body") -> None:
+def _valid_derive(cid: str) -> dict:
+    return {
+        "lens": cid.rsplit("-", 1)[-1],
+        "form": {"carrier": "prose", "structure": "claim-then-evidence"},
+        "expression_c": [
+            "domain.register: precise engineering prose",
+            "domain.carriers: follow Derive F/C",
+            "domain.scannability: short items over walls",
+            "domain.altitude: act without re-deriving intent",
+        ],
+    }
+
+
+def _write_artifacts(rev: Path, cid: str, *, body: str = "body") -> None:
     (rev / f"_derive-{cid}.json").write_text(
-        json.dumps({"display_title": title, "lens": cid.split("-")[-1]}, ensure_ascii=False),
+        json.dumps(_valid_derive(cid), ensure_ascii=False),
         encoding="utf-8",
     )
     (rev / f"_body-{cid}.txt").write_text(body + "\n", encoding="utf-8")
@@ -120,7 +133,7 @@ def test_complete_rejects_missing_body(tmp_path: Path, capsys: pytest.CaptureFix
     assert write_state_main(["sync", "--revision-dir", str(rev)]) == 0
     assert write_state_main(["begin", "--revision-dir", str(rev), "--chapter", "A01-I"]) == 0
     (rev / "_derive-A01-I.json").write_text(
-        json.dumps({"display_title": "T"}), encoding="utf-8",
+        json.dumps(_valid_derive("A01-I")), encoding="utf-8",
     )
     capsys.readouterr()
     rc = write_state_main(["complete", "--revision-dir", str(rev), "--chapter", "A01-I"])
@@ -214,8 +227,8 @@ def test_init_validate_requires_write_state(tmp_path: Path):
         ),
         encoding="utf-8",
     )
-    for cid, title in (("A01-I", "Leaf one · I"), ("A01-IF", "Leaf one · IF")):
-        _write_artifacts(rev, cid, title=title)
+    for cid in ("A01-I", "A01-IF"):
+        _write_artifacts(rev, cid)
     doc = rev / "design-doc.md"
     bodies = []
     for cid in ("A01-I", "A01-IF"):

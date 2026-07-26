@@ -24,8 +24,9 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
-from chapter_artifact_paths import chapter_body_path, chapter_derive_path  # noqa: E402
+from chapter_artifact_paths import chapter_body_path  # noqa: E402
 from chapter_doc_schema import chapter_anchor_present, chapter_body_by_id  # noqa: E402
+from chapter_fc_gates import check_chapter_write_artifacts  # noqa: E402
 from discussion_pointer_schema import active_slice_dir  # noqa: E402
 from facts_schema import facts_path, load_facts  # noqa: E402
 from fetch_compose_framework import fetch_compose_framework  # noqa: E402
@@ -106,7 +107,7 @@ def _check_chapter_artifacts_and_assembly(
     compose_doc: Path,
     chapters_view: list[dict[str, Any]],
 ) -> list[str]:
-    """Artifact existence + assembly completeness for rendered chapters."""
+    """F/C write artifacts + compose-doc assembly completeness."""
     errors: list[str] = []
     raw_doc = compose_doc.read_text(encoding="utf-8")
     for chapter in chapters_view:
@@ -114,25 +115,19 @@ def _check_chapter_artifacts_and_assembly(
             continue
         cid = str(chapter.get("id", "")).strip()
 
-        derive_file = chapter_derive_path(revision_dir, cid)
-        if not derive_file.is_file():
-            errors.append(f"5.A: chapter {cid!r}: missing {derive_file.name}")
-        else:
-            try:
-                derive_data = json.loads(derive_file.read_text(encoding="utf-8"))
-            except json.JSONDecodeError as exc:
-                errors.append(f"5.A: chapter {cid!r}: invalid {derive_file.name}: {exc}")
-                derive_data = {}
-            if derive_data is not None and not isinstance(derive_data, dict):
-                errors.append(
-                    f"5.A: chapter {cid!r}: {derive_file.name} must be a JSON object",
-                )
-
-        body_file = chapter_body_path(revision_dir, cid)
-        if not body_file.is_file():
-            errors.append(f"5.A: chapter {cid!r}: missing {body_file.name}")
-        elif not body_file.read_text(encoding="utf-8").strip():
-            errors.append(f"5.A: chapter {cid!r}: empty body file {body_file.name}")
+        for err in check_chapter_write_artifacts(revision_dir, cid):
+            # Preserve prior phrasing for empty-body file errors in Step 5.
+            if err.startswith("empty body:"):
+                body_name = err.split(":", 1)[1].strip()
+                errors.append(f"5.A: chapter {cid!r}: empty body file {body_name}")
+            elif err.startswith("missing body:"):
+                body_name = err.split(":", 1)[1].strip()
+                errors.append(f"5.A: chapter {cid!r}: missing {body_name}")
+            elif err.startswith("missing derive:"):
+                derive_name = err.split(":", 1)[1].strip()
+                errors.append(f"5.A: chapter {cid!r}: missing {derive_name}")
+            else:
+                errors.append(f"5.A: chapter {cid!r}: {err}")
 
         if not chapter_anchor_present(raw_doc, cid):
             errors.append(

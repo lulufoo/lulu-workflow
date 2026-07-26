@@ -38,7 +38,9 @@ $OUTPUT_DOC_PATH                          # assembled via assemble-arc (tree/lea
 | Field | Required | Rules |
 |-------|----------|-------|
 | `display_title` | **no** (retired) | Ignored by Init validators; do not write for narrative-arc Init |
-| `lens` / F / C | per runner | See initializing-runner Step 4.W |
+| `lens` | yes (contract) | Unit lens key |
+| `form.carrier` / `form.structure` | **yes** (hard gate) | Non-empty strings; gated by `complete` + Step 5 |
+| `expression_c` | **yes** (hard gate) | Non-empty string array; joined text must contain `domain.register` / `domain.carriers` / `domain.scannability` / `domain.altitude` |
 
 ### Titles (narrative-arc)
 
@@ -73,7 +75,7 @@ anchors(chapter) ⊆ tokens(body)              # new: keep this chapter's facts'
 
 ## Validate command
 
-`init_compose_validation.py validate` runs: `_facts.json` + `_narrative-arc.json` + chapter write-state `complete`, chapter derive/body files, chapter anchors in the compose doc, and L6 fact-anchor coverage. Does **not** gate derive `display_title`. Presence of `_chapters.json` / `_lens-themes.json` / `_chapter-framework.json` / `_chapter-placement.json` is an error (retired). See script `--help` for exit codes and stderr format.
+`init_compose_validation.py validate` runs: `_facts.json` + `_narrative-arc.json` + chapter write-state `complete`, per-chapter F/C + domain-marker gate (same as `$CHAPTER_WRITE_STATE complete`), chapter anchors in the compose doc, and L6 fact-anchor coverage. Does **not** gate derive `display_title`. Presence of `_chapters.json` / `_lens-themes.json` / `_chapter-framework.json` / `_chapter-placement.json` is an error (retired). See script `--help` for exit codes and stderr format.
 
 ## Minimal example (one chapter)
 
@@ -95,8 +97,17 @@ anchors(chapter) ⊆ tokens(body)              # new: keep this chapter's facts'
 }
 ```
 
-`_derive-A01-AR.json` (no spine title; F/C per runner):
+`_derive-A01-AR.json` (no spine title):
 
 ```json
-{ "lens": "AR" }
+{
+  "lens": "AR",
+  "form": { "carrier": "prose", "structure": "claim-then-evidence" },
+  "expression_c": [
+    "domain.register: …",
+    "domain.carriers: …",
+    "domain.scannability: …",
+    "domain.altitude: …"
+  ]
+}
 ```

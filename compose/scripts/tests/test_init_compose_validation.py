@@ -101,6 +101,21 @@ def _cid(lens: str = "AR") -> str:
     return f"A01-{lens}"
 
 
+def _valid_derive(cid: str, **overrides: object) -> dict:
+    data: dict = {
+        "lens": cid.rsplit("-", 1)[-1],
+        "form": {"carrier": "prose", "structure": "claim-then-evidence"},
+        "expression_c": [
+            "domain.register: precise engineering prose",
+            "domain.carriers: follow Derive F/C",
+            "domain.scannability: short items over walls",
+            "domain.altitude: act without re-deriving intent",
+        ],
+    }
+    data.update(overrides)
+    return data
+
+
 def _write_chapter_artifacts(
     revision_dir: Path,
     cid: str,
@@ -108,7 +123,7 @@ def _write_chapter_artifacts(
     body: str,
     derive: dict | None = None,
 ) -> None:
-    payload = derive if derive is not None else {"lens": cid.rsplit("-", 1)[-1]}
+    payload = derive if derive is not None else _valid_derive(cid)
     (revision_dir / f"_derive-{cid}.json").write_text(
         json.dumps(payload, ensure_ascii=False),
         encoding="utf-8",
@@ -282,12 +297,28 @@ def test_allows_derive_without_display_title(revision_dir: Path, tmp_path: Path)
     compose_doc = revision_dir / "design-doc.md"
     _seed_happy_path(revision_dir, compose_doc)
     (revision_dir / f"_derive-{_cid()}.json").write_text(
-        json.dumps({"lens": "AR"}), encoding="utf-8",
+        json.dumps(_valid_derive(_cid())), encoding="utf-8",
     )
     error = validate_display_layer_artifacts(
         revision_dir, compose_doc, tmp_path, "lulu-design",
     )
     assert error is None
+
+
+def test_fails_when_derive_missing_fc_and_domain_markers(
+    revision_dir: Path, tmp_path: Path,
+):
+    compose_doc = revision_dir / "design-doc.md"
+    _seed_happy_path(revision_dir, compose_doc)
+    (revision_dir / f"_derive-{_cid()}.json").write_text(
+        json.dumps({"lens": "AR"}), encoding="utf-8",
+    )
+    error = validate_display_layer_artifacts(
+        revision_dir, compose_doc, tmp_path, "lulu-design",
+    )
+    assert error is not None
+    assert "form" in error
+    assert "expression_c" in error
 
 
 def test_fails_when_chapter_anchor_missing_in_doc(
