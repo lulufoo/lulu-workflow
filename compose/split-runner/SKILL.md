@@ -11,7 +11,7 @@ description: >-
 Run only when compose Drafting Step 0pre dispatches multi-subdesign split for an Lx package layout. Observable done: `$MULTI_SLICE check-split-ready` exits 0.
 
 **Must:** fill intake slots (or `N/A`); recommend split with reasons; enforce plan-self-sufficiency veto; lock tree + rulers (multi-L) via `$MULTI_SLICE` only.  
-**Must not:** begin inductive; switch focus; hand-edit locked JSON; invent package-bucket facts; implement tree unlock/re-split (immutable this iteration).
+**Must not:** begin inductive; switch focus; hand-edit locked JSON; invent package-bucket facts; implement tree unlock/re-split (immutable this iteration); present the full eight-slot projection table to the user for review.
 
 ## Parent-Provided Inputs
 
@@ -53,9 +53,10 @@ Empty without explicit `N/A` → do not advance past Step 0 / do not lock.
 ### Step 0 — Intake
 
 1. `$MULTI_SLICE check-root-facts` — on failure: `$MULTI_SLICE migrate-root-facts --confirm` (or user removes root facts), then re-check.  
-2. Project upstream decision into the eight slots; dialogue fills gaps.  
+2. **Silently** project upstream decision into the eight slots. Do **not** show the slot table or ask the user to review a full dump.  
 3. `$MULTI_SLICE write-intake --intake-json '<json>'` (status stays draft).  
-4. When slots are filled or `N/A`: ask human confirm → `$MULTI_SLICE complete-intake --confirm`.
+4. If any slot is missing or ambiguous: enter **targeted Q&A only for those gaps** (one concern at a time). Write updates via `write-intake` after each batch of answers.  
+5. When all slots are filled or explicitly `N/A`: `$MULTI_SLICE complete-intake --confirm` (no separate “please confirm the eight slots” step). Proceed to Step 1.
 
 ### Step 1 — Split-or-not
 
