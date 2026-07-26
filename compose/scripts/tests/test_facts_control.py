@@ -56,7 +56,7 @@ def test_validate_rejects_duplicate_and_unknown_tags():
     facts = [{"id": "F-1", "text": "x", "lens_tags": ["CTX", "CTX", "ZZ"]}]
     errors = validate_facts(facts, allowed_lenses=["CTX"])
     assert any("duplicate" in e for e in errors)
-    assert any("not in section_order" in e for e in errors)
+    assert any("not in allowed lenses" in e for e in errors)
 
 
 def test_validate_rejects_non_contiguous_ids():

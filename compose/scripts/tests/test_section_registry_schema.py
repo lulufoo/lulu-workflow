@@ -335,3 +335,31 @@ def test_section_guidance_and_contract_accessors(tmp_path: Path):
     merged = merge_section_form_into_registry(intent, form)
     assert merged["sections"]["CTX"]["presentation"]["guidance"]
     assert merged["sections"]["CTX"]["expression"]["required"]
+
+
+def test_registry_without_section_order_uses_sections_keys():
+    """archive-5.0: section_order optional; lens set = sections keys."""
+    payload = {
+        "version": "1",
+        "document_preamble": "preamble\n",
+        "sections": {
+            "GOAL": {
+                "heading": "Goal",
+                "aliases": [],
+                "upstream": [],
+                "relations": {},
+                "intent": "Success line.",
+            },
+            "I": {
+                "heading": "Invariants",
+                "aliases": [],
+                "upstream": ["GOAL"],
+                "relations": {"GOAL": "operationalize"},
+                "intent": "Always-hold checks.",
+            },
+        },
+    }
+    assert validate_section_registry(payload) == []
+    normalized = normalize_section_registry(payload)
+    assert "section_order" not in normalized
+    assert set(normalized["sections"]) == {"GOAL", "I"}

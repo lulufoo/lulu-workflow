@@ -43,6 +43,9 @@ def section_order_for_profile(project_root: Path, profile_id: str) -> list[str]:
         profile_id=profile_id,
     )
     data = json.loads(raw)
+    sections = data.get("sections") or {}
+    if isinstance(sections, dict) and sections:
+        return [str(key).upper() for key in sections]
     return [str(key).upper() for key in data.get("section_order") or []]
 
 
@@ -199,6 +202,71 @@ def _check_chapter_artifacts_and_assembly(
     return errors
 
 
+def _validate_narrative_arc_display_layer(
+    revision_dir: Path,
+    compose_doc: Path,
+    project_root: Path,
+    profile_id: str,
+    facts: list[dict[str, Any]],
+) -> str | None:
+    """archive-5.0 path: ``_narrative-arc.json`` is chapter SoT."""
+    from narrative_arc_schema import (
+        load_narrative_arc,
+        narrative_arc_path,
+        validate_narrative_arc,
+    )
+
+    path = narrative_arc_path(revision_dir)
+    allowed = set(section_order_for_profile(project_root, profile_id))
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        return f"3.2: invalid _narrative-arc.json: {exc}"
+    errors = validate_narrative_arc(data, facts=facts, allowed_lenses=allowed or None)
+    if errors:
+        return "3.2: invalid narrative arc: " + "; ".join(errors)
+    if str(data.get("status", "")).strip() != "write_ready":
+        return "3.2: narrative arc status must be write_ready"
+    try:
+        load_narrative_arc(path, facts=facts, allowed_lenses=allowed or None)
+    except ValueError as exc:
+        return f"3.2: invalid narrative arc: {exc}"
+
+    chapters_view: list[dict[str, Any]] = []
+    framework_titles: dict[str, str] = {}
+    for leaf in data.get("leaves") or []:
+        leaf_id = str(leaf.get("id", "")).strip()
+        leaf_title = str(leaf.get("title", "")).strip()
+        for chapter in leaf.get("chapters") or []:
+            lens = str(chapter.get("lens", "")).strip().upper()
+            cid = f"{leaf_id}-{lens}"
+            display = f"{leaf_title} · {lens}".strip(" ·")
+            framework_titles[cid] = display
+            chapters_view.append(
+                {
+                    "id": cid,
+                    "facts": [
+                        {"fid": str(fid).strip()}
+                        for fid in (chapter.get("fact_ids") or [])
+                    ],
+                }
+            )
+
+    errors_out: list[str] = []
+    errors_out.extend(
+        _check_chapter_artifacts_and_assembly(
+            revision_dir,
+            compose_doc,
+            chapters_view,
+            framework_titles=framework_titles,
+        )
+    )
+    errors_out.extend(check_fact_anchor_coverage(revision_dir, facts, chapters_view))
+    if not errors_out:
+        return None
+    return "; ".join(errors_out)
+
+
 def validate_display_layer_artifacts(
     revision_dir: Path,
     compose_doc: Path,
@@ -207,8 +275,9 @@ def validate_display_layer_artifacts(
 ) -> str | None:
     """Return first error summary or None — fact-first Step 6 validation.
 
-    Placement SoT only: ``_facts.json`` + ``_lens-themes.json`` +
-    ``_chapter-framework.json`` + ``_chapter-placement.json``.
+    Preferred SoT (archive-5.0): ``_facts.json`` + ``_narrative-arc.json``.
+    Legacy SoT: ``_lens-themes.json`` + ``_chapter-framework.json`` +
+    ``_chapter-placement.json``.
     ``_chapters.json`` is retired — its presence is an error.
     """
     errors: list[str] = []
@@ -217,13 +286,19 @@ def validate_display_layer_artifacts(
     if retired_chapters.is_file():
         return (
             "retired: _chapters.json present — delete it; chapter plan SoT is "
-            "_lens-themes.json + _chapter-framework.json + _chapter-placement.json"
+            "_narrative-arc.json (or legacy themes/framework/placement)"
         )
 
     try:
         facts = load_facts(facts_path(revision_dir))
     except ValueError as exc:
         return f"invalid or missing _facts.json: {exc}"
+
+    arc_path = revision_dir / "_narrative-arc.json"
+    if arc_path.is_file():
+        return _validate_narrative_arc_display_layer(
+            revision_dir, compose_doc, project_root, profile_id, facts,
+        )
 
     framework_path = revision_dir / "_chapter-framework.json"
     placement_path = revision_dir / "_chapter-placement.json"
@@ -244,7 +319,10 @@ def validate_display_layer_artifacts(
             "_chapter-placement.json": "4.C",
         }
         route = route_by_file[missing[0]]
-        return f"{route}: chapter plan incomplete: missing {', '.join(missing)}"
+        return (
+            f"{route}: chapter plan incomplete: missing {', '.join(missing)} "
+            "(or provide _narrative-arc.json)"
+        )
 
     presence_map = section_presence_map_for_profile(project_root, profile_id)
     section_order = section_order_for_profile(project_root, profile_id)

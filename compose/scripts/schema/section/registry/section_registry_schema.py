@@ -173,29 +173,47 @@ def fetch_section_registry(
     return normalize_section_registry(data)
 
 
+def lens_key_sequence(data: dict[str, Any]) -> list[str]:
+    """Return lens keys: ``sections`` keys when no ``section_order`` (archive-5.0).
+
+    If ``section_order`` is present, that list is authoritative for key membership
+    and upstream ordering checks. Chapter spine must not use this list (narrative arc).
+    """
+    sections = data.get("sections")
+    order = data.get("section_order")
+    if isinstance(order, list) and order:
+        return [str(key).upper() for key in order]
+    if isinstance(sections, dict) and sections:
+        return [str(key).upper() for key in sections]
+    return []
+
+
 def validate_section_registry(data: dict[str, Any]) -> list[str]:
     """Validate section registry payload."""
     errors: list[str] = []
     if data.get("version") != "1":
         errors.append(f"invalid version: {data.get('version')!r} (expected '1')")
 
-    order = data.get("section_order")
-    if not isinstance(order, list) or not order:
-        errors.append("section_order must be a non-empty list")
-        return errors
-
     preamble = data.get("document_preamble")
     if not isinstance(preamble, str) or not preamble.strip():
         errors.append("document_preamble must be a non-empty string")
 
     sections = data.get("sections")
-    if not isinstance(sections, dict):
-        errors.append("sections must be an object")
+    if not isinstance(sections, dict) or not sections:
+        errors.append("sections must be a non-empty object")
         return errors
 
-    order_keys = [str(key).upper() for key in order]
+    order = data.get("section_order")
+    if order is not None and (not isinstance(order, list) or not order):
+        errors.append("section_order must be a non-empty list when present")
+        return errors
+
+    order_keys = lens_key_sequence(data)
+    if not order_keys:
+        errors.append("sections must declare at least one lens key")
+        return errors
     if len(order_keys) != len(set(order_keys)):
-        errors.append("section_order contains duplicate keys")
+        errors.append("lens key list contains duplicate keys")
 
     for key in order_keys:
         entry = sections.get(key)
@@ -279,16 +297,18 @@ def validate_section_registry(data: dict[str, Any]) -> list[str]:
             except ValueError as exc:
                 errors.append(str(exc))
 
-    for key in sections:
-        if str(key).upper() not in order_keys:
-            errors.append(f"sections.{key} is not listed in section_order")
+    if isinstance(order, list) and order:
+        for key in sections:
+            if str(key).upper() not in order_keys:
+                errors.append(f"sections.{key} is not listed in section_order")
 
     return errors
 
 
 def normalize_section_registry(data: dict[str, Any]) -> dict[str, Any]:
     """Return normalized section registry."""
-    order = [str(key).upper() for key in data["section_order"]]
+    keep_order = isinstance(data.get("section_order"), list) and bool(data.get("section_order"))
+    order = lens_key_sequence(data)
     sections_raw = data.get("sections") or {}
     sections: dict[str, dict[str, Any]] = {}
     for key in order:
@@ -329,12 +349,14 @@ def normalize_section_registry(data: dict[str, Any]) -> dict[str, Any]:
                 entry.get("facets"), lens=key
             )
         sections[key] = normalized
-    return {
+    out: dict[str, Any] = {
         "version": "1",
-        "section_order": order,
         "document_preamble": str(data.get("document_preamble", "")),
         "sections": sections,
     }
+    if keep_order:
+        out["section_order"] = order
+    return out
 
 
 def load_section_registry(
@@ -363,9 +385,9 @@ def _active_registry(project_root: Path | None = None) -> dict[str, Any]:
 
 
 def section_order(project_root: Path | None = None) -> tuple[str, ...]:
-    """Return canonical section key order."""
+    """Return lens key sequence (legacy name; not document chapter spine)."""
     registry = _active_registry(project_root)
-    return tuple(registry["section_order"])
+    return tuple(lens_key_sequence(registry))
 
 
 def summary_section_key(project_root: Path | None = None) -> str:
@@ -373,6 +395,8 @@ def summary_section_key(project_root: Path | None = None) -> str:
     order = section_order(project_root)
     if "GO" in order:
         return "GO"
+    if "GOAL" in order:
+        return "GOAL"
     return order[0]
 
 
@@ -393,7 +417,10 @@ def section_keys(project_root: Path | None = None) -> frozenset[str]:
 def section_headings(project_root: Path | None = None) -> dict[str, str]:
     """Return section_key → H2 heading map."""
     registry = _active_registry(project_root)
-    return {key: registry["sections"][key]["heading"] for key in registry["section_order"]}
+    return {
+        key: registry["sections"][key]["heading"]
+        for key in lens_key_sequence(registry)
+    }
 
 
 def section_presence_map(project_root: Path | None = None) -> dict[str, str]:
@@ -406,7 +433,7 @@ def section_presence_map(project_root: Path | None = None) -> dict[str, str]:
     registry = _active_registry(project_root)
     return {
         key: registry["sections"][key].get("presence", _PRESENCE_DEFAULT)
-        for key in registry["section_order"]
+        for key in lens_key_sequence(registry)
     }
 
 
@@ -418,7 +445,7 @@ def section_cluster_map(project_root: Path | None = None) -> dict[str, str]:
     """
     registry = _active_registry(project_root)
     out: dict[str, str] = {}
-    for key in registry["section_order"]:
+    for key in lens_key_sequence(registry):
         cluster = registry["sections"][key].get("cluster")
         if isinstance(cluster, str) and cluster.strip():
             out[key] = cluster.strip()
@@ -429,7 +456,7 @@ def section_aliases(project_root: Path | None = None) -> dict[str, str]:
     """Return normalized alias → section_key map."""
     registry = _active_registry(project_root)
     aliases: dict[str, str] = {}
-    for key in registry["section_order"]:
+    for key in lens_key_sequence(registry):
         aliases[key] = key
         aliases[key.lower()] = key
         heading = registry["sections"][key]["heading"]

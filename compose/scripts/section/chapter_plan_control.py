@@ -66,6 +66,9 @@ def _section_registry(project_root: Path, profile_id: str) -> dict[str, Any]:
 
 def _section_order(project_root: Path, profile_id: str) -> list[str]:
     data = _section_registry(project_root, profile_id)
+    sections = data.get("sections") or {}
+    if isinstance(sections, dict) and sections:
+        return [str(key).upper() for key in sections]
     return [str(key).upper() for key in data.get("section_order") or []]
 
 
@@ -73,9 +76,8 @@ def _required_lenses(project_root: Path, profile_id: str) -> list[str]:
     data = _section_registry(project_root, profile_id)
     sections = data.get("sections") or {}
     required: list[str] = []
-    for key in data.get("section_order") or []:
-        lens = str(key).upper()
-        sec = sections.get(key) or sections.get(lens) or {}
+    for lens in _section_order(project_root, profile_id):
+        sec = sections.get(lens) or {}
         presence = str(sec.get("presence") or "required").strip().lower()
         if presence != "optional":
             required.append(lens)

@@ -15,7 +15,7 @@ Use `$COMPOSE_PROFILE` from parent dispatch; kernel default applies only when om
 
 ## Scope
 
-**Pipeline:** Step 1 Load → Step 2 Validate facts → Step 3 Dynamic chapter plan → Step 4 Write-by-FL then Assemble → Step 5 Validate → Return.
+**Pipeline:** Step 1 Load → Step 2 Validate facts → Step 3 Narrative arc (phase 1→2) → Step 4 Write-by-sub-topic-chapter then Assemble → Step 5 Validate → Return.
 
 Init is **display-layer only**. Fact production belongs to Drafting Step 0 (`inductive-runner` or `deductive-runner`). Init never Import / Atomize / Derive.
 
@@ -55,13 +55,16 @@ All macros that declare `--profile` **must** pass `--profile "$COMPOSE_PROFILE"`
 | `$COMPOSE_DOC_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/section/compose_doc_control.py"` |
 | `$INIT_COMPOSE_VALIDATE` | `python3 "$SKILL_ROOT/compose/scripts/section/init_compose_validation.py" validate --revision-dir "$REVISION_DIR" --compose-doc "$OUTPUT_DOC_PATH" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)"` |
 | `$FACTS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/facts_control.py"` |
+| `$NARRATIVE_ARC_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/narrative_arc_control.py"` |
 | `$CHAPTER_PLAN_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/chapter_plan_control.py"` |
 
 `$COMPOSE_DOC_CONTROL` subcommands: `--help` · `init-doc` · `append-chapter`.
 
 `$FACTS_CTL` subcommands: `--help` · `write` · `filter` · `validate` · `status`.
 
-`$CHAPTER_PLAN_CTL` subcommands: `--help` · `write-themes` · `write-framework` · `propose-placement` · `write-placement` · `list-chapters` · `validate`.
+`$NARRATIVE_ARC_CTL` subcommands: `--help` · `validate` · `write` · `show` · `list-chapters`.
+
+`$CHAPTER_PLAN_CTL` (legacy archive-3.0 path; not default Init spine): `--help` · `write-themes` · `write-framework` · `propose-placement` · `write-placement` · `list-chapters` · `validate`.
 
 > **K4:** `$INDUCTIVE_FACTS_PROJ project` is **retired**. Do not invoke projection from this runner.
 
@@ -71,7 +74,7 @@ All macros that declare `--profile` **must** pass `--profile "$COMPOSE_PROFILE"`
 
 1. `$RESOLVE_PLAN_ROLE` → Plan Scope Constraints (`### Role`, `### Role Fields`).
 2. `$RESOLVE_DOMAIN` → `domain instance`.
-3. `$FETCH_COMPOSE --role section-registry` (JSON) → `section_order`, `document_preamble`, per-section `heading` / `aliases` / `intent` (else `desc`) / `intent_boundary` / `relations` / `presence` (used at Step 3)
+3. `$FETCH_COMPOSE --role section-registry` (JSON) → `sections` keys (= allowed lenses; `section_order` optional/legacy), `document_preamble`, per-section `heading` / `aliases` / `intent` (else `desc`) / `intent_boundary` / `relations` / `presence`
    `$FETCH_COMPOSE --role section-form-registry` → `sections.{key}.presentation` / `expression`
 4. `$FETCH_COMPOSE --role section-kw-criteria` → each `## {section_key}` block (Fill completeness for **named** atoms only).
 5. Read `$SCOPE_REF_PATH` once for completeness cross-check only (do not atomize).
@@ -92,12 +95,12 @@ Prefer `--preamble-file` when content is multiline.
 
 #### Pipeline invariants (Steps 2–5)
 
-`section_order` means the profile's *lens* set (same registry, reframed as intent lenses — see [Theory](../references/compose-theory.md)).
+Allowed lenses = `section-registry.sections` keys (archive-5.0). Document spine = `_narrative-arc.json`, **not** registry order / Lens aggregation.
 
-**Precondition:** Step 3 must produce `_lens-themes.json` + `_chapter-framework.json` + `_chapter-placement.json`. **`_chapters.json` is retired** — must not exist under `$REVISION_DIR`.
+**Precondition:** Step 3 must produce `_narrative-arc.json` with `status=write_ready`. **`_chapters.json` is retired.** Legacy `_lens-themes.json` / `_chapter-framework.json` / `_chapter-placement.json` are **not** the default Init spine.
 
-**Must:** place every fact with non-empty `lens_tags` exactly once in `_chapter-placement.json`; before persisting `_body-{cid}.txt`, resolve every author-time `F-id` citation into a human-readable chapter reference (write-side — `$INIT_COMPOSE_VALIDATE` does **not** scan for raw `F-id`); run `$INIT_COMPOSE_VALIDATE` before Return.
-**Must not:** write a `fact:` or `section-key:` anchor into `$OUTPUT_DOC_PATH` (chapter anchors only); create or keep `_chapters.json`; decide open choices during Steps 2–3 (待决 same discipline); Import / Atomize / Derive facts.
+**Must:** every non-excluded fact mapped to exactly one arc leaf; every leaf fact in exactly one sub-topic chapter; chapter `lens` ∈ that fact's `lens_tags`; empty `lens_tags` must not reach `write_ready`; before persisting `_body-{cid}.txt`, resolve author-time `F-id` citations; run `$INIT_COMPOSE_VALIDATE` before Return.
+**Must not:** use `section_order` (or lens list order) as chapter directory; create or keep `_chapters.json`; decide open choices during Steps 2–3 (待决 same discipline); Import / Atomize / Derive facts.
 
 ### Step 2 — Validate facts
 
@@ -116,141 +119,102 @@ Missing / invalid `_facts.json` → Blocking (return to parent Drafting Step 0 p
 
 **Done:** validate exit 0 → proceed to Step 3.
 
-### Step 3 — Dynamic chapter plan (themes → framework → placement)
+### Step 3 — Narrative arc (phase 1 → phase 2)
 
-**Must not:** dump full `_facts.json` into one model pass to invent themes; invent topology without 3.A→3.B→3.C; create `_chapters.json` (retired).
+Replaces archive-3.0 Dynamic chapter plan. Contract: `docs/domain/archive/compose/archive-5.0/compose-narrative-arc-lens-v2-landing-design.md`.
 
-#### 3.A — Lens → theme + desc (SKILL loop; script filter)
+**Must not:** use registry lens order as chapter directory; invent facts; leave empty `lens_tags` facts in `write_ready`; create `_chapters.json`.
 
-1. `$FACTS_CTL status --revision-dir "$REVISION_DIR"` → lenses to cover (`by_lens` ∪ required lenses from `section_presence_map`).
-2. For each lens `ℓ` (uppercase key):  
-   `facts_ℓ ← $FACTS_CTL filter --revision-dir "$REVISION_DIR" --lens ℓ`  
-   Induct one `{form_lens_id: FL-n, lens_key: ℓ, theme, desc}` — **only** from that filter output.  
-   - `theme`: short H3-ready title (one line).  
-   - `desc`: 1–3 sentences for clustering (not draft prose; not a fact dump).  
-   - Empty filter (required, zero facts): `theme`/`desc` may be `（待补）…` — do not invent propositions.
+#### 3.1 — Phase 1 (`status=mapped`)
+
+1. Read all facts (`$FACTS_CTL` / `_facts.json`). Input = full fact texts + `lens_tags` + registry lens definitions. Discussion topic / `T*` is provenance only — do not build the spine from it.
+2. AI: build narrative arc (optional `tree` packaging; depth unrestricted) and map every non-excluded fact to exactly one **arc leaf** (`leaves[].id` / `title` / `fact_ids`). Composite/pending-split → `excluded` (or `unresolved` if blocked).
 3. Persist:
 
 ```bash
-$CHAPTER_PLAN_CTL write-themes \
+$NARRATIVE_ARC_CTL write \
   --revision-dir "$REVISION_DIR" \
   --profile "$COMPOSE_PROFILE" \
   --project-root "$(pwd)" \
-  --themes-file "<path to themes JSON>"
-```
-
-**Done (3.A):** `_lens-themes.json` validates; one entry per covered lens **and** every `presence=required` lens (zero-fact → `theme`/`desc` = `（待补）…`); unique `FL-*`. `write-themes --profile` enforces present∪required ⊆ `lens_keys`.
-
-#### 3.B — Themes → chapter framework (once, after 3.A)
-
-**Input (shared):** full `lens_themes[]` only (cluster from `desc` / H3 from `theme`). Section-registry `heading`/`aliases` from Step 1.
-
-##### 3.B-1 — Cluster (topology only)
-
-- **Signal priority:**
-  1. **Registry `cluster` (hard):** lenses sharing the same non-empty `cluster` slug **must** share one chapter; that chapter is **closed** (do not absorb lenses with a different `cluster` or with no `cluster`). Distinct `cluster` values never merge.
-  2. **`desc` (soft):** primary clustering for lenses with no `cluster`.
-- **`theme`** = H3 seed only (not a co-location signal).
-- **Produce** ordered chapter drafts: `id`, `anchor_form_lens_ids` (**array order = write/read order**), `sections[]` same order with `heading` **≡** corresponding `theme`.
-- **Do not** set final `display_title` here. Chapter `lens_keys` = `anchor_form_lens_ids` ⨝ themes — **3.B-2 only reads them**.
-
-##### 3.B-2 — Name `display_title`
-
-After 3.B-1: each chapter is an aggregated lens set (`anchor_form_lens_ids`: 1 or N).
-`cluster` = topology only — **not** title material.
-
-**Material** (chapter-complete, anchor order): registry `heading`/`aliases` + `_lens-themes` `theme`/`desc`.
-**Forbidden:** `cluster`, facts, out-of-chapter lenses.
-
-**Generate** one H2 `display_title` from that material.
-
-**Material vs product:**
-- **Material may use** `theme`/`desc` to disambiguate among **heading-level** phrasings.
-- **Product must stay at `heading` granularity** (aliases = wording hints only).
-- **Do not** promote `theme` to H2; `theme` stays H3 (`sections[].heading`).
-
-Prefer a close rendering of `heading`; change wording only for clear heading-level disambiguation.
-Language must match the chapter's `theme`s.
-
-- **Persist** (after 3.B-1 + 3.B-2; script does not invent titles):
-
-```bash
-$CHAPTER_PLAN_CTL write-framework \
-  --revision-dir "$REVISION_DIR" \
-  --framework-file "<path to framework JSON>"
-```
-
-**Done (3.B):** every `FL-*` in exactly one chapter; `display_title` non-empty;
-same-`cluster` co-located and closed; titles from `heading`/`aliases`/`theme`/`desc` at
-**heading granularity** (never `cluster`; never `theme` as H2).
-
-#### 3.C — Materialize placement (C1 mechanical → C2 multi-lens AI → C3 write)
-
-1. **C1 (script):** Run propose — single-lens facts become `mechanical` rows; multi-lens go to `needs_resolution`:
-
-```bash
-$CHAPTER_PLAN_CTL propose-placement --revision-dir "$REVISION_DIR"
-```
-
-2. **C2 (AI):** For each `needs_resolution[]` entry, pick one `form_lens_id` from `candidates` using theme+desc; never expand outside `lens_tags`. Merge into the propose stdout `placement` draft:
-   - Append `{fid, form_lens_id, placement: "ai_resolved", candidates}` under the chapter that owns that FL (`framework` / `fl→chapter`).
-   - If that chapter id is **absent** from the draft `chapters[]` (all its facts were multi-lens), **create** the chapter object first.
-   - `unmapped_facts` → return to **3.A/3.B** (missing theme or FL not in framework); do not invent tags.
-3. **C3:** Persist placement SoT (use `--write` on propose only when `needs_resolution` and `unmapped_facts` are empty; otherwise `write-placement`):
-
-```bash
-$CHAPTER_PLAN_CTL write-placement \
-  --revision-dir "$REVISION_DIR" \
-  --profile "$COMPOSE_PROFILE" \
-  --project-root "$(pwd)" \
-  --placement-file "<path to placement JSON>"
+  --file "<path to arc JSON with status=mapped>"
 ```
 
 ```bash
-$CHAPTER_PLAN_CTL validate \
+$NARRATIVE_ARC_CTL validate \
   --revision-dir "$REVISION_DIR" \
   --profile "$COMPOSE_PROFILE" \
   --project-root "$(pwd)"
 ```
 
-**Done (Step 3):** `_lens-themes.json` + `_chapter-framework.json` + `_chapter-placement.json`; every fact with non-empty `lens_tags` placed exactly once; no `_chapters.json`.
+**Done (3.1):** `_narrative-arc.json` exists; `status=mapped`; coverage + single-leaf ownership pass.
 
-### Step 4 — Write-by-FL then Assemble chapters
+#### 3.2 — Phase 2 (`status=write_ready`)
 
-Keep chapter delivery shell (`_derive-{cid}.json`, `_body-{cid}.txt`, `append-chapter`). **Drop** Group / Arrange-as-axis / mixed-chapter Weave. Restore per-FL Write spine (I2b→I2c→I2d).
+1. For each arc leaf, partition its `fact_ids` into **sub-topic chapters** `{lens, fact_ids}`:
+   - One fact → exactly one chapter under that leaf.
+   - Chapter `lens` **must be ∈** that fact's `lens_tags` (single tag → that lens; multi-tag → AI picks one).
+   - Empty `lens_tags` → `unresolved` / hard fail — never `write_ready`.
+2. Set `status=write_ready` only when `unresolved` is empty and validation passes.
+3. Persist + gate:
 
-Artifacts per chapter:
-
-```text
-_derive-{cid}.json   # display_title (copy framework) + lens_forms[] per FL in chapter
-_body-{cid}.txt      # ## omitted; H3 theme sections assembled in framework order
+```bash
+$NARRATIVE_ARC_CTL write \
+  --revision-dir "$REVISION_DIR" \
+  --profile "$COMPOSE_PROFILE" \
+  --project-root "$(pwd)" \
+  --file "<path to arc JSON with status=write_ready>"
 ```
 
-#### 4.W — Write-by-FL
+```bash
+$NARRATIVE_ARC_CTL validate \
+  --revision-dir "$REVISION_DIR" \
+  --profile "$COMPOSE_PROFILE" \
+  --project-root "$(pwd)" \
+  --require-write-ready
+```
 
-For each `FL-x` (global or per-chapter `anchor_form_lens_ids` order):
+**Done (Step 3):** `_narrative-arc.json` with `status=write_ready`; `$NARRATIVE_ARC_CTL list-chapters` succeeds.
 
-1. Resolve `lens_key`, `theme` from `_lens-themes.json`.
-2. `facts_ℓ` = facts in `_chapter-placement.json` with that `form_lens_id` (authoritative). Optional: `filter --lens` then **intersect** placement — never expand beyond placement.
-3. **Derive F** (S1): `carrier`/`structure` from `section-form-registry[lens_key].presentation.allowed`. Lock F before Derive C.
-4. **Derive C** (S1): `c[]` length 2..5 from domain `expression_conventions` (Step 1 Load; four-key object normalized to multiline labeled consumer string), Role Fields / `expressive_tendency`, and this lens's `expression` (traceable; do not invent pairs).
-   **C is constrained by F** — every `c[]` item must be executable inside the locked `carrier`/`structure`; C must not prescribe a different primary vehicle.
-5. **Write `lens_body`:** Scaffold per F; obey every C (still inside F); content ⊆ `facts_ℓ`; carry anchors (L6); resolve raw `F-id` citations before persist; mark gaps with `> **待决：** …`. `lens_body` must not contain `### {theme}` (v1: in-memory / chapter buffer — no required `_body-lens-*` file).
-   **Do not Write until F and C Done for this FL.**
+### Step 4 — Write-by-sub-topic-chapter then Assemble
+
+Keep chapter delivery shell (`_derive-{cid}.json`, `_body-{cid}.txt`, `append-chapter`).
+
+Artifacts per write unit (`chapter_id` from `list-chapters`):
+
+```text
+_derive-{cid}.json   # display_title + lens
+_body-{cid}.txt      # ## omitted; body for one (arc-leaf, lens) chapter
+```
+
+#### 4.W — Write-by-sub-topic-chapter
+
+```bash
+$NARRATIVE_ARC_CTL list-chapters \
+  --revision-dir "$REVISION_DIR" \
+  --profile "$COMPOSE_PROFILE" \
+  --project-root "$(pwd)"
+```
+
+For each unit in `chapters[]` order:
+
+1. `lens` = unit.lens; `facts_ℓ` = facts whose id ∈ unit.fact_ids (authoritative — do not expand).
+2. Load Write form for `lens` from section-form-registry / registry intent.
+3. **Derive F** (S1): same F discipline as prior Init (carrier/structure from form + facts).
+4. **Derive C** (S1): `c[]` from domain `expression_conventions`, Role Fields, and this lens's `expression` (traceable). **C is constrained by F**.
+5. **Write body:** Scaffold per F; obey every C; content ⊆ `facts_ℓ`; carry anchors (L6); resolve raw `F-id` citations; mark gaps with `> **待决：** …`.
+   **Do not Write until F and C Done for this unit.**
 
 **Note:** Encourage sectioning in the body. If using heading levels for structure, headings may start at `####`.
 
 #### 4.A — Assemble-by-chapter then Close
 
-Render order = `$CHAPTER_PLAN_CTL list-chapters` (`chapter_ids`: framework ∩ placement **with facts**).
+Render order = `$NARRATIVE_ARC_CTL list-chapters` → `chapter_ids`.
 
-**Skip** framework chapters that are **absent** from placement or have zero facts (do not write `_derive`/`_body`, do not `append-chapter`). Legal SoT omits unused chapters from placement — do **not** write `facts: []` (schema/L4 reject).
+For each `cid` in that order:
 
-For each remaining `cid` in `list-chapters` order:
-
-1. `display_title` ← **copy** framework (do not invent at write time).
-2. Assemble body = optional one-sentence lead (no new facts) + each FL block in `anchor_form_lens_ids` order (`### {theme}` + `lens_body`).
-3. Write `_derive-{cid}.json` (`display_title` + `lens_forms` for every FL in the chapter) and `_body-{cid}.txt`.
+1. `display_title` ← unit.display_title (leaf title · lens); do not invent at assemble time.
+2. Body = the unit body from 4.W (one sub-topic chapter per cid).
+3. Write `_derive-{cid}.json` (`display_title`, `lens`) and `_body-{cid}.txt`.
 4. Close:
 
 ```bash
@@ -260,27 +224,23 @@ $COMPOSE_DOC_CONTROL append-chapter \
   --revision-dir "$REVISION_DIR"
 ```
 
-**Hard gate:** any FL missing F/C/body → do not assemble chapters that include it.
+**Hard gate:** any unit missing F/C/body → do not append that chapter.
 
-**Done:** every listed chapter (framework ∩ placement with facts) has `<!-- chapter:{cid} -->` and non-empty rendered content. Flat `## {display_title}` from `_derive-{cid}.json`.
+**Done:** every listed chapter has `<!-- chapter:{cid} -->` and non-empty rendered content. Flat `## {display_title}` from `_derive-{cid}.json`.
 
 ### Step 5 — Validate
 
-1. Run `$INIT_COMPOSE_VALIDATE` (placement SoT gates L1/L3/L4/C1 + chapter-artifact existence + assembly completeness + L6; rejects retired `_chapters.json`).
-2. On failure → read stderr; **match the first prefix in this order** (then re-run Step 5):
+1. `$NARRATIVE_ARC_CTL validate --require-write-ready` (same flags as Step 3).
+2. Run `$INIT_COMPOSE_VALIDATE` (prefers `_narrative-arc.json` SoT: arc validity + chapter artifacts + L6; rejects retired `_chapters.json`).
+3. On failure → read stderr; **match the first prefix in this order** (then re-run Step 5):
 
 | Order | Prefix / signal | Return to | Action |
 |------:|-----------------|-----------|--------|
-| 1 | `retired:` | delete file | Remove `_chapters.json`; do not edit themes/framework/placement for this signal |
-| 2 | `L6:` | **4.W** | Write missing fact-anchor token into that FL body (do not weaken) |
-| 3 | `L1:` / `L3:` / `L4:` | **3.C** | Fix placement; `write-placement` |
-| 4 | `C1:` + derivation / coverage | **Blocking** | Return to parent Drafting Step 0 producer (inductive or deductive); re-enter Init at Step 2 after producer rewrite — never patch facts in place; never `$INDUCTIVE_FACTS_PROJ project` |
-| 5 | `4.A:` | **3.A** | Re-induct themes; `write-themes` (prefix is validator id, not Init step id) |
-| 6 | `4.B:` | **3.B** | Fix framework; `write-framework` |
-| 7 | `4.C:` | **3.C** | Fix placement; `write-placement` |
-| 8 | `5.A:` | **4.A** | Re-assemble / `append-chapter` for `list-chapters` only |
-
-Do **not** match bare `anchor` / `display_title` / `empty chapter` — use the prefixes above.
+| 1 | `retired:` | delete file | Remove `_chapters.json` |
+| 2 | `3.2:` | **3.2** | Fix arc chapters / tags / unresolved |
+| 3 | `L6:` | **4.W** | Write missing fact-anchor token into that chapter body |
+| 4 | `C1:` + derivation / coverage | **Blocking** | Return to parent Drafting Step 0 producer; re-enter Init at Step 2 |
+| 5 | `5.A:` | **4.A** | Re-assemble / `append-chapter` for `list-chapters` only |
 
 3. On success → Return Summary.
 
@@ -289,13 +249,12 @@ Do **not** match bare `anchor` / `display_title` / `empty chapter` — use the p
 ## Return Summary
 
 ```text
-Initializing complete (fact-first display layer).
+Initializing complete (narrative-arc display layer).
   Profile: <COMPOSE_PROFILE>
   Output: <OUTPUT_DOC_PATH>
   Facts: <REVISION_DIR>/_facts.json (<N> facts; producer-written, validate-only)
-  Chapter plan: <REVISION_DIR>/_lens-themes.json, _chapter-framework.json, _chapter-placement.json (<N> chapters)
+  Narrative arc: <REVISION_DIR>/_narrative-arc.json (status=write_ready; <N> sub-topic chapters)
   Chapter artifacts: <REVISION_DIR>/_derive-*.json, _body-*.txt
-  Quarantined facts (empty lens_tags, Q1 audit): <N> — <ids or none>
   Scope cross-check: <SCOPE_REF_PATH>
   Draft status: Initialized
   Next step: parent pause gate (options from profile drafting.post_init_options)

@@ -138,12 +138,16 @@ def _validate_home_l_write(
 
 
 def _section_order(project_root: Path, profile_id: str) -> list[str]:
+    """Allowed lens keys from section-registry (``sections`` keys; archive-5.0)."""
     raw = fetch_compose_framework(
         "section-registry",
         project_root,
         profile_id=profile_id,
     )
     data = json.loads(raw)
+    sections = data.get("sections") or {}
+    if isinstance(sections, dict) and sections:
+        return [str(key).upper() for key in sections]
     return [str(key).upper() for key in data.get("section_order") or []]
 
 

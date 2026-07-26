@@ -235,7 +235,7 @@ def validate_facts(
                 seen_tags.add(tag_key)
                 if allowed and tag_key not in allowed:
                     errors.append(
-                        f"{prefix}.lens_tags[{t_index}] {tag_key!r} not in section_order "
+                        f"{prefix}.lens_tags[{t_index}] {tag_key!r} not in allowed lenses "
                         f"{sorted(allowed)}",
                     )
             # Empty lens_tags is legal here by design (Q1 quarantine candidate).
