@@ -3,12 +3,12 @@ name: split-runner
 description: >-
   Pre-inductive multi-subdesign split for compose (lulu-design Lx packages).
   Intake → split-or-not → propose tree+rulers → human lock. Invoked from compose
-  Step 0pre; does not own runtime $L_SLICE scheduling.
+  Step 0.1; does not own runtime $L_SLICE scheduling.
 ---
 
 # split-runner
 
-Run only when compose Drafting Step 0pre dispatches multi-subdesign split for an Lx package layout. Observable done: `$MULTI_SLICE check-split-ready` exits 0.
+Run only when compose Drafting Step 0.1 dispatches multi-subdesign split for an Lx package layout. Observable done: `$MULTI_SLICE check-split-ready` exits 0.
 
 **Must:** fill intake slots (or `N/A`); recommend split with reasons; enforce plan-self-sufficiency veto; lock tree + rulers (multi-L) via `$MULTI_SLICE` only.  
 **Must not:** begin inductive; switch focus; hand-edit locked JSON; invent package-bucket facts; implement tree unlock/re-split (immutable this iteration); present the full eight-slot projection table to the user for review.
@@ -79,4 +79,4 @@ Empty without explicit `N/A` → do not advance past Step 0 / do not lock.
 
 ## Completion
 
-Return to compose Step 0pre when `check-split-ready` is ok. Compose owns inductive / `$L_SLICE` afterward.
+Return to compose Step 0.1 when `check-split-ready` is ok. Compose owns inductive / `$L_SLICE` afterward.

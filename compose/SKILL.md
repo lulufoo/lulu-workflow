@@ -72,9 +72,9 @@ To **abandon a partial revision** and begin fresh after fixes, run `$START_COMPO
 
 ### Drafting Step 0 — Producer facts
 
-Always run — no opt-in prompt. Branch on `drafting.inductive`.
+Always run — no opt-in prompt. Step 0.1 first; then exactly one of Step 0.2 / Step 0.3, branching on `drafting.inductive`.
 
-#### Step 0pre — Multi-subdesign Split (when using Lx package layout)
+#### Step 0.1 — Split into multi-subdesign slices (Lx package layout)
 
 Required for `lulu-design` multi-subdesign packages (unified `revision/Lx/` layout; single-req = L1 only). **Do not** run `begin-inductive` until `$MULTI_SLICE check-split-ready` succeeds.
 
@@ -98,7 +98,7 @@ COMPOSE_PROFILE=<profile_id>
 
 CLI contracts: `$MULTI_SLICE --help`, `$L_SLICE --help`.
 
-#### Step 0a — Inductive (only when `drafting.inductive` is `true`)
+#### Step 0.2 — Produce facts inductively (only when `drafting.inductive` is `true`)
 
 **Inductive-runner** is a human-driven gate spine (Shape → Grounding → Refine → Recompose → Provenance): AI recommends; the **user** closes each gate. Run **inline in this conversation**. **Exceptions (subagents via `$SUBAGENT_TOOL`, read-only):** deprecated G2 → `g2-grounding-runner`; G3 Class 1B → `g3-shallow-grounding-runner` (optional); G3 Class 2 → `g3-deep-grounding-runner` (optional).
 
@@ -113,7 +113,7 @@ Load {actual $SKILL_ROOT}/compose/inductive-runner/SKILL.md and follow its instr
 
 2. After G4 and G5 close, run `$DRAFT_CONTROL inductive-complete`. On failure → Blocking. `_facts.json` must exist (discovery-written).
 
-#### Step 0b — Deductive (only when `drafting.inductive` is `false`)
+#### Step 0.3 — Produce facts deductively (only when `drafting.inductive` is `false`)
 
 **Deductive-runner** materializes upstream + completes lenses (intent ceiling + edge floor) + human confirm gate. Run **inline in this conversation** (interactive confirm — NOT a subagent).
 
@@ -206,9 +206,9 @@ Stage-agenda items (design-external blockers/notes) live under the revision dir;
 
 | Document | When |
 |----------|------|
-| `{SKILL_ROOT}/compose/split-runner/SKILL.md` | Drafting Step 0pre — multi-subdesign split (intake → lock tree+rulers) |
-| `{SKILL_ROOT}/compose/inductive-runner/SKILL.md` | Drafting Step 0a — inductive-runner (`drafting.inductive: true`) |
-| `{SKILL_ROOT}/compose/deductive-runner/SKILL.md` | Drafting Step 0b — deductive-runner (`drafting.inductive: false`) |
+| `{SKILL_ROOT}/compose/split-runner/SKILL.md` | Drafting Step 0.1 — multi-subdesign split (intake → lock tree+rulers) |
+| `{SKILL_ROOT}/compose/inductive-runner/SKILL.md` | Drafting Step 0.2 — inductive-runner (`drafting.inductive: true`) |
+| `{SKILL_ROOT}/compose/deductive-runner/SKILL.md` | Drafting Step 0.3 — deductive-runner (`drafting.inductive: false`) |
 | `{SKILL_ROOT}/compose/inductive-runner/g2-grounding-runner/SKILL.md` | Drafting Step 0 — **deprecated** optional G2 topology subagent (prefer `attach-code-refs` in Class 2 processing) |
 | `{SKILL_ROOT}/compose/inductive-runner/g3-shallow-grounding-runner/SKILL.md` | Drafting Step 0 — optional G3 shallow grounding subagent (detect facts only; parent `add-open`) |
 | `{SKILL_ROOT}/compose/inductive-runner/g3-deep-grounding-runner/SKILL.md` | Drafting Step 0 — optional G3 deep grounding subagent (one open; parent settles) |
