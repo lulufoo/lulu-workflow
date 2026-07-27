@@ -24,7 +24,7 @@ def _valid_derive(**overrides: object) -> dict:
     data: dict = {
         "lens": "AR",
         "form": {"carrier": "prose", "structure": "claim-then-evidence"},
-        "expression_c": [
+        "expression": [
             "from expression_conventions.register: precise engineering prose",
             "from expression_conventions.carriers: stay inside chosen form",
             "from expression_conventions.scannability: short items over walls",
@@ -52,7 +52,7 @@ def test_legacy_domain_dot_prefix_alone_does_not_pass():
     """Brittle domain.* labels are no longer sufficient without SoT key paths."""
     errs = check_derive_fc(
         _valid_derive(
-            expression_c=[
+            expression=[
                 "domain.register: precise engineering prose",
                 "domain.carriers: follow Derive F/C",
                 "domain.scannability: short items over walls",
@@ -76,19 +76,19 @@ def test_check_derive_fc_requires_form_carrier_and_structure():
     assert any("form" in e for e in errs)
 
 
-def test_check_derive_fc_requires_nonempty_expression_c_list():
+def test_check_derive_fc_requires_nonempty_expression_list():
     assert any(
-        "expression_c" in e for e in check_derive_fc(_valid_derive(expression_c=[]))
+        "expression" in e for e in check_derive_fc(_valid_derive(expression=[]))
     )
     assert any(
-        "expression_c" in e for e in check_derive_fc(_valid_derive(expression_c="x"))
+        "expression" in e for e in check_derive_fc(_valid_derive(expression="x"))
     )
 
 
-def test_check_derive_fc_requires_four_provenance_markers_in_expression_c():
+def test_check_derive_fc_requires_four_provenance_markers_in_expression():
     errs = check_derive_fc(
         _valid_derive(
-            expression_c=[
+            expression=[
                 "from expression_conventions.register: ok",
                 "from expression_conventions.carriers: ok",
                 "from expression_conventions.scannability: ok",
@@ -97,6 +97,37 @@ def test_check_derive_fc_requires_four_provenance_markers_in_expression_c():
         ),
     )
     assert any("expression_conventions.altitude" in e for e in errs)
+
+
+def test_check_derive_fc_rejects_retired_expression_c_key_only():
+    """Hard cut: only expression_c (no expression) fails with rename hint."""
+    data = {
+        "lens": "AR",
+        "form": {"carrier": "prose", "structure": "claim-then-evidence"},
+        "expression_c": [
+            "from expression_conventions.register: precise engineering prose",
+            "from expression_conventions.carriers: stay inside chosen form",
+            "from expression_conventions.scannability: short items over walls",
+            "from expression_conventions.altitude: act without re-deriving intent",
+        ],
+    }
+    errs = check_derive_fc(data)
+    assert any(
+        "expression_c is retired; use expression for the chapter C array" in e
+        for e in errs
+    )
+    assert any("expression must be a non-empty array" in e for e in errs)
+
+
+def test_check_derive_fc_rejects_expression_c_even_when_expression_valid():
+    """Hard cut: expression_c present is always an error (no dual-read)."""
+    data = _valid_derive()
+    data["expression_c"] = list(data["expression"])
+    errs = check_derive_fc(data)
+    assert any(
+        "expression_c is retired; use expression for the chapter C array" in e
+        for e in errs
+    )
 
 
 def test_check_derive_fc_does_not_require_display_title():
@@ -132,4 +163,4 @@ def test_check_chapter_write_artifacts_rejects_missing_fc(tmp_path: Path):
     (tmp_path / f"_body-{cid}.txt").write_text("body\n", encoding="utf-8")
     errs = check_chapter_write_artifacts(tmp_path, cid)
     assert any("form" in e for e in errs)
-    assert any("expression_c" in e for e in errs)
+    assert any("expression" in e for e in errs)

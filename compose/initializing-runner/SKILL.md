@@ -212,17 +212,17 @@ For **that ticket only** (`chapter_id` / `fact_ids` / `lens` from `begin` stdout
 1. `lens` = ticket.lens; `facts_ℓ` = facts whose id ∈ ticket.fact_ids (authoritative — do not expand).
 2. Load Write form for `lens` from section-form-registry / registry intent.
 3. **Derive F** (S1): same F discipline as prior Init (carrier/structure from form + facts).
-4. **Derive C** (S1): pre-Write planning checklist in `expression_c[]`. Must include traceable items from each of `expression_conventions.register` / `.carriers` / `.scannability` / `.altitude`, Role Fields, and this lens's `expression`. Fluency/scannability constraints come specifically from `.scannability`. **C is constrained by F**. Prefer lines like `from expression_conventions.<key>: …` (executable rules for this unit — not post-hoc "already done" claims).
+4. **Derive C** (S1): pre-Write planning checklist in chapter `expression[]` (the C array on derive — not the lens registry `expression` field). Must include traceable items from each of `expression_conventions.register` / `.carriers` / `.scannability` / `.altitude`, Role Fields, and this lens's registry `expression`. Fluency/scannability constraints come specifically from `.scannability`. **C is constrained by F**. Prefer lines like `from expression_conventions.<key>: …` (executable rules for this unit — not post-hoc "already done" claims).
 5. **Write body:** Scaffold per F; obey every C; content ⊆ `facts_ℓ`; carry anchors (L6); resolve raw `F-id` citations; mark gaps with `> **待决：** …`.
    **Do not Write until F and C Done for this unit.**
-6. Write `_derive-{cid}.json` with `lens`, `form{carrier,structure}`, and `expression_c[]` (incl. the four `expression_conventions.*` provenance lines); write `_body-{cid}.txt`. Do **not** write `display_title` (retired — titles come from the narrative arc).
+6. Write `_derive-{cid}.json` with `lens`, `form{carrier,structure}`, and chapter `expression[]` (incl. the four `expression_conventions.*` provenance lines); write `_body-{cid}.txt`. Do **not** write `display_title` (retired — titles come from the narrative arc). Do **not** write `expression_c` (retired — use `expression`).
 
 ```bash
 $CHAPTER_WRITE_STATE complete --revision-dir "$REVISION_DIR"
 # → next chapter_id (or null); then loop to begin
 ```
 
-`complete` hard-gates (same rules re-checked at Step 5): non-empty body; `form.carrier` + `form.structure`; non-empty `expression_c` containing `expression_conventions.register` / `.carriers` / `.scannability` / `.altitude` substrings. On `begin`/`complete` failure → stop; fix artifacts or redo the current chapter; do not skip ahead. Resume: `complete` current if needed, then `begin` again (never `begin --chapter`).
+`complete` hard-gates (same rules re-checked at Step 5): non-empty body; `form.carrier` + `form.structure`; non-empty chapter `expression` containing `expression_conventions.register` / `.carriers` / `.scannability` / `.altitude` substrings. On `begin`/`complete` failure → stop; fix artifacts or redo the current chapter; do not skip ahead. Resume: `complete` current if needed, then `begin` again (never `begin --chapter`).
 
 **Must not:** treat `list-chapters` as the 4.W todo list; `begin --chapter` / `complete --chapter` on the main path; Write another chapter while `already_running`.
 

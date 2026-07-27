@@ -40,7 +40,7 @@ $OUTPUT_DOC_PATH                          # assembled via assemble-arc (tree/lea
 | `display_title` | **no** (retired) | Ignored by Init validators; do not write for narrative-arc Init |
 | `lens` | yes (contract) | Unit lens key |
 | `form.carrier` / `form.structure` | **yes** (hard gate) | Non-empty strings; gated by `complete` + Step 5 |
-| `expression_c` | **yes** (hard gate) | Pre-Write planning checklist (not post-hoc proof). Non-empty string array; joined text must contain `expression_conventions.register` / `.carriers` / `.scannability` / `.altitude`. Prefer `from expression_conventions.<key>: …` executable rules; fluency from `.scannability` |
+| `expression` | **yes** (hard gate) | Chapter C array (derive field — not lens registry `expression`). Pre-Write planning checklist (not post-hoc proof). Non-empty string array; joined text must contain `expression_conventions.register` / `.carriers` / `.scannability` / `.altitude`. Prefer `from expression_conventions.<key>: …` executable rules; fluency from `.scannability`. `expression_c` is retired |
 
 ### Titles (narrative-arc)
 
@@ -103,7 +103,7 @@ anchors(chapter) ⊆ tokens(body)              # new: keep this chapter's facts'
 {
   "lens": "AR",
   "form": { "carrier": "prose", "structure": "claim-then-evidence" },
-  "expression_c": [
+  "expression": [
     "from expression_conventions.register: …",
     "from expression_conventions.carriers: …",
     "from expression_conventions.scannability: …",

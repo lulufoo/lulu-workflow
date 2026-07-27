@@ -52,7 +52,7 @@ def _valid_derive(cid: str) -> dict:
     return {
         "lens": cid.rsplit("-", 1)[-1],
         "form": {"carrier": "prose", "structure": "claim-then-evidence"},
-        "expression_c": [
+        "expression": [
             "from expression_conventions.register: precise engineering prose",
             "from expression_conventions.carriers: stay inside chosen form",
             "from expression_conventions.scannability: short items over walls",

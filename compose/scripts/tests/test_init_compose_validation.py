@@ -105,7 +105,7 @@ def _valid_derive(cid: str, **overrides: object) -> dict:
     data: dict = {
         "lens": cid.rsplit("-", 1)[-1],
         "form": {"carrier": "prose", "structure": "claim-then-evidence"},
-        "expression_c": [
+        "expression": [
             "from expression_conventions.register: precise engineering prose",
             "from expression_conventions.carriers: stay inside chosen form",
             "from expression_conventions.scannability: short items over walls",
@@ -318,7 +318,7 @@ def test_fails_when_derive_missing_fc_and_domain_markers(
     )
     assert error is not None
     assert "form" in error
-    assert "expression_c" in error
+    assert "expression" in error
 
 
 def test_fails_when_chapter_anchor_missing_in_doc(
