@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for chapter write-state (archive-5.0 chapter serial Write gate)."""
+"""Tests for chapter write-state (claim-current serial Write gate)."""
 
 from __future__ import annotations
 
@@ -69,6 +69,17 @@ def _write_artifacts(rev: Path, cid: str, *, body: str = "body") -> None:
     (rev / f"_body-{cid}.txt").write_text(body + "\n", encoding="utf-8")
 
 
+def _begin(rev: Path) -> int:
+    return write_state_main(["begin", "--revision-dir", str(rev)])
+
+
+def _complete(rev: Path, chapter: str | None = None) -> int:
+    argv = ["complete", "--revision-dir", str(rev)]
+    if chapter is not None:
+        argv.extend(["--chapter", chapter])
+    return write_state_main(argv)
+
+
 def test_chapter_write_units_order():
     units = chapter_write_units(_arc())
     assert [u["chapter_id"] for u in units] == ["A01-I", "A01-IF"]
@@ -97,17 +108,49 @@ def test_sync_creates_pending_order(tmp_path: Path, capsys: pytest.CaptureFixtur
     assert state["status"] == "pending"
 
 
-def test_begin_rejects_when_previous_not_done(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
+def test_begin_returns_work_ticket(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
     rev = tmp_path / "rev"
     rev.mkdir()
     _seed_arc(rev)
     assert write_state_main(["sync", "--revision-dir", str(rev)]) == 0
     capsys.readouterr()
-    rc = write_state_main(["begin", "--revision-dir", str(rev), "--chapter", "A01-IF"])
+    assert _begin(rev) == 0
+    ticket = json.loads(capsys.readouterr().out)
+    assert ticket["ok"] is True
+    assert ticket["chapter_id"] == "A01-I"
+    assert ticket["leaf_id"] == "A01"
+    assert ticket["leaf_title"] == "Leaf one"
+    assert ticket["lens"] == "I"
+    assert ticket["fact_ids"] == ["F-1"]
+    assert ticket["status"] == "in_progress"
+
+
+def test_begin_rejects_chapter_arg(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
+    rev = tmp_path / "rev"
+    rev.mkdir()
+    _seed_arc(rev)
+    assert write_state_main(["sync", "--revision-dir", str(rev)]) == 0
+    capsys.readouterr()
+    rc = write_state_main(
+        ["begin", "--revision-dir", str(rev), "--chapter", "A01-I"],
+    )
     assert rc != 0
     err = json.loads(capsys.readouterr().out)
-    assert err["ok"] is False
-    assert err["error"] == "gate_failed"
+    assert err["error"] == "chapter_arg_forbidden"
+
+
+def test_begin_rejects_already_running(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
+    rev = tmp_path / "rev"
+    rev.mkdir()
+    _seed_arc(rev)
+    assert write_state_main(["sync", "--revision-dir", str(rev)]) == 0
+    assert _begin(rev) == 0
+    capsys.readouterr()
+    rc = _begin(rev)
+    assert rc != 0
+    err = json.loads(capsys.readouterr().out)
+    assert err["error"] == "already_running"
+    assert err["chapter_id"] == "A01-I"
 
 
 def test_begin_complete_happy_path(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
@@ -116,14 +159,50 @@ def test_begin_complete_happy_path(tmp_path: Path, capsys: pytest.CaptureFixture
     _seed_arc(rev)
     assert write_state_main(["sync", "--revision-dir", str(rev)]) == 0
     capsys.readouterr()
-    assert write_state_main(["begin", "--revision-dir", str(rev), "--chapter", "A01-I"]) == 0
+    assert _begin(rev) == 0
+    ticket = json.loads(capsys.readouterr().out)
+    assert ticket["chapter_id"] == "A01-I"
     _write_artifacts(rev, "A01-I")
-    assert write_state_main(["complete", "--revision-dir", str(rev), "--chapter", "A01-I"]) == 0
-    capsys.readouterr()
+    assert _complete(rev) == 0
+    done = json.loads(capsys.readouterr().out)
+    assert done["chapter_id"] == "A01-I"
+    assert done["next"] == "A01-IF"
     assert write_state_main(["status", "--revision-dir", str(rev)]) == 0
     status = json.loads(capsys.readouterr().out)
     assert status["next"] == "A01-IF"
     assert status["done_count"] == 1
+
+
+def test_complete_rejects_chapter_mismatch(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str],
+):
+    rev = tmp_path / "rev"
+    rev.mkdir()
+    _seed_arc(rev)
+    assert write_state_main(["sync", "--revision-dir", str(rev)]) == 0
+    assert _begin(rev) == 0
+    _write_artifacts(rev, "A01-I")
+    capsys.readouterr()
+    rc = _complete(rev, "A01-IF")
+    assert rc != 0
+    err = json.loads(capsys.readouterr().out)
+    assert err["error"] == "chapter_mismatch"
+    assert err["current"] == "A01-I"
+
+
+def test_complete_accepts_matching_chapter_arg(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str],
+):
+    rev = tmp_path / "rev"
+    rev.mkdir()
+    _seed_arc(rev)
+    assert write_state_main(["sync", "--revision-dir", str(rev)]) == 0
+    assert _begin(rev) == 0
+    _write_artifacts(rev, "A01-I")
+    capsys.readouterr()
+    assert _complete(rev, "A01-I") == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["next"] == "A01-IF"
 
 
 def test_complete_rejects_missing_body(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
@@ -131,12 +210,12 @@ def test_complete_rejects_missing_body(tmp_path: Path, capsys: pytest.CaptureFix
     rev.mkdir()
     _seed_arc(rev)
     assert write_state_main(["sync", "--revision-dir", str(rev)]) == 0
-    assert write_state_main(["begin", "--revision-dir", str(rev), "--chapter", "A01-I"]) == 0
+    assert _begin(rev) == 0
     (rev / "_derive-A01-I.json").write_text(
         json.dumps(_valid_derive("A01-I")), encoding="utf-8",
     )
     capsys.readouterr()
-    rc = write_state_main(["complete", "--revision-dir", str(rev), "--chapter", "A01-I"])
+    rc = _complete(rev)
     assert rc != 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["error"] == "artifact_gate_failed"
@@ -149,9 +228,9 @@ def test_sync_discards_ghost_cid(tmp_path: Path, capsys: pytest.CaptureFixture[s
     rev.mkdir()
     _seed_arc(rev)
     assert write_state_main(["sync", "--revision-dir", str(rev)]) == 0
-    assert write_state_main(["begin", "--revision-dir", str(rev), "--chapter", "A01-I"]) == 0
+    assert _begin(rev) == 0
     _write_artifacts(rev, "A01-I")
-    assert write_state_main(["complete", "--revision-dir", str(rev), "--chapter", "A01-I"]) == 0
+    assert _complete(rev) == 0
     arc = _arc()
     arc["leaves"][0]["chapters"] = [{"lens": "I", "fact_ids": ["F-1"]}]
     arc["leaves"][0]["fact_ids"] = ["F-1"]
@@ -171,16 +250,37 @@ def test_full_complete_status(tmp_path: Path, capsys: pytest.CaptureFixture[str]
     rev.mkdir()
     _seed_arc(rev)
     assert write_state_main(["sync", "--revision-dir", str(rev)]) == 0
-    for cid in ("A01-I", "A01-IF"):
-        assert write_state_main(["begin", "--revision-dir", str(rev), "--chapter", cid]) == 0
-        _write_artifacts(rev, cid)
-        assert write_state_main(["complete", "--revision-dir", str(rev), "--chapter", cid]) == 0
     capsys.readouterr()
+    for _ in range(2):
+        assert _begin(rev) == 0
+        ticket = json.loads(capsys.readouterr().out)
+        cid = ticket["chapter_id"]
+        _write_artifacts(rev, cid)
+        assert _complete(rev) == 0
+        capsys.readouterr()
     assert write_state_main(["status", "--revision-dir", str(rev)]) == 0
     status = json.loads(capsys.readouterr().out)
     assert status["status"] == "complete"
     assert status["next"] is None
     assert is_complete(load_chapter_write_state(rev / CHAPTER_WRITE_STATE_BASENAME))
+
+
+def test_begin_when_all_done(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
+    rev = tmp_path / "rev"
+    rev.mkdir()
+    _seed_arc(rev)
+    assert write_state_main(["sync", "--revision-dir", str(rev)]) == 0
+    capsys.readouterr()
+    for _ in range(2):
+        assert _begin(rev) == 0
+        cid = json.loads(capsys.readouterr().out)["chapter_id"]
+        _write_artifacts(rev, cid)
+        assert _complete(rev) == 0
+        capsys.readouterr()
+    assert _begin(rev) == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["chapter_id"] is None
+    assert out["status"] == "complete"
 
 
 def test_no_reset_subcommand():
@@ -199,13 +299,12 @@ def test_assemble_requires_write_state_complete(tmp_path: Path):
     doc = tmp_path / "doc.md"
     with pytest.raises(ValueError, match="write-state"):
         assemble_arc_to_path(doc, revision_dir=rev, preamble="# Doc\n")
-    # sync only → still not complete
     assert write_state_main(["sync", "--revision-dir", str(rev)]) == 0
     with pytest.raises(ValueError, match="complete"):
         assemble_arc_to_path(doc, revision_dir=rev, preamble="# Doc\n")
-    for cid in ("A01-I", "A01-IF"):
-        assert write_state_main(["begin", "--revision-dir", str(rev), "--chapter", cid]) == 0
-        assert write_state_main(["complete", "--revision-dir", str(rev), "--chapter", cid]) == 0
+    for _ in range(2):
+        assert _begin(rev) == 0
+        assert _complete(rev) == 0
     result = assemble_arc_to_path(doc, revision_dir=rev, preamble="# Doc\n")
     assert result["ok"] is True
 
@@ -238,8 +337,8 @@ def test_init_validate_requires_write_state(tmp_path: Path):
     assert err is not None
     assert "4.W:" in err and "write-state" in err
     assert write_state_main(["sync", "--revision-dir", str(rev)]) == 0
-    for cid in ("A01-I", "A01-IF"):
-        assert write_state_main(["begin", "--revision-dir", str(rev), "--chapter", cid]) == 0
-        assert write_state_main(["complete", "--revision-dir", str(rev), "--chapter", cid]) == 0
+    for _ in range(2):
+        assert _begin(rev) == 0
+        assert _complete(rev) == 0
     err2 = validate_init_artifacts(rev, doc, repo, "lulu-design")
     assert err2 is None or ("write-state" not in err2 and "4.W:" not in err2)

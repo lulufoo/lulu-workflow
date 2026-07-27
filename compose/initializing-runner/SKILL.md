@@ -192,24 +192,24 @@ Visible group/leaf titles come from `_narrative-arc.json` via `assemble-arc` —
 
 #### 4.W — Write-by-sub-topic-chapter
 
-Serial gate (mechanical): `$CHAPTER_WRITE_STATE`. Write units SoT: `$NARRATIVE_ARC_CTL list-chapters` (same order as `sync`).
+Serial gate (claim-current): `$CHAPTER_WRITE_STATE` owns which chapter is current. Do **not** pick chapters from `list-chapters` / `status.next` for Write.
 
 ```bash
 $CHAPTER_WRITE_STATE sync --revision-dir "$REVISION_DIR"
 ```
 
-Loop until `$CHAPTER_WRITE_STATE status` reports `status=complete` (no `next`):
+Loop (claim → write → complete):
 
 ```bash
-$CHAPTER_WRITE_STATE status --revision-dir "$REVISION_DIR"
-# → next = <cid> (or null when complete)
-
-$CHAPTER_WRITE_STATE begin --revision-dir "$REVISION_DIR" --chapter "<cid>"
+$CHAPTER_WRITE_STATE begin --revision-dir "$REVISION_DIR"
+# → work ticket: chapter_id, leaf_id, leaf_title, lens, fact_ids
+# already_running → stop; complete current first (do not begin again)
+# chapter_id null + status=complete → exit loop
 ```
 
-For that unit only (from `list-chapters` / status context):
+For **that ticket only** (`chapter_id` / `fact_ids` / `lens` from `begin` stdout):
 
-1. `lens` = unit.lens; `facts_ℓ` = facts whose id ∈ unit.fact_ids (authoritative — do not expand).
+1. `lens` = ticket.lens; `facts_ℓ` = facts whose id ∈ ticket.fact_ids (authoritative — do not expand).
 2. Load Write form for `lens` from section-form-registry / registry intent.
 3. **Derive F** (S1): same F discipline as prior Init (carrier/structure from form + facts).
 4. **Derive C** (S1): pre-Write planning checklist in `expression_c[]`. Must include traceable items from each of `expression_conventions.register` / `.carriers` / `.scannability` / `.altitude`, Role Fields, and this lens's `expression`. Fluency/scannability constraints come specifically from `.scannability`. **C is constrained by F**. Prefer lines like `from expression_conventions.<key>: …` (executable rules for this unit — not post-hoc "already done" claims).
@@ -218,10 +218,13 @@ For that unit only (from `list-chapters` / status context):
 6. Write `_derive-{cid}.json` with `lens`, `form{carrier,structure}`, and `expression_c[]` (incl. the four `expression_conventions.*` provenance lines); write `_body-{cid}.txt`. Do **not** write `display_title` (retired — titles come from the narrative arc).
 
 ```bash
-$CHAPTER_WRITE_STATE complete --revision-dir "$REVISION_DIR" --chapter "<cid>"
+$CHAPTER_WRITE_STATE complete --revision-dir "$REVISION_DIR"
+# → next chapter_id (or null); then loop to begin
 ```
 
-`complete` hard-gates (same rules re-checked at Step 5): non-empty body; `form.carrier` + `form.structure`; non-empty `expression_c` containing `expression_conventions.register` / `.carriers` / `.scannability` / `.altitude` substrings. On `begin`/`complete` failure → stop; fix artifacts or redo the chapter; do not skip ahead. Resume via `status` → `next`.
+`complete` hard-gates (same rules re-checked at Step 5): non-empty body; `form.carrier` + `form.structure`; non-empty `expression_c` containing `expression_conventions.register` / `.carriers` / `.scannability` / `.altitude` substrings. On `begin`/`complete` failure → stop; fix artifacts or redo the current chapter; do not skip ahead. Resume: `complete` current if needed, then `begin` again (never `begin --chapter`).
+
+**Must not:** treat `list-chapters` as the 4.W todo list; `begin --chapter` / `complete --chapter` on the main path; Write another chapter while `already_running`.
 
 **Note:** Encourage sectioning in the body. If using heading levels for structure, headings may start at `####`.
 
@@ -254,7 +257,7 @@ $COMPOSE_DOC_CONTROL assemble-arc \
 |------:|-----------------|-----------|--------|
 | 1 | `retired:` | delete file | Remove `_chapters.json` |
 | 2 | `3.2:` | **3.2** | Fix arc chapters / tags / unresolved |
-| 3 | `4.W:` | **4.W** | Fix write-state (`sync` / finish begin→complete for `next`) |
+| 3 | `4.W:` | **4.W** | Fix write-state (`sync` / finish claim-current begin→complete loop) |
 | 4 | `L6:` | **4.W** | Write missing fact-anchor token into that chapter body |
 | 5 | `C1:` + derivation / coverage | **Blocking** | Return to parent Drafting Step 0 producer; re-enter Init at Step 2 |
 | 6 | `5.A:` | **4.A** | Re-run `assemble-arc` after fixing missing chapter artifacts |

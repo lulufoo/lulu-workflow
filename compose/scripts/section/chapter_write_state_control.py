@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
-"""Control for archive-5.0 ``_chapter-write-state.json`` (serial chapter Write).
+"""Control for archive-5.0 ``_chapter-write-state.json`` (claim-current serial Write).
 
 Subcommands:
-    sync       Align state order to list-chapters / arc write units
-    status     Print next / done_count / status
-    begin      Gate + mark chapter in_progress
-    complete   F/C + domain-marker artifact gate + mark done
+    sync       Align state order to narrative-arc write units
+    status     Print next / done_count / status (observe only)
+    begin      Claim current chapter (no --chapter); return work ticket
+    complete   Artifact gate + mark current done; advance next
 
 CLI: ``python3 chapter_write_state_control.py --help``
 
-Process how: docs/domain/archive/compose/archive-5.0/compose-chapter-write-state-design.md
+Process how:
+docs/domain/archive/compose/archive-5.0/compose-chapter-write-claim-current-design.md
 """
 
 from __future__ import annotations
@@ -86,6 +87,24 @@ def _check_artifacts(slice_dir: Path, cid: str) -> list[str]:
     return check_chapter_write_artifacts(slice_dir, cid)
 
 
+def _in_progress_cid(order: list[str], by_id: dict[str, Any]) -> str | None:
+    for cid in order:
+        if str((by_id.get(cid) or {}).get("status", "")).strip() == "in_progress":
+            return cid
+    return None
+
+
+def _unit_by_id(arc: dict[str, Any], cid: str) -> dict[str, Any] | None:
+    for unit in chapter_write_units(arc):
+        if unit.get("chapter_id") == cid:
+            return unit
+    return None
+
+
+def _load_arc(slice_dir: Path) -> dict[str, Any]:
+    return load_narrative_arc(narrative_arc_path(slice_dir))
+
+
 def cmd_sync(args: argparse.Namespace) -> int:
     slice_dir = _slice(args.revision_dir)
     arc_path = narrative_arc_path(slice_dir)
@@ -124,7 +143,8 @@ def cmd_sync(args: argparse.Namespace) -> int:
         print(f"warning: discarding chapter write-state entry {cid!r}", file=sys.stderr)
 
     top = compute_top_status(new_order, new_by)
-    current = next_chapter_id(new_order, new_by)
+    running = _in_progress_cid(new_order, new_by)
+    current = running or next_chapter_id(new_order, new_by)
     state = {
         "version": "1",
         "kind": "chapter-write-state",
@@ -168,6 +188,7 @@ def cmd_status(args: argparse.Namespace) -> int:
             "status": state["status"],
             "current": state.get("current"),
             "next": next_chapter_id(order, by_id),
+            "running": _in_progress_cid(order, by_id),
             "done_count": len(done),
             "total": len(order),
             "done": done,
@@ -176,53 +197,92 @@ def cmd_status(args: argparse.Namespace) -> int:
 
 
 def cmd_begin(args: argparse.Namespace) -> int:
-    slice_dir = _slice(args.revision_dir)
-    path = chapter_write_state_path(slice_dir)
-    if not path.is_file():
-        return _fail(f"chapter write-state not found: {path} (run sync first)")
-    try:
-        state = load_chapter_write_state(path)
-    except ValueError as exc:
-        return _fail(str(exc))
-    cid = str(args.chapter).strip()
-    order = state["order"]
-    by_id = state["by_id"]
-    if cid not in by_id:
-        return _fail_json({"ok": False, "error": "unknown_chapter", "chapter": cid}, 2)
-    nxt = next_chapter_id(order, by_id)
-    if nxt != cid:
-        blocker = nxt
-        if cid in order:
-            idx = order.index(cid)
-            for prev in order[:idx]:
-                if str(by_id[prev].get("status")) != "done":
-                    blocker = prev
-                    break
+    """Claim the sole current chapter (claim-current). No --chapter."""
+    if getattr(args, "chapter", None):
         return _fail_json(
             {
                 "ok": False,
-                "error": "gate_failed",
-                "blocker": blocker,
-                "message": f"previous chapter not done (expected next={nxt!r})",
+                "error": "chapter_arg_forbidden",
+                "message": (
+                    "begin does not accept --chapter; omit it and use the "
+                    "returned work ticket (claim-current)"
+                ),
+            },
+            2,
+        )
+
+    slice_dir = _slice(args.revision_dir)
+    path = chapter_write_state_path(slice_dir)
+    if not path.is_file():
+        return _fail(f"chapter write-state not found: {path} (run sync first)")
+    try:
+        state = load_chapter_write_state(path)
+        arc = _load_arc(slice_dir)
+    except ValueError as exc:
+        return _fail(str(exc))
+
+    order = state["order"]
+    by_id = state["by_id"]
+    running = _in_progress_cid(order, by_id)
+    if running is not None:
+        unit = _unit_by_id(arc, running) or {}
+        return _fail_json(
+            {
+                "ok": False,
+                "error": "already_running",
+                "chapter_id": running,
+                "current": running,
+                "leaf_id": unit.get("leaf_id") or (by_id.get(running) or {}).get("leaf_id"),
+                "lens": unit.get("lens") or (by_id.get(running) or {}).get("lens"),
+                "message": (
+                    "chapter already in_progress; do not begin concurrently — "
+                    "complete the current chapter first"
+                ),
             },
             3,
         )
-    entry = by_id[cid]
-    if str(entry.get("status")) == "done":
-        return _fail_json(
-            {"ok": False, "error": "already_done", "chapter": cid},
-            4,
+
+    nxt = next_chapter_id(order, by_id)
+    if nxt is None:
+        return _ok(
+            {
+                "ok": True,
+                "command": "begin",
+                "chapter_id": None,
+                "status": "complete",
+                "message": "all chapters done",
+            }
         )
+
+    unit = _unit_by_id(arc, nxt)
+    if unit is None:
+        return _fail(f"write unit missing for chapter {nxt!r}")
+
+    entry = by_id[nxt]
     entry["status"] = "in_progress"
     entry["started_at"] = entry.get("started_at") or _now()
-    state["current"] = cid
+    entry["leaf_id"] = unit["leaf_id"]
+    entry["lens"] = unit["lens"]
+    state["current"] = nxt
     state["status"] = compute_top_status(order, by_id)
     state["updated_at"] = _now()
     save_chapter_write_state(path, state)
-    return _ok({"ok": True, "command": "begin", "chapter": cid})
+    return _ok(
+        {
+            "ok": True,
+            "command": "begin",
+            "chapter_id": nxt,
+            "leaf_id": unit["leaf_id"],
+            "leaf_title": unit.get("leaf_title") or "",
+            "lens": unit["lens"],
+            "fact_ids": list(unit.get("fact_ids") or []),
+            "status": "in_progress",
+        }
+    )
 
 
 def cmd_complete(args: argparse.Namespace) -> int:
+    """Complete the claimed current chapter (optional --chapter must match)."""
     slice_dir = _slice(args.revision_dir)
     path = chapter_write_state_path(slice_dir)
     if not path.is_file():
@@ -231,36 +291,49 @@ def cmd_complete(args: argparse.Namespace) -> int:
         state = load_chapter_write_state(path)
     except ValueError as exc:
         return _fail(str(exc))
-    cid = str(args.chapter).strip()
+
     order = state["order"]
     by_id = state["by_id"]
-    if cid not in by_id:
-        return _fail_json({"ok": False, "error": "unknown_chapter", "chapter": cid}, 2)
-    idx = order.index(cid) if cid in order else -1
-    if idx < 0:
-        return _fail_json({"ok": False, "error": "unknown_chapter", "chapter": cid}, 2)
+    running = _in_progress_cid(order, by_id)
+    if running is None:
+        return _fail_json(
+            {
+                "ok": False,
+                "error": "not_in_progress",
+                "message": "no chapter in_progress; call begin first",
+            },
+            5,
+        )
+
+    requested = str(getattr(args, "chapter", None) or "").strip()
+    if requested and requested != running:
+        return _fail_json(
+            {
+                "ok": False,
+                "error": "chapter_mismatch",
+                "current": running,
+                "requested": requested,
+                "message": "complete targets current in_progress chapter only",
+            },
+            2,
+        )
+
+    cid = running
+    idx = order.index(cid)
     for prev in order[:idx]:
         if str(by_id[prev].get("status")) != "done":
             return _fail_json(
                 {"ok": False, "error": "gate_failed", "blocker": prev},
                 3,
             )
-    if str(by_id[cid].get("status")) != "in_progress":
-        return _fail_json(
-            {
-                "ok": False,
-                "error": "not_in_progress",
-                "status": by_id[cid].get("status"),
-                "message": "call begin first",
-            },
-            5,
-        )
+
     errs = _check_artifacts(slice_dir, cid)
     if errs:
         return _fail_json(
             {"ok": False, "error": "artifact_gate_failed", "errors": errs},
             6,
         )
+
     by_id[cid]["status"] = "done"
     by_id[cid]["completed_at"] = _now()
     nxt = next_chapter_id(order, by_id)
@@ -272,7 +345,7 @@ def cmd_complete(args: argparse.Namespace) -> int:
         {
             "ok": True,
             "command": "complete",
-            "chapter": cid,
+            "chapter_id": cid,
             "next": nxt,
             "status": state["status"],
         }
@@ -290,18 +363,33 @@ def build_parser() -> argparse.ArgumentParser:
     add_rev(p_sync)
     p_sync.set_defaults(func=cmd_sync)
 
-    p_status = sub.add_parser("status", help="Show write-state progress")
+    p_status = sub.add_parser("status", help="Show write-state progress (observe only)")
     add_rev(p_status)
     p_status.set_defaults(func=cmd_status)
 
-    p_begin = sub.add_parser("begin", help="Begin writing one chapter")
+    p_begin = sub.add_parser(
+        "begin",
+        help="Claim current chapter work ticket (no --chapter)",
+    )
     add_rev(p_begin)
-    p_begin.add_argument("--chapter", required=True)
+    # Reject if passed: claim-current forbids AI-selected cid.
+    p_begin.add_argument(
+        "--chapter",
+        default=None,
+        help=argparse.SUPPRESS,
+    )
     p_begin.set_defaults(func=cmd_begin)
 
-    p_complete = sub.add_parser("complete", help="Complete one chapter after artifacts exist")
+    p_complete = sub.add_parser(
+        "complete",
+        help="Complete current in_progress chapter (optional --chapter must match)",
+    )
     add_rev(p_complete)
-    p_complete.add_argument("--chapter", required=True)
+    p_complete.add_argument(
+        "--chapter",
+        default=None,
+        help="Optional; must equal current in_progress chapter if set",
+    )
     p_complete.set_defaults(func=cmd_complete)
 
     return parser
@@ -309,7 +397,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    return args.func(args)
+    return int(args.func(args))
 
 
 if __name__ == "__main__":

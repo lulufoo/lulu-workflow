@@ -137,12 +137,12 @@ def _minimal_doc(cid: str, body: str) -> str:
 
 def _complete_write_state(revision_dir: Path, cids: list[str]) -> None:
     assert write_state_main(["sync", "--revision-dir", str(revision_dir)]) == 0
-    for cid in cids:
+    for _ in cids:
         assert write_state_main(
-            ["begin", "--revision-dir", str(revision_dir), "--chapter", cid],
+            ["begin", "--revision-dir", str(revision_dir)],
         ) == 0
         assert write_state_main(
-            ["complete", "--revision-dir", str(revision_dir), "--chapter", cid],
+            ["complete", "--revision-dir", str(revision_dir)],
         ) == 0
 
 
