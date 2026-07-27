@@ -22,8 +22,8 @@ from tech_design_eval_adapter import (  # noqa: E402
 )
 from corpus_compose import corpus_fingerprint  # noqa: E402
 from tech_design_eval_policy import select_dimension_ids  # noqa: E402
-from init_drafting_helpers import (  # noqa: E402
-    init_drafting_ready,
+from init_working_helpers import (  # noqa: E402
+    init_working_ready,
     product_delivered_refs,
     seed_frozen_delivered,
 )
@@ -48,7 +48,7 @@ def _seed_session(tmp_path: Path) -> Path:
 
 
 def _ready(ws: Path, *, mode: str) -> None:
-    init_drafting_ready(ws, mode=mode)
+    init_working_ready(ws, mode=mode)
     (ws.parent / "L1" / "design-doc.md").write_text("# design\n", encoding="utf-8")
 
 

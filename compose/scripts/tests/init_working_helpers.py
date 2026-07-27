@@ -13,7 +13,9 @@ from session_state_schema import bump_active_doc
 from workflow_common import CACHE_DIR
 from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, seed_profile_pointer_for_tests
 from workflow_profile_paths import state_path
-from workflow_state_schema import init_drafting, save_workflow_state
+from dependency_tree_schema import load_dependency_tree
+from discussion_pointer_schema import load_discussion_pointer, save_discussion_pointer
+from workflow_state_schema import init_compose_session, save_workflow_state
 
 
 def lock_single_l1_tree(revision_dir: Path) -> None:
@@ -36,7 +38,7 @@ def lock_single_l1_tree(revision_dir: Path) -> None:
         raise RuntimeError(f"lock_single_l1_tree failed rc={rc}")
 
 
-def init_drafting_ready(
+def init_working_ready(
     path: Path,
     *,
     mode: str,
@@ -44,8 +46,8 @@ def init_drafting_ready(
     carry_forward_ref: str = "",
     evaluate_round: int = 0,
 ) -> None:
-    """Init session at Split, lock L1, advance to Drafting (tests that need Drafting)."""
-    init_drafting(
+    """Init session at Split, lock L1, advance to Working (tests that need Working)."""
+    init_compose_session(
         path,
         mode=mode,
         cycle_type=cycle_type,
@@ -53,7 +55,43 @@ def init_drafting_ready(
         evaluate_round=evaluate_round,
     )
     lock_single_l1_tree(path.parent)
-    save_workflow_state(path, {"current_state": "Drafting"})
+    save_workflow_state(path, {"current_state": "Working"})
+
+
+def mark_all_l_accepted(revision_dir: Path) -> None:
+    """Set every by_id cell to intake/acceptance done + phase=accepted."""
+    rev = Path(revision_dir).resolve()
+    tree = load_dependency_tree(rev)
+    pointer = load_discussion_pointer(rev)
+    for cell in pointer["by_id"].values():
+        cell["intake"] = "done"
+        cell["acceptance"] = "done"
+        cell["phase"] = "accepted"
+    save_discussion_pointer(rev, pointer, tree=tree)
+
+
+def mark_focus_intake_done(revision_dir: Path) -> None:
+    """Focus L: intake=done, phase=in_progress (ready for start-evaluating)."""
+    rev = Path(revision_dir).resolve()
+    tree = load_dependency_tree(rev)
+    pointer = load_discussion_pointer(rev)
+    cell = pointer["by_id"][str(pointer["focus"])]
+    cell["intake"] = "done"
+    cell["acceptance"] = "pending"
+    cell["phase"] = "in_progress"
+    save_discussion_pointer(rev, pointer, tree=tree)
+
+
+def mark_focus_evaluating(revision_dir: Path) -> None:
+    """Focus L: intake=done, phase=evaluating (eval in progress)."""
+    rev = Path(revision_dir).resolve()
+    tree = load_dependency_tree(rev)
+    pointer = load_discussion_pointer(rev)
+    cell = pointer["by_id"][str(pointer["focus"])]
+    cell["intake"] = "done"
+    cell["acceptance"] = "pending"
+    cell["phase"] = "evaluating"
+    save_discussion_pointer(rev, pointer, tree=tree)
 
 
 def seed_frozen_delivered(ws_path: Path, refs: list[DeliveredRef]) -> None:
@@ -162,7 +200,7 @@ def seed_tech_plan_session(
     seed_profile_pointer_for_tests(project_root, cycle_id, profile_id)
     active_doc = bump_active_doc(cycle_id, project_root, profile_id)
     ws_path = project_root / state_path(cycle_id, active_doc, profile_id, project_root)
-    init_drafting_ready(ws_path, mode=mode)
+    init_working_ready(ws_path, mode=mode)
     seed_provenance_artifacts(
         ws_path,
         cycle_id=cycle_id,
@@ -194,7 +232,7 @@ def seed_tech_design_session(
     seed_profile_pointer_for_tests(project_root, cycle_id, "lulu-design")
     active_doc = bump_active_doc(cycle_id, project_root, "lulu-design")
     ws_path = project_root / state_path(cycle_id, active_doc, "lulu-design", project_root)
-    init_drafting_ready(ws_path, mode=mode)
+    init_working_ready(ws_path, mode=mode)
     intent_refs = []
     if mode == "product":
         spec = first_ref(refs, "lulu-spec")
@@ -231,7 +269,7 @@ def seed_product_spec_session(
     seed_profile_pointer_for_tests(project_root, cycle_id, "lulu-spec")
     active_doc = bump_active_doc(cycle_id, project_root, "lulu-spec")
     ws_path = project_root / state_path(cycle_id, active_doc, "lulu-spec", project_root)
-    init_drafting_ready(ws_path, mode="product")
+    init_working_ready(ws_path, mode="product")
     seed_provenance_artifacts(
         ws_path,
         cycle_id=cycle_id,

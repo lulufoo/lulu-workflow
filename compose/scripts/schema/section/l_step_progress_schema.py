@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generic profile-aware drafting-progress.md schema and I/O helpers."""
+"""Generic profile-aware l-step-progress.md schema and I/O helpers."""
 
 from __future__ import annotations
 
@@ -34,10 +34,22 @@ _STEP_DEDUCTIVE = "Deductive"
 _STEP_INITIALIZED = "Initialized"
 _STEP_FREE_EDIT = "FreeEdit"
 _LEGACY_STEP_READY = "Ready"
+_LEGACY_DRAFTING_PROGRESS = "drafting-progress.md"
+_LEGACY_DRAFTING_PROGRESS_MSG = (
+    "legacy drafting-progress.md is not supported (hard cut); "
+    "start a new revision that uses l-step-progress.md only"
+)
+
+
+def assert_no_legacy_drafting_progress(directory: Path) -> None:
+    """Hard-reject revisions that still carry drafting-progress.md."""
+    legacy = Path(directory) / _LEGACY_DRAFTING_PROGRESS
+    if legacy.is_file():
+        raise ValueError(f"{_LEGACY_DRAFTING_PROGRESS_MSG}: {legacy}")
 
 
 def normalize_step(step: str | None) -> str | None:
-    """Map legacy drafting step names to the current profile-neutral names."""
+    """Map legacy step names to the current profile-neutral names."""
     if step == _LEGACY_STEP_READY:
         return _STEP_INITIALIZED
     return step
@@ -49,21 +61,21 @@ def allowed_steps(
     project_root: Path | None = None,
     cycle_id: str | None = None,
 ) -> frozenset[str]:
-    """Return current_step values allowed by profile.drafting switches."""
+    """Return current_step values allowed by profile.pipeline switches."""
     profile = load_profile(profile_id, project_root=project_root, cycle_id=cycle_id)
-    drafting = profile.get("drafting") or {}
+    pipeline = profile.get("pipeline") or {}
     steps = {_STEP_INITIALIZED}
-    if drafting.get("inductive") is True:
+    if pipeline.get("inductive") is True:
         steps.add(_STEP_INDUCTIVE)
     else:
         # Non-inductive profiles use Deductive producer before Init.
         steps.add(_STEP_DEDUCTIVE)
-    if drafting.get("freeedit") is True:
+    if pipeline.get("freeedit") is True:
         steps.add(_STEP_FREE_EDIT)
     return frozenset(steps)
 
 
-def validate_drafting_progress(
+def validate_l_step_progress(
     data: dict,
     *,
     profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
@@ -102,7 +114,7 @@ def _serialize_frontmatter(data: dict) -> str:
     return "\n".join(lines)
 
 
-def save_drafting_progress(
+def save_l_step_progress(
     path: Path,
     data: dict,
     *,
@@ -111,71 +123,79 @@ def save_drafting_progress(
     cycle_id: str | None = None,
     merge: bool = True,
 ) -> None:
-    """Write drafting-progress.md with YAML frontmatter."""
+    """Write l-step-progress.md with YAML frontmatter."""
+    path = Path(path)
+    assert_no_legacy_drafting_progress(path.parent)
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.exists() and merge:
         existing = parse_frontmatter_fields(path.read_text(encoding="utf-8"))
         merged = dict(existing)
         merged.update(data)
         data = merged
-    errors = validate_drafting_progress(
+    errors = validate_l_step_progress(
         data,
         profile_id=profile_id,
         project_root=project_root,
         cycle_id=cycle_id,
     )
     if errors:
-        raise ValueError(f"drafting-progress data invalid: {'; '.join(errors)}")
+        raise ValueError(f"l-step-progress data invalid: {'; '.join(errors)}")
     path.write_text(_serialize_frontmatter(data), encoding="utf-8")
 
 
-def load_drafting_progress(
+def load_l_step_progress(
     path: Path,
     *,
     profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
     project_root: Path | None = None,
     cycle_id: str | None = None,
 ) -> dict:
-    """Read and validate drafting-progress.md."""
+    """Read and validate l-step-progress.md."""
+    path = Path(path)
+    assert_no_legacy_drafting_progress(path.parent)
     if not path.exists():
-        raise ValueError(f"drafting-progress.md not found: {path}")
+        raise ValueError(f"l-step-progress.md not found: {path}")
     fields = parse_frontmatter_fields(path.read_text(encoding="utf-8"))
     if "current_step" in fields:
         fields["current_step"] = normalize_step(fields.get("current_step"))
     if not fields:
         raise ValueError(f"empty or invalid frontmatter in {path}")
-    errors = validate_drafting_progress(
+    errors = validate_l_step_progress(
         fields,
         profile_id=profile_id,
         project_root=project_root,
         cycle_id=cycle_id,
     )
     if errors:
-        raise ValueError(f"drafting-progress invalid: {'; '.join(errors)}")
+        raise ValueError(f"l-step-progress invalid: {'; '.join(errors)}")
     return fields
 
 
 def read_current_step(path: Path, *, default: str | None = None) -> str | None:
-    """Return current_step from drafting-progress.md, or default when absent."""
+    """Return current_step from l-step-progress.md, or default when absent."""
+    path = Path(path)
+    assert_no_legacy_drafting_progress(path.parent)
     if not path.exists():
         return default
     step = normalize_step(read_md_field(path, "current_step", default=""))
     return step or default
 
 
-def resolve_drafting_progress_path_from_cycle(
+def resolve_l_step_progress_path_from_cycle(
     cycle_id: str,
     project_root: Path,
     *,
     profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
 ) -> Path:
-    """Resolve active revision drafting-progress.md for a profile."""
+    """Resolve active revision l-step-progress.md for a profile."""
     active_doc = load_active_doc_from_cycle(cycle_id, project_root, profile_id=profile_id)
-    return project_root / doc_dir(cycle_id, active_doc, profile_id, project_root) / "drafting-progress.md"
+    revision_dir = project_root / doc_dir(cycle_id, active_doc, profile_id, project_root)
+    assert_no_legacy_drafting_progress(revision_dir)
+    return revision_dir / "l-step-progress.md"
 
 
 def _cli() -> int:
-    parser = argparse.ArgumentParser(description="generic drafting-progress schema I/O")
+    parser = argparse.ArgumentParser(description="generic l-step-progress schema I/O")
     parser.add_argument("--schema", action="store_true", help="Print field schema JSON")
     args = parser.parse_args()
     if args.schema:

@@ -2,12 +2,12 @@
 """Session control for compose orchestrators.
 
 Subcommands:
-    split-complete       Split -> Drafting (requires check-split-ready topology)
-    start-evaluating     Drafting -> Evaluating (workflow-state only; use begin-eval-round for evaluate-state)
-    ready-for-delivery   Drafting|Evaluating -> ReadyForDelivery
+    split-complete       Split -> Working (requires check-split-ready topology)
+    start-evaluating     Working: set focus phase=evaluating (session stays Working)
+    ready-for-delivery   Working -> ReadyForDelivery (all L accepted; no skip-eval)
     deliver              ReadyForDelivery -> Delivered (+ human-delivery-gate.md)
-    abandon-evaluation   Evaluating -> Drafting (requires evaluate-state abandoned)
-    resume-after-eval    Evaluating -> Drafting after eval complete-round (fix exit)
+    abandon-evaluation   Working: focus phase evaluating->in_progress (eval abandoned)
+    resume-after-eval    Working: focus phase evaluating->in_progress (Fix L / after complete-round)
     write-demand-manifest  Persist AI-enumerated demand units as <prefix>-demands.json
                            (producer profiles with a demand_manifest block only)
 """
@@ -52,6 +52,12 @@ from workflow_common import parse_frontmatter_fields  # noqa: E402
 from workflow_profile_paths import evaluate_state_path as profile_evaluate_state_path  # noqa: E402
 from multi_slice_control import evaluate_split_ready  # noqa: E402
 from session_evaluating import enter_evaluating_state  # noqa: E402
+from discussion_pointer_schema import (  # noqa: E402
+    all_l_accepted,
+    load_discussion_pointer,
+    save_discussion_pointer,
+)
+from dependency_tree_schema import load_dependency_tree  # noqa: E402
 from transition_registry import is_allowed  # noqa: E402
 from workflow_state_schema import load_workflow_state, save_workflow_state  # noqa: E402
 
@@ -64,8 +70,8 @@ _CMD_RESUME_AFTER_EVAL = "resume-after-eval"
 _CMD_WRITE_DEMAND_MANIFEST = "write-demand-manifest"
 _EXPECTED_SPLIT_STATE = "Split"
 _EXPECTED_DELIVER_STATE = "ReadyForDelivery"
-_EXPECTED_ABANDON_STATE = "Evaluating"
-_EXPECTED_EVALUATING_STATE = "Evaluating"
+_EXPECTED_WORKING_STATE = "Working"
+
 
 
 def _evaluate_state_path(
@@ -175,18 +181,31 @@ def _build_resume(command: str, current_state: str) -> dict[str, Any]:
     }
 
 
+def _set_focus_phase_in_progress(revision_dir: Path) -> dict[str, Any]:
+    """Move focus L from evaluating -> in_progress. Returns focus/phase info."""
+    tree = load_dependency_tree(revision_dir)
+    pointer = load_discussion_pointer(revision_dir)
+    focus = str(pointer["focus"])
+    cell = pointer["by_id"][focus]
+    if cell.get("phase") == "evaluating":
+        cell["phase"] = "in_progress"
+        cell["acceptance"] = "pending"
+        save_discussion_pointer(revision_dir, pointer, tree=tree)
+    return {"focus": focus, "phase": pointer["by_id"][focus]["phase"]}
+
+
 def split_complete(
     cycle_id: str,
     project_root: Path,
     *,
     profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
 ) -> dict[str, Any]:
-    """Split → Drafting after topology is locked (check-split-ready)."""
+    """Split → Working after topology is locked (check-split-ready)."""
     ws_path = workflow_state_path(cycle_id, project_root, profile_id)
     state = load_workflow_state(ws_path)
     current = state["current_state"]
 
-    if current == "Drafting":
+    if current == "Working":
         ok, err, details = evaluate_split_ready(ws_path.parent)
         if not ok:
             return {
@@ -197,14 +216,14 @@ def split_complete(
                 "resume": {
                     "entry": current,
                     "action": (
-                        "会话已在 Drafting，但拓扑未就绪；请补 lock 树或新开 revision。"
+                        "会话已在 Working，但拓扑未就绪；请补 lock 树或新开 revision。"
                         f" ({err})"
                     ),
                 },
             }
         return _success(
             _CMD_SPLIT_COMPLETE,
-            "Drafting",
+            "Working",
             profile_id=profile_id,
             transitioned=False,
             **{k: details[k] for k in ("multi_l", "node_ids", "focus") if k in details},
@@ -213,7 +232,7 @@ def split_complete(
     if current != _EXPECTED_SPLIT_STATE:
         return _failure(_CMD_SPLIT_COMPLETE, current)
 
-    if not _require_transition(_CMD_SPLIT_COMPLETE, current, "Drafting"):
+    if not _require_transition(_CMD_SPLIT_COMPLETE, current, "Working"):
         return _failure(_CMD_SPLIT_COMPLETE, current)
 
     ok, err, details = evaluate_split_ready(ws_path.parent)
@@ -233,11 +252,11 @@ def split_complete(
         }
 
     merged = dict(state)
-    merged["current_state"] = "Drafting"
+    merged["current_state"] = "Working"
     save_workflow_state(ws_path, merged, merge=False)
     return _success(
         _CMD_SPLIT_COMPLETE,
-        "Drafting",
+        "Working",
         profile_id=profile_id,
         transitioned=True,
         **{k: details[k] for k in ("multi_l", "node_ids", "focus") if k in details},
@@ -250,26 +269,12 @@ def start_evaluating(
     *,
     profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
 ) -> dict[str, Any]:
+    """Set focus phase=evaluating; session stays Working."""
     ws_path = workflow_state_path(cycle_id, project_root, profile_id)
     state = load_workflow_state(ws_path)
     current = state["current_state"]
 
-    if current == "Evaluating":
-        try:
-            evaluate_round = int(state.get("evaluate_round", "0"))
-        except ValueError:
-            evaluate_round = 0
-        return _success(
-            _CMD_START_EVALUATING,
-            "Evaluating",
-            profile_id=profile_id,
-            evaluate_round=evaluate_round,
-        )
-
-    if current != "Drafting":
-        return _failure(_CMD_START_EVALUATING, current)
-
-    if not _require_transition(_CMD_START_EVALUATING, current, "Evaluating"):
+    if current != _EXPECTED_WORKING_STATE:
         return _failure(_CMD_START_EVALUATING, current)
 
     topo_ok, topo_err, _ = evaluate_split_ready(ws_path.parent)
@@ -282,7 +287,7 @@ def start_evaluating(
             "resume": {
                 "entry": current,
                 "action": (
-                    "无 locked 拓扑，不能进入 Evaluating；请回到 Split 补 lock "
+                    "无 locked 拓扑，不能进入 L evaluating；请回到 Split 补 lock "
                     f"或新开 revision。 ({topo_err})"
                 ),
             },
@@ -296,15 +301,20 @@ def start_evaluating(
             "current_state": entry.get("current_state", current),
             "resume": entry.get(
                 "resume",
-                _build_resume(_CMD_START_EVALUATING, entry.get("current_state", current)),
+                _build_resume(
+                    _CMD_START_EVALUATING, entry.get("current_state", current)
+                ),
             ),
         }
 
     return _success(
         _CMD_START_EVALUATING,
-        "Evaluating",
+        "Working",
         profile_id=profile_id,
         evaluate_round=entry["evaluate_round"],
+        focus=entry.get("focus"),
+        phase=entry.get("phase"),
+        transitioned=entry.get("transitioned"),
     )
 
 
@@ -321,24 +331,46 @@ def ready_for_delivery(
     if current == "ReadyForDelivery":
         return _success(_CMD_READY, "ReadyForDelivery", profile_id=profile_id)
 
-    if current == "Drafting":
-        if not _require_transition(_CMD_READY, current, "ReadyForDelivery"):
-            return _failure(_CMD_READY, current)
-        updates: dict[str, str] = {"current_state": "ReadyForDelivery"}
-        updates["skip_evaluate_requested"] = "true"
-        save_workflow_state(ws_path, updates)
-        return _success(_CMD_READY, "ReadyForDelivery", profile_id=profile_id)
+    if current != _EXPECTED_WORKING_STATE:
+        return _failure(_CMD_READY, current)
 
-    if current == "Evaluating":
-        if not _require_transition(_CMD_READY, current, "ReadyForDelivery"):
-            return _failure(_CMD_READY, current)
-        merged = dict(state)
-        merged.pop("skip_evaluate_requested", None)
-        merged["current_state"] = "ReadyForDelivery"
-        save_workflow_state(ws_path, merged, merge=False)
-        return _success(_CMD_READY, "ReadyForDelivery", profile_id=profile_id)
+    if not _require_transition(_CMD_READY, current, "ReadyForDelivery"):
+        return _failure(_CMD_READY, current)
 
-    return _failure(_CMD_READY, current)
+    revision_dir = ws_path.parent
+    try:
+        pointer = load_discussion_pointer(revision_dir)
+    except (FileNotFoundError, ValueError) as exc:
+        return {
+            "ok": False,
+            "command": _CMD_READY,
+            "current_state": current,
+            "error": str(exc),
+            "resume": {
+                "entry": current,
+                "action": f"无法读取 discussion-pointer：{exc}",
+            },
+        }
+
+    if not all_l_accepted(pointer):
+        return {
+            "ok": False,
+            "command": _CMD_READY,
+            "current_state": current,
+            "error": "not all L accepted (phase=accepted required)",
+            "resume": {
+                "entry": current,
+                "action": (
+                    "尚未全员 accepted，不能 ReadyForDelivery；"
+                    "请完成各 L 评估（Accept L）。skip-eval 已禁止。"
+                ),
+            },
+        }
+
+    merged = dict(state)
+    merged["current_state"] = "ReadyForDelivery"
+    save_workflow_state(ws_path, merged, merge=False)
+    return _success(_CMD_READY, "ReadyForDelivery", profile_id=profile_id)
 
 
 def deliver(
@@ -378,11 +410,11 @@ def deliver(
     )
 
     merged = dict(state)
-    merged.pop("skip_evaluate_requested", None)
     merged["current_state"] = "Delivered"
     save_workflow_state(ws_path, merged, merge=False)
 
     return _success(_CMD_DELIVER, "Delivered", profile_id=profile_id)
+
 
 
 def write_demand_manifest(
@@ -444,16 +476,17 @@ def abandon_evaluation(
     *,
     profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
 ) -> dict[str, Any]:
+    """Focus evaluating → in_progress after evaluate-state abandoned; stay Working."""
     ws_path = workflow_state_path(cycle_id, project_root, profile_id)
     state = load_workflow_state(ws_path)
     current = state["current_state"]
 
-    if current != _EXPECTED_ABANDON_STATE:
+    if current != _EXPECTED_WORKING_STATE:
         return _failure_abandon(
             current,
             (
                 f"abandon-evaluation 被拒绝：当前状态为 {current}，"
-                f"预期状态为 {_EXPECTED_ABANDON_STATE}。"
+                f"预期状态为 {_EXPECTED_WORKING_STATE}。"
                 "请暂停执行，等待用户指示。"
             ),
         )
@@ -477,19 +510,13 @@ def abandon_evaluation(
             ),
         )
 
-    if not _require_transition(_CMD_ABANDON, current, "Drafting"):
-        return _failure_abandon(
-            current,
-            (
-                f"abandon-evaluation 被拒绝：当前状态为 {current}，"
-                f"预期状态为 {_EXPECTED_ABANDON_STATE}。"
-                "请暂停执行，等待用户指示。"
-            ),
-        )
+    try:
+        phase_info = _set_focus_phase_in_progress(ws_path.parent)
+    except (FileNotFoundError, ValueError, KeyError) as exc:
+        return _failure_abandon(current, f"abandon-evaluation 被拒绝：{exc}")
 
     merged = dict(state)
-    merged["current_state"] = "Drafting"
-    merged["skip_evaluate_requested"] = "false"
+    merged["current_state"] = "Working"
     save_workflow_state(ws_path, merged, merge=False)
 
     try:
@@ -499,9 +526,10 @@ def abandon_evaluation(
 
     return _success(
         _CMD_ABANDON,
-        "Drafting",
+        "Working",
         profile_id=profile_id,
         evaluate_round=evaluate_round,
+        **phase_info,
     )
 
 
@@ -511,15 +539,12 @@ def resume_after_eval(
     *,
     profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
 ) -> dict[str, Any]:
-    """Return to Drafting after complete-round (Evaluating fix exit)."""
+    """Fix L: focus evaluating → in_progress after complete-round; stay Working."""
     ws_path = workflow_state_path(cycle_id, project_root, profile_id)
     state = load_workflow_state(ws_path)
     current = state["current_state"]
-    if current != _EXPECTED_EVALUATING_STATE:
-        return _failure(
-            _CMD_RESUME_AFTER_EVAL,
-            current,
-        )
+    if current != _EXPECTED_WORKING_STATE:
+        return _failure(_CMD_RESUME_AFTER_EVAL, current)
 
     try:
         evaluate_round = int(state.get("evaluate_round", "0"))
@@ -561,20 +586,28 @@ def resume_after_eval(
             ),
         }
 
-    if not _require_transition(_CMD_RESUME_AFTER_EVAL, current, "Drafting"):
-        return _failure(_CMD_RESUME_AFTER_EVAL, current)
+    try:
+        phase_info = _set_focus_phase_in_progress(ws_path.parent)
+    except (FileNotFoundError, ValueError, KeyError) as exc:
+        return {
+            "ok": False,
+            "command": _CMD_RESUME_AFTER_EVAL,
+            "current_state": current,
+            "reason": str(exc),
+        }
 
     merged = dict(state)
-    merged["current_state"] = "Drafting"
-    merged.pop("skip_evaluate_requested", None)
+    merged["current_state"] = "Working"
     save_workflow_state(ws_path, merged, merge=False)
 
     return _success(
         _CMD_RESUME_AFTER_EVAL,
-        "Drafting",
+        "Working",
         profile_id=profile_id,
         evaluate_round=evaluate_round,
+        **phase_info,
     )
+
 
 
 def _emit(payload: dict[str, Any]) -> int:
@@ -600,19 +633,19 @@ def _cli() -> int:
 
     sub.add_parser(
         _CMD_SPLIT_COMPLETE,
-        help="Transition Split -> Drafting after topology lock",
+        help="Transition Split -> Working after topology lock",
     )
-    sub.add_parser(_CMD_START_EVALUATING, help="Transition to Evaluating")
+    sub.add_parser(_CMD_START_EVALUATING, help="Set focus phase=evaluating (stay Working)")
     sub.add_parser(_CMD_READY, help="Transition to ReadyForDelivery")
     deliver_parser = sub.add_parser(_CMD_DELIVER, help="Transition to Delivered")
     deliver_parser.add_argument("--note", default="", help="Optional delivery note")
     sub.add_parser(
         _CMD_ABANDON,
-        help="Transition Evaluating -> Drafting after evaluation abandoned",
+        help="Focus evaluating->in_progress after eval abandoned (stay Working)",
     )
     sub.add_parser(
         _CMD_RESUME_AFTER_EVAL,
-        help="Transition Evaluating -> Drafting after complete-round (fix exit)",
+        help="Focus evaluating->in_progress after complete-round / Fix L (stay Working)",
     )
     manifest_parser = sub.add_parser(
         _CMD_WRITE_DEMAND_MANIFEST,

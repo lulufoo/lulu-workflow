@@ -13,9 +13,11 @@ from bootstrap import CORE  # noqa: E402
 
 from dependency_tree_schema import build_tree, save_dependency_tree  # noqa: E402
 from discussion_pointer_control import (  # noqa: E402
+    cmd_accept_l,
     cmd_can_admit,
     cmd_can_enter_evaluate,
     cmd_demote_acceptance,
+    cmd_fix_l,
     cmd_mark_done,
     cmd_ready,
     cmd_resume,
@@ -31,6 +33,16 @@ from discussion_pointer_schema import (  # noqa: E402
 )
 
 _PROFILE = "lulu-design"
+
+
+def _set_focus_evaluating(rev: Path) -> None:
+    ptr = load_discussion_pointer(rev)
+    focus = ptr["focus"]
+    cell = ptr["by_id"][focus]
+    cell["intake"] = "done"
+    cell["acceptance"] = "pending"
+    cell["phase"] = "evaluating"
+    save_discussion_pointer(rev, ptr)
 
 
 def _seed_rev(tmp_path: Path) -> Path:
@@ -117,6 +129,7 @@ def test_stage_gate_blocks_until_deps_acceptance_done(tmp_path: Path) -> None:
     doc = rev / "L1" / "design-doc.md"
     doc.parent.mkdir(parents=True, exist_ok=True)
     doc.write_text("# L1\n\n## Boundary\n\n", encoding="utf-8")
+    _set_focus_evaluating(rev)
     assert cmd_mark_done(rev, confirm=True, kind="acceptance", profile_id=_PROFILE) == 0
     assert cmd_switch(rev, target="L2", confirm=True, profile_id=_PROFILE) == 0
     assert cmd_can_enter_evaluate(rev, target="L2") == 0
@@ -130,13 +143,14 @@ def test_demote_acceptance(tmp_path: Path) -> None:
     doc = rev / "L1" / "design-doc.md"
     doc.parent.mkdir(parents=True, exist_ok=True)
     doc.write_text("# L1\n\n## Boundary\n\n", encoding="utf-8")
+    _set_focus_evaluating(rev)
     assert cmd_mark_done(rev, confirm=True, kind="acceptance", profile_id=_PROFILE) == 0
     assert cmd_demote_acceptance(
         rev, target="L1", confirm=True, profile_id=_PROFILE
     ) == 0
     ptr = load_discussion_pointer(rev)
     assert ptr["by_id"]["L1"]["acceptance"] == "pending"
-    progress = (rev / "drafting-progress.md").read_text(encoding="utf-8")
+    progress = (rev / "l-step-progress.md").read_text(encoding="utf-8")
     assert "FreeEdit" in progress
 
 
@@ -166,14 +180,50 @@ def test_removed_legacy_cli_unknown(tmp_path: Path) -> None:
         )
 
 
-def test_acceptance_mark_done_requires_boundary(tmp_path: Path) -> None:
+def test_acceptance_mark_done_requires_evaluating_and_boundary(
+    tmp_path: Path, capsys
+) -> None:
     rev = _seed_rev(tmp_path)
     assert cmd_mark_done(rev, confirm=True, kind="intake", profile_id=_PROFILE) == 0
-    assert cmd_mark_done(rev, confirm=True, kind="acceptance", profile_id=_PROFILE) == 1
     doc = rev / "L1" / "design-doc.md"
     doc.parent.mkdir(parents=True, exist_ok=True)
     doc.write_text("# L1\n\n## Boundary\n\n", encoding="utf-8")
+    capsys.readouterr()
+    assert cmd_mark_done(rev, confirm=True, kind="acceptance", profile_id=_PROFILE) == 1
+    err = json.loads(capsys.readouterr().err)
+    assert "expected evaluating" in err["error"]
+    assert "accept-l" in err["error"]
+
+    _set_focus_evaluating(rev)
+    doc.write_text("# L1\n\n", encoding="utf-8")
+    assert cmd_mark_done(rev, confirm=True, kind="acceptance", profile_id=_PROFILE) == 1
+    doc.write_text("# L1\n\n## Boundary\n\n", encoding="utf-8")
     assert cmd_mark_done(rev, confirm=True, kind="acceptance", profile_id=_PROFILE) == 0
+
+
+def test_accept_l_and_fix_l(tmp_path: Path, capsys) -> None:
+    rev = _seed_rev(tmp_path)
+    assert cmd_mark_done(rev, confirm=True, kind="intake", profile_id=_PROFILE) == 0
+    doc = rev / "L1" / "design-doc.md"
+    doc.parent.mkdir(parents=True, exist_ok=True)
+    doc.write_text("# L1\n\n## Boundary\n\n", encoding="utf-8")
+    ptr = load_discussion_pointer(rev)
+    ptr["by_id"]["L1"]["phase"] = "evaluating"
+    save_discussion_pointer(rev, ptr)
+
+    assert cmd_fix_l(rev, confirm=True, profile_id=_PROFILE) == 0
+    assert load_discussion_pointer(rev)["by_id"]["L1"]["phase"] == "in_progress"
+
+    ptr = load_discussion_pointer(rev)
+    ptr["by_id"]["L1"]["phase"] = "evaluating"
+    save_discussion_pointer(rev, ptr)
+    capsys.readouterr()
+    assert cmd_accept_l(rev, confirm=True, switch=True, profile_id=_PROFILE) == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["accepted"] == "L1"
+    assert out["switched_to"] in ("L2", "L3")
+    assert load_discussion_pointer(rev)["by_id"]["L1"]["phase"] == "accepted"
+    assert load_discussion_pointer(rev)["by_id"]["L1"]["acceptance"] == "done"
 
 
 def test_seam_report_advisory(tmp_path: Path, capsys) -> None:

@@ -1,7 +1,7 @@
 ---
 name: initializing-runner
 description: >-
-  Autonomous Initializing step for compose-profile drafting. Loads frameworks;
+  Autonomous Initializing step for compose-profile pipeline. Loads frameworks;
   validates producer-written `_facts.json` (inductive or deductive); organizes
   chapters; composes per-chapter bodies via fact-first display-layer pipeline
   (Steps 1–5); validates draft quality; persists each chapter incrementally.
@@ -9,7 +9,7 @@ description: >-
 
 # initializing-runner
 
-Run this sub-skill only for the `Initializing` step inside a parent compose stage Drafting shell.
+Run this sub-skill only for the `Initializing` step inside a parent compose Working Rules (Initializing).
 
 Use `$COMPOSE_PROFILE` from parent dispatch; kernel default applies only when omitted.
 
@@ -17,7 +17,7 @@ Use `$COMPOSE_PROFILE` from parent dispatch; kernel default applies only when om
 
 **Pipeline:** Step 1 Load → Step 2 Validate facts → Step 3 Narrative arc (phase 1→2) → Step 4 Write-by-sub-topic-chapter then Assemble → Step 5 Validate → Return.
 
-Init is **display-layer only**. Fact production belongs to Drafting Step 0 (`inductive-runner` or `deductive-runner`). Init never Import / Atomize / Derive.
+Init is **display-layer only**. Fact production belongs to Inductive|Deductive (`inductive-runner` or `deductive-runner`). Init never Import / Atomize / Derive.
 
 - **Must:** validate producer-written `_facts.json`; place tagged facts; explicit 待决 for gaps; readable chapter bodies.
 - **Must not:** invent beyond facts; decide open choices; decision paste; empty shell chapters; recreate `_partition.json`; write `section-key:` anchors (chapter anchors only); invoke retired `$INDUCTIVE_FACTS_PROJ project`; re-run Intake/Derive.
@@ -41,7 +41,7 @@ Derive artifact contract: [`../references/init-draft-quality.md`](../references/
 | `$CYCLE_TYPE` | `feature` |
 | `$CYCLE_ID` | Active cycle id |
 
-Self-resolved: `$PROJECT_ROOT` = `$(pwd)` · `$OUTPUT_DOC_PATH` from parent input (fallback `{REVISION_DIR}/tech-doc.md`) · `$CODE_GROUNDING` = profile `drafting.code_grounding` (boolean)
+Self-resolved: `$PROJECT_ROOT` = `$(pwd)` · `$OUTPUT_DOC_PATH` from parent input (fallback `{REVISION_DIR}/tech-doc.md`) · `$CODE_GROUNDING` = profile `pipeline.code_grounding` (boolean)
 
 All macros that declare `--profile` **must** pass `--profile "$COMPOSE_PROFILE"` (prefer `--profile` before the subcommand on `$RESOLVE_*`). `$FACTS_CTL filter` does **not** take `--profile` — pass only `--revision-dir` / `--lens`. `$FETCH_COMPOSE` includes `--cycle-id` in the macro.
 
@@ -78,7 +78,7 @@ All macros that declare `--profile` **must** pass `--profile "$COMPOSE_PROFILE"`
    `$FETCH_COMPOSE --role section-form-registry` → `sections.{key}.presentation` / `expression`
 4. `$FETCH_COMPOSE --role section-kw-criteria` → each `## {section_key}` block (Fill completeness for **named** atoms only).
 5. Read `$SCOPE_REF_PATH` once for completeness cross-check only (do not atomize).
-6. Read profile `drafting.code_grounding` → `$CODE_GROUNDING`.
+6. Read profile `pipeline.code_grounding` → `$CODE_GROUNDING`.
 7. **Init document:** Substitute placeholders in `document_preamble`. Write via:
 
 ```bash
@@ -113,9 +113,9 @@ $FACTS_CTL validate \
   --project-root "$(pwd)"
 ```
 
-Missing / invalid `_facts.json` → Blocking (return to parent Drafting Step 0 producer; never re-atomize from scope).
+Missing / invalid `_facts.json` → Blocking (return to parent Inductive|Deductive producer; never re-atomize from scope).
 
-**Structure/fact topology changes:** new revision + re-run Drafting Step 0 (producer) then Init — do not patch `lens_tags` / derivation in place here.
+**Structure/fact topology changes:** new revision + re-run Inductive|Deductive (producer) then Init — do not patch `lens_tags` / derivation in place here.
 
 **Done:** validate exit 0 → proceed to Step 3.
 
@@ -275,7 +275,7 @@ $COMPOSE_DOC_CONTROL assemble-arc \
 | 2 | `3.2:` | **3.2** | Fix arc chapters / tags / unresolved |
 | 3 | `4.W:` | **4.W** | Fix write-state (`sync` / finish claim-current begin→complete loop) |
 | 4 | `L6:` | **4.W** | Write missing fact-anchor token into that chapter body |
-| 5 | `C1:` + derivation / coverage | **Blocking** | Return to parent Drafting Step 0 producer; re-enter Init at Step 2 |
+| 5 | `C1:` + derivation / coverage | **Blocking** | Return to parent Inductive|Deductive producer; re-enter Init at Step 2 |
 | 6 | `5.A:` | **4.A** | Re-run `assemble-arc` after fixing missing chapter artifacts |
 
 3. On success → Return Summary.
@@ -294,5 +294,5 @@ Initializing complete (narrative-arc display layer).
   Write-state: <REVISION_DIR>/_chapter-write-state.json (status=complete)
   Scope cross-check: <SCOPE_REF_PATH>
   Draft status: Initialized
-  Next step: parent pause gate (options from profile drafting.post_init_options)
+  Next step: parent pause gate (options from profile pipeline.post_init_options)
 ```

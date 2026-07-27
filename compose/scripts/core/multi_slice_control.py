@@ -349,7 +349,7 @@ def cmd_lock_tree(
 def evaluate_split_ready(revision_dir: Path) -> tuple[bool, str | None, dict[str, Any]]:
     """Return (ok, error, details) for check-split-ready conditions.
 
-    Library entry for session ``split-complete`` and Drafting/Evaluating gates.
+    Library entry for session ``split-complete`` and Working L-step gates.
     """
     rev = Path(revision_dir).resolve()
     try:

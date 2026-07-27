@@ -98,7 +98,7 @@ def is_current_session_active(
     if not base.exists():
         return False
     for state_file in base.glob("revision*/workflow-state.md"):
-        if read_current_state(state_file, default="Drafting") != "Delivered":
+        if read_current_state(state_file, default="Working") != "Delivered":
             return True
     return False
 

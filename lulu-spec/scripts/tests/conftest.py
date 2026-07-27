@@ -11,10 +11,10 @@ _ROOT = Path(__file__).resolve().parents[3]
 _KERNEL_TESTS = _ROOT / "compose" / "scripts" / "tests"
 _KERNEL_CORE = _ROOT / "compose" / "scripts" / "core"
 _START = _ROOT / "lulu-spec" / "scripts" / "start"
-_DRAFTING = _ROOT / "lulu-spec" / "scripts" / "drafting"
+_EVAL_DIR = _ROOT / "lulu-spec" / "scripts" / "eval"
 _EVAL = _ROOT / "lulu-spec" / "scripts" / "eval"
 
-for entry in (_KERNEL_TESTS, _KERNEL_CORE, _START, _DRAFTING, _EVAL, _ROOT / "compose" / "scripts"):
+for entry in (_KERNEL_TESTS, _KERNEL_CORE, _START, _EVAL_DIR, _EVAL, _ROOT / "compose" / "scripts"):
     path = str(entry)
     if path not in sys.path:
         sys.path.insert(0, path)

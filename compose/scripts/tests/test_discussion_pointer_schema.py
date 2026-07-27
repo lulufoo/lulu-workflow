@@ -40,8 +40,16 @@ def test_build_pointer_from_tree() -> None:
         "tree_ref": {"path": "dependency-tree.json", "version": 1},
         "focus": "L1",
         "by_id": {
-            "L1": {"intake": "pending", "acceptance": "pending"},
-            "L2": {"intake": "pending", "acceptance": "pending"},
+            "L1": {
+                "intake": "pending",
+                "acceptance": "pending",
+                "phase": "pending",
+            },
+            "L2": {
+                "intake": "pending",
+                "acceptance": "pending",
+                "phase": "pending",
+            },
         },
     }
 
@@ -61,8 +69,16 @@ def test_reject_v1_legacy_keys() -> None:
         "frontier": "L2",
         "focus": "L2",
         "by_id": {
-            "L1": {"intake": "done", "acceptance": "pending"},
-            "L2": {"intake": "pending", "acceptance": "pending"},
+            "L1": {
+                "intake": "done",
+                "acceptance": "pending",
+                "phase": "in_progress",
+            },
+            "L2": {
+                "intake": "pending",
+                "acceptance": "pending",
+                "phase": "pending",
+            },
         },
     }
     errors = validate_discussion_pointer(raw, tree)
@@ -81,14 +97,30 @@ def test_enter_policy_and_stage_gate() -> None:
     assert ready_ids(tree, ptr) == ["L1"]
 
     ptr["by_id"]["L1"]["intake"] = "done"
+    ptr["by_id"]["L1"]["phase"] = "in_progress"
     ok3, _ = can_admit(tree, ptr, "L2")
     assert ok3 is True
     ok4, reason4 = can_enter_evaluate(tree, ptr, "L2")
     assert ok4 is False
     assert reason4 and "acceptance" in reason4
     ptr["by_id"]["L1"]["acceptance"] = "done"
+    ptr["by_id"]["L1"]["phase"] = "accepted"
     ok5, _ = can_enter_evaluate(tree, ptr, "L2")
     assert ok5 is True
+
+
+def test_phase_maturity_invariants() -> None:
+    tree = _locked_tree()
+    ptr = build_pointer_from_tree(tree)
+    ptr["by_id"]["L1"]["intake"] = "done"
+    assert any("phase=pending" in e for e in validate_discussion_pointer(ptr, tree))
+    ptr["by_id"]["L1"]["phase"] = "in_progress"
+    assert validate_discussion_pointer(ptr, tree) == []
+    ptr["by_id"]["L1"]["phase"] = "evaluating"
+    assert validate_discussion_pointer(ptr, tree) == []
+    ptr["by_id"]["L1"]["acceptance"] = "done"
+    ptr["by_id"]["L1"]["phase"] = "accepted"
+    assert validate_discussion_pointer(ptr, tree) == []
 
 
 def test_roundtrip_io(tmp_path: Path) -> None:
@@ -117,8 +149,16 @@ def test_load_rejects_legacy_on_disk(tmp_path: Path) -> None:
                 "pointer": "L1",
                 "frontier": "L1",
                 "by_id": {
-                    "L1": {"intake": "pending", "acceptance": "pending"},
-                    "L2": {"intake": "pending", "acceptance": "pending"},
+                    "L1": {
+                        "intake": "pending",
+                        "acceptance": "pending",
+                        "phase": "pending",
+                    },
+                    "L2": {
+                        "intake": "pending",
+                        "acceptance": "pending",
+                        "phase": "pending",
+                    },
                 },
             },
             indent=2,

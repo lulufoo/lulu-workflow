@@ -13,7 +13,7 @@
     "filename": "design-doc.md",
     "schema": "chapter"
   },
-  "drafting": {
+  "pipeline": {
     "inductive": true,
     "freeedit": true,
     "code_grounding": true,

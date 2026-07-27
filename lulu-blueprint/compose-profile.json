@@ -13,7 +13,7 @@
     "filename": "product-doc.md",
     "schema": "chapter"
   },
-  "drafting": {
+  "pipeline": {
     "inductive": false,
     "freeedit": true,
     "code_grounding": false,

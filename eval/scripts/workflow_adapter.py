@@ -16,6 +16,7 @@ class SessionContext:
     mode: str
     upstream_baseline_ref: str
     cycle_type: str
+    focus_phase: str = "pending"
 
 
 class WorkflowAdapter(Protocol):

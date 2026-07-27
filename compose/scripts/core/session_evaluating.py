@@ -1,4 +1,4 @@
-"""Compose workflow-state transition into Evaluating (no eval kernel calls)."""
+"""Enter per-L evaluating sub-state while session stays Working."""
 
 from __future__ import annotations
 
@@ -8,14 +8,22 @@ from typing import Any
 
 _CORE = Path(__file__).resolve().parent
 _SCRIPTS = _CORE.parent
-if str(_SCRIPTS) not in sys.path:
-    sys.path.insert(0, str(_SCRIPTS))
+_SESSION = _SCRIPTS / "schema" / "session"
+for _p in (_CORE, _SESSION, _SCRIPTS):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
+
 import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
 from compose_session import workflow_state_path  # noqa: E402
 from discussion_pointer_control import stage_gate_for_revision  # noqa: E402
+from discussion_pointer_schema import (  # noqa: E402
+    load_discussion_pointer,
+    save_discussion_pointer,
+)
+from dependency_tree_schema import load_dependency_tree  # noqa: E402
 from multi_slice_control import evaluate_split_ready  # noqa: E402
 from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID  # noqa: E402
 from workflow_state_schema import load_workflow_state, save_workflow_state  # noqa: E402
@@ -27,35 +35,24 @@ def enter_evaluating_state(
     *,
     profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
 ) -> dict[str, Any]:
-    """Move workflow-state Drafting → Evaluating. Does not touch evaluate-state.md.
+    """Set focus L ``phase=evaluating``; session remains ``Working``.
 
-    Requires locked Split topology (check-split-ready). Multi-L StageGate (v1.1):
-    every dependency of the current focus must have ``acceptance: done``.
+    Requires locked Split topology. Multi-L StageGate: every dependency of the
+    current focus must have ``acceptance: done``. Focus must already have
+    ``intake: done``.
     """
     ws_path = workflow_state_path(cycle_id, project_root, profile_id)
     state = load_workflow_state(ws_path)
     current = state["current_state"]
 
-    if current == "Evaluating":
-        try:
-            evaluate_round = int(state.get("evaluate_round", "0"))
-        except ValueError:
-            evaluate_round = 0
-        return {
-            "ok": True,
-            "current_state": "Evaluating",
-            "evaluate_round": evaluate_round,
-            "transitioned": False,
-        }
-
-    if current != "Drafting":
+    if current != "Working":
         return {
             "ok": False,
             "current_state": current,
             "transitioned": False,
             "resume": {
                 "entry": current,
-                "action": f"当前状态是 {current}，请先执行完 {current}。",
+                "action": f"当前状态是 {current}，需要 Working 才能开始评估当前 L。",
             },
         }
 
@@ -70,7 +67,7 @@ def enter_evaluating_state(
             "resume": {
                 "entry": current,
                 "action": (
-                    "无 locked 拓扑，不能进入 Evaluating；请回到 Split 补 lock "
+                    "无 locked 拓扑，不能进入 L evaluating；请回到 Split 补 lock "
                     f"或新开 revision。 ({topo_err})"
                 ),
             },
@@ -82,14 +79,78 @@ def enter_evaluating_state(
             "ok": False,
             "current_state": current,
             "transitioned": False,
-            "error": gate_reason or "StageGate blocked Evaluating entry",
+            "error": gate_reason or "StageGate blocked evaluating entry",
             "resume": {
                 "entry": current,
                 "action": (
-                    "StageGate: 前置 L 尚未 acceptance=done，不能进入 Evaluating。"
+                    "StageGate: 前置 L 尚未 acceptance=done，不能进入 evaluating。"
                     f" ({gate_reason})"
                 ),
             },
+        }
+
+    try:
+        tree = load_dependency_tree(revision_dir)
+        pointer = load_discussion_pointer(revision_dir)
+    except (FileNotFoundError, ValueError, OSError) as exc:
+        return {
+            "ok": False,
+            "current_state": current,
+            "transitioned": False,
+            "error": str(exc),
+            "resume": {"entry": current, "action": str(exc)},
+        }
+
+    focus = str(pointer["focus"])
+    cell = pointer["by_id"][focus]
+    if cell.get("phase") == "evaluating":
+        try:
+            evaluate_round = int(state.get("evaluate_round", "0"))
+        except ValueError:
+            evaluate_round = 0
+        return {
+            "ok": True,
+            "current_state": "Working",
+            "focus": focus,
+            "phase": "evaluating",
+            "evaluate_round": evaluate_round,
+            "transitioned": False,
+        }
+
+    if cell.get("intake") != "done":
+        return {
+            "ok": False,
+            "current_state": current,
+            "transitioned": False,
+            "error": f"focus {focus!r} intake is not done",
+            "resume": {
+                "entry": current,
+                "action": f"当前 L {focus} 尚未 intake=done，不能进入 evaluating。",
+            },
+        }
+    if cell.get("phase") == "accepted":
+        return {
+            "ok": False,
+            "current_state": current,
+            "transitioned": False,
+            "error": f"focus {focus!r} already accepted",
+            "resume": {
+                "entry": current,
+                "action": f"当前 L {focus} 已 accepted；请 switch 到其它 L 或交付。",
+            },
+        }
+
+    cell["phase"] = "evaluating"
+    cell["acceptance"] = "pending"
+    try:
+        save_discussion_pointer(revision_dir, pointer, tree=tree)
+    except ValueError as exc:
+        return {
+            "ok": False,
+            "current_state": current,
+            "transitioned": False,
+            "error": str(exc),
+            "resume": {"entry": current, "action": str(exc)},
         }
 
     try:
@@ -98,14 +159,15 @@ def enter_evaluating_state(
         evaluate_round = 1
 
     merged = dict(state)
-    merged.pop("skip_evaluate_requested", None)
-    merged["current_state"] = "Evaluating"
+    merged["current_state"] = "Working"
     merged["evaluate_round"] = str(evaluate_round)
     save_workflow_state(ws_path, merged, merge=False)
 
     return {
         "ok": True,
-        "current_state": "Evaluating",
+        "current_state": "Working",
+        "focus": focus,
+        "phase": "evaluating",
         "evaluate_round": evaluate_round,
         "transitioned": True,
     }
@@ -117,5 +179,5 @@ def transition_to_evaluating(
     *,
     profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
 ) -> dict[str, Any]:
-    """Deprecated alias for enter_evaluating_state (evaluate init moved to eval adapter)."""
+    """Deprecated alias for enter_evaluating_state."""
     return enter_evaluating_state(cycle_id, project_root, profile_id=profile_id)

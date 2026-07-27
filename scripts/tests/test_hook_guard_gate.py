@@ -79,7 +79,7 @@ class TestHasAnyValidSession:
 
     def test_drafting_counts_as_valid(self, tmp_path):
         from workflow_sessions import has_any_valid_session
-        _make_workflow_state(tmp_path, "feat-a", "lulu-plan", "r1", "Drafting")
+        _make_workflow_state(tmp_path, "feat-a", "lulu-plan", "r1", "Working")
         assert has_any_valid_session("feat-a", "lulu-plan", tmp_path) is True
 
     def test_old_state_names_ignored(self, tmp_path):
@@ -109,7 +109,7 @@ class TestCurrentEffectiveDelivered:
         from workflow_sessions import current_effective_delivered
         _make_workflow_state(tmp_path, "feat-a", "lulu-plan", "r1", "Delivered",
                              "2026-06-01T10:00:00+00:00")
-        _make_workflow_state(tmp_path, "feat-a", "lulu-plan", "r2", "Drafting",
+        _make_workflow_state(tmp_path, "feat-a", "lulu-plan", "r2", "Working",
                              "2026-06-02T10:00:00+00:00")
         assert current_effective_delivered("feat-a", "lulu-plan", tmp_path) is False
 
@@ -323,7 +323,7 @@ class TestGetSessions:
         from workflow_sessions import get_sessions
         _make_workflow_state(tmp_path, "feat-a", "lulu-plan", "r1", "Delivered",
                              "2026-06-01T10:00:00+00:00")
-        _make_workflow_state(tmp_path, "feat-a", "lulu-plan", "r2", "Drafting",
+        _make_workflow_state(tmp_path, "feat-a", "lulu-plan", "r2", "Working",
                              "2026-06-02T10:00:00+00:00")
         sessions = get_sessions("feat-a", "lulu-plan", tmp_path)
         assert len(sessions) == 2
@@ -402,7 +402,7 @@ class TestInvalidateDownstream:
         _make_workflow_state(tmp_path, "feat-a", "lulu-spec", "r1", "Delivered")
         _make_workflow_state(tmp_path, "feat-a", "lulu-approach", "r1", "InProgress")
         _make_workflow_state(tmp_path, "feat-a", "lulu-plan", "r1", "Delivered")
-        _make_workflow_state(tmp_path, "feat-a", "lulu-tasks", "r1", "Drafting")
+        _make_workflow_state(tmp_path, "feat-a", "lulu-tasks", "r1", "Working")
 
         invalidate_downstream("feat-a", "lulu-spec", "feature", tmp_path)
 

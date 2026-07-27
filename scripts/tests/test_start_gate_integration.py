@@ -347,7 +347,7 @@ class TestGateBlocked:
         """Gate blocked: prior stage Drafting → exit 1 with 'Gate blocked' on stderr."""
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID)
-        _make_session(cd, _CYCLE_ID, "lulu-bet", "r1", "Drafting")
+        _make_session(cd, _CYCLE_ID, "lulu-bet", "r1", "Working")
         result = _run_start("lulu-spec", tmp_path)
         assert result.returncode == 1
         assert "Gate blocked" in result.stderr
@@ -356,7 +356,7 @@ class TestGateBlocked:
         """Gate blocked → lulu-spec session file not created."""
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID)
-        _make_session(cd, _CYCLE_ID, "lulu-bet", "r1", "Drafting")
+        _make_session(cd, _CYCLE_ID, "lulu-bet", "r1", "Working")
         _run_start("lulu-spec", tmp_path)
         plan_dir = cd / _CYCLE_ID / "lulu-blueprint"
         assert not plan_dir.exists() or not any(plan_dir.rglob("workflow-state.md"))
@@ -366,7 +366,7 @@ class TestGateBlocked:
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID)
         _make_session(cd, _CYCLE_ID, "lulu-bet", "r1", "Delivered")
-        _make_session(cd, _CYCLE_ID, "lulu-spec", "r1", "Drafting")
+        _make_session(cd, _CYCLE_ID, "lulu-spec", "r1", "Working")
         result = _run_start("lulu-plan", tmp_path)
         assert result.returncode == 1
         assert "Gate blocked" in result.stderr
@@ -630,7 +630,7 @@ class TestAllStagesGateIntegration:
         """Each gated start.py exits 1 when lulu-bet is Drafting."""
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID)
-        _make_session(cd, _CYCLE_ID, "lulu-bet", "r1", "Drafting")
+        _make_session(cd, _CYCLE_ID, "lulu-bet", "r1", "Working")
         result = _run_start(stage, tmp_path)
         assert result.returncode == 1, (
             f"{stage}: expected exit 1 when lulu-bet is Drafting"

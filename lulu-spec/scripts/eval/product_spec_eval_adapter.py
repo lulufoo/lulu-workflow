@@ -21,6 +21,10 @@ from workflow_paths import EVAL_SCRIPTS, load_profile, shell_path  # noqa: E402
 
 _WORKFLOW_ID = "lulu-spec"
 
+from discussion_pointer_schema import (  # noqa: E402
+    focus_phase as pointer_focus_phase,
+    load_discussion_pointer,
+)
 from resolved_refs_schema import has_resolved_refs, resolved_scope_ref  # noqa: E402
 from session_state_schema import load_active_doc_from_cycle  # noqa: E402
 from workflow_common import detect_cycle_type  # noqa: E402
@@ -102,6 +106,11 @@ class ProductSpecEvalAdapter:
         project_root: Path,
     ) -> SessionContext:
         state = self.load_workflow_state(cycle_id, project_root)
+        revision_dir = self.resolve_workflow_state_path(cycle_id, project_root).parent
+        try:
+            phase = pointer_focus_phase(load_discussion_pointer(revision_dir))
+        except (FileNotFoundError, ValueError, OSError):
+            phase = "pending"
         return SessionContext(
             active_doc=load_active_doc_from_cycle(
                 cycle_id,
@@ -111,6 +120,7 @@ class ProductSpecEvalAdapter:
             mode=state["mode"],
             upstream_baseline_ref="",
             cycle_type=detect_cycle_type(cycle_id),
+            focus_phase=phase,
         )
 
     def eval_paths(

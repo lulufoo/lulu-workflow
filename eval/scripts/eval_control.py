@@ -11,7 +11,7 @@ Do not run this module directly as __main__.
 
 Subcommands:
     init-round                  Initialize evaluate-state.md (internal; session_control)
-    begin-eval-round            Enter Evaluating or start next round; return loop payload
+    begin-eval-round            Enter focus evaluating (session stays Working) or next round
     begin-dimension             Mark dimension in_progress and return eval-runner inputs
     finish-dimension-probe      Validate review and mark dimension probed (locked)
     check-dimension             Read-only verify dimension probed after eval-runner
@@ -203,7 +203,8 @@ _ENTRY_V3_KEYS = (
     "corpus_fingerprint",
     "dimension_dispatch",
 )
-_EXPECTED_EVALUATING_STATE = "Evaluating"
+_EXPECTED_SESSION_STATE = "Working"
+_EXPECTED_FOCUS_PHASE = "evaluating"
 _VALID_MODES = frozenset({"product", "tech"})
 _SEVERITY_RANK = {"critical": 3, "medium": 2, "minor": 1}
 
@@ -521,6 +522,10 @@ def build_issue_counts(
     }
 
 
+def _focus_phase(cycle_id: str, project_root: Path) -> str:
+    return _adapter().session_context(cycle_id, project_root).focus_phase
+
+
 def _load_evaluating_context(
     cycle_id: str,
     project_root: Path,
@@ -529,12 +534,22 @@ def _load_evaluating_context(
     ws_path = _adapter().resolve_workflow_state_path(cycle_id, project_root)
     state = _adapter().load_workflow_state(cycle_id, project_root)
     current = state["current_state"]
-    if current != _EXPECTED_EVALUATING_STATE:
+    if current != _EXPECTED_SESSION_STATE:
         return _failure(
             "",
             (
                 f"current state is {current!r}, "
-                f"expected {_EXPECTED_EVALUATING_STATE!r}."
+                f"expected {_EXPECTED_SESSION_STATE!r}."
+            ),
+            current_state=current,
+        )
+    phase = _focus_phase(cycle_id, project_root)
+    if phase != _EXPECTED_FOCUS_PHASE:
+        return _failure(
+            "",
+            (
+                f"focus phase is {phase!r}, "
+                f"expected {_EXPECTED_FOCUS_PHASE!r}."
             ),
             current_state=current,
         )
@@ -579,7 +594,7 @@ def build_eval_loop_payload(
     cycle_id: str,
     project_root: Path,
 ) -> dict[str, Any]:
-    """Build eval loop context payload (requires Evaluating + evaluate-state)."""
+    """Build eval loop context (requires Working + focus evaluating + evaluate-state)."""
     ctx = _load_evaluating_context(cycle_id, project_root)
     if isinstance(ctx, dict):
         ctx["command"] = _CMD_BEGIN_EVAL_ROUND
@@ -634,14 +649,24 @@ def _start_next_eval_round(
 
 
 def begin_eval_round(cycle_id: str, project_root: Path) -> dict[str, Any]:
-    """Enter Evaluating or start next eval round; validate evaluate-state; return payload."""
+    """Enter focus evaluating or start next eval round; return payload."""
     ws_path = _adapter().resolve_workflow_state_path(cycle_id, project_root)
     state = _adapter().load_workflow_state(cycle_id, project_root)
     current = state["current_state"]
     mode = state["mode"]
     es_path = _adapter().resolve_evaluate_state_path(cycle_id, project_root)
 
-    if current == _EXPECTED_EVALUATING_STATE:
+    if current != _EXPECTED_SESSION_STATE:
+        return _failure(
+            _CMD_BEGIN_EVAL_ROUND,
+            (
+                f"cannot enter evaluating from state {current!r} "
+                f"(expected {_EXPECTED_SESSION_STATE!r})."
+            ),
+            current_state=current,
+        )
+
+    if _focus_phase(cycle_id, project_root) == _EXPECTED_FOCUS_PHASE:
         if not es_path.exists():
             return _failure(
                 _CMD_BEGIN_EVAL_ROUND,
@@ -699,7 +724,7 @@ def begin_eval_round(cycle_id: str, project_root: Path) -> dict[str, Any]:
             _CMD_BEGIN_EVAL_ROUND,
             resume.get("action")
             or (
-                f"cannot enter Evaluating from state "
+                f"cannot enter evaluating from state "
                 f"{entry.get('current_state', '')!r}."
             ),
             current_state=entry.get("current_state", ""),
@@ -1911,7 +1936,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser(
         _CMD_BEGIN_EVAL_ROUND,
-        help="Enter Evaluating and return eval loop payload",
+        help="Enter focus evaluating and return eval loop payload",
     )
 
     begin_parser = sub.add_parser(

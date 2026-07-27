@@ -6,7 +6,7 @@ rule-guard:
 
 # Evaluating Orchestration Rules
 
-Loaded when parent routes to Evaluating Rules (user chose **Evaluate** from FreeEdit).
+Loaded when parent Working Rules routes to **Evaluating** (user chose **Evaluate** from FreeEdit on the focus L).
 Follow this document exactly. Do not execute any evaluation step before reading it.
 
 `$EVAL_CONTROL` invocation: `{$SKILL_ROOT}/eval/SKILL.md` → Mechanical command.
@@ -126,10 +126,11 @@ Load {$SKILL_ROOT}/eval/eval-sot-remediation-runner/SKILL.md and follow its inst
 
 1. Run `$EVAL_CONTROL complete-round`. On failure → Blocking. Pin payload.
 2. Present payload to the user.
-3. Ask user:
-   - **Deliver** → exit eval-rules (Deliver branch)
-   - **Continue editing** → Run `$SESSION_CONTROL resume-after-eval`. On failure → Blocking. Pin payload.; exit eval-rules (Continue editing branch)
-   - **Re-evaluate** → re-enter **Step 1 — Begin Eval**
+3. Ask user (session stays `Working`; exits act on the focus L):
+   - **Accept L** → Run `$L_SLICE accept-l --confirm` (optional `--switch` to suggested next ready L after human confirm). On failure → Blocking. Pin payload. Exit eval-rules (Accept L branch). If stdout shows all accepted → parent may offer **Deliver package**; otherwise continue the next L.
+   - **Fix L** → Run `$L_SLICE fix-l --confirm` (or `$SESSION_CONTROL resume-after-eval`). On failure → Blocking. Pin payload. Exit eval-rules (Fix L / Continue editing branch).
+   - **Re-evaluate** → re-enter **Step 1 — Begin Eval** (focus stays `evaluating`)
+   - **Deliver package** → only when every L is already `accepted`; otherwise hard-reject. Exit eval-rules (Deliver package branch) for parent ReadyForDelivery.
 
 ---
 

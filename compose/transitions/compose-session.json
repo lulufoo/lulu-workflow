@@ -1,19 +1,14 @@
 {
   "states": [
     "Split",
-    "Drafting",
-    "Evaluating",
+    "Working",
     "ReadyForDelivery",
     "Delivered",
     "Invalidated"
   ],
   "transitions": [
-    { "from": "Split", "to": "Drafting", "command": "split-complete" },
-    { "from": "Drafting", "to": "Evaluating", "command": "start-evaluating" },
-    { "from": "Drafting", "to": "ReadyForDelivery", "command": "ready-for-delivery" },
-    { "from": "Evaluating", "to": "ReadyForDelivery", "command": "ready-for-delivery" },
-    { "from": "Evaluating", "to": "Drafting", "command": "abandon-evaluation" },
-    { "from": "Evaluating", "to": "Drafting", "command": "resume-after-eval" },
+    { "from": "Split", "to": "Working", "command": "split-complete" },
+    { "from": "Working", "to": "ReadyForDelivery", "command": "ready-for-delivery" },
     { "from": "ReadyForDelivery", "to": "Delivered", "command": "deliver" }
   ]
 }

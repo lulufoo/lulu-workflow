@@ -2,7 +2,7 @@
 name: deductive-runner
 description: >-
   Pre-compose deductive fact production for compose stages with
-  drafting.inductive=false. Materializes upstream scope into _facts.json (P0),
+  pipeline.inductive=false. Materializes upstream scope into _facts.json (P0),
   completes required lenses via intent-ceiling + edge-coverage floor (Pd), and
   clears a human confirm gate before handing facts to compose Initializing.
 ---
@@ -31,7 +31,7 @@ This runner is **stage-agnostic**: lens set / Intent / derivation edges = `secti
 | `$CYCLE_ID` | Active cycle id |
 | `$SCOPE_REF` | Upstream scope SSOT path (prose or `decision-fact.json`) |
 | `$DEDUCTIVE_OUT_DIR` | Active revision dir (`revision{active_doc}/`) |
-| `$CODE_GROUNDING` | Optional; profile `drafting.code_grounding` (boolean string) |
+| `$CODE_GROUNDING` | Optional; profile `pipeline.code_grounding` (boolean string) |
 
 ## Script Macros
 
@@ -166,7 +166,7 @@ $FACTS_CTL validate --revision-dir "$DEDUCTIVE_OUT_DIR" --profile "$COMPOSE_PROF
 $DEDUCTIVE_CTL gate-check
 ```
 
-Return control to the parent compose stage. Parent runs `$DRAFT_CONTROL deductive-complete` then `begin-init`.
+Return control to the parent compose stage. Parent runs `$L_STEP deductive-complete` then `$L_STEP begin-init`.
 
 **Done:** both commands exit 0; `_facts.json` ready for Init validate-only.
 

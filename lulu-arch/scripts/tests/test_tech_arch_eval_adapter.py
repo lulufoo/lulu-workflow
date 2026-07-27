@@ -24,7 +24,7 @@ from tech_arch_eval_adapter import (  # noqa: E402
     TechArchEvalAdapter,
 )
 from tech_arch_eval_policy import select_dimension_ids  # noqa: E402
-from workflow_state_schema import init_drafting  # noqa: E402
+from workflow_state_schema import init_compose_session  # noqa: E402
 
 _CYCLE = "topic-arch-adapter"
 _CACHE = Path(".cache/cursor/lulu-dev-workflow")
@@ -54,7 +54,7 @@ class TestTechArchEvalAdapter:
 
     def test_resolve_eval_corpus_topic_mode(self, tmp_path: Path) -> None:
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="tech")
+        init_compose_session(ws, mode="tech")
         adapter = TechArchEvalAdapter()
         corpus = adapter.resolve_eval_corpus(_CYCLE, tmp_path)
         ids = select_dimension_ids()
@@ -64,7 +64,7 @@ class TestTechArchEvalAdapter:
 
     def test_resolve_eval_corpus_rejects_feature_cycle(self, tmp_path: Path) -> None:
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="tech")
+        init_compose_session(ws, mode="tech")
         adapter = TechArchEvalAdapter()
         with pytest.raises(ValueError, match="feature cycles do not evaluate"):
             adapter.resolve_eval_corpus("feat-arch-adapter", tmp_path)

@@ -625,6 +625,7 @@ def test_write_target_l_buckets_and_demotes(tmp_path: Path) -> None:
     ptr = build_pointer_from_tree(tree)
     ptr["by_id"]["L1"]["intake"] = "done"
     ptr["by_id"]["L1"]["acceptance"] = "done"
+    ptr["by_id"]["L1"]["phase"] = "accepted"
     save_discussion_pointer(rev, ptr, tree=tree)
     (rev / "L1").mkdir(exist_ok=True)
     (rev / "L1" / "design-doc.md").write_text("# L1\n\n## Boundary\n\n", encoding="utf-8")

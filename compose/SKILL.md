@@ -2,10 +2,11 @@
 name: compose
 description: >-
   Profile-driven compose engine (facts / chapters / F·C), session control, start
-  orchestration, drafting control, evaluation handoff, and delivery for structured
-  document stages (lulu-design, lulu-plan, lulu-spec). Consumed by stage holder
-  skills — holders declare identity (profile id, HARD-GATEs, produced
-  document); all Drafting/Evaluating/Delivery orchestration lives here.
+  orchestration, Working multi-L loop (per-L Inductive|Deductive / Init /
+  FreeEdit / Evaluating), and delivery for structured document stages
+  (lulu-design, lulu-plan, lulu-spec). Consumed by stage holder skills — holders
+  declare identity (profile id, HARD-GATEs, produced document); Split/Working/
+  Delivery orchestration lives here.
 ---
 
 # compose
@@ -20,7 +21,7 @@ Wherever this document says `<profile_id>`, substitute the calling holder's stag
 
 Authoring SSOT: `{WORKFLOW_ROOT}/{stage}/compose-profile.json` (lulu-plan, lulu-design, lulu-spec). At session start, `start` writes `.compose-profile-path` under `{cache_subdir}/` pointing at that file. Runtime `load_profile()` resolves via the pointer when `project_root` and `cycle_id` are set; delivery/schema tools read the authoring file directly.
 
-This engine reads `drafting.inductive` from the profile directly to conditionalize Drafting Step 0 below (static editorial configuration, not session state — direct SKILL reads are allowed for this field).
+This engine reads `pipeline.inductive` from the profile directly to choose Inductive vs Deductive below (static editorial configuration, not session state — direct SKILL reads are allowed for this field).
 
 ---
 
@@ -31,7 +32,7 @@ This engine reads `drafting.inductive` from the profile directly to conditionali
 ---
 
 <HARD-GATE name="Plan Scope Constraints">
-Before drafting or evaluation:
+Before producer / evaluation work:
 
 1. Run `$RESOLVE_PLAN_ROLE`.
 2. Read stdout as authoritative **Plan Scope Constraints** (domain + role).
@@ -61,13 +62,13 @@ python3 "$SKILL_ROOT/compose/scripts/core/start.py" \
 
 To resume an in-progress document on the **same revision**, do not run start again — run `$SESSION_INFO --view session` (producer resume: `resolve-context` on the active revision).
 
-To **abandon a partial revision** and begin fresh after fixes, run `$START_COMPOSE` again — it bumps `active_doc`, creates a new `revision{N}/`, and Drafting Step 0 (Inductive or Deductive) seeds a new state bundle there (prior revision artifacts remain on disk but are not read).
+To **abandon a partial revision** and begin fresh after fixes, run `$START_COMPOSE` again — it bumps `active_doc`, creates a new `revision{N}/`, and Inductive or Deductive seeds a new state bundle there (prior revision artifacts remain on disk but are not read).
 
 ---
 
 ## Split Rules
 
-**Session state:** `$START_COMPOSE` lands in **`Split`** (not Drafting). Topology lock is revision-level; single-req still locks an explicit **L1** tree. No `split-skip`.
+**Session state:** `$START_COMPOSE` lands in **`Split`**. Topology lock is revision-level; single-req still locks an explicit **L1** tree. No `split-skip`.
 
 1. Resolve `<revision_dir>` from `$SESSION_INFO`.
 2. `$MULTI_SLICE check-split-ready` — if ok, go to step 4.
@@ -84,47 +85,51 @@ COMPOSE_PROFILE=<profile_id>
 
    Human confirms stay on existing intake / `lock-tree --confirm`. Locked trees are immutable this iteration — re-split means a new revision. Multi-L lock requires rulers; single-L rulers exempt.
 4. `$MULTI_SLICE check-split-ready` — non-zero → Blocking.
-5. `$SESSION_CONTROL split-complete` — Split → Drafting. On failure → Blocking.
+5. `$SESSION_CONTROL split-complete` — Split → Working. On failure → Blocking.
 
-**Done:** workflow-state `current_state=Drafting` and check-split-ready exits 0.
+**Done:** workflow-state `current_state=Working` and check-split-ready exits 0.
 
 CLI: `$MULTI_SLICE --help`, `$SESSION_CONTROL` (`split-complete`).
 
 ---
 
-## L-slice scheduling
+## Working Rules
 
-Cross-cuts Drafting and Evaluating (not a Drafting-only step).
+**Session state:** `Working` after Split Rules (`split-complete`).
 
-Pointer maturity (noun phases, `pending|done`): `intake` = Drafting Step 0 producer closed (Inductive or Deductive complete); `acceptance` = L evaluated / exit closed. Not Split intake slots.
+**Shape:** N L each hold an independent sub-state (`by_id[Lx].phase` + `intake`/`acceptance`); **one focus thread** (sibling L may be `ready` in parallel — that is not parallel editing). Steps below run **only on the current focus L**.
 
-- Single session focus; switch only via `$L_SLICE switch --to <L> --confirm` (EnterPolicy: deps `intake: done`).
-- Per focus L, default pipeline: intake (Inductive|Deductive) → Init → FreeEdit → Evaluating → `$L_SLICE mark-done --kind acceptance --confirm` (requires `## Boundary`).
-- Sibling L may become `ready` in parallel; do not cut L inside inductive-runner.
+```text
+Split → Working
+loop (single focus):
+  Inductive|Deductive → Initializing → FreeEdit → Evaluating → Accept L
+       → (suggested next ready) human --confirm → switch → continue loop
+       → (all L accepted) leave Working
+→ ReadyForDelivery → Delivered
+```
+
+### L-slice scheduling
+
+Pointer maturity (`pending|done`): `intake` = Inductive|Deductive closed; `acceptance` = Accept L closed. Per-L `phase`: `pending|in_progress|evaluating|accepted`. Not Split intake slots.
+
+- Single focus; switch only via `$L_SLICE switch --to <L> --confirm` (EnterPolicy: deps `intake: done`).
+- Per focus L: Inductive|Deductive → Init → FreeEdit → Evaluating → `$L_SLICE accept-l --confirm` (requires `## Boundary`). Optional `--switch` to suggested next ready L (human confirm; never auto-switch).
+- Fix L: `$L_SLICE fix-l --confirm` or `$SESSION_CONTROL resume-after-eval` (evaluating → in_progress; same L) → **FreeEdit**.
+- Do not cut L inside inductive-runner.
 - **Fact writes (multi-L):** split facts against locked rulers first; each fact must carry `home_l` (+ short `home_rationale`); `$FACTS_CTL write --target-l <home_l>` (G1 divert ok; demotes accepted targets). Untagged writes hard-reject. Ambiguous ownership → rare human confirm. `home_l=package` only after human confirm with `--package-confirm`.
-- Enter Evaluating only when StageGate passes (deps `acceptance: done` — `$SESSION_CONTROL start-evaluating`); also requires locked topology.
-- When all relevant L are `acceptance: done` → `$MULTI_SLICE assemble-index --confirm` → `$L_SLICE seam-report` (advisory) → deliver with the profile-derived index (`document.filename` `*-doc.md` → `*-index.md`).
+- Enter evaluating only when StageGate passes (deps `acceptance: done` — `$SESSION_CONTROL start-evaluating`); also requires locked topology and focus `intake: done`.
 - `$L_SLICE resume` / `status` / `ready` — no illegal focus moves (hand-editing pointer JSON is forbidden).
+- skip-eval is forbidden.
 
-CLI: `$L_SLICE --help`.
+CLI: `$L_SLICE --help`. `$L_STEP --help` (per-L step machine).
 
----
+### Inductive (only when `pipeline.inductive` is `true`)
 
-## Drafting Rules
-
-**Entry:** After Split Rules (`split-complete`) → Drafting Step 0 (producer) → Drafting Step 1 → Drafting Step 2; or Evaluating fix resume → Drafting Step 2; or resume via `$SESSION_INFO --view session`.
-**Drafting states:** `[Inductive|Deductive →] Initialized → FreeEdit` — Inductive when `drafting.inductive` is `true`; Deductive when `false`.
-**Hard gate:** `$DRAFT_CONTROL begin-inductive` / `begin-deductive` require session `Drafting` and locked topology (no tree → Blocking; new revision or return to Split).
-
-### Drafting Step 0 — Producer facts
-
-Always run — no opt-in prompt. Exactly one of Step 0.1 / Step 0.2, branching on `drafting.inductive`.
-
-#### Step 0.1 — Produce facts inductively (only when `drafting.inductive` is `true`)
+**Hard gate:** `$L_STEP begin-inductive` requires session `Working` and locked topology.
 
 **Inductive-runner** is a human-driven gate spine (Shape → Grounding → Refine → Recompose → Provenance): AI recommends; the **user** closes each gate. Run **inline in this conversation**. **Exceptions (subagents via `$SUBAGENT_TOOL`, read-only):** deprecated G2 → `g2-grounding-runner`; G3 Class 1B → `g3-shallow-grounding-runner` (optional); G3 Class 2 → `g3-deep-grounding-runner` (optional).
 
-1. Run `$DRAFT_CONTROL begin-inductive`. On failure → Blocking. On success → follow inductive-runner with stdout as `## Input`:
+1. Run `$L_STEP begin-inductive`. On failure → Blocking. On success → follow inductive-runner with stdout as `## Input`:
 
 ```text
 Load {actual $SKILL_ROOT}/compose/inductive-runner/SKILL.md and follow its instructions in this conversation (interactive, human-driven — NOT a subagent).
@@ -133,13 +138,15 @@ Load {actual $SKILL_ROOT}/compose/inductive-runner/SKILL.md and follow its instr
 {begin-inductive stdout}
 ```
 
-2. After G4 and G5 close, run `$DRAFT_CONTROL inductive-complete`. On failure → Blocking. `_facts.json` must exist (discovery-written).
+2. After G4 and G5 close, run `$L_STEP inductive-complete`. On failure → Blocking. `_facts.json` must exist (discovery-written).
 
-#### Step 0.2 — Produce facts deductively (only when `drafting.inductive` is `false`)
+### Deductive (only when `pipeline.inductive` is `false`)
+
+**Hard gate:** `$L_STEP begin-deductive` requires session `Working` and locked topology.
 
 **Deductive-runner** materializes upstream + completes lenses (intent ceiling + edge floor) + human confirm gate. Run **inline in this conversation** (interactive confirm — NOT a subagent).
 
-1. Run `$DRAFT_CONTROL begin-deductive`. On failure → Blocking. On success → follow deductive-runner with stdout as `## Input`:
+1. Run `$L_STEP begin-deductive`. On failure → Blocking. On success → follow deductive-runner with stdout as `## Input`:
 
 ```text
 Load {actual $SKILL_ROOT}/compose/deductive-runner/SKILL.md and follow its instructions in this conversation (interactive, human-driven — NOT a subagent).
@@ -148,13 +155,13 @@ Load {actual $SKILL_ROOT}/compose/deductive-runner/SKILL.md and follow its instr
 {begin-deductive stdout}
 ```
 
-2. After Steps 1–4 complete (confirm gate clear), run `$DRAFT_CONTROL deductive-complete`. On failure → Blocking. `_facts.json` must exist and pending must be clear.
+2. After Steps 1–4 complete (confirm gate clear), run `$L_STEP deductive-complete`. On failure → Blocking. `_facts.json` must exist and pending must be clear.
 
-### Drafting Step 1 — Initializing
+### Initializing
 
 Compose the document via fact-first Init (see initializing-runner). No mapping paste. Init **validate-only** on producer-written `_facts.json` — never Import/Atomize/Derive. `begin-init` hard-errors if the producer step did not complete or `_facts.json` is missing.
 
-1. Run `$DRAFT_CONTROL begin-init`.
+1. Run `$L_STEP begin-init`.
    - On failure → Blocking.
    - On success → dispatch initializing-runner (stdout → `## Input`):
 
@@ -167,29 +174,28 @@ Load {actual $SKILL_ROOT}/compose/initializing-runner/SKILL.md and follow its in
 
 Await completion (`$SUBAGENT_AWAIT_SYNC`).
 
-2. Run `$DRAFT_CONTROL init-complete`. On failure → Blocking.
+2. Run `$L_STEP init-complete`. On failure → Blocking.
 
-3. **Pause gate:** Present runner return summary and the compose document path. Offer **only** the options listed in this profile's `drafting.post_init_options` (do not invent options absent from the list).
-   - **freeedit** (when listed) → run `$DRAFT_CONTROL advance-to-freeedit`. On failure → Blocking. Proceed to **Drafting Step 2 — FreeEdit**.
-   - **evaluate** (when listed) → **Evaluating Rules** below (skip FreeEdit).
-   - **deliver** (when listed) → **ReadyForDelivery Rules** below (skip FreeEdit).
-   - If `deliver` is listed without a prior Evaluating round in this revision, prefer routing the user to **evaluate** first (Eval is the delivery quality gate).
-### Drafting Step 2 — FreeEdit
+3. **Pause gate:** Present runner return summary and the compose document path. Offer **only** the options listed in this profile's `pipeline.post_init_options` (do not invent options absent from the list).
+   - **freeedit** (when listed) → run `$L_STEP advance-to-freeedit`. On failure → Blocking. Proceed to **FreeEdit**.
+   - **evaluate** (when listed) → **Evaluating** below (skip FreeEdit).
+   - **deliver** (when listed) → only if every L is already accepted; else prefer **evaluate**. Then **Leave Working** / **ReadyForDelivery Rules**.
+   - If `deliver` is listed without Accept L for this focus, prefer **evaluate** first.
 
-Entry: `advance-to-freeedit` success, or Evaluating fix resume.
+### FreeEdit
+
+Entry: `advance-to-freeedit` success, or Fix L resume.
 
 - User drives edits; AI assists on request.
 - Prefer **structured** edits over hand-editing the assembled compose `.md` (`.md` is a one-way projection):
-  - **Tier A (same revision, presentation):** edit `_body-{cid}.txt` / `_derive-{cid}.json` (optionally sync existing fact `text` in `_facts.json`). Narrative-arc Init: visible group/leaf titles come from `_narrative-arc.json` via `$COMPOSE_DOC_CONTROL assemble-arc` (default `--lens-heading omit`); derive holds F/C (`form` / `expression`), not spine titles. Never use `_chapters.json` / `_lens-themes.json` / `_chapter-framework.json` / `_chapter-placement.json` (retired). Skip Drafting Step 0 / Drafting Step 1.
-  - **Tier B (new revision, structure/facts topology):** do **not** patch chapter set / `lens_tags` in place — run `$START_COMPOSE` for a new revision, re-run Drafting Step 0 (producer) then Init (Steps 2–5). Leave Evaluating-fix-resume.
+  - **Tier A (same revision, presentation):** edit `_body-{cid}.txt` / `_derive-{cid}.json` (optionally sync existing fact `text` in `_facts.json`). Narrative-arc Init: visible group/leaf titles come from `_narrative-arc.json` via `$COMPOSE_DOC_CONTROL assemble-arc` (default `--lens-heading omit`); derive holds F/C (`form` / `expression`), not spine titles. Never use `_chapters.json` / `_lens-themes.json` / `_chapter-framework.json` / `_chapter-placement.json` (retired). Skip Inductive|Deductive / Initializing.
+  - **Tier B (new revision, structure/facts topology):** do **not** patch chapter set / `lens_tags` in place — run `$START_COMPOSE` for a new revision, re-run Inductive|Deductive then Init. Leave Fix-L resume.
   - If the user insists on editing the assembled `.md`: warn that the next rebuild / new revision will overwrite; do not reverse-parse `.md` into JSON.
-- When user signals done, ask using remaining `drafting.post_init_options` that still apply (typically Evaluate; Deliver only if listed and Evaluating already completed for this revision):
-  - **Evaluate** → **Evaluating Rules** below.
-  - **Deliver** (only if listed) → **ReadyForDelivery Rules** below.
+- When user signals done, ask using remaining `pipeline.post_init_options` that still apply (typically Evaluate; Deliver package only if listed and all L already accepted):
+  - **Evaluate** → **Evaluating** below.
+  - **Deliver** (only if listed) → **Leave Working** only when all L are accepted; otherwise Blocking / continue the L loop.
 
----
-
-## Evaluating Rules
+### Evaluating
 
 Before handoff: `$SESSION_CONTROL start-evaluating` requires locked Split topology, then StageGate (deps of current focus must be `acceptance: done`). On failure → Blocking; fix topology / finish or re-evaluate predecessor L (`$L_SLICE status` / `can-enter-evaluate`). See **L-slice scheduling**.
 
@@ -197,10 +203,18 @@ Read `{$SKILL_ROOT}/eval/eval-rules.md` and follow its instructions (only when t
 
 When eval-rules completes, follow its exit branch:
 
-- **Deliver** → **ReadyForDelivery Rules** below.
-- **Continue editing** → enter **Drafting Step 2 — FreeEdit** (Evaluating fix resume; skip Drafting Step 0 / Drafting Step 1).
+- **Accept L** → `$L_SLICE accept-l --confirm` (optional `--switch` to suggested next). If all L accepted → **Leave Working**. Otherwise stay in Working and continue the L-slice loop on the next focus.
+- **Fix L** → `$L_SLICE fix-l --confirm` (or `$SESSION_CONTROL resume-after-eval`) → **FreeEdit** (skip Inductive|Deductive / Initializing).
+- **Deliver package** → only when all L are accepted → **Leave Working**. Partial Accept must not route here.
 
 Dimension set, evaluation framework, and eval-mode branching (e.g. tech vs product mode dimension gating) are owned by `eval/eval-rules.md` and this profile's eval adapter — this engine performs a single handoff and does not enumerate dimensions.
+
+### Leave Working
+
+When every L is `phase=accepted`:
+
+1. `$MULTI_SLICE assemble-index --confirm` → `$L_SLICE seam-report` (advisory).
+2. Proceed to **ReadyForDelivery Rules** (profile-derived index: `document.filename` `*-doc.md` → `*-index.md`).
 
 ---
 
@@ -229,15 +243,15 @@ Stage-agenda items (design-external blockers/notes) live under the revision dir;
 | Document | When |
 |----------|------|
 | `{SKILL_ROOT}/compose/split-runner/SKILL.md` | Split Rules — multi-subdesign split (intake → lock tree+rulers) |
-| `{SKILL_ROOT}/compose/inductive-runner/SKILL.md` | Drafting Step 0.1 — inductive-runner (`drafting.inductive: true`) |
-| `{SKILL_ROOT}/compose/deductive-runner/SKILL.md` | Drafting Step 0.2 — deductive-runner (`drafting.inductive: false`) |
-| `{SKILL_ROOT}/compose/inductive-runner/g2-grounding-runner/SKILL.md` | Drafting Step 0 — **deprecated** optional G2 topology subagent (prefer `attach-code-refs` in Class 2 processing) |
-| `{SKILL_ROOT}/compose/inductive-runner/g3-shallow-grounding-runner/SKILL.md` | Drafting Step 0 — optional G3 shallow grounding subagent (detect facts only; parent `add-open`) |
-| `{SKILL_ROOT}/compose/inductive-runner/g3-deep-grounding-runner/SKILL.md` | Drafting Step 0 — optional G3 deep grounding subagent (one open; parent settles) |
-| `{SKILL_ROOT}/compose/inductive-runner/g4-recompose-runner/SKILL.md` | Drafting Step 0 — Gate 4 internal-audit subagent (section JSON + shape checkpoint) |
-| `{SKILL_ROOT}/compose/inductive-runner/g5-provenance-runner/SKILL.md` | Drafting Step 0 — Gate 5 external-audit subagent (section JSON provenance) |
-| `{SKILL_ROOT}/compose/initializing-runner/SKILL.md` | Drafting Step 1 — initializing-runner |
-| `{$SKILL_ROOT}/eval/eval-rules.md` | Evaluating (user-initiated) |
+| `{SKILL_ROOT}/compose/inductive-runner/SKILL.md` | Working → Inductive — inductive-runner (`pipeline.inductive: true`) |
+| `{SKILL_ROOT}/compose/deductive-runner/SKILL.md` | Working → Deductive — deductive-runner (`pipeline.inductive: false`) |
+| `{SKILL_ROOT}/compose/inductive-runner/g2-grounding-runner/SKILL.md` | Working → Inductive — **deprecated** optional G2 topology subagent (prefer `attach-code-refs` in Class 2 processing) |
+| `{SKILL_ROOT}/compose/inductive-runner/g3-shallow-grounding-runner/SKILL.md` | Working → Inductive — optional G3 shallow grounding subagent (detect facts only; parent `add-open`) |
+| `{SKILL_ROOT}/compose/inductive-runner/g3-deep-grounding-runner/SKILL.md` | Working → Inductive — optional G3 deep grounding subagent (one open; parent settles) |
+| `{SKILL_ROOT}/compose/inductive-runner/g4-recompose-runner/SKILL.md` | Working → Inductive — Gate 4 internal-audit subagent (section JSON + shape checkpoint) |
+| `{SKILL_ROOT}/compose/inductive-runner/g5-provenance-runner/SKILL.md` | Working → Inductive — Gate 5 external-audit subagent (section JSON provenance) |
+| `{SKILL_ROOT}/compose/initializing-runner/SKILL.md` | Working → Initializing — initializing-runner |
+| `{$SKILL_ROOT}/eval/eval-rules.md` | Working → Evaluating (user-initiated) |
 
 ---
 
@@ -252,19 +266,19 @@ Fetch compose framework templates on demand; **do not** read `workflow-config.js
 | `$START_COMPOSE` | `python3 "$SKILL_ROOT/compose/scripts/core/start.py" --project-root "$(pwd)" --cycle-id "$CYCLE_ID" --profile <profile_id> --profile-path "$SKILL_DIR/compose-profile.json"` |
 | `$SESSION_INFO` | `python3 "$SKILL_ROOT/compose/scripts/core/session_info.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile <profile_id> --view <view>` |
 | `$SESSION_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/core/session_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile <profile_id> <subcommand>` — session transitions (`split-complete` / `start-evaluating` / …) via `compose/transitions/compose-session.json`; do not load that file directly |
-| `$DRAFT_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/section/draft_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile <profile_id> <subcommand>` |
+| `$L_STEP` | `python3 "$SKILL_ROOT/compose/scripts/section/l_step_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile <profile_id> <subcommand>` |
 | `$INDUCTIVE_FACTS_PROJ` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_facts_projection.py"` (K4 retired — `project` fail-fast; facts written by discovery loop) |
 | `$RESOLVE_PLAN_ROLE` | `python3 "$SKILL_ROOT/compose/scripts/scope/scope_resolver.py" --profile <profile_id> --project-root "$(pwd)" resolve-role --cycle-id "$CYCLE_ID"` |
 | `$FETCH_COMPOSE` | `python3 "$SKILL_ROOT/compose/scripts/io/fetch_compose_framework.py" --role <role> --profile <profile_id> --project-root "$(pwd)" --cycle-id "$CYCLE_ID"` |
 | `$EVAL_CONTROL` | `python3 "$SKILL_ROOT/eval/scripts/eval_entry.py" --workflow <profile_id> --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
-| `$FIDELITY_EVAL_CONTROL` | `python3 "$SKILL_ROOT/compose/fidelity/scripts/fidelity_control.py" --revision-dir <revision_dir>` — compose-internal doc→facts gate (not stage Evaluating); see `compose/fidelity/README.md` |
+| `$FIDELITY_EVAL_CONTROL` | `python3 "$SKILL_ROOT/compose/fidelity/scripts/fidelity_control.py" --revision-dir <revision_dir>` — compose-internal doc→facts gate (not Working Evaluating); see `compose/fidelity/README.md` |
 | `$COMPOSE_DOC_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/section/compose_doc_control.py" <subcommand> [args...]` |
 | `$NARRATIVE_ARC_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/narrative_arc_control.py"` |
 | `$CHAPTER_WRITE_STATE` | `python3 "$SKILL_ROOT/compose/scripts/section/chapter_write_state_control.py"` — Init 4.W claim-current gate: `sync` / `status` / `begin` (ticket) / `complete` (current) |
 | `$INIT_COMPOSE_VALIDATE` | `python3 "$SKILL_ROOT/compose/scripts/section/init_compose_validation.py" validate --revision-dir <dir> --compose-doc <path> --profile <profile_id> --project-root "$(pwd)"` |
 | `$AGENDA_CTL` | `python3 "$SKILL_ROOT/agenda/scripts/agenda_control.py" <subcommand> --project-root "$(pwd)" --cycle-id "$CYCLE_ID" --profile <profile_id> [args...]` — stage agenda; resolves `revision{N}` from session-state (see `$SKILL_ROOT/agenda/SKILL.md`) |
 | `$MULTI_SLICE` | `python3 "$SKILL_ROOT/compose/scripts/core/multi_slice_control.py" --revision-dir <revision_dir> --profile <profile_id> <subcommand>` — `check-root-facts` / `migrate-root-facts` / `write-intake` / `complete-intake` / `lock-tree` / `check-split-ready` / `assemble-index` |
-| `$L_SLICE` | `python3 "$SKILL_ROOT/compose/scripts/core/discussion_pointer_control.py" --revision-dir <revision_dir> --profile <profile_id> <subcommand>` — `status` / `resume` / `ready` / `can-admit` / `can-enter-evaluate` / `switch` / `mark-done` / `demote-acceptance` / `seam-report` |
+| `$L_SLICE` | `python3 "$SKILL_ROOT/compose/scripts/core/discussion_pointer_control.py" --revision-dir <revision_dir> --profile <profile_id> <subcommand>` — `status` / `resume` / `ready` / `can-admit` / `can-enter-evaluate` / `switch` / `mark-done` / `accept-l` / `fix-l` / `demote-acceptance` / `seam-report` |
 | `$FACTS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/facts_control.py"` — `write` / `filter` / `validate` / `status` (multi-L: `write` requires `home_l`; package bucket needs `--package-confirm`) |
 
 Subcommands and stdout: script module docstrings or `--help`.

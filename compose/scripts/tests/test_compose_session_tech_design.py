@@ -27,8 +27,8 @@ from compose_session import (  # noqa: E402
 )
 from session_info import session_snapshot, stage_transitions  # noqa: E402
 from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, seed_profile_pointer_for_tests  # noqa: E402
-from workflow_state_schema import init_drafting  # noqa: E402
-from init_drafting_helpers import init_drafting_ready  # noqa: E402
+from workflow_state_schema import init_compose_session  # noqa: E402
+from init_working_helpers import init_working_ready, mark_focus_intake_done  # noqa: E402
 
 _CYCLE = "feature-composesession001-abc12345"
 _PROFILE = "lulu-design"
@@ -45,7 +45,7 @@ def _seed_design_session(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     ws = revision / "workflow-state.md"
-    init_drafting_ready(ws, mode="tech")
+    init_working_ready(ws, mode="tech")
     (revision / "L1" / "design-doc.md").write_text(
         "---\n\n# Design X\n\nSummary for design session.\n",
         encoding="utf-8",
@@ -80,9 +80,13 @@ class TestComposeSessionTechDesign:
 
     def test_adapter_enter_evaluating_creates_evaluate_state(self, tmp_path: Path):
         _seed_design_session(tmp_path)
+        rev = tmp_path / _CACHE / _CYCLE / "lulu-design" / "revision1"
+        mark_focus_intake_done(rev)
         adapter = TechDesignEvalAdapter()
         result = adapter.enter_evaluating(_CYCLE, tmp_path)
         assert result["ok"] is True
+        assert result["current_state"] == "Working"
+        assert result["phase"] == "evaluating"
         es = (
             tmp_path
             / _CACHE

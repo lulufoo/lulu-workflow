@@ -44,6 +44,7 @@ def test_active_slice_dir_follows_pointer(tmp_path: Path) -> None:
     ptr = build_pointer_from_tree(tree)
     ptr["focus"] = "L2"
     ptr["by_id"]["L1"]["intake"] = "done"
+    ptr["by_id"]["L1"]["phase"] = "in_progress"
     save_discussion_pointer(rev, ptr, tree=tree)
     assert active_slice_dir(rev) == (rev / "L2").resolve()
 

@@ -65,6 +65,6 @@ def test_design_k0b_skill_config_points_upstream() -> None:
 
 def test_design_k0b_profile_has_no_display_layer_flag() -> None:
     profile = json.loads(_PROFILE.read_text(encoding="utf-8"))
-    assert profile["drafting"]["inductive"] is True
-    assert "display_layer" not in profile.get("drafting", {})
+    assert profile["pipeline"]["inductive"] is True
+    assert "display_layer" not in profile.get("pipeline", {})
     assert "outline-registry" not in (profile.get("framework_templates") or {})

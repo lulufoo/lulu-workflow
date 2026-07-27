@@ -23,8 +23,8 @@ from product_spec_eval_adapter import (  # noqa: E402
 from corpus_compose import corpus_fingerprint  # noqa: E402
 from delivered_refs_schema import DeliveredRef  # noqa: E402
 from product_spec_eval_policy import select_dimension_ids  # noqa: E402
-from workflow_state_schema import init_drafting  # noqa: E402
-from init_drafting_helpers import seed_delivered_refs_file, seed_provenance_artifacts  # noqa: E402
+from workflow_state_schema import init_compose_session  # noqa: E402
+from init_working_helpers import seed_delivered_refs_file, seed_provenance_artifacts  # noqa: E402
 
 _CYCLE = "feat-lulu-spec-adapter"
 _CACHE = Path(".cache/cursor/lulu-dev-workflow")
@@ -48,7 +48,7 @@ def _seed_session(tmp_path: Path) -> Path:
     ws = rev / "workflow-state.md"
     refs = [DeliveredRef(type="lulu-bet", path=str(diag.resolve()))]
     seed_delivered_refs_file(tmp_path, _CYCLE, refs)
-    init_drafting(ws, mode="product")
+    init_compose_session(ws, mode="product")
     seed_profile_pointer_for_tests(tmp_path, _CYCLE, "lulu-spec")
     seed_provenance_artifacts(
         ws,
@@ -113,7 +113,7 @@ class TestProductSpecEvalAdapter:
         )
         ws = base / "revision1" / "workflow-state.md"
         ws.parent.mkdir(parents=True, exist_ok=True)
-        init_drafting(ws, mode="product")
+        init_compose_session(ws, mode="product")
         adapter = ProductSpecEvalAdapter()
         with pytest.raises(ValueError, match="topic cycles do not evaluate in lulu-spec"):
             adapter.resolve_eval_corpus(cycle, tmp_path)

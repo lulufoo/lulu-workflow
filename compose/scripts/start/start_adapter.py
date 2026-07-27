@@ -92,7 +92,7 @@ class StartAdapter(Protocol):
         carry_forward_ref: str,
         scope_refs: list[DeliveredRef],
     ) -> str:
-        """Orchestrator-facing note after init_drafting (may be empty)."""
+        """Orchestrator-facing note after init_compose_session (may be empty)."""
 
     def delivered_ref_for_init(
         self,

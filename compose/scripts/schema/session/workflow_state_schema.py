@@ -51,8 +51,6 @@ _SCHEMA: list[dict] = [
      "description": "Absolute path to previous compose doc revision (may be empty)"},
     {"field": "updated_at", "type": "string", "required": True,
      "description": "ISO 8601 last-update timestamp"},
-    {"field": "skip_evaluate_requested", "type": "string", "required": False,
-     "description": "true only for Drafting -> ReadyForDelivery; omit on Delivered"},
     {"field": "historical", "type": "string", "required": False,
      "description": "Set to true when session is superseded by reopen"},
 ]
@@ -74,7 +72,7 @@ _REQUIRED_KEY_ORDER = [
 
 _VALID_MODES = frozenset({"product", "tech"})
 _VALID_CYCLE_TYPES = frozenset({"topic", "feature"})
-_SKIP_EVALUATE_VALUES = frozenset({"true", "false"})
+_FORBIDDEN_LEGACY_FIELDS = frozenset({"skip_evaluate_requested"})
 _HISTORICAL_VALUES = frozenset({"true"})
 
 def get_schema() -> list[dict]:
@@ -128,20 +126,16 @@ def validate_workflow_state(data: dict) -> list[str]:
         except (TypeError, ValueError):
             errors.append(f"invalid evaluate_round: {evaluate_round!r} (must be integer)")
 
-    skip_eval = data.get("skip_evaluate_requested")
-    if skip_eval is not None and skip_eval not in _SKIP_EVALUATE_VALUES:
-        errors.append(
-            f"invalid skip_evaluate_requested: {skip_eval!r} "
-            f"(allowed: {sorted(_SKIP_EVALUATE_VALUES)} or omit)"
-        )
-
     historical = data.get("historical")
     if historical is not None and historical not in _HISTORICAL_VALUES:
         errors.append(f"invalid historical: {historical!r} (allowed: 'true' or omit)")
 
-    if data.get("current_state") == "Delivered" and "skip_evaluate_requested" in data:
+    legacy = sorted(set(data) & _FORBIDDEN_LEGACY_FIELDS)
+    if legacy:
         errors.append(
-            "skip_evaluate_requested must be omitted when current_state is Delivered"
+            "forbidden legacy field(s): "
+            + ", ".join(legacy)
+            + " (skip-eval retired; omit and use Accept L / all-accepted ReadyForDelivery)"
         )
 
     return errors
@@ -210,7 +204,7 @@ def read_workflow_state(path: Path) -> Optional[dict]:
     return fields or None
 
 
-def read_current_state(path: Path, default: str = "Drafting") -> str:
+def read_current_state(path: Path, default: str = "Working") -> str:
     """Read current_state from workflow-state.md, returning default if absent."""
     fields = read_workflow_state(path)
     if not fields:
@@ -229,7 +223,7 @@ def resolve_workflow_state_path_from_cycle(
     return project_root / state_path(cycle_id, active_doc, profile_id, project_root)
 
 
-def init_drafting(
+def init_compose_session(
     path: Path,
     *,
     mode: str,
@@ -239,7 +233,7 @@ def init_drafting(
 ) -> None:
     """Initialize workflow-state.md in session state ``Split``.
 
-    New revisions start in Split (topology lock) before Drafting. Name kept for
+    New revisions start in Split (topology lock) before Working. Name kept for
     call-site stability; see archive-4.0 compose-split-step-state-machine-design.
 
     workflow-state carries pure session-control state. The frozen upstream

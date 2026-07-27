@@ -79,4 +79,4 @@ Empty without explicit `N/A` → do not advance past Step 0 / do not lock.
 
 ## Completion
 
-Return to compose Split Rules when `check-split-ready` is ok; parent runs `split-complete` then Drafting. Compose owns `$L_SLICE` afterward.
+Return to compose Split Rules when `check-split-ready` is ok; parent runs `split-complete` then Working. Compose owns `$L_SLICE` afterward.

@@ -39,7 +39,7 @@ from workflow_common import (
     load_container_meta,
     write_active_context,
 )
-from workflow_state_schema import init_drafting, mark_historical
+from workflow_state_schema import init_compose_session, mark_historical
 
 from scope_resolver import resolve_role_summary, ScopeResolverError  # noqa: E402
 
@@ -233,7 +233,7 @@ def run_start(
     write_cycle_state(cycle_id, to_stage, cache_dir)
 
     ws_path = project_root / profile_state_path(cycle_id, active_doc, profile_id, project_root)
-    init_drafting(
+    init_compose_session(
         ws_path,
         mode=run_mode,
         cycle_type=cycle_type,

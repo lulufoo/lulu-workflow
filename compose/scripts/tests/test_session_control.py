@@ -33,13 +33,19 @@ from session_control import (  # noqa: E402
     ready_for_delivery,
     start_evaluating,
 )
-from workflow_state_schema import init_drafting, load_workflow_state, save_workflow_state
+from workflow_state_schema import init_compose_session, load_workflow_state, save_workflow_state
 from workflow_paths import (  # noqa: E402
     DEFAULT_COMPOSE_PROFILE_ID,
     seed_profile_pointer_for_tests,
 )
 from delivered_refs_schema import load_delivered_refs_file  # noqa: E402
-from init_drafting_helpers import init_drafting_ready, lock_single_l1_tree  # noqa: E402
+from init_working_helpers import (  # noqa: E402
+    init_working_ready,
+    lock_single_l1_tree,
+    mark_all_l_accepted,
+    mark_focus_evaluating,
+    mark_focus_intake_done,
+)
 from session_control import split_complete  # noqa: E402
 
 _CYCLE = "feat-test"
@@ -85,7 +91,7 @@ def _setup_abandon_ready(
 ) -> tuple[Path, Path]:
     del upstream_baseline_ref
     ws = _seed_session(tmp_path)
-    init_drafting_ready(
+    init_working_ready(
         ws,
         mode=mode,
         carry_forward_ref=carry_forward_ref,
@@ -94,11 +100,11 @@ def _setup_abandon_ready(
     save_workflow_state(
         ws,
         {
-            "current_state": "Evaluating",
+            "current_state": "Working",
             "evaluate_round": str(evaluate_round),
-            "skip_evaluate_requested": "true",
         },
     )
+    mark_focus_evaluating(ws.parent)
     es_path = ws.parent / "evaluate-state.md"
     init_evaluate_state(es_path, tmp_path=tmp_path)
     save_evaluate_state(es_path, {"eval_status": "abandoned"})
@@ -106,17 +112,19 @@ def _setup_abandon_ready(
 
 
 class TestStartEvaluating:
-    def test_from_drafting_product_mode(self, tmp_path: Path):
+    def test_from_working_product_mode(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting_ready(ws, mode="product")
+        init_working_ready(ws, mode="product")
+        mark_focus_intake_done(ws.parent)
 
         result = _ADAPTER.enter_evaluating(_CYCLE, tmp_path)
 
         assert result["ok"] is True
-        assert result["current_state"] == "Evaluating"
+        assert result["current_state"] == "Working"
+        assert result["phase"] == "evaluating"
         assert result["evaluate_round"] == 1
         loaded = load_workflow_state(ws)
-        assert loaded["current_state"] == "Evaluating"
+        assert loaded["current_state"] == "Working"
         assert loaded["evaluate_round"] == "1"
         assert "skip_evaluate_requested" not in loaded
         es = load_evaluate_state(ws.parent / "evaluate-state.md")
@@ -124,13 +132,15 @@ class TestStartEvaluating:
         assert dim_map["e2"] == "pending"
         assert dim_map["e3"] == "pending"
 
-    def test_from_drafting_tech_mode(self, tmp_path: Path):
+    def test_from_working_tech_mode(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting_ready(ws, mode="tech")
+        init_working_ready(ws, mode="tech")
+        mark_focus_intake_done(ws.parent)
 
         result = _ADAPTER.enter_evaluating(_CYCLE, tmp_path)
 
         assert result["ok"] is True
+        assert result["current_state"] == "Working"
         es = load_evaluate_state(ws.parent / "evaluate-state.md")
         dim_map = _dim_map(es, tmp_path)
         assert "e1" not in dim_map
@@ -138,8 +148,9 @@ class TestStartEvaluating:
 
     def test_increments_evaluate_round(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting_ready(ws, mode="tech", evaluate_round=1)
-        save_workflow_state(ws, {"current_state": "Drafting", "evaluate_round": "1"})
+        init_working_ready(ws, mode="tech", evaluate_round=1)
+        save_workflow_state(ws, {"current_state": "Working", "evaluate_round": "1"})
+        mark_focus_intake_done(ws.parent)
         result = _ADAPTER.enter_evaluating(_CYCLE, tmp_path)
         assert result["evaluate_round"] == 2
         loaded = load_workflow_state(ws)
@@ -147,19 +158,22 @@ class TestStartEvaluating:
 
     def test_start_evaluating_state_only(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting_ready(ws, mode="tech")
+        init_working_ready(ws, mode="tech")
+        mark_focus_intake_done(ws.parent)
 
         result = start_evaluating(_CYCLE, tmp_path)
 
         assert result["ok"] is True
-        assert result["current_state"] == "Evaluating"
+        assert result["current_state"] == "Working"
+        assert result["phase"] == "evaluating"
         loaded = load_workflow_state(ws)
-        assert loaded["current_state"] == "Evaluating"
+        assert loaded["current_state"] == "Working"
         assert not (ws.parent / "evaluate-state.md").exists()
 
     def test_idempotent_when_already_evaluating(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting_ready(ws, mode="tech")
+        init_working_ready(ws, mode="tech")
+        mark_focus_intake_done(ws.parent)
         _ADAPTER.enter_evaluating(_CYCLE, tmp_path)
         es_path = ws.parent / "evaluate-state.md"
         es = load_evaluate_state(es_path)
@@ -174,7 +188,8 @@ class TestStartEvaluating:
 
     def test_failure_from_ready_for_delivery(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting_ready(ws, mode="tech")
+        init_working_ready(ws, mode="tech")
+        mark_all_l_accepted(ws.parent)
         ready_for_delivery(_CYCLE, tmp_path)
         result = start_evaluating(_CYCLE, tmp_path)
         assert result["ok"] is False
@@ -182,21 +197,20 @@ class TestStartEvaluating:
 
 
 class TestReadyForDelivery:
-    def test_from_drafting_sets_skip_flag(self, tmp_path: Path):
+    def test_rejects_without_all_accepted(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting_ready(ws, mode="product")
+        init_working_ready(ws, mode="product")
 
         result = ready_for_delivery(_CYCLE, tmp_path)
 
-        assert result["ok"] is True
-        assert result["current_state"] == "ReadyForDelivery"
-        loaded = load_workflow_state(ws)
-        assert loaded["skip_evaluate_requested"] == "true"
+        assert result["ok"] is False
+        assert "not all L accepted" in result["error"]
+        assert load_workflow_state(ws)["current_state"] == "Working"
 
-    def test_from_evaluating_omits_skip_flag(self, tmp_path: Path):
+    def test_from_working_when_all_accepted(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting_ready(ws, mode="tech")
-        save_workflow_state(ws, {"current_state": "Evaluating", "evaluate_round": "1"})
+        init_working_ready(ws, mode="tech")
+        mark_all_l_accepted(ws.parent)
 
         result = ready_for_delivery(_CYCLE, tmp_path)
 
@@ -207,7 +221,8 @@ class TestReadyForDelivery:
 
     def test_idempotent_when_already_ready(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting_ready(ws, mode="tech")
+        init_working_ready(ws, mode="tech")
+        mark_all_l_accepted(ws.parent)
         ready_for_delivery(_CYCLE, tmp_path)
         result = ready_for_delivery(_CYCLE, tmp_path)
         assert result["ok"] is True
@@ -215,7 +230,8 @@ class TestReadyForDelivery:
 
     def test_failure_from_delivered(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting_ready(ws, mode="tech")
+        init_working_ready(ws, mode="tech")
+        mark_all_l_accepted(ws.parent)
         ready_for_delivery(_CYCLE, tmp_path)
         deliver(_CYCLE, tmp_path)
 
@@ -229,8 +245,9 @@ class TestReadyForDelivery:
 class TestDeliver:
     def test_success_from_ready_for_delivery(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting_ready(ws, mode="product")
+        init_working_ready(ws, mode="product")
         (ws.parent / "L1" / "tech-doc.md").write_text("# Tech\n", encoding="utf-8")
+        mark_all_l_accepted(ws.parent)
         ready_for_delivery(_CYCLE, tmp_path)
 
         result = deliver(_CYCLE, tmp_path, note="confirmed")
@@ -250,8 +267,9 @@ class TestDeliver:
 
     def test_deliver_blocked_by_open_agenda_blocker(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting_ready(ws, mode="product")
+        init_working_ready(ws, mode="product")
         (ws.parent / "L1" / "tech-doc.md").write_text("# Tech\n", encoding="utf-8")
+        mark_all_l_accepted(ws.parent)
         ready_for_delivery(_CYCLE, tmp_path)
         (ws.parent / "agenda.json").write_text(
             json.dumps(
@@ -284,8 +302,9 @@ class TestDeliver:
     def test_deliver_succeeds_after_ready_then_agenda_cleared(self, tmp_path: Path):
         """Regression: ready then add blocker must still fail; clear → deliver ok."""
         ws = _seed_session(tmp_path)
-        init_drafting_ready(ws, mode="product")
+        init_working_ready(ws, mode="product")
         (ws.parent / "L1" / "tech-doc.md").write_text("# Tech\n", encoding="utf-8")
+        mark_all_l_accepted(ws.parent)
         ready_for_delivery(_CYCLE, tmp_path)
         (ws.parent / "agenda.json").write_text(
             json.dumps(
@@ -342,9 +361,10 @@ class TestDeliver:
             encoding="utf-8",
         )
         ws = base / "revision1" / "workflow-state.md"
-        init_drafting_ready(ws, mode="tech")
+        init_working_ready(ws, mode="tech")
         (ws.parent / "L1" / "design-doc.md").write_text("# Design\n", encoding="utf-8")
         (ws.parent / "_facts.json").write_text("[]\n", encoding="utf-8")
+        mark_all_l_accepted(ws.parent)
         ready_for_delivery(_CYCLE, tmp_path, profile_id="lulu-design")
 
         result = deliver(_CYCLE, tmp_path, note="design ok", profile_id="lulu-design")
@@ -366,8 +386,9 @@ class TestDeliver:
             encoding="utf-8",
         )
         ws = base / "revision1" / "workflow-state.md"
-        init_drafting_ready(ws, mode="tech")
+        init_working_ready(ws, mode="tech")
         (ws.parent / "L1" / "design-doc.md").write_text("# Design\n", encoding="utf-8")
+        mark_all_l_accepted(ws.parent)
         ready_for_delivery(_CYCLE, tmp_path, profile_id="lulu-design")
 
         result = deliver(_CYCLE, tmp_path, profile_id="lulu-design")
@@ -383,9 +404,10 @@ class TestDeliver:
     ):
         """Plan local _facts.json must not be registered on deliver."""
         ws = _seed_session(tmp_path)
-        init_drafting_ready(ws, mode="product")
+        init_working_ready(ws, mode="product")
         (ws.parent / "L1" / "tech-doc.md").write_text("# Tech\n", encoding="utf-8")
         (ws.parent / "_facts.json").write_text("[]\n", encoding="utf-8")
+        mark_all_l_accepted(ws.parent)
         ready_for_delivery(_CYCLE, tmp_path)
 
         result = deliver(_CYCLE, tmp_path, note="plan with facts")
@@ -397,29 +419,16 @@ class TestDeliver:
         assert "lulu-design-facts" not in refs["entries"]
         assert "lulu-plan-facts" not in refs["entries"]
 
-    def test_failure_from_evaluating(self, tmp_path: Path):
+    def test_failure_from_working(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting_ready(ws, mode="tech")
-        save_workflow_state(ws, {"current_state": "Evaluating"})
+        init_working_ready(ws, mode="tech")
 
         result = deliver(_CYCLE, tmp_path)
 
         assert result["ok"] is False
-        assert result["current_state"] == "Evaluating"
-        assert result["message"] == (
-            "deliver 被拒绝：当前状态为 Evaluating，"
-            "预期状态为 ReadyForDelivery。请暂停执行，等待用户指示。"
-        )
-        assert "resume" not in result
-
-    def test_failure_from_drafting(self, tmp_path: Path):
-        ws = _seed_session(tmp_path)
-        init_drafting_ready(ws, mode="tech")
-
-        result = deliver(_CYCLE, tmp_path)
-
-        assert result["ok"] is False
-        assert "Drafting" in result["message"]
+        assert result["current_state"] == "Working"
+        assert "Working" in result["message"]
+        assert "ReadyForDelivery" in result["message"]
         assert "resume" not in result
 
 
@@ -431,25 +440,25 @@ class TestAbandonEvaluation:
 
         assert result["ok"] is True
         assert result["command"] == _CMD_ABANDON
-        assert result["current_state"] == "Drafting"
+        assert result["current_state"] == "Working"
         assert result["evaluate_round"] == 2
         loaded = load_workflow_state(ws)
-        assert loaded["current_state"] == "Drafting"
+        assert loaded["current_state"] == "Working"
         assert loaded["evaluate_round"] == "2"
-        assert loaded["skip_evaluate_requested"] == "false"
+        assert "skip_evaluate_requested" not in loaded
         assert loaded["mode"] == "product"
         assert loaded["carry_forward_ref"] == "/old.md"
 
     def test_failure_when_not_evaluating(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting_ready(ws, mode="tech")
+        init_working_ready(ws, mode="tech")
 
         result = abandon_evaluation(_CYCLE, tmp_path)
 
         assert result["ok"] is False
         assert result["command"] == _CMD_ABANDON
-        assert result["current_state"] == "Drafting"
-        assert "Evaluating" in result["message"]
+        assert result["current_state"] == "Working"
+        assert "abandoned" in result["message"] or "evaluate-state" in result["message"]
         assert "resume" not in result
 
     def test_failure_when_not_abandoned(self, tmp_path: Path):
@@ -459,22 +468,23 @@ class TestAbandonEvaluation:
         result = abandon_evaluation(_CYCLE, tmp_path)
 
         assert result["ok"] is False
-        assert result["current_state"] == "Evaluating"
+        assert result["current_state"] == "Working"
         assert "abandoned" in result["message"]
         loaded = load_workflow_state(ws)
-        assert loaded["current_state"] == "Evaluating"
+        assert loaded["current_state"] == "Working"
 
     def test_failure_when_evaluate_state_missing(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting_ready(ws, mode="tech")
-        save_workflow_state(ws, {"current_state": "Evaluating", "evaluate_round": "1"})
+        init_working_ready(ws, mode="tech")
+        save_workflow_state(ws, {"current_state": "Working", "evaluate_round": "1"})
+        mark_focus_evaluating(ws.parent)
 
         result = abandon_evaluation(_CYCLE, tmp_path)
 
         assert result["ok"] is False
         assert "evaluate-state.md" in result["message"]
         loaded = load_workflow_state(ws)
-        assert loaded["current_state"] == "Evaluating"
+        assert loaded["current_state"] == "Working"
 
 
 class TestCli:
@@ -482,7 +492,8 @@ class TestCli:
         import subprocess
 
         ws = _seed_session(tmp_path)
-        init_drafting_ready(ws, mode="tech")
+        init_working_ready(ws, mode="tech")
+        mark_focus_intake_done(ws.parent)
         script = CORE / "session_control.py"
         proc = subprocess.run(
             [
@@ -527,13 +538,13 @@ class TestCli:
         payload = json.loads(proc.stdout)
         assert payload["ok"] is True
         assert payload["command"] == _CMD_ABANDON
-        assert payload["current_state"] == "Drafting"
+        assert payload["current_state"] == "Working"
 
     def test_deliver_failure_json_on_stdout(self, tmp_path: Path):
         import subprocess
 
         ws = _seed_session(tmp_path)
-        init_drafting_ready(ws, mode="tech")
+        init_working_ready(ws, mode="tech")
         script = CORE / "session_control.py"
         proc = subprocess.run(
             [
@@ -559,22 +570,22 @@ class TestCli:
 
 
 class TestSplitComplete:
-    def test_split_to_drafting_with_locked_l1(self, tmp_path: Path):
+    def test_split_to_working_with_locked_l1(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="tech")
+        init_compose_session(ws, mode="tech")
         assert load_workflow_state(ws)["current_state"] == "Split"
         lock_single_l1_tree(ws.parent)
 
         result = split_complete(_CYCLE, tmp_path)
 
         assert result["ok"] is True
-        assert result["current_state"] == "Drafting"
+        assert result["current_state"] == "Working"
         assert result.get("transitioned") is True
-        assert load_workflow_state(ws)["current_state"] == "Drafting"
+        assert load_workflow_state(ws)["current_state"] == "Working"
 
     def test_split_complete_rejects_without_tree(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="tech")
+        init_compose_session(ws, mode="tech")
 
         result = split_complete(_CYCLE, tmp_path)
 
@@ -586,10 +597,10 @@ class TestSplitComplete:
 
     def test_start_evaluating_rejects_without_topology(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="tech")
-        save_workflow_state(ws, {"current_state": "Drafting"})
+        init_compose_session(ws, mode="tech")
+        save_workflow_state(ws, {"current_state": "Working"})
 
         result = start_evaluating(_CYCLE, tmp_path)
 
         assert result["ok"] is False
-        assert result["current_state"] == "Drafting"
+        assert result["current_state"] == "Working"

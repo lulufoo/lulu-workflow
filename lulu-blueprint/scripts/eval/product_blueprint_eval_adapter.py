@@ -26,6 +26,10 @@ LULU_BLUEPRINT_COMPOSED_CORPUS_REF = (
     f"{LULU_BLUEPRINT_COMPOSED_CORPUS_ID}@{LULU_BLUEPRINT_COMPOSED_CORPUS_VERSION}"
 )
 
+from discussion_pointer_schema import (  # noqa: E402
+    focus_phase as pointer_focus_phase,
+    load_discussion_pointer,
+)
 from session_state_schema import load_active_doc_from_cycle  # noqa: E402
 from workflow_common import detect_cycle_type  # noqa: E402
 from workflow_profile_paths import (  # noqa: E402
@@ -100,6 +104,11 @@ class ProductBlueprintEvalAdapter:
         project_root: Path,
     ) -> SessionContext:
         state = self.load_workflow_state(cycle_id, project_root)
+        revision_dir = self.resolve_workflow_state_path(cycle_id, project_root).parent
+        try:
+            phase = pointer_focus_phase(load_discussion_pointer(revision_dir))
+        except (FileNotFoundError, ValueError, OSError):
+            phase = "pending"
         return SessionContext(
             active_doc=load_active_doc_from_cycle(
                 cycle_id,
@@ -109,6 +118,7 @@ class ProductBlueprintEvalAdapter:
             mode=state["mode"],
             upstream_baseline_ref="",
             cycle_type=detect_cycle_type(cycle_id),
+            focus_phase=phase,
         )
 
     def eval_paths(

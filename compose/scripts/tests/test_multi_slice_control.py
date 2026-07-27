@@ -80,12 +80,20 @@ def test_assemble_index_after_production(tmp_path: Path) -> None:
         )
         == 0
     )
+    from discussion_pointer_schema import (  # noqa: E402
+        load_discussion_pointer,
+        save_discussion_pointer,
+    )
+
     profile_id = "lulu-design"
     assert cmd_mark_done(
         rev, confirm=True, kind="intake", profile_id=profile_id
     ) == 0
     doc = rev / "L1" / "design-doc.md"
     doc.write_text("# L1\n\n## Boundary\n\n", encoding="utf-8")
+    ptr = load_discussion_pointer(rev)
+    ptr["by_id"]["L1"]["phase"] = "evaluating"
+    save_discussion_pointer(rev, ptr)
     assert cmd_mark_done(
         rev, confirm=True, kind="acceptance", profile_id=profile_id
     ) == 0
@@ -97,6 +105,10 @@ def test_assemble_index_after_production(tmp_path: Path) -> None:
 
 def test_assemble_index_uses_plan_doc_filename(tmp_path: Path) -> None:
     from discussion_pointer_control import cmd_mark_done  # noqa: E402
+    from discussion_pointer_schema import (  # noqa: E402
+        load_discussion_pointer,
+        save_discussion_pointer,
+    )
     from multi_slice_control import cmd_assemble_index  # noqa: E402
 
     rev = tmp_path / "revision1"
@@ -124,6 +136,9 @@ def test_assemble_index_uses_plan_doc_filename(tmp_path: Path) -> None:
     ) == 0
     doc = rev / "L1" / "tech-doc.md"
     doc.write_text("# L1\n\n## Boundary\n\n", encoding="utf-8")
+    ptr = load_discussion_pointer(rev)
+    ptr["by_id"]["L1"]["phase"] = "evaluating"
+    save_discussion_pointer(rev, ptr)
     assert cmd_mark_done(
         rev, confirm=True, kind="acceptance", profile_id=profile_id
     ) == 0

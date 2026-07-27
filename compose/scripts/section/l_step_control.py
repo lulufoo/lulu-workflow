@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generic profile-aware draft control for compose stages."""
+"""Generic profile-aware L-step control for compose stages (`$L_STEP`)."""
 
 from __future__ import annotations
 
@@ -18,14 +18,19 @@ import kernel_bootstrap  # noqa: E402
 kernel_bootstrap.ensure_kernel_paths()
 
 from compose_session import document_file_path, load_active_doc_for_profile  # noqa: E402
-from drafting_progress_schema import (  # noqa: E402
-    load_drafting_progress,
+from l_step_progress_schema import (  # noqa: E402
+    load_l_step_progress,
     read_current_step,
-    resolve_drafting_progress_path_from_cycle,
-    save_drafting_progress,
+    resolve_l_step_progress_path_from_cycle,
+    save_l_step_progress,
 )
 from delivered_refs_schema import serialize_delivered_refs  # noqa: E402
-from discussion_pointer_schema import active_slice_dir  # noqa: E402
+from dependency_tree_schema import load_dependency_tree  # noqa: E402
+from discussion_pointer_schema import (  # noqa: E402
+    active_slice_dir,
+    load_discussion_pointer,
+    save_discussion_pointer,
+)
 from facts_schema import facts_path  # noqa: E402
 from deductive_gate import evaluate_deductive_gate  # noqa: E402
 from init_compose_validation import validate_init_artifacts  # noqa: E402
@@ -77,13 +82,13 @@ def _failure(command: str, reason: str, **extra: Any) -> dict[str, Any]:
     return payload
 
 
-def _drafting_config(cycle_id: str, project_root: Path, profile_id: str) -> dict:
+def _pipeline_config(cycle_id: str, project_root: Path, profile_id: str) -> dict:
     profile = load_profile(profile_id, project_root=project_root, cycle_id=cycle_id)
-    return profile.get("drafting") or {}
+    return profile.get("pipeline") or {}
 
 
 def _progress_path(cycle_id: str, project_root: Path, profile_id: str) -> Path:
-    return resolve_drafting_progress_path_from_cycle(
+    return resolve_l_step_progress_path_from_cycle(
         cycle_id,
         project_root,
         profile_id=profile_id,
@@ -95,13 +100,14 @@ def _revision_dir(cycle_id: str, project_root: Path, profile_id: str) -> Path:
     return (project_root / doc_dir(cycle_id, active_doc, profile_id, project_root)).resolve()
 
 
-def _require_drafting_session(
+def _require_working_session(
     cycle_id: str,
     project_root: Path,
     profile_id: str,
     command: str,
 ) -> str | None:
-    """Return failure reason unless workflow-state is Drafting and topology locked."""
+    """Return failure reason unless workflow-state is Working and topology locked."""
+    _ = command
     ws_path = resolve_workflow_state_path_from_cycle(
         cycle_id, project_root, profile_id=profile_id,
     )
@@ -117,14 +123,42 @@ def _require_drafting_session(
             "session is still Split; run split-complete after locking topology "
             "(single-req = explicit L1 tree)"
         )
-    if current != "Drafting":
-        return f"session current_state is {current!r} (expected Drafting)"
+    if current != "Working":
+        return f"session current_state is {current!r} (expected Working)"
     ok, err, _ = evaluate_split_ready(ws_path.parent)
     if not ok:
         return (
-            "locked split topology required before Drafting producer "
+            "locked split topology required before Working producer "
             f"({err or 'check-split-ready failed'})"
         )
+    return None
+
+
+def _ensure_focus_phase_in_progress(
+    cycle_id: str,
+    project_root: Path,
+    profile_id: str,
+) -> str | None:
+    """pending → in_progress on focus when beginning intake producer. None = ok."""
+    revision_dir = _revision_dir(cycle_id, project_root, profile_id)
+    try:
+        tree = load_dependency_tree(revision_dir)
+        pointer = load_discussion_pointer(revision_dir)
+    except (FileNotFoundError, ValueError, OSError) as exc:
+        return str(exc)
+    focus = str(pointer["focus"])
+    cell = pointer["by_id"][focus]
+    phase = str(cell.get("phase") or "pending")
+    if phase == "accepted":
+        return f"focus {focus!r} is accepted; demote or switch before producer"
+    if phase == "evaluating":
+        return f"focus {focus!r} is evaluating; Fix L before producer"
+    if phase == "pending":
+        cell["phase"] = "in_progress"
+        try:
+            save_discussion_pointer(revision_dir, pointer, tree=tree)
+        except ValueError as exc:
+            return str(exc)
     return None
 
 
@@ -231,8 +265,8 @@ def _format_deductive_dispatch_input(
     profile_id: str,
 ) -> str:
     revision_dir = _revision_dir(cycle_id, project_root, profile_id)
-    drafting = _drafting_config(cycle_id, project_root, profile_id)
-    code_grounding = bool(drafting.get("code_grounding"))
+    pipeline = _pipeline_config(cycle_id, project_root, profile_id)
+    code_grounding = bool(pipeline.get("code_grounding"))
     lines = [
         f"COMPOSE_PROFILE:      {profile_id}",
         f"CYCLE_ID:             {cycle_id}",
@@ -279,14 +313,17 @@ def begin_inductive(
     *,
     profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
 ) -> dict[str, Any]:
-    if _drafting_config(cycle_id, project_root, profile_id).get("inductive") is not True:
-        return _failure(_CMD_BEGIN_INDUCTIVE, "drafting.inductive is false for this profile")
+    if _pipeline_config(cycle_id, project_root, profile_id).get("inductive") is not True:
+        return _failure(_CMD_BEGIN_INDUCTIVE, "pipeline.inductive is false for this profile")
 
-    session_err = _require_drafting_session(
+    session_err = _require_working_session(
         cycle_id, project_root, profile_id, _CMD_BEGIN_INDUCTIVE,
     )
     if session_err:
         return _failure(_CMD_BEGIN_INDUCTIVE, session_err)
+    phase_err = _ensure_focus_phase_in_progress(cycle_id, project_root, profile_id)
+    if phase_err:
+        return _failure(_CMD_BEGIN_INDUCTIVE, phase_err)
 
     progress_path = _progress_path(cycle_id, project_root, profile_id)
     if progress_path.exists():
@@ -301,7 +338,7 @@ def begin_inductive(
     if claim_err:
         return _failure(_CMD_BEGIN_INDUCTIVE, claim_err)
     dispatch_input = _format_inductive_dispatch_input(cycle_id, project_root, profile_id)
-    save_drafting_progress(
+    save_l_step_progress(
         progress_path,
         {"version": "1", "cycle_id": cycle_id, "current_step": _STEP_INDUCTIVE},
         profile_id=profile_id,
@@ -322,11 +359,11 @@ def inductive_complete(
     *,
     profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
 ) -> dict[str, Any]:
-    if _drafting_config(cycle_id, project_root, profile_id).get("inductive") is not True:
-        return _failure(_CMD_INDUCTIVE_COMPLETE, "drafting.inductive is false for this profile")
+    if _pipeline_config(cycle_id, project_root, profile_id).get("inductive") is not True:
+        return _failure(_CMD_INDUCTIVE_COMPLETE, "pipeline.inductive is false for this profile")
     progress_path = _progress_path(cycle_id, project_root, profile_id)
     if not progress_path.exists():
-        return _failure(_CMD_INDUCTIVE_COMPLETE, "drafting-progress.md not found")
+        return _failure(_CMD_INDUCTIVE_COMPLETE, "l-step-progress.md not found")
     step = read_current_step(progress_path)
     if step != _STEP_INDUCTIVE:
         return _failure(
@@ -357,17 +394,20 @@ def begin_deductive(
     *,
     profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
 ) -> dict[str, Any]:
-    if _drafting_config(cycle_id, project_root, profile_id).get("inductive") is True:
+    if _pipeline_config(cycle_id, project_root, profile_id).get("inductive") is True:
         return _failure(
             _CMD_BEGIN_DEDUCTIVE,
-            "drafting.inductive is true — use begin-inductive",
+            "pipeline.inductive is true — use begin-inductive",
         )
 
-    session_err = _require_drafting_session(
+    session_err = _require_working_session(
         cycle_id, project_root, profile_id, _CMD_BEGIN_DEDUCTIVE,
     )
     if session_err:
         return _failure(_CMD_BEGIN_DEDUCTIVE, session_err)
+    phase_err = _ensure_focus_phase_in_progress(cycle_id, project_root, profile_id)
+    if phase_err:
+        return _failure(_CMD_BEGIN_DEDUCTIVE, phase_err)
 
     progress_path = _progress_path(cycle_id, project_root, profile_id)
     if progress_path.exists():
@@ -385,7 +425,7 @@ def begin_deductive(
     dispatch_input = _format_deductive_dispatch_input(
         cycle_id, project_root, profile_id,
     )
-    save_drafting_progress(
+    save_l_step_progress(
         progress_path,
         {"version": "1", "cycle_id": cycle_id, "current_step": _STEP_DEDUCTIVE},
         profile_id=profile_id,
@@ -406,14 +446,14 @@ def deductive_complete(
     *,
     profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
 ) -> dict[str, Any]:
-    if _drafting_config(cycle_id, project_root, profile_id).get("inductive") is True:
+    if _pipeline_config(cycle_id, project_root, profile_id).get("inductive") is True:
         return _failure(
             _CMD_DEDUCTIVE_COMPLETE,
-            "drafting.inductive is true — use inductive-complete",
+            "pipeline.inductive is true — use inductive-complete",
         )
     progress_path = _progress_path(cycle_id, project_root, profile_id)
     if not progress_path.exists():
-        return _failure(_CMD_DEDUCTIVE_COMPLETE, "drafting-progress.md not found")
+        return _failure(_CMD_DEDUCTIVE_COMPLETE, "l-step-progress.md not found")
     step = read_current_step(progress_path)
     if step != _STEP_DEDUCTIVE:
         return _failure(
@@ -441,9 +481,9 @@ def begin_init(
     profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
 ) -> dict[str, Any]:
     progress_path = _progress_path(cycle_id, project_root, profile_id)
-    drafting = _drafting_config(cycle_id, project_root, profile_id)
+    pipeline = _pipeline_config(cycle_id, project_root, profile_id)
     step = read_current_step(progress_path)
-    if drafting.get("inductive") is True:
+    if pipeline.get("inductive") is True:
         if step not in (_STEP_INDUCTIVE, _STEP_INITIALIZED):
             return _failure(
                 _CMD_BEGIN_INIT,
@@ -522,10 +562,10 @@ def init_complete(
         ):
             return _failure(
                 _CMD_INIT_COMPLETE,
-                f"drafting-progress already at {step!r}; cannot re-initialize",
+                f"l-step-progress already at {step!r}; cannot re-initialize",
                 current_step=step,
             )
-    save_drafting_progress(
+    save_l_step_progress(
         progress_path,
         {"version": "1", "cycle_id": cycle_id, "current_step": _STEP_INITIALIZED},
         profile_id=profile_id,
@@ -542,11 +582,11 @@ def advance_to_freeedit(
     *,
     profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
 ) -> dict[str, Any]:
-    if _drafting_config(cycle_id, project_root, profile_id).get("freeedit") is not True:
-        return _failure(_CMD_ADVANCE_TO_FREEEDIT, "drafting.freeedit is false for this profile")
+    if _pipeline_config(cycle_id, project_root, profile_id).get("freeedit") is not True:
+        return _failure(_CMD_ADVANCE_TO_FREEEDIT, "pipeline.freeedit is false for this profile")
     progress_path = _progress_path(cycle_id, project_root, profile_id)
     if not progress_path.exists():
-        return _failure(_CMD_ADVANCE_TO_FREEEDIT, "drafting-progress.md not found")
+        return _failure(_CMD_ADVANCE_TO_FREEEDIT, "l-step-progress.md not found")
     step = read_current_step(progress_path)
     if step == _STEP_FREE_EDIT:
         return _success(_CMD_ADVANCE_TO_FREEEDIT, current_step=_STEP_FREE_EDIT)
@@ -556,7 +596,7 @@ def advance_to_freeedit(
             f"cannot advance to FreeEdit: current_step is {step!r} (expected Initialized)",
             current_step=step,
         )
-    save_drafting_progress(
+    save_l_step_progress(
         progress_path,
         {"version": "1", "cycle_id": cycle_id, "current_step": _STEP_FREE_EDIT},
         profile_id=profile_id,
@@ -575,8 +615,8 @@ def draft_status(
 ) -> dict[str, Any]:
     progress_path = _progress_path(cycle_id, project_root, profile_id)
     if not progress_path.exists():
-        return _failure(_CMD_STATUS, "drafting-progress.md not found")
-    data = load_drafting_progress(
+        return _failure(_CMD_STATUS, "l-step-progress.md not found")
+    data = load_l_step_progress(
         progress_path,
         profile_id=profile_id,
         project_root=project_root,

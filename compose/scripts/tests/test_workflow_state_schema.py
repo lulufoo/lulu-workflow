@@ -12,7 +12,7 @@ from bootstrap import CORE, SCHEMA_SESSION  # noqa: E402
 
 from workflow_state_schema import (
     get_schema,
-    init_drafting,
+    init_compose_session,
     load_workflow_state,
     mark_historical,
     mark_invalidated,
@@ -39,7 +39,7 @@ _VALID_DATA = {
     "workflow": "tech-doc",
     "mode": "product",
     "cycle_type": "feature",
-    "current_state": "Drafting",
+    "current_state": "Working",
     "evaluate_round": "0",
     "carry_forward_ref": "",
     "updated_at": "2024-01-01T00:00:00+00:00",
@@ -70,20 +70,20 @@ class TestValidateWorkflowState:
         errors = validate_workflow_state(data)
         assert any("current_state" in e for e in errors)
 
-    def test_delivered_rejects_skip_evaluate_requested(self):
+    def test_rejects_legacy_skip_evaluate_requested(self):
         data = {
             **_VALID_DATA,
-            "current_state": "Delivered",
             "skip_evaluate_requested": "true",
         }
         errors = validate_workflow_state(data)
         assert any("skip_evaluate_requested" in e for e in errors)
+        assert any("forbidden legacy" in e for e in errors)
 
 
-class TestInitDrafting:
-    def test_writes_valid_drafting_state(self, tmp_path: Path):
+class TestInitComposeSession:
+    def test_writes_valid_split_state(self, tmp_path: Path):
         path = tmp_path / "revision1" / "workflow-state.md"
-        init_drafting(
+        init_compose_session(
             path,
             mode="tech",
             carry_forward_ref="/old/tech-doc.md",
@@ -100,7 +100,7 @@ class TestInitDrafting:
 class TestMarkHistorical:
     def test_idempotent(self, tmp_path: Path):
         path = tmp_path / "workflow-state.md"
-        init_drafting(path, mode="product")
+        init_compose_session(path, mode="product")
         save_workflow_state(path, {"current_state": "Delivered"})
         mark_historical(path)
         first = load_workflow_state(path)
@@ -113,7 +113,7 @@ class TestMarkHistorical:
 class TestMarkInvalidated:
     def test_preserves_other_fields(self, tmp_path: Path):
         path = tmp_path / "workflow-state.md"
-        init_drafting(path, mode="product")
+        init_compose_session(path, mode="product")
         mark_invalidated(path)
         loaded = load_workflow_state(path)
         assert loaded["current_state"] == "Invalidated"
@@ -122,7 +122,7 @@ class TestMarkInvalidated:
 
 class TestReadCurrentState:
     def test_missing_file_returns_default(self, tmp_path: Path):
-        assert read_current_state(tmp_path / "missing.md", default="Drafting") == "Drafting"
+        assert read_current_state(tmp_path / "missing.md", default="Working") == "Working"
 
 
 class TestResolveWorkflowStatePathFromCycle:
@@ -143,10 +143,10 @@ class TestResolveWorkflowStatePathFromCycle:
 class TestSaveLoadRoundTrip:
     def test_merge_preserves_unmentioned_fields(self, tmp_path: Path):
         path = tmp_path / "workflow-state.md"
-        init_drafting(path, mode="product", carry_forward_ref="/old.md")
-        save_workflow_state(path, {"current_state": "Evaluating", "evaluate_round": "1"})
+        init_compose_session(path, mode="product", carry_forward_ref="/old.md")
+        save_workflow_state(path, {"current_state": "Working", "evaluate_round": "1"})
         loaded = load_workflow_state(path)
-        assert loaded["current_state"] == "Evaluating"
+        assert loaded["current_state"] == "Working"
         assert loaded["carry_forward_ref"] == "/old.md"
 
 

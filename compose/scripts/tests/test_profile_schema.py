@@ -31,7 +31,7 @@ _MINIMAL_ACTIVE_PROFILE = {
         "role-instance": "tpt_feature_role_instance_url",
         "domain-instance": "tpt_feature_domain_instance_url",
     },
-    "drafting": {
+    "pipeline": {
         "inductive": False,
         "freeedit": True,
         "code_grounding": False,
@@ -81,15 +81,15 @@ def test_active_profile_missing_shell_paths_fails(tmp_path: Path) -> None:
     assert any("missing required field 'shell_paths'" in err for err in errors)
 
 
-def test_active_profile_missing_drafting_fails(tmp_path: Path) -> None:
+def test_active_profile_missing_pipeline_fails(tmp_path: Path) -> None:
     stage_dir = tmp_path / "tech-foo"
     stage_dir.mkdir()
     path = stage_dir / "compose-profile.json"
     data = dict(_MINIMAL_ACTIVE_PROFILE)
-    del data["drafting"]
+    del data["pipeline"]
     path.write_text(json.dumps(data), encoding="utf-8")
     errors = _validate_profile(path)
-    assert any("missing required field 'drafting'" in err for err in errors)
+    assert any("missing required field 'pipeline'" in err for err in errors)
 
 
 def test_active_profile_rejects_unknown_post_init_option(tmp_path: Path) -> None:
@@ -97,7 +97,7 @@ def test_active_profile_rejects_unknown_post_init_option(tmp_path: Path) -> None
     stage_dir.mkdir()
     path = stage_dir / "compose-profile.json"
     data = dict(_MINIMAL_ACTIVE_PROFILE)
-    data["drafting"] = {
+    data["pipeline"] = {
         "inductive": False,
         "freeedit": True,
         "code_grounding": False,
@@ -105,7 +105,7 @@ def test_active_profile_rejects_unknown_post_init_option(tmp_path: Path) -> None
     }
     path.write_text(json.dumps(data), encoding="utf-8")
     errors = _validate_profile(path)
-    assert any("unknown drafting.post_init_options value 'round'" in err for err in errors)
+    assert any("unknown pipeline.post_init_options value 'round'" in err for err in errors)
 
 
 def test_active_profile_missing_start_adapter_class_fails(tmp_path: Path) -> None:
@@ -135,8 +135,8 @@ def test_active_profile_rejects_retired_display_layer(tmp_path: Path) -> None:
     stage_dir.mkdir()
     path = stage_dir / "compose-profile.json"
     data = dict(_MINIMAL_ACTIVE_PROFILE)
-    data["drafting"] = dict(data["drafting"])
-    data["drafting"]["display_layer"] = True
+    data["pipeline"] = dict(data["pipeline"])
+    data["pipeline"]["display_layer"] = True
     path.write_text(json.dumps(data), encoding="utf-8")
     errors = _validate_profile(path)
     assert any("display_layer retired" in err for err in errors)
@@ -147,7 +147,7 @@ def test_active_profile_omits_display_layer_without_error(tmp_path: Path) -> Non
     stage_dir.mkdir()
     path = stage_dir / "compose-profile.json"
     path.write_text(json.dumps(_MINIMAL_ACTIVE_PROFILE), encoding="utf-8")
-    assert "display_layer" not in _MINIMAL_ACTIVE_PROFILE["drafting"]
+    assert "display_layer" not in _MINIMAL_ACTIVE_PROFILE["pipeline"]
     assert _validate_profile(path) == []
 
 

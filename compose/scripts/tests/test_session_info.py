@@ -56,10 +56,10 @@ def _setup_cycle(tmp_path: Path) -> tuple[Path, str]:
         "KD body.\n",
         encoding="utf-8",
     )
-    from workflow_state_schema import init_drafting  # noqa: WPS433
+    from workflow_state_schema import init_compose_session  # noqa: WPS433
 
     ws_path = revision / "workflow-state.md"
-    init_drafting(ws_path, mode="product")
+    init_compose_session(ws_path, mode="product")
     save_workflow_state(ws_path, {"current_state": "ReadyForDelivery"})
     return tmp_path, cycle_id
 
@@ -78,10 +78,10 @@ class TestDeliveryPreview:
 
     def test_rejects_non_ready_for_delivery_state(self, tmp_path: Path):
         project_root, cycle_id = _setup_cycle(tmp_path)
-        from workflow_state_schema import init_drafting, resolve_workflow_state_path_from_cycle  # noqa: WPS433
+        from workflow_state_schema import init_compose_session, resolve_workflow_state_path_from_cycle  # noqa: WPS433
 
         ws_path = resolve_workflow_state_path_from_cycle(cycle_id, project_root)
-        init_drafting(ws_path, mode="tech")
+        init_compose_session(ws_path, mode="tech")
         payload = delivery_preview(cycle_id, project_root)
         assert payload["ok"] is False
         assert payload["command"] == "delivery-preview"
@@ -150,10 +150,10 @@ class TestCli:
 
     def test_delivery_preview_cli_failure(self, tmp_path: Path):
         project_root, cycle_id = _setup_cycle(tmp_path)
-        from workflow_state_schema import init_drafting, resolve_workflow_state_path_from_cycle  # noqa: WPS433
+        from workflow_state_schema import init_compose_session, resolve_workflow_state_path_from_cycle  # noqa: WPS433
 
         ws_path = resolve_workflow_state_path_from_cycle(cycle_id, project_root)
-        init_drafting(ws_path, mode="tech")
+        init_compose_session(ws_path, mode="tech")
         result = subprocess.run(
             [
                 sys.executable,

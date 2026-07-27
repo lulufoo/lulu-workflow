@@ -1,19 +1,22 @@
 #!/usr/bin/env python3
-"""L-slice control (multi-subdesign v1.1) — ``$L_SLICE``.
+"""L-slice control — ``$L_SLICE``.
 
 Subcommands:
-    status              Show focus / ready / by_id / advisory phase
+    status              Show focus / ready / by_id / phase
     resume              Continue current focus (no state change)
     ready               List DAG-ready node ids (EnterPolicy)
     can-admit           Check EnterPolicy for ``--to``
     can-enter-evaluate  Check StageGate for focus (or ``--to``)
     switch              Change focus via EnterPolicy (--confirm)
     mark-done           Mark focus mature for ``--kind`` intake|acceptance
+                        (acceptance requires phase=evaluating; prefer accept-l)
+    accept-l            Accept focus L (evaluating→accepted); optional --switch
+    fix-l               Focus evaluating→in_progress (--confirm)
     demote-acceptance   Set target acceptance→pending (+ FreeEdit sync if focus)
     seam-report         Advisory Boundary seam checklist
 
 Illegal transitions hard-reject with unchanged on-disk focus state.
-v1.0 pointer/frontier/phase on disk are rejected (no compatibility).
+Root-level ``phase`` is forbidden (v1.0); per-L ``by_id.*.phase`` is required.
 """
 
 from __future__ import annotations
@@ -36,6 +39,7 @@ for _p in (_HERE, _SESSION, _SCHEMA_SECTION, _SECTION, _SCRIPTS):
 from dependency_tree_schema import load_dependency_tree  # noqa: E402
 from discussion_pointer_schema import (  # noqa: E402
     active_ids,
+    all_l_accepted,
     can_admit,
     can_enter_evaluate,
     focus_phase,
@@ -43,13 +47,14 @@ from discussion_pointer_schema import (  # noqa: E402
     ready_ids,
     save_discussion_pointer,
     slice_past_init,
+    suggested_next_l,
 )
-from drafting_progress_schema import allowed_steps, save_drafting_progress  # noqa: E402
+from l_step_progress_schema import allowed_steps, save_l_step_progress  # noqa: E402
 from multi_slice_control import document_filename_for_profile  # noqa: E402
 from workflow_common import parse_frontmatter_fields  # noqa: E402
 
 _BOUNDARY_HEADING = "## Boundary"
-_DRAFTING_PROGRESS = "drafting-progress.md"
+_L_STEP_PROGRESS = "l-step-progress.md"
 
 
 def _acceptance_exit_errors(
@@ -122,27 +127,30 @@ def _load(revision_dir: Path) -> tuple[dict[str, Any], dict[str, Any]]:
     return tree, pointer
 
 
-def _sync_drafting_for_focus(
+def _sync_l_step_for_focus(
     revision_dir: Path,
     node_id: str,
     pointer: dict[str, Any],
     *,
     profile_id: str,
 ) -> str | None:
-    """Align revision ``drafting-progress.md`` with target L maturity (best-effort).
+    """Align revision ``l-step-progress.md`` with target L maturity (best-effort).
 
-    Writes only via ``drafting_progress_schema.save_drafting_progress`` so
+    Writes only via ``l_step_progress_schema.save_l_step_progress`` so
     ``allowed_steps()`` is enforced. Returns the step written, or None when no
     progress file existed and L is still intake-pending (absent progress is
     valid for begin-inductive / begin-deductive).
     """
-    path = Path(revision_dir) / _DRAFTING_PROGRESS
+    path = Path(revision_dir) / _L_STEP_PROGRESS
     cell = pointer["by_id"][node_id]
     pid = profile_id.strip()
     allowed = allowed_steps(pid)
-    if cell["intake"] != "done":
+    phase = str(cell.get("phase") or "pending")
+    if phase in ("pending", "in_progress") and cell["intake"] != "done":
         step = "Inductive"
-    elif cell["acceptance"] == "done" or slice_past_init(revision_dir, node_id):
+    elif phase == "accepted" or cell["acceptance"] == "done" or slice_past_init(
+        revision_dir, node_id
+    ):
         if "FreeEdit" in allowed:
             step = "FreeEdit"
         elif "Initialized" in allowed:
@@ -163,10 +171,13 @@ def _sync_drafting_for_focus(
     if path.is_file():
         fields = parse_frontmatter_fields(path.read_text(encoding="utf-8"))
         cycle_id = str(fields.get("cycle_id") or cycle_id).strip() or "unknown"
-    elif step in ("Inductive", "Deductive") and cell["intake"] != "done":
+    elif step in ("Inductive", "Deductive") and cell.get("phase") in (
+        "pending",
+        "in_progress",
+    ) and cell["intake"] != "done":
         return None
 
-    save_drafting_progress(
+    save_l_step_progress(
         path,
         {"version": "1", "cycle_id": cycle_id, "current_step": step},
         profile_id=pid,
@@ -284,14 +295,14 @@ def cmd_switch(
             return _emit_error(reason or f"cannot admit {tgt!r}")
         pointer["focus"] = tgt
         save_discussion_pointer(revision_dir, pointer, tree=tree)
-        drafting_step = _sync_drafting_for_focus(
+        l_step = _sync_l_step_for_focus(
             revision_dir, tgt, pointer, profile_id=profile_id
         )
     except (FileNotFoundError, ValueError, json.JSONDecodeError, KeyError) as exc:
         return _emit_error(str(exc))
     payload = _status_payload(revision_dir, tree, pointer, command="switch")
-    if drafting_step is not None:
-        payload["drafting_step"] = drafting_step
+    if l_step is not None:
+        payload["l_step"] = l_step
     _emit(payload)
     return 0
 
@@ -317,6 +328,11 @@ def cmd_mark_done(
         else:
             phase = "intake" if cell["intake"] != "done" else "acceptance"
         if phase == "acceptance":
+            if cell.get("phase") != "evaluating":
+                return _emit_error(
+                    f"cannot mark acceptance done: focus {cur!r} phase is "
+                    f"{cell.get('phase')!r} (expected evaluating); use accept-l"
+                )
             doc_filename = document_filename_for_profile(profile_id)
             gate_errs = _acceptance_exit_errors(
                 revision_dir, cur, doc_filename=doc_filename
@@ -337,6 +353,10 @@ def cmd_mark_done(
             )
             return 0
         cell[phase] = "done"
+        if phase == "intake" and cell.get("phase") == "pending":
+            cell["phase"] = "in_progress"
+        if phase == "acceptance":
+            cell["phase"] = "accepted"
         save_discussion_pointer(revision_dir, pointer, tree=tree)
     except (FileNotFoundError, ValueError, json.JSONDecodeError, KeyError) as exc:
         return _emit_error(str(exc))
@@ -355,7 +375,7 @@ def cmd_demote_acceptance(
 ) -> int:
     """Bucket side-effect: acceptance→pending; FreeEdit sync when target is focus.
 
-    Drafting-progress sync runs only when ``profile_id`` is non-empty (CLI always
+    L-step-progress sync runs only when ``profile_id`` is non-empty (CLI always
     passes ``--profile``; library callers such as facts write may omit it).
     """
     err = _require_confirm(confirm)
@@ -371,11 +391,12 @@ def cmd_demote_acceptance(
         demoted = False
         if was_done:
             cell["acceptance"] = "pending"
+            cell["phase"] = "in_progress"
             demoted = True
-        drafting_step = None
+        l_step = None
         pid = profile_id.strip()
         if demoted and str(pointer["focus"]) == tgt and pid:
-            drafting_step = _sync_drafting_for_focus(
+            l_step = _sync_l_step_for_focus(
                 revision_dir, tgt, pointer, profile_id=pid
             )
         if demoted:
@@ -386,8 +407,104 @@ def cmd_demote_acceptance(
     payload["target"] = tgt
     payload["demoted"] = demoted
     payload["was_acceptance_done"] = was_done
-    if drafting_step is not None:
-        payload["drafting_step"] = drafting_step
+    if l_step is not None:
+        payload["l_step"] = l_step
+    _emit(payload)
+    return 0
+
+
+def cmd_accept_l(
+    revision_dir: Path,
+    *,
+    confirm: bool,
+    switch: bool,
+    profile_id: str,
+) -> int:
+    """Accept focus L (evaluating→accepted). Optional --switch to suggested next."""
+    err = _require_confirm(confirm)
+    if err:
+        return _emit_error(err)
+    try:
+        tree, pointer = _load(revision_dir)
+        cur = str(pointer["focus"])
+        cell = pointer["by_id"][cur]
+        if cell.get("phase") != "evaluating":
+            return _emit_error(
+                f"cannot accept-l: focus {cur!r} phase is "
+                f"{cell.get('phase')!r} (expected evaluating)"
+            )
+        doc_filename = document_filename_for_profile(profile_id)
+        gate_errs = _acceptance_exit_errors(
+            revision_dir, cur, doc_filename=doc_filename
+        )
+        if gate_errs:
+            return _emit_error("; ".join(gate_errs))
+        if cell.get("intake") != "done":
+            return _emit_error(f"cannot accept-l: {cur!r} intake is not done")
+        cell["acceptance"] = "done"
+        cell["phase"] = "accepted"
+        save_discussion_pointer(revision_dir, pointer, tree=tree)
+        suggested = suggested_next_l(tree, pointer, after_id=cur)
+        switched_to = None
+        if switch:
+            if not suggested:
+                return _emit_error(
+                    "cannot --switch: no suggested next L "
+                    "(all remaining blocked or all accepted)"
+                )
+            ok, reason = can_admit(tree, pointer, suggested)
+            if not ok:
+                return _emit_error(reason or f"cannot admit {suggested!r}")
+            pointer["focus"] = suggested
+            if pointer["by_id"][suggested].get("phase") == "pending":
+                pointer["by_id"][suggested]["phase"] = "in_progress"
+            save_discussion_pointer(revision_dir, pointer, tree=tree)
+            switched_to = suggested
+            _sync_l_step_for_focus(
+                revision_dir, suggested, pointer, profile_id=profile_id
+            )
+    except (FileNotFoundError, ValueError, json.JSONDecodeError, KeyError) as exc:
+        return _emit_error(str(exc))
+    payload = _status_payload(revision_dir, tree, pointer, command="accept-l")
+    payload["accepted"] = cur
+    payload["suggested_next"] = suggested
+    payload["all_accepted"] = all_l_accepted(pointer)
+    payload["switched_to"] = switched_to
+    _emit(payload)
+    return 0
+
+
+def cmd_fix_l(
+    revision_dir: Path,
+    *,
+    confirm: bool,
+    profile_id: str,
+) -> int:
+    """Focus evaluating → in_progress (Fix L)."""
+    err = _require_confirm(confirm)
+    if err:
+        return _emit_error(err)
+    try:
+        tree, pointer = _load(revision_dir)
+        cur = str(pointer["focus"])
+        cell = pointer["by_id"][cur]
+        if cell.get("phase") != "evaluating":
+            return _emit_error(
+                f"cannot fix-l: focus {cur!r} phase is "
+                f"{cell.get('phase')!r} (expected evaluating)"
+            )
+        cell["phase"] = "in_progress"
+        cell["acceptance"] = "pending"
+        save_discussion_pointer(revision_dir, pointer, tree=tree)
+        l_step = _sync_l_step_for_focus(
+            revision_dir, cur, pointer, profile_id=profile_id
+        )
+    except (FileNotFoundError, ValueError, json.JSONDecodeError, KeyError) as exc:
+        return _emit_error(str(exc))
+    payload = _status_payload(revision_dir, tree, pointer, command="fix-l")
+    payload["focus"] = cur
+    if l_step is not None:
+        payload["l_step"] = l_step
     _emit(payload)
     return 0
 
@@ -403,7 +520,7 @@ def cmd_seam_report(revision_dir: Path, *, profile_id: str) -> int:
 
 
 def stage_gate_for_revision(revision_dir: Path) -> tuple[bool, str | None]:
-    """Library helper for Evaluating entry. No pointer file → skip (single-slice)."""
+    """Library helper for evaluating entry. No pointer file → skip (single-slice)."""
     from discussion_pointer_schema import discussion_pointer_path
 
     rev = Path(revision_dir).resolve()
@@ -431,7 +548,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--profile",
         required=True,
-        help="Compose profile / stage id (document.filename + drafting steps)",
+        help="Compose profile / stage id (document.filename + L-step progress)",
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -474,6 +591,20 @@ def _build_parser() -> argparse.ArgumentParser:
     p_dem.add_argument("--to", required=True, dest="target")
     p_dem.add_argument("--confirm", action="store_true")
 
+    p_acc = sub.add_parser(
+        "accept-l",
+        help="Accept focus L; optional --switch to suggested next ready L",
+    )
+    p_acc.add_argument("--confirm", action="store_true")
+    p_acc.add_argument(
+        "--switch",
+        action="store_true",
+        help="After accept, switch to suggested_next (human confirm)",
+    )
+
+    p_fix = sub.add_parser("fix-l", help="Focus evaluating→in_progress (Fix L)")
+    p_fix.add_argument("--confirm", action="store_true")
+
     return parser
 
 
@@ -511,6 +642,19 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_demote_acceptance(
             rev,
             target=args.target,
+            confirm=bool(args.confirm),
+            profile_id=profile_id,
+        )
+    if args.command == "accept-l":
+        return cmd_accept_l(
+            rev,
+            confirm=bool(args.confirm),
+            switch=bool(args.switch),
+            profile_id=profile_id,
+        )
+    if args.command == "fix-l":
+        return cmd_fix_l(
+            rev,
             confirm=bool(args.confirm),
             profile_id=profile_id,
         )

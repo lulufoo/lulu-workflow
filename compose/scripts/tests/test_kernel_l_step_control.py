@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for generic compose drafting control."""
+"""Tests for generic compose L-step control."""
 
 from __future__ import annotations
 
@@ -9,16 +9,16 @@ from pathlib import Path
 import pytest
 
 import bootstrap  # noqa: F401
-import draft_control  # noqa: E402
-import drafting_progress_schema as progress_schema  # noqa: E402
+import l_step_control  # noqa: E402
+import l_step_progress_schema as progress_schema  # noqa: E402
 from session_state_schema import save_active_doc  # noqa: E402
 from workflow_profile_paths import doc_dir, inductive_out_dir, session_state_path, state_path  # noqa: E402
 from resolved_refs_schema import frozen_delivered_refs  # noqa: E402
-from workflow_state_schema import init_drafting, load_workflow_state  # noqa: E402
+from workflow_state_schema import init_compose_session, load_workflow_state  # noqa: E402
 
 from delivered_refs_schema import DeliveredRef  # noqa: E402
-from init_drafting_helpers import (
-    init_drafting_ready,  # noqa: E402
+from init_working_helpers import (
+    init_working_ready,  # noqa: E402
     seed_product_spec_session,
     seed_provenance_artifacts,
     seed_tech_design_session,
@@ -32,13 +32,13 @@ _PROFILE_DESIGN = "lulu-design"
 
 
 def _slice(rev: Path) -> Path:
-    """Active L1 slice dir after init_drafting_ready / seed_*_session."""
+    """Active L1 slice dir after init_working_ready / seed_*_session."""
     return rev / "L1"
 
 
 
 def _progress_path(project_root: Path, profile_id: str, *, revision: int = 1) -> Path:
-    return project_root / doc_dir(_CYCLE, revision, profile_id, project_root) / "drafting-progress.md"
+    return project_root / doc_dir(_CYCLE, revision, profile_id, project_root) / "l-step-progress.md"
 
 
 def _write_g4_closed(revision_dir: Path) -> None:
@@ -73,7 +73,7 @@ def _write_g5_closed(revision_dir: Path) -> None:
 
 def _seed_inductive_progress(tmp_path: Path, *, revision: int = 1) -> Path:
     rev_dir = tmp_path / doc_dir(_CYCLE, revision, _PROFILE_DESIGN, tmp_path)
-    progress_schema.save_drafting_progress(
+    progress_schema.save_l_step_progress(
         _progress_path(tmp_path, _PROFILE_DESIGN, revision=revision),
         {"version": "1", "cycle_id": _CYCLE, "current_step": "Inductive"},
         profile_id=_PROFILE_DESIGN,
@@ -86,23 +86,23 @@ def _seed_inductive_progress(tmp_path: Path, *, revision: int = 1) -> Path:
 def test_begin_inductive_rejects_non_inductive_profile(tmp_path: Path) -> None:
     seed_tech_plan_session(tmp_path, cycle_id=_CYCLE, profile_id="lulu-plan")
 
-    result = draft_control.begin_inductive(_CYCLE, tmp_path, profile_id="lulu-plan")
+    result = l_step_control.begin_inductive(_CYCLE, tmp_path, profile_id="lulu-plan")
 
     assert result["ok"] is False
-    assert "drafting.inductive is false" in result["reason"]
+    assert "pipeline.inductive is false" in result["reason"]
 
 
 def test_begin_deductive_succeeds_for_lulu_plan(tmp_path: Path) -> None:
     seed_tech_plan_session(tmp_path, cycle_id=_CYCLE, profile_id="lulu-plan")
 
-    result = draft_control.begin_deductive(_CYCLE, tmp_path, profile_id="lulu-plan")
+    result = l_step_control.begin_deductive(_CYCLE, tmp_path, profile_id="lulu-plan")
 
     assert result["ok"] is True
     dispatch = result["dispatch_input"]
     assert "COMPOSE_PROFILE:      lulu-plan" in dispatch
     assert "DEDUCTIVE_OUT_DIR:" in dispatch
     assert "/lulu-plan/revision1" in dispatch
-    progress = progress_schema.load_drafting_progress(
+    progress = progress_schema.load_l_step_progress(
         _progress_path(tmp_path, "lulu-plan"),
         profile_id="lulu-plan",
         project_root=tmp_path,
@@ -114,7 +114,7 @@ def test_begin_deductive_succeeds_for_lulu_plan(tmp_path: Path) -> None:
 def test_begin_deductive_rejects_inductive_profile(tmp_path: Path) -> None:
     seed_tech_design_session(tmp_path, cycle_id=_CYCLE)
 
-    result = draft_control.begin_deductive(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
+    result = l_step_control.begin_deductive(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
 
     assert result["ok"] is False
     assert "begin-inductive" in result["reason"]
@@ -123,7 +123,7 @@ def test_begin_deductive_rejects_inductive_profile(tmp_path: Path) -> None:
 def test_begin_init_rejects_plan_without_deductive(tmp_path: Path) -> None:
     seed_tech_plan_session(tmp_path, cycle_id=_CYCLE, profile_id="lulu-plan")
 
-    result = draft_control.begin_init(_CYCLE, tmp_path, profile_id="lulu-plan")
+    result = l_step_control.begin_init(_CYCLE, tmp_path, profile_id="lulu-plan")
 
     assert result["ok"] is False
     assert "Deductive not run" in result["reason"]
@@ -132,7 +132,7 @@ def test_begin_init_rejects_plan_without_deductive(tmp_path: Path) -> None:
 def test_begin_init_rejects_open_deductive_pending(tmp_path: Path) -> None:
     seed_tech_plan_session(tmp_path, cycle_id=_CYCLE, profile_id="lulu-plan")
     rev = tmp_path / doc_dir(_CYCLE, 1, "lulu-plan", tmp_path)
-    progress_schema.save_drafting_progress(
+    progress_schema.save_l_step_progress(
         _progress_path(tmp_path, "lulu-plan"),
         {"version": "1", "cycle_id": _CYCLE, "current_step": "Deductive"},
         profile_id="lulu-plan",
@@ -165,7 +165,7 @@ def test_begin_init_rejects_open_deductive_pending(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    result = draft_control.begin_init(_CYCLE, tmp_path, profile_id="lulu-plan")
+    result = l_step_control.begin_init(_CYCLE, tmp_path, profile_id="lulu-plan")
 
     assert result["ok"] is False
     assert "open deductive pending" in result["reason"]
@@ -174,7 +174,7 @@ def test_begin_init_rejects_open_deductive_pending(tmp_path: Path) -> None:
 def test_begin_init_rejects_missing_deductive_pending_file(tmp_path: Path) -> None:
     seed_tech_plan_session(tmp_path, cycle_id=_CYCLE, profile_id="lulu-plan")
     rev = tmp_path / doc_dir(_CYCLE, 1, "lulu-plan", tmp_path)
-    progress_schema.save_drafting_progress(
+    progress_schema.save_l_step_progress(
         _progress_path(tmp_path, "lulu-plan"),
         {"version": "1", "cycle_id": _CYCLE, "current_step": "Deductive"},
         profile_id="lulu-plan",
@@ -189,7 +189,7 @@ def test_begin_init_rejects_missing_deductive_pending_file(tmp_path: Path) -> No
         encoding="utf-8",
     )
     # No deductive-pending.json → hard gate must fail (B1).
-    result = draft_control.begin_init(_CYCLE, tmp_path, profile_id="lulu-plan")
+    result = l_step_control.begin_init(_CYCLE, tmp_path, profile_id="lulu-plan")
     assert result["ok"] is False
     assert "deductive-pending.json missing" in result["reason"]
 
@@ -197,7 +197,7 @@ def test_begin_init_rejects_missing_deductive_pending_file(tmp_path: Path) -> No
 def test_deductive_complete_and_begin_init_when_gate_clear(tmp_path: Path) -> None:
     seed_tech_plan_session(tmp_path, cycle_id=_CYCLE, profile_id="lulu-plan")
     rev = tmp_path / doc_dir(_CYCLE, 1, "lulu-plan", tmp_path)
-    progress_schema.save_drafting_progress(
+    progress_schema.save_l_step_progress(
         _progress_path(tmp_path, "lulu-plan"),
         {"version": "1", "cycle_id": _CYCLE, "current_step": "Deductive"},
         profile_id="lulu-plan",
@@ -216,12 +216,12 @@ def test_deductive_complete_and_begin_init_when_gate_clear(tmp_path: Path) -> No
         encoding="utf-8",
     )
 
-    complete = draft_control.deductive_complete(
+    complete = l_step_control.deductive_complete(
         _CYCLE, tmp_path, profile_id="lulu-plan"
     )
     assert complete["ok"] is True
 
-    begin = draft_control.begin_init(_CYCLE, tmp_path, profile_id="lulu-plan")
+    begin = l_step_control.begin_init(_CYCLE, tmp_path, profile_id="lulu-plan")
     assert begin["ok"] is True
     assert "REVISION_DIR:" in begin["dispatch_input"]
 
@@ -229,7 +229,7 @@ def test_deductive_complete_and_begin_init_when_gate_clear(tmp_path: Path) -> No
 def test_begin_inductive_succeeds_for_lulu_spec(tmp_path: Path) -> None:
     seed_product_spec_session(tmp_path, cycle_id=_CYCLE)
 
-    result = draft_control.begin_inductive(_CYCLE, tmp_path, profile_id="lulu-spec")
+    result = l_step_control.begin_inductive(_CYCLE, tmp_path, profile_id="lulu-spec")
 
     assert result["ok"] is True
     dispatch = result["dispatch_input"]
@@ -241,7 +241,7 @@ def test_begin_inductive_succeeds_for_lulu_spec(tmp_path: Path) -> None:
 def test_begin_inductive_out_dir_under_revision(tmp_path: Path) -> None:
     seed_tech_design_session(tmp_path, cycle_id=_CYCLE)
 
-    result = draft_control.begin_inductive(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
+    result = l_step_control.begin_inductive(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
 
     assert result["ok"] is True
     dispatch = result["dispatch_input"]
@@ -254,7 +254,7 @@ def test_begin_inductive_out_dir_under_revision(tmp_path: Path) -> None:
 def test_inductive_dispatch_carries_provenance_refs_tech(tmp_path: Path) -> None:
     seed_tech_design_session(tmp_path, cycle_id=_CYCLE)
 
-    result = draft_control.begin_inductive(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
+    result = l_step_control.begin_inductive(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
 
     dispatch = result["dispatch_input"]
     assert "INTENT_BASELINE_REFS: []" in dispatch
@@ -290,7 +290,7 @@ def test_inductive_dispatch_scope_ref_is_decision_fact(tmp_path: Path) -> None:
         norm_constraint_refs=[],
     )
 
-    result = draft_control.begin_inductive(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
+    result = l_step_control.begin_inductive(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
     assert result["ok"] is True
     assert f"SCOPE_REF:            {fact.resolve().as_posix()}" in result["dispatch_input"]
     assert "DECISION_FACTS_PATH:" not in result["dispatch_input"]
@@ -333,11 +333,11 @@ def test_begin_inductive_surfaces_claim_wipe_refusal(tmp_path: Path) -> None:
     assert claim_ledger_path(rev).is_file()
     fact.unlink()
 
-    result = draft_control.begin_inductive(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
+    result = l_step_control.begin_inductive(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
     assert result["ok"] is False
     assert "claim ledger" in result["reason"]
     assert "refusing to wipe" in result["reason"]
-    # Must not have advanced drafting progress on failure.
+    # Must not have advanced l-step progress on failure.
     assert not _progress_path(tmp_path, _PROFILE_DESIGN).exists()
 
 
@@ -356,7 +356,7 @@ def test_inductive_dispatch_intent_baseline_from_spec_product(tmp_path: Path) ->
     ]
     seed_tech_design_session(tmp_path, cycle_id=_CYCLE, mode="product", delivered_refs=refs)
 
-    result = draft_control.begin_inductive(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
+    result = l_step_control.begin_inductive(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
 
     dispatch = result["dispatch_input"]
     assert "lulu-spec" in dispatch
@@ -368,7 +368,7 @@ def test_inductive_complete_rejects_g4_without_g5(tmp_path: Path) -> None:
     rev_dir = _seed_inductive_progress(tmp_path)
     _write_g4_closed(_slice(rev_dir))
 
-    result = draft_control.inductive_complete(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
+    result = l_step_control.inductive_complete(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
 
     assert result["ok"] is False
     assert result["reason"] == "inductive Gate 5 not closed"
@@ -380,7 +380,7 @@ def test_inductive_complete_succeeds_when_g4_and_g5_closed(tmp_path: Path) -> No
     _write_g4_closed(_slice(rev_dir))
     _write_g5_closed(_slice(rev_dir))
 
-    result = draft_control.inductive_complete(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
+    result = l_step_control.inductive_complete(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
 
     assert result["ok"] is True
     assert result["command"] == "inductive-complete"
@@ -392,7 +392,7 @@ def test_begin_init_rejects_inductive_step_without_g5(tmp_path: Path) -> None:
     rev_dir = _seed_inductive_progress(tmp_path)
     _write_g4_closed(_slice(rev_dir))
 
-    result = draft_control.begin_init(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
+    result = l_step_control.begin_init(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
 
     assert result["ok"] is False
     assert "inductive Gate 5 not closed" in result["reason"]
@@ -402,7 +402,7 @@ def test_revision2_inductive_isolated_from_revision1(tmp_path: Path) -> None:
     seed_tech_design_session(tmp_path, cycle_id=_CYCLE)
     rev1 = tmp_path / doc_dir(_CYCLE, 1, _PROFILE_DESIGN, tmp_path)
     _write_g4_closed(_slice(rev1))
-    progress_schema.save_drafting_progress(
+    progress_schema.save_l_step_progress(
         _progress_path(tmp_path, _PROFILE_DESIGN, revision=1),
         {"version": "1", "cycle_id": _CYCLE, "current_step": "Inductive"},
         profile_id=_PROFILE_DESIGN,
@@ -416,7 +416,7 @@ def test_revision2_inductive_isolated_from_revision1(tmp_path: Path) -> None:
     rev1_state = load_workflow_state(rev1_ws)
     rev1_refs = frozen_delivered_refs(rev1_ws.parent)
     rev2_ws = tmp_path / state_path(_CYCLE, 2, _PROFILE_DESIGN, tmp_path)
-    init_drafting_ready(rev2_ws, mode=rev1_state["mode"])
+    init_working_ready(rev2_ws, mode=rev1_state["mode"])
     seed_provenance_artifacts(
         rev2_ws,
         cycle_id=_CYCLE,
@@ -426,11 +426,11 @@ def test_revision2_inductive_isolated_from_revision1(tmp_path: Path) -> None:
         scope_refs=tech_design_scope_refs(rev1_refs),
     )
 
-    begin_init = draft_control.begin_init(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
+    begin_init = l_step_control.begin_init(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
     assert begin_init["ok"] is False
     assert "Inductive not run" in begin_init["reason"]
 
-    begin_inductive = draft_control.begin_inductive(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
+    begin_inductive = l_step_control.begin_inductive(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
     assert begin_inductive["ok"] is True
     assert begin_inductive["dispatch_input"].strip().endswith("revision2/L1")
 
@@ -440,21 +440,21 @@ def test_advance_to_freeedit_rejects_profile_without_freeedit(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     seed_tech_plan_session(tmp_path, cycle_id=_CYCLE, profile_id="lulu-spec")
-    progress_schema.save_drafting_progress(
+    progress_schema.save_l_step_progress(
         _progress_path(tmp_path, "lulu-spec"),
         {"version": "1", "cycle_id": _CYCLE, "current_step": "Initialized"},
         profile_id="lulu-spec",
     )
     monkeypatch.setattr(
-        draft_control,
+        l_step_control,
         "load_profile",
-        lambda *args, **kwargs: {"drafting": {"freeedit": False}},
+        lambda *args, **kwargs: {"pipeline": {"freeedit": False}},
     )
 
-    result = draft_control.advance_to_freeedit(_CYCLE, tmp_path, profile_id="lulu-spec")
+    result = l_step_control.advance_to_freeedit(_CYCLE, tmp_path, profile_id="lulu-spec")
 
     assert result["ok"] is False
-    assert "drafting.freeedit is false" in result["reason"]
+    assert "pipeline.freeedit is false" in result["reason"]
 
 
 def test_advance_to_freeedit_accepts_legacy_ready(tmp_path: Path) -> None:
@@ -464,7 +464,7 @@ def test_advance_to_freeedit_accepts_legacy_ready(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    result = draft_control.advance_to_freeedit(_CYCLE, tmp_path, profile_id="lulu-plan")
+    result = l_step_control.advance_to_freeedit(_CYCLE, tmp_path, profile_id="lulu-plan")
 
     assert result["ok"] is True
     assert result["current_step"] == "FreeEdit"
@@ -481,12 +481,12 @@ def test_begin_init_k2_requires_facts_when_inductive(
     _write_g5_closed(_slice(rev_dir))
 
     monkeypatch.setattr(
-        draft_control,
-        "_drafting_config",
+        l_step_control,
+        "_pipeline_config",
         lambda *a, **k: {"inductive": True},
     )
 
-    result = draft_control.begin_init(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
+    result = l_step_control.begin_init(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
     assert result["ok"] is False
     assert "_facts.json missing" in result["reason"]
     assert "seed/settle" in result["reason"]
@@ -509,12 +509,12 @@ def test_begin_init_k2_passes_when_facts_present(
     )
 
     monkeypatch.setattr(
-        draft_control,
-        "_drafting_config",
+        l_step_control,
+        "_pipeline_config",
         lambda *a, **k: {"inductive": True},
     )
 
-    result = draft_control.begin_init(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
+    result = l_step_control.begin_init(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
     assert result["ok"] is True
     assert "REVISION_DIR:" in result["dispatch_input"]
     assert "SCOPE_FACTS_PATH:" not in result["dispatch_input"]
@@ -530,8 +530,8 @@ def test_begin_init_real_design_profile_requires_facts(tmp_path: Path) -> None:
             / "compose-profile.json"
         ).read_text(encoding="utf-8")
     )
-    assert profile["drafting"]["inductive"] is True
-    assert "display_layer" not in profile.get("drafting", {})
+    assert profile["pipeline"]["inductive"] is True
+    assert "display_layer" not in profile.get("pipeline", {})
 
     seed_tech_design_session(tmp_path, cycle_id=_CYCLE)
     rev_dir = _seed_inductive_progress(tmp_path)
@@ -539,7 +539,7 @@ def test_begin_init_real_design_profile_requires_facts(tmp_path: Path) -> None:
     _write_g5_closed(_slice(rev_dir))
     assert not (_slice(rev_dir) / "_facts.json").exists()
 
-    result = draft_control.begin_init(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
+    result = l_step_control.begin_init(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
     assert result["ok"] is False
     assert "_facts.json missing" in result["reason"]
 

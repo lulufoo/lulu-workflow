@@ -61,9 +61,9 @@ def _setup_cycle(tmp_path: Path, *, active_doc: int = 1) -> tuple[Path, str]:
         title="Feature X",
         summary="Deliver a unified session info facade.",
     )
-    from workflow_state_schema import init_drafting  # noqa: WPS433
+    from workflow_state_schema import init_compose_session  # noqa: WPS433
 
-    init_drafting(revision / "workflow-state.md", mode="product")
+    init_compose_session(revision / "workflow-state.md", mode="product")
     return tmp_path, cycle_id
 
 

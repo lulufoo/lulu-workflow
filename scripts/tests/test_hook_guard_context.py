@@ -153,7 +153,7 @@ class TestShouldInjectConversationId:
             "git status",
             "python3 cycle_control.py --project-root /tmp start --name test",
             "python3 ~/.cursor/skills/lulu-dev-workflow/scripts/hook/hook_guard.py",
-            "python3 ~/.cursor/skills/lulu-dev-workflow/lulu-plan/scripts/drafting/tech_plan_draft_control.py --cycle-id fid1",
+            "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/section/l_step_control.py --cycle-id fid1",
             "python3 ~/.cursor/skills/lulu-dev-workflow/scripts/cycle_control.py start --name test",
             "python3 ~/.cursor/skills/lulu-dev-workflow/scripts/runtime_control.py --project-root /tmp resolve-platform-context",
         ],
@@ -334,7 +334,7 @@ class TestMainRouting:
         active_context_schema.write_entry(
             tmp_path, "cursor", "conv-a", _CYCLE_ID, "lulu-plan"
         )
-        _make_workflow_state(_cache_dir(tmp_path), _CYCLE_ID, "lulu-plan", "Drafting")
+        _make_workflow_state(_cache_dir(tmp_path), _CYCLE_ID, "lulu-plan", "Working")
         cache_file = (
             _cache_dir(tmp_path) / _CYCLE_ID / "lulu-plan/revision1/note.md"
         )
@@ -377,7 +377,7 @@ class TestDeliveredBypass:
         active_context_schema.write_entry(
             tmp_path, "cursor", "conv-a", _CYCLE_ID, "lulu-plan"
         )
-        _make_workflow_state(_cache_dir(tmp_path), _CYCLE_ID, "lulu-plan", "Drafting")
+        _make_workflow_state(_cache_dir(tmp_path), _CYCLE_ID, "lulu-plan", "Working")
 
         payload = _write_payload(
             conversation_id="conv-a",
@@ -472,7 +472,7 @@ class TestRwGuard:
         active_context_schema.write_entry(
             tmp_path, "cursor", "conv-a", _CYCLE_ID, "lulu-plan"
         )
-        _make_workflow_state(_cache_dir(tmp_path), _CYCLE_ID, "lulu-plan", "Drafting")
+        _make_workflow_state(_cache_dir(tmp_path), _CYCLE_ID, "lulu-plan", "Working")
         target = tmp_path / "src" / "main.py"
         target.parent.mkdir(parents=True, exist_ok=True)
         payload = _write_payload(conversation_id="conv-a", file_path=str(target))
@@ -488,7 +488,7 @@ class TestRwGuard:
         active_context_schema.write_entry(
             tmp_path, "cursor", "conv-a", _CYCLE_ID, "lulu-plan"
         )
-        _make_workflow_state(_cache_dir(tmp_path), _CYCLE_ID, "lulu-plan", "Drafting")
+        _make_workflow_state(_cache_dir(tmp_path), _CYCLE_ID, "lulu-plan", "Working")
         target = tmp_path / "README.md"
         target.write_text("hello", encoding="utf-8")
         payload = _write_payload(
@@ -521,7 +521,7 @@ class TestRwGuard:
         active_context_schema.write_entry(
             tmp_path, "cursor", "conv-a", _CYCLE_ID, "lulu-plan"
         )
-        _make_workflow_state(_cache_dir(tmp_path), _CYCLE_ID, "lulu-plan", "Drafting")
+        _make_workflow_state(_cache_dir(tmp_path), _CYCLE_ID, "lulu-plan", "Working")
         target = Path.home() / ".cursor/skills/other-skill/SKILL.md"
         payload = _write_payload(
             conversation_id="conv-a",
@@ -553,7 +553,7 @@ class TestRwGuard:
         active_context_schema.write_entry(
             tmp_path, "cursor", "conv-a", _CYCLE_ID, "lulu-plan"
         )
-        _make_workflow_state(_cache_dir(tmp_path), _CYCLE_ID, "lulu-plan", "Drafting")
+        _make_workflow_state(_cache_dir(tmp_path), _CYCLE_ID, "lulu-plan", "Working")
         outside = Path("/tmp/lulu-hook-read-outside-test.md")
         payload = _write_payload(
             conversation_id="conv-a",
@@ -643,7 +643,7 @@ class TestClaudePlatformOutput:
             tmp_path, "claude", "sess-1", _CYCLE_ID, "lulu-plan"
         )
         cache = tmp_path / ".cache/claude/lulu-dev-workflow"
-        _make_workflow_state(cache, _CYCLE_ID, "lulu-plan", "Drafting")
+        _make_workflow_state(cache, _CYCLE_ID, "lulu-plan", "Working")
         payload = json.dumps(
             {
                 "session_id": "sess-1",

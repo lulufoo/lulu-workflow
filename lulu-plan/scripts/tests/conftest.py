@@ -13,7 +13,6 @@ _KERNEL_TESTS = _WORKFLOW_ROOT / "compose" / "scripts" / "tests"
 _EVAL_SCRIPTS = _WORKFLOW_ROOT / "eval" / "scripts"
 for p in (
     _KERNEL_TESTS,
-    _SCRIPTS_ROOT / "drafting",
     _SCRIPTS_ROOT / "eval",
     _EVAL_SCRIPTS,
 ):

@@ -17,13 +17,26 @@ _HOLDER_LINE_THRESHOLD = 60
 
 
 def test_engine_skill_contains_full_orchestration() -> None:
-    """Item 2: engine SKILL owns Drafting / Evaluating / Delivery + Inductive gating."""
+    """Item 2: engine SKILL owns Working multi-L steps + Delivery."""
     text = _ENGINE_SKILL.read_text(encoding="utf-8")
 
-    for heading in ("## Drafting Rules", "## Evaluating Rules", "## Delivery Rules"):
+    for heading in (
+        "## Working Rules",
+        "### Inductive (only when `pipeline.inductive` is `true`)",
+        "### Deductive (only when `pipeline.inductive` is `false`)",
+        "### Initializing",
+        "### FreeEdit",
+        "### Evaluating",
+        "## Delivery Rules",
+    ):
         assert heading in text, f"engine SKILL missing {heading!r}"
 
-    assert "drafting.inductive" in text
+    assert "## Drafting Rules" not in text
+    assert "### Drafting" not in text
+    assert "## Evaluating Rules" not in text
+    assert "pipeline.inductive" in text
+    assert "$L_STEP" in text
+    assert "$DRAFT_CONTROL" not in text
     assert "inductive" in text.lower()
     assert "deductive" in text.lower()
     assert "begin-deductive" in text
@@ -53,7 +66,14 @@ def test_holder_skills_are_thin_shells() -> None:
         )
         assert "compose/SKILL.md" in text, f"{stage}/SKILL.md must read the compose engine"
 
-        for heading in ("## Drafting Rules", "## Evaluating Rules", "## ReadyForDelivery Rules", "## Delivery Rules"):
+        for heading in (
+            "## Working Rules",
+            "## Drafting Rules",
+            "## Evaluating Rules",
+            "### Drafting",
+            "## ReadyForDelivery Rules",
+            "## Delivery Rules",
+        ):
             assert heading not in text, f"{stage}/SKILL.md should not repeat engine heading {heading!r}"
 
 
