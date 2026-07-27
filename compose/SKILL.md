@@ -56,7 +56,7 @@ python3 "$SKILL_ROOT/compose/scripts/core/start.py" \
 ```
 
 - `start.py` validates required upstream entries via this profile's `StartAdapter`, infers `run_mode` (`product` or `tech`) from cycle `delivered-refs.json`, then writes two per-revision artifacts: a frozen full copy of the cycle `delivered-refs.json` (audit baseline) and the resolver-materialized `resolved-refs.json` (scope/intent/norm); Initializing reads the resolved scope from the latter.
-- **Run-mode inference is this profile's `StartAdapter.infer_run_mode`'s responsibility** — typically `product` when a valid `lulu-spec` entry exists, otherwise `tech`. Do not pass `--run-mode`; it is not a CLI parameter.
+- **Run-mode inference is this profile's `StartAdapter.infer_run_mode`'s responsibility** (each adapter owns the heuristic; e.g. plan/design treat a valid product-spec delivered-ref as `product`, else `tech`). Do not pass `--run-mode`; it is not a CLI parameter.
 - On non-zero exit ("Gate blocked: ..." or a validation error list): tell the user which prior stage must be delivered first. Do not retry start.
 
 To resume an in-progress document on the **same revision**, do not run start again — run `$SESSION_INFO --view session` (producer resume: `resolve-context` on the active revision).
@@ -101,7 +101,7 @@ Cross-cuts Drafting and Evaluating (not a Drafting-only step).
 - Sibling L may become `ready` in parallel; do not cut L inside inductive-runner.
 - **Fact writes (multi-L):** split facts against locked rulers first; each fact must carry `home_l` (+ short `home_rationale`); `$FACTS_CTL write --target-l <home_l>` (G1 divert ok; demotes evaluated targets). Untagged writes hard-reject. Ambiguous ownership → rare human confirm. `home_l=package` only after human confirm with `--package-confirm`.
 - Enter Evaluating only when StageGate passes (deps `production: done` — `$SESSION_CONTROL start-evaluating`); also requires locked topology.
-- When all relevant L are `production: done` → `$MULTI_SLICE assemble-index --confirm` → `$L_SLICE seam-report` (advisory) → deliver with entry `design-index.md`.
+- When all relevant L are `production: done` → `$MULTI_SLICE assemble-index --confirm` → `$L_SLICE seam-report` (advisory) → deliver with the profile-derived index (`document.filename` `*-doc.md` → `*-index.md`).
 - `$L_SLICE resume` / `status` / `ready` — no illegal focus moves (hand-editing pointer JSON is forbidden).
 
 CLI: `$L_SLICE --help`.
@@ -261,8 +261,8 @@ Fetch compose framework templates on demand; **do not** read `workflow-config.js
 | `$CHAPTER_WRITE_STATE` | `python3 "$SKILL_ROOT/compose/scripts/section/chapter_write_state_control.py"` — Init 4.W claim-current gate: `sync` / `status` / `begin` (ticket) / `complete` (current) |
 | `$INIT_COMPOSE_VALIDATE` | `python3 "$SKILL_ROOT/compose/scripts/section/init_compose_validation.py" validate --revision-dir <dir> --compose-doc <path> --profile <profile_id> --project-root "$(pwd)"` |
 | `$AGENDA_CTL` | `python3 "$SKILL_ROOT/agenda/scripts/agenda_control.py" <subcommand> --project-root "$(pwd)" --cycle-id "$CYCLE_ID" --profile <profile_id> [args...]` — stage agenda; resolves `revision{N}` from session-state (see `$SKILL_ROOT/agenda/SKILL.md`) |
-| `$MULTI_SLICE` | `python3 "$SKILL_ROOT/compose/scripts/core/multi_slice_control.py" --revision-dir <revision_dir> <subcommand>` — `check-root-facts` / `migrate-root-facts` / `write-intake` / `complete-intake` / `lock-tree` / `check-split-ready` / `assemble-index` |
-| `$L_SLICE` | `python3 "$SKILL_ROOT/compose/scripts/core/discussion_pointer_control.py" --revision-dir <revision_dir> <subcommand>` — `status` / `resume` / `ready` / `can-admit` / `can-enter-evaluate` / `switch` / `mark-done` / `demote-production` / `seam-report` |
+| `$MULTI_SLICE` | `python3 "$SKILL_ROOT/compose/scripts/core/multi_slice_control.py" --revision-dir <revision_dir> --profile <profile_id> <subcommand>` — `check-root-facts` / `migrate-root-facts` / `write-intake` / `complete-intake` / `lock-tree` / `check-split-ready` / `assemble-index` |
+| `$L_SLICE` | `python3 "$SKILL_ROOT/compose/scripts/core/discussion_pointer_control.py" --revision-dir <revision_dir> --profile <profile_id> <subcommand>` — `status` / `resume` / `ready` / `can-admit` / `can-enter-evaluate` / `switch` / `mark-done` / `demote-production` / `seam-report` |
 | `$FACTS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/facts_control.py"` — `write` / `filter` / `validate` / `status` (multi-L: `write` requires `home_l`; package bucket needs `--package-confirm`) |
 
 Subcommands and stdout: script module docstrings or `--help`.

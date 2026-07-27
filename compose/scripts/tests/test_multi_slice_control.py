@@ -80,14 +80,58 @@ def test_assemble_index_after_production(tmp_path: Path) -> None:
         )
         == 0
     )
-    assert cmd_mark_done(rev, confirm=True, kind="inductive") == 0
+    profile_id = "lulu-design"
+    assert cmd_mark_done(
+        rev, confirm=True, kind="inductive", profile_id=profile_id
+    ) == 0
     doc = rev / "L1" / "design-doc.md"
     doc.write_text("# L1\n\n## Boundary\n\n", encoding="utf-8")
-    assert cmd_mark_done(rev, confirm=True, kind="production") == 0
-    assert cmd_assemble_index(rev, confirm=True) == 0
+    assert cmd_mark_done(
+        rev, confirm=True, kind="production", profile_id=profile_id
+    ) == 0
+    assert cmd_assemble_index(rev, confirm=True, profile_id=profile_id) == 0
     assert (rev / "design-index.md").is_file()
     text = (rev / "design-index.md").read_text(encoding="utf-8")
     assert "L1/design-doc.md" in text
+
+
+def test_assemble_index_uses_plan_doc_filename(tmp_path: Path) -> None:
+    from discussion_pointer_control import cmd_mark_done  # noqa: E402
+    from multi_slice_control import cmd_assemble_index  # noqa: E402
+
+    rev = tmp_path / "revision1"
+    rev.mkdir()
+    tree = {
+        "version": 1,
+        "nodes": [{"id": "L1", "title": "Only", "summary": "single"}],
+        "edges": [],
+        "order": ["L1"],
+    }
+    assert (
+        cmd_lock_tree(
+            rev,
+            tree_json=json.dumps(tree),
+            tree_file=None,
+            rulers_json=None,
+            rulers_file=None,
+            confirm=True,
+        )
+        == 0
+    )
+    profile_id = "lulu-plan"
+    assert cmd_mark_done(
+        rev, confirm=True, kind="inductive", profile_id=profile_id
+    ) == 0
+    doc = rev / "L1" / "tech-doc.md"
+    doc.write_text("# L1\n\n## Boundary\n\n", encoding="utf-8")
+    assert cmd_mark_done(
+        rev, confirm=True, kind="production", profile_id=profile_id
+    ) == 0
+    assert cmd_assemble_index(rev, confirm=True, profile_id=profile_id) == 0
+    assert (rev / "tech-index.md").is_file()
+    text = (rev / "tech-index.md").read_text(encoding="utf-8")
+    assert "L1/tech-doc.md" in text
+    assert "# Tech Index" in text
 
 
 def test_lock_tree_rejects_second_lock(tmp_path: Path) -> None:

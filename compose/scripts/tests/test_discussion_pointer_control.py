@@ -30,6 +30,8 @@ from discussion_pointer_schema import (  # noqa: E402
     save_discussion_pointer,
 )
 
+_PROFILE = "lulu-design"
+
 
 def _seed_rev(tmp_path: Path) -> Path:
     rev = tmp_path / "revision1"
@@ -78,16 +80,16 @@ def test_resume_no_state_change(tmp_path: Path, capsys) -> None:
 
 def test_switch_enter_policy(tmp_path: Path, capsys) -> None:
     rev = _seed_rev(tmp_path)
-    assert cmd_switch(rev, target="L2", confirm=True) == 1
+    assert cmd_switch(rev, target="L2", confirm=True, profile_id=_PROFILE) == 1
     assert load_discussion_pointer(rev)["focus"] == "L1"
 
-    assert cmd_mark_done(rev, confirm=True, kind="inductive") == 0
+    assert cmd_mark_done(rev, confirm=True, kind="inductive", profile_id=_PROFILE) == 0
     capsys.readouterr()
     assert cmd_ready(rev) == 0
     ready_out = json.loads(capsys.readouterr().out)
     assert set(ready_out["ready"]) >= {"L1", "L2", "L3"}
 
-    assert cmd_switch(rev, target="L2", confirm=True) == 0
+    assert cmd_switch(rev, target="L2", confirm=True, profile_id=_PROFILE) == 0
     ptr = load_discussion_pointer(rev)
     assert ptr["focus"] == "L2"
     assert set(ptr) == {"tree_ref", "focus", "by_id"}
@@ -96,27 +98,27 @@ def test_switch_enter_policy(tmp_path: Path, capsys) -> None:
 
 def test_switch_without_confirm_rejected(tmp_path: Path) -> None:
     rev = _seed_rev(tmp_path)
-    assert cmd_mark_done(rev, confirm=True, kind="inductive") == 0
-    assert cmd_switch(rev, target="L2", confirm=False) == 1
+    assert cmd_mark_done(rev, confirm=True, kind="inductive", profile_id=_PROFILE) == 0
+    assert cmd_switch(rev, target="L2", confirm=False, profile_id=_PROFILE) == 1
     assert load_discussion_pointer(rev)["focus"] == "L1"
 
 
 def test_stage_gate_blocks_until_deps_production_done(tmp_path: Path) -> None:
     rev = _seed_rev(tmp_path)
-    assert cmd_mark_done(rev, confirm=True, kind="inductive") == 0
-    assert cmd_switch(rev, target="L2", confirm=True) == 0
-    assert cmd_mark_done(rev, confirm=True, kind="inductive") == 0
+    assert cmd_mark_done(rev, confirm=True, kind="inductive", profile_id=_PROFILE) == 0
+    assert cmd_switch(rev, target="L2", confirm=True, profile_id=_PROFILE) == 0
+    assert cmd_mark_done(rev, confirm=True, kind="inductive", profile_id=_PROFILE) == 0
     assert cmd_can_enter_evaluate(rev, target="L2") == 1
     ok, reason = stage_gate_for_revision(rev)
     assert ok is False
     assert reason and "production" in reason
 
-    assert cmd_switch(rev, target="L1", confirm=True) == 0
+    assert cmd_switch(rev, target="L1", confirm=True, profile_id=_PROFILE) == 0
     doc = rev / "L1" / "design-doc.md"
     doc.parent.mkdir(parents=True, exist_ok=True)
     doc.write_text("# L1\n\n## Boundary\n\n", encoding="utf-8")
-    assert cmd_mark_done(rev, confirm=True, kind="production") == 0
-    assert cmd_switch(rev, target="L2", confirm=True) == 0
+    assert cmd_mark_done(rev, confirm=True, kind="production", profile_id=_PROFILE) == 0
+    assert cmd_switch(rev, target="L2", confirm=True, profile_id=_PROFILE) == 0
     assert cmd_can_enter_evaluate(rev, target="L2") == 0
     ok2, _ = stage_gate_for_revision(rev)
     assert ok2 is True
@@ -124,12 +126,14 @@ def test_stage_gate_blocks_until_deps_production_done(tmp_path: Path) -> None:
 
 def test_demote_production(tmp_path: Path) -> None:
     rev = _seed_rev(tmp_path)
-    assert cmd_mark_done(rev, confirm=True, kind="inductive") == 0
+    assert cmd_mark_done(rev, confirm=True, kind="inductive", profile_id=_PROFILE) == 0
     doc = rev / "L1" / "design-doc.md"
     doc.parent.mkdir(parents=True, exist_ok=True)
     doc.write_text("# L1\n\n## Boundary\n\n", encoding="utf-8")
-    assert cmd_mark_done(rev, confirm=True, kind="production") == 0
-    assert cmd_demote_production(rev, target="L1", confirm=True) == 0
+    assert cmd_mark_done(rev, confirm=True, kind="production", profile_id=_PROFILE) == 0
+    assert cmd_demote_production(
+        rev, target="L1", confirm=True, profile_id=_PROFILE
+    ) == 0
     ptr = load_discussion_pointer(rev)
     assert ptr["by_id"]["L1"]["production"] == "pending"
     progress = (rev / "drafting-progress.md").read_text(encoding="utf-8")
@@ -139,26 +143,44 @@ def test_demote_production(tmp_path: Path) -> None:
 def test_removed_legacy_cli_unknown(tmp_path: Path) -> None:
     rev = _seed_rev(tmp_path)
     with pytest.raises(SystemExit):
-        main(["--revision-dir", str(rev), "phase-switch", "--confirm"])
+        main(
+            [
+                "--revision-dir",
+                str(rev),
+                "--profile",
+                _PROFILE,
+                "phase-switch",
+                "--confirm",
+            ]
+        )
     with pytest.raises(SystemExit):
-        main(["--revision-dir", str(rev), "migrate", "--confirm"])
+        main(
+            [
+                "--revision-dir",
+                str(rev),
+                "--profile",
+                _PROFILE,
+                "migrate",
+                "--confirm",
+            ]
+        )
 
 
 def test_production_mark_done_requires_boundary(tmp_path: Path) -> None:
     rev = _seed_rev(tmp_path)
-    assert cmd_mark_done(rev, confirm=True, kind="inductive") == 0
-    assert cmd_mark_done(rev, confirm=True, kind="production") == 1
+    assert cmd_mark_done(rev, confirm=True, kind="inductive", profile_id=_PROFILE) == 0
+    assert cmd_mark_done(rev, confirm=True, kind="production", profile_id=_PROFILE) == 1
     doc = rev / "L1" / "design-doc.md"
     doc.parent.mkdir(parents=True, exist_ok=True)
     doc.write_text("# L1\n\n## Boundary\n\n", encoding="utf-8")
-    assert cmd_mark_done(rev, confirm=True, kind="production") == 0
+    assert cmd_mark_done(rev, confirm=True, kind="production", profile_id=_PROFILE) == 0
 
 
 def test_seam_report_advisory(tmp_path: Path, capsys) -> None:
     from discussion_pointer_control import cmd_seam_report
 
     rev = _seed_rev(tmp_path)
-    assert cmd_seam_report(rev) == 0
+    assert cmd_seam_report(rev, profile_id=_PROFILE) == 0
     out = json.loads(capsys.readouterr().out)
     assert out["hard_reject"] is False
     assert out["edges_checked"] == 2

@@ -45,16 +45,21 @@ from discussion_pointer_schema import (  # noqa: E402
     slice_past_init,
 )
 from drafting_progress_schema import allowed_steps, save_drafting_progress  # noqa: E402
+from multi_slice_control import document_filename_for_profile  # noqa: E402
 from workflow_common import parse_frontmatter_fields  # noqa: E402
-from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID  # noqa: E402
 
 _BOUNDARY_HEADING = "## Boundary"
 _DRAFTING_PROGRESS = "drafting-progress.md"
 
 
-def _production_exit_errors(revision_dir: Path, node_id: str) -> list[str]:
-    """Structural production exit: design-doc.md with ``## Boundary`` (may be empty)."""
-    doc = Path(revision_dir) / node_id / "design-doc.md"
+def _production_exit_errors(
+    revision_dir: Path,
+    node_id: str,
+    *,
+    doc_filename: str,
+) -> list[str]:
+    """Structural production exit: profile doc with ``## Boundary`` (may be empty)."""
+    doc = Path(revision_dir) / node_id / doc_filename
     if not doc.is_file():
         return [f"missing {doc.as_posix()}"]
     text = doc.read_text(encoding="utf-8")
@@ -63,15 +68,15 @@ def _production_exit_errors(revision_dir: Path, node_id: str) -> list[str]:
     return []
 
 
-def seam_report(revision_dir: Path) -> dict[str, Any]:
+def seam_report(revision_dir: Path, *, doc_filename: str) -> dict[str, Any]:
     """Checklist seam report from edges vs Boundary headings (advisory, never hard-fail)."""
     tree = load_dependency_tree(revision_dir)
     findings: list[dict[str, Any]] = []
     for edge in tree.get("edges") or []:
         frm = str(edge.get("from", ""))
         to = str(edge.get("to", ""))
-        from_doc = Path(revision_dir) / frm / "design-doc.md"
-        to_doc = Path(revision_dir) / to / "design-doc.md"
+        from_doc = Path(revision_dir) / frm / doc_filename
+        to_doc = Path(revision_dir) / to / doc_filename
         from_text = from_doc.read_text(encoding="utf-8") if from_doc.is_file() else ""
         to_text = to_doc.read_text(encoding="utf-8") if to_doc.is_file() else ""
         findings.append(
@@ -117,7 +122,13 @@ def _load(revision_dir: Path) -> tuple[dict[str, Any], dict[str, Any]]:
     return tree, pointer
 
 
-def _sync_drafting_for_focus(revision_dir: Path, node_id: str, pointer: dict[str, Any]) -> str | None:
+def _sync_drafting_for_focus(
+    revision_dir: Path,
+    node_id: str,
+    pointer: dict[str, Any],
+    *,
+    profile_id: str,
+) -> str | None:
     """Align revision ``drafting-progress.md`` with target L maturity (best-effort).
 
     Writes only via ``drafting_progress_schema.save_drafting_progress`` so
@@ -127,8 +138,8 @@ def _sync_drafting_for_focus(revision_dir: Path, node_id: str, pointer: dict[str
     """
     path = Path(revision_dir) / _DRAFTING_PROGRESS
     cell = pointer["by_id"][node_id]
-    profile_id = DEFAULT_COMPOSE_PROFILE_ID
-    allowed = allowed_steps(profile_id)
+    pid = profile_id.strip()
+    allowed = allowed_steps(pid)
     if cell["inductive"] != "done":
         step = "Inductive"
     elif cell["production"] == "done" or slice_past_init(revision_dir, node_id):
@@ -158,7 +169,7 @@ def _sync_drafting_for_focus(revision_dir: Path, node_id: str, pointer: dict[str
     save_drafting_progress(
         path,
         {"version": "1", "cycle_id": cycle_id, "current_step": step},
-        profile_id=profile_id,
+        profile_id=pid,
         merge=False,
     )
     return step
@@ -255,7 +266,13 @@ def cmd_can_enter_evaluate(revision_dir: Path, *, target: str | None) -> int:
     return 0 if ok else 1
 
 
-def cmd_switch(revision_dir: Path, *, target: str, confirm: bool) -> int:
+def cmd_switch(
+    revision_dir: Path,
+    *,
+    target: str,
+    confirm: bool,
+    profile_id: str,
+) -> int:
     err = _require_confirm(confirm)
     if err:
         return _emit_error(err)
@@ -267,7 +284,9 @@ def cmd_switch(revision_dir: Path, *, target: str, confirm: bool) -> int:
             return _emit_error(reason or f"cannot admit {tgt!r}")
         pointer["focus"] = tgt
         save_discussion_pointer(revision_dir, pointer, tree=tree)
-        drafting_step = _sync_drafting_for_focus(revision_dir, tgt, pointer)
+        drafting_step = _sync_drafting_for_focus(
+            revision_dir, tgt, pointer, profile_id=profile_id
+        )
     except (FileNotFoundError, ValueError, json.JSONDecodeError, KeyError) as exc:
         return _emit_error(str(exc))
     payload = _status_payload(revision_dir, tree, pointer, command="switch")
@@ -282,6 +301,7 @@ def cmd_mark_done(
     *,
     confirm: bool,
     kind: str | None,
+    profile_id: str,
 ) -> int:
     err = _require_confirm(confirm)
     if err:
@@ -297,7 +317,10 @@ def cmd_mark_done(
         else:
             phase = "inductive" if cell["inductive"] != "done" else "production"
         if phase == "production":
-            gate_errs = _production_exit_errors(revision_dir, cur)
+            doc_filename = document_filename_for_profile(profile_id)
+            gate_errs = _production_exit_errors(
+                revision_dir, cur, doc_filename=doc_filename
+            )
             if gate_errs:
                 return _emit_error("; ".join(gate_errs))
             if cell["inductive"] != "done":
@@ -328,8 +351,13 @@ def cmd_demote_production(
     *,
     target: str,
     confirm: bool,
+    profile_id: str = "",
 ) -> int:
-    """Bucket side-effect: production→pending; FreeEdit sync when target is focus."""
+    """Bucket side-effect: production→pending; FreeEdit sync when target is focus.
+
+    Drafting-progress sync runs only when ``profile_id`` is non-empty (CLI always
+    passes ``--profile``; library callers such as facts write may omit it).
+    """
     err = _require_confirm(confirm)
     if err:
         return _emit_error(err)
@@ -345,8 +373,11 @@ def cmd_demote_production(
             cell["production"] = "pending"
             demoted = True
         drafting_step = None
-        if demoted and str(pointer["focus"]) == tgt:
-            drafting_step = _sync_drafting_for_focus(revision_dir, tgt, pointer)
+        pid = profile_id.strip()
+        if demoted and str(pointer["focus"]) == tgt and pid:
+            drafting_step = _sync_drafting_for_focus(
+                revision_dir, tgt, pointer, profile_id=pid
+            )
         if demoted:
             save_discussion_pointer(revision_dir, pointer, tree=tree)
     except (FileNotFoundError, ValueError, json.JSONDecodeError, KeyError) as exc:
@@ -361,9 +392,10 @@ def cmd_demote_production(
     return 0
 
 
-def cmd_seam_report(revision_dir: Path) -> int:
+def cmd_seam_report(revision_dir: Path, *, profile_id: str) -> int:
     try:
-        payload = seam_report(revision_dir)
+        doc_filename = document_filename_for_profile(profile_id)
+        payload = seam_report(revision_dir, doc_filename=doc_filename)
     except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
         return _emit_error(str(exc))
     _emit(payload)
@@ -395,6 +427,11 @@ def _build_parser() -> argparse.ArgumentParser:
         required=True,
         type=Path,
         help="Path to revision{N}/ directory",
+    )
+    parser.add_argument(
+        "--profile",
+        required=True,
+        help="Compose profile / stage id (document.filename + drafting steps)",
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -443,6 +480,7 @@ def _build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     rev = args.revision_dir.resolve()
+    profile_id = str(args.profile).strip()
     if args.command == "status":
         return cmd_status(rev)
     if args.command == "resume":
@@ -450,18 +488,31 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "ready":
         return cmd_ready(rev)
     if args.command == "seam-report":
-        return cmd_seam_report(rev)
+        return cmd_seam_report(rev, profile_id=profile_id)
     if args.command == "can-admit":
         return cmd_can_admit(rev, target=args.target)
     if args.command == "can-enter-evaluate":
         return cmd_can_enter_evaluate(rev, target=args.target)
     if args.command == "switch":
-        return cmd_switch(rev, target=args.target, confirm=bool(args.confirm))
+        return cmd_switch(
+            rev,
+            target=args.target,
+            confirm=bool(args.confirm),
+            profile_id=profile_id,
+        )
     if args.command == "mark-done":
-        return cmd_mark_done(rev, confirm=bool(args.confirm), kind=args.kind)
+        return cmd_mark_done(
+            rev,
+            confirm=bool(args.confirm),
+            kind=args.kind,
+            profile_id=profile_id,
+        )
     if args.command == "demote-production":
         return cmd_demote_production(
-            rev, target=args.target, confirm=bool(args.confirm)
+            rev,
+            target=args.target,
+            confirm=bool(args.confirm),
+            profile_id=profile_id,
         )
     return _emit_error(f"unknown command {args.command!r}")
 

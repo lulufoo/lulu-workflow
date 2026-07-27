@@ -9,7 +9,7 @@ Subcommands:
     lock-tree            Persist locked dependency tree + pointer + Lx dirs
                          (+ slice-rulers when multi-L)
     check-split-ready    Assert tree locked; multi-L requires locked rulers
-    assemble-index       Build ``design-index.md`` when all production done
+    assemble-index       Build profile-derived ``*-index.md`` when all production done
 
 Design rationale (source repo, why-only):
 docs/domain/archive/compose/archive-4.0/compose-multi-subdesign-split-runner-scheme.md
@@ -59,8 +59,36 @@ from split_intake_schema import (  # noqa: E402
     split_intake_path,
     validate_split_intake,
 )
+from workflow_paths import load_profile  # noqa: E402
 
-DESIGN_INDEX_FILENAME = "design-index.md"
+
+def document_filename_for_profile(profile_id: str) -> str:
+    """Return ``document.filename`` from the compose profile (authoring SSOT)."""
+    profile = load_profile(profile_id)
+    name = str((profile.get("document") or {}).get("filename", "")).strip()
+    if not name:
+        raise ValueError(f"profile {profile_id!r} missing document.filename")
+    return name
+
+
+def index_filename_from_doc(doc_filename: str) -> str:
+    """Derive multi-L delivery index name from ``document.filename``.
+
+    ``design-doc.md`` → ``design-index.md``; ``tech-doc.md`` → ``tech-index.md``.
+    """
+    name = doc_filename.strip()
+    if name.endswith("-doc.md"):
+        return f"{name[: -len('-doc.md')]}-index.md"
+    if name.endswith(".md"):
+        return f"{name[:-3]}-index.md"
+    return f"{name}-index.md"
+
+
+def index_title_from_filename(index_filename: str) -> str:
+    stem = index_filename.strip()
+    if stem.endswith(".md"):
+        stem = stem[:-3]
+    return " ".join(part.capitalize() for part in stem.split("-") if part)
 
 
 def _emit(payload: dict[str, Any]) -> None:
@@ -386,11 +414,18 @@ def cmd_check_split_ready(revision_dir: Path) -> int:
     return 0
 
 
-def cmd_assemble_index(revision_dir: Path, *, confirm: bool) -> int:
+def cmd_assemble_index(
+    revision_dir: Path,
+    *,
+    confirm: bool,
+    profile_id: str,
+) -> int:
     if not confirm:
         return _emit_error("human --confirm required")
     rev = Path(revision_dir).resolve()
     try:
+        doc_filename = document_filename_for_profile(profile_id)
+        index_filename = index_filename_from_doc(doc_filename)
         tree = load_dependency_tree(rev)
         pointer = load_discussion_pointer(rev)
     except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
@@ -406,8 +441,9 @@ def cmd_assemble_index(revision_dir: Path, *, confirm: bool) -> int:
         )
 
     titles = {n["id"]: n.get("title", "") for n in tree["nodes"]}
+    index_title = index_title_from_filename(index_filename)
     lines = [
-        "# Design Index",
+        f"# {index_title}",
         "",
         "Delivery entry for this multi-subdesign package.",
         "",
@@ -422,26 +458,26 @@ def cmd_assemble_index(revision_dir: Path, *, confirm: bool) -> int:
         "|------|-------|------|",
     ]
     for nid in tree["order"]:
-        path = f"{nid}/design-doc.md"
+        path = f"{nid}/{doc_filename}"
         lines.append(f"| {nid} | {titles.get(nid, '')} | `{path}` |")
     lines.extend(
         [
             "",
             "## Delivery",
             "",
-            "Marker entry points at this `design-index.md`. "
+            f"Marker entry points at this `{index_filename}`. "
             "Sub-L docs are not delivered separately.",
             "",
         ]
     )
-    out = rev / DESIGN_INDEX_FILENAME
+    out = rev / index_filename
     out.write_text("\n".join(lines), encoding="utf-8")
     _emit(
         {
             "ok": True,
             "command": "assemble-index",
             "path": out.as_posix(),
-            "parts": [f"{nid}/design-doc.md" for nid in tree["order"]],
+            "parts": [f"{nid}/{doc_filename}" for nid in tree["order"]],
         }
     )
     return 0
@@ -453,6 +489,11 @@ def _build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--revision-dir", required=True, type=Path)
+    parser.add_argument(
+        "--profile",
+        required=True,
+        help="Compose profile / stage id (document.filename + index derivation)",
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("check-root-facts", help="Hard-reject if root _facts.json exists")
@@ -484,7 +525,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     p_idx = sub.add_parser(
         "assemble-index",
-        help="Write design-index.md after all production done",
+        help="Write profile-derived *-index.md after all production done",
     )
     p_idx.add_argument("--confirm", action="store_true")
 
@@ -494,6 +535,7 @@ def _build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     rev = args.revision_dir.resolve()
+    profile_id = str(args.profile).strip()
     if args.command == "check-root-facts":
         return cmd_check_root_facts(rev)
     if args.command == "migrate-root-facts":
@@ -518,7 +560,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "check-split-ready":
         return cmd_check_split_ready(rev)
     if args.command == "assemble-index":
-        return cmd_assemble_index(rev, confirm=bool(args.confirm))
+        return cmd_assemble_index(
+            rev, confirm=bool(args.confirm), profile_id=profile_id
+        )
     return _emit_error(f"unknown command {args.command!r}")
 
 

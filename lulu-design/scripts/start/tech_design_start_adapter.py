@@ -23,7 +23,6 @@ from delivered_refs_schema import (  # noqa: E402
 from start_adapter import primary_scope_from_workflow  # noqa: E402
 from start_scope_helpers import (  # noqa: E402
     first_ref,
-    infer_product_or_tech,
     require_decision_fact_scope,
 )
 from workflow_common import CACHE_DIR  # noqa: E402
@@ -42,7 +41,10 @@ class TechDesignStartAdapter:
         cycle_id: str,
         project_root: Path,
     ) -> str:
-        return infer_product_or_tech(cycle_id, project_root)
+        data = load_delivered_refs_file(cycle_id, project_root)
+        if entry_path_ok(data, "lulu-spec"):
+            return "product"
+        return "tech"
 
     def validate_for_start(
         self,

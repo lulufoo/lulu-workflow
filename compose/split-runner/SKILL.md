@@ -1,7 +1,7 @@
 ---
 name: split-runner
 description: >-
-  Pre-inductive multi-subdesign split for compose (lulu-design Lx packages).
+  Pre-inductive multi-subdesign split for compose (Lx packages).
   Intake → split-or-not → propose tree+rulers → human lock. Invoked from compose
   session Split; does not own runtime $L_SLICE scheduling.
 ---
@@ -27,7 +27,7 @@ Self-resolved: `$PROJECT_ROOT` = `$(pwd)`.
 
 | Macro | Command |
 |-------|---------|
-| `$MULTI_SLICE` | `python3 "$SKILL_ROOT/compose/scripts/core/multi_slice_control.py" --revision-dir "$REVISION_DIR" <subcommand>` |
+| `$MULTI_SLICE` | `python3 "$SKILL_ROOT/compose/scripts/core/multi_slice_control.py" --revision-dir "$REVISION_DIR" --profile "$COMPOSE_PROFILE" <subcommand>` |
 
 Subcommands: `--help`. Contracts live in the control module / `--help` only.
 

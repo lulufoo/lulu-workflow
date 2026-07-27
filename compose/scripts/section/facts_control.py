@@ -222,7 +222,12 @@ def cmd_write(args: argparse.Namespace) -> int:
 
         buf_out, buf_err = io.StringIO(), io.StringIO()
         with redirect_stdout(buf_out), redirect_stderr(buf_err):
-            code = cmd_demote_production(rev, target=target_l, confirm=True)
+            code = cmd_demote_production(
+                rev,
+                target=target_l,
+                confirm=True,
+                profile_id=(args.profile or "").strip(),
+            )
         raw_out = buf_out.getvalue().strip()
         if raw_out:
             try:
