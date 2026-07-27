@@ -259,6 +259,33 @@ def _format_inductive_dispatch_input(
     return "\n".join(lines)
 
 
+def _atomize_doc_path_for_focus(
+    cycle_id: str,
+    project_root: Path,
+    profile_id: str,
+    scope_path: Path,
+) -> Path | None:
+    """When SCOPE_REF is a compose package, resolve focus L upstream prose path."""
+    from compose_package_schema import (  # noqa: WPS433
+        is_compose_package_path,
+        load_compose_package,
+        resolve_focus_doc_path,
+    )
+    from discussion_pointer_schema import load_discussion_pointer  # noqa: WPS433
+
+    if not is_compose_package_path(scope_path):
+        return None
+    package = load_compose_package(scope_path)
+    focus = str(
+        load_discussion_pointer(_revision_dir(cycle_id, project_root, profile_id)).get(
+            "focus", ""
+        )
+    ).strip()
+    if not focus:
+        raise ValueError("discussion-pointer focus missing for ATOMIZE_DOC_PATH")
+    return resolve_focus_doc_path(package, focus, package_path=scope_path)
+
+
 def _format_deductive_dispatch_input(
     cycle_id: str,
     project_root: Path,
@@ -267,13 +294,19 @@ def _format_deductive_dispatch_input(
     revision_dir = _revision_dir(cycle_id, project_root, profile_id)
     pipeline = _pipeline_config(cycle_id, project_root, profile_id)
     code_grounding = bool(pipeline.get("code_grounding"))
+    scope_path = _scope_doc(cycle_id, project_root, profile_id)
     lines = [
         f"COMPOSE_PROFILE:      {profile_id}",
         f"CYCLE_ID:             {cycle_id}",
-        f"SCOPE_REF:            {_scope_doc(cycle_id, project_root, profile_id).as_posix()}",
+        f"SCOPE_REF:            {scope_path.as_posix()}",
         f"DEDUCTIVE_OUT_DIR:    {revision_dir.as_posix()}",
         f"CODE_GROUNDING:       {str(code_grounding).lower()}",
     ]
+    atomize_path = _atomize_doc_path_for_focus(
+        cycle_id, project_root, profile_id, scope_path
+    )
+    if atomize_path is not None:
+        lines.append(f"ATOMIZE_DOC_PATH:     {atomize_path.as_posix()}")
     return "\n".join(lines)
 
 

@@ -35,3 +35,10 @@ def test_compose_descriptor_plan_ok():
     desc = _compose_descriptor("lulu-plan")
     assert desc is not None
     assert desc.stage_name == "lulu-plan"
+    assert desc.doc_filename == "tech-package.json"
+
+
+def test_compose_descriptor_design_uses_package_marker():
+    desc = _compose_descriptor("lulu-design")
+    assert desc is not None
+    assert desc.doc_filename == "design-package.json"

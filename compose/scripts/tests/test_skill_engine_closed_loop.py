@@ -41,6 +41,9 @@ def test_engine_skill_contains_full_orchestration() -> None:
     assert "deductive" in text.lower()
     assert "begin-deductive" in text
     assert "deductive-runner" in text
+    assert "assemble-package" in text
+    assert "lock-hard-mirror" in text
+    assert "assemble-index --confirm" not in text
 
 
 def test_engine_evaluating_delegates_without_dimension_table() -> None:

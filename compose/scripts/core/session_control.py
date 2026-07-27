@@ -50,7 +50,10 @@ from human_delivery_gate_schema import write_approved  # noqa: E402
 from session_state_schema import load_active_doc_from_cycle  # noqa: E402
 from workflow_common import parse_frontmatter_fields  # noqa: E402
 from workflow_profile_paths import evaluate_state_path as profile_evaluate_state_path  # noqa: E402
-from multi_slice_control import evaluate_split_ready  # noqa: E402
+from multi_slice_control import (  # noqa: E402
+    assemble_compose_package,
+    evaluate_split_ready,
+)
 from session_evaluating import enter_evaluating_state  # noqa: E402
 from discussion_pointer_schema import (  # noqa: E402
     all_l_accepted,
@@ -398,12 +401,27 @@ def deliver(
     write_approved(approval_gate_path(cycle_id, project_root, profile_id), note=note)
 
     active_doc = load_active_doc_for_profile(cycle_id, project_root, profile_id)
-    compose_path = document_file_path(cycle_id, project_root, profile_id)
+    package_path, package_err = assemble_compose_package(
+        revision_dir,
+        profile_id=profile_id,
+        require_acceptance_done=True,
+    )
+    if package_err or package_path is None:
+        return {
+            "ok": False,
+            "command": _CMD_DELIVER,
+            "current_state": current,
+            "error": package_err or "assemble-package failed",
+            "message": (
+                f"deliver blocked: cannot assemble *-package.json "
+                f"({package_err or 'unknown error'})"
+            ),
+        }
     record_delivered_ref(
         cycle_id,
         project_root,
         delivered_type=profile_id,
-        path=str(compose_path.resolve()),
+        path=str(package_path.resolve()),
         revision=active_doc,
         profile_id=profile_id,
         source_workflow_state=str(ws_path.resolve()),

@@ -8,11 +8,13 @@ Subcommands:
     complete-intake      Mark intake status=complete after slot validation (--confirm)
     lock-tree            Persist locked dependency tree + pointer + Lx dirs
                          (+ slice-rulers when multi-L)
+    lock-hard-mirror     Plan/deductive: lock chain tree+rulers from upstream package
     check-split-ready    Assert tree locked; multi-L requires locked rulers
-    assemble-index       Build profile-derived ``*-index.md`` when all acceptance done
+    assemble-package     Write profile-derived ``*-package.json`` (delivery marker)
+    assemble-index       Optional ``*-index.md`` (not the delivery marker)
 
 Design rationale (source repo, why-only):
-docs/domain/archive/compose/archive-4.0/compose-multi-subdesign-split-runner-scheme.md
+docs/domain/archive/compose/archive-4.0/compose-deductive-package-hard-mirror-design.md
 """
 
 from __future__ import annotations
@@ -32,6 +34,17 @@ for _p in (_HERE, _SESSION, _SECTION, _SCRIPTS):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
+from compose_package_schema import (  # noqa: E402
+    build_compose_package,
+    chain_dependency_tree_from_package,
+    is_compose_package_path,
+    load_compose_package,
+    missing_slice_docs,
+    package_filename_from_doc,
+    save_compose_package,
+    stub_slice_rulers_from_package,
+    validate_compose_package,
+)
 from dependency_tree_schema import (  # noqa: E402
     DEPENDENCY_TREE_FILENAME,
     dependency_tree_path,
@@ -445,7 +458,7 @@ def cmd_assemble_index(
     lines = [
         f"# {index_title}",
         "",
-        "Delivery entry for this multi-subdesign package.",
+        "Optional human-readable index (delivery marker is ``*-package.json``).",
         "",
         "## Dependency tree",
         "",
@@ -465,8 +478,8 @@ def cmd_assemble_index(
             "",
             "## Delivery",
             "",
-            f"Marker entry points at this `{index_filename}`. "
-            "Sub-L docs are not delivered separately.",
+            f"Cross-stage marker is `{package_filename_from_doc(doc_filename)}`, "
+            f"not this `{index_filename}`.",
             "",
         ]
     )
@@ -481,6 +494,131 @@ def cmd_assemble_index(
         }
     )
     return 0
+
+
+def assemble_compose_package(
+    revision_dir: Path,
+    *,
+    profile_id: str,
+    require_acceptance_done: bool = True,
+) -> tuple[Path | None, str | None]:
+    """Build and write ``*-package.json`` for a revision.
+
+    Returns ``(path, None)`` on success or ``(None, error)`` on failure.
+    """
+    rev = Path(revision_dir).resolve()
+    try:
+        doc_filename = document_filename_for_profile(profile_id)
+        tree = load_dependency_tree(rev)
+        pointer = load_discussion_pointer(rev)
+    except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
+        return None, str(exc)
+
+    if require_acceptance_done:
+        incomplete = [
+            nid
+            for nid in tree["order"]
+            if pointer["by_id"][nid]["acceptance"] != "done"
+        ]
+        if incomplete:
+            return None, "not all nodes acceptance=done: " + ", ".join(incomplete)
+
+    titles = {str(n["id"]): str(n.get("title", "")) for n in tree["nodes"]}
+    slices = [
+        {
+            "id": nid,
+            "title": titles.get(nid, nid),
+            "doc_path": f"{nid}/{doc_filename}",
+        }
+        for nid in tree["order"]
+    ]
+    package = build_compose_package(
+        profile_id=profile_id,
+        order=list(tree["order"]),
+        slices=slices,
+    )
+    errors = validate_compose_package(package)
+    if errors:
+        return None, "; ".join(errors)
+    missing = missing_slice_docs(rev, package)
+    if missing:
+        return None, "missing slice docs: " + ", ".join(missing)
+    try:
+        path = save_compose_package(rev, doc_filename, package)
+    except ValueError as exc:
+        return None, str(exc)
+    return path, None
+
+
+def cmd_assemble_package(
+    revision_dir: Path,
+    *,
+    confirm: bool,
+    profile_id: str,
+) -> int:
+    if not confirm:
+        return _emit_error("human --confirm required")
+    path, err = assemble_compose_package(
+        revision_dir, profile_id=profile_id, require_acceptance_done=True
+    )
+    if err:
+        return _emit_error(err)
+    assert path is not None
+    pkg = load_compose_package(path)
+    _emit(
+        {
+            "ok": True,
+            "command": "assemble-package",
+            "path": path.as_posix(),
+            "order": list(pkg["order"]),
+            "parts": [s["doc_path"] for s in pkg["slices"]],
+        }
+    )
+    return 0
+
+
+def cmd_lock_hard_mirror(
+    revision_dir: Path,
+    *,
+    package_path: Path,
+    confirm: bool,
+) -> int:
+    """Lock Plan/deductive topology by hard-mirroring an upstream compose package."""
+    if not confirm:
+        return _emit_error("human --confirm required")
+    rev = Path(revision_dir).resolve()
+    pkg_path = Path(package_path).resolve()
+    if not is_compose_package_path(pkg_path):
+        return _emit_error(
+            f"upstream scope is not a compose package (*-package.json): {pkg_path}"
+        )
+    try:
+        package = load_compose_package(pkg_path)
+    except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
+        return _emit_error(
+            f"blocking: invalid or missing upstream package ({exc}); "
+            "return to upstream compose and re-deliver *-package.json"
+        )
+    missing = missing_slice_docs(pkg_path.parent, package)
+    if missing:
+        return _emit_error(
+            "blocking: upstream package missing slice docs: "
+            + ", ".join(missing)
+            + "; return to upstream compose and re-deliver"
+        )
+
+    tree = chain_dependency_tree_from_package(package)
+    rulers = stub_slice_rulers_from_package(package)
+    return cmd_lock_tree(
+        rev,
+        tree_json=json.dumps(tree, ensure_ascii=False),
+        tree_file=None,
+        rulers_json=(
+            json.dumps(rulers, ensure_ascii=False) if rulers is not None else None
+        ),
+        rulers_file=None,
+        confirm=True,
+    )
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -523,9 +661,27 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Assert locked tree (+ locked rulers when multi-L)",
     )
 
+    p_hm = sub.add_parser(
+        "lock-hard-mirror",
+        help="Lock chain tree+rulers from upstream *-package.json (deductive Plan)",
+    )
+    p_hm.add_argument(
+        "--package-path",
+        required=True,
+        type=Path,
+        help="Absolute path to upstream compose *-package.json",
+    )
+    p_hm.add_argument("--confirm", action="store_true")
+
+    p_pkg = sub.add_parser(
+        "assemble-package",
+        help="Write profile-derived *-package.json after all acceptance done",
+    )
+    p_pkg.add_argument("--confirm", action="store_true")
+
     p_idx = sub.add_parser(
         "assemble-index",
-        help="Write profile-derived *-index.md after all acceptance done",
+        help="Optional *-index.md (not the delivery marker)",
     )
     p_idx.add_argument("--confirm", action="store_true")
 
@@ -557,8 +713,18 @@ def main(argv: list[str] | None = None) -> int:
             rulers_file=args.rulers_file,
             confirm=bool(args.confirm),
         )
+    if args.command == "lock-hard-mirror":
+        return cmd_lock_hard_mirror(
+            rev,
+            package_path=Path(args.package_path),
+            confirm=bool(args.confirm),
+        )
     if args.command == "check-split-ready":
         return cmd_check_split_ready(rev)
+    if args.command == "assemble-package":
+        return cmd_assemble_package(
+            rev, confirm=bool(args.confirm), profile_id=profile_id
+        )
     if args.command == "assemble-index":
         return cmd_assemble_index(
             rev, confirm=bool(args.confirm), profile_id=profile_id

@@ -1,0 +1,244 @@
+#!/usr/bin/env python3
+"""Schema and I/O for revision ``*-package.json`` (compose delivery marker).
+
+Cross-stage delivery entry is this JSON only; per-L prose stays at ``Lx/*-doc.md``.
+Shape (v1)::
+
+    {
+      "version": 1,
+      "profile_id": "lulu-design",
+      "order": ["L1", "L2"],
+      "slices": [
+        {"id": "L1", "title": "...", "doc_path": "L1/design-doc.md"}
+      ]
+    }
+"""
+
+from __future__ import annotations
+
+import json
+import re
+from pathlib import Path
+from typing import Any
+
+PACKAGE_VERSION = 1
+_NODE_ID_RE = re.compile(r"^L\d+$")
+_SLICE_KEYS = frozenset({"id", "title", "doc_path"})
+
+
+def package_filename_from_doc(doc_filename: str) -> str:
+    """Derive delivery package name from ``document.filename``.
+
+    ``design-doc.md`` → ``design-package.json``; ``tech-doc.md`` → ``tech-package.json``.
+    """
+    name = str(doc_filename).strip()
+    if not name:
+        raise ValueError("doc_filename must be non-empty")
+    if name.endswith("-doc.md"):
+        return f"{name[: -len('-doc.md')]}-package.json"
+    if name.endswith(".md"):
+        return f"{name[:-3]}-package.json"
+    if name.endswith(".json"):
+        return name if name.endswith("-package.json") else f"{name[:-5]}-package.json"
+    return f"{name}-package.json"
+
+
+def compose_package_path(revision_dir: Path, doc_filename: str) -> Path:
+    return Path(revision_dir) / package_filename_from_doc(doc_filename)
+
+
+def build_compose_package(
+    *,
+    profile_id: str,
+    order: list[str],
+    slices: list[dict[str, Any]],
+    version: int = PACKAGE_VERSION,
+) -> dict[str, Any]:
+    return {
+        "version": int(version),
+        "profile_id": str(profile_id).strip(),
+        "order": list(order),
+        "slices": [dict(s) for s in slices],
+    }
+
+
+def validate_compose_package(data: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(data, dict):
+        return ["package must be an object"]
+
+    if data.get("version") != PACKAGE_VERSION:
+        errors.append(f"version must be {PACKAGE_VERSION}")
+
+    profile_id = data.get("profile_id")
+    if not isinstance(profile_id, str) or not profile_id.strip():
+        errors.append("profile_id must be a non-empty string")
+
+    order = data.get("order")
+    if not isinstance(order, list) or not order:
+        errors.append("order must be a non-empty list")
+        return errors
+
+    seen_order: set[str] = set()
+    for idx, nid in enumerate(order):
+        if not isinstance(nid, str) or not _NODE_ID_RE.match(nid):
+            errors.append(f"order[{idx}] must match L<number>")
+            continue
+        if nid in seen_order:
+            errors.append(f"order has duplicate id {nid!r}")
+        seen_order.add(nid)
+
+    slices = data.get("slices")
+    if not isinstance(slices, list) or not slices:
+        errors.append("slices must be a non-empty list")
+        return errors
+
+    slice_ids: list[str] = []
+    for idx, slice_row in enumerate(slices):
+        where = f"slices[{idx}]"
+        if not isinstance(slice_row, dict):
+            errors.append(f"{where} must be an object")
+            continue
+        extra = set(slice_row) - _SLICE_KEYS
+        if extra:
+            errors.append(f"{where} unexpected keys: {sorted(extra)}")
+        sid = str(slice_row.get("id", "")).strip()
+        if not _NODE_ID_RE.match(sid):
+            errors.append(f"{where}.id must match L<number>")
+        else:
+            slice_ids.append(sid)
+        if not str(slice_row.get("title", "")).strip():
+            errors.append(f"{where}.title must be non-empty")
+        doc_path = str(slice_row.get("doc_path", "")).strip()
+        if not doc_path or doc_path.startswith("/") or ".." in Path(doc_path).parts:
+            errors.append(
+                f"{where}.doc_path must be a relative path under the revision root"
+            )
+
+    if sorted(slice_ids) != sorted(seen_order) or len(slice_ids) != len(seen_order):
+        errors.append("order must cover each slices[].id exactly once")
+
+    return errors
+
+
+def missing_slice_docs(revision_dir: Path, package: dict[str, Any]) -> list[str]:
+    """Return relative doc_path values whose files are missing under revision_dir."""
+    rev = Path(revision_dir)
+    missing: list[str] = []
+    for slice_row in package.get("slices") or []:
+        if not isinstance(slice_row, dict):
+            continue
+        rel = str(slice_row.get("doc_path", "")).strip()
+        if not rel:
+            continue
+        if not (rev / rel).is_file():
+            missing.append(rel)
+    return missing
+
+
+def save_compose_package(revision_dir: Path, doc_filename: str, package: dict[str, Any]) -> Path:
+    errors = validate_compose_package(package)
+    if errors:
+        raise ValueError("; ".join(errors))
+    missing = missing_slice_docs(revision_dir, package)
+    if missing:
+        raise ValueError("missing slice docs: " + ", ".join(missing))
+    path = compose_package_path(revision_dir, doc_filename)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(package, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return path
+
+
+def load_compose_package(path: Path) -> dict[str, Any]:
+    package_path = Path(path)
+    if not package_path.is_file():
+        raise FileNotFoundError(f"missing compose package: {package_path}")
+    data = json.loads(package_path.read_text(encoding="utf-8"))
+    errors = validate_compose_package(data)
+    if errors:
+        raise ValueError("; ".join(errors))
+    return data
+
+
+def is_compose_package_path(path: Path | str) -> bool:
+    name = Path(path).name
+    return name.endswith("-package.json")
+
+
+def resolve_focus_doc_path(
+    package: dict[str, Any],
+    focus: str,
+    *,
+    package_path: Path,
+) -> Path:
+    """Resolve absolute upstream prose path for ``focus`` from a loaded package."""
+    focus_id = str(focus).strip()
+    for slice_row in package.get("slices") or []:
+        if not isinstance(slice_row, dict):
+            continue
+        if str(slice_row.get("id", "")).strip() != focus_id:
+            continue
+        rel = str(slice_row.get("doc_path", "")).strip()
+        if not rel:
+            raise ValueError(f"package slice {focus_id!r} missing doc_path")
+        abs_path = (Path(package_path).resolve().parent / rel).resolve()
+        if not abs_path.is_file():
+            raise FileNotFoundError(f"upstream doc not found for {focus_id}: {abs_path}")
+        return abs_path
+    raise ValueError(f"focus {focus_id!r} not found in package slices")
+
+
+def chain_dependency_tree_from_package(package: dict[str, Any]) -> dict[str, Any]:
+    """Materialize package.order into a chain DAG (order[i+1] depends on order[i])."""
+    from dependency_tree_schema import build_tree  # noqa: WPS433
+
+    order = [str(x) for x in package["order"]]
+    by_id = {
+        str(s["id"]): s
+        for s in package["slices"]
+        if isinstance(s, dict) and str(s.get("id", "")).strip()
+    }
+    nodes = [
+        {
+            "id": nid,
+            "title": str(by_id.get(nid, {}).get("title", nid)),
+            # dependency-tree schema requires non-empty summary; hard-mirror has none.
+            "summary": str(by_id.get(nid, {}).get("title", nid)).strip() or nid,
+        }
+        for nid in order
+    ]
+    edges = [
+        {"from": order[i + 1], "to": order[i]}
+        for i in range(len(order) - 1)
+    ]
+    return build_tree(nodes=nodes, edges=edges, order=order, status="draft")
+
+
+def stub_slice_rulers_from_package(package: dict[str, Any]) -> dict[str, Any] | None:
+    """Build multi-L rulers stubs; single-L returns None (exempt)."""
+    from slice_rulers_schema import build_slice_rulers  # noqa: WPS433
+
+    order = [str(x) for x in package["order"]]
+    if len(order) < 2:
+        return None
+    by_id = {
+        str(s["id"]): s
+        for s in package["slices"]
+        if isinstance(s, dict) and str(s.get("id", "")).strip()
+    }
+    rulers: dict[str, dict[str, Any]] = {}
+    for nid in order:
+        title = str(by_id.get(nid, {}).get("title", nid)).strip() or nid
+        rulers[nid] = {
+            "id": nid,
+            "job": title,
+            "in": ["TBD"],
+            "out": ["TBD"],
+            "seam": [],
+            "plan_checklist": ["TBD"],
+        }
+    return build_slice_rulers(
+        cut_axis="upstream_order",
+        rulers=rulers,
+        status="draft",
+    )

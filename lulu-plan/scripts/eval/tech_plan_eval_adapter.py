@@ -175,8 +175,18 @@ class TechPlanEvalAdapter:
 
         plat = detect_platform(None)
         section = get_stage_config_bucket(project_root.resolve(), "lulu-plan", "eval", plat)
+        revision_dir = self.resolve_workflow_state_path(cycle_id, project_root).parent
+        tech_design_path = frozen_delivered_path_by_type(revision_dir, "lulu-design")
+        tech_diagnostic_path = frozen_delivered_path_by_type(revision_dir, "lulu-approach")
+        upstream_doc_path = self._resolve_upstream_doc_path(
+            revision_dir,
+            tech_design_path=tech_design_path,
+            tech_diagnostic_path=tech_diagnostic_path,
+        )
         if not section:
-            return self._empty_corpus_bind()
+            bind = self._empty_corpus_bind()
+            bind["upstream_doc_path"] = upstream_doc_path
+            return bind
         cycle_type = detect_cycle_type(cycle_id)
         intent_key = intent_eval_config_key(cycle_type)
         tpt_intent_eval_framework_url = str(
@@ -186,15 +196,42 @@ class TechPlanEvalAdapter:
         tpt_tech_conformance_url = str(
             section.get("tpt_tech_conformance_url", "")
         ).strip()
-        revision_dir = self.resolve_workflow_state_path(cycle_id, project_root).parent
-        tech_design_path = frozen_delivered_path_by_type(revision_dir, "lulu-design")
-        tech_diagnostic_path = frozen_delivered_path_by_type(revision_dir, "lulu-approach")
-        upstream_doc_path = tech_design_path or tech_diagnostic_path
         return {
             "tpt_intent_eval_framework_url": tpt_intent_eval_framework_url,
             "tpt_tech_conformance_url": tpt_tech_conformance_url,
             "upstream_doc_path": upstream_doc_path,
         }
+
+    @staticmethod
+    def _resolve_upstream_doc_path(
+        revision_dir: Path,
+        *,
+        tech_design_path: str,
+        tech_diagnostic_path: str,
+    ) -> str:
+        """Bind Plan eval SoT: package+focus → upstream L doc; else approach prose."""
+        from compose_package_schema import (  # noqa: WPS433
+            is_compose_package_path,
+            load_compose_package,
+            resolve_focus_doc_path,
+        )
+        from discussion_pointer_schema import load_discussion_pointer  # noqa: WPS433
+
+        if tech_design_path and is_compose_package_path(tech_design_path):
+            package_path = Path(tech_design_path)
+            package = load_compose_package(package_path)
+            focus = str(load_discussion_pointer(revision_dir).get("focus", "")).strip()
+            if not focus:
+                return ""
+            try:
+                return str(
+                    resolve_focus_doc_path(
+                        package, focus, package_path=package_path
+                    )
+                )
+            except (FileNotFoundError, ValueError):
+                return ""
+        return tech_design_path or tech_diagnostic_path
 
     def detect_cycle_type(self, cycle_id: str) -> str:
         return detect_cycle_type(cycle_id)

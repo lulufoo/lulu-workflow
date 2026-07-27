@@ -94,10 +94,10 @@ class TechPlanStartAdapter:
         run_mode: str = "tech",
         carry_forward_ref: str = "",
     ) -> list[DeliveredRef]:
-        """Primary scope: design-doc, or approach decision-fact when falling back.
+        """Primary scope: design package, or approach decision-fact when falling back.
 
-        When primary is ``lulu-design``, path stays the design prose doc (delivery
-        SSOT = document; Atomize at Deductive Intake). When primary is
+        When primary is ``lulu-design``, path is ``*-package.json`` (delivery
+        marker; per-L Atomize uses ``ATOMIZE_DOC_PATH``). When primary is
         ``lulu-approach``, ``decision_fact_path`` with units is required (no prose
         fallback).
         """

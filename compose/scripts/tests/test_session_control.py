@@ -231,9 +231,11 @@ class TestReadyForDelivery:
     def test_failure_from_delivered(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
         init_working_ready(ws, mode="tech")
+        (ws.parent / "L1" / "tech-doc.md").write_text("# Tech\n", encoding="utf-8")
         mark_all_l_accepted(ws.parent)
         ready_for_delivery(_CYCLE, tmp_path)
-        deliver(_CYCLE, tmp_path)
+        delivered = deliver(_CYCLE, tmp_path)
+        assert delivered["ok"] is True
 
         result = ready_for_delivery(_CYCLE, tmp_path)
 
@@ -261,7 +263,10 @@ class TestDeliver:
         assert gate.exists()
         assert "confirmed" in gate.read_text(encoding="utf-8")
         refs = load_delivered_refs_file(_CYCLE, tmp_path)
-        assert refs["entries"]["lulu-plan"]["path"] == str((ws.parent / "L1" / "tech-doc.md").resolve())
+        assert refs["entries"]["lulu-plan"]["path"] == str(
+            (ws.parent / "tech-package.json").resolve()
+        )
+        assert (ws.parent / "tech-package.json").is_file()
         assert "lulu-design-facts" not in refs["entries"]
         assert "lulu-plan-facts" not in refs["entries"]
 
@@ -372,8 +377,9 @@ class TestDeliver:
         assert result["ok"] is True
         refs = load_delivered_refs_file(_CYCLE, tmp_path)
         assert refs["entries"]["lulu-design"]["path"] == str(
-            (ws.parent / "L1" / "design-doc.md").resolve()
+            (ws.parent / "design-package.json").resolve()
         )
+        assert (ws.parent / "design-package.json").is_file()
         assert "facts_path" not in refs["entries"]["lulu-design"]
         assert "lulu-design-facts" not in refs["entries"]
 

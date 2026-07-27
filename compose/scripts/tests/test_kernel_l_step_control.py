@@ -102,6 +102,7 @@ def test_begin_deductive_succeeds_for_lulu_plan(tmp_path: Path) -> None:
     assert "COMPOSE_PROFILE:      lulu-plan" in dispatch
     assert "DEDUCTIVE_OUT_DIR:" in dispatch
     assert "/lulu-plan/revision1" in dispatch
+    assert "ATOMIZE_DOC_PATH:" not in dispatch  # approach decision-fact path
     progress = progress_schema.load_l_step_progress(
         _progress_path(tmp_path, "lulu-plan"),
         profile_id="lulu-plan",
@@ -109,6 +110,42 @@ def test_begin_deductive_succeeds_for_lulu_plan(tmp_path: Path) -> None:
         cycle_id=_CYCLE,
     )
     assert progress["current_step"] == "Deductive"
+
+
+def test_begin_deductive_emits_atomize_doc_path_for_package_scope(tmp_path: Path) -> None:
+    design_rev = tmp_path / "upstream-design"
+    (design_rev / "L1").mkdir(parents=True)
+    (design_rev / "L2").mkdir()
+    doc_l1 = design_rev / "L1" / "design-doc.md"
+    doc_l2 = design_rev / "L2" / "design-doc.md"
+    doc_l1.write_text("# L1\n", encoding="utf-8")
+    doc_l2.write_text("# L2\n", encoding="utf-8")
+    package = design_rev / "design-package.json"
+    package.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "profile_id": "lulu-design",
+                "order": ["L1", "L2"],
+                "slices": [
+                    {"id": "L1", "title": "A", "doc_path": "L1/design-doc.md"},
+                    {"id": "L2", "title": "B", "doc_path": "L2/design-doc.md"},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    refs = [DeliveredRef(type="lulu-design", path=str(package.resolve()))]
+    seed_tech_plan_session(
+        tmp_path, cycle_id=_CYCLE, profile_id="lulu-plan", delivered_refs=refs
+    )
+
+    result = l_step_control.begin_deductive(_CYCLE, tmp_path, profile_id="lulu-plan")
+
+    assert result["ok"] is True
+    dispatch = result["dispatch_input"]
+    assert f"SCOPE_REF:            {package.resolve().as_posix()}" in dispatch
+    assert f"ATOMIZE_DOC_PATH:     {doc_l1.resolve().as_posix()}" in dispatch
 
 
 def test_begin_deductive_rejects_inductive_profile(tmp_path: Path) -> None:

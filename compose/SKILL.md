@@ -71,8 +71,12 @@ To **abandon a partial revision** and begin fresh after fixes, run `$START_COMPO
 **Session state:** `$START_COMPOSE` lands in **`Split`**. Topology lock is revision-level; single-req still locks an explicit **L1** tree. No `split-skip`.
 
 1. Resolve `<revision_dir>` from `$SESSION_INFO`.
-2. `$MULTI_SLICE check-split-ready` — if ok, go to step 4.
-3. Otherwise dispatch **split-runner** inline (not a subagent):
+2. `$MULTI_SLICE check-split-ready` — if ok, go to step 5.
+3. **Deductive hard-mirror** (when `pipeline.inductive` is `false` and primary `$SCOPE_REF` is `*-package.json`):
+   - Present the package `order` / titles (no cut edits). Human confirms once.
+   - `$MULTI_SLICE lock-hard-mirror --package-path <absolute SCOPE_REF> --confirm`
+   - Missing / invalid package / missing slice docs → **Blocking** (return upstream to re-deliver). Do **not** fall back to soft split-runner.
+4. **Otherwise** (inductive profiles, or deductive with `decision-fact.json` scope) dispatch **split-runner** inline (not a subagent):
 
 ```text
 Load {actual $SKILL_ROOT}/compose/split-runner/SKILL.md and follow its instructions in this conversation (interactive, human-driven — NOT a subagent).
@@ -84,8 +88,8 @@ COMPOSE_PROFILE=<profile_id>
 ```
 
    Human confirms stay on existing intake / `lock-tree --confirm`. Locked trees are immutable this iteration — re-split means a new revision. Multi-L lock requires rulers; single-L rulers exempt.
-4. `$MULTI_SLICE check-split-ready` — non-zero → Blocking.
-5. `$SESSION_CONTROL split-complete` — Split → Working. On failure → Blocking.
+5. `$MULTI_SLICE check-split-ready` — non-zero → Blocking.
+6. `$SESSION_CONTROL split-complete` — Split → Working. On failure → Blocking.
 
 **Done:** workflow-state `current_state=Working` and check-split-ready exits 0.
 
@@ -213,8 +217,8 @@ Dimension set, evaluation framework, and eval-mode branching (e.g. tech vs produ
 
 When every L is `phase=accepted`:
 
-1. `$MULTI_SLICE assemble-index --confirm` → `$L_SLICE seam-report` (advisory).
-2. Proceed to **ReadyForDelivery Rules** (profile-derived index: `document.filename` `*-doc.md` → `*-index.md`).
+1. `$MULTI_SLICE assemble-package --confirm` → `$L_SLICE seam-report` (advisory).
+2. Proceed to **ReadyForDelivery Rules** (delivery marker: `document.filename` `*-doc.md` → `*-package.json`; `deliver` also writes/records the same marker).
 
 ---
 
@@ -277,7 +281,7 @@ Fetch compose framework templates on demand; **do not** read `workflow-config.js
 | `$CHAPTER_WRITE_STATE` | `python3 "$SKILL_ROOT/compose/scripts/section/chapter_write_state_control.py"` — Init 4.W claim-current gate: `sync` / `status` / `begin` (ticket) / `complete` (current) |
 | `$INIT_COMPOSE_VALIDATE` | `python3 "$SKILL_ROOT/compose/scripts/section/init_compose_validation.py" validate --revision-dir <dir> --compose-doc <path> --profile <profile_id> --project-root "$(pwd)"` |
 | `$AGENDA_CTL` | `python3 "$SKILL_ROOT/agenda/scripts/agenda_control.py" <subcommand> --project-root "$(pwd)" --cycle-id "$CYCLE_ID" --profile <profile_id> [args...]` — stage agenda; resolves `revision{N}` from session-state (see `$SKILL_ROOT/agenda/SKILL.md`) |
-| `$MULTI_SLICE` | `python3 "$SKILL_ROOT/compose/scripts/core/multi_slice_control.py" --revision-dir <revision_dir> --profile <profile_id> <subcommand>` — `check-root-facts` / `migrate-root-facts` / `write-intake` / `complete-intake` / `lock-tree` / `check-split-ready` / `assemble-index` |
+| `$MULTI_SLICE` | `python3 "$SKILL_ROOT/compose/scripts/core/multi_slice_control.py" --revision-dir <revision_dir> --profile <profile_id> <subcommand>` — see `--help` (`lock-hard-mirror` / `assemble-package` / …) |
 | `$L_SLICE` | `python3 "$SKILL_ROOT/compose/scripts/core/discussion_pointer_control.py" --revision-dir <revision_dir> --profile <profile_id> <subcommand>` — `status` / `resume` / `ready` / `can-admit` / `can-enter-evaluate` / `switch` / `mark-done` / `accept-l` / `fix-l` / `demote-acceptance` / `seam-report` |
 | `$FACTS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/facts_control.py"` — `write` / `filter` / `validate` / `status` (multi-L: `write` requires `home_l`; package bucket needs `--package-confirm`) |
 

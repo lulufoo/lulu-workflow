@@ -46,6 +46,6 @@
     "layout": "revision",
     "state_file": "workflow-state.md",
     "terminal_state": "Delivered",
-    "doc_filename": "arch-doc.md"
+    "doc_filename": "arch-package.json"
   }
 }

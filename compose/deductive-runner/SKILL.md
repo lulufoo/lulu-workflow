@@ -29,7 +29,8 @@ This runner is **stage-agnostic**: lens set / Intent / derivation edges = `secti
 |-----|---------|
 | `$COMPOSE_PROFILE` | Compose profile id |
 | `$CYCLE_ID` | Active cycle id |
-| `$SCOPE_REF` | Upstream scope SSOT path (prose or `decision-fact.json`) |
+| `$SCOPE_REF` | Upstream scope SSOT (`*-package.json` or `decision-fact.json`) |
+| `$ATOMIZE_DOC_PATH` | When `$SCOPE_REF` is a package: absolute path of the **current focus** upstream prose doc (Atomize / fidelity SoT). Absent for unit-import. |
 | `$DEDUCTIVE_OUT_DIR` | Active revision dir (`revision{active_doc}/`) |
 | `$CODE_GROUNDING` | Optional; profile `pipeline.code_grounding` (boolean string) |
 
@@ -70,7 +71,7 @@ Materialize upstream into this stage’s `_facts.json`. Exactly one branch:
    ```bash
    $FIDELITY_EVAL_CONTROL mark-skipped --reason unit-import
    ```
-2. **Atomize** — else: atomize `$SCOPE_REF` prose once (whole doc); tag `lens_tags` from Intent SSOT (N:M; zero tags ⇒ quarantine candidate). Persist via `$FACTS_CTL write`. **Do not** Import upstream `_facts.json` (delivery SSOT = doc). Default: **omit** fact `origin` (optional); if present, `origin.ref` must be a non-empty string array.
+2. **Atomize** — else: atomize **`$ATOMIZE_DOC_PATH`** prose once (required when `$SCOPE_REF` is `*-package.json`; do **not** treat the package JSON as prose). Tag `lens_tags` from Intent SSOT (N:M; zero tags ⇒ quarantine candidate). Persist via `$FACTS_CTL write` into the focus L bucket. **Do not** Import upstream `_facts.json` (delivery SSOT = package marker + per-L docs). Default: **omit** fact `origin` (optional); if present, `origin.ref` must be a non-empty string array.
 
 Then:
 
@@ -86,7 +87,7 @@ $FIDELITY_EVAL_CONTROL init --intake atomize
 $FIDELITY_EVAL_CONTROL paths
 ```
 
-Run **E1** and **E2** in parallel (subagents OK) using defs under `$SKILL_ROOT/compose/fidelity/dimension-defs/` (`e1-doc-coverage`, `e2-fact-provenance`). SoT = input delivery doc (`scope_doc` from `paths`); EvalTarget + remediation = this revision `_facts.json`. Remediate **only** `_facts.json`. Max **3** rounds; same round must clear both dimensions. On round-cap with remaining blocking issues: ask the user in **plain text with multiple options and a stated lean** (do not use AskQuestion tool).
+Run **E1** and **E2** in parallel (subagents OK) using defs under `$SKILL_ROOT/compose/fidelity/dimension-defs/` (`e1-doc-coverage`, `e2-fact-provenance`). SoT = `$ATOMIZE_DOC_PATH` prose (`scope_doc` from `paths` must resolve to that doc, not the package JSON); EvalTarget + remediation = this revision `_facts.json`. Remediate **only** `_facts.json`. Max **3** rounds; same round must clear both dimensions. On round-cap with remaining blocking issues: ask the user in **plain text with multiple options and a stated lean** (do not use AskQuestion tool).
 
 When E1∩E2 clear:
 

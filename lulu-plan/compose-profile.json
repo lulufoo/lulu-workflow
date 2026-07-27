@@ -45,6 +45,6 @@
     "layout": "revision",
     "state_file": "workflow-state.md",
     "terminal_state": "Delivered",
-    "doc_filename": "tech-doc.md"
+    "doc_filename": "tech-package.json"
   }
 }

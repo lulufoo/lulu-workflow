@@ -61,18 +61,38 @@ class TestTechPlanEvalAdapter:
     def test_resolve_eval_corpus_tech_design_upstream_adds_tech_conformance(
         self, tmp_path: Path
     ):
+        import json
+
         from delivered_refs_schema import DeliveredRef  # noqa: WPS433
 
         ws = _seed_session(tmp_path)
-        design_doc = tmp_path / "design-doc.md"
+        design_rev = tmp_path / "design-rev"
+        (design_rev / "L1").mkdir(parents=True)
+        design_doc = design_rev / "L1" / "design-doc.md"
         design_doc.write_text("# Design\n", encoding="utf-8")
-        refs = [DeliveredRef(type="lulu-design", path=str(design_doc.resolve()))]
+        package = design_rev / "design-package.json"
+        package.write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "profile_id": "lulu-design",
+                    "order": ["L1"],
+                    "slices": [
+                        {"id": "L1", "title": "Only", "doc_path": "L1/design-doc.md"}
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+        refs = [DeliveredRef(type="lulu-design", path=str(package.resolve()))]
         init_working_ready(ws, mode="tech")
         seed_frozen_delivered(ws, refs)
         adapter = TechPlanEvalAdapter()
         corpus = adapter.resolve_eval_corpus(_CYCLE, tmp_path)
         ids = [d["id"] for d in corpus["dimensions"]]
         assert ids == ["codebase-consistency", "solution-quality", "tech-conformance"]
+        bind = adapter.corpus_bind_extensions(_CYCLE, tmp_path)
+        assert bind["upstream_doc_path"] == str(design_doc.resolve())
 
     def test_resolve_eval_corpus_tech_diagnostic_upstream_adds_tech_conformance(
         self, tmp_path: Path

@@ -38,8 +38,14 @@ def test_backfill_from_delivered_tech_design(tmp_path: Path):
     cycle_id = "feat-backfill-design"
     rev = tmp_path / ".cache/cursor/lulu-dev-workflow" / cycle_id / "lulu-design" / "revision1"
     rev.mkdir(parents=True)
-    design_doc = rev / "design-doc.md"
-    design_doc.write_text("# Design\n", encoding="utf-8")
+    (rev / "L1").mkdir()
+    (rev / "L1" / "design-doc.md").write_text("# Design\n", encoding="utf-8")
+    package = rev / "design-package.json"
+    package.write_text(
+        '{"version":1,"profile_id":"lulu-design","order":["L1"],'
+        '"slices":[{"id":"L1","title":"Only","doc_path":"L1/design-doc.md"}]}\n',
+        encoding="utf-8",
+    )
     facts = rev / "_facts.json"
     facts.write_text("[]\n", encoding="utf-8")
     (rev / "workflow-state.md").write_text(
@@ -58,7 +64,7 @@ def test_backfill_from_delivered_tech_design(tmp_path: Path):
     )
     backfill_delivered_refs_from_cycle(cycle_id, tmp_path)
     data = load_delivered_refs_file(cycle_id, tmp_path)
-    assert data["entries"]["lulu-design"]["path"] == str(design_doc.resolve())
+    assert data["entries"]["lulu-design"]["path"] == str(package.resolve())
     assert "facts_path" not in data["entries"]["lulu-design"]
     assert "lulu-design-facts" not in data["entries"]
     assert facts.is_file()  # local process artifact may exist; not delivered
@@ -68,8 +74,14 @@ def test_backfill_from_delivered_product_spec(tmp_path: Path):
     cycle_id = "feat-backfill-spec"
     rev = tmp_path / ".cache/cursor/lulu-dev-workflow" / cycle_id / "lulu-spec" / "revision1"
     rev.mkdir(parents=True)
-    product_doc = rev / "product-doc.md"
-    product_doc.write_text("# Product\n", encoding="utf-8")
+    (rev / "L1").mkdir()
+    (rev / "L1" / "product-doc.md").write_text("# Product\n", encoding="utf-8")
+    package = rev / "product-package.json"
+    package.write_text(
+        '{"version":1,"profile_id":"lulu-spec","order":["L1"],'
+        '"slices":[{"id":"L1","title":"Only","doc_path":"L1/product-doc.md"}]}\n',
+        encoding="utf-8",
+    )
     (rev / "workflow-state.md").write_text(
         "---\n"
         "version: 1\n"
@@ -86,15 +98,21 @@ def test_backfill_from_delivered_product_spec(tmp_path: Path):
     )
     backfill_delivered_refs_from_cycle(cycle_id, tmp_path)
     data = load_delivered_refs_file(cycle_id, tmp_path)
-    assert data["entries"]["lulu-spec"]["path"] == str(product_doc.resolve())
+    assert data["entries"]["lulu-spec"]["path"] == str(package.resolve())
 
 
 def test_backfill_plan_with_facts_file_does_not_register_design_facts(tmp_path: Path):
     cycle_id = "feat-backfill-plan-facts"
     rev = tmp_path / ".cache/cursor/lulu-dev-workflow" / cycle_id / "lulu-plan" / "revision1"
     rev.mkdir(parents=True)
-    tech_doc = rev / "tech-doc.md"
-    tech_doc.write_text("# Tech\n", encoding="utf-8")
+    (rev / "L1").mkdir()
+    (rev / "L1" / "tech-doc.md").write_text("# Tech\n", encoding="utf-8")
+    package = rev / "tech-package.json"
+    package.write_text(
+        '{"version":1,"profile_id":"lulu-plan","order":["L1"],'
+        '"slices":[{"id":"L1","title":"Only","doc_path":"L1/tech-doc.md"}]}\n',
+        encoding="utf-8",
+    )
     (rev / "_facts.json").write_text("[]\n", encoding="utf-8")
     (rev / "workflow-state.md").write_text(
         "---\n"
@@ -112,7 +130,7 @@ def test_backfill_plan_with_facts_file_does_not_register_design_facts(tmp_path: 
     )
     backfill_delivered_refs_from_cycle(cycle_id, tmp_path)
     data = load_delivered_refs_file(cycle_id, tmp_path)
-    assert data["entries"]["lulu-plan"]["path"] == str(tech_doc.resolve())
+    assert data["entries"]["lulu-plan"]["path"] == str(package.resolve())
     assert "facts_path" not in data["entries"]["lulu-plan"]
     assert "lulu-design-facts" not in data["entries"]
     assert "lulu-plan-facts" not in data["entries"]

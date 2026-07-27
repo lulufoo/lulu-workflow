@@ -16,6 +16,7 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
+from compose_package_schema import package_filename_from_doc  # noqa: E402
 from workflow_paths import (  # noqa: E402
     COMPOSE_ROOT,
     WORKFLOW_ROOT,
@@ -73,24 +74,28 @@ def _compose_descriptor(profile_id: str) -> DeliveryDescriptor | None:
     if not cache_subdir:
         return None
     doc_filename = str((profile.get("document") or {}).get("filename", "")).strip()
+    # Cross-stage marker is *-package.json (hard-cut); ignore legacy prose doc_filename.
+    if not doc_filename:
+        return None
+    marker_filename = package_filename_from_doc(doc_filename)
     delivery_index = profile.get("delivery_index")
     if isinstance(delivery_index, dict) and delivery_index:
+        overridden = dict(delivery_index)
+        overridden["doc_filename"] = marker_filename
         return _descriptor_from_delivery_index(
             stage_name,
             cache_subdir,
-            delivery_index,
-            default_doc_filename=doc_filename,
+            overridden,
+            default_doc_filename=marker_filename,
         )
-    if doc_filename:
-        return DeliveryDescriptor(
-            stage_name=stage_name,
-            layout="revision",
-            cache_subdir=cache_subdir,
-            state_file="workflow-state.md",
-            terminal_state=_DEFAULT_TERMINAL,
-            doc_filename=doc_filename,
-        )
-    return None
+    return DeliveryDescriptor(
+        stage_name=stage_name,
+        layout="revision",
+        cache_subdir=cache_subdir,
+        state_file="workflow-state.md",
+        terminal_state=_DEFAULT_TERMINAL,
+        doc_filename=marker_filename,
+    )
 
 
 def _decision_descriptor(constraints_path: Path) -> DeliveryDescriptor | None:
