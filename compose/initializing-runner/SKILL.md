@@ -100,7 +100,7 @@ Allowed lenses = `section-registry.sections` keys (archive-5.0). Document spine 
 **Precondition:** Step 3 must produce `_narrative-arc.json` with `status=write_ready`. **Retired (error if present):** `_chapters.json`, `_lens-themes.json`, `_chapter-framework.json`, `_chapter-placement.json`.
 
 **Must:** every non-excluded fact mapped to exactly one arc leaf; every leaf fact in exactly one sub-topic chapter; chapter `lens` ∈ that fact's `lens_tags`; empty `lens_tags` must not reach `write_ready`; before persisting `_body-{cid}.txt`, resolve author-time `F-id` citations; drive 4.W via `$CHAPTER_WRITE_STATE` (one chapter begin→write→complete); run `$INIT_COMPOSE_VALIDATE` before Return.
-**Must not:** use `section_order` (or lens list order) as chapter directory; create or keep `_chapters.json`; decide open choices during Steps 2–3 (待决 same discipline); Import / Atomize / Derive facts.
+**Must not:** use `section_order` (or lens list order) as chapter directory; use Role `priority_tendency` / lens tags as presentation chapter titles; force a fixed N-act label set as the only top-level packaging; create or keep `_chapters.json`; decide open choices during Steps 2–3 (待决 same discipline); Import / Atomize / Derive facts.
 
 ### Step 2 — Validate facts
 
@@ -121,15 +121,30 @@ Missing / invalid `_facts.json` → Blocking (return to parent Drafting Step 0 p
 
 ### Step 3 — Narrative arc (phase 1 → phase 2)
 
-Replaces archive-3.0 Dynamic chapter plan. Contract: `docs/domain/archive/compose/archive-5.0/compose-narrative-arc-lens-v2-landing-design.md`.
+Replaces archive-3.0 Dynamic chapter plan. Role/Domain loaded in Step 1 **must** shape content organization here; facts remain the material source.
 
-**Must not:** use registry lens order as chapter directory; invent facts; leave empty `lens_tags` facts in `write_ready`; create `_chapters.json`.
+**Listen-who (arc build):**
+
+| Decision | Listen to | Hardness |
+|---|---|---|
+| Group/leaf **titles and grouping shape** | Substance story in facts (objects, behaviors, contract surfaces, end-state, verification, …) | **Must** |
+| Group/leaf **order** | Role `priority_tendency` | **Must** (exception: fact dependency forces prerequisite first) |
+| Intent membership + phase-2 write-unit split | Lens tags + registry lens relations | **Must** (not whole-document leaf order; not presentation title schema) |
+| Split / do not mix | Domain `expression_conventions.scannability` (full text for active profile) | **Must** |
+| Genre mission / through-line self-check | Domain `cognitive_frame` / `audience_type` | **Should** |
+
+These Role/Domain rules are **agent discipline**. `$NARRATIVE_ARC_CTL validate` still gates coverage / `lens_tags` only — it does **not** enforce the listen-who table.
+
+**Must:** re-read Role `priority_tendency` and Domain `expression_conventions.scannability` before building the arc; name groups/leaves from the substance story; order groups/leaves by `priority_tendency` unless fact structure forces a dependency reorder; obey that Domain `scannability` text when splitting leaves/blocks; keep chapter `lens` ∈ fact `lens_tags`.
+
+**Must not:** use registry lens order as chapter directory; use Role `priority_tendency` (or its information-order list) as a generator of group/leaf titles or a mandatory H2 count; use lens tags/relations as the presentation chapter/title schema (lens-catalog spine); force background / analysis / solution — or any fixed N-act label set — as the **only** allowed top-level packaging (reading aids OK; packaging depth unrestricted); use Role `vocabulary_domain` as a taxonomy checklist for group names; invent facts; leave empty `lens_tags` facts in `write_ready`; create `_chapters.json`.
 
 #### 3.1 — Phase 1 (`status=mapped`)
 
-1. Read all facts (`$FACTS_CTL` / `_facts.json`). Input = full fact texts + `lens_tags` + registry lens definitions. Discussion topic / `T*` is provenance only — do not build the spine from it.
+1. Read all facts (`$FACTS_CTL` / `_facts.json`). Input = full fact texts + `lens_tags` + registry lens definitions + Role/Domain fields above. Discussion topic / `T*` is provenance only — do not build the spine from it.
 2. AI: build narrative arc (optional `tree` packaging; depth unrestricted) and map every non-excluded fact to exactly one **arc leaf** (`leaves[].id` / `title` / `fact_ids`). Composite/pending-split → `excluded` (or `unresolved` if blocked).
-3. Persist:
+3. **Should** self-check before persist: top-level titles look like a lens/priority catalog → rebuild titles/shape; obvious single-leaf mix that violates Domain `scannability` → split; order badly inverted vs `priority_tendency` with no fact-dependency reason → reorder; optional — outline still matches Domain `cognitive_frame` (genre mission not drifted) and reads as a reviewable through-line for Domain `audience_type` (thicken opening info if needed; do **not** force a fixed three-act directory).
+4. Persist:
 
 ```bash
 $NARRATIVE_ARC_CTL write \
@@ -154,6 +169,7 @@ $NARRATIVE_ARC_CTL validate \
    - One fact → exactly one chapter under that leaf.
    - Chapter `lens` **must be ∈** that fact's `lens_tags` (single tag → that lens; multi-tag → AI picks one).
    - Empty `lens_tags` → `unresolved` / hard fail — never `write_ready`.
+   - Lenses partition write units under a leaf; they do **not** set whole-document leaf order.
 2. Set `status=write_ready` only when `unresolved` is empty and validation passes.
 3. Persist + gate:
 
