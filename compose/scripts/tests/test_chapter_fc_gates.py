@@ -164,3 +164,124 @@ def test_check_chapter_write_artifacts_rejects_missing_fc(tmp_path: Path):
     errs = check_chapter_write_artifacts(tmp_path, cid)
     assert any("form" in e for e in errs)
     assert any("expression" in e for e in errs)
+
+
+def _write_chapter(
+    tmp_path: Path,
+    cid: str,
+    *,
+    structure: str,
+    body: str,
+) -> None:
+    (tmp_path / f"_derive-{cid}.json").write_text(
+        json.dumps(
+            _valid_derive(form={"carrier": "prose", "structure": structure}),
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / f"_body-{cid}.txt").write_text(body, encoding="utf-8")
+
+
+def test_body_form_structure_diagram_with_mermaid_passes(tmp_path: Path):
+    """S1: catalog key diagram + mermaid opening fence → green."""
+    cid = "S01-ST"
+    _write_chapter(
+        tmp_path,
+        cid,
+        structure="diagram",
+        body="Intro\n\n```mermaid\nflowchart LR\n  A-->B\n```\n",
+    )
+    assert check_chapter_write_artifacts(tmp_path, cid) == []
+
+
+def test_body_form_structure_diagram_without_mermaid_fails(tmp_path: Path):
+    """S2: diagram without mermaid fence → single-template error."""
+    cid = "S01-ST"
+    _write_chapter(
+        tmp_path,
+        cid,
+        structure="diagram",
+        body="Just a bullet list:\n- a\n- b\n",
+    )
+    errs = check_chapter_write_artifacts(tmp_path, cid)
+    assert len(errs) == 1
+    msg = errs[0]
+    assert f"{cid}: form.structure=diagram expects" in msg
+    assert "```mermaid" in msg
+    assert f"_body-{cid}.txt" in msg
+    assert "rewrite body to match form" in msg
+
+
+def test_body_form_structure_table_without_separator_fails(tmp_path: Path):
+    """S3: table without markdown separator → same template shape."""
+    cid = "T01-ST"
+    _write_chapter(
+        tmp_path,
+        cid,
+        structure="table",
+        body="ColA ColB\nrow1 row2\n",
+    )
+    errs = check_chapter_write_artifacts(tmp_path, cid)
+    assert len(errs) == 1
+    msg = errs[0]
+    assert f"{cid}: form.structure=table expects" in msg
+    assert f"_body-{cid}.txt" in msg
+    assert "rewrite body to match form" in msg
+
+
+def test_body_form_structure_table_with_separator_passes(tmp_path: Path):
+    cid = "T01-ST"
+    _write_chapter(
+        tmp_path,
+        cid,
+        structure="table",
+        body="| A | B |\n| --- | --- |\n| 1 | 2 |\n",
+    )
+    assert check_chapter_write_artifacts(tmp_path, cid) == []
+
+
+def test_body_form_structure_unknown_key_skips(tmp_path: Path):
+    """S4: structure not in catalog → no probe failure."""
+    cid = "A01-AR"
+    _write_chapter(
+        tmp_path,
+        cid,
+        structure="prose",
+        body="plain prose without mermaid or table\n",
+    )
+    assert check_chapter_write_artifacts(tmp_path, cid) == []
+
+
+def test_body_form_structure_first_token_lookup(tmp_path: Path):
+    """Normalize: first whitespace token is the catalog key."""
+    cid = "S02-ST"
+    _write_chapter(
+        tmp_path,
+        cid,
+        structure="diagram primary",
+        body="no fence here\n",
+    )
+    errs = check_chapter_write_artifacts(tmp_path, cid)
+    assert any("form.structure=diagram expects" in e for e in errs)
+
+
+def test_body_form_structure_engine_has_no_per_structure_branches():
+    """S6: no structure== diagram/table rule branches in the runner module."""
+    src = (_SECTION / "chapter_fc_gates.py").read_text(encoding="utf-8")
+    forbidden = (
+        'structure == "diagram"',
+        "structure == 'diagram'",
+        'structure == "table"',
+        "structure == 'table'",
+        '== "diagram"',
+        "== 'diagram'",
+        '== "table"',
+        "== 'table'",
+    )
+    for needle in forbidden:
+        assert needle not in src, f"forbidden structure branch: {needle}"
+    catalog = (_SECTION / "form_structure_body_probes.json").read_text(
+        encoding="utf-8",
+    )
+    assert "```mermaid" in catalog
+    assert "```mermaid" not in src
