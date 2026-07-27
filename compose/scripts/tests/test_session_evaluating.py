@@ -68,7 +68,7 @@ def test_rejects_non_drafting(tmp_path: Path) -> None:
     assert result["current_state"] == "ReadyForDelivery"
 
 
-def test_stage_gate_blocks_multi_l_when_deps_not_production_done(tmp_path: Path) -> None:
+def test_stage_gate_blocks_multi_l_when_deps_not_acceptance_done(tmp_path: Path) -> None:
     from dependency_tree_schema import build_tree, save_dependency_tree
     from discussion_pointer_schema import build_pointer_from_tree, save_discussion_pointer
     from slice_rulers_schema import build_slice_rulers, save_slice_rulers
@@ -111,8 +111,8 @@ def test_stage_gate_blocks_multi_l_when_deps_not_production_done(tmp_path: Path)
     save_slice_rulers(rev, rulers)
     ptr = build_pointer_from_tree(tree)
     ptr["focus"] = "L2"
-    ptr["by_id"]["L1"]["inductive"] = "done"
-    ptr["by_id"]["L2"]["inductive"] = "done"
+    ptr["by_id"]["L1"]["intake"] = "done"
+    ptr["by_id"]["L2"]["intake"] = "done"
     save_discussion_pointer(rev, ptr, tree=tree)
 
     result = enter_evaluating_state(_CYCLE, tmp_path)

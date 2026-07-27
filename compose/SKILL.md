@@ -96,12 +96,14 @@ CLI: `$MULTI_SLICE --help`, `$SESSION_CONTROL` (`split-complete`).
 
 Cross-cuts Drafting and Evaluating (not a Drafting-only step).
 
-- Single session focus; switch only via `$L_SLICE switch --to <L> --confirm` (EnterPolicy: deps `inductive: done`).
-- Per focus L, default pipeline: inductive → Init → FreeEdit → Evaluating → `$L_SLICE mark-done --kind production --confirm` (requires `## Boundary`).
+Pointer maturity (noun phases, `pending|done`): `intake` = Drafting Step 0 producer closed (Inductive or Deductive complete); `acceptance` = L evaluated / exit closed. Not Split intake slots.
+
+- Single session focus; switch only via `$L_SLICE switch --to <L> --confirm` (EnterPolicy: deps `intake: done`).
+- Per focus L, default pipeline: intake (Inductive|Deductive) → Init → FreeEdit → Evaluating → `$L_SLICE mark-done --kind acceptance --confirm` (requires `## Boundary`).
 - Sibling L may become `ready` in parallel; do not cut L inside inductive-runner.
-- **Fact writes (multi-L):** split facts against locked rulers first; each fact must carry `home_l` (+ short `home_rationale`); `$FACTS_CTL write --target-l <home_l>` (G1 divert ok; demotes evaluated targets). Untagged writes hard-reject. Ambiguous ownership → rare human confirm. `home_l=package` only after human confirm with `--package-confirm`.
-- Enter Evaluating only when StageGate passes (deps `production: done` — `$SESSION_CONTROL start-evaluating`); also requires locked topology.
-- When all relevant L are `production: done` → `$MULTI_SLICE assemble-index --confirm` → `$L_SLICE seam-report` (advisory) → deliver with the profile-derived index (`document.filename` `*-doc.md` → `*-index.md`).
+- **Fact writes (multi-L):** split facts against locked rulers first; each fact must carry `home_l` (+ short `home_rationale`); `$FACTS_CTL write --target-l <home_l>` (G1 divert ok; demotes accepted targets). Untagged writes hard-reject. Ambiguous ownership → rare human confirm. `home_l=package` only after human confirm with `--package-confirm`.
+- Enter Evaluating only when StageGate passes (deps `acceptance: done` — `$SESSION_CONTROL start-evaluating`); also requires locked topology.
+- When all relevant L are `acceptance: done` → `$MULTI_SLICE assemble-index --confirm` → `$L_SLICE seam-report` (advisory) → deliver with the profile-derived index (`document.filename` `*-doc.md` → `*-index.md`).
 - `$L_SLICE resume` / `status` / `ready` — no illegal focus moves (hand-editing pointer JSON is forbidden).
 
 CLI: `$L_SLICE --help`.
@@ -189,7 +191,7 @@ Entry: `advance-to-freeedit` success, or Evaluating fix resume.
 
 ## Evaluating Rules
 
-Before handoff: `$SESSION_CONTROL start-evaluating` requires locked Split topology, then StageGate (deps of current focus must be `production: done`). On failure → Blocking; fix topology / finish or re-evaluate predecessor L (`$L_SLICE status` / `can-enter-evaluate`). See **L-slice scheduling**.
+Before handoff: `$SESSION_CONTROL start-evaluating` requires locked Split topology, then StageGate (deps of current focus must be `acceptance: done`). On failure → Blocking; fix topology / finish or re-evaluate predecessor L (`$L_SLICE status` / `can-enter-evaluate`). See **L-slice scheduling**.
 
 Read `{$SKILL_ROOT}/eval/eval-rules.md` and follow its instructions (only when the user explicitly chooses Evaluate).
 
@@ -262,7 +264,7 @@ Fetch compose framework templates on demand; **do not** read `workflow-config.js
 | `$INIT_COMPOSE_VALIDATE` | `python3 "$SKILL_ROOT/compose/scripts/section/init_compose_validation.py" validate --revision-dir <dir> --compose-doc <path> --profile <profile_id> --project-root "$(pwd)"` |
 | `$AGENDA_CTL` | `python3 "$SKILL_ROOT/agenda/scripts/agenda_control.py" <subcommand> --project-root "$(pwd)" --cycle-id "$CYCLE_ID" --profile <profile_id> [args...]` — stage agenda; resolves `revision{N}` from session-state (see `$SKILL_ROOT/agenda/SKILL.md`) |
 | `$MULTI_SLICE` | `python3 "$SKILL_ROOT/compose/scripts/core/multi_slice_control.py" --revision-dir <revision_dir> --profile <profile_id> <subcommand>` — `check-root-facts` / `migrate-root-facts` / `write-intake` / `complete-intake` / `lock-tree` / `check-split-ready` / `assemble-index` |
-| `$L_SLICE` | `python3 "$SKILL_ROOT/compose/scripts/core/discussion_pointer_control.py" --revision-dir <revision_dir> --profile <profile_id> <subcommand>` — `status` / `resume` / `ready` / `can-admit` / `can-enter-evaluate` / `switch` / `mark-done` / `demote-production` / `seam-report` |
+| `$L_SLICE` | `python3 "$SKILL_ROOT/compose/scripts/core/discussion_pointer_control.py" --revision-dir <revision_dir> --profile <profile_id> <subcommand>` — `status` / `resume` / `ready` / `can-admit` / `can-enter-evaluate` / `switch` / `mark-done` / `demote-acceptance` / `seam-report` |
 | `$FACTS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/facts_control.py"` — `write` / `filter` / `validate` / `status` (multi-L: `write` requires `home_l`; package bucket needs `--package-confirm`) |
 
 Subcommands and stdout: script module docstrings or `--help`.

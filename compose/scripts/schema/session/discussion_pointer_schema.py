@@ -1,16 +1,23 @@
 #!/usr/bin/env python3
 """Schema and I/O for revision ``discussion-pointer.json`` (multi-subdesign v1.1).
 
-On-disk shape (exact keys only — no v1.0 field compatibility)::
+On-disk shape (exact keys only — no legacy field compatibility)::
 
     {
       "tree_ref": {"path": "dependency-tree.json", "version": 1},
       "focus": "L1",
       "by_id": {
-        "L1": {"inductive": "pending"|"done", "production": "pending"|"done"},
+        "L1": {"intake": "pending"|"done", "acceptance": "pending"|"done"},
         ...
       }
     }
+
+Maturity keys (noun phases + pending|done):
+  - ``intake`` — Drafting Step 0 producer closed (Inductive or Deductive
+    complete); EnterPolicy admits a node when every dependency is
+    ``intake: done``. Not Split intake slots.
+  - ``acceptance`` — L evaluated / production exit closed; StageGate and
+    assemble-index require dependency or all-node ``acceptance: done``.
 
 ``dependency-tree.json`` may still carry ``order[]`` as a node inventory / topo
 listing — it is not a push constraint (EnterPolicy / StageGate decide admission).
@@ -26,7 +33,7 @@ from dependency_tree_schema import DEPENDENCY_TREE_FILENAME
 
 DISCUSSION_POINTER_FILENAME = "discussion-pointer.json"
 _MATURITY = frozenset({"pending", "done"})
-_BY_ID_KEYS = frozenset({"inductive", "production"})
+_BY_ID_KEYS = frozenset({"intake", "acceptance"})
 _ON_DISK_KEYS = frozenset({"tree_ref", "focus", "by_id"})
 _FORBIDDEN_LEGACY_KEYS = frozenset({"pointer", "frontier", "phase"})
 
@@ -55,7 +62,7 @@ def build_pointer_from_tree(tree: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("tree.order must be non-empty")
     first = order[0]
     by_id = {
-        nid: {"inductive": "pending", "production": "pending"} for nid in order
+        nid: {"intake": "pending", "acceptance": "pending"} for nid in order
     }
     return {
         "tree_ref": {
@@ -117,7 +124,7 @@ def validate_discussion_pointer(
             errors.append(f"{where} must be an object")
             continue
         if set(cell) != _BY_ID_KEYS:
-            errors.append(f"{where} must have keys inductive|production only")
+            errors.append(f"{where} must have keys intake|acceptance only")
             continue
         for key in _BY_ID_KEYS:
             if cell.get(key) not in _MATURITY:
@@ -195,7 +202,7 @@ def can_admit(
     pointer: dict[str, Any],
     node_id: str,
 ) -> tuple[bool, str | None]:
-    """EnterPolicy: admit when every dependency has ``inductive: done``."""
+    """EnterPolicy: admit when every dependency has ``intake: done``."""
     order = list(tree.get("order") or [])
     if node_id not in order:
         return False, f"unknown node id {node_id!r}"
@@ -203,12 +210,12 @@ def can_admit(
     incomplete = [
         dep
         for dep in deps_of(tree, node_id)
-        if (by_id.get(dep) or {}).get("inductive") != "done"
+        if (by_id.get(dep) or {}).get("intake") != "done"
     ]
     if incomplete:
         return (
             False,
-            f"EnterPolicy: deps not inductive=done: {', '.join(incomplete)}",
+            f"EnterPolicy: deps not intake=done: {', '.join(incomplete)}",
         )
     return True, None
 
@@ -218,7 +225,7 @@ def can_enter_evaluate(
     pointer: dict[str, Any],
     node_id: str,
 ) -> tuple[bool, str | None]:
-    """StageGate: enter Evaluating when every dependency has ``production: done``."""
+    """StageGate: enter Evaluating when every dependency has ``acceptance: done``."""
     order = list(tree.get("order") or [])
     if node_id not in order:
         return False, f"unknown node id {node_id!r}"
@@ -226,12 +233,12 @@ def can_enter_evaluate(
     incomplete = [
         dep
         for dep in deps_of(tree, node_id)
-        if (by_id.get(dep) or {}).get("production") != "done"
+        if (by_id.get(dep) or {}).get("acceptance") != "done"
     ]
     if incomplete:
         return (
             False,
-            f"StageGate: deps not production=done: {', '.join(incomplete)}",
+            f"StageGate: deps not acceptance=done: {', '.join(incomplete)}",
         )
     return True, None
 
@@ -253,12 +260,12 @@ def active_ids(pointer: dict[str, Any]) -> list[str]:
 
 
 def focus_phase(pointer: dict[str, Any], node_id: str | None = None) -> str:
-    """Advisory work-mode for a node: inductive until that L's inductive is done."""
+    """Advisory work-mode: intake until that L's intake is done, else acceptance."""
     nid = node_id or str(pointer.get("focus", "")).strip()
     cell = (pointer.get("by_id") or {}).get(nid) or {}
-    if cell.get("inductive") != "done":
-        return "inductive"
-    return "production"
+    if cell.get("intake") != "done":
+        return "intake"
+    return "acceptance"
 
 
 def slice_past_init(revision_dir: Path, node_id: str) -> bool:

@@ -82,12 +82,12 @@ def test_assemble_index_after_production(tmp_path: Path) -> None:
     )
     profile_id = "lulu-design"
     assert cmd_mark_done(
-        rev, confirm=True, kind="inductive", profile_id=profile_id
+        rev, confirm=True, kind="intake", profile_id=profile_id
     ) == 0
     doc = rev / "L1" / "design-doc.md"
     doc.write_text("# L1\n\n## Boundary\n\n", encoding="utf-8")
     assert cmd_mark_done(
-        rev, confirm=True, kind="production", profile_id=profile_id
+        rev, confirm=True, kind="acceptance", profile_id=profile_id
     ) == 0
     assert cmd_assemble_index(rev, confirm=True, profile_id=profile_id) == 0
     assert (rev / "design-index.md").is_file()
@@ -120,12 +120,12 @@ def test_assemble_index_uses_plan_doc_filename(tmp_path: Path) -> None:
     )
     profile_id = "lulu-plan"
     assert cmd_mark_done(
-        rev, confirm=True, kind="inductive", profile_id=profile_id
+        rev, confirm=True, kind="intake", profile_id=profile_id
     ) == 0
     doc = rev / "L1" / "tech-doc.md"
     doc.write_text("# L1\n\n## Boundary\n\n", encoding="utf-8")
     assert cmd_mark_done(
-        rev, confirm=True, kind="production", profile_id=profile_id
+        rev, confirm=True, kind="acceptance", profile_id=profile_id
     ) == 0
     assert cmd_assemble_index(rev, confirm=True, profile_id=profile_id) == 0
     assert (rev / "tech-index.md").is_file()

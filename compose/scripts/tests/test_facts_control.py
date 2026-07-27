@@ -601,7 +601,7 @@ def test_save_facts_rejects_incomplete_origin_with_value_error(tmp_path: Path):
 
 
 def test_write_target_l_buckets_and_demotes(tmp_path: Path) -> None:
-    """v1.1: --target-l writes into Lx and demotes production=done targets."""
+    """v1.1: --target-l writes into Lx and demotes acceptance=done targets."""
     import argparse
 
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "schema" / "session"))
@@ -623,8 +623,8 @@ def test_write_target_l_buckets_and_demotes(tmp_path: Path) -> None:
     )
     save_dependency_tree(rev, tree)
     ptr = build_pointer_from_tree(tree)
-    ptr["by_id"]["L1"]["inductive"] = "done"
-    ptr["by_id"]["L1"]["production"] = "done"
+    ptr["by_id"]["L1"]["intake"] = "done"
+    ptr["by_id"]["L1"]["acceptance"] = "done"
     save_discussion_pointer(rev, ptr, tree=tree)
     (rev / "L1").mkdir(exist_ok=True)
     (rev / "L1" / "design-doc.md").write_text("# L1\n\n## Boundary\n\n", encoding="utf-8")
@@ -655,4 +655,4 @@ def test_write_target_l_buckets_and_demotes(tmp_path: Path) -> None:
     assert cmd_write(args) == 0
     assert (rev / "L1" / "_facts.json").is_file()
     loaded = load_discussion_pointer(rev)
-    assert loaded["by_id"]["L1"]["production"] == "pending"
+    assert loaded["by_id"]["L1"]["acceptance"] == "pending"

@@ -15,7 +15,7 @@ from dependency_tree_schema import build_tree, save_dependency_tree  # noqa: E40
 from discussion_pointer_control import (  # noqa: E402
     cmd_can_admit,
     cmd_can_enter_evaluate,
-    cmd_demote_production,
+    cmd_demote_acceptance,
     cmd_mark_done,
     cmd_ready,
     cmd_resume,
@@ -83,7 +83,7 @@ def test_switch_enter_policy(tmp_path: Path, capsys) -> None:
     assert cmd_switch(rev, target="L2", confirm=True, profile_id=_PROFILE) == 1
     assert load_discussion_pointer(rev)["focus"] == "L1"
 
-    assert cmd_mark_done(rev, confirm=True, kind="inductive", profile_id=_PROFILE) == 0
+    assert cmd_mark_done(rev, confirm=True, kind="intake", profile_id=_PROFILE) == 0
     capsys.readouterr()
     assert cmd_ready(rev) == 0
     ready_out = json.loads(capsys.readouterr().out)
@@ -98,44 +98,44 @@ def test_switch_enter_policy(tmp_path: Path, capsys) -> None:
 
 def test_switch_without_confirm_rejected(tmp_path: Path) -> None:
     rev = _seed_rev(tmp_path)
-    assert cmd_mark_done(rev, confirm=True, kind="inductive", profile_id=_PROFILE) == 0
+    assert cmd_mark_done(rev, confirm=True, kind="intake", profile_id=_PROFILE) == 0
     assert cmd_switch(rev, target="L2", confirm=False, profile_id=_PROFILE) == 1
     assert load_discussion_pointer(rev)["focus"] == "L1"
 
 
-def test_stage_gate_blocks_until_deps_production_done(tmp_path: Path) -> None:
+def test_stage_gate_blocks_until_deps_acceptance_done(tmp_path: Path) -> None:
     rev = _seed_rev(tmp_path)
-    assert cmd_mark_done(rev, confirm=True, kind="inductive", profile_id=_PROFILE) == 0
+    assert cmd_mark_done(rev, confirm=True, kind="intake", profile_id=_PROFILE) == 0
     assert cmd_switch(rev, target="L2", confirm=True, profile_id=_PROFILE) == 0
-    assert cmd_mark_done(rev, confirm=True, kind="inductive", profile_id=_PROFILE) == 0
+    assert cmd_mark_done(rev, confirm=True, kind="intake", profile_id=_PROFILE) == 0
     assert cmd_can_enter_evaluate(rev, target="L2") == 1
     ok, reason = stage_gate_for_revision(rev)
     assert ok is False
-    assert reason and "production" in reason
+    assert reason and "acceptance" in reason
 
     assert cmd_switch(rev, target="L1", confirm=True, profile_id=_PROFILE) == 0
     doc = rev / "L1" / "design-doc.md"
     doc.parent.mkdir(parents=True, exist_ok=True)
     doc.write_text("# L1\n\n## Boundary\n\n", encoding="utf-8")
-    assert cmd_mark_done(rev, confirm=True, kind="production", profile_id=_PROFILE) == 0
+    assert cmd_mark_done(rev, confirm=True, kind="acceptance", profile_id=_PROFILE) == 0
     assert cmd_switch(rev, target="L2", confirm=True, profile_id=_PROFILE) == 0
     assert cmd_can_enter_evaluate(rev, target="L2") == 0
     ok2, _ = stage_gate_for_revision(rev)
     assert ok2 is True
 
 
-def test_demote_production(tmp_path: Path) -> None:
+def test_demote_acceptance(tmp_path: Path) -> None:
     rev = _seed_rev(tmp_path)
-    assert cmd_mark_done(rev, confirm=True, kind="inductive", profile_id=_PROFILE) == 0
+    assert cmd_mark_done(rev, confirm=True, kind="intake", profile_id=_PROFILE) == 0
     doc = rev / "L1" / "design-doc.md"
     doc.parent.mkdir(parents=True, exist_ok=True)
     doc.write_text("# L1\n\n## Boundary\n\n", encoding="utf-8")
-    assert cmd_mark_done(rev, confirm=True, kind="production", profile_id=_PROFILE) == 0
-    assert cmd_demote_production(
+    assert cmd_mark_done(rev, confirm=True, kind="acceptance", profile_id=_PROFILE) == 0
+    assert cmd_demote_acceptance(
         rev, target="L1", confirm=True, profile_id=_PROFILE
     ) == 0
     ptr = load_discussion_pointer(rev)
-    assert ptr["by_id"]["L1"]["production"] == "pending"
+    assert ptr["by_id"]["L1"]["acceptance"] == "pending"
     progress = (rev / "drafting-progress.md").read_text(encoding="utf-8")
     assert "FreeEdit" in progress
 
@@ -166,14 +166,14 @@ def test_removed_legacy_cli_unknown(tmp_path: Path) -> None:
         )
 
 
-def test_production_mark_done_requires_boundary(tmp_path: Path) -> None:
+def test_acceptance_mark_done_requires_boundary(tmp_path: Path) -> None:
     rev = _seed_rev(tmp_path)
-    assert cmd_mark_done(rev, confirm=True, kind="inductive", profile_id=_PROFILE) == 0
-    assert cmd_mark_done(rev, confirm=True, kind="production", profile_id=_PROFILE) == 1
+    assert cmd_mark_done(rev, confirm=True, kind="intake", profile_id=_PROFILE) == 0
+    assert cmd_mark_done(rev, confirm=True, kind="acceptance", profile_id=_PROFILE) == 1
     doc = rev / "L1" / "design-doc.md"
     doc.parent.mkdir(parents=True, exist_ok=True)
     doc.write_text("# L1\n\n## Boundary\n\n", encoding="utf-8")
-    assert cmd_mark_done(rev, confirm=True, kind="production", profile_id=_PROFILE) == 0
+    assert cmd_mark_done(rev, confirm=True, kind="acceptance", profile_id=_PROFILE) == 0
 
 
 def test_seam_report_advisory(tmp_path: Path, capsys) -> None:

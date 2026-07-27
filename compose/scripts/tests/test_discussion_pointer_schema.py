@@ -40,8 +40,8 @@ def test_build_pointer_from_tree() -> None:
         "tree_ref": {"path": "dependency-tree.json", "version": 1},
         "focus": "L1",
         "by_id": {
-            "L1": {"inductive": "pending", "production": "pending"},
-            "L2": {"inductive": "pending", "production": "pending"},
+            "L1": {"intake": "pending", "acceptance": "pending"},
+            "L2": {"intake": "pending", "acceptance": "pending"},
         },
     }
 
@@ -56,13 +56,13 @@ def test_reject_v1_legacy_keys() -> None:
     tree = _locked_tree()
     raw = {
         "tree_ref": {"path": "dependency-tree.json", "version": 1},
-        "phase": "inductive",
+        "phase": "intake",
         "pointer": "L2",
         "frontier": "L2",
         "focus": "L2",
         "by_id": {
-            "L1": {"inductive": "done", "production": "pending"},
-            "L2": {"inductive": "pending", "production": "pending"},
+            "L1": {"intake": "done", "acceptance": "pending"},
+            "L2": {"intake": "pending", "acceptance": "pending"},
         },
     }
     errors = validate_discussion_pointer(raw, tree)
@@ -77,16 +77,16 @@ def test_enter_policy_and_stage_gate() -> None:
     assert ok is True
     ok2, reason = can_admit(tree, ptr, "L2")
     assert ok2 is False
-    assert reason and "inductive" in reason
+    assert reason and "intake" in reason
     assert ready_ids(tree, ptr) == ["L1"]
 
-    ptr["by_id"]["L1"]["inductive"] = "done"
+    ptr["by_id"]["L1"]["intake"] = "done"
     ok3, _ = can_admit(tree, ptr, "L2")
     assert ok3 is True
     ok4, reason4 = can_enter_evaluate(tree, ptr, "L2")
     assert ok4 is False
-    assert reason4 and "production" in reason4
-    ptr["by_id"]["L1"]["production"] = "done"
+    assert reason4 and "acceptance" in reason4
+    ptr["by_id"]["L1"]["acceptance"] = "done"
     ok5, _ = can_enter_evaluate(tree, ptr, "L2")
     assert ok5 is True
 
@@ -113,12 +113,12 @@ def test_load_rejects_legacy_on_disk(tmp_path: Path) -> None:
         json.dumps(
             {
                 "tree_ref": {"path": "dependency-tree.json", "version": 1},
-                "phase": "inductive",
+                "phase": "intake",
                 "pointer": "L1",
                 "frontier": "L1",
                 "by_id": {
-                    "L1": {"inductive": "pending", "production": "pending"},
-                    "L2": {"inductive": "pending", "production": "pending"},
+                    "L1": {"intake": "pending", "acceptance": "pending"},
+                    "L2": {"intake": "pending", "acceptance": "pending"},
                 },
             },
             indent=2,

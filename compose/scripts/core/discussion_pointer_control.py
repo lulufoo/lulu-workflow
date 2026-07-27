@@ -8,8 +8,8 @@ Subcommands:
     can-admit           Check EnterPolicy for ``--to``
     can-enter-evaluate  Check StageGate for focus (or ``--to``)
     switch              Change focus via EnterPolicy (--confirm)
-    mark-done           Mark focus mature for ``--kind`` inductive|production
-    demote-production   Set target production→pending (+ FreeEdit sync if focus)
+    mark-done           Mark focus mature for ``--kind`` intake|acceptance
+    demote-acceptance   Set target acceptance→pending (+ FreeEdit sync if focus)
     seam-report         Advisory Boundary seam checklist
 
 Illegal transitions hard-reject with unchanged on-disk focus state.
@@ -52,13 +52,13 @@ _BOUNDARY_HEADING = "## Boundary"
 _DRAFTING_PROGRESS = "drafting-progress.md"
 
 
-def _production_exit_errors(
+def _acceptance_exit_errors(
     revision_dir: Path,
     node_id: str,
     *,
     doc_filename: str,
 ) -> list[str]:
-    """Structural production exit: profile doc with ``## Boundary`` (may be empty)."""
+    """Structural acceptance exit: profile doc with ``## Boundary`` (may be empty)."""
     doc = Path(revision_dir) / node_id / doc_filename
     if not doc.is_file():
         return [f"missing {doc.as_posix()}"]
@@ -133,16 +133,16 @@ def _sync_drafting_for_focus(
 
     Writes only via ``drafting_progress_schema.save_drafting_progress`` so
     ``allowed_steps()`` is enforced. Returns the step written, or None when no
-    progress file existed and L is still inductive-pending (absent progress is
-    valid for begin-inductive).
+    progress file existed and L is still intake-pending (absent progress is
+    valid for begin-inductive / begin-deductive).
     """
     path = Path(revision_dir) / _DRAFTING_PROGRESS
     cell = pointer["by_id"][node_id]
     pid = profile_id.strip()
     allowed = allowed_steps(pid)
-    if cell["inductive"] != "done":
+    if cell["intake"] != "done":
         step = "Inductive"
-    elif cell["production"] == "done" or slice_past_init(revision_dir, node_id):
+    elif cell["acceptance"] == "done" or slice_past_init(revision_dir, node_id):
         if "FreeEdit" in allowed:
             step = "FreeEdit"
         elif "Initialized" in allowed:
@@ -163,7 +163,7 @@ def _sync_drafting_for_focus(
     if path.is_file():
         fields = parse_frontmatter_fields(path.read_text(encoding="utf-8"))
         cycle_id = str(fields.get("cycle_id") or cycle_id).strip() or "unknown"
-    elif step in ("Inductive", "Deductive") and cell["inductive"] != "done":
+    elif step in ("Inductive", "Deductive") and cell["intake"] != "done":
         return None
 
     save_drafting_progress(
@@ -312,20 +312,20 @@ def cmd_mark_done(
         cell = pointer["by_id"][cur]
         if kind:
             phase = str(kind).strip()
-            if phase not in ("inductive", "production"):
-                return _emit_error("kind must be inductive|production")
+            if phase not in ("intake", "acceptance"):
+                return _emit_error("kind must be intake|acceptance")
         else:
-            phase = "inductive" if cell["inductive"] != "done" else "production"
-        if phase == "production":
+            phase = "intake" if cell["intake"] != "done" else "acceptance"
+        if phase == "acceptance":
             doc_filename = document_filename_for_profile(profile_id)
-            gate_errs = _production_exit_errors(
+            gate_errs = _acceptance_exit_errors(
                 revision_dir, cur, doc_filename=doc_filename
             )
             if gate_errs:
                 return _emit_error("; ".join(gate_errs))
-            if cell["inductive"] != "done":
+            if cell["intake"] != "done":
                 return _emit_error(
-                    f"cannot mark production done: {cur!r} inductive is not done"
+                    f"cannot mark acceptance done: {cur!r} intake is not done"
                 )
         if cell[phase] == "done":
             _emit(
@@ -346,14 +346,14 @@ def cmd_mark_done(
     return 0
 
 
-def cmd_demote_production(
+def cmd_demote_acceptance(
     revision_dir: Path,
     *,
     target: str,
     confirm: bool,
     profile_id: str = "",
 ) -> int:
-    """Bucket side-effect: production→pending; FreeEdit sync when target is focus.
+    """Bucket side-effect: acceptance→pending; FreeEdit sync when target is focus.
 
     Drafting-progress sync runs only when ``profile_id`` is non-empty (CLI always
     passes ``--profile``; library callers such as facts write may omit it).
@@ -367,10 +367,10 @@ def cmd_demote_production(
         if tgt not in pointer["by_id"]:
             return _emit_error(f"unknown target {tgt!r}")
         cell = pointer["by_id"][tgt]
-        was_done = cell["production"] == "done"
+        was_done = cell["acceptance"] == "done"
         demoted = False
         if was_done:
-            cell["production"] = "pending"
+            cell["acceptance"] = "pending"
             demoted = True
         drafting_step = None
         pid = profile_id.strip()
@@ -382,10 +382,10 @@ def cmd_demote_production(
             save_discussion_pointer(revision_dir, pointer, tree=tree)
     except (FileNotFoundError, ValueError, json.JSONDecodeError, KeyError) as exc:
         return _emit_error(str(exc))
-    payload = _status_payload(revision_dir, tree, pointer, command="demote-production")
+    payload = _status_payload(revision_dir, tree, pointer, command="demote-acceptance")
     payload["target"] = tgt
     payload["demoted"] = demoted
-    payload["was_production_done"] = was_done
+    payload["was_acceptance_done"] = was_done
     if drafting_step is not None:
         payload["drafting_step"] = drafting_step
     _emit(payload)
@@ -445,7 +445,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     p_eval = sub.add_parser(
         "can-enter-evaluate",
-        help="Check StageGate (deps production done)",
+        help="Check StageGate (deps acceptance done)",
     )
     p_eval.add_argument(
         "--to",
@@ -461,15 +461,15 @@ def _build_parser() -> argparse.ArgumentParser:
     p_mark = sub.add_parser("mark-done", help="Mark focus mature for a kind")
     p_mark.add_argument(
         "--kind",
-        choices=("inductive", "production"),
+        choices=("intake", "acceptance"),
         default=None,
-        help="Default: inductive if pending else production",
+        help="Default: intake if pending else acceptance",
     )
     p_mark.add_argument("--confirm", action="store_true")
 
     p_dem = sub.add_parser(
-        "demote-production",
-        help="Set target production→pending (bucket write side-effect)",
+        "demote-acceptance",
+        help="Set target acceptance→pending (bucket write side-effect)",
     )
     p_dem.add_argument("--to", required=True, dest="target")
     p_dem.add_argument("--confirm", action="store_true")
@@ -507,8 +507,8 @@ def main(argv: list[str] | None = None) -> int:
             kind=args.kind,
             profile_id=profile_id,
         )
-    if args.command == "demote-production":
-        return cmd_demote_production(
+    if args.command == "demote-acceptance":
+        return cmd_demote_acceptance(
             rev,
             target=args.target,
             confirm=bool(args.confirm),

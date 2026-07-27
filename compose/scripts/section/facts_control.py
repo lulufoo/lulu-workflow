@@ -10,7 +10,7 @@ Subcommands:
     CLI details: ``python3 facts_control.py --help``
 
     ``write --target-l Lx`` buckets into ``revision/Lx/_facts.json`` (v1.1).
-    If that L was ``production: done``, demotes it (FreeEdit when it is focus).
+    If that L was ``acceptance: done``, demotes it (FreeEdit when it is focus).
 
 Design rationale (source repo, why-only): docs/domain/ssot/compose/mechanism-ssot/compose-fact-architecture.md;
 process how archive: docs/domain/archive/compose/archive-2.0/compose-fact-first-display-layer-design.md §3.1, §11 (M1);
@@ -216,13 +216,13 @@ def cmd_write(args: argparse.Namespace) -> int:
         and target_l != "package"
         and discussion_pointer_path(rev).is_file()
     ):
-        from discussion_pointer_control import cmd_demote_production  # noqa: WPS433
+        from discussion_pointer_control import cmd_demote_acceptance  # noqa: WPS433
         import io
         from contextlib import redirect_stdout, redirect_stderr
 
         buf_out, buf_err = io.StringIO(), io.StringIO()
         with redirect_stdout(buf_out), redirect_stderr(buf_err):
-            code = cmd_demote_production(
+            code = cmd_demote_acceptance(
                 rev,
                 target=target_l,
                 confirm=True,
@@ -235,7 +235,7 @@ def cmd_write(args: argparse.Namespace) -> int:
             except json.JSONDecodeError:
                 demote = {"ok": code == 0, "raw": raw_out}
         elif code != 0:
-            return _fail(buf_err.getvalue().strip() or "demote-production failed")
+            return _fail(buf_err.getvalue().strip() or "demote-acceptance failed")
 
     loaded = load_facts(path)
     payload: dict[str, Any] = {

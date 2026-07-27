@@ -9,7 +9,7 @@ Subcommands:
     lock-tree            Persist locked dependency tree + pointer + Lx dirs
                          (+ slice-rulers when multi-L)
     check-split-ready    Assert tree locked; multi-L requires locked rulers
-    assemble-index       Build profile-derived ``*-index.md`` when all production done
+    assemble-index       Build profile-derived ``*-index.md`` when all acceptance done
 
 Design rationale (source repo, why-only):
 docs/domain/archive/compose/archive-4.0/compose-multi-subdesign-split-runner-scheme.md
@@ -433,11 +433,11 @@ def cmd_assemble_index(
     incomplete = [
         nid
         for nid in tree["order"]
-        if pointer["by_id"][nid]["production"] != "done"
+        if pointer["by_id"][nid]["acceptance"] != "done"
     ]
     if incomplete:
         return _emit_error(
-            "not all nodes production=done: " + ", ".join(incomplete)
+            "not all nodes acceptance=done: " + ", ".join(incomplete)
         )
 
     titles = {n["id"]: n.get("title", "") for n in tree["nodes"]}
@@ -525,7 +525,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     p_idx = sub.add_parser(
         "assemble-index",
-        help="Write profile-derived *-index.md after all production done",
+        help="Write profile-derived *-index.md after all acceptance done",
     )
     p_idx.add_argument("--confirm", action="store_true")
 

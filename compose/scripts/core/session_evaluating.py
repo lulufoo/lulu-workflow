@@ -30,7 +30,7 @@ def enter_evaluating_state(
     """Move workflow-state Drafting → Evaluating. Does not touch evaluate-state.md.
 
     Requires locked Split topology (check-split-ready). Multi-L StageGate (v1.1):
-    every dependency of the current focus must have ``production: done``.
+    every dependency of the current focus must have ``acceptance: done``.
     """
     ws_path = workflow_state_path(cycle_id, project_root, profile_id)
     state = load_workflow_state(ws_path)
@@ -86,7 +86,7 @@ def enter_evaluating_state(
             "resume": {
                 "entry": current,
                 "action": (
-                    "StageGate: 前置 L 尚未 production=done，不能进入 Evaluating。"
+                    "StageGate: 前置 L 尚未 acceptance=done，不能进入 Evaluating。"
                     f" ({gate_reason})"
                 ),
             },
