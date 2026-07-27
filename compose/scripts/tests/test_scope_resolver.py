@@ -48,6 +48,27 @@ class TestValidateRoleInstances:
         errors = validate_role_instance(data, expected_cycle_type="topic")
         assert any("cycle_type mismatch" in err for err in errors)
 
+    def test_cognitive_framework_optional_absent(self):
+        data = load_and_validate_role_instance("feature")
+        without = {k: v for k, v in data.items() if k != "cognitive_framework"}
+        assert validate_role_instance(without) == []
+        fields = get_role_fields(without)
+        assert "cognitive_framework" not in fields
+        assert "priority_tendency" in fields
+
+    def test_cognitive_framework_empty_string_invalid(self):
+        data = load_and_validate_role_instance("feature")
+        bad = {**data, "cognitive_framework": "  "}
+        assert any("cognitive_framework" in err for err in validate_role_instance(bad))
+
+    def test_cognitive_framework_present_still_ok(self):
+        data = load_and_validate_role_instance("feature")
+        with_fw = {**data, "cognitive_framework": "legacy analysis dimensions"}
+        assert validate_role_instance(with_fw) == []
+        assert get_role_fields(with_fw)["cognitive_framework"] == (
+            "legacy analysis dimensions"
+        )
+
 
 class TestResolveRole:
     def test_feature_by_cycle_type(self):

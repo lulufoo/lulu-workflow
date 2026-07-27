@@ -29,22 +29,29 @@ _SCHEMA: list[dict[str, Any]] = [
      "description": "Unique identifier for this role slice"},
     {"field": "role_prompt", "type": "string", "required": True,
      "description": "Natural-language persona and operational guidance for ### Role"},
-    {"field": "cognitive_framework", "type": "string", "required": True,
-     "description": "How this role frames problems — analysis dimensions"},
+    {"field": "cognitive_framework", "type": "string", "required": False,
+     "description": (
+         "Deprecated — genre cognitive frame lives on domain.cognitive_frame. "
+         "If present, must be a non-empty string (legacy profiles)."
+     )},
     {"field": "priority_tendency", "type": "string", "required": True,
      "description": "Which section types or content aspects this role prioritizes"},
     {"field": "vocabulary_domain", "type": "list[string]", "required": True,
      "description": "Vocabulary set characteristic of this role's reasoning"},
     {"field": "expressive_tendency", "type": "string", "required": True,
-     "description": "Visual or structural style this role favors when communicating"},
+     "description": "Author stance and collaboration tone (not genre register/carriers)"},
     {"field": "completion_bar", "type": "string", "required": True,
-     "description": "What 'done' means from this role's perspective"},
+     "description": "Author-side completion obligations (not signer/audience bar)"},
 ]
 
+_META_FIELDS = frozenset({"version", "$schema_id", "cycle_type", "role_prompt"})
 _ROLE_FIELD_KEYS = frozenset(
+    entry["field"] for entry in _SCHEMA if entry["field"] not in _META_FIELDS
+)
+_OPTIONAL_ROLE_FIELD_KEYS = frozenset(
     entry["field"]
     for entry in _SCHEMA
-    if entry["field"] not in {"version", "$schema_id", "cycle_type", "role_prompt"}
+    if entry["field"] not in _META_FIELDS and not entry.get("required", True)
 )
 
 
@@ -100,11 +107,16 @@ def validate_role_instance(
 
     for key in _ROLE_FIELD_KEYS:
         value = data.get(key)
+        optional = key in _OPTIONAL_ROLE_FIELD_KEYS
+        if optional and value is None:
+            continue
         if key == "vocabulary_domain":
             if not isinstance(value, list) or not value:
                 errors.append("vocabulary_domain must be a non-empty list")
             elif not all(isinstance(item, str) and item.strip() for item in value):
                 errors.append("vocabulary_domain items must be non-empty strings")
+            continue
+        if optional and key not in data:
             continue
         if not isinstance(value, str) or not value.strip():
             errors.append(f"{key} must be a non-empty string")
@@ -124,7 +136,12 @@ def get_role_fields(data: dict[str, Any]) -> dict[str, Any]:
     errors = validate_role_instance(data)
     if errors:
         raise ValueError(f"role instance invalid: {'; '.join(errors)}")
-    return {key: data[key] for key in _ROLE_FIELD_KEYS}
+    out: dict[str, Any] = {}
+    for key in _ROLE_FIELD_KEYS:
+        if key in _OPTIONAL_ROLE_FIELD_KEYS and key not in data:
+            continue
+        out[key] = data[key]
+    return out
 
 
 def load_and_validate_role_instance(
