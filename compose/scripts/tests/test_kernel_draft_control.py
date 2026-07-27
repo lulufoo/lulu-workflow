@@ -17,7 +17,8 @@ from resolved_refs_schema import frozen_delivered_refs  # noqa: E402
 from workflow_state_schema import init_drafting, load_workflow_state  # noqa: E402
 
 from delivered_refs_schema import DeliveredRef  # noqa: E402
-from init_drafting_helpers import (  # noqa: E402
+from init_drafting_helpers import (
+    init_drafting_ready,  # noqa: E402
     seed_product_spec_session,
     seed_provenance_artifacts,
     seed_tech_design_session,
@@ -28,6 +29,12 @@ from resolved_refs_schema import resolved_scope_ref, write_resolved_refs  # noqa
 
 _CYCLE = "feature-draft-generic"
 _PROFILE_DESIGN = "lulu-design"
+
+
+def _slice(rev: Path) -> Path:
+    """Active L1 slice dir after init_drafting_ready / seed_*_session."""
+    return rev / "L1"
+
 
 
 def _progress_path(project_root: Path, profile_id: str, *, revision: int = 1) -> Path:
@@ -132,14 +139,14 @@ def test_begin_init_rejects_open_deductive_pending(tmp_path: Path) -> None:
         project_root=tmp_path,
         cycle_id=_CYCLE,
     )
-    (rev / "_facts.json").write_text(
+    (_slice(rev) / "_facts.json").write_text(
         json.dumps(
             [{"id": "F-1", "text": "seed", "lens_tags": ["AR"]}],
             ensure_ascii=False,
         ),
         encoding="utf-8",
     )
-    (rev / "deductive-pending.json").write_text(
+    (_slice(rev) / "deductive-pending.json").write_text(
         json.dumps(
             {
                 "version": 1,
@@ -174,7 +181,7 @@ def test_begin_init_rejects_missing_deductive_pending_file(tmp_path: Path) -> No
         project_root=tmp_path,
         cycle_id=_CYCLE,
     )
-    (rev / "_facts.json").write_text(
+    (_slice(rev) / "_facts.json").write_text(
         json.dumps(
             [{"id": "F-1", "text": "seed", "lens_tags": ["AR"]}],
             ensure_ascii=False,
@@ -197,14 +204,14 @@ def test_deductive_complete_and_begin_init_when_gate_clear(tmp_path: Path) -> No
         project_root=tmp_path,
         cycle_id=_CYCLE,
     )
-    (rev / "_facts.json").write_text(
+    (_slice(rev) / "_facts.json").write_text(
         json.dumps(
             [{"id": "F-1", "text": "seed", "lens_tags": ["AR"]}],
             ensure_ascii=False,
         ),
         encoding="utf-8",
     )
-    (rev / "deductive-pending.json").write_text(
+    (_slice(rev) / "deductive-pending.json").write_text(
         json.dumps({"version": 1, "items": []}, ensure_ascii=False),
         encoding="utf-8",
     )
@@ -239,7 +246,7 @@ def test_begin_inductive_out_dir_under_revision(tmp_path: Path) -> None:
     assert result["ok"] is True
     dispatch = result["dispatch_input"]
     assert "INDUCTIVE_OUT_DIR:" in dispatch
-    assert dispatch.strip().endswith("revision1")
+    assert dispatch.strip().endswith("revision1/L1")
     expected = (tmp_path / inductive_out_dir(_CYCLE, _PROFILE_DESIGN, tmp_path)).as_posix()
     assert f"INDUCTIVE_OUT_DIR:    {expected}" in dispatch
 
@@ -359,7 +366,7 @@ def test_inductive_dispatch_intent_baseline_from_spec_product(tmp_path: Path) ->
 def test_inductive_complete_rejects_g4_without_g5(tmp_path: Path) -> None:
     seed_tech_design_session(tmp_path, cycle_id=_CYCLE)
     rev_dir = _seed_inductive_progress(tmp_path)
-    _write_g4_closed(rev_dir)
+    _write_g4_closed(_slice(rev_dir))
 
     result = draft_control.inductive_complete(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
 
@@ -370,8 +377,8 @@ def test_inductive_complete_rejects_g4_without_g5(tmp_path: Path) -> None:
 def test_inductive_complete_succeeds_when_g4_and_g5_closed(tmp_path: Path) -> None:
     seed_tech_design_session(tmp_path, cycle_id=_CYCLE)
     rev_dir = _seed_inductive_progress(tmp_path)
-    _write_g4_closed(rev_dir)
-    _write_g5_closed(rev_dir)
+    _write_g4_closed(_slice(rev_dir))
+    _write_g5_closed(_slice(rev_dir))
 
     result = draft_control.inductive_complete(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
 
@@ -383,7 +390,7 @@ def test_inductive_complete_succeeds_when_g4_and_g5_closed(tmp_path: Path) -> No
 def test_begin_init_rejects_inductive_step_without_g5(tmp_path: Path) -> None:
     seed_tech_design_session(tmp_path, cycle_id=_CYCLE)
     rev_dir = _seed_inductive_progress(tmp_path)
-    _write_g4_closed(rev_dir)
+    _write_g4_closed(_slice(rev_dir))
 
     result = draft_control.begin_init(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
 
@@ -394,7 +401,7 @@ def test_begin_init_rejects_inductive_step_without_g5(tmp_path: Path) -> None:
 def test_revision2_inductive_isolated_from_revision1(tmp_path: Path) -> None:
     seed_tech_design_session(tmp_path, cycle_id=_CYCLE)
     rev1 = tmp_path / doc_dir(_CYCLE, 1, _PROFILE_DESIGN, tmp_path)
-    _write_g4_closed(rev1)
+    _write_g4_closed(_slice(rev1))
     progress_schema.save_drafting_progress(
         _progress_path(tmp_path, _PROFILE_DESIGN, revision=1),
         {"version": "1", "cycle_id": _CYCLE, "current_step": "Inductive"},
@@ -409,7 +416,7 @@ def test_revision2_inductive_isolated_from_revision1(tmp_path: Path) -> None:
     rev1_state = load_workflow_state(rev1_ws)
     rev1_refs = frozen_delivered_refs(rev1_ws.parent)
     rev2_ws = tmp_path / state_path(_CYCLE, 2, _PROFILE_DESIGN, tmp_path)
-    init_drafting(rev2_ws, mode=rev1_state["mode"])
+    init_drafting_ready(rev2_ws, mode=rev1_state["mode"])
     seed_provenance_artifacts(
         rev2_ws,
         cycle_id=_CYCLE,
@@ -425,7 +432,7 @@ def test_revision2_inductive_isolated_from_revision1(tmp_path: Path) -> None:
 
     begin_inductive = draft_control.begin_inductive(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
     assert begin_inductive["ok"] is True
-    assert begin_inductive["dispatch_input"].strip().endswith("revision2")
+    assert begin_inductive["dispatch_input"].strip().endswith("revision2/L1")
 
 
 def test_advance_to_freeedit_rejects_profile_without_freeedit(
@@ -470,8 +477,8 @@ def test_begin_init_k2_requires_facts_when_inductive(
     """K2: inductive Init → missing _facts.json is a hard error."""
     seed_tech_design_session(tmp_path, cycle_id=_CYCLE)
     rev_dir = _seed_inductive_progress(tmp_path)
-    _write_g4_closed(rev_dir)
-    _write_g5_closed(rev_dir)
+    _write_g4_closed(_slice(rev_dir))
+    _write_g5_closed(_slice(rev_dir))
 
     monkeypatch.setattr(
         draft_control,
@@ -491,9 +498,9 @@ def test_begin_init_k2_passes_when_facts_present(
 ) -> None:
     seed_tech_design_session(tmp_path, cycle_id=_CYCLE)
     rev_dir = _seed_inductive_progress(tmp_path)
-    _write_g4_closed(rev_dir)
-    _write_g5_closed(rev_dir)
-    (rev_dir / "_facts.json").write_text(
+    _write_g4_closed(_slice(rev_dir))
+    _write_g5_closed(_slice(rev_dir))
+    (_slice(rev_dir) / "_facts.json").write_text(
         json.dumps(
             [{"id": "F-1", "text": "projected", "lens_tags": ["ST"], "source": ["ST-d1"]}],
             ensure_ascii=False,
@@ -528,9 +535,9 @@ def test_begin_init_real_design_profile_requires_facts(tmp_path: Path) -> None:
 
     seed_tech_design_session(tmp_path, cycle_id=_CYCLE)
     rev_dir = _seed_inductive_progress(tmp_path)
-    _write_g4_closed(rev_dir)
-    _write_g5_closed(rev_dir)
-    assert not (rev_dir / "_facts.json").exists()
+    _write_g4_closed(_slice(rev_dir))
+    _write_g5_closed(_slice(rev_dir))
+    assert not (_slice(rev_dir) / "_facts.json").exists()
 
     result = draft_control.begin_init(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
     assert result["ok"] is False

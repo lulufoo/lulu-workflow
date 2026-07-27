@@ -85,7 +85,7 @@ class TestDeliveryPreview:
         payload = delivery_preview(cycle_id, project_root)
         assert payload["ok"] is False
         assert payload["command"] == "delivery-preview"
-        assert payload["current_state"] == "Drafting"
+        assert payload["current_state"] == "Split"
         assert "ReadyForDelivery" in payload["message"]
 
 

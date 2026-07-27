@@ -24,7 +24,12 @@ from product_blueprint_eval_adapter import (  # noqa: E402
     ProductBlueprintEvalAdapter,
 )
 from product_blueprint_eval_policy import select_dimension_ids  # noqa: E402
-from workflow_state_schema import init_drafting  # noqa: E402
+import sys
+from pathlib import Path as _P
+_COMPOSE_TESTS = _P(__file__).resolve().parents[3] / 'compose' / 'scripts' / 'tests'
+if str(_COMPOSE_TESTS) not in sys.path:
+    sys.path.insert(0, str(_COMPOSE_TESTS))
+from init_drafting_helpers import init_drafting_ready  # noqa: E402
 
 _CYCLE = "topic-blueprint-adapter"
 _CACHE = Path(".cache/cursor/lulu-dev-workflow")
@@ -54,7 +59,7 @@ class TestProductBlueprintEvalAdapter:
 
     def test_resolve_eval_corpus_topic_mode(self, tmp_path: Path) -> None:
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="product")
+        init_drafting_ready(ws, mode="product")
         adapter = ProductBlueprintEvalAdapter()
         corpus = adapter.resolve_eval_corpus(_CYCLE, tmp_path)
         ids = select_dimension_ids()
@@ -64,7 +69,7 @@ class TestProductBlueprintEvalAdapter:
 
     def test_resolve_eval_corpus_rejects_feature_cycle(self, tmp_path: Path) -> None:
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="product")
+        init_drafting_ready(ws, mode="product")
         adapter = ProductBlueprintEvalAdapter()
         with pytest.raises(ValueError, match="feature cycles do not evaluate"):
             adapter.resolve_eval_corpus("feat-blueprint-adapter", tmp_path)

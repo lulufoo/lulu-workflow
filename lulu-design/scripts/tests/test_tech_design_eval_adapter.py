@@ -22,7 +22,11 @@ from tech_design_eval_adapter import (  # noqa: E402
 )
 from corpus_compose import corpus_fingerprint  # noqa: E402
 from tech_design_eval_policy import select_dimension_ids  # noqa: E402
-from workflow_state_schema import init_drafting  # noqa: E402
+from init_drafting_helpers import (  # noqa: E402
+    init_drafting_ready,
+    product_delivered_refs,
+    seed_frozen_delivered,
+)
 
 _CYCLE = "feat-design-adapter"
 _CACHE = Path(".cache/cursor/lulu-dev-workflow")
@@ -40,8 +44,12 @@ def _seed_session(tmp_path: Path) -> Path:
     seed_profile_pointer_for_tests(tmp_path, _CYCLE, "lulu-design")
     rev = base / "revision1"
     rev.mkdir(parents=True)
-    (rev / "design-doc.md").write_text("# design\n", encoding="utf-8")
     return rev / "workflow-state.md"
+
+
+def _ready(ws: Path, *, mode: str) -> None:
+    init_drafting_ready(ws, mode=mode)
+    (ws.parent / "L1" / "design-doc.md").write_text("# design\n", encoding="utf-8")
 
 
 class TestTechDesignEvalAdapter:
@@ -51,7 +59,8 @@ class TestTechDesignEvalAdapter:
 
     def test_resolve_eval_corpus_tech_mode(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="tech")
+        _ready(ws, mode="tech")
+
         adapter = TechDesignEvalAdapter()
         corpus = adapter.resolve_eval_corpus(_CYCLE, tmp_path)
         ids = select_dimension_ids()
@@ -62,9 +71,7 @@ class TestTechDesignEvalAdapter:
 
     def test_resolve_eval_corpus_product_mode(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        from init_drafting_helpers import product_delivered_refs, seed_frozen_delivered  # noqa: WPS433
-
-        init_drafting(ws, mode="product")
+        _ready(ws, mode="product")
         seed_frozen_delivered(ws, product_delivered_refs("/p.md"))
         adapter = TechDesignEvalAdapter()
         corpus = adapter.resolve_eval_corpus(_CYCLE, tmp_path)
@@ -77,7 +84,7 @@ class TestTechDesignEvalAdapter:
 
     def test_eval_paths_compose_doc(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="tech")
+        _ready(ws, mode="tech")
         adapter = TechDesignEvalAdapter()
         es_path = adapter.resolve_evaluate_state_path(_CYCLE, tmp_path)
         paths = adapter.eval_paths(
@@ -87,13 +94,11 @@ class TestTechDesignEvalAdapter:
             evaluate_round=1,
             es_path=es_path,
         )
-        assert paths["compose_doc"].endswith("/lulu-design/revision1/design-doc.md")
+        assert paths["compose_doc"].endswith("/lulu-design/revision1/L1/design-doc.md")
 
     def test_session_context_upstream_baseline_ref(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        from init_drafting_helpers import product_delivered_refs, seed_frozen_delivered  # noqa: WPS433
-
-        init_drafting(ws, mode="product")
+        _ready(ws, mode="product")
         seed_frozen_delivered(ws, product_delivered_refs("/p.md"))
         adapter = TechDesignEvalAdapter()
         ctx = adapter.session_context(_CYCLE, tmp_path)
@@ -101,7 +106,7 @@ class TestTechDesignEvalAdapter:
 
     def test_resolve_evaluate_state_path(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="tech")
+        _ready(ws, mode="tech")
         adapter = TechDesignEvalAdapter()
         es_path = adapter.resolve_evaluate_state_path(_CYCLE, tmp_path)
         assert es_path.name == "evaluate-state.md"
@@ -120,7 +125,7 @@ class TestTechDesignEvalAdapter:
         seed_profile_pointer_for_tests(tmp_path, cycle, "lulu-design")
         ws = base / "revision1" / "workflow-state.md"
         ws.parent.mkdir(parents=True, exist_ok=True)
-        init_drafting(ws, mode="tech")
+        _ready(ws, mode="tech")
         adapter = TechDesignEvalAdapter()
         with pytest.raises(ValueError, match="topic cycles do not evaluate in lulu-design"):
             adapter.resolve_eval_corpus(cycle, tmp_path)

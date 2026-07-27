@@ -27,8 +27,9 @@ from typing import Any
 _HERE = Path(__file__).resolve().parent
 _SCRIPTS = _HERE.parent
 _SESSION = _SCRIPTS / "schema" / "session"
+_SCHEMA_SECTION = _SCRIPTS / "schema" / "section"
 _SECTION = _SCRIPTS / "section"
-for _p in (_HERE, _SESSION, _SECTION, _SCRIPTS):
+for _p in (_HERE, _SESSION, _SCHEMA_SECTION, _SECTION, _SCRIPTS):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
@@ -43,7 +44,9 @@ from discussion_pointer_schema import (  # noqa: E402
     save_discussion_pointer,
     slice_past_init,
 )
+from drafting_progress_schema import allowed_steps, save_drafting_progress  # noqa: E402
 from workflow_common import parse_frontmatter_fields  # noqa: E402
+from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID  # noqa: E402
 
 _BOUNDARY_HEADING = "## Boundary"
 _DRAFTING_PROGRESS = "drafting-progress.md"
@@ -117,30 +120,46 @@ def _load(revision_dir: Path) -> tuple[dict[str, Any], dict[str, Any]]:
 def _sync_drafting_for_focus(revision_dir: Path, node_id: str, pointer: dict[str, Any]) -> str | None:
     """Align revision ``drafting-progress.md`` with target L maturity (best-effort).
 
-    Returns the step written, or None when no progress file existed and L is
-    still inductive-pending (absent progress is valid for begin-inductive).
+    Writes only via ``drafting_progress_schema.save_drafting_progress`` so
+    ``allowed_steps()`` is enforced. Returns the step written, or None when no
+    progress file existed and L is still inductive-pending (absent progress is
+    valid for begin-inductive).
     """
     path = Path(revision_dir) / _DRAFTING_PROGRESS
     cell = pointer["by_id"][node_id]
+    profile_id = DEFAULT_COMPOSE_PROFILE_ID
+    allowed = allowed_steps(profile_id)
     if cell["inductive"] != "done":
         step = "Inductive"
-    elif cell["production"] == "done":
-        step = "FreeEdit"
-    elif slice_past_init(revision_dir, node_id):
-        step = "FreeEdit"
+    elif cell["production"] == "done" or slice_past_init(revision_dir, node_id):
+        if "FreeEdit" in allowed:
+            step = "FreeEdit"
+        elif "Initialized" in allowed:
+            step = "Initialized"
+        else:
+            step = "Inductive"
     else:
         step = "Inductive"
+
+    if step not in allowed:
+        # Profile has no Inductive (deductive-only): map to Deductive when needed.
+        if "Deductive" in allowed and step == "Inductive":
+            step = "Deductive"
+        elif step not in allowed:
+            step = next(iter(sorted(allowed)))
 
     cycle_id = "unknown"
     if path.is_file():
         fields = parse_frontmatter_fields(path.read_text(encoding="utf-8"))
         cycle_id = str(fields.get("cycle_id") or cycle_id).strip() or "unknown"
-    elif step == "Inductive" and cell["inductive"] != "done":
+    elif step in ("Inductive", "Deductive") and cell["inductive"] != "done":
         return None
 
-    path.write_text(
-        f"---\nversion: 1\ncycle_id: {cycle_id}\ncurrent_step: {step}\n---\n",
-        encoding="utf-8",
+    save_drafting_progress(
+        path,
+        {"version": "1", "cycle_id": cycle_id, "current_step": step},
+        profile_id=profile_id,
+        merge=False,
     )
     return step
 

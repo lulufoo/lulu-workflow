@@ -16,6 +16,7 @@ kernel_bootstrap.ensure_kernel_paths()
 
 from compose_session import workflow_state_path  # noqa: E402
 from discussion_pointer_control import stage_gate_for_revision  # noqa: E402
+from multi_slice_control import evaluate_split_ready  # noqa: E402
 from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID  # noqa: E402
 from workflow_state_schema import load_workflow_state, save_workflow_state  # noqa: E402
 
@@ -28,8 +29,8 @@ def enter_evaluating_state(
 ) -> dict[str, Any]:
     """Move workflow-state Drafting → Evaluating. Does not touch evaluate-state.md.
 
-    Multi-L StageGate (v1.1): when ``discussion-pointer.json`` exists, every
-    dependency of the current focus must have ``production: done``.
+    Requires locked Split topology (check-split-ready). Multi-L StageGate (v1.1):
+    every dependency of the current focus must have ``production: done``.
     """
     ws_path = workflow_state_path(cycle_id, project_root, profile_id)
     state = load_workflow_state(ws_path)
@@ -59,6 +60,22 @@ def enter_evaluating_state(
         }
 
     revision_dir = ws_path.parent
+    topo_ok, topo_err, _ = evaluate_split_ready(revision_dir)
+    if not topo_ok:
+        return {
+            "ok": False,
+            "current_state": current,
+            "transitioned": False,
+            "error": topo_err or "split topology not ready",
+            "resume": {
+                "entry": current,
+                "action": (
+                    "无 locked 拓扑，不能进入 Evaluating；请回到 Split 补 lock "
+                    f"或新开 revision。 ({topo_err})"
+                ),
+            },
+        }
+
     gate_ok, gate_reason = stage_gate_for_revision(revision_dir)
     if not gate_ok:
         return {

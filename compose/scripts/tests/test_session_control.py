@@ -39,6 +39,8 @@ from workflow_paths import (  # noqa: E402
     seed_profile_pointer_for_tests,
 )
 from delivered_refs_schema import load_delivered_refs_file  # noqa: E402
+from init_drafting_helpers import init_drafting_ready, lock_single_l1_tree  # noqa: E402
+from session_control import split_complete  # noqa: E402
 
 _CYCLE = "feat-test"
 _CACHE = Path(".cache/cursor/lulu-dev-workflow")
@@ -83,7 +85,7 @@ def _setup_abandon_ready(
 ) -> tuple[Path, Path]:
     del upstream_baseline_ref
     ws = _seed_session(tmp_path)
-    init_drafting(
+    init_drafting_ready(
         ws,
         mode=mode,
         carry_forward_ref=carry_forward_ref,
@@ -106,7 +108,7 @@ def _setup_abandon_ready(
 class TestStartEvaluating:
     def test_from_drafting_product_mode(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="product")
+        init_drafting_ready(ws, mode="product")
 
         result = _ADAPTER.enter_evaluating(_CYCLE, tmp_path)
 
@@ -124,7 +126,7 @@ class TestStartEvaluating:
 
     def test_from_drafting_tech_mode(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="tech")
+        init_drafting_ready(ws, mode="tech")
 
         result = _ADAPTER.enter_evaluating(_CYCLE, tmp_path)
 
@@ -136,7 +138,7 @@ class TestStartEvaluating:
 
     def test_increments_evaluate_round(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="tech", evaluate_round=1)
+        init_drafting_ready(ws, mode="tech", evaluate_round=1)
         save_workflow_state(ws, {"current_state": "Drafting", "evaluate_round": "1"})
         result = _ADAPTER.enter_evaluating(_CYCLE, tmp_path)
         assert result["evaluate_round"] == 2
@@ -145,7 +147,7 @@ class TestStartEvaluating:
 
     def test_start_evaluating_state_only(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="tech")
+        init_drafting_ready(ws, mode="tech")
 
         result = start_evaluating(_CYCLE, tmp_path)
 
@@ -157,7 +159,7 @@ class TestStartEvaluating:
 
     def test_idempotent_when_already_evaluating(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="tech")
+        init_drafting_ready(ws, mode="tech")
         _ADAPTER.enter_evaluating(_CYCLE, tmp_path)
         es_path = ws.parent / "evaluate-state.md"
         es = load_evaluate_state(es_path)
@@ -172,7 +174,7 @@ class TestStartEvaluating:
 
     def test_failure_from_ready_for_delivery(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="tech")
+        init_drafting_ready(ws, mode="tech")
         ready_for_delivery(_CYCLE, tmp_path)
         result = start_evaluating(_CYCLE, tmp_path)
         assert result["ok"] is False
@@ -182,7 +184,7 @@ class TestStartEvaluating:
 class TestReadyForDelivery:
     def test_from_drafting_sets_skip_flag(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="product")
+        init_drafting_ready(ws, mode="product")
 
         result = ready_for_delivery(_CYCLE, tmp_path)
 
@@ -193,7 +195,7 @@ class TestReadyForDelivery:
 
     def test_from_evaluating_omits_skip_flag(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="tech")
+        init_drafting_ready(ws, mode="tech")
         save_workflow_state(ws, {"current_state": "Evaluating", "evaluate_round": "1"})
 
         result = ready_for_delivery(_CYCLE, tmp_path)
@@ -205,7 +207,7 @@ class TestReadyForDelivery:
 
     def test_idempotent_when_already_ready(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="tech")
+        init_drafting_ready(ws, mode="tech")
         ready_for_delivery(_CYCLE, tmp_path)
         result = ready_for_delivery(_CYCLE, tmp_path)
         assert result["ok"] is True
@@ -213,7 +215,7 @@ class TestReadyForDelivery:
 
     def test_failure_from_delivered(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="tech")
+        init_drafting_ready(ws, mode="tech")
         ready_for_delivery(_CYCLE, tmp_path)
         deliver(_CYCLE, tmp_path)
 
@@ -227,8 +229,8 @@ class TestReadyForDelivery:
 class TestDeliver:
     def test_success_from_ready_for_delivery(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="product")
-        (ws.parent / "tech-doc.md").write_text("# Tech\n", encoding="utf-8")
+        init_drafting_ready(ws, mode="product")
+        (ws.parent / "L1" / "tech-doc.md").write_text("# Tech\n", encoding="utf-8")
         ready_for_delivery(_CYCLE, tmp_path)
 
         result = deliver(_CYCLE, tmp_path, note="confirmed")
@@ -242,14 +244,14 @@ class TestDeliver:
         assert gate.exists()
         assert "confirmed" in gate.read_text(encoding="utf-8")
         refs = load_delivered_refs_file(_CYCLE, tmp_path)
-        assert refs["entries"]["lulu-plan"]["path"] == str((ws.parent / "tech-doc.md").resolve())
+        assert refs["entries"]["lulu-plan"]["path"] == str((ws.parent / "L1" / "tech-doc.md").resolve())
         assert "lulu-design-facts" not in refs["entries"]
         assert "lulu-plan-facts" not in refs["entries"]
 
     def test_deliver_blocked_by_open_agenda_blocker(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="product")
-        (ws.parent / "tech-doc.md").write_text("# Tech\n", encoding="utf-8")
+        init_drafting_ready(ws, mode="product")
+        (ws.parent / "L1" / "tech-doc.md").write_text("# Tech\n", encoding="utf-8")
         ready_for_delivery(_CYCLE, tmp_path)
         (ws.parent / "agenda.json").write_text(
             json.dumps(
@@ -282,8 +284,8 @@ class TestDeliver:
     def test_deliver_succeeds_after_ready_then_agenda_cleared(self, tmp_path: Path):
         """Regression: ready then add blocker must still fail; clear → deliver ok."""
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="product")
-        (ws.parent / "tech-doc.md").write_text("# Tech\n", encoding="utf-8")
+        init_drafting_ready(ws, mode="product")
+        (ws.parent / "L1" / "tech-doc.md").write_text("# Tech\n", encoding="utf-8")
         ready_for_delivery(_CYCLE, tmp_path)
         (ws.parent / "agenda.json").write_text(
             json.dumps(
@@ -340,8 +342,8 @@ class TestDeliver:
             encoding="utf-8",
         )
         ws = base / "revision1" / "workflow-state.md"
-        init_drafting(ws, mode="tech")
-        (ws.parent / "design-doc.md").write_text("# Design\n", encoding="utf-8")
+        init_drafting_ready(ws, mode="tech")
+        (ws.parent / "L1" / "design-doc.md").write_text("# Design\n", encoding="utf-8")
         (ws.parent / "_facts.json").write_text("[]\n", encoding="utf-8")
         ready_for_delivery(_CYCLE, tmp_path, profile_id="lulu-design")
 
@@ -350,7 +352,7 @@ class TestDeliver:
         assert result["ok"] is True
         refs = load_delivered_refs_file(_CYCLE, tmp_path)
         assert refs["entries"]["lulu-design"]["path"] == str(
-            (ws.parent / "design-doc.md").resolve()
+            (ws.parent / "L1" / "design-doc.md").resolve()
         )
         assert "facts_path" not in refs["entries"]["lulu-design"]
         assert "lulu-design-facts" not in refs["entries"]
@@ -364,8 +366,8 @@ class TestDeliver:
             encoding="utf-8",
         )
         ws = base / "revision1" / "workflow-state.md"
-        init_drafting(ws, mode="tech")
-        (ws.parent / "design-doc.md").write_text("# Design\n", encoding="utf-8")
+        init_drafting_ready(ws, mode="tech")
+        (ws.parent / "L1" / "design-doc.md").write_text("# Design\n", encoding="utf-8")
         ready_for_delivery(_CYCLE, tmp_path, profile_id="lulu-design")
 
         result = deliver(_CYCLE, tmp_path, profile_id="lulu-design")
@@ -381,8 +383,8 @@ class TestDeliver:
     ):
         """Plan local _facts.json must not be registered on deliver."""
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="product")
-        (ws.parent / "tech-doc.md").write_text("# Tech\n", encoding="utf-8")
+        init_drafting_ready(ws, mode="product")
+        (ws.parent / "L1" / "tech-doc.md").write_text("# Tech\n", encoding="utf-8")
         (ws.parent / "_facts.json").write_text("[]\n", encoding="utf-8")
         ready_for_delivery(_CYCLE, tmp_path)
 
@@ -397,7 +399,7 @@ class TestDeliver:
 
     def test_failure_from_evaluating(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="tech")
+        init_drafting_ready(ws, mode="tech")
         save_workflow_state(ws, {"current_state": "Evaluating"})
 
         result = deliver(_CYCLE, tmp_path)
@@ -412,7 +414,7 @@ class TestDeliver:
 
     def test_failure_from_drafting(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="tech")
+        init_drafting_ready(ws, mode="tech")
 
         result = deliver(_CYCLE, tmp_path)
 
@@ -440,7 +442,7 @@ class TestAbandonEvaluation:
 
     def test_failure_when_not_evaluating(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="tech")
+        init_drafting_ready(ws, mode="tech")
 
         result = abandon_evaluation(_CYCLE, tmp_path)
 
@@ -464,7 +466,7 @@ class TestAbandonEvaluation:
 
     def test_failure_when_evaluate_state_missing(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="tech")
+        init_drafting_ready(ws, mode="tech")
         save_workflow_state(ws, {"current_state": "Evaluating", "evaluate_round": "1"})
 
         result = abandon_evaluation(_CYCLE, tmp_path)
@@ -480,7 +482,7 @@ class TestCli:
         import subprocess
 
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="tech")
+        init_drafting_ready(ws, mode="tech")
         script = CORE / "session_control.py"
         proc = subprocess.run(
             [
@@ -531,7 +533,7 @@ class TestCli:
         import subprocess
 
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="tech")
+        init_drafting_ready(ws, mode="tech")
         script = CORE / "session_control.py"
         proc = subprocess.run(
             [
@@ -554,3 +556,40 @@ class TestCli:
         assert "message" in payload
         assert "resume" not in payload
         assert "ReadyForDelivery" in payload["message"]
+
+
+class TestSplitComplete:
+    def test_split_to_drafting_with_locked_l1(self, tmp_path: Path):
+        ws = _seed_session(tmp_path)
+        init_drafting(ws, mode="tech")
+        assert load_workflow_state(ws)["current_state"] == "Split"
+        lock_single_l1_tree(ws.parent)
+
+        result = split_complete(_CYCLE, tmp_path)
+
+        assert result["ok"] is True
+        assert result["current_state"] == "Drafting"
+        assert result.get("transitioned") is True
+        assert load_workflow_state(ws)["current_state"] == "Drafting"
+
+    def test_split_complete_rejects_without_tree(self, tmp_path: Path):
+        ws = _seed_session(tmp_path)
+        init_drafting(ws, mode="tech")
+
+        result = split_complete(_CYCLE, tmp_path)
+
+        assert result["ok"] is False
+        assert result["current_state"] == "Split"
+        assert "dependency tree" in (result.get("error") or "").lower() or (
+            "tree" in (result.get("resume") or {}).get("action", "").lower()
+        )
+
+    def test_start_evaluating_rejects_without_topology(self, tmp_path: Path):
+        ws = _seed_session(tmp_path)
+        init_drafting(ws, mode="tech")
+        save_workflow_state(ws, {"current_state": "Drafting"})
+
+        result = start_evaluating(_CYCLE, tmp_path)
+
+        assert result["ok"] is False
+        assert result["current_state"] == "Drafting"

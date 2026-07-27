@@ -237,7 +237,10 @@ def init_drafting(
     carry_forward_ref: str = "",
     evaluate_round: int = 0,
 ) -> None:
-    """Initialize workflow-state.md in Drafting state.
+    """Initialize workflow-state.md in session state ``Split``.
+
+    New revisions start in Split (topology lock) before Drafting. Name kept for
+    call-site stability; see archive-4.0 compose-split-step-state-machine-design.
 
     workflow-state carries pure session-control state. The frozen upstream
     baseline (delivered-refs.json copy) and the resolved three provenance refs
@@ -249,7 +252,7 @@ def init_drafting(
         "workflow": "tech-doc",
         "mode": mode,
         "cycle_type": cycle_type,
-        "current_state": "Drafting",
+        "current_state": "Split",
         "evaluate_round": str(evaluate_round),
         "carry_forward_ref": carry_forward_ref,
     }

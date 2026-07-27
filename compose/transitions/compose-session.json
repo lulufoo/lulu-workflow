@@ -1,5 +1,6 @@
 {
   "states": [
+    "Split",
     "Drafting",
     "Evaluating",
     "ReadyForDelivery",
@@ -7,6 +8,7 @@
     "Invalidated"
   ],
   "transitions": [
+    { "from": "Split", "to": "Drafting", "command": "split-complete" },
     { "from": "Drafting", "to": "Evaluating", "command": "start-evaluating" },
     { "from": "Drafting", "to": "ReadyForDelivery", "command": "ready-for-delivery" },
     { "from": "Evaluating", "to": "ReadyForDelivery", "command": "ready-for-delivery" },

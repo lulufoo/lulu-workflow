@@ -283,7 +283,7 @@ def run_start(
 会话状态文件：{ss_path.as_posix()}
 当前文档：    revision{active_doc} / {doc_label}
 状态文件：    {ws_path.as_posix()}
-当前状态：    Drafting
+当前状态：    Split
 运行模式：    {run_mode}
 Profile：     {profile_id}
 Cycle type：  {role_summary}

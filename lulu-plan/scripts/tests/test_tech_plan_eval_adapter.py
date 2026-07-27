@@ -20,7 +20,12 @@ from tech_plan_eval_adapter import (  # noqa: E402
     LULU_PLAN_COMPOSED_CORPUS_REF,
     TechPlanEvalAdapter,
 )
-from workflow_state_schema import init_drafting  # noqa: E402
+import sys
+from pathlib import Path as _P
+_COMPOSE_TESTS = _P(__file__).resolve().parents[3] / 'compose' / 'scripts' / 'tests'
+if str(_COMPOSE_TESTS) not in sys.path:
+    sys.path.insert(0, str(_COMPOSE_TESTS))
+from init_drafting_helpers import init_drafting_ready  # noqa: E402
 from init_drafting_helpers import seed_frozen_delivered  # noqa: E402
 
 _CYCLE = "feat-adapter"
@@ -48,7 +53,7 @@ class TestTechPlanEvalAdapter:
 
     def test_resolve_eval_corpus_no_tech_upstream(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="tech")
+        init_drafting_ready(ws, mode="tech")
         adapter = TechPlanEvalAdapter()
         corpus = adapter.resolve_eval_corpus(_CYCLE, tmp_path)
         assert [d["legacy_alias"] for d in corpus["dimensions"]] == ["e2", "e3"]
@@ -62,7 +67,7 @@ class TestTechPlanEvalAdapter:
         design_doc = tmp_path / "design-doc.md"
         design_doc.write_text("# Design\n", encoding="utf-8")
         refs = [DeliveredRef(type="lulu-design", path=str(design_doc.resolve()))]
-        init_drafting(ws, mode="tech")
+        init_drafting_ready(ws, mode="tech")
         seed_frozen_delivered(ws, refs)
         adapter = TechPlanEvalAdapter()
         corpus = adapter.resolve_eval_corpus(_CYCLE, tmp_path)
@@ -78,7 +83,7 @@ class TestTechPlanEvalAdapter:
         decision_doc = tmp_path / "decision-doc.md"
         decision_doc.write_text("# Decision\n", encoding="utf-8")
         refs = [DeliveredRef(type="lulu-approach", path=str(decision_doc.resolve()))]
-        init_drafting(ws, mode="tech")
+        init_drafting_ready(ws, mode="tech")
         seed_frozen_delivered(ws, refs)
         adapter = TechPlanEvalAdapter()
         corpus = adapter.resolve_eval_corpus(_CYCLE, tmp_path)
@@ -87,7 +92,7 @@ class TestTechPlanEvalAdapter:
 
     def test_resolve_evaluate_state_path(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
-        init_drafting(ws, mode="tech")
+        init_drafting_ready(ws, mode="tech")
         adapter = TechPlanEvalAdapter()
         es_path = adapter.resolve_evaluate_state_path(_CYCLE, tmp_path)
         assert es_path.name == "evaluate-state.md"
@@ -105,7 +110,7 @@ class TestTechPlanEvalAdapter:
         )
         seed_profile_pointer_for_tests(tmp_path, cycle, "lulu-plan")
         ws = base / "revision1" / "workflow-state.md"
-        init_drafting(ws, mode="tech")
+        init_drafting_ready(ws, mode="tech")
         adapter = TechPlanEvalAdapter()
         with pytest.raises(ValueError, match="topic cycles do not evaluate in lulu-plan"):
             adapter.resolve_eval_corpus(cycle, tmp_path)

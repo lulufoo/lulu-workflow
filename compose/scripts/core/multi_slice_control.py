@@ -318,18 +318,22 @@ def cmd_lock_tree(
     return 0
 
 
-def cmd_check_split_ready(revision_dir: Path) -> int:
+def evaluate_split_ready(revision_dir: Path) -> tuple[bool, str | None, dict[str, Any]]:
+    """Return (ok, error, details) for check-split-ready conditions.
+
+    Library entry for session ``split-complete`` and Drafting/Evaluating gates.
+    """
     rev = Path(revision_dir).resolve()
     try:
         tree = load_dependency_tree(rev)
     except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
-        return _emit_error(f"dependency tree not ready: {exc}")
+        return False, f"dependency tree not ready: {exc}", {}
     if tree.get("status") != "locked":
-        return _emit_error("dependency tree status must be locked")
+        return False, "dependency tree status must be locked", {}
     try:
         pointer = load_discussion_pointer(rev)
     except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
-        return _emit_error(f"discussion pointer not ready: {exc}")
+        return False, f"discussion pointer not ready: {exc}", {}
 
     node_ids = [str(n["id"]) for n in tree["nodes"]]
     multi = len(node_ids) >= 2
@@ -337,18 +341,20 @@ def cmd_check_split_ready(revision_dir: Path) -> int:
     rulers_path = slice_rulers_path(rev)
     if multi:
         if not rulers_path.is_file():
-            return _emit_error(
-                "multi-L requires locked slice-rulers.json (run split-runner lock)"
+            return (
+                False,
+                "multi-L requires locked slice-rulers.json (run split-runner lock)",
+                {},
             )
         try:
             rulers = load_slice_rulers(rev)
         except (ValueError, json.JSONDecodeError) as exc:
-            return _emit_error(str(exc))
+            return False, str(exc), {}
         if rulers.get("status") != "locked":
-            return _emit_error("slice-rulers status must be locked")
+            return False, "slice-rulers status must be locked", {}
         r_errors = validate_slice_rulers(rulers, required_node_ids=node_ids)
         if r_errors:
-            return _emit_error("; ".join(r_errors))
+            return False, "; ".join(r_errors), {}
         rulers_ok = True
     else:
         rulers_ok = True  # single-L exempt
@@ -361,18 +367,22 @@ def cmd_check_split_ready(revision_dir: Path) -> int:
         except (ValueError, json.JSONDecodeError):
             intake_complete = False
 
-    _emit(
-        {
-            "ok": True,
-            "command": "check-split-ready",
-            "tree_locked": True,
-            "multi_l": multi,
-            "rulers_ok": rulers_ok,
-            "focus": pointer.get("focus"),
-            "node_ids": node_ids,
-            "intake_complete": intake_complete,
-        }
-    )
+    details = {
+        "tree_locked": True,
+        "multi_l": multi,
+        "rulers_ok": rulers_ok,
+        "focus": pointer.get("focus"),
+        "node_ids": node_ids,
+        "intake_complete": intake_complete,
+    }
+    return True, None, details
+
+
+def cmd_check_split_ready(revision_dir: Path) -> int:
+    ok, err, details = evaluate_split_ready(revision_dir)
+    if not ok:
+        return _emit_error(err or "split not ready")
+    _emit({"ok": True, "command": "check-split-ready", **details})
     return 0
 
 

@@ -30,6 +30,7 @@ from facts_schema import facts_path  # noqa: E402
 from deductive_gate import evaluate_deductive_gate  # noqa: E402
 from init_compose_validation import validate_init_artifacts  # noqa: E402
 from decision_fact_claim_schema import ensure_claim_ledger  # noqa: E402
+from multi_slice_control import evaluate_split_ready  # noqa: E402
 from resolved_refs_schema import (  # noqa: E402
     has_resolved_refs,
     scope_decision_fact_path,
@@ -42,6 +43,10 @@ from start_adapter import (  # noqa: E402
 from workflow_common import detect_cycle_type  # noqa: E402
 from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, load_profile  # noqa: E402
 from workflow_profile_paths import doc_dir, inductive_out_dir  # noqa: E402
+from workflow_state_schema import (  # noqa: E402
+    load_workflow_state,
+    resolve_workflow_state_path_from_cycle,
+)
 
 _CMD_BEGIN_INDUCTIVE = "begin-inductive"
 _CMD_INDUCTIVE_COMPLETE = "inductive-complete"
@@ -88,6 +93,39 @@ def _progress_path(cycle_id: str, project_root: Path, profile_id: str) -> Path:
 def _revision_dir(cycle_id: str, project_root: Path, profile_id: str) -> Path:
     active_doc = load_active_doc_for_profile(cycle_id, project_root, profile_id)
     return (project_root / doc_dir(cycle_id, active_doc, profile_id, project_root)).resolve()
+
+
+def _require_drafting_session(
+    cycle_id: str,
+    project_root: Path,
+    profile_id: str,
+    command: str,
+) -> str | None:
+    """Return failure reason unless workflow-state is Drafting and topology locked."""
+    ws_path = resolve_workflow_state_path_from_cycle(
+        cycle_id, project_root, profile_id=profile_id,
+    )
+    if not ws_path.is_file():
+        return "workflow-state.md not found (run start; complete Split first)"
+    try:
+        state = load_workflow_state(ws_path)
+    except ValueError as exc:
+        return str(exc)
+    current = str(state.get("current_state", "")).strip()
+    if current == "Split":
+        return (
+            "session is still Split; run split-complete after locking topology "
+            "(single-req = explicit L1 tree)"
+        )
+    if current != "Drafting":
+        return f"session current_state is {current!r} (expected Drafting)"
+    ok, err, _ = evaluate_split_ready(ws_path.parent)
+    if not ok:
+        return (
+            "locked split topology required before Drafting producer "
+            f"({err or 'check-split-ready failed'})"
+        )
+    return None
 
 
 def _scope_doc(cycle_id: str, project_root: Path, profile_id: str) -> Path:
@@ -244,6 +282,12 @@ def begin_inductive(
     if _drafting_config(cycle_id, project_root, profile_id).get("inductive") is not True:
         return _failure(_CMD_BEGIN_INDUCTIVE, "drafting.inductive is false for this profile")
 
+    session_err = _require_drafting_session(
+        cycle_id, project_root, profile_id, _CMD_BEGIN_INDUCTIVE,
+    )
+    if session_err:
+        return _failure(_CMD_BEGIN_INDUCTIVE, session_err)
+
     progress_path = _progress_path(cycle_id, project_root, profile_id)
     if progress_path.exists():
         step = read_current_step(progress_path)
@@ -318,6 +362,12 @@ def begin_deductive(
             _CMD_BEGIN_DEDUCTIVE,
             "drafting.inductive is true — use begin-inductive",
         )
+
+    session_err = _require_drafting_session(
+        cycle_id, project_root, profile_id, _CMD_BEGIN_DEDUCTIVE,
+    )
+    if session_err:
+        return _failure(_CMD_BEGIN_DEDUCTIVE, session_err)
 
     progress_path = _progress_path(cycle_id, project_root, profile_id)
     if progress_path.exists():

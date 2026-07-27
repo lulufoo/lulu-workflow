@@ -28,6 +28,7 @@ from compose_session import (  # noqa: E402
 from session_info import session_snapshot, stage_transitions  # noqa: E402
 from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, seed_profile_pointer_for_tests  # noqa: E402
 from workflow_state_schema import init_drafting  # noqa: E402
+from init_drafting_helpers import init_drafting_ready  # noqa: E402
 
 _CYCLE = "feature-composesession001-abc12345"
 _PROFILE = "lulu-design"
@@ -44,8 +45,8 @@ def _seed_design_session(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     ws = revision / "workflow-state.md"
-    init_drafting(ws, mode="tech")
-    (revision / "design-doc.md").write_text(
+    init_drafting_ready(ws, mode="tech")
+    (revision / "L1" / "design-doc.md").write_text(
         "---\n\n# Design X\n\nSummary for design session.\n",
         encoding="utf-8",
     )
@@ -68,7 +69,7 @@ class TestComposeSessionTechDesign:
         _seed_design_session(tmp_path)
         payload = session_snapshot(_CYCLE, tmp_path, profile_id=_PROFILE)
         assert payload["profile_id"] == "lulu-design"
-        assert payload["compose_doc"]["path"].endswith("design-doc.md")
+        assert payload["compose_doc"]["path"].endswith("L1/design-doc.md")
         assert payload["compose_doc"]["title"] == "Design X"
 
     def test_stage_transitions(self, tmp_path: Path):
@@ -95,5 +96,5 @@ class TestComposeSessionTechDesign:
     def test_load_document_presentation(self, tmp_path: Path):
         _seed_design_session(tmp_path)
         doc = load_document_presentation(_CYCLE, tmp_path, _PROFILE)
-        assert doc["path"].endswith("design-doc.md")
+        assert doc["path"].endswith("L1/design-doc.md")
         assert load_active_doc_for_profile(_CYCLE, tmp_path, _PROFILE) == 1

@@ -2,16 +2,58 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from delivered_refs_schema import DeliveredRef, load_delivered_refs_file, record_delivered_ref
+from multi_slice_control import cmd_lock_tree
 from resolved_refs_schema import freeze_delivered_copy, write_resolved_refs
 from start_scope_helpers import first_ref
 from session_state_schema import bump_active_doc
 from workflow_common import CACHE_DIR
 from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, seed_profile_pointer_for_tests
 from workflow_profile_paths import state_path
-from workflow_state_schema import init_drafting
+from workflow_state_schema import init_drafting, save_workflow_state
+
+
+def lock_single_l1_tree(revision_dir: Path) -> None:
+    """Lock an explicit single-node L1 dependency tree (Split complete precondition)."""
+    tree = {
+        "version": 1,
+        "nodes": [{"id": "L1", "title": "Only", "summary": "single"}],
+        "edges": [],
+        "order": ["L1"],
+    }
+    rc = cmd_lock_tree(
+        Path(revision_dir).resolve(),
+        tree_json=json.dumps(tree),
+        tree_file=None,
+        rulers_json=None,
+        rulers_file=None,
+        confirm=True,
+    )
+    if rc != 0:
+        raise RuntimeError(f"lock_single_l1_tree failed rc={rc}")
+
+
+def init_drafting_ready(
+    path: Path,
+    *,
+    mode: str,
+    cycle_type: str = "feature",
+    carry_forward_ref: str = "",
+    evaluate_round: int = 0,
+) -> None:
+    """Init session at Split, lock L1, advance to Drafting (tests that need Drafting)."""
+    init_drafting(
+        path,
+        mode=mode,
+        cycle_type=cycle_type,
+        carry_forward_ref=carry_forward_ref,
+        evaluate_round=evaluate_round,
+    )
+    lock_single_l1_tree(path.parent)
+    save_workflow_state(path, {"current_state": "Drafting"})
 
 
 def seed_frozen_delivered(ws_path: Path, refs: list[DeliveredRef]) -> None:
@@ -120,7 +162,7 @@ def seed_tech_plan_session(
     seed_profile_pointer_for_tests(project_root, cycle_id, profile_id)
     active_doc = bump_active_doc(cycle_id, project_root, profile_id)
     ws_path = project_root / state_path(cycle_id, active_doc, profile_id, project_root)
-    init_drafting(ws_path, mode=mode)
+    init_drafting_ready(ws_path, mode=mode)
     seed_provenance_artifacts(
         ws_path,
         cycle_id=cycle_id,
@@ -152,7 +194,7 @@ def seed_tech_design_session(
     seed_profile_pointer_for_tests(project_root, cycle_id, "lulu-design")
     active_doc = bump_active_doc(cycle_id, project_root, "lulu-design")
     ws_path = project_root / state_path(cycle_id, active_doc, "lulu-design", project_root)
-    init_drafting(ws_path, mode=mode)
+    init_drafting_ready(ws_path, mode=mode)
     intent_refs = []
     if mode == "product":
         spec = first_ref(refs, "lulu-spec")
@@ -189,7 +231,7 @@ def seed_product_spec_session(
     seed_profile_pointer_for_tests(project_root, cycle_id, "lulu-spec")
     active_doc = bump_active_doc(cycle_id, project_root, "lulu-spec")
     ws_path = project_root / state_path(cycle_id, active_doc, "lulu-spec", project_root)
-    init_drafting(ws_path, mode="product")
+    init_drafting_ready(ws_path, mode="product")
     seed_provenance_artifacts(
         ws_path,
         cycle_id=cycle_id,

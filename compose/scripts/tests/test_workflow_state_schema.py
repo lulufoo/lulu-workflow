@@ -89,7 +89,7 @@ class TestInitDrafting:
             carry_forward_ref="/old/tech-doc.md",
         )
         loaded = load_workflow_state(path)
-        assert loaded["current_state"] == "Drafting"
+        assert loaded["current_state"] == "Split"
         assert loaded["mode"] == "tech"
         assert loaded["cycle_type"] == "feature"
         assert loaded["evaluate_round"] == "0"

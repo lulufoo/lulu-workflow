@@ -2,6 +2,7 @@
 """Session control for compose orchestrators.
 
 Subcommands:
+    split-complete       Split -> Drafting (requires check-split-ready topology)
     start-evaluating     Drafting -> Evaluating (workflow-state only; use begin-eval-round for evaluate-state)
     ready-for-delivery   Drafting|Evaluating -> ReadyForDelivery
     deliver              ReadyForDelivery -> Delivered (+ human-delivery-gate.md)
@@ -49,16 +50,19 @@ from human_delivery_gate_schema import write_approved  # noqa: E402
 from session_state_schema import load_active_doc_from_cycle  # noqa: E402
 from workflow_common import parse_frontmatter_fields  # noqa: E402
 from workflow_profile_paths import evaluate_state_path as profile_evaluate_state_path  # noqa: E402
+from multi_slice_control import evaluate_split_ready  # noqa: E402
 from session_evaluating import enter_evaluating_state  # noqa: E402
 from transition_registry import is_allowed  # noqa: E402
 from workflow_state_schema import load_workflow_state, save_workflow_state  # noqa: E402
 
+_CMD_SPLIT_COMPLETE = "split-complete"
 _CMD_START_EVALUATING = "start-evaluating"
 _CMD_READY = "ready-for-delivery"
 _CMD_DELIVER = "deliver"
 _CMD_ABANDON = "abandon-evaluation"
 _CMD_RESUME_AFTER_EVAL = "resume-after-eval"
 _CMD_WRITE_DEMAND_MANIFEST = "write-demand-manifest"
+_EXPECTED_SPLIT_STATE = "Split"
 _EXPECTED_DELIVER_STATE = "ReadyForDelivery"
 _EXPECTED_ABANDON_STATE = "Evaluating"
 _EXPECTED_EVALUATING_STATE = "Evaluating"
@@ -171,6 +175,75 @@ def _build_resume(command: str, current_state: str) -> dict[str, Any]:
     }
 
 
+def split_complete(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+) -> dict[str, Any]:
+    """Split → Drafting after topology is locked (check-split-ready)."""
+    ws_path = workflow_state_path(cycle_id, project_root, profile_id)
+    state = load_workflow_state(ws_path)
+    current = state["current_state"]
+
+    if current == "Drafting":
+        ok, err, details = evaluate_split_ready(ws_path.parent)
+        if not ok:
+            return {
+                "ok": False,
+                "command": _CMD_SPLIT_COMPLETE,
+                "current_state": current,
+                "error": err or "split topology not ready",
+                "resume": {
+                    "entry": current,
+                    "action": (
+                        "会话已在 Drafting，但拓扑未就绪；请补 lock 树或新开 revision。"
+                        f" ({err})"
+                    ),
+                },
+            }
+        return _success(
+            _CMD_SPLIT_COMPLETE,
+            "Drafting",
+            profile_id=profile_id,
+            transitioned=False,
+            **{k: details[k] for k in ("multi_l", "node_ids", "focus") if k in details},
+        )
+
+    if current != _EXPECTED_SPLIT_STATE:
+        return _failure(_CMD_SPLIT_COMPLETE, current)
+
+    if not _require_transition(_CMD_SPLIT_COMPLETE, current, "Drafting"):
+        return _failure(_CMD_SPLIT_COMPLETE, current)
+
+    ok, err, details = evaluate_split_ready(ws_path.parent)
+    if not ok:
+        return {
+            "ok": False,
+            "command": _CMD_SPLIT_COMPLETE,
+            "current_state": current,
+            "error": err or "split topology not ready",
+            "resume": {
+                "entry": current,
+                "action": (
+                    "Split 未完成：请先 lock 依赖树（单需求 = 显式 L1），"
+                    f"再 split-complete。 ({err})"
+                ),
+            },
+        }
+
+    merged = dict(state)
+    merged["current_state"] = "Drafting"
+    save_workflow_state(ws_path, merged, merge=False)
+    return _success(
+        _CMD_SPLIT_COMPLETE,
+        "Drafting",
+        profile_id=profile_id,
+        transitioned=True,
+        **{k: details[k] for k in ("multi_l", "node_ids", "focus") if k in details},
+    )
+
+
 def start_evaluating(
     cycle_id: str,
     project_root: Path,
@@ -198,6 +271,22 @@ def start_evaluating(
 
     if not _require_transition(_CMD_START_EVALUATING, current, "Evaluating"):
         return _failure(_CMD_START_EVALUATING, current)
+
+    topo_ok, topo_err, _ = evaluate_split_ready(ws_path.parent)
+    if not topo_ok:
+        return {
+            "ok": False,
+            "command": _CMD_START_EVALUATING,
+            "current_state": current,
+            "error": topo_err or "split topology not ready",
+            "resume": {
+                "entry": current,
+                "action": (
+                    "无 locked 拓扑，不能进入 Evaluating；请回到 Split 补 lock "
+                    f"或新开 revision。 ({topo_err})"
+                ),
+            },
+        }
 
     entry = enter_evaluating_state(cycle_id, project_root, profile_id=profile_id)
     if not entry.get("ok"):
@@ -509,6 +598,10 @@ def _cli() -> int:
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
+    sub.add_parser(
+        _CMD_SPLIT_COMPLETE,
+        help="Transition Split -> Drafting after topology lock",
+    )
     sub.add_parser(_CMD_START_EVALUATING, help="Transition to Evaluating")
     sub.add_parser(_CMD_READY, help="Transition to ReadyForDelivery")
     deliver_parser = sub.add_parser(_CMD_DELIVER, help="Transition to Delivered")
@@ -537,6 +630,8 @@ def _cli() -> int:
     profile_id = args.profile.strip()
 
     try:
+        if args.command == _CMD_SPLIT_COMPLETE:
+            return _emit(split_complete(cycle_id, project_root, profile_id=profile_id))
         if args.command == _CMD_START_EVALUATING:
             return _emit(start_evaluating(cycle_id, project_root, profile_id=profile_id))
         if args.command == _CMD_READY:

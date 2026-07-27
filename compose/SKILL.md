@@ -65,21 +65,12 @@ To **abandon a partial revision** and begin fresh after fixes, run `$START_COMPO
 
 ---
 
-## Drafting Rules
+## Split Rules
 
-**Entry:** Drafting Step 0 (producer) → Drafting Step 1 → Drafting Step 2; or Evaluating fix resume → Drafting Step 2; or resume via `$SESSION_INFO --view session`.
-**Drafting states:** `[Inductive|Deductive →] Initialized → FreeEdit` — Inductive when `drafting.inductive` is `true`; Deductive when `false`.
-
-### Drafting Step 0 — Producer facts
-
-Always run — no opt-in prompt. Step 0.1 first; then exactly one of Step 0.2 / Step 0.3, branching on `drafting.inductive`.
-
-#### Step 0.1 — Split into multi-subdesign slices (Lx package layout)
-
-Required for `lulu-design` multi-subdesign packages (unified `revision/Lx/` layout; single-req = L1 only). **Do not** run `begin-inductive` until `$MULTI_SLICE check-split-ready` succeeds.
+**Session state:** `$START_COMPOSE` lands in **`Split`** (not Drafting). Topology lock is revision-level; single-req still locks an explicit **L1** tree. No `split-skip`.
 
 1. Resolve `<revision_dir>` from `$SESSION_INFO`.
-2. `$MULTI_SLICE check-split-ready` — if ok, skip to step 4 (already locked).
+2. `$MULTI_SLICE check-split-ready` — if ok, go to step 4.
 3. Otherwise dispatch **split-runner** inline (not a subagent):
 
 ```text
@@ -91,14 +82,43 @@ CYCLE_ID=$CYCLE_ID
 COMPOSE_PROFILE=<profile_id>
 ```
 
-   Locked trees are immutable this iteration — re-split means a new revision. Multi-L lock requires rulers; single-L rulers exempt.
+   Human confirms stay on existing intake / `lock-tree --confirm`. Locked trees are immutable this iteration — re-split means a new revision. Multi-L lock requires rulers; single-L rulers exempt.
 4. `$MULTI_SLICE check-split-ready` — non-zero → Blocking.
-5. **DAG + `$L_SLICE` (v1.1):** single session focus; switch only via `$L_SLICE switch --to <L> --confirm` (EnterPolicy: deps `inductive: done`). Per focus L, default pipeline is inductive → Init → FreeEdit → Evaluating → `$L_SLICE mark-done --kind production --confirm` (requires `## Boundary`). Sibling L may become `ready` in parallel; do not cut L inside inductive-runner. **Fact writes (multi-L):** split facts against locked rulers first; each fact must carry `home_l` (+ short `home_rationale`); `$FACTS_CTL write --target-l <home_l>` (G1 divert ok; demotes evaluated targets). Untagged writes hard-reject. Ambiguous ownership → rare human confirm. `home_l=package` only after human confirm with `--package-confirm`. Enter Evaluating only when StageGate passes (deps `production: done` — enforced by `$SESSION_CONTROL start-evaluating`). When all relevant L are `production: done` → `$MULTI_SLICE assemble-index --confirm` → `$L_SLICE seam-report` (advisory) → deliver with entry `design-index.md`.
-6. `$L_SLICE resume` / `status` / `ready` — no illegal focus moves (hand-editing pointer JSON is forbidden).
+5. `$SESSION_CONTROL split-complete` — Split → Drafting. On failure → Blocking.
 
-CLI contracts: `$MULTI_SLICE --help`, `$L_SLICE --help`.
+**Done:** workflow-state `current_state=Drafting` and check-split-ready exits 0.
 
-#### Step 0.2 — Produce facts inductively (only when `drafting.inductive` is `true`)
+CLI: `$MULTI_SLICE --help`, `$SESSION_CONTROL` (`split-complete`).
+
+---
+
+## L-slice scheduling
+
+Cross-cuts Drafting and Evaluating (not a Drafting-only step).
+
+- Single session focus; switch only via `$L_SLICE switch --to <L> --confirm` (EnterPolicy: deps `inductive: done`).
+- Per focus L, default pipeline: inductive → Init → FreeEdit → Evaluating → `$L_SLICE mark-done --kind production --confirm` (requires `## Boundary`).
+- Sibling L may become `ready` in parallel; do not cut L inside inductive-runner.
+- **Fact writes (multi-L):** split facts against locked rulers first; each fact must carry `home_l` (+ short `home_rationale`); `$FACTS_CTL write --target-l <home_l>` (G1 divert ok; demotes evaluated targets). Untagged writes hard-reject. Ambiguous ownership → rare human confirm. `home_l=package` only after human confirm with `--package-confirm`.
+- Enter Evaluating only when StageGate passes (deps `production: done` — `$SESSION_CONTROL start-evaluating`); also requires locked topology.
+- When all relevant L are `production: done` → `$MULTI_SLICE assemble-index --confirm` → `$L_SLICE seam-report` (advisory) → deliver with entry `design-index.md`.
+- `$L_SLICE resume` / `status` / `ready` — no illegal focus moves (hand-editing pointer JSON is forbidden).
+
+CLI: `$L_SLICE --help`.
+
+---
+
+## Drafting Rules
+
+**Entry:** After Split Rules (`split-complete`) → Drafting Step 0 (producer) → Drafting Step 1 → Drafting Step 2; or Evaluating fix resume → Drafting Step 2; or resume via `$SESSION_INFO --view session`.
+**Drafting states:** `[Inductive|Deductive →] Initialized → FreeEdit` — Inductive when `drafting.inductive` is `true`; Deductive when `false`.
+**Hard gate:** `$DRAFT_CONTROL begin-inductive` / `begin-deductive` require session `Drafting` and locked topology (no tree → Blocking; new revision or return to Split).
+
+### Drafting Step 0 — Producer facts
+
+Always run — no opt-in prompt. Exactly one of Step 0.1 / Step 0.2, branching on `drafting.inductive`.
+
+#### Step 0.1 — Produce facts inductively (only when `drafting.inductive` is `true`)
 
 **Inductive-runner** is a human-driven gate spine (Shape → Grounding → Refine → Recompose → Provenance): AI recommends; the **user** closes each gate. Run **inline in this conversation**. **Exceptions (subagents via `$SUBAGENT_TOOL`, read-only):** deprecated G2 → `g2-grounding-runner`; G3 Class 1B → `g3-shallow-grounding-runner` (optional); G3 Class 2 → `g3-deep-grounding-runner` (optional).
 
@@ -113,7 +133,7 @@ Load {actual $SKILL_ROOT}/compose/inductive-runner/SKILL.md and follow its instr
 
 2. After G4 and G5 close, run `$DRAFT_CONTROL inductive-complete`. On failure → Blocking. `_facts.json` must exist (discovery-written).
 
-#### Step 0.3 — Produce facts deductively (only when `drafting.inductive` is `false`)
+#### Step 0.2 — Produce facts deductively (only when `drafting.inductive` is `false`)
 
 **Deductive-runner** materializes upstream + completes lenses (intent ceiling + edge floor) + human confirm gate. Run **inline in this conversation** (interactive confirm — NOT a subagent).
 
@@ -169,7 +189,7 @@ Entry: `advance-to-freeedit` success, or Evaluating fix resume.
 
 ## Evaluating Rules
 
-Before handoff: for multi-L revisions, `$SESSION_CONTROL start-evaluating` enforces StageGate (deps of current focus must be `production: done`). On failure → Blocking; finish or re-evaluate predecessor L first (`$L_SLICE status` / `can-enter-evaluate`).
+Before handoff: `$SESSION_CONTROL start-evaluating` requires locked Split topology, then StageGate (deps of current focus must be `production: done`). On failure → Blocking; fix topology / finish or re-evaluate predecessor L (`$L_SLICE status` / `can-enter-evaluate`). See **L-slice scheduling**.
 
 Read `{$SKILL_ROOT}/eval/eval-rules.md` and follow its instructions (only when the user explicitly chooses Evaluate).
 
@@ -206,9 +226,9 @@ Stage-agenda items (design-external blockers/notes) live under the revision dir;
 
 | Document | When |
 |----------|------|
-| `{SKILL_ROOT}/compose/split-runner/SKILL.md` | Drafting Step 0.1 — multi-subdesign split (intake → lock tree+rulers) |
-| `{SKILL_ROOT}/compose/inductive-runner/SKILL.md` | Drafting Step 0.2 — inductive-runner (`drafting.inductive: true`) |
-| `{SKILL_ROOT}/compose/deductive-runner/SKILL.md` | Drafting Step 0.3 — deductive-runner (`drafting.inductive: false`) |
+| `{SKILL_ROOT}/compose/split-runner/SKILL.md` | Split Rules — multi-subdesign split (intake → lock tree+rulers) |
+| `{SKILL_ROOT}/compose/inductive-runner/SKILL.md` | Drafting Step 0.1 — inductive-runner (`drafting.inductive: true`) |
+| `{SKILL_ROOT}/compose/deductive-runner/SKILL.md` | Drafting Step 0.2 — deductive-runner (`drafting.inductive: false`) |
 | `{SKILL_ROOT}/compose/inductive-runner/g2-grounding-runner/SKILL.md` | Drafting Step 0 — **deprecated** optional G2 topology subagent (prefer `attach-code-refs` in Class 2 processing) |
 | `{SKILL_ROOT}/compose/inductive-runner/g3-shallow-grounding-runner/SKILL.md` | Drafting Step 0 — optional G3 shallow grounding subagent (detect facts only; parent `add-open`) |
 | `{SKILL_ROOT}/compose/inductive-runner/g3-deep-grounding-runner/SKILL.md` | Drafting Step 0 — optional G3 deep grounding subagent (one open; parent settles) |
@@ -229,7 +249,7 @@ Fetch compose framework templates on demand; **do not** read `workflow-config.js
 |-------|---------|
 | `$START_COMPOSE` | `python3 "$SKILL_ROOT/compose/scripts/core/start.py" --project-root "$(pwd)" --cycle-id "$CYCLE_ID" --profile <profile_id> --profile-path "$SKILL_DIR/compose-profile.json"` |
 | `$SESSION_INFO` | `python3 "$SKILL_ROOT/compose/scripts/core/session_info.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile <profile_id> --view <view>` |
-| `$SESSION_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/core/session_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile <profile_id> <subcommand>` — drives outer session transitions via `compose/transitions/compose-session.json`; do not load that file directly |
+| `$SESSION_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/core/session_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile <profile_id> <subcommand>` — session transitions (`split-complete` / `start-evaluating` / …) via `compose/transitions/compose-session.json`; do not load that file directly |
 | `$DRAFT_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/section/draft_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile <profile_id> <subcommand>` |
 | `$INDUCTIVE_FACTS_PROJ` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_facts_projection.py"` (K4 retired — `project` fail-fast; facts written by discovery loop) |
 | `$RESOLVE_PLAN_ROLE` | `python3 "$SKILL_ROOT/compose/scripts/scope/scope_resolver.py" --profile <profile_id> --project-root "$(pwd)" resolve-role --cycle-id "$CYCLE_ID"` |
