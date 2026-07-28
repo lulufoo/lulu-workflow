@@ -137,13 +137,23 @@ These Role/Domain rules are **agent discipline**. `$NARRATIVE_ARC_CTL validate` 
 
 **Must:** re-read Role `priority_tendency` and Domain `expression_conventions.scannability` before building the arc; name groups/leaves from the substance story; order groups/leaves by `priority_tendency` unless fact structure forces a dependency reorder; obey that Domain `scannability` text when splitting leaves/blocks; keep chapter `lens` ∈ fact `lens_tags`.
 
-**Must not:** use registry lens order as chapter directory; use Role `priority_tendency` (or its information-order list) as a generator of group/leaf titles or a mandatory H2 count; use lens tags/relations as the presentation chapter/title schema (lens-catalog spine); force background / analysis / solution — or any fixed N-act label set — as the **only** allowed top-level packaging (reading aids OK; packaging depth unrestricted); use Role `vocabulary_domain` as a taxonomy checklist for group names; invent facts; leave empty `lens_tags` facts in `write_ready`; create `_chapters.json`.
+**Must not:** use registry lens order as chapter directory; use Role `priority_tendency` (or its information-order list) as a generator of group/leaf titles or a mandatory H2 count; use lens tags/relations as the presentation chapter/title schema (lens-catalog spine); force background / analysis / solution — or any fixed N-act label set — as the **only** allowed top-level packaging (reading aids OK; packaging depth unrestricted); glue two duties into one **top-level** title with 与/及/和 (or English *and* / `&`); use Role `vocabulary_domain` as a taxonomy checklist for group names; invent facts; leave empty `lens_tags` facts in `write_ready`; create `_chapters.json`.
+
+**Top-level title discipline** (`tree` roots only; agent discipline — not `$NARRATIVE_ARC_CTL validate`):
+
+| Principle | Rule |
+|---|---|
+| Single duty | One chapter duty per top title. Do not glue two duties with 与/及/和 (or English *and* / `&`). |
+| Chapter altitude | Top level = through-line chapter stations only. Demote leaf-level concerns to children. |
+| Flow | After shape is set, reorder only. Flow never decides split/merge. |
+
+**Conflict exits:** overflow → child under a single-duty parent; never glue titles for flow; never merge unequal altitudes to shorten the path. Group/leaf **order** still follows Role `priority_tendency` (listen-who). Packaging depth stays unrestricted.
 
 #### 3.1 — Phase 1 (`status=mapped`)
 
 1. Read all facts (`$FACTS_CTL` / `_facts.json`). Input = full fact texts + `lens_tags` + registry lens definitions + Role/Domain fields above. Discussion topic / `T*` is provenance only — do not build the spine from it.
 2. AI: build narrative arc (optional `tree` packaging; depth unrestricted) and map every non-excluded fact to exactly one **arc leaf** (`leaves[].id` / `title` / `fact_ids`). Composite/pending-split → `excluded` (or `unresolved` if blocked).
-3. **Should** self-check before persist: top-level titles look like a lens/priority catalog → rebuild titles/shape; obvious single-leaf mix that violates Domain `scannability` → split; order badly inverted vs `priority_tendency` with no fact-dependency reason → reorder; optional — outline still matches Domain `cognitive_frame` (genre mission not drifted) and reads as a reviewable through-line for Domain `audience_type` (thicken opening info if needed; do **not** force a fixed three-act directory).
+3. **Should** self-check before persist: top-level titles look like a lens/priority catalog → rebuild titles/shape; top titles glued with 与/及/和, or too many tops that read as leaf concerns → split or demote (top-level title discipline; do not glue for flow); obvious single-leaf mix that violates Domain `scannability` → split; order badly inverted vs `priority_tendency` with no fact-dependency reason → reorder; optional — outline still matches Domain `cognitive_frame` (genre mission not drifted) and reads as a reviewable through-line for Domain `audience_type` (thicken opening info if needed; do **not** force a fixed three-act directory).
 4. Persist:
 
 ```bash
