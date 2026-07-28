@@ -218,14 +218,15 @@ Loop (claim → write → complete):
 
 ```bash
 $CHAPTER_WRITE_STATE begin --revision-dir "$REVISION_DIR"
-# → work ticket: chapter_id, leaf_id, leaf_title, lens, fact_ids
+# → work ticket: chapter_id, leaf_id, leaf_title, lens, fact_ids, facts
 # already_running → stop; complete current first (do not begin again)
+# missing_fact_ids → stop; fix arc/_facts.json (chapter not claimed)
 # chapter_id null + status=complete → exit loop
 ```
 
-For **that ticket only** (`chapter_id` / `fact_ids` / `lens` from `begin` stdout):
+For **that ticket only** (`chapter_id` / `fact_ids` / `facts` / `lens` from `begin` stdout):
 
-1. `lens` = ticket.lens; `facts_ℓ` = facts whose id ∈ ticket.fact_ids (authoritative — do not expand).
+1. `lens` = ticket.lens; `facts_ℓ` = ticket.facts (authoritative substance — id set must match `fact_ids`; do not expand).
 2. Load Write form for `lens` from section-form-registry / registry intent.
 3. **Derive F** (S1): same F discipline as prior Init (carrier/structure from form + facts).
 4. **Derive C** (S1): pre-Write planning checklist in chapter `expression[]` (the C array on derive — not the lens registry `expression` field). Must include traceable items from each of `expression_conventions.register` / `.carriers` / `.scannability` / `.altitude`, Role Fields, and this lens's registry `expression`. Fluency/scannability constraints come specifically from `.scannability`. **C is constrained by F**. Prefer lines like `from expression_conventions.<key>: …` (executable rules for this unit — not post-hoc "already done" claims).
@@ -241,6 +242,8 @@ $CHAPTER_WRITE_STATE complete --revision-dir "$REVISION_DIR"
 `complete` hard-gates (same rules re-checked at Step 5): non-empty body; `form.carrier` + `form.structure`; non-empty chapter `expression` containing `expression_conventions.register` / `.carriers` / `.scannability` / `.altitude` substrings. On `begin`/`complete` failure → stop; fix artifacts or redo the current chapter; do not skip ahead. Resume: `complete` current if needed, then `begin` again (never `begin --chapter`).
 
 **Must not:** treat `list-chapters` as the 4.W todo list; `begin --chapter` / `complete --chapter` on the main path; Write another chapter while `already_running`.
+
+**Must not (Write substance source):** use memory (including Step 3 full-store recall) as Write fact source; Read `_facts.json` (or any out-of-ticket fetch) for Write; use any substance source other than this round's `begin.facts`.
 
 **Note:** Encourage sectioning in the body. If using heading levels for structure, headings may start at `####`.
 

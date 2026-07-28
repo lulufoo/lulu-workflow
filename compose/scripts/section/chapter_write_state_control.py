@@ -11,6 +11,7 @@ CLI: ``python3 chapter_write_state_control.py --help``
 
 Process how:
 docs/domain/archive/compose/archive-5.0/compose-chapter-write-claim-current-design.md
+docs/domain/archive/compose/archive-5.0/compose-chapter-write-begin-facts-ticket-design.md
 """
 
 from __future__ import annotations
@@ -39,6 +40,7 @@ from chapter_write_state_schema import (  # noqa: E402
     save_chapter_write_state,
 )
 from discussion_pointer_schema import active_slice_dir  # noqa: E402
+from facts_schema import facts_path, load_facts  # noqa: E402
 from narrative_arc_schema import (  # noqa: E402
     chapter_write_units,
     is_write_ready,
@@ -99,6 +101,31 @@ def _unit_by_id(arc: dict[str, Any], cid: str) -> dict[str, Any] | None:
         if unit.get("chapter_id") == cid:
             return unit
     return None
+
+
+def _assemble_ticket_facts(
+    slice_dir: Path,
+    fact_ids: list[str],
+) -> tuple[list[dict[str, Any]] | None, list[str]]:
+    """Build begin ticket ``facts`` in ``fact_ids`` order.
+
+    Returns ``(facts, [])`` on success, or ``(None, missing_ids)`` when any id
+    is absent from slice ``_facts.json``.
+    """
+    store = load_facts(facts_path(slice_dir))
+    by_id = {str(item["id"]): item for item in store}
+    missing = [fid for fid in fact_ids if fid not in by_id]
+    if missing:
+        return None, missing
+    ticket: list[dict[str, Any]] = []
+    for fid in fact_ids:
+        src = by_id[fid]
+        row: dict[str, Any] = {"id": src["id"], "text": src["text"]}
+        anchors = src.get("anchors")
+        if anchors:
+            row["anchors"] = list(anchors)
+        ticket.append(row)
+    return ticket, []
 
 
 def _load_arc(slice_dir: Path) -> dict[str, Any]:
@@ -258,6 +285,27 @@ def cmd_begin(args: argparse.Namespace) -> int:
     if unit is None:
         return _fail(f"write unit missing for chapter {nxt!r}")
 
+    fact_ids = [str(fid) for fid in (unit.get("fact_ids") or [])]
+    try:
+        ticket_facts, missing = _assemble_ticket_facts(slice_dir, fact_ids)
+    except ValueError as exc:
+        return _fail(str(exc))
+    if missing:
+        return _fail_json(
+            {
+                "ok": False,
+                "error": "missing_fact_ids",
+                "chapter_id": nxt,
+                "fact_ids": fact_ids,
+                "missing_fact_ids": missing,
+                "message": (
+                    "begin cannot claim chapter: fact_ids missing from "
+                    "_facts.json; fix arc or facts before begin"
+                ),
+            },
+            4,
+        )
+
     entry = by_id[nxt]
     entry["status"] = "in_progress"
     entry["started_at"] = entry.get("started_at") or _now()
@@ -275,7 +323,8 @@ def cmd_begin(args: argparse.Namespace) -> int:
             "leaf_id": unit["leaf_id"],
             "leaf_title": unit.get("leaf_title") or "",
             "lens": unit["lens"],
-            "fact_ids": list(unit.get("fact_ids") or []),
+            "fact_ids": fact_ids,
+            "facts": ticket_facts,
             "status": "in_progress",
         }
     )

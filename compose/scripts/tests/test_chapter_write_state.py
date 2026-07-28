@@ -44,8 +44,30 @@ def _arc() -> dict:
     }
 
 
+def _seed_facts(rev: Path, *, with_anchors: bool = True) -> None:
+    facts = [
+        {
+            "id": "F-1",
+            "text": "fact one",
+            "lens_tags": ["I"],
+        },
+        {
+            "id": "F-2",
+            "text": "fact two",
+            "lens_tags": ["IF"],
+        },
+    ]
+    if with_anchors:
+        facts[0]["anchors"] = [{"kind": "path", "value": "src/a.py"}]
+    (rev / "_facts.json").write_text(
+        json.dumps(facts, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+
 def _seed_arc(rev: Path) -> None:
     save_narrative_arc(rev / "_narrative-arc.json", _arc())
+    _seed_facts(rev)
 
 
 def _valid_derive(cid: str) -> dict:
@@ -122,7 +144,93 @@ def test_begin_returns_work_ticket(tmp_path: Path, capsys: pytest.CaptureFixture
     assert ticket["leaf_title"] == "Leaf one"
     assert ticket["lens"] == "I"
     assert ticket["fact_ids"] == ["F-1"]
+    assert ticket["facts"] == [
+        {
+            "id": "F-1",
+            "text": "fact one",
+            "anchors": [{"kind": "path", "value": "src/a.py"}],
+        },
+    ]
     assert ticket["status"] == "in_progress"
+
+
+def test_begin_facts_omit_empty_anchors(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str],
+):
+    rev = tmp_path / "rev"
+    rev.mkdir()
+    _seed_arc(rev)
+    _seed_facts(rev, with_anchors=False)
+    assert write_state_main(["sync", "--revision-dir", str(rev)]) == 0
+    capsys.readouterr()
+    assert _begin(rev) == 0
+    ticket = json.loads(capsys.readouterr().out)
+    assert ticket["facts"] == [{"id": "F-1", "text": "fact one"}]
+
+
+def test_begin_facts_order_follows_fact_ids(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str],
+):
+    rev = tmp_path / "rev"
+    rev.mkdir()
+    arc = {
+        "version": "1",
+        "kind": "narrative-arc",
+        "status": "write_ready",
+        "leaves": [
+            {
+                "id": "A01",
+                "title": "Leaf one",
+                "fact_ids": ["F-2", "F-1"],
+                "chapters": [
+                    {"lens": "I", "fact_ids": ["F-2", "F-1"]},
+                ],
+            }
+        ],
+    }
+    save_narrative_arc(rev / "_narrative-arc.json", arc)
+    _seed_facts(rev, with_anchors=False)
+    assert write_state_main(["sync", "--revision-dir", str(rev)]) == 0
+    capsys.readouterr()
+    assert _begin(rev) == 0
+    ticket = json.loads(capsys.readouterr().out)
+    assert ticket["fact_ids"] == ["F-2", "F-1"]
+    assert [row["id"] for row in ticket["facts"]] == ["F-2", "F-1"]
+
+
+def test_begin_missing_fact_id_fails_without_in_progress(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str],
+):
+    rev = tmp_path / "rev"
+    rev.mkdir()
+    # Contiguous F-1..F-2 in store; chapter asks for absent F-3.
+    arc = {
+        "version": "1",
+        "kind": "narrative-arc",
+        "status": "write_ready",
+        "leaves": [
+            {
+                "id": "A01",
+                "title": "Leaf one",
+                "fact_ids": ["F-3"],
+                "chapters": [{"lens": "I", "fact_ids": ["F-3"]}],
+            }
+        ],
+    }
+    save_narrative_arc(rev / "_narrative-arc.json", arc)
+    _seed_facts(rev, with_anchors=False)
+    assert write_state_main(["sync", "--revision-dir", str(rev)]) == 0
+    capsys.readouterr()
+    rc = _begin(rev)
+    assert rc != 0
+    err = json.loads(capsys.readouterr().out)
+    assert err["error"] == "missing_fact_ids"
+    assert err["missing_fact_ids"] == ["F-3"]
+    assert "facts" not in err
+    state = load_chapter_write_state(rev / CHAPTER_WRITE_STATE_BASENAME)
+    # sync may already point current at the next cid while pending; claim must not start.
+    assert state["by_id"]["A01-I"]["status"] == "pending"
+    assert state["by_id"]["A01-I"].get("started_at") is None
 
 
 def test_begin_rejects_chapter_arg(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
@@ -151,6 +259,7 @@ def test_begin_rejects_already_running(tmp_path: Path, capsys: pytest.CaptureFix
     err = json.loads(capsys.readouterr().out)
     assert err["error"] == "already_running"
     assert err["chapter_id"] == "A01-I"
+    assert "facts" not in err
 
 
 def test_begin_complete_happy_path(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
