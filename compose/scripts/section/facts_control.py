@@ -3,7 +3,6 @@
 
 Subcommands:
     write     Persist facts JSON (AI-produced) after schema validation
-    filter    Print facts tagged with one lens as a JSON array (addressable)
     validate  Validate existing ``_facts.json``
     status    Print fact counts by lens tag (+ unlensed count)
 
@@ -43,7 +42,6 @@ from discussion_pointer_schema import (  # noqa: E402
 from fetch_compose_framework import fetch_compose_framework  # noqa: E402
 from facts_schema import (  # noqa: E402
     facts_path,
-    filter_by_lens,
     lenses_present,
     load_facts,
     save_facts,
@@ -254,22 +252,6 @@ def cmd_write(args: argparse.Namespace) -> int:
     return _ok(payload)
 
 
-def cmd_filter(args: argparse.Namespace) -> int:
-    path = facts_path(_slice_dir(args.revision_dir))
-    try:
-        facts = load_facts(path)
-    except ValueError as exc:
-        return _fail(str(exc))
-    matched = filter_by_lens(facts, args.lens)
-    if not matched:
-        print(
-            f"facts: no facts tagged lens={args.lens.strip().upper()}",
-            file=sys.stderr,
-        )
-    print(json.dumps(matched, ensure_ascii=False))
-    return 0
-
-
 def cmd_validate(args: argparse.Namespace) -> int:
     path = facts_path(_slice_dir(args.revision_dir))
     if not path.is_file():
@@ -354,14 +336,6 @@ def main() -> int:
     write_p.add_argument("--profile", type=str, default="")
     write_p.add_argument("--project-root", type=Path, default=Path.cwd())
     write_p.set_defaults(func=cmd_write)
-
-    filter_p = sub.add_parser(
-        "filter",
-        help="Print facts tagged with one lens as a JSON array (addressable, not prose)",
-    )
-    filter_p.add_argument("--revision-dir", type=Path, required=True)
-    filter_p.add_argument("--lens", type=str, required=True)
-    filter_p.set_defaults(func=cmd_filter)
 
     validate_p = sub.add_parser("validate", help="Validate _facts.json")
     validate_p.add_argument("--revision-dir", type=Path, required=True)

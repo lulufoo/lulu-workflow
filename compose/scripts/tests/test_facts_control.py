@@ -112,7 +112,7 @@ def test_lenses_present_and_unlensed_ids():
     assert unlensed_fact_ids(facts) == ["F-3"]
 
 
-def test_control_write_validate_filter(tmp_path: Path):
+def test_control_write_validate_status(tmp_path: Path):
     facts = [
         {"id": "F-1", "text": "fact one", "lens_tags": ["GO", "AR"]},
         {"id": "F-2", "text": "fact two", "lens_tags": ["AR"]},
@@ -150,27 +150,6 @@ def test_control_write_validate_filter(tmp_path: Path):
         text=True,
     )
     assert validate.returncode == 0, validate.stderr
-
-    filt = subprocess.run(
-        [
-            sys.executable,
-            str(_CTL),
-            "filter",
-            "--revision-dir",
-            str(rev),
-            "--lens",
-            "AR",
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    assert filt.returncode == 0, filt.stderr
-    matched = json.loads(filt.stdout)
-    assert matched == [
-        {"id": "F-1", "text": "fact one"},
-        {"id": "F-2", "text": "fact two"},
-    ]
 
     status = subprocess.run(
         [sys.executable, str(_CTL), "status", "--revision-dir", str(rev)],
