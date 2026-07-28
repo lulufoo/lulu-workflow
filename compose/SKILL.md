@@ -1,12 +1,7 @@
 ---
 name: compose
 description: >-
-  Profile-driven compose engine (facts / chapters / F·C), session control, start
-  orchestration, Working multi-L loop (per-L Inductive|Deductive / Init /
-  FreeEdit / Evaluating), and delivery for structured document stages
-  (lulu-design, lulu-plan, lulu-spec). Consumed by stage holder skills — holders
-  declare identity (profile id, HARD-GATEs, produced document); Split/Working/
-  Delivery orchestration lives here.
+  Internal compose engine; load only via stage holder HARD-GATE — do not invoke directly.
 ---
 
 # compose
