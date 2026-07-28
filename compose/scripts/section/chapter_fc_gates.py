@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
-"""Hard gates for Init chapter derive F/C + domain four-key provenance.
+"""Hard gates for Init chapter derive F/C.
 
 Shared by ``chapter_write_state_control.complete`` and
 ``init_compose_validation`` (Step 5). Flat derive: ``lens`` +
-``form{carrier,structure}`` + ``expression[]``. Domain coverage is a
-pre-Write planning checklist: joined ``expression`` must contain
-``expression_conventions.register`` / ``.carriers`` / ``.scannability`` /
-``.altitude`` substrings (aligns with domain SoT keys; not brittle
-``domain.*`` labels). ``display_title`` is not gated.
-``expression_c`` is retired — present key → error (use ``expression``).
+``form{carrier,structure}`` + non-empty ``expression[]`` (string items).
+Four-key ``expression_conventions.*`` substring provenance is retired —
+soft Write-time attention only (SKILL); not machine-gated here.
+``display_title`` is not gated. ``expression_c`` is retired — present
+key → error (use ``expression``).
 
 F·body structure probes are data-driven
 (``form_structure_body_probes.json``): load → lookup first token → run
@@ -16,6 +15,7 @@ closed-set check kinds (``contains`` / ``regex``) → format one template.
 No per-structure rule branches in this module.
 
 Process how:
+docs/domain/archive/compose/archive-5.0/compose-expression-retire-checklist-and-four-key-gate-design.md
 docs/domain/archive/compose/archive-5.0/compose-derive-form-expression-rename-design.md
 docs/domain/archive/compose/archive-5.0/compose-body-form-structure-gate-design.md
 """
@@ -29,14 +29,6 @@ from pathlib import Path
 from typing import Any
 
 from chapter_artifact_paths import chapter_body_path, chapter_derive_path
-
-# Provenance markers — match SKILL "from expression_conventions.<key>:" lines.
-DOMAIN_MARKERS: tuple[str, ...] = (
-    "expression_conventions.register",
-    "expression_conventions.carriers",
-    "expression_conventions.scannability",
-    "expression_conventions.altitude",
-)
 
 _PROBE_CATALOG_PATH = Path(__file__).resolve().with_name(
     "form_structure_body_probes.json",
@@ -125,7 +117,7 @@ def check_body_form_structure(
 
 
 def check_derive_fc(derive: Any) -> list[str]:
-    """Return error strings when derive lacks F/C / domain provenance markers."""
+    """Return error strings when derive lacks F/C (non-empty expression)."""
     if not isinstance(derive, dict):
         return ["derive must be an object"]
 
@@ -149,16 +141,9 @@ def check_derive_fc(derive: Any) -> list[str]:
         errors.append("expression must be a non-empty array")
         return errors
 
-    joined_parts: list[str] = []
     for index, item in enumerate(expression):
         if not isinstance(item, str):
             errors.append(f"expression[{index}] must be a string")
-            continue
-        joined_parts.append(item)
-    joined = "\n".join(joined_parts)
-    for marker in DOMAIN_MARKERS:
-        if marker not in joined:
-            errors.append(f"expression missing marker substring {marker!r}")
     return errors
 
 

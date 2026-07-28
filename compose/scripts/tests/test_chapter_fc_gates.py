@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for chapter F/C + expression_conventions provenance hard gate."""
+"""Tests for chapter F/C hard gate (non-empty expression; no four-key substrings)."""
 
 from __future__ import annotations
 
@@ -14,7 +14,6 @@ if str(_SECTION) not in sys.path:
     sys.path.insert(0, str(_SECTION))
 
 from chapter_fc_gates import (  # noqa: E402
-    DOMAIN_MARKERS,
     check_chapter_write_artifacts,
     check_derive_fc,
 )
@@ -25,42 +24,30 @@ def _valid_derive(**overrides: object) -> dict:
         "lens": "AR",
         "form": {"carrier": "prose", "structure": "claim-then-evidence"},
         "expression": [
-            "from expression_conventions.register: precise engineering prose",
-            "from expression_conventions.carriers: stay inside chosen form",
-            "from expression_conventions.scannability: short items over walls",
-            "from expression_conventions.altitude: act without re-deriving intent",
+            "Register: precise engineering prose for this unit",
+            "Scannability: short items over walls",
         ],
     }
     data.update(overrides)
     return data
 
 
-def test_domain_markers_are_expression_conventions_keys():
-    assert DOMAIN_MARKERS == (
-        "expression_conventions.register",
-        "expression_conventions.carriers",
-        "expression_conventions.scannability",
-        "expression_conventions.altitude",
-    )
-
-
 def test_check_derive_fc_passes_valid():
     assert check_derive_fc(_valid_derive()) == []
 
 
-def test_legacy_domain_dot_prefix_alone_does_not_pass():
-    """Brittle domain.* labels are no longer sufficient without SoT key paths."""
-    errs = check_derive_fc(
-        _valid_derive(
-            expression=[
-                "domain.register: precise engineering prose",
-                "domain.carriers: follow Derive F/C",
-                "domain.scannability: short items over walls",
-                "domain.altitude: act without re-deriving intent",
-            ],
-        ),
+def test_check_derive_fc_passes_without_four_key_substrings():
+    """Retired: expression_conventions.* markers are not required."""
+    assert (
+        check_derive_fc(
+            _valid_derive(
+                expression=[
+                    "Keep Binding Contract generic; prose over coverage tables",
+                ],
+            ),
+        )
+        == []
     )
-    assert any("expression_conventions.register" in e for e in errs)
 
 
 def test_check_derive_fc_requires_form_carrier_and_structure():
@@ -85,18 +72,9 @@ def test_check_derive_fc_requires_nonempty_expression_list():
     )
 
 
-def test_check_derive_fc_requires_four_provenance_markers_in_expression():
-    errs = check_derive_fc(
-        _valid_derive(
-            expression=[
-                "from expression_conventions.register: ok",
-                "from expression_conventions.carriers: ok",
-                "from expression_conventions.scannability: ok",
-                # missing altitude
-            ],
-        ),
-    )
-    assert any("expression_conventions.altitude" in e for e in errs)
+def test_check_derive_fc_requires_expression_items_be_strings():
+    errs = check_derive_fc(_valid_derive(expression=["ok", 1]))
+    assert any("expression[1] must be a string" in e for e in errs)
 
 
 def test_check_derive_fc_rejects_retired_expression_c_key_only():
@@ -105,10 +83,7 @@ def test_check_derive_fc_rejects_retired_expression_c_key_only():
         "lens": "AR",
         "form": {"carrier": "prose", "structure": "claim-then-evidence"},
         "expression_c": [
-            "from expression_conventions.register: precise engineering prose",
-            "from expression_conventions.carriers: stay inside chosen form",
-            "from expression_conventions.scannability: short items over walls",
-            "from expression_conventions.altitude: act without re-deriving intent",
+            "attention note only",
         ],
     }
     errs = check_derive_fc(data)

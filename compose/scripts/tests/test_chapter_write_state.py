@@ -75,10 +75,8 @@ def _valid_derive(cid: str) -> dict:
         "lens": cid.rsplit("-", 1)[-1],
         "form": {"carrier": "prose", "structure": "claim-then-evidence"},
         "expression": [
-            "from expression_conventions.register: precise engineering prose",
-            "from expression_conventions.carriers: stay inside chosen form",
-            "from expression_conventions.scannability: short items over walls",
-            "from expression_conventions.altitude: act without re-deriving intent",
+            "Register: precise engineering prose for this unit",
+            "Scannability: short items over walls",
         ],
     }
 

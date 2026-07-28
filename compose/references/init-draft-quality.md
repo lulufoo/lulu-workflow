@@ -40,7 +40,7 @@ $OUTPUT_DOC_PATH                          # assembled via assemble-arc (tree/lea
 | `display_title` | **no** (retired) | Ignored by Init validators; do not write for narrative-arc Init |
 | `lens` | yes (contract) | Unit lens key |
 | `form.carrier` / `form.structure` | **yes** (hard gate) | Non-empty strings; gated by `complete` + Step 5 |
-| `expression` | **yes** (hard gate) | Chapter C array (derive field — not lens registry `expression`). Pre-Write planning checklist (not post-hoc proof). Non-empty string array; joined text must contain `expression_conventions.register` / `.carriers` / `.scannability` / `.altitude`. Prefer `from expression_conventions.<key>: …` executable rules; fluency from `.scannability`. `expression_c` is retired |
+| `expression` | **yes** (hard gate: non-empty only) | Chapter C array (derive field — not lens registry `expression`). Soft Write-time attention notes (not a pass/fail tag wall). Non-empty string array; four-key `expression_conventions.*` substrings are **not** machine-gated. `expression_c` is retired |
 
 ### Titles (narrative-arc)
 
@@ -75,7 +75,7 @@ anchors(chapter) ⊆ tokens(body)              # new: keep this chapter's facts'
 
 ## Validate command
 
-`init_compose_validation.py validate` runs: `_facts.json` + `_narrative-arc.json` + chapter write-state `complete`, per-chapter F/C + `expression_conventions.*` provenance gate (same as `$CHAPTER_WRITE_STATE complete`), chapter anchors in the compose doc, and L6 fact-anchor coverage. Does **not** gate derive `display_title`. Presence of `_chapters.json` / `_lens-themes.json` / `_chapter-framework.json` / `_chapter-placement.json` is an error (retired). See script `--help` for exit codes and stderr format.
+`init_compose_validation.py validate` runs: `_facts.json` + `_narrative-arc.json` + chapter write-state `complete`, per-chapter F/C gate (non-empty `expression`; same as `$CHAPTER_WRITE_STATE complete`), chapter anchors in the compose doc, and L6 fact-anchor coverage. Does **not** gate derive `display_title`. Presence of `_chapters.json` / `_lens-themes.json` / `_chapter-framework.json` / `_chapter-placement.json` is an error (retired). See script `--help` for exit codes and stderr format.
 
 ## Minimal example (one chapter)
 
@@ -104,10 +104,8 @@ anchors(chapter) ⊆ tokens(body)              # new: keep this chapter's facts'
   "lens": "AR",
   "form": { "carrier": "prose", "structure": "claim-then-evidence" },
   "expression": [
-    "from expression_conventions.register: …",
-    "from expression_conventions.carriers: …",
-    "from expression_conventions.scannability: …",
-    "from expression_conventions.altitude: …"
+    "Register: precise engineering prose for this unit",
+    "Scannability: short items over walls"
   ]
 }
 ```
