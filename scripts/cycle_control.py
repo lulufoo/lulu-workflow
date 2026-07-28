@@ -7,7 +7,8 @@ Subcommands:
     resolve-config-path   Print resolved workflow-config.json path
     start                 Create a new cycle container; stdout last line: cycle_id
     archive               Prune old cycle dirs, keeping N most recent
-    list                  Print cycles.json summary for Feature Resolution
+    menu                  Feature Resolution menu (T#/F# rows + N/M)
+    resolve-token         Resolve menu token T#/F# to cycle_id
     info                  JSON metadata for one cycle (--cycle-id)
     validate              Exit 0 when cycle exists in index and on disk
     topic-digest          Topic association candidates for New feature (JSON)
@@ -28,10 +29,11 @@ from cycle_schema import (  # noqa: E402
     build_topic_digest,
     cycle_exists,
     ensure_container_dir,
-    format_cycles_list,
+    format_cycles_menu,
     generate_cycle_id,
     prune_cycles,
     resolve_cache_dir,
+    resolve_menu_token,
     validate_cycle,
 )
 from init_ops import run_init_project  # noqa: E402
@@ -47,7 +49,8 @@ _CMD_CONFIGURE = "configure"
 _CMD_RESOLVE_CONFIG_PATH = "resolve-config-path"
 _CMD_START = "start"
 _CMD_ARCHIVE = "archive"
-_CMD_LIST = "list"
+_CMD_MENU = "menu"
+_CMD_RESOLVE_TOKEN = "resolve-token"
 _CMD_INFO = "info"
 _CMD_VALIDATE = "validate"
 _CMD_TOPIC_DIGEST = "topic-digest"
@@ -134,9 +137,19 @@ def cmd_start(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_list(args: argparse.Namespace) -> int:
+def cmd_menu(args: argparse.Namespace) -> int:
     cache_dir = resolve_cache_dir(args.project_root, args.platform)
-    print(format_cycles_list(cache_dir))
+    print(format_cycles_menu(cache_dir))
+    return 0
+
+
+def cmd_resolve_token(args: argparse.Namespace) -> int:
+    cache_dir = resolve_cache_dir(args.project_root, args.platform)
+    cycle_id = resolve_menu_token(cache_dir, args.token)
+    if cycle_id is None:
+        print(f"Error: invalid or out-of-range token: {args.token!r}", file=sys.stderr)
+        return 1
+    print(cycle_id)
     return 0
 
 
@@ -232,11 +245,22 @@ def _cli(argv: Optional[list[str]] = None) -> int:
     )
     archive.set_defaults(handler=cmd_archive)
 
-    list_cmd = sub.add_parser(
-        _CMD_LIST,
-        help="Print cycles.json summary for Feature Resolution.",
+    menu_cmd = sub.add_parser(
+        _CMD_MENU,
+        help="Print Feature Resolution menu (T#/F# rows + N/M).",
     )
-    list_cmd.set_defaults(handler=cmd_list)
+    menu_cmd.set_defaults(handler=cmd_menu)
+
+    resolve_token = sub.add_parser(
+        _CMD_RESOLVE_TOKEN,
+        help="Resolve menu token T#/F# to cycle_id.",
+    )
+    resolve_token.add_argument(
+        "--token",
+        required=True,
+        help="Menu token (e.g. T1, F2).",
+    )
+    resolve_token.set_defaults(handler=cmd_resolve_token)
 
     info = sub.add_parser(
         _CMD_INFO,

@@ -84,7 +84,7 @@ class TestCycleControlResolveConfigPath:
         assert "skill-config/lulu-dev-workflow" in result.stdout
 
 
-class TestCycleControlList:
+class TestCycleControlMenu:
     def _cache_dir(self, tmp_path: Path) -> Path:
         return tmp_path / ".cache" / "copilot" / "lulu-dev-workflow"
 
@@ -93,24 +93,28 @@ class TestCycleControlList:
         cache.mkdir(parents=True, exist_ok=True)
         (cache / "cycles.json").write_text(json.dumps(data), encoding="utf-8")
 
-    def test_list_empty(self, tmp_path):
-        result = _run("--project-root", str(tmp_path), "list")
+    def test_menu_empty(self, tmp_path):
+        result = _run("--project-root", str(tmp_path), "menu")
         assert result.returncode == 0
         assert "Cycles:" in result.stdout
         assert "(no cycles)" in result.stdout
+        assert "N. New topic — type a description to create" in result.stdout
+        assert "M. New feature — type a description to create" in result.stdout
 
-    def test_list_shows_entries(self, tmp_path):
+    def test_menu_shows_entries(self, tmp_path):
         _run("--project-root", str(tmp_path), "start", "--name", "alpha", "--type", "topic")
         start = _run("--project-root", str(tmp_path), "start", "--name", "beta")
         assert start.returncode == 0, start.stderr
-        result = _run("--project-root", str(tmp_path), "list")
+        result = _run("--project-root", str(tmp_path), "menu")
         assert result.returncode == 0
         assert "[topic]" in result.stdout
         assert "alpha" in result.stdout
         assert "[feature]" in result.stdout
         assert "beta" in result.stdout
+        assert "N. New topic — type a description to create" in result.stdout
+        assert "M. New feature — type a description to create" in result.stdout
 
-    def test_list_newest_first_and_renumbers_from_one(self, tmp_path):
+    def test_menu_newest_first_and_typed_tokens(self, tmp_path):
         self._write_cycles(
             tmp_path,
             {
@@ -120,23 +124,23 @@ class TestCycleControlList:
                 "feature-20260701000000-dddddddd": {"name": "new-feature"},
             },
         )
-        result = _run("--project-root", str(tmp_path), "list")
+        result = _run("--project-root", str(tmp_path), "menu")
         assert result.returncode == 0, result.stderr
         lines = [ln for ln in result.stdout.splitlines() if ln.startswith("[")]
         assert lines == [
-            "[topic]   1. new-topic",
-            "[topic]   2. old-topic",
-            "[feature]   3. new-feature",
-            "[feature]   4. old-feature",
+            "[topic]   T1. new-topic",
+            "[topic]   T2. old-topic",
+            "[feature]   F1. new-feature",
+            "[feature]   F2. old-feature",
         ]
 
-    def test_list_truncates_to_five_per_type(self, tmp_path):
+    def test_menu_truncates_to_five_per_type(self, tmp_path):
         data = {}
         for i in range(6):
             data[f"topic-2026010{i+1:02d}000000-{'a'*8}"] = {"name": f"t{i}"}
             data[f"feature-2026020{i+1:02d}000000-{'b'*8}"] = {"name": f"f{i}"}
         self._write_cycles(tmp_path, data)
-        result = _run("--project-root", str(tmp_path), "list")
+        result = _run("--project-root", str(tmp_path), "menu")
         assert result.returncode == 0, result.stderr
         lines = [ln for ln in result.stdout.splitlines() if ln.startswith("[")]
         assert len(lines) == 10
@@ -148,8 +152,45 @@ class TestCycleControlList:
         assert "t0" not in result.stdout
         assert "f5" in feature_lines[0]
         assert "f0" not in result.stdout
-        assert lines[0].startswith("[topic]   1.")
-        assert lines[-1].startswith("[feature]   10.")
+        assert lines[0].startswith("[topic]   T1.")
+        assert lines[-1].startswith("[feature]   F5.")
+
+    def test_resolve_token_ok(self, tmp_path):
+        self._write_cycles(
+            tmp_path,
+            {
+                "topic-20260101000000-aaaaaaaa": {"name": "old-topic"},
+                "topic-20260601000000-bbbbbbbb": {"name": "new-topic"},
+                "feature-20260201000000-cccccccc": {"name": "old-feature"},
+                "feature-20260701000000-dddddddd": {"name": "new-feature"},
+            },
+        )
+        result = _run(
+            "--project-root", str(tmp_path), "resolve-token", "--token", "F2"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "feature-20260201000000-cccccccc"
+
+    def test_resolve_token_case_insensitive(self, tmp_path):
+        self._write_cycles(
+            tmp_path,
+            {"topic-20260601000000-bbbbbbbb": {"name": "new-topic"}},
+        )
+        result = _run(
+            "--project-root", str(tmp_path), "resolve-token", "--token", "t1"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "topic-20260601000000-bbbbbbbb"
+
+    def test_resolve_token_out_of_range(self, tmp_path):
+        self._write_cycles(
+            tmp_path,
+            {"feature-20260701000000-dddddddd": {"name": "new-feature"}},
+        )
+        result = _run(
+            "--project-root", str(tmp_path), "resolve-token", "--token", "F9"
+        )
+        assert result.returncode != 0
 
 
 class TestCycleControlInfo:

@@ -72,7 +72,7 @@ Work is bound to a **cycle** with `$CYCLE_TYPE` = `topic` or `feature` (see `_ru
 ## Commands
 
 > Invoke via `$CYCLE_CONTROL` only. Subcommand contracts: `cycle_control.py` module docstring or `--help`.
-> `start` and `topic-digest` are invoked from `_slowpath.md` only
+> `start`, `menu`, and `resolve-token` are invoked from `_slowpath.md` only
 > (not from this orchestrator).
 
 ### `init` — Once per project

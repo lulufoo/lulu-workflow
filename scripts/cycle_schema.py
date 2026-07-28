@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
@@ -75,43 +76,66 @@ def validate_cycle(cache_dir: Path, cycle_id: str) -> tuple[bool, str]:
     return True, ""
 
 
-_LIST_PER_TYPE_LIMIT = 5
-_LIST_TYPE_ORDER = ("topic", "feature")
+_MENU_PER_TYPE_LIMIT = 5
+_MENU_TYPE_ORDER = ("topic", "feature")
+_MENU_TOKEN_PREFIX = {"topic": "T", "feature": "F"}
+_MENU_PREFIX_TO_TYPE = {v: k for k, v in _MENU_TOKEN_PREFIX.items()}
+_MENU_CREATE_LINES = (
+    "N. New topic — type a description to create",
+    "M. New feature — type a description to create",
+)
+_MENU_TOKEN_RE = re.compile(r"^([TtFf])(\d+)$")
 
 
-def format_cycles_list(cache_dir: Path) -> str:
-    """Format cycles for Feature Resolution list.
-
-    Per type: reverse-sort by cycle id (newest first), keep at most
-    ``_LIST_PER_TYPE_LIMIT``. Types emit in ``_LIST_TYPE_ORDER`` then any
-    other kinds alphabetically. Display indices renumber from 1.
-    """
+def _menu_ids_by_type(cache_dir: Path) -> dict[str, list[str]]:
+    """Ordered cycle ids per menu type (newest first, truncated)."""
     cycles = load_cycles(cache_dir)
-    if not cycles:
-        return "Cycles:\n(no cycles)"
-
     by_kind: dict[str, list[str]] = {}
     for cycle_id in cycles:
         kind = cycle_type_from_id(cycle_id)
-        by_kind.setdefault(kind, []).append(cycle_id)
-
-    ordered_ids: list[str] = []
-    seen: set[str] = set()
-    for kind in _LIST_TYPE_ORDER:
-        if kind not in by_kind:
+        if kind not in _MENU_TOKEN_PREFIX:
             continue
-        ordered_ids.extend(sorted(by_kind[kind], reverse=True)[:_LIST_PER_TYPE_LIMIT])
-        seen.add(kind)
-    for kind in sorted(k for k in by_kind if k not in seen):
-        ordered_ids.extend(sorted(by_kind[kind], reverse=True)[:_LIST_PER_TYPE_LIMIT])
+        by_kind.setdefault(kind, []).append(cycle_id)
+    return {
+        kind: sorted(by_kind.get(kind, []), reverse=True)[:_MENU_PER_TYPE_LIMIT]
+        for kind in _MENU_TYPE_ORDER
+    }
 
+
+def format_cycles_menu(cache_dir: Path) -> str:
+    """Format Feature Resolution menu (typed tokens + create actions)."""
+    cycles = load_cycles(cache_dir)
     lines = ["Cycles:"]
-    for index, cycle_id in enumerate(ordered_ids, start=1):
-        entry = cycles[cycle_id]
-        name = entry.get("name", cycle_id) if isinstance(entry, dict) else str(entry)
-        kind = cycle_type_from_id(cycle_id)
-        lines.append(f"[{kind}]   {index}. {name}")
+    ids_by_type = _menu_ids_by_type(cache_dir)
+    if not any(ids_by_type.values()):
+        lines.append("(no cycles)")
+    else:
+        for kind in _MENU_TYPE_ORDER:
+            prefix = _MENU_TOKEN_PREFIX[kind]
+            for index, cycle_id in enumerate(ids_by_type[kind], start=1):
+                entry = cycles[cycle_id]
+                name = (
+                    entry.get("name", cycle_id)
+                    if isinstance(entry, dict)
+                    else str(entry)
+                )
+                lines.append(f"[{kind}]   {prefix}{index}. {name}")
+
+    lines.extend(_MENU_CREATE_LINES)
     return "\n".join(lines)
+
+
+def resolve_menu_token(cache_dir: Path, token: str) -> Optional[str]:
+    """Resolve a menu token (``T#`` / ``F#``) to ``cycle_id``, or None."""
+    match = _MENU_TOKEN_RE.match(token.strip())
+    if match is None:
+        return None
+    kind = _MENU_PREFIX_TO_TYPE[match.group(1).upper()]
+    index = int(match.group(2))
+    ids = _menu_ids_by_type(cache_dir).get(kind, [])
+    if index < 1 or index > len(ids):
+        return None
+    return ids[index - 1]
 
 
 def build_cycle_info(cache_dir: Path, cycle_id: str) -> Optional[dict]:
