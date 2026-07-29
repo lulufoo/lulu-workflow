@@ -39,8 +39,9 @@ from typing import Any
 _HERE = Path(__file__).resolve().parent
 _SCRIPTS = _HERE.parent
 _SECTION = _SCRIPTS / "section"
+_CORE = _SCRIPTS / "core"
 _SCHEMA_SESSION = _SCRIPTS / "schema" / "session"
-for _p in (_HERE, _SECTION, _SCRIPTS, _SCHEMA_SESSION):
+for _p in (_HERE, _SECTION, _CORE, _SCRIPTS, _SCHEMA_SESSION):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
@@ -639,13 +640,34 @@ def cmd_seed_decision(out_dir: Path, args: argparse.Namespace) -> None:
         r.strip() for r in (getattr(args, "origin_ref", None) or "").split(",") if r.strip()
     ]
     if not origin_refs:
+        # P4.antiseep A1: when L mirrors exist / scope-package contract applies,
+        # default origin from Lx/scope-ref.json fact_path only — never whole
+        # $SCOPE_REF / scope-package.
+        from scope_package_convert import (  # noqa: WPS433
+            ScopePackageAntiseepError,
+            seed_fact_path_for_out_dir,
+        )
+        from scope_package_schema import is_scope_package_path  # noqa: WPS433
+
         try:
-            idx = load_index(out_dir)
-            scope_ref = (idx.get("scope_ref") or "").strip()
-            if scope_ref:
-                origin_refs.append(scope_ref)
-        except (FileNotFoundError, ValueError):
-            pass
+            mirror_fact = seed_fact_path_for_out_dir(out_dir)
+        except ScopePackageAntiseepError as exc:
+            _fail(str(exc))
+        if mirror_fact is not None:
+            origin_refs.append(mirror_fact)
+        else:
+            try:
+                idx = load_index(out_dir)
+                scope_ref = (idx.get("scope_ref") or "").strip()
+                if scope_ref:
+                    if is_scope_package_path(scope_ref):
+                        _fail(
+                            "P4.antiseep: seed-decision must not default origin_ref "
+                            "to scope-package; require Lx/scope-ref.json fact_path mirror"
+                        )
+                    origin_refs.append(scope_ref)
+            except (FileNotFoundError, ValueError):
+                pass
         origin_refs.append(_text_excerpt(args.text))
 
     facts = _load_facts_optional(out_dir)

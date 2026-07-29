@@ -39,6 +39,7 @@ from resolved_refs_schema import (  # noqa: E402
 )
 from scope_package_schema import (  # noqa: E402
     SCOPE_PACKAGE_FILENAME,
+    SCOPE_REF_MIRROR_FILENAME,
     chain_dependency_tree_from_scope_package,
     chain_ids_from_scope_package,
     is_scope_package_path,
@@ -63,6 +64,10 @@ class ScopePackageConvertError(ValueError):
     """scope-package convert failed or refused (C5)."""
 
 
+class ScopePackageAntiseepError(ValueError):
+    """P4.antiseep A1: Seed must use L-local fact_path mirror (no whole-package fallback)."""
+
+
 def revision_uses_scope_package(revision_dir: Path) -> bool:
     """True when this revision's primary scope is / holds a scope-package."""
     rev = Path(revision_dir).resolve()
@@ -73,6 +78,84 @@ def revision_uses_scope_package(revision_dir: Path) -> bool:
         if ref is not None and is_scope_package_path(ref.path):
             return True
     return False
+
+
+def resolve_l_seed_fact_path(revision_dir: Path, node_id: str) -> str:
+    """Return Seed／Path A fact_path from ``Lx/scope-ref.json`` (A1).
+
+    Missing or invalid mirror is a hard failure — never fall back to
+    scope-package / whole ``$SCOPE_REF``.
+    """
+    rev = Path(revision_dir).resolve()
+    nid = str(node_id).strip()
+    mirror_path = scope_ref_mirror_path(rev, nid)
+    try:
+        mirror = load_scope_ref_mirror(rev, nid)
+    except FileNotFoundError as exc:
+        raise ScopePackageAntiseepError(
+            "P4.antiseep: missing L fact_path mirror for "
+            f"{nid}; Seed must not fall back to scope-package / whole $SCOPE_REF "
+            f"(expected {mirror_path.as_posix()})"
+        ) from exc
+    except (ValueError, json.JSONDecodeError) as exc:
+        raise ScopePackageAntiseepError(
+            f"P4.antiseep: invalid L fact_path mirror for {nid}: {exc}"
+        ) from exc
+    fact = str(mirror.get("fact_path", "")).strip()
+    if not fact:
+        raise ScopePackageAntiseepError(
+            f"P4.antiseep: empty fact_path in L mirror for {nid}"
+        )
+    if is_scope_package_path(fact):
+        raise ScopePackageAntiseepError(
+            "P4.antiseep: L mirror fact_path must not be scope-package "
+            f"({fact!r})"
+        )
+    return fact
+
+
+def focus_seed_fact_path(revision_dir: Path) -> str:
+    """Resolve Seed fact_path for the discussion-pointer focus L (A1)."""
+    from discussion_pointer_schema import load_discussion_pointer  # noqa: WPS433
+
+    rev = Path(revision_dir).resolve()
+    try:
+        pointer = load_discussion_pointer(rev)
+    except (FileNotFoundError, ValueError, OSError) as exc:
+        raise ScopePackageAntiseepError(
+            f"P4.antiseep: cannot load discussion-pointer for L seed fact_path: {exc}"
+        ) from exc
+    focus = str(pointer.get("focus", "")).strip()
+    if not focus:
+        raise ScopePackageAntiseepError(
+            "P4.antiseep: discussion-pointer focus missing; "
+            "cannot resolve L seed fact_path"
+        )
+    return resolve_l_seed_fact_path(rev, focus)
+
+
+def seed_fact_path_for_out_dir(out_dir: Path) -> str | None:
+    """Resolve L-mirror Seed fact_path when the antiseep contract applies.
+
+    * Contract applies (scope-package revision / L mirror expected) → return
+      ``fact_path`` from ``Lx/scope-ref.json``, or raise
+      ``ScopePackageAntiseepError`` if the mirror is missing.
+    * Contract does not apply → return ``None`` (legacy ``$SCOPE_REF`` / index).
+    """
+    out = Path(out_dir).resolve()
+    mirror_here = out / SCOPE_REF_MIRROR_FILENAME
+    if mirror_here.is_file():
+        return resolve_l_seed_fact_path(out.parent, out.name)
+
+    if revision_uses_scope_package(out):
+        return focus_seed_fact_path(out)
+
+    parent = out.parent
+    if parent.is_dir() and revision_uses_scope_package(parent):
+        # out_dir is Lx under a converted revision — mirror required.
+        return resolve_l_seed_fact_path(parent, out.name)
+
+    return None
 
 
 def slice_mutation_block_reason(revision_dir: Path) -> str | None:

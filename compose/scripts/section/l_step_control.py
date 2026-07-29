@@ -228,17 +228,58 @@ def _ensure_decision_fact_claims(
     Returns an error reason on hard-fail (missing fact while units ledger exists,
     corrupt ledger/fact); ``None`` on success.
     """
-    revision_dir = _revision_dir(cycle_id, project_root, profile_id)
-    fact_path = (
-        scope_decision_fact_path(revision_dir)
-        if has_resolved_refs(revision_dir)
-        else None
+    from scope_package_convert import (  # noqa: WPS433
+        ScopePackageAntiseepError,
+        focus_seed_fact_path,
+        revision_uses_scope_package,
     )
+    from scope_package_schema import is_scope_package_path  # noqa: WPS433
+
+    revision_dir = _revision_dir(cycle_id, project_root, profile_id)
+    fact_path: str | None = None
+    try:
+        scope_doc = _scope_doc(cycle_id, project_root, profile_id)
+    except ValueError:
+        scope_doc = None
+    if revision_uses_scope_package(revision_dir) or (
+        scope_doc is not None and is_scope_package_path(scope_doc)
+    ):
+        # P4.antiseep A1: claim／Seed unit SSOT = focus L mirror fact_path only.
+        try:
+            fact_path = focus_seed_fact_path(revision_dir)
+        except ScopePackageAntiseepError as exc:
+            return str(exc)
+    elif has_resolved_refs(revision_dir):
+        fact_path = scope_decision_fact_path(revision_dir)
     try:
         ensure_claim_ledger(revision_dir, decision_fact_path=fact_path)
     except (FileNotFoundError, ValueError, OSError, json.JSONDecodeError, UnicodeDecodeError) as exc:
         return f"decision-fact claim ledger: {exc}"
     return None
+
+
+def _inductive_scope_ref_path(
+    cycle_id: str,
+    project_root: Path,
+    profile_id: str,
+) -> Path:
+    """Resolve inductive ``$SCOPE_REF``: L mirror fact_path when scope-package (A1)."""
+    from scope_package_convert import (  # noqa: WPS433
+        ScopePackageAntiseepError,
+        focus_seed_fact_path,
+        revision_uses_scope_package,
+    )
+    from scope_package_schema import is_scope_package_path  # noqa: WPS433
+
+    scope_path = _scope_doc(cycle_id, project_root, profile_id)
+    revision_dir = _revision_dir(cycle_id, project_root, profile_id)
+    if revision_uses_scope_package(revision_dir) or is_scope_package_path(scope_path):
+        try:
+            fact = focus_seed_fact_path(revision_dir)
+        except ScopePackageAntiseepError:
+            raise
+        return Path(fact)
+    return scope_path
 
 
 def _format_inductive_dispatch_input(
@@ -248,10 +289,11 @@ def _format_inductive_dispatch_input(
 ) -> str:
     intent_refs = intent_baseline_from_workflow(cycle_id, project_root, profile_id)
     norm_refs = norm_constraint_from_workflow(cycle_id, project_root, profile_id)
+    scope_ref = _inductive_scope_ref_path(cycle_id, project_root, profile_id)
     lines = [
         f"COMPOSE_PROFILE:      {profile_id}",
         f"CYCLE_ID:             {cycle_id}",
-        f"SCOPE_REF:            {_scope_doc(cycle_id, project_root, profile_id).as_posix()}",
+        f"SCOPE_REF:            {scope_ref.as_posix()}",
         f"INTENT_BASELINE_REFS: {serialize_delivered_refs(intent_refs)}",
         f"NORM_CONSTRAINT_REFS: {serialize_delivered_refs(norm_refs)}",
         f"INDUCTIVE_OUT_DIR:    {_inductive_out_dir(cycle_id, project_root, profile_id).as_posix()}",
@@ -370,7 +412,14 @@ def begin_inductive(
     claim_err = _ensure_decision_fact_claims(cycle_id, project_root, profile_id)
     if claim_err:
         return _failure(_CMD_BEGIN_INDUCTIVE, claim_err)
-    dispatch_input = _format_inductive_dispatch_input(cycle_id, project_root, profile_id)
+    from scope_package_convert import ScopePackageAntiseepError  # noqa: WPS433
+
+    try:
+        dispatch_input = _format_inductive_dispatch_input(
+            cycle_id, project_root, profile_id,
+        )
+    except ScopePackageAntiseepError as exc:
+        return _failure(_CMD_BEGIN_INDUCTIVE, str(exc))
     save_l_step_progress(
         progress_path,
         {"version": "1", "cycle_id": cycle_id, "current_step": _STEP_INDUCTIVE},
