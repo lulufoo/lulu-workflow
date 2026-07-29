@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 from typing import Optional
 
-from dec_domain_constraints_schema import KERNEL_STAGE, load_domain_constraints
+from dec_domain_constraints_schema import load_domain_constraints
 
 
 def default_cache_subdir(stage: str) -> str:
@@ -15,7 +15,11 @@ def default_cache_subdir(stage: str) -> str:
 
 
 def find_session_dir(project_root: Path, cycle_id: str, stage: str, cache_root: Path) -> Path | None:
-    """Locate session dir by domain-constraints stage field under cache/cycle_id."""
+    """Locate session dir by domain-constraints stage field under cache/cycle_id.
+
+    When multiple nested sessions share the same stage (e.g. lulu-approach main/Dx),
+    callers must pass an explicit ``session_dir`` instead of relying on this scan.
+    """
     cycle_base = project_root / cache_root / cycle_id
     if not cycle_base.is_dir():
         return None
@@ -32,6 +36,35 @@ def find_session_dir(project_root: Path, cycle_id: str, stage: str, cache_root: 
         if str(data.get("stage", "")).strip() == stage:
             return sub
     return None
+
+
+def parse_session_dir_arg(raw: str | None, project_root: Path) -> Path | None:
+    """Parse ``--session-dir``; when set, skip ``find_session_dir`` (P1.1 A)."""
+    if raw is None:
+        return None
+    text = str(raw).strip()
+    if not text:
+        return None
+    candidate = Path(text).expanduser()
+    if not candidate.is_absolute():
+        candidate = (project_root / candidate).resolve()
+    else:
+        candidate = candidate.resolve()
+    return candidate
+
+
+def session_artifact_paths(session_dir: Path) -> dict[str, Path]:
+    """Artifact paths under an explicit nested session root."""
+    base = session_dir
+    return {
+        "session_dir": base,
+        "session_state": base / "session-state.md",
+        "gate_state": base / "gate-state.json",
+        "registers": base / "registers.json",
+        "decision_doc": base / "decision-doc.md",
+        "payloads_dir": base / "gate-payloads",
+        "domain_constraints": base / "domain-constraints.json",
+    }
 
 
 def session_cache_subdir(

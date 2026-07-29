@@ -28,6 +28,9 @@ from dec_workflow_common import (
     write_active_context,
     write_session_state,
 )
+from dec_session_paths import parse_session_dir_arg
+from dec_session_state_schema import session_state_file
+
 
 
 def _find_latest_delivered_stage(cycle_id: str, cycle_type: str,
@@ -86,6 +89,14 @@ def parse_args() -> argparse.Namespace:
             "written to disk by the holder's own resolver script (e.g. resolve_context.py) "
             "— decision performs no path resolution itself, it only reads this file as-is "
             "at init time. Never pass JSON content directly on the command line."
+        ),
+    )
+    parser.add_argument(
+        "--session-dir",
+        default="",
+        help=(
+            "Explicit nested session root (P1.1 A). When set, skips find_session_dir "
+            "and initializes artifacts under this directory."
         ),
     )
     return parser.parse_known_args()[0]
@@ -159,18 +170,23 @@ def main() -> int:
         print(f"错误：--domain-constraints-file {e}", file=sys.stderr)
         return 1
 
-    session_dir = project_root / session_base_dir(
-        cycle_id,
-        stage,
-        project_root=project_root,
-        constraints_path=constraints_path,
-    )
-    ss_path = project_root / session_state_path(
-        cycle_id,
-        stage,
-        project_root=project_root,
-        constraints_path=constraints_path,
-    )
+    session_dir_override = parse_session_dir_arg(args.session_dir, project_root)
+    if session_dir_override is not None:
+        session_dir = session_dir_override
+        ss_path = session_state_file(session_dir)
+    else:
+        session_dir = project_root / session_base_dir(
+            cycle_id,
+            stage,
+            project_root=project_root,
+            constraints_path=constraints_path,
+        )
+        ss_path = project_root / session_state_path(
+            cycle_id,
+            stage,
+            project_root=project_root,
+            constraints_path=constraints_path,
+        )
 
     if needs_migration(session_dir):
         migrate_rc = cmd_migrate_session(
@@ -178,6 +194,7 @@ def main() -> int:
             cycle_id,
             stage,
             constraints_path=constraints_path,
+            session_dir=session_dir_override,
         )
         if migrate_rc != 0:
             return migrate_rc
@@ -199,8 +216,12 @@ def main() -> int:
 
     if ss_path.exists() and (session_dir / "gate-state.json").exists():
         state = parse_frontmatter(ss_path.read_text(encoding="utf-8")).get("current_state", "")
-        if state == "InProgress":
-            print("错误：会话已在进行中，请勿重复 start。", file=sys.stderr)
+        if state in ("InProgress", "Frozen"):
+            print(
+                f"错误：会话状态为 {state}，请勿重复 start"
+                + ("；Delivered 后重开请用 $DEC_REOPEN。" if state == "Frozen" else "。"),
+                file=sys.stderr,
+            )
             return 1
 
     init_rc = cmd_init_session(
@@ -209,6 +230,7 @@ def main() -> int:
         stage,
         constraints_path=constraints_path,
         domain_override=domain_override,
+        session_dir=session_dir_override,
     )
     if init_rc != 0:
         return init_rc

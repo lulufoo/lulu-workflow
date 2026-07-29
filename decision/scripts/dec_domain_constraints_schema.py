@@ -172,6 +172,13 @@ def normalize_domain_constraints(data: dict[str, Any]) -> dict[str, Any]:
     objective = str(data.get("objective", "")).strip()
     if objective:
         normalized["objective"] = objective
+    # Nested approach sessions (P1.2 C): optional identity within stage=lulu-approach.
+    node_id = str(data.get("node_id", "")).strip()
+    if node_id:
+        normalized["node_id"] = node_id
+    session_role = str(data.get("session_role", "")).strip()
+    if session_role:
+        normalized["session_role"] = session_role
     role = _normalize_role(data)
     if role:
         normalized["role"] = role
@@ -339,6 +346,10 @@ def merge_domain_constraints(
         # (see scripts/context_loading.py) — decision never computes this
         # itself, it only stores whatever it's handed here.
         merged["context"] = override["context"]
+    if "node_id" in override:
+        merged["node_id"] = override["node_id"]
+    if "session_role" in override:
+        merged["session_role"] = override["session_role"]
     return normalize_domain_constraints(merged)
 
 

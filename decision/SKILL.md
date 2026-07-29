@@ -35,13 +35,14 @@ Do NOT proceed until you have read `../_runtime.md` and loaded:
 
 | Macro | Command |
 |-------|---------|
-| `$DEC_START` | `python3 "$SKILL_DIR/scripts/dec_start.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" [--domain-constraints-file "<path>"]` |
-| `$GATE_CONTROL` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>"` |
-| `$GET_PAYLOAD` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" get-payload` |
-| `$BATCH_RECLOSE` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" batch-reclose --payloads '<json object>'` |
+| `$DEC_START` | `python3 "$SKILL_DIR/scripts/dec_start.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" [--domain-constraints-file "<path>"] [--session-dir "<session_dir>"]` |
+| `$DEC_REOPEN` | `python3 "$SKILL_DIR/scripts/dec_reopen.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" [--session-dir "<session_dir>"]` |
+| `$GATE_CONTROL` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" [--session-dir "<session_dir>"]` |
+| `$GET_PAYLOAD` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" [--session-dir "<session_dir>"] get-payload` |
+| `$BATCH_RECLOSE` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" [--session-dir "<session_dir>"] batch-reclose --payloads '<json object>'` |
 | `$REGISTER_CONTROL` | `python3 "$SKILL_DIR/scripts/dec_register_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>"` |
 | `$REGISTER_COMMIT` | `python3 "$SKILL_DIR/scripts/dec_register_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" register-commit --operations '<json array>'` |
-| `$RS_COMMIT` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" rs-commit --gate "<G>" --operations '<json array>'` |
+| `$RS_COMMIT` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" [--session-dir "<session_dir>"] rs-commit --gate "<G>" --operations '<json array>'` |
 | `$SESSION_INTEGRITY` | `python3 "$SKILL_DIR/scripts/dec_session_integrity.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>"` |
 
 Subcommand contracts: module docstrings / `--help`.
@@ -67,7 +68,9 @@ When `$DEC_START` receives `--conversation-id`:
 
 SSOT for conversation → cycle mapping: platform `active-context.json`. Does **not** use `cache/decision/<conversation_id>/`.
 
-**Do not** run `$DEC_START` again after Delivery (`Delivered`) on the same feature — use a new feature for a new decision session.
+**Do not** run `$DEC_START` again after Delivery (`Delivered`) on the same feature — use `$DEC_REOPEN` (sets session `Frozen`, then RS → `$RS_COMMIT` to stale and unfreeze). Use a new feature for a wholly new decision session.
+
+**Nested session root:** when the outer shell places a session under e.g. `…/lulu-approach/main/` or `…/Dx/`, pass `--session-dir` on `$DEC_START` / `$DEC_REOPEN` / `$GATE_CONTROL` / `$RS_COMMIT` so gate commands do not rely on a unique stage scan.
 
 ---
 

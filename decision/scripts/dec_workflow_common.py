@@ -1,10 +1,7 @@
 import json
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
-
-from dec_io import atomic_write_text
 
 _SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
 if str(_SCRIPTS) not in sys.path:
@@ -145,16 +142,9 @@ def domain_constraints_path(
 
 
 def write_session_state(path: Path, current_state: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    now = datetime.now(timezone.utc).isoformat()
-    content = (
-        f"---\n"
-        f"version: 1\n"
-        f"current_state: {current_state}\n"
-        f"updated_at: {now}\n"
-        f"---\n"
-    )
-    atomic_write_text(path, content)
+    from dec_session_state_schema import write_session_state as _write
+
+    _write(path, current_state)
 
 
 def normalize_tool_path(raw_path: str, project_root: Path) -> str:

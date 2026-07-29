@@ -10,7 +10,7 @@ from typing import List, Optional
 _VALID_STATES = frozenset({"Drafting", "Evaluating", "TDABlocked", "Delivered", "Invalidated"})
 
 STAGE_FLAT = frozenset({"decision", "lulu-bet", "lulu-approach"})
-_FLAT_VALID_STATES = frozenset({"InProgress", "Delivered", "Invalidated"})
+_FLAT_VALID_STATES = frozenset({"InProgress", "Frozen", "Delivered", "Invalidated"})
 _STAGE_REVISION_PAT = re.compile(r"^(revision|r|s)\d+$")
 
 _STAGE_FLAT = STAGE_FLAT
