@@ -30,16 +30,23 @@ from cycle_delivered_refs import (  # noqa: E402
 
 @dataclass(frozen=True)
 class DeliveredRef:
-    """Upstream delivered stage reference (doc path + optional decision-fact)."""
+    """Upstream delivered stage reference (doc path + optional decision-fact).
+
+    ``artifact`` marks delivery shape (archive-1.0 P0.7): e.g.
+    ``decision-package`` when ``path`` points at ``decision-package.json``.
+    """
 
     type: str
     path: str
     decision_fact_path: str = ""
+    artifact: str = ""
 
     def to_dict(self) -> dict[str, str]:
         out: dict[str, str] = {"type": self.type, "path": self.path}
         if self.decision_fact_path:
             out["decision_fact_path"] = self.decision_fact_path
+        if self.artifact:
+            out["artifact"] = self.artifact
         return out
 
 
@@ -59,10 +66,12 @@ def ref_from_file_entry(delivered_type: str, data: dict[str, Any]) -> DeliveredR
     if not raw_path:
         return None
     decision_fact = str(entry.get("decision_fact_path", "")).strip()
+    artifact = str(entry.get("artifact", "")).strip()
     return DeliveredRef(
         type=delivered_type,
         path=raw_path,
         decision_fact_path=decision_fact,
+        artifact=artifact,
     )
 
 
@@ -88,11 +97,13 @@ def parse_delivered_refs(state: dict[str, Any]) -> list[DeliveredRef]:
         if not dtype or not path:
             raise ValueError("delivered_refs item requires non-empty type and path")
         decision_fact_path = str(item.get("decision_fact_path", "")).strip()
+        artifact = str(item.get("artifact", "")).strip()
         refs.append(
             DeliveredRef(
                 type=dtype,
                 path=path,
                 decision_fact_path=decision_fact_path,
+                artifact=artifact,
             )
         )
     return refs
