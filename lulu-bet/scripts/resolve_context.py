@@ -1,19 +1,10 @@
 #!/usr/bin/env python3
-"""Resolve lulu-bet's context sources before handing off to decision.
+"""Resolve lulu-bet's context.docs before handing off to decision.
 
-``context.sources`` is 100% auto-derived from ``(cycle_id, stage)`` by the
-shared kernel resolver (``scripts/context_loading.py``) — this script
-validates that lulu-bet's own constraints-$CYCLE_TYPE.json template exists
-and is well-formed, then writes ``{"context": {...}}`` to a file next to
-where the session's own ``domain-constraints.json`` will live and prints
-*that file's path* to stdout (never the JSON content itself — large/quoted
-JSON does not belong on a command line). The caller (lulu-bet's SKILL.md)
-passes that path straight through to ``$DEC_START`` via
-``--domain-constraints-file``.
-
-decision itself never runs this resolution — it only reads whatever file it
-is handed here (see docs/skill/skill-architecture-constraints.md §
-lulu-dev-workflow Module Dependencies).
+``context.docs`` is auto-derived from ``(cycle_id, stage)`` by the shared
+kernel resolver (``scripts/context_loading.py``). This script validates the
+constraints template, writes ``{"context": {"docs": {...}}}`` to a file, and
+prints that file's path for ``$DEC_START --domain-constraints-file``.
 """
 
 from __future__ import annotations

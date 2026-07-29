@@ -31,10 +31,9 @@ Do NOT proceed until you have read `../../../_runtime.md`
    - `objective` — session intent; frame the entire gate within this goal
    - `role.instruction` — persona and language stance
    - `domain.instruction` — domain boundary constraints
-3. Context loading per `$SKILL_DIR/gates/o-open-channel.md`
-4. Open channel dialogue — on identification hit → G0 runner → `G0_COMPLETE` → continue
-5. After user confirms ready for Q (G8): `$GATE_CONTROL gate-close --gate O --payload '{"user_confirmed": true}'`
-6. Return `GATE_COMPLETE O` to parent
+3. Open channel dialogue — parent context docs are loaded at Active bind (not in O); on identification hit → G0 runner → `G0_COMPLETE` → continue
+4. After user confirms ready for Q (G8): `$GATE_CONTROL gate-close --gate O --payload '{"user_confirmed": true}'`
+5. Return `GATE_COMPLETE O` to parent
 
 ## gate-close payload
 

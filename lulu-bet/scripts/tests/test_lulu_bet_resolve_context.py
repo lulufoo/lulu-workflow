@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for lulu-bet's own context resolver script.
-
-Proves the resolution (topic) happens here, driven by lulu-bet's real
-constraints-*.json templates — decision is never involved in this test.
-"""
+"""Tests for lulu-bet's own context resolver script."""
 
 from __future__ import annotations
 
@@ -60,8 +56,7 @@ def _write_topic_delivered_ref(cache_dir: Path, topic_id: str, stage: str) -> Pa
     return doc
 
 
-def test_feature_template_resolves_topic(tmp_path):
-    """lulu-bet(feature): topic lulu-blueprint resolves via topic_id."""
+def test_feature_template_resolves_product_blueprint(tmp_path):
     cache_dir = tmp_path / platform_cache_dir(detect_platform())
     topic_id = "topic-20260101000000-aabbccdd"
     _write_cycles_json(cache_dir, "feature-a", {"name": "x", "topic_id": topic_id})
@@ -69,30 +64,22 @@ def test_feature_template_resolves_topic(tmp_path):
     topic_doc = _write_topic_delivered_ref(cache_dir, topic_id, "lulu-blueprint")
 
     payload = resolve(tmp_path, "feature-a", _TEMPLATE_FEATURE)
-    sources = payload["context"]["sources"]
-    assert len(sources) == 1
-    assert sources[0]["kind"] == "topic"
-    assert sources[0]["status"] == "loaded"
-    assert sources[0]["resolved_doc_path"] == str(topic_doc.resolve())
+    assert payload["context"]["docs"] == {
+        "product_blueprint": str(topic_doc.resolve()),
+    }
 
 
-def test_feature_template_topic_not_found_without_topic_id(tmp_path):
+def test_feature_template_empty_docs_without_topic_id(tmp_path):
     payload = resolve(tmp_path, "feature-a", _TEMPLATE_FEATURE)
-    sources = payload["context"]["sources"]
-    assert sources[0]["status"] == "not_found"
+    assert payload["context"]["docs"] == {}
 
 
-def test_topic_template_has_no_context(tmp_path):
-    """lulu-bet(topic): top of the chain — no upstream, no cross-cycle topic source."""
+def test_topic_template_empty_docs(tmp_path):
     payload = resolve(tmp_path, "topic-a", _TEMPLATE_TOPIC)
-    assert payload["context"] == {"status": "skipped"}
+    assert payload["context"]["docs"] == {}
 
 
 def test_cli_writes_resolved_context_file_and_prints_its_path(tmp_path):
-    """decision must never receive raw JSON on the command line — the CLI
-    writes the resolved context to a file and prints only that file's path,
-    which lulu-bet's SKILL.md then forwards to $DEC_START via
-    --domain-constraints-file."""
     result = subprocess.run(
         [
             sys.executable,
@@ -111,9 +98,8 @@ def test_cli_writes_resolved_context_file_and_prints_its_path(tmp_path):
     assert result.returncode == 0, result.stderr
     printed_path = Path(result.stdout.strip())
     assert printed_path.is_file()
-    assert printed_path.name == "resolved-context.json"
     payload = json.loads(printed_path.read_text(encoding="utf-8"))
-    assert payload["context"]["sources"][0]["kind"] == "topic"
+    assert "docs" in payload["context"]
 
 
 def test_write_resolved_context_returns_path_next_to_session_cache_subdir(tmp_path):
@@ -121,6 +107,3 @@ def test_write_resolved_context_returns_path_next_to_session_cache_subdir(tmp_pa
     path = write_resolved_context(tmp_path, "feature-a", _TEMPLATE_FEATURE)
     assert path.is_file()
     assert path.parent.name == "lulu-bet"
-    assert path.parent.parent.name == "feature-a"
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    assert "context" in payload

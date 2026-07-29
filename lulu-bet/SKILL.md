@@ -36,7 +36,7 @@ Subcommand contract: module docstring / `--help`.
 
 Complete `_runtime.md` § Session Foundation before running decision start.
 
-**Step 1: Run `$RESOLVE_CONTEXT`.** `sources[]` fully auto-derived from `(cycle_id, stage)` (upstream via the transition graph, topic doc via `topic_id`), each with `status` / `resolved_doc_path` already filled in. This holder resolves its own context, `decision` never does. It writes `{"context": {...}}` to a file and prints *that file's path* to stdout (never JSON content on the command line) — capture stdout as `$RESOLVED_CONTEXT_PATH`. Non-zero exit → stop and report stderr.
+**Step 1: Run `$RESOLVE_CONTEXT`.** Holder builds flat `context.docs` map (key→path); missing docs omit keys. Writes to a file and prints that path — capture as `$RESOLVED_CONTEXT_PATH`. Non-zero exit → stop and report stderr.
 
 **Step 2: Run `$DEC_START`** from `decision/SKILL.md` § Start with:
 

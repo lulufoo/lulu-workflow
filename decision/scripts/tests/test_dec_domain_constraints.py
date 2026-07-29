@@ -240,11 +240,10 @@ def test_load_constraints_config_from_explicit_path() -> None:
     assert tech["cache_subdir"] == "lulu-approach"
     assert product["role"]["persona"] == "product_thinker"
     assert tech["role"]["persona"] == "technical_decision_maker"
-    # constraints-*.json templates only ever carry an empty placeholder —
-    # context.sources is 100% auto-derived at runtime by resolve_context.py
-    # (scripts/context_loading.py), never declared here.
-    assert product["context"] == {"sources": []}
-    assert tech["context"] == {"sources": []}
+    # constraints-*.json templates only ever carry an empty docs placeholder —
+    # context.docs is 100% auto-derived at runtime by resolve_context.py
+    assert product["context"] == {"docs": {}}
+    assert tech["context"] == {"docs": {}}
     for holder in (product, tech):
         assert holder["objective"]
         assert holder["domain"]["name"]
@@ -306,47 +305,33 @@ def test_session_cache_subdir_from_constraints_path(
 
 def test_merge_domain_constraints_context_replaces_whole_block() -> None:
     """The override's context fully replaces the base one — a holder's
-    resolver script hands in an already-resolved block, and
-    merge_domain_constraints must not attempt to deep-merge it field by
-    field (the base template only ever carries an empty sources placeholder,
-    so a field merge would just be a no-op passthrough instead of the
-    freshly resolved payload)."""
+    resolver script hands in an already-resolved docs map."""
     from dec_domain_constraints_schema import load_constraints_config, merge_domain_constraints
 
     base = load_constraints_config(_holder_constraints("lulu-approach"))
-    assert base["context"] == {"sources": []}
+    assert base["context"] == {"docs": {}}
 
     override = {
         "context": {
-            "sources": [
-                {
-                    "kind": "topic",
-                    "loaded_message": "topic ctx",
-                    "status": "loaded",
-                    "resolved_doc_path": "/cache/topic-line/lulu-arch/revision1/lulu-arch-doc.md",
-                },
-            ],
+            "docs": {
+                "tech_arch": "/cache/topic-line/lulu-arch/revision1/arch-doc.md",
+            },
         },
     }
     merged = merge_domain_constraints(base, override)
     assert merged["context"] == {
-        "sources": [
-            {
-                "kind": "topic",
-                "loaded_message": "topic ctx",
-                "status": "loaded",
-                "resolved_doc_path": "/cache/topic-line/lulu-arch/revision1/lulu-arch-doc.md",
-            },
-        ],
+        "docs": {
+            "tech_arch": "/cache/topic-line/lulu-arch/revision1/arch-doc.md",
+        },
     }
 
 
-def test_merge_domain_constraints_context_skipped_status_passes_through() -> None:
+def test_merge_domain_constraints_empty_docs_passes_through() -> None:
     from dec_domain_constraints_schema import load_constraints_config, merge_domain_constraints
 
     base = load_constraints_config(_holder_constraints("lulu-bet"))
-    merged = merge_domain_constraints(base, {"context": {"status": "skipped"}})
-    assert merged["context"] == {"status": "skipped"}
+    merged = merge_domain_constraints(base, {"context": {"docs": {}}})
+    assert merged["context"] == {"docs": {}}
 
 
 def test_merge_domain_constraints_without_context_override_keeps_base() -> None:

@@ -30,7 +30,7 @@ Machine constraints SSOT: `$SKILL_DIR/constraints-$CYCLE_TYPE.json` (resolve `$C
 
 | Macro | Command |
 |-------|---------|
-| `$RESOLVE_CONTEXT` | `python3 "$SKILL_DIR/scripts/resolve_context.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json"` |
+| `$RESOLVE_CONTEXT` | `python3 "$SKILL_DIR/scripts/resolve_context.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json" [--session-dir "<main_or_Dx>"]` |
 | `$APPROACH_SHELL` | `python3 "$SKILL_DIR/scripts/approach_shell_control.py" --approach-root "$CACHE_DIR/<cycle_id>/lulu-approach"` |
 | `$APPROACH_SPLIT` | `python3 "$SKILL_DIR/scripts/approach_split_control.py" --approach-root "$CACHE_DIR/<cycle_id>/lulu-approach"` |
 
@@ -40,7 +40,7 @@ Subcommand contract: module docstring / `--help`.
 
 Complete `_runtime.md` § Session Foundation before running decision start.
 
-**Step 1: Run `$RESOLVE_CONTEXT`.** `sources[]` fully auto-derived from `(cycle_id, stage)` (upstream via the transition graph, topic doc via `topic_id`), each with `status` / `resolved_doc_path` already filled in. This holder resolves its own context, `decision` never does. It writes `{"context": {...}}` to a file and prints *that file's path* to stdout (never JSON content on the command line) — capture stdout as `$RESOLVED_CONTEXT_PATH`. Non-zero exit → stop and report stderr.
+**Step 1: Run `$RESOLVE_CONTEXT`** (optionally `--session-dir` for `main/` or `Dx/`). Holder builds flat `context.docs` map (key→path); missing docs omit keys. Dx requires `main/decision-doc.md` or exits non-zero. Writes `{"context":{"docs":{…}}}` to a file and prints that path — capture as `$RESOLVED_CONTEXT_PATH`. Non-zero exit → stop and report stderr.
 
 **Step 2: Init outer shell.** Run `$APPROACH_SHELL init-shell`. Creates the approach outer root and `main/` session directory under cache. Approach root = `$CACHE_DIR/<cycle_id>/lulu-approach`; Main DDF session dir = `$CACHE_DIR/<cycle_id>/lulu-approach/main`.
 
@@ -53,7 +53,13 @@ Complete `_runtime.md` § Session Foundation before running decision start.
 --session-dir "$CACHE_DIR/<cycle_id>/lulu-approach/main"
 ```
 
-Pass the same `--constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json"` on every `$GATE_CONTROL` / `$REGISTER_*` invocation. `--domain-constraints-file` and `--session-dir` are only for `$DEC_START` / `$DEC_SET_ACTIVE` (see `decision/SKILL.md` § Active Session). After start, run `$GATE_CONTROL resolve-context` and declare the active session before gate dialogue.
+On success, stdout JSON includes `context_docs`. Then:
+
+1. `$GATE_CONTROL resolve-context` — pin `$CTX` only (does **not** load docs)
+2. For each key in `context_docs`: read-only load the path; tell the user what kind it is (`product_spec` / `tech_arch` / …)
+3. Declare the active session before gate dialogue
+
+Pass the same `--constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json"` on every `$GATE_CONTROL` / `$REGISTER_*` invocation. `--domain-constraints-file` and `--session-dir` are only for `$DEC_START` / `$DEC_SET_ACTIVE`.
 
 > If `$DEC_START` exits non-zero ("Gate blocked: <stage> is not Delivered"): tell the user which prior stage must be delivered first. Do not retry start.
 
@@ -61,11 +67,15 @@ Pass the same `--constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json"` on every
 
 When `$APPROACH_SHELL enter-working` / `set-focus` succeeds, stdout may list required next macros. **Always** complete:
 
-1. If the Dx session is new: `$DEC_START --session-dir …/Dx` (sets Active).
-2. Else: `$DEC_SET_ACTIVE --session-dir …/Dx`.
-3. `$GATE_CONTROL resolve-context` — pin new `$CTX` (mandatory; do not reuse prior `$CTX`).
-4. Declare to the user: session switched to that node; prior session conclusions do not carry over.
-5. Only then continue DDF / `$REGISTER_*` on Active (no `--session-dir` on those macros).
+1. `$RESOLVE_CONTEXT --session-dir …/Dx` — re-resolve map for that node (Dx hard-fails without main decision doc). Capture new `$RESOLVED_CONTEXT_PATH`.
+2. If the Dx session is new: `$DEC_START --session-dir …/Dx --domain-constraints-file "$RESOLVED_CONTEXT_PATH"`.
+3. Else: `$DEC_SET_ACTIVE --session-dir …/Dx --domain-constraints-file "$RESOLVED_CONTEXT_PATH"`.
+4. `$GATE_CONTROL resolve-context` — pin new `$CTX` (mandatory; do not reuse prior `$CTX`).
+5. Load each path in stdout/`context_docs` read-only and place them at the front of attention (do **not** load prior Dx docs).
+6. Declare to the user: session switched to that node; prior session conclusions do not carry over.
+7. Only then continue DDF / `$REGISTER_*` on Active (no `--session-dir` on those macros).
+
+**Same-Active restore** (new window, Active unchanged): re-run `$RESOLVE_CONTEXT --session-dir <current>` then `$DEC_SET_ACTIVE --session-dir <current> --domain-constraints-file …` → `resolve-context` → load `context_docs` once → continue.
 
 **Do not** treat shell focus change alone as a completed session switch.
 

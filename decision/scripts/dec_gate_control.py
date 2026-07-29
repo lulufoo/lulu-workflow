@@ -273,6 +273,8 @@ def cmd_init_session(
     except (FileNotFoundError, ValueError) as exc:
         return _emit_error(f"failed to set Active Session: {exc}")
 
+    from dec_domain_constraints_schema import context_docs_map  # noqa: WPS433
+
     _emit(
         {
             "ok": True,
@@ -285,6 +287,8 @@ def cmd_init_session(
             "domain_constraints_path": paths["domain_constraints"].as_posix(),
             "active_gate": gate_state["active_gate"],
             "domain_constraints": constraints,
+            "context_docs": context_docs_map(constraints),
+            "message": "诊断会话已启动。工作流已就绪，可以开始 DDF 节点执行。",
         }
     )
     return 0
@@ -355,7 +359,7 @@ def build_resolve_context_payload(
         # decision never resolves context itself — this is a pure read of
         # whatever the holder's own resolver script handed to $DEC_START at init
         # time via --domain-constraints-file (frozen into the session's own copy).
-        "context": constraints.get("context") or {"status": "skipped"},
+        "context": constraints.get("context") or {"docs": {}},
         "after_dc": build_after_dc(stage, cycle_type),
     }
 

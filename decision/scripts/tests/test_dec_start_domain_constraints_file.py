@@ -79,14 +79,9 @@ def test_domain_constraints_file_merged_into_session(project_root: Path) -> None
     resolved.write_text(
         json.dumps({
             "context": {
-                "sources": [
-                    {
-                        "kind": "topic",
-                        "status": "loaded",
-                        "resolved_doc_path": "/cache/topic-line/lulu-blueprint/revision1/lulu-blueprint-doc.md",
-                        "loaded_message": "topic ctx",
-                    },
-                ],
+                "docs": {
+                    "product_blueprint": "/cache/topic-line/lulu-blueprint/revision1/lulu-blueprint-doc.md",
+                },
             },
         }),
         encoding="utf-8",
@@ -94,6 +89,9 @@ def test_domain_constraints_file_merged_into_session(project_root: Path) -> None
 
     result = _run_dec_start(project_root, cycle_id, "--domain-constraints-file", str(resolved))
     assert result.returncode == 0, result.stderr
+    start_payload = json.loads(result.stdout)
+    assert start_payload["ok"] is True
+    assert "product_blueprint" in start_payload["context_docs"]
 
     dc_path = project_root / domain_constraints_path(
         cycle_id, "lulu-bet",
@@ -101,10 +99,7 @@ def test_domain_constraints_file_merged_into_session(project_root: Path) -> None
         constraints_path=_WORKFLOW_ROOT / "lulu-bet" / "constraints-feature.json",
     )
     constraints = load_domain_constraints(dc_path)
-    sources = constraints["context"]["sources"]
-    assert len(sources) == 1
-    assert sources[0]["status"] == "loaded"
-    assert sources[0]["kind"] == "topic"
+    assert constraints["context"]["docs"]["product_blueprint"].endswith("lulu-blueprint-doc.md")
 
 
 def test_domain_constraints_file_missing_path_errors(project_root: Path) -> None:

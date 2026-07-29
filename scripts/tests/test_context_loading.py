@@ -1,12 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for context_loading.build_context_loading — upstream + topic sources.
-
-This is the shared kernel resolver used by stage-owned resolver scripts
-(e.g. lulu-approach/scripts/resolve_context.py) — decision itself never
-imports it. Every source has entirely auto-derived from ``(cycle_id, stage)``
-via ``transition-table.json`` + each predecessor's own ``compose-profile.json``
-— no ``constraints-*.json`` template is read here.
-"""
+"""Tests for context_loading.build_context_loading — flat context.docs map."""
 
 from __future__ import annotations
 
@@ -67,50 +60,30 @@ def _write_topic_delivered_ref(cache_dir: Path, topic_id: str, ref_stage: str) -
     return doc
 
 
-def test_lulu_bet_topic_cycle_has_no_predecessor_or_topic_returns_skipped(tmp_path):
+def test_lulu_bet_topic_cycle_empty_docs(tmp_path):
     result = build_context_loading("topic-a", "lulu-bet", cache_dir=tmp_path)
-    assert result == {"status": "skipped"}
+    assert result == {"docs": {}}
 
 
-def test_lulu_bet_feature_cycle_topic_source_loaded(tmp_path):
+def test_lulu_bet_feature_cycle_topic_blueprint_loaded(tmp_path):
     topic_id = "topic-20260101000000-aabbccdd"
     _write_cycles_json(tmp_path, "feature-a", {"name": "x", "topic_id": topic_id})
     _write_cycles_json(tmp_path, topic_id, {"name": "t"})
     doc = _write_topic_delivered_ref(tmp_path, topic_id, "lulu-blueprint")
 
     result = build_context_loading("feature-a", "lulu-bet", cache_dir=tmp_path)
-    assert result["sources"] == [
-        {
-            "kind": "topic",
-            "status": "loaded",
-            "resolved_doc_path": str(doc.resolve()),
-            "loaded_message": result["sources"][0]["loaded_message"],
-        },
-    ]
-    assert "lulu-blueprint" in result["sources"][0]["loaded_message"]
+    assert result["docs"] == {
+        "product_blueprint": str(doc.resolve()),
+    }
 
 
-def test_lulu_bet_feature_cycle_topic_source_not_found_without_topic_id(tmp_path):
+def test_lulu_bet_feature_cycle_omits_missing_topic(tmp_path):
     _write_cycles_json(tmp_path, "feature-a", {"name": "x"})
     result = build_context_loading("feature-a", "lulu-bet", cache_dir=tmp_path)
-    assert result["sources"] == [
-        {
-            "kind": "topic",
-            "status": "not_found",
-            "resolved_doc_path": "",
-            "loaded_message": result["sources"][0]["loaded_message"],
-        },
-    ]
+    assert result == {"docs": {}}
 
 
-def test_lulu_bet_feature_cycle_never_has_an_upstream_source(tmp_path):
-    """lulu-bet is a feature-graph entry point — only a topic source can ever apply."""
-    _write_cycles_json(tmp_path, "feature-a", {"name": "x"})
-    result = build_context_loading("feature-a", "lulu-bet", cache_dir=tmp_path)
-    assert [src["kind"] for src in result["sources"]] == ["topic"]
-
-
-def test_lulu_approach_feature_cycle_upstream_and_topic_both_resolved(tmp_path):
+def test_lulu_approach_feature_cycle_product_spec_and_tech_arch(tmp_path):
     topic_id = "topic-20260101000000-aabbccdd"
     _write_cycles_json(tmp_path, "feature-a", {"name": "x", "topic_id": topic_id})
     _write_cycles_json(tmp_path, topic_id, {"name": "t"})
@@ -118,39 +91,22 @@ def test_lulu_approach_feature_cycle_upstream_and_topic_both_resolved(tmp_path):
     topic_doc = _write_topic_delivered_ref(tmp_path, topic_id, "lulu-arch")
 
     result = build_context_loading("feature-a", "lulu-approach", cache_dir=tmp_path)
-    by_kind = {src["kind"]: src for src in result["sources"]}
-    assert by_kind["upstream"]["status"] == "loaded"
-    assert by_kind["upstream"]["resolved_doc_path"] == upstream_doc.resolve().as_posix()
-    assert by_kind["topic"]["status"] == "loaded"
-    assert by_kind["topic"]["resolved_doc_path"] == str(topic_doc.resolve())
-    for src in result["sources"]:
-        assert set(src) == {"kind", "status", "resolved_doc_path", "loaded_message"}
+    assert result["docs"]["product_spec"] == upstream_doc.resolve().as_posix()
+    assert result["docs"]["tech_arch"] == str(topic_doc.resolve())
 
 
-def test_lulu_approach_feature_cycle_upstream_not_found_when_undelivered(tmp_path):
+def test_lulu_approach_feature_cycle_omits_undelivered_upstream(tmp_path):
     _write_cycles_json(tmp_path, "feature-a", {"name": "x"})
     result = build_context_loading("feature-a", "lulu-approach", cache_dir=tmp_path)
-    by_kind = {src["kind"]: src for src in result["sources"]}
-    assert by_kind["upstream"] == {
-        "kind": "upstream",
-        "status": "not_found",
-        "resolved_doc_path": "",
-        "loaded_message": by_kind["upstream"]["loaded_message"],
-    }
+    assert "product_spec" not in result["docs"]
 
 
-def test_lulu_approach_topic_cycle_has_upstream_only_no_topic(tmp_path):
-    """topic-cycle lulu-approach's predecessor is lulu-blueprint; no outer topic applies."""
+def test_lulu_approach_topic_cycle_blueprint_only(tmp_path):
     doc = _make_upstream_doc(tmp_path, "topic-a", "lulu-blueprint", "product-doc.md")
     result = build_context_loading("topic-a", "lulu-approach", cache_dir=tmp_path)
-    assert result["sources"] == [
-        {
-            "kind": "upstream",
-            "status": "loaded",
-            "resolved_doc_path": doc.resolve().as_posix(),
-            "loaded_message": result["sources"][0]["loaded_message"],
-        },
-    ]
+    assert result["docs"] == {
+        "product_blueprint": doc.resolve().as_posix(),
+    }
 
 
 def test_predecessor_stage_returns_none_for_entry_point():

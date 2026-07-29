@@ -260,14 +260,7 @@ def main() -> int:
     )
     write_cycle_state(cycle_id, stage, cache_dir)
 
-    print(f"""
-诊断会话已启动。
-
-会话状态文件：{ss_path.as_posix()}
-当前状态：InProgress
-
-工作流已就绪，可以开始 DDF 节点执行。
-""")
+    # context_docs already emitted by cmd_init_session stdout JSON
     return 0
 
 

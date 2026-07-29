@@ -57,9 +57,9 @@ Subcommand contracts: module docstrings / `--help`.
 
 **Step 2: Run `$DEC_START`** — holder stages **must** pass `--constraints` (path to holder `constraints.json`) and `--stage`. Generic `decision` may omit `--constraints`. Non-zero exit → stop and report stderr.
 
-Every holder SKILL **must** resolve its own `context` (its own `scripts/resolve_context.py` or equivalent, which auto-derives `context.sources` from `(cycle_id, stage)` — see `scripts/context_loading.py`) before calling `$DEC_START`. The resolver writes the result to a file and hands `decision` the file's *path* via `--domain-constraints-file` — never raw JSON on the command line. `decision` performs no path resolution of its own — it only reads that file once, at init, and stores its contents as-is.
+Every holder SKILL **must** resolve its own `context` (its own `scripts/resolve_context.py` or equivalent, which auto-derives `context.docs` — flat `key→path` map — see `scripts/context_loading.py`) before calling `$DEC_START`. The resolver writes the result to a file and hands `decision` the file's *path* via `--domain-constraints-file` — never raw JSON on the command line. `decision` performs no path resolution of its own — it only reads that file once, at init (and again on `$DEC_SET_ACTIVE` when a fresh file is passed), and stores its contents as-is.
 
-On success, follow stdout (new session ready, or legacy session migrated). Do **not** inspect session directory files directly — artifact layout is `$DEC_START` / `init-session` contract (`--help`).
+On success, `$DEC_START` / `$DEC_SET_ACTIVE` stdout includes `context_docs`. Binding pipeline: pin `$CTX` via `resolve-context`, then Skill loads each path in `context_docs` read-only **once** (not on every gate `resolve-context`). O gate does not reload parent docs.
 
 **Archive:** When the platform provides a conversation id, pass `--conversation-id "<id>"` on `$DEC_START`.
 
@@ -80,7 +80,7 @@ SSOT for conversation → cycle mapping: platform `active-context.json`. Does **
 |--|--|
 | **Changes** | Default write root; subsequent `$GATE_CONTROL resolve-context` reads that session’s gates / registers / `domain_constraints` |
 | **Does not change** | Other `Dx/` on-disk history; outer-shell focus (holder updates separately) |
-| **Complete when** | Active points at the target **and** Skill has run `$GATE_CONTROL resolve-context` **and** a same-turn “session switched” statement was made |
+| **Complete when** | Active points at the target **and** Skill has run `$GATE_CONTROL resolve-context` **and** Skill has loaded `context_docs` from bind stdout **and** a same-turn “session switched” statement was made |
 | **After switch** | Use only the new `$CTX`; prior session gate conclusions / priors do **not** carry over unless re-registered or re-closed in the new session |
 
 **CLI:** `--session-dir` appears **only** on `$DEC_START` and `$DEC_SET_ACTIVE`. All other decision macros use Active only (missing Active → hard fail).

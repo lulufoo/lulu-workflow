@@ -201,8 +201,10 @@ def enter_working(
         "next_steps": {
             "session_dir": dx.as_posix(),
             "require": [
-                "DEC_START or DEC_SET_ACTIVE with --session-dir",
+                "RESOLVE_CONTEXT with --session-dir",
+                "DEC_START or DEC_SET_ACTIVE with --session-dir and --domain-constraints-file",
                 "GATE_CONTROL resolve-context",
+                "load context_docs",
                 "declare session switched",
             ],
         },
@@ -228,8 +230,10 @@ def set_focus(approach_root: Path, node_id: str) -> dict[str, Any]:
             "next_steps": {
                 "session_dir": dx.as_posix(),
                 "require": [
-                    "DEC_START or DEC_SET_ACTIVE with --session-dir",
+                    "RESOLVE_CONTEXT with --session-dir",
+                    "DEC_START or DEC_SET_ACTIVE with --session-dir and --domain-constraints-file",
                     "GATE_CONTROL resolve-context",
+                    "load context_docs",
                     "declare session switched",
                 ],
             },
@@ -257,8 +261,10 @@ def set_focus(approach_root: Path, node_id: str) -> dict[str, Any]:
         "next_steps": {
             "session_dir": dx.as_posix(),
             "require": [
-                "DEC_START or DEC_SET_ACTIVE with --session-dir",
+                "RESOLVE_CONTEXT with --session-dir",
+                "DEC_START or DEC_SET_ACTIVE with --session-dir and --domain-constraints-file",
                 "GATE_CONTROL resolve-context",
+                "load context_docs",
                 "declare session switched",
             ],
         },
