@@ -42,6 +42,16 @@ _DX_ID_RE = re.compile(r"^D\d+$")
 _SESSION_STATE = "session-state.md"
 
 
+def ensure_dx_on_focus(approach_root: Path, node_id: str) -> Path:
+    """Lazy-create ``Dx/`` on first Working focus (P2.split S3=B)."""
+    root = Path(approach_root).resolve()
+    sid = str(node_id).strip()
+    if not _DX_ID_RE.match(sid):
+        raise ValueError(f"ensure_dx_on_focus expects D<number>, got {node_id!r}")
+    ensure_approach_layout(root, dx_ids=[sid])
+    return dx_session_dir(root, sid)
+
+
 def init_shell(approach_root: Path) -> dict[str, Any]:
     """Create approach layout + initial Main shell pointer."""
     root = ensure_approach_layout(approach_root)
@@ -109,7 +119,7 @@ def mark_node_delivered(approach_root: Path, node_id: str) -> dict[str, Any]:
 
 
 def mark_split_delivered(approach_root: Path) -> dict[str, Any]:
-    """Stub: mark Split phase complete (P2.split owns the real cut)."""
+    """Mark Split Delivered flag only (tests / stub). Prefer ``deliver_split``."""
     shell = load_shell(approach_root)
     if shell["macro_state"] != "Split":
         raise ValueError(
@@ -161,7 +171,9 @@ def enter_working(
     focus_id = str(focus).strip() if focus else ids[0]
     if focus_id not in ids:
         raise ValueError(f"focus {focus_id!r} not in node_ids")
-    ensure_approach_layout(approach_root, dx_ids=ids)
+    # S3=B: create only the focused Dx/; others wait for set_focus
+    ensure_approach_layout(approach_root)
+    ensure_dx_on_focus(approach_root, focus_id)
     by_id = {nid: empty_cell(phase="pending") for nid in ids}
     by_id[focus_id] = empty_cell(phase="in_progress")
     shell["macro_state"] = "Working"
@@ -184,6 +196,7 @@ def set_focus(approach_root: Path, node_id: str) -> dict[str, Any]:
         raise ValueError(f"unknown focus target {target!r}")
     current = shell.get("focus")
     if current == target:
+        ensure_dx_on_focus(approach_root, target)
         return shell
     if current is not None and not is_node_delivered(approach_root, str(current), shell):
         raise ValueError(
@@ -202,6 +215,7 @@ def set_focus(approach_root: Path, node_id: str) -> dict[str, Any]:
     shell["focus"] = target
     shell["by_id"] = by_id
     save_shell(approach_root, shell)
+    ensure_dx_on_focus(approach_root, target)
     return shell
 
 
