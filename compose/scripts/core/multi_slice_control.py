@@ -549,7 +549,6 @@ def assemble_compose_package(
     ]
     package = build_compose_package(
         profile_id=profile_id,
-        order=list(tree["order"]),
         slices=slices,
     )
     errors = validate_compose_package(package)
@@ -580,12 +579,17 @@ def cmd_assemble_package(
         return _emit_error(err)
     assert path is not None
     pkg = load_compose_package(path)
+    slice_ids = [
+        str(s["id"]).strip()
+        for s in pkg.get("slices") or []
+        if isinstance(s, dict) and str(s.get("id", "")).strip()
+    ]
     _emit(
         {
             "ok": True,
             "command": "assemble-package",
             "path": path.as_posix(),
-            "order": list(pkg["order"]),
+            "order": slice_ids,
             "parts": [s["doc_path"] for s in pkg["slices"]],
         }
     )

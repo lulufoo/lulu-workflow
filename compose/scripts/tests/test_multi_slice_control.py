@@ -101,7 +101,8 @@ def test_assemble_package_after_production(tmp_path: Path) -> None:
     pkg_path = rev / "design-package.json"
     assert pkg_path.is_file()
     data = json.loads(pkg_path.read_text(encoding="utf-8"))
-    assert data["order"] == ["L1"]
+    assert "order" not in data
+    assert [s["id"] for s in data["slices"]] == ["L1"]
     assert data["slices"][0]["doc_path"] == "L1/design-doc.md"
 
 

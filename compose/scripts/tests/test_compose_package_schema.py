@@ -28,23 +28,51 @@ def test_package_filename_from_doc() -> None:
     assert package_filename_from_doc("product-doc.md") == "product-package.json"
 
 
+def test_build_omits_order() -> None:
+    pkg = build_compose_package(
+        profile_id="lulu-design",
+        slices=[{"id": "L1", "title": "Only", "doc_path": "L1/design-doc.md"}],
+    )
+    assert "order" not in pkg
+    assert validate_compose_package(pkg) == []
+
+
 def test_validate_accepts_single_l() -> None:
     pkg = build_compose_package(
         profile_id="lulu-design",
-        order=["L1"],
         slices=[{"id": "L1", "title": "Only", "doc_path": "L1/design-doc.md"}],
     )
     assert validate_compose_package(pkg) == []
 
 
-def test_validate_rejects_order_slice_mismatch() -> None:
-    pkg = build_compose_package(
-        profile_id="lulu-design",
-        order=["L1", "L2"],
-        slices=[{"id": "L1", "title": "Only", "doc_path": "L1/design-doc.md"}],
-    )
+def test_validate_ignores_stale_order() -> None:
+    """F2: legacy/mismatched order must not fail validation or drive topology."""
+    pkg = {
+        "version": 1,
+        "profile_id": "lulu-design",
+        "order": ["L2", "L1"],
+        "slices": [
+            {"id": "L1", "title": "A", "doc_path": "L1/design-doc.md"},
+            {"id": "L2", "title": "B", "doc_path": "L2/design-doc.md"},
+        ],
+    }
+    assert validate_compose_package(pkg) == []
+    tree = chain_dependency_tree_from_package(pkg)
+    assert tree["order"] == ["L1", "L2"]
+    assert tree["edges"] == [{"from": "L2", "to": "L1"}]
+
+
+def test_validate_rejects_duplicate_slice_ids() -> None:
+    pkg = {
+        "version": 1,
+        "profile_id": "lulu-design",
+        "slices": [
+            {"id": "L1", "title": "A", "doc_path": "L1/design-doc.md"},
+            {"id": "L1", "title": "B", "doc_path": "L1b/design-doc.md"},
+        ],
+    }
     errors = validate_compose_package(pkg)
-    assert any("order must cover" in e for e in errors)
+    assert any("duplicate id" in e for e in errors)
 
 
 def test_save_and_resolve_focus_doc(tmp_path: Path) -> None:
@@ -55,7 +83,6 @@ def test_save_and_resolve_focus_doc(tmp_path: Path) -> None:
     (rev / "L2" / "design-doc.md").write_text("# L2\n", encoding="utf-8")
     pkg = build_compose_package(
         profile_id="lulu-design",
-        order=["L1", "L2"],
         slices=[
             {"id": "L1", "title": "A", "doc_path": "L1/design-doc.md"},
             {"id": "L2", "title": "B", "doc_path": "L2/design-doc.md"},
@@ -64,7 +91,8 @@ def test_save_and_resolve_focus_doc(tmp_path: Path) -> None:
     path = save_compose_package(rev, "design-doc.md", pkg)
     assert path.name == "design-package.json"
     loaded = load_compose_package(path)
-    assert loaded["order"] == ["L1", "L2"]
+    assert "order" not in loaded
+    assert [s["id"] for s in loaded["slices"]] == ["L1", "L2"]
     assert resolve_focus_doc_path(loaded, "L2", package_path=path) == (
         rev / "L2" / "design-doc.md"
     ).resolve()
@@ -76,7 +104,6 @@ def test_missing_slice_docs(tmp_path: Path) -> None:
     rev.mkdir()
     pkg = build_compose_package(
         profile_id="lulu-design",
-        order=["L1"],
         slices=[{"id": "L1", "title": "Only", "doc_path": "L1/design-doc.md"}],
     )
     assert missing_slice_docs(rev, pkg) == ["L1/design-doc.md"]
@@ -87,7 +114,6 @@ def test_missing_slice_docs(tmp_path: Path) -> None:
 def test_chain_tree_and_stub_rulers() -> None:
     pkg = build_compose_package(
         profile_id="lulu-design",
-        order=["L1", "L2", "L3"],
         slices=[
             {"id": "L1", "title": "A", "doc_path": "L1/design-doc.md"},
             {"id": "L2", "title": "B", "doc_path": "L2/design-doc.md"},
@@ -108,7 +134,6 @@ def test_chain_tree_and_stub_rulers() -> None:
     assert stub_slice_rulers_from_package(
         build_compose_package(
             profile_id="lulu-design",
-            order=["L1"],
             slices=[{"id": "L1", "title": "Only", "doc_path": "L1/design-doc.md"}],
         )
     ) is None

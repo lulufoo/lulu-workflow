@@ -7,11 +7,13 @@ Shape (v1)::
     {
       "version": 1,
       "profile_id": "lulu-design",
-      "order": ["L1", "L2"],
       "slices": [
         {"id": "L1", "title": "...", "doc_path": "L1/design-doc.md"}
       ]
     }
+
+Sequence SSOT is ``slices`` array order. Legacy ``order`` if present is ignored
+(not required; not validated; never drives topology).
 """
 
 from __future__ import annotations
@@ -50,19 +52,23 @@ def compose_package_path(revision_dir: Path, doc_filename: str) -> Path:
 def build_compose_package(
     *,
     profile_id: str,
-    order: list[str],
     slices: list[dict[str, Any]],
     version: int = PACKAGE_VERSION,
 ) -> dict[str, Any]:
+    """Build a new compose package (F1=A: omit ``order``)."""
     return {
         "version": int(version),
         "profile_id": str(profile_id).strip(),
-        "order": list(order),
         "slices": [dict(s) for s in slices],
     }
 
 
 def validate_compose_package(data: dict[str, Any]) -> list[str]:
+    """Validate package shape.
+
+    ``order`` is optional and ignored (F2/F3): presence/absence/mismatch never
+    fails validation; topology readers use ``slices`` array order only.
+    """
     errors: list[str] = []
     if not isinstance(data, dict):
         return ["package must be an object"]
@@ -74,26 +80,12 @@ def validate_compose_package(data: dict[str, Any]) -> list[str]:
     if not isinstance(profile_id, str) or not profile_id.strip():
         errors.append("profile_id must be a non-empty string")
 
-    order = data.get("order")
-    if not isinstance(order, list) or not order:
-        errors.append("order must be a non-empty list")
-        return errors
-
-    seen_order: set[str] = set()
-    for idx, nid in enumerate(order):
-        if not isinstance(nid, str) or not _NODE_ID_RE.match(nid):
-            errors.append(f"order[{idx}] must match L<number>")
-            continue
-        if nid in seen_order:
-            errors.append(f"order has duplicate id {nid!r}")
-        seen_order.add(nid)
-
     slices = data.get("slices")
     if not isinstance(slices, list) or not slices:
         errors.append("slices must be a non-empty list")
         return errors
 
-    slice_ids: list[str] = []
+    seen: set[str] = set()
     for idx, slice_row in enumerate(slices):
         where = f"slices[{idx}]"
         if not isinstance(slice_row, dict):
@@ -105,8 +97,10 @@ def validate_compose_package(data: dict[str, Any]) -> list[str]:
         sid = str(slice_row.get("id", "")).strip()
         if not _NODE_ID_RE.match(sid):
             errors.append(f"{where}.id must match L<number>")
+        elif sid in seen:
+            errors.append(f"slices duplicate id {sid!r}")
         else:
-            slice_ids.append(sid)
+            seen.add(sid)
         if not str(slice_row.get("title", "")).strip():
             errors.append(f"{where}.title must be non-empty")
         doc_path = str(slice_row.get("doc_path", "")).strip()
@@ -114,9 +108,6 @@ def validate_compose_package(data: dict[str, Any]) -> list[str]:
             errors.append(
                 f"{where}.doc_path must be a relative path under the revision root"
             )
-
-    if sorted(slice_ids) != sorted(seen_order) or len(slice_ids) != len(seen_order):
-        errors.append("order must cover each slices[].id exactly once")
 
     return errors
 
@@ -188,11 +179,22 @@ def resolve_focus_doc_path(
     raise ValueError(f"focus {focus_id!r} not found in package slices")
 
 
+def chain_ids_from_compose_package(package: dict[str, Any]) -> list[str]:
+    """Return L* ids in slices array order (sequence SSOT; ignores legacy ``order``)."""
+    return [
+        str(row["id"]).strip()
+        for row in package.get("slices") or []
+        if isinstance(row, dict) and str(row.get("id", "")).strip()
+    ]
+
+
 def chain_dependency_tree_from_package(package: dict[str, Any]) -> dict[str, Any]:
-    """Materialize package.order into a chain DAG (order[i+1] depends on order[i])."""
+    """Materialize slices array order into a chain DAG (slices[i+1] depends on slices[i])."""
     from dependency_tree_schema import build_tree  # noqa: WPS433
 
-    order = [str(x) for x in package["order"]]
+    order = chain_ids_from_compose_package(package)
+    if not order:
+        raise ValueError("compose package slices must be non-empty")
     by_id = {
         str(s["id"]): s
         for s in package["slices"]
@@ -218,7 +220,7 @@ def stub_slice_rulers_from_package(package: dict[str, Any]) -> dict[str, Any] | 
     """Build multi-L rulers stubs; single-L returns None (exempt)."""
     from slice_rulers_schema import build_slice_rulers  # noqa: WPS433
 
-    order = [str(x) for x in package["order"]]
+    order = chain_ids_from_compose_package(package)
     if len(order) < 2:
         return None
     by_id = {
