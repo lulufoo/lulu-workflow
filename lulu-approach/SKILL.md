@@ -53,6 +53,31 @@ Complete `_runtime.md` § Session Foundation before running decision start.
 --session-dir "$CACHE_DIR/<cycle_id>/lulu-approach/main"
 ```
 
-Pass the same `--constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json"` on every `$GATE_CONTROL` / `$REGISTER_*` invocation. `--domain-constraints-file` is only needed on `$DEC_START`. Keep passing `--session-dir` for the active nested root (`main/` or a `Dx/`).
+Pass the same `--constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json"` on every `$GATE_CONTROL` / `$REGISTER_*` invocation. `--domain-constraints-file` and `--session-dir` are only for `$DEC_START` / `$DEC_SET_ACTIVE` (see `decision/SKILL.md` § Active Session). After start, run `$GATE_CONTROL resolve-context` and declare the active session before gate dialogue.
 
 > If `$DEC_START` exits non-zero ("Gate blocked: <stage> is not Delivered"): tell the user which prior stage must be delivered first. Do not retry start.
+
+### Working focus switch (Skill-visible)
+
+When `$APPROACH_SHELL enter-working` / `set-focus` succeeds, stdout may list required next macros. **Always** complete:
+
+1. If the Dx session is new: `$DEC_START --session-dir …/Dx` (sets Active).
+2. Else: `$DEC_SET_ACTIVE --session-dir …/Dx`.
+3. `$GATE_CONTROL resolve-context` — pin new `$CTX` (mandatory; do not reuse prior `$CTX`).
+4. Declare to the user: session switched to that node; prior session conclusions do not carry over.
+5. Only then continue DDF / `$REGISTER_*` on Active (no `--session-dir` on those macros).
+
+**Do not** treat shell focus change alone as a completed session switch.
+
+## Outer delivery (PackageReady → seal)
+
+Local session Delivered ≠ cycle / stage delivery.
+
+After Active `$GATE_CONTROL deliver` succeeds on `main/` or `Dx/`:
+
+1. Tell the user only **this node session** is Delivered (not approach export).
+2. Do **not** treat cycle `delivered-refs` as the approach handoff (nested `deliver` does not register it).
+3. If Working and other ready nodes remain → `$APPROACH_SHELL set-focus` then `$DEC_START` / `$DEC_SET_ACTIVE` + `resolve-context` (see Working focus switch).
+4. When all nodes are Delivered → `$APPROACH_SHELL enter-package-ready`.
+5. After explicit human confirm → `$APPROACH_SHELL confirm-seal --confirm --cycle-id "<cycle_id>" --project-root "$(pwd)"`.
+6. Only after `confirm-seal` succeeds may you claim approach stage delivery (`path` = `decision-package.json`, `artifact=decision-package`).

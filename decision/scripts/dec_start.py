@@ -194,7 +194,7 @@ def main() -> int:
             cycle_id,
             stage,
             constraints_path=constraints_path,
-            session_dir=session_dir_override,
+            session_dir=session_dir_override if session_dir_override is not None else session_dir,
         )
         if migrate_rc != 0:
             return migrate_rc
@@ -236,6 +236,21 @@ def main() -> int:
         return init_rc
 
     write_session_state(ss_path, "InProgress")
+
+    from dec_active_control import set_active_session  # noqa: WPS433
+
+    try:
+        set_active_session(
+            project_root,
+            cycle_id,
+            stage,
+            session_dir=session_dir,
+            constraints_path=constraints_path,
+        )
+    except (FileNotFoundError, ValueError) as exc:
+        print(f"错误：设置 Active Session 失败：{exc}", file=sys.stderr)
+        return 1
+
     write_active_context(
         project_root,
         cycle_id,

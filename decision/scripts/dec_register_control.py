@@ -40,15 +40,9 @@ from dec_register_schema import (
     next_prior_id,
     save_registers,
 )
+from dec_session_paths import resolve_session_root_for_command, session_artifact_paths
 from dec_session_render import render_reply_header
-from dec_workflow_common import (
-    decision_doc_path,
-    domain_constraints_path,
-    gate_payloads_dir,
-    gate_state_path,
-    registers_path,
-    session_base_dir,
-)
+from dec_workflow_common import CACHE_DIR
 
 
 def _now_iso() -> str:
@@ -70,27 +64,17 @@ def _paths(
     stage: str,
     *,
     constraints_path: Path | None = None,
+    session_dir: Path | None = None,
 ) -> dict[str, Path]:
-    return {
-        "gate_state": project_root / gate_state_path(
-            cycle_id, stage, project_root=project_root, constraints_path=constraints_path
-        ),
-        "registers": project_root / registers_path(
-            cycle_id, stage, project_root=project_root, constraints_path=constraints_path
-        ),
-        "decision_doc": project_root / decision_doc_path(
-            cycle_id, stage, project_root=project_root, constraints_path=constraints_path
-        ),
-        "domain_constraints": project_root / domain_constraints_path(
-            cycle_id, stage, project_root=project_root, constraints_path=constraints_path
-        ),
-        "session_dir": project_root / session_base_dir(
-            cycle_id, stage, project_root=project_root, constraints_path=constraints_path
-        ),
-        "payloads_dir": project_root / gate_payloads_dir(
-            cycle_id, stage, project_root=project_root, constraints_path=constraints_path
-        ),
-    }
+    root = resolve_session_root_for_command(
+        project_root,
+        cycle_id,
+        stage,
+        CACHE_DIR,
+        constraints_path=constraints_path,
+        session_dir=session_dir,
+    )
+    return session_artifact_paths(root)
 
 
 def _active_register_source(gate_state: dict[str, Any]) -> str:
@@ -260,8 +244,15 @@ def cmd_register_commit(
     *,
     operations: list[dict[str, Any]],
     constraints_path: Path | None = None,
+    session_dir: Path | None = None,
 ) -> int:
-    paths = _paths(project_root, cycle_id, stage, constraints_path=constraints_path)
+    paths = _paths(
+        project_root,
+        cycle_id,
+        stage,
+        constraints_path=constraints_path,
+        session_dir=session_dir,
+    )
     try:
         _, applied = apply_register_commit_operations(paths, operations=operations)
         from dec_gate_control import build_resolve_context_payload  # noqa: WPS433
@@ -272,6 +263,7 @@ def cmd_register_commit(
             stage,
             paths=paths,
             constraints_path=constraints_path,
+            session_dir=session_dir,
         )
     except (FileNotFoundError, ValueError) as exc:
         return _emit_error(str(exc))
@@ -288,8 +280,15 @@ def cmd_register_append(
     register_kind: str,
     payload: dict[str, Any],
     constraints_path: Path | None = None,
+    session_dir: Path | None = None,
 ) -> int:
-    paths = _paths(project_root, cycle_id, stage, constraints_path=constraints_path)
+    paths = _paths(
+        project_root,
+        cycle_id,
+        stage,
+        constraints_path=constraints_path,
+        session_dir=session_dir,
+    )
     try:
         gate_state = load_gate_state(paths["gate_state"])
         r_closed = is_gate_closed(gate_state, "R")
@@ -317,8 +316,15 @@ def cmd_register_update(
     entry_id: str,
     payload: dict[str, Any],
     constraints_path: Path | None = None,
+    session_dir: Path | None = None,
 ) -> int:
-    paths = _paths(project_root, cycle_id, stage, constraints_path=constraints_path)
+    paths = _paths(
+        project_root,
+        cycle_id,
+        stage,
+        constraints_path=constraints_path,
+        session_dir=session_dir,
+    )
     try:
         gate_state = load_gate_state(paths["gate_state"])
         r_closed = is_gate_closed(gate_state, "R")
@@ -391,8 +397,15 @@ def cmd_register_batch_apply(
     *,
     operations: list[dict[str, Any]],
     constraints_path: Path | None = None,
+    session_dir: Path | None = None,
 ) -> int:
-    paths = _paths(project_root, cycle_id, stage, constraints_path=constraints_path)
+    paths = _paths(
+        project_root,
+        cycle_id,
+        stage,
+        constraints_path=constraints_path,
+        session_dir=session_dir,
+    )
     try:
         _, applied = apply_register_batch_operations(paths, operations=operations)
     except (FileNotFoundError, ValueError) as exc:
@@ -408,8 +421,15 @@ def cmd_sync_registers(
     stage: str,
     *,
     constraints_path: Path | None = None,
+    session_dir: Path | None = None,
 ) -> int:
-    paths = _paths(project_root, cycle_id, stage, constraints_path=constraints_path)
+    paths = _paths(
+        project_root,
+        cycle_id,
+        stage,
+        constraints_path=constraints_path,
+        session_dir=session_dir,
+    )
     try:
         gate_state = load_gate_state(paths["gate_state"])
         r_closed = is_gate_closed(gate_state, "R")
@@ -426,8 +446,15 @@ def cmd_resolve_context(
     stage: str,
     *,
     constraints_path: Path | None = None,
+    session_dir: Path | None = None,
 ) -> int:
-    paths = _paths(project_root, cycle_id, stage, constraints_path=constraints_path)
+    paths = _paths(
+        project_root,
+        cycle_id,
+        stage,
+        constraints_path=constraints_path,
+        session_dir=session_dir,
+    )
     try:
         gate_state = load_gate_state(paths["gate_state"])
         r_closed = is_gate_closed(gate_state, "R")
@@ -519,6 +546,10 @@ def main(argv: list[str] | None = None) -> int:
         if args.constraints.strip()
         else None
     )
+    common = {
+        "constraints_path": constraints_path,
+        "session_dir": None,
+    }
 
     if args.command == "register-append":
         try:
@@ -531,7 +562,7 @@ def main(argv: list[str] | None = None) -> int:
             stage,
             register_kind=args.kind.strip(),
             payload=payload,
-            constraints_path=constraints_path,
+            **common,
         )
     if args.command == "register-update":
         try:
@@ -544,7 +575,7 @@ def main(argv: list[str] | None = None) -> int:
             stage,
             entry_id=args.entry_id.strip(),
             payload=payload,
-            constraints_path=constraints_path,
+            **common,
         )
     if args.command == "register-batch-apply":
         try:
@@ -558,7 +589,7 @@ def main(argv: list[str] | None = None) -> int:
             cycle_id,
             stage,
             operations=operations,
-            constraints_path=constraints_path,
+            **common,
         )
     if args.command == "register-commit":
         try:
@@ -575,21 +606,21 @@ def main(argv: list[str] | None = None) -> int:
             cycle_id,
             stage,
             operations=cleaned,
-            constraints_path=constraints_path,
+            **common,
         )
     if args.command == "sync-registers-to-doc":
         return cmd_sync_registers(
             project_root,
             cycle_id,
             stage,
-            constraints_path=constraints_path,
+            **common,
         )
     if args.command == "resolve-context":
         return cmd_resolve_context(
             project_root,
             cycle_id,
             stage,
-            constraints_path=constraints_path,
+            **common,
         )
     return _emit_error(f"unknown command: {args.command}")
 

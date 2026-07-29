@@ -130,3 +130,96 @@ def test_decision_fact_audit_before_deliver_reports_missing(
     assert payload["ok"] is True
     assert payload["passed"] is False
     assert any("not found" in e for e in payload["errors"])
+
+
+def _init_nested_d1_active(
+    project_root: Path, cycle_id: str, stage: str = "decision"
+) -> Path:
+    """Bootstrap nested D1 as Active; outer must not hold gate-state."""
+    from dec_active_control import set_active_session
+    from dec_session_state_schema import session_state_file, write_session_state
+    from dec_workflow_common import session_base_dir
+
+    outer = project_root / session_base_dir(cycle_id, stage, project_root=project_root)
+    nested = outer / "D1"
+    assert (
+        cmd_init_session(
+            project_root,
+            cycle_id,
+            stage,
+            session_dir=nested,
+            domain_override={"node_id": "D1", "session_role": "sub"},
+        )
+        == 0
+    )
+    write_session_state(session_state_file(nested), "InProgress")
+    set_active_session(project_root, cycle_id, stage, session_dir=nested)
+    assert not (outer / "gate-state.json").exists()
+    assert (nested / "gate-state.json").is_file()
+    return nested
+
+
+def test_structural_audit_follows_active_nested_d1(
+    template_config: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Integrity must read Active D1, not stage outer (archive-1.1 A3)."""
+    project_root = template_config
+    cycle_id = "feature-integrity-active-001"
+    stage = "decision"
+    monkeypatch.chdir(project_root)
+
+    nested = _init_nested_d1_active(project_root, cycle_id, stage)
+    errors = run_structural_audit(project_root, cycle_id, stage)
+    assert errors == []
+    outer = nested.parent
+    assert not (outer / "gate-state.json").exists()
+
+
+def test_check_delivery_ready_follows_active_nested_d1(
+    template_config: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """check-delivery-ready must not FileNotFound on outer when Active is D1."""
+    project_root = template_config
+    cycle_id = "feature-integrity-active-002"
+    stage = "decision"
+    monkeypatch.chdir(project_root)
+
+    _init_nested_d1_active(project_root, cycle_id, stage)
+    capsys.readouterr()
+    assert cmd_check_delivery_ready(project_root, cycle_id, stage) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    assert payload["ready"] is False
+    assert all("gate-state not found" not in e for e in payload["errors"])
+
+
+def test_render_writes_decision_doc_under_active_nested_d1(
+    template_config: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project_root = template_config
+    cycle_id = "feature-integrity-active-003"
+    stage = "decision"
+    monkeypatch.chdir(project_root)
+
+    nested = _init_nested_d1_active(project_root, cycle_id, stage)
+    _close_qe(project_root, cycle_id, stage)
+    cmd_gate_close(
+        project_root,
+        cycle_id,
+        stage,
+        "D",
+        {
+            "decision_rationale": "Nested choose A",
+            "applies_to": "export",
+            "excludes": "mobile",
+            "execution_approach": "backend first",
+        },
+    )
+
+    assert cmd_render(project_root, cycle_id, stage) == 0
+    doc_path = nested / "decision-doc.md"
+    assert doc_path.is_file()
+    assert "Nested choose A" in doc_path.read_text(encoding="utf-8")
+    assert not (nested.parent / "decision-doc.md").exists()

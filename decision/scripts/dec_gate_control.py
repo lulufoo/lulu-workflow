@@ -14,7 +14,8 @@ Subcommands:
     reopen                 Leave Delivered/InProgress → Frozen ($DEC_REOPEN; P1.3 A)
     check-delivery-ready   Structural audit + gates/registers for DC delivery
     deliver                Set session-state Delivered; export decision-fact.json
-                           (requires DC closed + decision-doc)
+                           (requires DC closed + decision-doc). Nested approach
+                           main/Dx skips cycle delivered-refs (holder seal owns them).
     migrate-session        Bootstrap gate-state/registers for legacy sessions
 """
 
@@ -74,7 +75,11 @@ from dec_register_schema import (  # noqa: E402
     strip_assumption_risk_fields,
 )
 from dec_session_render import render_reply_header  # noqa: E402
-from dec_session_paths import parse_session_dir_arg, session_artifact_paths  # noqa: E402
+from dec_session_paths import (  # noqa: E402
+    resolve_session_root_for_command,
+    session_artifact_paths,
+    skips_cycle_delivered_ref_on_deliver,
+)
 from dec_session_state_schema import (  # noqa: E402
     read_current_state,
     session_state_file,
@@ -83,8 +88,8 @@ from dec_session_state_schema import (  # noqa: E402
     write_session_state,
 )
 from dec_workflow_common import (  # noqa: E402
+    CACHE_DIR,
     detect_cycle_type,
-    gate_payloads_dir,
     session_base_dir,
 )
 
@@ -130,15 +135,15 @@ def _paths(
     constraints_path: Path | None = None,
     session_dir: Path | None = None,
 ) -> dict[str, Path]:
-    if session_dir is not None:
-        return session_artifact_paths(session_dir)
-    base = project_root / session_base_dir(
+    root = resolve_session_root_for_command(
+        project_root,
         cycle_id,
         stage,
-        project_root=project_root,
+        CACHE_DIR,
         constraints_path=constraints_path,
+        session_dir=session_dir,
     )
-    return session_artifact_paths(base)
+    return session_artifact_paths(root)
 
 
 def _reject_if_frozen(paths: dict[str, Path]) -> int | None:
@@ -232,10 +237,17 @@ def cmd_init_session(
         cycle_id,
         stage,
         constraints_path=constraints_path,
-        session_dir=session_dir,
+        session_dir=session_dir
+        if session_dir is not None
+        else project_root
+        / session_base_dir(
+            cycle_id,
+            stage,
+            project_root=project_root,
+            constraints_path=constraints_path,
+        ),
     )
-    if session_dir is not None:
-        paths["session_dir"].mkdir(parents=True, exist_ok=True)
+    paths["session_dir"].mkdir(parents=True, exist_ok=True)
     if paths["gate_state"].exists():
         return _emit_error("gate-state already exists; use a new cycle or remove session dir")
     if domain_override:
@@ -247,6 +259,19 @@ def cmd_init_session(
 
     registers = init_registers(cycle_id=cycle_id, stage=stage)
     save_registers(paths["registers"], registers, r_gate_closed=False)
+
+    try:
+        from dec_active_control import set_active_session  # noqa: WPS433
+
+        set_active_session(
+            project_root,
+            cycle_id,
+            stage,
+            session_dir=paths["session_dir"],
+            constraints_path=constraints_path,
+        )
+    except (FileNotFoundError, ValueError) as exc:
+        return _emit_error(f"failed to set Active Session: {exc}")
 
     _emit(
         {
@@ -297,12 +322,7 @@ def build_resolve_context_payload(
     if is_gate_closed(gate_state, "GL"):
         payloads_dir = resolved_paths.get("payloads_dir")
         if payloads_dir is None:
-            payloads_dir = project_root / gate_payloads_dir(
-                cycle_id,
-                stage,
-                project_root=project_root,
-                constraints_path=constraints_path,
-            )
+            payloads_dir = resolved_paths["session_dir"] / "gate-payloads"
         gl_path = gate_payload_path(payloads_dir, "GL")
         if gl_path.exists():
             gl_payload = load_gate_payload(gl_path)
@@ -889,18 +909,20 @@ def cmd_deliver(
             fact_path,
             registers=registers,
         )
-        from cycle_delivered_refs import record_delivered_ref  # noqa: WPS433
+        # Nested approach main/Dx: local Delivered only; cycle refs via confirm-seal.
+        if not skips_cycle_delivered_ref_on_deliver(paths["session_dir"]):
+            from cycle_delivered_refs import record_delivered_ref  # noqa: WPS433
 
-        record_delivered_ref(
-            cycle_id,
-            project_root,
-            delivered_type=stage,
-            path=str(paths["decision_doc"].resolve()),
-            revision=1,
-            profile_id=stage,
-            source_workflow_state=str(ss_path.resolve()),
-            decision_fact_path=str(fact_path.resolve()),
-        )
+            record_delivered_ref(
+                cycle_id,
+                project_root,
+                delivered_type=stage,
+                path=str(paths["decision_doc"].resolve()),
+                revision=1,
+                profile_id=stage,
+                source_workflow_state=str(ss_path.resolve()),
+                decision_fact_path=str(fact_path.resolve()),
+            )
         write_session_state(ss_path, "Delivered")
     except (FileNotFoundError, ValueError) as exc:
         return _emit_error(str(exc))
@@ -1340,13 +1362,14 @@ def cmd_migrate_session(
     constraints_path: Path | None = None,
     session_dir: Path | None = None,
 ) -> int:
-    paths = _paths(
-        project_root,
-        cycle_id,
-        stage,
-        constraints_path=constraints_path,
-        session_dir=session_dir,
-    )
+    if session_dir is None:
+        session_dir = project_root / session_base_dir(
+            cycle_id,
+            stage,
+            project_root=project_root,
+            constraints_path=constraints_path,
+        )
+    paths = session_artifact_paths(Path(session_dir).resolve())
     try:
         if not needs_migration(paths["session_dir"]):
             return _emit_error("session does not require migration (gate-state exists or no session-state)")
@@ -1355,6 +1378,15 @@ def cmd_migrate_session(
             project_root=project_root,
             cycle_id=cycle_id,
             stage=stage,
+            constraints_path=constraints_path,
+        )
+        from dec_active_control import set_active_session  # noqa: WPS433
+
+        set_active_session(
+            project_root,
+            cycle_id,
+            stage,
+            session_dir=paths["session_dir"],
             constraints_path=constraints_path,
         )
     except (FileNotFoundError, ValueError) as exc:
@@ -1380,14 +1412,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--constraints",
         default="",
         help="Path to holder constraints.json (required for holder stages at init).",
-    )
-    parser.add_argument(
-        "--session-dir",
-        default="",
-        help=(
-            "Explicit nested session root (P1.1 A). When set, skips find_session_dir "
-            "and uses this directory for all artifacts."
-        ),
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -1473,10 +1497,9 @@ def main(argv: list[str] | None = None) -> int:
     cycle_id = args.cycle_id.strip()
     stage = args.stage.strip()
     constraints_path = _parse_constraints_path(getattr(args, "constraints", ""))
-    session_dir = parse_session_dir_arg(getattr(args, "session_dir", ""), project_root)
     common = {
         "constraints_path": constraints_path,
-        "session_dir": session_dir,
+        "session_dir": None,
     }
 
     if args.command == "init-session":

@@ -36,13 +36,15 @@ Do NOT proceed until you have read `../_runtime.md` and loaded:
 | Macro | Command |
 |-------|---------|
 | `$DEC_START` | `python3 "$SKILL_DIR/scripts/dec_start.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" [--domain-constraints-file "<path>"] [--session-dir "<session_dir>"]` |
-| `$DEC_REOPEN` | `python3 "$SKILL_DIR/scripts/dec_reopen.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" [--session-dir "<session_dir>"]` |
-| `$GATE_CONTROL` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" [--session-dir "<session_dir>"]` |
-| `$GET_PAYLOAD` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" [--session-dir "<session_dir>"] get-payload` |
-| `$BATCH_RECLOSE` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" [--session-dir "<session_dir>"] batch-reclose --payloads '<json object>'` |
+| `$DEC_SET_ACTIVE` | `python3 "$SKILL_DIR/scripts/dec_active_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" set-active --session-dir "<session_dir>"` |
+| `$DEC_GET_ACTIVE` | `python3 "$SKILL_DIR/scripts/dec_active_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" get-active` |
+| `$DEC_REOPEN` | `python3 "$SKILL_DIR/scripts/dec_reopen.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>"` |
+| `$GATE_CONTROL` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>"` |
+| `$GET_PAYLOAD` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" get-payload` |
+| `$BATCH_RECLOSE` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" batch-reclose --payloads '<json object>'` |
 | `$REGISTER_CONTROL` | `python3 "$SKILL_DIR/scripts/dec_register_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>"` |
 | `$REGISTER_COMMIT` | `python3 "$SKILL_DIR/scripts/dec_register_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" register-commit --operations '<json array>'` |
-| `$RS_COMMIT` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" [--session-dir "<session_dir>"] rs-commit --gate "<G>" --operations '<json array>'` |
+| `$RS_COMMIT` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" rs-commit --gate "<G>" --operations '<json array>'` |
 | `$SESSION_INTEGRITY` | `python3 "$SKILL_DIR/scripts/dec_session_integrity.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>"` |
 
 Subcommand contracts: module docstrings / `--help`.
@@ -70,7 +72,20 @@ SSOT for conversation → cycle mapping: platform `active-context.json`. Does **
 
 **Do not** run `$DEC_START` again after Delivery (`Delivered`) on the same feature — use `$DEC_REOPEN` (sets session `Frozen`, then RS → `$RS_COMMIT` to stale and unfreeze). Use a new feature for a wholly new decision session.
 
-**Nested session root:** when the outer shell places a session under e.g. `…/lulu-approach/main/` or `…/Dx/`, pass `--session-dir` on `$DEC_START` / `$DEC_REOPEN` / `$GATE_CONTROL` / `$RS_COMMIT` so gate commands do not rely on a unique stage scan.
+### Active Session (current working session)
+
+**Semantics (type definition):** Switching Active replaces the **decision session subject** — the default root for gate/register I/O and the source of `$CTX` after `resolve-context`. It is not “changing a folder,” not changing gates within the same session, and not changing conversation topic.
+
+| | |
+|--|--|
+| **Changes** | Default write root; subsequent `$GATE_CONTROL resolve-context` reads that session’s gates / registers / `domain_constraints` |
+| **Does not change** | Other `Dx/` on-disk history; outer-shell focus (holder updates separately) |
+| **Complete when** | Active points at the target **and** Skill has run `$GATE_CONTROL resolve-context` **and** a same-turn “session switched” statement was made |
+| **After switch** | Use only the new `$CTX`; prior session gate conclusions / priors do **not** carry over unless re-registered or re-closed in the new session |
+
+**CLI:** `--session-dir` appears **only** on `$DEC_START` and `$DEC_SET_ACTIVE`. All other decision macros use Active only (missing Active → hard fail).
+
+**Nested bootstrap:** `$DEC_START --session-dir …/main` or `…/Dx` (success sets Active). To retarget: `$DEC_SET_ACTIVE --session-dir …/Dx` → `$GATE_CONTROL resolve-context` → declare session switched → then continue gates/registers **without** `--session-dir`.
 
 ---
 
@@ -207,6 +222,8 @@ Do NOT exit diagnostic or transition to the next stage until:
 - All DDF gates (O → Q → GL → E / D / X → R → [LoopB if uncertain: V / RR] → DC) have passed
 - `$GATE_CONTROL check-delivery-ready` returns `ready: true`; DC closed; `$GATE_CONTROL deliver` succeeded
 - User has explicitly confirmed readiness to proceed
+
+When the Active session is under a holder outer flow (e.g. `lulu-approach` `main/` / `Dx/`), this HARD-GATE covers **this Active session only**. Cross-stage handoff / cycle `delivered-refs` is owned by the holder seal (approach: `$APPROACH_SHELL confirm-seal`), not by nested `deliver`.
 
 This applies to EVERY intent, regardless of perceived clarity.
 "I already know what I want to build" is the most common reason to skip this —

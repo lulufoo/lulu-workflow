@@ -195,7 +195,18 @@ def enter_working(
     shell["focus"] = focus_id
     shell["by_id"] = by_id
     save_shell(approach_root, shell)
-    return shell
+    dx = ensure_dx_on_focus(approach_root, focus_id)
+    return {
+        **shell,
+        "next_steps": {
+            "session_dir": dx.as_posix(),
+            "require": [
+                "DEC_START or DEC_SET_ACTIVE with --session-dir",
+                "GATE_CONTROL resolve-context",
+                "declare session switched",
+            ],
+        },
+    }
 
 
 def set_focus(approach_root: Path, node_id: str) -> dict[str, Any]:
@@ -211,8 +222,18 @@ def set_focus(approach_root: Path, node_id: str) -> dict[str, Any]:
         raise ValueError(f"unknown focus target {target!r}")
     current = shell.get("focus")
     if current == target:
-        ensure_dx_on_focus(approach_root, target)
-        return shell
+        dx = ensure_dx_on_focus(approach_root, target)
+        return {
+            **shell,
+            "next_steps": {
+                "session_dir": dx.as_posix(),
+                "require": [
+                    "DEC_START or DEC_SET_ACTIVE with --session-dir",
+                    "GATE_CONTROL resolve-context",
+                    "declare session switched",
+                ],
+            },
+        }
     if current is not None and not is_node_delivered(approach_root, str(current), shell):
         raise ValueError(
             f"focus switch blocked: current focus {current!r} is not Delivered"
@@ -230,8 +251,18 @@ def set_focus(approach_root: Path, node_id: str) -> dict[str, Any]:
     shell["focus"] = target
     shell["by_id"] = by_id
     save_shell(approach_root, shell)
-    ensure_dx_on_focus(approach_root, target)
-    return shell
+    dx = ensure_dx_on_focus(approach_root, target)
+    return {
+        **shell,
+        "next_steps": {
+            "session_dir": dx.as_posix(),
+            "require": [
+                "DEC_START or DEC_SET_ACTIVE with --session-dir",
+                "GATE_CONTROL resolve-context",
+                "declare session switched",
+            ],
+        },
+    }
 
 
 def enter_package_ready(approach_root: Path) -> dict[str, Any]:

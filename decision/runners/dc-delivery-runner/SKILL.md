@@ -41,7 +41,7 @@ Do NOT proceed until you have read `../../../_runtime.md`
 7. Read `decision-doc.md`; present key sections in conversation; G8 user confirmation
 8. `$GATE_CONTROL gate-close --gate DC --payload '{"user_confirmed": true}'`
 9. `$GATE_CONTROL deliver`
-10. Tell the user `$CTX.after_dc.user_message`
+10. Tell the user `$CTX.after_dc.user_message`. If Active is a nested holder session (`main/` / `Dx/` under approach), also state that only this **node session** is Delivered — stage export waits for the holder seal (`confirm-seal`).
 11. Return `GATE_COMPLETE DC Delivered`
 
 ## gate-close payload

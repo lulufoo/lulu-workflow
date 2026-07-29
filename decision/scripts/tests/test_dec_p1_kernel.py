@@ -29,6 +29,8 @@ from dec_gate_control import (  # noqa: E402
     main as gate_main,
 )
 from dec_gate_state_schema import load_gate_state  # noqa: E402
+from dec_register_control import main as register_main  # noqa: E402
+from dec_register_schema import load_registers  # noqa: E402
 from dec_session_paths import parse_session_dir_arg  # noqa: E402
 from dec_session_state_schema import (  # noqa: E402
     read_current_state,
@@ -211,7 +213,8 @@ def test_parse_session_dir_arg_relative_and_absolute(tmp_path: Path) -> None:
 def test_start_with_session_dir_nested_root(template_config: Path) -> None:
     project_root = template_config
     cycle_id = "feature-p1-session-dir-001"
-    nested = project_root / "nested-sessions" / "main"
+    outer = project_root / session_base_dir(cycle_id, "decision", project_root=project_root)
+    nested = outer / "main"
     nested.mkdir(parents=True)
 
     result = subprocess.run(
@@ -235,17 +238,25 @@ def test_start_with_session_dir_nested_root(template_config: Path) -> None:
     assert (nested / "gate-state.json").exists()
     assert (nested / "domain-constraints.json").exists()
     assert read_current_state(session_state_file(nested)) == "InProgress"
+    assert (outer / "active-session.json").is_file()
+    active = json.loads((outer / "active-session.json").read_text(encoding="utf-8"))
+    assert active["session_dir"] == "main"
 
 
-def test_gate_control_cli_session_dir_resolve(
+def test_gate_control_cli_uses_active_session(
     template_config: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Nested Dx: set Active then resolve-context without --session-dir."""
+    from dec_active_control import set_active_session
+    from dec_workflow_common import CACHE_DIR, session_base_dir
+
     project_root = template_config
     cycle_id = "feature-p1-gc-session-dir-001"
     stage = "decision"
     monkeypatch.chdir(project_root)
 
-    nested = project_root / "nested" / "Dx"
+    outer = project_root / session_base_dir(cycle_id, stage, project_root=project_root)
+    nested = outer / "D1"
     assert (
         cmd_init_session(
             project_root,
@@ -260,6 +271,7 @@ def test_gate_control_cli_session_dir_resolve(
         == 0
     )
     write_session_state(session_state_file(nested), "InProgress")
+    set_active_session(project_root, cycle_id, stage, session_dir=nested)
 
     rc = gate_main(
         [
@@ -269,8 +281,6 @@ def test_gate_control_cli_session_dir_resolve(
             cycle_id,
             "--stage",
             stage,
-            "--session-dir",
-            str(nested),
             "resolve-context",
         ]
     )
@@ -279,6 +289,70 @@ def test_gate_control_cli_session_dir_resolve(
     assert constraints["node_id"] == "D1"
     assert constraints["session_role"] == "sub"
 
+
+def test_register_control_cli_uses_active_session(
+    template_config: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Nested D1: set Active then register-commit without --session-dir."""
+    from dec_active_control import set_active_session
+    from dec_workflow_common import session_base_dir
+
+    project_root = template_config
+    cycle_id = "feature-p1-reg-session-dir-001"
+    stage = "decision"
+    monkeypatch.chdir(project_root)
+
+    outer = project_root / session_base_dir(cycle_id, stage, project_root=project_root)
+    nested = outer / "D1"
+    assert (
+        cmd_init_session(
+            project_root,
+            cycle_id,
+            stage,
+            session_dir=nested,
+            domain_override={
+                "node_id": "D1",
+                "session_role": "sub",
+            },
+        )
+        == 0
+    )
+    write_session_state(session_state_file(nested), "InProgress")
+    set_active_session(project_root, cycle_id, stage, session_dir=nested)
+
+    ops = json.dumps(
+        [
+            {
+                "action": "append",
+                "kind": "prior",
+                "payload": {"kind": "preference", "text": "nested prior via active"},
+            }
+        ]
+    )
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        rc = register_main(
+            [
+                "--project-root",
+                str(project_root),
+                "--cycle-id",
+                cycle_id,
+                "--stage",
+                stage,
+                "register-commit",
+                "--operations",
+                ops,
+            ]
+        )
+    assert rc == 0, buf.getvalue()
+    payload = json.loads(buf.getvalue())
+    assert payload["ok"] is True
+    assert payload["applied"] == 1
+
+    registers = load_registers(nested / "registers.json", r_gate_closed=False)
+    assert any(
+        e.get("text") == "nested prior via active" for e in registers.get("prior", [])
+    )
 
 def test_domain_constraints_preserves_node_id_session_role() -> None:
     data = normalize_domain_constraints(

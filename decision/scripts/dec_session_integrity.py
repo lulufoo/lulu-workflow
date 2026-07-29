@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Session integrity control for decision: structural audit and decision-doc render.
 
+Resolves the Active Session root (archive-1.1), same contract as gate/register.
+
 Subcommands:
     audit --mode structural      Validate gate-payloads + registers + gate-state
     audit --mode decision-fact   Validate decision-fact.json vs payloads/registers
@@ -48,14 +50,11 @@ from dec_gate_payload_schema import (  # noqa: E402
 )
 from dec_gate_state_schema import GATE_ORDER, is_gate_closed, load_gate_state  # noqa: E402
 from dec_register_schema import load_registers, validate_registers  # noqa: E402
-from dec_workflow_common import (  # noqa: E402
-    decision_doc_path,
-    domain_constraints_path,
-    gate_payloads_dir,
-    gate_state_path,
-    registers_path,
-    session_base_dir,
+from dec_session_paths import (  # noqa: E402
+    resolve_session_root_for_command,
+    session_artifact_paths,
 )
+from dec_workflow_common import CACHE_DIR  # noqa: E402
 
 
 def _emit(payload: dict[str, Any]) -> None:
@@ -73,27 +72,18 @@ def _session_paths(
     stage: str,
     *,
     constraints_path: Path | None = None,
+    session_dir: Path | None = None,
 ) -> dict[str, Path]:
-    return {
-        "session_dir": project_root / session_base_dir(
-            cycle_id, stage, project_root=project_root, constraints_path=constraints_path
-        ),
-        "gate_state": project_root / gate_state_path(
-            cycle_id, stage, project_root=project_root, constraints_path=constraints_path
-        ),
-        "registers": project_root / registers_path(
-            cycle_id, stage, project_root=project_root, constraints_path=constraints_path
-        ),
-        "decision_doc": project_root / decision_doc_path(
-            cycle_id, stage, project_root=project_root, constraints_path=constraints_path
-        ),
-        "payloads_dir": project_root / gate_payloads_dir(
-            cycle_id, stage, project_root=project_root, constraints_path=constraints_path
-        ),
-        "domain_constraints": project_root / domain_constraints_path(
-            cycle_id, stage, project_root=project_root, constraints_path=constraints_path
-        ),
-    }
+    """Resolve artifact paths via Active Session (archive-1.1 A3), same as gate/register."""
+    root = resolve_session_root_for_command(
+        project_root,
+        cycle_id,
+        stage,
+        CACHE_DIR,
+        constraints_path=constraints_path,
+        session_dir=session_dir,
+    )
+    return session_artifact_paths(root)
 
 
 def _load_constraints(paths: dict[str, Path]) -> dict[str, Any]:

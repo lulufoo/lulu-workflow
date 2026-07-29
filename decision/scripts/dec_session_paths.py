@@ -11,10 +11,25 @@ from typing import Optional
 from dec_domain_constraints_schema import load_domain_constraints
 
 _APPROACH_DX_DIR_PAT = re.compile(r"^D\d+$")
+_PACKAGE_SEAL_OUTER_NAMES = frozenset({"lulu-approach"})
 
 
 def default_cache_subdir(stage: str) -> str:
     return stage
+
+
+def skips_cycle_delivered_ref_on_deliver(session_dir: Path) -> bool:
+    """True when session is ``main/`` or ``Dx/`` under a package-seal holder outer.
+
+    Those sessions close locally on ``deliver``; cycle ``delivered-refs`` is owned
+    by the holder seal (e.g. approach ``confirm-seal`` → decision-package).
+    Flat stage roots keep writing cycle refs on deliver.
+    """
+    session = Path(session_dir).resolve()
+    name = session.name
+    if name != "main" and not _APPROACH_DX_DIR_PAT.match(name):
+        return False
+    return session.parent.name in _PACKAGE_SEAL_OUTER_NAMES
 
 
 def _domain_constraints_stage(session_dir: Path) -> str | None:
@@ -122,6 +137,16 @@ def session_cache_subdir(
                 return subdir
         except (FileNotFoundError, ValueError):
             pass
+        # Nested main/Dx: outer is parent of the session root.
+        if found.name == "main" or _APPROACH_DX_DIR_PAT.match(found.name):
+            parent = found.parent
+            cycle_base = (project_root / cache_root / cycle_id).resolve()
+            try:
+                rel = parent.resolve().relative_to(cycle_base)
+                if len(rel.parts) == 1:
+                    return rel.parts[0]
+            except ValueError:
+                pass
     if constraints_path is not None:
         from dec_domain_constraints_schema import load_constraints_config
 
@@ -130,3 +155,74 @@ def session_cache_subdir(
         if subdir:
             return subdir
     return default_cache_subdir(stage)
+
+
+def stage_outer_root(
+    project_root: Path,
+    cycle_id: str,
+    stage: str,
+    cache_root: Path,
+    *,
+    constraints_path: Optional[Path] = None,
+) -> Path:
+    """Stage outer root where ``active-session.json`` lives (archive-1.1 A5)."""
+    subdir = session_cache_subdir(
+        project_root,
+        cycle_id,
+        stage,
+        cache_root,
+        constraints_path=constraints_path,
+    )
+    return (project_root / cache_root / cycle_id / subdir).resolve()
+
+
+def resolve_active_session_dir(stage_outer: Path) -> Path:
+    """Resolve Active Session absolute path; raise if missing/invalid."""
+    from dec_active_session_schema import (  # noqa: WPS433
+        is_valid_session_root,
+        load_active_session,
+    )
+
+    outer = Path(stage_outer).resolve()
+    data = load_active_session(outer)
+    rel = str(data["session_dir"])
+    if rel == ".":
+        target = outer
+    else:
+        target = (outer / rel).resolve()
+        try:
+            target.relative_to(outer)
+        except ValueError as exc:
+            raise ValueError(
+                f"active session_dir escapes stage outer: {rel!r}"
+            ) from exc
+    if not is_valid_session_root(target):
+        raise ValueError(
+            f"active session root is not a valid decision session: {target}"
+        )
+    return target
+
+
+def resolve_session_root_for_command(
+    project_root: Path,
+    cycle_id: str,
+    stage: str,
+    cache_root: Path,
+    *,
+    constraints_path: Optional[Path] = None,
+    session_dir: Optional[Path] = None,
+) -> Path:
+    """Resolve session root for daily commands (A3=B′): Active only.
+
+    ``session_dir`` is for internal Python callers (e.g. init-session / tests).
+    """
+    if session_dir is not None:
+        return Path(session_dir).resolve()
+    outer = stage_outer_root(
+        project_root,
+        cycle_id,
+        stage,
+        cache_root,
+        constraints_path=constraints_path,
+    )
+    return resolve_active_session_dir(outer)
