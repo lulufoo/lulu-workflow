@@ -107,8 +107,9 @@ def test_split_working_package_ready_path(tmp_path: Path) -> None:
     assert shell["focus"] == "D1"
     assert shell["by_id"]["D1"]["phase"] == "in_progress"
     assert shell["by_id"]["D2"]["phase"] == "pending"
+    # S3=B: only focused Dx/ exists after enter_working
     assert (root / "D1").is_dir()
-    assert (root / "D2").is_dir()
+    assert not (root / "D2").exists()
 
     with pytest.raises(ValueError, match="not all children Delivered"):
         enter_package_ready(root)

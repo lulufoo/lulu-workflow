@@ -174,19 +174,6 @@ def run_start(
         return 1
 
     try:
-        scope_refs = adapter.resolve_scope_refs(
-            delivered_refs=delivered_refs,
-            run_mode=run_mode,
-            carry_forward_ref=carry_forward_ref,
-        )
-    except ValueError as e:
-        print(f"错误：scope_refs 解析失败：{e}", file=sys.stderr)
-        return 1
-    if not scope_refs:
-        print("错误：scope_refs 快照为空（无法解析 primary scope SSOT）", file=sys.stderr)
-        return 1
-
-    try:
         load_container_meta(cache_dir, cycle_id, cycle_type)
     except ValueError as e:
         print(f"错误：{e}")
@@ -243,7 +230,23 @@ def run_start(
     # Per-revision provenance artifacts (see resolved_refs_schema):
     #   ① frozen full copy of the mutable cycle delivered-refs.json (audit baseline)
     #   ② stage-resolved three refs — compose consumers read this
+    # Scope resolution runs after revision_dir exists so design can write
+    # scope-package.json once under the new revision (archive-1.0 P3 D3).
     revision_dir = ws_path.parent
+    try:
+        scope_refs = adapter.resolve_scope_refs(
+            delivered_refs=delivered_refs,
+            run_mode=run_mode,
+            carry_forward_ref=carry_forward_ref,
+            revision_dir=revision_dir,
+        )
+    except ValueError as e:
+        print(f"错误：scope_refs 解析失败：{e}", file=sys.stderr)
+        return 1
+    if not scope_refs:
+        print("错误：scope_refs 快照为空（无法解析 primary scope SSOT）", file=sys.stderr)
+        return 1
+
     intent_baseline_refs = adapter.resolve_intent_baseline_refs(
         delivered_refs=delivered_refs,
         run_mode=run_mode,
@@ -251,6 +254,7 @@ def run_start(
     norm_constraint_refs = adapter.resolve_norm_constraint_refs(
         cycle_id=cycle_id,
         project_root=project_root,
+        delivered_refs=delivered_refs,
     )
     freeze_delivered_copy(revision_dir, load_delivered_refs_file(cycle_id, project_root))
     write_resolved_refs(

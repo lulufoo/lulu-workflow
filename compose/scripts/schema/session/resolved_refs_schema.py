@@ -99,10 +99,14 @@ def _ref_from_dict(item: Any) -> DeliveredRef | None:
     if not dtype or not path:
         return None
     decision_fact_path = str(item.get("decision_fact_path", "")).strip()
+    artifact = str(item.get("artifact", "")).strip()
+    kind = str(item.get("kind", "")).strip()
     return DeliveredRef(
         type=dtype,
         path=path,
         decision_fact_path=decision_fact_path,
+        artifact=artifact,
+        kind=kind,
     )
 
 

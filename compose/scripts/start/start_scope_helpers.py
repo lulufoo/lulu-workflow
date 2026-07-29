@@ -71,6 +71,10 @@ def decision_fact_has_units(path: Path | str) -> bool:
     return False
 
 
+def _is_decision_package_filename(path: Path | str) -> bool:
+    return Path(path).name == "decision-package.json"
+
+
 def require_decision_fact_scope(ref: DeliveredRef) -> DeliveredRef:
     """Return compose scope SSOT: ``decision_fact_path`` with ≥1 unit (id+text).
 
@@ -79,12 +83,23 @@ def require_decision_fact_scope(ref: DeliveredRef) -> DeliveredRef:
 
     No prose fallback: missing ``decision_fact_path``, unreadable fact, empty
     ``gates``, or zero units → ``DecisionFactScopeError``.
+    Rejects ``decision-package.json`` as ``$SCOPE_REF`` (P3 isolation).
     """
+    if _is_decision_package_filename(ref.path):
+        raise DecisionFactScopeError(
+            "decision-package.json must not be used as $SCOPE_REF; "
+            "project to scope-package.json first"
+        )
     fact_raw = str(ref.decision_fact_path or "").strip()
     if not fact_raw:
         raise DecisionFactScopeError(
             f"decision_fact_path required on delivered-refs[{ref.type}] "
             "(compose does not use prose entry.path as scope)"
+        )
+    if _is_decision_package_filename(fact_raw):
+        raise DecisionFactScopeError(
+            "decision-package.json must not be used as $SCOPE_REF; "
+            "project to scope-package.json first"
         )
     if not decision_fact_has_units(fact_raw):
         raise DecisionFactScopeError(

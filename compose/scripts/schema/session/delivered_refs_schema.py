@@ -34,12 +34,15 @@ class DeliveredRef:
 
     ``artifact`` marks delivery shape (archive-1.0 P0.7): e.g.
     ``decision-package`` when ``path`` points at ``decision-package.json``.
+    ``kind`` is required on norm-channel refs (archive-1.0 P3 D2): e.g.
+    ``parent_decision`` / ``split_artifact`` / ``topic_arch`` / ``other``.
     """
 
     type: str
     path: str
     decision_fact_path: str = ""
     artifact: str = ""
+    kind: str = ""
 
     def to_dict(self) -> dict[str, str]:
         out: dict[str, str] = {"type": self.type, "path": self.path}
@@ -47,6 +50,8 @@ class DeliveredRef:
             out["decision_fact_path"] = self.decision_fact_path
         if self.artifact:
             out["artifact"] = self.artifact
+        if self.kind:
+            out["kind"] = self.kind
         return out
 
 
@@ -67,11 +72,13 @@ def ref_from_file_entry(delivered_type: str, data: dict[str, Any]) -> DeliveredR
         return None
     decision_fact = str(entry.get("decision_fact_path", "")).strip()
     artifact = str(entry.get("artifact", "")).strip()
+    kind = str(entry.get("kind", "")).strip()
     return DeliveredRef(
         type=delivered_type,
         path=raw_path,
         decision_fact_path=decision_fact,
         artifact=artifact,
+        kind=kind,
     )
 
 
@@ -98,12 +105,14 @@ def parse_delivered_refs(state: dict[str, Any]) -> list[DeliveredRef]:
             raise ValueError("delivered_refs item requires non-empty type and path")
         decision_fact_path = str(item.get("decision_fact_path", "")).strip()
         artifact = str(item.get("artifact", "")).strip()
+        kind = str(item.get("kind", "")).strip()
         refs.append(
             DeliveredRef(
                 type=dtype,
                 path=path,
                 decision_fact_path=decision_fact_path,
                 artifact=artifact,
+                kind=kind,
             )
         )
     return refs

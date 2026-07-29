@@ -77,9 +77,10 @@ class ProductSpecStartAdapter:
         delivered_refs: list[DeliveredRef],
         run_mode: str = "tech",
         carry_forward_ref: str = "",
+        revision_dir: Path | None = None,
     ) -> list[DeliveredRef]:
         """Scope SSOT = lulu-bet decision-fact.json when delivered; else decision-doc."""
-        del run_mode, carry_forward_ref
+        del run_mode, carry_forward_ref, revision_dir
         primary = first_ref(delivered_refs, "lulu-bet")
         if primary is None:
             return []
@@ -99,7 +100,9 @@ class ProductSpecStartAdapter:
         *,
         cycle_id: str,
         project_root: Path | None = None,
+        delivered_refs: list[DeliveredRef] | None = None,
     ) -> list[DeliveredRef]:
+        del delivered_refs
         if project_root is None:
             return []
         ref = get_topic_ref(cycle_id, "lulu-spec", project_root / CACHE_DIR)

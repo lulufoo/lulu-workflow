@@ -32,6 +32,15 @@ if str(_WORKFLOW_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_WORKFLOW_SCRIPTS))
 from start_gate import get_topic_ref  # noqa: E402
 
+from scope_package_projection import (  # noqa: E402
+    is_decision_package_ref,
+    load_decision_package,
+    make_norm_ref,
+    norm_refs_from_decision_package,
+    reject_decision_package_as_scope,
+    write_scope_package_projection,
+)
+
 
 class TechDesignStartAdapter:
     """Start rules for lulu-design compose profile."""
@@ -62,6 +71,13 @@ class TechDesignStartAdapter:
         data = load_delivered_refs_file(cycle_id, project_root)
         if not entry_path_ok(data, "lulu-approach"):
             errors.append("missing delivered-refs entry: lulu-approach")
+        else:
+            approach = ref_from_file_entry("lulu-approach", data)
+            if approach is not None and is_decision_package_ref(approach):
+                try:
+                    load_decision_package(Path(approach.path))
+                except (OSError, ValueError) as exc:
+                    errors.append(f"invalid decision-package: {exc}")
         if run_mode == "product" and not entry_path_ok(data, "lulu-spec"):
             errors.append("missing delivered-refs entry: lulu-spec")
         return errors
@@ -90,17 +106,40 @@ class TechDesignStartAdapter:
         delivered_refs: list[DeliveredRef],
         run_mode: str = "tech",
         carry_forward_ref: str = "",
+        revision_dir: Path | None = None,
     ) -> list[DeliveredRef]:
-        """Primary scope SSOT = ``decision_fact_path`` (must have units).
+        """Primary scope SSOT for design start.
 
-        ``DeliveredRef.path`` on the returned scope ref is what compose dispatches as
-        ``$SCOPE_REF``. Cycle ``entry.path`` (decision-doc.md) stays on the approach
-        entry for human/eval — not compose scope.
+        * ``artifact=decision-package`` (or path ``decision-package.json``):
+          project to revision ``scope-package.json`` and return that path
+          (requires ``revision_dir``; D3 write-once).
+        * Legacy: ``decision_fact_path`` with units (must not be the package).
+
+        ``DeliveredRef.path`` on the returned scope ref is what compose
+        dispatches as ``$SCOPE_REF``.
         """
         del run_mode, carry_forward_ref
         primary = first_ref(delivered_refs, "lulu-approach")
         if primary is None:
             return []
+        if is_decision_package_ref(primary):
+            if revision_dir is None:
+                raise ValueError(
+                    "revision_dir required to project decision-package → scope-package"
+                )
+            scope_path = write_scope_package_projection(
+                decision_package_path=Path(primary.path),
+                revision_dir=Path(revision_dir),
+            )
+            # Guard: projected $SCOPE_REF must never be the upstream package.
+            reject_decision_package_as_scope(scope_path)
+            return [
+                DeliveredRef(
+                    type=primary.type,
+                    path=str(scope_path.resolve()),
+                    artifact="scope-package",
+                )
+            ]
         return [require_decision_fact_scope(primary)]
 
     def resolve_intent_baseline_refs(
@@ -119,11 +158,34 @@ class TechDesignStartAdapter:
         *,
         cycle_id: str,
         project_root: Path | None = None,
+        delivered_refs: list[DeliveredRef] | None = None,
     ) -> list[DeliveredRef]:
-        if project_root is None:
-            return []
-        ref = get_topic_ref(cycle_id, "lulu-design", project_root / CACHE_DIR)
-        return [DeliveredRef(type=ref["type"], path=ref["path"])] if ref is not None else []
+        refs: list[DeliveredRef] = []
+        approach: DeliveredRef | None = None
+        if delivered_refs is not None:
+            approach = first_ref(delivered_refs, "lulu-approach")
+        elif project_root is not None:
+            data = load_delivered_refs_file(cycle_id, project_root)
+            approach = ref_from_file_entry("lulu-approach", data)
+
+        if approach is not None and is_decision_package_ref(approach):
+            refs.extend(
+                norm_refs_from_decision_package(
+                    decision_package_path=Path(approach.path),
+                )
+            )
+
+        if project_root is not None:
+            topic = get_topic_ref(cycle_id, "lulu-design", project_root / CACHE_DIR)
+            if topic is not None:
+                refs.append(
+                    make_norm_ref(
+                        delivered_type=str(topic["type"]),
+                        path=str(topic["path"]),
+                        kind="topic_arch",
+                    )
+                )
+        return refs
 
     def delivered_ref_for_init(
         self,

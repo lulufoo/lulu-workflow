@@ -74,9 +74,10 @@ class TechArchStartAdapter:
         delivered_refs: list[DeliveredRef],
         run_mode: str = "tech",
         carry_forward_ref: str = "",
+        revision_dir: Path | None = None,
     ) -> list[DeliveredRef]:
         """Scope SSOT = lulu-approach decision-fact.json when delivered; else decision-doc."""
-        del run_mode, carry_forward_ref
+        del run_mode, carry_forward_ref, revision_dir
         primary = first_ref(delivered_refs, "lulu-approach")
         if primary is None:
             return []
@@ -96,8 +97,9 @@ class TechArchStartAdapter:
         *,
         cycle_id: str,
         project_root: Path | None = None,
+        delivered_refs: list[DeliveredRef] | None = None,
     ) -> list[DeliveredRef]:
-        del cycle_id, project_root
+        del cycle_id, project_root, delivered_refs
         return []
 
     def delivered_ref_for_init(

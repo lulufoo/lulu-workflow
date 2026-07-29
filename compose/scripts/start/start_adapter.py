@@ -60,8 +60,13 @@ class StartAdapter(Protocol):
         delivered_refs: list[DeliveredRef],
         run_mode: str = "tech",
         carry_forward_ref: str = "",
+        revision_dir: Path | None = None,
     ) -> list[DeliveredRef]:
-        """派生父级 refs derived from the delivered snapshot ([0]=primary scope)."""
+        """派生父级 refs derived from the delivered snapshot ([0]=primary scope).
+
+        ``revision_dir`` is required when the adapter materializes
+        ``scope-package.json`` (lulu-design / decision-package projection).
+        """
 
     def resolve_intent_baseline_refs(
         self,
@@ -76,6 +81,7 @@ class StartAdapter(Protocol):
         *,
         cycle_id: str,
         project_root: Path | None = None,
+        delivered_refs: list[DeliveredRef] | None = None,
     ) -> list[DeliveredRef]:
         """规范约束 refs from stage config (may be empty).
 
