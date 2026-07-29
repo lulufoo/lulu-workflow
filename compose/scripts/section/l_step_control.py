@@ -563,6 +563,31 @@ def begin_init(
     claim_err = _ensure_decision_fact_claims(cycle_id, project_root, profile_id)
     if claim_err:
         return _failure(_CMD_BEGIN_INIT, claim_err, current_step=step)
+
+    # P4.convert (C1=A): when $SCOPE_REF is scope-package, ensure once (or verify).
+    from scope_package_convert import (  # noqa: WPS433
+        ScopePackageConvertError,
+        ensure_scope_package_convert,
+    )
+    from scope_package_schema import is_scope_package_path  # noqa: WPS433
+
+    try:
+        scope_doc = _scope_doc(cycle_id, project_root, profile_id)
+    except ValueError as exc:
+        return _failure(_CMD_BEGIN_INIT, str(exc), current_step=step)
+    if is_scope_package_path(scope_doc):
+        try:
+            ensure_scope_package_convert(
+                _revision_dir(cycle_id, project_root, profile_id),
+                scope_package_path=scope_doc,
+            )
+        except ScopePackageConvertError as exc:
+            return _failure(
+                _CMD_BEGIN_INIT,
+                f"scope-package convert: {exc}",
+                current_step=step,
+            )
+
     return _success(
         _CMD_BEGIN_INIT,
         current_step=step,

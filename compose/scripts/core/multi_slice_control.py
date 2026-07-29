@@ -13,8 +13,12 @@ Subcommands:
     assemble-package     Write profile-derived ``*-package.json`` (delivery marker)
     assemble-index       Optional ``*-index.md`` (not the delivery marker)
 
+When revision scope is ``scope-package.json`` (archive-1.0 P4.convert), write-intake /
+lock-tree / lock-hard-mirror hard-reject (L set frozen; convert runs at start/Init).
+
 Design rationale (source repo, why-only):
 docs/domain/archive/compose/archive-4.0/compose-deductive-package-hard-mirror-design.md
+docs/domain/archive/approach/archive-1.0/phases/p4-compose-convert-design.md
 """
 
 from __future__ import annotations
@@ -45,6 +49,8 @@ from compose_package_schema import (  # noqa: E402
     stub_slice_rulers_from_package,
     validate_compose_package,
 )
+from scope_package_convert import slice_mutation_block_reason  # noqa: E402
+from scope_package_schema import is_scope_package_path  # noqa: E402
 from dependency_tree_schema import (  # noqa: E402
     DEPENDENCY_TREE_FILENAME,
     dependency_tree_path,
@@ -188,6 +194,9 @@ def cmd_write_intake(
     intake_file: Path | None,
 ) -> int:
     rev = Path(revision_dir).resolve()
+    blocked = slice_mutation_block_reason(rev)
+    if blocked:
+        return _emit_error(blocked)
     loaded = _load_json_blob(
         raw_json=intake_json, file_path=intake_file, label="intake"
     )
@@ -224,6 +233,9 @@ def cmd_complete_intake(revision_dir: Path, *, confirm: bool) -> int:
     if not confirm:
         return _emit_error("human --confirm required")
     rev = Path(revision_dir).resolve()
+    blocked = slice_mutation_block_reason(rev)
+    if blocked:
+        return _emit_error(blocked)
     try:
         data = load_split_intake(rev)
     except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
@@ -259,6 +271,9 @@ def cmd_lock_tree(
     if not confirm:
         return _emit_error("human --confirm required")
     rev = Path(revision_dir).resolve()
+    blocked = slice_mutation_block_reason(rev)
+    if blocked:
+        return _emit_error(blocked)
     root = root_facts_path(rev)
     if root.is_file():
         return _emit_error(
@@ -587,7 +602,15 @@ def cmd_lock_hard_mirror(
     if not confirm:
         return _emit_error("human --confirm required")
     rev = Path(revision_dir).resolve()
+    blocked = slice_mutation_block_reason(rev)
+    if blocked:
+        return _emit_error(blocked)
     pkg_path = Path(package_path).resolve()
+    if is_scope_package_path(pkg_path):
+        return _emit_error(
+            "scope-package.json is not a compose *-package.json; "
+            "use scope-package convert at start/Initializing (not lock-hard-mirror)"
+        )
     if not is_compose_package_path(pkg_path):
         return _emit_error(
             f"upstream scope is not a compose package (*-package.json): {pkg_path}"

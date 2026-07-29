@@ -14,8 +14,11 @@ from typing import Any
 
 PACKAGE_VERSION = 1
 SCOPE_PACKAGE_FILENAME = "scope-package.json"
+SCOPE_REF_MIRROR_FILENAME = "scope-ref.json"
+SCOPE_REF_MIRROR_VERSION = 1
 _NODE_ID_RE = re.compile(r"^L\d+$")
 _SLICE_KEYS = frozenset({"id", "title", "fact_path", "source_id"})
+_MIRROR_KEYS = frozenset({"version", "fact_path"})
 
 
 def _rel_or_abs_fact_ok(raw: str) -> bool:
@@ -117,3 +120,136 @@ def chain_ids_from_scope_package(package: dict[str, Any]) -> list[str]:
         for row in package.get("slices") or []
         if isinstance(row, dict) and str(row.get("id", "")).strip()
     ]
+
+
+def chain_dependency_tree_from_scope_package(package: dict[str, Any]) -> dict[str, Any]:
+    """Materialize slices array order into a strict chain DAG (C2=A).
+
+    No ``order`` field on the package — sequence is ``slices`` index order.
+    Edge convention matches ``chain_dependency_tree_from_package``:
+    ``L{i+1}`` depends on ``L{i}`` (``from`` → ``to``).
+    """
+    from dependency_tree_schema import build_tree  # noqa: WPS433
+
+    order = chain_ids_from_scope_package(package)
+    if not order:
+        raise ValueError("scope-package slices must be non-empty")
+    by_id = {
+        str(s["id"]).strip(): s
+        for s in package["slices"]
+        if isinstance(s, dict) and str(s.get("id", "")).strip()
+    }
+    nodes = [
+        {
+            "id": nid,
+            "title": str(by_id.get(nid, {}).get("title", nid)),
+            "summary": str(by_id.get(nid, {}).get("title", nid)).strip() or nid,
+        }
+        for nid in order
+    ]
+    edges = [
+        {"from": order[i + 1], "to": order[i]}
+        for i in range(len(order) - 1)
+    ]
+    return build_tree(nodes=nodes, edges=edges, order=order, status="draft")
+
+
+def stub_slice_rulers_from_scope_package(package: dict[str, Any]) -> dict[str, Any] | None:
+    """Build multi-L rulers stubs from slices; single-L returns None (exempt)."""
+    from slice_rulers_schema import build_slice_rulers  # noqa: WPS433
+
+    order = chain_ids_from_scope_package(package)
+    if len(order) < 2:
+        return None
+    by_id = {
+        str(s["id"]).strip(): s
+        for s in package["slices"]
+        if isinstance(s, dict) and str(s.get("id", "")).strip()
+    }
+    rulers: dict[str, dict[str, Any]] = {}
+    for nid in order:
+        title = str(by_id.get(nid, {}).get("title", nid)).strip() or nid
+        rulers[nid] = {
+            "id": nid,
+            "job": title,
+            "in": ["TBD"],
+            "out": ["TBD"],
+            "seam": [],
+            "plan_checklist": ["TBD"],
+        }
+    return build_slice_rulers(
+        cut_axis="scope_package_slices",
+        rulers=rulers,
+        status="draft",
+    )
+
+
+def scope_ref_mirror_path(revision_dir: Path, node_id: str) -> Path:
+    """Per-L fact_path mirror path: ``Lx/scope-ref.json`` (C3=B)."""
+    return Path(revision_dir) / str(node_id).strip() / SCOPE_REF_MIRROR_FILENAME
+
+
+def build_scope_ref_mirror(*, fact_path: str) -> dict[str, Any]:
+    return {
+        "version": SCOPE_REF_MIRROR_VERSION,
+        "fact_path": str(fact_path).strip(),
+    }
+
+
+def validate_scope_ref_mirror(data: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(data, dict):
+        return ["scope-ref mirror must be an object"]
+    if data.get("version") != SCOPE_REF_MIRROR_VERSION:
+        errors.append(f"version must be {SCOPE_REF_MIRROR_VERSION}")
+    extra = set(data) - _MIRROR_KEYS
+    if extra:
+        errors.append(f"unexpected keys: {sorted(extra)}")
+    if not _rel_or_abs_fact_ok(str(data.get("fact_path", ""))):
+        errors.append("fact_path must be a non-empty path")
+    return errors
+
+
+def write_scope_ref_mirror(revision_dir: Path, node_id: str, *, fact_path: str) -> Path:
+    """Write ``Lx/scope-ref.json`` mirroring ``fact_path`` (no fact file copy)."""
+    mirror = build_scope_ref_mirror(fact_path=fact_path)
+    errors = validate_scope_ref_mirror(mirror)
+    if errors:
+        raise ValueError("; ".join(errors))
+    path = scope_ref_mirror_path(revision_dir, node_id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(mirror, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return path
+
+
+def load_scope_ref_mirror(revision_dir: Path, node_id: str) -> dict[str, Any]:
+    path = scope_ref_mirror_path(revision_dir, node_id)
+    if not path.is_file():
+        raise FileNotFoundError(f"missing scope-ref mirror: {path}")
+    data = json.loads(path.read_text(encoding="utf-8"))
+    errors = validate_scope_ref_mirror(data)
+    if errors:
+        raise ValueError("; ".join(errors))
+    return data
+
+
+def write_fact_path_mirrors(revision_dir: Path, package: dict[str, Any]) -> list[Path]:
+    """Mirror each slice ``fact_path`` into ``Lx/scope-ref.json`` (C3=B)."""
+    written: list[Path] = []
+    for row in package.get("slices") or []:
+        if not isinstance(row, dict):
+            continue
+        nid = str(row.get("id", "")).strip()
+        if not nid:
+            continue
+        written.append(
+            write_scope_ref_mirror(
+                revision_dir,
+                nid,
+                fact_path=str(row.get("fact_path", "")).strip(),
+            )
+        )
+    return written

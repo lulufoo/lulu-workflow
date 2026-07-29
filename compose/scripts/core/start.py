@@ -267,6 +267,24 @@ def run_start(
         norm_constraint_refs=norm_constraint_refs,
     )
 
+    # P4.convert (C1=A): when $SCOPE_REF is scope-package.json, hard-convert once.
+    from scope_package_convert import (  # noqa: WPS433
+        ScopePackageConvertError,
+        ensure_scope_package_convert,
+    )
+    from scope_package_schema import is_scope_package_path  # noqa: WPS433
+
+    scope_path = Path(scope_refs[0].path)
+    if is_scope_package_path(scope_path):
+        try:
+            ensure_scope_package_convert(
+                revision_dir,
+                scope_package_path=scope_path,
+            )
+        except ScopePackageConvertError as exc:
+            print(f"错误：scope-package convert 失败：{exc}", file=sys.stderr)
+            return 1
+
     try:
         role_summary = resolve_role_summary(cycle_type=cycle_type)
     except ScopeResolverError:
