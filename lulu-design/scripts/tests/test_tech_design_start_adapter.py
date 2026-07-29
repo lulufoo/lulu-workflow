@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import sys
 from pathlib import Path
@@ -19,11 +20,27 @@ for _p in (_KERNEL_TESTS, _START):
 
 import bootstrap  # noqa: F401
 from delivered_refs_schema import record_delivered_ref  # noqa: E402
-from start_scope_helpers import DecisionFactScopeError  # noqa: E402
 from tech_design_start_adapter import TechDesignStartAdapter  # noqa: E402
 
 _CYCLE = "feat-design-start"
 _ADAPTER = TechDesignStartAdapter()
+
+_dp_path = (
+    _WORKFLOW_ROOT
+    / "lulu-approach"
+    / "scripts"
+    / "schema"
+    / "decision_package_schema.py"
+)
+_dp_spec = importlib.util.spec_from_file_location(
+    "_tech_design_start_dp_schema",
+    _dp_path,
+)
+assert _dp_spec and _dp_spec.loader
+_dp_mod = importlib.util.module_from_spec(_dp_spec)
+_dp_spec.loader.exec_module(_dp_mod)
+build_decision_package = _dp_mod.build_decision_package
+save_decision_package = _dp_mod.save_decision_package
 
 
 def _write_file(tmp_path: Path, rel: str, content: str = "# stub\n") -> Path:
@@ -33,9 +50,11 @@ def _write_file(tmp_path: Path, rel: str, content: str = "# stub\n") -> Path:
     return p
 
 
-def _seed_decision_fact(tmp_path: Path) -> Path:
-    fact = tmp_path / "diag" / "decision-fact.json"
-    fact.parent.mkdir(parents=True, exist_ok=True)
+def _seed_decision_package(tmp_path: Path) -> Path:
+    """Write nested approach root + decision-package.json; return package path."""
+    root = tmp_path / "approach"
+    (root / "main").mkdir(parents=True)
+    fact = root / "main" / "decision-fact.json"
     fact.write_text(
         json.dumps(
             {
@@ -47,23 +66,33 @@ def _seed_decision_fact(tmp_path: Path) -> Path:
         ),
         encoding="utf-8",
     )
-    return fact
+    (root / "main" / "decision-doc.md").write_text("# main\n", encoding="utf-8")
+    save_decision_package(
+        root,
+        build_decision_package(
+            main={
+                "decision_fact_path": "main/decision-fact.json",
+                "decision_doc_path": "main/decision-doc.md",
+            },
+            slices=[],
+        ),
+    )
+    return root / "decision-package.json"
 
 
 def _seed_diag_ref(tmp_path: Path, cycle_id: str) -> Path:
-    doc = _write_file(tmp_path, "diag/decision-doc.md")
-    fact = _seed_decision_fact(tmp_path)
+    pkg = _seed_decision_package(tmp_path)
     record_delivered_ref(
         cycle_id,
         tmp_path,
         delivered_type="lulu-approach",
-        path=str(doc.resolve()),
+        path=str(pkg.resolve()),
         revision=1,
         profile_id="lulu-approach",
-        source_workflow_state=str(doc.resolve()),
-        decision_fact_path=str(fact.resolve()),
+        source_workflow_state=str(pkg.resolve()),
+        artifact="decision-package",
     )
-    return doc
+    return pkg
 
 
 def _seed_product_ref(tmp_path: Path, cycle_id: str) -> Path:
@@ -159,50 +188,74 @@ class TestResolveDeliveredRefs:
 
 
 class TestResolveScopeRefs:
-    def test_tech_mode_scope_is_decision_fact(self, tmp_path: Path):
+    def test_tech_mode_scope_is_scope_package(self, tmp_path: Path):
         diag = _seed_diag_ref(tmp_path, _CYCLE)
         spec = _seed_product_ref(tmp_path, _CYCLE)
-        fact = tmp_path / "diag" / "decision-fact.json"
         from delivered_refs_schema import DeliveredRef  # noqa: WPS433
 
+        rev = tmp_path / "design" / "revision1"
+        rev.mkdir(parents=True)
         all_refs = [
             DeliveredRef(
                 type="lulu-approach",
                 path=str(diag.resolve()),
-                decision_fact_path=str(fact.resolve()),
+                artifact="decision-package",
             ),
             DeliveredRef(type="lulu-spec", path=str(spec.resolve())),
         ]
-        scope = _ADAPTER.resolve_scope_refs(delivered_refs=all_refs, run_mode="tech")
+        scope = _ADAPTER.resolve_scope_refs(
+            delivered_refs=all_refs,
+            run_mode="tech",
+            revision_dir=rev,
+        )
         assert [r.type for r in scope] == ["lulu-approach"]
-        assert scope[0].path == str(fact.resolve())
+        assert scope[0].artifact == "scope-package"
+        assert Path(scope[0].path).name == "scope-package.json"
 
-    def test_product_mode_scope_is_decision_fact(self, tmp_path: Path):
+    def test_product_mode_scope_is_scope_package(self, tmp_path: Path):
         diag = _seed_diag_ref(tmp_path, _CYCLE)
         spec = _seed_product_ref(tmp_path, _CYCLE)
-        fact = tmp_path / "diag" / "decision-fact.json"
         from delivered_refs_schema import DeliveredRef  # noqa: WPS433
 
+        rev = tmp_path / "design" / "revision2"
+        rev.mkdir(parents=True)
         all_refs = [
             DeliveredRef(
                 type="lulu-approach",
                 path=str(diag.resolve()),
-                decision_fact_path=str(fact.resolve()),
+                artifact="decision-package",
             ),
             DeliveredRef(type="lulu-spec", path=str(spec.resolve())),
         ]
-        scope = _ADAPTER.resolve_scope_refs(delivered_refs=all_refs, run_mode="product")
+        scope = _ADAPTER.resolve_scope_refs(
+            delivered_refs=all_refs,
+            run_mode="product",
+            revision_dir=rev,
+        )
         assert [r.type for r in scope] == ["lulu-approach"]
-        assert scope[0].path == str(fact.resolve())
+        assert scope[0].artifact == "scope-package"
 
-    def test_scope_requires_decision_fact_path(self, tmp_path: Path):
-        diag = _seed_diag_ref(tmp_path, _CYCLE)
+    def test_scope_rejects_legacy_decision_fact(self, tmp_path: Path):
         from delivered_refs_schema import DeliveredRef  # noqa: WPS433
 
-        with pytest.raises(DecisionFactScopeError, match="required"):
+        fact = tmp_path / "legacy-fact.json"
+        fact.write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "gates": {"D": [{"id": "D-1", "slot": "D.x", "text": "x"}]},
+                }
+            ),
+            encoding="utf-8",
+        )
+        with pytest.raises(ValueError, match="Path A|retired|decision-package"):
             _ADAPTER.resolve_scope_refs(
                 delivered_refs=[
-                    DeliveredRef(type="lulu-approach", path=str(diag.resolve())),
+                    DeliveredRef(
+                        type="lulu-approach",
+                        path=str(tmp_path / "decision-doc.md"),
+                        decision_fact_path=str(fact.resolve()),
+                    ),
                 ],
             )
 

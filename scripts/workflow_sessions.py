@@ -12,6 +12,7 @@ _VALID_STATES = frozenset({"Drafting", "Evaluating", "TDABlocked", "Delivered", 
 STAGE_FLAT = frozenset({"decision", "lulu-bet", "lulu-approach"})
 _FLAT_VALID_STATES = frozenset({"InProgress", "Frozen", "Delivered", "Invalidated"})
 _STAGE_REVISION_PAT = re.compile(r"^(revision|r|s)\d+$")
+_APPROACH_DX_DIR_PAT = re.compile(r"^D\d+$")
 
 _STAGE_FLAT = STAGE_FLAT
 
@@ -48,24 +49,48 @@ class SessionInfo:
     state_path: Optional[Path] = None
 
 
+def _append_flat_session(
+    sessions: List[SessionInfo],
+    ws: Path,
+    revision: str,
+) -> None:
+    if not ws.is_file():
+        return
+    fm = parse_frontmatter(ws.read_text(encoding="utf-8"))
+    state = fm.get("current_state", "")
+    if state not in _FLAT_VALID_STATES:
+        return
+    sessions.append(
+        SessionInfo(
+            revision=revision,
+            state=state,
+            created_at=fm.get("updated_at", ""),
+            state_path=ws,
+        )
+    )
+
+
 def get_sessions(cycle_id: str, stage: str, cache_dir: Path) -> List[SessionInfo]:
-    """Scan the stage directory and return SessionInfo list."""
+    """Scan the stage directory and return SessionInfo list.
+
+    For ``lulu-approach``, also scans nested ``main/session-state.md`` and
+    ``D*/session-state.md`` under the stage dir (flat root kept for back-compat).
+    """
     stage_dir = cache_dir / cycle_id / stage_subdir(stage)
     if not stage_dir.is_dir():
         return []
-    sessions = []
+    sessions: List[SessionInfo] = []
     if stage in STAGE_FLAT:
-        ws = stage_dir / "session-state.md"
-        if ws.exists():
-            fm = parse_frontmatter(ws.read_text(encoding="utf-8"))
-            state = fm.get("current_state", "")
-            if state in _FLAT_VALID_STATES:
-                sessions.append(SessionInfo(
-                    revision="r0",
-                    state=state,
-                    created_at=fm.get("updated_at", ""),
-                    state_path=ws,
-                ))
+        _append_flat_session(sessions, stage_dir / "session-state.md", "r0")
+        if stage == "lulu-approach":
+            _append_flat_session(
+                sessions, stage_dir / "main" / "session-state.md", "main"
+            )
+            for child in sorted(stage_dir.iterdir()):
+                if child.is_dir() and _APPROACH_DX_DIR_PAT.match(child.name):
+                    _append_flat_session(
+                        sessions, child / "session-state.md", child.name
+                    )
     else:
         for rev_dir in sorted(stage_dir.iterdir()):
             if not _STAGE_REVISION_PAT.match(rev_dir.name):

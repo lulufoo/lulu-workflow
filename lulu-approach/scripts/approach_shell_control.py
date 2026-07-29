@@ -11,10 +11,19 @@ PackageReady: human ``confirm_seal`` required before seal (no auto-seal).
 
 Delivered stub: prefer ``by_id[].delivered``; else ``session-state.md``
 ``current_state: Delivered`` under ``main/`` or ``Dx/`` when present.
+
+CLI (stdout JSON ``{"ok": true, ...}``; errors on stderr, exit 1)::
+
+    python3 approach_shell_control.py --approach-root <path> <subcommand> ...
+
+Subcommands: init-shell, enter-split, enter-working, set-focus,
+enter-package-ready, confirm-seal.
 """
 
 from __future__ import annotations
 
+import argparse
+import json
 import re
 import sys
 from pathlib import Path
@@ -22,11 +31,13 @@ from typing import Any
 
 _SCRIPTS = Path(__file__).resolve().parent
 _SCHEMA = _SCRIPTS / "schema"
-for _p in (_SCRIPTS, _SCHEMA):
+_WORKFLOW_SCRIPTS = _SCRIPTS.parents[1] / "scripts"
+for _p in (_SCRIPTS, _SCHEMA, _WORKFLOW_SCRIPTS):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
 from approach_layout import (  # noqa: E402
+    decision_package_path,
     dx_session_dir,
     ensure_approach_layout,
     main_session_dir,
@@ -36,7 +47,11 @@ from approach_shell_schema import (  # noqa: E402
     initial_shell,
     load_shell,
     save_shell,
+    shell_path,
 )
+from approach_split_control import write_early_package  # noqa: E402
+from cycle_delivered_refs import record_delivered_ref  # noqa: E402
+from decision_package_schema import load_decision_package  # noqa: E402
 
 _DX_ID_RE = re.compile(r"^D\d+$")
 _SESSION_STATE = "session-state.md"
@@ -256,18 +271,154 @@ def enter_package_ready(approach_root: Path) -> dict[str, Any]:
     )
 
 
-def confirm_seal(approach_root: Path, *, confirm: bool) -> dict[str, Any]:
-    """Human confirm at PackageReady. Does not auto-seal; returns ok payload."""
-    shell = load_shell(approach_root)
+def confirm_seal(
+    approach_root: Path,
+    *,
+    confirm: bool,
+    cycle_id: str | None = None,
+    project_root: Path | None = None,
+) -> dict[str, Any]:
+    """Human confirm at PackageReady; ensure package; register delivered-refs."""
+    root = Path(approach_root).resolve()
+    shell = load_shell(root)
     if shell["macro_state"] != "PackageReady":
         raise ValueError(
             f"confirm_seal requires macro_state=PackageReady, got {shell['macro_state']!r}"
         )
     if not confirm:
         raise ValueError("confirm_seal blocked: human --confirm required")
+    cid = str(cycle_id or "").strip()
+    if not cid:
+        raise ValueError("confirm_seal requires --cycle-id")
+    if project_root is None:
+        raise ValueError("confirm_seal requires --project-root")
+    proj = Path(project_root).resolve()
+
+    pkg_path = decision_package_path(root)
+    if not pkg_path.is_file():
+        write_early_package(root)
+    else:
+        package = load_decision_package(pkg_path)
+        slices = package.get("slices") or []
+        if slices:
+            missing: list[str] = []
+            for row in slices:
+                sid = str(row.get("id", "")).strip()
+                for key in ("decision_fact_path", "decision_doc_path"):
+                    rel = str(row.get(key, "")).strip()
+                    target = (root / rel).resolve()
+                    try:
+                        target.relative_to(root)
+                    except ValueError as exc:
+                        raise ValueError(
+                            f"confirm_seal blocked: slice {sid!r} {key} escapes root: {rel!r}"
+                        ) from exc
+                    if not target.is_file():
+                        missing.append(f"{sid}:{key}={rel}")
+            if missing:
+                raise ValueError(
+                    "confirm_seal blocked: missing slice artifact(s): "
+                    + ", ".join(missing)
+                )
+
+    source = str(shell_path(root).resolve())
+    record_delivered_ref(
+        cid,
+        proj,
+        delivered_type="lulu-approach",
+        path=str(pkg_path.resolve()),
+        artifact="decision-package",
+        revision=1,
+        profile_id="lulu-approach",
+        source_workflow_state=source,
+    )
     return {
         "ok": True,
         "macro_state": "PackageReady",
         "sealed": True,
-        "message": "human confirmed seal; register delivered-refs to decision-package",
+        "decision_package": str(pkg_path.resolve()),
+        "source_workflow_state": source,
     }
+
+
+def _emit_ok(payload: dict[str, Any]) -> int:
+    out = dict(payload)
+    out.setdefault("ok", True)
+    print(json.dumps(out, ensure_ascii=False))
+    return 0
+
+
+def _emit_err(message: str) -> int:
+    print(message, file=sys.stderr)
+    return 1
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(
+        prog="approach_shell_control.py",
+        description="Approach outer-shell control (Main/Split/Working/PackageReady).",
+    )
+    p.add_argument("--approach-root", required=True, type=Path)
+    sub = p.add_subparsers(dest="command", required=True)
+
+    sub.add_parser("init-shell", help="Create layout + Main shell pointer")
+
+    sub.add_parser("enter-split", help="Main → Split (main must be Delivered)")
+
+    p_ew = sub.add_parser("enter-working", help="Split → Working")
+    p_ew.add_argument("--node-ids", nargs="+", required=True)
+    p_ew.add_argument("--focus", default=None)
+
+    p_sf = sub.add_parser("set-focus", help="Switch Working focus")
+    p_sf.add_argument("--node-id", required=True)
+
+    sub.add_parser(
+        "enter-package-ready",
+        help="Main/Working → PackageReady",
+    )
+
+    p_cs = sub.add_parser("confirm-seal", help="Human confirm + delivered-refs")
+    p_cs.add_argument("--confirm", action="store_true")
+    p_cs.add_argument("--cycle-id", required=True)
+    p_cs.add_argument("--project-root", required=True, type=Path)
+
+    return p
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = _build_parser()
+    args = parser.parse_args(argv)
+    root = Path(args.approach_root).resolve()
+    try:
+        if args.command == "init-shell":
+            return _emit_ok({"shell": init_shell(root)})
+        if args.command == "enter-split":
+            return _emit_ok({"shell": enter_split(root)})
+        if args.command == "enter-working":
+            return _emit_ok(
+                {
+                    "shell": enter_working(
+                        root, list(args.node_ids), focus=args.focus
+                    )
+                }
+            )
+        if args.command == "set-focus":
+            return _emit_ok({"shell": set_focus(root, args.node_id)})
+        if args.command == "enter-package-ready":
+            return _emit_ok({"shell": enter_package_ready(root)})
+        if args.command == "confirm-seal":
+            return _emit_ok(
+                confirm_seal(
+                    root,
+                    confirm=bool(args.confirm),
+                    cycle_id=args.cycle_id,
+                    project_root=Path(args.project_root),
+                )
+            )
+    except (FileNotFoundError, ValueError, OSError) as exc:
+        return _emit_err(str(exc))
+    return _emit_err(f"unknown command: {args.command}")
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -21,10 +21,7 @@ from delivered_refs_schema import (  # noqa: E402
     ref_from_file_entry,
 )
 from start_adapter import primary_scope_from_workflow  # noqa: E402
-from start_scope_helpers import (  # noqa: E402
-    first_ref,
-    require_decision_fact_scope,
-)
+from start_scope_helpers import first_ref  # noqa: E402
 from workflow_common import CACHE_DIR  # noqa: E402
 
 _WORKFLOW_SCRIPTS = _WORKFLOW_ROOT / "scripts"
@@ -73,7 +70,15 @@ class TechDesignStartAdapter:
             errors.append("missing delivered-refs entry: lulu-approach")
         else:
             approach = ref_from_file_entry("lulu-approach", data)
-            if approach is not None and is_decision_package_ref(approach):
+            if approach is None:
+                errors.append("missing delivered-refs entry: lulu-approach")
+            elif not is_decision_package_ref(approach):
+                errors.append(
+                    "lulu-approach must deliver decision-package.json "
+                    "(artifact=decision-package); legacy whole decision-fact "
+                    "scope is retired (archive-1.0 P3)"
+                )
+            else:
                 try:
                     load_decision_package(Path(approach.path))
                 except (OSError, ValueError) as exc:
@@ -110,37 +115,38 @@ class TechDesignStartAdapter:
     ) -> list[DeliveredRef]:
         """Primary scope SSOT for design start.
 
-        * ``artifact=decision-package`` (or path ``decision-package.json``):
-          project to revision ``scope-package.json`` and return that path
-          (requires ``revision_dir``; D3 write-once).
-        * Legacy: ``decision_fact_path`` with units (must not be the package).
+        Requires ``artifact=decision-package`` (or path ``decision-package.json``);
+        projects to revision ``scope-package.json`` (``revision_dir``; D3 write-once).
 
-        ``DeliveredRef.path`` on the returned scope ref is what compose
-        dispatches as ``$SCOPE_REF``.
+        Legacy whole ``decision-fact`` as ``$SCOPE_REF`` is **retired** (no Path A
+        fallback). ``DeliveredRef.path`` on the returned scope ref is ``$SCOPE_REF``.
         """
         del run_mode, carry_forward_ref
         primary = first_ref(delivered_refs, "lulu-approach")
         if primary is None:
             return []
-        if is_decision_package_ref(primary):
-            if revision_dir is None:
-                raise ValueError(
-                    "revision_dir required to project decision-package → scope-package"
-                )
-            scope_path = write_scope_package_projection(
-                decision_package_path=Path(primary.path),
-                revision_dir=Path(revision_dir),
+        if not is_decision_package_ref(primary):
+            raise ValueError(
+                "lulu-approach scope requires decision-package.json "
+                "(artifact=decision-package); legacy whole decision-fact Path A "
+                "is retired — re-seal approach via confirm-seal"
             )
-            # Guard: projected $SCOPE_REF must never be the upstream package.
-            reject_decision_package_as_scope(scope_path)
-            return [
-                DeliveredRef(
-                    type=primary.type,
-                    path=str(scope_path.resolve()),
-                    artifact="scope-package",
-                )
-            ]
-        return [require_decision_fact_scope(primary)]
+        if revision_dir is None:
+            raise ValueError(
+                "revision_dir required to project decision-package → scope-package"
+            )
+        scope_path = write_scope_package_projection(
+            decision_package_path=Path(primary.path),
+            revision_dir=Path(revision_dir),
+        )
+        reject_decision_package_as_scope(scope_path)
+        return [
+            DeliveredRef(
+                type=primary.type,
+                path=str(scope_path.resolve()),
+                artifact="scope-package",
+            )
+        ]
 
     def resolve_intent_baseline_refs(
         self,

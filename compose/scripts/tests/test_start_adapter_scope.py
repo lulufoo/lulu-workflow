@@ -90,47 +90,91 @@ def test_tech_plan_approach_only_requires_decision_fact(tmp_path: Path):
     assert refs[0].path == str(fact.resolve())
 
 
-def test_tech_design_resolve_scope_refs_requires_decision_fact(tmp_path: Path):
+def test_tech_design_resolve_scope_refs_requires_decision_package(tmp_path: Path):
+    """Archive-1.0: design start retires legacy whole decision-fact Path A."""
+    import importlib.util
+
     adapter = TechDesignStartAdapter()
-    with pytest.raises(DecisionFactScopeError, match="required"):
+    with pytest.raises(ValueError, match="decision-package|Path A|retired"):
         adapter.resolve_scope_refs(
             delivered_refs=[DeliveredRef(type="lulu-approach", path="/abs/decision.md")],
             run_mode="tech",
         )
     fact = _unit_fact(tmp_path)
+    with pytest.raises(ValueError, match="decision-package|Path A|retired"):
+        adapter.resolve_scope_refs(
+            delivered_refs=[
+                DeliveredRef(
+                    type="lulu-approach",
+                    path="/abs/decision.md",
+                    decision_fact_path=str(fact.resolve()),
+                ),
+            ],
+            run_mode="tech",
+        )
+
+    approach = tmp_path / "approach"
+    (approach / "main").mkdir(parents=True)
+    main_fact = approach / "main" / "decision-fact.json"
+    main_fact.write_text(fact.read_text(encoding="utf-8"), encoding="utf-8")
+    (approach / "main" / "decision-doc.md").write_text("# main\n", encoding="utf-8")
+    dp_path = (
+        _WORKFLOW_ROOT
+        / "lulu-approach"
+        / "scripts"
+        / "schema"
+        / "decision_package_schema.py"
+    )
+    spec = importlib.util.spec_from_file_location("_dp_schema_scope_test", dp_path)
+    assert spec and spec.loader
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    mod.save_decision_package(
+        approach,
+        mod.build_decision_package(
+            main={
+                "decision_fact_path": "main/decision-fact.json",
+                "decision_doc_path": "main/decision-doc.md",
+            },
+            slices=[],
+        ),
+    )
+    rev = tmp_path / "design" / "revision1"
+    rev.mkdir(parents=True)
     refs = adapter.resolve_scope_refs(
         delivered_refs=[
             DeliveredRef(
                 type="lulu-approach",
-                path="/abs/decision.md",
-                decision_fact_path=str(fact.resolve()),
+                path=str((approach / "decision-package.json").resolve()),
+                artifact="decision-package",
             ),
         ],
         run_mode="tech",
+        revision_dir=rev,
     )
     assert len(refs) == 1
-    assert refs[0].type == "lulu-approach"
-    assert refs[0].path == str(fact.resolve())
+    assert refs[0].artifact == "scope-package"
+    assert Path(refs[0].path).name == "scope-package.json"
 
 
-def test_tech_design_resolve_scope_refs_decision_fact_hard_fail(tmp_path: Path):
+def test_tech_design_resolve_scope_refs_legacy_fact_hard_fail(tmp_path: Path):
     adapter = TechDesignStartAdapter()
     fact = _unit_fact(tmp_path)
-    refs = adapter.resolve_scope_refs(
-        delivered_refs=[
-            DeliveredRef(
-                type="lulu-approach",
-                path="/abs/decision.md",
-                decision_fact_path=str(fact.resolve()),
-            ),
-        ],
-        run_mode="tech",
-    )
-    assert refs[0].path == str(fact.resolve())
+    with pytest.raises(ValueError, match="decision-package|Path A|retired"):
+        adapter.resolve_scope_refs(
+            delivered_refs=[
+                DeliveredRef(
+                    type="lulu-approach",
+                    path="/abs/decision.md",
+                    decision_fact_path=str(fact.resolve()),
+                ),
+            ],
+            run_mode="tech",
+        )
 
     empty = tmp_path / "empty-fact.json"
     empty.write_text('{"version":1,"gates":{}}\n', encoding="utf-8")
-    with pytest.raises(DecisionFactScopeError, match="no units"):
+    with pytest.raises(ValueError, match="decision-package|Path A|retired"):
         adapter.resolve_scope_refs(
             delivered_refs=[
                 DeliveredRef(
@@ -142,7 +186,7 @@ def test_tech_design_resolve_scope_refs_decision_fact_hard_fail(tmp_path: Path):
         )
 
     missing = tmp_path / "missing.json"
-    with pytest.raises(DecisionFactScopeError, match="missing"):
+    with pytest.raises(ValueError, match="decision-package|Path A|retired"):
         adapter.resolve_scope_refs(
             delivered_refs=[
                 DeliveredRef(
@@ -154,7 +198,7 @@ def test_tech_design_resolve_scope_refs_decision_fact_hard_fail(tmp_path: Path):
         )
     corrupt = tmp_path / "corrupt-fact.json"
     corrupt.write_text("{not-json", encoding="utf-8")
-    with pytest.raises(DecisionFactScopeError, match="corrupt"):
+    with pytest.raises(ValueError, match="decision-package|Path A|retired"):
         adapter.resolve_scope_refs(
             delivered_refs=[
                 DeliveredRef(
@@ -283,21 +327,54 @@ def test_tech_plan_design_primary_keeps_design_doc_path(tmp_path: Path):
 
 
 def test_tech_design_scope_excludes_spec_in_product_mode(tmp_path: Path):
+    import importlib.util
+
     adapter = TechDesignStartAdapter()
     fact = _unit_fact(tmp_path)
+    approach = tmp_path / "approach"
+    (approach / "main").mkdir(parents=True)
+    (approach / "main" / "decision-fact.json").write_text(
+        fact.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    (approach / "main" / "decision-doc.md").write_text("# main\n", encoding="utf-8")
+    dp_path = (
+        _WORKFLOW_ROOT
+        / "lulu-approach"
+        / "scripts"
+        / "schema"
+        / "decision_package_schema.py"
+    )
+    spec = importlib.util.spec_from_file_location("_dp_scope_excl_spec", dp_path)
+    assert spec and spec.loader
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    mod.save_decision_package(
+        approach,
+        mod.build_decision_package(
+            main={
+                "decision_fact_path": "main/decision-fact.json",
+                "decision_doc_path": "main/decision-doc.md",
+            },
+            slices=[],
+        ),
+    )
+    rev = tmp_path / "design" / "revision1"
+    rev.mkdir(parents=True)
     refs = adapter.resolve_scope_refs(
         delivered_refs=[
             DeliveredRef(
                 type="lulu-approach",
-                path="/abs/decision.md",
-                decision_fact_path=str(fact.resolve()),
+                path=str((approach / "decision-package.json").resolve()),
+                artifact="decision-package",
             ),
             DeliveredRef(type="lulu-spec", path="/abs/product.md"),
         ],
         run_mode="product",
+        revision_dir=rev,
     )
     assert [r.type for r in refs] == ["lulu-approach"]
-    assert refs[0].path == str(fact.resolve())
+    assert refs[0].artifact == "scope-package"
+    assert Path(refs[0].path).name == "scope-package.json"
 
 
 def test_tech_design_intent_baseline_is_spec_when_present():

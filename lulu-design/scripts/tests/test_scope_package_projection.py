@@ -258,19 +258,19 @@ class TestAdapterProjection:
                 ],
             )
 
-    def test_adapter_legacy_decision_fact_still_works(self, tmp_path: Path):
+    def test_adapter_rejects_legacy_decision_fact_path_a(self, tmp_path: Path):
         fact = _unit_fact(tmp_path / "decision-fact.json")
         adapter = TechDesignStartAdapter()
-        refs = adapter.resolve_scope_refs(
-            delivered_refs=[
-                DeliveredRef(
-                    type="lulu-approach",
-                    path=str(tmp_path / "decision-doc.md"),
-                    decision_fact_path=str(fact.resolve()),
-                )
-            ],
-        )
-        assert refs[0].path == str(fact.resolve())
+        with pytest.raises(ValueError, match="Path A|retired|decision-package"):
+            adapter.resolve_scope_refs(
+                delivered_refs=[
+                    DeliveredRef(
+                        type="lulu-approach",
+                        path=str(tmp_path / "decision-doc.md"),
+                        decision_fact_path=str(fact.resolve()),
+                    )
+                ],
+            )
 
     def test_adapter_norm_from_package(self, tmp_path: Path):
         root = _seed_approach_root(tmp_path, with_slices=False)

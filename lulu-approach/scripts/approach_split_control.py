@@ -7,10 +7,19 @@ Locked S1–S4:
   - Split Delivered writes ``decision-package.slices`` with conventional
     relative paths (files may not exist yet)
   - ``Dx/`` created only on first Working focus
+
+CLI (stdout JSON ``{"ok": true, ...}``; errors on stderr, exit 1)::
+
+    python3 approach_split_control.py --approach-root <path> <subcommand> ...
+
+Subcommands: write-early-package, write-intake, complete-intake,
+lock-tree-rulers, deliver-split.
 """
 
 from __future__ import annotations
 
+import argparse
+import json
 import re
 import sys
 from pathlib import Path
@@ -38,7 +47,7 @@ from decision_rulers_schema import (  # noqa: E402
     save_decision_rulers,
     validate_decision_rulers,
 )
-from dependency_tree_schema import (  # noqa: E402
+from approach_dependency_tree_schema import (  # noqa: E402
     build_tree,
     load_dependency_tree,
     save_dependency_tree,
@@ -258,6 +267,107 @@ def ensure_dx_on_focus(approach_root: Path, node_id: str) -> Path:
     return dx_session_dir(root, sid)
 
 
+def _load_json_arg(path: Path | None) -> dict[str, Any] | None:
+    if path is None:
+        return None
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError(f"JSON root must be an object: {path}")
+    return data
+
+
+def _emit_ok(payload: dict[str, Any]) -> int:
+    out = dict(payload)
+    out.setdefault("ok", True)
+    print(json.dumps(out, ensure_ascii=False))
+    return 0
+
+
+def _emit_err(message: str) -> int:
+    print(message, file=sys.stderr)
+    return 1
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(
+        prog="approach_split_control.py",
+        description="Approach Split structural-cut control.",
+    )
+    p.add_argument("--approach-root", required=True, type=Path)
+    sub = p.add_subparsers(dest="command", required=True)
+
+    sub.add_parser(
+        "write-early-package",
+        help="Write decision-package with empty slices",
+    )
+
+    p_wi = sub.add_parser("write-intake", help="Write draft split intake")
+    p_wi.add_argument(
+        "--json",
+        dest="json_path",
+        type=Path,
+        default=None,
+        help="Optional intake JSON object path",
+    )
+
+    p_ci = sub.add_parser("complete-intake", help="Mark intake complete")
+    p_ci.add_argument("--confirm", action="store_true")
+
+    p_lock = sub.add_parser(
+        "lock-tree-rulers",
+        help="Lock dependency-tree + decision rulers",
+    )
+    p_lock.add_argument("--tree", required=True, type=Path)
+    p_lock.add_argument("--rulers", required=True, type=Path)
+    p_lock.add_argument("--confirm", action="store_true")
+
+    p_ds = sub.add_parser("deliver-split", help="Split Delivered + write slices")
+    p_ds.add_argument("--tree", type=Path, default=None)
+    p_ds.add_argument("--rulers", type=Path, default=None)
+    p_ds.add_argument("--confirm", action="store_true")
+
+    return p
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = _build_parser()
+    args = parser.parse_args(argv)
+    root = Path(args.approach_root).resolve()
+    try:
+        if args.command == "write-early-package":
+            return _emit_ok({"package": write_early_package(root)})
+        if args.command == "write-intake":
+            data = _load_json_arg(args.json_path)
+            return _emit_ok({"intake": write_intake(root, data)})
+        if args.command == "complete-intake":
+            return _emit_ok(
+                {"intake": complete_intake(root, confirm=bool(args.confirm))}
+            )
+        if args.command == "lock-tree-rulers":
+            tree = _load_json_arg(args.tree)
+            rulers = _load_json_arg(args.rulers)
+            if tree is None or rulers is None:
+                raise ValueError("lock-tree-rulers requires --tree and --rulers JSON")
+            locked_tree, locked_rulers = lock_tree_and_rulers(
+                root, tree=tree, rulers=rulers, confirm=bool(args.confirm)
+            )
+            return _emit_ok({"tree": locked_tree, "rulers": locked_rulers})
+        if args.command == "deliver-split":
+            tree = _load_json_arg(args.tree)
+            rulers = _load_json_arg(args.rulers)
+            return _emit_ok(
+                deliver_split(
+                    root,
+                    tree=tree,
+                    rulers=rulers,
+                    confirm=bool(args.confirm),
+                )
+            )
+    except (FileNotFoundError, ValueError, OSError, json.JSONDecodeError) as exc:
+        return _emit_err(str(exc))
+    return _emit_err(f"unknown command: {args.command}")
+
+
 # Re-export builders for tests / callers
 __all__ = [
     "build_decision_rulers",
@@ -269,7 +379,12 @@ __all__ = [
     "empty_intake",
     "ensure_dx_on_focus",
     "lock_tree_and_rulers",
+    "main",
     "slices_from_locked_tree",
     "write_early_package",
     "write_intake",
 ]
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

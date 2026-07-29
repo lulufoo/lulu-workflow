@@ -4,12 +4,14 @@
 from __future__ import annotations
 
 import importlib.util
+import sys
 from pathlib import Path
 
 import pytest
 
 _SCRIPTS = Path(__file__).resolve().parents[1]
 _SCHEMA = _SCRIPTS / "schema"
+_WORKFLOW_SCRIPTS = _SCRIPTS.parents[1] / "scripts"
 
 
 def _load(name: str, path: Path):
@@ -24,11 +26,15 @@ _schema = _load("approach_shell_schema", _SCHEMA / "approach_shell_schema.py")
 _layout = _load("approach_layout", _SCRIPTS / "approach_layout.py")
 
 # control imports siblings via sys.path; load after schema/layout are importable
-import sys
-
-sys.path.insert(0, str(_SCRIPTS))
-sys.path.insert(0, str(_SCHEMA))
+for _p in (_SCRIPTS, _SCHEMA, _WORKFLOW_SCRIPTS):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
 _ctrl = _load("approach_shell_control", _SCRIPTS / "approach_shell_control.py")
+
+from cycle_delivered_refs import (  # noqa: E402
+    delivered_refs_file_path,
+    load_delivered_refs_file,
+)
 
 init_shell = _ctrl.init_shell
 enter_split = _ctrl.enter_split
@@ -40,6 +46,8 @@ mark_split_delivered = _ctrl.mark_split_delivered
 confirm_seal = _ctrl.confirm_seal
 load_shell = _schema.load_shell
 main_session_dir = _layout.main_session_dir
+shell_path = _schema.shell_path
+decision_package_path = _layout.decision_package_path
 
 
 def _write_delivered(session_dir: Path) -> None:
@@ -89,9 +97,94 @@ def test_main_to_package_ready_no_split(tmp_path: Path) -> None:
     _write_delivered(main_session_dir(root))
     shell = enter_package_ready(root)
     assert shell["macro_state"] == "PackageReady"
-    assert confirm_seal(root, confirm=True)["sealed"] is True
     with pytest.raises(ValueError, match="human --confirm required"):
         confirm_seal(root, confirm=False)
+
+
+def test_confirm_seal_registers_delivered_ref(tmp_path: Path) -> None:
+    """PackageReady + confirm writes early package and registers delivered-refs."""
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    root = project_root / "approach-root" / "lulu-approach"
+    cycle_id = "feat-approach-seal"
+    init_shell(root)
+    _write_delivered(main_session_dir(root))
+    enter_package_ready(root)
+
+    assert not decision_package_path(root).is_file()
+    result = confirm_seal(
+        root,
+        confirm=True,
+        cycle_id=cycle_id,
+        project_root=project_root,
+    )
+    assert result["sealed"] is True
+    pkg = decision_package_path(root)
+    assert pkg.is_file()
+    assert result["decision_package"] == str(pkg.resolve())
+
+    refs_path = delivered_refs_file_path(cycle_id, project_root)
+    assert refs_path.is_file()
+    refs = load_delivered_refs_file(cycle_id, project_root)
+    entry = refs["entries"]["lulu-approach"]
+    assert entry["path"] == str(pkg.resolve())
+    assert entry["artifact"] == "decision-package"
+    assert entry["revision"] == 1
+    assert entry["profile_id"] == "lulu-approach"
+    assert entry["source_workflow_state"] == str(shell_path(root).resolve())
+
+
+def test_confirm_seal_split_requires_slice_artifacts(tmp_path: Path) -> None:
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    root = project_root / "lulu-approach"
+    cycle_id = "feat-approach-split-seal"
+    init_shell(root)
+    _write_delivered(main_session_dir(root))
+    enter_split(root)
+    mark_split_delivered(root)
+    enter_working(root, ["D1"], focus="D1")
+    mark_node_delivered(root, "D1")
+    enter_package_ready(root)
+
+    # Existing package with non-empty slices but missing on-disk artifacts → fail
+    from approach_split_control import conventional_main_paths, conventional_slice_paths
+    from decision_package_schema import build_decision_package, save_decision_package
+
+    save_decision_package(
+        root,
+        build_decision_package(
+            main=conventional_main_paths(),
+            slices=[
+                {
+                    "id": "D1",
+                    "title": "slice one",
+                    **conventional_slice_paths("D1"),
+                }
+            ],
+            status="package_ready",
+        ),
+    )
+    with pytest.raises(ValueError, match="missing slice artifact"):
+        confirm_seal(
+            root,
+            confirm=True,
+            cycle_id=cycle_id,
+            project_root=project_root,
+        )
+
+    (root / "D1").mkdir(parents=True, exist_ok=True)
+    (root / "D1" / "decision-fact.json").write_text("{}\n", encoding="utf-8")
+    (root / "D1" / "decision-doc.md").write_text("# D1\n", encoding="utf-8")
+    result = confirm_seal(
+        root,
+        confirm=True,
+        cycle_id=cycle_id,
+        project_root=project_root,
+    )
+    assert result["sealed"] is True
+    entry = load_delivered_refs_file(cycle_id, project_root)["entries"]["lulu-approach"]
+    assert entry["artifact"] == "decision-package"
 
 
 def test_split_working_package_ready_path(tmp_path: Path) -> None:
