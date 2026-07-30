@@ -38,7 +38,7 @@ Do NOT proceed until you have read `../_runtime.md` and loaded:
 | `$DEC_START` | `python3 "$SKILL_DIR/scripts/dec_start.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" [--domain-constraints-file "<path>"] [--session-dir "<session_dir>"]` |
 | `$DEC_SET_ACTIVE` | `python3 "$SKILL_DIR/scripts/dec_active_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" set-active --session-dir "<session_dir>"` |
 | `$DEC_GET_ACTIVE` | `python3 "$SKILL_DIR/scripts/dec_active_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" get-active` |
-| `$DEC_REOPEN` | `python3 "$SKILL_DIR/scripts/dec_reopen.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>"` |
+| `$DEC_REOPEN` | `python3 "$SKILL_DIR/scripts/dec_reopen.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" [--permit "<permit_path>"]` |
 | `$GATE_CONTROL` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>"` |
 | `$GET_PAYLOAD` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" get-payload` |
 | `$BATCH_RECLOSE` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" batch-reclose --payloads '<json object>'` |
@@ -71,6 +71,8 @@ When `$DEC_START` receives `--conversation-id`:
 SSOT for conversation → cycle mapping: platform `active-context.json`. Does **not** use `cache/decision/<conversation_id>/`.
 
 **Do not** run `$DEC_START` again after Delivery (`Delivered`) on the same feature — use `$DEC_REOPEN` (sets session `Frozen`, then RS → `$RS_COMMIT` to stale and unfreeze). Use a new feature for a wholly new decision session.
+
+When holder constraints declare `reopen_authorization=holder_required` (e.g. `lulu-approach`), `$DEC_REOPEN` **requires** `--permit` issued by the holder reopen prepare step. Generic `decision` without that field keeps the no-permit path.
 
 ### Active Session (current working session)
 

@@ -16,14 +16,15 @@ CLI (stdout JSON ``{"ok": true, ...}``; errors on stderr, exit 1)::
 
     python3 approach_shell_control.py --approach-root <path> <subcommand> ...
 
-Subcommands: init-shell, enter-split, enter-working, set-focus,
+Subcommands: init-shell, enter-split, enter-working, enter-node,
 enter-package-ready, confirm-seal, freeze-cascade, reopen-node,
-bind-check-frozen, clear-frozen.
+complete-reopen, recover-binding, bind-check-frozen, clear-frozen.
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import sys
@@ -40,6 +41,14 @@ for _p in (_SCRIPTS, _SCHEMA, _WORKFLOW_SCRIPTS, _DECISION_SCRIPTS):
         sys.path.insert(0, str(_p))
 
 from approach_dependency_tree_schema import load_dependency_tree  # noqa: E402
+from approach_node_binding_schema import (  # noqa: E402
+    build_node_binding,
+    load_node_binding,
+    new_binding_id,
+    node_binding_path,
+    save_node_binding,
+    try_load_node_binding,
+)
 from approach_layout import (  # noqa: E402
     decision_package_path,
     dx_session_dir,
@@ -56,10 +65,8 @@ from approach_shell_schema import (  # noqa: E402
 from approach_split_control import write_early_package  # noqa: E402
 from cycle_delivered_refs import record_delivered_ref  # noqa: E402
 from decision_package_schema import load_decision_package  # noqa: E402
-from dec_session_state_schema import (  # noqa: E402
-    set_session_frozen,
-    unfreeze_session,
-)
+from dec_lifecycle import bind_session, freeze_session, unfreeze_session_public  # noqa: E402
+import resolve_context  # noqa: E402
 
 _DX_ID_RE = re.compile(r"^D\d+$")
 _SESSION_STATE = "session-state.md"
@@ -222,7 +229,13 @@ def enter_working(
 
 
 def set_focus(approach_root: Path, node_id: str) -> dict[str, Any]:
-    """Switch Working focus. Rejects mid-switch until current focus is Delivered."""
+    """Retired public focus switch; callers must use the binding protocol."""
+    del approach_root, node_id
+    raise ValueError("set_focus is retired; use enter-node")
+
+
+def commit_focus(approach_root: Path, node_id: str) -> dict[str, Any]:
+    """Internal shell-only focus commit after a decision binding succeeds."""
     shell = load_shell(approach_root)
     if shell["macro_state"] != "Working":
         raise ValueError(
@@ -308,7 +321,7 @@ def _try_freeze_session(session_dir: Path) -> str:
     if state == "Frozen":
         return "already_frozen"
     if state in {"Delivered", "InProgress"}:
-        set_session_frozen(session_dir)
+        freeze_session(session_dir)
         return "session_frozen"
     return "skipped"
 
@@ -378,13 +391,13 @@ def freeze_cascade(approach_root: Path, node_id: str) -> dict[str, Any]:
     }
 
 
-def _force_focus(approach_root: Path, node_id: str) -> dict[str, Any]:
-    """Set Working focus without requiring current focus Delivered."""
+def force_commit_focus(approach_root: Path, node_id: str) -> dict[str, Any]:
+    """Internally commit focus without requiring current focus Delivered."""
     root = Path(approach_root).resolve()
     shell = load_shell(root)
     if shell["macro_state"] != "Working":
         raise ValueError(
-            f"force focus requires macro_state=Working, got {shell['macro_state']!r}"
+            f"force_commit_focus requires macro_state=Working, got {shell['macro_state']!r}"
         )
     target = str(node_id).strip()
     by_id = dict(shell.get("by_id") or {})
@@ -406,20 +419,466 @@ def _force_focus(approach_root: Path, node_id: str) -> dict[str, Any]:
     return {**shell, "next_steps": _bind_next_steps(dx)}
 
 
-def reopen_node(approach_root: Path, node_id: str) -> dict[str, Any]:
-    """Cascade-freeze target+successors and force focus onto target (F6)."""
+def _locked_working_tree(approach_root: Path, node_id: str) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Return the Working shell and its locked tree after target validation."""
     root = Path(approach_root).resolve()
-    frozen = freeze_cascade(root, node_id)
-    shell = _force_focus(root, node_id)
+    shell = load_shell(root)
+    if shell.get("macro_state") != "Working":
+        raise ValueError(
+            f"node binding requires macro_state=Working, got {shell.get('macro_state')!r}"
+        )
+    target = str(node_id).strip()
+    if not _DX_ID_RE.match(target) or target not in (shell.get("by_id") or {}):
+        raise ValueError(f"unknown node binding target {target!r}")
+    try:
+        tree = load_dependency_tree(root)
+    except FileNotFoundError as exc:
+        raise ValueError(f"node binding blocked: {exc}") from exc
+    if str(tree.get("status", "")).strip() != "locked":
+        raise ValueError(
+            "node binding blocked: dependency tree status must be locked, "
+            f"got {tree.get('status')!r}"
+        )
+    _successor_closure(tree, target)
+    return shell, tree
+
+
+def _active_session_name(approach_root: Path) -> str | None:
+    """Read the holder's Active pointer without importing its low-level schema."""
+    path = Path(approach_root).resolve() / "active-session.json"
+    if not path.is_file():
+        return None
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError("active-session must be a JSON object")
+    session_dir = str(data.get("session_dir", "")).strip()
+    if session_dir in {"main"} or _DX_ID_RE.match(session_dir):
+        return session_dir
+    raise ValueError(f"active-session has invalid session_dir {session_dir!r}")
+
+
+def _require_no_unrecovered_binding(approach_root: Path) -> None:
+    existing = try_load_node_binding(approach_root)
+    if existing is None or existing["state"] == "bound":
+        return
+    raise ValueError(
+        "node binding blocked: unresolved transaction "
+        f"{existing['binding_id']!r} is {existing['state']!r}; use recover-binding"
+    )
+
+
+def _start_binding(
+    approach_root: Path,
+    node_id: str,
+    *,
+    operation: str,
+) -> dict[str, Any]:
+    _require_no_unrecovered_binding(approach_root)
+    shell = load_shell(approach_root)
+    target = str(node_id).strip()
+    binding = build_node_binding(
+        binding_id=new_binding_id(),
+        state="preparing",
+        previous={
+            "focus": shell.get("focus"),
+            "active_session": _active_session_name(approach_root),
+        },
+        target={"node_id": target, "session_dir": target},
+        operation=operation,
+    )
+    save_node_binding(approach_root, binding)
+    return binding
+
+
+def _save_failed_binding(approach_root: Path, binding: dict[str, Any]) -> None:
+    binding["state"] = "failed"
+    save_node_binding(approach_root, binding)
+
+
+def _snapshot_sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def bind_node(
+    approach_root: Path,
+    node_id: str,
+    *,
+    project_root: Path,
+    cycle_id: str,
+    constraints_path: Path,
+    binding: dict[str, Any],
+    force: bool,
+) -> dict[str, Any]:
+    """Complete the context → decision → shell half of one binding transaction."""
+    root = Path(approach_root).resolve()
+    target = str(node_id).strip()
+    session_dir = ensure_dx_on_focus(root, target)
+    try:
+        snapshot_path = resolve_context.write_resolved_context(
+            Path(project_root).resolve(),
+            str(cycle_id).strip(),
+            Path(constraints_path).resolve(),
+            session_dir=session_dir,
+            binding_id=binding["binding_id"],
+        )
+    except (FileNotFoundError, ValueError, OSError):
+        _save_failed_binding(root, binding)
+        raise
+    binding["context_snapshot"] = {
+        "path": snapshot_path.resolve().as_posix(),
+        "sha256": _snapshot_sha256(snapshot_path),
+    }
+    save_node_binding(root, binding)
+
+    mode = (
+        "existing"
+        if (session_dir / "gate-state.json").is_file()
+        or (session_dir / "domain-constraints.json").is_file()
+        else "initialize"
+    )
+    try:
+        decision = bind_session(
+            Path(project_root).resolve(),
+            str(cycle_id).strip(),
+            "lulu-approach",
+            session_dir=session_dir,
+            resolved_context_path=snapshot_path,
+            mode=mode,
+            constraints_path=Path(constraints_path).resolve(),
+        )
+    except (FileNotFoundError, ValueError, OSError):
+        _save_failed_binding(root, binding)
+        raise
+
+    binding["state"] = "decision_bound"
+    save_node_binding(root, binding)
+    shell = force_commit_focus(root, target) if force else commit_focus(root, target)
+    return {
+        "decision": decision,
+        "shell": shell,
+        "context_snapshot": dict(binding["context_snapshot"]),
+    }
+
+
+def enter_node(
+    approach_root: Path,
+    node_id: str,
+    *,
+    project_root: Path,
+    cycle_id: str,
+    constraints_path: Path,
+    force: bool = False,
+) -> dict[str, Any]:
+    """Public complete entry: bind context, Active Session, then shell focus."""
+    root = Path(approach_root).resolve()
+    _locked_working_tree(root, node_id)
+    binding = _start_binding(root, node_id, operation="enter")
+    result = bind_node(
+        root,
+        node_id,
+        project_root=project_root,
+        cycle_id=cycle_id,
+        constraints_path=constraints_path,
+        binding=binding,
+        force=force,
+    )
+    binding["state"] = "bound"
+    save_node_binding(root, binding)
+    return {
+        "ok": True,
+        "command": "enter-node",
+        "node_id": str(node_id).strip(),
+        "binding_id": binding["binding_id"],
+        "session_dir": result["decision"]["session_dir"],
+        "context_docs": result["decision"]["context_docs"],
+        "context_snapshot": result["context_snapshot"],
+        "initialized": result["decision"]["initialized"],
+        "shell": result["shell"],
+        "next_steps": {
+            "require": [
+                "GATE_CONTROL resolve-context",
+                "load context_docs",
+                "declare session switched",
+                "APPROACH_SHELL bind-check-frozen",
+            ]
+        },
+    }
+
+
+def _freeze_reopen_closure(
+    approach_root: Path,
+    *,
+    target: str,
+    closure: list[str],
+    binding: dict[str, Any],
+) -> tuple[dict[str, Any], list[str], list[str]]:
+    """Freeze all shell cells, but decision sessions for successors only."""
+    root = Path(approach_root).resolve()
+    shell = load_shell(root)
+    by_id = dict(shell.get("by_id") or {})
+    session_frozen: list[str] = []
+    shell_only: list[str] = []
+    try:
+        for node_id in closure:
+            cell = dict(by_id[node_id])
+            cell["frozen"] = True
+            by_id[node_id] = cell
+            shell["by_id"] = by_id
+            save_shell(root, shell)
+            if node_id not in binding["frozen_nodes"]:
+                binding["frozen_nodes"].append(node_id)
+                save_node_binding(root, binding)
+            if node_id == target:
+                continue
+            session_dir = dx_session_dir(root, node_id)
+            if not session_dir.is_dir():
+                shell_only.append(node_id)
+                continue
+            state = _try_freeze_session(session_dir)
+            if state in {"session_frozen", "already_frozen"}:
+                session_frozen.append(node_id)
+            else:
+                shell_only.append(node_id)
+    except (FileNotFoundError, ValueError, OSError):
+        _save_failed_binding(root, binding)
+        raise
+    return shell, session_frozen, shell_only
+
+
+def _permit_path(approach_root: Path, binding_id: str) -> Path:
+    return Path(approach_root).resolve() / "bindings" / binding_id / "permit.json"
+
+
+def _issue_reopen_permit(approach_root: Path, binding: dict[str, Any], cycle_id: str) -> Path:
+    path = _permit_path(approach_root, binding["binding_id"])
+    payload = {
+        "version": "1",
+        "kind": "lulu-approach-reopen",
+        "binding_id": binding["binding_id"],
+        "cycle_id": str(cycle_id).strip(),
+        "stage": "lulu-approach",
+        "node_id": binding["target"]["node_id"],
+        "session_dir": binding["target"]["session_dir"],
+        "state": "issued",
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp = path.with_suffix(".json.tmp")
+    temp.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    temp.replace(path)
+    binding["permit_path"] = path.resolve().as_posix()
+    binding["permit_state"] = "issued"
+    binding["state"] = "reopen_pending"
+    save_node_binding(approach_root, binding)
+    return path
+
+
+def reopen_node(
+    approach_root: Path,
+    node_id: str,
+    *,
+    project_root: Path,
+    cycle_id: str,
+    constraints_path: Path,
+) -> dict[str, Any]:
+    """Prepare a permit-backed reopen without freezing the target session."""
+    root = Path(approach_root).resolve()
+    _, tree = _locked_working_tree(root, node_id)
+    target = str(node_id).strip()
+    closure = _successor_closure(tree, target)
+    binding = _start_binding(root, target, operation="reopen")
+    _, session_frozen, shell_only = _freeze_reopen_closure(
+        root,
+        target=target,
+        closure=closure,
+        binding=binding,
+    )
+    result = bind_node(
+        root,
+        target,
+        project_root=project_root,
+        cycle_id=cycle_id,
+        constraints_path=constraints_path,
+        binding=binding,
+        force=True,
+    )
+    try:
+        permit_path = _issue_reopen_permit(root, binding, cycle_id)
+    except OSError:
+        _save_failed_binding(root, binding)
+        raise
     return {
         "ok": True,
         "command": "reopen-node",
-        "node_id": str(node_id).strip(),
-        "frozen_ids": frozen["frozen_ids"],
-        "session_frozen": frozen["session_frozen"],
-        "shell_only": frozen["shell_only"],
+        "node_id": target,
+        "binding_id": binding["binding_id"],
+        "permit_path": permit_path.resolve().as_posix(),
+        "context_docs": result["decision"]["context_docs"],
+        "context_snapshot": result["context_snapshot"],
+        "frozen_ids": list(binding["frozen_nodes"]),
+        "session_frozen": session_frozen,
+        "shell_only": shell_only,
+        "shell": result["shell"],
+        "next_steps": {
+            "require": [
+                f"DEC_REOPEN --permit {permit_path.resolve().as_posix()}",
+                "GATE_CONTROL resolve-context",
+                "load context_docs",
+                "declare session switched",
+            ]
+        },
+    }
+
+
+def complete_reopen(
+    approach_root: Path,
+    *,
+    binding_id: str,
+    project_root: Path,
+    cycle_id: str,
+    constraints_path: Path,
+) -> dict[str, Any]:
+    """Complete a consumed reopen permit after target RS has unfrozen its session."""
+    del project_root, cycle_id, constraints_path
+    root = Path(approach_root).resolve()
+    binding = load_node_binding(root)
+    if binding["binding_id"] != str(binding_id).strip():
+        raise ValueError("complete-reopen binding-id does not match node-binding")
+    if binding["state"] != "reopen_pending":
+        raise ValueError(
+            f"complete-reopen requires reopen_pending binding, got {binding['state']!r}"
+        )
+    permit_path = Path(str(binding.get("permit_path") or ""))
+    if not permit_path.is_file():
+        raise ValueError(f"complete-reopen permit missing: {permit_path}")
+    permit = json.loads(permit_path.read_text(encoding="utf-8"))
+    if (
+        not isinstance(permit, dict)
+        or permit.get("binding_id") != binding["binding_id"]
+        or permit.get("state") != "consumed"
+    ):
+        raise ValueError("complete-reopen requires matching consumed permit")
+    target = binding["target"]["node_id"]
+    if _active_session_name(root) != target:
+        raise ValueError("complete-reopen requires Active Session to remain the target")
+    state = _parse_session_state_current(dx_session_dir(root, target) / _SESSION_STATE)
+    if state is None or state == "Frozen":
+        raise ValueError("complete-reopen requires target session to be non-Frozen")
+    shell = load_shell(root)
+    cell = dict((shell.get("by_id") or {}).get(target) or {})
+    cell["frozen"] = False
+    shell["by_id"][target] = cell
+    save_shell(root, shell)
+    binding["state"] = "bound"
+    binding["permit_state"] = "consumed"
+    save_node_binding(root, binding)
+    return {
+        "ok": True,
+        "command": "complete-reopen",
+        "binding_id": binding["binding_id"],
+        "binding_state": binding["state"],
+        "node_id": target,
         "shell": shell,
-        "next_steps": shell.get("next_steps"),
+    }
+
+
+def _restore_previous_binding(
+    approach_root: Path,
+    binding: dict[str, Any],
+    *,
+    project_root: Path,
+    cycle_id: str,
+    constraints_path: Path,
+) -> None:
+    previous = binding["previous"]
+    previous_session = previous.get("active_session")
+    if previous_session:
+        session_dir = _session_dir_for_node(approach_root, previous_session)
+        snapshot = resolve_context.write_resolved_context(
+            Path(project_root).resolve(),
+            str(cycle_id).strip(),
+            Path(constraints_path).resolve(),
+            session_dir=session_dir,
+            binding_id=binding["binding_id"],
+        )
+        bind_session(
+            Path(project_root).resolve(),
+            str(cycle_id).strip(),
+            "lulu-approach",
+            session_dir=session_dir,
+            resolved_context_path=snapshot,
+            mode="existing",
+            constraints_path=Path(constraints_path).resolve(),
+        )
+    previous_focus = previous.get("focus")
+    if previous_focus:
+        force_commit_focus(approach_root, previous_focus)
+
+
+def recover_binding(
+    approach_root: Path,
+    *,
+    action: str,
+    project_root: Path,
+    cycle_id: str,
+    constraints_path: Path,
+) -> dict[str, Any]:
+    """Recover a paused binding by commit, compensation, or explicit cancellation."""
+    root = Path(approach_root).resolve()
+    binding = load_node_binding(root)
+    requested = str(action).strip()
+    if requested not in {"commit-focus", "compensate-active", "cancel"}:
+        raise ValueError(
+            "recover-binding action must be commit-focus|compensate-active|cancel"
+        )
+    if requested == "commit-focus":
+        if binding["state"] != "decision_bound":
+            raise ValueError("recover-binding commit-focus requires decision_bound")
+        shell = force_commit_focus(root, binding["target"]["node_id"])
+        if binding["operation"] == "reopen":
+            permit_path = _issue_reopen_permit(root, binding, cycle_id)
+            state = "reopen_pending"
+        else:
+            binding["state"] = "bound"
+            save_node_binding(root, binding)
+            permit_path = None
+            state = "bound"
+        return {
+            "ok": True,
+            "command": "recover-binding",
+            "action": requested,
+            "binding_id": binding["binding_id"],
+            "binding_state": state,
+            "permit_path": None if permit_path is None else permit_path.as_posix(),
+            "shell": shell,
+        }
+
+    _restore_previous_binding(
+        root,
+        binding,
+        project_root=project_root,
+        cycle_id=cycle_id,
+        constraints_path=constraints_path,
+    )
+    if requested == "cancel":
+        shell = load_shell(root)
+        by_id = dict(shell.get("by_id") or {})
+        for node_id in binding["frozen_nodes"]:
+            cell = dict(by_id.get(node_id) or empty_cell())
+            cell["frozen"] = False
+            by_id[node_id] = cell
+            session_dir = dx_session_dir(root, node_id)
+            if session_dir.is_dir():
+                unfreeze_session_public(session_dir)
+        shell["by_id"] = by_id
+        save_shell(root, shell)
+    path = node_binding_path(root)
+    path.unlink(missing_ok=True)
+    return {
+        "ok": True,
+        "command": "recover-binding",
+        "action": requested,
+        "binding_id": binding["binding_id"],
+        "binding_cleared": True,
     }
 
 
@@ -465,7 +924,7 @@ def clear_frozen(approach_root: Path, node_id: str) -> dict[str, Any]:
     session_unfroze = False
     dx = dx_session_dir(root, nid)
     if dx.is_dir() and (dx / _SESSION_STATE).is_file():
-        session_unfroze = bool(unfreeze_session(dx))
+        session_unfroze = bool(unfreeze_session_public(dx))
     return {
         "ok": True,
         "command": "clear-frozen",
@@ -621,8 +1080,18 @@ def _build_parser() -> argparse.ArgumentParser:
     p_ew.add_argument("--node-ids", nargs="+", required=True)
     p_ew.add_argument("--focus", default=None)
 
-    p_sf = sub.add_parser("set-focus", help="Switch Working focus")
+    p_sf = sub.add_parser("set-focus", help="Retired; use enter-node")
     p_sf.add_argument("--node-id", required=True)
+
+    p_en = sub.add_parser(
+        "enter-node",
+        help="Bind context, Active Session, and Working focus for one Dx",
+    )
+    p_en.add_argument("--node-id", required=True)
+    p_en.add_argument("--project-root", required=True, type=Path)
+    p_en.add_argument("--cycle-id", required=True)
+    p_en.add_argument("--constraints", required=True, type=Path)
+    p_en.add_argument("--force", action="store_true")
 
     p_fc = sub.add_parser(
         "freeze-cascade",
@@ -632,9 +1101,34 @@ def _build_parser() -> argparse.ArgumentParser:
 
     p_rn = sub.add_parser(
         "reopen-node",
-        help="Cascade-freeze + force focus onto node (reopen bypass)",
+        help="Freeze reopen closure, bind target, and issue a reopen permit",
     )
     p_rn.add_argument("--node-id", required=True)
+    p_rn.add_argument("--project-root", required=True, type=Path)
+    p_rn.add_argument("--cycle-id", required=True)
+    p_rn.add_argument("--constraints", required=True, type=Path)
+
+    p_cr = sub.add_parser(
+        "complete-reopen",
+        help="Finish a consumed reopen permit after target RS",
+    )
+    p_cr.add_argument("--binding-id", required=True)
+    p_cr.add_argument("--project-root", required=True, type=Path)
+    p_cr.add_argument("--cycle-id", required=True)
+    p_cr.add_argument("--constraints", required=True, type=Path)
+
+    p_rb = sub.add_parser(
+        "recover-binding",
+        help="Recover a paused node-binding transaction",
+    )
+    p_rb.add_argument(
+        "--action",
+        required=True,
+        choices=["commit-focus", "compensate-active", "cancel"],
+    )
+    p_rb.add_argument("--project-root", required=True, type=Path)
+    p_rb.add_argument("--cycle-id", required=True)
+    p_rb.add_argument("--constraints", required=True, type=Path)
 
     p_bc = sub.add_parser(
         "bind-check-frozen",
@@ -680,10 +1174,49 @@ def main(argv: list[str] | None = None) -> int:
             )
         if args.command == "set-focus":
             return _emit_ok({"shell": set_focus(root, args.node_id)})
+        if args.command == "enter-node":
+            return _emit_ok(
+                enter_node(
+                    root,
+                    args.node_id,
+                    project_root=Path(args.project_root),
+                    cycle_id=args.cycle_id,
+                    constraints_path=Path(args.constraints),
+                    force=bool(args.force),
+                )
+            )
         if args.command == "freeze-cascade":
             return _emit_ok(freeze_cascade(root, args.node_id))
         if args.command == "reopen-node":
-            return _emit_ok(reopen_node(root, args.node_id))
+            return _emit_ok(
+                reopen_node(
+                    root,
+                    args.node_id,
+                    project_root=Path(args.project_root),
+                    cycle_id=args.cycle_id,
+                    constraints_path=Path(args.constraints),
+                )
+            )
+        if args.command == "complete-reopen":
+            return _emit_ok(
+                complete_reopen(
+                    root,
+                    binding_id=args.binding_id,
+                    project_root=Path(args.project_root),
+                    cycle_id=args.cycle_id,
+                    constraints_path=Path(args.constraints),
+                )
+            )
+        if args.command == "recover-binding":
+            return _emit_ok(
+                recover_binding(
+                    root,
+                    action=args.action,
+                    project_root=Path(args.project_root),
+                    cycle_id=args.cycle_id,
+                    constraints_path=Path(args.constraints),
+                )
+            )
         if args.command == "bind-check-frozen":
             return _emit_ok(bind_check_frozen(root, args.node_id))
         if args.command == "clear-frozen":

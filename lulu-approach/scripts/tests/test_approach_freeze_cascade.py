@@ -38,11 +38,10 @@ init_shell = _ctrl.init_shell
 enter_split = _ctrl.enter_split
 enter_working = _ctrl.enter_working
 enter_package_ready = _ctrl.enter_package_ready
-set_focus = _ctrl.set_focus
+commit_focus = _ctrl.commit_focus
 mark_node_delivered = _ctrl.mark_node_delivered
 mark_split_delivered = _ctrl.mark_split_delivered
 freeze_cascade = _ctrl.freeze_cascade
-reopen_node = _ctrl.reopen_node
 bind_check_frozen = _ctrl.bind_check_frozen
 clear_frozen = _ctrl.clear_frozen
 confirm_seal = _ctrl.confirm_seal
@@ -102,9 +101,9 @@ def _working_chain(tmp_path: Path) -> Path:
 def test_freeze_cascade_shell_and_session(tmp_path: Path) -> None:
     root = _working_chain(tmp_path)
     mark_node_delivered(root, "D1")
-    set_focus(root, "D2")
+    commit_focus(root, "D2")
     mark_node_delivered(root, "D2")
-    set_focus(root, "D3")
+    commit_focus(root, "D3")
     _write_delivered(root / "D1")
     _write_delivered(root / "D2")
     # D3 dir exists from focus; no session-state → shell_only for D3
@@ -142,37 +141,23 @@ def test_freeze_cascade_requires_locked_tree(tmp_path: Path) -> None:
         freeze_cascade(root, "D1")
 
 
-def test_set_focus_allows_frozen_target(tmp_path: Path) -> None:
+def test_commit_focus_allows_frozen_target(tmp_path: Path) -> None:
     root = _working_chain(tmp_path)
     mark_node_delivered(root, "D1")
-    set_focus(root, "D2")
+    commit_focus(root, "D2")
     mark_node_delivered(root, "D2")
     freeze_cascade(root, "D2")
-    # D1 still effectively not delivered (frozen after cascade includes D1? 
+    # D1 still effectively not delivered (frozen after cascade includes D1?
     # freeze D2 → D2,D3 only; D1 not frozen
-    shell = set_focus(root, "D2")
+    shell = commit_focus(root, "D2")
     assert shell["focus"] == "D2"
     assert shell["by_id"]["D2"]["frozen"] is True
-
-
-def test_reopen_node_force_from_undelivered(tmp_path: Path) -> None:
-    root = _working_chain(tmp_path)
-    mark_node_delivered(root, "D1")
-    set_focus(root, "D2")
-    # D2 not delivered — ordinary set-focus back to D1 would fail
-    with pytest.raises(ValueError, match="not Delivered"):
-        set_focus(root, "D1")
-    result = reopen_node(root, "D1")
-    assert result["shell"]["focus"] == "D1"
-    assert "D1" in result["frozen_ids"]
-    assert "D2" in result["frozen_ids"]
-    assert "D3" in result["frozen_ids"]
 
 
 def test_bind_check_keeps_frozen_clear_unfreezes(tmp_path: Path) -> None:
     root = _working_chain(tmp_path)
     mark_node_delivered(root, "D1")
-    set_focus(root, "D2")
+    commit_focus(root, "D2")
     _write_delivered(root / "D2")
     freeze_cascade(root, "D2")
     check = bind_check_frozen(root, "D2")

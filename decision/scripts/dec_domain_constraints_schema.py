@@ -179,6 +179,9 @@ def normalize_domain_constraints(data: dict[str, Any]) -> dict[str, Any]:
     context = _normalize_context(data)
     if context:
         normalized["context"] = context
+    reopen_authorization = str(data.get("reopen_authorization", "")).strip()
+    if reopen_authorization:
+        normalized["reopen_authorization"] = reopen_authorization
     return normalized
 
 

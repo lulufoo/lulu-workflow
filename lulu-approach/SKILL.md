@@ -63,30 +63,39 @@ Pass the same `--constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json"` on every
 
 > If `$DEC_START` exits non-zero ("Gate blocked: <stage> is not Delivered"): tell the user which prior stage must be delivered first. Do not retry start.
 
-### Working focus switch (Skill-visible)
+### Working node entry (Skill-visible)
 
-When `$APPROACH_SHELL enter-working` / `set-focus` / `reopen-node` succeeds, stdout may list required next macros. **Always** complete:
+Public Working entry is `$APPROACH_SHELL enter-node` (not `set-focus`). It mechanically binds shell focus, Active Session, and a per-binding `context_docs` snapshot.
 
-1. `$RESOLVE_CONTEXT --session-dir …/Dx` — re-resolve map for that node (Dx hard-fails without main decision doc). Capture new `$RESOLVED_CONTEXT_PATH`.
-2. If the Dx session is new: `$DEC_START --session-dir …/Dx --domain-constraints-file "$RESOLVED_CONTEXT_PATH"`.
-3. Else: `$DEC_SET_ACTIVE --session-dir …/Dx --domain-constraints-file "$RESOLVED_CONTEXT_PATH"`.
-4. `$GATE_CONTROL resolve-context` — pin new `$CTX` (mandatory; do not reuse prior `$CTX`).
-5. Load each path in stdout/`context_docs` read-only and place them at the front of attention (do **not** load prior Dx docs).
-6. Declare to the user: session switched to that node; prior session conclusions do not carry over.
-7. `$APPROACH_SHELL bind-check-frozen --node-id Dx` — if `realign_required=true`, keep Frozen; run **semantic Realign** (dialogue vs loaded `context_docs` + this slice; do **not** default into RS). Then `$APPROACH_SHELL clear-frozen --node-id Dx`. If `realign_required=false`, continue.
-8. Only then continue DDF / `$REGISTER_*` on Active (no `--session-dir` on those macros) — except **reopen target** path below.
+```bash
+$APPROACH_SHELL enter-node --node-id "<Dx>" \
+  --project-root "$(pwd)" --cycle-id "<cycle_id>" \
+  --constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json"
+```
 
-**Reopen a delivered / in-progress Dx** (cascade-freeze successors):
+When `enter-node` / `enter-working` succeeds, stdout may list required next macros. **Always** complete:
 
-1. `$APPROACH_SHELL reopen-node --node-id Dx` (or `freeze-cascade` then force focus). Cascade-freezes Dx + DAG successors; force-sets focus even when current focus is not Delivered.
-2. Complete bind steps 1–6 above.
-3. **Do not** `clear-frozen` before RS finishes. Stay session Frozen; run RS → `$RS_COMMIT` (P1.5). Then `$APPROACH_SHELL clear-frozen --node-id Dx` to clear the shell flag.
-4. Successors stay Frozen until each is entered (steps 1–7) and Realign + `clear-frozen` complete.
+1. `$GATE_CONTROL resolve-context` — pin new `$CTX` (mandatory; do not reuse prior `$CTX`).
+2. Load each path in stdout/`context_docs` read-only and place them at the front of attention (do **not** load prior Dx docs).
+3. Declare to the user: session switched to that node; prior session conclusions do not carry over.
+4. `$APPROACH_SHELL bind-check-frozen --node-id Dx` — if `realign_required=true`, keep Frozen; run **semantic Realign** (dialogue vs loaded `context_docs` + this slice; do **not** default into RS). Then `$APPROACH_SHELL clear-frozen --node-id Dx`. If `realign_required=false`, continue.
+5. Only then continue DDF / `$REGISTER_*` on Active (no `--session-dir` on those macros) — except **reopen target** path below.
 
-**Same-Active restore** (new window, Active unchanged): re-run `$RESOLVE_CONTEXT --session-dir <current>` then `$DEC_SET_ACTIVE --session-dir <current> --domain-constraints-file …` → `resolve-context` → load `context_docs` once → `bind-check-frozen` (and Realign/`clear-frozen` if required) → continue.
+After `$APPROACH_SHELL enter-working`, immediately run `enter-node` for the focused Dx (unless stdout already completed a full bind).
 
+**Reopen a delivered / in-progress Dx** (global prepare → permit → `$DEC_REOPEN`):
+
+1. `$APPROACH_SHELL reopen-node --node-id Dx --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json"`. Freezes shell for Dx + DAG successors; freezes **successor sessions only**; binds focus+Active to Dx; issues a one-shot permit.
+2. Complete semantic entry steps 1–3 above from reopen stdout (`context_docs`).
+3. `$DEC_REOPEN --permit "<permit_path>"` with the same `--constraints` (required under `reopen_authorization=holder_required`). This freezes the **target** session only.
+4. Stay session Frozen; run RS → `$RS_COMMIT` (P1.5). Then `$APPROACH_SHELL complete-reopen --binding-id "<binding_id>" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json"`.
+5. Successors stay Frozen until each is entered via `enter-node` and Realign + `clear-frozen` complete.
+
+**Same-Active restore** (new window, Active unchanged): `$APPROACH_SHELL enter-node --node-id <current>` (idempotent rebind) → `resolve-context` → load `context_docs` → `bind-check-frozen` (and Realign/`clear-frozen` if required) → continue.
+
+**Do not** use `$APPROACH_SHELL set-focus` (retired; hard-fails).  
 **Do not** treat shell focus change alone as a completed session switch.  
-**Do not** unfreeze inside `$DEC_SET_ACTIVE`. Frozen clear is approach-shell only (`clear-frozen` or reopen RS then `clear-frozen`).
+**Do not** unfreeze inside `$DEC_SET_ACTIVE`. Successor Realign uses `clear-frozen`; reopen target shell clear uses `complete-reopen` only.
 
 ## Outer delivery (PackageReady → seal)
 
@@ -96,7 +105,7 @@ After Active `$GATE_CONTROL deliver` succeeds on `main/` or `Dx/`:
 
 1. Tell the user only **this node session** is Delivered (not approach export).
 2. Do **not** treat cycle `delivered-refs` as the approach handoff (nested `deliver` does not register it).
-3. If Working and other ready nodes remain → `$APPROACH_SHELL set-focus` then `$DEC_START` / `$DEC_SET_ACTIVE` + `resolve-context` (see Working focus switch).
+3. If Working and other ready nodes remain → `$APPROACH_SHELL enter-node` then `resolve-context` / load docs (see Working node entry).
 4. When all nodes are Delivered → `$APPROACH_SHELL enter-package-ready`.
 5. After explicit human confirm → `$APPROACH_SHELL confirm-seal --confirm --cycle-id "<cycle_id>" --project-root "$(pwd)"`.
 6. Only after `confirm-seal` succeeds may you claim approach stage delivery (`path` = `decision-package.json`, `artifact=decision-package`).

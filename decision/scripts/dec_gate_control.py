@@ -79,6 +79,7 @@ from dec_session_paths import (  # noqa: E402
     resolve_session_root_for_command,
     session_artifact_paths,
     skips_cycle_delivered_ref_on_deliver,
+    stage_outer_root,
 )
 from dec_session_state_schema import (  # noqa: E402
     read_current_state,
@@ -1319,6 +1320,90 @@ def cmd_rs_commit(
     return 0
 
 
+def _reopen_authorization(constraints_path: Path | None, stage: str) -> str:
+    if constraints_path is None:
+        return ""
+    try:
+        cfg = load_constraints_config(constraints_path, stage=stage)
+    except (FileNotFoundError, ValueError):
+        return ""
+    return str(cfg.get("reopen_authorization", "")).strip()
+
+
+def _validate_reopen_permit(
+    *,
+    project_root: Path,
+    cycle_id: str,
+    stage: str,
+    constraints_path: Path | None,
+    active_session_dir: Path,
+    permit_path: Path,
+) -> tuple[Path, dict[str, Any], Path, dict[str, Any]]:
+    """Validate holder permit. Returns (permit_path, permit, binding_path, binding)."""
+    path = Path(permit_path).expanduser().resolve()
+    if not path.is_file():
+        raise ValueError(f"reopen permit not found: {path}")
+    permit = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(permit, dict):
+        raise ValueError("reopen permit must be a JSON object")
+    if str(permit.get("kind", "")).strip() != "lulu-approach-reopen":
+        raise ValueError("reopen permit kind must be lulu-approach-reopen")
+    if str(permit.get("state", "")).strip() != "issued":
+        raise ValueError(
+            f"reopen permit state must be issued, got {permit.get('state')!r}"
+        )
+    if str(permit.get("cycle_id", "")).strip() != cycle_id:
+        raise ValueError("reopen permit cycle_id mismatch")
+    if str(permit.get("stage", "")).strip() != stage:
+        raise ValueError("reopen permit stage mismatch")
+    permit_session = str(permit.get("session_dir", "")).strip()
+    if active_session_dir.name != permit_session and permit_session != ".":
+        raise ValueError(
+            f"reopen permit session_dir {permit_session!r} does not match Active "
+            f"{active_session_dir.name!r}"
+        )
+    outer = stage_outer_root(
+        project_root,
+        cycle_id,
+        stage,
+        CACHE_DIR,
+        constraints_path=constraints_path,
+    )
+    binding_path = outer / "node-binding.json"
+    if not binding_path.is_file():
+        raise ValueError("reopen permit requires approach node-binding.json")
+    binding = json.loads(binding_path.read_text(encoding="utf-8"))
+    if not isinstance(binding, dict):
+        raise ValueError("node-binding must be a JSON object")
+    if str(binding.get("binding_id", "")).strip() != str(permit.get("binding_id", "")).strip():
+        raise ValueError("reopen permit binding_id does not match node-binding")
+    if str(binding.get("state", "")).strip() != "reopen_pending":
+        raise ValueError(
+            f"node-binding state must be reopen_pending, got {binding.get('state')!r}"
+        )
+    return path, permit, binding_path, binding
+
+
+def _mark_permit_consumed(
+    permit_path: Path,
+    permit: dict[str, Any],
+    binding_path: Path,
+    binding: dict[str, Any],
+) -> dict[str, Any]:
+    from dec_io import atomic_write_text  # noqa: WPS433
+
+    permit = dict(permit)
+    permit["state"] = "consumed"
+    binding = dict(binding)
+    binding["permit_state"] = "consumed"
+    atomic_write_text(permit_path, json.dumps(permit, ensure_ascii=False, indent=2) + "\n")
+    atomic_write_text(
+        binding_path,
+        json.dumps(binding, ensure_ascii=False, indent=2) + "\n",
+    )
+    return permit
+
+
 def cmd_reopen(
     project_root: Path,
     cycle_id: str,
@@ -1326,6 +1411,7 @@ def cmd_reopen(
     *,
     constraints_path: Path | None = None,
     session_dir: Path | None = None,
+    permit_path: Path | str | None = None,
 ) -> int:
     """$DEC_REOPEN: Delivered/InProgress → Frozen (P1.3 A / P1.3a A)."""
     paths = _paths(
@@ -1338,23 +1424,43 @@ def cmd_reopen(
     try:
         if not paths["gate_state"].exists():
             return _emit_error("cannot reopen: gate-state missing")
+        auth = _reopen_authorization(constraints_path, stage)
+        permit_payload: dict[str, Any] | None = None
+        pending_consume: tuple[Path, dict[str, Any], Path, dict[str, Any]] | None = None
+        if auth == "holder_required":
+            if not permit_path:
+                return _emit_error(
+                    "reopen_authorization=holder_required: --permit is required"
+                )
+            pending_consume = _validate_reopen_permit(
+                project_root=project_root,
+                cycle_id=cycle_id,
+                stage=stage,
+                constraints_path=constraints_path,
+                active_session_dir=paths["session_dir"],
+                permit_path=Path(permit_path),
+            )
         prior = set_session_frozen(paths["session_dir"])
-    except (FileNotFoundError, ValueError) as exc:
+        if pending_consume is not None:
+            permit_payload = _mark_permit_consumed(*pending_consume)
+    except (FileNotFoundError, ValueError, json.JSONDecodeError, OSError) as exc:
         return _emit_error(str(exc))
 
     ss_path = paths.get("session_state") or session_state_file(paths["session_dir"])
-    _emit(
-        {
-            "ok": True,
-            "command": "reopen",
-            "prior_state": prior,
-            "session_state": "Frozen",
-            "session_state_path": ss_path.as_posix(),
-            "session_dir": paths["session_dir"].as_posix(),
-            "cycle_id": cycle_id,
-            "stage": stage,
-        }
-    )
+    out: dict[str, Any] = {
+        "ok": True,
+        "command": "reopen",
+        "prior_state": prior,
+        "session_state": "Frozen",
+        "session_state_path": ss_path.as_posix(),
+        "session_dir": paths["session_dir"].as_posix(),
+        "cycle_id": cycle_id,
+        "stage": stage,
+    }
+    if permit_payload is not None:
+        out["permit_binding_id"] = permit_payload.get("binding_id")
+        out["permit_state"] = "consumed"
+    _emit(out)
     return 0
 
 
@@ -1484,9 +1590,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="JSON array of register batch operations (use [] if none).",
     )
 
-    sub.add_parser(
+    reopen = sub.add_parser(
         "reopen",
         help="Leave Delivered/InProgress → Frozen ($DEC_REOPEN).",
+    )
+    reopen.add_argument(
+        "--permit",
+        default="",
+        help="Holder reopen permit path (required when reopen_authorization=holder_required).",
     )
     sub.add_parser("check-delivery-ready", help="Validate readiness for DC delivery.")
     sub.add_parser("deliver", help="Set session-state Delivered after DC closed.")
@@ -1614,7 +1725,14 @@ def main(argv: list[str] | None = None) -> int:
             **common,
         )
     if args.command == "reopen":
-        return cmd_reopen(project_root, cycle_id, stage, **common)
+        permit_raw = str(getattr(args, "permit", "") or "").strip()
+        return cmd_reopen(
+            project_root,
+            cycle_id,
+            stage,
+            permit_path=Path(permit_raw).expanduser().resolve() if permit_raw else None,
+            **common,
+        )
     if args.command == "check-delivery-ready":
         return cmd_check_delivery_ready(project_root, cycle_id, stage, **common)
     if args.command == "deliver":

@@ -5,6 +5,8 @@ Separate from $DEC_START. Outer shell may call this on the target node and
 on downstream sessions that must freeze together (P1.3a).
 
 Uses Active Session (archive-1.1); no --session-dir on this CLI.
+When holder constraints declare reopen_authorization=holder_required,
+``--permit`` is mandatory.
 """
 
 from __future__ import annotations
@@ -32,6 +34,11 @@ def parse_args() -> argparse.Namespace:
         default="",
         help="Path to holder constraints.json (for Active / path resolution).",
     )
+    parser.add_argument(
+        "--permit",
+        default="",
+        help="Holder reopen permit path (required when reopen_authorization=holder_required).",
+    )
     return parser.parse_args()
 
 
@@ -42,12 +49,15 @@ def main() -> int:
     constraints_path = (
         Path(constraints_raw).expanduser().resolve() if constraints_raw else None
     )
+    permit_raw = str(args.permit or "").strip()
+    permit_path = Path(permit_raw).expanduser().resolve() if permit_raw else None
     return cmd_reopen(
         project_root,
         args.cycle_id.strip(),
         args.stage.strip(),
         constraints_path=constraints_path,
         session_dir=None,
+        permit_path=permit_path,
     )
 
 

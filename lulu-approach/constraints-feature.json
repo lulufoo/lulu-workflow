@@ -2,6 +2,7 @@
   "version": 1,
   "stage": "lulu-approach",
   "cache_subdir": "lulu-approach",
+  "reopen_authorization": "holder_required",
   "objective": "Produce a technical decision document that captures system design, implementation constraints, and engineering trade-offs for this feature — ready to guide implementation.",
   "role": {
     "persona": "technical_decision_maker",

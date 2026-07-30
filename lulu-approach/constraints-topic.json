@@ -2,6 +2,7 @@
   "version": 1,
   "stage": "lulu-approach",
   "cache_subdir": "lulu-approach",
+  "reopen_authorization": "holder_required",
   "objective": "Produce a technical decision document that captures system design direction, architectural constraints, and engineering trade-offs for this topic — forming a complete, self-consistent technical decision document for this architecture direction.",
   "role": {
     "persona": "technical_decision_maker",

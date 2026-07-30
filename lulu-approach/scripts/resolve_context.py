@@ -96,11 +96,21 @@ def resolve(
     return {"context": {"docs": docs}}
 
 
-def resolved_context_file_path(project_root: Path, cycle_id: str, constraints_path: Path) -> Path:
+def resolved_context_file_path(
+    project_root: Path,
+    cycle_id: str,
+    constraints_path: Path,
+    *,
+    binding_id: str | None = None,
+) -> Path:
     constraints = load_constraints_config(constraints_path, stage=STAGE)
     cache_dir = project_root / platform_cache_dir(detect_platform())
     cache_subdir = constraints["cache_subdir"]
-    return cache_dir / cycle_id / cache_subdir / _RESOLVED_CONTEXT_FILENAME
+    stage_outer = cache_dir / cycle_id / cache_subdir
+    bid = str(binding_id or "").strip()
+    if bid:
+        return stage_outer / "bindings" / bid / _RESOLVED_CONTEXT_FILENAME
+    return stage_outer / _RESOLVED_CONTEXT_FILENAME
 
 
 def write_resolved_context(
@@ -109,6 +119,7 @@ def write_resolved_context(
     constraints_path: Path,
     *,
     session_dir: Path | None = None,
+    binding_id: str | None = None,
 ) -> Path:
     payload = resolve(
         project_root,
@@ -116,7 +127,12 @@ def write_resolved_context(
         constraints_path,
         session_dir=session_dir,
     )
-    path = resolved_context_file_path(project_root, cycle_id, constraints_path)
+    path = resolved_context_file_path(
+        project_root,
+        cycle_id,
+        constraints_path,
+        binding_id=binding_id,
+    )
     atomic_write_text(path, json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
     return path
 
@@ -137,6 +153,11 @@ def parse_args() -> argparse.Namespace:
         default="",
         help="Nested session root (main/ or Dx/). Dx adds main_decision + decision_split.",
     )
+    parser.add_argument(
+        "--binding-id",
+        default="",
+        help="When set, write under bindings/<binding_id>/resolved-context.json.",
+    )
     return parser.parse_known_args()[0]
 
 
@@ -147,12 +168,14 @@ def main() -> int:
     constraints_path = Path(args.constraints.strip()).expanduser().resolve()
     session_raw = str(args.session_dir or "").strip()
     session_dir = Path(session_raw).expanduser().resolve() if session_raw else None
+    binding_id = str(getattr(args, "binding_id", "") or "").strip() or None
     try:
         path = write_resolved_context(
             project_root,
             cycle_id,
             constraints_path,
             session_dir=session_dir,
+            binding_id=binding_id,
         )
     except (FileNotFoundError, ValueError) as exc:
         print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False), file=sys.stderr)
