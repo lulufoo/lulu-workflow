@@ -222,6 +222,7 @@ def cmd_init_session(
     constraints_path: Path | None = None,
     domain_override: dict[str, Any] | None = None,
     session_dir: Path | None = None,
+    commit_active: bool = True,
 ) -> int:
     try:
         constraints = _load_constraints_for_init(
@@ -261,18 +262,19 @@ def cmd_init_session(
     registers = init_registers(cycle_id=cycle_id, stage=stage)
     save_registers(paths["registers"], registers, r_gate_closed=False)
 
-    try:
-        from dec_active_control import set_active_session  # noqa: WPS433
+    if commit_active:
+        try:
+            from dec_active_control import _commit_active  # noqa: WPS433
 
-        set_active_session(
-            project_root,
-            cycle_id,
-            stage,
-            session_dir=paths["session_dir"],
-            constraints_path=constraints_path,
-        )
-    except (FileNotFoundError, ValueError) as exc:
-        return _emit_error(f"failed to set Active Session: {exc}")
+            _commit_active(
+                project_root,
+                cycle_id,
+                stage,
+                session_dir=paths["session_dir"],
+                constraints_path=constraints_path,
+            )
+        except (FileNotFoundError, ValueError) as exc:
+            return _emit_error(f"failed to set Active Session: {exc}")
 
     from dec_domain_constraints_schema import context_docs_map  # noqa: WPS433
 
@@ -1490,9 +1492,9 @@ def cmd_migrate_session(
             stage=stage,
             constraints_path=constraints_path,
         )
-        from dec_active_control import set_active_session  # noqa: WPS433
+        from dec_active_control import _commit_active  # noqa: WPS433
 
-        set_active_session(
+        _commit_active(
             project_root,
             cycle_id,
             stage,

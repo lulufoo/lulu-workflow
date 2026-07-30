@@ -247,7 +247,7 @@ def test_gate_control_cli_uses_active_session(
     template_config: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Nested Dx: set Active then resolve-context without --session-dir."""
-    from dec_active_control import set_active_session
+    from dec_active_control import _commit_active
     from dec_workflow_common import CACHE_DIR, session_base_dir
 
     project_root = template_config
@@ -267,11 +267,12 @@ def test_gate_control_cli_uses_active_session(
                 "node_id": "D1",
                 "session_role": "sub",
             },
+            commit_active=False,
         )
         == 0
     )
     write_session_state(session_state_file(nested), "InProgress")
-    set_active_session(project_root, cycle_id, stage, session_dir=nested)
+    _commit_active(project_root, cycle_id, stage, session_dir=nested)
 
     rc = gate_main(
         [
@@ -294,7 +295,7 @@ def test_register_control_cli_uses_active_session(
     template_config: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Nested D1: set Active then register-commit without --session-dir."""
-    from dec_active_control import set_active_session
+    from dec_active_control import _commit_active
     from dec_workflow_common import session_base_dir
 
     project_root = template_config
@@ -314,11 +315,12 @@ def test_register_control_cli_uses_active_session(
                 "node_id": "D1",
                 "session_role": "sub",
             },
+            commit_active=False,
         )
         == 0
     )
     write_session_state(session_state_file(nested), "InProgress")
-    set_active_session(project_root, cycle_id, stage, session_dir=nested)
+    _commit_active(project_root, cycle_id, stage, session_dir=nested)
 
     ops = json.dumps(
         [

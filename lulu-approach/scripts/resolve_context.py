@@ -8,7 +8,8 @@ points at a ``Dx/`` nested session — extended with ``main_decision`` and
 Dx hard-fails.
 
 Writes ``{"context": {"docs": {...}}}`` to a file and prints that file's path
-to stdout for ``$DEC_START`` / ``$DEC_SET_ACTIVE --domain-constraints-file``.
+to stdout for ``$DEC_START`` / approach ``enter-node``／``reopen-node``
+(``--domain-constraints-file`` / binding snapshot).
 """
 
 from __future__ import annotations

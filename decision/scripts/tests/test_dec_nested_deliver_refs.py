@@ -20,7 +20,7 @@ from cycle_delivered_refs import (  # noqa: E402
     delivered_refs_file_path,
     load_delivered_refs_file,
 )
-from dec_active_control import set_active_session  # noqa: E402
+from dec_active_control import _commit_active  # noqa: E402
 from dec_gate_control import (  # noqa: E402
     cmd_deliver,
     cmd_gate_close,
@@ -150,11 +150,12 @@ def test_nested_approach_deliver_skips_cycle_delivered_refs(
             constraints_path=constraints,
             session_dir=nested,
             domain_override={"node_id": "D1", "session_role": "sub"},
+            commit_active=False,
         )
         == 0
     )
     write_session_state(session_state_file(nested), "InProgress")
-    set_active_session(project_root, cycle_id, stage, session_dir=nested)
+    _commit_active(project_root, cycle_id, stage, session_dir=nested, constraints_path=constraints)
 
     _bring_active_to_dc_then_deliver(project_root, cycle_id, stage)
 

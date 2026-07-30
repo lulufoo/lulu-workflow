@@ -59,7 +59,7 @@ On success, stdout JSON includes `context_docs`. Then:
 2. For each key in `context_docs`: read-only load the path; tell the user what kind it is (`product_spec` / `tech_arch` / …)
 3. Declare the active session before gate dialogue
 
-Pass the same `--constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json"` on every `$GATE_CONTROL` / `$REGISTER_*` invocation. `--domain-constraints-file` and `--session-dir` are only for `$DEC_START` / `$DEC_SET_ACTIVE`.
+Pass the same `--constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json"` on every `$GATE_CONTROL` / `$REGISTER_*` invocation. `--domain-constraints-file` and `--session-dir` are only for `$DEC_START` (Main bootstrap). Working／reopen entry uses `$APPROACH_SHELL enter-node`／`reopen-node` (no `$DEC_SET_ACTIVE`).
 
 > If `$DEC_START` exits non-zero ("Gate blocked: <stage> is not Delivered"): tell the user which prior stage must be delivered first. Do not retry start.
 
@@ -73,7 +73,7 @@ $APPROACH_SHELL enter-node --node-id "<Dx>" \
   --constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json"
 ```
 
-When `enter-node` / `enter-working` succeeds, stdout may list required next macros. **Always** complete:
+When `enter-node` succeeds, stdout may list required next macros. **Always** complete:
 
 1. `$GATE_CONTROL resolve-context` — pin new `$CTX` (mandatory; do not reuse prior `$CTX`).
 2. Load each path in stdout/`context_docs` read-only and place them at the front of attention (do **not** load prior Dx docs).
@@ -81,7 +81,7 @@ When `enter-node` / `enter-working` succeeds, stdout may list required next macr
 4. `$APPROACH_SHELL bind-check-frozen --node-id Dx` — if `realign_required=true`, keep Frozen; run **semantic Realign** (dialogue vs loaded `context_docs` + this slice; do **not** default into RS). Then `$APPROACH_SHELL clear-frozen --node-id Dx`. If `realign_required=false`, continue.
 5. Only then continue DDF / `$REGISTER_*` on Active (no `--session-dir` on those macros) — except **reopen target** path below.
 
-After `$APPROACH_SHELL enter-working`, immediately run `enter-node` for the focused Dx (unless stdout already completed a full bind).
+After `$APPROACH_SHELL enter-working`, immediately run `enter-node` for the focused Dx (stdout next_steps only require that macro); then complete the semantic entry steps above from `enter-node` stdout.
 
 **Reopen a delivered / in-progress Dx** (global prepare → permit → `$DEC_REOPEN`):
 
@@ -95,7 +95,7 @@ After `$APPROACH_SHELL enter-working`, immediately run `enter-node` for the focu
 
 **Do not** use `$APPROACH_SHELL set-focus` (retired; hard-fails).  
 **Do not** treat shell focus change alone as a completed session switch.  
-**Do not** unfreeze inside `$DEC_SET_ACTIVE`. Successor Realign uses `clear-frozen`; reopen target shell clear uses `complete-reopen` only.
+**Do not** invent a decision-only Active switch macro. Successor Realign uses `clear-frozen`; reopen target shell clear uses `complete-reopen` only.
 
 ## Outer delivery (PackageReady → seal)
 

@@ -133,3 +133,104 @@ def test_freeze_and_unfreeze_session(template_config: Path, monkeypatch: pytest.
     assert read_current_state(session_state_file(nested)) == "Frozen"
     assert unfreeze_session_public(nested) is True
     assert read_current_state(session_state_file(nested)) == "InProgress"
+
+
+def test_bind_session_existing_refresh_failure_keeps_prior_active(
+    template_config: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project_root = template_config
+    monkeypatch.chdir(project_root)
+    cycle_id = "feature-bind-refresh-fail-001"
+    stage = "decision"
+    outer = project_root / session_base_dir(cycle_id, stage, project_root=project_root)
+    d1 = outer / "D1"
+    d2 = outer / "D2"
+    r1 = _write_resolved(outer / "bindings" / "b1" / "resolved-context.json")
+    bind_session(
+        project_root,
+        cycle_id,
+        stage,
+        session_dir=d1,
+        resolved_context_path=r1,
+        mode="initialize",
+    )
+    r2 = _write_resolved(
+        outer / "bindings" / "b2" / "resolved-context.json",
+        docs={"product_spec": "/tmp/d2.md"},
+    )
+    bind_session(
+        project_root,
+        cycle_id,
+        stage,
+        session_dir=d2,
+        resolved_context_path=r2,
+        mode="initialize",
+    )
+    assert load_active_session(stage_outer_root(project_root, cycle_id, stage, CACHE_DIR))[
+        "session_dir"
+    ] == "D2"
+
+    def fail_refresh(_: Path, __: dict[str, object]) -> dict[str, str]:
+        raise OSError("simulated context write failure")
+
+    monkeypatch.setattr("dec_lifecycle._refresh_session_context", fail_refresh)
+    with pytest.raises(OSError, match="simulated context write failure"):
+        bind_session(
+            project_root,
+            cycle_id,
+            stage,
+            session_dir=d1,
+            resolved_context_path=r1,
+            mode="existing",
+        )
+    assert load_active_session(stage_outer_root(project_root, cycle_id, stage, CACHE_DIR))[
+        "session_dir"
+    ] == "D2"
+
+
+def test_commit_active_does_not_mutate_domain_constraints(
+    template_config: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from dec_active_control import _commit_active
+
+    project_root = template_config
+    monkeypatch.chdir(project_root)
+    cycle_id = "feature-commit-active-pure-001"
+    stage = "decision"
+    outer = project_root / session_base_dir(cycle_id, stage, project_root=project_root)
+    nested = outer / "D1"
+    resolved = _write_resolved(outer / "bindings" / "b1" / "resolved-context.json")
+    bind_session(
+        project_root,
+        cycle_id,
+        stage,
+        session_dir=nested,
+        resolved_context_path=resolved,
+        mode="initialize",
+    )
+    before = (nested / "domain-constraints.json").read_text(encoding="utf-8")
+    result = _commit_active(project_root, cycle_id, stage, session_dir=nested)
+    assert "context_docs" not in result
+    after = (nested / "domain-constraints.json").read_text(encoding="utf-8")
+    assert before == after
+
+
+def test_set_active_cli_removed(template_config: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from dec_active_control import main as active_main
+
+    project_root = template_config
+    monkeypatch.chdir(project_root)
+    with pytest.raises(SystemExit):
+        active_main(
+            [
+                "--project-root",
+                str(project_root),
+                "--cycle-id",
+                "feature-no-set-active",
+                "--stage",
+                "decision",
+                "set-active",
+                "--session-dir",
+                "unused",
+            ]
+        )

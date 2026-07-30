@@ -231,16 +231,17 @@ def main() -> int:
         constraints_path=constraints_path,
         domain_override=domain_override,
         session_dir=session_dir_override,
+        commit_active=False,
     )
     if init_rc != 0:
         return init_rc
 
     write_session_state(ss_path, "InProgress")
 
-    from dec_active_control import set_active_session  # noqa: WPS433
+    from dec_active_control import _commit_active  # noqa: WPS433
 
     try:
-        set_active_session(
+        _commit_active(
             project_root,
             cycle_id,
             stage,

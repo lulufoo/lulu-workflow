@@ -36,7 +36,6 @@ Do NOT proceed until you have read `../_runtime.md` and loaded:
 | Macro | Command |
 |-------|---------|
 | `$DEC_START` | `python3 "$SKILL_DIR/scripts/dec_start.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" [--domain-constraints-file "<path>"] [--session-dir "<session_dir>"]` |
-| `$DEC_SET_ACTIVE` | `python3 "$SKILL_DIR/scripts/dec_active_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" set-active --session-dir "<session_dir>"` |
 | `$DEC_GET_ACTIVE` | `python3 "$SKILL_DIR/scripts/dec_active_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" get-active` |
 | `$DEC_REOPEN` | `python3 "$SKILL_DIR/scripts/dec_reopen.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" [--permit "<permit_path>"]` |
 | `$GATE_CONTROL` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>"` |
@@ -57,9 +56,9 @@ Subcommand contracts: module docstrings / `--help`.
 
 **Step 2: Run `$DEC_START`** — holder stages **must** pass `--constraints` (path to holder `constraints.json`) and `--stage`. Generic `decision` may omit `--constraints`. Non-zero exit → stop and report stderr.
 
-Every holder SKILL **must** resolve its own `context` (its own `scripts/resolve_context.py` or equivalent, which auto-derives `context.docs` — flat `key→path` map — see `scripts/context_loading.py`) before calling `$DEC_START`. The resolver writes the result to a file and hands `decision` the file's *path* via `--domain-constraints-file` — never raw JSON on the command line. `decision` performs no path resolution of its own — it only reads that file once, at init (and again on `$DEC_SET_ACTIVE` when a fresh file is passed), and stores its contents as-is.
+Every holder SKILL **must** resolve its own `context` (its own `scripts/resolve_context.py` or equivalent, which auto-derives `context.docs` — flat `key→path` map — see `scripts/context_loading.py`) before calling `$DEC_START`. The resolver writes the result to a file and hands `decision` the file's *path* via `--domain-constraints-file` — never raw JSON on the command line. `decision` performs no path resolution of its own — it only reads that file once at init and stores its contents as-is.
 
-On success, `$DEC_START` / `$DEC_SET_ACTIVE` stdout includes `context_docs`. Binding pipeline: pin `$CTX` via `resolve-context`, then Skill loads each path in `context_docs` read-only **once** (not on every gate `resolve-context`). O gate does not reload parent docs.
+On success, `$DEC_START` stdout includes `context_docs`. Binding pipeline: pin `$CTX` via `resolve-context`, then Skill loads each path in `context_docs` read-only **once** (not on every gate `resolve-context`). O gate does not reload parent docs. Nested holders that retarget among `main/`／`Dx/` use their own entry macros (e.g. approach `enter-node`); they must not invent a decision Skill macro that only writes Active.
 
 **Archive:** When the platform provides a conversation id, pass `--conversation-id "<id>"` on `$DEC_START`.
 
@@ -85,9 +84,9 @@ When holder constraints declare `reopen_authorization=holder_required` (e.g. `lu
 | **Complete when** | Active points at the target **and** Skill has run `$GATE_CONTROL resolve-context` **and** Skill has loaded `context_docs` from bind stdout **and** a same-turn “session switched” statement was made |
 | **After switch** | Use only the new `$CTX`; prior session gate conclusions / priors do **not** carry over unless re-registered or re-closed in the new session |
 
-**CLI:** `--session-dir` appears **only** on `$DEC_START` and `$DEC_SET_ACTIVE`. All other decision macros use Active only (missing Active → hard fail).
+**CLI:** `--session-dir` appears **only** on `$DEC_START`. All other decision macros use Active only (missing Active → hard fail).
 
-**Nested bootstrap:** `$DEC_START --session-dir …/main` or `…/Dx` (success sets Active). To retarget: `$DEC_SET_ACTIVE --session-dir …/Dx` → `$GATE_CONTROL resolve-context` → declare session switched → then continue gates/registers **without** `--session-dir`.
+**Nested bootstrap:** `$DEC_START --session-dir …/main` or `…/Dx` (success sets Active). Holders that switch among nested sessions must use their own entry macros (e.g. approach `$APPROACH_SHELL enter-node`), which call the decision holder Python API `bind_session` then require Skill semantic entry: `$GATE_CONTROL resolve-context` → load `context_docs` → declare session switched → continue **without** `--session-dir`.
 
 ---
 

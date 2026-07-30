@@ -136,7 +136,7 @@ def _init_nested_d1_active(
     project_root: Path, cycle_id: str, stage: str = "decision"
 ) -> Path:
     """Bootstrap nested D1 as Active; outer must not hold gate-state."""
-    from dec_active_control import set_active_session
+    from dec_active_control import _commit_active
     from dec_session_state_schema import session_state_file, write_session_state
     from dec_workflow_common import session_base_dir
 
@@ -149,11 +149,12 @@ def _init_nested_d1_active(
             stage,
             session_dir=nested,
             domain_override={"node_id": "D1", "session_role": "sub"},
+            commit_active=False,
         )
         == 0
     )
     write_session_state(session_state_file(nested), "InProgress")
-    set_active_session(project_root, cycle_id, stage, session_dir=nested)
+    _commit_active(project_root, cycle_id, stage, session_dir=nested)
     assert not (outer / "gate-state.json").exists()
     assert (nested / "gate-state.json").is_file()
     return nested

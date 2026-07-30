@@ -239,11 +239,7 @@ def enter_working(
         "next_steps": {
             "session_dir": dx.as_posix(),
             "require": [
-                "RESOLVE_CONTEXT with --session-dir",
-                "DEC_START or DEC_SET_ACTIVE with --session-dir and --domain-constraints-file",
-                "GATE_CONTROL resolve-context",
-                "load context_docs",
-                "declare session switched",
+                "APPROACH_SHELL enter-node for focused Dx",
             ],
         },
     }
@@ -351,8 +347,6 @@ def _bind_next_steps(session_dir: Path) -> dict[str, Any]:
     return {
         "session_dir": session_dir.as_posix(),
         "require": [
-            "RESOLVE_CONTEXT with --session-dir",
-            "DEC_START or DEC_SET_ACTIVE with --session-dir and --domain-constraints-file",
             "GATE_CONTROL resolve-context",
             "load context_docs",
             "declare session switched",
