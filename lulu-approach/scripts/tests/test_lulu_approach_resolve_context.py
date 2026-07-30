@@ -160,3 +160,17 @@ def test_write_resolved_context_returns_path_next_to_session_cache_subdir(tmp_pa
     assert path.is_file()
     assert path.parent.name == "lulu-approach"
     assert path.parent.parent.name == "feature-a"
+
+
+def test_write_resolved_context_binding_id_under_bindings(tmp_path):
+    write_resolved_context = _module.write_resolved_context
+    path = write_resolved_context(
+        tmp_path,
+        "feature-a",
+        _TEMPLATE_FEATURE,
+        binding_id="bind-abc123",
+    )
+    assert path.is_file()
+    assert path.as_posix().endswith("bindings/bind-abc123/resolved-context.json")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert "docs" in payload["context"]

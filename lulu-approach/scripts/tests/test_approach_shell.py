@@ -40,6 +40,7 @@ init_shell = _ctrl.init_shell
 enter_split = _ctrl.enter_split
 enter_working = _ctrl.enter_working
 enter_package_ready = _ctrl.enter_package_ready
+commit_focus = _ctrl.commit_focus
 set_focus = _ctrl.set_focus
 mark_node_delivered = _ctrl.mark_node_delivered
 mark_split_delivered = _ctrl.mark_split_delivered
@@ -213,7 +214,7 @@ def test_split_working_package_ready_path(tmp_path: Path) -> None:
     assert shell["macro_state"] == "PackageReady"
 
 
-def test_reject_mid_working_focus_switch(tmp_path: Path) -> None:
+def test_commit_focus_rejects_mid_working_switch(tmp_path: Path) -> None:
     root = tmp_path / "lulu-approach"
     init_shell(root)
     _write_delivered(main_session_dir(root))
@@ -222,19 +223,18 @@ def test_reject_mid_working_focus_switch(tmp_path: Path) -> None:
     enter_working(root, ["D1", "D2"], focus="D1")
 
     with pytest.raises(ValueError, match="not Delivered"):
-        set_focus(root, "D2")
+        commit_focus(root, "D2")
 
-    # same focus is a no-op
-    shell = set_focus(root, "D1")
+    shell = commit_focus(root, "D1")
     assert shell["focus"] == "D1"
 
     mark_node_delivered(root, "D1")
-    shell = set_focus(root, "D2")
+    shell = commit_focus(root, "D2")
     assert shell["focus"] == "D2"
     assert shell["by_id"]["D2"]["phase"] == "in_progress"
 
 
-def test_focus_switch_via_session_state_delivered_stub(tmp_path: Path) -> None:
+def test_commit_focus_switch_via_session_state_delivered_stub(tmp_path: Path) -> None:
     root = tmp_path / "lulu-approach"
     init_shell(root)
     _write_delivered(main_session_dir(root))
@@ -243,10 +243,29 @@ def test_focus_switch_via_session_state_delivered_stub(tmp_path: Path) -> None:
     enter_working(root, ["D1", "D2"], focus="D1")
     _write_in_progress(root / "D1")
     with pytest.raises(ValueError, match="not Delivered"):
-        set_focus(root, "D2")
+        commit_focus(root, "D2")
     _write_delivered(root / "D1")
-    shell = set_focus(root, "D2")
+    shell = commit_focus(root, "D2")
     assert shell["focus"] == "D2"
+
+
+def test_set_focus_is_retired_in_python_and_cli(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = tmp_path / "lulu-approach"
+    init_shell(root)
+    _write_delivered(main_session_dir(root))
+    enter_split(root)
+    mark_split_delivered(root)
+    enter_working(root, ["D1", "D2"], focus="D1")
+
+    with pytest.raises(ValueError, match="retired.*enter-node"):
+        set_focus(root, "D2")
+
+    assert _ctrl.main(
+        ["--approach-root", str(root), "set-focus", "--node-id", "D2"]
+    ) == 1
+    assert "enter-node" in capsys.readouterr().err
 
 
 def test_cannot_enter_split_from_working(tmp_path: Path) -> None:
