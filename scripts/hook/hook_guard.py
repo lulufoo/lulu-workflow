@@ -117,6 +117,96 @@ def _should_override_conversation_id(command: str) -> bool:
     return any(suffix in command for suffix in _INDUCTIVE_CONV_OVERRIDE_SUFFIXES)
 
 
+def _split_shell_segments(command: str) -> tuple[list[str], list[str]]:
+    """Split one shell line into command segments and separators.
+
+    Keep separators (&&, ||, ;, |) that are outside quotes and escapes.
+    This is a lightweight splitter for hook-side argument injection only.
+    """
+    segments: list[str] = []
+    separators: list[str] = []
+    buf: list[str] = []
+    in_single = False
+    in_double = False
+    escaped = False
+    i = 0
+    while i < len(command):
+        ch = command[i]
+        if escaped:
+            buf.append(ch)
+            escaped = False
+            i += 1
+            continue
+        if ch == "\\":
+            buf.append(ch)
+            escaped = True
+            i += 1
+            continue
+        if in_single:
+            buf.append(ch)
+            if ch == "'":
+                in_single = False
+            i += 1
+            continue
+        if in_double:
+            buf.append(ch)
+            if ch == '"':
+                in_double = False
+            i += 1
+            continue
+        if ch == "'":
+            in_single = True
+            buf.append(ch)
+            i += 1
+            continue
+        if ch == '"':
+            in_double = True
+            buf.append(ch)
+            i += 1
+            continue
+        if command.startswith("&&", i):
+            segments.append("".join(buf))
+            separators.append("&&")
+            buf = []
+            i += 2
+            continue
+        if command.startswith("||", i):
+            segments.append("".join(buf))
+            separators.append("||")
+            buf = []
+            i += 2
+            continue
+        if ch in {";", "|"}:
+            segments.append("".join(buf))
+            separators.append(ch)
+            buf = []
+            i += 1
+            continue
+        buf.append(ch)
+        i += 1
+    segments.append("".join(buf))
+    return segments, separators
+
+
+def _join_shell_segments(segments: list[str], separators: list[str]) -> str:
+    """Rebuild a shell line from segments and separators."""
+    if not separators:
+        return segments[0] if segments else ""
+    out: list[str] = []
+    for idx, segment in enumerate(segments):
+        out.append(segment)
+        if idx < len(separators):
+            out.append(separators[idx])
+    return "".join(out)
+
+
+def _append_conversation_id_arg(command: str, conv_id: str) -> str:
+    """Append conversation arg before trailing whitespace, if any."""
+    trimmed = command.rstrip()
+    trailing = command[len(trimmed):]
+    return f"{trimmed} --conversation-id {conv_id}{trailing}"
+
+
 def _apply_conversation_id(command: str, conv_id: str) -> Optional[str]:
     """Append or replace --conversation-id for workflow shell commands.
 
@@ -136,15 +226,30 @@ def _apply_conversation_id(command: str, conv_id: str) -> Optional[str]:
     for idx, line in enumerate(lines):
         if not line.strip():
             continue
-        if _should_override_conversation_id(line):
-            if _CONV_ID_ARG.search(line):
-                new_line = _CONV_ID_ARG.sub(f"--conversation-id {conv_id}", line, count=1)
+        segments, separators = _split_shell_segments(line)
+        segment_changed = False
+        for seg_idx, segment in enumerate(segments):
+            if not segment.strip():
+                continue
+            if _should_override_conversation_id(segment):
+                if _CONV_ID_ARG.search(segment):
+                    new_segment = _CONV_ID_ARG.sub(
+                        f"--conversation-id {conv_id}",
+                        segment,
+                        count=1,
+                    )
+                else:
+                    new_segment = _append_conversation_id_arg(segment, conv_id)
+            elif _should_inject_conversation_id(segment):
+                new_segment = _append_conversation_id_arg(segment, conv_id)
             else:
-                new_line = f"{line} --conversation-id {conv_id}"
-        elif _should_inject_conversation_id(line):
-            new_line = f"{line} --conversation-id {conv_id}"
-        else:
+                continue
+            if new_segment != segment:
+                segments[seg_idx] = new_segment
+                segment_changed = True
+        if not segment_changed:
             continue
+        new_line = _join_shell_segments(segments, separators)
         if new_line != line:
             lines[idx] = new_line
             changed = True

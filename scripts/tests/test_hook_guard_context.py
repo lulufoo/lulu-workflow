@@ -222,6 +222,33 @@ class TestShouldInjectConversationId:
         )
         assert hook_entry._apply_conversation_id(cmd, "9001dc22-85f1-404b-869c-2e471433da4d") is None
 
+    def test_single_line_chain_injects_target_segment_only(self):
+        cmd = (
+            'python3 ~/.cursor/skills/lulu-dev-workflow/scripts/runtime_control.py '
+            '--project-root /tmp resolve-platform-context && '
+            'python3 ~/.cursor/skills/lulu-dev-workflow/scripts/runtime_control.py '
+            '--project-root /tmp resolve-session-context && '
+            'cat /tmp/demo.json'
+        )
+        updated = hook_entry._apply_conversation_id(cmd, "conv-xyz")
+        assert updated is not None
+        assert (
+            "resolve-session-context --conversation-id conv-xyz && cat /tmp/demo.json"
+            in updated
+        )
+        assert "cat /tmp/demo.json --conversation-id conv-xyz" not in updated
+
+    def test_single_line_semicolon_chain_injects_target_segment_only(self):
+        cmd = (
+            'python3 ~/.cursor/skills/lulu-dev-workflow/scripts/runtime_control.py '
+            '--project-root /tmp resolve-session-context; '
+            'echo done'
+        )
+        updated = hook_entry._apply_conversation_id(cmd, "conv-xyz")
+        assert updated is not None
+        assert "resolve-session-context --conversation-id conv-xyz; echo done" in updated
+        assert "echo done --conversation-id conv-xyz" not in updated
+
 
 class TestMainRouting:
     def test_no_conversation_id_allows(self, tmp_path, monkeypatch):
