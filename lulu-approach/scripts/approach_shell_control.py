@@ -40,7 +40,7 @@ for _p in (_SCRIPTS, _SCHEMA, _WORKFLOW_SCRIPTS, _DECISION_SCRIPTS):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
-from approach_dependency_tree_schema import load_dependency_tree  # noqa: E402
+from approach_dependency_tree_schema import load_dependency_tree, save_dependency_tree  # noqa: E402
 from approach_node_binding_schema import (  # noqa: E402
     build_node_binding,
     load_node_binding,
@@ -55,6 +55,12 @@ from approach_layout import (  # noqa: E402
     ensure_approach_layout,
     main_session_dir,
 )
+from approach_mainline_reopen_schema import (  # noqa: E402
+    build_mainline_reopen,
+    load_mainline_reopen,
+    new_transaction_id,
+    save_mainline_reopen,
+)
 from approach_shell_schema import (  # noqa: E402
     empty_cell,
     initial_shell,
@@ -62,9 +68,24 @@ from approach_shell_schema import (  # noqa: E402
     save_shell,
     shell_path,
 )
-from approach_split_control import write_early_package  # noqa: E402
+from approach_split_control import (  # noqa: E402
+    conventional_main_paths,
+    slices_from_locked_tree,
+    write_early_package,
+)
+from approach_split_candidate_schema import (  # noqa: E402
+    load_candidate,
+    materialize_candidate,
+    structure_signature,
+)
+from approach_working_archive import archive_working_generation  # noqa: E402
 from cycle_delivered_refs import record_delivered_ref  # noqa: E402
-from decision_package_schema import load_decision_package  # noqa: E402
+from decision_package_schema import (  # noqa: E402
+    build_decision_package,
+    load_decision_package,
+    save_decision_package,
+)
+from decision_rulers_schema import save_decision_rulers  # noqa: E402
 from dec_lifecycle import bind_session, freeze_session, unfreeze_session_public  # noqa: E402
 import resolve_context  # noqa: E402
 
@@ -560,6 +581,98 @@ def bind_node(
     }
 
 
+def _bind_main(
+    approach_root: Path,
+    *,
+    project_root: Path,
+    cycle_id: str,
+    constraints_path: Path,
+    binding: dict[str, Any],
+) -> dict[str, Any]:
+    """Bind Main context and Active Session without a Working focus commit."""
+    root = Path(approach_root).resolve()
+    session_dir = main_session_dir(root)
+    try:
+        snapshot_path = resolve_context.write_resolved_context(
+            Path(project_root).resolve(),
+            str(cycle_id).strip(),
+            Path(constraints_path).resolve(),
+            session_dir=session_dir,
+            binding_id=binding["binding_id"],
+        )
+        binding["context_snapshot"] = {
+            "path": snapshot_path.resolve().as_posix(),
+            "sha256": _snapshot_sha256(snapshot_path),
+        }
+        save_node_binding(root, binding)
+        mode = (
+            "existing"
+            if (session_dir / "gate-state.json").is_file()
+            or (session_dir / "domain-constraints.json").is_file()
+            else "initialize"
+        )
+        decision = bind_session(
+            Path(project_root).resolve(),
+            str(cycle_id).strip(),
+            "lulu-approach",
+            session_dir=session_dir,
+            resolved_context_path=snapshot_path,
+            mode=mode,
+            constraints_path=Path(constraints_path).resolve(),
+        )
+    except (FileNotFoundError, ValueError, OSError):
+        _save_failed_binding(root, binding)
+        raise
+    binding["state"] = "decision_bound"
+    save_node_binding(root, binding)
+    return {
+        "decision": decision,
+        "context_snapshot": dict(binding["context_snapshot"]),
+    }
+
+
+def enter_reopen_split(approach_root: Path) -> dict[str, Any]:
+    """Enter the controlled Split review after Main or Split reopen."""
+    root = Path(approach_root).resolve()
+    transaction = load_mainline_reopen(root)
+    if transaction["state"] not in {"main_repaired", "split_pending"}:
+        raise ValueError(
+            "enter-node split requires main_repaired|split_pending transaction, "
+            f"got {transaction['state']!r}"
+        )
+    if _active_session_name(root) != "main":
+        raise ValueError("enter-node split requires Main to remain Active")
+    shell = load_shell(root)
+    allowed_macros = (
+        {"Main"} if transaction["state"] == "main_repaired" else {"SplitReopen"}
+    )
+    if shell["macro_state"] not in allowed_macros:
+        raise ValueError(
+            "enter-node split has incompatible macro_state "
+            f"{shell['macro_state']!r}"
+        )
+    shell["macro_state"] = "SplitReopen"
+    shell["focus"] = "main"
+    save_shell(root, shell)
+    transaction["state"] = "split_review"
+    save_mainline_reopen(root, transaction)
+    return {
+        "ok": True,
+        "command": "enter-node",
+        "node_id": "split",
+        "transaction_id": transaction["transaction_id"],
+        "shell": shell,
+        "next_steps": {
+            "require": [
+                "generate temporary C<n> candidate topology and C-to-D mapping",
+                "write-reopen-candidate",
+                "show structural difference and archive impact",
+                "complete-split-reopen --confirm",
+            ]
+        },
+    }
+
+
 def enter_node(
     approach_root: Path,
     node_id: str,
@@ -571,6 +684,73 @@ def enter_node(
 ) -> dict[str, Any]:
     """Public complete entry: bind context, Active Session, then shell focus."""
     root = Path(approach_root).resolve()
+    target = str(node_id).strip()
+    if target == "split":
+        return enter_reopen_split(root)
+    shell = load_shell(root)
+    if target == "main":
+        if shell["macro_state"] != "Main":
+            raise ValueError(
+                f"enter-node main requires macro_state=Main, got {shell['macro_state']!r}"
+            )
+        binding = _start_binding(root, "main", operation="enter")
+        result = _bind_main(
+            root,
+            project_root=project_root,
+            cycle_id=cycle_id,
+            constraints_path=constraints_path,
+            binding=binding,
+        )
+        shell["focus"] = "main"
+        save_shell(root, shell)
+        binding["state"] = "bound"
+        save_node_binding(root, binding)
+        return {
+            "ok": True,
+            "command": "enter-node",
+            "node_id": "main",
+            "binding_id": binding["binding_id"],
+            "session_dir": result["decision"]["session_dir"],
+            "context_docs": result["decision"]["context_docs"],
+            "context_snapshot": result["context_snapshot"],
+            "initialized": result["decision"]["initialized"],
+            "shell": shell,
+        }
+    if shell["macro_state"] == "SplitReopen":
+        transaction = load_mainline_reopen(root)
+        if transaction["state"] not in {"working_retained", "working_rebuilt"}:
+            raise ValueError("SplitReopen only permits Dx entry after Split confirmation")
+        if not _DX_ID_RE.match(target) or target not in shell["by_id"]:
+            raise ValueError(f"unknown node binding target {target!r}")
+        cell = dict(shell["by_id"][target])
+        cell["phase"] = "in_progress"
+        shell["by_id"][target] = cell
+        shell["macro_state"] = "Working"
+        shell["focus"] = target
+        save_shell(root, shell)
+        binding = _start_binding(root, target, operation="enter")
+        result = bind_node(
+            root,
+            target,
+            project_root=project_root,
+            cycle_id=cycle_id,
+            constraints_path=constraints_path,
+            binding=binding,
+            force=True,
+        )
+        binding["state"] = "bound"
+        save_node_binding(root, binding)
+        return {
+            "ok": True,
+            "command": "enter-node",
+            "node_id": target,
+            "binding_id": binding["binding_id"],
+            "session_dir": result["decision"]["session_dir"],
+            "context_docs": result["decision"]["context_docs"],
+            "context_snapshot": result["context_snapshot"],
+            "initialized": result["decision"]["initialized"],
+            "shell": result["shell"],
+        }
     _locked_working_tree(root, node_id)
     binding = _start_binding(root, node_id, operation="enter")
     result = bind_node(
@@ -672,7 +852,7 @@ def _issue_reopen_permit(approach_root: Path, binding: dict[str, Any], cycle_id:
     return path
 
 
-def reopen_node(
+def _reopen_dx(
     approach_root: Path,
     node_id: str,
     *,
@@ -729,6 +909,196 @@ def reopen_node(
     }
 
 
+def _start_mainline_reopen(
+    approach_root: Path,
+    *,
+    target: str,
+) -> dict[str, Any]:
+    """Persist the Main/Split transaction before mutating its closure."""
+    root = Path(approach_root).resolve()
+    shell = load_shell(root)
+    if shell["macro_state"] not in {"Main", "Split", "Working"}:
+        raise ValueError(
+            f"reopen-node {target} requires Main|Split|Working, "
+            f"got {shell['macro_state']!r}"
+        )
+    transaction = build_mainline_reopen(
+        transaction_id=new_transaction_id(),
+        target={"kind": target, "node_id": target},
+        state="preparing",
+        previous={
+            "macro_state": shell["macro_state"],
+            "focus": shell.get("focus"),
+            "active_session": _active_session_name(root),
+        },
+        frozen={"split": target == "main", "nodes": []},
+    )
+    save_mainline_reopen(root, transaction)
+    return transaction
+
+
+def reopen_main(
+    approach_root: Path,
+    *,
+    project_root: Path,
+    cycle_id: str,
+    constraints_path: Path,
+) -> dict[str, Any]:
+    """Freeze Working, bind Main, and issue the Main decision reopen permit."""
+    root = Path(approach_root).resolve()
+    transaction = _start_mainline_reopen(root, target="main")
+    shell = load_shell(root)
+    binding = _start_binding(root, "main", operation="reopen")
+    _, session_frozen, shell_only = _freeze_reopen_closure(
+        root,
+        target="main",
+        closure=list((shell.get("by_id") or {}).keys()),
+        binding=binding,
+    )
+    transaction["frozen"] = {
+        "split": True,
+        "nodes": list(binding["frozen_nodes"]),
+    }
+    transaction["state"] = "downstream_frozen"
+    save_mainline_reopen(root, transaction)
+    result = _bind_main(
+        root,
+        project_root=project_root,
+        cycle_id=cycle_id,
+        constraints_path=constraints_path,
+        binding=binding,
+    )
+    shell = load_shell(root)
+    shell["macro_state"] = "MainReopen"
+    shell["focus"] = "main"
+    save_shell(root, shell)
+    try:
+        permit_path = _issue_reopen_permit(root, binding, cycle_id)
+    except OSError:
+        _save_failed_binding(root, binding)
+        transaction["state"] = "failed"
+        save_mainline_reopen(root, transaction)
+        raise
+    transaction["state"] = "main_reopen_pending"
+    save_mainline_reopen(root, transaction)
+    return {
+        "ok": True,
+        "command": "reopen-node",
+        "node_id": "main",
+        "transaction_id": transaction["transaction_id"],
+        "binding_id": binding["binding_id"],
+        "permit_path": permit_path.resolve().as_posix(),
+        "context_docs": result["decision"]["context_docs"],
+        "context_snapshot": result["context_snapshot"],
+        "frozen_ids": list(binding["frozen_nodes"]),
+        "session_frozen": session_frozen,
+        "shell_only": shell_only,
+        "shell": shell,
+        "next_steps": {
+            "require": [
+                f"DEC_REOPEN --permit {permit_path.resolve().as_posix()}",
+                "GATE_CONTROL resolve-context",
+                "load context_docs",
+                "declare session switched",
+            ]
+        },
+    }
+
+
+def reopen_split(
+    approach_root: Path,
+    *,
+    project_root: Path,
+    cycle_id: str,
+    constraints_path: Path,
+) -> dict[str, Any]:
+    """Freeze Working, bind Main as the Split parent anchor, and enter review."""
+    root = Path(approach_root).resolve()
+    transaction = _start_mainline_reopen(root, target="split")
+    shell = load_shell(root)
+    binding = _start_binding(root, "main", operation="enter")
+    _, session_frozen, shell_only = _freeze_reopen_closure(
+        root,
+        target="split",
+        closure=list((shell.get("by_id") or {}).keys()),
+        binding=binding,
+    )
+    transaction["frozen"] = {
+        "split": False,
+        "nodes": list(binding["frozen_nodes"]),
+    }
+    transaction["state"] = "downstream_frozen"
+    save_mainline_reopen(root, transaction)
+    result = _bind_main(
+        root,
+        project_root=project_root,
+        cycle_id=cycle_id,
+        constraints_path=constraints_path,
+        binding=binding,
+    )
+    binding["state"] = "bound"
+    save_node_binding(root, binding)
+    shell = load_shell(root)
+    shell["macro_state"] = "SplitReopen"
+    shell["focus"] = "main"
+    save_shell(root, shell)
+    transaction["state"] = "split_pending"
+    save_mainline_reopen(root, transaction)
+    return {
+        "ok": True,
+        "command": "reopen-node",
+        "node_id": "split",
+        "transaction_id": transaction["transaction_id"],
+        "binding_id": binding["binding_id"],
+        "context_docs": result["decision"]["context_docs"],
+        "context_snapshot": result["context_snapshot"],
+        "frozen_ids": list(binding["frozen_nodes"]),
+        "session_frozen": session_frozen,
+        "shell_only": shell_only,
+        "shell": shell,
+        "next_steps": {
+            "require": [
+                "APPROACH_SHELL enter-node --node-id split",
+                "generate a temporary C<n> candidate topology and C-to-D mapping",
+                "human confirm the complete candidate before complete-split-reopen",
+            ]
+        },
+    }
+
+
+def reopen_node(
+    approach_root: Path,
+    node_id: str,
+    *,
+    project_root: Path,
+    cycle_id: str,
+    constraints_path: Path,
+) -> dict[str, Any]:
+    """Dispatch Main/Split/Dx reopen preparation to the correct protocol."""
+    target = str(node_id).strip()
+    if target == "main":
+        return reopen_main(
+            approach_root,
+            project_root=project_root,
+            cycle_id=cycle_id,
+            constraints_path=constraints_path,
+        )
+    if target == "split":
+        return reopen_split(
+            approach_root,
+            project_root=project_root,
+            cycle_id=cycle_id,
+            constraints_path=constraints_path,
+        )
+    return _reopen_dx(
+        approach_root,
+        target,
+        project_root=project_root,
+        cycle_id=cycle_id,
+        constraints_path=constraints_path,
+    )
+
+
 def complete_reopen(
     approach_root: Path,
     *,
@@ -778,6 +1148,141 @@ def complete_reopen(
         "binding_state": binding["state"],
         "node_id": target,
         "shell": shell,
+    }
+
+
+def complete_main_reopen(
+    approach_root: Path,
+    *,
+    transaction_id: str,
+    project_root: Path,
+    cycle_id: str,
+    constraints_path: Path,
+) -> dict[str, Any]:
+    """Close Main reopen after its permit-backed decision repair completes."""
+    del project_root, cycle_id, constraints_path
+    root = Path(approach_root).resolve()
+    transaction = load_mainline_reopen(root)
+    if transaction["transaction_id"] != str(transaction_id).strip():
+        raise ValueError("complete-main-reopen transaction-id does not match")
+    if transaction["target"]["kind"] != "main":
+        raise ValueError("complete-main-reopen requires a Main transaction")
+    if transaction["state"] != "main_reopen_pending":
+        raise ValueError(
+            "complete-main-reopen requires main_reopen_pending transaction, "
+            f"got {transaction['state']!r}"
+        )
+    binding = load_node_binding(root)
+    if binding["target"]["node_id"] != "main" or binding["state"] != "reopen_pending":
+        raise ValueError("complete-main-reopen requires pending Main node-binding")
+    permit_path = Path(str(binding.get("permit_path") or ""))
+    if not permit_path.is_file():
+        raise ValueError(f"complete-main-reopen permit missing: {permit_path}")
+    permit = json.loads(permit_path.read_text(encoding="utf-8"))
+    if (
+        not isinstance(permit, dict)
+        or permit.get("binding_id") != binding["binding_id"]
+        or permit.get("state") != "consumed"
+    ):
+        raise ValueError("complete-main-reopen requires matching consumed permit")
+    if _active_session_name(root) != "main":
+        raise ValueError("complete-main-reopen requires Active Session to remain Main")
+    state = _parse_session_state_current(main_session_dir(root) / _SESSION_STATE)
+    if state is None or state == "Frozen":
+        raise ValueError("complete-main-reopen requires Main session to be non-Frozen")
+    shell = load_shell(root)
+    if shell["macro_state"] != "MainReopen":
+        raise ValueError(
+            f"complete-main-reopen requires macro_state=MainReopen, got {shell['macro_state']!r}"
+        )
+    shell["macro_state"] = "Main"
+    shell["focus"] = "main"
+    save_shell(root, shell)
+    binding["state"] = "bound"
+    binding["permit_state"] = "consumed"
+    save_node_binding(root, binding)
+    transaction["state"] = "main_repaired"
+    save_mainline_reopen(root, transaction)
+    return {
+        "ok": True,
+        "command": "complete-main-reopen",
+        "transaction_id": transaction["transaction_id"],
+        "state": transaction["state"],
+        "shell": shell,
+    }
+
+
+def complete_split_reopen(
+    approach_root: Path, *, transaction_id: str, confirm: bool
+) -> dict[str, Any]:
+    """Confirm a Split candidate and retain an identical frozen Working graph."""
+    if not confirm:
+        raise ValueError("complete-split-reopen blocked: human --confirm required")
+    root = Path(approach_root).resolve()
+    transaction = load_mainline_reopen(root)
+    if transaction["transaction_id"] != str(transaction_id).strip():
+        raise ValueError("complete-split-reopen transaction-id does not match")
+    if transaction["state"] != "split_review":
+        raise ValueError(
+            "complete-split-reopen requires split_review transaction, "
+            f"got {transaction['state']!r}"
+        )
+    candidate = load_candidate(root, transaction["transaction_id"])
+    tree, rulers = materialize_candidate(candidate)
+    old_signature = structure_signature(load_dependency_tree(root))
+    candidate_signature = structure_signature(tree)
+    transaction["structure_signature"] = {
+        "old": old_signature,
+        "candidate": candidate_signature,
+    }
+    if old_signature != candidate_signature:
+        transaction["state"] = "archive_required"
+        save_mainline_reopen(root, transaction)
+        archive_working_generation(root, transaction["transaction_id"])
+        save_dependency_tree(root, tree)
+        save_decision_rulers(root, rulers)
+        save_decision_package(
+            root,
+            build_decision_package(
+                main=conventional_main_paths(),
+                slices=slices_from_locked_tree(tree),
+                status="split_delivered",
+            ),
+        )
+        shell = load_shell(root)
+        shell["by_id"] = {node["id"]: empty_cell() for node in tree["nodes"]}
+        shell["macro_state"] = "SplitReopen"
+        shell["focus"] = "main"
+        shell["split_delivered"] = True
+        save_shell(root, shell)
+        transaction["state"] = "working_rebuilt"
+        save_mainline_reopen(root, transaction)
+        return {
+            "ok": True,
+            "command": "complete-split-reopen",
+            "transaction_id": transaction["transaction_id"],
+            "state": transaction["state"],
+            "archive_path": (root / "working-archive" / transaction["transaction_id"]).as_posix(),
+            "shell": shell,
+        }
+    save_dependency_tree(root, tree)
+    save_decision_rulers(root, rulers)
+    save_decision_package(
+        root,
+        build_decision_package(
+            main=conventional_main_paths(),
+            slices=slices_from_locked_tree(tree),
+            status="split_delivered",
+        ),
+    )
+    transaction["state"] = "working_retained"
+    save_mainline_reopen(root, transaction)
+    return {
+        "ok": True,
+        "command": "complete-split-reopen",
+        "transaction_id": transaction["transaction_id"],
+        "state": transaction["state"],
+        "shell": load_shell(root),
     }
 
 
@@ -1117,6 +1622,22 @@ def _build_parser() -> argparse.ArgumentParser:
     p_cr.add_argument("--cycle-id", required=True)
     p_cr.add_argument("--constraints", required=True, type=Path)
 
+    p_cmr = sub.add_parser(
+        "complete-main-reopen",
+        help="Finish a consumed Main reopen permit after RS",
+    )
+    p_cmr.add_argument("--transaction-id", required=True)
+    p_cmr.add_argument("--project-root", required=True, type=Path)
+    p_cmr.add_argument("--cycle-id", required=True)
+    p_cmr.add_argument("--constraints", required=True, type=Path)
+
+    p_csr = sub.add_parser(
+        "complete-split-reopen",
+        help="Confirm a Split candidate and retain or rebuild Working",
+    )
+    p_csr.add_argument("--transaction-id", required=True)
+    p_csr.add_argument("--confirm", action="store_true")
+
     p_rb = sub.add_parser(
         "recover-binding",
         help="Recover a paused node-binding transaction",
@@ -1205,6 +1726,24 @@ def main(argv: list[str] | None = None) -> int:
                     project_root=Path(args.project_root),
                     cycle_id=args.cycle_id,
                     constraints_path=Path(args.constraints),
+                )
+            )
+        if args.command == "complete-main-reopen":
+            return _emit_ok(
+                complete_main_reopen(
+                    root,
+                    transaction_id=args.transaction_id,
+                    project_root=Path(args.project_root),
+                    cycle_id=args.cycle_id,
+                    constraints_path=Path(args.constraints),
+                )
+            )
+        if args.command == "complete-split-reopen":
+            return _emit_ok(
+                complete_split_reopen(
+                    root,
+                    transaction_id=args.transaction_id,
+                    confirm=bool(args.confirm),
                 )
             )
         if args.command == "recover-binding":

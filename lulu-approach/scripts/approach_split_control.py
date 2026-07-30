@@ -35,7 +35,16 @@ from approach_layout import (  # noqa: E402
     dx_session_dir,
     ensure_approach_layout,
 )
+from approach_mainline_reopen_schema import (  # noqa: E402
+    load_mainline_reopen,
+    save_mainline_reopen,
+)
 from approach_shell_schema import load_shell, save_shell  # noqa: E402
+from approach_split_candidate_schema import (  # noqa: E402
+    materialize_candidate,
+    save_candidate,
+    structure_signature,
+)
 from decision_package_schema import (  # noqa: E402
     build_decision_package,
     load_decision_package,
@@ -135,6 +144,56 @@ def write_early_package(
     )
     save_decision_package(root, package)
     return package
+
+
+def write_reopen_candidate(
+    approach_root: Path,
+    *,
+    transaction_id: str,
+    candidate: dict[str, Any],
+) -> dict[str, Any]:
+    """Persist a Split-review candidate without replacing current Working artifacts."""
+    root = Path(approach_root).resolve()
+    transaction = load_mainline_reopen(root)
+    if transaction["transaction_id"] != str(transaction_id).strip():
+        raise ValueError("write-reopen-candidate transaction-id does not match")
+    if transaction["state"] != "split_review":
+        raise ValueError(
+            "write-reopen-candidate requires split_review transaction, "
+            f"got {transaction['state']!r}"
+        )
+    old_tree = load_dependency_tree(root)
+    old_ids = {str(node["id"]) for node in old_tree["nodes"]}
+    tree, _ = materialize_candidate(candidate)
+    for candidate_id, mapping in candidate["mapping"].items():
+        node_id = mapping["node_id"]
+        if mapping["kind"] == "existing" and node_id not in old_ids:
+            raise ValueError(
+                f"candidate mapping {candidate_id!r} references missing old node {node_id!r}"
+            )
+        if mapping["kind"] == "new" and node_id in old_ids:
+            raise ValueError(
+                f"candidate mapping {candidate_id!r} marks existing node {node_id!r} as new"
+            )
+    path = save_candidate(root, transaction["transaction_id"], candidate)
+    old_signature = structure_signature(old_tree)
+    candidate_signature = structure_signature(tree)
+    transaction["old_graph_snapshot"] = (root / "dependency-tree.json").as_posix()
+    transaction["candidate_graph_snapshot"] = path.as_posix()
+    transaction["candidate_id_mapping"] = dict(candidate["mapping"])
+    transaction["structure_signature"] = {
+        "old": old_signature,
+        "candidate": candidate_signature,
+    }
+    save_mainline_reopen(root, transaction)
+    return {
+        "ok": True,
+        "command": "write-reopen-candidate",
+        "transaction_id": transaction["transaction_id"],
+        "candidate_path": path.as_posix(),
+        "structure_signature": dict(transaction["structure_signature"]),
+        "structure_match": old_signature == candidate_signature,
+    }
 
 
 def lock_tree_and_rulers(
@@ -326,6 +385,13 @@ def _build_parser() -> argparse.ArgumentParser:
     p_ds.add_argument("--rulers", type=Path, default=None)
     p_ds.add_argument("--confirm", action="store_true")
 
+    p_wrc = sub.add_parser(
+        "write-reopen-candidate",
+        help="Store a temporary C-node candidate during Split review",
+    )
+    p_wrc.add_argument("--transaction-id", required=True)
+    p_wrc.add_argument("--candidate", required=True, type=Path)
+
     return p
 
 
@@ -363,6 +429,17 @@ def main(argv: list[str] | None = None) -> int:
                     confirm=bool(args.confirm),
                 )
             )
+        if args.command == "write-reopen-candidate":
+            candidate = _load_json_arg(args.candidate)
+            if candidate is None:
+                raise ValueError("write-reopen-candidate requires --candidate JSON")
+            return _emit_ok(
+                write_reopen_candidate(
+                    root,
+                    transaction_id=args.transaction_id,
+                    candidate=candidate,
+                )
+            )
     except (FileNotFoundError, ValueError, OSError, json.JSONDecodeError) as exc:
         return _emit_err(str(exc))
     return _emit_err(f"unknown command: {args.command}")
@@ -383,6 +460,7 @@ __all__ = [
     "slices_from_locked_tree",
     "write_early_package",
     "write_intake",
+    "write_reopen_candidate",
 ]
 
 

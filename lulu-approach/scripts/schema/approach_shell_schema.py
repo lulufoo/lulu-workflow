@@ -5,7 +5,7 @@ On-disk ``discussion-pointer.json`` at the approach root::
 
     {
       "version": 1,
-      "macro_state": "Main"|"Split"|"Working"|"PackageReady",
+      "macro_state": "Main"|"Split"|"Working"|"PackageReady"|"MainReopen"|"SplitReopen",
       "focus": null|"main"|"D1"|...,
       "by_id": {
         "D1": {"phase": "pending"|"in_progress", "delivered": bool, "frozen": bool},
@@ -27,7 +27,9 @@ from typing import Any
 
 SHELL_FILENAME = "discussion-pointer.json"
 SHELL_VERSION = 1
-MACRO_STATES = frozenset({"Main", "Split", "Working", "PackageReady"})
+MACRO_STATES = frozenset(
+    {"Main", "Split", "Working", "PackageReady", "MainReopen", "SplitReopen"}
+)
 NODE_PHASES = frozenset({"pending", "in_progress"})
 _ON_DISK_KEYS = frozenset(
     {"version", "macro_state", "focus", "by_id", "split_delivered"}
@@ -135,10 +137,10 @@ def validate_shell(data: dict[str, Any]) -> list[str]:
             errors.append(f"focus {focus!r} missing from by_id")
         if not by_id:
             errors.append("Working requires non-empty by_id")
-    elif macro == "Main" and focus is not None and focus != "main":
-        errors.append("Main focus must be null or main")
-    elif macro == "Split" and focus is not None and focus != "main":
-        errors.append("Split focus must be null or main")
+    elif macro in {"Main", "Split"} and focus is not None and focus != "main":
+        errors.append(f"{macro} focus must be null or main")
+    elif macro in {"MainReopen", "SplitReopen"} and focus != "main":
+        errors.append(f"{macro} focus must be main")
 
     return errors
 
