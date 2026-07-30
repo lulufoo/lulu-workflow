@@ -115,6 +115,9 @@ def test_enter_node_initializes_new_dx_and_binds_active(
     assert result["shell"]["focus"] == "D1"
     assert load_active_session(root)["session_dir"] == "D1"
     assert result["context_docs"]["main_decision"] == (root / "main" / "decision-doc.md").as_posix()
+    assert result["context_docs"]["boundary_rules"] == (
+        _SCRIPTS.parent / "references" / "boundary-rules.md"
+    ).resolve().as_posix()
     binding = _binding.load_node_binding(root)
     assert binding["state"] == "bound"
     assert Path(binding["context_snapshot"]["path"]).is_file()

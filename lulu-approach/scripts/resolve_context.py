@@ -3,9 +3,9 @@
 
 ``context.docs`` is auto-derived from ``(cycle_id, stage)`` by the shared
 kernel resolver (``scripts/context_loading.py``), then — when ``--session-dir``
-points at a ``Dx/`` nested session — extended with ``main_decision`` and
-``decision_split`` (archive-1.1 bind context map). Missing main decision on
-Dx hard-fails.
+points at a ``Dx/`` nested session — extended with ``main_decision``,
+``boundary_rules``, and optional ``decision_split`` (archive-1.1 bind context
+map + boundary rules). Missing main decision or boundary rules on Dx hard-fails.
 
 Writes ``{"context": {"docs": {...}}}`` to a file and prints that file's path
 to stdout for ``$DEC_START`` / approach ``enter-node``／``reopen-node``
@@ -49,6 +49,7 @@ STAGE = "lulu-approach"
 _RESOLVED_CONTEXT_FILENAME = "resolved-context.json"
 _DX_ID_RE = re.compile(r"^D\d+$")
 _MAIN_DECISION_DOC = "decision-doc.md"
+_BOUNDARY_RULES_PATH = _SKILL_DIR / "references" / "boundary-rules.md"
 
 
 def _session_role(session_dir: Path | None) -> str:
@@ -63,15 +64,21 @@ def _session_role(session_dir: Path | None) -> str:
 
 
 def _extend_for_dx(docs: dict[str, str], session_dir: Path) -> dict[str, str]:
-    """Add main_decision (required) and decision_split (if present) for Dx."""
+    """Add main_decision, boundary_rules (required) and decision_split (optional) for Dx."""
     root = approach_root_from_session_dir(session_dir)
     main_doc = main_session_dir(root) / _MAIN_DECISION_DOC
     if not main_doc.is_file():
         raise ValueError(
             f"Dx bind blocked: main decision doc missing: {main_doc.as_posix()}"
         )
+    boundary = _BOUNDARY_RULES_PATH.resolve()
+    if not boundary.is_file():
+        raise ValueError(
+            f"Dx bind blocked: boundary rules missing: {boundary.as_posix()}"
+        )
     out = dict(docs)
     out["main_decision"] = main_doc.resolve().as_posix()
+    out["boundary_rules"] = boundary.as_posix()
     pkg = decision_package_path(root)
     if pkg.is_file():
         out["decision_split"] = pkg.resolve().as_posix()
@@ -152,7 +159,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--session-dir",
         default="",
-        help="Nested session root (main/ or Dx/). Dx adds main_decision + decision_split.",
+        help="Nested session root (main/ or Dx/). Dx adds main_decision, boundary_rules, and optional decision_split.",
     )
     parser.add_argument(
         "--binding-id",

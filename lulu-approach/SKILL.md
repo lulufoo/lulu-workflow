@@ -150,7 +150,14 @@ node is entered.
 
 1. Run `$APPROACH_NODE enter-node --node-id "<Dx>"`.
 2. Complete [Shared context activation](#shared-context-activation).
-3. Run `$APPROACH_SHELL bind-check-frozen --node-id "<Dx>"`. If
+3. Load the `boundary_rules` document; apply its constraints only for this
+   sub-decision’s current execution.
+   - **Scope:** citation and dependency boundaries of the current sub-decision
+     relative to the main decision, decision split, and other sub-decisions.
+   - **Out of scope:** other context and project facts.
+   - Follow the sections in order (Principle → Decision materials → Own
+     position → Contract interfaces → Self-check).
+4. Run `$APPROACH_SHELL bind-check-frozen --node-id "<Dx>"`. If
    `realign_required=true`, keep the node Frozen, perform semantic Realign
    against the loaded `context_docs` and this slice, then run
    `$APPROACH_SHELL clear-frozen --node-id "<Dx>"`.

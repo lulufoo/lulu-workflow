@@ -81,6 +81,7 @@ def test_feature_template_resolves_product_spec_and_tech_arch(tmp_path):
     assert docs["product_spec"] == upstream_doc.resolve().as_posix()
     assert docs["tech_arch"] == str(topic_doc.resolve())
     assert "main_decision" not in docs
+    assert "boundary_rules" not in docs
 
 
 def test_feature_template_omits_missing_docs(tmp_path):
@@ -112,7 +113,7 @@ def test_dx_requires_main_decision_doc(tmp_path):
         raise AssertionError("expected ValueError")
 
 
-def test_dx_adds_main_decision_and_optional_split(tmp_path):
+def test_dx_adds_main_decision_boundary_rules_and_optional_split(tmp_path):
     cache_dir = tmp_path / platform_cache_dir(detect_platform())
     approach = cache_dir / "feature-a" / "lulu-approach"
     main = approach / "main"
@@ -128,7 +129,27 @@ def test_dx_adds_main_decision_and_optional_split(tmp_path):
     docs = payload["context"]["docs"]
     assert docs["main_decision"] == main_doc.resolve().as_posix()
     assert docs["decision_split"] == pkg.resolve().as_posix()
+    boundary = (_SCRIPTS.parent / "references" / "boundary-rules.md").resolve()
+    assert docs["boundary_rules"] == boundary.as_posix()
+    assert boundary.is_file()
 
+
+def test_dx_requires_boundary_rules_file(tmp_path, monkeypatch):
+    cache_dir = tmp_path / platform_cache_dir(detect_platform())
+    approach = cache_dir / "feature-a" / "lulu-approach"
+    main = approach / "main"
+    main.mkdir(parents=True)
+    (main / "decision-doc.md").write_text("# main\n", encoding="utf-8")
+    dx = approach / "D1"
+    dx.mkdir()
+    missing = tmp_path / "missing-boundary-rules.md"
+    monkeypatch.setattr(_module, "_BOUNDARY_RULES_PATH", missing)
+    try:
+        resolve(tmp_path, "feature-a", _TEMPLATE_FEATURE, session_dir=dx)
+    except ValueError as exc:
+        assert "boundary rules missing" in str(exc)
+    else:
+        raise AssertionError("expected ValueError")
 
 def test_cli_writes_resolved_context_file_and_prints_its_path(tmp_path):
     result = subprocess.run(
