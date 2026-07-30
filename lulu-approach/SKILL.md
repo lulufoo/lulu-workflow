@@ -4,11 +4,11 @@ name: lulu-approach
 
 # lulu-approach
 
-Domain holder for tech-level diagnostic decisions. Delegates the full DDF execution to the `decision` kernel under tech domain constraints.
+Domain holder for technical diagnostic decisions. It orchestrates `decision`
+sessions under approach constraints; scripts own transitions, validation, and
+persistence.
 
-Outer flow spine: Main DDF in `main/` → optional Split → Working → PackageReady → `$APPROACH_SHELL confirm-seal`.
-
----
+## Prerequisites
 
 <HARD-GATE>
 Do NOT proceed until you have read `../_runtime.md` and loaded:
@@ -22,90 +22,306 @@ Do NOT proceed until you have read `../decision/SKILL.md` in full.
 All DDF rules, gates, and registers defined there apply to this session.
 </HARD-GATE>
 
-`$SKILL_DIR` = `$SKILL_ROOT/lulu-approach`
+`$SKILL_DIR` = `$SKILL_ROOT/lulu-approach`  
+`$DECISION_SKILL_DIR` = `$SKILL_ROOT/decision`  
+`$APPROACH_ROOT` = `$CACHE_DIR/<cycle_id>/lulu-approach`  
+`$MAIN_SESSION_DIR` = `$APPROACH_ROOT/main`
 
-Machine constraints SSOT: `$SKILL_DIR/constraints-$CYCLE_TYPE.json` (resolve `$CYCLE_TYPE` from `_runtime.md` § Session Foundation; passed to decision CLI via `--constraints`).
+Use `$SKILL_DIR/constraints-$CYCLE_TYPE.json` on every approach and decision
+invocation. Do not read session data files for routing.
 
 ## Script Macros
+
+### Local approach macros
 
 | Macro | Command |
 |-------|---------|
 | `$RESOLVE_CONTEXT` | `python3 "$SKILL_DIR/scripts/resolve_context.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json" [--session-dir "<main_or_Dx>"]` |
-| `$APPROACH_SHELL` | `python3 "$SKILL_DIR/scripts/approach_shell_control.py" --approach-root "$CACHE_DIR/<cycle_id>/lulu-approach"` |
-| `$APPROACH_SPLIT` | `python3 "$SKILL_DIR/scripts/approach_split_control.py" --approach-root "$CACHE_DIR/<cycle_id>/lulu-approach"` |
+| `$APPROACH_SHELL` | `python3 "$SKILL_DIR/scripts/approach_shell_control.py" --approach-root "$APPROACH_ROOT"` |
+| `$APPROACH_NODE` | `python3 "$SKILL_DIR/scripts/approach_shell_control.py" --approach-root "$APPROACH_ROOT" <subcommand> --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json"` |
+| `$APPROACH_CONFIRM_SEAL` | `python3 "$SKILL_DIR/scripts/approach_shell_control.py" --approach-root "$APPROACH_ROOT" confirm-seal --cycle-id "<cycle_id>" --project-root "$(pwd)"` |
+| `$APPROACH_SPLIT` | `python3 "$SKILL_DIR/scripts/approach_split_control.py" --approach-root "$APPROACH_ROOT"` |
 
-Subcommand contract: module docstring / `--help`.
+### Imported decision macros
 
-## start
+| Macro | Command |
+|-------|---------|
+| `$DEC_START` | `python3 "$DECISION_SKILL_DIR/scripts/dec_start.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" [--domain-constraints-file "<path>"] [--session-dir "<session_dir>"]` |
+| `$DEC_GET_ACTIVE` | `python3 "$DECISION_SKILL_DIR/scripts/dec_active_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" get-active` |
+| `$DEC_REOPEN` | `python3 "$DECISION_SKILL_DIR/scripts/dec_reopen.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" [--permit "<permit_path>"]` |
+| `$GATE_CONTROL` | `python3 "$DECISION_SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>"` |
+| `$GET_PAYLOAD` | `python3 "$DECISION_SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" get-payload` |
+| `$BATCH_RECLOSE` | `python3 "$DECISION_SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" batch-reclose --payloads '<json object>'` |
+| `$REGISTER_CONTROL` | `python3 "$DECISION_SKILL_DIR/scripts/dec_register_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>"` |
+| `$REGISTER_COMMIT` | `python3 "$DECISION_SKILL_DIR/scripts/dec_register_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" register-commit --operations '<json array>'` |
+| `$RS_COMMIT` | `python3 "$DECISION_SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>" rs-commit --gate "<G>" --operations '<json array>'` |
+| `$SESSION_INTEGRITY` | `python3 "$DECISION_SKILL_DIR/scripts/dec_session_integrity.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>"` |
 
-Complete `_runtime.md` § Session Foundation before running decision start.
+Subcommand and stdout contracts remain in script module docstrings or `--help`.
 
-**Step 1: Run `$RESOLVE_CONTEXT`** (optionally `--session-dir` for `main/` or `Dx/`). Holder builds flat `context.docs` map (key→path); missing docs omit keys. Dx requires `main/decision-doc.md` or exits non-zero. Writes `{"context":{"docs":{…}}}` to a file and prints that path — capture as `$RESOLVED_CONTEXT_PATH`. Non-zero exit → stop and report stderr.
+## Outer spine
 
-**Step 2: Init outer shell.** Run `$APPROACH_SHELL init-shell`. Creates the approach outer root and `main/` session directory under cache. Approach root = `$CACHE_DIR/<cycle_id>/lulu-approach`; Main DDF session dir = `$CACHE_DIR/<cycle_id>/lulu-approach/main`.
-
-**Step 3: Run `$DEC_START`** from `decision/SKILL.md` § Start with:
-
-```bash
---stage lulu-approach \
---constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json" \
---domain-constraints-file "$RESOLVED_CONTEXT_PATH" \
---session-dir "$CACHE_DIR/<cycle_id>/lulu-approach/main"
+```text
+Path A: Main → PackageReady → sealed
+Path B: Main → Split → Working (D1…Dn, single focus) → PackageReady → sealed
 ```
 
-On success, stdout JSON includes `context_docs`. Then:
+Local session delivery is not approach-stage delivery.
 
-1. `$GATE_CONTROL resolve-context` — pin `$CTX` only (does **not** load docs)
-2. For each key in `context_docs`: read-only load the path; tell the user what kind it is (`product_spec` / `tech_arch` / …)
-3. Declare the active session before gate dialogue
+## Shared context activation
 
-Pass the same `--constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json"` on every `$GATE_CONTROL` / `$REGISTER_*` invocation. `--domain-constraints-file` and `--session-dir` are only for `$DEC_START` (Main bootstrap). Working／reopen entry uses `$APPROACH_SHELL enter-node`／`reopen-node` (no `$DEC_SET_ACTIVE`).
+**Entry:** `$DEC_START`, `$APPROACH_NODE enter-node`, or
+`$APPROACH_NODE reopen-node` returned `context_docs`.
 
-> If `$DEC_START` exits non-zero ("Gate blocked: <stage> is not Delivered"): tell the user which prior stage must be delivered first. Do not retry start.
+**Act:** Run `$GATE_CONTROL resolve-context`, read each returned `context_docs`
+path once, then declare the active session. Use only the newly pinned `$CTX`.
 
-### Working node entry (Skill-visible)
+**Done:** `$CTX` is pinned, the listed documents are loaded, and the active
+session is declared to the user.
 
-Public Working entry is `$APPROACH_SHELL enter-node` (not `set-focus`). It mechanically binds shell focus, Active Session, and a per-binding `context_docs` snapshot.
+**Stop:** On non-zero output, stop and report stderr.
 
-```bash
-$APPROACH_SHELL enter-node --node-id "<Dx>" \
-  --project-root "$(pwd)" --cycle-id "<cycle_id>" \
-  --constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json"
-```
+## Main
 
-When `enter-node` succeeds, stdout may list required next macros. **Always** complete:
+**Entry:** Session Foundation is complete.
 
-1. `$GATE_CONTROL resolve-context` — pin new `$CTX` (mandatory; do not reuse prior `$CTX`).
-2. Load each path in stdout/`context_docs` read-only and place them at the front of attention (do **not** load prior Dx docs).
-3. Declare to the user: session switched to that node; prior session conclusions do not carry over.
-4. `$APPROACH_SHELL bind-check-frozen --node-id Dx` — if `realign_required=true`, keep Frozen; run **semantic Realign** (dialogue vs loaded `context_docs` + this slice; do **not** default into RS). Then `$APPROACH_SHELL clear-frozen --node-id Dx`. If `realign_required=false`, continue.
-5. Only then continue DDF / `$REGISTER_*` on Active (no `--session-dir` on those macros) — except **reopen target** path below.
+**Act:**
 
-After `$APPROACH_SHELL enter-working`, immediately run `enter-node` for the focused Dx (stdout next_steps only require that macro); then complete the semantic entry steps above from `enter-node` stdout.
+1. Run `$RESOLVE_CONTEXT`; capture its stdout path as `$RESOLVED_CONTEXT_PATH`.
+2. Run `$APPROACH_SHELL init-shell`.
+3. Run `$DEC_START` with:
 
-**Reopen a delivered / in-progress Dx** (global prepare → permit → `$DEC_REOPEN`):
+   ```bash
+   --stage lulu-approach \
+   --constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json" \
+   --domain-constraints-file "$RESOLVED_CONTEXT_PATH" \
+   --session-dir "$MAIN_SESSION_DIR"
+   ```
 
-1. `$APPROACH_SHELL reopen-node --node-id Dx --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json"`. Freezes shell for Dx + DAG successors; freezes **successor sessions only**; binds focus+Active to Dx; issues a one-shot permit.
-2. Complete semantic entry steps 1–3 above from reopen stdout (`context_docs`).
-3. `$DEC_REOPEN --permit "<permit_path>"` with the same `--constraints` (required under `reopen_authorization=holder_required`). This freezes the **target** session only.
-4. Stay session Frozen; run RS → `$RS_COMMIT` (P1.5). Then `$APPROACH_SHELL complete-reopen --binding-id "<binding_id>" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json"`.
-5. Successors stay Frozen until each is entered via `enter-node` and Realign + `clear-frozen` complete.
+4. Complete [Shared context activation](#shared-context-activation).
+5. Run the delegated DDF on Active. After the DDF is delivery-ready, run
+   `$GATE_CONTROL deliver`.
 
-**Same-Active restore** (new window, Active unchanged): `$APPROACH_SHELL enter-node --node-id <current>` (idempotent rebind) → `resolve-context` → load `context_docs` → `bind-check-frozen` (and Realign/`clear-frozen` if required) → continue.
+**Done:** `main` is Delivered. Tell the user this is node-session delivery,
+not approach-stage delivery.
 
-**Do not** use `$APPROACH_SHELL set-focus` (retired; hard-fails).  
-**Do not** treat shell focus change alone as a completed session switch.  
-**Do not** invent a decision-only Active switch macro. Successor Realign uses `clear-frozen`; reopen target shell clear uses `complete-reopen` only.
+**Exit:** For Path A, continue with [PackageReady → seal](#packageready--seal).
+For Path B, continue with [Split (optional)](#split-optional).
 
-## Outer delivery (PackageReady → seal)
+**Stop:** On non-zero output, stop and report stderr. If `$DEC_START` reports a
+blocked prior stage, report that stage and do not retry.
 
-Local session Delivered ≠ cycle / stage delivery.
+## Split (optional)
 
-After Active `$GATE_CONTROL deliver` succeeds on `main/` or `Dx/`:
+**Entry:** `main` is Delivered and Path B is selected.
 
-1. Tell the user only **this node session** is Delivered (not approach export).
-2. Do **not** treat cycle `delivered-refs` as the approach handoff (nested `deliver` does not register it).
-3. If Working and other ready nodes remain → `$APPROACH_SHELL enter-node` then `resolve-context` / load docs (see Working node entry).
-4. When all nodes are Delivered → `$APPROACH_SHELL enter-package-ready`.
-5. After explicit human confirm → `$APPROACH_SHELL confirm-seal --confirm --cycle-id "<cycle_id>" --project-root "$(pwd)"`.
-6. Only after `confirm-seal` succeeds may you claim approach stage delivery (`path` = `decision-package.json`, `artifact=decision-package`).
+**Act:**
+
+1. Run `$APPROACH_SHELL enter-split`.
+2. Run `$APPROACH_SPLIT write-intake`, then after explicit human confirmation
+   run `$APPROACH_SPLIT complete-intake --confirm`.
+3. Prepare candidate tree and ruler inputs at `$TREE_PATH` and `$RULERS_PATH`.
+   After explicit human confirmation, run:
+
+   ```bash
+   $APPROACH_SPLIT lock-tree-rulers \
+     --tree "$TREE_PATH" --rulers "$RULERS_PATH" --confirm
+   ```
+
+4. After explicit human confirmation, run `$APPROACH_SPLIT deliver-split --confirm`.
+   Capture the returned `slices[].id` in order as `$SLICE_IDS`.
+5. Run `$APPROACH_SHELL enter-working --node-ids $SLICE_IDS [--focus "<Dx>"]`,
+   then continue with [Enter or resume a Dx](#enter-or-resume-a-dx).
+
+**Done:** Split delivery and a Working focus both succeed.
+
+**Stop:** On non-zero output or absent human confirmation, stop and report.
+
+## Working
+
+Single focus is mandatory; the current focus must be Delivered before a different
+node is entered.
+
+### Enter or resume a Dx
+
+**Entry:** A focused or ready `Dx` is selected.
+
+**Act:**
+
+1. Run `$APPROACH_NODE enter-node --node-id "<Dx>"`.
+2. Complete [Shared context activation](#shared-context-activation).
+3. Run `$APPROACH_SHELL bind-check-frozen --node-id "<Dx>"`. If
+   `realign_required=true`, keep the node Frozen, perform semantic Realign
+   against the loaded `context_docs` and this slice, then run
+   `$APPROACH_SHELL clear-frozen --node-id "<Dx>"`.
+
+**Done:** The target `Dx` is the usable Active session.
+
+**Stop:** On non-zero output, stop and report stderr.
+
+### Execute current Dx
+
+**Entry:** The target `Dx` is the usable Active session.
+
+**Act:** Run DDF gates and registers on Active through `$GATE_CONTROL`,
+`$REGISTER_CONTROL`, and `$REGISTER_COMMIT`; never pass `--session-dir`.
+
+**Done:** The current `Dx` is Delivered.
+
+**Stop:** On non-zero output, stop and report stderr.
+
+### Advance or finish Working
+
+**Entry:** The current `Dx` is Delivered.
+
+**Act:** If a ready node remains, repeat [Enter or resume a Dx](#enter-or-resume-a-dx).
+When no nodes remain and none are Frozen, continue with
+[PackageReady → seal](#packageready--seal).
+
+**Done:** The next `Dx` is Active, or PackageReady is ready to enter.
+
+**Stop:** On non-zero output, stop and report stderr.
+
+Do not use `$APPROACH_SHELL set-focus`, treat a focus-only change as a session
+switch, or invent a decision-only Active switch.
+
+## PackageReady → seal
+
+**Entry:** `main` is Delivered on Path A, or all Working nodes are Delivered and
+none are Frozen.
+
+**Act:** Run `$APPROACH_SHELL enter-package-ready`. After explicit human
+confirmation, run `$APPROACH_CONFIRM_SEAL --confirm`.
+
+**Done:** `confirm-seal` succeeds. Only then claim approach-stage delivery with
+the `decision-package` artifact.
+
+**Stop:** On non-zero output or absent human confirmation, stop and report.
+
+## Reopen paths
+
+Before `$APPROACH_NODE reopen-node --node-id main`, retain the currently
+declared source outer state. If it is unknown, stop and report; do not infer it
+from files. Until a selected reopen route completes, do not enter PackageReady
+or seal.
+
+### Split review
+
+**Entry:** Main reopen completed from source Split or Working, or Split reopen
+prepared. A candidate input at `$CANDIDATE_PATH` is prepared through human/AI
+dialogue.
+
+**Act:**
+
+1. Run `$APPROACH_NODE enter-node --node-id split`.
+2. Run:
+
+   ```bash
+   $APPROACH_SPLIT write-reopen-candidate \
+     --transaction-id "$TRANSACTION_ID" --candidate "$CANDIDATE_PATH"
+   ```
+
+3. After explicit human confirmation, run:
+
+   ```bash
+   $APPROACH_SHELL complete-split-reopen \
+     --transaction-id "$TRANSACTION_ID" --confirm
+   ```
+
+4. Continue with [Enter or resume a Dx](#enter-or-resume-a-dx).
+
+**Done:** A retained or rebuilt Working graph is selected.
+
+**Stop:** On non-zero output or absent human confirmation, stop and report.
+
+### Dx reopen
+
+**Entry:** A delivered or in-progress `Dx` must be revised.
+
+**Act:**
+
+1. Run `$APPROACH_NODE reopen-node --node-id "<Dx>"`. Capture stdout
+   `permit_path` as `$PERMIT_PATH` and `binding_id` as `$BINDING_ID`.
+2. Complete [Shared context activation](#shared-context-activation).
+3. Run `$DEC_REOPEN --permit "$PERMIT_PATH"`, perform RS dialogue, then run
+   `$RS_COMMIT --gate "<G>" --operations '<json array>'`.
+4. Run `$APPROACH_NODE complete-reopen --binding-id "$BINDING_ID"`.
+
+**Done:** The target reopen completes. Successors remain Frozen until each
+follows [Enter or resume a Dx](#enter-or-resume-a-dx).
+
+**Stop:** On non-zero output, stop and report stderr.
+
+### Main reopen
+
+**Entry:** The source outer state is known.
+
+**Act:**
+
+1. Run `$APPROACH_NODE reopen-node --node-id main`. Capture stdout
+   `permit_path` as `$PERMIT_PATH` and `transaction_id` as `$TRANSACTION_ID`.
+2. Complete [Shared context activation](#shared-context-activation).
+3. Run `$DEC_REOPEN --permit "$PERMIT_PATH"`, perform RS dialogue, then run
+   `$RS_COMMIT --gate "<G>" --operations '<json array>'`.
+4. Run `$APPROACH_NODE complete-main-reopen --transaction-id "$TRANSACTION_ID"`.
+
+**Exit:** From source Split or Working, continue with
+[Split review](#split-review). From source Main, choose the applicable Main
+downstream path.
+
+**Done:** Main is repaired and its applicable downstream route is selected.
+
+**Stop:** On non-zero output, stop and report stderr.
+
+### Split reopen
+
+**Entry:** Split must be revised.
+
+**Act:**
+
+1. Run `$APPROACH_NODE reopen-node --node-id split`. Capture stdout
+   `transaction_id` as `$TRANSACTION_ID`.
+2. Complete [Shared context activation](#shared-context-activation).
+3. Continue with [Split review](#split-review).
+
+**Done:** Split review is entered.
+
+**Stop:** On non-zero output, stop and report stderr.
+
+### Same-Active restore (Main)
+
+**Entry:** Active remains Main.
+
+**Act:** Run `$APPROACH_NODE enter-node --node-id main`, then complete
+[Shared context activation](#shared-context-activation).
+
+**Done:** Resume Main.
+
+**Stop:** On non-zero output, stop and report stderr.
+
+### Same-Active restore (Dx)
+
+**Entry:** Active remains a `Dx`.
+
+**Act:** Run `$APPROACH_NODE enter-node --node-id "<Dx>"`, complete
+[Shared context activation](#shared-context-activation), then follow the frozen
+check and Realign portion of [Enter or resume a Dx](#enter-or-resume-a-dx).
+
+**Done:** Resume the current `Dx`.
+
+**Stop:** On non-zero output, stop and report stderr.
+
+PackageReady and sealed are not normal reopen entry states; report an unsupported
+state instead.
+
+## Interrupted binding
+
+**Entry:** A normal entry or reopen reports an unresolved binding.
+
+**Act:** Stop and report the binding ID and state from stderr.
+
+**Done:** An explicit human recovery decision is received.
+
+**Stop:** Do not auto-select `commit-focus`, `compensate-active`, or `cancel`.
+After external recovery, restart the applicable documented entry route and obtain
+fresh command output; do not infer the restored target.
