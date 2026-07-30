@@ -65,7 +65,7 @@ Pass the same `--constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json"` on every
 
 ### Working focus switch (Skill-visible)
 
-When `$APPROACH_SHELL enter-working` / `set-focus` succeeds, stdout may list required next macros. **Always** complete:
+When `$APPROACH_SHELL enter-working` / `set-focus` / `reopen-node` succeeds, stdout may list required next macros. **Always** complete:
 
 1. `$RESOLVE_CONTEXT --session-dir …/Dx` — re-resolve map for that node (Dx hard-fails without main decision doc). Capture new `$RESOLVED_CONTEXT_PATH`.
 2. If the Dx session is new: `$DEC_START --session-dir …/Dx --domain-constraints-file "$RESOLVED_CONTEXT_PATH"`.
@@ -73,11 +73,20 @@ When `$APPROACH_SHELL enter-working` / `set-focus` succeeds, stdout may list req
 4. `$GATE_CONTROL resolve-context` — pin new `$CTX` (mandatory; do not reuse prior `$CTX`).
 5. Load each path in stdout/`context_docs` read-only and place them at the front of attention (do **not** load prior Dx docs).
 6. Declare to the user: session switched to that node; prior session conclusions do not carry over.
-7. Only then continue DDF / `$REGISTER_*` on Active (no `--session-dir` on those macros).
+7. `$APPROACH_SHELL bind-check-frozen --node-id Dx` — if `realign_required=true`, keep Frozen; run **semantic Realign** (dialogue vs loaded `context_docs` + this slice; do **not** default into RS). Then `$APPROACH_SHELL clear-frozen --node-id Dx`. If `realign_required=false`, continue.
+8. Only then continue DDF / `$REGISTER_*` on Active (no `--session-dir` on those macros) — except **reopen target** path below.
 
-**Same-Active restore** (new window, Active unchanged): re-run `$RESOLVE_CONTEXT --session-dir <current>` then `$DEC_SET_ACTIVE --session-dir <current> --domain-constraints-file …` → `resolve-context` → load `context_docs` once → continue.
+**Reopen a delivered / in-progress Dx** (cascade-freeze successors):
 
-**Do not** treat shell focus change alone as a completed session switch.
+1. `$APPROACH_SHELL reopen-node --node-id Dx` (or `freeze-cascade` then force focus). Cascade-freezes Dx + DAG successors; force-sets focus even when current focus is not Delivered.
+2. Complete bind steps 1–6 above.
+3. **Do not** `clear-frozen` before RS finishes. Stay session Frozen; run RS → `$RS_COMMIT` (P1.5). Then `$APPROACH_SHELL clear-frozen --node-id Dx` to clear the shell flag.
+4. Successors stay Frozen until each is entered (steps 1–7) and Realign + `clear-frozen` complete.
+
+**Same-Active restore** (new window, Active unchanged): re-run `$RESOLVE_CONTEXT --session-dir <current>` then `$DEC_SET_ACTIVE --session-dir <current> --domain-constraints-file …` → `resolve-context` → load `context_docs` once → `bind-check-frozen` (and Realign/`clear-frozen` if required) → continue.
+
+**Do not** treat shell focus change alone as a completed session switch.  
+**Do not** unfreeze inside `$DEC_SET_ACTIVE`. Frozen clear is approach-shell only (`clear-frozen` or reopen RS then `clear-frozen`).
 
 ## Outer delivery (PackageReady → seal)
 

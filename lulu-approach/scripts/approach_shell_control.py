@@ -17,7 +17,8 @@ CLI (stdout JSON ``{"ok": true, ...}``; errors on stderr, exit 1)::
     python3 approach_shell_control.py --approach-root <path> <subcommand> ...
 
 Subcommands: init-shell, enter-split, enter-working, set-focus,
-enter-package-ready, confirm-seal.
+enter-package-ready, confirm-seal, freeze-cascade, reopen-node,
+bind-check-frozen, clear-frozen.
 """
 
 from __future__ import annotations
@@ -26,16 +27,19 @@ import argparse
 import json
 import re
 import sys
+from collections import defaultdict, deque
 from pathlib import Path
 from typing import Any
 
 _SCRIPTS = Path(__file__).resolve().parent
 _SCHEMA = _SCRIPTS / "schema"
 _WORKFLOW_SCRIPTS = _SCRIPTS.parents[1] / "scripts"
-for _p in (_SCRIPTS, _SCHEMA, _WORKFLOW_SCRIPTS):
+_DECISION_SCRIPTS = _SCRIPTS.parents[1] / "decision" / "scripts"
+for _p in (_SCRIPTS, _SCHEMA, _WORKFLOW_SCRIPTS, _DECISION_SCRIPTS):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
+from approach_dependency_tree_schema import load_dependency_tree  # noqa: E402
 from approach_layout import (  # noqa: E402
     decision_package_path,
     dx_session_dir,
@@ -52,6 +56,10 @@ from approach_shell_schema import (  # noqa: E402
 from approach_split_control import write_early_package  # noqa: E402
 from cycle_delivered_refs import record_delivered_ref  # noqa: E402
 from decision_package_schema import load_decision_package  # noqa: E402
+from dec_session_state_schema import (  # noqa: E402
+    set_session_frozen,
+    unfreeze_session,
+)
 
 _DX_ID_RE = re.compile(r"^D\d+$")
 _SESSION_STATE = "session-state.md"
@@ -101,17 +109,19 @@ def _session_dir_for_node(approach_root: Path, node_id: str) -> Path:
 
 
 def is_node_delivered(approach_root: Path, node_id: str, shell: dict[str, Any] | None = None) -> bool:
-    """True when node is Delivered (by_id flag and/or session-state stub)."""
+    """True when node is effectively Delivered (delivered ∧ ¬frozen)."""
     nid = str(node_id).strip()
     data = shell if shell is not None else load_shell(approach_root)
     if nid != "main":
         cell = (data.get("by_id") or {}).get(nid)
-        if isinstance(cell, dict) and cell.get("delivered") is True:
-            return True
         if isinstance(cell, dict) and cell.get("frozen") is True:
             return False
+        if isinstance(cell, dict) and cell.get("delivered") is True:
+            return True
     session_dir = _session_dir_for_node(approach_root, nid)
     state = _parse_session_state_current(session_dir / _SESSION_STATE)
+    if state == "Frozen":
+        return False
     return state == "Delivered"
 
 
@@ -225,25 +235,12 @@ def set_focus(approach_root: Path, node_id: str) -> dict[str, Any]:
     current = shell.get("focus")
     if current == target:
         dx = ensure_dx_on_focus(approach_root, target)
-        return {
-            **shell,
-            "next_steps": {
-                "session_dir": dx.as_posix(),
-                "require": [
-                    "RESOLVE_CONTEXT with --session-dir",
-                    "DEC_START or DEC_SET_ACTIVE with --session-dir and --domain-constraints-file",
-                    "GATE_CONTROL resolve-context",
-                    "load context_docs",
-                    "declare session switched",
-                ],
-            },
-        }
+        return {**shell, "next_steps": _bind_next_steps(dx)}
     if current is not None and not is_node_delivered(approach_root, str(current), shell):
         raise ValueError(
             f"focus switch blocked: current focus {current!r} is not Delivered"
         )
-    if by_id[target].get("frozen") is True:
-        raise ValueError(f"focus switch blocked: {target!r} is Frozen")
+    # E1: target may be Frozen (enter cascade-successor for bind → realign).
     if current is not None and current in by_id:
         prev = dict(by_id[current])
         if prev.get("phase") == "in_progress":
@@ -256,18 +253,226 @@ def set_focus(approach_root: Path, node_id: str) -> dict[str, Any]:
     shell["by_id"] = by_id
     save_shell(approach_root, shell)
     dx = ensure_dx_on_focus(approach_root, target)
+    return {**shell, "next_steps": _bind_next_steps(dx)}
+
+
+def _frozen_ids(shell: dict[str, Any]) -> list[str]:
+    return sorted(
+        nid
+        for nid, cell in (shell.get("by_id") or {}).items()
+        if isinstance(cell, dict) and cell.get("frozen") is True
+    )
+
+
+def _successor_closure(tree: dict[str, Any], node_id: str) -> list[str]:
+    """Target plus transitive dependents.
+
+    Tree edge ``from=Dx,to=Dy`` means Dx depends on Dy (Dy precedes Dx).
+    """
+    nid = str(node_id).strip()
+    nodes = {
+        str(n.get("id", "")).strip()
+        for n in (tree.get("nodes") or [])
+        if isinstance(n, dict)
+    }
+    if nid not in nodes:
+        raise ValueError(f"freeze-cascade unknown node {nid!r}")
+    dependents: dict[str, list[str]] = defaultdict(list)
+    for edge in tree.get("edges") or []:
+        if not isinstance(edge, dict):
+            continue
+        frm = str(edge.get("from", "")).strip()
+        to = str(edge.get("to", "")).strip()
+        if frm and to:
+            dependents[to].append(frm)
+    out: list[str] = []
+    seen: set[str] = set()
+    q: deque[str] = deque([nid])
+    while q:
+        cur = q.popleft()
+        if cur in seen:
+            continue
+        seen.add(cur)
+        out.append(cur)
+        for child in dependents.get(cur, []):
+            if child not in seen:
+                q.append(child)
+    return out
+
+
+def _try_freeze_session(session_dir: Path) -> str:
+    """Return session_frozen | already_frozen | skipped."""
+    state = _parse_session_state_current(session_dir / _SESSION_STATE)
+    if state is None:
+        return "skipped"
+    if state == "Frozen":
+        return "already_frozen"
+    if state in {"Delivered", "InProgress"}:
+        set_session_frozen(session_dir)
+        return "session_frozen"
+    return "skipped"
+
+
+def _bind_next_steps(session_dir: Path) -> dict[str, Any]:
     return {
-        **shell,
-        "next_steps": {
-            "session_dir": dx.as_posix(),
-            "require": [
-                "RESOLVE_CONTEXT with --session-dir",
-                "DEC_START or DEC_SET_ACTIVE with --session-dir and --domain-constraints-file",
-                "GATE_CONTROL resolve-context",
-                "load context_docs",
-                "declare session switched",
-            ],
-        },
+        "session_dir": session_dir.as_posix(),
+        "require": [
+            "RESOLVE_CONTEXT with --session-dir",
+            "DEC_START or DEC_SET_ACTIVE with --session-dir and --domain-constraints-file",
+            "GATE_CONTROL resolve-context",
+            "load context_docs",
+            "declare session switched",
+            "APPROACH_SHELL bind-check-frozen",
+            "if realign_required: semantic Realign then APPROACH_SHELL clear-frozen",
+        ],
+    }
+
+
+def freeze_cascade(approach_root: Path, node_id: str) -> dict[str, Any]:
+    """Freeze node_id and DAG successors (shell + session when present)."""
+    root = Path(approach_root).resolve()
+    shell = load_shell(root)
+    if shell.get("macro_state") != "Working":
+        raise ValueError(
+            f"freeze-cascade requires macro_state=Working, got {shell.get('macro_state')!r}"
+        )
+    try:
+        tree = load_dependency_tree(root)
+    except FileNotFoundError as exc:
+        raise ValueError(f"freeze-cascade blocked: {exc}") from exc
+    if str(tree.get("status", "")).strip() != "locked":
+        raise ValueError(
+            f"freeze-cascade blocked: dependency tree status must be locked, "
+            f"got {tree.get('status')!r}"
+        )
+    target = str(node_id).strip()
+    if not _DX_ID_RE.match(target):
+        raise ValueError(f"freeze-cascade expects D<number>, got {target!r}")
+    closure = _successor_closure(tree, target)
+    by_id = dict(shell.get("by_id") or {})
+    session_frozen: list[str] = []
+    shell_only: list[str] = []
+    for nid in closure:
+        cell = dict(by_id.get(nid) or empty_cell())
+        cell["frozen"] = True
+        by_id[nid] = cell
+        dx = dx_session_dir(root, nid)
+        if not dx.is_dir():
+            shell_only.append(nid)
+            continue
+        result = _try_freeze_session(dx)
+        if result in {"session_frozen", "already_frozen"}:
+            session_frozen.append(nid)
+        else:
+            shell_only.append(nid)
+    shell["by_id"] = by_id
+    save_shell(root, shell)
+    return {
+        "ok": True,
+        "command": "freeze-cascade",
+        "node_id": target,
+        "frozen_ids": closure,
+        "session_frozen": session_frozen,
+        "shell_only": shell_only,
+        "shell": shell,
+    }
+
+
+def _force_focus(approach_root: Path, node_id: str) -> dict[str, Any]:
+    """Set Working focus without requiring current focus Delivered."""
+    root = Path(approach_root).resolve()
+    shell = load_shell(root)
+    if shell["macro_state"] != "Working":
+        raise ValueError(
+            f"force focus requires macro_state=Working, got {shell['macro_state']!r}"
+        )
+    target = str(node_id).strip()
+    by_id = dict(shell.get("by_id") or {})
+    if target not in by_id:
+        raise ValueError(f"unknown focus target {target!r}")
+    current = shell.get("focus")
+    if current is not None and current in by_id and current != target:
+        prev = dict(by_id[current])
+        if prev.get("phase") == "in_progress":
+            prev["phase"] = "pending"
+        by_id[current] = prev
+    cell = dict(by_id[target])
+    cell["phase"] = "in_progress"
+    by_id[target] = cell
+    shell["focus"] = target
+    shell["by_id"] = by_id
+    save_shell(root, shell)
+    dx = ensure_dx_on_focus(root, target)
+    return {**shell, "next_steps": _bind_next_steps(dx)}
+
+
+def reopen_node(approach_root: Path, node_id: str) -> dict[str, Any]:
+    """Cascade-freeze target+successors and force focus onto target (F6)."""
+    root = Path(approach_root).resolve()
+    frozen = freeze_cascade(root, node_id)
+    shell = _force_focus(root, node_id)
+    return {
+        "ok": True,
+        "command": "reopen-node",
+        "node_id": str(node_id).strip(),
+        "frozen_ids": frozen["frozen_ids"],
+        "session_frozen": frozen["session_frozen"],
+        "shell_only": frozen["shell_only"],
+        "shell": shell,
+        "next_steps": shell.get("next_steps"),
+    }
+
+
+def bind_check_frozen(approach_root: Path, node_id: str) -> dict[str, Any]:
+    """After bind: signal realign_required; do not clear frozen (E6)."""
+    root = Path(approach_root).resolve()
+    shell = load_shell(root)
+    nid = str(node_id).strip()
+    if not _DX_ID_RE.match(nid):
+        raise ValueError(f"bind-check-frozen expects D<number>, got {nid!r}")
+    cell = (shell.get("by_id") or {}).get(nid) or {}
+    shell_frozen = isinstance(cell, dict) and cell.get("frozen") is True
+    session_dir = dx_session_dir(root, nid)
+    session_state = _parse_session_state_current(session_dir / _SESSION_STATE)
+    session_frozen = session_state == "Frozen"
+    required = shell_frozen or session_frozen
+    return {
+        "ok": True,
+        "command": "bind-check-frozen",
+        "node_id": nid,
+        "realign_required": required,
+        "shell_frozen": shell_frozen,
+        "session_frozen": session_frozen,
+        "cleared": False,
+    }
+
+
+def clear_frozen(approach_root: Path, node_id: str) -> dict[str, Any]:
+    """Clear shell frozen (+ session Frozen) for one node after Realign / RS."""
+    root = Path(approach_root).resolve()
+    shell = load_shell(root)
+    nid = str(node_id).strip()
+    if not _DX_ID_RE.match(nid):
+        raise ValueError(f"clear-frozen expects D<number>, got {nid!r}")
+    by_id = dict(shell.get("by_id") or {})
+    if nid not in by_id:
+        raise ValueError(f"clear-frozen unknown node {nid!r}")
+    cell = dict(by_id[nid])
+    cell["frozen"] = False
+    by_id[nid] = cell
+    shell["by_id"] = by_id
+    save_shell(root, shell)
+    session_unfroze = False
+    dx = dx_session_dir(root, nid)
+    if dx.is_dir() and (dx / _SESSION_STATE).is_file():
+        session_unfroze = bool(unfreeze_session(dx))
+    return {
+        "ok": True,
+        "command": "clear-frozen",
+        "node_id": nid,
+        "shell_frozen": False,
+        "session_unfroze": session_unfroze,
+        "shell": shell,
     }
 
 
@@ -286,6 +491,12 @@ def enter_package_ready(approach_root: Path) -> dict[str, Any]:
         by_id = shell.get("by_id") or {}
         if not by_id:
             raise ValueError("enter_package_ready blocked: empty by_id")
+        frozen = _frozen_ids(shell)
+        if frozen:
+            raise ValueError(
+                "enter_package_ready blocked: frozen nodes present: "
+                + ", ".join(frozen)
+            )
         incomplete = [
             nid
             for nid, cell in by_id.items()
@@ -293,7 +504,6 @@ def enter_package_ready(approach_root: Path) -> dict[str, Any]:
                 cell.get("delivered") is True
                 or is_node_delivered(approach_root, nid, shell)
             )
-            or cell.get("frozen") is True
         ]
         if incomplete:
             raise ValueError(
@@ -321,6 +531,11 @@ def confirm_seal(
     if shell["macro_state"] != "PackageReady":
         raise ValueError(
             f"confirm_seal requires macro_state=PackageReady, got {shell['macro_state']!r}"
+        )
+    frozen = _frozen_ids(shell)
+    if frozen:
+        raise ValueError(
+            "confirm_seal blocked: frozen nodes present: " + ", ".join(frozen)
         )
     if not confirm:
         raise ValueError("confirm_seal blocked: human --confirm required")
@@ -409,6 +624,30 @@ def _build_parser() -> argparse.ArgumentParser:
     p_sf = sub.add_parser("set-focus", help="Switch Working focus")
     p_sf.add_argument("--node-id", required=True)
 
+    p_fc = sub.add_parser(
+        "freeze-cascade",
+        help="Freeze node + DAG successors (shell + session)",
+    )
+    p_fc.add_argument("--node-id", required=True)
+
+    p_rn = sub.add_parser(
+        "reopen-node",
+        help="Cascade-freeze + force focus onto node (reopen bypass)",
+    )
+    p_rn.add_argument("--node-id", required=True)
+
+    p_bc = sub.add_parser(
+        "bind-check-frozen",
+        help="After bind: emit realign_required without clearing frozen",
+    )
+    p_bc.add_argument("--node-id", required=True)
+
+    p_cf = sub.add_parser(
+        "clear-frozen",
+        help="Clear shell/session frozen for one node after Realign",
+    )
+    p_cf.add_argument("--node-id", required=True)
+
     sub.add_parser(
         "enter-package-ready",
         help="Main/Working → PackageReady",
@@ -441,6 +680,14 @@ def main(argv: list[str] | None = None) -> int:
             )
         if args.command == "set-focus":
             return _emit_ok({"shell": set_focus(root, args.node_id)})
+        if args.command == "freeze-cascade":
+            return _emit_ok(freeze_cascade(root, args.node_id))
+        if args.command == "reopen-node":
+            return _emit_ok(reopen_node(root, args.node_id))
+        if args.command == "bind-check-frozen":
+            return _emit_ok(bind_check_frozen(root, args.node_id))
+        if args.command == "clear-frozen":
+            return _emit_ok(clear_frozen(root, args.node_id))
         if args.command == "enter-package-ready":
             return _emit_ok({"shell": enter_package_ready(root)})
         if args.command == "confirm-seal":
