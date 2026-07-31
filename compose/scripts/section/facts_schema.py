@@ -50,7 +50,7 @@ _FACT_OPTIONAL = frozenset(
 )
 _HOME_L_RE = re.compile(r"^(L\d+|package)$")
 ORIGIN_TYPES = frozenset({"seed", "discovered", "derived"})
-DERIVATION_DISPOSITIONS = frozenset({"carried", "quarantined"})
+DERIVATION_DISPOSITIONS = frozenset({"carried", "quarantined", "not_needed"})
 # Anchor kinds — SSOT for the machine-relevant evidence tokens a fact carries
 # (born-with identity; P4 init-fidelity). ``code_ref`` keeps whole
 # ``path::symbol`` values; L6 splits on ``::`` at match time (OR coverage).
@@ -105,21 +105,29 @@ def _validate_origin(prefix: str, origin: Any) -> list[str]:
     return errors
 
 
-def _validate_derivation(prefix: str, derivation: Any) -> list[str]:
+def _validate_derivation(
+    prefix: str,
+    derivation: Any,
+    *,
+    allowed_rule_ids: list[str] | None = None,
+) -> list[str]:
     errors: list[str] = []
     if not isinstance(derivation, dict):
         errors.append(
-            f"{prefix}.derivation must be an object {{disposition, upstream_ref}}",
+            f"{prefix}.derivation must be an object "
+            "{disposition, upstream_ref[, rule_id]}",
         )
         return errors
-    disposition = derivation.get("disposition")
-    if (
-        not isinstance(disposition, str)
-        or disposition.strip().lower() not in DERIVATION_DISPOSITIONS
-    ):
+    disposition_raw = derivation.get("disposition")
+    disposition = (
+        disposition_raw.strip().lower()
+        if isinstance(disposition_raw, str)
+        else ""
+    )
+    if disposition not in DERIVATION_DISPOSITIONS:
         errors.append(
             f"{prefix}.derivation.disposition must be one of "
-            f"{sorted(DERIVATION_DISPOSITIONS)}, got {disposition!r}"
+            f"{sorted(DERIVATION_DISPOSITIONS)}, got {disposition_raw!r}"
         )
     upstream_ref = derivation.get("upstream_ref")
     if not isinstance(upstream_ref, list):
@@ -135,7 +143,28 @@ def _validate_derivation(prefix: str, derivation: Any) -> list[str]:
                     f"{prefix}.derivation.upstream_ref[{r_index}] "
                     "must be a non-empty string",
                 )
-    extra = set(derivation) - {"disposition", "upstream_ref"}
+    if disposition == "not_needed":
+        rule_id = derivation.get("rule_id")
+        if not isinstance(rule_id, str) or not rule_id.strip():
+            errors.append(
+                f"{prefix}.derivation.rule_id must be a non-empty string "
+                "when disposition=not_needed",
+            )
+        else:
+            rid = rule_id.strip()
+            if allowed_rule_ids is not None and rid not in {
+                r.strip() for r in allowed_rule_ids if str(r).strip()
+            }:
+                errors.append(
+                    f"{prefix}.derivation.rule_id {rid!r} not in "
+                    f"consume_policy.rules {sorted(allowed_rule_ids)}",
+                )
+    elif "rule_id" in derivation:
+        errors.append(
+            f"{prefix}.derivation.rule_id only allowed when "
+            "disposition=not_needed",
+        )
+    extra = set(derivation) - {"disposition", "upstream_ref", "rule_id"}
     if extra:
         errors.append(f"{prefix}.derivation unexpected fields {sorted(extra)}")
     return errors
@@ -169,6 +198,8 @@ def validate_facts(
     facts: Any,
     *,
     allowed_lenses: list[str] | None = None,
+    allowed_rule_ids: list[str] | None = None,
+    require_derivation: bool = False,
 ) -> list[str]:
     """Return validation errors for a facts array."""
     errors: list[str] = []
@@ -189,6 +220,8 @@ def validate_facts(
         for field in _FACT_REQUIRED:
             if field not in entry:
                 errors.append(f"{prefix}: missing {field}")
+        if require_derivation and "derivation" not in entry:
+            errors.append(f"{prefix}: missing derivation (required)")
 
         fact_id = entry.get("id")
         if not isinstance(fact_id, str) or not fact_id.strip():
@@ -265,7 +298,13 @@ def validate_facts(
                     "(null is not allowed; omit the field instead)",
                 )
             else:
-                errors.extend(_validate_derivation(prefix, entry["derivation"]))
+                errors.extend(
+                    _validate_derivation(
+                        prefix,
+                        entry["derivation"],
+                        allowed_rule_ids=allowed_rule_ids,
+                    )
+                )
                 derivation = entry["derivation"]
                 if isinstance(derivation, dict) and isinstance(tags, list):
                     disposition = str(derivation.get("disposition", "")).strip().lower()
@@ -277,6 +316,11 @@ def validate_facts(
                     if disposition == "quarantined" and len(tags) > 0:
                         errors.append(
                             f"{prefix}: derivation.disposition=quarantined requires "
+                            "empty lens_tags",
+                        )
+                    if disposition == "not_needed" and len(tags) > 0:
+                        errors.append(
+                            f"{prefix}: derivation.disposition=not_needed requires "
                             "empty lens_tags",
                         )
 
@@ -338,10 +382,17 @@ def normalize_fact(entry: dict[str, Any]) -> dict[str, Any]:
         }
     if "derivation" in entry and entry["derivation"] is not None:
         derivation = entry["derivation"]
-        out["derivation"] = {
+        normalized_derivation: dict[str, Any] = {
             "disposition": str(derivation["disposition"]).strip().lower(),
             "upstream_ref": [str(r).strip() for r in derivation["upstream_ref"]],
         }
+        if (
+            normalized_derivation["disposition"] == "not_needed"
+            and "rule_id" in derivation
+            and derivation["rule_id"] is not None
+        ):
+            normalized_derivation["rule_id"] = str(derivation["rule_id"]).strip()
+        out["derivation"] = normalized_derivation
     if "anchors" in entry and entry["anchors"] is not None:
         seen_anchors: set[tuple[str, str]] = set()
         normalized_anchors: list[dict[str, str]] = []
@@ -380,18 +431,30 @@ def save_facts(
     facts: list[dict[str, Any]],
     *,
     allowed_lenses: list[str] | None = None,
+    allowed_rule_ids: list[str] | None = None,
+    require_derivation: bool = False,
 ) -> None:
     """Validate and write facts array (preserves optional ``source`` / ``origin``).
 
     Validate raw input first so malformed optional fields raise ValueError
     instead of KeyError/TypeError inside normalize.
     """
-    errors = validate_facts(facts, allowed_lenses=allowed_lenses)
+    errors = validate_facts(
+        facts,
+        allowed_lenses=allowed_lenses,
+        allowed_rule_ids=allowed_rule_ids,
+        require_derivation=require_derivation,
+    )
     if errors:
         raise ValueError("; ".join(errors))
     normalized = [normalize_fact(f) for f in facts]
     # Re-validate after normalize (uppercase tags, stripped strings).
-    errors = validate_facts(normalized, allowed_lenses=allowed_lenses)
+    errors = validate_facts(
+        normalized,
+        allowed_lenses=allowed_lenses,
+        allowed_rule_ids=allowed_rule_ids,
+        require_derivation=require_derivation,
+    )
     if errors:
         raise ValueError("; ".join(errors))
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -422,6 +485,39 @@ def lenses_present(facts: list[dict[str, Any]]) -> dict[str, int]:
     return counts
 
 
+def fact_disposition(fact: dict[str, Any]) -> str | None:
+    """Return lowercase derivation.disposition, or None when absent."""
+    derivation = fact.get("derivation")
+    if not isinstance(derivation, dict):
+        return None
+    disposition = derivation.get("disposition")
+    if not isinstance(disposition, str) or not disposition.strip():
+        return None
+    return disposition.strip().lower()
+
+
+def pd_material_facts(facts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Default Pd material pool: carried, or legacy facts without disposition.
+
+    ``quarantined`` / ``not_needed`` are excluded from the default ceiling/floor
+    material pool (archive-6.0 §5.6). Facts with no ``derivation`` keep legacy
+    participation (Unit-import / derived without disposition block).
+    """
+    out: list[dict[str, Any]] = []
+    for fact in facts:
+        disposition = fact_disposition(fact)
+        if disposition is None or disposition == "carried":
+            out.append(fact)
+    return out
+
+
 def unlensed_fact_ids(facts: list[dict[str, Any]]) -> list[str]:
-    """Facts with empty lens_tags — Q1 quarantine audit candidates."""
-    return [f["id"] for f in facts if not f.get("lens_tags")]
+    """Quarantine audit candidates: empty lens_tags and not ``not_needed``."""
+    ids: list[str] = []
+    for fact in facts:
+        if fact.get("lens_tags"):
+            continue
+        if fact_disposition(fact) == "not_needed":
+            continue
+        ids.append(fact["id"])
+    return ids

@@ -16,7 +16,7 @@
   ],
   "method": {
     "kind": "builtin",
-    "focus": "E1: Every obligation unit from the input delivery doc must have a corresponding fact, without weakening. Unitize doc via chapter anchors and ##/### headings (mixed); unstructured docs = whole doc + semantic hard-contract scan. Weakening (narrow list, blocking): quantity relaxations; must/forbidden → optional; negative constraints removed; interface fields dropped. Remediate only _facts.json. Do not edit the SoT doc."
+    "focus": "E1: Every obligation unit from the input delivery doc must map to exactly one fact disposition in {carried, quarantined, not_needed} (derivation.disposition required on Atomize facts). For carried facts only: no weakening vs doc. Unitize doc via chapter anchors and ##/### headings (mixed); unstructured docs = whole doc + semantic hard-contract scan. Weakening (narrow list, blocking, carried only): quantity relaxations; must/forbidden → optional; negative constraints removed; interface fields dropped. quarantined/not_needed satisfy disposition coverage without requiring Plan lens tags. Remediate only _facts.json. Do not edit the SoT doc."
   },
   "review": {
     "seq": 1,

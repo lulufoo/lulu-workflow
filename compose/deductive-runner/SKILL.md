@@ -3,8 +3,10 @@ name: deductive-runner
 description: >-
   Pre-compose deductive fact production for compose stages with
   pipeline.inductive=false. Materializes upstream scope into _facts.json (P0),
-  completes required lenses via intent-ceiling + edge-coverage floor (Pd), and
-  clears a human confirm gate before handing facts to compose Initializing.
+  applies Atomize consume disposition (A→B→B′), fidelity, Confirm disposition
+  patch, then completes required lenses via intent-ceiling + edge-coverage floor
+  (Pd), and clears a human confirm gate before handing facts to compose
+  Initializing.
 ---
 
 # deductive-runner
@@ -12,14 +14,15 @@ description: >-
 Run this sub-skill only when dispatched from a compose stage `start` (deductive path) — e.g. `lulu-plan`.
 
 Produces under the active revision dir (`$DEDUCTIVE_OUT_DIR`):
-- **Facts:** `_facts.json` — Intake + derived / human-confirmed seeds
+- **Facts:** `_facts.json` — Intake + dispositioned / derived / human-confirmed seeds
 - **Pending:** `deductive-pending.json` — confirm-gate SoT (derivation gaps + unreferenced quarantine)
+- **Disposition patch (Atomize):** `deductive-disposition-review.patch` — Confirm op-list before Pd
 
 Compose Initializing reads **`_facts.json`** validate-only. After `deductive-complete`, control returns to the parent for Initializing.
 
 This runner is **stage-agnostic**: lens set / Intent / derivation edges = `section-registry`; do not hardcode stage lens names.
 
-**Must not:** invent decisions; label off-edge obligations as `derived`; write chapter prose; ask the user during Initializing (confirm only here); read upstream prose during Steps 2–3 (Intake only); Import upstream `_facts.json` as delivery; enter workflow `Evaluating` for fidelity; edit the input delivery doc during fidelity remediation.
+**Must not:** invent decisions; label off-edge obligations as `derived`; write chapter prose; ask the user during Initializing (confirm only here); read upstream prose during Steps 2–4 (Intake only); Import upstream `_facts.json` as delivery; enter workflow `Evaluating` for fidelity; edit the input delivery doc during fidelity remediation; hand-edit `_facts.json` for Confirm disposition (use `$DEDUCTIVE_CTL disposition-patch-*`).
 
 ---
 
@@ -47,7 +50,7 @@ This runner is **stage-agnostic**: lens set / Intent / derivation edges = `secti
 
 `$FACTS_CTL` / `$DERIVE_CTL` / `$DEDUCTIVE_CTL`: see each `--help`. Scripts never invent derived work-item text.
 
-Fetch before Step 1: `$FETCH_COMPOSE --role section-registry` → `SECTION_REGISTRY` (`section_order`, per-lens `intent`/`desc`/`intent_boundary`/`relations`/`presence`).
+Fetch before Step 1: `$FETCH_COMPOSE --role section-registry` → `SECTION_REGISTRY` (`section_order`, per-lens `intent`/`desc`/`intent_boundary`/`relations`/`presence`). Also fetch `--role role-instance` when Atomize (consume policy).
 
 ---
 
@@ -55,13 +58,15 @@ Fetch before Step 1: `$FETCH_COMPOSE --role section-registry` → `SECTION_REGIS
 
 Deduction projects **known** upstream substance into this stage’s required lenses (whole → parts). **SoT = facts + pending.** Mutations land only via `$FACTS_CTL` / `$DERIVE_CTL` / `$DEDUCTIVE_CTL` / `$DECISION_FACT_CLAIM_CTL` — never hand-written JSON.
 
-Collaboration: AI projects and proposes; **user** closes the confirm gate; scripts move state only.
+Collaboration: AI projects and proposes; **user** closes Confirm gates; scripts move state only.
+
+**Atomize disposition funnel (L3):** Atomize cut → **A** (consume policy → `not_needed` only) → **B** (Intent tags → `carried` / `quarantined`) → **B′** (repair A false `not_needed` only) → **E1∥E2** → **Confirm op-list patch** → **Pd** → pending Confirm → Complete.
 
 ---
 
 ## Pipeline
 
-**Step 1 Intake → Step 2 Derive (floor + ceiling) → Step 3 Confirm → Step 4 Complete**
+**Step 1 Intake → Step 1b Fidelity → Step 1c Disposition Confirm → Step 2 Derive → Step 3 Pending Confirm → Step 4 Complete**
 
 ### Step 1 — Intake
 
@@ -71,23 +76,44 @@ Materialize upstream into this stage’s `_facts.json`. Exactly one branch:
    ```bash
    $FIDELITY_EVAL_CONTROL mark-skipped --reason unit-import
    ```
-2. **Atomize** — else: atomize **`$ATOMIZE_DOC_PATH`** prose once (required when `$SCOPE_REF` is `*-package.json`; do **not** treat the package JSON as prose). Tag `lens_tags` from Intent SSOT (N:M; zero tags ⇒ quarantine candidate). Persist via `$FACTS_CTL write` into the focus L bucket. **Do not** Import upstream `_facts.json` (delivery SSOT = package marker + per-L docs). Default: **omit** fact `origin` (optional); if present, `origin.ref` must be a non-empty string array.
+   Unit-import **does not** run A→B consume funnel in v1 (deferred). Proceed to Step 2 after pending-init + validate (no `--require-derivation`).
 
-Then:
+2. **Atomize** — else: atomize **`$ATOMIZE_DOC_PATH`** prose once (required when `$SCOPE_REF` is a `*-package.json`; do **not** treat the package JSON as prose).
+
+   **Hard gate first:**
+   ```bash
+   $DEDUCTIVE_CTL consume-policy-check
+   ```
+
+   **A — consume policy (don’t-list only):** For each atom, evaluate role `consume_policy.rules[]` (`D-RISK` / `D-SEAM` / `D-DEC`, …). If a rule is **true** → write `derivation.disposition=not_needed` + `rule_id` + non-empty `upstream_ref` (doc anchors; same family as E2) + `lens_tags=[]`. If unsure or false → **pass to B** (do **not** write `quarantined` or `carried` in A).
+
+   **B — Intent tagging:** For A-passed atoms only, match this stage Intent SSOT. Clear match → `carried` + Plan `lens_tags` (N:M). No clear match → `quarantined` + empty tags. **Forbidden:** stuffing `CTX` (or any lens) to avoid quarantine. Do **not** keep Design lens keys (`DECISION`/`RISK`/`SEAM`, …) as tags.
+
+   **B′ — mis-kill repair only:** Scan `not_needed`. Promote only when (strict Intent hit) ∧ (re-judge exclusion rule is **false**). True exclusions stay `not_needed` (expected auto-recover ≈ 0). Do **not** promote merely because text “looks like” CTX.
+
+   Persist via `$FACTS_CTL write` into the focus L bucket. Every Atomize fact **must** carry `derivation` (`carried`|`quarantined`|`not_needed`) and non-empty `upstream_ref`. Default: **omit** fact `origin` (optional).
+
+Then (both branches):
 
 ```bash
 $FACTS_CTL validate --revision-dir "$DEDUCTIVE_OUT_DIR" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)"
 $DEDUCTIVE_CTL pending-init
 ```
 
-**After Atomize only — fidelity gate (E1∥E2, required before Derive):**
+**After Atomize only** — tighten validate + fidelity:
 
 ```bash
+$FACTS_CTL validate --revision-dir "$DEDUCTIVE_OUT_DIR" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)" \
+  --require-derivation --require-consume-policy
 $FIDELITY_EVAL_CONTROL init --intake atomize
 $FIDELITY_EVAL_CONTROL paths
 ```
 
+### Step 1b — Fidelity (E1∥E2; Atomize only; before Confirm / Pd)
+
 Run **E1** and **E2** in parallel (subagents OK) using defs under `$SKILL_ROOT/compose/fidelity/dimension-defs/` (`e1-doc-coverage`, `e2-fact-provenance`). SoT = `$ATOMIZE_DOC_PATH` prose (`scope_doc` from `paths` must resolve to that doc, not the package JSON); EvalTarget + remediation = this revision `_facts.json`. Remediate **only** `_facts.json`. Max **3** rounds; same round must clear both dimensions. On round-cap with remaining blocking issues: ask the user in **plain text with multiple options and a stated lean** (do not use AskQuestion tool).
+
+**E1 contract:** every doc obligation unit → exactly one fact disposition ∈ {`carried`,`quarantined`,`not_needed`}; for **carried** facts, no weakening vs doc (narrow blocking list in dim-def).
 
 When E1∩E2 clear:
 
@@ -95,7 +121,29 @@ When E1∩E2 clear:
 $FIDELITY_EVAL_CONTROL mark-passed
 ```
 
-**Done:** validate exit 0; pending store ready; fidelity `passed` or `skipped`. Proceed to Step 2.
+**Done (Atomize):** validate exit 0 with derivation+consume-policy; fidelity `passed`. Proceed to Step 1c.  
+**Done (Unit-import):** fidelity `skipped`. Skip Step 1c; proceed to Step 2.
+
+### Step 1c — Disposition Confirm (Atomize only; before Pd)
+
+Draft op-list JSON at `$DEDUCTIVE_OUT_DIR/deductive-disposition-review.patch` (agent drafts; **no** hand-edit of `_facts.json`):
+
+- `version: "1"`
+- `counts` — disposition totals
+- `cohorts` — theme/reason groups with 1–3 exemplar `F-id`s (full id lists may sit in `appendix_ids`, not in chat)
+- `ops` — `promote` / `demote` / `retag` / `escalate`
+
+Chat: path + counts + accept / edit-patch / reject-cohorts — **not** full id dumps.
+
+```bash
+$DEDUCTIVE_CTL disposition-patch-validate --patch-file "$DEDUCTIVE_OUT_DIR/deductive-disposition-review.patch"
+# after user accept:
+$DEDUCTIVE_CTL disposition-patch-apply --patch-file "$DEDUCTIVE_OUT_DIR/deductive-disposition-review.patch"
+```
+
+When user accepts current dispositions unchanged, write a patch with a single metadata op `{"op":"escalate","fact_id":"<one exemplar>","note":"accept-as-is"}` so the Confirm artifact exists (no fact mutation). When promote/demote/retag is needed, ops must be non-empty and applied after validate.
+
+**Done:** patch validated; applied when ops mutate facts. Proceed to Step 2.
 
 ### Step 2 — Derive (floor + ceiling)
 
@@ -108,12 +156,12 @@ $DERIVE_CTL plan-edge \
   --project-root "$(pwd)"
 ```
 
-Use stdout: `order` (upstream-first lenses with holes or ceiling pass needed), `edge_holes` (per lens, uncovered upstream `F-id`s), `true_gaps` (required + zero facts + no derivation edge — do **not** invent; add pending).
+Use stdout: `order`, `edge_holes`, `true_gaps`, `materials_total` (carried-primary pool).
 
 **Semantic work (you):**
 
 1. **Floor** — for each hole in `edge_holes`: if projectable from decided substance → emit derived fact `{text, lens_tags:[L], origin:{type:derived, ref:[upstream F-id, …]}, source?}` with **exact** upstream `F-id` in `origin.ref` (and prefer `source`). If not projectable → `$DEDUCTIVE_CTL pending-add` (kind=`edge_hole`).
-2. **Ceiling** — for each required lens in topo order (same `order`, then any remaining required): using **all** stage facts (including quarantined) + Intent, list should-cover items. Already covered → skip. Projectable **and** on a `decompose`/`instantiate` edge → derived with `F-id` refs (may cite quarantined ids as material). Off-edge should-cover or undecided → `$DEDUCTIVE_CTL pending-add` (kind=`off_edge` \| `undecided`) — **never** `origin.type=derived` for off-edge.
+2. **Ceiling** — for each required lens in topo order (same `order`, then any remaining required): using **carried** (and legacy no-disposition) materials + Intent — **not** default `quarantined`/`not_needed` pool — list should-cover items. Already covered → skip. Projectable **and** on a `decompose`/`instantiate` edge → derived with `F-id` refs. Gap recovery order when a required lens is still missing substance: carried → quarantined ledger → not_needed ledger → pending. Off-edge should-cover or undecided → `$DEDUCTIVE_CTL pending-add` (kind=`off_edge` \| `undecided`) — **never** `origin.type=derived` for off-edge. **Do not** batch-retag quarantine/not_needed inside Pd; promote only via Confirm patch or explicit promote ops.
 3. **Must not** produce `origin.type=discovered`.
 4. Same-pass cascade: later lenses see facts already appended earlier in `order`.
 
@@ -127,15 +175,13 @@ $DERIVE_CTL append \
   --project-root "$(pwd)"
 ```
 
-Optional self-audit when `order` was non-empty (same contract as derive `--help`).
-
 ```bash
 $FACTS_CTL validate --revision-dir "$DEDUCTIVE_OUT_DIR" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)"
 ```
 
 **Done:** validate exit 0; every floor hole is either covered by a derived/seed ref or has a pending item. Proceed to Step 3.
 
-### Step 3 — Confirm
+### Step 3 — Pending Confirm
 
 Interactive in this conversation (not a subagent).
 
@@ -145,7 +191,7 @@ Interactive in this conversation (not a subagent).
 $DEDUCTIVE_CTL quarantine-unref
 ```
 
-For each listed quarantined id: present options (promote/retag via new seed or fact update commands allowed by `$DEDUCTIVE_CTL` / `$FACTS_CTL`; mark out-of-scope; escalate upstream). Record via `$DEDUCTIVE_CTL pending-add` (kind=`quarantine_unref`) then `$DEDUCTIVE_CTL pending-resolve` as the user chooses — or resolve immediately per `--help`.
+For each listed quarantined id: present options (promote/retag via disposition patch or fact update commands; mark out-of-scope; escalate upstream). Record via `$DEDUCTIVE_CTL pending-add` (kind=`quarantine_unref`) then `$DEDUCTIVE_CTL pending-resolve` as the user chooses — or resolve immediately per `--help`. Citing a quarantined/not_needed id settles unreferenced-quarantine accounting without retagging; **retag/promote** requires carried + Plan tags.
 
 2. Present open pending (derivation gaps + quarantine). For each item: options traceable to decided material, or `insufficient`. User chooses:
    - **Local seed (default):** append fact `origin.type=seed` with confirm ref → `$DERIVE_CTL append` or `$FACTS_CTL write` full array per `--help`; then `$DEDUCTIVE_CTL pending-resolve`.
@@ -175,9 +221,11 @@ Return control to the parent compose stage. Parent runs `$L_STEP deductive-compl
 
 ## Output Contract
 
-**Facts:** `_facts.json` — `F-n` with `text`, `lens_tags` (empty only when quarantined), optional `origin` / `derivation` / `source` / `anchors`.
+**Facts:** `_facts.json` — `F-n` with `text`, `lens_tags` (empty for `quarantined` / `not_needed`), optional `origin` / `derivation` / `source` / `anchors`. Atomize: `derivation.disposition` ∈ {`carried`,`quarantined`,`not_needed`}; `not_needed` requires `rule_id` ∈ role `consume_policy.rules[].id`.
 
 **Pending:** `deductive-pending.json` — open/resolved items; schema via `$DEDUCTIVE_CTL --help`.
+
+**Disposition patch:** `deductive-disposition-review.patch` — op-list JSON; validate/apply via `$DEDUCTIVE_CTL`.
 
 **Compose init input:** `_facts.json` only.
 
@@ -185,8 +233,9 @@ Return control to the parent compose stage. Parent runs `$L_STEP deductive-compl
 
 ## Constraints
 
-- No AI hand-written JSON files — control commands only.
+- No AI hand-written JSON files — control commands only (disposition patch is drafted then applied by control).
 - D1/D2 read only this stage’s facts — never re-open upstream `.md` after Intake.
 - Off-edge obligations → pending only (not `derived`).
-- Quarantined facts are valid input material; citing their `F-id` from a new fact marks them processed; leftover unreferenced ids must go through Step 3.
+- A writes **only** `not_needed` (or pass); B alone routinely writes `quarantined`/`carried`.
+- Quarantined / not_needed facts remain addressable; cite settles unref accounting; leftover unreferenced **quarantined** ids must go through Step 3.
 - Init / Eval / FreeEdit are out of this runner’s scope.

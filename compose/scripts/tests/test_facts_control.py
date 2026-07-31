@@ -16,6 +16,7 @@ from facts_schema import (  # noqa: E402
     lenses_present,
     load_facts,
     normalize_fact,
+    pd_material_facts,
     save_facts,
     unlensed_fact_ids,
     validate_facts,
@@ -518,6 +519,123 @@ def test_validate_rejects_quarantined_with_nonempty_lens_tags():
         allowed_lenses=["T"],
     )
     assert any("quarantined" in e and "lens_tags" in e for e in errors)
+
+
+def test_validate_accepts_not_needed_with_rule_id():
+    assert (
+        validate_facts(
+            [
+                {
+                    "id": "F-1",
+                    "text": "rejected-path prose",
+                    "lens_tags": [],
+                    "derivation": {
+                        "disposition": "not_needed",
+                        "upstream_ref": ["doc#方向取舍"],
+                        "rule_id": "D-DEC",
+                    },
+                }
+            ],
+            allowed_rule_ids=["D-RISK", "D-SEAM", "D-DEC"],
+        )
+        == []
+    )
+
+
+def test_validate_rejects_not_needed_missing_or_unknown_rule_id():
+    missing = validate_facts(
+        [
+            {
+                "id": "F-1",
+                "text": "x",
+                "lens_tags": [],
+                "derivation": {
+                    "disposition": "not_needed",
+                    "upstream_ref": ["doc#a"],
+                },
+            }
+        ]
+    )
+    assert any("rule_id" in e for e in missing)
+    unknown = validate_facts(
+        [
+            {
+                "id": "F-1",
+                "text": "x",
+                "lens_tags": [],
+                "derivation": {
+                    "disposition": "not_needed",
+                    "upstream_ref": ["doc#a"],
+                    "rule_id": "D-NOPE",
+                },
+            }
+        ],
+        allowed_rule_ids=["D-DEC"],
+    )
+    assert any("D-NOPE" in e for e in unknown)
+
+
+def test_validate_rejects_not_needed_with_tags_and_require_derivation():
+    errors = validate_facts(
+        [
+            {
+                "id": "F-1",
+                "text": "x",
+                "lens_tags": ["CTX"],
+                "derivation": {
+                    "disposition": "not_needed",
+                    "upstream_ref": ["doc#a"],
+                    "rule_id": "D-DEC",
+                },
+            }
+        ],
+        allowed_lenses=["CTX"],
+        allowed_rule_ids=["D-DEC"],
+    )
+    assert any("not_needed" in e and "lens_tags" in e for e in errors)
+    missing = validate_facts(
+        [{"id": "F-1", "text": "x", "lens_tags": ["CTX"]}],
+        allowed_lenses=["CTX"],
+        require_derivation=True,
+    )
+    assert any("missing derivation" in e for e in missing)
+
+
+def test_unlensed_skips_not_needed_and_pd_materials_filter():
+    facts = [
+        {
+            "id": "F-1",
+            "text": "kept",
+            "lens_tags": ["CTX"],
+            "derivation": {
+                "disposition": "carried",
+                "upstream_ref": ["doc#1"],
+            },
+        },
+        {
+            "id": "F-2",
+            "text": "q",
+            "lens_tags": [],
+            "derivation": {
+                "disposition": "quarantined",
+                "upstream_ref": ["doc#2"],
+            },
+        },
+        {
+            "id": "F-3",
+            "text": "skip",
+            "lens_tags": [],
+            "derivation": {
+                "disposition": "not_needed",
+                "upstream_ref": ["doc#3"],
+                "rule_id": "D-RISK",
+            },
+        },
+        {"id": "F-4", "text": "legacy", "lens_tags": ["AR"]},
+    ]
+    assert unlensed_fact_ids(facts) == ["F-2"]
+    materials = pd_material_facts(facts)
+    assert [f["id"] for f in materials] == ["F-1", "F-4"]
 
 
 def test_normalize_and_save_round_trip_preserves_derivation(tmp_path: Path):

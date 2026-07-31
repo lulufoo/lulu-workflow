@@ -33,6 +33,7 @@ from facts_schema import (  # noqa: E402
     facts_path,
     filter_by_lens,
     load_facts,
+    pd_material_facts,
     save_facts,
 )
 from fetch_compose_framework import fetch_compose_framework  # noqa: E402
@@ -132,6 +133,8 @@ def cmd_plan_edge(args: argparse.Namespace) -> int:
         facts = load_facts(facts_path(revision_dir))
     except ValueError as exc:
         return _fail(str(exc))
+    # archive-6.0 §5.6: default Pd materials = carried (+ legacy no-disposition).
+    materials = pd_material_facts(facts)
     try:
         graph, section_order, presence_map = _graph_and_maps(
             args.project_root.resolve(),
@@ -140,10 +143,10 @@ def cmd_plan_edge(args: argparse.Namespace) -> int:
     except Exception as exc:  # noqa: BLE001
         return _fail(f"section-registry unavailable: {exc}")
 
-    edge_holes = edge_hole_triggers(section_order, presence_map, facts, graph)
+    edge_holes = edge_hole_triggers(section_order, presence_map, materials, graph)
     triggered = list(edge_holes.keys())
     # Also include required zero-coverage derivation lenses (subset of holes).
-    for lens in derive_triggers(section_order, presence_map, facts, graph):
+    for lens in derive_triggers(section_order, presence_map, materials, graph):
         if lens not in edge_holes:
             triggered.append(lens)
             edge_holes[lens] = []
@@ -151,15 +154,15 @@ def cmd_plan_edge(args: argparse.Namespace) -> int:
         order = topo_order_triggered(triggered, graph) if triggered else []
     except DeriveCycleError as exc:
         return _fail(str(exc))
-    gaps = true_coverage_gaps(section_order, presence_map, facts, graph)
+    gaps = true_coverage_gaps(section_order, presence_map, materials, graph)
     upstreams = {
         lens: {
             "upstreams": derivation_upstreams(lens, graph),
-            "upstream_fact_count": upstream_fact_count(facts, lens, graph),
+            "upstream_fact_count": upstream_fact_count(materials, lens, graph),
             "upstream_facts": [
                 item
                 for u in derivation_upstreams(lens, graph)
-                for item in filter_by_lens(facts, u)
+                for item in filter_by_lens(materials, u)
             ],
             "edge_holes": edge_holes.get(lens, []),
         }
@@ -175,6 +178,7 @@ def cmd_plan_edge(args: argparse.Namespace) -> int:
             "true_gaps": gaps,
             "upstreams": upstreams,
             "facts_total": len(facts),
+            "materials_total": len(materials),
         }
     )
 

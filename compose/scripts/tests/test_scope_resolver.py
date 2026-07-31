@@ -32,6 +32,20 @@ class TestRoleSchema:
         fields = {entry["field"] for entry in get_role_schema()}
         assert "role_prompt" in fields
         assert "$schema_id" in fields
+        assert "consume_policy" in fields
+
+    def test_plan_framework_role_consume_policy_valid(self):
+        from framework_template_sources import tech_plan_feature_role_instance
+
+        data = tech_plan_feature_role_instance()
+        assert validate_role_instance(data) == []
+        rules = data["consume_policy"]["rules"]
+        assert [r["id"] for r in rules] == ["D-RISK", "D-SEAM", "D-DEC"]
+
+    def test_consume_policy_rejects_empty_rules(self):
+        data = load_and_validate_role_instance("feature")
+        bad = {**data, "consume_policy": {"rules": []}}
+        assert any("rules" in e for e in validate_role_instance(bad))
 
 
 class TestValidateRoleInstances:

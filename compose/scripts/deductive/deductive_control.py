@@ -9,9 +9,13 @@ Subcommands:
     quarantine-unref   List quarantined facts not cited by any other fact
     gate-check         Fail if pending missing, open items remain, or
                        unreferenced quarantine is unsettled
+    disposition-patch-validate  Validate Confirm op-list patch (archive-6.0)
+    disposition-patch-apply     Apply Confirm op-list patch to _facts.json
+    consume-policy-check        Fail if role lacks non-empty consume_policy.rules
 
 Design rationale (source repo, why-only):
-docs/domain/archive/compose/archive-3.0/compose-deductive-runner-architecture-design.md §4.5.
+docs/domain/archive/compose/archive-3.0/compose-deductive-runner-architecture-design.md §4.5;
+docs/domain/archive/compose/archive-6.0/compose-plan-deductive-consume-disposition-design.md.
 """
 
 from __future__ import annotations
@@ -46,9 +50,24 @@ from deductive_pending_schema import (  # noqa: E402
 from facts_schema import (  # noqa: E402
     facts_path,
     load_facts,
+    save_facts,
     unlensed_fact_ids,
 )
 from derive_shell import collect_ref_tokens  # noqa: E402
+from deductive_disposition_patch import (  # noqa: E402
+    apply_disposition_patch,
+    disposition_counts,
+    validate_disposition_patch,
+)
+from fetch_compose_framework import (  # noqa: E402
+    FetchComposeFrameworkError,
+    fetch_compose_framework,
+)
+
+_SCOPE = _SCRIPTS / "schema" / "section" / "scope"
+if str(_SCOPE) not in sys.path:
+    sys.path.insert(0, str(_SCOPE))
+from role_instance_schema import validate_role_instance  # noqa: E402
 
 
 def _ok(payload: dict[str, Any]) -> int:
@@ -197,6 +216,172 @@ def cmd_gate_check(args: argparse.Namespace) -> int:
     )
 
 
+def _load_role_consume_rule_ids(
+    project_root: Path,
+    profile: str,
+) -> list[str]:
+    try:
+        raw = fetch_compose_framework(
+            "role-instance",
+            project_root,
+            profile_id=profile.strip() or None,
+        )
+    except FetchComposeFrameworkError as exc:
+        raise ValueError(f"role-instance unavailable: {exc}") from exc
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"role-instance invalid JSON: {exc}") from exc
+    if not isinstance(data, dict):
+        raise ValueError("role-instance root must be an object")
+    errors = validate_role_instance(data)
+    if errors:
+        raise ValueError(f"role-instance invalid: {'; '.join(errors)}")
+    policy = data.get("consume_policy")
+    if not isinstance(policy, dict):
+        raise ValueError("role-instance missing consume_policy")
+    rules = policy.get("rules")
+    if not isinstance(rules, list) or not rules:
+        raise ValueError("role-instance consume_policy.rules must be non-empty")
+    return [str(r["id"]).strip() for r in rules if isinstance(r, dict)]
+
+
+def _section_order(project_root: Path, profile: str) -> list[str]:
+    raw = fetch_compose_framework(
+        "section-registry",
+        project_root,
+        profile_id=profile.strip() or None,
+    )
+    data = json.loads(raw)
+    sections = data.get("sections") or {}
+    if isinstance(sections, dict) and sections:
+        return [str(key).upper() for key in sections]
+    return [str(key).upper() for key in data.get("section_order") or []]
+
+
+def cmd_consume_policy_check(args: argparse.Namespace) -> int:
+    profile = (args.profile or "").strip()
+    if not profile:
+        return _fail("--profile required for consume-policy-check")
+    try:
+        rule_ids = _load_role_consume_rule_ids(
+            args.project_root.resolve(),
+            profile,
+        )
+    except ValueError as exc:
+        return _fail(str(exc))
+    return _ok(
+        {
+            "ok": True,
+            "command": "consume-policy-check",
+            "rule_ids": rule_ids,
+            "rules_total": len(rule_ids),
+        }
+    )
+
+
+def _load_patch_file(path: Path) -> dict[str, Any]:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"cannot read patch: {exc}") from exc
+    if not isinstance(data, dict):
+        raise ValueError("patch root must be an object")
+    return data
+
+
+def cmd_disposition_patch_validate(args: argparse.Namespace) -> int:
+    from discussion_pointer_schema import active_slice_dir
+
+    revision_dir = active_slice_dir(args.revision_dir.resolve())
+    profile = (args.profile or "").strip()
+    try:
+        facts = load_facts(facts_path(revision_dir))
+        patch = _load_patch_file(args.patch_file.resolve())
+    except ValueError as exc:
+        return _fail(str(exc))
+    allowed_lenses = None
+    allowed_rule_ids = None
+    if profile:
+        try:
+            allowed_lenses = _section_order(args.project_root.resolve(), profile)
+            allowed_rule_ids = _load_role_consume_rule_ids(
+                args.project_root.resolve(),
+                profile,
+            )
+        except (ValueError, Exception) as exc:  # noqa: BLE001
+            return _fail(str(exc))
+    errors = validate_disposition_patch(
+        patch,
+        facts,
+        allowed_lenses=allowed_lenses,
+        allowed_rule_ids=allowed_rule_ids,
+    )
+    if errors:
+        return _fail("; ".join(errors))
+    return _ok(
+        {
+            "ok": True,
+            "command": "disposition-patch-validate",
+            "ops_total": len(patch.get("ops") or []),
+            "counts": disposition_counts(facts),
+        }
+    )
+
+
+def cmd_disposition_patch_apply(args: argparse.Namespace) -> int:
+    from discussion_pointer_schema import active_slice_dir
+
+    revision_dir = active_slice_dir(args.revision_dir.resolve())
+    profile = (args.profile or "").strip()
+    path = facts_path(revision_dir)
+    try:
+        facts = load_facts(path)
+        patch = _load_patch_file(args.patch_file.resolve())
+    except ValueError as exc:
+        return _fail(str(exc))
+    allowed_lenses = None
+    allowed_rule_ids = None
+    if profile:
+        try:
+            allowed_lenses = _section_order(args.project_root.resolve(), profile)
+            allowed_rule_ids = _load_role_consume_rule_ids(
+                args.project_root.resolve(),
+                profile,
+            )
+        except (ValueError, Exception) as exc:  # noqa: BLE001
+            return _fail(str(exc))
+    errors = validate_disposition_patch(
+        patch,
+        facts,
+        allowed_lenses=allowed_lenses,
+        allowed_rule_ids=allowed_rule_ids,
+    )
+    if errors:
+        return _fail("; ".join(errors))
+    try:
+        updated = apply_disposition_patch(facts, patch, mutate=False)
+        save_facts(
+            path,
+            updated,
+            allowed_lenses=allowed_lenses,
+            allowed_rule_ids=allowed_rule_ids,
+        )
+    except ValueError as exc:
+        return _fail(str(exc))
+    loaded = load_facts(path)
+    return _ok(
+        {
+            "ok": True,
+            "command": "disposition-patch-apply",
+            "path": path.as_posix(),
+            "ops_total": len(patch.get("ops") or []),
+            "counts": disposition_counts(loaded),
+            "facts_total": len(loaded),
+        }
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--revision-dir", type=Path, required=True)
@@ -232,6 +417,26 @@ def main() -> int:
 
     p_gate = sub.add_parser("gate-check", help="Fail if open pending remain")
     p_gate.set_defaults(func=cmd_gate_check)
+
+    p_cp = sub.add_parser(
+        "consume-policy-check",
+        help="Fail if role lacks non-empty consume_policy.rules",
+    )
+    p_cp.set_defaults(func=cmd_consume_policy_check)
+
+    p_pv = sub.add_parser(
+        "disposition-patch-validate",
+        help="Validate Confirm disposition op-list patch",
+    )
+    p_pv.add_argument("--patch-file", type=Path, required=True)
+    p_pv.set_defaults(func=cmd_disposition_patch_validate)
+
+    p_pa = sub.add_parser(
+        "disposition-patch-apply",
+        help="Apply Confirm disposition op-list patch to _facts.json",
+    )
+    p_pa.add_argument("--patch-file", type=Path, required=True)
+    p_pa.set_defaults(func=cmd_disposition_patch_apply)
 
     args = parser.parse_args()
     return args.func(args)

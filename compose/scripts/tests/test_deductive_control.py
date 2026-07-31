@@ -195,6 +195,16 @@ def test_quarantine_unref_lists_uncited(tmp_path: Path) -> None:
                         "upstream_ref": ["U-2"],
                     },
                 },
+                {
+                    "id": "F-4",
+                    "text": "not_needed excluded from unref list",
+                    "lens_tags": [],
+                    "derivation": {
+                        "disposition": "not_needed",
+                        "upstream_ref": ["U-3"],
+                        "rule_id": "D-DEC",
+                    },
+                },
             ],
             ensure_ascii=False,
         ),
@@ -206,3 +216,92 @@ def test_quarantine_unref_lists_uncited(tmp_path: Path) -> None:
     payload = json.loads(out.stdout)
     assert payload["ok"] is True
     assert payload["unreferenced_ids"] == ["F-3"]
+
+
+def test_disposition_patch_validate_and_apply(tmp_path: Path) -> None:
+    rev = tmp_path / "revision1"
+    rev.mkdir()
+    (rev / "_facts.json").write_text(
+        json.dumps(
+            [
+                {
+                    "id": "F-1",
+                    "text": "should carry",
+                    "lens_tags": [],
+                    "derivation": {
+                        "disposition": "quarantined",
+                        "upstream_ref": ["doc#a"],
+                    },
+                },
+                {
+                    "id": "F-2",
+                    "text": "keep quarantine",
+                    "lens_tags": [],
+                    "derivation": {
+                        "disposition": "quarantined",
+                        "upstream_ref": ["doc#b"],
+                    },
+                },
+            ],
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    patch = {
+        "version": "1",
+        "counts": {"carried": 0, "quarantined": 2, "not_needed": 0},
+        "ops": [
+            {
+                "op": "promote",
+                "fact_id": "F-1",
+                "lens_tags": ["CTX"],
+                "note": "selected-path constraint",
+            }
+        ],
+    }
+    patch_path = rev / "deductive-disposition-review.patch"
+    patch_path.write_text(
+        json.dumps(patch, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    # No --profile: skip lens/rule binding; schema still validates ops.
+    out = subprocess.run(
+        [
+            sys.executable,
+            str(_CTL),
+            "--revision-dir",
+            str(rev),
+            "--project-root",
+            str(tmp_path),
+            "disposition-patch-validate",
+            "--patch-file",
+            str(patch_path),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert out.returncode == 0, out.stderr
+    apply = subprocess.run(
+        [
+            sys.executable,
+            str(_CTL),
+            "--revision-dir",
+            str(rev),
+            "--project-root",
+            str(tmp_path),
+            "disposition-patch-apply",
+            "--patch-file",
+            str(patch_path),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert apply.returncode == 0, apply.stderr
+    facts = json.loads((rev / "_facts.json").read_text(encoding="utf-8"))
+    assert facts[0]["derivation"]["disposition"] == "carried"
+    assert facts[0]["lens_tags"] == ["CTX"]
+    assert facts[1]["derivation"]["disposition"] == "quarantined"

@@ -42,6 +42,11 @@ _SCHEMA: list[dict[str, Any]] = [
      "description": "Author stance and collaboration tone (not genre register/carriers)"},
     {"field": "completion_bar", "type": "string", "required": True,
      "description": "Author-side completion obligations (not signer/audience bar)"},
+    {"field": "consume_policy", "type": "object", "required": False,
+     "description": (
+         "Optional intake consume policy: {rules:[{id,title?,when_true},…]}. "
+         "Plan deductive Atomize requires non-empty rules (archive-6.0)."
+     )},
 ]
 
 _META_FIELDS = frozenset({"version", "$schema_id", "cycle_type", "role_prompt"})
@@ -116,11 +121,55 @@ def validate_role_instance(
             elif not all(isinstance(item, str) and item.strip() for item in value):
                 errors.append("vocabulary_domain items must be non-empty strings")
             continue
+        if key == "consume_policy":
+            if optional and key not in data:
+                continue
+            errors.extend(_validate_consume_policy(value))
+            continue
         if optional and key not in data:
             continue
         if not isinstance(value, str) or not value.strip():
             errors.append(f"{key} must be a non-empty string")
 
+    return errors
+
+
+def _validate_consume_policy(value: Any) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(value, dict):
+        return ["consume_policy must be an object when present"]
+    rules = value.get("rules")
+    if not isinstance(rules, list) or not rules:
+        errors.append("consume_policy.rules must be a non-empty array")
+        return errors
+    seen: set[str] = set()
+    for index, rule in enumerate(rules):
+        prefix = f"consume_policy.rules[{index}]"
+        if not isinstance(rule, dict):
+            errors.append(f"{prefix} must be an object")
+            continue
+        rid = rule.get("id")
+        if not isinstance(rid, str) or not rid.strip():
+            errors.append(f"{prefix}.id must be a non-empty string")
+        else:
+            key = rid.strip()
+            if key in seen:
+                errors.append(f"{prefix}.id duplicate: {key!r}")
+            seen.add(key)
+        when_true = rule.get("when_true")
+        if not isinstance(when_true, str) or not when_true.strip():
+            errors.append(f"{prefix}.when_true must be a non-empty string")
+        title = rule.get("title")
+        if title is not None and (
+            not isinstance(title, str) or not title.strip()
+        ):
+            errors.append(f"{prefix}.title must be a non-empty string when present")
+        extra = set(rule) - {"id", "title", "when_true"}
+        if extra:
+            errors.append(f"{prefix} unexpected fields {sorted(extra)}")
+    extra_top = set(value) - {"rules"}
+    if extra_top:
+        errors.append(f"consume_policy unexpected fields {sorted(extra_top)}")
     return errors
 
 

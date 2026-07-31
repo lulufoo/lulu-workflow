@@ -149,6 +149,40 @@ def _section_order(project_root: Path, profile_id: str) -> list[str]:
     return [str(key).upper() for key in data.get("section_order") or []]
 
 
+def _consume_rule_ids(
+    project_root: Path,
+    profile_id: str,
+    *,
+    required: bool,
+) -> list[str] | None:
+    """Return consume_policy rule ids; None when absent and not required."""
+    _SCOPE = _SCRIPTS / "schema" / "section" / "scope"
+    if str(_SCOPE) not in sys.path:
+        sys.path.insert(0, str(_SCOPE))
+    from role_instance_schema import validate_role_instance  # noqa: WPS433
+
+    raw = fetch_compose_framework(
+        "role-instance",
+        project_root,
+        profile_id=profile_id,
+    )
+    data = json.loads(raw)
+    if not isinstance(data, dict):
+        raise ValueError("role-instance root must be an object")
+    errors = validate_role_instance(data)
+    if errors:
+        raise ValueError(f"role-instance invalid: {'; '.join(errors)}")
+    policy = data.get("consume_policy")
+    if policy is None:
+        if required:
+            raise ValueError("role-instance missing consume_policy")
+        return None
+    rules = policy.get("rules") if isinstance(policy, dict) else None
+    if not isinstance(rules, list) or not rules:
+        raise ValueError("role-instance consume_policy.rules must be non-empty")
+    return [str(r["id"]).strip() for r in rules if isinstance(r, dict)]
+
+
 def _ok(payload: dict[str, Any]) -> int:
     print(json.dumps(payload, ensure_ascii=False))
     return 0
@@ -262,13 +296,32 @@ def cmd_validate(args: argparse.Namespace) -> int:
         return _fail(f"invalid JSON: {exc}")
 
     allowed = None
+    allowed_rule_ids = None
+    require_derivation = bool(getattr(args, "require_derivation", False))
+    require_consume_policy = bool(getattr(args, "require_consume_policy", False))
+    if require_consume_policy and not (args.profile or "").strip():
+        return _fail("--require-consume-policy needs --profile")
     if args.profile:
         try:
             allowed = _section_order(args.project_root.resolve(), args.profile.strip())
         except Exception as exc:  # noqa: BLE001
             return _fail(f"section-registry unavailable: {exc}")
+        if require_consume_policy or require_derivation:
+            try:
+                allowed_rule_ids = _consume_rule_ids(
+                    args.project_root.resolve(),
+                    args.profile.strip(),
+                    required=require_consume_policy,
+                )
+            except ValueError as exc:
+                return _fail(str(exc))
 
-    errors = validate_facts(data, allowed_lenses=allowed)
+    errors = validate_facts(
+        data,
+        allowed_lenses=allowed,
+        allowed_rule_ids=allowed_rule_ids,
+        require_derivation=require_derivation,
+    )
     if errors:
         return _fail("; ".join(errors))
     facts = load_facts(path)
@@ -341,6 +394,16 @@ def main() -> int:
     validate_p.add_argument("--revision-dir", type=Path, required=True)
     validate_p.add_argument("--profile", type=str, default="")
     validate_p.add_argument("--project-root", type=Path, default=Path.cwd())
+    validate_p.add_argument(
+        "--require-derivation",
+        action="store_true",
+        help="Every fact must carry derivation.disposition (Atomize path)",
+    )
+    validate_p.add_argument(
+        "--require-consume-policy",
+        action="store_true",
+        help="Role must expose non-empty consume_policy.rules; bind not_needed.rule_id",
+    )
     validate_p.set_defaults(func=cmd_validate)
 
     status_p = sub.add_parser("status", help="Facts presence and counts")
