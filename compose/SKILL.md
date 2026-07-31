@@ -26,11 +26,11 @@ This engine reads `pipeline.inductive` from the profile directly to choose Induc
 
 ---
 
-<HARD-GATE name="Plan Scope Constraints">
+<HARD-GATE name="Scope Constraints">
 Before producer / evaluation work:
 
-1. Run `$RESOLVE_PLAN_ROLE`.
-2. Read stdout as authoritative **Plan Scope Constraints** (domain + role).
+1. Run `$RESOLVE_ROLE` and `$RESOLVE_DOMAIN`.
+2. Read stdout as authoritative **Scope Constraints** (role + domain).
 
 </HARD-GATE>
 
@@ -267,7 +267,8 @@ Fetch compose framework templates on demand; **do not** read `workflow-config.js
 | `$SESSION_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/core/session_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile <profile_id> <subcommand>` — session transitions (`split-complete` / `start-evaluating` / …) via `compose/transitions/compose-session.json`; do not load that file directly |
 | `$L_STEP` | `python3 "$SKILL_ROOT/compose/scripts/section/l_step_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile <profile_id> <subcommand>` |
 | `$INDUCTIVE_FACTS_PROJ` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_facts_projection.py"` (K4 retired — `project` fail-fast; facts written by discovery loop) |
-| `$RESOLVE_PLAN_ROLE` | `python3 "$SKILL_ROOT/compose/scripts/scope/scope_resolver.py" --profile <profile_id> --project-root "$(pwd)" resolve-role --cycle-id "$CYCLE_ID"` |
+| `$RESOLVE_ROLE` | `python3 "$SKILL_ROOT/compose/scripts/scope/scope_resolver.py" --profile <profile_id> --project-root "$(pwd)" resolve-role --cycle-id "$CYCLE_ID"` |
+| `$RESOLVE_DOMAIN` | `python3 "$SKILL_ROOT/compose/scripts/scope/scope_resolver.py" --profile <profile_id> --project-root "$(pwd)" resolve-domain --cycle-id "$CYCLE_ID"` |
 | `$FETCH_COMPOSE` | `python3 "$SKILL_ROOT/compose/scripts/io/fetch_compose_framework.py" --role <role> --profile <profile_id> --project-root "$(pwd)" --cycle-id "$CYCLE_ID"` |
 | `$EVAL_CONTROL` | `python3 "$SKILL_ROOT/eval/scripts/eval_entry.py" --workflow <profile_id> --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
 | `$FIDELITY_EVAL_CONTROL` | `python3 "$SKILL_ROOT/compose/fidelity/scripts/fidelity_control.py" --revision-dir <revision_dir>` — compose-internal doc→facts gate (not Working Evaluating); see `compose/fidelity/README.md` |

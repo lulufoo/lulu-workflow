@@ -49,7 +49,7 @@ All macros that declare `--profile` **must** pass `--profile "$COMPOSE_PROFILE"`
 
 | Macro | Command |
 |-------|---------|
-| `$RESOLVE_PLAN_ROLE` | `python3 "$SKILL_ROOT/compose/scripts/scope/scope_resolver.py" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)" resolve-role --cycle-id "$CYCLE_ID"` |
+| `$RESOLVE_ROLE` | `python3 "$SKILL_ROOT/compose/scripts/scope/scope_resolver.py" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)" resolve-role --cycle-id "$CYCLE_ID"` |
 | `$RESOLVE_DOMAIN` | `python3 "$SKILL_ROOT/compose/scripts/scope/scope_resolver.py" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)" resolve-domain --cycle-id "$CYCLE_ID"` |
 | `$FETCH_COMPOSE` | `python3 "$SKILL_ROOT/compose/scripts/io/fetch_compose_framework.py" --role <role> --profile "$COMPOSE_PROFILE" --project-root "$(pwd)" --cycle-id "$CYCLE_ID"` |
 | `$COMPOSE_DOC_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/section/compose_doc_control.py"` |
@@ -72,8 +72,8 @@ All macros that declare `--profile` **must** pass `--profile "$COMPOSE_PROFILE"`
 
 ### Step 1 — Load
 
-1. `$RESOLVE_PLAN_ROLE` → Plan Scope Constraints (`### Role`, `### Role Fields`).
-2. `$RESOLVE_DOMAIN` → `domain instance`.
+1. `$RESOLVE_ROLE` → Scope Constraints (`### Role Instance`).
+2. `$RESOLVE_DOMAIN` → Scope Constraints (`### Domain Instance`).
 3. `$FETCH_COMPOSE --role section-registry` (JSON) → `sections` keys (= allowed lenses; `section_order` optional/legacy), `document_preamble`, per-section `heading` / `aliases` / `intent` (else `desc`) / `intent_boundary` / `relations` / `presence`
    `$FETCH_COMPOSE --role section-form-registry` → `sections.{key}.presentation` / `expression`
 4. `$FETCH_COMPOSE --role section-kw-criteria` → each `## {section_key}` block (Fill completeness for **named** atoms only).
@@ -239,7 +239,7 @@ For **that ticket only** (`chapter_id` / `fact_ids` / `facts` / `lens` from `beg
 1. `lens` = ticket.lens; `facts_ℓ` = ticket.facts (authoritative substance — id set must match `fact_ids`; do not expand).
 2. Load Write form for `lens` from section-form-registry / registry intent.
 3. **Derive F** (S1): same F discipline as prior Init (carrier/structure from form + facts).
-4. **Derive C** (S1): before Write, attend to Domain `expression_conventions` (register / carriers / scannability / altitude), Role Fields, and this lens's registry `expression` — as writing attention, **not** a machine pass checklist. Record short notes in chapter `expression[]` (the C array on derive — not the lens registry `expression` field). **C is constrained by F**. Do not pad derive with provenance tags to "prove" body quality.
+4. **Derive C** (S1): before Write, attend to Domain `expression_conventions` (register / carriers / scannability / altitude), Role Instance fields, and this lens's registry `expression` — as writing attention, **not** a machine pass checklist. Record short notes in chapter `expression[]` (the C array on derive — not the lens registry `expression` field). **C is constrained by F**. Do not pad derive with provenance tags to "prove" body quality.
 5. **Write body:** Scaffold per F; obey the attended conventions; content ⊆ `facts_ℓ`; carry anchors (L6); resolve raw `F-id` citations; mark gaps with `> **待决：** …`.
    **Do not Write until F and C Done for this unit.**
 6. Write `_derive-{cid}.json` with `lens`, `form{carrier,structure}`, and non-empty chapter `expression[]`; write `_body-{cid}.txt`. Do **not** write `display_title` (retired — titles come from the narrative arc). Do **not** write `expression_c` (retired — use `expression`).

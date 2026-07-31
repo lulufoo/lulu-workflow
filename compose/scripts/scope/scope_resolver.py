@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Resolve plan-scope role and domain constraints from per-cycle_type instance files.
+"""Resolve scope role and domain constraints from per-cycle_type instance files.
 
 CLI:
     python3 scope_resolver.py resolve-role --cycle-id <id> --project-root .
@@ -14,7 +14,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 _SCRIPTS = Path(__file__).resolve().parent.parent
 if str(_SCRIPTS) not in sys.path:
@@ -25,11 +25,7 @@ kernel_bootstrap.ensure_kernel_paths()
 
 from domain_instance_schema import load_and_validate_domain_instance  # noqa: E402
 from schema_common import VALID_CYCLE_TYPES, validate_all_plan_scope_instances  # noqa: E402
-from role_instance_schema import (  # noqa: E402
-    get_role_fields,
-    get_role_prompt,
-    load_and_validate_role_instance,
-)
+from role_instance_schema import load_and_validate_role_instance  # noqa: E402
 from workflow_common import detect_cycle_type  # noqa: E402
 
 
@@ -37,25 +33,23 @@ class ScopeResolverError(Exception):
     """Raised when scope constraint resolution fails."""
 
 
-def format_constraints_markdown(cycle_type: str, role: str, role_fields: dict | None = None) -> str:
-    import json
-
+def format_instance_markdown(
+    *,
+    cycle_type: str,
+    section_heading: str,
+    data: dict[str, Any],
+) -> str:
+    """Render one Scope Constraints section as markdown + JSON."""
     lines = [
-        "## Plan Scope Constraints",
+        "## Scope Constraints",
         f"cycle_type: {cycle_type}",
         "",
-        "### Role",
-        role,
+        section_heading,
+        "```json",
+        json.dumps(data, ensure_ascii=False, indent=2),
+        "```",
         "",
     ]
-    if role_fields:
-        lines += [
-            "### Role Fields",
-            "```json",
-            json.dumps(role_fields, ensure_ascii=False, indent=2),
-            "```",
-            "",
-        ]
     return "\n".join(lines)
 
 
@@ -88,12 +82,14 @@ def resolve_role_markdown(
             project_root=root,
             profile_id=profile_id,
         )
-        role = get_role_prompt(data)
-        role_fields = get_role_fields(data)
     except (OSError, ValueError, FileNotFoundError) as exc:
         raise ScopeResolverError(str(exc)) from exc
 
-    return format_constraints_markdown(resolved, role, role_fields)
+    return format_instance_markdown(
+        cycle_type=resolved,
+        section_heading="### Role Instance",
+        data=data,
+    )
 
 
 def resolve_domain_markdown(
@@ -104,8 +100,6 @@ def resolve_domain_markdown(
     project_root: Path | None = None,
     profile_id: str | None = None,
 ) -> str:
-    import json
-
     resolved = resolve_cycle_type(cycle_id=cycle_id, cycle_type=cycle_type)
     root = Path(project_root).resolve() if project_root is not None else None
     try:
@@ -117,16 +111,11 @@ def resolve_domain_markdown(
         )
     except (OSError, ValueError, FileNotFoundError) as exc:
         raise ScopeResolverError(str(exc)) from exc
-    lines = [
-        "## Domain Instance",
-        f"cycle_type: {resolved}",
-        "",
-        "```json",
-        json.dumps(data, ensure_ascii=False, indent=2),
-        "```",
-        "",
-    ]
-    return "\n".join(lines)
+    return format_instance_markdown(
+        cycle_type=resolved,
+        section_heading="### Domain Instance",
+        data=data,
+    )
 
 
 def resolve_role_summary(
@@ -140,7 +129,7 @@ def resolve_role_summary(
 
 
 def main(argv: Optional[list[str]] = None) -> int:
-    parser = argparse.ArgumentParser(description="Compose stage profile plan scope role resolver")
+    parser = argparse.ArgumentParser(description="Compose stage scope role/domain resolver")
     parser.add_argument(
         "--validate",
         action="store_true",
@@ -158,7 +147,10 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
     sub = parser.add_subparsers(dest="command")
 
-    resolve = sub.add_parser("resolve-role", help="Print Plan Scope Constraints markdown")
+    resolve = sub.add_parser(
+        "resolve-role",
+        help="Print Scope Constraints markdown (Role Instance)",
+    )
     resolve.add_argument("--cycle-id", help="Cycle id (infers cycle_type from prefix)")
     resolve.add_argument(
         "--cycle-type",
@@ -181,7 +173,10 @@ def main(argv: Optional[list[str]] = None) -> int:
         help="Override path to role instance JSON for resolved cycle_type",
     )
 
-    domain = sub.add_parser("resolve-domain", help="Print Domain Instance markdown")
+    domain = sub.add_parser(
+        "resolve-domain",
+        help="Print Scope Constraints markdown (Domain Instance)",
+    )
     domain.add_argument("--cycle-id", help="Cycle id (infers cycle_type from prefix)")
     domain.add_argument(
         "--cycle-type",

@@ -73,26 +73,27 @@ class TestValidateRoleInstances:
 class TestResolveRole:
     def test_feature_by_cycle_type(self):
         md = resolve_role_markdown(cycle_type="feature")
-        assert "## Plan Scope Constraints" in md
+        assert "## Scope Constraints" in md
         assert "cycle_type: feature" in md
-        assert "### Role" in md
+        assert "### Role Instance" in md
         assert "technical expert" in md.lower()
-        assert "### Role Fields" in md
-        assert "role_prompt" not in md
+        assert '"role_prompt"' in md
+        assert "### Role Fields" not in md
 
     def test_feature_by_cycle_id(self):
         md = resolve_role_markdown(cycle_id="feat-demo")
         assert "cycle_type: feature" in md
-        payload = md.split("### Role Fields")[1]
+        payload = md.split("### Role Instance")[1]
         assert "technical_expert" in payload
+        assert '"role_prompt"' in payload
 
     def test_topic_with_lulu_arch_succeeds(self):
         md = resolve_role_markdown(cycle_id="topic-demo", profile_id="lulu-arch")
-        assert "## Plan Scope Constraints" in md
+        assert "## Scope Constraints" in md
         assert "cycle_type: topic" in md
-        assert "### Role" in md
+        assert "### Role Instance" in md
         assert "system architect" in md.lower()
-        payload = md.split("### Role Fields")[1]
+        payload = md.split("### Role Instance")[1]
         assert "system_architect" in payload
 
     def test_topic_with_feature_profile_mismatches(self):
@@ -122,14 +123,16 @@ class TestResolveRole:
 class TestResolveDomain:
     def test_feature_domain_by_cycle_type(self):
         md = resolve_domain_markdown(cycle_type="feature")
-        assert "## Domain Instance" in md
+        assert "## Scope Constraints" in md
+        assert "### Domain Instance" in md
         assert "cycle_type: feature" in md
         assert "tech_plan_feature" in md
         assert "Technical execution planning" in md
 
     def test_topic_with_lulu_arch_succeeds(self):
         md = resolve_domain_markdown(cycle_id="topic-demo", profile_id="lulu-arch")
-        assert "## Domain Instance" in md
+        assert "## Scope Constraints" in md
+        assert "### Domain Instance" in md
         assert "cycle_type: topic" in md
         assert "tech_arch_topic" in md
 
@@ -167,7 +170,8 @@ class TestScopeResolverCliProfile:
             == 0
         )
         out = capsys.readouterr().out
-        assert "## Plan Scope Constraints" in out
+        assert "## Scope Constraints" in out
+        assert "### Role Instance" in out
 
     def test_profile_before_subcommand_accepted(self, capsys):
         from scope_resolver import main
@@ -187,4 +191,5 @@ class TestScopeResolverCliProfile:
             == 0
         )
         out = capsys.readouterr().out
-        assert "## Plan Scope Constraints" in out
+        assert "## Scope Constraints" in out
+        assert "### Role Instance" in out

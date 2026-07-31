@@ -28,7 +28,7 @@ _SCHEMA: list[dict[str, Any]] = [
     {"field": "role_id", "type": "string", "required": True,
      "description": "Unique identifier for this role slice"},
     {"field": "role_prompt", "type": "string", "required": True,
-     "description": "Natural-language persona and operational guidance for ### Role"},
+     "description": "Natural-language persona and operational guidance (Role Instance)"},
     {"field": "cognitive_framework", "type": "string", "required": False,
      "description": (
          "Deprecated — genre cognitive frame lives on domain.cognitive_frame. "
@@ -132,7 +132,7 @@ def get_role_prompt(data: dict[str, Any]) -> str:
 
 
 def get_role_fields(data: dict[str, Any]) -> dict[str, Any]:
-    """Return compose-facing role fields (### Role Fields), excluding role_prompt."""
+    """Return non-prompt role fields (excludes role_prompt and meta keys)."""
     errors = validate_role_instance(data)
     if errors:
         raise ValueError(f"role instance invalid: {'; '.join(errors)}")

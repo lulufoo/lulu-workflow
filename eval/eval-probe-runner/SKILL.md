@@ -24,7 +24,7 @@ Terminal runner subagent. Probes **one Dimension** per invocation (from EvalCorp
 4. Read `{$SKILL_ROOT}/eval/scripts/url_fetch.py` — use `read_ref()` for all URL/path loads
 5. Read `{$SKILL_ROOT}/eval/scripts/codebase_sot.py` — use `resolve_codebase_ref()` for codebase SoT
 6. Read `{$SKILL_ROOT}/eval/scripts/eval_target_units.py` — split EvalTarget **B** into intent units (chapter anchors); **do not** read `_facts.json` / `_chapters.json`
-7. Run `$RESOLVE_PLAN_ROLE` with `CYCLE_ID` and `--profile {WORKFLOW_ID}`; apply Plan Scope Constraints for probe narrative
+7. Run `$RESOLVE_ROLE` and `$RESOLVE_DOMAIN` with `CYCLE_ID` and `--profile {WORKFLOW_ID}`; apply Scope Constraints (role + domain) for probe narrative
 8. Follow steps below
 ---
 
