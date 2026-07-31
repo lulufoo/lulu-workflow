@@ -14,7 +14,14 @@ from typing import Any
 
 PENDING_BASENAME = "deductive-pending.json"
 PENDING_KINDS = frozenset(
-    {"edge_hole", "off_edge", "undecided", "quarantine_unref", "true_gap"}
+    {
+        "edge_hole",
+        "off_edge",
+        "undecided",
+        "quarantine_unref",
+        "true_gap",
+        "kw_shortfall",  # ceiling×KW: published KW table not met; human accept or seed
+    }
 )
 PENDING_STATUSES = frozenset({"open", "resolved", "escalated", "out_of_scope"})
 _ITEM_ID_RE = re.compile(r"^P-(\d+)$")

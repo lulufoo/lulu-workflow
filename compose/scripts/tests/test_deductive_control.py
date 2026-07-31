@@ -77,6 +77,44 @@ def test_pending_init_add_resolve_gate(tmp_path: Path) -> None:
     assert json.loads(gate2.stdout)["ok"] is True
 
 
+def test_kw_shortfall_pending_blocks_gate_until_resolved(tmp_path: Path) -> None:
+    rev = tmp_path / "revision1"
+    rev.mkdir()
+    (rev / "_facts.json").write_text(
+        json.dumps(
+            [{"id": "F-1", "text": "task thin", "lens_tags": ["T"]}],
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    assert _run(["pending-init"], rev).returncode == 0
+    add = _run(
+        [
+            "pending-add",
+            "--kind",
+            "kw_shortfall",
+            "--lens",
+            "T",
+            "--summary",
+            "KW table rows not met for Change Overview depth",
+        ],
+        rev,
+    )
+    assert add.returncode == 0, add.stderr
+    pid = json.loads(add.stdout)["id"]
+    assert _run(["gate-check"], rev).returncode != 0
+    assert (
+        _run(
+            ["pending-resolve", "--id", pid, "--status", "resolved"],
+            rev,
+        ).returncode
+        == 0
+    )
+    gate = _run(["gate-check"], rev)
+    assert gate.returncode == 0
+    assert json.loads(gate.stdout)["ok"] is True
+
+
 def test_gate_check_fails_when_pending_file_missing(tmp_path: Path) -> None:
     rev = tmp_path / "revision1"
     rev.mkdir()
