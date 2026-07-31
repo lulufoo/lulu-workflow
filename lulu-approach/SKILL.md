@@ -37,6 +37,8 @@ invocation. Do not read session data files for routing.
 | Macro | Command |
 |-------|---------|
 | `$RESOLVE_CONTEXT` | `python3 "$SKILL_DIR/scripts/resolve_context.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json" [--session-dir "<main_or_Dx>"]` |
+| `$RESOLVE_CONTEXT_DOCS` | `python3 "$SKILL_DIR/scripts/resolve_context_docs.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json"` |
+| `$RESOLVE_CONSTRAINT_DOCS` | `python3 "$SKILL_DIR/scripts/resolve_constraint_docs.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json"` |
 | `$APPROACH_SHELL` | `python3 "$SKILL_DIR/scripts/approach_shell_control.py" --approach-root "$APPROACH_ROOT"` |
 | `$APPROACH_NODE` | `python3 "$SKILL_DIR/scripts/approach_shell_control.py" --approach-root "$APPROACH_ROOT" <subcommand> --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json"` |
 | `$APPROACH_CONFIRM_SEAL` | `python3 "$SKILL_DIR/scripts/approach_shell_control.py" --approach-root "$APPROACH_ROOT" confirm-seal --cycle-id "<cycle_id>" --project-root "$(pwd)"` |
@@ -68,6 +70,46 @@ Path B: Main → Split → Working (D1…Dn, single focus) → PackageReady → 
 
 Local session delivery is not approach-stage delivery.
 
+## Load Context (before Main enter)
+
+**Entry:** About to enter Main. Do not call `$DEC_START` yet.
+
+**Act:**
+
+1. Run `$RESOLVE_CONTEXT_DOCS`. Parse stdout for `files`.
+2. For each path in `files`, read the file once.
+   If `files` is empty, skip reading and continue.
+3. Load `$SKILL_DIR/references/context-rules.md`.
+4. Apply Context rules for this Main entry:
+   - Follow the sections in order
+     (Principle → Context materials → Obligation → Body entry → Self-check).
+   - Do not classify documents into kinds yourself.
+
+**Done:** Context materials (if any) and Context rules are loaded and applied.
+
+**Stop:** On non-zero output, stop and report stderr.
+
+## Load Constraint (before Main enter)
+
+**Entry:** [Load Context (before Main enter)](#load-context-before-main-enter)
+is complete. Do not call `$DEC_START` yet.
+
+**Act:**
+
+1. Run `$RESOLVE_CONSTRAINT_DOCS`. Parse stdout for `files`.
+2. For each path in `files`, read the file once.
+   If `files` is empty, skip reading and continue.
+3. Load `$SKILL_DIR/references/constraint-rules.md`.
+4. Apply Constraint rules for this Main entry:
+   - Follow the sections in order
+     (Principle → Constraint materials → Obligation → Body entry → Self-check).
+   - Do not classify documents into kinds yourself.
+
+**Done:** Constraint materials (if any) and Constraint rules are loaded and
+applied.
+
+**Stop:** On non-zero output, stop and report stderr.
+
 ## Shared context activation
 
 **Entry:** `$DEC_START`, `$APPROACH_NODE enter-node`, or
@@ -75,6 +117,8 @@ Local session delivery is not approach-stage delivery.
 
 **Act:** Run `$GATE_CONTROL resolve-context`, read each returned `context_docs`
 path once, then declare the active session. Use only the newly pinned `$CTX`.
+Do **not** re-run Load Context or Load Constraint.
+(Those run only before Main enter.)
 
 **Done:** `$CTX` is pinned, the listed documents are loaded, and the active
 session is declared to the user.
@@ -87,9 +131,12 @@ session is declared to the user.
 
 **Act:**
 
-1. Run `$RESOLVE_CONTEXT`; capture its stdout path as `$RESOLVED_CONTEXT_PATH`.
-2. Run `$APPROACH_SHELL init-shell`.
-3. Run `$DEC_START` with:
+1. Complete [Load Context (before Main enter)](#load-context-before-main-enter).
+2. Complete [Load Constraint (before Main enter)](#load-constraint-before-main-enter).
+3. Run `$RESOLVE_CONTEXT` with `--session-dir "$MAIN_SESSION_DIR"`; capture
+   stdout path as `$RESOLVED_CONTEXT_PATH`.
+4. Run `$APPROACH_SHELL init-shell`.
+5. Run `$DEC_START` with:
 
    ```bash
    --stage lulu-approach \
@@ -98,8 +145,9 @@ session is declared to the user.
    --session-dir "$MAIN_SESSION_DIR"
    ```
 
-4. Complete [Shared context activation](#shared-context-activation).
-5. Run the delegated DDF on Active. After the DDF is delivery-ready, run
+6. Complete [Shared context activation](#shared-context-activation).
+   Do **not** re-run Load Context or Load Constraint here.
+7. Run the delegated DDF on Active. After the DDF is delivery-ready, run
    `$GATE_CONTROL deliver`.
 
 **Done:** `main` is Delivered. Tell the user this is node-session delivery,
@@ -161,6 +209,8 @@ node is entered.
    `realign_required=true`, keep the node Frozen, perform semantic Realign
    against the loaded `context_docs` and this slice, then run
    `$APPROACH_SHELL clear-frozen --node-id "<Dx>"`.
+
+Do **not** run Load Context or Load Constraint on Dx enter.
 
 **Done:** The target `Dx` is the usable Active session.
 
@@ -265,12 +315,14 @@ follows [Enter or resume a Dx](#enter-or-resume-a-dx).
 
 **Act:**
 
-1. Run `$APPROACH_NODE reopen-node --node-id main`. Capture stdout
+1. Complete [Load Context (before Main enter)](#load-context-before-main-enter).
+2. Complete [Load Constraint (before Main enter)](#load-constraint-before-main-enter).
+3. Run `$APPROACH_NODE reopen-node --node-id main`. Capture stdout
    `permit_path` as `$PERMIT_PATH` and `transaction_id` as `$TRANSACTION_ID`.
-2. Complete [Shared context activation](#shared-context-activation).
-3. Run `$DEC_REOPEN --permit "$PERMIT_PATH"`, perform RS dialogue, then run
+4. Complete [Shared context activation](#shared-context-activation).
+5. Run `$DEC_REOPEN --permit "$PERMIT_PATH"`, perform RS dialogue, then run
    `$RS_COMMIT --gate "<G>" --operations '<json array>'`.
-4. Run `$APPROACH_NODE complete-main-reopen --transaction-id "$TRANSACTION_ID"`.
+6. Run `$APPROACH_NODE complete-main-reopen --transaction-id "$TRANSACTION_ID"`.
 
 **Exit:** From source Split or Working, continue with
 [Split review](#split-review). From source Main, choose the applicable Main
@@ -299,8 +351,12 @@ downstream path.
 
 **Entry:** Active remains Main.
 
-**Act:** Run `$APPROACH_NODE enter-node --node-id main`, then complete
-[Shared context activation](#shared-context-activation).
+**Act:**
+
+1. Complete [Load Context (before Main enter)](#load-context-before-main-enter).
+2. Complete [Load Constraint (before Main enter)](#load-constraint-before-main-enter).
+3. Run `$APPROACH_NODE enter-node --node-id main`, then complete
+   [Shared context activation](#shared-context-activation).
 
 **Done:** Resume Main.
 

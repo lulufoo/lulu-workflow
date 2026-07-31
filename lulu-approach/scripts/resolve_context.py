@@ -2,10 +2,12 @@
 """Resolve lulu-approach's context.docs before handing off to decision.
 
 ``context.docs`` is auto-derived from ``(cycle_id, stage)`` by the shared
-kernel resolver (``scripts/context_loading.py``), then — when ``--session-dir``
-points at a ``Dx/`` nested session — extended with ``main_decision``,
-``boundary_rules``, and optional ``decision_split`` (archive-1.1 bind context
-map + boundary rules). Missing main decision or boundary rules on Dx hard-fails.
+kernel resolver (``scripts/context_loading.py``), then stripped of Context /
+Constraint material keys (``product_spec`` / ``tech_arch`` — loaded via
+``resolve_context_docs`` / ``resolve_constraint_docs`` instead). When
+``--session-dir`` points at a ``Dx/`` nested session, extended with
+``main_decision``, ``boundary_rules``, and optional ``decision_split``.
+Missing main decision or boundary rules on Dx hard-fails.
 
 Writes ``{"context": {"docs": {...}}}`` to a file and prints that file's path
 to stdout for ``$DEC_START`` / approach ``enter-node``／``reopen-node``
@@ -44,6 +46,7 @@ from approach_layout import (  # noqa: E402
 )
 from dec_domain_constraints_schema import load_constraints_config  # noqa: E402
 from dec_io import atomic_write_text  # noqa: E402
+from material_docs import strip_binding_excluded  # noqa: E402
 
 STAGE = "lulu-approach"
 _RESOLVED_CONTEXT_FILENAME = "resolved-context.json"
@@ -96,7 +99,7 @@ def resolve(
     load_constraints_config(constraints_path, stage=STAGE)
     cache_dir = project_root / platform_cache_dir(detect_platform())
     context = build_context_loading(cycle_id, STAGE, cache_dir=cache_dir)
-    docs = dict(context.get("docs") or {})
+    docs = strip_binding_excluded(dict(context.get("docs") or {}))
     role = _session_role(session_dir)
     if role == "sub":
         assert session_dir is not None

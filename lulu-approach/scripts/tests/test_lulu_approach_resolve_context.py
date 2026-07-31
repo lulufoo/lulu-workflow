@@ -68,18 +68,18 @@ def _make_upstream_doc(cache_dir: Path, cycle_id: str, subdir: str, doc_filename
     return doc
 
 
-def test_feature_template_resolves_product_spec_and_tech_arch(tmp_path):
+def test_feature_binding_map_strips_product_spec_and_tech_arch(tmp_path):
     cache_dir = tmp_path / platform_cache_dir(detect_platform())
     topic_id = "topic-20260101000000-aabbccdd"
     _write_cycles_json(cache_dir, "feature-a", {"name": "x", "topic_id": topic_id})
     _write_cycles_json(cache_dir, topic_id, {"name": "t"})
-    upstream_doc = _make_upstream_doc(cache_dir, "feature-a", "lulu-spec", "product-doc.md")
-    topic_doc = _write_topic_delivered_ref(cache_dir, topic_id, "lulu-arch")
+    _make_upstream_doc(cache_dir, "feature-a", "lulu-spec", "product-doc.md")
+    _write_topic_delivered_ref(cache_dir, topic_id, "lulu-arch")
 
     payload = resolve(tmp_path, "feature-a", _TEMPLATE_FEATURE)
     docs = payload["context"]["docs"]
-    assert docs["product_spec"] == upstream_doc.resolve().as_posix()
-    assert docs["tech_arch"] == str(topic_doc.resolve())
+    assert "product_spec" not in docs
+    assert "tech_arch" not in docs
     assert "main_decision" not in docs
     assert "boundary_rules" not in docs
 
@@ -125,6 +125,12 @@ def test_dx_adds_main_decision_boundary_rules_and_optional_split(tmp_path):
     dx = approach / "D1"
     dx.mkdir()
 
+    topic_id = "topic-20260101000000-aabbccdd"
+    _write_cycles_json(cache_dir, "feature-a", {"name": "x", "topic_id": topic_id})
+    _write_cycles_json(cache_dir, topic_id, {"name": "t"})
+    _make_upstream_doc(cache_dir, "feature-a", "lulu-spec", "product-doc.md")
+    _write_topic_delivered_ref(cache_dir, topic_id, "lulu-arch")
+
     payload = resolve(tmp_path, "feature-a", _TEMPLATE_FEATURE, session_dir=dx)
     docs = payload["context"]["docs"]
     assert docs["main_decision"] == main_doc.resolve().as_posix()
@@ -132,6 +138,8 @@ def test_dx_adds_main_decision_boundary_rules_and_optional_split(tmp_path):
     boundary = (_SCRIPTS.parent / "references" / "boundary-rules.md").resolve()
     assert docs["boundary_rules"] == boundary.as_posix()
     assert boundary.is_file()
+    assert "product_spec" not in docs
+    assert "tech_arch" not in docs
 
 
 def test_dx_requires_boundary_rules_file(tmp_path, monkeypatch):
