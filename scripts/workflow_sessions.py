@@ -1,7 +1,8 @@
-"""Session scanning and Delivered state for lulu-dev-workflow cache layouts."""
+"""Session scanning and terminal/delivered state for lulu-dev-workflow cache layouts."""
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -10,7 +11,11 @@ from typing import List, Optional
 _VALID_STATES = frozenset({"Drafting", "Evaluating", "TDABlocked", "Delivered", "Invalidated"})
 
 STAGE_FLAT = frozenset({"decision", "lulu-bet", "lulu-approach"})
-_FLAT_VALID_STATES = frozenset({"InProgress", "Frozen", "Delivered", "Invalidated"})
+# Decision-family node/session terminal is Completed; legacy Delivered accepted on read.
+_FLAT_VALID_STATES = frozenset(
+    {"InProgress", "Frozen", "Completed", "Delivered", "Invalidated"}
+)
+_FLAT_SESSION_TERMINAL = frozenset({"Completed", "Delivered"})
 _STAGE_REVISION_PAT = re.compile(r"^(revision|r|s)\d+$")
 _APPROACH_DX_DIR_PAT = re.compile(r"^D\d+$")
 
@@ -116,10 +121,56 @@ def has_any_valid_session(cycle_id: str, stage: str, cache_dir: Path) -> bool:
     return any(s.state != "Invalidated" for s in get_sessions(cycle_id, stage, cache_dir))
 
 
+def _approach_stage_delivered(cycle_id: str, cache_dir: Path) -> bool:
+    """True when cycle delivered-refs records approach decision-package (stage Deliver)."""
+    refs_path = cache_dir / cycle_id / "delivered-refs.json"
+    if not refs_path.is_file():
+        return False
+    try:
+        data = json.loads(refs_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    if not isinstance(data, dict):
+        return False
+    entries = data.get("entries") or {}
+    if not isinstance(entries, dict):
+        return False
+    entry = entries.get("lulu-approach")
+    if not isinstance(entry, dict):
+        return False
+    artifact = str(entry.get("artifact") or "").strip()
+    path = str(entry.get("path") or "")
+    if artifact == "decision-package":
+        return True
+    return path.endswith("decision-package.json") or "/decision-package.json" in path
+
+
 def current_effective_delivered(cycle_id: str, stage: str, cache_dir: Path) -> bool:
-    """Return True if the latest non-Invalidated session has state == Delivered."""
+    """Return True if the stage is effectively delivered for transition gates.
+
+    - ``lulu-approach``: prefer delivered-refs decision-package; legacy fallback =
+      latest nested/flat session terminal (Completed or legacy Delivered).
+    - ``decision`` / ``lulu-bet``: latest flat session is Completed (legacy Delivered OK).
+    - Compose revisions: latest non-Invalidated workflow-state is Delivered.
+    """
+    if stage == "lulu-approach":
+        if _approach_stage_delivered(cycle_id, cache_dir):
+            return True
+        # One-release fallback for caches that only marked node/session terminal.
+        valid = [
+            s
+            for s in get_sessions(cycle_id, stage, cache_dir)
+            if s.state != "Invalidated"
+        ]
+        if not valid:
+            return False
+        latest = max(valid, key=lambda s: (s.created_at, s.revision))
+        return latest.state in _FLAT_SESSION_TERMINAL
+
     valid = [s for s in get_sessions(cycle_id, stage, cache_dir) if s.state != "Invalidated"]
     if not valid:
         return False
     latest = max(valid, key=lambda s: (s.created_at, s.revision))
+    if stage in {"decision", "lulu-bet"}:
+        return latest.state in _FLAT_SESSION_TERMINAL
     return latest.state == "Delivered"

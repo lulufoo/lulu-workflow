@@ -84,7 +84,7 @@ DECISION_CONFIG = StageArchiveConfig(
     hot_subdir="decision",
     session_counter_field="",
     doc_dir_fmt="",
-    terminal_states=frozenset({"Delivered"}),
+    terminal_states=frozenset({"Completed", "Delivered"}),
     state_file="session-state.md",
     flat=True,
 )

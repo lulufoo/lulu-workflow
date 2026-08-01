@@ -44,7 +44,7 @@ After structural audit and AI review pass, and after render:
 
 ```bash
 $GATE_CONTROL gate-close --gate DC --payload '{"user_confirmed": true}'
-$GATE_CONTROL deliver
+$GATE_CONTROL complete
 ```
 
 5. Tell the user `$CTX.after_dc.user_message` from resolve-context.

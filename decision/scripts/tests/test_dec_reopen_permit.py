@@ -141,7 +141,7 @@ def test_holder_required_consumes_permit_and_freezes(
     )
     permit = Path(result["permit_path"])
     assert json.loads(permit.read_text(encoding="utf-8"))["state"] == "issued"
-    assert read_current_state(root / "D1" / "session-state.md") == "Delivered"
+    assert read_current_state(root / "D1" / "session-state.md") == "Completed"
 
     out = io.StringIO()
     with redirect_stdout(out):

@@ -34,7 +34,7 @@ DECISION_ARCHIVE_STAGES = frozenset(
     }
 )
 
-TERMINAL_STATES = frozenset({"Delivered"})
+TERMINAL_STATES = frozenset({"Completed", "Delivered"})
 STATE_FILE = "session-state.md"
 STATE_FIELD = "current_state"
 

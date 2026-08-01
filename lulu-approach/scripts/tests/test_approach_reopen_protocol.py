@@ -139,7 +139,7 @@ def test_reopen_freezes_successor_session_issues_permit_and_completes(
     assert load_active_session(root)["session_dir"] == "D1"
     assert _schema.load_shell(root)["by_id"]["D1"]["frozen"] is True
     assert _schema.load_shell(root)["by_id"]["D2"]["frozen"] is True
-    assert read_current_state(root / "D1" / "session-state.md") == "Delivered"
+    assert read_current_state(root / "D1" / "session-state.md") == "Completed"
     assert read_current_state(root / "D2" / "session-state.md") == "Frozen"
     binding = _binding.load_node_binding(root)
     assert binding["state"] == "reopen_pending"

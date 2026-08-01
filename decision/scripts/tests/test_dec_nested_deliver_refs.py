@@ -160,7 +160,7 @@ def test_nested_approach_deliver_skips_cycle_delivered_refs(
     _bring_active_to_dc_then_deliver(project_root, cycle_id, stage)
 
     ss = session_state_file(nested).read_text(encoding="utf-8")
-    assert "current_state: Delivered" in ss
+    assert "current_state: Completed" in ss
     assert (nested / "decision-doc.md").is_file()
     assert (nested / "decision-fact.json").is_file()
 

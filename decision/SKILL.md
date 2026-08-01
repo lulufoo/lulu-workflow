@@ -65,11 +65,11 @@ On success, `$DEC_START` stdout includes `context_docs`. Binding pipeline: pin `
 When `$DEC_START` receives `--conversation-id`:
 
 1. **Restore:** if this conversation's decision session is in cold storage, move it back to `cache/<cycle_id>/<cache_subdir>/` (from active-context + session snapshot).
-2. **Archive:** other conversations with decision-family stages (`decision`, `lulu-bet`, `lulu-approach`) and `session-state: Delivered` are moved to `cache/_archive/<conversation_id>/<cache_subdir>/`.
+2. **Archive:** other conversations with decision-family stages (`decision`, `lulu-bet`, `lulu-approach`) and `session-state: Completed` (legacy `Delivered` OK) are moved to `cache/_archive/<conversation_id>/<cache_subdir>/`.
 
 SSOT for conversation → cycle mapping: platform `active-context.json`. Does **not** use `cache/decision/<conversation_id>/`.
 
-**Do not** run `$DEC_START` again after Delivery (`Delivered`) on the same feature — use `$DEC_REOPEN` (sets session `Frozen`, then RS → `$RS_COMMIT` to stale and unfreeze). Use a new feature for a wholly new decision session.
+**Do not** run `$DEC_START` again after session **Completed** on the same feature — use `$DEC_REOPEN` (sets session `Frozen`, then RS → `$RS_COMMIT` to stale and unfreeze). Use a new feature for a wholly new decision session.
 
 When holder constraints declare `reopen_authorization=holder_required` (e.g. `lulu-approach`), `$DEC_REOPEN` **requires** `--permit` issued by the holder reopen prepare step. Generic `decision` without that field keeps the no-permit path.
 
@@ -98,7 +98,7 @@ When holder constraints declare `reopen_authorization=holder_required` (e.g. `lu
 - **G9 · Upstream-change detect** — any turn · not parallel · on hit load RS (no dedicated G9 runner).
 - **RS · Realign State Handler** — upstream change needs downstream sync · not parallel · LoopA re-entry at align gate `G` (see § Gate routing · RS).
 
-**Spine:** [LoopA] O → Q → GL → E → D → X → R → ([LoopB] V → RR if needed) → DC → `$GATE_CONTROL deliver`.
+**Spine:** [LoopA] O → Q → GL → E → D → X → R → ([LoopB] V → RR if needed) → DC → `$GATE_CONTROL complete`.
 
 **Phase grouping** (realign scope):
 - [LoopA] O → Q → GL → E → D → X → R — decision construction (realign at Q / GL / E / D / X)
@@ -219,10 +219,10 @@ If user confirms exit → exit gracefully; mark as incomplete.
 Do NOT exit diagnostic or transition to the next stage until:
 
 - All DDF gates (O → Q → GL → E / D / X → R → [LoopB if uncertain: V / RR] → DC) have passed
-- `$GATE_CONTROL check-delivery-ready` returns `ready: true`; DC closed; `$GATE_CONTROL deliver` succeeded
+- `$GATE_CONTROL check-delivery-ready` returns `ready: true`; DC closed; `$GATE_CONTROL complete` succeeded
 - User has explicitly confirmed readiness to proceed
 
-When the Active session is under a holder outer flow (e.g. `lulu-approach` `main/` / `Dx/`), this HARD-GATE covers **this Active session only**. Cross-stage handoff / cycle `delivered-refs` is owned by the holder seal (approach: `$APPROACH_SHELL confirm-seal`), not by nested `deliver`.
+When the Active session is under a holder outer flow (e.g. `lulu-approach` `main/` / `Dx/`), this HARD-GATE covers **this Active session only**. Cross-stage handoff / cycle `delivered-refs` is owned by the holder stage deliver (approach: `$APPROACH_DELIVER`), not by nested `complete`.
 
 This applies to EVERY intent, regardless of perceived clarity.
 "I already know what I want to build" is the most common reason to skip this —

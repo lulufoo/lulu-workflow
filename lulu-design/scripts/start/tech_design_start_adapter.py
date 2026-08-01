@@ -129,7 +129,7 @@ class TechDesignStartAdapter:
             raise ValueError(
                 "lulu-approach scope requires decision-package.json "
                 "(artifact=decision-package); legacy whole decision-fact Path A "
-                "is retired — re-seal approach via confirm-seal"
+                "is retired — re-deliver approach via deliver"
             )
         if revision_dir is None:
             raise ValueError(

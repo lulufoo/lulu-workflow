@@ -95,7 +95,7 @@ def test_reopen_sets_frozen_from_delivered(
     payload = json.loads(buf.getvalue())
     assert payload["ok"] is True
     assert payload["session_state"] == "Frozen"
-    assert payload["prior_state"] == "Delivered"
+    assert payload["prior_state"] == "Completed"
     assert read_current_state(ss) == "Frozen"
 
 

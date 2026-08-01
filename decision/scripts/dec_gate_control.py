@@ -11,11 +11,12 @@ Subcommands:
     stale-from             Realign: mark gate + reached downstream stale (no payload delete)
     rs-commit              Atomic Realign: stale-from + register batch + resolve-context
                            (if session Frozen: mark stale then unfreeze — P1.5 A′)
-    reopen                 Leave Delivered/InProgress → Frozen ($DEC_REOPEN; P1.3 A)
-    check-delivery-ready   Structural audit + gates/registers for DC delivery
-    deliver                Set session-state Delivered; export decision-fact.json
+    reopen                 Leave Completed/InProgress → Frozen ($DEC_REOPEN; P1.3 A)
+    check-delivery-ready   Structural audit + gates/registers for DC completion
+    complete               Set session-state Completed; export decision-fact.json
                            (requires DC closed + decision-doc). Nested approach
-                           main/Dx skips cycle delivered-refs (holder seal owns them).
+                           main/Dx skips cycle delivered-refs (holder stage deliver
+                           owns them). Alias: deliver.
     migrate-session        Bootstrap gate-state/registers for legacy sessions
 """
 
@@ -948,7 +949,7 @@ def cmd_check_delivery_ready(
     return 0
 
 
-def cmd_deliver(
+def cmd_complete(
     project_root: Path,
     cycle_id: str,
     stage: str,
@@ -956,6 +957,7 @@ def cmd_deliver(
     constraints_path: Path | None = None,
     session_dir: Path | None = None,
 ) -> int:
+    """Mark the decision session Completed (node/session terminal, not stage Deliver)."""
     paths = _paths(
         project_root,
         cycle_id,
@@ -969,7 +971,7 @@ def cmd_deliver(
     try:
         state = load_gate_state(paths["gate_state"])
         if not is_gate_closed(state, "DC"):
-            return _emit_error("DC gate must be closed before deliver")
+            return _emit_error("DC gate must be closed before complete")
         r_closed = is_gate_closed(state, "R")
         registers = load_registers(paths["registers"], r_gate_closed=r_closed)
         errors = _collect_delivery_errors(
@@ -991,7 +993,7 @@ def cmd_deliver(
             fact_path,
             registers=registers,
         )
-        # Nested approach main/Dx: local Delivered only; cycle refs via confirm-seal.
+        # Nested approach main/Dx: local Completed only; cycle refs via holder stage deliver.
         if not skips_cycle_delivered_ref_on_deliver(paths["session_dir"]):
             from cycle_delivered_refs import record_delivered_ref  # noqa: WPS433
 
@@ -1005,19 +1007,37 @@ def cmd_deliver(
                 source_workflow_state=str(ss_path.resolve()),
                 decision_fact_path=str(fact_path.resolve()),
             )
-        write_session_state(ss_path, "Delivered")
+        write_session_state(ss_path, "Completed")
     except (FileNotFoundError, ValueError) as exc:
         return _emit_error(str(exc))
 
     _emit(
         {
             "ok": True,
-            "session_state": "Delivered",
+            "session_state": "Completed",
             "session_state_path": ss_path.as_posix(),
             "decision_fact_path": fact_path.as_posix(),
         }
     )
     return 0
+
+
+def cmd_deliver(
+    project_root: Path,
+    cycle_id: str,
+    stage: str,
+    *,
+    constraints_path: Path | None = None,
+    session_dir: Path | None = None,
+) -> int:
+    """Deprecated alias for ``complete`` (node/session terminal)."""
+    return cmd_complete(
+        project_root,
+        cycle_id,
+        stage,
+        constraints_path=constraints_path,
+        session_dir=session_dir,
+    )
 
 
 def cmd_gate_close(
@@ -1490,7 +1510,7 @@ def cmd_reopen(
     session_dir: Path | None = None,
     permit_path: Path | str | None = None,
 ) -> int:
-    """$DEC_REOPEN: Delivered/InProgress → Frozen (P1.3 A / P1.3a A)."""
+    """$DEC_REOPEN: Completed/InProgress → Frozen (P1.3 A / P1.3a A)."""
     paths = _paths(
         project_root,
         cycle_id,
@@ -1669,15 +1689,25 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
     reopen = sub.add_parser(
         "reopen",
-        help="Leave Delivered/InProgress → Frozen ($DEC_REOPEN).",
+        help="Leave Completed/InProgress → Frozen ($DEC_REOPEN).",
     )
     reopen.add_argument(
         "--permit",
         default="",
         help="Holder reopen permit path (required when reopen_authorization=holder_required).",
     )
-    sub.add_parser("check-delivery-ready", help="Validate readiness for DC delivery.")
-    sub.add_parser("deliver", help="Set session-state Delivered after DC closed.")
+    sub.add_parser(
+        "check-delivery-ready",
+        help="Validate readiness for DC session completion.",
+    )
+    sub.add_parser(
+        "complete",
+        help="Set session-state Completed after DC closed (node/session terminal).",
+    )
+    sub.add_parser(
+        "deliver",
+        help="Deprecated alias for complete (node/session terminal).",
+    )
     sub.add_parser("migrate-session", help="Migrate legacy session to gate-state architecture.")
 
     return parser.parse_args(argv)
@@ -1812,8 +1842,8 @@ def main(argv: list[str] | None = None) -> int:
         )
     if args.command == "check-delivery-ready":
         return cmd_check_delivery_ready(project_root, cycle_id, stage, **common)
-    if args.command == "deliver":
-        return cmd_deliver(project_root, cycle_id, stage, **common)
+    if args.command in {"complete", "deliver"}:
+        return cmd_complete(project_root, cycle_id, stage, **common)
     if args.command == "migrate-session":
         return cmd_migrate_session(project_root, cycle_id, stage, **common)
     return _emit_error(f"unknown command: {args.command}")

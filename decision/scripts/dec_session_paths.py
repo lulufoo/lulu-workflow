@@ -11,7 +11,7 @@ from typing import Optional
 from dec_domain_constraints_schema import load_domain_constraints
 
 _APPROACH_DX_DIR_PAT = re.compile(r"^D\d+$")
-_PACKAGE_SEAL_OUTER_NAMES = frozenset({"lulu-approach"})
+_PACKAGE_DELIVER_OUTER_NAMES = frozenset({"lulu-approach"})
 
 
 def default_cache_subdir(stage: str) -> str:
@@ -19,17 +19,17 @@ def default_cache_subdir(stage: str) -> str:
 
 
 def skips_cycle_delivered_ref_on_deliver(session_dir: Path) -> bool:
-    """True when session is ``main/`` or ``Dx/`` under a package-seal holder outer.
+    """True when session is ``main/`` or ``Dx/`` under a stage-deliver holder outer.
 
-    Those sessions close locally on ``deliver``; cycle ``delivered-refs`` is owned
-    by the holder seal (e.g. approach ``confirm-seal`` → decision-package).
-    Flat stage roots keep writing cycle refs on deliver.
+    Those sessions close locally on ``complete``; cycle ``delivered-refs`` is owned
+    by the holder stage deliver (e.g. approach ``deliver`` → decision-package).
+    Flat stage roots keep writing cycle refs on complete.
     """
     session = Path(session_dir).resolve()
     name = session.name
     if name != "main" and not _APPROACH_DX_DIR_PAT.match(name):
         return False
-    return session.parent.name in _PACKAGE_SEAL_OUTER_NAMES
+    return session.parent.name in _PACKAGE_DELIVER_OUTER_NAMES
 
 
 def _domain_constraints_stage(session_dir: Path) -> str | None:

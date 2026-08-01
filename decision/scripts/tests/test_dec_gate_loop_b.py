@@ -174,7 +174,7 @@ def test_loop_b_v_rr_dc_deliver(template_config: Path, monkeypatch: pytest.Monke
     assert cmd_deliver(project_root, cycle_id, stage) == 0
 
     ss = (project_root / session_state_path(cycle_id, stage)).read_text(encoding="utf-8")
-    assert "current_state: Delivered" in ss
+    assert "current_state: Completed" in ss
 
     from cycle_delivered_refs import load_delivered_refs_file  # noqa: WPS433
     from dec_decision_fact_schema import load_decision_fact  # noqa: E402

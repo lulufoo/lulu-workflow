@@ -6,18 +6,19 @@ Macro transitions::
     Main → Split → Working → PackageReady
     Main → PackageReady          (no-split shortcut)
 
-Working: single focus; reject mid-switch until current focus is Delivered.
-PackageReady: human ``confirm_seal`` required before seal (no auto-seal).
+Working: single focus; reject mid-switch until current focus is Completed.
+PackageReady: human ``--confirm`` required before stage ``deliver`` (Path A:
+selection may authorize confirm without a second ask).
 
-Delivered stub: prefer ``by_id[].delivered``; else ``session-state.md``
-``current_state: Delivered`` under ``main/`` or ``Dx/`` when present.
+Node-complete stub: prefer ``by_id[].delivered``; else ``session-state.md``
+``current_state: Completed`` under ``main/`` or ``Dx/`` when present.
 
 CLI (stdout JSON ``{"ok": true, ...}``; errors on stderr, exit 1)::
 
     python3 approach_shell_control.py --approach-root <path> <subcommand> ...
 
-Subcommands: init-shell, enter-split, enter-working, enter-node,
-enter-package-ready, confirm-seal, freeze-cascade, reopen-node,
+    Subcommands: init-shell, enter-split, enter-working, enter-node,
+enter-package-ready, deliver (alias confirm-seal), freeze-cascade, reopen-node,
 complete-reopen, recover-binding, bind-check-frozen, clear-frozen.
 """
 
@@ -137,20 +138,22 @@ def _session_dir_for_node(approach_root: Path, node_id: str) -> Path:
 
 
 def is_node_delivered(approach_root: Path, node_id: str, shell: dict[str, Any] | None = None) -> bool:
-    """True when node is effectively Delivered (delivered ∧ ¬frozen)."""
+    """True when node session is Completed (shell completed/delivered ∧ ¬frozen)."""
     nid = str(node_id).strip()
     data = shell if shell is not None else load_shell(approach_root)
     if nid != "main":
         cell = (data.get("by_id") or {}).get(nid)
         if isinstance(cell, dict) and cell.get("frozen") is True:
             return False
-        if isinstance(cell, dict) and cell.get("delivered") is True:
+        if isinstance(cell, dict) and (
+            cell.get("completed") is True or cell.get("delivered") is True
+        ):
             return True
     session_dir = _session_dir_for_node(approach_root, nid)
     state = _parse_session_state_current(session_dir / _SESSION_STATE)
     if state == "Frozen":
         return False
-    return state == "Delivered"
+    return state in {"Completed", "Delivered"}
 
 
 def mark_node_delivered(approach_root: Path, node_id: str) -> dict[str, Any]:
@@ -191,7 +194,7 @@ def enter_split(approach_root: Path) -> dict[str, Any]:
             f"enter_split requires macro_state=Main, got {shell['macro_state']!r}"
         )
     if not is_node_delivered(approach_root, "main", shell):
-        raise ValueError("enter_split blocked: main is not Delivered")
+        raise ValueError("enter_split blocked: main is not Completed")
     shell["macro_state"] = "Split"
     shell["focus"] = "main"
     shell["split_delivered"] = False
@@ -212,7 +215,7 @@ def enter_working(
             f"enter_working requires macro_state=Split, got {shell['macro_state']!r}"
         )
     if not shell.get("split_delivered"):
-        raise ValueError("enter_working blocked: Split is not Delivered")
+        raise ValueError("enter_working blocked: Split is not completed")
     ids = [str(n).strip() for n in node_ids]
     if not ids:
         raise ValueError("enter_working requires non-empty node_ids")
@@ -268,7 +271,7 @@ def commit_focus(approach_root: Path, node_id: str) -> dict[str, Any]:
         return {**shell, "next_steps": _bind_next_steps(dx)}
     if current is not None and not is_node_delivered(approach_root, str(current), shell):
         raise ValueError(
-            f"focus switch blocked: current focus {current!r} is not Delivered"
+            f"focus switch blocked: current focus {current!r} is not Completed"
         )
     # E1: target may be Frozen (enter cascade-successor for bind → realign).
     if current is not None and current in by_id:
@@ -1440,7 +1443,7 @@ def enter_package_ready(approach_root: Path) -> dict[str, Any]:
     macro = shell["macro_state"]
     if macro == "Main":
         if not is_node_delivered(approach_root, "main", shell):
-            raise ValueError("enter_package_ready blocked: main is not Delivered")
+            raise ValueError("enter_package_ready blocked: main is not Completed")
         shell["macro_state"] = "PackageReady"
         shell["focus"] = "main"
         save_shell(approach_root, shell)
@@ -1465,7 +1468,7 @@ def enter_package_ready(approach_root: Path) -> dict[str, Any]:
         ]
         if incomplete:
             raise ValueError(
-                "enter_package_ready blocked: not all children Delivered "
+                "enter_package_ready blocked: not all children Completed "
                 f"(pending/frozen: {', '.join(incomplete)})"
             )
         shell["macro_state"] = "PackageReady"
@@ -1476,32 +1479,32 @@ def enter_package_ready(approach_root: Path) -> dict[str, Any]:
     )
 
 
-def confirm_seal(
+def deliver(
     approach_root: Path,
     *,
     confirm: bool,
     cycle_id: str | None = None,
     project_root: Path | None = None,
 ) -> dict[str, Any]:
-    """Human confirm at PackageReady; ensure package; register delivered-refs."""
+    """Stage deliver at PackageReady; ensure package; register delivered-refs."""
     root = Path(approach_root).resolve()
     shell = load_shell(root)
     if shell["macro_state"] != "PackageReady":
         raise ValueError(
-            f"confirm_seal requires macro_state=PackageReady, got {shell['macro_state']!r}"
+            f"deliver requires macro_state=PackageReady, got {shell['macro_state']!r}"
         )
     frozen = _frozen_ids(shell)
     if frozen:
         raise ValueError(
-            "confirm_seal blocked: frozen nodes present: " + ", ".join(frozen)
+            "deliver blocked: frozen nodes present: " + ", ".join(frozen)
         )
     if not confirm:
-        raise ValueError("confirm_seal blocked: human --confirm required")
+        raise ValueError("deliver blocked: human --confirm required")
     cid = str(cycle_id or "").strip()
     if not cid:
-        raise ValueError("confirm_seal requires --cycle-id")
+        raise ValueError("deliver requires --cycle-id")
     if project_root is None:
-        raise ValueError("confirm_seal requires --project-root")
+        raise ValueError("deliver requires --project-root")
     proj = Path(project_root).resolve()
 
     pkg_path = decision_package_path(root)
@@ -1521,13 +1524,13 @@ def confirm_seal(
                         target.relative_to(root)
                     except ValueError as exc:
                         raise ValueError(
-                            f"confirm_seal blocked: slice {sid!r} {key} escapes root: {rel!r}"
+                            f"deliver blocked: slice {sid!r} {key} escapes root: {rel!r}"
                         ) from exc
                     if not target.is_file():
                         missing.append(f"{sid}:{key}={rel}")
             if missing:
                 raise ValueError(
-                    "confirm_seal blocked: missing slice artifact(s): "
+                    "deliver blocked: missing slice artifact(s): "
                     + ", ".join(missing)
                 )
 
@@ -1545,10 +1548,27 @@ def confirm_seal(
     return {
         "ok": True,
         "macro_state": "PackageReady",
-        "sealed": True,
+        "delivered": True,
+        "sealed": True,  # legacy key for one-release callers
         "decision_package": str(pkg_path.resolve()),
         "source_workflow_state": source,
     }
+
+
+def confirm_seal(
+    approach_root: Path,
+    *,
+    confirm: bool,
+    cycle_id: str | None = None,
+    project_root: Path | None = None,
+) -> dict[str, Any]:
+    """Deprecated alias for ``deliver`` (stage Deliver)."""
+    return deliver(
+        approach_root,
+        confirm=confirm,
+        cycle_id=cycle_id,
+        project_root=project_root,
+    )
 
 
 def _emit_ok(payload: dict[str, Any]) -> int:
@@ -1662,10 +1682,14 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Main/Working → PackageReady",
     )
 
-    p_cs = sub.add_parser("confirm-seal", help="Human confirm + delivered-refs")
-    p_cs.add_argument("--confirm", action="store_true")
-    p_cs.add_argument("--cycle-id", required=True)
-    p_cs.add_argument("--project-root", required=True, type=Path)
+    for cmd_name, help_text in (
+        ("deliver", "Stage deliver + delivered-refs (decision-package)"),
+        ("confirm-seal", "Deprecated alias for deliver"),
+    ):
+        p_cs = sub.add_parser(cmd_name, help=help_text)
+        p_cs.add_argument("--confirm", action="store_true")
+        p_cs.add_argument("--cycle-id", required=True)
+        p_cs.add_argument("--project-root", required=True, type=Path)
 
     return p
 
@@ -1756,9 +1780,9 @@ def main(argv: list[str] | None = None) -> int:
             return _emit_ok(clear_frozen(root, args.node_id))
         if args.command == "enter-package-ready":
             return _emit_ok({"shell": enter_package_ready(root)})
-        if args.command == "confirm-seal":
+        if args.command in {"deliver", "confirm-seal"}:
             return _emit_ok(
-                confirm_seal(
+                deliver(
                     root,
                     confirm=bool(args.confirm),
                     cycle_id=args.cycle_id,

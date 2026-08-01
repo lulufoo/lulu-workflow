@@ -13,7 +13,7 @@ CLI (stdout JSON ``{"ok": true, ...}``; errors on stderr, exit 1)::
     python3 approach_split_control.py --approach-root <path> <subcommand> ...
 
 Subcommands: write-early-package, write-intake, complete-intake,
-lock-tree-rulers, deliver-split.
+lock-tree-rulers, complete-split (alias: deliver-split).
 """
 
 from __future__ import annotations
@@ -259,24 +259,24 @@ def slices_from_locked_tree(tree: dict[str, Any]) -> list[dict[str, Any]]:
     return slices
 
 
-def deliver_split(
+def complete_split(
     approach_root: Path,
     *,
     tree: dict[str, Any] | None = None,
     rulers: dict[str, Any] | None = None,
     confirm: bool,
 ) -> dict[str, Any]:
-    """Split Delivered (S4=A): lock tree+rulers, write ordered slices, mark shell.
+    """Split complete: lock tree+rulers, write ordered slices, mark shell.
 
     Does **not** create ``Dx/`` directories (S3=B).
     """
     if not confirm:
-        raise ValueError("deliver_split blocked: human --confirm required")
+        raise ValueError("complete_split blocked: human --confirm required")
     root = Path(approach_root).resolve()
     shell = load_shell(root)
     if shell["macro_state"] != "Split":
         raise ValueError(
-            f"deliver_split requires macro_state=Split, got {shell['macro_state']!r}"
+            f"complete_split requires macro_state=Split, got {shell['macro_state']!r}"
         )
 
     if tree is not None and rulers is not None:
@@ -286,10 +286,10 @@ def deliver_split(
     else:
         locked_tree = load_dependency_tree(root)
         if locked_tree.get("status") != "locked":
-            raise ValueError("deliver_split blocked: dependency tree not locked")
+            raise ValueError("complete_split blocked: dependency tree not locked")
         locked_rulers = load_decision_rulers(root)
         if locked_rulers.get("status") != "locked":
-            raise ValueError("deliver_split blocked: decision rulers not locked")
+            raise ValueError("complete_split blocked: decision rulers not locked")
 
     slices = slices_from_locked_tree(locked_tree)
     pkg_path = root / "decision-package.json"
@@ -309,11 +309,25 @@ def deliver_split(
     save_shell(root, shell)
     return {
         "ok": True,
-        "split_delivered": True,
+        "split_completed": True,
+        "split_delivered": True,  # legacy key
         "slices": slices,
         "package": package,
         "tree": locked_tree,
     }
+
+
+def deliver_split(
+    approach_root: Path,
+    *,
+    tree: dict[str, Any] | None = None,
+    rulers: dict[str, Any] | None = None,
+    confirm: bool,
+) -> dict[str, Any]:
+    """Deprecated alias for ``complete_split``."""
+    return complete_split(
+        approach_root, tree=tree, rulers=rulers, confirm=confirm
+    )
 
 
 def ensure_dx_on_focus(approach_root: Path, node_id: str) -> Path:
@@ -380,10 +394,14 @@ def _build_parser() -> argparse.ArgumentParser:
     p_lock.add_argument("--rulers", required=True, type=Path)
     p_lock.add_argument("--confirm", action="store_true")
 
-    p_ds = sub.add_parser("deliver-split", help="Split Delivered + write slices")
-    p_ds.add_argument("--tree", type=Path, default=None)
-    p_ds.add_argument("--rulers", type=Path, default=None)
-    p_ds.add_argument("--confirm", action="store_true")
+    for cmd_name, help_text in (
+        ("complete-split", "Mark Split complete + write slices"),
+        ("deliver-split", "Deprecated alias for complete-split"),
+    ):
+        p_ds = sub.add_parser(cmd_name, help=help_text)
+        p_ds.add_argument("--tree", type=Path, default=None)
+        p_ds.add_argument("--rulers", type=Path, default=None)
+        p_ds.add_argument("--confirm", action="store_true")
 
     p_wrc = sub.add_parser(
         "write-reopen-candidate",
@@ -418,11 +436,11 @@ def main(argv: list[str] | None = None) -> int:
                 root, tree=tree, rulers=rulers, confirm=bool(args.confirm)
             )
             return _emit_ok({"tree": locked_tree, "rulers": locked_rulers})
-        if args.command == "deliver-split":
+        if args.command in {"complete-split", "deliver-split"}:
             tree = _load_json_arg(args.tree)
             rulers = _load_json_arg(args.rulers)
             return _emit_ok(
-                deliver_split(
+                complete_split(
                     root,
                     tree=tree,
                     rulers=rulers,
@@ -452,6 +470,7 @@ __all__ = [
     "complete_intake",
     "conventional_main_paths",
     "conventional_slice_paths",
+    "complete_split",
     "deliver_split",
     "empty_intake",
     "ensure_dx_on_focus",

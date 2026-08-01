@@ -82,7 +82,7 @@ def test_init_shell_starts_main(tmp_path: Path) -> None:
 def test_main_to_split_requires_main_delivered(tmp_path: Path) -> None:
     root = tmp_path / "lulu-approach"
     init_shell(root)
-    with pytest.raises(ValueError, match="main is not Delivered"):
+    with pytest.raises(ValueError, match="main is not Completed"):
         enter_split(root)
     _write_delivered(main_session_dir(root))
     shell = enter_split(root)
@@ -93,7 +93,7 @@ def test_main_to_split_requires_main_delivered(tmp_path: Path) -> None:
 def test_main_to_package_ready_no_split(tmp_path: Path) -> None:
     root = tmp_path / "lulu-approach"
     init_shell(root)
-    with pytest.raises(ValueError, match="main is not Delivered"):
+    with pytest.raises(ValueError, match="main is not Completed"):
         enter_package_ready(root)
     _write_delivered(main_session_dir(root))
     shell = enter_package_ready(root)
@@ -193,7 +193,7 @@ def test_split_working_package_ready_path(tmp_path: Path) -> None:
     init_shell(root)
     _write_delivered(main_session_dir(root))
     enter_split(root)
-    with pytest.raises(ValueError, match="Split is not Delivered"):
+    with pytest.raises(ValueError, match="Split is not completed"):
         enter_working(root, ["D1", "D2"])
     mark_split_delivered(root)
     shell = enter_working(root, ["D1", "D2"], focus="D1")
@@ -205,7 +205,7 @@ def test_split_working_package_ready_path(tmp_path: Path) -> None:
     assert (root / "D1").is_dir()
     assert not (root / "D2").exists()
 
-    with pytest.raises(ValueError, match="not all children Delivered"):
+    with pytest.raises(ValueError, match="not all children Completed"):
         enter_package_ready(root)
 
     mark_node_delivered(root, "D1")
@@ -222,7 +222,7 @@ def test_commit_focus_rejects_mid_working_switch(tmp_path: Path) -> None:
     mark_split_delivered(root)
     enter_working(root, ["D1", "D2"], focus="D1")
 
-    with pytest.raises(ValueError, match="not Delivered"):
+    with pytest.raises(ValueError, match="not Completed"):
         commit_focus(root, "D2")
 
     shell = commit_focus(root, "D1")
@@ -242,7 +242,7 @@ def test_commit_focus_switch_via_session_state_delivered_stub(tmp_path: Path) ->
     mark_split_delivered(root)
     enter_working(root, ["D1", "D2"], focus="D1")
     _write_in_progress(root / "D1")
-    with pytest.raises(ValueError, match="not Delivered"):
+    with pytest.raises(ValueError, match="not Completed"):
         commit_focus(root, "D2")
     _write_delivered(root / "D1")
     shell = commit_focus(root, "D2")

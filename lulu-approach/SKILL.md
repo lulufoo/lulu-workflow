@@ -41,7 +41,7 @@ invocation. Do not read session data files for routing.
 | `$RESOLVE_CONSTRAINT_DOCS` | `python3 "$SKILL_DIR/scripts/resolve_constraint_docs.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json"` |
 | `$APPROACH_SHELL` | `python3 "$SKILL_DIR/scripts/approach_shell_control.py" --approach-root "$APPROACH_ROOT"` |
 | `$APPROACH_NODE` | `python3 "$SKILL_DIR/scripts/approach_shell_control.py" --approach-root "$APPROACH_ROOT" <subcommand> --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json"` |
-| `$APPROACH_CONFIRM_SEAL` | `python3 "$SKILL_DIR/scripts/approach_shell_control.py" --approach-root "$APPROACH_ROOT" confirm-seal --cycle-id "<cycle_id>" --project-root "$(pwd)"` |
+| `$APPROACH_DELIVER` | `python3 "$SKILL_DIR/scripts/approach_shell_control.py" --approach-root "$APPROACH_ROOT" deliver --cycle-id "<cycle_id>" --project-root "$(pwd)"` |
 | `$APPROACH_SPLIT` | `python3 "$SKILL_DIR/scripts/approach_split_control.py" --approach-root "$APPROACH_ROOT"` |
 
 ### Imported decision macros
@@ -64,11 +64,12 @@ Subcommand and stdout contracts remain in script module docstrings or `--help`.
 ## Outer spine
 
 ```text
-Path A: Main → PackageReady → sealed
-Path B: Main → Split → Working (D1…Dn, single focus) → PackageReady → sealed
+Path A: Main (node Completed) → PackageReady → stage Delivered
+Path B: Main → Split → Working (D1…Dn, single focus) → PackageReady → stage Delivered
 ```
 
-Local session delivery is not approach-stage delivery.
+Node/session **Completed** (`$GATE_CONTROL complete`) is not approach-stage
+**Delivered** (`$APPROACH_DELIVER`).
 
 ## Load Context (before Main enter)
 
@@ -147,13 +148,14 @@ session is declared to the user.
 
 6. Complete [Shared context activation](#shared-context-activation).
    Do **not** re-run Load Context or Load Constraint here.
-7. Run the delegated DDF on Active. After the DDF is delivery-ready, run
-   `$GATE_CONTROL deliver`.
+7. Run the delegated DDF on Active. After the DDF is ready to complete, run
+   `$GATE_CONTROL complete`.
 
-**Done:** `main` is Delivered. Tell the user this is node-session delivery,
-not approach-stage delivery.
+**Done:** `main` is **Completed** (node/session). Tell the user this is not
+approach-stage **Delivered**.
 
-**Exit:** For Path A, continue with [PackageReady → seal](#packageready--seal).
+**Exit:** For Path A, continue with
+[PackageReady → stage Deliver](#packageready--stage-deliver).
 For Path B, continue with [Split (optional)](#split-optional).
 
 **Stop:** On non-zero output, stop and report stderr. If `$DEC_START` reports a
@@ -161,7 +163,7 @@ blocked prior stage, report that stage and do not retry.
 
 ## Split (optional)
 
-**Entry:** `main` is Delivered and Path B is selected.
+**Entry:** `main` is Completed and Path B is selected.
 
 **Act:**
 
@@ -176,18 +178,18 @@ blocked prior stage, report that stage and do not retry.
      --tree "$TREE_PATH" --rulers "$RULERS_PATH" --confirm
    ```
 
-4. After explicit human confirmation, run `$APPROACH_SPLIT deliver-split --confirm`.
+4. After explicit human confirmation, run `$APPROACH_SPLIT complete-split --confirm`.
    Capture the returned `slices[].id` in order as `$SLICE_IDS`.
 5. Run `$APPROACH_SHELL enter-working --node-ids $SLICE_IDS [--focus "<Dx>"]`,
    then continue with [Enter or resume a Dx](#enter-or-resume-a-dx).
 
-**Done:** Split delivery and a Working focus both succeed.
+**Done:** Split complete and a Working focus both succeed.
 
 **Stop:** On non-zero output or absent human confirmation, stop and report.
 
 ## Working
 
-Single focus is mandatory; the current focus must be Delivered before a different
+Single focus is mandatory; the current focus must be Completed before a different
 node is entered.
 
 ### Enter or resume a Dx
@@ -223,17 +225,17 @@ Do **not** run Load Context or Load Constraint on Dx enter.
 **Act:** Run DDF gates and registers on Active through `$GATE_CONTROL`,
 `$REGISTER_CONTROL`, and `$REGISTER_COMMIT`; never pass `--session-dir`.
 
-**Done:** The current `Dx` is Delivered.
+**Done:** The current `Dx` is Completed.
 
 **Stop:** On non-zero output, stop and report stderr.
 
 ### Advance or finish Working
 
-**Entry:** The current `Dx` is Delivered.
+**Entry:** The current `Dx` is Completed.
 
 **Act:** If a ready node remains, repeat [Enter or resume a Dx](#enter-or-resume-a-dx).
 When no nodes remain and none are Frozen, continue with
-[PackageReady → seal](#packageready--seal).
+[PackageReady → stage Deliver](#packageready--stage-deliver).
 
 **Done:** The next `Dx` is Active, or PackageReady is ready to enter.
 
@@ -242,25 +244,31 @@ When no nodes remain and none are Frozen, continue with
 Do not use `$APPROACH_SHELL set-focus`, treat a focus-only change as a session
 switch, or invent a decision-only Active switch.
 
-## PackageReady → seal
+## PackageReady → stage Deliver
 
-**Entry:** `main` is Delivered on Path A, or all Working nodes are Delivered and
+**Entry:** `main` is Completed on Path A, or all Working nodes are Completed and
 none are Frozen.
 
-**Act:** Run `$APPROACH_SHELL enter-package-ready`. After explicit human
-confirmation, run `$APPROACH_CONFIRM_SEAL --confirm`.
+**Act:**
 
-**Done:** `confirm-seal` succeeds. Only then claim approach-stage delivery with
-the `decision-package` artifact.
+1. Run `$APPROACH_SHELL enter-package-ready`.
+2. Run `$APPROACH_DELIVER --confirm`:
+   - **Path A:** selecting Path A is the human confirm — do **not** ask a second
+     deliver question; pass `--confirm` and stage-deliver immediately.
+   - **Path B:** after Working is fully Completed, obtain explicit human
+     confirmation, then pass `--confirm`.
 
-**Stop:** On non-zero output or absent human confirmation, stop and report.
+**Done:** stage `deliver` succeeds. Only then claim approach-stage **Delivered**
+with the `decision-package` artifact (cycle `delivered-refs`).
+
+**Stop:** On non-zero output or (Path B) absent human confirmation, stop and report.
 
 ## Reopen paths
 
 Before `$APPROACH_NODE reopen-node --node-id main`, retain the currently
 declared source outer state. If it is unknown, stop and report; do not infer it
 from files. Until a selected reopen route completes, do not enter PackageReady
-or seal.
+or stage deliver.
 
 ### Split review
 
@@ -374,7 +382,7 @@ check and Realign portion of [Enter or resume a Dx](#enter-or-resume-a-dx).
 
 **Stop:** On non-zero output, stop and report stderr.
 
-PackageReady and sealed are not normal reopen entry states; report an unsupported
+PackageReady and stage-Delivered are not normal reopen entry states; report an unsupported
 state instead.
 
 ## Interrupted binding

@@ -231,7 +231,7 @@ def migrate_session_dir(
     doc = load_decision_doc(doc_path) if doc_path.exists() else ""
 
     fm = parse_frontmatter(ss_path.read_text(encoding="utf-8"))
-    delivered = fm.get("current_state") == "Delivered"
+    delivered = fm.get("current_state") in {"Completed", "Delivered"}
 
     dc_path = session_dir / "domain-constraints.json"
     if dc_path.is_file():
