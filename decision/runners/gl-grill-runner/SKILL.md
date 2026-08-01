@@ -41,26 +41,17 @@ Subcommand contracts: module docstring / `--help`.
 
 | ID | Must be clear |
 |----|----------------|
-| `G-direction-ready` | Enough decision-domain operational/confirmation intent for accurate direction choice at E. |
-| `G-diagnosis-preflight` | Intent-layer preflight for every **active** X dimension (reduce reopen after D when X would otherwise bomb). |
+| `G-direction-ready` | Enough decision-domain operational/confirmation intent to choose a direction accurately at E. |
+| `G-diagnosis-preflight` | Before direction choice: clear intent-layer mines that would overturn that choice (high-risk assumption / failure class / irreversible commitment). Active X dims are coverage handles only — not diagnosis prompts. |
 
-### Lenses (for `G-diagnosis-preflight` only)
+`G-direction-ready` probes target operational/confirmation intent for direction
+choice; they may cross dims freely. Active-X-dim coverage and demining shape are
+not completion conditions for this goal.
 
-Read `$CTX.domain_constraints.x_dimensions` (active set) and optional
-`domain.dimension_profile[dim].{question,depth}` as **language/depth hints only**.
-
-For each active dim, convert to an intent-probe question using this role map
-(do **not** run full X diagnosis here):
-
-| Dim | Intent role (bound) |
-|-----|---------------------|
-| `acceptance_criteria` | Intent-level success signal that a direction is right — not an acceptance checklist |
-| `impact_surface` | Who is pulled by the direction choice / must weigh in — not a module inventory |
-| `external_dependencies` | External promise that locks once a direction is chosen — not full contracts |
-| `implementation_sketch` | Irreversible or high-complexity landing preference — not a file-edit list |
-| `gap_check` | Failure class most feared if missed — not the Gap section body |
-
-Do not hard-code full question wording; phrase from roles + profile hints + locked Q.
+`G-diagnosis-preflight` probes use active `$CTX.domain_constraints.x_dimensions`
+as coverage handles (`lens` ids) only; phrase from locked Q + optional
+`domain.dimension_profile` hints to match the Goals row — not as mini-X stems
+or shallow X fills.
 
 ### Ask domain / bounds
 
@@ -72,7 +63,7 @@ Do not hard-code full question wording; phrase from roles + profile hints + lock
 
 - `G-direction-ready`: further probes would not materially change the candidate
   direction set, or critical intent conflicts are already surfaced and recorded.
-- `G-diagnosis-preflight`: each active X dim has an intent-layer conclusion or a
+- `G-diagnosis-preflight`: each active X dim has a demining conclusion or a
   reasoned `na` the user understands. Unjustified all-`na` is not a pass.
 - Evaluate using locked Q, this gate’s dialogue, and related G0 prior/assumptions.
 
@@ -110,7 +101,7 @@ CLI green ≠ framework pass.
    - `objective` — session intent; frame the gate within this goal
    - `role.instruction` — persona and language stance
    - `domain.instruction` — domain boundary constraints
-   - `x_dimensions` / `domain.dimension_profile` — active lenses and hints
+   - `x_dimensions` / `domain.dimension_profile` — coverage handles and profile hints
 2. Obtain locked Q via `$GATE_CONTROL get-payload` (or fields already on `$CTX`);
    do not start probes until Q payload is available.
 3. Loop (Cognitive map):
