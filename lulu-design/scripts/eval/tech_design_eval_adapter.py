@@ -29,9 +29,9 @@ from discussion_pointer_schema import (  # noqa: E402
 from session_state_schema import load_active_doc_from_cycle  # noqa: E402
 from workflow_common import detect_cycle_type  # noqa: E402
 from workflow_profile_paths import (  # noqa: E402
-    doc_dir,
     document_path,
-    eval_round_dir,
+    eval_layout_for_revision,
+    eval_round_dir_for_layout,
 )
 from workflow_state_schema import (  # noqa: E402
     load_workflow_state,
@@ -40,8 +40,17 @@ from workflow_state_schema import (  # noqa: E402
 )
 from resolved_refs_schema import frozen_delivered_path_by_type  # noqa: E402
 
+from eval_handoff_control import resolve_evaluate_state_abs  # noqa: E402
+from session_evaluating import (  # noqa: E402
+    enter_evaluating_state,
+    rollback_evaluating_phase,
+)
+from subagent_config import detect_platform, get_stage_config_bucket  # noqa: E402
+
 sys.path.insert(0, str(EVAL_SCRIPTS))
 from workflow_adapter import SessionContext  # noqa: E402
+from evaluate_state_ops import init_evaluate_state_for_session  # noqa: E402
+from corpus_compose import compose_corpus  # noqa: E402
 
 from tech_design_eval_policy import select_dimension_defs  # noqa: E402
 
@@ -50,7 +59,6 @@ TECH_DESIGN_COMPOSED_CORPUS_VERSION = "1"
 TECH_DESIGN_COMPOSED_CORPUS_REF = (
     f"{TECH_DESIGN_COMPOSED_CORPUS_ID}@{TECH_DESIGN_COMPOSED_CORPUS_VERSION}"
 )
-
 
 class TechDesignEvalAdapter:
     """WorkflowAdapter for lulu-design cache layout and state machine."""
@@ -84,8 +92,6 @@ class TechDesignEvalAdapter:
     def resolve_evaluate_state_path(
         self, cycle_id: str, project_root: Path
     ) -> Path:
-        from eval_handoff_control import resolve_evaluate_state_abs  # noqa: WPS433
-
         return resolve_evaluate_state_abs(
             cycle_id,
             project_root,
@@ -122,12 +128,6 @@ class TechDesignEvalAdapter:
         evaluate_round: int,
         es_path: Path,
     ) -> dict[str, str]:
-        from discussion_pointer_schema import load_discussion_pointer  # noqa: WPS433
-        from workflow_profile_paths import (  # noqa: WPS433
-            eval_layout_for_revision,
-            eval_round_dir_for_layout,
-        )
-
         root = project_root.resolve()
         compose_doc = (
             root / document_path(cycle_id, active_doc, _WORKFLOW_ID, project_root)
@@ -166,8 +166,6 @@ class TechDesignEvalAdapter:
     def resolve_eval_corpus(
         self, cycle_id: str, project_root: Path
     ) -> dict[str, Any]:
-        from corpus_compose import compose_corpus  # noqa: WPS433
-
         cycle_type = detect_cycle_type(cycle_id)
         state = self.load_workflow_state(cycle_id, project_root)
         mode = state.get("mode", "tech")
@@ -200,8 +198,6 @@ class TechDesignEvalAdapter:
     def corpus_bind_extensions(
         self, cycle_id: str, project_root: Path
     ) -> dict[str, str]:
-        from subagent_config import detect_platform, get_stage_config_bucket  # noqa: WPS433
-
         plat = detect_platform(None)
         section = get_stage_config_bucket(project_root.resolve(), "lulu-design", "eval", plat)
         if not section:
@@ -223,13 +219,6 @@ class TechDesignEvalAdapter:
     def enter_evaluating(
         self, cycle_id: str, project_root: Path
     ) -> dict[str, Any]:
-        if str(_EVAL_SCRIPTS) not in sys.path:
-            sys.path.insert(0, str(_EVAL_SCRIPTS))
-        if str(_KERNEL_SCRIPTS) not in sys.path:
-            sys.path.insert(0, str(_KERNEL_SCRIPTS))
-        from evaluate_state_ops import init_evaluate_state_for_session  # noqa: WPS433
-        from session_evaluating import enter_evaluating_state  # noqa: WPS433
-
         result = enter_evaluating_state(
             cycle_id,
             project_root,
@@ -248,8 +237,6 @@ class TechDesignEvalAdapter:
                     focus_l=focus,
                 )
             except Exception as exc:
-                from session_evaluating import rollback_evaluating_phase  # noqa: WPS433
-
                 revision_dir = self.resolve_workflow_state_path(
                     cycle_id, project_root
                 ).parent

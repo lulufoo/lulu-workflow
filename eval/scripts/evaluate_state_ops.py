@@ -23,6 +23,10 @@ from evaluate_state_schema import (
 )
 from workflow_adapter import WorkflowAdapter
 
+# Requires compose kernel paths on sys.path (callers run kernel_bootstrap first).
+from discussion_pointer_schema import load_discussion_pointer  # noqa: E402
+from workflow_profile_paths import eval_layout_for_revision  # noqa: E402
+
 
 def dispatch_dims_for_corpus(corpus: dict[str, Any]) -> list[str]:
     """Return canonical dimension ids for a corpus document."""
@@ -92,29 +96,23 @@ def init_evaluate_state_for_session(
     cycle_type = adapter.detect_cycle_type(cycle_id)
     if evaluate_round is None or not focus_l:
         # Prefer Compose layout helpers when caller omitted round / focus.
-        try:
-            from discussion_pointer_schema import load_discussion_pointer  # noqa: WPS433
-            from workflow_profile_paths import eval_layout_for_revision  # noqa: WPS433
-
-            revision_dir = adapter.resolve_workflow_state_path(
-                cycle_id, project_root
-            ).parent
-            layout = eval_layout_for_revision(revision_dir)
-            if not focus_l:
-                try:
-                    focus_l = str(load_discussion_pointer(revision_dir)["focus"])
-                except (FileNotFoundError, ValueError, OSError, KeyError):
-                    focus_l = "L1" if layout == "per-l" else ""
-            if evaluate_round is None and layout == "per-l":
-                evaluate_round = 1
-            elif evaluate_round is None:
-                state = adapter.load_workflow_state(cycle_id, project_root)
-                try:
-                    evaluate_round = int(state.get("evaluate_round", "0")) or None
-                except ValueError:
-                    evaluate_round = None
-        except Exception:
-            pass
+        revision_dir = adapter.resolve_workflow_state_path(
+            cycle_id, project_root
+        ).parent
+        layout = eval_layout_for_revision(revision_dir)
+        if not focus_l:
+            try:
+                focus_l = str(load_discussion_pointer(revision_dir)["focus"])
+            except (FileNotFoundError, ValueError, OSError, KeyError):
+                focus_l = "L1" if layout == "per-l" else ""
+        if evaluate_round is None and layout == "per-l":
+            evaluate_round = 1
+        elif evaluate_round is None:
+            state = adapter.load_workflow_state(cycle_id, project_root)
+            try:
+                evaluate_round = int(state.get("evaluate_round", "0")) or None
+            except ValueError:
+                evaluate_round = None
     init_evaluate_state_for_corpus(
         es_path,
         corpus,

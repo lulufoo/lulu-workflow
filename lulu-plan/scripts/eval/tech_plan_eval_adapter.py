@@ -27,9 +27,9 @@ from discussion_pointer_schema import (  # noqa: E402
 from session_state_schema import load_active_doc_from_cycle  # noqa: E402
 from workflow_common import detect_cycle_type  # noqa: E402
 from workflow_profile_paths import (  # noqa: E402
-    doc_dir,
     document_path,
-    eval_round_dir,
+    eval_layout_for_revision,
+    eval_round_dir_for_layout,
 )
 from resolved_refs_schema import frozen_delivered_path_by_type  # noqa: E402
 from workflow_state_schema import (  # noqa: E402
@@ -38,10 +38,24 @@ from workflow_state_schema import (  # noqa: E402
     save_workflow_state,
 )
 
+from eval_handoff_control import resolve_evaluate_state_abs  # noqa: E402
+from session_evaluating import (  # noqa: E402
+    enter_evaluating_state,
+    rollback_evaluating_phase,
+)
+from subagent_config import detect_platform, get_stage_config_bucket  # noqa: E402
+
 sys.path.insert(0, str(EVAL_SCRIPTS))
 if str(WORKFLOW_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(WORKFLOW_SCRIPTS))
 from workflow_adapter import SessionContext  # noqa: E402
+from evaluate_state_ops import init_evaluate_state_for_session  # noqa: E402
+from corpus_compose import compose_corpus  # noqa: E402
+from compose_package_schema import (  # noqa: E402
+    is_compose_package_path,
+    load_compose_package,
+    resolve_focus_doc_path,
+)
 
 from tech_plan_eval_policy import (  # noqa: E402
     intent_eval_config_key,
@@ -53,7 +67,6 @@ LULU_PLAN_COMPOSED_CORPUS_VERSION = "1"
 LULU_PLAN_COMPOSED_CORPUS_REF = (
     f"{LULU_PLAN_COMPOSED_CORPUS_ID}@{LULU_PLAN_COMPOSED_CORPUS_VERSION}"
 )
-
 
 class TechPlanEvalAdapter:
     """WorkflowAdapter for lulu-plan cache layout and state machine."""
@@ -87,8 +100,6 @@ class TechPlanEvalAdapter:
     def resolve_evaluate_state_path(
         self, cycle_id: str, project_root: Path
     ) -> Path:
-        from eval_handoff_control import resolve_evaluate_state_abs  # noqa: WPS433
-
         return resolve_evaluate_state_abs(
             cycle_id,
             project_root,
@@ -121,12 +132,6 @@ class TechPlanEvalAdapter:
         evaluate_round: int,
         es_path: Path,
     ) -> dict[str, str]:
-        from discussion_pointer_schema import load_discussion_pointer  # noqa: WPS433
-        from workflow_profile_paths import (  # noqa: WPS433
-            eval_layout_for_revision,
-            eval_round_dir_for_layout,
-        )
-
         root = project_root.resolve()
         revision_dir = self.resolve_workflow_state_path(cycle_id, project_root).parent
         layout = eval_layout_for_revision(revision_dir)
@@ -164,8 +169,6 @@ class TechPlanEvalAdapter:
     def resolve_eval_corpus(
         self, cycle_id: str, project_root: Path
     ) -> dict[str, Any]:
-        from corpus_compose import compose_corpus  # noqa: WPS433
-
         revision_dir = self.resolve_workflow_state_path(cycle_id, project_root).parent
         tech_design_ref = frozen_delivered_path_by_type(revision_dir, "lulu-design")
         tech_diagnostic_ref = frozen_delivered_path_by_type(revision_dir, "lulu-approach")
@@ -197,8 +200,6 @@ class TechPlanEvalAdapter:
     def corpus_bind_extensions(
         self, cycle_id: str, project_root: Path
     ) -> dict[str, str]:
-        from subagent_config import detect_platform, get_stage_config_bucket  # noqa: WPS433
-
         plat = detect_platform(None)
         section = get_stage_config_bucket(project_root.resolve(), "lulu-plan", "eval", plat)
         revision_dir = self.resolve_workflow_state_path(cycle_id, project_root).parent
@@ -236,13 +237,6 @@ class TechPlanEvalAdapter:
         tech_diagnostic_path: str,
     ) -> str:
         """Bind Plan eval SoT: package+focus → upstream L doc; else approach prose."""
-        from compose_package_schema import (  # noqa: WPS433
-            is_compose_package_path,
-            load_compose_package,
-            resolve_focus_doc_path,
-        )
-        from discussion_pointer_schema import load_discussion_pointer  # noqa: WPS433
-
         if tech_design_path and is_compose_package_path(tech_design_path):
             package_path = Path(tech_design_path)
             package = load_compose_package(package_path)
@@ -265,9 +259,6 @@ class TechPlanEvalAdapter:
     def enter_evaluating(
         self, cycle_id: str, project_root: Path
     ) -> dict[str, Any]:
-        from evaluate_state_ops import init_evaluate_state_for_session  # noqa: WPS433
-        from session_evaluating import enter_evaluating_state  # noqa: WPS433
-
         result = enter_evaluating_state(
             cycle_id,
             project_root,
@@ -286,8 +277,6 @@ class TechPlanEvalAdapter:
                     focus_l=focus,
                 )
             except Exception as exc:
-                from session_evaluating import rollback_evaluating_phase  # noqa: WPS433
-
                 revision_dir = self.resolve_workflow_state_path(
                     cycle_id, project_root
                 ).parent

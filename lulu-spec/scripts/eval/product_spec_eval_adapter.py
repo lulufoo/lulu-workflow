@@ -29,9 +29,9 @@ from resolved_refs_schema import has_resolved_refs, resolved_scope_ref  # noqa: 
 from session_state_schema import load_active_doc_from_cycle  # noqa: E402
 from workflow_common import detect_cycle_type  # noqa: E402
 from workflow_profile_paths import (  # noqa: E402
-    doc_dir,
     document_path,
-    eval_round_dir,
+    eval_layout_for_revision,
+    eval_round_dir_for_layout,
 )
 from workflow_state_schema import (  # noqa: E402
     load_workflow_state,
@@ -39,8 +39,17 @@ from workflow_state_schema import (  # noqa: E402
     save_workflow_state,
 )
 
+from eval_handoff_control import resolve_evaluate_state_abs  # noqa: E402
+from session_evaluating import (  # noqa: E402
+    enter_evaluating_state,
+    rollback_evaluating_phase,
+)
+from subagent_config import detect_platform, get_stage_config_bucket  # noqa: E402
+
 sys.path.insert(0, str(EVAL_SCRIPTS))
 from workflow_adapter import SessionContext  # noqa: E402
+from evaluate_state_ops import init_evaluate_state_for_session  # noqa: E402
+from corpus_compose import compose_corpus  # noqa: E402
 
 from product_spec_eval_policy import select_dimension_defs  # noqa: E402
 
@@ -49,7 +58,6 @@ PRODUCT_SPEC_COMPOSED_CORPUS_VERSION = "1"
 PRODUCT_SPEC_COMPOSED_CORPUS_REF = (
     f"{PRODUCT_SPEC_COMPOSED_CORPUS_ID}@{PRODUCT_SPEC_COMPOSED_CORPUS_VERSION}"
 )
-
 
 class ProductSpecEvalAdapter:
     """WorkflowAdapter for lulu-spec cache layout and state machine."""
@@ -89,8 +97,6 @@ class ProductSpecEvalAdapter:
         cycle_id: str,
         project_root: Path,
     ) -> Path:
-        from eval_handoff_control import resolve_evaluate_state_abs  # noqa: WPS433
-
         return resolve_evaluate_state_abs(
             cycle_id,
             project_root,
@@ -129,12 +135,6 @@ class ProductSpecEvalAdapter:
         evaluate_round: int,
         es_path: Path,
     ) -> dict[str, str]:
-        from discussion_pointer_schema import load_discussion_pointer  # noqa: WPS433
-        from workflow_profile_paths import (  # noqa: WPS433
-            eval_layout_for_revision,
-            eval_round_dir_for_layout,
-        )
-
         root = project_root.resolve()
         compose_doc = (
             root / document_path(cycle_id, active_doc, _WORKFLOW_ID, project_root)
@@ -175,8 +175,6 @@ class ProductSpecEvalAdapter:
         cycle_id: str,
         project_root: Path,
     ) -> dict[str, Any]:
-        from corpus_compose import compose_corpus  # noqa: WPS433
-
         cycle_type = detect_cycle_type(cycle_id)
         dimensions = select_dimension_defs(
             cycle_type=cycle_type,
@@ -205,8 +203,6 @@ class ProductSpecEvalAdapter:
         cycle_id: str,
         project_root: Path,
     ) -> dict[str, str]:
-        from subagent_config import detect_platform, get_stage_config_bucket  # noqa: WPS433
-
         revision_dir = self.resolve_workflow_state_path(cycle_id, project_root).parent
         scope = resolved_scope_ref(revision_dir) if has_resolved_refs(revision_dir) else None
         decision_ref = scope.path if scope is not None else ""
@@ -228,9 +224,6 @@ class ProductSpecEvalAdapter:
         cycle_id: str,
         project_root: Path,
     ) -> dict[str, Any]:
-        from evaluate_state_ops import init_evaluate_state_for_session  # noqa: WPS433
-        from session_evaluating import enter_evaluating_state  # noqa: WPS433
-
         result = enter_evaluating_state(
             cycle_id,
             project_root,
@@ -249,8 +242,6 @@ class ProductSpecEvalAdapter:
                     focus_l=focus,
                 )
             except Exception as exc:
-                from session_evaluating import rollback_evaluating_phase  # noqa: WPS433
-
                 revision_dir = self.resolve_workflow_state_path(
                     cycle_id, project_root
                 ).parent

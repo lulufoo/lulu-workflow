@@ -83,6 +83,12 @@ from evaluate_state_ops import (  # noqa: E402
     save_evaluate_state_locked,
 )
 from workflow_adapter import WorkflowAdapter  # noqa: E402
+from eval_handoff_control import (  # noqa: E402
+    commit_artifacts,
+    commit_evaluate_state,
+    request_handoff,
+)
+from eval_handoff_schema import build_artifact_manifest  # noqa: E402
 
 _ADAPTER_CTX: ContextVar[WorkflowAdapter | None] = ContextVar("workflow_adapter", default=None)
 _WORKFLOW_ID_CTX: ContextVar[str | None] = ContextVar("workflow_id", default=None)
@@ -127,14 +133,6 @@ def _refresh_handoff(
     require_evaluating: bool = True,
 ) -> dict[str, Any]:
     """Request a fresh Compose handoff and store it in the context var."""
-    kernel = Path(__file__).resolve().parents[2] / "compose" / "scripts"
-    if str(kernel) not in sys.path:
-        sys.path.insert(0, str(kernel))
-    import kernel_bootstrap  # noqa: WPS433
-
-    kernel_bootstrap.ensure_kernel_paths()
-    from eval_handoff_control import request_handoff  # noqa: WPS433
-
     result = request_handoff(
         cycle_id,
         project_root,
@@ -753,16 +751,6 @@ def _start_next_eval_round(
         evaluate_round=evaluate_round,
         focus_l=str(context.get("focus_l", "")),
     )
-    kernel = Path(__file__).resolve().parents[2] / "compose" / "scripts"
-    if str(kernel) not in sys.path:
-        sys.path.insert(0, str(kernel))
-    import kernel_bootstrap  # noqa: WPS433
-
-    kernel_bootstrap.ensure_kernel_paths()
-    from eval_handoff_control import commit_evaluate_state  # noqa: WPS433
-
-    # Temporarily point handoff at staged path for corpus init bookkeeping only;
-    # commit publishes to the formal evaluate_state_path from layout.
     publish = commit_evaluate_state(
         cycle_id,
         project_root,
@@ -1148,15 +1136,6 @@ def _publish_staged_review_if_needed(
         )
 
     digest = hashlib.sha256(staged.read_bytes()).hexdigest()
-    kernel = Path(__file__).resolve().parents[2] / "compose" / "scripts"
-    if str(kernel) not in sys.path:
-        sys.path.insert(0, str(kernel))
-    import kernel_bootstrap  # noqa: WPS433
-
-    kernel_bootstrap.ensure_kernel_paths()
-    from eval_handoff_control import commit_artifacts  # noqa: WPS433
-    from eval_handoff_schema import build_artifact_manifest  # noqa: WPS433
-
     manifest = build_artifact_manifest(
         lease_id=lease_id,
         pointer_fingerprint_value=fingerprint,
