@@ -32,7 +32,6 @@ from scope_package_projection import (  # noqa: E402
     write_scope_package_projection,
 )
 from scope_package_schema import load_scope_package  # noqa: E402
-from start_scope_helpers import DecisionFactScopeError, require_decision_fact_scope  # noqa: E402
 from tech_design_start_adapter import TechDesignStartAdapter  # noqa: E402
 
 _dp_path = (
@@ -203,27 +202,6 @@ class TestRejectDecisionPackageAsScope:
         pkg.write_text("{}", encoding="utf-8")
         with pytest.raises(ScopePackageProjectionError, match="must not be used"):
             reject_decision_package_as_scope(pkg)
-
-    def test_require_decision_fact_scope_rejects_package_path(self, tmp_path: Path):
-        pkg = tmp_path / "decision-package.json"
-        pkg.write_text("{}", encoding="utf-8")
-        with pytest.raises(DecisionFactScopeError, match="must not be used"):
-            require_decision_fact_scope(
-                DeliveredRef(type="lulu-approach", path=str(pkg.resolve()))
-            )
-
-    def test_require_decision_fact_scope_rejects_package_as_fact(self, tmp_path: Path):
-        pkg = tmp_path / "decision-package.json"
-        pkg.write_text("{}", encoding="utf-8")
-        with pytest.raises(DecisionFactScopeError, match="must not be used"):
-            require_decision_fact_scope(
-                DeliveredRef(
-                    type="lulu-approach",
-                    path=str(tmp_path / "decision-doc.md"),
-                    decision_fact_path=str(pkg.resolve()),
-                )
-            )
-
 
 class TestNormKinds:
     def test_make_norm_ref_requires_closed_kind(self, tmp_path: Path):

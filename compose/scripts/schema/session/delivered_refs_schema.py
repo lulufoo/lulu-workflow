@@ -30,24 +30,24 @@ from cycle_delivered_refs import (  # noqa: E402
 
 @dataclass(frozen=True)
 class DeliveredRef:
-    """Upstream delivered stage reference (doc path + optional decision-fact).
+    """Upstream delivered stage reference (path + optional delivery shape).
 
     ``artifact`` marks delivery shape (archive-1.0 P0.7): e.g.
-    ``decision-package`` when ``path`` points at ``decision-package.json``.
+    ``source-package`` / ``scope-package`` / compose ``*-package.json``.
     ``kind`` is required on norm-channel refs (archive-1.0 P3 D2): e.g.
     ``parent_decision`` / ``split_artifact`` / ``topic_arch`` / ``other``.
+
+    Legacy cycle keys such as ``decision_fact_path`` are ignored on read and
+    never re-emitted — compose consumers use ``path`` + ``artifact`` only.
     """
 
     type: str
     path: str
-    decision_fact_path: str = ""
     artifact: str = ""
     kind: str = ""
 
     def to_dict(self) -> dict[str, str]:
         out: dict[str, str] = {"type": self.type, "path": self.path}
-        if self.decision_fact_path:
-            out["decision_fact_path"] = self.decision_fact_path
         if self.artifact:
             out["artifact"] = self.artifact
         if self.kind:
@@ -70,13 +70,11 @@ def ref_from_file_entry(delivered_type: str, data: dict[str, Any]) -> DeliveredR
     raw_path = str(entry.get("path", "")).strip()
     if not raw_path:
         return None
-    decision_fact = str(entry.get("decision_fact_path", "")).strip()
     artifact = str(entry.get("artifact", "")).strip()
     kind = str(entry.get("kind", "")).strip()
     return DeliveredRef(
         type=delivered_type,
         path=raw_path,
-        decision_fact_path=decision_fact,
         artifact=artifact,
         kind=kind,
     )
@@ -103,14 +101,12 @@ def parse_delivered_refs(state: dict[str, Any]) -> list[DeliveredRef]:
         path = str(item.get("path", "")).strip()
         if not dtype or not path:
             raise ValueError("delivered_refs item requires non-empty type and path")
-        decision_fact_path = str(item.get("decision_fact_path", "")).strip()
         artifact = str(item.get("artifact", "")).strip()
         kind = str(item.get("kind", "")).strip()
         refs.append(
             DeliveredRef(
                 type=dtype,
                 path=path,
-                decision_fact_path=decision_fact_path,
                 artifact=artifact,
                 kind=kind,
             )

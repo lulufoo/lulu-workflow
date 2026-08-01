@@ -11,10 +11,11 @@ revision dir (sibling of ``workflow-state.md``):
 
     ② resolved-refs.json   — the three provenance refs (scope / intent
        baseline / norm constraint) that the stage resolver settles ONCE at start.
-       For decision-holder stages, ``scope_ref.path`` is decision-fact.json
-       (required; no prose fallback). Plan←design uses the design prose doc.
-       This is the ONLY artifact compose consumers read; they never re-derive
-       from the mutable cycle file or from workflow-state.
+       For source-package / dual-entry flows, ``scope_ref.path`` is revision-local
+       ``scope-package.json`` (L topology lives in ``slices``). Plan←design may
+       also land as that same shape after projection. This is the ONLY artifact
+       compose consumers read; they never re-derive from the mutable cycle file
+       or from workflow-state.
 
 workflow-state.md carries pure session-control state and no longer stores
 ``delivered_refs``.
@@ -98,13 +99,11 @@ def _ref_from_dict(item: Any) -> DeliveredRef | None:
     path = str(item.get("path", "")).strip()
     if not dtype or not path:
         return None
-    decision_fact_path = str(item.get("decision_fact_path", "")).strip()
     artifact = str(item.get("artifact", "")).strip()
     kind = str(item.get("kind", "")).strip()
     return DeliveredRef(
         type=dtype,
         path=path,
-        decision_fact_path=decision_fact_path,
         artifact=artifact,
         kind=kind,
     )
@@ -138,31 +137,6 @@ def has_resolved_refs(revision_dir: Path) -> bool:
 
 def resolved_scope_ref(revision_dir: Path) -> DeliveredRef | None:
     return _ref_from_dict(load_resolved_refs(revision_dir).get("scope_ref"))
-
-
-def is_decision_fact_file(path: Path | str) -> bool:
-    """True when path is a readable decision-fact.json (unit scope SSOT)."""
-    p = Path(path)
-    if not p.is_file():
-        return False
-    if p.name == "decision-fact.json":
-        return True
-    try:
-        data = json.loads(p.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
-        return False
-    return isinstance(data, dict) and isinstance(data.get("gates"), dict)
-
-
-def scope_decision_fact_path(revision_dir: Path) -> str | None:
-    """Absolute decision-fact path when ``scope_ref`` is the unit SSOT; else None."""
-    ref = resolved_scope_ref(revision_dir)
-    if ref is None:
-        return None
-    raw = str(ref.path).strip()
-    if not raw or not is_decision_fact_file(raw):
-        return None
-    return str(Path(raw).resolve())
 
 
 def resolved_intent_baseline_refs(revision_dir: Path) -> list[DeliveredRef]:

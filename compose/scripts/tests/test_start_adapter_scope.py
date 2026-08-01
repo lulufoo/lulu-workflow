@@ -31,10 +31,6 @@ from dec_source_package_schema import (  # noqa: E402
 )
 from product_blueprint_start_adapter import ProductBlueprintStartAdapter  # noqa: E402
 from product_spec_start_adapter import ProductSpecStartAdapter  # noqa: E402
-from start_scope_helpers import (  # noqa: E402
-    DecisionFactScopeError,
-    require_decision_fact_scope,
-)
 from tech_arch_start_adapter import TechArchStartAdapter  # noqa: E402
 from tech_design_start_adapter import TechDesignStartAdapter  # noqa: E402
 from tech_plan_start_adapter import TechPlanStartAdapter  # noqa: E402
@@ -282,20 +278,25 @@ def test_product_spec_projects_bet_source_package(tmp_path: Path):
     assert Path(refs[0].path) == revision / "scope-package.json"
 
 
-def test_require_decision_fact_scope_helper(tmp_path: Path):
-    fact = _unit_fact(tmp_path)
-    preferred = require_decision_fact_scope(
-        DeliveredRef(
-            type="lulu-bet",
-            path="/abs/decision.md",
-            decision_fact_path=str(fact.resolve()),
-        )
-    )
-    assert preferred.path == str(fact.resolve())
-    with pytest.raises(DecisionFactScopeError, match="required"):
-        require_decision_fact_scope(
-            DeliveredRef(type="lulu-bet", path="/abs/decision.md")
-        )
+def test_delivered_ref_ignores_legacy_decision_fact_path_key() -> None:
+    """Compose DeliveredRef must not surface cycle audit key decision_fact_path."""
+    from delivered_refs_schema import ref_from_file_entry
+
+    data = {
+        "entries": {
+            "lulu-bet": {
+                "path": "/abs/source-package.json",
+                "decision_fact_path": "/abs/decision-fact.json",
+                "artifact": "source-package",
+            }
+        }
+    }
+    ref = ref_from_file_entry("lulu-bet", data)
+    assert ref is not None
+    assert ref.path == "/abs/source-package.json"
+    assert ref.artifact == "source-package"
+    assert "decision_fact_path" not in ref.to_dict()
+    assert not hasattr(ref, "decision_fact_path")
 
 
 def test_tech_arch_projects_approach_source_package(tmp_path: Path):

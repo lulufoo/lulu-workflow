@@ -66,12 +66,13 @@ To **abandon a partial revision** and begin fresh after fixes, run `$START_COMPO
 **Session state:** `$START_COMPOSE` lands in **`Split`**. Topology lock is revision-level; single-req still locks an explicit **L1** tree. No `split-skip`.
 
 1. Resolve `<revision_dir>` from `$SESSION_INFO`.
-2. `$MULTI_SLICE check-split-ready` — if ok, go to step 5.
-3. **Deductive hard-mirror** (when `pipeline.inductive` is `false` and primary `$SCOPE_REF` is `*-package.json`):
+2. `$MULTI_SLICE check-split-ready` — if ok, go to step 6.
+3. **Scope-package already converted** (primary `$SCOPE_REF` is `scope-package.json`): L topology was locked at start via convert — do **not** soft-split or hard-mirror. Non-zero check-split-ready → **Blocking**.
+4. **Deductive hard-mirror** (when `pipeline.inductive` is `false` and primary `$SCOPE_REF` is compose `*-package.json`, not `scope-package.json`):
    - Present the package `order` / titles (no cut edits). Human confirms once.
    - `$MULTI_SLICE lock-hard-mirror --package-path <absolute SCOPE_REF> --confirm`
    - Missing / invalid package / missing slice docs → **Blocking** (return upstream to re-deliver). Do **not** fall back to soft split-runner.
-4. **Otherwise** (inductive profiles, or deductive with `decision-fact.json` scope) dispatch **split-runner** inline (not a subagent):
+5. **Inductive soft split** (only when `pipeline.inductive` is `true`) dispatch **split-runner** inline (not a subagent):
 
 ```text
 Load {actual $SKILL_ROOT}/compose/split-runner/SKILL.md and follow its instructions in this conversation (interactive, human-driven — NOT a subagent).
@@ -83,8 +84,8 @@ COMPOSE_PROFILE=<profile_id>
 ```
 
    Human confirms stay on existing intake / `lock-tree --confirm`. Locked trees are immutable this iteration — re-split means a new revision. Multi-L lock requires rulers; single-L rulers exempt.
-5. `$MULTI_SLICE check-split-ready` — non-zero → Blocking.
-6. `$SESSION_CONTROL split-complete` — Split → Working. On failure → Blocking.
+6. `$MULTI_SLICE check-split-ready` — non-zero → Blocking.
+7. `$SESSION_CONTROL split-complete` — Split → Working. On failure → Blocking.
 
 **Done:** workflow-state `current_state=Working` and check-split-ready exits 0.
 
