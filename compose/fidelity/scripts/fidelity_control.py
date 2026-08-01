@@ -7,9 +7,10 @@ Subcommands:
     require-for-derive
                       Exit 0 only if status is passed
     status            Print JSON status
-    paths             Print bound paths for probes (scope doc + facts)
+    paths             Print bound paths for probes (current-L source + facts)
 
 Design: docs/domain/archive/compose/archive-3.0/compose-doc-ssot-facts-fidelity-eval-design.md
+Binding: docs/domain/archive/compose/archive-6.0/compose-fidelity-l-local-source-path-binding-design.md
 """
 
 from __future__ import annotations
@@ -42,6 +43,11 @@ from fidelity_evaluate_state_schema import (  # noqa: E402
 from resolved_refs_schema import (  # noqa: E402
     has_resolved_refs,
     resolved_scope_ref,
+)
+from scope_package_convert import (  # noqa: E402
+    ScopePackageAntiseepError,
+    focus_seed_source_path,
+    revision_uses_scope_package,
 )
 
 
@@ -124,17 +130,23 @@ def cmd_status(args: argparse.Namespace) -> int:
 
 
 def cmd_paths(args: argparse.Namespace) -> int:
+    """Bind E1/E2 SoT to the current focus L source_path (not whole package)."""
     rev_root = args.revision_dir.resolve()
     slice_dir = active_slice_dir(rev_root)
-    scope = ""
-    if has_resolved_refs(rev_root):
-        ref = resolved_scope_ref(rev_root)
-        if ref is not None:
-            scope = ref.path
+    source = ""
+    try:
+        if revision_uses_scope_package(rev_root):
+            source = focus_seed_source_path(rev_root)
+        elif has_resolved_refs(rev_root):
+            ref = resolved_scope_ref(rev_root)
+            if ref is not None:
+                source = ref.path
+    except ScopePackageAntiseepError as exc:
+        return _fail(str(exc))
     return _ok(
         {
             "ok": True,
-            "scope_doc": scope,
+            "source_path": source,
             "facts_path": facts_path(slice_dir).as_posix(),
             "fidelity_state": fidelity_evaluate_state_path(slice_dir).as_posix(),
             "dimension_defs_dir": (

@@ -103,7 +103,7 @@ $FIDELITY_EVAL_CONTROL paths
 
 ### Step 1b — Fidelity (E1∥E2; before Confirm / Pd)
 
-Run **E1** and **E2** in parallel (subagents OK) using defs under `$SKILL_ROOT/compose/fidelity/dimension-defs/` (`e1-doc-coverage`, `e2-fact-provenance`). SoT = `$ATOMIZE_SOURCE_PATH` content (`scope_doc` from `paths` must resolve to that source); EvalTarget + remediation = this revision `_facts.json`. Remediate **only** `_facts.json`. Max **3** rounds; same round must clear both dimensions. On round-cap with remaining blocking issues: ask the user in **plain text with multiple options and a stated lean** (do not use AskQuestion tool).
+Run **E1** and **E2** in parallel (subagents OK) using defs under `$SKILL_ROOT/compose/fidelity/dimension-defs/` (`e1-doc-coverage`, `e2-fact-provenance`). SoT = `$ATOMIZE_SOURCE_PATH` content (`source_path` from `paths` must equal that path); EvalTarget + remediation = this revision `_facts.json`. Remediate **only** `_facts.json`. Max **3** rounds; same round must clear both dimensions. On round-cap with remaining blocking issues: ask the user in **plain text with multiple options and a stated lean** (do not use AskQuestion tool).
 
 **E1 contract:** every doc obligation unit → exactly one fact disposition ∈ {`carried`,`quarantined`,`not_needed`}; for **carried** facts, no weakening vs doc (narrow blocking list in dim-def).
 
