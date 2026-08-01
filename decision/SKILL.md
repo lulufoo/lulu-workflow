@@ -144,7 +144,7 @@ Spine gates:
 | DC | `$SKILL_DIR/runners/dc-delivery-runner/SKILL.md` | R exit `dc` or verification complete |
 | Human Decision | `$SKILL_DIR/runners/hd-human-decision-runner/SKILL.md` | RR exit `human_decision` |
 
-Gate contracts (dialogue semantics): `$SKILL_DIR/gates/*.md` — each spine/global runner names its contract in Prerequisites; Gate Routing loads runners only, not gate files directly. Global: `g0-parallel-registers.md` · `rs-realign-state-handler.md`. Stale Per-gate: `$SKILL_DIR/references/stale-gate-update.md`. Stale Batch: `$SKILL_DIR/references/stale-batch-confirm.md`.
+Dialogue semantics SSOT: **unmerged** spine/global gates still use `$SKILL_DIR/gates/*.md` (each such runner names its contract in Prerequisites). **Merged** gates use the Cognitive map inside the corresponding `runners/*/SKILL.md` (this wave: **Q**). Gate Routing loads runners only, never gate files directly. Global gate files (unmerged): `g0-parallel-registers.md` · `rs-realign-state-handler.md`. Stale Per-gate: `$SKILL_DIR/references/stale-gate-update.md`. Stale Batch: `$SKILL_DIR/references/stale-batch-confirm.md`.
 
 ---
 
@@ -157,7 +157,7 @@ Before every user-visible reply, project internal workflow **machinery** into us
 Use only:
 
 - Pinned `$CTX`
-- The active runner/gate contract
+- The active runner (merged-gate Cognitive map, or unmerged gate contract named in that runner)
 - Gate routing next-step information
 - `$CTX.domain_constraints`
 
