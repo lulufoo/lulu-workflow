@@ -68,8 +68,8 @@ def is_generation_guaranteed(
     """True iff ``source`` is role-A intent baseline AND some ref has a non-empty manifest.
 
     Accepts ``ai_intent_baseline`` (current opens means) and legacy
-    ``intent_baseline``. Does **not** treat ``ai_scope_scan`` (role B) as
-    generation-guaranteed.
+    ``intent_baseline``. Other means (e.g. ``ai_scan`` / ``ai_probe``) are
+    not generation-guaranteed.
 
     A non-empty manifest means the demands were in scope at Gate 3, whose close
     gate requires each demand fulfilled-or-deferred — so downstream coverage

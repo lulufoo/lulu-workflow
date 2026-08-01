@@ -6,7 +6,7 @@ Function-view catalog of G3 capabilities. **This file is the capability SSOT.** 
 
 **Provenance vocabulary (two layers):**
 - **Opens** (`inductive-opens.json`): `trigger ∈ {human, ai}` × `means ∈ {human_probe, ai_probe, human_direct, human_view, ai_scan, ai_intent_baseline}`. Means names are self-describing (`human_*` / `ai_*`); phase 1 keeps `trigger` and validates prefix ↔ trigger. Legacy means migrate on load/save.
-- **Seed facts** (`_facts.json`): `origin.type=seed` with hybrid `origin.ref` (scope path + excerpt / unit id) — **not** an open `trigger=seed` stamp. Seed bypasses opens.
+- **Seed facts** (`_facts.json`): `origin.type=seed` with hybrid `origin.ref` (scope path + stable id or excerpt inside source content) — **not** an open `trigger=seed` stamp. Seed bypasses opens.
 
 Stamps are **always** recorded even when hidden from the user's wording — they feed G5 provenance and I10 inheritance.
 

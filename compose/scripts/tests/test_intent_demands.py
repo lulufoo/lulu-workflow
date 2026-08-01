@@ -105,7 +105,7 @@ def test_is_generation_guaranteed_false_for_other_source(tmp_path: Path):
     _write_manifest(rev, [{"id": "SPEC-1", "section": "ST", "summary": "a"}])
     refs = [{"type": "lulu-spec", "path": str(rev / "product-doc.md")}]
     assert is_generation_guaranteed(refs, source="scope") is False
-    assert is_generation_guaranteed(refs, source="ai_scope_scan") is False
+    assert is_generation_guaranteed(refs, source="ai_scan") is False
 
 
 def test_is_generation_guaranteed_accepts_legacy_and_prefixed_role_a(

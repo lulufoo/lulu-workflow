@@ -167,7 +167,7 @@ def test_migrate_means_stock_map():
     assert migrate_means("human", "view") == "human_view"
     assert migrate_means("ai", "intent_baseline") == "ai_intent_baseline"
     assert migrate_means("ai", "ai_scan") == "ai_scan"
-    assert migrate_means("ai", "ai_scope_scan") == "ai_scope_scan"
+    assert migrate_means("ai", "ai_scope_scan") == "ai_scan"
 
 
 def test_normalize_migrates_legacy_means():
@@ -181,7 +181,7 @@ def test_validate_rejects_prefix_trigger_mismatch():
     errs = validate_opens(
         [
             _minimal_open(
-                source={"trigger": "human", "means": "ai_scope_scan"},
+                source={"trigger": "human", "means": "ai_scan"},
             )
         ]
     )
@@ -200,7 +200,14 @@ def test_save_load_rewrites_legacy_means(tmp_path: Path):
     assert '"human_direct"' in path.read_text(encoding="utf-8")
 
 
-def test_ai_scope_scan_accepted():
+def test_ai_scope_scan_migrates_to_ai_scan():
+    n = normalize_open(
+        _minimal_open(
+            source={"trigger": "ai", "means": "ai_scope_scan"},
+            intent_ref="D-1",
+        )
+    )
+    assert n["source"]["means"] == "ai_scan"
     assert (
         validate_opens(
             [

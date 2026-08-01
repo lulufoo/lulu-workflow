@@ -34,7 +34,6 @@ MEANS = frozenset(
         "human_view",
         "ai_scan",
         "ai_intent_baseline",
-        "ai_scope_scan",
     }
 )
 CONFIDENCES = frozenset({"direct", "inferred"})
@@ -96,6 +95,9 @@ def migrate_means(trigger: str, means: str) -> str:
         return "human_view"
     if m == "intent_baseline":
         return "ai_intent_baseline"
+    if m == "ai_scope_scan":
+        # Retired unit-scan means (archive-6.0); fold into format-neutral ai_scan.
+        return "ai_scan"
     # ai_scan already in MEANS; listed in _LEGACY for discoverability only.
     return m
 

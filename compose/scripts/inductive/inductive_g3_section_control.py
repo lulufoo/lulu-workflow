@@ -1396,7 +1396,7 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="M",
         help=(
             "human_probe|ai_probe|human_direct|human_view|ai_scan|"
-            "ai_intent_baseline|ai_scope_scan (required; legacy means migrated on save)"
+            "ai_intent_baseline (required; legacy means migrated on save)"
         ),
     )
     p.add_argument("--problem", required=True, metavar="TEXT")

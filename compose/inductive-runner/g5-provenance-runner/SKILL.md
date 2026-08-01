@@ -31,7 +31,7 @@ Plain-text block from the orchestrating inductive-runner:
 
 ```
 INDUCTIVE_OUT_DIR       absolute path to revision{N}/ inductive state bundle
-SCOPE_REF               absolute path to upstream scope SSOT (派生父级; algorithm B — decision-fact.json units; or non-decision prose e.g. design-doc)
+SCOPE_REF               absolute path to current-focus source material (派生父级; algorithm B — same Seed content, format-neutral)
 INTENT_BASELINE_REFS    JSON array of {type,path} refs (意图基准, algorithm A); [] to skip A
 NORM_CONSTRAINT_REFS    JSON array of {type,path} refs (规范约束, algorithm C); [] to skip C
 COMPOSE_PROFILE         compose profile id
@@ -56,7 +56,7 @@ Do **not** paste fact/open contents or upstream doc contents in the Task prompt 
    - `$INDUCTIVE_OUT_DIR/inductive-opens.json` — opens (`source.trigger`/`source.means`, `intent_ref`, `status`, optional `code_refs` on opens; `resolved_by` links settled opens → fact ids)
    - `$INDUCTIVE_OUT_DIR/inductive-scope/<S>.json` — **maturity only** (`key`/`status`/`frontier_kw`); do **not** expect `decisions[]`/`open[]`/`deferred[]`
    - Prefer JSON SoT. Ignore legacy `.md` / `exposed-points.json` as authority. Do **not** treat DQI `architecture_view` as SoT.
-2. Read `$SCOPE_REF` — algorithm B's upstream. If it is `decision-fact.json`, enumerate every unit `{id,text}` (do not treat JSON as prose). If it is a prose doc, read in full.
+2. Read `$SCOPE_REF` — algorithm B's upstream source material (same path Seed used). Read the file content once; identify explicit decisions from that content (stable IDs or explicit propositions). Do not branch on filename or extension.
 3. If `$INTENT_BASELINE_REFS` is non-empty, read each ref's file — algorithm A's upstream; else skip algorithm A.
 4. If `$NORM_CONSTRAINT_REFS` is non-empty, read each ref's file — algorithm C's upstream; else skip algorithm C.
 5. **Axis 1 (per lens, overreach/conflict) — for each coverage lens with facts, for each active algorithm:**
@@ -69,7 +69,7 @@ Do **not** paste fact/open contents or upstream doc contents in the Task prompt 
 6. **Axis 2 (whole-document, once, after all lenses scanned):**
    - Enumerate every 意图基准 item; any not fulfilled anywhere downstream → `record-delta --role intent-baseline --axis 2 --bucket 未履行意图 --upstream-anchor <item> --description <finding>` (omit `--section`).
    - **Safety-net downgrade (when a demand manifest exists beside `$INTENT_BASELINE_REFS`):** if the item has a deferred `intent_ref` on an open with `status=deferred` (via `intent_demands.deferred_intent_refs` over `inductive-opens.json`), **stay silent**; otherwise still `record-delta` with `regression:` prefix when generation was guaranteed. No manifest → keep primary behavior.
-   - Enumerate every 派生父级 explicit decision (each unit when `$SCOPE_REF` is decision-fact.json; otherwise each explicit prose decision); any not carried forward / elaborated / explicitly deferred → `record-delta --role scope --axis 2 --bucket 遗漏明确决策 …` (omit `--section`).
+   - Enumerate every 派生父级 explicit decision found in `$SCOPE_REF` content; any not carried forward / elaborated / explicitly deferred → `record-delta --role scope --axis 2 --bucket 遗漏明确决策 …` (omit `--section`).
    - `norm-constraint` has no axis 2.
 7. Return the compact template below — **stop**. Do not run `present` or `gate-close`.
 
