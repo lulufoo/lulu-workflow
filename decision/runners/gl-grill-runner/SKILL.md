@@ -1,18 +1,20 @@
 ---
 name: decision/gl-grill-runner
 description: >-
-  GL gate runner for decision. Grill-style decision-domain intent probe between
-  Q and E; gate-close GL with exchanges payload. Invoked by decision/SKILL.md.
+  GL gate runner for decision. Goal-driven intent probe between Q and E;
+  gate-close GL with lens-tagged exchanges. Invoked by decision/SKILL.md.
 meta-skill-version: 1.0.0
 ---
 
 # gl-grill-runner
 
-Execute **GL — Grill**. Mechanical persistence via `$GATE_CONTROL`.
+Execute **GL — Intent Probe** (after Q, before E): reach two goals, then close.
+Mechanical persistence via `$GATE_CONTROL`.
 
 ## Blocking policy
 
-Control CLI non-zero → stop, report error, wait for user direction.
+If any control CLI exits non-zero: **stop**, report the error, wait for user
+direction. Do not continue the gate dialogue.
 
 ## Prerequisites
 
@@ -21,21 +23,106 @@ Do NOT proceed until you have read `../../../_runtime.md`
 </HARD-GATE>
 
 - `$SKILL_DIR` = `$SKILL_ROOT/decision`
-- Gate contract: `$SKILL_DIR/gates/gl-grill.md`
-- `$CTX.gates.Q.status` must be `closed`
+- `$CTX.gates.Q.status` must be `closed` (from resolve-context)
+- Dialogue semantics SSOT: this file’s **Cognitive map** (no separate gate file)
+
+## Script Macros
+
+| Macro | Command |
+|-------|---------|
+| `$GATE_CONTROL` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>"` |
+
+Subcommand contracts: module docstring / `--help`.
+
+## Cognitive map
+
+### Goals
+
+| ID | Must be clear |
+|----|----------------|
+| `G-direction-ready` | Enough decision-domain operational/confirmation intent for accurate direction choice at E. |
+| `G-diagnosis-preflight` | Intent-layer preflight for every **active** X dimension (reduce reopen after D when X would otherwise bomb). |
+
+### Lenses
+
+Read `$CTX.domain_constraints.x_dimensions` (active set) and optional
+`domain.dimension_profile[dim].{question,depth}` as **language/depth hints only**.
+
+For each active dim, convert to an intent-probe question using this role map
+(do **not** run full X diagnosis here):
+
+| Dim | Intent role (bound) |
+|-----|---------------------|
+| `acceptance_criteria` | Intent-level success signal that a direction is right — not an acceptance checklist |
+| `impact_surface` | Who is pulled by the direction choice / must weigh in — not a module inventory |
+| `external_dependencies` | External promise that locks once a direction is chosen — not full contracts |
+| `implementation_sketch` | Irreversible or high-complexity landing preference — not a file-edit list |
+| `gap_check` | Failure class most feared if missed — not the Gap section body |
+
+Do not hard-code full question wording; phrase from roles + profile hints + locked Q.
+
+### Ask domain / bounds
+
+- Anchor every probe to the locked Q problem + constraints.
+- Decision-domain intent only. No implementation interview, WBS, or unbounded plan grilling.
+- Freedom is which concrete question to ask — not any domain.
+
+### Coverage
+
+- `G-direction-ready`: further probes would not materially change the candidate
+  direction set, or critical intent conflicts are already surfaced and recorded.
+- `G-diagnosis-preflight`: each active X dim has an intent-layer conclusion or a
+  reasoned `na` the user understands. Unjustified all-`na` is not a pass.
+- Evaluate using locked Q, this gate’s dialogue, and related G0 prior/assumptions.
+
+### Dialogue modes
+
+| Mode | When | Behavior |
+|------|------|----------|
+| `probe` | Either goal not met | Ask only the gap (G1). May pick next lens; order not fixed. Recommended answers are prefer-only, not required. |
+| `summarize` | Both goals met | Restate key intents once; ask if ready for E (G8). |
+| `close` | User confirms | `gate-close` with payload below. |
+
+If the user rejects the summary: treat the denied point as a gap → `probe`.
+
+### Pass criterion
+
+Both goals met; Q still holds; G8 confirmed; ask-domain respected.
+CLI green ≠ framework pass.
+
+### Side routes
+
+- Identification hit → load G0 runner → `G0_COMPLETE` → resume (register `source` is `GL`).
+- G9 / Q falsified → load RS; **do not** `gate-close` GL.
+- Persist intents only via GL `gate-close` payload — do not dual-write exchanges to G0.
 
 ## Pipeline
 
-1. `$GATE_CONTROL resolve-context` — pin `$CTX`
-2. If `$CTX.gates.GL.status == stale`: follow `$SKILL_DIR/references/stale-gate-update.md` then return `GATE_COMPLETE GL`
-3. Read and apply from `$CTX.domain_constraints` for all subsequent dialogue in this gate:
-   - `objective` — session intent; frame the entire gate within this goal
+**Entry:** Q closed. Run `$GATE_CONTROL resolve-context`; pin stdout JSON as
+`$CTX`. If `$CTX.gates.GL.status == stale`: follow
+`$SKILL_DIR/references/stale-gate-update.md`, then return `GATE_COMPLETE GL`
+(skip Act dialogue).
+
+**Act:**
+
+1. Apply `$CTX.domain_constraints` for all dialogue in this gate:
+   - `objective` — session intent; frame the gate within this goal
    - `role.instruction` — persona and language stance
    - `domain.instruction` — domain boundary constraints
-4. Gate contract § Before entering / § Execute (framework pass). HARD: do not call `gate-close` until framework pass holds (reasoned T1–T4 coverage, Q intact, G8). Unjustified all-na is not a pass.
-5. During dialogue: on identification hit → G0 runner → `G0_COMPLETE` → continue; on G9 hit → RS runner
-6. `$GATE_CONTROL gate-close --gate GL --payload '<json>'`
-7. Return `GATE_COMPLETE GL`
+   - `x_dimensions` / `domain.dimension_profile` — active lenses and hints
+2. Obtain locked Q via `$GATE_CONTROL get-payload` (or fields already on `$CTX`);
+   do not start probes until Q payload is available.
+3. Loop (Cognitive map):
+   - Evaluate `G-direction-ready` / `G-diagnosis-preflight`.
+   - If any gap → `probe` (side routes as above; then continue).
+   - If both met → `summarize` → on confirm →
+     `$GATE_CONTROL gate-close --gate GL --payload '<json>'` → break.
+   - HARD: do not call `gate-close` until framework pass holds.
+
+**Done:** Return `GATE_COMPLETE GL`.
+
+**Stop:** Non-zero CLI, or coverage/confirm cannot be judged → stop and wait for
+user direction.
 
 ## gate-close payload
 
@@ -43,7 +130,7 @@ Do NOT proceed until you have read `../../../_runtime.md`
 {
   "exchanges": [
     {
-      "topic": "T1",
+      "lens": "<active x_dimension_id>",
       "question": "<question>",
       "answer": "<user answer>",
       "na": false
@@ -53,9 +140,20 @@ Do NOT proceed until you have read `../../../_runtime.md`
 }
 ```
 
-- `topic` ∈ `T1`|`T2`|`T3`|`T4`; every topic at least once (conclusion or `na: true`)
-- Mechanical validation is CLI-only; framework pass is this runner's responsibility
+- `lens` ∈ active `x_dimensions`; every active dim at least once (conclusion or `na: true`)
+- Row rules and coverage: CLI (`dec_gate_control` / `--help`)
+- `G-direction-ready` is framework-only (no extra payload slot)
 
 ## Exit
 
-`GATE_COMPLETE GL` or `GATE_FAILED GL reason=...`
+On success:
+
+```
+GATE_COMPLETE GL
+```
+
+On failure:
+
+```
+GATE_FAILED GL reason=<brief description>
+```

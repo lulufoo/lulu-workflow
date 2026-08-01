@@ -39,6 +39,7 @@ from dec_decision_fact_schema import (  # noqa: E402
 )
 from dec_after_dc import build_after_dc  # noqa: E402
 from dec_domain_constraints_schema import (  # noqa: E402
+    ALL_X_DIMENSIONS,
     KERNEL_STAGE,
     active_x_dimensions,
     default_kernel_constraints,
@@ -392,11 +393,11 @@ def cmd_resolve_context(
 
 
 _IMPLEMENTED_GATES = frozenset({"O", "Q", "GL", "E", "D", "X", "R", "V", "RR", "DC"})
-_GL_TOPICS = frozenset({"T1", "T2", "T3", "T4"})
-
-
-def _validate_gl_close_payload(payload: dict[str, Any]) -> None:
-    """Mechanical close predicates M1–M6 for spine gate GL (Grill)."""
+def _validate_gl_close_payload(
+    payload: dict[str, Any], *, constraints: dict[str, Any]
+) -> None:
+    """Mechanical close predicates for spine gate GL (intent probe)."""
+    required = active_x_dimensions(constraints)
     exchanges = payload.get("exchanges")
     if not isinstance(exchanges, list) or len(exchanges) < 1:
         raise ValueError("exchanges must be a non-empty array")
@@ -404,12 +405,18 @@ def _validate_gl_close_payload(payload: dict[str, Any]) -> None:
     for index, row in enumerate(exchanges):
         if not isinstance(row, dict):
             raise ValueError(f"exchanges[{index}] must be an object")
-        topic = str(row.get("topic", "")).strip()
-        if topic not in _GL_TOPICS:
+        lens = str(row.get("lens", "")).strip()
+        if lens not in ALL_X_DIMENSIONS:
             raise ValueError(
-                f"exchanges[{index}].topic must be one of {sorted(_GL_TOPICS)}, got {topic!r}"
+                f"exchanges[{index}].lens must be one of {list(ALL_X_DIMENSIONS)}, "
+                f"got {lens!r}"
             )
-        seen.add(topic)
+        if lens not in required:
+            raise ValueError(
+                f"exchanges[{index}].lens {lens!r} is not in active x_dimensions "
+                f"{sorted(required)}"
+            )
+        seen.add(lens)
         na = row.get("na") is True
         question = str(row.get("question", "")).strip()
         answer = str(row.get("answer", "")).strip()
@@ -427,10 +434,11 @@ def _validate_gl_close_payload(payload: dict[str, Any]) -> None:
                 raise ValueError(
                     f"exchanges[{index}].answer is required when na is not true"
                 )
-    missing = sorted(_GL_TOPICS - seen)
+    missing = sorted(required - seen)
     if missing:
         raise ValueError(
-            f"exchanges must cover topics {sorted(_GL_TOPICS)}; missing {missing}"
+            f"exchanges must cover active x_dimensions {sorted(required)}; "
+            f"missing {missing}"
         )
     if payload.get("user_confirmed") is not True:
         raise ValueError("user_confirmed must be true for GL gate-close")
@@ -554,7 +562,7 @@ def _validate_gate_close_payload(gate: str, payload: dict[str, Any], *, constrai
             raise ValueError("problem_statement is required")
         return
     if gate == "GL":
-        _validate_gl_close_payload(payload)
+        _validate_gl_close_payload(payload, constraints=constraints)
         return
     if gate == "E":
         directions = payload.get("directions", [])

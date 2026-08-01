@@ -6,7 +6,7 @@
 
 **Before entering:**
 1. Read `$CTX.registers.prior` from runner pipeline step 1 stdout — not conversation memory alone.
-2. Read `$CTX.gl` (Grill exchanges) — compare confirmation / human–machine intents against the chosen direction and intended scope; surface conflicts before D dialogue.
+2. Read `$CTX.gl.exchanges` in full — compare confirmation and operational intents against the chosen direction and intended scope; surface conflicts before D dialogue.
 3. Compare each prior against E user choice; surface conflicts or unaddressed concerns before D dialogue.
 4. Address conflicts explicitly in Decision Rationale.
 

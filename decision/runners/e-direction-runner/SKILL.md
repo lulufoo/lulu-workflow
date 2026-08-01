@@ -33,7 +33,7 @@ Do NOT proceed until you have read `../../../_runtime.md`
    - `objective` — session intent; frame the entire gate within this goal
    - `role.instruction` — persona and language stance
    - `domain.instruction` — domain boundary constraints
-4. Gate contract § Before entering — consult `$CTX.gl` (T2/T4) before proposing directions
+4. Gate contract § Before entering — consult `$CTX.gl.exchanges` (prefer `impact_surface` / `external_dependencies` / confirmation-related) before proposing directions
 5. Execute E gate dialogue (2–3 directions, pros/cons, excluded, user choice; G1/G7/G8)
 6. During dialogue: on identification hit → G0 runner → `G0_COMPLETE` → continue; on G9 hit → RS runner
 7. After user confirms: `$GATE_CONTROL gate-close --gate E --payload '<json>'`

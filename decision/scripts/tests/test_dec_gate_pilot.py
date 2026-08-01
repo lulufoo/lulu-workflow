@@ -489,7 +489,7 @@ def test_gate_close_e_blocked_until_gl_closed(
     assert rc != 0
 
 
-def test_gl_close_rejects_missing_topic(
+def test_gl_close_rejects_missing_lens(
     template_config: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     project_root = template_config
@@ -508,7 +508,9 @@ def test_gl_close_rejects_missing_topic(
         {"problem_statement": "problem", "constraints": "none"},
     )
     bad = _gl_payload()
-    bad["exchanges"] = [row for row in bad["exchanges"] if row["topic"] != "T3"]
+    bad["exchanges"] = [
+        row for row in bad["exchanges"] if row["lens"] != "gap_check"
+    ]
     assert cmd_gate_close(project_root, cycle_id, stage, "GL", bad) != 0
 
 
@@ -540,7 +542,7 @@ def test_resolve_context_injects_gl(
         assert cmd_resolve_context(project_root, cycle_id, stage) == 0
     payload = json.loads(buffer.getvalue())
     assert payload["gl"] is not None
-    assert len(payload["gl"]["exchanges"]) == 4
+    assert len(payload["gl"]["exchanges"]) == 5
     assert payload["gl"]["user_confirmed"] is True
 
 

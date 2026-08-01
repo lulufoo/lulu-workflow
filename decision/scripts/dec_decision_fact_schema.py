@@ -41,7 +41,7 @@ _GATE_LIST_FIELDS: dict[str, tuple[str, ...]] = {
 }
 
 _LIST_ITEM_KEYS: dict[str, tuple[str, ...]] = {
-    "exchanges": ("topic", "question", "answer", "na"),
+    "exchanges": ("lens", "question", "answer", "na"),
     "directions": ("name", "approach", "pros", "cons", "recommended"),
     "excluded": ("name", "reason"),
     "impact_surface": ("layer", "area", "change_type", "notes"),
@@ -131,7 +131,7 @@ def _list_item_slot(gate: str, field: str, item: Any) -> str:
     """Content-stable list slot (never array index — insert/reorder must keep ids)."""
     text = _item_text(item, field)
     if isinstance(item, dict):
-        for key in ("name", "dependency", "id", "topic"):
+        for key in ("name", "dependency", "id", "lens", "topic"):
             token = _slot_token(str(item.get(key, "")))
             if token:
                 return f"{gate}.{field}[{key}={token}]"

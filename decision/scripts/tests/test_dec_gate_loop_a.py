@@ -62,10 +62,36 @@ def _close_o(project_root: Path, cycle_id: str, stage: str) -> None:
 def _gl_payload() -> dict:
     return {
         "exchanges": [
-            {"topic": "T1", "question": "Who confirms go-live?", "answer": "Owner A", "na": False},
-            {"topic": "T2", "question": "Human vs machine?", "answer": "Human approves", "na": False},
-            {"topic": "T3", "question": "Risk narrative?", "answer": "Latency is risk", "na": False},
-            {"topic": "T4", "question": "Ops preference?", "answer": "Business hours only", "na": False},
+            {
+                "lens": "acceptance_criteria",
+                "question": "What intent-level success signal means a direction is right?",
+                "answer": "Owner can demo the chosen path end-to-end",
+                "na": False,
+            },
+            {
+                "lens": "impact_surface",
+                "question": "Who must weigh in before we pick a direction?",
+                "answer": "Owning team lead",
+                "na": False,
+            },
+            {
+                "lens": "external_dependencies",
+                "question": "Any external promise that locks once we choose?",
+                "answer": "Vendor SLA assumed stable",
+                "na": False,
+            },
+            {
+                "lens": "implementation_sketch",
+                "question": "Any irreversible landing preference?",
+                "answer": "Prefer reversible feature flag path",
+                "na": False,
+            },
+            {
+                "lens": "gap_check",
+                "question": "What failure class are we most afraid to miss?",
+                "answer": "Silent data loss on rollback",
+                "na": False,
+            },
         ],
         "user_confirmed": True,
     }

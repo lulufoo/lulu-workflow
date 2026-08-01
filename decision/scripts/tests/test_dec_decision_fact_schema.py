@@ -29,27 +29,33 @@ def _sample_payloads() -> dict:
         "GL": {
             "exchanges": [
                 {
-                    "topic": "T1",
-                    "question": "Who confirms?",
-                    "answer": "Owner",
+                    "lens": "acceptance_criteria",
+                    "question": "Success signal?",
+                    "answer": "Owner demo",
                     "na": False,
                 },
                 {
-                    "topic": "T2",
-                    "question": "Human vs machine?",
-                    "answer": "Human",
+                    "lens": "impact_surface",
+                    "question": "Who weighs in?",
+                    "answer": "Team lead",
                     "na": False,
                 },
                 {
-                    "topic": "T3",
-                    "question": "Risk?",
-                    "answer": "Latency",
+                    "lens": "external_dependencies",
+                    "question": "External lock-in?",
+                    "answer": "Vendor SLA",
                     "na": False,
                 },
                 {
-                    "topic": "T4",
-                    "question": "Ops?",
-                    "answer": "Business hours",
+                    "lens": "implementation_sketch",
+                    "question": "Irreversible preference?",
+                    "answer": "Feature flag",
+                    "na": False,
+                },
+                {
+                    "lens": "gap_check",
+                    "question": "Afraid to miss?",
+                    "answer": "Silent data loss",
                     "na": False,
                 },
             ],
@@ -143,8 +149,8 @@ def test_build_casts_text_and_list_fields() -> None:
     assert "no full-page nav" in q_texts
 
     gl_slots = {u["slot"] for u in fact["gates"]["GL"]}
-    assert "GL.exchanges[topic=T1]" in gl_slots
-    assert any("topic: T3" in u["text"] for u in fact["gates"]["GL"])
+    assert "GL.exchanges[lens=acceptance_criteria]" in gl_slots
+    assert any("lens: gap_check" in u["text"] for u in fact["gates"]["GL"])
 
     e_ids = [u["id"] for u in fact["gates"]["E"]]
     assert e_ids[0].startswith("E-")

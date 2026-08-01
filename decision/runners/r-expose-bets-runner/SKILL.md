@@ -33,7 +33,7 @@ Do NOT proceed until you have read `../../../_runtime.md`
    - `objective` — session intent; frame the entire gate within this goal
    - `role.instruction` — persona and language stance
    - `domain.instruction` — domain boundary constraints
-4. Gate contract § Before entering — prior sign-off, assumption coverage, and `$CTX.gl` (esp. T3) (G8)
+4. Gate contract § Before entering — prior sign-off, assumption coverage, and `$CTX.gl.exchanges` (prefer `gap_check` / risk-narrative / confirmation intents) (G8)
 5. Gate contract § Execute — risk + `risk_class` + consequence on the full table (G8 confirm; never classify at G0)
 6. Select exit with user:
    - `rs` — known failure → RS runner (identify `realign_gate`)

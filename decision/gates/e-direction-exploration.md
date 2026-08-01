@@ -6,7 +6,7 @@
 
 **Before entering:**
 1. Confirm `$CTX.gates.GL.status` is `closed` and `$CTX.gl` is present (from resolve-context).
-2. Read `$CTX.gl.exchanges` — especially T2 / T4 — and surface conflicts with candidate directions before proposing options.
+2. Read `$CTX.gl.exchanges` in full; prioritize `impact_surface`, `external_dependencies`, and confirmation-related answers; surface conflicts with candidate directions before proposing options.
 3. Do not start E dialogue until GL intents have been consulted.
 
 **Execute:**
