@@ -43,7 +43,7 @@ Subcommand contracts: module docstring / `--help`.
 | `G-direction-ready` | Enough decision-domain operational/confirmation intent for accurate direction choice at E. |
 | `G-diagnosis-preflight` | Intent-layer preflight for every **active** X dimension (reduce reopen after D when X would otherwise bomb). |
 
-### Lenses
+### Lenses (for `G-diagnosis-preflight` only)
 
 Read `$CTX.domain_constraints.x_dimensions` (active set) and optional
 `domain.dimension_profile[dim].{question,depth}` as **language/depth hints only**.
