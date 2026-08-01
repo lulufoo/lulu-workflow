@@ -25,6 +25,7 @@ Do NOT proceed until you have read `../../../_runtime.md`
 - `$SKILL_DIR` = `$SKILL_ROOT/decision`
 - `$CTX.gates.Q.status` must be `closed` (from resolve-context)
 - Dialogue semantics SSOT: this file’s **Cognitive map** (no separate gate file)
+- Probe questions: apply `$SKILL_DIR/references/ask-protocol.md`
 
 ## Script Macros
 
@@ -79,7 +80,7 @@ Do not hard-code full question wording; phrase from roles + profile hints + lock
 
 | Mode | When | Behavior |
 |------|------|----------|
-| `probe` | Either goal not met | Ask only the gap (G1). May pick next lens; order not fixed. Recommended answers are prefer-only, not required. |
+| `probe` | Either goal not met | Apply ask-protocol, then ask only the gap (G1). May pick next lens; order not fixed. |
 | `summarize` | Both goals met | Restate key intents once; ask if ready for E (G8). |
 | `close` | User confirms | `gate-close` with payload below. |
 
