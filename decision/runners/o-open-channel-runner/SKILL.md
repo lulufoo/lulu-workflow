@@ -41,7 +41,7 @@ Subcommand contracts: module docstring / `--help`.
 | ID | Must be clear |
 |----|----------------|
 | `G-invite` | Open channel: invite the user to share existing knowledge (direction preferences, concerns, ruled-out options, etc.). Completeness is not required; they may add more later. |
-| `G-ready` | User confirms they are ready to proceed to Q (G8). |
+| `G-ready` | User confirms they are ready to proceed to Q. |
 
 ### Coverage / bounds
 
@@ -61,7 +61,7 @@ Subcommand contracts: module docstring / `--help`.
 |------|------|----------|
 | `invite` | `G-invite` not yet satisfied | Issue the open-channel invite (intent above; do not hard-code fixed wording). |
 | `listen` | User is sharing | Stay in channel; on identification hit → G0 (see Side routes). |
-| `confirm` | Ready to ask for Q | Ask whether they are ready to proceed to Q (G8). |
+| `confirm` | Ready to ask for Q | Ask whether they are ready to proceed to Q. |
 | `close` | User confirms ready | `gate-close` with payload below. |
 
 User may go `invite` → `confirm` with zero prior content, or `listen` for several
@@ -72,7 +72,7 @@ Do **not** hard-code fixed invitation wording; phrase from goals +
 
 ### Pass criterion
 
-User confirms they are ready to proceed to Q (G8). Prior dump is optional —
+User confirms they are ready to proceed to Q. Prior dump is optional —
 empty registers are allowed.
 
 ### Side routes

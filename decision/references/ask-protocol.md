@@ -6,8 +6,8 @@ Shared question discipline for decision runners that cite this file.
 question quality; it does not mechanically block `gate-close`.
 
 **Apply when:** the citing runner says so — typically before each user-facing
-**probe** question. Do not assume every gate mode (e.g. summarize G8) uses this
-file unless that runner binds it.
+**probe** question. Do not assume every gate mode (e.g. summarize / confirm) uses
+this file unless that runner binds it.
 
 ## Before each applicable question
 

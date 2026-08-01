@@ -28,13 +28,13 @@ Do NOT proceed until you have read `../../../_runtime.md`
 
 1. `$GATE_CONTROL resolve-context` — pin `$CTX`
 2. If `$CTX.gates.RR.status == stale`:
-   - Follow `$SKILL_DIR/references/stale-gate-update.md` steps 1–4 only (three-part update + G8 + `gate-close`; payload must include `exit`)
+   - Follow `$SKILL_DIR/references/stale-gate-update.md` steps 1–4 only (three-part update + user confirm + `gate-close`; payload must include `exit`)
    - Do **not** follow that file's step 5 return — go to step 7 below (same exit handoff as non-stale)
 3. Otherwise (not stale) — read and apply from `$CTX.domain_constraints` for all subsequent dialogue in this gate:
    - `objective` — session intent; frame the entire gate within this goal
    - `role.instruction` — persona and language stance
    - `domain.instruction` — domain boundary constraints
-4. For each RR-scope item: check Release condition vs verification result (G8 confirm per item)
+4. For each RR-scope item: check Release condition vs verification result (user confirm per item)
 5. Select exit with user:
    - `dc` — all scope items released, no new pending from V/RR
    - `return_r` — all scope items released, new pending assumptions from V/RR

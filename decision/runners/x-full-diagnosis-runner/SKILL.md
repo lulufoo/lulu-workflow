@@ -32,7 +32,7 @@ Do NOT proceed until you have read `../../../_runtime.md`
    - `role.instruction` — persona and language stance
    - `domain.instruction` — domain boundary constraints
    - `domain.dimension_profile` — per-dimension `{question, depth}`; applied in step 4
-4. Execute active X dimensions one at a time (G1/G7/G8 per dimension); skip dimensions not in `x_dimensions`. For each active dimension, read `domain.dimension_profile[dimension]`: use its `question` as the Core question when present (else gate table default); apply its `depth` as the depth ceiling when present (else gate Granularity baseline); before G8, self-check the draft against that ceiling.
+4. Execute active X dimensions one at a time (G1/G7 per dimension; user confirms each dim); skip dimensions not in `x_dimensions`. For each active dimension, read `domain.dimension_profile[dimension]`: use its `question` as the Core question when present (else gate table default); apply its `depth` as the depth ceiling when present (else gate Granularity baseline); before asking confirm, self-check the draft against that ceiling.
 5. During dialogue: on identification hit → G0 runner → `G0_COMPLETE` → continue; on G9 hit → RS runner
 6. `$GATE_CONTROL gate-close --gate X --payload '<json>'` (only fields for active dimensions required)
 7. Return `GATE_COMPLETE X`

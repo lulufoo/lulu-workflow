@@ -33,7 +33,7 @@ Do NOT proceed until you have read `../../../_runtime.md`
    - `role.instruction` — persona and language stance
    - `domain.instruction` — domain boundary constraints
 4. Resolve every `risk_class=pending` with the user → `decision` or `implementation` (gate contract § Execute 0)
-5. Assign Verification by class: decision H/tracked → full Method/Release; decision M/L → `Accepted` (G8 batch); implementation → `Handoff: …`
+5. Assign Verification by class: decision H/tracked → full Method/Release; decision M/L → `Accepted` (user batch confirm); implementation → `Handoff: …`
 6. Select exit with user: `rr` (decision RR-scope) or `dc` (no decision RR-scope; handoffs done)
 7. `$GATE_CONTROL gate-close --gate V --payload '<json>'`
 8. Return `GATE_COMPLETE V exit=<rr|dc>`
@@ -69,7 +69,7 @@ Do NOT proceed until you have read `../../../_runtime.md`
 ```
 
 - `exit`: `rr` | `dc`
-- `batch_confirmed`: required `true` for `dc` exit (G8 M/L batch confirmation)
+- `batch_confirmed`: required `true` for `dc` exit (M/L batch confirmation)
 - No `pending` at close; `implementation` + `release_tracking` forbidden
 - RR-scope = `decision` AND (H or `release_tracking`); `dc` forbidden if any RR-scope remain
 - V close marks `implementation` → `verified` (handoff)

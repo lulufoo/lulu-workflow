@@ -17,6 +17,6 @@ Do not start D dialogue until the above is complete.
 2. **Scope:** state what this decision covers; then state explicit exclusions — what it does NOT cover.
 3. **Landing Approach:** capture how the chosen decision lands at decision granularity — the must-do chunks in scope, their roles on that path, and dependencies (order / parallel vs. serial). Not work breakdown, scheduling, or staffing. X = *what*; Landing Approach = *how this decision lands*. (Payload field key remains `execution_approach`.)
 
-**Confirmation (G8):** Ask user: "Does this decision rationale, scope, and landing approach look correct?" Do not declare D closed until user explicitly confirms.
+**Confirmation:** Ask user: "Does this decision rationale, scope, and landing approach look correct?" Do not declare D closed until user explicitly confirms.
 
 **Pass criterion:** All three sub-dimensions filled; exclusions are explicit (not just "we cover X"); rationale references E trade-offs and explicitly addresses every `concern` and `excluded` prior (or states none exist); user confirmed.

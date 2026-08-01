@@ -27,14 +27,14 @@ Do NOT proceed until you have read `../../../_runtime.md`
 
 1. `$GATE_CONTROL resolve-context` — pin `$CTX`
 2. If `$CTX.gates.R.status == stale`:
-   - Follow `$SKILL_DIR/references/stale-gate-update.md` steps 1–4 only (three-part update + G8 + `gate-close`; payload must include `exit`, and `realign_gate` when `exit=rs`)
+   - Follow `$SKILL_DIR/references/stale-gate-update.md` steps 1–4 only (three-part update + user confirm + `gate-close`; payload must include `exit`, and `realign_gate` when `exit=rs`)
    - Do **not** follow that file's step 5 return — go to step 8 below (same exit handoff as non-stale)
 3. Otherwise (not stale) — read and apply from `$CTX.domain_constraints` for all subsequent dialogue in this gate:
    - `objective` — session intent; frame the entire gate within this goal
    - `role.instruction` — persona and language stance
    - `domain.instruction` — domain boundary constraints
-4. Gate contract § Before entering — prior sign-off, assumption coverage, and `$CTX.gl.exchanges` (prefer `gap_check` / risk-narrative / confirmation intents) (G8)
-5. Gate contract § Execute — risk + `risk_class` + consequence on the full table (G8 confirm; never classify at G0)
+4. Gate contract § Before entering — prior sign-off, assumption coverage, and `$CTX.gl.exchanges` (prefer `gap_check` / risk-narrative / confirmation intents)
+5. Gate contract § Execute — risk + `risk_class` + consequence on the full table (user confirm; never classify at G0)
 6. Select exit with user:
    - `rs` — known failure → RS runner (identify `realign_gate`)
    - `loop_b` — uncertain assumptions, any `pending`, or any `implementation` → V

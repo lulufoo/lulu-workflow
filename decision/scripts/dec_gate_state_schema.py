@@ -26,7 +26,7 @@ GATE_ORDER: tuple[str, ...] = (
 LOOP_A: tuple[str, ...] = ("O", "Q", "GL", "E", "D", "X", "R")
 LOOP_B: tuple[str, ...] = ("V", "RR")
 # Align-from gates for Realign (formerly "reopen"); letter code RS = Realign State.
-# Spine id GL (Grill) — not protocol G0/G8/G9 and not RS metavariable "G".
+# Spine id GL (Grill) — not protocol G0/G9 and not RS metavariable "G".
 RS_REALIGN_GATES: tuple[str, ...] = ("Q", "GL", "E", "D", "X")
 # Backward-compatible alias while callers migrate.
 RS_REOPEN_GATES: tuple[str, ...] = RS_REALIGN_GATES

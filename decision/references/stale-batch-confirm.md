@@ -17,11 +17,11 @@ Design SSOT (process): `docs/domain/archive/decision/rs-patch-batch-confirm-desi
 
 2. **Per-gate update proposals (dialogue, no write yet)** — For each stale align gate with a payload (and any keep-only gates): change points · keep/modify/discard · draft updated payload · **incremental Diff** for the user (no full restatement without delta).
 
-3. **Downgrade check** — If any gate needs discard of the whole conclusion, or light-patch confidence is lost → **recommend** Per-gate; obtain path G8 again; do not call `batch-reclose`.
+3. **Downgrade check** — If any gate needs discard of the whole conclusion, or light-patch confidence is lost → **recommend** Per-gate; obtain path choice again; do not call `batch-reclose`.
 
-4. **Checklist G8** — Present one change list. User confirms once → continue. Reject / uncertain → Path Per-gate (`stale-gate-update.md`); no writes.
+4. **Checklist confirm** — Present one change list. User confirms once → continue. Reject / uncertain → Path Per-gate (`stale-gate-update.md`); no writes.
 
-5. **`$BATCH_RECLOSE --payloads '<json object>'`** — Only after checklist G8.  
+5. **`$BATCH_RECLOSE --payloads '<json object>'`** — Only after checklist confirm.
    Payload keys = consecutive `GATE_ORDER` prefix from current `active_gate`, each gate `stale`, subset of `Q/GL/E/D/X`.  
    Non-zero → stop, report stderr; state and payloads must be unchanged (atomic).
 

@@ -72,14 +72,14 @@ or shallow X fills.
 | Mode | When | Behavior |
 |------|------|----------|
 | `probe` | Either goal not met | Apply ask-protocol, then ask only the gap (G1). May pick next lens; order not fixed. |
-| `summarize` | Both goals met | Restate key intents once; ask if ready for E (G8). |
+| `summarize` | Both goals met | Restate key intents once; ask if ready for E. |
 | `close` | User confirms | `gate-close` with payload below. |
 
 If the user rejects the summary: treat the denied point as a gap → `probe`.
 
 ### Pass criterion
 
-Both goals met; Q still holds; G8 confirmed; ask-domain respected.
+Both goals met; Q still holds; user confirmed ready for E; ask-domain respected.
 CLI green ≠ framework pass.
 
 ### Side routes

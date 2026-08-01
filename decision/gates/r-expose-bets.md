@@ -5,7 +5,7 @@
 **Prerequisites:** X closed
 
 **Before entering:**
-1. Review User Prior from `$CTX.registers.prior` — sign off with user (G8); do not recollect via G0.
+1. Review User Prior from `$CTX.registers.prior` — sign off with user; do not recollect via G0.
 2. Review Assumption Log from `$CTX.registers.assumptions` — confirm coverage is complete against D, X, and conversation history; do not collect from scratch.
 3. Read `$CTX.gl.exchanges` in full; prioritize `gap_check`, risk-narrative answers, and confirmation-related intents; ensure risk coverage accounts for GL intents (do not rediscover them only at R).
 
@@ -25,7 +25,7 @@
 - **implementation** — cannot meaningfully verify before DC; handoff at V; does **not** enter RR
 - **pending** — gray; may leave R only via `loop_b`; must be resolved at V entry
 
-**Confirmation (G8):** After presenting all assumptions with risk levels and classes, ask: "Do these risk levels and classes look correct? You may reclassify any item." Do not declare R closed until user explicitly confirms (including any reclassifications).
+**Confirmation:** After presenting all assumptions with risk levels and classes, ask: "Do these risk levels and classes look correct? You may reclassify any item." Do not declare R closed until user explicitly confirms (including any reclassifications).
 
 **Pass criterion:** All assumptions have risk, `risk_class`, and consequence; prior sign-off complete; coverage review complete; user has confirmed (with any reclassifications applied).
 

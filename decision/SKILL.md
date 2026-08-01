@@ -211,8 +211,6 @@ If user confirms exit → exit gracefully; mark as incomplete.
 
 **Prohibited:** re-asking information already stated.
 
-**G8. Gate close** — User must confirm explicitly; then `$GATE_CONTROL gate-close`. Conversation-only close does not count.
-
 **G9. Upstream-change detect (global · any turn)** — on any user turn, if information revises or contradicts a **closed** gate's conclusion (pass criterion broken **or** context update), do not ignore it: load RS runner per § Gate routing · G9 → RS. Prefer earliest hit among Q / GL / E / D / X. Not a per-turn full scan — identification-hit style (same family as G0). No dedicated G9 runner.
 
 ---

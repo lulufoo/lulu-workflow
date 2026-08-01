@@ -11,7 +11,7 @@
 1. For each **`decision`** assumption that is **High**-risk or `release_tracking`: write Verification as  
    `Method: <how to verify> / Owner: <who> / Timing: <when> / Release condition: <specific result that marks this item [已验证]>`
 
-2. For each **`decision`** Medium/Low without tracking: write `Accepted`. Inform user they may flag any **decision** item for "release tracking" (adds it to Risk Release scope). Ask: "Do you confirm acceptance of these? Flag any for tracking." Proceed only after explicit user batch confirmation. (G8)  
+2. For each **`decision`** Medium/Low without tracking: write `Accepted`. Inform user they may flag any **decision** item for "release tracking" (adds it to Risk Release scope). Ask: "Do you confirm acceptance of these? Flag any for tracking." Proceed only after explicit user batch confirmation.
    **Forbidden:** `release_tracking` on `implementation` — reclassify to `decision` first if release is required.
 
 3. For each **`implementation`** assumption (any H/M/L): write  

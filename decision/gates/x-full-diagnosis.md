@@ -8,7 +8,7 @@
 
 **Granularity baseline (all dimensions):** Unless `$CTX.domain_constraints.domain.dimension_profile[<dim>].depth` overrides it for a dimension, stop at the level where going one step deeper would change *who* decides or would require a more detailed implementation breakdown. Do not name concrete file paths, individual unit tests, or UI element IDs in dimension content.
 
-**Execute one dimension, one question at a time (apply G7 for each Core question). After presenting each dimension's result, ask "Is this [dimension name] correct? (y / adjust)" before proceeding to the next. (G8)**
+**Execute one dimension, one question at a time (apply G7 for each Core question). After presenting each dimension's result, ask "Is this [dimension name] correct? (y / adjust)" before proceeding to the next.**
 
 | # | Dimension | Core question | Pass criterion |
 |---|-----------|---------------|----------------|

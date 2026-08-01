@@ -62,7 +62,7 @@ anything the user already stated before Q became active.
 | Mode | When | Behavior |
 |------|------|----------|
 | `probe` | Any goal has a gap | Ask only the gap (G1: one question per turn). Prefer one gap face per turn. |
-| `summarize` | Both goals covered | Restate problem + constraints once; ask if correct (G8). At most one waiting-for-confirm turn. |
+| `summarize` | Both goals covered | Restate problem + constraints once; ask if correct. At most one waiting-for-confirm turn. |
 | `close` | User confirms summarize | `gate-close` with payload below. |
 
 If the user rejects the summary: treat the denied point as a gap → `probe`, then
