@@ -16,6 +16,7 @@ PRIOR_KINDS = frozenset({"judgment", "preference", "concern", "excluded"})
 REGISTER_STATES = frozenset({"pending", "verified", "invalidated"})
 REGISTER_SOURCES = frozenset({"O", "Q", "GL", "E", "D", "X", "R", "V", "RR"})
 RISK_LEVELS = frozenset({"H", "M", "L"})
+RISK_CLASSES = frozenset({"decision", "implementation", "pending"})
 
 
 def _now_iso() -> str:
@@ -133,6 +134,14 @@ def _validate_assumption_entry(
         elif not r_gate_closed:
             errors.append(f"assumptions[{index}].risk set before R gate closed")
 
+    risk_class = entry.get("risk_class")
+    if risk_class is not None:
+        risk_class_s = str(risk_class).strip()
+        if risk_class_s not in RISK_CLASSES:
+            errors.append(f"assumptions[{index}].risk_class invalid: {risk_class_s!r}")
+        elif not r_gate_closed:
+            errors.append(f"assumptions[{index}].risk_class set before R gate closed")
+
     return errors
 
 
@@ -229,8 +238,10 @@ def format_assumption_header_line(entry: dict[str, Any]) -> str:
     state = header_state_symbol(str(entry.get("state", "pending")))
     source = str(entry.get("source", ""))
     risk = entry.get("risk")
+    risk_class = entry.get("risk_class")
     risk_part = f" {risk}" if risk else ""
-    return f"[{entry.get('id')}{state} {source}{risk_part}] {entry.get('text')}"
+    class_part = f"/{risk_class}" if risk_class else ""
+    return f"[{entry.get('id')}{state} {source}{risk_part}{class_part}] {entry.get('text')}"
 
 
 def strip_assumption_risk_fields(data: dict[str, Any]) -> dict[str, Any]:
@@ -240,4 +251,5 @@ def strip_assumption_risk_fields(data: dict[str, Any]) -> dict[str, Any]:
         if isinstance(entry, dict):
             entry.pop("risk", None)
             entry.pop("consequence", None)
+            entry.pop("risk_class", None)
     return normalized

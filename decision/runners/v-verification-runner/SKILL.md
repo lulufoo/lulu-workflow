@@ -32,10 +32,11 @@ Do NOT proceed until you have read `../../../_runtime.md`
    - `objective` — session intent; frame the entire gate within this goal
    - `role.instruction` — persona and language stance
    - `domain.instruction` — domain boundary constraints
-4. For each assumption: assign Verification per risk (H → full format; M/L → `Accepted` after G8 batch confirm)
-5. Select exit with user: `rr` (high-risk or release-tracking items) or `dc` (all M/L accepted, no RR needed)
-6. `$GATE_CONTROL gate-close --gate V --payload '<json>'`
-7. Return `GATE_COMPLETE V exit=<rr|dc>`
+4. Resolve every `risk_class=pending` with the user → `decision` or `implementation` (gate contract § Execute 0)
+5. Assign Verification by class: decision H/tracked → full Method/Release; decision M/L → `Accepted` (G8 batch); implementation → `Handoff: …`
+6. Select exit with user: `rr` (decision RR-scope) or `dc` (no decision RR-scope; handoffs done)
+7. `$GATE_CONTROL gate-close --gate V --payload '<json>'`
+8. Return `GATE_COMPLETE V exit=<rr|dc>`
 
 ## gate-close payload
 
@@ -47,11 +48,19 @@ Do NOT proceed until you have read `../../../_runtime.md`
     {
       "id": "A1",
       "risk": "H",
+      "risk_class": "decision",
       "verification": "Method: load test / Owner: QA / Timing: pre-release / Release condition: p99 < 200ms"
     },
     {
       "id": "A2",
+      "risk": "H",
+      "risk_class": "implementation",
+      "verification": "Handoff: impl team / post-merge acceptance"
+    },
+    {
+      "id": "A3",
       "risk": "L",
+      "risk_class": "decision",
       "verification": "Accepted",
       "release_tracking": false
     }
@@ -61,7 +70,9 @@ Do NOT proceed until you have read `../../../_runtime.md`
 
 - `exit`: `rr` | `dc`
 - `batch_confirmed`: required `true` for `dc` exit (G8 M/L batch confirmation)
-- High-risk or `release_tracking: true` → full Verification format; `dc` exit forbidden if any exist
+- No `pending` at close; `implementation` + `release_tracking` forbidden
+- RR-scope = `decision` AND (H or `release_tracking`); `dc` forbidden if any RR-scope remain
+- V close marks `implementation` → `verified` (handoff)
 
 ## Exit
 

@@ -164,6 +164,7 @@ def test_release_tracking_column_in_assumptions_table(
 
     doc = load_rendered_doc(project_root, cycle_id, stage)
     assert "Release Tracking" in doc
+    assert "| Class |" in doc or "Class |" in doc
     assert "Yes" in doc
     assert "Tracked item" in doc
 

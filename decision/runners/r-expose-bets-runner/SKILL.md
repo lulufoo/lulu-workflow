@@ -34,11 +34,11 @@ Do NOT proceed until you have read `../../../_runtime.md`
    - `role.instruction` — persona and language stance
    - `domain.instruction` — domain boundary constraints
 4. Gate contract § Before entering — prior sign-off, assumption coverage, and `$CTX.gl` (esp. T3) (G8)
-5. Gate contract § Execute — risk + consequence (G8 confirm)
+5. Gate contract § Execute — risk + `risk_class` + consequence on the full table (G8 confirm; never classify at G0)
 6. Select exit with user:
    - `rs` — known failure → RS runner (identify `realign_gate`)
-   - `loop_b` — uncertain assumptions → V
-   - `dc` — all resolved → skip V/RR
+   - `loop_b` — uncertain assumptions, any `pending`, or any `implementation` → V
+   - `dc` — all `decision` and resolved → skip V/RR (**forbidden** if any `implementation` or `pending`)
 7. `$GATE_CONTROL gate-close --gate R --payload '<json>'`
 8. On `exit=rs`: load `$SKILL_DIR/runners/rs-realign-runner/SKILL.md` with `realign_gate`
 9. Otherwise return `GATE_COMPLETE R exit=<loop_b|dc>`
@@ -49,8 +49,9 @@ Do NOT proceed until you have read `../../../_runtime.md`
 {
   "exit": "loop_b",
   "assumptions": [
-    {"id": "A1", "risk": "H", "consequence": "..."},
-    {"id": "A2", "risk": "L", "consequence": "..."}
+    {"id": "A1", "risk": "H", "risk_class": "decision", "consequence": "..."},
+    {"id": "A2", "risk": "H", "risk_class": "implementation", "consequence": "..."},
+    {"id": "A3", "risk": "L", "risk_class": "pending", "consequence": "..."}
   ]
 }
 ```
@@ -61,11 +62,13 @@ RS exit:
 {
   "exit": "rs",
   "realign_gate": "D",
-  "assumptions": [{"id": "A1", "risk": "H", "consequence": "..."}]
+  "assumptions": [{"id": "A1", "risk": "H", "risk_class": "decision", "consequence": "..."}]
 }
 ```
 
 - `exit`: `rs` | `loop_b` | `dc`
+- each assumption requires `risk`, `risk_class`, `consequence`
+- `exit=dc` forbids `risk_class` of `pending` or `implementation`
 - `loop_b` / `dc`: marks all pending **prior** entries `verified`; `dc` also marks pending assumptions `verified`
 
 ## Exit

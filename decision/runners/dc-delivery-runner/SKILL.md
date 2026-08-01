@@ -38,7 +38,7 @@ Do NOT proceed until you have read `../../../_runtime.md`
 4. `$GATE_CONTROL check-delivery-ready` — fix every reported error before continuing
 5. **AI Semantic Review** (required) — read `session-invariants.yaml` + `gate-payloads/*.json`; cross-check `$CTX.registers`. Blocker → RS runner (earliest checklist `realign_gate`); do not present delivery content.
 6. `$SESSION_INTEGRITY render` — generate `decision-doc.md`
-7. Read `decision-doc.md`; present key sections in conversation; G8 user confirmation
+7. Read `decision-doc.md`; present key sections in conversation; explicitly list any `Class=implementation` Handoff lines (remind only); G8 user confirmation
 8. `$GATE_CONTROL gate-close --gate DC --payload '{"user_confirmed": true}'`
 9. `$GATE_CONTROL deliver`
 10. Tell the user `$CTX.after_dc.user_message`. If Active is a nested holder session (`main/` / `Dx/` under approach), also state that only this **node session** is Delivered — stage export waits for the holder seal (`confirm-seal`).

@@ -10,27 +10,34 @@
 3. Read `$CTX.gl` — especially T3 (risk vs mitigation narrative) and confirmation-related exchanges; ensure risk coverage accounts for Grill intents (do not rediscover them only at R).
 
 **Execute:**
-1. For each assumption: assign risk level and describe the consequence if it fails.
-2. Bulk assumption updates via R `gate-close` payload — not fresh G0 collection.
+1. Present the **full** Assumption Log once. For each assumption assign together: `risk` (H/M/L), `risk_class` (`decision` | `implementation` | `pending`), and consequence if it fails.
+2. Do **not** assign `risk_class` at G0 / append time — only here on the full table.
+3. If it is unclear whether verification can finish before DC → mark `pending` (do not silently default to `decision`).
+4. Bulk assumption updates via R `gate-close` payload — not fresh G0 collection.
 
-Risk levels:
-- **High:** failure makes the solution unviable — requires re-decision
-- **Medium:** failure causes significant rework, but solution can be adjusted
-- **Low:** failure has limited impact, absorbable during execution
+**Risk levels** (impact on whether the **delivered decision** is overturned — orthogonal to `risk_class`):
+- **High:** failure would seriously undermine or overturn the delivered decision (re-decision or void-level impact)
+- **Medium:** failure forces a significant adjustment to the decision, but not necessarily a full overturn
+- **Low:** limited impact on decision delivery; absorbable in execution
 
-**Confirmation (G8):** After presenting all assumptions and risk levels, ask: "Do these risk levels look correct? You may reclassify any item." Do not declare R closed until user explicitly confirms (including any reclassifications).
+**`risk_class`:**
+- **decision** — verification (or equivalent disposition) can / must complete before DC
+- **implementation** — cannot meaningfully verify before DC; handoff at V; does **not** enter RR
+- **pending** — gray; may leave R only via `loop_b`; must be resolved at V entry
 
-**Pass criterion:** All assumptions have a risk level and consequence description; prior sign-off complete; coverage review complete; user has confirmed risk classification (with any reclassifications applied).
+**Confirmation (G8):** After presenting all assumptions with risk levels and classes, ask: "Do these risk levels and classes look correct? You may reclassify any item." Do not declare R closed until user explicitly confirms (including any reclassifications).
+
+**Pass criterion:** All assumptions have risk, `risk_class`, and consequence; prior sign-off complete; coverage review complete; user has confirmed (with any reclassifications applied).
 
 **Three exits (mutually exclusive — present proposed exit to user for confirmation; AI cannot unilaterally select):**
 
 1. **Known failure** — an assumption is confirmed wrong or invalid  
    → load `$SKILL_DIR/runners/rs-realign-runner/SKILL.md` → re-enter LoopA at the failed assumption's associated gate
 
-2. **Uncertain assumptions exist** — one or more `[待验证]` entries remain after R review  
+2. **Uncertain assumptions / handoff needed** — any `[待验证]` remains, **or** any `risk_class=implementation` or `pending`  
    → enter Group Loop B (V)  
-   → corresponding entries remain `[待验证]`
+   → `exit=dc` is **forbidden** when any item is `implementation` or `pending`
 
-3. **No uncertain assumptions** — all entries resolved; AI + user consensus  
+3. **No uncertain assumptions** — all entries are `decision`, resolved; AI + user consensus  
    → update all remaining `[待验证]` to `[已验证]`  
    → proceed to DC

@@ -155,8 +155,26 @@ def _parse_assumptions_from_doc(doc: str) -> list[dict[str, Any]]:
         cells = [cell.strip() for cell in line.strip("|").split("|")]
         if not cells or not re.fullmatch(r"A\d+", cells[0]):
             continue
-        # Old: 7 cols; new with Release Tracking: 8 cols
-        if len(cells) >= 8:
+        # 9 cols: + Class; 8 cols: + Release Tracking; 7 cols: legacy
+        risk_class_val = None
+        if len(cells) >= 9:
+            (
+                entry_id,
+                text,
+                source,
+                risk,
+                risk_class,
+                tracking,
+                consequence,
+                verification,
+                status,
+            ) = cells[:9]
+            risk_class_val = (
+                risk_class
+                if risk_class in {"decision", "implementation", "pending"}
+                else None
+            )
+        elif len(cells) >= 8:
             entry_id, text, source, risk, tracking, consequence, verification, status = cells[:8]
         elif len(cells) >= 7:
             entry_id, text, source, risk, consequence, verification, status = cells[:7]
@@ -165,18 +183,19 @@ def _parse_assumptions_from_doc(doc: str) -> list[dict[str, Any]]:
             continue
         state = "verified" if "已验证" in status else "pending"
         risk_val = risk if risk in {"H", "M", "L"} else None
-        entries.append(
-            {
-                "id": entry_id,
-                "text": text,
-                "state": state,
-                "source": source or "O",
-                "risk": risk_val,
-                "consequence": consequence or None,
-                "verification": verification or None,
-                "release_tracking": tracking.lower() in {"yes", "true", "y"},
-            }
-        )
+        entry: dict[str, Any] = {
+            "id": entry_id,
+            "text": text,
+            "state": state,
+            "source": source or "O",
+            "risk": risk_val,
+            "consequence": consequence or None,
+            "verification": verification or None,
+            "release_tracking": tracking.lower() in {"yes", "true", "y"},
+        }
+        if risk_class_val is not None:
+            entry["risk_class"] = risk_class_val
+        entries.append(entry)
     return entries
 
 

@@ -165,7 +165,12 @@ def test_loop_a_d_x_r_loop_b_exit(template_config: Path, monkeypatch: pytest.Mon
             {
                 "exit": "loop_b",
                 "assumptions": [
-                    {"id": "A1", "risk": "H", "consequence": "Export blocked"},
+                    {
+                        "id": "A1",
+                        "risk": "H",
+                        "risk_class": "decision",
+                        "consequence": "Export blocked",
+                    },
                 ],
             },
         )

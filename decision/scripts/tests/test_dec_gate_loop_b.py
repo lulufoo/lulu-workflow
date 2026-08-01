@@ -84,7 +84,12 @@ def _close_through_r_loop_b(project_root: Path, cycle_id: str, stage: str) -> No
         {
             "exit": "loop_b",
             "assumptions": [
-                {"id": "A1", "risk": "H", "consequence": "Export blocked"},
+                {
+                    "id": "A1",
+                    "risk": "H",
+                    "risk_class": "decision",
+                    "consequence": "Export blocked",
+                },
             ],
         },
     )
@@ -111,7 +116,12 @@ def test_loop_b_v_rr_dc_deliver(template_config: Path, monkeypatch: pytest.Monke
             {
                 "exit": "rr",
                 "assumptions": [
-                    {"id": "A1", "risk": "H", "verification": h_verification},
+                    {
+                        "id": "A1",
+                        "risk": "H",
+                        "risk_class": "decision",
+                        "verification": h_verification,
+                    },
                 ],
             },
         )
@@ -236,7 +246,12 @@ def test_v_dc_skip_rr(template_config: Path, monkeypatch: pytest.MonkeyPatch) ->
         {
             "exit": "loop_b",
             "assumptions": [
-                {"id": "A1", "risk": "L", "consequence": "Minor UX gap"},
+                {
+                    "id": "A1",
+                    "risk": "L",
+                    "risk_class": "decision",
+                    "consequence": "Minor UX gap",
+                },
             ],
         },
     )
@@ -251,7 +266,12 @@ def test_v_dc_skip_rr(template_config: Path, monkeypatch: pytest.MonkeyPatch) ->
                 "exit": "dc",
                 "batch_confirmed": True,
                 "assumptions": [
-                    {"id": "A1", "risk": "L", "verification": "Accepted"},
+                    {
+                        "id": "A1",
+                        "risk": "L",
+                        "risk_class": "decision",
+                        "verification": "Accepted",
+                    },
                 ],
             },
         )
@@ -284,7 +304,12 @@ def test_rr_return_r_rerun(template_config: Path, monkeypatch: pytest.MonkeyPatc
         {
             "exit": "rr",
             "assumptions": [
-                {"id": "A1", "risk": "H", "verification": h_verification},
+                {
+                    "id": "A1",
+                    "risk": "H",
+                    "risk_class": "decision",
+                    "verification": h_verification,
+                },
             ],
         },
     )
@@ -317,3 +342,174 @@ def test_rr_return_r_rerun(template_config: Path, monkeypatch: pytest.MonkeyPatc
     assert gate_state["active_gate"] == "R"
     assert gate_state["gates"]["D"]["status"] == "closed"
     assert gate_state["skipped_gates"] == []
+
+
+def test_r_exit_dc_forbids_implementation(
+    template_config: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project_root = template_config
+    cycle_id = "feature-loop-b-impl-r-dc"
+    stage = "decision"
+    monkeypatch.chdir(project_root)
+
+    cmd_init_session(project_root, cycle_id, stage)
+    _close_qe(project_root, cycle_id, stage)
+    cmd_gate_close(
+        project_root,
+        cycle_id,
+        stage,
+        "D",
+        {
+            "decision_rationale": "rationale",
+            "applies_to": "scope",
+            "excludes": "none",
+            "execution_approach": "serial",
+        },
+    )
+    cmd_register_append(
+        project_root,
+        cycle_id,
+        stage,
+        register_kind="assumption",
+        payload={"text": "Post-impl behavior"},
+    )
+    cmd_gate_close(
+        project_root,
+        cycle_id,
+        stage,
+        "X",
+        {
+            "acceptance_criteria": "done",
+            "gap": "None",
+            "impact_surface": [],
+            "external_dependencies": [],
+            "key_changes": "k",
+            "critical_constraints": "c",
+            "reversibility": "easy",
+        },
+    )
+    assert (
+        cmd_gate_close(
+            project_root,
+            cycle_id,
+            stage,
+            "R",
+            {
+                "exit": "dc",
+                "assumptions": [
+                    {
+                        "id": "A1",
+                        "risk": "H",
+                        "risk_class": "implementation",
+                        "consequence": "May overturn later",
+                    }
+                ],
+            },
+        )
+        != 0
+    )
+
+
+def test_v_dc_with_high_implementation(
+    template_config: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project_root = template_config
+    cycle_id = "feature-loop-b-impl-v-dc"
+    stage = "decision"
+    monkeypatch.chdir(project_root)
+
+    cmd_init_session(project_root, cycle_id, stage)
+    _close_qe(project_root, cycle_id, stage)
+    cmd_gate_close(
+        project_root,
+        cycle_id,
+        stage,
+        "D",
+        {
+            "decision_rationale": "rationale",
+            "applies_to": "scope",
+            "excludes": "none",
+            "execution_approach": "serial",
+        },
+    )
+    cmd_register_append(
+        project_root,
+        cycle_id,
+        stage,
+        register_kind="assumption",
+        payload={"text": "Post-impl behavior"},
+    )
+    cmd_gate_close(
+        project_root,
+        cycle_id,
+        stage,
+        "X",
+        {
+            "acceptance_criteria": "done",
+            "gap": "None",
+            "impact_surface": [],
+            "external_dependencies": [],
+            "key_changes": "k",
+            "critical_constraints": "c",
+            "reversibility": "easy",
+        },
+    )
+    assert (
+        cmd_gate_close(
+            project_root,
+            cycle_id,
+            stage,
+            "R",
+            {
+                "exit": "loop_b",
+                "assumptions": [
+                    {
+                        "id": "A1",
+                        "risk": "H",
+                        "risk_class": "implementation",
+                        "consequence": "May overturn later",
+                    }
+                ],
+            },
+        )
+        == 0
+    )
+    assert (
+        cmd_gate_close(
+            project_root,
+            cycle_id,
+            stage,
+            "V",
+            {
+                "exit": "dc",
+                "batch_confirmed": True,
+                "assumptions": [
+                    {
+                        "id": "A1",
+                        "risk": "H",
+                        "risk_class": "implementation",
+                        "verification": "Handoff: QA / post-merge acceptance",
+                    }
+                ],
+            },
+        )
+        == 0
+    )
+    gate_state = json.loads(
+        (project_root / gate_state_path(cycle_id, stage)).read_text(encoding="utf-8")
+    )
+    assert gate_state["active_gate"] == "DC"
+    assert "RR" in gate_state["skipped_gates"]
+
+    from dec_register_schema import load_registers  # noqa: WPS433
+    from dec_workflow_common import registers_path  # noqa: E402
+
+    registers = load_registers(
+        project_root / registers_path(cycle_id, stage), r_gate_closed=True
+    )
+    assert registers["assumptions"][0]["state"] == "verified"
+    assert registers["assumptions"][0]["verification"].startswith("Handoff:")
+
+    doc = load_rendered_doc(project_root, cycle_id, stage)
+    assert "implementation" in doc
+    assert "Handoff:" in doc

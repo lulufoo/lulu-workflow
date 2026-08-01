@@ -26,16 +26,17 @@ Before presenting to user:
 ## DC - Delivery Confirmation
 
 **Entry paths (any one satisfies):**
-- Path 1: R exit 3 — all assumptions `[已验证]`, no uncertain items (Group Loop B skipped)
-- Path 2: V direct — no high-risk, medium/low batch-confirmed, no Risk Release needed
-- Path 3: RR exit 1 — all Released, Assumption Log has no new `[待验证]` entries
+- Path 1: R exit 3 — all assumptions are `decision`, `[已验证]`, no uncertain items (Group Loop B skipped; **no** `implementation` on this path)
+- Path 2: V direct — no decision RR-scope items; implementation Handoffs recorded; medium/low decision batch-confirmed
+- Path 3: RR exit 1 — all RR-scope Released, Assumption Log has no new `[待验证]` entries
 
 After structural audit and AI review pass, and after render:
 
 1. Present the following key sections **from `decision-doc.md`** in the conversation (do not show file paths):
    - Decision Rationale
    - Scope (including explicit exclusions)
-   - Assumptions & Risks (all items with risk levels and Verification content)
+   - Assumptions & Risks (all items with risk levels, Class, and Verification content)
+   - Call out any `Class=implementation` Handoff lines (remind only; do not block delivery)
 2. Ask user: "Are these decisions correct? Any items to realign?"
 3. If any item is flagged: load `$SKILL_DIR/runners/rs-realign-runner/SKILL.md` on the corresponding gate; update all `stale` gates before proceeding.
    > **DC-triggered RS baseline:** when RS is triggered from DC, pin fresh `$CTX` via `resolve-context` after any sync — do not reconstruct state from conversation memory alone.

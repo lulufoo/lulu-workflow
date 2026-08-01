@@ -68,6 +68,7 @@ from dec_gate_state_schema import (  # noqa: E402
     save_gate_state,
 )
 from dec_register_schema import (  # noqa: E402
+    RISK_CLASSES,
     RISK_LEVELS,
     init_registers,
     load_registers,
@@ -437,6 +438,17 @@ def _validate_gl_close_payload(payload: dict[str, Any]) -> None:
 _H_VERIFICATION_PARTS = ("Method:", "Owner:", "Timing:", "Release condition:")
 
 
+def _risk_class_of(entry: dict[str, Any]) -> str:
+    return str(entry.get("risk_class", "")).strip()
+
+
+def _validate_handoff_verification(verification: str, *, entry_id: str) -> None:
+    if not verification.startswith("Handoff:"):
+        raise ValueError(
+            f"assumption {entry_id}: implementation verification must start with 'Handoff:'"
+        )
+
+
 def _validate_gate_close_prereqs(state: dict[str, Any], gate: str) -> str | None:
     if state["active_gate"] != gate:
         return f"active_gate is {state['active_gate']!r}, expected {gate!r}"
@@ -460,6 +472,9 @@ def _validate_high_risk_verification(verification: str, *, entry_id: str) -> Non
 
 
 def _needs_rr_scope(entry: dict[str, Any]) -> bool:
+    """RR-scope: decision-class AND (H or release_tracking)."""
+    if _risk_class_of(entry) != "decision":
+        return False
     risk = str(entry.get("risk", "")).strip()
     if risk == "H":
         return True
@@ -489,20 +504,44 @@ def _validate_v_exit_against_registers(
         entry_id = str(entry.get("id"))
         update = by_id.get(entry_id, {})
         risk = str(update.get("risk", entry.get("risk", ""))).strip()
+        risk_class = str(
+            update.get("risk_class", entry.get("risk_class", ""))
+        ).strip()
         release_tracking = bool(update.get("release_tracking", entry.get("release_tracking")))
-        merged = {**entry, "risk": risk, "release_tracking": release_tracking}
+        if risk_class not in RISK_CLASSES or risk_class == "pending":
+            raise ValueError(
+                f"assumption {entry_id}: risk_class must be decision or "
+                f"implementation before V close (got {risk_class!r})"
+            )
+        if risk_class == "implementation" and release_tracking:
+            raise ValueError(
+                f"assumption {entry_id}: release_tracking forbidden for implementation; "
+                "reclassify to decision first"
+            )
+        merged = {
+            **entry,
+            "risk": risk,
+            "risk_class": risk_class,
+            "release_tracking": release_tracking,
+        }
         if _needs_rr_scope(merged):
             rr_needed = True
         verification = str(update.get("verification", "")).strip()
-        if risk == "H" or release_tracking:
+        if risk_class == "implementation":
+            _validate_handoff_verification(verification, entry_id=entry_id)
+        elif risk == "H" or release_tracking:
             _validate_high_risk_verification(verification, entry_id=entry_id)
         elif risk in {"M", "L"} and verification != "Accepted":
             raise ValueError(f"assumption {entry_id}: Medium/Low verification must be 'Accepted'")
 
     if exit_path == "dc" and rr_needed:
-        raise ValueError("V exit dc requires no High-risk or release-tracking assumptions")
+        raise ValueError(
+            "V exit dc requires no decision High-risk or release-tracking assumptions"
+        )
     if exit_path == "rr" and not rr_needed:
-        raise ValueError("V exit rr requires at least one High-risk or release-tracking assumption")
+        raise ValueError(
+            "V exit rr requires at least one decision High-risk or release-tracking assumption"
+        )
 
 
 def _validate_gate_close_payload(gate: str, payload: dict[str, Any], *, constraints: dict[str, Any]) -> None:
@@ -563,13 +602,22 @@ def _validate_gate_close_payload(gate: str, payload: dict[str, Any], *, constrai
         for item in assumptions:
             if not isinstance(item, dict):
                 raise ValueError("each assumption entry must be an object")
-            if not str(item.get("id", "")).strip():
+            entry_id = str(item.get("id", "")).strip()
+            if not entry_id:
                 raise ValueError("assumption id is required")
             risk = str(item.get("risk", "")).strip()
             if risk not in RISK_LEVELS:
-                raise ValueError(f"invalid risk for {item.get('id')}: {risk!r}")
+                raise ValueError(f"invalid risk for {entry_id}: {risk!r}")
             if not str(item.get("consequence", "")).strip():
-                raise ValueError(f"consequence is required for {item.get('id')}")
+                raise ValueError(f"consequence is required for {entry_id}")
+            risk_class = str(item.get("risk_class", "")).strip()
+            if risk_class not in RISK_CLASSES:
+                raise ValueError(f"invalid risk_class for {entry_id}: {risk_class!r}")
+            if exit_path == "dc" and risk_class in {"pending", "implementation"}:
+                raise ValueError(
+                    f"R exit dc forbids risk_class={risk_class!r} on {entry_id}; "
+                    "use loop_b so V can write Handoff / resolve pending"
+                )
         return
     if gate == "V":
         exit_path = str(payload.get("exit", "")).strip()
@@ -627,6 +675,7 @@ def _apply_r_register_updates(
             continue
         entry["risk"] = str(update.get("risk")).strip()
         entry["consequence"] = str(update.get("consequence", "")).strip()
+        entry["risk_class"] = str(update.get("risk_class")).strip()
         if exit_path == "dc" and str(entry.get("state", "")) == "pending":
             entry["state"] = "verified"
     save_registers(registers_path, registers, r_gate_closed=True)
@@ -661,6 +710,13 @@ def _apply_v_register_updates(registers_path: Path, payload: dict[str, Any]) -> 
         risk = str(update.get("risk", entry.get("risk", ""))).strip()
         if risk in RISK_LEVELS:
             entry["risk"] = risk
+        if "risk_class" in update:
+            risk_class = str(update.get("risk_class", "")).strip()
+            if risk_class in RISK_CLASSES:
+                entry["risk_class"] = risk_class
+        if _risk_class_of(entry) == "implementation":
+            entry["state"] = "verified"
+            entry["release_tracking"] = False
     save_registers(registers_path, registers, r_gate_closed=True)
 
 
@@ -821,8 +877,19 @@ def _collect_delivery_errors(
             continue
         entry_id = str(entry.get("id", ""))
         risk = str(entry.get("risk", "")).strip()
+        risk_class = _risk_class_of(entry)
         verification = str(entry.get("verification") or "").strip()
-        if risk == "H":
+        if risk_class == "pending":
+            errors.append(f"{entry_id}: risk_class still pending")
+        if risk_class == "implementation":
+            if not verification:
+                errors.append(f"{entry_id}: implementation missing Handoff verification")
+            else:
+                try:
+                    _validate_handoff_verification(verification, entry_id=entry_id)
+                except ValueError as exc:
+                    errors.append(str(exc))
+        elif risk == "H" or bool(entry.get("release_tracking")):
             if not verification:
                 errors.append(f"{entry_id}: High-risk missing verification")
             else:

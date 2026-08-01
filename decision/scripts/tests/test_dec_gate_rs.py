@@ -102,7 +102,14 @@ def test_r_prior_signoff_on_close(template_config: Path, monkeypatch: pytest.Mon
             "R",
             {
                 "exit": "loop_b",
-                "assumptions": [{"id": "A1", "risk": "L", "consequence": "minor"}],
+                "assumptions": [
+                    {
+                        "id": "A1",
+                        "risk": "L",
+                        "risk_class": "decision",
+                        "consequence": "minor",
+                    }
+                ],
             },
         )
         == 0
@@ -361,7 +368,14 @@ def test_stale_from_d_after_r_closed_strips_risk(
             "R",
             {
                 "exit": "loop_b",
-                "assumptions": [{"id": "A1", "risk": "H", "consequence": "blocked"}],
+                "assumptions": [
+                    {
+                        "id": "A1",
+                        "risk": "H",
+                        "risk_class": "decision",
+                        "consequence": "blocked",
+                    }
+                ],
             },
         )
         == 0
@@ -375,6 +389,7 @@ def test_stale_from_d_after_r_closed_strips_risk(
     assumption = registers["assumptions"][0]
     assert "risk" not in assumption
     assert "consequence" not in assumption
+    assert "risk_class" not in assumption
 
     capsys.readouterr()
     assert cmd_register_commit(project_root, cycle_id, stage, operations=[]) == 0

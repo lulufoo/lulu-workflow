@@ -314,13 +314,14 @@ def render_execution_analysis_body(
 def render_assumptions_body(registers: dict[str, Any]) -> str:
     lines = [
         "> Status values: `[待验证]` · `[已验证]` · `[失效]`",
+        "> For `Class=implementation`, `[已验证]` means handoff recorded (not risk released).",
         "",
-        "| # | Assumption | Source | Risk | Release Tracking | Failure Consequence | Verification | Status |",
-        "|---|-----------|--------|------|------------------|---------------------|-------------|--------|",
+        "| # | Assumption | Source | Risk | Class | Release Tracking | Failure Consequence | Verification | Status |",
+        "|---|-----------|--------|------|-------|------------------|---------------------|-------------|--------|",
     ]
     assumptions = registers.get("assumptions", [])
     if not assumptions:
-        lines.append("| | | | | | | | |")
+        lines.append("| | | | | | | | | |")
     else:
         for entry in assumptions:
             if not isinstance(entry, dict):
@@ -328,6 +329,7 @@ def render_assumptions_body(registers: dict[str, Any]) -> str:
             state = str(entry.get("state", "pending"))
             status = "[已验证]" if state == "verified" else "[待验证]"
             risk = entry.get("risk") or ""
+            risk_class = entry.get("risk_class") or ""
             tracking = "Yes" if entry.get("release_tracking") else ""
             verification = entry.get("verification") or ""
             consequence = entry.get("consequence") or ""
@@ -339,6 +341,7 @@ def render_assumptions_body(registers: dict[str, Any]) -> str:
                         _escape_cell(str(entry.get("text", ""))),
                         _escape_cell(str(entry.get("source", ""))),
                         _escape_cell(str(risk)),
+                        _escape_cell(str(risk_class)),
                         _escape_cell(tracking),
                         _escape_cell(str(consequence)),
                         _escape_cell(str(verification)),

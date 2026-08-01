@@ -41,13 +41,24 @@ def test_strip_assumption_risk_fields() -> None:
         "cycle_id": "c",
         "stage": "decision",
         "prior": [],
-        "assumptions": [{"id": "A1", "text": "t", "state": "pending", "source": "R", "risk": "H", "consequence": "x"}],
+        "assumptions": [
+            {
+                "id": "A1",
+                "text": "t",
+                "state": "pending",
+                "source": "R",
+                "risk": "H",
+                "risk_class": "decision",
+                "consequence": "x",
+            }
+        ],
         "next_prior_seq": 1,
         "next_assumption_seq": 2,
     }
     stripped = strip_assumption_risk_fields(data)
     assert "risk" not in stripped["assumptions"][0]
     assert "consequence" not in stripped["assumptions"][0]
+    assert "risk_class" not in stripped["assumptions"][0]
 
 
 def test_structural_audit_passes_with_payloads(template_config: Path, monkeypatch: pytest.MonkeyPatch) -> None:

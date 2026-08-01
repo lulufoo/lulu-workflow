@@ -22,7 +22,7 @@ Do NOT proceed until you have read `../../../_runtime.md`
 
 - Gate contract: `$SKILL_DIR/gates/rr-risk-release.md`
 - `$CTX.gates.V.status` must be `closed`
-- Scope: High-risk assumptions + user-flagged `release_tracking` items only
+- Scope: `risk_class=decision` AND (High-risk OR `release_tracking`) only — never `implementation`
 
 ## Pipeline
 
@@ -54,7 +54,7 @@ Do NOT proceed until you have read `../../../_runtime.md`
 }
 ```
 
-- Include only RR-scope assumptions (H-risk or `release_tracking`)
+- Include only RR-scope assumptions (`decision` ∩ (H-risk or `release_tracking`))
 - `released: true` → Status `[已验证]` in registers/doc
 
 ## Exit
