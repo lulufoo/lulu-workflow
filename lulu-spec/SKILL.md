@@ -10,7 +10,7 @@ disable-model-invocation: true
 
 Domain holder for the product-doc compose document. Delegates full Drafting / Evaluating / Delivery orchestration to the `compose` kernel.
 
-> **Prerequisite:** Delivered `decision-doc` from `lulu-bet`. Produces **product-doc.md** — feature product specification for human sign-off before `lulu-approach`.
+> **Prerequisite:** Committed `source-package` from `lulu-bet`, projected to this revision's `scope-package`. Produces **product-doc.md** — feature product specification for human sign-off before `lulu-approach`.
 
 **Scope:** Feature cycle only. Topic/shaping cycles are out of scope (future `lulu-blueprint`).
 

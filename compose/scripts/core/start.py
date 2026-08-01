@@ -21,7 +21,6 @@ from transition_table import load_stage_order  # noqa: E402
 from workflow_sessions import current_effective_delivered, get_sessions  # noqa: E402
 from invalidation_hook import invalidate_downstream  # noqa: E402
 
-from delivered_refs_backfill import backfill_delivered_refs_from_cycle  # noqa: E402
 from delivered_refs_schema import (  # noqa: E402
     load_delivered_refs_file,
     serialize_delivered_refs,
@@ -147,8 +146,6 @@ def run_start(
         return 1
 
     cache_dir = project_root / CACHE_DIR
-
-    backfill_delivered_refs_from_cycle(cycle_id, project_root)  # reconcile index from cache
 
     run_mode = adapter.infer_run_mode(cycle_id, project_root)
 

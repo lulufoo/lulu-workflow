@@ -18,7 +18,7 @@ from workflow_common import parse_frontmatter_fields  # noqa: E402
 
 STATE_FILENAME = "fidelity-evaluate-state.md"
 MAX_ROUNDS = 3
-STATUSES = frozenset({"pending", "passed", "skipped", "failed"})
+STATUSES = frozenset({"pending", "passed", "failed"})
 
 
 def fidelity_evaluate_state_path(revision_dir: Path) -> Path:
@@ -32,7 +32,6 @@ def empty_state(*, intake: str = "atomize") -> dict[str, str]:
         "intake": intake,
         "round": "0",
         "max_rounds": str(MAX_ROUNDS),
-        "skip_reason": "",
     }
 
 
@@ -52,7 +51,6 @@ def save_state(path: Path, data: dict[str, Any]) -> None:
         "intake": str(data.get("intake", "atomize")),
         "round": str(data.get("round", "0")),
         "max_rounds": str(data.get("max_rounds", MAX_ROUNDS)),
-        "skip_reason": str(data.get("skip_reason", "")),
     }
     lines = ["---"]
     for key, value in ordered.items():
@@ -64,4 +62,4 @@ def save_state(path: Path, data: dict[str, Any]) -> None:
 
 
 def gate_allows_derive(data: dict[str, str]) -> bool:
-    return str(data.get("status", "")).strip() in {"passed", "skipped"}
+    return str(data.get("status", "")).strip() == "passed"

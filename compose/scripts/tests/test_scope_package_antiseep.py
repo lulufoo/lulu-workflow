@@ -23,9 +23,9 @@ from discussion_pointer_schema import load_discussion_pointer  # noqa: E402
 from scope_package_convert import (  # noqa: E402
     ScopePackageAntiseepError,
     convert_scope_package,
-    focus_seed_fact_path,
-    resolve_l_seed_fact_path,
-    seed_fact_path_for_out_dir,
+    focus_seed_source_path,
+    resolve_l_seed_source_path,
+    seed_source_path_for_out_dir,
 )
 from scope_package_schema import (  # noqa: E402
     build_scope_package,
@@ -37,8 +37,8 @@ from scope_package_schema import (  # noqa: E402
 def _pkg_multi(f1: str, f2: str) -> dict:
     return build_scope_package(
         slices=[
-            {"id": "L1", "title": "Auth", "fact_path": f1, "source_id": "D1"},
-            {"id": "L2", "title": "Billing", "fact_path": f2, "source_id": "D2"},
+            {"id": "L1", "title": "Auth", "source_path": f1, "source_id": "D1"},
+            {"id": "L2", "title": "Billing", "source_path": f2, "source_id": "D2"},
         ]
     )
 
@@ -65,7 +65,7 @@ def _init_pointer(out_dir: Path) -> None:
     assert code == 0, payload
 
 
-def test_resolve_l_seed_fact_path_uses_mirror(tmp_path: Path) -> None:
+def test_resolve_l_seed_source_path_uses_mirror(tmp_path: Path) -> None:
     rev = tmp_path / "revision1"
     rev.mkdir()
     f1 = "/abs/D1/decision-fact.json"
@@ -73,10 +73,10 @@ def test_resolve_l_seed_fact_path_uses_mirror(tmp_path: Path) -> None:
     pkg_path = save_scope_package(rev, _pkg_multi(f1, f2))
     convert_scope_package(rev, scope_package_path=pkg_path)
 
-    assert resolve_l_seed_fact_path(rev, "L1") == f1
-    assert resolve_l_seed_fact_path(rev, "L2") == f2
+    assert resolve_l_seed_source_path(rev, "L1") == f1
+    assert resolve_l_seed_source_path(rev, "L2") == f2
     assert load_discussion_pointer(rev)["focus"] == "L1"
-    assert focus_seed_fact_path(rev) == f1
+    assert focus_seed_source_path(rev) == f1
 
 
 def test_missing_mirror_fails_without_package_fallback(tmp_path: Path) -> None:
@@ -88,12 +88,12 @@ def test_missing_mirror_fails_without_package_fallback(tmp_path: Path) -> None:
     convert_scope_package(rev, scope_package_path=pkg_path)
     (rev / "L1" / "scope-ref.json").unlink()
 
-    with pytest.raises(ScopePackageAntiseepError, match="missing L fact_path mirror"):
-        resolve_l_seed_fact_path(rev, "L1")
-    with pytest.raises(ScopePackageAntiseepError, match="missing L fact_path mirror"):
-        focus_seed_fact_path(rev)
-    with pytest.raises(ScopePackageAntiseepError, match="missing L fact_path mirror"):
-        seed_fact_path_for_out_dir(rev / "L1")
+    with pytest.raises(ScopePackageAntiseepError, match="missing L source_path mirror"):
+        resolve_l_seed_source_path(rev, "L1")
+    with pytest.raises(ScopePackageAntiseepError, match="missing L source_path mirror"):
+        focus_seed_source_path(rev)
+    with pytest.raises(ScopePackageAntiseepError, match="missing L source_path mirror"):
+        seed_source_path_for_out_dir(rev / "L1")
 
 
 def test_seed_decision_uses_l_mirror_not_scope_package(tmp_path: Path) -> None:
@@ -166,7 +166,7 @@ def test_seed_decision_fails_when_mirror_missing(tmp_path: Path) -> None:
     assert code == 1
     assert payload.get("ok") is False
     err = str(payload.get("error", ""))
-    assert "missing L fact_path mirror" in err
+    assert "missing L source_path mirror" in err
     assert "P4.antiseep" in err
     assert not (l1 / "_facts.json").is_file()
 
@@ -187,7 +187,7 @@ def test_seed_decision_rejects_index_scope_package_without_mirror(
                     {
                         "id": "L1",
                         "title": "Only",
-                        "fact_path": "/x/fact.json",
+                        "source_path": "/x/fact.json",
                         "source_id": "main",
                     }
                 ]
@@ -219,14 +219,14 @@ def test_seed_decision_rejects_index_scope_package_without_mirror(
     assert not (out / "_facts.json").is_file()
 
 
-def test_seed_fact_path_for_out_dir_none_without_contract(tmp_path: Path) -> None:
+def test_seed_source_path_for_out_dir_none_without_contract(tmp_path: Path) -> None:
     out = tmp_path / "plain"
     out.mkdir()
-    assert seed_fact_path_for_out_dir(out) is None
+    assert seed_source_path_for_out_dir(out) is None
 
 
 def test_begin_inductive_scope_ref_is_l_mirror_fact_path(tmp_path: Path) -> None:
-    """begin-inductive dispatch SCOPE_REF = focus L mirror fact_path, not package."""
+    """begin-inductive dispatch SCOPE_REF = focus L mirror source_path, not package."""
     import bootstrap  # noqa: F401
     import l_step_control  # noqa: E402
     from delivered_refs_schema import DeliveredRef  # noqa: E402
@@ -317,7 +317,7 @@ def test_begin_inductive_fails_when_l_mirror_missing(tmp_path: Path) -> None:
     result = l_step_control.begin_inductive(cycle, tmp_path, profile_id=profile)
     assert result["ok"] is False
     assert "P4.antiseep" in result["reason"]
-    assert "missing L fact_path mirror" in result["reason"]
+    assert "missing L source_path mirror" in result["reason"]
 
 
 def test_l2_mirror_seed_path_independent(tmp_path: Path) -> None:
@@ -327,7 +327,7 @@ def test_l2_mirror_seed_path_independent(tmp_path: Path) -> None:
     f2 = "/abs/D2/decision-fact.json"
     pkg_path = save_scope_package(rev, _pkg_multi(f1, f2))
     convert_scope_package(rev, scope_package_path=pkg_path)
-    write_scope_ref_mirror(rev, "L2", fact_path=f2)  # already present; assert stable
+    write_scope_ref_mirror(rev, "L2", source_path=f2)  # already present; assert stable
 
     l2 = rev / "L2"
     _init_pointer(l2)

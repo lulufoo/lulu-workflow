@@ -42,9 +42,9 @@ def test_mark_passed_opens_gate(tmp_path: Path) -> None:
     assert payload["status"] == "passed"
 
 
-def test_mark_skipped_opens_gate(tmp_path: Path) -> None:
+def test_mark_skipped_is_not_available(tmp_path: Path) -> None:
     rev = tmp_path / "revision1"
     rev.mkdir()
     result = _run(rev, "mark-skipped", "--reason", "unit-import")
-    assert result.returncode == 0
-    assert _run(rev, "require-for-derive").returncode == 0
+    assert result.returncode != 0
+    assert "invalid choice" in result.stderr

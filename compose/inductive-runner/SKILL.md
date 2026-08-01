@@ -31,7 +31,7 @@ The parent passes these in the `## Input` block; do not hardcode stage paths.
 |-----|---------|
 | `$COMPOSE_PROFILE` | Compose profile id (drives every `$FETCH_COMPOSE`) |
 | `$CYCLE_ID` | Active cycle id |
-| `$SCOPE_REF` | Upstream scope SSOT path. Decision-holder stages: `decision-fact.json` (**required**, ≥1 unit). Plan with design primary may be design-doc. Unit Seed / G5-B / `ai_scope_scan` read this. |
+| `$SCOPE_REF` | Current focus source-material path; all source formats use the same Seed path. |
 | `$INTENT_BASELINE_REFS` | JSON array of intent baseline refs; generative via `intent_coverage` **and** G5 algorithm-A safety-net; empty → both no-op |
 | `$NORM_CONSTRAINT_REFS` | JSON array of norm constraint refs; generation boundary **and** G5 algorithm-C; empty → both no-op |
 | `$INDUCTIVE_OUT_DIR` | Active revision dir (`revision{active_doc}/`) for inductive state bundle |
@@ -65,7 +65,6 @@ PROVENANCE_TRACES     = $INDUCTIVE_OUT_DIR/provenance-trace-{intent,scope,norm}.
 | `$INDUCTIVE_GATE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_gate_control.py" --out-dir "$INDUCTIVE_OUT_DIR"` |
 | `$INDUCTIVE_G3_SECTION_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_g3_section_control.py" --out-dir "$INDUCTIVE_OUT_DIR" --project-root "$(pwd)" --compose-profile "$COMPOSE_PROFILE" --compose-cycle-id "$CYCLE_ID"` |
 | `$PROVENANCE_GATE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/provenance_gate_control.py" --out-dir "$INDUCTIVE_OUT_DIR"` |
-| `$DECISION_FACT_CLAIM_CTL` | `python3 "$SKILL_ROOT/compose/scripts/core/decision_fact_claim_control.py" --revision-dir "$INDUCTIVE_OUT_DIR"` |
 
 Fetch schedule:
 - **Before Seed / Shape-confirm:** `$FETCH_COMPOSE --role section-registry` → `SECTION_REGISTRY` (`section_order` → `init-session --sections`); `$FETCH_COMPOSE --role inductive-scan-criteria` → `SCAN_CRITERIA` (methods / shape hints / mandatory)
@@ -87,11 +86,11 @@ Inductive work discovers missing design decisions (parts → whole). **SoT = fac
 
 ### Control spine
 
-1. **Seed** — Init from `SECTION_REGISTRY.section_order` (`gates/g1-shape.md`). When `$SCOPE_REF` is `decision-fact.json`: unit import + `$DECISION_FACT_CLAIM_CTL` claim→settled co-batch. When `$SCOPE_REF` is a non-decision prose SSOT (e.g. plan←design-doc): prose Seed. Per lens: `activate-section` → substance? `seed-decision`+`set-frontier` : (`optional` → `skip-section` / `required` → leave for G3). **I4:** never invent beyond scope. Git commit `"seeded"`.
+1. **Seed** — Init from `SECTION_REGISTRY.section_order` (`gates/g1-shape.md`). Read `$SCOPE_REF` as source material and, per lens: `activate-section` → substance? `seed-decision`+`set-frontier` : (`optional` → `skip-section` / `required` → leave for G3). **I4:** never invent beyond scope. Git commit `"seeded"`.
 2. **Shape-confirm (I11)** — After Seed: `view --synthesis on --granularity <arch-overview hint>` → user confirms/corrects → corrections via commands (+ `set-frontier` when lens facts change) → re-view until confirmed → `gate-close --gate G1` (records `checkpoint --name shape`) → **stop and await user**. Do **not** auto-detect.
 3. **G2 folded** — `gate-close G2` auto-passes without topology report. Per-open grounding = `attach-code-refs` inside Class 2 processing (optional `g3-deep-grounding-runner`).
 4. **User-driven capabilities** (below) until Exit.
-5. **Exit** — run `check-coverage`: ∀ init lens cleared∨skipped ∧ no (blocking∧open) ∧ (if demand manifest: all fulfilled∨deferred) ∧ D6 claim gate (claimed→settled∨deferred; unclaimed listed as `decision_fact_unclaimed`, valid terminal).
+5. **Exit** — run `check-coverage`: ∀ init lens cleared∨skipped ∧ no (blocking∧open) ∧ (if demand manifest: all fulfilled∨deferred).
 6. **Audit (user-triggered):** G4 internal hard · G5 external soft → Handoff (`view --synthesis off` / Initializing).
 
 ### Capability surface
@@ -134,9 +133,8 @@ Do NOT rely on memory for gate execution steps.
 - **Who fixes what:** User decides how to fix; AI recommends; scripts move state only. G4/G5 find/name — never patch.
 - **Focus guard:** Discovery may scan cross-section (read-only). Maturity / seed mutations require `activate-section` first; `add-open` has no focus-guard (doc-level).
 - **Human inlet:** `add-open --trigger human --means human_probe|human_direct|human_view` — any altitude; optional `--detected-under <S>`.
-- **AI detect:** never automatic; user asks. Means: `ai_scan` / `ai_intent_baseline` / `ai_probe` / `ai_scope_scan`.
+- **AI detect:** never automatic; user asks. Means: `ai_scan` / `ai_intent_baseline` / `ai_probe`.
 - **intent_coverage:** when a demand manifest exists, mount-or-create opens with `intent_ref` before inventing duplicates (`means=ai_intent_baseline`).
-- **scope_coverage (`ai_scope_scan`):** when `$SCOPE_REF` is `decision-fact.json` and the user authorizes Class 1B, mount-or-create opens with `intent_ref=<unit-id>` (role B; peer of intent_coverage, not A safety-net).
 
 ---
 

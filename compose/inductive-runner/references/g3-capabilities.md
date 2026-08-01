@@ -5,7 +5,7 @@
 Function-view catalog of G3 capabilities. **This file is the capability SSOT.** Orchestration — *when* each capability is invoked, and the global-vs-flow availability attribute — lives in `../gates/g3-refine.md`, not here. Keeping the two apart lets the capability set and the dialogue flow iterate independently.
 
 **Provenance vocabulary (two layers):**
-- **Opens** (`inductive-opens.json`): `trigger ∈ {human, ai}` × `means ∈ {human_probe, ai_probe, human_direct, human_view, ai_scan, ai_intent_baseline, ai_scope_scan}`. Means names are self-describing (`human_*` / `ai_*`); phase 1 keeps `trigger` and validates prefix ↔ trigger. Legacy means migrate on load/save.
+- **Opens** (`inductive-opens.json`): `trigger ∈ {human, ai}` × `means ∈ {human_probe, ai_probe, human_direct, human_view, ai_scan, ai_intent_baseline}`. Means names are self-describing (`human_*` / `ai_*`); phase 1 keeps `trigger` and validates prefix ↔ trigger. Legacy means migrate on load/save.
 - **Seed facts** (`_facts.json`): `origin.type=seed` with hybrid `origin.ref` (scope path + excerpt / unit id) — **not** an open `trigger=seed` stamp. Seed bypasses opens.
 
 Stamps are **always** recorded even when hidden from the user's wording — they feed G5 provenance and I10 inheritance.
@@ -40,14 +40,11 @@ AI actively executes; lands via `add-open --trigger ai` after the parent forms a
 |--------|-------|----------|
 | Code scan | `ai_scan` | code via `SCAN_CRITERIA` |
 | Intent baseline | `ai_intent_baseline` | demand manifest via `intent_coverage` (role A) |
-| Scope / decision-fact scan | `ai_scope_scan` | `$SCOPE_REF` units (when decision-fact.json) via design lenses; mount-or-create with `intent_ref=<unit-id>` (role B; **not** A safety-net) |
 | AI collision | `ai_probe` | 4 lenses: failure / boundary / assumption / seam |
 
 AI probe rule: silence ∧ KW-false → gap; no correctness judging (that is G4).
 
-**`ai_scope_scan` contract:** authorized Class 1B only (never automatic — I6). Subtract Settled facts first (I5). Reuse mount-or-create + `intent_ref` shape from `intent_coverage`; do **not** call `is_generation_guaranteed` for this means. Unclaimed units remain on the claim ledger.
-
-**Tool — `g3-shallow-grounding-runner`** (optional): read-only evidence pass feeding 1B. Writes receipts to `grounding-notes.json`; **never** `add-open` — the parent owns open creation. For `ai_scope_scan`, evidence is the decision-fact unit list (not code shallow-grounding).
+**Tool — `g3-shallow-grounding-runner`** (optional): read-only evidence pass feeding 1B. Writes receipts to `grounding-notes.json`; **never** `add-open` — the parent owns open creation.
 
 ---
 

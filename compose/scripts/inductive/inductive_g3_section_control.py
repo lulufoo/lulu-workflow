@@ -40,8 +40,7 @@ _HERE = Path(__file__).resolve().parent
 _SCRIPTS = _HERE.parent
 _SECTION = _SCRIPTS / "section"
 _CORE = _SCRIPTS / "core"
-_SCHEMA_SESSION = _SCRIPTS / "schema" / "session"
-for _p in (_HERE, _SECTION, _CORE, _SCRIPTS, _SCHEMA_SESSION):
+for _p in (_HERE, _SECTION, _CORE, _SCRIPTS):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
@@ -89,8 +88,6 @@ from kw_facets import (  # noqa: E402
     materialize_section_registry,
     section_registry_path,
 )
-from decision_fact_claim_schema import sync_and_evaluate_claims  # noqa: E402
-from resolved_refs_schema import has_resolved_refs, scope_decision_fact_path  # noqa: E402
 
 
 def _resolve_section_registry_path(
@@ -475,13 +472,6 @@ def cmd_status(out_dir: Path, _args: argparse.Namespace) -> None:
     })
 
 
-def _decision_fact_path_for_out_dir(out_dir: Path) -> str | None:
-    """Resolve decision-fact.json when revision scope_ref is the unit SSOT."""
-    if not has_resolved_refs(out_dir):
-        return None
-    return scope_decision_fact_path(out_dir)
-
-
 def cmd_check_coverage(out_dir: Path, _args: argparse.Namespace) -> None:
     ptr = _load_pointer(out_dir)
     cov = check_coverage(ptr)
@@ -493,25 +483,6 @@ def cmd_check_coverage(out_dir: Path, _args: argparse.Namespace) -> None:
             f"{len(blocking)} blocking open item(s) remain: "
             + ", ".join(str(o.get("id")) for o in blocking)
         )
-
-    # D6: claim / orphan gate at Exit (unclaimed exposed; claimed must settle∨defer).
-    try:
-        claims = sync_and_evaluate_claims(
-            out_dir,
-            decision_fact_path=_decision_fact_path_for_out_dir(out_dir),
-            fail_on_unclaimed=False,
-        )
-    except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
-        cov["ok"] = False
-        cov["errors"].append(f"decision-fact claim gate error: {exc}")
-        claims = {"gate_ok": False, "errors": [str(exc)]}
-    cov["decision_fact_claims"] = claims
-    if claims.get("orphan_exposed"):
-        cov["decision_fact_unclaimed"] = list(claims["orphan_exposed"])
-    if not claims.get("gate_ok", True):
-        cov["ok"] = False
-        for err in claims.get("errors") or []:
-            cov["errors"].append(str(err))
 
     print(json.dumps(cov, indent=2, ensure_ascii=False))
     if not cov["ok"]:
@@ -641,20 +612,20 @@ def cmd_seed_decision(out_dir: Path, args: argparse.Namespace) -> None:
     ]
     if not origin_refs:
         # P4.antiseep A1: when L mirrors exist / scope-package contract applies,
-        # default origin from Lx/scope-ref.json fact_path only — never whole
+        # default origin from Lx/scope-ref.json source_path only — never whole
         # $SCOPE_REF / scope-package.
         from scope_package_convert import (  # noqa: WPS433
             ScopePackageAntiseepError,
-            seed_fact_path_for_out_dir,
+            seed_source_path_for_out_dir,
         )
         from scope_package_schema import is_scope_package_path  # noqa: WPS433
 
         try:
-            mirror_fact = seed_fact_path_for_out_dir(out_dir)
+            mirror_source = seed_source_path_for_out_dir(out_dir)
         except ScopePackageAntiseepError as exc:
             _fail(str(exc))
-        if mirror_fact is not None:
-            origin_refs.append(mirror_fact)
+        if mirror_source is not None:
+            origin_refs.append(mirror_source)
         else:
             try:
                 idx = load_index(out_dir)
@@ -663,7 +634,7 @@ def cmd_seed_decision(out_dir: Path, args: argparse.Namespace) -> None:
                     if is_scope_package_path(scope_ref):
                         _fail(
                             "P4.antiseep: seed-decision must not default origin_ref "
-                            "to scope-package; require Lx/scope-ref.json fact_path mirror"
+                            "to scope-package; require Lx/scope-ref.json source_path mirror"
                         )
                     origin_refs.append(scope_ref)
             except (FileNotFoundError, ValueError):

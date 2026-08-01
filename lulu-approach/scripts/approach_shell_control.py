@@ -55,6 +55,7 @@ from approach_layout import (  # noqa: E402
     dx_session_dir,
     ensure_approach_layout,
     main_session_dir,
+    source_package_path,
 )
 from approach_mainline_reopen_schema import (  # noqa: E402
     build_mainline_reopen,
@@ -80,12 +81,13 @@ from approach_split_candidate_schema import (  # noqa: E402
     structure_signature,
 )
 from approach_working_archive import archive_working_generation  # noqa: E402
-from cycle_delivered_refs import record_delivered_ref  # noqa: E402
+from cycle_delivered_refs import delivered_refs_file_path, record_delivered_ref  # noqa: E402
 from decision_package_schema import (  # noqa: E402
     build_decision_package,
     load_decision_package,
     save_decision_package,
 )
+from source_package_schema import build_source_package, save_source_package  # noqa: E402
 from decision_rulers_schema import save_decision_rulers  # noqa: E402
 from dec_lifecycle import bind_session, freeze_session, unfreeze_session_public  # noqa: E402
 import resolve_context  # noqa: E402
@@ -1479,6 +1481,68 @@ def enter_package_ready(approach_root: Path) -> dict[str, Any]:
     )
 
 
+def _source_slices_from_decision_package(
+    package: dict[str, Any],
+) -> list[dict[str, str]]:
+    """Expose only the current decision fact artifact for each delivered L."""
+    raw_slices = package.get("slices") or []
+    if not raw_slices:
+        main = package.get("main")
+        if not isinstance(main, dict):
+            raise ValueError("decision-package.main must be an object")
+        return [
+            {
+                "id": "L1",
+                "title": "main",
+                "source_path": str(main.get("decision_fact_path", "")).strip(),
+                "source_id": "main",
+            }
+        ]
+
+    out: list[dict[str, str]] = []
+    for index, row in enumerate(raw_slices):
+        if not isinstance(row, dict):
+            raise ValueError(f"decision-package.slices[{index}] must be an object")
+        out.append(
+            {
+                "id": f"L{index + 1}",
+                "title": str(row.get("title", "")).strip(),
+                "source_path": str(row.get("decision_fact_path", "")).strip(),
+                "source_id": str(row.get("id", "")).strip(),
+            }
+        )
+    return out
+
+
+def _validate_source_slices(approach_root: Path, slices: list[dict[str, str]]) -> None:
+    root = Path(approach_root).resolve()
+    missing: list[str] = []
+    for row in slices:
+        slice_id = row["id"]
+        rel = row["source_path"]
+        target = (root / rel).resolve()
+        try:
+            target.relative_to(root)
+        except ValueError as exc:
+            raise ValueError(
+                f"deliver blocked: slice {slice_id!r} source_path escapes root: {rel!r}"
+            ) from exc
+        if not target.is_file():
+            missing.append(f"{slice_id}:source_path={rel}")
+    if missing:
+        raise ValueError(
+            "deliver blocked: missing source artifact(s): " + ", ".join(missing)
+        )
+
+
+def _restore_file(path: Path, previous: bytes | None) -> None:
+    if previous is None:
+        path.unlink(missing_ok=True)
+    else:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(previous)
+
+
 def deliver(
     approach_root: Path,
     *,
@@ -1507,50 +1571,48 @@ def deliver(
         raise ValueError("deliver requires --project-root")
     proj = Path(project_root).resolve()
 
-    pkg_path = decision_package_path(root)
-    if not pkg_path.is_file():
+    decision_pkg_path = decision_package_path(root)
+    if not decision_pkg_path.is_file():
         write_early_package(root)
-    else:
-        package = load_decision_package(pkg_path)
-        slices = package.get("slices") or []
-        if slices:
-            missing: list[str] = []
-            for row in slices:
-                sid = str(row.get("id", "")).strip()
-                for key in ("decision_fact_path", "decision_doc_path"):
-                    rel = str(row.get(key, "")).strip()
-                    target = (root / rel).resolve()
-                    try:
-                        target.relative_to(root)
-                    except ValueError as exc:
-                        raise ValueError(
-                            f"deliver blocked: slice {sid!r} {key} escapes root: {rel!r}"
-                        ) from exc
-                    if not target.is_file():
-                        missing.append(f"{sid}:{key}={rel}")
-            if missing:
-                raise ValueError(
-                    "deliver blocked: missing slice artifact(s): "
-                    + ", ".join(missing)
-                )
+    decision_package = load_decision_package(decision_pkg_path)
+    source_slices = _source_slices_from_decision_package(decision_package)
+    _validate_source_slices(root, source_slices)
+
+    source_pkg_path = source_package_path(root)
+    source_package = build_source_package(
+        holder_stage="lulu-approach",
+        slices=source_slices,
+        commit_status="prepared",
+    )
+    refs_path = delivered_refs_file_path(cid, proj)
+    source_before = source_pkg_path.read_bytes() if source_pkg_path.is_file() else None
+    refs_before = refs_path.read_bytes() if refs_path.is_file() else None
 
     source = str(shell_path(root).resolve())
-    record_delivered_ref(
-        cid,
-        proj,
-        delivered_type="lulu-approach",
-        path=str(pkg_path.resolve()),
-        artifact="decision-package",
-        revision=1,
-        profile_id="lulu-approach",
-        source_workflow_state=source,
-    )
+    try:
+        save_source_package(root, source_package)
+        record_delivered_ref(
+            cid,
+            proj,
+            delivered_type="lulu-approach",
+            path=str(source_pkg_path.resolve()),
+            artifact="source-package",
+            revision=1,
+            profile_id="lulu-approach",
+            source_workflow_state=source,
+        )
+        source_package["commit_status"] = "committed"
+        save_source_package(root, source_package)
+    except Exception:
+        _restore_file(source_pkg_path, source_before)
+        _restore_file(refs_path, refs_before)
+        raise
     return {
         "ok": True,
         "macro_state": "PackageReady",
         "delivered": True,
-        "sealed": True,  # legacy key for one-release callers
-        "decision_package": str(pkg_path.resolve()),
+        "source_package": str(source_pkg_path.resolve()),
+        "decision_package": str(decision_pkg_path.resolve()),
         "source_workflow_state": source,
     }
 

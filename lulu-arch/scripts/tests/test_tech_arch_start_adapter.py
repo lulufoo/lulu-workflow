@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import bootstrap  # noqa: F401
@@ -15,6 +16,25 @@ def _seed_tech_diagnostic(tmp_path: Path, cycle_id: str) -> Path:
     diag_dir.mkdir(parents=True)
     decision = diag_dir / "decision-doc.md"
     decision.write_text("# Decision\n", encoding="utf-8")
+    source = diag_dir / "source-package.json"
+    source.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "holder_stage": "lulu-approach",
+                "slices": [
+                    {
+                        "id": "L1",
+                        "title": "main",
+                        "source_path": "decision-doc.md",
+                        "source_id": "main",
+                    }
+                ],
+                "commit_status": "committed",
+            }
+        ),
+        encoding="utf-8",
+    )
     (diag_dir / "session-state.md").write_text(
         "---\ncurrent_state: Delivered\n---\n",
         encoding="utf-8",
@@ -23,12 +43,13 @@ def _seed_tech_diagnostic(tmp_path: Path, cycle_id: str) -> Path:
         cycle_id,
         tmp_path,
         delivered_type="lulu-approach",
-        path=str(decision.resolve()),
+        path=str(source.resolve()),
+        artifact="source-package",
         revision=1,
         profile_id="lulu-approach",
         source_workflow_state=str((diag_dir / "session-state.md").resolve()),
     )
-    return decision
+    return source
 
 
 def test_infer_run_mode_is_tech(tmp_path: Path) -> None:

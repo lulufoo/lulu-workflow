@@ -47,7 +47,7 @@ from compose_package_schema import (  # noqa: E402
 from delivered_refs_schema import DeliveredRef  # noqa: E402
 from scope_package_convert import (  # noqa: E402
     convert_scope_package,
-    resolve_l_seed_fact_path,
+    resolve_l_seed_source_path,
 )
 from scope_package_schema import load_scope_package  # noqa: E402
 from tech_design_start_adapter import TechDesignStartAdapter  # noqa: E402
@@ -126,8 +126,26 @@ def _init_pointer(out_dir: Path) -> None:
 def test_vertical_slice_no_split_e2e(tmp_path: Path) -> None:
     """C5: package → scope-package → convert → L1 Seed = main fact; no order."""
     approach = _seed_no_split_approach(tmp_path)
-    pkg_path = approach / "decision-package.json"
+    pkg_path = approach / "source-package.json"
     main_fact = (approach / "main" / "decision-fact.json").resolve()
+    pkg_path.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "holder_stage": "lulu-approach",
+                "commit_status": "committed",
+                "slices": [
+                    {
+                        "id": "L1",
+                        "title": "main",
+                        "source_path": "main/decision-fact.json",
+                        "source_id": "main",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
 
     rev = tmp_path / "design" / "revision1"
     rev.mkdir(parents=True)
@@ -137,7 +155,7 @@ def test_vertical_slice_no_split_e2e(tmp_path: Path) -> None:
             DeliveredRef(
                 type="lulu-approach",
                 path=str(pkg_path.resolve()),
-                artifact="decision-package",
+                artifact="source-package",
             )
         ],
         revision_dir=rev,
@@ -151,11 +169,11 @@ def test_vertical_slice_no_split_e2e(tmp_path: Path) -> None:
     loaded = load_scope_package(scope_path)
     assert "order" not in loaded
     assert [s["id"] for s in loaded["slices"]] == ["L1"]
-    assert loaded["slices"][0]["fact_path"] == str(main_fact)
+    assert loaded["slices"][0]["source_path"] == str(main_fact)
     assert loaded["slices"][0]["source_id"] == "main"
 
     convert_scope_package(rev, scope_package_path=scope_path)
-    assert resolve_l_seed_fact_path(rev, "L1") == str(main_fact)
+    assert resolve_l_seed_source_path(rev, "L1") == str(main_fact)
 
     l1 = rev / "L1"
     _init_pointer(l1)
@@ -214,13 +232,13 @@ def test_m11_seed_does_not_absorb_whole_package(tmp_path: Path) -> None:
             {
                 "id": "L1",
                 "title": "Auth",
-                "fact_path": str(f1.resolve()),
+                "source_path": str(f1.resolve()),
                 "source_id": "D1",
             },
             {
                 "id": "L2",
                 "title": "Billing",
-                "fact_path": str(f2.resolve()),
+                "source_path": str(f2.resolve()),
                 "source_id": "D2",
             },
         ]
@@ -229,8 +247,8 @@ def test_m11_seed_does_not_absorb_whole_package(tmp_path: Path) -> None:
     # Place the poison whole-fact path into revision resolved index temptation.
     convert_scope_package(rev, scope_package_path=scope_path)
 
-    assert resolve_l_seed_fact_path(rev, "L1") == str(f1.resolve())
-    assert resolve_l_seed_fact_path(rev, "L2") == str(f2.resolve())
+    assert resolve_l_seed_source_path(rev, "L1") == str(f1.resolve())
+    assert resolve_l_seed_source_path(rev, "L2") == str(f2.resolve())
 
     l1 = rev / "L1"
     _init_pointer(l1)

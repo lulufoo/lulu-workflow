@@ -501,7 +501,7 @@ def pd_material_facts(facts: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
     ``quarantined`` / ``not_needed`` are excluded from the default ceiling/floor
     material pool (archive-6.0 §5.6). Facts with no ``derivation`` keep legacy
-    participation (Unit-import / derived without disposition block).
+    participation (legacy or derived facts without a disposition block).
     """
     out: list[dict[str, Any]] = []
     for fact in facts:

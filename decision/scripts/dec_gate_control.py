@@ -13,6 +13,8 @@ Subcommands:
                            (if session Frozen: mark stale then unfreeze — P1.5 A′)
     reopen                 Leave Completed/InProgress → Frozen ($DEC_REOPEN; P1.3 A)
     check-delivery-ready   Structural audit + gates/registers for DC completion
+    prepare                Export decision-fact.json after delivery checks without
+                           changing the session state or delivered refs.
     complete               Set session-state Completed; export decision-fact.json
                            (requires DC closed + decision-doc). Nested approach
                            main/Dx skips cycle delivered-refs (holder stage deliver
@@ -1022,6 +1024,56 @@ def cmd_complete(
     return 0
 
 
+def cmd_prepare(
+    project_root: Path,
+    cycle_id: str,
+    stage: str,
+    *,
+    constraints_path: Path | None = None,
+    session_dir: Path | None = None,
+) -> int:
+    """Export a decision fact after completion checks without delivering."""
+    paths = _paths(
+        project_root,
+        cycle_id,
+        stage,
+        constraints_path=constraints_path,
+        session_dir=session_dir,
+    )
+    frozen = _reject_if_frozen(paths)
+    if frozen is not None:
+        return frozen
+    try:
+        state = load_gate_state(paths["gate_state"])
+        if not is_gate_closed(state, "DC"):
+            return _emit_error("DC gate must be closed before prepare")
+        r_closed = is_gate_closed(state, "R")
+        registers = load_registers(paths["registers"], r_gate_closed=r_closed)
+        errors = _collect_delivery_errors(
+            project_root,
+            cycle_id,
+            stage,
+            state,
+            registers,
+            paths,
+            constraints_path=constraints_path,
+            require_decision_doc=True,
+        )
+        if errors:
+            return _emit_error("; ".join(errors))
+        fact_path = decision_fact_file_path(paths["session_dir"])
+        export_decision_fact_audited(
+            paths["payloads_dir"],
+            fact_path,
+            registers=registers,
+        )
+    except (FileNotFoundError, ValueError) as exc:
+        return _emit_error(str(exc))
+
+    _emit({"ok": True, "decision_fact_path": fact_path.as_posix()})
+    return 0
+
+
 def cmd_deliver(
     project_root: Path,
     cycle_id: str,
@@ -1701,6 +1753,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Validate readiness for DC session completion.",
     )
     sub.add_parser(
+        "prepare",
+        help="Export decision-fact.json after completion checks without delivery.",
+    )
+    sub.add_parser(
         "complete",
         help="Set session-state Completed after DC closed (node/session terminal).",
     )
@@ -1842,6 +1898,8 @@ def main(argv: list[str] | None = None) -> int:
         )
     if args.command == "check-delivery-ready":
         return cmd_check_delivery_ready(project_root, cycle_id, stage, **common)
+    if args.command == "prepare":
+        return cmd_prepare(project_root, cycle_id, stage, **common)
     if args.command in {"complete", "deliver"}:
         return cmd_complete(project_root, cycle_id, stage, **common)
     if args.command == "migrate-session":

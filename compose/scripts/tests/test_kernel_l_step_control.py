@@ -102,7 +102,8 @@ def test_begin_deductive_succeeds_for_lulu_plan(tmp_path: Path) -> None:
     assert "COMPOSE_PROFILE:      lulu-plan" in dispatch
     assert "DEDUCTIVE_OUT_DIR:" in dispatch
     assert "/lulu-plan/revision1" in dispatch
-    assert "ATOMIZE_DOC_PATH:" not in dispatch  # approach decision-fact path
+    assert "ATOMIZE_DOC_PATH:" not in dispatch
+    assert "ATOMIZE_SOURCE_PATH:" in dispatch
     progress = progress_schema.load_l_step_progress(
         _progress_path(tmp_path, "lulu-plan"),
         profile_id="lulu-plan",
@@ -112,7 +113,7 @@ def test_begin_deductive_succeeds_for_lulu_plan(tmp_path: Path) -> None:
     assert progress["current_step"] == "Deductive"
 
 
-def test_begin_deductive_emits_atomize_doc_path_for_package_scope(tmp_path: Path) -> None:
+def test_begin_deductive_emits_atomize_source_path_for_package_scope(tmp_path: Path) -> None:
     design_rev = tmp_path / "upstream-design"
     (design_rev / "L1").mkdir(parents=True)
     (design_rev / "L2").mkdir()
@@ -145,7 +146,7 @@ def test_begin_deductive_emits_atomize_doc_path_for_package_scope(tmp_path: Path
     assert result["ok"] is True
     dispatch = result["dispatch_input"]
     assert f"SCOPE_REF:            {package.resolve().as_posix()}" in dispatch
-    assert f"ATOMIZE_DOC_PATH:     {doc_l1.resolve().as_posix()}" in dispatch
+    assert f"ATOMIZE_SOURCE_PATH:  {doc_l1.resolve().as_posix()}" in dispatch
 
 
 def test_begin_deductive_rejects_inductive_profile(tmp_path: Path) -> None:
@@ -301,8 +302,6 @@ def test_inductive_dispatch_carries_provenance_refs_tech(tmp_path: Path) -> None
 
 
 def test_inductive_dispatch_scope_ref_is_decision_fact(tmp_path: Path) -> None:
-    from decision_fact_claim_schema import claim_ledger_path, load_claim_ledger  # noqa: E402
-
     seed_tech_design_session(tmp_path, cycle_id=_CYCLE)
     rev = tmp_path / doc_dir(_CYCLE, 1, _PROFILE_DESIGN, tmp_path)
     fact = tmp_path / "decision-fact.json"
@@ -331,18 +330,11 @@ def test_inductive_dispatch_scope_ref_is_decision_fact(tmp_path: Path) -> None:
     assert result["ok"] is True
     assert f"SCOPE_REF:            {fact.resolve().as_posix()}" in result["dispatch_input"]
     assert "DECISION_FACTS_PATH:" not in result["dispatch_input"]
-    ledger = load_claim_ledger(claim_ledger_path(rev))
-    assert ledger["mode"] == "units"
-    assert "D-1" in ledger["units"]
+    assert not (rev / "decision-fact-claims.json").exists()
 
 
-def test_begin_inductive_surfaces_claim_wipe_refusal(tmp_path: Path) -> None:
-    """Units ledger + missing fact → structured failure, not uncaught ValueError."""
-    from decision_fact_claim_schema import (  # noqa: E402
-        claim_ledger_path,
-        ensure_claim_ledger,
-    )
-
+def test_begin_inductive_surfaces_missing_scope(tmp_path: Path) -> None:
+    """Missing source returns a structured failure without claim-ledger handling."""
     seed_tech_design_session(tmp_path, cycle_id=_CYCLE)
     rev = tmp_path / doc_dir(_CYCLE, 1, _PROFILE_DESIGN, tmp_path)
     fact = tmp_path / "decision-fact.json"
@@ -366,14 +358,11 @@ def test_begin_inductive_surfaces_claim_wipe_refusal(tmp_path: Path) -> None:
         intent_baseline_refs=[],
         norm_constraint_refs=[],
     )
-    ensure_claim_ledger(rev, decision_fact_path=str(fact.resolve()))
-    assert claim_ledger_path(rev).is_file()
     fact.unlink()
 
     result = l_step_control.begin_inductive(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
     assert result["ok"] is False
-    assert "claim ledger" in result["reason"]
-    assert "refusing to wipe" in result["reason"]
+    assert "scope doc not found" in result["reason"]
     # Must not have advanced l-step progress on failure.
     assert not _progress_path(tmp_path, _PROFILE_DESIGN).exists()
 

@@ -310,7 +310,6 @@ def complete_split(
     return {
         "ok": True,
         "split_completed": True,
-        "split_delivered": True,  # legacy key
         "slices": slices,
         "package": package,
         "tree": locked_tree,

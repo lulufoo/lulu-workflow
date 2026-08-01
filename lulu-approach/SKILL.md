@@ -259,7 +259,7 @@ none are Frozen.
      confirmation, then pass `--confirm`.
 
 **Done:** stage `deliver` succeeds. Only then claim approach-stage **Delivered**
-with the `decision-package` artifact (cycle `delivered-refs`).
+with the `source-package` artifact (cycle `delivered-refs`).
 
 **Stop:** On non-zero output or (Path B) absent human confirmation, stop and report.
 

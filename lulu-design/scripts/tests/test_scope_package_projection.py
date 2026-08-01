@@ -52,6 +52,23 @@ _dp_spec.loader.exec_module(_dp_mod)
 build_decision_package = _dp_mod.build_decision_package
 save_decision_package = _dp_mod.save_decision_package
 
+_sp_path = (
+    _WORKFLOW_ROOT
+    / "lulu-approach"
+    / "scripts"
+    / "schema"
+    / "source_package_schema.py"
+)
+_sp_spec = importlib.util.spec_from_file_location(
+    "_p3_test_source_package_schema",
+    _sp_path,
+)
+assert _sp_spec and _sp_spec.loader
+_sp_mod = importlib.util.module_from_spec(_sp_spec)
+_sp_spec.loader.exec_module(_sp_mod)
+build_source_package = _sp_mod.build_source_package
+save_source_package = _sp_mod.save_source_package
+
 
 def _unit_fact(path: Path, text: str = "pick A") -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -98,6 +115,32 @@ def _seed_approach_root(tmp_path: Path, *, with_slices: bool) -> Path:
         slices=slices,
     )
     save_decision_package(root, pkg)
+    source_slices = [
+        {
+            "id": "L1",
+            "title": "main",
+            "source_path": "main/decision-fact.json",
+            "source_id": "main",
+        }
+    ]
+    if with_slices:
+        source_slices = [
+            {
+                "id": f"L{index}",
+                "title": row["title"],
+                "source_path": row["decision_fact_path"],
+                "source_id": row["id"],
+            }
+            for index, row in enumerate(slices, start=1)
+        ]
+    save_source_package(
+        root,
+        build_source_package(
+            holder_stage="lulu-approach",
+            slices=source_slices,
+            commit_status="committed",
+        ),
+    )
     assert main_fact.is_file()
     return root
 
@@ -110,7 +153,7 @@ class TestProjectSlices:
         assert len(slices) == 1
         assert slices[0]["id"] == "L1"
         assert slices[0]["source_id"] == "main"
-        assert slices[0]["fact_path"] == str(
+        assert slices[0]["source_path"] == str(
             (root / "main" / "decision-fact.json").resolve()
         )
 
@@ -121,7 +164,7 @@ class TestProjectSlices:
         assert [s["id"] for s in slices] == ["L1", "L2"]
         assert [s["source_id"] for s in slices] == ["D1", "D2"]
         assert slices[0]["title"] == "slice one"
-        assert slices[1]["fact_path"] == str(
+        assert slices[1]["source_path"] == str(
             (root / "D2" / "decision-fact.json").resolve()
         )
 
@@ -215,8 +258,8 @@ class TestAdapterProjection:
             delivered_refs=[
                 DeliveredRef(
                     type="lulu-approach",
-                    path=str((root / "decision-package.json").resolve()),
-                    artifact="decision-package",
+                    path=str((root / "source-package.json").resolve()),
+                    artifact="source-package",
                 )
             ],
             revision_dir=rev,
@@ -232,12 +275,12 @@ class TestAdapterProjection:
         rev = tmp_path / "revision1"
         rev.mkdir()
         adapter = TechDesignStartAdapter()
-        # path ends with decision-package.json (no artifact) still projects
+        # path ends with source-package.json (no artifact) still projects
         refs = adapter.resolve_scope_refs(
             delivered_refs=[
                 DeliveredRef(
                     type="lulu-approach",
-                    path=str((root / "decision-package.json").resolve()),
+                    path=str((root / "source-package.json").resolve()),
                 )
             ],
             revision_dir=rev,
@@ -253,22 +296,20 @@ class TestAdapterProjection:
                 delivered_refs=[
                     DeliveredRef(
                         type="lulu-approach",
-                        path=str((root / "decision-package.json").resolve()),
-                        artifact="decision-package",
+                        path=str((root / "source-package.json").resolve()),
+                        artifact="source-package",
                     )
                 ],
             )
 
-    def test_adapter_rejects_legacy_decision_fact_path_a(self, tmp_path: Path):
-        fact = _unit_fact(tmp_path / "decision-fact.json")
+    def test_adapter_requires_committed_source_package(self, tmp_path: Path):
         adapter = TechDesignStartAdapter()
-        with pytest.raises(ValueError, match="Path A|retired|decision-package"):
+        with pytest.raises(ValueError, match="committed source-package"):
             adapter.resolve_scope_refs(
                 delivered_refs=[
                     DeliveredRef(
                         type="lulu-approach",
                         path=str(tmp_path / "decision-doc.md"),
-                        decision_fact_path=str(fact.resolve()),
                     )
                 ],
             )
@@ -283,8 +324,8 @@ class TestAdapterProjection:
             delivered_refs=[
                 DeliveredRef(
                     type="lulu-approach",
-                    path=str((root / "decision-package.json").resolve()),
-                    artifact="decision-package",
+                    path=str((root / "source-package.json").resolve()),
+                    artifact="source-package",
                 )
             ],
         )

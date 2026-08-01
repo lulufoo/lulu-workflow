@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Schema for design→compose ``scope-package.json`` (archive-1.0 P0).
+"""Schema for compose ``scope-package.json`` (archive-1.0 P0).
 
-Ordered ``slices`` with ``L*`` ids + ``fact_path``. No ``order`` / ``edges``.
+Ordered ``slices`` with ``L*`` ids + ``source_path``. No ``order`` / ``edges``.
 Scope SSOT is the file path, not an inline JSON string.
 """
 
@@ -17,11 +17,11 @@ SCOPE_PACKAGE_FILENAME = "scope-package.json"
 SCOPE_REF_MIRROR_FILENAME = "scope-ref.json"
 SCOPE_REF_MIRROR_VERSION = 1
 _NODE_ID_RE = re.compile(r"^L\d+$")
-_SLICE_KEYS = frozenset({"id", "title", "fact_path", "source_id"})
-_MIRROR_KEYS = frozenset({"version", "fact_path"})
+_SLICE_KEYS = frozenset({"id", "title", "source_path", "source_id"})
+_MIRROR_KEYS = frozenset({"version", "source_path"})
 
 
-def _rel_or_abs_fact_ok(raw: str) -> bool:
+def _rel_or_abs_source_ok(raw: str) -> bool:
     text = str(raw).strip()
     if not text:
         return False
@@ -76,8 +76,8 @@ def validate_scope_package(data: dict[str, Any]) -> list[str]:
             seen.add(sid)
         if not str(row.get("title", "")).strip():
             errors.append(f"{where}.title must be non-empty")
-        if not _rel_or_abs_fact_ok(str(row.get("fact_path", ""))):
-            errors.append(f"{where}.fact_path must be a non-empty path")
+        if not _rel_or_abs_source_ok(str(row.get("source_path", ""))):
+            errors.append(f"{where}.source_path must be a non-empty path")
         source_id = row.get("source_id")
         if source_id is not None and not str(source_id).strip():
             errors.append(f"{where}.source_id if present must be non-empty")
@@ -185,14 +185,14 @@ def stub_slice_rulers_from_scope_package(package: dict[str, Any]) -> dict[str, A
 
 
 def scope_ref_mirror_path(revision_dir: Path, node_id: str) -> Path:
-    """Per-L fact_path mirror path: ``Lx/scope-ref.json`` (C3=B)."""
+    """Per-L source_path mirror path: ``Lx/scope-ref.json`` (C3=B)."""
     return Path(revision_dir) / str(node_id).strip() / SCOPE_REF_MIRROR_FILENAME
 
 
-def build_scope_ref_mirror(*, fact_path: str) -> dict[str, Any]:
+def build_scope_ref_mirror(*, source_path: str) -> dict[str, Any]:
     return {
         "version": SCOPE_REF_MIRROR_VERSION,
-        "fact_path": str(fact_path).strip(),
+        "source_path": str(source_path).strip(),
     }
 
 
@@ -205,14 +205,14 @@ def validate_scope_ref_mirror(data: dict[str, Any]) -> list[str]:
     extra = set(data) - _MIRROR_KEYS
     if extra:
         errors.append(f"unexpected keys: {sorted(extra)}")
-    if not _rel_or_abs_fact_ok(str(data.get("fact_path", ""))):
-        errors.append("fact_path must be a non-empty path")
+    if not _rel_or_abs_source_ok(str(data.get("source_path", ""))):
+        errors.append("source_path must be a non-empty path")
     return errors
 
 
-def write_scope_ref_mirror(revision_dir: Path, node_id: str, *, fact_path: str) -> Path:
-    """Write ``Lx/scope-ref.json`` mirroring ``fact_path`` (no fact file copy)."""
-    mirror = build_scope_ref_mirror(fact_path=fact_path)
+def write_scope_ref_mirror(revision_dir: Path, node_id: str, *, source_path: str) -> Path:
+    """Write ``Lx/scope-ref.json`` mirroring ``source_path`` (no source copy)."""
+    mirror = build_scope_ref_mirror(source_path=source_path)
     errors = validate_scope_ref_mirror(mirror)
     if errors:
         raise ValueError("; ".join(errors))
@@ -236,8 +236,8 @@ def load_scope_ref_mirror(revision_dir: Path, node_id: str) -> dict[str, Any]:
     return data
 
 
-def write_fact_path_mirrors(revision_dir: Path, package: dict[str, Any]) -> list[Path]:
-    """Mirror each slice ``fact_path`` into ``Lx/scope-ref.json`` (C3=B)."""
+def write_source_path_mirrors(revision_dir: Path, package: dict[str, Any]) -> list[Path]:
+    """Mirror each slice ``source_path`` into ``Lx/scope-ref.json`` (C3=B)."""
     written: list[Path] = []
     for row in package.get("slices") or []:
         if not isinstance(row, dict):
@@ -249,7 +249,7 @@ def write_fact_path_mirrors(revision_dir: Path, package: dict[str, Any]) -> list
             write_scope_ref_mirror(
                 revision_dir,
                 nid,
-                fact_path=str(row.get("fact_path", "")).strip(),
+                source_path=str(row.get("source_path", "")).strip(),
             )
         )
     return written

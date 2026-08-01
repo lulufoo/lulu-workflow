@@ -480,10 +480,7 @@ def test_check_coverage_passes_when_all_cleared(tmp_path):
     code, payload = _run(tmp_path, "check-coverage")
     assert code == 0, payload
     assert payload.get("ok") is True
-    # No decision-fact → prose_fallback claim gate still attached
-    claims = payload.get("decision_fact_claims") or {}
-    assert claims.get("gate_ok") is True
-    assert claims.get("mode") == "prose_fallback"
+    assert "decision_fact_claims" not in payload
 
 
 def _clear_both_sections(out_dir: Path) -> None:
@@ -495,83 +492,6 @@ def _clear_both_sections(out_dir: Path) -> None:
     _run(out_dir, "seed-decision", "--section", "ST", "--lens-tags", "ST", "--text", "ST body")
     _run(out_dir, "set-frontier", "--section", "ST", "--kw", str(FRONTIER_TARGET_DEFAULT))
     _run(out_dir, "clear-section", "--section", "ST")
-
-
-def test_check_coverage_exposes_unclaimed_decision_units(tmp_path):
-    """D6: unclaimed units are exposed but do not fail Exit."""
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "schema" / "session"))
-    from delivered_refs_schema import DeliveredRef  # noqa: E402
-    from resolved_refs_schema import write_resolved_refs  # noqa: E402
-
-    fact_path = tmp_path / "decision-fact.json"
-    fact_path.write_text(
-        json.dumps(
-            {
-                "version": 1,
-                "gates": {
-                    "D": [{"id": "D-1", "slot": "D.f0", "text": "unit a"}],
-                },
-            }
-        ),
-        encoding="utf-8",
-    )
-    write_resolved_refs(
-        tmp_path,
-        cycle_id="c1",
-        stage="lulu-design",
-        run_mode="tech",
-        scope_ref=DeliveredRef(type="lulu-approach", path=str(fact_path)),
-        intent_baseline_refs=[],
-        norm_constraint_refs=[],
-    )
-    _clear_both_sections(tmp_path)
-    code, payload = _run(tmp_path, "check-coverage")
-    assert code == 0, payload
-    assert payload.get("ok") is True
-    assert payload.get("decision_fact_unclaimed") == ["D-1"]
-    assert payload["decision_fact_claims"]["gate_ok"] is True
-    assert payload["decision_fact_claims"]["orphan_exposed"] == ["D-1"]
-
-
-def test_check_coverage_fails_on_claimed_open_units(tmp_path):
-    """D6: claimed-but-open units fail Exit."""
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "schema" / "session"))
-    from decision_fact_claim_schema import (  # noqa: E402
-        ensure_claim_ledger,
-        set_unit_status,
-    )
-    from delivered_refs_schema import DeliveredRef  # noqa: E402
-    from resolved_refs_schema import write_resolved_refs  # noqa: E402
-
-    fact_path = tmp_path / "decision-fact.json"
-    fact_path.write_text(
-        json.dumps(
-            {
-                "version": 1,
-                "gates": {
-                    "D": [{"id": "D-1", "slot": "D.f0", "text": "unit a"}],
-                },
-            }
-        ),
-        encoding="utf-8",
-    )
-    write_resolved_refs(
-        tmp_path,
-        cycle_id="c1",
-        stage="lulu-design",
-        run_mode="tech",
-        scope_ref=DeliveredRef(type="lulu-approach", path=str(fact_path)),
-        intent_baseline_refs=[],
-        norm_constraint_refs=[],
-    )
-    ensure_claim_ledger(tmp_path, decision_fact_path=str(fact_path))
-    set_unit_status(tmp_path, "D-1", "claimed", by="seed")
-    _clear_both_sections(tmp_path)
-    code, payload = _run(tmp_path, "check-coverage")
-    assert code == 1
-    assert payload.get("ok") is False
-    assert any("claimed-but-open" in e for e in payload.get("errors", []))
-    assert payload["decision_fact_claims"]["gate_ok"] is False
 
 
 def test_skip_and_list_sections(tmp_path):

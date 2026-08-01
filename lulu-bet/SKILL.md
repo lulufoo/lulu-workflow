@@ -29,6 +29,7 @@ Machine constraints SSOT: `$SKILL_DIR/constraints-$CYCLE_TYPE.json` (resolve `$C
 | Macro | Command |
 |-------|---------|
 | `$RESOLVE_CONTEXT` | `python3 "$SKILL_DIR/scripts/resolve_context.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json"` |
+| `$BET_DELIVER` | `python3 "$SKILL_DIR/scripts/source_package_control.py" --holder-root "$CACHE_DIR/<cycle_id>/lulu-bet" --cycle-id "<cycle_id>" --project-root "$(pwd)"` |
 
 Subcommand contract: module docstring / `--help`.
 
@@ -49,3 +50,9 @@ Complete `_runtime.md` § Session Foundation before running decision start.
 Pass the same `--constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json"` on every `$GATE_CONTROL` / `$REGISTER_*` invocation. `--domain-constraints-file` is only needed on `$DEC_START`.
 
 > If `$DEC_START` exits non-zero ("Gate blocked: <stage> is not Delivered"): tell the user which prior stage must be delivered first. Do not retry start.
+
+## Deliver
+
+After DDF reaches DC completion, run `$GATE_CONTROL prepare`, then
+`$BET_DELIVER`. The holder control commits the single-L1 `source-package` and
+its delivered reference; only then is lulu-bet Delivered.

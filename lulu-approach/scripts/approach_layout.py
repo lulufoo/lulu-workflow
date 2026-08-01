@@ -12,6 +12,7 @@ import re
 from pathlib import Path
 
 DECISION_PACKAGE_FILENAME = "decision-package.json"
+SOURCE_PACKAGE_FILENAME = "source-package.json"
 MAIN_DIRNAME = "main"
 APPROACH_CACHE_SUBDIR = "lulu-approach"
 _DX_ID_RE = re.compile(r"^D\d+$")
@@ -33,6 +34,11 @@ def dx_session_dir(approach_root: Path, node_id: str) -> Path:
 def decision_package_path(approach_root: Path) -> Path:
     """Path to ``decision-package.json`` at the outer approach root."""
     return Path(approach_root).resolve() / DECISION_PACKAGE_FILENAME
+
+
+def source_package_path(approach_root: Path) -> Path:
+    """Path to delivered ``source-package.json`` at the outer approach root."""
+    return Path(approach_root).resolve() / SOURCE_PACKAGE_FILENAME
 
 
 def ensure_approach_layout(

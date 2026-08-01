@@ -128,7 +128,7 @@ def test_split_delivered_writes_ordered_slices(tmp_path: Path) -> None:
     result = deliver_split(
         root, tree=_sample_tree(), rulers=_sample_rulers(), confirm=True
     )
-    assert result["split_delivered"] is True
+    assert result["split_completed"] is True
     assert [s["id"] for s in result["slices"]] == ["D1", "D2"]
     assert result["slices"][0]["decision_fact_path"] == "D1/decision-fact.json"
     assert result["slices"][0]["decision_doc_path"] == "D1/decision-doc.md"

@@ -42,6 +42,23 @@ _dp_spec.loader.exec_module(_dp_mod)
 build_decision_package = _dp_mod.build_decision_package
 save_decision_package = _dp_mod.save_decision_package
 
+_sp_path = (
+    _WORKFLOW_ROOT
+    / "lulu-approach"
+    / "scripts"
+    / "schema"
+    / "source_package_schema.py"
+)
+_sp_spec = importlib.util.spec_from_file_location(
+    "_tech_design_start_sp_schema",
+    _sp_path,
+)
+assert _sp_spec and _sp_spec.loader
+_sp_mod = importlib.util.module_from_spec(_sp_spec)
+_sp_spec.loader.exec_module(_sp_mod)
+build_source_package = _sp_mod.build_source_package
+save_source_package = _sp_mod.save_source_package
+
 
 def _write_file(tmp_path: Path, rel: str, content: str = "# stub\n") -> Path:
     p = tmp_path / rel
@@ -50,8 +67,12 @@ def _write_file(tmp_path: Path, rel: str, content: str = "# stub\n") -> Path:
     return p
 
 
-def _seed_decision_package(tmp_path: Path) -> Path:
-    """Write nested approach root + decision-package.json; return package path."""
+def _seed_source_package(
+    tmp_path: Path,
+    *,
+    commit_status: str = "committed",
+) -> Path:
+    """Write approach-internal artifacts and one committed source package."""
     root = tmp_path / "approach"
     (root / "main").mkdir(parents=True)
     fact = root / "main" / "decision-fact.json"
@@ -77,11 +98,25 @@ def _seed_decision_package(tmp_path: Path) -> Path:
             slices=[],
         ),
     )
-    return root / "decision-package.json"
+    return save_source_package(
+        root,
+        build_source_package(
+            holder_stage="lulu-approach",
+            commit_status=commit_status,
+            slices=[
+                {
+                    "id": "L1",
+                    "title": "main",
+                    "source_path": "main/decision-fact.json",
+                    "source_id": "main",
+                }
+            ],
+        ),
+    )
 
 
 def _seed_diag_ref(tmp_path: Path, cycle_id: str) -> Path:
-    pkg = _seed_decision_package(tmp_path)
+    pkg = _seed_source_package(tmp_path)
     record_delivered_ref(
         cycle_id,
         tmp_path,
@@ -90,7 +125,7 @@ def _seed_diag_ref(tmp_path: Path, cycle_id: str) -> Path:
         revision=1,
         profile_id="lulu-approach",
         source_workflow_state=str(pkg.resolve()),
-        artifact="decision-package",
+        artifact="source-package",
     )
     return pkg
 
@@ -118,6 +153,24 @@ class TestValidateForStart:
         _seed_diag_ref(tmp_path, _CYCLE)
         errors = _ADAPTER.validate_for_start(_CYCLE, tmp_path, run_mode="tech")
         assert errors == []
+
+    def test_tech_mode_requires_committed_source_package(self, tmp_path: Path):
+        package = _seed_source_package(tmp_path, commit_status="prepared")
+        record_delivered_ref(
+            _CYCLE,
+            tmp_path,
+            delivered_type="lulu-approach",
+            path=str(package.resolve()),
+            revision=1,
+            profile_id="lulu-approach",
+            source_workflow_state=str(package.resolve()),
+            artifact="source-package",
+        )
+        errors = _ADAPTER.validate_for_start(_CYCLE, tmp_path, run_mode="tech")
+        assert errors == [
+            "lulu-approach must deliver a committed source-package.json "
+            "(artifact=source-package)"
+        ]
 
     def test_product_mode_requires_both_refs(self, tmp_path: Path):
         _seed_diag_ref(tmp_path, _CYCLE)
@@ -199,7 +252,7 @@ class TestResolveScopeRefs:
             DeliveredRef(
                 type="lulu-approach",
                 path=str(diag.resolve()),
-                artifact="decision-package",
+                artifact="source-package",
             ),
             DeliveredRef(type="lulu-spec", path=str(spec.resolve())),
         ]
@@ -223,7 +276,7 @@ class TestResolveScopeRefs:
             DeliveredRef(
                 type="lulu-approach",
                 path=str(diag.resolve()),
-                artifact="decision-package",
+                artifact="source-package",
             ),
             DeliveredRef(type="lulu-spec", path=str(spec.resolve())),
         ]
@@ -235,26 +288,15 @@ class TestResolveScopeRefs:
         assert [r.type for r in scope] == ["lulu-approach"]
         assert scope[0].artifact == "scope-package"
 
-    def test_scope_rejects_legacy_decision_fact(self, tmp_path: Path):
+    def test_scope_requires_committed_source_package(self, tmp_path: Path):
         from delivered_refs_schema import DeliveredRef  # noqa: WPS433
 
-        fact = tmp_path / "legacy-fact.json"
-        fact.write_text(
-            json.dumps(
-                {
-                    "version": 1,
-                    "gates": {"D": [{"id": "D-1", "slot": "D.x", "text": "x"}]},
-                }
-            ),
-            encoding="utf-8",
-        )
-        with pytest.raises(ValueError, match="Path A|retired|decision-package"):
+        with pytest.raises(ValueError, match="committed source-package"):
             _ADAPTER.resolve_scope_refs(
                 delivered_refs=[
                     DeliveredRef(
                         type="lulu-approach",
                         path=str(tmp_path / "decision-doc.md"),
-                        decision_fact_path=str(fact.resolve()),
                     ),
                 ],
             )

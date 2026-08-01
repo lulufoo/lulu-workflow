@@ -34,12 +34,7 @@ from discussion_pointer_schema import (  # noqa: E402
 from facts_schema import facts_path  # noqa: E402
 from deductive_gate import evaluate_deductive_gate  # noqa: E402
 from init_compose_validation import validate_init_artifacts  # noqa: E402
-from decision_fact_claim_schema import ensure_claim_ledger  # noqa: E402
 from multi_slice_control import evaluate_split_ready  # noqa: E402
-from resolved_refs_schema import (  # noqa: E402
-    has_resolved_refs,
-    scope_decision_fact_path,
-)
 from start_adapter import (  # noqa: E402
     intent_baseline_from_workflow,
     norm_constraint_from_workflow,
@@ -218,55 +213,15 @@ def _inductive_spine_gate_failure(
     return None
 
 
-def _ensure_decision_fact_claims(
-    cycle_id: str,
-    project_root: Path,
-    profile_id: str,
-) -> str | None:
-    """Sync claim ledger when ``scope_ref`` is decision-fact.json (else prose_fallback).
-
-    Returns an error reason on hard-fail (missing fact while units ledger exists,
-    corrupt ledger/fact); ``None`` on success.
-    """
-    from scope_package_convert import (  # noqa: WPS433
-        ScopePackageAntiseepError,
-        focus_seed_fact_path,
-        revision_uses_scope_package,
-    )
-    from scope_package_schema import is_scope_package_path  # noqa: WPS433
-
-    revision_dir = _revision_dir(cycle_id, project_root, profile_id)
-    fact_path: str | None = None
-    try:
-        scope_doc = _scope_doc(cycle_id, project_root, profile_id)
-    except ValueError:
-        scope_doc = None
-    if revision_uses_scope_package(revision_dir) or (
-        scope_doc is not None and is_scope_package_path(scope_doc)
-    ):
-        # P4.antiseep A1: claim／Seed unit SSOT = focus L mirror fact_path only.
-        try:
-            fact_path = focus_seed_fact_path(revision_dir)
-        except ScopePackageAntiseepError as exc:
-            return str(exc)
-    elif has_resolved_refs(revision_dir):
-        fact_path = scope_decision_fact_path(revision_dir)
-    try:
-        ensure_claim_ledger(revision_dir, decision_fact_path=fact_path)
-    except (FileNotFoundError, ValueError, OSError, json.JSONDecodeError, UnicodeDecodeError) as exc:
-        return f"decision-fact claim ledger: {exc}"
-    return None
-
-
 def _inductive_scope_ref_path(
     cycle_id: str,
     project_root: Path,
     profile_id: str,
 ) -> Path:
-    """Resolve inductive ``$SCOPE_REF``: L mirror fact_path when scope-package (A1)."""
+    """Resolve inductive ``$SCOPE_REF`` from the L-local source_path mirror."""
     from scope_package_convert import (  # noqa: WPS433
         ScopePackageAntiseepError,
-        focus_seed_fact_path,
+        focus_seed_source_path,
         revision_uses_scope_package,
     )
     from scope_package_schema import is_scope_package_path  # noqa: WPS433
@@ -275,7 +230,7 @@ def _inductive_scope_ref_path(
     revision_dir = _revision_dir(cycle_id, project_root, profile_id)
     if revision_uses_scope_package(revision_dir) or is_scope_package_path(scope_path):
         try:
-            fact = focus_seed_fact_path(revision_dir)
+            fact = focus_seed_source_path(revision_dir)
         except ScopePackageAntiseepError:
             raise
         return Path(fact)
@@ -301,30 +256,38 @@ def _format_inductive_dispatch_input(
     return "\n".join(lines)
 
 
-def _atomize_doc_path_for_focus(
+def _atomize_source_path_for_focus(
     cycle_id: str,
     project_root: Path,
     profile_id: str,
     scope_path: Path,
-) -> Path | None:
-    """When SCOPE_REF is a compose package, resolve focus L upstream prose path."""
+) -> Path:
+    """Resolve the current L's format-neutral Atomize input."""
     from compose_package_schema import (  # noqa: WPS433
         is_compose_package_path,
         load_compose_package,
         resolve_focus_doc_path,
     )
     from discussion_pointer_schema import load_discussion_pointer  # noqa: WPS433
+    from scope_package_convert import (  # noqa: WPS433
+        focus_seed_source_path,
+        revision_uses_scope_package,
+    )
+    from scope_package_schema import is_scope_package_path  # noqa: WPS433
 
+    revision_dir = _revision_dir(cycle_id, project_root, profile_id)
+    if revision_uses_scope_package(revision_dir) or is_scope_package_path(scope_path):
+        return Path(focus_seed_source_path(revision_dir))
     if not is_compose_package_path(scope_path):
-        return None
+        return scope_path
     package = load_compose_package(scope_path)
     focus = str(
-        load_discussion_pointer(_revision_dir(cycle_id, project_root, profile_id)).get(
+        load_discussion_pointer(revision_dir).get(
             "focus", ""
         )
     ).strip()
     if not focus:
-        raise ValueError("discussion-pointer focus missing for ATOMIZE_DOC_PATH")
+        raise ValueError("discussion-pointer focus missing for ATOMIZE_SOURCE_PATH")
     return resolve_focus_doc_path(package, focus, package_path=scope_path)
 
 
@@ -337,18 +300,21 @@ def _format_deductive_dispatch_input(
     pipeline = _pipeline_config(cycle_id, project_root, profile_id)
     code_grounding = bool(pipeline.get("code_grounding"))
     scope_path = _scope_doc(cycle_id, project_root, profile_id)
+    intent_refs = intent_baseline_from_workflow(cycle_id, project_root, profile_id)
+    norm_refs = norm_constraint_from_workflow(cycle_id, project_root, profile_id)
     lines = [
         f"COMPOSE_PROFILE:      {profile_id}",
         f"CYCLE_ID:             {cycle_id}",
         f"SCOPE_REF:            {scope_path.as_posix()}",
+        f"INTENT_BASELINE_REFS: {serialize_delivered_refs(intent_refs)}",
+        f"NORM_CONSTRAINT_REFS: {serialize_delivered_refs(norm_refs)}",
         f"DEDUCTIVE_OUT_DIR:    {revision_dir.as_posix()}",
         f"CODE_GROUNDING:       {str(code_grounding).lower()}",
     ]
-    atomize_path = _atomize_doc_path_for_focus(
+    atomize_path = _atomize_source_path_for_focus(
         cycle_id, project_root, profile_id, scope_path
     )
-    if atomize_path is not None:
-        lines.append(f"ATOMIZE_DOC_PATH:     {atomize_path.as_posix()}")
+    lines.append(f"ATOMIZE_SOURCE_PATH:  {atomize_path.as_posix()}")
     return "\n".join(lines)
 
 
@@ -409,16 +375,13 @@ def begin_inductive(
                 f"cannot start Inductive: current_step is {step!r} (expected absent or Inductive)",
                 current_step=step,
             )
-    claim_err = _ensure_decision_fact_claims(cycle_id, project_root, profile_id)
-    if claim_err:
-        return _failure(_CMD_BEGIN_INDUCTIVE, claim_err)
     from scope_package_convert import ScopePackageAntiseepError  # noqa: WPS433
 
     try:
         dispatch_input = _format_inductive_dispatch_input(
             cycle_id, project_root, profile_id,
         )
-    except ScopePackageAntiseepError as exc:
+    except (ScopePackageAntiseepError, ValueError) as exc:
         return _failure(_CMD_BEGIN_INDUCTIVE, str(exc))
     save_l_step_progress(
         progress_path,
@@ -501,9 +464,6 @@ def begin_deductive(
                 "(expected absent or Deductive)",
                 current_step=step,
             )
-    claim_err = _ensure_decision_fact_claims(cycle_id, project_root, profile_id)
-    if claim_err:
-        return _failure(_CMD_BEGIN_DEDUCTIVE, claim_err)
     dispatch_input = _format_deductive_dispatch_input(
         cycle_id, project_root, profile_id,
     )
@@ -609,10 +569,6 @@ def begin_init(
                     f"cannot start Initializing: {gate_reason}",
                     current_step=step,
                 )
-    claim_err = _ensure_decision_fact_claims(cycle_id, project_root, profile_id)
-    if claim_err:
-        return _failure(_CMD_BEGIN_INIT, claim_err, current_step=step)
-
     # P4.convert (C1=A): when $SCOPE_REF is scope-package, ensure once (or verify).
     from scope_package_convert import (  # noqa: WPS433
         ScopePackageConvertError,

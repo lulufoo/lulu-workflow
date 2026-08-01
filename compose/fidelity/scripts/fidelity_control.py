@@ -4,9 +4,8 @@
 Subcommands:
     init              Create pending fidelity-evaluate-state.md
     mark-passed       Mark E1∩E2 gate passed (Derive allowed)
-    mark-skipped      Skip gate (e.g. unit-import intake; not Atomize)
     require-for-derive
-                      Exit 0 only if status is passed|skipped
+                      Exit 0 only if status is passed
     status            Print JSON status
     paths             Print bound paths for probes (scope doc + facts)
 
@@ -80,27 +79,6 @@ def cmd_mark_passed(args: argparse.Namespace) -> int:
     return _ok({"ok": True, "command": "mark-passed", "path": path.as_posix(), "status": "passed"})
 
 
-def cmd_mark_skipped(args: argparse.Namespace) -> int:
-    reason = (args.reason or "").strip()
-    if not reason:
-        return _fail("mark-skipped requires --reason")
-    rev = active_slice_dir(args.revision_dir.resolve())
-    path = fidelity_evaluate_state_path(rev)
-    data = empty_state(intake="unit-import")
-    data["status"] = "skipped"
-    data["skip_reason"] = reason
-    save_state(path, data)
-    return _ok(
-        {
-            "ok": True,
-            "command": "mark-skipped",
-            "path": path.as_posix(),
-            "status": "skipped",
-            "skip_reason": reason,
-        }
-    )
-
-
 def cmd_require_for_derive(args: argparse.Namespace) -> int:
     rev = active_slice_dir(args.revision_dir.resolve())
     path = fidelity_evaluate_state_path(rev)
@@ -113,7 +91,7 @@ def cmd_require_for_derive(args: argparse.Namespace) -> int:
     if not gate_allows_derive(data):
         return _fail(
             f"fidelity gate not open (status={data.get('status')!r}); "
-            "Derive blocked until E1∩E2 passed or skipped",
+            "Derive blocked until E1∩E2 passed",
         )
     return _ok(
         {
@@ -179,13 +157,9 @@ def build_parser() -> argparse.ArgumentParser:
         func=cmd_mark_passed,
     )
 
-    skip_p = sub.add_parser("mark-skipped", help="Skip gate (non-Atomize intake)")
-    skip_p.add_argument("--reason", required=True)
-    skip_p.set_defaults(func=cmd_mark_skipped)
-
     sub.add_parser(
         "require-for-derive",
-        help="Hard-fail unless passed|skipped",
+        help="Hard-fail unless passed",
     ).set_defaults(func=cmd_require_for_derive)
 
     sub.add_parser("status", help="JSON status").set_defaults(func=cmd_status)

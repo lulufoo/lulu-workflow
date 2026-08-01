@@ -32,8 +32,10 @@ This runner is **stage-agnostic**: lens set / Intent / derivation edges = `secti
 |-----|---------|
 | `$COMPOSE_PROFILE` | Compose profile id |
 | `$CYCLE_ID` | Active cycle id |
-| `$SCOPE_REF` | Upstream scope SSOT (`*-package.json` or `decision-fact.json`) |
-| `$ATOMIZE_DOC_PATH` | When `$SCOPE_REF` is a package: absolute path of the **current focus** upstream prose doc (Atomize / fidelity SoT). Absent for unit-import. |
+| `$SCOPE_REF` | Upstream scope structure ref |
+| `$ATOMIZE_SOURCE_PATH` | Absolute path of the current focus source material (Atomize / fidelity SoT); format-neutral. |
+| `$INTENT_BASELINE_REFS` | JSON array of classified, read-only intent baseline refs; not Atomize input. |
+| `$NORM_CONSTRAINT_REFS` | JSON array of classified, read-only norm constraint refs; not Atomize input. |
 | `$DEDUCTIVE_OUT_DIR` | Active revision dir (`revision{active_doc}/`) |
 | `$CODE_GROUNDING` | Optional; profile `pipeline.code_grounding` (boolean string) |
 
@@ -45,7 +47,6 @@ This runner is **stage-agnostic**: lens set / Intent / derivation edges = `secti
 | `$FACTS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/facts_control.py"` |
 | `$DERIVE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/derive_control.py"` |
 | `$DEDUCTIVE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/deductive/deductive_control.py" --revision-dir "$DEDUCTIVE_OUT_DIR" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)"` |
-| `$DECISION_FACT_CLAIM_CTL` | `python3 "$SKILL_ROOT/compose/scripts/core/decision_fact_claim_control.py" --revision-dir "$DEDUCTIVE_OUT_DIR"` |
 | `$FIDELITY_EVAL_CONTROL` | `python3 "$SKILL_ROOT/compose/fidelity/scripts/fidelity_control.py" --revision-dir "$DEDUCTIVE_OUT_DIR"` |
 
 `$FACTS_CTL` / `$DERIVE_CTL` / `$DEDUCTIVE_CTL`: see each `--help`. Scripts never invent derived work-item text.
@@ -57,7 +58,7 @@ Fetch before Step 2: `$FETCH_COMPOSE --role section-kw-criteria` → `KW_CRITERI
 
 ## Method
 
-Deduction projects **known** upstream substance into this stage’s required lenses (whole → parts). **SoT = facts + pending.** Mutations land only via `$FACTS_CTL` / `$DERIVE_CTL` / `$DEDUCTIVE_CTL` / `$DECISION_FACT_CLAIM_CTL` — never hand-written JSON.
+Deduction projects **known** upstream substance into this stage’s required lenses (whole → parts). **SoT = facts + pending.** Mutations land only via `$FACTS_CTL` / `$DERIVE_CTL` / `$DEDUCTIVE_CTL` — never hand-written JSON.
 
 Collaboration: AI projects and proposes; **user** closes Confirm gates; scripts move state only.
 
@@ -71,37 +72,27 @@ Collaboration: AI projects and proposes; **user** closes Confirm gates; scripts 
 
 ### Step 1 — Intake
 
-Materialize upstream into this stage’s `_facts.json`. Exactly one branch:
+Atomize **`$ATOMIZE_SOURCE_PATH`** once, regardless of source format. Read the source material content; do not treat the scope structure ref as input prose.
 
-1. **Unit-import** — when `$SCOPE_REF` is `decision-fact.json`: `$DECISION_FACT_CLAIM_CTL ensure`; claim→emit local seed facts→settled for units pulled into this stage’s lenses; leave unclaimed on the ledger (do not drop). Then:
-   ```bash
-   $FIDELITY_EVAL_CONTROL mark-skipped --reason unit-import
-   ```
-   Unit-import **does not** run A→B consume funnel in v1 (deferred). Proceed to Step 2 after pending-init + validate (no `--require-derivation`).
+**Hard gate first:**
+```bash
+$DEDUCTIVE_CTL consume-policy-check
+```
 
-2. **Atomize** — else: atomize **`$ATOMIZE_DOC_PATH`** prose once (required when `$SCOPE_REF` is a `*-package.json`; do **not** treat the package JSON as prose).
+**A — consume policy (don’t-list only):** For each atom, evaluate role `consume_policy.rules[]` (`D-RISK` / `D-SEAM` / `D-DEC`, …). If a rule is **true** → write `derivation.disposition=not_needed` + `rule_id` + non-empty `upstream_ref` (source anchors; same family as E2) + `lens_tags=[]`. If unsure or false → **pass to B** (do **not** write `quarantined` or `carried` in A).
 
-   **Hard gate first:**
-   ```bash
-   $DEDUCTIVE_CTL consume-policy-check
-   ```
+**B — Intent tagging:** For A-passed atoms only, match this stage Intent SSOT. Clear match → `carried` + Plan `lens_tags` (N:M). No clear match → `quarantined` + empty tags. **Forbidden:** stuffing `CTX` (or any lens) to avoid quarantine. Do **not** keep Design lens keys (`DECISION`/`RISK`/`SEAM`, …) as tags.
 
-   **A — consume policy (don’t-list only):** For each atom, evaluate role `consume_policy.rules[]` (`D-RISK` / `D-SEAM` / `D-DEC`, …). If a rule is **true** → write `derivation.disposition=not_needed` + `rule_id` + non-empty `upstream_ref` (doc anchors; same family as E2) + `lens_tags=[]`. If unsure or false → **pass to B** (do **not** write `quarantined` or `carried` in A).
+**B′ — mis-kill repair only:** Scan `not_needed`. Promote only when (strict Intent hit) ∧ (re-judge exclusion rule is **false**). True exclusions stay `not_needed` (expected auto-recover ≈ 0). Do **not** promote merely because text “looks like” CTX.
 
-   **B — Intent tagging:** For A-passed atoms only, match this stage Intent SSOT. Clear match → `carried` + Plan `lens_tags` (N:M). No clear match → `quarantined` + empty tags. **Forbidden:** stuffing `CTX` (or any lens) to avoid quarantine. Do **not** keep Design lens keys (`DECISION`/`RISK`/`SEAM`, …) as tags.
-
-   **B′ — mis-kill repair only:** Scan `not_needed`. Promote only when (strict Intent hit) ∧ (re-judge exclusion rule is **false**). True exclusions stay `not_needed` (expected auto-recover ≈ 0). Do **not** promote merely because text “looks like” CTX.
-
-   Persist via `$FACTS_CTL write` into the focus L bucket. Every Atomize fact **must** carry `derivation` (`carried`|`quarantined`|`not_needed`) and non-empty `upstream_ref`. Default: **omit** fact `origin` (optional).
-
-Then (both branches):
+Persist via `$FACTS_CTL write` into the focus L bucket. Every Atomize fact **must** carry `derivation` (`carried`|`quarantined`|`not_needed`) and non-empty `upstream_ref`. Default: **omit** fact `origin` (optional).
 
 ```bash
 $FACTS_CTL validate --revision-dir "$DEDUCTIVE_OUT_DIR" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)"
 $DEDUCTIVE_CTL pending-init
 ```
 
-**After Atomize only** — tighten validate + fidelity:
+Tighten validate + bind fidelity:
 
 ```bash
 $FACTS_CTL validate --revision-dir "$DEDUCTIVE_OUT_DIR" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)" \
@@ -110,9 +101,9 @@ $FIDELITY_EVAL_CONTROL init --intake atomize
 $FIDELITY_EVAL_CONTROL paths
 ```
 
-### Step 1b — Fidelity (E1∥E2; Atomize only; before Confirm / Pd)
+### Step 1b — Fidelity (E1∥E2; before Confirm / Pd)
 
-Run **E1** and **E2** in parallel (subagents OK) using defs under `$SKILL_ROOT/compose/fidelity/dimension-defs/` (`e1-doc-coverage`, `e2-fact-provenance`). SoT = `$ATOMIZE_DOC_PATH` prose (`scope_doc` from `paths` must resolve to that doc, not the package JSON); EvalTarget + remediation = this revision `_facts.json`. Remediate **only** `_facts.json`. Max **3** rounds; same round must clear both dimensions. On round-cap with remaining blocking issues: ask the user in **plain text with multiple options and a stated lean** (do not use AskQuestion tool).
+Run **E1** and **E2** in parallel (subagents OK) using defs under `$SKILL_ROOT/compose/fidelity/dimension-defs/` (`e1-doc-coverage`, `e2-fact-provenance`). SoT = `$ATOMIZE_SOURCE_PATH` content (`scope_doc` from `paths` must resolve to that source); EvalTarget + remediation = this revision `_facts.json`. Remediate **only** `_facts.json`. Max **3** rounds; same round must clear both dimensions. On round-cap with remaining blocking issues: ask the user in **plain text with multiple options and a stated lean** (do not use AskQuestion tool).
 
 **E1 contract:** every doc obligation unit → exactly one fact disposition ∈ {`carried`,`quarantined`,`not_needed`}; for **carried** facts, no weakening vs doc (narrow blocking list in dim-def).
 
@@ -122,10 +113,9 @@ When E1∩E2 clear:
 $FIDELITY_EVAL_CONTROL mark-passed
 ```
 
-**Done (Atomize):** validate exit 0 with derivation+consume-policy; fidelity `passed`. Proceed to Step 1c.  
-**Done (Unit-import):** fidelity `skipped`. Skip Step 1c; proceed to Step 2.
+**Done:** validate exit 0 with derivation+consume-policy; fidelity `passed`. Proceed to Step 1c.
 
-### Step 1c — Disposition Confirm (Atomize only; before Pd)
+### Step 1c — Disposition Confirm (before Pd)
 
 Draft op-list JSON at `$DEDUCTIVE_OUT_DIR/deductive-disposition-review.patch` (agent drafts; **no** hand-edit of `_facts.json`):
 
@@ -150,7 +140,7 @@ When user accepts current dispositions unchanged, write a patch with a single me
 
 **Cognitive split (archive-6.0 Pd×KW):** **Floor** = edge-closure **means** (no KW). **Ceiling** = Intent projection **means** driven by published **`KW_CRITERIA`** as the **only thickness ruler**. Do **not** treat “edges closed” or “should-cover ticked” as “thick enough.” Do **not** run a separate KW-first pass on the Atomize pool.
 
-Mechanical plan first (edge floor + topo). **`$DERIVE_CTL plan-edge` hard-fails** unless fidelity status is `passed`|`skipped`.
+Mechanical plan first (edge floor + topo). **`$DERIVE_CTL plan-edge` hard-fails** unless fidelity status is `passed`.
 
 ```bash
 $DERIVE_CTL plan-edge \

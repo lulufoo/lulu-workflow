@@ -30,12 +30,12 @@ if str(_WORKFLOW_SCRIPTS) not in sys.path:
 from start_gate import get_topic_ref  # noqa: E402
 
 from scope_package_projection import (  # noqa: E402
-    is_decision_package_ref,
-    load_decision_package,
+    is_source_package_ref,
+    load_source_package,
     make_norm_ref,
-    norm_refs_from_decision_package,
-    reject_decision_package_as_scope,
-    write_scope_package_projection,
+    norm_refs_from_source_package,
+    reject_source_package_as_scope,
+    write_source_package_scope_projection,
 )
 
 
@@ -72,17 +72,22 @@ class TechDesignStartAdapter:
             approach = ref_from_file_entry("lulu-approach", data)
             if approach is None:
                 errors.append("missing delivered-refs entry: lulu-approach")
-            elif not is_decision_package_ref(approach):
+            elif not is_source_package_ref(approach):
                 errors.append(
-                    "lulu-approach must deliver decision-package.json "
-                    "(artifact=decision-package); legacy whole decision-fact "
-                    "scope is retired (archive-1.0 P3)"
+                    "lulu-approach must deliver a committed source-package.json "
+                    "(artifact=source-package)"
                 )
             else:
                 try:
-                    load_decision_package(Path(approach.path))
+                    source_package = load_source_package(Path(approach.path))
                 except (OSError, ValueError) as exc:
-                    errors.append(f"invalid decision-package: {exc}")
+                    errors.append(f"invalid source-package: {exc}")
+                else:
+                    if source_package.get("commit_status") != "committed":
+                        errors.append(
+                            "lulu-approach must deliver a committed "
+                            "source-package.json (artifact=source-package)"
+                        )
         if run_mode == "product" and not entry_path_ok(data, "lulu-spec"):
             errors.append("missing delivered-refs entry: lulu-spec")
         return errors
@@ -115,31 +120,27 @@ class TechDesignStartAdapter:
     ) -> list[DeliveredRef]:
         """Primary scope SSOT for design start.
 
-        Requires ``artifact=decision-package`` (or path ``decision-package.json``);
+        Requires ``artifact=source-package`` (or path ``source-package.json``);
         projects to revision ``scope-package.json`` (``revision_dir``; D3 write-once).
-
-        Legacy whole ``decision-fact`` as ``$SCOPE_REF`` is **retired** (no Path A
-        fallback). ``DeliveredRef.path`` on the returned scope ref is ``$SCOPE_REF``.
         """
         del run_mode, carry_forward_ref
         primary = first_ref(delivered_refs, "lulu-approach")
         if primary is None:
             return []
-        if not is_decision_package_ref(primary):
+        if not is_source_package_ref(primary):
             raise ValueError(
-                "lulu-approach scope requires decision-package.json "
-                "(artifact=decision-package); legacy whole decision-fact Path A "
-                "is retired — re-deliver approach via deliver"
+                "lulu-approach scope requires a committed source-package.json "
+                "(artifact=source-package)"
             )
         if revision_dir is None:
             raise ValueError(
-                "revision_dir required to project decision-package → scope-package"
+                "revision_dir required to project source-package → scope-package"
             )
-        scope_path = write_scope_package_projection(
-            decision_package_path=Path(primary.path),
+        scope_path = write_source_package_scope_projection(
+            source_package_path=Path(primary.path),
             revision_dir=Path(revision_dir),
         )
-        reject_decision_package_as_scope(scope_path)
+        reject_source_package_as_scope(scope_path)
         return [
             DeliveredRef(
                 type=primary.type,
@@ -174,10 +175,10 @@ class TechDesignStartAdapter:
             data = load_delivered_refs_file(cycle_id, project_root)
             approach = ref_from_file_entry("lulu-approach", data)
 
-        if approach is not None and is_decision_package_ref(approach):
+        if approach is not None and is_source_package_ref(approach):
             refs.extend(
-                norm_refs_from_decision_package(
-                    decision_package_path=Path(approach.path),
+                norm_refs_from_source_package(
+                    source_package_path=Path(approach.path),
                 )
             )
 

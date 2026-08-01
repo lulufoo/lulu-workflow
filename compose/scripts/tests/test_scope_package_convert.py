@@ -1,4 +1,4 @@
-"""Tests for archive-1.0 P4.convert (scope-package → chain tree + fact_path mirrors)."""
+"""Tests for scope-package → chain tree + source_path mirrors."""
 
 from __future__ import annotations
 
@@ -36,9 +36,9 @@ from scope_package_schema import (  # noqa: E402
 )
 
 
-def _pkg_single(fact: str = "/tmp/D1/decision-fact.json") -> dict:
+def _pkg_single(source_path: str = "/tmp/D1/decision-fact.json") -> dict:
     return build_scope_package(
-        slices=[{"id": "L1", "title": "Only", "fact_path": fact, "source_id": "main"}]
+        slices=[{"id": "L1", "title": "Only", "source_path": source_path, "source_id": "main"}]
     )
 
 
@@ -48,8 +48,8 @@ def _pkg_multi(
 ) -> dict:
     return build_scope_package(
         slices=[
-            {"id": "L1", "title": "Auth", "fact_path": f1, "source_id": "D1"},
-            {"id": "L2", "title": "Billing", "fact_path": f2, "source_id": "D2"},
+            {"id": "L1", "title": "Auth", "source_path": f1, "source_id": "D1"},
+            {"id": "L2", "title": "Billing", "source_path": f2, "source_id": "D2"},
         ]
     )
 
@@ -70,8 +70,8 @@ def test_chain_from_slices_no_order_field() -> None:
 def test_convert_single_l_chain_and_mirror(tmp_path: Path) -> None:
     rev = tmp_path / "revision1"
     rev.mkdir()
-    fact = "/abs/path/main/decision-fact.json"
-    pkg_path = save_scope_package(rev, _pkg_single(fact))
+    source_path = "/abs/path/main/decision-fact.json"
+    pkg_path = save_scope_package(rev, _pkg_single(source_path))
 
     result = convert_scope_package(rev, scope_package_path=pkg_path)
     assert result["ok"] is True
@@ -86,8 +86,8 @@ def test_convert_single_l_chain_and_mirror(tmp_path: Path) -> None:
     assert pointer["focus"] == "L1"
     assert (rev / "L1").is_dir()
     mirror = load_scope_ref_mirror(rev, "L1")
-    assert mirror["fact_path"] == fact
-    # C3=B: mirror only — no fact file materialization under Lx/
+    assert mirror["source_path"] == source_path
+    # C3=B: mirror only — no source file materialization under Lx/
     assert not (rev / "L1" / "_facts").exists()
 
 
@@ -106,8 +106,8 @@ def test_convert_multi_l_chain_and_mirrors(tmp_path: Path) -> None:
     assert tree["status"] == "locked"
     assert tree["order"] == ["L1", "L2"]
     assert tree["edges"] == [{"from": "L2", "to": "L1"}]
-    assert load_scope_ref_mirror(rev, "L1")["fact_path"] == f1
-    assert load_scope_ref_mirror(rev, "L2")["fact_path"] == f2
+    assert load_scope_ref_mirror(rev, "L1")["source_path"] == f1
+    assert load_scope_ref_mirror(rev, "L2")["source_path"] == f2
     assert (rev / "slice-rulers.json").is_file()
 
 
