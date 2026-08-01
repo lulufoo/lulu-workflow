@@ -125,9 +125,11 @@ class TestStartEvaluating:
         assert result["evaluate_round"] == 1
         loaded = load_workflow_state(ws)
         assert loaded["current_state"] == "Working"
-        assert loaded["evaluate_round"] == "1"
+        # Per-L rounds live on evaluate-state.md; revision-global stays put.
+        assert loaded["evaluate_round"] == "0"
         assert "skip_evaluate_requested" not in loaded
-        es = load_evaluate_state(ws.parent / "evaluate-state.md")
+        es = load_evaluate_state(ws.parent / "L1" / "evaluate-state.md")
+        assert es.get("evaluate_round") == "1"
         dim_map = _dim_map(es, tmp_path)
         assert dim_map["e2"] == "pending"
         assert dim_map["e3"] == "pending"
@@ -141,20 +143,36 @@ class TestStartEvaluating:
 
         assert result["ok"] is True
         assert result["current_state"] == "Working"
-        es = load_evaluate_state(ws.parent / "evaluate-state.md")
+        es = load_evaluate_state(ws.parent / "L1" / "evaluate-state.md")
         dim_map = _dim_map(es, tmp_path)
         assert "e1" not in dim_map
         assert dim_map["e2"] == "pending"
 
-    def test_increments_evaluate_round(self, tmp_path: Path):
+    def test_increments_per_l_evaluate_round_after_done(self, tmp_path: Path):
+        from discussion_pointer_schema import (  # noqa: WPS433
+            load_discussion_pointer,
+            save_discussion_pointer,
+        )
+        from dependency_tree_schema import load_dependency_tree  # noqa: WPS433
+
         ws = _seed_session(tmp_path)
-        init_working_ready(ws, mode="tech", evaluate_round=1)
-        save_workflow_state(ws, {"current_state": "Working", "evaluate_round": "1"})
+        init_working_ready(ws, mode="tech")
         mark_focus_intake_done(ws.parent)
-        result = _ADAPTER.enter_evaluating(_CYCLE, tmp_path)
-        assert result["evaluate_round"] == 2
-        loaded = load_workflow_state(ws)
-        assert loaded["evaluate_round"] == "2"
+        first = _ADAPTER.enter_evaluating(_CYCLE, tmp_path)
+        assert first["evaluate_round"] == 1
+        es_path = ws.parent / "L1" / "evaluate-state.md"
+        save_evaluate_state(es_path, {"eval_status": "done", "evaluate_round": "1"})
+        pointer = load_discussion_pointer(ws.parent)
+        pointer["by_id"][pointer["focus"]]["phase"] = "in_progress"
+        save_discussion_pointer(
+            ws.parent, pointer, tree=load_dependency_tree(ws.parent)
+        )
+        second = _ADAPTER.enter_evaluating(_CYCLE, tmp_path)
+        assert second["evaluate_round"] == 2
+        reloaded = load_evaluate_state(es_path)
+        assert reloaded.get("evaluate_round") == "2"
+        # Revision-global counter remains unused for per-L layout.
+        assert load_workflow_state(ws)["evaluate_round"] == "0"
 
     def test_start_evaluating_state_only(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
@@ -175,7 +193,7 @@ class TestStartEvaluating:
         init_working_ready(ws, mode="tech")
         mark_focus_intake_done(ws.parent)
         _ADAPTER.enter_evaluating(_CYCLE, tmp_path)
-        es_path = ws.parent / "evaluate-state.md"
+        es_path = ws.parent / "L1" / "evaluate-state.md"
         es = load_evaluate_state(es_path)
         es = merge_current_dimension(es, "e2", "in_progress", corpus=_corpus(tmp_path))
         save_evaluate_state(es_path, es)

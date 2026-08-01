@@ -42,6 +42,12 @@ _SCHEMA: list[dict[str, Any]] = [
      "description": "Highest severity from completed eval round summary"},
     {"field": "fix_severity_reason", "type": "string", "required": True,
      "description": "Fix severity reason"},
+    {"field": "evaluate_round", "type": "string", "required": False,
+     "description": "Per-L evaluation round M (optional; required for per-L layout)"},
+    {"field": "active_lease_id", "type": "string", "required": False,
+     "description": "Compose staging lease id spanning begin-dimension → finish"},
+    {"field": "focus_l", "type": "string", "required": False,
+     "description": "Focus L id when using per-L evaluate layout"},
 ]
 
 _REQUIRED_FIELDS = {s["field"] for s in _SCHEMA if s.get("required")}
@@ -151,6 +157,8 @@ def build_initial_evaluate_state(
     corpus_ref: str = "",
     corpus_fingerprint: str = "",
     dimension_dispatch: str = "parallel",
+    evaluate_round: int | None = None,
+    focus_l: str = "",
 ) -> dict[str, str]:
     """Return frontmatter fields for a new evaluate-state.md v3."""
     if not dimension_ids:
@@ -181,6 +189,10 @@ def build_initial_evaluate_state(
         data["corpus_ref"] = corpus_ref
     if corpus_fingerprint:
         data["corpus_fingerprint"] = corpus_fingerprint
+    if evaluate_round is not None:
+        data["evaluate_round"] = str(int(evaluate_round))
+    if focus_l:
+        data["focus_l"] = str(focus_l)
     return data
 
 

@@ -32,9 +32,11 @@ Subcommands:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import sys
+from contextvars import ContextVar
 from pathlib import Path
 from typing import Any
 
@@ -71,7 +73,6 @@ from evaluate_state_schema import (  # noqa: E402
     save_evaluate_state,
     sum_issue_totals,
 )
-from contextvars import ContextVar
 
 from evaluate_state_ops import (  # noqa: E402
     build_initial_evaluate_state_for_corpus,
@@ -85,6 +86,7 @@ from workflow_adapter import WorkflowAdapter  # noqa: E402
 
 _ADAPTER_CTX: ContextVar[WorkflowAdapter | None] = ContextVar("workflow_adapter", default=None)
 _WORKFLOW_ID_CTX: ContextVar[str | None] = ContextVar("workflow_id", default=None)
+_HANDOFF_CTX: ContextVar[dict[str, Any] | None] = ContextVar("eval_handoff", default=None)
 
 
 def _adapter() -> WorkflowAdapter:
@@ -106,8 +108,56 @@ def _workflow_id() -> str:
     return workflow_id
 
 
+def _handoff() -> dict[str, Any] | None:
+    return _HANDOFF_CTX.get()
+
+
+def _handoff_context() -> dict[str, Any] | None:
+    handoff = _handoff()
+    if not handoff:
+        return None
+    context = handoff.get("context")
+    return context if isinstance(context, dict) else None
+
+
+def _refresh_handoff(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    require_evaluating: bool = True,
+) -> dict[str, Any]:
+    """Request a fresh Compose handoff and store it in the context var."""
+    kernel = Path(__file__).resolve().parents[2] / "compose" / "scripts"
+    if str(kernel) not in sys.path:
+        sys.path.insert(0, str(kernel))
+    import kernel_bootstrap  # noqa: WPS433
+
+    kernel_bootstrap.ensure_kernel_paths()
+    from eval_handoff_control import request_handoff  # noqa: WPS433
+
+    result = request_handoff(
+        cycle_id,
+        project_root,
+        profile_id=_workflow_id(),
+        require_evaluating=require_evaluating,
+    )
+    if not result.get("ok"):
+        raise ValueError(result.get("error") or "Compose request-handoff failed")
+    handoff = result.get("handoff")
+    if not isinstance(handoff, dict):
+        raise ValueError("Compose handoff missing")
+    _HANDOFF_CTX.set(handoff)
+    return handoff
+
+
 def _upstream_baseline_ref(cycle_id: str, project_root: Path) -> str:
-    """Upstream baseline doc path from the active workflow adapter session context."""
+    """Upstream baseline from Compose handoff policy_context when present."""
+    context = _handoff_context()
+    if context:
+        policy = context.get("policy_context") or {}
+        ref = str(policy.get("upstream_baseline_ref", "")).strip()
+        if ref:
+            return ref
     return _adapter().session_context(cycle_id, project_root).upstream_baseline_ref
 
 
@@ -140,6 +190,46 @@ def _dispatch_canonical(cycle_id: str, project_root: Path) -> list[str]:
     return dispatch_dims_for_corpus(_load_corpus(cycle_id, project_root))
 
 
+def _paths_from_handoff() -> dict[str, str] | None:
+    context = _handoff_context()
+    if not context:
+        return None
+    return {
+        "compose_doc": str(context["compose_doc"]),
+        "evaluate_state": str(context["evaluate_state_path"]),
+        "evaluate_dir": str(context["evaluate_dir"]),
+        "write_staging_dir": str(context["write_staging_dir"]),
+        "lease_id": str(context["lease_id"]),
+        "focus_l": str(context["focus_l"]),
+        "pointer_fingerprint": str(context["pointer_fingerprint"]),
+        "layout": str(context.get("layout", "per-l")),
+        "slice_dir": str(context["slice_dir"]),
+        "revision_dir": str(context["revision_dir"]),
+    }
+
+
+def _eval_paths(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    active_doc: int,
+    evaluate_round: int,
+    es_path: Path | None = None,
+) -> dict[str, str]:
+    from_handoff = _paths_from_handoff()
+    if from_handoff is not None:
+        return from_handoff
+    if es_path is None:
+        es_path = _adapter().resolve_evaluate_state_path(cycle_id, project_root)
+    return _adapter().eval_paths(
+        cycle_id,
+        project_root,
+        active_doc=active_doc,
+        evaluate_round=evaluate_round,
+        es_path=es_path,
+    )
+
+
 def _eval_dir(
     cycle_id: str,
     project_root: Path,
@@ -148,9 +238,7 @@ def _eval_dir(
     evaluate_round: int,
     es_path: Path | None = None,
 ) -> Path:
-    if es_path is None:
-        es_path = _adapter().resolve_evaluate_state_path(cycle_id, project_root)
-    paths = _adapter().eval_paths(
+    paths = _eval_paths(
         cycle_id,
         project_root,
         active_doc=active_doc,
@@ -158,6 +246,13 @@ def _eval_dir(
         es_path=es_path,
     )
     return Path(paths["evaluate_dir"])
+
+
+def _evaluate_state_path(cycle_id: str, project_root: Path) -> Path:
+    context = _handoff_context()
+    if context:
+        return Path(str(context["evaluate_state_path"]))
+    return _adapter().resolve_evaluate_state_path(cycle_id, project_root)
 
 
 _CMD_INIT_ROUND = "init-round"
@@ -263,23 +358,6 @@ def _failure(command: str, reason: str, **extra: Any) -> dict[str, Any]:
     return payload
 
 
-def _eval_paths(
-    cycle_id: str,
-    project_root: Path,
-    *,
-    active_doc: int,
-    evaluate_round: int,
-    es_path: Path,
-) -> dict[str, str]:
-    return _adapter().eval_paths(
-        cycle_id,
-        project_root,
-        active_doc=active_doc,
-        evaluate_round=evaluate_round,
-        es_path=es_path,
-    )
-
-
 def _validate_evaluate_state_for_session(
     eval_data: dict[str, str],
     cycle_id: str,
@@ -344,7 +422,7 @@ def _review_path_from_context(
     active_doc: int,
     dim: str,
 ) -> Path:
-    es_path = _adapter().resolve_evaluate_state_path(cycle_id, project_root)
+    es_path = _evaluate_state_path(cycle_id, project_root)
     eval_dir = _eval_dir(
         cycle_id,
         project_root,
@@ -554,18 +632,7 @@ def _load_evaluating_context(
             current_state=current,
         )
 
-    try:
-        evaluate_round = int(state.get("evaluate_round", "0"))
-    except ValueError:
-        evaluate_round = 0
-    if evaluate_round < 1:
-        return _failure(
-            "",
-            f"evaluate_round is {evaluate_round!r} (expected >= 1).",
-            current_state=current,
-        )
-
-    es_path = _adapter().resolve_evaluate_state_path(cycle_id, project_root)
+    es_path = _evaluate_state_path(cycle_id, project_root)
     if not es_path.exists():
         return _failure(
             "",
@@ -585,6 +652,30 @@ def _load_evaluating_context(
             current_state=current,
         )
 
+    evaluate_round = 0
+    context = _handoff_context()
+    if context:
+        try:
+            evaluate_round = int(context.get("evaluate_round", 0))
+        except (TypeError, ValueError):
+            evaluate_round = 0
+    if evaluate_round < 1:
+        try:
+            evaluate_round = int(eval_data.get("evaluate_round", "0"))
+        except ValueError:
+            evaluate_round = 0
+    if evaluate_round < 1:
+        try:
+            evaluate_round = int(state.get("evaluate_round", "0"))
+        except ValueError:
+            evaluate_round = 0
+    if evaluate_round < 1:
+        return _failure(
+            "",
+            f"evaluate_round is {evaluate_round!r} (expected >= 1).",
+            current_state=current,
+        )
+
     active_doc = _adapter().session_context(cycle_id, project_root).active_doc
     mode = state["mode"]
     return state, ws_path, eval_data, evaluate_round, active_doc, mode
@@ -601,7 +692,7 @@ def build_eval_loop_payload(
         return ctx
 
     state, _ws_path, eval_data, evaluate_round, active_doc, mode = ctx
-    es_path = _adapter().resolve_evaluate_state_path(cycle_id, project_root)
+    es_path = _evaluate_state_path(cycle_id, project_root)
     paths = _eval_paths(
         cycle_id,
         project_root,
@@ -635,16 +726,57 @@ def _start_next_eval_round(
     ws_path: Path,
     mode: str,
 ) -> dict[str, Any]:
-    """Increment evaluate_round, re-init evaluate-state, return loop payload."""
+    """Allocate next per-L (or legacy) round, re-init evaluate-state, return payload."""
+    del ws_path
     try:
-        evaluate_round = int(state.get("evaluate_round", "0")) + 1
-    except ValueError:
-        evaluate_round = 1
+        handoff = _refresh_handoff(cycle_id, project_root, require_evaluating=True)
+    except ValueError as exc:
+        return _failure(_CMD_BEGIN_EVAL_ROUND, str(exc))
+    context = handoff["context"]
+    layout = str(context.get("layout", "per-l"))
+    evaluate_round = int(context["evaluate_round"])
+    formal_es = Path(str(context["evaluate_state_path"]))
+    if layout == "legacy-root":
+        merged = dict(state)
+        merged["evaluate_round"] = str(evaluate_round)
+        _adapter().save_workflow_state(cycle_id, project_root, merged, merge=False)
 
-    merged = dict(state)
-    merged["evaluate_round"] = str(evaluate_round)
-    _adapter().save_workflow_state(cycle_id, project_root, merged, merge=False)
-    init_round(cycle_id, project_root, mode=mode)
+    # Write the next-round state to a temp file first; only replace formal on commit.
+    staging_dir = Path(str(context["write_staging_dir"]))
+    staged_es = staging_dir / "evaluate-state.md"
+    corpus = _load_corpus(cycle_id, project_root)
+    cycle_type = _adapter().detect_cycle_type(cycle_id)
+    init_evaluate_state_for_corpus(
+        staged_es,
+        corpus,
+        cycle_type=cycle_type,
+        evaluate_round=evaluate_round,
+        focus_l=str(context.get("focus_l", "")),
+    )
+    kernel = Path(__file__).resolve().parents[2] / "compose" / "scripts"
+    if str(kernel) not in sys.path:
+        sys.path.insert(0, str(kernel))
+    import kernel_bootstrap  # noqa: WPS433
+
+    kernel_bootstrap.ensure_kernel_paths()
+    from eval_handoff_control import commit_evaluate_state  # noqa: WPS433
+
+    # Temporarily point handoff at staged path for corpus init bookkeeping only;
+    # commit publishes to the formal evaluate_state_path from layout.
+    publish = commit_evaluate_state(
+        cycle_id,
+        project_root,
+        staged_state_path=staged_es,
+        profile_id=_workflow_id(),
+        previous_done_required=formal_es.is_file(),
+    )
+    if not publish.get("ok"):
+        staged_es.unlink(missing_ok=True)
+        return _failure(
+            _CMD_BEGIN_EVAL_ROUND,
+            publish.get("error") or "commit-evaluate-state failed",
+        )
+    del mode
     return build_eval_loop_payload(cycle_id, project_root)
 
 
@@ -654,7 +786,7 @@ def begin_eval_round(cycle_id: str, project_root: Path) -> dict[str, Any]:
     state = _adapter().load_workflow_state(cycle_id, project_root)
     current = state["current_state"]
     mode = state["mode"]
-    es_path = _adapter().resolve_evaluate_state_path(cycle_id, project_root)
+    es_path = _evaluate_state_path(cycle_id, project_root)
 
     if current != _EXPECTED_SESSION_STATE:
         return _failure(
@@ -730,8 +862,20 @@ def begin_eval_round(cycle_id: str, project_root: Path) -> dict[str, Any]:
             current_state=entry.get("current_state", ""),
         )
 
+    try:
+        _refresh_handoff(cycle_id, project_root, require_evaluating=True)
+    except ValueError as exc:
+        return _failure(
+            _CMD_BEGIN_EVAL_ROUND,
+            str(exc),
+            current_state=_EXPECTED_SESSION_STATE,
+        )
+
     state = _adapter().load_workflow_state(cycle_id, project_root)
     mode = state["mode"]
+    es_path = _evaluate_state_path(cycle_id, project_root)
+    if not es_path.exists() or entry.get("transitioned"):
+        init_round(cycle_id, project_root, mode=mode)
 
     try:
         eval_data = load_evaluate_state(es_path)
@@ -773,6 +917,12 @@ def _format_runner_dispatch_input(runner_input: dict[str, str]) -> str:
         f"METHOD_JSON:           {runner_input['METHOD_JSON']}",
         f"METHOD_FOCUS:          {runner_input['METHOD_FOCUS']}",
     ]
+    if runner_input.get("EVALUATE_READ_DIR"):
+        lines.append(f"EVALUATE_READ_DIR:     {runner_input['EVALUATE_READ_DIR']}")
+    if runner_input.get("FINAL_EVALUATE_DIR"):
+        lines.append(f"FINAL_EVALUATE_DIR:    {runner_input['FINAL_EVALUATE_DIR']}")
+    if runner_input.get("LEASE_ID"):
+        lines.append(f"LEASE_ID:              {runner_input['LEASE_ID']}")
     upstream_baseline_ref = runner_input.get("UPSTREAM_BASELINE_REF", "")
     if upstream_baseline_ref:
         lines.append(f"UPSTREAM_BASELINE_REF: {upstream_baseline_ref}")
@@ -807,6 +957,8 @@ def _build_runner_input(
     dispatch_key = str(dim_def.get("legacy_alias") or dim_def["id"])
     sots = dim_def.get("sots", [])
     method = dim_def.get("method", {})
+    formal_dir = paths["evaluate_dir"]
+    staging_dir = paths.get("write_staging_dir") or formal_dir
     runner_input: dict[str, str] = {
         "WORKFLOW_ID": _workflow_id(),
         "DIMENSION_ID": str(dim_def["id"]),
@@ -817,7 +969,11 @@ def _build_runner_input(
         "EVAL_TARGET_PATH": str(dim_def["eval_target"]["path"]),
         "REMEDIATION_TARGET_PATH": str(dim_def["remediation_target"]["path"]),
         "EVALUATE_STATE_PATH": paths["evaluate_state"],
-        "EVALUATE_DIR": paths["evaluate_dir"],
+        # Runner writes only to lease-private staging when handoff is present.
+        "EVALUATE_DIR": staging_dir,
+        "EVALUATE_READ_DIR": formal_dir,
+        "FINAL_EVALUATE_DIR": formal_dir,
+        "LEASE_ID": str(paths.get("lease_id", "")),
         "REVIEW_OUTPUT_PATH": str(dim_def["review"]["output_path"]),
         "PROJECT_ROOT": project_root.resolve().as_posix(),
         "SOTS_JSON": json.dumps(sots, ensure_ascii=False, separators=(",", ":")),
@@ -843,17 +999,34 @@ def init_round(
     *,
     mode: str | None = None,
 ) -> dict[str, Any]:
-    """Initialize evaluate-state.md for the current active revision."""
+    """Initialize evaluate-state.md for the current active revision / L."""
     if mode is None:
         mode = _adapter().load_workflow_state(cycle_id, project_root)["mode"]
-    es_path = _adapter().resolve_evaluate_state_path(cycle_id, project_root)
+    es_path = _evaluate_state_path(cycle_id, project_root)
     corpus = _load_corpus(cycle_id, project_root)
     cycle_type = _adapter().detect_cycle_type(cycle_id)
-    init_evaluate_state_for_corpus(es_path, corpus, cycle_type=cycle_type)
+    context = _handoff_context() or {}
+    evaluate_round = None
+    focus_l = ""
+    if context:
+        try:
+            evaluate_round = int(context.get("evaluate_round", 0)) or None
+        except (TypeError, ValueError):
+            evaluate_round = None
+        focus_l = str(context.get("focus_l", ""))
+    init_evaluate_state_for_corpus(
+        es_path,
+        corpus,
+        cycle_type=cycle_type,
+        evaluate_round=evaluate_round,
+        focus_l=focus_l,
+    )
     return _success(
         _CMD_INIT_ROUND,
         mode=mode,
         path=es_path.resolve().as_posix(),
+        evaluate_round=evaluate_round,
+        focus_l=focus_l,
     )
 
 
@@ -889,7 +1062,7 @@ def begin_dimension(
             current_state=state["current_state"],
         )
 
-    es_path = _adapter().resolve_evaluate_state_path(cycle_id, project_root)
+    es_path = _evaluate_state_path(cycle_id, project_root)
     paths = _eval_paths(
         cycle_id,
         project_root,
@@ -899,9 +1072,16 @@ def begin_dimension(
     )
 
     corpus = _load_corpus(cycle_id, project_root)
+    lease_id = str(paths.get("lease_id", ""))
 
     def _patch(data: dict[str, str]) -> dict[str, str]:
-        return merge_current_dimension(data, dim, "in_progress", corpus=corpus)
+        updated = merge_current_dimension(data, dim, "in_progress", corpus=corpus)
+        if lease_id:
+            updated["active_lease_id"] = lease_id
+        if paths.get("focus_l"):
+            updated["focus_l"] = str(paths["focus_l"])
+        updated["evaluate_round"] = str(evaluate_round)
+        return updated
 
     save_evaluate_state_locked(es_path, _patch)
 
@@ -920,6 +1100,84 @@ def begin_dimension(
         runner_input=runner_input,
         dispatch_input=_format_runner_dispatch_input(runner_input),
     )
+
+
+def _publish_staged_review_if_needed(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    eval_data: dict[str, str],
+    evaluate_round: int,
+    review_filename: str,
+    formal_review_path: Path,
+) -> dict[str, Any] | None:
+    """Publish staged review via Compose when active_lease_id is set.
+
+    Returns a failure payload on error; None on success / no staging.
+    """
+    lease_id = str(eval_data.get("active_lease_id", "")).strip()
+    if not lease_id:
+        return None
+
+    paths = _paths_from_handoff() or {}
+    focus_l = str(eval_data.get("focus_l") or paths.get("focus_l") or "")
+    fingerprint = str(paths.get("pointer_fingerprint") or "")
+    if not focus_l or not fingerprint:
+        # Refresh handoff to obtain fingerprint for commit validation.
+        try:
+            handoff = _refresh_handoff(cycle_id, project_root, require_evaluating=True)
+        except ValueError as exc:
+            return _failure(_CMD_FINISH_DIMENSION_PROBE, str(exc))
+        context = handoff["context"]
+        focus_l = str(context["focus_l"])
+        fingerprint = str(context["pointer_fingerprint"])
+        slice_dir = Path(str(context["slice_dir"]))
+    else:
+        slice_dir = Path(str(paths.get("slice_dir") or formal_review_path.parent.parent))
+
+    staging = slice_dir / ".eval-staging" / lease_id
+    staged = staging / review_filename
+    if not staged.is_file():
+        # Compatibility: allow already-published formal path (legacy runners).
+        if formal_review_path.is_file():
+            return None
+        return _failure(
+            _CMD_FINISH_DIMENSION_PROBE,
+            f"staged review missing: {staged.as_posix()}",
+            dim=review_filename,
+        )
+
+    digest = hashlib.sha256(staged.read_bytes()).hexdigest()
+    kernel = Path(__file__).resolve().parents[2] / "compose" / "scripts"
+    if str(kernel) not in sys.path:
+        sys.path.insert(0, str(kernel))
+    import kernel_bootstrap  # noqa: WPS433
+
+    kernel_bootstrap.ensure_kernel_paths()
+    from eval_handoff_control import commit_artifacts  # noqa: WPS433
+    from eval_handoff_schema import build_artifact_manifest  # noqa: WPS433
+
+    manifest = build_artifact_manifest(
+        lease_id=lease_id,
+        pointer_fingerprint_value=fingerprint,
+        focus_l=focus_l,
+        evaluate_round=evaluate_round,
+        staged_relative_path=review_filename,
+        final_relative_path=review_filename,
+        artifact_digest=digest,
+    )
+    result = commit_artifacts(
+        cycle_id,
+        project_root,
+        manifest=manifest,
+        profile_id=_workflow_id(),
+    )
+    if not result.get("ok"):
+        return _failure(
+            _CMD_FINISH_DIMENSION_PROBE,
+            result.get("error") or "commit-artifacts failed",
+        )
+    return None
 
 
 def finish_dimension_probe(
@@ -943,12 +1201,6 @@ def finish_dimension_probe(
             dim=dim,
         )
 
-    eval_dir = _eval_dir(
-        cycle_id,
-        project_root,
-        active_doc=active_doc,
-        evaluate_round=evaluate_round,
-    )
     review_path = _review_path_from_context(
         cycle_id,
         project_root,
@@ -957,6 +1209,17 @@ def finish_dimension_probe(
         active_doc=active_doc,
         dim=dim,
     )
+    publish_err = _publish_staged_review_if_needed(
+        cycle_id,
+        project_root,
+        eval_data=eval_data,
+        evaluate_round=evaluate_round,
+        review_filename=review_path.name,
+        formal_review_path=review_path,
+    )
+    if publish_err is not None:
+        return publish_err
+
     validation_errors = validate_review_file(review_path, phase="probe")
     if validation_errors:
         return _failure(
@@ -970,13 +1233,15 @@ def finish_dimension_probe(
     total_issues = str(len(rows))
     dim_id = _canonical_dim(cycle_id, project_root, dim)
 
-    es_path = _adapter().resolve_evaluate_state_path(cycle_id, project_root)
+    es_path = _evaluate_state_path(cycle_id, project_root)
 
     corpus = _load_corpus(cycle_id, project_root)
 
     def _patch(data: dict[str, str]) -> dict[str, str]:
         updated = merge_current_dimension(data, dim, "probed", corpus=corpus)
-        return patch_issue_count(updated, dim_id, total=total_issues)
+        updated = patch_issue_count(updated, dim_id, total=total_issues)
+        updated["active_lease_id"] = ""
+        return updated
 
     save_evaluate_state_locked(es_path, _patch)
 
@@ -1125,7 +1390,7 @@ def probe_complete(cycle_id: str, project_root: Path) -> dict[str, Any]:
 
     total = sum_issue_totals(eval_data, dispatch)
 
-    es_path = _adapter().resolve_evaluate_state_path(cycle_id, project_root)
+    es_path = _evaluate_state_path(cycle_id, project_root)
     save_evaluate_state(
         es_path,
         {
@@ -1359,7 +1624,7 @@ def begin_dimension_artifact_remediation(
             dim=dim,
         )
 
-    es_path = _adapter().resolve_evaluate_state_path(cycle_id, project_root)
+    es_path = _evaluate_state_path(cycle_id, project_root)
     paths = _eval_paths(
         cycle_id,
         project_root,
@@ -1440,7 +1705,7 @@ def check_dimension_artifact_remediation(
     if not has_pending_sot(rows):
         merged = merge_current_dimension(merged, dim, "complete", corpus=corpus)
 
-    es_path = _adapter().resolve_evaluate_state_path(cycle_id, project_root)
+    es_path = _evaluate_state_path(cycle_id, project_root)
     save_evaluate_state(
         es_path,
         {
@@ -1501,7 +1766,7 @@ def artifact_remediation_complete(
             int(entry.get("resolved", "0") or "0") for entry in counts.values()
         )
 
-    es_path = _adapter().resolve_evaluate_state_path(cycle_id, project_root)
+    es_path = _evaluate_state_path(cycle_id, project_root)
     save_evaluate_state(
         es_path,
         {
@@ -1619,7 +1884,7 @@ def begin_dimension_sot_remediation(
             dim=dim,
         )
 
-    es_path = _adapter().resolve_evaluate_state_path(cycle_id, project_root)
+    es_path = _evaluate_state_path(cycle_id, project_root)
     paths = _eval_paths(
         cycle_id,
         project_root,
@@ -1712,7 +1977,7 @@ def check_dimension_sot_remediation(
     if escalated:
         patch["eval_status"] = "abandoned"
 
-    es_path = _adapter().resolve_evaluate_state_path(cycle_id, project_root)
+    es_path = _evaluate_state_path(cycle_id, project_root)
     save_evaluate_state(es_path, patch)
 
     return _success(
@@ -1747,7 +2012,7 @@ def sot_remediation_complete(
         )
 
     if eval_data.get("eval_status") == "abandoned":
-        es_path = _adapter().resolve_evaluate_state_path(cycle_id, project_root)
+        es_path = _evaluate_state_path(cycle_id, project_root)
         save_evaluate_state(es_path, {"fix_phase": "done"})
         return _success(
             _CMD_SOT_REMEDIATION_COMPLETE,
@@ -1786,7 +2051,7 @@ def sot_remediation_complete(
         for dim in dispatch
     )
 
-    es_path = _adapter().resolve_evaluate_state_path(cycle_id, project_root)
+    es_path = _evaluate_state_path(cycle_id, project_root)
     save_evaluate_state(
         es_path,
         {
@@ -1882,7 +2147,7 @@ def complete_round(cycle_id: str, project_root: Path) -> dict[str, Any]:
     )
     fix_severity, fix_severity_reason = compute_fix_severity(issues)
 
-    es_path = _adapter().resolve_evaluate_state_path(cycle_id, project_root)
+    es_path = _evaluate_state_path(cycle_id, project_root)
     save_evaluate_state(
         es_path,
         {
@@ -2032,12 +2297,18 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return build_parser().parse_args(argv)
 
 
-def run_eval(args: argparse.Namespace, adapter: WorkflowAdapter) -> int:
+def run_eval(
+    args: argparse.Namespace,
+    adapter: WorkflowAdapter,
+    *,
+    handoff: dict[str, Any] | None = None,
+) -> int:
     """Run eval subcommand with an injected WorkflowAdapter (stage entrypoint)."""
     project_root = args.project_root.resolve()
     cycle_id = args.cycle_id.strip()
     adapter_token = _ADAPTER_CTX.set(adapter)
     workflow_token = _WORKFLOW_ID_CTX.set(args.workflow.strip())
+    handoff_token = _HANDOFF_CTX.set(handoff)
 
     try:
         if args.command == _CMD_INIT_ROUND:
@@ -2114,6 +2385,7 @@ def run_eval(args: argparse.Namespace, adapter: WorkflowAdapter) -> int:
     finally:
         _ADAPTER_CTX.reset(adapter_token)
         _WORKFLOW_ID_CTX.reset(workflow_token)
+        _HANDOFF_CTX.reset(handoff_token)
 
     return 1
 

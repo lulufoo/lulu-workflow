@@ -93,6 +93,7 @@ class TestComposeSessionTechDesign:
             / _CYCLE
             / "lulu-design"
             / "revision1"
+            / "L1"
             / "evaluate-state.md"
         )
         assert es.exists()

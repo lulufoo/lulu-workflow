@@ -87,9 +87,13 @@ class TechPlanEvalAdapter:
     def resolve_evaluate_state_path(
         self, cycle_id: str, project_root: Path
     ) -> Path:
-        active_doc = load_active_doc_from_cycle(cycle_id, project_root, profile_id="lulu-plan")
+        from eval_handoff_control import resolve_evaluate_state_abs  # noqa: WPS433
 
-        return project_root / doc_dir(cycle_id, active_doc, _WORKFLOW_ID, project_root) / "evaluate-state.md"
+        return resolve_evaluate_state_abs(
+            cycle_id,
+            project_root,
+            profile_id=_WORKFLOW_ID,
+        )
 
     def session_context(
         self, cycle_id: str, project_root: Path
@@ -117,14 +121,36 @@ class TechPlanEvalAdapter:
         evaluate_round: int,
         es_path: Path,
     ) -> dict[str, str]:
+        from discussion_pointer_schema import load_discussion_pointer  # noqa: WPS433
+        from workflow_profile_paths import (  # noqa: WPS433
+            eval_layout_for_revision,
+            eval_round_dir_for_layout,
+        )
+
         root = project_root.resolve()
+        revision_dir = self.resolve_workflow_state_path(cycle_id, project_root).parent
+        layout = eval_layout_for_revision(revision_dir)
+        focus_l = "L1"
+        try:
+            focus_l = str(load_discussion_pointer(revision_dir)["focus"])
+        except (FileNotFoundError, ValueError, OSError, KeyError):
+            pass
         return {
             "compose_doc": (
                 root / document_path(cycle_id, active_doc, _WORKFLOW_ID, project_root)
             ).as_posix(),
             "evaluate_state": es_path.resolve().as_posix(),
             "evaluate_dir": (
-                root / eval_round_dir(cycle_id, active_doc, evaluate_round, _WORKFLOW_ID, project_root)
+                root
+                / eval_round_dir_for_layout(
+                    cycle_id,
+                    active_doc,
+                    evaluate_round,
+                    _WORKFLOW_ID,
+                    project_root,
+                    layout=layout,
+                    focus_l=focus_l,
+                )
             ).as_posix(),
         }
 
@@ -250,5 +276,31 @@ class TechPlanEvalAdapter:
         if not result.get("ok"):
             return result
         if result.get("transitioned"):
-            init_evaluate_state_for_session(self, cycle_id, project_root)
+            focus = str(result.get("focus") or "")
+            try:
+                init_evaluate_state_for_session(
+                    self,
+                    cycle_id,
+                    project_root,
+                    evaluate_round=int(result.get("evaluate_round") or 1),
+                    focus_l=focus,
+                )
+            except Exception as exc:
+                from session_evaluating import rollback_evaluating_phase  # noqa: WPS433
+
+                revision_dir = self.resolve_workflow_state_path(
+                    cycle_id, project_root
+                ).parent
+                if focus:
+                    rollback_evaluating_phase(revision_dir, focus=focus)
+                return {
+                    "ok": False,
+                    "current_state": result.get("current_state", "Working"),
+                    "transitioned": False,
+                    "error": str(exc),
+                    "resume": {
+                        "entry": "Working",
+                        "action": f"evaluate-state init failed; phase rolled back: {exc}",
+                    },
+                }
         return result

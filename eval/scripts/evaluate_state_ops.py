@@ -38,6 +38,8 @@ def build_initial_evaluate_state_for_corpus(
     corpus: dict[str, Any],
     *,
     cycle_type: str = "feature",
+    evaluate_round: int | None = None,
+    focus_l: str = "",
 ) -> dict[str, str]:
     """Return v3 frontmatter for a new evaluate-state from an EvalCorpus."""
     ids = dispatch_ids(corpus)
@@ -50,6 +52,8 @@ def build_initial_evaluate_state_for_corpus(
         corpus_ref=ref,
         corpus_fingerprint=fingerprint,
         dimension_dispatch=str(corpus.get("dimension_dispatch", "parallel")),
+        evaluate_round=evaluate_round,
+        focus_l=focus_l,
     )
 
 
@@ -58,11 +62,18 @@ def init_evaluate_state_for_corpus(
     corpus: dict[str, Any],
     *,
     cycle_type: str = "feature",
+    evaluate_round: int | None = None,
+    focus_l: str = "",
 ) -> None:
     """Initialize evaluate-state.md v3 from a resolved EvalCorpus."""
     save_evaluate_state(
         path,
-        build_initial_evaluate_state_for_corpus(corpus, cycle_type=cycle_type),
+        build_initial_evaluate_state_for_corpus(
+            corpus,
+            cycle_type=cycle_type,
+            evaluate_round=evaluate_round,
+            focus_l=focus_l,
+        ),
         merge=False,
     )
 
@@ -71,12 +82,46 @@ def init_evaluate_state_for_session(
     adapter: WorkflowAdapter,
     cycle_id: str,
     project_root: Path,
+    *,
+    evaluate_round: int | None = None,
+    focus_l: str = "",
 ) -> Path:
-    """Initialize evaluate-state.md for the adapter's active revision."""
+    """Initialize evaluate-state.md for the adapter's active revision / L."""
     es_path = adapter.resolve_evaluate_state_path(cycle_id, project_root)
     corpus = adapter.resolve_eval_corpus(cycle_id, project_root)
     cycle_type = adapter.detect_cycle_type(cycle_id)
-    init_evaluate_state_for_corpus(es_path, corpus, cycle_type=cycle_type)
+    if evaluate_round is None or not focus_l:
+        # Prefer Compose layout helpers when caller omitted round / focus.
+        try:
+            from discussion_pointer_schema import load_discussion_pointer  # noqa: WPS433
+            from workflow_profile_paths import eval_layout_for_revision  # noqa: WPS433
+
+            revision_dir = adapter.resolve_workflow_state_path(
+                cycle_id, project_root
+            ).parent
+            layout = eval_layout_for_revision(revision_dir)
+            if not focus_l:
+                try:
+                    focus_l = str(load_discussion_pointer(revision_dir)["focus"])
+                except (FileNotFoundError, ValueError, OSError, KeyError):
+                    focus_l = "L1" if layout == "per-l" else ""
+            if evaluate_round is None and layout == "per-l":
+                evaluate_round = 1
+            elif evaluate_round is None:
+                state = adapter.load_workflow_state(cycle_id, project_root)
+                try:
+                    evaluate_round = int(state.get("evaluate_round", "0")) or None
+                except ValueError:
+                    evaluate_round = None
+        except Exception:
+            pass
+    init_evaluate_state_for_corpus(
+        es_path,
+        corpus,
+        cycle_type=cycle_type,
+        evaluate_round=evaluate_round,
+        focus_l=focus_l,
+    )
     return es_path
 
 

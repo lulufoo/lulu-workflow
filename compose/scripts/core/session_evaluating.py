@@ -26,7 +26,36 @@ from discussion_pointer_schema import (  # noqa: E402
 from dependency_tree_schema import load_dependency_tree  # noqa: E402
 from multi_slice_control import evaluate_split_ready  # noqa: E402
 from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID  # noqa: E402
+from workflow_profile_paths import eval_layout_for_revision  # noqa: E402
 from workflow_state_schema import load_workflow_state, save_workflow_state  # noqa: E402
+
+
+def _read_evaluate_round_field(path: Path) -> int | None:
+    if not path.is_file():
+        return None
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.startswith("evaluate_round:"):
+            raw = line.split(":", 1)[1].strip()
+            try:
+                return int(raw)
+            except ValueError:
+                return None
+    return None
+
+
+def _allocate_per_l_round(slice_dir: Path) -> int:
+    es_path = slice_dir / "evaluate-state.md"
+    if not es_path.is_file():
+        return 1
+    status = ""
+    for line in es_path.read_text(encoding="utf-8").splitlines():
+        if line.startswith("eval_status:"):
+            status = line.split(":", 1)[1].strip()
+            break
+    current = _read_evaluate_round_field(es_path) or 1
+    if status in {"done", "abandoned"}:
+        return current + 1
+    return current if current >= 1 else 1
 
 
 def enter_evaluating_state(
@@ -103,17 +132,22 @@ def enter_evaluating_state(
 
     focus = str(pointer["focus"])
     cell = pointer["by_id"][focus]
+    layout = eval_layout_for_revision(revision_dir)
     if cell.get("phase") == "evaluating":
-        try:
-            evaluate_round = int(state.get("evaluate_round", "0"))
-        except ValueError:
-            evaluate_round = 0
+        if layout == "legacy-root":
+            try:
+                evaluate_round = int(state.get("evaluate_round", "0"))
+            except ValueError:
+                evaluate_round = 0
+        else:
+            evaluate_round = _allocate_per_l_round(revision_dir / focus)
         return {
             "ok": True,
             "current_state": "Working",
             "focus": focus,
             "phase": "evaluating",
             "evaluate_round": evaluate_round,
+            "layout": layout,
             "transitioned": False,
         }
 
@@ -153,14 +187,19 @@ def enter_evaluating_state(
             "resume": {"entry": current, "action": str(exc)},
         }
 
-    try:
-        evaluate_round = int(state.get("evaluate_round", "0")) + 1
-    except ValueError:
-        evaluate_round = 1
-
     merged = dict(state)
     merged["current_state"] = "Working"
-    merged["evaluate_round"] = str(evaluate_round)
+    if layout == "legacy-root":
+        try:
+            evaluate_round = int(state.get("evaluate_round", "0")) + 1
+        except ValueError:
+            evaluate_round = 1
+        merged["evaluate_round"] = str(evaluate_round)
+    else:
+        slice_dir = revision_dir / focus
+        slice_dir.mkdir(parents=True, exist_ok=True)
+        evaluate_round = _allocate_per_l_round(slice_dir)
+        # Per-L rounds live on evaluate-state.md; do not bump revision-global.
     save_workflow_state(ws_path, merged, merge=False)
 
     return {
@@ -169,8 +208,23 @@ def enter_evaluating_state(
         "focus": focus,
         "phase": "evaluating",
         "evaluate_round": evaluate_round,
+        "layout": layout,
         "transitioned": True,
     }
+
+
+def rollback_evaluating_phase(
+    revision_dir: Path,
+    *,
+    focus: str,
+) -> None:
+    """Undo ``phase=evaluating`` after a failed evaluate-state init (first enter)."""
+    tree = load_dependency_tree(revision_dir)
+    pointer = load_discussion_pointer(revision_dir)
+    cell = pointer["by_id"][focus]
+    if cell.get("phase") == "evaluating":
+        cell["phase"] = "in_progress"
+        save_discussion_pointer(revision_dir, pointer, tree=tree)
 
 
 def transition_to_evaluating(

@@ -51,7 +51,7 @@ SSOT: `{$SKILL_ROOT}/eval/issue-taxonomy.json`. `root_cause` must be one of four
 
 - Header SSOT: `{$SKILL_ROOT}/eval/review.template.md`
 - Validate via: `python3 {$SKILL_ROOT}/eval/scripts/review_schema.py --schema`
-- Review output path: `{revision}/evaluate{M}/{review.output_path}` from EvalCorpus (e.g. `tech-review-e{M}1.md`)
+- Review output path: `{revision}/{L}/evaluate{M}/{review.output_path}` from EvalCorpus (e.g. `tech-review-e{M}1.md`). Absolute paths come from Compose EvalHandoff (`evaluate_dir` / staging); legacy revision-root sessions may still use `{revision}/evaluate{M}/` until that session ends.
 
 Probe runners: Read template, substitute `{{DIM_LABEL}}`, `{{REV}}`, `{{M}}`, `{{DATE}}`, `{{REFS}}`; append issue rows; never alter header/separator row order.
 

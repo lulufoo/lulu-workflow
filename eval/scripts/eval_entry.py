@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Profile-driven eval entrypoint.
+"""Profile-driven eval entrypoint via Compose EvalHandoff.
 
-Dynamically loads the WorkflowAdapter declared by a stage's
-``compose-profile.json`` (``eval.adapter_module`` / ``eval.adapter_class``),
-mirroring how ``compose/scripts/core/start.py`` loads a StartAdapter.
-Replaces the deleted per-stage ``{stage}_eval_control.py`` boilerplate
-entrypoints; invoke via the ``$EVAL_CONTROL`` macro (see ``eval/SKILL.md``).
+Compose owns profile parsing and L directory resolution. This entry:
+1. Requests EvalHandoff from Compose (AdapterRef + EvalContext)
+2. Loads the stage WorkflowAdapter from AdapterRef
+3. Runs eval_control with the handoff injected
+
+Invoke via the ``$EVAL_CONTROL`` macro (see ``eval/SKILL.md``).
 """
 
 from __future__ import annotations
@@ -26,33 +27,30 @@ if str(_KERNEL_SCRIPTS) not in sys.path:
 import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
-from workflow_paths import compose_profile_path, load_profile_json  # noqa: E402
 
+from eval_handoff_control import request_handoff  # noqa: E402
 from eval_control import parse_args, run_eval  # noqa: E402
 from workflow_adapter import WorkflowAdapter  # noqa: E402
 
 
-def load_eval_adapter(profile: dict[str, Any], profile_json_path: Path) -> WorkflowAdapter:
-    """Instantiate the WorkflowAdapter declared by profile.eval (mirrors start.py's load_start_adapter)."""
-    eval_config = profile.get("eval") or {}
-    adapter_module = str(eval_config.get("adapter_module", "")).strip()
-    adapter_class = str(eval_config.get("adapter_class", "")).strip()
+def load_eval_adapter_from_ref(adapter_ref: dict[str, str]) -> WorkflowAdapter:
+    """Instantiate WorkflowAdapter from Compose AdapterRef (absolute module path)."""
+    adapter_module = str(adapter_ref.get("adapter_module", "")).strip()
+    adapter_class = str(adapter_ref.get("adapter_class", "")).strip()
     if not adapter_module:
-        raise ValueError("profile.eval.adapter_module is required")
+        raise ValueError("AdapterRef.adapter_module is required")
     if not adapter_class:
-        raise ValueError("profile.eval.adapter_class is required")
+        raise ValueError("AdapterRef.adapter_class is required")
 
-    workflow_root = profile_json_path.resolve().parent.parent
     adapter_path = Path(adapter_module)
-    if not adapter_path.is_absolute():
-        adapter_path = (workflow_root / adapter_path).resolve()
     if not adapter_path.is_file():
-        raise ValueError(f"eval.adapter_module not found: {adapter_path.as_posix()}")
+        raise ValueError(f"adapter_module not found: {adapter_path.as_posix()}")
 
-    module_name = f"_compose_eval_adapter_{profile.get('profile_id', profile_json_path.parent.name)}"
+    plugin_id = str(adapter_ref.get("workflow_id", "eval")).strip() or "eval"
+    module_name = f"_compose_eval_adapter_{plugin_id}"
     spec = importlib.util.spec_from_file_location(module_name, adapter_path)
     if spec is None or spec.loader is None:
-        raise ValueError(f"cannot load eval.adapter_module: {adapter_path.as_posix()}")
+        raise ValueError(f"cannot load adapter_module: {adapter_path.as_posix()}")
 
     adapter_dir = str(adapter_path.parent)
     if adapter_dir not in sys.path:
@@ -68,22 +66,50 @@ def load_eval_adapter(profile: dict[str, Any], profile_json_path: Path) -> Workf
     return adapter_type()
 
 
+def _request_compose_handoff(
+    *,
+    workflow_id: str,
+    cycle_id: str,
+    project_root: Path,
+    require_evaluating: bool,
+) -> dict[str, Any]:
+    result = request_handoff(
+        cycle_id,
+        project_root,
+        profile_id=workflow_id,
+        require_evaluating=require_evaluating,
+    )
+    if not result.get("ok"):
+        raise ValueError(result.get("error") or "Compose request-handoff failed")
+    handoff = result.get("handoff")
+    if not isinstance(handoff, dict):
+        raise ValueError("Compose handoff missing")
+    return handoff
+
+
 def main() -> int:
     args = parse_args()
-    profile_id = args.workflow.strip()
-    profile_json_path = compose_profile_path(profile_id)
+    workflow_id = args.workflow.strip()
+    cycle_id = args.cycle_id.strip()
+    project_root = args.project_root.resolve()
+
+    # init-round / begin-eval-round may run while preparing evaluating
+    require_evaluating = args.command not in {
+        "init-round",
+        "begin-eval-round",
+    }
     try:
-        profile = load_profile_json(profile_json_path)
-        if str(profile.get("profile_id", "")).strip() != profile_id:
-            raise ValueError(
-                f"profile_id mismatch: --workflow {profile_id!r} vs "
-                f"JSON {profile.get('profile_id')!r}",
-            )
-        adapter = load_eval_adapter(profile, profile_json_path)
+        handoff = _request_compose_handoff(
+            workflow_id=workflow_id,
+            cycle_id=cycle_id,
+            project_root=project_root,
+            require_evaluating=require_evaluating,
+        )
+        adapter = load_eval_adapter_from_ref(handoff["adapter"])
     except ValueError as exc:
         print(f"错误：{exc}", file=sys.stderr)
         return 1
-    return run_eval(args, adapter)
+    return run_eval(args, adapter, handoff=handoff)
 
 
 if __name__ == "__main__":

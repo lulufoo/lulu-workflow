@@ -94,9 +94,11 @@ def _init_evaluate_state(path: Path, *, cycle_id: str, tmp_path: Path) -> None:
 def _set_eval_context():
     adapter_token = eval_control._ADAPTER_CTX.set(_ADAPTER)
     workflow_token = eval_control._WORKFLOW_ID_CTX.set("lulu-plan")
+    handoff_token = eval_control._HANDOFF_CTX.set(None)
     yield
     eval_control._ADAPTER_CTX.reset(adapter_token)
     eval_control._WORKFLOW_ID_CTX.reset(workflow_token)
+    eval_control._HANDOFF_CTX.reset(handoff_token)
 
 _REVIEW_HEADER = (
     "# Tech Review — E2 | revision1 round 1\n\n"
@@ -230,7 +232,7 @@ class TestInitRound:
         seed_frozen_delivered(ws, product_delivered_refs("/p.md"))
         result = init_round(_CYCLE, tmp_path, mode="product")
         assert result["ok"] is True
-        es = load_evaluate_state(ws.parent / "evaluate-state.md")
+        es = load_evaluate_state(ws.parent / "L1" / "evaluate-state.md")
         assert es["version"] == "3"
         assert es["eval_status"] == "active"
         assert es["fix_phase"] == "probe"
@@ -243,7 +245,7 @@ class TestInitRound:
         ws = _seed_session(tmp_path)
         init_working_ready(ws, mode="tech")
         init_round(_CYCLE, tmp_path, mode="tech")
-        es = load_evaluate_state(ws.parent / "evaluate-state.md")
+        es = load_evaluate_state(ws.parent / "L1" / "evaluate-state.md")
         dim_map = _dim_map(es, tmp_path)
         assert dim_map == {"e2": "pending", "e3": "pending"}
 
@@ -251,7 +253,7 @@ class TestInitRound:
         ws = _seed_session(tmp_path)
         init_working_ready(ws, mode="product")
         init_round(_CYCLE, tmp_path, mode="product")
-        es = load_evaluate_state(ws.parent / "evaluate-state.md")
+        es = load_evaluate_state(ws.parent / "L1" / "evaluate-state.md")
         assert _dim_map(es, tmp_path) == {"e2": "pending", "e3": "pending"}
 
 

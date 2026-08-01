@@ -49,7 +49,6 @@ from delivered_refs_schema import record_delivered_ref  # noqa: E402
 from human_delivery_gate_schema import write_approved  # noqa: E402
 from session_state_schema import load_active_doc_from_cycle  # noqa: E402
 from workflow_common import parse_frontmatter_fields  # noqa: E402
-from workflow_profile_paths import evaluate_state_path as profile_evaluate_state_path  # noqa: E402
 from multi_slice_control import (  # noqa: E402
     assemble_compose_package,
     evaluate_split_ready,
@@ -83,13 +82,13 @@ def _evaluate_state_path(
     *,
     profile_id: str,
 ) -> Path:
-    active_doc = load_active_doc_from_cycle(
+    from eval_handoff_control import resolve_evaluate_state_abs  # noqa: WPS433
+
+    return resolve_evaluate_state_abs(
         cycle_id,
         project_root,
         profile_id=profile_id,
     )
-    rel = profile_evaluate_state_path(cycle_id, active_doc, profile_id, project_root)
-    return project_root / rel
 
 
 def _read_eval_status(es_path: Path) -> str:
@@ -564,18 +563,6 @@ def resume_after_eval(
     if current != _EXPECTED_WORKING_STATE:
         return _failure(_CMD_RESUME_AFTER_EVAL, current)
 
-    try:
-        evaluate_round = int(state.get("evaluate_round", "0"))
-    except ValueError:
-        evaluate_round = 0
-    if evaluate_round < 1:
-        return {
-            "ok": False,
-            "command": _CMD_RESUME_AFTER_EVAL,
-            "current_state": current,
-            "reason": f"evaluate_round is {evaluate_round!r} (expected >= 1).",
-        }
-
     es_path = _evaluate_state_path(cycle_id, project_root, profile_id=profile_id)
     if not es_path.exists():
         return {
@@ -602,6 +589,28 @@ def resume_after_eval(
                 f"eval_status is {eval_status!r}, "
                 "expected 'done' (run complete-round first)."
             ),
+        }
+
+    try:
+        evaluate_round = int(state.get("evaluate_round", "0"))
+    except ValueError:
+        evaluate_round = 0
+    if evaluate_round < 1:
+        # Per-L layout stores the round on evaluate-state.md.
+        for line in es_path.read_text(encoding="utf-8").splitlines():
+            if line.startswith("evaluate_round:"):
+                raw = line.split(":", 1)[1].strip()
+                try:
+                    evaluate_round = int(raw)
+                except ValueError:
+                    evaluate_round = 0
+                break
+    if evaluate_round < 1:
+        return {
+            "ok": False,
+            "command": _CMD_RESUME_AFTER_EVAL,
+            "current_state": current,
+            "reason": f"evaluate_round is {evaluate_round!r} (expected >= 1).",
         }
 
     try:

@@ -198,6 +198,8 @@ Entry: `advance-to-freeedit` success, or Fix L resume.
 
 Before handoff: `$SESSION_CONTROL start-evaluating` requires locked Split topology, then StageGate (deps of current focus must be `acceptance: done`). On failure → Blocking; fix topology / finish or re-evaluate predecessor L (`$L_SLICE status` / `can-enter-evaluate`). See **L-slice scheduling**.
 
+Eval paths are per focus L: `{revision}/{L}/evaluate-state.md` and `{revision}/{L}/evaluate{M}/` (legacy revision-root sessions keep root paths until they end). `$EVAL_CONTROL` obtains those absolute paths via `$EVAL_HANDOFF` (`request-handoff`) on every control command — do not derive L directories in Eval or stage adapters.
+
 Read `{$SKILL_ROOT}/eval/eval-rules.md` and follow its instructions (only when the user explicitly chooses Evaluate).
 
 When eval-rules completes, follow its exit branch:
@@ -270,6 +272,7 @@ Fetch compose framework templates on demand; **do not** read `workflow-config.js
 | `$RESOLVE_ROLE` | `python3 "$SKILL_ROOT/compose/scripts/scope/scope_resolver.py" --profile <profile_id> --project-root "$(pwd)" resolve-role --cycle-id "$CYCLE_ID"` |
 | `$RESOLVE_DOMAIN` | `python3 "$SKILL_ROOT/compose/scripts/scope/scope_resolver.py" --profile <profile_id> --project-root "$(pwd)" resolve-domain --cycle-id "$CYCLE_ID"` |
 | `$FETCH_COMPOSE` | `python3 "$SKILL_ROOT/compose/scripts/io/fetch_compose_framework.py" --role <role> --profile <profile_id> --project-root "$(pwd)" --cycle-id "$CYCLE_ID"` |
+| `$EVAL_HANDOFF` | `python3 "$SKILL_ROOT/compose/scripts/core/eval_handoff_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile <profile_id> <subcommand>` — Compose→Eval context (`request-handoff` / `commit-artifacts` / `commit-evaluate-state` / `discard-staging`); Eval entry requests this per command |
 | `$EVAL_CONTROL` | `python3 "$SKILL_ROOT/eval/scripts/eval_entry.py" --workflow <profile_id> --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
 | `$FIDELITY_EVAL_CONTROL` | `python3 "$SKILL_ROOT/compose/fidelity/scripts/fidelity_control.py" --revision-dir <revision_dir>` — compose-internal doc→facts gate (not Working Evaluating); see `compose/fidelity/README.md` |
 | `$COMPOSE_DOC_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/section/compose_doc_control.py" <subcommand> [args...]` |

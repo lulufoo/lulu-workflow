@@ -104,6 +104,7 @@ def eval_round_dir(
     profile_id: str,
     project_root: Path,
 ) -> Path:
+    """Legacy revision-root evaluate directory (relative to project root)."""
     return doc_dir(cycle_id, doc_round, profile_id, project_root) / f"evaluate{evaluate_round}"
 
 
@@ -113,5 +114,61 @@ def evaluate_state_path(
     profile_id: str,
     project_root: Path,
 ) -> Path:
-    """Path to evaluate-state.md for the active revision (relative to project root)."""
+    """Legacy revision-root evaluate-state.md (relative to project root)."""
     return doc_dir(cycle_id, active_doc, profile_id, project_root) / "evaluate-state.md"
+
+
+def _root_eval_status(path: Path) -> str:
+    if not path.is_file():
+        return ""
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.startswith("eval_status:"):
+            return line.split(":", 1)[1].strip()
+    return ""
+
+
+def eval_layout_for_revision(revision_dir: Path) -> str:
+    """Return ``legacy-root`` while a revision-root evaluate session continues.
+
+    ``active`` and ``done`` keep legacy-root so the same session can start the
+    next round at revision root. ``abandoned`` (or missing root state) uses
+    per-L paths for subsequent Evaluating entries.
+    """
+    root_state = Path(revision_dir).resolve() / "evaluate-state.md"
+    status = _root_eval_status(root_state)
+    if status in {"active", "done"}:
+        return "legacy-root"
+    return "per-l"
+
+
+def evaluate_state_path_for_layout(
+    cycle_id: str,
+    active_doc: int,
+    profile_id: str,
+    project_root: Path,
+    *,
+    layout: str,
+    focus_l: str,
+) -> Path:
+    """evaluate-state.md relative path for legacy-root or per-L layout."""
+    rev = doc_dir(cycle_id, active_doc, profile_id, project_root)
+    if layout == "legacy-root":
+        return rev / "evaluate-state.md"
+    return rev / focus_l / "evaluate-state.md"
+
+
+def eval_round_dir_for_layout(
+    cycle_id: str,
+    doc_round: int,
+    evaluate_round: int,
+    profile_id: str,
+    project_root: Path,
+    *,
+    layout: str,
+    focus_l: str,
+) -> Path:
+    """evaluate{M}/ relative path for legacy-root or per-L layout."""
+    rev = doc_dir(cycle_id, doc_round, profile_id, project_root)
+    if layout == "legacy-root":
+        return rev / f"evaluate{evaluate_round}"
+    return rev / focus_l / f"evaluate{evaluate_round}"
