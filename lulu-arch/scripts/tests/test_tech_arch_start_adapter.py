@@ -14,23 +14,29 @@ from tech_arch_start_adapter import TechArchStartAdapter  # noqa: E402
 def _seed_tech_diagnostic(tmp_path: Path, cycle_id: str) -> Path:
     diag_dir = tmp_path / ".cache/cursor/lulu-dev-workflow" / cycle_id / "lulu-approach"
     diag_dir.mkdir(parents=True)
-    decision = diag_dir / "decision-doc.md"
-    decision.write_text("# Decision\n", encoding="utf-8")
-    source = diag_dir / "source-package.json"
-    source.write_text(
+    (diag_dir / "decision-doc.md").write_text("# Decision\n", encoding="utf-8")
+    (diag_dir / "decision-fact.json").write_text(
         json.dumps(
             {
                 "version": 1,
-                "holder_stage": "lulu-approach",
-                "slices": [
-                    {
-                        "id": "L1",
-                        "title": "main",
-                        "source_path": "decision-doc.md",
-                        "source_id": "main",
-                    }
-                ],
-                "commit_status": "committed",
+                "gates": {
+                    "D": [{"id": "D-1", "slot": "D.x", "text": "pick A"}],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    package = diag_dir / "decision-package.json"
+    package.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "status": "package_ready",
+                "main": {
+                    "decision_fact_path": "decision-fact.json",
+                    "decision_doc_path": "decision-doc.md",
+                },
+                "slices": [],
             }
         ),
         encoding="utf-8",
@@ -43,13 +49,13 @@ def _seed_tech_diagnostic(tmp_path: Path, cycle_id: str) -> Path:
         cycle_id,
         tmp_path,
         delivered_type="lulu-approach",
-        path=str(source.resolve()),
-        artifact="source-package",
+        path=str(package.resolve()),
+        artifact="decision-package",
         revision=1,
         profile_id="lulu-approach",
         source_workflow_state=str((diag_dir / "session-state.md").resolve()),
     )
-    return source
+    return package
 
 
 def test_infer_run_mode_is_tech(tmp_path: Path) -> None:

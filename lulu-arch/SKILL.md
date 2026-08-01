@@ -10,7 +10,7 @@ disable-model-invocation: true
 
 Domain holder for the arch-doc compose document. Delegates full Drafting / Evaluating / Delivery orchestration to the `compose` kernel.
 
-> **Prerequisite:** Committed `source-package` from `lulu-approach`, projected to this revision's `scope-package`. Produces **arch-doc.md** — topic-level technical architecture for human sign-off before opening a feature cycle.
+> **Prerequisite:** Delivered `decision-package` from `lulu-approach`, projected to this revision's `scope-package`. Produces **arch-doc.md** — topic-level technical architecture for human sign-off before opening a feature cycle.
 
 **Scope:** Topic cycles only. Feature technical planning uses `lulu-plan` / `lulu-design`.
 

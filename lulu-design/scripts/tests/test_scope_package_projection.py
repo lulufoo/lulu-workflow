@@ -51,23 +51,6 @@ _dp_spec.loader.exec_module(_dp_mod)
 build_decision_package = _dp_mod.build_decision_package
 save_decision_package = _dp_mod.save_decision_package
 
-_sp_path = (
-    _WORKFLOW_ROOT
-    / "lulu-approach"
-    / "scripts"
-    / "schema"
-    / "source_package_schema.py"
-)
-_sp_spec = importlib.util.spec_from_file_location(
-    "_p3_test_source_package_schema",
-    _sp_path,
-)
-assert _sp_spec and _sp_spec.loader
-_sp_mod = importlib.util.module_from_spec(_sp_spec)
-_sp_spec.loader.exec_module(_sp_mod)
-build_source_package = _sp_mod.build_source_package
-save_source_package = _sp_mod.save_source_package
-
 
 def _unit_fact(path: Path, text: str = "pick A") -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -114,32 +97,6 @@ def _seed_approach_root(tmp_path: Path, *, with_slices: bool) -> Path:
         slices=slices,
     )
     save_decision_package(root, pkg)
-    source_slices = [
-        {
-            "id": "L1",
-            "title": "main",
-            "source_path": "main/decision-fact.json",
-            "source_id": "main",
-        }
-    ]
-    if with_slices:
-        source_slices = [
-            {
-                "id": f"L{index}",
-                "title": row["title"],
-                "source_path": row["decision_fact_path"],
-                "source_id": row["id"],
-            }
-            for index, row in enumerate(slices, start=1)
-        ]
-    save_source_package(
-        root,
-        build_source_package(
-            holder_stage="lulu-approach",
-            slices=source_slices,
-            commit_status="committed",
-        ),
-    )
     assert main_fact.is_file()
     return root
 
@@ -236,8 +193,8 @@ class TestAdapterProjection:
             delivered_refs=[
                 DeliveredRef(
                     type="lulu-approach",
-                    path=str((root / "source-package.json").resolve()),
-                    artifact="source-package",
+                    path=str((root / "decision-package.json").resolve()),
+                    artifact="decision-package",
                 )
             ],
             revision_dir=rev,
@@ -253,12 +210,12 @@ class TestAdapterProjection:
         rev = tmp_path / "revision1"
         rev.mkdir()
         adapter = TechDesignStartAdapter()
-        # path ends with source-package.json (no artifact) still projects
+        # path ends with decision-package.json (no artifact) still projects
         refs = adapter.resolve_scope_refs(
             delivered_refs=[
                 DeliveredRef(
                     type="lulu-approach",
-                    path=str((root / "source-package.json").resolve()),
+                    path=str((root / "decision-package.json").resolve()),
                 )
             ],
             revision_dir=rev,
@@ -274,15 +231,15 @@ class TestAdapterProjection:
                 delivered_refs=[
                     DeliveredRef(
                         type="lulu-approach",
-                        path=str((root / "source-package.json").resolve()),
-                        artifact="source-package",
+                        path=str((root / "decision-package.json").resolve()),
+                        artifact="decision-package",
                     )
                 ],
             )
 
-    def test_adapter_requires_committed_source_package(self, tmp_path: Path):
+    def test_adapter_requires_decision_package(self, tmp_path: Path):
         adapter = TechDesignStartAdapter()
-        with pytest.raises(ValueError, match="committed source-package"):
+        with pytest.raises(ValueError, match="decision-package"):
             adapter.resolve_scope_refs(
                 delivered_refs=[
                     DeliveredRef(
@@ -302,8 +259,8 @@ class TestAdapterProjection:
             delivered_refs=[
                 DeliveredRef(
                     type="lulu-approach",
-                    path=str((root / "source-package.json").resolve()),
-                    artifact="source-package",
+                    path=str((root / "decision-package.json").resolve()),
+                    artifact="decision-package",
                 )
             ],
         )

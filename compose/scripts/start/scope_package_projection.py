@@ -48,25 +48,6 @@ DECISION_PACKAGE_FILENAME = _dp_mod.DECISION_PACKAGE_FILENAME
 is_decision_package_path = _dp_mod.is_decision_package_path
 load_decision_package = _dp_mod.load_decision_package
 
-_SP_PATH = (
-    _WORKFLOW_ROOT
-    / "lulu-approach"
-    / "scripts"
-    / "schema"
-    / "source_package_schema.py"
-)
-_sp_spec = importlib.util.spec_from_file_location(
-    "_shared_source_package_schema",
-    _SP_PATH,
-)
-if _sp_spec is None or _sp_spec.loader is None:
-    raise ImportError(f"cannot load source_package_schema: {_SP_PATH}")
-_sp_mod = importlib.util.module_from_spec(_sp_spec)
-_sp_spec.loader.exec_module(_sp_mod)
-SOURCE_PACKAGE_FILENAME = _sp_mod.SOURCE_PACKAGE_FILENAME
-is_source_package_path = _sp_mod.is_source_package_path
-load_source_package = _sp_mod.load_source_package
-
 from delivered_refs_schema import DeliveredRef  # noqa: E402
 from compose_package_schema import load_compose_package  # noqa: E402
 from scope_package_schema import (  # noqa: E402
@@ -76,7 +57,6 @@ from scope_package_schema import (  # noqa: E402
 )
 
 DECISION_PACKAGE_ARTIFACT = "decision-package"
-SOURCE_PACKAGE_ARTIFACT = "source-package"
 NORM_KINDS = frozenset(
     {"parent_decision", "split_artifact", "topic_arch", "other"}
 )
@@ -104,22 +84,6 @@ def reject_decision_package_as_scope(path: Path | str) -> None:
         )
 
 
-def is_source_package_ref(ref: DeliveredRef) -> bool:
-    """True when delivered ref is a holder source package."""
-    if str(ref.artifact or "").strip() == SOURCE_PACKAGE_ARTIFACT:
-        return True
-    return is_source_package_path(ref.path)
-
-
-def reject_source_package_as_scope(path: Path | str) -> None:
-    """Hard-reject using ``source-package.json`` as ``$SCOPE_REF``."""
-    if is_source_package_path(path):
-        raise ScopePackageProjectionError(
-            "source-package.json must not be used as $SCOPE_REF; "
-            "project to scope-package.json first"
-        )
-
-
 def _resolve_source_path(package_root: Path, rel: str) -> str:
     text = str(rel).strip()
     if not text:
@@ -128,63 +92,6 @@ def _resolve_source_path(package_root: Path, rel: str) -> str:
     if not path.is_file():
         raise ScopePackageProjectionError(f"source path not found: {path}")
     return str(path)
-
-
-def project_source_package_to_scope_slices(
-    package: dict[str, Any],
-    *,
-    package_root: Path,
-) -> list[dict[str, Any]]:
-    """Map committed source-package slices to the revision-local scope contract."""
-    if package.get("commit_status") != "committed":
-        raise ScopePackageProjectionError(
-            "source-package must declare commit_status=committed"
-        )
-    root = Path(package_root).resolve()
-    raw_slices = package.get("slices")
-    if not isinstance(raw_slices, list) or not raw_slices:
-        raise ScopePackageProjectionError("source-package.slices must be non-empty")
-
-    out: list[dict[str, Any]] = []
-    for idx, row in enumerate(raw_slices):
-        if not isinstance(row, dict):
-            raise ScopePackageProjectionError(f"slices[{idx}] must be an object")
-        slice_id = str(row.get("id", "")).strip()
-        title = str(row.get("title", "")).strip()
-        source_id = str(row.get("source_id", "")).strip()
-        source_path = _resolve_source_path(root, str(row.get("source_path", "")))
-        if not slice_id or not title or not source_id:
-            raise ScopePackageProjectionError(
-                f"slices[{idx}] requires non-empty id, title, and source_id"
-            )
-        out.append(
-            {
-                "id": slice_id,
-                "title": title,
-                "source_path": source_path,
-                "source_id": source_id,
-            }
-        )
-    return out
-
-
-def write_source_package_scope_projection(
-    *,
-    source_package_path: Path,
-    revision_dir: Path,
-) -> Path:
-    """Load a source package and materialize its scope projection once."""
-    pkg_path = Path(source_package_path).resolve()
-    if not is_source_package_path(pkg_path):
-        raise ScopePackageProjectionError(
-            f"expected {SOURCE_PACKAGE_FILENAME}, got {pkg_path.name!r}"
-        )
-    package = load_source_package(pkg_path)
-    slices = project_source_package_to_scope_slices(
-        package,
-        package_root=pkg_path.parent,
-    )
-    return materialize_scope_package(slices=slices, revision_dir=revision_dir)
 
 
 def project_decision_package_to_scope_slices(
@@ -391,18 +298,3 @@ def norm_refs_from_decision_package(
                 )
             )
     return refs
-
-
-def norm_refs_from_source_package(
-    *,
-    source_package_path: Path,
-) -> list[DeliveredRef]:
-    """Keep approach-internal decision norms available beside source delivery."""
-    pkg_path = Path(source_package_path).resolve()
-    load_source_package(pkg_path)
-    decision_package_path = pkg_path.parent / DECISION_PACKAGE_FILENAME
-    if not decision_package_path.is_file():
-        return []
-    return norm_refs_from_decision_package(
-        decision_package_path=decision_package_path,
-    )

@@ -33,7 +33,7 @@ class DeliveredRef:
     """Upstream delivered stage reference (path + optional delivery shape).
 
     ``artifact`` marks delivery shape (archive-1.0 P0.7): e.g.
-    ``source-package`` / ``scope-package`` / compose ``*-package.json``.
+    ``decision-package`` / ``scope-package`` / compose ``*-package.json``.
     ``kind`` is required on norm-channel refs (archive-1.0 P3 D2): e.g.
     ``parent_decision`` / ``split_artifact`` / ``topic_arch`` / ``other``.
 

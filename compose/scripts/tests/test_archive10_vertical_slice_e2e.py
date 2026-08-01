@@ -126,26 +126,8 @@ def _init_pointer(out_dir: Path) -> None:
 def test_vertical_slice_no_split_e2e(tmp_path: Path) -> None:
     """C5: package → scope-package → convert → L1 Seed = main fact; no order."""
     approach = _seed_no_split_approach(tmp_path)
-    pkg_path = approach / "source-package.json"
+    pkg_path = approach / "decision-package.json"
     main_fact = (approach / "main" / "decision-fact.json").resolve()
-    pkg_path.write_text(
-        json.dumps(
-            {
-                "version": 1,
-                "holder_stage": "lulu-approach",
-                "commit_status": "committed",
-                "slices": [
-                    {
-                        "id": "L1",
-                        "title": "main",
-                        "source_path": "main/decision-fact.json",
-                        "source_id": "main",
-                    }
-                ],
-            }
-        ),
-        encoding="utf-8",
-    )
 
     rev = tmp_path / "design" / "revision1"
     rev.mkdir(parents=True)
@@ -155,7 +137,7 @@ def test_vertical_slice_no_split_e2e(tmp_path: Path) -> None:
             DeliveredRef(
                 type="lulu-approach",
                 path=str(pkg_path.resolve()),
-                artifact="source-package",
+                artifact="decision-package",
             )
         ],
         revision_dir=rev,

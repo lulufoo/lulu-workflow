@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import sys
 from pathlib import Path
@@ -25,19 +26,30 @@ for _rel in (
 
 import bootstrap  # noqa: F401
 from delivered_refs_schema import DeliveredRef  # noqa: E402
-from dec_source_package_schema import (  # noqa: E402
-    build_source_package,
-    save_source_package,
-)
 from product_blueprint_start_adapter import ProductBlueprintStartAdapter  # noqa: E402
 from product_spec_start_adapter import ProductSpecStartAdapter  # noqa: E402
 from tech_arch_start_adapter import TechArchStartAdapter  # noqa: E402
 from tech_design_start_adapter import TechDesignStartAdapter  # noqa: E402
 from tech_plan_start_adapter import TechPlanStartAdapter  # noqa: E402
 
+_dp_path = (
+    _WORKFLOW_ROOT
+    / "lulu-approach"
+    / "scripts"
+    / "schema"
+    / "decision_package_schema.py"
+)
+_dp_spec = importlib.util.spec_from_file_location("_dp_schema_scope_tests", _dp_path)
+assert _dp_spec and _dp_spec.loader
+_dp_mod = importlib.util.module_from_spec(_dp_spec)
+_dp_spec.loader.exec_module(_dp_mod)
+build_decision_package = _dp_mod.build_decision_package
+save_decision_package = _dp_mod.save_decision_package
+
 
 def _unit_fact(tmp_path: Path, name: str = "decision-fact.json") -> Path:
     path = tmp_path / name
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         json.dumps(
             {
@@ -68,33 +80,36 @@ def _design_package(tmp_path: Path) -> Path:
     )
 
 
-def _write_approach_source_package(approach_root: Path) -> Path:
-    import importlib.util
-
-    schema_path = (
-        _WORKFLOW_ROOT
-        / "lulu-approach"
-        / "scripts"
-        / "schema"
-        / "source_package_schema.py"
-    )
-    spec = importlib.util.spec_from_file_location("_source_package_schema", schema_path)
-    assert spec and spec.loader
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod.save_source_package(
+def _write_approach_decision_package(approach_root: Path) -> Path:
+    approach_root.mkdir(parents=True, exist_ok=True)
+    (approach_root / "main").mkdir(parents=True, exist_ok=True)
+    fact = _unit_fact(approach_root / "main", "decision-fact.json")
+    del fact
+    (approach_root / "main" / "decision-doc.md").write_text("# main\n", encoding="utf-8")
+    return save_decision_package(
         approach_root,
-        mod.build_source_package(
-            holder_stage="lulu-approach",
-            commit_status="committed",
-            slices=[
-                {
-                    "id": "L1",
-                    "title": "main",
-                    "source_path": "main/decision-fact.json",
-                    "source_id": "main",
-                }
-            ],
+        build_decision_package(
+            main={
+                "decision_fact_path": "main/decision-fact.json",
+                "decision_doc_path": "main/decision-doc.md",
+            },
+            slices=[],
+        ),
+    )
+
+
+def _write_bet_decision_package(root: Path) -> Path:
+    root.mkdir(parents=True, exist_ok=True)
+    _unit_fact(root, "decision-fact.json")
+    (root / "decision-doc.md").write_text("# Decision\n", encoding="utf-8")
+    return save_decision_package(
+        root,
+        build_decision_package(
+            main={
+                "decision_fact_path": "decision-fact.json",
+                "decision_doc_path": "decision-doc.md",
+            },
+            slices=[],
         ),
     )
 
@@ -118,12 +133,10 @@ def test_tech_plan_resolve_scope_refs_primary_tech_chain(tmp_path: Path):
     assert Path(refs[0].path) == revision / "scope-package.json"
 
 
-def test_tech_plan_approach_only_requires_source_package(tmp_path: Path):
-    """Plan←approach requires a committed source package."""
-    import importlib.util
-
+def test_tech_plan_approach_only_requires_decision_package(tmp_path: Path):
+    """Plan←approach requires a decision package."""
     adapter = TechPlanStartAdapter()
-    with pytest.raises(ValueError, match="committed source-package"):
+    with pytest.raises(ValueError, match="decision-package"):
         adapter.resolve_scope_refs(
             delivered_refs=[
                 DeliveredRef(type="lulu-approach", path="/abs/decision.md"),
@@ -132,42 +145,15 @@ def test_tech_plan_approach_only_requires_source_package(tmp_path: Path):
             run_mode="product",
         )
 
-    approach = tmp_path / "approach"
-    fact = _unit_fact(tmp_path)
-    (approach / "main").mkdir(parents=True)
-    main_fact = approach / "main" / "decision-fact.json"
-    main_fact.write_text(fact.read_text(encoding="utf-8"), encoding="utf-8")
-    (approach / "main" / "decision-doc.md").write_text("# main\n", encoding="utf-8")
-    dp_path = (
-        _WORKFLOW_ROOT
-        / "lulu-approach"
-        / "scripts"
-        / "schema"
-        / "decision_package_schema.py"
-    )
-    spec = importlib.util.spec_from_file_location("_dp_schema_plan_scope", dp_path)
-    assert spec and spec.loader
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    mod.save_decision_package(
-        approach,
-        mod.build_decision_package(
-            main={
-                "decision_fact_path": "main/decision-fact.json",
-                "decision_doc_path": "main/decision-doc.md",
-            },
-            slices=[],
-        ),
-    )
-    source_package = _write_approach_source_package(approach)
+    decision_package = _write_approach_decision_package(tmp_path / "approach")
     rev = tmp_path / "plan" / "revision1"
     rev.mkdir(parents=True)
     refs = adapter.resolve_scope_refs(
         delivered_refs=[
             DeliveredRef(
                 type="lulu-approach",
-                path=str(source_package.resolve()),
-                artifact="source-package",
+                path=str(decision_package.resolve()),
+                artifact="decision-package",
             ),
             DeliveredRef(type="lulu-spec", path="/abs/product.md"),
         ],
@@ -180,53 +166,24 @@ def test_tech_plan_approach_only_requires_source_package(tmp_path: Path):
     assert (rev / "scope-package.json").is_file()
 
 
-def test_tech_design_resolve_scope_refs_requires_source_package(tmp_path: Path):
-    """Design start requires a committed source package."""
-    import importlib.util
-
+def test_tech_design_resolve_scope_refs_requires_decision_package(tmp_path: Path):
+    """Design start requires a decision package."""
     adapter = TechDesignStartAdapter()
-    with pytest.raises(ValueError, match="committed source-package"):
+    with pytest.raises(ValueError, match="decision-package"):
         adapter.resolve_scope_refs(
             delivered_refs=[DeliveredRef(type="lulu-approach", path="/abs/decision.md")],
             run_mode="tech",
         )
 
-    approach = tmp_path / "approach"
-    fact = _unit_fact(tmp_path)
-    (approach / "main").mkdir(parents=True)
-    main_fact = approach / "main" / "decision-fact.json"
-    main_fact.write_text(fact.read_text(encoding="utf-8"), encoding="utf-8")
-    (approach / "main" / "decision-doc.md").write_text("# main\n", encoding="utf-8")
-    dp_path = (
-        _WORKFLOW_ROOT
-        / "lulu-approach"
-        / "scripts"
-        / "schema"
-        / "decision_package_schema.py"
-    )
-    spec = importlib.util.spec_from_file_location("_dp_schema_scope_test", dp_path)
-    assert spec and spec.loader
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    mod.save_decision_package(
-        approach,
-        mod.build_decision_package(
-            main={
-                "decision_fact_path": "main/decision-fact.json",
-                "decision_doc_path": "main/decision-doc.md",
-            },
-            slices=[],
-        ),
-    )
-    source_package = _write_approach_source_package(approach)
+    decision_package = _write_approach_decision_package(tmp_path / "approach")
     rev = tmp_path / "design" / "revision1"
     rev.mkdir(parents=True)
     refs = adapter.resolve_scope_refs(
         delivered_refs=[
             DeliveredRef(
                 type="lulu-approach",
-                path=str(source_package.resolve()),
-                artifact="source-package",
+                path=str(decision_package.resolve()),
+                artifact="decision-package",
             ),
         ],
         run_mode="tech",
@@ -237,37 +194,17 @@ def test_tech_design_resolve_scope_refs_requires_source_package(tmp_path: Path):
     assert Path(refs[0].path).name == "scope-package.json"
 
 
-def _write_bet_source_package(root: Path) -> Path:
-    root.mkdir(parents=True, exist_ok=True)
-    fact = _unit_fact(root)
-    return save_source_package(
-        root,
-        build_source_package(
-            holder_stage="lulu-bet",
-            commit_status="committed",
-            slices=[
-                {
-                    "id": "L1",
-                    "title": "main",
-                    "source_path": fact.name,
-                    "source_id": "main",
-                }
-            ],
-        ),
-    )
-
-
-def test_product_spec_projects_bet_source_package(tmp_path: Path):
+def test_product_spec_projects_bet_decision_package(tmp_path: Path):
     adapter = ProductSpecStartAdapter()
-    source = _write_bet_source_package(tmp_path / "bet")
+    decision = _write_bet_decision_package(tmp_path / "bet")
     revision = tmp_path / "spec" / "revision1"
     revision.mkdir(parents=True)
     refs = adapter.resolve_scope_refs(
         delivered_refs=[
             DeliveredRef(
                 type="lulu-bet",
-                path=str(source),
-                artifact="source-package",
+                path=str(decision),
+                artifact="decision-package",
             ),
         ],
         run_mode="product",
@@ -285,48 +222,31 @@ def test_delivered_ref_ignores_legacy_decision_fact_path_key() -> None:
     data = {
         "entries": {
             "lulu-bet": {
-                "path": "/abs/source-package.json",
+                "path": "/abs/decision-package.json",
                 "decision_fact_path": "/abs/decision-fact.json",
-                "artifact": "source-package",
+                "artifact": "decision-package",
             }
         }
     }
     ref = ref_from_file_entry("lulu-bet", data)
     assert ref is not None
-    assert ref.path == "/abs/source-package.json"
-    assert ref.artifact == "source-package"
+    assert ref.path == "/abs/decision-package.json"
+    assert ref.artifact == "decision-package"
     assert "decision_fact_path" not in ref.to_dict()
     assert not hasattr(ref, "decision_fact_path")
 
 
-def test_tech_arch_projects_approach_source_package(tmp_path: Path):
+def test_tech_arch_projects_approach_decision_package(tmp_path: Path):
     adapter = TechArchStartAdapter()
-    source_root = tmp_path / "approach"
-    source_root.mkdir()
-    fact = _unit_fact(source_root)
-    source = save_source_package(
-        source_root,
-        build_source_package(
-            holder_stage="lulu-approach",
-            commit_status="committed",
-            slices=[
-                {
-                    "id": "L1",
-                    "title": "main",
-                    "source_path": fact.name,
-                    "source_id": "main",
-                }
-            ],
-        ),
-    )
+    decision = _write_approach_decision_package(tmp_path / "approach")
     revision = tmp_path / "arch" / "revision1"
     revision.mkdir(parents=True)
     refs = adapter.resolve_scope_refs(
         delivered_refs=[
             DeliveredRef(
                 type="lulu-approach",
-                path=str(source),
-                artifact="source-package",
+                path=str(decision),
+                artifact="decision-package",
             ),
         ],
         revision_dir=revision,
@@ -335,17 +255,17 @@ def test_tech_arch_projects_approach_source_package(tmp_path: Path):
     assert Path(refs[0].path) == revision / "scope-package.json"
 
 
-def test_product_blueprint_projects_bet_source_package(tmp_path: Path):
+def test_product_blueprint_projects_bet_decision_package(tmp_path: Path):
     adapter = ProductBlueprintStartAdapter()
-    source = _write_bet_source_package(tmp_path / "bet")
+    decision = _write_bet_decision_package(tmp_path / "bet")
     revision = tmp_path / "blueprint" / "revision1"
     revision.mkdir(parents=True)
     refs = adapter.resolve_scope_refs(
         delivered_refs=[
             DeliveredRef(
                 type="lulu-bet",
-                path=str(source),
-                artifact="source-package",
+                path=str(decision),
+                artifact="decision-package",
             ),
         ],
         revision_dir=revision,
@@ -354,48 +274,17 @@ def test_product_blueprint_projects_bet_source_package(tmp_path: Path):
     assert Path(refs[0].path) == revision / "scope-package.json"
 
 
-def test_tech_plan_approach_fallback_projects_source_package(tmp_path: Path):
-    import importlib.util
-
+def test_tech_plan_approach_fallback_projects_decision_package(tmp_path: Path):
     adapter = TechPlanStartAdapter()
-    fact = _unit_fact(tmp_path)
-
-    approach = tmp_path / "approach"
-    (approach / "main").mkdir(parents=True)
-    (approach / "main" / "decision-fact.json").write_text(
-        fact.read_text(encoding="utf-8"), encoding="utf-8"
-    )
-    (approach / "main" / "decision-doc.md").write_text("# main\n", encoding="utf-8")
-    dp_path = (
-        _WORKFLOW_ROOT
-        / "lulu-approach"
-        / "scripts"
-        / "schema"
-        / "decision_package_schema.py"
-    )
-    spec = importlib.util.spec_from_file_location("_dp_schema_plan_fallback", dp_path)
-    assert spec and spec.loader
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    mod.save_decision_package(
-        approach,
-        mod.build_decision_package(
-            main={
-                "decision_fact_path": "main/decision-fact.json",
-                "decision_doc_path": "main/decision-doc.md",
-            },
-            slices=[],
-        ),
-    )
-    source_package = _write_approach_source_package(approach)
+    decision_package = _write_approach_decision_package(tmp_path / "approach")
     rev = tmp_path / "plan" / "revision1"
     rev.mkdir(parents=True)
     refs = adapter.resolve_scope_refs(
         delivered_refs=[
             DeliveredRef(
                 type="lulu-approach",
-                path=str(source_package.resolve()),
-                artifact="source-package",
+                path=str(decision_package.resolve()),
+                artifact="decision-package",
             ),
         ],
         revision_dir=rev,
@@ -426,46 +315,16 @@ def test_tech_plan_design_primary_projects_design_doc_path(tmp_path: Path):
 
 
 def test_tech_design_scope_excludes_spec_in_product_mode(tmp_path: Path):
-    import importlib.util
-
     adapter = TechDesignStartAdapter()
-    fact = _unit_fact(tmp_path)
-    approach = tmp_path / "approach"
-    (approach / "main").mkdir(parents=True)
-    (approach / "main" / "decision-fact.json").write_text(
-        fact.read_text(encoding="utf-8"), encoding="utf-8"
-    )
-    (approach / "main" / "decision-doc.md").write_text("# main\n", encoding="utf-8")
-    dp_path = (
-        _WORKFLOW_ROOT
-        / "lulu-approach"
-        / "scripts"
-        / "schema"
-        / "decision_package_schema.py"
-    )
-    spec = importlib.util.spec_from_file_location("_dp_scope_excl_spec", dp_path)
-    assert spec and spec.loader
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    mod.save_decision_package(
-        approach,
-        mod.build_decision_package(
-            main={
-                "decision_fact_path": "main/decision-fact.json",
-                "decision_doc_path": "main/decision-doc.md",
-            },
-            slices=[],
-        ),
-    )
-    source_package = _write_approach_source_package(approach)
+    decision_package = _write_approach_decision_package(tmp_path / "approach")
     rev = tmp_path / "design" / "revision1"
     rev.mkdir(parents=True)
     refs = adapter.resolve_scope_refs(
         delivered_refs=[
             DeliveredRef(
                 type="lulu-approach",
-                path=str(source_package.resolve()),
-                artifact="source-package",
+                path=str(decision_package.resolve()),
+                artifact="decision-package",
             ),
             DeliveredRef(type="lulu-spec", path="/abs/product.md"),
         ],

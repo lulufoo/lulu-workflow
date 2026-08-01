@@ -87,7 +87,6 @@ from decision_package_schema import (  # noqa: E402
     load_decision_package,
     save_decision_package,
 )
-from source_package_schema import build_source_package, save_source_package  # noqa: E402
 from decision_rulers_schema import save_decision_rulers  # noqa: E402
 from dec_lifecycle import bind_session, freeze_session, unfreeze_session_public  # noqa: E402
 import resolve_context  # noqa: E402
@@ -1481,60 +1480,6 @@ def enter_package_ready(approach_root: Path) -> dict[str, Any]:
     )
 
 
-def _source_slices_from_decision_package(
-    package: dict[str, Any],
-) -> list[dict[str, str]]:
-    """Expose only the current decision fact artifact for each delivered L."""
-    raw_slices = package.get("slices") or []
-    if not raw_slices:
-        main = package.get("main")
-        if not isinstance(main, dict):
-            raise ValueError("decision-package.main must be an object")
-        return [
-            {
-                "id": "L1",
-                "title": "main",
-                "source_path": str(main.get("decision_fact_path", "")).strip(),
-                "source_id": "main",
-            }
-        ]
-
-    out: list[dict[str, str]] = []
-    for index, row in enumerate(raw_slices):
-        if not isinstance(row, dict):
-            raise ValueError(f"decision-package.slices[{index}] must be an object")
-        out.append(
-            {
-                "id": f"L{index + 1}",
-                "title": str(row.get("title", "")).strip(),
-                "source_path": str(row.get("decision_fact_path", "")).strip(),
-                "source_id": str(row.get("id", "")).strip(),
-            }
-        )
-    return out
-
-
-def _validate_source_slices(approach_root: Path, slices: list[dict[str, str]]) -> None:
-    root = Path(approach_root).resolve()
-    missing: list[str] = []
-    for row in slices:
-        slice_id = row["id"]
-        rel = row["source_path"]
-        target = (root / rel).resolve()
-        try:
-            target.relative_to(root)
-        except ValueError as exc:
-            raise ValueError(
-                f"deliver blocked: slice {slice_id!r} source_path escapes root: {rel!r}"
-            ) from exc
-        if not target.is_file():
-            missing.append(f"{slice_id}:source_path={rel}")
-    if missing:
-        raise ValueError(
-            "deliver blocked: missing source artifact(s): " + ", ".join(missing)
-        )
-
-
 def _restore_file(path: Path, previous: bytes | None) -> None:
     if previous is None:
         path.unlink(missing_ok=True)
@@ -1550,7 +1495,7 @@ def deliver(
     cycle_id: str | None = None,
     project_root: Path | None = None,
 ) -> dict[str, Any]:
-    """Stage deliver at PackageReady; ensure package; register delivered-refs."""
+    """Stage deliver at PackageReady; ensure decision-package; register refs."""
     root = Path(approach_root).resolve()
     shell = load_shell(root)
     if shell["macro_state"] != "PackageReady":
@@ -1574,44 +1519,33 @@ def deliver(
     decision_pkg_path = decision_package_path(root)
     if not decision_pkg_path.is_file():
         write_early_package(root)
-    decision_package = load_decision_package(decision_pkg_path)
-    source_slices = _source_slices_from_decision_package(decision_package)
-    _validate_source_slices(root, source_slices)
+    load_decision_package(decision_pkg_path)
 
-    source_pkg_path = source_package_path(root)
-    source_package = build_source_package(
-        holder_stage="lulu-approach",
-        slices=source_slices,
-        commit_status="prepared",
-    )
     refs_path = delivered_refs_file_path(cid, proj)
-    source_before = source_pkg_path.read_bytes() if source_pkg_path.is_file() else None
     refs_before = refs_path.read_bytes() if refs_path.is_file() else None
+    residual_source = source_package_path(root)
 
     source = str(shell_path(root).resolve())
     try:
-        save_source_package(root, source_package)
         record_delivered_ref(
             cid,
             proj,
             delivered_type="lulu-approach",
-            path=str(source_pkg_path.resolve()),
-            artifact="source-package",
+            path=str(decision_pkg_path.resolve()),
+            artifact="decision-package",
             revision=1,
             profile_id="lulu-approach",
             source_workflow_state=source,
         )
-        source_package["commit_status"] = "committed"
-        save_source_package(root, source_package)
+        residual_source.unlink(missing_ok=True)
     except Exception:
-        _restore_file(source_pkg_path, source_before)
+        # Keep existing decision-package; only roll back delivered-refs.
         _restore_file(refs_path, refs_before)
         raise
     return {
         "ok": True,
         "macro_state": "PackageReady",
         "delivered": True,
-        "source_package": str(source_pkg_path.resolve()),
         "decision_package": str(decision_pkg_path.resolve()),
         "source_workflow_state": source,
     }

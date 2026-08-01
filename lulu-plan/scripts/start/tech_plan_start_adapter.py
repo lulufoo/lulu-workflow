@@ -21,11 +21,11 @@ from delivered_refs_schema import (  # noqa: E402
     ref_from_file_entry,
 )
 from scope_package_projection import (  # noqa: E402
-    is_source_package_ref,
-    load_source_package,
-    reject_source_package_as_scope,
+    is_decision_package_ref,
+    load_decision_package,
+    reject_decision_package_as_scope,
     write_compose_package_scope_projection,
-    write_source_package_scope_projection,
+    write_scope_package_projection,
 )
 from start_adapter import primary_scope_from_workflow  # noqa: E402
 from start_scope_helpers import first_ref  # noqa: E402
@@ -81,22 +81,16 @@ class TechPlanStartAdapter:
                         errors.append(f"invalid design package: {exc}")
             else:
                 approach = ref_from_file_entry("lulu-approach", data)
-                if approach is None or not is_source_package_ref(approach):
+                if approach is None or not is_decision_package_ref(approach):
                     errors.append(
-                        "lulu-approach must deliver a committed source-package.json "
-                        "(artifact=source-package)"
+                        "lulu-approach must deliver a decision-package.json "
+                        "(artifact=decision-package)"
                     )
                 else:
                     try:
-                        source_package = load_source_package(Path(approach.path))
+                        load_decision_package(Path(approach.path))
                     except (OSError, ValueError) as exc:
-                        errors.append(f"invalid source-package: {exc}")
-                    else:
-                        if source_package.get("commit_status") != "committed":
-                            errors.append(
-                                "lulu-approach must deliver a committed "
-                                "source-package.json (artifact=source-package)"
-                            )
+                        errors.append(f"invalid decision-package: {exc}")
         return errors
 
     def resolve_delivered_refs(
@@ -130,7 +124,7 @@ class TechPlanStartAdapter:
     ) -> list[DeliveredRef]:
         """Project either upstream delivery shape to one scope-package contract.
 
-        Design compose packages and Approach source packages are both projected
+        Design compose packages and Approach decision packages are both projected
         to revision-local ``scope-package.json`` before becoming ``$SCOPE_REF``.
         """
         del run_mode, carry_forward_ref
@@ -156,20 +150,20 @@ class TechPlanStartAdapter:
                     artifact="scope-package",
                 )
             ]
-        if not is_source_package_ref(primary):
+        if not is_decision_package_ref(primary):
             raise ValueError(
-                "lulu-approach scope requires a committed source-package.json "
-                "(artifact=source-package)"
+                "lulu-approach scope requires a decision-package.json "
+                "(artifact=decision-package)"
             )
         if revision_dir is None:
             raise ValueError(
-                "revision_dir required to project source-package → scope-package"
+                "revision_dir required to project decision-package → scope-package"
             )
-        scope_path = write_source_package_scope_projection(
-            source_package_path=Path(primary.path),
+        scope_path = write_scope_package_projection(
+            decision_package_path=Path(primary.path),
             revision_dir=Path(revision_dir),
         )
-        reject_source_package_as_scope(scope_path)
+        reject_decision_package_as_scope(scope_path)
         return [
             DeliveredRef(
                 type=primary.type,

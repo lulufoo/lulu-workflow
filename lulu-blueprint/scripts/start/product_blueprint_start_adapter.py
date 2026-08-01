@@ -22,9 +22,10 @@ from delivered_refs_schema import (  # noqa: E402
 )
 from start_adapter import primary_scope_from_workflow  # noqa: E402
 from scope_package_projection import (  # noqa: E402
-    is_source_package_ref,
-    load_source_package,
-    write_source_package_scope_projection,
+    is_decision_package_ref,
+    load_decision_package,
+    reject_decision_package_as_scope,
+    write_scope_package_projection,
 )
 from start_scope_helpers import first_ref  # noqa: E402
 from workflow_common import detect_cycle_type  # noqa: E402
@@ -58,12 +59,15 @@ class ProductBlueprintStartAdapter:
         if not entry_path_ok(data, "lulu-bet"):
             return ["missing delivered-refs entry: lulu-bet"]
         ref = ref_from_file_entry("lulu-bet", data)
-        if ref is None or not is_source_package_ref(ref):
-            return ["lulu-bet must deliver source-package.json"]
+        if ref is None or not is_decision_package_ref(ref):
+            return [
+                "lulu-bet must deliver a decision-package.json "
+                "(artifact=decision-package)"
+            ]
         try:
-            load_source_package(Path(ref.path))
+            load_decision_package(Path(ref.path))
         except (OSError, ValueError) as exc:
-            return [f"invalid source-package: {exc}"]
+            return [f"invalid decision-package: {exc}"]
         return []
 
     def resolve_delivered_refs(
@@ -88,21 +92,25 @@ class ProductBlueprintStartAdapter:
         carry_forward_ref: str = "",
         revision_dir: Path | None = None,
     ) -> list[DeliveredRef]:
-        """Project lulu-bet's committed source package to revision scope."""
+        """Project lulu-bet's decision package to revision scope."""
         del run_mode, carry_forward_ref
         primary = first_ref(delivered_refs, "lulu-bet")
         if primary is None:
             return []
-        if not is_source_package_ref(primary):
-            raise ValueError("lulu-bet scope requires source-package.json")
+        if not is_decision_package_ref(primary):
+            raise ValueError(
+                "lulu-bet scope requires a decision-package.json "
+                "(artifact=decision-package)"
+            )
         if revision_dir is None:
             raise ValueError(
-                "revision_dir required to project source-package → scope-package"
+                "revision_dir required to project decision-package → scope-package"
             )
-        scope_path = write_source_package_scope_projection(
-            source_package_path=Path(primary.path),
+        scope_path = write_scope_package_projection(
+            decision_package_path=Path(primary.path),
             revision_dir=Path(revision_dir),
         )
+        reject_decision_package_as_scope(scope_path)
         return [
             DeliveredRef(
                 type=primary.type,

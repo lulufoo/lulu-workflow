@@ -104,8 +104,8 @@ def test_main_to_package_ready_no_split(tmp_path: Path) -> None:
         confirm_seal(root, confirm=False)
 
 
-def test_confirm_seal_registers_source_package_ref(tmp_path: Path) -> None:
-    """PackageReady + confirm delivers a committed source package."""
+def test_confirm_seal_registers_decision_package_ref(tmp_path: Path) -> None:
+    """PackageReady + confirm registers decision-package in delivered-refs."""
     project_root = tmp_path / "project"
     project_root.mkdir()
     root = project_root / "approach-root" / "lulu-approach"
@@ -118,7 +118,8 @@ def test_confirm_seal_registers_source_package_ref(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    assert not source_package_path(root).is_file()
+    residual = source_package_path(root)
+    residual.write_text("{}\n", encoding="utf-8")
     result = confirm_seal(
         root,
         confirm=True,
@@ -126,32 +127,26 @@ def test_confirm_seal_registers_source_package_ref(tmp_path: Path) -> None:
         project_root=project_root,
     )
     assert result["delivered"] is True
-    pkg = source_package_path(root)
+    pkg = decision_package_path(root)
     assert pkg.is_file()
-    assert result["source_package"] == str(pkg.resolve())
+    assert result["decision_package"] == str(pkg.resolve())
+    assert not residual.is_file()
 
     refs_path = delivered_refs_file_path(cycle_id, project_root)
     assert refs_path.is_file()
     refs = load_delivered_refs_file(cycle_id, project_root)
     entry = refs["entries"]["lulu-approach"]
     assert entry["path"] == str(pkg.resolve())
-    assert entry["artifact"] == "source-package"
+    assert entry["artifact"] == "decision-package"
     assert entry["revision"] == 1
     assert entry["profile_id"] == "lulu-approach"
     assert entry["source_workflow_state"] == str(shell_path(root).resolve())
-    source_package = json.loads(pkg.read_text(encoding="utf-8"))
-    assert source_package["commit_status"] == "committed"
-    assert source_package["slices"] == [
-        {
-            "id": "L1",
-            "title": "main",
-            "source_path": "main/decision-fact.json",
-            "source_id": "main",
-        }
-    ]
+    decision_package = json.loads(pkg.read_text(encoding="utf-8"))
+    assert decision_package["main"]["decision_fact_path"] == "main/decision-fact.json"
+    assert decision_package["slices"] == []
 
 
-def test_confirm_seal_rolls_back_source_package_when_ref_registration_fails(
+def test_confirm_seal_rolls_back_refs_keeps_decision_package(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -179,11 +174,12 @@ def test_confirm_seal_rolls_back_source_package_when_ref_registration_fails(
             project_root=project_root,
         )
 
+    assert decision_package_path(root).is_file()
     assert not source_package_path(root).exists()
     assert not delivered_refs_file_path("feat-approach-rollback", project_root).exists()
 
 
-def test_confirm_seal_split_requires_slice_artifacts(tmp_path: Path) -> None:
+def test_confirm_seal_split_registers_decision_package(tmp_path: Path) -> None:
     project_root = tmp_path / "project"
     project_root.mkdir()
     root = project_root / "lulu-approach"
@@ -196,7 +192,6 @@ def test_confirm_seal_split_requires_slice_artifacts(tmp_path: Path) -> None:
     mark_node_delivered(root, "D1")
     enter_package_ready(root)
 
-    # Existing package with non-empty slices but missing on-disk artifacts → fail
     from approach_split_control import conventional_main_paths, conventional_slice_paths
     from decision_package_schema import build_decision_package, save_decision_package
 
@@ -214,17 +209,6 @@ def test_confirm_seal_split_requires_slice_artifacts(tmp_path: Path) -> None:
             status="package_ready",
         ),
     )
-    with pytest.raises(ValueError, match="missing source artifact"):
-        confirm_seal(
-            root,
-            confirm=True,
-            cycle_id=cycle_id,
-            project_root=project_root,
-        )
-
-    (root / "D1").mkdir(parents=True, exist_ok=True)
-    (root / "D1" / "decision-fact.json").write_text("{}\n", encoding="utf-8")
-    (root / "D1" / "decision-doc.md").write_text("# D1\n", encoding="utf-8")
     result = confirm_seal(
         root,
         confirm=True,
@@ -232,8 +216,15 @@ def test_confirm_seal_split_requires_slice_artifacts(tmp_path: Path) -> None:
         project_root=project_root,
     )
     assert result["delivered"] is True
+    pkg = decision_package_path(root)
     entry = load_delivered_refs_file(cycle_id, project_root)["entries"]["lulu-approach"]
-    assert entry["artifact"] == "source-package"
+    assert entry["artifact"] == "decision-package"
+    assert entry["path"] == str(pkg.resolve())
+    decision_package = json.loads(pkg.read_text(encoding="utf-8"))
+    assert decision_package["main"]["decision_fact_path"] == "main/decision-fact.json"
+    assert [s["id"] for s in decision_package["slices"]] == ["D1"]
+    assert not source_package_path(root).exists()
+
 
 
 def test_split_working_package_ready_path(tmp_path: Path) -> None:
