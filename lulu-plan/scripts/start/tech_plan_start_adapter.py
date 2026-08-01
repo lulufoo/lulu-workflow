@@ -20,11 +20,14 @@ from delivered_refs_schema import (  # noqa: E402
     load_delivered_refs_file,
     ref_from_file_entry,
 )
-from start_adapter import primary_scope_from_workflow  # noqa: E402
-from start_scope_helpers import (  # noqa: E402
-    first_ref,
-    require_decision_fact_scope,
+from scope_package_projection import (  # noqa: E402
+    is_decision_package_ref,
+    load_decision_package,
+    reject_decision_package_as_scope,
+    write_scope_package_projection,
 )
+from start_adapter import primary_scope_from_workflow  # noqa: E402
+from start_scope_helpers import first_ref  # noqa: E402
 
 
 class TechPlanStartAdapter:
@@ -59,11 +62,24 @@ class TechPlanStartAdapter:
                 errors.append("missing delivered-refs entry: lulu-spec")
         else:
             has_design = entry_path_ok(data, "lulu-design")
-            has_diag = entry_path_ok(data, "lulu-approach")
-            if not has_design and not has_diag:
+            has_approach = entry_path_ok(data, "lulu-approach")
+            if not has_design and not has_approach:
                 errors.append(
                     "missing delivered-refs entry: lulu-design or lulu-approach",
                 )
+            elif not has_design:
+                approach = ref_from_file_entry("lulu-approach", data)
+                if approach is None or not is_decision_package_ref(approach):
+                    errors.append(
+                        "lulu-approach must deliver decision-package.json "
+                        "(artifact=decision-package); legacy whole decision-fact "
+                        "scope is retired (archive-2.0)"
+                    )
+                else:
+                    try:
+                        load_decision_package(Path(approach.path))
+                    except (OSError, ValueError) as exc:
+                        errors.append(f"invalid decision-package: {exc}")
         return errors
 
     def resolve_delivered_refs(
@@ -95,23 +111,44 @@ class TechPlanStartAdapter:
         carry_forward_ref: str = "",
         revision_dir: Path | None = None,
     ) -> list[DeliveredRef]:
-        """Primary scope: design package, or approach decision-fact when falling back.
+        """Primary scope: design package, or approach decision-package projection.
 
         When primary is ``lulu-design``, path is ``*-package.json`` (delivery
-        marker; per-L Atomize uses ``ATOMIZE_DOC_PATH``). When primary is
-        ``lulu-approach``, ``decision_fact_path`` with units is required (no prose
-        fallback).
+        marker). When primary is ``lulu-approach``, require ``decision-package``
+        and project to revision ``scope-package.json`` (archive-2.0). Legacy whole
+        ``decision-fact`` as ``$SCOPE_REF`` is retired.
         """
-        del run_mode, carry_forward_ref, revision_dir
+        del run_mode, carry_forward_ref
         primary = first_ref(delivered_refs, "lulu-design") or first_ref(
             delivered_refs,
             "lulu-approach",
         )
         if primary is None:
             return []
-        if primary.type == "lulu-approach":
-            return [require_decision_fact_scope(primary)]
-        return [primary]
+        if primary.type == "lulu-design":
+            return [primary]
+        if not is_decision_package_ref(primary):
+            raise ValueError(
+                "lulu-approach scope requires decision-package.json "
+                "(artifact=decision-package); legacy whole decision-fact Path A "
+                "is retired — re-deliver approach via deliver"
+            )
+        if revision_dir is None:
+            raise ValueError(
+                "revision_dir required to project decision-package → scope-package"
+            )
+        scope_path = write_scope_package_projection(
+            decision_package_path=Path(primary.path),
+            revision_dir=Path(revision_dir),
+        )
+        reject_decision_package_as_scope(scope_path)
+        return [
+            DeliveredRef(
+                type=primary.type,
+                path=str(scope_path.resolve()),
+                artifact="scope-package",
+            )
+        ]
 
     def resolve_intent_baseline_refs(
         self,

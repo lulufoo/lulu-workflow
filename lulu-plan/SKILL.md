@@ -11,7 +11,7 @@ disable-model-invocation: true
 
 Domain holder for the tech-doc compose document. Delegates full Drafting / Evaluating / Delivery orchestration to the `compose` kernel.
 
-> **Prerequisite:** Delivered `lulu-design` or `lulu-approach` (tech mode) / `lulu-spec` (product mode). Produces **tech-doc.md**.
+> **Prerequisite:** Delivered `lulu-design` or `lulu-approach` (`decision-package`, tech mode) / `lulu-spec` (product mode). Produces **tech-doc.md**.
 
 **Scope:** Feature cycle only.
 

@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
-"""Project approach ``decision-package.json`` → design ``scope-package.json`` (P3).
+"""Project approach ``decision-package.json`` → ``scope-package.json``.
+
+Shared by lulu-design and lulu-plan StartAdapters (archive-1.0 P3 / archive-2.0).
 
 D1: empty ``slices`` → single ``L1`` from ``main.decision_fact_path``.
 D2: norm ``kind`` closed set (validated here when building norm refs).
-D3: write once under the design revision dir; refuse same-rev overwrite.
+D3: write once under the caller revision dir; refuse same-rev overwrite.
+
+Design rationale: docs/domain/archive/approach/archive-2.0/
+plan-dual-entry-decision-package-projection-design.md
 """
 
 from __future__ import annotations
@@ -13,10 +18,11 @@ import sys
 from pathlib import Path
 from typing import Any
 
-_WORKFLOW_ROOT = Path(__file__).resolve().parents[3]
-_KERNEL_SCRIPTS = _WORKFLOW_ROOT / "compose" / "scripts"
-if str(_KERNEL_SCRIPTS) not in sys.path:
-    sys.path.insert(0, str(_KERNEL_SCRIPTS))
+_START_DIR = Path(__file__).resolve().parent
+_SCRIPTS = _START_DIR.parent
+_WORKFLOW_ROOT = _SCRIPTS.parent.parent
+if str(_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS))
 import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
@@ -31,7 +37,7 @@ _DP_PATH = (
     / "decision_package_schema.py"
 )
 _dp_spec = importlib.util.spec_from_file_location(
-    "_p3_decision_package_schema",
+    "_shared_decision_package_schema",
     _DP_PATH,
 )
 if _dp_spec is None or _dp_spec.loader is None:
