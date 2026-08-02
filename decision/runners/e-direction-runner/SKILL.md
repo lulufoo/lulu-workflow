@@ -1,15 +1,15 @@
 ---
 name: decision/e-direction-runner
 description: >-
-  E gate runner for decision. Goal-driven direction set and user choice after
-  GL; gate-close E with directions payload. Invoked by decision/SKILL.md.
+  E gate runner for decision. Goal-driven settled direction after GL;
+  gate-close E with directions payload. Invoked by decision/SKILL.md.
 meta-skill-version: 1.0.0
 ---
 
 # e-direction-runner
 
-Execute **E — Direction Exploration** (after GL, before D): reach two goals
-(direction set + user choice), then close. Mechanical persistence via
+Execute **E — Direction Exploration** (after GL, before D): settle a
+direction (`G-settled-direction`), then close. Mechanical persistence via
 `$GATE_CONTROL`.
 
 ## Blocking policy
@@ -27,7 +27,7 @@ Do NOT proceed until you have read `../../../_runtime.md`
 - `$CTX.gates.GL.status` must be `closed` (from resolve-context)
 - `$CTX.gl` must be present when GL is closed
 - Dialogue semantics SSOT: this file’s **Cognitive map** (no separate gate file)
-- Choose questions: apply `$SKILL_DIR/references/ask-protocol.md`
+- Align questions: apply `$SKILL_DIR/references/ask-protocol.md`
 
 ## Script Macros
 
@@ -43,51 +43,50 @@ Subcommand contracts: module docstring / `--help`.
 
 | ID | Must be clear |
 |----|----------------|
-| `G-direction-set` | A closable package of **2–3** directions: each with approach, pros, cons; exactly one recommended; GL intents consulted; excluded listed or explicitly none. |
-| `G-choice` | User has chosen a direction (or proposed an alternative that was folded into the set, then chosen). |
+| `G-settled-direction` | For the locked Q, a direction is settled: the user accepts a candidate as proposed, or accepts one after reshaping via an alternative; that settled direction is ready to record as `user_choice` and close E. |
 
 ### Ask domain / bounds
 
 - Anchor to locked Q + closed GL intents (`$CTX.gl.exchanges`).
 - Decision-domain direction trade-offs only. No implementation interview, WBS, or
   unbounded plan grilling.
-- `compose` gap asks only fill facts/preferences needed to build the set — not a
-  second GL demining pass.
+- `define` gap asks only fill facts/preferences needed to build the candidate
+  set — not a second GL demining pass.
 - Freedom is which concrete directions and trade-off faces — not any domain.
 
 ### Coverage
 
-Evaluate both goals from locked Q, `$CTX.gl.exchanges`, this gate’s dialogue, and
-related G0 prior/assumptions.
+Evaluate `G-settled-direction` from locked Q, `$CTX.gl.exchanges`, this gate’s
+dialogue, and related G0 prior/assumptions.
 
 - **Before proposing:** read `$CTX.gl.exchanges` in full; prioritize
   `impact_surface`, `external_dependencies`, and confirmation-related answers;
-  surface conflicts with candidate directions. Do not start `choose` until GL
+  surface conflicts with candidate directions. Do not start `align` until GL
   intents have been consulted.
-- `G-direction-set`: package shape matches close payload (2–3 directions; pros/
-  cons present; one recommended; excluded handled). Material conflicts with GL
-  are surfaced.
-- `G-choice`: explicit selection ready for `user_choice`. No separate close-
-  confirmation round after the choice.
-- If the set is rejected or an alternative is proposed: treat as set gap →
-  `compose`, then re-enter `choose`.
+- **Candidate-set readiness (means, not a Goal):** set shape matches close
+  payload (2–3 directions; pros/cons present; one recommended; excluded listed
+  or explicitly none). Material conflicts with GL are surfaced.
+- **Settlement:** explicit accept (including after reshape) ready for
+  `user_choice`. No separate close-confirmation round after settle.
+- **Alignment loop:** `define`⇄`align` is the alignment loop. If the set is
+  rejected or an alternative is proposed: back to `define`, then `align`.
 
 ### Dialogue modes
 
 | Mode | When | Behavior |
 |------|------|----------|
-| `compose` | `G-direction-set` not met | Build or revise the 2–3 package (and excluded). If material is insufficient, ask only the gap (G1/G7). Do **not** apply ask-protocol. |
-| `choose` | Set ready; choice not yet made | Apply ask-protocol, then present the package and ask the user to choose or propose an alternative (G1). Lead with the recommended option. Presenting the options **is** this mode — no separate display-only turn. |
-| `close` | User has chosen | `gate-close` with payload below. Do **not** ask a separate close question after the choice. |
+| `define` | Direction not settled **and** no closable candidate set yet | Build or revise the 2–3 set (and excluded). If material is insufficient, ask only the gap (G1/G7). Do **not** apply ask-protocol. |
+| `align` | Closable candidate set ready; direction not yet settled | Apply ask-protocol, then present the set and ask the user to accept a candidate or propose an alternative (G1). Lead with the recommended option. Presenting the options **is** this mode — no separate display-only turn. |
+| `settle` | Direction settled (`user_choice` ready) | `gate-close` with payload below. Do **not** ask a separate close question after settle. |
 
 Do **not** use `summarize`. Do **not** hard-code fixed wording; phrase from
 goals + `$CTX.domain_constraints`.
 
 ### Pass criterion
 
-≥2 directions evaluated with explicit pros/cons; user has chosen (or indicated
-a preference recorded as `user_choice`); ask-domain respected; GL intents were
-consulted. CLI green ≠ framework pass.
+≥2 directions evaluated with explicit pros/cons; direction settled (recorded as
+`user_choice`); ask-domain respected; GL intents were consulted. CLI green ≠
+framework pass.
 
 ### Side routes
 
@@ -110,17 +109,18 @@ consulted. CLI green ≠ framework pass.
 2. Confirm `$CTX.gl` is present; consult `$CTX.gl.exchanges` before proposing
    directions (Coverage).
 3. Loop (Cognitive map):
-   - Evaluate `G-direction-set` / `G-choice`.
-   - If set has a gap → `compose` (side routes as above; then continue).
-   - If set ready and choice missing → `choose`.
-   - If choice made →
+   - Evaluate `G-settled-direction`.
+   - If candidate set not ready → `define` (side routes as above; then
+     continue).
+   - If set ready and direction not settled → `align`.
+   - If direction settled →
      `$GATE_CONTROL gate-close --gate E --payload '<json>'` → break.
    - HARD: do not call `gate-close` until framework pass holds.
 
 **Done:** Return `GATE_COMPLETE E`.
 
-**Stop:** Non-zero CLI, or coverage/choice cannot be judged → stop and wait for
-user direction.
+**Stop:** Non-zero CLI, or coverage/settlement cannot be judged → stop and wait
+for user direction.
 
 ## gate-close payload
 
