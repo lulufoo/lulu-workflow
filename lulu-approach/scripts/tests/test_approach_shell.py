@@ -113,7 +113,7 @@ def test_confirm_seal_registers_decision_package_ref(tmp_path: Path) -> None:
     init_shell(root)
     _write_delivered(main_session_dir(root))
     enter_package_ready(root)
-    (main_session_dir(root) / "decision-fact.json").write_text(
+    (main_session_dir(root) / "decision-doc.md").write_text(
         "{}\n",
         encoding="utf-8",
     )
@@ -142,7 +142,7 @@ def test_confirm_seal_registers_decision_package_ref(tmp_path: Path) -> None:
     assert entry["profile_id"] == "lulu-approach"
     assert entry["source_workflow_state"] == str(shell_path(root).resolve())
     decision_package = json.loads(pkg.read_text(encoding="utf-8"))
-    assert decision_package["main"]["decision_fact_path"] == "main/decision-fact.json"
+    assert decision_package["main"]["decision_doc_path"] == "main/decision-doc.md"
     assert decision_package["slices"] == []
 
 
@@ -156,7 +156,7 @@ def test_confirm_seal_rolls_back_refs_keeps_decision_package(
     init_shell(root)
     _write_delivered(main_session_dir(root))
     enter_package_ready(root)
-    (main_session_dir(root) / "decision-fact.json").write_text(
+    (main_session_dir(root) / "decision-doc.md").write_text(
         "{}\n",
         encoding="utf-8",
     )
@@ -221,7 +221,7 @@ def test_confirm_seal_split_registers_decision_package(tmp_path: Path) -> None:
     assert entry["artifact"] == "decision-package"
     assert entry["path"] == str(pkg.resolve())
     decision_package = json.loads(pkg.read_text(encoding="utf-8"))
-    assert decision_package["main"]["decision_fact_path"] == "main/decision-fact.json"
+    assert decision_package["main"]["decision_doc_path"] == "main/decision-doc.md"
     assert [s["id"] for s in decision_package["slices"]] == ["D1"]
     assert not source_package_path(root).exists()
 

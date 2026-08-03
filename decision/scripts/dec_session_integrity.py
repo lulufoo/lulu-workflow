@@ -5,7 +5,6 @@ Resolves the Active Session root (archive-1.1), same contract as gate/register.
 
 Subcommands:
     audit --mode structural      Validate gate-payloads + registers + gate-state
-    audit --mode decision-fact   Validate decision-fact.json vs payloads/registers
     render                       Build decision-doc.md from payloads + registers
 """
 
@@ -32,11 +31,6 @@ from dec_decision_doc_schema import (  # noqa: E402
     render_scope_body,
     replace_section,
     save_decision_doc,
-)
-from dec_decision_fact_schema import (  # noqa: E402
-    audit_decision_fact_alignment,
-    decision_fact_path as decision_fact_file_path,
-    load_decision_fact,
 )
 from dec_domain_constraints_schema import (  # noqa: E402
     KERNEL_STAGE,
@@ -232,27 +226,6 @@ def render_decision_doc(
     return paths["decision_doc"]
 
 
-def run_decision_fact_audit(
-    project_root: Path,
-    cycle_id: str,
-    stage: str,
-    *,
-    constraints_path: Path | None = None,
-) -> list[str]:
-    """Read-only: decision-fact.json schema + alignment with payloads/registers."""
-    paths = _session_paths(project_root, cycle_id, stage, constraints_path=constraints_path)
-    fact_path = decision_fact_file_path(paths["session_dir"])
-    if not fact_path.is_file():
-        return [f"decision-fact.json not found: {fact_path.as_posix()}"]
-
-    state = load_gate_state(paths["gate_state"])
-    r_closed = is_gate_closed(state, "R")
-    registers = load_registers(paths["registers"], r_gate_closed=r_closed)
-    payloads = gate_payloads_for_session(paths["payloads_dir"])
-    fact = load_decision_fact(fact_path)
-    return audit_decision_fact_alignment(fact, payloads, registers=registers)
-
-
 def cmd_audit(
     project_root: Path,
     cycle_id: str,
@@ -261,23 +234,15 @@ def cmd_audit(
     mode: str,
     constraints_path: Path | None = None,
 ) -> int:
-    if mode not in {"structural", "decision-fact"}:
+    if mode != "structural":
         return _emit_error(f"unsupported audit mode: {mode!r}")
     try:
-        if mode == "structural":
-            errors = run_structural_audit(
-                project_root,
-                cycle_id,
-                stage,
-                constraints_path=constraints_path,
-            )
-        else:
-            errors = run_decision_fact_audit(
-                project_root,
-                cycle_id,
-                stage,
-                constraints_path=constraints_path,
-            )
+        errors = run_structural_audit(
+            project_root,
+            cycle_id,
+            stage,
+            constraints_path=constraints_path,
+        )
     except (FileNotFoundError, ValueError) as exc:
         return _emit_error(str(exc))
 
@@ -318,7 +283,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     audit.add_argument(
         "--mode",
         default="structural",
-        help="Audit mode: structural | decision-fact.",
+        help="Audit mode: structural.",
     )
 
     sub.add_parser("render", help="Render decision-doc.md from gate-payloads.")

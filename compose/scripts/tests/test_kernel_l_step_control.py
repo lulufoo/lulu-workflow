@@ -301,11 +301,11 @@ def test_inductive_dispatch_carries_provenance_refs_tech(tmp_path: Path) -> None
     assert "DECISION_FACTS_PATH:" not in dispatch
 
 
-def test_inductive_dispatch_scope_ref_is_decision_fact(tmp_path: Path) -> None:
+def test_inductive_dispatch_scope_ref_is_source_doc(tmp_path: Path) -> None:
     seed_tech_design_session(tmp_path, cycle_id=_CYCLE)
     rev = tmp_path / doc_dir(_CYCLE, 1, _PROFILE_DESIGN, tmp_path)
-    fact = tmp_path / "decision-fact.json"
-    fact.write_text(
+    source = tmp_path / "decision-doc.md"
+    source.write_text(
         json.dumps(
             {
                 "version": 1,
@@ -321,14 +321,14 @@ def test_inductive_dispatch_scope_ref_is_decision_fact(tmp_path: Path) -> None:
         cycle_id=_CYCLE,
         stage=_PROFILE_DESIGN,
         run_mode="tech",
-        scope_ref=DeliveredRef(type="lulu-approach", path=str(fact.resolve())),
+        scope_ref=DeliveredRef(type="lulu-approach", path=str(source.resolve())),
         intent_baseline_refs=[],
         norm_constraint_refs=[],
     )
 
     result = l_step_control.begin_inductive(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
     assert result["ok"] is True
-    assert f"SCOPE_REF:            {fact.resolve().as_posix()}" in result["dispatch_input"]
+    assert f"SCOPE_REF:            {source.resolve().as_posix()}" in result["dispatch_input"]
     assert "DECISION_FACTS_PATH:" not in result["dispatch_input"]
     assert not (rev / "decision-fact-claims.json").exists()
 
@@ -337,8 +337,8 @@ def test_begin_inductive_surfaces_missing_scope(tmp_path: Path) -> None:
     """Missing source returns a structured failure without claim-ledger handling."""
     seed_tech_design_session(tmp_path, cycle_id=_CYCLE)
     rev = tmp_path / doc_dir(_CYCLE, 1, _PROFILE_DESIGN, tmp_path)
-    fact = tmp_path / "decision-fact.json"
-    fact.write_text(
+    source = tmp_path / "decision-doc.md"
+    source.write_text(
         json.dumps(
             {
                 "version": 1,
@@ -354,11 +354,11 @@ def test_begin_inductive_surfaces_missing_scope(tmp_path: Path) -> None:
         cycle_id=_CYCLE,
         stage=_PROFILE_DESIGN,
         run_mode="tech",
-        scope_ref=DeliveredRef(type="lulu-approach", path=str(fact.resolve())),
+        scope_ref=DeliveredRef(type="lulu-approach", path=str(source.resolve())),
         intent_baseline_refs=[],
         norm_constraint_refs=[],
     )
-    fact.unlink()
+    source.unlink()
 
     result = l_step_control.begin_inductive(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
     assert result["ok"] is False

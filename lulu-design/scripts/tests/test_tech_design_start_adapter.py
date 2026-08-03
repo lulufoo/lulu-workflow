@@ -54,26 +54,11 @@ def _seed_decision_package(tmp_path: Path) -> Path:
     """Write approach-internal artifacts and one decision package."""
     root = tmp_path / "approach"
     (root / "main").mkdir(parents=True)
-    fact = root / "main" / "decision-fact.json"
-    fact.write_text(
-        json.dumps(
-            {
-                "version": 1,
-                "gates": {
-                    "D": [{"id": "D-1", "slot": "D.x", "text": "pick A"}],
-                },
-            }
-        ),
-        encoding="utf-8",
-    )
     (root / "main" / "decision-doc.md").write_text("# main\n", encoding="utf-8")
     return save_decision_package(
         root,
         build_decision_package(
-            main={
-                "decision_fact_path": "main/decision-fact.json",
-                "decision_doc_path": "main/decision-doc.md",
-            },
+            main={"decision_doc_path": "main/decision-doc.md"},
             slices=[],
         ),
     )

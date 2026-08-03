@@ -3,12 +3,12 @@
 
 Shared by lulu-design and lulu-plan StartAdapters (archive-1.0 P3 / archive-2.0).
 
-D1: empty decision slices → single ``L1`` from ``main.decision_fact_path``.
+D1: empty decision slices → single ``L1`` from ``main.decision_doc_path``.
 D2: norm ``kind`` closed set (validated here when building norm refs).
 D3: write once under the caller revision dir; refuse same-rev overwrite.
 
-Design rationale: docs/domain/archive/approach/archive-2.0/
-plan-dual-entry-decision-package-projection-design.md
+Design rationale: docs/domain/archive/decision/
+decision-fact-retire-doc-ssot-design.md
 """
 
 from __future__ import annotations
@@ -101,7 +101,7 @@ def project_decision_package_to_scope_slices(
 ) -> list[dict[str, Any]]:
     """Map decision-package → ordered scope-package slices (L1…Ln).
 
-    Empty ``slices`` (no-split): one ``L1`` from ``main.decision_fact_path``.
+    Empty ``slices`` (no-split): one ``L1`` from ``main.decision_doc_path``.
     Non-empty: ``L1…Ln`` from package slices in array order; ``main`` excluded.
     """
     root = Path(approach_root).resolve()
@@ -115,7 +115,7 @@ def project_decision_package_to_scope_slices(
 
     if not raw_slices:
         source_path = _resolve_source_path(
-            root, str(main.get("decision_fact_path", ""))
+            root, str(main.get("decision_doc_path", ""))
         )
         return [
             {
@@ -133,7 +133,7 @@ def project_decision_package_to_scope_slices(
         source_id = str(row.get("id", "")).strip()
         title = str(row.get("title", "")).strip()
         source_path = _resolve_source_path(
-            root, str(row.get("decision_fact_path", ""))
+            root, str(row.get("decision_doc_path", ""))
         )
         if not source_id or not title:
             raise ScopePackageProjectionError(
@@ -255,7 +255,7 @@ def norm_refs_from_decision_package(
     decision_package_path: Path,
     package: dict[str, Any] | None = None,
 ) -> list[DeliveredRef]:
-    """Norm channel: main doc/fact + optional split tree/rulers, each with ``kind``."""
+    """Norm channel: main decision-doc + optional split tree/rulers, each with ``kind``."""
     pkg_path = Path(decision_package_path).resolve()
     root = pkg_path.parent
     data = package if package is not None else load_decision_package(pkg_path)
@@ -265,7 +265,6 @@ def norm_refs_from_decision_package(
 
     refs: list[DeliveredRef] = []
     doc_rel = str(main.get("decision_doc_path", "")).strip()
-    fact_rel = str(main.get("decision_fact_path", "")).strip()
     if doc_rel:
         doc_abs = str((root / doc_rel).resolve())
         if Path(doc_abs).is_file():
@@ -273,16 +272,6 @@ def norm_refs_from_decision_package(
                 make_norm_ref(
                     delivered_type="lulu-approach",
                     path=doc_abs,
-                    kind="parent_decision",
-                )
-            )
-    if fact_rel:
-        fact_abs = str((root / fact_rel).resolve())
-        if Path(fact_abs).is_file():
-            refs.append(
-                make_norm_ref(
-                    delivered_type="lulu-approach",
-                    path=fact_abs,
                     kind="parent_decision",
                 )
             )

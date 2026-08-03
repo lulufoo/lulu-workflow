@@ -36,15 +36,15 @@ from scope_package_schema import (  # noqa: E402
 )
 
 
-def _pkg_single(source_path: str = "/tmp/D1/decision-fact.json") -> dict:
+def _pkg_single(source_path: str = "/tmp/D1/decision-doc.md") -> dict:
     return build_scope_package(
         slices=[{"id": "L1", "title": "Only", "source_path": source_path, "source_id": "main"}]
     )
 
 
 def _pkg_multi(
-    f1: str = "/tmp/D1/decision-fact.json",
-    f2: str = "/tmp/D2/decision-fact.json",
+    f1: str = "/tmp/D1/decision-doc.md",
+    f2: str = "/tmp/D2/decision-doc.md",
 ) -> dict:
     return build_scope_package(
         slices=[
@@ -70,7 +70,7 @@ def test_chain_from_slices_no_order_field() -> None:
 def test_convert_single_l_chain_and_mirror(tmp_path: Path) -> None:
     rev = tmp_path / "revision1"
     rev.mkdir()
-    source_path = "/abs/path/main/decision-fact.json"
+    source_path = "/abs/path/main/decision-doc.md"
     pkg_path = save_scope_package(rev, _pkg_single(source_path))
 
     result = convert_scope_package(rev, scope_package_path=pkg_path)
@@ -94,8 +94,8 @@ def test_convert_single_l_chain_and_mirror(tmp_path: Path) -> None:
 def test_convert_multi_l_chain_and_mirrors(tmp_path: Path) -> None:
     rev = tmp_path / "revision1"
     rev.mkdir()
-    f1 = "/abs/D1/decision-fact.json"
-    f2 = "/abs/D2/decision-fact.json"
+    f1 = "/abs/D1/decision-doc.md"
+    f2 = "/abs/D2/decision-doc.md"
     pkg_path = save_scope_package(rev, _pkg_multi(f1, f2))
 
     result = convert_scope_package(rev, scope_package_path=pkg_path)

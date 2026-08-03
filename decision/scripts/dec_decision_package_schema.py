@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Shared schema for holder ``decision-package.json`` delivery.
 
-Delivery shape: ``main`` + ordered ``slices`` (decision-fact list).
+Delivery shape: ``main`` + ordered ``slices`` (decision-doc paths).
 No parallel ``order`` field; no ``edges`` on the delivered package.
 """
 
@@ -15,10 +15,8 @@ from typing import Any
 PACKAGE_VERSION = 1
 DECISION_PACKAGE_FILENAME = "decision-package.json"
 _SLICE_ID_RE = re.compile(r"^D\d+$")
-_MAIN_KEYS = frozenset({"decision_fact_path", "decision_doc_path"})
-_SLICE_KEYS = frozenset(
-    {"id", "title", "decision_fact_path", "decision_doc_path"}
-)
+_MAIN_KEYS = frozenset({"decision_doc_path"})
+_SLICE_KEYS = frozenset({"id", "title", "decision_doc_path"})
 
 
 def _rel_path_ok(raw: str) -> bool:
@@ -66,9 +64,10 @@ def validate_decision_package(data: dict[str, Any]) -> list[str]:
         extra = set(main) - _MAIN_KEYS
         if extra:
             errors.append(f"main unexpected keys: {sorted(extra)}")
-        for key in ("decision_fact_path", "decision_doc_path"):
-            if not _rel_path_ok(str(main.get(key, ""))):
-                errors.append(f"main.{key} must be a relative path under holder root")
+        if not _rel_path_ok(str(main.get("decision_doc_path", ""))):
+            errors.append(
+                "main.decision_doc_path must be a relative path under holder root"
+            )
 
     slices = data.get("slices")
     if not isinstance(slices, list):
@@ -93,9 +92,10 @@ def validate_decision_package(data: dict[str, Any]) -> list[str]:
             seen.add(sid)
         if not str(row.get("title", "")).strip():
             errors.append(f"{where}.title must be non-empty")
-        for key in ("decision_fact_path", "decision_doc_path"):
-            if not _rel_path_ok(str(row.get(key, ""))):
-                errors.append(f"{where}.{key} must be a relative path under holder root")
+        if not _rel_path_ok(str(row.get("decision_doc_path", ""))):
+            errors.append(
+                f"{where}.decision_doc_path must be a relative path under holder root"
+            )
 
     return errors
 

@@ -32,10 +32,10 @@ def _restore_file(path: Path, previous: bytes | None) -> None:
 def deliver(holder_root: Path, *, cycle_id: str, project_root: Path) -> Path:
     """Atomically commit Bet decision-package, delivered ref, and terminal state."""
     root = Path(holder_root).resolve()
-    fact_path = root / "decision-fact.json"
+    doc_path = root / "decision-doc.md"
     state_path = root / "session-state.md"
-    if not fact_path.is_file():
-        raise ValueError("lulu-bet delivery requires prepared decision-fact.json")
+    if not doc_path.is_file():
+        raise ValueError("lulu-bet delivery requires decision-doc.md")
     if not state_path.is_file():
         raise ValueError("lulu-bet delivery requires session-state.md")
 
@@ -47,7 +47,6 @@ def deliver(holder_root: Path, *, cycle_id: str, project_root: Path) -> Path:
     state_before = state_path.read_bytes()
     package = build_decision_package(
         main={
-            "decision_fact_path": "decision-fact.json",
             "decision_doc_path": "decision-doc.md",
         },
         slices=[],

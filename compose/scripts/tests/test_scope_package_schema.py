@@ -22,7 +22,7 @@ def test_single_l_ok() -> None:
             {
                 "id": "L1",
                 "title": "Only",
-                "source_path": "main/decision-fact.json",
+                "source_path": "main/decision-doc.md",
                 "source_id": "main",
             }
         ]
@@ -43,8 +43,8 @@ def test_rejects_order_edges_empty_slices() -> None:
 def test_roundtrip_preserves_order(tmp_path: Path) -> None:
     pkg = build_scope_package(
         slices=[
-            {"id": "L1", "title": "A", "source_path": "D1/decision-fact.json", "source_id": "D1"},
-            {"id": "L2", "title": "B", "source_path": "D2/decision-fact.json", "source_id": "D2"},
+            {"id": "L1", "title": "A", "source_path": "D1/decision-doc.md", "source_id": "D1"},
+            {"id": "L2", "title": "B", "source_path": "D2/decision-doc.md", "source_id": "D2"},
         ]
     )
     path = save_scope_package(tmp_path, pkg)
@@ -55,6 +55,6 @@ def test_roundtrip_preserves_order(tmp_path: Path) -> None:
 
 def test_rejects_legacy_fact_path() -> None:
     pkg = build_scope_package(
-        slices=[{"id": "L1", "title": "A", "fact_path": "D1/decision-fact.json"}]
+        slices=[{"id": "L1", "title": "A", "fact_path": "D1/decision-doc.md"}]
     )
     assert any("unexpected keys" in error for error in validate_scope_package(pkg))

@@ -71,13 +71,11 @@ from split_intake_schema import (  # noqa: E402
 
 _DX_ID_RE = re.compile(r"^D\d+$")
 
-CONVENTIONAL_FACT = "decision-fact.json"
 CONVENTIONAL_DOC = "decision-doc.md"
 
 
 def conventional_main_paths() -> dict[str, str]:
     return {
-        "decision_fact_path": f"main/{CONVENTIONAL_FACT}",
         "decision_doc_path": f"main/{CONVENTIONAL_DOC}",
     }
 
@@ -87,7 +85,6 @@ def conventional_slice_paths(node_id: str) -> dict[str, str]:
     if not _DX_ID_RE.match(sid):
         raise ValueError(f"node_id must match D<number>, got {node_id!r}")
     return {
-        "decision_fact_path": f"{sid}/{CONVENTIONAL_FACT}",
         "decision_doc_path": f"{sid}/{CONVENTIONAL_DOC}",
     }
 
@@ -252,7 +249,6 @@ def slices_from_locked_tree(tree: dict[str, Any]) -> list[dict[str, Any]]:
             {
                 "id": str(nid),
                 "title": str(node["title"]).strip(),
-                "decision_fact_path": paths["decision_fact_path"],
                 "decision_doc_path": paths["decision_doc_path"],
             }
         )

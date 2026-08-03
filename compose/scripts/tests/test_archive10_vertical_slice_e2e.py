@@ -70,7 +70,7 @@ build_decision_package = _dp_mod.build_decision_package
 save_decision_package = _dp_mod.save_decision_package
 
 
-def _unit_fact(path: Path, text: str, *, n_units: int = 1) -> Path:
+def _unit_doc(path: Path, text: str, *, n_units: int = 1) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     units = [
         {"id": f"U{i}", "slot": f"D.u{i}", "text": f"{text}-{i}"}
@@ -86,13 +86,13 @@ def _unit_fact(path: Path, text: str, *, n_units: int = 1) -> Path:
 def _seed_no_split_approach(tmp_path: Path) -> Path:
     root = tmp_path / "approach"
     root.mkdir()
-    _unit_fact(root / "main" / "decision-fact.json", "main pick")
+    _unit_doc(root / "main" / "decision-doc.md", "main pick")
     (root / "main" / "decision-doc.md").write_text("# main\n", encoding="utf-8")
     save_decision_package(
         root,
         build_decision_package(
             main={
-                "decision_fact_path": "main/decision-fact.json",
+
                 "decision_doc_path": "main/decision-doc.md",
             },
             slices=[],
@@ -127,7 +127,7 @@ def test_vertical_slice_no_split_e2e(tmp_path: Path) -> None:
     """C5: package → scope-package → convert → L1 Seed = main fact; no order."""
     approach = _seed_no_split_approach(tmp_path)
     pkg_path = approach / "decision-package.json"
-    main_fact = (approach / "main" / "decision-fact.json").resolve()
+    main_doc = (approach / "main" / "decision-doc.md").resolve()
 
     rev = tmp_path / "design" / "revision1"
     rev.mkdir(parents=True)
@@ -151,11 +151,11 @@ def test_vertical_slice_no_split_e2e(tmp_path: Path) -> None:
     loaded = load_scope_package(scope_path)
     assert "order" not in loaded
     assert [s["id"] for s in loaded["slices"]] == ["L1"]
-    assert loaded["slices"][0]["source_path"] == str(main_fact)
+    assert loaded["slices"][0]["source_path"] == str(main_doc)
     assert loaded["slices"][0]["source_id"] == "main"
 
     convert_scope_package(rev, scope_package_path=scope_path)
-    assert resolve_l_seed_source_path(rev, "L1") == str(main_fact)
+    assert resolve_l_seed_source_path(rev, "L1") == str(main_doc)
 
     l1 = rev / "L1"
     _init_pointer(l1)
@@ -172,7 +172,7 @@ def test_vertical_slice_no_split_e2e(tmp_path: Path) -> None:
     assert code == 0, payload
     facts = json.loads((l1 / "_facts.json").read_text(encoding="utf-8"))
     refs = facts[0]["origin"]["ref"]
-    assert str(main_fact) in refs
+    assert str(main_doc) in refs
     assert "scope-package" not in "".join(refs)
     assert "decision-package" not in "".join(refs)
 
@@ -199,9 +199,9 @@ def test_m11_seed_does_not_absorb_whole_package(tmp_path: Path) -> None:
     """
     approach = tmp_path / "approach"
     # Poison: 40-unit "whole package" fact that must never be Seed origin.
-    whole = _unit_fact(approach / "whole" / "decision-fact.json", "WHOLE", n_units=40)
-    f1 = _unit_fact(approach / "D1" / "decision-fact.json", "auth", n_units=2)
-    f2 = _unit_fact(approach / "D2" / "decision-fact.json", "billing", n_units=3)
+    whole = _unit_doc(approach / "whole" / "decision-doc.md", "WHOLE", n_units=40)
+    f1 = _unit_doc(approach / "D1" / "decision-doc.md", "auth", n_units=2)
+    f2 = _unit_doc(approach / "D2" / "decision-doc.md", "billing", n_units=3)
 
     rev = tmp_path / "design" / "revision1"
     rev.mkdir(parents=True)

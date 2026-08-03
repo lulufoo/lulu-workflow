@@ -130,9 +130,8 @@ def test_split_delivered_writes_ordered_slices(tmp_path: Path) -> None:
     )
     assert result["split_completed"] is True
     assert [s["id"] for s in result["slices"]] == ["D1", "D2"]
-    assert result["slices"][0]["decision_fact_path"] == "D1/decision-fact.json"
     assert result["slices"][0]["decision_doc_path"] == "D1/decision-doc.md"
-    assert result["slices"][1]["decision_fact_path"] == "D2/decision-fact.json"
+    assert result["slices"][1]["decision_doc_path"] == "D2/decision-doc.md"
 
     package = load_decision_package(root / "decision-package.json")
     assert [s["id"] for s in package["slices"]] == ["D1", "D2"]
@@ -140,7 +139,7 @@ def test_split_delivered_writes_ordered_slices(tmp_path: Path) -> None:
     # conventional paths written; files / Dx dirs need not exist yet (S4=A)
     assert not (root / "D1").exists()
     assert not (root / "D2").exists()
-    assert not (root / "D1" / "decision-fact.json").exists()
+    assert not (root / "D1" / "decision-doc.md").exists()
 
 
 def test_dx_created_only_on_focus(tmp_path: Path) -> None:

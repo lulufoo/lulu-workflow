@@ -47,7 +47,7 @@ build_decision_package = _dp_mod.build_decision_package
 save_decision_package = _dp_mod.save_decision_package
 
 
-def _unit_fact(tmp_path: Path, name: str = "decision-fact.json") -> Path:
+def _unit_doc(tmp_path: Path, name: str = "decision-doc.md") -> Path:
     path = tmp_path / name
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
@@ -83,14 +83,14 @@ def _design_package(tmp_path: Path) -> Path:
 def _write_approach_decision_package(approach_root: Path) -> Path:
     approach_root.mkdir(parents=True, exist_ok=True)
     (approach_root / "main").mkdir(parents=True, exist_ok=True)
-    fact = _unit_fact(approach_root / "main", "decision-fact.json")
+    fact = _unit_doc(approach_root / "main", "decision-doc.md")
     del fact
     (approach_root / "main" / "decision-doc.md").write_text("# main\n", encoding="utf-8")
     return save_decision_package(
         approach_root,
         build_decision_package(
             main={
-                "decision_fact_path": "main/decision-fact.json",
+
                 "decision_doc_path": "main/decision-doc.md",
             },
             slices=[],
@@ -100,13 +100,13 @@ def _write_approach_decision_package(approach_root: Path) -> Path:
 
 def _write_bet_decision_package(root: Path) -> Path:
     root.mkdir(parents=True, exist_ok=True)
-    _unit_fact(root, "decision-fact.json")
+    _unit_doc(root, "decision-doc.md")
     (root / "decision-doc.md").write_text("# Decision\n", encoding="utf-8")
     return save_decision_package(
         root,
         build_decision_package(
             main={
-                "decision_fact_path": "decision-fact.json",
+
                 "decision_doc_path": "decision-doc.md",
             },
             slices=[],
@@ -215,15 +215,15 @@ def test_product_spec_projects_bet_decision_package(tmp_path: Path):
     assert Path(refs[0].path) == revision / "scope-package.json"
 
 
-def test_delivered_ref_ignores_legacy_decision_fact_path_key() -> None:
-    """Compose DeliveredRef must not surface cycle audit key decision_fact_path."""
+def test_delivered_ref_ignores_legacy_decision_doc_path_key() -> None:
+    """Compose DeliveredRef must not surface cycle audit key decision_doc_path."""
     from delivered_refs_schema import ref_from_file_entry
 
     data = {
         "entries": {
             "lulu-bet": {
                 "path": "/abs/decision-package.json",
-                "decision_fact_path": "/abs/decision-fact.json",
+
                 "artifact": "decision-package",
             }
         }
@@ -232,8 +232,8 @@ def test_delivered_ref_ignores_legacy_decision_fact_path_key() -> None:
     assert ref is not None
     assert ref.path == "/abs/decision-package.json"
     assert ref.artifact == "decision-package"
-    assert "decision_fact_path" not in ref.to_dict()
-    assert not hasattr(ref, "decision_fact_path")
+    assert "decision_doc_path" not in ref.to_dict()
+    assert not hasattr(ref, "decision_doc_path")
 
 
 def test_tech_arch_projects_approach_decision_package(tmp_path: Path):

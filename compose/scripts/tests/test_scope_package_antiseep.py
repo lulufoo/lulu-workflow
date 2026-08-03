@@ -68,8 +68,8 @@ def _init_pointer(out_dir: Path) -> None:
 def test_resolve_l_seed_source_path_uses_mirror(tmp_path: Path) -> None:
     rev = tmp_path / "revision1"
     rev.mkdir()
-    f1 = "/abs/D1/decision-fact.json"
-    f2 = "/abs/D2/decision-fact.json"
+    f1 = "/abs/D1/decision-doc.md"
+    f2 = "/abs/D2/decision-doc.md"
     pkg_path = save_scope_package(rev, _pkg_multi(f1, f2))
     convert_scope_package(rev, scope_package_path=pkg_path)
 
@@ -82,8 +82,8 @@ def test_resolve_l_seed_source_path_uses_mirror(tmp_path: Path) -> None:
 def test_missing_mirror_fails_without_package_fallback(tmp_path: Path) -> None:
     rev = tmp_path / "revision1"
     rev.mkdir()
-    f1 = "/abs/D1/decision-fact.json"
-    f2 = "/abs/D2/decision-fact.json"
+    f1 = "/abs/D1/decision-doc.md"
+    f2 = "/abs/D2/decision-doc.md"
     pkg_path = save_scope_package(rev, _pkg_multi(f1, f2))
     convert_scope_package(rev, scope_package_path=pkg_path)
     (rev / "L1" / "scope-ref.json").unlink()
@@ -99,8 +99,8 @@ def test_missing_mirror_fails_without_package_fallback(tmp_path: Path) -> None:
 def test_seed_decision_uses_l_mirror_not_scope_package(tmp_path: Path) -> None:
     rev = tmp_path / "revision1"
     rev.mkdir()
-    f1 = str((tmp_path / "D1" / "decision-fact.json").resolve())
-    f2 = str((tmp_path / "D2" / "decision-fact.json").resolve())
+    f1 = str((tmp_path / "D1" / "decision-doc.md").resolve())
+    f2 = str((tmp_path / "D2" / "decision-doc.md").resolve())
     (tmp_path / "D1").mkdir()
     (tmp_path / "D2").mkdir()
     for path, unit in (
@@ -145,8 +145,8 @@ def test_seed_decision_uses_l_mirror_not_scope_package(tmp_path: Path) -> None:
 def test_seed_decision_fails_when_mirror_missing(tmp_path: Path) -> None:
     rev = tmp_path / "revision1"
     rev.mkdir()
-    f1 = "/abs/D1/decision-fact.json"
-    f2 = "/abs/D2/decision-fact.json"
+    f1 = "/abs/D1/decision-doc.md"
+    f2 = "/abs/D2/decision-doc.md"
     pkg_path = save_scope_package(rev, _pkg_multi(f1, f2))
     convert_scope_package(rev, scope_package_path=pkg_path)
     (rev / "L1" / "scope-ref.json").unlink()
@@ -238,8 +238,8 @@ def test_begin_inductive_scope_ref_is_l_mirror_fact_path(tmp_path: Path) -> None
     profile = "lulu-design"
     seed_tech_design_session(tmp_path, cycle_id=cycle)
     rev = tmp_path / doc_dir(cycle, 1, profile, tmp_path)
-    f1 = str((tmp_path / "D1" / "decision-fact.json").resolve())
-    f2 = str((tmp_path / "D2" / "decision-fact.json").resolve())
+    f1 = str((tmp_path / "D1" / "decision-doc.md").resolve())
+    f2 = str((tmp_path / "D2" / "decision-doc.md").resolve())
     (tmp_path / "D1").mkdir()
     (tmp_path / "D2").mkdir()
     for path, unit in (
@@ -291,8 +291,8 @@ def test_begin_inductive_fails_when_l_mirror_missing(tmp_path: Path) -> None:
     profile = "lulu-design"
     seed_tech_design_session(tmp_path, cycle_id=cycle)
     rev = tmp_path / doc_dir(cycle, 1, profile, tmp_path)
-    f1 = "/abs/D1/decision-fact.json"
-    f2 = "/abs/D2/decision-fact.json"
+    f1 = "/abs/D1/decision-doc.md"
+    f2 = "/abs/D2/decision-doc.md"
     for name in ("dependency-tree.json", "discussion-pointer.json", "slice-rulers.json"):
         p = rev / name
         if p.is_file():
@@ -323,8 +323,8 @@ def test_begin_inductive_fails_when_l_mirror_missing(tmp_path: Path) -> None:
 def test_l2_mirror_seed_path_independent(tmp_path: Path) -> None:
     rev = tmp_path / "revision1"
     rev.mkdir()
-    f1 = "/abs/D1/decision-fact.json"
-    f2 = "/abs/D2/decision-fact.json"
+    f1 = "/abs/D1/decision-doc.md"
+    f2 = "/abs/D2/decision-doc.md"
     pkg_path = save_scope_package(rev, _pkg_multi(f1, f2))
     convert_scope_package(rev, scope_package_path=pkg_path)
     write_scope_ref_mirror(rev, "L2", source_path=f2)  # already present; assert stable

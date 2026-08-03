@@ -162,7 +162,7 @@ def test_nested_approach_deliver_skips_cycle_delivered_refs(
     ss = session_state_file(nested).read_text(encoding="utf-8")
     assert "current_state: Completed" in ss
     assert (nested / "decision-doc.md").is_file()
-    assert (nested / "decision-fact.json").is_file()
+    assert not (nested / "decision-fact.json").is_file()
 
     refs_path = delivered_refs_file_path(cycle_id, project_root)
     assert not refs_path.exists()

@@ -75,7 +75,7 @@ def test_dx_session_dir_rejects_bad_id(tmp_path: Path) -> None:
 
 
 def test_rel_path_rules_accept_under_root() -> None:
-    assert is_rel_path_under_approach("main/decision-fact.json")
+    assert is_rel_path_under_approach("main/decision-doc.md")
     assert is_rel_path_under_approach("D1/decision-doc.md")
     assert is_rel_path_under_approach("decision-package.json")
 
@@ -89,9 +89,9 @@ def test_rel_path_rules_reject_escape_and_absolute() -> None:
 
 def test_resolve_under_approach_ok_and_reject(tmp_path: Path) -> None:
     root = ensure_approach_layout(tmp_path / "lulu-approach", dx_ids=["D1"])
-    fact = resolve_under_approach(root, "main/decision-fact.json")
-    assert fact == root / "main" / "decision-fact.json"
-    assert relpath_from_approach(root, fact) == "main/decision-fact.json"
+    doc = resolve_under_approach(root, "main/decision-doc.md")
+    assert doc == root / "main" / "decision-doc.md"
+    assert relpath_from_approach(root, doc) == "main/decision-doc.md"
     with pytest.raises(ValueError, match="relative under approach root"):
         resolve_under_approach(root, "../escape.json")
     with pytest.raises(ValueError, match="relative under approach root"):

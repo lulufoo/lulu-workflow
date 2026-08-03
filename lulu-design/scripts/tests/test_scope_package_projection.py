@@ -52,7 +52,7 @@ build_decision_package = _dp_mod.build_decision_package
 save_decision_package = _dp_mod.save_decision_package
 
 
-def _unit_fact(path: Path, text: str = "pick A") -> Path:
+def _unit_doc(path: Path, text: str = "pick A") -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         json.dumps(
@@ -71,33 +71,28 @@ def _unit_fact(path: Path, text: str = "pick A") -> Path:
 def _seed_approach_root(tmp_path: Path, *, with_slices: bool) -> Path:
     root = tmp_path / "approach"
     root.mkdir()
-    main_fact = _unit_fact(root / "main" / "decision-fact.json", "main pick")
     main_doc = root / "main" / "decision-doc.md"
+    main_doc.parent.mkdir(parents=True, exist_ok=True)
     main_doc.write_text("# main\n", encoding="utf-8")
     slices: list[dict] = []
     if with_slices:
         for sid, title in (("D1", "slice one"), ("D2", "slice two")):
-            fact = _unit_fact(root / sid / "decision-fact.json", title)
             doc = root / sid / "decision-doc.md"
+            doc.parent.mkdir(parents=True, exist_ok=True)
             doc.write_text(f"# {title}\n", encoding="utf-8")
             slices.append(
                 {
                     "id": sid,
                     "title": title,
-                    "decision_fact_path": f"{sid}/decision-fact.json",
                     "decision_doc_path": f"{sid}/decision-doc.md",
                 }
             )
-            assert fact.is_file()
     pkg = build_decision_package(
-        main={
-            "decision_fact_path": "main/decision-fact.json",
-            "decision_doc_path": "main/decision-doc.md",
-        },
+        main={"decision_doc_path": "main/decision-doc.md"},
         slices=slices,
     )
     save_decision_package(root, pkg)
-    assert main_fact.is_file()
+    assert main_doc.is_file()
     return root
 
 
@@ -110,7 +105,7 @@ class TestProjectSlices:
         assert slices[0]["id"] == "L1"
         assert slices[0]["source_id"] == "main"
         assert slices[0]["source_path"] == str(
-            (root / "main" / "decision-fact.json").resolve()
+            (root / "main" / "decision-doc.md").resolve()
         )
 
     def test_multi_slice_projects_l1_ln(self, tmp_path: Path):
@@ -121,7 +116,7 @@ class TestProjectSlices:
         assert [s["source_id"] for s in slices] == ["D1", "D2"]
         assert slices[0]["title"] == "slice one"
         assert slices[1]["source_path"] == str(
-            (root / "D2" / "decision-fact.json").resolve()
+            (root / "D2" / "decision-doc.md").resolve()
         )
 
 

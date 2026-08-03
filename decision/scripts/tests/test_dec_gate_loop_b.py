@@ -177,23 +177,16 @@ def test_loop_b_v_rr_dc_deliver(template_config: Path, monkeypatch: pytest.Monke
     assert "current_state: Completed" in ss
 
     from cycle_delivered_refs import load_delivered_refs_file  # noqa: WPS433
-    from dec_decision_fact_schema import load_decision_fact  # noqa: E402
-    from dec_workflow_common import decision_doc_path, decision_fact_path  # noqa: E402
+    from dec_workflow_common import decision_doc_path  # noqa: E402
 
     refs = load_delivered_refs_file(cycle_id, project_root)
     entry = refs["entries"]["decision"]
     assert entry["path"].endswith("decision-doc.md")
-    assert entry["decision_fact_path"].endswith("decision-fact.json")
-    # doc path unchanged; fact is an additive sibling artifact.
+    assert "decision_fact_path" not in entry
     assert (project_root / decision_doc_path(cycle_id, stage)).is_file()
-    fact = load_decision_fact(project_root / decision_fact_path(cycle_id, stage))
-    assert fact["version"] == 1
-    assert "D" in fact["gates"] or "Q" in fact["gates"]
-
-    # Step 2 read-only audit passes after deliver.
-    from dec_session_integrity import run_decision_fact_audit  # noqa: E402
-
-    assert run_decision_fact_audit(project_root, cycle_id, stage) == []
+    assert not (project_root / decision_doc_path(cycle_id, stage)).with_name(
+        "decision-fact.json"
+    ).is_file()
 
 
 def test_v_dc_skip_rr(template_config: Path, monkeypatch: pytest.MonkeyPatch) -> None:

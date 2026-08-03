@@ -60,12 +60,10 @@ def record_delivered_ref(
     revision: int | str,
     profile_id: str,
     source_workflow_state: str,
-    decision_fact_path: str | None = None,
     artifact: str | None = None,
 ) -> None:
     """Upsert one stage entry in {cycle_id}/delivered-refs.json.
 
-    Optional ``decision_fact_path`` registers decision-fact.json beside decision-doc.
     Optional ``artifact`` marks delivery shape (e.g. ``decision-package``, P0.7).
     Legacy parallel key ``{stage}-facts`` is dropped when present.
     Compose does not register upstream ``_facts.json`` on the entry.
@@ -83,8 +81,6 @@ def record_delivered_ref(
         "delivered_at": datetime.now(timezone.utc).isoformat(),
         "source_workflow_state": source_workflow_state,
     }
-    if decision_fact_path is not None and str(decision_fact_path).strip():
-        entry["decision_fact_path"] = str(Path(decision_fact_path).resolve())
     if artifact is not None and str(artifact).strip():
         entry["artifact"] = str(artifact).strip()
     entries[dtype] = entry

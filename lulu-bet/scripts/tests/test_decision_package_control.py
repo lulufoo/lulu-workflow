@@ -21,7 +21,7 @@ from cycle_delivered_refs import load_delivered_refs_file  # noqa: E402
 def test_deliver_commits_decision_package(tmp_path: Path) -> None:
     root = tmp_path / ".cache/cursor/lulu-dev-workflow/feature-bet/lulu-bet"
     root.mkdir(parents=True)
-    (root / "decision-fact.json").write_text('{"version": 1, "gates": {}}\n')
+    (root / "decision-doc.md").write_text("# Decision\n\nSettled.\n", encoding="utf-8")
     (root / "session-state.md").write_text(
         "---\ncurrent_state: InProgress\n---\n",
         encoding="utf-8",
@@ -35,7 +35,7 @@ def test_deliver_commits_decision_package(tmp_path: Path) -> None:
         "version": 1,
         "status": "package_ready",
         "main": {
-            "decision_fact_path": "decision-fact.json",
+
             "decision_doc_path": "decision-doc.md",
         },
         "slices": [],
@@ -50,12 +50,12 @@ def test_deliver_commits_decision_package(tmp_path: Path) -> None:
     )
 
 
-def test_deliver_requires_decision_fact(tmp_path: Path) -> None:
+def test_deliver_requires_decision_doc(tmp_path: Path) -> None:
     root = tmp_path / "lulu-bet"
     root.mkdir(parents=True)
     (root / "session-state.md").write_text(
         "---\ncurrent_state: InProgress\n---\n",
         encoding="utf-8",
     )
-    with pytest.raises(ValueError, match="decision-fact.json"):
+    with pytest.raises(ValueError, match="decision-doc.md"):
         deliver(root, cycle_id="feature-bet", project_root=tmp_path)

@@ -122,7 +122,7 @@ def test_audit_cli_output(template_config: Path, monkeypatch: pytest.MonkeyPatch
     assert payload["errors"] == []
 
 
-def test_decision_fact_audit_before_deliver_reports_missing(
+def test_audit_rejects_unknown_mode(
     template_config: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -136,11 +136,10 @@ def test_decision_fact_audit_before_deliver_reports_missing(
     _close_qe(project_root, cycle_id, stage)
     capsys.readouterr()
 
-    assert cmd_audit(project_root, cycle_id, stage, mode="decision-fact") == 0
-    payload = json.loads(capsys.readouterr().out)
-    assert payload["ok"] is True
-    assert payload["passed"] is False
-    assert any("not found" in e for e in payload["errors"])
+    assert cmd_audit(project_root, cycle_id, stage, mode="decision-fact") != 0
+    captured = capsys.readouterr()
+    err = (captured.err + captured.out).lower()
+    assert "unsupported audit mode" in err
 
 
 def _init_nested_d1_active(

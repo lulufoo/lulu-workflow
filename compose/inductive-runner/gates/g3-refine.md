@@ -37,7 +37,7 @@ The default state. The user senses and discovers freely; any surfaced open hands
   - **View** (ref Class 3 → view extract) — perception on user intent; contract in ref.
 - **Discover** (produces `open` → Lane B) — ref Class 1:
   - **Class 1A — user-triggered** (collision / direct / view-derived, ref): **global — available anytime after Seed** (also in G1), not G3-only.
-  - **Class 1B — AI detect** (open-point detect): **G3-scoped**; **only when the user asks** (never automatic). **I5 first:** subtract Settled before detecting. Methods: `ai_scan` / `ai_intent_baseline` / `ai_probe`. Read `$SCOPE_REF` as the same format-neutral source material Seed used (do not branch on JSON vs Markdown or enumerate decision-fact units). For code/intent/probe paths: optionally dispatch `g3-shallow-grounding-runner` via `$SUBAGENT_TOOL` (ref); parent owns `add-open`. Present the batch as problem + leaning, then **Stop D**.
+  - **Class 1B — AI detect** (open-point detect): **G3-scoped**; **only when the user asks** (never automatic). **I5 first:** subtract Settled before detecting. Methods: `ai_scan` / `ai_intent_baseline` / `ai_probe`. Read `$SCOPE_REF` as the same format-neutral source material Seed used (do not branch on JSON vs Markdown). For code/intent/probe paths: optionally dispatch `g3-shallow-grounding-runner` via `$SUBAGENT_TOOL` (ref); parent owns `add-open`. Present the batch as problem + leaning, then **Stop D**.
 - **Sense convergence → exit:** when offering close, run **Stop X** (choose path before any `gate-close`). Do **not** enter G4 until Stop A.
 
 ## Lane B — Open-processing channel (per open)

@@ -15,17 +15,6 @@ def _seed_tech_diagnostic(tmp_path: Path, cycle_id: str) -> Path:
     diag_dir = tmp_path / ".cache/cursor/lulu-dev-workflow" / cycle_id / "lulu-approach"
     diag_dir.mkdir(parents=True)
     (diag_dir / "decision-doc.md").write_text("# Decision\n", encoding="utf-8")
-    (diag_dir / "decision-fact.json").write_text(
-        json.dumps(
-            {
-                "version": 1,
-                "gates": {
-                    "D": [{"id": "D-1", "slot": "D.x", "text": "pick A"}],
-                },
-            }
-        ),
-        encoding="utf-8",
-    )
     package = diag_dir / "decision-package.json"
     package.write_text(
         json.dumps(
@@ -33,7 +22,7 @@ def _seed_tech_diagnostic(tmp_path: Path, cycle_id: str) -> Path:
                 "version": 1,
                 "status": "package_ready",
                 "main": {
-                    "decision_fact_path": "decision-fact.json",
+
                     "decision_doc_path": "decision-doc.md",
                 },
                 "slices": [],

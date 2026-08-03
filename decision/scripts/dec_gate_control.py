@@ -13,12 +13,12 @@ Subcommands:
                            (if session Frozen: mark stale then unfreeze — P1.5 A′)
     reopen                 Leave Completed/InProgress → Frozen ($DEC_REOPEN; P1.3 A)
     check-delivery-ready   Structural audit + gates/registers for DC completion
-    prepare                Export decision-fact.json after delivery checks without
-                           changing the session state or delivered refs.
-    complete               Set session-state Completed; export decision-fact.json
-                           (requires DC closed + decision-doc). Nested approach
-                           main/Dx skips cycle delivered-refs (holder stage deliver
-                           owns them). Alias: deliver.
+    prepare                Verify delivery-ready + decision-doc without changing
+                           session state or delivered refs.
+    complete               Set session-state Completed (requires DC closed +
+                           decision-doc). Nested approach main/Dx skips cycle
+                           delivered-refs (holder stage deliver owns them).
+                           Alias: deliver.
     migrate-session        Bootstrap gate-state/registers for legacy sessions
 """
 
@@ -36,10 +36,6 @@ if str(_SCRIPTS) not in sys.path:
 
 
 from dec_decision_doc_schema import GATE_CLOSE_PREREQ  # noqa: E402
-from dec_decision_fact_schema import (  # noqa: E402
-    decision_fact_path as decision_fact_file_path,
-    export_decision_fact_audited,
-)
 from dec_after_dc import build_after_dc  # noqa: E402
 from dec_domain_constraints_schema import (  # noqa: E402
     ALL_X_DIMENSIONS,
@@ -989,12 +985,7 @@ def cmd_complete(
         if errors:
             return _emit_error("; ".join(errors))
         ss_path = paths.get("session_state") or session_state_file(paths["session_dir"])
-        fact_path = decision_fact_file_path(paths["session_dir"])
-        export_decision_fact_audited(
-            paths["payloads_dir"],
-            fact_path,
-            registers=registers,
-        )
+        doc_path = paths["decision_doc"]
         # Nested approach main/Dx: local Completed only; cycle refs via holder stage deliver.
         if not skips_cycle_delivered_ref_on_deliver(paths["session_dir"]):
             from cycle_delivered_refs import record_delivered_ref  # noqa: WPS433
@@ -1003,11 +994,10 @@ def cmd_complete(
                 cycle_id,
                 project_root,
                 delivered_type=stage,
-                path=str(paths["decision_doc"].resolve()),
+                path=str(doc_path.resolve()),
                 revision=1,
                 profile_id=stage,
                 source_workflow_state=str(ss_path.resolve()),
-                decision_fact_path=str(fact_path.resolve()),
             )
         write_session_state(ss_path, "Completed")
     except (FileNotFoundError, ValueError) as exc:
@@ -1018,7 +1008,7 @@ def cmd_complete(
             "ok": True,
             "session_state": "Completed",
             "session_state_path": ss_path.as_posix(),
-            "decision_fact_path": fact_path.as_posix(),
+            "decision_doc_path": doc_path.as_posix(),
         }
     )
     return 0
@@ -1032,7 +1022,7 @@ def cmd_prepare(
     constraints_path: Path | None = None,
     session_dir: Path | None = None,
 ) -> int:
-    """Export a decision fact after completion checks without delivering."""
+    """Verify delivery-ready + decision-doc without changing session state."""
     paths = _paths(
         project_root,
         cycle_id,
@@ -1061,16 +1051,11 @@ def cmd_prepare(
         )
         if errors:
             return _emit_error("; ".join(errors))
-        fact_path = decision_fact_file_path(paths["session_dir"])
-        export_decision_fact_audited(
-            paths["payloads_dir"],
-            fact_path,
-            registers=registers,
-        )
+        doc_path = paths["decision_doc"]
     except (FileNotFoundError, ValueError) as exc:
         return _emit_error(str(exc))
 
-    _emit({"ok": True, "decision_fact_path": fact_path.as_posix()})
+    _emit({"ok": True, "decision_doc_path": doc_path.as_posix()})
     return 0
 
 
@@ -1754,7 +1739,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     sub.add_parser(
         "prepare",
-        help="Export decision-fact.json after completion checks without delivery.",
+        help="Verify delivery-ready + decision-doc without changing session state.",
     )
     sub.add_parser(
         "complete",

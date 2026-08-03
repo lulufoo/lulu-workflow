@@ -26,7 +26,7 @@ is_decision_package_path = _mod.is_decision_package_path
 
 def _main() -> dict[str, str]:
     return {
-        "decision_fact_path": "main/decision-fact.json",
+
         "decision_doc_path": "main/decision-doc.md",
     }
 
@@ -50,13 +50,13 @@ def test_preserves_slice_order_roundtrip(tmp_path: Path) -> None:
         {
             "id": "D1",
             "title": "A",
-            "decision_fact_path": "D1/decision-fact.json",
+
             "decision_doc_path": "D1/decision-doc.md",
         },
         {
             "id": "D2",
             "title": "B",
-            "decision_fact_path": "D2/decision-fact.json",
+
             "decision_doc_path": "D2/decision-doc.md",
         },
     ]
