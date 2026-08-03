@@ -18,7 +18,7 @@ Apply Section filtering using `$CTX.domain_constraints` after `resolve-context`.
 Before presenting to user:
 
 1. Run `$GATE_CONTROL check-delivery-ready` (structural audit). Fix every error in stdout before continuing.
-2. Run **Decision Eval** (`$EVAL_CONTROL` with Decision `eval/eval-profile.json` + `$DEC_EVAL`; see dc-delivery-runner). Fail → summarize issues → RS (`realign_gate`); do not remediate inside Eval.
+2. Run **Decision Eval** (dc-delivery-runner): `$EVAL_CONTROL` + `$DEC_EVAL`; probe via sub-agent. Fail → RS (`realign_gate`); no remediation.
 3. On Eval pass, run `$SESSION_INTEGRITY render` (delivery `decision-doc.md`).
 
 EvalTarget is the bound `decision-eval-target.md` (Eval generation rule). Delivery doc remains a separate generation rule from the same authority.

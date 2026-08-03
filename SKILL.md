@@ -17,7 +17,7 @@ under this directory.
 > - `_runtime.md` — Script Macros + Platform / Session / Execution Mode (all sub-skills)
 > - `_slowpath.md` — Feature Resolution Slow Path (loaded on demand)
 > - `_transitions.md` — Stage Transitions + Rollback (loaded at delivery)
-> - `_subagent.md` — Sub-agent Context (lulu-code, lulu-tasks only)
+> - `_subagent.md` — Sub-agent Context (lulu-code, lulu-tasks, decision)
 
 ## Scope
 

@@ -19,6 +19,8 @@ Do NOT proceed until you have read `../_runtime.md` and loaded:
 
 - `$SKILL_DIR` = `$SKILL_ROOT/decision`
 
+- `../_subagent.md` — `$SUBAGENT_*` (DC Eval probe)
+
 </HARD-GATE>
 
 ---

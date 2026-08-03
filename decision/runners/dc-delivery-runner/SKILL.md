@@ -40,9 +40,9 @@ Do NOT proceed until you have read `../../../_runtime.md`
 5. **Decision Eval** (required; replaces AI Semantic Review):
    1. `$DEC_EVAL check-rounds` — if `hard_blocked: true` → stop; do not DC close; tell user max Eval rounds exhausted (must RS strategy change or abort)
    2. `$EVAL_CONTROL begin-eval-round` — binds `decision-eval-target.md` and enters evaluating
-   3. Single dim `decision-consistency` in begin payload `dispatch`: one probe via `eval/eval-probe-runner` (Method runs all three cross-checks). Each blocker issue **must** carry `realign_gate` (`E` / `D` / `X`)
+   3. For `decision-consistency` in `dispatch`: `$EVAL_CONTROL begin-dimension` → pin stdout as `dispatch_input` → `$SUBAGENT_TOOL` + `$SUBAGENT_AWAIT_SYNC` dispatch `eval/eval-probe-runner` (prompt shape: `eval/eval-rules.md` Step 2) → `$EVAL_CONTROL check-dimension`. Blocker issues must set `realign_gate` (`E`/`D`/`X`).
    4. `$EVAL_CONTROL probe-complete` — pin `total_issues`
-   5. **Do not** run artifact/SoT remediation for Decision
+   5. Skip artifact/SoT remediation (no `eval/eval-rules.md` Steps 3–4)
    6. If `total_issues > 0`:
       - Summarize issues (`dimension_id`, `location`, `description`, `realign_gate`)
       - `$DEC_EVAL fail-exit --issues-json '<array>'` — pin earliest `realign_gate`, `hard_blocked`
