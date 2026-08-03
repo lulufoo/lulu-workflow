@@ -174,6 +174,10 @@ def test_loads_builtin_registry_metadata_without_importing_adapters() -> None:
             "ProductBlueprintEvalAdapter",
             "lulu-blueprint/scripts/eval/product_blueprint_eval_adapter.py",
         ),
+        "lulu-decision": (
+            "DecisionEvalAdapter",
+            "decision/scripts/eval/decision_eval_adapter.py",
+        ),
     }
 
 

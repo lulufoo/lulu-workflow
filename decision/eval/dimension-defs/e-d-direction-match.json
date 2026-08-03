@@ -1,0 +1,22 @@
+{
+  "id": "e-d-direction-match",
+  "label": "E↔D direction match",
+  "realign_gate": "E",
+  "eval_target": {
+    "path": "{eval_target_path}"
+  },
+  "remediation_target": {
+    "path": "{eval_target_path}"
+  },
+  "sots": [],
+  "method": {
+    "kind": "external",
+    "source": "decision/eval/methods/e-d-direction-match.md",
+    "focus": "Compare chapter:direction (E user_choice + directions) with chapter:settled_direction (D rationale/scope/approach). Blocker if they do not point to the same path. realign_gate=E."
+  },
+  "review": {
+    "seq": 1,
+    "output_path": "decision-review-e{M}1.md",
+    "template": "eval/review.template.md"
+  }
+}

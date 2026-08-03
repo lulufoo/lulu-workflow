@@ -1,15 +1,15 @@
 ---
 name: decision/dc-delivery-runner
 description: >-
-  DC gate runner for decision. Self-review, user confirmation, gate-close DC,
-  and session complete. Invoked by decision/SKILL.md.
+  DC gate runner for decision. Delivery-ready check, formal Eval, user
+  confirmation, gate-close DC, and session complete. Invoked by decision/SKILL.md.
 meta-skill-version: 1.0.0
 ---
 
 # dc-delivery-runner
 
 Execute **DC — Delivery Confirmation** (session completion gate). Confirm
-readiness via control CLI, then `$GATE_CONTROL complete`.
+readiness via control CLI, run Decision Eval, then `$GATE_CONTROL complete`.
 
 ## Blocking policy
 
@@ -30,15 +30,26 @@ Do NOT proceed until you have read `../../../_runtime.md`
 1. `$GATE_CONTROL resolve-context` — pin `$CTX`
 2. If `$CTX.gates.DC.status == stale`:
    - Follow `$SKILL_DIR/references/stale-gate-update.md` steps 1–3 only (change points / old disposition / update proposal; user confirm on that proposal if needed)
-   - Do **not** run that file's step 4 (`gate-close`) or step 5 (`GATE_COMPLETE`) — DC close stays at step 8 after readiness checks
+   - Do **not** run that file's step 4 (`gate-close`) or step 5 (`GATE_COMPLETE`) — DC close stays after readiness + Eval + user confirm
    - Then continue from step 3 below
 3. Read and apply from `$CTX.domain_constraints` for all subsequent dialogue in this gate:
    - `objective` — session intent; frame the entire gate within this goal
    - `role.instruction` — persona and language stance
    - `domain.instruction` — domain boundary constraints
 4. `$GATE_CONTROL check-delivery-ready` — fix every reported error before continuing
-5. **AI Semantic Review** (required) — read `session-invariants.yaml` + `gate-payloads/*.json`; cross-check `$CTX.registers`. Blocker → RS runner (earliest checklist `realign_gate`); do not present completion content.
-6. `$SESSION_INTEGRITY render` — generate `decision-doc.md`
+5. **Decision Eval** (required; replaces AI Semantic Review):
+   1. `$DEC_EVAL check-rounds` — if `hard_blocked: true` → stop; do not DC close; tell user max Eval rounds exhausted (must RS strategy change or abort)
+   2. `$EVAL_CONTROL begin-eval-round` — binds `decision-eval-target.md` and enters evaluating
+   3. For each `dim` in begin payload `dispatch`: run probe via `eval/eval-probe-runner` (or equivalent) using `$EVAL_CONTROL begin-dimension` / `finish-dimension-probe` / `check-dimension`
+   4. `$EVAL_CONTROL probe-complete` — pin `total_issues`
+   5. **Do not** run artifact/SoT remediation for Decision
+   6. If `total_issues > 0`:
+      - Summarize issues from review files (`dimension_id`, `location`, `description`)
+      - `$DEC_EVAL fail-exit --issues-json '<array>'` — pin `realign_gate`, `hard_blocked`
+      - If `hard_blocked` → stop (no DC close)
+      - Else load `$SKILL_DIR/runners/rs-realign-runner/SKILL.md` at `realign_gate` (earliest); do not present completion content
+   7. If `total_issues == 0`: `$DEC_EVAL pass-exit` → continue
+6. `$SESSION_INTEGRITY render` — generate delivery `decision-doc.md`
 7. Read `decision-doc.md`; present key sections in conversation; explicitly list any `Class=implementation` Handoff lines (remind only); user confirmation
 8. `$GATE_CONTROL gate-close --gate DC --payload '{"user_confirmed": true}'`
 9. `$GATE_CONTROL complete`

@@ -18,8 +18,10 @@ Apply Section filtering using `$CTX.domain_constraints` after `resolve-context`.
 Before presenting to user:
 
 1. Run `$GATE_CONTROL check-delivery-ready` (structural audit). Fix every error in stdout before continuing.
-2. Run **AI Semantic Review** per `$SKILL_DIR/session-invariants.yaml` (see runner pipeline step 4).
-3. Run `$SESSION_INTEGRITY render`.
+2. Run **Decision Eval** (`$EVAL_CONTROL --workflow lulu-decision` + `$DEC_EVAL`; see dc-delivery-runner). Fail → summarize issues → RS (`realign_gate`); do not remediate inside Eval.
+3. On Eval pass, run `$SESSION_INTEGRITY render` (delivery `decision-doc.md`).
+
+EvalTarget is the bound `decision-eval-target.md` (Eval generation rule). Delivery doc remains a separate generation rule from the same authority.
 
 ---
 
@@ -30,7 +32,7 @@ Before presenting to user:
 - Path 2: V direct — no decision RR-scope items; implementation Handoffs recorded; medium/low decision batch-confirmed
 - Path 3: RR exit 1 — all RR-scope Released, Assumption Log has no new `[待验证]` entries
 
-After structural audit and AI review pass, and after render:
+After structural audit and Decision Eval pass, and after render:
 
 1. Present the following key sections **from `decision-doc.md`** in the conversation (do not show file paths):
    - Decision Rationale

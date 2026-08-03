@@ -24,6 +24,11 @@
       "id": "lulu-blueprint",
       "adapter_class": "ProductBlueprintEvalAdapter",
       "adapter_module": "lulu-blueprint/scripts/eval/product_blueprint_eval_adapter.py"
+    },
+    {
+      "id": "lulu-decision",
+      "adapter_class": "DecisionEvalAdapter",
+      "adapter_module": "decision/scripts/eval/decision_eval_adapter.py"
     }
   ]
 }

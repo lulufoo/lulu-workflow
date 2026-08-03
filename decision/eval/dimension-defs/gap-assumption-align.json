@@ -1,0 +1,22 @@
+{
+  "id": "gap-assumption-align",
+  "label": "X gap ↔ assumptions align",
+  "realign_gate": "X",
+  "eval_target": {
+    "path": "{eval_target_path}"
+  },
+  "remediation_target": {
+    "path": "{eval_target_path}"
+  },
+  "sots": [],
+  "method": {
+    "kind": "external",
+    "source": "decision/eval/methods/gap-assumption-align.md",
+    "focus": "Compare chapter:execution_analysis gap with chapter:assumptions. Blocker if X gap contradicts assumption verification conclusions. realign_gate=X."
+  },
+  "review": {
+    "seq": 3,
+    "output_path": "decision-review-e{M}3.md",
+    "template": "eval/review.template.md"
+  }
+}
