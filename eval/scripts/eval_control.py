@@ -6,8 +6,8 @@ transitions go through an injected WorkflowAdapter, loaded per-profile by
 eval_entry.py (dynamic ``profile.eval.adapter_module`` / ``adapter_class``
 loading, mirrors start.py's StartAdapter loading).
 
-Invoke via eval_entry.py (e.g. `python3 eval_entry.py --workflow lulu-plan ...`).
-Do not run this module directly as __main__.
+Invoke via eval_entry.py with caller-supplied adapter config
+(e.g. `--adapter-config-file <json>`). Do not run this module as __main__.
 
 Subcommands:
     init-round                  Initialize evaluate-state.md (internal; session_control)
@@ -99,7 +99,8 @@ def _workflow_id() -> str:
     workflow_id = _WORKFLOW_ID_CTX.get()
     if not workflow_id:
         raise RuntimeError(
-            "WORKFLOW_ID not set; invoke via eval_entry.py (--workflow)",
+            "WORKFLOW_ID not set; invoke via eval_entry.py "
+            "(--adapter-config-file / --adapter-config)",
         )
     return workflow_id
 
@@ -2255,8 +2256,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="lulu-dev-workflow eval control")
     parser.add_argument(
         "--workflow",
-        required=True,
-        help="Workflow id (e.g. lulu-plan)",
+        required=False,
+        default="",
+        help="Internal workflow label set by eval_entry from adapter config",
     )
     parser.add_argument("--cycle-id", required=True, help="Cycle ID")
     parser.add_argument(
@@ -2466,7 +2468,7 @@ def run_eval(
 def main() -> int:
     print(
         "错误：请通过 eval_entry.py 调用（例如 "
-        "python3 eval_entry.py --workflow lulu-plan ...）。",
+        "python3 eval_entry.py --adapter-config-file <json> ...）。",
         file=sys.stderr,
     )
     return 1

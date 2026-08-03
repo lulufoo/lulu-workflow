@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
-"""Workflow-neutral Eval entrypoint via the adapter registry.
+"""Workflow-neutral Eval entrypoint via caller-supplied adapter config JSON.
 
-The selected adapter owns workflow-specific handoff and lifecycle mechanics;
-this entry only loads it and invokes the shared Eval control plane.
+Callers (Compose / Decision) pass ``--adapter-config-file`` or ``--adapter-config``.
+Eval does not discover stages or read a central registry.
 
-Invoke via the ``$EVAL_CONTROL`` macro (see ``eval/SKILL.md``).
+Invoke via the ``$EVAL_CONTROL`` macro (see ``eval/SKILL.md`` / compose / decision).
 """
 
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -16,13 +17,49 @@ _EVAL_SCRIPTS = Path(__file__).resolve().parent
 if str(_EVAL_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_EVAL_SCRIPTS))
 
-from eval_control import parse_args, run_eval  # noqa: E402
-from eval_adapter_registry import load_eval_adapter  # noqa: E402
+from eval_adapter_config import (  # noqa: E402
+    load_adapter_config_file,
+    load_adapter_config_json,
+    load_eval_adapter_from_config,
+)
+from eval_control import build_parser, run_eval  # noqa: E402
 
 
-def main() -> int:
-    args = parse_args()
-    workflow_id = args.workflow.strip()
+def parse_entry_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Parse Eval entry args (adapter config + shared control args)."""
+    parser = build_parser()
+    parser.add_argument(
+        "--adapter-config-file",
+        type=Path,
+        default=None,
+        help="Path to JSON adapter config (Compose/Decision passthrough)",
+    )
+    parser.add_argument(
+        "--adapter-config",
+        default=None,
+        help="Inline JSON adapter config object",
+    )
+    return parser.parse_args(argv)
+
+
+def _load_config(args: argparse.Namespace):
+    file_path = args.adapter_config_file
+    inline = args.adapter_config
+    if file_path and inline:
+        raise ValueError(
+            "pass only one of --adapter-config-file or --adapter-config",
+        )
+    if file_path is not None:
+        return load_adapter_config_file(Path(file_path))
+    if inline is not None and str(inline).strip():
+        return load_adapter_config_json(str(inline))
+    raise ValueError(
+        "adapter config required: pass --adapter-config-file or --adapter-config",
+    )
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_entry_args(argv)
     cycle_id = args.cycle_id.strip()
     project_root = args.project_root.resolve()
 
@@ -32,13 +69,15 @@ def main() -> int:
         "begin-eval-round",
     }
     try:
-        adapter = load_eval_adapter(workflow_id)
+        config = _load_config(args)
+        args.workflow = config.workflow_id
+        adapter = load_eval_adapter_from_config(config)
         handoff = adapter.request_eval_handoff(
             cycle_id=cycle_id,
             project_root=project_root,
             require_evaluating=require_evaluating,
         )
-    except ValueError as exc:
+    except (ValueError, FileNotFoundError, OSError) as exc:
         print(f"错误：{exc}", file=sys.stderr)
         return 1
     return run_eval(args, adapter, handoff=handoff)

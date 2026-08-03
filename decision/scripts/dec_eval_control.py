@@ -35,11 +35,8 @@ from dec_gate_state_schema import is_gate_closed, load_gate_state  # noqa: E402
 from dec_session_paths import find_session_dir, session_artifact_paths  # noqa: E402
 from dec_workflow_common import CACHE_DIR  # noqa: E402
 
-REALIGN_BY_DIM: dict[str, str] = {
-    "e-d-direction-match": "E",
-    "d-x-phase-align": "D",
-    "gap-assumption-align": "X",
-}
+# Single-dimension Eval: realign_gate must come from each issue (E/D/X per check).
+REALIGN_BY_DIM: dict[str, str] = {}
 _GATE_ORDER = ("O", "Q", "GL", "E", "D", "X", "R", "V", "RR", "DC")
 
 

@@ -66,11 +66,7 @@ _WORKFLOW_ID = "lulu-decision"
 _CORPUS_ID = "lulu-decision-composed"
 _CORPUS_VERSION = "1"
 _CORPUS_REF = f"{_CORPUS_ID}@{_CORPUS_VERSION}"
-_DIMENSION_ORDER = (
-    "e-d-direction-match",
-    "d-x-phase-align",
-    "gap-assumption-align",
-)
+_DIMENSION_ORDER = ("decision-consistency",)
 
 
 def _init_evaluate_state(

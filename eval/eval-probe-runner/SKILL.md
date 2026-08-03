@@ -12,7 +12,7 @@ description: >
 
 Terminal runner subagent. Probes **one Dimension** per invocation (from EvalCorpus dispatch).
 
-> Evaluating-stage dimensions are composed from the active workflow profile's `dimension-defs/` (resolved via `--workflow` / `$EVAL_CONTROL` adapter).
+> Evaluating-stage dimensions are composed from the active workflow adapter's `dimension-defs/` (resolved via caller-supplied adapter config / `$EVAL_CONTROL`).
 
 ---
 

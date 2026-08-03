@@ -135,15 +135,17 @@ Routing outcomes:
 
 ## Mechanical command
 
-`$EVAL_CONTROL` — eval-domain state machine. **Invoke via the generic profile-driven entry** (`eval/scripts/eval_entry.py`); do not call `eval_control.py` directly.
+`$EVAL_CONTROL` — eval-domain state machine. **Invoke via caller-supplied adapter config**
+(`eval/scripts/eval_entry.py`); do not call `eval_control.py` directly.
 
-The entry reads `--workflow` (= compose profile id) and dynamically loads the `WorkflowAdapter`
-declared by that profile's `eval.adapter_module` / `eval.adapter_class` — no stage name is
-hardcoded here (mirrors `start.py`'s `StartAdapter` loading).
+Callers pass one JSON config (`--adapter-config-file` or `--adapter-config`) containing at
+least `adapter_module` / `adapter_class`. Compose stages use
+`compose/scripts/core/compose_eval_control.py` to passthrough `compose-profile.json.eval`.
+Decision uses `$SKILL_DIR/eval/eval-profile.json`. Eval does not discover stages.
 
 ```bash
 python3 {$SKILL_ROOT}/eval/scripts/eval_entry.py \
-  --workflow <profile-id> \
+  --adapter-config-file <adapter-config.json> \
   --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand> [args...]
 ```
 

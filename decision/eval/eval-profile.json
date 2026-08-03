@@ -1,0 +1,6 @@
+{
+  "workflow_id": "lulu-decision",
+  "enabled": true,
+  "adapter_module": "decision/scripts/eval/decision_eval_adapter.py",
+  "adapter_class": "DecisionEvalAdapter"
+}

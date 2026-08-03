@@ -28,7 +28,7 @@ from dec_gate_state_schema import GATE_ORDER, init_gate_state, save_gate_state  
 from dec_register_schema import init_registers, save_registers  # noqa: E402
 from dec_session_state_schema import write_session_state  # noqa: E402
 from dec_workflow_common import CACHE_DIR  # noqa: E402
-from eval_adapter_registry import load_eval_adapter  # noqa: E402
+from eval_adapter_config import load_eval_adapter_from_config  # noqa: E402
 from eval_handoff_schema import validate_eval_handoff_v2  # noqa: E402
 
 
@@ -121,8 +121,11 @@ def _seed_dc_session(project_root: Path, cycle_id: str) -> Path:
     return session
 
 
-def test_registry_loads_decision_adapter() -> None:
-    adapter = load_eval_adapter("lulu-decision")
+def test_profile_config_loads_decision_adapter() -> None:
+    profile = (
+        Path(__file__).resolve().parents[2] / "eval" / "eval-profile.json"
+    )
+    adapter = load_eval_adapter_from_config(profile)
     assert adapter.__class__.__name__ == "DecisionEvalAdapter"
 
 
@@ -157,7 +160,8 @@ def test_fail_exit_sets_realign_and_hard_block(tmp_path: Path) -> None:
         "decision",
         issues=[
             {
-                "dimension_id": "e-d-direction-match",
+                "dimension_id": "decision-consistency",
+                "realign_gate": "E",
                 "location": "settled_direction",
                 "description": "mismatch",
             }
@@ -174,7 +178,13 @@ def test_fail_exit_sets_realign_and_hard_block(tmp_path: Path) -> None:
         tmp_path,
         cycle_id,
         "decision",
-        issues=[{"dimension_id": "d-x-phase-align", "description": "phase"}],
+        issues=[
+            {
+                "dimension_id": "decision-consistency",
+                "realign_gate": "D",
+                "description": "phase",
+            }
+        ],
     )
     payload = _run_json(cmd_check_rounds, tmp_path, cycle_id, "decision")
     assert payload["hard_blocked"] is True
@@ -195,7 +205,13 @@ def test_pass_exit_resets_failure_count(tmp_path: Path) -> None:
         tmp_path,
         cycle_id,
         "decision",
-        issues=[{"dimension_id": "gap-assumption-align", "description": "g"}],
+        issues=[
+            {
+                "dimension_id": "decision-consistency",
+                "realign_gate": "X",
+                "description": "g",
+            }
+        ],
     )
     assert adapter.enter_evaluating(cycle_id, tmp_path)["ok"] is True
     payload = _run_json(cmd_pass_exit, tmp_path, cycle_id, "decision")
