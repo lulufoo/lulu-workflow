@@ -40,6 +40,7 @@ from workflow_state_schema import (  # noqa: E402
 )
 
 from eval_handoff_control import resolve_evaluate_state_abs  # noqa: E402
+from compose_eval_adapter_support import ComposeEvalAdapterSupport  # noqa: E402
 from session_evaluating import (  # noqa: E402
     enter_evaluating_state,
     rollback_evaluating_phase,
@@ -59,8 +60,10 @@ PRODUCT_SPEC_COMPOSED_CORPUS_REF = (
     f"{PRODUCT_SPEC_COMPOSED_CORPUS_ID}@{PRODUCT_SPEC_COMPOSED_CORPUS_VERSION}"
 )
 
-class ProductSpecEvalAdapter:
+class ProductSpecEvalAdapter(ComposeEvalAdapterSupport):
     """WorkflowAdapter for lulu-spec cache layout and state machine."""
+
+    WORKFLOW_ID = _WORKFLOW_ID
 
     def resolve_workflow_state_path(
         self,

@@ -74,3 +74,37 @@ class WorkflowAdapter(Protocol):
     def enter_evaluating(
         self, cycle_id: str, project_root: Path
     ) -> dict[str, Any]: ...
+
+    def request_eval_handoff(
+        self,
+        cycle_id: str,
+        project_root: Path,
+        *,
+        require_evaluating: bool = True,
+    ) -> dict[str, Any]: ...
+
+    def commit_eval_artifacts(
+        self,
+        cycle_id: str,
+        project_root: Path,
+        *,
+        manifest: dict[str, Any],
+    ) -> dict[str, Any]: ...
+
+    def commit_evaluate_state(
+        self,
+        cycle_id: str,
+        project_root: Path,
+        *,
+        staged_state_path: Path,
+        set_phase_evaluating: bool = False,
+        previous_done_required: bool = False,
+    ) -> dict[str, Any]: ...
+
+    def discard_eval_staging(
+        self,
+        cycle_id: str,
+        project_root: Path,
+        *,
+        lease_id: str,
+    ) -> dict[str, Any]: ...

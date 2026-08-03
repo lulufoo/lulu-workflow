@@ -39,6 +39,7 @@ from workflow_state_schema import (  # noqa: E402
 )
 
 from eval_handoff_control import resolve_evaluate_state_abs  # noqa: E402
+from compose_eval_adapter_support import ComposeEvalAdapterSupport  # noqa: E402
 from session_evaluating import (  # noqa: E402
     enter_evaluating_state,
     rollback_evaluating_phase,
@@ -68,8 +69,10 @@ LULU_PLAN_COMPOSED_CORPUS_REF = (
     f"{LULU_PLAN_COMPOSED_CORPUS_ID}@{LULU_PLAN_COMPOSED_CORPUS_VERSION}"
 )
 
-class TechPlanEvalAdapter:
+class TechPlanEvalAdapter(ComposeEvalAdapterSupport):
     """WorkflowAdapter for lulu-plan cache layout and state machine."""
+
+    WORKFLOW_ID = _WORKFLOW_ID
 
     def resolve_workflow_state_path(
         self, cycle_id: str, project_root: Path

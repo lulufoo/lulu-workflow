@@ -70,7 +70,7 @@ def test_intent_gap_dimension_bound(profile_id: str) -> None:
     source = method.get("source") or {}
     assert method.get("kind") == "builtin"
     assert source.get("procedure_id") == "intent_gap_probes"
-    assert data.get("eval_target", {}).get("path") == "{compose_doc}"
+    assert data.get("eval_target", {}).get("path") == "{eval_target_path}"
 
 
 @pytest.mark.parametrize("profile_id", sorted(_PROFILES))

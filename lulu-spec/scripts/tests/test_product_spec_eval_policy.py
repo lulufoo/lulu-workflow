@@ -37,7 +37,7 @@ class TestProductSpecEvalPolicy:
             dimension_defs_dir=_DIMENSION_DEFS,
         )
         assert [d["id"] for d in defs] == ["product-doc-quality"]
-        assert defs[0]["eval_target"]["path"] == "{compose_doc}"
+        assert defs[0]["eval_target"]["path"] == "{eval_target_path}"
 
     def test_select_dimension_defs_topic_blocks(self):
         with pytest.raises(ValueError, match="topic cycles do not evaluate in lulu-spec"):

@@ -41,6 +41,7 @@ from workflow_state_schema import (  # noqa: E402
 from resolved_refs_schema import frozen_delivered_path_by_type  # noqa: E402
 
 from eval_handoff_control import resolve_evaluate_state_abs  # noqa: E402
+from compose_eval_adapter_support import ComposeEvalAdapterSupport  # noqa: E402
 from session_evaluating import (  # noqa: E402
     enter_evaluating_state,
     rollback_evaluating_phase,
@@ -60,8 +61,10 @@ TECH_DESIGN_COMPOSED_CORPUS_REF = (
     f"{TECH_DESIGN_COMPOSED_CORPUS_ID}@{TECH_DESIGN_COMPOSED_CORPUS_VERSION}"
 )
 
-class TechDesignEvalAdapter:
+class TechDesignEvalAdapter(ComposeEvalAdapterSupport):
     """WorkflowAdapter for lulu-design cache layout and state machine."""
+
+    WORKFLOW_ID = _WORKFLOW_ID
 
     def resolve_workflow_state_path(
         self, cycle_id: str, project_root: Path

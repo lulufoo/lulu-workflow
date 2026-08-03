@@ -36,6 +36,7 @@ _SCHEMA: dict[str, Any] = {
         "codebase_strategy": ["all"],
     },
     "bind_placeholders": [
+        "eval_target_path",
         "compose_doc",
         "upstream_baseline_ref",
         "cycle_type",

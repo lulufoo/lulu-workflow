@@ -54,6 +54,7 @@ class TestGetSchema:
     def test_has_bind_placeholders(self):
         schema = get_schema()
         assert schema["bind_placeholders"] == [
+            "eval_target_path",
             "compose_doc",
             "upstream_baseline_ref",
             "cycle_type",
@@ -78,8 +79,8 @@ class TestValidateCorpus:
         dim = {
             "id": "a",
             "label": "A",
-            "eval_target": {"path": "{compose_doc}"},
-            "remediation_target": {"path": "{compose_doc}"},
+            "eval_target": {"path": "{eval_target_path}"},
+            "remediation_target": {"path": "{eval_target_path}"},
             "sots": [],
             "method": {
                 "kind": "external",
@@ -103,6 +104,7 @@ class TestValidateCorpus:
 
 class TestExpandCorpus:
     _BIND = {
+        "eval_target_path": "/abs/tech-doc.md",
         "compose_doc": "/abs/tech-doc.md",
         "upstream_baseline_ref": "/abs/product-doc.md",
         "cycle_type": "feature",
@@ -138,8 +140,8 @@ class TestExpandCorpus:
         dim = {
             "id": "a",
             "label": "A",
-            "eval_target": {"path": "{compose_doc}"},
-            "remediation_target": {"path": "{compose_doc}"},
+            "eval_target": {"path": "{eval_target_path}"},
+            "remediation_target": {"path": "{eval_target_path}"},
             "sots": [
                 {
                     "kind": "codebase",

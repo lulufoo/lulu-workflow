@@ -32,24 +32,18 @@ Subcommands:
 from __future__ import annotations
 
 import argparse
+import fcntl
 import hashlib
 import json
 import re
 import sys
 from contextvars import ContextVar
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 _EVAL_LIB = Path(__file__).resolve().parent
 sys.path.insert(0, str(_EVAL_LIB))
 
-_WORKFLOW_ROOT = _EVAL_LIB.parent.parent
-_KERNEL_SCRIPTS = _WORKFLOW_ROOT / "compose" / "scripts"
-if str(_KERNEL_SCRIPTS) not in sys.path:
-    sys.path.insert(0, str(_KERNEL_SCRIPTS))
-import kernel_bootstrap  # noqa: E402
-
-kernel_bootstrap.ensure_kernel_paths()
 from review_io import (  # noqa: E402
     count_resolved,
     has_escalated,
@@ -78,17 +72,13 @@ from evaluate_state_ops import (  # noqa: E402
     build_initial_evaluate_state_for_corpus,
     dimension_status_legacy_map,
     dispatch_legacy_for_corpus,
-    init_evaluate_state_for_corpus,
     merge_current_dimension,
-    save_evaluate_state_locked,
 )
 from workflow_adapter import WorkflowAdapter  # noqa: E402
-from eval_handoff_control import (  # noqa: E402
-    commit_artifacts,
-    commit_evaluate_state,
-    request_handoff,
+from eval_handoff_schema import (  # noqa: E402
+    build_artifact_manifest_v2,
+    validate_eval_handoff_v2,
 )
-from eval_handoff_schema import build_artifact_manifest  # noqa: E402
 
 _ADAPTER_CTX: ContextVar[WorkflowAdapter | None] = ContextVar("workflow_adapter", default=None)
 _WORKFLOW_ID_CTX: ContextVar[str | None] = ContextVar("workflow_id", default=None)
@@ -132,18 +122,17 @@ def _refresh_handoff(
     *,
     require_evaluating: bool = True,
 ) -> dict[str, Any]:
-    """Request a fresh Compose handoff and store it in the context var."""
-    result = request_handoff(
+    """Request a fresh workflow handoff and store it in the context var."""
+    handoff = _adapter().request_eval_handoff(
         cycle_id,
         project_root,
-        profile_id=_workflow_id(),
         require_evaluating=require_evaluating,
     )
-    if not result.get("ok"):
-        raise ValueError(result.get("error") or "Compose request-handoff failed")
-    handoff = result.get("handoff")
     if not isinstance(handoff, dict):
-        raise ValueError("Compose handoff missing")
+        raise ValueError("workflow EvalHandoff missing")
+    errors = validate_eval_handoff_v2(handoff)
+    if errors:
+        raise ValueError("; ".join(errors))
     _HANDOFF_CTX.set(handoff)
     return handoff
 
@@ -192,17 +181,16 @@ def _paths_from_handoff() -> dict[str, str] | None:
     context = _handoff_context()
     if not context:
         return None
+    bindings = context.get("bindings")
+    if not isinstance(bindings, dict):
+        raise ValueError("EvalHandoff bindings missing")
     return {
-        "compose_doc": str(context["compose_doc"]),
+        "eval_target_path": str(bindings.get("eval_target_path", "")),
         "evaluate_state": str(context["evaluate_state_path"]),
         "evaluate_dir": str(context["evaluate_dir"]),
         "write_staging_dir": str(context["write_staging_dir"]),
         "lease_id": str(context["lease_id"]),
-        "focus_l": str(context["focus_l"]),
-        "pointer_fingerprint": str(context["pointer_fingerprint"]),
-        "layout": str(context.get("layout", "per-l")),
-        "slice_dir": str(context["slice_dir"]),
-        "revision_dir": str(context["revision_dir"]),
+        "session_key": str(context["session_key"]),
     }
 
 
@@ -251,6 +239,64 @@ def _evaluate_state_path(cycle_id: str, project_root: Path) -> Path:
     if context:
         return Path(str(context["evaluate_state_path"]))
     return _adapter().resolve_evaluate_state_path(cycle_id, project_root)
+
+
+def _commit_staged_evaluate_state(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    patch: dict[str, str] | None = None,
+    update: Callable[[dict[str, str]], dict[str, str]] | None = None,
+    state: dict[str, str] | None = None,
+    set_phase_evaluating: bool = False,
+    previous_done_required: bool = False,
+) -> str | None:
+    """Stage a full evaluate state and publish it through the workflow adapter."""
+    paths = _paths_from_handoff()
+    if paths is None:
+        _refresh_handoff(
+            cycle_id,
+            project_root,
+            require_evaluating=not set_phase_evaluating,
+        )
+        paths = _paths_from_handoff()
+    if paths is None:
+        raise ValueError("EvalHandoff paths missing")
+
+    formal_state_path = Path(paths["evaluate_state"])
+    lock_path = formal_state_path.with_suffix(formal_state_path.suffix + ".lock")
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    lock_path.touch(exist_ok=True)
+    with lock_path.open("w", encoding="utf-8") as lock_file:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        try:
+            if state is not None:
+                if patch is not None or update is not None:
+                    raise ValueError("state cannot be combined with patch or update")
+                next_state = dict(state)
+            else:
+                current_state = load_evaluate_state(formal_state_path)
+                if update is not None:
+                    next_state = update(current_state)
+                else:
+                    next_state = dict(current_state)
+                    next_state.update(patch or {})
+
+            staged_state_path = Path(paths["write_staging_dir"]) / "evaluate-state.md"
+            save_evaluate_state(staged_state_path, next_state, merge=False)
+            publish = _adapter().commit_evaluate_state(
+                cycle_id,
+                project_root,
+                staged_state_path=staged_state_path,
+                set_phase_evaluating=set_phase_evaluating,
+                previous_done_required=previous_done_required,
+            )
+            if publish.get("ok"):
+                return None
+            staged_state_path.unlink(missing_ok=True)
+            return str(publish.get("error") or "commit-evaluate-state failed")
+        finally:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
 
 _CMD_INIT_ROUND = "init-round"
@@ -311,7 +357,7 @@ def _bind_vars(
     project_root: Path,
 ) -> dict[str, str]:
     bind = {
-        "compose_doc": paths["compose_doc"],
+        "eval_target_path": paths.get("eval_target_path", ""),
         "upstream_baseline_ref": _upstream_baseline_ref(cycle_id, project_root),
         "cycle_type": _adapter().detect_cycle_type(cycle_id),
         "M": str(evaluate_round),
@@ -725,44 +771,33 @@ def _start_next_eval_round(
     mode: str,
 ) -> dict[str, Any]:
     """Allocate next per-L (or legacy) round, re-init evaluate-state, return payload."""
-    del ws_path
+    del ws_path, state
     try:
         handoff = _refresh_handoff(cycle_id, project_root, require_evaluating=True)
     except ValueError as exc:
         return _failure(_CMD_BEGIN_EVAL_ROUND, str(exc))
     context = handoff["context"]
-    layout = str(context.get("layout", "per-l"))
     evaluate_round = int(context["evaluate_round"])
     formal_es = Path(str(context["evaluate_state_path"]))
-    if layout == "legacy-root":
-        merged = dict(state)
-        merged["evaluate_round"] = str(evaluate_round)
-        _adapter().save_workflow_state(cycle_id, project_root, merged, merge=False)
 
-    # Write the next-round state to a temp file first; only replace formal on commit.
-    staging_dir = Path(str(context["write_staging_dir"]))
-    staged_es = staging_dir / "evaluate-state.md"
     corpus = _load_corpus(cycle_id, project_root)
     cycle_type = _adapter().detect_cycle_type(cycle_id)
-    init_evaluate_state_for_corpus(
-        staged_es,
+    next_state = build_initial_evaluate_state_for_corpus(
         corpus,
         cycle_type=cycle_type,
         evaluate_round=evaluate_round,
-        focus_l=str(context.get("focus_l", "")),
+        focus_l=str(context.get("session_key", "")),
     )
-    publish = commit_evaluate_state(
+    error = _commit_staged_evaluate_state(
         cycle_id,
         project_root,
-        staged_state_path=staged_es,
-        profile_id=_workflow_id(),
+        state=next_state,
         previous_done_required=formal_es.is_file(),
     )
-    if not publish.get("ok"):
-        staged_es.unlink(missing_ok=True)
+    if error is not None:
         return _failure(
             _CMD_BEGIN_EVAL_ROUND,
-            publish.get("error") or "commit-evaluate-state failed",
+            error,
         )
     del mode
     return build_eval_loop_payload(cycle_id, project_root)
@@ -971,7 +1006,7 @@ def _build_runner_input(
     for sot in sots:
         if sot.get("kind") == "url":
             ref = str(sot.get("ref", ""))
-            if ref and ref != paths["compose_doc"]:
+            if ref and ref != paths.get("eval_target_path", ""):
                 runner_input["UPSTREAM_BASELINE_REF"] = ref
                 break
     if "UPSTREAM_BASELINE_REF" not in runner_input:
@@ -990,31 +1025,43 @@ def init_round(
     """Initialize evaluate-state.md for the current active revision / L."""
     if mode is None:
         mode = _adapter().load_workflow_state(cycle_id, project_root)["mode"]
+    if _handoff_context() is None:
+        try:
+            _refresh_handoff(cycle_id, project_root, require_evaluating=False)
+        except ValueError as exc:
+            return _failure(_CMD_INIT_ROUND, str(exc))
     es_path = _evaluate_state_path(cycle_id, project_root)
     corpus = _load_corpus(cycle_id, project_root)
     cycle_type = _adapter().detect_cycle_type(cycle_id)
     context = _handoff_context() or {}
     evaluate_round = None
-    focus_l = ""
+    session_key = ""
     if context:
         try:
             evaluate_round = int(context.get("evaluate_round", 0)) or None
         except (TypeError, ValueError):
             evaluate_round = None
-        focus_l = str(context.get("focus_l", ""))
-    init_evaluate_state_for_corpus(
-        es_path,
+        session_key = str(context.get("session_key", ""))
+    initial_state = build_initial_evaluate_state_for_corpus(
         corpus,
         cycle_type=cycle_type,
         evaluate_round=evaluate_round,
-        focus_l=focus_l,
+        focus_l=session_key,
     )
+    error = _commit_staged_evaluate_state(
+        cycle_id,
+        project_root,
+        state=initial_state,
+        set_phase_evaluating=True,
+    )
+    if error is not None:
+        return _failure(_CMD_INIT_ROUND, error)
     return _success(
         _CMD_INIT_ROUND,
         mode=mode,
         path=es_path.resolve().as_posix(),
         evaluate_round=evaluate_round,
-        focus_l=focus_l,
+        session_key=session_key,
     )
 
 
@@ -1066,12 +1113,18 @@ def begin_dimension(
         updated = merge_current_dimension(data, dim, "in_progress", corpus=corpus)
         if lease_id:
             updated["active_lease_id"] = lease_id
-        if paths.get("focus_l"):
-            updated["focus_l"] = str(paths["focus_l"])
+        if paths.get("session_key"):
+            updated["focus_l"] = str(paths["session_key"])
         updated["evaluate_round"] = str(evaluate_round)
         return updated
 
-    save_evaluate_state_locked(es_path, _patch)
+    error = _commit_staged_evaluate_state(
+        cycle_id,
+        project_root,
+        update=_patch,
+    )
+    if error is not None:
+        return _failure(_CMD_BEGIN_DIMENSION, error, dim=dim)
 
     runner_input = _build_runner_input(
         cycle_id,
@@ -1108,22 +1161,22 @@ def _publish_staged_review_if_needed(
         return None
 
     paths = _paths_from_handoff() or {}
-    focus_l = str(eval_data.get("focus_l") or paths.get("focus_l") or "")
-    fingerprint = str(paths.get("pointer_fingerprint") or "")
-    if not focus_l or not fingerprint:
-        # Refresh handoff to obtain fingerprint for commit validation.
+    session_key = str(paths.get("session_key") or "")
+    if not session_key:
+        # Refresh handoff to obtain the current generic session context.
         try:
-            handoff = _refresh_handoff(cycle_id, project_root, require_evaluating=True)
+            _refresh_handoff(cycle_id, project_root, require_evaluating=True)
         except ValueError as exc:
             return _failure(_CMD_FINISH_DIMENSION_PROBE, str(exc))
-        context = handoff["context"]
-        focus_l = str(context["focus_l"])
-        fingerprint = str(context["pointer_fingerprint"])
-        slice_dir = Path(str(context["slice_dir"]))
-    else:
-        slice_dir = Path(str(paths.get("slice_dir") or formal_review_path.parent.parent))
+        paths = _paths_from_handoff() or {}
+        session_key = str(paths.get("session_key") or "")
+    if not session_key:
+        return _failure(
+            _CMD_FINISH_DIMENSION_PROBE,
+            "EvalHandoff session_key missing",
+        )
 
-    staging = slice_dir / ".eval-staging" / lease_id
+    staging = Path(str(paths["write_staging_dir"]))
     staged = staging / review_filename
     if not staged.is_file():
         # Compatibility: allow already-published formal path (legacy runners).
@@ -1136,20 +1189,18 @@ def _publish_staged_review_if_needed(
         )
 
     digest = hashlib.sha256(staged.read_bytes()).hexdigest()
-    manifest = build_artifact_manifest(
+    manifest = build_artifact_manifest_v2(
         lease_id=lease_id,
-        pointer_fingerprint_value=fingerprint,
-        focus_l=focus_l,
+        session_key=session_key,
         evaluate_round=evaluate_round,
         staged_relative_path=review_filename,
         final_relative_path=review_filename,
         artifact_digest=digest,
     )
-    result = commit_artifacts(
+    result = _adapter().commit_eval_artifacts(
         cycle_id,
         project_root,
         manifest=manifest,
-        profile_id=_workflow_id(),
     )
     if not result.get("ok"):
         return _failure(
@@ -1212,8 +1263,6 @@ def finish_dimension_probe(
     total_issues = str(len(rows))
     dim_id = _canonical_dim(cycle_id, project_root, dim)
 
-    es_path = _evaluate_state_path(cycle_id, project_root)
-
     corpus = _load_corpus(cycle_id, project_root)
 
     def _patch(data: dict[str, str]) -> dict[str, str]:
@@ -1222,7 +1271,13 @@ def finish_dimension_probe(
         updated["active_lease_id"] = ""
         return updated
 
-    save_evaluate_state_locked(es_path, _patch)
+    error = _commit_staged_evaluate_state(
+        cycle_id,
+        project_root,
+        update=_patch,
+    )
+    if error is not None:
+        return _failure(_CMD_FINISH_DIMENSION_PROBE, error, dim=dim)
 
     return _success(
         _CMD_FINISH_DIMENSION_PROBE,
@@ -1369,14 +1424,16 @@ def probe_complete(cycle_id: str, project_root: Path) -> dict[str, Any]:
 
     total = sum_issue_totals(eval_data, dispatch)
 
-    es_path = _evaluate_state_path(cycle_id, project_root)
-    save_evaluate_state(
-        es_path,
-        {
+    error = _commit_staged_evaluate_state(
+        cycle_id,
+        project_root,
+        patch={
             "total_issues": str(total),
             "fix_phase": "artifact-remediation",
         },
     )
+    if error is not None:
+        return _failure(_CMD_PROBE_COMPLETE, error, current_state=state["current_state"])
 
     return _success(
         _CMD_PROBE_COMPLETE,
@@ -1684,14 +1741,16 @@ def check_dimension_artifact_remediation(
     if not has_pending_sot(rows):
         merged = merge_current_dimension(merged, dim, "complete", corpus=corpus)
 
-    es_path = _evaluate_state_path(cycle_id, project_root)
-    save_evaluate_state(
-        es_path,
-        {
+    error = _commit_staged_evaluate_state(
+        cycle_id,
+        project_root,
+        patch={
             "issue_counts": merged["issue_counts"],
             "dimension_status": merged["dimension_status"],
         },
     )
+    if error is not None:
+        return _failure(_CMD_CHECK_DIMENSION_ARTIFACT, error, dim=dim)
 
     return _success(
         _CMD_CHECK_DIMENSION_ARTIFACT,
@@ -1745,14 +1804,20 @@ def artifact_remediation_complete(
             int(entry.get("resolved", "0") or "0") for entry in counts.values()
         )
 
-    es_path = _evaluate_state_path(cycle_id, project_root)
-    save_evaluate_state(
-        es_path,
-        {
+    error = _commit_staged_evaluate_state(
+        cycle_id,
+        project_root,
+        patch={
             "resolved_issues": str(resolved_total),
             "fix_phase": "sot-remediation",
         },
     )
+    if error is not None:
+        return _failure(
+            _CMD_ARTIFACT_REMEDIATION_COMPLETE,
+            error,
+            current_state=state["current_state"],
+        )
 
     return _success(
         _CMD_ARTIFACT_REMEDIATION_COMPLETE,
@@ -1956,8 +2021,18 @@ def check_dimension_sot_remediation(
     if escalated:
         patch["eval_status"] = "abandoned"
 
-    es_path = _evaluate_state_path(cycle_id, project_root)
-    save_evaluate_state(es_path, patch)
+    error = _commit_staged_evaluate_state(
+        cycle_id,
+        project_root,
+        patch=patch,
+    )
+    if error is not None:
+        return _failure(
+            _CMD_CHECK_DIMENSION_SOT,
+            error,
+            dim=dim,
+            abandoned=False,
+        )
 
     return _success(
         _CMD_CHECK_DIMENSION_SOT,
@@ -1991,8 +2066,17 @@ def sot_remediation_complete(
         )
 
     if eval_data.get("eval_status") == "abandoned":
-        es_path = _evaluate_state_path(cycle_id, project_root)
-        save_evaluate_state(es_path, {"fix_phase": "done"})
+        error = _commit_staged_evaluate_state(
+            cycle_id,
+            project_root,
+            patch={"fix_phase": "done"},
+        )
+        if error is not None:
+            return _failure(
+                _CMD_SOT_REMEDIATION_COMPLETE,
+                error,
+                current_state=state["current_state"],
+            )
         return _success(
             _CMD_SOT_REMEDIATION_COMPLETE,
             fix_phase="done",
@@ -2030,14 +2114,21 @@ def sot_remediation_complete(
         for dim in dispatch
     )
 
-    es_path = _evaluate_state_path(cycle_id, project_root)
-    save_evaluate_state(
-        es_path,
-        {
+    error = _commit_staged_evaluate_state(
+        cycle_id,
+        project_root,
+        patch={
             "resolved_issues": str(resolved_total),
             "fix_phase": "done",
         },
     )
+    if error is not None:
+        return _failure(
+            _CMD_SOT_REMEDIATION_COMPLETE,
+            error,
+            current_state=state["current_state"],
+        )
+    es_path = _evaluate_state_path(cycle_id, project_root)
     eval_data_after = load_evaluate_state(es_path)
     if not all_dims_at_least(eval_data_after, _dispatch_canonical(cycle_id, project_root), "complete"):
         corpus = _load_corpus(cycle_id, project_root)
@@ -2126,15 +2217,18 @@ def complete_round(cycle_id: str, project_root: Path) -> dict[str, Any]:
     )
     fix_severity, fix_severity_reason = compute_fix_severity(issues)
 
-    es_path = _evaluate_state_path(cycle_id, project_root)
-    save_evaluate_state(
-        es_path,
-        {
+    error = _commit_staged_evaluate_state(
+        cycle_id,
+        project_root,
+        patch={
             "eval_status": "done",
             "fix_severity": fix_severity,
             "fix_severity_reason": fix_severity_reason,
         },
     )
+    if error is not None:
+        return _failure(_CMD_COMPLETE_ROUND, error, current_state=state["current_state"])
+    es_path = _evaluate_state_path(cycle_id, project_root)
     eval_data = load_evaluate_state(es_path)
 
     return _success(

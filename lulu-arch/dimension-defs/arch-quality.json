@@ -3,10 +3,10 @@
   "legacy_alias": "aq",
   "label": "Topic Architecture Quality (Intent Probes)",
   "eval_target": {
-    "path": "{compose_doc}"
+    "path": "{eval_target_path}"
   },
   "remediation_target": {
-    "path": "{compose_doc}"
+    "path": "{eval_target_path}"
   },
   "sots": [
     {

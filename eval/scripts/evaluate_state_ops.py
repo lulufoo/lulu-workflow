@@ -23,7 +23,8 @@ from evaluate_state_schema import (
 )
 from workflow_adapter import WorkflowAdapter
 
-# Requires compose kernel paths on sys.path (callers run kernel_bootstrap first).
+# Compose adapter calls may omit its already-resolved round/focus. Preserve the
+# legacy fallback until the generic handoff v2 carries those bindings.
 from discussion_pointer_schema import load_discussion_pointer  # noqa: E402
 from workflow_profile_paths import eval_layout_for_revision  # noqa: E402
 
@@ -95,7 +96,6 @@ def init_evaluate_state_for_session(
     corpus = adapter.resolve_eval_corpus(cycle_id, project_root)
     cycle_type = adapter.detect_cycle_type(cycle_id)
     if evaluate_round is None or not focus_l:
-        # Prefer Compose layout helpers when caller omitted round / focus.
         revision_dir = adapter.resolve_workflow_state_path(
             cycle_id, project_root
         ).parent

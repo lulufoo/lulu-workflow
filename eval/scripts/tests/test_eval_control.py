@@ -230,6 +230,7 @@ class TestInitRound:
         ws = _seed_session(tmp_path)
         init_working_ready(ws, mode="product")
         seed_frozen_delivered(ws, product_delivered_refs("/p.md"))
+        mark_focus_intake_done(ws.parent)
         result = init_round(_CYCLE, tmp_path, mode="product")
         assert result["ok"] is True
         es = load_evaluate_state(ws.parent / "L1" / "evaluate-state.md")
@@ -244,6 +245,7 @@ class TestInitRound:
     def test_tech_mode(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
         init_working_ready(ws, mode="tech")
+        mark_focus_intake_done(ws.parent)
         init_round(_CYCLE, tmp_path, mode="tech")
         es = load_evaluate_state(ws.parent / "L1" / "evaluate-state.md")
         dim_map = _dim_map(es, tmp_path)
@@ -252,6 +254,7 @@ class TestInitRound:
     def test_product_mode_without_delivered_refs_uses_base_dims(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
         init_working_ready(ws, mode="product")
+        mark_focus_intake_done(ws.parent)
         init_round(_CYCLE, tmp_path, mode="product")
         es = load_evaluate_state(ws.parent / "L1" / "evaluate-state.md")
         assert _dim_map(es, tmp_path) == {"e2": "pending", "e3": "pending"}
@@ -320,6 +323,72 @@ class TestBeginDimension:
         assert "EXECUTION_MODE" not in ri
         assert "WORKFLOW_ID" in result["dispatch_input"]
         assert "EVAL_TARGET_PATH" in result["dispatch_input"]
+
+    def test_commits_staged_state_through_adapter(self, tmp_path: Path, monkeypatch):
+        ws = _setup_evaluating(tmp_path)
+        original_commit = _ADAPTER.commit_evaluate_state
+        captured: dict[str, object] = {}
+
+        def _commit_spy(
+            cycle_id: str,
+            project_root: Path,
+            *,
+            staged_state_path: Path,
+            set_phase_evaluating: bool = False,
+            previous_done_required: bool = False,
+        ) -> dict[str, object]:
+            captured["path"] = staged_state_path
+            captured["state"] = load_evaluate_state(staged_state_path)
+            captured["set_phase_evaluating"] = set_phase_evaluating
+            captured["previous_done_required"] = previous_done_required
+            return original_commit(
+                cycle_id,
+                project_root,
+                staged_state_path=staged_state_path,
+                set_phase_evaluating=set_phase_evaluating,
+                previous_done_required=previous_done_required,
+            )
+
+        monkeypatch.setattr(_ADAPTER, "commit_evaluate_state", _commit_spy)
+
+        result = begin_dimension(_CYCLE, tmp_path, dim="e2")
+
+        assert result["ok"] is True
+        assert Path(str(captured["path"])).name == "evaluate-state.md"
+        assert _dim_map(captured["state"], tmp_path)["e2"] == "in_progress"
+        assert captured["set_phase_evaluating"] is False
+        assert captured["previous_done_required"] is False
+        assert _dim_map(load_evaluate_state(ws.parent / "evaluate-state.md"), tmp_path)["e2"] == "in_progress"
+
+    def test_adapter_rejection_leaves_formal_state_unchanged(
+        self,
+        tmp_path: Path,
+        monkeypatch,
+    ):
+        ws = _setup_evaluating(tmp_path)
+        es_path = ws.parent / "evaluate-state.md"
+        before = es_path.read_bytes()
+        captured: dict[str, object] = {}
+
+        def _reject_commit(
+            _cycle_id: str,
+            _project_root: Path,
+            *,
+            staged_state_path: Path,
+            set_phase_evaluating: bool = False,
+            previous_done_required: bool = False,
+        ) -> dict[str, object]:
+            captured["state"] = load_evaluate_state(staged_state_path)
+            return {"ok": False, "error": "test adapter rejection"}
+
+        monkeypatch.setattr(_ADAPTER, "commit_evaluate_state", _reject_commit)
+
+        result = begin_dimension(_CYCLE, tmp_path, dim="e2")
+
+        assert result["ok"] is False
+        assert result["reason"] == "test adapter rejection"
+        assert _dim_map(captured["state"], tmp_path)["e2"] == "in_progress"
+        assert es_path.read_bytes() == before
 
     def test_accepts_canonical_dim_id(self, tmp_path: Path):
         ws = _setup_evaluating(tmp_path)
