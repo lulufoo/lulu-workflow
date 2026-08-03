@@ -1,60 +1,107 @@
 ---
 name: decision/dc-delivery-runner
 description: >-
-  DC gate runner for decision. Delivery-ready check, formal Eval, user
-  confirmation, gate-close DC, and session complete. Invoked by decision/SKILL.md.
+  DC gate runner for decision. Delivery Confirmation: readiness, Decision Eval,
+  render, user confirm, gate-close DC, complete. Invoked by decision/SKILL.md.
 meta-skill-version: 1.0.0
 ---
 
 # dc-delivery-runner
 
-Execute **DC — Delivery Confirmation** (session completion gate). Confirm
-readiness via control CLI, run Decision Eval, then `$GATE_CONTROL complete`.
+Execute **DC — Delivery Confirmation** (session completion): clear delivery
+preconditions, present the decision doc, confirm with the user, then
+`gate-close` DC and `$GATE_CONTROL complete`.
 
 ## Blocking policy
 
-Control CLI non-zero → stop, report error, wait for user direction.
+If any control CLI exits non-zero: **stop**, report the error, wait for user
+direction. Do not continue the gate dialogue.
 
 ## Prerequisites
 
 <HARD-GATE>
-Do NOT proceed until you have read `../../../_runtime.md`
+Do NOT proceed until you have read `../../../_runtime.md` and
+`../../../_subagent.md`
 </HARD-GATE>
 
-- Gate contract: `$SKILL_DIR/gates/dc-delivery-confirmation.md`
+- `$SKILL_DIR` = `$SKILL_ROOT/decision`
+- `$CTX.active_gate` must be `DC` (from resolve-context)
 - Entry: R exit `dc`, V exit `dc`, or RR exit `dc`
-- `$CTX.active_gate` must be `DC`
+- Dialogue semantics SSOT: this file’s **Cognitive map** (no separate gate file)
+
+## Script Macros
+
+| Macro | Command |
+|-------|---------|
+| `$GATE_CONTROL` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>"` |
+| `$DEC_EVAL` | `python3 "$SKILL_DIR/scripts/dec_eval_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>"` |
+| `$EVAL_CONTROL` | `python3 "$SKILL_ROOT/eval/scripts/eval_entry.py" --adapter-config-file "$SKILL_DIR/eval/eval-profile.json" --project-root "$(pwd)" --cycle-id "<cycle_id>"` |
+| `$SESSION_INTEGRITY` | `python3 "$SKILL_DIR/scripts/dec_session_integrity.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>"` |
+
+Subcommand contracts: module docstring / `--help`. `$SUBAGENT_*`: `_subagent.md`.
+
+## Cognitive map
+
+### Goals
+
+| ID | Must be clear |
+|----|----------------|
+| `G-cleared` | Delivery preconditions hold: structural audit clean, Decision Eval pass, delivery `decision-doc.md` rendered. |
+| `G-confirm` | User confirms the decisions are correct to deliver (after any realign side routes). |
+
+### Coverage / bounds
+
+- **Entry paths** (any one): R→`dc` · V→`dc` · RR→`dc`.
+- **Decision-doc:** not maintained during the session; `$SESSION_INTEGRITY render` builds it once before present. Layout / section filtering: `render --help`. Template: `$FETCH_TEMPLATE --section decision --key decision_doc_template_url`.
+- **Present** (from rendered doc; do not show file paths): Decision Rationale; Scope (incl. exclusions); Assumptions & Risks (risk, Class, Verification); call out `Class=implementation` Handoff lines (remind only; do not block).
+- **Eval:** replaces AI Semantic Review; probe via sub-agent; fail→RS; no artifact/SoT remediation. Details: `eval/eval-profile.json`, `$DEC_EVAL` / `$EVAL_CONTROL` `--help`, `eval/methods/decision-consistency.md`.
+- **After close:** tell user `$CTX.after_dc.user_message`. Nested holder (`main/` / `Dx/`): this **node** is Completed; stage Delivered waits for holder `$APPROACH_DELIVER`.
+
+### Dialogue modes
+
+| Mode | When | Behavior |
+|------|------|----------|
+| `prepare` | `G-cleared` unmet | `$GATE_CONTROL check-delivery-ready` (fix all errors) → Decision Eval (`$DEC_EVAL` / `$EVAL_CONTROL`; probe via `$SUBAGENT_TOOL` + `$SUBAGENT_AWAIT_SYNC` + `eval/eval-probe-runner`; prompt shape: `eval/eval-rules.md` Step 2; fail→RS; skip remediation) → `$SESSION_INTEGRITY render`. |
+| `present` | `G-cleared` met | Present Coverage sections from `decision-doc.md`. |
+| `confirm` | Ready for G8 | Ask whether decisions are correct / any item to realign. |
+| `close` | User confirms | `gate-close` + `complete` with payload below; after_dc message. |
+
+### Pass criterion
+
+`G-confirm` with explicit user confirmation; close payload `user_confirmed: true`.
+
+### Side routes
+
+- Eval fail (not hard-blocked) → summarize issues → `$DEC_EVAL fail-exit` → RS at `realign_gate`; do not present completion.
+- Eval `hard_blocked` → stop; no DC close.
+- Confirm-time realign → load RS runner; after sync, `$GATE_CONTROL resolve-context` (fresh `$CTX`); restore `G-cleared` / `G-confirm` before close.
+- Identification hit → load G0 runner → `G0_COMPLETE` → resume DC dialogue.
+- G9 hit → load RS runner → after return, resume DC dialogue.
 
 ## Pipeline
 
-1. `$GATE_CONTROL resolve-context` — pin `$CTX`
-2. If `$CTX.gates.DC.status == stale`:
-   - Follow `$SKILL_DIR/references/stale-gate-update.md` steps 1–3 only (change points / old disposition / update proposal; user confirm on that proposal if needed)
-   - Do **not** run that file's step 4 (`gate-close`) or step 5 (`GATE_COMPLETE`) — DC close stays after readiness + Eval + user confirm
-   - Then continue from step 3 below
-3. Read and apply from `$CTX.domain_constraints` for all subsequent dialogue in this gate:
-   - `objective` — session intent; frame the entire gate within this goal
+**Entry:** `$CTX.active_gate` is `DC`. Run `$GATE_CONTROL resolve-context`; pin
+stdout JSON as `$CTX`. If `$CTX.gates.DC.status == stale`: follow
+`$SKILL_DIR/references/stale-gate-update.md` **steps 1–3 only** (do **not** run
+that file’s step 4 `gate-close` or step 5 `GATE_COMPLETE`); then continue Act.
+
+**Act:**
+
+1. Apply `$CTX.domain_constraints` for all dialogue in this gate:
+   - `objective` — session intent; frame the gate within this goal
    - `role.instruction` — persona and language stance
    - `domain.instruction` — domain boundary constraints
-4. `$GATE_CONTROL check-delivery-ready` — fix every reported error before continuing
-5. **Decision Eval** (required; replaces AI Semantic Review):
-   1. `$DEC_EVAL check-rounds` — if `hard_blocked: true` → stop; do not DC close; tell user max Eval rounds exhausted (must RS strategy change or abort)
-   2. `$EVAL_CONTROL begin-eval-round` — binds `decision-eval-target.md` and enters evaluating
-   3. For `decision-consistency` in `dispatch`: `$EVAL_CONTROL begin-dimension` → pin stdout as `dispatch_input` → `$SUBAGENT_TOOL` + `$SUBAGENT_AWAIT_SYNC` dispatch `eval/eval-probe-runner` (prompt shape: `eval/eval-rules.md` Step 2) → `$EVAL_CONTROL check-dimension`. Blocker issues must set `realign_gate` (`E`/`D`/`X`).
-   4. `$EVAL_CONTROL probe-complete` — pin `total_issues`
-   5. Skip artifact/SoT remediation (no `eval/eval-rules.md` Steps 3–4)
-   6. If `total_issues > 0`:
-      - Summarize issues (`dimension_id`, `location`, `description`, `realign_gate`)
-      - `$DEC_EVAL fail-exit --issues-json '<array>'` — pin earliest `realign_gate`, `hard_blocked`
-      - If `hard_blocked` → stop (no DC close)
-      - Else load `$SKILL_DIR/runners/rs-realign-runner/SKILL.md` at `realign_gate` (earliest); do not present completion content
-   7. If `total_issues == 0`: `$DEC_EVAL pass-exit` → continue
-6. `$SESSION_INTEGRITY render` — generate delivery `decision-doc.md`
-7. Read `decision-doc.md`; present key sections in conversation; explicitly list any `Class=implementation` Handoff lines (remind only); user confirmation
-8. `$GATE_CONTROL gate-close --gate DC --payload '{"user_confirmed": true}'`
-9. `$GATE_CONTROL complete`
-10. Tell the user `$CTX.after_dc.user_message`. If Active is a nested holder session (`main/` / `Dx/` under approach), also state that only this **node session** is **Completed** — stage **Delivered** waits for the holder `$APPROACH_DELIVER`.
-11. Return `GATE_COMPLETE DC Completed`
+2. Cognitive map loop:
+   - `G-cleared` unmet → `prepare` (side routes as above).
+   - `G-cleared` met → `present` → `confirm`.
+   - On confirm → `close`:
+     `$GATE_CONTROL gate-close --gate DC --payload '{"user_confirmed": true}'`
+     → `$GATE_CONTROL complete` → after_dc / holder note → break.
+
+**Done:** Return `GATE_COMPLETE DC Completed`.
+
+**Stop:** Non-zero CLI, Eval hard-block, or confirmation cannot be judged → stop
+and wait for user direction.
 
 ## gate-close payload
 
@@ -64,4 +111,14 @@ Do NOT proceed until you have read `../../../_runtime.md`
 
 ## Exit
 
-`GATE_COMPLETE DC Completed`
+On success:
+
+```
+GATE_COMPLETE DC Completed
+```
+
+On failure:
+
+```
+GATE_FAILED DC reason=<brief description>
+```
