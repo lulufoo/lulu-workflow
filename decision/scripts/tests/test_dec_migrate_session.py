@@ -91,12 +91,13 @@ def test_migrate_delivered_closes_all_gates(
 
     doc = _full_template().replace("{title}", "T").replace("{one-line summary of the intent input}", "c")
     assumptions_section = (
-        "## 6. Assumptions & Risks\n\n"
-        "| # | Assumption | Source | Risk | Failure Consequence | Verification | Status |\n"
-        "|---|-----------|--------|------|---------------------|-------------|--------|\n"
-        "| A1 | API ready | X | L | minor | Accepted | [已验证] |\n"
+        "## 5. Assumptions & Risks\n\n"
+        "| # | Assumption | Source | Risk | Class | Release Tracking | Failure Consequence | Verification | Status |\n"
+        "|---|-----------|--------|------|-------|------------------|---------------------|-------------|--------|\n"
+        "| A1 | API ready | X | L | decision | | minor | Accepted | [已验证] |\n"
+        "| A2 | SDK embed | X | H | implementation | | blocked | Accepted | [已交接] |\n"
     )
-    doc = doc.replace("## 6. Assumptions & Risks\n\nTBD", assumptions_section.strip())
+    doc = doc.replace("## 5. Assumptions & Risks\n\nTBD", assumptions_section.strip())
     while "TBD" in doc:
         doc = doc.replace("TBD", "done", 1)
 
@@ -109,9 +110,13 @@ def test_migrate_delivered_closes_all_gates(
     assert gate_state["gates"]["DC"]["status"] == "closed"
 
     registers = load_registers(project_root / registers_path(cycle_id, stage), r_gate_closed=True)
-    assert len(registers["assumptions"]) == 1
+    assert len(registers["assumptions"]) == 2
     assert registers["assumptions"][0]["id"] == "A1"
     assert registers["assumptions"][0]["state"] == "verified"
+    assert registers["assumptions"][0]["risk_class"] == "decision"
+    assert registers["assumptions"][1]["id"] == "A2"
+    assert registers["assumptions"][1]["state"] == "verified"
+    assert registers["assumptions"][1]["risk_class"] == "implementation"
 
 
 def test_migrate_via_start_writes_cycle_state(

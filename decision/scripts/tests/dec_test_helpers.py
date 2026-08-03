@@ -11,6 +11,24 @@ from dec_session_paths import resolve_session_root_for_command, session_artifact
 from dec_workflow_common import CACHE_DIR
 
 
+def full_decision_doc_template() -> str:
+    """Minimal decision-doc skeleton matching Settled Direction layout."""
+    return (
+        "# Decision: {title}\n\n"
+        "## 1. User Prior\n\n- placeholder\n\n"
+        "## 2. Problem Definition\n\nTBD\n\n"
+        "## 3. Direction Comparison\n\nTBD\n\n"
+        "## 4. Settled Direction\n\n"
+        "### Decision Rationale\n\nTBD\n\n"
+        "### Scope\n\n"
+        "**Applies to:** TBD\n\n"
+        "**Explicitly excludes:** TBD\n\n"
+        "### Landing Approach\n\nTBD\n\n"
+        "## 5. Assumptions & Risks\n\nTBD\n\n"
+        "## 6. Execution Analysis\n\n### 6.1 Acceptance Criteria\n\nTBD\n"
+    )
+
+
 def _active_paths(project_root: Path, cycle_id: str, stage: str) -> dict[str, Path]:
     root = resolve_session_root_for_command(
         project_root,

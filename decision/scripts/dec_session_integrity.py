@@ -24,11 +24,10 @@ from fetch_template import fetch_template  # noqa: E402
 
 from dec_decision_doc_schema import (  # noqa: E402
     init_decision_doc,
-    render_decision_rationale_body,
     render_direction_body,
     render_execution_analysis_body,
     render_problem_body,
-    render_scope_body,
+    render_settled_direction_body,
     replace_section,
     save_decision_doc,
 )
@@ -157,16 +156,11 @@ def _apply_payload_to_doc(
         )
         return replace_section(doc, "direction", body, constraints=constraints)
     if gate == "D":
-        doc = replace_section(
-            doc,
-            "decision_rationale",
-            render_decision_rationale_body(rationale=str(payload.get("decision_rationale", ""))),
-            constraints=constraints,
-        )
         return replace_section(
             doc,
-            "scope",
-            render_scope_body(
+            "settled_direction",
+            render_settled_direction_body(
+                rationale=str(payload.get("decision_rationale", "")),
                 applies_to=str(payload.get("applies_to", "")),
                 excludes=str(payload.get("excludes", "")),
                 execution_approach=str(payload.get("execution_approach", "")),

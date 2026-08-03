@@ -506,3 +506,6 @@ def test_v_dc_with_high_implementation(
     doc = load_rendered_doc(project_root, cycle_id, stage)
     assert "implementation" in doc
     assert "Handoff:" in doc
+    assert "[已交接]" in doc
+    assert "> Status values:" in doc
+    assert "[失效]" not in doc.split("Status values:")[1].split("\n")[0]

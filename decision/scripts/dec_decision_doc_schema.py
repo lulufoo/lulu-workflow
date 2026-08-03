@@ -20,18 +20,16 @@ SECTION_HEADINGS: dict[str, str] = {
     "user_prior": "## 1. User Prior",
     "problem": "## 2. Problem Definition",
     "direction": "## 3. Direction Comparison",
-    "decision_rationale": "## 4. Decision Rationale",
-    "scope": "## 5. Scope",
-    "assumptions": "## 6. Assumptions & Risks",
-    "execution_analysis": "## 7. Execution Analysis",
+    "settled_direction": "## 4. Settled Direction",
+    "assumptions": "## 5. Assumptions & Risks",
+    "execution_analysis": "## 6. Execution Analysis",
 }
 
 SECTION_ORDER: tuple[str, ...] = (
     "user_prior",
     "problem",
     "direction",
-    "decision_rationale",
-    "scope",
+    "settled_direction",
     "assumptions",
     "execution_analysis",
 )
@@ -39,7 +37,7 @@ SECTION_ORDER: tuple[str, ...] = (
 GATE_SECTION_KEYS: dict[str, tuple[str, ...]] = {
     "Q": ("problem",),
     "E": ("direction",),
-    "D": ("decision_rationale", "scope"),
+    "D": ("settled_direction",),
     "X": ("execution_analysis",),
     "R": (),
 }
@@ -200,20 +198,21 @@ def render_direction_body(
     return "\n".join(lines)
 
 
-def render_decision_rationale_body(*, rationale: str) -> str:
-    return rationale.strip()
-
-
-def render_scope_body(
+def render_settled_direction_body(
     *,
+    rationale: str,
     applies_to: str,
     excludes: str,
     execution_approach: str,
 ) -> str:
     return (
+        "### Decision Rationale\n\n"
+        f"{rationale.strip()}\n\n"
+        "### Scope\n\n"
         f"**Applies to:** {applies_to.strip()}\n\n"
         f"**Explicitly excludes:** {excludes.strip()}\n\n"
-        f"**Landing Approach:** {execution_approach.strip()}"
+        "### Landing Approach\n\n"
+        f"{execution_approach.strip()}"
     )
 
 
@@ -232,7 +231,7 @@ def render_execution_analysis_body(
     lines: list[str] = []
 
     if "acceptance_criteria" in dims or "gap_check" in dims:
-        lines.extend(["### 7.1 Acceptance Criteria", ""])
+        lines.extend(["### 6.1 Acceptance Criteria", ""])
         if "acceptance_criteria" in dims:
             lines.append(acceptance_criteria.strip())
         else:
@@ -244,7 +243,7 @@ def render_execution_analysis_body(
     if "impact_surface" in dims:
         lines.extend(
             [
-                "### 7.2 Impact Surface",
+                "### 6.2 Impact Surface",
                 "",
                 "| Layer | Affected Area | Change Type | Notes |",
                 "|-------|--------------|-------------|-------|",
@@ -271,7 +270,7 @@ def render_execution_analysis_body(
     if "external_dependencies" in dims:
         lines.extend(
             [
-                "### 7.3 External Dependencies",
+                "### 6.3 External Dependencies",
                 "",
                 "| Dependency | Contract | Authoritative Source | Confirmation Mechanism |",
                 "|------------|----------|---------------------|------------------------|",
@@ -298,7 +297,7 @@ def render_execution_analysis_body(
     if "implementation_sketch" in dims:
         lines.extend(
             [
-                "### 7.4 Implementation Sketch",
+                "### 6.4 Implementation Sketch",
                 "",
                 f"**Key changes:** {key_changes.strip()}",
                 f"**Critical constraints:** {critical_constraints.strip()}",
@@ -311,10 +310,18 @@ def render_execution_analysis_body(
     return "\n".join(lines).strip()
 
 
+def _assumption_status_label(*, state: str, risk_class: str) -> str:
+    if state != "verified":
+        return "[待验证]"
+    if risk_class == "implementation":
+        return "[已交接]"
+    return "[已验证]"
+
+
 def render_assumptions_body(registers: dict[str, Any]) -> str:
     lines = [
-        "> Status values: `[待验证]` · `[已验证]` · `[失效]`",
-        "> For `Class=implementation`, `[已验证]` means handoff recorded (not risk released).",
+        "> Status values: `[待验证]` · `[已验证]` (`Class=decision` confirmed) · "
+        "`[已交接]` (`Class=implementation` handoff recorded — not risk released)",
         "",
         "| # | Assumption | Source | Risk | Class | Release Tracking | Failure Consequence | Verification | Status |",
         "|---|-----------|--------|------|-------|------------------|---------------------|-------------|--------|",
@@ -327,9 +334,9 @@ def render_assumptions_body(registers: dict[str, Any]) -> str:
             if not isinstance(entry, dict):
                 continue
             state = str(entry.get("state", "pending"))
-            status = "[已验证]" if state == "verified" else "[待验证]"
+            risk_class = str(entry.get("risk_class") or "")
+            status = _assumption_status_label(state=state, risk_class=risk_class)
             risk = entry.get("risk") or ""
-            risk_class = entry.get("risk_class") or ""
             tracking = "Yes" if entry.get("release_tracking") else ""
             verification = entry.get("verification") or ""
             consequence = entry.get("consequence") or ""
@@ -341,7 +348,7 @@ def render_assumptions_body(registers: dict[str, Any]) -> str:
                         _escape_cell(str(entry.get("text", ""))),
                         _escape_cell(str(entry.get("source", ""))),
                         _escape_cell(str(risk)),
-                        _escape_cell(str(risk_class)),
+                        _escape_cell(risk_class),
                         _escape_cell(tracking),
                         _escape_cell(str(consequence)),
                         _escape_cell(str(verification)),
@@ -357,8 +364,8 @@ def _section_placeholders() -> dict[str, str]:
     return {
         "problem": render_problem_body(problem_statement="TBD", constraints="TBD"),
         "direction": render_direction_body(directions=[], excluded=[], user_choice="TBD"),
-        "decision_rationale": "TBD",
-        "scope": render_scope_body(
+        "settled_direction": render_settled_direction_body(
+            rationale="TBD",
             applies_to="TBD",
             excludes="TBD",
             execution_approach="TBD",
@@ -402,7 +409,7 @@ def check_decision_doc_ready(
 ) -> list[str]:
     """Return delivery readiness errors for decision-doc content."""
     errors: list[str] = []
-    for key in ("problem", "direction", "decision_rationale", "scope", "execution_analysis"):
+    for key in ("problem", "direction", "settled_direction", "execution_analysis"):
         if constraints is not None and not is_section_active(constraints, key):
             continue
         heading = SECTION_HEADINGS[key]

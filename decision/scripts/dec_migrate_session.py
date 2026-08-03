@@ -33,7 +33,7 @@ from dec_register_schema import init_registers, save_registers
 _GATE_AFTER_SECTION: tuple[tuple[str, str], ...] = (
     ("Q", "problem"),
     ("E", "direction"),
-    ("D", "decision_rationale"),
+    ("D", "settled_direction"),
     ("X", "execution_analysis"),
 )
 
@@ -64,14 +64,6 @@ def _section_ready(body: str) -> bool:
     return True
 
 
-def _scope_ready(doc: str, constraints: dict[str, Any]) -> bool:
-    from dec_domain_constraints_schema import is_section_active
-
-    if not is_section_active(constraints, "scope"):
-        return True
-    return _section_ready(_section_body(doc, "scope"))
-
-
 def infer_progress(
     doc: str,
     *,
@@ -86,8 +78,6 @@ def infer_progress(
     for gate, section_key in _GATE_AFTER_SECTION:
         body = _section_body(doc, section_key)
         if not _section_ready(body):
-            break
-        if gate == "D" and not _scope_ready(doc, constraints):
             break
         last_closed = gate
 
@@ -181,7 +171,14 @@ def _parse_assumptions_from_doc(doc: str) -> list[dict[str, Any]]:
             tracking = ""
         else:
             continue
-        state = "verified" if "已验证" in status else "pending"
+        if "已交接" in status:
+            state = "verified"
+            if risk_class_val is None:
+                risk_class_val = "implementation"
+        elif "已验证" in status:
+            state = "verified"
+        else:
+            state = "pending"
         risk_val = risk if risk in {"H", "M", "L"} else None
         entry: dict[str, Any] = {
             "id": entry_id,

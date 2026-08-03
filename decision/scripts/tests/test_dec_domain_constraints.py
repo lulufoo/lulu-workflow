@@ -54,7 +54,9 @@ def test_init_strips_omitted_sections(template_config: Path, monkeypatch: pytest
             project_root,
             cycle_id,
             stage,
-            domain_override={"omitted_sections": ["scope", "execution_analysis"]},
+            domain_override={
+                "omitted_sections": ["settled_direction", "execution_analysis"]
+            },
         )
         == 0
     )
@@ -62,15 +64,17 @@ def test_init_strips_omitted_sections(template_config: Path, monkeypatch: pytest
     assert not (project_root / decision_doc_path(cycle_id, stage)).exists()
 
     doc = load_rendered_doc(project_root, cycle_id, stage)
-    assert "## 5. Scope" not in doc
-    assert "## 7. Execution Analysis" not in doc
-    assert "## 4. Decision Rationale" in doc
+    assert "## 4. Settled Direction" not in doc
+    assert "## 6. Execution Analysis" not in doc
+    assert "## 3. Direction Comparison" in doc
 
     constraints = load_domain_constraints(project_root / domain_constraints_path(cycle_id, stage))
-    assert "scope" in constraints["omitted_sections"]
+    assert "settled_direction" in constraints["omitted_sections"]
 
 
 def test_x_gate_close_respects_x_dimensions(template_config: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from test_dec_gate_loop_a import _close_o
+
     project_root = template_config
     cycle_id = "feature-domain-002"
     stage = "decision"
@@ -85,7 +89,57 @@ def test_x_gate_close_respects_x_dimensions(template_config: Path, monkeypatch: 
             "x_dimensions": ["acceptance_criteria", "gap_check"],
         },
     )
-    _close_qe(project_root, cycle_id, stage)
+    _close_o(project_root, cycle_id, stage)
+    cmd_gate_close(
+        project_root,
+        cycle_id,
+        stage,
+        "Q",
+        {"problem_statement": "problem", "constraints": "none"},
+    )
+    cmd_gate_close(
+        project_root,
+        cycle_id,
+        stage,
+        "GL",
+        {
+            "exchanges": [
+                {
+                    "lens": "acceptance_criteria",
+                    "question": "success signal?",
+                    "answer": "demo path",
+                    "na": False,
+                },
+                {
+                    "lens": "gap_check",
+                    "question": "failure class?",
+                    "answer": "silent loss",
+                    "na": False,
+                },
+            ],
+            "user_confirmed": True,
+        },
+    )
+    cmd_gate_close(
+        project_root,
+        cycle_id,
+        stage,
+        "E",
+        {
+            "directions": [
+                {
+                    "name": "A",
+                    "approach": "a",
+                    "pros": "p",
+                    "cons": "c",
+                    "recommended": True,
+                },
+                {"name": "B", "approach": "b", "pros": "p", "cons": "c"},
+            ],
+            "excluded": [],
+            "user_choice": "A",
+        },
+    )
     cmd_gate_close(
         project_root,
         cycle_id,
@@ -117,8 +171,8 @@ def test_x_gate_close_respects_x_dimensions(template_config: Path, monkeypatch: 
 
     doc = load_rendered_doc(project_root, cycle_id, stage)
     assert "Users can export" in doc
-    assert "### 7.2 Impact Surface" not in doc
-    assert "### 7.4 Implementation Sketch" not in doc
+    assert "### 6.2 Impact Surface" not in doc
+    assert "### 6.4 Implementation Sketch" not in doc
     assert "**Gap (if any):** None" in doc
 
 
@@ -339,5 +393,7 @@ def test_merge_domain_constraints_without_context_override_keeps_base() -> None:
     from dec_domain_constraints_schema import load_constraints_config, merge_domain_constraints
 
     base = load_constraints_config(_holder_constraints("lulu-approach"))
-    merged = merge_domain_constraints(base, {"omitted_sections": ["scope"]})
+    merged = merge_domain_constraints(
+        base, {"omitted_sections": ["settled_direction"]}
+    )
     assert merged["context"] == base["context"]

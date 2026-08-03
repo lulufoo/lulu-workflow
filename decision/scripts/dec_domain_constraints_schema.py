@@ -14,8 +14,7 @@ ALL_SECTION_KEYS: frozenset[str] = frozenset(
         "user_prior",
         "problem",
         "direction",
-        "decision_rationale",
-        "scope",
+        "settled_direction",
         "assumptions",
         "execution_analysis",
     }

@@ -102,6 +102,12 @@ def test_render_creates_decision_doc(template_config: Path, monkeypatch: pytest.
     assert cmd_render(project_root, cycle_id, stage) == 0
     doc = load_rendered_doc(project_root, cycle_id, stage)
     assert "Chose A" in doc
+    assert "## 4. Settled Direction" in doc
+    assert "### Decision Rationale" in doc
+    assert "### Scope" in doc
+    assert "### Landing Approach" in doc
+    assert "## 4. Decision Rationale" not in doc
+    assert "## 5. Scope" not in doc
     assert "backend first" in doc
 
 
