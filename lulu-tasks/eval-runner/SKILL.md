@@ -28,16 +28,20 @@ These principles are **non-negotiable preconditions** for every finding across a
 | `SOT-DEFECT` | Exact passage from SOT that is missing / ambiguous / contradictory + why it blocks implementation |
 | `WO-MISS` | (1) SOT passage stating the requirement + (2) work-order location that fails to reflect it |
 | `WO-ERROR` | (1) Exact task file + section + (2) evaluation criterion being violated |
+| `DECISION-REQUIRED` | Two compliant interpretations plus their material contract or acceptance difference |
 
 If evidence cannot be located → label the finding `UNRESOLVABLE` and surface to human via AskQuestion. Do not guess, infer, or proceed without evidence.
 
 ### P2 · SOT Auditability
 
-**Every issue must be classified: is the SOT defective, or did the work-order fail to reflect a valid SOT?**
+**Every issue must be classified: is the SOT defective, is the work-order
+defective, or is a human decision required?**
 
 - SOT defective → evaluation cannot proceed on that region → escalate (never fix silently)
 - SOT valid, work-order wrong → fix work-order inline or return to Drafting
-- **SOT issues always require AskQuestion — hard constraint; no bypass.**
+- Materially different compliant interpretations → request a human decision; do
+  not choose an implementation.
+- **Human-owned issues always require AskQuestion — hard constraint; no bypass.**
 
 P1 is a prerequisite for P2: without evidence, SOT auditability cannot be exercised.
 
@@ -93,6 +97,7 @@ Used by Phase W1 and Phase W2 to route every issue finding.
 | `WO-MISS` | SOT is valid; work-order failed to reflect a requirement that exists in the SOT |
 | `WO-ERROR` | Work-order self-quality issue; SOT not involved |
 | `UNRESOLVABLE` | Finding status (not a root cause): P1 evidence cannot be located |
+| `DECISION-REQUIRED` | Work-order admits materially different compliant interpretations; a human choice is required |
 
 ### Evidence Format per Root Cause
 
@@ -114,6 +119,11 @@ WO-ERROR:
 
 UNRESOLVABLE:
   evidence_attempt:   "<what was searched and why evidence could not be located>"
+
+DECISION-REQUIRED:
+  candidate_a:         "<one compliant interpretation>"
+  candidate_b:         "<a materially different compliant interpretation>"
+  material_difference: "<contract, acceptance, or implementation effect>"
 ```
 
 ### Issue Routing by Root Cause
@@ -132,7 +142,8 @@ SOT source: {evidence_sot_quote} (for WO-MISS)
 Action: Fix — apply suggested fix inline
 ```
 
-**SOT-DEFECT / UNRESOLVABLE — SOT template (always AskQuestion):**
+**SOT-DEFECT / UNRESOLVABLE / DECISION-REQUIRED — Human Resolution template
+(always AskQuestion):**
 
 Step 1:
 ```
@@ -144,13 +155,13 @@ Evidence: {evidence_sot_quote} | {evidence_gap}
 Options:
   Escalate — suspend evaluation; record as tda_blocked
   Reclassify — reassign root cause (provide new root cause + reason in Step 2)
-  Ignore — record as noted, evaluation continues
+  Ignore — record as noted, evaluation continues (not allowed for `DECISION-REQUIRED`)
 ```
 
 Step 2 (only if Reclassify selected):
 ```
 Provide reclassification:
-  new_root_cause: SOT-DEFECT | WO-MISS | WO-ERROR  (UNRESOLVABLE → one of SOT-DEFECT | WO-MISS | WO-ERROR)
+  new_root_cause: SOT-DEFECT | WO-MISS | WO-ERROR | DECISION-REQUIRED
   reason: <brief justification citing P1 evidence>
 ```
 
@@ -158,6 +169,10 @@ Provide reclassification:
 - `Escalate` → write report row (status: escalated) → write `current_dimension: FAILED`, `failure_type: sot_defect` to evaluate-state.md → stop current phase
 - `Reclassify` → update report row (root_cause: new_root_cause, decision: reclassified) → route to corresponding WO or SOT template. **Special case: UNRESOLVABLE → Reclassify → SOT-DEFECT is treated as Escalate** — immediately write FAILED + sot_defect; do not start another AskQuestion round.
 - `Ignore` → write report row (status: noted) → continue to next issue
+
+**DECISION-REQUIRED resolution:** Select one interpretation or define an
+explicit multi-option contract, then reclassify to `WO-ERROR` before applying
+any work-order edit. Do not ignore it.
 
 ---
 
@@ -354,7 +369,7 @@ Issue row format (all phases):
 
 | Column | Values |
 |--------|--------|
-| `root_cause` | `SOT-DEFECT` \| `WO-MISS` \| `WO-ERROR` \| `UNRESOLVABLE` |
+| `root_cause` | `SOT-DEFECT` \| `WO-MISS` \| `WO-ERROR` \| `UNRESOLVABLE` \| `DECISION-REQUIRED` |
 | `sot_source` | tech-doc section or `—` if SOT not involved |
 | `evidence` | Inline summary (full detail in frontmatter or notes block) |
 | `Severity` | `critical` \| `medium` \| `minor` |

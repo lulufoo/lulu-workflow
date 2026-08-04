@@ -9,7 +9,7 @@ _SKILLS = (
     _EVAL_ROOT / "SKILL.md",
     _EVAL_ROOT / "dimension-probe-runner" / "SKILL.md",
     _EVAL_ROOT / "artifact-remediation-runner" / "SKILL.md",
-    _EVAL_ROOT / "sot-remediation-runner" / "SKILL.md",
+    _EVAL_ROOT / "human-resolution-runner" / "SKILL.md",
 )
 _LEGACY_RUNNERS = (
     _EVAL_ROOT / "eval-probe-runner",

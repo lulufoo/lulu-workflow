@@ -23,17 +23,18 @@ _HEADER_LINES = [
     "**Refs:** codebase",
     "",
     "| ID | root_cause | sot_ref | location | severity | evidence "
-    "| description | status | decision |",
+    "| description | status | decision | resolution |",
     "|----|------------|---------|----------|----------|----------"
-    "|-------------|--------|----------|",
+    "|-------------|--------|----------|------------|",
 ]
 
 
 class TestGetSchema:
-    def test_has_nine_columns(self):
+    def test_has_ten_columns_and_decision_required_root_cause(self):
         schema = get_schema()
-        assert len(schema["columns"]) == 9
+        assert len(schema["columns"]) == 10
         assert "WO-MISS" in schema["enums"]["root_cause"]
+        assert "DECISION-REQUIRED" in schema["enums"]["root_cause"]
 
 
 class TestValidateReviewHeader:
@@ -59,8 +60,43 @@ class TestValidateIssueRow:
             "description": "wrong API",
             "status": "pending",
             "decision": "—",
+            "resolution": "",
         }
         assert validate_issue_row(row, phase="probe") == []
+
+    def test_probe_rejects_nonempty_resolution_except_human_created_wo_error(self):
+        row = {
+            "id": "e2-1",
+            "root_cause": "SOT-DEFECT",
+            "sot_ref": "product §1",
+            "location": "tech-doc §3",
+            "severity": "critical",
+            "evidence": "ambiguous requirement",
+            "description": "cannot choose an implementation",
+            "status": "pending",
+            "decision": "—",
+            "resolution": "choose option A",
+        }
+        errors = validate_issue_row(row, phase="probe")
+        assert any("resolution" in error for error in errors)
+
+        row["root_cause"] = "WO-ERROR"
+        assert validate_issue_row(row, phase="probe") == []
+
+    def test_remediation_preserves_resolution(self):
+        row = {
+            "id": "e2-1",
+            "root_cause": "DECISION-REQUIRED",
+            "sot_ref": "—",
+            "location": "tech-doc §3",
+            "severity": "critical",
+            "evidence": "two incompatible product readings",
+            "description": "human decision required",
+            "status": "reclassified",
+            "decision": "reclassify",
+            "resolution": "adopt the first reading",
+        }
+        assert validate_issue_row(row, phase="remediation") == []
 
     def test_sot_ref_required_for_wo_miss(self):
         row = {
@@ -73,6 +109,7 @@ class TestValidateIssueRow:
             "description": "missing",
             "status": "pending",
             "decision": "—",
+            "resolution": "",
         }
         errors = validate_issue_row(row, phase="probe")
         assert any("sot_ref" in e for e in errors)
@@ -88,6 +125,7 @@ class TestValidateIssueRow:
             "description": "desc",
             "status": "pending",
             "decision": "—",
+            "resolution": "",
         }
         errors = validate_issue_row(row, phase="probe")
         assert any("root_cause" in e for e in errors)
@@ -98,7 +136,7 @@ class TestValidateReviewFile:
         path = tmp_path / "review.md"
         path.write_text(
             "\n".join(_HEADER_LINES)
-            + "\n| e2-1 | WO-ERROR | — | loc | minor | ev | desc | pending | — |\n",
+            + "\n| e2-1 | WO-ERROR | — | loc | minor | ev | desc | pending | — | |\n",
             encoding="utf-8",
         )
         assert validate_review_file(path) == []

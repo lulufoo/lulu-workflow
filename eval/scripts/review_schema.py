@@ -30,9 +30,16 @@ _SCHEMA: dict = {
         "description",
         "status",
         "decision",
+        "resolution",
     ],
     "enums": {
-        "root_cause": ["SOT-DEFECT", "WO-MISS", "WO-ERROR", "UNRESOLVABLE"],
+        "root_cause": [
+            "SOT-DEFECT",
+            "WO-MISS",
+            "WO-ERROR",
+            "UNRESOLVABLE",
+            "DECISION-REQUIRED",
+        ],
         "severity": ["critical", "medium", "minor"],
         "status_probe": ["pending"],
         "status_remediation": ["fixed", "ignored", "escalated", "reclassified"],
@@ -138,6 +145,12 @@ def validate_issue_row(row: dict[str, str], *, phase: Phase) -> list[str]:
     elif decision.lower() not in _DECISION_REMEDIATION:
         errors.append(f"{issue_id}: invalid remediation decision: {decision!r}")
 
+    resolution = row.get("resolution", "")
+    if phase == "probe" and resolution and root_cause != "WO-ERROR":
+        errors.append(
+            f"{issue_id}: probe resolution must be empty except for WO-ERROR",
+        )
+
     sot_ref = row.get("sot_ref", "")
     if root_cause in _SOT_REF_REQUIRED and not sot_ref.strip():
         errors.append(f"{issue_id}: sot_ref required for root_cause {root_cause}")
@@ -209,9 +222,9 @@ def render_review_header(
         f"**Date:** {date}\n"
         f"**Refs:** {refs}\n\n"
         "| ID | root_cause | sot_ref | location | severity | evidence "
-        "| description | status | decision |\n"
+        "| description | status | decision | resolution |\n"
         "|----|------------|---------|----------|----------|----------"
-        "|-------------|--------|----------|\n"
+        "|-------------|--------|----------|------------|\n"
     )
 
 

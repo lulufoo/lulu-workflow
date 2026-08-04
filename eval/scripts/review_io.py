@@ -6,7 +6,11 @@ from __future__ import annotations
 from pathlib import Path
 
 _ARTIFACT_LABELS = frozenset({"WO-MISS", "WO-ERROR"})
-_SOT_LABELS = frozenset({"SOT-DEFECT", "UNRESOLVABLE"})
+_HUMAN_LABELS = frozenset({
+    "SOT-DEFECT",
+    "UNRESOLVABLE",
+    "DECISION-REQUIRED",
+})
 
 
 def split_table_row(line: str) -> list[str]:
@@ -57,6 +61,7 @@ def parse_review_file(path: Path) -> list[dict[str, str]]:
             "description": description,
             "status": row.get("status", ""),
             "decision": row.get("decision", ""),
+            "resolution": row.get("resolution", ""),
         })
     return issues
 
@@ -82,8 +87,8 @@ def pending_artifact_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
     return pending_rows(issues_by_root_cause(rows, _ARTIFACT_LABELS))
 
 
-def pending_sot_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
-    return pending_rows(issues_by_root_cause(rows, _SOT_LABELS))
+def pending_human_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    return pending_rows(issues_by_root_cause(rows, _HUMAN_LABELS))
 
 
 def count_resolved(rows: list[dict[str, str]]) -> int:
@@ -96,8 +101,8 @@ def count_resolved(rows: list[dict[str, str]]) -> int:
     )
 
 
-def has_pending_sot(rows: list[dict[str, str]]) -> bool:
-    return bool(pending_sot_rows(rows))
+def has_pending_human(rows: list[dict[str, str]]) -> bool:
+    return bool(pending_human_rows(rows))
 
 
 def has_escalated(rows: list[dict[str, str]]) -> bool:

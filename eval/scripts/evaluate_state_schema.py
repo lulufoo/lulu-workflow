@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Authoritative schema and I/O helpers for evaluate-state.md (v4).
+"""Authoritative schema and I/O helpers for evaluate-state.md (v5).
 
 CLI:
     python3 evaluate_state_schema.py --schema
@@ -18,13 +18,13 @@ from typing import Any
 
 _SCHEMA: list[dict[str, Any]] = [
     {"field": "version", "type": "string", "required": True,
-     "description": "Schema version (currently 4)"},
+     "description": "Schema version (currently 5)"},
     {"field": "phase", "type": "string", "required": True,
      "description": "Fixed value: evaluate"},
     {"field": "eval_status", "type": "string", "required": True,
      "description": "Round-level status: active | done | abandoned"},
     {"field": "fix_phase", "type": "string", "required": True,
-     "description": "probe | artifact-remediation | sot-remediation | done"},
+     "description": "probe | artifact-remediation | human-resolution | done"},
     {"field": "corpus_ref", "type": "string", "required": False,
      "description": "EvalCorpus id@version (optional)"},
     {"field": "corpus_fingerprint", "type": "string", "required": False,
@@ -77,7 +77,7 @@ _VALID_EVAL_STATUS = frozenset({"active", "done", "abandoned"})
 _VALID_FIX_PHASE = frozenset({
     "probe",
     "artifact-remediation",
-    "sot-remediation",
+    "human-resolution",
     "done",
 })
 _VALID_DIM_STATUS = frozenset({"pending", "in_progress", "probed", "complete"})
@@ -91,7 +91,7 @@ _DIM_STATUS_ORDER = {
 
 
 def get_schema() -> list[dict[str, Any]]:
-    """Return field definitions for evaluate-state.md v3."""
+    """Return field definitions for evaluate-state.md v5."""
     return list(_SCHEMA)
 
 
@@ -177,7 +177,7 @@ def build_initial_evaluate_state(
     focus_l: str = "",
     round_token: str | None = None,
 ) -> dict[str, str]:
-    """Return frontmatter fields for a new evaluate-state.md v4."""
+    """Return frontmatter fields for a new evaluate-state.md v5."""
     if not dimension_ids:
         raise ValueError("dimension_ids must be non-empty")
     if dimension_dispatch not in _VALID_DISPATCH:
@@ -190,7 +190,7 @@ def build_initial_evaluate_state(
         dim_id: {"total": "0", "resolved": "0"} for dim_id in dimension_ids
     }
     data: dict[str, str] = {
-        "version": "4",
+        "version": "5",
         "phase": "evaluate",
         "eval_status": "active",
         "fix_phase": "probe",
@@ -215,9 +215,9 @@ def build_initial_evaluate_state(
     return data
 
 
-def is_v4_state(data: dict[str, str]) -> bool:
-    """Return True when evaluate-state uses the current v4 schema."""
-    return data.get("version") == "4" and "dimension_status" in data
+def is_v5_state(data: dict[str, str]) -> bool:
+    """Return True when evaluate-state uses the current v5 schema."""
+    return data.get("version") == "5" and "dimension_status" in data
 
 
 def validate_evaluate_state(data: dict[str, Any]) -> list[str]:
@@ -226,8 +226,8 @@ def validate_evaluate_state(data: dict[str, Any]) -> list[str]:
     for field in _REQUIRED_FIELDS:
         if field not in data:
             errors.append(f"missing required field: '{field}'")
-    if data.get("version") not in (None, "4"):
-        errors.append(f"invalid version: {data.get('version')!r} (expected '4')")
+    if data.get("version") not in (None, "5"):
+        errors.append(f"invalid version: {data.get('version')!r} (expected '5')")
     if data.get("phase") not in (None, "evaluate"):
         errors.append(f"invalid phase: {data.get('phase')!r} (expected 'evaluate')")
     eval_status = data.get("eval_status", "")
@@ -364,7 +364,7 @@ def all_dims_at_least(
 
 
 def _cli() -> int:
-    parser = argparse.ArgumentParser(description="evaluate-state v3 schema I/O")
+    parser = argparse.ArgumentParser(description="evaluate-state v5 schema I/O")
     parser.add_argument("--schema", action="store_true", help="Print field schema JSON")
     parser.add_argument("--validate", action="store_true", help="Validate file")
     parser.add_argument("--path", type=Path, help="Path to evaluate-state.md")

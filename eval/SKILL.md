@@ -20,10 +20,10 @@ adapter configuration.
 
 ## Principles
 
-- Findings require citable evidence. If evidence cannot be located, route it to SoT Remediation; do not guess.
+- Findings require citable evidence. If evidence cannot be located, route it to Human Resolution; do not guess.
 - A defective SoT is escalated, never silently repaired. A valid SoT that the artifact fails to reflect is remediated.
 - Any non-zero control result is Blocking: stop, report it, and wait for user direction.
-- Artifact and SoT remediation process one dimension at a time.
+- Human Resolution and Artifact Remediation process one dimension at a time.
 
 ## Begin Eval
 
@@ -34,7 +34,7 @@ adapter configuration.
    - If the result reports abandonment, run **Abandon Handler** and stop.
    - On a non-zero result, apply Blocking and stop.
 5. Run `$EVAL_CONTROL probe-complete`.
-6. A probe-only caller stops here. A full-round caller continues to **Artifact Remediation**.
+6. A probe-only caller stops here. A full-round caller continues to **Human Resolution**.
 
 ## Single dimension (launch)
 
@@ -46,6 +46,22 @@ adapter configuration.
    ```
 
 3. Pin the returned handle and return immediately to **Begin Eval**.
+
+## Human Resolution
+
+1. Run `$EVAL_CONTROL begin-human-resolution` and pin the result.
+2. Unless the result skips resolution, process each returned dimension serially:
+   1. Run `$EVAL_CONTROL begin-dimension-human-resolution --dim {dim}` and pin its operation context.
+   2. Dispatch `human-resolution-runner` synchronously with that context and this instruction:
+
+      ```text
+      Load human-resolution-runner/SKILL.md and follow its instructions.
+      ```
+
+   3. Run `$EVAL_CONTROL check-dimension-human-resolution --dim {dim}`.
+   4. If the result reports abandonment, run **Abandon Handler** and stop.
+3. Run `$EVAL_CONTROL human-resolution-complete`.
+4. Continue to **Artifact Remediation**.
 
 ## Artifact Remediation
 
@@ -60,22 +76,6 @@ adapter configuration.
 
    3. Run `$EVAL_CONTROL check-dimension-artifact-remediation --dim {dim}`.
 3. Run `$EVAL_CONTROL artifact-remediation-complete`.
-4. Continue to **SoT Remediation**.
-
-## SoT Remediation
-
-1. Run `$EVAL_CONTROL begin-sot-remediation` and pin the result.
-2. Unless the result skips remediation, process each returned dimension serially:
-   1. Run `$EVAL_CONTROL begin-dimension-sot-remediation --dim {dim}` and pin its operation context.
-   2. Dispatch `sot-remediation-runner` synchronously with that context and this instruction:
-
-      ```text
-      Load sot-remediation-runner/SKILL.md and follow its instructions.
-      ```
-
-   3. Run `$EVAL_CONTROL check-dimension-sot-remediation --dim {dim}`.
-   4. If the result reports abandonment, run **Abandon Handler** and stop.
-3. Run `$EVAL_CONTROL sot-remediation-complete`.
 4. Continue to **Completion**.
 
 ## Completion

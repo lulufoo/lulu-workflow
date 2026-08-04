@@ -16,6 +16,10 @@
     "UNRESOLVABLE": {
       "desc": "Insufficient evidence; pending reclassification",
       "fix": "interactive"
+    },
+    "DECISION-REQUIRED": {
+      "desc": "Confirmed material ambiguity in B; human decision required",
+      "fix": "interactive"
     }
   }
 }

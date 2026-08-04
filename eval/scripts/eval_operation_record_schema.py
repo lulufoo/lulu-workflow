@@ -10,10 +10,14 @@ from pathlib import Path
 from typing import Any
 
 
-OPERATION_RECORDS_VERSION = "1"
-_OPERATION_KINDS = frozenset({"probe", "artifact-remediation", "sot-remediation"})
+OPERATION_RECORDS_VERSION = "2"
+_OPERATION_KINDS = frozenset({
+    "probe",
+    "artifact-remediation",
+    "human-resolution",
+})
 _OPERATION_STATUS = frozenset({"open", "closed"})
-_SUBMISSION_KINDS = frozenset({"finding", "unified_diff"})
+_SUBMISSION_KINDS = frozenset({"finding", "unified_diff", "resolution"})
 _SHA256_HEX = frozenset("0123456789abcdef")
 _REQUIRED_RECORD_FIELDS = frozenset(
     {
@@ -58,7 +62,10 @@ def validate_operation_record(record: Any) -> list[str]:
             errors.append(f"{field} must be a non-empty string")
     if record.get("operation_kind") not in _OPERATION_KINDS:
         errors.append(f"invalid operation_kind: {record.get('operation_kind')!r}")
-    if record.get("operation_kind") in {"artifact-remediation", "sot-remediation"}:
+    if record.get("operation_kind") in {
+        "artifact-remediation",
+        "human-resolution",
+    }:
         lease_id = record.get("lease_id")
         if not isinstance(lease_id, str) or not lease_id:
             errors.append("remediation operation requires a non-empty lease_id")
@@ -114,6 +121,16 @@ def validate_operation_record(record: Any) -> list[str]:
             or any(not isinstance(finding, dict) for finding in probe_findings)
         ):
             errors.append("probe_findings must be an array of objects on a probe operation")
+        resolution_records = record.get("resolution_records")
+        if resolution_records is not None and (
+            record.get("operation_kind") != "human-resolution"
+            or not isinstance(resolution_records, list)
+            or any(not isinstance(resolution, dict) for resolution in resolution_records)
+        ):
+            errors.append(
+                "resolution_records must be an array of objects on a closed "
+                "human-resolution operation",
+            )
         for field in ("submission_digest", "review_digest"):
             value = record.get(field)
             if (
@@ -242,6 +259,7 @@ def close_operation(
     review_path: Path,
     review_digest: str,
     probe_findings: list[dict[str, Any]] | None = None,
+    resolution_records: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Close one open operation after all of its Eval-owned writes publish."""
     data = load_operation_records(path)
@@ -260,6 +278,8 @@ def close_operation(
     })
     if probe_findings is not None:
         closed["probe_findings"] = probe_findings
+    if resolution_records is not None:
+        closed["resolution_records"] = resolution_records
     errors = validate_operation_record(closed)
     if errors:
         raise ValueError(f"operation record invalid: {'; '.join(errors)}")

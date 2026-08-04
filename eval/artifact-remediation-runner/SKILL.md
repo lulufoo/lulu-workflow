@@ -24,11 +24,13 @@ the operation context supplied by Eval orchestration.
 1. Run `$READ_B_SNAPSHOT`.
 2. Use the authorized pending artifact defects from the operation context. If
    none are present, stop.
-3. Prepare a targeted unified diff against the returned B snapshot. Retain exact
+3. Treat any supplied human resolution as a required constraint. Do not choose
+   an alternative that the resolution did not authorize.
+4. Prepare a targeted unified diff against the returned B snapshot. Retain exact
    original context; do not search-and-replace repeated text.
-4. Create the control-compatible remediation payload, then run
+5. Create the control-compatible remediation payload, then run
    `$SUBMIT_REMEDIATION_DIFF`.
-5. On a non-zero control result, stop and report it to the parent.
+6. On a non-zero control result, stop and report it to the parent.
 
 ## Constraints
 

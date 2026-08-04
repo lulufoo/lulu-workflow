@@ -150,10 +150,15 @@ def issue_remediation_context(
     sots: list[dict[str, Any]],
 ) -> dict[str, Any]:
     """Snapshot B and persist an open, token-scoped remediation operation."""
-    if operation_kind not in {"artifact-remediation", "sot-remediation"}:
+    if operation_kind not in {"artifact-remediation", "human-resolution"}:
         raise ValueError(f"invalid remediation operation kind: {operation_kind!r}")
     if not lease_id:
         raise ValueError("remediation lease_id must be a non-empty string")
+    allowed_submission = (
+        "unified_diff"
+        if operation_kind == "artifact-remediation"
+        else "resolution"
+    )
     target_bytes = target_path.read_bytes()
     target_digest = hashlib.sha256(target_bytes).hexdigest()
     dimension_token = uuid.uuid4().hex
@@ -180,7 +185,7 @@ def issue_remediation_context(
                 "resolved_method": dict(method),
                 "resolved_sots": [dict(sot) for sot in sots],
                 "evidence_snapshots": evidence_snapshots,
-                "allowed_submission": "unified_diff",
+                "allowed_submission": allowed_submission,
                 "status": "open",
             },
         )
@@ -200,7 +205,7 @@ def issue_remediation_context(
             "focus": str(method.get("focus", "")),
         },
         "resolved_sots": public_sots,
-        "allowed_submission": "unified_diff",
+        "allowed_submission": allowed_submission,
     }
 
 

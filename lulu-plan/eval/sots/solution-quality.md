@@ -64,3 +64,26 @@ case.
 outside the unit.
 
 **Gap output:** `P4 — boundary unanswerable: {case and missing information}`
+
+## P5 — Interpretation Determinacy
+
+**Applies when:** A unit defines a data schema, configuration shape,
+interface or capability set, state or responsibility ownership, or
+cross-module boundary that affects an external contract, acceptance, or an
+implementation boundary.
+
+**Checks:** Can two materially different interpretations both satisfy the
+unit's explicit wording?
+
+**Pass:** B selects one interpretation with an explicit discriminator, or
+explicitly permits multiple interpretations and defines their selection,
+compatibility, and acceptance rules.
+
+**Gap criteria:** At least two materially different interpretations conform to
+B, and B neither selects one nor defines a controlled multi-option contract.
+Differences only in naming, prose, style, or internal implementation freedom do
+not qualify.
+
+**Gap output:** `P5 — contract underdetermined: {candidate A} and {candidate
+B} both conform but differ in {contract, acceptance, or implementation impact};
+missing {decision or multi-option rule}`

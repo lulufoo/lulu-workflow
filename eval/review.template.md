@@ -3,5 +3,5 @@
 **Date:** {{DATE}}
 **Refs:** {{REFS}}
 
-| ID | root_cause | sot_ref | location | severity | evidence | description | status | decision |
-|----|------------|---------|----------|----------|----------|-------------|--------|----------|
+| ID | root_cause | sot_ref | location | severity | evidence | description | status | decision | resolution |
+|----|------------|---------|----------|----------|----------|-------------|--------|----------|------------|

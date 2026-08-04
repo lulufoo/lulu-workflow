@@ -14,6 +14,15 @@ _DIMENSION_DEF = _WORKFLOW / "lulu-plan" / "dimension-defs" / "solution-quality.
 _RUNNER_SKILL = _WORKFLOW / "eval" / "dimension-probe-runner" / "SKILL.md"
 _METHOD_REF = "lulu-dev-workflow/lulu-plan/eval/methods/solution-quality.md"
 _SOT_REF = "lulu-dev-workflow/lulu-plan/eval/sots/solution-quality.md"
+_P5_FIXTURE = (
+    _WORKFLOW
+    / "eval"
+    / "scripts"
+    / "tests"
+    / "fixtures"
+    / "stage_quality"
+    / "p5-contract-underdetermined.md"
+)
 
 
 def test_plan_solution_quality_uses_local_method_and_sot():
@@ -33,8 +42,11 @@ def test_plan_local_templates_are_resolvable_from_project_root():
     assert "eval_target_units.units_from_eval_target(B_text)" in method
     assert "`critical`" in method
     assert "`high`" not in method
-    for probe in ("P1", "P2", "P3", "P4"):
+    for probe in ("P1", "P2", "P3", "P4", "P5"):
         assert f"## {probe} " in sot
+    assert "DECISION-REQUIRED" in method
+    assert "root_cause: WO-ERROR" in method
+    assert "Do not read upstream documents" in method
     assert "section-registry" not in sot
     assert "section_order" not in sot
     assert "$FETCH_COMPOSE" not in sot
@@ -42,3 +54,12 @@ def test_plan_local_templates_are_resolvable_from_project_root():
 
 def test_probe_runner_no_longer_defines_intent_gap_probes():
     assert "intent_gap_probes" not in _RUNNER_SKILL.read_text(encoding="utf-8")
+
+
+def test_p5_fixture_leaves_api_shape_underdetermined():
+    fixture = _P5_FIXTURE.read_text(encoding="utf-8")
+
+    assert "<!-- chapter: scene-slot -->" in fixture
+    assert "API set" in fixture
+    assert "includeCorpus" not in fixture
+    assert "explicit API list" not in fixture

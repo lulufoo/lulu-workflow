@@ -31,15 +31,13 @@ from eval_control import (  # noqa: E402
     begin_artifact_remediation,
     begin_dimension,
     begin_dimension_artifact_remediation,
-    begin_dimension_sot_remediation,
     begin_eval_round,
-    begin_sot_remediation,
+    begin_dimension_human_resolution,
+    begin_human_resolution,
     build_eval_loop_payload,
-    check_artifact_remediation,
     check_dimension,
     check_dimension_artifact_remediation,
-    check_dimension_sot_remediation,
-    check_sot_remediation,
+    check_dimension_human_resolution,
     collect_review_issues,
     complete_round,
     compute_fix_severity,
@@ -48,7 +46,7 @@ from eval_control import (  # noqa: E402
     probe_complete,
     read_b_snapshot_cmd,
     read_evidence_snapshot_cmd,
-    sot_remediation_complete,
+    human_resolution_complete,
     submit_remediation_diff,
     submit_probe_findings,
 )
@@ -111,25 +109,25 @@ _REVIEW_HEADER = (
     "**Date:** 2026-01-01\n"
     "**Refs:** codebase\n\n"
     "| ID | root_cause | sot_ref | location | severity | evidence "
-    "| description | status | decision |\n"
+    "| description | status | decision | resolution |\n"
     "|----|------------|---------|----------|----------|----------"
-    "|-------------|--------|----------|\n"
+    "|-------------|--------|----------|------------|\n"
 )
 
 _REVIEW_E2_PROBE = (
     _REVIEW_HEADER
     + "| e2-1 | WO-ERROR | — | tech-doc §3 | critical | missing handling | "
-    "missing error handling | pending | — |\n"
+    "missing error handling | pending | — | |\n"
     + "| e2-2 | WO-ERROR | — | tech-doc §5 | minor | naming | "
-    "naming inconsistency | pending | — |\n"
+    "naming inconsistency | pending | — | |\n"
 )
 
 _REVIEW_E2_DONE = (
     _REVIEW_HEADER
     + "| e2-1 | WO-ERROR | — | tech-doc §3 | critical | missing handling | "
-    "missing error handling | fixed | fix |\n"
+    "missing error handling | fixed | fix | |\n"
     + "| e2-2 | WO-ERROR | — | tech-doc §5 | minor | naming | "
-    "naming inconsistency | ignored | ignore |\n"
+    "naming inconsistency | ignored | ignore | |\n"
 )
 
 _E2_FINDINGS = [
@@ -184,7 +182,17 @@ def _write_review(ws: Path, content: str, *, filename: str = "tech-review-e11.md
     eval_dir = ws.parent / "evaluate1"
     eval_dir.mkdir(parents=True, exist_ok=True)
     path = eval_dir / filename
-    path.write_text(content, encoding="utf-8")
+    normalized_lines: list[str] = []
+    for line in content.splitlines():
+        if (
+            line.startswith("|")
+            and not line.startswith("|---")
+            and "severity" not in line.lower()
+            and line.count("|") == 10
+        ):
+            line += " |"
+        normalized_lines.append(line)
+    path.write_text("\n".join(normalized_lines) + "\n", encoding="utf-8")
     return path
 
 
@@ -312,7 +320,7 @@ class TestInitRound:
         result = init_round(_CYCLE, tmp_path, mode="product")
         assert result["ok"] is True
         es = load_evaluate_state(ws.parent / "L1" / "evaluate-state.md")
-        assert es["version"] == "4"
+        assert es["version"] == "5"
         assert es["eval_status"] == "active"
         assert es["fix_phase"] == "probe"
         assert es["corpus_ref"] == LULU_PLAN_COMPOSED_CORPUS_REF
@@ -362,7 +370,7 @@ class TestBeginEvalRound:
         )
         result = begin_eval_round(_CYCLE, tmp_path)
         assert result["ok"] is False
-        assert "expected '4'" in result["reason"]
+        assert "expected '5'" in result["reason"]
 
     def test_re_evaluate_after_complete_round(self, tmp_path: Path):
         ws = _setup_complete_round_ready(tmp_path)
@@ -813,7 +821,7 @@ class TestProbeComplete:
             assert result["ok"] is True, result["reason"]
         result = probe_complete(_CYCLE, tmp_path)
         assert result["ok"] is True
-        assert result["fix_phase"] == "artifact-remediation"
+        assert result["fix_phase"] == "human-resolution"
         assert result["total_issues"] == "2"
 
 
@@ -835,9 +843,8 @@ class TestArtifactRemediation:
             es = _merge_dim(es, dim, "probed", tmp_path)
             save_evaluate_state(ws.parent / "evaluate-state.md", es)
         result = begin_artifact_remediation(_CYCLE, tmp_path)
-        assert result["ok"] is True
-        assert result["skip"] is True
-        assert result["dispatch"] == []
+        assert result["ok"] is False
+        assert "Human Resolution" in result["reason"]
 
     def test_begin_returns_dispatch_for_pending_wo(self, tmp_path: Path):
         ws = _setup_evaluating(tmp_path)
@@ -887,9 +894,9 @@ class TestArtifactRemediation:
             check_dimension_artifact_remediation(_CYCLE, tmp_path, dim=dim)
         result = artifact_remediation_complete(_CYCLE, tmp_path)
         assert result["ok"] is True
-        assert result["fix_phase"] == "sot-remediation"
+        assert result["fix_phase"] == "done"
 
-    def test_early_dim_complete_when_no_pending_sot(self, tmp_path: Path):
+    def test_early_dim_complete_when_no_pending_human(self, tmp_path: Path):
         ws = _setup_evaluating(tmp_path)
         save_evaluate_state(
             ws.parent / "evaluate-state.md",
@@ -903,7 +910,7 @@ class TestArtifactRemediation:
             save_evaluate_state(ws.parent / "evaluate-state.md", es)
         for dim in dispatch_list(_CYCLE, tmp_path):
             check_dimension_artifact_remediation(_CYCLE, tmp_path, dim=dim)
-        check_artifact_remediation(_CYCLE, tmp_path)
+        artifact_remediation_complete(_CYCLE, tmp_path)
         es = load_evaluate_state(ws.parent / "evaluate-state.md")
         dim_map = _dim_map(es, tmp_path)
         assert dim_map["e2"] == "complete"
@@ -1129,13 +1136,13 @@ class TestSubmitRemediationDiff:
         assert "conflicting submission" in conflict["reason"]
         assert [path.read_bytes() for path in (target, review, state, operations)] == after_first
 
-    def test_sot_defect_rejects_b_mutation(self, tmp_path: Path):
+    def test_human_sot_defect_rejects_b_mutation(self, tmp_path: Path):
         ws = _setup_evaluating(tmp_path)
         target = ws.parent / "L1" / "tech-doc.md"
         target.write_text("# Tech Doc\nrepeat\ntarget\nrepeat\n", encoding="utf-8")
         save_evaluate_state(
             ws.parent / "evaluate-state.md",
-            {"fix_phase": "sot-remediation"},
+            {"fix_phase": "human-resolution"},
         )
         _write_review(
             ws,
@@ -1149,7 +1156,7 @@ class TestSubmitRemediationDiff:
             _merge_dim(es, "e2", "probed", tmp_path),
             merge=False,
         )
-        context = begin_dimension_sot_remediation(_CYCLE, tmp_path, dim="e2")
+        context = begin_dimension_human_resolution(_CYCLE, tmp_path, dim="e2")
         snapshot = read_b_snapshot_cmd(
             _CYCLE,
             tmp_path,
@@ -1167,10 +1174,11 @@ class TestSubmitRemediationDiff:
             issue_ids=["e2-1"],
         )
         assert result["ok"] is False
-        assert "SOT-DEFECT" in result["reason"]
+        assert "not authorized for remediation" in result["reason"]
         assert [path.read_bytes() for path in (target, review, state, operations)] == before
 
 
+@pytest.mark.skip(reason="Replaced by focused Human Resolution control tests")
 class TestSotRemediation:
     def test_check_sets_abandoned_on_escalated(self, tmp_path: Path):
         ws = _setup_evaluating(tmp_path)
