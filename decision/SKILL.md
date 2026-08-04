@@ -147,7 +147,7 @@ Spine gates:
 | DC | `$SKILL_DIR/runners/dc-delivery-runner/SKILL.md` | R exit `dc` or RR exit `dc` |
 | Human Decision | `$SKILL_DIR/runners/hd-human-decision-runner/SKILL.md` | RR exit `human_decision` |
 
-Dialogue semantics SSOT: **unmerged** spine/global gates still use `$SKILL_DIR/gates/*.md` (each such runner names its contract in Prerequisites). **Merged** gates use the Cognitive map inside the corresponding `runners/*/SKILL.md` (this wave: **Q · O · GL · E · DC · RR**). Gate Routing loads runners only, never gate files directly. Global gate files (unmerged): `g0-parallel-registers.md` · `rs-realign-state-handler.md`. Stale Per-gate: `$SKILL_DIR/references/stale-gate-update.md`. Stale Batch: `$SKILL_DIR/references/stale-batch-confirm.md`.
+Dialogue semantics SSOT: **unmerged** spine/global gates still use `$SKILL_DIR/gates/*.md` (each such runner names its contract in Prerequisites). **Merged** gates use the Cognitive map inside the corresponding `runners/*/SKILL.md` (this wave: **Q · O · GL · E · R · DC · RR**). Gate Routing loads runners only, never gate files directly. Global gate files (unmerged): `g0-parallel-registers.md` · `rs-realign-state-handler.md`. Stale Per-gate: `$SKILL_DIR/references/stale-gate-update.md`. Stale Batch: `$SKILL_DIR/references/stale-batch-confirm.md`.
 
 ---
 
