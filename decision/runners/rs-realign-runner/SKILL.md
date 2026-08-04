@@ -17,7 +17,7 @@ Control CLI non-zero → stop, report error, wait for user direction.
 
 ## Global · not parallel
 
-Runs on upstream-change hit during any gate. No spine `gate-close` until `RS_COMPLETE`. After success, re-enter LoopA at align gate `G` (Q / GL / E / D / X), not V / RR.
+Runs on upstream-change hit during any gate. No spine `gate-close` until `RS_COMPLETE`. After success, re-enter LoopA at align gate `G` (Q / GL / E / D / X), not RR.
 
 ## When to load
 

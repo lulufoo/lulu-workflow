@@ -37,7 +37,7 @@ from dec_workflow_common import CACHE_DIR  # noqa: E402
 
 # Single-dimension Eval: realign_gate must come from each issue (E/D/X per check).
 REALIGN_BY_DIM: dict[str, str] = {}
-_GATE_ORDER = ("O", "Q", "GL", "E", "D", "X", "R", "V", "RR", "DC")
+_GATE_ORDER = ("O", "Q", "GL", "E", "D", "X", "R", "RR", "DC")
 
 
 def _emit(payload: dict[str, Any]) -> int:

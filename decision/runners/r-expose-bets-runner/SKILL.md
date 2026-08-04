@@ -37,8 +37,8 @@ Do NOT proceed until you have read `../../../_runtime.md`
 5. Gate contract § Execute — risk + `risk_class` + consequence on the full table (user confirm; never classify at G0)
 6. Select exit with user:
    - `rs` — known failure → RS runner (identify `realign_gate`)
-   - `loop_b` — uncertain assumptions, any `pending`, or any `implementation` → V
-   - `dc` — all `decision` and resolved → skip V/RR (**forbidden** if any `implementation` or `pending`)
+   - `loop_b` — uncertain assumptions, any `pending`, or any `implementation` → RR
+   - `dc` — all `decision` and resolved → skip RR (**forbidden** if any `implementation` or `pending`)
 7. `$GATE_CONTROL gate-close --gate R --payload '<json>'`
 8. On `exit=rs`: load `$SKILL_DIR/runners/rs-realign-runner/SKILL.md` with `realign_gate`
 9. Otherwise return `GATE_COMPLETE R exit=<loop_b|dc>`

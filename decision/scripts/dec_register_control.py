@@ -81,7 +81,9 @@ def _active_register_source(gate_state: dict[str, Any]) -> str:
     active = str(gate_state.get("active_gate", "O"))
     if active == "O":
         return "O"
-    if active in {"Q", "GL", "E", "D", "X", "R", "V", "RR"}:
+    if active == "V":
+        return "RR"
+    if active in {"Q", "GL", "E", "D", "X", "R", "RR"}:
         return active
     return "O"
 

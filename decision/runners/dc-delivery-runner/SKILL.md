@@ -26,7 +26,7 @@ Do NOT proceed until you have read `../../../_runtime.md` and
 
 - `$SKILL_DIR` = `$SKILL_ROOT/decision`
 - `$CTX.active_gate` must be `DC` (from resolve-context)
-- Entry: R exit `dc`, V exit `dc`, or RR exit `dc`
+- Entry: R exit `dc` or RR exit `dc`
 - Dialogue semantics SSOT: this file’s **Cognitive map** (no separate gate file)
 
 ## Script Macros
@@ -51,7 +51,7 @@ Subcommand contracts: module docstring / `--help`. `$SUBAGENT_*`: `_subagent.md`
 
 ### Coverage / bounds
 
-- **Entry paths** (any one): R→`dc` · V→`dc` · RR→`dc`.
+- **Entry paths** (any one): R→`dc` · RR→`dc`.
 - **Decision-doc:** not maintained during the session; `$SESSION_INTEGRITY render` builds it once before present. Layout / section filtering: `render --help`. Template: `$FETCH_TEMPLATE --section decision --key decision_doc_template_url`.
 - **Present** (from rendered doc; do not show file paths): Decision Rationale; Scope (incl. exclusions); Assumptions & Risks (risk, Class, Verification); call out `Class=implementation` Handoff lines (remind only; do not block).
 - **Eval:** replaces AI Semantic Review; probe via sub-agent; fail→RS; no artifact/SoT remediation. Details: `eval/eval-profile.json`, `$DEC_EVAL` / `$EVAL_CONTROL` `--help`, `eval/methods/decision-consistency.md`.

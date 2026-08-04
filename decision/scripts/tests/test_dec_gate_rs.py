@@ -244,7 +244,7 @@ def test_stale_from_keeps_payloads(template_config: Path, monkeypatch: pytest.Mo
     assert gate_state["gates"]["X"]["status"] == "stale"
     assert gate_state["gates"]["R"]["status"] == "stale"
     # Never-reached pending left alone
-    assert gate_state["gates"]["V"]["status"] == "pending"
+    assert gate_state["gates"]["RR"]["status"] == "pending"
 
     assert gate_payload_exists(project_root, cycle_id, "D")
     assert gate_payload_exists(project_root, cycle_id, "X")

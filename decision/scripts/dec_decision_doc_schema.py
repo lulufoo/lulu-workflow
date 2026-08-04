@@ -49,8 +49,7 @@ GATE_CLOSE_PREREQ: dict[str, str | None] = {
     "D": "E",
     "X": "D",
     "R": "X",
-    "V": "R",
-    "RR": "V",
+    "RR": "R",
 }
 
 

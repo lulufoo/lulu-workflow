@@ -22,8 +22,8 @@
 
 **`risk_class`:**
 - **decision** — verification (or equivalent disposition) can / must complete before DC
-- **implementation** — cannot meaningfully verify before DC; handoff at V; does **not** enter RR
-- **pending** — gray; may leave R only via `loop_b`; must be resolved at V entry
+- **implementation** — cannot meaningfully verify before DC; handoff at RR (terms); does **not** enter release-check
+- **pending** — gray; may leave R only via `loop_b`; must be resolved at RR terms entry
 
 **Confirmation:** After presenting all assumptions with risk levels and classes, ask: "Do these risk levels and classes look correct? You may reclassify any item." Do not declare R closed until user explicitly confirms (including any reclassifications).
 
@@ -35,7 +35,7 @@
    → load `$SKILL_DIR/runners/rs-realign-runner/SKILL.md` → re-enter LoopA at the failed assumption's associated gate
 
 2. **Uncertain assumptions / handoff needed** — any `[待验证]` remains, **or** any `risk_class=implementation` or `pending`  
-   → enter Group Loop B (V)  
+   → enter Group Loop B (RR)  
    → `exit=dc` is **forbidden** when any item is `implementation` or `pending`
 
 3. **No uncertain assumptions** — all entries are `decision`, resolved; AI + user consensus  

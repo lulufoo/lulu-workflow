@@ -19,12 +19,13 @@ GATE_ORDER: tuple[str, ...] = (
     "D",
     "X",
     "R",
-    "V",
     "RR",
     "DC",
 )
 LOOP_A: tuple[str, ...] = ("O", "Q", "GL", "E", "D", "X", "R")
-LOOP_B: tuple[str, ...] = ("V", "RR")
+LOOP_B: tuple[str, ...] = ("RR",)
+# Retired spine id; normalize_gate_state remaps legacy sessions (V→RR merge).
+_LEGACY_SPINE_V = "V"
 # Align-from gates for Realign (formerly "reopen"); letter code RS = Realign State.
 # Spine id GL (Grill) — not protocol G0/G9 and not RS metavariable "G".
 RS_REALIGN_GATES: tuple[str, ...] = ("Q", "GL", "E", "D", "X")
@@ -100,11 +101,12 @@ def validate_gate_state(data: dict[str, Any]) -> list[str]:
 
 
 def _migrate_legacy_gate_ids(data: dict[str, Any]) -> dict[str, Any]:
-    """Map pre-O gate id ``open`` to ``O`` on read."""
+    """Map pre-O gate id ``open`` to ``O``; fold retired spine ``V`` into ``RR``."""
     updated = dict(data)
     active = str(updated.get("active_gate", ""))
     if active in _LEGACY_GATE_IDS:
         updated["active_gate"] = _LEGACY_GATE_IDS[active]
+        active = str(updated["active_gate"])
     gates_raw = updated.get("gates")
     if isinstance(gates_raw, dict):
         gates = dict(gates_raw)
@@ -112,7 +114,33 @@ def _migrate_legacy_gate_ids(data: dict[str, Any]) -> dict[str, Any]:
             if "O" not in gates:
                 gates["O"] = gates["open"]
             del gates["open"]
+        # V→RR merge: drop V; map mid-LoopB / active V onto RR.
+        v_entry = gates.pop(_LEGACY_SPINE_V, None)
+        if isinstance(v_entry, dict):
+            v_status = str(v_entry.get("status", "pending")).lower()
+            rr_entry = gates.get("RR")
+            if not isinstance(rr_entry, dict):
+                rr_entry = _default_gate_entry(status="pending")
+            rr_status = str(rr_entry.get("status", "pending")).lower()
+            if active == _LEGACY_SPINE_V or (
+                v_status in {"active", "stale"} and rr_status == "pending"
+            ):
+                gates["RR"] = {
+                    "status": "stale" if v_status == "stale" else "active",
+                    "closed_at": None,
+                }
+                updated["active_gate"] = "RR"
+            elif v_status == "closed" and rr_status == "pending":
+                # Old V closed awaiting RR check → RR still active work.
+                gates["RR"] = {"status": "active", "closed_at": None}
+                if active in {_LEGACY_SPINE_V, "RR"}:
+                    updated["active_gate"] = "RR"
+            elif "RR" not in gates:
+                gates["RR"] = rr_entry
         updated["gates"] = gates
+    skipped = updated.get("skipped_gates")
+    if isinstance(skipped, list):
+        updated["skipped_gates"] = [g for g in skipped if g != _LEGACY_SPINE_V]
     return updated
 
 
@@ -137,6 +165,8 @@ def normalize_gate_state(data: dict[str, Any]) -> dict[str, Any]:
             gates[gate] = _default_gate_entry(status="pending")
 
     active = str(data.get("active_gate", "O"))
+    if active == _LEGACY_SPINE_V:
+        active = "RR"
     if active not in GATE_ORDER:
         active = "O"
 
@@ -146,9 +176,9 @@ def normalize_gate_state(data: dict[str, Any]) -> dict[str, Any]:
     if gl_status == "pending":
         later_reached = any(
             str(gates[g].get("status", "pending")).lower() in {"closed", "active", "stale"}
-            for g in ("E", "D", "X", "R", "V", "RR", "DC")
+            for g in ("E", "D", "X", "R", "RR", "DC")
         )
-        if later_reached or active in {"E", "D", "X", "R", "V", "RR", "DC"}:
+        if later_reached or active in {"E", "D", "X", "R", "RR", "DC"}:
             gates["GL"] = {"status": "closed", "closed_at": gates["GL"].get("closed_at")}
 
     return {
@@ -268,37 +298,19 @@ def invalidate_from_gate(state: dict[str, Any], gate: str) -> dict[str, Any]:
 
 
 def close_gate_r(state: dict[str, Any], *, exit_path: str) -> dict[str, Any]:
-    """Close R and route to Loop B (V) or directly to DC."""
+    """Close R and route to Loop B (RR) or directly to DC."""
     if exit_path not in {"loop_b", "dc"}:
         raise ValueError(f"invalid R exit_path: {exit_path!r}")
     updated = close_gate(state, "R")
     if exit_path == "dc":
-        updated["gates"]["V"]["status"] = "pending"
-        updated["gates"]["V"]["closed_at"] = None
         updated["gates"]["RR"]["status"] = "pending"
         updated["gates"]["RR"]["closed_at"] = None
         _focus_next_gate(updated["gates"], "DC")
         updated["active_gate"] = "DC"
-        updated["skipped_gates"] = ["V", "RR"]
+        updated["skipped_gates"] = ["RR"]
     else:
         updated["skipped_gates"] = []
     updated["updated_at"] = _now_iso()
-    return updated
-
-
-def close_gate_v(state: dict[str, Any], *, exit_path: str) -> dict[str, Any]:
-    if exit_path not in {"rr", "dc"}:
-        raise ValueError(f"invalid V exit_path: {exit_path!r}")
-    updated = close_gate(state, "V")
-    if exit_path == "dc":
-        updated["gates"]["RR"]["status"] = "pending"
-        updated["gates"]["RR"]["closed_at"] = None
-        _focus_next_gate(updated["gates"], "DC")
-        updated["active_gate"] = "DC"
-        skipped = list(updated.get("skipped_gates") or [])
-        if "RR" not in skipped:
-            skipped.append("RR")
-        updated["skipped_gates"] = skipped
     return updated
 
 
@@ -311,11 +323,11 @@ def close_gate_rr(state: dict[str, Any], *, exit_path: str) -> dict[str, Any]:
 
 
 def reactivate_gate_for_r_rerun(state: dict[str, Any]) -> dict[str, Any]:
-    """RR exit 2: return to R without invalidating LoopA."""
+    """RR exit return_r: return to R without invalidating LoopA."""
     updated = normalize_gate_state(state)
     updated["gates"]["R"]["status"] = "active"
     updated["gates"]["R"]["closed_at"] = None
-    for gate in ("V", "RR", "DC"):
+    for gate in ("RR", "DC"):
         updated["gates"][gate]["status"] = "pending"
         updated["gates"][gate]["closed_at"] = None
     updated["active_gate"] = "R"
@@ -326,7 +338,7 @@ def reactivate_gate_for_r_rerun(state: dict[str, Any]) -> dict[str, Any]:
 
 def header_gate_symbols(state: dict[str, Any]) -> dict[str, str]:
     symbols: dict[str, str] = {}
-    for gate in ("O", "Q", "GL", "E", "D", "X", "R", "V", "RR", "DC"):
+    for gate in ("O", "Q", "GL", "E", "D", "X", "R", "RR", "DC"):
         status = str(state["gates"].get(gate, {}).get("status", "pending")).lower()
         symbols[gate] = "✅" if status == "closed" else "⬜"
     return symbols

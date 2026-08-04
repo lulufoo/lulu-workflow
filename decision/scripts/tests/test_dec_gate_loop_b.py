@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for decision Loop B gates (V / RR / DC) and delivery."""
+"""Tests for decision Loop B gates (RR / DC) and delivery."""
 
 from __future__ import annotations
 
@@ -95,13 +95,18 @@ def _close_through_r_loop_b(project_root: Path, cycle_id: str, stage: str) -> No
     )
 
 
-def test_loop_b_v_rr_dc_deliver(template_config: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_loop_b_rr_dc_deliver(template_config: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     project_root = template_config
     cycle_id = "feature-loop-b-001"
     stage = "decision"
     monkeypatch.chdir(project_root)
 
     _close_through_r_loop_b(project_root, cycle_id, stage)
+
+    gate_state = json.loads(
+        (project_root / gate_state_path(cycle_id, stage)).read_text(encoding="utf-8")
+    )
+    assert gate_state["active_gate"] == "RR"
 
     h_verification = (
         "Method: integration test / Owner: QA / Timing: pre-release / "
@@ -112,15 +117,16 @@ def test_loop_b_v_rr_dc_deliver(template_config: Path, monkeypatch: pytest.Monke
             project_root,
             cycle_id,
             stage,
-            "V",
+            "RR",
             {
-                "exit": "rr",
+                "exit": "dc",
                 "assumptions": [
                     {
                         "id": "A1",
                         "risk": "H",
                         "risk_class": "decision",
                         "verification": h_verification,
+                        "released": True,
                     },
                 ],
             },
@@ -128,27 +134,8 @@ def test_loop_b_v_rr_dc_deliver(template_config: Path, monkeypatch: pytest.Monke
         == 0
     )
 
-    gate_state = json.loads(
-        (project_root / gate_state_path(cycle_id, stage)).read_text(encoding="utf-8")
-    )
-    assert gate_state["active_gate"] == "RR"
-
     doc = load_rendered_doc(project_root, cycle_id, stage)
     assert "integration test" in doc
-
-    assert (
-        cmd_gate_close(
-            project_root,
-            cycle_id,
-            stage,
-            "RR",
-            {
-                "exit": "dc",
-                "assumptions": [{"id": "A1", "released": True}],
-            },
-        )
-        == 0
-    )
 
     gate_state = json.loads(
         (project_root / gate_state_path(cycle_id, stage)).read_text(encoding="utf-8")
@@ -189,7 +176,7 @@ def test_loop_b_v_rr_dc_deliver(template_config: Path, monkeypatch: pytest.Monke
     ).is_file()
 
 
-def test_v_dc_skip_rr(template_config: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_rr_dc_without_scope(template_config: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     project_root = template_config
     cycle_id = "feature-loop-b-002"
     stage = "decision"
@@ -254,7 +241,7 @@ def test_v_dc_skip_rr(template_config: Path, monkeypatch: pytest.MonkeyPatch) ->
             project_root,
             cycle_id,
             stage,
-            "V",
+            "RR",
             {
                 "exit": "dc",
                 "batch_confirmed": True,
@@ -275,7 +262,8 @@ def test_v_dc_skip_rr(template_config: Path, monkeypatch: pytest.MonkeyPatch) ->
         (project_root / gate_state_path(cycle_id, stage)).read_text(encoding="utf-8")
     )
     assert gate_state["active_gate"] == "DC"
-    assert "RR" in gate_state["skipped_gates"]
+    assert gate_state["gates"]["RR"]["status"] == "closed"
+    assert "RR" not in gate_state.get("skipped_gates", [])
 
 
 def test_rr_return_r_rerun(template_config: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -289,24 +277,6 @@ def test_rr_return_r_rerun(template_config: Path, monkeypatch: pytest.MonkeyPatc
     h_verification = (
         "Method: spike / Owner: dev / Timing: sprint 1 / Release condition: POC passes"
     )
-    cmd_gate_close(
-        project_root,
-        cycle_id,
-        stage,
-        "V",
-        {
-            "exit": "rr",
-            "assumptions": [
-                {
-                    "id": "A1",
-                    "risk": "H",
-                    "risk_class": "decision",
-                    "verification": h_verification,
-                },
-            ],
-        },
-    )
-
     cmd_register_append(
         project_root,
         cycle_id,
@@ -323,7 +293,15 @@ def test_rr_return_r_rerun(template_config: Path, monkeypatch: pytest.MonkeyPatc
             "RR",
             {
                 "exit": "return_r",
-                "assumptions": [{"id": "A1", "released": True}],
+                "assumptions": [
+                    {
+                        "id": "A1",
+                        "risk": "H",
+                        "risk_class": "decision",
+                        "verification": h_verification,
+                        "released": True,
+                    },
+                ],
             },
         )
         == 0
@@ -403,11 +381,11 @@ def test_r_exit_dc_forbids_implementation(
     )
 
 
-def test_v_dc_with_high_implementation(
+def test_rr_dc_with_high_implementation(
     template_config: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     project_root = template_config
-    cycle_id = "feature-loop-b-impl-v-dc"
+    cycle_id = "feature-loop-b-impl-rr-dc"
     stage = "decision"
     monkeypatch.chdir(project_root)
 
@@ -472,7 +450,7 @@ def test_v_dc_with_high_implementation(
             project_root,
             cycle_id,
             stage,
-            "V",
+            "RR",
             {
                 "exit": "dc",
                 "batch_confirmed": True,
@@ -492,7 +470,8 @@ def test_v_dc_with_high_implementation(
         (project_root / gate_state_path(cycle_id, stage)).read_text(encoding="utf-8")
     )
     assert gate_state["active_gate"] == "DC"
-    assert "RR" in gate_state["skipped_gates"]
+    assert gate_state["gates"]["RR"]["status"] == "closed"
+    assert "RR" not in gate_state.get("skipped_gates", [])
 
     from dec_register_schema import load_registers  # noqa: WPS433
     from dec_workflow_common import registers_path  # noqa: E402

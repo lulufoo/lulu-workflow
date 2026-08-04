@@ -102,11 +102,11 @@ When holder constraints declare `reopen_authorization=holder_required` (e.g. `lu
 - **G9 · Upstream-change detect** — any turn · not parallel · on hit load RS (no dedicated G9 runner).
 - **RS · Realign State Handler** — upstream change needs downstream sync · not parallel · LoopA re-entry at align gate `G` (see § Gate routing · RS).
 
-**Spine:** [LoopA] O → Q → GL → E → D → X → R → ([LoopB] V → RR if needed) → DC → `$GATE_CONTROL complete`.
+**Spine:** [LoopA] O → Q → GL → E → D → X → R → ([LoopB] RR) → DC → `$GATE_CONTROL complete`.
 
 **Phase grouping** (realign scope):
 - [LoopA] O → Q → GL → E → D → X → R — decision construction (realign at Q / GL / E / D / X)
-- [LoopB] V → RR — verification release (upstream wrong → RS, not Loop B re-entry)
+- [LoopB] RR — risk release (terms + release-check; upstream wrong → RS, not Loop B re-entry)
 - [HD] Human Decision — RR exit `human_decision` (see § Gate routing · HD)
 - [DC] Delivery Confirmation — terminal gate
 
@@ -143,12 +143,11 @@ Spine gates:
 | D | `$SKILL_DIR/runners/d-decision-runner/SKILL.md` | E closed |
 | X | `$SKILL_DIR/runners/x-full-diagnosis-runner/SKILL.md` | D closed |
 | R | `$SKILL_DIR/runners/r-expose-bets-runner/SKILL.md` | X closed |
-| V | `$SKILL_DIR/runners/v-verification-runner/SKILL.md` | R closed · `skipped_gates` empty |
-| RR | `$SKILL_DIR/runners/rr-risk-release-runner/SKILL.md` | V closed · RR-scope items |
-| DC | `$SKILL_DIR/runners/dc-delivery-runner/SKILL.md` | R exit `dc` or verification complete |
+| RR | `$SKILL_DIR/runners/rr-risk-release-runner/SKILL.md` | R closed · `skipped_gates` empty |
+| DC | `$SKILL_DIR/runners/dc-delivery-runner/SKILL.md` | R exit `dc` or RR exit `dc` |
 | Human Decision | `$SKILL_DIR/runners/hd-human-decision-runner/SKILL.md` | RR exit `human_decision` |
 
-Dialogue semantics SSOT: **unmerged** spine/global gates still use `$SKILL_DIR/gates/*.md` (each such runner names its contract in Prerequisites). **Merged** gates use the Cognitive map inside the corresponding `runners/*/SKILL.md` (this wave: **Q · O · GL · E · DC**). Gate Routing loads runners only, never gate files directly. Global gate files (unmerged): `g0-parallel-registers.md` · `rs-realign-state-handler.md`. Stale Per-gate: `$SKILL_DIR/references/stale-gate-update.md`. Stale Batch: `$SKILL_DIR/references/stale-batch-confirm.md`.
+Dialogue semantics SSOT: **unmerged** spine/global gates still use `$SKILL_DIR/gates/*.md` (each such runner names its contract in Prerequisites). **Merged** gates use the Cognitive map inside the corresponding `runners/*/SKILL.md` (this wave: **Q · O · GL · E · DC · RR**). Gate Routing loads runners only, never gate files directly. Global gate files (unmerged): `g0-parallel-registers.md` · `rs-realign-state-handler.md`. Stale Per-gate: `$SKILL_DIR/references/stale-gate-update.md`. Stale Batch: `$SKILL_DIR/references/stale-batch-confirm.md`.
 
 ---
 
@@ -222,7 +221,7 @@ If user confirms exit → exit gracefully; mark as incomplete.
 <HARD-GATE name="Session Exit">
 Do NOT exit diagnostic or transition to the next stage until:
 
-- All DDF gates (O → Q → GL → E / D / X → R → [LoopB if uncertain: V / RR] → DC) have passed
+- All DDF gates (O → Q → GL → E / D / X → R → [LoopB if uncertain: RR] → DC) have passed
 - `$GATE_CONTROL check-delivery-ready` returns `ready: true`; DC closed; `$GATE_CONTROL complete` succeeded
 - User has explicitly confirmed readiness to proceed
 
