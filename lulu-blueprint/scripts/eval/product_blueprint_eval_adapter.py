@@ -49,8 +49,6 @@ from session_evaluating import (  # noqa: E402
     enter_evaluating_state,
     rollback_evaluating_phase,
 )
-from subagent_config import detect_platform, get_stage_config_bucket  # noqa: E402
-
 sys.path.insert(0, str(EVAL_SCRIPTS))
 from workflow_adapter import SessionContext  # noqa: E402
 from evaluate_state_ops import init_evaluate_state_for_session  # noqa: E402
@@ -191,30 +189,6 @@ class ProductBlueprintEvalAdapter(ComposeEvalAdapterSupport):
 
     def dimension_defs_dir(self) -> Path:
         return shell_path(load_profile(_WORKFLOW_ID), "dimension_defs_dir")
-
-    @staticmethod
-    def _empty_corpus_bind() -> dict[str, str]:
-        return {"pbt_blueprint_quality_framework_url": ""}
-
-    def corpus_bind_extensions(
-        self,
-        cycle_id: str,
-        project_root: Path,
-    ) -> dict[str, str]:
-        del cycle_id
-        plat = detect_platform(None)
-        section = get_stage_config_bucket(
-            project_root.resolve(),
-            "lulu-blueprint",
-            "eval",
-            plat,
-        )
-        if not section:
-            return self._empty_corpus_bind()
-        framework_url = str(
-            section.get("pbt_blueprint_quality_framework_url", ""),
-        ).strip()
-        return {"pbt_blueprint_quality_framework_url": framework_url}
 
     def detect_cycle_type(self, cycle_id: str) -> str:
         return detect_cycle_type(cycle_id)

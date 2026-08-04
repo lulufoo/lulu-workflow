@@ -14,8 +14,6 @@ _DIMENSION_DEF_FILES = {
     "intent-alignment": "intent-alignment.json",
 }
 
-_DESIGN_QUALITY_CONFIG_KEY = "tdt_design_quality_framework_url"
-
 _TOPIC_EVAL_BLOCKED = (
     "topic cycles do not evaluate in lulu-design; "
     "feature cycle only."
@@ -35,11 +33,6 @@ def select_dimension_ids(
     if mode == "product" and upstream_baseline_ref:
         ids.append("intent-alignment")
     return ids
-
-
-def design_quality_config_key(cycle_type: str) -> str:
-    """Return workflow-config key for design-quality framework URL."""
-    return _DESIGN_QUALITY_CONFIG_KEY
 
 
 def require_feature_eval(cycle_type: str) -> None:

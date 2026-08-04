@@ -12,15 +12,13 @@
     {
       "kind": "url",
       "role": "primary",
-      "ref": "{pbt_blueprint_quality_framework_url}"
+      "ref": "lulu-dev-workflow/lulu-blueprint/eval/sots/blueprint-quality.md"
     }
   ],
   "method": {
-    "kind": "builtin",
-    "source": {
-      "procedure_id": "intent_gap_probes"
-    },
-    "focus": "P1–P4 intent gap probes on product-doc + blueprint-only supplements (downstream register, OQ disposition, PS/PR inheritability for lulu-approach, scope register)"
+    "kind": "external",
+    "source": "lulu-dev-workflow/lulu-blueprint/eval/methods/blueprint-quality.md",
+    "focus": "Blueprint quality"
   },
   "review": {
     "seq": 1,

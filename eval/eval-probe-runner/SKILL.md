@@ -23,9 +23,8 @@ Terminal runner subagent. Probes **one Dimension** per invocation (from EvalCorp
 3. Read `{$SKILL_ROOT}/eval/review.template.md`
 4. Read `{$SKILL_ROOT}/eval/scripts/url_fetch.py` — use `read_ref()` for all URL/path loads
 5. Read `{$SKILL_ROOT}/eval/scripts/codebase_sot.py` — use `resolve_codebase_ref()` for codebase SoT
-6. Read `{$SKILL_ROOT}/eval/scripts/eval_target_units.py` — split EvalTarget **B** into intent units (chapter anchors); **do not** read `_facts.json` / `_chapters.json`
-7. Run `$RESOLVE_ROLE` and `$RESOLVE_DOMAIN` with `CYCLE_ID` and `--profile {WORKFLOW_ID}`; apply Scope Constraints (role + domain) for probe narrative
-8. Follow steps below
+6. Run `$RESOLVE_ROLE` and `$RESOLVE_DOMAIN` with `CYCLE_ID` and `--profile {WORKFLOW_ID}`; apply Scope Constraints (role + domain) for probe narrative
+7. Follow steps below
 ---
 
 ## Required Inputs
@@ -63,12 +62,12 @@ UPSTREAM_BASELINE_REF absolute path to upstream baseline doc (from adapter sessi
 1. Read `EVAL_TARGET_PATH` (EvalTarget **B**).
 2. Parse `SOTS_JSON` and `METHOD_JSON`.
 3. Load each EvalSoT:
-   - `url` · `ref` (https URL or absolute local path) → `read_ref(ref, project_root=Path(PROJECT_ROOT))`
+   - `url` · `ref` (https URL, absolute path, or `PROJECT_ROOT`-relative path) → `read_ref(ref, project_root=Path(PROJECT_ROOT))`
    - `codebase` · `ref.root` + `ref.strategy` → `resolve_codebase_ref(ref, project_root=Path(PROJECT_ROOT))` yields repo root; with `strategy: all`, read code files narrowly as needed (do not batch-load the entire repo)
 4. Load EvalMethod **M**:
-   - `external` · `source` (https URL or absolute path) → `read_ref(source, project_root=Path(PROJECT_ROOT))` as rubric
+   - `external` · `source` (https URL, absolute path, or `PROJECT_ROOT`-relative path) → `read_ref(source, project_root=Path(PROJECT_ROOT))` as the EvalMethod
    - `builtin` · `source.procedure_id: codebase_consistency` → compare B against code read from codebase SoT root per `METHOD_FOCUS` (dimension-def may constrain probe scope, e.g. cite-only sub-sections)
-   - `builtin` · `source.procedure_id: intent_gap_probes` → follow **intent_gap_probes** procedure below; criteria **A** from url SoT in `SOTS_JSON`
+   - other `builtin` procedures → STOP and report an unsupported procedure id
 
 When `SOTS_JSON` is empty, **M** carries both rubric and basis.
 
@@ -76,46 +75,9 @@ When `SOTS_JSON` is empty, **M** carries both rubric and basis.
 
 ## Step 2 — Generate issues list
 
-Evaluate **B** using loaded SoT content and **M** / `METHOD_FOCUS`.
+For an `external` EvalMethod, follow its procedure to evaluate **B** using every loaded SoT. The Method must define its unit model, traversal, SoT usage, severity rules, and required issue fields.
 
-### intent_gap_probes
-
-Builtin `procedure_id: intent_gap_probes`. Criteria **A** = first url SoT in `SOTS_JSON` (loaded via `read_ref`).
-
-**Eval model (K3-d):** evaluate **B** only. Content units come from **B**'s chapter anchors. Do **not** open `_facts.json`, `_chapters.json`, `_body-*`, or call compose facts/chapters CLIs.
-
-1. Load **A** from SoT (P1–P4 definitions and applicability in **A**; run any profile-specific supplements defined in **A** after applicable P probes).
-2. Do **not** parse `<!-- state-vector: … -->`. Do **not** load `layer-standards` or L Diagnostic Criteria.
-3. Read **B** from `EVAL_TARGET_PATH`. Build the unit view via `eval_target_units.units_from_eval_target(B_text)` (or CLI: `python3 {$SKILL_ROOT}/eval/scripts/eval_target_units.py --path "$EVAL_TARGET_PATH"`).
-4. Branch on `shape`:
-   - **`unknown`** → emit one `UNRESOLVABLE` (B has no chapter anchors); stop further P probes for this dim.
-   - **`empty: true`** → treat as empty artifact; apply **A** only where empty content still applies; otherwise no P findings.
-   - **`chapter`** → follow **Chapter path** below (no section-registry).
-5. For each finding classify `root_cause` per `eval/SKILL.md` and fill all required columns.
-6. `sot_ref` → framework doc `#P{n}` or `#D{n}`; `description` → Gap output from **A**.
-7. `location` → unit `id` (e.g. `chap-a#1`), not line numbers alone.
-
-#### Chapter path (EvalTarget B)
-
-Traverse `containers` in **document order** (not registry `section_order`).
-
-For each container `C` with units `U`:
-
-1. For each unit in `U`, run applicable probes per **A** (`Applies when`).
-2. **P3:** upstream = `prior_container_units(view, C.id)` (all units from earlier chapters). If no prior chapters, P3 upstream is empty (skip P3 when **A** requires upstream).
-3. **Severity** (chapter ↔ old section_order skeleton; use `severity_hints_chapter(view, C.id)`):
-   - P1 fail on first container → `high`
-   - P1 fail on a container with `has_prior` → `high`
-   - P2 fail when `before_last` → `high`
-   - P3 fail when `has_prior` → `high`
-   - P4 fail on last container → `high`
-   - P1/P2 fail on late approach-style containers → `medium`
-   - P4 edge cases on early direction-style containers → `medium`
-4. Optional: on last container — sanity-check verifiable action or file reference.
-
-Output fields per issue: `id`, `root_cause`, `sot_ref`, `location`, `severity`, `evidence`, `description`, `status: pending`, `decision: —`
-
-Issue `id` prefix: use `DIMENSION` dispatch key (e.g. `e2-1`, `intent-alignment-1`).
+For `codebase_consistency`, follow the builtin procedure loaded in Step 1.
 
 ---
 

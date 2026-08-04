@@ -14,8 +14,6 @@ _DIMENSION_DEF_FILES = {
     "tech-conformance": "tech-conformance.json",
 }
 
-_INTENT_EVAL_CONFIG_KEY = "tpt_intent_eval_framework_url"
-
 _TOPIC_EVAL_BLOCKED = (
     "topic cycles do not evaluate in lulu-plan; "
     "use lulu-arch stage for topic Evaluating."
@@ -37,11 +35,6 @@ def select_dimension_ids(
     if tech_design_ref.strip() or tech_diagnostic_ref.strip():
         ids.append("tech-conformance")
     return ids
-
-
-def intent_eval_config_key(cycle_type: str) -> str:
-    """Return workflow-config key for intent-eval framework URL."""
-    return _INTENT_EVAL_CONFIG_KEY
 
 
 def require_feature_eval(cycle_type: str) -> None:

@@ -109,7 +109,6 @@ class TestExpandCorpus:
         "upstream_baseline_ref": "/abs/product-doc.md",
         "cycle_type": "feature",
         "M": "1",
-        "tpt_intent_eval_framework_url": "https://github.com/o/r/blob/main/41-lulu-plan-intent-evaluation-framework.md",
         "tpt_tech_conformance_url": "https://github.com/o/r/blob/main/tech-conformance.md",
         "upstream_doc_path": "/abs/design-doc.md",
     }
@@ -129,12 +128,16 @@ class TestExpandCorpus:
         e2 = expanded["dimensions"][0]
         assert e2["sots"][0]["ref"] == {"root": ".", "strategy": "all"}
 
-    def test_expand_e3_substitutes_intent_probe_urls(self):
+    def test_expand_e3_preserves_local_method_and_sot_paths(self):
         data = _feature_tech_upstream_corpus()
         expanded = expand_corpus(data, self._BIND)
         e3 = expanded["dimensions"][1]
-        assert e3["sots"][0]["ref"] == self._BIND["tpt_intent_eval_framework_url"]
-        assert e3["method"]["source"] == {"procedure_id": "intent_gap_probes"}
+        assert e3["sots"][0]["ref"] == (
+            "lulu-dev-workflow/lulu-plan/eval/sots/solution-quality.md"
+        )
+        assert e3["method"]["source"] == (
+            "lulu-dev-workflow/lulu-plan/eval/methods/solution-quality.md"
+        )
 
     def test_invalid_codebase_strategy(self):
         dim = {
