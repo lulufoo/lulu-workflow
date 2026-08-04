@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 from typing import Literal
 
-from review_io import parse_review_file, split_table_row
+from review_io import split_table_row
 
 Phase = Literal["probe", "remediation"]
 
@@ -145,28 +145,54 @@ def validate_issue_row(row: dict[str, str], *, phase: Phase) -> list[str]:
     return errors
 
 
-def validate_review_file(path: Path, *, phase: Phase = "probe") -> list[str]:
-    """Validate review file header and all issue rows.
+def validate_review_content(content: str, *, phase: Phase = "probe") -> list[str]:
+    """Validate review text before it is persisted.
 
     Row phase is inferred per row: ``pending`` → probe rules; otherwise remediation.
     The ``phase`` parameter is retained for call-site documentation only.
     """
-    if not path.exists():
-        return [f"review file not found: {path}"]
-
-    content = path.read_text(encoding="utf-8")
     lines = content.splitlines()
     errors = validate_review_header(lines)
     if errors:
         return errors
 
-    rows = parse_review_file(path)
+    header = [
+        cell.strip().lower()
+        for line in lines
+        if line.strip().startswith("|") and not line.strip().startswith("|---")
+        for cells in [split_table_row(line)]
+        if "severity" in cells and "status" in cells and "decision" in cells
+        for cell in cells
+    ]
+    rows: list[dict[str, str]] = []
+    for line in lines:
+        stripped = line.strip()
+        if not stripped.startswith("|") or stripped.startswith("|---"):
+            continue
+        cells = split_table_row(stripped)
+        if not cells or _normalize_header(cells) == header:
+            continue
+        if not header:
+            continue
+        if len(cells) != len(header):
+            errors.append(
+                f"review row has {len(cells)} cells, expected {len(header)}",
+            )
+            continue
+        rows.append({header[i]: cells[i] for i in range(len(header))})
     for row in rows:
         row_phase: Phase = (
             "probe" if row.get("status", "").lower() == "pending" else "remediation"
         )
         errors.extend(validate_issue_row(row, phase=row_phase))
     return errors
+
+
+def validate_review_file(path: Path, *, phase: Phase = "probe") -> list[str]:
+    """Validate review file header and all issue rows."""
+    if not path.exists():
+        return [f"review file not found: {path}"]
+    return validate_review_content(path.read_text(encoding="utf-8"), phase=phase)
 
 
 def render_review_header(

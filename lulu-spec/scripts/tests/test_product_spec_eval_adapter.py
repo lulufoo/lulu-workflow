@@ -94,7 +94,7 @@ class TestProductSpecEvalAdapter:
         adapter = ProductSpecEvalAdapter()
         bind = adapter.corpus_bind_extensions(_CYCLE, tmp_path)
         assert bind["decision_ref"].endswith("/lulu-bet/decision-doc.md")
-        assert "pst_product_eval_framework_url" in bind
+        assert "pst_product_eval_framework_url" not in bind
 
     def test_resolve_evaluate_state_path(self, tmp_path: Path):
         _seed_session(tmp_path)

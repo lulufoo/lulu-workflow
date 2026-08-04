@@ -12,9 +12,10 @@ from evaluate_state_schema import (  # noqa: E402
     all_dims_at_least,
     build_initial_evaluate_state,
     get_schema,
-    is_v3_state,
+    is_v4_state,
     load_evaluate_state,
     parse_dimension_status,
+    parse_dimension_tokens,
     parse_issue_counts,
     save_evaluate_state,
     validate_evaluate_state,
@@ -22,9 +23,11 @@ from evaluate_state_schema import (  # noqa: E402
 
 
 class TestGetSchema:
-    def test_version_3(self):
+    def test_version_4(self):
         fields = {item["field"] for item in get_schema()}
         assert "dimension_status" in fields
+        assert "dimension_tokens" in fields
+        assert "round_token" in fields
         assert "issue_counts" in fields
         assert "corpus_ref" in fields
 
@@ -35,7 +38,9 @@ class TestBuildInitial:
             dimension_ids=["intent-alignment", "codebase-consistency"],
             corpus_ref=_LULU_PLAN_COMPOSED_CORPUS_REF,
         )
-        assert data["version"] == "3"
+        assert data["version"] == "4"
+        assert data["round_token"]
+        assert parse_dimension_tokens(data["dimension_tokens"]) == {}
         dim_map = parse_dimension_status(data["dimension_status"])
         assert dim_map == {
             "intent-alignment": "pending",
@@ -77,9 +82,9 @@ class TestIo:
         )
         save_evaluate_state(path, data, merge=False)
         loaded = load_evaluate_state(path)
-        assert loaded["version"] == "3"
+        assert loaded["version"] == "4"
         assert loaded["corpus_ref"] == _LULU_PLAN_COMPOSED_CORPUS_REF
-        assert is_v3_state(loaded)
+        assert is_v4_state(loaded)
 
 
 class TestAllDimsAtLeast:

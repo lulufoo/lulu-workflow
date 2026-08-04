@@ -45,11 +45,10 @@ from session_evaluating import (  # noqa: E402
     enter_evaluating_state,
     rollback_evaluating_phase,
 )
-from subagent_config import detect_platform, get_stage_config_bucket  # noqa: E402
 
 sys.path.insert(0, str(EVAL_SCRIPTS))
 from workflow_adapter import SessionContext  # noqa: E402
-from evaluate_state_ops import init_evaluate_state_for_session  # noqa: E402
+from evaluate_state_ops import init_evaluate_state_for_corpus  # noqa: E402
 from corpus_compose import compose_corpus  # noqa: E402
 
 from product_spec_eval_policy import select_dimension_defs  # noqa: E402
@@ -196,10 +195,7 @@ class ProductSpecEvalAdapter(ComposeEvalAdapterSupport):
 
     @staticmethod
     def _empty_corpus_bind() -> dict[str, str]:
-        return {
-            "decision_ref": "",
-            "pst_product_eval_framework_url": "",
-        }
+        return {"decision_ref": ""}
 
     def corpus_bind_extensions(
         self,
@@ -208,16 +204,7 @@ class ProductSpecEvalAdapter(ComposeEvalAdapterSupport):
     ) -> dict[str, str]:
         revision_dir = self.resolve_workflow_state_path(cycle_id, project_root).parent
         scope = resolved_scope_ref(revision_dir) if has_resolved_refs(revision_dir) else None
-        decision_ref = scope.path if scope is not None else ""
-
-        plat = detect_platform(None)
-        section = get_stage_config_bucket(project_root.resolve(), "lulu-spec", "eval", plat)
-        framework_url = str(section.get("pst_product_eval_framework_url", "")).strip()
-
-        return {
-            "decision_ref": decision_ref,
-            "pst_product_eval_framework_url": framework_url,
-        }
+        return {"decision_ref": scope.path if scope is not None else ""}
 
     def detect_cycle_type(self, cycle_id: str) -> str:
         return detect_cycle_type(cycle_id)
@@ -237,10 +224,10 @@ class ProductSpecEvalAdapter(ComposeEvalAdapterSupport):
         if result.get("transitioned"):
             focus = str(result.get("focus") or "")
             try:
-                init_evaluate_state_for_session(
-                    self,
-                    cycle_id,
-                    project_root,
+                init_evaluate_state_for_corpus(
+                    self.resolve_evaluate_state_path(cycle_id, project_root),
+                    self.resolve_eval_corpus(cycle_id, project_root),
+                    cycle_type=self.detect_cycle_type(cycle_id),
                     evaluate_round=int(result.get("evaluate_round") or 1),
                     focus_l=focus,
                 )

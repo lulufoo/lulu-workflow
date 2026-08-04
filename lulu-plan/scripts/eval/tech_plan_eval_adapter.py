@@ -44,13 +44,12 @@ from session_evaluating import (  # noqa: E402
     enter_evaluating_state,
     rollback_evaluating_phase,
 )
-from subagent_config import detect_platform, get_stage_config_bucket  # noqa: E402
 
 sys.path.insert(0, str(EVAL_SCRIPTS))
 if str(WORKFLOW_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(WORKFLOW_SCRIPTS))
 from workflow_adapter import SessionContext  # noqa: E402
-from evaluate_state_ops import init_evaluate_state_for_session  # noqa: E402
+from evaluate_state_ops import init_evaluate_state_for_corpus  # noqa: E402
 from corpus_compose import compose_corpus  # noqa: E402
 from compose_package_schema import (  # noqa: E402
     is_compose_package_path,
@@ -194,15 +193,12 @@ class TechPlanEvalAdapter(ComposeEvalAdapterSupport):
     @staticmethod
     def _empty_corpus_bind() -> dict[str, str]:
         return {
-            "tpt_tech_conformance_url": "",
             "upstream_doc_path": "",
         }
 
     def corpus_bind_extensions(
         self, cycle_id: str, project_root: Path
     ) -> dict[str, str]:
-        plat = detect_platform(None)
-        section = get_stage_config_bucket(project_root.resolve(), "lulu-plan", "eval", plat)
         revision_dir = self.resolve_workflow_state_path(cycle_id, project_root).parent
         tech_design_path = frozen_delivered_path_by_type(revision_dir, "lulu-design")
         tech_diagnostic_path = frozen_delivered_path_by_type(revision_dir, "lulu-approach")
@@ -211,15 +207,7 @@ class TechPlanEvalAdapter(ComposeEvalAdapterSupport):
             tech_design_path=tech_design_path,
             tech_diagnostic_path=tech_diagnostic_path,
         )
-        if not section:
-            bind = self._empty_corpus_bind()
-            bind["upstream_doc_path"] = upstream_doc_path
-            return bind
-        tpt_tech_conformance_url = str(
-            section.get("tpt_tech_conformance_url", "")
-        ).strip()
         return {
-            "tpt_tech_conformance_url": tpt_tech_conformance_url,
             "upstream_doc_path": upstream_doc_path,
         }
 
@@ -263,10 +251,10 @@ class TechPlanEvalAdapter(ComposeEvalAdapterSupport):
         if result.get("transitioned"):
             focus = str(result.get("focus") or "")
             try:
-                init_evaluate_state_for_session(
-                    self,
-                    cycle_id,
-                    project_root,
+                init_evaluate_state_for_corpus(
+                    self.resolve_evaluate_state_path(cycle_id, project_root),
+                    self.resolve_eval_corpus(cycle_id, project_root),
+                    cycle_type=self.detect_cycle_type(cycle_id),
                     evaluate_round=int(result.get("evaluate_round") or 1),
                     focus_l=focus,
                 )

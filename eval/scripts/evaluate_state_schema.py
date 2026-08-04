@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Authoritative schema and I/O helpers for evaluate-state.md (v3).
+"""Authoritative schema and I/O helpers for evaluate-state.md (v4).
 
 CLI:
     python3 evaluate_state_schema.py --schema
@@ -12,12 +12,13 @@ import argparse
 import json
 import re
 import sys
+import uuid
 from pathlib import Path
 from typing import Any
 
 _SCHEMA: list[dict[str, Any]] = [
     {"field": "version", "type": "string", "required": True,
-     "description": "Schema version (currently 3)"},
+     "description": "Schema version (currently 4)"},
     {"field": "phase", "type": "string", "required": True,
      "description": "Fixed value: evaluate"},
     {"field": "eval_status", "type": "string", "required": True,
@@ -30,8 +31,12 @@ _SCHEMA: list[dict[str, Any]] = [
      "description": "Hash of composed dimension id set (dynamic corpus)"},
     {"field": "dimension_dispatch", "type": "string", "required": True,
      "description": "parallel | serial"},
+    {"field": "round_token", "type": "string", "required": True,
+     "description": "Opaque token for this Eval round"},
     {"field": "dimension_status", "type": "string", "required": True,
      "description": "JSON map dim_id -> pending|in_progress|probed|complete"},
+    {"field": "dimension_tokens", "type": "string", "required": True,
+     "description": "JSON map dim_id -> open Dimension operation token"},
     {"field": "issue_counts", "type": "string", "required": True,
      "description": "JSON map dim_id -> {total, resolved}"},
     {"field": "total_issues", "type": "string", "required": True,
@@ -44,8 +49,6 @@ _SCHEMA: list[dict[str, Any]] = [
      "description": "Fix severity reason"},
     {"field": "evaluate_round", "type": "string", "required": False,
      "description": "Per-L evaluation round M (optional; required for per-L layout)"},
-    {"field": "active_lease_id", "type": "string", "required": False,
-     "description": "Compose staging lease id spanning begin-dimension → finish"},
     {"field": "focus_l", "type": "string", "required": False,
      "description": "Focus L id when using per-L evaluate layout"},
 ]
@@ -60,7 +63,9 @@ _KEY_ORDER = [
     "corpus_ref",
     "corpus_fingerprint",
     "dimension_dispatch",
+    "round_token",
     "dimension_status",
+    "dimension_tokens",
     "issue_counts",
     "total_issues",
     "resolved_issues",
@@ -133,6 +138,17 @@ def parse_dimension_status(raw: str) -> dict[str, str]:
     return result
 
 
+def parse_dimension_tokens(raw: str) -> dict[str, str]:
+    """Parse dimension_tokens JSON string."""
+    parsed = parse_json_map(raw, field_name="dimension_tokens")
+    result: dict[str, str] = {}
+    for key, value in parsed.items():
+        if not isinstance(value, str) or not value:
+            raise ValueError(f"invalid dimension token for {key!r}")
+        result[str(key)] = value
+    return result
+
+
 def parse_issue_counts(raw: str) -> dict[str, dict[str, str]]:
     """Parse issue_counts JSON string."""
     parsed = parse_json_map(raw, field_name="issue_counts")
@@ -159,8 +175,9 @@ def build_initial_evaluate_state(
     dimension_dispatch: str = "parallel",
     evaluate_round: int | None = None,
     focus_l: str = "",
+    round_token: str | None = None,
 ) -> dict[str, str]:
-    """Return frontmatter fields for a new evaluate-state.md v3."""
+    """Return frontmatter fields for a new evaluate-state.md v4."""
     if not dimension_ids:
         raise ValueError("dimension_ids must be non-empty")
     if dimension_dispatch not in _VALID_DISPATCH:
@@ -173,12 +190,14 @@ def build_initial_evaluate_state(
         dim_id: {"total": "0", "resolved": "0"} for dim_id in dimension_ids
     }
     data: dict[str, str] = {
-        "version": "3",
+        "version": "4",
         "phase": "evaluate",
         "eval_status": "active",
         "fix_phase": "probe",
         "dimension_dispatch": dimension_dispatch,
+        "round_token": round_token or uuid.uuid4().hex,
         "dimension_status": serialize_json_map(dim_status),
+        "dimension_tokens": serialize_json_map({}),
         "issue_counts": serialize_json_map(issue_counts),
         "total_issues": "0",
         "resolved_issues": "0",
@@ -196,9 +215,9 @@ def build_initial_evaluate_state(
     return data
 
 
-def is_v3_state(data: dict[str, str]) -> bool:
-    """Return True when evaluate-state uses v3 schema."""
-    return data.get("version") == "3" and "dimension_status" in data
+def is_v4_state(data: dict[str, str]) -> bool:
+    """Return True when evaluate-state uses the current v4 schema."""
+    return data.get("version") == "4" and "dimension_status" in data
 
 
 def validate_evaluate_state(data: dict[str, Any]) -> list[str]:
@@ -207,8 +226,8 @@ def validate_evaluate_state(data: dict[str, Any]) -> list[str]:
     for field in _REQUIRED_FIELDS:
         if field not in data:
             errors.append(f"missing required field: '{field}'")
-    if data.get("version") not in (None, "3"):
-        errors.append(f"invalid version: {data.get('version')!r} (expected '3')")
+    if data.get("version") not in (None, "4"):
+        errors.append(f"invalid version: {data.get('version')!r} (expected '4')")
     if data.get("phase") not in (None, "evaluate"):
         errors.append(f"invalid phase: {data.get('phase')!r} (expected 'evaluate')")
     eval_status = data.get("eval_status", "")
@@ -220,10 +239,18 @@ def validate_evaluate_state(data: dict[str, Any]) -> list[str]:
     dispatch = data.get("dimension_dispatch", "")
     if dispatch and dispatch not in _VALID_DISPATCH:
         errors.append(f"invalid dimension_dispatch: {dispatch!r}")
+    if data.get("round_token") == "":
+        errors.append("round_token must be a non-empty string")
     raw_dim = data.get("dimension_status", "")
     if raw_dim:
         try:
             parse_dimension_status(raw_dim)
+        except ValueError as exc:
+            errors.append(str(exc))
+    raw_tokens = data.get("dimension_tokens", "")
+    if raw_tokens:
+        try:
+            parse_dimension_tokens(raw_tokens)
         except ValueError as exc:
             errors.append(str(exc))
     raw_counts = data.get("issue_counts", "")

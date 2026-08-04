@@ -8,8 +8,10 @@ from typing import Any
 from eval_handoff_control import (
     commit_artifacts,
     commit_evaluate_state,
+    commit_remediation_target,
     discard_staging_for_cycle,
     request_handoff,
+    restore_remediation_target,
 )
 from eval_handoff_schema import (
     build_eval_handoff_v2,
@@ -122,6 +124,42 @@ class ComposeEvalAdapterSupport:
             staged_state_path=staged_state_path,
             set_phase_evaluating=set_phase_evaluating,
             previous_done_required=previous_done_required,
+        )
+
+    def commit_remediation_target(
+        self,
+        cycle_id: str,
+        project_root: Path,
+        *,
+        staged_target_path: Path,
+        base_digest: str,
+        lease_id: str,
+    ) -> dict[str, Any]:
+        return commit_remediation_target(
+            cycle_id,
+            project_root,
+            profile_id=self._workflow_id(),
+            staged_target_path=staged_target_path,
+            base_digest=base_digest,
+            lease_id=lease_id,
+        )
+
+    def restore_remediation_target(
+        self,
+        cycle_id: str,
+        project_root: Path,
+        *,
+        snapshot_path: Path,
+        expected_digest: str,
+        lease_id: str,
+    ) -> dict[str, Any]:
+        return restore_remediation_target(
+            cycle_id,
+            project_root,
+            profile_id=self._workflow_id(),
+            snapshot_path=snapshot_path,
+            expected_digest=expected_digest,
+            lease_id=lease_id,
         )
 
     def discard_eval_staging(

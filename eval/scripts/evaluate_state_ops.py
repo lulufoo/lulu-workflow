@@ -21,7 +21,6 @@ from evaluate_state_schema import (
     save_evaluate_state,
     validate_evaluate_state,
 )
-from workflow_adapter import WorkflowAdapter
 
 
 def dispatch_dims_for_corpus(corpus: dict[str, Any]) -> list[str]:
@@ -76,54 +75,6 @@ def init_evaluate_state_for_corpus(
         ),
         merge=False,
     )
-
-
-def init_evaluate_state_for_session(
-    adapter: WorkflowAdapter,
-    cycle_id: str,
-    project_root: Path,
-    *,
-    evaluate_round: int | None = None,
-    focus_l: str = "",
-) -> Path:
-    """Initialize evaluate-state.md for the adapter's active revision / L."""
-    es_path = adapter.resolve_evaluate_state_path(cycle_id, project_root)
-    corpus = adapter.resolve_eval_corpus(cycle_id, project_root)
-    cycle_type = adapter.detect_cycle_type(cycle_id)
-    if evaluate_round is None or not focus_l:
-        # Lazy Compose imports: Decision / non-Compose adapters never need them.
-        from discussion_pointer_schema import (  # noqa: WPS433
-            load_discussion_pointer,
-        )
-        from workflow_profile_paths import (  # noqa: WPS433
-            eval_layout_for_revision,
-        )
-
-        revision_dir = adapter.resolve_workflow_state_path(
-            cycle_id, project_root
-        ).parent
-        layout = eval_layout_for_revision(revision_dir)
-        if not focus_l:
-            try:
-                focus_l = str(load_discussion_pointer(revision_dir)["focus"])
-            except (FileNotFoundError, ValueError, OSError, KeyError):
-                focus_l = "L1" if layout == "per-l" else ""
-        if evaluate_round is None and layout == "per-l":
-            evaluate_round = 1
-        elif evaluate_round is None:
-            state = adapter.load_workflow_state(cycle_id, project_root)
-            try:
-                evaluate_round = int(state.get("evaluate_round", "0")) or None
-            except ValueError:
-                evaluate_round = None
-    init_evaluate_state_for_corpus(
-        es_path,
-        corpus,
-        cycle_type=cycle_type,
-        evaluate_round=evaluate_round,
-        focus_l=focus_l,
-    )
-    return es_path
 
 
 def _resolve_dim_key(

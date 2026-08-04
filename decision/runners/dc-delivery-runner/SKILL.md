@@ -54,14 +54,14 @@ Subcommand contracts: module docstring / `--help`. `$SUBAGENT_*`: `_subagent.md`
 - **Entry paths** (any one): R→`dc` · RR→`dc`.
 - **Decision-doc:** not maintained during the session; `$SESSION_INTEGRITY render` builds it once before present. Layout / section filtering: `render --help`. Template: `$FETCH_TEMPLATE --section decision --key decision_doc_template_url`.
 - **Present** (from rendered doc; do not show file paths): Decision Rationale; Scope (incl. exclusions); Assumptions & Risks (risk, Class, Verification); call out `Class=implementation` Handoff lines (remind only; do not block).
-- **Eval:** replaces AI Semantic Review; probe via sub-agent; fail→RS; no artifact/SoT remediation. Details: `eval/eval-profile.json`, `$DEC_EVAL` / `$EVAL_CONTROL` `--help`, `eval/methods/decision-consistency.md`.
+- **Eval:** replaces AI Semantic Review; invoke Eval's Probe control segment, then route its returned result through Decision. Eval owns probe-runner dispatch; Decision never dispatches Eval runners or remediation. Details: `eval/eval-profile.json`, `$DEC_EVAL` / `$EVAL_CONTROL` `--help`, `eval/methods/decision-consistency.md`.
 - **After close:** tell user `$CTX.after_dc.user_message`. Nested holder (`main/` / `Dx/`): this **node** is Completed; stage Delivered waits for holder `$APPROACH_DELIVER`.
 
 ### Dialogue modes
 
 | Mode | When | Behavior |
 |------|------|----------|
-| `prepare` | `G-cleared` unmet | `$GATE_CONTROL check-delivery-ready` (fix all errors) → Decision Eval (`$DEC_EVAL` / `$EVAL_CONTROL`; probe via `$SUBAGENT_TOOL` + `$SUBAGENT_AWAIT_SYNC` + `eval/eval-probe-runner`; prompt shape: `eval/eval-rules.md` Step 2; fail→RS; skip remediation) → `$SESSION_INTEGRITY render`. |
+| `prepare` | `G-cleared` unmet | `$GATE_CONTROL check-delivery-ready` (fix all errors) → Decision Eval Probe handoff below (fail→RS; no remediation) → `$SESSION_INTEGRITY render`. |
 | `present` | `G-cleared` met | Present Coverage sections from `decision-doc.md`. |
 | `confirm` | Ready for G8 | Ask whether decisions are correct / any item to realign. |
 | `close` | User confirms | `gate-close` + `complete` with payload below; after_dc message. |
@@ -77,6 +77,17 @@ Subcommand contracts: module docstring / `--help`. `$SUBAGENT_*`: `_subagent.md`
 - Confirm-time realign → load RS runner; after sync, `$GATE_CONTROL resolve-context` (fresh `$CTX`); restore `G-cleared` / `G-confirm` before close.
 - Identification hit → load G0 runner → `G0_COMPLETE` → resume DC dialogue.
 - G9 hit → load RS runner → after return, resume DC dialogue.
+
+### Decision Eval Probe handoff
+
+1. Load `$SKILL_ROOT/eval/SKILL.md` and execute its **Begin Eval** probe-only segment.
+   Eval owns all probe-runner dispatch and token-based submission; Decision does
+   not call `$SUBAGENT_TOOL`, load `dimension-probe-runner`, or run remediation.
+2. Pin the successful `probe-complete` JSON as `probe_result`.
+3. Run `$DEC_EVAL route-probe-result --probe-result-json '<probe_result JSON>'`.
+   - `outcome: pass` → continue to `$SESSION_INTEGRITY render`.
+   - `outcome: fail` and `hard_blocked: false` → RS at `realign_gate`.
+   - `hard_blocked: true` → stop; do not close DC.
 
 ## Pipeline
 

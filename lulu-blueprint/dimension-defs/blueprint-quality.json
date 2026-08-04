@@ -10,14 +10,12 @@
   },
   "sots": [
     {
-      "kind": "url",
-      "role": "primary",
-      "ref": "lulu-dev-workflow/lulu-blueprint/eval/sots/blueprint-quality.md"
+      "ref": "lulu-dev-workflow/lulu-blueprint/eval/sots/blueprint-quality.md",
+      "bindings": {}
     }
   ],
   "method": {
-    "kind": "external",
-    "source": "lulu-dev-workflow/lulu-blueprint/eval/methods/blueprint-quality.md",
+    "ref": "lulu-dev-workflow/lulu-blueprint/eval/methods/blueprint-quality.md",
     "focus": "Blueprint quality"
   },
   "review": {

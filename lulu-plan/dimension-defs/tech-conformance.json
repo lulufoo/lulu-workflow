@@ -10,14 +10,14 @@
   },
   "sots": [
     {
-      "kind": "url",
-      "role": "primary",
-      "ref": "{upstream_doc_path}"
+      "ref": "lulu-dev-workflow/lulu-plan/eval/sots/tech-conformance.md",
+      "bindings": {
+        "source_ref": "{upstream_doc_path}"
+      }
     }
   ],
   "method": {
-    "kind": "external",
-    "source": "{tpt_tech_conformance_url}",
+    "ref": "lulu-dev-workflow/lulu-plan/eval/methods/tech-conformance.md",
     "focus": "Does tech-doc faithfully implement the upstream tech intent document (design-doc or decision-doc): decisions and constraints operationalized in Tasks/SK/VF sections"
   },
   "review": {

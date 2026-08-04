@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 _SCHEMA: dict[str, Any] = {
-    "version": "3",
+    "version": "4",
     "required_top_level": [
         "id",
         "version",
@@ -30,10 +30,6 @@ _SCHEMA: dict[str, Any] = {
     "enums": {
         "context": ["offline"],
         "dimension_dispatch": ["parallel", "serial"],
-        "sot_kind": ["url", "codebase"],
-        "sot_role": ["primary", "supplementary", "constraint"],
-        "method_kind": ["builtin", "external"],
-        "codebase_strategy": ["all"],
     },
     "bind_placeholders": [
         "eval_target_path",
@@ -45,12 +41,8 @@ _SCHEMA: dict[str, Any] = {
 }
 
 _PLACEHOLDER_RE = re.compile(r"\{(\w+)\}")
-_VALID_SOT_KIND = frozenset(_SCHEMA["enums"]["sot_kind"])
-_VALID_SOT_ROLE = frozenset(_SCHEMA["enums"]["sot_role"])
-_VALID_METHOD_KIND = frozenset(_SCHEMA["enums"]["method_kind"])
 _VALID_CONTEXT = frozenset(_SCHEMA["enums"]["context"])
 _VALID_DISPATCH = frozenset(_SCHEMA["enums"]["dimension_dispatch"])
-_VALID_CODEBASE_STRATEGY = frozenset(_SCHEMA["enums"]["codebase_strategy"])
 
 
 def get_schema() -> dict[str, Any]:
@@ -79,51 +71,16 @@ def _validate_sot(sot: Any, errors: list[str], *, ctx: str) -> None:
     if not isinstance(sot, dict):
         errors.append(f"{ctx}: sot must be an object")
         return
-    kind = sot.get("kind")
-    if kind not in _VALID_SOT_KIND:
-        errors.append(f"{ctx}: invalid sot kind {kind!r}")
-    role = sot.get("role")
-    if role not in _VALID_SOT_ROLE:
-        errors.append(f"{ctx}: invalid sot role {role!r}")
-    ref = sot.get("ref")
-    if kind == "url":
-        if not isinstance(ref, str) or not ref.strip():
-            errors.append(f"{ctx}: url sot ref must be a non-empty string")
-    elif kind == "codebase":
-        if not isinstance(ref, dict):
-            errors.append(f"{ctx}: codebase sot ref must be an object")
-        else:
-            _require_str(ref, "root", errors, ctx=f"{ctx}.ref")
-            strategy = ref.get("strategy")
-            if not isinstance(strategy, str) or not strategy.strip():
-                errors.append(f"{ctx}.ref: missing or invalid string field 'strategy'")
-            elif strategy.strip() not in _VALID_CODEBASE_STRATEGY:
-                errors.append(
-                    f"{ctx}.ref: invalid codebase strategy {strategy!r} "
-                    f"(allowed: {sorted(_VALID_CODEBASE_STRATEGY)})",
-                )
-    elif ref is not None:
-        errors.append(f"{ctx}: sot ref type does not match kind {kind!r}")
+    _require_str(sot, "ref", errors, ctx=ctx)
+    if not isinstance(sot.get("bindings"), dict):
+        errors.append(f"{ctx}: bindings must be an object")
 
 
 def _validate_method(method: Any, errors: list[str], *, ctx: str) -> None:
     if not isinstance(method, dict):
         errors.append(f"{ctx}: method must be an object")
         return
-    kind = method.get("kind")
-    if kind not in _VALID_METHOD_KIND:
-        errors.append(f"{ctx}: invalid method kind {kind!r}")
-    source = method.get("source")
-    if kind == "external":
-        if not isinstance(source, str) or not source.strip():
-            errors.append(f"{ctx}: external method source must be a non-empty string")
-    elif kind == "builtin":
-        if not isinstance(source, dict):
-            errors.append(f"{ctx}: builtin method source must be an object")
-        else:
-            _require_str(source, "procedure_id", errors, ctx=f"{ctx}.source")
-    elif source is not None:
-        errors.append(f"{ctx}: method source type does not match kind {kind!r}")
+    _require_str(method, "ref", errors, ctx=ctx)
     _require_str(method, "focus", errors, ctx=ctx)
 
 

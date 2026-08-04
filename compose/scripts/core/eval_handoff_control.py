@@ -63,6 +63,8 @@ from workflow_state_schema import load_workflow_state  # noqa: E402
 _CMD_REQUEST = "request-handoff"
 _CMD_COMMIT = "commit-artifacts"
 _CMD_COMMIT_STATE = "commit-evaluate-state"
+_CMD_COMMIT_TARGET = "commit-remediation-target"
+_CMD_RESTORE_TARGET = "restore-remediation-target"
 _CMD_DISCARD = "discard-staging"
 _STAGING_ROOT = ".eval-staging"
 _LEASE_META = "lease.json"
@@ -548,6 +550,157 @@ def commit_evaluate_state(
         focus_l=focus,
         layout=layout,
     )
+
+
+def _active_target_and_staging(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    profile_id: str,
+    command: str,
+) -> tuple[Path, Path, str] | dict[str, Any]:
+    """Resolve the formal document and current valid Eval lease staging."""
+    root = project_root.resolve()
+    ws_path = workflow_state_path(cycle_id, root, profile_id)
+    if not ws_path.is_file():
+        return _failure(command, "workflow-state.md not found")
+    revision_dir = ws_path.parent.resolve()
+    try:
+        pointer = load_discussion_pointer(revision_dir)
+    except (OSError, ValueError) as exc:
+        return _failure(command, str(exc))
+    focus = str(pointer["focus"])
+    if str(pointer["by_id"][focus].get("phase", "")) != "evaluating":
+        return _failure(command, f"focus {focus!r} is not evaluating")
+    layout = eval_layout_for_revision(revision_dir)
+    slice_dir = revision_dir if layout == "legacy-root" else revision_dir / focus
+    staging_root = (slice_dir / _STAGING_ROOT).resolve()
+    active_doc = load_active_doc_from_cycle(cycle_id, root, profile_id=profile_id)
+    target = (root / document_path(cycle_id, active_doc, profile_id, root)).resolve()
+    return target, staging_root, pointer_fingerprint(pointer)
+
+
+def _current_lease_dir(
+    staging_root: Path,
+    *,
+    lease_id: str,
+    fingerprint: str,
+    command: str,
+) -> Path | dict[str, Any]:
+    if not lease_id:
+        return _failure(command, "lease_id is required")
+    lease_dir = (staging_root / lease_id).resolve()
+    try:
+        lease_dir.relative_to(staging_root)
+    except ValueError:
+        return _failure(command, "lease_id resolves outside Eval staging")
+    if not lease_dir.is_dir():
+        return _failure(command, f"lease staging missing: {lease_dir}")
+    try:
+        meta = _load_lease_meta(lease_dir)
+    except ValueError as exc:
+        return _failure(command, str(exc))
+    if str(meta.get("pointer_fingerprint")) != fingerprint:
+        return _failure(command, "stale lease: pointer changed")
+    return lease_dir
+
+
+def _lease_scoped_path(
+    staging_root: Path,
+    candidate: Path,
+    *,
+    command: str,
+) -> Path | dict[str, Any]:
+    resolved = candidate.resolve()
+    try:
+        resolved.relative_to(staging_root)
+    except ValueError:
+        return _failure(command, "staged target is outside Eval lease staging")
+    if not resolved.is_file():
+        return _failure(command, f"staged target missing: {resolved}")
+    return resolved
+
+
+def commit_remediation_target(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    staged_target_path: Path,
+    base_digest: str,
+    lease_id: str,
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+) -> dict[str, Any]:
+    """Publish a verified replacement of the active stage document."""
+    resolved = _active_target_and_staging(
+        cycle_id, project_root, profile_id=profile_id, command=_CMD_COMMIT_TARGET
+    )
+    if isinstance(resolved, dict):
+        return resolved
+    target, staging_root, fingerprint = resolved
+    lease_dir = _current_lease_dir(
+        staging_root,
+        lease_id=lease_id,
+        fingerprint=fingerprint,
+        command=_CMD_COMMIT_TARGET,
+    )
+    if isinstance(lease_dir, dict):
+        return lease_dir
+    staged = _lease_scoped_path(lease_dir, staged_target_path, command=_CMD_COMMIT_TARGET)
+    if isinstance(staged, dict):
+        return staged
+    if not target.is_file():
+        return _failure(_CMD_COMMIT_TARGET, f"target document missing: {target}")
+    if _file_digest(target) != base_digest:
+        return _failure(_CMD_COMMIT_TARGET, "target base digest mismatch")
+    try:
+        replacement = target.with_name(target.name + ".eval-remediation.tmp")
+        shutil.copy2(staged, replacement)
+        _atomic_replace(replacement, target)
+    except OSError as exc:
+        return _failure(_CMD_COMMIT_TARGET, f"target publish failed: {exc}")
+    return _success(
+        _CMD_COMMIT_TARGET,
+        target_path=target.as_posix(),
+        target_digest=_file_digest(target),
+    )
+
+
+def restore_remediation_target(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    snapshot_path: Path,
+    expected_digest: str,
+    lease_id: str,
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+) -> dict[str, Any]:
+    """Restore an Eval snapshot when a later Eval-owned publication fails."""
+    resolved = _active_target_and_staging(
+        cycle_id, project_root, profile_id=profile_id, command=_CMD_RESTORE_TARGET
+    )
+    if isinstance(resolved, dict):
+        return resolved
+    target, staging_root, fingerprint = resolved
+    lease_dir = _current_lease_dir(
+        staging_root,
+        lease_id=lease_id,
+        fingerprint=fingerprint,
+        command=_CMD_RESTORE_TARGET,
+    )
+    if isinstance(lease_dir, dict):
+        return lease_dir
+    snapshot = _lease_scoped_path(lease_dir, snapshot_path, command=_CMD_RESTORE_TARGET)
+    if isinstance(snapshot, dict):
+        return snapshot
+    if not target.is_file() or _file_digest(target) != expected_digest:
+        return _failure(_CMD_RESTORE_TARGET, "target changed before rollback")
+    try:
+        replacement = target.with_name(target.name + ".eval-remediation.tmp")
+        shutil.copy2(snapshot, replacement)
+        _atomic_replace(replacement, target)
+    except OSError as exc:
+        return _failure(_CMD_RESTORE_TARGET, f"target rollback failed: {exc}")
+    return _success(_CMD_RESTORE_TARGET, target_path=target.as_posix())
 
 
 def resolve_evaluate_state_abs(

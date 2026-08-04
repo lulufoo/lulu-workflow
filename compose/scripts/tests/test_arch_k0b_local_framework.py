@@ -30,6 +30,11 @@ _SKILL_CONFIG = (
     _REPO / "skill-config" / "lulu-dev-workflow" / "stages" / "lulu-arch.json"
 )
 _PROFILE = _REPO / "lulu-dev-workflow" / "lulu-arch" / "compose-profile.json"
+_DIMENSION_DEF = (
+    _REPO / "lulu-dev-workflow" / "lulu-arch" / "dimension-defs" / "arch-quality.json"
+)
+_METHOD = _REPO / "lulu-dev-workflow" / "lulu-arch" / "eval" / "methods" / "arch-quality.md"
+_SOT = _REPO / "lulu-dev-workflow" / "lulu-arch" / "eval" / "sots" / "arch-quality.md"
 _GH_ARCH = (
     "https://github.com/lulufoo/lulu-workflow-framework/blob/main/"
     "lulu-dev-workflow/template/arch/"
@@ -48,7 +53,7 @@ def test_arch_k0b_section_registry_presence_and_remap() -> None:
     assert normalized["sections"]["KD"]["relations"]["SH"] == "instantiate"
 
 
-def test_arch_k0b_skill_config_points_upstream() -> None:
+def test_arch_k0b_skill_config_uses_local_eval_templates() -> None:
     cfg = json.loads(_SKILL_CONFIG.read_text(encoding="utf-8"))
     compose = cfg["compose"]
     assert compose["tat_section_registry_url"] == (
@@ -61,7 +66,18 @@ def test_arch_k0b_skill_config_points_upstream() -> None:
         "tat_topic_domain_instance_url",
     ):
         assert compose[remote_key].startswith("https://"), remote_key
-    assert cfg["eval"]["tat_arch_quality_framework_url"].startswith("https://")
+    assert "eval" not in cfg
+
+    dimension = json.loads(_DIMENSION_DEF.read_text(encoding="utf-8"))
+    assert dimension["method"]["ref"] == "lulu-dev-workflow/lulu-arch/eval/methods/arch-quality.md"
+    assert dimension["sots"] == [
+        {
+            "ref": "lulu-dev-workflow/lulu-arch/eval/sots/arch-quality.md",
+            "bindings": {},
+        },
+    ]
+    assert _METHOD.is_file()
+    assert _SOT.is_file()
 
 
 def test_arch_k0b_profile_has_no_display_layer_flag() -> None:

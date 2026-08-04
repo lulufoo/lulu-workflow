@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Tests for eval/scripts/eval_control.py."""
 
+import hashlib
 import json
 import subprocess
 import sys
@@ -24,6 +25,7 @@ sys.path.insert(0, str(_TECH_PLAN_EVAL))
 
 from tech_plan_eval_adapter import TechPlanEvalAdapter  # noqa: E402
 import eval_control  # noqa: E402
+from review_io import parse_review_file  # noqa: E402
 from eval_control import (  # noqa: E402
     artifact_remediation_complete,
     begin_artifact_remediation,
@@ -42,10 +44,13 @@ from eval_control import (  # noqa: E402
     complete_round,
     compute_fix_severity,
     dispatch_list,
-    finish_dimension_probe,
     init_round,
     probe_complete,
+    read_b_snapshot_cmd,
+    read_evidence_snapshot_cmd,
     sot_remediation_complete,
+    submit_remediation_diff,
+    submit_probe_findings,
 )
 from evaluate_state_ops import (  # noqa: E402
     dimension_status_legacy_map,
@@ -54,6 +59,7 @@ from evaluate_state_ops import (  # noqa: E402
 )
 from evaluate_state_schema import (  # noqa: E402
     load_evaluate_state,
+    parse_dimension_tokens,
     parse_issue_counts,
     patch_issue_count,
     save_evaluate_state,
@@ -126,6 +132,25 @@ _REVIEW_E2_DONE = (
     "naming inconsistency | ignored | ignore |\n"
 )
 
+_E2_FINDINGS = [
+    {
+        "id": "e2-1",
+        "root_cause": "WO-ERROR",
+        "location": "tech-doc §3",
+        "severity": "critical",
+        "evidence": "missing handling",
+        "description": "missing error handling",
+    },
+    {
+        "id": "e2-2",
+        "root_cause": "WO-ERROR",
+        "location": "tech-doc §5",
+        "severity": "minor",
+        "evidence": "naming",
+        "description": "naming inconsistency",
+    },
+]
+
 
 def _seed_session(tmp_path: Path, *, active_doc: int = 1) -> Path:
     from workflow_paths import seed_profile_pointer_for_tests  # noqa: WPS433
@@ -148,6 +173,9 @@ def _setup_evaluating(tmp_path: Path, *, mode: str = "product") -> Path:
     mark_focus_intake_done(ws.parent)
     mark_focus_evaluating(ws.parent)
     save_workflow_state(ws, {"current_state": "Working", "evaluate_round": "1"})
+    target_doc = ws.parent / "L1" / "tech-doc.md"
+    target_doc.parent.mkdir(parents=True, exist_ok=True)
+    target_doc.write_text("# Tech Doc\n", encoding="utf-8")
     _init_evaluate_state(ws.parent / "evaluate-state.md", cycle_id=_CYCLE, tmp_path=tmp_path)
     return ws
 
@@ -160,10 +188,60 @@ def _write_review(ws: Path, content: str, *, filename: str = "tech-review-e11.md
     return path
 
 
+def _submit_probe(
+    tmp_path: Path,
+    *,
+    dimension_token: str,
+    findings: list[dict[str, str]],
+) -> dict:
+    payload_path = tmp_path / f"{dimension_token}-findings.json"
+    payload_path.write_text(
+        json.dumps({
+            "dimension_token": dimension_token,
+            "findings": findings,
+        }),
+        encoding="utf-8",
+    )
+    return submit_probe_findings(
+        _CYCLE,
+        tmp_path,
+        payload_file=payload_path,
+    )
+
+
+def _submit_remediation(
+    tmp_path: Path,
+    *,
+    dimension_token: str,
+    base_digest: str,
+    unified_diff: str,
+    issue_ids: list[str],
+) -> dict:
+    payload_path = tmp_path / f"{dimension_token}-remediation.json"
+    payload_path.write_text(
+        json.dumps({
+            "dimension_token": dimension_token,
+            "base_digest": base_digest,
+            "unified_diff": unified_diff,
+            "issue_ids": issue_ids,
+        }),
+        encoding="utf-8",
+    )
+    return submit_remediation_diff(
+        _CYCLE,
+        tmp_path,
+        payload_file=payload_path,
+    )
+
+
 def _setup_probed_e2(tmp_path: Path, *, mode: str = "product") -> Path:
     ws = _setup_evaluating(tmp_path, mode=mode)
-    _write_review(ws, _REVIEW_E2_PROBE)
-    finish_dimension_probe(_CYCLE, tmp_path, dim="e2")
+    context = begin_dimension(_CYCLE, tmp_path, dim="e2")
+    _submit_probe(
+        tmp_path,
+        dimension_token=context["operation_ctx"]["dimension_token"],
+        findings=_E2_FINDINGS,
+    )
     return ws
 
 
@@ -234,7 +312,7 @@ class TestInitRound:
         result = init_round(_CYCLE, tmp_path, mode="product")
         assert result["ok"] is True
         es = load_evaluate_state(ws.parent / "L1" / "evaluate-state.md")
-        assert es["version"] == "3"
+        assert es["version"] == "4"
         assert es["eval_status"] == "active"
         assert es["fix_phase"] == "probe"
         assert es["corpus_ref"] == LULU_PLAN_COMPOSED_CORPUS_REF
@@ -284,7 +362,7 @@ class TestBeginEvalRound:
         )
         result = begin_eval_round(_CYCLE, tmp_path)
         assert result["ok"] is False
-        assert "not supported" in result["reason"] or "expected '3'" in result["reason"]
+        assert "expected '4'" in result["reason"]
 
     def test_re_evaluate_after_complete_round(self, tmp_path: Path):
         ws = _setup_complete_round_ready(tmp_path)
@@ -305,24 +383,105 @@ class TestBeginEvalRound:
 
 
 class TestBeginDimension:
-    def test_marks_in_progress_and_returns_runner_input(self, tmp_path: Path):
+    def test_marks_in_progress_and_returns_token_scoped_context(self, tmp_path: Path):
         ws = _setup_evaluating(tmp_path)
         result = begin_dimension(_CYCLE, tmp_path, dim="e2")
         assert result["ok"] is True
         es = load_evaluate_state(ws.parent / "evaluate-state.md")
         assert _dim_map(es, tmp_path)["e2"] == "in_progress"
-        ri = result["runner_input"]
-        assert ri["WORKFLOW_ID"] == "lulu-plan"
-        assert ri["CYCLE_ID"] == _CYCLE
-        assert ri["DIMENSION_ID"] == "codebase-consistency"
-        assert ri["DIMENSION"] == "e2"
-        assert "SOTS_JSON" in ri
-        sots = json.loads(ri["SOTS_JSON"])
-        assert sots[0]["ref"] == {"root": ".", "strategy": "all"}
-        assert "METHOD_JSON" in ri
-        assert "EXECUTION_MODE" not in ri
-        assert "WORKFLOW_ID" in result["dispatch_input"]
-        assert "EVAL_TARGET_PATH" in result["dispatch_input"]
+        operation_ctx = result["operation_ctx"]
+        assert operation_ctx["dimension_id"] == "codebase-consistency"
+        assert operation_ctx["dimension_token"]
+        assert operation_ctx["round_token"] == es["round_token"]
+        assert operation_ctx["allowed_submission"] == "finding"
+        assert operation_ctx["resolved_method"]["ref"].endswith(
+            "eval/methods/codebase-consistency.md",
+        )
+        assert operation_ctx["resolved_sots"][0]["bindings"] == {
+            "codebase_root": ".",
+            "read_strategy": "all",
+        }
+        assert parse_dimension_tokens(es["dimension_tokens"]) == {
+            "codebase-consistency": operation_ctx["dimension_token"],
+        }
+        assert "EVAL_TARGET_PATH" not in result["dispatch_input"]
+        snapshot = read_b_snapshot_cmd(
+            _CYCLE,
+            tmp_path,
+            dimension_token=operation_ctx["dimension_token"],
+        )
+        assert snapshot["ok"] is True
+        assert snapshot["target_digest"] == operation_ctx["target_digest"]
+        assert snapshot["content"]
+
+    def test_dynamic_sot_evidence_uses_opaque_snapshot(self, tmp_path: Path):
+        from delivered_refs_schema import DeliveredRef  # noqa: WPS433
+        from eval_operation_record_schema import get_operation_record  # noqa: WPS433
+
+        ws = _setup_evaluating(tmp_path, mode="tech")
+        source_path = tmp_path / "upstream-intent.md"
+        source_content = "# Upstream intent\n\nPreserve this requirement.\n"
+        source_path.write_text(source_content, encoding="utf-8")
+        seed_frozen_delivered(
+            ws,
+            [DeliveredRef(type="lulu-approach", path=str(source_path.resolve()))],
+        )
+        _init_evaluate_state(
+            ws.parent / "evaluate-state.md",
+            cycle_id=_CYCLE,
+            tmp_path=tmp_path,
+        )
+
+        result = begin_dimension(_CYCLE, tmp_path, dim="e4")
+
+        assert result["ok"] is True
+        operation_ctx = result["operation_ctx"]
+        source_binding = operation_ctx["resolved_sots"][0]["bindings"]["source_ref"]
+        public_context = json.dumps(operation_ctx)
+        assert str(source_path) not in public_context
+        assert str(source_path) not in result["dispatch_input"]
+        assert set(source_binding) == {"evidence_ref", "digest"}
+
+        snapshot = read_evidence_snapshot_cmd(
+            _CYCLE,
+            tmp_path,
+            dimension_token=operation_ctx["dimension_token"],
+            evidence_ref=source_binding["evidence_ref"],
+        )
+
+        assert snapshot["ok"] is True
+        assert snapshot["content"] == source_content
+        assert snapshot["digest"] == source_binding["digest"]
+        assert snapshot["digest"] == hashlib.sha256(
+            source_content.encode("utf-8"),
+        ).hexdigest()
+
+        source_path.write_text("# Changed upstream\n", encoding="utf-8")
+        replay = read_evidence_snapshot_cmd(
+            _CYCLE,
+            tmp_path,
+            dimension_token=operation_ctx["dimension_token"],
+            evidence_ref=source_binding["evidence_ref"],
+        )
+        assert replay["content"] == source_content
+        assert replay["digest"] == source_binding["digest"]
+
+        record = get_operation_record(
+            ws.parent / "evaluate1" / "eval-operations.json",
+            operation_ctx["dimension_token"],
+        )
+        evidence_path = Path(
+            record["evidence_snapshots"][source_binding["evidence_ref"]]["path"],
+        )
+        evidence_path.write_text("tampered", encoding="utf-8")
+        tampered = read_evidence_snapshot_cmd(
+            _CYCLE,
+            tmp_path,
+            dimension_token=operation_ctx["dimension_token"],
+            evidence_ref=source_binding["evidence_ref"],
+        )
+        assert tampered["ok"] is False
+        assert "digest mismatch" in tampered["reason"]
 
     def test_commits_staged_state_through_adapter(self, tmp_path: Path, monkeypatch):
         ws = _setup_evaluating(tmp_path)
@@ -390,59 +549,216 @@ class TestBeginDimension:
         assert _dim_map(captured["state"], tmp_path)["e2"] == "in_progress"
         assert es_path.read_bytes() == before
 
+    def test_adapter_rejection_discards_provisional_token_context(
+        self,
+        tmp_path: Path,
+        monkeypatch,
+    ):
+        ws = _setup_evaluating(tmp_path)
+        operations_path = ws.parent / "evaluate1" / "eval-operations.json"
+        staging_root = ws.parent / "evaluate1" / "dimensions"
+
+        monkeypatch.setattr(
+            _ADAPTER,
+            "commit_evaluate_state",
+            lambda *args, **kwargs: {"ok": False, "error": "state rejected"},
+        )
+        result = begin_dimension(_CYCLE, tmp_path, dim="e2")
+
+        assert result["ok"] is False
+        assert result["reason"] == "state rejected"
+        assert not operations_path.exists()
+        assert not staging_root.exists()
+
     def test_accepts_canonical_dim_id(self, tmp_path: Path):
         ws = _setup_evaluating(tmp_path)
         result = begin_dimension(_CYCLE, tmp_path, dim="codebase-consistency")
         assert result["ok"] is True
-        assert result["runner_input"]["DIMENSION_ID"] == "codebase-consistency"
+        assert result["operation_ctx"]["dimension_id"] == "codebase-consistency"
+
+    def test_parallel_dimensions_receive_isolated_tokens_and_staging(self, tmp_path: Path):
+        _setup_evaluating(tmp_path, mode="tech")
+        codebase = begin_dimension(_CYCLE, tmp_path, dim="e2")
+        quality = begin_dimension(_CYCLE, tmp_path, dim="e3")
+
+        assert codebase["ok"] is True
+        assert quality["ok"] is True
+        first_ctx = codebase["operation_ctx"]
+        second_ctx = quality["operation_ctx"]
+        assert first_ctx["round_token"] == second_ctx["round_token"]
+        assert first_ctx["dimension_token"] != second_ctx["dimension_token"]
+        assert first_ctx["staging_scope"] != second_ctx["staging_scope"]
+        assert "EVALUATE_STATE_PATH" not in codebase["dispatch_input"]
+        missing = read_b_snapshot_cmd(
+            _CYCLE,
+            tmp_path,
+            dimension_token="unknown-token",
+        )
+        assert missing["ok"] is False
+        assert "unknown dimension_token" in missing["reason"]
+
+    def test_concurrent_dimensions_keep_isolated_operation_records(self, tmp_path: Path):
+        from eval_operation_record_schema import load_operation_records  # noqa: WPS433
+
+        ws = _setup_evaluating(tmp_path, mode="tech")
+        start = threading.Barrier(2)
+        results: list[dict] = []
+        errors: list[str] = []
+
+        def _begin(dim: str) -> None:
+            adapter_token = eval_control._ADAPTER_CTX.set(_ADAPTER)
+            workflow_token = eval_control._WORKFLOW_ID_CTX.set("lulu-plan")
+            try:
+                start.wait()
+                result = begin_dimension(_CYCLE, tmp_path, dim=dim)
+                if result["ok"]:
+                    results.append(result)
+                else:
+                    errors.append(result["reason"])
+            finally:
+                eval_control._ADAPTER_CTX.reset(adapter_token)
+                eval_control._WORKFLOW_ID_CTX.reset(workflow_token)
+
+        threads = [threading.Thread(target=_begin, args=(dim,)) for dim in ("e2", "e3")]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        assert not errors
+        assert len(results) == 2
+        tokens = {
+            result["operation_ctx"]["dimension_token"]
+            for result in results
+        }
+        assert len(tokens) == 2
+        operations = load_operation_records(
+            ws.parent / "evaluate1" / "eval-operations.json",
+        )["operations"]
+        assert set(operations) == tokens
 
 
-class TestFinishDimensionProbe:
+class TestSubmitProbeFindings:
     def test_happy_path(self, tmp_path: Path):
         ws = _setup_evaluating(tmp_path)
-        begin_dimension(_CYCLE, tmp_path, dim="e2")
-        _write_review(ws, _REVIEW_E2_PROBE)
-        result = finish_dimension_probe(_CYCLE, tmp_path, dim="e2")
+        context = begin_dimension(_CYCLE, tmp_path, dim="e2")
+        result = _submit_probe(
+            tmp_path,
+            dimension_token=context["operation_ctx"]["dimension_token"],
+            findings=_E2_FINDINGS,
+        )
         assert result["ok"] is True
         assert result["outcome"] == "probed"
         assert result["total_issues"] == "2"
+        assert result["idempotent"] is False
         es = load_evaluate_state(ws.parent / "evaluate-state.md")
         assert _dim_map(es, tmp_path)["e2"] == "probed"
         counts = parse_issue_counts(es["issue_counts"])
         assert counts["codebase-consistency"]["total"] == "2"
 
-    def test_rejects_invalid_review(self, tmp_path: Path):
+    def test_invalid_payload_leaves_all_runtime_data_unchanged(self, tmp_path: Path):
         ws = _setup_evaluating(tmp_path)
-        begin_dimension(_CYCLE, tmp_path, dim="e2")
-        _write_review(ws, _REVIEW_HEADER + "| bad | row |\n")
-        result = finish_dimension_probe(_CYCLE, tmp_path, dim="e2")
+        context = begin_dimension(_CYCLE, tmp_path, dim="e2")
+        token = context["operation_ctx"]["dimension_token"]
+        state_path = ws.parent / "evaluate-state.md"
+        operations_path = ws.parent / "evaluate1" / "eval-operations.json"
+        state_before = state_path.read_bytes()
+        operations_before = operations_path.read_bytes()
+        payload_path = tmp_path / "invalid-findings.json"
+        payload_path.write_text(
+            json.dumps({
+                "dimension_token": token,
+                "findings": [{"id": "e2-1"}],
+            }),
+            encoding="utf-8",
+        )
+        result = submit_probe_findings(
+            _CYCLE,
+            tmp_path,
+            payload_file=payload_path,
+        )
         assert result["ok"] is False
+        assert state_path.read_bytes() == state_before
+        assert operations_path.read_bytes() == operations_before
+        assert not (ws.parent / "evaluate1" / "tech-review-e12.md").exists()
+
+    def test_exact_replay_is_idempotent(self, tmp_path: Path):
+        ws = _setup_evaluating(tmp_path)
+        context = begin_dimension(_CYCLE, tmp_path, dim="e2")
+        token = context["operation_ctx"]["dimension_token"]
+        first = _submit_probe(tmp_path, dimension_token=token, findings=_E2_FINDINGS)
+        review_path = Path(first["review_path"])
+        review_before = review_path.read_bytes()
+        state_before = (ws.parent / "evaluate-state.md").read_bytes()
+
+        replay = _submit_probe(tmp_path, dimension_token=token, findings=_E2_FINDINGS)
+
+        assert first["ok"] is True
+        assert replay["ok"] is True
+        assert replay["idempotent"] is True
+        assert review_path.read_bytes() == review_before
+        assert (ws.parent / "evaluate-state.md").read_bytes() == state_before
+
+    def test_conflicting_replay_is_rejected(self, tmp_path: Path):
+        ws = _setup_evaluating(tmp_path)
+        context = begin_dimension(_CYCLE, tmp_path, dim="e2")
+        token = context["operation_ctx"]["dimension_token"]
+        first = _submit_probe(tmp_path, dimension_token=token, findings=_E2_FINDINGS)
+        review_path = Path(first["review_path"])
+        review_before = review_path.read_bytes()
+        conflicting = [dict(_E2_FINDINGS[0], description="different finding")]
+
+        result = _submit_probe(
+            tmp_path,
+            dimension_token=token,
+            findings=conflicting,
+        )
+
+        assert result["ok"] is False
+        assert "conflicting submission" in result["reason"]
+        assert review_path.read_bytes() == review_before
 
     def test_concurrent_finish_locked(self, tmp_path: Path):
         ws = _setup_evaluating(tmp_path, mode="tech")
-        begin_dimension(_CYCLE, tmp_path, dim="e2")
-        begin_dimension(_CYCLE, tmp_path, dim="e3")
-        _write_review(ws, _REVIEW_E2_PROBE, filename="tech-review-e11.md")
-        _write_review(
-            ws,
-            _REVIEW_HEADER + "| e3-1 | WO-ERROR | — | loc | minor | ev | d | pending | — |\n",
-            filename="tech-review-e12.md",
-        )
+        codebase = begin_dimension(_CYCLE, tmp_path, dim="e2")
+        quality = begin_dimension(_CYCLE, tmp_path, dim="e3")
         errors: list[str] = []
 
-        def _run(dim: str) -> None:
+        def _run(token: str, findings: list[dict[str, str]]) -> None:
             adapter_token = eval_control._ADAPTER_CTX.set(_ADAPTER)
             workflow_token = eval_control._WORKFLOW_ID_CTX.set("lulu-plan")
             try:
-                finish_dimension_probe(_CYCLE, tmp_path, dim=dim)
+                result = _submit_probe(
+                    tmp_path,
+                    dimension_token=token,
+                    findings=findings,
+                )
+                if not result["ok"]:
+                    errors.append(result["reason"])
             except ValueError as exc:
                 errors.append(str(exc))
             finally:
                 eval_control._ADAPTER_CTX.reset(adapter_token)
                 eval_control._WORKFLOW_ID_CTX.reset(workflow_token)
 
-        t1 = threading.Thread(target=_run, args=("e2",))
-        t2 = threading.Thread(target=_run, args=("e3",))
+        t1 = threading.Thread(
+            target=_run,
+            args=(codebase["operation_ctx"]["dimension_token"], _E2_FINDINGS),
+        )
+        t2 = threading.Thread(
+            target=_run,
+            args=(
+                quality["operation_ctx"]["dimension_token"],
+                [{
+                    "id": "e3-1",
+                    "root_cause": "WO-ERROR",
+                    "location": "loc",
+                    "severity": "minor",
+                    "evidence": "ev",
+                    "description": "d",
+                }],
+            ),
+        )
         t1.start()
         t2.start()
         t1.join()
@@ -467,7 +783,7 @@ class TestCheckDimension:
         _write_review(ws, _REVIEW_E2_PROBE)
         result = check_dimension(_CYCLE, tmp_path, dim="e2")
         assert result["ok"] is False
-        assert "finish-dimension-probe" in result["reason"]
+        assert "submit-probe-findings" in result["reason"]
 
     def test_abandoned_outcome(self, tmp_path: Path):
         ws = _setup_evaluating(tmp_path)
@@ -479,16 +795,22 @@ class TestCheckDimension:
 
 class TestProbeComplete:
     def test_advances_fix_phase(self, tmp_path: Path):
-        ws = _setup_evaluating(tmp_path, mode="tech")
-        review_files = {"e2": "tech-review-e11.md", "e3": "tech-review-e12.md"}
+        _setup_evaluating(tmp_path, mode="tech")
         for dim in ("e2", "e3"):
-            begin_dimension(_CYCLE, tmp_path, dim=dim)
-            content = (
-                _REVIEW_HEADER
-                + f"| {dim}-1 | WO-ERROR | — | loc | minor | ev | desc | pending | — |\n"
+            context = begin_dimension(_CYCLE, tmp_path, dim=dim)
+            result = _submit_probe(
+                tmp_path,
+                dimension_token=context["operation_ctx"]["dimension_token"],
+                findings=[{
+                    "id": f"{dim}-1",
+                    "root_cause": "WO-ERROR",
+                    "location": "loc",
+                    "severity": "minor",
+                    "evidence": "ev",
+                    "description": "desc",
+                }],
             )
-            _write_review(ws, content, filename=review_files[dim])
-            finish_dimension_probe(_CYCLE, tmp_path, dim=dim)
+            assert result["ok"] is True, result["reason"]
         result = probe_complete(_CYCLE, tmp_path)
         assert result["ok"] is True
         assert result["fix_phase"] == "artifact-remediation"
@@ -545,8 +867,9 @@ class TestArtifactRemediation:
         save_evaluate_state(ws.parent / "evaluate-state.md", es)
         result = begin_dimension_artifact_remediation(_CYCLE, tmp_path, dim="e2")
         assert result["ok"] is True
-        assert "REVIEW_OUTPUT_PATH" in result["dispatch_input"]
-        assert "EXECUTION_MODE" not in result["dispatch_input"]
+        assert "DIMENSION_TOKEN" in result["dispatch_input"]
+        assert "BASE_DIGEST" in result["dispatch_input"]
+        assert "REMEDIATION_TARGET_PATH" not in result["dispatch_input"]
 
     def test_check_advances_to_sot_remediation(self, tmp_path: Path):
         ws = _setup_evaluating(tmp_path)
@@ -585,6 +908,267 @@ class TestArtifactRemediation:
         dim_map = _dim_map(es, tmp_path)
         assert dim_map["e2"] == "complete"
         assert dim_map["e3"] == "complete"
+
+
+class TestSubmitRemediationDiff:
+    @staticmethod
+    def _context(tmp_path: Path) -> tuple[Path, dict, dict]:
+        ws = _setup_evaluating(tmp_path)
+        target = ws.parent / "L1" / "tech-doc.md"
+        target.write_text(
+            "# Tech Doc\nrepeat\ntarget\nrepeat\n",
+            encoding="utf-8",
+        )
+        save_evaluate_state(
+            ws.parent / "evaluate-state.md",
+            {"fix_phase": "artifact-remediation"},
+        )
+        _write_review(ws, _REVIEW_E2_PROBE)
+        es = load_evaluate_state(ws.parent / "evaluate-state.md")
+        save_evaluate_state(
+            ws.parent / "evaluate-state.md",
+            _merge_dim(es, "e2", "probed", tmp_path),
+            merge=False,
+        )
+        context = begin_dimension_artifact_remediation(_CYCLE, tmp_path, dim="e2")
+        snapshot = read_b_snapshot_cmd(
+            _CYCLE,
+            tmp_path,
+            dimension_token=context["operation_ctx"]["dimension_token"],
+        )
+        return ws, context, snapshot
+
+    @staticmethod
+    def _diff(replacement: str = "patched") -> str:
+        return (
+            "@@ -2,3 +2,3 @@\n"
+            " repeat\n"
+            "-target\n"
+            f"+{replacement}\n"
+            " repeat\n"
+        )
+
+    @staticmethod
+    def _review(ws: Path) -> Path:
+        return next((ws.parent / "evaluate1").glob("tech-review-e*.md"))
+
+    def test_applies_repeated_text_only_at_declared_hunk(self, tmp_path: Path):
+        ws, context, snapshot = self._context(tmp_path)
+        result = _submit_remediation(
+            tmp_path,
+            dimension_token=context["operation_ctx"]["dimension_token"],
+            base_digest=snapshot["target_digest"],
+            unified_diff=self._diff(),
+            issue_ids=["e2-1"],
+        )
+        target = ws.parent / "L1" / "tech-doc.md"
+        assert result["ok"] is True
+        assert target.read_text(encoding="utf-8") == "# Tech Doc\nrepeat\npatched\nrepeat\n"
+        rows = parse_review_file(self._review(ws))
+        assert next(row for row in rows if row["id"] == "e2-1")["status"] == "fixed"
+
+    def test_stale_base_digest_leaves_all_owned_data_unchanged(self, tmp_path: Path):
+        ws, context, _snapshot = self._context(tmp_path)
+        target = ws.parent / "L1" / "tech-doc.md"
+        review = self._review(ws)
+        state = ws.parent / "evaluate-state.md"
+        operations = ws.parent / "evaluate1" / "eval-operations.json"
+        before = [path.read_bytes() for path in (target, review, state, operations)]
+        result = _submit_remediation(
+            tmp_path,
+            dimension_token=context["operation_ctx"]["dimension_token"],
+            base_digest="0" * 64,
+            unified_diff=self._diff(),
+            issue_ids=["e2-1"],
+        )
+        assert result["ok"] is False
+        assert "base_digest" in result["reason"]
+        assert [path.read_bytes() for path in (target, review, state, operations)] == before
+
+    def test_invalid_hunk_context_leaves_all_owned_data_unchanged(self, tmp_path: Path):
+        ws, context, snapshot = self._context(tmp_path)
+        target = ws.parent / "L1" / "tech-doc.md"
+        review = self._review(ws)
+        state = ws.parent / "evaluate-state.md"
+        operations = ws.parent / "evaluate1" / "eval-operations.json"
+        before = [path.read_bytes() for path in (target, review, state, operations)]
+        invalid = "@@ -2,3 +2,3 @@\n repeat\n-not-target\n+patched\n repeat\n"
+        result = _submit_remediation(
+            tmp_path,
+            dimension_token=context["operation_ctx"]["dimension_token"],
+            base_digest=snapshot["target_digest"],
+            unified_diff=invalid,
+            issue_ids=["e2-1"],
+        )
+        assert result["ok"] is False
+        assert "context" in result["reason"]
+        assert [path.read_bytes() for path in (target, review, state, operations)] == before
+
+    def test_tampered_snapshot_rejects_diff_without_mutation(self, tmp_path: Path):
+        from eval_operation_record_schema import get_operation_record  # noqa: WPS433
+
+        ws, context, snapshot = self._context(tmp_path)
+        target = ws.parent / "L1" / "tech-doc.md"
+        review = self._review(ws)
+        state = ws.parent / "evaluate-state.md"
+        operations = ws.parent / "evaluate1" / "eval-operations.json"
+        token = context["operation_ctx"]["dimension_token"]
+        record = get_operation_record(operations, token)
+        Path(record["snapshot_path"]).write_text("tampered\n", encoding="utf-8")
+        before = [path.read_bytes() for path in (target, review, state, operations)]
+
+        result = _submit_remediation(
+            tmp_path,
+            dimension_token=token,
+            base_digest=snapshot["target_digest"],
+            unified_diff=self._diff(),
+            issue_ids=["e2-1"],
+        )
+
+        assert result["ok"] is False
+        assert "snapshot digest mismatch" in result["reason"]
+        assert [path.read_bytes() for path in (target, review, state, operations)] == before
+
+    def test_adapter_target_failure_rolls_back_without_eval_writes(
+        self,
+        tmp_path: Path,
+        monkeypatch,
+    ):
+        ws, context, snapshot = self._context(tmp_path)
+        target = ws.parent / "L1" / "tech-doc.md"
+        review = self._review(ws)
+        state = ws.parent / "evaluate-state.md"
+        operations = ws.parent / "evaluate1" / "eval-operations.json"
+        before = [path.read_bytes() for path in (target, review, state, operations)]
+        monkeypatch.setattr(
+            _ADAPTER,
+            "commit_remediation_target",
+            lambda *args, **kwargs: {"ok": False, "error": "target commit rejected"},
+        )
+        result = _submit_remediation(
+            tmp_path,
+            dimension_token=context["operation_ctx"]["dimension_token"],
+            base_digest=snapshot["target_digest"],
+            unified_diff=self._diff(),
+            issue_ids=["e2-1"],
+        )
+        assert result["ok"] is False
+        assert result["reason"] == "target commit rejected"
+        assert [path.read_bytes() for path in (target, review, state, operations)] == before
+
+    def test_state_adapter_failure_restores_target_and_review(
+        self,
+        tmp_path: Path,
+        monkeypatch,
+    ):
+        ws, context, snapshot = self._context(tmp_path)
+        target = ws.parent / "L1" / "tech-doc.md"
+        review = self._review(ws)
+        state = ws.parent / "evaluate-state.md"
+        operations = ws.parent / "evaluate1" / "eval-operations.json"
+        before = [path.read_bytes() for path in (target, review, state, operations)]
+        monkeypatch.setattr(
+            _ADAPTER,
+            "commit_evaluate_state",
+            lambda *args, **kwargs: {"ok": False, "error": "state commit rejected"},
+        )
+
+        result = _submit_remediation(
+            tmp_path,
+            dimension_token=context["operation_ctx"]["dimension_token"],
+            base_digest=snapshot["target_digest"],
+            unified_diff=self._diff(),
+            issue_ids=["e2-1"],
+        )
+
+        assert result["ok"] is False
+        assert result["reason"] == "state commit rejected"
+        assert [path.read_bytes() for path in (target, review, state, operations)] == before
+
+    def test_exact_replay_is_idempotent_and_conflicting_replay_is_rejected(
+        self,
+        tmp_path: Path,
+    ):
+        ws, context, snapshot = self._context(tmp_path)
+        token = context["operation_ctx"]["dimension_token"]
+        first = _submit_remediation(
+            tmp_path,
+            dimension_token=token,
+            base_digest=snapshot["target_digest"],
+            unified_diff=self._diff(),
+            issue_ids=["e2-1"],
+        )
+        target = ws.parent / "L1" / "tech-doc.md"
+        review = self._review(ws)
+        state = ws.parent / "evaluate-state.md"
+        operations = ws.parent / "evaluate1" / "eval-operations.json"
+        after_first = [path.read_bytes() for path in (target, review, state, operations)]
+        replay = _submit_remediation(
+            tmp_path,
+            dimension_token=token,
+            base_digest=snapshot["target_digest"],
+            unified_diff=self._diff(),
+            issue_ids=["e2-1"],
+        )
+        conflict = _submit_remediation(
+            tmp_path,
+            dimension_token=token,
+            base_digest=snapshot["target_digest"],
+            unified_diff=self._diff("different"),
+            issue_ids=["e2-1"],
+        )
+        assert first["ok"] is True
+        assert replay == {
+            "ok": True,
+            "command": "submit-remediation-diff",
+            "dimension_token": token,
+            "outcome": "remediated",
+            "idempotent": True,
+        }
+        assert conflict["ok"] is False
+        assert "conflicting submission" in conflict["reason"]
+        assert [path.read_bytes() for path in (target, review, state, operations)] == after_first
+
+    def test_sot_defect_rejects_b_mutation(self, tmp_path: Path):
+        ws = _setup_evaluating(tmp_path)
+        target = ws.parent / "L1" / "tech-doc.md"
+        target.write_text("# Tech Doc\nrepeat\ntarget\nrepeat\n", encoding="utf-8")
+        save_evaluate_state(
+            ws.parent / "evaluate-state.md",
+            {"fix_phase": "sot-remediation"},
+        )
+        _write_review(
+            ws,
+            _REVIEW_HEADER
+            + "| e2-1 | SOT-DEFECT | product §1 | loc | critical | ev | desc "
+            "| pending | — |\n",
+        )
+        es = load_evaluate_state(ws.parent / "evaluate-state.md")
+        save_evaluate_state(
+            ws.parent / "evaluate-state.md",
+            _merge_dim(es, "e2", "probed", tmp_path),
+            merge=False,
+        )
+        context = begin_dimension_sot_remediation(_CYCLE, tmp_path, dim="e2")
+        snapshot = read_b_snapshot_cmd(
+            _CYCLE,
+            tmp_path,
+            dimension_token=context["operation_ctx"]["dimension_token"],
+        )
+        review = self._review(ws)
+        state = ws.parent / "evaluate-state.md"
+        operations = ws.parent / "evaluate1" / "eval-operations.json"
+        before = [path.read_bytes() for path in (target, review, state, operations)]
+        result = _submit_remediation(
+            tmp_path,
+            dimension_token=context["operation_ctx"]["dimension_token"],
+            base_digest=snapshot["target_digest"],
+            unified_diff=self._diff(),
+            issue_ids=["e2-1"],
+        )
+        assert result["ok"] is False
+        assert "SOT-DEFECT" in result["reason"]
+        assert [path.read_bytes() for path in (target, review, state, operations)] == before
 
 
 class TestSotRemediation:

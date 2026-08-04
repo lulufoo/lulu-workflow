@@ -10,14 +10,12 @@
   },
   "sots": [
     {
-      "kind": "url",
-      "role": "primary",
-      "ref": "lulu-dev-workflow/lulu-design/eval/sots/solution-quality.md"
+      "ref": "lulu-dev-workflow/lulu-design/eval/sots/solution-quality.md",
+      "bindings": {}
     }
   ],
   "method": {
-    "kind": "external",
-    "source": "lulu-dev-workflow/lulu-design/eval/methods/solution-quality.md",
+    "ref": "lulu-dev-workflow/lulu-design/eval/methods/solution-quality.md",
     "focus": "Design solution quality"
   },
   "review": {

@@ -13,7 +13,10 @@ Subcommands:
     init-round                  Initialize evaluate-state.md (internal; session_control)
     begin-eval-round            Enter focus evaluating (session stays Working) or next round
     begin-dimension             Mark dimension in_progress and return eval-runner inputs
-    finish-dimension-probe      Validate review and mark dimension probed (locked)
+    read-b-snapshot             Read token-authorized EvalTarget B content
+    read-evidence-snapshot      Read token-authorized dynamic SoT evidence
+    submit-probe-findings       Validate and publish token-scoped probe findings
+    submit-remediation-diff     Validate and publish token-scoped remediation diff
     check-dimension             Read-only verify dimension probed after eval-runner
     probe-complete              Sum issues; advance fix_phase to artifact-remediation
     begin-artifact-remediation       Return artifact remediation dispatch list or skip
@@ -35,8 +38,10 @@ import argparse
 import fcntl
 import hashlib
 import json
+import os
 import re
 import sys
+from datetime import date
 from contextvars import ContextVar
 from pathlib import Path
 from typing import Any, Callable
@@ -52,16 +57,17 @@ from review_io import (  # noqa: E402
     pending_artifact_rows,
     pending_sot_rows,
 )
-from review_schema import validate_review_file  # noqa: E402
+from review_schema import validate_review_content, validate_review_file  # noqa: E402
 from corpus_schema import (  # noqa: E402
     expand_corpus,
     resolve_dim_id,
 )
 from evaluate_state_schema import (  # noqa: E402
     all_dims_at_least,
-    is_v3_state,
+    is_v4_state,
     load_evaluate_state,
     parse_dimension_status,
+    parse_dimension_tokens,
     parse_issue_counts,
     patch_issue_count,
     save_evaluate_state,
@@ -79,6 +85,19 @@ from eval_handoff_schema import (  # noqa: E402
     build_artifact_manifest_v2,
     validate_eval_handoff_v2,
 )
+from eval_operation_context import (  # noqa: E402
+    discard_operation_context,
+    issue_probe_context,
+    issue_remediation_context,
+    read_evidence_snapshot,
+    read_target_snapshot,
+)
+from eval_operation_record_schema import (  # noqa: E402
+    close_operation,
+    close_probe_operation,
+    get_operation_record,
+)
+from unified_diff import apply_unified_diff  # noqa: E402
 
 _ADAPTER_CTX: ContextVar[WorkflowAdapter | None] = ContextVar("workflow_adapter", default=None)
 _WORKFLOW_ID_CTX: ContextVar[str | None] = ContextVar("workflow_id", default=None)
@@ -167,7 +186,7 @@ def _dispatch_dim_allowed(cycle_id: str, project_root: Path, dim: str) -> bool:
 
 
 def dispatch_list(cycle_id: str, project_root: Path) -> list[str]:
-    """Return legacy eval dimension dispatch (e2/e3/e4) for eval-rules."""
+    """Return legacy Eval dimension dispatch (e2/e3/e4) for Eval orchestration."""
     return dispatch_legacy_for_corpus(_load_corpus(cycle_id, project_root))
 
 
@@ -303,7 +322,10 @@ def _commit_staged_evaluate_state(
 _CMD_INIT_ROUND = "init-round"
 _CMD_BEGIN_EVAL_ROUND = "begin-eval-round"
 _CMD_BEGIN_DIMENSION = "begin-dimension"
-_CMD_FINISH_DIMENSION_PROBE = "finish-dimension-probe"
+_CMD_READ_B_SNAPSHOT = "read-b-snapshot"
+_CMD_READ_EVIDENCE_SNAPSHOT = "read-evidence-snapshot"
+_CMD_SUBMIT_PROBE_FINDINGS = "submit-probe-findings"
+_CMD_SUBMIT_REMEDIATION_DIFF = "submit-remediation-diff"
 _CMD_CHECK_DIMENSION = "check-dimension"
 _CMD_PROBE_COMPLETE = "probe-complete"
 _CMD_BEGIN_ARTIFACT_REMEDIATION = "begin-artifact-remediation"
@@ -334,7 +356,7 @@ def _review_prefix_from_corpus(corpus: dict[str, Any]) -> str:
     return ""
 
 
-_ENTRY_V3_KEYS = (
+_ENTRY_V4_KEYS = (
     "version",
     "eval_status",
     "fix_phase",
@@ -347,6 +369,14 @@ _EXPECTED_SESSION_STATE = "Working"
 _EXPECTED_FOCUS_PHASE = "evaluating"
 _VALID_MODES = frozenset({"product", "tech"})
 _SEVERITY_RANK = {"critical": 3, "medium": 2, "minor": 1}
+_PROBE_PAYLOAD_KEYS = frozenset({"dimension_token", "findings"})
+_REMEDIATION_PAYLOAD_KEYS = frozenset(
+    {"dimension_token", "base_digest", "unified_diff", "issue_ids"},
+)
+_FINDING_REQUIRED_KEYS = frozenset(
+    {"id", "root_cause", "location", "severity", "evidence", "description"},
+)
+_FINDING_OPTIONAL_KEYS = frozenset({"sot_ref", "realign_gate"})
 
 
 def _bind_vars(
@@ -358,7 +388,7 @@ def _bind_vars(
     project_root: Path,
 ) -> dict[str, str]:
     bind = {
-        "eval_target_path": paths.get("eval_target_path", ""),
+        "eval_target_path": paths.get("eval_target_path") or paths.get("compose_doc", ""),
         "upstream_baseline_ref": _upstream_baseline_ref(cycle_id, project_root),
         "cycle_type": _adapter().detect_cycle_type(cycle_id),
         "M": str(evaluate_round),
@@ -409,11 +439,8 @@ def _validate_evaluate_state_for_session(
     project_root: Path,
 ) -> str | None:
     """Return error reason when evaluate-state does not match session at entry."""
-    if not is_v3_state(eval_data):
-        return (
-            "evaluate-state version 1/2 is not supported; "
-            "start a new eval round (Re-evaluate)."
-        )
+    if not is_v4_state(eval_data):
+        return "evaluate-state is not v4; start a new Eval round."
     if eval_data.get("phase") != "evaluate":
         return f"phase is {eval_data.get('phase')!r}, expected 'evaluate'."
     try:
@@ -423,7 +450,7 @@ def _validate_evaluate_state_for_session(
         )
     except ValueError as exc:
         return str(exc)
-    for key in _ENTRY_V3_KEYS:
+    for key in _ENTRY_V4_KEYS:
         actual = eval_data.get(key)
         exp = expected.get(key)
         if actual != exp:
@@ -690,7 +717,7 @@ def _load_evaluating_context(
     except ValueError as exc:
         return _failure("", str(exc), current_state=current)
 
-    if not is_v3_state(eval_data):
+    if not is_v4_state(eval_data):
         return _failure(
             "",
             "evaluate-state version 1/2 is not supported; start a new eval round.",
@@ -839,7 +866,7 @@ def begin_eval_round(cycle_id: str, project_root: Path) -> dict[str, Any]:
                 current_state=current,
             )
 
-        if not is_v3_state(eval_data):
+        if not is_v4_state(eval_data):
             return _failure(
                 _CMD_BEGIN_EVAL_ROUND,
                 "evaluate-state version 1/2 is not supported; start a new eval round.",
@@ -923,33 +950,31 @@ def begin_eval_round(cycle_id: str, project_root: Path) -> dict[str, Any]:
     return build_eval_loop_payload(cycle_id, project_root)
 
 
-def _format_runner_dispatch_input(runner_input: dict[str, str]) -> str:
-    lines = [
-        f"WORKFLOW_ID:           {runner_input['WORKFLOW_ID']}",
-        f"DIMENSION_ID:          {runner_input['DIMENSION_ID']}",
-        f"DIMENSION:             {runner_input['DIMENSION']}",
-        f"DIMENSION_LABEL:       {runner_input['DIMENSION_LABEL']}",
-        f"CYCLE_ID:              {runner_input['CYCLE_ID']}",
-        f"CYCLE_TYPE:            {runner_input['CYCLE_TYPE']}",
-        f"EVAL_TARGET_PATH:      {runner_input['EVAL_TARGET_PATH']}",
-        f"REMEDIATION_TARGET_PATH: {runner_input['REMEDIATION_TARGET_PATH']}",
-        f"EVALUATE_STATE_PATH:   {runner_input['EVALUATE_STATE_PATH']}",
-        f"EVALUATE_DIR:          {runner_input['EVALUATE_DIR']}",
-        f"REVIEW_OUTPUT_PATH:    {runner_input['REVIEW_OUTPUT_PATH']}",
-        f"PROJECT_ROOT:          {runner_input['PROJECT_ROOT']}",
-        f"SOTS_JSON:             {runner_input['SOTS_JSON']}",
-        f"METHOD_JSON:           {runner_input['METHOD_JSON']}",
-        f"METHOD_FOCUS:          {runner_input['METHOD_FOCUS']}",
-    ]
-    if runner_input.get("EVALUATE_READ_DIR"):
-        lines.append(f"EVALUATE_READ_DIR:     {runner_input['EVALUATE_READ_DIR']}")
-    if runner_input.get("FINAL_EVALUATE_DIR"):
-        lines.append(f"FINAL_EVALUATE_DIR:    {runner_input['FINAL_EVALUATE_DIR']}")
-    if runner_input.get("LEASE_ID"):
-        lines.append(f"LEASE_ID:              {runner_input['LEASE_ID']}")
-    upstream_baseline_ref = runner_input.get("UPSTREAM_BASELINE_REF", "")
-    if upstream_baseline_ref:
-        lines.append(f"UPSTREAM_BASELINE_REF: {upstream_baseline_ref}")
+def _operations_path(paths: dict[str, str]) -> Path:
+    """Return the Script-owned runtime record path for this Eval round."""
+    return Path(paths["evaluate_dir"]) / "eval-operations.json"
+
+
+def _format_ctx_dispatch_input(operation_ctx: dict[str, Any]) -> str:
+    """Format the token-scoped runner context without session paths."""
+    fields = (
+        "round_token",
+        "dimension_token",
+        "dimension_id",
+        "operation_kind",
+        "target_digest",
+        "staging_scope",
+        "allowed_submission",
+    )
+    lines = [f"{field.upper()}: {operation_ctx[field]}" for field in fields]
+    lines.append(
+        "RESOLVED_METHOD: "
+        + json.dumps(operation_ctx["resolved_method"], ensure_ascii=False),
+    )
+    lines.append(
+        "RESOLVED_SOTS: "
+        + json.dumps(operation_ctx["resolved_sots"], ensure_ascii=False),
+    )
     return "\n".join(lines)
 
 
@@ -959,62 +984,6 @@ def _dimension_def(expanded_corpus: dict[str, Any], dim: str) -> dict[str, Any]:
         if item["id"] == canonical:
             return item
     raise ValueError(f"unknown dimension: {dim!r}")
-
-
-def _build_runner_input(
-    cycle_id: str,
-    project_root: Path,
-    *,
-    dim: str,
-    state: dict[str, str],
-    paths: dict[str, str],
-    evaluate_round: int,
-) -> dict[str, str]:
-    expanded = _expanded_corpus(
-        cycle_id,
-        state,
-        paths,
-        evaluate_round,
-        project_root=project_root,
-    )
-    dim_def = _dimension_def(expanded, dim)
-    dispatch_key = str(dim_def.get("legacy_alias") or dim_def["id"])
-    sots = dim_def.get("sots", [])
-    method = dim_def.get("method", {})
-    formal_dir = paths["evaluate_dir"]
-    staging_dir = paths.get("write_staging_dir") or formal_dir
-    runner_input: dict[str, str] = {
-        "WORKFLOW_ID": _workflow_id(),
-        "DIMENSION_ID": str(dim_def["id"]),
-        "DIMENSION": dispatch_key,
-        "DIMENSION_LABEL": str(dim_def["label"]),
-        "CYCLE_ID": cycle_id,
-        "CYCLE_TYPE": _adapter().detect_cycle_type(cycle_id),
-        "EVAL_TARGET_PATH": str(dim_def["eval_target"]["path"]),
-        "REMEDIATION_TARGET_PATH": str(dim_def["remediation_target"]["path"]),
-        "EVALUATE_STATE_PATH": paths["evaluate_state"],
-        # Runner writes only to lease-private staging when handoff is present.
-        "EVALUATE_DIR": staging_dir,
-        "EVALUATE_READ_DIR": formal_dir,
-        "FINAL_EVALUATE_DIR": formal_dir,
-        "LEASE_ID": str(paths.get("lease_id", "")),
-        "REVIEW_OUTPUT_PATH": str(dim_def["review"]["output_path"]),
-        "PROJECT_ROOT": project_root.resolve().as_posix(),
-        "SOTS_JSON": json.dumps(sots, ensure_ascii=False, separators=(",", ":")),
-        "METHOD_JSON": json.dumps(method, ensure_ascii=False, separators=(",", ":")),
-        "METHOD_FOCUS": str(method.get("focus", "")),
-    }
-    for sot in sots:
-        if sot.get("kind") == "url":
-            ref = str(sot.get("ref", ""))
-            if ref and ref != paths.get("eval_target_path", ""):
-                runner_input["UPSTREAM_BASELINE_REF"] = ref
-                break
-    if "UPSTREAM_BASELINE_REF" not in runner_input:
-        pref = _upstream_baseline_ref(cycle_id, project_root)
-        if pref and any(s.get("kind") == "url" for s in sots):
-            runner_input["UPSTREAM_BASELINE_REF"] = pref
-    return runner_input
 
 
 def init_round(
@@ -1072,7 +1041,7 @@ def begin_dimension(
     *,
     dim: str,
 ) -> dict[str, Any]:
-    """Mark dimension in_progress and return eval-probe-runner input block."""
+    """Mark a dimension in progress and return dimension-probe-runner input."""
     if not dim.strip():
         return _failure(
             _CMD_BEGIN_DIMENSION,
@@ -1108,12 +1077,46 @@ def begin_dimension(
     )
 
     corpus = _load_corpus(cycle_id, project_root)
-    lease_id = str(paths.get("lease_id", ""))
+    canonical_dim = _canonical_dim(cycle_id, project_root, dim)
+    dimension_status = parse_dimension_status(eval_data["dimension_status"])
+    if dimension_status.get(canonical_dim) != "pending":
+        return _failure(
+            _CMD_BEGIN_DIMENSION,
+            f"dimension is not pending: {canonical_dim!r}",
+            dim=dim,
+        )
+
+    expanded = _expanded_corpus(
+        cycle_id,
+        state,
+        paths,
+        evaluate_round,
+        project_root=project_root,
+    )
+    dim_def = _dimension_def(expanded, dim)
+    try:
+        operation_ctx = issue_probe_context(
+            operations_path=_operations_path(paths),
+            write_staging_dir=Path(
+                paths.get("write_staging_dir") or paths["evaluate_dir"],
+            ),
+            target_path=Path(str(dim_def["eval_target"]["path"])),
+            round_token=eval_data["round_token"],
+            dimension_id=canonical_dim,
+            method=dict(dim_def["method"]),
+            sots=[dict(sot) for sot in dim_def["sots"]],
+        )
+    except (OSError, ValueError) as exc:
+        return _failure(_CMD_BEGIN_DIMENSION, str(exc), dim=dim)
 
     def _patch(data: dict[str, str]) -> dict[str, str]:
         updated = merge_current_dimension(data, dim, "in_progress", corpus=corpus)
-        if lease_id:
-            updated["active_lease_id"] = lease_id
+        dimension_tokens = parse_dimension_tokens(updated["dimension_tokens"])
+        dimension_tokens[canonical_dim] = operation_ctx["dimension_token"]
+        updated["dimension_tokens"] = json.dumps(
+            dimension_tokens,
+            separators=(",", ":"),
+        )
         if paths.get("session_key"):
             updated["focus_l"] = str(paths["session_key"])
         updated["evaluate_round"] = str(evaluate_round)
@@ -1125,77 +1128,336 @@ def begin_dimension(
         update=_patch,
     )
     if error is not None:
+        try:
+            discard_operation_context(
+                operations_path=_operations_path(paths),
+                dimension_token=operation_ctx["dimension_token"],
+            )
+        except (OSError, ValueError):
+            pass
         return _failure(_CMD_BEGIN_DIMENSION, error, dim=dim)
 
-    runner_input = _build_runner_input(
-        cycle_id,
-        project_root,
-        dim=dim,
-        state=state,
-        paths=paths,
-        evaluate_round=evaluate_round,
-    )
     return _success(
         _CMD_BEGIN_DIMENSION,
         dim=dim,
         current_state=state["current_state"],
-        runner_input=runner_input,
-        dispatch_input=_format_runner_dispatch_input(runner_input),
+        operation_ctx=operation_ctx,
+        dispatch_input=_format_ctx_dispatch_input(operation_ctx),
     )
 
 
-def _publish_staged_review_if_needed(
+def read_b_snapshot_cmd(
     cycle_id: str,
     project_root: Path,
     *,
-    eval_data: dict[str, str],
-    evaluate_round: int,
-    review_filename: str,
-    formal_review_path: Path,
-) -> dict[str, Any] | None:
-    """Publish staged review via Compose when active_lease_id is set.
+    dimension_token: str,
+) -> dict[str, Any]:
+    """Return a token-authorized read-only snapshot of EvalTarget B."""
+    if not dimension_token.strip():
+        return _failure(_CMD_READ_B_SNAPSHOT, "invalid dimension_token: empty string")
+    ctx = _load_evaluating_context(cycle_id, project_root)
+    if isinstance(ctx, dict):
+        ctx["command"] = _CMD_READ_B_SNAPSHOT
+        return ctx
+    _state, _ws_path, eval_data, evaluate_round, active_doc, _mode = ctx
+    paths = _eval_paths(
+        cycle_id,
+        project_root,
+        active_doc=active_doc,
+        evaluate_round=evaluate_round,
+        es_path=_evaluate_state_path(cycle_id, project_root),
+    )
+    try:
+        snapshot = read_target_snapshot(
+            operations_path=_operations_path(paths),
+            dimension_token=dimension_token,
+        )
+    except ValueError as exc:
+        return _failure(_CMD_READ_B_SNAPSHOT, str(exc))
+    return _success(
+        _CMD_READ_B_SNAPSHOT,
+        dimension_token=dimension_token,
+        round_token=eval_data["round_token"],
+        target_digest=snapshot["digest"],
+        content=snapshot["content"],
+    )
 
-    Returns a failure payload on error; None on success / no staging.
-    """
-    lease_id = str(eval_data.get("active_lease_id", "")).strip()
+
+def read_evidence_snapshot_cmd(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    dimension_token: str,
+    evidence_ref: str,
+) -> dict[str, Any]:
+    """Return token-authorized dynamic SoT evidence content."""
+    if not dimension_token.strip():
+        return _failure(
+            _CMD_READ_EVIDENCE_SNAPSHOT,
+            "invalid dimension_token: empty string",
+        )
+    if not evidence_ref.strip():
+        return _failure(
+            _CMD_READ_EVIDENCE_SNAPSHOT,
+            "invalid evidence_ref: empty string",
+        )
+    ctx = _load_evaluating_context(cycle_id, project_root)
+    if isinstance(ctx, dict):
+        ctx["command"] = _CMD_READ_EVIDENCE_SNAPSHOT
+        return ctx
+    _state, _ws_path, _eval_data, evaluate_round, active_doc, _mode = ctx
+    paths = _eval_paths(
+        cycle_id,
+        project_root,
+        active_doc=active_doc,
+        evaluate_round=evaluate_round,
+        es_path=_evaluate_state_path(cycle_id, project_root),
+    )
+    try:
+        snapshot = read_evidence_snapshot(
+            operations_path=_operations_path(paths),
+            dimension_token=dimension_token,
+            evidence_ref=evidence_ref,
+        )
+    except ValueError as exc:
+        return _failure(_CMD_READ_EVIDENCE_SNAPSHOT, str(exc))
+    return _success(
+        _CMD_READ_EVIDENCE_SNAPSHOT,
+        dimension_token=dimension_token,
+        evidence_ref=evidence_ref,
+        digest=snapshot["digest"],
+        content=snapshot["content"],
+    )
+
+
+def _load_probe_payload(path: Path) -> tuple[dict[str, Any], str]:
+    """Load and normalize the minimal token-scoped probe submission payload."""
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        raise ValueError(f"cannot read payload file: {path}: {exc}") from exc
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"invalid probe payload JSON: {exc}") from exc
+    if not isinstance(payload, dict) or set(payload) != _PROBE_PAYLOAD_KEYS:
+        raise ValueError(
+            "probe payload must contain only dimension_token and findings",
+        )
+    token = payload.get("dimension_token")
+    findings = payload.get("findings")
+    if not isinstance(token, str) or not token.strip():
+        raise ValueError("probe payload dimension_token must be a non-empty string")
+    if not isinstance(findings, list):
+        raise ValueError("probe payload findings must be an array")
+
+    finding_ids: set[str] = set()
+    for index, finding in enumerate(findings):
+        if not isinstance(finding, dict):
+            raise ValueError(f"findings[{index}] must be an object")
+        allowed = _FINDING_REQUIRED_KEYS | _FINDING_OPTIONAL_KEYS
+        if not _FINDING_REQUIRED_KEYS <= set(finding) or set(finding) - allowed:
+            raise ValueError(
+                f"findings[{index}] must contain required review fields only",
+            )
+        for field, value in finding.items():
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"findings[{index}].{field} must be a non-empty string")
+            if any(character in value for character in ("\n", "\r", "|")):
+                raise ValueError(
+                    f"findings[{index}].{field} cannot contain table delimiters",
+                )
+        finding_id = finding["id"]
+        if finding_id in finding_ids:
+            raise ValueError(f"duplicate finding id: {finding_id}")
+        finding_ids.add(finding_id)
+    canonical = json.dumps(
+        payload,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return payload, hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _load_remediation_payload(path: Path) -> tuple[dict[str, Any], str]:
+    """Load the minimal, token-scoped remediation diff payload."""
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        raise ValueError(f"cannot read payload file: {path}: {exc}") from exc
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"invalid remediation payload JSON: {exc}") from exc
+    if not isinstance(payload, dict) or set(payload) != _REMEDIATION_PAYLOAD_KEYS:
+        raise ValueError(
+            "remediation payload must contain only dimension_token, base_digest, "
+            "unified_diff, and issue_ids",
+        )
+    for field in ("dimension_token", "base_digest", "unified_diff"):
+        if not isinstance(payload.get(field), str) or not payload[field]:
+            raise ValueError(f"remediation payload {field} must be a non-empty string")
+    base_digest = str(payload["base_digest"])
+    if len(base_digest) != 64 or any(char not in "0123456789abcdef" for char in base_digest):
+        raise ValueError("remediation payload base_digest must be a SHA-256 hex digest")
+    issue_ids = payload.get("issue_ids")
+    if (
+        not isinstance(issue_ids, list)
+        or not issue_ids
+        or any(not isinstance(issue_id, str) or not issue_id for issue_id in issue_ids)
+        or len(set(issue_ids)) != len(issue_ids)
+    ):
+        raise ValueError("remediation payload issue_ids must be unique non-empty strings")
+    canonical = json.dumps(
+        payload,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return payload, hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _remediation_rows(
+    rows: list[dict[str, str]],
+    *,
+    issue_ids: list[str],
+    operation_kind: str,
+) -> str | None:
+    """Validate that a diff resolves only pending rows authorized by its token."""
+    by_id = {row.get("id", ""): row for row in rows}
+    if len(by_id) != len(rows):
+        return "review contains duplicate issue ids"
+    expected = (
+        {"WO-MISS", "WO-ERROR"}
+        if operation_kind == "artifact-remediation"
+        else {"UNRESOLVABLE"}
+    )
+    for issue_id in issue_ids:
+        row = by_id.get(issue_id)
+        if row is None:
+            return f"issue id is not in this dimension review: {issue_id}"
+        if row.get("status", "").lower() != "pending":
+            return f"issue id is not pending: {issue_id}"
+        root_cause = row.get("root_cause", "").upper()
+        if root_cause == "SOT-DEFECT":
+            return "SOT-DEFECT requires escalation; B mutation is not authorized"
+        if root_cause not in expected:
+            return f"issue id is not authorized for {operation_kind}: {issue_id}"
+    return None
+
+
+def _render_remediated_review(
+    content: str,
+    *,
+    issue_ids: list[str],
+    operation_kind: str,
+) -> str:
+    """Change only selected review dispositions while preserving all other text."""
+    lines = content.splitlines(keepends=True)
+    header: list[str] | None = None
+    selected = set(issue_ids)
+    found: set[str] = set()
+    replacement_status = (
+        "fixed" if operation_kind == "artifact-remediation" else "reclassified"
+    )
+    replacement_decision = (
+        "fix" if operation_kind == "artifact-remediation" else "reclassify"
+    )
+    output: list[str] = []
+    for raw_line in lines:
+        stripped = raw_line.strip()
+        if stripped.startswith("|") and not stripped.startswith("|---"):
+            cells = [cell.strip() for cell in stripped.split("|")[1:-1]]
+            lowered = [cell.lower() for cell in cells]
+            if "id" in lowered and "status" in lowered and "decision" in lowered:
+                header = lowered
+            elif header is not None and len(cells) == len(header):
+                issue_id = cells[header.index("id")]
+                if issue_id in selected:
+                    cells[header.index("status")] = replacement_status
+                    cells[header.index("decision")] = replacement_decision
+                    ending = "\n" if raw_line.endswith("\n") else ""
+                    raw_line = "| " + " | ".join(cells) + " |" + ending
+                    found.add(issue_id)
+        output.append(raw_line)
+    if found != selected:
+        missing = sorted(selected - found)
+        raise ValueError(f"review issue ids could not be updated: {missing!r}")
+    rendered = "".join(output)
+    errors = validate_review_content(rendered, phase="remediation")
+    if errors:
+        raise ValueError(f"generated remediation review invalid: {'; '.join(errors)}")
+    return rendered
+
+
+def _render_probe_review(
+    *,
+    dimension_label: str,
+    active_doc: int,
+    evaluate_round: int,
+    method_focus: str,
+    findings: list[dict[str, Any]],
+) -> str:
+    """Render a validated ReviewFile without exposing its path to the runner."""
+    template_path = _EVAL_LIB.parent / "review.template.md"
+    template = template_path.read_text(encoding="utf-8")
+    content = (
+        template.replace("{{DIM_LABEL}}", dimension_label)
+        .replace("{{REV}}", str(active_doc))
+        .replace("{{M}}", str(evaluate_round))
+        .replace("{{DATE}}", date.today().isoformat())
+        .replace("{{REFS}}", method_focus)
+    )
+    for finding in findings:
+        row = {
+            **finding,
+            "sot_ref": finding.get("sot_ref", "—"),
+            "status": "pending",
+            "decision": "—",
+        }
+        content += (
+            f"| {row['id']} | {row['root_cause']} | {row['sot_ref']} | "
+            f"{row['location']} | {row['severity']} | {row['evidence']} | "
+            f"{row['description']} | {row['status']} | {row['decision']} |\n"
+        )
+    errors = validate_review_content(content, phase="probe")
+    if errors:
+        raise ValueError(f"generated review invalid: {'; '.join(errors)}")
+    return content
+
+
+def _atomic_write_text(path: Path, content: str) -> None:
+    """Atomically replace one Eval-owned text file."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(content, encoding="utf-8")
+    os.replace(temporary, path)
+
+
+def _publish_probe_review(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    paths: dict[str, str],
+    evaluate_round: int,
+    formal_review_path: Path,
+    content: str,
+) -> str | None:
+    """Publish a control-generated review to its formal Eval location."""
+    if formal_review_path.exists():
+        return f"formal review already exists: {formal_review_path.as_posix()}"
+    lease_id = str(paths.get("lease_id", "")).strip()
     if not lease_id:
+        _atomic_write_text(formal_review_path, content)
         return None
 
-    paths = _paths_from_handoff() or {}
-    session_key = str(paths.get("session_key") or "")
-    if not session_key:
-        # Refresh handoff to obtain the current generic session context.
-        try:
-            _refresh_handoff(cycle_id, project_root, require_evaluating=True)
-        except ValueError as exc:
-            return _failure(_CMD_FINISH_DIMENSION_PROBE, str(exc))
-        paths = _paths_from_handoff() or {}
-        session_key = str(paths.get("session_key") or "")
-    if not session_key:
-        return _failure(
-            _CMD_FINISH_DIMENSION_PROBE,
-            "EvalHandoff session_key missing",
-        )
-
     staging = Path(str(paths["write_staging_dir"]))
-    staged = staging / review_filename
-    if not staged.is_file():
-        # Compatibility: allow already-published formal path (legacy runners).
-        if formal_review_path.is_file():
-            return None
-        return _failure(
-            _CMD_FINISH_DIMENSION_PROBE,
-            f"staged review missing: {staged.as_posix()}",
-            dim=review_filename,
-        )
-
-    digest = hashlib.sha256(staged.read_bytes()).hexdigest()
+    staged = staging / formal_review_path.name
+    _atomic_write_text(staged, content)
+    digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
     manifest = build_artifact_manifest_v2(
         lease_id=lease_id,
-        session_key=session_key,
+        session_key=str(paths.get("session_key", "")),
         evaluate_round=evaluate_round,
-        staged_relative_path=review_filename,
-        final_relative_path=review_filename,
+        staged_relative_path=formal_review_path.name,
+        final_relative_path=formal_review_path.name,
         artifact_digest=digest,
     )
     result = _adapter().commit_eval_artifacts(
@@ -1204,89 +1466,400 @@ def _publish_staged_review_if_needed(
         manifest=manifest,
     )
     if not result.get("ok"):
-        return _failure(
-            _CMD_FINISH_DIMENSION_PROBE,
-            result.get("error") or "commit-artifacts failed",
-        )
+        staged.unlink(missing_ok=True)
+        return str(result.get("error") or "commit-artifacts failed")
     return None
 
 
-def finish_dimension_probe(
+def submit_probe_findings(
     cycle_id: str,
     project_root: Path,
     *,
-    dim: str,
+    payload_file: Path,
 ) -> dict[str, Any]:
-    """Validate review file and mark dimension probed (locked write)."""
+    """Validate, publish, and record one token-scoped probe submission."""
+    try:
+        payload, submission_digest = _load_probe_payload(payload_file)
+    except ValueError as exc:
+        return _failure(_CMD_SUBMIT_PROBE_FINDINGS, str(exc))
+
     ctx = _load_evaluating_context(cycle_id, project_root)
     if isinstance(ctx, dict):
-        ctx["command"] = _CMD_FINISH_DIMENSION_PROBE
-        ctx["dim"] = dim
+        ctx["command"] = _CMD_SUBMIT_PROBE_FINDINGS
         return ctx
-
-    state, _ws_path, eval_data, evaluate_round, active_doc, mode = ctx
-    if not _dispatch_dim_allowed(cycle_id, project_root, dim):
-        return _failure(
-            _CMD_FINISH_DIMENSION_PROBE,
-            f"invalid dim: {dim!r} (not in corpus for mode {mode!r}).",
-            dim=dim,
-        )
-
-    review_path = _review_path_from_context(
+    state, _ws_path, eval_data, evaluate_round, active_doc, _mode = ctx
+    dimension_token = str(payload["dimension_token"])
+    paths = _eval_paths(
         cycle_id,
         project_root,
-        state=state,
-        evaluate_round=evaluate_round,
         active_doc=active_doc,
-        dim=dim,
-    )
-    publish_err = _publish_staged_review_if_needed(
-        cycle_id,
-        project_root,
-        eval_data=eval_data,
         evaluate_round=evaluate_round,
-        review_filename=review_path.name,
-        formal_review_path=review_path,
+        es_path=_evaluate_state_path(cycle_id, project_root),
     )
-    if publish_err is not None:
-        return publish_err
+    operations_path = _operations_path(paths)
+    lock_path = operations_path.with_suffix(operations_path.suffix + ".lock")
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    lock_path.touch(exist_ok=True)
 
-    validation_errors = validate_review_file(review_path, phase="probe")
-    if validation_errors:
-        return _failure(
-            _CMD_FINISH_DIMENSION_PROBE,
-            "; ".join(validation_errors),
-            dim=dim,
-            review_path=review_path.as_posix(),
-        )
+    with lock_path.open("w", encoding="utf-8") as lock_file:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        try:
+            try:
+                _refresh_handoff(cycle_id, project_root, require_evaluating=True)
+                paths = _eval_paths(
+                    cycle_id,
+                    project_root,
+                    active_doc=active_doc,
+                    evaluate_round=evaluate_round,
+                    es_path=_evaluate_state_path(cycle_id, project_root),
+                )
+            except ValueError as exc:
+                return _failure(_CMD_SUBMIT_PROBE_FINDINGS, str(exc))
+            try:
+                record = get_operation_record(operations_path, dimension_token)
+            except ValueError as exc:
+                return _failure(_CMD_SUBMIT_PROBE_FINDINGS, str(exc))
+            if record.get("status") == "closed":
+                if record.get("submission_digest") == submission_digest:
+                    return _success(
+                        _CMD_SUBMIT_PROBE_FINDINGS,
+                        dimension_token=dimension_token,
+                        outcome="probed",
+                        idempotent=True,
+                        review_path=record["review_path"],
+                    )
+                return _failure(
+                    _CMD_SUBMIT_PROBE_FINDINGS,
+                    "conflicting submission for closed dimension_token",
+                    dimension_token=dimension_token,
+                )
+            if (
+                record.get("operation_kind") != "probe"
+                or record.get("allowed_submission") != "finding"
+                or record.get("round_token") != eval_data["round_token"]
+            ):
+                return _failure(
+                    _CMD_SUBMIT_PROBE_FINDINGS,
+                    "dimension_token is not authorized for this probe round",
+                    dimension_token=dimension_token,
+                )
 
-    rows = parse_review_file(review_path)
-    total_issues = str(len(rows))
-    dim_id = _canonical_dim(cycle_id, project_root, dim)
+            dimension_id = str(record["dimension_id"])
+            dimension_tokens = parse_dimension_tokens(eval_data["dimension_tokens"])
+            dimension_status = parse_dimension_status(eval_data["dimension_status"])
+            if (
+                dimension_tokens.get(dimension_id) != dimension_token
+                or dimension_status.get(dimension_id) != "in_progress"
+            ):
+                return _failure(
+                    _CMD_SUBMIT_PROBE_FINDINGS,
+                    "dimension_token does not own an in-progress dimension",
+                    dimension_token=dimension_token,
+                )
 
-    corpus = _load_corpus(cycle_id, project_root)
+            expanded = _expanded_corpus(
+                cycle_id,
+                state,
+                paths,
+                evaluate_round,
+                project_root=project_root,
+            )
+            dim_def = _dimension_def(expanded, dimension_id)
+            try:
+                review_content = _render_probe_review(
+                    dimension_label=str(dim_def["label"]),
+                    active_doc=active_doc,
+                    evaluate_round=evaluate_round,
+                    method_focus=str(dim_def["method"].get("focus", "")),
+                    findings=payload["findings"],
+                )
+            except (OSError, ValueError) as exc:
+                return _failure(_CMD_SUBMIT_PROBE_FINDINGS, str(exc))
+            review_path = _review_path_for_dim(
+                Path(paths["evaluate_dir"]),
+                cycle_id=cycle_id,
+                state=state,
+                paths=paths,
+                evaluate_round=evaluate_round,
+                dim=dimension_id,
+                project_root=project_root,
+            )
+            publish_error = _publish_probe_review(
+                cycle_id,
+                project_root,
+                paths=paths,
+                evaluate_round=evaluate_round,
+                formal_review_path=review_path,
+                content=review_content,
+            )
+            if publish_error is not None:
+                return _failure(
+                    _CMD_SUBMIT_PROBE_FINDINGS,
+                    publish_error,
+                    dimension_token=dimension_token,
+                )
 
-    def _patch(data: dict[str, str]) -> dict[str, str]:
-        updated = merge_current_dimension(data, dim, "probed", corpus=corpus)
-        updated = patch_issue_count(updated, dim_id, total=total_issues)
-        updated["active_lease_id"] = ""
-        return updated
+            corpus = _load_corpus(cycle_id, project_root)
+            total_issues = str(len(payload["findings"]))
 
-    error = _commit_staged_evaluate_state(
+            def _patch(data: dict[str, str]) -> dict[str, str]:
+                updated = merge_current_dimension(
+                    data,
+                    dimension_id,
+                    "probed",
+                    corpus=corpus,
+                )
+                return patch_issue_count(updated, dimension_id, total=total_issues)
+
+            error = _commit_staged_evaluate_state(
+                cycle_id,
+                project_root,
+                update=_patch,
+            )
+            if error is not None:
+                if not str(paths.get("lease_id", "")).strip():
+                    review_path.unlink(missing_ok=True)
+                return _failure(
+                    _CMD_SUBMIT_PROBE_FINDINGS,
+                    error,
+                    dimension_token=dimension_token,
+                )
+            review_digest = hashlib.sha256(review_content.encode("utf-8")).hexdigest()
+            try:
+                close_probe_operation(
+                    operations_path,
+                    dimension_token=dimension_token,
+                    submission_digest=submission_digest,
+                    review_path=review_path,
+                    review_digest=review_digest,
+                    findings=payload["findings"],
+                )
+            except ValueError as exc:
+                return _failure(_CMD_SUBMIT_PROBE_FINDINGS, str(exc))
+            return _success(
+                _CMD_SUBMIT_PROBE_FINDINGS,
+                dimension_token=dimension_token,
+                outcome="probed",
+                idempotent=False,
+                total_issues=total_issues,
+                review_path=review_path.resolve().as_posix(),
+            )
+        finally:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+
+def submit_remediation_diff(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    payload_file: Path,
+) -> dict[str, Any]:
+    """Validate and transactionally publish one token-scoped remediation diff."""
+    try:
+        payload, submission_digest = _load_remediation_payload(payload_file)
+    except ValueError as exc:
+        return _failure(_CMD_SUBMIT_REMEDIATION_DIFF, str(exc))
+
+    ctx = _load_evaluating_context(cycle_id, project_root)
+    if isinstance(ctx, dict):
+        ctx["command"] = _CMD_SUBMIT_REMEDIATION_DIFF
+        return ctx
+    state, _ws_path, eval_data, evaluate_round, active_doc, _mode = ctx
+    dimension_token = str(payload["dimension_token"])
+    paths = _eval_paths(
         cycle_id,
         project_root,
-        update=_patch,
+        active_doc=active_doc,
+        evaluate_round=evaluate_round,
+        es_path=_evaluate_state_path(cycle_id, project_root),
     )
-    if error is not None:
-        return _failure(_CMD_FINISH_DIMENSION_PROBE, error, dim=dim)
+    operations_path = _operations_path(paths)
+    lock_path = operations_path.with_suffix(operations_path.suffix + ".lock")
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    lock_path.touch(exist_ok=True)
 
-    return _success(
-        _CMD_FINISH_DIMENSION_PROBE,
-        dim=dim,
-        outcome="probed",
-        total_issues=total_issues,
-        review_path=review_path.resolve().as_posix(),
-    )
+    with lock_path.open("w", encoding="utf-8") as lock_file:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        try:
+            try:
+                _refresh_handoff(cycle_id, project_root, require_evaluating=True)
+                paths = _eval_paths(
+                    cycle_id,
+                    project_root,
+                    active_doc=active_doc,
+                    evaluate_round=evaluate_round,
+                    es_path=_evaluate_state_path(cycle_id, project_root),
+                )
+                record = get_operation_record(operations_path, dimension_token)
+            except ValueError as exc:
+                return _failure(_CMD_SUBMIT_REMEDIATION_DIFF, str(exc))
+            if record.get("status") == "closed":
+                if record.get("submission_digest") == submission_digest:
+                    return _success(
+                        _CMD_SUBMIT_REMEDIATION_DIFF,
+                        dimension_token=dimension_token,
+                        outcome="remediated",
+                        idempotent=True,
+                    )
+                return _failure(
+                    _CMD_SUBMIT_REMEDIATION_DIFF,
+                    "conflicting submission for closed dimension_token",
+                    dimension_token=dimension_token,
+                )
+            operation_kind = str(record.get("operation_kind", ""))
+            if (
+                operation_kind not in {"artifact-remediation", "sot-remediation"}
+                or record.get("allowed_submission") != "unified_diff"
+                or record.get("round_token") != eval_data["round_token"]
+            ):
+                return _failure(
+                    _CMD_SUBMIT_REMEDIATION_DIFF,
+                    "dimension_token is not authorized for remediation",
+                    dimension_token=dimension_token,
+                )
+            try:
+                snapshot = read_target_snapshot(
+                    operations_path=operations_path,
+                    dimension_token=dimension_token,
+                )
+            except ValueError as exc:
+                return _failure(_CMD_SUBMIT_REMEDIATION_DIFF, str(exc))
+            if payload["base_digest"] != snapshot["digest"]:
+                return _failure(
+                    _CMD_SUBMIT_REMEDIATION_DIFF,
+                    "base_digest does not match the token B snapshot",
+                    dimension_token=dimension_token,
+                )
+            try:
+                remediated_target = apply_unified_diff(
+                    snapshot["content"],
+                    str(payload["unified_diff"]),
+                )
+            except ValueError as exc:
+                return _failure(_CMD_SUBMIT_REMEDIATION_DIFF, str(exc))
+
+            dimension_id = str(record["dimension_id"])
+            review_path = _review_path_from_context(
+                cycle_id,
+                project_root,
+                state=state,
+                evaluate_round=evaluate_round,
+                active_doc=active_doc,
+                dim=dimension_id,
+            )
+            if not review_path.is_file():
+                return _failure(
+                    _CMD_SUBMIT_REMEDIATION_DIFF,
+                    f"review file not found: {review_path}",
+                    dimension_token=dimension_token,
+                )
+            review_before = review_path.read_text(encoding="utf-8")
+            issue_ids = list(payload["issue_ids"])
+            row_error = _remediation_rows(
+                parse_review_file(review_path),
+                issue_ids=issue_ids,
+                operation_kind=operation_kind,
+            )
+            if row_error:
+                return _failure(
+                    _CMD_SUBMIT_REMEDIATION_DIFF,
+                    row_error,
+                    dimension_token=dimension_token,
+                )
+            try:
+                review_after = _render_remediated_review(
+                    review_before,
+                    issue_ids=issue_ids,
+                    operation_kind=operation_kind,
+                )
+            except ValueError as exc:
+                return _failure(_CMD_SUBMIT_REMEDIATION_DIFF, str(exc))
+
+            scope_dir = Path(str(record["snapshot_path"])).parent
+            staged_target = scope_dir / "target.remediated"
+            _atomic_write_text(staged_target, remediated_target)
+            target_digest = hashlib.sha256(
+                remediated_target.encode("utf-8"),
+            ).hexdigest()
+            target_commit = _adapter().commit_remediation_target(
+                cycle_id,
+                project_root,
+                staged_target_path=staged_target,
+                base_digest=str(payload["base_digest"]),
+                lease_id=str(record["lease_id"]),
+            )
+            if not target_commit.get("ok"):
+                return _failure(
+                    _CMD_SUBMIT_REMEDIATION_DIFF,
+                    str(target_commit.get("error") or "commit-remediation-target failed"),
+                    dimension_token=dimension_token,
+                )
+
+            def _rollback_target() -> None:
+                _adapter().restore_remediation_target(
+                    cycle_id,
+                    project_root,
+                    snapshot_path=Path(str(record["snapshot_path"])),
+                    expected_digest=target_digest,
+                    lease_id=str(record["lease_id"]),
+                )
+
+            try:
+                _atomic_write_text(review_path, review_after)
+            except OSError as exc:
+                _rollback_target()
+                return _failure(_CMD_SUBMIT_REMEDIATION_DIFF, f"review publish failed: {exc}")
+
+            resolved = count_resolved(parse_review_file(review_path))
+
+            def _patch(data: dict[str, str]) -> dict[str, str]:
+                return patch_issue_count(
+                    data,
+                    dimension_id,
+                    resolved=str(resolved),
+                )
+
+            state_error = _commit_staged_evaluate_state(
+                cycle_id,
+                project_root,
+                update=_patch,
+            )
+            if state_error is not None:
+                _atomic_write_text(review_path, review_before)
+                _rollback_target()
+                return _failure(
+                    _CMD_SUBMIT_REMEDIATION_DIFF,
+                    state_error,
+                    dimension_token=dimension_token,
+                )
+            try:
+                close_operation(
+                    operations_path,
+                    dimension_token=dimension_token,
+                    submission_digest=submission_digest,
+                    review_path=review_path,
+                    review_digest=hashlib.sha256(
+                        review_after.encode("utf-8"),
+                    ).hexdigest(),
+                )
+            except ValueError as exc:
+                _commit_staged_evaluate_state(
+                    cycle_id,
+                    project_root,
+                    state=eval_data,
+                )
+                _atomic_write_text(review_path, review_before)
+                _rollback_target()
+                return _failure(_CMD_SUBMIT_REMEDIATION_DIFF, str(exc))
+            return _success(
+                _CMD_SUBMIT_REMEDIATION_DIFF,
+                dimension_token=dimension_token,
+                outcome="remediated",
+                idempotent=False,
+                issue_ids=issue_ids,
+            )
+        finally:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
 
 def check_dimension(
@@ -1295,7 +1868,7 @@ def check_dimension(
     *,
     dim: str,
 ) -> dict[str, Any]:
-    """Read-only verify dimension probed after eval-probe-runner."""
+    """Read-only verify a dimension after dimension-probe-runner."""
     ctx = _load_evaluating_context(cycle_id, project_root)
     if isinstance(ctx, dict):
         ctx["command"] = _CMD_CHECK_DIMENSION
@@ -1345,7 +1918,7 @@ def check_dimension(
             _CMD_CHECK_DIMENSION,
             (
                 f"review exists but {dim} status is {dim_status!r}, "
-                "expected 'probed' (runner forgot finish-dimension-probe?)."
+                "expected 'probed' (submit-probe-findings did not complete?)."
             ),
             current_state=state["current_state"],
             dim=dim,
@@ -1399,14 +1972,60 @@ def check_dimension(
     )
 
 
+def _probe_result_issues(
+    *,
+    cycle_id: str,
+    project_root: Path,
+    eval_data: dict[str, str],
+    paths: dict[str, str],
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """Return submitted findings, preserving caller-owned routing metadata."""
+    fallback_issues, review_paths = collect_review_issues(
+        Path(paths["evaluate_dir"]),
+        cycle_id=cycle_id,
+        project_root=project_root,
+    )
+    issues_by_dim: dict[str, list[dict[str, Any]]] = {}
+    for issue in fallback_issues:
+        dimension = str(issue.get("dimension", ""))
+        try:
+            dimension = _canonical_dim(cycle_id, project_root, dimension)
+        except ValueError:
+            continue
+        issues_by_dim.setdefault(dimension, []).append(issue)
+
+    dimension_tokens = parse_dimension_tokens(eval_data["dimension_tokens"])
+    for dimension_id in _dispatch_canonical(cycle_id, project_root):
+        token = dimension_tokens.get(dimension_id)
+        if not token:
+            continue
+        try:
+            record = get_operation_record(_operations_path(paths), token)
+        except ValueError:
+            continue
+        findings = record.get("probe_findings")
+        if not isinstance(findings, list):
+            continue
+        issues_by_dim[dimension_id] = [
+            {**finding, "dimension": dimension_id}
+            for finding in findings
+            if isinstance(finding, dict)
+        ]
+
+    issues: list[dict[str, Any]] = []
+    for dimension_id in _dispatch_canonical(cycle_id, project_root):
+        issues.extend(issues_by_dim.get(dimension_id, []))
+    return issues, review_paths
+
+
 def probe_complete(cycle_id: str, project_root: Path) -> dict[str, Any]:
-    """Sum total_issues and advance fix_phase to artifact-remediation."""
+    """Return probe findings and advance to the remediation control segment."""
     ctx = _load_evaluating_context(cycle_id, project_root)
     if isinstance(ctx, dict):
         ctx["command"] = _CMD_PROBE_COMPLETE
         return ctx
 
-    state, _ws_path, eval_data, _evaluate_round, _active_doc, mode = ctx
+    state, _ws_path, eval_data, _evaluate_round, active_doc, _mode = ctx
     dispatch = _dispatch_canonical(cycle_id, project_root)
 
     if eval_data.get("fix_phase") != "probe":
@@ -1424,6 +2043,19 @@ def probe_complete(cycle_id: str, project_root: Path) -> dict[str, Any]:
         )
 
     total = sum_issue_totals(eval_data, dispatch)
+    paths = _eval_paths(
+        cycle_id,
+        project_root,
+        active_doc=active_doc,
+        evaluate_round=_evaluate_round,
+        es_path=_evaluate_state_path(cycle_id, project_root),
+    )
+    issues, review_paths = _probe_result_issues(
+        cycle_id=cycle_id,
+        project_root=project_root,
+        eval_data=eval_data,
+        paths=paths,
+    )
 
     error = _commit_staged_evaluate_state(
         cycle_id,
@@ -1441,10 +2073,12 @@ def probe_complete(cycle_id: str, project_root: Path) -> dict[str, Any]:
         fix_phase="artifact-remediation",
         total_issues=str(total),
         current_state=state["current_state"],
+        issues=issues,
+        review_paths=review_paths,
     )
 
 
-def _build_remediation_runner_input(
+def _build_remediation_operation_context(
     cycle_id: str,
     project_root: Path,
     *,
@@ -1452,7 +2086,9 @@ def _build_remediation_runner_input(
     state: dict[str, str],
     paths: dict[str, str],
     evaluate_round: int,
-) -> dict[str, str]:
+    round_token: str,
+    operation_kind: str,
+) -> dict[str, Any]:
     expanded = _expanded_corpus(
         cycle_id,
         state,
@@ -1461,44 +2097,38 @@ def _build_remediation_runner_input(
         project_root=project_root,
     )
     dim_def = _dimension_def(expanded, dim)
-    dispatch_key = str(dim_def.get("legacy_alias") or dim_def["id"])
-    runner_input: dict[str, str] = {
-        "WORKFLOW_ID": _workflow_id(),
-        "DIMENSION_ID": str(dim_def["id"]),
-        "DIMENSION": dispatch_key,
-        "DIMENSION_LABEL": str(dim_def["label"]),
-        "CYCLE_ID": cycle_id,
-        "CYCLE_TYPE": _adapter().detect_cycle_type(cycle_id),
-        "REMEDIATION_TARGET_PATH": str(dim_def["remediation_target"]["path"]),
-        "EVALUATE_DIR": paths["evaluate_dir"],
-        "EVALUATE_STATE_PATH": paths["evaluate_state"],
-        "REVIEW_OUTPUT_PATH": str(dim_def["review"]["output_path"]),
-        "EVALUATE_ROUND": str(evaluate_round),
-        "PROJECT_ROOT": project_root.resolve().as_posix(),
-    }
-    upstream_baseline_ref = _upstream_baseline_ref(cycle_id, project_root)
-    if upstream_baseline_ref:
-        runner_input["UPSTREAM_BASELINE_REF"] = upstream_baseline_ref
-    return runner_input
+    return issue_remediation_context(
+        operations_path=_operations_path(paths),
+        write_staging_dir=Path(
+            paths.get("write_staging_dir") or paths["evaluate_dir"],
+        ),
+        target_path=Path(str(dim_def["eval_target"]["path"])),
+        round_token=round_token,
+        dimension_id=str(dim_def["id"]),
+        operation_kind=operation_kind,
+        lease_id=str(paths.get("lease_id", "")),
+        method=dict(dim_def["method"]),
+        sots=[dict(sot) for sot in dim_def["sots"]],
+    )
 
 
-def _format_remediation_dispatch_input(data: dict[str, str]) -> str:
+def _format_remediation_dispatch_input(
+    operation_ctx: dict[str, Any],
+    pending_issues: list[dict[str, str]],
+) -> str:
     lines = [
-        f"WORKFLOW_ID:           {data['WORKFLOW_ID']}",
-        f"DIMENSION_ID:          {data['DIMENSION_ID']}",
-        f"DIMENSION:             {data['DIMENSION']}",
-        f"DIMENSION_LABEL:       {data['DIMENSION_LABEL']}",
-        f"CYCLE_ID:              {data['CYCLE_ID']}",
-        f"CYCLE_TYPE:            {data['CYCLE_TYPE']}",
-        f"REMEDIATION_TARGET_PATH: {data['REMEDIATION_TARGET_PATH']}",
-        f"EVALUATE_DIR:          {data['EVALUATE_DIR']}",
-        f"EVALUATE_STATE_PATH:   {data['EVALUATE_STATE_PATH']}",
-        f"REVIEW_OUTPUT_PATH:    {data['REVIEW_OUTPUT_PATH']}",
-        f"EVALUATE_ROUND:        {data['EVALUATE_ROUND']}",
-        f"PROJECT_ROOT:          {data['PROJECT_ROOT']}",
+        f"ROUND_TOKEN: {operation_ctx['round_token']}",
+        f"DIMENSION_TOKEN: {operation_ctx['dimension_token']}",
+        f"DIMENSION_ID: {operation_ctx['dimension_id']}",
+        f"OPERATION_KIND: {operation_ctx['operation_kind']}",
+        f"BASE_DIGEST: {operation_ctx['target_digest']}",
+        "ALLOWED_SUBMISSION: unified_diff",
+        "RESOLVED_METHOD: "
+        + json.dumps(operation_ctx["resolved_method"], ensure_ascii=False),
+        "RESOLVED_SOTS: "
+        + json.dumps(operation_ctx["resolved_sots"], ensure_ascii=False),
+        "PENDING_ISSUES: " + json.dumps(pending_issues, ensure_ascii=False),
     ]
-    if data.get("UPSTREAM_BASELINE_REF"):
-        lines.append(f"UPSTREAM_BASELINE_REF: {data['UPSTREAM_BASELINE_REF']}")
     return "\n".join(lines)
 
 
@@ -1661,6 +2291,10 @@ def begin_dimension_artifact_remediation(
             dim=dim,
         )
 
+    try:
+        _refresh_handoff(cycle_id, project_root, require_evaluating=True)
+    except ValueError as exc:
+        return _failure(_CMD_BEGIN_DIMENSION_ARTIFACT, str(exc), dim=dim)
     es_path = _evaluate_state_path(cycle_id, project_root)
     paths = _eval_paths(
         cycle_id,
@@ -1669,20 +2303,28 @@ def begin_dimension_artifact_remediation(
         evaluate_round=evaluate_round,
         es_path=es_path,
     )
-    runner_input = _build_remediation_runner_input(
-        cycle_id,
-        project_root,
-        dim=dim,
-        state=state,
-        paths=paths,
-        evaluate_round=evaluate_round,
-    )
+    try:
+        operation_ctx = _build_remediation_operation_context(
+            cycle_id,
+            project_root,
+            dim=dim,
+            state=state,
+            paths=paths,
+            evaluate_round=evaluate_round,
+            round_token=eval_data["round_token"],
+            operation_kind="artifact-remediation",
+        )
+    except (OSError, ValueError) as exc:
+        return _failure(_CMD_BEGIN_DIMENSION_ARTIFACT, str(exc), dim=dim)
     return _success(
         _CMD_BEGIN_DIMENSION_ARTIFACT,
         dim=dim,
         current_state=state["current_state"],
-        runner_input=runner_input,
-        dispatch_input=_format_remediation_dispatch_input(runner_input),
+        operation_ctx=operation_ctx,
+        dispatch_input=_format_remediation_dispatch_input(
+            operation_ctx,
+            pending_artifact_rows(rows),
+        ),
     )
 
 
@@ -1929,6 +2571,10 @@ def begin_dimension_sot_remediation(
             dim=dim,
         )
 
+    try:
+        _refresh_handoff(cycle_id, project_root, require_evaluating=True)
+    except ValueError as exc:
+        return _failure(_CMD_BEGIN_DIMENSION_SOT, str(exc), dim=dim)
     es_path = _evaluate_state_path(cycle_id, project_root)
     paths = _eval_paths(
         cycle_id,
@@ -1937,20 +2583,28 @@ def begin_dimension_sot_remediation(
         evaluate_round=evaluate_round,
         es_path=es_path,
     )
-    runner_input = _build_remediation_runner_input(
-        cycle_id,
-        project_root,
-        dim=dim,
-        state=state,
-        paths=paths,
-        evaluate_round=evaluate_round,
-    )
+    try:
+        operation_ctx = _build_remediation_operation_context(
+            cycle_id,
+            project_root,
+            dim=dim,
+            state=state,
+            paths=paths,
+            evaluate_round=evaluate_round,
+            round_token=eval_data["round_token"],
+            operation_kind="sot-remediation",
+        )
+    except (OSError, ValueError) as exc:
+        return _failure(_CMD_BEGIN_DIMENSION_SOT, str(exc), dim=dim)
     return _success(
         _CMD_BEGIN_DIMENSION_SOT,
         dim=dim,
         current_state=state["current_state"],
-        runner_input=runner_input,
-        dispatch_input=_format_remediation_dispatch_input(runner_input),
+        operation_ctx=operation_ctx,
+        dispatch_input=_format_remediation_dispatch_input(
+            operation_ctx,
+            pending_sot_rows(rows),
+        ),
     )
 
 
@@ -2289,19 +2943,43 @@ def build_parser() -> argparse.ArgumentParser:
         help="Dimension dispatch key (legacy e1/e2/e3 or canonical id)",
     )
 
-    finish_parser = sub.add_parser(
-        _CMD_FINISH_DIMENSION_PROBE,
-        help="Validate review and mark dimension probed",
+    snapshot_parser = sub.add_parser(
+        _CMD_READ_B_SNAPSHOT,
+        help="Read a token-authorized EvalTarget B snapshot",
     )
-    finish_parser.add_argument(
-        "--dim",
+    snapshot_parser.add_argument("--dimension-token", required=True)
+
+    evidence_snapshot_parser = sub.add_parser(
+        _CMD_READ_EVIDENCE_SNAPSHOT,
+        help="Read token-authorized dynamic SoT evidence",
+    )
+    evidence_snapshot_parser.add_argument("--dimension-token", required=True)
+    evidence_snapshot_parser.add_argument("--evidence-ref", required=True)
+
+    submit_probe_parser = sub.add_parser(
+        _CMD_SUBMIT_PROBE_FINDINGS,
+        help="Validate and publish a token-scoped probe finding payload",
+    )
+    submit_probe_parser.add_argument(
+        "--payload-file",
+        type=Path,
         required=True,
-        help="Dimension dispatch key (legacy e1/e2/e3 or canonical id)",
+        help="JSON payload containing dimension_token and findings",
+    )
+    submit_remediation_parser = sub.add_parser(
+        _CMD_SUBMIT_REMEDIATION_DIFF,
+        help="Validate and publish a token-scoped remediation diff payload",
+    )
+    submit_remediation_parser.add_argument(
+        "--payload-file",
+        type=Path,
+        required=True,
+        help="JSON payload containing dimension_token, base_digest, unified_diff, and issue_ids",
     )
 
     check_parser = sub.add_parser(
         _CMD_CHECK_DIMENSION,
-        help="Read single-dimension outcome after eval-probe-runner",
+        help="Read single-dimension outcome after dimension-probe-runner",
     )
     check_parser.add_argument(
         "--dim",
@@ -2396,9 +3074,38 @@ def run_eval(
                 print(payload["dispatch_input"])
                 return 0
             return _emit(payload)
-        if args.command == _CMD_FINISH_DIMENSION_PROBE:
+        if args.command == _CMD_READ_B_SNAPSHOT:
             return _emit(
-                finish_dimension_probe(cycle_id, project_root, dim=args.dim),
+                read_b_snapshot_cmd(
+                    cycle_id,
+                    project_root,
+                    dimension_token=args.dimension_token,
+                ),
+            )
+        if args.command == _CMD_READ_EVIDENCE_SNAPSHOT:
+            return _emit(
+                read_evidence_snapshot_cmd(
+                    cycle_id,
+                    project_root,
+                    dimension_token=args.dimension_token,
+                    evidence_ref=args.evidence_ref,
+                ),
+            )
+        if args.command == _CMD_SUBMIT_PROBE_FINDINGS:
+            return _emit(
+                submit_probe_findings(
+                    cycle_id,
+                    project_root,
+                    payload_file=args.payload_file,
+                ),
+            )
+        if args.command == _CMD_SUBMIT_REMEDIATION_DIFF:
+            return _emit(
+                submit_remediation_diff(
+                    cycle_id,
+                    project_root,
+                    payload_file=args.payload_file,
+                ),
             )
         if args.command == _CMD_CHECK_DIMENSION:
             return _emit(check_dimension(cycle_id, project_root, dim=args.dim))

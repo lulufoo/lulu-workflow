@@ -231,6 +231,7 @@ def _upsert_delivered_ref_entry(
     delivered_type: str,
     path: Path,
     profile_id: str,
+    artifact: str | None = None,
 ) -> None:
     refs_path = cache_dir / cycle_id / "delivered-refs.json"
     data = (
@@ -247,6 +248,8 @@ def _upsert_delivered_ref_entry(
         "delivered_at": "2026-06-01T00:00:00+00:00",
         "source_workflow_state": "",
     }
+    if artifact is not None:
+        entries[delivered_type]["artifact"] = artifact
     data["entries"] = entries
     refs_path.parent.mkdir(parents=True, exist_ok=True)
     refs_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -261,15 +264,29 @@ def _seed_product_spec_delivered_refs(
     del project_root
     diag_dir = cache_dir / cycle_id / "lulu-bet"
     diag_dir.mkdir(parents=True, exist_ok=True)
-    decision = diag_dir / "decision-doc.md"
+    decision_doc = diag_dir / "decision-doc.md"
+    if not decision_doc.is_file():
+        decision_doc.write_text("# Decision\n", encoding="utf-8")
+    decision = diag_dir / "decision-package.json"
     if not decision.is_file():
-        decision.write_text("# Decision\n", encoding="utf-8")
+        decision.write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "status": "package_ready",
+                    "main": {"decision_doc_path": "decision-doc.md"},
+                    "slices": [],
+                }
+            ),
+            encoding="utf-8",
+        )
     _upsert_delivered_ref_entry(
         cache_dir,
         cycle_id,
         delivered_type="lulu-bet",
         path=decision,
         profile_id="lulu-bet",
+        artifact="decision-package",
     )
 
 
@@ -284,15 +301,29 @@ def _seed_tech_plan_delivered_refs(
     del project_root
     diag_dir = cache_dir / cycle_id / "lulu-approach"
     diag_dir.mkdir(parents=True, exist_ok=True)
-    decision = diag_dir / "decision-doc.md"
+    decision_doc = diag_dir / "decision-doc.md"
+    if not decision_doc.is_file():
+        decision_doc.write_text("# Decision\n", encoding="utf-8")
+    decision = diag_dir / "decision-package.json"
     if not decision.is_file():
-        decision.write_text("# Decision\n", encoding="utf-8")
+        decision.write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "status": "package_ready",
+                    "main": {"decision_doc_path": "decision-doc.md"},
+                    "slices": [],
+                }
+            ),
+            encoding="utf-8",
+        )
     _upsert_delivered_ref_entry(
         cache_dir,
         cycle_id,
         delivered_type="lulu-approach",
         path=decision,
         profile_id="lulu-approach",
+        artifact="decision-package",
     )
     if design_path is not None:
         _upsert_delivered_ref_entry(
@@ -422,8 +453,27 @@ class TestGatePasses:
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID)
         _all_prior_delivered(cd, _CYCLE_ID, "lulu-plan")
-        design = tmp_path / "design-doc.md"
-        design.write_text("# Design\n", encoding="utf-8")
+        design_dir = tmp_path / "design" / "revision1"
+        design_doc = design_dir / "L1" / "design-doc.md"
+        design_doc.parent.mkdir(parents=True)
+        design_doc.write_text("# Design\n", encoding="utf-8")
+        design = design_dir / "design-package.json"
+        design.write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "profile_id": "lulu-design",
+                    "slices": [
+                        {
+                            "id": "L1",
+                            "title": "Design",
+                            "doc_path": "L1/design-doc.md",
+                        }
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
         _seed_tech_plan_delivered_refs(cd, _CYCLE_ID, tmp_path, design_path=design)
         result = _run_start(
             "lulu-plan",
@@ -438,7 +488,9 @@ class TestGatePasses:
         # ② stage-resolved three-ref product (tech-mode scope = lulu-design)
         resolved = json.loads((revision / "resolved-refs.json").read_text(encoding="utf-8"))
         assert resolved["scope_ref"]["type"] == "lulu-design"
-        assert resolved["scope_ref"]["path"] == str(design.resolve())
+        assert resolved["scope_ref"]["path"] == str(
+            (revision / "scope-package.json").resolve()
+        )
 
     def test_decision_always_passes(self, tmp_path):
         """decision stage not in cycle → gate always OK."""

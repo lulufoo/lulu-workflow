@@ -47,10 +47,11 @@ def test_engine_skill_contains_full_orchestration() -> None:
 
 
 def test_engine_evaluating_delegates_without_dimension_table() -> None:
-    """Item 3: engine hands off to eval-rules.md, never enumerates dimensions."""
+    """Item 3: engine hands off to Eval orchestration without dimensions."""
     text = _ENGINE_SKILL.read_text(encoding="utf-8")
 
-    assert "eval/eval-rules.md" in text
+    assert "eval/SKILL.md" in text
+    assert "eval/eval-rules.md" not in text
 
     lowered = text.lower()
     for forbidden in ("| d1 ", "| d2 ", "| d3 ", "pdqa"):
@@ -92,10 +93,10 @@ def test_eval_skill_drops_stage_entry_table() -> None:
 
 
 def test_eval_control_macro_is_generic_and_holder_free() -> None:
-    """Item 5: $EVAL_CONTROL is defined once, generically, in the engine; holders don't."""
+    """Item 5: the engine defines adapter-aware Eval control; holders don't."""
     engine_text = _ENGINE_SKILL.read_text(encoding="utf-8")
     assert '`$EVAL_CONTROL`' in engine_text
-    assert "eval/scripts/eval_entry.py" in engine_text
+    assert "compose/scripts/core/compose_eval_control.py" in engine_text
 
     for stage in _STAGES:
         holder_text = (_WORKFLOW_ROOT / stage / "SKILL.md").read_text(encoding="utf-8")

@@ -101,6 +101,26 @@ class WorkflowAdapter(Protocol):
         previous_done_required: bool = False,
     ) -> dict[str, Any]: ...
 
+    def commit_remediation_target(
+        self,
+        cycle_id: str,
+        project_root: Path,
+        *,
+        staged_target_path: Path,
+        base_digest: str,
+        lease_id: str,
+    ) -> dict[str, Any]: ...
+
+    def restore_remediation_target(
+        self,
+        cycle_id: str,
+        project_root: Path,
+        *,
+        snapshot_path: Path,
+        expected_digest: str,
+        lease_id: str,
+    ) -> dict[str, Any]: ...
+
     def discard_eval_staging(
         self,
         cycle_id: str,

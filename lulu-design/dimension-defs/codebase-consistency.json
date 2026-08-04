@@ -10,19 +10,15 @@
   },
   "sots": [
     {
-      "kind": "codebase",
-      "role": "primary",
-      "ref": {
-        "root": ".",
-        "strategy": "all"
+      "ref": "lulu-dev-workflow/eval/sots/codebase-consistency.md",
+      "bindings": {
+        "codebase_root": ".",
+        "read_strategy": "all"
       }
     }
   ],
   "method": {
-    "kind": "builtin",
-    "source": {
-      "procedure_id": "codebase_consistency"
-    },
+    "ref": "lulu-dev-workflow/eval/methods/codebase-consistency.md",
     "focus": "Only when design-doc explicitly cites modules, paths, interfaces, or schema names (ST/IF/CTX): compare cited claims vs verified codebase — skip sub-sections without explicit code references"
   },
   "review": {

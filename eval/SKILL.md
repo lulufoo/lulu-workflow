@@ -1,156 +1,93 @@
 ---
 name: eval-library
 description: >
-  Shared evaluation library for lulu-dev-workflow. Issue taxonomy, review table
-  schema, and P1/P2 principles. Read by eval runners; not user-invoked.
+  Shared Eval orchestration for lulu-dev-workflow. Coordinates dimension probes
+  and remediation through the caller's Eval control macro.
 meta-skill-version: 1.0.0
 ---
 
 # eval/SKILL.md
 
-Library SKILL — not a workflow stage. Runners Read this file; eval-rules never dispatches it.
+Shared Eval orchestration. Compose runs a full round; Decision runs only the
+Probe control segment. The caller supplies `$EVAL_CONTROL` with its active
+adapter configuration.
 
-Eval dimensions, SoT URLs, and quality frameworks are declared per workflow profile in `dimension-defs/` and resolved by the active `WorkflowAdapter` — not hardcoded here.
+## Script Macros
 
----
+| Macro | Command |
+|-------|---------|
+| `$EVAL_CONTROL` | Caller-supplied adapter-aware Eval control macro |
 
-## P1 · Evaluation Evidence First
+## Principles
 
-Any evaluation finding must be backed by citable evidence before a conclusion is drawn. No evidence = invalid finding.
+- Findings require citable evidence. If evidence cannot be located, route it to SoT Remediation; do not guess.
+- A defective SoT is escalated, never silently repaired. A valid SoT that the artifact fails to reflect is remediated.
+- Any non-zero control result is Blocking: stop, report it, and wait for user direction.
+- Artifact and SoT remediation process one dimension at a time.
 
-If evidence cannot be located → label `UNRESOLVABLE` and surface via AskQuestion during SoT Remediation. Do not guess.
+## Begin Eval
 
----
+1. Run `$EVAL_CONTROL begin-eval-round`. Pin the result.
+2. For each returned dimension, run **Single dimension (launch)** and pin its handle.
+3. Await every pinned handle. Do not check a dimension before every handle completes.
+4. For each returned dimension, run `$EVAL_CONTROL check-dimension --dim {dim}`.
+   - If the result reports abandonment, run **Abandon Handler** and stop.
+   - On a non-zero result, apply Blocking and stop.
+5. Run `$EVAL_CONTROL probe-complete`.
+6. A probe-only caller stops here. A full-round caller continues to **Artifact Remediation**.
 
-## P2 · SOT Auditability
+## Single dimension (launch)
 
-Every issue must be classified: is the SoT defective, or did the work artifact fail to reflect a valid SoT?
+1. Run `$EVAL_CONTROL begin-dimension --dim {dim}` and pin its returned operation context.
+2. Dispatch `dimension-probe-runner` asynchronously with the pinned operation context and this instruction:
 
-- SOT defective → escalate (never fix silently)
-- SOT valid, artifact wrong → Artifact Remediation
-- SOT issues always require AskQuestion
+   ```text
+   Load dimension-probe-runner/SKILL.md and follow its instructions.
+   ```
 
-P1 is a prerequisite for P2.
+3. Pin the returned handle and return immediately to **Begin Eval**.
 
----
+## Artifact Remediation
 
-## Root cause taxonomy
+1. Run `$EVAL_CONTROL begin-artifact-remediation` and pin the result.
+2. Unless the result skips remediation, process each returned dimension serially:
+   1. Run `$EVAL_CONTROL begin-dimension-artifact-remediation --dim {dim}` and pin its operation context.
+   2. Dispatch `artifact-remediation-runner` synchronously with that context and this instruction:
 
-SSOT: `{$SKILL_ROOT}/eval/issue-taxonomy.json`. `root_cause` must be one of four labels:
+      ```text
+      Load artifact-remediation-runner/SKILL.md and follow its instructions.
+      ```
 
-| Label | Fix mode | Remediation phase |
-|-------|----------|-------------------|
-| `WO-MISS` | auto | Artifact Remediation |
-| `WO-ERROR` | auto | Artifact Remediation |
-| `SOT-DEFECT` | interactive | SoT Remediation |
-| `UNRESOLVABLE` | interactive | SoT Remediation |
+   3. Run `$EVAL_CONTROL check-dimension-artifact-remediation --dim {dim}`.
+3. Run `$EVAL_CONTROL artifact-remediation-complete`.
+4. Continue to **SoT Remediation**.
 
----
+## SoT Remediation
 
-## Review table contract
+1. Run `$EVAL_CONTROL begin-sot-remediation` and pin the result.
+2. Unless the result skips remediation, process each returned dimension serially:
+   1. Run `$EVAL_CONTROL begin-dimension-sot-remediation --dim {dim}` and pin its operation context.
+   2. Dispatch `sot-remediation-runner` synchronously with that context and this instruction:
 
-- Header SSOT: `{$SKILL_ROOT}/eval/review.template.md`
-- Validate via: `python3 {$SKILL_ROOT}/eval/scripts/review_schema.py --schema`
-- Review output path: `{revision}/{L}/evaluate{M}/{review.output_path}` from EvalCorpus (e.g. `tech-review-e{M}1.md`). Absolute paths come from Compose EvalHandoff (`evaluate_dir` / staging); legacy revision-root sessions may still use `{revision}/evaluate{M}/` until that session ends.
+      ```text
+      Load sot-remediation-runner/SKILL.md and follow its instructions.
+      ```
 
-Probe runners: Read template, substitute `{{DIM_LABEL}}`, `{{REV}}`, `{{M}}`, `{{DATE}}`, `{{REFS}}`; append issue rows; never alter header/separator row order.
+   3. Run `$EVAL_CONTROL check-dimension-sot-remediation --dim {dim}`.
+   4. If the result reports abandonment, run **Abandon Handler** and stop.
+3. Run `$EVAL_CONTROL sot-remediation-complete`.
+4. Continue to **Completion**.
 
----
+## Completion
 
-## Per-issue required fields
+1. Run `$EVAL_CONTROL complete-round` and present the result.
+2. Ask the user to choose:
+   - **Accept L** — run `$L_SLICE accept-l --confirm`; exit Eval.
+   - **Fix L** — run `$L_SLICE fix-l --confirm`, or `$SESSION_CONTROL resume-after-eval`; exit Eval.
+   - **Re-evaluate** — return to **Begin Eval**.
+   - **Deliver package** — allow only when every L is accepted; otherwise reject.
 
-All probe rows must fill columns per `review_schema.py` `required_at_probe`. Remediation runners read rows as fix SSOT.
+## Abandon Handler
 
-| `root_cause` | `sot_ref` | `location` | `evidence` | `description` |
-|--------------|-----------|------------|------------|-----------------|
-| `SOT-DEFECT` | SoT passage ref (§ / file) | eval-target gap location | Exact SoT quote + gap + why it blocks | One-line summary |
-| `WO-MISS` | SoT passage stating requirement | eval-target §/line missing/wrong | SoT quote + gap vs SoT | What eval-target fails to reflect |
-| `WO-ERROR` | `—` | eval-target §/line | Criterion violated (dim framework ref) + excerpt | Self-quality violation |
-| `UNRESOLVABLE` | search target or `—` | best-known eval-target loc | What was searched; why no evidence | Why classification pending |
-
-Probe row defaults: `status: pending`, `decision: —`
-
-Example (WO-MISS):
-
-```markdown
-| e1-2 | WO-MISS | product-doc §3.2 | tech-doc §2 Approach | medium | SoT: "must support offline sync" — tech-doc §2 omits sync | Offline sync not designed | pending | — |
-```
-
----
-
-## Remediation row usage
-
-- **Artifact Remediation:** `WO-MISS` / `WO-ERROR` — use `location` + `description` + `evidence` to fix `REMEDIATION_TARGET_PATH`
-- **SoT Remediation:** `SOT-DEFECT` / `UNRESOLVABLE` — AskQuestion from row fields; Reclassify → `WO-*` applies Artifact fix inline in same session
-
----
-
-## SoT Remediation — Attribution Protocol
-
-Used by `eval-sot-remediation-runner` to route every SOT issue interactively.
-
-### Evidence format per root cause
-
-```
-SOT-DEFECT:
-  evidence_sot_quote: "<exact passage from SoT>"
-  evidence_gap:       "<what is missing/ambiguous/contradictory and why it blocks>"
-  sot_source:         "<SoT file §section>"
-
-WO-MISS:
-  evidence_sot_quote: "<SoT passage stating the requirement>"
-  evidence_target_loc: "<eval-target §/line>"
-  description:        "<what is missing or wrong>"
-
-WO-ERROR:
-  evidence_target_loc: "<eval-target §/line>"
-  criterion:          "<dimension framework ref>"
-  description:        "<specific quality violation>"
-
-UNRESOLVABLE:
-  evidence_attempt:   "<what was searched and why evidence could not be located>"
-```
-
-### Interactive template (always AskQuestion)
-
-```
-Issue [{id}] — {root_cause}
-{description}
-SoT source: {sot_ref}
-Evidence: {evidence}
-
-Options:
-  Escalate — cannot resolve; mark escalated
-  Reclassify — change root_cause to WO-MISS or WO-ERROR (apply inline Artifact fix if WO-*)
-  Ignore — skip this issue
-```
-
-Routing outcomes:
-- `Escalate` → row `status: escalated`, `decision: escalate`
-- `Reclassify → WO-*` → update `root_cause`; apply Artifact fix inline to `REMEDIATION_TARGET_PATH`; row `status: fixed`, `decision: reclassify`
-- `Ignore` → row `status: ignored`, `decision: ignore`
-- `UNRESOLVABLE → Reclassify → SOT-DEFECT` → treat as Escalate
-
----
-
-## Mechanical command
-
-`$EVAL_CONTROL` — eval-domain state machine. **Invoke via caller-supplied adapter config**
-(`eval/scripts/eval_entry.py`); do not call `eval_control.py` directly.
-
-Callers pass one JSON config (`--adapter-config-file` or `--adapter-config`) containing at
-least `adapter_module` / `adapter_class`. Compose stages use
-`compose/scripts/core/compose_eval_control.py` to passthrough `compose-profile.json.eval`.
-Decision uses `$SKILL_DIR/eval/eval-profile.json`. Eval does not discover stages.
-
-```bash
-python3 {$SKILL_ROOT}/eval/scripts/eval_entry.py \
-  --adapter-config-file <adapter-config.json> \
-  --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand> [args...]
-```
-
-| Concern | SSOT |
-|---------|------|
-| Step order, stdout handling, branching | `{$SKILL_ROOT}/eval/eval-rules.md` |
-| Subcommand list | `eval/scripts/eval_control.py` module docstring or stage entry `--help` |
-| Runner write boundaries | `eval/*-runner/SKILL.md` |
+1. Run `$SESSION_CONTROL abandon-evaluation`.
+2. Stop. Do not dispatch remaining dimensions.

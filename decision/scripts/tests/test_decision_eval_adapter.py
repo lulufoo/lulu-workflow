@@ -20,7 +20,13 @@ from decision_eval_adapter import DecisionEvalAdapter  # noqa: E402
 import io
 from contextlib import redirect_stdout
 
-from dec_eval_control import cmd_check_rounds, cmd_fail_exit, cmd_pass_exit  # noqa: E402
+import eval_control  # noqa: E402
+from dec_eval_control import (  # noqa: E402
+    cmd_check_rounds,
+    cmd_fail_exit,
+    cmd_pass_exit,
+    cmd_route_probe_result,
+)
 from dec_eval_runtime_schema import load_runtime, runtime_path  # noqa: E402
 from dec_eval_target_schema import EVAL_TARGET_FILENAME  # noqa: E402
 from dec_gate_payload_schema import save_gate_payload  # noqa: E402
@@ -217,3 +223,101 @@ def test_pass_exit_resets_failure_count(tmp_path: Path) -> None:
     payload = _run_json(cmd_pass_exit, tmp_path, cycle_id, "decision")
     assert payload["outcome"] == "pass"
     assert payload["failure_count"] == 0
+
+
+def test_probe_handoff_routes_eval_result_through_decision_realign(
+    tmp_path: Path,
+) -> None:
+    cycle_id = "feature-dec-eval-probe"
+    _seed_dc_session(tmp_path, cycle_id)
+    adapter = DecisionEvalAdapter()
+    adapter_token = eval_control._ADAPTER_CTX.set(adapter)
+    workflow_token = eval_control._WORKFLOW_ID_CTX.set("lulu-decision")
+    handoff_token = eval_control._HANDOFF_CTX.set(None)
+    try:
+        started = eval_control.begin_eval_round(cycle_id, tmp_path)
+        assert started["ok"] is True
+        assert started["dispatch"] == ["decision-consistency"]
+
+        launched = eval_control.begin_dimension(
+            cycle_id,
+            tmp_path,
+            dim="decision-consistency",
+        )
+        token = launched["operation_ctx"]["dimension_token"]
+        snapshot = eval_control.read_b_snapshot_cmd(
+            cycle_id,
+            tmp_path,
+            dimension_token=token,
+        )
+        assert snapshot["ok"] is True
+        assert snapshot["target_digest"] == launched["operation_ctx"]["target_digest"]
+
+        payload_path = tmp_path / "decision-probe-findings.json"
+        payload_path.write_text(
+            json.dumps(
+                {
+                    "dimension_token": token,
+                    "findings": [
+                        {
+                            "id": "decision-1",
+                            "root_cause": "WO-ERROR",
+                            "location": "D ↔ X",
+                            "severity": "critical",
+                            "evidence": "execution phase has no acceptance coverage",
+                            "description": "phase mismatch",
+                            "realign_gate": "D",
+                        }
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+        submitted = eval_control.submit_probe_findings(
+            cycle_id,
+            tmp_path,
+            payload_file=payload_path,
+        )
+        assert submitted["ok"] is True
+
+        probe_result = eval_control.probe_complete(cycle_id, tmp_path)
+        assert probe_result["ok"] is True
+        assert probe_result["issues"][0]["realign_gate"] == "D"
+
+        routed = _run_json(
+            cmd_route_probe_result,
+            tmp_path,
+            cycle_id,
+            "decision",
+            probe_result=probe_result,
+        )
+    finally:
+        eval_control._ADAPTER_CTX.reset(adapter_token)
+        eval_control._WORKFLOW_ID_CTX.reset(workflow_token)
+        eval_control._HANDOFF_CTX.reset(handoff_token)
+
+    assert routed["outcome"] == "fail"
+    assert routed["realign_gate"] == "D"
+    assert routed["disposition"] == "rs"
+
+
+def test_probe_result_without_issues_routes_decision_pass(tmp_path: Path) -> None:
+    cycle_id = "feature-dec-eval-probe-pass"
+    _seed_dc_session(tmp_path, cycle_id)
+    adapter = DecisionEvalAdapter()
+    assert adapter.enter_evaluating(cycle_id, tmp_path)["ok"] is True
+
+    routed = _run_json(
+        cmd_route_probe_result,
+        tmp_path,
+        cycle_id,
+        "decision",
+        probe_result={
+            "ok": True,
+            "command": "probe-complete",
+            "issues": [],
+        },
+    )
+
+    assert routed["outcome"] == "pass"
+    assert routed["failure_count"] == 0

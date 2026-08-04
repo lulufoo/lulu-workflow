@@ -201,15 +201,15 @@ Before handoff: `$SESSION_CONTROL start-evaluating` requires locked Split topolo
 
 Eval paths are per focus L: `{revision}/{L}/evaluate-state.md` and `{revision}/{L}/evaluate{M}/` (legacy revision-root sessions keep root paths until they end). `$EVAL_CONTROL` obtains those absolute paths via `$EVAL_HANDOFF` (`request-handoff`) on every control command — do not derive L directories in Eval or stage adapters.
 
-Read `{$SKILL_ROOT}/eval/eval-rules.md` and follow its instructions (only when the user explicitly chooses Evaluate).
+Read `{$SKILL_ROOT}/eval/SKILL.md` and follow its instructions (only when the user explicitly chooses Evaluate).
 
-When eval-rules completes, follow its exit branch:
+When Eval completes, follow its exit branch:
 
 - **Accept L** → `$L_SLICE accept-l --confirm` (optional `--switch` to suggested next). If all L accepted → **Leave Working**. Otherwise stay in Working and continue the L-slice loop on the next focus.
 - **Fix L** → `$L_SLICE fix-l --confirm` (or `$SESSION_CONTROL resume-after-eval`) → **FreeEdit** (skip Inductive|Deductive / Initializing).
 - **Deliver package** → only when all L are accepted → **Leave Working**. Partial Accept must not route here.
 
-Dimension set, evaluation framework, and eval-mode branching (e.g. tech vs product mode dimension gating) are owned by `eval/eval-rules.md` and this profile's eval adapter — this engine performs a single handoff and does not enumerate dimensions.
+Dimension set, evaluation framework, and eval-mode branching (e.g. tech vs product mode dimension gating) are owned by `eval/SKILL.md` and this profile's eval adapter — this engine performs a single handoff and does not enumerate dimensions.
 
 ### Leave Working
 
@@ -253,7 +253,7 @@ Stage-agenda items (design-external blockers/notes) live under the revision dir;
 | `{SKILL_ROOT}/compose/inductive-runner/g4-recompose-runner/SKILL.md` | Working → Inductive — Gate 4 internal-audit subagent (section JSON + shape checkpoint) |
 | `{SKILL_ROOT}/compose/inductive-runner/g5-provenance-runner/SKILL.md` | Working → Inductive — Gate 5 external-audit subagent (section JSON provenance) |
 | `{SKILL_ROOT}/compose/initializing-runner/SKILL.md` | Working → Initializing — initializing-runner |
-| `{$SKILL_ROOT}/eval/eval-rules.md` | Working → Evaluating (user-initiated) |
+| `{$SKILL_ROOT}/eval/SKILL.md` | Working → Evaluating (user-initiated) |
 
 ---
 

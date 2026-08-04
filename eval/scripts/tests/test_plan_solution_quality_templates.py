@@ -11,7 +11,7 @@ from url_fetch import read_ref  # noqa: E402
 _REPO = Path(__file__).resolve().parents[4]
 _WORKFLOW = _REPO / "lulu-dev-workflow"
 _DIMENSION_DEF = _WORKFLOW / "lulu-plan" / "dimension-defs" / "solution-quality.json"
-_RUNNER_SKILL = _WORKFLOW / "eval" / "eval-probe-runner" / "SKILL.md"
+_RUNNER_SKILL = _WORKFLOW / "eval" / "dimension-probe-runner" / "SKILL.md"
 _METHOD_REF = "lulu-dev-workflow/lulu-plan/eval/methods/solution-quality.md"
 _SOT_REF = "lulu-dev-workflow/lulu-plan/eval/sots/solution-quality.md"
 
@@ -20,11 +20,10 @@ def test_plan_solution_quality_uses_local_method_and_sot():
     data = json.loads(_DIMENSION_DEF.read_text(encoding="utf-8"))
 
     assert data["method"] == {
-        "kind": "external",
-        "source": _METHOD_REF,
+        "ref": _METHOD_REF,
         "focus": "Plan solution quality",
     }
-    assert data["sots"] == [{"kind": "url", "role": "primary", "ref": _SOT_REF}]
+    assert data["sots"] == [{"ref": _SOT_REF, "bindings": {}}]
 
 
 def test_plan_local_templates_are_resolvable_from_project_root():

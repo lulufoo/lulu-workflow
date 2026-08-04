@@ -130,6 +130,7 @@ class TestStartEvaluating:
         assert "skip_evaluate_requested" not in loaded
         es = load_evaluate_state(ws.parent / "L1" / "evaluate-state.md")
         assert es.get("evaluate_round") == "1"
+        assert es.get("focus_l") == "L1"
         dim_map = _dim_map(es, tmp_path)
         assert dim_map["e2"] == "pending"
         assert dim_map["e3"] == "pending"

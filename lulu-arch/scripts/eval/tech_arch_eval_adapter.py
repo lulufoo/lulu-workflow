@@ -51,7 +51,7 @@ from session_evaluating import (  # noqa: E402
 )
 sys.path.insert(0, str(EVAL_SCRIPTS))
 from workflow_adapter import SessionContext  # noqa: E402
-from evaluate_state_ops import init_evaluate_state_for_session  # noqa: E402
+from evaluate_state_ops import init_evaluate_state_for_corpus  # noqa: E402
 from corpus_compose import compose_corpus  # noqa: E402
 
 from tech_arch_eval_policy import select_dimension_defs  # noqa: E402
@@ -208,10 +208,10 @@ class TechArchEvalAdapter(ComposeEvalAdapterSupport):
         if result.get("transitioned"):
             focus = str(result.get("focus") or "")
             try:
-                init_evaluate_state_for_session(
-                    self,
-                    cycle_id,
-                    project_root,
+                init_evaluate_state_for_corpus(
+                    self.resolve_evaluate_state_path(cycle_id, project_root),
+                    self.resolve_eval_corpus(cycle_id, project_root),
+                    cycle_type=self.detect_cycle_type(cycle_id),
                     evaluate_round=int(result.get("evaluate_round") or 1),
                     focus_l=focus,
                 )

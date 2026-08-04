@@ -32,7 +32,7 @@ _split = _load("approach_split_control", _SCRIPTS / "approach_split_control.py")
 init_shell = _shell.init_shell
 enter_split = _shell.enter_split
 enter_working = _shell.enter_working
-set_focus = _shell.set_focus
+commit_focus = _shell.commit_focus
 mark_node_delivered = _shell.mark_node_delivered
 main_session_dir = _layout.main_session_dir
 write_early_package = _split.write_early_package
@@ -58,12 +58,8 @@ def _write_delivered(session_dir: Path) -> None:
 def _filled_intake() -> dict:
     data = empty_intake()
     data["slots"] = {
-        "split_goal": "cut by ownership seams",
-        "candidate_structure_faces": "Host; Binding Contract",
-        "deps_order": "D1 before D2",
-        "slice_autonomy": "each Dx is an executable sub-tech plan",
-        "non_goals": "no cross-compose shared kernel",
-        "split_risks": "topo chain friction downstream",
+        slot: f"Documented split rationale for {slot}"
+        for slot in data["slots"]
     }
     data["recommend_split"] = True
     return data
@@ -157,7 +153,7 @@ def test_dx_created_only_on_focus(tmp_path: Path) -> None:
     assert not (root / "D2").exists()
 
     mark_node_delivered(root, "D1")
-    set_focus(root, "D2")
+    commit_focus(root, "D2")
     assert (root / "D2").is_dir()
 
     # idempotent ensure

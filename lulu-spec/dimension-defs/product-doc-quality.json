@@ -8,10 +8,16 @@
   "remediation_target": {
     "path": "{eval_target_path}"
   },
-  "sots": [],
+  "sots": [
+    {
+      "ref": "lulu-dev-workflow/lulu-spec/eval/sots/product-doc-quality.md",
+      "bindings": {
+        "source_ref": "{decision_ref}"
+      }
+    }
+  ],
   "method": {
-    "kind": "external",
-    "source": "{pst_product_eval_framework_url}",
+    "ref": "lulu-dev-workflow/lulu-spec/eval/methods/product-doc-quality.md",
     "focus": "Independent PDQA audit on product-doc (12 dimensions, 4 layers, aligned to ten lenses PB→AC); not compose Round/probe iteration"
   },
   "review": {

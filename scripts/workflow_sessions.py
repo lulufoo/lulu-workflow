@@ -8,7 +8,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
 
-_VALID_STATES = frozenset({"Drafting", "Evaluating", "TDABlocked", "Delivered", "Invalidated"})
+_VALID_STATES = frozenset(
+    {"Drafting", "Working", "Evaluating", "TDABlocked", "Delivered", "Invalidated"}
+)
 
 STAGE_FLAT = frozenset({"decision", "lulu-bet", "lulu-approach"})
 # Decision-family node/session terminal is Completed; legacy Delivered accepted on read.

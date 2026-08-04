@@ -6,6 +6,7 @@ CLI:
     python3 dec_eval_control.py --project-root . --cycle-id <id> check-rounds
     python3 dec_eval_control.py --project-root . --cycle-id <id> pass-exit
     python3 dec_eval_control.py --project-root . --cycle-id <id> fail-exit --issues-json '<array>'
+    python3 dec_eval_control.py --project-root . --cycle-id <id> route-probe-result --probe-result-json '<object>'
 """
 
 from __future__ import annotations
@@ -155,6 +156,32 @@ def cmd_fail_exit(
     return _emit(result)
 
 
+def cmd_route_probe_result(
+    project_root: Path,
+    cycle_id: str,
+    stage: str,
+    *,
+    probe_result: dict[str, Any],
+) -> int:
+    """Route Eval's completed Probe result through Decision's exit machine."""
+    if (
+        probe_result.get("ok") is not True
+        or probe_result.get("command") != "probe-complete"
+    ):
+        return _emit_error("probe result must be a successful probe-complete payload")
+    issues = probe_result.get("issues")
+    if not isinstance(issues, list) or any(not isinstance(issue, dict) for issue in issues):
+        return _emit_error("probe result issues must be an array of objects")
+    if not issues:
+        return cmd_pass_exit(project_root, cycle_id, stage)
+    return cmd_fail_exit(
+        project_root,
+        cycle_id,
+        stage,
+        issues=[dict(issue) for issue in issues],
+    )
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Decision Eval control.")
     parser.add_argument("--project-root", default=".")
@@ -169,6 +196,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--issues-json",
         default="[]",
         help="JSON array of issue objects (dimension_id, location, description, ...)",
+    )
+    route = sub.add_parser("route-probe-result")
+    route.add_argument(
+        "--probe-result-json",
+        required=True,
+        help="Successful probe-complete JSON emitted by Eval control",
     )
     return parser.parse_args(argv)
 
@@ -196,6 +229,19 @@ def main(argv: list[str] | None = None) -> int:
             cycle_id,
             stage,
             issues=[item for item in issues if isinstance(item, dict)],
+        )
+    if args.command == "route-probe-result":
+        try:
+            probe_result = json.loads(args.probe_result_json)
+        except json.JSONDecodeError as exc:
+            return _emit_error(f"invalid --probe-result-json: {exc}")
+        if not isinstance(probe_result, dict):
+            return _emit_error("--probe-result-json must be a JSON object")
+        return cmd_route_probe_result(
+            project_root,
+            cycle_id,
+            stage,
+            probe_result=probe_result,
         )
     return _emit_error(f"unknown command: {args.command!r}")
 

@@ -60,8 +60,9 @@ class TestGetSchema:
             "cycle_type",
             "M",
         ]
-        assert schema["enums"]["sot_kind"] == ["url", "codebase"]
-        assert schema["enums"]["codebase_strategy"] == ["all"]
+        assert schema["version"] == "4"
+        assert "sot_kind" not in schema["enums"]
+        assert "method_kind" not in schema["enums"]
 
 
 class TestValidateCorpus:
@@ -83,8 +84,7 @@ class TestValidateCorpus:
             "remediation_target": {"path": "{eval_target_path}"},
             "sots": [],
             "method": {
-                "kind": "external",
-                "source": "https://example.com/rubric.md",
+                "ref": "lulu-dev-workflow/lulu-plan/eval/methods/solution-quality.md",
                 "focus": "f",
             },
             "review": {"seq": 1, "output_path": "r.md", "template": "eval/review.template.md"},
@@ -109,7 +109,6 @@ class TestExpandCorpus:
         "upstream_baseline_ref": "/abs/product-doc.md",
         "cycle_type": "feature",
         "M": "1",
-        "tpt_tech_conformance_url": "https://github.com/o/r/blob/main/tech-conformance.md",
         "upstream_doc_path": "/abs/design-doc.md",
     }
 
@@ -118,15 +117,23 @@ class TestExpandCorpus:
         expanded = expand_corpus(data, self._BIND)
         e4 = expanded["dimensions"][2]
         assert e4["eval_target"]["path"] == "/abs/tech-doc.md"
-        assert e4["sots"][0]["ref"] == "/abs/design-doc.md"
-        assert e4["method"]["source"] == self._BIND["tpt_tech_conformance_url"]
+        assert e4["sots"][0]["ref"] == (
+            "lulu-dev-workflow/lulu-plan/eval/sots/tech-conformance.md"
+        )
+        assert e4["sots"][0]["bindings"]["source_ref"] == "/abs/design-doc.md"
+        assert e4["method"]["ref"] == (
+            "lulu-dev-workflow/lulu-plan/eval/methods/tech-conformance.md"
+        )
         assert e4["review"]["output_path"] == "tech-review-e13.md"
 
     def test_expand_preserves_codebase_root_dot(self):
         data = _feature_base_corpus()
         expanded = expand_corpus(data, self._BIND)
         e2 = expanded["dimensions"][0]
-        assert e2["sots"][0]["ref"] == {"root": ".", "strategy": "all"}
+        assert e2["sots"][0] == {
+            "ref": "lulu-dev-workflow/eval/sots/codebase-consistency.md",
+            "bindings": {"codebase_root": ".", "read_strategy": "all"},
+        }
 
     def test_expand_e3_preserves_local_method_and_sot_paths(self):
         data = _feature_tech_upstream_corpus()
@@ -135,11 +142,11 @@ class TestExpandCorpus:
         assert e3["sots"][0]["ref"] == (
             "lulu-dev-workflow/lulu-plan/eval/sots/solution-quality.md"
         )
-        assert e3["method"]["source"] == (
+        assert e3["method"]["ref"] == (
             "lulu-dev-workflow/lulu-plan/eval/methods/solution-quality.md"
         )
 
-    def test_invalid_codebase_strategy(self):
+    def test_rejects_legacy_method_and_sot_shapes(self):
         dim = {
             "id": "a",
             "label": "A",
@@ -169,7 +176,8 @@ class TestExpandCorpus:
                 "dimensions": [dim],
             },
         )
-        assert any("invalid codebase strategy" in err for err in errors)
+        assert any("bindings must be an object" in err for err in errors)
+        assert any("missing or invalid string field 'ref'" in err for err in errors)
 
     def test_unbound_placeholder_raises(self):
         data = _feature_tech_upstream_corpus()

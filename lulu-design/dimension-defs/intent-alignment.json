@@ -10,14 +10,14 @@
   },
   "sots": [
     {
-      "kind": "url",
-      "role": "primary",
-      "ref": "{upstream_baseline_ref}"
+      "ref": "lulu-dev-workflow/lulu-design/eval/sots/intent-alignment.md",
+      "bindings": {
+        "source_ref": "{upstream_baseline_ref}"
+      }
     }
   ],
   "method": {
-    "kind": "external",
-    "source": "{tdt_product_tech_spec_crosscheck_url}",
+    "ref": "lulu-dev-workflow/lulu-design/eval/methods/intent-alignment.md",
     "focus": "Intent alignment — does design-doc faithfully address product requirements? Detect GAP (Spec requirement without design coverage) and GHOST (design decision without Spec origin)."
   },
   "review": {

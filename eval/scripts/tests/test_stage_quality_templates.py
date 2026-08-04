@@ -59,13 +59,10 @@ def test_stage_quality_uses_resolvable_local_method_and_sot(stage):
     dimension = json.loads(dimension_path.read_text(encoding="utf-8"))
 
     assert dimension["method"] == {
-        "kind": "external",
-        "source": stage["method"],
+        "ref": stage["method"],
         "focus": stage["focus"],
     }
-    assert dimension["sots"] == [
-        {"kind": "url", "role": "primary", "ref": stage["sot"]}
-    ]
+    assert dimension["sots"] == [{"ref": stage["sot"], "bindings": {}}]
 
     method = read_ref(stage["method"], project_root=_REPO)
     sot = read_ref(stage["sot"], project_root=_REPO)
