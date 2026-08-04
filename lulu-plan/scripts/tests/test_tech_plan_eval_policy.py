@@ -10,7 +10,6 @@ _SCRIPTS_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_SCRIPTS_ROOT / "eval"))
 
 from tech_plan_eval_policy import (
-    intent_eval_config_key,
     require_feature_eval,
     select_dimension_defs,
     select_dimension_ids,
@@ -49,11 +48,6 @@ class TestTechPlanEvalPolicy:
             "solution-quality",
             "tech-conformance",
         ]
-
-    def test_intent_eval_config_key_is_shared(self):
-        assert intent_eval_config_key("feature") == "tpt_intent_eval_framework_url"
-        assert intent_eval_config_key("topic") == "tpt_intent_eval_framework_url"
-        assert intent_eval_config_key("other") == "tpt_intent_eval_framework_url"
 
     def test_require_feature_eval_topic_blocks(self):
         with pytest.raises(ValueError, match="topic cycles do not evaluate in lulu-plan"):

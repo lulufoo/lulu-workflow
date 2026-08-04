@@ -59,7 +59,6 @@ from compose_package_schema import (  # noqa: E402
 )
 
 from tech_plan_eval_policy import (  # noqa: E402
-    intent_eval_config_key,
     select_dimension_defs,
 )
 
@@ -195,7 +194,6 @@ class TechPlanEvalAdapter(ComposeEvalAdapterSupport):
     @staticmethod
     def _empty_corpus_bind() -> dict[str, str]:
         return {
-            "tpt_intent_eval_framework_url": "",
             "tpt_tech_conformance_url": "",
             "upstream_doc_path": "",
         }
@@ -217,17 +215,10 @@ class TechPlanEvalAdapter(ComposeEvalAdapterSupport):
             bind = self._empty_corpus_bind()
             bind["upstream_doc_path"] = upstream_doc_path
             return bind
-        cycle_type = detect_cycle_type(cycle_id)
-        intent_key = intent_eval_config_key(cycle_type)
-        tpt_intent_eval_framework_url = str(
-            section.get(intent_key, "")
-            or section.get("tpt_intent_eval_framework_url", ""),
-        ).strip()
         tpt_tech_conformance_url = str(
             section.get("tpt_tech_conformance_url", "")
         ).strip()
         return {
-            "tpt_intent_eval_framework_url": tpt_intent_eval_framework_url,
             "tpt_tech_conformance_url": tpt_tech_conformance_url,
             "upstream_doc_path": upstream_doc_path,
         }
