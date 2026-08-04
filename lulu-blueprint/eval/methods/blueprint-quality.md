@@ -1,12 +1,12 @@
-# Plan Solution Quality Method
+# Blueprint Quality Method
 
-**Role:** EvalMethod (M) for `lulu-plan` dimension `solution-quality`.
+**Role:** EvalMethod (M) for `lulu-blueprint` dimension `blueprint-quality`.
 **Status:** ⚠️ Proposed runtime template.
 
 ## Boundary
 
 This Method defines how to evaluate EvalTarget **B** using the loaded EvalSoT
-**A**. It does not define the P1–P4 quality criteria.
+**A**. It does not define the P1–P4 quality criteria or Blueprint supplements.
 
 ## Procedure
 
@@ -21,17 +21,17 @@ This Method defines how to evaluate EvalTarget **B** using the loaded EvalSoT
      content.
    - `chapter`: continue with the chapter procedure.
 4. Traverse chapters and their units in document order. Run every applicable
-   P1–P4 criterion from A for each unit.
+   P1–P4 criterion and Blueprint supplement from A for each unit.
 5. For P3, use `prior_container_units(view, container_id)` as the complete
    upstream set. If no prior chapters exist, skip P3 when its criterion
    requires upstream content.
 6. Use `severity_hints_chapter(view, container_id)`:
-   - P1 failure on the first chapter or a chapter with prior content:
-     `critical`.
+   - P1 failure on the first chapter or a chapter with prior content: `critical`.
    - P2 failure before the last chapter: `critical`.
    - P3 failure when prior content exists: `critical`.
    - P4 failure on the last chapter: `critical`.
    - Remaining applicable P1/P2/P4 failures: `medium`.
+   - A Blueprint supplement failure: `critical`.
 7. For each finding, set `root_cause: WO-ERROR`, use the SoT criterion as
    `sot_ref`, use the unit id as `location`, and write the criterion's Gap
    output as `description`. Set `status: pending` and `decision: —`.

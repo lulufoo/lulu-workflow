@@ -12,15 +12,13 @@
     {
       "kind": "url",
       "role": "primary",
-      "ref": "{tat_arch_quality_framework_url}"
+      "ref": "lulu-dev-workflow/lulu-arch/eval/sots/arch-quality.md"
     }
   ],
   "method": {
-    "kind": "builtin",
-    "source": {
-      "procedure_id": "intent_gap_probes"
-    },
-    "focus": "P1–P4 intent gap probes on arch-doc + arch-only supplements (downstream register, OQ disposition, SH/KD structure inheritability for lulu-design, scope register)"
+    "kind": "external",
+    "source": "lulu-dev-workflow/lulu-arch/eval/methods/arch-quality.md",
+    "focus": "Architecture quality"
   },
   "review": {
     "seq": 1,

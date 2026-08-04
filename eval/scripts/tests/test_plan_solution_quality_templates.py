@@ -32,6 +32,8 @@ def test_plan_local_templates_are_resolvable_from_project_root():
     sot = read_ref(_SOT_REF, project_root=_REPO)
 
     assert "eval_target_units.units_from_eval_target(B_text)" in method
+    assert "`critical`" in method
+    assert "`high`" not in method
     for probe in ("P1", "P2", "P3", "P4"):
         assert f"## {probe} " in sot
     assert "section-registry" not in sot

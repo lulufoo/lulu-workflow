@@ -10,7 +10,6 @@ _SCRIPTS_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_SCRIPTS_ROOT / "eval"))
 
 from tech_design_eval_policy import (  # noqa: E402
-    design_quality_config_key,
     require_feature_eval,
     select_dimension_defs,
     select_dimension_ids,
@@ -39,9 +38,6 @@ class TestTechDesignEvalPolicy:
             "solution-quality",
             "intent-alignment",
         ]
-
-    def test_design_quality_config_key(self):
-        assert design_quality_config_key("feature") == "tdt_design_quality_framework_url"
 
     def test_require_feature_eval_topic_blocks(self):
         with pytest.raises(ValueError, match="topic cycles do not evaluate in lulu-design"):

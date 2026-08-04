@@ -194,7 +194,6 @@ class TechDesignEvalAdapter(ComposeEvalAdapterSupport):
     @staticmethod
     def _empty_corpus_bind() -> dict[str, str]:
         return {
-            "tdt_design_quality_framework_url": "",
             "tdt_product_tech_spec_crosscheck_url": "",
         }
 
@@ -205,14 +204,10 @@ class TechDesignEvalAdapter(ComposeEvalAdapterSupport):
         section = get_stage_config_bucket(project_root.resolve(), "lulu-design", "eval", plat)
         if not section:
             return self._empty_corpus_bind()
-        framework_url = str(
-            section.get("tdt_design_quality_framework_url", ""),
-        ).strip()
         crosscheck_url = str(
             section.get("tdt_product_tech_spec_crosscheck_url", ""),
         ).strip()
         return {
-            "tdt_design_quality_framework_url": framework_url,
             "tdt_product_tech_spec_crosscheck_url": crosscheck_url,
         }
 
