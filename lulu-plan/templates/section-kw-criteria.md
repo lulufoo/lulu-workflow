@@ -80,10 +80,10 @@ Note: Each table field once; phase content column = short intent only (do not du
 | KW | Verifiable intent attributes |
 |----|------------------------------|
 | KW0 | Cannot be named |
-| KW1 | Can state "what steps need to be executed (key file paths must be locatable when included)"; Task Index summary must state what changes (not only Create/Modify) |
-| KW2 | Can state "what the completion criteria are for this step" |
-| KW3 | Can state "what the prerequisites of this step are, why the execution order is as such, and which Skeleton phase it corresponds to" |
-| KW4 | Can state "how to handle step failure" (including whether failure blocks downstream work; may be per phase group) |
+| KW1 | Can state executable steps and what each step changes (not Create/Modify labels only); each code-facing task has ≥1 workspace-locatable path from codebase read. Non-code tasks: path optional only if explicitly marked; they alone do not satisfy KW1 |
+| KW2 | Can state "the Done When / completion criteria for each step" |
+| KW3 | Can state "prerequisites, execution-order rationale, and the SK phase id (or explicit cross-phase) for each step" |
+| KW4 | Can state "how to handle step failure" (including whether failure blocks downstream; may be per phase group; Fail may be soft for explicitly marked ops tasks) |
 
 Note: Primary home for implementation-recipe thickness (paired with thin AR).
 

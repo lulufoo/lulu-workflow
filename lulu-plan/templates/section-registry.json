@@ -138,7 +138,7 @@
         "I": "preserve_invariant",
         "SK": "decompose"
       },
-      "intent": "Actionable work items traceable to SK phases, with file paths grounded in codebase read.",
+      "intent": "Actionable tasks traced to SK ids; code-facing tasks carry codebase-grounded paths (non-code must be explicit).",
       "intent_boundary": "Goal rewrites and architecture redesign belong to GO, AR.",
       "presence": "required"
     },
