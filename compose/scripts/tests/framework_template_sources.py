@@ -68,7 +68,17 @@ def tech_design_section_registry() -> dict[str, Any]:
 
 
 def tech_design_section_form_registry() -> dict[str, Any]:
-    return load_framework_json("design", "49-tech-design-section-form-registry.json")
+    """Design form SSOT: local builtin (skill-config tdt_section_form_registry_url)."""
+    path = (
+        Path(__file__).resolve().parents[4]
+        / "lulu-dev-workflow"
+        / "lulu-design"
+        / "templates"
+        / "section-form-registry.json"
+    )
+    if not path.is_file():
+        raise FileNotFoundError(f"design section-form-registry not found: {path}")
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 

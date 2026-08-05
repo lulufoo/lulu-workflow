@@ -28,7 +28,7 @@ Round still owns formal gap closure. Do not ask the user questions. Do not run I
 
 See [`../references/compose-theory.md`](../references/compose-theory.md).
 
-Derive artifact contract: [`../references/init-draft-quality.md`](../references/init-draft-quality.md).
+Chapter write contract: [`../references/init-draft-quality.md`](../references/init-draft-quality.md).
 
 ## Parent-Provided Inputs
 
@@ -75,7 +75,7 @@ All macros that declare `--profile` **must** pass `--profile "$COMPOSE_PROFILE"`
 1. `$RESOLVE_ROLE` → Scope Constraints (`### Role Instance`).
 2. `$RESOLVE_DOMAIN` → Scope Constraints (`### Domain Instance`).
 3. `$FETCH_COMPOSE --role section-registry` (JSON) → `sections` keys (= allowed lenses; `section_order` optional/legacy), `document_preamble`, per-section `heading` / `aliases` / `intent` (else `desc`) / `intent_boundary` / `relations` / `presence`
-   `$FETCH_COMPOSE --role section-form-registry` → `sections.{key}.presentation` / `expression`
+   `$FETCH_COMPOSE --role section-form-registry` → `sections.{key}.reading_axis` / `presentation` / `expression`
 4. `$FETCH_COMPOSE --role section-kw-criteria` → each `## {section_key}` block (Fill completeness for **named** atoms only).
 5. Read `$SCOPE_REF_PATH` once for completeness cross-check only (do not atomize).
 6. Read profile `pipeline.code_grounding` → `$CODE_GROUNDING`.
@@ -203,18 +203,17 @@ $NARRATIVE_ARC_CTL validate \
 
 ### Step 4 — Write-by-sub-topic-chapter then Assemble
 
-Keep chapter delivery shell (`_derive-{cid}.json`, `_body-{cid}.txt`); Assemble via `assemble-arc`.
+Keep chapter body shell (`_body-{cid}.txt`); Assemble via `assemble-arc`.
 
 **Presentation layers (archive-5.0):** `tree` group → arc leaf → lens chapter (`cid`). Visible titles stop at group/leaf; lens chapters are anchors + body (default omit lens heading).
 
 Artifacts per write unit (`chapter_id` from `list-chapters`):
 
 ```text
-_derive-{cid}.json   # per-chapter Write metadata (lens + F/C); not document spine titles
 _body-{cid}.txt      # body for one (arc-leaf, lens) chapter; no leading ##
 ```
 
-Visible group/leaf titles come from `_narrative-arc.json` via `assemble-arc` — not from derive. Do **not** use derive `display_title` (retired).
+Visible group/leaf titles come from `_narrative-arc.json` via `assemble-arc`.
 
 #### 4.W — Write-by-sub-topic-chapter
 
@@ -237,19 +236,16 @@ $CHAPTER_WRITE_STATE begin --revision-dir "$REVISION_DIR"
 For **that ticket only** (`chapter_id` / `fact_ids` / `facts` / `lens` from `begin` stdout):
 
 1. `lens` = ticket.lens; `facts_ℓ` = ticket.facts (authoritative substance — id set must match `fact_ids`; do not expand).
-2. Load Write form for `lens` from section-form-registry / registry intent.
-3. **Derive F** (S1): same F discipline as prior Init (carrier/structure from form + facts).
-4. **Derive C** (S1): before Write, attend to Domain `expression_conventions` (register / carriers / scannability / altitude), Role Instance fields, and this lens's registry `expression` — as writing attention, **not** a machine pass checklist. Record short notes in chapter `expression[]` (the C array on derive — not the lens registry `expression` field). **C is constrained by F**. Do not pad derive with provenance tags to "prove" body quality.
-5. **Write body:** Scaffold per F; obey the attended conventions; content ⊆ `facts_ℓ`; carry anchors (L6); resolve raw `F-id` citations; mark gaps with `> **待决：** …`.
-   **Do not Write until F and C Done for this unit.**
-6. Write `_derive-{cid}.json` with `lens`, `form{carrier,structure}`, and non-empty chapter `expression[]`; write `_body-{cid}.txt`. Do **not** write `display_title` (retired — titles come from the narrative arc). Do **not** write `expression_c` (retired — use `expression`).
+2. Load that lens's **writing cognition** from `section-form-registry` (`reading_axis`, `presentation`, `expression`) — What mechanisms; see `compose-theory.md`.
+3. Soft attention (not machine-gated): Domain `expression_conventions`, Role Instance fields, and that cognition's `reading_axis` / `presentation` / `expression` while choosing how to write.
+4. Write `_body-{cid}.txt` once for this ticket: content ⊆ `facts_ℓ`; carry anchors (L6); resolve raw `F-id` citations; mark gaps with `> **待决：** …`.
 
 ```bash
 $CHAPTER_WRITE_STATE complete --revision-dir "$REVISION_DIR"
 # → next chapter_id (or null); then loop to begin
 ```
 
-`complete` hard-gates (same rules re-checked at Step 5): non-empty body; `form.carrier` + `form.structure`; non-empty chapter `expression` (string items). On `begin`/`complete` failure → stop; fix artifacts or redo the current chapter; do not skip ahead. Resume: `complete` current if needed, then `begin` again (never `begin --chapter`).
+`complete` hard-gates (same rules re-checked at Step 5): non-empty `_body-{cid}.txt`. On `begin`/`complete` failure → stop; fix artifacts or redo the current chapter; do not skip ahead. Resume: `complete` current if needed, then `begin` again (never `begin --chapter`).
 
 **Must not:** treat `list-chapters` as the 4.W todo list; `begin --chapter` / `complete --chapter` on the main path; Write another chapter while `already_running`.
 
@@ -303,7 +299,7 @@ Initializing complete (narrative-arc display layer).
   Output: <OUTPUT_DOC_PATH>
   Facts: <REVISION_DIR>/_facts.json (<N> facts; producer-written, validate-only)
   Narrative arc: <REVISION_DIR>/_narrative-arc.json (status=write_ready; <N> sub-topic chapters)
-  Chapter artifacts: <REVISION_DIR>/_derive-*.json, _body-*.txt
+  Chapter artifacts: <REVISION_DIR>/_body-*.txt
   Write-state: <REVISION_DIR>/_chapter-write-state.json (status=complete)
   Scope cross-check: <SCOPE_REF_PATH>
   Draft status: Initialized

@@ -335,6 +335,7 @@ def test_section_guidance_and_contract_accessors(tmp_path: Path):
     merged = merge_section_form_into_registry(intent, form)
     assert merged["sections"]["CTX"]["presentation"]["guidance"]
     assert merged["sections"]["CTX"]["expression"]["required"]
+    assert "reading_axis" in merged["sections"]["CTX"]
 
 
 def test_registry_without_section_order_uses_sections_keys():

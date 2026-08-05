@@ -5,9 +5,9 @@
 
 ## Purpose
 
-Chapter derive + body artifacts make Init synthesis inspectable and gate-able without replacing Round probe. Section-key I2 derive / `_title-display.json` / Partition retired (K3-d).
+Chapter body artifacts make Init synthesis inspectable and gate-able without replacing Round probe. Section-key I2 derive / `_title-display.json` / Partition retired (K3-d).
 
-**Narrative-arc Init (archive-5.0):** visible titles come from `_narrative-arc.json` + `assemble-arc`. Derive **must not** carry spine titles; derive `display_title` is **retired** (ignored by validators). Archive-3.0 themes/framework/placement files are **retired** (presence is an Init validation error).
+**Narrative-arc Init (archive-5.0):** visible titles come from `_narrative-arc.json` + `assemble-arc`. Archive-3.0 themes/framework/placement files are **retired** (presence is an Init validation error).
 
 ## Init positioning
 
@@ -15,8 +15,9 @@ Chapter derive + body artifacts make Init synthesis inspectable and gate-able wi
 |------|----------|
 | Operationalize fact substance into readable chapter bodies | Scope-external speculation |
 | Mark gaps explicitly (`待决` in body when substance missing) | Decision verbatim paste |
-| Produce listed write units with non-empty body (`list-chapters` cids) | Empty shell chapters / `section-key:` anchors / rely on derive `display_title` for titles |
+| Produce listed write units with non-empty body (`list-chapters` cids) | Empty shell chapters / `section-key:` anchors |
 | Preserve each placed fact's `anchors` into its chapter body (§ Anchor fidelity) | Abstract away a discovered fact's anchors (paths / symbols) |
+| Load lens writing cognition as Write input (What) | Invent beyond ticket facts; empty shell chapters |
 
 Round still owns formal KW / upstream / intent gap closure.
 
@@ -26,21 +27,24 @@ Round still owns formal KW / upstream / intent gap closure.
 $REVISION_DIR/_facts.json                 # fact store (Step 2–3)
 $REVISION_DIR/_narrative-arc.json         # Init spine (archive-5.0)
 $REVISION_DIR/_chapter-write-state.json   # serial 4.W gate
-$REVISION_DIR/_derive-{cid}.json          # Write metadata (lens + F/C); not spine titles
-$REVISION_DIR/_body-{cid}.txt             # chapter body
+$REVISION_DIR/_body-{cid}.txt             # chapter body (hard gate: non-empty)
 $OUTPUT_DOC_PATH                          # assembled via assemble-arc (tree/leaf titles + <!-- chapter:{cid} -->)
 ```
 
 `cid` = `{leaf_id}-{lens}` from `_narrative-arc.json` / `list-chapters`.
 
-## `_derive-{cid}.json` (chapter)
+## Writing cognition (What)
 
-| Field | Required | Rules |
-|-------|----------|-------|
-| `display_title` | **no** (retired) | Ignored by Init validators; do not write for narrative-arc Init |
-| `lens` | yes (contract) | Unit lens key |
-| `form.carrier` / `form.structure` | **yes** (hard gate) | Non-empty strings; gated by `complete` + Step 5 |
-| `expression` | **yes** (hard gate: non-empty only) | Chapter C array (derive field — not lens registry `expression`). Soft Write-time attention notes (not a pass/fail tag wall). Non-empty string array; four-key `expression_conventions.*` substrings are **not** machine-gated. `expression_c` is retired |
+Load per-lens **writing cognition** from `section-form-registry` before Write.
+
+| Field | Role |
+|-------|------|
+| `reading_axis` | Abstract narrative axis (key required; empty string temporarily allowed) |
+| `presentation.allowed[]` + `when` | Optional carriers and when to use them |
+| `presentation.forbidden` | Excluded carriers/structures |
+| `expression` | Manner-of-expression attention (not a persisted chapter C array) |
+
+Selection among `allowed` is soft How; Init does not hard-gate a chosen carrier/structure (F) artifact.
 
 ### Titles (narrative-arc)
 
@@ -75,7 +79,7 @@ anchors(chapter) ⊆ tokens(body)              # new: keep this chapter's facts'
 
 ## Validate command
 
-`init_compose_validation.py validate` runs: `_facts.json` + `_narrative-arc.json` + chapter write-state `complete`, per-chapter F/C gate (non-empty `expression`; same as `$CHAPTER_WRITE_STATE complete`), chapter anchors in the compose doc, and L6 fact-anchor coverage. Does **not** gate derive `display_title`. Presence of `_chapters.json` / `_lens-themes.json` / `_chapter-framework.json` / `_chapter-placement.json` is an error (retired). See script `--help` for exit codes and stderr format.
+`init_compose_validation.py validate` runs: `_facts.json` + `_narrative-arc.json` + chapter write-state `complete`, per-chapter non-empty body gate (same as `$CHAPTER_WRITE_STATE complete`), chapter anchors in the compose doc, and L6 fact-anchor coverage. Presence of `_chapters.json` / `_lens-themes.json` / `_chapter-framework.json` / `_chapter-placement.json` is an error (retired). See script `--help` for exit codes and stderr format.
 
 ## Minimal example (one chapter)
 
@@ -97,15 +101,8 @@ anchors(chapter) ⊆ tokens(body)              # new: keep this chapter's facts'
 }
 ```
 
-`_derive-A01-AR.json` (no spine title):
+`_body-A01-AR.txt`:
 
-```json
-{
-  "lens": "AR",
-  "form": { "carrier": "prose", "structure": "claim-then-evidence" },
-  "expression": [
-    "Register: precise engineering prose for this unit",
-    "Scannability: short items over walls"
-  ]
-}
+```text
+Architecture claim grounded in F-1 anchors…
 ```

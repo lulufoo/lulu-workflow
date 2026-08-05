@@ -12,6 +12,7 @@ import sys
 from pathlib import Path
 from typing import Callable, Optional
 
+from platforms.registry import resolve_skill_root
 from subagent_config import (
     detect_platform,
     get_stage_config_value,
@@ -163,14 +164,31 @@ def read_config_url(
     return url
 
 
-def resolve_local_template_path(url: str, project_root: Path) -> Path | None:
-    """Resolve repo-local template paths (file://, absolute, or lulu-dev-workflow/…)."""
+def resolve_local_template_path(
+    url: str,
+    project_root: Path | None = None,
+    *,
+    skill_root: Path | None = None,
+) -> Path | None:
+    """Resolve local template paths (file://, absolute, or skill-runtime ``lulu-dev-workflow/…``).
+
+    The ``lulu-dev-workflow/`` prefix names the skill runtime directory
+    (``SKILL_ROOT``). Remaining segments are relative to that root — not
+    ``project_root``.
+    """
+    _ = project_root
     if url.startswith("file://"):
         return Path(url[7:])
     if url.startswith("/") and not url.startswith("//"):
         return Path(url)
     if url.startswith("lulu-dev-workflow/"):
-        return (project_root / url).resolve()
+        root = (
+            skill_root
+            if skill_root is not None
+            else resolve_skill_root(script_path=Path(__file__))
+        )
+        rel = url.split("/", 1)[1]
+        return (root.resolve() / rel).resolve()
     return None
 
 
@@ -192,9 +210,9 @@ def fetch_template(
     cache_file = cache_path(project_root, plat, section, key)
     url = read_config_url(project_root, section, key, plat)
 
-    # Local paths always win over GitHub cache — otherwise switching a config
-    # key from a remote blob URL to a repo-local path would keep serving the
-    # stale cached remote body until --force (K0b plan local templates).
+    # Skill-runtime / absolute local paths always win over GitHub cache —
+    # otherwise switching a config key from a remote blob URL to a skill-local
+    # path would keep serving the stale cached remote body until --force.
     local_path = resolve_local_template_path(url, project_root)
     if local_path is not None:
         return read_local_file(local_path)

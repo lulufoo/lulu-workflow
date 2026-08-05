@@ -107,7 +107,7 @@ def _check_chapter_artifacts_and_assembly(
     compose_doc: Path,
     chapters_view: list[dict[str, Any]],
 ) -> list[str]:
-    """F/C write artifacts + compose-doc assembly completeness."""
+    """Chapter body write artifacts + compose-doc assembly completeness."""
     errors: list[str] = []
     raw_doc = compose_doc.read_text(encoding="utf-8")
     for chapter in chapters_view:
@@ -123,9 +123,6 @@ def _check_chapter_artifacts_and_assembly(
             elif err.startswith("missing body:"):
                 body_name = err.split(":", 1)[1].strip()
                 errors.append(f"5.A: chapter {cid!r}: missing {body_name}")
-            elif err.startswith("missing derive:"):
-                derive_name = err.split(":", 1)[1].strip()
-                errors.append(f"5.A: chapter {cid!r}: missing {derive_name}")
             else:
                 errors.append(f"5.A: chapter {cid!r}: {err}")
 

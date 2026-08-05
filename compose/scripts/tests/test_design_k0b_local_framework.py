@@ -61,6 +61,18 @@ def test_design_k0b_skill_config_points_upstream() -> None:
     assert compose["tdt_section_registry_url"] == (
         f"{_GH_DESIGN}42-tech-design-section-registry.json"
     )
+    assert compose["tdt_section_form_registry_url"] == (
+        "lulu-dev-workflow/lulu-design/templates/section-form-registry.json"
+    )
+    # Prefix = skill runtime root; remainder is under installed/source skill tree.
+    skill_root = _REPO / "lulu-dev-workflow"
+    rel = compose["tdt_section_form_registry_url"].split("/", 1)[1]
+    form_path = skill_root / rel
+    assert form_path.is_file()
+    form = json.loads(form_path.read_text(encoding="utf-8"))
+    assert form["sections"]["IF"]["reading_axis"] == (
+        "address → named_faces → exercise"
+    )
 
 
 def test_design_k0b_profile_has_no_display_layer_flag() -> None:

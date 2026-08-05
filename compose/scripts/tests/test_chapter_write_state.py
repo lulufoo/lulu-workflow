@@ -70,22 +70,7 @@ def _seed_arc(rev: Path) -> None:
     _seed_facts(rev)
 
 
-def _valid_derive(cid: str) -> dict:
-    return {
-        "lens": cid.rsplit("-", 1)[-1],
-        "form": {"carrier": "prose", "structure": "claim-then-evidence"},
-        "expression": [
-            "Register: precise engineering prose for this unit",
-            "Scannability: short items over walls",
-        ],
-    }
-
-
 def _write_artifacts(rev: Path, cid: str, *, body: str = "body") -> None:
-    (rev / f"_derive-{cid}.json").write_text(
-        json.dumps(_valid_derive(cid), ensure_ascii=False),
-        encoding="utf-8",
-    )
     (rev / f"_body-{cid}.txt").write_text(body + "\n", encoding="utf-8")
 
 
@@ -318,9 +303,6 @@ def test_complete_rejects_missing_body(tmp_path: Path, capsys: pytest.CaptureFix
     _seed_arc(rev)
     assert write_state_main(["sync", "--revision-dir", str(rev)]) == 0
     assert _begin(rev) == 0
-    (rev / "_derive-A01-I.json").write_text(
-        json.dumps(_valid_derive("A01-I")), encoding="utf-8",
-    )
     capsys.readouterr()
     rc = _complete(rev)
     assert rc != 0

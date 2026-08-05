@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Load compose stage section form registry (presentation + expression per section key).
+"""Load compose stage section form registry (writing cognition per section key).
 
-Supports two formats (backward-compatible):
-  Legacy:  { guidance: str, contract: { required, forbidden } }
-  Current: { presentation: { guidance, allowed, forbidden }, expression: { required, forbidden } }
+Hard format only (no legacy guidance/contract path):
+  { reading_axis: str,  # key required; empty string temporarily allowed
+    presentation: { guidance, allowed[{carrier,structure,when}], forbidden },
+    expression: { required, forbidden } }
 
 CLI:
     python3 section_form_registry_schema.py --schema
@@ -47,7 +48,7 @@ _SCHEMA: list[dict[str, Any]] = [
     {"field": "section_order", "type": "list[string]", "required": False,
      "description": "Optional; when omitted, lens keys = sections object key order (archive-5.0)"},
     {"field": "sections", "type": "object", "required": True,
-     "description": "section_key → { presentation, expression } (current) or { guidance, contract } (legacy)"},
+     "description": "section_key → { reading_axis, presentation, expression }"},
 ]
 
 _FORBIDDEN_SECTION_KEYS = frozenset(
@@ -106,15 +107,24 @@ def _validate_allowed_entry(key: str, idx: int, item: Any) -> list[str]:
         return errors
     carrier = item.get("carrier")
     structure = item.get("structure")
+    when = item.get("when")
     if not isinstance(carrier, str) or not carrier.strip():
         errors.append(f"sections.{key}.presentation.allowed[{idx}].carrier must be a non-empty string")
     if not isinstance(structure, str) or not structure.strip():
         errors.append(f"sections.{key}.presentation.allowed[{idx}].structure must be a non-empty string")
+    if not isinstance(when, str) or not when.strip():
+        errors.append(f"sections.{key}.presentation.allowed[{idx}].when must be a non-empty string")
     return errors
 
 
 def _validate_presentation_entry(key: str, entry: dict[str, Any]) -> list[str]:
     errors: list[str] = []
+    if "reading_axis" not in entry:
+        errors.append(f"sections.{key}.reading_axis is required")
+    else:
+        axis = entry.get("reading_axis")
+        if not isinstance(axis, str):
+            errors.append(f"sections.{key}.reading_axis must be a string")
     presentation = entry.get("presentation")
     expression = entry.get("expression")
     if not isinstance(presentation, dict):
@@ -124,12 +134,11 @@ def _validate_presentation_entry(key: str, entry: dict[str, Any]) -> list[str]:
     if not isinstance(guidance, str) or not guidance.strip():
         errors.append(f"sections.{key}.presentation.guidance must be a non-empty string")
     allowed = presentation.get("allowed")
-    if allowed is not None:
-        if not isinstance(allowed, list):
-            errors.append(f"sections.{key}.presentation.allowed must be a list when present")
-        else:
-            for idx, item in enumerate(allowed):
-                errors.extend(_validate_allowed_entry(key, idx, item))
+    if not isinstance(allowed, list):
+        errors.append(f"sections.{key}.presentation.allowed must be a list")
+    else:
+        for idx, item in enumerate(allowed):
+            errors.extend(_validate_allowed_entry(key, idx, item))
     forbidden = presentation.get("forbidden")
     if forbidden is not None:
         if not isinstance(forbidden, list):
@@ -180,24 +189,16 @@ def validate_section_form_registry(data: dict[str, Any]) -> list[str]:
         for forbidden in _FORBIDDEN_SECTION_KEYS:
             if forbidden in entry:
                 errors.append(f"sections.{key}.{forbidden} is not supported")
-        if "presentation" in entry:
-            errors.extend(_validate_presentation_entry(key, entry))
-        else:
-            # Legacy format: { guidance, contract }
-            guidance = entry.get("guidance")
-            contract = entry.get("contract")
-            has_guidance = isinstance(guidance, str) and guidance.strip()
-            if guidance is not None and not has_guidance:
-                errors.append(f"sections.{key}.guidance must be a non-empty string when present")
-            if has_guidance:
-                if contract is None:
-                    errors.append(f"sections.{key}.contract is required when guidance is present")
-                else:
-                    errors.extend(_validate_section_contract(key, contract))
-            elif contract is not None:
-                errors.append(
-                    f"sections.{key}.contract without guidance is not supported"
-                )
+        if "guidance" in entry or "contract" in entry:
+            errors.append(
+                f"sections.{key} legacy guidance/contract format is not supported; "
+                "use reading_axis + presentation + expression"
+            )
+            continue
+        if "presentation" not in entry:
+            errors.append(f"sections.{key}.presentation is required")
+            continue
+        errors.extend(_validate_presentation_entry(key, entry))
 
     for key in sections:
         if str(key).upper() not in order_keys:
@@ -217,35 +218,38 @@ def normalize_section_form_registry(data: dict[str, Any]) -> dict[str, Any]:
     for key in order:
         entry = dict(sections_raw.get(key) or {})
         normalized: dict[str, Any] = {}
-        if "presentation" in entry:
-            # Current format: { presentation, expression }
-            pres = entry["presentation"]
-            if isinstance(pres, dict):
-                normalized_pres: dict[str, Any] = {}
-                guidance = pres.get("guidance")
-                if isinstance(guidance, str) and guidance.strip():
-                    normalized_pres["guidance"] = guidance.strip()
-                allowed = pres.get("allowed")
-                if isinstance(allowed, list):
-                    normalized_pres["allowed"] = [
-                        {"carrier": str(a.get("carrier", "")).strip(),
-                         "structure": str(a.get("structure", "")).strip()}
-                        for a in allowed if isinstance(a, dict)
-                    ]
-                forbidden = pres.get("forbidden")
-                if isinstance(forbidden, list):
-                    normalized_pres["forbidden"] = [
-                        str(f).strip() for f in forbidden if isinstance(f, str) and str(f).strip()
-                    ]
-                normalized["presentation"] = normalized_pres
-            expr = entry.get("expression")
-            normalized["expression"] = _normalize_contract(expr)
-        else:
-            # Legacy format: { guidance, contract }
-            guidance = entry.get("guidance")
+        axis = entry.get("reading_axis")
+        if isinstance(axis, str):
+            normalized["reading_axis"] = axis.strip()
+        elif "reading_axis" in entry:
+            normalized["reading_axis"] = ""
+        pres = entry.get("presentation")
+        if isinstance(pres, dict):
+            normalized_pres: dict[str, Any] = {}
+            guidance = pres.get("guidance")
             if isinstance(guidance, str) and guidance.strip():
-                normalized["guidance"] = guidance.strip()
-                normalized["contract"] = _normalize_contract(entry.get("contract"))
+                normalized_pres["guidance"] = guidance.strip()
+            allowed = pres.get("allowed")
+            if isinstance(allowed, list):
+                rows: list[dict[str, str]] = []
+                for a in allowed:
+                    if not isinstance(a, dict):
+                        continue
+                    rows.append(
+                        {
+                            "carrier": str(a.get("carrier", "")).strip(),
+                            "structure": str(a.get("structure", "")).strip(),
+                            "when": str(a.get("when", "")).strip(),
+                        }
+                    )
+                normalized_pres["allowed"] = rows
+            forbidden = pres.get("forbidden")
+            if isinstance(forbidden, list):
+                normalized_pres["forbidden"] = [
+                    str(f).strip() for f in forbidden if isinstance(f, str) and str(f).strip()
+                ]
+            normalized["presentation"] = normalized_pres
+        normalized["expression"] = _normalize_contract(entry.get("expression"))
         sections[key] = normalized
     result: dict[str, Any] = {
         "version": "1",
@@ -271,13 +275,11 @@ def merge_section_form_into_registry(
     for key in lens_key_sequence(merged):
         form_entry = form_registry["sections"].get(key) or {}
         section = merged["sections"][key]
+        if "reading_axis" in form_entry:
+            section["reading_axis"] = form_entry["reading_axis"]
         if form_entry.get("presentation"):
             section["presentation"] = form_entry["presentation"]
             section["expression"] = form_entry.get("expression", {"required": [], "forbidden": []})
-        elif form_entry.get("guidance"):
-            section["guidance"] = form_entry["guidance"]
-            if form_entry.get("contract") is not None:
-                section["contract"] = dict(form_entry["contract"])
     return merged
 
 

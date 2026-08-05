@@ -11,7 +11,14 @@ _SCRIPTS = Path(__file__).resolve().parents[1]
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
-from fetch_template import FetchTemplateError, cache_path, fetch_template, main, parse_blob_url
+from fetch_template import (  # noqa: E402
+    FetchTemplateError,
+    cache_path,
+    fetch_template,
+    main,
+    parse_blob_url,
+    resolve_local_template_path,
+)
 
 
 class TestParseBlobUrl:
@@ -168,9 +175,10 @@ class TestFetchTemplate:
         cache = cache_path(tmp_path, "cursor", "lulu-plan", "tpt_url")
         assert not cache.exists()
 
-    def test_local_path_wins_over_stale_cache(self, tmp_path):
-        """K0b: switching a key to a repo-local path must not keep serving GitHub cache."""
-        local = tmp_path / "lulu-dev-workflow" / "local-template.json"
+    def test_local_path_wins_over_stale_cache(self, tmp_path, monkeypatch):
+        """Skill-local path must not keep serving GitHub cache."""
+        skill_root = tmp_path / "skill-runtime"
+        local = skill_root / "local-template.json"
         local.parent.mkdir(parents=True, exist_ok=True)
         local.write_text('{"local": true}\n', encoding="utf-8")
         self._write_config(
@@ -184,6 +192,16 @@ class TestFetchTemplate:
         def fail_fetch(*_args):
             raise AssertionError("gh should not be called for local path")
 
+        import fetch_template as mod
+
+        monkeypatch.setattr(
+            mod,
+            "resolve_local_template_path",
+            lambda url, project_root=None, **_kw: resolve_local_template_path(
+                url, project_root, skill_root=skill_root,
+            ),
+        )
+
         content = fetch_template(
             "lulu-plan",
             "tpt_url",
@@ -192,6 +210,19 @@ class TestFetchTemplate:
             gh_fetcher=fail_fetch,
         )
         assert content == '{"local": true}\n'
+
+    def test_lulu_dev_workflow_prefix_resolves_under_skill_root(self, tmp_path):
+        skill_root = tmp_path / "installed-skill"
+        target = skill_root / "lulu-design" / "templates" / "section-form-registry.json"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text('{"ok": 1}\n', encoding="utf-8")
+        resolved = resolve_local_template_path(
+            "lulu-dev-workflow/lulu-design/templates/section-form-registry.json",
+            tmp_path / "some-project",
+            skill_root=skill_root,
+        )
+        assert resolved == target.resolve()
+        assert resolved.is_file()
 
     def test_fetches_decision_template(self, tmp_path):
         url = (
