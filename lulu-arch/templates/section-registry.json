@@ -1,0 +1,156 @@
+{
+  "version": "1",
+  "profile_id": "lulu-arch",
+  "section_order": [
+    "CTX",
+    "AD",
+    "BD",
+    "SH",
+    "FD",
+    "KD",
+    "OQ"
+  ],
+  "document_preamble": "# {Topic Name} · Technical Architecture\n\n**Date:** YYYY-MM-DD\n**Version:** v1\n**Status:** Draft\n\n**Decision-doc:** `{/<cycle_id>/lulu-approach/decision-doc.md}`\n\n**Chain domain:** Topic technical architecture shaping — structural consensus for a multi-feature topic, reviewable before opening a feature cycle; not enterprise architecture, not feature-level solution design, not execution specs. Register rules and audience: see domain-instance.\n\n---\n",
+  "sections": {
+    "CTX": {
+      "heading": "Context",
+      "aliases": [],
+      "cluster": "context",
+      "upstream": [],
+      "relations": {},
+      "intent": "Problem-side context for architecture shaping: (1) trigger — why architecture shaping happens now; (2) current technical situation — verified system and constraint state; (3) impact — cost of leaving architecture uncertainty unresolved. Does not state the topic's adopted architecture direction.",
+      "intent_boundary": "Architecture direction and observable direction-success criteria belong to AD. Scope boundaries, exclusions, and invariants belong to BD. Structural partitioning belongs to SH. Feature-milestone dependency order belongs to FD. Architecture decision outcomes belong to KD. Pending assumptions and risks belong to OQ. Interface fields, acceptance criteria, verification commands, and task breakdown are below topic-architecture granularity and out of scope.",
+      "presence": "required",
+      "facets": [
+        "trigger",
+        "current situation",
+        "unresolved cost"
+      ]
+    },
+    "AD": {
+      "heading": "Architecture Direction",
+      "aliases": [],
+      "cluster": "architecture-direction",
+      "upstream": [
+        "CTX"
+      ],
+      "relations": {
+        "CTX": "operationalize"
+      },
+      "intent": "Topic-level architecture direction this exploration converges toward: the named adopted direction; the high-level actions that realize it (reviewable, not an implementation checklist); and observable criteria that show the direction holds. Criteria are stated generically for the topic — not as a fixed catalog of product-specific conditions.",
+      "intent_boundary": "Problem trigger, situation, and impact belong to CTX. Scope, exclusions, and invariants belong to BD. Subsystem/capability-domain structure and architecture diagrams belong to SH. Feature-milestone dependency order belongs to FD. Adopted and rejected decision outcomes belong to KD. Assumptions awaiting closure belong to OQ. Field-level contracts, API semantics, verification commands, and task breakdown are out of scope.",
+      "presence": "required",
+      "facets": [
+        "named direction",
+        "direction actions",
+        "success criteria"
+      ]
+    },
+    "BD": {
+      "heading": "Scope & Constraints",
+      "aliases": [
+        "boundaries"
+      ],
+      "upstream": [
+        "AD"
+      ],
+      "relations": {
+        "AD": "operationalize"
+      },
+      "intent": "The boundary set for this architecture exploration as a whole: which systems or capability domains are in scope for shaping; architecture paths explicitly not chosen; technical constraints and invariants that must hold across future features. Scope, exclusions, and constraints are presented together to protect the direction in AD from dilution.",
+      "intent_boundary": "Architecture Design (structural partitioning) belongs to SH. Feature-milestone dependency order belongs to FD. Adopted and rejected architecture decision outcomes belong to KD. Blocking assumptions belong to OQ. Enterprise-wide platform restructuring and single-feature solution design are out of scope unless authorized in decision-doc.",
+      "presence": "required",
+      "facets": [
+        "in scope",
+        "exclusions",
+        "invariants"
+      ]
+    },
+    "SH": {
+      "heading": "Architecture Design",
+      "aliases": [
+        "system structure"
+      ],
+      "upstream": [
+        "AD",
+        "BD"
+      ],
+      "relations": {
+        "AD": "operationalize",
+        "BD": "preserve_invariant"
+      },
+      "intent": "Topic-level design structure: the subsystems or components the system is built from (and the capability domains they form), their responsibilities, the structural dependencies among them (calls / reads / writes / data flow), and their relationship to existing assets — i.e. how the system is structured to realize the direction in AD. An architecture diagram is the preferred carrier; the author judges the structural depth appropriate to the topic's size.",
+      "intent_boundary": "Feature-milestone delivery order belongs to FD. Architecture decision outcomes belong to KD. Task steps, file edit lists, and execution commands are execution-spec content and out of scope.",
+      "presence": "required",
+      "facets": [
+        "capability domains",
+        "responsibilities",
+        "structural dependency"
+      ]
+    },
+    "FD": {
+      "heading": "Phased Delivery Order",
+      "aliases": [
+        "delivery order"
+      ],
+      "upstream": [
+        "BD",
+        "SH"
+      ],
+      "relations": {
+        "BD": "preserve_invariant",
+        "SH": "operationalize"
+      },
+      "intent": "A feature-milestone dependency graph: how future feature cycles attach to the capability domains in SH, in dependency order, each node naming the contract or invariant anchor it must consume (milestone granularity, not module call chains or file-level tasks). When cross-boundary interaction paths matter at topic level, name the architecturally significant boundaries sufficient for the downstream feature cycle to inherit structure without re-deriving partitions.",
+      "intent_boundary": "Capability domain partitioning and relationship to existing assets belong to SH. Module-level responsibility tables and module-to-module call chains belong to downstream feature-level solution design. Field-level contracts and API semantics are below topic granularity and out of scope. Execution order within a single feature and change lists are out of scope. Architecture decision outcomes belong to KD.",
+      "presence": "required",
+      "facets": [
+        "feature milestones",
+        "milestone dependency",
+        "contract anchors"
+      ]
+    },
+    "KD": {
+      "heading": "Architecture Decisions",
+      "aliases": [],
+      "upstream": [
+        "SH",
+        "BD"
+      ],
+      "relations": {
+        "SH": "instantiate",
+        "BD": "preserve_invariant"
+      },
+      "intent": "Architecture decision outcomes for this topic: the key decisions adopted and the paths or decisions rejected (brief rationale may attach to an item). The primary duty is a result inventory of what was decided — not trade-off process narrative as the main story. Serves as the topic-arch outlet for decisions after upstream decision-doc. Not authorization statements alone and not feature-level design detail.",
+      "intent_boundary": "Direction statement belongs to AD. Structural layout belongs to SH. Feature-milestone dependency order belongs to FD. Assumptions awaiting closure belong to OQ. Extended trade-off deliberation as a standalone essay is outside this lens. Implementation tactics, interface fields, and verification mapping are below topic granularity and out of scope.",
+      "presence": "required",
+      "facets": [
+        "key decisions",
+        "adopted path",
+        "rejected paths"
+      ]
+    },
+    "OQ": {
+      "heading": "Pending Questions",
+      "aliases": [],
+      "upstream": [
+        "SH",
+        "FD",
+        "KD"
+      ],
+      "relations": {
+        "SH": "operationalize",
+        "FD": "operationalize",
+        "KD": "operationalize"
+      },
+      "intent": "Pending architecture assumptions, risks, and unresolved items at topic level; each item labeled whether it blocks opening a new feature cycle, paired with closure criteria, and anchored to the gap in AD, SH, FD, or KD it closes.",
+      "intent_boundary": "Closed architecture decision outcomes belong to KD. Feature acceptance criteria, verification matrices, and operational runbooks are below topic granularity and out of scope.",
+      "presence": "optional",
+      "facets": [
+        "blocking assumptions",
+        "non-blocking risks",
+        "closure criteria"
+      ]
+    }
+  }
+}

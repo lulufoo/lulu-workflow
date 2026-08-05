@@ -53,11 +53,6 @@ _SOT = (
     / "sots"
     / "blueprint-quality.md"
 )
-_GH_BLUEPRINT = (
-    "https://github.com/lulufoo/lulu-workflow-framework/blob/main/"
-    "lulu-dev-workflow/template/blueprint/"
-)
-
 
 def test_blueprint_k0b_section_registry_presence_and_edges() -> None:
     data = product_blueprint_section_registry()
@@ -72,19 +67,17 @@ def test_blueprint_k0b_section_registry_presence_and_edges() -> None:
 def test_blueprint_k0b_skill_config_uses_local_eval_templates() -> None:
     cfg = json.loads(_SKILL_CONFIG.read_text(encoding="utf-8"))
     compose = cfg["compose"]
-    assert compose["pbt_section_registry_url"] == (
-        f"{_GH_BLUEPRINT}product-blueprint-topic-section-registry.json"
-    )
-    assert compose["pbt_section_form_registry_url"] == (
-        "lulu-dev-workflow/lulu-blueprint/templates/section-form-registry.json"
-    )
-    assert (_REPO / compose["pbt_section_form_registry_url"]).is_file()
-    for remote_key in (
+    for key in (
+        "pbt_section_registry_url",
+        "pbt_section_form_registry_url",
         "pbt_section_kw_criteria_url",
         "pbt_topic_role_instance_url",
         "pbt_topic_domain_instance_url",
     ):
-        assert compose[remote_key].startswith("https://"), remote_key
+        assert compose[key].startswith(
+            "lulu-dev-workflow/lulu-blueprint/templates/"
+        ), key
+        assert (_REPO / compose[key]).is_file(), key
     assert "eval" not in cfg
 
     dimension = json.loads(_DIMENSION_DEF.read_text(encoding="utf-8"))

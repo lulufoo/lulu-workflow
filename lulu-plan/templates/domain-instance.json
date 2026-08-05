@@ -1,0 +1,15 @@
+{
+  "version": "1",
+  "$schema_id": "domain-schema",
+  "cycle_type": "feature",
+  "domain_id": "tech_plan_feature",
+  "cognitive_frame": "Technical execution planning is the work of turning an adopted design into actionable next steps: make the sequence of work, how to verify it, and how to roll it back clear enough that an implementer can proceed without re-deriving intent — with implementability, verifiability, and rollback as part of the genre mission.",
+  "expression_conventions": {
+    "register": "action-oriented precise prose in each section intent; lead with the next action where work breakdown applies; forbid marketing register and architecture-vision essays",
+    "carriers": "follow Derive F/C from section-form-registry; prefer bite-sized checkbox task blocks with Create/Modify/Test file lists for work units; interface contract tables when modules are new; flow diagrams only when they accelerate the next edit",
+    "scannability": "short items over walls; comparable claims in tables; contrast partitions only when facts already contain the contrast; do not mix tasks, verification, and background in one dense block; present execution units in separate leaves or blocks rather than one undifferentiated surface",
+    "altitude": "execution-ready next steps — readers act without re-deriving design intent; no architecture-vision essays"
+  },
+  "intent_anchor": "minimize ambiguity for the next executor",
+  "audience_type": "engineers and agents taking the next implementation step; testers and reviewers checking boundaries — after a clear through-line, a reader can start the next step without guessing and map acceptance checks to steps"
+}

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""K0b: lulu-spec section presence (upstream framework SSOT)."""
+"""K0b: lulu-spec section presence (skill-builtin section-registry SSOT)."""
 
 from __future__ import annotations
 
@@ -30,11 +30,6 @@ _SKILL_CONFIG = (
     _REPO / "skill-config" / "lulu-dev-workflow" / "stages" / "lulu-spec.json"
 )
 _PROFILE = _REPO / "lulu-dev-workflow" / "lulu-spec" / "compose-profile.json"
-_GH_SPEC = (
-    "https://github.com/lulufoo/lulu-workflow-framework/blob/main/"
-    "lulu-dev-workflow/template/spec/"
-)
-
 
 def test_spec_k0b_section_registry_has_presence() -> None:
     data = product_spec_section_registry()
@@ -47,13 +42,16 @@ def test_spec_k0b_section_registry_has_presence() -> None:
 def test_spec_k0b_skill_config_points_upstream() -> None:
     cfg = json.loads(_SKILL_CONFIG.read_text(encoding="utf-8"))
     compose = cfg["compose"]
-    assert compose["pst_section_registry_url"] == (
-        f"{_GH_SPEC}20-product-spec-section-registry.json"
-    )
-    assert compose["pst_section_form_registry_url"] == (
-        "lulu-dev-workflow/lulu-spec/templates/section-form-registry.json"
-    )
-    assert (_REPO / compose["pst_section_form_registry_url"]).is_file()
+    for key in (
+        "pst_section_registry_url",
+        "pst_section_form_registry_url",
+        "pst_section_kw_criteria_url",
+        "pst_feature_role_instance_url",
+        "pst_feature_domain_instance_url",
+    ):
+        assert compose[key].startswith("lulu-dev-workflow/lulu-spec/templates/"), key
+        assert (_REPO / compose[key]).is_file(), key
+    assert compose["pst_inductive_scan_criteria_url"].startswith("https://")
 
 
 def test_spec_k0b_profile_has_no_display_layer_flag() -> None:

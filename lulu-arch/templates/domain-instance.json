@@ -1,0 +1,15 @@
+{
+  "version": "1",
+  "$schema_id": "domain-schema",
+  "cycle_type": "topic",
+  "domain_id": "tech_arch_topic",
+  "cognitive_frame": "Topic technical architecture shaping before any feature cycle is opened: judge whether the topic-level architecture direction is sound, whether cross-feature boundaries and structural evolution are visible at milestone granularity, and whether a downstream feature cycle can inherit structure and decision premises without re-deriving partitions — not whether a single feature's solution design or execution plan is complete.",
+  "expression_conventions": {
+    "register": "analytical technical prose; CTX may use causal chains; forbid journey, marketing, and feature-outcome storytelling",
+    "carriers": "diagrams = topic partition / dependency / cross-boundary flow (not decoration); tables = compare or enumerate architecture paths; prose = analysis",
+    "scannability": "short items over walls; comparable claims in tables; contrast partitions only when facts already contain the contrast (e.g. coverage vs exclusion); do not mix actions, criteria, and background in one dense block; present boundary, structure, and binding decisions in separate leaves or blocks rather than one undifferentiated surface",
+    "altitude": "topic-shaping only — no file tasks, run commands, field specs, or acceptance criteria"
+  },
+  "intent_anchor": "topic-level architecture shaping only — not single-feature solution design, not execution-level specs",
+  "audience_type": "architects validating topic direction; tech leads judging whether a feature cycle may open; reviewers deciding whether shaping is complete — after a clear through-line at milestone granularity, the reader can affirm direction or point to section-level gaps"
+}

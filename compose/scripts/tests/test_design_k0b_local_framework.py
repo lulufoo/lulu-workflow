@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""K0b: lulu-design section presence (upstream framework SSOT)."""
+"""K0b: lulu-design section presence (skill-builtin section-registry SSOT)."""
 
 from __future__ import annotations
 
@@ -30,11 +30,6 @@ _SKILL_CONFIG = (
     _REPO / "skill-config" / "lulu-dev-workflow" / "stages" / "lulu-design.json"
 )
 _PROFILE = _REPO / "lulu-dev-workflow" / "lulu-design" / "compose-profile.json"
-_GH_DESIGN = (
-    "https://github.com/lulufoo/lulu-workflow-framework/blob/main/"
-    "lulu-dev-workflow/template/design/"
-)
-
 
 def test_design_k0b_section_registry_has_presence() -> None:
     from section_registry_schema import lens_key_sequence
@@ -59,17 +54,32 @@ def test_design_k0b_skill_config_points_upstream() -> None:
     cfg = json.loads(_SKILL_CONFIG.read_text(encoding="utf-8"))
     compose = cfg["compose"]
     assert compose["tdt_section_registry_url"] == (
-        f"{_GH_DESIGN}42-tech-design-section-registry.json"
+        "lulu-dev-workflow/lulu-design/templates/section-registry.json"
     )
     assert compose["tdt_section_form_registry_url"] == (
         "lulu-dev-workflow/lulu-design/templates/section-form-registry.json"
     )
     # Prefix = skill runtime root; remainder is under installed/source skill tree.
     skill_root = _REPO / "lulu-dev-workflow"
-    rel = compose["tdt_section_form_registry_url"].split("/", 1)[1]
-    form_path = skill_root / rel
-    assert form_path.is_file()
-    form = json.loads(form_path.read_text(encoding="utf-8"))
+    for key in (
+        "tdt_section_registry_url",
+        "tdt_section_form_registry_url",
+        "tdt_section_kw_criteria_url",
+        "tdt_feature_role_instance_url",
+        "tdt_feature_domain_instance_url",
+    ):
+        assert compose[key].startswith(
+            "lulu-dev-workflow/lulu-design/templates/"
+        ), key
+        rel = compose[key].split("/", 1)[1]
+        assert (skill_root / rel).is_file(), key
+    # inductive scan criteria remains remote for now
+    assert compose["tdt_inductive_scan_criteria_url"].startswith("https://")
+    form = json.loads(
+        (skill_root / "lulu-design/templates/section-form-registry.json").read_text(
+            encoding="utf-8"
+        )
+    )
     assert form["sections"]["IF"]["reading_axis"] == (
         "address → named_faces → exercise"
     )

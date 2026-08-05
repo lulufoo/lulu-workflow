@@ -1,0 +1,15 @@
+{
+  "version": "1",
+  "$schema_id": "domain-schema",
+  "cycle_type": "feature",
+  "domain_id": "product_spec_feature",
+  "cognitive_frame": "Product requirement clarity grounded in decision traceability and user value: frames every question as whether a reader knows what to build, for whom, within what boundaries, and how to observe success — without implementation detail — with scope clarity and observable acceptance as part of the genre mission.",
+  "expression_conventions": {
+    "register": "user- and outcome-oriented prose in each section intent; lead with who/what/why before how; forbid marketing and implementation register; prefer before→after outcome contrast at the product level when facts support it",
+    "carriers": "follow Derive F/C from section-form-registry; prefer bullet lists for capabilities and acceptance checks; one concrete scenario example where scenario intent applies (or explicit N/A); one-line empty/failure note on flows when relevant; no architecture diagrams or code-level steps",
+    "scannability": "short items over walls; comparable claims in tables; contrast partitions only when facts already contain the contrast; do not mix goals, scope, and acceptance in one dense paragraph; present those concerns in separate leaves or blocks rather than one undifferentiated surface",
+    "altitude": "product requirements only — observable acceptance; no file paths, APIs, or stack choices"
+  },
+  "intent_anchor": "decision-doc remains SSOT for scope and boundaries; product-spec states what and why, not how to implement; technical feasibility and architecture belong to downstream technical stages — flag product-level assumptions only when they affect scope or acceptance",
+  "audience_type": "primary: product owner and stakeholders confirming scope; secondary: downstream technical readers who need unambiguous requirements — after a clear through-line, a reader can state what is in/out of scope and how to verify done, or point to section-level gaps"
+}

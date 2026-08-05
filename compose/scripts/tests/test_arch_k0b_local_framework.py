@@ -35,11 +35,6 @@ _DIMENSION_DEF = (
 )
 _METHOD = _REPO / "lulu-dev-workflow" / "lulu-arch" / "eval" / "methods" / "arch-quality.md"
 _SOT = _REPO / "lulu-dev-workflow" / "lulu-arch" / "eval" / "sots" / "arch-quality.md"
-_GH_ARCH = (
-    "https://github.com/lulufoo/lulu-workflow-framework/blob/main/"
-    "lulu-dev-workflow/template/arch/"
-)
-
 
 def test_arch_k0b_section_registry_presence_and_remap() -> None:
     data = tech_arch_section_registry()
@@ -57,19 +52,20 @@ def test_arch_k0b_skill_config_uses_local_eval_templates() -> None:
     cfg = json.loads(_SKILL_CONFIG.read_text(encoding="utf-8"))
     compose = cfg["compose"]
     assert compose["tat_section_registry_url"] == (
-        f"{_GH_ARCH}tech-arch-topic-section-registry.json"
+        "lulu-dev-workflow/lulu-arch/templates/section-registry.json"
     )
     assert compose["tat_section_form_registry_url"] == (
         "lulu-dev-workflow/lulu-arch/templates/section-form-registry.json"
     )
-    form_path = _REPO / compose["tat_section_form_registry_url"]
-    assert form_path.is_file()
-    for remote_key in (
+    for key in (
+        "tat_section_registry_url",
+        "tat_section_form_registry_url",
         "tat_section_kw_criteria_url",
         "tat_topic_role_instance_url",
         "tat_topic_domain_instance_url",
     ):
-        assert compose[remote_key].startswith("https://"), remote_key
+        assert compose[key].startswith("lulu-dev-workflow/lulu-arch/templates/"), key
+        assert (_REPO / compose[key]).is_file(), key
     assert "eval" not in cfg
 
     dimension = json.loads(_DIMENSION_DEF.read_text(encoding="utf-8"))

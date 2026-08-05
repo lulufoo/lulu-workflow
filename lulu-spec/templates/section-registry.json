@@ -1,0 +1,263 @@
+{
+  "version": "1",
+  "profile_id": "lulu-spec",
+  "section_order": [
+    "PB",
+    "RN",
+    "GO",
+    "UR",
+    "SN",
+    "SC",
+    "IO",
+    "FL",
+    "NG",
+    "AC"
+  ],
+  "document_preamble": "# {Feature Name} Product Spec\n\n**Date:** YYYY-MM-DD\n**Version:** v1.0\n**Status:** Draft\n\n**Document References:**\n- Decision-doc: `{/<cycle_id>/product/diagnostic/decision-doc.md}`\n\n---\n",
+  "sections": {
+    "PB": {
+      "heading": "Problem",
+      "aliases": [
+        "problem",
+        "background",
+        "core problem"
+      ],
+      "upstream": [],
+      "relations": {},
+      "intent": "The current core problem to solve, with three reviewable elements: (1) the problem itself in plain product language; (2) verified situational facts (decision-doc or other checked evidence—not guesses); (3) impact—user- or business-level cost of leaving the problem unsolved. Must remain traceable to decision-doc.",
+      "intent_boundary": "Why-now timing belongs to RN. Goal outcomes and before→after success states belong to GO. Users, scenarios, scope, I/O objects, flows, non-goals, and acceptance belong to UR, SN, SC, IO, FL, NG, AC. Implementation detail does not belong here.",
+      "facets": [
+        "core problem",
+        "verified situational facts",
+        "problem impact",
+        "problem boundary",
+        "other"
+      ],
+      "presence": "required"
+    },
+    "RN": {
+      "heading": "Why Now",
+      "aliases": [
+        "why now",
+        "why do this now",
+        "trigger"
+      ],
+      "upstream": [
+        "PB"
+      ],
+      "relations": {
+        "PB": "operationalize"
+      },
+      "intent": "Why this is being done now: trigger, urgency, and timing window, with a checkable basis for the timing judgment (not a vague importance claim). Must stay consistent with PB.",
+      "intent_boundary": "Problem narrative and impact belong to PB. Quantified or before→after goal outcomes belong to GO. Feature lists, I/O objects, and flow steps belong to SC, IO, FL, AC.",
+      "facets": [
+        "trigger",
+        "urgency",
+        "timing window",
+        "delay cost",
+        "other"
+      ],
+      "presence": "required"
+    },
+    "GO": {
+      "heading": "Goal",
+      "aliases": [
+        "goal",
+        "objective",
+        "target outcome"
+      ],
+      "upstream": [
+        "PB",
+        "RN"
+      ],
+      "relations": {
+        "PB": "operationalize",
+        "RN": "operationalize"
+      },
+      "intent": "One primary observable target outcome or before→after success state for this round. Must align with decision-doc and be verifiable in principle by AC. Secondary outcomes may appear as AC checks; they must not spawn a second goal narrative.",
+      "intent_boundary": "Problem evidence belongs to PB. Why-now timing belongs to RN. User personas, scenario stories, feature-point enumeration, main-flow steps, and non-goal lists belong to UR, SN, SC, FL, NG. Metric dashboards and test commands do not belong here.",
+      "facets": [
+        "before after outcome",
+        "success state",
+        "rejected directions",
+        "other"
+      ],
+      "presence": "required"
+    },
+    "UR": {
+      "heading": "Users",
+      "aliases": [
+        "users",
+        "user",
+        "primary users"
+      ],
+      "upstream": [
+        "PB"
+      ],
+      "relations": {
+        "PB": "operationalize"
+      },
+      "intent": "Who the primary users are for this round: roles, needs, and relationship to the PB core problem (who is affected). Name out-of-service groups only when exclusion matters for scope clarity.",
+      "intent_boundary": "Typical scenario narratives and concrete examples belong to SN. Feature scope, I/O objects, flows, and acceptance belong to SC, IO, FL, AC.",
+      "facets": [
+        "primary roles",
+        "user needs",
+        "problem relationship",
+        "out of service users",
+        "other"
+      ],
+      "presence": "required"
+    },
+    "SN": {
+      "heading": "Scenarios",
+      "aliases": [
+        "scenarios",
+        "scenario",
+        "usage scenarios"
+      ],
+      "upstream": [
+        "UR"
+      ],
+      "relations": {
+        "UR": "operationalize"
+      },
+      "intent": "Usage scenarios grounded in UR: in what situation and how the user uses the capability. Require at least one concrete typical example a third party can interpret the same way. If no distinct scenario exists beyond UR, state explicit N/A with a one-line reason.",
+      "intent_boundary": "User role enumeration belongs to UR. Feature-point lists, I/O objects, step-by-step happy-path flows, and acceptance criteria belong to SC, IO, FL, AC. Do not re-list UR roles as the SN body.",
+      "facets": [
+        "usage situation",
+        "typical example",
+        "excluded scenarios",
+        "other"
+      ],
+      "presence": "required"
+    },
+    "SC": {
+      "heading": "Scope",
+      "aliases": [
+        "scope",
+        "feature scope",
+        "range"
+      ],
+      "upstream": [
+        "GO",
+        "SN"
+      ],
+      "relations": {
+        "GO": "operationalize",
+        "SN": "operationalize"
+      },
+      "intent": "This round's capability scope and explicit feature points: what is done and which capabilities are covered. When adjacent areas are easy to confuse, name the boundary at summary level (detail exclusions belong to NG).",
+      "intent_boundary": "Input/output object details belong to IO. Step-by-step flows belong to FL. Summary exclusions that protect GO/SC belong to NG. Acceptance criteria belong to AC. Implementation order and tech dependencies do not belong here.",
+      "facets": [
+        "in-scope capabilities",
+        "feature points",
+        "adjacent boundary",
+        "other"
+      ],
+      "presence": "required"
+    },
+    "IO": {
+      "heading": "I/O Surfaces",
+      "aliases": [
+        "io",
+        "input/output",
+        "objects operated on"
+      ],
+      "upstream": [
+        "SC"
+      ],
+      "relations": {
+        "SC": "instantiate"
+      },
+      "intent": "Main inputs, outputs, or objects operated on at product altitude: entities and boundaries of user or system interaction (screens, records, messages, channels—not code paths or APIs). Map each object to an SC capability when both appear. If there are no discrete I/O objects this round, state explicit N/A with a one-line reason.",
+      "intent_boundary": "Capability enumeration belongs to SC. Step-by-step flows, non-goals, and acceptance judgments belong to FL, NG, AC. File paths, module APIs, and stack choices do not belong here.",
+      "facets": [
+        "inputs",
+        "outputs",
+        "operated objects",
+        "surface to capability mapping",
+        "other"
+      ],
+      "presence": "required"
+    },
+    "FL": {
+      "heading": "Flow",
+      "aliases": [
+        "flow",
+        "workflow",
+        "key flow"
+      ],
+      "upstream": [
+        "SN",
+        "SC"
+      ],
+      "relations": {
+        "SN": "operationalize",
+        "SC": "operationalize"
+      },
+      "intent": "At least one main happy-path flow: entry, main path steps, and end conditions or goal-achievement markers. Include a one-line product-visible empty or key-failure note when the happy path would otherwise hide a common dead end; do not expand into runbooks or full alternate-path trees. Deferral of empty/failure detail must be explicit.",
+      "intent_boundary": "Scenario narrative without step inventory belongs to SN. New feature points belong to SC. Acceptance-criteria enumeration belongs to AC. Non-goals belong to NG. Implementation steps and technical recovery procedures do not belong here.",
+      "facets": [
+        "entry",
+        "main path",
+        "exit conditions",
+        "empty or failure visibility",
+        "other"
+      ],
+      "presence": "required"
+    },
+    "NG": {
+      "heading": "Non-Goals",
+      "aliases": [
+        "non-goals",
+        "boundaries",
+        "non-goal"
+      ],
+      "upstream": [
+        "GO",
+        "SC"
+      ],
+      "relations": {
+        "GO": "operationalize",
+        "SC": "respect_exclude"
+      },
+      "intent": "What is currently explicitly not being done—summary-level exclusions. Each exclusion needs a one-line note of the GO or SC boundary it protects. Do not restate SC body content. Prefer active choice wording over vague later-phase dumps.",
+      "intent_boundary": "Restatement of feature-scope body text belongs to SC. Flow steps belong to FL. Acceptance criteria belong to AC. Scheduling, owners, and RACI do not belong here.",
+      "facets": [
+        "explicit exclusions",
+        "protected boundary",
+        "inclusion trigger",
+        "other"
+      ],
+      "presence": "required"
+    },
+    "AC": {
+      "heading": "Acceptance",
+      "aliases": [
+        "acceptance",
+        "acceptance check",
+        "acceptance criteria"
+      ],
+      "upstream": [
+        "GO",
+        "SC",
+        "FL"
+      ],
+      "relations": {
+        "GO": "operationalize",
+        "SC": "instantiate",
+        "FL": "decompose"
+      },
+      "intent": "How to judge that Goal is achieved: observable, discussable completion conditions at product altitude (not test scripts, metric thresholds, or run commands). Include key flow results after FL completes. When decision-doc contains goal or flow ids, require trace-back annotations to GO or FL. On acceptance failure, state what remains unobserved relative to GO—not who approves rework.",
+      "intent_boundary": "New feature points and scope expansion belong to SC. Non-goals belong to NG. Flow step restatement belongs to FL. Implementation steps and technical design do not belong here.",
+      "facets": [
+        "goal achievement criteria",
+        "observable completion",
+        "flow result checks",
+        "trace back",
+        "other"
+      ],
+      "presence": "required"
+    }
+  }
+}

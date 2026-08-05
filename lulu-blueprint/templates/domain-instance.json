@@ -1,0 +1,15 @@
+{
+  "version": "1",
+  "$schema_id": "domain-schema",
+  "cycle_type": "topic",
+  "domain_id": "product_blueprint_topic",
+  "cognitive_frame": "Topic product architecture shaping before any feature cycle is opened: judge whether the topic-level product direction is sound, whether cross-feature capability boundaries and value evolution are visible, and whether downstream feature work can inherit product premises without re-deriving partitions — not whether a single feature's PRD or technical architecture is complete.",
+  "expression_conventions": {
+    "register": "analytical product prose; capability narratives may use causal chains; forbid implementation register and single-feature PRD detail",
+    "carriers": "diagrams = capability partition / dependency / cross-domain journey (not decoration); tables = compare or enumerate product paths; prose = analysis",
+    "scannability": "short items over walls; comparable claims in tables; contrast partitions only when facts already contain the contrast; do not mix direction, boundaries, and milestones in one dense block; present those concerns in separate leaves or blocks rather than one undifferentiated surface",
+    "altitude": "topic-level product shaping only — no user-story backlogs, acceptance-criteria matrices, or technical module specs"
+  },
+  "intent_anchor": "all content must be traceable to the upstream decision-doc SSOT; no intents beyond that scope; no enterprise-wide portfolio restructuring unless authorized there; downstream feature cycles inherit topic product structure from this document without guessing capability partitions",
+  "audience_type": "product leads validating topic direction; stakeholders judging whether a feature cycle may open; reviewers deciding whether shaping is complete — after a clear through-line at milestone granularity, the reader can affirm direction or point to section-level gaps"
+}

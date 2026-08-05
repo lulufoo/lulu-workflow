@@ -1,0 +1,15 @@
+{
+  "version": "1",
+  "$schema_id": "domain-schema",
+  "cycle_type": "feature",
+  "domain_id": "tech_design_feature",
+  "cognitive_frame": "Technical solution design is the work of turning a chosen direction into a reviewable engineering design: place the change in the existing system, make cross-boundary dependencies and flows explicit, and lock structure, contracts, and verification/operability strategy in enough detail that humans and AI share one understanding for human sign-off — with contract clarity and reviewability for that sign-off as part of the genre mission.",
+  "expression_conventions": {
+    "register": "review-oriented precise engineering prose in each section intent; name components, interfaces, and states; forbid vague placeholders, architecture-vision essays, platform roadmaps, and scope-expansion storytelling",
+    "carriers": "follow Derive F/C from section-form-registry",
+    "scannability": "short items over walls; comparable claims in tables; contrast partitions only when facts already contain the contrast; do not mix background, contracts, and binding choices in one dense paragraph; present contract-related concerns in separate leaves or blocks rather than one undifferentiated surface",
+    "altitude": "readers act on placement, responsibilities, and contracts without re-deriving intent from body prose; detailed code loci and codebase claims stay out of body prose"
+  },
+  "intent_anchor": "minimize inference space for adopted design intent",
+  "audience_type": "technical owners confirming the design matches expected intent; reviewers validating trade-offs and open items — after a clear through-line that is systemic, detailed, and accurate, the signer can affirm the documented design or point to section-level gaps"
+}
