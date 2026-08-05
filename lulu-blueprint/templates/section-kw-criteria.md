@@ -1,6 +1,6 @@
 # Product Blueprint (Topic) — Section KW Criteria
 
-Topic-level product architecture shaping only — not feature PRD or technical architecture.
+> Per-lens KW altitude ruler: what an independent observer can know about that intent without guessing.
 
 ---
 

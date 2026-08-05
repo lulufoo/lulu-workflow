@@ -1,5 +1,7 @@
 # Tech Design — Section KW Criteria
 
+> Per-lens KW altitude ruler: what an independent observer can know about that intent without guessing.
+
 ---
 
 ## CTX

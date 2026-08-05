@@ -1,14 +1,6 @@
 # Tech Plan — Section KW Criteria
 
-> Reference for prober-runner execution. KW-level definition per section: what an independent observer can know about this intent without guessing.
->
-> **Pairing:** `42-tech-plan-section-registry.json` — execution-readiness intent chain (`CTX → GO → SC → AR → I → SK → T → VF`).
->
-> **Pairing (form):** `49-tech-plan-section-form-registry.json` — per-intent F/C (presentation layer only; intent substance stays in section-registry).
->
-> **Thickness (Plan):** KW is the stop/continue ruler for deductive ceiling on that lens — not a rewrite of intake tags. Prefer thin upstream lenses (CTX/GO/SC/AR sketch) and thicker T/VF execution and verification. See archive design `compose-plan-kw-criteria-thick-thin-design.md`.
-
-**Section keys:** match `section_order` / `sections.{key}` in section registry (`tpt_section_registry_url`). Locate the block `## {section_key}` below — not H2 display titles from tech-doc.
+> Per-lens KW altitude ruler: what an independent observer can know about that intent without guessing.
 
 ---
 

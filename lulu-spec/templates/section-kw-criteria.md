@@ -1,14 +1,6 @@
 # Product Spec — Section KW Criteria
 
-> Reference for prober-runner execution. KW-level definition per section: what an independent observer can know about this intent without guessing.
->
-> **Pairing:** `20-product-spec-section-registry.json` — product intent chain (`PB → RN → GO → UR → SN → SC → IO → FL → NG → AC`).
->
-> **Pairing (form):** `25-product-spec-section-form-registry.json` — per-intent F/C (presentation layer only; intent substance stays in section-registry).
->
-> **Altitude:** KW checks product-doc substance. Test commands, metric thresholds, owners/RACI, and implementation mechanics are out of altitude unless a KW row explicitly allows an explicit N/A or deferral note.
-
-**Section keys:** match `section_order` / `sections.{key}` in section registry (`pst_section_registry_url`). Locate the block `## {section_key}` below — not outline H2 display titles from product-doc.
+> Per-lens KW altitude ruler: what an independent observer can know about that intent without guessing.
 
 ---
 

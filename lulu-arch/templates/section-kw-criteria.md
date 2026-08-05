@@ -1,6 +1,6 @@
 # Tech Arch (Topic) — Section KW Criteria
 
-Topic-level architecture shaping only — not feature solution design or execution planning.
+> Per-lens KW altitude ruler: what an independent observer can know about that intent without guessing.
 
 ---
 
