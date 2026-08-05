@@ -1,0 +1,295 @@
+{
+  "version": "1",
+  "$schema_id": "section-form-schema",
+  "profile_id": "tech-plan",
+  "sections": {
+    "CTX": {
+      "presentation": {
+        "guidance": "Narrative prose carrier; situational lead-in before optional path or code anchors; compact opening arc.",
+        "allowed": [
+          {
+            "carrier": "narrative prose with situational lead-in",
+            "structure": "prose",
+            "when": "Single situational narrative; not ≥2 column-aligned comparable items."
+          }
+        ],
+        "forbidden": [
+          "Scope, exclusion, or touch-surface enumeration tables",
+          "Architecture or flow diagrams",
+          "Before→after or success-criteria table carriers",
+          "Checkbox steps, phase markers, task ids, or verification checklist tables"
+        ]
+      },
+      "expression": {
+        "required": [
+          "Opens with narrative prose before path, file, or code inventories",
+          "When concrete anchors appear: they follow situational lead-in rather than opening the section"
+        ],
+        "forbidden": [
+          "Opening paragraphs that lead with file:line chains or path inventories"
+        ]
+      },
+      "reading_axis": "frame → pressure → unresolved"
+    },
+    "GO": {
+      "presentation": {
+        "guidance": "Prefer compact outcomes prose or a Before→After success-state table; at most one upstream bridging phrase.",
+        "allowed": [
+          {
+            "carrier": "compact outcomes prose",
+            "structure": "prose",
+            "when": "One outcome narrative; not ≥2 before|after-aligned rows."
+          },
+          {
+            "carrier": "Before→After two-column success-state table",
+            "structure": "table",
+            "when": "≥2 checkable dimensions sharing before|after columns."
+          }
+        ],
+        "forbidden": [
+          "Scope or path inventory enumeration tables",
+          "Architecture diagrams or module-responsibility graphs",
+          "Phase tables, checkbox steps, or verification command blocks",
+          "Acceptance-criteria checklists, layered L0/L1/L2 verdict tables, or AC-to-task trace tables as primary Goal carrier"
+        ]
+      },
+      "expression": {
+        "required": [
+          "When table carrier is used: two-column Before→After success-state view — checkable Before/After states only, not verification-step rows, acceptance-step rows, or layered verdict rows",
+          "At most one transitional bridging phrase before the outcomes block"
+        ],
+        "forbidden": [
+          "Multi-paragraph upstream problem narrative rehash",
+          "Observable acceptance procedures or layered behavioral test tables hosted under Goal"
+        ]
+      },
+      "reading_axis": "before → after → checkable"
+    },
+    "SC": {
+      "presentation": {
+        "guidance": "Prefer enumeration list or table carriers; prefer tabular or two-column layout when item count exceeds two.",
+        "allowed": [
+          {
+            "carrier": "enumeration list",
+            "structure": "list",
+            "when": "≤2 touch/exclusion items; not a shared-column matrix."
+          },
+          {
+            "carrier": "two-column or category table",
+            "structure": "table",
+            "when": "≥2 items sharing surface|change or in|out columns."
+          }
+        ],
+        "forbidden": [
+          "Numbered invariant checklist carrier",
+          "Architecture diagram as primary carrier",
+          "Option-comparison tables with rationale columns",
+          "Phase tables, checkbox task blocks, or verification checklist rows",
+          "Host–consumer RACI matrices or collaboration-protocol essays as primary Scope carrier"
+        ]
+      },
+      "expression": {
+        "required": [
+          "When more than two enumeration items appear: structured or tabular carrier rather than inline prose only",
+          "Cite touch-surface file/directory paths as workspace-root markdown links (`/`-prefixed, e.g. `[frontend/app.css](/frontend/app.css)`) so they open in the editor",
+          "When the change has deferred or excluded commitments: explicit Non-Goals / out-of-scope / deferred rows or list (not only in-scope surfaces)"
+        ],
+        "forbidden": [
+          "Bare-backtick path citation for a touch-surface row when the path is a navigable anchor",
+          "Scope section that lists only inclusions when Non-Goals / deferred exclusions are part of the decided plan substance"
+        ]
+      },
+      "reading_axis": "in → out → deferred"
+    },
+    "AR": {
+      "presentation": {
+        "guidance": "Prefer diagrams for structural claims (components, control/data flow, state). Prefer short items over walls of prose for non-structural notes. Carrier priority: diagram, then table, then ordinary Markdown; fenced only for high-level literal sketches (e.g. directory tree, wireframe/ASCII layout)—never as a primary carrier.",
+        "allowed": [
+          {
+            "carrier": "flow or architecture diagram",
+            "structure": "diagram",
+            "when": "Directed structure/flow; readable only as a diagram."
+          },
+          {
+            "carrier": "table",
+            "structure": "table",
+            "when": "≥2 isomorphic structural rows under shared columns."
+          },
+          {
+            "carrier": "ordinary Markdown",
+            "structure": "prose",
+            "when": "Brief non-structural notes; not matrix or diagram."
+          },
+          {
+            "carrier": "high-level literal sketch as a language-tagged code block",
+            "structure": "fenced",
+            "when": "Literal sketch only (tree/wireframe); not primary structure."
+          }
+        ],
+        "forbidden": [
+          "Diagrams without structural or flow semantics in caption or lead-in",
+          "Carriers that belong to SK, T, or VF: phase tables with Done When; checkbox or per-file edit blocks; verification checklist or trace-table carriers",
+          "Fenced blocks as the primary carrier for structure, contracts, or explanation — except high-level literal sketches",
+          "Stepwise recipe or ordered-procedure blocks as the primary Architecture carrier"
+        ]
+      },
+      "expression": {
+        "required": [
+          "When diagram carrier is used: structural or flow semantics stated in caption or adjacent lead-in prose",
+          "Structural claims stay at sketch depth (components, responsibility split, key interfaces/flows)",
+          "Non-structural notes are brief ordinary Markdown, not a fenced plain-text block",
+          "Non-structural notes are independently locatable and not buried as trailing content under a structural narrative"
+        ],
+        "forbidden": [
+          "Implementation how-to in AR (with or without paths)—belongs to T"
+        ]
+      },
+      "reading_axis": "topology → duty → rationale"
+    },
+    "I": {
+      "presentation": {
+        "guidance": "Numbered or bulleted list carrier; each line a self-contained sentence.",
+        "allowed": [
+          {
+            "carrier": "numbered list (one constraint per item)",
+            "structure": "list",
+            "when": "≥1 independent constraint; order matters."
+          },
+          {
+            "carrier": "bulleted list (one constraint per item)",
+            "structure": "list",
+            "when": "≥1 independent constraint; order does not matter."
+          }
+        ],
+        "forbidden": [
+          "Option-comparison tables with rationale columns",
+          "Phase tables, checkbox steps, or run-command checklist rows"
+        ]
+      },
+      "expression": {
+        "required": [
+          "When constraint lines appear: numbered or bulleted list carrier",
+          "Each list item is a complete sentence — not pointer-only bullets"
+        ],
+        "forbidden": [
+          "Pointer-only bullets without constraint text in the same line"
+        ]
+      },
+      "reading_axis": "proposition → breach → judgment"
+    },
+    "SK": {
+      "presentation": {
+        "guidance": "Prefer a short execution-arc lead-in, then a phase table carrier with Done When, Depends On, Parallel, and reversibility columns.",
+        "allowed": [
+          {
+            "carrier": "execution-arc lead-in",
+            "structure": "prose",
+            "when": "Short execution-arc lead-in before phases."
+          },
+          {
+            "carrier": "phase table with Done When, Depends On, Parallel, reversibility columns",
+            "structure": "table",
+            "when": "≥1 phase row with Done When column."
+          }
+        ],
+        "forbidden": [
+          "Checkbox steps or task-granularity lists",
+          "Per-file change lists or Task Detail fenced blocks",
+          "Verification checklist or AC trace-table carrier"
+        ]
+      },
+      "expression": {
+        "required": [
+          "Execution-arc lead-in immediately before the phase table",
+          "Phase table carrier with Done When column",
+          "When dependency or reversibility facts appear in body: Depends On and reversibility as columns or row notes in the same table",
+          "Each phase-table field appears once: content/description is a short intent phrase, not a copy of Done When"
+        ],
+        "forbidden": [
+          "Same long Done When (or equivalent completion) prose repeated in both content and Done When cells"
+        ]
+      },
+      "reading_axis": "arc → phases → gates"
+    },
+    "T": {
+      "presentation": {
+        "guidance": "Prefer a Task Index table plus Change Overview per-task subsections with concrete how-to bullets and navigable path links; checkbox steps optional; never a fenced-text-only block as the sole Task Detail carrier.",
+        "allowed": [
+          {
+            "carrier": "Task Index with SK phase id trace column",
+            "structure": "table",
+            "when": "≥1 task needing SK-phase trace in an index."
+          },
+          {
+            "carrier": "Change Overview with per-task subsections and how-to bullets",
+            "structure": "list",
+            "when": "Per-task how-to after the index."
+          },
+          {
+            "carrier": "Optional checkbox-step supplement under a task",
+            "structure": "checklist",
+            "when": "Optional step checklist under a task; not sole task body."
+          }
+        ],
+        "forbidden": [
+          "Prose-only task how-to when file paths are present in the same section",
+          "Task Detail delivered only as a fenced plain-text block",
+          "SK-style phase table with Done When columns",
+          "Verification checklist or AC trace-table carrier"
+        ]
+      },
+      "expression": {
+        "required": [
+          "Task Index section with SK phase id in a trace column or inline reference",
+          "Each Task Index summary states what changes (substance), not only Create/Modify / Test / type labels",
+          "Change Overview expands each task into at least one concrete how-to subsection or bullet group",
+          "Cite task file paths as workspace-root markdown links (`/`-prefixed) so they open in the editor"
+        ],
+        "forbidden": [
+          "Task Index rows whose summary is only a generic type label (e.g. Create/Modify, Test) with no change substance"
+        ]
+      },
+      "reading_axis": "index → how → paths"
+    },
+    "VF": {
+      "presentation": {
+        "guidance": "Prefer acceptance-criteria checklist or AC table as primary carriers; use an AC-to-task-id trace table when mapping is needed.",
+        "allowed": [
+          {
+            "carrier": "checklist (one row per acceptance criterion)",
+            "structure": "checklist",
+            "when": "Flat AC list; one criterion per row."
+          },
+          {
+            "carrier": "AC / layered behavioral criteria table",
+            "structure": "table",
+            "when": "≥2 AC rows sharing criteria columns."
+          },
+          {
+            "carrier": "AC-to-task-id trace table",
+            "structure": "table",
+            "when": "AC ids and task ids both present; need AC↔task columns."
+          }
+        ],
+        "forbidden": [
+          "Checkbox implementation task bodies",
+          "Architecture diagram carrier",
+          "SK-style phase planning table with Done When columns",
+          "Before→After success-state table as the sole Verification carrier without acceptance or AC↔task structure"
+        ]
+      },
+      "expression": {
+        "required": [
+          "Checklist, AC criteria table, or AC-to-task trace-table as primary structure",
+          "When AC rows exist: AC-to-task-id mapping present (trace table or equivalent row alignment)",
+          "When AC labels and task ids both appear: row-aligned AC-to-task-id trace columns",
+          "When assumption-close rows appear: checklist rows — not SK phase tables or T checkbox bodies; explicit none if empty"
+        ],
+        "forbidden": [
+          "Leaving AC rows without any AC↔task traceability when task ids are defined in the plan"
+        ]
+      },
+      "reading_axis": "criteria → method → trace"
+    }
+  }
+}

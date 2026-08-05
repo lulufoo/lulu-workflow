@@ -59,8 +59,12 @@ def test_arch_k0b_skill_config_uses_local_eval_templates() -> None:
     assert compose["tat_section_registry_url"] == (
         f"{_GH_ARCH}tech-arch-topic-section-registry.json"
     )
+    assert compose["tat_section_form_registry_url"] == (
+        "lulu-dev-workflow/lulu-arch/templates/section-form-registry.json"
+    )
+    form_path = _REPO / compose["tat_section_form_registry_url"]
+    assert form_path.is_file()
     for remote_key in (
-        "tat_section_form_registry_url",
         "tat_section_kw_criteria_url",
         "tat_topic_role_instance_url",
         "tat_topic_domain_instance_url",

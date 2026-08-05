@@ -75,8 +75,11 @@ def test_blueprint_k0b_skill_config_uses_local_eval_templates() -> None:
     assert compose["pbt_section_registry_url"] == (
         f"{_GH_BLUEPRINT}product-blueprint-topic-section-registry.json"
     )
+    assert compose["pbt_section_form_registry_url"] == (
+        "lulu-dev-workflow/lulu-blueprint/templates/section-form-registry.json"
+    )
+    assert (_REPO / compose["pbt_section_form_registry_url"]).is_file()
     for remote_key in (
-        "pbt_section_form_registry_url",
         "pbt_section_kw_criteria_url",
         "pbt_topic_role_instance_url",
         "pbt_topic_domain_instance_url",

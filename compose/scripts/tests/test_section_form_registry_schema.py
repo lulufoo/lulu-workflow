@@ -56,12 +56,11 @@ def test_validate_form_alignment():
     assert validate_section_form_alignment(form, intent) == []
 
 
-def test_product_spec_form_unavailable_until_upgraded():
-    """Other stages remain on old form shape → hard-format validate fails."""
-    errors = validate_section_form_registry(PRODUCT_SPEC_FORM)
-    assert errors
-    joined = "\n".join(errors)
-    assert "reading_axis" in joined or "when" in joined or "legacy" in joined
+def test_product_spec_builtin_form_passes_hard_format():
+    assert validate_section_form_registry(PRODUCT_SPEC_FORM) == []
+    form = normalize_section_form_registry(PRODUCT_SPEC_FORM)
+    assert "reading_axis" in form["sections"]["PB"]
+    assert form["sections"]["PB"]["presentation"]["allowed"][0]["when"]
 
 
 def test_validate_rejects_intent_fields_in_form():

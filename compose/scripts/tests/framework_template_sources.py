@@ -53,10 +53,22 @@ def product_spec_section_registry() -> dict[str, Any]:
     return load_framework_json("spec", "20-product-spec-section-registry.json")
 
 
+def _skill_builtin_section_form_registry(stage_dir: str) -> dict[str, Any]:
+    """Local skill builtin form SSOT under lulu-dev-workflow/<stage>/templates/."""
+    path = (
+        Path(__file__).resolve().parents[4]
+        / "lulu-dev-workflow"
+        / stage_dir
+        / "templates"
+        / "section-form-registry.json"
+    )
+    if not path.is_file():
+        raise FileNotFoundError(f"section-form-registry not found: {path}")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
 def product_spec_section_form_registry() -> dict[str, Any]:
-    return load_framework_json("spec", "25-product-spec-section-form-registry.json")
-
-
+    return _skill_builtin_section_form_registry("lulu-spec")
 
 
 def product_spec_inductive_scan_criteria() -> dict[str, Any]:
@@ -68,19 +80,7 @@ def tech_design_section_registry() -> dict[str, Any]:
 
 
 def tech_design_section_form_registry() -> dict[str, Any]:
-    """Design form SSOT: local builtin (skill-config tdt_section_form_registry_url)."""
-    path = (
-        Path(__file__).resolve().parents[4]
-        / "lulu-dev-workflow"
-        / "lulu-design"
-        / "templates"
-        / "section-form-registry.json"
-    )
-    if not path.is_file():
-        raise FileNotFoundError(f"design section-form-registry not found: {path}")
-    return json.loads(path.read_text(encoding="utf-8"))
-
-
+    return _skill_builtin_section_form_registry("lulu-design")
 
 
 def tech_plan_section_registry() -> dict[str, Any]:
@@ -88,7 +88,7 @@ def tech_plan_section_registry() -> dict[str, Any]:
 
 
 def tech_plan_section_form_registry() -> dict[str, Any]:
-    return load_framework_json("plan", "49-tech-plan-section-form-registry.json")
+    return _skill_builtin_section_form_registry("lulu-plan")
 
 
 

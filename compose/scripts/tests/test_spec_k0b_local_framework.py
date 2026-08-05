@@ -50,6 +50,10 @@ def test_spec_k0b_skill_config_points_upstream() -> None:
     assert compose["pst_section_registry_url"] == (
         f"{_GH_SPEC}20-product-spec-section-registry.json"
     )
+    assert compose["pst_section_form_registry_url"] == (
+        "lulu-dev-workflow/lulu-spec/templates/section-form-registry.json"
+    )
+    assert (_REPO / compose["pst_section_form_registry_url"]).is_file()
 
 
 def test_spec_k0b_profile_has_no_display_layer_flag() -> None:

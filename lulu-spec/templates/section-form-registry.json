@@ -1,0 +1,315 @@
+{
+  "version": "1",
+  "$schema_id": "section-form-schema",
+  "profile_id": "lulu-spec",
+  "sections": {
+    "PB": {
+      "presentation": {
+        "guidance": "Problem-domain narrative carrier; verified situational facts and impact; compact opening arc; no goal tables or capability lists.",
+        "allowed": [
+          {
+            "carrier": "Problem narrative prose (verified situational facts and impact)",
+            "structure": "prose",
+            "when": "Single problem narrative; not ≥2 column-aligned comparable items."
+          }
+        ],
+        "forbidden": [
+          "Before→after or success-state table carriers (belongs in GO)",
+          "Capability or scope enumeration tables (belongs in SC)",
+          "User scenario narrative (belongs in SN)",
+          "Happy-path step lists (belongs in FL)",
+          "Acceptance item lists (belongs in AC)"
+        ]
+      },
+      "expression": {
+        "required": [
+          "Opens with problem narrative before goal or enumeration blocks",
+          "States impact of leaving the problem unsolved, or cites decision-doc impact already established"
+        ],
+        "forbidden": [
+          "File paths, APIs, or stack choices"
+        ]
+      },
+      "reading_axis": "situation → impact → unsolved_cost"
+    },
+    "RN": {
+      "presentation": {
+        "guidance": "Why-now trigger narrative; at most one bridging phrase from PB; urgency or window framing with checkable basis; no capability or flow content.",
+        "allowed": [
+          {
+            "carrier": "Why-now trigger narrative prose",
+            "structure": "prose",
+            "when": "Why-now trigger narrative with checkable timing basis."
+          }
+        ],
+        "forbidden": [
+          "Before→after goal table carriers (belongs in GO)",
+          "Capability or I/O enumerations (belongs in SC/IO)",
+          "Step-by-step flow (belongs in FL)",
+          "Acceptance criteria (belongs in AC)"
+        ]
+      },
+      "expression": {
+        "required": [
+          "At most one transitional bridging phrase before trigger/urgency content",
+          "Timing judgment names a checkable basis (event, window, or dependency), not importance alone"
+        ],
+        "forbidden": []
+      },
+      "reading_axis": "trigger → window → checkable_basis"
+    },
+    "GO": {
+      "presentation": {
+        "guidance": "Observable before→after or success-state prose/table carrier; at most one upstream bridging phrase; brief rejected-direction note inline when decision-doc compares options.",
+        "allowed": [
+          {
+            "carrier": "Before → After two-column table or equivalent success-state view",
+            "structure": "table",
+            "when": "≥2 checkable dimensions sharing before|after columns."
+          }
+        ],
+        "forbidden": [
+          "Capability or scope enumeration tables (belongs in SC)",
+          "User scenario narrative (belongs in SN)",
+          "Happy-path step lists (belongs in FL)",
+          "Acceptance item lists (belongs in AC)"
+        ]
+      },
+      "expression": {
+        "required": [
+          "When table carrier is used: two-column Before→After or equivalent success-state view",
+          "At most one transitional bridging phrase before the outcomes block",
+          "One primary success state for this round (secondary outcomes may move to AC)"
+        ],
+        "forbidden": [
+          "Multi-paragraph PB problem rehash"
+        ]
+      },
+      "reading_axis": "before → after → primary_success"
+    },
+    "UR": {
+      "presentation": {
+        "guidance": "User role list or short persona carrier; enumeration when more than one primary user; no scenario story bodies.",
+        "allowed": [
+          {
+            "carrier": "User role list or persona carrier",
+            "structure": "list",
+            "when": "≤2 primary roles; not a shared-column matrix."
+          },
+          {
+            "carrier": "Structured table when multiple roles appear",
+            "structure": "table",
+            "when": "≥2 roles sharing role|stake columns."
+          }
+        ],
+        "forbidden": [
+          "Full scenario narrative with steps (belongs in SN)",
+          "Capability or I/O object enumerations (belongs in SC/IO)",
+          "Happy-path flow steps (belongs in FL)",
+          "Acceptance criteria (belongs in AC)"
+        ]
+      },
+      "expression": {
+        "required": [
+          "When multiple user roles appear: structured list or table carrier rather than inline prose only",
+          "Each primary role ties to the PB problem (who is affected)"
+        ],
+        "forbidden": []
+      },
+      "reading_axis": "who → stake → affected"
+    },
+    "SN": {
+      "presentation": {
+        "guidance": "Scenario narrative carrier with at least one concrete example slot; users established upstream — do not re-enumerate UR. Explicit N/A allowed when no distinct scenario exists.",
+        "allowed": [
+          {
+            "carrier": "Scenario narrative prose with concrete example slot",
+            "structure": "prose",
+            "when": "Distinct scenario with a concrete example slot."
+          },
+          {
+            "carrier": "Explicit N/A note when no distinct scenario beyond UR",
+            "structure": "prose",
+            "when": "No distinct scenario beyond UR; N/A with one-line reason."
+          }
+        ],
+        "forbidden": [
+          "Capability or I/O object enumerations (belongs in SC/IO)",
+          "Step-by-step happy-path flow (belongs in FL)",
+          "Acceptance criteria lists (belongs in AC)",
+          "Non-goal exclusion lists (belongs in NG)"
+        ]
+      },
+      "expression": {
+        "required": [
+          "One concrete scenario example with situational context, or an explicit N/A with a one-line reason"
+        ],
+        "forbidden": [
+          "Re-listing UR roles as the SN body without situational context"
+        ]
+      },
+      "reading_axis": "situation → actor → concrete_slot"
+    },
+    "SC": {
+      "presentation": {
+        "guidance": "Capability enumeration carrier; prefer list or table when item count exceeds two; no step-by-step flow.",
+        "allowed": [
+          {
+            "carrier": "Capability enumeration list",
+            "structure": "list",
+            "when": "≤2 capabilities; not a shared-column matrix."
+          },
+          {
+            "carrier": "Capability enumeration table",
+            "structure": "table",
+            "when": "≥2 capabilities sharing capability columns."
+          }
+        ],
+        "forbidden": [
+          "Happy-path step narrative (belongs in FL)",
+          "Non-goals or exclusions (belongs in NG)",
+          "Acceptance checks (belongs in AC)"
+        ]
+      },
+      "expression": {
+        "required": [
+          "In document flow, SC capability enumeration appears before IO surfaces",
+          "When more than two capability items appear: structured or list carrier rather than inline prose only"
+        ],
+        "forbidden": []
+      },
+      "reading_axis": "capability → coverage → bound"
+    },
+    "IO": {
+      "presentation": {
+        "guidance": "I/O object enumeration carrier following SC; list or table form; map objects to SC capabilities when both appear. Product surfaces only — not code paths.",
+        "allowed": [
+          {
+            "carrier": "I/O object list, mapped to SC capabilities",
+            "structure": "list",
+            "when": "≤2 I/O objects; not a shared-column matrix."
+          },
+          {
+            "carrier": "I/O object table, mapped to SC capabilities",
+            "structure": "table",
+            "when": "≥2 I/O objects sharing object|sc_map columns."
+          },
+          {
+            "carrier": "Explicit N/A note when no discrete I/O objects this round",
+            "structure": "prose",
+            "when": "No discrete I/O objects this round; N/A with one-line reason."
+          }
+        ],
+        "forbidden": [
+          "Happy-path step narrative (belongs in FL)",
+          "Non-goal restatement (belongs in NG)",
+          "Acceptance item lists (belongs in AC)",
+          "File paths, module APIs, or stack choices"
+        ]
+      },
+      "expression": {
+        "required": [
+          "When I/O objects appear: structured list or table carrier mapped to SC",
+          "When no discrete I/O objects: explicit N/A with a one-line reason"
+        ],
+        "forbidden": []
+      },
+      "reading_axis": "object → sc_map → product_surface"
+    },
+    "FL": {
+      "presentation": {
+        "guidance": "Single happy-path flow carrier: entry → main path steps → exit condition; optional one-line empty/failure visibility note; no acceptance lists or scope expansion.",
+        "allowed": [
+          {
+            "carrier": "Happy-path flow list (entry → main steps → exit)",
+            "structure": "list",
+            "when": "Ordered happy-path (entry → steps → exit)."
+          },
+          {
+            "carrier": "Happy-path flow table (stage | action | goal signal)",
+            "structure": "table",
+            "when": "≥2 stages sharing stage|action|signal columns."
+          },
+          {
+            "carrier": "One-line empty or key-failure visibility note (or explicit deferral)",
+            "structure": "prose",
+            "when": "One-line empty/failure visibility note, or explicit deferral."
+          }
+        ],
+        "forbidden": [
+          "Acceptance item lists (belongs in AC)",
+          "Non-goal restatement (belongs in NG)",
+          "New capability expansion (belongs in SC)",
+          "Full alternate-path trees or recovery runbooks"
+        ]
+      },
+      "expression": {
+        "required": [
+          "Single happy-path flow structure (entry, main path, exit condition)",
+          "One-line empty/failure visibility note, or an explicit deferral of that detail"
+        ],
+        "forbidden": []
+      },
+      "reading_axis": "entry → main_path → exit"
+    },
+    "NG": {
+      "presentation": {
+        "guidance": "Bullet or short two-column exclusion carrier; one row or bullet per exclusion with brief boundary-protection note; do not repeat SC body.",
+        "allowed": [
+          {
+            "carrier": "Exclusion bullet or two-column table (item | protected boundary)",
+            "structure": "table",
+            "when": "≥1 exclusion needing item|protected columns."
+          }
+        ],
+        "forbidden": [
+          "Happy-path steps (belongs in FL)",
+          "Acceptance standards (belongs in AC)"
+        ]
+      },
+      "expression": {
+        "required": [
+          "Each exclusion occupies one bullet or one table row — no nested rationale essays inside a single row",
+          "Each exclusion names the GO or SC boundary it protects"
+        ],
+        "forbidden": [
+          "Repeating SC scope body verbatim"
+        ]
+      },
+      "reading_axis": "exclusion → protected → go_sc_link"
+    },
+    "AC": {
+      "presentation": {
+        "guidance": "Observable acceptance checklist or trace-table carrier; row-aligned trace-back to GO or FL when decision-doc names goal or flow ids.",
+        "allowed": [
+          {
+            "carrier": "Observable acceptance checklist",
+            "structure": "list",
+            "when": "Flat observable AC list; one criterion per row."
+          },
+          {
+            "carrier": "Acceptance trace-table (item | observable result | trace-back)",
+            "structure": "table",
+            "when": "≥2 AC rows needing observable|trace-back columns."
+          }
+        ],
+        "forbidden": [
+          "New capabilities or scope expansion (belongs in SC)",
+          "Flow step restatement (belongs in FL)",
+          "Non-goal items (belongs in NG)",
+          "Test commands, metric thresholds, or owner/RACI tables"
+        ]
+      },
+      "expression": {
+        "required": [
+          "Observable acceptance item list as primary structure",
+          "When decision-doc names goal or flow ids: trace-back labels to GO or FL in the same row or adjacent column"
+        ],
+        "forbidden": [
+          "Implementation steps or technical design"
+        ]
+      },
+      "reading_axis": "criterion → observable → trace"
+    }
+  }
+}
