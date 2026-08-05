@@ -16,12 +16,11 @@ Decompose a Delivered tech-doc into independently executable TDD units (task fil
 Do NOT proceed until you have read `../_runtime.md` and loaded:
 
 - `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, `$CACHE_DIR` from `## Platform Context`
+- `$SKILL_DIR` = `$SKILL_ROOT/lulu-tasks` (before Session Foundation)
 - Feature identification logic from `## Session Foundation`
 
 Also read `../_subagent.md` (for `$SUBAGENT_TOOL` / `$SUBAGENT_AWAIT_*`).
 </HARD-GATE>
-
-`$SKILL_DIR` = `$SKILL_ROOT/lulu-tasks`
 
 **This workflow runs in Agent mode with path guard.**
 

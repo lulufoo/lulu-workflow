@@ -51,6 +51,7 @@ _WORKFLOW_PY_PATH = re.compile(
 
 _CONV_ID_INJECT_SCRIPT_SUFFIXES = (
     "/scripts/runtime_control.py",
+    "/scripts/cycle_control.py",
     "/compose/scripts/core/start.py",
     "/compose/scripts/inductive/inductive_gate_control.py",
     "/compose/scripts/inductive/inductive_g3_grounding_control.py",
@@ -106,6 +107,9 @@ def _should_inject_conversation_id(command: str) -> bool:
     # runtime_control only accepts --conversation-id on resolve-session-context.
     if "/scripts/runtime_control.py" in command:
         return "resolve-session-context" in command
+    # cycle_control only accepts --conversation-id on bind-context.
+    if "/scripts/cycle_control.py" in command:
+        return "bind-context" in command
     return True
 
 

@@ -18,8 +18,8 @@ Domain holder for the arch-doc compose document. Delegates full Drafting / Evalu
 Do NOT proceed until you have read `../_runtime.md` and loaded:
 
 - `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, `$CACHE_DIR` from `## Platform Context`
+- `$SKILL_DIR` = `$SKILL_ROOT/lulu-arch` (before Session Foundation)
 - Feature identification logic from `## Session Foundation`
-- `$SKILL_DIR` = `$SKILL_ROOT/lulu-arch`
 
 </HARD-GATE>
 

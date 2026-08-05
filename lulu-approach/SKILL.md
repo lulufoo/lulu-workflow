@@ -14,6 +14,7 @@ persistence.
 Do NOT proceed until you have read `../_runtime.md` and loaded:
 
 - `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, `$CACHE_DIR` from `## Platform Context`
+- `$SKILL_DIR` = `$SKILL_ROOT/lulu-approach` (before Session Foundation)
 - Feature identification logic from `## Session Foundation`
 </HARD-GATE>
 
@@ -22,7 +23,6 @@ Do NOT proceed until you have read `../decision/SKILL.md` in full.
 All DDF rules, gates, and registers defined there apply to this session.
 </HARD-GATE>
 
-`$SKILL_DIR` = `$SKILL_ROOT/lulu-approach`  
 `$DECISION_SKILL_DIR` = `$SKILL_ROOT/decision`  
 `$APPROACH_ROOT` = `$CACHE_DIR/<cycle_id>/lulu-approach`  
 `$MAIN_SESSION_DIR` = `$APPROACH_ROOT/main`

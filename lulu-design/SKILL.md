@@ -18,8 +18,8 @@ Domain holder for the design-doc compose document. Delegates full Drafting / Eva
 Do NOT proceed until you have read `../_runtime.md` and loaded:
 
 - `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, `$CACHE_DIR` from `## Platform Context`
+- `$SKILL_DIR` = `$SKILL_ROOT/lulu-design` (before Session Foundation)
 - Feature identification logic from `## Session Foundation`
-- `$SKILL_DIR` = `$SKILL_ROOT/lulu-design`
 
 </HARD-GATE>
 

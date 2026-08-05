@@ -226,3 +226,138 @@ class TestCycleControlValidate:
             "validate", "--cycle-id", "feature-20990101000000-00000000",
         )
         assert result.returncode != 0
+
+
+_ENV_BIND = {
+    key: value
+    for key, value in _ENV_COPILOT.items()
+    if key != "LULU_CONVERSATION_ID"
+}
+
+
+class TestCycleControlBindContext:
+    def _cache_dir(self, tmp_path: Path) -> Path:
+        return tmp_path / ".cache" / "copilot" / "lulu-dev-workflow"
+
+    def test_bind_writes_active_context(self, tmp_path):
+        start = _run(
+            "--project-root", str(tmp_path), "start", "--name", "feat", env=_ENV_BIND
+        )
+        assert start.returncode == 0, start.stderr
+        cycle_id = start.stdout.strip().splitlines()[-1]
+        skill_dir = tmp_path / "skills" / "lulu-plan"
+        skill_dir.mkdir(parents=True)
+        result = _run(
+            "--project-root",
+            str(tmp_path),
+            "bind-context",
+            "--cycle-id",
+            cycle_id,
+            "--skill-dir",
+            str(skill_dir),
+            "--conversation-id",
+            "conv-new",
+            env=_ENV_BIND,
+        )
+        assert result.returncode == 0, result.stderr
+        ctx = json.loads(
+            (self._cache_dir(tmp_path) / "active-context.json").read_text(encoding="utf-8")
+        )
+        assert ctx["conv-new"] == {
+            "cycle_id": cycle_id,
+            "stage": "lulu-plan",
+            "cycle_type": "feature",
+        }
+
+    def test_bind_rejects_missing_conversation_id(self, tmp_path):
+        start = _run(
+            "--project-root", str(tmp_path), "start", "--name", "feat", env=_ENV_BIND
+        )
+        cycle_id = start.stdout.strip().splitlines()[-1]
+        result = _run(
+            "--project-root",
+            str(tmp_path),
+            "bind-context",
+            "--cycle-id",
+            cycle_id,
+            "--skill-dir",
+            str(tmp_path / "lulu-plan"),
+            env=_ENV_BIND,
+        )
+        assert result.returncode != 0
+        assert not (self._cache_dir(tmp_path) / "active-context.json").exists()
+
+    def test_bind_rejects_missing_cycle(self, tmp_path):
+        result = _run(
+            "--project-root",
+            str(tmp_path),
+            "bind-context",
+            "--cycle-id",
+            "feature-20990101000000-00000000",
+            "--skill-dir",
+            str(tmp_path / "lulu-plan"),
+            "--conversation-id",
+            "conv-x",
+            env=_ENV_BIND,
+        )
+        assert result.returncode != 0
+
+    def test_bind_rejects_illegal_stage(self, tmp_path):
+        start = _run(
+            "--project-root", str(tmp_path), "start", "--name", "feat", env=_ENV_BIND
+        )
+        cycle_id = start.stdout.strip().splitlines()[-1]
+        result = _run(
+            "--project-root",
+            str(tmp_path),
+            "bind-context",
+            "--cycle-id",
+            cycle_id,
+            "--skill-dir",
+            str(tmp_path / "landscape"),
+            "--conversation-id",
+            "conv-x",
+            env=_ENV_BIND,
+        )
+        assert result.returncode != 0
+        assert not (self._cache_dir(tmp_path) / "active-context.json").exists()
+
+    def test_bind_then_resolve_session_context(self, tmp_path):
+        start = _run(
+            "--project-root", str(tmp_path), "start", "--name", "feat", env=_ENV_BIND
+        )
+        cycle_id = start.stdout.strip().splitlines()[-1]
+        skill_dir = tmp_path / "lulu-plan"
+        bind = _run(
+            "--project-root",
+            str(tmp_path),
+            "bind-context",
+            "--cycle-id",
+            cycle_id,
+            "--skill-dir",
+            str(skill_dir),
+            "--conversation-id",
+            "conv-restore",
+            env=_ENV_BIND,
+        )
+        assert bind.returncode == 0, bind.stderr
+        runtime = Path(__file__).resolve().parents[1] / "runtime_control.py"
+        resolve = subprocess.run(
+            [
+                sys.executable,
+                str(runtime),
+                "--project-root",
+                str(tmp_path),
+                "resolve-session-context",
+                "--conversation-id",
+                "conv-restore",
+            ],
+            capture_output=True,
+            text=True,
+            env=_ENV_BIND,
+        )
+        assert resolve.returncode == 0, resolve.stderr
+        payload = json.loads(resolve.stdout.strip())
+        assert payload["cycle_id"] == cycle_id
+        assert payload["stage"] == "lulu-plan"
+        assert payload["cycle_type"] == "feature"

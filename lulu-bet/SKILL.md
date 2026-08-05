@@ -12,6 +12,7 @@ Domain holder for product-level diagnostic decisions. Delegates the full DDF exe
 Do NOT proceed until you have read `../_runtime.md` and loaded:
 
 - `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, `$CACHE_DIR` from `## Platform Context`
+- `$SKILL_DIR` = `$SKILL_ROOT/lulu-bet` (before Session Foundation)
 - Feature identification logic from `## Session Foundation`
 </HARD-GATE>
 
@@ -19,8 +20,6 @@ Do NOT proceed until you have read `../_runtime.md` and loaded:
 Do NOT proceed until you have read `../decision/SKILL.md` in full.
 All DDF rules, gates, and registers defined there apply to this session.
 </HARD-GATE>
-
-`$SKILL_DIR` = `$SKILL_ROOT/lulu-bet`
 
 Machine constraints SSOT: `$SKILL_DIR/constraints-$CYCLE_TYPE.json` (resolve `$CYCLE_TYPE` from `_runtime.md` § Session Foundation; passed to decision CLI via `--constraints`).
 

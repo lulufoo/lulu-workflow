@@ -19,12 +19,12 @@ If the workflow cannot advance: **stop** (no retry, skip, or workaround), **repo
 ## Prerequisites
 
 <HARD-GATE>
-Do NOT proceed until you have read `../_runtime.md`
-</HARD-GATE>
+Do NOT proceed until you have read `../_runtime.md` and loaded:
 
 - `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, `$CACHE_DIR` from `## Platform Context`
+- `$SKILL_DIR` = `$SKILL_ROOT/lulu-code` (before Session Foundation)
 - Feature identification logic from `## Session Foundation`
-- `$SKILL_DIR` = `$SKILL_ROOT/lulu-code`
+</HARD-GATE>
 
 <HARD-GATE>
 Do NOT proceed until you have read `../_subagent.md` 

@@ -15,9 +15,9 @@ Do NOT proceed until you have read `../_runtime.md` and loaded:
 
 - `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, `$CACHE_DIR` from `## Platform Context`
 
-- Feature identification logic from `## Session Foundation`
+- `$SKILL_DIR` = `$SKILL_ROOT/decision` (before Session Foundation)
 
-- `$SKILL_DIR` = `$SKILL_ROOT/decision`
+- Feature identification logic from `## Session Foundation`
 
 - `../_subagent.md` — `$SUBAGENT_*` (DC Eval probe)
 

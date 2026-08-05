@@ -9,6 +9,7 @@ Subcommands:
     archive               Prune old cycle dirs, keeping N most recent
     menu                  Feature Resolution menu (T#/F# rows + N/M)
     resolve-token         Resolve menu token T#/F# to cycle_id
+    bind-context          Bind conversation → cycle/stage in active-context
     info                  JSON metadata for one cycle (--cycle-id)
     validate              Exit 0 when cycle exists in index and on disk
     topic-digest          Topic association candidates for New feature (JSON)
@@ -22,12 +23,14 @@ import sys
 from pathlib import Path
 from typing import Optional
 
+from active_context_schema import resolve_conversation_id, write_entry  # noqa: E402
 from fetch_template import FetchTemplateError  # noqa: E402
 from cycle_schema import (  # noqa: E402
     append_cycle,
     build_cycle_info,
     build_topic_digest,
     cycle_exists,
+    cycle_type_from_id,
     ensure_container_dir,
     format_cycles_menu,
     generate_cycle_id,
@@ -38,6 +41,7 @@ from cycle_schema import (  # noqa: E402
 )
 from init_ops import run_init_project  # noqa: E402
 from platform_schema import detect_platform  # noqa: E402
+from transition_table import allowed_stages  # noqa: E402
 from workflow_config_schema import (  # noqa: E402
     apply_workflow_config_from_url,
     default_configure_blob_url,
@@ -51,6 +55,7 @@ _CMD_START = "start"
 _CMD_ARCHIVE = "archive"
 _CMD_MENU = "menu"
 _CMD_RESOLVE_TOKEN = "resolve-token"
+_CMD_BIND_CONTEXT = "bind-context"
 _CMD_INFO = "info"
 _CMD_VALIDATE = "validate"
 _CMD_TOPIC_DIGEST = "topic-digest"
@@ -150,6 +155,57 @@ def cmd_resolve_token(args: argparse.Namespace) -> int:
         print(f"Error: invalid or out-of-range token: {args.token!r}", file=sys.stderr)
         return 1
     print(cycle_id)
+    return 0
+
+
+def cmd_bind_context(args: argparse.Namespace) -> int:
+    conversation_id = resolve_conversation_id(args.conversation_id)
+    if not conversation_id:
+        print(
+            "Error: --conversation-id is required (or LULU_CONVERSATION_ID)",
+            file=sys.stderr,
+        )
+        return 1
+
+    skill_dir_raw = (args.skill_dir or "").strip()
+    if not skill_dir_raw:
+        print("Error: --skill-dir must be non-empty", file=sys.stderr)
+        return 1
+    stage = Path(skill_dir_raw.rstrip("/")).name
+    if not stage or stage in (".", ".."):
+        print(
+            f"Error: cannot derive stage from --skill-dir: {args.skill_dir!r}",
+            file=sys.stderr,
+        )
+        return 1
+
+    platform = args.platform or detect_platform(strict=False)
+    cache_dir = resolve_cache_dir(args.project_root, platform)
+    ok, message = validate_cycle(cache_dir, args.cycle_id)
+    if not ok:
+        print(f"Error: {message}", file=sys.stderr)
+        return 1
+
+    cycle_type = cycle_type_from_id(args.cycle_id)
+    if stage not in allowed_stages(cycle_type):
+        print(
+            f"Error: stage {stage!r} not allowed for cycle_type {cycle_type!r}",
+            file=sys.stderr,
+        )
+        return 1
+
+    try:
+        write_entry(
+            args.project_root,
+            platform,
+            conversation_id,
+            args.cycle_id,
+            stage,
+            cycle_type=cycle_type,
+        )
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
     return 0
 
 
@@ -261,6 +317,23 @@ def _cli(argv: Optional[list[str]] = None) -> int:
         help="Menu token (e.g. T1, F2).",
     )
     resolve_token.set_defaults(handler=cmd_resolve_token)
+
+    bind_context = sub.add_parser(
+        _CMD_BIND_CONTEXT,
+        help="Bind conversation to cycle/stage in active-context.",
+    )
+    bind_context.add_argument("--cycle-id", required=True, help="Cycle ID to bind.")
+    bind_context.add_argument(
+        "--skill-dir",
+        required=True,
+        help="Active sub-SKILL directory; basename becomes stage.",
+    )
+    bind_context.add_argument(
+        "--conversation-id",
+        default=None,
+        help="Conversation ID for active-context indexing (hook may inject).",
+    )
+    bind_context.set_defaults(handler=cmd_bind_context)
 
     info = sub.add_parser(
         _CMD_INFO,

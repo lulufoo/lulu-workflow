@@ -130,6 +130,7 @@ class TestShouldInjectConversationId:
         [
             "python3 ~/.cursor/skills/lulu-dev-workflow/decision/scripts/dec_start.py --cycle-id fid1",
             "python3 ~/.cursor/skills/lulu-dev-workflow/scripts/runtime_control.py --project-root /tmp resolve-session-context",
+            "python3 ~/.cursor/skills/lulu-dev-workflow/scripts/cycle_control.py --project-root /tmp bind-context --cycle-id fid1 --skill-dir /tmp/lulu-plan",
             "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/core/start.py --profile lulu-blueprint --cycle-id fid1",
             "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/core/start.py --profile lulu-spec --cycle-id fid1",
             "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/core/start.py --profile lulu-plan --cycle-id fid1",
@@ -155,6 +156,8 @@ class TestShouldInjectConversationId:
             "python3 ~/.cursor/skills/lulu-dev-workflow/scripts/hook/hook_guard.py",
             "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/section/l_step_control.py --cycle-id fid1",
             "python3 ~/.cursor/skills/lulu-dev-workflow/scripts/cycle_control.py start --name test",
+            "python3 ~/.cursor/skills/lulu-dev-workflow/scripts/cycle_control.py resolve-token --token F1",
+            "python3 ~/.cursor/skills/lulu-dev-workflow/scripts/cycle_control.py menu",
             "python3 ~/.cursor/skills/lulu-dev-workflow/scripts/runtime_control.py --project-root /tmp resolve-platform-context",
         ],
     )
