@@ -21,6 +21,7 @@ Subcommands:
                            Alias: deliver.
     complete-assumption    Write release_terms + risk_state=completed (R active or closed)
     set-risk-state         Set risk_state to ignore|open on a risk row (R active or closed)
+    apply-r-assumptions    Persist R expose draft risk fields without closing R
     migrate-session        Bootstrap gate-state/registers for legacy sessions
 """
 
@@ -756,6 +757,48 @@ def cmd_set_risk_state(
     except (FileNotFoundError, ValueError) as exc:
         return _emit_error(str(exc))
     _emit({"ok": True, "entry": target})
+    return 0
+
+
+def cmd_apply_r_assumptions(
+    project_root: Path,
+    cycle_id: str,
+    stage: str,
+    payload: dict[str, Any],
+    *,
+    constraints_path: Path | None = None,
+    session_dir: Path | None = None,
+) -> int:
+    """Persist R expose draft (risk fields) without closing the gate."""
+    paths = _paths(
+        project_root,
+        cycle_id,
+        stage,
+        constraints_path=constraints_path,
+        session_dir=session_dir,
+    )
+    try:
+        state = load_gate_state(paths["gate_state"])
+        rr_err = _reject_if_legacy_rr_active(state)
+        if rr_err:
+            return _emit_error(rr_err)
+        if str(state.get("active_gate", "")) != "R":
+            return _emit_error("apply-r-assumptions requires active_gate=R")
+        assumptions = payload.get("assumptions")
+        if not isinstance(assumptions, list) or not assumptions:
+            return _emit_error("assumptions array is required")
+        for item in assumptions:
+            if not isinstance(item, dict):
+                return _emit_error("each assumption entry must be an object")
+            _validate_r_assumption_payload(item, exit_path="human_decision")
+            if str(item.get("risk_state", "")).strip() == "completed":
+                return _emit_error(
+                    f"{item.get('id')}: completed only via complete-assumption"
+                )
+        _apply_r_register_updates(paths["registers"], payload, gate_state=state)
+    except (FileNotFoundError, ValueError) as exc:
+        return _emit_error(str(exc))
+    _emit({"ok": True, "applied": len(assumptions)})
     return 0
 
 
@@ -1638,6 +1681,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     activate = sub.add_parser("gate-activate", help="Activate a gate.")
     activate.add_argument("--gate", required=True)
 
+    apply_r = sub.add_parser(
+        "apply-r-assumptions",
+        help="Persist R expose draft assumptions without closing R.",
+    )
+    apply_r.add_argument("--payload", required=True, help="JSON with assumptions array.")
+
     close = sub.add_parser("gate-close", help="Close the active gate.")
     close.add_argument("--gate", required=True)
     close.add_argument("--payload", required=True, help="JSON payload string.")
@@ -1776,6 +1825,18 @@ def main(argv: list[str] | None = None) -> int:
             cycle_id,
             stage,
             args.gate.strip(),
+            **common,
+        )
+    if args.command == "apply-r-assumptions":
+        try:
+            payload = _load_payload(args.payload)
+        except (json.JSONDecodeError, ValueError) as exc:
+            return _emit_error(str(exc))
+        return cmd_apply_r_assumptions(
+            project_root,
+            cycle_id,
+            stage,
+            payload,
             **common,
         )
     if args.command == "gate-close":

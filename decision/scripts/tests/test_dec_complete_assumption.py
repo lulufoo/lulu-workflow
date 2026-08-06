@@ -14,11 +14,13 @@ if str(_DIAG_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_DIAG_SCRIPTS))
 
 from dec_gate_control import (  # noqa: E402
+    cmd_apply_r_assumptions,
     cmd_complete_assumption,
     cmd_gate_close,
     cmd_init_session,
     cmd_set_risk_state,
 )
+from dec_gate_state_schema import load_gate_state  # noqa: E402
 from dec_register_control import cmd_register_append  # noqa: E402
 from dec_workflow_common import gate_state_path, registers_path  # noqa: E402
 from test_dec_gate_loop_a import _close_qe, _full_template  # noqa: E402
@@ -43,7 +45,7 @@ def template_config(tmp_path: Path) -> Path:
     return tmp_path
 
 
-def _close_through_r_active(project_root: Path, cycle_id: str, stage: str) -> None:
+def _reach_active_r(project_root: Path, cycle_id: str, stage: str) -> None:
     cmd_init_session(project_root, cycle_id, stage)
     _close_qe(project_root, cycle_id, stage)
     cmd_gate_close(
@@ -80,6 +82,10 @@ def _close_through_r_active(project_root: Path, cycle_id: str, stage: str) -> No
             "reversibility": "easy",
         },
     )
+
+
+def _close_through_r_active(project_root: Path, cycle_id: str, stage: str) -> None:
+    _reach_active_r(project_root, cycle_id, stage)
     cmd_gate_close(
         project_root,
         cycle_id,
@@ -98,6 +104,43 @@ def _close_through_r_active(project_root: Path, cycle_id: str, stage: str) -> No
             ],
         },
     )
+
+
+def test_apply_r_assumptions_without_closing(
+    template_config: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project_root = template_config
+    cycle_id = "feature-apply-r"
+    stage = "decision"
+    monkeypatch.chdir(project_root)
+    _reach_active_r(project_root, cycle_id, stage)
+
+    assert (
+        cmd_apply_r_assumptions(
+            project_root,
+            cycle_id,
+            stage,
+            {
+                "assumptions": [
+                    {
+                        "id": "A1",
+                        "risk_level": "H",
+                        "risk_class": "decision",
+                        "risk_state": "open",
+                        "risk_consequence": "Export blocked",
+                    }
+                ]
+            },
+        )
+        == 0
+    )
+    state = load_gate_state(project_root / gate_state_path(cycle_id, stage))
+    assert state["active_gate"] == "R"
+    assert state["gates"]["R"]["status"] == "active"
+    registers = json.loads(
+        (project_root / registers_path(cycle_id, stage)).read_text(encoding="utf-8")
+    )
+    assert registers["assumptions"][0]["risk_state"] == "open"
 
 
 def test_complete_assumption_during_active_r(
