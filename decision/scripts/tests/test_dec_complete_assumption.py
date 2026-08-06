@@ -308,6 +308,39 @@ def test_set_risk_state_rejects_none_triad(
     )
 
 
+def test_apply_r_defaults_l_to_ignore(
+    template_config: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project_root = template_config
+    cycle_id = "feature-complete-a6d"
+    stage = "decision"
+    monkeypatch.chdir(project_root)
+
+    _close_through_r_active(project_root, cycle_id, stage)
+    assert (
+        cmd_apply_r_assumptions(
+            project_root,
+            cycle_id,
+            stage,
+            payload={
+                "assumptions": [
+                    {
+                        "id": "A1",
+                        "risk_level": "L",
+                        "risk_class": "decision",
+                        "risk_consequence": "Minor",
+                    }
+                ]
+            },
+        )
+        == 0
+    )
+    registers = json.loads(
+        (project_root / registers_path(cycle_id, stage)).read_text(encoding="utf-8")
+    )
+    assert registers["assumptions"][0]["risk_state"] == "ignore"
+
+
 def test_register_update_rejects_completed(
     template_config: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

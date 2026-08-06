@@ -658,7 +658,11 @@ def _apply_r_register_updates(
         if "risk_state" in update:
             entry["risk_state"] = str(update.get("risk_state", "")).strip()
         elif not entry.get("risk_state"):
-            entry["risk_state"] = "open"
+            # D3 defaults when payload omits risk_state: H/M→open, L→ignore
+            if risk_level == "L":
+                entry["risk_state"] = "ignore"
+            elif risk_level in {"H", "M"}:
+                entry["risk_state"] = "open"
         for retired in ("risk", "consequence", "state", "verification", "disposition"):
             entry.pop(retired, None)
     save_flags = dict(reg_flags)
