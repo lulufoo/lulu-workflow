@@ -1,0 +1,326 @@
+#!/usr/bin/env python3
+"""Tests for complete-assumption and set-risk-state CLI subcommands."""
+
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
+import pytest
+
+_DIAG_SCRIPTS = Path(__file__).resolve().parents[1]
+if str(_DIAG_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_DIAG_SCRIPTS))
+
+from dec_gate_control import (  # noqa: E402
+    cmd_complete_assumption,
+    cmd_gate_close,
+    cmd_init_session,
+    cmd_set_risk_state,
+)
+from dec_register_control import cmd_register_append  # noqa: E402
+from dec_workflow_common import gate_state_path, registers_path  # noqa: E402
+from test_dec_gate_loop_a import _close_qe, _full_template  # noqa: E402
+
+_H_TERMS = (
+    "Method: integration test / Owner: QA / Timing: pre-release / "
+    "Release condition: export succeeds"
+)
+
+
+@pytest.fixture
+def template_config(tmp_path: Path) -> Path:
+    cfg_dir = tmp_path / "skill-config" / "lulu-dev-workflow"
+    cfg_dir.mkdir(parents=True)
+    local_template = tmp_path / "decision-doc.template.md"
+    local_template.write_text(_full_template(), encoding="utf-8")
+    cfg_path = cfg_dir / "workflow-config.json"
+    cfg_path.write_text(
+        json.dumps({"decision": {"decision_doc_template_url": local_template.as_uri()}}),
+        encoding="utf-8",
+    )
+    return tmp_path
+
+
+def _close_through_r_active(project_root: Path, cycle_id: str, stage: str) -> None:
+    cmd_init_session(project_root, cycle_id, stage)
+    _close_qe(project_root, cycle_id, stage)
+    cmd_gate_close(
+        project_root,
+        cycle_id,
+        stage,
+        "D",
+        {
+            "decision_rationale": "rationale",
+            "applies_to": "scope",
+            "excludes": "none",
+            "execution_approach": "serial",
+        },
+    )
+    cmd_register_append(
+        project_root,
+        cycle_id,
+        stage,
+        register_kind="assumption",
+        payload={"text": "API supports bulk export"},
+    )
+    cmd_gate_close(
+        project_root,
+        cycle_id,
+        stage,
+        "X",
+        {
+            "acceptance_criteria": "done",
+            "gap": "None",
+            "impact_surface": [],
+            "external_dependencies": [],
+            "key_changes": "k",
+            "critical_constraints": "c",
+            "reversibility": "easy",
+        },
+    )
+    cmd_gate_close(
+        project_root,
+        cycle_id,
+        stage,
+        "R",
+        {
+            "exit": "human_decision",
+            "assumptions": [
+                {
+                    "id": "A1",
+                    "risk_level": "H",
+                    "risk_class": "decision",
+                    "risk_state": "open",
+                    "risk_consequence": "Export blocked",
+                },
+            ],
+        },
+    )
+
+
+def test_complete_assumption_during_active_r(
+    template_config: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project_root = template_config
+    cycle_id = "feature-complete-a1"
+    stage = "decision"
+    monkeypatch.chdir(project_root)
+
+    _close_through_r_active(project_root, cycle_id, stage)
+
+    assert (
+        cmd_complete_assumption(
+            project_root,
+            cycle_id,
+            stage,
+            entry_id="A1",
+            release_terms=_H_TERMS,
+        )
+        == 0
+    )
+
+    registers = json.loads(
+        (project_root / registers_path(cycle_id, stage)).read_text(encoding="utf-8")
+    )
+    entry = registers["assumptions"][0]
+    assert entry["risk_state"] == "completed"
+    assert entry["release_terms"] == _H_TERMS
+
+
+def test_complete_assumption_accepts_literal(
+    template_config: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project_root = template_config
+    cycle_id = "feature-complete-a2"
+    stage = "decision"
+    monkeypatch.chdir(project_root)
+
+    _close_through_r_active(project_root, cycle_id, stage)
+    registers = json.loads(
+        (project_root / registers_path(cycle_id, stage)).read_text(encoding="utf-8")
+    )
+    registers["assumptions"][0]["risk_level"] = "L"
+    (project_root / registers_path(cycle_id, stage)).write_text(
+        json.dumps(registers, indent=2), encoding="utf-8"
+    )
+
+    assert (
+        cmd_complete_assumption(
+            project_root,
+            cycle_id,
+            stage,
+            entry_id="A1",
+            release_terms="Accepted",
+        )
+        == 0
+    )
+
+
+def test_complete_assumption_rejects_handoff(
+    template_config: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project_root = template_config
+    cycle_id = "feature-complete-a3"
+    stage = "decision"
+    monkeypatch.chdir(project_root)
+
+    _close_through_r_active(project_root, cycle_id, stage)
+    assert (
+        cmd_complete_assumption(
+            project_root,
+            cycle_id,
+            stage,
+            entry_id="A1",
+            release_terms="Handoff: QA team",
+        )
+        != 0
+    )
+
+
+def test_complete_assumption_requires_open_state(
+    template_config: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project_root = template_config
+    cycle_id = "feature-complete-a4"
+    stage = "decision"
+    monkeypatch.chdir(project_root)
+
+    _close_through_r_active(project_root, cycle_id, stage)
+    cmd_complete_assumption(
+        project_root, cycle_id, stage, entry_id="A1", release_terms="Accepted"
+    )
+    assert (
+        cmd_complete_assumption(
+            project_root,
+            cycle_id,
+            stage,
+            entry_id="A1",
+            release_terms="Accepted",
+        )
+        != 0
+    )
+
+
+def test_set_risk_state_ignore_and_open(
+    template_config: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project_root = template_config
+    cycle_id = "feature-complete-a5"
+    stage = "decision"
+    monkeypatch.chdir(project_root)
+
+    _close_through_r_active(project_root, cycle_id, stage)
+    assert (
+        cmd_set_risk_state(
+            project_root, cycle_id, stage, entry_id="A1", risk_state="ignore"
+        )
+        == 0
+    )
+    registers = json.loads(
+        (project_root / registers_path(cycle_id, stage)).read_text(encoding="utf-8")
+    )
+    assert registers["assumptions"][0]["risk_state"] == "ignore"
+
+    assert (
+        cmd_set_risk_state(
+            project_root, cycle_id, stage, entry_id="A1", risk_state="open"
+        )
+        == 0
+    )
+
+
+def test_set_risk_state_rejects_none_triad(
+    template_config: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project_root = template_config
+    cycle_id = "feature-complete-a6"
+    stage = "decision"
+    monkeypatch.chdir(project_root)
+
+    _close_through_r_active(project_root, cycle_id, stage)
+    registers = json.loads(
+        (project_root / registers_path(cycle_id, stage)).read_text(encoding="utf-8")
+    )
+    registers["assumptions"].append(
+        {
+            "id": "A2",
+            "text": "non risk",
+            "source": "R",
+            "risk_level": "none",
+            "risk_class": "none",
+            "risk_state": "none",
+        }
+    )
+    (project_root / registers_path(cycle_id, stage)).write_text(
+        json.dumps(registers, indent=2), encoding="utf-8"
+    )
+
+    assert (
+        cmd_set_risk_state(
+            project_root, cycle_id, stage, entry_id="A2", risk_state="ignore"
+        )
+        != 0
+    )
+
+
+def test_rr_gate_close_rejected(
+    template_config: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project_root = template_config
+    cycle_id = "feature-complete-a7"
+    stage = "decision"
+    monkeypatch.chdir(project_root)
+
+    _close_through_r_active(project_root, cycle_id, stage)
+    assert (
+        cmd_gate_close(
+            project_root,
+            cycle_id,
+            stage,
+            "RR",
+            {"exit": "dc", "assumptions": []},
+        )
+        != 0
+    )
+
+
+def test_r_dc_forbids_open_risk_state(
+    template_config: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project_root = template_config
+    cycle_id = "feature-complete-a8"
+    stage = "decision"
+    monkeypatch.chdir(project_root)
+
+    _close_through_r_active(project_root, cycle_id, stage)
+    assert (
+        cmd_gate_close(
+            project_root,
+            cycle_id,
+            stage,
+            "R",
+            {"exit": "dc", "assumptions": []},
+        )
+        != 0
+    )
+
+    cmd_complete_assumption(
+        project_root, cycle_id, stage, entry_id="A1", release_terms="Accepted"
+    )
+    assert (
+        cmd_gate_close(
+            project_root,
+            cycle_id,
+            stage,
+            "R",
+            {"exit": "dc", "assumptions": []},
+        )
+        == 0
+    )
+    gate_state = json.loads(
+        (project_root / gate_state_path(cycle_id, stage)).read_text(encoding="utf-8")
+    )
+    assert gate_state["active_gate"] == "DC"
+    assert gate_state.get("skipped_gates") == []

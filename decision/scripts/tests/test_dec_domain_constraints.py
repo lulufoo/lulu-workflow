@@ -176,7 +176,7 @@ def test_x_gate_close_respects_x_dimensions(template_config: Path, monkeypatch: 
     assert "**Gap (if any):** None" in doc
 
 
-def test_release_tracking_column_in_assumptions_table(
+def test_risk_state_column_in_assumptions_table(
     template_config: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -206,20 +206,45 @@ def test_release_tracking_column_in_assumptions_table(
         register_kind="assumption",
         payload={"text": "Tracked item"},
     )
-    cmd_register_update(
+    cmd_gate_close(
         project_root,
         cycle_id,
         stage,
-        entry_id="A1",
-        payload={"release_tracking": True},
+        "X",
+        {
+            "acceptance_criteria": "done",
+            "gap": "None",
+            "impact_surface": [],
+            "external_dependencies": [],
+            "key_changes": "k",
+            "critical_constraints": "c",
+            "reversibility": "easy",
+        },
+    )
+    cmd_gate_close(
+        project_root,
+        cycle_id,
+        stage,
+        "R",
+        {
+            "exit": "human_decision",
+            "assumptions": [
+                {
+                    "id": "A1",
+                    "risk_level": "M",
+                    "risk_class": "decision",
+                    "risk_state": "open",
+                    "risk_consequence": "gap",
+                }
+            ],
+        },
     )
 
     assert not (project_root / decision_doc_path(cycle_id, stage)).exists()
 
     doc = load_rendered_doc(project_root, cycle_id, stage)
-    assert "Release Tracking" in doc
-    assert "| Class |" in doc or "Class |" in doc
-    assert "Yes" in doc
+    assert "State" in doc
+    assert "open" in doc
     assert "Tracked item" in doc
 
 

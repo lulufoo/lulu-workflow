@@ -59,7 +59,30 @@ def init_registers(*, cycle_id: str, stage: str) -> dict[str, Any]:
     )
 
 
-def validate_registers(data: dict[str, Any], *, r_gate_closed: bool = False) -> list[str]:
+RELEASE_TERMS_PARTS = ("Method:", "Owner:", "Timing:", "Release condition:")
+
+
+def validate_release_terms(terms: str, *, entry_id: str) -> None:
+    text = str(terms).strip()
+    if not text:
+        raise ValueError(f"assumption {entry_id}: release_terms is required")
+    if text.startswith("Handoff:"):
+        raise ValueError(f"assumption {entry_id}: Handoff: forbidden in release_terms")
+    if text == "Accepted":
+        return
+    for part in RELEASE_TERMS_PARTS:
+        if part not in text:
+            raise ValueError(f"assumption {entry_id}: release_terms missing {part!r}")
+
+
+def validate_registers(
+    data: dict[str, Any],
+    *,
+    r_gate_closed: bool = False,
+    r_risk_fields_allowed: bool | None = None,
+) -> list[str]:
+    if r_risk_fields_allowed is None:
+        r_risk_fields_allowed = r_gate_closed
     errors: list[str] = []
     if data.get("version") != "1":
         errors.append(f"invalid version: {data.get('version')!r}")
@@ -79,7 +102,12 @@ def validate_registers(data: dict[str, Any], *, r_gate_closed: bool = False) -> 
         seen_assumption: set[str] = set()
         for index, entry in enumerate(assumptions):
             errors.extend(
-                _validate_assumption_entry(entry, index, seen_assumption, r_gate_closed=r_gate_closed)
+                _validate_assumption_entry(
+                    entry,
+                    index,
+                    seen_assumption,
+                    r_risk_fields_allowed=r_risk_fields_allowed,
+                )
             )
 
     return errors
@@ -119,7 +147,7 @@ def _validate_assumption_entry(
     index: int,
     seen: set[str],
     *,
-    r_gate_closed: bool,
+    r_risk_fields_allowed: bool,
 ) -> list[str]:
     errors: list[str] = []
     if not isinstance(entry, dict):
@@ -161,8 +189,8 @@ def _validate_assumption_entry(
         v is not None
         for v in (risk_level, risk_class, risk_state, risk_consequence, release_terms)
     )
-    if any_risk and not r_gate_closed:
-        errors.append(f"assumptions[{index}]: risk fields set before R gate closed")
+    if any_risk and not r_risk_fields_allowed:
+        errors.append(f"assumptions[{index}]: risk fields set before R gate reached")
         return errors
 
     if not any_risk:
@@ -262,20 +290,43 @@ def normalize_registers(data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def load_registers(path: Path, *, r_gate_closed: bool = False) -> dict[str, Any]:
+def load_registers(
+    path: Path,
+    *,
+    r_gate_closed: bool = False,
+    r_risk_fields_allowed: bool | None = None,
+) -> dict[str, Any]:
     if not path.exists():
         raise FileNotFoundError(f"registers not found: {path}")
     data = json.loads(path.read_text(encoding="utf-8"))
     normalized = normalize_registers(data)
-    errors = validate_registers(normalized, r_gate_closed=r_gate_closed)
+    if r_risk_fields_allowed is None:
+        r_risk_fields_allowed = r_gate_closed
+    errors = validate_registers(
+        normalized,
+        r_gate_closed=r_gate_closed,
+        r_risk_fields_allowed=r_risk_fields_allowed,
+    )
     if errors:
         raise ValueError("; ".join(errors))
     return normalized
 
 
-def save_registers(path: Path, data: dict[str, Any], *, r_gate_closed: bool = False) -> None:
+def save_registers(
+    path: Path,
+    data: dict[str, Any],
+    *,
+    r_gate_closed: bool = False,
+    r_risk_fields_allowed: bool | None = None,
+) -> None:
     normalized = normalize_registers(data)
-    errors = validate_registers(normalized, r_gate_closed=r_gate_closed)
+    if r_risk_fields_allowed is None:
+        r_risk_fields_allowed = r_gate_closed
+    errors = validate_registers(
+        normalized,
+        r_gate_closed=r_gate_closed,
+        r_risk_fields_allowed=r_risk_fields_allowed,
+    )
     if errors:
         raise ValueError("; ".join(errors))
     path.parent.mkdir(parents=True, exist_ok=True)

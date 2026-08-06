@@ -172,26 +172,33 @@ def _parse_assumptions_from_doc(doc: str) -> list[dict[str, Any]]:
         else:
             continue
         if "已交接" in status:
-            state = "verified"
+            risk_state = "completed"
             if risk_class_val is None:
                 risk_class_val = "implementation"
-        elif "已验证" in status:
-            state = "verified"
+        elif "已验证" in status or "completed" in status.lower():
+            risk_state = "completed"
+        elif "忽略" in status:
+            risk_state = "ignore"
         else:
-            state = "pending"
+            risk_state = "open"
         risk_val = risk if risk in {"H", "M", "L"} else None
+        if risk_val is None and risk_class_val is None:
+            risk_level = "none"
+            risk_class_val = "none"
+            risk_state = "none"
+        else:
+            risk_level = risk_val or "none"
+            risk_class_val = risk_class_val or "pending"
         entry: dict[str, Any] = {
             "id": entry_id,
             "text": text,
-            "state": state,
             "source": source or "O",
-            "risk": risk_val,
-            "consequence": consequence or None,
-            "verification": verification or None,
-            "release_tracking": tracking.lower() in {"yes", "true", "y"},
+            "risk_level": risk_level,
+            "risk_class": risk_class_val,
+            "risk_state": risk_state,
+            "risk_consequence": consequence or None,
+            "release_terms": verification or None,
         }
-        if risk_class_val is not None:
-            entry["risk_class"] = risk_class_val
         entries.append(entry)
     return entries
 

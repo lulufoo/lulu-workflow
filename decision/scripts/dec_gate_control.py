@@ -19,6 +19,8 @@ Subcommands:
                            decision-doc). Nested approach main/Dx skips cycle
                            delivered-refs (holder stage deliver owns them).
                            Alias: deliver.
+    complete-assumption    Write release_terms + risk_state=completed (R active or closed)
+    set-risk-state         Set risk_state to ignore|open on a risk row (R active or closed)
     migrate-session        Bootstrap gate-state/registers for legacy sessions
 """
 
@@ -55,11 +57,11 @@ from dec_gate_payload_schema import (  # noqa: E402
 )
 from dec_gate_state_schema import (  # noqa: E402
     GATE_ORDER,
+    LEGACY_RR_ACTIVE_ERROR,
     RS_REALIGN_GATES,
     activate_gate,
     close_gate,
     close_gate_r,
-    close_gate_rr,
     init_gate_state,
     is_gate_closed,
     load_gate_state,
@@ -69,10 +71,12 @@ from dec_gate_state_schema import (  # noqa: E402
 from dec_register_schema import (  # noqa: E402
     RISK_CLASSES,
     RISK_LEVELS,
+    RISK_STATES,
     init_registers,
     load_registers,
     save_registers,
     strip_assumption_risk_fields,
+    validate_release_terms,
 )
 from dec_session_render import render_reply_header  # noqa: E402
 from dec_session_paths import (  # noqa: E402
@@ -96,6 +100,47 @@ from dec_workflow_common import (  # noqa: E402
 
 from dec_migrate_session import migrate_session_dir, needs_migration  # noqa: E402
 from dec_register_control import apply_register_batch_operations  # noqa: E402
+
+
+def _reject_if_legacy_rr_active(state: dict[str, Any]) -> str | None:
+    if str(state.get("active_gate", "")) == "RR":
+        return LEGACY_RR_ACTIVE_ERROR
+    return None
+
+
+def _r_risk_fields_allowed(gate_state: dict[str, Any]) -> bool:
+    active = str(gate_state.get("active_gate", ""))
+    return active == "R" or is_gate_closed(gate_state, "R")
+
+
+def _register_io_flags(gate_state: dict[str, Any]) -> dict[str, bool]:
+    r_closed = is_gate_closed(gate_state, "R")
+    allowed = _r_risk_fields_allowed(gate_state)
+    return {
+        "r_gate_closed": r_closed,
+        "r_risk_fields_allowed": allowed,
+    }
+
+
+def _find_assumption(registers: dict[str, Any], entry_id: str) -> dict[str, Any] | None:
+    for entry in registers.get("assumptions", []):
+        if isinstance(entry, dict) and str(entry.get("id")) == entry_id:
+            return entry
+    return None
+
+
+def _is_risk_row(entry: dict[str, Any]) -> bool:
+    level = str(entry.get("risk_level", "")).strip()
+    klass = str(entry.get("risk_class", "")).strip()
+    state = str(entry.get("risk_state", "")).strip()
+    return not (level == "none" and klass == "none" and state == "none")
+
+
+def _reject_if_r_assumption_gate_closed(state: dict[str, Any]) -> str | None:
+    active = str(state.get("active_gate", ""))
+    if active == "R" or is_gate_closed(state, "R"):
+        return None
+    return "complete-assumption and set-risk-state require R active or closed"
 
 
 def _emit(payload: dict[str, Any]) -> None:
@@ -204,7 +249,7 @@ def _validate_gate_activate_prereqs(state: dict[str, Any], gate: str) -> str | N
         if not is_gate_closed(state, "GL"):
             return "gate GL must be closed before activating E"
         return None
-    prev = {"D": "E", "X": "D", "R": "X", "RR": "R", "DC": "RR"}.get(gate)
+    prev = {"D": "E", "X": "D", "R": "X", "DC": "R"}.get(gate)
     if prev and not is_gate_closed(state, prev):
         return f"gate {prev} must be closed before activating {gate}"
     return None
@@ -315,8 +360,11 @@ def build_resolve_context_payload(
         session_dir=session_dir,
     )
     gate_state = load_gate_state(resolved_paths["gate_state"])
-    r_closed = is_gate_closed(gate_state, "R")
-    registers = load_registers(resolved_paths["registers"], r_gate_closed=r_closed)
+    rr_err = _reject_if_legacy_rr_active(gate_state)
+    if rr_err:
+        raise ValueError(rr_err)
+    reg_flags = _register_io_flags(gate_state)
+    registers = load_registers(resolved_paths["registers"], **reg_flags)
     constraints = _load_session_constraints(
         project_root,
         cycle_id,
@@ -390,7 +438,7 @@ def cmd_resolve_context(
     return 0
 
 
-_IMPLEMENTED_GATES = frozenset({"O", "Q", "GL", "E", "D", "X", "R", "RR", "DC"})
+_IMPLEMENTED_GATES = frozenset({"O", "Q", "GL", "E", "D", "X", "R", "DC"})
 def _validate_gl_close_payload(
     payload: dict[str, Any], *, constraints: dict[str, Any]
 ) -> None:
@@ -448,10 +496,48 @@ def _risk_class_of(entry: dict[str, Any]) -> str:
     return str(entry.get("risk_class", "")).strip()
 
 
-def _validate_handoff_verification(verification: str, *, entry_id: str) -> None:
-    if not verification.startswith("Handoff:"):
+def _risk_level_of(entry: dict[str, Any]) -> str:
+    return str(entry.get("risk_level", entry.get("risk", ""))).strip()
+
+
+def _risk_state_of(entry: dict[str, Any]) -> str:
+    return str(entry.get("risk_state", entry.get("disposition", ""))).strip()
+
+
+def _validate_r_assumption_payload(item: dict[str, Any], *, exit_path: str) -> None:
+    entry_id = str(item.get("id", "")).strip()
+    if not entry_id:
+        raise ValueError("assumption id is required")
+    risk_level = str(item.get("risk_level", item.get("risk", ""))).strip()
+    if risk_level not in RISK_LEVELS:
+        raise ValueError(f"invalid risk_level for {entry_id}: {risk_level!r}")
+    if not str(item.get("risk_consequence", item.get("consequence", ""))).strip():
+        raise ValueError(f"risk_consequence is required for {entry_id}")
+    risk_class = str(item.get("risk_class", "")).strip()
+    if risk_class not in RISK_CLASSES:
+        raise ValueError(f"invalid risk_class for {entry_id}: {risk_class!r}")
+    risk_state = str(item.get("risk_state", "")).strip()
+    if risk_state and risk_state not in RISK_STATES:
+        raise ValueError(f"invalid risk_state for {entry_id}: {risk_state!r}")
+    if exit_path == "dc" and risk_state == "open":
         raise ValueError(
-            f"assumption {entry_id}: implementation verification must start with 'Handoff:'"
+            f"R exit dc forbids risk_state=open on {entry_id}; "
+            "complete-assumption or set-risk-state first"
+        )
+
+
+def _validate_open_risk_states_for_dc(registers: dict[str, Any]) -> None:
+    open_ids = [
+        str(entry.get("id"))
+        for entry in registers.get("assumptions", [])
+        if isinstance(entry, dict)
+        and _is_risk_row(entry)
+        and _risk_state_of(entry) == "open"
+    ]
+    if open_ids:
+        raise ValueError(
+            "R exit dc forbids risk_state=open: "
+            f"{sorted(open_ids)}; use complete-assumption or set-risk-state"
         )
 
 
@@ -469,93 +555,6 @@ def _validate_gate_close_prereqs(state: dict[str, Any], gate: str) -> str | None
     if gate not in _IMPLEMENTED_GATES:
         return f"gate-close not implemented for gate {gate!r}"
     return None
-
-
-def _validate_high_risk_verification(verification: str, *, entry_id: str) -> None:
-    for part in _H_VERIFICATION_PARTS:
-        if part not in verification:
-            raise ValueError(f"assumption {entry_id}: High-risk verification missing {part!r}")
-
-
-def _needs_rr_scope(entry: dict[str, Any]) -> bool:
-    """RR-scope: decision-class AND (H or release_tracking)."""
-    if _risk_class_of(entry) != "decision":
-        return False
-    risk = str(entry.get("risk", "")).strip()
-    if risk == "H":
-        return True
-    return bool(entry.get("release_tracking"))
-
-
-def _validate_rr_terms_against_registers(
-    registers: dict[str, Any],
-    payload: dict[str, Any],
-) -> bool:
-    """Validate terms (verification/handoff) on RR close. Returns whether RR-scope exists.
-
-    Assumptions that still lack a settled risk_class (new during RR) may be omitted from
-    the payload when ``exit=return_r``; otherwise every settled assumption must be present.
-    """
-    assumptions = registers.get("assumptions", [])
-    by_id = {
-        str(item.get("id")): item
-        for item in payload.get("assumptions", [])
-        if isinstance(item, dict)
-    }
-    exit_path = str(payload.get("exit", "")).strip()
-    rr_needed = False
-    unsettled: list[str] = []
-
-    for entry in assumptions:
-        if not isinstance(entry, dict):
-            continue
-        entry_id = str(entry.get("id"))
-        update = by_id.get(entry_id)
-        if update is None:
-            existing_class = str(entry.get("risk_class", "")).strip()
-            if existing_class in {"", "pending"} or existing_class not in RISK_CLASSES:
-                unsettled.append(entry_id)
-                continue
-            raise ValueError(f"missing assumptions in RR payload: {[entry_id]}")
-        risk = str(update.get("risk", entry.get("risk", ""))).strip()
-        risk_class = str(
-            update.get("risk_class", entry.get("risk_class", ""))
-        ).strip()
-        release_tracking = bool(update.get("release_tracking", entry.get("release_tracking")))
-        if risk_class not in RISK_CLASSES or risk_class == "pending":
-            raise ValueError(
-                f"assumption {entry_id}: risk_class must be decision or "
-                f"implementation before RR close (got {risk_class!r})"
-            )
-        if risk_class == "implementation" and release_tracking:
-            raise ValueError(
-                f"assumption {entry_id}: release_tracking forbidden for implementation; "
-                "reclassify to decision first"
-            )
-        merged = {
-            **entry,
-            "risk": risk,
-            "risk_class": risk_class,
-            "release_tracking": release_tracking,
-        }
-        if _needs_rr_scope(merged):
-            rr_needed = True
-        verification = str(update.get("verification", "")).strip()
-        if not verification:
-            raise ValueError(f"verification is required for {entry_id}")
-        if risk_class == "implementation":
-            _validate_handoff_verification(verification, entry_id=entry_id)
-        elif risk == "H" or release_tracking:
-            _validate_high_risk_verification(verification, entry_id=entry_id)
-        elif risk in {"M", "L"} and verification != "Accepted":
-            raise ValueError(f"assumption {entry_id}: Medium/Low verification must be 'Accepted'")
-
-    if unsettled and exit_path != "return_r":
-        raise ValueError(
-            "unsettled assumptions must be classified in terms or use exit=return_r: "
-            f"{sorted(unsettled)}"
-        )
-    return rr_needed
 
 
 def _validate_gate_close_payload(gate: str, payload: dict[str, Any], *, constraints: dict[str, Any]) -> None:
@@ -598,17 +597,16 @@ def _validate_gate_close_payload(gate: str, payload: dict[str, Any], *, constrai
         return
     if gate == "R":
         exit_path = str(payload.get("exit", "")).strip()
-        if exit_path not in {"loop_b", "dc", "rs"}:
-            raise ValueError("exit must be loop_b, dc, or rs")
+        if exit_path not in {"dc", "rs", "human_decision"}:
+            raise ValueError("exit must be dc, rs, or human_decision")
         if exit_path == "rs":
             realign_gate = str(
                 payload.get("realign_gate", payload.get("reopen_gate", ""))
             ).strip()
             if realign_gate not in RS_REALIGN_GATES:
                 raise ValueError(
-                    "realign_gate must be one of Q, E, D, X for R exit rs"
+                    "realign_gate must be one of Q, GL, E, D, X for R exit rs"
                 )
-            # Normalize legacy key onto realign_gate for downstream consumers.
             payload["realign_gate"] = realign_gate
         assumptions = payload.get("assumptions", [])
         if not isinstance(assumptions, list):
@@ -616,38 +614,7 @@ def _validate_gate_close_payload(gate: str, payload: dict[str, Any], *, constrai
         for item in assumptions:
             if not isinstance(item, dict):
                 raise ValueError("each assumption entry must be an object")
-            entry_id = str(item.get("id", "")).strip()
-            if not entry_id:
-                raise ValueError("assumption id is required")
-            risk = str(item.get("risk", "")).strip()
-            if risk not in RISK_LEVELS:
-                raise ValueError(f"invalid risk for {entry_id}: {risk!r}")
-            if not str(item.get("consequence", "")).strip():
-                raise ValueError(f"consequence is required for {entry_id}")
-            risk_class = str(item.get("risk_class", "")).strip()
-            if risk_class not in RISK_CLASSES:
-                raise ValueError(f"invalid risk_class for {entry_id}: {risk_class!r}")
-            if exit_path == "dc" and risk_class in {"pending", "implementation"}:
-                raise ValueError(
-                    f"R exit dc forbids risk_class={risk_class!r} on {entry_id}; "
-                    "use loop_b so RR can write Handoff / resolve pending"
-                )
-        return
-    if gate == "RR":
-        exit_path = str(payload.get("exit", "")).strip()
-        if exit_path not in {"dc", "return_r", "human_decision"}:
-            raise ValueError("exit must be dc, return_r, or human_decision")
-        assumptions = payload.get("assumptions", [])
-        if not isinstance(assumptions, list):
-            raise ValueError("assumptions must be an array")
-        for item in assumptions:
-            if not isinstance(item, dict):
-                raise ValueError("each assumption entry must be an object")
-            entry_id = str(item.get("id", "")).strip()
-            if not entry_id:
-                raise ValueError("assumption id is required")
-            if not str(item.get("verification", "")).strip():
-                raise ValueError(f"verification is required for {entry_id}")
+            _validate_r_assumption_payload(item, exit_path=exit_path)
         return
     if gate == "DC":
         if not payload.get("user_confirmed"):
@@ -660,144 +627,136 @@ def _apply_r_register_updates(
     registers_path: Path,
     payload: dict[str, Any],
     *,
-    exit_path: str,
+    gate_state: dict[str, Any],
 ) -> None:
-    registers = load_registers(registers_path, r_gate_closed=False)
-    by_id = {str(item.get("id")): item for item in payload.get("assumptions", []) if isinstance(item, dict)}
+    reg_flags = _register_io_flags(gate_state)
+    reg_flags["r_risk_fields_allowed"] = True
+    registers = load_registers(registers_path, **reg_flags)
+    by_id = {
+        str(item.get("id")): item
+        for item in payload.get("assumptions", [])
+        if isinstance(item, dict)
+    }
     for entry in registers.get("assumptions", []):
         if not isinstance(entry, dict):
             continue
         update = by_id.get(str(entry.get("id")))
         if update is None:
             continue
-        entry["risk"] = str(update.get("risk")).strip()
-        entry["consequence"] = str(update.get("consequence", "")).strip()
-        entry["risk_class"] = str(update.get("risk_class")).strip()
-        if exit_path == "dc" and str(entry.get("state", "")) == "pending":
-            entry["state"] = "verified"
-    save_registers(registers_path, registers, r_gate_closed=True)
-    return None
+        risk_level = str(update.get("risk_level", update.get("risk", ""))).strip()
+        entry["risk_level"] = risk_level
+        entry["risk_consequence"] = str(
+            update.get("risk_consequence", update.get("consequence", ""))
+        ).strip()
+        entry["risk_class"] = str(update.get("risk_class", "")).strip()
+        if "risk_state" in update:
+            entry["risk_state"] = str(update.get("risk_state", "")).strip()
+        elif not entry.get("risk_state"):
+            entry["risk_state"] = "open"
+        for retired in ("risk", "consequence", "state", "verification", "disposition"):
+            entry.pop(retired, None)
+    save_flags = dict(reg_flags)
+    save_flags["r_gate_closed"] = is_gate_closed(gate_state, "R") or bool(by_id)
+    save_registers(registers_path, registers, **save_flags)
 
 
-def _apply_r_prior_signoff(registers_path: Path) -> None:
+def _apply_r_prior_signoff(registers_path: Path, *, gate_state: dict[str, Any]) -> None:
     """Mark all pending prior entries verified at R (R签字确认)."""
-    registers = load_registers(registers_path, r_gate_closed=True)
+    reg_flags = _register_io_flags(gate_state)
+    registers = load_registers(registers_path, **reg_flags)
     for entry in registers.get("prior", []):
         if isinstance(entry, dict) and str(entry.get("state", "")) == "pending":
             entry["state"] = "verified"
-    save_registers(registers_path, registers, r_gate_closed=True)
+    save_registers(registers_path, registers, **reg_flags)
 
 
-def _apply_rr_terms_register_updates(registers_path: Path, payload: dict[str, Any]) -> None:
-    """Write verification / handoff / tracking fields (former V close)."""
-    registers = load_registers(registers_path, r_gate_closed=True)
-    by_id = {
-        str(item.get("id")): item
-        for item in payload.get("assumptions", [])
-        if isinstance(item, dict)
-    }
-    for entry in registers.get("assumptions", []):
-        if not isinstance(entry, dict):
-            continue
-        update = by_id.get(str(entry.get("id")))
-        if update is None:
-            continue
-        entry["verification"] = str(update.get("verification", "")).strip()
-        if "release_tracking" in update:
-            entry["release_tracking"] = bool(update["release_tracking"])
-        risk = str(update.get("risk", entry.get("risk", ""))).strip()
-        if risk in RISK_LEVELS:
-            entry["risk"] = risk
-        if "risk_class" in update:
-            risk_class = str(update.get("risk_class", "")).strip()
-            if risk_class in RISK_CLASSES:
-                entry["risk_class"] = risk_class
-        if _risk_class_of(entry) == "implementation":
-            entry["state"] = "verified"
-            entry["release_tracking"] = False
-    save_registers(registers_path, registers, r_gate_closed=True)
-
-
-def _apply_rr_register_updates(registers_path: Path, payload: dict[str, Any]) -> None:
-    registers = load_registers(registers_path, r_gate_closed=True)
-    by_id = {
-        str(item.get("id")): item
-        for item in payload.get("assumptions", [])
-        if isinstance(item, dict)
-    }
-    for entry in registers.get("assumptions", []):
-        if not isinstance(entry, dict):
-            continue
-        update = by_id.get(str(entry.get("id")))
-        if update is None:
-            continue
-        if bool(update.get("released")):
-            entry["state"] = "verified"
-    save_registers(registers_path, registers, r_gate_closed=True)
-
-
-def _rr_scope_entries(registers: dict[str, Any]) -> list[dict[str, Any]]:
-    scoped: list[dict[str, Any]] = []
-    for entry in registers.get("assumptions", []):
-        if isinstance(entry, dict) and _needs_rr_scope(entry):
-            scoped.append(entry)
-    return scoped
-
-
-def _validate_rr_exit_against_registers(
-    registers: dict[str, Any],
-    payload: dict[str, Any],
+def cmd_complete_assumption(
+    project_root: Path,
+    cycle_id: str,
+    stage: str,
     *,
-    rr_needed: bool,
-) -> None:
-    scoped = _rr_scope_entries(registers)
-    by_id = {
-        str(item.get("id")): item
-        for item in payload.get("assumptions", [])
-        if isinstance(item, dict)
-    }
-    scope_ids = {str(entry.get("id")) for entry in scoped}
-    exit_path = str(payload.get("exit", "")).strip()
-
-    if not rr_needed and not scoped:
-        if exit_path == "dc":
-            if not payload.get("batch_confirmed"):
-                raise ValueError(
-                    "batch_confirmed must be true for RR exit dc when no RR-scope items"
-                )
-            return
-        if exit_path in {"return_r", "human_decision"}:
-            raise ValueError(
-                f"RR exit {exit_path} requires at least one RR-scope assumption"
+    entry_id: str,
+    release_terms: str,
+    constraints_path: Path | None = None,
+    session_dir: Path | None = None,
+) -> int:
+    paths = _paths(
+        project_root,
+        cycle_id,
+        stage,
+        constraints_path=constraints_path,
+        session_dir=session_dir,
+    )
+    try:
+        state = load_gate_state(paths["gate_state"])
+        rr_err = _reject_if_legacy_rr_active(state)
+        if rr_err:
+            return _emit_error(rr_err)
+        gate_err = _reject_if_r_assumption_gate_closed(state)
+        if gate_err:
+            return _emit_error(gate_err)
+        reg_flags = _register_io_flags(state)
+        registers = load_registers(paths["registers"], **reg_flags)
+        target = _find_assumption(registers, entry_id.strip())
+        if target is None:
+            return _emit_error(f"entry not found: {entry_id}")
+        if not _is_risk_row(target):
+            return _emit_error(f"{entry_id}: not a risk row (none triad)")
+        if _risk_state_of(target) != "open":
+            return _emit_error(
+                f"{entry_id}: risk_state must be open (got {_risk_state_of(target)!r})"
             )
-        return
+        validate_release_terms(release_terms, entry_id=entry_id)
+        target["release_terms"] = release_terms.strip()
+        target["risk_state"] = "completed"
+        save_registers(paths["registers"], registers, **reg_flags)
+    except (FileNotFoundError, ValueError) as exc:
+        return _emit_error(str(exc))
+    _emit({"ok": True, "entry": target})
+    return 0
 
-    missing = scope_ids - set(by_id)
-    if missing:
-        raise ValueError(f"missing RR-scope assumptions in payload: {sorted(missing)}")
-    for entry_id in scope_ids:
-        if "released" not in by_id[entry_id]:
-            raise ValueError(f"released flag required for {entry_id}")
 
-    released_flags = [bool(by_id[entry_id].get("released")) for entry_id in scope_ids]
-    all_released = bool(released_flags) and all(released_flags)
-    any_unreleased = any(not flag for flag in released_flags)
-
-    if exit_path == "human_decision" and not any_unreleased:
-        raise ValueError("RR exit human_decision requires at least one unreleased item")
-    if exit_path in {"dc", "return_r"} and not all_released:
-        raise ValueError(f"RR exit {exit_path} requires all scope items released")
-
-    if exit_path == "return_r":
-        new_pending = [
-            entry
-            for entry in registers.get("assumptions", [])
-            if isinstance(entry, dict)
-            and str(entry.get("state", "")) == "pending"
-            and str(entry.get("source", "")) in {"V", "RR"}
-        ]
-        if not new_pending:
-            raise ValueError("RR exit return_r requires new pending assumptions from RR")
+def cmd_set_risk_state(
+    project_root: Path,
+    cycle_id: str,
+    stage: str,
+    *,
+    entry_id: str,
+    risk_state: str,
+    constraints_path: Path | None = None,
+    session_dir: Path | None = None,
+) -> int:
+    paths = _paths(
+        project_root,
+        cycle_id,
+        stage,
+        constraints_path=constraints_path,
+        session_dir=session_dir,
+    )
+    new_state = risk_state.strip()
+    if new_state not in {"ignore", "open"}:
+        return _emit_error("risk_state must be ignore or open (use complete-assumption for completed)")
+    try:
+        state = load_gate_state(paths["gate_state"])
+        rr_err = _reject_if_legacy_rr_active(state)
+        if rr_err:
+            return _emit_error(rr_err)
+        gate_err = _reject_if_r_assumption_gate_closed(state)
+        if gate_err:
+            return _emit_error(gate_err)
+        reg_flags = _register_io_flags(state)
+        registers = load_registers(paths["registers"], **reg_flags)
+        target = _find_assumption(registers, entry_id.strip())
+        if target is None:
+            return _emit_error(f"entry not found: {entry_id}")
+        if not _is_risk_row(target):
+            return _emit_error(f"{entry_id}: not a risk row (none triad)")
+        target["risk_state"] = new_state
+        save_registers(paths["registers"], registers, **reg_flags)
+    except (FileNotFoundError, ValueError) as exc:
+        return _emit_error(str(exc))
+    _emit({"ok": True, "entry": target})
+    return 0
 
 
 def _persist_gate_payload(
@@ -809,9 +768,7 @@ def _persist_gate_payload(
 
 
 def _gate_close_persists_payload(gate: str, payload: dict[str, Any]) -> bool:
-    if gate == "R" and str(payload.get("exit", "")).strip() == "rs":
-        return False
-    if gate == "RR" and str(payload.get("exit", "")).strip() == "human_decision":
+    if gate == "R" and str(payload.get("exit", "")).strip() in {"rs", "human_decision"}:
         return False
     return True
 
@@ -871,10 +828,6 @@ def _collect_delivery_errors(
         if not is_gate_closed(state, gate):
             errors.append(f"gate {gate} is not closed")
 
-    skipped = list(state.get("skipped_gates") or [])
-    if "RR" not in skipped and not is_gate_closed(state, "RR"):
-        errors.append("gate RR is not closed")
-
     errors.extend(
         run_structural_audit(
             project_root,
@@ -890,32 +843,21 @@ def _collect_delivery_errors(
     for entry in registers.get("assumptions", []):
         if not isinstance(entry, dict):
             continue
+        if not _is_risk_row(entry):
+            continue
         entry_id = str(entry.get("id", ""))
-        risk = str(entry.get("risk", "")).strip()
-        risk_class = _risk_class_of(entry)
-        verification = str(entry.get("verification") or "").strip()
-        if risk_class == "pending":
-            errors.append(f"{entry_id}: risk_class still pending")
-        if risk_class == "implementation":
-            if not verification:
-                errors.append(f"{entry_id}: implementation missing Handoff verification")
+        risk_state = _risk_state_of(entry)
+        if risk_state == "open":
+            errors.append(f"{entry_id}: risk_state still open")
+        if risk_state == "completed":
+            terms = str(entry.get("release_terms") or "").strip()
+            if not terms:
+                errors.append(f"{entry_id}: completed missing release_terms")
             else:
                 try:
-                    _validate_handoff_verification(verification, entry_id=entry_id)
+                    validate_release_terms(terms, entry_id=entry_id)
                 except ValueError as exc:
                     errors.append(str(exc))
-        elif risk == "H" or bool(entry.get("release_tracking")):
-            if not verification:
-                errors.append(f"{entry_id}: High-risk missing verification")
-            else:
-                try:
-                    _validate_high_risk_verification(verification, entry_id=entry_id)
-                except ValueError as exc:
-                    errors.append(str(exc))
-        elif risk in {"M", "L"} and not verification:
-            errors.append(f"{entry_id}: missing verification")
-        if str(entry.get("state", "")) == "pending" and risk:
-            errors.append(f"{entry_id}: assumption still pending")
     return errors
 
 
@@ -936,8 +878,9 @@ def cmd_check_delivery_ready(
     )
     try:
         state = load_gate_state(paths["gate_state"])
-        r_closed = is_gate_closed(state, "R")
-        registers = load_registers(paths["registers"], r_gate_closed=r_closed)
+        reg_flags = _register_io_flags(state)
+        reg_flags["r_gate_closed"] = True
+        registers = load_registers(paths["registers"], **reg_flags)
         errors = _collect_delivery_errors(
             project_root,
             cycle_id,
@@ -978,8 +921,9 @@ def cmd_complete(
         state = load_gate_state(paths["gate_state"])
         if not is_gate_closed(state, "DC"):
             return _emit_error("DC gate must be closed before complete")
-        r_closed = is_gate_closed(state, "R")
-        registers = load_registers(paths["registers"], r_gate_closed=r_closed)
+        reg_flags = _register_io_flags(state)
+        reg_flags["r_gate_closed"] = True
+        registers = load_registers(paths["registers"], **reg_flags)
         errors = _collect_delivery_errors(
             project_root,
             cycle_id,
@@ -1045,8 +989,9 @@ def cmd_prepare(
         state = load_gate_state(paths["gate_state"])
         if not is_gate_closed(state, "DC"):
             return _emit_error("DC gate must be closed before prepare")
-        r_closed = is_gate_closed(state, "R")
-        registers = load_registers(paths["registers"], r_gate_closed=r_closed)
+        reg_flags = _register_io_flags(state)
+        reg_flags["r_gate_closed"] = True
+        registers = load_registers(paths["registers"], **reg_flags)
         errors = _collect_delivery_errors(
             project_root,
             cycle_id,
@@ -1105,8 +1050,13 @@ def cmd_gate_close(
     frozen = _reject_if_frozen(paths)
     if frozen is not None:
         return frozen
+    if gate == "RR":
+        return _emit_error("RR retired; use R handle + complete-assumption")
     try:
         state = load_gate_state(paths["gate_state"])
+        rr_err = _reject_if_legacy_rr_active(state)
+        if rr_err:
+            return _emit_error(rr_err)
         constraints = _load_session_constraints(
             project_root,
             cycle_id,
@@ -1120,39 +1070,35 @@ def cmd_gate_close(
         _validate_gate_close_payload(gate, payload, constraints=constraints)
         if gate == "R":
             exit_path = str(payload.get("exit", "")).strip()
-            if exit_path != "rs":
-                if payload.get("assumptions"):
-                    _apply_r_register_updates(paths["registers"], payload, exit_path=exit_path)
-                else:
-                    save_registers(
-                        paths["registers"],
-                        load_registers(paths["registers"], r_gate_closed=False),
-                        r_gate_closed=True,
-                    )
-                _apply_r_prior_signoff(paths["registers"])
-                updated = close_gate_r(state, exit_path=exit_path)
-            else:
-                if payload.get("assumptions"):
-                    _apply_r_register_updates(paths["registers"], payload, exit_path=exit_path)
+            if payload.get("assumptions"):
+                _apply_r_register_updates(
+                    paths["registers"], payload, gate_state=state
+                )
+            elif exit_path == "dc":
+                reg_flags = _register_io_flags(state)
+                reg_flags["r_gate_closed"] = True
+                save_registers(
+                    paths["registers"],
+                    load_registers(paths["registers"], **reg_flags),
+                    **reg_flags,
+                )
+            if exit_path == "rs":
                 updated = state
-        elif gate == "RR":
-            exit_path = str(payload.get("exit", "")).strip()
-            registers = load_registers(paths["registers"], r_gate_closed=True)
-            rr_needed = _validate_rr_terms_against_registers(registers, payload)
-            _apply_rr_terms_register_updates(paths["registers"], payload)
-            registers = load_registers(paths["registers"], r_gate_closed=True)
-            _validate_rr_exit_against_registers(
-                registers, payload, rr_needed=rr_needed
-            )
-            _apply_rr_register_updates(paths["registers"], payload)
-            if exit_path == "human_decision":
-                updated = state
+            elif exit_path == "human_decision":
+                updated = close_gate_r(state, exit_path="human_decision")
             else:
-                updated = close_gate_rr(state, exit_path=exit_path)
+                reg_flags = _register_io_flags(state)
+                reg_flags["r_gate_closed"] = True
+                registers = load_registers(paths["registers"], **reg_flags)
+                _validate_open_risk_states_for_dc(registers)
+                _apply_r_prior_signoff(paths["registers"], gate_state=state)
+                updated = close_gate_r(state, exit_path="dc")
         elif gate == "O":
             updated = close_gate(state, gate)
         elif gate == "DC":
-            registers = load_registers(paths["registers"], r_gate_closed=True)
+            reg_flags = _register_io_flags(state)
+            reg_flags["r_gate_closed"] = True
+            registers = load_registers(paths["registers"], **reg_flags)
             errors = _collect_delivery_errors(
                 project_root,
                 cycle_id,
@@ -1178,18 +1124,17 @@ def cmd_gate_close(
         "ok": True,
         "gate": gate,
         "status": "active"
-        if (gate == "RR" and payload.get("exit") == "human_decision")
-        or (gate == "R" and payload.get("exit") == "rs")
+        if gate == "R" and payload.get("exit") in {"rs", "human_decision"}
         else "closed",
         "active_gate": updated["active_gate"],
     }
-    if gate in {"R", "RR"}:
+    if gate == "R":
         result["exit"] = payload.get("exit")
     if gate == "R" and payload.get("exit") == "rs":
         result["realign_gate"] = payload.get("realign_gate") or payload.get(
             "reopen_gate"
         )
-    if gate == "R" and payload.get("exit") != "rs":
+    if gate == "R" and payload.get("exit") == "dc":
         result["skipped_gates"] = updated.get("skipped_gates", [])
     _emit(result)
     return 0
@@ -1755,6 +1700,20 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "deliver",
         help="Deprecated alias for complete (node/session terminal).",
     )
+    complete_assumption = sub.add_parser(
+        "complete-assumption",
+        help="Write release_terms and mark assumption risk_state=completed.",
+    )
+    complete_assumption.add_argument("--id", required=True, dest="entry_id")
+    complete_assumption.add_argument("--release-terms", required=True)
+
+    set_risk = sub.add_parser(
+        "set-risk-state",
+        help="Set assumption risk_state to ignore or open.",
+    )
+    set_risk.add_argument("--id", required=True, dest="entry_id")
+    set_risk.add_argument("--risk-state", required=True, choices=["ignore", "open"])
+
     sub.add_parser("migrate-session", help="Migrate legacy session to gate-state architecture.")
 
     return parser.parse_args(argv)
@@ -1893,6 +1852,24 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_prepare(project_root, cycle_id, stage, **common)
     if args.command in {"complete", "deliver"}:
         return cmd_complete(project_root, cycle_id, stage, **common)
+    if args.command == "complete-assumption":
+        return cmd_complete_assumption(
+            project_root,
+            cycle_id,
+            stage,
+            entry_id=args.entry_id.strip(),
+            release_terms=args.release_terms,
+            **common,
+        )
+    if args.command == "set-risk-state":
+        return cmd_set_risk_state(
+            project_root,
+            cycle_id,
+            stage,
+            entry_id=args.entry_id.strip(),
+            risk_state=args.risk_state,
+            **common,
+        )
     if args.command == "migrate-session":
         return cmd_migrate_session(project_root, cycle_id, stage, **common)
     return _emit_error(f"unknown command: {args.command}")

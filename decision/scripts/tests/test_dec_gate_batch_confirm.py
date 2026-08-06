@@ -238,7 +238,7 @@ def test_batch_reclose_rejects_skip_and_non_align_gates(
             payloads={
                 "D": _d_payload(),
                 "X": _x_payload(),
-                "R": {"exit": "loop_b", "assumptions": []},
+                "R": {"exit": "human_decision", "assumptions": []},
             },
         )
         == 1

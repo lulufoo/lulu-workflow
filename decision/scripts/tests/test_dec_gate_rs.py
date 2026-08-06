@@ -101,13 +101,15 @@ def test_r_prior_signoff_on_close(template_config: Path, monkeypatch: pytest.Mon
             stage,
             "R",
             {
-                "exit": "loop_b",
+                "exit": "dc",
                 "assumptions": [
                     {
                         "id": "A1",
-                        "risk": "L",
+                        "risk_level": "L",
                         "risk_class": "decision",
-                        "consequence": "minor",
+                        "risk_state": "completed",
+                        "risk_consequence": "minor",
+                        "release_terms": "Accepted",
                     }
                 ],
             },
@@ -243,8 +245,7 @@ def test_stale_from_keeps_payloads(template_config: Path, monkeypatch: pytest.Mo
     assert gate_state["gates"]["D"]["status"] == "stale"
     assert gate_state["gates"]["X"]["status"] == "stale"
     assert gate_state["gates"]["R"]["status"] == "stale"
-    # Never-reached pending left alone
-    assert gate_state["gates"]["RR"]["status"] == "pending"
+    assert gate_state["gates"]["DC"]["status"] == "pending"
 
     assert gate_payload_exists(project_root, cycle_id, "D")
     assert gate_payload_exists(project_root, cycle_id, "X")
@@ -256,7 +257,7 @@ def test_stale_from_keeps_payloads(template_config: Path, monkeypatch: pytest.Mo
             cycle_id,
             stage,
             operations=[
-                {"id": "A1", "action": "set_state", "state": "pending"},
+                {"id": "P1", "action": "set_state", "state": "verified"},
             ],
         )
         == 0
@@ -265,7 +266,7 @@ def test_stale_from_keeps_payloads(template_config: Path, monkeypatch: pytest.Mo
     registers = json.loads(
         (project_root / registers_path(cycle_id, stage)).read_text(encoding="utf-8")
     )
-    assert registers["assumptions"][0]["state"] == "pending"
+    assert registers["prior"][0]["state"] == "verified"
 
 
 def test_rs_commit_atomic_stale(
@@ -307,7 +308,7 @@ def test_rs_commit_atomic_stale(
             cycle_id,
             stage,
             "D",
-            operations=[{"id": "A1", "action": "set_state", "state": "pending"}],
+            operations=[{"id": "P1", "action": "set_state", "state": "verified"}],
         )
         == 0
     )
@@ -317,7 +318,7 @@ def test_rs_commit_atomic_stale(
     assert payload["reenter"] == "D"
     assert payload["active_gate"] == "D"
     assert payload["applied"] == 1
-    assert payload["registers"]["assumptions"][0]["state"] == "pending"
+    assert payload["registers"]["prior"][0]["state"] == "verified"
     assert payload["gates"]["D"]["status"] == "stale"
     assert payload["gates"]["X"]["status"] == "stale"
 
@@ -367,13 +368,14 @@ def test_stale_from_d_after_r_closed_strips_risk(
             stage,
             "R",
             {
-                "exit": "loop_b",
+                "exit": "human_decision",
                 "assumptions": [
                     {
                         "id": "A1",
-                        "risk": "H",
+                        "risk_level": "H",
                         "risk_class": "decision",
-                        "consequence": "blocked",
+                        "risk_state": "open",
+                        "risk_consequence": "blocked",
                     }
                 ],
             },
@@ -387,9 +389,9 @@ def test_stale_from_d_after_r_closed_strips_risk(
         (project_root / registers_path(cycle_id, stage)).read_text(encoding="utf-8")
     )
     assumption = registers["assumptions"][0]
-    assert "risk" not in assumption
-    assert "consequence" not in assumption
-    assert "risk_class" not in assumption
+    assert "risk_level" not in assumption or assumption.get("risk_level") is None
+    assert "risk_consequence" not in assumption or assumption.get("risk_consequence") is None
+    assert "risk_class" not in assumption or assumption.get("risk_class") is None
 
     capsys.readouterr()
     assert cmd_register_commit(project_root, cycle_id, stage, operations=[]) == 0

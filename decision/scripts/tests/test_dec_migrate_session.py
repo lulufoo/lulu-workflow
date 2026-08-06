@@ -112,10 +112,11 @@ def test_migrate_delivered_closes_all_gates(
     registers = load_registers(project_root / registers_path(cycle_id, stage), r_gate_closed=True)
     assert len(registers["assumptions"]) == 2
     assert registers["assumptions"][0]["id"] == "A1"
-    assert registers["assumptions"][0]["state"] == "verified"
+    assert registers["assumptions"][0]["risk_state"] == "completed"
     assert registers["assumptions"][0]["risk_class"] == "decision"
+    assert registers["assumptions"][0]["release_terms"] == "Accepted"
     assert registers["assumptions"][1]["id"] == "A2"
-    assert registers["assumptions"][1]["state"] == "verified"
+    assert registers["assumptions"][1]["risk_state"] == "completed"
     assert registers["assumptions"][1]["risk_class"] == "implementation"
 
 

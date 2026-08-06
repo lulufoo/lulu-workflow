@@ -79,13 +79,20 @@ def _paths(
     return session_artifact_paths(root)
 
 
+def _register_io_flags(gate_state: dict[str, Any]) -> dict[str, bool]:
+    active = str(gate_state.get("active_gate", ""))
+    r_closed = is_gate_closed(gate_state, "R")
+    allowed = active == "R" or r_closed
+    return {"r_gate_closed": r_closed, "r_risk_fields_allowed": allowed}
+
+
 def _active_register_source(gate_state: dict[str, Any]) -> str:
     active = str(gate_state.get("active_gate", "O"))
     if active == "O":
         return "O"
     if active == "V":
-        return "RR"
-    if active in {"Q", "GL", "E", "D", "X", "R", "RR"}:
+        return "R"
+    if active in {"Q", "GL", "E", "D", "X", "R"}:
         return active
     return "O"
 
@@ -101,7 +108,12 @@ def sync_registers_to_doc(
         constraints_path = decision_doc_file.parent / "domain-constraints.json"
         if constraints_path.exists():
             constraints = load_domain_constraints(constraints_path)
-    registers = load_registers(registers_file, r_gate_closed=r_gate_closed)
+    gate_state_path = decision_doc_file.parent / "gate-state.json"
+    reg_flags = {"r_gate_closed": r_gate_closed, "r_risk_fields_allowed": r_gate_closed}
+    if gate_state_path.exists():
+        gate_state = load_gate_state(gate_state_path)
+        reg_flags = _register_io_flags(gate_state)
+    registers = load_registers(registers_file, **reg_flags)
     doc = load_decision_doc(decision_doc_file)
     if constraints is None or is_section_active(constraints, "user_prior"):
         doc = replace_section(doc, "user_prior", render_user_prior_body(registers), constraints=constraints)
@@ -165,7 +177,10 @@ def _apply_update_operation(
     entry_id: str,
     payload: dict[str, Any],
     r_closed: bool,
+    r_risk_fields_allowed: bool | None = None,
 ) -> dict[str, Any]:
+    if r_risk_fields_allowed is None:
+        r_risk_fields_allowed = r_closed
     target = _find_entry(registers, entry_id)
     if target is None:
         raise ValueError(f"entry not found: {entry_id}")
@@ -195,8 +210,8 @@ def _apply_update_operation(
         if field in payload:
             if not is_assumption:
                 raise ValueError(f"{field} only valid on assumptions")
-            if not r_closed:
-                raise ValueError(f"{field} cannot be set before R gate is closed")
+            if not r_risk_fields_allowed:
+                raise ValueError(f"{field} cannot be set before R gate is reached")
             value = payload[field]
             if value is not None and str(value).strip() not in allowed:
                 raise ValueError(f"invalid {field}: {value!r}")
@@ -206,8 +221,8 @@ def _apply_update_operation(
         if field in payload:
             if not is_assumption:
                 raise ValueError(f"{field} only valid on assumptions")
-            if not r_closed:
-                raise ValueError(f"{field} cannot be set before R gate is closed")
+            if not r_risk_fields_allowed:
+                raise ValueError(f"{field} cannot be set before R gate is reached")
             target[field] = payload[field]
 
     for retired in ("risk", "consequence", "verification", "disposition", "release_tracking", "released"):
@@ -224,8 +239,8 @@ def apply_register_commit_operations(
 ) -> tuple[dict[str, Any], int]:
     """Apply G0 append/update ops; persist registers once."""
     gate_state = load_gate_state(paths["gate_state"])
-    r_closed = is_gate_closed(gate_state, "R")
-    registers = load_registers(paths["registers"], r_gate_closed=r_closed)
+    reg_flags = _register_io_flags(gate_state)
+    registers = load_registers(paths["registers"], **reg_flags)
     source = _active_register_source(gate_state)
     applied = 0
 
@@ -245,12 +260,18 @@ def apply_register_commit_operations(
                 raise ValueError("update operation requires id")
             if not isinstance(payload, dict):
                 raise ValueError("update operation requires object payload")
-            _apply_update_operation(registers, entry_id=entry_id, payload=payload, r_closed=r_closed)
+            _apply_update_operation(
+                registers,
+                entry_id=entry_id,
+                payload=payload,
+                r_closed=reg_flags["r_gate_closed"],
+                r_risk_fields_allowed=reg_flags["r_risk_fields_allowed"],
+            )
             applied += 1
         else:
             raise ValueError(f"invalid action: {action!r} (use append or update)")
 
-    save_registers(paths["registers"], registers, r_gate_closed=r_closed)
+    save_registers(paths["registers"], registers, **reg_flags)
     return registers, applied
 
 
@@ -308,8 +329,8 @@ def cmd_register_append(
     )
     try:
         gate_state = load_gate_state(paths["gate_state"])
-        r_closed = is_gate_closed(gate_state, "R")
-        registers = load_registers(paths["registers"], r_gate_closed=r_closed)
+        reg_flags = _register_io_flags(gate_state)
+        registers = load_registers(paths["registers"], **reg_flags)
         source = _active_register_source(gate_state)
         entry = _apply_append_operation(
             registers,
@@ -317,7 +338,7 @@ def cmd_register_append(
             payload=payload,
             source=source,
         )
-        save_registers(paths["registers"], registers, r_gate_closed=r_closed)
+        save_registers(paths["registers"], registers, **reg_flags)
     except (FileNotFoundError, ValueError) as exc:
         return _emit_error(str(exc))
 
@@ -344,15 +365,16 @@ def cmd_register_update(
     )
     try:
         gate_state = load_gate_state(paths["gate_state"])
-        r_closed = is_gate_closed(gate_state, "R")
-        registers = load_registers(paths["registers"], r_gate_closed=r_closed)
+        reg_flags = _register_io_flags(gate_state)
+        registers = load_registers(paths["registers"], **reg_flags)
         target = _apply_update_operation(
             registers,
             entry_id=entry_id,
             payload=payload,
-            r_closed=r_closed,
+            r_closed=reg_flags["r_gate_closed"],
+            r_risk_fields_allowed=reg_flags["r_risk_fields_allowed"],
         )
-        save_registers(paths["registers"], registers, r_gate_closed=r_closed)
+        save_registers(paths["registers"], registers, **reg_flags)
     except (FileNotFoundError, ValueError) as exc:
         return _emit_error(str(exc))
 
@@ -375,8 +397,8 @@ def apply_register_batch_operations(
 ) -> tuple[dict[str, Any], int]:
     """Apply RS batch ops; persist registers. Returns (registers, applied)."""
     gate_state = load_gate_state(paths["gate_state"])
-    r_closed = is_gate_closed(gate_state, "R")
-    registers = load_registers(paths["registers"], r_gate_closed=r_closed)
+    reg_flags = _register_io_flags(gate_state)
+    registers = load_registers(paths["registers"], **reg_flags)
 
     for op in operations:
         entry_id = str(op.get("id", ""))
@@ -405,7 +427,7 @@ def apply_register_batch_operations(
         else:
             raise ValueError(f"invalid action: {action!r}")
 
-    save_registers(paths["registers"], registers, r_gate_closed=r_closed)
+    save_registers(paths["registers"], registers, **reg_flags)
     return registers, len(operations)
 
 
@@ -476,8 +498,8 @@ def cmd_resolve_context(
     )
     try:
         gate_state = load_gate_state(paths["gate_state"])
-        r_closed = is_gate_closed(gate_state, "R")
-        registers = load_registers(paths["registers"], r_gate_closed=r_closed)
+        reg_flags = _register_io_flags(gate_state)
+        registers = load_registers(paths["registers"], **reg_flags)
     except (FileNotFoundError, ValueError) as exc:
         return _emit_error(str(exc))
 

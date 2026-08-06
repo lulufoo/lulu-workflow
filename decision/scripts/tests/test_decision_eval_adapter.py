@@ -74,11 +74,8 @@ def _seed_dc_session(project_root: Path, cycle_id: str) -> Path:
         if gate == "DC":
             state["gates"][gate]["status"] = "active"
             state["active_gate"] = "DC"
-        elif gate == "RR":
-            state["gates"][gate]["status"] = "skipped"
         else:
             state["gates"][gate]["status"] = "closed"
-    state["skipped_gates"] = ["RR"]
     save_gate_state(session / "gate-state.json", state)
 
     payloads = session / "gate-payloads"

@@ -49,7 +49,7 @@ GATE_CLOSE_PREREQ: dict[str, str | None] = {
     "D": "E",
     "X": "D",
     "R": "X",
-    "RR": "R",
+    "DC": "R",
 }
 
 
@@ -309,21 +309,23 @@ def render_execution_analysis_body(
     return "\n".join(lines).strip()
 
 
-def _assumption_status_label(*, state: str, risk_class: str) -> str:
-    if state != "verified":
-        return "[待验证]"
+def _assumption_status_label(*, risk_state: str, risk_class: str) -> str:
+    if risk_state == "completed":
+        return "[已验证]"
+    if risk_state == "ignore":
+        return "[忽略]"
     if risk_class == "implementation":
-        return "[已交接]"
-    return "[已验证]"
+        return "[待验证]"
+    return "[待验证]"
 
 
 def render_assumptions_body(registers: dict[str, Any]) -> str:
     lines = [
-        "> Status values: `[待验证]` · `[已验证]` (`Class=decision` confirmed) · "
-        "`[已交接]` (`Class=implementation` handoff recorded — not risk released)",
+        "> Status values: `[待验证]` · `[已验证]` (risk_state=completed) · "
+        "`[忽略]` (risk_state=ignore)",
         "",
-        "| # | Assumption | Source | Risk | Class | Release Tracking | Failure Consequence | Verification | Status |",
-        "|---|-----------|--------|------|-------|------------------|---------------------|-------------|--------|",
+        "| # | Assumption | Source | Risk | Class | State | Failure Consequence | Release Terms | Status |",
+        "|---|-----------|--------|------|-------|-------|---------------------|---------------|--------|",
     ]
     assumptions = registers.get("assumptions", [])
     if not assumptions:
@@ -332,13 +334,12 @@ def render_assumptions_body(registers: dict[str, Any]) -> str:
         for entry in assumptions:
             if not isinstance(entry, dict):
                 continue
-            state = str(entry.get("state", "pending"))
+            risk_state = str(entry.get("risk_state") or "")
             risk_class = str(entry.get("risk_class") or "")
-            status = _assumption_status_label(state=state, risk_class=risk_class)
-            risk = entry.get("risk") or ""
-            tracking = "Yes" if entry.get("release_tracking") else ""
-            verification = entry.get("verification") or ""
-            consequence = entry.get("consequence") or ""
+            status = _assumption_status_label(risk_state=risk_state, risk_class=risk_class)
+            risk_level = entry.get("risk_level") or ""
+            consequence = entry.get("risk_consequence") or ""
+            release_terms = entry.get("release_terms") or ""
             lines.append(
                 "| "
                 + " | ".join(
@@ -346,11 +347,11 @@ def render_assumptions_body(registers: dict[str, Any]) -> str:
                         _escape_cell(str(entry.get("id", ""))),
                         _escape_cell(str(entry.get("text", ""))),
                         _escape_cell(str(entry.get("source", ""))),
-                        _escape_cell(str(risk)),
+                        _escape_cell(str(risk_level)),
                         _escape_cell(risk_class),
-                        _escape_cell(tracking),
+                        _escape_cell(risk_state),
                         _escape_cell(str(consequence)),
-                        _escape_cell(str(verification)),
+                        _escape_cell(str(release_terms)),
                         _escape_cell(status),
                     ]
                 )

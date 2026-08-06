@@ -132,7 +132,9 @@ def _close_qe(project_root: Path, cycle_id: str, stage: str) -> None:
     )
 
 
-def test_loop_a_d_x_r_loop_b_exit(template_config: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_loop_a_d_x_r_human_decision_stays_active(
+    template_config: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     project_root = template_config
     cycle_id = "feature-loop-a-001"
     stage = "decision"
@@ -193,13 +195,14 @@ def test_loop_a_d_x_r_loop_b_exit(template_config: Path, monkeypatch: pytest.Mon
             stage,
             "R",
             {
-                "exit": "loop_b",
+                "exit": "human_decision",
                 "assumptions": [
                     {
                         "id": "A1",
-                        "risk": "H",
+                        "risk_level": "H",
                         "risk_class": "decision",
-                        "consequence": "Export blocked",
+                        "risk_state": "open",
+                        "risk_consequence": "Export blocked",
                     },
                 ],
             },
@@ -215,12 +218,11 @@ def test_loop_a_d_x_r_loop_b_exit(template_config: Path, monkeypatch: pytest.Mon
     gate_state = json.loads(
         (project_root / gate_state_path(cycle_id, stage)).read_text(encoding="utf-8")
     )
-    assert gate_state["active_gate"] == "RR"
-    assert gate_state["gates"]["R"]["status"] == "closed"
-    assert gate_state["skipped_gates"] == []
+    assert gate_state["active_gate"] == "R"
+    assert gate_state["gates"]["R"]["status"] == "active"
 
 
-def test_loop_a_r_dc_exit_skips_loop_b(template_config: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_loop_a_r_dc_exit_advances_to_dc(template_config: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     project_root = template_config
     cycle_id = "feature-loop-a-002"
     stage = "decision"
@@ -271,4 +273,4 @@ def test_loop_a_r_dc_exit_skips_loop_b(template_config: Path, monkeypatch: pytes
         (project_root / gate_state_path(cycle_id, stage)).read_text(encoding="utf-8")
     )
     assert gate_state["active_gate"] == "DC"
-    assert gate_state["skipped_gates"] == ["RR"]
+    assert gate_state.get("skipped_gates") == []

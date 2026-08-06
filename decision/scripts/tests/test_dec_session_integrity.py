@@ -45,19 +45,19 @@ def test_strip_assumption_risk_fields() -> None:
             {
                 "id": "A1",
                 "text": "t",
-                "state": "pending",
                 "source": "R",
-                "risk": "H",
+                "risk_level": "H",
                 "risk_class": "decision",
-                "consequence": "x",
+                "risk_state": "open",
+                "risk_consequence": "x",
             }
         ],
         "next_prior_seq": 1,
         "next_assumption_seq": 2,
     }
     stripped = strip_assumption_risk_fields(data)
-    assert "risk" not in stripped["assumptions"][0]
-    assert "consequence" not in stripped["assumptions"][0]
+    assert "risk_level" not in stripped["assumptions"][0]
+    assert "risk_consequence" not in stripped["assumptions"][0]
     assert "risk_class" not in stripped["assumptions"][0]
 
 
