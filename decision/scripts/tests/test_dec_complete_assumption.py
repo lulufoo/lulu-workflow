@@ -316,7 +316,7 @@ def test_apply_r_defaults_l_to_ignore(
     stage = "decision"
     monkeypatch.chdir(project_root)
 
-    _close_through_r_active(project_root, cycle_id, stage)
+    _reach_active_r(project_root, cycle_id, stage)
     assert (
         cmd_apply_r_assumptions(
             project_root,
