@@ -2,15 +2,16 @@
 name: decision/r-expose-bets-runner
 description: >-
   R gate runner for decision. Expose the Bets: batch-present Prior, assumption
-  coverage, and full-table risk draft with proposed exit; one confirm; gate-close
-  R. Invoked by decision/SKILL.md.
+  coverage, and full-table risk draft; handle open risks; gate-close R.
+  Invoked by decision/SKILL.md.
 meta-skill-version: 1.0.0
 ---
 
 # r-expose-bets-runner
 
 Execute **R — Expose the Bets**. Prepare the expose pack off-turn, present it
-once, revise by re-presenting the full pack, then one confirm and `gate-close`.
+once, revise by re-presenting the full pack, confirm expose, handle any
+`risk_state=open` rows, then `gate-close` R.
 
 ## Blocking policy
 
@@ -34,7 +35,8 @@ Do NOT proceed until you have read `../../../_runtime.md`
 |-------|---------|
 | `$GATE_CONTROL` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>"` |
 
-Subcommand contracts: module docstring / `--help`.
+Subcommand contracts: module docstring / `--help` (including
+`complete-assumption`, `set-risk-state`, and R `gate-close`).
 
 ## Cognitive map
 
@@ -42,8 +44,9 @@ Subcommand contracts: module docstring / `--help`.
 
 | ID | Must be clear |
 |----|----------------|
-| `G-pack` | Expose pack ready and shown: User Prior; Assumption coverage vs D/X/history; full-table `risk` / `risk_class` / consequence draft; proposed exit. No undigested user revise pending. |
-| `G-confirm` | One user confirm covers prior sign-off, coverage, risk/class (incl. reclass), and exit (`rs` \| `loop_b` \| `dc`). |
+| `G-pack` | Expose pack ready and shown: User Prior; assumption coverage vs D/X/history; full-table `risk_level` / `risk_class` / `risk_state` / `risk_consequence`; proposed exit. No undigested user revise pending. |
+| `G-expose-confirm` | One user confirm covers prior sign-off, coverage, risk fields (incl. reclass), and intended exit (`rs` \| `dc` \| suspend). **`open` rows allowed** at this goal. |
+| `G-handled` | No remaining `risk_state=open`, **or** user chose `rs` / `human_decision` to leave R. |
 
 ### Coverage / bounds
 
@@ -52,50 +55,57 @@ Subcommand contracts: module docstring / `--help`.
 - **Coverage:** review `$CTX.registers.assumptions` against D, X, and conversation; do not collect the log from scratch.
 - **Read `$CTX.gl.exchanges` in full** during `prepare` (prefer `gap_check` / risk-narrative / confirmation intents); fold into the draft — **no separate confirm turn**.
 - **Classify only on the full table here** — never assign `risk_class` at G0 / append time.
-- **Risk (H/M/L)** — impact on whether the **delivered decision** is overturned (orthogonal to `risk_class`):
+- **Non-risk rows:** `risk_level` / `risk_class` / `risk_state` all `none`; `risk_consequence` still required (may be empty or “—”).
+- **Risk row defaults (draft):** H/M → `risk_state=open`; L → `ignore`. User may override at confirm.
+- **`risk_level` (H/M/L)** — impact on whether the **delivered decision** is overturned (orthogonal to `risk_class`):
   - **High:** failure would seriously undermine or overturn the delivered decision
   - **Medium:** failure forces a significant adjustment, not necessarily full overturn
   - **Low:** limited impact; absorbable in execution
 - **`risk_class`:**
   - **decision** — verification (or equivalent) can / must complete before DC
-  - **implementation** — cannot meaningfully verify before DC; handoff at RR terms; does not enter release-check
-  - **pending** — gray; may leave R only via `loop_b`; resolve at RR terms entry. If unclear whether verification can finish before DC → `pending` (do not silently default to `decision`)
+  - **implementation** — cannot meaningfully verify before DC; does not block DC once handled
+  - **pending** — gray; does not block exit by itself — only `risk_state` gates delivery
+  - **none** — not a risk row
 - **Batch present (required on non-stale path):** one screen with Prior + coverage + risk draft + proposed exit. **Forbidden** as the default: separate confirm rounds for Prior alone, coverage alone, then risk alone, then exit alone.
 - **Revise:** on any change request, update the draft and **re-present the full pack** (`present`); do not reopen split confirm rounds.
-- **One confirm** must establish: prior sign-off (or empty prior OK); coverage complete (or “no missing rows” accepted); every assumption has `risk` / `risk_class` / consequence; exit chosen and legal.
+- **Expose confirm** → `$GATE_CONTROL apply-r-assumptions --payload '{"assumptions":[...]}'` (no `completed`). Mid-`handle`: `complete-assumption` / `set-risk-state` only.
 - **Exits (mutually exclusive; AI must not unilaterally pick):**
   - `rs` — assumption confirmed wrong/invalid → RS at `realign_gate`
-  - `loop_b` — any remaining uncertain / `implementation` / `pending` / unresolved `[待验证]` → RR
-  - `dc` — all `decision` and resolved → DC (**forbidden** if any `pending` or `implementation`)
-- **Bulk assumption field updates** only via R `gate-close` payload — not fresh G0 collection for risk fields.
-- **vs RR:** R exposes and classifies; RR sets terms / release-check.
+  - `dc` — no `risk_state=open` remains → DC
+  - `human_decision` — user suspends (open items unresolved or cannot proceed) → HD runner
+- **Final close** uses `gate-close --gate R` with `exit` + current assumptions snapshot — do not invent `completed` in that payload.
 
 ### Dialogue modes
 
 | Mode | When | Behavior |
 |------|------|----------|
-| `prepare` | Pack not ready | Off-turn: read prior, assumptions, `gl.exchanges`; draft full-table risk/class/consequence; propose exit. **No user confirm turn.** |
-| `present` | Pack ready; awaiting user | Show the full pack (four blocks). Ask for one confirm or change points. |
-| `revise` | User requests changes | Apply changes; return to `present` with the full pack. |
-| `close` | `G-confirm` met | `gate-close` with payload below. |
+| `prepare` | Pack not ready | Off-turn: read prior, assumptions, `gl.exchanges`; draft full-table risk fields + proposed exit. **No user confirm turn.** |
+| `present` | Pack ready; awaiting expose confirm | Show the full pack (Prior, coverage, risk table, proposed exit). Ask for one confirm or change points. |
+| `revise` | User requests expose changes | Apply changes; return to `present` with the full pack. |
+| `handle` | After `apply-r-assumptions` and any `risk_state=open` | H→M→L: pick next open; load `$SKILL_DIR/references/risk-release.md`; one op; repeat or exit. |
+| `close` | `G-handled` met for `dc` / `rs` / `human_decision` | `$GATE_CONTROL gate-close --gate R` with payload below. |
 
 ### Pass criterion
 
-`G-confirm` with explicit user confirmation; close payload includes `exit` and per-assumption `risk` / `risk_class` / `consequence`.
+`G-expose-confirm` with explicit user confirmation; after handle (if any),
+`G-handled`; close payload legal for chosen `exit`.
 
 ### Side routes
 
 - Identification hit → load G0 runner → `G0_COMPLETE` → resume R at `prepare`/`present` (batch rules still apply).
 - G9 hit → load RS runner → after return, resume (R may be `stale` → Per-gate path below).
+- During `handle`: user wants table changes → `present`/`revise` (no control `return_expose`).
+- During `handle`: upstream wrong → `rs`; cannot finish → `human_decision` → HD runner.
 
 ## Pipeline
 
 **Entry:** `$CTX.active_gate` is `R`. Run `$GATE_CONTROL resolve-context`; pin
 stdout JSON as `$CTX`. If `$CTX.gates.R.status == stale`: follow
 `$SKILL_DIR/references/stale-gate-update.md` steps 1–4 only (three-part update +
-user confirm + `gate-close`; payload must include `exit`, and `realign_gate`
-when `exit=rs`); do **not** follow that file’s step 5 return — go to Done
-handoff below. **Do not** force the non-stale R5 pack on the stale path.
+user confirm + `gate-close`; payload must include `exit`, per-assumption risk
+fields, and `realign_gate` when `exit=rs`); do **not** follow that file’s step 5
+return — go to Done handoff below. **Do not** force the non-stale expose pack on
+the stale path.
 
 **Act (non-stale):**
 
@@ -106,26 +116,52 @@ handoff below. **Do not** force the non-stale R5 pack on the stale path.
 2. Cognitive map loop:
    - `G-pack` unmet → `prepare` → `present`.
    - On revise → `revise` → `present`.
-   - On confirm → `close`:
-     `$GATE_CONTROL gate-close --gate R --payload '<json>'` → break.
+   - On expose confirm → persist via `$GATE_CONTROL gate-close --gate R` with
+     full `assumptions` and chosen `exit`. If any row stays `open` and user did
+     not choose `rs` / `human_decision`, **stay in this runner** → `handle` (R
+     remains active; do not hand off yet).
+   - `handle` → when no `open` remains → `close` with `exit=dc`; or user
+     chooses `rs` / `human_decision` → `close` with that exit.
+   - On final close → break.
 
 **Done:**
 
 - `exit=rs` → load `$SKILL_DIR/runners/rs-realign-runner/SKILL.md` with `realign_gate`
-- Otherwise return `GATE_COMPLETE R exit=<loop_b|dc>`
+- `exit=human_decision` → load `$SKILL_DIR/runners/hd-human-decision-runner/SKILL.md`
+- `exit=dc` → return `GATE_COMPLETE R exit=dc`
 
 **Stop:** Non-zero CLI, or confirmation cannot be judged → stop and wait for
 user direction.
 
 ## gate-close payload
 
+Expose confirm or final close (field names; see `--help` for validation):
+
 ```json
 {
-  "exit": "loop_b",
+  "exit": "dc",
   "assumptions": [
-    {"id": "A1", "risk": "H", "risk_class": "decision", "consequence": "..."},
-    {"id": "A2", "risk": "H", "risk_class": "implementation", "consequence": "..."},
-    {"id": "A3", "risk": "L", "risk_class": "pending", "consequence": "..."}
+    {
+      "id": "A1",
+      "risk_level": "H",
+      "risk_class": "decision",
+      "risk_state": "open",
+      "risk_consequence": "Export blocked"
+    },
+    {
+      "id": "A2",
+      "risk_level": "L",
+      "risk_class": "implementation",
+      "risk_state": "ignore",
+      "risk_consequence": "Minor post-ship tweak"
+    },
+    {
+      "id": "A3",
+      "risk_level": "none",
+      "risk_class": "none",
+      "risk_state": "none",
+      "risk_consequence": "—"
+    }
   ]
 }
 ```
@@ -136,24 +172,35 @@ RS exit:
 {
   "exit": "rs",
   "realign_gate": "D",
-  "assumptions": [{"id": "A1", "risk": "H", "risk_class": "decision", "consequence": "..."}]
+  "assumptions": [
+    {
+      "id": "A1",
+      "risk_level": "H",
+      "risk_class": "decision",
+      "risk_state": "open",
+      "risk_consequence": "Export blocked"
+    }
+  ]
 }
 ```
 
-- `exit`: `rs` | `loop_b` | `dc`
-- each assumption requires `risk`, `risk_class`, `consequence`
-- `exit=dc` forbids `risk_class` of `pending` or `implementation`
-- `loop_b` / `dc`: marks all pending **prior** entries `verified`; `dc` also marks pending assumptions `verified`
+- `exit`: `dc` | `rs` | `human_decision`
+- each assumption requires `risk_level`, `risk_class`, `risk_state`, `risk_consequence`
+- `exit=dc` forbids any `risk_state=open` (complete or reclass via handle first)
+- `completed` rows must already be written by `complete-assumption`; do not set in close payload
+- `exit=dc`: marks all pending **prior** entries `verified`
+
+Final `dc` close may use `"assumptions": []` when handle already persisted all rows.
 
 ## Exit
 
 On success:
 
 ```
-GATE_COMPLETE R exit=loop_b|dc
+GATE_COMPLETE R exit=dc
 ```
 
-`exit=rs` → RS runner (`GATE_COMPLETE R exit=rs realign_gate=<G>` handoff as today).
+`exit=rs` → RS runner. `exit=human_decision` → HD runner (not a normal spine advance).
 
 On failure:
 

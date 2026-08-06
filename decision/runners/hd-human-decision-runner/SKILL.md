@@ -1,14 +1,14 @@
 ---
 name: decision/hd-human-decision-runner
 description: >-
-  Human Decision subroutine after RR failure. Routes to RS or Unable to Decide.
+  Human Decision subroutine after R suspend. Routes to RS or Unable to Decide.
   Invoked by decision/SKILL.md.
 meta-skill-version: 1.0.0
 ---
 
 # hd-human-decision-runner
 
-Execute **Human Decision** after Risk Release failure.
+Execute **Human Decision** after R exit `human_decision` (open risks unresolved).
 
 ## Blocking policy
 
@@ -21,7 +21,7 @@ Do NOT proceed until you have read `../../../_runtime.md`
 </HARD-GATE>
 
 - Gate contract: `$SKILL_DIR/gates/hd-human-decision.md`
-- Trigger: RR exit `human_decision`
+- Trigger: R exit `human_decision`
 
 ## Pipeline
 

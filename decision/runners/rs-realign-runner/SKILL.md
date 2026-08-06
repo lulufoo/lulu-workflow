@@ -17,7 +17,7 @@ Control CLI non-zero → stop, report error, wait for user direction.
 
 ## Global · not parallel
 
-Runs on upstream-change hit during any gate. No spine `gate-close` until `RS_COMPLETE`. After success, re-enter LoopA at align gate `G` (Q / GL / E / D / X), not RR.
+Runs on upstream-change hit during any gate. No spine `gate-close` until `RS_COMPLETE`. After success, re-enter LoopA at align gate `G` (Q / GL / E / D / X).
 
 ## When to load
 
@@ -25,14 +25,12 @@ Load this runner before `$RS_COMMIT` when:
 
 - **G9:** any turn — information revises or contradicts a closed gate's conclusion → do not `gate-close` the current gate if blocked; load RS runner.
 - Prior gate pass criterion no longer holds.
-- Loop B upstream wrong → RS (not Loop B re-entry).
+- R handle upstream wrong → RS (resume R after Per-gate stale update if needed).
 - **R** exit `rs` · **DC** user flags item · **Human Decision** upstream wrong.
 
 Propose align gate `G` (Q / GL / E / D / X); default earliest hit on the spine; user confirms before `$RS_COMMIT`.
 
 **Prohibited:** manually edit gate-state, delete payloads, call `invalidate-from`, or enumerate downstream gates outside `$RS_COMMIT`.
-
-**Not RS:** Loop B-only assumptions while Loop A holds → RR `return_r` to R.
 
 ## Consequences (script SSOT)
 

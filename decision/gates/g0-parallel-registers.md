@@ -34,4 +34,4 @@ Do **not** defer assumption identification to R — recognize as soon as it surf
 
 **Prohibited:** deferring capture because R is coming; hand-editing register state; reading or writing register data files directly; chaining `register-append` / `register-update` / `sync-registers-to-doc` / `resolve-context` separately
 
-**Not in scope:** read or organize priors (D / R gates) · bulk assumption field updates (R / V / RR `gate-close` payload) · RS register batch (`$RS_COMMIT`)
+**Not in scope:** read or organize priors (D / R gates) · bulk assumption field updates (R `gate-close` payload) · RS register batch (`$RS_COMMIT`)

@@ -2,7 +2,7 @@
 
 ## Human Decision
 
-**Trigger:** Risk Release ❌ Failed — verification failed, upstream conclusion may be wrong, or information is insufficient to decide.
+**Trigger:** R exit `human_decision` — open risks unresolved, upstream conclusion may be wrong, or information is insufficient to decide.
 
 **Execute:** Present the failure to user. Ask user to choose:
 
