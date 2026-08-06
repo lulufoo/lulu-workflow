@@ -100,8 +100,8 @@ def _render_prior_table(prior: list[Any]) -> str:
 
 def _render_assumptions_table(assumptions: list[Any]) -> str:
     lines = [
-        "| id | text | source | risk | risk_class | state | verification | consequence |",
-        "|----|------|--------|------|------------|-------|--------------|-------------|",
+        "| id | text | source | risk_level | risk_class | risk_state | release_terms | risk_consequence |",
+        "|----|------|--------|------------|------------|------------|---------------|------------------|",
     ]
     if not assumptions:
         lines.append("| | | | | | | | |")
@@ -116,11 +116,13 @@ def _render_assumptions_table(assumptions: list[Any]) -> str:
                     _scalar(entry.get("id", "")),
                     _scalar(entry.get("text", "")),
                     _scalar(entry.get("source", "")),
-                    _scalar(entry.get("risk", "")),
+                    _scalar(entry.get("risk_level", entry.get("risk", ""))),
                     _scalar(entry.get("risk_class", "")),
-                    _scalar(entry.get("state", "")),
-                    _scalar(entry.get("verification", "")),
-                    _scalar(entry.get("consequence", "")),
+                    _scalar(entry.get("risk_state", entry.get("disposition", ""))),
+                    _scalar(entry.get("release_terms", entry.get("verification", ""))),
+                    _scalar(
+                        entry.get("risk_consequence", entry.get("consequence", ""))
+                    ),
                 ]
             )
             + " |"
