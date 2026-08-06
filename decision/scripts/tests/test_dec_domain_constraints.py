@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for domain constraints filtering and release_tracking in decision-doc."""
+"""Tests for domain constraints filtering and risk_state columns in decision-doc."""
 
 from __future__ import annotations
 
