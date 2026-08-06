@@ -14,6 +14,7 @@ if str(_DIAG_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_DIAG_SCRIPTS))
 
 from dec_gate_control import (  # noqa: E402
+    cmd_apply_r_assumptions,
     cmd_check_delivery_ready,
     cmd_complete,
     cmd_complete_assumption,
@@ -46,7 +47,18 @@ def template_config(tmp_path: Path) -> Path:
     return tmp_path
 
 
-def _close_through_r_active(project_root: Path, cycle_id: str, stage: str) -> None:
+def _reach_r_with_open(
+    project_root: Path,
+    cycle_id: str,
+    stage: str,
+    *,
+    risk_level: str = "H",
+    risk_class: str = "decision",
+    risk_state: str = "open",
+    risk_consequence: str = "Export blocked",
+    text: str = "API supports bulk export",
+) -> None:
+    """Land risk fields via apply-r-assumptions (design primary path)."""
     cmd_init_session(project_root, cycle_id, stage)
     _close_qe(project_root, cycle_id, stage)
     cmd_gate_close(
@@ -66,7 +78,7 @@ def _close_through_r_active(project_root: Path, cycle_id: str, stage: str) -> No
         cycle_id,
         stage,
         register_kind="assumption",
-        payload={"text": "API supports bulk export"},
+        payload={"text": text},
     )
     cmd_gate_close(
         project_root,
@@ -83,23 +95,24 @@ def _close_through_r_active(project_root: Path, cycle_id: str, stage: str) -> No
             "reversibility": "easy",
         },
     )
-    cmd_gate_close(
-        project_root,
-        cycle_id,
-        stage,
-        "R",
-        {
-            "exit": "human_decision",
-            "assumptions": [
-                {
-                    "id": "A1",
-                    "risk_level": "H",
-                    "risk_class": "decision",
-                    "risk_state": "open",
-                    "risk_consequence": "Export blocked",
-                },
-            ],
-        },
+    assert (
+        cmd_apply_r_assumptions(
+            project_root,
+            cycle_id,
+            stage,
+            payload={
+                "assumptions": [
+                    {
+                        "id": "A1",
+                        "risk_level": risk_level,
+                        "risk_class": risk_class,
+                        "risk_state": risk_state,
+                        "risk_consequence": risk_consequence,
+                    },
+                ]
+            },
+        )
+        == 0
     )
 
 
@@ -107,11 +120,11 @@ def test_r_handle_complete_assumption_dc_deliver(
     template_config: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     project_root = template_config
-    cycle_id = "feature-loop-b-001"
+    cycle_id = "feature-r-handle-001"
     stage = "decision"
     monkeypatch.chdir(project_root)
 
-    _close_through_r_active(project_root, cycle_id, stage)
+    _reach_r_with_open(project_root, cycle_id, stage)
 
     gate_state = json.loads(
         (project_root / gate_state_path(cycle_id, stage)).read_text(encoding="utf-8")
@@ -172,63 +185,17 @@ def test_r_handle_complete_assumption_dc_deliver(
 
 def test_r_dc_low_risk_accepted(template_config: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     project_root = template_config
-    cycle_id = "feature-loop-b-002"
+    cycle_id = "feature-r-handle-002"
     stage = "decision"
     monkeypatch.chdir(project_root)
 
-    cmd_init_session(project_root, cycle_id, stage)
-    _close_qe(project_root, cycle_id, stage)
-    cmd_gate_close(
+    _reach_r_with_open(
         project_root,
         cycle_id,
         stage,
-        "D",
-        {
-            "decision_rationale": "rationale",
-            "applies_to": "scope",
-            "excludes": "none",
-            "execution_approach": "serial",
-        },
-    )
-    cmd_register_append(
-        project_root,
-        cycle_id,
-        stage,
-        register_kind="assumption",
-        payload={"text": "Low-risk assumption"},
-    )
-    cmd_gate_close(
-        project_root,
-        cycle_id,
-        stage,
-        "X",
-        {
-            "acceptance_criteria": "done",
-            "gap": "None",
-            "impact_surface": [],
-            "external_dependencies": [],
-            "key_changes": "k",
-            "critical_constraints": "c",
-            "reversibility": "easy",
-        },
-    )
-    cmd_gate_close(
-        project_root,
-        cycle_id,
-        stage,
-        "R",
-        {
-            "exit": "human_decision",
-            "assumptions": [
-                {
-                    "id": "A1",
-                    "risk_level": "L",
-                    "risk_class": "decision",
-                    "risk_state": "open",
-                    "risk_consequence": "Minor UX gap",
-                },
-            ],
-        },
+        risk_level="L",
+        risk_consequence="Minor UX gap",
+        text="Low-risk assumption",
     )
 
     assert (
@@ -262,11 +229,11 @@ def test_r_exit_dc_forbids_open_risk_state(
     template_config: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     project_root = template_config
-    cycle_id = "feature-loop-b-open"
+    cycle_id = "feature-r-handle-open"
     stage = "decision"
     monkeypatch.chdir(project_root)
 
-    _close_through_r_active(project_root, cycle_id, stage)
+    _reach_r_with_open(project_root, cycle_id, stage)
     assert (
         cmd_gate_close(
             project_root,
@@ -283,63 +250,17 @@ def test_r_dc_allows_implementation_class(
     template_config: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     project_root = template_config
-    cycle_id = "feature-loop-b-impl"
+    cycle_id = "feature-r-handle-impl"
     stage = "decision"
     monkeypatch.chdir(project_root)
 
-    cmd_init_session(project_root, cycle_id, stage)
-    _close_qe(project_root, cycle_id, stage)
-    cmd_gate_close(
+    _reach_r_with_open(
         project_root,
         cycle_id,
         stage,
-        "D",
-        {
-            "decision_rationale": "rationale",
-            "applies_to": "scope",
-            "excludes": "none",
-            "execution_approach": "serial",
-        },
-    )
-    cmd_register_append(
-        project_root,
-        cycle_id,
-        stage,
-        register_kind="assumption",
-        payload={"text": "Post-impl behavior"},
-    )
-    cmd_gate_close(
-        project_root,
-        cycle_id,
-        stage,
-        "X",
-        {
-            "acceptance_criteria": "done",
-            "gap": "None",
-            "impact_surface": [],
-            "external_dependencies": [],
-            "key_changes": "k",
-            "critical_constraints": "c",
-            "reversibility": "easy",
-        },
-    )
-    cmd_gate_close(
-        project_root,
-        cycle_id,
-        stage,
-        "R",
-        {
-            "exit": "human_decision",
-            "assumptions": [
-                {
-                    "id": "A1",
-                    "risk_level": "H",
-                    "risk_class": "implementation",
-                    "risk_state": "open",
-                    "risk_consequence": "May overturn later",
-                }
-            ],
-        },
+        risk_class="implementation",
+        risk_consequence="May overturn later",
+        text="Post-impl behavior",
     )
     assert (
         cmd_complete_assumption(
