@@ -172,9 +172,8 @@ def _parse_assumptions_from_doc(doc: str) -> list[dict[str, Any]]:
         else:
             continue
         if "已交接" in status:
-            risk_state = "completed"
-            if risk_class_val is None:
-                risk_class_val = "implementation"
+            # Legacy Handoff status must not become completed (D6/D17).
+            risk_state = "open"
         elif "已验证" in status or "completed" in status.lower():
             risk_state = "completed"
         elif "忽略" in status:

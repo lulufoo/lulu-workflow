@@ -116,8 +116,9 @@ def test_migrate_delivered_closes_all_gates(
     assert registers["assumptions"][0]["risk_class"] == "decision"
     assert registers["assumptions"][0]["release_terms"] == "Accepted"
     assert registers["assumptions"][1]["id"] == "A2"
-    assert registers["assumptions"][1]["risk_state"] == "completed"
+    assert registers["assumptions"][1]["risk_state"] == "open"
     assert registers["assumptions"][1]["risk_class"] == "implementation"
+    assert registers["assumptions"][1]["release_terms"] == "Accepted"
 
 
 def test_migrate_via_start_writes_cycle_state(
