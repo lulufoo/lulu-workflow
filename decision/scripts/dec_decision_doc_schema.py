@@ -309,13 +309,11 @@ def render_execution_analysis_body(
     return "\n".join(lines).strip()
 
 
-def _assumption_status_label(*, risk_state: str, risk_class: str) -> str:
+def _assumption_status_label(*, risk_state: str) -> str:
     if risk_state == "completed":
         return "[已验证]"
     if risk_state == "ignore":
         return "[忽略]"
-    if risk_class == "implementation":
-        return "[待验证]"
     return "[待验证]"
 
 
@@ -336,7 +334,7 @@ def render_assumptions_body(registers: dict[str, Any]) -> str:
                 continue
             risk_state = str(entry.get("risk_state") or "")
             risk_class = str(entry.get("risk_class") or "")
-            status = _assumption_status_label(risk_state=risk_state, risk_class=risk_class)
+            status = _assumption_status_label(risk_state=risk_state)
             risk_level = entry.get("risk_level") or ""
             consequence = entry.get("risk_consequence") or ""
             release_terms = entry.get("release_terms") or ""
