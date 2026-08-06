@@ -21,7 +21,7 @@ from dec_gate_control import (  # noqa: E402
     cmd_set_risk_state,
 )
 from dec_gate_state_schema import load_gate_state  # noqa: E402
-from dec_register_control import cmd_register_append  # noqa: E402
+from dec_register_control import cmd_register_append, cmd_register_update  # noqa: E402
 from dec_workflow_common import gate_state_path, registers_path  # noqa: E402
 from test_dec_gate_loop_a import _close_qe, _full_template  # noqa: E402
 
@@ -306,6 +306,50 @@ def test_set_risk_state_rejects_none_triad(
         )
         != 0
     )
+
+
+def test_register_update_rejects_completed(
+    template_config: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project_root = template_config
+    cycle_id = "feature-complete-a6c"
+    stage = "decision"
+    monkeypatch.chdir(project_root)
+
+    _close_through_r_active(project_root, cycle_id, stage)
+    assert (
+        cmd_apply_r_assumptions(
+            project_root,
+            cycle_id,
+            stage,
+            payload={
+                "assumptions": [
+                    {
+                        "id": "A1",
+                        "risk_level": "H",
+                        "risk_class": "decision",
+                        "risk_state": "open",
+                        "risk_consequence": "May fail",
+                    }
+                ]
+            },
+        )
+        == 0
+    )
+    assert (
+        cmd_register_update(
+            project_root,
+            cycle_id,
+            stage,
+            entry_id="A1",
+            payload={"risk_state": "completed"},
+        )
+        != 0
+    )
+    registers = json.loads(
+        (project_root / registers_path(cycle_id, stage)).read_text(encoding="utf-8")
+    )
+    assert registers["assumptions"][0]["risk_state"] == "open"
 
 
 def test_gate_close_rejects_invented_completed(

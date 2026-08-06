@@ -215,7 +215,13 @@ def _apply_update_operation(
             value = payload[field]
             if value is not None and str(value).strip() not in allowed:
                 raise ValueError(f"invalid {field}: {value!r}")
-            target[field] = None if value is None else str(value).strip()
+            normalized = None if value is None else str(value).strip()
+            if field == "risk_state" and normalized == "completed":
+                raise ValueError(
+                    "risk_state=completed only via complete-assumption "
+                    "(not register-update)"
+                )
+            target[field] = normalized
 
     for field in ("risk_consequence", "release_terms"):
         if field in payload:
