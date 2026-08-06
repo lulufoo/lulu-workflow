@@ -140,7 +140,7 @@ def test_normalize_maps_non_risk_class() -> None:
 
 
 def test_reject_release_tracking_and_released() -> None:
-    data = _base(
+    tracking = _base(
         assumptions=[
             {
                 "id": "A1",
@@ -154,8 +154,43 @@ def test_reject_release_tracking_and_released() -> None:
             }
         ]
     )
+    tracking_errors = validate_registers(tracking, r_gate_closed=True)
+    assert any("release_tracking" in e for e in tracking_errors)
+
+    released = _base(
+        assumptions=[
+            {
+                "id": "A1",
+                "source": "O",
+                "text": "x",
+                "risk_level": "H",
+                "risk_class": "decision",
+                "risk_state": "open",
+                "risk_consequence": "c",
+                "released": True,
+            }
+        ]
+    )
+    released_errors = validate_registers(released, r_gate_closed=True)
+    assert any("released" in e for e in released_errors)
+
+
+def test_ignore_is_not_none_triad() -> None:
+    data = _base(
+        assumptions=[
+            {
+                "id": "A1",
+                "source": "O",
+                "text": "x",
+                "risk_level": "none",
+                "risk_class": "none",
+                "risk_state": "ignore",
+                "risk_consequence": "—",
+            }
+        ]
+    )
     errors = validate_registers(data, r_gate_closed=True)
-    assert any("release_tracking" in e for e in errors)
+    assert any("triad" in e or "none" in e for e in errors)
 
 
 def test_strip_removes_new_risk_fields() -> None:

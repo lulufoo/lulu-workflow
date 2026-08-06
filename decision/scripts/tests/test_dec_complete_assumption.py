@@ -481,3 +481,92 @@ def test_r_dc_forbids_open_risk_state(
     )
     assert gate_state["active_gate"] == "DC"
     assert gate_state.get("skipped_gates") == []
+
+
+def test_all_ignore_allows_r_to_dc(
+    template_config: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project_root = template_config
+    cycle_id = "feature-complete-a9"
+    stage = "decision"
+    monkeypatch.chdir(project_root)
+
+    _reach_active_r(project_root, cycle_id, stage)
+    assert (
+        cmd_apply_r_assumptions(
+            project_root,
+            cycle_id,
+            stage,
+            payload={
+                "assumptions": [
+                    {
+                        "id": "A1",
+                        "risk_level": "L",
+                        "risk_class": "decision",
+                        "risk_state": "ignore",
+                        "risk_consequence": "Minor",
+                    }
+                ]
+            },
+        )
+        == 0
+    )
+    assert (
+        cmd_gate_close(
+            project_root,
+            cycle_id,
+            stage,
+            "R",
+            {"exit": "dc", "assumptions": []},
+        )
+        == 0
+    )
+    gate_state = json.loads(
+        (project_root / gate_state_path(cycle_id, stage)).read_text(encoding="utf-8")
+    )
+    assert gate_state["active_gate"] == "DC"
+
+
+def test_changing_risk_level_keeps_risk_state(
+    template_config: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project_root = template_config
+    cycle_id = "feature-complete-a10"
+    stage = "decision"
+    monkeypatch.chdir(project_root)
+
+    _reach_active_r(project_root, cycle_id, stage)
+    assert (
+        cmd_apply_r_assumptions(
+            project_root,
+            cycle_id,
+            stage,
+            payload={
+                "assumptions": [
+                    {
+                        "id": "A1",
+                        "risk_level": "H",
+                        "risk_class": "decision",
+                        "risk_state": "ignore",
+                        "risk_consequence": "May fail",
+                    }
+                ]
+            },
+        )
+        == 0
+    )
+    assert (
+        cmd_register_update(
+            project_root,
+            cycle_id,
+            stage,
+            entry_id="A1",
+            payload={"risk_level": "M"},
+        )
+        == 0
+    )
+    registers = json.loads(
+        (project_root / registers_path(cycle_id, stage)).read_text(encoding="utf-8")
+    )
+    assert registers["assumptions"][0]["risk_level"] == "M"
+    assert registers["assumptions"][0]["risk_state"] == "ignore"
