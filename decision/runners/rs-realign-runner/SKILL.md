@@ -77,13 +77,13 @@ Do NOT proceed until you have read `../../../_runtime.md`
 ```json
 [
   {"id": "P2", "action": "set_state", "state": "pending"},
-  {"id": "A3", "action": "set_state", "state": "verified"},
   {"id": "A4", "action": "delete"}
 ]
 ```
 
-- `set_state`: `pending` | `verified` (maps to `[待验证]` / `[已验证]`)
-- `delete` or `set_state: invalidated` → remove entry (`[失效]`)
+- **Prior only** — `set_state`: `pending` | `verified` (maps to `[待验证]` / `[已验证]`); `set_state: invalidated` → remove
+- **Assumptions** — `delete` only (`assumption.state` retired; progress is `risk_state`, not RS `set_state`)
+- Risk fields on surviving assumptions are stripped by `rs-commit` when R is invalidated — do not invent `completed` here
 
 ## Exit
 
