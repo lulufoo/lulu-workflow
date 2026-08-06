@@ -32,7 +32,9 @@ from dec_gate_state_schema import is_gate_closed, load_gate_state
 from dec_register_schema import (
     PRIOR_KINDS,
     REGISTER_STATES,
+    RISK_CLASSES,
     RISK_LEVELS,
+    RISK_STATES,
     find_duplicate_assumption,
     find_duplicate_prior,
     load_registers,
@@ -148,11 +150,7 @@ def _apply_append_operation(
         entry = {
             "id": entry_id,
             "text": text,
-            "state": "pending",
             "source": source,
-            "risk": None,
-            "consequence": None,
-            "verification": None,
             "created_at": _now_iso(),
         }
         registers["assumptions"].append(entry)
@@ -172,7 +170,11 @@ def _apply_update_operation(
     if target is None:
         raise ValueError(f"entry not found: {entry_id}")
 
+    is_assumption = str(target.get("id", "")).startswith("A")
+
     if "state" in payload:
+        if is_assumption:
+            raise ValueError("assumption.state retired; use risk_state")
         state = str(payload["state"])
         if state not in REGISTER_STATES:
             raise ValueError(f"invalid state: {state!r}")
@@ -184,20 +186,33 @@ def _apply_update_operation(
             raise ValueError("text must be non-empty")
         target["text"] = text
 
-    if "risk" in payload:
-        if not r_closed:
-            raise ValueError("risk cannot be set before R gate is closed")
-        risk = payload["risk"]
-        if risk is not None and str(risk) not in RISK_LEVELS:
-            raise ValueError(f"invalid risk: {risk!r}")
-        target["risk"] = risk
-
-    for field in ("consequence", "verification"):
+    risk_field_map = {
+        "risk_level": RISK_LEVELS,
+        "risk_class": RISK_CLASSES,
+        "risk_state": RISK_STATES,
+    }
+    for field, allowed in risk_field_map.items():
         if field in payload:
+            if not is_assumption:
+                raise ValueError(f"{field} only valid on assumptions")
+            if not r_closed:
+                raise ValueError(f"{field} cannot be set before R gate is closed")
+            value = payload[field]
+            if value is not None and str(value).strip() not in allowed:
+                raise ValueError(f"invalid {field}: {value!r}")
+            target[field] = None if value is None else str(value).strip()
+
+    for field in ("risk_consequence", "release_terms"):
+        if field in payload:
+            if not is_assumption:
+                raise ValueError(f"{field} only valid on assumptions")
+            if not r_closed:
+                raise ValueError(f"{field} cannot be set before R gate is closed")
             target[field] = payload[field]
 
-    if "release_tracking" in payload:
-        target["release_tracking"] = bool(payload["release_tracking"])
+    for retired in ("risk", "consequence", "verification", "disposition", "release_tracking", "released"):
+        if retired in payload:
+            raise ValueError(f"{retired} retired")
 
     return target
 
@@ -383,6 +398,8 @@ def apply_register_batch_operations(
                 registers[collection] = [
                     e for e in registers[collection] if str(e.get("id")) != entry_id
                 ]
+            elif entry_id.startswith("A"):
+                raise ValueError("assumption.state retired; use risk_state")
             else:
                 target["state"] = state
         else:

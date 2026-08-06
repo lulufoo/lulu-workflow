@@ -15,8 +15,25 @@ from dec_io import atomic_write_text
 PRIOR_KINDS = frozenset({"judgment", "preference", "concern", "excluded"})
 REGISTER_STATES = frozenset({"pending", "verified", "invalidated"})
 REGISTER_SOURCES = frozenset({"O", "Q", "GL", "E", "D", "X", "R", "RR", "V"})
-RISK_LEVELS = frozenset({"H", "M", "L"})
-RISK_CLASSES = frozenset({"decision", "implementation", "pending"})
+RISK_LEVELS = frozenset({"H", "M", "L", "none"})
+RISK_CLASSES = frozenset({"decision", "implementation", "pending", "none"})
+RISK_STATES = frozenset({"open", "ignore", "completed", "none"})
+_ASSUMPTION_RISK_KEYS = (
+    "risk_level",
+    "risk_class",
+    "risk_state",
+    "risk_consequence",
+    "release_terms",
+)
+_RETIRED_ASSUMPTION_KEYS = (
+    "state",
+    "risk",
+    "consequence",
+    "verification",
+    "disposition",
+    "release_tracking",
+    "released",
+)
 
 
 def _now_iso() -> str:
@@ -115,9 +132,8 @@ def _validate_assumption_entry(
     else:
         seen.add(entry_id)
 
-    state = str(entry.get("state", ""))
-    if state not in REGISTER_STATES:
-        errors.append(f"assumptions[{index}].state invalid: {state!r}")
+    if "state" in entry:
+        errors.append(f"assumptions[{index}].state retired; use risk_state")
 
     source = str(entry.get("source", ""))
     if source not in REGISTER_SOURCES:
@@ -126,23 +142,97 @@ def _validate_assumption_entry(
     if not str(entry.get("text", "")).strip():
         errors.append(f"assumptions[{index}].text must be non-empty")
 
-    risk = entry.get("risk")
-    if risk is not None:
-        risk_s = str(risk)
-        if risk_s not in RISK_LEVELS:
-            errors.append(f"assumptions[{index}].risk invalid: {risk_s!r}")
-        elif not r_gate_closed:
-            errors.append(f"assumptions[{index}].risk set before R gate closed")
+    for retired in ("risk", "consequence", "verification", "disposition"):
+        if retired in entry:
+            errors.append(f"assumptions[{index}].{retired} retired; use renamed field")
 
+    if "release_tracking" in entry:
+        errors.append(f"assumptions[{index}].release_tracking retired")
+    if "released" in entry:
+        errors.append(f"assumptions[{index}].released retired")
+
+    risk_level = entry.get("risk_level")
     risk_class = entry.get("risk_class")
-    if risk_class is not None:
-        risk_class_s = str(risk_class).strip()
-        if risk_class_s not in RISK_CLASSES:
-            errors.append(f"assumptions[{index}].risk_class invalid: {risk_class_s!r}")
-        elif not r_gate_closed:
-            errors.append(f"assumptions[{index}].risk_class set before R gate closed")
+    risk_state = entry.get("risk_state")
+    risk_consequence = entry.get("risk_consequence")
+    release_terms = entry.get("release_terms")
+
+    any_risk = any(
+        v is not None
+        for v in (risk_level, risk_class, risk_state, risk_consequence, release_terms)
+    )
+    if any_risk and not r_gate_closed:
+        errors.append(f"assumptions[{index}]: risk fields set before R gate closed")
+        return errors
+
+    if not any_risk:
+        return errors
+
+    if risk_level is None or risk_class is None or risk_state is None:
+        errors.append(
+            f"assumptions[{index}]: risk_level, risk_class, and risk_state required together"
+        )
+        return errors
+
+    level_s = str(risk_level).strip()
+    class_s = str(risk_class).strip()
+    state_s = str(risk_state).strip()
+
+    if level_s not in RISK_LEVELS:
+        errors.append(f"assumptions[{index}].risk_level invalid: {level_s!r}")
+    if class_s not in RISK_CLASSES:
+        errors.append(f"assumptions[{index}].risk_class invalid: {class_s!r}")
+    if state_s not in RISK_STATES:
+        errors.append(f"assumptions[{index}].risk_state invalid: {state_s!r}")
+
+    none_count = sum(1 for v in (level_s, class_s, state_s) if v == "none")
+    if none_count not in {0, 3}:
+        errors.append(
+            f"assumptions[{index}]: none triad mismatch "
+            f"(risk_level={level_s!r}, risk_class={class_s!r}, risk_state={state_s!r})"
+        )
+    elif none_count == 0:
+        if level_s not in {"H", "M", "L"}:
+            errors.append(f"assumptions[{index}].risk_level must be H/M/L for risk rows")
+        if class_s not in {"decision", "implementation", "pending"}:
+            errors.append(
+                f"assumptions[{index}].risk_class must be decision/implementation/pending "
+                "for risk rows"
+            )
+        if state_s not in {"open", "ignore", "completed"}:
+            errors.append(
+                f"assumptions[{index}].risk_state must be open/ignore/completed for risk rows"
+            )
+
+    if risk_consequence is not None and not isinstance(risk_consequence, str):
+        errors.append(f"assumptions[{index}].risk_consequence must be a string")
+    if release_terms is not None and not isinstance(release_terms, str):
+        errors.append(f"assumptions[{index}].release_terms must be a string")
 
     return errors
+
+
+def _migrate_assumption_entry(entry: dict[str, Any]) -> None:
+    if "risk" in entry and "risk_level" not in entry:
+        entry["risk_level"] = entry["risk"]
+    if "consequence" in entry and "risk_consequence" not in entry:
+        entry["risk_consequence"] = entry["consequence"]
+    if "verification" in entry and "release_terms" not in entry:
+        entry["release_terms"] = entry["verification"]
+    if "disposition" in entry and "risk_state" not in entry:
+        entry["risk_state"] = entry["disposition"]
+    if str(entry.get("risk_class", "")).strip() == "non_risk":
+        entry["risk_class"] = "none"
+    for key in (
+        "risk",
+        "consequence",
+        "verification",
+        "disposition",
+        "state",
+        "release_tracking",
+        "released",
+    ):
+        entry.pop(key, None)
 
 
 def normalize_registers(data: dict[str, Any]) -> dict[str, Any]:
@@ -155,8 +245,10 @@ def normalize_registers(data: dict[str, Any]) -> dict[str, Any]:
         if isinstance(entry, dict) and str(entry.get("source", "")) == "open":
             entry["source"] = "O"
     for entry in assumptions:
-        if isinstance(entry, dict) and str(entry.get("source", "")) == "open":
-            entry["source"] = "O"
+        if isinstance(entry, dict):
+            if str(entry.get("source", "")) == "open":
+                entry["source"] = "O"
+            _migrate_assumption_entry(entry)
 
     return {
         "version": "1",
@@ -235,13 +327,14 @@ def format_prior_header_line(entry: dict[str, Any]) -> str:
 
 
 def format_assumption_header_line(entry: dict[str, Any]) -> str:
-    state = header_state_symbol(str(entry.get("state", "pending")))
     source = str(entry.get("source", ""))
-    risk = entry.get("risk")
+    risk_level = entry.get("risk_level")
     risk_class = entry.get("risk_class")
-    risk_part = f" {risk}" if risk else ""
+    risk_state = entry.get("risk_state")
+    risk_part = f" {risk_level}" if risk_level else ""
     class_part = f"/{risk_class}" if risk_class else ""
-    return f"[{entry.get('id')}{state} {source}{risk_part}{class_part}] {entry.get('text')}"
+    state_part = f"/{risk_state}" if risk_state else ""
+    return f"[{entry.get('id')} {source}{risk_part}{class_part}{state_part}] {entry.get('text')}"
 
 
 def strip_assumption_risk_fields(data: dict[str, Any]) -> dict[str, Any]:
@@ -249,7 +342,6 @@ def strip_assumption_risk_fields(data: dict[str, Any]) -> dict[str, Any]:
     normalized = normalize_registers(data)
     for entry in normalized.get("assumptions", []):
         if isinstance(entry, dict):
-            entry.pop("risk", None)
-            entry.pop("consequence", None)
-            entry.pop("risk_class", None)
+            for key in _ASSUMPTION_RISK_KEYS + _RETIRED_ASSUMPTION_KEYS:
+                entry.pop(key, None)
     return normalized
