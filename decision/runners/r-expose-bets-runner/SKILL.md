@@ -62,11 +62,12 @@ Subcommand contracts: module docstring / `--help` (including
   - **High:** failure would seriously undermine or overturn the delivered decision
   - **Medium:** failure forces a significant adjustment, not necessarily full overturn
   - **Low:** limited impact; absorbable in execution
-- **`risk_class`:**
-  - **decision** — verification (or equivalent) can / must complete before DC
-  - **implementation** — cannot meaningfully verify before DC; does not block DC once handled
-  - **pending** — gray; does not block exit by itself — only `risk_state` gates delivery
-  - **none** — not a risk row
+- **`risk_class`:** judgment label only — **does not** drive release ops or block DC.
+  Delivery gating is **only** `risk_state=open`.
+  - **decision** — risk about the decision itself (classify for human reading)
+  - **implementation** — risk about later implementation (classify for human reading)
+  - **pending** — class not yet judged; still no gate effect
+  - **none** — not a risk row (triad with `risk_level`/`risk_state` all `none`)
 - **Batch present (required on non-stale path):** one screen with Prior + coverage + risk draft + proposed exit. **Forbidden** as the default: separate confirm rounds for Prior alone, coverage alone, then risk alone, then exit alone.
 - **Revise:** on any change request, update the draft and **re-present the full pack** (`present`); do not reopen split confirm rounds.
 - **Expose confirm** → `$GATE_CONTROL apply-r-assumptions --payload '{"assumptions":[...]}'` (no `completed`). Mid-`handle`: `complete-assumption` / `set-risk-state` only.
