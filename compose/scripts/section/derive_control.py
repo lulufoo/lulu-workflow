@@ -55,32 +55,34 @@ from section_registry_schema import (  # noqa: E402
     normalize_section_registry,
 )
 
-_FIDELITY_SCRIPTS = _SCRIPTS.parent / "fidelity" / "scripts"
-if str(_FIDELITY_SCRIPTS) not in sys.path:
-    sys.path.insert(0, str(_FIDELITY_SCRIPTS))
-from fidelity_evaluate_state_schema import (  # noqa: E402
-    fidelity_evaluate_state_path,
-    gate_allows_derive,
-    load_state,
+_ATOMIZE_SCRIPTS = _SCRIPTS.parent / "atomize-eval" / "scripts"
+_EVAL_SCRIPTS = _SCRIPTS.parents[1] / "eval" / "scripts"
+for _p in (_ATOMIZE_SCRIPTS, _EVAL_SCRIPTS):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
+from atomize_eval_runtime_schema import (  # noqa: E402
+    evaluate_state_path as atomize_evaluate_state_path,
+    gate_allows_derive_from_evaluate_state,
 )
+from evaluate_state_schema import load_evaluate_state  # noqa: E402
 
 
-def _require_fidelity_for_derive(revision_dir: Path) -> str | None:
-    """Return error message if Atomize fidelity gate blocks Derive; else None."""
-    path = fidelity_evaluate_state_path(revision_dir)
+def _require_atomize_eval_for_derive(slice_dir: Path) -> str | None:
+    """Return error message if Atomize eval gate blocks Derive; else None."""
+    path = atomize_evaluate_state_path(slice_dir)
     if not path.is_file():
         return (
-            "fidelity gate missing — run Atomize fidelity Eval "
-            f"(expected {path.name})"
+            "atomize eval gate missing — run Atomize Eval "
+            f"(expected {path.as_posix()})"
         )
     try:
-        data = load_state(path)
+        data = load_evaluate_state(path)
     except (OSError, ValueError) as exc:
-        return f"fidelity gate unreadable: {exc}"
-    if not gate_allows_derive(data):
+        return f"atomize eval gate unreadable: {exc}"
+    if not gate_allows_derive_from_evaluate_state(data):
         return (
-            f"fidelity gate not open (status={data.get('status')!r}); "
-            "Derive blocked until E1∩E2 passed or skipped"
+            f"atomize eval gate not open (eval_status={data.get('eval_status')!r}); "
+            "Derive blocked until Atomize Eval complete-round (eval_status=done)"
         )
     return None
 
@@ -126,7 +128,7 @@ def _graph_and_maps(
 def cmd_plan_edge(args: argparse.Namespace) -> int:
     """Edge-coverage floor plan for deductive-runner (not zero-only)."""
     revision_dir = active_slice_dir(args.revision_dir.resolve())
-    gate_err = _require_fidelity_for_derive(revision_dir)
+    gate_err = _require_atomize_eval_for_derive(revision_dir)
     if gate_err:
         return _fail(gate_err)
     try:

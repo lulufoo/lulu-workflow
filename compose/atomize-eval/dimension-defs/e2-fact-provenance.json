@@ -1,0 +1,25 @@
+{
+  "id": "e2-fact-provenance",
+  "label": "Fact → doc provenance",
+  "eval_target": {
+    "path": "{facts_path}"
+  },
+  "remediation_target": {
+    "path": "{facts_path}"
+  },
+  "sots": [
+    {
+      "ref": "{scope_doc}",
+      "bindings": {}
+    }
+  ],
+  "method": {
+    "ref": "lulu-dev-workflow/compose/atomize-eval/methods/e2-fact-provenance.md",
+    "focus": "E2: Every fact (one unit per F-n) must have a locatable source span in the input delivery doc. Remediate only _facts.json. Do not edit the SoT doc."
+  },
+  "review": {
+    "seq": 2,
+    "output_path": "atomize-review-e2.md",
+    "template": "eval/review.template.md"
+  }
+}

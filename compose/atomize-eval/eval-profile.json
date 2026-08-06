@@ -1,0 +1,7 @@
+{
+  "workflow_id": "compose-atomize-eval",
+  "enabled": true,
+  "adapter_module": "compose/atomize-eval/scripts/atomize_eval_adapter.py",
+  "adapter_class": "AtomizeEvalAdapter",
+  "completion_mode": "return_to_caller"
+}

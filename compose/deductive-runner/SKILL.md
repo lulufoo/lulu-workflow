@@ -3,10 +3,10 @@ name: deductive-runner
 description: >-
   Pre-compose deductive fact production for compose stages with
   pipeline.inductive=false. Materializes upstream scope into _facts.json (P0),
-  applies Atomize consume disposition (A→B→B′), fidelity, Confirm disposition
-  patch, then Pd: edge-coverage floor (means) + Intent ceiling driven by
-  published section-kw-criteria (ruler), and clears a human confirm gate before
-  handing facts to compose Initializing.
+  applies Atomize consume disposition (A→B→B′), Atomize Eval (E1∩E2 via shared
+  Eval), Confirm disposition patch, then Pd: edge-coverage floor (means) +
+  Intent ceiling driven by published section-kw-criteria (ruler), and clears a
+  human confirm gate before handing facts to compose Initializing.
 ---
 
 # deductive-runner
@@ -22,7 +22,7 @@ Compose Initializing reads **`_facts.json`** validate-only. After `deductive-com
 
 This runner is **stage-agnostic**: lens set / Intent / derivation edges = `section-registry`; do not hardcode stage lens names.
 
-**Must not:** invent decisions; label off-edge obligations as `derived`; write chapter prose; ask the user during Initializing (confirm only here); read upstream prose during Steps 2–4 (Intake only); Import upstream `_facts.json` as delivery; enter workflow `Evaluating` for fidelity; edit the input delivery doc during fidelity remediation; hand-edit `_facts.json` for Confirm disposition (use `$DEDUCTIVE_CTL disposition-patch-*`).
+**Must not:** invent decisions; label off-edge obligations as `derived`; write chapter prose; ask the user during Initializing (confirm only here); read upstream prose during Steps 2–4 (Intake only); Import upstream `_facts.json` as delivery; enter delivery Evaluating / StageGate for Atomize Eval; edit the input delivery doc during Atomize remediation; hand-edit `_facts.json` for Confirm disposition (use `$DEDUCTIVE_CTL disposition-patch-*`).
 
 ---
 
@@ -33,7 +33,7 @@ This runner is **stage-agnostic**: lens set / Intent / derivation edges = `secti
 | `$COMPOSE_PROFILE` | Compose profile id |
 | `$CYCLE_ID` | Active cycle id |
 | `$SCOPE_REF` | Upstream scope structure ref |
-| `$ATOMIZE_SOURCE_PATH` | Absolute path of the current focus source material (Atomize / fidelity SoT); format-neutral. |
+| `$ATOMIZE_SOURCE_PATH` | Absolute path of the current focus source material (Atomize / Atomize Eval SoT); format-neutral. |
 | `$INTENT_BASELINE_REFS` | JSON array of classified, read-only intent baseline refs; not Atomize input. |
 | `$NORM_CONSTRAINT_REFS` | JSON array of classified, read-only norm constraint refs; not Atomize input. |
 | `$DEDUCTIVE_OUT_DIR` | Active revision dir (`revision{active_doc}/`) |
@@ -47,7 +47,7 @@ This runner is **stage-agnostic**: lens set / Intent / derivation edges = `secti
 | `$FACTS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/facts_control.py"` |
 | `$DERIVE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/derive_control.py"` |
 | `$DEDUCTIVE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/deductive/deductive_control.py" --revision-dir "$DEDUCTIVE_OUT_DIR" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)"` |
-| `$FIDELITY_EVAL_CONTROL` | `python3 "$SKILL_ROOT/compose/fidelity/scripts/fidelity_control.py" --revision-dir "$DEDUCTIVE_OUT_DIR"` |
+| `$ATOMIZE_EVAL_CONTROL` | `python3 "$SKILL_ROOT/compose/atomize-eval/scripts/atomize_eval_control.py" --profile-id "$COMPOSE_PROFILE" --cycle-id "$CYCLE_ID" --project-root "$(pwd)"` |
 
 `$FACTS_CTL` / `$DERIVE_CTL` / `$DEDUCTIVE_CTL`: see each `--help`. Scripts never invent derived work-item text.
 
@@ -68,7 +68,7 @@ Collaboration: AI projects and proposes; **user** closes Confirm gates; scripts 
 
 ## Pipeline
 
-**Step 1 Intake → Step 1b Fidelity → Step 1c Disposition Confirm → Step 2 Derive → Step 3 Pending Confirm → Step 4 Complete**
+**Step 1 Intake → Step 1b Atomize Eval → Step 1c Disposition Confirm → Step 2 Derive → Step 3 Pending Confirm → Step 4 Complete**
 
 ### Step 1 — Intake
 
@@ -92,28 +92,25 @@ $FACTS_CTL validate --revision-dir "$DEDUCTIVE_OUT_DIR" --profile "$COMPOSE_PROF
 $DEDUCTIVE_CTL pending-init
 ```
 
-Tighten validate + bind fidelity:
+Tighten validate before Atomize Eval:
 
 ```bash
 $FACTS_CTL validate --revision-dir "$DEDUCTIVE_OUT_DIR" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)" \
   --require-derivation --require-consume-policy
-$FIDELITY_EVAL_CONTROL init --intake atomize
-$FIDELITY_EVAL_CONTROL paths
 ```
 
-### Step 1b — Fidelity (E1∥E2; before Confirm / Pd)
+### Step 1b — Atomize Eval (E1∩E2 via shared Eval; before Confirm / Pd)
 
-Run **E1** and **E2** in parallel (subagents OK) using defs under `$SKILL_ROOT/compose/fidelity/dimension-defs/` (`e1-doc-coverage`, `e2-fact-provenance`). SoT = `$ATOMIZE_SOURCE_PATH` content (`source_path` from `paths` must equal that path); EvalTarget + remediation = this revision `_facts.json`. Remediate **only** `_facts.json`. Max **3** rounds; same round must clear both dimensions. On round-cap with remaining blocking issues: ask the user in **plain text with multiple options and a stated lean** (do not use AskQuestion tool).
+Load `$SKILL_ROOT/eval/SKILL.md` and run a **full Eval round**, supplying `$ATOMIZE_EVAL_CONTROL` wherever that SKILL says `$EVAL_CONTROL`. Do **not** use delivery compose `$EVAL_CONTROL` / StageGate here.
 
-**E1 contract:** every doc obligation unit → exactly one fact disposition ∈ {`carried`,`quarantined`,`not_needed`}; for **carried** facts, no weakening vs doc (narrow blocking list in dim-def).
+- Corpus: `compose/atomize-eval/dimension-defs/` (`e1-doc-coverage`, `e2-fact-provenance`).
+- SoT = `$ATOMIZE_SOURCE_PATH`; EvalTarget + remediation = focus-slice `_facts.json`.
+- State lives under `{slice}/atomize-eval/` (independent of delivery Evaluating).
+- `completion_mode=return_to_caller`: after successful `complete-round`, **stop** and continue Deductive — do not present Accept L / Fix L / Deliver.
+- Max **3** rounds (`atomize-eval` runtime `max_rounds`); hard-block when exhausted.
+- Human Resolution is owned by Eval (trigger/skip by `root_cause`); remediate **only** `_facts.json`.
 
-When E1∩E2 clear:
-
-```bash
-$FIDELITY_EVAL_CONTROL mark-passed
-```
-
-**Done:** validate exit 0 with derivation+consume-policy; fidelity `passed`. Proceed to Step 1c.
+**Done:** validate exit 0 with derivation+consume-policy; Atomize Eval `eval_status=done`. Proceed to Step 1c.
 
 ### Step 1c — Disposition Confirm (before Pd)
 
@@ -140,7 +137,7 @@ When user accepts current dispositions unchanged, write a patch with a single me
 
 **Cognitive split (archive-6.0 Pd×KW):** **Floor** = edge-closure **means** (no KW). **Ceiling** = Intent projection **means** driven by published **`KW_CRITERIA`** as the **only thickness ruler**. Do **not** treat “edges closed” or “should-cover ticked” as “thick enough.” Do **not** run a separate KW-first pass on the Atomize pool.
 
-Mechanical plan first (edge floor + topo). **`$DERIVE_CTL plan-edge` hard-fails** unless fidelity status is `passed`.
+Mechanical plan first (edge floor + topo). **`$DERIVE_CTL plan-edge` hard-fails** unless Atomize Eval `eval_status` is `done`.
 
 ```bash
 $DERIVE_CTL plan-edge \

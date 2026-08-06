@@ -275,7 +275,7 @@ Fetch compose framework templates on demand; **do not** read `workflow-config.js
 | `$FETCH_COMPOSE` | `python3 "$SKILL_ROOT/compose/scripts/io/fetch_compose_framework.py" --role <role> --profile <profile_id> --project-root "$(pwd)" --cycle-id "$CYCLE_ID"` |
 | `$EVAL_HANDOFF` | `python3 "$SKILL_ROOT/compose/scripts/core/eval_handoff_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile <profile_id> <subcommand>` — Compose→Eval context (`request-handoff` / `commit-artifacts` / `commit-evaluate-state` / `discard-staging`); Eval entry requests this per command |
 | `$EVAL_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/core/compose_eval_control.py" --profile-id <profile_id> --cycle-id "$CYCLE_ID" --project-root "$(pwd)" -- <subcommand>` — passthrough stage `compose-profile.json.eval` to Eval |
-| `$FIDELITY_EVAL_CONTROL` | `python3 "$SKILL_ROOT/compose/fidelity/scripts/fidelity_control.py" --revision-dir <revision_dir>` — compose-internal doc→facts gate (not Working Evaluating); see `compose/fidelity/README.md` |
+| `$ATOMIZE_EVAL_CONTROL` | `python3 "$SKILL_ROOT/compose/atomize-eval/scripts/atomize_eval_control.py" --profile-id <profile_id> --cycle-id "$CYCLE_ID" --project-root "$(pwd)" -- <subcommand>` — Atomize Eval (doc→`_facts.json`); independent of delivery Evaluating; `completion_mode=return_to_caller` |
 | `$COMPOSE_DOC_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/section/compose_doc_control.py" <subcommand> [args...]` |
 | `$NARRATIVE_ARC_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/narrative_arc_control.py"` |
 | `$CHAPTER_WRITE_STATE` | `python3 "$SKILL_ROOT/compose/scripts/section/chapter_write_state_control.py"` — Init 4.W claim-current gate: `sync` / `status` / `begin` (ticket) / `complete` (current) |

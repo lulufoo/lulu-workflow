@@ -81,7 +81,11 @@ adapter configuration.
 ## Completion
 
 1. Run `$EVAL_CONTROL complete-round` and present the result.
-2. Ask the user to choose:
+2. If the caller’s adapter-config / handoff `policy_context.completion_mode` is
+   `return_to_caller` (e.g. Compose Atomize Eval), **stop here** and return the
+   `complete-round` payload to the caller. Do **not** present Accept L / Fix L /
+   Re-evaluate / Deliver package.
+3. Otherwise ask the user to choose:
    - **Accept L** — run `$L_SLICE accept-l --confirm`; exit Eval.
    - **Fix L** — run `$L_SLICE fix-l --confirm`, or `$SESSION_CONTROL resume-after-eval`; exit Eval.
    - **Re-evaluate** — return to **Begin Eval**.

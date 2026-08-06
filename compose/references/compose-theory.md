@@ -72,7 +72,7 @@ open_point = Expose(trigger × means)  # kept iff ( frontier_KW row false  ∧  
 `Deduce` materializes known upstream into this stage's addressable facts (whole→parts) and writes `_facts.json`. `Write` as in §1.3.
 
 ```text
-Atomize(scope document) → fidelity → Derive → _facts.json
+Atomize(scope document) → Atomize Eval → Derive → _facts.json
 ```
 
 - **Atomize** — facts from the upstream scope document, tagged with this stage's `lens_tags`.

@@ -180,7 +180,9 @@ def test_cmd_audit_empty_triggered_is_noop_success(tmp_path: Path, capsys) -> No
     assert payload["skipped"] == "empty-triggered"
 
 
-def test_cli_plan_edge_requires_fidelity_gate(tmp_path: Path, monkeypatch, capsys) -> None:
+def test_cli_plan_edge_requires_atomize_eval_gate(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
     _patch_graph(monkeypatch)
     rev = tmp_path / "rev"
     _seed_facts(
@@ -196,18 +198,29 @@ def test_cli_plan_edge_requires_fidelity_gate(tmp_path: Path, monkeypatch, capsy
         project_root=tmp_path,
     )
     assert mod.cmd_plan_edge(args) == 1
-    assert "fidelity gate missing" in capsys.readouterr().err
+    assert "atomize eval gate missing" in capsys.readouterr().err
 
-    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "fidelity" / "scripts"))
-    from fidelity_evaluate_state_schema import (  # noqa: E402
-        empty_state,
-        fidelity_evaluate_state_path,
-        save_state,
+    sys.path.insert(
+        0, str(Path(__file__).resolve().parents[2] / "atomize-eval" / "scripts")
+    )
+    sys.path.insert(
+        0, str(Path(__file__).resolve().parents[3] / "eval" / "scripts")
+    )
+    from atomize_eval_runtime_schema import evaluate_state_path  # noqa: E402
+    from evaluate_state_schema import (  # noqa: E402
+        build_initial_evaluate_state,
+        save_evaluate_state,
     )
 
-    data = empty_state(intake="atomize")
-    data["status"] = "passed"
-    save_state(fidelity_evaluate_state_path(rev), data)
+    es_path = evaluate_state_path(rev)
+    data = build_initial_evaluate_state(
+        dimension_ids=["e1-doc-coverage", "e2-fact-provenance"],
+        evaluate_round=1,
+        focus_l="rev",
+    )
+    data["eval_status"] = "done"
+    data["fix_phase"] = "done"
+    save_evaluate_state(es_path, data, merge=False)
     assert mod.cmd_plan_edge(args) == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["ok"] is True
