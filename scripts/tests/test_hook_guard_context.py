@@ -252,6 +252,54 @@ class TestShouldInjectConversationId:
         assert "resolve-session-context --conversation-id conv-xyz; echo done" in updated
         assert "echo done --conversation-id conv-xyz" not in updated
 
+    @pytest.mark.parametrize(
+        "command",
+        [
+            'python3 "$SKILL_ROOT/scripts/runtime_control.py" --project-root /tmp resolve-session-context',
+            'python3 "${SKILL_ROOT}/scripts/runtime_control.py" --project-root /tmp resolve-session-context',
+            'python3 "$SKILL_DIR/scripts/tt_start.py" --cycle-id fid1',
+            'python3 "${SKILL_DIR}/scripts/dec_start.py" --cycle-id fid1',
+            'python3 "$SKILL_DIR/scripts/tc_start.py" --cycle-id fid1',
+            'python3 "$SKILL_ROOT/compose/scripts/core/start.py" --profile lulu-plan --cycle-id fid1',
+        ],
+    )
+    def test_skill_var_path_injects(self, command):
+        assert hook_entry._should_inject_conversation_id(command) is True
+
+    def test_skill_root_resolve_platform_context_does_not_inject(self):
+        cmd = (
+            'python3 "$SKILL_ROOT/scripts/runtime_control.py" '
+            "--project-root /tmp resolve-platform-context"
+        )
+        assert hook_entry._should_inject_conversation_id(cmd) is False
+
+    def test_skill_root_chain_injects_resolve_session_segment(self):
+        cmd = (
+            'python3 "$SKILL_ROOT/scripts/runtime_control.py" '
+            "--project-root /tmp resolve-platform-context && "
+            'python3 "$SKILL_ROOT/scripts/runtime_control.py" '
+            "--project-root /tmp resolve-session-context && "
+            "cat /tmp/demo.json"
+        )
+        updated = hook_entry._apply_conversation_id(cmd, "conv-xyz")
+        assert updated is not None
+        assert (
+            "resolve-session-context --conversation-id conv-xyz && cat /tmp/demo.json"
+            in updated
+        )
+        assert "cat /tmp/demo.json --conversation-id conv-xyz" not in updated
+
+    def test_skill_root_inductive_override(self):
+        cmd = (
+            'python3 "$SKILL_ROOT/compose/scripts/inductive/'
+            'inductive_gate_control.py" init-session --out-dir /tmp/r1 --sections I '
+            '--conversation-id "wrong-id"'
+        )
+        updated = hook_entry._apply_conversation_id(cmd, "9001dc22-85f1-404b-869c-2e471433da4d")
+        assert updated is not None
+        assert "9001dc22-85f1-404b-869c-2e471433da4d" in updated
+        assert "wrong-id" not in updated
+
 
 class TestMainRouting:
     def test_no_conversation_id_allows(self, tmp_path, monkeypatch):

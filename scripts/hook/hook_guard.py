@@ -49,6 +49,12 @@ _WORKFLOW_PY_PATH = re.compile(
     r"lulu-dev-workflow[/\\][^\s;|&\"']+\.py\b"
 )
 
+# Literal $SKILL_ROOT / ${SKILL_ROOT} / $SKILL_DIR / ${SKILL_DIR} ...py paths
+# (preToolUse sees the command before shell expands variables).
+_SKILL_VAR_PY_PATH = re.compile(
+    r"\$\{?SKILL_(?:ROOT|DIR)\}?/[^\s;|&\"']+\.py\b"
+)
+
 _CONV_ID_INJECT_SCRIPT_SUFFIXES = (
     "/scripts/runtime_control.py",
     "/scripts/cycle_control.py",
@@ -57,10 +63,11 @@ _CONV_ID_INJECT_SCRIPT_SUFFIXES = (
     "/compose/scripts/inductive/inductive_g3_grounding_control.py",
     "/compose/scripts/inductive/inductive_g2_control.py",
     "/compose/scripts/inductive/inductive_g4_control.py",
-    "/lulu-code/scripts/tc_start.py",
-    "/lulu-code/scripts/tc_task_control.py",
-    "/decision/scripts/dec_start.py",
-    "/lulu-tasks/scripts/tt_start.py",
+    # Stage scripts: short form so "$SKILL_DIR/scripts/..." also matches.
+    "/scripts/tc_start.py",
+    "/scripts/tc_task_control.py",
+    "/scripts/dec_start.py",
+    "/scripts/tt_start.py",
 )
 
 # Inductive grounding controls: always bind to the hook conversation id (override agent typos).
@@ -74,6 +81,13 @@ _INDUCTIVE_CONV_OVERRIDE_SUFFIXES = (
 _CONV_ID_ARG = re.compile(
     r'--conversation-id(?:=(\S+)|\s+"([^"]*)"|\'([^\']*)\'|\s+(\S+))'
 )
+
+
+def _path_ok(command: str) -> bool:
+    return (
+        _WORKFLOW_PY_PATH.search(command) is not None
+        or _SKILL_VAR_PY_PATH.search(command) is not None
+    )
 
 
 def _emit_response(
@@ -100,7 +114,7 @@ def _should_inject_conversation_id(command: str) -> bool:
         return False
     if not re.search(r"\bpython3?\b", command):
         return False
-    if not _WORKFLOW_PY_PATH.search(command):
+    if not _path_ok(command):
         return False
     if not any(suffix in command for suffix in _CONV_ID_INJECT_SCRIPT_SUFFIXES):
         return False
@@ -116,7 +130,7 @@ def _should_inject_conversation_id(command: str) -> bool:
 def _should_override_conversation_id(command: str) -> bool:
     if not re.search(r"\bpython3?\b", command):
         return False
-    if not _WORKFLOW_PY_PATH.search(command):
+    if not _path_ok(command):
         return False
     return any(suffix in command for suffix in _INDUCTIVE_CONV_OVERRIDE_SUFFIXES)
 
