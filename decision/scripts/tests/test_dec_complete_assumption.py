@@ -308,6 +308,43 @@ def test_set_risk_state_rejects_none_triad(
     )
 
 
+def test_gate_close_rejects_invented_completed(
+    template_config: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project_root = template_config
+    cycle_id = "feature-complete-a6b"
+    stage = "decision"
+    monkeypatch.chdir(project_root)
+
+    _close_through_r_active(project_root, cycle_id, stage)
+    assert (
+        cmd_gate_close(
+            project_root,
+            cycle_id,
+            stage,
+            "R",
+            {
+                "exit": "dc",
+                "assumptions": [
+                    {
+                        "id": "A1",
+                        "risk_level": "H",
+                        "risk_class": "decision",
+                        "risk_state": "completed",
+                        "risk_consequence": "May fail",
+                        "release_terms": "Accepted",
+                    }
+                ],
+            },
+        )
+        != 0
+    )
+    registers = json.loads(
+        (project_root / registers_path(cycle_id, stage)).read_text(encoding="utf-8")
+    )
+    assert registers["assumptions"][0].get("risk_state") != "completed"
+
+
 def test_rr_gate_close_rejected(
     template_config: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

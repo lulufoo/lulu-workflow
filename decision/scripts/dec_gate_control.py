@@ -520,6 +520,11 @@ def _validate_r_assumption_payload(item: dict[str, Any], *, exit_path: str) -> N
     risk_state = str(item.get("risk_state", "")).strip()
     if risk_state and risk_state not in RISK_STATES:
         raise ValueError(f"invalid risk_state for {entry_id}: {risk_state!r}")
+    if risk_state == "completed":
+        raise ValueError(
+            f"{entry_id}: completed only via complete-assumption "
+            "(not gate-close or apply-r-assumptions)"
+        )
     if exit_path == "dc" and risk_state == "open":
         raise ValueError(
             f"R exit dc forbids risk_state=open on {entry_id}; "
@@ -791,10 +796,6 @@ def cmd_apply_r_assumptions(
             if not isinstance(item, dict):
                 return _emit_error("each assumption entry must be an object")
             _validate_r_assumption_payload(item, exit_path="human_decision")
-            if str(item.get("risk_state", "")).strip() == "completed":
-                return _emit_error(
-                    f"{item.get('id')}: completed only via complete-assumption"
-                )
         _apply_r_register_updates(paths["registers"], payload, gate_state=state)
     except (FileNotFoundError, ValueError) as exc:
         return _emit_error(str(exc))

@@ -107,9 +107,8 @@ def test_r_prior_signoff_on_close(template_config: Path, monkeypatch: pytest.Mon
                         "id": "A1",
                         "risk_level": "L",
                         "risk_class": "decision",
-                        "risk_state": "completed",
+                        "risk_state": "ignore",
                         "risk_consequence": "minor",
-                        "release_terms": "Accepted",
                     }
                 ],
             },
