@@ -36,7 +36,8 @@ Do NOT proceed until you have read `../../../_runtime.md`
 | `$GATE_CONTROL` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>"` |
 
 Subcommand contracts: module docstring / `--help` (including
-`complete-assumption`, `set-risk-state`, and R `gate-close`).
+`apply-r-assumptions`, `complete-assumption`, `set-risk-state`, and R
+`gate-close`).
 
 ## Cognitive map
 
@@ -116,10 +117,12 @@ the stale path.
 2. Cognitive map loop:
    - `G-pack` unmet → `prepare` → `present`.
    - On revise → `revise` → `present`.
-   - On expose confirm → persist via `$GATE_CONTROL gate-close --gate R` with
-     full `assumptions` and chosen `exit`. If any row stays `open` and user did
-     not choose `rs` / `human_decision`, **stay in this runner** → `handle` (R
-     remains active; do not hand off yet).
+   - On expose confirm → `$GATE_CONTROL apply-r-assumptions --payload` with
+     full `assumptions` (no `completed`; no `exit`). If any row is `open` and
+     user did not choose `rs` / `human_decision`, → `handle` (R stays active).
+     If user chose `rs` / `human_decision` at expose → skip `handle` → `close`
+     with that exit. If no `open` and intended exit is `dc` → `close` with
+     `exit=dc`.
    - `handle` → when no `open` remains → `close` with `exit=dc`; or user
      chooses `rs` / `human_decision` → `close` with that exit.
    - On final close → break.
@@ -133,13 +136,12 @@ the stale path.
 **Stop:** Non-zero CLI, or confirmation cannot be judged → stop and wait for
 user direction.
 
-## gate-close payload
+## Payloads
 
-Expose confirm or final close (field names; see `--help` for validation):
+### `apply-r-assumptions` (expose confirm)
 
 ```json
 {
-  "exit": "dc",
   "assumptions": [
     {
       "id": "A1",
@@ -166,7 +168,19 @@ Expose confirm or final close (field names; see `--help` for validation):
 }
 ```
 
-RS exit:
+- each assumption requires `risk_level`, `risk_class`, `risk_state`, `risk_consequence`
+- **Forbidden:** `risk_state=completed` (use `complete-assumption` in `handle`)
+
+### Final `gate-close --gate R`
+
+```json
+{
+  "exit": "dc",
+  "assumptions": []
+}
+```
+
+RS exit (may still carry non-`completed` snapshot fields):
 
 ```json
 {
@@ -185,12 +199,10 @@ RS exit:
 ```
 
 - `exit`: `dc` | `rs` | `human_decision`
-- each assumption requires `risk_level`, `risk_class`, `risk_state`, `risk_consequence`
 - `exit=dc` forbids any `risk_state=open` (complete or reclass via handle first)
-- `completed` rows must already be written by `complete-assumption`; do not set in close payload
+- do not invent `completed` in close payload
 - `exit=dc`: marks all pending **prior** entries `verified`
-
-Final `dc` close may use `"assumptions": []` when handle already persisted all rows.
+- Final `dc` close may use `"assumptions": []` when rows are already persisted
 
 ## Exit
 
