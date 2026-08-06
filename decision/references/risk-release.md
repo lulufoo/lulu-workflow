@@ -10,7 +10,7 @@ Not a spine gate — no `gate-close` here.
 |----|----------------|
 | `G-terms-one` | Current row has legal `release_terms` (full Method/Owner/Timing/Release condition string **or** literal `Accepted`). |
 | `G-check-one` | User confirmed terms and check result against the Release condition (or accepted M/L as `Accepted`). |
-| `G-complete-one` | Row disposition recorded: `completed` via complete subcommand, `ignore` via set-risk-state, or user routed to `present`/`revise` / `rs` / `human_decision`. |
+| `G-complete-one` | Row `risk_state` recorded: `completed` via complete-assumption, `ignore` via set-risk-state, or user routed to `present`/`revise` / `rs` / `human_decision`. |
 
 ## Steps
 
