@@ -14,6 +14,9 @@ from dec_io import atomic_write_text
 
 PRIOR_KINDS = frozenset({"judgment", "preference", "concern", "excluded"})
 REGISTER_STATES = frozenset({"pending", "verified", "invalidated"})
+# Active spine sources: O–R (+ DC is not a register source).
+# RR / V remain only for historical entry.source values on loaded sessions;
+# they are not GATE_ORDER gates after risk_state redesign.
 REGISTER_SOURCES = frozenset({"O", "Q", "GL", "E", "D", "X", "R", "RR", "V"})
 RISK_LEVELS = frozenset({"H", "M", "L", "none"})
 RISK_CLASSES = frozenset({"decision", "implementation", "pending", "none"})
