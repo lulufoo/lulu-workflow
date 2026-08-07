@@ -179,3 +179,40 @@ def test_viewer_rejects_formal_arc_file(tmp_path: Path):
     )
     assert code != 0
     assert "Formal" in err or "hard-banned" in err.lower()
+
+
+def test_viewer_mount_cross_root_stops_old(tmp_path: Path):
+    """T4: different root on same port → stop-old-then-start."""
+    root_a = tmp_path / "a"
+    root_b = tmp_path / "b"
+    root_a.mkdir()
+    root_b.mkdir()
+    port = 48641
+    try:
+        code_a, payload_a, err_a = _run(
+            _VIEWER,
+            "mount",
+            "--revision-dir",
+            str(root_a),
+            "--port",
+            str(port),
+        )
+        assert code_a == 0, err_a
+        assert payload_a.get("ok") is True
+        code_b, payload_b, err_b = _run(
+            _VIEWER,
+            "mount",
+            "--revision-dir",
+            str(root_b),
+            "--port",
+            str(port),
+        )
+        assert code_b == 0, err_b
+        assert payload_b.get("ok") is True
+        assert payload_b.get("reused") is False
+        assert str(payload_b.get("root", "")).endswith("/b") or Path(
+            payload_b["root"]
+        ).resolve() == root_b.resolve()
+    finally:
+        _run(_VIEWER, "stop", "--revision-dir", str(root_a))
+        _run(_VIEWER, "stop", "--revision-dir", str(root_b))

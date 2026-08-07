@@ -135,6 +135,49 @@ def _stop_pid(pid: int) -> None:
             time.sleep(0.05)
 
 
+def _listener_pids(port: int) -> list[int]:
+    """PIDs listening on TCP port (macOS/Linux ``lsof``). Empty if unavailable."""
+    try:
+        out = subprocess.check_output(
+            ["lsof", "-nP", "-iTCP:%d" % port, "-sTCP:LISTEN", "-t"],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+        return []
+    pids: list[int] = []
+    for line in out.split():
+        try:
+            pid = int(line.strip())
+        except ValueError:
+            continue
+        if pid not in pids:
+            pids.append(pid)
+    return pids
+
+
+def _stop_port_listeners(port: int) -> list[int]:
+    """Stop any process listening on ``port`` (cross-root stop-old-then-start)."""
+    stopped: list[int] = []
+    for pid in _listener_pids(port):
+        _stop_pid(pid)
+        stopped.append(pid)
+    # brief wait for bind release
+    for _ in range(20):
+        if not _listener_pids(port):
+            break
+        time.sleep(0.05)
+    return stopped
+
+
+def _clear_foreign_state(root: Path) -> None:
+    path = root / STATE_NAME
+    try:
+        path.unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
 def _start_server(slice_dir: Path, port: int) -> int:
     log_path = slice_dir / "_narrative-arc-viewer.server.log"
     log_f = open(log_path, "a", encoding="utf-8")
@@ -188,16 +231,17 @@ def cmd_mount(args: argparse.Namespace) -> int:
                     "arc_source": f"./{Path(arc_file).name}",
                 }
             )
-        # Different root on same port → stop-old-then-start
+        # Stale local state pointing at another root — stop that pid + clear
         _stop_pid(int(state.get("pid") or 0))
+        _clear_foreign_state(root)
         _state_path(slice_dir).unlink(missing_ok=True)
-        # Also clear foreign state file if it lived under other root
-        foreign = Path(str(state.get("root") or "")) / STATE_NAME
-        if foreign.is_file() and foreign.resolve() != _state_path(slice_dir).resolve():
-            try:
-                foreign.unlink(missing_ok=True)
-            except OSError:
-                pass
+
+    # Cross-root: prior mount wrote state under *other* slice; discover via port
+    stopped = _stop_port_listeners(port)
+    for pid in stopped:
+        # best-effort: if local state still names a foreign root, clear it
+        if state and int(state.get("pid") or 0) == pid:
+            _clear_foreign_state(Path(str(state.get("root") or "")))
 
     try:
         pid = _start_server(slice_dir, port)
@@ -215,6 +259,7 @@ def cmd_mount(args: argparse.Namespace) -> int:
             "viewer": str(viewer),
             "config": str(cfg),
             "arc_source": f"./{Path(arc_file).name}",
+            "stopped_pids": stopped,
         }
     )
 
