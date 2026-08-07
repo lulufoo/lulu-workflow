@@ -389,6 +389,40 @@ def test_collab_schema_requires_each_fact_leaf_in_display_tree():
     assert "collab arc leaves not represented by terminal tree nodes: ['leaf-1']" in errors
 
 
+def test_collab_write_rejects_missing_facts_without_overwriting(tmp_path: Path):
+    candidate = tmp_path / "empty-candidate.json"
+    candidate_data = {
+        "version": "1",
+        "kind": "narrative-arc-collab",
+        "status": "display",
+        "tree": {"id": "root", "title": "Empty", "children": []},
+        "leaves": [],
+    }
+    candidate.write_text(json.dumps(candidate_data), encoding="utf-8")
+    out = tmp_path / "_narrative-arc.collab.json"
+    out.write_text(
+        '{"version":"1","kind":"narrative-arc-collab","status":"display",'
+        '"tree":{"id":"root","title":"old","children":[]},"leaves":[]}\n',
+        encoding="utf-8",
+    )
+    code, _, err = _run(
+        _ARC_TOOL,
+        "write",
+        "--revision-dir",
+        str(tmp_path),
+        "--output-path",
+        str(out),
+        "--file",
+        str(candidate),
+        "--confirm",
+        "--digest",
+        canonical_digest(candidate_data),
+    )
+    assert code != 0
+    assert "facts not found" in err.lower()
+    assert json.loads(out.read_text(encoding="utf-8"))["tree"]["title"] == "old"
+
+
 def test_narrative_arc_build_context_and_collab_candidate_validation(tmp_path: Path):
     (tmp_path / "_facts.json").write_text(
         json.dumps([{"id": "F-1", "text": "one", "lens_tags": ["I"]}]),

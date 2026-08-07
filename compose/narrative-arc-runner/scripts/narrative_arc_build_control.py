@@ -58,7 +58,9 @@ def _slice(revision_dir: str) -> Path:
 
 def _facts(revision_dir: str) -> list[dict[str, Any]]:
     path = facts_path(_slice(revision_dir))
-    return load_facts(path) if path.is_file() else []
+    if not path.is_file():
+        raise ValueError(f"facts not found: {path}")
+    return load_facts(path)
 
 
 def _cycle_type(args: argparse.Namespace) -> str:

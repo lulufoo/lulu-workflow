@@ -88,7 +88,9 @@ def _load_candidate(file_path: str) -> dict[str, Any]:
 
 def _current_facts(slice_dir: Path) -> list[dict[str, Any]]:
     path = facts_path(slice_dir)
-    return load_facts(path) if path.is_file() else []
+    if not path.is_file():
+        raise ValueError(f"facts not found: {path}")
+    return load_facts(path)
 
 
 def cmd_write(args: argparse.Namespace) -> int:
@@ -101,8 +103,11 @@ def cmd_write(args: argparse.Namespace) -> int:
         return _fail(str(exc))
     if args.digest != canonical_digest(arc):
         return _fail("write digest does not match the reviewed candidate")
-    slice_dir = _slice(args.revision_dir)
-    facts = _current_facts(slice_dir)
+    try:
+        slice_dir = _slice(args.revision_dir)
+        facts = _current_facts(slice_dir)
+    except ValueError as exc:
+        return _fail(str(exc))
     errors = validate_narrative_arc_collab(arc)
     errors.extend(collab_fact_coverage_errors(arc, facts))
     if errors:
