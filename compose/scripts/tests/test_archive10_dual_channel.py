@@ -22,6 +22,7 @@ from narrative_arc_collab_schema import (  # noqa: E402
     orphan_fact_ids,
     validate_narrative_arc_collab,
 )
+from compose_state_lock import canonical_digest  # noqa: E402
 
 
 def _run(script: Path, *args: str) -> tuple[int, dict, str]:
@@ -264,6 +265,7 @@ def test_narrative_arc_collab_write_path_validates_coverage_and_backs_up(tmp_pat
         '"tree":{"id":"root","title":"old","children":[]},"leaves":[]}\n',
         encoding="utf-8",
     )
+    candidate_digest = canonical_digest(json.loads(candidate.read_text(encoding="utf-8")))
 
     code, _, err = _run(
         _ARC_TOOL,
@@ -288,6 +290,8 @@ def test_narrative_arc_collab_write_path_validates_coverage_and_backs_up(tmp_pat
         "--file",
         str(candidate),
         "--confirm",
+        "--digest",
+        candidate_digest,
     )
     assert code == 0, err
     assert payload.get("backup")
@@ -306,12 +310,34 @@ def test_narrative_arc_collab_write_path_validates_coverage_and_backs_up(tmp_pat
         "--file",
         str(candidate),
         "--confirm",
+        "--digest",
+        candidate_digest,
     )
     assert code != 0
     assert "Formal" in err or "formal" in err.lower()
 
     candidate_data = json.loads(candidate.read_text(encoding="utf-8"))
     candidate_data["leaves"][1]["fact_ids"] = []
+    candidate.write_text(json.dumps(candidate_data), encoding="utf-8")
+    incomplete_digest = canonical_digest(candidate_data)
+    code, _, err = _run(
+        _ARC_TOOL,
+        "write",
+        "--revision-dir",
+        str(tmp_path),
+        "--output-path",
+        str(out),
+        "--file",
+        str(candidate),
+        "--confirm",
+        "--digest",
+        incomplete_digest,
+    )
+    assert code != 0
+    assert "not placed" in err.lower()
+    assert json.loads(out.read_text(encoding="utf-8"))["tree"]["title"] == "Design story"
+
+    candidate_data["tree"]["title"] = "Changed after review"
     candidate.write_text(json.dumps(candidate_data), encoding="utf-8")
     code, _, err = _run(
         _ARC_TOOL,
@@ -323,10 +349,11 @@ def test_narrative_arc_collab_write_path_validates_coverage_and_backs_up(tmp_pat
         "--file",
         str(candidate),
         "--confirm",
+        "--digest",
+        incomplete_digest,
     )
     assert code != 0
-    assert "not placed" in err.lower()
-    assert json.loads(out.read_text(encoding="utf-8"))["tree"]["title"] == "Design story"
+    assert "digest" in err.lower()
 
 
 def test_collab_orphan_detection():
@@ -419,6 +446,7 @@ def test_narrative_arc_build_context_and_collab_candidate_validation(tmp_path: P
     )
     assert code == 0, err
     assert payload["facts_total"] == 1
+    assert payload["digest"] == canonical_digest(json.loads(candidate.read_text(encoding="utf-8")))
 
 
 def test_viewer_rejects_formal_arc_file(tmp_path: Path):

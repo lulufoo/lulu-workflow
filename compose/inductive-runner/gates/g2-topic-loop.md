@@ -60,11 +60,13 @@ $NARRATIVE_ARC_BUILD_CTL validate-candidate \
   --profile "$COMPOSE_PROFILE" \
   --cycle-id "$CYCLE_ID" \
   --file "<path to semantic collab candidate JSON>"
-# Show that exact candidate; only then obtain explicit human confirmation.
+# Save stdout.digest as $ARC_CANDIDATE_DIGEST. Show that exact candidate and
+# digest; only then obtain explicit human confirmation.
 $NARRATIVE_ARC_COLLAB_CTL write \
   --revision-dir "$INDUCTIVE_OUT_DIR" \
   --output-path "_narrative-arc.collab.json" \
   --file "<path to semantic collab candidate JSON>" \
+  --digest "$ARC_CANDIDATE_DIGEST" \
   --confirm
 $COMPOSE_VIEWER_CTL mount --revision-dir "$INDUCTIVE_OUT_DIR" --arc-file "_narrative-arc.collab.json"
 ```

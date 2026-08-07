@@ -29,6 +29,7 @@ import kernel_bootstrap  # noqa: E402
 kernel_bootstrap.ensure_kernel_paths()
 
 from discussion_pointer_schema import active_slice_dir  # noqa: E402
+from compose_state_lock import canonical_digest  # noqa: E402
 from domain_instance_schema import load_and_validate_domain_instance  # noqa: E402
 from facts_schema import facts_path, load_facts  # noqa: E402
 from fetch_compose_framework import fetch_compose_framework  # noqa: E402
@@ -174,6 +175,7 @@ def cmd_validate_candidate(args: argparse.Namespace) -> int:
             "command": "validate-candidate",
             "target": args.target,
             "facts_total": len(facts),
+            "digest": canonical_digest(candidate),
         }
     )
 

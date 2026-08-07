@@ -36,6 +36,7 @@ import kernel_bootstrap  # noqa: E402
 kernel_bootstrap.ensure_kernel_paths()
 
 from discussion_pointer_schema import active_slice_dir  # noqa: E402
+from compose_state_lock import canonical_digest  # noqa: E402
 from facts_schema import facts_path, load_facts  # noqa: E402
 from narrative_arc_collab_schema import (  # noqa: E402
     assert_not_formal_path,
@@ -98,6 +99,8 @@ def cmd_write(args: argparse.Namespace) -> int:
         arc = _load_candidate(args.file)
     except ValueError as exc:
         return _fail(str(exc))
+    if args.digest != canonical_digest(arc):
+        return _fail("write digest does not match the reviewed candidate")
     slice_dir = _slice(args.revision_dir)
     facts = _current_facts(slice_dir)
     errors = validate_narrative_arc_collab(arc)
@@ -194,6 +197,11 @@ def build_parser() -> argparse.ArgumentParser:
                 "--confirm",
                 action="store_true",
                 help="Required; human-chosen overwrite",
+            )
+            p.add_argument(
+                "--digest",
+                required=True,
+                help="Digest emitted by validate-candidate for the reviewed file",
             )
         p.set_defaults(func=fn)
 

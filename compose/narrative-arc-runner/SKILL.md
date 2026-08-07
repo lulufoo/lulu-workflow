@@ -62,9 +62,11 @@ partition each leaf into valid lens chapters, write `write_ready`, and gate
 with `--require-write-ready`.
 
 **Collab:** build `status=display` with `tree + leaves[].fact_ids` only.
-After the human explicitly confirms that exact candidate,
-`$NARRATIVE_ARC_COLLAB_CTL write --file … --output-path … --confirm` validates
-full current-fact coverage, backs up an overwritten file, then writes.
+`validate-candidate` returns `$ARC_CANDIDATE_DIGEST`. Show the exact candidate
+and that digest to the human. After explicit confirmation,
+`$NARRATIVE_ARC_COLLAB_CTL write --file … --output-path … --digest
+"$ARC_CANDIDATE_DIGEST" --confirm` rejects changed content, validates full
+current-fact coverage, backs up an overwritten file, then writes.
 
 ## DONE / failure
 
