@@ -31,6 +31,7 @@ def empty_topic_current() -> dict[str, Any]:
         "title": None,
         "scope": None,
         "clarified": False,
+        "human_adopted": False,
         "conclusion": None,
         "conclusion_confirmed": False,
         "updated_at": _now_iso(),
@@ -46,6 +47,7 @@ def validate_topic_current(data: Any) -> list[str]:
     title = data.get("title")
     scope = data.get("scope")
     clarified = bool(data.get("clarified"))
+    human_adopted = bool(data.get("human_adopted"))
     conclusion = data.get("conclusion")
     confirmed = bool(data.get("conclusion_confirmed"))
     if title is not None and not str(title).strip():
@@ -57,6 +59,8 @@ def validate_topic_current(data: Any) -> list[str]:
             errors.append("topic_current.clarified requires non-empty title")
         if not (isinstance(scope, str) and scope.strip()):
             errors.append("topic_current.clarified requires non-empty scope")
+        if not human_adopted:
+            errors.append("topic_current.clarified requires human_adopted=true")
     if confirmed:
         if not (isinstance(conclusion, str) and conclusion.strip()):
             errors.append(
@@ -78,6 +82,7 @@ def normalize_topic_current(data: dict[str, Any]) -> dict[str, Any]:
         "title": None if title is None else (str(title).strip() or None),
         "scope": None if scope is None else (str(scope).strip() or None),
         "clarified": bool(data.get("clarified")),
+        "human_adopted": bool(data.get("human_adopted")),
         "conclusion": (
             None if conclusion is None else (str(conclusion).strip() or None)
         ),

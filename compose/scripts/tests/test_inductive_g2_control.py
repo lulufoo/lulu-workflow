@@ -308,6 +308,7 @@ def test_gate_close_g2_reads_topic_current_in_active_slice(tmp_path: Path):
                 "title": "T",
                 "scope": "S",
                 "clarified": True,
+                "human_adopted": True,
                 "conclusion": "unconfirmed conclusion",
                 "conclusion_confirmed": False,
             },

@@ -21,7 +21,7 @@ converge / adopt topic → clarify → (persist topic) → solve → summarize �
 3. After clarify: persist current topic:
 
 ```bash
-$TOPIC_CURRENT_CTL set --revision-dir "$INDUCTIVE_OUT_DIR" --title "<title>" --scope "<one-line scope>"
+$TOPIC_CURRENT_CTL set --revision-dir "$INDUCTIVE_OUT_DIR" --title "<title>" --scope "<one-line scope>" --human-adopted
 ```
 
 4. Solve → summarize → set conclusion → human confirms:

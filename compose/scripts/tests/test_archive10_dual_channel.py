@@ -37,7 +37,7 @@ def _run(script: Path, *args: str) -> tuple[int, dict, str]:
 
 
 def test_topic_current_set_and_confirm(tmp_path: Path):
-    code, payload, err = _run(
+    code, _, err = _run(
         _TOPIC_CTL,
         "set",
         "--revision-dir",
@@ -47,8 +47,23 @@ def test_topic_current_set_and_confirm(tmp_path: Path):
         "--scope",
         "D1+D2 boundary",
     )
+    assert code != 0
+    assert "human-adopted" in err.lower()
+
+    code, payload, err = _run(
+        _TOPIC_CTL,
+        "set",
+        "--revision-dir",
+        str(tmp_path),
+        "--title",
+        "Traction",
+        "--scope",
+        "D1+D2 boundary",
+        "--human-adopted",
+    )
     assert code == 0, err
     assert payload["topic"]["clarified"] is True
+    assert payload["topic"]["human_adopted"] is True
 
     code, _, err = _run(
         _TOPIC_CTL,

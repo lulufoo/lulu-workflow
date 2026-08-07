@@ -3,9 +3,9 @@
 
 Subcommands: status · set · set-conclusion · confirm-conclusion · clear
 
-``set`` persists the current topic **after clarify** (human adopt already
-done in dialogue). ``confirm-conclusion`` marks Topic Loop handoff ready
-for fact-settle. No phase ordering on disk.
+``set`` persists the current topic **after clarify** and requires
+``--human-adopted`` (explicit human adopt of the topic). ``confirm-conclusion``
+marks Topic Loop handoff ready for fact-settle. No phase ordering on disk.
 
 CLI: ``python3 topic_current_control.py --help``
 
@@ -62,12 +62,18 @@ def cmd_set(args: argparse.Namespace) -> int:
     scope = str(args.scope or "").strip()
     if not title or not scope:
         return _fail("set requires non-empty --title and --scope")
+    if not bool(getattr(args, "human_adopted", False)):
+        return _fail(
+            "set requires --human-adopted "
+            "(human explicit adopt; AI must not auto-set current topic)",
+        )
     path = topic_current_path(_slice(args.revision_dir))
     data = {
         "version": "1",
         "title": title,
         "scope": scope,
         "clarified": True,
+        "human_adopted": True,
         "conclusion": None,
         "conclusion_confirmed": False,
     }
@@ -124,10 +130,15 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--revision-dir", required=True)
     p.set_defaults(func=cmd_status)
 
-    p = sub.add_parser("set", help="Persist current topic after clarify")
+    p = sub.add_parser("set", help="Persist current topic after clarify + human adopt")
     p.add_argument("--revision-dir", required=True)
     p.add_argument("--title", required=True)
     p.add_argument("--scope", required=True)
+    p.add_argument(
+        "--human-adopted",
+        action="store_true",
+        help="Required; records explicit human adopt of this topic",
+    )
     p.set_defaults(func=cmd_set)
 
     p = sub.add_parser("set-conclusion")
