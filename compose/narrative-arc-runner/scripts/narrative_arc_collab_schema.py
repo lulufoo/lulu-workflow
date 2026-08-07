@@ -232,6 +232,26 @@ def orphan_fact_ids(
     return orphans
 
 
+def unknown_arc_fact_ids(
+    arc: dict[str, Any],
+    facts: list[dict[str, Any]],
+) -> list[str]:
+    """Return arc references that do not exist in the current facts."""
+    fact_ids = {
+        str(fact.get("id", "")).strip()
+        for fact in facts
+        if isinstance(fact, dict) and str(fact.get("id", "")).strip()
+    }
+    arc_ids = {
+        str(raw_id).strip()
+        for leaf in arc.get("leaves") or []
+        if isinstance(leaf, dict)
+        for raw_id in (leaf.get("fact_ids") or [])
+        if str(raw_id).strip()
+    }
+    return sorted(arc_ids - fact_ids)
+
+
 def collab_fact_coverage_errors(
     arc: dict[str, Any],
     facts: list[dict[str, Any]],
@@ -261,7 +281,7 @@ def collab_fact_coverage_errors(
             else:
                 owners[fact_id] = leaf_id
 
-    unknown = sorted(set(owners) - fact_ids)
+    unknown = unknown_arc_fact_ids(arc, facts)
     if unknown:
         errors.append(f"collab arc references facts not present: {unknown}")
     unplaced = sorted(fact_ids - set(owners))

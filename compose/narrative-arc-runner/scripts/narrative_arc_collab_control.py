@@ -45,6 +45,7 @@ from narrative_arc_collab_schema import (  # noqa: E402
     load_narrative_arc_collab,
     orphan_fact_ids,
     save_narrative_arc_collab,
+    unknown_arc_fact_ids,
     validate_narrative_arc_collab,
 )
 
@@ -147,21 +148,33 @@ def cmd_validate(args: argparse.Namespace) -> int:
         return _fail(f"collab arc not found: {out_path}")
     try:
         data = json.loads(out_path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
+    except (OSError, json.JSONDecodeError) as exc:
         return _fail(f"invalid JSON: {exc}")
     errors = validate_narrative_arc_collab(data)
     if errors:
         return _fail("; ".join(errors))
-    slice_dir = _slice(args.revision_dir)
-    fpath = facts_path(slice_dir)
-    facts = load_facts(fpath) if fpath.is_file() else []
+    try:
+        facts = _current_facts(_slice(args.revision_dir))
+    except ValueError as exc:
+        return _fail(str(exc))
+    coverage_errors = collab_fact_coverage_errors(data, facts)
+    duplicate_errors = [
+        error
+        for error in coverage_errors
+        if "mapped to multiple collab leaves" in error
+    ]
+    if duplicate_errors:
+        return _fail("; ".join(duplicate_errors))
     orphans = orphan_fact_ids(data, facts)
+    unknown = unknown_arc_fact_ids(data, facts)
     return _ok(
         {
             "ok": True,
             "path": str(out_path),
             "orphan_fact_ids": orphans,
-            "stale": bool(orphans),
+            "unattached_fact_ids": orphans,
+            "unknown_arc_fact_ids": unknown,
+            "stale": bool(orphans or unknown),
         }
     )
 
