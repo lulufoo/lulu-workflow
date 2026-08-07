@@ -1,10 +1,40 @@
 > Part of inductive-runner · gate execution entry · loaded from `../SKILL.md`
 
-# Gate 2 — Topic Loop (archive-10.0 / archive-16.0)
+# Gate 2 — Topic Loop
 
 **Status:** Design-convergence dialogue. **Not** draft-as-topic-tree. Production ⊥ display.
 
 **Prerequisites:** `$INDUCTIVE_GATE_CTL resolve-context` reports `active_gate` is `G2` (G1 closed).
+
+## Goal
+
+Converge design via dialogue (not by writing the whole document at once).
+
+Domain `cognitive_frame` (D1) and `intent_anchor` (D2) are the shared traction for the whole Topic Loop and for exit detection (`design_goal_met`) — not per-topic KPIs.
+
+Close does **not** require a collab/Formal arc.
+
+## Dialogue cognition
+
+Mechanism = discover and work topics **in dialogue**. This is **not** two independent discovery channels (human || AI).
+
+| Role | Does | Must not |
+|------|------|----------|
+| Human | May propose pending topics; **sole adopt authority** (explicit adopt or rewrite-then-adopt); confirm conclusions; confirm exit from the Loop | — |
+| AI | May **guide-propose** pending topics in dialogue; help clarify / solve / summarize | Auto-adopt the current topic; silent fact writes; treat D1+D2 exit check as a substitute for human exit |
+
+Topic grain / portrait rules → future `compose/references/…` (not defined in this gate).
+
+## Session notions
+
+| Notion | Completion (cognitive) |
+|--------|------------------------|
+| pending topic | Proposed; not yet human-adopted |
+| current topic | title / scope / human-adopted (persist after clarify) |
+| conclusion | set → human confirm |
+| production ⊥ display | Fact channel orthogonal to collab-arc display |
+
+Bind session state only via `$MACRO` / `resolve-context` — not by treating data-file paths as workflow steps.
 
 ## Declared tools
 
@@ -13,40 +43,30 @@
 | `fact-runner` | Human confirms conclusion → persist facts | Inline public protocol order; argv in `fact-runner/SKILL.md` / `$FACT_CTL --help` | preview / digest / `stale_signal` | Silent fact writes; skip ACK; paste long argv here |
 | `narrative-arc-runner` | After consume `stale_signal`, human chooses collab rebuild | `$SUBAGENT_TOOL` + `$SUBAGENT_AWAIT_SYNC` | DONE/FAIL summary | Expand `$NARRATIVE_ARC_*` / `$COMPOSE_VIEWER_CTL`; self-mount Viewer |
 
-## Goal
+## Phase map
 
-Converge design via **dialogue** under Domain `cognitive_frame` (D1) + `intent_anchor` (D2). AI topic proposals are guidance (coarse→fine); human must explicitly adopt. Hand facts only via **fact-runner** after conclusion confirm.
-
-## Loop (What structure — not a hard dialogue lock)
+What structure — *not a hard dialogue lock*:
 
 ```text
-converge / adopt topic → clarify → (persist topic) → solve → summarize → human confirms conclusion → fact-runner
+adopt → clarify → persist topic → solve → summarize → confirm conclusion → fact-runner
 ```
 
-1. Load D1+D2 from Domain (shared traction for dialogue + exit check).
-2. Dialogue discovers topics (human may propose; AI may guide propose). **Adopt = human explicit.**
-3. After clarify: persist current topic:
+Optional: `stale_signal → offer collab rebuild` (details only in Branches).
 
-```bash
-$TOPIC_CURRENT_CTL set --revision-dir "$INDUCTIVE_OUT_DIR" --title "<title>" --scope "<one-line scope>" --human-adopted
-```
+## Phase → bind
 
-4. Solve → summarize → set conclusion → human confirms:
+| Phase | Bind |
+|-------|------|
+| clarify done and adopted | `$TOPIC_CURRENT_CTL` `set` |
+| after summarize, conclusion pending confirm | `$TOPIC_CURRENT_CTL` `set-conclusion` → human confirm → `confirm-conclusion` |
+| conclusion confirmed | `fact-runner` public protocol order (see its SKILL / `$FACT_CTL --help`) |
+| human confirms exit and Close predicates hold | `$INDUCTIVE_GATE_CTL` `gate-close` (payload in Close) |
 
-```bash
-$TOPIC_CURRENT_CTL set-conclusion --revision-dir "$INDUCTIVE_OUT_DIR" --text "<conclusion>"
-$TOPIC_CURRENT_CTL confirm-conclusion --revision-dir "$INDUCTIVE_OUT_DIR"
-```
+Details → `--help`. Do not paste flags / argv here.
 
-5. Hand facts via **fact-runner** public protocol (dialogue shows the exact proposal; no staging file):
+## Branches
 
-```text
-propose → display exact preview → human ACK → ack → consume
-(see fact-runner/SKILL.md / $FACT_CTL --help for argv; or revoke)
-```
-
-6. On consume `stale_signal`: optionally offer a human-chosen semantic collab
-   arc rebuild (do **not** auto-run). If the human chooses rebuild:
+On consume `stale_signal`: optionally offer a human-chosen semantic collab arc rebuild (do **not** auto-run). If the human chooses rebuild:
 
 Dispatch `narrative-arc-runner` via `$SUBAGENT_TOOL` with `$SUBAGENT_AWAIT_SYNC`:
 
@@ -64,20 +84,23 @@ OUTPUT_PATH: _narrative-arc.collab.json
 
 Parse the subagent summary only (do not re-run its internals):
 
-- `mounted=true` → **must** show `viewer_url` to the user.
-- `wrote=true` · `mounted=false` → tell the user the arc was written but Viewer failed; optional re-dispatch of the same runner; **do not** self-mount.
-- `wrote=false` → existing collab arc unchanged; report `error`.
+| Summary | G2 action |
+|---------|-----------|
+| `mounted=true` | **Must** show `viewer_url` |
+| `wrote=true` · `mounted=false` | Tell the user the arc was written but Viewer failed; optional re-dispatch of the same runner; **do not** self-mount |
+| `wrote=false` | Existing collab arc unchanged; report `error` |
 
 Refuse rebuild → continue with the existing collab arc.
 
-**Hard cut:** do **not** call `$NARRATIVE_ARC_DRAFT_CTL` / draft-as-topic-tree / `$TOPIC_FOCUS_CTL` (retired). Do **not** invoke `$NARRATIVE_ARC_BUILD_CTL` / `$NARRATIVE_ARC_COLLAB_CTL` / `$COMPOSE_VIEWER_CTL` from this gate.
+## Close
 
-## Close G2 → G3 (gap-check)
-
-AI checks design goal against D1+D2. Fail → **cannot** close. Pass → still need **human confirm exit**. No unconfirmed conclusion on topic. Then:
+Before close: design goal passes against D1+D2 (Goal); human confirms exit; no unconfirmed conclusion (Session notions). Collab/Formal arc not required. **Do not** auto-close without human exit.
 
 ```bash
 $INDUCTIVE_GATE_CTL gate-close --gate G2 --payload '{"topic_loop_done": true, "design_goal_met": true, "human_exit_confirmed": true}'
 ```
 
-**Do not** require collaboration/Formal arc for close. **Do not** auto-close without human exit.
+## Hard cuts
+
+- Do **not** call `$NARRATIVE_ARC_DRAFT_CTL` / draft-as-topic-tree / `$TOPIC_FOCUS_CTL` (retired).
+- Do **not** invoke `$NARRATIVE_ARC_BUILD_CTL` / `$NARRATIVE_ARC_COLLAB_CTL` / `$COMPOSE_VIEWER_CTL` from this gate.
