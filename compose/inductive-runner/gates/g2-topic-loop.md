@@ -20,10 +20,12 @@ Mechanism = discover and work topics **in dialogue**. This is **not** two indepe
 
 | Role | Does | Must not |
 |------|------|----------|
-| Human | May propose pending topics; **sole adopt authority** (explicit adopt or rewrite-then-adopt); confirm conclusions; confirm exit from the Loop | — |
-| AI | May **guide-propose** pending topics in dialogue; help clarify / solve / summarize | Auto-adopt the current topic; silent fact writes; treat D1+D2 exit check as a substitute for human exit |
+| Human | May propose pending topics; **sole adopt authority** (dialogue adopt **or** select from `gap-landscape`); confirm `topic-portrait`; confirm conclusions; confirm exit from the Loop | — |
+| AI | May **guide-propose** after `gap-landscape` confirm; help clarify / solve / summarize | Auto-adopt; skip `gap-landscape` / `topic-portrait` when their triggers fire; silent fact writes; treat D1+D2 exit check as a substitute for human exit |
 
-Topic grain / portrait rules → future `compose/references/…` (not defined in this gate).
+Topic cognition (grain, two portrait lenses, tool protocols) → [`../references/topic-cognition-model.md`](../references/topic-cognition-model.md).
+
+**Facade:** before guide-propose (or on refresh) → invoke `gap-landscape` → human confirm → default upstream; after human adopt at clarify entry → invoke `topic-portrait` → human confirm → then deepen clarify. Details only in the reference.
 
 ## Session notions
 
@@ -40,6 +42,8 @@ Bind session state only via `$MACRO` / `resolve-context` — not by treating dat
 
 | Tool | Trigger | Dispatch | G2-visible I/O | Forbidden |
 |------|---------|----------|----------------|-----------|
+| `gap-landscape` | Before AI guide-propose; when human/AI asks to refresh the gap map | Inline cognitive protocol in `../references/topic-cognition-model.md` (no runner dir) | Human-confirmable seeking map; adopt-by-select allowed | Skip confirm; rank by grain; topic↔topic DAG; paste protocol steps here |
+| `topic-portrait` | After human adopt · **clarify entry** | Same reference (topic-lens protocol) | Topic-context portrait + positioning triple; human confirm before deep clarify | Treat as seeking spine; deepen clarify without confirm |
 | `fact-runner` | Human confirms conclusion → persist facts | Inline public protocol order; argv in `fact-runner/SKILL.md` / `$FACT_CTL --help` | preview / digest / `stale_signal` | Silent fact writes; skip ACK; paste long argv here |
 | `narrative-arc-runner` | After consume `stale_signal`, human chooses collab rebuild | `$SUBAGENT_TOOL` + `$SUBAGENT_AWAIT_SYNC` | DONE/FAIL summary | Expand `$NARRATIVE_ARC_*` / `$COMPOSE_VIEWER_CTL`; self-mount Viewer |
 
@@ -48,7 +52,7 @@ Bind session state only via `$MACRO` / `resolve-context` — not by treating dat
 What structure — *not a hard dialogue lock*:
 
 ```text
-adopt → clarify → persist topic → solve → summarize → confirm conclusion → fact-runner
+gap-landscape → (optional guide-propose) → adopt → topic-portrait → clarify → persist topic → solve → summarize → confirm conclusion → fact-runner
 ```
 
 Optional: `stale_signal → offer collab rebuild` (details only in Branches).
@@ -57,6 +61,8 @@ Optional: `stale_signal → offer collab rebuild` (details only in Branches).
 
 | Phase | Bind |
 |-------|------|
+| before guide-propose / on gap-map refresh | invoke `gap-landscape` (see reference) → human confirm |
+| human adopted (dialogue or map select) · clarify entry | invoke `topic-portrait` → human confirm → then clarify |
 | clarify done and adopted | `$TOPIC_CURRENT_CTL` `set` |
 | after summarize, conclusion pending confirm | `$TOPIC_CURRENT_CTL` `set-conclusion` → human confirm → `confirm-conclusion` |
 | conclusion confirmed | `fact-runner` public protocol order (see its SKILL / `$FACT_CTL --help`) |
@@ -104,3 +110,4 @@ $INDUCTIVE_GATE_CTL gate-close --gate G2 --payload '{"topic_loop_done": true, "d
 
 - Do **not** call `$NARRATIVE_ARC_DRAFT_CTL` / draft-as-topic-tree / `$TOPIC_FOCUS_CTL` (retired).
 - Do **not** invoke `$NARRATIVE_ARC_BUILD_CTL` / `$NARRATIVE_ARC_COLLAB_CTL` / `$COMPOSE_VIEWER_CTL` from this gate.
+- Do **not** paste `gap-landscape` / `topic-portrait` product checklists into this gate — invoke the tool names; protocols stay in the reference.
