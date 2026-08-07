@@ -338,12 +338,28 @@ def test_collab_orphan_detection():
         "version": "1",
         "kind": "narrative-arc-collab",
         "status": "display",
-        "tree": {"id": "root", "title": "A", "children": []},
+        "tree": {
+            "id": "root",
+            "title": "A",
+            "children": [{"id": "leaf-1", "title": "A", "children": []}],
+        },
         "leaves": [{"id": "leaf-1", "title": "A", "fact_ids": ["F-1", "F-2"]}],
     }
     assert validate_narrative_arc_collab(arc) == []
     arc["leaves"][0]["fact_ids"] = ["F-1"]
     assert orphan_fact_ids(arc, facts) == ["F-2"]
+
+
+def test_collab_schema_requires_each_fact_leaf_in_display_tree():
+    arc = {
+        "version": "1",
+        "kind": "narrative-arc-collab",
+        "status": "display",
+        "tree": {"id": "root", "title": "Story", "children": []},
+        "leaves": [{"id": "leaf-1", "title": "Story", "fact_ids": ["F-1"]}],
+    }
+    errors = validate_narrative_arc_collab(arc)
+    assert "collab arc leaves not represented by terminal tree nodes: ['leaf-1']" in errors
 
 
 def test_narrative_arc_build_context_and_collab_candidate_validation(tmp_path: Path):
@@ -382,7 +398,11 @@ def test_narrative_arc_build_context_and_collab_candidate_validation(tmp_path: P
                 "version": "1",
                 "kind": "narrative-arc-collab",
                 "status": "display",
-                "tree": {"id": "root", "title": "Story", "children": []},
+                "tree": {
+                    "id": "root",
+                    "title": "Story",
+                    "children": [{"id": "leaf-1", "title": "Story", "children": []}],
+                },
                 "leaves": [{"id": "leaf-1", "title": "Story", "fact_ids": ["F-1"]}],
             },
         ),

@@ -59,16 +59,23 @@ def validate_narrative_arc_collab(data: Any) -> list[str]:
     tree = data.get("tree")
     if not isinstance(tree, dict):
         errors.append("collab arc.tree must be an object")
+        terminal_tree_ids: list[str] = []
+    else:
+        terminal_tree_ids = _terminal_tree_node_ids(tree, errors)
     leaves = data.get("leaves")
     if not isinstance(leaves, list):
         errors.append("collab arc.leaves must be an array")
     else:
+        leaf_ids: list[str] = []
         for i, leaf in enumerate(leaves):
             if not isinstance(leaf, dict):
                 errors.append(f"leaves[{i}] must be an object")
                 continue
-            if not str(leaf.get("id", "")).strip():
+            leaf_id = str(leaf.get("id", "")).strip()
+            if not leaf_id:
                 errors.append(f"leaves[{i}].id required")
+            else:
+                leaf_ids.append(leaf_id)
             if not str(leaf.get("title", "")).strip():
                 errors.append(f"leaves[{i}].title required")
             fids = leaf.get("fact_ids")
@@ -76,10 +83,60 @@ def validate_narrative_arc_collab(data: Any) -> list[str]:
                 continue
             if not isinstance(fids, list):
                 errors.append(f"leaves[{i}].fact_ids must be an array")
+        duplicate_leaf_ids = sorted(
+            leaf_id for leaf_id in set(leaf_ids) if leaf_ids.count(leaf_id) > 1
+        )
+        if duplicate_leaf_ids:
+            errors.append(f"collab arc leaves have duplicate ids: {duplicate_leaf_ids}")
+        if leaf_ids:
+            missing_tree_nodes = sorted(set(leaf_ids) - set(terminal_tree_ids))
+            if missing_tree_nodes:
+                errors.append(
+                    "collab arc leaves not represented by terminal tree nodes: "
+                    f"{missing_tree_nodes}",
+                )
+            extra_tree_nodes = sorted(set(terminal_tree_ids) - set(leaf_ids))
+            if extra_tree_nodes:
+                errors.append(
+                    "collab arc terminal tree nodes not represented by leaves: "
+                    f"{extra_tree_nodes}",
+                )
     meta = data.get("meta")
     if meta is not None and not isinstance(meta, dict):
         errors.append("collab arc.meta must be an object when present")
     return errors
+
+
+def _terminal_tree_node_ids(tree: dict[str, Any], errors: list[str]) -> list[str]:
+    terminal_ids: list[str] = []
+
+    def walk(node: Any, path: str) -> None:
+        if not isinstance(node, dict):
+            errors.append(f"{path} must be an object")
+            return
+        node_id = str(node.get("id", "")).strip()
+        if not node_id:
+            errors.append(f"{path}.id required")
+        children = node.get("children", [])
+        if not isinstance(children, list):
+            errors.append(f"{path}.children must be an array when present")
+            return
+        if not children:
+            if node_id:
+                terminal_ids.append(node_id)
+            return
+        for index, child in enumerate(children):
+            walk(child, f"{path}.children[{index}]")
+
+    walk(tree, "collab arc.tree")
+    duplicate_terminal_ids = sorted(
+        node_id for node_id in set(terminal_ids) if terminal_ids.count(node_id) > 1
+    )
+    if duplicate_terminal_ids:
+        errors.append(
+            f"collab arc tree has duplicate terminal node ids: {duplicate_terminal_ids}",
+        )
+    return terminal_ids
 
 
 def normalize_narrative_arc_collab(data: dict[str, Any]) -> dict[str, Any]:
