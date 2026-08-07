@@ -269,6 +269,63 @@ def test_gate_close_g2_succeeds_with_ok_report(tmp_path: Path):
     assert result.get("closed") == "G2"
 
 
+def test_gate_close_g2_reads_topic_current_in_active_slice(tmp_path: Path):
+    """G2 close must see unconfirmed conclusion under revision/Lx/ (multi-L)."""
+    _seed_session(tmp_path, master_conv=_PARENT_CONV)
+    _run_gate(tmp_path, "gate-close", "--gate", "G1", "--payload", _g1_payload())
+
+    tree = {
+        "version": 1,
+        "status": "locked",
+        "order": ["L1"],
+        "nodes": [{"id": "L1", "label": "L1", "deps": []}],
+    }
+    (tmp_path / "dependency-tree.json").write_text(
+        json.dumps(tree, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    pointer = {
+        "tree_ref": {"path": "dependency-tree.json", "version": 1},
+        "focus": "L1",
+        "by_id": {
+            "L1": {
+                "intake": "pending",
+                "acceptance": "pending",
+                "phase": "pending",
+            }
+        },
+    }
+    (tmp_path / "discussion-pointer.json").write_text(
+        json.dumps(pointer, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    slice_dir = tmp_path / "L1"
+    slice_dir.mkdir()
+    (slice_dir / "_topic-current.json").write_text(
+        json.dumps(
+            {
+                "version": "1",
+                "title": "T",
+                "scope": "S",
+                "clarified": True,
+                "conclusion": "unconfirmed conclusion",
+                "conclusion_confirmed": False,
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    # Root file must not be the sole check (would incorrectly allow close)
+    assert not (tmp_path / "_topic-current.json").exists()
+
+    code, _ = _run_gate(
+        tmp_path, "gate-close", "--gate", "G2", "--payload", _g2_close_payload()
+    )
+    assert code != 0
+
+
 
 def test_delete_g2_report_removes_file(tmp_path: Path):
     _seed_session(tmp_path, master_conv=_PARENT_CONV)

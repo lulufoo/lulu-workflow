@@ -58,8 +58,15 @@ _SCRIPTS = Path(__file__).resolve().parents[3] / "scripts"
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
+_COMPOSE_SCRIPTS = Path(__file__).resolve().parents[1]
+_SESSION = _COMPOSE_SCRIPTS / "schema" / "session"
+for _p in (_COMPOSE_SCRIPTS, _SESSION):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
+
 from active_context_schema import resolve_conversation_id  # noqa: E402
 from platform_schema import detect_platform  # noqa: E402
+from discussion_pointer_schema import active_slice_dir  # noqa: E402
 
 from inductive_gate_state_schema import (  # noqa: E402
     GATE_ORDER,
@@ -370,7 +377,8 @@ def _validate_g2_close(out_dir: Path, payload: dict[str, Any]) -> None:
             "(human confirmed exit after design_goal_met)",
         )
 
-    topic_path = Path(out_dir) / "_topic-current.json"
+    # Same path as $TOPIC_CURRENT_CTL (active slice when multi-L pointer exists)
+    topic_path = active_slice_dir(Path(out_dir)) / "_topic-current.json"
     if topic_path.is_file():
         try:
             topic = json.loads(topic_path.read_text(encoding="utf-8"))
