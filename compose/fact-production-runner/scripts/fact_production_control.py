@@ -1,16 +1,13 @@
 #!/usr/bin/env python3
-"""Fact-production control (archive-11.0; inherits archive-10.0 T2).
+"""Permit-gated fact-production control (archive-13.0).
 
-Whole-batch conclusion→facts (``commit`` / ``cancel``) and open→facts
-(``settle-open``). Human confirm is required for writes. Proposed conclusion
-facts arrive via ``--facts-json`` or stdin only (no ``--facts-file`` staging
-for ``commit``). ``settle-open`` keeps ``--facts-file`` for open settlement
-batches and atomically commits facts + open status.
+All G2/G3 fact mutations use ``propose`` → ``ack`` → ``consume``. A proposal
+persists its exact normalized payload and digest before a human ACK; consume
+accepts only the acknowledged permit ID and its stable slice key. The control
+serializes facts/opens mutations, records an interrupted write as ``consuming``,
+and reconciles exact snapshots before any retry.
 
-On successful write, returns ``stale_signal`` / ``suggest_check`` for optional
-collab-arc regenerate.
-
-Subcommands: commit · cancel · settle-open · update · delete
+Subcommands: propose · ack · consume · revoke · reconcile
 
 CLI: ``python3 fact_production_control.py --help``
 
@@ -23,6 +20,7 @@ import argparse
 import copy
 import json
 import re
+import secrets
 import sys
 from pathlib import Path
 from typing import Any
@@ -47,6 +45,18 @@ from facts_schema import (  # noqa: E402
 )
 from g3_section_pointer_schema import load_section_pointer  # noqa: E402
 from opens_schema import load_opens, opens_path, save_opens, validate_opens  # noqa: E402
+from compose_state_lock import (  # noqa: E402
+    canonical_digest,
+    compose_state_lock,
+    durable_unlink,
+    exclusive_lock,
+)
+from fact_production_permit_schema import (  # noqa: E402
+    digest_payload,
+    load_permit_store,
+    permit_lock_path,
+    save_permit_store,
+)
 
 
 def _slice(revision_dir: str) -> Path:
@@ -179,6 +189,8 @@ def _commit_facts_then_opens(
 
 
 def cmd_commit(args: argparse.Namespace) -> int:
+    del args
+    return _fail("commit is retired; use propose --kind append → ack → consume")
     if not args.confirm:
         return _fail("commit requires --confirm (whole-batch human confirm)")
     slice_dir = _slice(args.revision_dir)
@@ -240,6 +252,8 @@ def cmd_commit(args: argparse.Namespace) -> int:
 
 
 def cmd_cancel(args: argparse.Namespace) -> int:
+    del args
+    return _fail("cancel is retired; use revoke --permit-id … --slice-key …")
     return _ok(
         {
             "ok": True,
@@ -252,6 +266,8 @@ def cmd_cancel(args: argparse.Namespace) -> int:
 
 def cmd_update(args: argparse.Namespace) -> int:
     """Patch an existing fact by F-n (replaces G3 update-decision write path)."""
+    del args
+    return _fail("update is retired; use propose --kind update → ack → consume")
     if not args.confirm:
         return _fail("update requires --confirm (human confirm gate)")
     fact_id = str(args.id or "").strip()
@@ -291,6 +307,8 @@ def cmd_update(args: argparse.Namespace) -> int:
 
 def cmd_delete(args: argparse.Namespace) -> int:
     """Delete one fact without renumbering any surviving stable IDs."""
+    del args
+    return _fail("delete is retired; use propose --kind delete → ack → consume")
     if not args.confirm:
         return _fail("delete requires --confirm (human confirm gate)")
     fact_id = str(args.id or "").strip()
@@ -340,6 +358,8 @@ def cmd_delete(args: argparse.Namespace) -> int:
 
 def cmd_settle_open(args: argparse.Namespace) -> int:
     """Settle open → 1:N facts (origin.type=discovered); atomic with open status."""
+    del args
+    return _fail("settle-open is retired; use propose --kind settle_open → ack → consume")
     if not bool(getattr(args, "confirm", False)):
         return _fail(
             "settle-open requires --confirm (archive-10.0 T2 human confirm gate)"
@@ -431,65 +451,603 @@ def cmd_settle_open(args: argparse.Namespace) -> int:
     )
 
 
+def _slice_context(
+    revision_dir: str,
+    slice_key: str | None = None,
+) -> tuple[Path, Path, str]:
+    root = Path(revision_dir).resolve()
+    if not root.is_dir():
+        raise ValueError(f"revision-dir not found: {root}")
+    if slice_key is None:
+        slice_dir = active_slice_dir(root)
+        try:
+            key = str(slice_dir.relative_to(root)) or "."
+        except ValueError as exc:
+            raise ValueError("active slice is outside revision-dir") from exc
+        return root, slice_dir, key
+
+    raw = str(slice_key).strip()
+    if not raw:
+        raise ValueError("slice-key must be non-empty")
+    candidate = Path(raw)
+    if candidate.is_absolute() or ".." in candidate.parts:
+        raise ValueError("slice-key must be a relative path below revision-dir")
+    slice_dir = (root / candidate).resolve()
+    try:
+        slice_dir.relative_to(root)
+    except ValueError as exc:
+        raise ValueError("slice-key escapes revision-dir") from exc
+    if not slice_dir.is_dir():
+        raise ValueError(f"slice-key not found: {raw!r}")
+    return root, slice_dir, str(slice_dir.relative_to(root)) or "."
+
+
+def _load_facts_optional(slice_dir: Path) -> tuple[list[dict[str, Any]], bool]:
+    path = facts_path(slice_dir)
+    return (load_facts(path), True) if path.is_file() else ([], False)
+
+
+def _load_opens_optional(slice_dir: Path) -> tuple[list[dict[str, Any]], bool]:
+    path = opens_path(slice_dir)
+    return (load_opens(path), True) if path.is_file() else ([], False)
+
+
+def _entry_facts(
+    entries: list[dict[str, Any]],
+    *,
+    facts_before: list[dict[str, Any]],
+    origin_ref: list[str],
+    slice_dir: Path,
+) -> tuple[list[dict[str, Any]], list[str], list[dict[str, Any]]]:
+    facts = copy.deepcopy(facts_before)
+    fact_ids: list[str] = []
+    undeclared: list[dict[str, Any]] = []
+    next_id = _next_fact_id(facts)
+    for index, entry in enumerate(entries):
+        if not isinstance(entry, dict):
+            raise ValueError(f"facts[{index}] must be an object")
+        text = str(entry.get("text") or "").strip()
+        if not text:
+            raise ValueError(f"facts[{index}]: text required")
+        tags_raw = entry.get("lens_tags")
+        if not isinstance(tags_raw, list):
+            raise ValueError(f"facts[{index}]: lens_tags must be an array")
+        lens_tags = [str(tag).strip().upper() for tag in tags_raw if str(tag).strip()]
+        if not lens_tags:
+            raise ValueError(f"facts[{index}]: lens_tags must be non-empty")
+        fact: dict[str, Any] = {
+            "id": f"F-{next_id}",
+            "text": text,
+            "lens_tags": lens_tags,
+            "origin": {"type": "discovered", "ref": origin_ref},
+        }
+        if entry.get("anchors") is not None:
+            fact["anchors"] = entry["anchors"]
+        else:
+            undeclared.append(fact)
+        facts.append(fact)
+        fact_ids.append(fact["id"])
+        next_id += 1
+    errors = validate_facts(facts, allowed_lenses=_allowed_lenses(slice_dir) or None)
+    if errors:
+        raise ValueError("; ".join(errors))
+    return facts, fact_ids, undeclared
+
+
+def _build_proposal(
+    args: argparse.Namespace,
+    slice_dir: Path,
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    facts_before, facts_before_exists = _load_facts_optional(slice_dir)
+    opens_before: list[dict[str, Any]] | None = None
+    opens_before_exists: bool | None = None
+    kind = str(args.kind)
+
+    if kind == "append":
+        entries = _load_entries(args)
+        facts_after, fact_ids, _ = _entry_facts(
+            entries,
+            facts_before=facts_before,
+            origin_ref=["fact-production"],
+            slice_dir=slice_dir,
+        )
+        payload = {
+            "kind": kind,
+            "facts_after": facts_after,
+            "facts_file_exists_after": True,
+            "opens_after": None,
+            "fact_ids": fact_ids,
+        }
+        preview = {"kind": kind, "facts_after": facts_after, "fact_ids": fact_ids}
+    elif kind == "update":
+        fact_id = str(args.id or "").strip()
+        text = str(args.text or "").strip()
+        if not fact_id or not text:
+            raise ValueError("update proposal requires --id F-n and non-empty --text")
+        facts_after = copy.deepcopy(facts_before)
+        fact = next((item for item in facts_after if item.get("id") == fact_id), None)
+        if fact is None:
+            raise ValueError(f"fact not found: {fact_id!r}")
+        before = copy.deepcopy(fact)
+        fact["text"] = text
+        errors = validate_facts(facts_after, allowed_lenses=_allowed_lenses(slice_dir) or None)
+        if errors:
+            raise ValueError("; ".join(errors))
+        payload = {
+            "kind": kind,
+            "facts_after": facts_after,
+            "facts_file_exists_after": True,
+            "opens_after": None,
+            "updated": fact_id,
+        }
+        preview = {"kind": kind, "before": before, "after": fact, "updated": fact_id}
+    elif kind == "delete":
+        fact_id = str(args.id or "").strip()
+        if not fact_id:
+            raise ValueError("delete proposal requires --id F-n")
+        deleted = next((item for item in facts_before if item.get("id") == fact_id), None)
+        if deleted is None:
+            raise ValueError(f"fact not found: {fact_id!r}")
+        facts_after = [item for item in facts_before if item.get("id") != fact_id]
+        payload = {
+            "kind": kind,
+            "facts_after": facts_after,
+            "facts_file_exists_after": bool(facts_after),
+            "opens_after": None,
+            "deleted": fact_id,
+        }
+        preview = {"kind": kind, "deleted": deleted, "facts_after": facts_after}
+    elif kind == "settle_open":
+        open_id = str(args.open_id or "").strip()
+        if not open_id:
+            raise ValueError("settle_open proposal requires --open-id")
+        opens_before, opens_before_exists = _load_opens_optional(slice_dir)
+        open_before = _find_open(opens_before, open_id)
+        if open_before is None:
+            raise ValueError(f"open not found: {open_id!r}")
+        if open_before.get("status") != "open":
+            raise ValueError(f"open {open_id!r} is not status=open")
+        entries = _load_entries(args)
+        facts_after, fact_ids, undeclared = _entry_facts(
+            entries,
+            facts_before=facts_before,
+            origin_ref=[open_id],
+            slice_dir=slice_dir,
+        )
+        _distribute_code_refs(
+            undeclared,
+            [str(ref).strip() for ref in (open_before.get("code_refs") or []) if str(ref).strip()],
+        )
+        opens_after = copy.deepcopy(opens_before)
+        open_after = _find_open(opens_after, open_id)
+        assert open_after is not None
+        open_after["status"] = "settled"
+        open_after["resolved_by"] = fact_ids
+        errors = validate_opens(opens_after)
+        if errors:
+            raise ValueError("; ".join(errors))
+        payload = {
+            "kind": kind,
+            "facts_after": facts_after,
+            "facts_file_exists_after": True,
+            "opens_after": opens_after,
+            "opens_file_exists_after": True,
+            "settled": open_id,
+            "fact_ids": fact_ids,
+        }
+        preview = {
+            "kind": kind,
+            "open_before": open_before,
+            "open_after": open_after,
+            "facts_after": facts_after,
+            "fact_ids": fact_ids,
+        }
+    else:
+        raise ValueError(f"unsupported proposal kind: {kind!r}")
+
+    precondition = {
+        "facts_digest": canonical_digest(facts_before),
+        "facts_file_exists": facts_before_exists,
+        "opens_digest": canonical_digest(opens_before) if opens_before is not None else None,
+        "opens_file_exists": opens_before_exists,
+    }
+    snapshot = {
+        "facts_before": facts_before,
+        "facts_file_exists_before": facts_before_exists,
+        "opens_before": opens_before,
+        "opens_file_exists_before": opens_before_exists,
+    }
+    return payload, precondition, {"snapshot": snapshot, "preview": preview}
+
+
+def _find_permit(store: dict[str, Any], permit_id: str) -> dict[str, Any] | None:
+    return next((item for item in store["permits"] if item.get("id") == permit_id), None)
+
+
+def _active_permit(store: dict[str, Any]) -> dict[str, Any] | None:
+    return next(
+        (
+            item
+            for item in store["permits"]
+            if item.get("state") in {"proposed", "acknowledged", "consuming", "repair_required"}
+        ),
+        None,
+    )
+
+
+def _matches_snapshot(
+    slice_dir: Path,
+    *,
+    facts: list[dict[str, Any]],
+    facts_exists: bool,
+    opens: list[dict[str, Any]] | None,
+    opens_exists: bool | None,
+) -> bool:
+    current_facts, current_facts_exists = _load_facts_optional(slice_dir)
+    if current_facts_exists != facts_exists or current_facts != facts:
+        return False
+    if opens is None:
+        return True
+    current_opens, current_opens_exists = _load_opens_optional(slice_dir)
+    return current_opens_exists == opens_exists and current_opens == opens
+
+
+def _write_facts_exact(
+    slice_dir: Path,
+    facts: list[dict[str, Any]],
+    *,
+    exists_after: bool,
+) -> None:
+    path = facts_path(slice_dir)
+    if not exists_after:
+        if path.is_file():
+            durable_unlink(path)
+        return
+    _save_facts_inductive(slice_dir, facts)
+
+
+def _reconcile_permit(slice_dir: Path, store: dict[str, Any], permit: dict[str, Any]) -> str:
+    """Return consumed, acknowledged, or repair_required after exact comparison."""
+    snapshot = permit["snapshot"]
+    payload = permit["payload"]
+    before_matches = _matches_snapshot(
+        slice_dir,
+        facts=snapshot["facts_before"],
+        facts_exists=bool(snapshot["facts_file_exists_before"]),
+        opens=snapshot["opens_before"],
+        opens_exists=snapshot["opens_file_exists_before"],
+    )
+    after_matches = _matches_snapshot(
+        slice_dir,
+        facts=payload["facts_after"],
+        facts_exists=bool(payload["facts_file_exists_after"]),
+        opens=payload["opens_after"],
+        opens_exists=payload.get("opens_file_exists_after"),
+    )
+    if after_matches:
+        permit["state"] = "consumed"
+        save_permit_store(slice_dir, store)
+        return "consumed"
+    if before_matches:
+        permit["state"] = "acknowledged"
+        save_permit_store(slice_dir, store)
+        return "acknowledged"
+
+    if payload["opens_after"] is not None and _matches_snapshot(
+        slice_dir,
+        facts=payload["facts_after"],
+        facts_exists=bool(payload["facts_file_exists_after"]),
+        opens=snapshot["opens_before"],
+        opens_exists=snapshot["opens_file_exists_before"],
+    ):
+        _write_facts_exact(
+            slice_dir,
+            snapshot["facts_before"],
+            exists_after=bool(snapshot["facts_file_exists_before"]),
+        )
+        if _matches_snapshot(
+            slice_dir,
+            facts=snapshot["facts_before"],
+            facts_exists=bool(snapshot["facts_file_exists_before"]),
+            opens=snapshot["opens_before"],
+            opens_exists=snapshot["opens_file_exists_before"],
+        ):
+            permit["state"] = "acknowledged"
+            save_permit_store(slice_dir, store)
+            return "acknowledged"
+
+    permit["state"] = "repair_required"
+    save_permit_store(slice_dir, store)
+    return "repair_required"
+
+
+def cmd_propose(args: argparse.Namespace) -> int:
+    try:
+        _, slice_dir, slice_key = _slice_context(args.revision_dir)
+        with exclusive_lock(permit_lock_path(slice_dir)):
+            with compose_state_lock(slice_dir):
+                store = load_permit_store(slice_dir)
+                active = _active_permit(store)
+                if active is not None:
+                    return _fail(
+                        f"active permit {active['id']!r} is {active['state']!r}; "
+                        "consume, revoke, or recover it first"
+                    )
+                payload, precondition, detail = _build_proposal(args, slice_dir)
+                permit = {
+                    "id": f"p_{secrets.token_urlsafe(24)}",
+                    "state": "proposed",
+                    "kind": payload["kind"],
+                    "slice_key": slice_key,
+                    "digest_version": "v1",
+                    "digest": digest_payload(payload),
+                    "payload": payload,
+                    "precondition": precondition,
+                    "snapshot": detail["snapshot"],
+                }
+                store["permits"].append(permit)
+                save_permit_store(slice_dir, store)
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        return _fail(str(exc))
+    return _ok(
+        {
+            "ok": True,
+            "command": "propose",
+            "permit_id": permit["id"],
+            "slice_key": slice_key,
+            "digest": permit["digest"],
+            "digest_version": "v1",
+            "preview": detail["preview"],
+        }
+    )
+
+
+def cmd_ack(args: argparse.Namespace) -> int:
+    try:
+        _, slice_dir, slice_key = _slice_context(args.revision_dir, args.slice_key)
+        with exclusive_lock(permit_lock_path(slice_dir)):
+            store = load_permit_store(slice_dir)
+            permit = _find_permit(store, args.permit_id)
+            if permit is None:
+                return _fail(f"permit not found: {args.permit_id!r}")
+            if permit["slice_key"] != slice_key:
+                return _fail("permit slice-key mismatch")
+            if permit["state"] != "proposed":
+                return _fail(f"permit is not proposed: {permit['state']!r}")
+            if not args.human_ack:
+                return _fail("ack requires --human-ack")
+            if args.digest != permit["digest"]:
+                return _fail("ack digest does not match the proposed payload")
+            permit["state"] = "acknowledged"
+            save_permit_store(slice_dir, store)
+    except (OSError, ValueError) as exc:
+        return _fail(str(exc))
+    return _ok({"ok": True, "command": "ack", "permit_id": args.permit_id, "acknowledged": True})
+
+
+def cmd_consume(args: argparse.Namespace) -> int:
+    try:
+        _, slice_dir, slice_key = _slice_context(args.revision_dir, args.slice_key)
+        with exclusive_lock(permit_lock_path(slice_dir)):
+            with compose_state_lock(slice_dir):
+                store = load_permit_store(slice_dir)
+                permit = _find_permit(store, args.permit_id)
+                if permit is None:
+                    return _fail(f"permit not found: {args.permit_id!r}")
+                if permit["slice_key"] != slice_key:
+                    return _fail("permit slice-key mismatch")
+                if permit["state"] == "consuming":
+                    state = _reconcile_permit(slice_dir, store, permit)
+                    return _fail(f"permit reconciliation completed as {state!r}; retry if acknowledged")
+                if permit["state"] != "acknowledged":
+                    return _fail(f"permit is not acknowledged: {permit['state']!r}")
+                precondition = permit["precondition"]
+                current_facts, current_facts_exists = _load_facts_optional(slice_dir)
+                if (
+                    current_facts_exists != precondition["facts_file_exists"]
+                    or canonical_digest(current_facts) != precondition["facts_digest"]
+                ):
+                    return _fail("facts baseline changed; propose again")
+                if precondition["opens_digest"] is not None:
+                    current_opens, current_opens_exists = _load_opens_optional(slice_dir)
+                    if (
+                        current_opens_exists != precondition["opens_file_exists"]
+                        or canonical_digest(current_opens) != precondition["opens_digest"]
+                    ):
+                        return _fail("opens baseline changed; propose again")
+
+                permit["state"] = "consuming"
+                save_permit_store(slice_dir, store)
+                payload = permit["payload"]
+                try:
+                    _write_facts_exact(
+                        slice_dir,
+                        payload["facts_after"],
+                        exists_after=bool(payload["facts_file_exists_after"]),
+                    )
+                    if payload["opens_after"] is not None:
+                        save_opens(opens_path(slice_dir), payload["opens_after"])
+                    permit["state"] = "consumed"
+                    permit["receipt"] = {
+                        "fact_ids": payload.get("fact_ids", []),
+                        "kind": payload["kind"],
+                    }
+                    save_permit_store(slice_dir, store)
+                except (OSError, ValueError) as exc:
+                    state = _reconcile_permit(slice_dir, store, permit)
+                    return _fail(f"consume interrupted ({exc}); reconciled as {state!r}")
+    except (OSError, ValueError) as exc:
+        return _fail(str(exc))
+
+    payload = permit["payload"]
+    result: dict[str, Any] = {
+        "ok": True,
+        "command": "consume",
+        "permit_id": args.permit_id,
+        "kind": payload["kind"],
+        "stale_signal": True,
+        "suggest_check": True,
+    }
+    for key in ("fact_ids", "updated", "deleted", "settled"):
+        if key in payload:
+            result[key] = payload[key]
+    result["facts_total"] = len(payload["facts_after"])
+    return _ok(result)
+
+
+def cmd_revoke(args: argparse.Namespace) -> int:
+    try:
+        _, slice_dir, slice_key = _slice_context(args.revision_dir, args.slice_key)
+        with exclusive_lock(permit_lock_path(slice_dir)):
+            store = load_permit_store(slice_dir)
+            permit = _find_permit(store, args.permit_id)
+            if permit is None or permit["slice_key"] != slice_key:
+                return _fail("permit not found in slice")
+            if permit["state"] not in {"proposed", "acknowledged"}:
+                return _fail(f"permit cannot be revoked from {permit['state']!r}")
+            permit["state"] = "revoked"
+            save_permit_store(slice_dir, store)
+    except (OSError, ValueError) as exc:
+        return _fail(str(exc))
+    return _ok({"ok": True, "command": "revoke", "permit_id": args.permit_id, "written": False})
+
+
+def cmd_reconcile(args: argparse.Namespace) -> int:
+    try:
+        _, slice_dir, slice_key = _slice_context(args.revision_dir, args.slice_key)
+        with exclusive_lock(permit_lock_path(slice_dir)):
+            with compose_state_lock(slice_dir):
+                store = load_permit_store(slice_dir)
+                permit = _find_permit(store, args.permit_id)
+                if permit is None or permit["slice_key"] != slice_key:
+                    return _fail("permit not found in slice")
+                if permit["state"] != "consuming":
+                    return _fail(f"permit is not consuming: {permit['state']!r}")
+                state = _reconcile_permit(slice_dir, store, permit)
+    except (OSError, ValueError) as exc:
+        return _fail(str(exc))
+    return _ok({"ok": state != "repair_required", "command": "reconcile", "state": state})
+
+
+def cmd_recover(args: argparse.Namespace) -> int:
+    if not args.human_ack:
+        return _fail("recover requires --human-ack")
+    try:
+        _, slice_dir, slice_key = _slice_context(args.revision_dir, args.slice_key)
+        with exclusive_lock(permit_lock_path(slice_dir)):
+            with compose_state_lock(slice_dir):
+                store = load_permit_store(slice_dir)
+                permit = _find_permit(store, args.permit_id)
+                if permit is None or permit["slice_key"] != slice_key:
+                    return _fail("permit not found in slice")
+                if permit["state"] != "repair_required":
+                    return _fail(f"permit is not repair_required: {permit['state']!r}")
+                snapshot = permit["snapshot"]
+                payload = permit["payload"]
+                if args.resolution == "restore_before":
+                    facts, facts_exists = (
+                        snapshot["facts_before"],
+                        bool(snapshot["facts_file_exists_before"]),
+                    )
+                    opens, opens_exists = (
+                        snapshot["opens_before"],
+                        snapshot["opens_file_exists_before"],
+                    )
+                else:
+                    facts, facts_exists = (
+                        payload["facts_after"],
+                        bool(payload["facts_file_exists_after"]),
+                    )
+                    opens, opens_exists = (
+                        payload["opens_after"],
+                        payload.get("opens_file_exists_after"),
+                    )
+                _write_facts_exact(slice_dir, facts, exists_after=facts_exists)
+                if opens is not None:
+                    if opens_exists:
+                        save_opens(opens_path(slice_dir), opens)
+                    elif opens_path(slice_dir).is_file():
+                        durable_unlink(opens_path(slice_dir))
+                if not _matches_snapshot(
+                    slice_dir,
+                    facts=facts,
+                    facts_exists=facts_exists,
+                    opens=opens,
+                    opens_exists=opens_exists,
+                ):
+                    return _fail("recover did not reach the requested exact state")
+                permit["state"] = (
+                    "acknowledged"
+                    if args.resolution == "restore_before"
+                    else "consumed"
+                )
+                save_permit_store(slice_dir, store)
+    except (OSError, ValueError) as exc:
+        return _fail(str(exc))
+    return _ok(
+        {
+            "ok": True,
+            "command": "recover",
+            "permit_id": args.permit_id,
+            "state": permit["state"],
+        }
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p = sub.add_parser("commit", help="Whole-batch write after human confirm")
+    p = sub.add_parser("propose", help="Persist an exact fact mutation preview")
     p.add_argument("--revision-dir", required=True)
     p.add_argument(
-        "--confirm",
-        action="store_true",
-        help="Required; mechanical gate for human whole-batch confirm",
+        "--kind",
+        required=True,
+        choices=("append", "settle_open", "update", "delete"),
     )
-    p.add_argument(
-        "--facts-json",
-        default=None,
-        help="JSON array of {text,lens_tags} (or pass the array on stdin)",
-    )
-    p.set_defaults(func=cmd_commit)
+    p.add_argument("--facts-json", default=None, help="Candidate facts JSON or stdin")
+    p.add_argument("--open-id", default=None)
+    p.add_argument("--id", default=None, help="Fact id F-n for update/delete")
+    p.add_argument("--text", default=None, help="Replacement fact text for update")
+    p.set_defaults(func=cmd_propose)
 
-    p = sub.add_parser("cancel", help="Whole-batch cancel (no write)")
+    p = sub.add_parser("ack", help="Record a human ACK for one displayed preview")
     p.add_argument("--revision-dir", required=True)
-    p.set_defaults(func=cmd_cancel)
+    p.add_argument("--permit-id", required=True)
+    p.add_argument("--slice-key", required=True)
+    p.add_argument("--digest", required=True)
+    p.add_argument("--human-ack", action="store_true")
+    p.set_defaults(func=cmd_ack)
 
-    p = sub.add_parser(
-        "settle-open",
-        help="Open→1:N facts + open settled (atomic; requires --confirm)",
-    )
+    p = sub.add_parser("consume", help="Consume one acknowledged permit")
     p.add_argument("--revision-dir", required=True)
-    p.add_argument("--open-id", required=True)
-    p.add_argument("--facts-file", required=True)
-    p.add_argument(
-        "--confirm",
-        action="store_true",
-        help="Required; mechanical gate for human confirm",
-    )
-    p.set_defaults(func=cmd_settle_open)
+    p.add_argument("--permit-id", required=True)
+    p.add_argument("--slice-key", required=True)
+    p.set_defaults(func=cmd_consume)
 
-    p = sub.add_parser("update", help="Patch fact text by F-n (requires --confirm)")
+    p = sub.add_parser("revoke", help="Revoke a proposed or acknowledged permit")
     p.add_argument("--revision-dir", required=True)
-    p.add_argument("--id", required=True, help="Fact id F-n")
-    p.add_argument("--text", required=True)
-    p.add_argument(
-        "--confirm",
-        action="store_true",
-        help="Required; mechanical gate for human confirm",
-    )
-    p.set_defaults(func=cmd_update)
+    p.add_argument("--permit-id", required=True)
+    p.add_argument("--slice-key", required=True)
+    p.set_defaults(func=cmd_revoke)
 
-    p = sub.add_parser(
-        "delete",
-        help="Delete one fact without renumbering surviving IDs (requires --confirm)",
-    )
+    p = sub.add_parser("reconcile", help="Recover an interrupted consuming permit")
     p.add_argument("--revision-dir", required=True)
-    p.add_argument("--id", required=True, help="Fact id F-n")
+    p.add_argument("--permit-id", required=True)
+    p.add_argument("--slice-key", required=True)
+    p.set_defaults(func=cmd_reconcile)
+
+    p = sub.add_parser("recover", help="Resolve a repair-required permit exactly")
+    p.add_argument("--revision-dir", required=True)
+    p.add_argument("--permit-id", required=True)
+    p.add_argument("--slice-key", required=True)
     p.add_argument(
-        "--confirm",
-        action="store_true",
-        help="Required; mechanical gate for human confirm",
+        "--resolution",
+        required=True,
+        choices=("restore_before", "write_after"),
     )
-    p.set_defaults(func=cmd_delete)
+    p.add_argument("--human-ack", action="store_true")
+    p.set_defaults(func=cmd_recover)
 
     return parser
 

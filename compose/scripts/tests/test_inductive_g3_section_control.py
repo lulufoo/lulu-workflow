@@ -65,6 +65,44 @@ def _run_fact_production(*args: str) -> tuple[int, dict, str]:
     return res.returncode, payload, res.stderr
 
 
+def _propose_ack_consume(
+    revision_dir: Path,
+    kind: str,
+    *args: str,
+) -> tuple[int, dict, str]:
+    code, proposal, err = _run_fact_production(
+        "propose",
+        "--revision-dir",
+        str(revision_dir),
+        "--kind",
+        kind,
+        *args,
+    )
+    assert code == 0, err or proposal
+    code, _, err = _run_fact_production(
+        "ack",
+        "--revision-dir",
+        str(revision_dir),
+        "--permit-id",
+        proposal["permit_id"],
+        "--slice-key",
+        proposal["slice_key"],
+        "--digest",
+        proposal["digest"],
+        "--human-ack",
+    )
+    assert code == 0, err
+    return _run_fact_production(
+        "consume",
+        "--revision-dir",
+        str(revision_dir),
+        "--permit-id",
+        proposal["permit_id"],
+        "--slice-key",
+        proposal["slice_key"],
+    )
+
+
 # --- schema layer -----------------------------------------------------------
 
 def test_default_frontier_is_zero():
@@ -212,28 +250,18 @@ def test_settle_open_one_to_n_facts(tmp_path):
         "--problem", "共享？",
         "--blocking", "true",
     )
-    ff = _write_facts_file(
-        tmp_path / "settle.json",
-        [
-            {"text": "fact A", "lens_tags": ["ST", "I"]},
-            {"text": "fact B", "lens_tags": ["ST"]},
-        ],
-    )
-    code, payload, err = _run_fact_production(
-        "settle-open",
-        "--revision-dir", str(tmp_path),
-        "--open-id", "O-1",
-        "--facts-file", str(ff),
-    )
-    assert code != 0  # archive-10.0: --confirm required
-    assert "confirm" in err.lower()
-
-    code, payload, err = _run_fact_production(
-        "settle-open",
-        "--revision-dir", str(tmp_path),
-        "--open-id", "O-1",
-        "--facts-file", str(ff),
-        "--confirm",
+    code, payload, err = _propose_ack_consume(
+        tmp_path,
+        "settle_open",
+        "--open-id",
+        "O-1",
+        "--facts-json",
+        json.dumps(
+            [
+                {"text": "fact A", "lens_tags": ["ST", "I"]},
+                {"text": "fact B", "lens_tags": ["ST"]},
+            ]
+        ),
     )
     assert code == 0, err or payload
     assert payload["fact_ids"] == ["F-1", "F-2"]
@@ -284,25 +312,21 @@ def test_settle_open_uses_declared_entry_anchors(tmp_path):
         "--kw", "2", "--trigger", "ai", "--means", "ai_probe",
         "--problem", "q", "--blocking", "true",
     )
-    ff = _write_facts_file(
-        tmp_path / "settle.json",
-        [
-            {
-                "text": "declared fact",
-                "lens_tags": ["ST"],
-                "anchors": [{"kind": "artifact", "value": "attachments.json"}],
-            },
-        ],
-    )
-    code, payload, err = _run_fact_production(
-        "settle-open",
-        "--revision-dir",
-        str(tmp_path),
+    code, payload, err = _propose_ack_consume(
+        tmp_path,
+        "settle_open",
         "--open-id",
         "O-1",
-        "--facts-file",
-        str(ff),
-        "--confirm",
+        "--facts-json",
+        json.dumps(
+            [
+                {
+                    "text": "declared fact",
+                    "lens_tags": ["ST"],
+                    "anchors": [{"kind": "artifact", "value": "attachments.json"}],
+                },
+            ]
+        ),
     )
     assert code == 0, err or payload
     facts = json.loads((tmp_path / "_facts.json").read_text(encoding="utf-8"))
@@ -325,21 +349,15 @@ def test_settle_open_fallback_distributes_code_refs(tmp_path):
         "--id", "O-1",
         "--refs", "paths.rs::plan_tasks_task_dir (72),other.rs::unused_symbol (9)",
     )
-    ff = _write_facts_file(
-        tmp_path / "settle.json",
-        [
-            {"text": "uses plan_tasks_task_dir to resolve dir", "lens_tags": ["ST"]},
-        ],
-    )
-    code, payload, err = _run_fact_production(
-        "settle-open",
-        "--revision-dir",
-        str(tmp_path),
+    code, payload, err = _propose_ack_consume(
+        tmp_path,
+        "settle_open",
         "--open-id",
         "O-1",
-        "--facts-file",
-        str(ff),
-        "--confirm",
+        "--facts-json",
+        json.dumps(
+            [{"text": "uses plan_tasks_task_dir to resolve dir", "lens_tags": ["ST"]}]
+        ),
     )
     assert code == 0, err or payload
     facts = json.loads((tmp_path / "_facts.json").read_text(encoding="utf-8"))
@@ -700,7 +718,7 @@ def test_g3_update_decision_write_path_removed(tmp_path):
     assert facts[0]["text"] == "初稿"
 
 
-def test_fact_production_update_requires_confirm_and_signals_stale(tmp_path):
+def test_fact_production_update_requires_ack_and_signals_stale(tmp_path):
     _seed(tmp_path, active="ST")
     _run(
         tmp_path,
@@ -709,21 +727,11 @@ def test_fact_production_update_requires_confirm_and_signals_stale(tmp_path):
         "--lens-tags", "ST",
         "--text", "初稿",
     )
-    code, payload, err = _run_fact_production(
+    code, payload, err = _propose_ack_consume(
+        tmp_path,
         "update",
-        "--revision-dir", str(tmp_path),
         "--id", "F-1",
         "--text", "修订稿",
-    )
-    assert code != 0
-    assert "confirm" in err.lower()
-
-    code, payload, err = _run_fact_production(
-        "update",
-        "--revision-dir", str(tmp_path),
-        "--id", "F-1",
-        "--text", "修订稿",
-        "--confirm",
     )
     assert code == 0, err or payload
     assert payload.get("stale_signal") is True

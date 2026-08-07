@@ -83,6 +83,7 @@ from facts_schema import (  # noqa: E402
     save_facts,
     validate_facts,
 )
+from compose_state_lock import compose_state_lock  # noqa: E402
 from kw_facets import (  # noqa: E402
     load_section_registry_facets,
     materialize_section_registry,
@@ -767,14 +768,13 @@ def cmd_settle_open(out_dir: Path, args: argparse.Namespace) -> None:
     """REMOVED write path (archive-11.0).
 
     Open→facts settlement moved to fact-production-runner
-    (``fact_production_control.py settle-open``). This command never writes
+    (``fact_production_control.py propose --kind settle_open``). This command never writes
     ``_facts.json``.
     """
     del out_dir, args
     _fail(
         "settle-open fact writes moved to fact-production-runner "
-        "($FACT_PRODUCTION_CTL settle-open --revision-dir … --open-id … "
-        "--facts-file … --confirm). "
+        "($FACT_PRODUCTION_CTL propose --kind settle_open → ack → consume). "
         "G3 section control no longer writes _facts.json for settle."
     )
 
@@ -823,13 +823,13 @@ def cmd_update_decision(out_dir: Path, args: argparse.Namespace) -> None:
     """REMOVED write path (archive-11.0).
 
     Fact text updates moved to fact-production-runner
-    (``fact_production_control.py update``). This command never writes
+    (``fact_production_control.py propose --kind update``). This command never writes
     ``_facts.json``.
     """
     del out_dir, args
     _fail(
         "update-decision fact writes moved to fact-production-runner "
-        "($FACT_PRODUCTION_CTL update --revision-dir … --id F-n --text … --confirm). "
+        "($FACT_PRODUCTION_CTL propose --kind update → ack → consume). "
         "G3 section control no longer writes _facts.json for update-decision."
     )
 
@@ -1486,6 +1486,18 @@ def main() -> None:
     if handler is None:
         _fail(f"unknown subcommand: {args.subcommand!r}")
 
+    state_mutations = {
+        "seed-decision",
+        "add-open",
+        "update-open",
+        "reject-open",
+        "defer-open",
+        "attach-code-refs",
+    }
+    if args.subcommand in state_mutations:
+        with compose_state_lock(out_dir):
+            handler(out_dir, args)
+        return
     handler(out_dir, args)
 
 

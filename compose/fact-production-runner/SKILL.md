@@ -1,8 +1,8 @@
 ---
 name: fact-production-runner
 description: >-
-  Compose fact-production tool skill. Whole-batch conclusion→facts and
-  open→facts settlement with human confirm. Declared by inductive G2/G3;
+  Compose fact-production tool skill. Permit-gated fact mutations for G2/G3:
+  propose an exact preview, obtain human ACK, then consume it. Declared by G2/G3;
   not wired to deductive this wave.
 ---
 
@@ -11,7 +11,7 @@ description: >-
 Use when a compose caller **declares** this skill for writing `_facts.json`
 (conclusion batch or open settlement). Does not own Topic Loop dialogue.
 
-**Must:** write facts only via `$FACT_PRODUCTION_CTL` after human `--confirm`.  
+**Must:** `propose` → display the exact preview → obtain user ACK → `ack` → `consume`.  
 **Must not:** silently write; use Formal arc paths; invent product semantics.
 
 ## Script Macros
@@ -20,10 +20,10 @@ Use when a compose caller **declares** this skill for writing `_facts.json`
 |-------|---------|
 | `$FACT_PRODUCTION_CTL` | `python3 "$SKILL_ROOT/compose/fact-production-runner/scripts/fact_production_control.py"` |
 
-Subcommands: `--help` · `commit` · `cancel` · `settle-open` · `update` · `delete`.
+Subcommands: `--help` · `propose` · `ack` · `consume` · `revoke` · `reconcile` · `recover`.
 
 ## DONE / failure
 
-- **DONE (commit / settle-open / update / delete):** exit 0; stdout JSON includes `stale_signal` / `suggest_check` when written.
-- **DONE (cancel):** exit 0; `written: false`; `_facts.json` unchanged.
-- **Failure:** non-zero; message on stderr (missing `--confirm`, bad payload, open not open).
+- **DONE (consume):** exit 0; stdout JSON includes `stale_signal` / `suggest_check` when written.
+- **DONE (revoke):** exit 0; no facts written.
+- **Failure:** non-zero; message on stderr (unacknowledged/stale permit, digest mismatch, bad payload, open not open).

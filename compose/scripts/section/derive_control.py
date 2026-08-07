@@ -36,6 +36,7 @@ from facts_schema import (  # noqa: E402
     pd_material_facts,
     save_facts,
 )
+from compose_state_lock import compose_state_lock  # noqa: E402
 from fetch_compose_framework import fetch_compose_framework  # noqa: E402
 from derive_shell import (  # noqa: E402
     DeriveCycleError,
@@ -343,6 +344,9 @@ def main() -> int:
     classify_p.set_defaults(func=cmd_classify)
 
     args = parser.parse_args()
+    if args.command == "append":
+        with compose_state_lock(active_slice_dir(args.revision_dir.resolve())):
+            return args.func(args)
     return args.func(args)
 
 

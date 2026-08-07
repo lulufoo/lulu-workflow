@@ -48,6 +48,7 @@ from facts_schema import (  # noqa: E402
     unlensed_fact_ids,
     validate_facts,
 )
+from compose_state_lock import compose_state_lock  # noqa: E402
 
 _SESSION = _SCRIPTS / "schema" / "session"
 if str(_SESSION) not in sys.path:
@@ -411,6 +412,9 @@ def main() -> int:
     status_p.set_defaults(func=cmd_status)
 
     args = parser.parse_args()
+    if args.command == "write":
+        with compose_state_lock(_slice_dir(args.revision_dir, target_l=args.target_l or None)):
+            return args.func(args)
     return args.func(args)
 
 

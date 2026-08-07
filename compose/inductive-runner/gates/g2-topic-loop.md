@@ -31,14 +31,17 @@ $TOPIC_CURRENT_CTL set-conclusion --revision-dir "$INDUCTIVE_OUT_DIR" --text "<c
 $TOPIC_CURRENT_CTL confirm-conclusion --revision-dir "$INDUCTIVE_OUT_DIR"
 ```
 
-5. Hand off to fact-production (dialogue shows proposed list; no staging file):
+5. Hand off to fact-production (dialogue shows the exact proposal; no staging file):
 
 ```bash
-$FACT_PRODUCTION_CTL commit --revision-dir "$INDUCTIVE_OUT_DIR" --confirm --facts-json '[...]'
-# or: $FACT_PRODUCTION_CTL cancel --revision-dir "$INDUCTIVE_OUT_DIR"
+$FACT_PRODUCTION_CTL propose --revision-dir "$INDUCTIVE_OUT_DIR" --kind append --facts-json '[...]'
+# Show the returned preview unchanged; user ACKs that exact digest.
+$FACT_PRODUCTION_CTL ack --revision-dir "$INDUCTIVE_OUT_DIR" --permit-id "<id>" --slice-key "<key>" --digest "<digest>" --human-ack
+$FACT_PRODUCTION_CTL consume --revision-dir "$INDUCTIVE_OUT_DIR" --permit-id "<id>" --slice-key "<key>"
+# Or: $FACT_PRODUCTION_CTL revoke --revision-dir "$INDUCTIVE_OUT_DIR" --permit-id "<id>" --slice-key "<key>"
 ```
 
-6. On commit `stale_signal`: optionally offer human-chosen collab-arc regenerate (do **not** auto-run):
+6. On consume `stale_signal`: optionally offer human-chosen collab-arc regenerate (do **not** auto-run):
 
 ```bash
 $NARRATIVE_ARC_COLLAB_CTL regenerate --revision-dir "$INDUCTIVE_OUT_DIR" --output-path "_narrative-arc.collab.json" --confirm

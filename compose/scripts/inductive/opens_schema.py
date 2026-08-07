@@ -16,8 +16,15 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 from pathlib import Path
 from typing import Any
+
+_SECTION = Path(__file__).resolve().parent.parent / "section"
+if str(_SECTION) not in sys.path:
+    sys.path.insert(0, str(_SECTION))
+
+from compose_state_lock import durable_write_json  # noqa: E402
 
 OPENS_BASENAME = "inductive-opens.json"
 
@@ -353,11 +360,7 @@ def save_opens(path: Path, opens: list[dict[str, Any]]) -> None:
     errors = validate_opens(normalized)
     if errors:
         raise ValueError("; ".join(errors))
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(normalized, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-    )
+    durable_write_json(path, normalized)
 
 
 def blocking_open_items(opens: list[dict[str, Any]]) -> list[dict[str, Any]]:

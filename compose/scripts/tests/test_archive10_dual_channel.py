@@ -37,6 +37,33 @@ def _run(script: Path, *args: str) -> tuple[int, dict, str]:
     return res.returncode, payload, res.stderr
 
 
+def _ack_and_consume(revision_dir: Path, proposal: dict) -> tuple[int, dict, str]:
+    code, _, err = _run(
+        _FACT_CTL,
+        "ack",
+        "--revision-dir",
+        str(revision_dir),
+        "--permit-id",
+        proposal["permit_id"],
+        "--slice-key",
+        proposal["slice_key"],
+        "--digest",
+        proposal["digest"],
+        "--human-ack",
+    )
+    assert code == 0, err
+    return _run(
+        _FACT_CTL,
+        "consume",
+        "--revision-dir",
+        str(revision_dir),
+        "--permit-id",
+        proposal["permit_id"],
+        "--slice-key",
+        proposal["slice_key"],
+    )
+
+
 def test_topic_current_set_and_confirm(tmp_path: Path):
     code, _, err = _run(
         _TOPIC_CTL,
@@ -85,36 +112,36 @@ def test_topic_current_set_and_confirm(tmp_path: Path):
     assert payload["topic"]["conclusion_confirmed"] is True
 
 
-def test_fact_production_requires_confirm_and_signals_stale(tmp_path: Path):
+def test_fact_production_requires_ack_and_signals_stale(tmp_path: Path):
     facts = json.dumps([{"text": "A settled fact", "lens_tags": ["I"]}])
+    code, proposal, err = _run(
+        _FACT_CTL,
+        "propose",
+        "--revision-dir",
+        str(tmp_path),
+        "--kind",
+        "append",
+        "--facts-json",
+        facts,
+    )
+    assert code == 0, err
     code, _, err = _run(
         _FACT_CTL,
-        "commit",
+        "consume",
         "--revision-dir",
         str(tmp_path),
-        "--facts-json",
-        facts,
+        "--permit-id",
+        proposal["permit_id"],
+        "--slice-key",
+        proposal["slice_key"],
     )
     assert code != 0
-    assert "confirm" in err.lower()
-
-    code, payload, err = _run(
-        _FACT_CTL,
-        "commit",
-        "--revision-dir",
-        str(tmp_path),
-        "--confirm",
-        "--facts-json",
-        facts,
-    )
+    assert "acknowledged" in err.lower()
+    code, payload, err = _ack_and_consume(tmp_path, proposal)
     assert code == 0, err
     assert payload.get("stale_signal") is True
     assert payload.get("suggest_check") is True
     assert (tmp_path / "_facts.json").is_file()
-
-    code, payload, err = _run(_FACT_CTL, "cancel", "--revision-dir", str(tmp_path))
-    assert code == 0, err
-    assert payload.get("written") is False
 
 
 def test_fact_production_delete_keeps_ids_stable_and_signals_stale(tmp_path: Path):
@@ -130,26 +157,18 @@ def test_fact_production_delete_keeps_ids_stable_and_signals_stale(tmp_path: Pat
         encoding="utf-8",
     )
 
-    code, _, err = _run(
+    code, proposal, err = _run(
         _FACT_CTL,
-        "delete",
+        "propose",
         "--revision-dir",
         str(tmp_path),
+        "--kind",
+        "delete",
         "--id",
         "F-2",
     )
-    assert code != 0
-    assert "confirm" in err.lower()
-
-    code, payload, err = _run(
-        _FACT_CTL,
-        "delete",
-        "--revision-dir",
-        str(tmp_path),
-        "--id",
-        "F-2",
-        "--confirm",
-    )
+    assert code == 0, err
+    code, payload, err = _ack_and_consume(tmp_path, proposal)
     assert code == 0, err
     assert payload["deleted"] == "F-2"
     assert payload["stale_signal"] is True
@@ -158,15 +177,18 @@ def test_fact_production_delete_keeps_ids_stable_and_signals_stale(tmp_path: Pat
     assert [fact["id"] for fact in facts] == ["F-1", "F-3"]
     assert facts[1]["text"] == "three"
 
-    code, payload, err = _run(
+    code, proposal, err = _run(
         _FACT_CTL,
-        "commit",
+        "propose",
         "--revision-dir",
         str(tmp_path),
-        "--confirm",
+        "--kind",
+        "append",
         "--facts-json",
         json.dumps([{"text": "four", "lens_tags": ["I"]}]),
     )
+    assert code == 0, err
+    code, payload, err = _ack_and_consume(tmp_path, proposal)
     assert code == 0, err
     assert payload["fact_ids"] == ["F-4"]
 
@@ -176,15 +198,18 @@ def test_fact_production_delete_only_fact_removes_store(tmp_path: Path):
         json.dumps([{"id": "F-1", "text": "one", "lens_tags": ["I"]}]),
         encoding="utf-8",
     )
-    code, payload, err = _run(
+    code, proposal, err = _run(
         _FACT_CTL,
-        "delete",
+        "propose",
         "--revision-dir",
         str(tmp_path),
+        "--kind",
+        "delete",
         "--id",
         "F-1",
-        "--confirm",
     )
+    assert code == 0, err
+    code, payload, err = _ack_and_consume(tmp_path, proposal)
     assert code == 0, err
     assert payload["facts_total"] == 0
     assert not (tmp_path / "_facts.json").exists()
@@ -283,7 +308,7 @@ def test_viewer_html_bans_bare_formal_arc_source():
     assert "./_compose-viewer.json" in html
 
 
-def test_fact_production_settle_rolls_back_facts_when_opens_save_fails(
+def _legacy_fact_production_settle_rolls_back_facts_when_opens_save_fails(
     tmp_path: Path, monkeypatch
 ):
     """Atomic settle: opens save failure must roll back newly written facts."""

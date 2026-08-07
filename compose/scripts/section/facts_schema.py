@@ -42,6 +42,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+from compose_state_lock import durable_write_json
+
 FACTS_BASENAME = "_facts.json"
 _FACT_ID_RE = re.compile(r"^F-([1-9]\d*)$")
 _FACT_REQUIRED = ("id", "text", "lens_tags")
@@ -449,11 +451,7 @@ def save_facts(
     )
     if errors:
         raise ValueError("; ".join(errors))
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(normalized, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-    )
+    durable_write_json(path, normalized)
 
 
 def filter_by_lens(facts: list[dict[str, Any]], lens: str) -> list[dict[str, str]]:

@@ -53,6 +53,7 @@ from facts_schema import (  # noqa: E402
     save_facts,
     unlensed_fact_ids,
 )
+from compose_state_lock import compose_state_lock  # noqa: E402
 from derive_shell import collect_ref_tokens  # noqa: E402
 from deductive_disposition_patch import (  # noqa: E402
     apply_disposition_patch,
@@ -439,6 +440,11 @@ def main() -> int:
     p_pa.set_defaults(func=cmd_disposition_patch_apply)
 
     args = parser.parse_args()
+    if args.command == "disposition-patch-apply":
+        from discussion_pointer_schema import active_slice_dir
+
+        with compose_state_lock(active_slice_dir(args.revision_dir.resolve())):
+            return args.func(args)
     return args.func(args)
 
 

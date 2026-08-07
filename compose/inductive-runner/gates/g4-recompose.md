@@ -49,8 +49,8 @@ Present the recompose self-check — **naming each problem, not fixing it**. Rou
 
 | Finding | Route |
 |---|---|
-| `shape_absorbed=false`, or a `conflict` with a single `owning_section` | **Section-level.** `$INDUCTIVE_GATE_CTL gate-reopen --gate G3 --sections <S1,S2,...>` — atomically reopens G3, clears the stale semantic report, **and** rewinds every listed section → fix via `gates/g3-refine.md` (`$FACT_PRODUCTION_CTL update|settle-open` / `add-open` + `attach-code-refs` as needed) → re-`clear-section`. |
-| a `conflict` with no `owning_section` (cross-section) | **Cross-section.** User picks **one owning section** → `activate-section` → `add-open` (reconciliation) → Class 2 processing (`$FACT_PRODUCTION_CTL settle-open|update`) → re-`clear-section` any other affected section to match. |
+| `shape_absorbed=false`, or a `conflict` with a single `owning_section` | **Section-level.** `$INDUCTIVE_GATE_CTL gate-reopen --gate G3 --sections <S1,S2,...>` — atomically reopens G3, clears the stale semantic report, **and** rewinds every listed section → fix via `gates/g3-refine.md` (`$FACT_PRODUCTION_CTL propose(update|settle_open) → ack → consume` / `add-open` + `attach-code-refs` as needed) → re-`clear-section`. |
+| a `conflict` with no `owning_section` (cross-section) | **Cross-section.** User picks **one owning section** → `activate-section` → `add-open` (reconciliation) → Class 2 processing (`$FACT_PRODUCTION_CTL propose(settle_open|update) → ack → consume`) → re-`clear-section` any other affected section to match. |
 | `reforms_shape=false` | **Shape-level.** `$INDUCTIVE_GATE_CTL gate-reopen --gate G1` (cascades: clears stale G2/G4 reports) → correct via `gates/g1-shape.md` (commands + re-`view` + re-`checkpoint --name shape`) → re-descend. |
 | `buildable=false` / `reversible=false` / `verifiable=false` | Same as cross-section or section-level, whichever the subagent's `facts` implicate; if the whole design is unsound, treat as shape-level. |
 
