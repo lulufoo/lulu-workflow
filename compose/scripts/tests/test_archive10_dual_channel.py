@@ -193,37 +193,39 @@ def test_viewer_html_bans_bare_formal_arc_source():
 
 
 def test_viewer_mount_cross_root_stops_old(tmp_path: Path):
-    """T4: different root on same port → stop-old-then-start."""
+    """T4: different root on same port → stop-old-then-start; mount prints URL only."""
     root_a = tmp_path / "a"
     root_b = tmp_path / "b"
     root_a.mkdir()
     root_b.mkdir()
     port = 48641
+
+    def _mount_url(root: Path) -> str:
+        res = subprocess.run(
+            [
+                sys.executable,
+                str(_VIEWER),
+                "mount",
+                "--revision-dir",
+                str(root),
+                "--port",
+                str(port),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert res.returncode == 0, res.stderr
+        url = res.stdout.strip()
+        assert url.startswith("http://127.0.0.1:")
+        assert "\n" not in url
+        assert not url.startswith("{")
+        return url
+
     try:
-        code_a, payload_a, err_a = _run(
-            _VIEWER,
-            "mount",
-            "--revision-dir",
-            str(root_a),
-            "--port",
-            str(port),
-        )
-        assert code_a == 0, err_a
-        assert payload_a.get("ok") is True
-        code_b, payload_b, err_b = _run(
-            _VIEWER,
-            "mount",
-            "--revision-dir",
-            str(root_b),
-            "--port",
-            str(port),
-        )
-        assert code_b == 0, err_b
-        assert payload_b.get("ok") is True
-        assert payload_b.get("reused") is False
-        assert str(payload_b.get("root", "")).endswith("/b") or Path(
-            payload_b["root"]
-        ).resolve() == root_b.resolve()
+        url_a = _mount_url(root_a)
+        url_b = _mount_url(root_b)
+        assert "48641" in url_a and "48641" in url_b
+        assert (root_b / "_narrative-arc-viewer.server.json").is_file()
     finally:
         _run(_VIEWER, "stop", "--revision-dir", str(root_a))
         _run(_VIEWER, "stop", "--revision-dir", str(root_b))

@@ -6,7 +6,8 @@ Subcommands: mount · status · stop
 - Syncs ``compose/assets/narrative-arc-viewer.html`` into the active slice.
 - Writes ``_lulu-design-viewer.json`` with caller ``arc_source`` (collab only).
 - Hard-rejects Formal ``_narrative-arc.json`` as primary ARC_SOURCE.
-- Serves on ``127.0.0.1:8390``; prints URL only.
+- Serves on ``127.0.0.1:8390``.
+- ``mount`` success stdout is **URL only** (one line); errors on stderr.
 - Mount conflict: reuse same root, else stop-old-then-start.
 
 CLI: ``python3 narrative_arc_viewer_control.py --help``
@@ -219,18 +220,8 @@ def cmd_mount(args: argparse.Namespace) -> int:
         root = Path(str(state.get("root") or ""))
         if root.resolve() == slice_dir.resolve():
             url = f"http://127.0.0.1:{port}/{VIEWER_NAME}?v={int(time.time())}"
-            return _ok(
-                {
-                    "ok": True,
-                    "reused": True,
-                    "url": url,
-                    "root": str(slice_dir),
-                    "pid": state.get("pid"),
-                    "viewer": str(viewer),
-                    "config": str(cfg),
-                    "arc_source": f"./{Path(arc_file).name}",
-                }
-            )
+            print(url)
+            return 0
         # Stale local state pointing at another root — stop that pid + clear
         _stop_pid(int(state.get("pid") or 0))
         _clear_foreign_state(root)
@@ -244,24 +235,15 @@ def cmd_mount(args: argparse.Namespace) -> int:
             _clear_foreign_state(Path(str(state.get("root") or "")))
 
     try:
-        pid = _start_server(slice_dir, port)
+        _start_server(slice_dir, port)
     except RuntimeError as exc:
         return _fail(str(exc))
 
+    # T4: mount success prints URL only (no JSON envelope)
+    del viewer, cfg, stopped
     url = f"http://127.0.0.1:{port}/{VIEWER_NAME}?v={int(time.time())}"
-    return _ok(
-        {
-            "ok": True,
-            "reused": False,
-            "url": url,
-            "root": str(slice_dir),
-            "pid": pid,
-            "viewer": str(viewer),
-            "config": str(cfg),
-            "arc_source": f"./{Path(arc_file).name}",
-            "stopped_pids": stopped,
-        }
-    )
+    print(url)
+    return 0
 
 
 def cmd_status(args: argparse.Namespace) -> int:
