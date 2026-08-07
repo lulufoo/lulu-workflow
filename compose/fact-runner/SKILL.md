@@ -1,12 +1,12 @@
 ---
-name: fact-production-runner
+name: fact-runner
 description: >-
-  Compose fact-production tool skill. Permit-gated fact mutations for G2/G3:
+  Compose fact tool skill. Permit-gated fact mutations for G2/G3:
   propose an exact preview, obtain human ACK, then consume it. Declared by G2/G3;
   not wired to deductive this wave.
 ---
 
-# fact-production-runner
+# fact-runner
 
 Use when a compose caller **declares** this skill for writing `_facts.json`
 (conclusion batch or open settlement). Does not own Topic Loop dialogue.
@@ -18,7 +18,7 @@ Use when a compose caller **declares** this skill for writing `_facts.json`
 
 | Macro | Command |
 |-------|---------|
-| `$FACT_PRODUCTION_CTL` | `python3 "$SKILL_ROOT/compose/fact-production-runner/scripts/fact_production_control.py"` |
+| `$FACT_CTL` | `python3 "$SKILL_ROOT/compose/fact-runner/scripts/fact_production_control.py"` |
 
 Subcommands: `--help` · `propose` · `ack` · `consume` · `revoke` · `reconcile` · `recover`.
 

@@ -13,7 +13,7 @@ Primary subcommands:
     activate-section / set-frontier / materialize-section-registry
     seed-decision (writes facts; alias for seed)
     add-open / update-open / settle-open / defer-open / reject-open
-    attach-code-refs (O- only); fact update/settle via fact-production-runner
+    attach-code-refs (O- only); fact update/settle via fact-runner
     get-section / view / checkpoint
     clear-section / skip-section / rewind-section / recompose-check
 
@@ -767,14 +767,14 @@ def cmd_get_section(out_dir: Path, args: argparse.Namespace) -> None:
 def cmd_settle_open(out_dir: Path, args: argparse.Namespace) -> None:
     """REMOVED write path (archive-11.0).
 
-    Open→facts settlement moved to fact-production-runner
+    Open→facts settlement moved to fact-runner
     (``fact_production_control.py propose --kind settle_open``). This command never writes
     ``_facts.json``.
     """
     del out_dir, args
     _fail(
-        "settle-open fact writes moved to fact-production-runner "
-        "($FACT_PRODUCTION_CTL propose --kind settle_open → ack → consume). "
+        "settle-open fact writes moved to fact-runner "
+        "($FACT_CTL propose --kind settle_open → ack → consume). "
         "G3 section control no longer writes _facts.json for settle."
     )
 
@@ -822,14 +822,14 @@ def cmd_defer_open(out_dir: Path, args: argparse.Namespace) -> None:
 def cmd_update_decision(out_dir: Path, args: argparse.Namespace) -> None:
     """REMOVED write path (archive-11.0).
 
-    Fact text updates moved to fact-production-runner
+    Fact text updates moved to fact-runner
     (``fact_production_control.py propose --kind update``). This command never writes
     ``_facts.json``.
     """
     del out_dir, args
     _fail(
-        "update-decision fact writes moved to fact-production-runner "
-        "($FACT_PRODUCTION_CTL propose --kind update → ack → consume). "
+        "update-decision fact writes moved to fact-runner "
+        "($FACT_CTL propose --kind update → ack → consume). "
         "G3 section control no longer writes _facts.json for update-decision."
     )
 
@@ -1361,7 +1361,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser(
         "settle-open",
-        help="REMOVED write path — use fact-production-runner settle-open",
+        help="REMOVED write path — use fact-runner settle-open",
     )
     p.add_argument("--open-id", required=True, dest="open_id", metavar="ID")
     p.add_argument(
@@ -1387,7 +1387,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser(
         "update-decision",
-        help="REMOVED write path — use fact-production-runner update",
+        help="REMOVED write path — use fact-runner update",
     )
     p.add_argument("--id", default=None, metavar="F-n", help="Fact id")
     p.add_argument(

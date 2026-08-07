@@ -60,7 +60,7 @@ Optional: parent may have already loaded the open via `get-section`; do not inve
 - `$INDUCTIVE_GATE_CTL deep-grounding-list` — **parent only**, immediately after this subagent returns.
 - Highlights, bullet summaries, leanings, decisions, or any prose beyond the Return template.
 - Re-stating `facts` / `code_refs` in the Task return — they live in `grounding-notes.json`; the parent reads them via `$INDUCTIVE_GATE_CTL deep-grounding-list`.
-- Calling `add-open` / `attach-code-refs` / `$FACT_PRODUCTION_CTL propose → ack → consume` — parent owns mutations.
+- Calling `add-open` / `attach-code-refs` / `$FACT_CTL propose → ack → consume` — parent owns mutations.
 
 ## Return
 

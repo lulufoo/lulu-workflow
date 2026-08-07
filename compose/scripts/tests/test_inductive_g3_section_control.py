@@ -13,9 +13,7 @@ import pytest
 _INDUCTIVE_DIR = Path(__file__).resolve().parent.parent / "inductive"
 _SECTION_CTL = _INDUCTIVE_DIR / "inductive_g3_section_control.py"
 _COMPOSE = Path(__file__).resolve().parents[2]
-_FACT_PRODUCTION_CTL = (
-    _COMPOSE / "fact-production-runner" / "scripts" / "fact_production_control.py"
-)
+_FACT_CTL = _COMPOSE / "fact-runner" / "scripts" / "fact_production_control.py"
 
 sys.path.insert(0, str(_INDUCTIVE_DIR))
 from g3_section_pointer_schema import (  # noqa: E402
@@ -54,7 +52,7 @@ def _write_facts_file(path: Path, entries: list[dict]) -> Path:
 
 def _run_fact_production(*args: str) -> tuple[int, dict, str]:
     res = subprocess.run(
-        [sys.executable, str(_FACT_PRODUCTION_CTL), *args],
+        [sys.executable, str(_FACT_CTL), *args],
         capture_output=True,
         text=True,
     )
@@ -233,7 +231,7 @@ def test_g3_settle_open_write_path_removed(tmp_path):
     )
     assert code != 0
     err = str(payload.get("error") or payload.get("stderr") or payload)
-    assert "fact-production" in err.lower()
+    assert "fact-runner" in err.lower()
     assert not (tmp_path / "_facts.json").is_file()
     opens = json.loads((tmp_path / "inductive-opens.json").read_text(encoding="utf-8"))
     assert opens[0]["status"] == "open"
@@ -713,7 +711,7 @@ def test_g3_update_decision_write_path_removed(tmp_path):
     )
     assert code != 0
     err = str(payload.get("error") or payload.get("stderr") or payload)
-    assert "fact-production" in err.lower()
+    assert "fact-runner" in err.lower()
     facts = json.loads((tmp_path / "_facts.json").read_text(encoding="utf-8"))
     assert facts[0]["text"] == "初稿"
 

@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 _COMPOSE = Path(__file__).resolve().parents[2]
-_FACT_CTL = _COMPOSE / "fact-production-runner" / "scripts" / "fact_production_control.py"
+_FACT_CTL = _COMPOSE / "fact-runner" / "scripts" / "fact_production_control.py"
 _ARC_TOOL = _COMPOSE / "narrative-arc-runner" / "scripts" / "narrative_arc_collab_control.py"
 _ARC_BUILD = _COMPOSE / "narrative-arc-runner" / "scripts" / "narrative_arc_build_control.py"
 _VIEWER = _COMPOSE / "compose-viewer" / "scripts" / "compose_viewer_control.py"
@@ -644,7 +644,7 @@ def _legacy_fact_production_settle_rolls_back_facts_when_opens_save_fails(
     """Atomic settle: opens save failure must roll back newly written facts."""
     sys.path.insert(0, str(_COMPOSE / "scripts"))
     sys.path.insert(0, str(_COMPOSE / "scripts" / "inductive"))
-    sys.path.insert(0, str(_COMPOSE / "fact-production-runner" / "scripts"))
+    sys.path.insert(0, str(_COMPOSE / "fact-runner" / "scripts"))
     import fact_production_control as fpc  # noqa: E402
 
     # Seed open via in-process G3 helpers (facts empty)

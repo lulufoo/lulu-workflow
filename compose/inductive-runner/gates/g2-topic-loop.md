@@ -8,7 +8,7 @@
 
 ## Goal
 
-Converge design via **dialogue** under Domain `cognitive_frame` (D1) + `intent_anchor` (D2). AI topic proposals are guidance (coarse→fine); human must explicitly adopt. Hand facts only via **fact-production-runner** after conclusion confirm.
+Converge design via **dialogue** under Domain `cognitive_frame` (D1) + `intent_anchor` (D2). AI topic proposals are guidance (coarse→fine); human must explicitly adopt. Hand facts only via **fact-runner** after conclusion confirm.
 
 ## Loop (What structure — not a hard dialogue lock)
 
@@ -34,11 +34,11 @@ $TOPIC_CURRENT_CTL confirm-conclusion --revision-dir "$INDUCTIVE_OUT_DIR"
 5. Hand off to fact-production (dialogue shows the exact proposal; no staging file):
 
 ```bash
-$FACT_PRODUCTION_CTL propose --revision-dir "$INDUCTIVE_OUT_DIR" --kind append --facts-json '[...]'
+$FACT_CTL propose --revision-dir "$INDUCTIVE_OUT_DIR" --kind append --facts-json '[...]'
 # Show the returned preview unchanged; user ACKs that exact digest.
-$FACT_PRODUCTION_CTL ack --revision-dir "$INDUCTIVE_OUT_DIR" --permit-id "<id>" --slice-key "<key>" --digest "<digest>" --human-ack
-$FACT_PRODUCTION_CTL consume --revision-dir "$INDUCTIVE_OUT_DIR" --permit-id "<id>" --slice-key "<key>"
-# Or: $FACT_PRODUCTION_CTL revoke --revision-dir "$INDUCTIVE_OUT_DIR" --permit-id "<id>" --slice-key "<key>"
+$FACT_CTL ack --revision-dir "$INDUCTIVE_OUT_DIR" --permit-id "<id>" --slice-key "<key>" --digest "<digest>" --human-ack
+$FACT_CTL consume --revision-dir "$INDUCTIVE_OUT_DIR" --permit-id "<id>" --slice-key "<key>"
+# Or: $FACT_CTL revoke --revision-dir "$INDUCTIVE_OUT_DIR" --permit-id "<id>" --slice-key "<key>"
 ```
 
 6. On consume `stale_signal`: optionally offer a human-chosen semantic collab

@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 _COMPOSE = Path(__file__).resolve().parents[2]
-_FACT_CTL = _COMPOSE / "fact-production-runner" / "scripts" / "fact_production_control.py"
+_FACT_CTL = _COMPOSE / "fact-runner" / "scripts" / "fact_production_control.py"
 
 
 def _run(*args: str) -> tuple[int, dict, str]:
@@ -275,7 +275,7 @@ def test_settle_open_failure_reconciles_to_acknowledged(tmp_path: Path, monkeypa
 
     sys.path.insert(0, str(_COMPOSE / "scripts"))
     sys.path.insert(0, str(_COMPOSE / "scripts" / "inductive"))
-    sys.path.insert(0, str(_COMPOSE / "fact-production-runner" / "scripts"))
+    sys.path.insert(0, str(_COMPOSE / "fact-runner" / "scripts"))
     import fact_production_control as fpc  # noqa: E402
 
     def _boom(path, opens):  # noqa: ANN001

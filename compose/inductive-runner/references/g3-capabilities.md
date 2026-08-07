@@ -50,7 +50,7 @@ AI probe rule: silence ∧ KW-false → gap; no correctness judging (that is G4)
 
 ## Class 2 — Process open points
 
-Consumes `open` → facts via `fact-production-runner` `$FACT_PRODUCTION_CTL propose --kind settle_open → ack → consume` (1:N) or `deferred`/`rejected`. The user picks the mode after seeing problem + leaning (I6 informed authorization).
+Consumes `open` → facts via `fact-runner` `$FACT_CTL propose --kind settle_open → ack → consume` (1:N) or `deferred`/`rejected`. The user picks the mode after seeing problem + leaning (I6 informed authorization).
 
 | Mode | Behavior |
 |------|----------|
@@ -73,7 +73,7 @@ Consumes `open` → facts via `fact-production-runner` `$FACT_PRODUCTION_CTL pro
 **Tools:**
 - `g3-deep-grounding-runner` (optional): read-only evidence for **one** chosen open; may carry `file:line` / signatures. Never forms the leaning — the parent does.
 - `attach-code-refs`: fix code anchors onto an **open** (`O-` only; facts have no `code_refs` field).
-- `$FACT_PRODUCTION_CTL propose --kind settle_open` → `ack` → `consume`: commit `open` → 1:N facts (`origin.type=discovered`, `ref=[O-n]`); ACK binds the displayed digest; `consume` returns `stale_signal`; `code_refs` stay on the open; `resolved_by` lists new `F-` ids. One git commit (I8). G3 section `settle-open` write path is removed (archive-11.0).
+- `$FACT_CTL propose --kind settle_open` → `ack` → `consume`: commit `open` → 1:N facts (`origin.type=discovered`, `ref=[O-n]`); ACK binds the displayed digest; `consume` returns `stale_signal`; `code_refs` stay on the open; `resolved_by` lists new `F-` ids. One git commit (I8). G3 section `settle-open` write path is removed (archive-11.0).
 - `defer-open`: park open (`status=deferred` + `note`; keeps `intent_ref`; does **not** copy stamps onto facts). One git commit (I8).
 - `reject-open`: true out-of-domain exit (`status=rejected` + `--reason`).
 
