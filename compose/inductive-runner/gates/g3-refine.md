@@ -1,10 +1,10 @@
 > Part of inductive-runner · gate execution entry · loaded from `../SKILL.md`
 
-# Gate 3 — Gap-check (dialogue flow; archive-9.0)
+# Gate 3 — Gap-check (dialogue flow; archive-10.0)
 
 **Prerequisites:** `$INDUCTIVE_GATE_CTL resolve-context` reports `active_gate` is `G3` (G2 Topic Loop closed).
 
-**Goal (archive-9.0):** **gap-check / 查漏** after Topic Loop — unattached facts, empty leaves, blocking opens, shape drift. Prefer returning to G2 for full topic discussion rather than resurrecting section dual-lane as the main hub. Existing Class 1/2 tools remain available for processing opens. **Do not** auto-sweep after Shape-confirm — wait for the user.
+**Goal (archive-10.0):** **gap-check / 查漏** after Topic Loop — orphans vs collab arc, blocking opens, shape drift. Prefer returning to G2 for full topic discussion rather than resurrecting section dual-lane as the main hub. **Fact writes share the T2 human-confirm gate:** conclusion→facts via `$FACT_SETTLE_CTL commit --confirm`; open settlement via `$INDUCTIVE_G3_SECTION_CTL settle-open … --confirm` (also returns `stale_signal`). No silent fact writes. Existing Class 1/2 tools remain available for processing opens. **Do not** auto-sweep after Shape-confirm — wait for the user.
 
 Legacy refine lanes below still describe tool availability; default user-facing posture is gap-check checklist, not section patrol.
 

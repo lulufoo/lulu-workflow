@@ -65,8 +65,9 @@ PROVENANCE_TRACES     = $INDUCTIVE_OUT_DIR/provenance-trace-{intent,scope,norm}.
 | `$INDUCTIVE_GATE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_gate_control.py" --out-dir "$INDUCTIVE_OUT_DIR"` |
 | `$INDUCTIVE_G3_SECTION_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_g3_section_control.py" --out-dir "$INDUCTIVE_OUT_DIR" --project-root "$(pwd)" --compose-profile "$COMPOSE_PROFILE" --compose-cycle-id "$CYCLE_ID"` |
 | `$PROVENANCE_GATE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/provenance_gate_control.py" --out-dir "$INDUCTIVE_OUT_DIR"` |
-| `$NARRATIVE_ARC_DRAFT_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/narrative_arc_draft_control.py"` |
-| `$TOPIC_FOCUS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/topic_focus_control.py"` |
+| `$TOPIC_CURRENT_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/topic_current_control.py"` |
+| `$FACT_SETTLE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/fact_settle_control.py"` |
+| `$NARRATIVE_ARC_TOOL_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/narrative_arc_tool_control.py"` |
 | `$NARRATIVE_ARC_VIEWER_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/narrative_arc_viewer_control.py"` |
 
 Fetch schedule:
@@ -91,8 +92,8 @@ Inductive work discovers missing design decisions (parts → whole). **SoT = fac
 
 1. **Seed** — Init from `SECTION_REGISTRY.section_order` (`gates/g1-shape.md`). Read `$SCOPE_REF` as source material and, per lens: `activate-section` → substance? `seed-decision`+`set-frontier` : (`optional` → `skip-section` / `required` → leave for G3). **I4:** never invent beyond scope. Git commit `"seeded"`.
 2. **Shape-confirm (I11)** — After Seed: `view --synthesis on --granularity <arch-overview hint>` → user confirms/corrects → corrections via commands (+ `set-frontier` when lens facts change) → re-view until confirmed → `gate-close --gate G1` (records `checkpoint --name shape`) → **stop and await user**. Do **not** auto-detect.
-3. **G2 Topic Loop** (archive-9.0) — after G1: ensure draft + mount viewer; run topic `define→discuss→summarize` with `$TOPIC_FOCUS_CTL` / `$NARRATIVE_ARC_DRAFT_CTL`. Close only with user exit: `gate-close G2 --payload '{"topic_loop_done": true}'`.
-4. **G3 gap-check** — leak scan (unattached facts, empty leaves, blocking opens); not section dual-lane main discovery. Per-open grounding = `attach-code-refs` when processing opens.
+3. **G2 Topic Loop** (archive-10.0) — design-convergence dialogue (D1+D2); persist topic after clarify via `$TOPIC_CURRENT_CTL`; hand facts via `$FACT_SETTLE_CTL`; optional `$NARRATIVE_ARC_TOOL_CTL` + Viewer. Close only after D1+D2 pass **and** human exit: `gate-close G2 --payload '{"topic_loop_done": true, "design_goal_met": true, "human_exit_confirmed": true}'`. No draft-as-topic-tree.
+4. **G3 gap-check** — leak scan (orphans / blocking opens); conclusion→facts via `$FACT_SETTLE_CTL commit --confirm`; open→facts via `settle-open … --confirm` (same T2 confirm + `stale_signal`). Per-open grounding = `attach-code-refs` when processing opens.
 5. **Exit** — run `check-coverage`: ∀ init lens cleared∨skipped ∧ no (blocking∧open) ∧ (if demand manifest: all fulfilled∨deferred).
 6. **Audit (user-triggered):** G4 internal hard · G5 external soft → Handoff (`view --synthesis off` / Initializing). **G4 unchanged this wave.**
 
@@ -124,7 +125,7 @@ Do NOT rely on memory for gate execution steps.
 | Gate | File | Load condition |
 |------|------|-----------------|
 | G1 — Shape-confirm | `gates/g1-shape.md` | Session start or `active_gate=G1` |
-| G2 — Topic Loop | `gates/g2-topic-loop.md` | G1 closed; draft required before loop |
+| G2 — Topic Loop | `gates/g2-topic-loop.md` | G1 closed; dialogue Topic Loop (no draft tree) |
 | G3 — Gap-check | `gates/g3-refine.md` | G2 closed (Topic Loop exited) |
 | G4 — Internal audit (hard) | `gates/g4-recompose.md` | User ready; G3 exit met |
 | G5 — External audit (soft) | `gates/g5-provenance.md` | G4 closed |

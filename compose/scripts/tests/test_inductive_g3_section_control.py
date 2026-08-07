@@ -177,8 +177,19 @@ def test_settle_open_one_to_n_facts(tmp_path):
         "--open-id", "O-1",
         "--facts-file", str(ff),
     )
+    assert code != 0  # archive-10.0: --confirm required
+
+    code, payload = _run(
+        tmp_path,
+        "settle-open",
+        "--open-id", "O-1",
+        "--facts-file", str(ff),
+        "--confirm",
+    )
     assert code == 0, payload
     assert payload["fact_ids"] == ["F-1", "F-2"]
+    assert payload.get("stale_signal") is True
+    assert payload.get("suggest_check") is True
     facts = json.loads((tmp_path / "_facts.json").read_text(encoding="utf-8"))
     assert facts[0]["origin"] == {"type": "discovered", "ref": ["O-1"]}
     assert facts[0]["lens_tags"] == ["ST", "I"]
@@ -235,7 +246,13 @@ def test_settle_open_uses_declared_entry_anchors(tmp_path):
         ],
     )
     code, payload = _run(
-        tmp_path, "settle-open", "--open-id", "O-1", "--facts-file", str(ff)
+        tmp_path,
+        "settle-open",
+        "--open-id",
+        "O-1",
+        "--facts-file",
+        str(ff),
+        "--confirm",
     )
     assert code == 0, payload
     facts = json.loads((tmp_path / "_facts.json").read_text(encoding="utf-8"))
@@ -265,7 +282,13 @@ def test_settle_open_fallback_distributes_code_refs(tmp_path):
         ],
     )
     code, payload = _run(
-        tmp_path, "settle-open", "--open-id", "O-1", "--facts-file", str(ff)
+        tmp_path,
+        "settle-open",
+        "--open-id",
+        "O-1",
+        "--facts-file",
+        str(ff),
+        "--confirm",
     )
     assert code == 0, payload
     facts = json.loads((tmp_path / "_facts.json").read_text(encoding="utf-8"))

@@ -54,7 +54,7 @@ Consumes `open` → facts via `settle-open` (1:N) or `deferred`/`rejected`. The 
 
 | Mode | Behavior |
 |------|----------|
-| `auto` | (optional `deep-grounding`) → `attach-code-refs` → `settle-open --facts-file …`, continuous (no per-point pause) |
+| `auto` | (optional `deep-grounding`) → `attach-code-refs` → `settle-open --facts-file … --confirm`, continuous (no per-point pause) |
 | `manual` | **Manual turn** per open (below) |
 | `ignore` | `defer-open` (park) |
 
@@ -73,7 +73,7 @@ Consumes `open` → facts via `settle-open` (1:N) or `deferred`/`rejected`. The 
 **Tools:**
 - `g3-deep-grounding-runner` (optional): read-only evidence for **one** chosen open; may carry `file:line` / signatures. Never forms the leaning — the parent does.
 - `attach-code-refs`: fix code anchors onto an **open** (`O-` only; facts have no `code_refs` field).
-- `settle-open`: commit `open` → 1:N facts (`origin.type=discovered`, `ref=[O-n]`); `code_refs` stay on the open; `resolved_by` lists new `F-` ids. One git commit (I8).
+- `settle-open`: commit `open` → 1:N facts (`origin.type=discovered`, `ref=[O-n]`); **requires `--confirm`** (archive-10.0 T2); returns `stale_signal`; `code_refs` stay on the open; `resolved_by` lists new `F-` ids. One git commit (I8).
 - `defer-open`: park open (`status=deferred` + `note`; keeps `intent_ref`; does **not** copy stamps onto facts). One git commit (I8).
 - `reject-open`: true out-of-domain exit (`status=rejected` + `--reason`).
 

@@ -766,11 +766,16 @@ def cmd_get_section(out_dir: Path, args: argparse.Namespace) -> None:
 def cmd_settle_open(out_dir: Path, args: argparse.Namespace) -> None:
     """Settle open → 1:N facts (origin.type=discovered).
 
+    archive-10.0 T2: same human confirm gate as fact-settle — requires
+    ``--confirm``; response includes ``stale_signal`` / ``suggest_check``.
+
     Anchors are declare-first: each --facts-file entry may carry ``anchors``
     ([{kind,value}]). Entries that omit anchors fall back to distributing the
     open's ``code_refs`` by path/symbol substring (§3.4); unmatched code_refs
     stay on the open as historical provenance.
     """
+    if not bool(getattr(args, "confirm", False)):
+        _fail("settle-open requires --confirm (archive-10.0 T2 human confirm gate)")
     opens = _load_opens(out_dir)
     open_item = _find_open(opens, args.open_id)
     if open_item is None:
@@ -839,7 +844,18 @@ def cmd_settle_open(out_dir: Path, args: argparse.Namespace) -> None:
         facts_after=facts,
         opens_after=opens,
     )
-    _ok({"fact_ids": fact_ids, "settled": args.open_id})
+    _ok(
+        {
+            "fact_ids": fact_ids,
+            "settled": args.open_id,
+            "stale_signal": True,
+            "suggest_check": True,
+            "message": (
+                "facts committed via settle-open; collab arc may be stale — "
+                "suggest check / optional regenerate"
+            ),
+        }
+    )
 
 
 def cmd_reject_open(out_dir: Path, args: argparse.Namespace) -> None:
@@ -1430,7 +1446,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser(
         "settle-open",
-        help="Settle open → 1:N facts via --facts-file JSON array",
+        help="Settle open → 1:N facts via --facts-file (requires --confirm)",
     )
     p.add_argument("--open-id", required=True, dest="open_id", metavar="ID")
     p.add_argument(
@@ -1439,6 +1455,11 @@ def _build_parser() -> argparse.ArgumentParser:
         dest="facts_file",
         metavar="PATH",
         help='JSON array of {"text","lens_tags":[...],"anchors":[{"kind","value"}]?}',
+    )
+    p.add_argument(
+        "--confirm",
+        action="store_true",
+        help="Required; human whole-batch confirm (archive-10.0 T2 gate)",
     )
 
     p = sub.add_parser("reject-open", help="Reject an open (status=rejected)")
