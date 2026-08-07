@@ -2,9 +2,10 @@
 """Narrative-arc collab control (archive-14.0 semantic builder target).
 
 Persist an agent-authored semantic collaboration arc candidate. **Caller must
-pass ``--output-path``** (collab ≠ Formal) and explicitly confirm overwrite.
-The candidate must map every current fact to exactly one collab leaf. Existing
-output is backed up before write; the control returns a fact→node summary.
+pass ``--output-path``** (collab ≠ Formal). ``--digest`` verifies that the
+validated candidate did not change before persistence. The candidate must map
+every current fact to exactly one collab leaf. Existing output is backed up
+before write; the control returns a fact→node summary.
 
 Subcommands: write · validate · show
 
@@ -95,15 +96,13 @@ def _current_facts(slice_dir: Path) -> list[dict[str, Any]]:
 
 
 def cmd_write(args: argparse.Namespace) -> int:
-    if not args.confirm:
-        return _fail("write requires --confirm (human-chosen only)")
     try:
         out_path = _resolve_output(args)
         arc = _load_candidate(args.file)
     except ValueError as exc:
         return _fail(str(exc))
     if args.digest != canonical_digest(arc):
-        return _fail("write digest does not match the reviewed candidate")
+        return _fail("write digest does not match the validated candidate")
     try:
         slice_dir = _slice(args.revision_dir)
         facts = _current_facts(slice_dir)
@@ -193,7 +192,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
 
     for name, help_text, fn in (
-        ("write", "Human-chosen semantic candidate write + backup", cmd_write),
+        ("write", "Validated semantic candidate write + backup", cmd_write),
         ("validate", "Validate collab arc at --output-path", cmd_validate),
         ("show", "Print normalized collab arc", cmd_show),
     ):
@@ -211,14 +210,9 @@ def build_parser() -> argparse.ArgumentParser:
                 help="Agent-authored semantic collab candidate JSON",
             )
             p.add_argument(
-                "--confirm",
-                action="store_true",
-                help="Required; human-chosen overwrite",
-            )
-            p.add_argument(
                 "--digest",
                 required=True,
-                help="Digest emitted by validate-candidate for the reviewed file",
+                help="Digest emitted by validate-candidate for the candidate file",
             )
         p.set_defaults(func=fn)
 

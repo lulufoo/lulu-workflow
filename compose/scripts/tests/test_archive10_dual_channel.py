@@ -269,19 +269,6 @@ def test_narrative_arc_collab_write_path_validates_coverage_and_backs_up(tmp_pat
     )
     candidate_digest = canonical_digest(json.loads(candidate.read_text(encoding="utf-8")))
 
-    code, _, err = _run(
-        _ARC_TOOL,
-        "write",
-        "--revision-dir",
-        str(tmp_path),
-        "--output-path",
-        str(out),
-        "--file",
-        str(candidate),
-    )
-    assert code != 0
-    assert "confirm" in err.lower()
-
     code, payload, err = _run(
         _ARC_TOOL,
         "write",
@@ -291,7 +278,6 @@ def test_narrative_arc_collab_write_path_validates_coverage_and_backs_up(tmp_pat
         str(out),
         "--file",
         str(candidate),
-        "--confirm",
         "--digest",
         candidate_digest,
     )
@@ -308,10 +294,26 @@ def test_narrative_arc_collab_write_path_validates_coverage_and_backs_up(tmp_pat
         "--revision-dir",
         str(tmp_path),
         "--output-path",
+        str(out),
+        "--file",
+        str(candidate),
+        "--digest",
+        candidate_digest,
+        "--confirm",
+    )
+    assert code != 0
+    assert "unrecognized arguments" in err.lower()
+    assert json.loads(out.read_text(encoding="utf-8"))["tree"]["title"] == "Design story"
+
+    code, _, err = _run(
+        _ARC_TOOL,
+        "write",
+        "--revision-dir",
+        str(tmp_path),
+        "--output-path",
         FORMAL_BASENAME,
         "--file",
         str(candidate),
-        "--confirm",
         "--digest",
         candidate_digest,
     )
@@ -319,6 +321,26 @@ def test_narrative_arc_collab_write_path_validates_coverage_and_backs_up(tmp_pat
     assert "Formal" in err or "formal" in err.lower()
 
     candidate_data = json.loads(candidate.read_text(encoding="utf-8"))
+    candidate_data["status"] = "candidate"
+    candidate.write_text(json.dumps(candidate_data), encoding="utf-8")
+    invalid_digest = canonical_digest(candidate_data)
+    code, _, err = _run(
+        _ARC_TOOL,
+        "write",
+        "--revision-dir",
+        str(tmp_path),
+        "--output-path",
+        str(out),
+        "--file",
+        str(candidate),
+        "--digest",
+        invalid_digest,
+    )
+    assert code != 0
+    assert "status" in err.lower()
+    assert json.loads(out.read_text(encoding="utf-8"))["tree"]["title"] == "Design story"
+
+    candidate_data["status"] = "display"
     candidate_data["leaves"][1]["fact_ids"] = []
     candidate.write_text(json.dumps(candidate_data), encoding="utf-8")
     incomplete_digest = canonical_digest(candidate_data)
@@ -331,7 +353,6 @@ def test_narrative_arc_collab_write_path_validates_coverage_and_backs_up(tmp_pat
         str(out),
         "--file",
         str(candidate),
-        "--confirm",
         "--digest",
         incomplete_digest,
     )
@@ -350,7 +371,6 @@ def test_narrative_arc_collab_write_path_validates_coverage_and_backs_up(tmp_pat
         str(out),
         "--file",
         str(candidate),
-        "--confirm",
         "--digest",
         incomplete_digest,
     )
@@ -441,7 +461,6 @@ def test_collab_write_rejects_missing_facts_without_overwriting(tmp_path: Path):
         str(out),
         "--file",
         str(candidate),
-        "--confirm",
         "--digest",
         canonical_digest(candidate_data),
     )

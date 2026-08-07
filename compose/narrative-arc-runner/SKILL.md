@@ -2,8 +2,8 @@
 name: narrative-arc-runner
 description: >-
   Compose semantic narrative-arc builder. Init writes Formal arcs
-  (_narrative-arc.json); G2 may write human-confirmed collaboration display
-  arcs at caller-supplied paths.
+  (_narrative-arc.json); G2 may write collaboration display arcs at
+  caller-supplied paths.
 ---
 
 # narrative-arc-runner
@@ -15,7 +15,7 @@ narrative arc. Collab ≠ Formal file.
 facts' substance story; then validate and persist with the target control.  
 **Must not:** use topic / old arc / lens order as the narrative spine; use
 lens clusters; write Formal from collab control; auto-write collab without
-human confirm.
+full semantic context and candidate validation.
 
 ## Script Macros
 
@@ -24,6 +24,7 @@ human confirm.
 | `$NARRATIVE_ARC_BUILD_CTL` | `python3 "$SKILL_ROOT/compose/narrative-arc-runner/scripts/narrative_arc_build_control.py"` |
 | `$NARRATIVE_ARC_CTL` | `python3 "$SKILL_ROOT/compose/narrative-arc-runner/scripts/narrative_arc_control.py"` |
 | `$NARRATIVE_ARC_COLLAB_CTL` | `python3 "$SKILL_ROOT/compose/narrative-arc-runner/scripts/narrative_arc_collab_control.py"` |
+| `$COMPOSE_VIEWER_CTL` | `python3 "$SKILL_ROOT/compose/compose-viewer/scripts/compose_viewer_control.py"` |
 
 Build: `--help` · `context` · `validate-candidate`.  
 Formal: `--help` · `validate` · `write` · `show` · `list-chapters`.  
@@ -61,16 +62,18 @@ contain a mapped fact with empty `lens_tags`.
 partition each leaf into valid lens chapters, write `write_ready`, and gate
 with `--require-write-ready`.
 
-**Collab:** build `status=display` with `tree + leaves[].fact_ids` only.
-`validate-candidate` returns `$ARC_CANDIDATE_DIGEST`. Show the exact candidate
-and that digest to the human. After explicit confirmation,
+**Collab:** `context` → semantic build `status=display` with `tree +
+leaves[].fact_ids` only → `validate-candidate` → direct write → Viewer mount.
+`validate-candidate` returns `$ARC_CANDIDATE_DIGEST`. Then immediately run
 `$NARRATIVE_ARC_COLLAB_CTL write --file … --output-path … --digest
-"$ARC_CANDIDATE_DIGEST" --confirm` rejects changed content, validates full
-current-fact coverage, backs up an overwritten file, then writes.
+"$ARC_CANDIDATE_DIGEST"`. It rejects changed content, validates full
+current-fact coverage, backs up an overwritten file, then writes. The candidate
+is a temporary transport artifact, not display state: delete it after a
+successful write, then `$COMPOSE_VIEWER_CTL mount` the collab output.
 
 ## DONE / failure
 
 - **DONE (Formal write/validate):** exit 0; path under active slice `_narrative-arc.json`.
 - **DONE (collab write):** exit 0; backup + `fact_node_summary` when overwrite.
 - **Failure:** non-zero (missing semantic context; invalid candidate; Formal path
-  banned on collab; missing `--confirm` / `--output-path`).
+  banned on collab; missing digest / `--output-path`).

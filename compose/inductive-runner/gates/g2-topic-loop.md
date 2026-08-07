@@ -59,15 +59,15 @@ $NARRATIVE_ARC_BUILD_CTL validate-candidate \
   --project-root "$(pwd)" \
   --profile "$COMPOSE_PROFILE" \
   --cycle-id "$CYCLE_ID" \
-  --file "<path to semantic collab candidate JSON>"
-# Save stdout.digest as $ARC_CANDIDATE_DIGEST. Show that exact candidate and
-# digest; only then obtain explicit human confirmation.
+  --file "<temporary semantic collab candidate JSON>"
+# Save stdout.digest as $ARC_CANDIDATE_DIGEST, then write that validated
+# candidate directly.
 $NARRATIVE_ARC_COLLAB_CTL write \
   --revision-dir "$INDUCTIVE_OUT_DIR" \
   --output-path "_narrative-arc.collab.json" \
-  --file "<path to semantic collab candidate JSON>" \
-  --digest "$ARC_CANDIDATE_DIGEST" \
-  --confirm
+  --file "<temporary semantic collab candidate JSON>" \
+  --digest "$ARC_CANDIDATE_DIGEST"
+# After a zero exit, delete the temporary candidate.
 $COMPOSE_VIEWER_CTL mount --revision-dir "$INDUCTIVE_OUT_DIR" --arc-file "_narrative-arc.collab.json"
 ```
 
