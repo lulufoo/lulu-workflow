@@ -20,10 +20,10 @@ Use when a compose caller **declares** this skill for writing `_facts.json`
 |-------|---------|
 | `$FACT_PRODUCTION_CTL` | `python3 "$SKILL_ROOT/compose/fact-production-runner/scripts/fact_production_control.py"` |
 
-Subcommands: `--help` · `commit` · `cancel` · `settle-open` · `update`.
+Subcommands: `--help` · `commit` · `cancel` · `settle-open` · `update` · `delete`.
 
 ## DONE / failure
 
-- **DONE (commit / settle-open / update):** exit 0; stdout JSON includes `stale_signal` / `suggest_check` when written.
+- **DONE (commit / settle-open / update / delete):** exit 0; stdout JSON includes `stale_signal` / `suggest_check` when written.
 - **DONE (cancel):** exit 0; `written: false`; `_facts.json` unchanged.
 - **Failure:** non-zero; message on stderr (missing `--confirm`, bad payload, open not open).

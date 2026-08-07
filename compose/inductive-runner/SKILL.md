@@ -80,7 +80,7 @@ Fetch schedule:
   - Observable done: `$INDUCTIVE_SECTION_REGISTRY` exists under `$INDUCTIVE_OUT_DIR`
   - **Facet seeds (Class 1B):** when the active lens has `facets: string[]`, paste that list into the detect prompt as **non-exhaustive reminders** (not a closed question set; list-external opens allowed). Seeds do **not** gate `clear-section` and there is **no** `facet_id` field.
 
-**Primary CRUD (K4 triple store):** `materialize-section-registry`, `seed-decision` (→ facts; Seed/G1 path), `add-open` / `update-open` / `defer-open` / `reject-open` (→ opens), `attach-code-refs` (`O-` only), `get-section`, `view --synthesis off|on`, `checkpoint --name shape`, `set-frontier`, `activate-section`, `clear-section`, `skip-section`, `rewind-section`, `check-coverage`. Fact patch / open→facts: `$FACT_PRODUCTION_CTL update|settle-open` (not G3 section control). See `$INDUCTIVE_G3_SECTION_CTL --help`.
+**Primary CRUD (K4 triple store):** `materialize-section-registry`, `seed-decision` (→ facts; Seed/G1 path), `add-open` / `update-open` / `defer-open` / `reject-open` (→ opens), `attach-code-refs` (`O-` only), `get-section`, `view --synthesis off|on`, `checkpoint --name shape`, `set-frontier`, `activate-section`, `clear-section`, `skip-section`, `rewind-section`, `check-coverage`. Fact patch / delete / open→facts: `$FACT_PRODUCTION_CTL update|delete|settle-open` (not G3 section control). See `$INDUCTIVE_G3_SECTION_CTL --help`.
 
 **Removed (fail-fast if called):** `register-ep`, `update-ep`, `append-to-section` — use the commands above.
 

@@ -117,6 +117,79 @@ def test_fact_production_requires_confirm_and_signals_stale(tmp_path: Path):
     assert payload.get("written") is False
 
 
+def test_fact_production_delete_keeps_ids_stable_and_signals_stale(tmp_path: Path):
+    (tmp_path / "_facts.json").write_text(
+        json.dumps(
+            [
+                {"id": "F-1", "text": "one", "lens_tags": ["I"]},
+                {"id": "F-2", "text": "remove", "lens_tags": ["I"]},
+                {"id": "F-3", "text": "three", "lens_tags": ["ST"]},
+            ],
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    code, _, err = _run(
+        _FACT_CTL,
+        "delete",
+        "--revision-dir",
+        str(tmp_path),
+        "--id",
+        "F-2",
+    )
+    assert code != 0
+    assert "confirm" in err.lower()
+
+    code, payload, err = _run(
+        _FACT_CTL,
+        "delete",
+        "--revision-dir",
+        str(tmp_path),
+        "--id",
+        "F-2",
+        "--confirm",
+    )
+    assert code == 0, err
+    assert payload["deleted"] == "F-2"
+    assert payload["stale_signal"] is True
+    assert payload["suggest_check"] is True
+    facts = json.loads((tmp_path / "_facts.json").read_text(encoding="utf-8"))
+    assert [fact["id"] for fact in facts] == ["F-1", "F-3"]
+    assert facts[1]["text"] == "three"
+
+    code, payload, err = _run(
+        _FACT_CTL,
+        "commit",
+        "--revision-dir",
+        str(tmp_path),
+        "--confirm",
+        "--facts-json",
+        json.dumps([{"text": "four", "lens_tags": ["I"]}]),
+    )
+    assert code == 0, err
+    assert payload["fact_ids"] == ["F-4"]
+
+
+def test_fact_production_delete_only_fact_removes_store(tmp_path: Path):
+    (tmp_path / "_facts.json").write_text(
+        json.dumps([{"id": "F-1", "text": "one", "lens_tags": ["I"]}]),
+        encoding="utf-8",
+    )
+    code, payload, err = _run(
+        _FACT_CTL,
+        "delete",
+        "--revision-dir",
+        str(tmp_path),
+        "--id",
+        "F-1",
+        "--confirm",
+    )
+    assert code == 0, err
+    assert payload["facts_total"] == 0
+    assert not (tmp_path / "_facts.json").exists()
+
+
 def test_narrative_arc_collab_regenerate_path_and_backup(tmp_path: Path):
     (tmp_path / "_facts.json").write_text(
         json.dumps(

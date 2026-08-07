@@ -49,7 +49,7 @@ def test_validate_rejects_bad_id_and_extra_fields():
         },
     ]
     errors = validate_facts(facts, allowed_lenses=["CTX"])
-    assert any("F-<n>" in e for e in errors)
+    assert any("F-<positive-n>" in e for e in errors)
     assert any("unexpected fields" in e for e in errors)
 
 
@@ -60,13 +60,20 @@ def test_validate_rejects_duplicate_and_unknown_tags():
     assert any("not in allowed lenses" in e for e in errors)
 
 
-def test_validate_rejects_non_contiguous_ids():
+def test_validate_accepts_sparse_stable_ids():
     facts = [
         {"id": "F-1", "text": "a", "lens_tags": ["CTX"]},
         {"id": "F-3", "text": "b", "lens_tags": ["CTX"]},
     ]
-    errors = validate_facts(facts, allowed_lenses=["CTX"])
-    assert any("must be F-2" in e for e in errors)
+    assert validate_facts(facts, allowed_lenses=["CTX"]) == []
+
+
+def test_validate_rejects_zero_fact_id():
+    errors = validate_facts(
+        [{"id": "F-0", "text": "zero", "lens_tags": ["CTX"]}],
+        allowed_lenses=["CTX"],
+    )
+    assert any("F-<positive-n>" in error for error in errors)
 
 
 def test_validate_rejects_duplicate_fact_id():
@@ -75,7 +82,6 @@ def test_validate_rejects_duplicate_fact_id():
         {"id": "F-1", "text": "b", "lens_tags": ["CTX"]},
     ]
     errors = validate_facts(facts, allowed_lenses=["CTX"])
-    # duplicate id also breaks contiguity; both signals should surface
     assert any("duplicate" in e for e in errors)
 
 

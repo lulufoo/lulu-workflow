@@ -43,7 +43,7 @@ from pathlib import Path
 from typing import Any
 
 FACTS_BASENAME = "_facts.json"
-_FACT_ID_RE = re.compile(r"^F-(\d+)$")
+_FACT_ID_RE = re.compile(r"^F-([1-9]\d*)$")
 _FACT_REQUIRED = ("id", "text", "lens_tags")
 _FACT_OPTIONAL = frozenset(
     {"source", "origin", "derivation", "anchors", "home_l", "home_rationale"}
@@ -207,10 +207,8 @@ def validate_facts(
         return ["facts root must be a JSON array"]
     if not facts:
         return ["facts array must not be empty"]
-
     allowed = {l.strip().upper() for l in (allowed_lenses or []) if str(l).strip()}
     seen_ids: set[str] = set()
-    expected_n = 1
 
     for index, entry in enumerate(facts):
         prefix = f"facts[{index}]"
@@ -230,15 +228,9 @@ def validate_facts(
             fid = fact_id.strip()
             match = _FACT_ID_RE.match(fid)
             if not match:
-                errors.append(f"{prefix}.id must match F-<n> (got {fid!r})")
-            else:
-                n = int(match.group(1))
-                if n != expected_n:
-                    errors.append(
-                        f"{prefix}.id must be F-{expected_n} (got {fid!r}; "
-                        "ids must be contiguous from F-1)",
-                    )
-                expected_n += 1
+                errors.append(
+                    f"{prefix}.id must match F-<positive-n> (got {fid!r})",
+                )
             if fid in seen_ids:
                 errors.append(f"{prefix}.id duplicate: {fid!r}")
             seen_ids.add(fid)

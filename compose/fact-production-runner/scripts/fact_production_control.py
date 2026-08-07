@@ -10,7 +10,7 @@ batches and atomically commits facts + open status.
 On successful write, returns ``stale_signal`` / ``suggest_check`` for optional
 collab-arc regenerate.
 
-Subcommands: commit · cancel · settle-open · update
+Subcommands: commit · cancel · settle-open · update · delete
 
 CLI: ``python3 fact_production_control.py --help``
 
@@ -289,6 +289,55 @@ def cmd_update(args: argparse.Namespace) -> int:
     )
 
 
+def cmd_delete(args: argparse.Namespace) -> int:
+    """Delete one fact without renumbering any surviving stable IDs."""
+    if not args.confirm:
+        return _fail("delete requires --confirm (human confirm gate)")
+    fact_id = str(args.id or "").strip()
+    if not fact_id:
+        return _fail("delete requires --id (F-n)")
+
+    slice_dir = _slice(args.revision_dir)
+    path = facts_path(slice_dir)
+    if not path.is_file():
+        return _fail(f"facts not found: {path}")
+    facts = load_facts(path)
+    deleted = next(
+        (fact for fact in facts if isinstance(fact, dict) and fact.get("id") == fact_id),
+        None,
+    )
+    if deleted is None:
+        return _fail(f"fact not found: {fact_id!r}")
+    remaining = [fact for fact in facts if fact is not deleted]
+
+    try:
+        if remaining:
+            save_facts(
+                path,
+                remaining,
+                allowed_lenses=_allowed_lenses(slice_dir) or None,
+            )
+        else:
+            path.unlink()
+    except (OSError, ValueError) as exc:
+        return _fail(str(exc))
+
+    return _ok(
+        {
+            "ok": True,
+            "command": "delete",
+            "deleted": fact_id,
+            "facts_total": len(remaining),
+            "stale_signal": True,
+            "suggest_check": True,
+            "message": (
+                "fact deleted without renumbering; collab and Formal arcs may "
+                "reference it — suggest check / optional regenerate"
+            ),
+        }
+    )
+
+
 def cmd_settle_open(args: argparse.Namespace) -> int:
     """Settle open → 1:N facts (origin.type=discovered); atomic with open status."""
     if not bool(getattr(args, "confirm", False)):
@@ -428,6 +477,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="Required; mechanical gate for human confirm",
     )
     p.set_defaults(func=cmd_update)
+
+    p = sub.add_parser(
+        "delete",
+        help="Delete one fact without renumbering surviving IDs (requires --confirm)",
+    )
+    p.add_argument("--revision-dir", required=True)
+    p.add_argument("--id", required=True, help="Fact id F-n")
+    p.add_argument(
+        "--confirm",
+        action="store_true",
+        help="Required; mechanical gate for human confirm",
+    )
+    p.set_defaults(func=cmd_delete)
 
     return parser
 
