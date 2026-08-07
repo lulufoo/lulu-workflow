@@ -30,7 +30,10 @@ kernel_bootstrap.ensure_kernel_paths()
 
 from discussion_pointer_schema import active_slice_dir  # noqa: E402
 from compose_state_lock import canonical_digest  # noqa: E402
-from domain_instance_schema import load_and_validate_domain_instance  # noqa: E402
+from domain_instance_schema import (  # noqa: E402
+    DOMAIN_SCHEME_KEY,
+    load_and_validate_domain_instance,
+)
 from facts_schema import facts_path, load_facts  # noqa: E402
 from fetch_compose_framework import fetch_compose_framework  # noqa: E402
 from narrative_arc_collab_schema import (  # noqa: E402
@@ -38,7 +41,11 @@ from narrative_arc_collab_schema import (  # noqa: E402
     validate_narrative_arc_collab,
 )
 from narrative_arc_schema import validate_narrative_arc  # noqa: E402
-from role_instance_schema import load_and_validate_role_instance  # noqa: E402
+from role_instance_schema import (  # noqa: E402
+    ROLE_SCHEME_KEY,
+    load_and_validate_role_instance,
+)
+from schema_common import resolve_fetched_instance_path  # noqa: E402
 from scope_resolver import resolve_cycle_type  # noqa: E402
 
 
@@ -99,6 +106,41 @@ def _registry(
     return data, lenses
 
 
+def _scope_instances(
+    *,
+    cycle_type: str,
+    project_root: Path,
+    profile: str,
+    cycle_id: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    role_path = resolve_fetched_instance_path(
+        ROLE_SCHEME_KEY,
+        project_root,
+        profile_id=profile,
+        cycle_id=cycle_id or None,
+    )
+    domain_path = resolve_fetched_instance_path(
+        DOMAIN_SCHEME_KEY,
+        project_root,
+        profile_id=profile,
+        cycle_id=cycle_id or None,
+    )
+    return (
+        load_and_validate_role_instance(
+            cycle_type,
+            path=role_path,
+            project_root=project_root,
+            profile_id=profile,
+        ),
+        load_and_validate_domain_instance(
+            cycle_type,
+            path=domain_path,
+            project_root=project_root,
+            profile_id=profile,
+        ),
+    )
+
+
 def _candidate(path: str) -> dict[str, Any]:
     try:
         data = json.loads(Path(path).read_text(encoding="utf-8"))
@@ -115,20 +157,17 @@ def cmd_context(args: argparse.Namespace) -> int:
     try:
         root = Path(args.project_root).resolve()
         cycle_type = _cycle_type(args)
-        role = load_and_validate_role_instance(
-            cycle_type,
+        cycle_id = str(args.cycle_id or "").strip()
+        role, domain = _scope_instances(
+            cycle_type=cycle_type,
             project_root=root,
-            profile_id=args.profile,
-        )
-        domain = load_and_validate_domain_instance(
-            cycle_type,
-            project_root=root,
-            profile_id=args.profile,
+            profile=args.profile,
+            cycle_id=cycle_id,
         )
         registry, lenses = _registry(
             project_root=root,
             profile=args.profile,
-            cycle_id=str(args.cycle_id or "").strip(),
+            cycle_id=cycle_id,
         )
         facts = _facts(args.revision_dir)
     except (OSError, ValueError, json.JSONDecodeError) as exc:

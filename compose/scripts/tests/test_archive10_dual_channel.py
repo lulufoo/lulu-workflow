@@ -17,6 +17,7 @@ _TOPIC_CTL = _COMPOSE / "scripts" / "section" / "topic_current_control.py"
 _NARRATIVE_SCRIPTS = _COMPOSE / "narrative-arc-runner" / "scripts"
 
 sys.path.insert(0, str(_NARRATIVE_SCRIPTS))
+import narrative_arc_build_control as arc_build  # noqa: E402
 import narrative_arc_collab_schema as collab_schema  # noqa: E402
 from narrative_arc_collab_schema import (  # noqa: E402
     FORMAL_BASENAME,
@@ -508,6 +509,30 @@ def test_collab_validate_reports_unknown_arc_facts_and_rejects_duplicate_ownersh
     )
     assert code != 0
     assert "multiple collab leaves" in err.lower()
+
+
+def test_build_context_resolves_role_domain_for_explicit_cycle(monkeypatch, tmp_path: Path):
+    seen: list[tuple[str, str | None]] = []
+
+    def resolve_path(scheme_key, project_root, profile_id, cycle_id):  # noqa: ANN001
+        seen.append((scheme_key, cycle_id))
+        return tmp_path / f"{scheme_key}.json"
+
+    monkeypatch.setattr(arc_build, "resolve_fetched_instance_path", resolve_path)
+    monkeypatch.setattr(arc_build, "load_and_validate_role_instance", lambda *_args, **_kwargs: {"role": True})
+    monkeypatch.setattr(arc_build, "load_and_validate_domain_instance", lambda *_args, **_kwargs: {"domain": True})
+    role, domain = arc_build._scope_instances(
+        cycle_type="feature",
+        project_root=tmp_path,
+        profile="lulu-design",
+        cycle_id="feature-example",
+    )
+    assert role == {"role": True}
+    assert domain == {"domain": True}
+    assert seen == [
+        ("role-instance", "feature-example"),
+        ("domain-instance", "feature-example"),
+    ]
 
 
 def test_narrative_arc_build_context_and_collab_candidate_validation(tmp_path: Path):
