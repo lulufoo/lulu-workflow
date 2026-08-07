@@ -67,6 +67,7 @@ PROVENANCE_TRACES     = $INDUCTIVE_OUT_DIR/provenance-trace-{intent,scope,norm}.
 | `$PROVENANCE_GATE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/provenance_gate_control.py" --out-dir "$INDUCTIVE_OUT_DIR"` |
 | `$TOPIC_CURRENT_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/topic_current_control.py"` |
 | `$FACT_PRODUCTION_CTL` | `python3 "$SKILL_ROOT/compose/fact-production-runner/scripts/fact_production_control.py"` |
+| `$NARRATIVE_ARC_BUILD_CTL` | `python3 "$SKILL_ROOT/compose/narrative-arc-runner/scripts/narrative_arc_build_control.py"` |
 | `$NARRATIVE_ARC_COLLAB_CTL` | `python3 "$SKILL_ROOT/compose/narrative-arc-runner/scripts/narrative_arc_collab_control.py"` |
 | `$COMPOSE_VIEWER_CTL` | `python3 "$SKILL_ROOT/compose/compose-viewer/scripts/compose_viewer_control.py"` |
 
@@ -94,7 +95,7 @@ Inductive work discovers missing design decisions (parts → whole). **SoT = fac
 
 1. **Seed** — Init from `SECTION_REGISTRY.section_order` (`gates/g1-shape.md`). Read `$SCOPE_REF` as source material and, per lens: `activate-section` → substance? `seed-decision`+`set-frontier` : (`optional` → `skip-section` / `required` → leave for G3). **I4:** never invent beyond scope. Git commit `"seeded"`.
 2. **Shape-confirm (I11)** — After Seed: `view --synthesis on --granularity <arch-overview hint>` → user confirms/corrects → corrections via commands (+ `set-frontier` when lens facts change) → re-view until confirmed → `gate-close --gate G1` (records `checkpoint --name shape`) → **stop and await user**. Do **not** auto-detect.
-3. **G2 Topic Loop** (archive-10.0) — design-convergence dialogue (D1+D2); persist topic after clarify via `$TOPIC_CURRENT_CTL`; hand facts via `fact-production-runner` `$FACT_PRODUCTION_CTL`; optional `narrative-arc-runner` `$NARRATIVE_ARC_COLLAB_CTL` + `compose-viewer`. Close only after D1+D2 pass **and** human exit: `gate-close G2 --payload '{"topic_loop_done": true, "design_goal_met": true, "human_exit_confirmed": true}'`. No draft-as-topic-tree.
+3. **G2 Topic Loop** (archive-10.0) — design-convergence dialogue (D1+D2); persist topic after clarify via `$TOPIC_CURRENT_CTL`; hand facts via `fact-production-runner` `$FACT_PRODUCTION_CTL`; optional human-confirmed semantic collab arc via `$NARRATIVE_ARC_BUILD_CTL` + `$NARRATIVE_ARC_COLLAB_CTL` + `compose-viewer`. Close only after D1+D2 pass **and** human exit: `gate-close G2 --payload '{"topic_loop_done": true, "design_goal_met": true, "human_exit_confirmed": true}'`. No draft-as-topic-tree.
 4. **G3 gap-check** — leak scan (orphans / blocking opens); conclusion→facts and open→facts via `$FACT_PRODUCTION_CTL propose → ack(digest) → consume` (`stale_signal` only after consume). Per-open grounding = `attach-code-refs` when processing opens.
 5. **Exit** — run `check-coverage`: ∀ init lens cleared∨skipped ∧ no (blocking∧open) ∧ (if demand manifest: all fulfilled∨deferred).
 6. **Audit (user-triggered):** G4 internal hard · G5 external soft → Handoff (`view --synthesis off` / Initializing). **G4 unchanged this wave.**

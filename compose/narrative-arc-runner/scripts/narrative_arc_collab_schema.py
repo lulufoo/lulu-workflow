@@ -53,6 +53,9 @@ def validate_narrative_arc_collab(data: Any) -> list[str]:
         errors.append("collab arc status must be 'display'")
     if "chapters" in data:
         errors.append("collab arc must not include chapters (Formal-only)")
+    for bucket_name in ("excluded", "unresolved"):
+        if bucket_name in data:
+            errors.append(f"collab arc must not include {bucket_name} (Formal-only)")
     tree = data.get("tree")
     if not isinstance(tree, dict):
         errors.append("collab arc.tree must be an object")
@@ -141,54 +144,8 @@ def save_narrative_arc_collab(path: Path, data: dict[str, Any]) -> dict[str, Any
     return normalized
 
 
-def build_collab_from_facts(
-    facts: list[dict[str, Any]],
-    *,
-    source: str = "narrative-arc-tool",
-) -> dict[str, Any]:
-    """Full rebuild: one leaf per lens bucket; attach all fact ids."""
-    arc = empty_collab_arc(source=source)
-    by_lens: dict[str, list[str]] = {}
-    for fact in facts:
-        if not isinstance(fact, dict):
-            continue
-        fid = str(fact.get("id", "")).strip()
-        if not fid:
-            continue
-        tags = [
-            str(t).strip().upper()
-            for t in (fact.get("lens_tags") or [])
-            if str(t).strip()
-        ]
-        key = tags[0] if tags else "UNTAGGED"
-        by_lens.setdefault(key, []).append(fid)
-    children: list[dict[str, Any]] = []
-    leaves: list[dict[str, Any]] = []
-    mounts: dict[str, str] = {}
-    if not by_lens:
-        lid = "leaf-empty"
-        children.append({"id": lid, "title": "Unsorted", "children": []})
-        leaves.append({"id": lid, "title": "Unsorted", "fact_ids": []})
-        mounts[lid] = "regen"
-    else:
-        for i, (lens, fids) in enumerate(sorted(by_lens.items()), start=1):
-            lid = f"leaf-{lens.lower()}-{i}"
-            title = f"{lens} cluster"
-            children.append({"id": lid, "title": title, "children": []})
-            leaves.append({"id": lid, "title": title, "fact_ids": fids})
-            mounts[lid] = "regen"
-    arc["tree"] = {
-        "id": "root",
-        "title": "Collaboration arc",
-        "children": [{"id": "group-main", "title": "Main", "children": children}],
-    }
-    arc["leaves"] = leaves
-    arc["meta"]["leaf_mounts"] = mounts
-    return normalize_narrative_arc_collab(arc)
-
-
 def fact_node_summary(arc: dict[str, Any]) -> list[dict[str, str]]:
-    """fact_id → leaf id/title summary after regenerate."""
+    """fact_id → leaf id/title summary after a collab write."""
     out: list[dict[str, str]] = []
     for leaf in arc.get("leaves") or []:
         if not isinstance(leaf, dict):
@@ -218,6 +175,44 @@ def orphan_fact_ids(
         if fid and fid not in attached:
             orphans.append(fid)
     return orphans
+
+
+def collab_fact_coverage_errors(
+    arc: dict[str, Any],
+    facts: list[dict[str, Any]],
+) -> list[str]:
+    """Require current facts to map to exactly one collab leaf."""
+    fact_ids = {
+        str(fact.get("id", "")).strip()
+        for fact in facts
+        if isinstance(fact, dict) and str(fact.get("id", "")).strip()
+    }
+    owners: dict[str, str] = {}
+    errors: list[str] = []
+    for leaf in arc.get("leaves") or []:
+        if not isinstance(leaf, dict):
+            continue
+        leaf_id = str(leaf.get("id", "")).strip() or "<missing>"
+        for raw_id in leaf.get("fact_ids") or []:
+            fact_id = str(raw_id).strip()
+            if not fact_id:
+                continue
+            previous = owners.get(fact_id)
+            if previous is not None:
+                errors.append(
+                    f"fact {fact_id!r} mapped to multiple collab leaves: "
+                    f"{previous!r} and {leaf_id!r}",
+                )
+            else:
+                owners[fact_id] = leaf_id
+
+    unknown = sorted(set(owners) - fact_ids)
+    if unknown:
+        errors.append(f"collab arc references facts not present: {unknown}")
+    unplaced = sorted(fact_ids - set(owners))
+    if unplaced:
+        errors.append(f"facts not placed in collab arc: {unplaced}")
+    return errors
 
 
 def clone_arc(data: dict[str, Any]) -> dict[str, Any]:

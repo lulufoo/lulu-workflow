@@ -246,7 +246,7 @@ def cmd_commit(args: argparse.Namespace) -> int:
             "facts_total": len(facts),
             "stale_signal": True,
             "suggest_check": True,
-            "message": "facts committed; collab arc may be stale — suggest check / optional regenerate",
+            "message": "facts committed; collab arc may be stale — suggest check / optional semantic rebuild",
         }
     )
 
@@ -300,7 +300,7 @@ def cmd_update(args: argparse.Namespace) -> int:
             "fact": fact,
             "stale_signal": True,
             "suggest_check": True,
-            "message": "fact updated; collab arc may be stale — suggest check / optional regenerate",
+            "message": "fact updated; collab arc may be stale — suggest check / optional semantic rebuild",
         }
     )
 
@@ -350,7 +350,7 @@ def cmd_delete(args: argparse.Namespace) -> int:
             "suggest_check": True,
             "message": (
                 "fact deleted without renumbering; collab and Formal arcs may "
-                "reference it — suggest check / optional regenerate"
+                "reference it — suggest check / optional semantic rebuild"
             ),
         }
     )
@@ -445,7 +445,7 @@ def cmd_settle_open(args: argparse.Namespace) -> int:
             "suggest_check": True,
             "message": (
                 "facts committed via settle-open; collab arc may be stale — "
-                "suggest check / optional regenerate"
+                "suggest check / optional semantic rebuild"
             ),
         }
     )

@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Narrative-arc collab control (archive-11.0; inherits archive-10.0 T3).
+"""Narrative-arc collab control (archive-14.0 semantic builder target).
 
-Full regenerate of a collaboration display arc from ``_facts.json``.
-**Caller must pass ``--output-path``** (collab ≠ Formal). Human-chosen
-only (``--confirm``). Backs up existing file before overwrite; returns
-fact→node summary.
+Persist an agent-authored semantic collaboration arc candidate. **Caller must
+pass ``--output-path``** (collab ≠ Formal) and explicitly confirm overwrite.
+The candidate must map every current fact to exactly one collab leaf. Existing
+output is backed up before write; the control returns a fact→node summary.
 
-Subcommands: regenerate · validate · show
+Subcommands: write · validate · show
 
 Formal Init path remains ``narrative_arc_control.py`` + ``_narrative-arc.json``.
 
@@ -39,7 +39,7 @@ from discussion_pointer_schema import active_slice_dir  # noqa: E402
 from facts_schema import facts_path, load_facts  # noqa: E402
 from narrative_arc_collab_schema import (  # noqa: E402
     assert_not_formal_path,
-    build_collab_from_facts,
+    collab_fact_coverage_errors,
     fact_node_summary,
     load_narrative_arc_collab,
     orphan_fact_ids,
@@ -73,16 +73,37 @@ def _resolve_output(args: argparse.Namespace) -> Path:
     return path.resolve()
 
 
-def cmd_regenerate(args: argparse.Namespace) -> int:
+def _load_candidate(file_path: str) -> dict[str, Any]:
+    try:
+        data = json.loads(Path(file_path).read_text(encoding="utf-8"))
+    except OSError as exc:
+        raise ValueError(f"cannot read candidate: {exc}") from exc
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"invalid candidate JSON: {exc}") from exc
+    if not isinstance(data, dict):
+        raise ValueError("collab candidate root must be an object")
+    return data
+
+
+def _current_facts(slice_dir: Path) -> list[dict[str, Any]]:
+    path = facts_path(slice_dir)
+    return load_facts(path) if path.is_file() else []
+
+
+def cmd_write(args: argparse.Namespace) -> int:
     if not args.confirm:
-        return _fail("regenerate requires --confirm (human-chosen only)")
+        return _fail("write requires --confirm (human-chosen only)")
     try:
         out_path = _resolve_output(args)
+        arc = _load_candidate(args.file)
     except ValueError as exc:
         return _fail(str(exc))
     slice_dir = _slice(args.revision_dir)
-    fpath = facts_path(slice_dir)
-    facts = load_facts(fpath) if fpath.is_file() else []
+    facts = _current_facts(slice_dir)
+    errors = validate_narrative_arc_collab(arc)
+    errors.extend(collab_fact_coverage_errors(arc, facts))
+    if errors:
+        return _fail("; ".join(errors))
 
     backup_path: str | None = None
     if out_path.is_file():
@@ -90,7 +111,6 @@ def cmd_regenerate(args: argparse.Namespace) -> int:
         shutil.copy2(out_path, backup)
         backup_path = str(backup)
 
-    arc = build_collab_from_facts(facts, source="narrative-arc-collab")
     try:
         saved = save_narrative_arc_collab(out_path, arc)
     except ValueError as exc:
@@ -101,7 +121,7 @@ def cmd_regenerate(args: argparse.Namespace) -> int:
     return _ok(
         {
             "ok": True,
-            "command": "regenerate",
+            "command": "write",
             "path": str(out_path),
             "backup": backup_path,
             "leaf_count": len(saved.get("leaves") or []),
@@ -153,7 +173,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
 
     for name, help_text, fn in (
-        ("regenerate", "Human-chosen full rebuild + backup", cmd_regenerate),
+        ("write", "Human-chosen semantic candidate write + backup", cmd_write),
         ("validate", "Validate collab arc at --output-path", cmd_validate),
         ("show", "Print normalized collab arc", cmd_show),
     ):
@@ -164,11 +184,16 @@ def build_parser() -> argparse.ArgumentParser:
             required=True,
             help="Caller-supplied path (relative to slice or absolute); not Formal",
         )
-        if name == "regenerate":
+        if name == "write":
+            p.add_argument(
+                "--file",
+                required=True,
+                help="Agent-authored semantic collab candidate JSON",
+            )
             p.add_argument(
                 "--confirm",
                 action="store_true",
-                help="Required; human-chosen regenerate",
+                help="Required; human-chosen overwrite",
             )
         p.set_defaults(func=fn)
 

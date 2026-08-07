@@ -11,6 +11,7 @@ from pathlib import Path
 _COMPOSE = Path(__file__).resolve().parents[2]
 _FACT_CTL = _COMPOSE / "fact-production-runner" / "scripts" / "fact_production_control.py"
 _ARC_TOOL = _COMPOSE / "narrative-arc-runner" / "scripts" / "narrative_arc_collab_control.py"
+_ARC_BUILD = _COMPOSE / "narrative-arc-runner" / "scripts" / "narrative_arc_build_control.py"
 _VIEWER = _COMPOSE / "compose-viewer" / "scripts" / "compose_viewer_control.py"
 _TOPIC_CTL = _COMPOSE / "scripts" / "section" / "topic_current_control.py"
 _NARRATIVE_SCRIPTS = _COMPOSE / "narrative-arc-runner" / "scripts"
@@ -18,7 +19,6 @@ _NARRATIVE_SCRIPTS = _COMPOSE / "narrative-arc-runner" / "scripts"
 sys.path.insert(0, str(_NARRATIVE_SCRIPTS))
 from narrative_arc_collab_schema import (  # noqa: E402
     FORMAL_BASENAME,
-    build_collab_from_facts,
     orphan_fact_ids,
     validate_narrative_arc_collab,
 )
@@ -215,7 +215,7 @@ def test_fact_production_delete_only_fact_removes_store(tmp_path: Path):
     assert not (tmp_path / "_facts.json").exists()
 
 
-def test_narrative_arc_collab_regenerate_path_and_backup(tmp_path: Path):
+def test_narrative_arc_collab_write_path_validates_coverage_and_backs_up(tmp_path: Path):
     (tmp_path / "_facts.json").write_text(
         json.dumps(
             [
@@ -228,6 +228,36 @@ def test_narrative_arc_collab_regenerate_path_and_backup(tmp_path: Path):
         + "\n",
         encoding="utf-8",
     )
+    candidate = tmp_path / "semantic-collab.json"
+    candidate.write_text(
+        json.dumps(
+            {
+                "version": "1",
+                "kind": "narrative-arc-collab",
+                "status": "display",
+                "tree": {
+                    "id": "root",
+                    "title": "Design story",
+                    "children": [
+                        {
+                            "id": "group-foundation",
+                            "title": "Foundation",
+                            "children": [
+                                {"id": "leaf-contract", "title": "Contract", "children": []},
+                                {"id": "leaf-outcome", "title": "Outcome", "children": []},
+                            ],
+                        }
+                    ],
+                },
+                "leaves": [
+                    {"id": "leaf-contract", "title": "Contract", "fact_ids": ["F-1"]},
+                    {"id": "leaf-outcome", "title": "Outcome", "fact_ids": ["F-2"]},
+                ],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
     out = tmp_path / "_narrative-arc.collab.json"
     out.write_text(
         '{"version":"1","kind":"narrative-arc-collab","status":"display",'
@@ -237,40 +267,66 @@ def test_narrative_arc_collab_regenerate_path_and_backup(tmp_path: Path):
 
     code, _, err = _run(
         _ARC_TOOL,
-        "regenerate",
+        "write",
         "--revision-dir",
         str(tmp_path),
         "--output-path",
         str(out),
+        "--file",
+        str(candidate),
     )
     assert code != 0
     assert "confirm" in err.lower()
 
     code, payload, err = _run(
         _ARC_TOOL,
-        "regenerate",
+        "write",
         "--revision-dir",
         str(tmp_path),
         "--output-path",
         str(out),
+        "--file",
+        str(candidate),
         "--confirm",
     )
     assert code == 0, err
     assert payload.get("backup")
     assert Path(payload["backup"]).is_file()
     assert len(payload.get("fact_node_summary") or []) == 2
+    saved = json.loads(out.read_text(encoding="utf-8"))
+    assert saved["tree"]["title"] == "Design story"
 
     code, _, err = _run(
         _ARC_TOOL,
-        "regenerate",
+        "write",
         "--revision-dir",
         str(tmp_path),
         "--output-path",
         FORMAL_BASENAME,
+        "--file",
+        str(candidate),
         "--confirm",
     )
     assert code != 0
     assert "Formal" in err or "formal" in err.lower()
+
+    candidate_data = json.loads(candidate.read_text(encoding="utf-8"))
+    candidate_data["leaves"][1]["fact_ids"] = []
+    candidate.write_text(json.dumps(candidate_data), encoding="utf-8")
+    code, _, err = _run(
+        _ARC_TOOL,
+        "write",
+        "--revision-dir",
+        str(tmp_path),
+        "--output-path",
+        str(out),
+        "--file",
+        str(candidate),
+        "--confirm",
+    )
+    assert code != 0
+    assert "not placed" in err.lower()
+    assert json.loads(out.read_text(encoding="utf-8"))["tree"]["title"] == "Design story"
 
 
 def test_collab_orphan_detection():
@@ -278,10 +334,71 @@ def test_collab_orphan_detection():
         {"id": "F-1", "text": "a", "lens_tags": ["I"]},
         {"id": "F-2", "text": "b", "lens_tags": ["I"]},
     ]
-    arc = build_collab_from_facts(facts)
+    arc = {
+        "version": "1",
+        "kind": "narrative-arc-collab",
+        "status": "display",
+        "tree": {"id": "root", "title": "A", "children": []},
+        "leaves": [{"id": "leaf-1", "title": "A", "fact_ids": ["F-1", "F-2"]}],
+    }
     assert validate_narrative_arc_collab(arc) == []
     arc["leaves"][0]["fact_ids"] = ["F-1"]
     assert orphan_fact_ids(arc, facts) == ["F-2"]
+
+
+def test_narrative_arc_build_context_and_collab_candidate_validation(tmp_path: Path):
+    (tmp_path / "_facts.json").write_text(
+        json.dumps([{"id": "F-1", "text": "one", "lens_tags": ["I"]}]),
+        encoding="utf-8",
+    )
+    project_root = _COMPOSE.parents[1]
+    common = (
+        "--revision-dir",
+        str(tmp_path),
+        "--project-root",
+        str(project_root),
+        "--profile",
+        "lulu-design",
+        "--cycle-type",
+        "feature",
+    )
+    code, context, err = _run(
+        _ARC_BUILD,
+        "context",
+        "--target",
+        "collab",
+        *common,
+    )
+    assert code == 0, err
+    assert context["facts"][0]["id"] == "F-1"
+    assert context["role"]["priority_tendency"]
+    assert context["domain"]["expression_conventions"]
+    assert "I" in context["allowed_lenses"]
+
+    candidate = tmp_path / "candidate.json"
+    candidate.write_text(
+        json.dumps(
+            {
+                "version": "1",
+                "kind": "narrative-arc-collab",
+                "status": "display",
+                "tree": {"id": "root", "title": "Story", "children": []},
+                "leaves": [{"id": "leaf-1", "title": "Story", "fact_ids": ["F-1"]}],
+            },
+        ),
+        encoding="utf-8",
+    )
+    code, payload, err = _run(
+        _ARC_BUILD,
+        "validate-candidate",
+        "--target",
+        "collab",
+        *common,
+        "--file",
+        str(candidate),
+    )
+    assert code == 0, err
+    assert payload["facts_total"] == 1
 
 
 def test_viewer_rejects_formal_arc_file(tmp_path: Path):

@@ -55,6 +55,7 @@ All macros that declare `--profile` **must** pass `--profile "$COMPOSE_PROFILE"`
 | `$COMPOSE_DOC_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/section/compose_doc_control.py"` |
 | `$INIT_COMPOSE_VALIDATE` | `python3 "$SKILL_ROOT/compose/scripts/section/init_compose_validation.py" validate --revision-dir "$REVISION_DIR" --compose-doc "$OUTPUT_DOC_PATH" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)"` |
 | `$FACTS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/facts_control.py"` |
+| `$NARRATIVE_ARC_BUILD_CTL` | `python3 "$SKILL_ROOT/compose/narrative-arc-runner/scripts/narrative_arc_build_control.py"` |
 | `$NARRATIVE_ARC_CTL` | `python3 "$SKILL_ROOT/compose/narrative-arc-runner/scripts/narrative_arc_control.py"` |
 
 **Declare-use:** Formal arc macros belong to sibling `narrative-arc-runner` (path above).
@@ -63,6 +64,8 @@ All macros that declare `--profile` **must** pass `--profile "$COMPOSE_PROFILE"`
 `$COMPOSE_DOC_CONTROL` subcommands: `--help` · `init-doc` · `append-chapter` · `assemble-arc`.
 
 `$FACTS_CTL` subcommands: `--help` · `write` · `validate` · `status`.
+
+`$NARRATIVE_ARC_BUILD_CTL` subcommands: `--help` · `context` · `validate-candidate`.
 
 `$NARRATIVE_ARC_CTL` subcommands: `--help` · `validate` · `write` · `show` · `list-chapters`.
 
@@ -121,42 +124,37 @@ Missing / invalid `_facts.json` → Blocking (return to parent Inductive|Deducti
 
 **Done:** validate exit 0 → proceed to Step 3.
 
-### Step 3 — Narrative arc (phase 1 → phase 2)
+### Step 3 — Formal narrative arc (phase 1 → phase 2)
 
-Replaces archive-3.0 Dynamic chapter plan. Role/Domain loaded in Step 1 **must** shape content organization here; facts remain the material source.
+Replaces archive-3.0 Dynamic chapter plan. `narrative-arc-runner` owns the
+semantic build protocol; this runner only requests the `formal` target and
+persists the Formal output.
 
-**Listen-who (arc build):**
+1. Build context:
 
-| Decision | Listen to | Hardness |
-|---|---|---|
-| Group/leaf **titles and grouping shape** | Substance story in facts (objects, behaviors, contract surfaces, end-state, verification, …) | **Must** |
-| Group/leaf **order** | Role `priority_tendency` | **Must** (exception: fact dependency forces prerequisite first) |
-| Intent membership + phase-2 write-unit split | Lens tags + registry lens relations | **Must** (not whole-document leaf order; not presentation title schema) |
-| Split / do not mix | Domain `expression_conventions.scannability` (full text for active profile) | **Must** |
-| Genre mission / through-line self-check | Domain `cognitive_frame` / `audience_type` | **Should** |
+```bash
+$NARRATIVE_ARC_BUILD_CTL context \
+  --target formal \
+  --revision-dir "$REVISION_DIR" \
+  --project-root "$(pwd)" \
+  --profile "$COMPOSE_PROFILE" \
+  --cycle-id "$CYCLE_ID"
+```
 
-These Role/Domain rules are **agent discipline**. `$NARRATIVE_ARC_CTL validate` still gates coverage / `lens_tags` only — it does **not** enforce the listen-who table.
+2. Follow the declared `narrative-arc-runner` semantic build protocol to
+produce an agent-authored `status=mapped` candidate. Validate the candidate:
 
-**Must:** re-read Role `priority_tendency` and Domain `expression_conventions.scannability` before building the arc; name groups/leaves from the substance story; order groups/leaves by `priority_tendency` unless fact structure forces a dependency reorder; obey that Domain `scannability` text when splitting leaves/blocks; keep chapter `lens` ∈ fact `lens_tags`.
+```bash
+$NARRATIVE_ARC_BUILD_CTL validate-candidate \
+  --target formal \
+  --revision-dir "$REVISION_DIR" \
+  --project-root "$(pwd)" \
+  --profile "$COMPOSE_PROFILE" \
+  --cycle-id "$CYCLE_ID" \
+  --file "<path to mapped arc JSON>"
+```
 
-**Must not:** use registry lens order as chapter directory; use Role `priority_tendency` (or its information-order list) as a generator of group/leaf titles or a mandatory H2 count; use lens tags/relations as the presentation chapter/title schema (lens-catalog spine); force background / analysis / solution — or any fixed N-act label set — as the **only** allowed top-level packaging (reading aids OK; packaging depth unrestricted); glue two duties into one **top-level** title with 与/及/和 (or English *and* / `&`); use Role `vocabulary_domain` as a taxonomy checklist for group names; invent facts; leave empty `lens_tags` facts in `write_ready`; create `_chapters.json`.
-
-**Top-level title discipline** (`tree` roots only; agent discipline — not `$NARRATIVE_ARC_CTL validate`):
-
-| Principle | Rule |
-|---|---|
-| Single duty | One chapter duty per top title. Do not glue two duties with 与/及/和 (or English *and* / `&`). |
-| Chapter altitude | Top level = through-line chapter stations only. Demote leaf-level concerns to children. |
-| Flow | After shape is set, reorder only. Flow never decides split/merge. |
-
-**Conflict exits:** overflow → child under a single-duty parent; never glue titles for flow; never merge unequal altitudes to shorten the path. Group/leaf **order** still follows Role `priority_tendency` (listen-who). Packaging depth stays unrestricted.
-
-#### 3.1 — Phase 1 (`status=mapped`)
-
-1. Read all facts (`$FACTS_CTL` / `_facts.json`). Input = full fact texts + `lens_tags` + registry lens definitions + Role/Domain fields above. Discussion topic / `T*` is provenance only — do not build the spine from it.
-2. AI: build narrative arc (optional `tree` packaging; depth unrestricted) and map every non-excluded fact to exactly one **arc leaf** (`leaves[].id` / `title` / `fact_ids`). Composite/pending-split → `excluded` (or `unresolved` if blocked).
-3. **Should** self-check before persist: top-level titles look like a lens/priority catalog → rebuild titles/shape; top titles glued with 与/及/和, or too many tops that read as leaf concerns → split or demote (top-level title discipline; do not glue for flow); obvious single-leaf mix that violates Domain `scannability` → split; order badly inverted vs `priority_tendency` with no fact-dependency reason → reorder; optional — outline still matches Domain `cognitive_frame` (genre mission not drifted) and reads as a reviewable through-line for Domain `audience_type` (thicken opening info if needed; do **not** force a fixed three-act directory).
-4. Persist:
+3. Persist and validate:
 
 ```bash
 $NARRATIVE_ARC_CTL write \
@@ -173,16 +171,17 @@ $NARRATIVE_ARC_CTL validate \
   --project-root "$(pwd)"
 ```
 
-**Done (3.1):** `_narrative-arc.json` exists; `status=mapped`; coverage + single-leaf ownership pass.
+**Done (3.1):** `_narrative-arc.json` exists; `status=mapped`; candidate and
+Formal coverage gates pass.
 
 #### 3.2 — Phase 2 (`status=write_ready`)
 
-1. For each arc leaf, partition its `fact_ids` into **sub-topic chapters** `{lens, fact_ids}`:
-   - One fact → exactly one chapter under that leaf.
-   - Chapter `lens` **must be ∈** that fact's `lens_tags` (single tag → that lens; multi-tag → AI picks one).
-   - Empty `lens_tags` → `unresolved` / hard fail — never `write_ready`.
-   - Lenses partition write units under a leaf; they do **not** set whole-document leaf order.
-2. Set `status=write_ready` only when `unresolved` is empty and validation passes.
+1. Follow the same semantic build protocol to partition each leaf's facts into
+   sub-topic chapters `{lens, fact_ids}`. Each fact has exactly one chapter;
+   each chapter lens belongs to that fact's `lens_tags`; empty tags become
+   `unresolved` and block `write_ready`.
+2. Validate the `status=write_ready` candidate with
+   `$NARRATIVE_ARC_BUILD_CTL validate-candidate --target formal …`.
 3. Persist + gate:
 
 ```bash
