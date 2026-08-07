@@ -2,8 +2,8 @@
 name: narrative-arc-runner
 description: >-
   Compose semantic narrative-arc builder. Init writes Formal arcs
-  (_narrative-arc.json); G2 may write collaboration display arcs at
-  caller-supplied paths.
+  (_narrative-arc.json) inline; G2 dispatches this skill via $SUBAGENT_TOOL for
+  collaboration display arcs (write + Viewer mount).
 ---
 
 # narrative-arc-runner
@@ -16,6 +16,26 @@ facts' substance story; then validate and persist with the target control.
 **Must not:** use topic / old arc / lens order as the narrative spine; use
 lens clusters; write Formal from collab control; auto-write collab without
 full semantic context and candidate validation.
+
+## Dual entry
+
+| Entry | Caller | Dispatch | Done when |
+|-------|--------|----------|-----------|
+| `target=formal` | `initializing-runner` | Inline macros in Init (this wave unchanged) | Formal `write_ready` / Init contract |
+| `target=collab` | G2 Topic Loop | `$SUBAGENT_TOOL` + `$SUBAGENT_AWAIT_SYNC` with Input below | Collab written + Viewer mounted + summary |
+
+### Collab Input (subagent)
+
+```text
+target: collab
+INDUCTIVE_OUT_DIR: <revision dir>
+PROJECT_ROOT: <abs project root>
+COMPOSE_PROFILE: <profile id>
+CYCLE_ID: <cycle id>
+OUTPUT_PATH: _narrative-arc.collab.json
+```
+
+Do **not** paste fact bodies in the Task prompt — read from disk via `context`.
 
 ## Script Macros
 
@@ -62,18 +82,31 @@ contain a mapped fact with empty `lens_tags`.
 partition each leaf into valid lens chapters, write `write_ready`, and gate
 with `--require-write-ready`.
 
-**Collab:** `context` → semantic build `status=display` with `tree +
-leaves[].fact_ids` only → `validate-candidate` → direct write → Viewer mount.
-`validate-candidate` returns `$ARC_CANDIDATE_DIGEST`. Then immediately run
-`$NARRATIVE_ARC_COLLAB_CTL write --file … --output-path … --digest
-"$ARC_CANDIDATE_DIGEST"`. It rejects changed content, validates full
-current-fact coverage, backs up an overwritten file, then writes. The candidate
-is a temporary transport artifact, not display state: delete it after a
-successful write, then `$COMPOSE_VIEWER_CTL mount` the collab output.
+**Collab (independent completion):** `context` → semantic build
+`status=display` with `tree + leaves[].fact_ids` only → `validate-candidate`
+→ `$NARRATIVE_ARC_COLLAB_CTL write --file … --output-path "$OUTPUT_PATH"
+--digest …` → `$COMPOSE_VIEWER_CTL mount --revision-dir "$INDUCTIVE_OUT_DIR"
+--arc-file "$OUTPUT_PATH"` → delete temporary transport file → return summary.
+No human confirm gate after validate. Digest only proves the validated bytes
+were not altered before write.
 
 ## DONE / failure
 
+### Collab subagent summary (return exactly this shape)
+
+```text
+status: done|failed
+target: collab
+output_path: <OUTPUT_PATH>
+wrote: true|false
+mounted: true|false
+viewer_url: <url or empty>
+error: <empty or message>
+```
+
+- **DONE (collab):** `wrote=true` · `mounted=true` · non-empty `viewer_url` (mount stdout).
+- **Partial (collab):** `wrote=true` · `mounted=false` — new arc on disk; do not claim Viewer updated.
+- **FAIL (collab validate/write):** `wrote=false` · `mounted=false` — existing display arc unchanged.
 - **DONE (Formal write/validate):** exit 0; path under active slice `_narrative-arc.json`.
-- **DONE (collab write):** exit 0; backup + `fact_node_summary` when overwrite.
-- **Failure:** non-zero (missing semantic context; invalid candidate; Formal path
+- **Failure:** non-zero script exit (missing semantic context; invalid candidate; Formal path
   banned on collab; missing digest / `--output-path`).

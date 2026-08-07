@@ -57,6 +57,8 @@ PROVENANCE_TRACES     = $INDUCTIVE_OUT_DIR/provenance-trace-{intent,scope,norm}.
 
 ---
 
+Also read `../../_subagent.md` for `$SUBAGENT_TOOL` / `$SUBAGENT_AWAIT_SYNC` (platform dispatch; not Script Macros rows).
+
 ## Script Macros
 
 | Macro | Command |
@@ -67,11 +69,8 @@ PROVENANCE_TRACES     = $INDUCTIVE_OUT_DIR/provenance-trace-{intent,scope,norm}.
 | `$PROVENANCE_GATE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/provenance_gate_control.py" --out-dir "$INDUCTIVE_OUT_DIR"` |
 | `$TOPIC_CURRENT_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/topic_current_control.py"` |
 | `$FACT_CTL` | `python3 "$SKILL_ROOT/compose/fact-runner/scripts/fact_production_control.py"` |
-| `$NARRATIVE_ARC_BUILD_CTL` | `python3 "$SKILL_ROOT/compose/narrative-arc-runner/scripts/narrative_arc_build_control.py"` |
-| `$NARRATIVE_ARC_COLLAB_CTL` | `python3 "$SKILL_ROOT/compose/narrative-arc-runner/scripts/narrative_arc_collab_control.py"` |
-| `$COMPOSE_VIEWER_CTL` | `python3 "$SKILL_ROOT/compose/compose-viewer/scripts/compose_viewer_control.py"` |
 
-**Declare-use (siblings own the tools):** `fact-runner` · `narrative-arc-runner` · `compose-viewer` — macros above point at their `scripts/`; do not treat them as inductive-private.
+**Declare-use (siblings own the tools):** `fact-runner` (inline public protocol via `$FACT_CTL`) · `narrative-arc-runner` (G2 collab rebuild via `$SUBAGENT_TOOL` — do not expand its internal macros here).
 
 Fetch schedule:
 - **Before Seed / Shape-confirm:** `$FETCH_COMPOSE --role section-registry` → `SECTION_REGISTRY` (`section_order` → `init-session --sections`); `$FETCH_COMPOSE --role inductive-scan-criteria` → `SCAN_CRITERIA` (methods / shape hints / mandatory)
@@ -95,7 +94,7 @@ Inductive work discovers missing design decisions (parts → whole). **SoT = fac
 
 1. **Seed** — Init from `SECTION_REGISTRY.section_order` (`gates/g1-shape.md`). Read `$SCOPE_REF` as source material and, per lens: `activate-section` → substance? `seed-decision`+`set-frontier` : (`optional` → `skip-section` / `required` → leave for G3). **I4:** never invent beyond scope. Git commit `"seeded"`.
 2. **Shape-confirm (I11)** — After Seed: `view --synthesis on --granularity <arch-overview hint>` → user confirms/corrects → corrections via commands (+ `set-frontier` when lens facts change) → re-view until confirmed → `gate-close --gate G1` (records `checkpoint --name shape`) → **stop and await user**. Do **not** auto-detect.
-3. **G2 Topic Loop** (archive-10.0) — design-convergence dialogue (D1+D2); persist topic after clarify via `$TOPIC_CURRENT_CTL`; hand facts via `fact-runner` `$FACT_CTL`; an optional user-triggered semantic collab rebuild runs `$NARRATIVE_ARC_BUILD_CTL` → `$NARRATIVE_ARC_COLLAB_CTL` → `compose-viewer` directly after candidate validation. Close only after D1+D2 pass **and** human exit: `gate-close G2 --payload '{"topic_loop_done": true, "design_goal_met": true, "human_exit_confirmed": true}'`. No draft-as-topic-tree.
+3. **G2 Topic Loop** (archive-10.0 / archive-16.0) — design-convergence dialogue (D1+D2); persist topic after clarify via `$TOPIC_CURRENT_CTL`; hand facts via `fact-runner` public protocol; optional user-triggered collab rebuild dispatches `narrative-arc-runner` via `$SUBAGENT_TOOL` + `$SUBAGENT_AWAIT_SYNC` (see `gates/g2-topic-loop.md`). Close only after D1+D2 pass **and** human exit: `gate-close G2 --payload '{"topic_loop_done": true, "design_goal_met": true, "human_exit_confirmed": true}'`. No draft-as-topic-tree.
 4. **G3 gap-check** — leak scan (orphans / blocking opens); conclusion→facts and open→facts via `$FACT_CTL propose → ack(digest) → consume` (`stale_signal` only after consume). Per-open grounding = `attach-code-refs` when processing opens.
 5. **Exit** — run `check-coverage`: ∀ init lens cleared∨skipped ∧ no (blocking∧open) ∧ (if demand manifest: all fulfilled∨deferred).
 6. **Audit (user-triggered):** G4 internal hard · G5 external soft → Handoff (`view --synthesis off` / Initializing). **G4 unchanged this wave.**

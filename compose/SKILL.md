@@ -127,7 +127,7 @@ CLI: `$L_SLICE --help`. `$L_STEP --help` (per-L step machine).
 
 **Hard gate:** `$L_STEP begin-inductive` requires session `Working` and locked topology.
 
-**Inductive-runner** is a human-driven gate spine (Shape → Grounding → Refine → Recompose → Provenance): AI recommends; the **user** closes each gate. Run **inline in this conversation**. **Exceptions (subagents via `$SUBAGENT_TOOL`, read-only):** deprecated G2 → `g2-grounding-runner`; G3 Class 1B → `g3-shallow-grounding-runner` (optional); G3 Class 2 → `g3-deep-grounding-runner` (optional).
+**Inductive-runner** is a human-driven gate spine (Shape → Grounding → Refine → Recompose → Provenance): AI recommends; the **user** closes each gate. Run **inline in this conversation**. **Subagent exceptions via `$SUBAGENT_TOOL`:** (a) **read-only** — deprecated G2 → `g2-grounding-runner`; G3 Class 1B → `g3-shallow-grounding-runner` (optional); G3 Class 2 → `g3-deep-grounding-runner` (optional); (b) **Topic Loop collab rebuild** — `narrative-arc-runner` (may write `_narrative-arc.collab.json` and mount Viewer). Do not treat (b) as grounding.
 
 1. Run `$L_STEP begin-inductive`. On failure → Blocking. On success → follow inductive-runner with stdout as `## Input`:
 
@@ -248,6 +248,7 @@ Stage-agenda items (design-external blockers/notes) live under the revision dir;
 | `{SKILL_ROOT}/compose/inductive-runner/SKILL.md` | Working → Inductive — inductive-runner (`pipeline.inductive: true`) |
 | `{SKILL_ROOT}/compose/deductive-runner/SKILL.md` | Working → Deductive — deductive-runner (`pipeline.inductive: false`) |
 | `{SKILL_ROOT}/compose/inductive-runner/g2-grounding-runner/SKILL.md` | Working → Inductive — **deprecated** optional G2 topology subagent (prefer `attach-code-refs` in Class 2 processing) |
+| `{SKILL_ROOT}/compose/narrative-arc-runner/SKILL.md` | Working → Inductive G2 — Topic Loop collab rebuild subagent (write-capable; mount Viewer) |
 | `{SKILL_ROOT}/compose/inductive-runner/g3-shallow-grounding-runner/SKILL.md` | Working → Inductive — optional G3 shallow grounding subagent (detect facts only; parent `add-open`) |
 | `{SKILL_ROOT}/compose/inductive-runner/g3-deep-grounding-runner/SKILL.md` | Working → Inductive — optional G3 deep grounding subagent (one open; parent settles) |
 | `{SKILL_ROOT}/compose/inductive-runner/g4-recompose-runner/SKILL.md` | Working → Inductive — Gate 4 internal-audit subagent (section JSON + shape checkpoint) |
