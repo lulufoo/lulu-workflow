@@ -61,7 +61,6 @@ _CONV_ID_INJECT_SCRIPT_SUFFIXES = (
     "/compose/scripts/core/start.py",
     "/compose/scripts/inductive/inductive_gate_control.py",
     "/compose/scripts/inductive/inductive_g3_grounding_control.py",
-    "/compose/scripts/inductive/inductive_g2_control.py",
     "/compose/scripts/inductive/inductive_g4_control.py",
     # Stage scripts: short form so "$SKILL_DIR/scripts/..." also matches.
     "/scripts/tc_start.py",
@@ -74,7 +73,6 @@ _CONV_ID_INJECT_SCRIPT_SUFFIXES = (
 _INDUCTIVE_CONV_OVERRIDE_SUFFIXES = (
     "/compose/scripts/inductive/inductive_gate_control.py",
     "/compose/scripts/inductive/inductive_g3_grounding_control.py",
-    "/compose/scripts/inductive/inductive_g2_control.py",
     "/compose/scripts/inductive/inductive_g4_control.py",
 )
 

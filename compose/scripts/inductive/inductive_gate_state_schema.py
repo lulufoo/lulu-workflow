@@ -2,7 +2,7 @@
 """Schema and I/O for inductive-gate-state.json.
 
 Tracks the four-gate spine for the inductive runner:
-  G1 Shape -> G2 Grounding -> G3 Refine -> G4 Recompose
+  G1 Shape -> G2 Topic Loop -> G3 Refine -> G4 Recompose
 
 Gate statuses: pending | active | closed | reopened
 active_gate is always the gate currently in progress.
@@ -20,7 +20,7 @@ GATE_STATUSES = frozenset({"pending", "active", "closed", "reopened"})
 
 _GATE_LABELS: dict[str, str] = {
     "G1": "Shape",
-    "G2": "Grounding",
+    "G2": "Topic Loop",
     "G3": "Refine",
     "G4": "Recompose",
 }

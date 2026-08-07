@@ -133,7 +133,7 @@ def validate_report(data: dict[str, Any]) -> list[str]:
                 errors.append(f"facts[{i}] exceeds {MAX_FACT_CHARS} chars")
 
     # A "clean" verdict (no conflicts, everything true) still needs an audit
-    # trail — mirrors g2_topology_report_schema's "verdict ok requires facts".
+    # trail — ok/clean reports must include at least one distilled fact.
     is_clean = (
         isinstance(conflicts, list)
         and not conflicts

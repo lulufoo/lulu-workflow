@@ -13,6 +13,7 @@ Subcommands:
                           (--json object or array; --sweep sets the default)
     list-grounding       List receipts for a sweep (--sweep required;
                           --mode shallow|deep|g2, default shallow;
+                          g2 is filter-only for legacy receipts;
                           --ep-id optionally narrows mode=deep to one point)
     check-grounding      Verify every unsettled section has a receipt (--sweep)
                           — shallow coverage predicate only, not meaningful
@@ -212,7 +213,12 @@ def _build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("list-grounding", help="List receipts for one sweep")
     p.add_argument("--sweep", type=int, required=True)
-    p.add_argument("--mode", default="shallow", choices=["shallow", "deep", "g2"])
+    p.add_argument(
+        "--mode",
+        default="shallow",
+        choices=["shallow", "deep", "g2"],
+        help="Filter mode; g2 only matches legacy receipts",
+    )
     p.add_argument("--ep-id", default=None, dest="ep_id", help="Filter to one open id (mode=deep; O-n)")
     p.add_argument(
         "--open-id",
@@ -223,7 +229,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("check-grounding", help="Verify sweep coverage for unsettled sections")
     p.add_argument("--sweep", type=int, required=True)
-    p.add_argument("--mode", default="shallow", choices=["shallow", "deep", "g2"])
+    p.add_argument("--mode", default="shallow", choices=["shallow", "deep"])
 
     return parser
 

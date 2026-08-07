@@ -22,7 +22,9 @@ from g3_grounding_notes_schema import (  # noqa: E402
     MAX_FACTS,
     append_receipts,
     check_sweep_coverage,
+    grounding_notes_path,
     init_ledger,
+    load_ledger,
     validate_receipt,
 )
 
@@ -466,3 +468,49 @@ def test_list_grounding_filters_by_ep_id(tmp_path: Path):
     assert code == 0, result
     assert result.get("count") == 1
     assert result["receipts"][0]["ep_id"] == "EP-002"
+
+
+def test_record_grounding_rejects_mode_g2(tmp_path: Path):
+    _seed_session(tmp_path)
+    receipt = _receipt("I")
+    receipt["mode"] = "g2"
+    code, result = _run(
+        tmp_path,
+        "--conversation-id",
+        _SUBAGENT_CONV,
+        "record-grounding",
+        "--sweep",
+        "1",
+        "--json",
+        json.dumps(receipt),
+    )
+    assert code != 0
+    assert result.get("ok") is False
+
+
+def test_load_ledger_tolerates_legacy_mode_g2(tmp_path: Path):
+    path = grounding_notes_path(tmp_path)
+    ledger = init_ledger()
+    ledger["receipts"] = [
+        {
+            "id": "GN-001",
+            "sweep": 1,
+            "mode": "g2",
+            "section": "I",
+            "ep_id": "",
+            "frontier_kw": 0,
+            "code_refs": [],
+            "facts": ["legacy topology note"],
+            "produced_by": "subagent",
+            "need_clarification": None,
+            "created_at": "2026-01-01T00:00:00+00:00",
+        }
+    ]
+    # Bypass write validator: persist then load via read-tolerant path.
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(ledger, indent=2) + "\n", encoding="utf-8")
+    loaded = load_ledger(path)
+    assert loaded["receipts"][0]["mode"] == "g2"
+    code, result = _run(tmp_path, "list-grounding", "--sweep", "1", "--mode", "g2")
+    assert code == 0, result
+    assert result.get("count") == 1

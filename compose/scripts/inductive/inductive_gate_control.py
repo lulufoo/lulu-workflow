@@ -3,7 +3,7 @@
 
 Manages the G1->G2->G3->G4 gate state machine for the inductive runner.
 Delegates section-SoT operations to inductive_g3_section_control.py via
-subprocess ($INDUCTIVE_G3_SECTION_CTL). G2/G3 grounding reads are facade
+subprocess ($INDUCTIVE_G3_SECTION_CTL). G3 grounding reads are facade
 subcommands that subprocess to artifact controls.
 
 Subcommands:
@@ -12,13 +12,11 @@ Subcommands:
                         optional DQI architecture_view (resume aid, not SoT)
     gate-close          Close a gate with payload validation and prereq check
     gate-reopen         Reopen a gate; downstream gates reset to pending
-                        (also deletes the stale g2/g4 report where applicable).
+                        (also deletes the stale g4 report where applicable).
                         --sections is accepted only with --gate G3: atomically
                         rewinds each listed section (subprocess to section
                         control) in the same call, so a G3 reopen can never be
                         left half-paired (gate reopened, section still 'cleared').
-    g2-check-report     Facade: subprocess to inductive_g2_control check-g2-report
-    g2-list-report      Facade: subprocess to inductive_g2_control list-g2-report
     grounding-check     Facade: subprocess to inductive_g3_grounding_control (shallow)
     grounding-list      Facade: subprocess to inductive_g3_grounding_control (shallow)
     deep-grounding-list Facade: subprocess to inductive_g3_grounding_control
@@ -28,7 +26,7 @@ Subcommands:
 
 Payload per gate:
     G1: {"user_confirmed": true} required; architecture_view/shape_constraints optional resume aid only
-    G2: {}  (absent report auto-passes; present report requires verdict=ok)
+    G2: Topic Loop exit — topic_loop_done + design_goal_met + human_exit_confirmed
     G3: must pass check-coverage (delegated to section control)
     G4: none accepted from the caller — report-driven. gate-close internally
         merges structural {reforms_shape, shape_absorbed} (recompose-check)
@@ -100,11 +98,6 @@ def _dqi_path(out_dir: Path) -> Path:
 def _section_ctl(out_dir: Path) -> list[str]:
     """Return the base argv for invoking inductive_g3_section_control.py."""
     script = _HERE / "inductive_g3_section_control.py"
-    return [sys.executable, str(script), "--out-dir", str(out_dir)]
-
-
-def _g2_ctl(out_dir: Path) -> list[str]:
-    script = _HERE / "inductive_g2_control.py"
     return [sys.executable, str(script), "--out-dir", str(out_dir)]
 
 
@@ -529,18 +522,6 @@ def cmd_gate_reopen(out_dir: Path, args: argparse.Namespace) -> None:
     updated = reopen_gate(state, gate)
     save_gate_state(gate_path, updated)
 
-    deleted_g2_report = False
-    if gate == "G1":
-        cmd = _g2_ctl(out_dir) + ["delete-g2-report"]
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        try:
-            payload = json.loads(result.stdout)
-        except json.JSONDecodeError:
-            _fail(result.stdout or result.stderr or "delete-g2-report failed")
-        if result.returncode != 0 or not payload.get("ok"):
-            _fail(payload.get("error") or "delete-g2-report failed")
-        deleted_g2_report = bool(payload.get("deleted"))
-
     # G4's semantic report is downstream of both G1 and G3 — a stale report must
     # not be readable as if it still reflects the post-fix state.
     deleted_g4_report = False
@@ -566,7 +547,6 @@ def cmd_gate_reopen(out_dir: Path, args: argparse.Namespace) -> None:
     _ok({
         "reopened": gate,
         "active_gate": updated["active_gate"],
-        "deleted_g2_report": deleted_g2_report,
         "deleted_g4_report": deleted_g4_report,
         "rewound_sections": rewound_sections,
         "note": (
@@ -574,14 +554,6 @@ def cmd_gate_reopen(out_dir: Path, args: argparse.Namespace) -> None:
             "resolve the issue then call gate-close again"
         ),
     })
-
-
-def cmd_g2_check_report(out_dir: Path, _args: argparse.Namespace) -> None:
-    _forward_ctl(_g2_ctl(out_dir), "check-g2-report")
-
-
-def cmd_g2_list_report(out_dir: Path, _args: argparse.Namespace) -> None:
-    _forward_ctl(_g2_ctl(out_dir), "list-g2-report")
 
 
 def cmd_g4_check_report(out_dir: Path, _args: argparse.Namespace) -> None:
@@ -719,17 +691,6 @@ def _build_parser() -> argparse.ArgumentParser:
              "atomically pairs gate-reopen with rewind-section",
     )
 
-    sub.add_parser(
-        "g2-check-report",
-        help="Validate g2-topology-report (facade)",
-        parents=[conv_id_parent],
-    )
-    sub.add_parser(
-        "g2-list-report",
-        help="Read g2-topology-report summary (facade)",
-        parents=[conv_id_parent],
-    )
-
     p = sub.add_parser(
         "grounding-check",
         help="Validate sweep grounding receipts (facade)",
@@ -777,8 +738,6 @@ def main() -> None:
         "resolve-context": cmd_resolve_context,
         "gate-close": cmd_gate_close,
         "gate-reopen": cmd_gate_reopen,
-        "g2-check-report": cmd_g2_check_report,
-        "g2-list-report": cmd_g2_list_report,
         "grounding-check": cmd_grounding_check,
         "grounding-list": cmd_grounding_list,
         "deep-grounding-list": cmd_deep_grounding_list,

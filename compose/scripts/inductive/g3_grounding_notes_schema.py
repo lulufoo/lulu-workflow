@@ -13,7 +13,8 @@ Adjustable thinness limits (schema constants):
 Required fields per receipt:
   id           GN-NNN (unique, monotone)
   sweep        int — which Gate 3 sweep produced this
-  mode         shallow | deep | g2
+  mode         shallow | deep  (legacy receipts may still carry mode=g2 on disk;
+               new writes reject g2)
   section      section key (required for shallow/deep)
   frontier_kw  int 0..4 — KW altitude at grounding time
   code_refs    list of "file::symbol (line)" strings
@@ -41,7 +42,12 @@ MAX_FACT_CHARS = 200
 MAX_FACTS = 8
 MAX_CODE_REFS = 12
 
-GROUNDING_MODES = frozenset({"shallow", "deep", "g2"})
+# Write path (record/append). Legacy mode=g2 is read-tolerated only.
+GROUNDING_WRITE_MODES = frozenset({"shallow", "deep"})
+# Load/list: allow historical g2 receipts so old ledgers remain readable.
+GROUNDING_READ_MODES = frozenset({"shallow", "deep", "g2"})
+# Back-compat alias used by callers that only need the write set.
+GROUNDING_MODES = GROUNDING_WRITE_MODES
 PRODUCED_BY = frozenset({"subagent", "inline"})
 
 _REQUIRED_FIELDS = (
@@ -69,7 +75,9 @@ def init_ledger() -> dict[str, Any]:
     return {"version": "1", "receipts": [], "updated_at": _now_iso()}
 
 
-def validate_receipt(receipt: dict[str, Any]) -> list[str]:
+def validate_receipt(
+    receipt: dict[str, Any], *, for_write: bool = False
+) -> list[str]:
     errors: list[str] = []
     rid = str(receipt.get("id", ""))
 
@@ -81,7 +89,8 @@ def validate_receipt(receipt: dict[str, Any]) -> list[str]:
         errors.append(f"receipt id must start with 'GN-', got {rid!r}")
 
     mode = str(receipt.get("mode", "")).lower()
-    if mode not in GROUNDING_MODES:
+    allowed = GROUNDING_WRITE_MODES if for_write else GROUNDING_READ_MODES
+    if mode not in allowed:
         errors.append(f"receipt {rid!r}: invalid mode {mode!r}")
 
     produced = str(receipt.get("produced_by", "")).lower()
@@ -235,7 +244,7 @@ def append_receipts(
             )
         if not normalized["id"]:
             normalized["id"] = next_receipt_id({"receipts": existing})
-        errors = validate_receipt(normalized)
+        errors = validate_receipt(normalized, for_write=True)
         if errors:
             raise ValueError("; ".join(errors))
         existing.append(normalized)

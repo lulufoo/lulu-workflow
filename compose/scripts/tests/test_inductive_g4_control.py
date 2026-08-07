@@ -83,17 +83,6 @@ def _g1_payload() -> str:
     )
 
 
-def _ok_g2_report() -> str:
-    return json.dumps(
-        {
-            "verdict": "ok",
-            "facts": ["Spine modules exist at expected topology level"],
-            "divergences": [],
-            "checklist": [],
-            "produced_by": "subagent",
-        }
-    )
-
 
 def _ok_recompose_report(**overrides) -> dict:
     base = {
@@ -133,23 +122,6 @@ def _drive_to_g4(tmp_path: Path) -> None:
 
     code, _ = _run_gate(tmp_path, "gate-close", "--gate", "G1", "--payload", _g1_payload())
     assert code == 0
-
-    res = subprocess.run(
-        [
-            sys.executable,
-            str(_INDUCTIVE_DIR / "inductive_g2_control.py"),
-            "--out-dir",
-            str(tmp_path),
-            "--conversation-id",
-            _SUBAGENT_CONV,
-            "record-g2-report",
-            "--json",
-            _ok_g2_report(),
-        ],
-        capture_output=True,
-        text=True,
-    )
-    assert res.returncode == 0, res.stdout + res.stderr
 
     code, _ = _run_gate(tmp_path, "gate-close", "--gate", "G2", "--payload", _g2_close_payload())
     assert code == 0
