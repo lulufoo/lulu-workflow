@@ -3,7 +3,8 @@
 
 Split confirmed conclusions into proposed facts (shown in dialogue — no
 staging file). Human confirm|cancel is whole-batch. Writes only via
-``commit --confirm``.
+``commit --confirm``. Proposed facts arrive via ``--facts-json`` or stdin
+only (no ``--facts-file`` staging transport).
 
 Subcommands: commit · cancel
 
@@ -64,9 +65,8 @@ def _next_fact_id(facts: list[dict[str, Any]]) -> int:
 
 
 def _load_entries(args: argparse.Namespace) -> list[dict[str, Any]]:
-    if args.facts_file:
-        raw = Path(args.facts_file).read_text(encoding="utf-8")
-    elif args.facts_json:
+    # T2: proposed batch stays in dialogue / CLI args — no staging file transport
+    if args.facts_json:
         raw = args.facts_json
     else:
         raw = sys.stdin.read()
@@ -159,8 +159,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Required; mechanical gate for human whole-batch confirm",
     )
-    p.add_argument("--facts-json", default=None, help="JSON array of {text,lens_tags}")
-    p.add_argument("--facts-file", default=None, help="Path to JSON array")
+    p.add_argument(
+        "--facts-json",
+        default=None,
+        help="JSON array of {text,lens_tags} (or pass the array on stdin)",
+    )
     p.set_defaults(func=cmd_commit)
 
     p = sub.add_parser("cancel", help="Whole-batch cancel (no write)")
