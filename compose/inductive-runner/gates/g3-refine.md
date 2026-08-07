@@ -1,10 +1,12 @@
 > Part of inductive-runner · gate execution entry · loaded from `../SKILL.md`
 
-# Gate 3 — Refine (dialogue flow)
+# Gate 3 — Gap-check (dialogue flow; archive-9.0)
 
-**Prerequisites:** `$INDUCTIVE_GATE_CTL resolve-context` reports `active_gate` is `G3` (G2 closed).
+**Prerequisites:** `$INDUCTIVE_GATE_CTL resolve-context` reports `active_gate` is `G3` (G2 Topic Loop closed).
 
-**Goal:** refine section SoT toward Exit. This file orchestrates **when** each capability is used; **what** each capability is (means / tools / provenance) lives in `../references/g3-capabilities.md`; **how** it sounds to the user follows `../references/inductive-presentation.md` (L1 lexicon SSOT — all user-facing labels). **Do not** auto-sweep after Shape-confirm — wait for the user.
+**Goal (archive-9.0):** **gap-check / 查漏** after Topic Loop — unattached facts, empty leaves, blocking opens, shape drift. Prefer returning to G2 for full topic discussion rather than resurrecting section dual-lane as the main hub. Existing Class 1/2 tools remain available for processing opens. **Do not** auto-sweep after Shape-confirm — wait for the user.
+
+Legacy refine lanes below still describe tool availability; default user-facing posture is gap-check checklist, not section patrol.
 
 **Setup:** breadth = `section-registry.section_order` (init lens set); depth = per-section `frontier_kw` (the ruler). Mutations via `$INDUCTIVE_G3_SECTION_CTL` only after `activate-section`.
 

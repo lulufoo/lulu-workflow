@@ -23,6 +23,9 @@
    - **Hard close criterion:** user confirmed.  
    - `gate-close G1` records `checkpoint --name shape` (authoritative mark + best-effort `checkpoint_git_sha`). Do **not** call `checkpoint` separately before close — one owner.  
    - Optional resume aid only: you may also include `architecture_view` + `shape_constraints` in the payload for DQI; if present, fields must be complete. **Never** treat DQI as SoT or as G4's shape baseline.
-6. Advance to G2 (usually auto-close — see `g2-grounding.md`).
+6. Advance to G2 (Topic Loop — see `g2-topic-loop.md`). After G1 close succeeds, **before** treating G2 as usable:
+   1. `$NARRATIVE_ARC_DRAFT_CTL ensure-skeleton --revision-dir "$INDUCTIVE_OUT_DIR"` (agent may then refine via `write`)
+   2. `$NARRATIVE_ARC_DRAFT_CTL validate --revision-dir "$INDUCTIVE_OUT_DIR"`
+   3. `$NARRATIVE_ARC_VIEWER_CTL mount --revision-dir "$INDUCTIVE_OUT_DIR"` → present returned `url` (paste only; do not auto-open)
 
-**After close:** default-present the confirmed shape view once more, then **stop and await user** — do **not** auto-run detect/sweep. View (Class 3, sensing) and Class 1A discovery (collision / direct / view-derived) remain available anytime after Seed (parent SKILL); neither is Gate-3-only.
+**After close:** default-present the confirmed shape view once more, then enter Topic Loop orchestration (`g2-topic-loop.md`). Do **not** auto-close G2. View (Class 3, sensing) and Class 1A discovery remain available anytime after Seed (parent SKILL).

@@ -291,7 +291,7 @@ def cmd_gate_close(out_dir: Path, args: argparse.Namespace) -> None:
     if gate == "G1":
         _validate_g1_payload(payload)
     elif gate == "G2":
-        _validate_g2_close(out_dir)
+        _validate_g2_close(out_dir, payload)
     elif gate == "G3":
         _validate_g3_close(out_dir)
     elif gate == "G4":
@@ -349,25 +349,28 @@ def _validate_g1_payload(payload: dict[str, Any]) -> None:
         _fail(f"architecture_view missing fields: {missing}")
 
 
-def _validate_g2_close(out_dir: Path) -> None:
-    """G2 folded into per-open attach-code-refs (design Turn 44 / plan C2).
+def _validate_g2_close(out_dir: Path, payload: dict[str, Any]) -> None:
+    """G2 = Topic Loop (archive-9.0). Close only after explicit topic-loop exit.
 
-    If ``g2-topology-report.json`` is absent → auto-pass (independent G2 gate
-    no longer required; Shape-confirm + Audit cover the early global check).
-    If present → still require ``verdict=ok`` (legacy / optional topology pass).
+    Requires ``topic_loop_done: true`` and a valid process draft
+    (``_narrative-arc.draft.json`` with ``status=draft``) under ``out_dir``.
+    Legacy topology report auto-pass is retired for this spine.
     """
-    report_path = Path(out_dir) / "g2-topology-report.json"
-    if not report_path.exists():
-        return
+    if not payload.get("topic_loop_done"):
+        _fail("G2 payload must include 'topic_loop_done': true (Topic Loop exit)")
 
-    cmd = _g2_ctl(out_dir) + ["check-g2-report"]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    # out_dir is the inductive revision/slice bundle (same place as _facts.json)
+    draft_path = Path(out_dir) / "_narrative-arc.draft.json"
+    if not draft_path.is_file():
+        _fail(f"G2 close requires process draft: {draft_path}")
     try:
-        payload = json.loads(result.stdout)
-    except json.JSONDecodeError:
-        _fail(result.stdout or result.stderr or "G2 gate-close rejected: g2 check failed")
-    if result.returncode != 0 or not payload.get("ok"):
-        _fail(payload.get("error") or "G2 gate-close rejected: g2 topology report check failed")
+        draft = json.loads(draft_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        _fail(f"invalid process draft JSON: {exc}")
+    if str(draft.get("kind", "")).strip() != "narrative-arc-draft":
+        _fail("process draft kind must be 'narrative-arc-draft'")
+    if str(draft.get("status", "")).strip() != "draft":
+        _fail("process draft status must be 'draft'")
 
 
 def _validate_g3_close(out_dir: Path) -> None:

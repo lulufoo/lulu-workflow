@@ -65,6 +65,9 @@ PROVENANCE_TRACES     = $INDUCTIVE_OUT_DIR/provenance-trace-{intent,scope,norm}.
 | `$INDUCTIVE_GATE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_gate_control.py" --out-dir "$INDUCTIVE_OUT_DIR"` |
 | `$INDUCTIVE_G3_SECTION_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_g3_section_control.py" --out-dir "$INDUCTIVE_OUT_DIR" --project-root "$(pwd)" --compose-profile "$COMPOSE_PROFILE" --compose-cycle-id "$CYCLE_ID"` |
 | `$PROVENANCE_GATE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/provenance_gate_control.py" --out-dir "$INDUCTIVE_OUT_DIR"` |
+| `$NARRATIVE_ARC_DRAFT_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/narrative_arc_draft_control.py"` |
+| `$TOPIC_FOCUS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/topic_focus_control.py"` |
+| `$NARRATIVE_ARC_VIEWER_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/narrative_arc_viewer_control.py"` |
 
 Fetch schedule:
 - **Before Seed / Shape-confirm:** `$FETCH_COMPOSE --role section-registry` → `SECTION_REGISTRY` (`section_order` → `init-session --sections`); `$FETCH_COMPOSE --role inductive-scan-criteria` → `SCAN_CRITERIA` (methods / shape hints / mandatory)
@@ -88,10 +91,10 @@ Inductive work discovers missing design decisions (parts → whole). **SoT = fac
 
 1. **Seed** — Init from `SECTION_REGISTRY.section_order` (`gates/g1-shape.md`). Read `$SCOPE_REF` as source material and, per lens: `activate-section` → substance? `seed-decision`+`set-frontier` : (`optional` → `skip-section` / `required` → leave for G3). **I4:** never invent beyond scope. Git commit `"seeded"`.
 2. **Shape-confirm (I11)** — After Seed: `view --synthesis on --granularity <arch-overview hint>` → user confirms/corrects → corrections via commands (+ `set-frontier` when lens facts change) → re-view until confirmed → `gate-close --gate G1` (records `checkpoint --name shape`) → **stop and await user**. Do **not** auto-detect.
-3. **G2 folded** — `gate-close G2` auto-passes without topology report. Per-open grounding = `attach-code-refs` inside Class 2 processing (optional `g3-deep-grounding-runner`).
-4. **User-driven capabilities** (below) until Exit.
+3. **G2 Topic Loop** (archive-9.0) — after G1: ensure draft + mount viewer; run topic `define→discuss→summarize` with `$TOPIC_FOCUS_CTL` / `$NARRATIVE_ARC_DRAFT_CTL`. Close only with user exit: `gate-close G2 --payload '{"topic_loop_done": true}'`.
+4. **G3 gap-check** — leak scan (unattached facts, empty leaves, blocking opens); not section dual-lane main discovery. Per-open grounding = `attach-code-refs` when processing opens.
 5. **Exit** — run `check-coverage`: ∀ init lens cleared∨skipped ∧ no (blocking∧open) ∧ (if demand manifest: all fulfilled∨deferred).
-6. **Audit (user-triggered):** G4 internal hard · G5 external soft → Handoff (`view --synthesis off` / Initializing).
+6. **Audit (user-triggered):** G4 internal hard · G5 external soft → Handoff (`view --synthesis off` / Initializing). **G4 unchanged this wave.**
 
 ### Capability surface
 
@@ -109,7 +112,7 @@ Provenance: opens stamp `trigger` × `means` (feeds G5 / I10); seed facts use `o
 
 **Capability surface is primary.** Gates are checkpoints / audits around it:
 
-**Seed + Shape-confirm (G1) → G2 (auto/folded) → Refine (G3: two lanes, see `gates/g3-refine.md`) → Audit G4 → Audit G5**
+**Seed + Shape-confirm (G1) → Topic Loop (G2) → Gap-check (G3) → Audit G4 → Audit G5**
 
 ### Gate routing
 
@@ -121,8 +124,8 @@ Do NOT rely on memory for gate execution steps.
 | Gate | File | Load condition |
 |------|------|-----------------|
 | G1 — Shape-confirm | `gates/g1-shape.md` | Session start or `active_gate=G1` |
-| G2 — Folded grounding | `gates/g2-grounding.md` | G1 closed — usually auto-close |
-| G3 — Refine (dialogue flow) | `gates/g3-refine.md` | G2 closed |
+| G2 — Topic Loop | `gates/g2-topic-loop.md` | G1 closed; draft required before loop |
+| G3 — Gap-check | `gates/g3-refine.md` | G2 closed (Topic Loop exited) |
 | G4 — Internal audit (hard) | `gates/g4-recompose.md` | User ready; G3 exit met |
 | G5 — External audit (soft) | `gates/g5-provenance.md` | G4 closed |
 

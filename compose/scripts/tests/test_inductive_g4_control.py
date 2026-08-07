@@ -20,6 +20,26 @@ sys.path.insert(0, str(_INDUCTIVE_DIR))
 from g4_recompose_report_schema import MAX_FACTS, validate_report  # noqa: E402
 
 
+
+def _write_topic_draft(out_dir: Path) -> None:
+    """archive-9.0: G2 close requires process draft + topic_loop_done."""
+    path = Path(out_dir) / "_narrative-arc.draft.json"
+    path.write_text(
+        """{
+  "version": "1",
+  "kind": "narrative-arc-draft",
+  "status": "draft",
+  "tree": {"id": "root", "title": "Root", "children": [{"id": "leaf-a", "title": "A", "children": []}]},
+  "leaves": [{"id": "leaf-a", "title": "A", "fact_ids": []}],
+  "meta": {"leaf_mounts": {"leaf-a": "seed"}, "note": "", "source": "test"}
+}
+""",
+        encoding="utf-8",
+    )
+
+def _g2_close_payload() -> str:
+    return '{"topic_loop_done": true}'
+
 def _run_g4(out_dir: Path, *args: str) -> tuple[int, dict]:
     res = subprocess.run(
         [sys.executable, str(_G4_CTL), "--out-dir", str(out_dir), *args],
@@ -144,7 +164,8 @@ def _drive_to_g4(tmp_path: Path) -> None:
     )
     assert res.returncode == 0, res.stdout + res.stderr
 
-    code, _ = _run_gate(tmp_path, "gate-close", "--gate", "G2")
+    _write_topic_draft(tmp_path)
+    code, _ = _run_gate(tmp_path, "gate-close", "--gate", "G2", "--payload", _g2_close_payload())
     assert code == 0
 
     code, _ = _run_section(tmp_path, "activate-section", "--section", "I")

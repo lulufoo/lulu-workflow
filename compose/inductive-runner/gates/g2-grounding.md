@@ -1,16 +1,15 @@
 > Part of inductive-runner · gate execution entry · loaded from `../SKILL.md`
 
-# Gate 2 — Grounding (FOLDED)
+# Gate 2 — (retired folded grounding)
 
-**Status (section-SoT, design Turn 44):** Independent G2 is **folded** into Class 2's per-open `attach-code-refs` step. Early global topology check is covered by **Shape-confirm** + later **Audit (G4/G5)**.
+**Superseded by archive-9.0 Topic Loop.**
 
-**Prerequisites:** `$INDUCTIVE_GATE_CTL resolve-context` reports `active_gate` is `G2` (G1 closed).
+Load and follow **`g2-topic-loop.md`** instead.
 
-**What to do:**
+Legacy topology report / auto-close-without-payload is **retired**. Closing G2 requires:
 
-1. **Default (no topology report):** Call `$INDUCTIVE_GATE_CTL gate-close --gate G2` with **no payload**. Mechanical close **auto-passes** when `g2-topology-report.json` is absent.
-2. **Optional legacy topology pass (deprecated):** Prefer **not** to dispatch `g2-grounding-runner`. If a report already exists, close still requires `verdict=ok`. New work should ground during Class 2 processing via `attach-code-refs` instead. The legacy runner, if used, must read shape claims from `_facts.json` / checkpoint — not treat DQI `architecture_view` as SoT.
+```bash
+$INDUCTIVE_GATE_CTL gate-close --gate G2 --payload '{"topic_loop_done": true}'
+```
 
-**Do not** treat G2 as a user-facing audit or exhaustive line-level grounding.
-
-**Close criterion:** Gate advances to G3. Report optional; absent report = pass.
+with a valid `_narrative-arc.draft.json` present under `$INDUCTIVE_OUT_DIR`.
