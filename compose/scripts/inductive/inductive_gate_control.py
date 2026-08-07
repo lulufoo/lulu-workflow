@@ -350,27 +350,39 @@ def _validate_g1_payload(payload: dict[str, Any]) -> None:
 
 
 def _validate_g2_close(out_dir: Path, payload: dict[str, Any]) -> None:
-    """G2 = Topic Loop (archive-9.0). Close only after explicit topic-loop exit.
+    """G2 = Topic Loop (archive-10.0). Design-convergence exit.
 
-    Requires ``topic_loop_done: true`` and a valid process draft
-    (``_narrative-arc.draft.json`` with ``status=draft``) under ``out_dir``.
-    Legacy topology report auto-pass is retired for this spine.
+    Requires ``topic_loop_done``, ``design_goal_met`` (AI D1+D2 gate), and
+    ``human_exit_confirmed``. Does **not** require a process draft /
+    draft-as-topic-tree. Blocks when ``_topic-current.json`` has an
+    unconfirmed conclusion.
     """
     if not payload.get("topic_loop_done"):
         _fail("G2 payload must include 'topic_loop_done': true (Topic Loop exit)")
+    if not payload.get("design_goal_met"):
+        _fail(
+            "G2 payload must include 'design_goal_met': true "
+            "(AI D1+D2 design-goal check passed)",
+        )
+    if not payload.get("human_exit_confirmed"):
+        _fail(
+            "G2 payload must include 'human_exit_confirmed': true "
+            "(human confirmed exit after design_goal_met)",
+        )
 
-    # out_dir is the inductive revision/slice bundle (same place as _facts.json)
-    draft_path = Path(out_dir) / "_narrative-arc.draft.json"
-    if not draft_path.is_file():
-        _fail(f"G2 close requires process draft: {draft_path}")
-    try:
-        draft = json.loads(draft_path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
-        _fail(f"invalid process draft JSON: {exc}")
-    if str(draft.get("kind", "")).strip() != "narrative-arc-draft":
-        _fail("process draft kind must be 'narrative-arc-draft'")
-    if str(draft.get("status", "")).strip() != "draft":
-        _fail("process draft status must be 'draft'")
+    topic_path = Path(out_dir) / "_topic-current.json"
+    if topic_path.is_file():
+        try:
+            topic = json.loads(topic_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            _fail(f"invalid _topic-current.json: {exc}")
+        conclusion = topic.get("conclusion")
+        if isinstance(conclusion, str) and conclusion.strip():
+            if not topic.get("conclusion_confirmed"):
+                _fail(
+                    "G2 close blocked: topic conclusion present but not confirmed "
+                    "(confirm-conclusion or clear topic first)",
+                )
 
 
 def _validate_g3_close(out_dir: Path) -> None:

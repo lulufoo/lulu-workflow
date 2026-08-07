@@ -89,6 +89,48 @@
         font-size: 13px;
       }
 
+      .stale-badge {
+        display: none;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: var(--amber);
+        color: #1a1200;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .stale-badge.is-on {
+        display: inline-block;
+      }
+
+      .orphan-box {
+        margin: 12px 28px 0;
+        padding: 12px 14px;
+        border: 1px solid #f0d59a;
+        border-radius: 10px;
+        background: var(--amber-soft);
+        color: var(--ink);
+        font-size: 13px;
+      }
+
+      .orphan-box[hidden] {
+        display: none !important;
+      }
+
+      .orphan-ids {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 8px;
+      }
+
+      .orphan-ids code {
+        padding: 2px 6px;
+        border-radius: 6px;
+        background: #fff;
+        font-size: 12px;
+      }
+
       .topic-toggle {
         padding: 8px 12px;
         color: #ffffff;
@@ -442,23 +484,31 @@
           <h1>Lulu-Design Viewer · Narrative Arc</h1>
         </div>
         <div class="topbar-spacer"></div>
-        <span id="source-state" class="source-state">Loading narrative arc…</span>
+        <span id="stale-badge" class="stale-badge" aria-live="polite">STALE · unattached facts</span>
+        <span id="source-state" class="source-state">Loading collaboration arc…</span>
         <button id="toggle-arc" class="topic-toggle" type="button" aria-expanded="true">
           Hide arc
         </button>
       </header>
 
+      <div id="orphan-box" class="orphan-box" hidden>
+        <strong>Unattached facts</strong>
+        <span id="orphan-count"></span>
+        <div id="orphan-ids" class="orphan-ids"></div>
+      </div>
+
       <main class="workspace">
         <section id="arc-panel" class="arc-panel">
           <div class="arc-panel-toolbar">
             <div class="arc-panel-heading">
-              <span>Growing narrative arc</span>
+              <span>Collaboration display arc</span>
               <span id="tree-count"></span>
             </div>
             <div class="filter-row">
               <button class="filter is-active" type="button" data-mount="all">All</button>
               <button class="filter" type="button" data-mount="seed">Seed</button>
               <button class="filter" type="button" data-mount="deepen">Deepen</button>
+              <button class="filter" type="button" data-mount="regen">Regen</button>
               <button class="filter" type="button" data-mount="add">Add</button>
             </div>
           </div>
@@ -514,15 +564,21 @@
       window.dispatchEvent(new Event("mermaid-ready"));
     </script>
     <script>
-      const ARC_SOURCE = "./_narrative-arc.draft.json";
-      const FACTS_SOURCE = "./_facts.json";
+      const CONFIG_SOURCE = "./_lulu-design-viewer.json";
+      const FORMAL_BANNED = "./_narrative-arc.json";
+      const DEFAULT_ARC = "./_narrative-arc.collab.json";
+      const DEFAULT_FACTS = "./_facts.json";
       const POLL_MS = 1000;
       let mermaidRenderSequence = 0;
 
       const state = {
+        arcSource: DEFAULT_ARC,
+        factsSource: DEFAULT_FACTS,
+        configReady: false,
         arc: null,
         factsById: new Map(),
         leafById: new Map(),
+        orphanIds: [],
         selectedLeafId: null,
         selectedFactId: null,
         mountFilter: "all",
@@ -532,6 +588,10 @@
 
       const els = {
         sourceState: document.getElementById("source-state"),
+        staleBadge: document.getElementById("stale-badge"),
+        orphanBox: document.getElementById("orphan-box"),
+        orphanCount: document.getElementById("orphan-count"),
+        orphanIds: document.getElementById("orphan-ids"),
         toggleArc: document.getElementById("toggle-arc"),
         arcPanel: document.getElementById("arc-panel"),
         treeCount: document.getElementById("tree-count"),
@@ -549,6 +609,51 @@
         openSection: document.getElementById("open-section"),
         openItems: document.getElementById("open-items"),
       };
+
+      function computeOrphans(arc, facts) {
+        const attached = new Set();
+        for (const leaf of arc?.leaves || []) {
+          for (const id of leaf?.fact_ids || []) attached.add(id);
+        }
+        return (facts || [])
+          .map((f) => f?.id)
+          .filter((id) => id && !attached.has(id));
+      }
+
+      function renderOrphans() {
+        const orphans = state.orphanIds;
+        const stale = orphans.length > 0;
+        els.staleBadge.classList.toggle("is-on", stale);
+        els.orphanBox.hidden = !stale;
+        if (!stale) {
+          els.orphanCount.textContent = "";
+          els.orphanIds.innerHTML = "";
+          return;
+        }
+        els.orphanCount.textContent = ` · ${orphans.length}`;
+        els.orphanIds.innerHTML = orphans
+          .map((id) => `<code>${escapeHtml(id)}</code>`)
+          .join("");
+      }
+
+      async function ensureConfig() {
+        if (state.configReady) return;
+        try {
+          const cfg = await fetchJson(CONFIG_SOURCE, Date.now());
+          const arc = String(cfg.arc_source || DEFAULT_ARC).trim() || DEFAULT_ARC;
+          if (arc === FORMAL_BANNED || arc.endsWith("/_narrative-arc.json")) {
+            throw new Error("Formal _narrative-arc.json hard-banned as viewer source");
+          }
+          state.arcSource = arc;
+          state.factsSource = String(cfg.facts_source || DEFAULT_FACTS).trim() || DEFAULT_FACTS;
+        } catch (err) {
+          // Missing config → collab default (never Formal)
+          state.arcSource = DEFAULT_ARC;
+          state.factsSource = DEFAULT_FACTS;
+          if (String(err.message || "").includes("hard-banned")) throw err;
+        }
+        state.configReady = true;
+      }
 
       function mountOf(leafId) {
         return state.arc?.meta?.leaf_mounts?.[leafId] || "seed";
@@ -792,22 +897,26 @@
 
       async function refresh(silent = false) {
         try {
+          await ensureConfig();
           const token = Date.now();
           const [arc, facts] = await Promise.all([
-            fetchJson(ARC_SOURCE, token),
-            fetchJson(FACTS_SOURCE, token),
+            fetchJson(state.arcSource, token),
+            fetchJson(state.factsSource, token),
           ]);
-          const payload = JSON.stringify({ arc, facts });
+          const payload = JSON.stringify({ arc, facts, src: state.arcSource });
           if (payload === state.lastPayload) {
-            if (!silent) els.sourceState.textContent = "Narrative arc unchanged";
+            if (!silent) els.sourceState.textContent = "Collaboration arc unchanged";
             return;
           }
           state.lastPayload = payload;
+          state.orphanIds = computeOrphans(arc, facts);
           applyArc(arc, facts, { preserveSelection: silent || !!state.selectedLeafId });
-          const summary = arc.meta?.mount_summary || {};
-          els.sourceState.textContent = `Arc loaded · facts ${state.factsById.size} · seed ${summary.seed_leaves?.length || 0} · deepen ${summary.deepened_leaves?.length || 0} · add ${summary.added_leaves?.length || 0}`;
+          renderOrphans();
+          const kind = arc.kind || "arc";
+          els.sourceState.textContent = `${kind} · ${state.arcSource} · facts ${state.factsById.size} · orphans ${state.orphanIds.length}`;
         } catch (err) {
           els.sourceState.textContent = `Load failed: ${err.message || err}`;
+          els.staleBadge.classList.remove("is-on");
         }
       }
 

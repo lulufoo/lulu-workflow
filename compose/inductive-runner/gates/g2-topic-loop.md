@@ -1,50 +1,60 @@
 > Part of inductive-runner · gate execution entry · loaded from `../SKILL.md`
 
-# Gate 2 — Topic Loop (archive-9.0)
+# Gate 2 — Topic Loop (archive-10.0)
 
-**Status:** Replaces folded grounding. G2 is the **Topic Loop** main discovery cycle (single tree dual-role narrative axis).
+**Status:** Design-convergence dialogue. **Not** draft-as-topic-tree. Production ⊥ display.
 
 **Prerequisites:** `$INDUCTIVE_GATE_CTL resolve-context` reports `active_gate` is `G2` (G1 closed).
 
-## Hard enter (after G1)
+## Goal
 
-1. Build process draft from current facts (AI may refine; mechanical skeleton OK first):
+Converge design via **dialogue** under Domain `cognitive_frame` (D1) + `intent_anchor` (D2). AI topic proposals are guidance (coarse→fine); human must explicitly adopt. Hand facts only via **fact-settle** after conclusion confirm.
 
-```bash
-$NARRATIVE_ARC_DRAFT_CTL ensure-skeleton --revision-dir "$INDUCTIVE_OUT_DIR"
+## Loop (What structure — not a hard dialogue lock)
+
+```text
+converge / adopt topic → clarify → (persist topic) → solve → summarize → human confirms conclusion → fact-settle
 ```
 
-Agent may then `$NARRATIVE_ARC_DRAFT_CTL write` a richer draft (`kind=narrative-arc-draft`, `status=draft`). Validate:
+1. Load D1+D2 from Domain (shared traction for dialogue + exit check).
+2. Dialogue discovers topics (human may propose; AI may guide propose). **Adopt = human explicit.**
+3. After clarify: persist current topic:
 
 ```bash
-$NARRATIVE_ARC_DRAFT_CTL validate --revision-dir "$INDUCTIVE_OUT_DIR"
+$TOPIC_CURRENT_CTL set --revision-dir "$INDUCTIVE_OUT_DIR" --title "<title>" --scope "<one-line scope>"
 ```
 
-2. Mount Viewer (prints URL only — do not auto-open browser):
+4. Solve → summarize → set conclusion → human confirms:
 
 ```bash
-$NARRATIVE_ARC_VIEWER_CTL mount --revision-dir "$INDUCTIVE_OUT_DIR"
+$TOPIC_CURRENT_CTL set-conclusion --revision-dir "$INDUCTIVE_OUT_DIR" --text "<conclusion>"
+$TOPIC_CURRENT_CTL confirm-conclusion --revision-dir "$INDUCTIVE_OUT_DIR"
 ```
 
-Present the returned `url` to the user for paste into Cursor browser.
+5. Hand off to fact-settle (dialogue shows proposed list; no staging file):
 
-3. Topic Loop (see archive-9.0 T3): for each focused leaf run `define → discuss → summarize`.
-   - Routing: `$TOPIC_FOCUS_CTL set|clear|set-phase`
-   - Tree: `$NARRATIVE_ARC_DRAFT_CTL add-node|move|rename|deepen|attach-fact`
-   - Facts: existing `$INDUCTIVE_G3_SECTION_CTL` / facts write path; then `attach-fact`
-   - No focus → do not attach settled facts
-   - MVP: no delete topic
+```bash
+$FACT_SETTLE_CTL commit --revision-dir "$INDUCTIVE_OUT_DIR" --confirm --facts-json '[...]'
+# or: $FACT_SETTLE_CTL cancel --revision-dir "$INDUCTIVE_OUT_DIR"
+```
 
-4. Section `activate-section` is **not** the discussion router during G2.
+6. On commit `stale_signal`: optionally offer human-chosen collab-arc regenerate (do **not** auto-run):
+
+```bash
+$NARRATIVE_ARC_TOOL_CTL regenerate --revision-dir "$INDUCTIVE_OUT_DIR" --output-path "_narrative-arc.collab.json" --confirm
+$NARRATIVE_ARC_VIEWER_CTL mount --revision-dir "$INDUCTIVE_OUT_DIR" --arc-file "_narrative-arc.collab.json"
+```
+
+Refuse regenerate → continue with orphans OK. Viewer prints URL only.
+
+**Hard cut:** do **not** call `$NARRATIVE_ARC_DRAFT_CTL` / draft-as-topic-tree / `$TOPIC_FOCUS_CTL` (retired).
 
 ## Close G2 → G3 (gap-check)
 
-User explicitly exits Topic Loop. Prefer `focus` cleared. Then:
+AI checks design goal against D1+D2. Fail → **cannot** close. Pass → still need **human confirm exit**. No unconfirmed conclusion on topic. Then:
 
 ```bash
-$INDUCTIVE_GATE_CTL gate-close --gate G2 --payload '{"topic_loop_done": true}'
+$INDUCTIVE_GATE_CTL gate-close --gate G2 --payload '{"topic_loop_done": true, "design_goal_met": true, "human_exit_confirmed": true}'
 ```
 
-**Hard close criterion:** payload `topic_loop_done: true` **and** valid `_narrative-arc.draft.json` present.
-
-**Do not** auto-close G2 without user exit.
+**Do not** require collaboration/Formal arc for close. **Do not** auto-close without human exit.

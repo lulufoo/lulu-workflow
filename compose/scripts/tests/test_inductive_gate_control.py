@@ -20,24 +20,11 @@ _SUBAGENT_CONV = "22222222-2222-4222-8222-222222222222"
 
 
 
-def _write_topic_draft(out_dir: Path) -> None:
-    """archive-9.0: G2 close requires process draft + topic_loop_done."""
-    path = Path(out_dir) / "_narrative-arc.draft.json"
-    path.write_text(
-        """{
-  "version": "1",
-  "kind": "narrative-arc-draft",
-  "status": "draft",
-  "tree": {"id": "root", "title": "Root", "children": [{"id": "leaf-a", "title": "A", "children": []}]},
-  "leaves": [{"id": "leaf-a", "title": "A", "fact_ids": []}],
-  "meta": {"leaf_mounts": {"leaf-a": "seed"}, "note": "", "source": "test"}
-}
-""",
-        encoding="utf-8",
-    )
-
 def _g2_close_payload() -> str:
-    return '{"topic_loop_done": true}'
+    return (
+        '{"topic_loop_done": true, "design_goal_met": true, '
+        '"human_exit_confirmed": true}'
+    )
 
 def _run_gate(out_dir: Path, *args: str) -> tuple[int, dict]:
     res = subprocess.run(
@@ -319,7 +306,6 @@ def test_gate_close_accepts_hook_injected_conversation_id(tmp_path: Path):
     """hook_guard appends --conversation-id after subcommand args."""
     _seed_session(tmp_path)
     _run_gate(tmp_path, "gate-close", "--gate", "G1", "--payload", _g1_payload())
-    _write_topic_draft(tmp_path)
     code, result = _run_gate(
         tmp_path,
         "gate-close",
@@ -484,7 +470,6 @@ def test_gate_close_g2_uses_subprocess_not_import(tmp_path: Path):
     _seed_session(tmp_path)
     _run_gate(tmp_path, "gate-close", "--gate", "G1", "--payload", _g1_payload())
     _record_ok_g2_report(tmp_path)
-    _write_topic_draft(tmp_path)
     code, result = _run_gate(tmp_path, "gate-close", "--gate", "G2", "--payload", _g2_close_payload())
     assert code == 0, result
     assert result.get("closed") == "G2"
@@ -529,7 +514,6 @@ def _drive_single_section_to_g4(tmp_path: Path) -> None:
     code, _ = _run_gate(tmp_path, "gate-close", "--gate", "G1", "--payload", _g1_payload())
     assert code == 0
     _record_ok_g2_report(tmp_path)
-    _write_topic_draft(tmp_path)
     code, _ = _run_gate(tmp_path, "gate-close", "--gate", "G2", "--payload", _g2_close_payload())
     assert code == 0
 

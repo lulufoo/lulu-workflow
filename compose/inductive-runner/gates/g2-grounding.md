@@ -2,14 +2,14 @@
 
 # Gate 2 — (retired folded grounding)
 
-**Superseded by archive-9.0 Topic Loop.**
+**Superseded by archive-10.0 Topic Loop.**
 
 Load and follow **`g2-topic-loop.md`** instead.
 
-Legacy topology report / auto-close-without-payload is **retired**. Closing G2 requires:
+Legacy topology report / draft-as-topic-tree close is **retired**. Closing G2 requires:
 
 ```bash
-$INDUCTIVE_GATE_CTL gate-close --gate G2 --payload '{"topic_loop_done": true}'
+$INDUCTIVE_GATE_CTL gate-close --gate G2 --payload '{"topic_loop_done": true, "design_goal_met": true, "human_exit_confirmed": true}'
 ```
 
-with a valid `_narrative-arc.draft.json` present under `$INDUCTIVE_OUT_DIR`.
+No `_narrative-arc.draft.json` requirement.

@@ -23,24 +23,12 @@ from g2_topology_report_schema import (  # noqa: E402
 
 
 
-def _write_topic_draft(out_dir: Path) -> None:
-    """archive-9.0: G2 close requires process draft + topic_loop_done."""
-    path = Path(out_dir) / "_narrative-arc.draft.json"
-    path.write_text(
-        """{
-  "version": "1",
-  "kind": "narrative-arc-draft",
-  "status": "draft",
-  "tree": {"id": "root", "title": "Root", "children": [{"id": "leaf-a", "title": "A", "children": []}]},
-  "leaves": [{"id": "leaf-a", "title": "A", "fact_ids": []}],
-  "meta": {"leaf_mounts": {"leaf-a": "seed"}, "note": "", "source": "test"}
-}
-""",
-        encoding="utf-8",
-    )
-
 def _g2_close_payload() -> str:
-    return '{"topic_loop_done": true}'
+    """archive-10.0: Topic Loop exit = done + D1/D2 met + human confirm."""
+    return (
+        '{"topic_loop_done": true, "design_goal_met": true, '
+        '"human_exit_confirmed": true}'
+    )
 
 def _run_g2(out_dir: Path, *args: str) -> tuple[int, dict]:
     res = subprocess.run(
@@ -236,19 +224,31 @@ def test_list_g2_report_returns_summary(tmp_path: Path):
     assert len(result.get("facts", [])) == 1
 
 
-def test_gate_close_g2_requires_topic_loop_done_and_draft(tmp_path: Path):
-    """archive-9.0: G2 = Topic Loop; close needs draft + topic_loop_done."""
+def test_gate_close_g2_requires_design_goal_and_human_exit(tmp_path: Path):
+    """archive-10.0: G2 close needs topic_loop_done + design_goal_met + human_exit."""
     _seed_session(tmp_path, master_conv=_PARENT_CONV)
     code, _ = _run_gate(tmp_path, "gate-close", "--gate", "G1", "--payload", _g1_payload())
     assert code == 0
 
-    code, _ = _run_gate(tmp_path, "gate-close", "--gate", "G2", "--payload", _g2_close_payload())
-    assert code != 0  # missing draft
+    code, _ = _run_gate(
+        tmp_path,
+        "gate-close",
+        "--gate",
+        "G2",
+        "--payload",
+        '{"topic_loop_done": true}',
+    )
+    assert code != 0  # missing design_goal_met / human_exit_confirmed
 
-    _write_topic_draft(tmp_path)
-    code, result = _run_gate(tmp_path, "gate-close", "--gate", "G2", "--payload", _g2_close_payload())
+    # Draft-as-topic-tree must NOT be required
+    assert not (tmp_path / "_narrative-arc.draft.json").exists()
+
+    code, result = _run_gate(
+        tmp_path, "gate-close", "--gate", "G2", "--payload", _g2_close_payload()
+    )
     assert code == 0, result
     assert result.get("closed") == "G2" or result.get("active_gate") == "G3"
+
 
 def test_gate_close_g2_succeeds_with_ok_report(tmp_path: Path):
     _seed_session(tmp_path, master_conv=_PARENT_CONV)
@@ -262,10 +262,12 @@ def test_gate_close_g2_succeeds_with_ok_report(tmp_path: Path):
         json.dumps(_ok_report()),
     )
 
-    _write_topic_draft(tmp_path)
-    code, result = _run_gate(tmp_path, "gate-close", "--gate", "G2", "--payload", _g2_close_payload())
+    code, result = _run_gate(
+        tmp_path, "gate-close", "--gate", "G2", "--payload", _g2_close_payload()
+    )
     assert code == 0, result
     assert result.get("closed") == "G2"
+
 
 
 def test_delete_g2_report_removes_file(tmp_path: Path):

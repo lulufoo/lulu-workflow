@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
-"""Mount local static viewer for narrative-arc draft (archive-9.0 T5).
+"""Lulu-Design Viewer mount control (archive-10.0 T4).
 
 Subcommands: mount · status · stop
 
-- Syncs skill asset ``compose/assets/narrative-arc-viewer.html`` into the
-  active slice directory.
-- Serves that directory on ``127.0.0.1:8390``.
-- Prints URL only (does not open a browser).
+- Syncs ``compose/assets/narrative-arc-viewer.html`` into the active slice.
+- Writes ``_lulu-design-viewer.json`` with caller ``arc_source`` (collab only).
+- Hard-rejects Formal ``_narrative-arc.json`` as primary ARC_SOURCE.
+- Serves on ``127.0.0.1:8390``; prints URL only.
+- Mount conflict: reuse same root, else stop-old-then-start.
 
 CLI: ``python3 narrative_arc_viewer_control.py --help``
 
-Process how: docs/domain/archive/compose/archive-9.0/
+Process how: docs/domain/archive/compose/archive-10.0/
 """
 
 from __future__ import annotations
@@ -36,11 +37,16 @@ import kernel_bootstrap  # noqa: E402
 kernel_bootstrap.ensure_kernel_paths()
 
 from discussion_pointer_schema import active_slice_dir  # noqa: E402
+from narrative_arc_collab_schema import (  # noqa: E402
+    DEFAULT_COLLAB_BASENAME,
+    FORMAL_BASENAME,
+)
 
 DEFAULT_PORT = 8390
 VIEWER_NAME = "narrative-arc-viewer.html"
 ASSET = _COMPOSE / "assets" / VIEWER_NAME
 STATE_NAME = "_narrative-arc-viewer.server.json"
+CONFIG_NAME = "_lulu-design-viewer.json"
 
 
 def _slice(revision_dir: str) -> Path:
@@ -59,6 +65,10 @@ def _fail(message: str) -> int:
 
 def _state_path(slice_dir: Path) -> Path:
     return slice_dir / STATE_NAME
+
+
+def _config_path(slice_dir: Path) -> Path:
+    return slice_dir / CONFIG_NAME
 
 
 def _sync_asset(slice_dir: Path) -> Path:
@@ -88,11 +98,76 @@ def _load_state(slice_dir: Path) -> dict[str, Any] | None:
     return data if isinstance(data, dict) else None
 
 
+def _write_config(slice_dir: Path, arc_file: str) -> Path:
+    name = Path(arc_file).name
+    if name == FORMAL_BASENAME:
+        raise ValueError(
+            f"Formal {FORMAL_BASENAME} hard-banned as viewer primary source",
+        )
+    if "/" in arc_file.replace("\\", "/") and not arc_file.startswith("./"):
+        # allow relative basename or ./name only for static server
+        if Path(arc_file).is_absolute():
+            raise ValueError("arc-file must be a basename relative to slice dir")
+    rel = name if "/" not in arc_file.replace("\\", "/") else Path(arc_file).name
+    if rel == FORMAL_BASENAME:
+        raise ValueError(
+            f"Formal {FORMAL_BASENAME} hard-banned as viewer primary source",
+        )
+    cfg = {
+        "version": "1",
+        "arc_source": f"./{rel}",
+        "facts_source": "./_facts.json",
+    }
+    path = _config_path(slice_dir)
+    path.write_text(
+        json.dumps(cfg, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return path
+
+
+def _stop_pid(pid: int) -> None:
+    if pid and _pid_alive(pid):
+        os.kill(pid, signal.SIGTERM)
+        for _ in range(20):
+            if not _pid_alive(pid):
+                break
+            time.sleep(0.05)
+
+
+def _start_server(slice_dir: Path, port: int) -> int:
+    log_path = slice_dir / "_narrative-arc-viewer.server.log"
+    log_f = open(log_path, "a", encoding="utf-8")
+    proc = subprocess.Popen(
+        [sys.executable, "-m", "http.server", str(port), "--bind", "127.0.0.1"],
+        cwd=str(slice_dir),
+        stdout=log_f,
+        stderr=subprocess.STDOUT,
+        start_new_session=True,
+    )
+    time.sleep(0.3)
+    if proc.poll() is not None:
+        raise RuntimeError(f"failed to start http.server on {port}; see {log_path}")
+    state_payload = {
+        "pid": proc.pid,
+        "port": port,
+        "root": str(slice_dir),
+        "started_at": time.time(),
+    }
+    _state_path(slice_dir).write_text(
+        json.dumps(state_payload, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return proc.pid
+
+
 def cmd_mount(args: argparse.Namespace) -> int:
     slice_dir = _slice(args.revision_dir)
     port = int(args.port or DEFAULT_PORT)
+    arc_file = str(args.arc_file or DEFAULT_COLLAB_BASENAME).strip()
     try:
         viewer = _sync_asset(slice_dir)
+        cfg = _write_config(slice_dir, arc_file)
     except ValueError as exc:
         return _fail(str(exc))
 
@@ -109,35 +184,26 @@ def cmd_mount(args: argparse.Namespace) -> int:
                     "root": str(slice_dir),
                     "pid": state.get("pid"),
                     "viewer": str(viewer),
+                    "config": str(cfg),
+                    "arc_source": f"./{Path(arc_file).name}",
                 }
             )
-        return _fail(
-            f"port {port} already serving different root {root}; stop first",
-        )
+        # Different root on same port → stop-old-then-start
+        _stop_pid(int(state.get("pid") or 0))
+        _state_path(slice_dir).unlink(missing_ok=True)
+        # Also clear foreign state file if it lived under other root
+        foreign = Path(str(state.get("root") or "")) / STATE_NAME
+        if foreign.is_file() and foreign.resolve() != _state_path(slice_dir).resolve():
+            try:
+                foreign.unlink(missing_ok=True)
+            except OSError:
+                pass
 
-    # Start http.server in background
-    log_path = slice_dir / "_narrative-arc-viewer.server.log"
-    log_f = open(log_path, "a", encoding="utf-8")
-    proc = subprocess.Popen(
-        [sys.executable, "-m", "http.server", str(port), "--bind", "127.0.0.1"],
-        cwd=str(slice_dir),
-        stdout=log_f,
-        stderr=subprocess.STDOUT,
-        start_new_session=True,
-    )
-    time.sleep(0.3)
-    if proc.poll() is not None:
-        return _fail(f"failed to start http.server on {port}; see {log_path}")
-    state_payload = {
-        "pid": proc.pid,
-        "port": port,
-        "root": str(slice_dir),
-        "started_at": time.time(),
-    }
-    _state_path(slice_dir).write_text(
-        json.dumps(state_payload, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-    )
+    try:
+        pid = _start_server(slice_dir, port)
+    except RuntimeError as exc:
+        return _fail(str(exc))
+
     url = f"http://127.0.0.1:{port}/{VIEWER_NAME}?v={int(time.time())}"
     return _ok(
         {
@@ -145,8 +211,10 @@ def cmd_mount(args: argparse.Namespace) -> int:
             "reused": False,
             "url": url,
             "root": str(slice_dir),
-            "pid": proc.pid,
+            "pid": pid,
             "viewer": str(viewer),
+            "config": str(cfg),
+            "arc_source": f"./{Path(arc_file).name}",
         }
     )
 
@@ -178,8 +246,7 @@ def cmd_stop(args: argparse.Namespace) -> int:
     if not state:
         return _ok({"ok": True, "stopped": False, "reason": "no state"})
     pid = int(state.get("pid") or 0)
-    if pid and _pid_alive(pid):
-        os.kill(pid, signal.SIGTERM)
+    _stop_pid(pid)
     _state_path(slice_dir).unlink(missing_ok=True)
     return _ok({"ok": True, "stopped": True, "pid": pid})
 
@@ -191,6 +258,11 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("mount")
     p.add_argument("--revision-dir", required=True)
     p.add_argument("--port", type=int, default=DEFAULT_PORT)
+    p.add_argument(
+        "--arc-file",
+        default=DEFAULT_COLLAB_BASENAME,
+        help=f"Basename under slice (default {DEFAULT_COLLAB_BASENAME}); not Formal",
+    )
     p.set_defaults(func=cmd_mount)
 
     p = sub.add_parser("status")
