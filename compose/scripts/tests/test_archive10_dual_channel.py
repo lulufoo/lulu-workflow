@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""archive-10.0 dual-channel landing: topic-current, fact-settle, collab arc tool."""
+"""archive-10.0 dual-channel behavior (paths updated for archive-11.0 extract)."""
 
 from __future__ import annotations
 
@@ -8,13 +8,14 @@ import subprocess
 import sys
 from pathlib import Path
 
-_SECTION = Path(__file__).resolve().parent.parent / "section"
-_TOPIC_CTL = _SECTION / "topic_current_control.py"
-_FACT_CTL = _SECTION / "fact_settle_control.py"
-_ARC_TOOL = _SECTION / "narrative_arc_tool_control.py"
-_VIEWER = _SECTION / "narrative_arc_viewer_control.py"
+_COMPOSE = Path(__file__).resolve().parents[2]
+_FACT_CTL = _COMPOSE / "fact-production-runner" / "scripts" / "fact_production_control.py"
+_ARC_TOOL = _COMPOSE / "narrative-arc-runner" / "scripts" / "narrative_arc_collab_control.py"
+_VIEWER = _COMPOSE / "compose-viewer" / "scripts" / "compose_viewer_control.py"
+_TOPIC_CTL = _COMPOSE / "scripts" / "section" / "topic_current_control.py"
+_NARRATIVE_SCRIPTS = _COMPOSE / "narrative-arc-runner" / "scripts"
 
-sys.path.insert(0, str(_SECTION))
+sys.path.insert(0, str(_NARRATIVE_SCRIPTS))
 from narrative_arc_collab_schema import (  # noqa: E402
     FORMAL_BASENAME,
     build_collab_from_facts,
@@ -84,7 +85,7 @@ def test_topic_current_set_and_confirm(tmp_path: Path):
     assert payload["topic"]["conclusion_confirmed"] is True
 
 
-def test_fact_settle_requires_confirm_and_signals_stale(tmp_path: Path):
+def test_fact_production_requires_confirm_and_signals_stale(tmp_path: Path):
     facts = json.dumps([{"text": "A settled fact", "lens_tags": ["I"]}])
     code, _, err = _run(
         _FACT_CTL,
@@ -116,7 +117,7 @@ def test_fact_settle_requires_confirm_and_signals_stale(tmp_path: Path):
     assert payload.get("written") is False
 
 
-def test_narrative_arc_tool_regenerate_path_and_backup(tmp_path: Path):
+def test_narrative_arc_collab_regenerate_path_and_backup(tmp_path: Path):
     (tmp_path / "_facts.json").write_text(
         json.dumps(
             [
@@ -130,7 +131,11 @@ def test_narrative_arc_tool_regenerate_path_and_backup(tmp_path: Path):
         encoding="utf-8",
     )
     out = tmp_path / "_narrative-arc.collab.json"
-    out.write_text('{"version":"1","kind":"narrative-arc-collab","status":"display","tree":{"id":"root","title":"old","children":[]},"leaves":[]}\n', encoding="utf-8")
+    out.write_text(
+        '{"version":"1","kind":"narrative-arc-collab","status":"display",'
+        '"tree":{"id":"root","title":"old","children":[]},"leaves":[]}\n',
+        encoding="utf-8",
+    )
 
     code, _, err = _run(
         _ARC_TOOL,
@@ -157,7 +162,6 @@ def test_narrative_arc_tool_regenerate_path_and_backup(tmp_path: Path):
     assert Path(payload["backup"]).is_file()
     assert len(payload.get("fact_node_summary") or []) == 2
 
-    # Formal path hard-banned
     code, _, err = _run(
         _ARC_TOOL,
         "regenerate",
@@ -178,7 +182,6 @@ def test_collab_orphan_detection():
     ]
     arc = build_collab_from_facts(facts)
     assert validate_narrative_arc_collab(arc) == []
-    # Drop F-2 attachment artificially
     arc["leaves"][0]["fact_ids"] = ["F-1"]
     assert orphan_fact_ids(arc, facts) == ["F-2"]
 
@@ -199,12 +202,76 @@ def test_viewer_rejects_formal_arc_file(tmp_path: Path):
 def test_viewer_html_bans_bare_formal_arc_source():
     """HTML must reject bare Formal basename, not only ./_narrative-arc.json."""
     html = (
-        Path(__file__).resolve().parents[2] / "assets" / "narrative-arc-viewer.html"
+        _COMPOSE / "compose-viewer" / "assets" / "compose-viewer.html"
     ).read_text(encoding="utf-8")
     assert "function isFormalArcSource" in html
-    assert 'base === FORMAL_BASENAME' in html
-    # Regression: old check only compared exact "./_narrative-arc.json"
+    assert "base === FORMAL_BASENAME" in html
     assert 'arc === FORMAL_BANNED' not in html
+    assert "./_compose-viewer.json" in html
+
+
+def test_fact_production_settle_rolls_back_facts_when_opens_save_fails(
+    tmp_path: Path, monkeypatch
+):
+    """Atomic settle: opens save failure must roll back newly written facts."""
+    sys.path.insert(0, str(_COMPOSE / "scripts"))
+    sys.path.insert(0, str(_COMPOSE / "scripts" / "inductive"))
+    sys.path.insert(0, str(_COMPOSE / "fact-production-runner" / "scripts"))
+    import fact_production_control as fpc  # noqa: E402
+
+    # Seed open via in-process G3 helpers (facts empty)
+    g3 = _COMPOSE / "scripts" / "inductive" / "inductive_g3_section_control.py"
+    for args in (
+        ["init-pointer", "--sections", "ST,I", "--mandatory", ""],
+        ["activate-section", "--section", "ST"],
+        [
+            "add-open",
+            "--kw",
+            "2",
+            "--trigger",
+            "ai",
+            "--means",
+            "ai_probe",
+            "--problem",
+            "q",
+            "--blocking",
+            "true",
+        ],
+    ):
+        res = subprocess.run(
+            [sys.executable, str(g3), "--out-dir", str(tmp_path), *args],
+            capture_output=True,
+            text=True,
+        )
+        assert res.returncode == 0, res.stderr or res.stdout
+
+    ff = tmp_path / "settle.json"
+    ff.write_text(
+        json.dumps([{"text": "orphan candidate", "lens_tags": ["ST"]}], ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+    def _boom(path, opens):  # noqa: ANN001
+        raise OSError("permission denied")
+
+    monkeypatch.setattr(fpc, "save_opens", _boom)
+
+    code = fpc.main(
+        [
+            "settle-open",
+            "--revision-dir",
+            str(tmp_path),
+            "--open-id",
+            "O-1",
+            "--facts-file",
+            str(ff),
+            "--confirm",
+        ]
+    )
+    assert code != 0
+    assert not (tmp_path / "_facts.json").exists()
+    opens = json.loads((tmp_path / "inductive-opens.json").read_text(encoding="utf-8"))
+    assert opens[0]["status"] == "open"
 
 
 def test_viewer_mount_cross_root_stops_old(tmp_path: Path):
@@ -240,7 +307,7 @@ def test_viewer_mount_cross_root_stops_old(tmp_path: Path):
         url_a = _mount_url(root_a)
         url_b = _mount_url(root_b)
         assert "48641" in url_a and "48641" in url_b
-        assert (root_b / "_narrative-arc-viewer.server.json").is_file()
+        assert (root_b / "_compose-viewer.server.json").is_file()
     finally:
         _run(_VIEWER, "stop", "--revision-dir", str(root_a))
         _run(_VIEWER, "stop", "--revision-dir", str(root_b))

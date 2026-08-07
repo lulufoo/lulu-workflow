@@ -9,7 +9,9 @@ from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "section"))
+_COMPOSE = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(_COMPOSE / "scripts" / "section"))
+sys.path.insert(0, str(_COMPOSE / "narrative-arc-runner" / "scripts"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from chapter_write_state_control import main as write_state_main  # noqa: E402

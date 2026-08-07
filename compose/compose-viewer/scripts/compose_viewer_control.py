@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
-"""Lulu-Design Viewer mount control (archive-10.0 T4).
+"""Compose Viewer mount control (archive-11.0; inherits archive-10.0 T4).
 
 Subcommands: mount · status · stop
 
-- Syncs ``compose/assets/narrative-arc-viewer.html`` into the active slice.
-- Writes ``_lulu-design-viewer.json`` with caller ``arc_source`` (collab only).
+- Syncs ``compose-viewer/assets/compose-viewer.html`` into the active slice.
+- Writes ``_compose-viewer.json`` with caller ``arc_source`` (collab only).
 - Hard-rejects Formal ``_narrative-arc.json`` as primary ARC_SOURCE.
 - Serves on ``127.0.0.1:8390``.
 - ``mount`` success stdout is **URL only** (one line); errors on stderr.
 - Mount conflict: reuse same root, else stop-old-then-start.
 
-CLI: ``python3 narrative_arc_viewer_control.py --help``
+CLI: ``python3 compose_viewer_control.py --help``
 
-Process how: docs/domain/archive/compose/archive-10.0/
+Process how: docs/domain/archive/compose/archive-11.0/
 """
 
 from __future__ import annotations
@@ -28,11 +28,14 @@ import time
 from pathlib import Path
 from typing import Any
 
-_SECTION = Path(__file__).resolve().parent
-_SCRIPTS = _SECTION.parent
-_COMPOSE = _SCRIPTS.parent
-if str(_SCRIPTS) not in sys.path:
-    sys.path.insert(0, str(_SCRIPTS))
+_RUNNER_SCRIPTS = Path(__file__).resolve().parent
+_VIEWER_ROOT = _RUNNER_SCRIPTS.parent
+_COMPOSE = _VIEWER_ROOT.parent
+_SCRIPTS = _COMPOSE / "scripts"
+_NARRATIVE_SCRIPTS = _COMPOSE / "narrative-arc-runner" / "scripts"
+for _p in (_SCRIPTS, _NARRATIVE_SCRIPTS, _RUNNER_SCRIPTS):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
 import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
@@ -44,10 +47,11 @@ from narrative_arc_collab_schema import (  # noqa: E402
 )
 
 DEFAULT_PORT = 8390
-VIEWER_NAME = "narrative-arc-viewer.html"
-ASSET = _COMPOSE / "assets" / VIEWER_NAME
-STATE_NAME = "_narrative-arc-viewer.server.json"
-CONFIG_NAME = "_lulu-design-viewer.json"
+VIEWER_NAME = "compose-viewer.html"
+ASSET = _VIEWER_ROOT / "assets" / VIEWER_NAME
+STATE_NAME = "_compose-viewer.server.json"
+CONFIG_NAME = "_compose-viewer.json"
+LOG_NAME = "_compose-viewer.server.log"
 
 
 def _slice(revision_dir: str) -> Path:
@@ -106,7 +110,6 @@ def _write_config(slice_dir: Path, arc_file: str) -> Path:
             f"Formal {FORMAL_BASENAME} hard-banned as viewer primary source",
         )
     if "/" in arc_file.replace("\\", "/") and not arc_file.startswith("./"):
-        # allow relative basename or ./name only for static server
         if Path(arc_file).is_absolute():
             raise ValueError("arc-file must be a basename relative to slice dir")
     rel = name if "/" not in arc_file.replace("\\", "/") else Path(arc_file).name
@@ -163,7 +166,6 @@ def _stop_port_listeners(port: int) -> list[int]:
     for pid in _listener_pids(port):
         _stop_pid(pid)
         stopped.append(pid)
-    # brief wait for bind release
     for _ in range(20):
         if not _listener_pids(port):
             break
@@ -180,7 +182,7 @@ def _clear_foreign_state(root: Path) -> None:
 
 
 def _start_server(slice_dir: Path, port: int) -> int:
-    log_path = slice_dir / "_narrative-arc-viewer.server.log"
+    log_path = slice_dir / LOG_NAME
     log_f = open(log_path, "a", encoding="utf-8")
     proc = subprocess.Popen(
         [sys.executable, "-m", "http.server", str(port), "--bind", "127.0.0.1"],
@@ -222,15 +224,12 @@ def cmd_mount(args: argparse.Namespace) -> int:
             url = f"http://127.0.0.1:{port}/{VIEWER_NAME}?v={int(time.time())}"
             print(url)
             return 0
-        # Stale local state pointing at another root — stop that pid + clear
         _stop_pid(int(state.get("pid") or 0))
         _clear_foreign_state(root)
         _state_path(slice_dir).unlink(missing_ok=True)
 
-    # Cross-root: prior mount wrote state under *other* slice; discover via port
     stopped = _stop_port_listeners(port)
     for pid in stopped:
-        # best-effort: if local state still names a foreign root, clear it
         if state and int(state.get("pid") or 0) == pid:
             _clear_foreign_state(Path(str(state.get("root") or "")))
 
@@ -239,7 +238,6 @@ def cmd_mount(args: argparse.Namespace) -> int:
     except RuntimeError as exc:
         return _fail(str(exc))
 
-    # T4: mount success prints URL only (no JSON envelope)
     del viewer, cfg, stopped
     url = f"http://127.0.0.1:{port}/{VIEWER_NAME}?v={int(time.time())}"
     print(url)

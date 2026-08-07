@@ -50,11 +50,11 @@ AI probe rule: silence ∧ KW-false → gap; no correctness judging (that is G4)
 
 ## Class 2 — Process open points
 
-Consumes `open` → facts via `settle-open` (1:N) or `deferred`/`rejected`. The user picks the mode after seeing problem + leaning (I6 informed authorization).
+Consumes `open` → facts via `fact-production-runner` `$FACT_PRODUCTION_CTL settle-open` (1:N) or `deferred`/`rejected`. The user picks the mode after seeing problem + leaning (I6 informed authorization).
 
 | Mode | Behavior |
 |------|----------|
-| `auto` | (optional `deep-grounding`) → `attach-code-refs` → `settle-open --facts-file … --confirm`, continuous (no per-point pause) |
+| `auto` | (optional `deep-grounding`) → `attach-code-refs` → `$FACT_PRODUCTION_CTL settle-open --facts-file … --confirm`, continuous (no per-point pause) |
 | `manual` | **Manual turn** per open (below) |
 | `ignore` | `defer-open` (park) |
 
@@ -73,7 +73,7 @@ Consumes `open` → facts via `settle-open` (1:N) or `deferred`/`rejected`. The 
 **Tools:**
 - `g3-deep-grounding-runner` (optional): read-only evidence for **one** chosen open; may carry `file:line` / signatures. Never forms the leaning — the parent does.
 - `attach-code-refs`: fix code anchors onto an **open** (`O-` only; facts have no `code_refs` field).
-- `settle-open`: commit `open` → 1:N facts (`origin.type=discovered`, `ref=[O-n]`); **requires `--confirm`** (archive-10.0 T2); returns `stale_signal`; `code_refs` stay on the open; `resolved_by` lists new `F-` ids. One git commit (I8).
+- `$FACT_PRODUCTION_CTL settle-open`: commit `open` → 1:N facts (`origin.type=discovered`, `ref=[O-n]`); **requires `--confirm`** (archive-10.0 T2); returns `stale_signal`; `code_refs` stay on the open; `resolved_by` lists new `F-` ids. One git commit (I8). G3 section `settle-open` write path is removed (archive-11.0).
 - `defer-open`: park open (`status=deferred` + `note`; keeps `intent_ref`; does **not** copy stamps onto facts). One git commit (I8).
 - `reject-open`: true out-of-domain exit (`status=rejected` + `--reason`).
 

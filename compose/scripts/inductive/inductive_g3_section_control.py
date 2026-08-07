@@ -13,7 +13,7 @@ Primary subcommands:
     activate-section / set-frontier / materialize-section-registry
     seed-decision (writes facts; alias for seed)
     add-open / update-open / settle-open / defer-open / reject-open
-    update-decision (updates fact by F-n) / attach-code-refs (O- only)
+    attach-code-refs (O- only); fact update/settle via fact-production-runner
     get-section / view / checkpoint
     clear-section / skip-section / rewind-section / recompose-check
 
@@ -764,97 +764,18 @@ def cmd_get_section(out_dir: Path, args: argparse.Namespace) -> None:
 
 
 def cmd_settle_open(out_dir: Path, args: argparse.Namespace) -> None:
-    """Settle open → 1:N facts (origin.type=discovered).
+    """REMOVED write path (archive-11.0).
 
-    archive-10.0 T2: same human confirm gate as fact-settle — requires
-    ``--confirm``; response includes ``stale_signal`` / ``suggest_check``.
-
-    Anchors are declare-first: each --facts-file entry may carry ``anchors``
-    ([{kind,value}]). Entries that omit anchors fall back to distributing the
-    open's ``code_refs`` by path/symbol substring (§3.4); unmatched code_refs
-    stay on the open as historical provenance.
+    Open→facts settlement moved to fact-production-runner
+    (``fact_production_control.py settle-open``). This command never writes
+    ``_facts.json``.
     """
-    if not bool(getattr(args, "confirm", False)):
-        _fail("settle-open requires --confirm (archive-10.0 T2 human confirm gate)")
-    opens = _load_opens(out_dir)
-    open_item = _find_open(opens, args.open_id)
-    if open_item is None:
-        _fail(f"open not found: {args.open_id!r}")
-    if open_item.get("status") != "open":
-        _fail(f"open {args.open_id!r} is not status=open (got {open_item.get('status')!r})")
-
-    facts_file = Path(args.facts_file)
-    if not facts_file.is_file():
-        _fail(f"facts-file not found: {facts_file}")
-    try:
-        entries = json.loads(facts_file.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
-        _fail(f"invalid facts-file JSON: {exc}")
-    if not isinstance(entries, list) or not entries:
-        _fail("--facts-file must be a non-empty JSON array")
-
-    facts_before = _load_facts_optional(out_dir)
-    facts = copy.deepcopy(facts_before)
-    fact_ids: list[str] = []
-    undeclared: list[dict[str, Any]] = []
-    n = _next_fact_id(facts)
-    for i, entry in enumerate(entries):
-        if not isinstance(entry, dict):
-            _fail(f"facts-file[{i}] must be an object")
-        text = str(entry.get("text") or "").strip()
-        if not text:
-            _fail(f"facts-file[{i}]: text required")
-        tags_raw = entry.get("lens_tags")
-        if not isinstance(tags_raw, list):
-            _fail(f"facts-file[{i}]: lens_tags must be an array")
-        lens_tags = [str(t).strip().upper() for t in tags_raw if str(t).strip()]
-        _assert_nonempty_lens_tags(lens_tags, f"facts-file[{i}]")
-        fact_id = f"F-{n}"
-        fact: dict[str, Any] = {
-            "id": fact_id,
-            "text": text,
-            "lens_tags": lens_tags,
-            "origin": {"type": "discovered", "ref": [args.open_id]},
-        }
-        declared = entry.get("anchors")
-        if declared is not None:
-            # Declared anchors: validated/normalized downstream by save_facts.
-            fact["anchors"] = declared
-        else:
-            undeclared.append(fact)
-        facts.append(fact)
-        fact_ids.append(fact_id)
-        n += 1
-
-    # Fallback (§3.4): only for facts whose entry did not declare anchors.
-    code_refs = [
-        str(r).strip() for r in (open_item.get("code_refs") or []) if str(r).strip()
-    ]
-    if undeclared and code_refs:
-        _distribute_code_refs(undeclared, code_refs)
-
-    open_item["status"] = "settled"
-    open_item["resolved_by"] = fact_ids
-    # code_refs remain on open as historical provenance; matched ones are
-    # projected to fact.anchors above (declared entries carry their own).
-
-    _commit_facts_then_opens(
-        out_dir,
-        facts_before=facts_before,
-        facts_after=facts,
-        opens_after=opens,
-    )
-    _ok(
-        {
-            "fact_ids": fact_ids,
-            "settled": args.open_id,
-            "stale_signal": True,
-            "suggest_check": True,
-            "message": (
-                "facts committed via settle-open; collab arc may be stale — "
-                "suggest check / optional regenerate"
-            ),
-        }
+    del out_dir, args
+    _fail(
+        "settle-open fact writes moved to fact-production-runner "
+        "($FACT_PRODUCTION_CTL settle-open --revision-dir … --open-id … "
+        "--facts-file … --confirm). "
+        "G3 section control no longer writes _facts.json for settle."
     )
 
 
@@ -899,24 +820,18 @@ def cmd_defer_open(out_dir: Path, args: argparse.Namespace) -> None:
 
 
 def cmd_update_decision(out_dir: Path, args: argparse.Namespace) -> None:
-    """Update a fact by F-n (compat alias: update-decision)."""
-    fact_id = (args.decision_id or args.id or "").strip()
-    if not fact_id:
-        _fail("update-decision requires --id (F-n)")
-    if not fact_id.startswith("F-"):
-        _fail(f"update-decision id must be F-n, got {fact_id!r}")
+    """REMOVED write path (archive-11.0).
 
-    facts = _load_facts_optional(out_dir)
-    fact = _find_fact(facts, fact_id)
-    if fact is None:
-        _fail(f"fact not found: {fact_id!r}")
-    if args.text is not None:
-        fact["text"] = args.text
-    try:
-        _save_facts_inductive(out_dir, facts)
-    except ValueError as exc:
-        _fail(str(exc))
-    _ok({"updated": fact_id, "fact": fact})
+    Fact text updates moved to fact-production-runner
+    (``fact_production_control.py update``). This command never writes
+    ``_facts.json``.
+    """
+    del out_dir, args
+    _fail(
+        "update-decision fact writes moved to fact-production-runner "
+        "($FACT_PRODUCTION_CTL update --revision-dir … --id F-n --text … --confirm). "
+        "G3 section control no longer writes _facts.json for update-decision."
+    )
 
 
 def cmd_attach_code_refs(out_dir: Path, args: argparse.Namespace) -> None:
@@ -1446,7 +1361,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser(
         "settle-open",
-        help="Settle open → 1:N facts via --facts-file (requires --confirm)",
+        help="REMOVED write path — use fact-production-runner settle-open",
     )
     p.add_argument("--open-id", required=True, dest="open_id", metavar="ID")
     p.add_argument(
@@ -1470,7 +1385,10 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--open-id", required=True, dest="open_id", metavar="ID")
     p.add_argument("--note", required=True, metavar="TEXT")
 
-    p = sub.add_parser("update-decision", help="Update a fact by F-n (compat alias)")
+    p = sub.add_parser(
+        "update-decision",
+        help="REMOVED write path — use fact-production-runner update",
+    )
     p.add_argument("--id", default=None, metavar="F-n", help="Fact id")
     p.add_argument(
         "--decision-id",

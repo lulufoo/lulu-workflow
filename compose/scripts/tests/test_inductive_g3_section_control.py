@@ -12,6 +12,10 @@ import pytest
 
 _INDUCTIVE_DIR = Path(__file__).resolve().parent.parent / "inductive"
 _SECTION_CTL = _INDUCTIVE_DIR / "inductive_g3_section_control.py"
+_COMPOSE = Path(__file__).resolve().parents[2]
+_FACT_PRODUCTION_CTL = (
+    _COMPOSE / "fact-production-runner" / "scripts" / "fact_production_control.py"
+)
 
 sys.path.insert(0, str(_INDUCTIVE_DIR))
 from g3_section_pointer_schema import (  # noqa: E402
@@ -46,6 +50,19 @@ def _seed(out_dir: Path, active: str = "I") -> None:
 def _write_facts_file(path: Path, entries: list[dict]) -> Path:
     path.write_text(json.dumps(entries, ensure_ascii=False), encoding="utf-8")
     return path
+
+
+def _run_fact_production(*args: str) -> tuple[int, dict, str]:
+    res = subprocess.run(
+        [sys.executable, str(_FACT_PRODUCTION_CTL), *args],
+        capture_output=True,
+        text=True,
+    )
+    try:
+        payload = json.loads(res.stdout) if res.stdout.strip() else {}
+    except json.JSONDecodeError:
+        payload = {"ok": False, "raw": res.stdout}
+    return res.returncode, payload, res.stderr
 
 
 # --- schema layer -----------------------------------------------------------
@@ -153,6 +170,37 @@ def test_add_open_writes_opens_without_focus_guard(tmp_path):
     assert opens[0]["source"] == {"trigger": "ai", "means": "ai_scan"}
 
 
+def test_g3_settle_open_write_path_removed(tmp_path):
+    """archive-11.0: G3 settle-open must not write facts."""
+    _seed(tmp_path, active="ST")
+    _run(
+        tmp_path,
+        "add-open",
+        "--kw", "2",
+        "--trigger", "ai",
+        "--means", "ai_probe",
+        "--problem", "共享？",
+        "--blocking", "true",
+    )
+    ff = _write_facts_file(
+        tmp_path / "settle.json",
+        [{"text": "fact A", "lens_tags": ["ST"]}],
+    )
+    code, payload = _run(
+        tmp_path,
+        "settle-open",
+        "--open-id", "O-1",
+        "--facts-file", str(ff),
+        "--confirm",
+    )
+    assert code != 0
+    err = str(payload.get("error") or payload.get("stderr") or payload)
+    assert "fact-production" in err.lower()
+    assert not (tmp_path / "_facts.json").is_file()
+    opens = json.loads((tmp_path / "inductive-opens.json").read_text(encoding="utf-8"))
+    assert opens[0]["status"] == "open"
+
+
 def test_settle_open_one_to_n_facts(tmp_path):
     _seed(tmp_path, active="ST")
     _run(
@@ -171,22 +219,23 @@ def test_settle_open_one_to_n_facts(tmp_path):
             {"text": "fact B", "lens_tags": ["ST"]},
         ],
     )
-    code, payload = _run(
-        tmp_path,
+    code, payload, err = _run_fact_production(
         "settle-open",
+        "--revision-dir", str(tmp_path),
         "--open-id", "O-1",
         "--facts-file", str(ff),
     )
     assert code != 0  # archive-10.0: --confirm required
+    assert "confirm" in err.lower()
 
-    code, payload = _run(
-        tmp_path,
+    code, payload, err = _run_fact_production(
         "settle-open",
+        "--revision-dir", str(tmp_path),
         "--open-id", "O-1",
         "--facts-file", str(ff),
         "--confirm",
     )
-    assert code == 0, payload
+    assert code == 0, err or payload
     assert payload["fact_ids"] == ["F-1", "F-2"]
     assert payload.get("stale_signal") is True
     assert payload.get("suggest_check") is True
@@ -245,16 +294,17 @@ def test_settle_open_uses_declared_entry_anchors(tmp_path):
             },
         ],
     )
-    code, payload = _run(
-        tmp_path,
+    code, payload, err = _run_fact_production(
         "settle-open",
+        "--revision-dir",
+        str(tmp_path),
         "--open-id",
         "O-1",
         "--facts-file",
         str(ff),
         "--confirm",
     )
-    assert code == 0, payload
+    assert code == 0, err or payload
     facts = json.loads((tmp_path / "_facts.json").read_text(encoding="utf-8"))
     assert facts[0]["anchors"] == [{"kind": "artifact", "value": "attachments.json"}]
 
@@ -281,16 +331,17 @@ def test_settle_open_fallback_distributes_code_refs(tmp_path):
             {"text": "uses plan_tasks_task_dir to resolve dir", "lens_tags": ["ST"]},
         ],
     )
-    code, payload = _run(
-        tmp_path,
+    code, payload, err = _run_fact_production(
         "settle-open",
+        "--revision-dir",
+        str(tmp_path),
         "--open-id",
         "O-1",
         "--facts-file",
         str(ff),
         "--confirm",
     )
-    assert code == 0, payload
+    assert code == 0, err or payload
     facts = json.loads((tmp_path / "_facts.json").read_text(encoding="utf-8"))
     # matched ref projected (parens stripped); unmatched ref stays on open only
     assert facts[0]["anchors"] == [
@@ -627,7 +678,7 @@ def test_defer_open(tmp_path):
     assert opens[0]["note"] == "本轮不展开"
 
 
-def test_update_decision_updates_fact(tmp_path):
+def test_g3_update_decision_write_path_removed(tmp_path):
     _seed(tmp_path, active="ST")
     _run(
         tmp_path,
@@ -642,7 +693,40 @@ def test_update_decision_updates_fact(tmp_path):
         "--id", "F-1",
         "--text", "修订稿",
     )
-    assert code == 0, payload
+    assert code != 0
+    err = str(payload.get("error") or payload.get("stderr") or payload)
+    assert "fact-production" in err.lower()
+    facts = json.loads((tmp_path / "_facts.json").read_text(encoding="utf-8"))
+    assert facts[0]["text"] == "初稿"
+
+
+def test_fact_production_update_requires_confirm_and_signals_stale(tmp_path):
+    _seed(tmp_path, active="ST")
+    _run(
+        tmp_path,
+        "seed-decision",
+        "--section", "ST",
+        "--lens-tags", "ST",
+        "--text", "初稿",
+    )
+    code, payload, err = _run_fact_production(
+        "update",
+        "--revision-dir", str(tmp_path),
+        "--id", "F-1",
+        "--text", "修订稿",
+    )
+    assert code != 0
+    assert "confirm" in err.lower()
+
+    code, payload, err = _run_fact_production(
+        "update",
+        "--revision-dir", str(tmp_path),
+        "--id", "F-1",
+        "--text", "修订稿",
+        "--confirm",
+    )
+    assert code == 0, err or payload
+    assert payload.get("stale_signal") is True
     facts = json.loads((tmp_path / "_facts.json").read_text(encoding="utf-8"))
     assert facts[0]["text"] == "修订稿"
 

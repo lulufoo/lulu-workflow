@@ -12,7 +12,7 @@ import sys
 def main() -> int:
     print(
         "错误：chapters_control / _chapters.json retired. "
-        "Use narrative_arc_control.py "
+        "Use narrative-arc-runner/scripts/narrative_arc_control.py "
         "(validate|write|show|list-chapters).",
         file=sys.stderr,
     )

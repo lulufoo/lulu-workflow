@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Narrative-arc tool (archive-10.0 T3) — Design-global runner.
+"""Narrative-arc collab control (archive-11.0; inherits archive-10.0 T3).
 
 Full regenerate of a collaboration display arc from ``_facts.json``.
 **Caller must pass ``--output-path``** (collab ≠ Formal). Human-chosen
@@ -10,9 +10,9 @@ Subcommands: regenerate · validate · show
 
 Formal Init path remains ``narrative_arc_control.py`` + ``_narrative-arc.json``.
 
-CLI: ``python3 narrative_arc_tool_control.py --help``
+CLI: ``python3 narrative_arc_collab_control.py --help``
 
-Process how: docs/domain/archive/compose/archive-10.0/
+Process how: docs/domain/archive/compose/archive-11.0/
 """
 
 from __future__ import annotations
@@ -25,10 +25,12 @@ import time
 from pathlib import Path
 from typing import Any
 
-_SECTION = Path(__file__).resolve().parent
-_SCRIPTS = _SECTION.parent
-if str(_SCRIPTS) not in sys.path:
-    sys.path.insert(0, str(_SCRIPTS))
+_RUNNER_SCRIPTS = Path(__file__).resolve().parent
+_COMPOSE = _RUNNER_SCRIPTS.parents[1]
+_SCRIPTS = _COMPOSE / "scripts"
+for _p in (_SCRIPTS, _RUNNER_SCRIPTS):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
 import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
@@ -88,7 +90,7 @@ def cmd_regenerate(args: argparse.Namespace) -> int:
         shutil.copy2(out_path, backup)
         backup_path = str(backup)
 
-    arc = build_collab_from_facts(facts, source="narrative-arc-tool")
+    arc = build_collab_from_facts(facts, source="narrative-arc-collab")
     try:
         saved = save_narrative_arc_collab(out_path, arc)
     except ValueError as exc:

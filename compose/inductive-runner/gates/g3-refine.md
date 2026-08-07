@@ -4,7 +4,7 @@
 
 **Prerequisites:** `$INDUCTIVE_GATE_CTL resolve-context` reports `active_gate` is `G3` (G2 Topic Loop closed).
 
-**Goal (archive-10.0):** **gap-check / 查漏** after Topic Loop — orphans vs collab arc, blocking opens, shape drift. Prefer returning to G2 for full topic discussion rather than resurrecting section dual-lane as the main hub. **Fact writes share the T2 human-confirm gate:** conclusion→facts via `$FACT_SETTLE_CTL commit --confirm`; open settlement via `$INDUCTIVE_G3_SECTION_CTL settle-open … --confirm` (also returns `stale_signal`). No silent fact writes. Existing Class 1/2 tools remain available for processing opens. **Do not** auto-sweep after Shape-confirm — wait for the user.
+**Goal (archive-10.0 / archive-11.0):** **gap-check / 查漏** after Topic Loop — orphans vs collab arc, blocking opens, shape drift. Prefer returning to G2 for full topic discussion rather than resurrecting section dual-lane as the main hub. **Fact writes share the T2 human-confirm gate via `fact-production-runner`:** conclusion→facts via `$FACT_PRODUCTION_CTL commit --confirm`; open settlement via `$FACT_PRODUCTION_CTL settle-open … --confirm` (also returns `stale_signal`). **Do not** use `$INDUCTIVE_G3_SECTION_CTL settle-open` to write facts (removed). No silent fact writes. Existing Class 1/2 tools remain available for processing opens. **Do not** auto-sweep after Shape-confirm — wait for the user.
 
 Legacy refine lanes below still describe tool availability; default user-facing posture is gap-check checklist, not section patrol.
 
@@ -51,7 +51,7 @@ Entered when the user chooses open-point process — a single open or a batch. O
 3. After settles that change facts for a lens: re-judge KW → `set-frontier` (only then).
 4. Return to Lane A — **Stop P**.
 
-**Lazy consistency (I8):** after `update-decision` on id=X, single-hop re-read `hangs_under==X` opens; conflict → `add-open`.
+**Lazy consistency (I8):** after `$FACT_PRODUCTION_CTL update` on id=X, single-hop re-read `hangs_under==X` opens; conflict → `add-open`.
 
 ## Maturity
 

@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
-"""Control for archive-5.0 ``_narrative-arc.json``.
+"""Control for Formal ``_narrative-arc.json`` (Init path).
 
 Subcommands:
     validate   Validate arc file (optional --require-write-ready)
     write      Persist arc JSON from --file or stdin
     show       Print normalized arc JSON
+    list-chapters
 
 CLI: ``python3 narrative_arc_control.py --help``
 
-Process how: docs/domain/archive/compose/archive-5.0/compose-narrative-arc-lens-v2-landing-design.md
+Process how: docs/domain/archive/compose/archive-11.0/
 """
 
 from __future__ import annotations
@@ -19,10 +20,12 @@ import sys
 from pathlib import Path
 from typing import Any
 
-_SECTION = Path(__file__).resolve().parent
-_SCRIPTS = _SECTION.parent
-if str(_SCRIPTS) not in sys.path:
-    sys.path.insert(0, str(_SCRIPTS))
+_RUNNER_SCRIPTS = Path(__file__).resolve().parent
+_COMPOSE = _RUNNER_SCRIPTS.parents[1]
+_SCRIPTS = _COMPOSE / "scripts"
+for _p in (_SCRIPTS, _RUNNER_SCRIPTS):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
 import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
@@ -50,7 +53,6 @@ def _allowed_lenses(project_root: Path, profile_id: str) -> set[str]:
     sections = data.get("sections") or {}
     if isinstance(sections, dict) and sections:
         return {str(k).strip().upper() for k in sections}
-    # Transition: registries that still only expose section_order
     order = data.get("section_order") or []
     return {str(k).strip().upper() for k in order if str(k).strip()}
 
@@ -143,7 +145,6 @@ def cmd_show(args: argparse.Namespace) -> int:
 
 
 def cmd_list_chapters(args: argparse.Namespace) -> int:
-    """Emit write units: leaf chapters in document order (requires write_ready)."""
     revision = Path(args.revision_dir).resolve()
     slice_dir = active_slice_dir(revision)
     path = narrative_arc_path(slice_dir)

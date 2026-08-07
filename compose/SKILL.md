@@ -277,7 +277,7 @@ Fetch compose framework templates on demand; **do not** read `workflow-config.js
 | `$EVAL_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/core/compose_eval_control.py" --profile-id <profile_id> --cycle-id "$CYCLE_ID" --project-root "$(pwd)" -- <subcommand>` — passthrough stage `compose-profile.json.eval` to Eval |
 | `$ATOMIZE_EVAL_CONTROL` | `python3 "$SKILL_ROOT/compose/atomize-eval/scripts/atomize_eval_control.py" --profile-id <profile_id> --cycle-id "$CYCLE_ID" --project-root "$(pwd)" -- <subcommand>` — Atomize Eval (doc→`_facts.json`); independent of delivery Evaluating; `completion_mode=return_to_caller` |
 | `$COMPOSE_DOC_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/section/compose_doc_control.py" <subcommand> [args...]` |
-| `$NARRATIVE_ARC_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/narrative_arc_control.py"` |
+| `$NARRATIVE_ARC_CTL` | `python3 "$SKILL_ROOT/compose/narrative-arc-runner/scripts/narrative_arc_control.py"` |
 | `$CHAPTER_WRITE_STATE` | `python3 "$SKILL_ROOT/compose/scripts/section/chapter_write_state_control.py"` — Init 4.W claim-current gate: `sync` / `status` / `begin` (ticket) / `complete` (current) |
 | `$INIT_COMPOSE_VALIDATE` | `python3 "$SKILL_ROOT/compose/scripts/section/init_compose_validation.py" validate --revision-dir <dir> --compose-doc <path> --profile <profile_id> --project-root "$(pwd)"` |
 | `$AGENDA_CTL` | `python3 "$SKILL_ROOT/agenda/scripts/agenda_control.py" <subcommand> --project-root "$(pwd)" --cycle-id "$CYCLE_ID" --profile <profile_id> [args...]` — stage agenda; resolves `revision{N}` from session-state (see `$SKILL_ROOT/agenda/SKILL.md`) |

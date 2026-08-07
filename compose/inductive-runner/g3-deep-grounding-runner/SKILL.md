@@ -9,7 +9,7 @@ description: >-
 
 # g3-deep-grounding-runner
 
-Terminal runner subagent. Dispatched from **inline** inductive-runner during Gate 3 Class 2 processing (Lane B), one chosen open at a time (never a whole detect pass, never more than one point per invocation). Parent owns `add-open` / `attach-code-refs` / `settle-open`.
+Terminal runner subagent. Dispatched from **inline** inductive-runner during Gate 3 Class 2 processing (Lane B), one chosen open at a time (never a whole detect pass, never more than one point per invocation). Parent owns `add-open` / `attach-code-refs` / fact-production `settle-open`.
 
 ## Shared receipt contract
 
@@ -60,7 +60,7 @@ Optional: parent may have already loaded the open via `get-section`; do not inve
 - `$INDUCTIVE_GATE_CTL deep-grounding-list` — **parent only**, immediately after this subagent returns.
 - Highlights, bullet summaries, leanings, decisions, or any prose beyond the Return template.
 - Re-stating `facts` / `code_refs` in the Task return — they live in `grounding-notes.json`; the parent reads them via `$INDUCTIVE_GATE_CTL deep-grounding-list`.
-- Calling `add-open` / `attach-code-refs` / `settle-open` — parent owns mutations.
+- Calling `add-open` / `attach-code-refs` / `$FACT_PRODUCTION_CTL settle-open` — parent owns mutations.
 
 ## Return
 

@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 _SCRIPTS = Path(__file__).resolve().parent
+_COMPOSE = _SCRIPTS.parent
 _CORE = _SCRIPTS / "core"
 _SECTION = _SCRIPTS / "section"
 _DEDUCTIVE = _SCRIPTS / "deductive"
@@ -17,6 +18,8 @@ _SCHEMA_SECTION_DOCUMENT = _SCHEMA_SECTION / "document"
 _SCHEMA_SECTION_SCOPE = _SCHEMA_SECTION / "scope"
 _SCHEMA_SESSION = _SCRIPTS / "schema" / "session"
 _START = _SCRIPTS / "start"
+# Collab schema lives under narrative-arc-runner; Formal schema stays in section/.
+_NARRATIVE_ARC = _COMPOSE / "narrative-arc-runner" / "scripts"
 
 
 def ensure_kernel_paths() -> None:
@@ -33,6 +36,7 @@ def ensure_kernel_paths() -> None:
         _SCHEMA_SECTION_DOCUMENT,
         _SCHEMA_SECTION_SCOPE,
         _SCHEMA_SESSION,
+        _NARRATIVE_ARC,
     ):
         s = str(p)
         if s not in sys.path:

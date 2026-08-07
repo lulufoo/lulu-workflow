@@ -13,7 +13,7 @@ description: >-
 Run this sub-skill only when dispatched from a compose stage `start` (inductive path) — e.g. `lulu-design`.
 
 Produces **three stores** under the active revision dir (`$INDUCTIVE_OUT_DIR`):
-- **Facts (engine state):** `_facts.json` — written by `seed-decision` / `settle-open` (K4; no K2 projection)
+- **Facts (engine state):** `_facts.json` — written by `seed-decision` / `fact-production-runner` (`commit` · `settle-open`) (K4; no K2 projection)
 - **Opens:** `inductive-opens.json` — doc-level flat list (`O-n`)
 - **Maturity:** `inductive-scope/<SECTION>.json` + `_index.json` — `{key, status, frontier_kw}` only
 
@@ -66,9 +66,11 @@ PROVENANCE_TRACES     = $INDUCTIVE_OUT_DIR/provenance-trace-{intent,scope,norm}.
 | `$INDUCTIVE_G3_SECTION_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_g3_section_control.py" --out-dir "$INDUCTIVE_OUT_DIR" --project-root "$(pwd)" --compose-profile "$COMPOSE_PROFILE" --compose-cycle-id "$CYCLE_ID"` |
 | `$PROVENANCE_GATE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/provenance_gate_control.py" --out-dir "$INDUCTIVE_OUT_DIR"` |
 | `$TOPIC_CURRENT_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/topic_current_control.py"` |
-| `$FACT_SETTLE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/fact_settle_control.py"` |
-| `$NARRATIVE_ARC_TOOL_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/narrative_arc_tool_control.py"` |
-| `$NARRATIVE_ARC_VIEWER_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/narrative_arc_viewer_control.py"` |
+| `$FACT_PRODUCTION_CTL` | `python3 "$SKILL_ROOT/compose/fact-production-runner/scripts/fact_production_control.py"` |
+| `$NARRATIVE_ARC_COLLAB_CTL` | `python3 "$SKILL_ROOT/compose/narrative-arc-runner/scripts/narrative_arc_collab_control.py"` |
+| `$COMPOSE_VIEWER_CTL` | `python3 "$SKILL_ROOT/compose/compose-viewer/scripts/compose_viewer_control.py"` |
+
+**Declare-use (siblings own the tools):** `fact-production-runner` · `narrative-arc-runner` · `compose-viewer` — macros above point at their `scripts/`; do not treat them as inductive-private.
 
 Fetch schedule:
 - **Before Seed / Shape-confirm:** `$FETCH_COMPOSE --role section-registry` → `SECTION_REGISTRY` (`section_order` → `init-session --sections`); `$FETCH_COMPOSE --role inductive-scan-criteria` → `SCAN_CRITERIA` (methods / shape hints / mandatory)
@@ -78,7 +80,7 @@ Fetch schedule:
   - Observable done: `$INDUCTIVE_SECTION_REGISTRY` exists under `$INDUCTIVE_OUT_DIR`
   - **Facet seeds (Class 1B):** when the active lens has `facets: string[]`, paste that list into the detect prompt as **non-exhaustive reminders** (not a closed question set; list-external opens allowed). Seeds do **not** gate `clear-section` and there is **no** `facet_id` field.
 
-**Primary CRUD (K4 triple store):** `materialize-section-registry`, `seed-decision` (→ facts), `add-open` / `update-open` / `settle-open` / `defer-open` / `reject-open` (→ opens), `update-decision` (→ fact `F-n`), `attach-code-refs` (`O-` only), `get-section`, `view --synthesis off|on`, `checkpoint --name shape`, `set-frontier`, `activate-section`, `clear-section`, `skip-section`, `rewind-section`, `check-coverage`. See `$INDUCTIVE_G3_SECTION_CTL --help`.
+**Primary CRUD (K4 triple store):** `materialize-section-registry`, `seed-decision` (→ facts; Seed/G1 path), `add-open` / `update-open` / `defer-open` / `reject-open` (→ opens), `attach-code-refs` (`O-` only), `get-section`, `view --synthesis off|on`, `checkpoint --name shape`, `set-frontier`, `activate-section`, `clear-section`, `skip-section`, `rewind-section`, `check-coverage`. Fact patch / open→facts: `$FACT_PRODUCTION_CTL update|settle-open` (not G3 section control). See `$INDUCTIVE_G3_SECTION_CTL --help`.
 
 **Removed (fail-fast if called):** `register-ep`, `update-ep`, `append-to-section` — use the commands above.
 
@@ -92,8 +94,8 @@ Inductive work discovers missing design decisions (parts → whole). **SoT = fac
 
 1. **Seed** — Init from `SECTION_REGISTRY.section_order` (`gates/g1-shape.md`). Read `$SCOPE_REF` as source material and, per lens: `activate-section` → substance? `seed-decision`+`set-frontier` : (`optional` → `skip-section` / `required` → leave for G3). **I4:** never invent beyond scope. Git commit `"seeded"`.
 2. **Shape-confirm (I11)** — After Seed: `view --synthesis on --granularity <arch-overview hint>` → user confirms/corrects → corrections via commands (+ `set-frontier` when lens facts change) → re-view until confirmed → `gate-close --gate G1` (records `checkpoint --name shape`) → **stop and await user**. Do **not** auto-detect.
-3. **G2 Topic Loop** (archive-10.0) — design-convergence dialogue (D1+D2); persist topic after clarify via `$TOPIC_CURRENT_CTL`; hand facts via `$FACT_SETTLE_CTL`; optional `$NARRATIVE_ARC_TOOL_CTL` + Viewer. Close only after D1+D2 pass **and** human exit: `gate-close G2 --payload '{"topic_loop_done": true, "design_goal_met": true, "human_exit_confirmed": true}'`. No draft-as-topic-tree.
-4. **G3 gap-check** — leak scan (orphans / blocking opens); conclusion→facts via `$FACT_SETTLE_CTL commit --confirm`; open→facts via `settle-open … --confirm` (same T2 confirm + `stale_signal`). Per-open grounding = `attach-code-refs` when processing opens.
+3. **G2 Topic Loop** (archive-10.0) — design-convergence dialogue (D1+D2); persist topic after clarify via `$TOPIC_CURRENT_CTL`; hand facts via `fact-production-runner` `$FACT_PRODUCTION_CTL`; optional `narrative-arc-runner` `$NARRATIVE_ARC_COLLAB_CTL` + `compose-viewer`. Close only after D1+D2 pass **and** human exit: `gate-close G2 --payload '{"topic_loop_done": true, "design_goal_met": true, "human_exit_confirmed": true}'`. No draft-as-topic-tree.
+4. **G3 gap-check** — leak scan (orphans / blocking opens); conclusion→facts via `$FACT_PRODUCTION_CTL commit --confirm`; open→facts via `$FACT_PRODUCTION_CTL settle-open … --confirm` (same T2 confirm + `stale_signal`). Per-open grounding = `attach-code-refs` when processing opens.
 5. **Exit** — run `check-coverage`: ∀ init lens cleared∨skipped ∧ no (blocking∧open) ∧ (if demand manifest: all fulfilled∨deferred).
 6. **Audit (user-triggered):** G4 internal hard · G5 external soft → Handoff (`view --synthesis off` / Initializing). **G4 unchanged this wave.**
 
