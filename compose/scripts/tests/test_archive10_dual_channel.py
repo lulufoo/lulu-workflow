@@ -181,6 +181,17 @@ def test_viewer_rejects_formal_arc_file(tmp_path: Path):
     assert "Formal" in err or "hard-banned" in err.lower()
 
 
+def test_viewer_html_bans_bare_formal_arc_source():
+    """HTML must reject bare Formal basename, not only ./_narrative-arc.json."""
+    html = (
+        Path(__file__).resolve().parents[2] / "assets" / "narrative-arc-viewer.html"
+    ).read_text(encoding="utf-8")
+    assert "function isFormalArcSource" in html
+    assert 'base === FORMAL_BASENAME' in html
+    # Regression: old check only compared exact "./_narrative-arc.json"
+    assert 'arc === FORMAL_BANNED' not in html
+
+
 def test_viewer_mount_cross_root_stops_old(tmp_path: Path):
     """T4: different root on same port → stop-old-then-start."""
     root_a = tmp_path / "a"

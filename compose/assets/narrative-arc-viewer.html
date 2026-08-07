@@ -565,9 +565,16 @@
     </script>
     <script>
       const CONFIG_SOURCE = "./_lulu-design-viewer.json";
-      const FORMAL_BANNED = "./_narrative-arc.json";
+      const FORMAL_BASENAME = "_narrative-arc.json";
       const DEFAULT_ARC = "./_narrative-arc.collab.json";
       const DEFAULT_FACTS = "./_facts.json";
+
+      function isFormalArcSource(arc) {
+        const raw = String(arc || "").trim().replace(/\\/g, "/");
+        if (!raw) return false;
+        const base = raw.split("/").pop();
+        return base === FORMAL_BASENAME;
+      }
       const POLL_MS = 1000;
       let mermaidRenderSequence = 0;
 
@@ -641,7 +648,7 @@
         try {
           const cfg = await fetchJson(CONFIG_SOURCE, Date.now());
           const arc = String(cfg.arc_source || DEFAULT_ARC).trim() || DEFAULT_ARC;
-          if (arc === FORMAL_BANNED || arc.endsWith("/_narrative-arc.json")) {
+          if (isFormalArcSource(arc)) {
             throw new Error("Formal _narrative-arc.json hard-banned as viewer source");
           }
           state.arcSource = arc;
