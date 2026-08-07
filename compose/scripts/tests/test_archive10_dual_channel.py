@@ -17,6 +17,7 @@ _TOPIC_CTL = _COMPOSE / "scripts" / "section" / "topic_current_control.py"
 _NARRATIVE_SCRIPTS = _COMPOSE / "narrative-arc-runner" / "scripts"
 
 sys.path.insert(0, str(_NARRATIVE_SCRIPTS))
+import narrative_arc_collab_schema as collab_schema  # noqa: E402
 from narrative_arc_collab_schema import (  # noqa: E402
     FORMAL_BASENAME,
     orphan_fact_ids,
@@ -387,6 +388,31 @@ def test_collab_schema_requires_each_fact_leaf_in_display_tree():
     }
     errors = validate_narrative_arc_collab(arc)
     assert "collab arc leaves not represented by terminal tree nodes: ['leaf-1']" in errors
+
+
+def test_collab_save_keeps_existing_arc_when_atomic_write_fails(tmp_path: Path, monkeypatch):
+    path = tmp_path / "_narrative-arc.collab.json"
+    original = '{"version":"1","kind":"narrative-arc-collab","status":"display"}\n'
+    path.write_text(original, encoding="utf-8")
+    arc = {
+        "version": "1",
+        "kind": "narrative-arc-collab",
+        "status": "display",
+        "tree": {"id": "root", "title": "Story", "children": []},
+        "leaves": [],
+    }
+
+    def fail_write(_path, _data):  # noqa: ANN001
+        raise OSError("disk full")
+
+    monkeypatch.setattr(collab_schema, "durable_write_json", fail_write)
+    try:
+        collab_schema.save_narrative_arc_collab(path, arc)
+    except OSError as exc:
+        assert "disk full" in str(exc)
+    else:
+        raise AssertionError("expected atomic write failure")
+    assert path.read_text(encoding="utf-8") == original
 
 
 def test_collab_write_rejects_missing_facts_without_overwriting(tmp_path: Path):

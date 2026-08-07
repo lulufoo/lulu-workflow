@@ -14,6 +14,8 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
+from compose_state_lock import durable_write_json
+
 COLLAB_KIND = "narrative-arc-collab"
 DEFAULT_COLLAB_BASENAME = "_narrative-arc.collab.json"
 FORMAL_BASENAME = "_narrative-arc.json"
@@ -193,11 +195,7 @@ def save_narrative_arc_collab(path: Path, data: dict[str, Any]) -> dict[str, Any
     errors = validate_narrative_arc_collab(normalized)
     if errors:
         raise ValueError("; ".join(errors))
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(normalized, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-    )
+    durable_write_json(path, normalized)
     return normalized
 
 

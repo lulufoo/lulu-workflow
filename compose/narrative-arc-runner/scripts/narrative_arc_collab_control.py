@@ -113,15 +113,14 @@ def cmd_write(args: argparse.Namespace) -> int:
     if errors:
         return _fail("; ".join(errors))
 
-    backup_path: str | None = None
-    if out_path.is_file():
-        backup = out_path.with_suffix(out_path.suffix + f".bak.{int(time.time())}")
-        shutil.copy2(out_path, backup)
-        backup_path = str(backup)
-
     try:
+        backup_path: str | None = None
+        if out_path.is_file():
+            backup = out_path.with_suffix(out_path.suffix + f".bak.{int(time.time())}")
+            shutil.copy2(out_path, backup)
+            backup_path = str(backup)
         saved = save_narrative_arc_collab(out_path, arc)
-    except ValueError as exc:
+    except (OSError, ValueError) as exc:
         return _fail(str(exc))
 
     summary = fact_node_summary(saved)
