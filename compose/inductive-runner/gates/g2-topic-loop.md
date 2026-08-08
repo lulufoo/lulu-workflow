@@ -32,9 +32,13 @@ G2 topic contract (definition, states, grain, lenses, tool protocols) → [`../r
 | Notion | Completion (cognitive) |
 |--------|------------------------|
 | topic (`gap`) | On seeking map / proposed; not yet human-adopted |
-| topic (`adopted`) | title / scope / human-adopted (persist **at adopt**) |
+| topic (`adopted`) | title / scope / human-adopted (persist **at adopt** via `$TOPIC_CURRENT_CTL`) |
 | topic (`concluded`) | conclusion set → human confirm |
 | production ⊥ display | Fact channel orthogonal to collab-arc display |
+
+`$TOPIC_CURRENT_CTL` binds the **adopted** current topic only — it is **not** the close-proof store and does **not** hold the seeking map. Close proof = landscape + exit receipts (Close).
+
+Pre-adopt clarify → adopt → bind → `topic-portrait` → deep work is an **orchestration obligation**, not a scripted event-chain gate in this wave.
 
 Bind session state only via `$MACRO` / `resolve-context` — not by treating data-file paths as workflow steps.
 
@@ -66,7 +70,8 @@ Optional: `stale_signal → offer collab rebuild` (details only in Branches).
 | human adopted (dialogue or map select) | `$TOPIC_CURRENT_CTL` `set` **at adopt** → invoke `topic-portrait` → human confirm → then deep work |
 | after summarize, conclusion pending confirm | `$TOPIC_CURRENT_CTL` `set-conclusion` → human confirm → `confirm-conclusion` |
 | conclusion confirmed | `fact-runner` public protocol order (see its SKILL / `$FACT_CTL --help`) |
-| human confirms exit intent | invoke `topic-landscape` (close detect); if any `gap`-state remain → continue / hard-skip; then `$INDUCTIVE_GATE_CTL` `gate-close` (payload in Close) |
+| after each `topic-landscape` protocol | `$INDUCTIVE_GATE_CTL` `record-topic-landscape` (`--purpose` + `--gap-remaining`; new `run_id`) |
+| human confirms exit intent | `topic-landscape` with `--purpose pre_close` → record → human continue / hard-skip → `$INDUCTIVE_GATE_CTL` `record-g2-topic-exit` → `gate-close` (payload in Close) |
 
 Details → `--help`. Do not paste flags / argv here.
 
@@ -98,17 +103,19 @@ Parse the subagent summary only (do not re-run its internals):
 
 Refuse rebuild → continue with the existing collab arc.
 
-On pre-close `topic-landscape`: if `gap`-state topics remain, offer **continue** (return to seeking/clarify) or **hard-skip** (write `topic_exit=hard_skip`). Do **not** silent-close.
+On pre-close `topic-landscape`: record with `--purpose pre_close`; if `gap`-state topics remain, offer **continue** (return to seeking/clarify) or **hard-skip**. Do **not** silent-close. After human chooses clear/hard-skip: `$INDUCTIVE_GATE_CTL record-g2-topic-exit --result … --human-confirmed`.
 
 ## Close
 
-Before close: design goal passes against D1+D2 (Goal); human confirms exit; no unconfirmed conclusion (Session notions); pre-close `topic-landscape` done; `topic_exit` is `cleared` (no remaining `gap`-state topics) or `hard_skip`. Collab/Formal arc not required. **Do not** auto-close without human exit.
+Before close: design goal passes against D1+D2 (Goal); human confirms exit; no unconfirmed conclusion (Session notions); pre-close landscape **recorded**; exit receipt **recorded** and matching; `payload.topic_exit` equals exit.`result` (`cleared` or `hard_skip`). Collab/Formal arc not required. **Do not** auto-close without human exit. **Do not** hand-edit receipt JSON.
 
 ```bash
+$INDUCTIVE_GATE_CTL record-topic-landscape --purpose pre_close --gap-remaining 0
+$INDUCTIVE_GATE_CTL record-g2-topic-exit --result cleared --human-confirmed
 $INDUCTIVE_GATE_CTL gate-close --gate G2 --payload '{"topic_loop_done": true, "design_goal_met": true, "human_exit_confirmed": true, "topic_exit": "cleared"}'
 ```
 
-`topic_exit` may be `"hard_skip"` when the human hard-skips remaining `gap`-state topics.
+For hard-skip: record landscape with `gap_remaining > 0`, then `record-g2-topic-exit --result hard_skip --human-confirmed`, payload `"topic_exit": "hard_skip"`.
 
 ## Hard cuts
 

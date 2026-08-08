@@ -34,6 +34,9 @@ def test_g2_gate_declares_tools_and_points_at_reference():
     assert "`topic-portrait`" in text
     assert "g2-topic-model.md" in text
     assert "topic_exit" in text
+    assert "record-topic-landscape" in text
+    assert "record-g2-topic-exit" in text
+    assert "orchestration obligation" in text
     assert "pre-adopt" in text or "pre-adopt clarify" in text.lower() or "clarify (pre-adopt)" in text
     assert "gap-landscape" not in text
     assert "topic-cognition-model.md" not in text
@@ -47,5 +50,13 @@ def test_inductive_spine_mentions_g2_topic_model_tools():
     assert "topic-portrait" in text
     assert "g2-topic-model.md" in text
     assert "topic_exit" in text
+    assert "record-topic-landscape" in text
+    assert "record-g2-topic-exit" in text
     assert "gap-landscape" not in text
     assert "topic-cognition-model.md" not in text
+
+def test_g2_topic_model_mentions_receipt_persist():
+    text = _REF.read_text(encoding="utf-8")
+    assert "record-topic-landscape" in text
+    assert "record-g2-topic-exit" in text
+    assert "Honest boundary" in text

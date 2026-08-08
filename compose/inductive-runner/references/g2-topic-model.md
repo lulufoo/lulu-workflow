@@ -101,10 +101,14 @@ Topic identity on the seeking map is the DAG node — **not** a fourth “gap ti
 2. Recompute lens-1 portrait from current settled facts.
 3. Enumerate `gap`-state topic candidates → seeking DAG → grade each `gap` node (Grain section).
 4. Present the seeking map for human confirmation (medium deferred — any form the human can confirm). On close-time detection, the map may be shorter but must still support confirm of clear / hard-skip.
-5. After confirm (seek/refresh): default next guidance from most-upstream; optional guide-propose may include the positioning triple.
-6. Human may **adopt by selecting** a node/entry from this map **after pre-adopt clarify** (same adopt authority as dialogue adopt).
+5. **Persist** via `$INDUCTIVE_GATE_CTL record-topic-landscape` with `--purpose` `seek` | `refresh` | `pre_close` and caller-reported `--gap-remaining` (new `run_id` each call; single-slot file). Do **not** hand-write the JSON.
+6. After confirm (seek/refresh): default next guidance from most-upstream; optional guide-propose may include the positioning triple.
+7. Human may **adopt by selecting** a node/entry from this map **after pre-adopt clarify** (same adopt authority as dialogue adopt).
+8. Pre-close path: after human chooses clear / hard-skip, `$INDUCTIVE_GATE_CTL record-g2-topic-exit` referencing the current landscape `run_id` (see gate Close).
 
-**Forbidden:** skip human confirm when the tool ran for propose/refresh/close-detect; rank by grain; DAG among adopted topics; invent candidates that ignore settled facts; treat candidates as G3 `open`.
+**Forbidden:** skip human confirm when the tool ran for propose/refresh/close-detect; rank by grain; DAG among adopted topics; invent candidates that ignore settled facts; treat candidates as G3 `open`; close G2 without a matching pre_close landscape + exit receipt.
+
+**Honest boundary:** `--gap-remaining` is caller-reported from this run’s judgment — the script does not discover gaps.
 
 ---
 
@@ -130,6 +134,8 @@ Topic identity on the seeking map is the DAG node — **not** a fourth “gap ti
 - KW altitude / conversation L1–L3 ≠ this grain model.
 - Production (facts) ⊥ display (collab arc) remains as in the gate.
 - `gap` here is a **topic state**, not a second ontology and not G3 `open`.
+- Pre-adopt clarify → adopt → bind → `topic-portrait` → deep work is **orchestration obligation**, not a scripted event-chain gate in this wave.
+- `$TOPIC_CURRENT_CTL` / `_topic-current.json` binds the **adopted** topic only — not close proof, not the seeking map.
 
 ---
 

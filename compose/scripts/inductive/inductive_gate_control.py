@@ -23,11 +23,14 @@ Subcommands:
                         (mode=deep, one open point via --ep-id)
     g4-check-report     Facade: subprocess to inductive_g4_control check-recompose-report
     g4-list-report      Facade: subprocess to inductive_g4_control list-recompose-report
+    record-topic-landscape  Persist single-slot _topic-landscape.json (new run_id)
+    record-g2-topic-exit    Persist _g2-topic-exit.json referencing a landscape run_id
 
 Payload per gate:
     G1: {"user_confirmed": true} required; architecture_view/shape_constraints optional resume aid only
     G2: Topic Loop exit — topic_loop_done + design_goal_met + human_exit_confirmed
-        + topic_exit in {cleared, hard_skip}
+        + topic_exit in {cleared, hard_skip} matching _g2-topic-exit.json /
+          pre_close _topic-landscape.json (archive-21)
     G3: must pass check-coverage (delegated to section control)
     G4: none accepted from the caller — report-driven. gate-close internally
         merges structural {reforms_shape, shape_absorbed} (recompose-check)
@@ -76,6 +79,18 @@ from inductive_gate_state_schema import (  # noqa: E402
     load_gate_state,
     reopen_gate,
     save_gate_state,
+)
+from g2_topic_exit_schema import (  # noqa: E402
+    g2_topic_exit_path,
+    load_g2_topic_exit,
+    save_g2_topic_exit,
+)
+from g2_topic_landscape_schema import (  # noqa: E402
+    LANDSCAPE_PURPOSES,
+    load_topic_landscape,
+    new_run_id,
+    save_topic_landscape,
+    topic_landscape_path,
 )
 
 
@@ -354,8 +369,9 @@ def _validate_g2_close(out_dir: Path, payload: dict[str, Any]) -> None:
     """G2 = Topic Loop. Design-convergence exit.
 
     Requires ``topic_loop_done``, ``design_goal_met`` (AI D1+D2 gate),
-    ``human_exit_confirmed``, and ``topic_exit`` in ``{cleared, hard_skip}``.
-    Does **not** require a process draft / draft-as-topic-tree. Blocks when
+    ``human_exit_confirmed``, ``topic_exit`` in ``{cleared, hard_skip}``, and a
+    matching pre_close landscape + exit receipt pair (archive-21). Does **not**
+    require a process draft / draft-as-topic-tree. Blocks when
     ``_topic-current.json`` has an unconfirmed conclusion.
     """
     if not payload.get("topic_loop_done"):
@@ -378,8 +394,53 @@ def _validate_g2_close(out_dir: Path, payload: dict[str, Any]) -> None:
             "(pre-close topic-landscape: no gap-state topics, or human hard-skip)",
         )
 
+    slice_dir = active_slice_dir(Path(out_dir))
+    try:
+        landscape = load_topic_landscape(topic_landscape_path(slice_dir))
+        exit_receipt = load_g2_topic_exit(g2_topic_exit_path(slice_dir))
+    except ValueError as exc:
+        _fail(f"G2 close blocked: invalid landscape/exit receipt: {exc}")
+
+    if exit_receipt is None:
+        _fail(
+            "G2 close blocked: missing _g2-topic-exit.json "
+            "(run record-g2-topic-exit after pre-close topic-landscape)",
+        )
+    if landscape is None:
+        _fail(
+            "G2 close blocked: missing _topic-landscape.json "
+            "(run record-topic-landscape --purpose pre_close)",
+        )
+    if exit_receipt.get("human_confirmed") is not True:
+        _fail("G2 close blocked: exit receipt human_confirmed must be true")
+    if exit_receipt.get("result") != topic_exit:
+        _fail(
+            "G2 close blocked: payload.topic_exit "
+            f"{topic_exit!r} != exit.result {exit_receipt.get('result')!r}",
+        )
+    if exit_receipt.get("landscape_run_id") != landscape.get("run_id"):
+        _fail(
+            "G2 close blocked: exit.landscape_run_id does not match "
+            "current _topic-landscape.json run_id",
+        )
+    if landscape.get("purpose") != "pre_close":
+        _fail(
+            "G2 close blocked: landscape.purpose must be 'pre_close' "
+            f"(got {landscape.get('purpose')!r})",
+        )
+    if exit_receipt.get("gap_remaining") != landscape.get("gap_remaining"):
+        _fail(
+            "G2 close blocked: exit.gap_remaining "
+            f"{exit_receipt.get('gap_remaining')!r} != landscape.gap_remaining "
+            f"{landscape.get('gap_remaining')!r}",
+        )
+    if topic_exit == "cleared" and int(landscape.get("gap_remaining") or 0) != 0:
+        _fail(
+            "G2 close blocked: topic_exit=cleared requires landscape.gap_remaining=0",
+        )
+
     # Same path as $TOPIC_CURRENT_CTL (active slice when multi-L pointer exists)
-    topic_path = active_slice_dir(Path(out_dir)) / "_topic-current.json"
+    topic_path = slice_dir / "_topic-current.json"
     if topic_path.is_file():
         try:
             topic = json.loads(topic_path.read_text(encoding="utf-8"))
@@ -392,6 +453,94 @@ def _validate_g2_close(out_dir: Path, payload: dict[str, Any]) -> None:
                     "G2 close blocked: topic conclusion present but not confirmed "
                     "(confirm-conclusion or clear topic first)",
                 )
+
+
+def cmd_record_topic_landscape(out_dir: Path, args: argparse.Namespace) -> None:
+    purpose = str(args.purpose or "").strip()
+    if purpose not in LANDSCAPE_PURPOSES:
+        _fail(
+            "record-topic-landscape --purpose must be one of "
+            + ", ".join(sorted(LANDSCAPE_PURPOSES)),
+        )
+    gap = int(args.gap_remaining)
+    if gap < 0:
+        _fail("record-topic-landscape --gap-remaining must be >= 0")
+    summary = args.summary
+    slice_dir = active_slice_dir(Path(out_dir))
+    path = topic_landscape_path(slice_dir)
+    data = {
+        "version": "1",
+        "run_id": new_run_id(),
+        "purpose": purpose,
+        "gap_remaining": gap,
+        "summary": None if summary is None else str(summary),
+    }
+    try:
+        saved = save_topic_landscape(path, data)
+    except ValueError as exc:
+        _fail(str(exc))
+    _ok({"ok": True, "path": str(path), "landscape": saved})
+
+
+def cmd_record_g2_topic_exit(out_dir: Path, args: argparse.Namespace) -> None:
+    result = str(args.result or "").strip()
+    if result not in ("cleared", "hard_skip"):
+        _fail("record-g2-topic-exit --result must be cleared or hard_skip")
+    if not bool(getattr(args, "human_confirmed", False)):
+        _fail("record-g2-topic-exit requires --human-confirmed")
+
+    slice_dir = active_slice_dir(Path(out_dir))
+    land_path = topic_landscape_path(slice_dir)
+    try:
+        landscape = load_topic_landscape(land_path)
+    except ValueError as exc:
+        _fail(f"invalid _topic-landscape.json: {exc}")
+    if landscape is None:
+        _fail(
+            "record-g2-topic-exit requires _topic-landscape.json "
+            "(run record-topic-landscape --purpose pre_close first)",
+        )
+
+    run_id = str(getattr(args, "landscape_run_id", "") or "").strip()
+    if not run_id:
+        run_id = str(landscape.get("run_id") or "")
+    if run_id != landscape.get("run_id"):
+        _fail(
+            "record-g2-topic-exit landscape_run_id does not match "
+            "current _topic-landscape.json run_id",
+        )
+    if landscape.get("purpose") != "pre_close":
+        _fail(
+            "record-g2-topic-exit requires landscape.purpose=pre_close "
+            f"(got {landscape.get('purpose')!r})",
+        )
+
+    gap = int(landscape.get("gap_remaining") or 0)
+    if args.gap_remaining is not None:
+        gap_arg = int(args.gap_remaining)
+        if gap_arg != gap:
+            _fail(
+                "record-g2-topic-exit --gap-remaining must equal "
+                f"landscape.gap_remaining ({gap})",
+            )
+        gap = gap_arg
+    if result == "cleared" and gap != 0:
+        _fail("record-g2-topic-exit result=cleared requires landscape.gap_remaining=0")
+
+    path = g2_topic_exit_path(slice_dir)
+    data = {
+        "version": "1",
+        "landscape_run_id": run_id,
+        "result": result,
+        "gap_remaining": gap,
+        "human_confirmed": True,
+        "purpose": "pre_close",
+    }
+    try:
+        saved = save_g2_topic_exit(path, data)
+    except ValueError as exc:
+        _fail(str(exc))
+    _ok({"ok": True, "path": str(path), "exit": saved, "landscape": landscape})
 
 
 def _validate_g3_close(out_dir: Path) -> None:
@@ -732,6 +881,53 @@ def _build_parser() -> argparse.ArgumentParser:
         parents=[conv_id_parent],
     )
 
+    p = sub.add_parser(
+        "record-topic-landscape",
+        help="Persist single-slot _topic-landscape.json with a new run_id",
+        parents=[conv_id_parent],
+    )
+    p.add_argument(
+        "--purpose",
+        required=True,
+        choices=sorted(LANDSCAPE_PURPOSES),
+        help="seek | refresh | pre_close",
+    )
+    p.add_argument(
+        "--gap-remaining",
+        required=True,
+        type=int,
+        help="Caller-reported count of gap-state topics after this landscape run",
+    )
+    p.add_argument("--summary", default=None, help="Optional short reuse summary")
+
+    p = sub.add_parser(
+        "record-g2-topic-exit",
+        help="Persist _g2-topic-exit.json referencing current pre_close landscape",
+        parents=[conv_id_parent],
+    )
+    p.add_argument(
+        "--result",
+        required=True,
+        choices=["cleared", "hard_skip"],
+        help="Human exit choice after pre-close landscape",
+    )
+    p.add_argument(
+        "--human-confirmed",
+        action="store_true",
+        help="Required; records explicit human confirm of the exit choice",
+    )
+    p.add_argument(
+        "--landscape-run-id",
+        default="",
+        help="Defaults to current _topic-landscape.json run_id",
+    )
+    p.add_argument(
+        "--gap-remaining",
+        type=int,
+        default=None,
+        help="Optional; must equal landscape.gap_remaining when set",
+    )
+
     return parser
 
 
@@ -751,6 +947,8 @@ def main() -> None:
         "deep-grounding-list": cmd_deep_grounding_list,
         "g4-check-report": cmd_g4_check_report,
         "g4-list-report": cmd_g4_list_report,
+        "record-topic-landscape": cmd_record_topic_landscape,
+        "record-g2-topic-exit": cmd_record_g2_topic_exit,
     }
 
     handler = dispatch.get(args.subcommand)

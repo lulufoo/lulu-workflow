@@ -19,11 +19,37 @@ _SUBAGENT_CONV = "22222222-2222-4222-8222-222222222222"
 
 
 
-def _g2_close_payload() -> str:
+def _g2_close_payload(topic_exit: str = "cleared") -> str:
     return (
         '{"topic_loop_done": true, "design_goal_met": true, '
-        '"human_exit_confirmed": true, "topic_exit": "cleared"}'
+        f'"human_exit_confirmed": true, "topic_exit": "{topic_exit}"}}'
     )
+
+
+def _g2_prepare_exit(
+    out_dir: Path,
+    *,
+    result: str = "cleared",
+    gap_remaining: int = 0,
+) -> None:
+    code, payload = _run_gate(
+        out_dir,
+        "record-topic-landscape",
+        "--purpose",
+        "pre_close",
+        "--gap-remaining",
+        str(gap_remaining),
+    )
+    assert code == 0, payload
+    code, payload = _run_gate(
+        out_dir,
+        "record-g2-topic-exit",
+        "--result",
+        result,
+        "--human-confirmed",
+    )
+    assert code == 0, payload
+
 
 def _run_gate(out_dir: Path, *args: str) -> tuple[int, dict]:
     res = subprocess.run(
@@ -239,6 +265,7 @@ def test_gate_close_accepts_hook_injected_conversation_id(tmp_path: Path):
     """hook_guard appends --conversation-id after subcommand args."""
     _seed_session(tmp_path)
     _run_gate(tmp_path, "gate-close", "--gate", "G1", "--payload", _g1_payload())
+    _g2_prepare_exit(tmp_path, result="cleared", gap_remaining=0)
     code, result = _run_gate(
         tmp_path,
         "gate-close",
@@ -372,6 +399,7 @@ def test_gate_close_g2_topic_loop_payload(tmp_path: Path):
     code, result = _run_gate(tmp_path, "resolve-context")
     assert code == 0, result
     assert "Topic Loop" in str(result.get("gate_symbols", {}).get("G2", ""))
+    _g2_prepare_exit(tmp_path, result="cleared", gap_remaining=0)
     code, result = _run_gate(tmp_path, "gate-close", "--gate", "G2", "--payload", _g2_close_payload())
     assert code == 0, result
     assert result.get("closed") == "G2"
@@ -389,14 +417,74 @@ def test_gate_close_g2_requires_topic_exit(tmp_path: Path):
     assert "topic_exit" in str(result).lower()
 
 
+def test_gate_close_g2_rejects_missing_exit_receipt(tmp_path: Path):
+    _seed_session(tmp_path)
+    _run_gate(tmp_path, "gate-close", "--gate", "G1", "--payload", _g1_payload())
+    code, result = _run_gate(
+        tmp_path, "gate-close", "--gate", "G2", "--payload", _g2_close_payload(),
+    )
+    assert code != 0
+    assert "exit" in str(result).lower() or "landscape" in str(result).lower()
+
+
+def test_gate_close_g2_rejects_cleared_with_remaining_gaps(tmp_path: Path):
+    _seed_session(tmp_path)
+    _run_gate(tmp_path, "gate-close", "--gate", "G1", "--payload", _g1_payload())
+    code, payload = _run_gate(
+        tmp_path,
+        "record-topic-landscape",
+        "--purpose",
+        "pre_close",
+        "--gap-remaining",
+        "2",
+    )
+    assert code == 0, payload
+    code, payload = _run_gate(
+        tmp_path,
+        "record-g2-topic-exit",
+        "--result",
+        "cleared",
+        "--human-confirmed",
+    )
+    assert code != 0
+    assert "gap_remaining" in str(payload).lower()
+
+
+def test_gate_close_g2_rejects_seek_purpose_for_close(tmp_path: Path):
+    _seed_session(tmp_path)
+    _run_gate(tmp_path, "gate-close", "--gate", "G1", "--payload", _g1_payload())
+    code, payload = _run_gate(
+        tmp_path,
+        "record-topic-landscape",
+        "--purpose",
+        "seek",
+        "--gap-remaining",
+        "0",
+    )
+    assert code == 0, payload
+    code, payload = _run_gate(
+        tmp_path,
+        "record-g2-topic-exit",
+        "--result",
+        "cleared",
+        "--human-confirmed",
+    )
+    assert code != 0
+    assert "pre_close" in str(payload).lower()
+
+
 def test_gate_close_g2_accepts_hard_skip_topic_exit(tmp_path: Path):
     _seed_session(tmp_path)
     _run_gate(tmp_path, "gate-close", "--gate", "G1", "--payload", _g1_payload())
-    payload = (
-        '{"topic_loop_done": true, "design_goal_met": true, '
-        '"human_exit_confirmed": true, "topic_exit": "hard_skip"}'
+    _g2_prepare_exit(tmp_path, result="hard_skip", gap_remaining=2)
+    code, result = _run_gate(
+        tmp_path,
+        "gate-close",
+        "--gate",
+        "G2",
+        "--payload",
+        _g2_close_payload("hard_skip"),
     )
-    code, result = _run_gate(tmp_path, "gate-close", "--gate", "G2", "--payload", payload)
     assert code == 0, result
     assert result.get("closed") == "G2"
 
@@ -439,6 +527,7 @@ def _drive_single_section_to_g4(tmp_path: Path) -> None:
 
     code, _ = _run_gate(tmp_path, "gate-close", "--gate", "G1", "--payload", _g1_payload())
     assert code == 0
+    _g2_prepare_exit(tmp_path, result="cleared", gap_remaining=0)
     code, _ = _run_gate(tmp_path, "gate-close", "--gate", "G2", "--payload", _g2_close_payload())
     assert code == 0
 

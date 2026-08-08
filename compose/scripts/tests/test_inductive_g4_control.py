@@ -27,6 +27,27 @@ def _g2_close_payload() -> str:
         '"human_exit_confirmed": true, "topic_exit": "cleared"}'
     )
 
+
+def _g2_prepare_exit(out_dir: Path) -> None:
+    code, payload = _run_gate(
+        out_dir,
+        "record-topic-landscape",
+        "--purpose",
+        "pre_close",
+        "--gap-remaining",
+        "0",
+    )
+    assert code == 0, payload
+    code, payload = _run_gate(
+        out_dir,
+        "record-g2-topic-exit",
+        "--result",
+        "cleared",
+        "--human-confirmed",
+    )
+    assert code == 0, payload
+
+
 def _run_g4(out_dir: Path, *args: str) -> tuple[int, dict]:
     res = subprocess.run(
         [sys.executable, str(_G4_CTL), "--out-dir", str(out_dir), *args],
@@ -123,6 +144,7 @@ def _drive_to_g4(tmp_path: Path) -> None:
     code, _ = _run_gate(tmp_path, "gate-close", "--gate", "G1", "--payload", _g1_payload())
     assert code == 0
 
+    _g2_prepare_exit(tmp_path)
     code, _ = _run_gate(tmp_path, "gate-close", "--gate", "G2", "--payload", _g2_close_payload())
     assert code == 0
 
