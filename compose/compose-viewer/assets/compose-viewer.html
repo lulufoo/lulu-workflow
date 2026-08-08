@@ -89,45 +89,111 @@
         font-size: 13px;
       }
 
-      .stale-badge {
-        display: none;
-        padding: 4px 10px;
+      .drift-menu {
+        position: relative;
+      }
+
+      .drift-trigger {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 12px;
+        border: 1px solid #53607a;
         border-radius: 999px;
+        background: transparent;
+        color: #ffffff;
+        font-size: 12px;
+        font-weight: 650;
+      }
+
+      .drift-trigger[data-state="sync"] {
+        border-color: #3d8f6e;
+        color: #b7f0d4;
+      }
+
+      .drift-trigger[data-state="drift"] {
+        border-color: #e0b34d;
         background: var(--amber);
         color: #1a1200;
+      }
+
+      .drift-badge {
+        display: none;
+        min-width: 1.4em;
+        padding: 1px 6px;
+        border-radius: 999px;
+        background: #1a1200;
+        color: #fff2d7;
+        font-size: 11px;
+        font-weight: 800;
+        text-align: center;
+      }
+
+      .drift-trigger[data-state="drift"] .drift-badge {
+        display: inline-block;
+      }
+
+      .drift-popover {
+        position: absolute;
+        top: calc(100% + 8px);
+        right: 0;
+        z-index: 40;
+        width: min(420px, 70vw);
+        padding: 12px 14px;
+        border: 1px solid #f0d59a;
+        border-radius: 12px;
+        background: #fffaf0;
+        color: var(--ink);
+        box-shadow: 0 10px 28px rgba(23, 32, 51, 0.22);
+      }
+
+      .drift-popover[hidden] {
+        display: none !important;
+      }
+
+      .drift-summary {
+        margin: 0 0 10px;
+        font-size: 13px;
+        font-weight: 650;
+      }
+
+      .drift-section + .drift-section {
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid #f0d59a;
+      }
+
+      .drift-section-title {
+        margin: 0 0 6px;
+        color: var(--amber);
         font-size: 12px;
         font-weight: 700;
       }
 
-      .stale-badge.is-on {
-        display: inline-block;
-      }
-
-      .orphan-box {
-        margin: 12px 28px 0;
-        padding: 12px 14px;
-        border: 1px solid #f0d59a;
-        border-radius: 10px;
-        background: var(--amber-soft);
-        color: var(--ink);
-        font-size: 13px;
-      }
-
-      .orphan-box[hidden] {
-        display: none !important;
-      }
-
-      .orphan-ids {
+      .drift-ids {
         display: flex;
         flex-wrap: wrap;
         gap: 6px;
-        margin-top: 8px;
       }
 
-      .orphan-ids code {
+      .drift-ids code,
+      .drift-ids button {
         padding: 2px 6px;
         border-radius: 6px;
         background: #fff;
+        border: 1px solid #ead7a8;
+        font: inherit;
+        font-size: 12px;
+        color: var(--ink);
+      }
+
+      .drift-ids button:hover {
+        border-color: var(--blue);
+        background: var(--blue-soft);
+      }
+
+      .drift-empty {
+        color: var(--muted);
         font-size: 12px;
       }
 
@@ -484,18 +550,42 @@
           <h1>Lulu-Design Viewer · Narrative Arc</h1>
         </div>
         <div class="topbar-spacer"></div>
-        <span id="stale-badge" class="stale-badge" aria-live="polite">STALE · unattached facts</span>
+        <div class="drift-menu" id="drift-menu">
+          <button
+            id="drift-trigger"
+            class="drift-trigger"
+            type="button"
+            data-state="sync"
+            aria-expanded="false"
+            aria-controls="drift-popover"
+            aria-haspopup="dialog"
+          >
+            <span id="drift-label">In sync</span>
+            <span id="drift-badge" class="drift-badge" aria-hidden="true">0</span>
+          </button>
+          <div
+            id="drift-popover"
+            class="drift-popover"
+            role="dialog"
+            aria-label="Projection drift details"
+            hidden
+          >
+            <p id="drift-summary" class="drift-summary">In sync</p>
+            <div class="drift-section">
+              <p class="drift-section-title">Arc references missing facts</p>
+              <div id="drift-missing" class="drift-ids"></div>
+            </div>
+            <div class="drift-section">
+              <p class="drift-section-title">Facts not placed in the arc</p>
+              <div id="drift-unplaced" class="drift-ids"></div>
+            </div>
+          </div>
+        </div>
         <span id="source-state" class="source-state">Loading collaboration arc…</span>
         <button id="toggle-arc" class="topic-toggle" type="button" aria-expanded="true">
           Hide arc
         </button>
       </header>
-
-      <div id="orphan-box" class="orphan-box" hidden>
-        <strong>Unattached facts</strong>
-        <span id="orphan-count"></span>
-        <div id="orphan-ids" class="orphan-ids"></div>
-      </div>
 
       <main class="workspace">
         <section id="arc-panel" class="arc-panel">
@@ -585,7 +675,12 @@
         arc: null,
         factsById: new Map(),
         leafById: new Map(),
-        orphanIds: [],
+        projectionDrift: {
+          missingFacts: [],
+          unplacedFacts: [],
+          differenceCount: 0,
+        },
+        driftOpen: false,
         selectedLeafId: null,
         selectedFactId: null,
         mountFilter: "all",
@@ -595,10 +690,14 @@
 
       const els = {
         sourceState: document.getElementById("source-state"),
-        staleBadge: document.getElementById("stale-badge"),
-        orphanBox: document.getElementById("orphan-box"),
-        orphanCount: document.getElementById("orphan-count"),
-        orphanIds: document.getElementById("orphan-ids"),
+        driftMenu: document.getElementById("drift-menu"),
+        driftTrigger: document.getElementById("drift-trigger"),
+        driftLabel: document.getElementById("drift-label"),
+        driftBadge: document.getElementById("drift-badge"),
+        driftPopover: document.getElementById("drift-popover"),
+        driftSummary: document.getElementById("drift-summary"),
+        driftMissing: document.getElementById("drift-missing"),
+        driftUnplaced: document.getElementById("drift-unplaced"),
         toggleArc: document.getElementById("toggle-arc"),
         arcPanel: document.getElementById("arc-panel"),
         treeCount: document.getElementById("tree-count"),
@@ -617,30 +716,90 @@
         openItems: document.getElementById("open-items"),
       };
 
-      function computeOrphans(arc, facts) {
-        const attached = new Set();
+      function computeProjectionDrift(arc, facts) {
+        const arcFactIds = new Set();
         for (const leaf of arc?.leaves || []) {
-          for (const id of leaf?.fact_ids || []) attached.add(id);
+          for (const id of leaf?.fact_ids || []) {
+            if (id) arcFactIds.add(String(id));
+          }
         }
-        return (facts || [])
-          .map((f) => f?.id)
-          .filter((id) => id && !attached.has(id));
+        const factIds = new Set(
+          (facts || [])
+            .map((f) => f?.id)
+            .filter(Boolean)
+            .map((id) => String(id)),
+        );
+        const missingFacts = [...arcFactIds]
+          .filter((id) => !factIds.has(id))
+          .sort();
+        const unplacedFacts = [...factIds]
+          .filter((id) => !arcFactIds.has(id))
+          .sort();
+        return {
+          missingFacts,
+          unplacedFacts,
+          differenceCount: missingFacts.length + unplacedFacts.length,
+        };
       }
 
-      function renderOrphans() {
-        const orphans = state.orphanIds;
-        const stale = orphans.length > 0;
-        els.staleBadge.classList.toggle("is-on", stale);
-        els.orphanBox.hidden = !stale;
-        if (!stale) {
-          els.orphanCount.textContent = "";
-          els.orphanIds.innerHTML = "";
+      function setDriftOpen(open) {
+        state.driftOpen = !!open;
+        els.driftPopover.hidden = !state.driftOpen;
+        els.driftTrigger.setAttribute("aria-expanded", String(state.driftOpen));
+      }
+
+      function renderIdList(container, ids, { clickable = false } = {}) {
+        if (!ids.length) {
+          container.innerHTML = `<span class="drift-empty">None</span>`;
           return;
         }
-        els.orphanCount.textContent = ` · ${orphans.length}`;
-        els.orphanIds.innerHTML = orphans
-          .map((id) => `<code>${escapeHtml(id)}</code>`)
+        if (clickable) {
+          container.innerHTML = ids
+            .map(
+              (id) =>
+                `<button type="button" data-drift-fact-id="${escapeHtml(id)}">${escapeHtml(id)}</button>`,
+            )
+            .join("");
+          return;
+        }
+        container.innerHTML = ids
+          .map((id) => `<code title="Not in current facts">${escapeHtml(id)}</code>`)
           .join("");
+      }
+
+      function renderProjectionDrift() {
+        const drift = state.projectionDrift;
+        const count = drift.differenceCount;
+        const inSync = count === 0;
+        els.driftTrigger.dataset.state = inSync ? "sync" : "drift";
+        els.driftLabel.textContent = inSync ? "In sync" : "Projection drift";
+        els.driftBadge.textContent = String(count);
+        els.driftSummary.textContent = inSync
+          ? "Arc and facts are in sync"
+          : `${count} difference${count === 1 ? "" : "s"} between arc and facts`;
+        renderIdList(els.driftMissing, drift.missingFacts, { clickable: false });
+        renderIdList(els.driftUnplaced, drift.unplacedFacts, { clickable: true });
+        if (inSync) setDriftOpen(false);
+      }
+
+      function leafIdForFact(factId) {
+        for (const [leafId, leaf] of state.leafById.entries()) {
+          if ((leaf?.fact_ids || []).map(String).includes(String(factId))) {
+            return leafId;
+          }
+        }
+        return null;
+      }
+
+      function selectFactFromDrift(factId) {
+        const id = String(factId);
+        if (!state.factsById.has(id)) return;
+        // Unplaced facts clear leaf selection so detail is not mixed with a prior leaf.
+        state.selectedLeafId = leafIdForFact(id);
+        state.selectedFactId = id;
+        setDriftOpen(false);
+        renderTree();
+        renderDetail();
       }
 
       async function ensureConfig() {
@@ -695,7 +854,7 @@
       function indexFacts(facts) {
         const map = new Map();
         for (const fact of facts || []) {
-          if (fact?.id) map.set(fact.id, fact);
+          if (fact?.id) map.set(String(fact.id), fact);
         }
         return map;
       }
@@ -748,24 +907,43 @@
         if (!arc) return;
         const leaf = state.leafById.get(state.selectedLeafId);
         els.arcStatus.textContent = arc.status || "—";
+        const selectedId = state.selectedFactId
+          ? String(state.selectedFactId)
+          : null;
+        const selectedIsUnplaced =
+          !!selectedId &&
+          state.factsById.has(selectedId) &&
+          !leafIdForFact(selectedId);
 
         if (!leaf) {
-          els.leafDescription.textContent = arc.meta?.note || arc.tree?.title || "Select a leaf.";
-          els.leafMeta.innerHTML = "";
-          els.factChips.innerHTML = "";
-          els.factCount.textContent = "";
-          state.selectedFactId = null;
+          els.leafDescription.textContent = selectedIsUnplaced
+            ? `Unplaced fact ${selectedId}`
+            : arc.meta?.note || arc.tree?.title || "Select a leaf.";
+          els.leafMeta.innerHTML = selectedIsUnplaced
+            ? `<div class="meta-row"><dt>placement</dt><dd>not in arc</dd></div>`
+            : "";
+          els.factChips.innerHTML = selectedIsUnplaced
+            ? `<button class="chip is-selected" type="button" data-fact-id="${escapeHtml(selectedId)}">${escapeHtml(selectedId)}</button>`
+            : "";
+          els.factCount.textContent = selectedIsUnplaced ? "1 · from Projection drift" : "";
+          if (!selectedIsUnplaced) state.selectedFactId = null;
           renderFactDetail();
           renderOpenItems();
           return;
         }
 
         const mount = mountOf(leaf.id);
-        const fids = leaf.fact_ids || [];
-        if (state.selectedFactId && !fids.includes(state.selectedFactId)) {
+        const fids = (leaf.fact_ids || []).map(String);
+        if (
+          selectedId &&
+          !fids.includes(selectedId) &&
+          !state.factsById.has(selectedId)
+        ) {
           state.selectedFactId = null;
         }
-        els.leafDescription.textContent = `${leaf.title} · mount=${mount}`;
+        els.leafDescription.textContent = selectedIsUnplaced
+          ? `${leaf.title} · viewing unplaced ${selectedId}`
+          : `${leaf.title} · mount=${mount}`;
         els.leafMeta.innerHTML = `
           <div class="meta-row"><dt>id</dt><dd><code>${escapeHtml(leaf.id)}</code></dd></div>
           <div class="meta-row"><dt>mount</dt><dd><span class="mount-pill ${mount}">${mount}</span></dd></div>
@@ -773,12 +951,16 @@
             .map((c) => `<code>${escapeHtml(c.lens)}</code>`)
             .join(" · ") || "—"}</dd></div>
         `;
+        const chipIds = selectedIsUnplaced
+          ? [...fids, selectedId]
+          : fids;
         els.factCount.textContent = `${fids.length} · click to view`;
-        els.factChips.innerHTML = fids.length
-          ? fids
+        els.factChips.innerHTML = chipIds.length
+          ? chipIds
               .map((id) => {
-                const selected = id === state.selectedFactId ? " is-selected" : "";
-                return `<button class="chip${selected}" type="button" data-fact-id="${escapeHtml(id)}">${escapeHtml(id)}</button>`;
+                const selected = id === selectedId ? " is-selected" : "";
+                const unplaced = !fids.includes(id) ? " · unplaced" : "";
+                return `<button class="chip${selected}" type="button" data-fact-id="${escapeHtml(id)}">${escapeHtml(id)}${unplaced}</button>`;
               })
               .join("")
           : `<span class="chip muted">no facts</span>`;
@@ -825,7 +1007,7 @@
       }
 
       function renderFactDetail() {
-        const factId = state.selectedFactId;
+        const factId = state.selectedFactId ? String(state.selectedFactId) : null;
         els.mermaidPanel.replaceChildren();
         els.mermaidPanel.hidden = true;
         if (!factId) {
@@ -849,14 +1031,15 @@
         const prose = String(fact.text || "")
           .replace(/```mermaid\s*\r?\n[\s\S]*?```/g, "")
           .trim();
-        els.factDetailHeading.textContent = fact.id;
+        const factKey = String(fact.id);
+        els.factDetailHeading.textContent = factKey;
         els.factDetailText.textContent = prose;
         els.factDetailText.hidden = !prose;
         const tags = fact.lens_tags || [];
         els.factTags.innerHTML = tags.length
           ? tags.map((tag) => `<span class="fact-tag">${escapeHtml(tag)}</span>`).join("")
           : `<span class="fact-tag">no lens</span>`;
-        renderMermaidDiagrams(fact.id, diagrams);
+        renderMermaidDiagrams(factKey, diagrams);
       }
 
       function renderOpenItems(selectedLeafId) {
@@ -916,16 +1099,43 @@
             return;
           }
           state.lastPayload = payload;
-          state.orphanIds = computeOrphans(arc, facts);
+          state.projectionDrift = computeProjectionDrift(arc, facts);
           applyArc(arc, facts, { preserveSelection: silent || !!state.selectedLeafId });
-          renderOrphans();
+          renderProjectionDrift();
           const kind = arc.kind || "arc";
-          els.sourceState.textContent = `${kind} · ${state.arcSource} · facts ${state.factsById.size} · orphans ${state.orphanIds.length}`;
+          const drift = state.projectionDrift.differenceCount;
+          els.sourceState.textContent = `${kind} · ${state.arcSource} · facts ${state.factsById.size} · drift ${drift}`;
         } catch (err) {
           els.sourceState.textContent = `Load failed: ${err.message || err}`;
-          els.staleBadge.classList.remove("is-on");
+          setDriftOpen(false);
+          els.driftTrigger.dataset.state = "sync";
+          els.driftLabel.textContent = "In sync";
+          els.driftBadge.textContent = "0";
         }
       }
+
+      els.driftTrigger.addEventListener("click", (event) => {
+        event.stopPropagation();
+        setDriftOpen(!state.driftOpen);
+      });
+
+      els.driftPopover.addEventListener("click", (event) => {
+        const btn = event.target.closest("[data-drift-fact-id]");
+        if (!btn) return;
+        selectFactFromDrift(btn.dataset.driftFactId);
+      });
+
+      document.addEventListener("click", (event) => {
+        if (!state.driftOpen) return;
+        if (els.driftMenu.contains(event.target)) return;
+        setDriftOpen(false);
+      });
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key !== "Escape" || !state.driftOpen) return;
+        setDriftOpen(false);
+        els.driftTrigger.focus();
+      });
 
       els.toggleArc.addEventListener("click", () => {
         state.arcVisible = !state.arcVisible;
@@ -955,8 +1165,9 @@
       els.factChips.addEventListener("click", (event) => {
         const btn = event.target.closest("[data-fact-id]");
         if (!btn) return;
-        const factId = btn.dataset.factId;
-        state.selectedFactId = state.selectedFactId === factId ? null : factId;
+        const factId = String(btn.dataset.factId);
+        state.selectedFactId =
+          String(state.selectedFactId || "") === factId ? null : factId;
         renderDetail();
       });
 
