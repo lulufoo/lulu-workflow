@@ -23,9 +23,9 @@ Mechanism = discover and work topics **in dialogue**. This is **not** two indepe
 | Human | May propose `gap`-state topics; **sole authority** to adopt a candidate from dialogue or `topic-landscape`; confirm conclusions; confirm exit / hard-skip | — |
 | AI | May **guide-propose** after `topic-landscape` confirm; help free dialogue / deep work / summarize | Auto-adopt; skip `topic-landscape` / `topic-portrait` when their triggers fire; silent fact writes; treat D1+D2 exit check as a substitute for human exit |
 
-G2 topic contract (definition, states, grain, framing, Topic DAG, Induction
-portrait, and tool protocols) →
-[`../references/g2-topic-model.md`](../references/g2-topic-model.md).
+G2 topic contract (definition, states, grain, framing, Topic DAG, Topic discovery,
+Induction portrait, and tool protocols) →
+[`../references/inductive-topic-model.md`](../references/inductive-topic-model.md).
 
 ## Topic operation
 
@@ -37,6 +37,9 @@ the sole authority to adopt it. On confirmation, bind the current topic through
 
 ## Session boundaries
 
+- G2 maps Domain D1+D2 to the model's induction context, dialogue proposals to
+  human candidate signals, the current settled-fact set to settled facts, and
+  `$TOPIC_CURRENT_CTL` binding to the optional current topic.
 - Fact production and collab-arc display are orthogonal.
 - `$TOPIC_CURRENT_CTL` binds only the current adopted topic; it does not store the seeking map or close proof.
 - Exit receipts are the pre-close landscape and exit receipt (Workflow: Exit).
@@ -44,7 +47,12 @@ the sole authority to adopt it. On confirmation, bind the current topic through
 
 ## Tool boundaries
 
-- `topic-landscape` / `topic-portrait`: inline protocols in `../references/g2-topic-model.md`.
+- `topic-landscape` / `topic-portrait`: generic contracts in
+  `../references/inductive-topic-model.md`.
+- After every `topic-landscape` result, record the G2 landscape receipt through
+  `$INDUCTIVE_GATE_CTL record-topic-landscape`: use `seek`, `refresh`, or
+  `pre_close` for `purpose` and pass caller-reported `gap_remaining`. Do not
+  hand-write the receipt.
 - `fact-runner`: use its public protocol.
 - `narrative-arc-runner`: optional collab rebuild via `$SUBAGENT_TOOL`.
 - Keep tool-internal arguments and output handling in their owning contracts.
@@ -68,8 +76,13 @@ Orchestration only; not a scripted event-chain gate.
 
 ### Exit
 
-- On human exit intent, invoke `topic-landscape` with `pre_close` and require confirmation. With no gaps, the human chooses **cleared**; otherwise they choose **continue** (return to Seeking) or **hard-skip**.
-- After **cleared** or **hard-skip**, record matching `$INDUCTIVE_GATE_CTL record-topic-landscape` and `record-g2-topic-exit` receipts, then gate-close.
+- On human exit intent, invoke `topic-landscape`, record it with
+  `purpose=pre_close`, and require confirmation. With no gaps, the human chooses
+  **cleared**; otherwise they choose **continue** (return to Seeking) or
+  **hard-skip**.
+- After **cleared** or **hard-skip**, record
+  `$INDUCTIVE_GATE_CTL record-g2-topic-exit` against the current pre-close
+  landscape receipt, then gate-close.
 - Gate-close requires the D1+D2 design goal, human exit, no unconfirmed conclusion, and matching pre-close landscape, exit receipt, and `payload.topic_exit`. Never auto-close or hand-edit receipts.
 
 ### Display refresh (optional)
