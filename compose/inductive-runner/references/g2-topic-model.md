@@ -24,6 +24,14 @@ A **topic** is the Topic Loop session work unit: a design-commitment slice that 
 
 Transitions: `gap` → `adopted` → `concluded`.
 
+### Adopt
+
+**Adopt** is the sole act that promotes a `gap`-state topic to `adopted`. It
+has three inseparable facets: an AI-recognized candidate signal (from dialogue
+or a seeking-map selection), human confirmation as the sole authority, and
+binding through `$TOPIC_CURRENT_CTL set --human-adopted`. These facets are one
+act, not separate phases or turns.
+
 ### Discovery (MVP)
 
 AI enumerates **`gap`-state topic candidates** against D1+D2 and settled facts (autonomous judgment; no scripted detector). Then build the seeking DAG → human confirm → default most-upstream.
@@ -103,8 +111,8 @@ Topic identity on the seeking map is the DAG node — **not** a fourth “gap ti
 4. Present the seeking map for human confirmation (medium deferred — any form the human can confirm). On close-time detection, the map may be shorter but must still support confirm of clear / hard-skip.
 5. **Persist** via `$INDUCTIVE_GATE_CTL record-topic-landscape` with `--purpose` `seek` | `refresh` | `pre_close` and caller-reported `--gap-remaining` (new `run_id` each call; single-slot file). Do **not** hand-write the JSON.
 6. After confirm (seek/refresh): default next guidance from most-upstream; optional guide-propose may include the positioning triple.
-7. Human may **adopt by selecting** a node/entry from this map **after pre-adopt clarify** (same adopt authority as dialogue adopt).
-8. Pre-close path: after human chooses clear / hard-skip, `$INDUCTIVE_GATE_CTL record-g2-topic-exit` referencing the current landscape `run_id` (see gate Close).
+7. A map selection supplies an `adopt` candidate; it becomes `adopted` only through `adopt`.
+8. Pre-close path: after human chooses clear / hard-skip, `$INDUCTIVE_GATE_CTL record-g2-topic-exit` referencing the current landscape `run_id` (see Gate Workflow: Exit).
 
 **Forbidden:** skip human confirm when the tool ran for propose/refresh/close-detect; rank by grain; DAG among adopted topics; invent candidates that ignore settled facts; treat candidates as G3 `open`; close G2 without a matching pre_close landscape + exit receipt.
 
@@ -121,10 +129,9 @@ Topic identity on the seeking map is the DAG node — **not** a fourth “gap ti
 1. Require a macro-readable adopted binding already written (`$TOPIC_CURRENT_CTL set` at adopt).
 2. Recompute or project lens-2 portrait for the adopted topic (stance + place; coverage may be short).
 3. Present topic-lens portrait + positioning triple (Where anchors the seeking-DAG node when one applies).
-4. **Human confirms once** → only then continue deep work (solve / summarize path).
-5. Do **not** treat this tool as the seeking spine (that is `topic-landscape`).
+4. Do **not** treat this tool as the seeking spine (that is `topic-landscape`).
 
-**Forbidden:** proceed into deep work without this confirm; use topic-lens output to reorder the seeking DAG; invoke before adopt binding exists.
+**Forbidden:** omit the post-adopt topic-lens presentation; use topic-lens output to reorder the seeking DAG; invoke before adopt binding exists.
 
 ---
 
@@ -134,8 +141,7 @@ Topic identity on the seeking map is the DAG node — **not** a fourth “gap ti
 - KW altitude / conversation L1–L3 ≠ this grain model.
 - Production (facts) ⊥ display (collab arc) remains as in the gate.
 - `gap` here is a **topic state**, not a second ontology and not G3 `open`.
-- Pre-adopt clarify → adopt → bind → `topic-portrait` → deep work is **orchestration obligation**, not a scripted event-chain gate in this wave.
-- `$TOPIC_CURRENT_CTL` / `_topic-current.json` binds the **adopted** topic only — not close proof, not the seeking map.
+- `$TOPIC_CURRENT_CTL` / `_topic-current.json` is written by `adopt` for the **adopted** topic only — not close proof, not the seeking map.
 
 ---
 

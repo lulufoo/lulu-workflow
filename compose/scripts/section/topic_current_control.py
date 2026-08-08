@@ -3,10 +3,9 @@
 
 Subcommands: status · set · set-conclusion · confirm-conclusion · clear
 
-``set`` persists the current topic **at human adopt** (after pre-adopt
-clarify) and requires ``--human-adopted``. ``confirm-conclusion`` marks
-Topic Loop handoff ready for fact-settle (``concluded``). No phase ordering
-on disk.
+``set`` persists the current topic as part of **human adopt** and requires
+``--human-adopted``. ``confirm-conclusion`` marks Topic Loop handoff ready for
+fact-settle (``concluded``). No phase ordering on disk.
 
 CLI: ``python3 topic_current_control.py --help``
 
@@ -92,7 +91,7 @@ def cmd_set_conclusion(args: argparse.Namespace) -> int:
     path = topic_current_path(_slice(args.revision_dir))
     data = load_topic_current(path)
     if not data.get("clarified"):
-        return _fail("set-conclusion requires a clarified topic (run set first)")
+        return _fail("set-conclusion requires an adopted topic (run set first)")
     data["conclusion"] = text
     data["conclusion_confirmed"] = False
     try:
@@ -106,7 +105,7 @@ def cmd_confirm_conclusion(args: argparse.Namespace) -> int:
     path = topic_current_path(_slice(args.revision_dir))
     data = load_topic_current(path)
     if not data.get("clarified"):
-        return _fail("confirm-conclusion requires a clarified topic")
+        return _fail("confirm-conclusion requires an adopted topic")
     if not (isinstance(data.get("conclusion"), str) and data["conclusion"].strip()):
         return _fail("confirm-conclusion requires set-conclusion first")
     data["conclusion_confirmed"] = True
@@ -131,7 +130,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--revision-dir", required=True)
     p.set_defaults(func=cmd_status)
 
-    p = sub.add_parser("set", help="Persist current topic at human adopt (post pre-adopt clarify)")
+    p = sub.add_parser("set", help="Persist current topic as part of human adopt")
     p.add_argument("--revision-dir", required=True)
     p.add_argument("--title", required=True)
     p.add_argument("--scope", required=True)
