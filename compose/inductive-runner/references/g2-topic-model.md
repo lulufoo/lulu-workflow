@@ -2,153 +2,148 @@
 
 # G2 Topic Model
 
-Contract for G2 Topic Loop seeking and topic-context views. **Orchestration** (when to invoke named tools) lives in `../gates/g2-topic-loop.md`. This file owns topic definition/states, grain, two portrait lenses, and the inline protocols for `topic-landscape` and `topic-portrait`.
+Defines G2's topic cognitive model and topic-view tool contracts. The Gate owns
+topic operations and decides when to invoke each tool.
 
-**G2-only.** Other gates/flows must not load this file. **No** independent runner directories for these two tools (MVP). **No** persistent portrait files. Recompute from current settled facts when a tool runs.
+**Scope:** G2 only. Do not load this file from another gate or flow. These tools
+have no dedicated runner directories or persisted views. Recompute each view
+from its declared inputs on every run.
 
 ---
 
-## Topic
+## Cognitive model
 
-A **topic** is the Topic Loop session work unit: a design-commitment slice that still needs dialogue to pin, relative to the design-convergence goals pulled by Domain D1 (`cognitive_frame`) + D2 (`intent_anchor`).
+### Topic
 
-**Not** `cycle_type=topic`, **not** blueprint topic-level product grain, **not** a G3 `open`.
+A **topic** is a design-commitment slice that dialogue must settle relative to
+the Topic Loop's D1 (`cognitive_frame`) and D2 (`intent_anchor`) goals.
 
-### States
+It is not `cycle_type=topic`, blueprint topic-level product grain, or a G3
+`open`.
+
+#### States
 
 | State | Meaning |
 |-------|---------|
-| `gap` | On the seeking map; not yet human-adopted. Colloquial「缺口」= a topic in this state only. |
-| `adopted` | Human-adopted; deep work in progress |
-| `concluded` | Summarized and human confirmed the conclusion (handoff toward fact-runner) |
+| `gap` | Visible on the seeking map; not human-adopted. Colloquial「缺口」means this state only. |
+| `adopted` | Human-adopted and in deep work. |
+| `concluded` | Conclusion summarized and human-confirmed; ready for `fact-runner`. |
 
 Transitions: `gap` → `adopted` → `concluded`.
 
-### Adopt
+#### Grain
 
-**Adopt** is the sole act that promotes a `gap`-state topic to `adopted`. It
-has three inseparable facets: an AI-recognized candidate signal (from dialogue
-or a seeking-map selection), human confirmation as the sole authority, and
-binding through `$TOPIC_CURRENT_CTL set --human-adopted`. These facets are one
-act, not separate phases or turns.
+**Grain** places a `gap` topic's design commitment on an ordered abstraction
+scale: smaller grades are coarser; larger grades are finer.
 
-### Discovery (MVP)
+**Rules:** AI assigns grain after understanding the topic. Grades default to
+**1–3** but are extensible. Grain neither determines seeking order nor applies
+to `adopted` or `concluded` topics.
 
-AI enumerates **`gap`-state topic candidates** against D1+D2 and settled facts (autonomous judgment; no scripted detector). Then build the seeking DAG → human confirm → default most-upstream.
+**Input and exclusions:** Derive grain from D1 only. D1 supplies the stage's
+genre frame, not the scale itself; do not use D2 or Role fields. Because the
+domain-instance schema requires D1, its absence is a scope/fetch failure. This
+model defines no `compose-profile` tier table or coarse/fine examples.
 
-Future stage-specific discovery (e.g. decision/spec inputs) is out of this wave.
+#### Framing
 
----
+A topic's **framing** captures:
 
-## Grain (definition)
+1. **Source anchor** — its seeking-DAG node, when one exists
+2. **Definition** — what it is
+3. **Purpose** — what problem it solves
 
-**Grain** is the position, on an ordered abstraction-height dimension, of the design commitment under discussion for a topic in state **`gap`** (smaller grade = higher abstraction / coarser; larger = more concrete / finer).
+On the seeking map, the DAG node identifies the topic. Grain labels a `gap`
+topic's abstraction level; it is neither topic identity nor part of framing.
 
-### Labeling contract
+### Topic DAG
 
-1. This definition is the judgment standard; the AI grades after understanding the `gap`-state topic.
-2. No stage `compose-profile` grain-tier instance table is required.
-3. Default ordered grades **1–3** (extendable). Grades are orthogonal to the seeking DAG and **must not** rank seeking order.
-4. Required cognitive input for grading: Domain `cognitive_frame` (D1) only — genre frame for this stage. Do **not** treat D1 as the grain scale itself. Do **not** require Role fields or Domain `intent_anchor` (D2) for grading.
-5. D1 is assumed present (domain-instance schema requires it). Runtime absence is a scope/fetch failure, not a grain-side unlabeled branch.
-6. Do **not** define an enumeration of “what counts as coarse vs fine” in this definition section.
-7. Label **only** topics in state `gap` (not `adopted` / `concluded`).
+The **Topic DAG** represents prerequisite or upstream-support dependencies
+among visible `gap` topics. Granularity does not determine direction: a
+fine-grained topic may still be upstream.
 
----
+AI derives `gap` candidates from D1, D2, and settled facts, then arranges them
+into the DAG. This uses autonomous judgment, not a scripted detector.
 
-## Portrait — shared pool, two lenses
+The DAG excludes adopted topics and G3 `open` items. Stage-specific discovery
+from decision/spec inputs is out of scope.
 
-Shared capability pool (session views only):
+### Induction portrait
 
-| Capability | Answers |
-|------------|---------|
-| Stance | Where design convergence stands now |
-| Facts coverage | What settled facts already pin |
-| Visible gap-state topics | What is still open for seeking |
+An **Induction portrait** summarizes the Topic Loop's overall induction state.
+It is a session view recomputed from D1, D2, and settled facts and supplies
+shared context for topic tools.
 
-| Lens | Carrying tool | Weight | Delivers |
-|------|---------------|--------|----------|
-| **1 — DAG lens** | `topic-landscape` | Visible `gap`-state topics (short stance/coverage OK) | Seeking map for human confirm |
-| **2 — Topic lens** | `topic-portrait` | Stance + this topic’s place | Topic-context portrait + positioning triple |
+It answers:
 
-Lens 2 is a **lens change**, not the first invention of a portrait. Lens 1 must have been shown before pretending seeking-side portrait duty is done — except when the human **direct-adopts** without a prior landscape in this turn (direct adopt is legal; close-time landscape still required).
+1. **Direction** — what D1 and D2 require the Topic Loop to settle
+2. **Settled coverage** — what settled facts already pin
+3. **Overall status** — what is stable and which broad areas remain unresolved,
+   without enumerating topic candidates
+4. **Current-topic relation** — when an adopted topic is in focus, why it
+   matters, which unresolved area it addresses, and how settling it advances
+   the overall induction
 
----
-
-## Positioning triple
-
-When proposing or when `topic-portrait` presents the adopted topic, state:
-
-1. **Where** (anchors a seeking-DAG node when applicable)
-2. **What it is**
-3. **What problem it solves**
-
-Topic identity on the seeking map is the DAG node — **not** a fourth “gap tier” field. Grain grades label `gap`-state topics; they are not a positioning tuple member.
+The first three answers form the shared core. The current-topic relation is
+optional context on the same model, not a second portrait type. An Induction
+portrait does not contain topic framing, candidate lists, Topic DAG nodes or
+edges, or grain labels.
 
 ---
 
-## Seeking DAG (`gap`-state topics)
+## Tool contracts
 
-1. List visible `gap`-state topics from discovery / lens-1 portrait.
-2. Build a **dependency DAG among `gap`-state topics** (edge = prerequisite / upstream support). A fine-grained topic may still be upstream of others.
-3. Show the full DAG for human confirm (human may edit edges / pick an entry). Default grain grades appear on nodes; grades do **not** sort order.
-4. Default progress from the **most upstream** open entry after confirm.
-5. Do **not** build a DAG among already-adopted topics. Do **not** treat this DAG as G3 opens.
+### `topic-landscape`
 
----
+**Purpose:** Assemble a seeking view: first the Induction portrait without a
+current-topic relation, then the Topic DAG.
 
-## Tool protocol — `topic-landscape`
+**Inputs:** D1, D2, and settled facts for both the Induction portrait and
+candidate discovery; D1 alone for grain.
 
-**Trigger (gate):** before AI guide-propose; when human (or AI) asks to refresh the seeking map; **before G2 close** (detection pass).
+**Delivers:** A human-confirmable view containing the Induction portrait,
+followed by the Topic DAG and grain labels on its `gap` nodes. Selecting a map
+node supplies a candidate for the Gate's Adopt operation.
 
-**Not required** before human dialogue direct-adopt.
+**Persistence:** Every run writes a receipt through
+`$INDUCTIVE_GATE_CTL record-topic-landscape`, with `purpose` (`seek`, `refresh`,
+or `pre_close`), a new `run_id`, and caller-reported `gap_remaining`. Do **not**
+hand-write the receipt.
 
-**Steps:**
-
-1. Resolve Domain `cognitive_frame` (D1) via existing scope/fetch path (grading). Use D1+D2 + settled facts for Discovery (MVP).
-2. Recompute lens-1 portrait from current settled facts.
-3. Enumerate `gap`-state topic candidates → seeking DAG → grade each `gap` node (Grain section).
-4. Present the seeking map for human confirmation (medium deferred — any form the human can confirm). On close-time detection, the map may be shorter but must still support confirm of clear / hard-skip.
-5. **Persist** via `$INDUCTIVE_GATE_CTL record-topic-landscape` with `--purpose` `seek` | `refresh` | `pre_close` and caller-reported `--gap-remaining` (new `run_id` each call; single-slot file). Do **not** hand-write the JSON.
-6. After confirm (seek/refresh): default next guidance from most-upstream; optional guide-propose may include the positioning triple.
-7. A map selection supplies an `adopt` candidate; it becomes `adopted` only through `adopt`.
-8. Pre-close path: after human chooses clear / hard-skip, `$INDUCTIVE_GATE_CTL record-g2-topic-exit` referencing the current landscape `run_id` (see Gate Workflow: Exit).
-
-**Forbidden:** skip human confirm when the tool ran for propose/refresh/close-detect; rank by grain; DAG among adopted topics; invent candidates that ignore settled facts; treat candidates as G3 `open`; close G2 without a matching pre_close landscape + exit receipt.
-
-**Honest boundary:** `--gap-remaining` is caller-reported from this run’s judgment — the script does not discover gaps.
+**Constraints:** The assembled view requires human confirmation. Do not rank by
+grain, build an adopted-topic DAG, invent candidates that ignore settled facts,
+or treat candidates as G3 `open`. The caller judges `gap_remaining`; the script
+does not discover gaps. Keep candidates, DAG nodes and edges, and grain outside
+the Induction portrait.
 
 ---
 
-## Tool protocol — `topic-portrait`
+### `topic-portrait`
 
-**Trigger (gate):** after human adopts a topic (dialogue or map select) · **before deep work**.
+**Purpose:** Assemble an adopted-topic view: first the Induction portrait with
+its current-topic relation, then the adopted topic's framing.
 
-**Steps:**
+**Prerequisite:** A current adopted-topic binding is readable through
+`$TOPIC_CURRENT_CTL` (`set` during Adopt).
 
-1. Require a macro-readable adopted binding already written (`$TOPIC_CURRENT_CTL set` at adopt).
-2. Recompute or project lens-2 portrait for the adopted topic (stance + place; coverage may be short).
-3. Present topic-lens portrait + positioning triple (Where anchors the seeking-DAG node when one applies).
-4. Do **not** treat this tool as the seeking spine (that is `topic-landscape`).
+**Inputs:** D1, D2, settled facts, and the adopted binding.
 
-**Forbidden:** omit the post-adopt topic-lens presentation; use topic-lens output to reorder the seeking DAG; invoke before adopt binding exists.
+**Delivers:** The contextualized Induction portrait followed by the adopted
+topic's framing.
+
+**Constraints:** Invoke and present it only after Adopt; presentation is
+required, but confirmation is not. Do not use its output as the seeking spine
+or to reorder the Topic DAG. Keep the current-topic relation in the Induction
+portrait; do not duplicate it in framing.
 
 ---
 
 ## Boundaries
 
-- Domain D1/D2 whole-loop traction and `design_goal_met` ≠ seeking DAG ≠ grain.
-- KW altitude / conversation L1–L3 ≠ this grain model.
-- Production (facts) ⊥ display (collab arc) remains as in the gate.
-- `gap` here is a **topic state**, not a second ontology and not G3 `open`.
-- `$TOPIC_CURRENT_CTL` / `_topic-current.json` is written by `adopt` for the **adopted** topic only — not close proof, not the seeking map.
-
----
-
-## Hard cuts
-
-- No coarse→fine seeking main axis; no “coarsest gap first.”
-- No first portrait only at adopt as if lens 1 never existed when seeking guidance was used; lens 1 precedes guide-propose.
-- No product-slogan laundry lists in the gate — invoke tool names; details stay here.
-- No dual persistent portrait files; no dedicated runner packages for these tools in this wave.
-- No loading this file outside G2.
+- The Induction portrait summarizes D1+D2 traction and settled coverage; it
+  does not decide or replace `design_goal_met`.
+- The Induction portrait, Topic DAG, and grain are distinct: shared context,
+  dependency map, and abstraction label, respectively.
+- Grain is unrelated to KW altitude or conversation L1–L3.
+- Fact production, collab-arc display, current-topic binding, and close proof
+  are Gate concerns; this model defines none of them.

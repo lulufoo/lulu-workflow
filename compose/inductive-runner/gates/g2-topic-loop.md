@@ -23,7 +23,17 @@ Mechanism = discover and work topics **in dialogue**. This is **not** two indepe
 | Human | May propose `gap`-state topics; **sole authority** to adopt a candidate from dialogue or `topic-landscape`; confirm conclusions; confirm exit / hard-skip | — |
 | AI | May **guide-propose** after `topic-landscape` confirm; help free dialogue / deep work / summarize | Auto-adopt; skip `topic-landscape` / `topic-portrait` when their triggers fire; silent fact writes; treat D1+D2 exit check as a substitute for human exit |
 
-G2 topic contract (definition, states, grain, lenses, tool protocols) → [`../references/g2-topic-model.md`](../references/g2-topic-model.md).
+G2 topic contract (definition, states, grain, framing, Topic DAG, Induction
+portrait, and tool protocols) →
+[`../references/g2-topic-model.md`](../references/g2-topic-model.md).
+
+## Topic operation
+
+### Adopt
+
+A candidate may arise from dialogue or `topic-landscape`. Human confirmation is
+the sole authority to adopt it. On confirmation, bind the current topic through
+`$TOPIC_CURRENT_CTL set --human-adopted`.
 
 ## Session boundaries
 
@@ -51,7 +61,7 @@ Orchestration only; not a scripted event-chain gate.
 
 ### Work a topic
 
-- A dialogue signal or map selection supplies an adopt candidate; perform `adopt` as defined in the Topic Model.
+- A dialogue signal or map selection supplies an adopt candidate; perform `Adopt`.
 - Then invoke `topic-portrait` before deep work. Presentation is required; confirmation is not.
 - After summary: `$TOPIC_CURRENT_CTL` `set-conclusion` → human confirm → `confirm-conclusion` → `fact-runner` public protocol.
 - After `fact-runner` completes successfully, return to Seeking.

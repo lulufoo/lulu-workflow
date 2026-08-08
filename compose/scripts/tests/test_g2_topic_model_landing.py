@@ -18,15 +18,43 @@ def test_g2_topic_model_reference_exists_and_names_tools():
     text = _REF.read_text(encoding="utf-8")
     assert "topic-landscape" in text
     assert "topic-portrait" in text
-    assert "## Topic" in text
+    assert "## Cognitive model" in text
+    assert "### Induction portrait" in text
+    assert "#### Framing" in text
+    assert "### Topic" in text
+    assert "#### Grain" in text
+    assert "### Topic DAG" in text
+    assert "## Tool contracts" in text
+    assert "### `topic-landscape`" in text
+    assert "### `topic-portrait`" in text
     assert "`gap`" in text
     assert "adopted" in text
     assert "concluded" in text
-    assert "### Adopt" in text
-    assert "three inseparable facets" in text
+    assert "### Adopt" not in text
+    assert "three inseparable facets" not in text
     assert "pre-adopt clarify" not in text
     assert "Human confirms once" not in text
     assert "Grain" in text
+    assert "## Grain (definition)" not in text
+    assert "## Portrait — shared pool, two lenses" not in text
+    assert "### Topic model" not in text
+    assert "### Topic DAG model" not in text
+    assert "### Portrait model" not in text
+    assert "Positioning triple" not in text
+    assert "## Seeking DAG" not in text
+    assert "## Tool protocol" not in text
+    assert "**Trigger (gate):**" not in text
+    assert "**Steps:**" not in text
+    assert "current-topic relation" in text
+    assert "without a\ncurrent-topic relation" in text
+    assert "then the Topic DAG" in text
+    assert "with\nits current-topic relation" in text
+    assert "then the adopted topic's framing" in text
+    assert "Convergence portrait" not in text
+    assert "Shared capability pool" not in text
+    assert "lens 1" not in text
+    assert "lens 2" not in text
+    assert "default guidance comes from" not in text
     assert "gap-landscape" not in text
     assert "docs/" not in text
     assert "archive-" not in text
@@ -49,6 +77,10 @@ def test_g2_gate_declares_tools_and_points_at_reference():
     assert "### Display refresh (optional)" in text
     assert "## Session boundaries" in text
     assert "## Session notions" not in text
+    assert "## Topic operation" in text
+    assert "### Adopt" in text
+    assert "Human confirmation is" in text
+    assert "the sole authority to adopt it." in text
     assert "sole authority" in text
     assert "adopt a candidate from dialogue or `topic-landscape`" in text
     assert "Exit receipts are the pre-close landscape and exit receipt" in text
@@ -59,6 +91,7 @@ def test_g2_gate_declares_tools_and_points_at_reference():
     assert "Gate-close requires the D1+D2 design goal" in text
     assert "matching pre-close landscape, exit receipt, and `payload.topic_exit`" in text
     assert "pre_close` and require confirmation" in text
+    assert "perform `Adopt`." in text
     assert "After `fact-runner` completes successfully, return to Seeking." in text
     assert "Only after `fact-runner` consume emits `stale_signal`" in text
     assert "### Main flow" not in text
@@ -89,5 +122,5 @@ def test_inductive_spine_mentions_g2_topic_model_tools():
 def test_g2_topic_model_mentions_receipt_persist():
     text = _REF.read_text(encoding="utf-8")
     assert "record-topic-landscape" in text
-    assert "record-g2-topic-exit" in text
-    assert "Honest boundary" in text
+    assert "record-g2-topic-exit" not in text
+    assert "caller judges `gap_remaining`" in text
