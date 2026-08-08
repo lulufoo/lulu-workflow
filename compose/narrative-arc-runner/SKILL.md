@@ -68,6 +68,7 @@ persistence and phase gates (below).
    |---|---|---|
    | Group/leaf **titles and grouping shape** | Substance story in facts (objects, behaviors, contract surfaces, end-state, verification, …) | **Must** |
    | Group/leaf **order** | Role `priority_tendency` | **Must** (exception: fact dependency forces prerequisite first) |
+   | **Intra-tier order** (groups tied in one `priority_tendency` slot) | Descending narrative altitude: whole before its parts | **Should** (tie-breaker; explicit Role order or fact dependency overrides) |
    | Fact membership + Formal phase-2 write-unit split | Lens tags + registry lens relations | **Must** — never whole-document leaf order; never the presentation title schema |
    | Split / do not mix | Domain `expression_conventions.scannability` (full text for active profile) | **Must** |
    | Genre mission / through-line check | Domain `cognitive_frame` / `audience_type` | **Must** (enforced by step 5) |
@@ -87,6 +88,14 @@ persistence and phase gates (below).
 
    Conflict exits: overflow → child under a single-duty parent; never glue
    for flow; never merge unequal altitudes to shorten the path.
+
+   **Non-top title discipline** (all titles below `tree` roots):
+
+   | Principle | Rule |
+   |---|---|
+   | Name, don't assert | Title = station name (object, surface, behavior area), never a compressed fact claim; claims live in content. |
+   | No claim chains | Pairing related aspects is fine; chaining assertions is not — name their shared object instead. |
+   | Altitude nesting | Child strictly narrower than parent; siblings at comparable altitude. |
 5. **Pre-persist self-check (hard gate).** Run every item; any hit → rebuild
    titles/shape and re-run this step. Never persist a failing candidate.
    - **Lens-catalog detector:** list each top-level group's member-fact lens
@@ -99,6 +108,8 @@ persistence and phase gates (below).
      behaviors, and end-states.
    - Top titles glued with 与/及/和 (or `and`/`&`), or too many tops that
      read as leaf concerns → split or demote (title discipline above).
+   - Non-top titles reading as fact claims or assertion chains → rename to
+     station names, or merge same-object siblings (non-top discipline above).
    - Single-leaf mix that violates Domain `scannability` → split.
    - Order inverted vs `priority_tendency` with no fact-dependency reason →
      reorder.
