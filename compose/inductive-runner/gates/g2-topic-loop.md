@@ -54,7 +54,12 @@ the sole authority to adopt it. On confirmation, bind the current topic through
   `pre_close` for `purpose` and pass caller-reported `gap_remaining`. Do not
   hand-write the receipt.
 - `fact-runner`: use its public protocol.
-- `narrative-arc-runner`: optional collab rebuild via `$SUBAGENT_TOOL`.
+- `narrative-arc-runner`
+  - **Human request:** Any time while G2 is active.
+  - **Refresh signal:** `fact-runner` consume emits `stale_signal` → offer rebuild.
+  - **Dispatch:** `$SUBAGENT_TOOL` + `$SUBAGENT_AWAIT_ASYNC`; do not block or auto-run.
+  - **Runner:** collab input, build, validation, persistence, and Viewer mount.
+  - **G2:** dispatch and report its summary.
 - Keep tool-internal arguments and output handling in their owning contracts.
 
 ## Workflow
@@ -87,9 +92,7 @@ Orchestration only; not a scripted event-chain gate.
 
 ### Display refresh (optional)
 
-- Only after `fact-runner` consume emits `stale_signal`, offer a semantic collab-arc rebuild; never auto-run it.
-- If chosen, dispatch `narrative-arc-runner` via `$SUBAGENT_TOOL` and `$SUBAGENT_AWAIT_SYNC` under its collab input contract. Parse only its summary: show `viewer_url` when mounted; otherwise report the partial or failed result without self-mounting.
-- Refusal or failure retains the existing collab arc. A collab/Formal arc is never a close prerequisite.
+- On `stale_signal`, offer the rebuild defined in Tool boundaries.
 
 ## Hard cuts
 

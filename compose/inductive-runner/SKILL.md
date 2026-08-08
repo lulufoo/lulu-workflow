@@ -57,7 +57,7 @@ PROVENANCE_TRACES     = $INDUCTIVE_OUT_DIR/provenance-trace-{intent,scope,norm}.
 
 ---
 
-Also read `../../_subagent.md` for `$SUBAGENT_TOOL` / `$SUBAGENT_AWAIT_SYNC` (platform dispatch; not Script Macros rows).
+Also read `../../_subagent.md` for platform dispatch (not Script Macros rows).
 
 ## Script Macros
 
@@ -70,7 +70,7 @@ Also read `../../_subagent.md` for `$SUBAGENT_TOOL` / `$SUBAGENT_AWAIT_SYNC` (pl
 | `$TOPIC_CURRENT_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/topic_current_control.py"` |
 | `$FACT_CTL` | `python3 "$SKILL_ROOT/compose/fact-runner/scripts/fact_production_control.py"` |
 
-**Declare-use (siblings own the tools):** `fact-runner` (inline public protocol via `$FACT_CTL`) · `narrative-arc-runner` (G2 collab rebuild via `$SUBAGENT_TOOL` — do not expand its internal macros here).
+**Declare-use (sibling tools):** `fact-runner` · `narrative-arc-runner`.
 
 Fetch schedule:
 - **Before Seed / Shape-confirm:** `$FETCH_COMPOSE --role section-registry` → `SECTION_REGISTRY` (`section_order` → `init-session --sections`); `$FETCH_COMPOSE --role inductive-scan-criteria` → `SCAN_CRITERIA` (methods / shape hints / mandatory)
@@ -94,7 +94,7 @@ Inductive work discovers missing design decisions (parts → whole). **SoT = fac
 
 1. **Seed** — Init from `SECTION_REGISTRY.section_order` (`gates/g1-shape.md`). Read `$SCOPE_REF` as source material and, per lens: `activate-section` → substance? `seed-decision`+`set-frontier` : (`optional` → `skip-section` / `required` → leave for G3). **I4:** never invent beyond scope. Git commit `"seeded"`.
 2. **Shape-confirm (I11)** — After Seed: `view --synthesis on --granularity <arch-overview hint>` → user confirms/corrects → corrections via commands (+ `set-frontier` when lens facts change) → re-view until confirmed → `gate-close --gate G1` (records `checkpoint --name shape`) → **stop and await user**. Do **not** auto-detect.
-3. **G2 Topic Loop** — design-convergence dialogue; Domain D1+D2 as whole-loop traction; seeking via `topic-landscape` / topic-context via `topic-portrait` (see `gates/g2-topic-loop.md` + `references/inductive-topic-model.md`); human adopts dialogue or map candidates through the Gate's Adopt operation; facts via `fact-runner`; optional collab rebuild via `$SUBAGENT_TOOL`; close needs human exit + three-key payload + `topic_exit` backed by `record-topic-landscape` (pre_close) + `record-g2-topic-exit`. No draft-as-topic-tree.
+3. **G2 Topic Loop** — converge design through human-adopted topics; ends with a human-confirmed topic exit. See `gates/g2-topic-loop.md` and `references/inductive-topic-model.md`.
 4. **G3 gap-check** — leak scan (orphans / blocking opens); conclusion→facts and open→facts via `$FACT_CTL propose → ack(digest) → consume` (`stale_signal` only after consume). Per-open grounding = `attach-code-refs` when processing opens.
 5. **Exit** — run `check-coverage`: ∀ init lens cleared∨skipped ∧ no (blocking∧open) ∧ (if demand manifest: all fulfilled∨deferred).
 6. **Audit (user-triggered):** G4 internal hard · G5 external soft → Handoff (`view --synthesis off` / Initializing). **G4 unchanged this wave.**

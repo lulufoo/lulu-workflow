@@ -2,8 +2,8 @@
 name: narrative-arc-runner
 description: >-
   Compose semantic narrative-arc builder. Init writes Formal arcs
-  (_narrative-arc.json) inline; G2 dispatches this skill via $SUBAGENT_TOOL for
-  collaboration display arcs (write + Viewer mount).
+  (_narrative-arc.json) inline; G2 requests collaboration display arcs
+  (write + Viewer mount).
 ---
 
 # narrative-arc-runner
@@ -21,10 +21,10 @@ full semantic context and candidate validation.
 
 ## Dual entry
 
-| Entry | Caller | Dispatch | Done when |
+| Entry | Caller | Input | Done when |
 |-------|--------|----------|-----------|
-| `target=formal` | `initializing-runner` | Inline macros in Init (this wave unchanged) | Formal `write_ready` / Init contract |
-| `target=collab` | G2 Topic Loop | `$SUBAGENT_TOOL` + `$SUBAGENT_AWAIT_SYNC` with Input below | Collab written + Viewer mounted + summary |
+| `target=formal` | `initializing-runner` | Init context | Formal `write_ready` / Init contract |
+| `target=collab` | G2 Topic Loop | Collab Input below | Summary; Viewer mount on success |
 
 ### Collab Input (subagent)
 

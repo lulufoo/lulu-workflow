@@ -9,6 +9,7 @@ _COMPOSE = Path(__file__).resolve().parents[2]
 _GATE = _COMPOSE / "inductive-runner" / "gates" / "g2-topic-loop.md"
 _REF = _COMPOSE / "inductive-runner" / "references" / "inductive-topic-model.md"
 _SPINE = _COMPOSE / "inductive-runner" / "SKILL.md"
+_ARC_RUNNER = _COMPOSE / "narrative-arc-runner" / "SKILL.md"
 _G2_REF = _COMPOSE / "inductive-runner" / "references" / "g2-topic-model.md"
 _OLD_REF = _COMPOSE / "inductive-runner" / "references" / "topic-cognition-model.md"
 
@@ -97,6 +98,13 @@ def test_g2_gate_declares_tools_and_points_at_reference():
     assert "adopt a candidate from dialogue or `topic-landscape`" in text
     assert "Exit receipts are the pre-close landscape and exit receipt" in text
     assert "owning contracts" in text
+    assert "Human request" in text
+    assert "Any time while G2 is active." in text
+    assert "`fact-runner` consume emits `stale_signal` → offer rebuild." in text
+    assert "$SUBAGENT_TOOL` + `$SUBAGENT_AWAIT_ASYNC" in text
+    assert "$SUBAGENT_AWAIT_SYNC" not in text
+    assert "On `stale_signal`, offer the rebuild defined in Tool boundaries." in text
+    assert "Only after `fact-runner` consume emits `stale_signal`" not in text
     assert "Direct dialogue may propose and adopt a topic without a landscape." in text
     assert "guide from the most-upstream `gap`" in text
     assert "Presentation is required; confirmation is not." in text
@@ -105,7 +113,6 @@ def test_g2_gate_declares_tools_and_points_at_reference():
     assert "purpose=pre_close" in text
     assert "perform `Adopt`." in text
     assert "After `fact-runner` completes successfully, return to Seeking." in text
-    assert "Only after `fact-runner` consume emits `stale_signal`" in text
     assert "### Main flow" not in text
     assert "### Branches" not in text
     assert "### Close" not in text
@@ -120,17 +127,12 @@ def test_g2_gate_declares_tools_and_points_at_reference():
     assert "archive-" not in text
 
 
-def test_inductive_spine_mentions_inductive_topic_model_tools():
+def test_inductive_spine_points_at_g2_contract():
     text = _SPINE.read_text(encoding="utf-8")
-    assert "topic-landscape" in text
-    assert "topic-portrait" in text
-    assert "inductive-topic-model.md" in text
+    assert "G2 Topic Loop" in text
+    assert "gates/g2-topic-loop.md" in text
+    assert "references/inductive-topic-model.md" in text
     assert "g2-topic-model.md" not in text
-    assert "topic_exit" in text
-    assert "record-topic-landscape" in text
-    assert "record-g2-topic-exit" in text
-    assert "gap-landscape" not in text
-    assert "topic-cognition-model.md" not in text
 
 def test_g2_gate_owns_landscape_receipt_persist():
     model = _REF.read_text(encoding="utf-8")
@@ -139,3 +141,19 @@ def test_g2_gate_owns_landscape_receipt_persist():
     assert "record-g2-topic-exit" not in model
     assert "record-topic-landscape" in gate
     assert "caller-reported `gap_remaining`" in gate
+
+
+def test_collab_arc_rebuild_is_g2_owned():
+    spine = _SPINE.read_text(encoding="utf-8")
+    gate = _GATE.read_text(encoding="utf-8")
+    runner = _ARC_RUNNER.read_text(encoding="utf-8")
+
+    assert "converge design through human-adopted topics" in spine
+    assert "human-confirmed topic exit" in spine
+    assert "optional collab rebuild via" not in spine
+    assert "$SUBAGENT_AWAIT_SYNC" not in runner
+    assert "$SUBAGENT_AWAIT_ASYNC" not in runner
+    assert "| Entry | Caller | Input | Done when |" in runner
+    assert "| `target=collab` | G2 Topic Loop | Collab Input below | Summary; Viewer mount on success |" in runner
+    assert "$SUBAGENT_AWAIT_SYNC" not in gate
+    assert "$SUBAGENT_AWAIT_ASYNC" in gate
