@@ -24,7 +24,7 @@ from g4_recompose_report_schema import MAX_FACTS, validate_report  # noqa: E402
 def _g2_close_payload() -> str:
     return (
         '{"topic_loop_done": true, "design_goal_met": true, '
-        '"human_exit_confirmed": true}'
+        '"human_exit_confirmed": true, "topic_exit": "cleared"}'
     )
 
 def _run_g4(out_dir: Path, *args: str) -> tuple[int, dict]:

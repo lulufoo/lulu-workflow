@@ -3,9 +3,10 @@
 
 Subcommands: status · set · set-conclusion · confirm-conclusion · clear
 
-``set`` persists the current topic **after clarify** and requires
-``--human-adopted`` (explicit human adopt of the topic). ``confirm-conclusion``
-marks Topic Loop handoff ready for fact-settle. No phase ordering on disk.
+``set`` persists the current topic **at human adopt** (after pre-adopt
+clarify) and requires ``--human-adopted``. ``confirm-conclusion`` marks
+Topic Loop handoff ready for fact-settle (``concluded``). No phase ordering
+on disk.
 
 CLI: ``python3 topic_current_control.py --help``
 
@@ -130,7 +131,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--revision-dir", required=True)
     p.set_defaults(func=cmd_status)
 
-    p = sub.add_parser("set", help="Persist current topic after clarify + human adopt")
+    p = sub.add_parser("set", help="Persist current topic at human adopt (post pre-adopt clarify)")
     p.add_argument("--revision-dir", required=True)
     p.add_argument("--title", required=True)
     p.add_argument("--scope", required=True)

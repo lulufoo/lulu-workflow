@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Schema/I/O for ``_topic-current.json`` (archive-10.0 T1).
 
-Persists the current topic **after clarify**. Does not store dialogue text
-or What-phase ordering. Not a topic tree.
+Persists the current topic **at adopt** (after pre-adopt clarify). Does not
+store dialogue text or What-phase ordering. Not a topic tree. Gap-state
+topics are not stored here.
 
 Process how: docs/domain/archive/compose/archive-10.0/
 """

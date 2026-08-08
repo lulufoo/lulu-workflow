@@ -22,7 +22,7 @@ _SUBAGENT_CONV = "22222222-2222-4222-8222-222222222222"
 def _g2_close_payload() -> str:
     return (
         '{"topic_loop_done": true, "design_goal_met": true, '
-        '"human_exit_confirmed": true}'
+        '"human_exit_confirmed": true, "topic_exit": "cleared"}'
     )
 
 def _run_gate(out_dir: Path, *args: str) -> tuple[int, dict]:
@@ -373,6 +373,30 @@ def test_gate_close_g2_topic_loop_payload(tmp_path: Path):
     assert code == 0, result
     assert "Topic Loop" in str(result.get("gate_symbols", {}).get("G2", ""))
     code, result = _run_gate(tmp_path, "gate-close", "--gate", "G2", "--payload", _g2_close_payload())
+    assert code == 0, result
+    assert result.get("closed") == "G2"
+
+
+def test_gate_close_g2_requires_topic_exit(tmp_path: Path):
+    _seed_session(tmp_path)
+    _run_gate(tmp_path, "gate-close", "--gate", "G1", "--payload", _g1_payload())
+    bare = (
+        '{"topic_loop_done": true, "design_goal_met": true, '
+        '"human_exit_confirmed": true}'
+    )
+    code, result = _run_gate(tmp_path, "gate-close", "--gate", "G2", "--payload", bare)
+    assert code != 0
+    assert "topic_exit" in str(result).lower()
+
+
+def test_gate_close_g2_accepts_hard_skip_topic_exit(tmp_path: Path):
+    _seed_session(tmp_path)
+    _run_gate(tmp_path, "gate-close", "--gate", "G1", "--payload", _g1_payload())
+    payload = (
+        '{"topic_loop_done": true, "design_goal_met": true, '
+        '"human_exit_confirmed": true, "topic_exit": "hard_skip"}'
+    )
+    code, result = _run_gate(tmp_path, "gate-close", "--gate", "G2", "--payload", payload)
     assert code == 0, result
     assert result.get("closed") == "G2"
 

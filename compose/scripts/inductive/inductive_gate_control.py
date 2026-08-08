@@ -27,6 +27,7 @@ Subcommands:
 Payload per gate:
     G1: {"user_confirmed": true} required; architecture_view/shape_constraints optional resume aid only
     G2: Topic Loop exit — topic_loop_done + design_goal_met + human_exit_confirmed
+        + topic_exit in {cleared, hard_skip}
     G3: must pass check-coverage (delegated to section control)
     G4: none accepted from the caller — report-driven. gate-close internally
         merges structural {reforms_shape, shape_absorbed} (recompose-check)
@@ -350,12 +351,12 @@ def _validate_g1_payload(payload: dict[str, Any]) -> None:
 
 
 def _validate_g2_close(out_dir: Path, payload: dict[str, Any]) -> None:
-    """G2 = Topic Loop (archive-10.0). Design-convergence exit.
+    """G2 = Topic Loop. Design-convergence exit.
 
-    Requires ``topic_loop_done``, ``design_goal_met`` (AI D1+D2 gate), and
-    ``human_exit_confirmed``. Does **not** require a process draft /
-    draft-as-topic-tree. Blocks when ``_topic-current.json`` has an
-    unconfirmed conclusion.
+    Requires ``topic_loop_done``, ``design_goal_met`` (AI D1+D2 gate),
+    ``human_exit_confirmed``, and ``topic_exit`` in ``{cleared, hard_skip}``.
+    Does **not** require a process draft / draft-as-topic-tree. Blocks when
+    ``_topic-current.json`` has an unconfirmed conclusion.
     """
     if not payload.get("topic_loop_done"):
         _fail("G2 payload must include 'topic_loop_done': true (Topic Loop exit)")
@@ -368,6 +369,13 @@ def _validate_g2_close(out_dir: Path, payload: dict[str, Any]) -> None:
         _fail(
             "G2 payload must include 'human_exit_confirmed': true "
             "(human confirmed exit after design_goal_met)",
+        )
+    topic_exit = payload.get("topic_exit")
+    if topic_exit not in ("cleared", "hard_skip"):
+        _fail(
+            "G2 payload must include 'topic_exit' in "
+            "{'cleared', 'hard_skip'} "
+            "(pre-close topic-landscape: no gap-state topics, or human hard-skip)",
         )
 
     # Same path as $TOPIC_CURRENT_CTL (active slice when multi-L pointer exists)
