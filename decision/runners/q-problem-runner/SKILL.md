@@ -25,7 +25,7 @@ Do NOT proceed until you have read `../../../_runtime.md`
 - `$SKILL_DIR` = `$SKILL_ROOT/decision`
 - `$CTX.gates.O.status` must be `closed` (from resolve-context)
 - Dialogue semantics SSOT: this file’s **Cognitive map** (no separate gate file)
-- Probe questions: apply `$SKILL_DIR/references/ask-protocol.md`
+- Probe questions: apply `$SKILL_ROOT/shared/references/ask-protocol.md`
 
 ## Script Macros
 

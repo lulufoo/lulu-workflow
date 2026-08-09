@@ -21,7 +21,7 @@ Mechanism = discover and work topics **in dialogue**. This is **not** two indepe
 | Role | Does | Must not |
 |------|------|----------|
 | Human | May propose `gap`-state topics; **sole authority** to adopt a candidate from dialogue or `topic-landscape`; confirm conclusions; confirm exit / hard-skip | — |
-| AI | May **guide-propose** after `topic-landscape` confirm; help free dialogue / deep work / summarize | Auto-adopt; skip `topic-landscape` / `topic-portrait` when their triggers fire; silent fact writes; treat D1+D2 exit check as a substitute for human exit |
+| AI | May **guide-propose** after `topic-landscape` confirm; may optionally invoke `topic-question-driver` after the portrait; help free dialogue / deep work / summarize | Auto-adopt; require the question driver; skip `topic-landscape` / `topic-portrait` when their triggers fire; silent fact writes; treat a closure candidate or D1+D2 exit check as a substitute for human confirmation / exit |
 
 G2 topic contract (definition, states, grain, framing, Topic DAG, Topic discovery,
 Induction portrait, and tool protocols) →
@@ -49,6 +49,8 @@ the sole authority to adopt it. On confirmation, bind the current topic through
 
 - `topic-landscape` / `topic-portrait`: generic contracts in
   `../references/inductive-topic-model.md`.
+- `topic-question-driver`: optional stateless contract in
+  `../references/topic-question-driver.md`; it does not invoke `/converge`.
 - After every `topic-landscape` result, record the G2 landscape receipt through
   `$INDUCTIVE_GATE_CTL record-topic-landscape`: use `seek`, `refresh`, or
   `pre_close` for `purpose` and pass caller-reported `gap_remaining`. Do not
@@ -76,6 +78,11 @@ Orchestration only; not a scripted event-chain gate.
 
 - A dialogue signal or map selection supplies an adopt candidate; perform `Adopt`.
 - Then invoke `topic-portrait` before deep work. Presentation is required; confirmation is not.
+- After the portrait, AI may invoke `topic-question-driver` for an explicit
+  remaining design gap. Free dialogue may bypass, interrupt, or resume it.
+- Route `Next Question` to dialogue and `Blocked` to free discussion. Route
+  `Topic Closure Candidate` to the existing summary path. Free dialogue may
+  also reach that path directly.
 - After summary: `$TOPIC_CURRENT_CTL` `set-conclusion` → human confirm → `confirm-conclusion` → `fact-runner` public protocol.
 - After `fact-runner` completes successfully, return to Seeking.
 
@@ -98,4 +105,6 @@ Orchestration only; not a scripted event-chain gate.
 
 - Do **not** call `$NARRATIVE_ARC_DRAFT_CTL` / draft-as-topic-tree / `$TOPIC_FOCUS_CTL` (retired).
 - Do **not** invoke `$NARRATIVE_ARC_BUILD_CTL` / `$NARRATIVE_ARC_COLLAB_CTL` / `$COMPOSE_VIEWER_CTL` from this gate.
-- Do **not** paste `topic-landscape` / `topic-portrait` product checklists into this gate — invoke the tool names; protocols stay in the reference.
+- Do **not** paste `topic-landscape` / `topic-portrait` /
+  `topic-question-driver` product checklists into this gate — invoke the tool
+  names; protocols stay in their references.

@@ -3,8 +3,8 @@
 # Inductive Topic Model
 
 Defines a reusable topic model for inductive work and the contracts for its
-topic views. A calling flow supplies inputs, owns operations, and decides when
-to invoke each tool.
+topic views and question driver. A calling flow supplies inputs, owns
+operations, and decides when to invoke each tool.
 
 **Scope:** The model applies to inductive flows. It has no dedicated runner
 directories or persisted views; recompute each view from its declared inputs on
@@ -155,10 +155,27 @@ in the Induction portrait; do not duplicate it in framing.
 
 ---
 
+### `topic-question-driver`
+
+**Purpose:** Optionally work an adopted Topic toward complete closure by
+producing one minimum design judgment at a time.
+
+**Prerequisite:** The current Topic is adopted and its `topic-portrait` has been
+presented.
+
+**Contract:** [`topic-question-driver.md`](topic-question-driver.md).
+
+**Boundary:** This stateless tool produces dialogue candidates only. The caller
+owns invocation, free dialogue, conclusion confirmation, fact production, and
+exit.
+
+---
+
 ## Boundaries
 
 - The Induction portrait, Topic DAG, and grain are distinct: shared context,
   dependency map, and abstraction label, respectively.
 - Grain is an abstraction label, not a workflow priority.
+- The question driver is distinct from the topic views and owns no Topic state.
 - This model defines neither caller workflow, persistence, nor completion or
   close proof.

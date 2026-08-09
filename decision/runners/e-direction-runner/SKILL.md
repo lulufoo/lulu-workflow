@@ -27,7 +27,7 @@ Do NOT proceed until you have read `../../../_runtime.md`
 - `$CTX.gates.GL.status` must be `closed` (from resolve-context)
 - `$CTX.gl` must be present when GL is closed
 - Dialogue semantics SSOT: this file’s **Cognitive map** (no separate gate file)
-- Align questions: apply `$SKILL_DIR/references/ask-protocol.md`
+- Align questions: apply `$SKILL_ROOT/shared/references/ask-protocol.md`
 
 ## Script Macros
 
