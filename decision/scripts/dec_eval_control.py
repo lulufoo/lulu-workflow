@@ -32,7 +32,11 @@ from dec_eval_runtime_schema import (  # noqa: E402
     runtime_path,
 )
 from dec_eval_target_schema import render_and_save_eval_target  # noqa: E402
-from dec_gate_state_schema import is_gate_closed, load_gate_state  # noqa: E402
+from dec_gate_state_schema import (  # noqa: E402
+    is_gate_closed,
+    is_gate_reached,
+    load_gate_state,
+)
 from dec_session_paths import find_session_dir, session_artifact_paths  # noqa: E402
 from dec_workflow_common import CACHE_DIR  # noqa: E402
 
@@ -78,6 +82,7 @@ def cmd_render_eval_target(
             stage=str(constraints.get("stage") or stage),
             constraints=constraints,
             r_gate_closed=is_gate_closed(gate_state, "R"),
+            r_risk_fields_allowed=is_gate_reached(gate_state, "R"),
         )
     except (FileNotFoundError, ValueError, OSError, json.JSONDecodeError) as exc:
         return _emit_error(str(exc))

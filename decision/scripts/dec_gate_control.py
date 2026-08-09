@@ -9,7 +9,7 @@ Subcommands:
     gate-close             Close active gate, write gate-payload, advance pointer
     batch-reclose          Atomically re-close consecutive stale align gates (Q/GL/E/D/X)
     stale-from             Realign: mark gate + reached downstream stale (no payload delete)
-    rs-commit              Atomic Realign: stale-from + register batch + resolve-context
+    rs-commit              Prevalidated Realign: stale + register batch + context
                            (if session Frozen: mark stale then unfreeze — P1.5 A′)
     reopen                 Leave Completed/InProgress → Frozen ($DEC_REOPEN; P1.3 A)
     check-delivery-ready   Structural audit + gates/registers for DC completion
@@ -65,6 +65,7 @@ from dec_gate_state_schema import (  # noqa: E402
     close_gate_r,
     init_gate_state,
     is_gate_closed,
+    is_gate_reached,
     load_gate_state,
     mark_stale_from_gate,
     save_gate_state,
@@ -76,7 +77,6 @@ from dec_register_schema import (  # noqa: E402
     init_registers,
     load_registers,
     save_registers,
-    strip_assumption_risk_fields,
     validate_release_terms,
 )
 from dec_session_render import render_reply_header  # noqa: E402
@@ -100,7 +100,16 @@ from dec_workflow_common import (  # noqa: E402
 )
 
 from dec_migrate_session import migrate_session_dir, needs_migration  # noqa: E402
-from dec_register_control import apply_register_batch_operations  # noqa: E402
+from dec_register_control import (  # noqa: E402
+    prepare_register_batch_operations,
+)
+
+_STALE_R_REVIEW_STATES = {
+    "keep_completed": "completed",
+    "reverified": "completed",
+    "ignore": "ignore",
+    "non_risk": "none",
+}
 
 
 def _reject_if_legacy_rr_active(state: dict[str, Any]) -> str | None:
@@ -110,8 +119,7 @@ def _reject_if_legacy_rr_active(state: dict[str, Any]) -> str | None:
 
 
 def _r_risk_fields_allowed(gate_state: dict[str, Any]) -> bool:
-    active = str(gate_state.get("active_gate", ""))
-    return active == "R" or is_gate_closed(gate_state, "R")
+    return is_gate_reached(gate_state, "R")
 
 
 def _register_io_flags(gate_state: dict[str, Any]) -> dict[str, bool]:
@@ -351,6 +359,9 @@ def build_resolve_context_payload(
     paths: dict[str, Path] | None = None,
     constraints_path: Path | None = None,
     session_dir: Path | None = None,
+    gate_state_override: dict[str, Any] | None = None,
+    registers_override: dict[str, Any] | None = None,
+    session_state_override: str | None = None,
 ) -> dict[str, Any]:
     """Session context dict for resolve-context / register-commit stdout."""
     resolved_paths = paths or _paths(
@@ -360,12 +371,20 @@ def build_resolve_context_payload(
         constraints_path=constraints_path,
         session_dir=session_dir,
     )
-    gate_state = load_gate_state(resolved_paths["gate_state"])
+    gate_state = (
+        gate_state_override
+        if gate_state_override is not None
+        else load_gate_state(resolved_paths["gate_state"])
+    )
     rr_err = _reject_if_legacy_rr_active(gate_state)
     if rr_err:
         raise ValueError(rr_err)
     reg_flags = _register_io_flags(gate_state)
-    registers = load_registers(resolved_paths["registers"], **reg_flags)
+    registers = (
+        registers_override
+        if registers_override is not None
+        else load_registers(resolved_paths["registers"], **reg_flags)
+    )
     constraints = _load_session_constraints(
         project_root,
         cycle_id,
@@ -382,15 +401,16 @@ def build_resolve_context_payload(
         gl_path = gate_payload_path(payloads_dir, "GL")
         if gl_path.exists():
             gl_payload = load_gate_payload(gl_path)
-    session_state: str | None = None
-    ss_path = resolved_paths.get("session_state") or session_state_file(
-        resolved_paths["session_dir"]
-    )
-    if ss_path.exists():
-        try:
-            session_state = read_current_state(ss_path)
-        except ValueError:
-            session_state = None
+    session_state = session_state_override
+    if session_state is None:
+        ss_path = resolved_paths.get("session_state") or session_state_file(
+            resolved_paths["session_dir"]
+        )
+        if ss_path.exists():
+            try:
+                session_state = read_current_state(ss_path)
+            except ValueError:
+                session_state = None
     return {
         "cycle_id": cycle_id,
         "stage": stage,
@@ -547,6 +567,60 @@ def _validate_open_risk_states_for_dc(registers: dict[str, Any]) -> None:
         )
 
 
+def _validate_stale_r_review(
+    payload: dict[str, Any],
+    registers: dict[str, Any],
+) -> None:
+    if payload.get("assumptions"):
+        raise ValueError(
+            "stale R exit dc requires persisted risk rows; "
+            "apply changes before gate-close and pass assumptions=[]"
+        )
+    review = payload.get("stale_review")
+    if not isinstance(review, dict):
+        raise ValueError("stale_review is required for stale R exit dc")
+    if review.get("user_confirmed") is not True:
+        raise ValueError("stale_review.user_confirmed must be true")
+    affected_ids = review.get("affected_ids")
+    if not isinstance(affected_ids, list) or any(
+        not isinstance(entry_id, str) or not entry_id.strip()
+        for entry_id in affected_ids
+    ):
+        raise ValueError("stale_review.affected_ids must be an array of ids")
+    normalized_ids = [entry_id.strip() for entry_id in affected_ids]
+    if len(set(normalized_ids)) != len(normalized_ids):
+        raise ValueError("stale_review.affected_ids must be unique")
+    dispositions = review.get("dispositions")
+    if not isinstance(dispositions, dict):
+        raise ValueError("stale_review.dispositions must be an object")
+    if set(dispositions) != set(normalized_ids):
+        raise ValueError(
+            "stale_review.dispositions keys must match affected_ids exactly"
+        )
+
+    by_id = {
+        str(entry.get("id")): entry
+        for entry in registers.get("assumptions", [])
+        if isinstance(entry, dict)
+    }
+    for entry_id in normalized_ids:
+        entry = by_id.get(entry_id)
+        if entry is None:
+            raise ValueError(f"stale_review entry not found: {entry_id}")
+        disposition = str(dispositions.get(entry_id, "")).strip()
+        expected_state = _STALE_R_REVIEW_STATES.get(disposition)
+        if expected_state is None:
+            raise ValueError(
+                f"invalid stale_review disposition for {entry_id}: {disposition!r}"
+            )
+        actual_state = _risk_state_of(entry)
+        if actual_state != expected_state:
+            raise ValueError(
+                f"{entry_id}: stale_review disposition {disposition!r} "
+                f"requires risk_state={expected_state!r}, got {actual_state!r}"
+            )
+
+
 def _validate_gate_close_prereqs(state: dict[str, Any], gate: str) -> str | None:
     if state["active_gate"] != gate:
         return f"active_gate is {state['active_gate']!r}, expected {gate!r}"
@@ -649,6 +723,7 @@ def _apply_r_register_updates(
         update = by_id.get(str(entry.get("id")))
         if update is None:
             continue
+        prior_risk_state = _risk_state_of(entry)
         risk_level = str(update.get("risk_level", update.get("risk", ""))).strip()
         entry["risk_level"] = risk_level
         entry["risk_consequence"] = str(
@@ -663,6 +738,8 @@ def _apply_r_register_updates(
                 entry["risk_state"] = "ignore"
             elif risk_level in {"H", "M"}:
                 entry["risk_state"] = "open"
+        if prior_risk_state == "completed" and _risk_state_of(entry) == "open":
+            entry.pop("release_terms", None)
         for retired in ("risk", "consequence", "state", "verification", "disposition"):
             entry.pop(retired, None)
     save_flags = dict(reg_flags)
@@ -761,6 +838,8 @@ def cmd_set_risk_state(
             return _emit_error(f"entry not found: {entry_id}")
         if not _is_risk_row(target):
             return _emit_error(f"{entry_id}: not a risk row (none triad)")
+        if _risk_state_of(target) == "completed" and new_state == "open":
+            target.pop("release_terms", None)
         target["risk_state"] = new_state
         save_registers(paths["registers"], registers, **reg_flags)
     except (FileNotFoundError, ValueError) as exc:
@@ -1118,6 +1197,13 @@ def cmd_gate_close(
         _validate_gate_close_payload(gate, payload, constraints=constraints)
         if gate == "R":
             exit_path = str(payload.get("exit", "")).strip()
+            r_status = str(state["gates"]["R"].get("status", "")).lower()
+            if r_status == "stale" and exit_path == "dc":
+                review_registers = load_registers(
+                    paths["registers"],
+                    **_register_io_flags(state),
+                )
+                _validate_stale_r_review(payload, review_registers)
             if payload.get("assumptions"):
                 _apply_r_register_updates(
                     paths["registers"], payload, gate_state=state
@@ -1188,11 +1274,11 @@ def cmd_gate_close(
     return 0
 
 
-def _run_stale_from(
+def _prepare_stale_from(
     paths: dict[str, Path],
     gate: str,
 ) -> dict[str, Any]:
-    """Mark G + reached downstream stale; keep payloads; strip risk if R no longer closed."""
+    """Validate and compute a stale sweep without persisting."""
     state = load_gate_state(paths["gate_state"])
     if gate not in GATE_ORDER:
         raise ValueError(f"invalid gate: {gate!r}")
@@ -1200,14 +1286,17 @@ def _run_stale_from(
         raise ValueError(
             f"stale-from / rs-commit supports {list(RS_REALIGN_GATES)}, got {gate!r}"
         )
-    updated = mark_stale_from_gate(state, gate)
+    return mark_stale_from_gate(state, gate)
+
+
+def _run_stale_from(
+    paths: dict[str, Path],
+    gate: str,
+) -> dict[str, Any]:
+    """Mark G + reached downstream stale; keep payloads and Register facts."""
+    updated = _prepare_stale_from(paths, gate)
     save_gate_state(paths["gate_state"], updated)
     # Update-only: do not delete_payloads_from
-    r_closed = is_gate_closed(updated, "R")
-    if not r_closed and paths["registers"].exists():
-        raw = json.loads(paths["registers"].read_text(encoding="utf-8"))
-        stripped = strip_assumption_risk_fields(raw)
-        save_registers(paths["registers"], stripped, r_gate_closed=False)
     return updated
 
 
@@ -1425,22 +1514,49 @@ def cmd_rs_commit(
             return _emit_error(
                 f"rs-commit gate must be one of {list(RS_REALIGN_GATES)}, got {gate!r}"
             )
-        _run_stale_from(paths, gate)
-        _, applied = apply_register_batch_operations(paths, operations=operations)
+        updated = _prepare_stale_from(paths, gate)
+        registers, applied, reg_flags = prepare_register_batch_operations(
+            paths,
+            operations=operations,
+            gate_state=updated,
+        )
+        session_state = paths.get("session_state") or session_state_file(
+            paths["session_dir"]
+        )
+        current_session_state: str | None = None
+        if session_state.exists():
+            current_session_state = read_current_state(session_state)
+        next_session_state = (
+            "InProgress"
+            if current_session_state == "Frozen"
+            else current_session_state
+        )
+        ctx = build_resolve_context_payload(
+            project_root,
+            cycle_id,
+            stage,
+            paths=paths,
+            constraints_path=constraints_path,
+            session_dir=session_dir,
+            gate_state_override=updated,
+            registers_override=registers,
+            session_state_override=next_session_state,
+        )
+
+        save_gate_state(paths["gate_state"], updated)
+        persisted_registers = save_registers(
+            paths["registers"],
+            registers,
+            **reg_flags,
+        )
+        ctx["registers"] = persisted_registers
+        ctx["reply_header"] = render_reply_header(updated, persisted_registers)
         # P1.5 A′: reopen path Frozen + RS_COMMIT → gate stale then unfreeze.
         # In-session G9→RS (P1.5a R1) stays InProgress — unfreeze is a no-op.
         unfroze = unfreeze_session(paths["session_dir"])
     except (FileNotFoundError, ValueError) as exc:
         return _emit_error(str(exc))
 
-    ctx = build_resolve_context_payload(
-        project_root,
-        cycle_id,
-        stage,
-        paths=paths,
-        constraints_path=constraints_path,
-        session_dir=session_dir,
-    )
     _emit(
         {
             "ok": True,
@@ -1692,7 +1808,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     apply_r.add_argument("--payload", required=True, help="JSON with assumptions array.")
 
-    close = sub.add_parser("gate-close", help="Close the active gate.")
+    close = sub.add_parser(
+        "gate-close",
+        help=(
+            "Close the active gate. Stale R exit=dc requires assumptions=[] "
+            "and a confirmed stale_review receipt."
+        ),
+    )
     close.add_argument("--gate", required=True)
     close.add_argument("--payload", required=True, help="JSON payload string.")
 
@@ -1720,9 +1842,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
     rs_commit = sub.add_parser(
         "rs-commit",
-        help="Atomic Realign: stale-from + register batch + resolve-context.",
+        help="Prevalidate, then commit Realign stale state + register batch.",
     )
-    rs_commit.add_argument("--gate", required=True, help="Align gate (Q, E, D, or X).")
+    rs_commit.add_argument(
+        "--gate",
+        required=True,
+        help="Align gate (Q, GL, E, D, or X).",
+    )
     rs_commit.add_argument(
         "--operations",
         required=True,

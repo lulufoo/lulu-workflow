@@ -145,7 +145,7 @@ Spine gates:
 | DC | `$SKILL_DIR/runners/dc-delivery-runner/SKILL.md` | R exit `dc` |
 | Human Decision | `$SKILL_DIR/runners/hd-human-decision-runner/SKILL.md` | R exit `human_decision` |
 
-Dialogue semantics SSOT: **unmerged** spine/global gates still use `$SKILL_DIR/gates/*.md` (each such runner names its contract in Prerequisites). **Merged** gates use the Cognitive map inside the corresponding `runners/*/SKILL.md` (this wave: **Q · O · GL · E · R · DC**). Gate Routing loads runners only, never gate files directly. Global gate files (unmerged): `g0-parallel-registers.md` · `rs-realign-state-handler.md`. Stale Per-gate: `$SKILL_DIR/references/stale-gate-update.md`. Stale Batch: `$SKILL_DIR/references/stale-batch-confirm.md`. R open-risk handle: `$SKILL_DIR/references/risk-release.md`.
+Dialogue semantics SSOT: **unmerged** spine/global gates still use `$SKILL_DIR/gates/*.md` (each such runner names its contract in Prerequisites). **Merged** gates use the Cognitive map inside the corresponding `runners/*/SKILL.md` (this wave: **Q · O · GL · E · R · DC · RS**). Gate Routing loads runners only, never gate files directly. Global gate file (unmerged): `g0-parallel-registers.md`. Stale Per-gate: `$SKILL_DIR/references/stale-gate-update.md`. Stale Batch: `$SKILL_DIR/references/stale-batch-confirm.md`. R open-risk handle: `$SKILL_DIR/references/risk-release.md`.
 
 ---
 

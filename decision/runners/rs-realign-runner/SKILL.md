@@ -2,40 +2,17 @@
 name: decision/rs-realign-runner
 description: >-
   RS global gate for decision. Realign State Handler when upstream change
-  requires downstream sync. Not parallel; load before $RS_COMMIT. Invoked by
-  decision/SKILL.md Gate routing.
+  requires downstream sync. Confirms the affected boundary and Register
+  dispositions, commits stale state, then routes recovery. Not parallel.
 meta-skill-version: 1.0.0
 ---
 
 # rs-realign-runner
 
-Execute **RS — Realign State Handler** (global · not parallel). Dialogue per gate contract; persistence via `$RS_COMMIT` (stale sweep · no payload delete).
-
-## Blocking policy
-
-Control CLI non-zero → stop, report error, wait for user direction.
-
-## Global · not parallel
-
-Runs on upstream-change hit during any gate. No spine `gate-close` until `RS_COMPLETE`. After success, re-enter LoopA at align gate `G` (Q / GL / E / D / X).
-
-## When to load
-
-Load this runner before `$RS_COMMIT` when:
-
-- **G9:** any turn — information revises or contradicts a closed gate's conclusion → do not `gate-close` the current gate if blocked; load RS runner.
-- Prior gate pass criterion no longer holds.
-- R handle upstream wrong → RS (resume R after Per-gate stale update if needed).
-- **R** exit `rs` · **DC** user flags item · **Human Decision** upstream wrong.
-
-Propose align gate `G` (Q / GL / E / D / X); default earliest hit on the spine; user confirms before `$RS_COMMIT`.
-
-**Prohibited:** manually edit gate-state, delete payloads, call `invalidate-from`, or enumerate downstream gates outside `$RS_COMMIT`.
-
-## Consequences (script SSOT)
-
-- Gate stale sweep: **`$GATE_CONTROL` only** (`rs-commit` / `stale-from` — marks `G` + reached downstream `stale`; **keeps** `gate-payloads`; strips risk when R is no longer closed).
-- Registers: **not** auto-modified — `$RS_COMMIT` only.
+Restore a coherent decision state after an upstream conclusion changes.
+Complete only when the affected boundary and Register dispositions are
+confirmed, the realign transition succeeds, and exactly one recovery route is
+selected.
 
 ## Prerequisites
 
@@ -43,52 +20,89 @@ Propose align gate `G` (Q / GL / E / D / X); default earliest hit on the spine; 
 Do NOT proceed until you have read `../../../_runtime.md`
 </HARD-GATE>
 
-- Gate contract: `$SKILL_DIR/gates/rs-realign-state-handler.md`
-- Align gate `G` identified (Q / GL / E / D / X) — from trigger context or user
+- `$SKILL_DIR` = `$SKILL_ROOT/decision`
+- A routing trigger supplied the upstream-change reason.
+- No spine `gate-close` occurs until RS returns.
+
+## Script Macros
+
+| Macro | Command |
+|-------|---------|
+| `$GATE_CONTROL` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>"` |
+| `$RS_COMMIT` | `$GATE_CONTROL rs-commit --gate "<G>" --operations '<json array>'` |
+| `$GET_PAYLOAD` | `$GATE_CONTROL get-payload` |
+| `$BATCH_RECLOSE` | `$GATE_CONTROL batch-reclose --payloads '<json object>'` |
+
+Subcommand and stdout contracts: module docstring / `--help`.
+
+## Cognitive map
+
+### Decision model
+
+- **Align point** — the earliest affected gate in `Q / GL / E / D / X`.
+- **Register disposition** — label every Prior and Assumption entry:
+  - In the realign scope, an entry currently shown as verified defaults to
+    `[pending review]`.
+  - All other entries default to `[verified]`.
+  - Semantic relevance may override either default.
+  - `[verified]` / `[pending review]` retain the entry; `[invalid]` deletes it.
+- **Recovery route** — after commit, choose exactly one:
+  - **Batch** for a claimed light patch accepted by the user.
+  - **Per-gate** otherwise.
+
+### Bounds
+
+- The user confirms the align point and all Register operations before commit.
+- Prior may change between `pending` / `verified`; Assumption progress remains
+  `risk_state`, so RS may only retain or delete Assumption rows.
+- `$RS_COMMIT` owns stale marking and persistence. Do not edit session data,
+  delete payloads, call `stale-from` separately, or enumerate downstream gates.
+- Surviving Assumption risk facts remain intact. RS does not invent or rewrite
+  `completed`; stale R review belongs to the R runner.
+- Batch starts only after the recovery-route choice.
+
+### Pass criterion
+
+The align point and full Register disposition are confirmed, `$RS_COMMIT`
+succeeds, and exactly one recovery route is selected.
 
 ## Pipeline
 
-1. `$GATE_CONTROL resolve-context` — pin `$CTX`; baseline before proposals (not conversation memory)
-2. Read and apply from `$CTX.domain_constraints` for all subsequent dialogue in this gate:
-   - `objective` — session intent; frame the entire gate within this goal
-   - `role.instruction` — persona and language stance
-   - `domain.instruction` — domain boundary constraints
-3. Confirm align gate `G` with user
-4. Propose 3-state labeling for all register entries per gate contract Step 3; user confirms
-5. `$RS_COMMIT` with `--gate <G>` and `--operations '<json array>'` (use `[]` if no register changes)
-6. Pin `$CTX` from stdout (`reenter`, `gates`, `registers`, `domain_constraints`)
-7. **Recovery path choice** — AI states whether this looks like a light patch (one-line why) and asks: **Batch** (one checklist confirm) vs **Per-gate** (existing stale update). Uncertain / reject Batch / AI does not claim light patch → Per-gate.
-8. **If Batch** — follow `$SKILL_DIR/references/stale-batch-confirm.md` to completion; return its `BATCH_COMPLETE` (do not also return `RS_COMPLETE`).
-9. **If Per-gate** — Return `RS_COMPLETE reenter=<G>` — load gate `G` runner via kernel § Gate routing (`gates.G.status` is `stale`)
+**Entry**
 
-<HARD-GATE name="RS commit">
-- Do **not** call `$RS_COMMIT` before the user confirms `G` and register operations.
-- Non-zero exit → stop RS, report stderr, wait for user direction.
-- After success, read `reenter`, `gates`, `registers` from stdout only — do not chain `stale-from` / `register-batch-apply` / `sync-registers-to-doc` separately for RS.
-- Do **not** start Batch (`get-payload` / `batch-reclose`) before path-choice selects Batch.
-</HARD-GATE>
+1. Run `$GATE_CONTROL resolve-context`; pin stdout JSON as `$CTX`.
+2. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
+   `domain.instruction`) to the dialogue.
+3. From the routing trigger and `$CTX`, propose the earliest align point; obtain
+   user confirmation.
 
-## `$RS_COMMIT`
+**Confirm**
 
-`$RS_COMMIT` (`$GATE_CONTROL --help` · `rs-commit`).
+4. Present the three-state label for every entry in both Registers, including
+   any semantic override of the defaults.
+5. Revise until the user confirms the complete disposition. Translate only the
+   confirmed Prior state changes and deletions into operations.
 
-## `--operations` format
+**Commit**
 
-```json
-[
-  {"id": "P2", "action": "set_state", "state": "pending"},
-  {"id": "A4", "action": "delete"}
-]
-```
+6. Run `$RS_COMMIT`. Pin its stdout as the new `$CTX`.
+7. Non-zero exit → stop, report the error, and wait for user direction.
 
-- **Prior only** — `set_state`: `pending` | `verified` (maps to `[待验证]` / `[已验证]`); `set_state: invalidated` → remove
-- **Assumptions** — `delete` only (`assumption.state` retired; progress is `risk_state`, not RS `set_state`)
-- Risk fields on surviving assumptions are stripped by `rs-commit` when R is invalidated — do not invent `completed` here
+**Route**
+
+8. State whether the change is a light patch and why; ask Batch vs Per-gate.
+9. Batch → follow `$SKILL_DIR/references/stale-batch-confirm.md`; return its
+   `BATCH_COMPLETE`.
+10. Per-gate → return `RS_COMPLETE reenter=<G>`; the kernel loads that stale
+    gate's runner.
+
+**Stop**
+
+- Align point, Register disposition, or route cannot be judged.
+- User has not confirmed the pending decision.
+- Any control command fails.
 
 ## Exit
 
-`RS_COMPLETE reenter=Q` (or GL / E / D / X) · `BATCH_COMPLETE active_gate=<G>` · `RS_FAILED reason=...`
-
-## Batch path
-
-After path-choice selects Batch: `$SKILL_DIR/references/stale-batch-confirm.md` (uses `$GATE_CONTROL get-payload` / `batch-reclose`).
+`RS_COMPLETE reenter=<G>` · `BATCH_COMPLETE active_gate=<G>` ·
+`RS_FAILED reason=<brief description>`

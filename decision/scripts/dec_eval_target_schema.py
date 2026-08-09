@@ -258,11 +258,13 @@ def render_and_save_eval_target(
     stage: str,
     constraints: dict[str, Any],
     r_gate_closed: bool = True,
+    r_risk_fields_allowed: bool | None = None,
 ) -> Path:
     paths_payloads = gate_payloads_for_session(session_dir / "gate-payloads")
     registers = load_registers(
         session_dir / "registers.json",
         r_gate_closed=r_gate_closed,
+        r_risk_fields_allowed=r_risk_fields_allowed,
     )
     content = render_eval_target(
         cycle_id=cycle_id,

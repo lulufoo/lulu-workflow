@@ -125,6 +125,28 @@ def test_restore_moves_cold_to_hot(project_root: Path) -> None:
     hot = project_root / _CACHE_ROOT / cycle_id / subdir
     cold.parent.mkdir(parents=True, exist_ok=True)
     hot.rename(cold)
+    registers = {
+        "version": "1",
+        "cycle_id": cycle_id,
+        "stage": stage,
+        "prior": [],
+        "assumptions": [
+            {
+                "id": "A1",
+                "text": "Validated SDK behavior",
+                "source": "GL",
+                "risk_level": "H",
+                "risk_class": "decision",
+                "risk_state": "completed",
+                "risk_consequence": "Decision fails",
+                "release_terms": "Accepted",
+            }
+        ],
+    }
+    (cold / "registers.json").write_text(
+        json.dumps(registers, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
 
     ok, messages = restore_current_session(
         project_root, conv_id, platform=_PLATFORM, dry_run=False
@@ -133,6 +155,7 @@ def test_restore_moves_cold_to_hot(project_root: Path) -> None:
     assert hot.is_dir()
     assert not cold.exists()
     assert any("restore:" in msg for msg in messages)
+    assert json.loads((hot / "registers.json").read_text(encoding="utf-8")) == registers
 
 
 def test_archive_delivered_other_conv(project_root: Path) -> None:

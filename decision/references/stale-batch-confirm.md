@@ -3,8 +3,6 @@
 Use **only** after `$RS_COMMIT` succeeds and the user has confirmed **Path Batch** (light-patch batch confirm).  
 If the user chose Per-gate, is uncertain, or AI does not claim light-patch → do **not** follow this file; use `stale-gate-update.md` per gate.
 
-Design SSOT (process): `docs/domain/archive/decision/rs-patch-batch-confirm-design.md`.
-
 ## When
 
 - Immediate post-`$RS_COMMIT` path choice (see `rs-realign-runner`) selected **Batch**.

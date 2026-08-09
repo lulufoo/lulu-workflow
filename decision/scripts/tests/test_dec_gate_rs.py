@@ -14,14 +14,26 @@ if str(_DIAG_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_DIAG_SCRIPTS))
 
 from dec_gate_control import (  # noqa: E402
+    cmd_complete_assumption,
     cmd_gate_close,
     cmd_invalidate_from,
     cmd_init_session,
     cmd_rs_commit,
     cmd_stale_from,
 )
-from dec_register_control import cmd_register_append, cmd_register_batch_apply  # noqa: E402
-from dec_workflow_common import gate_state_path, registers_path  # noqa: E402
+from dec_register_control import (  # noqa: E402
+    cmd_register_append,
+    cmd_register_batch_apply,
+    cmd_register_update,
+)
+from dec_session_integrity import cmd_render, run_structural_audit  # noqa: E402
+from dec_workflow_common import (  # noqa: E402
+    decision_doc_path,
+    domain_constraints_path,
+    gate_state_path,
+    registers_path,
+    session_state_path,
+)
 from dec_test_helpers import gate_payload_exists  # noqa: E402
 from test_dec_gate_loop_a import _close_qe, _full_template  # noqa: E402
 
@@ -320,12 +332,16 @@ def test_rs_commit_atomic_stale(
     assert payload["registers"]["prior"][0]["state"] == "verified"
     assert payload["gates"]["D"]["status"] == "stale"
     assert payload["gates"]["X"]["status"] == "stale"
+    persisted_registers = json.loads(
+        (project_root / registers_path(cycle_id, stage)).read_text(encoding="utf-8")
+    )
+    assert payload["registers"] == persisted_registers
 
     assert gate_payload_exists(project_root, cycle_id, "D")
     assert gate_payload_exists(project_root, cycle_id, "X")
 
 
-def test_stale_from_d_after_r_closed_strips_risk(
+def test_stale_from_d_after_r_closed_preserves_completed_risk(
     template_config: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -381,6 +397,20 @@ def test_stale_from_d_after_r_closed_strips_risk(
         )
         == 0
     )
+    release_terms = (
+        "Method: integration test / Owner: QA / Timing: pre-release / "
+        "Release condition: export succeeds"
+    )
+    assert (
+        cmd_complete_assumption(
+            project_root,
+            cycle_id,
+            stage,
+            entry_id="A1",
+            release_terms=release_terms,
+        )
+        == 0
+    )
 
     assert cmd_stale_from(project_root, cycle_id, stage, "D") == 0
 
@@ -388,12 +418,249 @@ def test_stale_from_d_after_r_closed_strips_risk(
         (project_root / registers_path(cycle_id, stage)).read_text(encoding="utf-8")
     )
     assumption = registers["assumptions"][0]
-    assert "risk_level" not in assumption or assumption.get("risk_level") is None
-    assert "risk_consequence" not in assumption or assumption.get("risk_consequence") is None
-    assert "risk_class" not in assumption or assumption.get("risk_class") is None
+    assert assumption["risk_level"] == "H"
+    assert assumption["risk_consequence"] == "blocked"
+    assert assumption["risk_class"] == "decision"
+    assert assumption["risk_state"] == "completed"
+    assert assumption["release_terms"] == release_terms
+
+    assert (
+        cmd_register_update(
+            project_root,
+            cycle_id,
+            stage,
+            entry_id="A1",
+            payload={"risk_consequence": "must not change during D recovery"},
+        )
+        == 1
+    )
 
     capsys.readouterr()
     assert cmd_register_commit(project_root, cycle_id, stage, operations=[]) == 0
+    context = json.loads(capsys.readouterr().out)
+    assert context["registers"]["assumptions"][0]["risk_state"] == "completed"
+
+    assert cmd_render(project_root, cycle_id, stage) == 0
+    decision_doc = (
+        project_root / decision_doc_path(cycle_id, stage)
+    ).read_text(encoding="utf-8")
+    assert release_terms in decision_doc
+    audit_errors = run_structural_audit(project_root, cycle_id, stage)
+    assert not any("REG_RISK_WHEN_R_OPEN" in error for error in audit_errors)
+
+
+def test_rs_commit_validation_failure_changes_no_session_artifact(
+    template_config: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_root = template_config
+    cycle_id = "feature-rs-005b"
+    stage = "decision"
+    monkeypatch.chdir(project_root)
+
+    _close_through_d(project_root, cycle_id, stage)
+    cmd_gate_close(
+        project_root,
+        cycle_id,
+        stage,
+        "X",
+        {
+            "acceptance_criteria": "Users export CSV",
+            "gap": "None",
+            "impact_surface": [],
+            "external_dependencies": [],
+            "key_changes": "Add endpoint",
+            "critical_constraints": "none",
+            "reversibility": "easy",
+        },
+    )
+
+    artifacts = [
+        project_root / gate_state_path(cycle_id, stage),
+        project_root / registers_path(cycle_id, stage),
+        project_root / session_state_path(cycle_id, stage),
+    ]
+    before = {
+        path: path.read_text(encoding="utf-8") if path.exists() else None
+        for path in artifacts
+    }
+
+    assert (
+        cmd_rs_commit(
+            project_root,
+            cycle_id,
+            stage,
+            "D",
+            operations=[{"id": "P999", "action": "delete"}],
+        )
+        == 1
+    )
+    after = {
+        path: path.read_text(encoding="utf-8") if path.exists() else None
+        for path in artifacts
+    }
+    assert after == before
+
+    constraints_file = project_root / domain_constraints_path(cycle_id, stage)
+    constraints_file.write_text("{", encoding="utf-8")
+    assert cmd_rs_commit(project_root, cycle_id, stage, "D", operations=[]) == 1
+    after_context_failure = {
+        path: path.read_text(encoding="utf-8") if path.exists() else None
+        for path in artifacts
+    }
+    assert after_context_failure == before
+
+
+def test_stale_r_dc_requires_confirmed_review_receipt(
+    template_config: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_root = template_config
+    cycle_id = "feature-rs-005c"
+    stage = "decision"
+    monkeypatch.chdir(project_root)
+
+    _close_through_d(project_root, cycle_id, stage)
+    cmd_register_append(
+        project_root,
+        cycle_id,
+        stage,
+        register_kind="assumption",
+        payload={"text": "High-risk assumption"},
+    )
+    x_payload = {
+        "acceptance_criteria": "Users export CSV",
+        "gap": "None",
+        "impact_surface": [],
+        "external_dependencies": [],
+        "key_changes": "Add endpoint",
+        "critical_constraints": "none",
+        "reversibility": "easy",
+    }
+    cmd_gate_close(project_root, cycle_id, stage, "X", x_payload)
+    cmd_gate_close(
+        project_root,
+        cycle_id,
+        stage,
+        "R",
+        {
+            "exit": "human_decision",
+            "assumptions": [
+                {
+                    "id": "A1",
+                    "risk_level": "H",
+                    "risk_class": "decision",
+                    "risk_state": "open",
+                    "risk_consequence": "blocked",
+                }
+            ],
+        },
+    )
+    cmd_complete_assumption(
+        project_root,
+        cycle_id,
+        stage,
+        entry_id="A1",
+        release_terms=(
+            "Method: integration test / Owner: QA / Timing: pre-release / "
+            "Release condition: export succeeds"
+        ),
+    )
+    assert (
+        cmd_gate_close(
+            project_root,
+            cycle_id,
+            stage,
+            "R",
+            {"exit": "dc", "assumptions": []},
+        )
+        == 0
+    )
+
+    assert cmd_stale_from(project_root, cycle_id, stage, "D") == 0
+    assert (
+        cmd_gate_close(
+            project_root,
+            cycle_id,
+            stage,
+            "D",
+            {
+                "decision_rationale": "Chose A updated",
+                "applies_to": "export",
+                "excludes": "mobile",
+                "execution_approach": "backend first",
+            },
+        )
+        == 0
+    )
+    assert cmd_gate_close(project_root, cycle_id, stage, "X", x_payload) == 0
+
+    assert (
+        cmd_gate_close(
+            project_root,
+            cycle_id,
+            stage,
+            "R",
+            {"exit": "human_decision", "assumptions": []},
+        )
+        == 0
+    )
+    assert (
+        cmd_gate_close(
+            project_root,
+            cycle_id,
+            stage,
+            "R",
+            {"exit": "rs", "realign_gate": "D", "assumptions": []},
+        )
+        == 0
+    )
+    assert (
+        cmd_gate_close(
+            project_root,
+            cycle_id,
+            stage,
+            "R",
+            {"exit": "dc", "assumptions": []},
+        )
+        == 1
+    )
+    assert (
+        cmd_gate_close(
+            project_root,
+            cycle_id,
+            stage,
+            "R",
+            {
+                "exit": "dc",
+                "assumptions": [],
+                "stale_review": {
+                    "user_confirmed": False,
+                    "affected_ids": ["A1"],
+                    "dispositions": {"A1": "keep_completed"},
+                },
+            },
+        )
+        == 1
+    )
+    assert (
+        cmd_gate_close(
+            project_root,
+            cycle_id,
+            stage,
+            "R",
+            {
+                "exit": "dc",
+                "assumptions": [],
+                "stale_review": {
+                    "user_confirmed": True,
+                    "affected_ids": ["A1"],
+                    "dispositions": {"A1": "keep_completed"},
+                },
+            },
+        )
+        == 0
+    )
 
 
 def test_gate_close_preserves_downstream_stale(

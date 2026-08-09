@@ -172,6 +172,123 @@ def test_complete_assumption_during_active_r(
     assert entry["release_terms"] == _H_TERMS
 
 
+def test_reopening_completed_risk_clears_release_terms(
+    template_config: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project_root = template_config
+    cycle_id = "feature-complete-a1b"
+    stage = "decision"
+    monkeypatch.chdir(project_root)
+
+    _close_through_r_active(project_root, cycle_id, stage)
+    assert (
+        cmd_complete_assumption(
+            project_root,
+            cycle_id,
+            stage,
+            entry_id="A1",
+            release_terms=_H_TERMS,
+        )
+        == 0
+    )
+    assert (
+        cmd_set_risk_state(
+            project_root,
+            cycle_id,
+            stage,
+            entry_id="A1",
+            risk_state="open",
+        )
+        == 0
+    )
+
+    registers = json.loads(
+        (project_root / registers_path(cycle_id, stage)).read_text(encoding="utf-8")
+    )
+    entry = registers["assumptions"][0]
+    assert entry["risk_state"] == "open"
+    assert "release_terms" not in entry
+
+
+def test_apply_r_reopening_completed_risk_clears_release_terms(
+    template_config: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project_root = template_config
+    cycle_id = "feature-complete-a1c"
+    stage = "decision"
+    monkeypatch.chdir(project_root)
+
+    _close_through_r_active(project_root, cycle_id, stage)
+    cmd_complete_assumption(
+        project_root,
+        cycle_id,
+        stage,
+        entry_id="A1",
+        release_terms=_H_TERMS,
+    )
+    assert (
+        cmd_apply_r_assumptions(
+            project_root,
+            cycle_id,
+            stage,
+            {
+                "assumptions": [
+                    {
+                        "id": "A1",
+                        "risk_level": "H",
+                        "risk_class": "decision",
+                        "risk_state": "open",
+                        "risk_consequence": "Updated evidence invalidates release",
+                    }
+                ]
+            },
+        )
+        == 0
+    )
+
+    registers = json.loads(
+        (project_root / registers_path(cycle_id, stage)).read_text(encoding="utf-8")
+    )
+    entry = registers["assumptions"][0]
+    assert entry["risk_state"] == "open"
+    assert "release_terms" not in entry
+
+
+def test_register_update_reopening_completed_risk_clears_release_terms(
+    template_config: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project_root = template_config
+    cycle_id = "feature-complete-a1d"
+    stage = "decision"
+    monkeypatch.chdir(project_root)
+
+    _close_through_r_active(project_root, cycle_id, stage)
+    cmd_complete_assumption(
+        project_root,
+        cycle_id,
+        stage,
+        entry_id="A1",
+        release_terms=_H_TERMS,
+    )
+    assert (
+        cmd_register_update(
+            project_root,
+            cycle_id,
+            stage,
+            entry_id="A1",
+            payload={"risk_state": "open"},
+        )
+        == 0
+    )
+
+    registers = json.loads(
+        (project_root / registers_path(cycle_id, stage)).read_text(encoding="utf-8")
+    )
+    entry = registers["assumptions"][0]
+    assert entry["risk_state"] == "open"
+    assert "release_terms" not in entry
+
+
 def test_complete_assumption_accepts_literal(
     template_config: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

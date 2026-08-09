@@ -6,7 +6,6 @@ import pytest
 
 from dec_register_schema import (
     normalize_registers,
-    strip_assumption_risk_fields,
     validate_registers,
 )
 
@@ -191,34 +190,3 @@ def test_ignore_is_not_none_triad() -> None:
     )
     errors = validate_registers(data, r_gate_closed=True)
     assert any("triad" in e or "none" in e for e in errors)
-
-
-def test_strip_removes_new_risk_fields() -> None:
-    data = _base(
-        assumptions=[
-            {
-                "id": "A1",
-                "source": "O",
-                "text": "x",
-                "risk_level": "H",
-                "risk_class": "decision",
-                "risk_state": "open",
-                "risk_consequence": "c",
-                "release_terms": "Accepted",
-            }
-        ]
-    )
-    stripped = strip_assumption_risk_fields(data)
-    entry = stripped["assumptions"][0]
-    for key in (
-        "risk_level",
-        "risk_class",
-        "risk_state",
-        "risk_consequence",
-        "release_terms",
-        "risk",
-        "consequence",
-        "verification",
-        "disposition",
-    ):
-        assert key not in entry

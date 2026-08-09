@@ -14,7 +14,6 @@ if str(_DIAG_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_DIAG_SCRIPTS))
 
 from dec_gate_control import cmd_check_delivery_ready, cmd_gate_close, cmd_init_session  # noqa: E402
-from dec_register_schema import strip_assumption_risk_fields  # noqa: E402
 from dec_session_integrity import cmd_audit, cmd_render, run_structural_audit  # noqa: E402
 from dec_workflow_common import decision_doc_path  # noqa: E402
 from dec_test_helpers import gate_payload_exists, load_rendered_doc  # noqa: E402
@@ -33,34 +32,6 @@ def template_config(tmp_path: Path) -> Path:
         encoding="utf-8",
     )
     return tmp_path
-
-
-def test_strip_assumption_risk_fields() -> None:
-    data = {
-        "version": "1",
-        "cycle_id": "c",
-        "stage": "decision",
-        "prior": [],
-        "assumptions": [
-            {
-                "id": "A1",
-                "text": "t",
-                "source": "R",
-                "risk_level": "H",
-                "risk_class": "decision",
-                "risk_state": "open",
-                "risk_consequence": "x",
-            }
-        ],
-        "next_prior_seq": 1,
-        "next_assumption_seq": 2,
-    }
-    stripped = strip_assumption_risk_fields(data)
-    assert "risk_level" not in stripped["assumptions"][0]
-    assert "risk_consequence" not in stripped["assumptions"][0]
-    assert "risk_class" not in stripped["assumptions"][0]
-
-
 def test_structural_audit_passes_with_payloads(template_config: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     project_root = template_config
     cycle_id = "feature-integrity-001"

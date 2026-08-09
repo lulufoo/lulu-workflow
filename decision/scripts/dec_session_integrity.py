@@ -41,7 +41,12 @@ from dec_gate_payload_schema import (  # noqa: E402
     gate_payloads_for_session,
     load_gate_payload,
 )
-from dec_gate_state_schema import GATE_ORDER, is_gate_closed, load_gate_state  # noqa: E402
+from dec_gate_state_schema import (  # noqa: E402
+    GATE_ORDER,
+    is_gate_closed,
+    is_gate_reached,
+    load_gate_state,
+)
 from dec_register_schema import load_registers, validate_registers  # noqa: E402
 from dec_session_paths import (  # noqa: E402
     resolve_session_root_for_command,
@@ -101,13 +106,18 @@ def run_structural_audit(
     paths = _session_paths(project_root, cycle_id, stage, constraints_path=constraints_path)
     state = load_gate_state(paths["gate_state"])
     r_closed = is_gate_closed(state, "R")
+    r_reached = is_gate_reached(state, "R")
     constraints = _load_constraints(paths)
     errors: list[str] = []
 
     registers_raw = json.loads(paths["registers"].read_text(encoding="utf-8"))
-    reg_errors = validate_registers(registers_raw, r_gate_closed=r_closed)
+    reg_errors = validate_registers(
+        registers_raw,
+        r_gate_closed=r_closed,
+        r_risk_fields_allowed=r_reached,
+    )
     for err in reg_errors:
-        if "risk set before R gate closed" in err:
+        if "risk fields set before R gate reached" in err:
             errors.append(f"REG_RISK_WHEN_R_OPEN: {err}")
 
     skipped = frozenset(state.get("skipped_gates") or [])

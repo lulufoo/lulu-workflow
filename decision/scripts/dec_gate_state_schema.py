@@ -38,6 +38,7 @@ _LEGACY_GATE_IDS: dict[str, str] = {"open": "O"}
 GATE_STATUSES = frozenset({"pending", "active", "closed", "stale", "invalidated"})
 # active_gate may be in progress (active) or awaiting Realign update (stale).
 _ACTIVE_GATE_STATUSES = frozenset({"active", "stale"})
+_REACHED_GATE_STATUSES = frozenset({"active", "stale", "closed"})
 
 
 def _now_iso() -> str:
@@ -229,6 +230,12 @@ def downstream_gates(gate: str) -> tuple[str, ...]:
 def is_gate_closed(state: dict[str, Any], gate: str) -> bool:
     entry = state["gates"].get(gate, {})
     return str(entry.get("status", "")).lower() == "closed"
+
+
+def is_gate_reached(state: dict[str, Any], gate: str) -> bool:
+    """Return whether a gate has been reached, including stale Realign state."""
+    entry = state["gates"].get(gate, {})
+    return str(entry.get("status", "")).lower() in _REACHED_GATE_STATUSES
 
 
 def _focus_next_gate(gates: dict[str, dict[str, Any]], next_gate: str) -> None:

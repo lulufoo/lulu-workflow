@@ -34,6 +34,7 @@ Do NOT proceed until you have read `../../../_runtime.md`
 | Macro | Command |
 |-------|---------|
 | `$GATE_CONTROL` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>"` |
+| `$GET_PAYLOAD` | `$GATE_CONTROL get-payload` |
 
 Subcommand contracts: module docstring / `--help` (including
 `apply-r-assumptions`, `complete-assumption`, `set-risk-state`, and R
@@ -76,6 +77,10 @@ Subcommand contracts: module docstring / `--help` (including
   - `dc` — no `risk_state=open` remains → DC
   - `human_decision` — user suspends (open items unresolved or cannot proceed) → HD runner
 - **Final close** uses `gate-close --gate R` with `exit` + current assumptions snapshot — do not invent `completed` in that payload.
+- **Stale review:** preserve the full risk pack from `$CTX.registers`; compare
+  updated upstream payloads, propose affected rows and dispositions, and obtain
+  one explicit confirmation. Persist risk changes before close; `exit=dc`
+  closes with `assumptions: []` plus the confirmed `stale_review` receipt.
 
 ### Dialogue modes
 
@@ -85,6 +90,7 @@ Subcommand contracts: module docstring / `--help` (including
 | `present` | Pack ready; awaiting expose confirm | Show the full pack (Prior, coverage, risk table, proposed exit). Ask for one confirm or change points. |
 | `revise` | User requests expose changes | Apply changes; return to `present` with the full pack. |
 | `handle` | After `apply-r-assumptions` and any `risk_state=open` | H→M→L: pick next open; load `$SKILL_DIR/references/risk-release.md`; one op; repeat or exit. |
+| `review-stale` | R is stale | Show the full pack with affected-row diffs; confirm impact and dispositions; persist changes; handle reopened risks. |
 | `close` | `G-handled` met for `dc` / `rs` / `human_decision` | `$GATE_CONTROL gate-close --gate R` with payload below. |
 
 ### Pass criterion
@@ -102,12 +108,26 @@ Subcommand contracts: module docstring / `--help` (including
 ## Pipeline
 
 **Entry:** `$CTX.active_gate` is `R`. Run `$GATE_CONTROL resolve-context`; pin
-stdout JSON as `$CTX`. If `$CTX.gates.R.status == stale`: follow
-`$SKILL_DIR/references/stale-gate-update.md` steps 1–4 only (three-part update +
-user confirm + `gate-close`; payload must include `exit`, per-assumption risk
-fields, and `realign_gate` when `exit=rs`); do **not** follow that file’s step 5
-return — go to Done handoff below. **Do not** force the non-stale expose pack on
-the stale path.
+stdout JSON as `$CTX`.
+
+**Stale entry:** If `$CTX.gates.R.status == stale`:
+
+1. Run `$GET_PAYLOAD --stale-only`; compare updated upstream conclusions with
+   the complete risk pack in `$CTX.registers`.
+2. Enter `review-stale`: present the full pack, highlight affected rows and
+   incremental diffs, propose affected IDs and dispositions, then obtain one
+   user confirmation.
+3. Persist classification changes with `$GATE_CONTROL apply-r-assumptions`.
+   For invalidated completed evidence, use `$GATE_CONTROL set-risk-state
+   --risk-state open` (which clears old release terms), then enter `handle`
+   until no open risk remains.
+4. If the review finds an upstream conclusion wrong, use `$GATE_CONTROL
+   gate-close` with `exit=rs`; if the user suspends, close with
+   `exit=human_decision`.
+5. Otherwise use `$GATE_CONTROL gate-close` with `exit=dc`,
+   `assumptions: []`, and the confirmed `stale_review` receipt. Do not close
+   before this confirmation.
+6. Go to Done handoff below; skip the non-stale Act loop.
 
 **Act (non-stale):**
 
@@ -204,6 +224,9 @@ RS exit (may still carry non-`completed` snapshot fields):
 - do not invent `completed` in close payload
 - `exit=dc`: marks all pending **prior** entries `verified`
 - Final `dc` close may use `"assumptions": []` when rows are already persisted
+- Stale `exit=dc` requires `stale_review.user_confirmed=true`; affected IDs are
+  unique and each has a final disposition accepted by CLI validation.
+- Stale `exit=rs` / `human_decision` does not require `stale_review`.
 
 ## Exit
 

@@ -79,10 +79,24 @@ def test_render_eval_target_formal_fields(tmp_path: Path) -> None:
             "reversibility": "easy",
         },
     )
+    registers = init_registers(cycle_id="c1", stage="decision")
+    registers["assumptions"].append(
+        {
+            "id": "A1",
+            "text": "Validated SDK behavior",
+            "source": "GL",
+            "risk_level": "H",
+            "risk_class": "decision",
+            "risk_state": "completed",
+            "risk_consequence": "Decision fails",
+            "release_terms": "Accepted",
+        }
+    )
     save_registers(
         session / "registers.json",
-        init_registers(cycle_id="c1", stage="decision"),
+        registers,
         r_gate_closed=False,
+        r_risk_fields_allowed=True,
     )
     (session / "domain-constraints.json").write_text(
         json.dumps(_constraints()), encoding="utf-8"
@@ -94,6 +108,7 @@ def test_render_eval_target_formal_fields(tmp_path: Path) -> None:
         stage="decision",
         constraints=_constraints(),
         r_gate_closed=False,
+        r_risk_fields_allowed=True,
     )
     text = path.read_text(encoding="utf-8")
     assert "# Decision EvalTarget" in text
@@ -103,6 +118,8 @@ def test_render_eval_target_formal_fields(tmp_path: Path) -> None:
     assert "- decision_rationale: why A" in text
     assert "- user_choice: A" in text
     assert "<!-- chapter:assumptions -->" in text
+    assert "completed" in text
+    assert "Accepted" in text
 
 
 def test_render_rejects_missing_payload() -> None:

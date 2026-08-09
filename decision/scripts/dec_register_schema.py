@@ -21,22 +21,6 @@ REGISTER_SOURCES = frozenset({"O", "Q", "GL", "E", "D", "X", "R", "RR", "V"})
 RISK_LEVELS = frozenset({"H", "M", "L", "none"})
 RISK_CLASSES = frozenset({"decision", "implementation", "pending", "none"})
 RISK_STATES = frozenset({"open", "ignore", "completed", "none"})
-_ASSUMPTION_RISK_KEYS = (
-    "risk_level",
-    "risk_class",
-    "risk_state",
-    "risk_consequence",
-    "release_terms",
-)
-_RETIRED_ASSUMPTION_KEYS = (
-    "state",
-    "risk",
-    "consequence",
-    "verification",
-    "disposition",
-    "release_tracking",
-    "released",
-)
 
 
 def _now_iso() -> str:
@@ -321,7 +305,7 @@ def save_registers(
     *,
     r_gate_closed: bool = False,
     r_risk_fields_allowed: bool | None = None,
-) -> None:
+) -> dict[str, Any]:
     normalized = normalize_registers(data)
     if r_risk_fields_allowed is None:
         r_risk_fields_allowed = r_gate_closed
@@ -338,6 +322,7 @@ def save_registers(
         path,
         json.dumps(normalized, indent=2, ensure_ascii=False) + "\n",
     )
+    return normalized
 
 
 def next_prior_id(data: dict[str, Any]) -> str:
@@ -389,13 +374,3 @@ def format_assumption_header_line(entry: dict[str, Any]) -> str:
     class_part = f"/{risk_class}" if risk_class else ""
     state_part = f"/{risk_state}" if risk_state else ""
     return f"[{entry.get('id')} {source}{risk_part}{class_part}{state_part}] {entry.get('text')}"
-
-
-def strip_assumption_risk_fields(data: dict[str, Any]) -> dict[str, Any]:
-    """Remove risk fields when R gate is no longer closed (RS invalidate)."""
-    normalized = normalize_registers(data)
-    for entry in normalized.get("assumptions", []):
-        if isinstance(entry, dict):
-            for key in _ASSUMPTION_RISK_KEYS + _RETIRED_ASSUMPTION_KEYS:
-                entry.pop(key, None)
-    return normalized
