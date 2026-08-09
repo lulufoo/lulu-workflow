@@ -16,39 +16,34 @@ Close does **not** require a collab/Formal arc.
 
 ## Dialogue cognition
 
-Mechanism = discover and work topics **in dialogue**. This is **not** two independent discovery channels (human || AI).
+Mechanism = use `topic-landscape` to discover and manage `gap` Topics, then
+work human-adopted Topics **in dialogue**. This is **not** two independent
+discovery channels (human || AI).
 
 | Role | Does | Must not |
 |------|------|----------|
-| Human | May propose `gap`-state topics; **sole authority** to adopt a candidate from dialogue or `topic-landscape`; confirm conclusions; confirm exit / hard-skip | — |
-| AI | May **guide-propose** after `topic-landscape` confirm; may optionally invoke `topic-question-driver` after the portrait; help free dialogue / deep work / summarize | Auto-adopt; require the question driver; skip `topic-landscape` / `topic-portrait` when their triggers fire; silent fact writes; treat a closure candidate or D1+D2 exit check as a substitute for human confirmation / exit |
+| Human | May add, correct, or remove Topics during `topic-landscape` review; **sole authority** to confirm a landscape, select its node for adoption, confirm conclusions, and confirm exit / hard-skip | — |
+| AI | Autonomously build the initial `topic-landscape` from induction context and settled facts; reconcile human corrections and re-present; may **guide-propose** from a confirmed upstream frontier; may optionally invoke `topic-question-driver` after the portrait; help free dialogue / deep work / summarize | Treat human correction as a parallel discovery source; auto-adopt; require the question driver; skip `topic-landscape` / `topic-portrait` when their triggers fire; silent fact writes; treat a closure candidate or D1+D2 exit check as a substitute for human confirmation / exit |
 
-G2 topic contract (definition, states, grain, framing, Topic DAG, Topic discovery,
-Induction portrait, and tool protocols) →
-[`../references/inductive-topic-model.md`](../references/inductive-topic-model.md).
-
-## Topic operation
-
-### Adopt
-
-A candidate may arise from dialogue or `topic-landscape`. Human confirmation is
-the sole authority to adopt it. On confirmation, bind the current topic through
-`$TOPIC_CURRENT_CTL set --human-adopted`.
+G2 Topic contracts: definition, states, grain, portrait, and adopted-topic
+tools → [`../references/topic-model.md`](../references/topic-model.md);
+discovery, Topic DAG, source anchor, and seeking tool →
+[`../references/topic-dag-model.md`](../references/topic-dag-model.md).
 
 ## Session boundaries
 
-- G2 maps Domain D1+D2 to the model's induction context, dialogue proposals to
-  human candidate signals, the current settled-fact set to settled facts, and
-  `$TOPIC_CURRENT_CTL` binding to the optional current topic.
+- G2 maps Domain D1+D2 to the model's induction context, human add/correct/remove
+  input to landscape corrections, the current settled-fact set to settled
+  facts, and `$TOPIC_CURRENT_CTL` binding to the optional current topic.
 - Fact production and collab-arc display are orthogonal.
 - `$TOPIC_CURRENT_CTL` binds only the current adopted topic; it does not store the seeking map or close proof.
-- Exit receipts are the pre-close landscape and exit receipt (Workflow: Exit).
+- Exit receipts are the pre-close landscape and exit receipt (Close).
 - Route session state through `$MACRO` / `resolve-context`, never through data-file paths.
 
 ## Tool boundaries
 
-- `topic-landscape` / `topic-portrait`: generic contracts in
-  `../references/inductive-topic-model.md`.
+- `topic-portrait`: generic contract in `../references/topic-model.md`.
+- `topic-landscape`: generic contract in `../references/topic-dag-model.md`.
 - `topic-question-driver`: optional stateless contract in
   `../references/topic-question-driver.md`; it does not invoke `/converge`.
 - After every `topic-landscape` result, record the G2 landscape receipt through
@@ -58,35 +53,27 @@ the sole authority to adopt it. On confirmation, bind the current topic through
 - `fact-runner`: use its public protocol.
 - `narrative-arc-runner`
   - **Human request:** Any time while G2 is active.
-  - **Refresh signal:** `fact-runner` consume emits `stale_signal` → offer rebuild.
   - **Dispatch:** `$SUBAGENT_TOOL` + `$SUBAGENT_AWAIT_ASYNC`; do not block or auto-run.
   - **Runner:** collab input, build, validation, persistence, and Viewer mount.
   - **G2:** dispatch and report its summary.
 - Keep tool-internal arguments and output handling in their owning contracts.
 
-## Workflow
+## Routing
 
-Orchestration only; not a scripted event-chain gate.
+Route by signal; do not treat these entries as a scripted event chain.
 
-### Seeking
+| Signal / condition | Route |
+|--------------------|-------|
+| Seeking entry, refresh, Topic proposal, or invalid landscape | Invoke `topic-landscape`. A proposal enters its Review loop; require confirmation and node selection before binding. |
+| Human selects a node from the current confirmed landscape | `$TOPIC_CURRENT_CTL set --title <selected-title> --scope <selected-scope> --human-adopted` → `topic-portrait`. |
+| `topic-portrait` returns `Blocked` | Use free dialogue to obtain grounding, then rerun the portrait. Do not enter deep work before a non-`Blocked` portrait is presented. |
+| Human materially corrects `Closure target` | Rebind with `$TOPIC_CURRENT_CTL set --title <current-title> --scope <corrected-scope> --human-adopted`, then rerun the portrait. |
+| Non-`Blocked` portrait presented | Continue free dialogue or optionally invoke `topic-question-driver`; either path may be interrupted or resumed. |
+| Driver returns `Next Question` / `Blocked` | Route to dialogue / free discussion. |
+| `Topic Closure Candidate` or free-dialogue conclusion | Summarize → `$TOPIC_CURRENT_CTL set-conclusion` → human confirmation → `$TOPIC_CURRENT_CTL confirm-conclusion` → `fact-runner`; on success, return to Seeking. |
+| `fact-runner` consume emits `stale_signal` | Offer the collab-display rebuild defined in Tool boundaries. |
 
-- Before AI guide-proposes and on a map refresh, invoke `topic-landscape` and require human confirmation.
-- From a confirmed map, guide from the most-upstream `gap`; the human may choose another node or continue free dialogue.
-- Direct dialogue may propose and adopt a topic without a landscape.
-
-### Work a topic
-
-- A dialogue signal or map selection supplies an adopt candidate; perform `Adopt`.
-- Then invoke `topic-portrait` before deep work. Presentation is required; confirmation is not.
-- After the portrait, AI may invoke `topic-question-driver` for an explicit
-  remaining design gap. Free dialogue may bypass, interrupt, or resume it.
-- Route `Next Question` to dialogue and `Blocked` to free discussion. Route
-  `Topic Closure Candidate` to the existing summary path. Free dialogue may
-  also reach that path directly.
-- After summary: `$TOPIC_CURRENT_CTL` `set-conclusion` → human confirm → `confirm-conclusion` → `fact-runner` public protocol.
-- After `fact-runner` completes successfully, return to Seeking.
-
-### Exit
+## Close
 
 - On human exit intent, invoke `topic-landscape`, record it with
   `purpose=pre_close`, and require confirmation. With no gaps, the human chooses
@@ -95,11 +82,13 @@ Orchestration only; not a scripted event-chain gate.
 - After **cleared** or **hard-skip**, record
   `$INDUCTIVE_GATE_CTL record-g2-topic-exit` against the current pre-close
   landscape receipt, then gate-close.
-- Gate-close requires the D1+D2 design goal, human exit, no unconfirmed conclusion, and matching pre-close landscape, exit receipt, and `payload.topic_exit`. Never auto-close or hand-edit receipts.
-
-### Display refresh (optional)
-
-- On `stale_signal`, offer the rebuild defined in Tool boundaries.
+- Gate-close payload requires `topic_loop_done=true`, `design_goal_met=true`,
+  `human_exit_confirmed=true`, and `topic_exit` matching the recorded
+  **cleared** or **hard-skip** result.
+- The current landscape must be `pre_close`; its run and `gap_remaining` must
+  match the human-confirmed exit receipt. **cleared** requires zero remaining
+  gaps, and no Topic conclusion may remain unconfirmed. Never auto-close or
+  hand-edit receipts.
 
 ## Hard cuts
 

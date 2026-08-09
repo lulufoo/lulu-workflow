@@ -10,7 +10,7 @@ from pathlib import Path
 _COMPOSE = Path(__file__).resolve().parents[2]
 _WORKFLOW = _COMPOSE.parent
 _REPO = _WORKFLOW.parent
-_MODEL = _COMPOSE / "inductive-runner" / "references" / "inductive-topic-model.md"
+_MODEL = _COMPOSE / "inductive-runner" / "references" / "topic-model.md"
 _DRIVER = _COMPOSE / "inductive-runner" / "references" / "topic-question-driver.md"
 _GATE = _COMPOSE / "inductive-runner" / "gates" / "g2-topic-loop.md"
 _SHARED_ASK = _WORKFLOW / "shared" / "references" / "ask-protocol.md"
@@ -37,17 +37,16 @@ def test_driver_contract_and_optional_g2_routing():
     assert "$SKILL_ROOT/shared/references/ask-protocol.md" in driver
     assert "does not persist intermediate decisions" in driver
     assert "`/converge` is neither required nor invoked" in driver
+    assert "presented portrait's `Grounding`, `Closure target`, and `Boundary`" in driver
+    assert "settled target-design facts outrank project" in driver
 
-    assert "### `topic-question-driver`" in model
-    assert "[`topic-question-driver.md`](topic-question-driver.md)" in model
     assert "caller workflow" in model
 
     assert "may optionally invoke `topic-question-driver` after the portrait" in gate
-    assert "Free dialogue may bypass, interrupt, or resume it." in gate
-    assert "`Next Question` to dialogue" in gate
-    assert "`Blocked` to free discussion" in gate
-    assert "`Topic Closure Candidate` to the existing summary path" in gate
-    assert "Free dialogue may\n  also reach that path directly." in gate
+    assert "either path may be interrupted or resumed." in gate
+    assert "Driver returns `Next Question` / `Blocked`" in gate
+    assert "Route to dialogue / free discussion." in gate
+    assert "`Topic Closure Candidate` or free-dialogue conclusion" in gate
 
 
 def test_shared_ask_protocol_is_single_runtime_ssot():

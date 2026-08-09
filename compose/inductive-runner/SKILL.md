@@ -94,7 +94,7 @@ Inductive work discovers missing design decisions (parts → whole). **SoT = fac
 
 1. **Seed** — Init from `SECTION_REGISTRY.section_order` (`gates/g1-shape.md`). Read `$SCOPE_REF` as source material and, per lens: `activate-section` → substance? `seed-decision`+`set-frontier` : (`optional` → `skip-section` / `required` → leave for G3). **I4:** never invent beyond scope. Git commit `"seeded"`.
 2. **Shape-confirm (I11)** — After Seed: `view --synthesis on --granularity <arch-overview hint>` → user confirms/corrects → corrections via commands (+ `set-frontier` when lens facts change) → re-view until confirmed → `gate-close --gate G1` (records `checkpoint --name shape`) → **stop and await user**. Do **not** auto-detect.
-3. **G2 Topic Loop** — converge design through human-adopted topics; ends with a human-confirmed topic exit. See `gates/g2-topic-loop.md` and `references/inductive-topic-model.md`.
+3. **G2 Topic Loop** — converge design through human-adopted topics; ends with a human-confirmed topic exit. See `gates/g2-topic-loop.md`, `references/topic-model.md`, and `references/topic-dag-model.md`.
 4. **G3 gap-check** — leak scan (orphans / blocking opens); conclusion→facts and open→facts via `$FACT_CTL propose → ack(digest) → consume` (`stale_signal` only after consume). Per-open grounding = `attach-code-refs` when processing opens.
 5. **Exit** — run `check-coverage`: ∀ init lens cleared∨skipped ∧ no (blocking∧open) ∧ (if demand manifest: all fulfilled∨deferred).
 6. **Audit (user-triggered):** G4 internal hard · G5 external soft → Handoff (`view --synthesis off` / Initializing). **G4 unchanged this wave.**
