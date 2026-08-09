@@ -56,11 +56,14 @@ def test_shared_ask_protocol_is_single_runtime_ssot():
 
     assert "Bound the candidate first" in ask
     assert "Collect-or-Ask first" in ask
-    assert "Minimal Explore" in ask
-    assert "Project-ground" in ask
+    assert "Explore to sufficiency" in ask
+    assert "Ground the candidate" in ask
     assert "Recommend" in ask
     assert "Ask Protocol G2" in ask
-    assert "absence of a hit is not by itself a blocker" in ask
+    assert "preserve the uncertainty" in ask
+    assert "Minimal Explore" not in ask
+    assert "Project-ground" not in ask
+    assert "Ask Protocol G7" not in ask
 
     shared_ref = "$SKILL_ROOT/shared/references/ask-protocol.md"
     q = _Q.read_text(encoding="utf-8")
@@ -70,6 +73,7 @@ def test_shared_ask_protocol_is_single_runtime_ssot():
     assert shared_ref in gl
     assert shared_ref in e
     assert "| `probe` | Any goal has a gap | Apply ask-protocol" in q
+    assert "before the first probe in each GL entry, read" in gl
     assert "| `probe` | Either goal not met | Apply ask-protocol" in gl
     assert "| `align` | Closable candidate set ready;" in e
     assert "Do **not** apply ask-protocol." in e
