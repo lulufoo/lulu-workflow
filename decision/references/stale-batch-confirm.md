@@ -29,12 +29,13 @@ conclusions from conversation memory.
 ## Handoff
 
 Return `BATCH_COMPLETE active_gate=<G>`.
-Load `active_gate`; any remaining stale gate continues Per-gate.
+Load `active_gate`; remaining stale non-R gates continue Per-gate, while stale R
+uses the R runner's special stale entry.
 
 ## Bounds
 
-- Batch covers align gates `Q` / `GL` / `E` / `D` / `X`; remaining gates,
-  including `R`, stay Per-gate.
+- Batch covers align gates `Q` / `GL` / `E` / `D` / `X`. R stays stale for its
+  special review.
 - Batch and Per-gate are mutually exclusive for one Realign recovery.
 - Only control commands persist state. Do not delete payloads or call
   `invalidate-from`.

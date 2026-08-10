@@ -105,13 +105,13 @@ When holder constraints declare `reopen_authorization=holder_required` (e.g. `lu
 **Spine:** [LoopA] O → Q → GL → E → D → X → R → DC → `$GATE_CONTROL complete`.
 
 **Phase grouping** (realign scope):
-- [LoopA] O → Q → GL → E → D → X → R — decision construction (realign at Q / GL / E / D / X); R includes expose + open-risk handle (`$SKILL_DIR/references/risk-release.md`)
+- [LoopA] O → Q → GL → E → D → X → R — decision construction (realign at Q / GL / E / D / X); R includes expose + open-risk handle (`$SKILL_DIR/references/r-risk-release.md`)
 - [HD] Human Decision — R exit `human_decision` (see § Gate routing · HD)
 - [DC] Delivery Confirmation — terminal gate
 
 ### Gate handoff
 
-After a spine runner returns `GATE_COMPLETE`, load the next spine runner per § Gate routing; its pipeline step 1 pins fresh `$CTX`. After `G0_COMPLETE`, resume the active gate dialogue. After `RS_COMPLETE`, load gate `G` runner per § Gate routing (`gates.G.status` is `stale` → Per-gate: `$SKILL_DIR/references/stale-gate-update.md`). After `BATCH_COMPLETE`, load the runner for stdout / `$CTX.active_gate` (may still be `stale`, e.g. `R` → Per-gate stale update). Path Batch after RS is `$SKILL_DIR/references/stale-batch-confirm.md` (chosen in `rs-realign-runner` before Per-gate entry).
+After a spine runner returns `GATE_COMPLETE`, load the next spine runner per § Gate routing; its pipeline step 1 pins fresh `$CTX`. After `G0_COMPLETE`, resume the active gate dialogue. After `RS_COMPLETE`, load gate `G` runner per § Gate routing (a stale non-R gate follows `$SKILL_DIR/references/stale-gate-update.md`; stale R follows its Stale entry). After `BATCH_COMPLETE`, load the runner for stdout / `$CTX.active_gate`; any remaining stale R follows its Stale entry. Path Batch after RS is `$SKILL_DIR/references/stale-batch-confirm.md` (chosen in `rs-realign-runner` before Per-gate entry).
 
 ### Gate routing
 
@@ -119,7 +119,7 @@ After a spine runner returns `GATE_COMPLETE`, load the next spine runner per § 
 Before executing any gate, read the corresponding runner SKILL first.
 Every spine gate runner pipeline step 1 (`$GATE_CONTROL resolve-context`) is mandatory — it pins `$CTX` for that gate. Do not skip it or rely on memory.
 On G0 identification hit during spine or RS subroutine dialogue: load G0 runner before the next user-visible reply; after `G0_COMPLETE`, resume the active gate dialogue.
-On G9 hit (any turn: information revises or contradicts a closed gate): do not advance past the hit; load RS runner before `$RS_COMMIT`; after `RS_COMPLETE`, load gate `G` runner per this table (Per-gate). After `BATCH_COMPLETE`, load `active_gate` runner per this table.
+On G9 hit (any turn: information revises or contradicts a closed gate): do not advance past the hit; load RS runner before `$RS_COMMIT`; after `RS_COMPLETE`, load gate `G` runner per this table. A stale non-R gate uses Per-gate; stale R enters its special stale path. After `BATCH_COMPLETE`, load `active_gate` runner per this table.
 Do NOT rely on memory or prior context for gate execution steps.
 </HARD-GATE>
 
@@ -145,7 +145,7 @@ Spine gates:
 | DC | `$SKILL_DIR/runners/dc-delivery-runner/SKILL.md` | R exit `dc` |
 | Human Decision | `$SKILL_DIR/runners/hd-human-decision-runner/SKILL.md` | R exit `human_decision` |
 
-Dialogue semantics SSOT: **unmerged** spine/global gates still use `$SKILL_DIR/gates/*.md` (each such runner names its contract in Prerequisites). **Merged** gates use the Cognitive map inside the corresponding `runners/*/SKILL.md` (this wave: **Q · O · GL · E · R · DC · RS**). Gate Routing loads runners only, never gate files directly. Global gate file (unmerged): `g0-parallel-registers.md`. Stale Per-gate: `$SKILL_DIR/references/stale-gate-update.md`. Stale Batch: `$SKILL_DIR/references/stale-batch-confirm.md`. R open-risk handle: `$SKILL_DIR/references/risk-release.md`.
+Dialogue semantics SSOT: **unmerged** spine/global gates still use `$SKILL_DIR/gates/*.md` (each such runner names its contract in Prerequisites). **Merged** gates use the Cognitive map inside the corresponding `runners/*/SKILL.md` (this wave: **Q · O · GL · E · R · DC · RS**). Gate Routing loads runners only, never gate files directly. Global gate file (unmerged): `g0-parallel-registers.md`. Stale Per-gate (except R): `$SKILL_DIR/references/stale-gate-update.md`. Stale Batch: `$SKILL_DIR/references/stale-batch-confirm.md`. R stale review: `$SKILL_DIR/references/r-stale-review.md`. R open-risk handle: `$SKILL_DIR/references/r-risk-release.md`.
 
 ---
 

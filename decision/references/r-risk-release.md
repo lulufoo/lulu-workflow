@@ -1,8 +1,7 @@
-# Risk release (single open row)
+# R risk release
 
-Use when R is in **`handle`** mode and the current assumption has `risk_state=open`.  
-One row per invocation; R runner picks order H → M → L.  
-Not a spine gate — no `gate-close` here.
+Use in R `handle` to resolve one `risk_state=open` row. Return to R without
+closing the spine gate.
 
 ## Goals
 

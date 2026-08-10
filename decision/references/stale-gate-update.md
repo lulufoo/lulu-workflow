@@ -5,6 +5,8 @@
 Use only when `$CTX.gates.<self>.status == stale` on the Per-gate recovery
 path after RS. Otherwise, run the gate's normal contract.
 
+R is excluded: load the R runner, which owns its special stale review.
+
 Batch selected → use `$SKILL_DIR/references/stale-batch-confirm.md` instead.
 
 ## Assess
