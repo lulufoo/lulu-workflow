@@ -98,10 +98,8 @@ that file’s step 4 `gate-close` or step 5 `GATE_COMPLETE`); then continue Act.
 
 **Act:**
 
-1. Apply `$CTX.domain_constraints` for all dialogue in this gate:
-   - `objective` — session intent; frame the gate within this goal
-   - `role.instruction` — persona and language stance
-   - `domain.instruction` — domain boundary constraints
+1. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
+   `domain.instruction`) to the dialogue.
 2. Cognitive map loop:
    - `G-cleared` unmet → `prepare` (side routes as above).
    - `G-cleared` met → `present` → `confirm`.

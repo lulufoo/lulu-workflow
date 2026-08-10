@@ -91,10 +91,8 @@ confirmed the summary.
 
 **Act:**
 
-1. Apply `$CTX.domain_constraints` for all dialogue in this gate:
-   - `objective` — session intent; frame the gate within this goal
-   - `role.instruction` — persona and language stance
-   - `domain.instruction` — domain boundary constraints
+1. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
+   `domain.instruction`) to the dialogue.
 2. Loop (Cognitive map):
    - Evaluate `G-problem` / `G-constraints`.
    - If any gap → `probe` (side routes as above; then continue loop).

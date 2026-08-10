@@ -87,10 +87,8 @@ stdout JSON as `$CTX`. (No stale branch for O.)
 
 **Act:**
 
-1. Apply `$CTX.domain_constraints` for all dialogue in this gate:
-   - `objective` — session intent; frame the gate within this goal
-   - `role.instruction` — persona and language stance
-   - `domain.instruction` — domain boundary constraints
+1. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
+   `domain.instruction`) to the dialogue.
 2. Cognitive map loop:
    - Ensure `G-invite` (invite if needed).
    - `listen` as the user shares (side routes as above).

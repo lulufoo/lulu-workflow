@@ -102,10 +102,8 @@ framework pass.
 
 **Act:**
 
-1. Apply `$CTX.domain_constraints` for all dialogue in this gate:
-   - `objective` — session intent; frame the gate within this goal
-   - `role.instruction` — persona and language stance
-   - `domain.instruction` — domain boundary constraints
+1. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
+   `domain.instruction`) to the dialogue.
 2. Confirm `$CTX.gl` is present; consult `$CTX.gl.exchanges` before proposing
    directions (Coverage).
 3. Loop (Cognitive map):

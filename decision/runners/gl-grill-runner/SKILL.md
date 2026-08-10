@@ -98,11 +98,9 @@ CLI green ≠ framework pass.
 
 **Act:**
 
-1. Apply `$CTX.domain_constraints` for all dialogue in this gate:
-   - `objective` — session intent; frame the gate within this goal
-   - `role.instruction` — persona and language stance
-   - `domain.instruction` — domain boundary constraints
-   - `x_dimensions` / `domain.dimension_profile` — coverage handles and profile hints
+1. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
+   `domain.instruction`) to the dialogue; use `x_dimensions` /
+   `domain.dimension_profile` for coverage and profile hints.
 2. Obtain locked Q via `$GATE_CONTROL get-payload` (or fields already on `$CTX`);
    do not start probes until Q payload is available.
 3. Loop (Cognitive map):

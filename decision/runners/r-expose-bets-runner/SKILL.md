@@ -131,10 +131,8 @@ stdout JSON as `$CTX`.
 
 **Act (non-stale):**
 
-1. Apply `$CTX.domain_constraints` for all dialogue in this gate:
-   - `objective` — session intent; frame the gate within this goal
-   - `role.instruction` — persona and language stance
-   - `domain.instruction` — domain boundary constraints
+1. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
+   `domain.instruction`) to the dialogue.
 2. Cognitive map loop:
    - `G-pack` unmet → `prepare` → `present`.
    - On revise → `revise` → `present`.

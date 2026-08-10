@@ -27,11 +27,9 @@ Do NOT proceed until you have read `../../../_runtime.md`
 
 1. `$GATE_CONTROL resolve-context` — pin `$CTX`; read `$CTX.domain_constraints.x_dimensions` for active dimensions only
 2. If `$CTX.gates.X.status == stale`: follow `$SKILL_DIR/references/stale-gate-update.md` then return `GATE_COMPLETE X`
-3. Read and apply from `$CTX.domain_constraints` for all subsequent dialogue in this gate:
-   - `objective` — session intent; frame the entire gate within this goal
-   - `role.instruction` — persona and language stance
-   - `domain.instruction` — domain boundary constraints
-   - `domain.dimension_profile` — per-dimension `{question, depth}`; applied in step 4
+3. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
+   `domain.instruction`) to the dialogue; use `domain.dimension_profile` in
+   step 4.
 4. Execute active X dimensions one at a time (G1/G7 per dimension; user confirms each dim); skip dimensions not in `x_dimensions`. For each active dimension, read `domain.dimension_profile[dimension]`: use its `question` as the Core question when present (else gate table default); apply its `depth` as the depth ceiling when present (else gate Granularity baseline); before asking confirm, self-check the draft against that ceiling.
 5. During dialogue: on identification hit → G0 runner → `G0_COMPLETE` → continue; on G9 hit → RS runner
 6. `$GATE_CONTROL gate-close --gate X --payload '<json>'` (only fields for active dimensions required)
