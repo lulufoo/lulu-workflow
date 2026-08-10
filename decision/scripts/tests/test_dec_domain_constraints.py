@@ -304,7 +304,7 @@ def test_resolve_context_includes_role_for_product_diagnostic(
     assert constraints["domain"]["name"] == "product"
     assert constraints["domain"]["instruction"]
     assert len(constraints["domain"]["dimension_profile"]) == 5
-    assert payload["after_dc"]["next_steps"] == ["lulu-spec"]
+    assert "after_dc" not in payload
 
 
 def test_load_constraints_config_from_explicit_path() -> None:

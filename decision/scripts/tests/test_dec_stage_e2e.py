@@ -93,7 +93,7 @@ def test_stage_init_and_constraints(
     assert ctx["stage"] == stage
     assert ctx["domain_constraints"]["stage"] == stage
     assert ctx["domain_constraints"]["cache_subdir"] == expected_subdir
-    assert "after_dc" in ctx
+    assert "after_dc" not in ctx
 
     if stage == "lulu-approach":
         constraints = load_domain_constraints(

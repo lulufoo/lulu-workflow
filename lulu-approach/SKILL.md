@@ -257,8 +257,8 @@ none are Frozen.
    - **Path B:** after Working is fully Completed, obtain explicit human
      confirmation, then pass `--confirm`.
 
-**Done:** stage `deliver` succeeds. Only then claim approach-stage **Delivered**
-with the `decision-package` artifact (cycle `delivered-refs`).
+**Done:** On `$APPROACH_DELIVER` success, announce stage complete from stdout
+`next_steps` (join when non-empty).
 
 **Stop:** On non-zero output or (Path B) absent human confirmation, stop and report.
 

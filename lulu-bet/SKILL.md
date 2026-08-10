@@ -51,6 +51,5 @@ Pass the same `--constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json"` on every
 
 ## Deliver
 
-After DDF reaches DC completion, run `$GATE_CONTROL prepare`, then
-`$BET_DELIVER`. The holder control commits `decision-package` and its delivered
-reference; only then is lulu-bet Delivered.
+After DC completion: `$GATE_CONTROL prepare`, then `$BET_DELIVER`.
+On success, announce stage complete from stdout `next_steps` (join when non-empty).

@@ -50,6 +50,35 @@ def test_deliver_commits_decision_package(tmp_path: Path) -> None:
     )
 
 
+def test_deliver_cli_returns_next_steps(tmp_path: Path, capsys) -> None:
+    from decision_package_control import main
+
+    root = tmp_path / ".cache/cursor/lulu-dev-workflow/feature-bet/lulu-bet"
+    root.mkdir(parents=True)
+    (root / "decision-doc.md").write_text("# Decision\n\nSettled.\n", encoding="utf-8")
+    (root / "session-state.md").write_text(
+        "---\ncurrent_state: InProgress\n---\n",
+        encoding="utf-8",
+    )
+    assert (
+        main(
+            [
+                "--holder-root",
+                str(root),
+                "--cycle-id",
+                "feature-bet",
+                "--project-root",
+                str(tmp_path),
+            ]
+        )
+        == 0
+    )
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    assert payload["decision_package"].endswith("decision-package.json")
+    assert payload["next_steps"] == ["lulu-spec"]
+
+
 def test_deliver_requires_decision_doc(tmp_path: Path) -> None:
     root = tmp_path / "lulu-bet"
     root.mkdir(parents=True)

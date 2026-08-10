@@ -89,6 +89,7 @@ from decision_package_schema import (  # noqa: E402
 )
 from decision_rulers_schema import save_decision_rulers  # noqa: E402
 from dec_lifecycle import bind_session, freeze_session, unfreeze_session_public  # noqa: E402
+from transition_table import next_steps_for_stage  # noqa: E402
 import resolve_context  # noqa: E402
 
 _DX_ID_RE = re.compile(r"^D\d+$")
@@ -1539,12 +1540,14 @@ def deliver(
         # Keep existing decision-package; only roll back delivered-refs.
         _restore_file(refs_path, refs_before)
         raise
+    cycle_type = "topic" if cid.startswith("topic-") else "feature"
     return {
         "ok": True,
         "macro_state": "PackageReady",
         "delivered": True,
         "decision_package": str(decision_pkg_path.resolve()),
         "source_workflow_state": source,
+        "next_steps": next_steps_for_stage("lulu-approach", cycle_type),
     }
 
 

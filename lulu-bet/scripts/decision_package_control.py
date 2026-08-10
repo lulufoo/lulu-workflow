@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -16,6 +17,7 @@ for _path in (_SCRIPTS, _DECISION_SCRIPTS):
 from cycle_delivered_refs import delivered_refs_file_path, record_delivered_ref
 from dec_decision_package_schema import build_decision_package, save_decision_package
 from dec_session_state_schema import write_session_state
+from transition_table import next_steps_for_stage
 
 DECISION_PACKAGE_FILENAME = "decision-package.json"
 SOURCE_PACKAGE_FILENAME = "source-package.json"
@@ -74,24 +76,35 @@ def deliver(holder_root: Path, *, cycle_id: str, project_root: Path) -> Path:
     return package_path
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Commit lulu-bet decision-package delivery."
     )
     parser.add_argument("--holder-root", required=True)
     parser.add_argument("--cycle-id", required=True)
     parser.add_argument("--project-root", default=".")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+    cycle_id = args.cycle_id.strip()
     try:
         path = deliver(
             Path(args.holder_root),
-            cycle_id=args.cycle_id.strip(),
+            cycle_id=cycle_id,
             project_root=Path(args.project_root).resolve(),
         )
     except (FileNotFoundError, ValueError) as exc:
         print(str(exc), file=sys.stderr)
         return 1
-    print(path.as_posix())
+    cycle_type = "topic" if cycle_id.startswith("topic-") else "feature"
+    print(
+        json.dumps(
+            {
+                "ok": True,
+                "decision_package": path.as_posix(),
+                "next_steps": next_steps_for_stage("lulu-bet", cycle_type),
+            },
+            ensure_ascii=False,
+        )
+    )
     return 0
 
 

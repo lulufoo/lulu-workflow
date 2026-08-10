@@ -21,6 +21,12 @@ def load_transitions(cycle_type: str) -> dict:
     return result
 
 
+def next_steps_for_stage(stage: str, cycle_type: str) -> list[str]:
+    """Return sorted next stage ids from transition-table for (cycle_type, stage)."""
+    transitions = load_transitions(cycle_type)
+    return sorted(transitions.get(stage, set()))
+
+
 def known_stages(cycle_type: str) -> frozenset[str]:
     """All cycle stages = non-null from keys in transition-table.json."""
     return frozenset(k for k in load_transitions(cycle_type) if k is not None)

@@ -54,7 +54,7 @@ Subcommand contracts: module docstring / `--help`. `$SUBAGENT_*`: `_subagent.md`
   Decision Rationale; Scope (incl. exclusions); Assumptions & Risks
   (`risk_level`, `risk_class`, `risk_state`, `release_terms` where set).
 - **Eval:** replaces AI Semantic Review; invoke Eval's Probe control segment, then route its returned result through Decision. Eval owns probe-runner dispatch; Decision never dispatches Eval runners or remediation. Details: `eval/eval-profile.json`, `$DEC_EVAL` / `$EVAL_CONTROL` `--help`, `eval/methods/decision-consistency.md`.
-- **After close:** tell user `$CTX.after_dc.user_message`. Nested holder (`main/` / `Dx/`): this **node** is Completed; stage Delivered waits for holder `$APPROACH_DELIVER`.
+- **After close:** do not announce stage Delivered or next stages.
 
 ### Dialogue modes
 
@@ -63,7 +63,7 @@ Subcommand contracts: module docstring / `--help`. `$SUBAGENT_*`: `_subagent.md`
 | `prepare` | `G-cleared` unmet | `$GATE_CONTROL check-delivery-ready` (fix all errors) → Decision Eval Probe handoff below (fail→RS; no remediation) → `$SESSION_INTEGRITY render`. |
 | `present` | `G-cleared` met | Present Coverage sections from `decision-doc.md`. |
 | `confirm` | `G-cleared` met | Ask whether decisions are correct / any item to realign. |
-| `close` | User confirms | `gate-close` + `complete` with payload below; after_dc message. |
+| `close` | User confirms | `gate-close` + `complete` with payload below. |
 
 ### Pass criterion
 
@@ -106,7 +106,7 @@ Subcommand contracts: module docstring / `--help`. `$SUBAGENT_*`: `_subagent.md`
    - `G-cleared` met → `present` → `confirm`.
    - On confirm → `close`:
      `$GATE_CONTROL gate-close --gate DC --payload '{"user_confirmed": true}'`
-     → `$GATE_CONTROL complete` → after_dc / holder note → break.
+     → `$GATE_CONTROL complete` → break.
 
 **Done:** Return `GATE_COMPLETE DC Completed`.
 

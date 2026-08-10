@@ -9,6 +9,31 @@ if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
 
+class TestNextStepsForStage:
+    def test_product_diagnostic_feature(self):
+        from transition_table import next_steps_for_stage
+
+        assert next_steps_for_stage("lulu-bet", "feature") == ["lulu-spec"]
+
+    def test_product_diagnostic_topic(self):
+        from transition_table import next_steps_for_stage
+
+        assert next_steps_for_stage("lulu-bet", "topic") == ["lulu-blueprint"]
+
+    def test_tech_diagnostic_feature(self):
+        from transition_table import next_steps_for_stage
+
+        assert next_steps_for_stage("lulu-approach", "feature") == [
+            "lulu-design",
+            "lulu-plan",
+        ]
+
+    def test_terminal_stage(self):
+        from transition_table import next_steps_for_stage
+
+        assert next_steps_for_stage("lulu-arch", "topic") == []
+
+
 class TestKnownStages:
     def test_topic_excludes_execution_stages(self):
         from transition_table import known_stages

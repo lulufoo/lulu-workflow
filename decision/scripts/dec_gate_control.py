@@ -39,7 +39,6 @@ if str(_SCRIPTS) not in sys.path:
 
 
 from dec_decision_doc_schema import GATE_CLOSE_PREREQ  # noqa: E402
-from dec_after_dc import build_after_dc  # noqa: E402
 from dec_domain_constraints_schema import (  # noqa: E402
     ALL_X_DIMENSIONS,
     KERNEL_STAGE,
@@ -433,7 +432,6 @@ def build_resolve_context_payload(
         # whatever the holder's own resolver script handed to $DEC_START at init
         # time via --domain-constraints-file (frozen into the session's own copy).
         "context": constraints.get("context") or {"docs": {}},
-        "after_dc": build_after_dc(stage, cycle_type),
     }
 
 
