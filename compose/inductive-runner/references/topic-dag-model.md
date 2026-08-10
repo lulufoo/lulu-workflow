@@ -49,6 +49,18 @@ order.
 
 ---
 
+## Presentation
+
+Applies to every `topic-landscape` present / re-present.
+
+1. **Order** — Seeking context, then Topic DAG.
+2. **Settled coverage** — each settled pin marked `✓`.
+3. **Topic DAG** — Mermaid `flowchart`/`graph` of the full current DAG
+   (all `gap` nodes and edges); nodes show title and grain; mark frontier.
+4. **Must not** — primary list/table; partial DAG; `✓` on DAG nodes.
+
+---
+
 ## `topic-landscape`
 
 **Purpose:** Discover and assemble a global seeking view: first the context
@@ -61,21 +73,22 @@ presentation, accept optional human corrections.
 
 1. **Seeking context**
    - **Direction** — what the induction context requires dialogue to settle;
-   - **Settled coverage** — what settled facts already pin;
+   - **Settled coverage** — what settled facts already pin (mark per
+     Presentation);
    - **Overall unresolved areas** — broad areas still unresolved, without
      embedding Topic nodes or edges.
 2. **Topic DAG** — temporary `gap` Topics, their upstream-support dependencies,
-   grain labels, and upstream frontier.
+   grain labels, and upstream frontier, presented per Presentation.
 
 **Build:** AI discovers the initial Topic set, applies Grain, assembles the DAG,
-and presents the view.
+and presents the complete view per Presentation.
 
 **Review:** The human may add, correct, or remove Topics. AI reconciles the
 requested changes with settled facts, recomputes affected grain and edges, and
-re-presents the complete view. Repeat until the human confirms it. Corrections
-remain active while visible and relevant in the current dialogue; after a
-context transition, the human must restate any correction that must carry
-forward.
+re-presents the complete view per Presentation. Repeat until the human confirms
+it. Corrections remain active while visible and relevant in the current
+dialogue; after a context transition, the human must restate any correction
+that must carry forward.
 
 **Select:** Human confirmation authorizes node selection but does not adopt a
 Topic. Selecting a node supplies that Topic and a **source anchor** identifying
@@ -89,7 +102,8 @@ confirmation. Rebuild, re-present, and reconfirm before selection.
 
 **Constraints:** Do not rank by grain, build an adopted-Topic DAG, invent
 Topics that ignore settled facts, persist Topics or corrections, or fold
-Topics, DAG nodes and edges, or grain into Seeking context.
+Topics, DAG nodes and edges, or grain into Seeking context. Do not violate
+Presentation.
 
 ---
 
