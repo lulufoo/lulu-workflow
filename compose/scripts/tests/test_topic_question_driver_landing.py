@@ -43,10 +43,11 @@ def test_driver_contract_and_optional_g2_routing():
     assert "caller workflow" in model
 
     assert "may optionally invoke `topic-question-driver` after the portrait" in gate
-    assert "either path may be interrupted or resumed." in gate
-    assert "Driver returns `Next Question` / `Blocked`" in gate
-    assert "Route to dialogue / free discussion." in gate
-    assert "`Topic Closure Candidate` or free-dialogue conclusion" in gate
+    assert "### Topic question drive" in gate
+    assert "After `topic-question-driver` runs: behavior map" in gate
+    assert "prefer `topic-question-driver`" in gate
+    assert "`Next Question` / `Blocked`" in gate
+    assert "`Topic Closure Candidate`" in gate
 
 
 def test_shared_ask_protocol_is_single_runtime_ssot():

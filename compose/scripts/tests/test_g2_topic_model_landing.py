@@ -198,26 +198,36 @@ def test_g2_gate_declares_tools_and_points_at_split_references():
     assert "Any time while G2 is active." in text
     assert "$SUBAGENT_TOOL` + `$SUBAGENT_AWAIT_ASYNC" in text
     assert "$SUBAGENT_AWAIT_SYNC" not in text
-    assert "do not treat these entries as a scripted event chain" in text
-    assert "Seeking entry, refresh, Topic proposal, or invalid landscape" in text
-    assert "A proposal enters its Review loop" in text
-    assert "require confirmation and node selection before binding" in text
-    assert "Human selects a node from the current confirmed landscape" in text
+    assert "Heading = phase; first line = after which action" in text
+    assert "### Topic landscape" in text
+    assert "### Topic portrait" in text
+    assert "### Topic question drive" in text
+    assert "### Topic conclusion" in text
+    assert "### Close" not in text
+    assert "Invoke on seeking entry, refresh, Topic proposal, or invalid landscape." in text
+    assert "After\n`topic-landscape` runs: behavior map" in text
+    assert "After `topic-portrait` runs: behavior map" in text
+    assert "After `topic-question-driver` runs: behavior map" in text
+    assert "After a Closure Candidate or free-dialogue conclusion: behavior map" in text
+    assert "purpose=seek|refresh" in text
+    assert "caller-reported `gap_remaining`" in text
+    assert "prefer `topic-question-driver`" in text
+    assert "After every `topic-landscape` result" not in text
+    assert "Signal / condition" not in text
+    assert "### `topic-landscape`" not in text
+    assert "### `topic-portrait`" not in text
     assert "--scope <selected-scope> --human-adopted" in text
-    assert "then rerun the portrait" in text
-    assert "Do not enter deep work before a non-`Blocked` portrait" in text
-    assert "Human materially corrects `Closure target`" in text
     assert "--scope <corrected-scope> --human-adopted" in text
-    assert "Non-`Blocked` portrait presented" in text
-    assert "Driver returns `Next Question` / `Blocked`" in text
-    assert "`Topic Closure Candidate` or free-dialogue conclusion" in text
-    assert "set-conclusion` → human confirmation → `$TOPIC_CURRENT_CTL confirm-conclusion`" in text
-    assert "on success, return to Seeking" in text
-    assert "`fact-runner` consume emits `stale_signal`" in text
+    assert "State which path is active" in text
+    assert "`Next Question` / `Blocked`" in text
+    assert "`Topic Closure Candidate`" in text
+    assert "set-conclusion" in text
+    assert "confirm-conclusion" in text
+    assert "stale_signal" in text
+    assert "purpose=pre_close" in text
     assert "human candidate signals" not in text
     assert "Direct dialogue may propose and adopt" not in text
     assert "most-upstream `gap`" not in text
-    assert "purpose=pre_close" in text
     assert "`topic_loop_done=true`" in text
     assert "`design_goal_met=true`" in text
     assert "`human_exit_confirmed=true`" in text

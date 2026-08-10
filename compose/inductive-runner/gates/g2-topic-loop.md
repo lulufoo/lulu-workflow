@@ -42,10 +42,6 @@ discovery channels (human || AI).
 - `topic-portrait`: generic contract in `../references/topic-portrait.md`.
 - `topic-question-driver`: optional stateless contract in
   `../references/topic-question-driver.md`; it does not invoke `/converge`.
-- After every `topic-landscape` result, record the G2 landscape receipt through
-  `$INDUCTIVE_GATE_CTL record-topic-landscape`: use `seek`, `refresh`, or
-  `pre_close` for `purpose` and pass caller-reported `gap_remaining`. Do not
-  hand-write the receipt.
 - `fact-runner`: use its public protocol.
 - `narrative-arc-runner`
   - **Human request:** Any time while G2 is active.
@@ -56,18 +52,50 @@ discovery channels (human || AI).
 
 ## Routing
 
-Route by signal; do not treat these entries as a scripted event chain.
+Heading = phase; first line = after which action (behavior map); rest = paths
+(what, not a script).
 
-| Signal / condition | Route |
-|--------------------|-------|
-| Seeking entry, refresh, Topic proposal, or invalid landscape | Invoke `topic-landscape`. A proposal enters its Review loop; require confirmation and node selection before binding. |
-| Human selects a node from the current confirmed landscape | `$TOPIC_CURRENT_CTL set --title <selected-title> --scope <selected-scope> --human-adopted` → `topic-portrait`. |
-| `topic-portrait` returns `Blocked` | Use free dialogue to obtain grounding, then rerun the portrait. Do not enter deep work before a non-`Blocked` portrait is presented. |
-| Human materially corrects `Closure target` | Rebind with `$TOPIC_CURRENT_CTL set --title <current-title> --scope <corrected-scope> --human-adopted`, then rerun the portrait. |
-| Non-`Blocked` portrait presented | Continue free dialogue or optionally invoke `topic-question-driver`; either path may be interrupted or resumed. |
-| Driver returns `Next Question` / `Blocked` | Route to dialogue / free discussion. |
-| `Topic Closure Candidate` or free-dialogue conclusion | Summarize → `$TOPIC_CURRENT_CTL set-conclusion` → human confirmation → `$TOPIC_CURRENT_CTL confirm-conclusion` → `fact-runner`; on success, return to Seeking. |
-| `fact-runner` consume emits `stale_signal` | Offer the collab-display rebuild defined in Tool boundaries. |
+### Topic landscape
+
+Invoke on seeking entry, refresh, Topic proposal, or invalid landscape. After
+`topic-landscape` runs: behavior map for seeking present / review.
+
+- Receipt: `$INDUCTIVE_GATE_CTL record-topic-landscape` with
+  `purpose=seek|refresh` and caller-reported `gap_remaining`; never hand-write.
+- Review (add/correct/remove) → re-present until human confirms.
+- Select a confirmed `gap` node →
+  `$TOPIC_CURRENT_CTL set --title <selected-title> --scope <selected-scope> --human-adopted`
+  → `topic-portrait`.
+- May guide-propose from upstream frontier; selection is not frontier-only.
+- Invalidate → rebuild, re-present, reconfirm before select.
+
+### Topic portrait
+
+After `topic-portrait` runs: behavior map for the adopted-topic view.
+
+- `Blocked` → free dialogue for grounding → rerun; no deep work until
+  non-`Blocked`.
+- Material Closure-target correction → rebind
+  `--scope <corrected-scope> --human-adopted` → rerun.
+- Non-`Blocked` → prefer `topic-question-driver`; free dialogue remains open
+  (interruptible either way). State which path is active.
+
+### Topic question drive
+
+After `topic-question-driver` runs: behavior map for its outputs.
+
+- `Next Question` / `Blocked` → dialogue.
+- `Topic Closure Candidate` → Topic conclusion.
+- Not mandatory; free dialogue or rewrite remains open.
+
+### Topic conclusion
+
+After a Closure Candidate or free-dialogue conclusion: behavior map for
+convergent close.
+
+- Summarize → `set-conclusion` → human confirm → `confirm-conclusion` →
+  `fact-runner` → Seeking (`topic-landscape`).
+- `stale_signal` after consume → offer collab-display rebuild (Tool boundaries).
 
 ## Close
 
