@@ -56,7 +56,7 @@ def resolve_material_files(
     key = kind.strip().lower()
     if key not in _KIND_KEYS:
         raise ValueError(f"unknown material kind: {kind!r}")
-    load_constraints_config(constraints_path, stage=STAGE)
+    load_constraints_config(constraints_path)
     cache_dir = project_root / platform_cache_dir(detect_platform())
     docs = dict(
         (build_context_loading(cycle_id, STAGE, cache_dir=cache_dir).get("docs") or {})

@@ -241,7 +241,7 @@ def migrate_session_dir(
         constraints = load_domain_constraints(dc_path)
     else:
         if constraints_path is not None:
-            constraints = load_constraints_config(constraints_path, stage=stage)
+            constraints = load_constraints_config(constraints_path)
         else:
             constraints = default_kernel_constraints(stage=stage)
     save_domain_constraints(dc_path, constraints)

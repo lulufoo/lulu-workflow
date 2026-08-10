@@ -40,8 +40,6 @@ def _start_argparse_source(stage: str) -> str:
 
 def _diag_holder_args(stage: str = "lulu-bet") -> list[str]:
     return [
-        "--stage",
-        stage,
         "--constraints",
         str(_LDEV / stage / "constraints-feature.json"),
     ]
@@ -472,7 +470,6 @@ class TestSessionPath:
             [sys.executable, str(_start_py("decision")),
              "--project-root", str(tmp_path),
              "--cycle-id", _FID,
-             "--stage", stage,
              "--constraints", str(_LDEV / stage / "constraints-feature.json")],
             capture_output=True, text=True, env=_ENV_COPILOT,
             cwd=str(_scripts_dir("decision")),
@@ -500,7 +497,6 @@ class TestSessionPath:
             [sys.executable, str(_start_py("decision")),
              "--project-root", str(tmp_path),
              "--cycle-id", _FID,
-             "--stage", "lulu-bet",
              "--constraints", str(_LDEV / "lulu-bet" / "constraints-feature.json"),
              "--conversation-id", _CONV_ID],
             capture_output=True, text=True, env=_ENV_COPILOT,

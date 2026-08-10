@@ -46,6 +46,27 @@ _REOPEN_PY = _DIAG_SCRIPTS / "dec_reopen.py"
 _SUBPROCESS_ENV = {**os.environ}
 
 
+def test_decision_control_clis_do_not_expose_stage() -> None:
+    scripts = (
+        "dec_start.py",
+        "dec_gate_control.py",
+        "dec_register_control.py",
+        "dec_active_control.py",
+        "dec_reopen.py",
+        "dec_session_integrity.py",
+        "dec_eval_control.py",
+    )
+    for name in scripts:
+        result = subprocess.run(
+            [sys.executable, str(_DIAG_SCRIPTS / name), "--help"],
+            capture_output=True,
+            text=True,
+            env=_SUBPROCESS_ENV,
+        )
+        assert result.returncode == 0, result.stderr
+        assert "--stage" not in result.stdout
+
+
 @pytest.fixture
 def template_config(tmp_path: Path) -> Path:
     cfg_dir = tmp_path / "skill-config" / "lulu-dev-workflow"
@@ -117,8 +138,6 @@ def test_reopen_cli_sets_frozen(template_config: Path, monkeypatch: pytest.Monke
             str(project_root),
             "--cycle-id",
             cycle_id,
-            "--stage",
-            stage,
         ],
         capture_output=True,
         text=True,
@@ -225,8 +244,6 @@ def test_start_with_session_dir_nested_root(template_config: Path) -> None:
             str(project_root),
             "--cycle-id",
             cycle_id,
-            "--stage",
-            "decision",
             "--session-dir",
             str(nested),
         ],
@@ -280,8 +297,6 @@ def test_gate_control_cli_uses_active_session(
             str(project_root),
             "--cycle-id",
             cycle_id,
-            "--stage",
-            stage,
             "resolve-context",
         ]
     )
@@ -339,8 +354,6 @@ def test_register_control_cli_uses_active_session(
                 str(project_root),
                 "--cycle-id",
                 cycle_id,
-                "--stage",
-                stage,
                 "register-commit",
                 "--operations",
                 ops,

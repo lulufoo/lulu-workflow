@@ -41,7 +41,6 @@ Complete `_runtime.md` § Session Foundation before running decision start.
 **Step 2: Run `$DEC_START`** from `decision/SKILL.md` § Start with:
 
 ```bash
---stage lulu-bet \
 --constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json" \
 --domain-constraints-file "$RESOLVED_CONTEXT_PATH"
 ```

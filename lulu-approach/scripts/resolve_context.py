@@ -96,7 +96,7 @@ def resolve(
     session_dir: Path | None = None,
 ) -> dict:
     """Compute the resolved ``{"context": {"docs": {...}}}`` payload."""
-    load_constraints_config(constraints_path, stage=STAGE)
+    load_constraints_config(constraints_path)
     cache_dir = project_root / platform_cache_dir(detect_platform())
     context = build_context_loading(cycle_id, STAGE, cache_dir=cache_dir)
     docs = strip_binding_excluded(dict(context.get("docs") or {}))
@@ -114,7 +114,7 @@ def resolved_context_file_path(
     *,
     binding_id: str | None = None,
 ) -> Path:
-    constraints = load_constraints_config(constraints_path, stage=STAGE)
+    constraints = load_constraints_config(constraints_path)
     cache_dir = project_root / platform_cache_dir(detect_platform())
     cache_subdir = constraints["cache_subdir"]
     stage_outer = cache_dir / cycle_id / cache_subdir

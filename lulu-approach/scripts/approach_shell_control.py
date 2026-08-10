@@ -559,7 +559,6 @@ def bind_node(
         decision = bind_session(
             Path(project_root).resolve(),
             str(cycle_id).strip(),
-            "lulu-approach",
             session_dir=session_dir,
             resolved_context_path=snapshot_path,
             mode=mode,
@@ -612,7 +611,6 @@ def _bind_main(
         decision = bind_session(
             Path(project_root).resolve(),
             str(cycle_id).strip(),
-            "lulu-approach",
             session_dir=session_dir,
             resolved_context_path=snapshot_path,
             mode=mode,
@@ -1306,7 +1304,6 @@ def _restore_previous_binding(
         bind_session(
             Path(project_root).resolve(),
             str(cycle_id).strip(),
-            "lulu-approach",
             session_dir=session_dir,
             resolved_context_path=snapshot,
             mode="existing",

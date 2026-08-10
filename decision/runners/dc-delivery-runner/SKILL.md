@@ -33,10 +33,10 @@ Do NOT proceed until you have read `../../../_runtime.md` and
 
 | Macro | Command |
 |-------|---------|
-| `$GATE_CONTROL` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>"` |
-| `$DEC_EVAL` | `python3 "$SKILL_DIR/scripts/dec_eval_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>"` |
+| `$GATE_CONTROL` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
+| `$DEC_EVAL` | `python3 "$SKILL_DIR/scripts/dec_eval_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
 | `$EVAL_CONTROL` | `python3 "$SKILL_ROOT/eval/scripts/eval_entry.py" --adapter-config-file "$SKILL_DIR/eval/eval-profile.json" --project-root "$(pwd)" --cycle-id "<cycle_id>"` |
-| `$SESSION_INTEGRITY` | `python3 "$SKILL_DIR/scripts/dec_session_integrity.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>"` |
+| `$SESSION_INTEGRITY` | `python3 "$SKILL_DIR/scripts/dec_session_integrity.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
 
 Subcommand contracts: module docstring / `--help`. `$SUBAGENT_*`: `_subagent.md`.
 

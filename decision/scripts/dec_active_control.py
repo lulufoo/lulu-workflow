@@ -26,6 +26,7 @@ from dec_domain_constraints_schema import (
     context_docs_map,
     load_domain_constraints,
     merge_domain_constraints,
+    resolve_stage,
     save_domain_constraints,
 )
 from dec_session_paths import (
@@ -125,7 +126,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Decision Active Session control.")
     parser.add_argument("--project-root", default=".", help="Project root directory.")
     parser.add_argument("--cycle-id", required=True, help="Cycle ID.")
-    parser.add_argument("--stage", default="decision", help="Decision stage name.")
     parser.add_argument(
         "--constraints",
         default="",
@@ -140,13 +140,13 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     project_root = Path(args.project_root).resolve()
     cycle_id = args.cycle_id.strip()
-    stage = args.stage.strip()
     constraints_path = (
         Path(args.constraints.strip()).expanduser().resolve()
         if args.constraints.strip()
         else None
     )
     try:
+        stage = resolve_stage(constraints_path)
         if args.command == "get-active":
             result = get_active_session(
                 project_root,

@@ -337,7 +337,7 @@ def test_holder_constraints_require_objective_and_domain() -> None:
     base = json.loads(_holder_constraints("lulu-bet").read_text(encoding="utf-8"))
     missing_objective = {k: v for k, v in base.items() if k != "objective"}
     with pytest.raises(ValueError, match="objective is required"):
-        load_constraints_config_from_dict(missing_objective, stage="lulu-bet")
+        load_constraints_config_from_dict(missing_objective)
 
     missing_domain_instruction = json.loads(
         _holder_constraints("lulu-bet").read_text(encoding="utf-8")
@@ -348,10 +348,10 @@ def test_holder_constraints_require_objective_and_domain() -> None:
         "dimension_profile": missing_domain_instruction["domain"]["dimension_profile"],
     }
     with pytest.raises(ValueError, match="domain.instruction is required"):
-        load_constraints_config_from_dict(missing_domain_instruction, stage="lulu-bet")
+        load_constraints_config_from_dict(missing_domain_instruction)
 
 
-def load_constraints_config_from_dict(data: dict, *, stage: str) -> dict:
+def load_constraints_config_from_dict(data: dict) -> dict:
     import tempfile
 
     from dec_domain_constraints_schema import load_constraints_config
@@ -360,9 +360,21 @@ def load_constraints_config_from_dict(data: dict, *, stage: str) -> dict:
         json.dump(data, handle)
         path = Path(handle.name)
     try:
-        return load_constraints_config(path, stage=stage)
+        return load_constraints_config(path)
     finally:
         path.unlink(missing_ok=True)
+
+
+def test_constraints_stage_is_required_and_resolved_from_file() -> None:
+    from dec_domain_constraints_schema import resolve_stage
+
+    data = json.loads(_holder_constraints("lulu-bet").read_text(encoding="utf-8"))
+    data.pop("stage")
+    with pytest.raises(ValueError, match="stage is required"):
+        load_constraints_config_from_dict(data)
+
+    assert resolve_stage(None) == "decision"
+    assert resolve_stage(_holder_constraints("lulu-bet")) == "lulu-bet"
 
 
 def test_session_cache_subdir_from_constraints_path(

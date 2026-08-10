@@ -24,7 +24,7 @@ for p in (_SCRIPTS, _EVAL_ADAPTER):
         sys.path.insert(0, str(p))
 
 from decision_eval_adapter import DecisionEvalAdapter  # noqa: E402
-from dec_domain_constraints_schema import KERNEL_STAGE  # noqa: E402
+from dec_domain_constraints_schema import resolve_stage  # noqa: E402
 from dec_eval_runtime_schema import (  # noqa: E402
     MAX_EVAL_ROUNDS,
     hard_blocked,
@@ -191,7 +191,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Decision Eval control.")
     parser.add_argument("--project-root", default=".")
     parser.add_argument("--cycle-id", required=True)
-    parser.add_argument("--stage", default=KERNEL_STAGE)
+    parser.add_argument("--constraints", default="")
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("render-eval-target")
     sub.add_parser("check-rounds")
@@ -215,7 +215,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     project_root = Path(args.project_root).resolve()
     cycle_id = args.cycle_id.strip()
-    stage = args.stage.strip() or KERNEL_STAGE
+    constraints_raw = str(args.constraints or "").strip()
+    constraints_path = Path(constraints_raw).expanduser().resolve() if constraints_raw else None
+    try:
+        stage = resolve_stage(constraints_path)
+    except (FileNotFoundError, ValueError) as exc:
+        return _emit_error(str(exc))
     if args.command == "render-eval-target":
         return cmd_render_eval_target(project_root, cycle_id, stage)
     if args.command == "check-rounds":

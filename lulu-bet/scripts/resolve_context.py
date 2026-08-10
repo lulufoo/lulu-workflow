@@ -36,7 +36,7 @@ _RESOLVED_CONTEXT_FILENAME = "resolved-context.json"
 
 def resolve(project_root: Path, cycle_id: str, constraints_path: Path) -> dict:
     """Compute the resolved ``{"context": {...}}`` payload (no filesystem writes)."""
-    load_constraints_config(constraints_path, stage=STAGE)  # validate template only
+    load_constraints_config(constraints_path)  # validate template only
     cache_dir = project_root / platform_cache_dir(detect_platform())
     return {
         "context": build_context_loading(cycle_id, STAGE, cache_dir=cache_dir),
@@ -48,7 +48,7 @@ def resolved_context_file_path(project_root: Path, cycle_id: str, constraints_pa
     session's own domain-constraints.json (see dec_workflow_common.session_base_dir),
     computed from the constraints template's own ``cache_subdir`` field since no
     session exists yet at resolve time."""
-    constraints = load_constraints_config(constraints_path, stage=STAGE)
+    constraints = load_constraints_config(constraints_path)
     cache_dir = project_root / platform_cache_dir(detect_platform())
     cache_subdir = constraints["cache_subdir"]
     return cache_dir / cycle_id / cache_subdir / _RESOLVED_CONTEXT_FILENAME

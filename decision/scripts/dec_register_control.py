@@ -27,7 +27,7 @@ from dec_decision_doc_schema import (
     replace_section,
     save_decision_doc,
 )
-from dec_domain_constraints_schema import load_domain_constraints
+from dec_domain_constraints_schema import load_domain_constraints, resolve_stage
 from dec_gate_state_schema import is_gate_closed, is_gate_reached, load_gate_state
 from dec_register_schema import (
     PRIOR_KINDS,
@@ -558,7 +558,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Decision register control.")
     parser.add_argument("--project-root", default=".", help="Project root directory.")
     parser.add_argument("--cycle-id", required=True, help="Cycle ID.")
-    parser.add_argument("--stage", default="decision", help="Decision stage name.")
     parser.add_argument(
         "--constraints",
         default="",
@@ -612,12 +611,15 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     project_root = Path(args.project_root).resolve()
     cycle_id = args.cycle_id.strip()
-    stage = args.stage.strip()
     constraints_path = (
         Path(args.constraints.strip()).expanduser().resolve()
         if args.constraints.strip()
         else None
     )
+    try:
+        stage = resolve_stage(constraints_path)
+    except (FileNotFoundError, ValueError) as exc:
+        return _emit_error(str(exc))
     common = {
         "constraints_path": constraints_path,
         "session_dir": None,

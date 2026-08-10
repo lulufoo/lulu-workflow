@@ -32,7 +32,7 @@ Do NOT proceed until you have read `../../../_runtime.md`
 
 | Macro | Command |
 |-------|---------|
-| `$GATE_CONTROL` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>"` |
+| `$GATE_CONTROL` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
 
 Subcommand contracts: module docstring / `--help`.
 

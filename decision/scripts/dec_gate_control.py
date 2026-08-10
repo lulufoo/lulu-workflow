@@ -49,6 +49,7 @@ from dec_domain_constraints_schema import (  # noqa: E402
     load_constraints_config,
     load_domain_constraints,
     merge_domain_constraints,
+    resolve_stage,
     save_domain_constraints,
 )
 from dec_gate_payload_schema import (  # noqa: E402
@@ -176,7 +177,7 @@ def _load_constraints_for_init(
     constraints_path: Path | None,
 ) -> dict[str, Any]:
     if constraints_path is not None:
-        return load_constraints_config(constraints_path, stage=stage)
+        return load_constraints_config(constraints_path)
     if stage == KERNEL_STAGE:
         return default_kernel_constraints(stage=stage)
     raise ValueError(f"--constraints is required for stage {stage!r}")
@@ -1569,11 +1570,11 @@ def cmd_rs_commit(
     return 0
 
 
-def _reopen_authorization(constraints_path: Path | None, stage: str) -> str:
+def _reopen_authorization(constraints_path: Path | None) -> str:
     if constraints_path is None:
         return ""
     try:
-        cfg = load_constraints_config(constraints_path, stage=stage)
+        cfg = load_constraints_config(constraints_path)
     except (FileNotFoundError, ValueError):
         return ""
     return str(cfg.get("reopen_authorization", "")).strip()
@@ -1673,7 +1674,7 @@ def cmd_reopen(
     try:
         if not paths["gate_state"].exists():
             return _emit_error("cannot reopen: gate-state missing")
-        auth = _reopen_authorization(constraints_path, stage)
+        auth = _reopen_authorization(constraints_path)
         permit_payload: dict[str, Any] | None = None
         pending_consume: tuple[Path, dict[str, Any], Path, dict[str, Any]] | None = None
         if auth == "holder_required":
@@ -1766,7 +1767,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Decision gate state control.")
     parser.add_argument("--project-root", default=".", help="Project root directory.")
     parser.add_argument("--cycle-id", required=True, help="Cycle ID.")
-    parser.add_argument("--stage", default="decision", help="Decision stage name.")
     parser.add_argument(
         "--constraints",
         default="",
@@ -1903,8 +1903,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     project_root = Path(args.project_root).resolve()
     cycle_id = args.cycle_id.strip()
-    stage = args.stage.strip()
     constraints_path = _parse_constraints_path(getattr(args, "constraints", ""))
+    try:
+        stage = resolve_stage(constraints_path)
+    except (FileNotFoundError, ValueError) as exc:
+        return _emit_error(str(exc))
     common = {
         "constraints_path": constraints_path,
         "session_dir": None,

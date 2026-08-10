@@ -153,8 +153,6 @@ def test_migrate_via_start_writes_cycle_state(
             str(project_root),
             "--cycle-id",
             cycle_id,
-            "--stage",
-            stage,
         ],
         capture_output=True,
         text=True,

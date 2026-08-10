@@ -275,24 +275,25 @@ def load_domain_constraints(path: Path) -> dict[str, Any]:
     return normalized
 
 
-def load_constraints_config(path: Path, *, stage: str = "") -> dict[str, Any]:
+def load_constraints_config(path: Path) -> dict[str, Any]:
     """Load holder constraints file from explicit path (R1 contract)."""
     if not path.is_file():
         raise FileNotFoundError(f"constraints config not found: {path}")
     data = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
         raise ValueError(f"constraints config must be a JSON object: {path}")
-    if stage and not str(data.get("stage", "")).strip():
-        data = {**data, "stage": stage}
-    elif stage and str(data.get("stage", "")).strip() != stage:
-        raise ValueError(
-            f"constraints stage {data.get('stage')!r} does not match --stage {stage!r}",
-        )
     normalized = normalize_domain_constraints(data)
     errors = validate_domain_constraints(normalized)
     if errors:
         raise ValueError("; ".join(errors))
     return normalized
+
+
+def resolve_stage(constraints_path: Path | None) -> str:
+    """Return the stage declared by constraints, or the decision kernel stage."""
+    if constraints_path is None:
+        return KERNEL_STAGE
+    return str(load_constraints_config(constraints_path)["stage"])
 
 
 def save_domain_constraints(path: Path, data: dict[str, Any]) -> None:

@@ -15,6 +15,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from dec_domain_constraints_schema import resolve_stage
 from dec_gate_control import cmd_reopen
 
 
@@ -24,11 +25,6 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--project-root", default=".", help="Project root directory.")
     parser.add_argument("--cycle-id", required=True, help="Cycle ID.")
-    parser.add_argument(
-        "--stage",
-        default="decision",
-        help="Decision stage name (holder SKILL passes its name; default: decision).",
-    )
     parser.add_argument(
         "--constraints",
         default="",
@@ -51,10 +47,15 @@ def main() -> int:
     )
     permit_raw = str(args.permit or "").strip()
     permit_path = Path(permit_raw).expanduser().resolve() if permit_raw else None
+    try:
+        stage = resolve_stage(constraints_path)
+    except (FileNotFoundError, ValueError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
     return cmd_reopen(
         project_root,
         args.cycle_id.strip(),
-        args.stage.strip(),
+        stage,
         constraints_path=constraints_path,
         session_dir=None,
         permit_path=permit_path,

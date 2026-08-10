@@ -284,8 +284,6 @@ def _seed_decision_config(tmp_path: Path) -> None:
 
 def _diag_holder_args(stage: str = "lulu-bet") -> list[str]:
     return [
-        "--stage",
-        stage,
         "--constraints",
         str(_LDEV / stage / "constraints-feature.json"),
     ]

@@ -70,7 +70,6 @@ def _run_dec_start(project_root: Path, cycle_id: str, *extra_args: str) -> subpr
         sys.executable, str(_START_PY),
         "--project-root", str(project_root),
         "--cycle-id", cycle_id,
-        "--stage", "lulu-bet",
         "--constraints", str(_WORKFLOW_ROOT / "lulu-bet" / "constraints-feature.json"),
         *extra_args,
     ]

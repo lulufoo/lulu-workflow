@@ -13,7 +13,11 @@ from typing import Any, Literal
 
 from dec_active_control import _commit_active, _refresh_session_context
 from dec_active_session_schema import is_valid_session_root
-from dec_domain_constraints_schema import context_docs_map, load_domain_constraints
+from dec_domain_constraints_schema import (
+    context_docs_map,
+    load_domain_constraints,
+    resolve_stage,
+)
 from dec_gate_control import cmd_init_session
 from dec_session_state_schema import (
     set_session_frozen,
@@ -38,7 +42,6 @@ def _load_resolved_override(resolved_context_path: Path) -> dict[str, Any]:
 def bind_session(
     project_root: Path,
     cycle_id: str,
-    stage: str,
     *,
     session_dir: Path,
     resolved_context_path: Path,
@@ -48,6 +51,7 @@ def bind_session(
     """Bind Active to session_dir after preparing context (context-first)."""
     target = Path(session_dir).resolve()
     override = _load_resolved_override(resolved_context_path)
+    stage = resolve_stage(constraints_path)
 
     if mode == "initialize":
         if is_valid_session_root(target) and (target / "gate-state.json").is_file():

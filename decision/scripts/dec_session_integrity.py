@@ -32,9 +32,9 @@ from dec_decision_doc_schema import (  # noqa: E402
     save_decision_doc,
 )
 from dec_domain_constraints_schema import (  # noqa: E402
-    KERNEL_STAGE,
     active_x_dimensions,
     load_domain_constraints,
+    resolve_stage,
 )
 from dec_gate_payload_schema import (  # noqa: E402
     gate_payload_path,
@@ -279,7 +279,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Decision session integrity control.")
     parser.add_argument("--project-root", default=".", help="Project root directory.")
     parser.add_argument("--cycle-id", required=True, help="Cycle ID.")
-    parser.add_argument("--stage", default=KERNEL_STAGE, help="Decision stage name.")
     parser.add_argument("--constraints", default="", help="Path to holder constraints.json.")
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -306,8 +305,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     project_root = Path(args.project_root).resolve()
     cycle_id = args.cycle_id.strip()
-    stage = args.stage.strip()
     constraints_path = _parse_constraints_path(getattr(args, "constraints", ""))
+    try:
+        stage = resolve_stage(constraints_path)
+    except (FileNotFoundError, ValueError) as exc:
+        return _emit_error(str(exc))
 
     if args.command == "audit":
         return cmd_audit(

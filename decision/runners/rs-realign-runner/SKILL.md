@@ -28,7 +28,7 @@ Do NOT proceed until you have read `../../../_runtime.md`
 
 | Macro | Command |
 |-------|---------|
-| `$GATE_CONTROL` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --stage "<stage>" --constraints "<constraints_path>"` |
+| `$GATE_CONTROL` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
 | `$RS_COMMIT` | `$GATE_CONTROL rs-commit --gate "<G>" --operations '<json array>'` |
 | `$GET_PAYLOAD` | `$GATE_CONTROL get-payload` |
 | `$BATCH_RECLOSE` | `$GATE_CONTROL batch-reclose --payloads '<json object>'` |

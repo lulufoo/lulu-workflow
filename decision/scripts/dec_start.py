@@ -17,6 +17,7 @@ from transition_table import load_stage_order  # noqa: E402
 from workflow_sessions import current_effective_delivered, get_sessions, parse_frontmatter  # noqa: E402
 
 from dec_archive import run as archive_decision_session
+from dec_domain_constraints_schema import resolve_stage
 from dec_gate_control import cmd_init_session, cmd_migrate_session
 from dec_migrate_session import needs_migration
 from dec_workflow_common import (
@@ -67,11 +68,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--project-root", default=".", help="Project root directory.")
     parser.add_argument("--cycle-id", required=True, help="Cycle ID (from cycle_init.py).")
     parser.add_argument(
-        "--stage",
-        default="decision",
-        help="Decision stage name (holder SKILL passes its name; default: decision).",
-    )
-    parser.add_argument(
         "--constraints",
         default="",
         help="Path to holder constraints.json (required for holder stages such as lulu-bet and lulu-approach).",
@@ -118,9 +114,13 @@ def main() -> int:
     args = parse_args()
     project_root = Path(args.project_root).resolve()
     cycle_id = args.cycle_id.strip()
-    stage = args.stage.strip()
     conversation_id = args.conversation_id.strip()
     constraints_path = Path(args.constraints.strip()).expanduser().resolve() if args.constraints.strip() else None
+    try:
+        stage = resolve_stage(constraints_path)
+    except (FileNotFoundError, ValueError) as exc:
+        print(f"错误：{exc}", file=sys.stderr)
+        return 1
 
     cycle_type = detect_cycle_type(cycle_id)
     cache_dir = project_root / CACHE_DIR

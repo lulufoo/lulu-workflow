@@ -58,7 +58,6 @@ def test_bind_session_initialize(template_config: Path, monkeypatch: pytest.Monk
     result = bind_session(
         project_root,
         cycle_id,
-        stage,
         session_dir=nested,
         resolved_context_path=resolved,
         mode="initialize",
@@ -87,7 +86,6 @@ def test_bind_session_existing_refreshes_context_before_active(
     bind_session(
         project_root,
         cycle_id,
-        stage,
         session_dir=nested,
         resolved_context_path=r1,
         mode="initialize",
@@ -99,7 +97,6 @@ def test_bind_session_existing_refreshes_context_before_active(
     result = bind_session(
         project_root,
         cycle_id,
-        stage,
         session_dir=nested,
         resolved_context_path=r2,
         mode="existing",
@@ -123,7 +120,6 @@ def test_freeze_and_unfreeze_session(template_config: Path, monkeypatch: pytest.
     bind_session(
         project_root,
         cycle_id,
-        stage,
         session_dir=nested,
         resolved_context_path=resolved,
         mode="initialize",
@@ -149,7 +145,6 @@ def test_bind_session_existing_refresh_failure_keeps_prior_active(
     bind_session(
         project_root,
         cycle_id,
-        stage,
         session_dir=d1,
         resolved_context_path=r1,
         mode="initialize",
@@ -161,7 +156,6 @@ def test_bind_session_existing_refresh_failure_keeps_prior_active(
     bind_session(
         project_root,
         cycle_id,
-        stage,
         session_dir=d2,
         resolved_context_path=r2,
         mode="initialize",
@@ -178,7 +172,6 @@ def test_bind_session_existing_refresh_failure_keeps_prior_active(
         bind_session(
             project_root,
             cycle_id,
-            stage,
             session_dir=d1,
             resolved_context_path=r1,
             mode="existing",
@@ -203,7 +196,6 @@ def test_commit_active_does_not_mutate_domain_constraints(
     bind_session(
         project_root,
         cycle_id,
-        stage,
         session_dir=nested,
         resolved_context_path=resolved,
         mode="initialize",
@@ -227,8 +219,6 @@ def test_set_active_cli_removed(template_config: Path, monkeypatch: pytest.Monke
                 str(project_root),
                 "--cycle-id",
                 "feature-no-set-active",
-                "--stage",
-                "decision",
                 "set-active",
                 "--session-dir",
                 "unused",
