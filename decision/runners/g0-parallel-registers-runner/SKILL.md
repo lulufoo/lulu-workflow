@@ -17,8 +17,10 @@ Control CLI non-zero → stop, report error, wait for user direction.
 
 <HARD-GATE>
 1. Do NOT proceed until you have read `../../../_runtime.md`.
-2. Confirm the session is InProgress and an identification hit occurred this
-   turn.
+2. Confirm an identification hit occurred this turn.
+3. Use the interrupted flow's `$CTX` to confirm one of:
+   - Session is InProgress.
+   - Session is Frozen after reopen, and G0 interrupts RS before `$RS_COMMIT`.
 </HARD-GATE>
 
 - Active gate unchanged — resume after G0
@@ -47,6 +49,8 @@ Recognize Assumptions as they surface; do not defer them to R.
   register commands.
 - Reading or organizing Prior belongs to D or R. Bulk Assumption updates belong
   to R; RS owns register batches during realignment.
+- The Frozen exception resumes the interrupted RS confirmation; do not resume a
+  spine gate.
 
 ## Pipeline
 
