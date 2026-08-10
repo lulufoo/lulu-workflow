@@ -13,6 +13,7 @@ ALL_SECTION_KEYS: frozenset[str] = frozenset(
     {
         "user_prior",
         "problem",
+        "direction_readiness",
         "direction",
         "settled_direction",
         "assumptions",

@@ -64,9 +64,9 @@ def test_init_strips_omitted_sections(template_config: Path, monkeypatch: pytest
     assert not (project_root / decision_doc_path(cycle_id, stage)).exists()
 
     doc = load_rendered_doc(project_root, cycle_id, stage)
-    assert "## 4. Settled Direction" not in doc
-    assert "## 6. Execution Analysis" not in doc
-    assert "## 3. Direction Comparison" in doc
+    assert "## 5. Settled Direction" not in doc
+    assert "## 7. Execution Analysis" not in doc
+    assert "## 4. Direction Comparison" in doc
 
     constraints = load_domain_constraints(project_root / domain_constraints_path(cycle_id, stage))
     assert "settled_direction" in constraints["omitted_sections"]
@@ -171,8 +171,8 @@ def test_x_gate_close_respects_x_dimensions(template_config: Path, monkeypatch: 
 
     doc = load_rendered_doc(project_root, cycle_id, stage)
     assert "Users can export" in doc
-    assert "### 6.2 Impact Surface" not in doc
-    assert "### 6.4 Implementation Sketch" not in doc
+    assert "### 7.2 Impact Surface" not in doc
+    assert "### 7.4 Implementation Sketch" not in doc
     assert "**Gap (if any):** None" in doc
 
 

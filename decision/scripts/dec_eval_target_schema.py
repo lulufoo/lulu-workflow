@@ -19,6 +19,7 @@ EVAL_TARGET_FILENAME = "decision-eval-target.md"
 _SECTION_SOURCE: dict[str, str] = {
     "user_prior": "registers.json#prior",
     "problem": "gate-payloads/Q.json",
+    "direction_readiness": "gate-payloads/GL.json",
     "direction": "gate-payloads/E.json",
     "settled_direction": "gate-payloads/D.json",
     "assumptions": "registers.json#assumptions",
@@ -28,6 +29,7 @@ _SECTION_SOURCE: dict[str, str] = {
 _SECTION_GATE: dict[str, str | None] = {
     "user_prior": None,
     "problem": "Q",
+    "direction_readiness": "GL",
     "direction": "E",
     "settled_direction": "D",
     "assumptions": None,
@@ -150,6 +152,8 @@ def _section_body(
                 "constraints": payload.get("constraints", ""),
             }
         )
+    if section_key == "direction_readiness":
+        return _render_kv_block({"exchanges": payload.get("exchanges") or []})
     if section_key == "direction":
         return _render_kv_block(
             {

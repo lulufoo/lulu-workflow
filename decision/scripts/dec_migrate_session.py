@@ -37,6 +37,13 @@ _GATE_AFTER_SECTION: tuple[tuple[str, str], ...] = (
     ("X", "execution_analysis"),
 )
 
+_LEGACY_SECTION_HEADINGS: dict[str, str] = {
+    "direction": "## 3. Direction Comparison",
+    "settled_direction": "## 4. Settled Direction",
+    "assumptions": "## 5. Assumptions & Risks",
+    "execution_analysis": "## 6. Execution Analysis",
+}
+
 
 def needs_migration(session_dir: Path) -> bool:
     ss = session_dir / "session-state.md"
@@ -45,13 +52,17 @@ def needs_migration(session_dir: Path) -> bool:
 
 
 def _section_body(doc: str, section_key: str) -> str:
-    heading = SECTION_HEADINGS[section_key]
-    match = _heading_pattern(heading).search(doc)
-    if not match:
-        return ""
-    start = match.end()
-    end = _section_end_index(doc, start)
-    return doc[start:end].strip()
+    headings = (SECTION_HEADINGS[section_key], _LEGACY_SECTION_HEADINGS.get(section_key))
+    for heading in headings:
+        if heading is None:
+            continue
+        match = _heading_pattern(heading).search(doc)
+        if not match:
+            continue
+        start = match.end()
+        end = _section_end_index(doc, start)
+        return doc[start:end].strip()
+    return ""
 
 
 def _section_ready(body: str) -> bool:
@@ -218,6 +229,15 @@ def build_registers_from_doc(
     return registers
 
 
+def _should_skip_legacy_gl(doc: str, *, active_gate: str, delivered: bool) -> bool:
+    if not doc:
+        return False
+    has_gl_section = _heading_pattern(SECTION_HEADINGS["direction_readiness"]).search(doc)
+    if has_gl_section:
+        return False
+    return delivered or GATE_ORDER.index(active_gate) > GATE_ORDER.index("GL")
+
+
 def migrate_session_dir(
     session_dir: Path,
     *,
@@ -244,9 +264,14 @@ def migrate_session_dir(
             constraints = load_constraints_config(constraints_path)
         else:
             constraints = default_kernel_constraints(stage=stage)
+    active_gate, skipped = infer_progress(doc, constraints=constraints, delivered=delivered)
+    if _should_skip_legacy_gl(doc, active_gate=active_gate, delivered=delivered):
+        skipped.append("GL")
+        omitted = set(constraints.get("omitted_sections") or [])
+        omitted.add("direction_readiness")
+        constraints["omitted_sections"] = sorted(omitted)
     save_domain_constraints(dc_path, constraints)
 
-    active_gate, skipped = infer_progress(doc, constraints=constraints, delivered=delivered)
     gate_state = build_gate_state_from_progress(
         cycle_id=cycle_id,
         stage=stage,

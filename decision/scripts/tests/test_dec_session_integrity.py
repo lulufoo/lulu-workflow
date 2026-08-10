@@ -73,7 +73,12 @@ def test_render_creates_decision_doc(template_config: Path, monkeypatch: pytest.
     assert cmd_render(project_root, cycle_id, stage) == 0
     doc = load_rendered_doc(project_root, cycle_id, stage)
     assert "Chose A" in doc
-    assert "## 4. Settled Direction" in doc
+    assert "## 3. Direction Readiness" in doc
+    assert (
+        "| Acceptance Criteria | What intent-level success signal means a direction is right? "
+        "| Owner can demo the chosen path end-to-end |"
+    ) in doc
+    assert "## 5. Settled Direction" in doc
     assert "### Decision Rationale" in doc
     assert "### Scope" in doc
     assert "### Landing Approach" in doc

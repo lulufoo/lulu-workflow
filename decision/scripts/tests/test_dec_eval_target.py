@@ -51,6 +51,19 @@ def test_render_eval_target_formal_fields(tmp_path: Path) -> None:
         {"problem_statement": "P", "constraints": "C"},
     )
     save_gate_payload(
+        payloads_dir / "GL.json",
+        {
+            "exchanges": [
+                {
+                    "lens": "acceptance_criteria",
+                    "question": "What proves the direction is right?",
+                    "answer": "The owner can demo it.",
+                    "na": False,
+                }
+            ]
+        },
+    )
+    save_gate_payload(
         payloads_dir / "E.json",
         {
             "directions": [{"name": "A", "approach": "a", "pros": "p", "cons": "c"}],
@@ -113,7 +126,9 @@ def test_render_eval_target_formal_fields(tmp_path: Path) -> None:
     text = path.read_text(encoding="utf-8")
     assert "# Decision EvalTarget" in text
     assert "<!-- chapter:problem -->" in text
+    assert "<!-- chapter:direction_readiness -->" in text
     assert "<!-- chapter:settled_direction -->" in text
+    assert "source: gate-payloads/GL.json" in text
     assert "source: gate-payloads/D.json" in text
     assert "- decision_rationale: why A" in text
     assert "- user_choice: A" in text

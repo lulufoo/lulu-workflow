@@ -19,15 +19,17 @@ from dec_domain_constraints_schema import (  # noqa: WPS433
 SECTION_HEADINGS: dict[str, str] = {
     "user_prior": "## 1. User Prior",
     "problem": "## 2. Problem Definition",
-    "direction": "## 3. Direction Comparison",
-    "settled_direction": "## 4. Settled Direction",
-    "assumptions": "## 5. Assumptions & Risks",
-    "execution_analysis": "## 6. Execution Analysis",
+    "direction_readiness": "## 3. Direction Readiness",
+    "direction": "## 4. Direction Comparison",
+    "settled_direction": "## 5. Settled Direction",
+    "assumptions": "## 6. Assumptions & Risks",
+    "execution_analysis": "## 7. Execution Analysis",
 }
 
 SECTION_ORDER: tuple[str, ...] = (
     "user_prior",
     "problem",
+    "direction_readiness",
     "direction",
     "settled_direction",
     "assumptions",
@@ -36,6 +38,7 @@ SECTION_ORDER: tuple[str, ...] = (
 
 GATE_SECTION_KEYS: dict[str, tuple[str, ...]] = {
     "Q": ("problem",),
+    "GL": ("direction_readiness",),
     "E": ("direction",),
     "D": ("settled_direction",),
     "X": ("execution_analysis",),
@@ -146,6 +149,38 @@ def render_problem_body(*, problem_statement: str, constraints: str) -> str:
     )
 
 
+def render_direction_readiness_body(*, exchanges: list[dict[str, Any]]) -> str:
+    lines = [
+        "| Lens | Question | Conclusion |",
+        "|------|----------|------------|",
+    ]
+    if not exchanges:
+        lines.append("| | | |")
+        return "\n".join(lines)
+
+    for exchange in exchanges:
+        if not isinstance(exchange, dict):
+            continue
+        lens = _escape_cell(str(exchange.get("lens", "")).replace("_", " ").title())
+        question = str(exchange.get("question", "")).strip()
+        if exchange.get("na"):
+            question = f"N/A — {question}" if question else "N/A"
+        lines.append(
+            "| "
+            + " | ".join(
+                [
+                    lens,
+                    _escape_cell(question),
+                    _escape_cell(str(exchange.get("answer", ""))),
+                ]
+            )
+            + " |"
+        )
+    if len(lines) == 2:
+        lines.append("| | | |")
+    return "\n".join(lines)
+
+
 def render_direction_body(
     *,
     directions: list[dict[str, Any]],
@@ -230,7 +265,7 @@ def render_execution_analysis_body(
     lines: list[str] = []
 
     if "acceptance_criteria" in dims or "gap_check" in dims:
-        lines.extend(["### 6.1 Acceptance Criteria", ""])
+        lines.extend(["### 7.1 Acceptance Criteria", ""])
         if "acceptance_criteria" in dims:
             lines.append(acceptance_criteria.strip())
         else:
@@ -242,7 +277,7 @@ def render_execution_analysis_body(
     if "impact_surface" in dims:
         lines.extend(
             [
-                "### 6.2 Impact Surface",
+                "### 7.2 Impact Surface",
                 "",
                 "| Layer | Affected Area | Change Type | Notes |",
                 "|-------|--------------|-------------|-------|",
@@ -269,7 +304,7 @@ def render_execution_analysis_body(
     if "external_dependencies" in dims:
         lines.extend(
             [
-                "### 6.3 External Dependencies",
+                "### 7.3 External Dependencies",
                 "",
                 "| Dependency | Contract | Authoritative Source | Confirmation Mechanism |",
                 "|------------|----------|---------------------|------------------------|",
@@ -296,7 +331,7 @@ def render_execution_analysis_body(
     if "implementation_sketch" in dims:
         lines.extend(
             [
-                "### 6.4 Implementation Sketch",
+                "### 7.4 Implementation Sketch",
                 "",
                 f"**Key changes:** {key_changes.strip()}",
                 f"**Critical constraints:** {critical_constraints.strip()}",
@@ -361,6 +396,7 @@ def render_assumptions_body(registers: dict[str, Any]) -> str:
 def _section_placeholders() -> dict[str, str]:
     return {
         "problem": render_problem_body(problem_statement="TBD", constraints="TBD"),
+        "direction_readiness": render_direction_readiness_body(exchanges=[]),
         "direction": render_direction_body(directions=[], excluded=[], user_choice="TBD"),
         "settled_direction": render_settled_direction_body(
             rationale="TBD",
@@ -407,7 +443,13 @@ def check_decision_doc_ready(
 ) -> list[str]:
     """Return delivery readiness errors for decision-doc content."""
     errors: list[str] = []
-    for key in ("problem", "direction", "settled_direction", "execution_analysis"):
+    for key in (
+        "problem",
+        "direction_readiness",
+        "direction",
+        "settled_direction",
+        "execution_analysis",
+    ):
         if constraints is not None and not is_section_active(constraints, key):
             continue
         heading = SECTION_HEADINGS[key]

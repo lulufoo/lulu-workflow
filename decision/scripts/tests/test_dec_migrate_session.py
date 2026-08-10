@@ -69,7 +69,7 @@ def test_migrate_in_progress_infers_active_gate(
     monkeypatch.chdir(project_root)
 
     doc = _full_template().replace("{title}", "T").replace("{one-line summary of the intent input}", "c")
-    doc = doc.replace("TBD", "filled", 2)
+    doc = doc.replace("TBD", "filled", 3)
     _write_legacy_session(project_root, cycle_id, stage, doc_body=doc)
 
     assert cmd_migrate_session(project_root, cycle_id, stage) == 0
@@ -91,13 +91,20 @@ def test_migrate_delivered_closes_all_gates(
 
     doc = _full_template().replace("{title}", "T").replace("{one-line summary of the intent input}", "c")
     assumptions_section = (
-        "## 5. Assumptions & Risks\n\n"
+        "## 6. Assumptions & Risks\n\n"
         "| # | Assumption | Source | Risk | Class | Release Tracking | Failure Consequence | Verification | Status |\n"
         "|---|-----------|--------|------|-------|------------------|---------------------|-------------|--------|\n"
         "| A1 | API ready | X | L | decision | | minor | Accepted | [已验证] |\n"
         "| A2 | SDK embed | X | H | implementation | | blocked | Accepted | [已交接] |\n"
     )
-    doc = doc.replace("## 5. Assumptions & Risks\n\nTBD", assumptions_section.strip())
+    doc = doc.replace("## 6. Assumptions & Risks\n\nTBD", assumptions_section.strip())
+    doc = doc.replace("## 3. Direction Readiness\n\nTBD\n\n", "")
+    doc = (
+        doc.replace("## 7. Execution Analysis", "## 6. Execution Analysis")
+        .replace("## 6. Assumptions & Risks", "## 5. Assumptions & Risks")
+        .replace("## 5. Settled Direction", "## 4. Settled Direction")
+        .replace("## 4. Direction Comparison", "## 3. Direction Comparison")
+    )
     while "TBD" in doc:
         doc = doc.replace("TBD", "done", 1)
 
@@ -108,6 +115,13 @@ def test_migrate_delivered_closes_all_gates(
     gate_state = load_gate_state(project_root / gate_state_path(cycle_id, stage))
     assert gate_state["active_gate"] == "DC"
     assert gate_state["gates"]["DC"]["status"] == "closed"
+    assert "GL" in gate_state["skipped_gates"]
+    migrated_constraints = json.loads(
+        (project_root / session_base_dir(cycle_id, stage) / "domain-constraints.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert "direction_readiness" in migrated_constraints["omitted_sections"]
 
     registers = load_registers(project_root / registers_path(cycle_id, stage), r_gate_closed=True)
     assert len(registers["assumptions"]) == 2

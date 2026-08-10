@@ -50,7 +50,9 @@ Subcommand contracts: module docstring / `--help`. `$SUBAGENT_*`: `_subagent.md`
 
 - **Entry:** R→`dc` only.
 - **Decision-doc:** not maintained during the session; `$SESSION_INTEGRITY render` builds it once before present. Layout / section filtering: `render --help`. Template: `$FETCH_TEMPLATE --section decision --key decision_doc_template_url`.
-- **Present** (from rendered doc; do not show file paths): Decision Rationale; Scope (incl. exclusions); Assumptions & Risks (`risk_level`, `risk_class`, `risk_state`, `release_terms` where set).
+- **Present** (from rendered doc; do not show file paths): Direction Readiness;
+  Decision Rationale; Scope (incl. exclusions); Assumptions & Risks
+  (`risk_level`, `risk_class`, `risk_state`, `release_terms` where set).
 - **Eval:** replaces AI Semantic Review; invoke Eval's Probe control segment, then route its returned result through Decision. Eval owns probe-runner dispatch; Decision never dispatches Eval runners or remediation. Details: `eval/eval-profile.json`, `$DEC_EVAL` / `$EVAL_CONTROL` `--help`, `eval/methods/decision-consistency.md`.
 - **After close:** tell user `$CTX.after_dc.user_message`. Nested holder (`main/` / `Dx/`): this **node** is Completed; stage Delivered waits for holder `$APPROACH_DELIVER`.
 

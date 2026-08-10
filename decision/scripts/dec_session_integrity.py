@@ -25,6 +25,7 @@ from fetch_template import fetch_template  # noqa: E402
 from dec_decision_doc_schema import (  # noqa: E402
     init_decision_doc,
     render_direction_body,
+    render_direction_readiness_body,
     render_execution_analysis_body,
     render_problem_body,
     render_settled_direction_body,
@@ -154,6 +155,12 @@ def _apply_payload_to_doc(
             constraints=str(payload.get("constraints", "")),
         )
         return replace_section(doc, "problem", body, constraints=constraints)
+    if gate == "GL":
+        exchanges = payload.get("exchanges", [])
+        if not isinstance(exchanges, list):
+            exchanges = []
+        body = render_direction_readiness_body(exchanges=exchanges)
+        return replace_section(doc, "direction_readiness", body, constraints=constraints)
     if gate == "E":
         directions = payload.get("directions", [])
         excluded = payload.get("excluded", [])
@@ -211,7 +218,7 @@ def render_decision_doc(
     doc = init_decision_doc(template=template, cycle_id=cycle_id, constraints=constraints)
 
     payloads = gate_payloads_for_session(paths["payloads_dir"])
-    for gate in ("Q", "E", "D", "X"):
+    for gate in ("Q", "GL", "E", "D", "X"):
         payload = payloads.get(gate)
         if payload is not None:
             doc = _apply_payload_to_doc(doc, gate, payload, constraints=constraints)
