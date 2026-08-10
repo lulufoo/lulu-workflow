@@ -55,9 +55,10 @@ Applies to every `topic-landscape` present / re-present.
 
 1. **Order** — Seeking context, then Topic DAG.
 2. **Settled coverage** — each settled pin marked `✓`.
-3. **Topic DAG** — Mermaid `flowchart`/`graph` of the full current DAG
-   (all `gap` nodes and edges); nodes show title and grain; mark frontier.
-4. **Must not** — primary list/table; partial DAG; `✓` on DAG nodes.
+3. **Topic DAG** — Mermaid `flowchart`/`graph` of the full landscape graph
+   (include settled); nodes show title and grain; color = settled /
+   frontier / un-frontier.
+4. **Must not** — primary list/table; partial graph; `✓` on DAG nodes.
 
 ---
 
