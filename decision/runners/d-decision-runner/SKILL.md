@@ -30,7 +30,7 @@ Control CLI non-zero → stop, report error, wait for user direction.
 1. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
    `domain.instruction`) to the dialogue.
 2. If `$CTX.gates.D.status == stale`, follow
-   `$SKILL_DIR/references/stale-gate-update.md`, return `GATE_COMPLETE D`,
+   `$SKILL_DIR/references/rs-stale-gate-update.md`, return `GATE_COMPLETE D`,
    and skip Act.
 
 **Act:**

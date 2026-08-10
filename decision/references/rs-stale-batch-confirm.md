@@ -1,9 +1,9 @@
-# Batch confirm after RS
+# RS batch confirmation
 
 ## Entry
 
 Use only after `$RS_COMMIT` succeeds and the user selects Batch.
-Otherwise, use `$SKILL_DIR/references/stale-gate-update.md` Per-gate.
+Otherwise, use `$SKILL_DIR/references/rs-stale-gate-update.md` Per-gate.
 
 ## Prepare
 

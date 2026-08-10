@@ -82,7 +82,7 @@ Subcommand and stdout contracts: module docstring / `--help`.
 **Route**
 
 8. State whether the change is a light patch and why; ask Batch vs Per-gate.
-9. Batch → follow `$SKILL_DIR/references/stale-batch-confirm.md`; return its
+9. Batch → follow `$SKILL_DIR/references/rs-stale-batch-confirm.md`; return its
    `BATCH_COMPLETE`.
 10. Per-gate → return `RS_COMPLETE reenter=<G>`; the kernel loads that stale
     gate's runner.

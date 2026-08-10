@@ -94,7 +94,7 @@ CLI green ≠ framework pass.
 1. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
    `domain.instruction`) to the dialogue.
 2. If `$CTX.gates.GL.status == stale`, follow
-   `$SKILL_DIR/references/stale-gate-update.md`, return `GATE_COMPLETE GL`,
+   `$SKILL_DIR/references/rs-stale-gate-update.md`, return `GATE_COMPLETE GL`,
    and skip Act.
 
 **Act:**

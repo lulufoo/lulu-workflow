@@ -1,4 +1,4 @@
-# Per-gate stale update
+# RS per-gate stale update
 
 ## Entry
 
@@ -7,7 +7,7 @@ path after RS. Otherwise, run the gate's normal contract.
 
 R is excluded: load the R runner, which owns its special stale review.
 
-Batch selected → use `$SKILL_DIR/references/stale-batch-confirm.md` instead.
+Batch selected → use `$SKILL_DIR/references/rs-stale-batch-confirm.md` instead.
 
 ## Assess
 

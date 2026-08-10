@@ -82,7 +82,7 @@ Do **not** hard-code fixed question wording; phrase from goals +
 1. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
    `domain.instruction`) to the dialogue.
 2. If `$CTX.gates.Q.status == stale`, follow
-   `$SKILL_DIR/references/stale-gate-update.md`, return `GATE_COMPLETE Q`,
+   `$SKILL_DIR/references/rs-stale-gate-update.md`, return `GATE_COMPLETE Q`,
    and skip Act.
 
 **Act:**

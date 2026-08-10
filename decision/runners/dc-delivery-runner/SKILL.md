@@ -93,7 +93,7 @@ Subcommand contracts: module docstring / `--help`. `$SUBAGENT_*`: `_subagent.md`
 1. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
    `domain.instruction`) to the dialogue.
 2. If `$CTX.gates.DC.status == stale`, follow
-   `$SKILL_DIR/references/stale-gate-update.md` **steps 1–3 only** (do **not**
+   `$SKILL_DIR/references/rs-stale-gate-update.md` **steps 1–3 only** (do **not**
    run that file’s step 4 `gate-close` or step 5 `GATE_COMPLETE`), then
    continue Act.
 
