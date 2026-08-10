@@ -24,15 +24,15 @@ declared inputs and are not persisted by this model.
 
 ## Discovery
 
-AI autonomously derives the initial working set of temporary `gap` Topics from
-the induction context and settled facts. This is the main discovery path; use
-autonomous judgment, not a scripted detector.
+Applies when deriving the initial temporary `gap` Topic set.
 
-Each build recomputes discovery from its declared inputs. It keeps no hidden
-Topic registry and grants neither priority nor adoption authority.
-
-Human changes are corrections to the presented landscape, not a parallel
-discovery source. The Review step below owns them.
+1. **Source** — AI derives the initial temporary `gap` Topics from induction
+   context and settled facts; autonomous judgment, not a scripted detector.
+2. **Recompute** — each build rediscovers from declared inputs only; no hidden
+   Topic registry.
+3. **Authority** — discovery grants neither priority nor adoption authority.
+4. **Human role** — may add, remove, or correct Topics on the presented
+   landscape.
 
 ## Topic DAG
 
@@ -51,7 +51,7 @@ order.
 
 ## Presentation
 
-Applies to every `topic-landscape` present / re-present.
+Applies when presenting a seeking landscape.
 
 1. **Order** — Seeking context, then Topic DAG.
 2. **Settled coverage** — each settled pin marked `✓`.
@@ -81,8 +81,8 @@ presentation, accept optional human corrections.
 2. **Topic DAG** — temporary `gap` Topics, their upstream-support dependencies,
    grain labels, and upstream frontier, presented per Presentation.
 
-**Build:** AI discovers the initial Topic set, applies Grain, assembles the DAG,
-and presents the complete view per Presentation.
+**Build:** Discover per Discovery, apply Grain, assemble the DAG, and present
+per Presentation.
 
 **Review:** The human may add, correct, or remove Topics. AI reconciles the
 requested changes with settled facts, recomputes affected grain and edges, and
