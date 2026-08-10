@@ -93,9 +93,9 @@ After `topic-question-driver` runs: behavior map for its outputs.
 After a Closure Candidate or free-dialogue conclusion: behavior map for
 convergent close.
 
-- Summarize → `set-conclusion` → human confirm → `confirm-conclusion` →
-  `fact-runner` → Seeking (`topic-landscape`).
-- `stale_signal` after consume → offer collab-display rebuild (Tool boundaries).
+- Conclude: Summarize → `set-conclusion` → human confirm →
+  `confirm-conclusion` → `fact-runner` → Seeking (`topic-landscape`).
+- After Seeking present when `stale_signal`: remind `narrative-arc-runner` on request (no auto-run).
 
 ## Close
 
