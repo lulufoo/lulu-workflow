@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Static checks for the split Topic models and their G2 integration."""
+"""Static checks for Topic modeling + tool split and G2 integration."""
 
 from __future__ import annotations
 
@@ -9,6 +9,12 @@ from pathlib import Path
 _COMPOSE = Path(__file__).resolve().parents[2]
 _GATE = _COMPOSE / "inductive-runner" / "gates" / "g2-topic-loop.md"
 _TOPIC_REF = _COMPOSE / "inductive-runner" / "references" / "topic-model.md"
+_LANDSCAPE_REF = (
+    _COMPOSE / "inductive-runner" / "references" / "topic-landscape.md"
+)
+_PORTRAIT_REF = (
+    _COMPOSE / "inductive-runner" / "references" / "topic-portrait.md"
+)
 _DAG_REF = _COMPOSE / "inductive-runner" / "references" / "topic-dag-model.md"
 _OLD_REF = (
     _COMPOSE / "inductive-runner" / "references" / "inductive-topic-model.md"
@@ -21,83 +27,133 @@ _COGNITION_REF = (
 )
 
 
-def test_topic_and_dag_models_have_one_way_ownership():
+def test_topic_model_is_modeling_layer_only():
     assert _TOPIC_REF.is_file()
-    assert _DAG_REF.is_file()
+    assert _LANDSCAPE_REF.is_file()
+    assert _PORTRAIT_REF.is_file()
+    assert not _DAG_REF.exists()
     assert not _OLD_REF.exists()
     assert not _G2_REF.exists()
     assert not _COGNITION_REF.exists()
 
     topic = _TOPIC_REF.read_text(encoding="utf-8")
-    dag = _DAG_REF.read_text(encoding="utf-8")
 
     assert "## Inputs" in topic
     assert "## Topic" in topic
     assert "### States" in topic
-    assert "## `topic-portrait`" in topic
-    assert "**Grounding**" in topic
-    assert "**Closure target**" in topic
-    assert "**Boundary**" in topic
-    assert "**Facts-first grounding:**" in topic
-    assert "return `Blocked`" in topic
     assert "`gap`" in topic
     assert "adopted" in topic
     assert "concluded" in topic
-    assert "Induction portrait" not in topic
-    assert "## Topic discovery" not in topic
-    assert "Human candidate signals" not in topic
     assert "## Grain" in topic
     assert "Grain is independent of Topic state." in topic
     assert "neither seeking priority nor DAG\n" in topic
     assert "owns no grain persistence" in topic
-    assert "## Topic DAG" not in topic
-    assert "### `topic-landscape`" not in topic
-    assert "Framing" not in topic
+    assert "## Topic DAG" in topic
+    assert "**upstream frontier**" in topic
+    assert "The DAG excludes adopted Topics." in topic
+    assert "presentation concern, not part of the\nTopic DAG itself" in topic
+    assert "Topic DAG topology" in topic
+    assert "seeking-DAG" not in topic
+    assert "Current Topic" not in topic
+    assert "## Discovery" not in topic
+    assert "## `topic-portrait`" not in topic
+    assert "## `topic-landscape`" not in topic
+    assert "## Presentation" not in topic
+    assert "**Select:**" not in topic
+    assert "**Grounding**" not in topic
+    assert "Induction portrait" not in topic
+    assert "## Topic discovery" not in topic
+    assert "Human candidate signals" not in topic
+    assert "Human discovery" not in topic
     assert "source anchor" not in topic.lower()
+    assert "[`topic-landscape.md`]" not in topic
+    assert "[`topic-portrait.md`]" not in topic
 
-    assert "[`topic-model.md`](topic-model.md)" in dag
-    assert "## Discovery" in dag
-    assert "AI autonomously derives the initial working set" in dag
-    assert "main discovery path" in dag
-    assert "keeps no hidden\nTopic registry" in dag
-    assert "Human changes are corrections" in dag
-    assert "not a parallel\ndiscovery source" in dag
-    assert "Human discovery" not in dag
-    assert "Human candidate signals" not in dag
-    assert "## Grain" not in dag
-    assert "## Topic DAG" in dag
-    assert "grain assigned under `topic-model.md`" in dag
-    assert "**upstream frontier**" in dag
-    assert "### Source anchor" not in dag
-    assert "anchor is absent before selection, required for\nadoption" in dag
-    assert "landscape-receipt summary" in dag
-    assert "## `topic-landscape`" in dag
-    assert "**Human corrections**" in dag
-    assert "**Seeking context**" in dag
-    assert "**Direction**" in dag
-    assert "**Settled coverage**" in dag
-    assert "**Overall unresolved areas**" in dag
-    assert "then the Topic DAG" in dag
-    assert "grain labels" in dag
-    assert "**Build:** AI discovers" in dag
-    assert "**Review:** The human may add, correct, or remove Topics." in dag
-    assert "re-presents the complete view" in dag
-    assert "**Select:** Human confirmation authorizes node selection" in dag
-    assert "**Invalidate:**" in dag
-    assert "Rebuild, re-present, and reconfirm before selection." in dag
-    assert "## `topic-portrait`" not in dag
-    assert "### `topic-portrait`" not in dag
-    assert "### `topic-question-driver`" not in dag
-    assert "## Induction portrait" not in dag
+    assert "G2" not in topic
+    assert "Gate" not in topic
+    assert "D1" not in topic
+    assert "D2" not in topic
+    assert "docs/" not in topic
+    assert "archive-" not in topic
+    assert "gap-landscape" not in topic
 
-    for text in (topic, dag):
-        assert "G2" not in text
-        assert "Gate" not in text
-        assert "D1" not in text
-        assert "D2" not in text
-        assert "docs/" not in text
-        assert "archive-" not in text
-        assert "gap-landscape" not in text
+
+def test_topic_landscape_tool_contract():
+    text = _LANDSCAPE_REF.read_text(encoding="utf-8")
+
+    assert "[`topic-model.md`](topic-model.md)" in text
+    assert "## Purpose" in text
+    assert "## Inputs" in text
+    assert "**Human corrections**" in text
+    assert "## Delivers" in text
+    assert "**Seeking context**" in text
+    assert "**Direction**" in text
+    assert "**Settled coverage**" in text
+    assert "**Overall unresolved areas**" in text
+    assert "## Discovery" in text
+    assert "Applies when deriving the initial temporary `gap` Topic set." in text
+    assert "**Source**" in text
+    assert "**Recompute**" in text
+    assert "**Authority**" in text
+    assert "**Human role**" not in text
+    assert "## Presentation" in text
+    assert "**Landscape graph**" in text
+    assert "full landscape" in text
+    assert "Topic DAG plus settled context" in text
+    assert "color =" in text
+    assert "settled /" in text
+    assert "frontier / un-frontier" in text
+    assert "## Build" in text
+    assert "Discover per Discovery" in text
+    assert "assemble the Topic DAG" in text
+    assert "## Review" in text
+    assert "The human may add, correct, or remove Topics." in text
+    assert "## Select" in text
+    assert "selection of a `gap` node only" in text
+    assert "settled context\nnodes are not selectable" in text
+    assert "source anchor" in text.lower()
+    assert "landscape-receipt" in text
+    assert "summary" in text
+    assert "## Invalidate" in text
+    assert "Rebuild, re-present, and reconfirm before selection." in text
+    assert "## Constraints" in text
+    assert "display-only" in text
+    assert "## `topic-portrait`" not in text
+    assert "### `topic-question-driver`" not in text
+    assert "## Grain" not in text
+    assert "## Topic DAG" not in text
+
+    assert "G2" not in text
+    assert "Gate" not in text
+    assert "docs/" not in text
+    assert "archive-" not in text
+    assert "gap-landscape" not in text
+
+
+def test_topic_portrait_tool_contract():
+    text = _PORTRAIT_REF.read_text(encoding="utf-8")
+
+    assert "[`topic-model.md`](topic-model.md)" in text
+    assert "## Purpose" in text
+    assert "## Prerequisite" in text
+    assert "## Delivers" in text
+    assert "**Grounding**" in text
+    assert "**Closure target**" in text
+    assert "**Boundary**" in text
+    assert "## Facts-first grounding" in text
+    assert "return `Blocked`" in text
+    assert "## Constraints" in text
+    assert "## Topic DAG" not in text
+    assert "## Discovery" not in text
+    assert "## Presentation" not in text
+    assert "`topic-landscape`" not in text
+    assert "seeking map" not in text
+    assert "seeking landscape" in text
+
+    assert "G2" not in text
+    assert "Gate" not in text
+    assert "docs/" not in text
+    assert "archive-" not in text
 
 
 def test_g2_gate_declares_tools_and_points_at_split_references():
@@ -105,7 +161,9 @@ def test_g2_gate_declares_tools_and_points_at_split_references():
     assert "`topic-landscape`" in text
     assert "`topic-portrait`" in text
     assert "topic-model.md" in text
-    assert "topic-dag-model.md" in text
+    assert "topic-landscape.md" in text
+    assert "topic-portrait.md" in text
+    assert "topic-dag-model.md" not in text
     assert "inductive-topic-model.md" not in text
     assert "Topic discovery" not in text
     assert "topic_exit" in text
@@ -126,6 +184,10 @@ def test_g2_gate_declares_tools_and_points_at_split_references():
     assert "Autonomously build the initial `topic-landscape`" in text
     assert "reconcile human corrections and re-present" in text
     assert "Treat human correction as a parallel discovery source" in text
+    assert "select a `gap` node (caller then adopts)" in text
+    assert "select its node for adoption" not in text
+    assert "seeking landscape or close proof" in text
+    assert "seeking map" not in text
     assert "Exit receipts are the pre-close landscape and exit receipt" in text
     assert "owning contracts" in text
     assert "Human request" in text
@@ -171,18 +233,23 @@ def test_inductive_spine_points_at_split_g2_contracts():
     assert "G2 Topic Loop" in text
     assert "gates/g2-topic-loop.md" in text
     assert "references/topic-model.md" in text
-    assert "references/topic-dag-model.md" in text
+    assert "references/topic-landscape.md" in text
+    assert "references/topic-portrait.md" in text
+    assert "references/topic-dag-model.md" not in text
     assert "references/inductive-topic-model.md" not in text
 
 
 def test_g2_gate_owns_landscape_receipt_persist():
     topic = _TOPIC_REF.read_text(encoding="utf-8")
-    dag = _DAG_REF.read_text(encoding="utf-8")
+    landscape = _LANDSCAPE_REF.read_text(encoding="utf-8")
+    portrait = _PORTRAIT_REF.read_text(encoding="utf-8")
     gate = _GATE.read_text(encoding="utf-8")
     assert "record-topic-landscape" not in topic
-    assert "record-topic-landscape" not in dag
+    assert "record-topic-landscape" not in landscape
+    assert "record-topic-landscape" not in portrait
     assert "record-g2-topic-exit" not in topic
-    assert "record-g2-topic-exit" not in dag
+    assert "record-g2-topic-exit" not in landscape
+    assert "record-g2-topic-exit" not in portrait
     assert "record-topic-landscape" in gate
     assert "caller-reported `gap_remaining`" in gate
 

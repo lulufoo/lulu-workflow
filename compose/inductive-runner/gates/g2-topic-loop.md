@@ -22,13 +22,15 @@ discovery channels (human || AI).
 
 | Role | Does | Must not |
 |------|------|----------|
-| Human | May add, correct, or remove Topics during `topic-landscape` review; **sole authority** to confirm a landscape, select its node for adoption, confirm conclusions, and confirm exit / hard-skip | — |
+| Human | May add, correct, or remove Topics during `topic-landscape` review; **sole authority** to confirm a landscape, select a `gap` node (caller then adopts), confirm conclusions, and confirm exit / hard-skip | — |
 | AI | Autonomously build the initial `topic-landscape` from induction context and settled facts; reconcile human corrections and re-present; may **guide-propose** from a confirmed upstream frontier; may optionally invoke `topic-question-driver` after the portrait; help free dialogue / deep work / summarize | Treat human correction as a parallel discovery source; auto-adopt; require the question driver; skip `topic-landscape` / `topic-portrait` when their triggers fire; silent fact writes; treat a closure candidate or D1+D2 exit check as a substitute for human confirmation / exit |
 
-G2 Topic contracts: definition, states, grain, portrait, and adopted-topic
-tools → [`../references/topic-model.md`](../references/topic-model.md);
-discovery, Topic DAG, source anchor, and seeking tool →
-[`../references/topic-dag-model.md`](../references/topic-dag-model.md).
+G2 Topic contracts: modeling (Topic, Grain, Topic DAG) →
+[`../references/topic-model.md`](../references/topic-model.md); seeking tool
+(Discovery, Presentation, lifecycle) →
+[`../references/topic-landscape.md`](../references/topic-landscape.md);
+adopted-topic portrait →
+[`../references/topic-portrait.md`](../references/topic-portrait.md).
 
 ## Session boundaries
 
@@ -36,14 +38,14 @@ discovery, Topic DAG, source anchor, and seeking tool →
   input to landscape corrections, the current settled-fact set to settled
   facts, and `$TOPIC_CURRENT_CTL` binding to the optional current topic.
 - Fact production and collab-arc display are orthogonal.
-- `$TOPIC_CURRENT_CTL` binds only the current adopted topic; it does not store the seeking map or close proof.
+- `$TOPIC_CURRENT_CTL` binds only the current adopted topic; it does not store the seeking landscape or close proof.
 - Exit receipts are the pre-close landscape and exit receipt (Close).
 - Route session state through `$MACRO` / `resolve-context`, never through data-file paths.
 
 ## Tool boundaries
 
-- `topic-portrait`: generic contract in `../references/topic-model.md`.
-- `topic-landscape`: generic contract in `../references/topic-dag-model.md`.
+- `topic-portrait`: generic contract in `../references/topic-portrait.md`.
+- `topic-landscape`: generic contract in `../references/topic-landscape.md`.
 - `topic-question-driver`: optional stateless contract in
   `../references/topic-question-driver.md`; it does not invoke `/converge`.
 - After every `topic-landscape` result, record the G2 landscape receipt through

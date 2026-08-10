@@ -112,8 +112,8 @@ absence and continuing with a grounded recommendation.
 
 ## Boundaries
 
-- `topic-portrait` establishes the adopted Topic's Grounding, Closure target,
-  and Boundary.
+- `topic-portrait` ([`topic-portrait.md`](topic-portrait.md)) establishes the
+  adopted Topic's Grounding, Closure target, and Boundary.
 - `topic-question-driver` optionally works its Topic-local design gap.
 - The caller owns invocation, free-dialogue routing, conclusion confirmation,
   fact production, and exit.
