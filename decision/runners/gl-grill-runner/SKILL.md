@@ -91,19 +91,22 @@ CLI green ≠ framework pass.
 
 ## Pipeline
 
-**Entry:** Q closed. Run `$GATE_CONTROL resolve-context`; pin stdout JSON as
-`$CTX`. If `$CTX.gates.GL.status == stale`: follow
-`$SKILL_DIR/references/stale-gate-update.md`, then return `GATE_COMPLETE GL`
-(skip Act dialogue).
+**Entry:**
+
+1. Confirm Q is closed.
+2. Run `$GATE_CONTROL resolve-context`; pin stdout JSON as `$CTX`.
+3. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
+   `domain.instruction`) to the dialogue; use `x_dimensions` /
+   `domain.dimension_profile` for coverage and profile hints.
+4. If `$CTX.gates.GL.status == stale`, follow
+   `$SKILL_DIR/references/stale-gate-update.md`, return `GATE_COMPLETE GL`,
+   and skip Act.
 
 **Act:**
 
-1. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
-   `domain.instruction`) to the dialogue; use `x_dimensions` /
-   `domain.dimension_profile` for coverage and profile hints.
-2. Obtain locked Q via `$GATE_CONTROL get-payload` (or fields already on `$CTX`);
+1. Obtain locked Q via `$GATE_CONTROL get-payload` (or fields already on `$CTX`);
    do not start probes until Q payload is available.
-3. Loop (Cognitive map):
+2. Loop (Cognitive map):
    - Evaluate `G-direction-ready` / `G-diagnosis-preflight`.
    - If any gap → `probe` (side routes as above; then continue).
    - If both met → `summarize` → on confirm →
