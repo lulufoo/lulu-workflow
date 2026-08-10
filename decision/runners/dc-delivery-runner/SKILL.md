@@ -94,7 +94,7 @@ Subcommand contracts: module docstring / `--help`. `$SUBAGENT_*`: `_subagent.md`
 **Entry:**
 
 1. Run `$GATE_CONTROL resolve-context`; pin stdout JSON as `$CTX`.
-2. Confirm `$CTX.active_gate` is `DC`.
+2. Confirm `$CTX.active_gate` is `DC`; otherwise do not proceed.
 3. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
    `domain.instruction`) to the dialogue.
 4. If `$CTX.gates.DC.status == stale`, follow

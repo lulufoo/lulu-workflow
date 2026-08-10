@@ -110,7 +110,7 @@ Subcommand contracts: module docstring / `--help` (including
 **Entry:**
 
 1. Run `$GATE_CONTROL resolve-context`; pin stdout JSON as `$CTX`.
-2. Confirm `$CTX.active_gate` is `R`.
+2. Confirm `$CTX.active_gate` is `R`; otherwise do not proceed.
 3. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
    `domain.instruction`) to the dialogue.
 

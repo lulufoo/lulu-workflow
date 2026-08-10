@@ -86,8 +86,8 @@ confirmed the summary.
 
 **Entry:**
 
-1. Confirm O is closed.
-2. Run `$GATE_CONTROL resolve-context`; pin stdout JSON as `$CTX`.
+1. Run `$GATE_CONTROL resolve-context`; pin stdout JSON as `$CTX`.
+2. Confirm `$CTX.active_gate` is `Q`; otherwise do not proceed.
 3. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
    `domain.instruction`) to the dialogue.
 4. If `$CTX.gates.Q.status == stale`, follow

@@ -93,11 +93,10 @@ CLI green ≠ framework pass.
 
 **Entry:**
 
-1. Confirm Q is closed.
-2. Run `$GATE_CONTROL resolve-context`; pin stdout JSON as `$CTX`.
+1. Run `$GATE_CONTROL resolve-context`; pin stdout JSON as `$CTX`.
+2. Confirm `$CTX.active_gate` is `GL`; otherwise do not proceed.
 3. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
-   `domain.instruction`) to the dialogue; use `x_dimensions` /
-   `domain.dimension_profile` for coverage and profile hints.
+   `domain.instruction`) to the dialogue.
 4. If `$CTX.gates.GL.status == stale`, follow
    `$SKILL_DIR/references/stale-gate-update.md`, return `GATE_COMPLETE GL`,
    and skip Act.

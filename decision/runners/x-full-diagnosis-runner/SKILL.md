@@ -27,12 +27,11 @@ Do NOT proceed until you have read `../../../_runtime.md`
 
 **Entry:**
 
-1. Run `$GATE_CONTROL resolve-context`; pin stdout JSON as `$CTX`; read
-   `$CTX.domain_constraints.x_dimensions` for active dimensions only.
-2. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
-   `domain.instruction`) to the dialogue; use `domain.dimension_profile` in
-   Act.
-3. If `$CTX.gates.X.status == stale`, follow
+1. Run `$GATE_CONTROL resolve-context`; pin stdout JSON as `$CTX`.
+2. Confirm `$CTX.active_gate` is `X`; otherwise do not proceed.
+3. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
+   `domain.instruction`) to the dialogue.
+4. If `$CTX.gates.X.status == stale`, follow
    `$SKILL_DIR/references/stale-gate-update.md`, return `GATE_COMPLETE X`,
    and skip Act.
 
