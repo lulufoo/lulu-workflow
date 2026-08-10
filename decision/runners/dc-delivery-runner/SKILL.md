@@ -91,16 +91,20 @@ Subcommand contracts: module docstring / `--help`. `$SUBAGENT_*`: `_subagent.md`
 
 ## Pipeline
 
-**Entry:** `$CTX.active_gate` is `DC`. Run `$GATE_CONTROL resolve-context`; pin
-stdout JSON as `$CTX`. If `$CTX.gates.DC.status == stale`: follow
-`$SKILL_DIR/references/stale-gate-update.md` **steps 1–3 only** (do **not** run
-that file’s step 4 `gate-close` or step 5 `GATE_COMPLETE`); then continue Act.
+**Entry:**
+
+1. Run `$GATE_CONTROL resolve-context`; pin stdout JSON as `$CTX`.
+2. Confirm `$CTX.active_gate` is `DC`.
+3. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
+   `domain.instruction`) to the dialogue.
+4. If `$CTX.gates.DC.status == stale`, follow
+   `$SKILL_DIR/references/stale-gate-update.md` **steps 1–3 only** (do **not**
+   run that file’s step 4 `gate-close` or step 5 `GATE_COMPLETE`), then
+   continue Act.
 
 **Act:**
 
-1. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
-   `domain.instruction`) to the dialogue.
-2. Cognitive map loop:
+1. Cognitive map loop:
    - `G-cleared` unmet → `prepare` (side routes as above).
    - `G-cleared` met → `present` → `confirm`.
    - On confirm → `close`:

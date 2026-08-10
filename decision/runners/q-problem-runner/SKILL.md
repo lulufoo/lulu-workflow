@@ -84,16 +84,19 @@ confirmed the summary.
 
 ## Pipeline
 
-**Entry:** O closed. Run `$GATE_CONTROL resolve-context`; pin stdout JSON as
-`$CTX`. If `$CTX.gates.Q.status == stale`: follow
-`$SKILL_DIR/references/stale-gate-update.md`, then return `GATE_COMPLETE Q`
-(skip Act dialogue).
+**Entry:**
+
+1. Confirm O is closed.
+2. Run `$GATE_CONTROL resolve-context`; pin stdout JSON as `$CTX`.
+3. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
+   `domain.instruction`) to the dialogue.
+4. If `$CTX.gates.Q.status == stale`, follow
+   `$SKILL_DIR/references/stale-gate-update.md`, return `GATE_COMPLETE Q`,
+   and skip Act.
 
 **Act:**
 
-1. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
-   `domain.instruction`) to the dialogue.
-2. Loop (Cognitive map):
+1. Loop (Cognitive map):
    - Evaluate `G-problem` / `G-constraints`.
    - If any gap → `probe` (side routes as above; then continue loop).
    - If both covered → `summarize` → on confirm →

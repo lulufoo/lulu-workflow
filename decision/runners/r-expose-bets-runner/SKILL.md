@@ -107,8 +107,12 @@ Subcommand contracts: module docstring / `--help` (including
 
 ## Pipeline
 
-**Entry:** `$CTX.active_gate` is `R`. Run `$GATE_CONTROL resolve-context`; pin
-stdout JSON as `$CTX`.
+**Entry:**
+
+1. Run `$GATE_CONTROL resolve-context`; pin stdout JSON as `$CTX`.
+2. Confirm `$CTX.active_gate` is `R`.
+3. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
+   `domain.instruction`) to the dialogue.
 
 **Stale entry:** If `$CTX.gates.R.status == stale`:
 
@@ -131,9 +135,7 @@ stdout JSON as `$CTX`.
 
 **Act (non-stale):**
 
-1. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
-   `domain.instruction`) to the dialogue.
-2. Cognitive map loop:
+1. Cognitive map loop:
    - `G-pack` unmet → `prepare` → `present`.
    - On revise → `revise` → `present`.
    - On expose confirm → `$GATE_CONTROL apply-r-assumptions --payload` with

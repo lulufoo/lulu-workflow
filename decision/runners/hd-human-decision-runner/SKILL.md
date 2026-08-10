@@ -25,13 +25,19 @@ Do NOT proceed until you have read `../../../_runtime.md`
 
 ## Pipeline
 
-1. `$GATE_CONTROL resolve-context` — pin `$CTX`
+**Entry:**
+
+1. Run `$GATE_CONTROL resolve-context`; pin stdout JSON as `$CTX`.
 2. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
    `domain.instruction`) to the dialogue.
-3. Present failure context; user selects exit:
+
+**Act:**
+
+1. Present failure context; user selects exit:
    - **Upstream wrong** → identify align gate → load `$SKILL_DIR/runners/rs-realign-runner/SKILL.md`
    - **No solution** → output Unable to Decide (directions ≥2, stuck gate, unlock condition); session incomplete
-4. Return `HD_COMPLETE exit=rs|unable` or hand off to RS runner
+
+**Done:** Return `HD_COMPLETE exit=rs|unable` or hand off to RS runner.
 
 ## Exit
 

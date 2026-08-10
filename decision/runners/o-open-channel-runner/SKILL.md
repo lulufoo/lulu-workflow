@@ -82,14 +82,16 @@ empty registers are allowed.
 
 ## Pipeline
 
-**Entry:** `$CTX.active_gate` is `O`. Run `$GATE_CONTROL resolve-context`; pin
-stdout JSON as `$CTX`. (No stale branch for O.)
+**Entry:**
+
+1. Run `$GATE_CONTROL resolve-context`; pin stdout JSON as `$CTX`.
+2. Confirm `$CTX.active_gate` is `O`.
+3. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
+   `domain.instruction`) to the dialogue.
 
 **Act:**
 
-1. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
-   `domain.instruction`) to the dialogue.
-2. Cognitive map loop:
+1. Cognitive map loop:
    - Ensure `G-invite` (invite if needed).
    - `listen` as the user shares (side routes as above).
    - `confirm` ready for Q → on confirm →

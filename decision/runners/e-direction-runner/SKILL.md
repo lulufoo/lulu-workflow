@@ -95,18 +95,21 @@ framework pass.
 
 ## Pipeline
 
-**Entry:** GL closed. Run `$GATE_CONTROL resolve-context`; pin stdout JSON as
-`$CTX`. If `$CTX.gates.E.status == stale`: follow
-`$SKILL_DIR/references/stale-gate-update.md`, then return `GATE_COMPLETE E`
-(skip Act dialogue).
+**Entry:**
+
+1. Confirm GL is closed.
+2. Run `$GATE_CONTROL resolve-context`; pin stdout JSON as `$CTX`.
+3. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
+   `domain.instruction`) to the dialogue.
+4. If `$CTX.gates.E.status == stale`, follow
+   `$SKILL_DIR/references/stale-gate-update.md`, return `GATE_COMPLETE E`,
+   and skip Act.
 
 **Act:**
 
-1. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
-   `domain.instruction`) to the dialogue.
-2. Confirm `$CTX.gl` is present; consult `$CTX.gl.exchanges` before proposing
+1. Confirm `$CTX.gl` is present; consult `$CTX.gl.exchanges` before proposing
    directions (Coverage).
-3. Loop (Cognitive map):
+2. Loop (Cognitive map):
    - Evaluate `G-settled-direction`.
    - If candidate set not ready → `define` (side routes as above; then
      continue).
