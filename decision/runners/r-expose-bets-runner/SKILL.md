@@ -50,7 +50,8 @@ Subcommand contracts: module docstring / `--help` (including
 
 - **Empty Prior / empty assumptions:** legal; present as empty — do not block close for lack of prior dump.
 - **Do not recollect Prior via G0** at R; sign-off is on `$CTX.registers.prior` as shown in the pack.
-- **Coverage:** review `$CTX.registers.assumptions` against D, X, and conversation; do not collect the log from scratch.
+- **Coverage:** review `$CTX.registers.assumptions` against `$D`, `$X`, and
+  current dialogue; do not collect the log from scratch.
 - **Read `$CTX.gl.exchanges` in full** during `prepare` (prefer `gap_check` / risk-narrative / confirmation intents); fold into the draft — **no separate confirm turn**.
 - **Classification:** during `prepare`, load
   `$SKILL_DIR/references/r-risk-classification.md`. Classify only on the full
@@ -70,7 +71,7 @@ The user selects exactly one exit; do not choose it unilaterally.
 
 | Mode | When | Behavior |
 |------|------|----------|
-| `prepare` | Pack not ready | Off-turn: read inputs; load `r-risk-classification`; draft the full table and proposed exit. **No user confirm turn.** |
+| `prepare` | Pack not ready | Off-turn: read `$D`, `$X`, and other inputs; load `r-risk-classification`; draft the full table and proposed exit. **No user confirm turn.** |
 | `present` | Pack ready; awaiting expose confirm | Show Prior, coverage, risk table, and proposed exit together. Ask for one confirm or change points; do not split confirmations. |
 | `revise` | User requests expose changes | Apply changes, then re-present the full pack. |
 | `handle` | After `apply-r-assumptions` and any `risk_state=open` | H→M→L: pick next open; load `$SKILL_DIR/references/r-risk-release.md`; one op; repeat or exit. |
@@ -110,7 +111,10 @@ The user selects exactly one exit; do not choose it unilaterally.
 
 **Act (non-stale):**
 
-1. Cognitive map loop:
+1. Run `$GET_PAYLOAD --gates D,X`; pin `payloads.D` as `$D` and `payloads.X`
+   as `$X`. If either payload is missing, stop and report the missing required
+   input.
+2. Cognitive map loop:
    - `G-pack` unmet → `prepare` → `present`.
    - On revise → `revise` → `present`.
    - On expose confirm → `$GATE_CONTROL apply-r-assumptions --payload` with
