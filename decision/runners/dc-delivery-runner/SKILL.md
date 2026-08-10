@@ -17,14 +17,14 @@ direction. Do not continue the gate dialogue.
 ## Prerequisites
 
 <HARD-GATE>
-Do NOT proceed until you have read `../../../_runtime.md` and
-`../../../_subagent.md`
+1. Do NOT proceed until you have read `../../../_runtime.md` and
+   `../../../_subagent.md`.
+2. Run `$GATE_CONTROL resolve-context`; pin stdout JSON as `$CTX`.
 </HARD-GATE>
 
 - `$SKILL_DIR` = `$SKILL_ROOT/decision`
 - `$CTX.active_gate` must be `DC` (from resolve-context)
 - Entry: R exit `dc`
-- Dialogue semantics SSOT: this file’s **Cognitive map** (no separate gate file)
 
 ## Script Macros
 
@@ -90,10 +90,9 @@ Subcommand contracts: module docstring / `--help`. `$SUBAGENT_*`: `_subagent.md`
 
 **Entry:**
 
-1. Run `$GATE_CONTROL resolve-context`; pin stdout JSON as `$CTX`.
-2. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
+1. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
    `domain.instruction`) to the dialogue.
-3. If `$CTX.gates.DC.status == stale`, follow
+2. If `$CTX.gates.DC.status == stale`, follow
    `$SKILL_DIR/references/stale-gate-update.md` **steps 1–3 only** (do **not**
    run that file’s step 4 `gate-close` or step 5 `GATE_COMPLETE`), then
    continue Act.

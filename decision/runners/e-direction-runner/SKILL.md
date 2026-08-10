@@ -17,14 +17,13 @@ direction. Do not continue the gate dialogue.
 ## Prerequisites
 
 <HARD-GATE>
-Do NOT proceed until you have read `../../../_runtime.md`
+1. Do NOT proceed until you have read `../../../_runtime.md`.
+2. Run `$GATE_CONTROL resolve-context`; pin stdout JSON as `$CTX`.
 </HARD-GATE>
 
 - `$SKILL_DIR` = `$SKILL_ROOT/decision`
 - `$CTX.active_gate` must be `E` (from resolve-context)
-- `$CTX.gates.GL.status` must be `closed` (from resolve-context)
-- `$CTX.gl` must be present when GL is closed
-- Dialogue semantics SSOT: this file’s **Cognitive map** (no separate gate file)
+- `$CTX.gl` must be present
 - Align questions: apply `$SKILL_ROOT/shared/references/ask-protocol.md`
 
 ## Script Macros
@@ -95,10 +94,9 @@ framework pass.
 
 **Entry:**
 
-1. Run `$GATE_CONTROL resolve-context`; pin stdout JSON as `$CTX`.
-2. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
+1. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
    `domain.instruction`) to the dialogue.
-3. If `$CTX.gates.E.status == stale`, follow
+2. If `$CTX.gates.E.status == stale`, follow
    `$SKILL_DIR/references/stale-gate-update.md`, return `GATE_COMPLETE E`,
    and skip Act.
 
