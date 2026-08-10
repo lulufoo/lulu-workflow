@@ -10,6 +10,8 @@ Run a Diagnostic Decision Framework (DDF) session.
 
 ---
 
+## Runtime Contract
+
 <HARD-GATE>
 Do NOT proceed until you have read `../_runtime.md` and loaded:
 
@@ -23,21 +25,17 @@ Do NOT proceed until you have read `../_runtime.md` and loaded:
 
 </HARD-GATE>
 
----
-
 <HARD-GATE name="Domain Constraints">
 
 **Runtime SSOT:** Pin `$CTX` via `$GATE_CONTROL resolve-context`. Authoritative fields: `domain_constraints` (`objective`, `role`, `domain`, `x_dimensions`, `omitted_sections`), `context`, `after_dc`. Do not infer from holder SKILL prose or memory.
 
 </HARD-GATE>
 
----
-
 ## Script Macros
 
 | Macro | Command |
 |-------|---------|
-| `$DEC_START` | `python3 "$SKILL_DIR/scripts/dec_start.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>" [--domain-constraints-file "<path>"] [--session-dir "<session_dir>"]` |
+| `$DEC_START` | `python3 "$SKILL_DIR/scripts/dec_start.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>" [--conversation-id "<conversation_id>"] [--domain-constraints-file "<path>"] [--session-dir "<session_dir>"]` |
 | `$DEC_GET_ACTIVE` | `python3 "$SKILL_DIR/scripts/dec_active_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>" get-active` |
 | `$DEC_REOPEN` | `python3 "$SKILL_DIR/scripts/dec_reopen.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>" [--permit "<permit_path>"]` |
 | `$GATE_CONTROL` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
@@ -54,49 +52,42 @@ Subcommand contracts: module docstrings / `--help`.
 
 ---
 
-## Start
+## Session Lifecycle
 
-**Step 1: Identify active cycle** — `_runtime.md` § Session Foundation. Do not run `$DEC_START` until `$CYCLE_ID` is confirmed.
+### Start
 
-**Step 2: Run `$DEC_START`** — holder stages **must** pass `--constraints` (path to holder `constraints.json`); its `stage` field selects the stage. Generic `decision` may omit `--constraints`. Non-zero exit → stop and report stderr.
+1. Identify the active cycle through `_runtime.md` § Session Foundation. Do not
+   run `$DEC_START` until `$CYCLE_ID` is confirmed.
+2. Run `$DEC_START`. Holder stages pass their own `--constraints`; generic
+   `decision` may omit it. When the platform provides a conversation ID, pass
+   `--conversation-id`.
 
-Every holder SKILL **must** resolve its own `context` (its own `scripts/resolve_context.py` or equivalent, which auto-derives `context.docs` — flat `key→path` map — see `scripts/context_loading.py`) before calling `$DEC_START`. The resolver writes the result to a file and hands `decision` the file's *path* via `--domain-constraints-file` — never raw JSON on the command line. `decision` performs no path resolution of its own — it only reads that file once at init and stores its contents as-is.
+Holders resolve and supply their own context inputs. Archive, restore, and
+session-path mechanics belong to the lifecycle scripts and holder SKILLs.
 
-On success, `$DEC_START` stdout includes `context_docs`. Binding pipeline: pin `$CTX` via `resolve-context`, then Skill loads each path in `context_docs` read-only **once** (not on every gate `resolve-context`). O gate does not reload parent docs. Nested holders that retarget among `main/`／`Dx/` use their own entry macros (e.g. approach `enter-node`); they must not invent a decision Skill macro that only writes Active.
+### Reopen
 
-**Archive:** When the platform provides a conversation id, pass `--conversation-id "<id>"` on `$DEC_START`.
+Do not run `$DEC_START` again for a session being revised. When revision must
+freeze the active session, use `$DEC_REOPEN`; keep it `Frozen` until RS commits
+realignment. A holder that requires a reopen permit owns the permit flow.
 
-When `$DEC_START` receives `--conversation-id`:
+### Context activation
 
-1. **Restore:** if this conversation's decision session is in cold storage, move it back to `cache/<cycle_id>/<cache_subdir>/` (from active-context + session snapshot).
-2. **Archive:** other conversations with decision-family stages (`decision`, `lulu-bet`, `lulu-approach`) and `session-state: Completed` (legacy `Delivered` OK) are moved to `cache/_archive/<conversation_id>/<cache_subdir>/`.
+After `$DEC_START` or a holder binding action returns `context_docs`:
 
-SSOT for conversation → cycle mapping: platform `active-context.json`. Does **not** use `cache/decision/<conversation_id>/`.
+1. Run `$GATE_CONTROL resolve-context`; pin `$CTX`.
+2. Load each returned context document once.
+3. Declare the bound decision session, then use only the new `$CTX`.
 
-**Do not** run `$DEC_START` again after session **Completed** on the same feature — use `$DEC_REOPEN` (sets session `Frozen`, then RS → `$RS_COMMIT` to stale and unfreeze). Use a new feature for a wholly new decision session.
-
-When holder constraints declare `reopen_authorization=holder_required` (e.g. `lulu-approach`), `$DEC_REOPEN` **requires** `--permit` issued by the holder reopen prepare step. Generic `decision` without that field keeps the no-permit path.
-
-### Active Session (current working session)
-
-**Semantics (type definition):** Switching Active replaces the **decision session subject** — the default root for gate/register I/O and the source of `$CTX` after `resolve-context`. It is not “changing a folder,” not changing gates within the same session, and not changing conversation topic.
-
-| | |
-|--|--|
-| **Changes** | Default write root; subsequent `$GATE_CONTROL resolve-context` reads that session’s gates / registers / `domain_constraints` |
-| **Does not change** | Other `Dx/` on-disk history; outer-shell focus (holder updates separately) |
-| **Complete when** | Active points at the target **and** Skill has run `$GATE_CONTROL resolve-context` **and** Skill has loaded `context_docs` from bind stdout **and** a same-turn “session switched” statement was made |
-| **After switch** | Use only the new `$CTX`; prior session gate conclusions / priors do **not** carry over unless re-registered or re-closed in the new session |
-
-**CLI:** `--session-dir` appears **only** on `$DEC_START`. All other decision macros use Active only (missing Active → hard fail).
-
-**Nested bootstrap:** `$DEC_START --session-dir …/main` or `…/Dx` (success sets Active). Holders that switch among nested sessions must use their own entry macros (e.g. approach `$APPROACH_SHELL enter-node`), which call the decision holder Python API `bind_session` then require Skill semantic entry: `$GATE_CONTROL resolve-context` → load `context_docs` → declare session switched → continue **without** `--session-dir`.
+Holder SKILLs own nested-session navigation and binding. A binding changes the
+decision I/O subject; conclusions from the prior session do not carry over
+unless re-registered or re-closed.
 
 ---
 
-## Session Flow
+## Workflow Router
 
-**Global gates (non-spine):**
+### Topology
 
 - **G0 · Parallel Registers** — entire session · parallel on hit · spine uninterrupted (see § Gate routing · G0).
 - **G9 · Upstream-change detect** — any turn · not parallel · on hit load RS (no dedicated G9 runner).
@@ -105,23 +96,25 @@ When holder constraints declare `reopen_authorization=holder_required` (e.g. `lu
 **Spine:** [LoopA] O → Q → GL → E → D → X → R → DC → `$GATE_CONTROL complete`.
 
 **Phase grouping** (realign scope):
-- [LoopA] O → Q → GL → E → D → X → R — decision construction (realign at Q / GL / E / D / X); R includes expose + open-risk handle (`$SKILL_DIR/references/r-risk-release.md`)
+- [LoopA] O → Q → GL → E → D → X → R — decision construction (realign at Q / GL / E / D / X)
 - [HD] Human Decision — R exit `human_decision` (see § Gate routing · HD)
 - [DC] Delivery Confirmation — terminal gate
 
-### Gate handoff
-
-After a spine runner returns `GATE_COMPLETE`, load the next spine runner per § Gate routing; its pipeline step 1 pins fresh `$CTX`. After `G0_COMPLETE`, resume the active gate dialogue. After `RS_COMPLETE`, load gate `G` runner per § Gate routing (a stale non-R gate follows `$SKILL_DIR/references/rs-stale-gate-update.md`; stale R follows its Stale entry). After `BATCH_COMPLETE`, load the runner for stdout / `$CTX.active_gate`; any remaining stale R follows its Stale entry. Path Batch after RS is `$SKILL_DIR/references/rs-stale-batch-confirm.md` (chosen in `rs-realign-runner` before Per-gate entry).
-
-### Gate routing
+### Runner handoff
 
 <HARD-GATE>
-Before executing any gate, read the corresponding runner SKILL first.
-Every spine gate runner pipeline step 1 (`$GATE_CONTROL resolve-context`) is mandatory — it pins `$CTX` for that gate. Do not skip it or rely on memory.
-On G0 identification hit during spine or RS subroutine dialogue: load G0 runner before the next user-visible reply; after `G0_COMPLETE`, resume the active gate dialogue.
-On G9 hit (any turn: information revises or contradicts a closed gate): do not advance past the hit; load RS runner before `$RS_COMMIT`; after `RS_COMPLETE`, load gate `G` runner per this table. A stale non-R gate uses Per-gate; stale R enters its special stale path. After `BATCH_COMPLETE`, load `active_gate` runner per this table.
-Do NOT rely on memory or prior context for gate execution steps.
+Before executing any gate, read the corresponding runner SKILL first. Each
+runner owns its context acquisition or reuse rule. Do not skip it or rely on
+memory.
 </HARD-GATE>
+
+1. After `GATE_COMPLETE`, load the next spine runner per the table.
+2. On an eligible G0 identification hit, load G0 before the next user-visible
+   reply. After `G0_COMPLETE`, resume the interrupted flow.
+3. On G9, load RS before `$RS_COMMIT`. After RS or Batch completion, load the
+   runner named by its completion result.
+
+### Gate routing
 
 Global gates:
 
@@ -145,53 +138,32 @@ Spine gates:
 | DC | `$SKILL_DIR/runners/dc-delivery-runner/SKILL.md` | R exit `dc` |
 | Human Decision | `$SKILL_DIR/runners/hd-human-decision-runner/SKILL.md` | R exit `human_decision` |
 
-Dialogue semantics SSOT: each gate runner owns its Cognitive map; Gate Routing
-loads runners only. RS Per-gate stale update (except R):
-`$SKILL_DIR/references/rs-stale-gate-update.md`. RS Batch:
-`$SKILL_DIR/references/rs-stale-batch-confirm.md`. R stale review:
-`$SKILL_DIR/references/r-stale-review.md`. R open-risk handle:
-`$SKILL_DIR/references/r-risk-release.md`.
+Dialogue semantics SSOT: each runner owns its Cognitive map. Gate routing loads
+runners only.
 
 ---
 
-## User-Facing Projection Rules
+## Cross-Gate Rules
 
-Before every user-visible reply, project internal workflow **machinery** into user-facing task meaning. Projection controls *identifier visibility only* — it renders gate names, register codes, phase labels, and control flow into task language. It does **not** lower the domain register: technical vocabulary required by `domain_constraints` is preserved.
+### User-facing projection
 
-**Precedence (conflict resolution):** `domain.instruction` > `role.instruction` > this section's plain-language rule. "Plain language" means *do not expose internal identifiers* — never *do not use domain/technical vocabulary*. When "say it plainly" and "use technical terms" appear to conflict, they are on different axes: strip the internal label, keep the technical term.
+1. **Task meaning** — Before every user-visible reply, translate workflow
+   identifiers, completion conditions, and control flow into user-facing task
+   meaning.
+2. **Technical precision** — Hide internal identifiers unless implementation or
+   failure details are needed. Preserve vocabulary required by
+   `$CTX.domain_constraints`; precedence is
+   `domain.instruction > role.instruction > projection rules`.
+3. **State-grounded** — Ground replies in pinned `$CTX`, the active runner's
+   Cognitive map, gate routing, and domain constraints. Never infer workflow
+   state from conversation or memory.
+4. **Display only** — Do not persist projected text. `$CTX`, the active
+   Cognitive map, and command stdout remain the state sources.
 
-Use only:
-
-- Pinned `$CTX`
-- The active runner's Cognitive map
-- Gate routing next-step information
-- `$CTX.domain_constraints`
-
-Do not infer the active phase from conversation wording, visible prompts, or memory.
-
-Do not expose internal identifiers in normal guidance unless the user asks about implementation or failure details are needed.
-
-Render:
-
-- Workflow identifiers as user-facing task meaning
-- Completion criteria as the user's needed answer or confirmation
-- Remaining internal steps as remaining work, not as internal labels
-
-Apply this projection at stage start, gate handoff, gate questions, confirmation prompts, blocked/override/incomplete/realign messages, and delivery messages.
-
-Do not persist generated display text. `$CTX`, gate contracts, and control command stdout remain the state sources.
-
----
-
-## Execution Rules
-
-### Core principles
+### Global operating rules
 
 1. **Expose over conclude** — the goal is to surface assumptions and risks. A conclusion is the output of verification, not the target.
 2. **User prior over framework** — user's judgments, intuitions, and concerns shape the session; the framework captures and integrates them, does not override them.
-3. **Log assumptions immediately** — on identification hit, see § Gate routing · G0.
-
-### Global rules
 
 **G1.** Ask One question at a time — never stack multiple questions in a single message. MUST NOT use checkbox, multiple-choice, or other selection UI.
 
@@ -199,7 +171,8 @@ Do not persist generated display text. `$CTX`, gate contracts, and control comma
 
 **G3.** Each gate has a pass criterion. Do not advance until the criterion is met.
 
-**G4. Session SSOT** — Do not read session directory data files except reads required by the active runner pipeline (DC runner).
+**G4. Session SSOT** — Route only from `$CTX` and macro stdout. Do not read or
+write session artifacts directly.
 
 **G5.** Upstream input error — if the intent input itself has a fundamental error, exit the loop; tell the user to fix the input and restart.
 
@@ -217,18 +190,23 @@ If user confirms exit → exit gracefully; mark as incomplete.
 
 **Prohibited:** re-asking information already stated.
 
-**G9. Upstream-change detect (global · any turn)** — on any user turn, if information revises or contradicts a **closed** gate's conclusion (pass criterion broken **or** context update), do not ignore it: load RS runner per § Gate routing · G9 → RS. Prefer earliest hit among Q / GL / E / D / X. Not a per-turn full scan — identification-hit style (same family as G0). No dedicated G9 runner.
+**G9. Upstream-change detect (global · any turn)** — on any user turn, if
+information revises or contradicts a closed gate's conclusion, load RS per
+§ Workflow Router. RS determines the realign point. This is an
+identification-hit check, not a per-turn full scan.
 
 ---
 
-<HARD-GATE name="Session Exit">
-Do NOT exit diagnostic or transition to the next stage until:
+## Completion & Holder Handoff
 
-- All DDF gates (O → Q → GL → E / D / X → R → DC) have passed
-- `$GATE_CONTROL check-delivery-ready` returns `ready: true`; DC closed; `$GATE_CONTROL complete` succeeded
-- User has explicitly confirmed readiness to proceed
+<HARD-GATE name="Decision completion">
+Do NOT exit decision or transition to the next stage until:
 
-When the Active session is under a holder outer flow (e.g. `lulu-approach` `main/` / `Dx/`), this HARD-GATE covers **this Active session only**. Cross-stage handoff / cycle `delivered-refs` is owned by the holder stage deliver (approach: `$APPROACH_DELIVER`), not by nested `complete`.
+- DC runner has completed the decision session successfully.
+- The user has explicitly confirmed readiness to proceed.
+
+In a holder, completion applies to this decision node only. Holder delivery owns
+the outer stage transition and delivered references.
 
 This applies to EVERY intent, regardless of perceived clarity.
 "I already know what I want to build" is the most common reason to skip this —

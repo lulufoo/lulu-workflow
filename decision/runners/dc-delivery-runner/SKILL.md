@@ -60,7 +60,7 @@ Subcommand contracts: module docstring / `--help`. `$SUBAGENT_*`: `_subagent.md`
 |------|------|----------|
 | `prepare` | `G-cleared` unmet | `$GATE_CONTROL check-delivery-ready` (fix all errors) → Decision Eval Probe handoff below (fail→RS; no remediation) → `$SESSION_INTEGRITY render`. |
 | `present` | `G-cleared` met | Present Coverage sections from `decision-doc.md`. |
-| `confirm` | Ready for G8 | Ask whether decisions are correct / any item to realign. |
+| `confirm` | `G-cleared` met | Ask whether decisions are correct / any item to realign. |
 | `close` | User confirms | `gate-close` + `complete` with payload below; after_dc message. |
 
 ### Pass criterion
