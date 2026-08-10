@@ -21,6 +21,7 @@ Do NOT proceed until you have read `../../../_runtime.md`
 </HARD-GATE>
 
 - `$SKILL_DIR` = `$SKILL_ROOT/decision`
+- `$CTX.active_gate` must be `E` (from resolve-context)
 - `$CTX.gates.GL.status` must be `closed` (from resolve-context)
 - `$CTX.gl` must be present when GL is closed
 - Dialogue semantics SSOT: this file’s **Cognitive map** (no separate gate file)
@@ -95,10 +96,9 @@ framework pass.
 **Entry:**
 
 1. Run `$GATE_CONTROL resolve-context`; pin stdout JSON as `$CTX`.
-2. Confirm `$CTX.active_gate` is `E`; otherwise do not proceed.
-3. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
+2. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
    `domain.instruction`) to the dialogue.
-4. If `$CTX.gates.E.status == stale`, follow
+3. If `$CTX.gates.E.status == stale`, follow
    `$SKILL_DIR/references/stale-gate-update.md`, return `GATE_COMPLETE E`,
    and skip Act.
 

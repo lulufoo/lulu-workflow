@@ -20,6 +20,7 @@ Do NOT proceed until you have read `../../../_runtime.md`
 </HARD-GATE>
 
 - Gate contract: `$SKILL_DIR/gates/x-full-diagnosis.md`
+- `$CTX.active_gate` must be `X` (from resolve-context)
 - `$CTX.gates.D.status` must be `closed`
 
 ## Pipeline
@@ -27,10 +28,9 @@ Do NOT proceed until you have read `../../../_runtime.md`
 **Entry:**
 
 1. Run `$GATE_CONTROL resolve-context`; pin stdout JSON as `$CTX`.
-2. Confirm `$CTX.active_gate` is `X`; otherwise do not proceed.
-3. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
+2. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
    `domain.instruction`) to the dialogue.
-4. If `$CTX.gates.X.status == stale`, follow
+3. If `$CTX.gates.X.status == stale`, follow
    `$SKILL_DIR/references/stale-gate-update.md`, return `GATE_COMPLETE X`,
    and skip Act.
 
