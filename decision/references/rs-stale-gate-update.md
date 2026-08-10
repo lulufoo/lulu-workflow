@@ -3,7 +3,7 @@
 ## Entry
 
 Use only when `$CTX.gates.<self>.status == stale` on the Per-gate recovery
-path after RS. Otherwise, run the gate's normal contract.
+path after RS. Otherwise, run the gate runner's normal Pipeline.
 
 R is excluded: load the R runner, which owns its special stale review.
 

@@ -16,25 +16,43 @@ Control CLI non-zero → stop, report error, wait for user direction.
 ## Prerequisites
 
 <HARD-GATE>
-Do NOT proceed until you have read `../../../_runtime.md`
+1. Do NOT proceed until you have read `../../../_runtime.md`.
+2. Run `$GATE_CONTROL resolve-context`; pin stdout JSON as `$CTX`.
 </HARD-GATE>
 
-- Gate contract: `$SKILL_DIR/gates/hd-human-decision.md`
 - Trigger: R exit `human_decision`
+
+## Cognitive map
+
+### Decision model
+
+Use this subroutine only when open risks remain unresolved, an upstream
+conclusion may be wrong, or available information cannot support a decision.
+
+| User finding | Required outcome |
+|--------------|------------------|
+| An upstream conclusion is wrong | Identify the affected align gate and load RS. RS routes LoopA from that gate. |
+| No decision is possible with available information | Report `Unable to Decide`: at least two directions explored, the stuck gate and reason, and the unlock condition. Keep the session incomplete. |
+
+### Bounds
+
+- Present the R failure context before asking for a disposition.
+- This subroutine does not close a spine gate or change the active gate.
 
 ## Pipeline
 
 **Entry:**
 
-1. Run `$GATE_CONTROL resolve-context`; pin stdout JSON as `$CTX`.
-2. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
+1. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
    `domain.instruction`) to the dialogue.
 
 **Act:**
 
-1. Present failure context; user selects exit:
-   - **Upstream wrong** → identify align gate → load `$SKILL_DIR/runners/rs-realign-runner/SKILL.md`
-   - **No solution** → output Unable to Decide (directions ≥2, stuck gate, unlock condition); session incomplete
+1. Present the R failure context and ask the user to choose a Cognitive map
+   outcome.
+2. Upstream wrong → identify the align gate, then load
+   `$SKILL_DIR/runners/rs-realign-runner/SKILL.md`.
+3. No decision possible → report `Unable to Decide` with the required contents.
 
 **Done:** Return `HD_COMPLETE exit=rs|unable` or hand off to RS runner.
 

@@ -16,19 +16,53 @@ Control CLI non-zero → stop, report error, wait for user direction.
 ## Prerequisites
 
 <HARD-GATE>
-Do NOT proceed until you have read `../../../_runtime.md`
+1. Do NOT proceed until you have read `../../../_runtime.md`.
+2. Confirm the session is InProgress and an identification hit occurred this
+   turn.
 </HARD-GATE>
 
-- Gate contract: `$SKILL_DIR/gates/g0-parallel-registers.md`
-- Identification hit this turn (gate contract § Identify)
 - Active gate unchanged — resume after G0
+
+## Cognitive map
+
+### Classification
+
+| Signal in dialogue | Log | Also log |
+|--------------------|-----|----------|
+| Judgment about the problem or solution | Prior · `judgment` | — |
+| Preference between options or approaches | Prior · `preference` | — |
+| Worry, risk, or blocker | Prior · `concern` | — |
+| Ruled-out option | Prior · `excluded` | — |
+| Explicit or implicit unverified premise | Assumption | — |
+| Prior resting on an unverified premise | Prior (matching kind) | Assumption for the premise |
+
+Recognize Assumptions as they surface; do not defer them to R.
+
+### Bounds
+
+- G0 runs alongside the interrupted gate, does not change `active_gate`, and
+  does not call `gate-close`.
+- Confirm the proposed entries briefly with the user before persistence.
+- Persist only through `$REGISTER_COMMIT`; do not hand-edit registers or chain
+  register commands.
+- Reading or organizing Prior belongs to D or R. Bulk Assumption updates belong
+  to R; RS owns register batches during realignment.
 
 ## Pipeline
 
-1. Gate contract § Execute — brief confirm with user
-2. `$REGISTER_COMMIT` with append/update operations per gate contract
-3. Pin `$CTX` from stdout
-4. Return `G0_COMPLETE` — resume active gate dialogue
+**Entry:**
+
+1. Classify every identification hit with the Cognitive map.
+
+**Act:**
+
+1. Briefly confirm the proposed Prior and Assumption entries with the user.
+2. Run `$REGISTER_COMMIT` with the required append/update operations.
+3. Pin `$CTX` from stdout.
+
+**Done:** Return `G0_COMPLETE` and resume the interrupted gate dialogue.
+
+**Stop:** Non-zero command → stop, report error, wait for user direction.
 
 ## register-commit
 
