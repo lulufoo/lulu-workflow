@@ -120,9 +120,25 @@ def load_document_presentation(
     cycle_id: str,
     project_root: Path,
     profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+    *,
+    allow_missing: bool = False,
 ) -> dict[str, Any]:
+    """Load compose document presentation fields.
+
+    When ``allow_missing`` is True and the document file is not yet created
+    (legal before Initializing), return a pending stub with the expected path
+    and empty title/summary instead of raising.
+    """
     active_doc = load_active_doc_for_profile(cycle_id, project_root, profile_id)
     doc_path = project_root / document_path(cycle_id, active_doc, profile_id, project_root)
+    if allow_missing and not doc_path.exists():
+        return {
+            "path": str(doc_path.resolve()),
+            "title": "",
+            "summary": "",
+            "revision": active_doc,
+            "status": "pending",
+        }
     payload = extract_presentation(doc_path, revision=active_doc)
     payload["revision"] = active_doc
     return payload

@@ -96,6 +96,31 @@ class TestSessionSnapshot:
         assert payload["view"] == "session"
         assert payload["workflow_state"]["mode"] == "product"
         assert payload["compose_doc"]["revision"] == 1
+        assert payload["compose_doc"]["status"] == "ready"
+
+    def test_split_without_compose_doc_returns_pending(self, tmp_path: Path):
+        """Split / pre-Initializing: session view must not require design-doc."""
+        cycle_id = "feat-session-info-split"
+        seed_profile_pointer_for_tests(tmp_path, cycle_id, DEFAULT_COMPOSE_PROFILE_ID)
+        base = tmp_path / ".cache" / "cursor" / "lulu-dev-workflow" / cycle_id / "lulu-plan"
+        revision = base / "revision1"
+        revision.mkdir(parents=True)
+        (base / "session-state.md").write_text(
+            "---\nversion: 1\nactive_doc: 1\n---\n",
+            encoding="utf-8",
+        )
+        from workflow_state_schema import init_compose_session  # noqa: WPS433
+
+        init_compose_session(revision / "workflow-state.md", mode="tech")
+        # No tech-doc.md — mirrors post-start Split before Initializing.
+        payload = session_snapshot(cycle_id, tmp_path)
+        assert payload["view"] == "session"
+        assert payload["workflow_state"]["current_state"] == "Split"
+        assert payload["compose_doc"]["revision"] == 1
+        assert payload["compose_doc"]["status"] == "pending"
+        assert payload["compose_doc"]["title"] == ""
+        assert payload["compose_doc"]["summary"] == ""
+        assert payload["compose_doc"]["path"].endswith("revision1/tech-doc.md")
 
 
 class TestStageTransitions:
@@ -173,6 +198,39 @@ class TestCli:
         payload = json.loads(result.stdout)
         assert payload["ok"] is False
         assert payload["command"] == "delivery-preview"
+
+    def test_session_view_cli_ok_when_doc_missing(self, tmp_path: Path):
+        cycle_id = "feat-session-info-cli-pending"
+        seed_profile_pointer_for_tests(tmp_path, cycle_id, DEFAULT_COMPOSE_PROFILE_ID)
+        base = tmp_path / ".cache" / "cursor" / "lulu-dev-workflow" / cycle_id / "lulu-plan"
+        revision = base / "revision1"
+        revision.mkdir(parents=True)
+        (base / "session-state.md").write_text(
+            "---\nversion: 1\nactive_doc: 1\n---\n",
+            encoding="utf-8",
+        )
+        from workflow_state_schema import init_compose_session  # noqa: WPS433
+
+        init_compose_session(revision / "workflow-state.md", mode="tech")
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(_SCRIPT),
+                "--cycle-id",
+                cycle_id,
+                "--project-root",
+                str(tmp_path),
+                "--view",
+                "session",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.returncode == 0, result.stderr
+        payload = json.loads(result.stdout)
+        assert payload["compose_doc"]["status"] == "pending"
+        assert payload["workflow_state"]["current_state"] == "Split"
 
     def test_stage_transitions_view(self, tmp_path: Path):
         project_root, cycle_id = _setup_cycle(tmp_path)

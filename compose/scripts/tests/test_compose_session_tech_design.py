@@ -71,6 +71,30 @@ class TestComposeSessionTechDesign:
         assert payload["profile_id"] == "lulu-design"
         assert payload["compose_doc"]["path"].endswith("L1/design-doc.md")
         assert payload["compose_doc"]["title"] == "Design X"
+        assert payload["compose_doc"]["status"] == "ready"
+
+    def test_session_snapshot_split_locked_without_design_doc(self, tmp_path: Path):
+        """Topology locked in Split; L1/design-doc.md not yet seeded."""
+        from init_working_helpers import lock_single_l1_tree  # noqa: WPS433
+
+        seed_profile_pointer_for_tests(tmp_path, _CYCLE, _PROFILE)
+        base = tmp_path / _CACHE / _CYCLE / "lulu-design"
+        revision = base / "revision1"
+        revision.mkdir(parents=True)
+        (base / "session-state.md").write_text(
+            "---\nversion: 1\nactive_doc: 1\nupdated_at: 2024-01-01T00:00:00+00:00\n---\n",
+            encoding="utf-8",
+        )
+        ws = revision / "workflow-state.md"
+        init_compose_session(ws, mode="tech")
+        lock_single_l1_tree(revision)
+        # No L1/design-doc.md
+        payload = session_snapshot(_CYCLE, tmp_path, profile_id=_PROFILE)
+        assert payload["workflow_state"]["current_state"] == "Split"
+        assert payload["compose_doc"]["status"] == "pending"
+        assert payload["compose_doc"]["revision"] == 1
+        assert payload["compose_doc"]["path"].endswith("L1/design-doc.md")
+        assert payload["compose_doc"]["title"] == ""
 
     def test_stage_transitions(self, tmp_path: Path):
         seed_profile_pointer_for_tests(tmp_path, _CYCLE, _PROFILE)

@@ -60,9 +60,10 @@ def _compose_document_view(doc: dict[str, Any]) -> dict[str, Any]:
 
 
 def _session_document_view(doc: dict[str, Any]) -> dict[str, Any]:
-    """Session resume fields including revision."""
+    """Session resume fields including revision and document readiness."""
     payload = _compose_document_view(doc)
     payload["revision"] = doc["revision"]
+    payload["status"] = doc.get("status", "ready")
     return payload
 
 
@@ -128,10 +129,19 @@ def session_snapshot(
     *,
     profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
 ) -> dict[str, Any]:
-    """Return workflow state plus document presentation for session resume."""
+    """Return workflow state plus document presentation for session resume.
+
+    Document may be pending (Split / pre-Initializing): still returns revision
+    and workflow state with ``compose_doc.status=pending`` rather than failing.
+    """
     ws_path = workflow_state_path(cycle_id, project_root, profile_id)
     state = load_workflow_state(ws_path)
-    doc = load_document_presentation(cycle_id, project_root, profile_id)
+    doc = load_document_presentation(
+        cycle_id,
+        project_root,
+        profile_id,
+        allow_missing=True,
+    )
     compose_doc = _session_document_view(doc)
     return {
         "view": _VIEW_SESSION,
