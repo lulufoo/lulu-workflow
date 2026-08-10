@@ -1,16 +1,13 @@
 ---
 name: decision/dc-delivery-runner
-description: >-
-  DC gate runner for decision. Delivery Confirmation: readiness, Decision Eval,
-  render, user confirm, gate-close DC, complete. Invoked by decision/SKILL.md.
+description: Internal runner for the Decision DC gate.
 meta-skill-version: 1.0.0
 ---
 
 # dc-delivery-runner
 
-Execute **DC — Delivery Confirmation** (session completion): clear delivery
-preconditions, present the decision doc, confirm with the user, then
-`gate-close` DC and `$GATE_CONTROL complete`.
+Verify that the decision meets delivery conditions and obtain the user's delivery
+confirmation. Complete when the user confirms the decision is correct to deliver.
 
 ## Blocking policy
 

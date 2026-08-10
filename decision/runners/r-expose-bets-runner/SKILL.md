@@ -1,17 +1,14 @@
 ---
 name: decision/r-expose-bets-runner
-description: >-
-  R gate runner for decision. Expose the Bets: batch-present Prior, assumption
-  coverage, and full-table risk draft; handle open risks; gate-close R.
-  Invoked by decision/SKILL.md.
+description: Internal runner for the Decision R gate.
 meta-skill-version: 1.0.0
 ---
 
 # r-expose-bets-runner
 
-Execute **R — Expose the Bets**. Prepare the expose pack off-turn, present it
-once, revise by re-presenting the full pack, confirm expose, handle any
-`risk_state=open` rows, then `gate-close` R.
+Make assumptions and risks reviewable as a complete risk pack, then handle or
+route unresolved risks. Complete when the pack is confirmed and the selected exit
+is legal.
 
 ## Blocking policy
 

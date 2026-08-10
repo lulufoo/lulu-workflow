@@ -1,15 +1,13 @@
 ---
 name: decision/q-problem-runner
-description: >-
-  Q gate runner for decision. Goal-driven problem clarification dialogue and
-  gate-close Q with gate-payload write. Invoked by decision/SKILL.md.
+description: Internal runner for the Decision Q gate.
 meta-skill-version: 1.0.0
 ---
 
 # q-problem-runner
 
-Execute **Q — Problem Clarification**: reach two goals (problem + non-negotiable
-constraints), then close. Mechanical persistence via `$GATE_CONTROL`.
+Clarify the problem statement and non-negotiable constraints. Complete when the
+user confirms both are accurate.
 
 ## Blocking policy
 
@@ -71,11 +69,6 @@ re-evaluate.
 
 Do **not** hard-code fixed question wording; phrase from goals +
 `$CTX.domain_constraints`.
-
-### Pass criterion
-
-Problem statement is clear and agreed upon; constraints enumerated; user
-confirmed the summary.
 
 ### Side routes
 

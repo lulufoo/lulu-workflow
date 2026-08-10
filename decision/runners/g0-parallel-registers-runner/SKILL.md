@@ -1,15 +1,13 @@
 ---
 name: decision/g0-parallel-registers-runner
-description: >-
-  G0 global parallel gate for decision. Captures User Prior and Assumption
-  entries via register-commit when identification hits during spine or RS
-  gate dialogue. Invoked by decision/SKILL.md Gate routing.
+description: Internal runner for the Decision G0 global gate.
 meta-skill-version: 1.0.0
 ---
 
 # g0-parallel-registers-runner
 
-Execute **G0 — Parallel Registers** (global · parallel). Mechanical persistence via `$REGISTER_COMMIT`.
+Capture newly identified User Prior and Assumptions without changing the active
+gate. Complete when the entries are committed and the interrupted gate resumes.
 
 ## Blocking policy
 

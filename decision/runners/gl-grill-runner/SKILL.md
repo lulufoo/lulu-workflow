@@ -1,15 +1,13 @@
 ---
 name: decision/gl-grill-runner
-description: >-
-  GL gate runner for decision. Goal-driven intent probe between Q and E;
-  gate-close GL with lens-tagged exchanges. Invoked by decision/SKILL.md.
+description: Internal runner for the Decision GL gate.
 meta-skill-version: 1.0.0
 ---
 
 # gl-grill-runner
 
-Execute **GL — Intent Probe** (after Q, before E): reach two goals, then close.
-Mechanical persistence via `$GATE_CONTROL`.
+Surface decision-relevant user intent and critical uncertainties before direction
+setting. Complete when the input is sufficient to enter E.
 
 ## Blocking policy
 

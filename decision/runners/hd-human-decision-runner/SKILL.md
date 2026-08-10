@@ -1,14 +1,13 @@
 ---
 name: decision/hd-human-decision-runner
-description: >-
-  Human Decision subroutine after R suspend. Routes to RS or Unable to Decide.
-  Invoked by decision/SKILL.md.
+description: Internal runner for the Decision Human Decision subroutine.
 meta-skill-version: 1.0.0
 ---
 
 # hd-human-decision-runner
 
-Execute **Human Decision** after R exit `human_decision` (open risks unresolved).
+Resolve an R suspension caused by unresolved risks. Complete by routing an
+upstream error to RS or reporting an Unable to Decide outcome.
 
 ## Blocking policy
 

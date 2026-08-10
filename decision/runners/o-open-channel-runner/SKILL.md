@@ -1,15 +1,13 @@
 ---
 name: decision/o-open-channel-runner
-description: >-
-  O gate runner for decision. LoopA entry: optional prior dump, confirm ready
-  for Q, gate-close O. Invoked by decision/SKILL.md.
+description: Internal runner for the Decision O gate.
 meta-skill-version: 1.0.0
 ---
 
 # o-open-channel-runner
 
-Execute **O — Open Channel** (LoopA entry): invite optional prior / assumption
-capture, then confirm readiness for Q. Mechanical persistence via `$GATE_CONTROL`.
+Open the channel for existing User Prior or Assumption context. Complete when the
+user is ready to enter Q; empty capture is valid.
 
 ## Blocking policy
 
@@ -69,11 +67,6 @@ turns before `confirm`.
 
 Do **not** hard-code fixed invitation wording; phrase from goals +
 `$CTX.domain_constraints`.
-
-### Pass criterion
-
-User confirms they are ready to proceed to Q. Prior dump is optional —
-empty registers are allowed.
 
 ### Side routes
 

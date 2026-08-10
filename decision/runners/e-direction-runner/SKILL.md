@@ -1,16 +1,13 @@
 ---
 name: decision/e-direction-runner
-description: >-
-  E gate runner for decision. Goal-driven settled direction after GL;
-  gate-close E with directions payload. Invoked by decision/SKILL.md.
+description: Internal runner for the Decision E gate.
 meta-skill-version: 1.0.0
 ---
 
 # e-direction-runner
 
-Execute **E — Direction Exploration** (after GL, before D): settle a
-direction (`G-settled-direction`), then close. Mechanical persistence via
-`$GATE_CONTROL`.
+Settle a direction from the locked problem and GL intent. Complete when the user
+explicitly accepts a candidate direction.
 
 ## Blocking policy
 

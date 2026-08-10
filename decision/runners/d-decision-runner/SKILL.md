@@ -1,14 +1,13 @@
 ---
 name: decision/d-decision-runner
-description: >-
-  D gate runner for decision. Decision rationale, scope, and execution
-  approach dialogue with gate-close D. Invoked by decision/SKILL.md.
+description: Internal runner for the Decision D gate.
 meta-skill-version: 1.0.0
 ---
 
 # d-decision-runner
 
-Execute **D — Decision & Scope**. Mechanical persistence via `$GATE_CONTROL`.
+Define the selected direction's rationale, scope and exclusions, and landing
+approach. Complete when the user confirms all three.
 
 ## Blocking policy
 

@@ -1,14 +1,13 @@
 ---
 name: decision/x-full-diagnosis-runner
-description: >-
-  X gate runner for decision. Full diagnosis dialogue and gate-close X with
-  execution analysis sections. Invoked by decision/SKILL.md.
+description: Internal runner for the Decision X gate.
 meta-skill-version: 1.0.0
 ---
 
 # x-full-diagnosis-runner
 
-Execute **X — Full Diagnosis** (all five dimensions in one gate-close). Mechanical persistence via `$GATE_CONTROL`.
+Diagnose the active X dimensions at decision granularity. Complete when the user
+confirms each active dimension's result.
 
 ## Blocking policy
 

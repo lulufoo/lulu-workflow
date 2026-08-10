@@ -1,18 +1,14 @@
 ---
 name: decision/rs-realign-runner
-description: >-
-  RS global gate for decision. Realign State Handler when upstream change
-  requires downstream sync. Confirms the affected boundary and Register
-  dispositions, commits stale state, then routes recovery. Not parallel.
+description: Internal runner for the Decision RS global gate.
 meta-skill-version: 1.0.0
 ---
 
 # rs-realign-runner
 
-Restore a coherent decision state after an upstream conclusion changes.
-Complete only when the affected boundary and Register dispositions are
-confirmed, the realign transition succeeds, and exactly one recovery route is
-selected.
+Serially realign downstream decision state after an upstream conclusion changes.
+Complete when the affected boundary and Register dispositions are confirmed,
+stale state is committed, and one recovery route is selected.
 
 ## Prerequisites
 
@@ -60,11 +56,6 @@ Subcommand and stdout contracts: module docstring / `--help`.
 - Surviving Assumption risk facts remain intact. RS does not invent or rewrite
   `completed`; stale R review belongs to the R runner.
 - Batch starts only after the recovery-route choice.
-
-### Pass criterion
-
-The align point and full Register disposition are confirmed, `$RS_COMMIT`
-succeeds, and exactly one recovery route is selected.
 
 ## Pipeline
 
