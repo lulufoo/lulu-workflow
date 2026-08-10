@@ -25,13 +25,6 @@ discovery channels (human || AI).
 | Human | May add, correct, or remove Topics during `topic-landscape` review; **sole authority** to confirm a landscape, select a `gap` node (caller then adopts), confirm conclusions, and confirm exit / hard-skip | — |
 | AI | Autonomously build the initial `topic-landscape` from induction context and settled facts; reconcile human corrections and re-present; may **guide-propose** from a confirmed upstream frontier; may optionally invoke `topic-question-driver` after the portrait; help free dialogue / deep work / summarize | Treat human correction as a parallel discovery source; auto-adopt; require the question driver; skip `topic-landscape` / `topic-portrait` when their triggers fire; silent fact writes; treat a closure candidate or D1+D2 exit check as a substitute for human confirmation / exit |
 
-G2 Topic contracts: modeling (Topic, Grain, Topic DAG) →
-[`../references/topic-model.md`](../references/topic-model.md); seeking tool
-(Discovery, Presentation, lifecycle) →
-[`../references/topic-landscape.md`](../references/topic-landscape.md);
-adopted-topic portrait →
-[`../references/topic-portrait.md`](../references/topic-portrait.md).
-
 ## Session boundaries
 
 - G2 maps Domain D1+D2 to the model's induction context, human add/correct/remove
@@ -44,8 +37,9 @@ adopted-topic portrait →
 
 ## Tool boundaries
 
-- `topic-portrait`: generic contract in `../references/topic-portrait.md`.
+- `topic-model`: generic contract in `../references/topic-model.md`.
 - `topic-landscape`: generic contract in `../references/topic-landscape.md`.
+- `topic-portrait`: generic contract in `../references/topic-portrait.md`.
 - `topic-question-driver`: optional stateless contract in
   `../references/topic-question-driver.md`; it does not invoke `/converge`.
 - After every `topic-landscape` result, record the G2 landscape receipt through

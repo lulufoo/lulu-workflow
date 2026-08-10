@@ -188,6 +188,10 @@ def test_g2_gate_declares_tools_and_points_at_split_references():
     assert "select its node for adoption" not in text
     assert "seeking landscape or close proof" in text
     assert "seeking map" not in text
+    assert "G2 Topic contracts:" not in text
+    assert "`topic-model`: generic contract in `../references/topic-model.md`" in text
+    assert "`topic-landscape`: generic contract in `../references/topic-landscape.md`" in text
+    assert "`topic-portrait`: generic contract in `../references/topic-portrait.md`" in text
     assert "Exit receipts are the pre-close landscape and exit receipt" in text
     assert "owning contracts" in text
     assert "Human request" in text
