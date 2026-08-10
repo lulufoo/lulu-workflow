@@ -29,7 +29,8 @@ Control CLI non-zero → stop, report error, wait for user direction.
 
 Before D dialogue:
 
-1. Read `$CTX.registers.prior` and `$CTX.gl.exchanges` in full.
+1. Read `$E` (the persisted E payload), `$CTX.registers.prior`, and
+   `$CTX.gl.exchanges` in full.
 2. Compare GL confirmation and operational intents with the chosen E direction
    and intended scope.
 3. Compare every Prior with the chosen E direction and intended scope.
@@ -73,6 +74,8 @@ and `excluded` Prior (or states that no such Prior exists); the user confirms.
 2. If `$CTX.gates.D.status == stale`, follow
    `$SKILL_DIR/references/rs-stale-gate-update.md`, return `GATE_COMPLETE D`,
    and skip Act.
+3. Run `$GET_PAYLOAD --gate E`; pin `payloads.E` as `$E`. If E is missing,
+   stop and report the missing required input.
 
 **Act:**
 
