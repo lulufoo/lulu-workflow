@@ -1,35 +1,41 @@
-# Stale batch confirm (optional path after RS)
+# Batch confirm after RS
 
-Use **only** after `$RS_COMMIT` succeeds and the user has confirmed **Path Batch** (light-patch batch confirm).  
-If the user chose Per-gate, is uncertain, or AI does not claim light-patch → do **not** follow this file; use `stale-gate-update.md` per gate.
+## Entry
 
-## When
+Use only after `$RS_COMMIT` succeeds and the user selects Batch.
+Otherwise, use `$SKILL_DIR/references/stale-gate-update.md` Per-gate.
 
-- Immediate post-`$RS_COMMIT` path choice (see `rs-realign-runner`) selected **Batch**.
-- Align-related stale gates to update are in `Q` / `GL` / `E` / `D` / `X` (v1). Remaining stale gates (e.g. `R`) stay on Per-gate after batch.
+## Prepare
 
-## Steps
+1. Run `$GET_PAYLOAD --stale-only`.
+2. For each stale align gate with a payload, prepare an incremental change list:
+   change points · keep / modify / discard · draft payload.
 
-1. **Read old conclusions (mandatory CLI)** — `$GET_PAYLOAD --stale-only` (or `--gates …`; same as `$GATE_CONTROL get-payload`).  
-   Diffs **must** use this stdout only. Do not invent prior conclusions from conversation memory. Do not Read `gate-payloads/*.json` as a workflow step.
+Use CLI stdout as the only old-conclusion source. Do not reconstruct prior
+conclusions from conversation memory.
 
-2. **Per-gate update proposals (dialogue, no write yet)** — For each stale align gate with a payload (and any keep-only gates): change points · keep/modify/discard · draft updated payload · **incremental Diff** for the user (no full restatement without delta).
+## Decide
 
-3. **Downgrade check** — If any gate needs discard of the whole conclusion, or light-patch confidence is lost → **recommend** Per-gate; obtain path choice again; do not call `batch-reclose`.
+- If a full conclusion must be discarded or the patch is no longer light,
+  return to Per-gate before writing.
+- Otherwise, present one checklist. Continue only after user confirmation.
 
-4. **Checklist confirm** — Present one change list. User confirms once → continue. Reject / uncertain → Path Per-gate (`stale-gate-update.md`); no writes.
+## Commit
 
-5. **`$BATCH_RECLOSE --payloads '<json object>'`** — Only after checklist confirm.
-   Payload keys = consecutive `GATE_ORDER` prefix from current `active_gate`, each gate `stale`, subset of `Q/GL/E/D/X`.  
-   Non-zero → stop, report stderr; state and payloads must be unchanged (atomic).
+1. Run `$BATCH_RECLOSE --payloads '<json object>'`.
+2. Non-zero → stop, report the error, and wait for user direction.
+3. Run `$GATE_CONTROL resolve-context`; pin stdout as `$CTX`.
 
-6. **`$GATE_CONTROL resolve-context`** — Re-pin `$CTX` from stdout.
+## Handoff
 
-7. Return `BATCH_COMPLETE active_gate=<G>` — parent loads the runner for `active_gate` (may still be `stale`, e.g. `R` → Per-gate).
+Return `BATCH_COMPLETE active_gate=<G>`.
+Load `active_gate`; any remaining stale gate continues Per-gate.
 
-## Rules
+## Bounds
 
-- Path Batch and Per-gate are mutually exclusive for one Realign recovery.
-- Conversation-only "closed" does not count; only `batch-reclose` / `gate-close` persist.
-- Do not delete payloads; do not call `invalidate-from`.
-- On G0 hit during this dialogue → G0 runner → resume this path.
+- Batch covers align gates `Q` / `GL` / `E` / `D` / `X`; remaining gates,
+  including `R`, stay Per-gate.
+- Batch and Per-gate are mutually exclusive for one Realign recovery.
+- Only control commands persist state. Do not delete payloads or call
+  `invalidate-from`.
+- G0 hit → load G0 runner, then resume this path.
