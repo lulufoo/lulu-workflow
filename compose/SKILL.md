@@ -188,7 +188,7 @@ Entry: `advance-to-freeedit` success, or Fix L resume.
 
 - User drives edits; AI assists on request.
 - Prefer **structured** edits over hand-editing the assembled compose `.md` (`.md` is a one-way projection):
-  - **Tier A (same revision, presentation):** edit `_body-{cid}.txt` (optionally sync existing fact `text` in `_facts.json`). Narrative-arc Init: visible group/leaf titles come from `_narrative-arc.json` via `$COMPOSE_DOC_CONTROL assemble-arc` (default `--lens-heading omit`); Write loads writing cognition (What) from `section-form-registry`. Never use `_chapters.json` / `_lens-themes.json` / `_chapter-framework.json` / `_chapter-placement.json` (retired). Skip Inductive|Deductive / Initializing.
+  - **Tier A (same revision, presentation):** edit `_body-{cid}.txt` (optionally sync existing fact `text` in `_facts.json`). Narrative-arc Init: visible group/leaf titles come from `_narrative-arc.json` via `$COMPOSE_DOC_CONTROL assemble-arc` (default `--lens-heading omit`); Write uses writing cognition (What) from `$CHAPTER_WRITE_STATE begin.writing_cognition`. Never use `_chapters.json` / `_lens-themes.json` / `_chapter-framework.json` / `_chapter-placement.json` (retired). Skip Inductive|Deductive / Initializing.
   - **Tier B (new revision, structure/facts topology):** do **not** patch chapter set / `lens_tags` in place — run `$START_COMPOSE` for a new revision, re-run Inductive|Deductive then Init. Leave Fix-L resume.
   - If the user insists on editing the assembled `.md`: warn that the next rebuild / new revision will overwrite; do not reverse-parse `.md` into JSON.
 - When user signals done, ask using remaining `pipeline.post_init_options` that still apply (typically Evaluate; Deliver package only if listed and all L already accepted):
@@ -248,6 +248,7 @@ Stage-agenda items (design-external blockers/notes) live under the revision dir;
 | `{SKILL_ROOT}/compose/inductive-runner/SKILL.md` | Working → Inductive — inductive-runner (`pipeline.inductive: true`) |
 | `{SKILL_ROOT}/compose/deductive-runner/SKILL.md` | Working → Deductive — deductive-runner (`pipeline.inductive: false`) |
 | `{SKILL_ROOT}/compose/narrative-arc-runner/SKILL.md` | Working → Inductive G2 / Initializing — unified narrative-arc pipeline (G2 subagent; Init inline) |
+| `{SKILL_ROOT}/compose/chapter-write-runner/SKILL.md` | Working → Initializing Step 4 — chapter write + assemble (Init inline) |
 | `{SKILL_ROOT}/compose/inductive-runner/g3-shallow-grounding-runner/SKILL.md` | Working → Inductive — optional G3 shallow grounding subagent (detect facts only; parent `add-open`) |
 | `{SKILL_ROOT}/compose/inductive-runner/g3-deep-grounding-runner/SKILL.md` | Working → Inductive — optional G3 deep grounding subagent (one open; parent settles) |
 | `{SKILL_ROOT}/compose/inductive-runner/g4-recompose-runner/SKILL.md` | Working → Inductive — Gate 4 internal-audit subagent (section JSON + shape checkpoint) |
@@ -278,7 +279,7 @@ Fetch compose framework templates on demand; **do not** read `workflow-config.js
 | `$ATOMIZE_EVAL_CONTROL` | `python3 "$SKILL_ROOT/compose/atomize-eval/scripts/atomize_eval_control.py" --profile-id <profile_id> --cycle-id "$CYCLE_ID" --project-root "$(pwd)" -- <subcommand>` — Atomize Eval (doc→`_facts.json`); independent of delivery Evaluating; `completion_mode=return_to_caller` |
 | `$COMPOSE_DOC_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/section/compose_doc_control.py" <subcommand> [args...]` |
 | `$NARRATIVE_ARC_CTL` | `python3 "$SKILL_ROOT/compose/narrative-arc-runner/scripts/narrative_arc_control.py"` |
-| `$CHAPTER_WRITE_STATE` | `python3 "$SKILL_ROOT/compose/scripts/section/chapter_write_state_control.py"` — Init 4.W claim-current gate: `sync` / `status` / `begin` (ticket) / `complete` (current) |
+| `$CHAPTER_WRITE_STATE` | `python3 "$SKILL_ROOT/compose/scripts/section/chapter_write_state_control.py"` — chapter-write-runner claim-current gate: `sync` / `status` / `begin` (ticket + writing_cognition + lens_intent) / `complete` (current) |
 | `$INIT_COMPOSE_VALIDATE` | `python3 "$SKILL_ROOT/compose/scripts/section/init_compose_validation.py" validate --revision-dir <dir> --compose-doc <path> --profile <profile_id> --project-root "$(pwd)"` |
 | `$AGENDA_CTL` | `python3 "$SKILL_ROOT/agenda/scripts/agenda_control.py" <subcommand> --project-root "$(pwd)" --cycle-id "$CYCLE_ID" --profile <profile_id> [args...]` — stage agenda; resolves `revision{N}` from session-state (see `$SKILL_ROOT/agenda/SKILL.md`) |
 | `$MULTI_SLICE` | `python3 "$SKILL_ROOT/compose/scripts/core/multi_slice_control.py" --revision-dir <revision_dir> --profile <profile_id> <subcommand>` — see `--help` (`lock-hard-mirror` / `assemble-package` / …) |

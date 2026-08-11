@@ -25,6 +25,9 @@ from chapter_write_state_schema import (  # noqa: E402
 )
 from narrative_arc_schema import chapter_write_units, save_narrative_arc  # noqa: E402
 
+_REPO = Path(__file__).resolve().parents[4]
+_PROFILE = "lulu-design"
+
 
 def _arc() -> dict:
     return {
@@ -76,7 +79,17 @@ def _write_artifacts(rev: Path, cid: str, *, body: str = "body") -> None:
 
 
 def _begin(rev: Path) -> int:
-    return write_state_main(["begin", "--revision-dir", str(rev)])
+    return write_state_main(
+        [
+            "begin",
+            "--revision-dir",
+            str(rev),
+            "--project-root",
+            str(_REPO),
+            "--profile",
+            _PROFILE,
+        ]
+    )
 
 
 def _complete(rev: Path, chapter: str | None = None) -> int:
@@ -136,6 +149,35 @@ def test_begin_returns_work_ticket(tmp_path: Path, capsys: pytest.CaptureFixture
         },
     ]
     assert ticket["status"] == "in_progress"
+    cognition = ticket["writing_cognition"]
+    assert set(cognition) == {"reading_axis", "presentation", "expression"}
+    assert "proposition" in cognition["reading_axis"]
+    intent = ticket["lens_intent"]
+    assert set(intent) == {"intent", "intent_boundary"}
+    assert intent["intent"]
+
+
+def test_begin_writing_cognition_is_current_lens_only(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str],
+):
+    rev = tmp_path / "rev"
+    rev.mkdir()
+    _seed_arc(rev)
+    assert write_state_main(["sync", "--revision-dir", str(rev)]) == 0
+    capsys.readouterr()
+    assert _begin(rev) == 0
+    first = json.loads(capsys.readouterr().out)
+    assert first["lens"] == "I"
+    axis_i = first["writing_cognition"]["reading_axis"]
+    _write_artifacts(rev, "A01-I")
+    assert _complete(rev) == 0
+    capsys.readouterr()
+    assert _begin(rev) == 0
+    second = json.loads(capsys.readouterr().out)
+    assert second["lens"] == "IF"
+    axis_if = second["writing_cognition"]["reading_axis"]
+    assert axis_i != axis_if
+    assert axis_i == first["writing_cognition"]["reading_axis"]
 
 
 def test_begin_facts_omit_empty_anchors(
@@ -224,7 +266,17 @@ def test_begin_rejects_chapter_arg(tmp_path: Path, capsys: pytest.CaptureFixture
     assert write_state_main(["sync", "--revision-dir", str(rev)]) == 0
     capsys.readouterr()
     rc = write_state_main(
-        ["begin", "--revision-dir", str(rev), "--chapter", "A01-I"],
+        [
+            "begin",
+            "--revision-dir",
+            str(rev),
+            "--project-root",
+            str(_REPO),
+            "--profile",
+            _PROFILE,
+            "--chapter",
+            "A01-I",
+        ],
     )
     assert rc != 0
     err = json.loads(capsys.readouterr().out)

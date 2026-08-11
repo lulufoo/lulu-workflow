@@ -35,7 +35,8 @@ $OUTPUT_DOC_PATH                          # assembled via assemble-arc (tree/lea
 
 ## Writing cognition (What)
 
-Load per-lens **writing cognition** from `section-form-registry` before Write.
+Use per-lens **writing cognition** from each chapter's `$CHAPTER_WRITE_STATE begin`
+ticket (`writing_cognition`); do not re-fetch full `section-form-registry` for Write.
 
 | Field | Role |
 |-------|------|

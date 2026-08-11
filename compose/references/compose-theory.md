@@ -125,7 +125,7 @@ seeds:   facets string[]          # optional; prompt input only
 
 ## 3. Presentation
 
-Presentation applies **writing cognition (What)** from `section-form-registry`, not a forced Derive→Scaffold procedure (How). Write loads that cognition and produces one chapter body. Choosing among `allowed` carriers (F as carrier/structure) is execution attention, not a machine-gated subprocess.
+Presentation applies **writing cognition (What)** from `section-form-registry` (disclosed per chapter via `$CHAPTER_WRITE_STATE begin.writing_cognition`), not a forced Derive→Scaffold procedure (How). Write uses that cognition and produces one chapter body. Choosing among `allowed` carriers (F as carrier/structure) is execution attention, not a machine-gated subprocess.
 
 ### 3.1 Reading axis
 

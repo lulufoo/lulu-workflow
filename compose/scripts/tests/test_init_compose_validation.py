@@ -26,14 +26,46 @@ _FAKE_DESIGN_SECTION_URL = (
     "https://github.com/lulufoo/lulu-workflow-framework/blob/main/"
     "lulu-dev-workflow/template/design/42-tech-design-section-registry.json"
 )
+_FAKE_DESIGN_FORM_URL = (
+    "https://github.com/lulufoo/lulu-workflow-framework/blob/main/"
+    "lulu-dev-workflow/template/design/42-tech-design-section-form-registry.json"
+)
 
 _SECTION_REGISTRY = {
     "version": "1",
     "section_order": ["AR", "GO"],
     "document_preamble": "# Test\n\n",
     "sections": {
-        "AR": {"heading": "Architecture", "intent": "x", "presence": "required"},
-        "GO": {"heading": "Goal", "intent": "x", "presence": "optional"},
+        "AR": {
+            "heading": "Architecture",
+            "intent": "x",
+            "intent_boundary": "not y",
+            "presence": "required",
+        },
+        "GO": {
+            "heading": "Goal",
+            "intent": "x",
+            "intent_boundary": "not y",
+            "presence": "optional",
+        },
+    },
+}
+
+_FORM_REGISTRY = {
+    "version": "1",
+    "$schema_id": "section-form-schema",
+    "profile_id": "tech-design",
+    "sections": {
+        "AR": {
+            "reading_axis": "a → b",
+            "presentation": {"guidance": "p"},
+            "expression": {"required": ["e"]},
+        },
+        "GO": {
+            "reading_axis": "g → o",
+            "presentation": {"guidance": "p"},
+            "expression": {"required": ["e"]},
+        },
     },
 }
 
@@ -68,10 +100,19 @@ def _seed_registries(tmp_path: Path) -> None:
         "tdt_section_registry_url",
         _SECTION_REGISTRY,
     )
+    seed_template_cache(
+        tmp_path,
+        "lulu-design",
+        "tdt_section_form_registry_url",
+        _FORM_REGISTRY,
+    )
     _ensure_stage_compose(
         tmp_path,
         "lulu-design",
-        {"tdt_section_registry_url": _FAKE_DESIGN_SECTION_URL},
+        {
+            "tdt_section_registry_url": _FAKE_DESIGN_SECTION_URL,
+            "tdt_section_form_registry_url": _FAKE_DESIGN_FORM_URL,
+        },
     )
 
 
@@ -117,10 +158,19 @@ def _minimal_doc(cid: str, body: str) -> str:
 
 
 def _complete_write_state(revision_dir: Path, cids: list[str]) -> None:
+    project_root = revision_dir.parent
     assert write_state_main(["sync", "--revision-dir", str(revision_dir)]) == 0
     for _ in cids:
         assert write_state_main(
-            ["begin", "--revision-dir", str(revision_dir)],
+            [
+                "begin",
+                "--revision-dir",
+                str(revision_dir),
+                "--project-root",
+                str(project_root),
+                "--profile",
+                "lulu-design",
+            ],
         ) == 0
         assert write_state_main(
             ["complete", "--revision-dir", str(revision_dir)],

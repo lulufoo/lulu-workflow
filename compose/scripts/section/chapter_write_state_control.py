@@ -41,6 +41,7 @@ from chapter_write_state_schema import (  # noqa: E402
 )
 from discussion_pointer_schema import active_slice_dir  # noqa: E402
 from facts_schema import facts_path, load_facts  # noqa: E402
+from fetch_compose_framework import fetch_compose_framework  # noqa: E402
 from narrative_arc_schema import (  # noqa: E402
     chapter_write_units,
     is_write_ready,
@@ -130,6 +131,89 @@ def _assemble_ticket_facts(
 
 def _load_arc(slice_dir: Path) -> dict[str, Any]:
     return load_narrative_arc(narrative_arc_path(slice_dir))
+
+
+def _fetch_json_role(
+    role: str,
+    *,
+    project_root: Path,
+    profile: str,
+    cycle_id: str,
+) -> dict[str, Any]:
+    raw = fetch_compose_framework(
+        role,
+        project_root,
+        profile_id=profile,
+        cycle_id=cycle_id or None,
+    )
+    data = json.loads(raw)
+    if not isinstance(data, dict):
+        raise ValueError(f"{role} must be a JSON object")
+    return data
+
+
+def _lens_section(registry: dict[str, Any], lens: str, *, role: str) -> dict[str, Any]:
+    sections = registry.get("sections")
+    if not isinstance(sections, dict):
+        raise ValueError(f"{role}.sections must be an object")
+    key = str(lens or "").strip().upper()
+    section = sections.get(key)
+    if not isinstance(section, dict):
+        # try exact key if registry uses mixed case
+        section = sections.get(str(lens or "").strip())
+    if not isinstance(section, dict):
+        raise ValueError(f"{role} missing section for lens {key!r}")
+    return section
+
+
+def _writing_cognition_for_lens(
+    *,
+    lens: str,
+    project_root: Path,
+    profile: str,
+    cycle_id: str,
+) -> dict[str, Any]:
+    form = _fetch_json_role(
+        "section-form-registry",
+        project_root=project_root,
+        profile=profile,
+        cycle_id=cycle_id,
+    )
+    section = _lens_section(form, lens, role="section-form-registry")
+    presentation = section.get("presentation")
+    expression = section.get("expression")
+    if not isinstance(presentation, dict):
+        presentation = {}
+    if not isinstance(expression, dict):
+        expression = {}
+    return {
+        "reading_axis": str(section.get("reading_axis") or ""),
+        "presentation": presentation,
+        "expression": expression,
+    }
+
+
+def _lens_intent_for_lens(
+    *,
+    lens: str,
+    project_root: Path,
+    profile: str,
+    cycle_id: str,
+) -> dict[str, str]:
+    registry = _fetch_json_role(
+        "section-registry",
+        project_root=project_root,
+        profile=profile,
+        cycle_id=cycle_id,
+    )
+    section = _lens_section(registry, lens, role="section-registry")
+    intent = section.get("intent")
+    if intent is None or (isinstance(intent, str) and not intent.strip()):
+        intent = section.get("desc")
+    return {
+        "intent": str(intent or "").strip(),
+        "intent_boundary": str(section.get("intent_boundary") or "").strip(),
+    }
 
 
 def cmd_sync(args: argparse.Namespace) -> int:
@@ -306,6 +390,27 @@ def cmd_begin(args: argparse.Namespace) -> int:
             4,
         )
 
+    root = Path(args.project_root).resolve()
+    profile = str(args.profile or "").strip()
+    cycle_id = str(args.cycle_id or "").strip()
+    if not profile:
+        return _fail("begin requires --profile")
+    try:
+        writing_cognition = _writing_cognition_for_lens(
+            lens=str(unit["lens"]),
+            project_root=root,
+            profile=profile,
+            cycle_id=cycle_id,
+        )
+        lens_intent = _lens_intent_for_lens(
+            lens=str(unit["lens"]),
+            project_root=root,
+            profile=profile,
+            cycle_id=cycle_id,
+        )
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        return _fail(str(exc))
+
     entry = by_id[nxt]
     entry["status"] = "in_progress"
     entry["started_at"] = entry.get("started_at") or _now()
@@ -325,6 +430,8 @@ def cmd_begin(args: argparse.Namespace) -> int:
             "lens": unit["lens"],
             "fact_ids": fact_ids,
             "facts": ticket_facts,
+            "writing_cognition": writing_cognition,
+            "lens_intent": lens_intent,
             "status": "in_progress",
         }
     )
@@ -421,6 +528,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="Claim current chapter work ticket (no --chapter)",
     )
     add_rev(p_begin)
+    p_begin.add_argument("--project-root", required=True)
+    p_begin.add_argument("--profile", required=True)
+    p_begin.add_argument(
+        "--cycle-id",
+        default="",
+        help="Cycle id for framework template resolution",
+    )
     # Reject if passed: claim-current forbids AI-selected cid.
     p_begin.add_argument(
         "--chapter",
