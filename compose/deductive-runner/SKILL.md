@@ -199,10 +199,9 @@ facts: `derivation.disposition` ∈ {`carried`,`quarantined`,`not_needed`};
 
 - No AI hand-written JSON files — control commands only (disposition patches
   drafted then applied by control).
-- D1/D2 read only this stage’s facts — never re-open upstream `.md` after intake.
+- After intake, Steps 2–4 read only this stage’s facts — never re-open upstream
+  `.md` (Pd means owned by `derive-runner`).
 - Off-edge obligations → pending only (not `derived`).
-- Ceiling thickness ruler = published `section-kw-criteria` only; floor ignores KW;
-  no separate target-thickness field; no KW-first intake-pool pass.
 - Quarantined / not_needed facts remain addressable; cite settles unref accounting;
   leftover unreferenced **quarantined** ids must go through Step 3.
 - Writing / delivery Eval / FreeEdit are out of this runner’s scope.
