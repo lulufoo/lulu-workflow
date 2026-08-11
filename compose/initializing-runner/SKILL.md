@@ -1,47 +1,33 @@
 ---
 name: initializing-runner
 description: >-
-  Autonomous Initializing step for compose-profile pipeline. Loads frameworks;
-  validates producer-written `_facts.json` (inductive or deductive); organizes
-  chapters; composes per-chapter bodies via fact-first display-layer pipeline
-  (Steps 1–6); validates draft quality; persists each chapter incrementally.
+  Compose Initializing orchestrator.
 ---
 
 # initializing-runner
 
-Run this sub-skill only for the `Initializing` step inside a parent compose Working Rules (Initializing).
-
-Use `$COMPOSE_PROFILE` from parent dispatch; kernel default applies only when omitted.
+Turn producer-written facts into a validated compose draft document.
 
 ## Scope
 
-**Pipeline:** Step 1 Load → Step 2 Validate facts → Step 3 Narrative arc → Step 4 Validate narrative arc → Step 5 Chapter write + assemble → Step 6 Validate → Return.
+Fact production belongs to Inductive|Deductive (`inductive-runner` or
+`deductive-runner`).
 
-Init is **display-layer only**. Fact production belongs to Inductive|Deductive (`inductive-runner` or `deductive-runner`). Init never Import / Atomize / Derive.
-
-- **Must:** validate producer-written `_facts.json`; place tagged facts; explicit 待决 for gaps; readable chapter bodies.
-- **Must not:** invent beyond facts; decide open choices; decision paste; empty shell chapters; recreate `_partition.json`; write `section-key:` anchors (chapter anchors only); invoke retired `$INDUCTIVE_FACTS_PROJ project`; re-run Intake/Derive.
-
-Round still owns formal gap closure. Do not ask the user questions. Do not run InDialogue, Reopen, Evaluating, or delivery work.
-
-## Theory (Compose)
-
-See [`../references/compose-theory.md`](../references/compose-theory.md).
-
-Chapter write contract: [`../references/init-draft-quality.md`](../references/init-draft-quality.md).
+- **Must:** validate producer-written `_facts.json`.
+- **Must not:** invent beyond facts; decide open choices.
 
 ## Parent-Provided Inputs
 
 | Variable | Purpose |
 |---|---|
 | `$REVISION_DIR` | Absolute path to `revision{N}/` |
-| `$SCOPE_REF_PATH` | Absolute path to compose scope SSOT (Return echo only; not pre-read here) |
-| `$OUTPUT_DOC_PATH` | Absolute path to output document (design-doc.md or tech-doc.md) |
+| `$SCOPE_REF_PATH` | Absolute path to compose scope SSOT (Return echo only) |
+| `$OUTPUT_DOC_PATH` | Absolute path to output document (design-doc.md or tech-doc.md); fallback `{REVISION_DIR}/tech-doc.md` when omitted |
 | `$COMPOSE_PROFILE` | Compose profile id from parent dispatch |
 | `$CYCLE_TYPE` | `feature` |
 | `$CYCLE_ID` | Active cycle id |
 
-Self-resolved: `$PROJECT_ROOT` = `$(pwd)` · `$OUTPUT_DOC_PATH` from parent input (fallback `{REVISION_DIR}/tech-doc.md`) · `$CODE_GROUNDING` = profile `pipeline.code_grounding` (boolean)
+Self-resolved: `$PROJECT_ROOT` = `$(pwd)` · `$CODE_GROUNDING` = profile `pipeline.code_grounding` (boolean)
 
 All macros that declare `--profile` **must** pass `--profile "$COMPOSE_PROFILE"`.
 
@@ -53,36 +39,23 @@ All macros that declare `--profile` **must** pass `--profile "$COMPOSE_PROFILE"`
 | `$FACTS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/facts_control.py"` |
 | `$NARRATIVE_ARC_CTL` | `python3 "$SKILL_ROOT/compose/narrative-arc-runner/scripts/narrative_arc_control.py"` |
 
-`$FACTS_CTL` subcommands: `--help` · `write` · `validate` · `status`.
+`$FACTS_CTL` subcommands used here: `--help` · `validate` · `status`.
 
-`$NARRATIVE_ARC_CTL` subcommands: `--help` · `validate` · `write` · `show` · `list-chapters` (Step 4 validate; Step 3 delivery via `narrative-arc-runner`).
+`$NARRATIVE_ARC_CTL` subcommands: `--help` · `validate` · `write` · `show` · `list-chapters`.
 
-> **K4:** `$INDUCTIVE_FACTS_PROJ project` is **retired**. Do not invoke projection from this runner.
-
-## Execution Contract
+## Execution
 
 ### Step 1 — Load
 
 1. Bind Parent Inputs (`$REVISION_DIR`, `$OUTPUT_DOC_PATH`, `$COMPOSE_PROFILE`, `$CYCLE_ID`, `$SCOPE_REF_PATH` path hold).
 2. Resolve `$PROJECT_ROOT` = `$(pwd)`.
-3. Read profile `pipeline.code_grounding` → `$CODE_GROUNDING` (do **not** pass to chapter-write-runner).
+3. Read profile `pipeline.code_grounding` → `$CODE_GROUNDING`.
 
-**Done:** Parent required Inputs bound; `$PROJECT_ROOT` resolved; `$CODE_GROUNDING` boolean set. Do **not** require Role/Domain resolve, section-registry / form-registry / kw-criteria preload, `$SCOPE_REF_PATH` body read, or `init-doc` here. Proceed to Step 2.
-
----
-
-#### Pipeline invariants (Steps 2–6)
-
-Document spine = `_narrative-arc.json`, **not** registry order / Lens aggregation.
-
-**Precondition:** Step 4 must pass `$NARRATIVE_ARC_CTL validate --require-write-ready` on `_narrative-arc.json`. **Retired (error if present):** `_chapters.json`, `_lens-themes.json`, `_chapter-framework.json`, `_chapter-placement.json`.
-
-**Must:** every non-excluded fact mapped to exactly one arc leaf; every leaf fact in exactly one sub-topic chapter; chapter `lens` ∈ that fact's `lens_tags`; empty `lens_tags` must not reach `write_ready`; run `$INIT_COMPOSE_VALIDATE` before Return.
-**Must not:** use `section_order` (or lens list order) as chapter directory; use Role `priority_tendency` / lens tags as presentation chapter titles; force a fixed N-act label set as the only top-level packaging; create or keep `_chapters.json`; decide open choices during Steps 2–3 (待决 same discipline); Import / Atomize / Derive facts.
+**Done:** Parent required Inputs bound; `$PROJECT_ROOT` resolved; `$CODE_GROUNDING` boolean set. Proceed to Step 2.
 
 ### Step 2 — Validate facts
 
-Producer (inductive or deductive) already wrote `_facts.json`. **Do not** atomize `$SCOPE_REF_PATH` or Derive. Only validate:
+Producer already wrote `_facts.json`. Only validate:
 
 ```bash
 $FACTS_CTL validate \
@@ -91,9 +64,9 @@ $FACTS_CTL validate \
   --project-root "$(pwd)"
 ```
 
-Missing / invalid `_facts.json` → Blocking (return to parent Inductive|Deductive producer; never re-atomize from scope).
+Missing / invalid `_facts.json` → Blocking (return to producer; never re-atomize from scope).
 
-**Structure/fact topology changes:** new revision + re-run Inductive|Deductive (producer) then Init — do not patch `lens_tags` / derivation in place here.
+Topology change → new revision + re-run Inductive|Deductive then Init.
 
 **Done:** validate exit 0 → proceed to Step 3.
 
@@ -126,7 +99,9 @@ $NARRATIVE_ARC_CTL validate \
   --require-write-ready
 ```
 
-Exit 0 → proceed. Non-zero → do not continue.
+Exit 0 → proceed.
+Non-zero → present `$NARRATIVE_ARC_CTL` stderr and exit code to the
+parent / human; **stop** Initializing.
 
 ### Step 5 — Chapter write + assemble
 
@@ -159,7 +134,7 @@ On success → Return Summary.
 ## Return Summary
 
 ```text
-Initializing complete (narrative-arc display layer).
+Initializing complete.
   Profile: <COMPOSE_PROFILE>
   Output: <OUTPUT_DOC_PATH>
   Facts: <REVISION_DIR>/_facts.json (<N> facts; producer-written, validate-only)
