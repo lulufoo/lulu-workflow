@@ -47,7 +47,8 @@ This runner is **stage-agnostic**: lens set / Intent / derivation edges = `secti
 | `$FACTS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/facts_control.py"` |
 | `$DERIVE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/derive_control.py"` |
 | `$DEDUCTIVE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/deductive/deductive_control.py" --revision-dir "$DEDUCTIVE_OUT_DIR" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)"` |
-| `$ATOMIZE_EVAL_CONTROL` | `python3 "$SKILL_ROOT/compose/atomize-eval/scripts/atomize_eval_control.py" --profile-id "$COMPOSE_PROFILE" --cycle-id "$CYCLE_ID" --project-root "$(pwd)"` |
+| `$FACT_INTAKE_EVAL_CTL` | `python3 "$SKILL_ROOT/compose/fact-intake-runner/fact-intake-eval/scripts/fact_intake_eval_control.py" --profile-id "$COMPOSE_PROFILE" --cycle-id "$CYCLE_ID" --project-root "$(pwd)"` |
+| `$ATOMIZE_EVAL_CONTROL` | Same command as `$FACT_INTAKE_EVAL_CTL` (prefer `$FACT_INTAKE_EVAL_CTL`): `python3 "$SKILL_ROOT/compose/fact-intake-runner/fact-intake-eval/scripts/fact_intake_eval_control.py" --profile-id "$COMPOSE_PROFILE" --cycle-id "$CYCLE_ID" --project-root "$(pwd)"` |
 
 `$FACTS_CTL` / `$DERIVE_CTL` / `$DEDUCTIVE_CTL`: see each `--help`. Scripts never invent derived work-item text.
 
@@ -101,13 +102,13 @@ $FACTS_CTL validate --revision-dir "$DEDUCTIVE_OUT_DIR" --profile "$COMPOSE_PROF
 
 ### Step 1b — Atomize Eval (E1∩E2 via shared Eval; before Confirm / Pd)
 
-Load `$SKILL_ROOT/eval/SKILL.md` and run a **full Eval round**, supplying `$ATOMIZE_EVAL_CONTROL` wherever that SKILL says `$EVAL_CONTROL`. Do **not** use delivery compose `$EVAL_CONTROL` / StageGate here.
+Load `$SKILL_ROOT/eval/SKILL.md` and run a **full Eval round**, supplying `$FACT_INTAKE_EVAL_CTL` wherever that SKILL says `$EVAL_CONTROL`. Do **not** use delivery compose `$EVAL_CONTROL` / StageGate here.
 
-- Corpus: `compose/atomize-eval/dimension-defs/` (`e1-doc-coverage`, `e2-fact-provenance`).
+- Corpus: `compose/fact-intake-runner/fact-intake-eval/dimension-defs/` (`e1-doc-coverage`, `e2-fact-provenance`).
 - SoT = `$ATOMIZE_SOURCE_PATH`; EvalTarget + remediation = focus-slice `_facts.json`.
-- State lives under `{slice}/atomize-eval/` (independent of delivery Evaluating).
+- State lives under `{slice}/fact-intake-eval/` (independent of delivery Evaluating).
 - `completion_mode=return_to_caller`: after successful `complete-round`, **stop** and continue Deductive — do not present Accept L / Fix L / Deliver.
-- Max **3** rounds (`atomize-eval` runtime `max_rounds`); hard-block when exhausted.
+- Max **3** rounds (`fact-intake-eval` runtime `max_rounds`); hard-block when exhausted.
 - Human Resolution is owned by Eval (trigger/skip by `root_cause`); remediate **only** `_facts.json`.
 
 **Done:** validate exit 0 with derivation+consume-policy; Atomize Eval `eval_status=done`. Proceed to Step 1c.
