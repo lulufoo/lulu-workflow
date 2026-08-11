@@ -180,7 +180,7 @@ def test_cmd_audit_empty_triggered_is_noop_success(tmp_path: Path, capsys) -> No
     assert payload["skipped"] == "empty-triggered"
 
 
-def test_cli_plan_edge_requires_atomize_eval_gate(
+def test_cli_plan_edge_requires_fact_intake_eval_gate(
     tmp_path: Path, monkeypatch, capsys
 ) -> None:
     _patch_graph(monkeypatch)
@@ -198,15 +198,21 @@ def test_cli_plan_edge_requires_atomize_eval_gate(
         project_root=tmp_path,
     )
     assert mod.cmd_plan_edge(args) == 1
-    assert "atomize eval gate missing" in capsys.readouterr().err
+    assert "fact-intake eval gate missing" in capsys.readouterr().err
 
     sys.path.insert(
-        0, str(Path(__file__).resolve().parents[2] / "atomize-eval" / "scripts")
+        0,
+        str(
+            Path(__file__).resolve().parents[2]
+            / "fact-intake-runner"
+            / "fact-intake-eval"
+            / "scripts"
+        ),
     )
     sys.path.insert(
         0, str(Path(__file__).resolve().parents[3] / "eval" / "scripts")
     )
-    from atomize_eval_runtime_schema import evaluate_state_path  # noqa: E402
+    from fact_intake_eval_runtime_schema import evaluate_state_path  # noqa: E402
     from evaluate_state_schema import (  # noqa: E402
         build_initial_evaluate_state,
         save_evaluate_state,

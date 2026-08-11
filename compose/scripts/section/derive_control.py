@@ -56,34 +56,44 @@ from section_registry_schema import (  # noqa: E402
     normalize_section_registry,
 )
 
-_ATOMIZE_SCRIPTS = _SCRIPTS.parent / "atomize-eval" / "scripts"
+_INTAKE_EVAL_SCRIPTS = (
+    _SCRIPTS.parent / "fact-intake-runner" / "fact-intake-eval" / "scripts"
+)
 _EVAL_SCRIPTS = _SCRIPTS.parents[1] / "eval" / "scripts"
-for _p in (_ATOMIZE_SCRIPTS, _EVAL_SCRIPTS):
+for _p in (_INTAKE_EVAL_SCRIPTS, _EVAL_SCRIPTS):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
-from atomize_eval_runtime_schema import (  # noqa: E402
-    evaluate_state_path as atomize_evaluate_state_path,
+from fact_intake_eval_runtime_schema import (  # noqa: E402
+    evaluate_state_path as intake_evaluate_state_path,
+    fact_intake_eval_root,
     gate_allows_derive_from_evaluate_state,
 )
 from evaluate_state_schema import load_evaluate_state  # noqa: E402
 
 
-def _require_atomize_eval_for_derive(slice_dir: Path) -> str | None:
-    """Return error message if Atomize eval gate blocks Derive; else None."""
-    path = atomize_evaluate_state_path(slice_dir)
+def _require_fact_intake_eval_for_derive(slice_dir: Path) -> str | None:
+    """Return error message if intake eval gate blocks Derive; else None.
+
+    Prefers ``{slice}/fact-intake-eval/``; falls back to legacy ``atomize-eval/``.
+    """
+    path = intake_evaluate_state_path(slice_dir)
+    legacy = slice_dir.resolve() / "atomize-eval" / "evaluate-state.md"
+    if not path.is_file() and legacy.is_file():
+        path = legacy
     if not path.is_file():
+        expected = fact_intake_eval_root(slice_dir) / "evaluate-state.md"
         return (
-            "atomize eval gate missing — run Atomize Eval "
-            f"(expected {path.as_posix()})"
+            "fact-intake eval gate missing — run Fact Intake Eval "
+            f"(expected {expected.as_posix()})"
         )
     try:
         data = load_evaluate_state(path)
     except (OSError, ValueError) as exc:
-        return f"atomize eval gate unreadable: {exc}"
+        return f"fact-intake eval gate unreadable: {exc}"
     if not gate_allows_derive_from_evaluate_state(data):
         return (
-            f"atomize eval gate not open (eval_status={data.get('eval_status')!r}); "
-            "Derive blocked until Atomize Eval complete-round (eval_status=done)"
+            f"fact-intake eval gate not open (eval_status={data.get('eval_status')!r}); "
+            "Derive blocked until Intake Eval complete-round (eval_status=done)"
         )
     return None
 
@@ -129,7 +139,7 @@ def _graph_and_maps(
 def cmd_plan_edge(args: argparse.Namespace) -> int:
     """Edge-coverage floor plan for deductive-runner (not zero-only)."""
     revision_dir = active_slice_dir(args.revision_dir.resolve())
-    gate_err = _require_atomize_eval_for_derive(revision_dir)
+    gate_err = _require_fact_intake_eval_for_derive(revision_dir)
     if gate_err:
         return _fail(gate_err)
     try:
