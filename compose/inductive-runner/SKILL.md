@@ -140,11 +140,12 @@ Provenance: opens stamp `trigger` × `means` (feeds G5 / I10); seed facts use `o
 <HARD-GATE>
 Before executing any gate, read the corresponding gate file first.
 Do NOT rely on memory for gate execution steps.
+Fact Intake (Control spine §1) is **pre-gate** — complete it before loading G1.
 </HARD-GATE>
 
 | Gate | File | Load condition |
 |------|------|-----------------|
-| G1 — Shape-confirm | `gates/g1-shape.md` | Session start or `active_gate=G1` |
+| G1 — Shape-confirm | `gates/g1-shape.md` | Fact Intake done (classified `_facts.json`); or resume with `active_gate=G1` |
 | G2 — Topic Loop | `gates/g2-topic-loop.md` | G1 closed; dialogue Topic Loop (no draft tree) |
 | G3 — Gap-check | `gates/g3-refine.md` | G2 closed (Topic Loop exited) |
 | G4 — Internal audit (hard) | `gates/g4-recompose.md` | User ready; G3 exit met |
