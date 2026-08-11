@@ -49,6 +49,10 @@ def test_write_runner_input_six_fields():
         assert field in _WRITE
     assert "$CODE_GROUNDING" in _WRITE  # named as Must not
     assert "Must not (Input)" in _WRITE
+    assert "ARC_PATH: _narrative-arc.json" in _WRITE
+    assert "This wave" in _WRITE and "_narrative-arc.json" in _WRITE
+    assert "This wave" in _DELIVERY
+    assert "default basename only" in _DELIVERY
 
 
 def test_step4_write_semantics_preserved_in_protocol():

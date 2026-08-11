@@ -7,7 +7,9 @@ Single delivery path for callers. Load only after
 
 - Input bound: `REVISION_DIR`, `PROJECT_ROOT`, `COMPOSE_PROFILE`, `CYCLE_ID`,
   `OUTPUT_DOC_PATH`, `ARC_PATH`.
-- Arc at `ARC_PATH` is `status=write_ready` (same precondition as Init Step 4).
+- **This wave:** `ARC_PATH` **must** be `_narrative-arc.json`. Controls use the
+  default basename only (no alternate `--arc-path` yet).
+- Arc at that path is `status=write_ready` (same precondition as Init Step 4).
 - Do **not** paste fact bodies in the caller prompt — substance only via
   `$CHAPTER_WRITE_STATE begin`.
 

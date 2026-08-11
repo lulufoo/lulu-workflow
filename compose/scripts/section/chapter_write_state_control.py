@@ -5,13 +5,18 @@ Subcommands:
     sync       Align state order to narrative-arc write units
     status     Print next / done_count / status (observe only)
     begin      Claim current chapter (no --chapter); return work ticket
+               (requires --project-root and --profile; optional --cycle-id)
     complete   Artifact gate + mark current done; advance next
+
+``begin`` returns ticket fields plus ``writing_cognition`` and ``lens_intent``.
+Arc I/O uses slice ``_narrative-arc.json`` only (no --arc-path in this wave).
 
 CLI: ``python3 chapter_write_state_control.py --help``
 
 Process how:
 docs/domain/archive/compose/archive-5.0/compose-chapter-write-claim-current-design.md
 docs/domain/archive/compose/archive-5.0/compose-chapter-write-begin-facts-ticket-design.md
+docs/domain/archive/compose/archive-26.0/chapter-write-runner-extract-design.md
 """
 
 from __future__ import annotations

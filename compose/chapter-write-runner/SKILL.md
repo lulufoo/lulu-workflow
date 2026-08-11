@@ -28,14 +28,16 @@ PROJECT_ROOT: <abs project root>
 COMPOSE_PROFILE: <profile id>
 CYCLE_ID: <cycle id>
 OUTPUT_DOC_PATH: <abs path to compose output doc>
-ARC_PATH: <arc file relative to slice or absolute; required>
+ARC_PATH: _narrative-arc.json
 ```
 
 **Must not (Input):** facts body · facts file path · `$CODE_GROUNDING` ·
 `$SCOPE_REF_PATH`.
 
-`ARC_PATH` is required each call. Init typically passes `_narrative-arc.json`
-(default sync/assemble basename). Do not omit the field.
+`ARC_PATH` is required each call. **This wave:** value **must** be
+`_narrative-arc.json` (slice-relative default basename). `sync` / `begin` /
+`assemble-arc` read that path only — do not pass another arc filename until a
+later wave wires `--arc-path`.
 
 ## Load rule
 
