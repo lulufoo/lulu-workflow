@@ -1,13 +1,14 @@
 ---
 name: fact-disposition-runner
 description: >-
-  Compose fact-intake L1: A/B/B′ disposition classify after intake eval done.
+  Compose fact-intake L1: disposition classify after intake eval done.
 ---
 
 # fact-disposition-runner
 
-Classify existing `_facts.json` atoms (post Intake Eval) with A→B→B′ into
-`carried` / `quarantined` / `not_needed`; write disposition + lens_tags (B rule).
+Classify existing `_facts.json` atoms (post Intake Eval) into
+`carried` / `quarantined` / `not_needed`; write disposition + lens_tags
+(Intent rule).
 
 **Must:** require `eval_status=done`; `$FACT_DISPOSITION_BUILD_CTL context`; write
 dispositions; pass tightened validate.  
@@ -37,7 +38,7 @@ Facts: `--help` · `write` · `validate`.
 
 1. Bind Input; refuse unless intake-eval gate is `eval_status=done`.  
 2. `$FACT_DISPOSITION_BUILD_CTL context …` (section-registry + role consume_policy).  
-3. A (don't-list → `not_needed`) → B (Intent → `carried`/`quarantined`) → B′ repair.  
+3. don't-list → `not_needed`; Intent → `carried`/`quarantined`; repair don't-list false kills.  
 4. Persist via `$FACTS_CTL write`.  
 5. `$FACTS_CTL validate … --require-derivation --require-consume-policy`.
 

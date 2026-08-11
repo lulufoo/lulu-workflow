@@ -29,7 +29,7 @@ Pending Confirm → Complete.
 chapter prose; ask the user during Writing (confirm only here); re-read upstream
 prose after intake for Steps 2–4; Import upstream `_facts.json` as delivery;
 enter delivery Evaluating / StageGate for intake eval; edit the intake source
-doc; inline cut / intake-eval / A/B/B′ / Disposition Confirm (owned by
+doc; inline cut / eval / disposition / confirm (owned by
 `fact-intake-runner`).
 
 ---
@@ -106,7 +106,7 @@ CYCLE_ID: <$CYCLE_ID>
 SOURCE_PATH: <$SOURCE_PATH>
 ```
 
-Do not re-implement cut / eval / A/B/B′ / Disposition Confirm here.
+Do not re-implement cut / eval / disposition / confirm here.
 
 ```bash
 $DEDUCTIVE_CTL pending-init

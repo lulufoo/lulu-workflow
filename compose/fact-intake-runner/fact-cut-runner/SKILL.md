@@ -11,7 +11,7 @@ Read `$SOURCE_PATH` once; write focus-slice `_facts.json` atoms with non-empty
 `derivation.upstream_ref` and `origin.type=seed`; **omit** disposition.
 
 **Must:** `$FACT_CUT_BUILD_CTL context` then cut+write; pass structural validate.  
-**Must not:** A/B/B′; Confirm; Eval; `fact-store-runner`; edit source doc; write
+**Must not:** disposition; confirm; Eval; `fact-store-runner`; edit source doc; write
 `discovered` or non-empty disposition.
 
 ## Input
