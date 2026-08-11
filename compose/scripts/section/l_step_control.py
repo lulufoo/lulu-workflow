@@ -256,13 +256,13 @@ def _format_inductive_dispatch_input(
     return "\n".join(lines)
 
 
-def _atomize_source_path_for_focus(
+def _intake_source_path_for_focus(
     cycle_id: str,
     project_root: Path,
     profile_id: str,
     scope_path: Path,
 ) -> Path:
-    """Resolve the current L's format-neutral Atomize input."""
+    """Resolve the current L's format-neutral fact-intake SoT path."""
     from compose_package_schema import (  # noqa: WPS433
         is_compose_package_path,
         load_compose_package,
@@ -311,7 +311,7 @@ def _format_deductive_dispatch_input(
         f"DEDUCTIVE_OUT_DIR:    {revision_dir.as_posix()}",
         f"CODE_GROUNDING:       {str(code_grounding).lower()}",
     ]
-    source_path = _atomize_source_path_for_focus(
+    source_path = _intake_source_path_for_focus(
         cycle_id, project_root, profile_id, scope_path
     )
     source = source_path.as_posix()
