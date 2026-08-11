@@ -9,9 +9,12 @@ Subcommands:
     quarantine-unref   List quarantined facts not cited by any other fact
     gate-check         Fail if pending missing, open items remain, or
                        unreferenced quarantine is unsettled
-    disposition-patch-validate  Validate Confirm op-list patch (archive-6.0)
-    disposition-patch-apply     Apply Confirm op-list patch to _facts.json
+    disposition-patch-validate  Validate post-intake retag op-list patch
+    disposition-patch-apply     Apply post-intake retag op-list patch to _facts.json
     consume-policy-check        Fail if role lacks non-empty consume_policy.rules
+
+Intake Disposition Confirm uses fact-intake disposition control
+(fact-intake-disposition-review.patch), not these subcommands.
 
 Design rationale (source repo, why-only):
 docs/domain/archive/compose/archive-3.0/compose-deductive-runner-architecture-design.md §4.5;
@@ -427,14 +430,14 @@ def main() -> int:
 
     p_pv = sub.add_parser(
         "disposition-patch-validate",
-        help="Validate Confirm disposition op-list patch",
+        help="Validate post-intake retag disposition op-list patch",
     )
     p_pv.add_argument("--patch-file", type=Path, required=True)
     p_pv.set_defaults(func=cmd_disposition_patch_validate)
 
     p_pa = sub.add_parser(
         "disposition-patch-apply",
-        help="Apply Confirm disposition op-list patch to _facts.json",
+        help="Apply post-intake retag disposition op-list patch to _facts.json",
     )
     p_pa.add_argument("--patch-file", type=Path, required=True)
     p_pa.set_defaults(func=cmd_disposition_patch_apply)
