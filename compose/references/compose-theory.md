@@ -36,7 +36,7 @@ The theory below is governed by three ontological layers — substance, lens, an
 
 ### 1.1 Facts — definition
 
-**Facts** — filtered substance in `_facts.json`. Producers write them; Writing validates only (no Atomize/Derive). The upstream scope document is intake material, not a second fact store.
+**Facts** — filtered substance in `_facts.json`. Producers write them; Writing validates only (no fact-intake / Derive). The upstream scope document is intake material, not a second fact store.
 
 Facts stay at decision-level substance (goals, boundaries, exclusions, decisions, invariants, phases). Presentation must not invent beyond facts / grounded code, nor restate another chapter's propositions.
 
@@ -72,12 +72,13 @@ open_point = Expose(trigger × means)  # kept iff ( frontier_KW row false  ∧  
 `Deduce` materializes known upstream into this stage's addressable facts (whole→parts) and writes `_facts.json`. `Write` as in §1.3.
 
 ```text
-Atomize(scope document) → Atomize Eval → Derive → _facts.json
+FactIntake(source document) → Derive → _facts.json
 ```
 
-- **Atomize** — facts from the upstream scope document, tagged with this stage's `lens_tags`.
-- **Fidelity** — doc↔facts must clear before Derive.
-- **Derive** — Intent ceiling + edge floor; gaps → human confirm (not silent invention).
+- **FactIntake** — shared cut → intake fidelity eval → disposition classify + Confirm
+  (`fact-intake-runner`); writes classified facts into `_facts.json`.
+- **Derive** — Intent ceiling + edge floor on the intake pool; gaps → human confirm
+  (not silent invention).
 
 ### 1.5 Fact anchors (born-with identity)
 
@@ -183,7 +184,7 @@ doc = Assemble-arc(
 )
 ```
 
-**Producer then Writing:** Induce or Deduce (§1.3–1.4) completes before presentation. Writing does not Atomize or Derive facts.
+**Producer then Writing:** Induce or Deduce (§1.3–1.4) completes before presentation. Writing does not run fact-intake or Derive.
 
 **Intent text:** Use `sections.{key}.intent` when present; else `sections.{key}.desc` (legacy).
 
