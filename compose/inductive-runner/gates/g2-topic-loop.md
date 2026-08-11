@@ -12,7 +12,7 @@ Converge design via dialogue (not by writing the whole document at once).
 
 Domain `cognitive_frame` (D1) and `intent_anchor` (D2) are the shared traction for the whole Topic Loop and for exit detection (`design_goal_met`) — not per-topic KPIs.
 
-Close does **not** require a collab/Formal arc.
+Close does **not** require a narrative arc.
 
 ## Dialogue cognition
 
@@ -30,7 +30,7 @@ discovery channels (human || AI).
 - G2 maps Domain D1+D2 to the model's induction context, human add/correct/remove
   input to landscape corrections, the current settled-fact set to settled
   facts, and `$TOPIC_CURRENT_CTL` binding to the optional current topic.
-- Fact production and collab-arc display are orthogonal.
+- Fact production and narrative-arc display are orthogonal.
 - `$TOPIC_CURRENT_CTL` binds only the current adopted topic; it does not store the seeking landscape or close proof.
 - Exit receipts are the pre-close landscape and exit receipt (Close).
 - Route session state through `$MACRO` / `resolve-context`, never through data-file paths.
@@ -46,9 +46,19 @@ discovery channels (human || AI).
 - `narrative-arc-runner`
   - **Human request:** Any time while G2 is active.
   - **Dispatch:** `$SUBAGENT_TOOL` + `$SUBAGENT_AWAIT_ASYNC`; do not block or auto-run.
-  - **Runner Input:** unified pipeline (`OUTPUT_PATH` + `MOUNT: true`); see
-    `narrative-arc-runner/SKILL.md`.
+  - **Runner Input** (pin while Viewer HTML still client-guards Formal basename):
+
+```text
+REVISION_DIR: <inductive out dir>
+PROJECT_ROOT: <abs project root>
+COMPOSE_PROFILE: <profile id>
+CYCLE_ID: <cycle id>
+OUTPUT_PATH: _narrative-arc.collab.json
+MOUNT: true
+```
+
   - **G2:** dispatch and report its Summary (`wrote` / `write_ready` / `mounted`).
+    Protocol lives in `narrative-arc-runner/SKILL.md` + `contracts/delivery.md`.
 - Keep tool-internal arguments and output handling in their owning contracts.
 
 ## Routing
