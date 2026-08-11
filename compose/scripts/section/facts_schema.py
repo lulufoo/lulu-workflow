@@ -112,21 +112,26 @@ def _validate_derivation(
     derivation: Any,
     *,
     allowed_rule_ids: list[str] | None = None,
+    allow_omit_disposition: bool = False,
 ) -> list[str]:
     errors: list[str] = []
     if not isinstance(derivation, dict):
         errors.append(
             f"{prefix}.derivation must be an object "
-            "{disposition, upstream_ref[, rule_id]}",
+            "{disposition, upstream_ref[, rule_id]}"
+            + (" (disposition omittable pre-classify)" if allow_omit_disposition else ""),
         )
         return errors
     disposition_raw = derivation.get("disposition")
+    disposition_present = "disposition" in derivation
     disposition = (
         disposition_raw.strip().lower()
         if isinstance(disposition_raw, str)
         else ""
     )
-    if disposition not in DERIVATION_DISPOSITIONS:
+    if allow_omit_disposition and not disposition_present:
+        disposition = ""
+    elif disposition not in DERIVATION_DISPOSITIONS:
         errors.append(
             f"{prefix}.derivation.disposition must be one of "
             f"{sorted(DERIVATION_DISPOSITIONS)}, got {disposition_raw!r}"
@@ -202,8 +207,15 @@ def validate_facts(
     allowed_lenses: list[str] | None = None,
     allowed_rule_ids: list[str] | None = None,
     require_derivation: bool = False,
+    intake_structure: bool = False,
+    require_seed_origin: bool = False,
 ) -> list[str]:
-    """Return validation errors for a facts array."""
+    """Return validation errors for a facts array.
+
+    ``intake_structure`` (fact-intake Cut / pre-Eval): every fact must carry
+    ``derivation.upstream_ref`` and **omit** ``derivation.disposition``; forbid
+    ``origin.type=discovered``. Optional ``require_seed_origin`` for inductive.
+    """
     errors: list[str] = []
     if not isinstance(facts, list):
         return ["facts root must be a JSON array"]
@@ -211,6 +223,7 @@ def validate_facts(
         return ["facts array must not be empty"]
     allowed = {l.strip().upper() for l in (allowed_lenses or []) if str(l).strip()}
     seen_ids: set[str] = set()
+    allow_omit_disposition = bool(intake_structure)
 
     for index, entry in enumerate(facts):
         prefix = f"facts[{index}]"
@@ -220,7 +233,7 @@ def validate_facts(
         for field in _FACT_REQUIRED:
             if field not in entry:
                 errors.append(f"{prefix}: missing {field}")
-        if require_derivation and "derivation" not in entry:
+        if (require_derivation or intake_structure) and "derivation" not in entry:
             errors.append(f"{prefix}: missing derivation (required)")
 
         fact_id = entry.get("id")
@@ -284,6 +297,20 @@ def validate_facts(
                 )
             else:
                 errors.extend(_validate_origin(prefix, entry["origin"]))
+                if intake_structure and isinstance(entry["origin"], dict):
+                    otype = str(entry["origin"].get("type", "")).strip().lower()
+                    if otype == "discovered":
+                        errors.append(
+                            f"{prefix}.origin.type=discovered forbidden "
+                            "during fact-intake Cut/pre-Eval",
+                        )
+                    if require_seed_origin and otype != "seed":
+                        errors.append(
+                            f"{prefix}.origin.type must be 'seed' "
+                            f"(intake structure; got {otype!r})",
+                        )
+        elif require_seed_origin:
+            errors.append(f"{prefix}: missing origin (seed required)")
 
         if "derivation" in entry:
             if entry["derivation"] is None:
@@ -297,9 +324,19 @@ def validate_facts(
                         prefix,
                         entry["derivation"],
                         allowed_rule_ids=allowed_rule_ids,
+                        allow_omit_disposition=allow_omit_disposition,
                     )
                 )
                 derivation = entry["derivation"]
+                if (
+                    intake_structure
+                    and isinstance(derivation, dict)
+                    and "disposition" in derivation
+                ):
+                    errors.append(
+                        f"{prefix}.derivation.disposition must be omitted "
+                        "before Disposition classify (intake structure)",
+                    )
                 if isinstance(derivation, dict) and isinstance(tags, list):
                     disposition = str(derivation.get("disposition", "")).strip().lower()
                     if disposition == "carried" and len(tags) == 0:
@@ -377,15 +414,18 @@ def normalize_fact(entry: dict[str, Any]) -> dict[str, Any]:
     if "derivation" in entry and entry["derivation"] is not None:
         derivation = entry["derivation"]
         normalized_derivation: dict[str, Any] = {
-            "disposition": str(derivation["disposition"]).strip().lower(),
             "upstream_ref": [str(r).strip() for r in derivation["upstream_ref"]],
         }
-        if (
-            normalized_derivation["disposition"] == "not_needed"
-            and "rule_id" in derivation
-            and derivation["rule_id"] is not None
-        ):
-            normalized_derivation["rule_id"] = str(derivation["rule_id"]).strip()
+        if "disposition" in derivation and derivation["disposition"] is not None:
+            normalized_derivation["disposition"] = str(
+                derivation["disposition"]
+            ).strip().lower()
+            if (
+                normalized_derivation["disposition"] == "not_needed"
+                and "rule_id" in derivation
+                and derivation["rule_id"] is not None
+            ):
+                normalized_derivation["rule_id"] = str(derivation["rule_id"]).strip()
         out["derivation"] = normalized_derivation
     if "anchors" in entry and entry["anchors"] is not None:
         seen_anchors: set[tuple[str, str]] = set()

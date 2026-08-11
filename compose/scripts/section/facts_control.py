@@ -44,6 +44,7 @@ from facts_schema import (  # noqa: E402
     facts_path,
     lenses_present,
     load_facts,
+    normalize_fact,
     save_facts,
     unlensed_fact_ids,
     validate_facts,
@@ -300,8 +301,12 @@ def cmd_validate(args: argparse.Namespace) -> int:
     allowed_rule_ids = None
     require_derivation = bool(getattr(args, "require_derivation", False))
     require_consume_policy = bool(getattr(args, "require_consume_policy", False))
+    intake_structure = bool(getattr(args, "intake_structure", False))
+    require_seed_origin = bool(getattr(args, "require_seed_origin", False))
     if require_consume_policy and not (args.profile or "").strip():
         return _fail("--require-consume-policy needs --profile")
+    if intake_structure and require_derivation:
+        return _fail("--intake-structure conflicts with --require-derivation")
     if args.profile:
         try:
             allowed = _section_order(args.project_root.resolve(), args.profile.strip())
@@ -322,10 +327,16 @@ def cmd_validate(args: argparse.Namespace) -> int:
         allowed_lenses=allowed,
         allowed_rule_ids=allowed_rule_ids,
         require_derivation=require_derivation,
+        intake_structure=intake_structure,
+        require_seed_origin=require_seed_origin,
     )
     if errors:
         return _fail("; ".join(errors))
-    facts = load_facts(path)
+    # intake_structure allows derivation without disposition; load_facts() does not.
+    if intake_structure:
+        facts = [normalize_fact(entry) for entry in data]
+    else:
+        facts = load_facts(path)
     return _ok(
         {
             "ok": True,
@@ -404,6 +415,19 @@ def main() -> int:
         "--require-consume-policy",
         action="store_true",
         help="Role must expose non-empty consume_policy.rules; bind not_needed.rule_id",
+    )
+    validate_p.add_argument(
+        "--intake-structure",
+        action="store_true",
+        help=(
+            "Fact-intake Cut/pre-Eval: require derivation.upstream_ref; "
+            "forbid derivation.disposition and origin.type=discovered"
+        ),
+    )
+    validate_p.add_argument(
+        "--require-seed-origin",
+        action="store_true",
+        help="With --intake-structure: every fact origin.type must be seed",
     )
     validate_p.set_defaults(func=cmd_validate)
 

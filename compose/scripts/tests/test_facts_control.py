@@ -760,3 +760,171 @@ def test_write_target_l_buckets_and_demotes(tmp_path: Path) -> None:
     assert (rev / "L1" / "_facts.json").is_file()
     loaded = load_discussion_pointer(rev)
     assert loaded["by_id"]["L1"]["acceptance"] == "pending"
+
+
+def test_validate_intake_structure_accepts_pre_disposition_facts():
+    facts = [
+        {
+            "id": "F-1",
+            "text": "cut atom",
+            "lens_tags": ["CTX"],
+            "derivation": {"upstream_ref": ["doc#L1"]},
+            "origin": {"type": "derived", "ref": ["doc"]},
+        },
+    ]
+    assert validate_facts(facts, allowed_lenses=["CTX"], intake_structure=True) == []
+
+
+def test_validate_intake_structure_rejects_disposition_and_discovered():
+    with_disp = [
+        {
+            "id": "F-1",
+            "text": "x",
+            "lens_tags": ["CTX"],
+            "derivation": {
+                "disposition": "carried",
+                "upstream_ref": ["doc#1"],
+            },
+        },
+    ]
+    errors = validate_facts(
+        with_disp, allowed_lenses=["CTX"], intake_structure=True
+    )
+    assert any("disposition must be omitted" in e for e in errors)
+
+    discovered = [
+        {
+            "id": "F-1",
+            "text": "x",
+            "lens_tags": ["CTX"],
+            "derivation": {"upstream_ref": ["doc#1"]},
+            "origin": {"type": "discovered", "ref": ["x"]},
+        },
+    ]
+    errors = validate_facts(
+        discovered, allowed_lenses=["CTX"], intake_structure=True
+    )
+    assert any("discovered forbidden" in e for e in errors)
+
+
+def test_validate_intake_structure_require_seed_origin():
+    facts = [
+        {
+            "id": "F-1",
+            "text": "seeded",
+            "lens_tags": ["CTX"],
+            "derivation": {"upstream_ref": ["seed#1"]},
+            "origin": {"type": "seed", "ref": ["decision"]},
+        },
+    ]
+    assert (
+        validate_facts(
+            facts,
+            allowed_lenses=["CTX"],
+            intake_structure=True,
+            require_seed_origin=True,
+        )
+        == []
+    )
+    bad = [
+        {
+            "id": "F-1",
+            "text": "x",
+            "lens_tags": ["CTX"],
+            "derivation": {"upstream_ref": ["doc#1"]},
+            "origin": {"type": "derived", "ref": ["doc"]},
+        },
+    ]
+    errors = validate_facts(
+        bad,
+        allowed_lenses=["CTX"],
+        intake_structure=True,
+        require_seed_origin=True,
+    )
+    assert any("must be 'seed'" in e for e in errors)
+    missing = [
+        {
+            "id": "F-1",
+            "text": "x",
+            "lens_tags": ["CTX"],
+            "derivation": {"upstream_ref": ["doc#1"]},
+        },
+    ]
+    errors = validate_facts(
+        missing,
+        allowed_lenses=["CTX"],
+        intake_structure=True,
+        require_seed_origin=True,
+    )
+    assert any("missing origin" in e for e in errors)
+
+
+def test_control_validate_intake_structure_conflicts_with_require_derivation(
+    tmp_path: Path,
+):
+    rev = tmp_path / "rev"
+    rev.mkdir()
+    (rev / "_facts.json").write_text(
+        json.dumps(
+            [
+                {
+                    "id": "F-1",
+                    "text": "x",
+                    "lens_tags": ["CTX"],
+                    "derivation": {"upstream_ref": ["doc#1"]},
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(_CTL),
+            "validate",
+            "--revision-dir",
+            str(rev),
+            "--intake-structure",
+            "--require-derivation",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode != 0
+    assert "conflicts with --require-derivation" in (proc.stderr or "")
+
+
+def test_control_validate_intake_structure_ok(tmp_path: Path):
+    rev = tmp_path / "rev"
+    rev.mkdir()
+    (rev / "_facts.json").write_text(
+        json.dumps(
+            [
+                {
+                    "id": "F-1",
+                    "text": "x",
+                    "lens_tags": ["CTX"],
+                    "derivation": {"upstream_ref": ["doc#1"]},
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(_CTL),
+            "validate",
+            "--revision-dir",
+            str(rev),
+            "--intake-structure",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 0
+    payload = json.loads(proc.stdout)
+    assert payload["ok"] is True
+    assert payload["facts_total"] == 1
