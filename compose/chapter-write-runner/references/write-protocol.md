@@ -4,6 +4,10 @@ Semantic write rules migrated from Init Step 4. Field **sources** follow the
 session `context` + thickened `begin` contract; writing **semantics** are
 unchanged.
 
+**Before this protocol:** complete `contracts/delivery.md` Phase 0 (session
+`context` + `init-doc` / substituted preamble). This file covers Write (4.W)
+and Assemble (4.A) only.
+
 Chapter quality contract: [`../../references/init-draft-quality.md`](../../references/init-draft-quality.md).  
 Theory: [`../../references/compose-theory.md`](../../references/compose-theory.md).
 

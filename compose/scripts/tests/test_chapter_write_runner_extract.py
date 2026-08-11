@@ -75,3 +75,5 @@ def test_step4_write_semantics_preserved_in_protocol():
     assert "writing_cognition" in _PROTOCOL
     assert "context.role" in _PROTOCOL or "context.domain" in _PROTOCOL
     assert "session context" in _DELIVERY or "Session context" in _DELIVERY
+    assert "Phase 0" in _PROTOCOL
+    assert "init-doc" in _PROTOCOL.split("## Artifacts")[0]
