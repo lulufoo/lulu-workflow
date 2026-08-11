@@ -54,16 +54,21 @@ Writing does not rewrite inductive SoT (validate-only — §1.1).
 
 ### 1.3 Inductive generation (`Induce`)
 
-`Induce` is inductive (unknown substance → discover, ground, decide, fold): the inductive-runner writes `_facts.json` directly (K4; no projection) and tracks opens in `inductive-opens.json`. `Write` (§3) only weaves already-produced facts into prose — it does **not** produce facts.
+`Induce` is inductive (unknown substance → discover, ground, decide, fold): shared
+**FactIntake** seeds `_facts.json`, then discovery expands via opens (K4; no
+projection). `Write` (§3) only weaves already-produced facts into prose — it does
+**not** produce facts.
 
 ```text
+FactIntake(source document) → _facts.json (seed + disposition)
 _facts.json  ⊕=  Expand( open_point )   # via settle → 1:N facts
 open_point = Expose(trigger × means)  # kept iff ( frontier_KW row false  ∧  ¬Settled )
 ```
 
+- `FactIntake` — shared cut → fidelity eval → disposition + Confirm (`origin.type=seed`).
 - `Expand` — ground → propose → **user decides** → settle / defer / reject into the fact set.
 - `⊕=` — append with `lens_tags`; deepen by KW; never overwrite another lens in place.
-- Seed is not Expose: it writes `origin.type=seed` facts directly (no open).
+- Intake seed is not Expose: it writes `origin.type=seed` facts directly (no open).
 
 `Expose` finds open points as **trigger × means** (ai or human), gated by `frontier_kw`, minus `¬Settled` (`lens_tags` coverage). Means names and probes live in the inductive runner.
 

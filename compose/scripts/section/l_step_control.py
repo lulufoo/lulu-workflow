@@ -245,10 +245,12 @@ def _format_inductive_dispatch_input(
     intent_refs = intent_baseline_from_workflow(cycle_id, project_root, profile_id)
     norm_refs = norm_constraint_from_workflow(cycle_id, project_root, profile_id)
     scope_ref = _inductive_scope_ref_path(cycle_id, project_root, profile_id)
+    source = scope_ref.as_posix()
     lines = [
         f"COMPOSE_PROFILE:      {profile_id}",
         f"CYCLE_ID:             {cycle_id}",
-        f"SCOPE_REF:            {scope_ref.as_posix()}",
+        f"SCOPE_REF:            {source}",
+        f"SOURCE_PATH:          {source}",
         f"INTENT_BASELINE_REFS: {serialize_delivered_refs(intent_refs)}",
         f"NORM_CONSTRAINT_REFS: {serialize_delivered_refs(norm_refs)}",
         f"INDUCTIVE_OUT_DIR:    {_inductive_out_dir(cycle_id, project_root, profile_id).as_posix()}",

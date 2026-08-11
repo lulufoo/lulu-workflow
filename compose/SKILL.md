@@ -127,7 +127,14 @@ CLI: `$L_SLICE --help`. `$L_STEP --help` (per-L step machine).
 
 **Hard gate:** `$L_STEP begin-inductive` requires session `Working` and locked topology.
 
-**Inductive-runner** is a human-driven gate spine (Shape → Topic Loop → Refine → Recompose → Provenance): AI recommends; the **user** closes each gate. Run **inline in this conversation**. **Subagent exceptions via `$SUBAGENT_TOOL`:** (a) **read-only** — G3 Class 1B → `g3-shallow-grounding-runner` (optional); G3 Class 2 → `g3-deep-grounding-runner` (optional); (b) **Topic Loop arc rebuild** — `narrative-arc-runner` (unified `write_ready` arc to caller `OUTPUT_PATH`, optional Viewer mount). Do not treat (b) as grounding.
+**Inductive-runner** dispatches shared `fact-intake-runner`, then a human-driven gate
+spine (Shape → Topic Loop → Refine → Recompose → Provenance): AI recommends; the
+**user** closes each gate. Run **inline in this conversation**. **Subagent
+exceptions via `$SUBAGENT_TOOL`:** (a) **read-only** — G3 Class 1B →
+`g3-shallow-grounding-runner` (optional); G3 Class 2 → `g3-deep-grounding-runner`
+(optional); (b) **Topic Loop arc rebuild** — `narrative-arc-runner` (unified
+`write_ready` arc to caller `OUTPUT_PATH`, optional Viewer mount). Do not treat
+(b) as grounding.
 
 1. Run `$L_STEP begin-inductive`. On failure → Blocking. On success → follow inductive-runner with stdout as `## Input`:
 
@@ -248,7 +255,7 @@ Stage-agenda items (design-external blockers/notes) live under the revision dir;
 | `{SKILL_ROOT}/compose/split-runner/SKILL.md` | Split Rules — multi-subdesign split (intake → lock tree+rulers) |
 | `{SKILL_ROOT}/compose/inductive-runner/SKILL.md` | Working → Inductive — inductive-runner (`pipeline.inductive: true`) |
 | `{SKILL_ROOT}/compose/deductive-runner/SKILL.md` | Working → Deductive — deductive-runner (`pipeline.inductive: false`) |
-| `{SKILL_ROOT}/compose/fact-intake-runner/SKILL.md` | Deductive Step 1 / (F4b) Inductive intake — shared doc→`_facts.json` |
+| `{SKILL_ROOT}/compose/fact-intake-runner/SKILL.md` | Deductive Step 1 / Inductive Fact Intake — shared doc→`_facts.json` |
 | `{SKILL_ROOT}/compose/narrative-arc-runner/SKILL.md` | Working → Inductive G2 / Writing — unified narrative-arc pipeline |
 | `{SKILL_ROOT}/compose/chapter-write-runner/SKILL.md` | Working → Writing Step 5 — chapter write + assemble |
 | `{SKILL_ROOT}/compose/inductive-runner/g3-shallow-grounding-runner/SKILL.md` | Working → Inductive — optional G3 shallow grounding subagent (detect facts only; parent `add-open`) |

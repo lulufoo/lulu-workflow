@@ -1,11 +1,11 @@
 ---
 name: inductive-runner
 description: >-
-  Pre-compose inductive investigation for compose stages. Seeds facts into
-  _facts.json (K4), tracks opens in inductive-opens.json and per-lens maturity
-  under inductive-scope/, confirms a shape view, then refines via a two-lane
-  dialogue (free discovery / open-processing) over a Class 1/2/3 capability
-  surface. Hands discovery-written facts to compose Writing.
+  Pre-compose inductive investigation for compose stages. Dispatches shared
+  fact-intake into _facts.json, tracks opens in inductive-opens.json and per-lens
+  maturity under inductive-scope/, confirms a shape view, then refines via a
+  two-lane dialogue (free discovery / open-processing) over a Class 1/2/3
+  capability surface. Hands facts to compose Writing.
 ---
 
 # inductive-runner
@@ -13,7 +13,8 @@ description: >-
 Run this sub-skill only when dispatched from a compose stage `start` (inductive path) — e.g. `lulu-design`.
 
 Produces **three stores** under the active revision dir (`$INDUCTIVE_OUT_DIR`):
-- **Facts (engine state):** `_facts.json` — written by `seed-decision` / `fact-store-runner` permit `consume` (K4; no K2 projection)
+- **Facts (engine state):** `_facts.json` — intake-classified seeds + later
+  `fact-store-runner` permit `consume` / shape corrections (K4; no K2 projection)
 - **Opens:** `inductive-opens.json` — doc-level flat list (`O-n`)
 - **Maturity:** `inductive-scope/<SECTION>.json` + `_index.json` — `{key, status, frontier_kw}` only
 
@@ -31,10 +32,13 @@ The parent passes these in the `## Input` block; do not hardcode stage paths.
 |-----|---------|
 | `$COMPOSE_PROFILE` | Compose profile id (drives every `$FETCH_COMPOSE`) |
 | `$CYCLE_ID` | Active cycle id |
-| `$SCOPE_REF` | Current focus source-material path; all source formats use the same Seed path. |
+| `$SCOPE_REF` | Session / G5 source-material path (L mirror `source_path`; not scope-package whole) |
+| `$SOURCE_PATH` | Fact-intake SoT; same path as `$SCOPE_REF` for inductive |
 | `$INTENT_BASELINE_REFS` | JSON array of intent baseline refs; generative via `intent_coverage` **and** G5 algorithm-A safety-net; empty → both no-op |
 | `$NORM_CONSTRAINT_REFS` | JSON array of norm constraint refs; generation boundary **and** G5 algorithm-C; empty → both no-op |
 | `$INDUCTIVE_OUT_DIR` | Active revision dir (`revision{active_doc}/`) for inductive state bundle |
+
+`$REVISION_DIR` for intake = `$INDUCTIVE_OUT_DIR`. `$PROJECT_ROOT` = `$(pwd)`.
 
 ## Session Paths (derived)
 
@@ -73,14 +77,14 @@ Also read `../../_subagent.md` for platform dispatch (not Script Macros rows).
 **Declare-use (sibling tools):** `fact-store-runner` · `narrative-arc-runner`.
 
 Fetch schedule:
-- **Before Seed / Shape-confirm:** `$FETCH_COMPOSE --role section-registry` → `SECTION_REGISTRY` (`section_order` → `init-session --sections`); `$FETCH_COMPOSE --role inductive-scan-criteria` → `SCAN_CRITERIA` (methods / shape hints / mandatory)
+- **Before Fact Intake / Shape-confirm:** `$FETCH_COMPOSE --role section-registry` → `SECTION_REGISTRY` (`section_order` → `init-session --sections`); `$FETCH_COMPOSE --role inductive-scan-criteria` → `SCAN_CRITERIA` (methods / shape hints / mandatory)
 - **Before detect / refine:** `$FETCH_COMPOSE --role section-form-registry`; `$FETCH_COMPOSE --role section-kw-criteria` → `KW_CRITERIA` (altitude rows); materialize section-registry for prompt seeds:
   - `$INDUCTIVE_G3_SECTION_CTL materialize-section-registry --from-fetch`  
     → writes `$INDUCTIVE_SECTION_REGISTRY`; or `materialize-section-registry --source <path>`
   - Observable done: `$INDUCTIVE_SECTION_REGISTRY` exists under `$INDUCTIVE_OUT_DIR`
   - **Facet seeds (Class 1B):** when the active lens has `facets: string[]`, paste that list into the detect prompt as **non-exhaustive reminders** (not a closed question set; list-external opens allowed). Seeds do **not** gate `clear-section` and there is **no** `facet_id` field.
 
-**Primary CRUD (K4 triple store):** `materialize-section-registry`, `seed-decision` (→ facts; Seed/G1 path), `add-open` / `update-open` / `defer-open` / `reject-open` (→ opens), `attach-code-refs` (`O-` only), `get-section`, `view --synthesis off|on`, `checkpoint --name shape`, `set-frontier`, `activate-section`, `clear-section`, `skip-section`, `rewind-section`, `check-coverage`. Fact append / patch / delete / open→facts: `$FACT_STORE_CTL propose → ack → consume` (not G3 section control). See `$INDUCTIVE_G3_SECTION_CTL --help`.
+**Primary CRUD (K4 triple store):** `materialize-section-registry`, `seed-decision` (→ facts; shape-correction / local add — **not** intake cover), `add-open` / `update-open` / `defer-open` / `reject-open` (→ opens), `attach-code-refs` (`O-` only), `get-section`, `view --synthesis off|on`, `checkpoint --name shape`, `set-frontier`, `activate-section`, `clear-section`, `skip-section`, `rewind-section`, `check-coverage`. Fact append / patch / delete / open→facts: `$FACT_STORE_CTL propose → ack → consume` (not G3 section control). See `$INDUCTIVE_G3_SECTION_CTL --help`.
 
 **Removed (fail-fast if called):** `register-ep`, `update-ep`, `append-to-section` — use the commands above.
 
@@ -92,8 +96,22 @@ Inductive work discovers missing design decisions (parts → whole). **SoT = fac
 
 ### Control spine
 
-1. **Seed** — Init from `SECTION_REGISTRY.section_order` (`gates/g1-shape.md`). Read `$SCOPE_REF` as source material and, per lens: `activate-section` → substance? `seed-decision`+`set-frontier` : (`optional` → `skip-section` / `required` → leave for G3). **I4:** never invent beyond scope. Git commit `"seeded"`.
-2. **Shape-confirm (I11)** — After Seed: `view --synthesis on --granularity <arch-overview hint>` → user confirms/corrects → corrections via commands (+ `set-frontier` when lens facts change) → re-view until confirmed → `gate-close --gate G1` (records `checkpoint --name shape`) → **stop and await user**. Do **not** auto-detect.
+1. **Fact Intake** — Load and follow shared intake **inline** (interactive Confirm). Inductive caller: add `--require-seed-origin` on structure validate (fact-intake Step 3 / cut Done).
+
+```text
+Load {SKILL_ROOT}/compose/fact-intake-runner/SKILL.md and follow it.
+
+## Input
+REVISION_DIR: <$INDUCTIVE_OUT_DIR>
+PROJECT_ROOT: <$PROJECT_ROOT>
+COMPOSE_PROFILE: <$COMPOSE_PROFILE>
+CYCLE_ID: <$CYCLE_ID>
+SOURCE_PATH: <$SOURCE_PATH>
+```
+
+Do not re-implement cut / eval / disposition / Confirm; do not `seed-decision` to cover-stamp intake substance.
+
+2. **Shape-confirm (I11)** — After intake: session init + maturity bind + `view --synthesis on --granularity <arch-overview hint>` (`gates/g1-shape.md`) → user confirms/corrects → corrections via commands (+ `set-frontier` when lens facts change) → re-view until confirmed → `gate-close --gate G1` (records `checkpoint --name shape`) → **stop and await user**. Do **not** auto-detect.
 3. **G2 Topic Loop** — converge design through human-adopted topics; ends with a human-confirmed topic exit. See `gates/g2-topic-loop.md`, `references/topic-model.md`, `references/topic-landscape.md`, and `references/topic-portrait.md`.
 4. **G3 gap-check** — leak scan (orphans / blocking opens); conclusion→facts and open→facts via `$FACT_STORE_CTL propose → ack(digest) → consume` (`stale_signal` only after consume). Per-open grounding = `attach-code-refs` when processing opens.
 5. **Exit** — run `check-coverage`: ∀ init lens cleared∨skipped ∧ no (blocking∧open) ∧ (if demand manifest: all fulfilled∨deferred).
@@ -115,7 +133,7 @@ Provenance: opens stamp `trigger` × `means` (feeds G5 / I10); seed facts use `o
 
 **Capability surface is primary.** Gates are checkpoints / audits around it:
 
-**Seed + Shape-confirm (G1) → Topic Loop (G2) → Gap-check (G3) → Audit G4 → Audit G5**
+**Fact Intake → Shape-confirm (G1) → Topic Loop (G2) → Gap-check (G3) → Audit G4 → Audit G5**
 
 ### Gate routing
 

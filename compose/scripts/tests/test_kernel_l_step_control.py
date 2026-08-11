@@ -300,6 +300,7 @@ def test_inductive_dispatch_carries_provenance_refs_tech(tmp_path: Path) -> None
     assert "INTENT_BASELINE_REFS: []" in dispatch
     assert "NORM_CONSTRAINT_REFS: []" in dispatch
     assert "SCOPE_REF:" in dispatch
+    assert "SOURCE_PATH:" in dispatch
     assert "DECISION_FACTS_PATH:" not in dispatch
 
 
@@ -330,7 +331,9 @@ def test_inductive_dispatch_scope_ref_is_source_doc(tmp_path: Path) -> None:
 
     result = l_step_control.begin_inductive(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
     assert result["ok"] is True
-    assert f"SCOPE_REF:            {source.resolve().as_posix()}" in result["dispatch_input"]
+    src = source.resolve().as_posix()
+    assert f"SCOPE_REF:            {src}" in result["dispatch_input"]
+    assert f"SOURCE_PATH:          {src}" in result["dispatch_input"]
     assert "DECISION_FACTS_PATH:" not in result["dispatch_input"]
     assert not (rev / "decision-fact-claims.json").exists()
 
