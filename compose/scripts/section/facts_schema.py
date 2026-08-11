@@ -467,17 +467,25 @@ def save_facts(
     allowed_lenses: list[str] | None = None,
     allowed_rule_ids: list[str] | None = None,
     require_derivation: bool = False,
+    intake_structure: bool = False,
+    require_seed_origin: bool = False,
 ) -> None:
     """Validate and write facts array (preserves optional ``source`` / ``origin``).
 
     Validate raw input first so malformed optional fields raise ValueError
     instead of KeyError/TypeError inside normalize.
+
+    ``intake_structure`` (fact-intake Cut): allow derivation without disposition.
     """
+    if intake_structure and require_derivation:
+        raise ValueError("intake_structure conflicts with require_derivation")
     errors = validate_facts(
         facts,
         allowed_lenses=allowed_lenses,
         allowed_rule_ids=allowed_rule_ids,
         require_derivation=require_derivation,
+        intake_structure=intake_structure,
+        require_seed_origin=require_seed_origin,
     )
     if errors:
         raise ValueError("; ".join(errors))
@@ -488,6 +496,8 @@ def save_facts(
         allowed_lenses=allowed_lenses,
         allowed_rule_ids=allowed_rule_ids,
         require_derivation=require_derivation,
+        intake_structure=intake_structure,
+        require_seed_origin=require_seed_origin,
     )
     if errors:
         raise ValueError("; ".join(errors))

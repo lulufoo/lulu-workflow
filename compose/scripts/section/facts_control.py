@@ -233,6 +233,12 @@ def cmd_write(args: argparse.Namespace) -> int:
         return _fail("; ".join(home_errors))
 
     allowed = None
+    intake_structure = bool(getattr(args, "intake_structure", False))
+    require_seed_origin = bool(getattr(args, "require_seed_origin", False))
+    if intake_structure and bool(getattr(args, "require_derivation", False)):
+        return _fail("--intake-structure conflicts with --require-derivation")
+    if require_seed_origin and not intake_structure:
+        return _fail("--require-seed-origin requires --intake-structure")
     if args.profile:
         try:
             allowed = _section_order(args.project_root.resolve(), args.profile.strip())
@@ -240,7 +246,13 @@ def cmd_write(args: argparse.Namespace) -> int:
             return _fail(f"section-registry unavailable: {exc}")
 
     try:
-        save_facts(path, facts, allowed_lenses=allowed)
+        save_facts(
+            path,
+            facts,
+            allowed_lenses=allowed,
+            intake_structure=intake_structure,
+            require_seed_origin=require_seed_origin,
+        )
     except ValueError as exc:
         return _fail(str(exc))
 
@@ -271,7 +283,11 @@ def cmd_write(args: argparse.Namespace) -> int:
         elif code != 0:
             return _fail(buf_err.getvalue().strip() or "demote-acceptance failed")
 
-    loaded = load_facts(path)
+    # intake_structure allows derivation without disposition; load_facts() does not.
+    if intake_structure:
+        loaded = [normalize_fact(entry) for entry in json.loads(path.read_text(encoding="utf-8"))]
+    else:
+        loaded = load_facts(path)
     payload: dict[str, Any] = {
         "ok": True,
         "command": "write",
@@ -400,6 +416,19 @@ def main() -> int:
     )
     write_p.add_argument("--profile", type=str, default="")
     write_p.add_argument("--project-root", type=Path, default=Path.cwd())
+    write_p.add_argument(
+        "--intake-structure",
+        action="store_true",
+        help=(
+            "Fact-intake Cut: allow derivation without disposition; "
+            "forbid disposition / origin.type=discovered"
+        ),
+    )
+    write_p.add_argument(
+        "--require-seed-origin",
+        action="store_true",
+        help="With --intake-structure: every fact origin.type must be seed",
+    )
     write_p.set_defaults(func=cmd_write)
 
     validate_p = sub.add_parser("validate", help="Validate _facts.json")

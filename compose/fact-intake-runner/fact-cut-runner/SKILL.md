@@ -39,9 +39,10 @@ Facts: `--help` · `write` · `validate`.
 
 1. Bind Input.  
 2. `$FACT_CUT_BUILD_CTL context --revision-dir … --profile … --project-root … --cycle-id …`  
-3. Whole-doc cut → `$FACTS_CTL write` (omit `derivation.disposition`; set seed + `upstream_ref`).  
-4. `$FACTS_CTL validate … --intake-structure` (add `--require-seed-origin` when
-   `$REQUIRE_SEED_ORIGIN=true`).
+3. Whole-doc cut → `$FACTS_CTL write … --intake-structure` (omit
+   `derivation.disposition`; set seed + `upstream_ref`; add
+   `--require-seed-origin` when `$REQUIRE_SEED_ORIGIN=true`).  
+4. `$FACTS_CTL validate … --intake-structure` (same `--require-seed-origin` rule).
 
 **Done:** validate exit 0.
 
