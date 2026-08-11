@@ -25,4 +25,4 @@ Subcommands: `--help` · `mount` · `status` · `stop`.
 
 - **DONE (mount):** exit 0; stdout is **URL only** (one line).
 - **DONE (status/stop):** exit 0; JSON on stdout.
-- **Failure:** non-zero; Formal banned or server start error on stderr.
+- **Failure:** non-zero; invalid / non-`write_ready` arc, missing file, or server start error on stderr.
