@@ -2,27 +2,35 @@
 name: deductive-runner
 description: >-
   Pre-compose deductive fact production for compose stages with
-  pipeline.inductive=false. Materializes upstream scope into _facts.json (P0),
-  applies Atomize consume disposition (A→B→B′), Atomize Eval (E1∩E2 via shared
-  Eval), Confirm disposition patch, then Pd: edge-coverage floor (means) +
-  Intent ceiling driven by published section-kw-criteria (ruler), and clears a
-  human confirm gate before handing facts to compose Writing.
+  pipeline.inductive=false. Dispatches shared fact-intake, then Pd: edge-coverage
+  floor + Intent ceiling via section-kw-criteria, and clears a human confirm gate
+  before handing facts to compose Writing.
 ---
 
 # deductive-runner
 
-Run this sub-skill only when dispatched from a compose stage `start` (deductive path) — e.g. `lulu-plan`.
+Run this sub-skill only when dispatched from a compose stage `start` (deductive
+path) — e.g. `lulu-plan`.
 
 Produces under the active revision dir (`$DEDUCTIVE_OUT_DIR`):
-- **Facts:** `_facts.json` — Intake + dispositioned / derived / human-confirmed seeds
-- **Pending:** `deductive-pending.json` — confirm-gate SoT (derivation gaps, `kw_shortfall`, unreferenced quarantine)
-- **Disposition patch (Atomize):** `deductive-disposition-review.patch` — Confirm op-list before Pd
+- **Facts:** `_facts.json` — intake-classified / derived / human-confirmed seeds
+- **Pending:** `deductive-pending.json` — confirm-gate SoT (derivation gaps,
+  `kw_shortfall`, unreferenced quarantine)
 
-Compose Writing reads **`_facts.json`** validate-only. After `deductive-complete`, control returns to the parent for Writing.
+Compose Writing reads **`_facts.json`** validate-only. After `deductive-complete`,
+control returns to the parent for Writing.
 
-This runner is **stage-agnostic**: lens set / Intent / derivation edges = `section-registry`; do not hardcode stage lens names.
+This runner is **stage-agnostic**: lens set / Intent / derivation edges =
+`section-registry`; do not hardcode stage lens names.
 
-**Must not:** invent decisions; label off-edge obligations as `derived`; write chapter prose; ask the user during Writing (confirm only here); read upstream prose during Steps 2–4 (Intake only); Import upstream `_facts.json` as delivery; enter delivery Evaluating / StageGate for Atomize Eval; edit the input delivery doc during Atomize remediation; hand-edit `_facts.json` for Confirm disposition (use `$DEDUCTIVE_CTL disposition-patch-*`).
+**Must:** dispatch `fact-intake-runner` for doc→classified facts; then Derive →
+Pending Confirm → Complete.  
+**Must not:** invent decisions; label off-edge obligations as `derived`; write
+chapter prose; ask the user during Writing (confirm only here); re-read upstream
+prose after intake for Steps 2–4; Import upstream `_facts.json` as delivery;
+enter delivery Evaluating / StageGate for intake eval; edit the intake source
+doc; inline cut / intake-eval / A/B/B′ / Disposition Confirm (owned by
+`fact-intake-runner`).
 
 ---
 
@@ -33,11 +41,15 @@ This runner is **stage-agnostic**: lens set / Intent / derivation edges = `secti
 | `$COMPOSE_PROFILE` | Compose profile id |
 | `$CYCLE_ID` | Active cycle id |
 | `$SCOPE_REF` | Upstream scope structure ref |
-| `$ATOMIZE_SOURCE_PATH` | Absolute path of the current focus source material (Atomize / Atomize Eval SoT); format-neutral. |
-| `$INTENT_BASELINE_REFS` | JSON array of classified, read-only intent baseline refs; not Atomize input. |
-| `$NORM_CONSTRAINT_REFS` | JSON array of classified, read-only norm constraint refs; not Atomize input. |
+| `$SOURCE_PATH` | Absolute intake SoT doc (fact-intake SoT); format-neutral |
+| `$ATOMIZE_SOURCE_PATH` | Retired alias of `$SOURCE_PATH` (same path when present) |
+| `$INTENT_BASELINE_REFS` | JSON array of classified, read-only intent baseline refs; not intake input |
+| `$NORM_CONSTRAINT_REFS` | JSON array of classified, read-only norm constraint refs; not intake input |
 | `$DEDUCTIVE_OUT_DIR` | Active revision dir (`revision{active_doc}/`) |
 | `$CODE_GROUNDING` | Optional; profile `pipeline.code_grounding` (boolean string) |
+
+Bind `$SOURCE_PATH` from `$ATOMIZE_SOURCE_PATH` when only the alias is set.
+`$REVISION_DIR` for intake = `$DEDUCTIVE_OUT_DIR`. `$PROJECT_ROOT` = `$(pwd)`.
 
 ## Script Macros
 
@@ -47,98 +59,72 @@ This runner is **stage-agnostic**: lens set / Intent / derivation edges = `secti
 | `$FACTS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/facts_control.py"` |
 | `$DERIVE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/derive_control.py"` |
 | `$DEDUCTIVE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/deductive/deductive_control.py" --revision-dir "$DEDUCTIVE_OUT_DIR" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)"` |
-| `$FACT_INTAKE_EVAL_CTL` | `python3 "$SKILL_ROOT/compose/fact-intake-runner/fact-intake-eval/scripts/fact_intake_eval_control.py" --profile-id "$COMPOSE_PROFILE" --cycle-id "$CYCLE_ID" --project-root "$(pwd)"` |
-| `$ATOMIZE_EVAL_CONTROL` | Same command as `$FACT_INTAKE_EVAL_CTL` (prefer `$FACT_INTAKE_EVAL_CTL`): `python3 "$SKILL_ROOT/compose/fact-intake-runner/fact-intake-eval/scripts/fact_intake_eval_control.py" --profile-id "$COMPOSE_PROFILE" --cycle-id "$CYCLE_ID" --project-root "$(pwd)"` |
 
-`$FACTS_CTL` / `$DERIVE_CTL` / `$DEDUCTIVE_CTL`: see each `--help`. Scripts never invent derived work-item text.
+`$FACTS_CTL` / `$DERIVE_CTL` / `$DEDUCTIVE_CTL`: see each `--help`. Scripts never
+invent derived work-item text.
 
-Fetch before Step 1: `$FETCH_COMPOSE --role section-registry` → `SECTION_REGISTRY` (`section_order`, per-lens `intent`/`desc`/`intent_boundary`/`relations`/`presence`). Also fetch `--role role-instance` when Atomize (consume policy).  
-Fetch before Step 2: `$FETCH_COMPOSE --role section-kw-criteria` → `KW_CRITERIA` (published per-lens KW tables; **ruler for ceiling only** — no separate target-thickness field).
+Fetch before Step 2: `$FETCH_COMPOSE --role section-registry` → `SECTION_REGISTRY`.  
+Also `$FETCH_COMPOSE --role section-kw-criteria` → `KW_CRITERIA` (published
+per-lens KW tables; **ruler for ceiling only**).
 
 ---
 
 ## Method
 
-Deduction projects **known** upstream substance into this stage’s required lenses (whole → parts). **SoT = facts + pending.** Mutations land only via `$FACTS_CTL` / `$DERIVE_CTL` / `$DEDUCTIVE_CTL` — never hand-written JSON.
+Deduction projects **known** upstream substance into this stage’s required lenses
+(whole → parts). **SoT = facts + pending.** Mutations land only via `$FACTS_CTL` /
+`$DERIVE_CTL` / `$DEDUCTIVE_CTL` — never hand-written JSON.
 
-Collaboration: AI projects and proposes; **user** closes Confirm gates; scripts move state only.
+Collaboration: AI projects and proposes; **user** closes Confirm gates; scripts
+move state only.
 
-**Atomize disposition funnel (L3):** Atomize cut → **A** (consume policy → `not_needed` only) → **B** (Intent tags → `carried` / `quarantined`) → **B′** (repair A false `not_needed` only) → **E1∥E2** → **Confirm op-list patch** → **Pd** → pending Confirm → Complete.
+**Pipeline split:** shared **fact-intake** (cut → structure validate → intake eval →
+disposition → Confirm) → **Pd** (floor + ceiling×KW) → pending Confirm → Complete.
 
 ---
 
 ## Pipeline
 
-**Step 1 Intake → Step 1b Atomize Eval → Step 1c Disposition Confirm → Step 2 Derive → Step 3 Pending Confirm → Step 4 Complete**
+**Step 1 Fact Intake → Step 2 Derive → Step 3 Pending Confirm → Step 4 Complete**
 
-### Step 1 — Intake
+### Step 1 — Fact Intake
 
-Atomize **`$ATOMIZE_SOURCE_PATH`** once, regardless of source format. Read the source material content; do not treat the scope structure ref as input prose.
-
-**Hard gate first:**
 ```bash
 $DEDUCTIVE_CTL consume-policy-check
 ```
 
-**A — consume policy (don’t-list only):** For each atom, evaluate role `consume_policy.rules[]` (`D-RISK` / `D-SEAM` / `D-DEC`, …). If a rule is **true** → write `derivation.disposition=not_needed` + `rule_id` + non-empty `upstream_ref` (source anchors; same family as E2) + `lens_tags=[]`. If unsure or false → **pass to B** (do **not** write `quarantined` or `carried` in A).
+Load and follow fact-intake **inline** (interactive Confirm — not a subagent):
 
-**B — Intent tagging:** For A-passed atoms only, match this stage Intent SSOT. Clear match → `carried` + Plan `lens_tags` (N:M). No clear match → `quarantined` + empty tags. **Forbidden:** stuffing `CTX` (or any lens) to avoid quarantine. Do **not** keep Design lens keys (`DECISION`/`RISK`/`SEAM`, …) as tags.
+```text
+Load {SKILL_ROOT}/compose/fact-intake-runner/SKILL.md and follow it.
 
-**B′ — mis-kill repair only:** Scan `not_needed`. Promote only when (strict Intent hit) ∧ (re-judge exclusion rule is **false**). True exclusions stay `not_needed` (expected auto-recover ≈ 0). Do **not** promote merely because text “looks like” CTX.
+## Input
+REVISION_DIR: <$DEDUCTIVE_OUT_DIR>
+PROJECT_ROOT: <$PROJECT_ROOT>
+COMPOSE_PROFILE: <$COMPOSE_PROFILE>
+CYCLE_ID: <$CYCLE_ID>
+SOURCE_PATH: <$SOURCE_PATH>
+```
 
-Persist via `$FACTS_CTL write` into the focus L bucket. Every Atomize fact **must** carry `derivation` (`carried`|`quarantined`|`not_needed`) and non-empty `upstream_ref`. Default: **omit** fact `origin` (optional).
+Do not re-implement cut / eval / A/B/B′ / Disposition Confirm here.
 
 ```bash
-$FACTS_CTL validate --revision-dir "$DEDUCTIVE_OUT_DIR" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)"
 $DEDUCTIVE_CTL pending-init
 ```
 
-Tighten validate before Atomize Eval:
-
-```bash
-$FACTS_CTL validate --revision-dir "$DEDUCTIVE_OUT_DIR" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)" \
-  --require-derivation --require-consume-policy
-```
-
-### Step 1b — Atomize Eval (E1∩E2 via shared Eval; before Confirm / Pd)
-
-Load `$SKILL_ROOT/eval/SKILL.md` and run a **full Eval round**, supplying `$FACT_INTAKE_EVAL_CTL` wherever that SKILL says `$EVAL_CONTROL`. Do **not** use delivery compose `$EVAL_CONTROL` / StageGate here.
-
-- Corpus: `compose/fact-intake-runner/fact-intake-eval/dimension-defs/` (`e1-doc-coverage`, `e2-fact-provenance`).
-- SoT = `$ATOMIZE_SOURCE_PATH`; EvalTarget + remediation = focus-slice `_facts.json`.
-- State lives under `{slice}/fact-intake-eval/` (independent of delivery Evaluating).
-- `completion_mode=return_to_caller`: after successful `complete-round`, **stop** and continue Deductive — do not present Accept L / Fix L / Deliver.
-- Max **3** rounds (`fact-intake-eval` runtime `max_rounds`); hard-block when exhausted.
-- Human Resolution is owned by Eval (trigger/skip by `root_cause`); remediate **only** `_facts.json`.
-
-**Done:** validate exit 0 with derivation+consume-policy; Atomize Eval `eval_status=done`. Proceed to Step 1c.
-
-### Step 1c — Disposition Confirm (before Pd)
-
-Draft op-list JSON at `$DEDUCTIVE_OUT_DIR/deductive-disposition-review.patch` (agent drafts; **no** hand-edit of `_facts.json`):
-
-- `version: "1"`
-- `counts` — disposition totals
-- `cohorts` — theme/reason groups with 1–3 exemplar `F-id`s (full id lists may sit in `appendix_ids`, not in chat)
-- `ops` — `promote` / `demote` / `retag` / `escalate`
-
-Chat: path + counts + accept / edit-patch / reject-cohorts — **not** full id dumps.
-
-```bash
-$DEDUCTIVE_CTL disposition-patch-validate --patch-file "$DEDUCTIVE_OUT_DIR/deductive-disposition-review.patch"
-# after user accept:
-$DEDUCTIVE_CTL disposition-patch-apply --patch-file "$DEDUCTIVE_OUT_DIR/deductive-disposition-review.patch"
-```
-
-When user accepts current dispositions unchanged, write a patch with a single metadata op `{"op":"escalate","fact_id":"<one exemplar>","note":"accept-as-is"}` so the Confirm artifact exists (no fact mutation). When promote/demote/retag is needed, ops must be non-empty and applied after validate.
-
-**Done:** patch validated; applied when ops mutate facts. Proceed to Step 2.
+**Done:** fact-intake Return Summary `Status: ok`; pending store exists. Proceed to
+Step 2.
 
 ### Step 2 — Derive (floor means + ceiling × KW ruler)
 
-**Cognitive split (archive-6.0 Pd×KW):** **Floor** = edge-closure **means** (no KW). **Ceiling** = Intent projection **means** driven by published **`KW_CRITERIA`** as the **only thickness ruler**. Do **not** treat “edges closed” or “should-cover ticked” as “thick enough.” Do **not** run a separate KW-first pass on the Atomize pool.
+**Cognitive split (archive-6.0 Pd×KW):** **Floor** = edge-closure **means** (no KW).
+**Ceiling** = Intent projection **means** driven by published **`KW_CRITERIA`** as
+the **only thickness ruler**. Do **not** treat “edges closed” or “should-cover
+ticked” as “thick enough.” Do **not** run a separate KW-first pass on the intake
+pool.
 
-Mechanical plan first (edge floor + topo). **`$DERIVE_CTL plan-edge` hard-fails** unless Atomize Eval `eval_status` is `done`.
+Mechanical plan first (edge floor + topo). **`$DERIVE_CTL plan-edge` hard-fails**
+unless intake eval `eval_status` is `done`.
 
 ```bash
 $DERIVE_CTL plan-edge \
@@ -159,7 +145,7 @@ Use stdout: `order`, `edge_holes`, `true_gaps`, `materials_total` (carried-prima
    - **If unsatisfied** → drive ceiling means: list Intent should-cover / thicken opportunities; projectable **and** on a `decompose`/`instantiate` edge **and** not past the depth the table asks for → `derived` with `F-id` refs. Gap recovery when still thin: carried → quarantined ledger → not_needed ledger → pending. Off-edge / undecided → `$DEDUCTIVE_CTL pending-add` (kind=`off_edge` \| `undecided`) — **never** `origin.type=derived` off-edge. **Forbidden:** inventing to pad KW with no edge.
    - **If satisfied** → stop thickening that lens (KW stop line).
    - **If means exhausted and still unsatisfied** → `$DEDUCTIVE_CTL pending-add` (kind=`kw_shortfall`, `--lens <L>`, summary = table gap). Do **not** silently pass.
-   - **Do not** batch-retag quarantine/not_needed inside Pd; promote only via Confirm patch or explicit promote ops.
+   - **Do not** batch-retag quarantine/not_needed inside Pd; promote only via Confirm patch or explicit promote ops (`$DEDUCTIVE_CTL disposition-patch-*` for post-intake retags).
 3. **Cascade:** later lenses see facts appended earlier. If ceiling appends create new `edge_holes`, re-run floor for those holes (**still no KW**), then resume ceiling×KW for affected lenses.
 4. **Must not** produce `origin.type=discovered`.
 
@@ -189,13 +175,18 @@ Interactive in this conversation (not a subagent).
 $DEDUCTIVE_CTL quarantine-unref
 ```
 
-For each listed quarantined id: present options (promote/retag via disposition patch or fact update commands; mark out-of-scope; escalate upstream). Record via `$DEDUCTIVE_CTL pending-add` (kind=`quarantine_unref`) then `$DEDUCTIVE_CTL pending-resolve` as the user chooses — or resolve immediately per `--help`. Citing a quarantined/not_needed id settles unreferenced-quarantine accounting without retagging; **retag/promote** requires carried + Plan tags.
+For each listed quarantined id: present options (promote/retag via disposition
+patch or fact update commands; mark out-of-scope; escalate upstream). Record via
+`$DEDUCTIVE_CTL pending-add` (kind=`quarantine_unref`) then
+`$DEDUCTIVE_CTL pending-resolve` as the user chooses — or resolve immediately per
+`--help`. Citing a quarantined/not_needed id settles unreferenced-quarantine
+accounting without retagging; **retag/promote** requires carried + Plan tags.
 
 2. Present open pending (derivation gaps + quarantine + **`kw_shortfall`**). For each item: options traceable to decided material, or `insufficient`. User chooses:
    - **Local seed (default):** append fact `origin.type=seed` with confirm ref → `$DERIVE_CTL append` or `$FACTS_CTL write` full array per `--help`; then `$DEDUCTIVE_CTL pending-resolve`.
    - **Escalate upstream:** resolve pending as deferred/escalated; do not invent local substance.
    - **`kw_shortfall` accept (soft gate):** user explicitly accepts “KW table not met for this lens” → `$DEDUCTIVE_CTL pending-resolve --status resolved` with note in summary/chat that accept-shortfall was chosen. **Forbidden:** resolving `kw_shortfall` without showing table gap + asking.
-3. Incremental settle: resolved ids must not reappear (`pending-resolve` enforces). Full Intake re-run only when upstream material is replaced.
+3. Incremental settle: resolved ids must not reappear (`pending-resolve` enforces). Full intake re-run only when upstream material is replaced.
 
 **Hard gate:** `gate-check` fails when (a) `deductive-pending.json` is missing, (b) any pending is still open (including open `kw_shortfall`), or (c) an unreferenced quarantined fact is not settled via `quarantine_unref` pending (resolve / escalate / out_of_scope). Citing a quarantined id from a new fact also clears it from (c).
 
@@ -220,11 +211,16 @@ Return control to the parent compose stage. Parent runs `$L_STEP deductive-compl
 
 ## Output Contract
 
-**Facts:** `_facts.json` — `F-n` with `text`, `lens_tags` (empty for `quarantined` / `not_needed`), optional `origin` / `derivation` / `source` / `anchors`. Atomize: `derivation.disposition` ∈ {`carried`,`quarantined`,`not_needed`}; `not_needed` requires `rule_id` ∈ role `consume_policy.rules[].id`.
+**Facts:** `_facts.json` — `F-n` with `text`, `lens_tags` (empty for `quarantined` /
+`not_needed`), optional `origin` / `derivation` / `source` / `anchors`. Intake
+facts: `derivation.disposition` ∈ {`carried`,`quarantined`,`not_needed`};
+`not_needed` requires `rule_id` ∈ role `consume_policy.rules[].id`.
 
-**Pending:** `deductive-pending.json` — open/resolved items; schema via `$DEDUCTIVE_CTL --help`.
+**Pending:** `deductive-pending.json` — open/resolved items; schema via
+`$DEDUCTIVE_CTL --help`.
 
-**Disposition patch:** `deductive-disposition-review.patch` — op-list JSON; validate/apply via `$DEDUCTIVE_CTL`.
+**Disposition Confirm (intake):** `{slice}/fact-intake-disposition-review.patch`
+(owned by `fact-intake-runner`).
 
 **Compose Writing input:** `_facts.json` only.
 
@@ -232,10 +228,12 @@ Return control to the parent compose stage. Parent runs `$L_STEP deductive-compl
 
 ## Constraints
 
-- No AI hand-written JSON files — control commands only (disposition patch is drafted then applied by control).
-- D1/D2 read only this stage’s facts — never re-open upstream `.md` after Intake.
+- No AI hand-written JSON files — control commands only (disposition patches
+  drafted then applied by control).
+- D1/D2 read only this stage’s facts — never re-open upstream `.md` after intake.
 - Off-edge obligations → pending only (not `derived`).
-- Ceiling thickness ruler = published `section-kw-criteria` only; floor ignores KW; no separate target-thickness field; no KW-first Atomize-pool pass.
-- A writes **only** `not_needed` (or pass); B alone routinely writes `quarantined`/`carried`.
-- Quarantined / not_needed facts remain addressable; cite settles unref accounting; leftover unreferenced **quarantined** ids must go through Step 3.
-- Writing / Eval / FreeEdit are out of this runner’s scope.
+- Ceiling thickness ruler = published `section-kw-criteria` only; floor ignores KW;
+  no separate target-thickness field; no KW-first intake-pool pass.
+- Quarantined / not_needed facts remain addressable; cite settles unref accounting;
+  leftover unreferenced **quarantined** ids must go through Step 3.
+- Writing / delivery Eval / FreeEdit are out of this runner’s scope.

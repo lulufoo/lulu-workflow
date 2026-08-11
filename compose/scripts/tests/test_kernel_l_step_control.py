@@ -103,6 +103,7 @@ def test_begin_deductive_succeeds_for_lulu_plan(tmp_path: Path) -> None:
     assert "DEDUCTIVE_OUT_DIR:" in dispatch
     assert "/lulu-plan/revision1" in dispatch
     assert "ATOMIZE_DOC_PATH:" not in dispatch
+    assert "SOURCE_PATH:" in dispatch
     assert "ATOMIZE_SOURCE_PATH:" in dispatch
     progress = progress_schema.load_l_step_progress(
         _progress_path(tmp_path, "lulu-plan"),
@@ -146,6 +147,7 @@ def test_begin_deductive_emits_atomize_source_path_for_package_scope(tmp_path: P
     assert result["ok"] is True
     dispatch = result["dispatch_input"]
     assert f"SCOPE_REF:            {package.resolve().as_posix()}" in dispatch
+    assert f"SOURCE_PATH:          {doc_l1.resolve().as_posix()}" in dispatch
     assert f"ATOMIZE_SOURCE_PATH:  {doc_l1.resolve().as_posix()}" in dispatch
 
 

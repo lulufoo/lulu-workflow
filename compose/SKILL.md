@@ -144,7 +144,9 @@ Load {actual $SKILL_ROOT}/compose/inductive-runner/SKILL.md and follow its instr
 
 **Hard gate:** `$L_STEP begin-deductive` requires session `Working` and locked topology.
 
-**Deductive-runner** materializes upstream + completes lenses (intent ceiling + edge floor) + human confirm gate. Run **inline in this conversation** (interactive confirm — NOT a subagent).
+**Deductive-runner** dispatches shared `fact-intake-runner`, then completes lenses
+(intent ceiling + edge floor) + human pending confirm. Run **inline in this
+conversation** (interactive confirm — NOT a subagent).
 
 1. Run `$L_STEP begin-deductive`. On failure → Blocking. On success → follow deductive-runner with stdout as `## Input`:
 
@@ -159,7 +161,7 @@ Load {actual $SKILL_ROOT}/compose/deductive-runner/SKILL.md and follow its instr
 
 ### Writing
 
-Compose the document via fact-first Writing (see writing-runner). No mapping paste. Writing **validate-only** on producer-written `_facts.json` — never Import/Atomize/Derive. `begin-writing` hard-errors if the producer step did not complete or `_facts.json` is missing.
+Compose the document via fact-first Writing (see writing-runner). No mapping paste. Writing **validate-only** on producer-written `_facts.json` — never Import / fact-intake / Derive. `begin-writing` hard-errors if the producer step did not complete or `_facts.json` is missing.
 
 1. Run `$L_STEP begin-writing`.
    - On failure → Blocking.
@@ -246,6 +248,7 @@ Stage-agenda items (design-external blockers/notes) live under the revision dir;
 | `{SKILL_ROOT}/compose/split-runner/SKILL.md` | Split Rules — multi-subdesign split (intake → lock tree+rulers) |
 | `{SKILL_ROOT}/compose/inductive-runner/SKILL.md` | Working → Inductive — inductive-runner (`pipeline.inductive: true`) |
 | `{SKILL_ROOT}/compose/deductive-runner/SKILL.md` | Working → Deductive — deductive-runner (`pipeline.inductive: false`) |
+| `{SKILL_ROOT}/compose/fact-intake-runner/SKILL.md` | Deductive Step 1 / (F4b) Inductive intake — shared doc→`_facts.json` |
 | `{SKILL_ROOT}/compose/narrative-arc-runner/SKILL.md` | Working → Inductive G2 / Writing — unified narrative-arc pipeline |
 | `{SKILL_ROOT}/compose/chapter-write-runner/SKILL.md` | Working → Writing Step 5 — chapter write + assemble |
 | `{SKILL_ROOT}/compose/inductive-runner/g3-shallow-grounding-runner/SKILL.md` | Working → Inductive — optional G3 shallow grounding subagent (detect facts only; parent `add-open`) |

@@ -287,7 +287,7 @@ def _atomize_source_path_for_focus(
         )
     ).strip()
     if not focus:
-        raise ValueError("discussion-pointer focus missing for ATOMIZE_SOURCE_PATH")
+        raise ValueError("discussion-pointer focus missing for SOURCE_PATH")
     return resolve_focus_doc_path(package, focus, package_path=scope_path)
 
 
@@ -311,10 +311,13 @@ def _format_deductive_dispatch_input(
         f"DEDUCTIVE_OUT_DIR:    {revision_dir.as_posix()}",
         f"CODE_GROUNDING:       {str(code_grounding).lower()}",
     ]
-    atomize_path = _atomize_source_path_for_focus(
+    source_path = _atomize_source_path_for_focus(
         cycle_id, project_root, profile_id, scope_path
     )
-    lines.append(f"ATOMIZE_SOURCE_PATH:  {atomize_path.as_posix()}")
+    source = source_path.as_posix()
+    lines.append(f"SOURCE_PATH:          {source}")
+    # Retired alias — same path as SOURCE_PATH (fact-intake SoT).
+    lines.append(f"ATOMIZE_SOURCE_PATH:  {source}")
     return "\n".join(lines)
 
 
