@@ -3,7 +3,7 @@ name: g5-provenance-runner
 description: >-
   Read-only subagent for inductive Gate 5 provenance detection. Runs
   algorithms A/B/C (intent-baseline / scope / norm-constraint) over
-  discovery-written `_facts.json` and `inductive-opens.json` (K4), records
+  intake+discovery `_facts.json` and `inductive-opens.json` (K4), records
   named deltas to the three provenance trace files. Does not interact with
   the user, never fixes a decision, never collects sign-off.
 ---
