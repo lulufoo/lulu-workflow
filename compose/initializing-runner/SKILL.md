@@ -55,19 +55,14 @@ All macros that declare `--profile` **must** pass `--profile "$COMPOSE_PROFILE"`
 | `$COMPOSE_DOC_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/section/compose_doc_control.py"` |
 | `$INIT_COMPOSE_VALIDATE` | `python3 "$SKILL_ROOT/compose/scripts/section/init_compose_validation.py" validate --revision-dir "$REVISION_DIR" --compose-doc "$OUTPUT_DOC_PATH" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)"` |
 | `$FACTS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/facts_control.py"` |
-| `$NARRATIVE_ARC_BUILD_CTL` | `python3 "$SKILL_ROOT/compose/narrative-arc-runner/scripts/narrative_arc_build_control.py"` |
 | `$NARRATIVE_ARC_CTL` | `python3 "$SKILL_ROOT/compose/narrative-arc-runner/scripts/narrative_arc_control.py"` |
-
-**Declare-use:** Formal arc macros belong to sibling `narrative-arc-runner` (path above).
 | `$CHAPTER_WRITE_STATE` | `python3 "$SKILL_ROOT/compose/scripts/section/chapter_write_state_control.py"` |
 
 `$COMPOSE_DOC_CONTROL` subcommands: `--help` · `init-doc` · `append-chapter` · `assemble-arc`.
 
 `$FACTS_CTL` subcommands: `--help` · `write` · `validate` · `status`.
 
-`$NARRATIVE_ARC_BUILD_CTL` subcommands: `--help` · `context` · `validate-candidate`.
-
-`$NARRATIVE_ARC_CTL` subcommands: `--help` · `validate` · `write` · `show` · `list-chapters`.
+`$NARRATIVE_ARC_CTL` subcommands: `--help` · `validate` · `write` · `show` · `list-chapters` (audit / Step 5; Step 3 delivery is via `narrative-arc-runner`).
 
 `$CHAPTER_WRITE_STATE` subcommands: `--help` · `sync` · `status` · `begin` · `complete` (serial chapter Write gate).
 
@@ -124,83 +119,30 @@ Missing / invalid `_facts.json` → Blocking (return to parent Inductive|Deducti
 
 **Done:** validate exit 0 → proceed to Step 3.
 
-### Step 3 — Formal narrative arc (phase 1 → phase 2)
+### Step 3 — Narrative arc (unified pipeline · inline)
 
-Replaces archive-3.0 Dynamic chapter plan. `narrative-arc-runner` owns the
-semantic build protocol; this runner only requests the `formal` target and
-persists the Formal output.
+Load sibling `narrative-arc-runner` and complete its delivery contract **inline**
+(not a subagent). Do **not** invoke arc build/write macros from this SKILL.
 
-1. Build context:
+```text
+Load {SKILL_ROOT}/compose/narrative-arc-runner/SKILL.md and follow
+references/semantic-build-protocol.md then contracts/delivery.md
+(inline in this conversation — not a subagent).
 
-```bash
-$NARRATIVE_ARC_BUILD_CTL context \
-  --target formal \
-  --revision-dir "$REVISION_DIR" \
-  --project-root "$(pwd)" \
-  --profile "$COMPOSE_PROFILE" \
-  --cycle-id "$CYCLE_ID"
+## Input
+REVISION_DIR: <$REVISION_DIR>
+PROJECT_ROOT: <abs project root = $(pwd)>
+COMPOSE_PROFILE: <$COMPOSE_PROFILE>
+CYCLE_ID: <$CYCLE_ID>
+OUTPUT_PATH: _narrative-arc.json
+MOUNT: false
 ```
 
-2. Follow the declared `narrative-arc-runner` semantic build protocol to
-produce an agent-authored `status=mapped` candidate. Validate the candidate:
+**Must:** await runner Summary with `wrote=true` and `write_ready=true`.  
+**Must not:** set `MOUNT: true`; paste fact bodies; re-run delivery macros here.
 
-```bash
-$NARRATIVE_ARC_BUILD_CTL validate-candidate \
-  --target formal \
-  --revision-dir "$REVISION_DIR" \
-  --project-root "$(pwd)" \
-  --profile "$COMPOSE_PROFILE" \
-  --cycle-id "$CYCLE_ID" \
-  --file "<path to mapped arc JSON>"
-```
-
-3. Persist and validate:
-
-```bash
-$NARRATIVE_ARC_CTL write \
-  --revision-dir "$REVISION_DIR" \
-  --profile "$COMPOSE_PROFILE" \
-  --project-root "$(pwd)" \
-  --file "<path to arc JSON with status=mapped>"
-```
-
-```bash
-$NARRATIVE_ARC_CTL validate \
-  --revision-dir "$REVISION_DIR" \
-  --profile "$COMPOSE_PROFILE" \
-  --project-root "$(pwd)"
-```
-
-**Done (3.1):** `_narrative-arc.json` exists; `status=mapped`; candidate and
-Formal coverage gates pass.
-
-#### 3.2 — Phase 2 (`status=write_ready`)
-
-1. Follow the same semantic build protocol to partition each leaf's facts into
-   sub-topic chapters `{lens, fact_ids}`. Each fact has exactly one chapter;
-   each chapter lens belongs to that fact's `lens_tags`; empty tags become
-   `unresolved` and block `write_ready`.
-2. Validate the `status=write_ready` candidate with
-   `$NARRATIVE_ARC_BUILD_CTL validate-candidate --target formal …`.
-3. Persist + gate:
-
-```bash
-$NARRATIVE_ARC_CTL write \
-  --revision-dir "$REVISION_DIR" \
-  --profile "$COMPOSE_PROFILE" \
-  --project-root "$(pwd)" \
-  --file "<path to arc JSON with status=write_ready>"
-```
-
-```bash
-$NARRATIVE_ARC_CTL validate \
-  --revision-dir "$REVISION_DIR" \
-  --profile "$COMPOSE_PROFILE" \
-  --project-root "$(pwd)" \
-  --require-write-ready
-```
-
-**Done (Step 3):** `_narrative-arc.json` with `status=write_ready`; `$NARRATIVE_ARC_CTL list-chapters` succeeds.
+**Done (Step 3):** Summary OK; `_narrative-arc.json` is `write_ready`;
+`$NARRATIVE_ARC_CTL list-chapters` succeeds (audit).
 
 ### Step 4 — Write-by-sub-topic-chapter then Assemble
 

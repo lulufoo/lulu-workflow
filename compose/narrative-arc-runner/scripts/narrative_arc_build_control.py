@@ -3,11 +3,12 @@
 
 ``context`` returns the complete current build input for an agent-authored
 semantic arc: facts, validated Role/Domain instances, and section registry.
-``validate-candidate`` applies the target-specific Formal or collab gates.
+``validate-candidate`` applies the unified narrative-arc gates and emits a
+digest for ``narrative_arc_control.py write``.
 
-This control never authors or persists an arc. Formal persistence belongs to
-``narrative_arc_control.py``; human-confirmed collab persistence belongs to
-``narrative_arc_collab_control.py``.
+This control never authors or persists an arc.
+
+Process how: docs/domain/archive/compose/archive-25.0/
 """
 
 from __future__ import annotations
@@ -28,18 +29,14 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
-from discussion_pointer_schema import active_slice_dir  # noqa: E402
 from compose_state_lock import canonical_digest  # noqa: E402
+from discussion_pointer_schema import active_slice_dir  # noqa: E402
 from domain_instance_schema import (  # noqa: E402
     DOMAIN_SCHEME_KEY,
     load_and_validate_domain_instance,
 )
 from facts_schema import facts_path, load_facts  # noqa: E402
 from fetch_compose_framework import fetch_compose_framework  # noqa: E402
-from narrative_arc_collab_schema import (  # noqa: E402
-    collab_fact_coverage_errors,
-    validate_narrative_arc_collab,
-)
 from narrative_arc_schema import validate_narrative_arc  # noqa: E402
 from role_instance_schema import (  # noqa: E402
     ROLE_SCHEME_KEY,
@@ -176,7 +173,6 @@ def cmd_context(args: argparse.Namespace) -> int:
         {
             "ok": True,
             "command": "context",
-            "target": args.target,
             "slice_dir": str(_slice(args.revision_dir)),
             "cycle_type": cycle_type,
             "facts": facts,
@@ -192,20 +188,16 @@ def cmd_validate_candidate(args: argparse.Namespace) -> int:
     try:
         candidate = _candidate(args.file)
         facts = _facts(args.revision_dir)
-        if args.target == "formal":
-            _, lenses = _registry(
-                project_root=Path(args.project_root).resolve(),
-                profile=args.profile,
-                cycle_id=str(args.cycle_id or "").strip(),
-            )
-            errors = validate_narrative_arc(
-                candidate,
-                facts=facts,
-                allowed_lenses=lenses,
-            )
-        else:
-            errors = validate_narrative_arc_collab(candidate)
-            errors.extend(collab_fact_coverage_errors(candidate, facts))
+        _, lenses = _registry(
+            project_root=Path(args.project_root).resolve(),
+            profile=args.profile,
+            cycle_id=str(args.cycle_id or "").strip(),
+        )
+        errors = validate_narrative_arc(
+            candidate,
+            facts=facts,
+            allowed_lenses=lenses,
+        )
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         return _fail(str(exc))
     if errors:
@@ -214,9 +206,11 @@ def cmd_validate_candidate(args: argparse.Namespace) -> int:
         {
             "ok": True,
             "command": "validate-candidate",
-            "target": args.target,
             "facts_total": len(facts),
             "digest": canonical_digest(candidate),
+            "status": str(candidate.get("status", "")).strip(),
+            "write_ready": str(candidate.get("status", "")).strip()
+            == "write_ready",
         }
     )
 
@@ -225,8 +219,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
 
-    def add_context_args(command: argparse.ArgumentParser) -> None:
-        command.add_argument("--target", required=True, choices=("formal", "collab"))
+    def add_common(command: argparse.ArgumentParser) -> None:
         command.add_argument("--revision-dir", required=True)
         command.add_argument("--project-root", required=True)
         command.add_argument("--profile", required=True)
@@ -235,14 +228,14 @@ def build_parser() -> argparse.ArgumentParser:
         cycle.add_argument("--cycle-type", default="")
 
     context = sub.add_parser("context", help="Print complete semantic-build input")
-    add_context_args(context)
+    add_common(context)
     context.set_defaults(func=cmd_context)
 
     validate = sub.add_parser(
         "validate-candidate",
-        help="Validate a semantic arc candidate for its target",
+        help="Validate a semantic arc candidate and emit digest",
     )
-    add_context_args(validate)
+    add_common(validate)
     validate.add_argument("--file", required=True)
     validate.set_defaults(func=cmd_validate_candidate)
     return parser

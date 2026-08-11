@@ -1,16 +1,17 @@
 ---
 name: compose-viewer
 description: >-
-  Compose design viewer mount skill. Serves collab arc + facts; hard-bans
-  Formal as primary source. Optional declare-use from inductive G2/G3.
+  Compose design viewer mount skill. Serves a write_ready narrative arc +
+  facts. Optional declare-use from inductive G2/G3.
 ---
 
 # compose-viewer
 
 Use when a compose caller **declares** this skill to mount the local viewer.
 
-**Must:** mount via `$COMPOSE_VIEWER_CTL`; primary arc = collab only.  
-**Must not:** use Formal `_narrative-arc.json` as primary source.
+**Must:** mount via `$COMPOSE_VIEWER_CTL`; arc file must be unified
+`narrative-arc` with `status=write_ready`.  
+**Must not:** edit Viewer HTML in this skill; mount a non-write_ready arc.
 
 ## Script Macros
 

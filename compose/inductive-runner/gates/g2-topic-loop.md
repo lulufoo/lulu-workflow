@@ -46,8 +46,9 @@ discovery channels (human || AI).
 - `narrative-arc-runner`
   - **Human request:** Any time while G2 is active.
   - **Dispatch:** `$SUBAGENT_TOOL` + `$SUBAGENT_AWAIT_ASYNC`; do not block or auto-run.
-  - **Runner:** collab input, build, validation, persistence, and Viewer mount.
-  - **G2:** dispatch and report its summary.
+  - **Runner Input:** unified pipeline (`OUTPUT_PATH` + `MOUNT: true`); see
+    `narrative-arc-runner/SKILL.md`.
+  - **G2:** dispatch and report its Summary (`wrote` / `write_ready` / `mounted`).
 - Keep tool-internal arguments and output handling in their owning contracts.
 
 ## Routing
@@ -117,7 +118,8 @@ convergent close.
 ## Hard cuts
 
 - Do **not** call `$NARRATIVE_ARC_DRAFT_CTL` / draft-as-topic-tree / `$TOPIC_FOCUS_CTL` (retired).
-- Do **not** invoke `$NARRATIVE_ARC_BUILD_CTL` / `$NARRATIVE_ARC_COLLAB_CTL` / `$COMPOSE_VIEWER_CTL` from this gate.
+- Do **not** invoke `$NARRATIVE_ARC_BUILD_CTL` / `$NARRATIVE_ARC_CTL` /
+  `$COMPOSE_VIEWER_CTL` from this gate — only dispatch `narrative-arc-runner`.
 - Do **not** paste `topic-landscape` / `topic-portrait` /
   `topic-question-driver` product checklists into this gate — invoke the tool
   names; protocols stay in their references.

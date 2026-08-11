@@ -16,6 +16,8 @@ from pathlib import Path
 from typing import Any
 
 NARRATIVE_ARC_BASENAME = "_narrative-arc.json"
+# Common G2 display path (filename only; schema is always narrative-arc).
+DEFAULT_DISPLAY_ARC_BASENAME = "_narrative-arc.collab.json"
 NARRATIVE_ARC_KIND = "narrative-arc"
 _STATUS_VALUES = frozenset({"mapped", "write_ready"})
 _FACT_ID_RE = re.compile(r"^F-\d+$")

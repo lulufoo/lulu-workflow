@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
-"""Compose Viewer mount control (archive-11.0; inherits archive-10.0 T4).
+"""Compose Viewer mount control (archive-25.0 unified arc).
 
 Subcommands: mount · status · stop
 
 - Syncs ``compose-viewer/assets/compose-viewer.html`` into the active slice.
-- Writes ``_compose-viewer.json`` with caller ``arc_source`` (collab only).
-- Hard-rejects Formal ``_narrative-arc.json`` as primary ARC_SOURCE.
+- Writes ``_compose-viewer.json`` with caller ``arc_source``.
+- Requires on-disk unified ``narrative-arc`` with ``status=write_ready``.
+- Does not edit Viewer HTML; basename Formal ban removed at mount control.
 - Serves on ``127.0.0.1:8390``.
 - ``mount`` success stdout is **URL only** (one line); errors on stderr.
 - Mount conflict: reuse same root, else stop-old-then-start.
 
 CLI: ``python3 compose_viewer_control.py --help``
 
-Process how: docs/domain/archive/compose/archive-11.0/
+Process how: docs/domain/archive/compose/archive-25.0/
 """
 
 from __future__ import annotations
@@ -41,9 +42,10 @@ import kernel_bootstrap  # noqa: E402
 kernel_bootstrap.ensure_kernel_paths()
 
 from discussion_pointer_schema import active_slice_dir  # noqa: E402
-from narrative_arc_collab_schema import (  # noqa: E402
-    DEFAULT_COLLAB_BASENAME,
-    FORMAL_BASENAME,
+from narrative_arc_schema import (  # noqa: E402
+    DEFAULT_DISPLAY_ARC_BASENAME,
+    is_write_ready,
+    load_narrative_arc,
 )
 
 DEFAULT_PORT = 8390
@@ -104,19 +106,18 @@ def _load_state(slice_dir: Path) -> dict[str, Any] | None:
 
 
 def _write_config(slice_dir: Path, arc_file: str) -> Path:
-    name = Path(arc_file).name
-    if name == FORMAL_BASENAME:
-        raise ValueError(
-            f"Formal {FORMAL_BASENAME} hard-banned as viewer primary source",
-        )
-    if "/" in arc_file.replace("\\", "/") and not arc_file.startswith("./"):
-        if Path(arc_file).is_absolute():
-            raise ValueError("arc-file must be a basename relative to slice dir")
-    rel = name if "/" not in arc_file.replace("\\", "/") else Path(arc_file).name
-    if rel == FORMAL_BASENAME:
-        raise ValueError(
-            f"Formal {FORMAL_BASENAME} hard-banned as viewer primary source",
-        )
+    if Path(arc_file).is_absolute():
+        raise ValueError("arc-file must be a basename relative to slice dir")
+    rel = Path(arc_file).name
+    arc_path = slice_dir / rel
+    if not arc_path.is_file():
+        raise ValueError(f"arc file not found: {arc_path}")
+    try:
+        data = load_narrative_arc(arc_path)
+    except ValueError as exc:
+        raise ValueError(f"invalid narrative arc for mount: {exc}") from exc
+    if not is_write_ready(data):
+        raise ValueError("mount requires status=write_ready")
     cfg = {
         "version": "1",
         "arc_source": f"./{rel}",
@@ -210,7 +211,7 @@ def _start_server(slice_dir: Path, port: int) -> int:
 def cmd_mount(args: argparse.Namespace) -> int:
     slice_dir = _slice(args.revision_dir)
     port = int(args.port or DEFAULT_PORT)
-    arc_file = str(args.arc_file or DEFAULT_COLLAB_BASENAME).strip()
+    arc_file = str(args.arc_file or DEFAULT_DISPLAY_ARC_BASENAME).strip()
     try:
         viewer = _sync_asset(slice_dir)
         cfg = _write_config(slice_dir, arc_file)
@@ -285,8 +286,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--port", type=int, default=DEFAULT_PORT)
     p.add_argument(
         "--arc-file",
-        default=DEFAULT_COLLAB_BASENAME,
-        help=f"Basename under slice (default {DEFAULT_COLLAB_BASENAME}); not Formal",
+        default=DEFAULT_DISPLAY_ARC_BASENAME,
+        help=(
+            f"Basename under slice (default {DEFAULT_DISPLAY_ARC_BASENAME}); "
+            "must be write_ready narrative-arc"
+        ),
     )
     p.set_defaults(func=cmd_mount)
 
