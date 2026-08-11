@@ -145,7 +145,10 @@ Use stdout: `order`, `edge_holes`, `true_gaps`, `materials_total` (carried-prima
    - **If unsatisfied** → drive ceiling means: list Intent should-cover / thicken opportunities; projectable **and** on a `decompose`/`instantiate` edge **and** not past the depth the table asks for → `derived` with `F-id` refs. Gap recovery when still thin: carried → quarantined ledger → not_needed ledger → pending. Off-edge / undecided → `$DEDUCTIVE_CTL pending-add` (kind=`off_edge` \| `undecided`) — **never** `origin.type=derived` off-edge. **Forbidden:** inventing to pad KW with no edge.
    - **If satisfied** → stop thickening that lens (KW stop line).
    - **If means exhausted and still unsatisfied** → `$DEDUCTIVE_CTL pending-add` (kind=`kw_shortfall`, `--lens <L>`, summary = table gap). Do **not** silently pass.
-   - **Do not** batch-retag quarantine/not_needed inside Pd; promote only via Confirm patch or explicit promote ops (`$DEDUCTIVE_CTL disposition-patch-*` for post-intake retags).
+   - **Do not** batch-retag quarantine/not_needed inside Pd. Post-intake promote/retag
+     only: `$DEDUCTIVE_CTL disposition-patch-*` with an agent-chosen patch file
+     (not intake Confirm). Intake Disposition Confirm stays
+     `{slice}/fact-intake-disposition-review.patch` via `$FACT_INTAKE_DISPOSITION_CTL`.
 3. **Cascade:** later lenses see facts appended earlier. If ceiling appends create new `edge_holes`, re-run floor for those holes (**still no KW**), then resume ceiling×KW for affected lenses.
 4. **Must not** produce `origin.type=discovered`.
 
@@ -175,12 +178,14 @@ Interactive in this conversation (not a subagent).
 $DEDUCTIVE_CTL quarantine-unref
 ```
 
-For each listed quarantined id: present options (promote/retag via disposition
-patch or fact update commands; mark out-of-scope; escalate upstream). Record via
-`$DEDUCTIVE_CTL pending-add` (kind=`quarantine_unref`) then
-`$DEDUCTIVE_CTL pending-resolve` as the user chooses — or resolve immediately per
-`--help`. Citing a quarantined/not_needed id settles unreferenced-quarantine
-accounting without retagging; **retag/promote** requires carried + Plan tags.
+For each listed quarantined id: present options (promote/retag via
+`$DEDUCTIVE_CTL disposition-patch-*` post-intake retag patch, or fact update
+commands; mark out-of-scope; escalate upstream). Do **not** reuse
+`fact-intake-disposition-review.patch` here. Record via `$DEDUCTIVE_CTL
+pending-add` (kind=`quarantine_unref`) then `$DEDUCTIVE_CTL pending-resolve` as
+the user chooses — or resolve immediately per `--help`. Citing a
+quarantined/not_needed id settles unreferenced-quarantine accounting without
+retagging; **retag/promote** requires carried + Plan tags.
 
 2. Present open pending (derivation gaps + quarantine + **`kw_shortfall`**). For each item: options traceable to decided material, or `insufficient`. User chooses:
    - **Local seed (default):** append fact `origin.type=seed` with confirm ref → `$DERIVE_CTL append` or `$FACTS_CTL write` full array per `--help`; then `$DEDUCTIVE_CTL pending-resolve`.
@@ -220,7 +225,10 @@ facts: `derivation.disposition` ∈ {`carried`,`quarantined`,`not_needed`};
 `$DEDUCTIVE_CTL --help`.
 
 **Disposition Confirm (intake):** `{slice}/fact-intake-disposition-review.patch`
-(owned by `fact-intake-runner`).
+(owned by `fact-intake-runner` / `$FACT_INTAKE_DISPOSITION_CTL`).
+
+**Post-intake retag patch (optional, Steps 2–3):** agent-chosen path via
+`$DEDUCTIVE_CTL disposition-patch-*` — not the intake Confirm artifact.
 
 **Compose Writing input:** `_facts.json` only.
 
