@@ -42,7 +42,7 @@ discovery channels (human || AI).
 - `topic-portrait`: generic contract in `../references/topic-portrait.md`.
 - `topic-question-driver`: optional stateless contract in
   `../references/topic-question-driver.md`; it does not invoke `/converge`.
-- `fact-runner`: use its public protocol.
+- `fact-store-runner`: use its public protocol.
 - `narrative-arc-runner`
   - **Human request:** Any time while G2 is active.
   - **Dispatch:** `$SUBAGENT_TOOL` + `$SUBAGENT_AWAIT_ASYNC`; do not block or auto-run.
@@ -105,7 +105,7 @@ After a Closure Candidate or free-dialogue conclusion: behavior map for
 convergent close.
 
 - Conclude: Summarize → `set-conclusion` → human confirm →
-  `confirm-conclusion` → `fact-runner` → Seeking (`topic-landscape`).
+  `confirm-conclusion` → `fact-store-runner` → Seeking (`topic-landscape`).
 - After Seeking present when `stale_signal`: remind `narrative-arc-runner` on request (no auto-run).
 
 ## Close

@@ -1,12 +1,12 @@
 ---
-name: fact-runner
+name: fact-store-runner
 description: >-
-  Compose fact tool skill. Permit-gated fact mutations for G2/G3:
+  Compose fact store tool skill. Permit-gated fact mutations for G2/G3:
   propose an exact preview, obtain human ACK, then consume it. Declared by G2/G3;
-  not wired to deductive this wave.
+  Inductive store channel (propose/ack/consume); not wired to deductive this wave.
 ---
 
-# fact-runner
+# fact-store-runner
 
 Use when a compose caller **declares** this skill for writing `_facts.json`
 (conclusion batch or open settlement). Does not own Topic Loop dialogue.
@@ -18,7 +18,7 @@ Use when a compose caller **declares** this skill for writing `_facts.json`
 
 | Macro | Command |
 |-------|---------|
-| `$FACT_CTL` | `python3 "$SKILL_ROOT/compose/fact-runner/scripts/fact_production_control.py"` |
+| `$FACT_STORE_CTL` | `python3 "$SKILL_ROOT/compose/fact-store-runner/scripts/fact_production_control.py"` |
 
 Subcommands: `--help` · `propose` · `ack` · `consume` · `revoke` · `reconcile` · `recover`.
 

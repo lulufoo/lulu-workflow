@@ -18,7 +18,7 @@
 
    Mapping: structural→ST, boundary→SC, goals→GO, invariants→I, …. Prefer a git commit `"seeded"`. Former peel keys are first-class init lenses (peel retired for this runner).
 3. **Present shape view:** `$INDUCTIVE_G3_SECTION_CTL view --synthesis on --scope all --granularity <arch-overview hint>` (e.g. default perspective from `SCAN_CRITERIA.shape_extraction` — **hint only**, not a shape schema; V3). Content must come from facts + maturity SoT; gaps stay gaps (V2). Coarse altitude only — no file:line in the overview (I7).
-4. **User confirms or corrects.** Corrections → `activate-section` + `seed-decision` / `$FACT_CTL propose --kind update → ack → consume` / `add-open` → re-`set-frontier` if lens facts changed → re-`view` until confirmed.
+4. **User confirms or corrects.** Corrections → `activate-section` + `seed-decision` / `$FACT_STORE_CTL propose --kind update → ack → consume` / `add-open` → re-`set-frontier` if lens facts changed → re-`view` until confirmed.
 5. **Close:** `$INDUCTIVE_GATE_CTL gate-close --gate G1 --payload '{"user_confirmed": true}'`  
    - **Hard close criterion:** user confirmed.  
    - `gate-close G1` records `checkpoint --name shape` (authoritative mark + best-effort `checkpoint_git_sha`). Do **not** call `checkpoint` separately before close — one owner.  
