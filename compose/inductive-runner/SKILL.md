@@ -96,7 +96,7 @@ Inductive work discovers missing design decisions (parts → whole). **SoT = fac
 
 ### Control spine
 
-1. **Fact Intake** — Load and follow shared intake **inline** (interactive Confirm). Inductive caller: add `--require-seed-origin` on structure validate (fact-intake Step 3 / cut Done).
+1. **Fact Intake** — Load and follow shared intake **inline** (interactive Confirm).
 
 ```text
 Load {SKILL_ROOT}/compose/fact-intake-runner/SKILL.md and follow it.
@@ -107,6 +107,7 @@ PROJECT_ROOT: <$PROJECT_ROOT>
 COMPOSE_PROFILE: <$COMPOSE_PROFILE>
 CYCLE_ID: <$CYCLE_ID>
 SOURCE_PATH: <$SOURCE_PATH>
+REQUIRE_SEED_ORIGIN: true
 ```
 
 Do not re-implement cut / eval / disposition / Confirm; do not `seed-decision` to cover-stamp intake substance.

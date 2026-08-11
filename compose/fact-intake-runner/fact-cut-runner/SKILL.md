@@ -22,6 +22,7 @@ PROJECT_ROOT: <abs project root>
 COMPOSE_PROFILE: <profile id>
 CYCLE_ID: <cycle id>
 SOURCE_PATH: <abs intake SoT>
+REQUIRE_SEED_ORIGIN: <true|false; default false>
 ```
 
 ## Script Macros
@@ -39,7 +40,8 @@ Facts: `--help` · `write` · `validate`.
 1. Bind Input.  
 2. `$FACT_CUT_BUILD_CTL context --revision-dir … --profile … --project-root … --cycle-id …`  
 3. Whole-doc cut → `$FACTS_CTL write` (omit `derivation.disposition`; set seed + `upstream_ref`).  
-4. `$FACTS_CTL validate … --intake-structure` (add `--require-seed-origin` when caller is inductive).
+4. `$FACTS_CTL validate … --intake-structure` (add `--require-seed-origin` when
+   `$REQUIRE_SEED_ORIGIN=true`).
 
 **Done:** validate exit 0.
 

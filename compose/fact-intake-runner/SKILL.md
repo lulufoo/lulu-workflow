@@ -24,9 +24,11 @@ fetch registry/role in parent Load (L1 self-`context`).
 | `$COMPOSE_PROFILE` | Compose profile id |
 | `$CYCLE_ID` | Active cycle id |
 | `$SOURCE_PATH` | Absolute intake SoT doc (Eval SoT) |
+| `$REQUIRE_SEED_ORIGIN` | Optional; `true` for inductive — structure validate adds `--require-seed-origin` |
 
 Caller binds `$SOURCE_PATH`: deductive = former `$ATOMIZE_SOURCE_PATH`; inductive =
-L mirror `source_path` (not scope-package whole).
+L mirror `source_path` (not scope-package whole). Inductive sets
+`$REQUIRE_SEED_ORIGIN=true`.
 
 ## Script Macros
 
@@ -58,6 +60,7 @@ PROJECT_ROOT: <$PROJECT_ROOT>
 COMPOSE_PROFILE: <$COMPOSE_PROFILE>
 CYCLE_ID: <$CYCLE_ID>
 SOURCE_PATH: <$SOURCE_PATH>
+REQUIRE_SEED_ORIGIN: <$REQUIRE_SEED_ORIGIN>
 ```
 
 ### Step 3 — Validate (pre-Eval)
@@ -68,9 +71,10 @@ $FACTS_CTL validate \
   --profile "$COMPOSE_PROFILE" \
   --project-root "$(pwd)" \
   --intake-structure
+# when REQUIRE_SEED_ORIGIN=true, also pass --require-seed-origin
 ```
 
-Inductive callers add `--require-seed-origin`. Exit 0 → Step 4.
+Exit 0 → Step 4.
 
 ### Step 4 — Intake Eval (L1 subagent)
 
