@@ -10,11 +10,12 @@ from pathlib import Path
 
 import pytest
 
-_ATOMIZE = Path(__file__).resolve().parents[1]
-_COMPOSE_SCRIPTS = Path(__file__).resolve().parents[3] / "scripts"
+# .../compose/fact-intake-runner/fact-intake-eval/scripts/tests/<this>
+_ATOMIZE = Path(__file__).resolve().parents[1]  # fact-intake-eval/scripts
+_COMPOSE_SCRIPTS = Path(__file__).resolve().parents[4] / "scripts"  # compose/scripts
 _COMPOSE_CORE = _COMPOSE_SCRIPTS / "core"
 _COMPOSE_TESTS = _COMPOSE_SCRIPTS / "tests"
-_EVAL = Path(__file__).resolve().parents[4] / "eval" / "scripts"
+_EVAL = Path(__file__).resolve().parents[5] / "eval" / "scripts"  # lulu-dev-workflow/eval/scripts
 for p in (_ATOMIZE, _COMPOSE_CORE, _COMPOSE_TESTS, _EVAL):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
@@ -24,14 +25,14 @@ from bootstrap import CORE  # noqa: E402
 
 sys.path.insert(0, str(CORE))
 
-from atomize_eval_adapter import AtomizeEvalAdapter, _PROFILE_ENV  # noqa: E402
-from atomize_eval_runtime_schema import evaluate_state_path, load_runtime, runtime_path  # noqa: E402
+from fact_intake_eval_adapter import AtomizeEvalAdapter, _PROFILE_ENV  # noqa: E402
+from fact_intake_eval_runtime_schema import evaluate_state_path, load_runtime, runtime_path  # noqa: E402
 from discussion_pointer_schema import active_slice_dir  # noqa: E402
 from facts_schema import FACTS_BASENAME  # noqa: E402
 from init_working_helpers import init_working_ready  # noqa: E402
 from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, seed_profile_pointer_for_tests  # noqa: E402
 
-_CYCLE = "feat-atomize-eval"
+_CYCLE = "feat-fact-intake-eval"
 _CACHE = Path(".cache/cursor/lulu-dev-workflow")
 
 
@@ -80,7 +81,7 @@ def test_enter_evaluating_skips_stage_gate(tmp_path: Path, monkeypatch) -> None:
     assert result["ok"] is True
     assert result["transitioned"] is True
     slice_dir = active_slice_dir(rev)
-    assert (slice_dir / "atomize-eval" / "evaluate-state.md").is_file()
+    assert (slice_dir / "fact-intake-eval" / "evaluate-state.md").is_file()
     runtime = load_runtime(runtime_path(slice_dir))
     assert runtime["focus_phase"] == "evaluating"
     # Delivery Evaluating state must not be created at slice root.
@@ -98,7 +99,7 @@ def test_handoff_binds_facts_json(tmp_path: Path, monkeypatch) -> None:
     assert bindings["eval_target_path"].endswith(FACTS_BASENAME)
     assert handoff["context"]["policy_context"]["completion_mode"] == "return_to_caller"
     assert Path(bindings["eval_target_path"]).is_file()
-    assert "atomize-eval" in handoff["context"]["evaluate_state_path"]
+    assert "fact-intake-eval" in handoff["context"]["evaluate_state_path"]
     assert evaluate_state_path(active_slice_dir(rev)).is_file()
 
 
