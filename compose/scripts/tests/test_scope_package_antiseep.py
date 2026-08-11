@@ -226,7 +226,7 @@ def test_seed_source_path_for_out_dir_none_without_contract(tmp_path: Path) -> N
 
 
 def test_begin_inductive_scope_ref_is_l_mirror_fact_path(tmp_path: Path) -> None:
-    """begin-inductive dispatch SCOPE_REF = focus L mirror source_path, not package."""
+    """begin-inductive SCOPE_REF and SOURCE_PATH = L mirror source_path, not package."""
     import bootstrap  # noqa: F401
     import l_step_control  # noqa: E402
     from delivered_refs_schema import DeliveredRef  # noqa: E402
@@ -274,9 +274,15 @@ def test_begin_inductive_scope_ref_is_l_mirror_fact_path(tmp_path: Path) -> None
     result = l_step_control.begin_inductive(cycle, tmp_path, profile_id=profile)
     assert result["ok"] is True, result
     dispatch = result["dispatch_input"]
-    assert f"SCOPE_REF:            {Path(f1).as_posix()}" in dispatch
-    assert "scope-package.json" not in dispatch.split("SCOPE_REF:", 1)[1].split("\n", 1)[0]
-    assert f2 not in dispatch.split("SCOPE_REF:", 1)[1].split("\n", 1)[0]
+    mirror = Path(f1).as_posix()
+    assert f"SCOPE_REF:            {mirror}" in dispatch
+    assert f"SOURCE_PATH:          {mirror}" in dispatch
+    scope_line = dispatch.split("SCOPE_REF:", 1)[1].split("\n", 1)[0]
+    source_line = dispatch.split("SOURCE_PATH:", 1)[1].split("\n", 1)[0]
+    assert "scope-package.json" not in scope_line
+    assert "scope-package.json" not in source_line
+    assert f2 not in scope_line
+    assert f2 not in source_line
 
 
 def test_begin_inductive_fails_when_l_mirror_missing(tmp_path: Path) -> None:
