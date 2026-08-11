@@ -2,9 +2,9 @@
 name: deductive-runner
 description: >-
   Pre-compose deductive fact production for compose stages with
-  pipeline.inductive=false. Dispatches shared fact-intake, then Pd: edge-coverage
-  floor + Intent ceiling via section-kw-criteria, and clears a human confirm gate
-  before handing facts to compose Writing.
+  pipeline.inductive=false. Dispatches shared fact-intake, then Derive
+  (edge-coverage floor + Intent ceiling via section-kw-criteria), and clears a
+  human confirm gate before handing facts to compose Writing.
 ---
 
 # deductive-runner
@@ -30,7 +30,8 @@ chapter prose; ask the user during Writing (confirm only here); re-read upstream
 prose after intake for Steps 2–4; Import upstream `_facts.json` as delivery;
 enter delivery Evaluating / StageGate for intake eval; edit the intake source
 doc; inline cut / eval / disposition / confirm (owned by
-`fact-intake-runner`); inline Pd floor / ceiling×KW (owned by `derive-runner`).
+`fact-intake-runner`); inline Derive floor / ceiling×KW (owned by
+`derive-runner`).
 
 ---
 
@@ -74,7 +75,8 @@ Collaboration: AI projects and proposes; **user** closes Confirm gates; scripts
 move state only.
 
 **Pipeline split:** shared **fact-intake** (cut → structure validate → intake eval →
-disposition → Confirm) → **Pd** (`derive-runner`) → pending Confirm → Complete.
+disposition → Confirm) → **Derive** (`derive-runner`) → pending Confirm →
+Complete.
 
 ---
 
@@ -125,7 +127,7 @@ COMPOSE_PROFILE: <$COMPOSE_PROFILE>
 CYCLE_ID: <$CYCLE_ID>
 ```
 
-Do not re-implement Pd floor / ceiling×KW here.
+Do not re-implement Derive floor / ceiling×KW here.
 
 **Done:** derive-runner Summary `Status: ok`. Proceed to Step 3.
 
@@ -200,7 +202,7 @@ facts: `derivation.disposition` ∈ {`carried`,`quarantined`,`not_needed`};
 - No AI hand-written JSON files — control commands only (disposition patches
   drafted then applied by control).
 - After intake, Steps 2–4 read only this stage’s facts — never re-open upstream
-  `.md` (Pd means owned by `derive-runner`).
+  `.md` (Derive means owned by `derive-runner`).
 - Off-edge obligations → pending only (not `derived`).
 - Quarantined / not_needed facts remain addressable; cite settles unref accounting;
   leftover unreferenced **quarantined** ids must go through Step 3.

@@ -1,26 +1,26 @@
 ---
 name: derive-runner
 description: >-
-  Compose deductive L1: Pd floor means + ceiling × KW ruler after fact-intake.
+  Compose deductive L1: Derive floor means + ceiling × KW ruler after fact-intake.
 ---
 
 # derive-runner
 
-Run Pd on intake-classified facts: edge-closure floor means and Intent ceiling
-means under the published KW ruler. Finish when validate passes and every floor
-hole / required lens is covered or pending.
+Run Derive on intake-classified facts under the published KW ruler. Done when
+validate passes and every floor hole / required lens is covered or pending.
 
 ## Boundaries
 
-**Must:** bind Input; `$DERIVE_BUILD_CTL context` (requires `eval_status=done`);
-`$DERIVE_CTL plan-edge` → floor / ceiling×KW (cascade in this run) →
-`$DERIVE_CTL append` → `$FACTS_CTL validate`; `$DEDUCTIVE_CTL pending-add` for
-gaps; load `references/pd-semantic-work.md` before semantic work.  
-**Must not:** Fact Intake / cut / eval / disposition / confirm; Pending Confirm
-human gate; disposition-patch / promote; `$FETCH_COMPOSE` or paste framework
-templates; `$SOURCE_PATH` / re-read upstream prose; write chapter prose;
-`origin.type=discovered`; invent to pad KW with no edge; reuse intake Confirm
-patch.
+**Out of scope here** (do not perform):
+
+| Do not | Belongs to |
+|--------|------------|
+| Fact Intake (cut / eval / disposition / confirm) | Upstream `fact-intake-runner` |
+| Pending Confirm; disposition-patch / promote | Parent Step 3 |
+| Use `$SOURCE_PATH` or re-read upstream prose | Post-intake: facts only |
+| Write chapter prose; emit `origin.type=discovered` | Writing / other origin types |
+
+Means (KW pad, off-edge, batch-retag): `references/derive-semantic-work.md`.
 
 ## Input
 
@@ -40,33 +40,44 @@ CYCLE_ID: <cycle id>
 | `$DEDUCTIVE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/deductive/deductive_control.py" --revision-dir "$REVISION_DIR" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)"` |
 | `$FACTS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/facts_control.py"` |
 
-Build: `--help` · `context`.  
-Derive / deductive / facts: see each `--help`. Scripts never invent derived
-work-item text.
+`--help` for each. Scripts never invent derived work-item text.
 
 ## Cognitive map
 
-**Floor** = edge-closure **means** (no KW).  
-**Ceiling** = Intent projection **means** driven by published **`KW_CRITERIA`** as
-the **only thickness ruler**. Do **not** treat “edges closed” or “should-cover
-ticked” as “thick enough.” Do **not** run a separate KW-first pass on the intake
-pool.  
-**Do not** batch-retag quarantine/not_needed inside Pd.
+| Layer | Role |
+|-------|------|
+| **Floor** | Edge-closure **means** (how to close graph holes; no KW). |
+| **Ceiling** | Intent projection **means** (how to thicken toward Intent); published **`KW_CRITERIA`** = only thickness ruler. |
+
+Edges closed / Intent **should-cover** rows ticked ≠ thick enough. No KW-first pass on
+the intake pool.
 
 ## Execution
 
-1. Bind Input.  
-2. `$DERIVE_BUILD_CTL context …` — bind `KW_CRITERIA` / registry from stdout
-   (`--help` for fields).  
-3. `$DERIVE_CTL plan-edge …` — mechanical edge floor + topo (`--help` for
-   fields).  
-4. Load `references/pd-semantic-work.md`; apply floor → ceiling×KW → cascade in
-   this run; gaps → `$DEDUCTIVE_CTL pending-add`.  
-5. Persist derived batches via `$DERIVE_CTL append` then `$FACTS_CTL validate`
-   (`--help` for flags).
+### Prepare
+1. Use Input from the parent dispatch (`REVISION_DIR`, …).
+2. `$DERIVE_BUILD_CTL context …`  
+   → stdout: `section_kw_criteria` (KW ruler text), `section_registry`
+   (section graph JSON). See `--help`.
+3. `$DERIVE_CTL plan-edge …`  
+   → stdout: edge floor + topo (`order`, `edge_holes`, `true_gaps`,
+   `materials_total`). See `--help`.
 
-**Done:** validate exit 0; every floor hole covered or pending; every required
-lens either KW-satisfied or has open `kw_shortfall` / other pending.
+### Derive
+4. Load `references/derive-semantic-work.md`.  
+   Run floor → ceiling×KW → cascade here (no mid-cascade re-dispatch).  
+   Unresolvable gaps → `$DEDUCTIVE_CTL pending-add` (kinds in reference).
+
+### Persist
+5. `$DERIVE_CTL append` → `$FACTS_CTL validate` (`--help`).
+
+## Done
+
+| Check | Criterion |
+|-------|-----------|
+| Validate | exit 0 |
+| Floor | every hole covered or pending |
+| Ceiling | every required lens KW-satisfied or open `kw_shortfall` / other pending |
 
 ## Summary
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare mechanical context for derive-runner (Pd).
+"""Prepare mechanical context for derive-runner (Derive step).
 
 Rationale (design): docs/domain/archive/compose/archive-31.0/
 compose-derive-runner-technical-scheme-draft.md — context projects
@@ -106,7 +106,7 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="command", required=True)
     context = sub.add_parser(
         "context",
-        help="Fetch Pd context; require intake-eval done",
+        help="Fetch Derive context; require intake-eval done",
     )
     context.add_argument("--revision-dir", required=True)
     context.add_argument("--project-root", required=True)
