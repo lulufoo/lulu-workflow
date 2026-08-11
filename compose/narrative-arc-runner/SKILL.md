@@ -1,14 +1,17 @@
 ---
 name: narrative-arc-runner
 description: >-
-  Compose semantic narrative-arc builder. Builds a unified write_ready arc
-  (chapters included) to a caller output path; optional Viewer mount.
+  Compose semantic narrative-arc builder for write-ready document spines.
 ---
 
 # narrative-arc-runner
 
-Build one narrative arc to `write_ready` and persist it at the caller
-`OUTPUT_PATH`. Optional Viewer mount when `MOUNT=true`.
+Produce the document's narrative spine: outline stations come from settled
+facts' substance story and are ordered for Role-reviewable reading, so titles
+and structure alone present a Domain-audience through-line—not a lens catalog
+or fact list.
+
+## Boundaries
 
 **Must:** bind Input; load protocol then delivery; obtain context via
 `$NARRATIVE_ARC_BUILD_CTL`; build from facts' substance story; pass pre-persist
