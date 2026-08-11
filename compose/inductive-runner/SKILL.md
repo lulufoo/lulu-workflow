@@ -5,7 +5,7 @@ description: >-
   _facts.json (K4), tracks opens in inductive-opens.json and per-lens maturity
   under inductive-scope/, confirms a shape view, then refines via a two-lane
   dialogue (free discovery / open-processing) over a Class 1/2/3 capability
-  surface. Hands discovery-written facts to compose Initializing.
+  surface. Hands discovery-written facts to compose Writing.
 ---
 
 # inductive-runner
@@ -17,7 +17,7 @@ Produces **three stores** under the active revision dir (`$INDUCTIVE_OUT_DIR`):
 - **Opens:** `inductive-opens.json` — doc-level flat list (`O-n`)
 - **Maturity:** `inductive-scope/<SECTION>.json` + `_index.json` — `{key, status, frontier_kw}` only
 
-Compose Initializing reads **`_facts.json`** directly (validate-only). After completion, control returns to the parent compose stage for Initializing.
+Compose Writing reads **`_facts.json`** directly (validate-only). After completion, control returns to the parent compose stage for Writing.
 
 This runner is **stage-agnostic**: init/Exit lens set = `section-registry.section_order`; discovery `methods` / weights / shape hints / `mandatory_coverage_prompt` = `inductive-scan-criteria`.
 
@@ -97,7 +97,7 @@ Inductive work discovers missing design decisions (parts → whole). **SoT = fac
 3. **G2 Topic Loop** — converge design through human-adopted topics; ends with a human-confirmed topic exit. See `gates/g2-topic-loop.md`, `references/topic-model.md`, `references/topic-landscape.md`, and `references/topic-portrait.md`.
 4. **G3 gap-check** — leak scan (orphans / blocking opens); conclusion→facts and open→facts via `$FACT_CTL propose → ack(digest) → consume` (`stale_signal` only after consume). Per-open grounding = `attach-code-refs` when processing opens.
 5. **Exit** — run `check-coverage`: ∀ init lens cleared∨skipped ∧ no (blocking∧open) ∧ (if demand manifest: all fulfilled∨deferred).
-6. **Audit (user-triggered):** G4 internal hard · G5 external soft → Handoff (`view --synthesis off` / Initializing). **G4 unchanged this wave.**
+6. **Audit (user-triggered):** G4 internal hard · G5 external soft → Handoff (`view --synthesis off` / Writing). **G4 unchanged this wave.**
 
 ### Capability surface
 
@@ -153,7 +153,7 @@ Do NOT rely on memory for gate execution steps.
 **Facts:** `_facts.json` — `F-n` with `text`, `lens_tags` (non-empty on inductive write), optional `origin{type,ref}`.  
 **Multi-L (when parent locked a multi-node tree):** treat locked slice rulers as the split ruler. Before write: decompose mixed content into pure-L facts (seam → `full_plan` side + `depend_only` side). Each fact **must** include `home_l` and short `home_rationale`; persist via parent `$FACTS_CTL write --target-l <home_l>` (G1 divert allowed). Untagged writes hard-reject. Cannot split → stop for human (do not silent single-tag). `home_l=package` only after human confirms (`--package-confirm`); AI must not self-select package.
 
-**Compose init input:** `_facts.json` (parent `begin-init` validates existence). `$INDUCTIVE_G3_SECTION_CTL view --synthesis off` assembles fact text by lens (I2/V5).
+**Compose Writing input:** `_facts.json` (parent `begin-writing` validates existence). `$INDUCTIVE_G3_SECTION_CTL view --synthesis off` assembles fact text by lens (I2/V5).
 
 **DQI** = optional resume/audit aid from gate-control; **not** decision SoT.
 

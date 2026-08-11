@@ -6,7 +6,7 @@ description: >-
   applies Atomize consume disposition (A→B→B′), Atomize Eval (E1∩E2 via shared
   Eval), Confirm disposition patch, then Pd: edge-coverage floor (means) +
   Intent ceiling driven by published section-kw-criteria (ruler), and clears a
-  human confirm gate before handing facts to compose Initializing.
+  human confirm gate before handing facts to compose Writing.
 ---
 
 # deductive-runner
@@ -18,11 +18,11 @@ Produces under the active revision dir (`$DEDUCTIVE_OUT_DIR`):
 - **Pending:** `deductive-pending.json` — confirm-gate SoT (derivation gaps, `kw_shortfall`, unreferenced quarantine)
 - **Disposition patch (Atomize):** `deductive-disposition-review.patch` — Confirm op-list before Pd
 
-Compose Initializing reads **`_facts.json`** validate-only. After `deductive-complete`, control returns to the parent for Initializing.
+Compose Writing reads **`_facts.json`** validate-only. After `deductive-complete`, control returns to the parent for Writing.
 
 This runner is **stage-agnostic**: lens set / Intent / derivation edges = `section-registry`; do not hardcode stage lens names.
 
-**Must not:** invent decisions; label off-edge obligations as `derived`; write chapter prose; ask the user during Initializing (confirm only here); read upstream prose during Steps 2–4 (Intake only); Import upstream `_facts.json` as delivery; enter delivery Evaluating / StageGate for Atomize Eval; edit the input delivery doc during Atomize remediation; hand-edit `_facts.json` for Confirm disposition (use `$DEDUCTIVE_CTL disposition-patch-*`).
+**Must not:** invent decisions; label off-edge obligations as `derived`; write chapter prose; ask the user during Writing (confirm only here); read upstream prose during Steps 2–4 (Intake only); Import upstream `_facts.json` as delivery; enter delivery Evaluating / StageGate for Atomize Eval; edit the input delivery doc during Atomize remediation; hand-edit `_facts.json` for Confirm disposition (use `$DEDUCTIVE_CTL disposition-patch-*`).
 
 ---
 
@@ -211,9 +211,9 @@ $FACTS_CTL validate --revision-dir "$DEDUCTIVE_OUT_DIR" --profile "$COMPOSE_PROF
 $DEDUCTIVE_CTL gate-check
 ```
 
-Return control to the parent compose stage. Parent runs `$L_STEP deductive-complete` then `$L_STEP begin-init`.
+Return control to the parent compose stage. Parent runs `$L_STEP deductive-complete` then `$L_STEP begin-writing`.
 
-**Done:** both commands exit 0; `_facts.json` ready for Init validate-only.
+**Done:** both commands exit 0; `_facts.json` ready for Writing validate-only.
 
 ---
 
@@ -225,7 +225,7 @@ Return control to the parent compose stage. Parent runs `$L_STEP deductive-compl
 
 **Disposition patch:** `deductive-disposition-review.patch` — op-list JSON; validate/apply via `$DEDUCTIVE_CTL`.
 
-**Compose init input:** `_facts.json` only.
+**Compose Writing input:** `_facts.json` only.
 
 ---
 
@@ -237,4 +237,4 @@ Return control to the parent compose stage. Parent runs `$L_STEP deductive-compl
 - Ceiling thickness ruler = published `section-kw-criteria` only; floor ignores KW; no separate target-thickness field; no KW-first Atomize-pool pass.
 - A writes **only** `not_needed` (or pass); B alone routinely writes `quarantined`/`carried`.
 - Quarantined / not_needed facts remain addressable; cite settles unref accounting; leftover unreferenced **quarantined** ids must go through Step 3.
-- Init / Eval / FreeEdit are out of this runner’s scope.
+- Writing / Eval / FreeEdit are out of this runner’s scope.

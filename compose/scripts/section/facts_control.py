@@ -14,7 +14,7 @@ Subcommands:
 Design rationale (source repo, why-only): docs/domain/ssot/compose/mechanism-ssot/compose-fact-architecture.md;
 process how archive: docs/domain/archive/compose/archive-2.0/compose-fact-first-display-layer-design.md §3.1, §11 (M1);
 optional ``source`` field: compose-fact-first-k1-pd-design.md §3.
-Wired into fact-first Init (Step 2 / Step 3 / Step 6).
+Wired into fact-first Writing (Steps 2 and 6).
 """
 
 from __future__ import annotations

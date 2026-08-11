@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Hard gates for Init chapter write artifacts.
+"""Hard gates for Writing chapter write artifacts.
 
-Init Write persists ``_body-{cid}.txt`` only. ``_derive-*.json`` and
-body↔``form.structure`` probes are not Init hard gates (archive-7.0).
+Writing Write persists ``_body-{cid}.txt`` only. ``_derive-*.json`` and
+body↔``form.structure`` probes are not Writing hard gates (archive-7.0).
 
 Shared by ``chapter_write_state_control.complete`` and
-``init_compose_validation`` (Step 5).
+``writing_compose_validation`` (Writing Step 6).
 """
 
 from __future__ import annotations

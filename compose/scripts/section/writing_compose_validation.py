@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Validate Initializing display-layer artifacts and compose document seed.
+"""Validate Writing display-layer artifacts and compose document seed.
 
 Subcommands:
     validate    Check revision-dir facts/chapters/derive/body and compose doc
 
-CLI details: ``python3 init_compose_validation.py --help``
+CLI details: ``python3 writing_compose_validation.py --help``
 """
 
 from __future__ import annotations
@@ -212,7 +212,7 @@ def validate_display_layer_artifacts(
     project_root: Path,
     profile_id: str,
 ) -> str | None:
-    """Return first error summary or None — narrative-arc Init validation.
+    """Return first error summary or None — narrative-arc Writing validation.
 
     SoT: ``_facts.json`` + ``_narrative-arc.json`` + chapter write-state.
     Retired (error if present): ``_chapters.json``, ``_lens-themes.json``,
@@ -249,7 +249,7 @@ def validate_display_layer_artifacts(
     )
 
 
-def validate_init_artifacts(
+def validate_writing_artifacts(
     revision_dir: Path,
     compose_doc: Path,
     project_root: Path,
@@ -269,14 +269,14 @@ def validate_init_artifacts(
 
 
 def cmd_validate(args: argparse.Namespace) -> int:
-    error = validate_init_artifacts(
+    error = validate_writing_artifacts(
         args.revision_dir.resolve(),
         args.compose_doc.resolve(),
         args.project_root.resolve(),
         args.profile.strip(),
     )
     if error:
-        print(f"错误：Init 校验失败：{error}", file=sys.stderr)
+        print(f"错误：Writing 校验失败：{error}", file=sys.stderr)
         return 1
     return 0
 
@@ -285,7 +285,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
 
-    validate_parser = sub.add_parser("validate", help="Validate Init derive artifacts")
+    validate_parser = sub.add_parser("validate", help="Validate Writing display-layer artifacts")
     validate_parser.add_argument("--revision-dir", type=Path, required=True)
     validate_parser.add_argument("--compose-doc", type=Path, required=True)
     validate_parser.add_argument("--profile", type=str, required=True)

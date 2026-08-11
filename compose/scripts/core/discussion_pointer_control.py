@@ -153,8 +153,8 @@ def _sync_l_step_for_focus(
     ):
         if "FreeEdit" in allowed:
             step = "FreeEdit"
-        elif "Initialized" in allowed:
-            step = "Initialized"
+        elif "Written" in allowed:
+            step = "Written"
         else:
             step = "Inductive"
     else:

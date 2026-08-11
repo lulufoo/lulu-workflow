@@ -1,6 +1,6 @@
 # Write protocol (claim-current + assemble)
 
-Semantic write rules migrated from Init Step 4. Field **sources** follow the
+Semantic write rules for Writing Step 5 (chapter write). Field **sources** follow the
 session `context` + thickened `begin` contract; writing **semantics** are
 unchanged.
 
@@ -8,7 +8,7 @@ unchanged.
 `context` + `init-doc` / substituted preamble). This file covers Write (4.W)
 and Assemble (4.A) only.
 
-Chapter quality contract: [`../../references/init-draft-quality.md`](../../references/init-draft-quality.md).  
+Chapter quality contract: [`../../references/writing-draft-quality.md`](../../references/writing-draft-quality.md).  
 Theory: [`../../references/compose-theory.md`](../../references/compose-theory.md).
 
 ## Artifacts
@@ -72,7 +72,7 @@ $CHAPTER_WRITE_STATE complete --revision-dir "$REVISION_DIR"
 # → next chapter_id (or null); then loop to begin
 ```
 
-`complete` hard-gates (same rules re-checked at Init Step 5): non-empty
+`complete` hard-gates (same rules re-checked at Writing Step 6): non-empty
 `_body-{cid}.txt`. On `begin`/`complete` failure → stop; fix artifacts or redo
 the current chapter; do not skip ahead. Resume: `complete` current if needed,
 then `begin` again (never `begin --chapter`).
@@ -91,7 +91,7 @@ structure, headings may start at `####`.
 ## Assemble (4.A)
 
 **Hard gate:** `$CHAPTER_WRITE_STATE` must be `complete` (enforced by
-`assemble-arc` and Init Step 5). Do not assemble mid-loop.
+`assemble-arc` and Writing Step 5). Do not assemble mid-loop.
 
 One shot (tree packaging + omit lens headings by default):
 

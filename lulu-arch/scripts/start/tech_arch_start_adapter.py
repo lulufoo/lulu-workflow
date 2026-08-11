@@ -154,6 +154,6 @@ class TechArchStartAdapter:
     ) -> str:
         del run_mode, carry_forward_ref, scope_refs
         return (
-            "Topic technical architecture stage: pause after Initializing; "
+            "Topic technical architecture stage: pause after Writing; "
             "then choose FreeEdit, Evaluating (arch-quality), or Deliver."
         )

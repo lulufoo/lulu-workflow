@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for init_compose_validation.py (narrative-arc Init path)."""
+"""Tests for writing_compose_validation.py (narrative-arc Writing path)."""
 
 from __future__ import annotations
 
@@ -15,9 +15,9 @@ sys.path.insert(0, str(_COMPOSE / "narrative-arc-runner" / "scripts"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from chapter_write_state_control import main as write_state_main  # noqa: E402
-from init_compose_validation import (  # noqa: E402
+from writing_compose_validation import (  # noqa: E402
     validate_display_layer_artifacts,
-    validate_init_artifacts,
+    validate_writing_artifacts,
 )
 from narrative_arc_schema import save_narrative_arc  # noqa: E402
 from test_template_data import seed_template_cache  # noqa: E402
@@ -213,10 +213,10 @@ def test_passes_with_minimal_narrative_arc(revision_dir: Path, tmp_path: Path):
     assert error is None
 
 
-def test_dispatch_via_validate_init_artifacts(revision_dir: Path, tmp_path: Path):
+def test_dispatch_via_validate_writing_artifacts(revision_dir: Path, tmp_path: Path):
     compose_doc = revision_dir / "design-doc.md"
     _seed_happy_path(revision_dir, compose_doc)
-    error = validate_init_artifacts(
+    error = validate_writing_artifacts(
         revision_dir, compose_doc, tmp_path, "lulu-design",
     )
     assert error is None
@@ -325,7 +325,7 @@ def test_fails_when_chapter_body_missing(revision_dir: Path, tmp_path: Path):
 
 
 def test_allows_missing_derive(revision_dir: Path, tmp_path: Path):
-    """_derive is not an Init hard gate (archive-7.0)."""
+    """_derive is not a Writing hard gate (archive-7.0)."""
     compose_doc = revision_dir / "design-doc.md"
     _seed_happy_path(revision_dir, compose_doc)
     derive = revision_dir / f"_derive-{_cid()}.json"

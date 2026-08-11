@@ -7,7 +7,7 @@ process how archive: docs/domain/archive/compose/archive-2.0/compose-fact-first-
 Pure functions only — no file I/O, no markdown parsing. Callers pass
 normalized ``facts`` plus a chapters-shaped placement view.
 
-**Live Init Step 6** validates via ``init_compose_validation`` against
+**Live Writing Step 6** validates via ``writing_compose_validation`` against
 ``_narrative-arc.json`` (+ chapter write-state). This module remains for
 unit tests and any in-memory chapters-shaped view. Archive-3.0
 themes/framework/placement and ``_chapters.json`` are retired.
@@ -21,7 +21,7 @@ projection-fidelity half: the design deliberately drops proposition-level
 content-fidelity checking against the rendered document (``.md`` is a
 one-way projection, never read back as SoT); M4a's structural
 assembly-completeness check (anchor + non-empty body present) is the only
-markdown-facing gate and lives in ``init_compose_validation.py``, not here.
+markdown-facing gate and lives in ``writing_compose_validation.py``, not here.
 """
 
 from __future__ import annotations

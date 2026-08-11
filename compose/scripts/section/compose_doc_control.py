@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Incremental compose document writer for initializing-runner.
+"""Incremental compose document writer for writing-runner.
 
 Chapter grammar (``init-doc`` / ``append-chapter`` / ``assemble-arc``).
 Archive-5.0 assemble presentation: tree group/leaf headings + lens chapters

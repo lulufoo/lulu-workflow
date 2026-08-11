@@ -33,7 +33,7 @@ from discussion_pointer_schema import (  # noqa: E402
 )
 from facts_schema import facts_path  # noqa: E402
 from deductive_gate import evaluate_deductive_gate  # noqa: E402
-from init_compose_validation import validate_init_artifacts  # noqa: E402
+from writing_compose_validation import validate_writing_artifacts  # noqa: E402
 from multi_slice_control import evaluate_split_ready  # noqa: E402
 from start_adapter import (  # noqa: E402
     intent_baseline_from_workflow,
@@ -52,13 +52,13 @@ _CMD_BEGIN_INDUCTIVE = "begin-inductive"
 _CMD_INDUCTIVE_COMPLETE = "inductive-complete"
 _CMD_BEGIN_DEDUCTIVE = "begin-deductive"
 _CMD_DEDUCTIVE_COMPLETE = "deductive-complete"
-_CMD_BEGIN_INIT = "begin-init"
-_CMD_INIT_COMPLETE = "init-complete"
+_CMD_BEGIN_WRITING = "begin-writing"
+_CMD_WRITING_COMPLETE = "writing-complete"
 _CMD_ADVANCE_TO_FREEEDIT = "advance-to-freeedit"
 _CMD_STATUS = "status"
 _STEP_INDUCTIVE = "Inductive"
 _STEP_DEDUCTIVE = "Deductive"
-_STEP_INITIALIZED = "Initialized"
+_STEP_WRITTEN = "Written"
 _STEP_FREE_EDIT = "FreeEdit"
 _INDUCTIVE_SUBDIR = "inductive-scope"
 _INDUCTIVE_GATE_STATE_FILE = "inductive-gate-state.json"
@@ -160,7 +160,7 @@ def _ensure_focus_phase_in_progress(
 def _scope_doc(cycle_id: str, project_root: Path, profile_id: str) -> Path:
     init_ref = primary_scope_from_workflow(cycle_id, project_root, profile_id)
     if init_ref is None:
-        raise ValueError("no scope ref available for Initializing")
+        raise ValueError("no scope ref available for Writing")
     scope_path = Path(init_ref.path).resolve()
     if not scope_path.is_file():
         raise ValueError(f"scope doc not found: {scope_path}")
@@ -343,8 +343,8 @@ def _format_init_dispatch_input(
         f"CYCLE_TYPE:           {detect_cycle_type(cycle_id)}",
         f"CYCLE_ID:             {cycle_id}",
     ]
-    # K4: Init consumes discovery-written _facts.json — never advertise
-    # INDUCTIVE_DIR as if Init still reads decisions[] / projection here.
+    # K4: Writing consumes discovery-written _facts.json — never advertise
+    # INDUCTIVE_DIR as if Writing still reads decisions[] / projection here.
     return "\n".join(lines)
 
 
@@ -516,7 +516,7 @@ def deductive_complete(
     )
 
 
-def begin_init(
+def begin_writing(
     cycle_id: str,
     project_root: Path,
     *,
@@ -526,10 +526,10 @@ def begin_init(
     pipeline = _pipeline_config(cycle_id, project_root, profile_id)
     step = read_current_step(progress_path)
     if pipeline.get("inductive") is True:
-        if step not in (_STEP_INDUCTIVE, _STEP_INITIALIZED):
+        if step not in (_STEP_INDUCTIVE, _STEP_WRITTEN):
             return _failure(
-                _CMD_BEGIN_INIT,
-                "cannot start Initializing: Inductive not run",
+                _CMD_BEGIN_WRITING,
+                "cannot start Writing: Inductive not run",
                 current_step=step,
             )
         if step == _STEP_INDUCTIVE:
@@ -540,33 +540,33 @@ def begin_init(
             )
             if gate_reason:
                 return _failure(
-                    _CMD_BEGIN_INIT,
-                    f"cannot start Initializing: {gate_reason}",
+                    _CMD_BEGIN_WRITING,
+                    f"cannot start Writing: {gate_reason}",
                     current_step=step,
                 )
         rev = _revision_dir(cycle_id, project_root, profile_id)
         path = facts_path(active_slice_dir(rev))
         if not path.is_file():
             return _failure(
-                _CMD_BEGIN_INIT,
-                "cannot start Initializing: _facts.json missing — seed/settle "
+                _CMD_BEGIN_WRITING,
+                "cannot start Writing: _facts.json missing — seed/settle "
                 "during inductive must have written _facts.json "
                 f"(expected {path.as_posix()})",
                 current_step=step,
             )
     else:
-        if step not in (_STEP_DEDUCTIVE, _STEP_INITIALIZED):
+        if step not in (_STEP_DEDUCTIVE, _STEP_WRITTEN):
             return _failure(
-                _CMD_BEGIN_INIT,
-                "cannot start Initializing: Deductive not run",
+                _CMD_BEGIN_WRITING,
+                "cannot start Writing: Deductive not run",
                 current_step=step,
             )
         if step == _STEP_DEDUCTIVE:
             gate_reason = _deductive_gate_failure(cycle_id, project_root, profile_id)
             if gate_reason:
                 return _failure(
-                    _CMD_BEGIN_INIT,
-                    f"cannot start Initializing: {gate_reason}",
+                    _CMD_BEGIN_WRITING,
+                    f"cannot start Writing: {gate_reason}",
                     current_step=step,
                 )
     # P4.convert (C1=A): when $SCOPE_REF is scope-package, ensure once (or verify).
@@ -579,7 +579,7 @@ def begin_init(
     try:
         scope_doc = _scope_doc(cycle_id, project_root, profile_id)
     except ValueError as exc:
-        return _failure(_CMD_BEGIN_INIT, str(exc), current_step=step)
+        return _failure(_CMD_BEGIN_WRITING, str(exc), current_step=step)
     if is_scope_package_path(scope_doc):
         try:
             ensure_scope_package_convert(
@@ -588,55 +588,55 @@ def begin_init(
             )
         except ScopePackageConvertError as exc:
             return _failure(
-                _CMD_BEGIN_INIT,
+                _CMD_BEGIN_WRITING,
                 f"scope-package convert: {exc}",
                 current_step=step,
             )
 
     return _success(
-        _CMD_BEGIN_INIT,
+        _CMD_BEGIN_WRITING,
         current_step=step,
         dispatch_input=_format_init_dispatch_input(cycle_id, project_root, profile_id),
     )
 
 
-def init_complete(
+def writing_complete(
     cycle_id: str,
     project_root: Path,
     *,
     profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
 ) -> dict[str, Any]:
     progress_path = _progress_path(cycle_id, project_root, profile_id)
-    seed_error = validate_init_artifacts(
+    seed_error = validate_writing_artifacts(
         _revision_dir(cycle_id, project_root, profile_id),
         document_file_path(cycle_id, project_root, profile_id),
         project_root,
         profile_id,
     )
     if seed_error:
-        return _failure(_CMD_INIT_COMPLETE, seed_error)
+        return _failure(_CMD_WRITING_COMPLETE, seed_error)
     if progress_path.exists():
         step = read_current_step(progress_path)
         if step not in (
             None,
-            _STEP_INITIALIZED,
+            _STEP_WRITTEN,
             _STEP_INDUCTIVE,
             _STEP_DEDUCTIVE,
         ):
             return _failure(
-                _CMD_INIT_COMPLETE,
+                _CMD_WRITING_COMPLETE,
                 f"l-step-progress already at {step!r}; cannot re-initialize",
                 current_step=step,
             )
     save_l_step_progress(
         progress_path,
-        {"version": "1", "cycle_id": cycle_id, "current_step": _STEP_INITIALIZED},
+        {"version": "1", "cycle_id": cycle_id, "current_step": _STEP_WRITTEN},
         profile_id=profile_id,
         project_root=project_root,
         cycle_id=cycle_id,
         merge=False,
     )
-    return _success(_CMD_INIT_COMPLETE, current_step=_STEP_INITIALIZED)
+    return _success(_CMD_WRITING_COMPLETE, current_step=_STEP_WRITTEN)
 
 
 def advance_to_freeedit(
@@ -653,10 +653,10 @@ def advance_to_freeedit(
     step = read_current_step(progress_path)
     if step == _STEP_FREE_EDIT:
         return _success(_CMD_ADVANCE_TO_FREEEDIT, current_step=_STEP_FREE_EDIT)
-    if step != _STEP_INITIALIZED:
+    if step != _STEP_WRITTEN:
         return _failure(
             _CMD_ADVANCE_TO_FREEEDIT,
-            f"cannot advance to FreeEdit: current_step is {step!r} (expected Initialized)",
+            f"cannot advance to FreeEdit: current_step is {step!r} (expected Written)",
             current_step=step,
         )
     save_l_step_progress(
@@ -708,8 +708,8 @@ def _cli() -> int:
         _CMD_INDUCTIVE_COMPLETE,
         _CMD_BEGIN_DEDUCTIVE,
         _CMD_DEDUCTIVE_COMPLETE,
-        _CMD_BEGIN_INIT,
-        _CMD_INIT_COMPLETE,
+        _CMD_BEGIN_WRITING,
+        _CMD_WRITING_COMPLETE,
         _CMD_ADVANCE_TO_FREEEDIT,
         _CMD_STATUS,
     ):
@@ -729,10 +729,10 @@ def _cli() -> int:
             result = begin_deductive(**kwargs)
         elif args.command == _CMD_DEDUCTIVE_COMPLETE:
             result = deductive_complete(**kwargs)
-        elif args.command == _CMD_BEGIN_INIT:
-            result = begin_init(**kwargs)
-        elif args.command == _CMD_INIT_COMPLETE:
-            result = init_complete(**kwargs)
+        elif args.command == _CMD_BEGIN_WRITING:
+            result = begin_writing(**kwargs)
+        elif args.command == _CMD_WRITING_COMPLETE:
+            result = writing_complete(**kwargs)
         elif args.command == _CMD_ADVANCE_TO_FREEEDIT:
             result = advance_to_freeedit(**kwargs)
         elif args.command == _CMD_STATUS:

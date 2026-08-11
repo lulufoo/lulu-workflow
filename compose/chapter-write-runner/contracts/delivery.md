@@ -9,7 +9,7 @@ Single delivery path for callers. Load only after
   `OUTPUT_DOC_PATH`, `ARC_PATH`.
 - **This wave:** `ARC_PATH` **must** be `_narrative-arc.json`. Controls use the
   default basename only (no alternate `--arc-path` yet).
-- Arc at that path is `status=write_ready` (same precondition as Init Step 4).
+- Arc at that path is `status=write_ready` (same precondition as Writing Step 4).
 - Do **not** paste fact bodies in the caller prompt — substance only via
   `$CHAPTER_WRITE_STATE begin`.
 

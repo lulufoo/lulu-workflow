@@ -1,10 +1,10 @@
 ---
-name: initializing-runner
+name: writing-runner
 description: >-
-  Compose Initializing orchestrator.
+  Compose Writing orchestrator.
 ---
 
-# initializing-runner
+# writing-runner
 
 Turn producer-written facts into a validated compose draft document.
 
@@ -35,7 +35,7 @@ All macros that declare `--profile` **must** pass `--profile "$COMPOSE_PROFILE"`
 
 | Macro | Command |
 |-------|---------|
-| `$INIT_COMPOSE_VALIDATE` | `python3 "$SKILL_ROOT/compose/scripts/section/init_compose_validation.py" validate --revision-dir "$REVISION_DIR" --compose-doc "$OUTPUT_DOC_PATH" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)"` |
+| `$WRITING_COMPOSE_VALIDATE` | `python3 "$SKILL_ROOT/compose/scripts/section/writing_compose_validation.py" validate --revision-dir "$REVISION_DIR" --compose-doc "$OUTPUT_DOC_PATH" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)"` |
 | `$FACTS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/facts_control.py"` |
 | `$NARRATIVE_ARC_CTL` | `python3 "$SKILL_ROOT/compose/narrative-arc-runner/scripts/narrative_arc_control.py"` |
 
@@ -66,7 +66,7 @@ $FACTS_CTL validate \
 
 Missing / invalid `_facts.json` → Blocking (return to producer; never re-atomize from scope).
 
-Topology change → new revision + re-run Inductive|Deductive then Init.
+Topology change → new revision + re-run Inductive|Deductive then Writing.
 
 **Done:** validate exit 0 → proceed to Step 3.
 
@@ -101,7 +101,7 @@ $NARRATIVE_ARC_CTL validate \
 
 Exit 0 → proceed.
 Non-zero → present `$NARRATIVE_ARC_CTL` stderr and exit code to the
-parent / human; **stop** Initializing.
+parent / human; **stop** Writing.
 
 ### Step 5 — Chapter write + assemble
 
@@ -123,18 +123,18 @@ ARC_PATH: _narrative-arc.json
 
 ### Step 6 — Validate
 
-Run `$INIT_COMPOSE_VALIDATE` (prefers `_narrative-arc.json` SoT: arc validity + chapter artifacts + L6; rejects retired `_chapters.json`).
+Run `$WRITING_COMPOSE_VALIDATE` (prefers `_narrative-arc.json` SoT: arc validity + chapter artifacts + L6; rejects retired `_chapters.json`).
 
-On failure → present `$INIT_COMPOSE_VALIDATE` stderr and exit code to the
-parent / human; **stop** Initializing.
+On failure → present `$WRITING_COMPOSE_VALIDATE` stderr and exit code to the
+parent / human; **stop** Writing.
 On success → Return Summary.
 
-**Done:** `$INIT_COMPOSE_VALIDATE` exit 0.
+**Done:** `$WRITING_COMPOSE_VALIDATE` exit 0.
 
 ## Return Summary
 
 ```text
-Initializing complete.
+Writing complete.
   Profile: <COMPOSE_PROFILE>
   Output: <OUTPUT_DOC_PATH>
   Facts: <REVISION_DIR>/_facts.json (<N> facts; producer-written, validate-only)
@@ -142,6 +142,6 @@ Initializing complete.
   Chapter artifacts: <REVISION_DIR>/_body-*.txt
   Write-state: <REVISION_DIR>/_chapter-write-state.json (status=complete)
   Scope cross-check: <SCOPE_REF_PATH>
-  Draft status: Initialized
-  Next step: parent pause gate (options from profile pipeline.post_init_options)
+  Draft status: Written
+  Next step: parent pause gate (options from profile pipeline.post_writing_options)
 ```

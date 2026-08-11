@@ -17,7 +17,7 @@
     "inductive": true,
     "freeedit": true,
     "code_grounding": false,
-    "post_init_options": [
+    "post_writing_options": [
       "freeedit",
       "evaluate",
       "deliver"

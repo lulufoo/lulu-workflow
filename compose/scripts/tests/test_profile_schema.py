@@ -35,7 +35,7 @@ _MINIMAL_ACTIVE_PROFILE = {
         "inductive": False,
         "freeedit": True,
         "code_grounding": False,
-        "post_init_options": ["freeedit", "evaluate", "deliver"],
+        "post_writing_options": ["freeedit", "evaluate", "deliver"],
     },
     "start": {
         "adapter_module": "tech-foo/scripts/start/tech_foo_start_adapter.py",
@@ -92,7 +92,7 @@ def test_active_profile_missing_pipeline_fails(tmp_path: Path) -> None:
     assert any("missing required field 'pipeline'" in err for err in errors)
 
 
-def test_active_profile_rejects_unknown_post_init_option(tmp_path: Path) -> None:
+def test_active_profile_rejects_unknown_post_writing_option(tmp_path: Path) -> None:
     stage_dir = tmp_path / "tech-foo"
     stage_dir.mkdir()
     path = stage_dir / "compose-profile.json"
@@ -101,11 +101,11 @@ def test_active_profile_rejects_unknown_post_init_option(tmp_path: Path) -> None
         "inductive": False,
         "freeedit": True,
         "code_grounding": False,
-        "post_init_options": ["freeedit", "round"],
+        "post_writing_options": ["freeedit", "round"],
     }
     path.write_text(json.dumps(data), encoding="utf-8")
     errors = _validate_profile(path)
-    assert any("unknown pipeline.post_init_options value 'round'" in err for err in errors)
+    assert any("unknown pipeline.post_writing_options value 'round'" in err for err in errors)
 
 
 def test_active_profile_missing_start_adapter_class_fails(tmp_path: Path) -> None:

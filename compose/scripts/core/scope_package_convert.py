@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """P4.convert control: scope-package → locked chain tree + per-L source_path mirrors.
 
-C1=A: run once at compose start / Initializing (no rebuild-convert CLI).
+C1=A: run once at compose start / Writing (no rebuild-convert CLI).
 C2=A: strict chain from slices array order (no package ``order`` field).
 C3=B: mirror ``source_path`` into ``Lx/scope-ref.json`` (no source file copy).
 C5=A: refuse overwrite when tree already locked — open a new revision.

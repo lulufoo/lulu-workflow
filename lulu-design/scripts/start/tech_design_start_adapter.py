@@ -205,10 +205,10 @@ class TechDesignStartAdapter:
         del carry_forward_ref, scope_refs
         if run_mode == "product":
             return (
-                "设计阶段（产品模式）：Inductive → Initializing 完成后暂停；可选 FreeEdit、"
+                "设计阶段（产品模式）：Inductive → Writing 完成后暂停；可选 FreeEdit、"
                 "Evaluating（d1 代码库一致性 + d2 方案质量 + d3 产品意图对齐）或 Deliver。"
             )
         return (
-            "设计阶段：Inductive → Initializing 完成后暂停；可选 FreeEdit、"
+            "设计阶段：Inductive → Writing 完成后暂停；可选 FreeEdit、"
             "Evaluating（d1 代码库一致性 + d2 方案质量）或 Deliver。"
         )

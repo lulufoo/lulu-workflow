@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Schema and I/O for revision ``_chapter-write-state.json`` (archive-5.0).
 
-Serial Init Write progress per ``chapter_id`` (``{leaf.id}-{lens}``).
+Serial Writing Write progress per ``chapter_id`` (``{leaf.id}-{lens}``).
 Process how: docs/domain/archive/compose/archive-5.0/compose-chapter-write-state-design.md
 """
 

@@ -131,7 +131,7 @@ def session_snapshot(
 ) -> dict[str, Any]:
     """Return workflow state plus document presentation for session resume.
 
-    Document may be pending (Split / pre-Initializing): still returns revision
+    Document may be pending (Split / pre-Writing): still returns revision
     and workflow state with ``compose_doc.status=pending`` rather than failing.
     """
     ws_path = workflow_state_path(cycle_id, project_root, profile_id)

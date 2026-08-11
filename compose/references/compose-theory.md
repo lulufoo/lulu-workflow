@@ -1,6 +1,6 @@
 # Compose Theory
 
-> Ontological overview — substance, lens, presentation. Shared by compose producers and Init; not a runner procedure.
+> Ontological overview — substance, lens, presentation. Shared by compose producers and Writing; not a runner procedure.
 
 ## Profile & templates
 
@@ -24,7 +24,7 @@ The theory below is governed by three ontological layers — substance, lens, an
 
 | Layer | Contains | Answers | Where it lives |
 |-------|----------|---------|----------------|
-| Substance (§1) | Content (facts) + anchors (§1.5) | what is true (stage-local) | `_facts.json` — producer-written (inductive discovery / deductive materialize + Derive); Init validate-only (origins §1.2) |
+| Substance (§1) | Content (facts) + anchors (§1.5) | what is true (stage-local) | `_facts.json` — producer-written (inductive discovery / deductive materialize + Derive); Writing validate-only (origins §1.2) |
 | Lens / envelope (§2) | lens / intent / optional facet seeds (§2.4) | whose viewpoint owns it (N:M); seed reminders for detect | `lens_tags` + section-registry `intent` + optional `facets` string[] |
 | Presentation (§3) | Writing cognition (What) + Assemble (arc titles / chapter anchors) | which reading / presentation / expression constraints apply under this lens; how the doc is labeled | per-lens `section-form-registry`; titles from `_narrative-arc` + `assemble-arc` |
 
@@ -36,7 +36,7 @@ The theory below is governed by three ontological layers — substance, lens, an
 
 ### 1.1 Facts — definition
 
-**Facts** — filtered substance in `_facts.json`. Producers write them; Init validates only (no Atomize/Derive). The upstream scope document is intake material, not a second fact store.
+**Facts** — filtered substance in `_facts.json`. Producers write them; Writing validates only (no Atomize/Derive). The upstream scope document is intake material, not a second fact store.
 
 Facts stay at decision-level substance (goals, boundaries, exclusions, decisions, invariants, phases). Presentation must not invent beyond facts / grounded code, nor restate another chapter's propositions.
 
@@ -50,7 +50,7 @@ Every fact has exactly one `origin.type`:
 | `discovered` | a matured open expands 1:N into facts | open id |
 | `derived` | deductive Derive after materialize | upstream fact ids |
 
-Init does not rewrite inductive SoT (validate-only — §1.1).
+Writing does not rewrite inductive SoT (validate-only — §1.1).
 
 ### 1.3 Inductive generation (`Induce`)
 
@@ -139,7 +139,7 @@ Per lens, `presentation` carries:
 - `allowed[]` — optional carriers; each entry has `carrier`, `structure`, and `when` (under which condition that option applies)
 - `forbidden` — carriers/structures explicitly excluded for this lens
 
-These are **mechanisms** (What constraints), not enum-locked steps. Selection among `allowed` follows `when` and facts; Init does not require persisting a chosen carrier/structure (F) artifact.
+These are **mechanisms** (What constraints), not enum-locked steps. Selection among `allowed` follows `when` and facts; Writing does not require persisting a chosen carrier/structure (F) artifact.
 
 ### 3.3 Expression mechanisms (`expression`)
 
@@ -166,7 +166,7 @@ Lens chapter headings are omitted by default (`--lens-heading omit`). Locate cha
 
 ## Synthesis pipeline
 
-> Cross-cutting (not a fourth layer): producers first, then Init presentation.
+> Cross-cutting (not a fourth layer): producers first, then Writing presentation.
 
 Substance (§1) is produced by **Induce** or **Deduce** (§1.3–1.4), then dispatched through lenses (§2) and written per presentation (§3):
 
@@ -183,8 +183,8 @@ doc = Assemble-arc(
 )
 ```
 
-**Producer then Init:** Induce or Deduce (§1.3–1.4) completes before presentation. Init does not Atomize or Derive facts.
+**Producer then Writing:** Induce or Deduce (§1.3–1.4) completes before presentation. Writing does not Atomize or Derive facts.
 
 **Intent text:** Use `sections.{key}.intent` when present; else `sections.{key}.desc` (legacy).
 
-Display-layer quality gates: see [`init-draft-quality.md`](init-draft-quality.md).
+Display-layer quality gates: see [`writing-draft-quality.md`](writing-draft-quality.md).

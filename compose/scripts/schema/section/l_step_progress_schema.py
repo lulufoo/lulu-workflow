@@ -31,7 +31,7 @@ _SCHEMA_FIELD_NAMES = {s["field"] for s in _SCHEMA}
 _REQUIRED_KEY_ORDER = ["version", "cycle_id", "current_step"]
 _STEP_INDUCTIVE = "Inductive"
 _STEP_DEDUCTIVE = "Deductive"
-_STEP_INITIALIZED = "Initialized"
+_STEP_WRITTEN = "Written"
 _STEP_FREE_EDIT = "FreeEdit"
 _LEGACY_STEP_READY = "Ready"
 _LEGACY_DRAFTING_PROGRESS = "drafting-progress.md"
@@ -51,7 +51,7 @@ def assert_no_legacy_drafting_progress(directory: Path) -> None:
 def normalize_step(step: str | None) -> str | None:
     """Map legacy step names to the current profile-neutral names."""
     if step == _LEGACY_STEP_READY:
-        return _STEP_INITIALIZED
+        return _STEP_WRITTEN
     return step
 
 
@@ -64,11 +64,11 @@ def allowed_steps(
     """Return current_step values allowed by profile.pipeline switches."""
     profile = load_profile(profile_id, project_root=project_root, cycle_id=cycle_id)
     pipeline = profile.get("pipeline") or {}
-    steps = {_STEP_INITIALIZED}
+    steps = {_STEP_WRITTEN}
     if pipeline.get("inductive") is True:
         steps.add(_STEP_INDUCTIVE)
     else:
-        # Non-inductive profiles use Deductive producer before Init.
+        # Non-inductive profiles use Deductive producer before Writing.
         steps.add(_STEP_DEDUCTIVE)
     if pipeline.get("freeedit") is True:
         steps.add(_STEP_FREE_EDIT)

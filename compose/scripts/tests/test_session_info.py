@@ -99,7 +99,7 @@ class TestSessionSnapshot:
         assert payload["compose_doc"]["status"] == "ready"
 
     def test_split_without_compose_doc_returns_pending(self, tmp_path: Path):
-        """Split / pre-Initializing: session view must not require design-doc."""
+        """Split / pre-Writing: session view must not require design-doc."""
         cycle_id = "feat-session-info-split"
         seed_profile_pointer_for_tests(tmp_path, cycle_id, DEFAULT_COMPOSE_PROFILE_ID)
         base = tmp_path / ".cache" / "cursor" / "lulu-dev-workflow" / cycle_id / "lulu-plan"
@@ -112,7 +112,7 @@ class TestSessionSnapshot:
         from workflow_state_schema import init_compose_session  # noqa: WPS433
 
         init_compose_session(revision / "workflow-state.md", mode="tech")
-        # No tech-doc.md — mirrors post-start Split before Initializing.
+        # No tech-doc.md — mirrors post-start Split before Writing.
         payload = session_snapshot(cycle_id, tmp_path)
         assert payload["view"] == "session"
         assert payload["workflow_state"]["current_state"] == "Split"

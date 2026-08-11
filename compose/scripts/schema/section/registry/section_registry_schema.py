@@ -43,7 +43,7 @@ _RELATION_TYPES = frozenset(
 _REGISTRY_SCHEME_KEY = "section-registry"
 _PRESENCE_VALUES = frozenset({"required", "optional"})
 _PRESENCE_DEFAULT = "required"
-# Optional co-location key for Init chapter clustering (not a lens / not coverage).
+# Optional co-location key for Writing chapter clustering (not a lens / not coverage).
 _CLUSTER_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
 
@@ -440,7 +440,7 @@ def section_presence_map(project_root: Path | None = None) -> dict[str, str]:
 def section_cluster_map(project_root: Path | None = None) -> dict[str, str]:
     """Return section_key -> cluster slug for lenses that declare ``cluster``.
 
-    Display/Init co-location hint only — not a completeness obligation and not a
+    Display/Writing co-location hint only — not a completeness obligation and not a
     ``lens_tags`` value. See archive-3.0 compose-design-stability-lenses-cluster-design.
     """
     registry = _active_registry(project_root)

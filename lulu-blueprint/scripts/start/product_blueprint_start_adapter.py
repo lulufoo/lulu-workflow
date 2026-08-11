@@ -154,6 +154,6 @@ class ProductBlueprintStartAdapter:
     ) -> str:
         del run_mode, carry_forward_ref, scope_refs
         return (
-            "Topic product architecture stage: pause after Initializing; "
+            "Topic product architecture stage: pause after Writing; "
             "then choose FreeEdit, Evaluating (blueprint-quality), or Deliver."
         )

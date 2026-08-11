@@ -24,7 +24,7 @@ def test_engine_skill_contains_full_orchestration() -> None:
         "## Working Rules",
         "### Inductive (only when `pipeline.inductive` is `true`)",
         "### Deductive (only when `pipeline.inductive` is `false`)",
-        "### Initializing",
+        "### Writing",
         "### FreeEdit",
         "### Evaluating",
         "## Delivery Rules",

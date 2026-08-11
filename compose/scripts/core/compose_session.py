@@ -126,7 +126,7 @@ def load_document_presentation(
     """Load compose document presentation fields.
 
     When ``allow_missing`` is True and the document file is not yet created
-    (legal before Initializing), return a pending stub with the expected path
+    (legal before Writing), return a pending stub with the expected path
     and empty title/summary instead of raising.
     """
     active_doc = load_active_doc_for_profile(cycle_id, project_root, profile_id)

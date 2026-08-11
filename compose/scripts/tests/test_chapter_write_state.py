@@ -454,7 +454,7 @@ def test_assemble_requires_write_state_complete(tmp_path: Path):
 
 
 def test_init_validate_requires_write_state(tmp_path: Path):
-    from init_compose_validation import validate_init_artifacts
+    from writing_compose_validation import validate_writing_artifacts
 
     repo = Path(__file__).resolve().parents[4]
     rev = tmp_path / "rev"
@@ -477,12 +477,12 @@ def test_init_validate_requires_write_state(tmp_path: Path):
     for cid in ("A01-I", "A01-IF"):
         bodies.append(f"<!-- chapter:{cid} -->\n{cid} body\n")
     doc.write_text("# Doc\n\n" + "\n".join(bodies), encoding="utf-8")
-    err = validate_init_artifacts(rev, doc, repo, "lulu-design")
+    err = validate_writing_artifacts(rev, doc, repo, "lulu-design")
     assert err is not None
     assert "4.W:" in err and "write-state" in err
     assert write_state_main(["sync", "--revision-dir", str(rev)]) == 0
     for _ in range(2):
         assert _begin(rev) == 0
         assert _complete(rev) == 0
-    err2 = validate_init_artifacts(rev, doc, repo, "lulu-design")
+    err2 = validate_writing_artifacts(rev, doc, repo, "lulu-design")
     assert err2 is None or ("write-state" not in err2 and "4.W:" not in err2)

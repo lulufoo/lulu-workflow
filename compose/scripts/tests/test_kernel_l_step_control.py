@@ -158,16 +158,16 @@ def test_begin_deductive_rejects_inductive_profile(tmp_path: Path) -> None:
     assert "begin-inductive" in result["reason"]
 
 
-def test_begin_init_rejects_plan_without_deductive(tmp_path: Path) -> None:
+def test_begin_writing_rejects_plan_without_deductive(tmp_path: Path) -> None:
     seed_tech_plan_session(tmp_path, cycle_id=_CYCLE, profile_id="lulu-plan")
 
-    result = l_step_control.begin_init(_CYCLE, tmp_path, profile_id="lulu-plan")
+    result = l_step_control.begin_writing(_CYCLE, tmp_path, profile_id="lulu-plan")
 
     assert result["ok"] is False
     assert "Deductive not run" in result["reason"]
 
 
-def test_begin_init_rejects_open_deductive_pending(tmp_path: Path) -> None:
+def test_begin_writing_rejects_open_deductive_pending(tmp_path: Path) -> None:
     seed_tech_plan_session(tmp_path, cycle_id=_CYCLE, profile_id="lulu-plan")
     rev = tmp_path / doc_dir(_CYCLE, 1, "lulu-plan", tmp_path)
     progress_schema.save_l_step_progress(
@@ -203,13 +203,13 @@ def test_begin_init_rejects_open_deductive_pending(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    result = l_step_control.begin_init(_CYCLE, tmp_path, profile_id="lulu-plan")
+    result = l_step_control.begin_writing(_CYCLE, tmp_path, profile_id="lulu-plan")
 
     assert result["ok"] is False
     assert "open deductive pending" in result["reason"]
 
 
-def test_begin_init_rejects_missing_deductive_pending_file(tmp_path: Path) -> None:
+def test_begin_writing_rejects_missing_deductive_pending_file(tmp_path: Path) -> None:
     seed_tech_plan_session(tmp_path, cycle_id=_CYCLE, profile_id="lulu-plan")
     rev = tmp_path / doc_dir(_CYCLE, 1, "lulu-plan", tmp_path)
     progress_schema.save_l_step_progress(
@@ -227,12 +227,12 @@ def test_begin_init_rejects_missing_deductive_pending_file(tmp_path: Path) -> No
         encoding="utf-8",
     )
     # No deductive-pending.json → hard gate must fail (B1).
-    result = l_step_control.begin_init(_CYCLE, tmp_path, profile_id="lulu-plan")
+    result = l_step_control.begin_writing(_CYCLE, tmp_path, profile_id="lulu-plan")
     assert result["ok"] is False
     assert "deductive-pending.json missing" in result["reason"]
 
 
-def test_deductive_complete_and_begin_init_when_gate_clear(tmp_path: Path) -> None:
+def test_deductive_complete_and_begin_writing_when_gate_clear(tmp_path: Path) -> None:
     seed_tech_plan_session(tmp_path, cycle_id=_CYCLE, profile_id="lulu-plan")
     rev = tmp_path / doc_dir(_CYCLE, 1, "lulu-plan", tmp_path)
     progress_schema.save_l_step_progress(
@@ -259,7 +259,7 @@ def test_deductive_complete_and_begin_init_when_gate_clear(tmp_path: Path) -> No
     )
     assert complete["ok"] is True
 
-    begin = l_step_control.begin_init(_CYCLE, tmp_path, profile_id="lulu-plan")
+    begin = l_step_control.begin_writing(_CYCLE, tmp_path, profile_id="lulu-plan")
     assert begin["ok"] is True
     assert "REVISION_DIR:" in begin["dispatch_input"]
 
@@ -413,12 +413,12 @@ def test_inductive_complete_succeeds_when_g4_and_g5_closed(tmp_path: Path) -> No
     assert result["section_files"] == ["ST.json"]
 
 
-def test_begin_init_rejects_inductive_step_without_g5(tmp_path: Path) -> None:
+def test_begin_writing_rejects_inductive_step_without_g5(tmp_path: Path) -> None:
     seed_tech_design_session(tmp_path, cycle_id=_CYCLE)
     rev_dir = _seed_inductive_progress(tmp_path)
     _write_g4_closed(_slice(rev_dir))
 
-    result = l_step_control.begin_init(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
+    result = l_step_control.begin_writing(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
 
     assert result["ok"] is False
     assert "inductive Gate 5 not closed" in result["reason"]
@@ -452,9 +452,9 @@ def test_revision2_inductive_isolated_from_revision1(tmp_path: Path) -> None:
         scope_refs=tech_design_scope_refs(rev1_refs),
     )
 
-    begin_init = l_step_control.begin_init(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
-    assert begin_init["ok"] is False
-    assert "Inductive not run" in begin_init["reason"]
+    begin_writing = l_step_control.begin_writing(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
+    assert begin_writing["ok"] is False
+    assert "Inductive not run" in begin_writing["reason"]
 
     begin_inductive = l_step_control.begin_inductive(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
     assert begin_inductive["ok"] is True
@@ -468,7 +468,7 @@ def test_advance_to_freeedit_rejects_profile_without_freeedit(
     seed_tech_plan_session(tmp_path, cycle_id=_CYCLE, profile_id="lulu-spec")
     progress_schema.save_l_step_progress(
         _progress_path(tmp_path, "lulu-spec"),
-        {"version": "1", "cycle_id": _CYCLE, "current_step": "Initialized"},
+        {"version": "1", "cycle_id": _CYCLE, "current_step": "Written"},
         profile_id="lulu-spec",
     )
     monkeypatch.setattr(
@@ -496,11 +496,11 @@ def test_advance_to_freeedit_accepts_legacy_ready(tmp_path: Path) -> None:
     assert result["current_step"] == "FreeEdit"
 
 
-def test_begin_init_k2_requires_facts_when_inductive(
+def test_begin_writing_k2_requires_facts_when_inductive(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """K2: inductive Init → missing _facts.json is a hard error."""
+    """K2: inductive Writing → missing _facts.json is a hard error."""
     seed_tech_design_session(tmp_path, cycle_id=_CYCLE)
     rev_dir = _seed_inductive_progress(tmp_path)
     _write_g4_closed(_slice(rev_dir))
@@ -512,13 +512,13 @@ def test_begin_init_k2_requires_facts_when_inductive(
         lambda *a, **k: {"inductive": True},
     )
 
-    result = l_step_control.begin_init(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
+    result = l_step_control.begin_writing(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
     assert result["ok"] is False
     assert "_facts.json missing" in result["reason"]
     assert "seed/settle" in result["reason"]
 
 
-def test_begin_init_k2_passes_when_facts_present(
+def test_begin_writing_k2_passes_when_facts_present(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -540,14 +540,14 @@ def test_begin_init_k2_passes_when_facts_present(
         lambda *a, **k: {"inductive": True},
     )
 
-    result = l_step_control.begin_init(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
+    result = l_step_control.begin_writing(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
     assert result["ok"] is True
     assert "REVISION_DIR:" in result["dispatch_input"]
     assert "SCOPE_FACTS_PATH:" not in result["dispatch_input"]
     assert "INDUCTIVE_DIR:" not in result["dispatch_input"]
 
 
-def test_begin_init_real_design_profile_requires_facts(tmp_path: Path) -> None:
+def test_begin_writing_real_design_profile_requires_facts(tmp_path: Path) -> None:
     """Lock: real lulu-design inductive profile requires projected _facts.json."""
     profile = json.loads(
         (
@@ -565,7 +565,7 @@ def test_begin_init_real_design_profile_requires_facts(tmp_path: Path) -> None:
     _write_g5_closed(_slice(rev_dir))
     assert not (_slice(rev_dir) / "_facts.json").exists()
 
-    result = l_step_control.begin_init(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
+    result = l_step_control.begin_writing(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
     assert result["ok"] is False
     assert "_facts.json missing" in result["reason"]
 

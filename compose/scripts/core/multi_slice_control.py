@@ -14,7 +14,7 @@ Subcommands:
     assemble-index       Optional ``*-index.md`` (not the delivery marker)
 
 When revision scope is ``scope-package.json`` (archive-1.0 P4.convert), write-intake /
-lock-tree / lock-hard-mirror hard-reject (L set frozen; convert runs at start/Init).
+lock-tree / lock-hard-mirror hard-reject (L set frozen; convert runs at start/Writing).
 
 Design rationale (source repo, why-only):
 docs/domain/archive/compose/archive-4.0/compose-deductive-package-hard-mirror-design.md
@@ -613,7 +613,7 @@ def cmd_lock_hard_mirror(
     if is_scope_package_path(pkg_path):
         return _emit_error(
             "scope-package.json is not a compose *-package.json; "
-            "use scope-package convert at start/Initializing (not lock-hard-mirror)"
+            "use scope-package convert at start/Writing (not lock-hard-mirror)"
         )
     if not is_compose_package_path(pkg_path):
         return _emit_error(

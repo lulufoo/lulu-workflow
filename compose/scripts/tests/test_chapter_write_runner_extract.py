@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""SKILL wiring checks for chapter-write-runner extract (archive-26.0 T4/T5/T8)."""
+"""SKILL wiring checks for chapter-write-runner extract + Writing orchestrator."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
 _COMPOSE = Path(__file__).resolve().parents[2]
-_INIT = (_COMPOSE / "initializing-runner" / "SKILL.md").read_text(encoding="utf-8")
+_WRITING = (_COMPOSE / "writing-runner" / "SKILL.md").read_text(encoding="utf-8")
 _WRITE = (_COMPOSE / "chapter-write-runner" / "SKILL.md").read_text(encoding="utf-8")
 _PROTOCOL = (
     _COMPOSE / "chapter-write-runner" / "references" / "write-protocol.md"
@@ -16,25 +16,27 @@ _DELIVERY = (
 ).read_text(encoding="utf-8")
 
 
-def test_init_step1_no_longer_preloads_write_frameworks():
-    step1 = _INIT.split("### Step 2")[0]
+def test_writing_step1_no_longer_preloads_write_frameworks():
+    step1 = _WRITING.split("### Step 2")[0]
     assert "$RESOLVE_ROLE" not in step1
     assert "$RESOLVE_DOMAIN" not in step1
     assert "section-form-registry" not in step1
     assert "section-kw-criteria" not in step1
     assert "init-doc`" not in step1.split("**Done:**")[0]
     assert "$CODE_GROUNDING" in step1
-    assert "Do **not** require Role/Domain resolve" in step1
+    assert "Proceed to Step 2" in step1
 
 
-def test_init_step4_inline_loads_chapter_write_runner():
-    assert "chapter-write-runner/SKILL.md" in _INIT
-    assert "ARC_PATH: _narrative-arc.json" in _INIT
-    assert "OUTPUT_DOC_PATH: <$OUTPUT_DOC_PATH>" in _INIT
-    assert "wrote_bodies=true" in _INIT
-    # Init must not keep the old Step 4 write wall
-    assert "#### 4.W — Write-by-sub-topic-chapter" not in _INIT
-    assert "section-form-registry" not in _INIT.split("### Step 4")[1].split("### Step 5")[0]
+def test_writing_step5_dispatches_chapter_write_runner():
+    assert "chapter-write-runner/SKILL.md" in _WRITING
+    assert "ARC_PATH: _narrative-arc.json" in _WRITING
+    assert "OUTPUT_DOC_PATH: <$OUTPUT_DOC_PATH>" in _WRITING
+    assert "$SUBAGENT_TOOL" in _WRITING
+    assert "### Step 5 — Chapter write + assemble" in _WRITING
+    # Writing orchestrator must not keep the old inline write wall
+    assert "#### 4.W — Write-by-sub-topic-chapter" not in _WRITING
+    step5 = _WRITING.split("### Step 5")[1].split("### Step 6")[0]
+    assert "section-form-registry" not in step5
 
 
 def test_write_runner_input_six_fields():

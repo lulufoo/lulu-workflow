@@ -164,7 +164,7 @@ class TestResolveDomain:
 
 
 class TestScopeResolverCliProfile:
-    """--profile must work before and after the subcommand (Init macro friction fix)."""
+    """--profile must work before and after the subcommand (Writing macro friction fix)."""
 
     def test_profile_after_subcommand_accepted(self, capsys):
         from scope_resolver import main

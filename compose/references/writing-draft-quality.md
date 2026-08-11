@@ -1,15 +1,15 @@
-# Init Draft Quality
+# Writing Draft Quality
 
-> Referenced by: initializing-runner (Steps 2–6 chapter artifacts, Step 6 validate).  
+> Referenced by: writing-runner (chapter artifacts + package validate).  
 > Theory: [`compose-theory.md`](compose-theory.md).
 
 ## Purpose
 
-Chapter body artifacts make Init synthesis inspectable and gate-able without replacing Round probe. Section-key I2 derive / `_title-display.json` / Partition retired (K3-d).
+Chapter body artifacts make Writing synthesis inspectable and gate-able without replacing Round probe. Section-key I2 derive / `_title-display.json` / Partition retired (K3-d).
 
-**Narrative-arc Init (archive-5.0):** visible titles come from `_narrative-arc.json` + `assemble-arc`. Archive-3.0 themes/framework/placement files are **retired** (presence is an Init validation error).
+**Narrative-arc Writing (archive-5.0):** visible titles come from `_narrative-arc.json` + `assemble-arc`. Archive-3.0 themes/framework/placement files are **retired** (presence is a Writing validation error).
 
-## Init positioning
+## Writing positioning
 
 | Must | Must not |
 |------|----------|
@@ -25,7 +25,7 @@ Round still owns formal KW / upstream / intent gap closure.
 
 ```text
 $REVISION_DIR/_facts.json                 # fact store (Step 2–3)
-$REVISION_DIR/_narrative-arc.json         # Init spine (archive-5.0)
+$REVISION_DIR/_narrative-arc.json         # Writing spine (archive-5.0)
 $REVISION_DIR/_chapter-write-state.json   # serial 4.W gate
 $REVISION_DIR/_body-{cid}.txt             # chapter body (hard gate: non-empty)
 $OUTPUT_DOC_PATH                          # assembled via assemble-arc (tree/leaf titles + <!-- chapter:{cid} -->)
@@ -45,7 +45,7 @@ ticket (`writing_cognition`); do not re-fetch full `section-form-registry` for W
 | `presentation.forbidden` | Excluded carriers/structures |
 | `expression` | Manner-of-expression attention (not a persisted chapter C array) |
 
-Selection among `allowed` is soft How; Init does not hard-gate a chosen carrier/structure (F) artifact.
+Selection among `allowed` is soft How; Writing does not hard-gate a chosen carrier/structure (F) artifact.
 
 ### Titles (narrative-arc)
 
@@ -72,7 +72,7 @@ AND
 anchors(chapter) ⊆ tokens(body)              # new: keep this chapter's facts' anchors
 ```
 
-`init_compose_validation.py` enforces the second line mechanically for `discovered` facts (anchor-coverage check; `code_ref` matches OR over its `path`/`symbol` segments). To avoid friendly fire, keep these distinctions:
+`writing_compose_validation.py` enforces the second line mechanically for `discovered` facts (anchor-coverage check; `code_ref` matches OR over its `path`/`symbol` segments). To avoid friendly fire, keep these distinctions:
 
 1. "No verbatim" forbids whole-decision paste and `[Source:]` markers — it does **not** forbid retaining an `anchor.value` (a path / symbol) in prose.
 2. A "no path pile-up in the opening" convention (where a lens defines one) stays scoped to that opening; it must not be widened into a whole-body ban on paths for structural / contract lenses.
@@ -80,7 +80,7 @@ anchors(chapter) ⊆ tokens(body)              # new: keep this chapter's facts'
 
 ## Validate command
 
-`init_compose_validation.py validate` runs: `_facts.json` + `_narrative-arc.json` + chapter write-state `complete`, per-chapter non-empty body gate (same as `$CHAPTER_WRITE_STATE complete`), chapter anchors in the compose doc, and L6 fact-anchor coverage. Presence of `_chapters.json` / `_lens-themes.json` / `_chapter-framework.json` / `_chapter-placement.json` is an error (retired). See script `--help` for exit codes and stderr format.
+`writing_compose_validation.py validate` runs: `_facts.json` + `_narrative-arc.json` + chapter write-state `complete`, per-chapter non-empty body gate (same as `$CHAPTER_WRITE_STATE complete`), chapter anchors in the compose doc, and L6 fact-anchor coverage. Presence of `_chapters.json` / `_lens-themes.json` / `_chapter-framework.json` / `_chapter-placement.json` is an error (retired). See script `--help` for exit codes and stderr format.
 
 ## Minimal example (one chapter)
 

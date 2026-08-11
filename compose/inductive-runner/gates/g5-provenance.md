@@ -40,6 +40,6 @@ maturity + opens + facts → <INDUCTIVE_OUT_DIR>/ (maturity under inductive-scop
 inductive-dqi.json → <path> (resume aid only; not SoT)
 provenance deltas → intent <A> / scope <B> / norm <C> (all pending-signoff)
 Deferred opens: <N> (from inductive-opens.json status=deferred; will appear in design-doc OQ)
-Returning to parent compose stage for compose Initializing.
+Returning to parent compose stage for compose Writing.
 ```
 Control returns to the parent compose stage.
