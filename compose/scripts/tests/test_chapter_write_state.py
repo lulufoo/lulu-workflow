@@ -180,7 +180,7 @@ def test_begin_writing_cognition_is_current_lens_only(
     assert axis_i == first["writing_cognition"]["reading_axis"]
 
 
-def test_begin_facts_omit_empty_anchors(
+def test_begin_facts_emit_empty_anchors(
     tmp_path: Path, capsys: pytest.CaptureFixture[str],
 ):
     rev = tmp_path / "rev"
@@ -191,7 +191,9 @@ def test_begin_facts_omit_empty_anchors(
     capsys.readouterr()
     assert _begin(rev) == 0
     ticket = json.loads(capsys.readouterr().out)
-    assert ticket["facts"] == [{"id": "F-1", "text": "fact one"}]
+    assert ticket["facts"] == [
+        {"id": "F-1", "text": "fact one", "anchors": []},
+    ]
 
 
 def test_begin_facts_order_follows_fact_ids(

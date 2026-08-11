@@ -126,11 +126,16 @@ def _assemble_ticket_facts(
     ticket: list[dict[str, Any]] = []
     for fid in fact_ids:
         src = by_id[fid]
-        row: dict[str, Any] = {"id": src["id"], "text": src["text"]}
-        anchors = src.get("anchors")
-        if anchors:
-            row["anchors"] = list(anchors)
-        ticket.append(row)
+        # Always emit anchors (empty list when absent) so writers do not
+        # misread a missing key as a dropped field and bypass begin.
+        anchors = src.get("anchors") or []
+        ticket.append(
+            {
+                "id": src["id"],
+                "text": src["text"],
+                "anchors": list(anchors),
+            }
+        )
     return ticket, []
 
 

@@ -43,7 +43,8 @@ $CHAPTER_WRITE_STATE begin \
   --project-root "$PROJECT_ROOT" \
   --profile "$COMPOSE_PROFILE" \
   --cycle-id "$CYCLE_ID"
-# → work ticket: chapter_id, leaf_id, leaf_title, lens, fact_ids, facts,
+# → work ticket: chapter_id, leaf_id, leaf_title, lens, fact_ids, facts
+#   (each fact: id, text, anchors — anchors is [] when none),
 #   writing_cognition, lens_intent
 # already_running → stop; complete current first (do not begin again)
 # missing_fact_ids → stop; fix arc/_facts.json (chapter not claimed)
