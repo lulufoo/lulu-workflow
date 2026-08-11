@@ -15,7 +15,7 @@ Use `$COMPOSE_PROFILE` from parent dispatch; kernel default applies only when om
 
 ## Scope
 
-**Pipeline:** Step 1 Load → Step 2 Validate facts → Step 3 Narrative arc (phase 1→2) → Step 4 Write-by-sub-topic-chapter then Assemble → Step 5 Validate → Return.
+**Pipeline:** Step 1 Load → Step 2 Validate facts → Step 3 Narrative arc (unified runner) → Step 4 Write-by-sub-topic-chapter then Assemble → Step 5 Validate → Return.
 
 Init is **display-layer only**. Fact production belongs to Inductive|Deductive (`inductive-runner` or `deductive-runner`). Init never Import / Atomize / Derive.
 
@@ -217,14 +217,25 @@ $COMPOSE_DOC_CONTROL assemble-arc \
 
 ### Step 5 — Validate
 
-1. `$NARRATIVE_ARC_CTL validate --require-write-ready` (same flags as Step 3).
+1. `$NARRATIVE_ARC_CTL validate --require-write-ready` against Step 3
+   `OUTPUT_PATH` (default `_narrative-arc.json`):
+
+```bash
+$NARRATIVE_ARC_CTL validate \
+  --revision-dir "$REVISION_DIR" \
+  --profile "$COMPOSE_PROFILE" \
+  --project-root "$(pwd)" \
+  --output-path "_narrative-arc.json" \
+  --require-write-ready
+```
+
 2. Run `$INIT_COMPOSE_VALIDATE` (prefers `_narrative-arc.json` SoT: arc validity + chapter artifacts + L6; rejects retired `_chapters.json`).
 3. On failure → read stderr; **match the first prefix in this order** (then re-run Step 5):
 
 | Order | Prefix / signal | Return to | Action |
 |------:|-----------------|-----------|--------|
 | 1 | `retired:` | delete file | Remove `_chapters.json` |
-| 2 | `3.2:` | **3.2** | Fix arc chapters / tags / unresolved |
+| 2 | `3.2:` | **Step 3** | Re-run `narrative-arc-runner` delivery (chapters / tags / unresolved) |
 | 3 | `4.W:` | **4.W** | Fix write-state (`sync` / finish claim-current begin→complete loop) |
 | 4 | `L6:` | **4.W** | Write missing fact-anchor token into that chapter body |
 | 5 | `C1:` + derivation / coverage | **Blocking** | Return to parent Inductive|Deductive producer; re-enter Init at Step 2 |
