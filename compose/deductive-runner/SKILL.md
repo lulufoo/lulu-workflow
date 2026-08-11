@@ -23,14 +23,14 @@ control returns to the parent for Writing.
 This runner is **stage-agnostic**: lens set / Intent / derivation edges =
 `section-registry`; do not hardcode stage lens names.
 
-**Must:** dispatch `fact-intake-runner` for doc→classified facts; then Derive →
-Pending Confirm → Complete.  
+**Must:** dispatch `fact-intake-runner` for doc→classified facts; then dispatch
+`derive-runner`; Pending Confirm → Complete.  
 **Must not:** invent decisions; label off-edge obligations as `derived`; write
 chapter prose; ask the user during Writing (confirm only here); re-read upstream
 prose after intake for Steps 2–4; Import upstream `_facts.json` as delivery;
 enter delivery Evaluating / StageGate for intake eval; edit the intake source
 doc; inline cut / eval / disposition / confirm (owned by
-`fact-intake-runner`).
+`fact-intake-runner`); inline Pd floor / ceiling×KW (owned by `derive-runner`).
 
 ---
 
@@ -55,17 +55,12 @@ Bind `$SOURCE_PATH` from `$ATOMIZE_SOURCE_PATH` when only the alias is set.
 
 | Macro | Command |
 |-------|---------|
-| `$FETCH_COMPOSE` | `python3 "$SKILL_ROOT/compose/scripts/io/fetch_compose_framework.py" --role <role> --profile "$COMPOSE_PROFILE" --project-root "$(pwd)" --cycle-id "$CYCLE_ID"` |
 | `$FACTS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/facts_control.py"` |
 | `$DERIVE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/derive_control.py"` |
 | `$DEDUCTIVE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/deductive/deductive_control.py" --revision-dir "$DEDUCTIVE_OUT_DIR" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)"` |
 
 `$FACTS_CTL` / `$DERIVE_CTL` / `$DEDUCTIVE_CTL`: see each `--help`. Scripts never
 invent derived work-item text.
-
-Fetch before Step 2: `$FETCH_COMPOSE --role section-registry` → `SECTION_REGISTRY`.  
-Also `$FETCH_COMPOSE --role section-kw-criteria` → `KW_CRITERIA` (published
-per-lens KW tables; **ruler for ceiling only**).
 
 ---
 
@@ -79,7 +74,7 @@ Collaboration: AI projects and proposes; **user** closes Confirm gates; scripts
 move state only.
 
 **Pipeline split:** shared **fact-intake** (cut → structure validate → intake eval →
-disposition → Confirm) → **Pd** (floor + ceiling×KW) → pending Confirm → Complete.
+disposition → Confirm) → **Pd** (`derive-runner`) → pending Confirm → Complete.
 
 ---
 
@@ -115,58 +110,24 @@ $DEDUCTIVE_CTL pending-init
 **Done:** fact-intake Return Summary `Status: ok`; pending store exists. Proceed to
 Step 2.
 
-### Step 2 — Derive (floor means + ceiling × KW ruler)
+### Step 2 — Derive
 
-**Cognitive split (archive-6.0 Pd×KW):** **Floor** = edge-closure **means** (no KW).
-**Ceiling** = Intent projection **means** driven by published **`KW_CRITERIA`** as
-the **only thickness ruler**. Do **not** treat “edges closed” or “should-cover
-ticked” as “thick enough.” Do **not** run a separate KW-first pass on the intake
-pool.
+Dispatch nested `derive-runner` via `$SUBAGENT_TOOL`, then
+`$SUBAGENT_AWAIT_SYNC`.
 
-Mechanical plan first (edge floor + topo). **`$DERIVE_CTL plan-edge` hard-fails**
-unless intake eval `eval_status` is `done`.
+```text
+Load {SKILL_ROOT}/compose/deductive-runner/derive-runner/SKILL.md and follow it.
 
-```bash
-$DERIVE_CTL plan-edge \
-  --revision-dir "$DEDUCTIVE_OUT_DIR" \
-  --profile "$COMPOSE_PROFILE" \
-  --project-root "$(pwd)"
+## Input
+REVISION_DIR: <$DEDUCTIVE_OUT_DIR>
+PROJECT_ROOT: <$PROJECT_ROOT>
+COMPOSE_PROFILE: <$COMPOSE_PROFILE>
+CYCLE_ID: <$CYCLE_ID>
 ```
 
-Use stdout: `order`, `edge_holes`, `true_gaps`, `materials_total` (carried-primary pool).
+Do not re-implement Pd floor / ceiling×KW here.
 
-**Semantic work (you):**
-
-1. **Floor (means only — no KW)** — for each hole in `edge_holes`: if projectable from decided substance → emit derived fact `{text, lens_tags:[L], origin:{type:derived, ref:[upstream F-id, …]}, source?}` with **exact** upstream `F-id` in `origin.ref` (and prefer `source`). If not projectable → `$DEDUCTIVE_CTL pending-add` (kind=`edge_hole`). KW upper/target does **not** apply here.
-2. **Ceiling × KW ruler** — for each required lens in topo order (same `order`, then any remaining required):
-   - Materials: **carried** (and legacy no-disposition) + Intent — **not** default `quarantined`/`not_needed` pool.
-   - Ruler: that lens’s block in `KW_CRITERIA` (published table only; **no** separate target-thickness number).
-   - Estimate whether current facts satisfy the table’s “can state…” rows (agent semantic judgment).
-   - **If unsatisfied** → drive ceiling means: list Intent should-cover / thicken opportunities; projectable **and** on a `decompose`/`instantiate` edge **and** not past the depth the table asks for → `derived` with `F-id` refs. Gap recovery when still thin: carried → quarantined ledger → not_needed ledger → pending. Off-edge / undecided → `$DEDUCTIVE_CTL pending-add` (kind=`off_edge` \| `undecided`) — **never** `origin.type=derived` off-edge. **Forbidden:** inventing to pad KW with no edge.
-   - **If satisfied** → stop thickening that lens (KW stop line).
-   - **If means exhausted and still unsatisfied** → `$DEDUCTIVE_CTL pending-add` (kind=`kw_shortfall`, `--lens <L>`, summary = table gap). Do **not** silently pass.
-   - **Do not** batch-retag quarantine/not_needed inside Pd. Post-intake promote/retag
-     only: `$DEDUCTIVE_CTL disposition-patch-*` with an agent-chosen patch file
-     (not intake Confirm). Intake Disposition Confirm stays
-     `{slice}/fact-intake-disposition-review.patch` via `$FACT_INTAKE_DISPOSITION_CTL`.
-3. **Cascade:** later lenses see facts appended earlier. If ceiling appends create new `edge_holes`, re-run floor for those holes (**still no KW**), then resume ceiling×KW for affected lenses.
-4. **Must not** produce `origin.type=discovered`.
-
-When you have a derived batch:
-
-```bash
-$DERIVE_CTL append \
-  --revision-dir "$DEDUCTIVE_OUT_DIR" \
-  --derived-file "<path to derived.json>" \
-  --profile "$COMPOSE_PROFILE" \
-  --project-root "$(pwd)"
-```
-
-```bash
-$FACTS_CTL validate --revision-dir "$DEDUCTIVE_OUT_DIR" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)"
-```
-
-**Done:** validate exit 0; every floor hole covered or pending; every required lens either KW-satisfied or has open `kw_shortfall` / other pending. Proceed to Step 3.
+**Done:** derive-runner Summary `Status: ok`. Proceed to Step 3.
 
 ### Step 3 — Pending Confirm
 
@@ -227,7 +188,7 @@ facts: `derivation.disposition` ∈ {`carried`,`quarantined`,`not_needed`};
 **Disposition Confirm (intake):** `{slice}/fact-intake-disposition-review.patch`
 (owned by `fact-intake-runner` / `$FACT_INTAKE_DISPOSITION_CTL`).
 
-**Post-intake retag patch (optional, Steps 2–3):** agent-chosen path via
+**Post-intake retag patch (optional, Step 3):** agent-chosen path via
 `$DEDUCTIVE_CTL disposition-patch-*` — not the intake Confirm artifact.
 
 **Compose Writing input:** `_facts.json` only.
