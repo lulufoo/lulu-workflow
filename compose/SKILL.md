@@ -163,7 +163,8 @@ Compose the document via fact-first Init (see initializing-runner). No mapping p
 
 1. Run `$L_STEP begin-init`.
    - On failure → Blocking.
-   - On success → dispatch initializing-runner (stdout → `## Input`):
+   - On success → Load initializing-runner and follow its instructions
+     (stdout → `## Input`):
 
 ```text
 Load {actual $SKILL_ROOT}/compose/initializing-runner/SKILL.md and follow its instructions.
@@ -171,8 +172,6 @@ Load {actual $SKILL_ROOT}/compose/initializing-runner/SKILL.md and follow its in
 ## Input
 {begin-init stdout}
 ```
-
-Await completion (`$SUBAGENT_AWAIT_SYNC`).
 
 2. Run `$L_STEP init-complete`. On failure → Blocking.
 
@@ -247,8 +246,8 @@ Stage-agenda items (design-external blockers/notes) live under the revision dir;
 | `{SKILL_ROOT}/compose/split-runner/SKILL.md` | Split Rules — multi-subdesign split (intake → lock tree+rulers) |
 | `{SKILL_ROOT}/compose/inductive-runner/SKILL.md` | Working → Inductive — inductive-runner (`pipeline.inductive: true`) |
 | `{SKILL_ROOT}/compose/deductive-runner/SKILL.md` | Working → Deductive — deductive-runner (`pipeline.inductive: false`) |
-| `{SKILL_ROOT}/compose/narrative-arc-runner/SKILL.md` | Working → Inductive G2 / Initializing — unified narrative-arc pipeline (G2 subagent; Init inline) |
-| `{SKILL_ROOT}/compose/chapter-write-runner/SKILL.md` | Working → Initializing Step 4 — chapter write + assemble (Init inline) |
+| `{SKILL_ROOT}/compose/narrative-arc-runner/SKILL.md` | Working → Inductive G2 / Initializing — unified narrative-arc pipeline |
+| `{SKILL_ROOT}/compose/chapter-write-runner/SKILL.md` | Working → Initializing Step 5 — chapter write + assemble |
 | `{SKILL_ROOT}/compose/inductive-runner/g3-shallow-grounding-runner/SKILL.md` | Working → Inductive — optional G3 shallow grounding subagent (detect facts only; parent `add-open`) |
 | `{SKILL_ROOT}/compose/inductive-runner/g3-deep-grounding-runner/SKILL.md` | Working → Inductive — optional G3 deep grounding subagent (one open; parent settles) |
 | `{SKILL_ROOT}/compose/inductive-runner/g4-recompose-runner/SKILL.md` | Working → Inductive — Gate 4 internal-audit subagent (section JSON + shape checkpoint) |

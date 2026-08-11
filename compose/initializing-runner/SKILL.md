@@ -4,7 +4,7 @@ description: >-
   Autonomous Initializing step for compose-profile pipeline. Loads frameworks;
   validates producer-written `_facts.json` (inductive or deductive); organizes
   chapters; composes per-chapter bodies via fact-first display-layer pipeline
-  (Steps 1–5); validates draft quality; persists each chapter incrementally.
+  (Steps 1–6); validates draft quality; persists each chapter incrementally.
 ---
 
 # initializing-runner
@@ -15,7 +15,7 @@ Use `$COMPOSE_PROFILE` from parent dispatch; kernel default applies only when om
 
 ## Scope
 
-**Pipeline:** Step 1 Load → Step 2 Validate facts → Step 3 Narrative arc (unified runner) → Step 4 Chapter write + assemble (inline runner) → Step 5 Validate → Return.
+**Pipeline:** Step 1 Load → Step 2 Validate facts → Step 3 Narrative arc → Step 4 Validate narrative arc → Step 5 Chapter write + assemble → Step 6 Validate → Return.
 
 Init is **display-layer only**. Fact production belongs to Inductive|Deductive (`inductive-runner` or `deductive-runner`). Init never Import / Atomize / Derive.
 
@@ -55,7 +55,7 @@ All macros that declare `--profile` **must** pass `--profile "$COMPOSE_PROFILE"`
 
 `$FACTS_CTL` subcommands: `--help` · `write` · `validate` · `status`.
 
-`$NARRATIVE_ARC_CTL` subcommands: `--help` · `validate` · `write` · `show` · `list-chapters` (audit / Step 5; Step 3 delivery is via `narrative-arc-runner`).
+`$NARRATIVE_ARC_CTL` subcommands: `--help` · `validate` · `write` · `show` · `list-chapters` (Step 4 validate; Step 3 delivery via `narrative-arc-runner`).
 
 > **K4:** `$INDUCTIVE_FACTS_PROJ project` is **retired**. Do not invoke projection from this runner.
 
@@ -71,13 +71,13 @@ All macros that declare `--profile` **must** pass `--profile "$COMPOSE_PROFILE"`
 
 ---
 
-#### Pipeline invariants (Steps 2–5)
+#### Pipeline invariants (Steps 2–6)
 
 Document spine = `_narrative-arc.json`, **not** registry order / Lens aggregation.
 
-**Precondition:** Step 3 must produce `_narrative-arc.json` with `status=write_ready`. **Retired (error if present):** `_chapters.json`, `_lens-themes.json`, `_chapter-framework.json`, `_chapter-placement.json`.
+**Precondition:** Step 4 must pass `$NARRATIVE_ARC_CTL validate --require-write-ready` on `_narrative-arc.json`. **Retired (error if present):** `_chapters.json`, `_lens-themes.json`, `_chapter-framework.json`, `_chapter-placement.json`.
 
-**Must:** every non-excluded fact mapped to exactly one arc leaf; every leaf fact in exactly one sub-topic chapter; chapter `lens` ∈ that fact's `lens_tags`; empty `lens_tags` must not reach `write_ready`; chapter bodies written only via `chapter-write-runner` claim-current tickets; run `$INIT_COMPOSE_VALIDATE` before Return.
+**Must:** every non-excluded fact mapped to exactly one arc leaf; every leaf fact in exactly one sub-topic chapter; chapter `lens` ∈ that fact's `lens_tags`; empty `lens_tags` must not reach `write_ready`; run `$INIT_COMPOSE_VALIDATE` before Return.
 **Must not:** use `section_order` (or lens list order) as chapter directory; use Role `priority_tendency` / lens tags as presentation chapter titles; force a fixed N-act label set as the only top-level packaging; create or keep `_chapters.json`; decide open choices during Steps 2–3 (待决 same discipline); Import / Atomize / Derive facts.
 
 ### Step 2 — Validate facts
@@ -97,15 +97,14 @@ Missing / invalid `_facts.json` → Blocking (return to parent Inductive|Deducti
 
 **Done:** validate exit 0 → proceed to Step 3.
 
-### Step 3 — Narrative arc (unified pipeline · inline)
+### Step 3 — Narrative arc
 
-Load sibling `narrative-arc-runner` and complete its delivery contract **inline**
-(not a subagent). Do **not** invoke arc build/write macros from this SKILL.
+Dispatch sibling `narrative-arc-runner` via `$SUBAGENT_TOOL`, then
+`$SUBAGENT_AWAIT_SYNC`.
 
 ```text
 Load {SKILL_ROOT}/compose/narrative-arc-runner/SKILL.md and follow
 references/semantic-build-protocol.md then contracts/delivery.md
-(inline in this conversation — not a subagent).
 
 ## Input
 REVISION_DIR: <$REVISION_DIR>
@@ -116,42 +115,7 @@ OUTPUT_PATH: _narrative-arc.json
 MOUNT: false
 ```
 
-**Must:** await runner Summary with `wrote=true` and `write_ready=true`.  
-**Must not:** set `MOUNT: true`; paste fact bodies; re-run delivery macros here.
-
-**Done (Step 3):** Summary OK; `_narrative-arc.json` is `write_ready`;
-`$NARRATIVE_ARC_CTL list-chapters` succeeds (audit).
-
-### Step 4 — Chapter write + assemble (inline)
-
-Load sibling `chapter-write-runner` and complete its delivery contract **inline**
-(not a subagent). Do **not** copy Write/Assemble steps into this SKILL.
-
-```text
-Load {SKILL_ROOT}/compose/chapter-write-runner/SKILL.md and follow
-references/write-protocol.md then contracts/delivery.md
-(inline in this conversation — not a subagent).
-
-## Input
-REVISION_DIR: <$REVISION_DIR>
-PROJECT_ROOT: <abs project root = $(pwd)>
-COMPOSE_PROFILE: <$COMPOSE_PROFILE>
-CYCLE_ID: <$CYCLE_ID>
-OUTPUT_DOC_PATH: <$OUTPUT_DOC_PATH>
-ARC_PATH: _narrative-arc.json
-```
-
-**Must:** await runner Summary with `wrote_bodies=true`, `assembled=true`, and
-`write_state=complete`.  
-**Must not:** paste fact bodies; pass `$CODE_GROUNDING` / `$SCOPE_REF_PATH`;
-re-run write macros from this SKILL outside the runner.
-
-**Done (Step 4):** Summary OK; `$OUTPUT_DOC_PATH` assembled; write-state complete.
-
-### Step 5 — Validate
-
-1. `$NARRATIVE_ARC_CTL validate --require-write-ready` against Step 3
-   `OUTPUT_PATH` (default `_narrative-arc.json`):
+### Step 4 — Validate narrative arc
 
 ```bash
 $NARRATIVE_ARC_CTL validate \
@@ -162,19 +126,33 @@ $NARRATIVE_ARC_CTL validate \
   --require-write-ready
 ```
 
-2. Run `$INIT_COMPOSE_VALIDATE` (prefers `_narrative-arc.json` SoT: arc validity + chapter artifacts + L6; rejects retired `_chapters.json`).
-3. On failure → read stderr; **match the first prefix in this order** (then re-run Step 5):
+Exit 0 → proceed. Non-zero → do not continue.
 
-| Order | Prefix / signal | Return to | Action |
-|------:|-----------------|-----------|--------|
-| 1 | `retired:` | delete file | Remove `_chapters.json` |
-| 2 | `3.2:` | **Step 3** | Re-run `narrative-arc-runner` delivery (chapters / tags / unresolved) |
-| 3 | `4.W:` | **Step 4** | Re-enter `chapter-write-runner` (finish claim-current begin→complete loop) |
-| 4 | `L6:` | **Step 4** | Write missing fact-anchor token into that chapter body via runner |
-| 5 | `C1:` + derivation / coverage | **Blocking** | Return to parent Inductive|Deductive producer; re-enter Init at Step 2 |
-| 6 | `5.A:` | **Step 4** | Re-enter `chapter-write-runner` Assemble after fixing missing chapter artifacts |
+### Step 5 — Chapter write + assemble
 
-3. On success → Return Summary.
+Dispatch sibling `chapter-write-runner` via `$SUBAGENT_TOOL`, then
+`$SUBAGENT_AWAIT_SYNC`.
+
+```text
+Load {SKILL_ROOT}/compose/chapter-write-runner/SKILL.md and follow
+references/write-protocol.md then contracts/delivery.md
+
+## Input
+REVISION_DIR: <$REVISION_DIR>
+PROJECT_ROOT: <abs project root = $(pwd)>
+COMPOSE_PROFILE: <$COMPOSE_PROFILE>
+CYCLE_ID: <$CYCLE_ID>
+OUTPUT_DOC_PATH: <$OUTPUT_DOC_PATH>
+ARC_PATH: _narrative-arc.json
+```
+
+### Step 6 — Validate
+
+Run `$INIT_COMPOSE_VALIDATE` (prefers `_narrative-arc.json` SoT: arc validity + chapter artifacts + L6; rejects retired `_chapters.json`).
+
+On failure → present `$INIT_COMPOSE_VALIDATE` stderr and exit code to the
+parent / human; **stop** Initializing.
+On success → Return Summary.
 
 **Done:** `$INIT_COMPOSE_VALIDATE` exit 0.
 
