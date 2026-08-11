@@ -928,3 +928,116 @@ def test_control_validate_intake_structure_ok(tmp_path: Path):
     payload = json.loads(proc.stdout)
     assert payload["ok"] is True
     assert payload["facts_total"] == 1
+
+
+def test_control_write_intake_structure_cut_omits_disposition(tmp_path: Path):
+    """Cut path: seed + upstream_ref, no disposition → write + validate OK."""
+    rev = tmp_path / "rev"
+    rev.mkdir()
+    facts_file = tmp_path / "cut-facts.json"
+    cut_facts = [
+        {
+            "id": "F-1",
+            "text": "atom from source",
+            "lens_tags": ["CTX"],
+            "derivation": {"upstream_ref": ["source.md#1"]},
+            "origin": {"type": "seed", "ref": ["source.md"]},
+        }
+    ]
+    facts_file.write_text(json.dumps(cut_facts), encoding="utf-8")
+
+    write_proc = subprocess.run(
+        [
+            sys.executable,
+            str(_CTL),
+            "write",
+            "--revision-dir",
+            str(rev),
+            "--facts-file",
+            str(facts_file),
+            "--intake-structure",
+            "--require-seed-origin",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert write_proc.returncode == 0, write_proc.stderr
+    write_payload = json.loads(write_proc.stdout)
+    assert write_payload["ok"] is True
+    assert write_payload["facts_total"] == 1
+
+    validate_proc = subprocess.run(
+        [
+            sys.executable,
+            str(_CTL),
+            "validate",
+            "--revision-dir",
+            str(rev),
+            "--intake-structure",
+            "--require-seed-origin",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert validate_proc.returncode == 0, validate_proc.stderr
+
+    # Without intake flag, same payload must still be rejected (disposition required).
+    strict_write = subprocess.run(
+        [
+            sys.executable,
+            str(_CTL),
+            "write",
+            "--revision-dir",
+            str(rev),
+            "--facts-file",
+            str(facts_file),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert strict_write.returncode != 0
+    assert "disposition" in (strict_write.stderr or "")
+
+    # After disposition, tightened validate (no intake-structure) succeeds.
+    disposed = [
+        {
+            **cut_facts[0],
+            "derivation": {
+                "upstream_ref": ["source.md#1"],
+                "disposition": "carried",
+            },
+        }
+    ]
+    disposed_file = tmp_path / "disposed-facts.json"
+    disposed_file.write_text(json.dumps(disposed), encoding="utf-8")
+    disposed_write = subprocess.run(
+        [
+            sys.executable,
+            str(_CTL),
+            "write",
+            "--revision-dir",
+            str(rev),
+            "--facts-file",
+            str(disposed_file),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert disposed_write.returncode == 0, disposed_write.stderr
+    tight_validate = subprocess.run(
+        [
+            sys.executable,
+            str(_CTL),
+            "validate",
+            "--revision-dir",
+            str(rev),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert tight_validate.returncode == 0, tight_validate.stderr
