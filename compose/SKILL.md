@@ -145,7 +145,7 @@ Load {actual $SKILL_ROOT}/compose/inductive-runner/SKILL.md and follow its instr
 {begin-inductive stdout}
 ```
 
-2. After G4 and G5 close, run `$L_STEP inductive-complete`. On failure → Blocking. `_facts.json` must exist (discovery-written).
+2. After G4 and G5 close, run `$L_STEP inductive-complete`. On failure → Blocking. `_facts.json` must exist (intake + discovery).
 
 ### Deductive (only when `pipeline.inductive` is `false`)
 

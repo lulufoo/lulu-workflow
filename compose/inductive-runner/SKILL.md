@@ -45,7 +45,7 @@ The parent passes these in the `## Input` block; do not hardcode stage paths.
 ```
 INDUCTIVE_DIR         = $INDUCTIVE_OUT_DIR/inductive-scope          # maturity <SECTION>.json + _index.json
 INDUCTIVE_OPENS       = $INDUCTIVE_OUT_DIR/inductive-opens.json     # doc-level opens (SoT for gaps)
-INDUCTIVE_FACTS       = $INDUCTIVE_OUT_DIR/_facts.json              # discovery-written facts (engine state)
+INDUCTIVE_FACTS       = $INDUCTIVE_OUT_DIR/_facts.json              # intake + discovery facts (engine state)
 INDUCTIVE_DQI         = $INDUCTIVE_OUT_DIR/inductive-dqi.json       # optional resume aid; not SoT
 INDUCTIVE_GATE_STATE  = $INDUCTIVE_OUT_DIR/inductive-gate-state.json
 INDUCTIVE_SECTION_PTR = $INDUCTIVE_OUT_DIR/inductive-section-pointer.json  # routing aid; status also on section JSON

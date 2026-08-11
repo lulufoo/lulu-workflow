@@ -348,7 +348,7 @@ def _format_init_dispatch_input(
         f"CYCLE_TYPE:           {detect_cycle_type(cycle_id)}",
         f"CYCLE_ID:             {cycle_id}",
     ]
-    # K4: Writing consumes discovery-written _facts.json — never advertise
+    # K4: Writing consumes intake+discovery _facts.json — never advertise
     # INDUCTIVE_DIR as if Writing still reads decisions[] / projection here.
     return "\n".join(lines)
 
