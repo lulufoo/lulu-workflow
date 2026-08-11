@@ -31,7 +31,7 @@ Plain-text block from the orchestrating inductive-runner:
 
 ```
 INDUCTIVE_OUT_DIR       absolute path to revision{N}/ inductive state bundle
-SCOPE_REF               absolute path to current-focus source material (派生父级; algorithm B — same Seed content, format-neutral)
+SCOPE_REF               absolute path to current-focus source material (派生父级; algorithm B — same intake SoT / SOURCE_PATH, format-neutral)
 INTENT_BASELINE_REFS    JSON array of {type,path} refs (意图基准, algorithm A); [] to skip A
 NORM_CONSTRAINT_REFS    JSON array of {type,path} refs (规范约束, algorithm C); [] to skip C
 COMPOSE_PROFILE         compose profile id
@@ -56,7 +56,10 @@ Do **not** paste fact/open contents or upstream doc contents in the Task prompt 
    - `$INDUCTIVE_OUT_DIR/inductive-opens.json` — opens (`source.trigger`/`source.means`, `intent_ref`, `status`, optional `code_refs` on opens; `resolved_by` links settled opens → fact ids)
    - `$INDUCTIVE_OUT_DIR/inductive-scope/<S>.json` — **maturity only** (`key`/`status`/`frontier_kw`); do **not** expect `decisions[]`/`open[]`/`deferred[]`
    - Prefer JSON SoT. Ignore legacy `.md` / `exposed-points.json` as authority. Do **not** treat DQI `architecture_view` as SoT.
-2. Read `$SCOPE_REF` — algorithm B's upstream source material (same path Seed used). Read the file content once; identify explicit decisions from that content (stable IDs or explicit propositions). Do not branch on filename or extension.
+2. Read `$SCOPE_REF` — algorithm B's upstream source material (same path as
+   intake `$SOURCE_PATH`). Read the file content once; identify explicit
+   decisions from that content (stable IDs or explicit propositions). Do not
+   branch on filename or extension.
 3. If `$INTENT_BASELINE_REFS` is non-empty, read each ref's file — algorithm A's upstream; else skip algorithm A.
 4. If `$NORM_CONSTRAINT_REFS` is non-empty, read each ref's file — algorithm C's upstream; else skip algorithm C.
 5. **Axis 1 (per lens, overreach/conflict) — for each coverage lens with facts, for each active algorithm:**

@@ -233,7 +233,7 @@ def cmd_resolve_context(out_dir: Path, _args: argparse.Namespace) -> None:
     active_section = None
     open_count = 0
 
-    # Always aggregate section-SoT status (Seed/Shape happen in G1; opens may exist
+    # Always aggregate section-SoT status (maturity bind/Shape in G1; opens may exist
     # before G3). Pointer may be absent only if init-session failed mid-way.
     sec_result = _run_section_ctl(out_dir, "status")
     if sec_result.get("ok"):
