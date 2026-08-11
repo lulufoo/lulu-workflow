@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compose Atomize-eval WorkflowAdapter — independent task; B=_facts.json."""
+"""Compose fact-intake-eval WorkflowAdapter — independent task; B=_facts.json."""
 
 from __future__ import annotations
 
@@ -10,8 +10,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-_ATOMIZE_SCRIPTS = Path(__file__).resolve().parent
-_WORKFLOW_ROOT = Path(__file__).resolve().parents[3]
+_INTAKE_EVAL_SCRIPTS = Path(__file__).resolve().parent
+_WORKFLOW_ROOT = Path(__file__).resolve().parents[4]
 _EVAL_SCRIPTS = _WORKFLOW_ROOT / "eval" / "scripts"
 _COMPOSE_CORE = _WORKFLOW_ROOT / "compose" / "scripts" / "core"
 _COMPOSE_SECTION = _WORKFLOW_ROOT / "compose" / "scripts" / "section"
@@ -21,7 +21,7 @@ _COMPOSE_SCHEMA_SESSION = (
 # Compose schema/session also ships eval_handoff_schema.py — keep Eval scripts
 # ahead of that directory so the shared Eval handoff helpers win.
 for p in (
-    _ATOMIZE_SCRIPTS,
+    _INTAKE_EVAL_SCRIPTS,
     _COMPOSE_CORE,
     _COMPOSE_SECTION,
     _COMPOSE_SCHEMA_SESSION,
@@ -30,7 +30,7 @@ for p in (
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
 
-from atomize_eval_runtime_schema import (  # noqa: E402
+from fact_intake_eval_runtime_schema import (  # noqa: E402
     allocate_lease,
     enter_evaluating_runtime,
     evaluate_dir,
@@ -72,19 +72,19 @@ from scope_package_convert import (  # noqa: E402
 from workflow_adapter import SessionContext  # noqa: E402
 from workflow_common import parse_frontmatter_fields  # noqa: E402
 
-_WORKFLOW_ID = "compose-atomize-eval"
-_CORPUS_ID = "compose-atomize-eval-composed"
+_WORKFLOW_ID = "compose-fact-intake-eval"
+_CORPUS_ID = "compose-fact-intake-eval-composed"
 _CORPUS_VERSION = "1"
 _CORPUS_REF = f"{_CORPUS_ID}@{_CORPUS_VERSION}"
 _DIMENSION_ORDER = ("e1-doc-coverage", "e2-fact-provenance")
-_PROFILE_ENV = "COMPOSE_ATOMIZE_PROFILE_ID"
+_PROFILE_ENV = "COMPOSE_FACT_INTAKE_PROFILE_ID"
 
 
 def _profile_id() -> str:
     pid = (os.environ.get(_PROFILE_ENV) or "").strip()
     if not pid:
         raise ValueError(
-            f"{_PROFILE_ENV} is required (set by atomize_eval_control)",
+            f"{_PROFILE_ENV} is required (set by fact_intake_eval_control)",
         )
     return pid
 
@@ -147,8 +147,8 @@ def _atomic_replace(src: Path, dest: Path) -> None:
     os.replace(src, dest)
 
 
-class AtomizeEvalAdapter:
-    """WorkflowAdapter for Atomize eval (Deductive intake; return_to_caller)."""
+class FactIntakeEvalAdapter:
+    """WorkflowAdapter for Fact-intake eval (Deductive intake; return_to_caller)."""
 
     WORKFLOW_ID = _WORKFLOW_ID
 
@@ -170,7 +170,7 @@ class AtomizeEvalAdapter:
     def load_workflow_state(
         self, cycle_id: str, project_root: Path
     ) -> dict[str, str]:
-        # Keep compose session Working; Atomize eval uses synthetic view.
+        # Keep compose session Working; Fact-intake eval uses synthetic view.
         compose_ws = compose_workflow_state_path(
             cycle_id, project_root.resolve(), _profile_id()
         )
@@ -249,7 +249,7 @@ class AtomizeEvalAdapter:
         return _CORPUS_REF
 
     def dimension_defs_dir(self) -> Path:
-        return _WORKFLOW_ROOT / "compose" / "atomize-eval" / "dimension-defs"
+        return _WORKFLOW_ROOT / "compose" / "fact-intake-runner" / "fact-intake-eval" / "dimension-defs"
 
     def resolve_eval_corpus(
         self, cycle_id: str, project_root: Path
@@ -263,9 +263,9 @@ class AtomizeEvalAdapter:
         return compose_corpus(
             corpus_id=_CORPUS_ID,
             corpus_version=_CORPUS_VERSION,
-            scope="compose-atomize-eval",
+            scope="compose-fact-intake-eval",
             dimensions=dimensions,
-            review_output_prefix="atomize-review",
+            review_output_prefix="fact-intake-review",
         )
 
     def corpus_bind_extensions(
@@ -289,7 +289,7 @@ class AtomizeEvalAdapter:
     def enter_evaluating(
         self, cycle_id: str, project_root: Path
     ) -> dict[str, Any]:
-        """Enter Atomize-eval phase without compose StageGate / delivery Evaluating."""
+        """Enter Fact-intake-eval phase without compose StageGate / delivery Evaluating."""
         slice_dir = _slice_dir(cycle_id, project_root)
         runtime = self._runtime(cycle_id, project_root)
         if hard_blocked(runtime):
@@ -298,13 +298,13 @@ class AtomizeEvalAdapter:
                 "current_state": "Working",
                 "transitioned": False,
                 "error": (
-                    "atomize Eval hard-blocked: failure_count="
+                    "fact-intake Eval hard-blocked: failure_count="
                     f"{runtime.get('failure_count')} >= max_rounds="
                     f"{runtime.get('max_rounds')}"
                 ),
                 "resume": {
                     "entry": "Deductive",
-                    "action": "Atomize eval max rounds exhausted",
+                    "action": "Fact-intake eval max rounds exhausted",
                 },
             }
 
@@ -340,9 +340,9 @@ class AtomizeEvalAdapter:
         slice_dir = _slice_dir(cycle_id, project_root)
         runtime = self._runtime(cycle_id, project_root)
         if require_evaluating and runtime.get("focus_phase") != "evaluating":
-            raise ValueError("atomize EvalHandoff requires focus_phase=evaluating")
+            raise ValueError("fact-intake EvalHandoff requires focus_phase=evaluating")
         if hard_blocked(runtime):
-            raise ValueError("atomize Eval hard-blocked (max rounds)")
+            raise ValueError("fact-intake Eval hard-blocked (max rounds)")
 
         runtime = allocate_lease(slice_dir, runtime)
         self._save_runtime(cycle_id, project_root, runtime)

@@ -1,13 +1,13 @@
 # E1 — Doc → facts coverage (no weakening)
 
-SoT (A) = Atomize source document (`scope_doc` / `$ATOMIZE_SOURCE_PATH`).
+SoT (A) = Fact Intake source document (`scope_doc` / caller `$SOURCE_PATH`).
 EvalTarget / RemediationTarget (B) = revision `_facts.json`.
 
 ## Contract
 
 Every obligation unit from the input delivery doc must map to exactly one fact
 disposition in `{carried, quarantined, not_needed}` (`derivation.disposition`
-required on Atomize facts).
+required on intake facts after Disposition).
 
 For **carried** facts only: no weakening vs doc. Unitize doc via chapter anchors
 and `##`/`###` headings (mixed); unstructured docs = whole doc + semantic

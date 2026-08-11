@@ -1,6 +1,6 @@
 # E2 — Fact → doc provenance
 
-SoT (A) = Atomize source document (`scope_doc` / `$ATOMIZE_SOURCE_PATH`).
+SoT (A) = Fact Intake source document (`scope_doc` / caller `$SOURCE_PATH`).
 EvalTarget / RemediationTarget (B) = revision `_facts.json`.
 
 ## Contract

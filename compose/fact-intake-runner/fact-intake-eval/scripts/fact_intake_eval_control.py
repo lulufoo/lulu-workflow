@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Atomize-eval entry: fixed adapter-config → eval_entry (independent of delivery Eval).
+"""Fact-intake-eval entry: fixed adapter-config → eval_entry (independent of delivery Eval).
 
-Sets COMPOSE_ATOMIZE_PROFILE_ID so the adapter can resolve the compose revision.
+Sets COMPOSE_FACT_INTAKE_PROFILE_ID so the adapter can resolve the compose revision.
 """
 
 from __future__ import annotations
@@ -14,11 +14,11 @@ import sys
 import tempfile
 from pathlib import Path
 
-_ATOMIZE_ROOT = Path(__file__).resolve().parents[1]
-_WORKFLOW_ROOT = Path(__file__).resolve().parents[3]
+_INTAKE_EVAL_ROOT = Path(__file__).resolve().parents[1]
+_WORKFLOW_ROOT = Path(__file__).resolve().parents[4]
 _EVAL_ENTRY = _WORKFLOW_ROOT / "eval" / "scripts" / "eval_entry.py"
-_PROFILE_PATH = _ATOMIZE_ROOT / "eval-profile.json"
-_PROFILE_ENV = "COMPOSE_ATOMIZE_PROFILE_ID"
+_PROFILE_PATH = _INTAKE_EVAL_ROOT / "eval-profile.json"
+_PROFILE_ENV = "COMPOSE_FACT_INTAKE_PROFILE_ID"
 
 
 def _emit_error(message: str) -> int:
@@ -26,16 +26,16 @@ def _emit_error(message: str) -> int:
     return 1
 
 
-def load_atomize_adapter_config() -> dict:
+def load_fact_intake_adapter_config() -> dict:
     data = json.loads(_PROFILE_PATH.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
-        raise ValueError("atomize eval-profile.json must be an object")
+        raise ValueError("fact-intake eval-profile.json must be an object")
     return data
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Atomize Eval control — fixed compose atomize-eval adapter config",
+        description="Fact Intake Eval control — fixed compose fact-intake-eval adapter config",
     )
     parser.add_argument(
         "--profile-id",
@@ -58,7 +58,7 @@ def main(argv: list[str] | None = None) -> int:
         return _emit_error("missing Eval subcommand after --profile-id / --cycle-id")
 
     try:
-        config = load_atomize_adapter_config()
+        config = load_fact_intake_adapter_config()
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         return _emit_error(str(exc))
 
@@ -70,7 +70,7 @@ def main(argv: list[str] | None = None) -> int:
     with tempfile.NamedTemporaryFile(
         mode="w",
         suffix=".json",
-        prefix="atomize-eval-adapter-config-",
+        prefix="fact-intake-eval-adapter-config-",
         delete=False,
         encoding="utf-8",
     ) as handle:

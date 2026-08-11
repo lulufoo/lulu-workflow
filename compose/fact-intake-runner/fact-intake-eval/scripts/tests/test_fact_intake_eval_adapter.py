@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for Atomize Eval adapter (no StageGate; B=_facts.json)."""
+"""Tests for Fact Intake Eval adapter (no StageGate; B=_facts.json)."""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ from bootstrap import CORE  # noqa: E402
 
 sys.path.insert(0, str(CORE))
 
-from fact_intake_eval_adapter import AtomizeEvalAdapter, _PROFILE_ENV  # noqa: E402
+from fact_intake_eval_adapter import FactIntakeEvalAdapter, _PROFILE_ENV  # noqa: E402
 from fact_intake_eval_runtime_schema import evaluate_state_path, load_runtime, runtime_path  # noqa: E402
 from discussion_pointer_schema import active_slice_dir  # noqa: E402
 from facts_schema import FACTS_BASENAME  # noqa: E402
@@ -76,7 +76,7 @@ def _seed(tmp_path: Path) -> Path:
 def test_enter_evaluating_skips_stage_gate(tmp_path: Path, monkeypatch) -> None:
     rev = _seed(tmp_path)
     monkeypatch.setenv(_PROFILE_ENV, "lulu-plan")
-    adapter = AtomizeEvalAdapter()
+    adapter = FactIntakeEvalAdapter()
     result = adapter.enter_evaluating(_CYCLE, tmp_path)
     assert result["ok"] is True
     assert result["transitioned"] is True
@@ -92,7 +92,7 @@ def test_enter_evaluating_skips_stage_gate(tmp_path: Path, monkeypatch) -> None:
 def test_handoff_binds_facts_json(tmp_path: Path, monkeypatch) -> None:
     rev = _seed(tmp_path)
     monkeypatch.setenv(_PROFILE_ENV, "lulu-plan")
-    adapter = AtomizeEvalAdapter()
+    adapter = FactIntakeEvalAdapter()
     assert adapter.enter_evaluating(_CYCLE, tmp_path)["ok"] is True
     handoff = adapter.request_eval_handoff(_CYCLE, tmp_path, require_evaluating=True)
     bindings = handoff["context"]["bindings"]
@@ -106,7 +106,7 @@ def test_handoff_binds_facts_json(tmp_path: Path, monkeypatch) -> None:
 def test_commit_remediation_writes_facts(tmp_path: Path, monkeypatch) -> None:
     _seed(tmp_path)
     monkeypatch.setenv(_PROFILE_ENV, "lulu-plan")
-    adapter = AtomizeEvalAdapter()
+    adapter = FactIntakeEvalAdapter()
     assert adapter.enter_evaluating(_CYCLE, tmp_path)["ok"] is True
     handoff = adapter.request_eval_handoff(_CYCLE, tmp_path)
     staging = Path(handoff["context"]["write_staging_dir"])

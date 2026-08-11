@@ -14,12 +14,12 @@
     }
   ],
   "method": {
-    "ref": "lulu-dev-workflow/compose/atomize-eval/methods/e1-doc-coverage.md",
+    "ref": "lulu-dev-workflow/compose/fact-intake-runner/fact-intake-eval/methods/e1-doc-coverage.md",
     "focus": "E1: Every obligation unit from the input delivery doc must map to exactly one fact disposition in {carried, quarantined, not_needed}. For carried facts only: no weakening vs doc. Remediate only _facts.json. Do not edit the SoT doc."
   },
   "review": {
     "seq": 1,
-    "output_path": "atomize-review-e1.md",
+    "output_path": "fact-intake-review-e1.md",
     "template": "eval/review.template.md"
   }
 }

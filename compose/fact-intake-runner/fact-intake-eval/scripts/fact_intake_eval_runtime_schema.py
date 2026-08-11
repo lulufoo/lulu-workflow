@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Atomize-eval runtime under ``{slice}/atomize-eval/`` (independent of delivery Evaluating)."""
+"""Fact-intake-eval runtime under ``{slice}/fact-intake-eval/`` (independent of delivery Evaluating)."""
 
 from __future__ import annotations
 
@@ -9,9 +9,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-ATOMIZE_EVAL_DIRNAME = "atomize-eval"
-RUNTIME_FILENAME = "atomize-eval-runtime.json"
-WORKFLOW_STATE_FILENAME = "atomize-eval-workflow-state.md"
+FACT_INTAKE_EVAL_DIRNAME = "fact-intake-eval"
+RUNTIME_FILENAME = "fact-intake-eval-runtime.json"
+WORKFLOW_STATE_FILENAME = "fact-intake-eval-workflow-state.md"
 MAX_EVAL_ROUNDS = 3
 
 
@@ -19,24 +19,24 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
-def atomize_eval_root(slice_dir: Path) -> Path:
-    return slice_dir.resolve() / ATOMIZE_EVAL_DIRNAME
+def fact_intake_eval_root(slice_dir: Path) -> Path:
+    return slice_dir.resolve() / FACT_INTAKE_EVAL_DIRNAME
 
 
 def runtime_path(slice_dir: Path) -> Path:
-    return atomize_eval_root(slice_dir) / RUNTIME_FILENAME
+    return fact_intake_eval_root(slice_dir) / RUNTIME_FILENAME
 
 
 def workflow_state_view_path(slice_dir: Path) -> Path:
-    return atomize_eval_root(slice_dir) / WORKFLOW_STATE_FILENAME
+    return fact_intake_eval_root(slice_dir) / WORKFLOW_STATE_FILENAME
 
 
 def evaluate_state_path(slice_dir: Path) -> Path:
-    return atomize_eval_root(slice_dir) / "evaluate-state.md"
+    return fact_intake_eval_root(slice_dir) / "evaluate-state.md"
 
 
 def evaluate_dir(slice_dir: Path, evaluate_round: int) -> Path:
-    return atomize_eval_root(slice_dir) / f"evaluate{int(evaluate_round)}"
+    return fact_intake_eval_root(slice_dir) / f"evaluate{int(evaluate_round)}"
 
 
 def default_runtime() -> dict[str, Any]:
@@ -59,7 +59,7 @@ def load_runtime(path: Path) -> dict[str, Any]:
         return default_runtime()
     data = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
-        raise ValueError(f"atomize eval runtime must be an object: {path}")
+        raise ValueError(f"fact-intake-eval runtime must be an object: {path}")
     merged = default_runtime()
     merged.update(data)
     return merged
@@ -78,7 +78,7 @@ def save_runtime(path: Path, data: dict[str, Any]) -> None:
 def load_workflow_state_view(runtime: dict[str, Any]) -> dict[str, str]:
     return {
         "version": "1",
-        "workflow": "compose-atomize-eval",
+        "workflow": "compose-fact-intake-eval",
         "mode": "tech",
         "cycle_type": "feature",
         "current_state": "Working",
@@ -112,7 +112,7 @@ def enter_evaluating_runtime(runtime: dict[str, Any]) -> dict[str, Any]:
 
 def allocate_lease(slice_dir: Path, runtime: dict[str, Any]) -> dict[str, Any]:
     lease_id = uuid.uuid4().hex
-    staging = atomize_eval_root(slice_dir) / "staging" / lease_id
+    staging = fact_intake_eval_root(slice_dir) / "staging" / lease_id
     staging.mkdir(parents=True, exist_ok=True)
     updated = dict(runtime)
     updated["active_lease_id"] = lease_id
@@ -127,3 +127,7 @@ def hard_blocked(runtime: dict[str, Any]) -> bool:
 
 def gate_allows_derive_from_evaluate_state(eval_data: dict[str, str]) -> bool:
     return str(eval_data.get("eval_status", "")).strip() == "done"
+
+
+# Backward-compatible alias
+atomize_eval_root = fact_intake_eval_root

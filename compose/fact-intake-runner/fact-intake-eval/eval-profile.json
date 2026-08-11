@@ -1,7 +1,7 @@
 {
-  "workflow_id": "compose-atomize-eval",
+  "workflow_id": "compose-fact-intake-eval",
   "enabled": true,
-  "adapter_module": "compose/atomize-eval/scripts/atomize_eval_adapter.py",
-  "adapter_class": "AtomizeEvalAdapter",
+  "adapter_module": "compose/fact-intake-runner/fact-intake-eval/scripts/fact_intake_eval_adapter.py",
+  "adapter_class": "FactIntakeEvalAdapter",
   "completion_mode": "return_to_caller"
 }
