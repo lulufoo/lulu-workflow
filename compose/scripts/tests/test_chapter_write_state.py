@@ -314,10 +314,88 @@ def test_begin_complete_happy_path(tmp_path: Path, capsys: pytest.CaptureFixture
     done = json.loads(capsys.readouterr().out)
     assert done["chapter_id"] == "A01-I"
     assert done["next"] == "A01-IF"
+    assert "message" not in done
     assert write_state_main(["status", "--revision-dir", str(rev)]) == 0
     status = json.loads(capsys.readouterr().out)
     assert status["next"] == "A01-IF"
     assert status["done_count"] == 1
+
+
+def test_complete_biz_includes_body_path_and_mtime(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+):
+    from datetime import datetime, timezone
+
+    monkeypatch.setenv("LULU_PLATFORM", "cursor")
+    monkeypatch.chdir(tmp_path)
+    cfg = tmp_path / "skill-config/lulu-dev-workflow/workflow-guard-config.json"
+    cfg.parent.mkdir(parents=True, exist_ok=True)
+    cfg.write_text(
+        json.dumps(
+            {
+                "version": 2,
+                "logs": {"enabled": True},
+                "internalPathGuard": {
+                    "enable": True,
+                    "defaults": {
+                        "readDirs": ["."],
+                        "writeDirs": [".cache/{platform}/lulu-dev-workflow"],
+                    },
+                },
+                "externalPathGuard": {
+                    "enabled": False,
+                    "writeAllowExternalPaths": [],
+                    "readAllowExternalPaths": [],
+                    "sessionAllow": False,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    plat = tmp_path / ".cursor/lulu-dev-workflow/config.json"
+    plat.parent.mkdir(parents=True, exist_ok=True)
+    plat.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "workflowConfig": "skill-config/lulu-dev-workflow/",
+                "hookConfig": "skill-config/lulu-dev-workflow/workflow-guard-config.json",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    rev = tmp_path / "rev"
+    rev.mkdir()
+    _seed_arc(rev)
+    assert write_state_main(["sync", "--revision-dir", str(rev)]) == 0
+    assert _begin(rev) == 0
+    _write_artifacts(rev, "A01-I")
+    body = rev / "_body-A01-I.txt"
+    expected_mtime = datetime.fromtimestamp(
+        body.stat().st_mtime, tz=timezone.utc
+    ).isoformat()
+    capsys.readouterr()
+    assert _complete(rev) == 0
+
+    biz_log = tmp_path / ".cache/cursor/lulu-dev-workflow/.logs/biz.log"
+    rows = [
+        json.loads(line)
+        for line in biz_log.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    complete_rows = [
+        row
+        for row in rows
+        if row.get("component") == "chapter-write" and row.get("event") == "complete"
+    ]
+    assert len(complete_rows) == 1
+    detail = complete_rows[0]["detail"]
+    assert detail["chapter_id"] == "A01-I"
+    assert detail["body_path"] == str(body)
+    assert detail["body_mtime"] == expected_mtime
 
 
 def test_complete_rejects_chapter_mismatch(
@@ -395,13 +473,18 @@ def test_full_complete_status(tmp_path: Path, capsys: pytest.CaptureFixture[str]
     _seed_arc(rev)
     assert write_state_main(["sync", "--revision-dir", str(rev)]) == 0
     capsys.readouterr()
+    last_complete: dict | None = None
     for _ in range(2):
         assert _begin(rev) == 0
         ticket = json.loads(capsys.readouterr().out)
         cid = ticket["chapter_id"]
         _write_artifacts(rev, cid)
         assert _complete(rev) == 0
-        capsys.readouterr()
+        last_complete = json.loads(capsys.readouterr().out)
+    assert last_complete is not None
+    assert last_complete["next"] is None
+    assert last_complete["status"] == "complete"
+    assert last_complete["message"] == "all chapters done"
     assert write_state_main(["status", "--revision-dir", str(rev)]) == 0
     status = json.loads(capsys.readouterr().out)
     assert status["status"] == "complete"

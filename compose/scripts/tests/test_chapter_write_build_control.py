@@ -98,8 +98,19 @@ def test_substitute_document_preamble_helpers():
     out = substitute_document_preamble(
         "# {Feature Name}\n**Date:** YYYY-MM-DD\n`{/<cycle_id>/x.md}`\n",
         cycle_id="c1",
+        display_name="Widget",
     )
-    assert "{Feature Name}" in out
+    assert "{Feature Name}" not in out
+    assert "Widget" in out
     assert "YYYY-MM-DD" not in out
     assert "<cycle_id>" not in out
     assert "/c1/" in out
+
+    fallback = substitute_document_preamble(
+        "# {Topic Name}\n",
+        cycle_id="topic-1",
+    )
+    assert fallback == "# topic-1\n"
+
+    residual = substitute_document_preamble("# {Feature Name}\n", cycle_id="")
+    assert residual == "# {Feature Name}\n"

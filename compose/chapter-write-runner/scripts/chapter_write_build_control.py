@@ -2,7 +2,8 @@
 """Prepare session context for chapter-write-runner.
 
 ``context`` returns filtered Role/Domain instances and a mechanically
-substituted ``document_preamble``. It never returns facts or full registries.
+substituted ``document_preamble`` (cycle id, date, cycle display name). It
+never returns facts or full registries.
 
 This control does not claim chapters or persist documents.
 
@@ -41,6 +42,7 @@ from role_instance_schema import (  # noqa: E402
 )
 from schema_common import resolve_fetched_instance_path  # noqa: E402
 from scope_resolver import resolve_cycle_type  # noqa: E402
+from workflow_common import CACHE_DIR, load_container_meta  # noqa: E402
 
 _ROLE_KEYS = ("role_id", "expressive_tendency", "vocabulary_domain")
 _DOMAIN_KEYS = (
@@ -52,6 +54,22 @@ _DOMAIN_KEYS = (
 )
 _EXPRESSION_KEYS = ("register", "carriers", "scannability", "altitude")
 _NAME_PLACEHOLDER_RE = re.compile(r"\{(?:Feature|Topic) Name\}")
+
+
+def _cycle_display_name(*, project_root: Path, cycle_id: str) -> str:
+    """Return cycles.json ``name`` for cycle_id, else cycle_id, else \"\"."""
+    cid = str(cycle_id or "").strip()
+    if not cid:
+        return ""
+    try:
+        meta = load_container_meta(project_root.resolve() / CACHE_DIR, cid)
+    except (OSError, ValueError, json.JSONDecodeError):
+        return cid
+    if isinstance(meta, dict):
+        name = str(meta.get("name") or "").strip()
+        if name:
+            return name
+    return cid
 
 
 def _ok(payload: dict[str, Any]) -> int:
@@ -179,17 +197,26 @@ def _registry_preamble(
     return preamble
 
 
-def substitute_document_preamble(raw: str, *, cycle_id: str) -> str:
-    """Apply mechanical preamble substitutions (cycle id + date).
+def substitute_document_preamble(
+    raw: str,
+    *,
+    cycle_id: str,
+    display_name: str = "",
+) -> str:
+    """Apply mechanical preamble substitutions (cycle id, date, display name).
 
-    Residual ``{Feature Name}`` / ``{Topic Name}`` placeholders are left for
-    the runner to finish before ``init-doc`` when known.
+    ``{Feature Name}`` / ``{Topic Name}`` use ``display_name``, else ``cycle_id``.
+    Residuals remain only when neither is available (e.g. ``--cycle-type`` only).
     """
     cid = str(cycle_id or "").strip()
+    name = str(display_name or "").strip() or cid
     text = raw
     if cid:
         text = text.replace("<cycle_id>", cid)
     text = text.replace("YYYY-MM-DD", date.today().isoformat())
+    if name:
+        text = text.replace("{Feature Name}", name)
+        text = text.replace("{Topic Name}", name)
     return text
 
 
@@ -204,6 +231,7 @@ def cmd_context(args: argparse.Namespace) -> int:
             profile=args.profile,
             cycle_id=cycle_id,
         )
+        display_name = _cycle_display_name(project_root=root, cycle_id=cycle_id)
         preamble = substitute_document_preamble(
             _registry_preamble(
                 project_root=root,
@@ -211,6 +239,7 @@ def cmd_context(args: argparse.Namespace) -> int:
                 cycle_id=cycle_id,
             ),
             cycle_id=cycle_id,
+            display_name=display_name,
         )
         payload: dict[str, Any] = {
             "ok": True,

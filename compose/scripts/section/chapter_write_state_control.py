@@ -36,6 +36,7 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
+from chapter_artifact_paths import chapter_body_path  # noqa: E402
 from chapter_fc_gates import check_chapter_write_artifacts  # noqa: E402
 from chapter_write_state_schema import (  # noqa: E402
     chapter_write_state_path,
@@ -513,6 +514,11 @@ def cmd_complete(args: argparse.Namespace) -> int:
             6,
         )
 
+    body_path = chapter_body_path(slice_dir, cid)
+    body_mtime = datetime.fromtimestamp(
+        body_path.stat().st_mtime, tz=timezone.utc
+    ).isoformat()
+
     by_id[cid]["status"] = "done"
     by_id[cid]["completed_at"] = _now()
     nxt = next_chapter_id(order, by_id)
@@ -530,17 +536,20 @@ def cmd_complete(args: argparse.Namespace) -> int:
             "chapter_id": cid,
             "next": nxt,
             "status": state["status"],
+            "body_path": str(body_path),
+            "body_mtime": body_mtime,
         },
     )
-    return _ok(
-        {
-            "ok": True,
-            "command": "complete",
-            "chapter_id": cid,
-            "next": nxt,
-            "status": state["status"],
-        }
-    )
+    payload: dict[str, Any] = {
+        "ok": True,
+        "command": "complete",
+        "chapter_id": cid,
+        "next": nxt,
+        "status": state["status"],
+    }
+    if state["status"] == "complete" and nxt is None:
+        payload["message"] = "all chapters done"
+    return _ok(payload)
 
 
 def build_parser() -> argparse.ArgumentParser:
