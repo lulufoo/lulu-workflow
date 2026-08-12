@@ -103,8 +103,6 @@ CYCLE_ID: <$CYCLE_ID>
 SOURCE_PATH: <$SOURCE_PATH>
 ```
 
-Do not re-implement cut / eval / disposition / confirm here.
-
 ```bash
 $DEDUCTIVE_CTL pending-init
 ```
@@ -127,42 +125,19 @@ COMPOSE_PROFILE: <$COMPOSE_PROFILE>
 CYCLE_ID: <$CYCLE_ID>
 ```
 
-Do not re-implement Derive floor / ceiling×KW here.
-
 **Done:** derive-runner Summary `Status: ok`. Proceed to Step 3.
 
 ### Step 3 — Pending Confirm
 
-Interactive in this conversation (not a subagent).
+Interactive in this conversation.
 
-1. Refresh unreferenced quarantine list:
+Load and follow [Pending Confirm](references/pending-confirm.md):
 
-```bash
-$DEDUCTIVE_CTL quarantine-unref
-```
+1. settle unreferenced quarantine;
+2. resolve open pending;
+3. pass the gate.
 
-For each listed quarantined id: present options (promote/retag via
-`$DEDUCTIVE_CTL disposition-patch-*` post-intake retag patch, or fact update
-commands; mark out-of-scope; escalate upstream). Do **not** reuse
-`fact-intake-disposition-review.patch` here. Record via `$DEDUCTIVE_CTL
-pending-add` (kind=`quarantine_unref`) then `$DEDUCTIVE_CTL pending-resolve` as
-the user chooses — or resolve immediately per `--help`. Citing a
-quarantined/not_needed id settles unreferenced-quarantine accounting without
-retagging; **retag/promote** requires carried + Plan tags.
-
-2. Present open pending (derivation gaps + quarantine + **`kw_shortfall`**). For each item: options traceable to decided material, or `insufficient`. User chooses:
-   - **Local seed (default):** append fact `origin.type=seed` with confirm ref → `$DERIVE_CTL append` or `$FACTS_CTL write` full array per `--help`; then `$DEDUCTIVE_CTL pending-resolve`.
-   - **Escalate upstream:** resolve pending as deferred/escalated; do not invent local substance.
-   - **`kw_shortfall` accept (soft gate):** user explicitly accepts “KW table not met for this lens” → `$DEDUCTIVE_CTL pending-resolve --status resolved` with note in summary/chat that accept-shortfall was chosen. **Forbidden:** resolving `kw_shortfall` without showing table gap + asking.
-3. Incremental settle: resolved ids must not reappear (`pending-resolve` enforces). Full intake re-run only when upstream material is replaced.
-
-**Hard gate:** `gate-check` fails when (a) `deductive-pending.json` is missing, (b) any pending is still open (including open `kw_shortfall`), or (c) an unreferenced quarantined fact is not settled via `quarantine_unref` pending (resolve / escalate / out_of_scope). Citing a quarantined id from a new fact also clears it from (c).
-
-```bash
-$DEDUCTIVE_CTL gate-check
-```
-
-**Done:** `gate-check` exit 0. Proceed to Step 4.
+**Done:** Pending Confirm returns `gate-check` exit 0. Proceed to Step 4.
 
 ### Step 4 — Complete
 
