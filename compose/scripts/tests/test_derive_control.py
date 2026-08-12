@@ -180,7 +180,7 @@ def test_cmd_audit_empty_triggered_is_noop_success(tmp_path: Path, capsys) -> No
     assert payload["skipped"] == "empty-triggered"
 
 
-def test_cli_plan_edge_requires_fact_intake_eval_gate(
+def test_cli_edge_scan_requires_fact_intake_eval_gate(
     tmp_path: Path, monkeypatch, capsys
 ) -> None:
     _patch_graph(monkeypatch)
@@ -197,7 +197,7 @@ def test_cli_plan_edge_requires_fact_intake_eval_gate(
         profile="lulu-plan",
         project_root=tmp_path,
     )
-    assert mod.cmd_plan_edge(args) == 1
+    assert mod.cmd_edge_scan(args) == 1
     assert "fact-intake eval gate missing" in capsys.readouterr().err
 
     sys.path.insert(
@@ -227,10 +227,10 @@ def test_cli_plan_edge_requires_fact_intake_eval_gate(
     data["eval_status"] = "done"
     data["fix_phase"] = "done"
     save_evaluate_state(es_path, data, merge=False)
-    assert mod.cmd_plan_edge(args) == 0
+    assert mod.cmd_edge_scan(args) == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["ok"] is True
-    assert payload["command"] == "plan-edge"
+    assert payload["command"] == "edge-scan"
 
 
 def test_cli_classify(tmp_path: Path, monkeypatch, capsys) -> None:

@@ -2,7 +2,7 @@
 """CLI for kernel Step 3 (derive) mechanical shell (K1).
 
 Subcommands:
-    plan-edge  Edge-coverage holes + topo order + true gaps (deductive-runner)
+    edge-scan  Edge-coverage holes + topo order + true gaps (deductive-runner)
     audit      Cascade-aware self-audit after derived facts are appended
     append     Append derived facts (contiguous ids) and write ``_facts.json``
     classify   Classify zero-coverage required lenses (derivation vs true gap)
@@ -136,8 +136,8 @@ def _graph_and_maps(
     return graph, section_order, presence_map
 
 
-def cmd_plan_edge(args: argparse.Namespace) -> int:
-    """Edge-coverage floor plan for deductive-runner (not zero-only)."""
+def cmd_edge_scan(args: argparse.Namespace) -> int:
+    """Edge-coverage scan for deductive-runner (holes + topo + true gaps)."""
     revision_dir = active_slice_dir(args.revision_dir.resolve())
     gate_err = _require_fact_intake_eval_for_derive(revision_dir)
     if gate_err:
@@ -184,7 +184,7 @@ def cmd_plan_edge(args: argparse.Namespace) -> int:
     return _ok(
         {
             "ok": True,
-            "command": "plan-edge",
+            "command": "edge-scan",
             "triggered": triggered,
             "order": order,
             "edge_holes": edge_holes,
@@ -310,14 +310,14 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
 
-    plan_edge_p = sub.add_parser(
-        "plan-edge",
+    edge_scan_p = sub.add_parser(
+        "edge-scan",
         help="List edge-coverage holes in topo order + true gaps (deductive-runner)",
     )
-    plan_edge_p.add_argument("--revision-dir", type=Path, required=True)
-    plan_edge_p.add_argument("--profile", type=str, required=True)
-    plan_edge_p.add_argument("--project-root", type=Path, default=Path.cwd())
-    plan_edge_p.set_defaults(func=cmd_plan_edge)
+    edge_scan_p.add_argument("--revision-dir", type=Path, required=True)
+    edge_scan_p.add_argument("--profile", type=str, required=True)
+    edge_scan_p.add_argument("--project-root", type=Path, default=Path.cwd())
+    edge_scan_p.set_defaults(func=cmd_edge_scan)
 
     audit_p = sub.add_parser("audit", help="Cascade-aware Step 3 self-audit")
     audit_p.add_argument("--revision-dir", type=Path, required=True)
@@ -331,7 +331,7 @@ def main() -> int:
         "--triggered",
         type=str,
         required=True,
-        help="Comma-separated triggered lens keys (from plan-edge.order)",
+        help="Comma-separated triggered lens keys (from edge-scan.order)",
     )
     audit_p.add_argument("--profile", type=str, required=True)
     audit_p.add_argument("--project-root", type=Path, default=Path.cwd())

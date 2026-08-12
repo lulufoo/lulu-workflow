@@ -86,7 +86,7 @@ def test_derive_triggers_skips_partial_coverage_zero_only():
 
 
 def test_edge_holes_when_partial_t_does_not_cite_upstream():
-    """plan-edge floor: T has facts but no F-id cite → hole remains."""
+    """edge-scan floor: T has facts but no F-id cite → hole remains."""
     g = _planish_graph()
     facts = [
         {"id": "F-1", "text": "sk", "lens_tags": ["SK"]},

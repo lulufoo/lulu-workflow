@@ -175,7 +175,7 @@ def derive_triggers(
 ) -> list[str]:
     """Lenses with required ∧ 0 facts ∧ has derivation (zero-only floor helper).
 
-    Used inside ``plan-edge`` alongside edge-hole detection.
+    Used inside ``edge-scan`` alongside edge-hole detection.
     Partial coverage (facts > 0) never triggers — K1 §2.2 zero-only.
     """
     coverage = lenses_present(facts)

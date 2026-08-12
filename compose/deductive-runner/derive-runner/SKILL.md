@@ -1,7 +1,7 @@
 ---
 name: derive-runner
 description: >-
-  Compose deductive L1: Derive floor means + ceiling × KW ruler after fact-intake.
+  Compose deductive L1: Derive Floor + Ceiling (KW ruler) after fact-intake.
 ---
 
 # derive-runner
@@ -47,7 +47,8 @@ CYCLE_ID: <cycle id>
 | Layer | Role |
 |-------|------|
 | **Floor** | Edge-closure **means** (how to close graph holes; no KW). |
-| **Ceiling** | Intent projection **means** (how to thicken toward Intent); published **`KW_CRITERIA`** = only thickness ruler. |
+| **Ceiling** | Intent projection **means** (how to thicken toward Intent); published **`$VAR_KW_CRITERIA`** = only thickness ruler. |
+| **Cascade** | Re-enter Floor then Ceiling when Ceiling creates new holes. |
 
 Edges closed / Intent **should-cover** rows ticked ≠ thick enough. No KW-first pass on
 the intake pool.
@@ -56,17 +57,22 @@ the intake pool.
 
 ### Prepare
 1. Use Input from the parent dispatch (`REVISION_DIR`, …).
-2. `$DERIVE_BUILD_CTL context …`  
-   → stdout: `section_kw_criteria` (KW ruler text), `section_registry`
-   (section graph JSON). See `--help`.
-3. `$DERIVE_CTL plan-edge …`  
-   → stdout: edge floor + topo (`order`, `edge_holes`, `true_gaps`,
-   `materials_total`). See `--help`.
+2. Run `$DERIVE_BUILD_CTL context …`: bind `$VAR_KW_CRITERIA` ←
+   `section_kw_criteria` (KW ruler text). See `--help`.
+3. Run `$DERIVE_CTL edge-scan …`: bind `$VAR_EDGE_HOLES` ← `edge_holes`,
+   `$VAR_ORDER` ← `order`. See `--help`.
+
+| Var | From |
+|-----|------|
+| `$VAR_KW_CRITERIA` | context · `section_kw_criteria` |
+| `$VAR_EDGE_HOLES` | edge-scan · `edge_holes` |
+| `$VAR_ORDER` | edge-scan · `order` |
 
 ### Derive
-4. Load `references/derive-semantic-work.md`.  
-   Run floor → ceiling×KW → cascade here (no mid-cascade re-dispatch).  
-   Unresolvable gaps → `$DEDUCTIVE_CTL pending-add` (kinds in reference).
+4. Semantic work:
+   - Load `references/derive-semantic-work.md`.
+   - Run Floor then Ceiling; apply Cascade when new holes appear.
+   - Unresolvable gaps → `$DEDUCTIVE_CTL pending-add` (kinds in reference).
 
 ### Persist
 5. `$DERIVE_CTL append` → `$FACTS_CTL validate` (`--help`).
