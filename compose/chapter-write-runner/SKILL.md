@@ -6,19 +6,8 @@ description: >-
 
 # chapter-write-runner
 
-For each arc write unit, write a readable chapter body from that chapter's
-begin-ticket facts only—no invention beyond the ticket, preserve anchors, mark
-gaps with 待决—then assemble a document whose visible titles come from the
-narrative arc.
-
-## Boundaries
-
-**Must:** bind Input; load protocol then delivery; obtain session context via
-`$CHAPTER_WRITE_BUILD_CTL context`; drive Write via `$CHAPTER_WRITE_STATE`
-claim-current; `init-doc` then `assemble-arc` with the same preamble.  
-**Must not:** paste facts in the caller prompt; Read `_facts.json` for Write
-substance; fetch full `section-form-registry` / `section-registry` during Write;
-accept `$CODE_GROUNDING` or `$SCOPE_REF_PATH` as Input.
+Write each narrative-arc chapter from its claim ticket, then assemble the
+compose document.
 
 ## Input
 
@@ -31,19 +20,10 @@ OUTPUT_DOC_PATH: <abs path to compose output doc>
 ARC_PATH: _narrative-arc.json
 ```
 
-**Must not (Input):** facts body · facts file path · `$CODE_GROUNDING` ·
-`$SCOPE_REF_PATH`.
-
-`ARC_PATH` is required each call. **This wave:** value **must** be
-`_narrative-arc.json` (slice-relative default basename). `sync` / `begin` /
-`assemble-arc` read that path only — do not pass another arc filename until a
-later wave wires `--arc-path`.
-
 ## Load rule
 
-1. Bind Input.  
-2. Load `references/write-protocol.md`.  
-3. Load `contracts/delivery.md` and complete the pipeline.
+1. Load `references/write-protocol.md`.  
+2. Load `contracts/delivery.md` and complete the pipeline.
 
 ## Script Macros
 

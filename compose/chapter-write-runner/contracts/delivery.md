@@ -1,38 +1,22 @@
 # Delivery contract (chapter write + assemble)
 
-Single delivery path for callers. Load only after
-`references/write-protocol.md`.
+Single delivery path for callers.
 
 ## Preconditions
 
-- Input bound: `REVISION_DIR`, `PROJECT_ROOT`, `COMPOSE_PROFILE`, `CYCLE_ID`,
-  `OUTPUT_DOC_PATH`, `ARC_PATH`.
-- **This wave:** `ARC_PATH` **must** be `_narrative-arc.json`. Controls use the
-  default basename only (no alternate `--arc-path` yet).
-- Arc at that path is `status=write_ready` (same precondition as Writing Step 4).
-- Do **not** paste fact bodies in the caller prompt — substance only via
-  `$CHAPTER_WRITE_STATE begin`.
+- Do **not** Read `_facts.json` for Write substance.
+- Do **not** accept `$CODE_GROUNDING` or `$SCOPE_REF_PATH` as Input.
 
-## Phase 0 — Session context + doc shell
+## Phase 0 — Context and init-doc
 
 1. `$CHAPTER_WRITE_BUILD_CTL context --revision-dir … --project-root …
    --profile … --cycle-id …` → capture `role`, `domain`, `document_preamble`.
-2. If context reports residual `{Feature Name}` / `{Topic Name}` placeholders,
-   finish them from cycle/topic knowledge before `init-doc`.
-3. `$COMPOSE_DOC_CONTROL init-doc --path "$OUTPUT_DOC_PATH" --preamble …`
-   (or `--preamble-file`). Prefer the same substituted preamble later for
-   `assemble-arc`.
+2. `$COMPOSE_DOC_CONTROL init-doc --path "$OUTPUT_DOC_PATH" --preamble …`
+   (or `--preamble-file`).
 
-## Phase 1 — Write-by-sub-topic-chapter (4.W)
+## Phase 1 — Write and assemble
 
-Follow `references/write-protocol.md` § Write. Soft attention uses session
-`context.role` / `context.domain` and each ticket's `writing_cognition` /
-`lens_intent`.
-
-## Phase 2 — Assemble-from-arc (4.A)
-
-Follow `references/write-protocol.md` § Assemble. Hard gate: write-state
-`complete`.
+Follow `references/write-protocol.md` from Prepare through Assemble.
 
 ## Summary (return exactly)
 
@@ -49,4 +33,4 @@ error: <empty or message>
 ## DONE / failure
 
 - **DONE:** `wrote_bodies=true` · `assembled=true` · `write_state=complete`.
-- **FAIL:** any phase incomplete — do not claim assemble success mid-loop.
+- **FAIL:** any phase incomplete.

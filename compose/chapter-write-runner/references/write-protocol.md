@@ -1,41 +1,31 @@
-# Write protocol (claim-current + assemble)
-
-Semantic write rules for Writing Step 5 (chapter write). Field **sources** follow the
-session `context` + thickened `begin` contract; writing **semantics** are
-unchanged.
-
-**Before this protocol:** complete `contracts/delivery.md` Phase 0 (session
-`context` + `init-doc` / substituted preamble). This file covers Write (4.W)
-and Assemble (4.A) only.
+# Write protocol
 
 Chapter quality contract: [`../../references/writing-draft-quality.md`](../../references/writing-draft-quality.md).  
 Theory: [`../../references/compose-theory.md`](../../references/compose-theory.md).
 
-## Artifacts
+## Operating Model
 
-Keep chapter body shell (`_body-{cid}.txt`); Assemble via `assemble-arc`.
+Write is a claim-current serial process over narrative-arc chapters.
+`$CHAPTER_WRITE_STATE` owns chapter order and the sole current claim; the
+writer owns semantic composition for that claim from its ticket. Each claim
+must complete before the process advances.
 
-**Presentation layers (archive-5.0):** `tree` group → arc leaf → lens chapter
-(`cid`). Visible titles stop at group/leaf; lens chapters are anchors + body
-(default omit lens heading).
+## Prepare
 
-```text
-_body-{cid}.txt      # body for one (arc-leaf, lens) chapter; no leading ##
-```
-
-Visible group/leaf titles come from the narrative arc via `assemble-arc`.
-
-## Write (4.W)
-
-Serial gate (claim-current): `$CHAPTER_WRITE_STATE` owns which chapter is
-current. Do **not** pick chapters from `list-chapters` / `status.next` for
-Write.
+Align write-state to the narrative-arc write units:
 
 ```bash
 $CHAPTER_WRITE_STATE sync --revision-dir "$REVISION_DIR"
 ```
 
-Loop (claim → write → complete):
+## Write
+
+Loop: Begin → Compose → Complete. On non-zero from `begin`/`complete` → stop;
+follow the command error.
+
+### Begin
+
+Claim the sole current chapter (no `--chapter`):
 
 ```bash
 $CHAPTER_WRITE_STATE begin \
@@ -43,16 +33,10 @@ $CHAPTER_WRITE_STATE begin \
   --project-root "$PROJECT_ROOT" \
   --profile "$COMPOSE_PROFILE" \
   --cycle-id "$CYCLE_ID"
-# → work ticket: chapter_id, leaf_id, leaf_title, lens, fact_ids, facts
-#   (each fact: id, text, anchors — anchors is [] when none),
-#   writing_cognition, lens_intent
-# already_running → stop; complete current first (do not begin again)
-# missing_fact_ids → stop; fix arc/_facts.json (chapter not claimed)
-# chapter_id null + status=complete → exit loop
+# → work ticket (stdout)
 ```
 
-For **that ticket only** (`chapter_id` / `fact_ids` / `facts` / `lens` /
-`writing_cognition` / `lens_intent` from `begin` stdout):
+### Compose
 
 1. `lens` = ticket.lens; `facts_ℓ` = ticket.facts (authoritative substance —
    id set must match `fact_ids`; do not expand).
@@ -67,33 +51,18 @@ For **that ticket only** (`chapter_id` / `fact_ids` / `facts` / `lens` /
    anchors (L6); resolve raw `F-id` citations; mark gaps with
    `> **待决：** …`.
 
+### Complete
+
 ```bash
 $CHAPTER_WRITE_STATE complete --revision-dir "$REVISION_DIR"
-# → next chapter_id (or null); then loop to begin
 ```
 
-`complete` hard-gates (same rules re-checked at Writing Step 6): non-empty
-`_body-{cid}.txt`. On `begin`/`complete` failure → stop; fix artifacts or redo
-the current chapter; do not skip ahead. Resume: `complete` current if needed,
-then `begin` again (never `begin --chapter`).
+If stdout `status` is `complete` → exit the Write loop. Otherwise loop to
+Begin for the next claim.
 
-**Must not:** treat `list-chapters` as the Write todo list; `begin --chapter` /
-`complete --chapter` on the main path; Write another chapter while
-`already_running`.
+## Assemble
 
-**Must not (Write substance source):** use memory (including Step 3 full-store
-recall) as Write fact source; Read `_facts.json` (or any out-of-ticket fetch)
-for Write; use any substance source other than this round's `begin.facts`.
-
-**Note:** Encourage sectioning in the body. If using heading levels for
-structure, headings may start at `####`.
-
-## Assemble (4.A)
-
-**Hard gate:** `$CHAPTER_WRITE_STATE` must be `complete` (enforced by
-`assemble-arc` and Writing Step 5). Do not assemble mid-loop.
-
-One shot (tree packaging + omit lens headings by default):
+After Write completes, run once:
 
 ```bash
 $COMPOSE_DOC_CONTROL assemble-arc \
@@ -103,11 +72,3 @@ $COMPOSE_DOC_CONTROL assemble-arc \
   --lens-heading omit \
   --tree auto
 ```
-
-(`--preamble-file` OK for multiline. Overwrites `$OUTPUT_DOC_PATH`. Debug:
-`--lens-heading show` adds `####` under each anchor.)
-
-**Done:** compose doc has group/leaf visible titles when `tree` present (else
-leaf `##`); every listed `cid` has `<!-- chapter:{cid} -->` + non-empty body;
-**no** spine titles of the form `{leaf} · {LENS}` or `Context（CTX）` lens
-H2/H3.
