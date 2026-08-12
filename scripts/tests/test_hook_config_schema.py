@@ -21,6 +21,7 @@ class TestDefaultHookConfig:
 
         cfg = default_hook_config()
         assert cfg["version"] == 2
+        assert cfg["logs"]["enabled"] is False
         assert cfg["internalPathGuard"]["enable"] is True
         assert cfg["externalPathGuard"]["enabled"] is False
 

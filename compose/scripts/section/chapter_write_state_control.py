@@ -47,6 +47,7 @@ from chapter_write_state_schema import (  # noqa: E402
 from discussion_pointer_schema import active_slice_dir  # noqa: E402
 from facts_schema import facts_path, load_facts  # noqa: E402
 from fetch_compose_framework import fetch_compose_framework  # noqa: E402
+from logs.workflow_log import emit_biz  # noqa: E402
 from narrative_arc_schema import (  # noqa: E402
     chapter_write_units,
     is_write_ready,
@@ -430,6 +431,18 @@ def cmd_begin(args: argparse.Namespace) -> int:
     state["status"] = compute_top_status(order, by_id)
     state["updated_at"] = _now()
     save_chapter_write_state(path, state)
+    conv_id = str(getattr(args, "conversation_id", "") or "").strip() or None
+    emit_biz(
+        component="chapter-write",
+        event="begin",
+        conversation_id=conv_id,
+        project_root=root,
+        detail={
+            "chapter_id": nxt,
+            "leaf_id": unit["leaf_id"],
+            "lens": unit["lens"],
+        },
+    )
     return _ok(
         {
             "ok": True,
@@ -507,6 +520,18 @@ def cmd_complete(args: argparse.Namespace) -> int:
     state["status"] = compute_top_status(order, by_id)
     state["updated_at"] = _now()
     save_chapter_write_state(path, state)
+    conv_id = str(getattr(args, "conversation_id", "") or "").strip() or None
+    emit_biz(
+        component="chapter-write",
+        event="complete",
+        conversation_id=conv_id,
+        project_root=Path.cwd().resolve(),
+        detail={
+            "chapter_id": cid,
+            "next": nxt,
+            "status": state["status"],
+        },
+    )
     return _ok(
         {
             "ok": True,
@@ -524,6 +549,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     def add_rev(p: argparse.ArgumentParser) -> None:
         p.add_argument("--revision-dir", required=True)
+        p.add_argument(
+            "--conversation-id",
+            default="",
+            help="Conversation id for workflow biz logs (optional)",
+        )
 
     p_sync = sub.add_parser("sync", help="Align write-state to narrative-arc chapters")
     add_rev(p_sync)

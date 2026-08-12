@@ -44,6 +44,7 @@ from role_instance_schema import (  # noqa: E402
 )
 from schema_common import resolve_fetched_instance_path  # noqa: E402
 from scope_resolver import resolve_cycle_type  # noqa: E402
+from logs.workflow_log import emit_biz  # noqa: E402
 
 
 def _ok(payload: dict[str, Any]) -> int:
@@ -151,8 +152,16 @@ def _candidate(path: str) -> dict[str, Any]:
 
 
 def cmd_context(args: argparse.Namespace) -> int:
+    root = Path(args.project_root).resolve()
+    conv_id = str(getattr(args, "conversation_id", "") or "").strip() or None
+    emit_biz(
+        component="narrative-arc",
+        event="context.start",
+        conversation_id=conv_id,
+        project_root=root,
+        detail={"revision_dir": str(args.revision_dir)},
+    )
     try:
-        root = Path(args.project_root).resolve()
         cycle_type = _cycle_type(args)
         cycle_id = str(args.cycle_id or "").strip()
         role, domain = _scope_instances(
@@ -168,7 +177,21 @@ def cmd_context(args: argparse.Namespace) -> int:
         )
         facts = _facts(args.revision_dir)
     except (OSError, ValueError, json.JSONDecodeError) as exc:
+        emit_biz(
+            component="narrative-arc",
+            event="context.error",
+            conversation_id=conv_id,
+            project_root=root,
+            detail={"error": str(exc)},
+        )
         return _fail(str(exc))
+    emit_biz(
+        component="narrative-arc",
+        event="context.end",
+        conversation_id=conv_id,
+        project_root=root,
+        detail={"facts_total": len(facts), "cycle_type": cycle_type},
+    )
     return _ok(
         {
             "ok": True,
@@ -223,6 +246,11 @@ def build_parser() -> argparse.ArgumentParser:
         command.add_argument("--revision-dir", required=True)
         command.add_argument("--project-root", required=True)
         command.add_argument("--profile", required=True)
+        command.add_argument(
+            "--conversation-id",
+            default="",
+            help="Conversation id for workflow biz logs (optional)",
+        )
         cycle = command.add_mutually_exclusive_group(required=True)
         cycle.add_argument("--cycle-id", default="")
         cycle.add_argument("--cycle-type", default="")

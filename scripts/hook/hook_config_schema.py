@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Schema and I/O for workflow-guard-config.json (internal/external path guards)."""
+"""Schema and I/O for workflow-guard-config.json (path guards + logs switch)."""
 
 from __future__ import annotations
 
@@ -20,6 +20,9 @@ _DEFAULT_HOOK_CONFIG_PATH = "skill-config/lulu-dev-workflow/workflow-guard-confi
 
 _DEFAULT_HOOK_CONFIG: dict[str, Any] = {
     "version": 2,
+    "logs": {
+        "enabled": False,
+    },
     "internalPathGuard": {
         "enable": True,
         "defaults": {
@@ -111,8 +114,20 @@ def validate_hook_config(data: object) -> list[str]:
                     _validate_dir_list(stage_cfg.get("writeDirs"), f"{prefix}.writeDirs")
                 )
 
+    errors.extend(_validate_logs(data.get("logs")))
     errors.extend(_validate_external_path_guard(data.get("externalPathGuard")))
     return errors
+
+
+def _validate_logs(value: object) -> list[str]:
+    if value is None:
+        return []
+    if not isinstance(value, dict):
+        return ["logs must be an object"]
+    enabled = value.get("enabled")
+    if enabled is not None and not isinstance(enabled, bool):
+        return ["logs.enabled must be a boolean"]
+    return []
 
 
 def _validate_external_path_guard(value: object) -> list[str]:
@@ -248,3 +263,13 @@ def resolve_external_path_guard(
         ),
         "sessionAllow": bool(external.get("sessionAllow", defaults["sessionAllow"])),
     }
+
+
+def is_logs_enabled(
+    project_root: Path,
+    platform: Optional[str] = None,
+) -> bool:
+    """Return workflow observability switch from ``logs.enabled`` (default false)."""
+    config = load_hook_config(project_root, platform)
+    logs = config.get("logs") or {}
+    return bool(logs.get("enabled", False))

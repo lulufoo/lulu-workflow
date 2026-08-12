@@ -58,7 +58,7 @@ Work is bound to a **cycle** with `$CYCLE_TYPE` = `topic` or `feature` (see `_ru
 | Platform vars | `$PLATFORM`, `$SKILL_ROOT`, `$CACHE_DIR`, `$WORKFLOW_DIR` |
 | Session | Read `_runtime.md` § Session Foundation when session variables are needed |
 | Session vars | `$CYCLE_ID`, `$CYCLE_TYPE` |
-| Project config | Workflow config at resolved `workflowConfig` root (see ## Command Semantics → configure); `workflow-guard-config.json` at resolved `hookConfig` path (created by init if missing) |
+| Project config | Workflow config at resolved `workflowConfig` root (see ## Command Semantics → configure); `hookConfig` JSON incl. `logs` switch (init if missing) |
 
 ## Command Flow
 
@@ -83,7 +83,7 @@ Work is bound to a **cycle** with `$CYCLE_TYPE` = `topic` or `feature` (see `_ru
 
 **Run:** `$CYCLE_CONTROL init-project`
 
-**Done:** Report success or stderr; creates `workflow-guard-config.json` at resolved `hookConfig` path if missing; does **not** create workflow config (use `configure`).
+**Done:** Report success or stderr; bootstraps missing `hookConfig` file; does **not** create workflow config (use `configure`).
 
 ### `configure` — When workflow-config is missing
 
@@ -117,9 +117,9 @@ Work is bound to a **cycle** with `$CYCLE_TYPE` = `topic` or `feature` (see `_ru
 
 ### init
 
-- **Creates:** platform `config.json` pointer(s) if missing; **`workflow-guard-config.json`** at resolved `hookConfig` path if missing (from skill default template; does not overwrite existing file).
+- **Creates:** platform `config.json` pointer(s) if missing; missing file at resolved `hookConfig` (skill default; no overwrite).
 - **Does not:** create workflow config (use `configure`).
-- **Safe:** re-run allowed (idempotent hooks registration and workflow-guard-config bootstrap).
+- **Safe:** re-run allowed (idempotent hooks + `hookConfig` bootstrap).
 
 ## Script Macros
 

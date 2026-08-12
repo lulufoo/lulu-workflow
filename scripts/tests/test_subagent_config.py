@@ -20,6 +20,7 @@ class TestDefaults:
         assert cfg["version"] == 1
         assert cfg["workflowConfig"] == "skill-config/lulu-dev-workflow/"
         assert cfg["hookConfig"] == "skill-config/lulu-dev-workflow/workflow-guard-config.json"
+        assert "logsConfig" not in cfg
         assert "subagents" not in cfg
 
 

@@ -7,6 +7,7 @@ from pathlib import Path
 
 _SCRIPTS = Path(__file__).resolve().parent
 _COMPOSE = _SCRIPTS.parent
+_SKILL_SCRIPTS = _COMPOSE.parent / "scripts"
 _CORE = _SCRIPTS / "core"
 _SECTION = _SCRIPTS / "section"
 _DEDUCTIVE = _SCRIPTS / "deductive"
@@ -24,6 +25,7 @@ _NARRATIVE_ARC = _COMPOSE / "narrative-arc-runner" / "scripts"
 
 def ensure_kernel_paths() -> None:
     for p in (
+        _SKILL_SCRIPTS,
         _SCRIPTS,
         _CORE,
         _SECTION,

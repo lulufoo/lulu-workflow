@@ -45,6 +45,7 @@ from narrative_arc_schema import (  # noqa: E402
     save_narrative_arc,
     validate_narrative_arc,
 )
+from logs.workflow_log import emit_biz  # noqa: E402
 
 
 def _allowed_lenses(project_root: Path, profile_id: str) -> set[str]:
@@ -154,6 +155,20 @@ def cmd_write(args: argparse.Namespace) -> int:
         return _fail("status is not write_ready")
 
     backup_path: str | None = None
+    status = str(data.get("status") or "").strip()
+    root = (
+        Path(args.project_root).resolve()
+        if str(args.project_root or "").strip()
+        else Path.cwd().resolve()
+    )
+    conv_id = str(getattr(args, "conversation_id", "") or "").strip() or None
+    emit_biz(
+        component="narrative-arc",
+        event="write.start",
+        conversation_id=conv_id,
+        project_root=root,
+        detail={"status": status, "path": str(path)},
+    )
     try:
         if path.is_file():
             backup = path.with_suffix(path.suffix + f".bak.{int(time.time())}")
@@ -163,7 +178,25 @@ def cmd_write(args: argparse.Namespace) -> int:
             path, data, facts=facts, allowed_lenses=lenses,
         )
     except (OSError, ValueError) as exc:
+        emit_biz(
+            component="narrative-arc",
+            event="write.error",
+            conversation_id=conv_id,
+            project_root=root,
+            detail={"error": str(exc), "status": status},
+        )
         return _fail(str(exc))
+    emit_biz(
+        component="narrative-arc",
+        event="write.end",
+        conversation_id=conv_id,
+        project_root=root,
+        detail={
+            "status": status,
+            "write_ready": is_write_ready(data),
+            "path": str(path),
+        },
+    )
     return _ok(
         {
             "ok": True,
@@ -216,6 +249,11 @@ def build_parser() -> argparse.ArgumentParser:
         p.add_argument("--revision-dir", required=True)
         p.add_argument("--project-root", default="")
         p.add_argument("--profile", default="")
+        p.add_argument(
+            "--conversation-id",
+            default="",
+            help="Conversation id for workflow biz logs (optional)",
+        )
         p.add_argument(
             "--output-path",
             default="",

@@ -32,6 +32,7 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
+from logs.workflow_log import emit_biz  # noqa: E402
 from chapter_artifact_paths import chapter_body_path, chapter_derive_path  # noqa: E402
 from chapter_doc_schema import (  # noqa: E402
     chapter_anchor_present,
@@ -540,10 +541,19 @@ def assemble_arc_to_path(
 def cmd_assemble_arc(args: argparse.Namespace) -> int:
     path = args.path.resolve()
     revision_dir = args.revision_dir.resolve()
+    root = Path.cwd().resolve()
+    conv_id = str(getattr(args, "conversation_id", "") or "").strip() or None
     preamble = _read_text_arg(inline=args.preamble, file_path=args.preamble_file)
     if not preamble.strip():
         print("assemble-arc requires --preamble or --preamble-file", file=sys.stderr)
         return 1
+    emit_biz(
+        component="compose-doc",
+        event="assemble.start",
+        conversation_id=conv_id,
+        project_root=root,
+        detail={"path": str(path), "revision_dir": str(revision_dir)},
+    )
     try:
         result = assemble_arc_to_path(
             path,
@@ -554,8 +564,22 @@ def cmd_assemble_arc(args: argparse.Namespace) -> int:
             skip_write_state=bool(args.skip_write_state),
         )
     except (ValueError, FileNotFoundError, OSError) as exc:
+        emit_biz(
+            component="compose-doc",
+            event="assemble.error",
+            conversation_id=conv_id,
+            project_root=root,
+            detail={"error": str(exc)},
+        )
         print(f"错误：{exc}", file=sys.stderr)
         return 1
+    emit_biz(
+        component="compose-doc",
+        event="assemble.end",
+        conversation_id=conv_id,
+        project_root=root,
+        detail={"path": str(path), "leaves": result.get("leaves")},
+    )
     print(json.dumps(result, ensure_ascii=False))
     return 0
 
@@ -608,6 +632,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--skip-write-state",
         action="store_true",
         help="Debug/legacy only: skip chapter write-state complete gate",
+    )
+    assemble_parser.add_argument(
+        "--conversation-id",
+        default="",
+        help="Conversation id for workflow biz logs (optional)",
     )
 
     return parser

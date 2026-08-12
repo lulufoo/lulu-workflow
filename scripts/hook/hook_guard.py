@@ -44,6 +44,7 @@ from workflow_hook_common import (  # noqa: E402
     deny_internal_path_guard,
 )
 from workflow_sessions import current_effective_delivered  # noqa: E402
+from logs.hook_dispatch import maybe_log_tool_io  # noqa: E402
 
 _WORKFLOW_PY_PATH = re.compile(
     r"lulu-dev-workflow[/\\][^\s;|&\"']+\.py\b"
@@ -67,6 +68,11 @@ _CONV_ID_INJECT_SCRIPT_SUFFIXES = (
     "/scripts/tc_task_control.py",
     "/scripts/dec_start.py",
     "/scripts/tt_start.py",
+    # Writing critical-path controls (biz log conv_id injection).
+    "/compose/narrative-arc-runner/scripts/narrative_arc_build_control.py",
+    "/compose/narrative-arc-runner/scripts/narrative_arc_control.py",
+    "/compose/scripts/section/chapter_write_state_control.py",
+    "/compose/scripts/section/compose_doc_control.py",
 )
 
 # Inductive grounding controls: always bind to the hook conversation id (override agent typos).
@@ -439,6 +445,14 @@ def main() -> int:
         project_root = Path.cwd().resolve()
         target = normalize_tool_path(raw_path, project_root)
         conv_id = (normalized.get("conversation_id") or "").strip()
+
+        maybe_log_tool_io(
+            project_root=project_root,
+            platform=args.platform,
+            conversation_id=conv_id or "unknown",
+            tool_name=tool_name,
+            path=str(target),
+        )
 
         if is_outside_project(target, project_root):
             deny = _evaluate_external_path_guard(

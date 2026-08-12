@@ -90,6 +90,16 @@ def ensure_platform_config(project_root: Path, platform: Optional[str] = None) -
     cfg_path = platform_config_path(project_root, platform)
     if not cfg_path.exists():
         write_platform_config(project_root, default_platform_config(), platform)
+        return
+    cfg = read_platform_config(project_root, platform)
+    defaults = default_platform_config()
+    changed = False
+    for key, value in defaults.items():
+        if key not in cfg:
+            cfg[key] = value
+            changed = True
+    if changed:
+        write_platform_config(project_root, cfg, platform)
 
 
 def _workflow_config_rel(project_root: Path, platform: Optional[str] = None) -> str:
