@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
 """Prepare mechanical context for derive-runner (Derive step).
 
-Rationale (design): docs/domain/archive/compose/archive-31.0/
-compose-derive-runner-technical-scheme-draft.md — context projects
-section-registry + section-kw-criteria; hard-requires intake eval done.
+Subcommands:
+    context       Registry + section_order; require intake eval done
+    lens-bundle   Per-lens KW slice (## LENS) + Ceiling material facts
+
+Rationale (design): docs/domain/archive/compose/archive-32.0/
+compose-derive-edge-holes-lifecycle-scheme-draft.md
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -31,10 +35,18 @@ from fact_intake_eval_runtime_schema import (  # noqa: E402
     evaluate_state_path,
     gate_allows_derive_from_evaluate_state,
 )
+from facts_schema import (  # noqa: E402
+    facts_path,
+    filter_by_lens,
+    load_facts,
+    pd_material_facts,
+)
 from fetch_compose_framework import (  # noqa: E402
     FetchComposeFrameworkError,
     fetch_compose_framework,
 )
+
+_H2_RE = re.compile(r"^##\s+(\S+)\s*$", re.MULTILINE)
 
 
 def _ok(payload: dict[str, Any]) -> int:
@@ -47,24 +59,27 @@ def _fail(message: str) -> int:
     return 1
 
 
-def cmd_context(args: argparse.Namespace) -> int:
-    root = Path(args.project_root).resolve()
-    profile = args.profile.strip()
-    cycle_id = (args.cycle_id or "").strip() or None
-    slice_dir = active_slice_dir(Path(args.revision_dir).resolve())
+def _require_intake_eval(revision_dir: Path) -> tuple[dict[str, Any] | None, str | None]:
+    slice_dir = active_slice_dir(revision_dir.resolve())
     es = evaluate_state_path(slice_dir)
     legacy = slice_dir / "atomize-eval" / "evaluate-state.md"
     gate = es if es.is_file() else legacy
     if not gate.is_file():
-        return _fail(f"intake eval gate missing (expected {es.as_posix()})")
+        return None, f"intake eval gate missing (expected {es.as_posix()})"
     try:
         data = load_evaluate_state(gate)
     except (OSError, ValueError) as exc:
-        return _fail(f"intake eval gate unreadable: {exc}")
+        return None, f"intake eval gate unreadable: {exc}"
     if not gate_allows_derive_from_evaluate_state(data):
-        return _fail(
+        return None, (
             f"intake eval not done (eval_status={data.get('eval_status')!r})"
         )
+    return data, None
+
+
+def _fetch_registry_and_kw(
+    root: Path, profile: str, cycle_id: str | None
+) -> tuple[dict[str, Any] | None, str | None, str | None]:
     try:
         reg_raw = fetch_compose_framework(
             "section-registry",
@@ -80,23 +95,98 @@ def cmd_context(args: argparse.Namespace) -> int:
         )
         reg = json.loads(reg_raw)
     except (FetchComposeFrameworkError, OSError, ValueError, json.JSONDecodeError) as exc:
-        return _fail(str(exc))
+        return None, None, str(exc)
     if not isinstance(reg, dict):
-        return _fail("section-registry must be a JSON object")
+        return None, None, "section-registry must be a JSON object"
     if not isinstance(kw_raw, str) or not kw_raw.strip():
-        return _fail("section-kw-criteria must be non-empty text")
+        return None, None, "section-kw-criteria must be non-empty text"
+    return reg, kw_raw, None
+
+
+def _section_order(reg: dict[str, Any]) -> list[str]:
+    return [
+        str(x).strip().upper()
+        for x in (reg.get("section_order") or [])
+        if str(x).strip()
+    ]
+
+
+def slice_kw_criteria(kw_raw: str, lens: str) -> str | None:
+    """Return body under ``## <LENS>`` until the next ATX h2, or None."""
+    key = lens.strip().upper()
+    matches = list(_H2_RE.finditer(kw_raw))
+    for index, match in enumerate(matches):
+        if match.group(1).strip().upper() != key:
+            continue
+        start = match.end()
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(kw_raw)
+        return kw_raw[start:end].strip("\n")
+    return None
+
+
+def cmd_context(args: argparse.Namespace) -> int:
+    root = Path(args.project_root).resolve()
+    profile = args.profile.strip()
+    cycle_id = (args.cycle_id or "").strip() or None
+    data, err = _require_intake_eval(Path(args.revision_dir))
+    if err:
+        return _fail(err)
+    assert data is not None
+    reg, kw_raw, ferr = _fetch_registry_and_kw(root, profile, cycle_id)
+    if ferr:
+        return _fail(ferr)
+    assert reg is not None and kw_raw is not None
+    order = _section_order(reg)
+    if not order:
+        return _fail("section-registry missing non-empty section_order")
     return _ok(
         {
             "ok": True,
             "command": "context",
             "eval_status": data.get("eval_status"),
-            "section_order": [
-                str(x).strip().upper()
-                for x in (reg.get("section_order") or [])
-                if str(x).strip()
-            ],
+            "section_order": order,
             "section_registry": reg,
             "section_kw_criteria": kw_raw,
+        }
+    )
+
+
+def cmd_lens_bundle(args: argparse.Namespace) -> int:
+    root = Path(args.project_root).resolve()
+    profile = args.profile.strip()
+    cycle_id = (args.cycle_id or "").strip() or None
+    lens = args.lens.strip().upper()
+    if not lens:
+        return _fail("--lens must be a non-empty lens key")
+    _data, err = _require_intake_eval(Path(args.revision_dir))
+    if err:
+        return _fail(err)
+    reg, kw_raw, ferr = _fetch_registry_and_kw(root, profile, cycle_id)
+    if ferr:
+        return _fail(ferr)
+    assert reg is not None and kw_raw is not None
+    order = _section_order(reg)
+    if not order:
+        return _fail("section-registry missing non-empty section_order")
+    if lens not in order:
+        return _fail(f"lens {lens!r} not in section_order")
+    kw_slice = slice_kw_criteria(kw_raw, lens)
+    if kw_slice is None:
+        return _fail(f"KW criteria missing ATX heading ## {lens}")
+    slice_dir = active_slice_dir(Path(args.revision_dir).resolve())
+    try:
+        facts = load_facts(facts_path(slice_dir))
+    except ValueError as exc:
+        return _fail(str(exc))
+    materials = pd_material_facts(facts)
+    lens_facts = filter_by_lens(materials, lens)
+    return _ok(
+        {
+            "ok": True,
+            "command": "lens-bundle",
+            "lens": lens,
+            "kw_criteria": kw_slice,
+            "facts": lens_facts,
         }
     )
 
@@ -113,6 +203,18 @@ def main(argv: list[str] | None = None) -> int:
     context.add_argument("--profile", required=True)
     context.add_argument("--cycle-id", default="")
     context.set_defaults(func=cmd_context)
+
+    bundle = sub.add_parser(
+        "lens-bundle",
+        help="Per-lens KW slice + Ceiling material facts",
+    )
+    bundle.add_argument("--lens", required=True)
+    bundle.add_argument("--revision-dir", required=True)
+    bundle.add_argument("--project-root", required=True)
+    bundle.add_argument("--profile", required=True)
+    bundle.add_argument("--cycle-id", default="")
+    bundle.set_defaults(func=cmd_lens_bundle)
+
     args = parser.parse_args(argv)
     return int(args.func(args))
 

@@ -46,9 +46,9 @@ CYCLE_ID: <cycle id>
 
 | Layer | Role |
 |-------|------|
-| **Floor** | Edge-closure **means** (how to close graph holes; no KW). |
-| **Ceiling** | Intent projection **means** (how to thicken toward Intent); published **`$VAR_KW_CRITERIA`** = only thickness ruler. |
-| **Cascade** | Re-enter Floor then Ceiling when Ceiling creates new holes. |
+| **Floor** | Edge-closure **means** (Floor Loop until solid; no KW). |
+| **Ceiling** | Intent projection **means**; per required lens via `lens-bundle` KW + facts. |
+| **Cascade** | After Ceiling append: `edge-scan`; holes → Floor then full Ceiling (≤ 3). |
 
 Edges closed / Intent **should-cover** rows ticked ≠ thick enough. No KW-first pass on
 the intake pool.
@@ -57,25 +57,23 @@ the intake pool.
 
 ### Prepare
 1. Use Input from the parent dispatch (`REVISION_DIR`, …).
-2. Run `$DERIVE_BUILD_CTL context …`: bind `$VAR_KW_CRITERIA` ←
-   `section_kw_criteria` (KW ruler text). See `--help`.
-3. Run `$DERIVE_CTL edge-scan …`: bind `$VAR_EDGE_HOLES` ← `edge_holes`,
-   `$VAR_ORDER` ← `order`. See `--help`.
+2. Run `$DERIVE_BUILD_CTL context …`: bind `$VAR_LENS_ORDER` ← `section_order`.
+   See `--help`.
 
 | Var | From |
 |-----|------|
-| `$VAR_KW_CRITERIA` | context · `section_kw_criteria` |
-| `$VAR_EDGE_HOLES` | edge-scan · `edge_holes` |
-| `$VAR_ORDER` | edge-scan · `order` |
+| `$VAR_LENS_ORDER` | context · `section_order` |
 
 ### Derive
-4. Semantic work:
+3. Semantic work:
    - Load `references/derive-semantic-work.md`.
-   - Run Floor then Ceiling; apply Cascade when new holes appear.
+   - Floor Loop → Ceiling (required in `$VAR_LENS_ORDER`) → Cascade when Ceiling
+     appended.
    - Unresolvable gaps → `$DEDUCTIVE_CTL pending-add` (kinds in reference).
 
 ### Persist
-5. `$DERIVE_CTL append` → `$FACTS_CTL validate` (`--help`).
+4. `$FACTS_CTL validate` (`--help`). Per-lens `$DERIVE_CTL append` runs during
+   Floor / Ceiling (see reference).
 
 ## Done
 

@@ -3,32 +3,38 @@
 Load only from `derive-runner` Execution after Prepare.
 Session vars and macros: `../SKILL.md` (Prepare · Script Macros).
 
-Main path: Floor → Ceiling. Cascade: re-enter Floor then Ceiling when new holes
-appear.
+Main path: Floor Loop → Ceiling. Cascade: after Ceiling append, `edge-scan`;
+holes → Floor Loop then full Ceiling again.
 
-## Floor
+## Floor Loop
 
-Scope: each hole in `$VAR_EDGE_HOLES`.
+Scope: lenses in `$VAR_EDGE_HOLES` (not full `$VAR_LENS_ORDER`).
+KW does **not** apply. Floor-internal re-enter ≤ **3** (separate from Cascade).
 
-1. Projectable from decided substance → emit derived  
+1. `$DERIVE_CTL edge-scan` → bind `$VAR_EDGE_HOLES` ← `edge_holes`.
+2. For each lens in the hole table: projectable from decided substance → emit
+   derived  
    `{text, lens_tags:[L], origin:{type:derived, ref:[upstream F-id, …]}, source?}`  
    with **exact** upstream `F-id` in `origin.ref` (prefer `source`).
-2. Not projectable → `$DEDUCTIVE_CTL pending-add` (kind=`edge_hole`).
-3. KW upper/target does **not** apply here.
+3. Not projectable → `$DEDUCTIVE_CTL pending-add` (kind=`edge_hole`).
+4. After that lens’s derived batch (if any) → `$DERIVE_CTL append`
+   `--derived-file` (one lens per batch; CLI has no `--lens`).
+5. Re-run step 1; continue until no new holes and no new append, or Floor
+   re-enter count hits **3** (leftover holes → `pending-add` kind=`edge_hole`).
+6. Exit to Ceiling even if Floor hit the cap (pending may remain open).
 
 ## Ceiling
 
-Scope: each required lens in topo order (same `$VAR_ORDER`, then any remaining
-required). Thickness ruler: `$VAR_KW_CRITERIA` only.
+No self-loop. Walk **required** lenses in `$VAR_LENS_ORDER` order (skip
+`presence=optional`). Finish the full required pass before Cascade.
 
-### Pool and ruler
+For each required lens `L`:
 
-1. Materials: **carried** + Intent — **not** default `quarantined` /
-   `not_needed` pool.
-2. Ruler: that lens’s block in `$VAR_KW_CRITERIA` (published criteria only; **no**
-   separate target-thickness number).
-3. Judgment: whether current facts satisfy that lens’s rows in
-   `$VAR_KW_CRITERIA` (agent semantic judgment).
+1. `$DERIVE_BUILD_CTL lens-bundle --lens L …` → that lens’s KW slice + material
+   facts (`--help`).
+2. Thickness ruler: returned `kw_criteria` only (no session-wide KW var).
+3. Materials: returned `facts` (Ceiling pool; already filtered).
+4. Judgment: whether those facts satisfy that lens’s KW rows (agent semantic).
 
 ### Branch
 
@@ -48,13 +54,22 @@ required). Thickness ruler: `$VAR_KW_CRITERIA` only.
 4. Off-edge / undecided → `$DEDUCTIVE_CTL pending-add`
    (kind=`off_edge` \| `undecided`) — **never** `origin.type=derived` off-edge.
 5. **Forbidden:** inventing to pad KW with no edge.
+6. When Means yields derived for `L` → `$DERIVE_CTL append` (one lens batch)
+   before the next required lens. Do **not** Cascade mid-pass.
 
 ## Cascade (re-entry)
 
-Applies when Ceiling appends create new holes.
+Enter only when this Ceiling pass performed ≥1 `$DERIVE_CTL append`.
 
-1. Later lenses see facts appended earlier.
-2. New `$VAR_EDGE_HOLES` → re-enter Floor then Ceiling for affected lenses.
+1. `$DERIVE_CTL edge-scan` → rebind `$VAR_EDGE_HOLES` (never reuse a stale
+   hole snapshot).
+2. No holes → Cascade ends.
+3. Holes and Cascade re-enter count still under **3** → Floor Loop → Ceiling
+   **full** required pass again → may re-enter Cascade.
+4. Cascade re-enter ≤ **3**; at cap with leftover holes →
+   `$DEDUCTIVE_CTL pending-add` (kind=`edge_hole`) then stop Derive semantic
+   work (Persist validate).
+5. Later Ceiling passes see facts appended earlier.
 
 ## Emit invariants
 

@@ -38,7 +38,7 @@ def test_design_k0b_section_registry_has_presence() -> None:
     assert validate_section_registry(data) == []
     normalized = normalize_section_registry(data)
     keys = lens_key_sequence(normalized)
-    assert "section_order" not in normalized
+    assert normalized.get("section_order") == list(data["sections"].keys())
     for key in keys:
         presence = normalized["sections"][key]["presence"]
         assert presence in {"required", "optional"}

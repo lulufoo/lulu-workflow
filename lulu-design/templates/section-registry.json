@@ -1,22 +1,19 @@
 {
   "version": "1",
   "profile_id": "tech-design",
-  "_lens_v2": {
-    "key_table": [
-      "CTX",
-      "GOAL",
-      "SCOPE",
-      "DECISION",
-      "I",
-      "IF",
-      "ST",
-      "SEAM",
-      "VERIFY",
-      "RISK",
-      "DEP"
-    ],
-    "note": "key_table is the locked Lens V2 intent set (merge-map). sections object key order is upstream-DAG order for schema validation (ST before IF). section_order removed (archive-5.0)."
-  },
+  "section_order": [
+    "CTX",
+    "GOAL",
+    "SCOPE",
+    "DECISION",
+    "I",
+    "ST",
+    "IF",
+    "SEAM",
+    "VERIFY",
+    "RISK",
+    "DEP"
+  ],
   "document_preamble": "# {Feature Name} · Technical Solution Design\n\n**Date:** YYYY-MM-DD\n**Version:** v1\n**Status:** Draft\n\n**Decision-doc:** `{/<cycle_id>/tech/diagnostic/decision-doc.md}`\n\n**Chain domain:** Technical solution design — human–AI design consensus before tech-plan; not enterprise architecture, not execution specs.\n\n---\n",
   "sections": {
     "CTX": {
