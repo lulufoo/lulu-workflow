@@ -20,7 +20,7 @@ validate passes and every floor hole / required lens is covered or pending.
 | Use `$SOURCE_PATH` or re-read upstream prose | Post-intake: facts only |
 | Write chapter prose; emit `origin.type=discovered` | Writing / other origin types |
 
-Means (KW pad, off-edge, batch-retag): `references/derive-semantic-work.md`.
+Floor / Ceiling / Cascade means: `references/derive-semantic-work.md`.
 
 ## Input
 
@@ -46,34 +46,25 @@ CYCLE_ID: <cycle id>
 
 | Layer | Role |
 |-------|------|
-| **Floor** | Edge-closure **means** (Floor Loop until solid; no KW). |
-| **Ceiling** | Intent projection **means**; per required lens via `lens-bundle` KW + facts. |
-| **Cascade** | After Ceiling append: `edge-scan`; holes → Floor then full Ceiling (≤ 3). |
-
-Edges closed / Intent **should-cover** rows ticked ≠ thick enough. No KW-first pass on
-the intake pool.
+| **Floor** | Close edge holes (`edge-scan` + per-lens `append`; no KW). |
+| **Ceiling** | Per required lens: `lens-bundle` → KW judge → Means/`append`. |
+| **Cascade** | Only after Ceiling `append`: fresh holes? → Floor then full Ceiling. |
 
 ## Execution
 
 ### Prepare
-1. Use Input from the parent dispatch (`REVISION_DIR`, …).
-2. Run `$DERIVE_BUILD_CTL context …`: bind `$VAR_LENS_ORDER` ← `section_order`.
-   See `--help`.
-
-| Var | From |
-|-----|------|
-| `$VAR_LENS_ORDER` | context · `section_order` |
+1. Take Input from parent dispatch.
+2. `$DERIVE_BUILD_CTL context …` (`--help`) → bind:
+   - `$VAR_LENS_ORDER` ← `section_order`
+   - `$VAR_SECTION_REGISTRY` ← `section_registry`
 
 ### Derive
-3. Semantic work:
-   - Load `references/derive-semantic-work.md`.
-   - Floor Loop → Ceiling (required in `$VAR_LENS_ORDER`) → Cascade when Ceiling
-     appended.
-   - Unresolvable gaps → `$DEDUCTIVE_CTL pending-add` (kinds in reference).
+3. Load `references/derive-semantic-work.md`; run Floor Loop → Ceiling →
+   Cascade as that file defines.
+4. Open gaps → `$DEDUCTIVE_CTL pending-add` (kinds in the reference).
 
 ### Persist
-4. `$FACTS_CTL validate` (`--help`). Per-lens `$DERIVE_CTL append` runs during
-   Floor / Ceiling (see reference).
+5. `$FACTS_CTL validate` (`--help`).
 
 ## Done
 

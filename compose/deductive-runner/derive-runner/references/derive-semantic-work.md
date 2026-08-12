@@ -1,77 +1,94 @@
 # Derive semantic work (Floor · Ceiling · Cascade)
 
-Load only from `derive-runner` Execution after Prepare.
-Session vars and macros: `../SKILL.md` (Prepare · Script Macros).
+Load from `derive-runner` Execution after Prepare.
+Macros: `../SKILL.md`.
 
-Main path: Floor Loop → Ceiling. Cascade: after Ceiling append, `edge-scan`;
-holes → Floor Loop then full Ceiling again.
+Path: Floor → Ceiling. A Ceiling pass that ran `$DERIVE_CTL append` enters
+Cascade.
 
-## Floor Loop
+## Floor
 
-Scope: lenses in `$VAR_EDGE_HOLES` (not full `$VAR_LENS_ORDER`).
-KW does **not** apply. Floor-internal re-enter ≤ **3** (separate from Cascade).
+Purpose: close graph holes without using KW.
 
-1. `$DERIVE_CTL edge-scan` → bind `$VAR_EDGE_HOLES` ← `edge_holes`.
-2. For each lens in the hole table: projectable from decided substance → emit
-   derived  
-   `{text, lens_tags:[L], origin:{type:derived, ref:[upstream F-id, …]}, source?}`  
-   with **exact** upstream `F-id` in `origin.ref` (prefer `source`).
-3. Not projectable → `$DEDUCTIVE_CTL pending-add` (kind=`edge_hole`).
-4. After that lens’s derived batch (if any) → `$DERIVE_CTL append`
-   `--derived-file` (one lens per batch; CLI has no `--lens`).
-5. Re-run step 1; continue until no new holes and no new append, or Floor
-   re-enter count hits **3** (leftover holes → `pending-add` kind=`edge_hole`).
-6. Exit to Ceiling even if Floor hit the cap (pending may remain open).
+A **Floor round** starts with `$DERIVE_CTL edge-scan` and ends after every
+returned lens has been handled. One Floor invocation may run at most **three
+rounds**. Cascade re-entry resets the Floor round count.
+
+### Run a round
+
+1. `$DERIVE_CTL edge-scan` → local `edge_holes`.
+2. Empty `edge_holes` → Floor is complete; enter Ceiling.
+3. For each lens `L` in `edge_holes`:
+   - Projectable → write one lens batch (§ Derived batch), using exact upstream
+     `F-id` in `origin.ref` (prefer `source`).
+   - Not projectable → `$DEDUCTIVE_CTL pending-add` (kind=`edge_hole`).
+4. Scan again after the round:
+   - No holes → Ceiling.
+   - Holes remain and fewer than three rounds have run → next Floor round.
+   - Holes remain after the third round → use this scan only to record each
+     remaining lens with `$DEDUCTIVE_CTL pending-add` (kind=`edge_hole`) →
+     Ceiling.
 
 ## Ceiling
 
-No self-loop. Walk **required** lenses in `$VAR_LENS_ORDER` order (skip
-`presence=optional`). Finish the full required pass before Cascade.
+Purpose: thicken every required lens under its published KW criteria.
 
-For each required lens `L`:
+Walk required lenses in `$VAR_LENS_ORDER`; read `presence` from
+`$VAR_SECTION_REGISTRY`. Finish all required lenses before Cascade.
 
-1. `$DERIVE_BUILD_CTL lens-bundle --lens L …` → that lens’s KW slice + material
-   facts (`--help`).
-2. Thickness ruler: returned `kw_criteria` only (no session-wide KW var).
-3. Materials: returned `facts` (Ceiling pool; already filtered).
-4. Judgment: whether those facts satisfy that lens’s KW rows (agent semantic).
+### Process a required lens
 
-### Branch
-
-| State | Action |
-|-------|--------|
-| Satisfied | Stop thickening that lens (KW stop line). |
-| Unsatisfied | Drive means (§ Means); then re-judge. |
-| Means exhausted and still unsatisfied | `$DEDUCTIVE_CTL pending-add` (kind=`kw_shortfall`, `--lens <L>`, summary = table gap). Do **not** silently pass. |
+1. `$DERIVE_BUILD_CTL lens-bundle --lens L …` → this lens’s `kw_criteria` and
+   `facts` (`--help`).
+2. Judge whether `facts` satisfy `kw_criteria`.
+3. Satisfied → continue to the next required lens.
+4. Unsatisfied → apply Means, then re-judge:
+   - Derived produced → write one lens batch (§ Derived batch).
+   - Means exhausted and still unsatisfied → `$DEDUCTIVE_CTL pending-add`
+     (kind=`kw_shortfall`, `--lens L`, summary = table gap).
+5. Continue to the next required lens.
+6. After all required lenses: no `$DERIVE_CTL append` in this pass → Persist
+   validate; one or more → Cascade.
 
 ### Means
 
 1. List Intent should-cover / thicken opportunities.
-2. Emit `derived` with `F-id` refs only if **all** hold: projectable · on a
-   `decompose` / `instantiate` edge · not past the depth the table asks for.
-3. Gap recovery when still thin (sequence): carried → quarantined ledger →
-   not_needed ledger → pending.
+2. Produce derived entries only if all hold: projectable · on `decompose` /
+   `instantiate` edge · within table depth.
+3. Still thin → recover: carried → quarantined ledger → not_needed ledger →
+   pending.
 4. Off-edge / undecided → `$DEDUCTIVE_CTL pending-add`
-   (kind=`off_edge` \| `undecided`) — **never** `origin.type=derived` off-edge.
-5. **Forbidden:** inventing to pad KW with no edge.
-6. When Means yields derived for `L` → `$DERIVE_CTL append` (one lens batch)
-   before the next required lens. Do **not** Cascade mid-pass.
+   (kind=`off_edge` \| `undecided`); never `origin.type=derived` off-edge.
+5. Do not invent to pad KW with no edge.
 
-## Cascade (re-entry)
+## Cascade
 
-Enter only when this Ceiling pass performed ≥1 `$DERIVE_CTL append`.
+After a Ceiling pass appended, `$DERIVE_CTL edge-scan` → local `edge_holes`.
 
-1. `$DERIVE_CTL edge-scan` → rebind `$VAR_EDGE_HOLES` (never reuse a stale
-   hole snapshot).
-2. No holes → Cascade ends.
-3. Holes and Cascade re-enter count still under **3** → Floor Loop → Ceiling
-   **full** required pass again → may re-enter Cascade.
-4. Cascade re-enter ≤ **3**; at cap with leftover holes →
-   `$DEDUCTIVE_CTL pending-add` (kind=`edge_hole`) then stop Derive semantic
-   work (Persist validate).
-5. Later Ceiling passes see facts appended earlier.
+- **No holes:** Persist validate.
+- **Holes:** rerun Floor → Ceiling up to **three times**.
+- **Holes still remain:** `$DEDUCTIVE_CTL pending-add` (kind=`edge_hole`) for
+  each; Persist validate.
 
 ## Emit invariants
 
-1. **Must not** produce `origin.type=discovered`.
-2. **Do not** batch-retag quarantine/not_needed.
+1. Must not produce `origin.type=discovered`.
+2. Do not batch-retag quarantine / not_needed.
+
+## Derived batch
+
+For lens `CTX`, write one temporary `<derived-file>`:
+
+```json
+[
+  {
+    "text": "<projected fact>",
+    "lens_tags": ["CTX"],
+    "origin": {"type": "derived", "ref": ["F-7"]},
+    "source": ["F-7"]
+  }
+]
+```
+
+Then `$DERIVE_CTL append --derived-file <derived-file> …`.
+Use one file and one append call per lens batch.
