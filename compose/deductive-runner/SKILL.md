@@ -1,41 +1,46 @@
 ---
 name: deductive-runner
 description: >-
-  Pre-compose deductive fact production for compose stages with
-  pipeline.inductive=false. Dispatches shared fact-intake, then Derive
-  (edge-coverage floor + Intent ceiling via section-kw-criteria), and clears a
-  human confirm gate before handing facts to compose Writing.
+  Compose deductive fact-production orchestrator.
 ---
 
 # deductive-runner
 
-Run this sub-skill only when dispatched from a compose stage `start` (deductive
-path) — e.g. `lulu-plan`.
+Orchestrate deductive fact production from source intake through human
+confirmation. Done when facts validate, all pending obligations are settled,
+and the parent can enter Writing.
 
-Produces under the active revision dir (`$DEDUCTIVE_OUT_DIR`):
-- **Facts:** `_facts.json` — intake-classified / derived / human-confirmed seeds
-- **Pending:** `deductive-pending.json` — confirm-gate SoT (derivation gaps,
-  `kw_shortfall`, unreferenced quarantine)
+## Responsibility
 
-Compose Writing reads **`_facts.json`** validate-only. After `deductive-complete`,
-control returns to the parent for Writing.
+| Area | Boundary |
+|------|----------|
+| Invocation | Run only from a compose stage `start` on the deductive path. |
+| Owns | Fact Intake → Derive → Pending Confirm → Complete. |
+| Delegates | `fact-intake-runner` owns cut / eval / disposition / intake Confirm; `derive-runner` owns Floor / Ceiling / Cascade. |
+| Downstream | Writing, delivery Eval / StageGate, and FreeEdit remain with the parent. |
 
-This runner is **stage-agnostic**: lens set / Intent / derivation edges =
-`section-registry`; do not hardcode stage lens names.
+## Cognitive Map
 
-**Must:** dispatch `fact-intake-runner` for doc→classified facts; then dispatch
-`derive-runner`; Pending Confirm → Complete.  
-**Must not:** invent decisions; label off-edge obligations as `derived`; write
-chapter prose; ask the user during Writing (confirm only here); re-read upstream
-prose after intake for Steps 2–4; Import upstream `_facts.json` as delivery;
-enter delivery Evaluating / StageGate for intake eval; edit the intake source
-doc; inline cut / eval / disposition / confirm (owned by
-`fact-intake-runner`); inline Derive floor / ceiling×KW (owned by
-`derive-runner`).
+| Concern | Rule |
+|---------|------|
+| Projection | Project known upstream substance into this stage's required lenses. |
+| Stage model | Resolve lenses, Intent, and derivation edges from `section-registry`. |
+| State | Facts + pending are the source of truth. |
+| Collaboration | AI proposes; the user closes Confirm gates; scripts move state. |
 
----
+## Invariants
 
-## Dispatch Inputs (from parent compose stage)
+1. After Fact Intake, Steps 2–4 use this stage's facts only; the intake source
+   remains unchanged.
+2. Produce facts in the active revision; never import upstream `_facts.json` as
+   delivery.
+3. Apply facts, pending, and disposition mutations through control commands;
+   never hand-write state JSON.
+4. Preserve user decision ownership: do not invent decisions or label off-edge
+   obligations as `derived`.
+5. Send every unreferenced quarantined fact through Pending Confirm.
+
+## Inputs
 
 | Var | Meaning |
 |-----|---------|
@@ -63,24 +68,7 @@ Bind `$SOURCE_PATH` from `$ATOMIZE_SOURCE_PATH` when only the alias is set.
 `$FACTS_CTL` / `$DERIVE_CTL` / `$DEDUCTIVE_CTL`: see each `--help`. Scripts never
 invent derived work-item text.
 
----
-
-## Method
-
-Deduction projects **known** upstream substance into this stage’s required lenses
-(whole → parts). **SoT = facts + pending.** Mutations land only via `$FACTS_CTL` /
-`$DERIVE_CTL` / `$DEDUCTIVE_CTL` — never hand-written JSON.
-
-Collaboration: AI projects and proposes; **user** closes Confirm gates; scripts
-move state only.
-
-**Pipeline split:** shared **fact-intake** (cut → structure validate → intake eval →
-disposition → Confirm) → **Derive** (`derive-runner`) → pending Confirm →
-Complete.
-
----
-
-## Pipeline
+## Execution
 
 **Step 1 Fact Intake → Step 2 Derive → Step 3 Pending Confirm → Step 4 Complete**
 
@@ -137,7 +125,7 @@ Load and follow [Pending Confirm](references/pending-confirm.md):
 2. resolve open pending;
 3. pass the gate.
 
-**Done:** Pending Confirm returns `gate-check` exit 0. Proceed to Step 4.
+**Done:** `gate-check` exits 0. Proceed to Step 4.
 
 ### Step 4 — Complete
 
@@ -146,13 +134,12 @@ $FACTS_CTL validate --revision-dir "$DEDUCTIVE_OUT_DIR" --profile "$COMPOSE_PROF
 $DEDUCTIVE_CTL gate-check
 ```
 
-Return control to the parent compose stage. Parent runs `$L_STEP deductive-complete` then `$L_STEP begin-writing`.
+Return control to the parent compose stage. Parent runs
+`$L_STEP deductive-complete`, then `$L_STEP begin-writing`.
 
 **Done:** both commands exit 0; `_facts.json` ready for Writing validate-only.
 
----
-
-## Output Contract
+## Return Contract
 
 **Facts:** `_facts.json` — `F-n` with `text`, `lens_tags` (empty for `quarantined` /
 `not_needed`), optional `origin` / `derivation` / `source` / `anchors`. Intake
@@ -163,22 +150,9 @@ facts: `derivation.disposition` ∈ {`carried`,`quarantined`,`not_needed`};
 `$DEDUCTIVE_CTL --help`.
 
 **Disposition Confirm (intake):** `{slice}/fact-intake-disposition-review.patch`
-(owned by `fact-intake-runner` / `$FACT_INTAKE_DISPOSITION_CTL`).
+(owned by `fact-intake-runner`).
 
 **Post-intake retag patch (optional, Step 3):** agent-chosen path via
-`$DEDUCTIVE_CTL disposition-patch-*` — not the intake Confirm artifact.
+`$DEDUCTIVE_CTL disposition-patch-*`.
 
-**Compose Writing input:** `_facts.json` only.
-
----
-
-## Constraints
-
-- No AI hand-written JSON files — control commands only (disposition patches
-  drafted then applied by control).
-- After intake, Steps 2–4 read only this stage’s facts — never re-open upstream
-  `.md` (Derive means owned by `derive-runner`).
-- Off-edge obligations → pending only (not `derived`).
-- Quarantined / not_needed facts remain addressable; cite settles unref accounting;
-  leftover unreferenced **quarantined** ids must go through Step 3.
-- Writing / delivery Eval / FreeEdit are out of this runner’s scope.
+**Handoff:** return `_facts.json` only; Writing consumes it validate-only.
