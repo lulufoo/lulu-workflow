@@ -84,11 +84,16 @@ For lens `CTX`, write one temporary `<derived-file>`:
   {
     "text": "<projected fact>",
     "lens_tags": ["CTX"],
-    "origin": {"type": "derived", "ref": ["F-7"]},
+    "origin": {
+      "type": "derived",
+      "ref": ["F-7"],
+      "derive_mode": "floor"
+    },
     "source": ["F-7"]
   }
 ]
 ```
 
-Then `$DERIVE_CTL append --derived-file <derived-file> …`.
-Use one file and one append call per lens batch.
+- Then `$DERIVE_CTL append --derived-file <derived-file> …`.
+- Use one file and one append call per lens batch.
+- `derive_mode` is `floor` (Floor) or `ceiling` (Ceiling).

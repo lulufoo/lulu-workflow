@@ -25,7 +25,9 @@ hints). Gates never read it. K1 does not enforce referential integrity on
 
 ``origin`` (K4) is structured provenance: ``type ∈ {seed, discovered, derived}``
 and non-empty ``ref`` string array (scope anchors / open ids / upstream F-ids).
-Optional and backward-compatible — existing facts without ``origin`` remain valid.
+Optional ``derive_mode ∈ {floor, ceiling}`` only when ``type=derived`` (omission
+allowed for legacy derived facts). Optional and backward-compatible — existing
+facts without ``origin`` remain valid.
 
 ``anchors`` (P4 init-fidelity) is a fact's born-with machine-relevant evidence:
 an array of ``{kind, value}`` where ``kind ∈ ANCHOR_KINDS``. Optional and
@@ -52,6 +54,7 @@ _FACT_OPTIONAL = frozenset(
 )
 _HOME_L_RE = re.compile(r"^(L\d+|package)$")
 ORIGIN_TYPES = frozenset({"seed", "discovered", "derived"})
+ORIGIN_DERIVE_MODES = frozenset({"floor", "ceiling"})
 DERIVATION_DISPOSITIONS = frozenset({"carried", "quarantined", "not_needed"})
 # Anchor kinds — SSOT for the machine-relevant evidence tokens a fact carries
 # (born-with identity; P4 init-fidelity). ``code_ref`` keeps whole
@@ -82,13 +85,20 @@ def _validate_source(prefix: str, source: Any) -> list[str]:
 def _validate_origin(prefix: str, origin: Any) -> list[str]:
     errors: list[str] = []
     if not isinstance(origin, dict):
-        errors.append(f"{prefix}.origin must be an object {{type, ref}}")
+        errors.append(
+            f"{prefix}.origin must be an object {{type, ref[, derive_mode]}}",
+        )
         return errors
-    otype = origin.get("type")
-    if not isinstance(otype, str) or otype.strip().lower() not in ORIGIN_TYPES:
+    otype_raw = origin.get("type")
+    otype = (
+        otype_raw.strip().lower()
+        if isinstance(otype_raw, str)
+        else ""
+    )
+    if otype not in ORIGIN_TYPES:
         errors.append(
             f"{prefix}.origin.type must be one of {sorted(ORIGIN_TYPES)}, "
-            f"got {otype!r}"
+            f"got {otype_raw!r}"
         )
     ref = origin.get("ref")
     if not isinstance(ref, list):
@@ -101,7 +111,24 @@ def _validate_origin(prefix: str, origin: Any) -> list[str]:
                 errors.append(
                     f"{prefix}.origin.ref[{r_index}] must be a non-empty string",
                 )
-    extra = set(origin) - {"type", "ref"}
+    if "derive_mode" in origin:
+        mode_raw = origin.get("derive_mode")
+        mode = (
+            mode_raw.strip().lower()
+            if isinstance(mode_raw, str)
+            else ""
+        )
+        if otype and otype != "derived":
+            errors.append(
+                f"{prefix}.origin.derive_mode only allowed when "
+                "origin.type=derived",
+            )
+        elif mode not in ORIGIN_DERIVE_MODES:
+            errors.append(
+                f"{prefix}.origin.derive_mode must be one of "
+                f"{sorted(ORIGIN_DERIVE_MODES)}, got {mode_raw!r}",
+            )
+    extra = set(origin) - {"type", "ref", "derive_mode"}
     if extra:
         errors.append(f"{prefix}.origin unexpected fields {sorted(extra)}")
     return errors
@@ -407,10 +434,15 @@ def normalize_fact(entry: dict[str, Any]) -> dict[str, Any]:
         out["source"] = [str(s).strip() for s in entry["source"]]
     if "origin" in entry and entry["origin"] is not None:
         origin = entry["origin"]
-        out["origin"] = {
+        normalized_origin: dict[str, Any] = {
             "type": str(origin["type"]).strip().lower(),
             "ref": [str(r).strip() for r in origin["ref"]],
         }
+        if "derive_mode" in origin and origin["derive_mode"] is not None:
+            normalized_origin["derive_mode"] = str(
+                origin["derive_mode"]
+            ).strip().lower()
+        out["origin"] = normalized_origin
     if "derivation" in entry and entry["derivation"] is not None:
         derivation = entry["derivation"]
         normalized_derivation: dict[str, Any] = {

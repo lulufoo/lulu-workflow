@@ -192,7 +192,11 @@ def test_append_derived_facts_preserves_origin():
         {
             "text": "task from sk/ar",
             "lens_tags": ["T"],
-            "origin": {"type": "derived", "ref": ["F-1", "F-2"]},
+            "origin": {
+                "type": "derived",
+                "ref": ["F-1", "F-2"],
+                "derive_mode": "floor",
+            },
         },
         {
             "text": "human seed",
@@ -201,7 +205,11 @@ def test_append_derived_facts_preserves_origin():
         },
     ]
     out = append_derived_facts(base, derived)
-    assert out[2]["origin"] == {"type": "derived", "ref": ["F-1", "F-2"]}
+    assert out[2]["origin"] == {
+        "type": "derived",
+        "ref": ["F-1", "F-2"],
+        "derive_mode": "floor",
+    }
     assert out[3]["origin"] == {"type": "seed", "ref": ["P-1"]}
     assert fact_covers_upstream(out[2], "F-1")
     assert fact_covers_upstream(out[2], "F-2")

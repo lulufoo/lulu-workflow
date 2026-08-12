@@ -402,6 +402,99 @@ def test_facts_without_origin_still_valid():
     )
 
 
+def test_validate_accepts_derived_with_and_without_derive_mode():
+    assert (
+        validate_facts(
+            [
+                {
+                    "id": "F-1",
+                    "text": "legacy derived",
+                    "lens_tags": ["T"],
+                    "origin": {"type": "derived", "ref": ["F-0"]},
+                },
+                {
+                    "id": "F-2",
+                    "text": "floor derived",
+                    "lens_tags": ["T"],
+                    "origin": {
+                        "type": "derived",
+                        "ref": ["F-0"],
+                        "derive_mode": "floor",
+                    },
+                },
+                {
+                    "id": "F-3",
+                    "text": "ceiling derived",
+                    "lens_tags": ["T"],
+                    "origin": {
+                        "type": "derived",
+                        "ref": ["F-0"],
+                        "derive_mode": "ceiling",
+                    },
+                },
+            ],
+            allowed_lenses=["T"],
+        )
+        == []
+    )
+
+
+def test_validate_rejects_derive_mode_on_non_derived():
+    errors = validate_facts(
+        [
+            {
+                "id": "F-1",
+                "text": "seed",
+                "lens_tags": ["T"],
+                "origin": {
+                    "type": "seed",
+                    "ref": ["P-1"],
+                    "derive_mode": "floor",
+                },
+            }
+        ],
+        allowed_lenses=["T"],
+    )
+    assert any("derive_mode" in e for e in errors)
+
+
+def test_validate_rejects_bad_derive_mode():
+    errors = validate_facts(
+        [
+            {
+                "id": "F-1",
+                "text": "x",
+                "lens_tags": ["T"],
+                "origin": {
+                    "type": "derived",
+                    "ref": ["F-0"],
+                    "derive_mode": "cascade",
+                },
+            }
+        ],
+        allowed_lenses=["T"],
+    )
+    assert any("derive_mode" in e for e in errors)
+
+
+def test_normalize_preserves_derive_mode():
+    fact = {
+        "id": "F-1",
+        "text": "x",
+        "lens_tags": ["T"],
+        "origin": {
+            "type": "derived",
+            "ref": ["F-7"],
+            "derive_mode": "Ceiling",
+        },
+    }
+    assert normalize_fact(fact)["origin"] == {
+        "type": "derived",
+        "ref": ["F-7"],
+        "derive_mode": "ceiling",
+    }
+
+
 def test_validate_accepts_carried_and_quarantined_derivation():
     assert (
         validate_facts(
