@@ -111,7 +111,7 @@ def _resolve_section_registry_path(
 def _compose_fetch_ids(
     out_dir: Path,
     args: argparse.Namespace,
-) -> tuple[str | None, str | None]:
+) -> tuple[str | None, str | None, Path | None]:
     cycle_id = (
         getattr(args, "compose_cycle_id", None)
         or getattr(args, "cycle_id", None)
@@ -120,16 +120,16 @@ def _compose_fetch_ids(
     cycle_id = str(cycle_id).strip() or None
     root_raw = getattr(args, "project_root", None)
     if not root_raw:
-        return None, cycle_id
+        return None, cycle_id, None
     try:
-        profile = resolve_revision_runtime_profile(
+        runtime = resolve_revision_runtime_profile(
             Path(out_dir),
             Path(root_raw).resolve(),
             cycle_id=cycle_id,
-        ).profile_id
+        )
     except (OSError, ValueError, FileNotFoundError):
-        return None, cycle_id
-    return profile, cycle_id
+        return None, cycle_id, None
+    return runtime.profile_id, cycle_id, runtime.profile_path
 
 
 def _try_fetch_section_registry(
@@ -147,7 +147,7 @@ def _try_fetch_section_registry(
     root = Path(root_raw).resolve()
     if not root.is_dir():
         return None
-    profile, cycle_id = _compose_fetch_ids(out_dir, args)
+    profile, cycle_id, profile_path = _compose_fetch_ids(out_dir, args)
     if not profile:
         return None
     _io = _SCRIPTS / "io"
@@ -166,6 +166,7 @@ def _try_fetch_section_registry(
             root,
             profile_id=profile,
             cycle_id=cycle_id,
+            profile_path=profile_path,
         )
         return materialize_section_registry(out_dir, content)
     except (FetchComposeFrameworkError, OSError, ValueError):

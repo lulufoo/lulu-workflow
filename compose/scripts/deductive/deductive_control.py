@@ -85,11 +85,11 @@ def _fail(message: str) -> int:
     return 1
 
 
-def _runtime_profile_id(args: argparse.Namespace) -> str:
+def _runtime_profile(args: argparse.Namespace):
     return resolve_revision_runtime_profile(
         Path(args.revision_dir),
         Path(args.project_root).resolve(),
-    ).profile_id
+    )
 
 
 def cmd_pending_init(args: argparse.Namespace) -> int:
@@ -231,12 +231,15 @@ def cmd_gate_check(args: argparse.Namespace) -> int:
 def _load_role_consume_rule_ids(
     project_root: Path,
     profile: str,
+    *,
+    profile_path: Path | None = None,
 ) -> list[str]:
     try:
         raw = fetch_compose_framework(
             "role-instance",
             project_root,
             profile_id=profile.strip() or None,
+            profile_path=profile_path,
         )
     except FetchComposeFrameworkError as exc:
         raise ValueError(f"role-instance unavailable: {exc}") from exc
@@ -258,11 +261,17 @@ def _load_role_consume_rule_ids(
     return [str(r["id"]).strip() for r in rules if isinstance(r, dict)]
 
 
-def _section_order(project_root: Path, profile: str) -> list[str]:
+def _section_order(
+    project_root: Path,
+    profile: str,
+    *,
+    profile_path: Path | None = None,
+) -> list[str]:
     raw = fetch_compose_framework(
         "section-registry",
         project_root,
         profile_id=profile.strip() or None,
+        profile_path=profile_path,
     )
     data = json.loads(raw)
     sections = data.get("sections") or {}
@@ -273,10 +282,11 @@ def _section_order(project_root: Path, profile: str) -> list[str]:
 
 def cmd_consume_policy_check(args: argparse.Namespace) -> int:
     try:
-        profile = _runtime_profile_id(args)
+        runtime = _runtime_profile(args)
         rule_ids = _load_role_consume_rule_ids(
             args.project_root.resolve(),
-            profile,
+            runtime.profile_id,
+            profile_path=runtime.profile_path,
         )
     except (ValueError, FileNotFoundError, OSError) as exc:
         return _fail(str(exc))
@@ -305,13 +315,18 @@ def cmd_disposition_patch_validate(args: argparse.Namespace) -> int:
 
     revision_dir = active_slice_dir(args.revision_dir.resolve())
     try:
-        profile = _runtime_profile_id(args)
+        runtime = _runtime_profile(args)
         facts = load_facts(facts_path(revision_dir))
         patch = _load_patch_file(args.patch_file.resolve())
-        allowed_lenses = _section_order(args.project_root.resolve(), profile)
+        allowed_lenses = _section_order(
+            args.project_root.resolve(),
+            runtime.profile_id,
+            profile_path=runtime.profile_path,
+        )
         allowed_rule_ids = _load_role_consume_rule_ids(
             args.project_root.resolve(),
-            profile,
+            runtime.profile_id,
+            profile_path=runtime.profile_path,
         )
     except (ValueError, FileNotFoundError, OSError, Exception) as exc:  # noqa: BLE001
         return _fail(str(exc))
@@ -339,13 +354,18 @@ def cmd_disposition_patch_apply(args: argparse.Namespace) -> int:
     revision_dir = active_slice_dir(args.revision_dir.resolve())
     path = facts_path(revision_dir)
     try:
-        profile = _runtime_profile_id(args)
+        runtime = _runtime_profile(args)
         facts = load_facts(path)
         patch = _load_patch_file(args.patch_file.resolve())
-        allowed_lenses = _section_order(args.project_root.resolve(), profile)
+        allowed_lenses = _section_order(
+            args.project_root.resolve(),
+            runtime.profile_id,
+            profile_path=runtime.profile_path,
+        )
         allowed_rule_ids = _load_role_consume_rule_ids(
             args.project_root.resolve(),
-            profile,
+            runtime.profile_id,
+            profile_path=runtime.profile_path,
         )
     except (ValueError, Exception) as exc:  # noqa: BLE001
         return _fail(str(exc))

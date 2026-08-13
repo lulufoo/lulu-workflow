@@ -138,12 +138,18 @@ def _validate_home_l_write(
     return errors
 
 
-def _section_order(project_root: Path, profile_id: str) -> list[str]:
+def _section_order(
+    project_root: Path,
+    profile_id: str,
+    *,
+    profile_path: Path | None = None,
+) -> list[str]:
     """Allowed lens keys from section-registry (``sections`` keys; archive-5.0)."""
     raw = fetch_compose_framework(
         "section-registry",
         project_root,
         profile_id=profile_id,
+        profile_path=profile_path,
     )
     data = json.loads(raw)
     sections = data.get("sections") or {}
@@ -157,6 +163,7 @@ def _consume_rule_ids(
     profile_id: str,
     *,
     required: bool,
+    profile_path: Path | None = None,
 ) -> list[str] | None:
     """Return consume_policy rule ids; None when absent and not required."""
     _SCOPE = _SCRIPTS / "schema" / "section" / "scope"
@@ -168,6 +175,7 @@ def _consume_rule_ids(
         "role-instance",
         project_root,
         profile_id=profile_id,
+        profile_path=profile_path,
     )
     data = json.loads(raw)
     if not isinstance(data, dict):
@@ -196,11 +204,11 @@ def _fail(message: str) -> int:
     return 1
 
 
-def _runtime_profile_id(revision_dir: Path, project_root: Path) -> str:
+def _runtime_profile(revision_dir: Path, project_root: Path):
     return resolve_revision_runtime_profile(
         Path(revision_dir),
         Path(project_root),
-    ).profile_id
+    )
 
 
 def cmd_write(args: argparse.Namespace) -> int:
@@ -248,8 +256,12 @@ def cmd_write(args: argparse.Namespace) -> int:
     if require_seed_origin and not intake_structure:
         return _fail("--require-seed-origin requires --intake-structure")
     try:
-        profile_id = _runtime_profile_id(rev, args.project_root.resolve())
-        allowed = _section_order(args.project_root.resolve(), profile_id)
+        runtime = _runtime_profile(rev, args.project_root.resolve())
+        allowed = _section_order(
+            args.project_root.resolve(),
+            runtime.profile_id,
+            profile_path=runtime.profile_path,
+        )
     except Exception as exc:  # noqa: BLE001 — surface fetch errors
         return _fail(f"section-registry unavailable: {exc}")
 
@@ -280,7 +292,7 @@ def cmd_write(args: argparse.Namespace) -> int:
                 rev,
                 target=target_l,
                 confirm=True,
-                profile_id=profile_id,
+                profile_id=runtime.profile_id,
             )
         raw_out = buf_out.getvalue().strip()
         if raw_out:
@@ -330,18 +342,23 @@ def cmd_validate(args: argparse.Namespace) -> int:
     if intake_structure and require_derivation:
         return _fail("--intake-structure conflicts with --require-derivation")
     try:
-        profile_id = _runtime_profile_id(
+        runtime = _runtime_profile(
             args.revision_dir.resolve(),
             args.project_root.resolve(),
         )
-        allowed = _section_order(args.project_root.resolve(), profile_id)
+        allowed = _section_order(
+            args.project_root.resolve(),
+            runtime.profile_id,
+            profile_path=runtime.profile_path,
+        )
     except Exception as exc:  # noqa: BLE001
         return _fail(f"section-registry unavailable: {exc}")
     if require_consume_policy or require_derivation:
         try:
             allowed_rule_ids = _consume_rule_ids(
                 args.project_root.resolve(),
-                profile_id,
+                runtime.profile_id,
+                profile_path=runtime.profile_path,
                 required=require_consume_policy,
             )
         except ValueError as exc:

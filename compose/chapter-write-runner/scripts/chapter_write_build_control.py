@@ -96,18 +96,21 @@ def _scope_instances(
     project_root: Path,
     profile: str,
     cycle_id: str,
+    profile_path: Path | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     role_path = resolve_fetched_instance_path(
         ROLE_SCHEME_KEY,
         project_root,
         profile_id=profile,
         cycle_id=cycle_id or None,
+        profile_path=profile_path,
     )
     domain_path = resolve_fetched_instance_path(
         DOMAIN_SCHEME_KEY,
         project_root,
         profile_id=profile,
         cycle_id=cycle_id or None,
+        profile_path=profile_path,
     )
     return (
         load_and_validate_role_instance(
@@ -182,12 +185,14 @@ def _registry_preamble(
     project_root: Path,
     profile: str,
     cycle_id: str,
+    profile_path: Path | None = None,
 ) -> str:
     raw = fetch_compose_framework(
         "section-registry",
         project_root,
         profile_id=profile,
         cycle_id=cycle_id or None,
+        profile_path=profile_path,
     )
     data = json.loads(raw)
     if not isinstance(data, dict):
@@ -226,23 +231,25 @@ def cmd_context(args: argparse.Namespace) -> int:
         root = Path(args.project_root).resolve()
         cycle_type = _cycle_type(args)
         cycle_id = str(args.cycle_id or "").strip()
-        profile = resolve_revision_runtime_profile(
+        runtime = resolve_revision_runtime_profile(
             Path(args.revision_dir),
             root,
             cycle_id=cycle_id or None,
-        ).profile_id
+        )
         role, domain = _scope_instances(
             cycle_type=cycle_type,
             project_root=root,
-            profile=profile,
+            profile=runtime.profile_id,
             cycle_id=cycle_id,
+            profile_path=runtime.profile_path,
         )
         display_name = _cycle_display_name(project_root=root, cycle_id=cycle_id)
         preamble = substitute_document_preamble(
             _registry_preamble(
                 project_root=root,
-                profile=profile,
+                profile=runtime.profile_id,
                 cycle_id=cycle_id,
+                profile_path=runtime.profile_path,
             ),
             cycle_id=cycle_id,
             display_name=display_name,

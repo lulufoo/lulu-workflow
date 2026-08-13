@@ -161,7 +161,7 @@ def test_lens_bundle_cli_stdout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
         encoding="utf-8",
     )
 
-    def _fake_fetch(kind: str, _root, profile_id=None, cycle_id=None):
+    def _fake_fetch(kind: str, _root, profile_id=None, cycle_id=None, **_kwargs):
         if kind == "section-registry":
             return json.dumps(
                 {
@@ -212,7 +212,7 @@ def test_lens_bundle_fails_missing_kw_heading(tmp_path: Path, monkeypatch: pytes
     rev = _revision(tmp_path)
     (rev / "_facts.json").write_text("[]", encoding="utf-8")
 
-    def _fake_fetch(kind: str, _root, profile_id=None, cycle_id=None):
+    def _fake_fetch(kind: str, _root, profile_id=None, cycle_id=None, **_kwargs):
         if kind == "section-registry":
             return json.dumps(
                 {

@@ -28,6 +28,7 @@ def resolve_fetched_instance_path(
     profile_id: str | None = None,
     cycle_id: str | None = None,
     conversation_id: str | None = None,
+    profile_path: Path | None = None,
 ) -> Path:
     """Return template cache path for a compose scheme role; fetch when cache is empty."""
     root = effective_project_root(project_root)
@@ -43,6 +44,7 @@ def resolve_fetched_instance_path(
         project_root=root,
         cycle_id=cycle_id,
         conversation_id=conversation_id,
+        profile_path=profile_path,
     )
     config_key = resolve_config_key(
         scheme_key,
@@ -50,6 +52,7 @@ def resolve_fetched_instance_path(
         project_root=root,
         cycle_id=cycle_id,
         conversation_id=conversation_id,
+        profile_path=profile_path,
     )
     cached = cache_path(root, detect_platform(), section, config_key)
     if cached.exists() and cached.read_text(encoding="utf-8").strip():
@@ -63,6 +66,7 @@ def resolve_fetched_instance_path(
         profile_id=pid,
         cycle_id=cycle_id,
         conversation_id=conversation_id,
+        profile_path=profile_path,
     )
     if not content.strip():
         raise FileNotFoundError(f"empty template for {scheme_key}")

@@ -33,11 +33,17 @@ from fetch_compose_framework import fetch_compose_framework  # noqa: E402
 from workflow_paths import resolve_revision_runtime_profile  # noqa: E402
 
 
-def section_order_for_profile(project_root: Path, profile_id: str) -> list[str]:
+def section_order_for_profile(
+    project_root: Path,
+    profile_id: str,
+    *,
+    profile_path: Path | None = None,
+) -> list[str]:
     raw = fetch_compose_framework(
         "section-registry",
         project_root,
         profile_id=profile_id,
+        profile_path=profile_path,
     )
     data = json.loads(raw)
     sections = data.get("sections") or {}
@@ -153,6 +159,8 @@ def _validate_narrative_arc_display_layer(
     project_root: Path,
     profile_id: str,
     facts: list[dict[str, Any]],
+    *,
+    profile_path: Path | None = None,
 ) -> str | None:
     """archive-5.0 path: ``_narrative-arc.json`` is chapter SoT."""
     from narrative_arc_schema import (
@@ -162,7 +170,13 @@ def _validate_narrative_arc_display_layer(
     )
 
     path = narrative_arc_path(revision_dir)
-    allowed = set(section_order_for_profile(project_root, profile_id))
+    allowed = set(
+        section_order_for_profile(
+            project_root,
+            profile_id,
+            profile_path=profile_path,
+        )
+    )
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
@@ -212,6 +226,8 @@ def validate_display_layer_artifacts(
     compose_doc: Path,
     project_root: Path,
     profile_id: str,
+    *,
+    profile_path: Path | None = None,
 ) -> str | None:
     """Return first error summary or None — narrative-arc Writing validation.
 
@@ -246,7 +262,12 @@ def validate_display_layer_artifacts(
     if ws_err:
         return f"4.W: {ws_err}"
     return _validate_narrative_arc_display_layer(
-        revision_dir, compose_doc, project_root, profile_id, facts,
+        revision_dir,
+        compose_doc,
+        project_root,
+        profile_id,
+        facts,
+        profile_path=profile_path,
     )
 
 
@@ -255,6 +276,8 @@ def validate_writing_artifacts(
     compose_doc: Path,
     project_root: Path,
     profile_id: str,
+    *,
+    profile_path: Path | None = None,
 ) -> str | None:
     """Return first error summary or None when all checks pass."""
     revision_dir = active_slice_dir(Path(revision_dir).resolve())
@@ -265,16 +288,20 @@ def validate_writing_artifacts(
         return f"compose document not found: {compose_doc}"
 
     return validate_display_layer_artifacts(
-        revision_dir, compose_doc, project_root, profile_id,
+        revision_dir,
+        compose_doc,
+        project_root,
+        profile_id,
+        profile_path=profile_path,
     )
 
 
 def cmd_validate(args: argparse.Namespace) -> int:
     try:
-        profile_id = resolve_revision_runtime_profile(
+        runtime = resolve_revision_runtime_profile(
             args.revision_dir.resolve(),
             args.project_root.resolve(),
-        ).profile_id
+        )
     except (ValueError, FileNotFoundError, OSError) as exc:
         print(f"错误：{exc}", file=sys.stderr)
         return 1
@@ -282,7 +309,8 @@ def cmd_validate(args: argparse.Namespace) -> int:
         args.revision_dir.resolve(),
         args.compose_doc.resolve(),
         args.project_root.resolve(),
-        profile_id,
+        runtime.profile_id,
+        profile_path=runtime.profile_path,
     )
     if error:
         print(f"错误：Writing 校验失败：{error}", file=sys.stderr)

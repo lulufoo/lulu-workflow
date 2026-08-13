@@ -52,14 +52,14 @@ def _seed_facts(rev: Path, facts: list[dict]) -> None:
 
 
 def _patch_graph(monkeypatch) -> None:
-    def stub_graph_and_maps(project_root, profile_id):  # noqa: ARG001
+    def stub_graph_and_maps(project_root, profile_id, **_kwargs):  # noqa: ARG001
         return _PLANISH_GRAPH, _ORDER, _PRESENCE
 
     monkeypatch.setattr(mod, "_graph_and_maps", stub_graph_and_maps)
     monkeypatch.setattr(
         mod,
         "_load_registry",
-        lambda root, pid: {"section_order": _ORDER},  # noqa: ARG005
+        lambda root, pid, **_k: {"section_order": _ORDER},  # noqa: ARG005
     )
 
 
@@ -139,7 +139,7 @@ def test_cli_append_and_audit_round_trip(tmp_path: Path, monkeypatch, capsys) ->
         },
     }
 
-    def stub_cascade(project_root, profile_id):  # noqa: ARG001
+    def stub_cascade(project_root, profile_id, **_kwargs):  # noqa: ARG001
         return (
             cascade_graph,
             ["AR", "SK", "T"],

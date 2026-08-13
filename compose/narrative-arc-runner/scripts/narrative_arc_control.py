@@ -49,11 +49,17 @@ from narrative_arc_schema import (  # noqa: E402
 from logs.workflow_log import emit_biz  # noqa: E402
 
 
-def _allowed_lenses(project_root: Path, profile_id: str) -> set[str]:
+def _allowed_lenses(
+    project_root: Path,
+    profile_id: str,
+    *,
+    profile_path: Path | None = None,
+) -> set[str]:
     raw = fetch_compose_framework(
         "section-registry",
         project_root,
         profile_id=profile_id,
+        profile_path=profile_path,
     )
     data = json.loads(raw)
     sections = data.get("sections") or {}
@@ -69,11 +75,15 @@ def _lenses_for_revision(args: argparse.Namespace) -> set[str]:
         if str(args.project_root or "").strip()
         else Path.cwd()
     )
-    profile_id = resolve_revision_runtime_profile(
+    runtime = resolve_revision_runtime_profile(
         Path(args.revision_dir),
         root,
-    ).profile_id
-    return _allowed_lenses(root, profile_id)
+    )
+    return _allowed_lenses(
+        root,
+        runtime.profile_id,
+        profile_path=runtime.profile_path,
+    )
 
 
 def _load_facts(revision_dir: Path) -> list[dict[str, Any]]:

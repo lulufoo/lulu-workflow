@@ -17,6 +17,7 @@ kernel_bootstrap.ensure_kernel_paths()
 
 from workflow_paths import (  # noqa: E402
     WORKFLOW_SCRIPTS,
+    load_profile_json,
     resolve_cycle_id,
     resolve_profile_id,
 )
@@ -46,8 +47,13 @@ def fetch_compose_framework(
     conversation_id: str | None = None,
     platform: Optional[str] = None,
     force: bool = False,
+    profile_path: Path | None = None,
 ) -> str:
-    pid = str(profile_id or "").strip()
+    path = Path(profile_path).resolve() if profile_path else None
+    if path is not None:
+        pid = str(load_profile_json(path).get("profile_id") or "").strip()
+    else:
+        pid = str(profile_id or "").strip()
     if not pid:
         raise FetchComposeFrameworkError("profile_id required")
     root = project_root.resolve()
@@ -57,6 +63,7 @@ def fetch_compose_framework(
             project_root=root,
             cycle_id=cycle_id,
             conversation_id=conversation_id,
+            profile_path=path,
         )
         config_key = resolve_config_key(
             role,
@@ -64,6 +71,7 @@ def fetch_compose_framework(
             project_root=root,
             cycle_id=cycle_id,
             conversation_id=conversation_id,
+            profile_path=path,
         )
         return fetch_template(
             section=section,

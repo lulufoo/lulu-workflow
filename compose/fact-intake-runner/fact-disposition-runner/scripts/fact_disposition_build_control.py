@@ -47,11 +47,11 @@ def cmd_context(args: argparse.Namespace) -> int:
     root = Path(args.project_root).resolve()
     cycle_id = (args.cycle_id or "").strip() or None
     try:
-        profile = resolve_revision_runtime_profile(
+        runtime = resolve_revision_runtime_profile(
             Path(args.revision_dir),
             root,
             cycle_id=cycle_id,
-        ).profile_id
+        )
     except (OSError, ValueError) as exc:
         return _fail(str(exc))
     slice_dir = active_slice_dir(Path(args.revision_dir).resolve())
@@ -72,14 +72,16 @@ def cmd_context(args: argparse.Namespace) -> int:
         reg_raw = fetch_compose_framework(
             "section-registry",
             root,
-            profile_id=profile,
+            profile_id=runtime.profile_id,
             cycle_id=cycle_id,
+            profile_path=runtime.profile_path,
         )
         role_raw = fetch_compose_framework(
             "role-instance",
             root,
-            profile_id=profile,
+            profile_id=runtime.profile_id,
             cycle_id=cycle_id,
+            profile_path=runtime.profile_path,
         )
         reg = json.loads(reg_raw)
         role = json.loads(role_raw)

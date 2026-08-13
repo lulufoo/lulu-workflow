@@ -159,3 +159,32 @@ class TestMainCli:
     def test_library_rejects_missing_profile_id(self, tmp_path: Path) -> None:
         with pytest.raises(FetchComposeFrameworkError, match="profile_id required"):
             fetch_compose_framework("section-registry", tmp_path)
+
+    def test_profile_path_wins_over_cycle_active_profile(self, tmp_path: Path) -> None:
+        from workflow_paths import compose_profile_path, write_active_profile
+
+        write_active_profile(tmp_path, "c1", "lulu-plan")
+        calls: list[tuple[str, str]] = []
+
+        def stub_fetch(section: str, key: str, project_root: Path, **kwargs) -> str:
+            calls.append((section, key))
+            assert project_root == tmp_path.resolve()
+            return f"# {section}.{key}\n"
+
+        import fetch_compose_framework as mod
+
+        original = mod.fetch_template
+        mod.fetch_template = stub_fetch
+        try:
+            content = fetch_compose_framework(
+                "section-registry",
+                tmp_path,
+                profile_id="lulu-plan",
+                cycle_id="c1",
+                profile_path=compose_profile_path("lulu-design"),
+            )
+        finally:
+            mod.fetch_template = original
+
+        assert content == "# lulu-design.tdt_section_registry_url\n"
+        assert calls == [("lulu-design", "tdt_section_registry_url")]

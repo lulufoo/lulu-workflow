@@ -376,14 +376,18 @@ def load_profile(
     project_root: Path | None = None,
     cycle_id: str | None = None,
     conversation_id: str | None = None,
+    profile_path: Path | None = None,
 ) -> dict[str, Any]:
     """Load compose profile JSON (session pointer or authoring path).
 
+    When ``profile_path`` is set, load that file and skip cycle lookup.
     When ``project_root`` is set and a cycle id is explicit or resolvable from
     env/active-context, the session ``.compose-profile-path`` is required (no
     fallback to authoring). Authoring path is used only when ``project_root`` is
     omitted, or when no cycle id can be resolved.
     """
+    if profile_path is not None:
+        return load_profile_json(Path(profile_path).resolve())
     pid = (profile_id or "").strip()
     if not pid:
         if project_root is None:

@@ -152,12 +152,14 @@ def _fetch_json_role(
     project_root: Path,
     profile: str,
     cycle_id: str,
+    profile_path: Path | None = None,
 ) -> dict[str, Any]:
     raw = fetch_compose_framework(
         role,
         project_root,
         profile_id=profile,
         cycle_id=cycle_id or None,
+        profile_path=profile_path,
     )
     data = json.loads(raw)
     if not isinstance(data, dict):
@@ -185,12 +187,14 @@ def _writing_cognition_for_lens(
     project_root: Path,
     profile: str,
     cycle_id: str,
+    profile_path: Path | None = None,
 ) -> dict[str, Any]:
     form = _fetch_json_role(
         "section-form-registry",
         project_root=project_root,
         profile=profile,
         cycle_id=cycle_id,
+        profile_path=profile_path,
     )
     section = _lens_section(form, lens, role="section-form-registry")
     presentation = section.get("presentation")
@@ -212,12 +216,14 @@ def _lens_intent_for_lens(
     project_root: Path,
     profile: str,
     cycle_id: str,
+    profile_path: Path | None = None,
 ) -> dict[str, str]:
     registry = _fetch_json_role(
         "section-registry",
         project_root=project_root,
         profile=profile,
         cycle_id=cycle_id,
+        profile_path=profile_path,
     )
     section = _lens_section(registry, lens, role="section-registry")
     intent = section.get("intent")
@@ -406,25 +412,27 @@ def cmd_begin(args: argparse.Namespace) -> int:
     root = Path(args.project_root).resolve()
     cycle_id = str(args.cycle_id or "").strip()
     try:
-        profile = resolve_revision_runtime_profile(
+        runtime = resolve_revision_runtime_profile(
             Path(args.revision_dir),
             root,
             cycle_id=cycle_id or None,
-        ).profile_id
+        )
     except (OSError, ValueError, FileNotFoundError) as exc:
         return _fail(str(exc))
     try:
         writing_cognition = _writing_cognition_for_lens(
             lens=str(unit["lens"]),
             project_root=root,
-            profile=profile,
+            profile=runtime.profile_id,
             cycle_id=cycle_id,
+            profile_path=runtime.profile_path,
         )
         lens_intent = _lens_intent_for_lens(
             lens=str(unit["lens"]),
             project_root=root,
-            profile=profile,
+            profile=runtime.profile_id,
             cycle_id=cycle_id,
+            profile_path=runtime.profile_path,
         )
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         return _fail(str(exc))

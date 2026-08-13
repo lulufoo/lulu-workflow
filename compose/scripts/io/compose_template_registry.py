@@ -48,12 +48,14 @@ def framework_section(
     project_root: Path | None = None,
     cycle_id: str | None = None,
     conversation_id: str | None = None,
+    profile_path: Path | None = None,
 ) -> str:
     profile = load_profile(
         profile_id or DEFAULT_COMPOSE_PROFILE_ID,
         project_root=project_root,
         cycle_id=cycle_id,
         conversation_id=conversation_id,
+        profile_path=profile_path,
     )
     section = profile.get("framework_section")
     if not section:
@@ -70,6 +72,7 @@ def resolve_config_key(
     project_root: Path | None = None,
     cycle_id: str | None = None,
     conversation_id: str | None = None,
+    profile_path: Path | None = None,
 ) -> str:
     if scheme_key not in scheme_template_keys():
         raise ComposeTemplateError(
@@ -81,6 +84,7 @@ def resolve_config_key(
         project_root=project_root,
         cycle_id=cycle_id,
         conversation_id=conversation_id,
+        profile_path=profile_path,
     )
     templates = profile.get("framework_templates") or {}
     config_key = templates.get(scheme_key)

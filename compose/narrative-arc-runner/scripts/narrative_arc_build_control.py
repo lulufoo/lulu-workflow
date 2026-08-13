@@ -81,12 +81,14 @@ def _registry(
     project_root: Path,
     profile: str,
     cycle_id: str,
+    profile_path: Path | None = None,
 ) -> tuple[dict[str, Any], set[str]]:
     raw = fetch_compose_framework(
         "section-registry",
         project_root,
         profile_id=profile,
         cycle_id=cycle_id or None,
+        profile_path=profile_path,
     )
     data = json.loads(raw)
     if not isinstance(data, dict):
@@ -111,18 +113,21 @@ def _scope_instances(
     project_root: Path,
     profile: str,
     cycle_id: str,
+    profile_path: Path | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     role_path = resolve_fetched_instance_path(
         ROLE_SCHEME_KEY,
         project_root,
         profile_id=profile,
         cycle_id=cycle_id or None,
+        profile_path=profile_path,
     )
     domain_path = resolve_fetched_instance_path(
         DOMAIN_SCHEME_KEY,
         project_root,
         profile_id=profile,
         cycle_id=cycle_id or None,
+        profile_path=profile_path,
     )
     return (
         load_and_validate_role_instance(
@@ -165,21 +170,23 @@ def cmd_context(args: argparse.Namespace) -> int:
     try:
         cycle_type = _cycle_type(args)
         cycle_id = str(args.cycle_id or "").strip()
-        profile = resolve_revision_runtime_profile(
+        runtime = resolve_revision_runtime_profile(
             Path(args.revision_dir),
             root,
             cycle_id=cycle_id or None,
-        ).profile_id
+        )
         role, domain = _scope_instances(
             cycle_type=cycle_type,
             project_root=root,
-            profile=profile,
+            profile=runtime.profile_id,
             cycle_id=cycle_id,
+            profile_path=runtime.profile_path,
         )
         registry, lenses = _registry(
             project_root=root,
-            profile=profile,
+            profile=runtime.profile_id,
             cycle_id=cycle_id,
+            profile_path=runtime.profile_path,
         )
         facts = _facts(args.revision_dir)
     except (OSError, ValueError, json.JSONDecodeError) as exc:
@@ -217,17 +224,18 @@ def cmd_validate_candidate(args: argparse.Namespace) -> int:
     try:
         root = Path(args.project_root).resolve()
         cycle_id = str(args.cycle_id or "").strip()
-        profile = resolve_revision_runtime_profile(
+        runtime = resolve_revision_runtime_profile(
             Path(args.revision_dir),
             root,
             cycle_id=cycle_id or None,
-        ).profile_id
+        )
         candidate = _candidate(args.file)
         facts = _facts(args.revision_dir)
         _, lenses = _registry(
             project_root=root,
-            profile=profile,
+            profile=runtime.profile_id,
             cycle_id=cycle_id,
+            profile_path=runtime.profile_path,
         )
         errors = validate_narrative_arc(
             candidate,

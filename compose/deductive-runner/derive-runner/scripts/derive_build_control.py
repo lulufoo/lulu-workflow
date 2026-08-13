@@ -79,7 +79,11 @@ def _require_intake_eval(revision_dir: Path) -> tuple[dict[str, Any] | None, str
 
 
 def _fetch_registry_and_kw(
-    root: Path, profile: str, cycle_id: str | None
+    root: Path,
+    profile: str,
+    cycle_id: str | None,
+    *,
+    profile_path: Path | None = None,
 ) -> tuple[dict[str, Any] | None, str | None, str | None]:
     try:
         reg_raw = fetch_compose_framework(
@@ -87,12 +91,14 @@ def _fetch_registry_and_kw(
             root,
             profile_id=profile,
             cycle_id=cycle_id,
+            profile_path=profile_path,
         )
         kw_raw = fetch_compose_framework(
             "section-kw-criteria",
             root,
             profile_id=profile,
             cycle_id=cycle_id,
+            profile_path=profile_path,
         )
         reg = json.loads(reg_raw)
     except (FetchComposeFrameworkError, OSError, ValueError, json.JSONDecodeError) as exc:
@@ -129,18 +135,23 @@ def cmd_context(args: argparse.Namespace) -> int:
     root = Path(args.project_root).resolve()
     cycle_id = (args.cycle_id or "").strip() or None
     try:
-        profile = resolve_revision_runtime_profile(
+        runtime = resolve_revision_runtime_profile(
             Path(args.revision_dir),
             root,
             cycle_id=cycle_id,
-        ).profile_id
+        )
     except (OSError, ValueError) as exc:
         return _fail(str(exc))
     data, err = _require_intake_eval(Path(args.revision_dir))
     if err:
         return _fail(err)
     assert data is not None
-    reg, kw_raw, ferr = _fetch_registry_and_kw(root, profile, cycle_id)
+    reg, kw_raw, ferr = _fetch_registry_and_kw(
+        root,
+        runtime.profile_id,
+        cycle_id,
+        profile_path=runtime.profile_path,
+    )
     if ferr:
         return _fail(ferr)
     assert reg is not None and kw_raw is not None
@@ -163,11 +174,11 @@ def cmd_lens_bundle(args: argparse.Namespace) -> int:
     root = Path(args.project_root).resolve()
     cycle_id = (args.cycle_id or "").strip() or None
     try:
-        profile = resolve_revision_runtime_profile(
+        runtime = resolve_revision_runtime_profile(
             Path(args.revision_dir),
             root,
             cycle_id=cycle_id,
-        ).profile_id
+        )
     except (OSError, ValueError) as exc:
         return _fail(str(exc))
     lens = args.lens.strip().upper()
@@ -176,7 +187,12 @@ def cmd_lens_bundle(args: argparse.Namespace) -> int:
     _data, err = _require_intake_eval(Path(args.revision_dir))
     if err:
         return _fail(err)
-    reg, kw_raw, ferr = _fetch_registry_and_kw(root, profile, cycle_id)
+    reg, kw_raw, ferr = _fetch_registry_and_kw(
+        root,
+        runtime.profile_id,
+        cycle_id,
+        profile_path=runtime.profile_path,
+    )
     if ferr:
         return _fail(ferr)
     assert reg is not None and kw_raw is not None

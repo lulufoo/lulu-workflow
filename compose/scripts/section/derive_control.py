@@ -109,18 +109,24 @@ def _fail(message: str) -> int:
     return 1
 
 
-def _runtime_profile_id(args: argparse.Namespace) -> str:
+def _runtime_profile(args: argparse.Namespace):
     return resolve_revision_runtime_profile(
         Path(args.revision_dir),
         Path(args.project_root).resolve(),
-    ).profile_id
+    )
 
 
-def _load_registry(project_root: Path, profile_id: str) -> dict[str, Any]:
+def _load_registry(
+    project_root: Path,
+    profile_id: str,
+    *,
+    profile_path: Path | None = None,
+) -> dict[str, Any]:
     raw = fetch_compose_framework(
         "section-registry",
         project_root,
         profile_id=profile_id,
+        profile_path=profile_path,
     )
     return normalize_section_registry(json.loads(raw))
 
@@ -128,8 +134,14 @@ def _load_registry(project_root: Path, profile_id: str) -> dict[str, Any]:
 def _graph_and_maps(
     project_root: Path,
     profile_id: str,
+    *,
+    profile_path: Path | None = None,
 ) -> tuple[dict[str, Any], list[str], dict[str, str]]:
-    registry = _load_registry(project_root, profile_id)
+    registry = _load_registry(
+        project_root,
+        profile_id,
+        profile_path=profile_path,
+    )
     graph = normalize_dependency_graph(dependency_graph_subset(registry))
     section_order = [str(k).upper() for k in registry.get("section_order") or []]
     presence_map = {
@@ -157,9 +169,11 @@ def cmd_edge_scan(args: argparse.Namespace) -> int:
     # archive-6.0 §5.6: default Pd materials = carried (+ legacy no-disposition).
     materials = pd_material_facts(facts)
     try:
+        runtime = _runtime_profile(args)
         graph, section_order, presence_map = _graph_and_maps(
             args.project_root.resolve(),
-            _runtime_profile_id(args),
+            runtime.profile_id,
+            profile_path=runtime.profile_path,
         )
     except Exception as exc:  # noqa: BLE001
         return _fail(f"section-registry unavailable: {exc}")
@@ -231,9 +245,11 @@ def cmd_audit(args: argparse.Namespace) -> int:
         )
 
     try:
+        runtime = _runtime_profile(args)
         graph, _order, _presence = _graph_and_maps(
             args.project_root.resolve(),
-            _runtime_profile_id(args),
+            runtime.profile_id,
+            profile_path=runtime.profile_path,
         )
     except Exception as exc:  # noqa: BLE001
         return _fail(f"section-registry unavailable: {exc}")
@@ -268,9 +284,11 @@ def cmd_append(args: argparse.Namespace) -> int:
 
     try:
         out = append_derived_facts(base, derived)
+        runtime = _runtime_profile(args)
         registry = _load_registry(
             args.project_root.resolve(),
-            _runtime_profile_id(args),
+            runtime.profile_id,
+            profile_path=runtime.profile_path,
         )
         allowed = [str(k).upper() for k in registry.get("section_order") or []]
         save_facts(facts_path(revision_dir), out, allowed_lenses=allowed)
@@ -294,9 +312,11 @@ def cmd_classify(args: argparse.Namespace) -> int:
     except ValueError as exc:
         return _fail(str(exc))
     try:
+        runtime = _runtime_profile(args)
         graph, section_order, presence_map = _graph_and_maps(
             args.project_root.resolve(),
-            _runtime_profile_id(args),
+            runtime.profile_id,
+            profile_path=runtime.profile_path,
         )
     except Exception as exc:  # noqa: BLE001
         return _fail(f"section-registry unavailable: {exc}")
