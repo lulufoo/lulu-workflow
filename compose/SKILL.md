@@ -22,13 +22,13 @@ Confirm `$CYCLE_ID`, then run `$START_COMPOSE` with the arguments supplied by th
 
 Run `$SESSION_INFO --view session`, then bind:
 
-| Name | JSON field | Use |
+| Cite | JSON field | Use |
 |------|------------|-----|
-| `pipeline.inductive` | `pipeline.inductive` | Split / Working route |
-| `pipeline.code_grounding` | `pipeline.code_grounding` | Writing / Deductive `$CODE_GROUNDING` |
-| `pipeline.post_writing_options` | `pipeline.post_writing_options` | Pause / FreeEdit options |
-| `demand_manifest` | `demand_manifest` | Delivery Rules producer atomization (`unit_rule`); skip when null |
-| `revision_dir` | `revision_dir` | revision-scoped tools and runner Input |
+| `$INDUCTIVE` | `pipeline.inductive` | Split / Working route |
+| `$CODE_GROUNDING` | `pipeline.code_grounding` | Writing / Deductive runner Input |
+| `$POST_WRITING_OPTIONS` | `pipeline.post_writing_options` | Pause / FreeEdit options |
+| `$DEMAND_MANIFEST` | `demand_manifest` | Delivery Rules producer atomization (`unit_rule`); skip when null |
+| `$REVISION_DIR` | `revision_dir` | revision-scoped tools and runner Input |
 
 ### Scope constraints
 
@@ -43,20 +43,20 @@ Before producer / evaluation work:
 
 **Session state:** `$START_COMPOSE` lands in **`Split`**. Topology lock is revision-level; single-req still locks an explicit **L1** tree. No `split-skip`.
 
-1. Use the bound `<revision_dir>`.
+1. Use `$REVISION_DIR`.
 2. `$MULTI_SLICE check-split-ready` — if ok, go to step 6.
 3. **Scope-package already converted** (primary `$SCOPE_REF` is `scope-package.json`): L topology was locked at start via convert — do **not** soft-split or hard-mirror. Non-zero check-split-ready → **Blocking**.
-4. **Deductive hard-mirror** (when `pipeline.inductive` is `false` and primary `$SCOPE_REF` is compose `*-package.json`, not `scope-package.json`):
+4. **Deductive hard-mirror** (when `$INDUCTIVE` is `false` and primary `$SCOPE_REF` is compose `*-package.json`, not `scope-package.json`):
    - Present the package `order` / titles (no cut edits). Human confirms once.
    - `$MULTI_SLICE lock-hard-mirror --package-path <absolute SCOPE_REF> --confirm`
    - Missing / invalid package / missing slice docs → **Blocking** (return upstream to re-deliver). Do **not** fall back to soft split-runner.
-5. **Inductive soft split** (only when `pipeline.inductive` is `true`) dispatch **split-runner** inline (not a subagent):
+5. **Inductive soft split** (only when `$INDUCTIVE` is `true`) dispatch **split-runner** inline (not a subagent):
 
 ```text
 Load {actual $SKILL_ROOT}/compose/split-runner/SKILL.md and follow its instructions in this conversation (interactive, human-driven — NOT a subagent).
 
 ## Input
-REVISION_DIR=<revision_dir>
+REVISION_DIR=$REVISION_DIR
 CYCLE_ID=$CYCLE_ID
 ```
 
@@ -100,7 +100,7 @@ Pointer maturity (`pending|done`): `intake` = Inductive|Deductive closed; `accep
 
 CLI: `$L_SLICE --help`. `$L_STEP --help` (per-L step machine).
 
-### Inductive (only when `pipeline.inductive` is `true`)
+### Inductive (only when `$INDUCTIVE` is `true`)
 
 **Hard gate:** `$L_STEP begin-inductive` requires session `Working` and locked topology.
 
@@ -124,7 +124,7 @@ Load {actual $SKILL_ROOT}/compose/inductive-runner/SKILL.md and follow its instr
 
 2. After G4 and G5 close, run `$L_STEP inductive-complete`. On failure → Blocking. `_facts.json` must exist (intake + discovery).
 
-### Deductive (only when `pipeline.inductive` is `false`)
+### Deductive (only when `$INDUCTIVE` is `false`)
 
 **Hard gate:** `$L_STEP begin-deductive` requires session `Working` and locked topology.
 
@@ -161,7 +161,7 @@ Load {actual $SKILL_ROOT}/compose/writing-runner/SKILL.md and follow its instruc
 
 2. Run `$L_STEP writing-complete`. On failure → Blocking.
 
-3. **Pause gate:** Present runner return summary and the compose document path. Offer **only** the bound `pipeline.post_writing_options` (do not invent options absent from the list).
+3. **Pause gate:** Present runner return summary and the compose document path. Offer **only** `$POST_WRITING_OPTIONS` (do not invent options absent from the list).
    - **freeedit** (when listed) → run `$L_STEP advance-to-freeedit`. On failure → Blocking. Proceed to **FreeEdit**.
    - **evaluate** (when listed) → **Evaluating** below (skip FreeEdit).
    - **deliver** (when listed) → only if every L is already accepted; else prefer **evaluate**. Then **Leave Working** / **ReadyForDelivery Rules**.
@@ -176,7 +176,7 @@ Entry: `advance-to-freeedit` success, or Fix L resume.
   - **Tier A (same revision, presentation):** edit `_body-{cid}.txt` (optionally sync existing fact `text` in `_facts.json`). Narrative-arc: visible group/leaf titles come from `_narrative-arc.json` via `$COMPOSE_DOC_CONTROL assemble-arc` (default `--lens-heading omit`). Writing cognition (What) is disclosed on the Writing/`chapter-write-runner` path via `$CHAPTER_WRITE_STATE begin.writing_cognition`; Fix-L body edits do **not** require re-running claim-current. Never use `_chapters.json` / `_lens-themes.json` / `_chapter-framework.json` / `_chapter-placement.json` (retired). Skip Inductive|Deductive / Writing.
   - **Tier B (new revision, structure/facts topology):** do **not** patch chapter set / `lens_tags` in place — run `$START_COMPOSE` for a new revision, re-run Inductive|Deductive then Writing. Leave Fix-L resume.
   - If the user insists on editing the assembled `.md`: warn that the next rebuild / new revision will overwrite; do not reverse-parse `.md` into JSON.
-- When user signals done, ask using remaining bound `pipeline.post_writing_options` that still apply (typically Evaluate; Deliver package only if listed and all L already accepted):
+- When user signals done, ask using remaining `$POST_WRITING_OPTIONS` that still apply (typically Evaluate; Deliver package only if listed and all L already accepted):
   - **Evaluate** → **Evaluating** below.
   - **Deliver** (only if listed) → **Leave Working** only when all L are accepted; otherwise Blocking / continue the L loop.
 
@@ -219,7 +219,7 @@ Stage-agenda items (design-external blockers/notes) live under the revision dir;
 
 ## Delivery Rules
 
-1. **Demand manifest (only when bound `demand_manifest` is present):** enumerate the delivered document's demands per `demand_manifest.unit_rule` (one unit per the described decision granularity), each carrying its target `section` + a one-line `summary`; then run `$SESSION_CONTROL write-demand-manifest --units-json '<JSON array>'`. This atomization is the semantic step **you** perform — the script only mints ids, validates, and writes `<prefix>-demands.json` beside the delivered doc for a downstream stage's `intent_baseline`. When bound `demand_manifest` is null: skip this step (the script no-ops if called anyway). On failure → Blocking.
+1. **Demand manifest (only when `$DEMAND_MANIFEST` is present):** enumerate the delivered document's demands per `$DEMAND_MANIFEST.unit_rule` (one unit per the described decision granularity), each carrying its target `section` + a one-line `summary`; then run `$SESSION_CONTROL write-demand-manifest --units-json '<JSON array>'`. This atomization is the semantic step **you** perform — the script only mints ids, validates, and writes `<prefix>-demands.json` beside the delivered doc for a downstream stage's `intent_baseline`. When `$DEMAND_MANIFEST` is null: skip this step (the script no-ops if called anyway). On failure → Blocking.
 
 2. Run `$SESSION_INFO --view stage-transitions`. On non-zero exit → Blocking. On success: prompt next stages when present.
 
@@ -230,8 +230,8 @@ Stage-agenda items (design-external blockers/notes) live under the revision dir;
 | Document | When |
 |----------|------|
 | `{SKILL_ROOT}/compose/split-runner/SKILL.md` | Split Rules — multi-subdesign split (intake → lock tree+rulers) |
-| `{SKILL_ROOT}/compose/inductive-runner/SKILL.md` | Working → Inductive — inductive-runner (`pipeline.inductive: true`) |
-| `{SKILL_ROOT}/compose/deductive-runner/SKILL.md` | Working → Deductive — deductive-runner (`pipeline.inductive: false`) |
+| `{SKILL_ROOT}/compose/inductive-runner/SKILL.md` | Working → Inductive — inductive-runner (`$INDUCTIVE: true`) |
+| `{SKILL_ROOT}/compose/deductive-runner/SKILL.md` | Working → Deductive — deductive-runner (`$INDUCTIVE: false`) |
 | `{SKILL_ROOT}/compose/fact-intake-runner/SKILL.md` | Deductive Step 1 / Inductive Fact Intake — shared doc→`_facts.json` |
 | `{SKILL_ROOT}/compose/narrative-arc-runner/SKILL.md` | Working → Inductive G2 / Writing — unified narrative-arc pipeline |
 | `{SKILL_ROOT}/compose/chapter-write-runner/SKILL.md` | Working → Writing Step 5 — chapter write + assemble |
@@ -267,10 +267,10 @@ Fetch compose framework templates on demand; **do not** read `workflow-config.js
 | `$COMPOSE_DOC_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/section/compose_doc_control.py" <subcommand> [args...]` |
 | `$NARRATIVE_ARC_CTL` | `python3 "$SKILL_ROOT/compose/narrative-arc-runner/scripts/narrative_arc_control.py"` |
 | `$CHAPTER_WRITE_STATE` | `python3 "$SKILL_ROOT/compose/scripts/section/chapter_write_state_control.py"` — chapter-write-runner claim-current gate: `sync` / `status` / `begin` (ticket + writing_cognition + lens_intent) / `complete` (current) |
-| `$WRITING_COMPOSE_VALIDATE` | `python3 "$SKILL_ROOT/compose/scripts/section/writing_compose_validation.py" validate --revision-dir <dir> --compose-doc <path> --project-root "$(pwd)"` |
+| `$WRITING_COMPOSE_VALIDATE` | `python3 "$SKILL_ROOT/compose/scripts/section/writing_compose_validation.py" validate --revision-dir "$REVISION_DIR" --compose-doc <path> --project-root "$(pwd)"` |
 | `$AGENDA_CTL` | `python3 "$SKILL_ROOT/agenda/scripts/agenda_control.py" <subcommand> --project-root "$(pwd)" --cycle-id "$CYCLE_ID" [args...]` — stage agenda; resolves `revision{N}` from session-state (see `$SKILL_ROOT/agenda/SKILL.md`) |
-| `$MULTI_SLICE` | `python3 "$SKILL_ROOT/compose/scripts/core/multi_slice_control.py" --revision-dir <revision_dir> --project-root "$(pwd)" <subcommand>` — see `--help` (`lock-hard-mirror` / `assemble-package` / …) |
-| `$L_SLICE` | `python3 "$SKILL_ROOT/compose/scripts/core/discussion_pointer_control.py" --revision-dir <revision_dir> --project-root "$(pwd)" <subcommand>` — `status` / `resume` / `ready` / `can-admit` / `can-enter-evaluate` / `switch` / `mark-done` / `accept-l` / `fix-l` / `demote-acceptance` / `seam-report` |
+| `$MULTI_SLICE` | `python3 "$SKILL_ROOT/compose/scripts/core/multi_slice_control.py" --revision-dir "$REVISION_DIR" --project-root "$(pwd)" <subcommand>` — see `--help` (`lock-hard-mirror` / `assemble-package` / …) |
+| `$L_SLICE` | `python3 "$SKILL_ROOT/compose/scripts/core/discussion_pointer_control.py" --revision-dir "$REVISION_DIR" --project-root "$(pwd)" <subcommand>` — `status` / `resume` / `ready` / `can-admit` / `can-enter-evaluate` / `switch` / `mark-done` / `accept-l` / `fix-l` / `demote-acceptance` / `seam-report` |
 | `$FACTS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/facts_control.py"` — `write` / `validate` / `status` (multi-L: `write` requires `home_l`; package bucket needs `--package-confirm`) |
 
 Subcommands and stdout: script module docstrings or `--help`.

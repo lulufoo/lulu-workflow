@@ -135,5 +135,5 @@ Writing complete.
   Write-state: <REVISION_DIR>/_chapter-write-state.json (status=complete)
   Scope cross-check: <SCOPE_REF_PATH>
   Draft status: Written
-  Next step: parent pause gate (bound `pipeline.post_writing_options`)
+  Next step: parent pause gate (`$POST_WRITING_OPTIONS`)
 ```
