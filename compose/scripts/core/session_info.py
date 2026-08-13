@@ -147,6 +147,9 @@ def session_snapshot(
     post_writing_options = raw_pipeline.get("post_writing_options") or []
     if not isinstance(post_writing_options, list):
         post_writing_options = []
+    demand_manifest = profile.get("demand_manifest")
+    if not isinstance(demand_manifest, dict) or not demand_manifest:
+        demand_manifest = None
     return {
         "view": _VIEW_SESSION,
         "profile_id": profile_id,
@@ -159,6 +162,7 @@ def session_snapshot(
                 if str(item).strip()
             ],
         },
+        "demand_manifest": demand_manifest,
         "revision_dir": ws_path.parent.resolve().as_posix(),
         "active_doc": load_active_doc_for_profile(cycle_id, project_root, profile_id),
         "workflow_state": {

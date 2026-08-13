@@ -27,6 +27,7 @@ Run `$SESSION_INFO --view session`, then bind:
 | `pipeline.inductive` | `pipeline.inductive` | Split / Working route |
 | `pipeline.code_grounding` | `pipeline.code_grounding` | Writing / Deductive `$CODE_GROUNDING` |
 | `pipeline.post_writing_options` | `pipeline.post_writing_options` | Pause / FreeEdit options |
+| `demand_manifest` | `demand_manifest` | Delivery Rules producer atomization (`unit_rule`); skip when null |
 | `revision_dir` | `revision_dir` | revision-scoped tools and runner Input |
 
 ### Scope constraints
@@ -218,7 +219,7 @@ Stage-agenda items (design-external blockers/notes) live under the revision dir;
 
 ## Delivery Rules
 
-1. **Demand manifest (producer profiles only — those whose `compose-profile.json` declares a `demand_manifest` block):** enumerate the delivered document's demands per the block's `unit_rule` (one unit per the described decision granularity), each carrying its target `section` + a one-line `summary`; then run `$SESSION_CONTROL write-demand-manifest --units-json '<JSON array>'`. This atomization is the semantic step **you** perform — the script only mints ids, validates, and writes `<prefix>-demands.json` beside the delivered doc for a downstream stage's `intent_baseline`. Profiles without the block: skip this step (the script no-ops if called anyway). On failure → Blocking.
+1. **Demand manifest (only when bound `demand_manifest` is present):** enumerate the delivered document's demands per `demand_manifest.unit_rule` (one unit per the described decision granularity), each carrying its target `section` + a one-line `summary`; then run `$SESSION_CONTROL write-demand-manifest --units-json '<JSON array>'`. This atomization is the semantic step **you** perform — the script only mints ids, validates, and writes `<prefix>-demands.json` beside the delivered doc for a downstream stage's `intent_baseline`. When bound `demand_manifest` is null: skip this step (the script no-ops if called anyway). On failure → Blocking.
 
 2. Run `$SESSION_INFO --view stage-transitions`. On non-zero exit → Blocking. On success: prompt next stages when present.
 

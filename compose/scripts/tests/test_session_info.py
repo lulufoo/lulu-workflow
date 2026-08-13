@@ -97,6 +97,7 @@ class TestSessionSnapshot:
         assert payload["pipeline"]["inductive"] is False
         assert payload["pipeline"]["code_grounding"] is True
         assert payload["pipeline"]["post_writing_options"] == ["freeedit", "evaluate"]
+        assert payload["demand_manifest"] is None
         assert payload["revision_dir"] == (
             project_root
             / ".cache"

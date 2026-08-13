@@ -41,6 +41,7 @@ def test_engine_skill_contains_full_orchestration() -> None:
     assert "pipeline.inductive" in text
     assert "pipeline.code_grounding" in text
     assert "pipeline.post_writing_options" in text
+    assert "demand_manifest" in text
     assert "$L_STEP" in text
     assert "$DRAFT_CONTROL" not in text
     assert "inductive" in text.lower()
