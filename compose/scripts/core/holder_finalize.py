@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Holder finalize handshake after Compose Start.
 
-Verifies start_id + active_doc + profile_digest, then commits cycle-visible
-side effects and sets session-state holder_finalized=true.
+Called by start.py after a revision is published, or when retrying an
+unfinished publish. Commits cycle-visible side effects and sets
+holder_finalized=true. Not a SKILL step.
 
 Design rationale:
 docs/domain/archive/compose/archive-33.0/compose-outer-shell-management-subdesign.md
@@ -35,8 +36,8 @@ from workflow_sessions import current_effective_delivered, get_sessions  # noqa:
 from revision_lock import LockTimeout, cycle_lock, revision_lock, session_lock  # noqa: E402
 from session_state_schema import load_session_state, save_session_state  # noqa: E402
 from workflow_common import CACHE_DIR, detect_cycle_type, write_active_context  # noqa: E402
-from workflow_paths import write_active_profile  # noqa: E402
-from workflow_profile_paths import session_state_path, state_path  # noqa: E402
+from workflow_paths import load_profile_json, write_active_profile  # noqa: E402
+from workflow_profile_paths import session_state_path  # noqa: E402
 from workflow_state_schema import load_workflow_state, mark_historical  # noqa: E402
 
 
@@ -69,15 +70,58 @@ def _mark_latest_delivered_historical(cycle_id: str, stage: str, cache_dir: Path
         mark_historical(latest.state_path)
 
 
+def _profile_id_from_state(root: Path, state: dict[str, Any]) -> str:
+    raw = Path(str(state["profile_path"]))
+    profile_file = raw if raw.is_absolute() else (root / raw)
+    try:
+        profile = load_profile_json(profile_file)
+    except (OSError, ValueError) as exc:
+        raise ValueError(f"runtime profile unreadable: {exc}") from exc
+    profile_id = str(profile.get("profile_id", "")).strip()
+    if not profile_id:
+        raise ValueError("runtime profile missing profile_id")
+    return profile_id
+
+
+def _resolve_finalize_target(
+    root: Path,
+    cycle_id: str,
+    profile_id: str | None = None,
+) -> tuple[Path, str]:
+    if profile_id:
+        ss_path = (root / session_state_path(cycle_id, profile_id, root)).resolve()
+        state = load_session_state(ss_path)
+        resolved = _profile_id_from_state(root, state)
+        if resolved != profile_id:
+            raise ValueError(
+                f"runtime profile_id {resolved!r} != {profile_id!r}"
+            )
+        return ss_path, resolved
+    cache = root / CACHE_DIR / cycle_id
+    if not cache.is_dir():
+        raise ValueError("no compose session cache for cycle")
+    pending: list[Path] = []
+    for path in cache.rglob("session-state.md"):
+        try:
+            state = load_session_state(path)
+        except ValueError:
+            continue
+        if state["holder_finalized"] is False:
+            pending.append(path)
+    if not pending:
+        raise ValueError("no pending holder finalize")
+    if len(pending) > 1:
+        raise ValueError("ambiguous pending holder finalize")
+    ss_path = pending[0]
+    return ss_path, _profile_id_from_state(root, load_session_state(ss_path))
+
+
 def holder_finalize(
     *,
     cycle_id: str,
     project_root: Path,
-    profile_id: str,
-    start_id: str,
-    active_doc: int,
-    profile_digest: str,
     conversation_id: str = "",
+    profile_id: str = "",
     confirm: bool,
 ) -> dict[str, Any]:
     if not confirm:
@@ -86,31 +130,39 @@ def holder_finalize(
             "holder-finalize requires --confirm",
         )
     root = project_root.resolve()
-    ss_path = root / session_state_path(cycle_id, profile_id, root)
-    session_dir = ss_path.parent
-    revision_dir = root / state_path(cycle_id, active_doc, profile_id, root)
-    revision_dir = revision_dir.parent
     cache_dir = root / CACHE_DIR
     cycle_cache = cache_dir / cycle_id
     cycle_type = detect_cycle_type(cycle_id)
 
     try:
         with cycle_lock(cycle_cache, exclusive=True):
+            try:
+                ss_path, profile_id = _resolve_finalize_target(
+                    root,
+                    cycle_id,
+                    profile_id.strip() or None,
+                )
+            except ValueError as exc:
+                return _failure("stale_holder_finalize", str(exc))
+            session_dir = ss_path.parent
             with session_lock(session_dir, exclusive=True):
+                try:
+                    state = load_session_state(ss_path)
+                except ValueError as exc:
+                    return _failure("stale_holder_finalize", str(exc))
+                if state["holder_finalized"] is True:
+                    return {
+                        "ok": True,
+                        "command": "holder-finalize",
+                        "holder_finalized": True,
+                        "transitioned": False,
+                        "active_doc": int(state["active_doc"]),
+                        "start_id": str(state["start_id"]),
+                    }
+                revision_dir = (
+                    session_dir / f"revision{int(state['active_doc'])}"
+                ).resolve()
                 with revision_lock(revision_dir, exclusive=False):
-                    try:
-                        state = load_session_state(ss_path)
-                    except ValueError as exc:
-                        return _failure("stale_holder_finalize", str(exc))
-                    if (
-                        str(state["start_id"]) != start_id
-                        or int(state["active_doc"]) != int(active_doc)
-                        or str(state["profile_digest"]) != profile_digest
-                    ):
-                        return _failure(
-                            "stale_holder_finalize",
-                            "start_id/active_doc/profile_digest do not match session-state",
-                        )
                     ws_path = revision_dir / "workflow-state.md"
                     try:
                         workflow = load_workflow_state(ws_path)
@@ -127,15 +179,6 @@ def holder_finalize(
                             "finalize_invalid_state",
                             f"workflow-state is {current!r}, expected Split",
                         )
-                    if state["holder_finalized"] is True:
-                        return {
-                            "ok": True,
-                            "command": "holder-finalize",
-                            "holder_finalized": True,
-                            "transitioned": False,
-                            "active_doc": active_doc,
-                            "start_id": start_id,
-                        }
                     snapshot = dict(state)
             remove_delivered_ref(cycle_id, root, profile_id)
             if current_effective_delivered(cycle_id, profile_id, cache_dir):
@@ -178,9 +221,9 @@ def holder_finalize(
                     except ValueError as exc:
                         return _failure("stale_holder_finalize", str(exc))
                     if (
-                        str(state["start_id"]) != start_id
-                        or int(state["active_doc"]) != int(active_doc)
-                        or str(state["profile_digest"]) != profile_digest
+                        str(state["start_id"]) != str(snapshot["start_id"])
+                        or int(state["active_doc"]) != int(snapshot["active_doc"])
+                        or str(state["profile_digest"]) != str(snapshot["profile_digest"])
                     ):
                         return _failure(
                             "stale_holder_finalize",
@@ -209,8 +252,8 @@ def holder_finalize(
         "command": "holder-finalize",
         "holder_finalized": True,
         "transitioned": True,
-        "active_doc": active_doc,
-        "start_id": start_id,
+        "active_doc": int(snapshot["active_doc"]),
+        "start_id": str(snapshot["start_id"]),
     }
 
 
@@ -218,10 +261,6 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Finalize holder handshake after Compose Start")
     parser.add_argument("--cycle-id", required=True)
     parser.add_argument("--project-root", type=Path, default=Path("."))
-    parser.add_argument("--profile-id", required=True)
-    parser.add_argument("--start-id", required=True)
-    parser.add_argument("--active-doc", type=int, required=True)
-    parser.add_argument("--profile-digest", required=True)
     parser.add_argument("--conversation-id", default="")
     parser.add_argument("--confirm", action="store_true")
     args = parser.parse_args(argv)
@@ -229,10 +268,6 @@ def main(argv: list[str] | None = None) -> int:
         holder_finalize(
             cycle_id=args.cycle_id.strip(),
             project_root=args.project_root.resolve(),
-            profile_id=args.profile_id.strip(),
-            start_id=args.start_id.strip(),
-            active_doc=args.active_doc,
-            profile_digest=args.profile_digest.strip(),
             conversation_id=args.conversation_id,
             confirm=args.confirm,
         )

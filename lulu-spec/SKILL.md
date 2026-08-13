@@ -25,7 +25,7 @@ Do NOT proceed until you have read `../_runtime.md` and loaded:
 
 <HARD-GATE name="Compose engine">
 Do NOT proceed until you have read `{SKILL_ROOT}/compose/SKILL.md` in full.
-Continue from its `## Start`.
+Continue from its `## Entry`.
 </HARD-GATE>
 
 ## Compose Inputs

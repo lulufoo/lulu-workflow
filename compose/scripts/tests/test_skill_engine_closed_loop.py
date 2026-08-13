@@ -26,17 +26,29 @@ def test_engine_skill_contains_full_orchestration() -> None:
     for heading in (
         "## Inputs",
         "## Script Macros",
-        "## Outer spine",
-        "## Start",
-        "## Bind context",
+        "## Lifecycle",
+        "## Entry",
+        "### Start",
+        "### Bind context",
         "## Split",
         "## Working",
+        "### Principles",
+        "### Current focus",
+        "### Move forward",
+        "### Revise prefix",
+        "### Observe",
+        "### Exit",
         "## ReadyForDelivery",
         "## Delivery",
     ):
         assert heading in text, f"engine SKILL missing {heading!r}"
 
+    assert "stateDiagram-v2" in text
+    working = text.split("## Working", 1)[1].split("## ReadyForDelivery", 1)[0]
+    assert "#### " not in working
+
     for heading in (
+        "## Script Macros",
         "## Producer",
         "## Writing",
         "## FreeEdit",
@@ -55,10 +67,9 @@ def test_engine_skill_contains_full_orchestration() -> None:
     assert "begin-inductive" not in text
     assert "assemble-package" not in text
     assert "$SCOPE_PACKAGE" in text
-    assert "$L_STEP" in text
+    assert "$L_STEP" not in text
     assert "$RESOLVE_ROLE" not in text
     assert "$RESOLVE_DOMAIN" not in text
-    assert "$L_STEP" in text
     assert "$L_SHELL" in text
     assert "$DRAFT_CONTROL" not in text
     assert "leave-split" in text
@@ -118,10 +129,12 @@ def test_eval_skill_drops_stage_entry_table() -> None:
 
 
 def test_eval_control_macro_is_generic_and_holder_free() -> None:
-    """Item 5: the engine defines adapter-aware Eval control; holders don't."""
-    engine_text = _ENGINE_SKILL.read_text(encoding="utf-8")
-    assert '`$EVAL_CONTROL`' in engine_text
-    assert "compose/scripts/core/compose_eval_control.py" in engine_text
+    """Item 5: L-execution defines adapter-aware Eval control; holders don't."""
+    inner_text = (
+        _WORKFLOW_ROOT / "compose" / "references" / "l-execution.md"
+    ).read_text(encoding="utf-8")
+    assert "`$EVAL_CONTROL`" in inner_text
+    assert "compose/scripts/core/compose_eval_control.py" in inner_text
 
     for stage in _STAGES:
         holder_text = (_WORKFLOW_ROOT / stage / "SKILL.md").read_text(encoding="utf-8")

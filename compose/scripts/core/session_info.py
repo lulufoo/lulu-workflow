@@ -168,12 +168,12 @@ def session_snapshot(
     demand_manifest = profile.get("demand_manifest")
     if not isinstance(demand_manifest, dict) or not demand_manifest:
         demand_manifest = None
-    l_shell: dict[str, Any] = {}
+    l_view: dict[str, Any] = {}
     ledger_path = l_ledger_path(ws_path.parent)
     if ledger_path.is_file():
         shell = l_shell_status(ws_path.parent, str(state["current_state"]))
         if shell.get("ok"):
-            l_shell = {
+            l_view = {
                 "ledger_fingerprint": shell.get("ledger_fingerprint"),
                 "order": shell.get("order"),
                 "focus": shell.get("focus"),
@@ -207,7 +207,7 @@ def session_snapshot(
             "evaluate_round": state.get("evaluate_round", "0"),
             "delivered_refs": [r.to_dict() for r in frozen_delivered_refs(ws_path.parent)],
         },
-        "l_shell": l_shell,
+        "l_view": l_view,
         "compose_doc": compose_doc,
     }
 

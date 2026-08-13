@@ -1,6 +1,31 @@
-# L execution
+# l-execution
 
 Run the current focus L from its present state to `Completed`. Do not change focus, freeze other L, or enter ReadyForDelivery / Deliver.
+
+## Script Macros
+
+Macro expansion: `{SKILL_ROOT}/_runtime.md` § Script Macros → Macro expansion. Non-zero exit → Blocking: stop, report (stderr / exit code), wait for user direction.
+
+Outer macros (`$SESSION_INFO`, `$L_SHELL`) remain as defined in the compose SKILL.
+
+Fetch compose framework templates on demand. Scheme roles: `schemes/compose-template-scheme.json` (mapped per profile in `compose-profile.json` → `framework_templates`).
+
+| Macro | Command |
+|-------|---------|
+| `$L_STEP` | `python3 "$SKILL_ROOT/compose/scripts/section/l_step_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
+| `$INDUCTIVE_FACTS_PROJ` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_facts_projection.py"` |
+| `$FETCH_COMPOSE` | `python3 "$SKILL_ROOT/compose/scripts/io/fetch_compose_framework.py" --role <role> --project-root "$(pwd)" --cycle-id "$CYCLE_ID"` |
+| `$EVAL_HANDOFF` | `python3 "$SKILL_ROOT/compose/scripts/core/eval_handoff_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
+| `$EVAL_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/core/compose_eval_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" -- <subcommand>` |
+| `$FACT_INTAKE_EVAL_CTL` | `python3 "$SKILL_ROOT/compose/fact-intake-runner/fact-intake-eval/scripts/fact_intake_eval_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" -- <subcommand>` |
+| `$ATOMIZE_EVAL_CONTROL` | Same command as `$FACT_INTAKE_EVAL_CTL` (retired name; prefer `$FACT_INTAKE_EVAL_CTL`) |
+| `$COMPOSE_DOC_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/section/compose_doc_control.py" <subcommand> [args...]` |
+| `$NARRATIVE_ARC_CTL` | `python3 "$SKILL_ROOT/compose/narrative-arc-runner/scripts/narrative_arc_control.py"` |
+| `$CHAPTER_WRITE_STATE` | `python3 "$SKILL_ROOT/compose/scripts/section/chapter_write_state_control.py"` |
+| `$WRITING_COMPOSE_VALIDATE` | `python3 "$SKILL_ROOT/compose/scripts/section/writing_compose_validation.py" validate --revision-dir "$REVISION_DIR" --compose-doc <path> --project-root "$(pwd)"` |
+| `$FACTS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/facts_control.py"` |
+
+Subcommands and stdout: script module docstrings or `--help`.
 
 ## Bind
 
@@ -10,10 +35,10 @@ Run `$SESSION_INFO --view session` and `$L_STEP status`. Bind:
 |------|------------|-----|
 | `$INDUCTIVE` | `pipeline.inductive` | Producer route |
 | `$CODE_GROUNDING` | `pipeline.code_grounding` | Writing / Deductive runner Input |
-| `$POST_WRITING_OPTIONS` | `pipeline.post_writing_options` | Pause after Writing (no `deliver`) |
-| `$ROLE_PROMPT` | `role.role_prompt` | Scope Constraints persona |
+| `$POST_WRITING_OPTIONS` | `pipeline.post_writing_options` | Pause after Writing |
+| `$ROLE_PROMPT` | `role.role_prompt` | Scope persona |
 
-Follow `$L_STEP status` → `next_actions`. Subcommands: `$L_STEP --help`.
+Follow `$L_STEP status` → `next_actions`.
 
 ## Spine
 
@@ -30,14 +55,14 @@ FreeEdit
 Evaluating
   → accept → Completed | fix → FreeEdit | re-evaluate
 Completed
-  → reopen → FreeEdit             (outer reopen-current only)
+  → reopen → FreeEdit             (outer Reopen only)
 ```
 
-Evaluating is required. After `Completed`, return to the outer Working loop. Do not call `$L_SHELL advance`.
+Evaluating is required. After `Completed`, return to ## Working. Do not call `$L_SHELL advance`.
 
-## Scope constraints
+## Scope
 
-Treat `$ROLE_PROMPT` as this L's Scope Constraints.
+Treat `$ROLE_PROMPT` as this L's scope constraints.
 
 ## Producer
 
@@ -54,11 +79,11 @@ Treat `$ROLE_PROMPT` as this L's Scope Constraints.
 
 ## FreeEdit
 
-User-driven edits to the generated compose document. Entry: writing pause, outer backtrack, Fix, or reopen. Document remains valid. When done, follow remaining `$POST_WRITING_OPTIONS` or Reverse.
+User-driven edits to the generated compose document. Entry: writing pause, outer Backtrack, Fix, or Reopen. Document remains valid. When done, follow remaining `$POST_WRITING_OPTIONS` or Reverse.
 
 ## Reverse
 
-- `$L_STEP reverse-to-producer` keeps `_facts.json`; producer must run again; then Writing regenerates the document.
+- `$L_STEP reverse-to-producer` keeps existing facts; producer must run again; then Writing regenerates the document.
 - `$L_STEP reverse-to-writing` returns to Writing and regenerates the document from facts.
 
 Then continue at **Producer** or **Writing**.
@@ -67,9 +92,9 @@ Then continue at **Producer** or **Writing**.
 
 1. Run `$L_STEP enter-evaluating`. On failure → Blocking.
 2. Run `$EVAL_HANDOFF request-handoff`. On failure → Blocking.
-3. Load `{$SKILL_ROOT}/eval/SKILL.md` and follow it.
+3. Load `{SKILL_ROOT}/eval/SKILL.md` and follow it.
 4. On Eval exit:
-   - Accept → `$L_STEP accept --confirm`. Return to the outer loop.
+   - Accept → `$L_STEP accept --confirm`. Return to ## Working.
    - Fix → `$L_STEP fix --confirm`. Continue **FreeEdit**.
    - Re-evaluate → `$L_STEP re-evaluate --confirm`, then `$EVAL_HANDOFF request-handoff` again.
 
@@ -81,7 +106,7 @@ When outer `next_actions` includes `reopen-current`: `$L_STEP reopen --confirm`,
 
 On `Completed`, stop this reference. Do not advance, unfreeze, or deliver.
 
-## Reference documents
+## Reference
 
 | Document | When |
 |----------|------|
@@ -95,4 +120,4 @@ On `Completed`, stop this reference. Do not advance, unfreeze, or deliver.
 | `{SKILL_ROOT}/compose/inductive-runner/g4-recompose-runner/SKILL.md` | Inductive runner internal |
 | `{SKILL_ROOT}/compose/inductive-runner/g5-provenance-runner/SKILL.md` | Inductive runner internal |
 | `{SKILL_ROOT}/compose/writing-runner/SKILL.md` | Writing |
-| `{$SKILL_ROOT}/eval/SKILL.md` | Evaluating |
+| `{SKILL_ROOT}/eval/SKILL.md` | Evaluating |

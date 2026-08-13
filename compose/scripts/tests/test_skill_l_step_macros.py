@@ -2,8 +2,9 @@
 """Tests for stage SKILL draft-control macro migration.
 
 Since the compose SKILL closed-loop refactor, `$L_STEP` is defined
-once in the compose engine SKILL; holders no longer redefine it locally (see
-docs/domain/ssot/compose/business-ssot/compose-business-ssot.md §7; this test is the executable check).
+once in `compose/references/l-execution.md`; holders no longer redefine it
+locally (see docs/domain/ssot/compose/business-ssot/compose-business-ssot.md §7;
+this test is the executable check).
 """
 
 from __future__ import annotations
@@ -12,14 +13,18 @@ from pathlib import Path
 
 _WORKFLOW_ROOT = Path(__file__).resolve().parents[3]
 _ENGINE_SKILL = _WORKFLOW_ROOT / "compose" / "SKILL.md"
+_INNER = _WORKFLOW_ROOT / "compose" / "references" / "l-execution.md"
 
 
 def test_engine_defines_generic_l_step() -> None:
+    inner_text = _INNER.read_text(encoding="utf-8")
     engine_text = _ENGINE_SKILL.read_text(encoding="utf-8")
     assert (
         'python3 "$SKILL_ROOT/compose/scripts/section/l_step_control.py" '
         '--cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>'
-    ) in engine_text
+    ) in inner_text
+    assert "$L_STEP" not in engine_text
+    assert "--profile <profile_id>" not in inner_text
     assert "--profile <profile_id>" not in engine_text
 
 

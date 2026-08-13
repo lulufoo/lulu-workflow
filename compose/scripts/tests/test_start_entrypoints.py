@@ -16,6 +16,16 @@ _WORKFLOW_ROOT = Path(__file__).resolve().parents[3]
 _ENGINE_SKILL = _WORKFLOW_ROOT / "compose" / "SKILL.md"
 
 
+def test_start_does_not_expose_holder_finalize() -> None:
+    engine_text = _ENGINE_SKILL.read_text(encoding="utf-8")
+    start = engine_text.split("### Start", 1)[1].split("### Bind context", 1)[0]
+    assert "$HOLDER_FINALIZE" not in engine_text
+    assert "holder_finalize.py" not in engine_text
+    assert "holder_finalized" not in engine_text
+    assert "Bind `" not in start
+    assert "$START_COMPOSE" in start
+
+
 def test_engine_registers_start_only_in_macro_table() -> None:
     engine_text = _ENGINE_SKILL.read_text(encoding="utf-8")
     orchestration, macro_table = engine_text.split("## Script Macros", maxsplit=1)
@@ -42,7 +52,7 @@ def test_static_profile_holders_bind_compose_inputs() -> None:
         assert "--profile-path" not in text
         assert f"$SKILL_DIR/scripts/{stage}_start.py" not in text
         assert 'python3 "$SKILL_ROOT/compose/scripts/core/start.py"' not in text
-        assert "## Start" in text
+        assert "## Entry" in text
 
 
 def test_stage_start_wrappers_removed() -> None:
@@ -71,7 +81,7 @@ def test_plan_skill_hands_stage_inputs_to_session_bootstrap() -> None:
     assert '--project-root "$PROJECT_ROOT"' in text
     assert '$(pwd)' not in text
     assert "$START_COMPOSE" not in text
-    assert "## Start" in text
+    assert "## Entry" in text
     assert "$PROFILE_PATH" in text
     assert "$SCOPE_PACKAGE" in text
     assert "--profile-path" not in text

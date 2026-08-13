@@ -2,6 +2,7 @@
 """Staged Compose Start: publish a new revision from holder-provided inputs.
 
 Requires ``--profile-path`` and ``--scope-package``. Does not load holder adapters.
+After publish, commits cycle-visible stage pointers and holder_finalized=true.
 
 Design rationale:
 docs/domain/archive/compose/archive-33.0/compose-outer-shell-management-subdesign.md
@@ -32,6 +33,7 @@ sys.path.insert(0, str(WORKFLOW_SCRIPTS))
 from start_gate import check_gate, get_topic_doc  # noqa: E402
 
 from delivered_refs_schema import DeliveredRef, load_delivered_refs_file  # noqa: E402
+from holder_finalize import holder_finalize  # noqa: E402
 from l_ledger_schema import build_ledger, load_l_ledger, save_l_ledger  # noqa: E402
 from resolved_refs_schema import freeze_delivered_copy, write_resolved_refs  # noqa: E402
 from revision_lock import LockTimeout, session_lock  # noqa: E402
@@ -135,35 +137,59 @@ def _canonicalize_scope_package(package: dict[str, Any]) -> dict[str, Any]:
     return built
 
 
-def _reject_unfinished_handshake(session_dir: Path, ss_path: Path) -> dict[str, Any] | None:
+def _should_complete_pending_handshake(session_dir: Path, ss_path: Path) -> bool:
+    """True when a prior Start published a session but cycle-visible commit did not finish."""
     if not ss_path.is_file():
-        return None
+        return False
     try:
         existing = load_session_state(ss_path)
     except ValueError:
-        return None
+        return False
     if existing["holder_finalized"] is True:
-        return None
+        return False
     ws_path = session_dir / f"revision{existing['active_doc']}" / "workflow-state.md"
     if not ws_path.is_file():
-        return _failure(
-            "unfinished_holder_finalize",
-            "existing start handshake is unfinished",
-            start_id=existing["start_id"],
-            active_doc=existing["active_doc"],
-        )
+        return True
     try:
         state = load_workflow_state(ws_path)
-    except ValueError as exc:
-        return _failure("unfinished_holder_finalize", str(exc))
-    if str(state.get("current_state")) != "Invalidated":
-        return _failure(
-            "unfinished_holder_finalize",
-            "existing start handshake is unfinished; retry holder finalize",
-            start_id=existing["start_id"],
-            active_doc=existing["active_doc"],
-        )
-    return None
+    except ValueError:
+        return True
+    return str(state.get("current_state")) != "Invalidated"
+
+
+def _success_payload(
+    *,
+    cycle_id: str,
+    profile_id: str,
+    stage_name: str,
+    cache_dir: Path,
+    ss_path: Path,
+    session_dir: Path,
+) -> dict[str, Any]:
+    state = load_session_state(ss_path)
+    active_doc = int(state["active_doc"])
+    final_dir = (session_dir / f"revision{active_doc}").resolve()
+    package = load_scope_package(final_dir / "scope-package.json")
+    payload = {
+        "ok": True,
+        "command": "start",
+        "start_id": str(state["start_id"]),
+        "active_doc": active_doc,
+        "profile_id": profile_id,
+        "profile_path": str(state["profile_path"]),
+        "profile_digest": str(state["profile_digest"]),
+        "revision_dir": str(final_dir),
+        "session_state": "Split",
+        "holder_finalized": True,
+        "order": chain_ids_from_scope_package(package),
+    }
+    try:
+        topic_doc = get_topic_doc(cycle_id, stage_name, cache_dir)
+        if topic_doc:
+            payload["topic_doc"] = str(topic_doc)
+    except ValueError:
+        pass
+    return payload
 
 
 def _cleanup_staging(session_dir: Path) -> None:
@@ -208,7 +234,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--conversation-id",
         default="",
-        help="Unused at Start; holder finalize records active-context.",
+        help="Optional conversation id recorded on cycle active-context.",
     )
     return parser.parse_args()
 
@@ -254,97 +280,106 @@ def run_start(args: argparse.Namespace) -> dict[str, Any]:
     if not ok:
         return _failure("gate_blocked", str(reason))
 
-    start_id = uuid.uuid4().hex
+    conversation_id = str(getattr(args, "conversation_id", "") or "")
     try:
         with session_lock(session_dir, exclusive=True):
-            blocked = _reject_unfinished_handshake(session_dir, ss_path)
-            if blocked:
-                return blocked
-            _cleanup_staging(session_dir)
-            active_doc = _reserve_revision(session_dir, ss_path)
-            final_dir = session_dir / f"revision{active_doc}"
-            if final_dir.exists():
+            if not _should_complete_pending_handshake(session_dir, ss_path):
+                start_id = uuid.uuid4().hex
+                _cleanup_staging(session_dir)
                 active_doc = _reserve_revision(session_dir, ss_path)
                 final_dir = session_dir / f"revision{active_doc}"
-            staging = session_dir / f".staging-revision{active_doc}-{start_id}"
-            if staging.exists():
-                shutil.rmtree(staging)
-            staging.mkdir(parents=True, exist_ok=True)
-            try:
-                runtime = staging / "runtime-profile.json"
-                runtime.write_bytes(profile_json_path.read_bytes())
-                digest = _file_digest(runtime)
-                save_scope_package(staging, package)
-                write_source_path_mirrors(staging, package)
-                save_l_ledger(staging, build_ledger(chain_ids_from_scope_package(package)))
-                try:
-                    freeze_delivered_copy(
-                        staging,
-                        load_delivered_refs_file(cycle_id, project_root),
-                    )
-                except (OSError, ValueError, FileNotFoundError):
-                    freeze_delivered_copy(staging, {"version": 1, "entries": {}})
-                final_scope = (final_dir / "scope-package.json").resolve()
-                write_resolved_refs(
-                    staging,
-                    cycle_id=cycle_id,
-                    stage=profile_id,
-                    run_mode="tech",
-                    scope_ref=DeliveredRef(
-                        type="scope-package",
-                        path=str(final_scope),
-                        artifact="scope-package",
-                    ),
-                    intent_baseline_refs=[],
-                    norm_constraint_refs=[],
-                )
-                ws_path = staging / "workflow-state.md"
-                init_compose_session(ws_path, mode="tech", cycle_type=cycle_type)
-                _validate_published(staging, digest)
-                staging.rename(final_dir)
-                _validate_published(final_dir, digest)
-            except BaseException:
+                if final_dir.exists():
+                    active_doc = _reserve_revision(session_dir, ss_path)
+                    final_dir = session_dir / f"revision{active_doc}"
+                staging = session_dir / f".staging-revision{active_doc}-{start_id}"
                 if staging.exists():
-                    shutil.rmtree(staging, ignore_errors=True)
-                raise
-            runtime_final = (final_dir / "runtime-profile.json").resolve()
-            save_session_state(
-                ss_path,
-                active_doc=active_doc,
-                profile_path=str(runtime_final),
-                profile_digest=digest,
-                start_id=start_id,
-                holder_finalized=False,
-            )
+                    shutil.rmtree(staging)
+                staging.mkdir(parents=True, exist_ok=True)
+                try:
+                    runtime = staging / "runtime-profile.json"
+                    runtime.write_bytes(profile_json_path.read_bytes())
+                    digest = _file_digest(runtime)
+                    save_scope_package(staging, package)
+                    write_source_path_mirrors(staging, package)
+                    save_l_ledger(staging, build_ledger(chain_ids_from_scope_package(package)))
+                    try:
+                        freeze_delivered_copy(
+                            staging,
+                            load_delivered_refs_file(cycle_id, project_root),
+                        )
+                    except (OSError, ValueError, FileNotFoundError):
+                        freeze_delivered_copy(staging, {"version": 1, "entries": {}})
+                    final_scope = (final_dir / "scope-package.json").resolve()
+                    write_resolved_refs(
+                        staging,
+                        cycle_id=cycle_id,
+                        stage=profile_id,
+                        run_mode="tech",
+                        scope_ref=DeliveredRef(
+                            type="scope-package",
+                            path=str(final_scope),
+                            artifact="scope-package",
+                        ),
+                        intent_baseline_refs=[],
+                        norm_constraint_refs=[],
+                    )
+                    ws_path = staging / "workflow-state.md"
+                    init_compose_session(ws_path, mode="tech", cycle_type=cycle_type)
+                    _validate_published(staging, digest)
+                    staging.rename(final_dir)
+                    _validate_published(final_dir, digest)
+                except BaseException:
+                    if staging.exists():
+                        shutil.rmtree(staging, ignore_errors=True)
+                    raise
+                runtime_final = (final_dir / "runtime-profile.json").resolve()
+                save_session_state(
+                    ss_path,
+                    active_doc=active_doc,
+                    profile_path=str(runtime_final),
+                    profile_digest=digest,
+                    start_id=start_id,
+                    holder_finalized=False,
+                )
     except LockTimeout:
         return _failure("lock_timeout", "session lock timeout")
     except (OSError, ValueError) as exc:
         return _failure("start_failed", str(exc))
 
-    topic = ""
-    try:
-        topic_doc = get_topic_doc(cycle_id, profile["stage_name"], cache_dir)
-        if topic_doc:
-            topic = str(topic_doc)
-    except ValueError:
-        topic = ""
-
-    payload = {
-        "ok": True,
-        "command": "start",
-        "start_id": start_id,
-        "active_doc": active_doc,
-        "profile_id": profile_id,
-        "profile_path": str(runtime_final),
-        "profile_digest": digest,
-        "revision_dir": str(final_dir.resolve()),
-        "session_state": "Split",
-        "holder_finalized": False,
-        "order": chain_ids_from_scope_package(package),
-    }
-    if topic:
-        payload["topic_doc"] = topic
-    return payload
+    fin = holder_finalize(
+        cycle_id=cycle_id,
+        project_root=project_root,
+        conversation_id=conversation_id,
+        profile_id=profile_id,
+        confirm=True,
+    )
+    if not fin.get("ok"):
+        if ss_path.is_file():
+            try:
+                existing = load_session_state(ss_path)
+            except ValueError:
+                existing = None
+            if existing and existing["holder_finalized"] is True:
+                return _success_payload(
+                    cycle_id=cycle_id,
+                    profile_id=profile_id,
+                    stage_name=str(profile["stage_name"]),
+                    cache_dir=cache_dir,
+                    ss_path=ss_path,
+                    session_dir=session_dir,
+                )
+        return _failure(
+            str(fin.get("code") or "start_failed"),
+            str(fin.get("error") or "cycle-visible commit failed"),
+        )
+    return _success_payload(
+        cycle_id=cycle_id,
+        profile_id=profile_id,
+        stage_name=str(profile["stage_name"]),
+        cache_dir=cache_dir,
+        ss_path=ss_path,
+        session_dir=session_dir,
+    )
 
 
 def main() -> int:
