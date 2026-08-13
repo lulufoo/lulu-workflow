@@ -47,8 +47,6 @@ _SCHEMA: list[dict] = [
      "description": "Session state from transition-whitelist"},
     {"field": "evaluate_round", "type": "string", "required": True,
      "description": "Evaluation round counter (non-negative integer as string)"},
-    {"field": "carry_forward_ref", "type": "string", "required": True,
-     "description": "Absolute path to previous compose doc revision (may be empty)"},
     {"field": "updated_at", "type": "string", "required": True,
      "description": "ISO 8601 last-update timestamp"},
     {"field": "historical", "type": "string", "required": False,
@@ -66,7 +64,6 @@ _REQUIRED_KEY_ORDER = [
     "cycle_type",
     "current_state",
     "evaluate_round",
-    "carry_forward_ref",
     "updated_at",
 ]
 
@@ -228,7 +225,6 @@ def init_compose_session(
     *,
     mode: str,
     cycle_type: str = "feature",
-    carry_forward_ref: str = "",
     evaluate_round: int = 0,
 ) -> None:
     """Initialize workflow-state.md in session state ``Split``.
@@ -248,7 +244,6 @@ def init_compose_session(
         "cycle_type": cycle_type,
         "current_state": "Split",
         "evaluate_round": str(evaluate_round),
-        "carry_forward_ref": carry_forward_ref,
     }
     save_workflow_state(path, data, merge=False)
 

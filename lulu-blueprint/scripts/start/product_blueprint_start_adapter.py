@@ -48,9 +48,7 @@ class ProductBlueprintStartAdapter:
         project_root: Path,
         *,
         run_mode: str,
-        carry_forward_ref: str = "",
     ) -> list[str]:
-        del carry_forward_ref
         if run_mode not in ("product",):
             return [f"invalid run_mode: {run_mode!r} (lulu-blueprint is product-only)"]
         if detect_cycle_type(cycle_id) != "topic":
@@ -89,11 +87,10 @@ class ProductBlueprintStartAdapter:
         *,
         delivered_refs: list[DeliveredRef],
         run_mode: str = "product",
-        carry_forward_ref: str = "",
         revision_dir: Path | None = None,
     ) -> list[DeliveredRef]:
         """Project lulu-bet's decision package to revision scope."""
-        del run_mode, carry_forward_ref
+        del run_mode
         primary = first_ref(delivered_refs, "lulu-bet")
         if primary is None:
             return []
@@ -149,10 +146,9 @@ class ProductBlueprintStartAdapter:
         self,
         *,
         run_mode: str,
-        carry_forward_ref: str,
         scope_refs: list[DeliveredRef],
     ) -> str:
-        del run_mode, carry_forward_ref, scope_refs
+        del run_mode, scope_refs
         return (
             "Topic product architecture stage: pause after Writing; "
             "then choose FreeEdit, Evaluating (blueprint-quality), or Deliver."

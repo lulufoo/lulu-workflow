@@ -291,7 +291,6 @@ class TestPostStartGuidance:
 
         msg = _ADAPTER.post_start_guidance(
             run_mode="tech",
-            carry_forward_ref="",
             scope_refs=[DeliveredRef(type="lulu-approach", path="/d.md")],
         )
         assert "d1" in msg
@@ -301,7 +300,6 @@ class TestPostStartGuidance:
     def test_product_mode_mentions_d3(self):
         msg = _ADAPTER.post_start_guidance(
             run_mode="product",
-            carry_forward_ref="",
             scope_refs=[],
         )
         assert "d3" in msg

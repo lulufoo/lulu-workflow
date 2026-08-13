@@ -65,9 +65,7 @@ class TechPlanStartAdapter:
         project_root: Path,
         *,
         run_mode: str,
-        carry_forward_ref: str = "",
     ) -> list[str]:
-        del carry_forward_ref
         errors: list[str] = []
         if run_mode not in ("product", "tech"):
             errors.append(f"invalid run_mode: {run_mode!r}")
@@ -134,7 +132,6 @@ class TechPlanStartAdapter:
         *,
         delivered_refs: list[DeliveredRef],
         run_mode: str = "tech",
-        carry_forward_ref: str = "",
         revision_dir: Path | None = None,
     ) -> list[DeliveredRef]:
         """Project either upstream delivery shape to one scope-package contract.
@@ -142,7 +139,7 @@ class TechPlanStartAdapter:
         Design compose packages and Approach decision packages are both projected
         to revision-local ``scope-package.json`` before becoming ``$SCOPE_REF``.
         """
-        del run_mode, carry_forward_ref
+        del run_mode
         primary = first_ref(delivered_refs, "lulu-design") or first_ref(
             delivered_refs,
             "lulu-approach",
@@ -217,16 +214,10 @@ class TechPlanStartAdapter:
         self,
         *,
         run_mode: str,
-        carry_forward_ref: str,
         scope_refs: list[DeliveredRef],
     ) -> str:
         del scope_refs
         if run_mode == "product":
-            if carry_forward_ref:
-                return (
-                    "⚠️  carry_forward_ref 存在，进入 Drafting 后必须强制校准"
-                    "（对比新 product-doc 与旧 tech-doc）。"
-                )
             return (
                 "首次起草（产品需求模式），进入 Drafting 后必须校准"
                 "（读取模板 + 架构约束 + product-doc）。"

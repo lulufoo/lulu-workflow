@@ -75,12 +75,13 @@ def resolve_platform_context(
     script_path: Path,
 ) -> dict[str, str]:
     """Build resolve-platform-context stdout payload."""
-    _ = project_root.resolve()
+    root = project_root.resolve()
     plat = detect_platform(strict=False)
     paths = PLATFORM_PATHS[plat]
     skill_root = resolve_skill_root(script_path=script_path)
     return {
         "platform": plat,
+        "project_root": str(root),
         "skill_root": str(skill_root),
         "workflow_dir": paths["workflow_dir"].as_posix(),
         "cache_dir": paths["cache_dir"].as_posix(),

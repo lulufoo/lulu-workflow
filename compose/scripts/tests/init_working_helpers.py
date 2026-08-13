@@ -43,7 +43,6 @@ def init_working_ready(
     *,
     mode: str,
     cycle_type: str = "feature",
-    carry_forward_ref: str = "",
     evaluate_round: int = 0,
 ) -> None:
     """Init session at Split, lock L1, advance to Working (tests that need Working)."""
@@ -51,7 +50,6 @@ def init_working_ready(
         path,
         mode=mode,
         cycle_type=cycle_type,
-        carry_forward_ref=carry_forward_ref,
         evaluate_round=evaluate_round,
     )
     lock_single_l1_tree(path.parent)

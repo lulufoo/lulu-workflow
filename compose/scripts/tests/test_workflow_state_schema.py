@@ -30,7 +30,6 @@ _REQUIRED_FIELD_NAMES = {
     "cycle_type",
     "current_state",
     "evaluate_round",
-    "carry_forward_ref",
     "updated_at",
 }
 
@@ -41,7 +40,6 @@ _VALID_DATA = {
     "cycle_type": "feature",
     "current_state": "Working",
     "evaluate_round": "0",
-    "carry_forward_ref": "",
     "updated_at": "2024-01-01T00:00:00+00:00",
 }
 
@@ -86,14 +84,12 @@ class TestInitComposeSession:
         init_compose_session(
             path,
             mode="tech",
-            carry_forward_ref="/old/tech-doc.md",
         )
         loaded = load_workflow_state(path)
         assert loaded["current_state"] == "Split"
         assert loaded["mode"] == "tech"
         assert loaded["cycle_type"] == "feature"
         assert loaded["evaluate_round"] == "0"
-        assert loaded["carry_forward_ref"] == "/old/tech-doc.md"
         assert "delivered_refs" not in loaded
 
 
@@ -143,11 +139,11 @@ class TestResolveWorkflowStatePathFromCycle:
 class TestSaveLoadRoundTrip:
     def test_merge_preserves_unmentioned_fields(self, tmp_path: Path):
         path = tmp_path / "workflow-state.md"
-        init_compose_session(path, mode="product", carry_forward_ref="/old.md")
+        init_compose_session(path, mode="product")
         save_workflow_state(path, {"current_state": "Working", "evaluate_round": "1"})
         loaded = load_workflow_state(path)
         assert loaded["current_state"] == "Working"
-        assert loaded["carry_forward_ref"] == "/old.md"
+        assert loaded["mode"] == "product"
 
 
 class TestCli:

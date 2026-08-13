@@ -131,7 +131,6 @@ def _make_session(
             f"current_state: {state}\n"
             f"evaluate_round: 0\n"
             f"delivered_refs: []\n"
-            f"carry_forward_ref: \"\"\n"
             f"updated_at: {updated_at}\n"
             f"---\n",
             encoding="utf-8",

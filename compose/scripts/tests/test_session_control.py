@@ -87,14 +87,12 @@ def _setup_abandon_ready(
     mode: str = "product",
     evaluate_round: int = 1,
     upstream_baseline_ref: str = "/p.md",
-    carry_forward_ref: str = "/old.md",
 ) -> tuple[Path, Path]:
     del upstream_baseline_ref
     ws = _seed_session(tmp_path)
     init_working_ready(
         ws,
         mode=mode,
-        carry_forward_ref=carry_forward_ref,
         evaluate_round=max(evaluate_round - 1, 0),
     )
     save_workflow_state(
@@ -472,7 +470,6 @@ class TestAbandonEvaluation:
         assert loaded["evaluate_round"] == "2"
         assert "skip_evaluate_requested" not in loaded
         assert loaded["mode"] == "product"
-        assert loaded["carry_forward_ref"] == "/old.md"
 
     def test_failure_when_not_evaluating(self, tmp_path: Path):
         ws = _seed_session(tmp_path)

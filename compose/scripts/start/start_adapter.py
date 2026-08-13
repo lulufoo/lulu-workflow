@@ -41,7 +41,6 @@ class StartAdapter(Protocol):
         project_root: Path,
         *,
         run_mode: str,
-        carry_forward_ref: str = "",
     ) -> list[str]:
         """Return validation errors; empty means ok."""
 
@@ -59,7 +58,6 @@ class StartAdapter(Protocol):
         *,
         delivered_refs: list[DeliveredRef],
         run_mode: str = "tech",
-        carry_forward_ref: str = "",
         revision_dir: Path | None = None,
     ) -> list[DeliveredRef]:
         """派生父级 refs derived from the delivered snapshot ([0]=primary scope).
@@ -95,7 +93,6 @@ class StartAdapter(Protocol):
         self,
         *,
         run_mode: str,
-        carry_forward_ref: str,
         scope_refs: list[DeliveredRef],
     ) -> str:
         """Orchestrator-facing note after init_compose_session (may be empty)."""

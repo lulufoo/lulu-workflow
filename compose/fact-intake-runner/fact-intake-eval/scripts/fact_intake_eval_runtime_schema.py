@@ -83,7 +83,6 @@ def load_workflow_state_view(runtime: dict[str, Any]) -> dict[str, str]:
         "cycle_type": "feature",
         "current_state": "Working",
         "evaluate_round": str(int(runtime.get("evaluate_round") or 0)),
-        "carry_forward_ref": "",
         "updated_at": str(runtime.get("updated_at") or _now_iso()),
     }
 

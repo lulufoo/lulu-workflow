@@ -29,11 +29,8 @@ Do NOT proceed until you have read `{SKILL_ROOT}/compose/SKILL.md` in full.
 
 ## start
 
-Identify active cycle per `_runtime.md` § Session Foundation, then run `$START_COMPOSE` (`compose/SKILL.md` § start) with:
-
-```bash
---profile-path "$SKILL_DIR/compose-profile.json"
-```
+Identify active cycle per `_runtime.md` § Session Foundation, bind
+`$PROFILE_PATH="$SKILL_DIR/compose-profile.json"`, then run `$START_COMPOSE`.
 
 Run mode is inferred at start: `product` when cycle `delivered-refs.json` contains a valid `lulu-spec` entry; otherwise `tech`. Do not pass `--run-mode`.
 

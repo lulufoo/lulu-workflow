@@ -58,9 +58,7 @@ class TechDesignStartAdapter:
         project_root: Path,
         *,
         run_mode: str,
-        carry_forward_ref: str = "",
     ) -> list[str]:
-        del carry_forward_ref
         errors: list[str] = []
         if run_mode not in ("product", "tech"):
             errors.append(f"invalid run_mode: {run_mode!r}")
@@ -109,7 +107,6 @@ class TechDesignStartAdapter:
         *,
         delivered_refs: list[DeliveredRef],
         run_mode: str = "tech",
-        carry_forward_ref: str = "",
         revision_dir: Path | None = None,
     ) -> list[DeliveredRef]:
         """Primary scope SSOT for design start.
@@ -117,7 +114,7 @@ class TechDesignStartAdapter:
         Requires ``artifact=decision-package`` (or path ``decision-package.json``);
         projects to revision ``scope-package.json`` (``revision_dir``; D3 write-once).
         """
-        del run_mode, carry_forward_ref
+        del run_mode
         primary = first_ref(delivered_refs, "lulu-approach")
         if primary is None:
             return []
@@ -199,10 +196,9 @@ class TechDesignStartAdapter:
         self,
         *,
         run_mode: str,
-        carry_forward_ref: str,
         scope_refs: list[DeliveredRef],
     ) -> str:
-        del carry_forward_ref, scope_refs
+        del scope_refs
         if run_mode == "product":
             return (
                 "设计阶段（产品模式）：Inductive → Writing 完成后暂停；可选 FreeEdit、"

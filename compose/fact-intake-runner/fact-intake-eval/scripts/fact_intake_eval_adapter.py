@@ -184,7 +184,6 @@ class FactIntakeEvalAdapter:
                     "cycle_type": "feature",
                     "current_state": str(fields.get("current_state") or ""),
                     "evaluate_round": "0",
-                    "carry_forward_ref": "",
                     "updated_at": "",
                 }
         return load_workflow_state_view(self._runtime(cycle_id, project_root))

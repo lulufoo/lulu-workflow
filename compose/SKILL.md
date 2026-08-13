@@ -6,7 +6,14 @@ description: >-
 
 # compose
 
-Shared compose engine consumed by stage holder skills (`lulu-design`, `lulu-plan`, `lulu-spec`). Holders pass `--profile-path` at start and HARD-GATE to Read this file in full; this engine owns the reusable orchestration, scripts, and schemas so holders stay thin.
+Shared compose engine consumed by stage holder skills (`lulu-arch`, `lulu-blueprint`, `lulu-design`, `lulu-plan`, `lulu-spec`). Holders bind the engine Inputs and HARD-GATE to Read this file in full; this engine owns the reusable orchestration, scripts, and schemas so holders stay thin.
+
+## Inputs
+
+| Variable | Required | Source | Use |
+|---|---|---|---|
+| `$CYCLE_ID` | yes | Holder runtime foundation | Active cycle |
+| `$PROFILE_PATH` | yes | Holder | Runtime `compose-profile.json` |
 
 ---
 
@@ -16,7 +23,7 @@ Start compose when directed by the holder, then load the active session context.
 
 ### Start
 
-Confirm `$CYCLE_ID`, then run `$START_COMPOSE` with the arguments supplied by the holder.
+Confirm Inputs, then run `$START_COMPOSE`.
 
 ### Bind context
 
@@ -252,7 +259,7 @@ Fetch compose framework templates on demand; **do not** read `workflow-config.js
 
 | Macro | Command |
 |-------|---------|
-| `$START_COMPOSE` | `python3 "$SKILL_ROOT/compose/scripts/core/start.py" --project-root "$(pwd)" --cycle-id "$CYCLE_ID"` — holder must also pass `--profile-path <runtime profile JSON>` |
+| `$START_COMPOSE` | `python3 "$SKILL_ROOT/compose/scripts/core/start.py" --project-root "$(pwd)" --cycle-id "$CYCLE_ID" --profile-path "$PROFILE_PATH"` |
 | `$SESSION_INFO` | `python3 "$SKILL_ROOT/compose/scripts/core/session_info.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --view <view>` |
 | `$SESSION_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/core/session_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` — session transitions (`split-complete` / `start-evaluating` / …) via `compose/transitions/compose-session.json`; do not load that file directly |
 | `$L_STEP` | `python3 "$SKILL_ROOT/compose/scripts/section/l_step_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |

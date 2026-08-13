@@ -154,7 +154,6 @@ class DecisionEvalAdapter:
                 "cycle_type": "feature",
                 "current_state": session_state,
                 "evaluate_round": "0",
-                "carry_forward_ref": "",
                 "updated_at": "",
             }
         runtime = self._runtime(cycle_id, project_root)

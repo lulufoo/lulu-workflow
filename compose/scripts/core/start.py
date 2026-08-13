@@ -91,11 +91,6 @@ def parse_args() -> argparse.Namespace:
         help="Path to runtime compose-profile.json (holder-provided).",
     )
     parser.add_argument(
-        "--carry-forward-ref",
-        default="",
-        help="Absolute path to previous compose doc revision (optional).",
-    )
-    parser.add_argument(
         "--conversation-id",
         default="",
         help="Cursor/Copilot conversation ID for active-context indexing.",
@@ -137,12 +132,6 @@ def run_start(
 
     cycle_type = detect_cycle_type(cycle_id)
 
-    carry_forward_ref = args.carry_forward_ref.strip()
-
-    if carry_forward_ref and not Path(carry_forward_ref).exists():
-        print(f"错误：carry-forward-ref 文件不存在：{carry_forward_ref}")
-        return 1
-
     cache_dir = project_root / CACHE_DIR
 
     run_mode = adapter.infer_run_mode(cycle_id, project_root)
@@ -151,7 +140,6 @@ def run_start(
         cycle_id,
         project_root,
         run_mode=run_mode,
-        carry_forward_ref=carry_forward_ref,
     )
     if start_errors:
         print("错误：start 校验失败：", file=sys.stderr)
@@ -219,7 +207,6 @@ def run_start(
         ws_path,
         mode=run_mode,
         cycle_type=cycle_type,
-        carry_forward_ref=carry_forward_ref,
     )
 
     # Per-revision provenance artifacts (see resolved_refs_schema):
@@ -232,7 +219,6 @@ def run_start(
         scope_refs = adapter.resolve_scope_refs(
             delivered_refs=delivered_refs,
             run_mode=run_mode,
-            carry_forward_ref=carry_forward_ref,
             revision_dir=revision_dir,
         )
     except ValueError as e:
@@ -287,7 +273,6 @@ def run_start(
 
     note = adapter.post_start_guidance(
         run_mode=run_mode,
-        carry_forward_ref=carry_forward_ref,
         scope_refs=scope_refs,
     )
 
@@ -309,7 +294,6 @@ Cycle type：  {role_summary}
 评估轮次：    0
 delivered_refs：{refs_json}
 scope（派生）：{scope_json}
-carry_forward：{carry_forward_ref or '（无）'}
 
 {note}
 """)

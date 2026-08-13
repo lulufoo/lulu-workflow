@@ -191,7 +191,6 @@ def session_snapshot(
             "mode": state.get("mode", ""),
             "evaluate_round": state.get("evaluate_round", "0"),
             "delivered_refs": [r.to_dict() for r in frozen_delivered_refs(ws_path.parent)],
-            "carry_forward_ref": state.get("carry_forward_ref", ""),
         },
         "compose_doc": compose_doc,
     }

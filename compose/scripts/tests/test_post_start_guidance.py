@@ -26,7 +26,6 @@ from tech_plan_start_adapter import TechPlanStartAdapter  # noqa: E402
 def test_tech_design_post_start_guidance():
     note = TechDesignStartAdapter().post_start_guidance(
         run_mode="tech",
-        carry_forward_ref="",
         scope_refs=[],
     )
     assert "设计阶段" in note
@@ -35,7 +34,6 @@ def test_tech_design_post_start_guidance():
 def test_tech_plan_product_mode_guidance():
     note = TechPlanStartAdapter().post_start_guidance(
         run_mode="product",
-        carry_forward_ref="",
         scope_refs=[],
     )
     assert "产品需求模式" in note
@@ -44,7 +42,6 @@ def test_tech_plan_product_mode_guidance():
 def test_tech_plan_tech_mode_guidance():
     note = TechPlanStartAdapter().post_start_guidance(
         run_mode="tech",
-        carry_forward_ref="",
         scope_refs=[],
     )
     assert "技改模式" in note
@@ -53,7 +50,6 @@ def test_tech_plan_tech_mode_guidance():
 def test_product_spec_post_start_guidance():
     note = ProductSpecStartAdapter().post_start_guidance(
         run_mode="product",
-        carry_forward_ref="",
         scope_refs=[],
     )
     assert "lulu-bet" in note

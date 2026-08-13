@@ -53,9 +53,8 @@ class ProductSpecStartAdapter:
         project_root: Path,
         *,
         run_mode: str,
-        carry_forward_ref: str = "",
     ) -> list[str]:
-        del run_mode, carry_forward_ref
+        del run_mode
         if detect_cycle_type(cycle_id) != "feature":
             return ["lulu-spec is feature-only; topic cycles are not supported"]
         data = load_delivered_refs_file(cycle_id, project_root)
@@ -92,11 +91,10 @@ class ProductSpecStartAdapter:
         *,
         delivered_refs: list[DeliveredRef],
         run_mode: str = "tech",
-        carry_forward_ref: str = "",
         revision_dir: Path | None = None,
     ) -> list[DeliveredRef]:
         """Project lulu-bet's decision package to revision scope."""
-        del run_mode, carry_forward_ref
+        del run_mode
         primary = first_ref(delivered_refs, "lulu-bet")
         if primary is None:
             return []
@@ -155,10 +153,9 @@ class ProductSpecStartAdapter:
         self,
         *,
         run_mode: str,
-        carry_forward_ref: str,
         scope_refs: list[DeliveredRef],
     ) -> str:
-        del run_mode, carry_forward_ref, scope_refs
+        del run_mode, scope_refs
         return (
             "产品规格阶段：Drafting 从 Inductive（Step 0）开始，"
             "归纳完成后 Writing 生成 product-doc；以上游 lulu-bet scope-package 为 scope SSOT。"

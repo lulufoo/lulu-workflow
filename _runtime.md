@@ -16,9 +16,15 @@ Subcommands and stdout: `runtime_control.py` / `cycle_control.py` / `fetch_templ
 
 ## Platform Context
 
-When `$PLATFORM`, `$SKILL_ROOT`, `$WORKFLOW_DIR`, or `$CACHE_DIR` is needed: `$RUNTIME_CONTROL resolve-platform-context`.
+Run `$RUNTIME_CONTROL resolve-platform-context`, map stdout JSON:
 
-Non-zero exit → stop. Map stdout JSON: `platform`→`$PLATFORM`, `skill_root`→`$SKILL_ROOT`, `workflow_dir`→`$WORKFLOW_DIR`, `cache_dir`→`$CACHE_DIR`.
+| Variable | JSON field |
+|---|---|
+| `$PLATFORM` | `platform` |
+| `$PROJECT_ROOT` | `project_root` |
+| `$SKILL_ROOT` | `skill_root` |
+| `$WORKFLOW_DIR` | `workflow_dir` |
+| `$CACHE_DIR` | `cache_dir` |
 
 ## Session Foundation
 
