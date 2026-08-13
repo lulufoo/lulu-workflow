@@ -93,7 +93,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--profile-path",
         required=True,
-        help="Path to compose-profile.json ($SKILL_DIR/compose-profile.json).",
+        help="Path to runtime compose-profile.json (holder-provided).",
     )
     parser.add_argument(
         "--carry-forward-ref",
@@ -296,6 +296,7 @@ def run_start(
     doc_label = profile["document"]["filename"]
     refs_json = serialize_delivered_refs(delivered_refs)
     scope_json = serialize_delivered_refs(scope_refs)
+    inductive = (profile.get("pipeline") or {}).get("inductive")
     print(f"""
 会话已启动。
 
@@ -305,6 +306,7 @@ def run_start(
 当前状态：    Split
 运行模式：    {run_mode}
 Profile：     {profile_id}
+pipeline.inductive: {json.dumps(bool(inductive))}
 Cycle type：  {role_summary}
 评估轮次：    0
 delivered_refs：{refs_json}

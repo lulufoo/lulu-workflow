@@ -24,7 +24,7 @@ if str(_SCRIPTS) not in sys.path:
 import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
-from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, WORKFLOW_SCRIPTS  # noqa: E402
+from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, WORKFLOW_SCRIPTS, load_profile  # noqa: E402
 
 sys.path.insert(0, str(WORKFLOW_SCRIPTS))
 from transition_table import load_transitions  # noqa: E402
@@ -143,9 +143,12 @@ def session_snapshot(
         allow_missing=True,
     )
     compose_doc = _session_document_view(doc)
+    profile = load_profile(profile_id, project_root=project_root, cycle_id=cycle_id)
+    inductive = (profile.get("pipeline") or {}).get("inductive")
     return {
         "view": _VIEW_SESSION,
         "profile_id": profile_id,
+        "pipeline": {"inductive": bool(inductive)},
         "active_doc": load_active_doc_for_profile(cycle_id, project_root, profile_id),
         "workflow_state": {
             "current_state": state["current_state"],

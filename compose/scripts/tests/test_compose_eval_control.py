@@ -16,6 +16,7 @@ if str(_CORE) not in sys.path:
 
 import compose_eval_control  # noqa: E402
 from compose_eval_control import extract_eval_adapter_config  # noqa: E402
+from workflow_paths import seed_profile_pointer_for_tests  # noqa: E402
 
 
 def test_extract_passthrough_eval_block() -> None:
@@ -68,6 +69,7 @@ def test_main_forwards_full_round_completion_to_eval_entry(
 
     monkeypatch.setattr(compose_eval_control.subprocess, "run", _run)
 
+    seed_profile_pointer_for_tests(tmp_path, "compose-full-round", "lulu-design")
     result = compose_eval_control.main(
         [
             "--profile-id",

@@ -14,9 +14,9 @@ Wherever this document says `<profile_id>`, substitute the calling holder's stag
 
 ## Compose profiles
 
-Authoring SSOT: `{WORKFLOW_ROOT}/{stage}/compose-profile.json` (lulu-plan, lulu-design, lulu-spec). At session start, `start` writes `.compose-profile-path` under `{cache_subdir}/` pointing at that file. Runtime `load_profile()` resolves via the pointer when `project_root` and `cycle_id` are set; delivery/schema tools read the authoring file directly.
+Authoring templates live at `{WORKFLOW_ROOT}/{stage}/compose-profile.json`. Holders pass the runtime profile address as `--profile-path` (plan materializes a session instance first; other stages pass the authoring file). `start` writes `.compose-profile-path` under `{cache_subdir}/` pointing at that address. Runtime `load_profile()` resolves via the pointer when `project_root` and `cycle_id` are set.
 
-This engine reads `pipeline.inductive` from the profile directly to choose Inductive vs Deductive below (static editorial configuration, not session state — direct SKILL reads are allowed for this field).
+Choose Inductive vs Deductive from `start` / `$SESSION_INFO --view session` stdout `pipeline.inductive` (session value on the runtime profile — do not read the authoring template for this field).
 
 ---
 
@@ -47,9 +47,11 @@ python3 "$SKILL_ROOT/compose/scripts/core/start.py" \
   --project-root "$(pwd)" \
   --cycle-id "<cycle_id>" \
   --profile <profile_id> \
-  --profile-path "$SKILL_DIR/compose-profile.json" \
+  --profile-path "<holder-provided runtime profile JSON>" \
   [--carry-forward-ref "<absolute-path-to-previous-revision>"]  # optional, if this profile's adapter supports it
 ```
+
+`--profile-path` is required and supplied by the holder (not this macro). On success, stdout includes `pipeline.inductive: true|false` for Working path selection.
 
 - `start.py` validates required upstream entries via this profile's `StartAdapter`, infers `run_mode` (`product` or `tech`) from cycle `delivered-refs.json`, then writes two per-revision artifacts: a frozen full copy of the cycle `delivered-refs.json` (audit baseline) and the resolver-materialized `resolved-refs.json` (scope/intent/norm); Writing reads the resolved scope from the latter.
 - **Run-mode inference is this profile's `StartAdapter.infer_run_mode`'s responsibility** (each adapter owns the heuristic; e.g. plan/design treat a valid product-spec delivered-ref as `product`, else `tech`). Do not pass `--run-mode`; it is not a CLI parameter.
@@ -275,7 +277,7 @@ Fetch compose framework templates on demand; **do not** read `workflow-config.js
 
 | Macro | Command |
 |-------|---------|
-| `$START_COMPOSE` | `python3 "$SKILL_ROOT/compose/scripts/core/start.py" --project-root "$(pwd)" --cycle-id "$CYCLE_ID" --profile <profile_id> --profile-path "$SKILL_DIR/compose-profile.json"` |
+| `$START_COMPOSE` | `python3 "$SKILL_ROOT/compose/scripts/core/start.py" --project-root "$(pwd)" --cycle-id "$CYCLE_ID" --profile <profile_id>` — holder must also pass `--profile-path <runtime profile JSON>` |
 | `$SESSION_INFO` | `python3 "$SKILL_ROOT/compose/scripts/core/session_info.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile <profile_id> --view <view>` |
 | `$SESSION_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/core/session_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile <profile_id> <subcommand>` — session transitions (`split-complete` / `start-evaluating` / …) via `compose/transitions/compose-session.json`; do not load that file directly |
 | `$L_STEP` | `python3 "$SKILL_ROOT/compose/scripts/section/l_step_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile <profile_id> <subcommand>` |

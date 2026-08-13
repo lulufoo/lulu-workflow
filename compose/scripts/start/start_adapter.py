@@ -118,10 +118,25 @@ def load_start_adapter(profile: dict, profile_json_path: Path) -> StartAdapter:
     if not adapter_class:
         raise ValueError("profile.start.adapter_class is required")
 
-    workflow_root = profile_json_path.resolve().parent.parent
+    from workflow_paths import WORKFLOW_ROOT  # noqa: WPS433
+
     adapter_path = Path(adapter_module)
-    if not adapter_path.is_absolute():
-        adapter_path = (workflow_root / adapter_path).resolve()
+    if adapter_path.is_absolute():
+        resolved = adapter_path
+    else:
+        from_workflow = (WORKFLOW_ROOT / adapter_module).resolve()
+        from_profile = (
+            profile_json_path.resolve().parent.parent / adapter_module
+        ).resolve()
+        if from_workflow.is_file():
+            resolved = from_workflow
+        elif from_profile.is_file():
+            resolved = from_profile
+        else:
+            raise ValueError(
+                f"start.adapter_module not found: {from_workflow.as_posix()}",
+            )
+        adapter_path = resolved
     if not adapter_path.is_file():
         raise ValueError(f"start.adapter_module not found: {adapter_path.as_posix()}")
 

@@ -28,6 +28,31 @@ def test_tech_plan_rejects_inductive() -> None:
     assert any("invalid current_step" in err for err in errors)
 
 
+def test_tech_plan_session_instance_allows_inductive(tmp_path: Path) -> None:
+    import json
+
+    from workflow_common import CACHE_DIR
+    from workflow_paths import (
+        compose_profile_path,
+        load_profile_json,
+        write_profile_pointer,
+    )
+
+    data = load_profile_json(compose_profile_path("lulu-plan"))
+    data["pipeline"]["inductive"] = True
+    instance = tmp_path / CACHE_DIR / "C1" / "lulu-plan" / "compose-profile.json"
+    instance.parent.mkdir(parents=True)
+    instance.write_text(json.dumps(data), encoding="utf-8")
+    write_profile_pointer(tmp_path, "C1", "lulu-plan", instance)
+
+    assert schema.validate_l_step_progress(
+        {"version": "1", "cycle_id": "C1", "current_step": "Inductive"},
+        profile_id="lulu-plan",
+        project_root=tmp_path,
+        cycle_id="C1",
+    ) == []
+
+
 def test_tech_plan_allows_deductive() -> None:
     assert schema.validate_l_step_progress(
         {"version": "1", "cycle_id": "C1", "current_step": "Deductive"},

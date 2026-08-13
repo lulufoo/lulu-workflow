@@ -103,6 +103,22 @@ def test_load_start_adapter_reports_missing_class(tmp_path: Path) -> None:
         raise AssertionError("expected missing adapter class to fail")
 
 
+def test_load_start_adapter_from_session_instance_uses_workflow_root(
+    tmp_path: Path,
+) -> None:
+    """Runtime instance is not under WORKFLOW_ROOT/{stage}/; adapter_module is."""
+    from workflow_paths import compose_profile_path, load_profile_json
+
+    profile = load_profile_json(compose_profile_path("lulu-plan"))
+    instance = tmp_path / "cache" / "feat-x" / "lulu-plan" / "compose-profile.json"
+    instance.parent.mkdir(parents=True)
+    instance.write_text(json.dumps(profile), encoding="utf-8")
+
+    adapter = start.load_start_adapter(profile, instance)
+
+    assert type(adapter).__name__ == "TechPlanStartAdapter"
+
+
 def test_main_loads_profile_adapter_before_run_start(tmp_path: Path, monkeypatch) -> None:
     workflow_root = tmp_path / "lulu-dev-workflow"
     _write_adapter_module(workflow_root)

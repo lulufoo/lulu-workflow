@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import os
 import sys
@@ -72,15 +73,16 @@ def _cache_key(path: Path) -> str:
 
 
 def load_profile_json(path: Path) -> dict[str, Any]:
-    """Load and cache profile JSON from an explicit file path."""
+    """Load and cache profile JSON from an explicit file path.
+
+    Returns a deep copy so callers can overlay fields without poisoning the cache.
+    """
     key = _cache_key(path)
-    if key in _profile_cache:
-        return _profile_cache[key]
-    if not path.is_file():
-        raise FileNotFoundError(f"compose profile not found: {path}")
-    data = json.loads(path.read_text(encoding="utf-8"))
-    _profile_cache[key] = data
-    return data
+    if key not in _profile_cache:
+        if not path.is_file():
+            raise FileNotFoundError(f"compose profile not found: {path}")
+        _profile_cache[key] = json.loads(path.read_text(encoding="utf-8"))
+    return copy.deepcopy(_profile_cache[key])
 
 
 def _relative_to_project_root(project_root: Path, target: Path) -> str:
@@ -258,13 +260,11 @@ def read_profile_for_start(profile_json_path: Path, profile_id: str) -> dict[str
 
 
 def validate_compose_profile_path(profile_id: str, profile_json_path: Path) -> None:
-    """Ensure --profile-path matches authoring location (decision 1A)."""
-    expected = compose_profile_path(profile_id).resolve()
+    """Ensure --profile-path exists; ``profile_id`` is checked on read."""
+    del profile_id
     actual = profile_json_path.resolve()
-    if actual != expected:
-        raise ValueError(
-            f"--profile-path must be {expected.as_posix()}; got {actual.as_posix()}",
-        )
+    if not actual.is_file():
+        raise ValueError(f"--profile-path not found: {actual.as_posix()}")
 
 
 def shell_path(profile: dict[str, Any], key: str) -> Path:

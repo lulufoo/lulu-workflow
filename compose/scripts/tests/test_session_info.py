@@ -94,6 +94,7 @@ class TestSessionSnapshot:
         project_root, cycle_id = _setup_cycle(tmp_path)
         payload = session_snapshot(cycle_id, project_root)
         assert payload["view"] == "session"
+        assert payload["pipeline"]["inductive"] is False
         assert payload["workflow_state"]["mode"] == "product"
         assert payload["compose_doc"]["revision"] == 1
         assert payload["compose_doc"]["status"] == "ready"

@@ -12,6 +12,12 @@ import bootstrap  # noqa: F401
 import l_step_control  # noqa: E402
 import l_step_progress_schema as progress_schema  # noqa: E402
 from session_state_schema import save_active_doc  # noqa: E402
+from workflow_common import CACHE_DIR  # noqa: E402
+from workflow_paths import (  # noqa: E402
+    compose_profile_path,
+    load_profile_json,
+    write_profile_pointer,
+)
 from workflow_profile_paths import doc_dir, inductive_out_dir, session_state_path, state_path  # noqa: E402
 from resolved_refs_schema import frozen_delivered_refs  # noqa: E402
 from workflow_state_schema import init_compose_session, load_workflow_state  # noqa: E402
@@ -83,6 +89,16 @@ def _seed_inductive_progress(tmp_path: Path, *, revision: int = 1) -> Path:
     return rev_dir
 
 
+def _point_plan_instance(tmp_path: Path, *, inductive: bool) -> Path:
+    data = load_profile_json(compose_profile_path("lulu-plan"))
+    data["pipeline"]["inductive"] = inductive
+    instance = tmp_path / CACHE_DIR / _CYCLE / "lulu-plan" / "compose-profile.json"
+    instance.parent.mkdir(parents=True, exist_ok=True)
+    instance.write_text(json.dumps(data), encoding="utf-8")
+    write_profile_pointer(tmp_path, _CYCLE, "lulu-plan", instance)
+    return instance
+
+
 def test_begin_inductive_rejects_non_inductive_profile(tmp_path: Path) -> None:
     seed_tech_plan_session(tmp_path, cycle_id=_CYCLE, profile_id="lulu-plan")
 
@@ -90,6 +106,26 @@ def test_begin_inductive_rejects_non_inductive_profile(tmp_path: Path) -> None:
 
     assert result["ok"] is False
     assert "pipeline.inductive is false" in result["reason"]
+
+
+def test_begin_inductive_allows_plan_when_instance_inductive(tmp_path: Path) -> None:
+    seed_tech_plan_session(tmp_path, cycle_id=_CYCLE, profile_id="lulu-plan")
+    _point_plan_instance(tmp_path, inductive=True)
+
+    result = l_step_control.begin_inductive(_CYCLE, tmp_path, profile_id="lulu-plan")
+
+    assert result["ok"] is True
+    assert "COMPOSE_PROFILE:      lulu-plan" in result["dispatch_input"]
+
+
+def test_begin_deductive_rejects_plan_when_instance_inductive(tmp_path: Path) -> None:
+    seed_tech_plan_session(tmp_path, cycle_id=_CYCLE, profile_id="lulu-plan")
+    _point_plan_instance(tmp_path, inductive=True)
+
+    result = l_step_control.begin_deductive(_CYCLE, tmp_path, profile_id="lulu-plan")
+
+    assert result["ok"] is False
+    assert "begin-inductive" in result["reason"]
 
 
 def test_begin_deductive_succeeds_for_lulu_plan(tmp_path: Path) -> None:

@@ -21,8 +21,7 @@ if str(_CORE) not in sys.path:
 
 from workflow_paths import (  # noqa: E402
     WORKFLOW_ROOT,
-    compose_profile_path,
-    load_profile_json,
+    load_profile,
 )
 
 _EVAL_ENTRY = WORKFLOW_ROOT / "eval" / "scripts" / "eval_entry.py"
@@ -70,13 +69,17 @@ def main(argv: list[str] | None = None) -> int:
     if not remainder:
         return _emit_error("missing Eval subcommand after --profile-id / --cycle-id")
 
+    project_root = args.project_root.resolve()
     try:
-        profile = load_profile_json(compose_profile_path(args.profile_id.strip()))
+        profile = load_profile(
+            args.profile_id.strip(),
+            project_root=project_root,
+            cycle_id=args.cycle_id.strip(),
+        )
         config = extract_eval_adapter_config(profile)
     except (FileNotFoundError, ValueError, OSError) as exc:
         return _emit_error(str(exc))
 
-    project_root = args.project_root.resolve()
     with tempfile.NamedTemporaryFile(
         mode="w",
         suffix=".json",

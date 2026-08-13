@@ -47,9 +47,7 @@ from workflow_common import detect_cycle_type  # noqa: E402
 from workflow_paths import (  # noqa: E402
     DEFAULT_COMPOSE_PROFILE_ID,
     WORKFLOW_ROOT,
-    compose_profile_path,
     load_profile,
-    load_profile_json,
     shell_path,
 )
 from workflow_profile_paths import (  # noqa: E402
@@ -219,11 +217,7 @@ def request_handoff(
     try:
         profile = load_profile(profile_id, project_root=root, cycle_id=cycle_id)
     except (OSError, ValueError, FileNotFoundError) as exc:
-        # Tests / early sessions may only have authoring profile
-        try:
-            profile = load_profile_json(compose_profile_path(profile_id))
-        except (OSError, ValueError, FileNotFoundError):
-            return _failure(_CMD_REQUEST, str(exc))
+        return _failure(_CMD_REQUEST, str(exc))
 
     eval_cfg = profile.get("eval") or {}
     if not eval_cfg.get("enabled", False):
