@@ -162,14 +162,12 @@ Load {actual $SKILL_ROOT}/compose/writing-runner/SKILL.md and follow its instruc
 
 Entry: `advance-to-freeedit` success, or Fix L resume.
 
-- User drives edits; AI assists on request.
-- Prefer **structured** edits over hand-editing the assembled compose `.md` (`.md` is a one-way projection):
-  - **Tier A (same revision, presentation):** edit `_body-{cid}.txt` (optionally sync existing fact `text` in `_facts.json`). Narrative-arc: visible group/leaf titles come from `_narrative-arc.json` via `$COMPOSE_DOC_CONTROL assemble-arc` (default `--lens-heading omit`). Writing cognition (What) is disclosed on the Writing/`chapter-write-runner` path via `$CHAPTER_WRITE_STATE begin.writing_cognition`; Fix-L body edits do **not** require re-running claim-current. Never use `_chapters.json` / `_lens-themes.json` / `_chapter-framework.json` / `_chapter-placement.json` (retired). Skip Inductive|Deductive / Writing.
-  - **Tier B (new revision, structure/facts topology):** do **not** patch chapter set / `lens_tags` in place — run `$START_COMPOSE` for a new revision, re-run Inductive|Deductive then Writing. Leave Fix-L resume.
-  - If the user insists on editing the assembled `.md`: warn that the next rebuild / new revision will overwrite; do not reverse-parse `.md` into JSON.
-- When user signals done, ask using remaining `$POST_WRITING_OPTIONS` that still apply (typically Evaluate; Deliver package only if listed and all L already accepted):
-  - **Evaluate** → **Evaluating** below.
-  - **Deliver** (only if listed) → **Leave Working** only when all L are accepted; otherwise Blocking / continue the L loop.
+User-driven edits to the generated compose document (the assembled `.md`). AI assists on request.
+
+When the user signals done, ask using remaining `$POST_WRITING_OPTIONS` that still apply (typically Evaluate; Deliver package only if listed and all L already accepted):
+
+- **Evaluate** → **Evaluating** below.
+- **Deliver** (only if listed) → **Leave Working** only when all L are accepted; otherwise Blocking / continue the L loop.
 
 ### Evaluating
 
