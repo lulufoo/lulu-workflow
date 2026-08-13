@@ -96,8 +96,8 @@ def enter_evaluating_state(
             "resume": {
                 "entry": current,
                 "action": (
-                    "无 locked 拓扑，不能进入 L evaluating；请回到 Split 补 lock "
-                    f"或新开 revision。 ({topo_err})"
+                    "无 locked 拓扑，不能进入 L evaluating；Blocking，请新开 revision。"
+                    f" ({topo_err})"
                 ),
             },
         }

@@ -12,7 +12,11 @@ from bootstrap import CORE  # noqa: E402
 sys.path.insert(0, str(CORE))
 from session_evaluating import enter_evaluating_state  # noqa: E402
 from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, seed_profile_pointer_for_tests  # noqa: E402
-from workflow_state_schema import load_workflow_state, save_workflow_state  # noqa: E402
+from workflow_state_schema import (  # noqa: E402
+    init_compose_session,
+    load_workflow_state,
+    save_workflow_state,
+)
 from discussion_pointer_schema import load_discussion_pointer  # noqa: E402
 from init_working_helpers import (  # noqa: E402
     init_working_ready,
@@ -77,6 +81,21 @@ def test_rejects_non_working(tmp_path: Path) -> None:
 
     assert result["ok"] is False
     assert result["current_state"] == "ReadyForDelivery"
+
+
+def test_rejects_without_topology_is_blocking(tmp_path: Path) -> None:
+    ws = _seed_session(tmp_path)
+    init_compose_session(ws, mode="tech")
+    save_workflow_state(ws, {"current_state": "Working"})
+
+    result = enter_evaluating_state(_CYCLE, tmp_path)
+
+    assert result["ok"] is False
+    action = (result.get("resume") or {}).get("action", "")
+    assert "Blocking" in action
+    assert "新开 revision" in action
+    assert "补 lock" not in action
+    assert "回到 Split" not in action
 
 
 def test_rejects_when_intake_not_done(tmp_path: Path) -> None:
