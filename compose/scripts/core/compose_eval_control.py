@@ -50,11 +50,6 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Compose Eval control — passthrough stage eval config to Eval",
     )
-    parser.add_argument(
-        "--profile-id",
-        default="",
-        help="Compose profile id (default: cycle context after start)",
-    )
     parser.add_argument("--cycle-id", required=True)
     parser.add_argument("--project-root", type=Path, default=Path("."))
     parser.add_argument(
@@ -68,14 +63,13 @@ def main(argv: list[str] | None = None) -> int:
     if remainder and remainder[0] == "--":
         remainder = remainder[1:]
     if not remainder:
-        return _emit_error("missing Eval subcommand after --profile-id / --cycle-id")
+        return _emit_error("missing Eval subcommand after --cycle-id")
 
     project_root = args.project_root.resolve()
     try:
         profile_id = resolve_profile_id(
             project_root=project_root,
             cycle_id=args.cycle_id.strip(),
-            explicit=args.profile_id,
         )
         profile = load_profile(
             profile_id,

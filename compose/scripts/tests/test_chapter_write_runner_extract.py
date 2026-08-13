@@ -39,43 +39,35 @@ def test_writing_step5_dispatches_chapter_write_runner():
     assert "section-form-registry" not in step5
 
 
-def test_write_runner_input_six_fields():
+def test_write_runner_input_five_fields():
     for field in (
         "REVISION_DIR:",
         "PROJECT_ROOT:",
-        "COMPOSE_PROFILE:",
         "CYCLE_ID:",
         "OUTPUT_DOC_PATH:",
         "ARC_PATH:",
     ):
         assert field in _WRITE
-    assert "$CODE_GROUNDING" in _WRITE  # named as Must not
-    assert "Must not (Input)" in _WRITE
+    assert "COMPOSE_PROFILE:" not in _WRITE
     assert "ARC_PATH: _narrative-arc.json" in _WRITE
-    assert "This wave" in _WRITE and "_narrative-arc.json" in _WRITE
-    assert "This wave" in _DELIVERY
-    assert "default basename only" in _DELIVERY
+    assert "$CODE_GROUNDING" in _DELIVERY
+    assert "--profile" not in _DELIVERY
 
 
 def test_step4_write_semantics_preserved_in_protocol():
     required = [
         "claim-current",
-        "begin.facts",
         "待决",
-        "already_running",
-        "missing_fact_ids",
         "writing_cognition",
         "lens_intent",
         "assemble-arc",
-        "Must not (Write substance source)",
-        "Read `_facts.json`",
-        "begin --chapter",
-        "<!-- chapter:{cid} -->",
+        "no `--chapter`",
     ]
     for phrase in required:
         assert phrase in _PROTOCOL, phrase
+    assert "COMPOSE_PROFILE" not in _PROTOCOL
+    assert "--profile" not in _PROTOCOL
     assert "writing_cognition" in _PROTOCOL
     assert "context.role" in _PROTOCOL or "context.domain" in _PROTOCOL
-    assert "session context" in _DELIVERY or "Session context" in _DELIVERY
-    assert "Phase 0" in _PROTOCOL
-    assert "init-doc" in _PROTOCOL.split("## Artifacts")[0]
+    assert "Phase 0" in _DELIVERY
+    assert "init-doc" in _DELIVERY

@@ -78,7 +78,7 @@ from split_intake_schema import (  # noqa: E402
     split_intake_path,
     validate_split_intake,
 )
-from workflow_paths import load_profile, resolve_profile_id  # noqa: E402
+from workflow_paths import load_profile, resolve_revision_runtime_profile  # noqa: E402
 
 
 def document_filename_for_profile(profile_id: str) -> str:
@@ -654,11 +654,7 @@ def _build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--revision-dir", required=True, type=Path)
-    parser.add_argument(
-        "--profile",
-        default="",
-        help="Compose profile / stage id (default: cycle context after start)",
-    )
+    parser.add_argument("--project-root", type=Path, default=Path.cwd())
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("check-root-facts", help="Hard-reject if root _facts.json exists")
@@ -719,10 +715,10 @@ def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     rev = args.revision_dir.resolve()
     try:
-        profile_id = resolve_profile_id(
-            revision_dir=rev,
-            explicit=args.profile,
-        )
+        profile_id = resolve_revision_runtime_profile(
+            rev,
+            args.project_root.resolve(),
+        ).profile_id
     except (ValueError, FileNotFoundError, OSError) as exc:
         print(f"错误：{exc}", file=sys.stderr)
         return 1

@@ -15,7 +15,12 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
-from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, WORKFLOW_SCRIPTS, resolve_profile_id  # noqa: E402
+from workflow_paths import (  # noqa: E402
+    DEFAULT_COMPOSE_PROFILE_ID,
+    WORKFLOW_SCRIPTS,
+    resolve_cycle_id,
+    resolve_profile_id,
+)
 
 if str(WORKFLOW_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(WORKFLOW_SCRIPTS))
@@ -81,11 +86,6 @@ def main(argv: Optional[list[str]] = None) -> int:
         help="Compose template scheme key",
     )
     parser.add_argument(
-        "--profile",
-        default="",
-        help="Compose profile id (default: cycle context after start)",
-    )
-    parser.add_argument(
         "--cycle-id",
         default="",
         help="Cycle ID for session profile pointer (fallback: env / active-context)",
@@ -113,18 +113,17 @@ def main(argv: Optional[list[str]] = None) -> int:
     args = parser.parse_args(argv)
 
     project_root = Path(args.project_root).resolve()
-    explicit = args.profile.strip()
     cycle_id = args.cycle_id.strip() or None
     try:
-        if explicit:
-            profile_id = explicit
-        elif cycle_id:
-            profile_id = resolve_profile_id(
-                project_root=project_root,
-                cycle_id=cycle_id,
-            )
-        else:
-            profile_id = DEFAULT_COMPOSE_PROFILE_ID
+        cycle_id = resolve_cycle_id(
+            project_root,
+            cycle_id=cycle_id,
+            conversation_id=args.conversation_id.strip() or None,
+        )
+        profile_id = resolve_profile_id(
+            project_root=project_root,
+            cycle_id=cycle_id,
+        )
         content = fetch_compose_framework(
             role=args.role,
             project_root=project_root,

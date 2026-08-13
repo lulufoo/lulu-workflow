@@ -161,8 +161,6 @@ def test_removed_legacy_cli_unknown(tmp_path: Path) -> None:
             [
                 "--revision-dir",
                 str(rev),
-                "--profile",
-                _PROFILE,
                 "phase-switch",
                 "--confirm",
             ]
@@ -172,8 +170,6 @@ def test_removed_legacy_cli_unknown(tmp_path: Path) -> None:
             [
                 "--revision-dir",
                 str(rev),
-                "--profile",
-                _PROFILE,
                 "migrate",
                 "--confirm",
             ]

@@ -21,7 +21,6 @@ fetch registry/role in parent Load (L1 self-`context`).
 |---|---|
 | `$REVISION_DIR` | Absolute revision / focus-L root |
 | `$PROJECT_ROOT` | Project root; default `$(pwd)` |
-| `$COMPOSE_PROFILE` | Compose profile id |
 | `$CYCLE_ID` | Active cycle id |
 | `$SOURCE_PATH` | Absolute intake SoT doc (Eval SoT) |
 | `$REQUIRE_SEED_ORIGIN` | Optional; `true` for inductive — structure validate adds `--require-seed-origin` |
@@ -57,7 +56,6 @@ Load {SKILL_ROOT}/compose/fact-intake-runner/fact-cut-runner/SKILL.md and follow
 ## Input
 REVISION_DIR: <$REVISION_DIR>
 PROJECT_ROOT: <$PROJECT_ROOT>
-COMPOSE_PROFILE: <$COMPOSE_PROFILE>
 CYCLE_ID: <$CYCLE_ID>
 SOURCE_PATH: <$SOURCE_PATH>
 REQUIRE_SEED_ORIGIN: <$REQUIRE_SEED_ORIGIN>
@@ -68,7 +66,6 @@ REQUIRE_SEED_ORIGIN: <$REQUIRE_SEED_ORIGIN>
 ```bash
 $FACTS_CTL validate \
   --revision-dir "$REVISION_DIR" \
-  --profile "$COMPOSE_PROFILE" \
   --project-root "$(pwd)" \
   --intake-structure
 # when REQUIRE_SEED_ORIGIN=true, also pass --require-seed-origin
@@ -86,7 +83,6 @@ Load {SKILL_ROOT}/compose/fact-intake-runner/fact-intake-eval/SKILL.md and follo
 ## Input
 REVISION_DIR: <$REVISION_DIR>
 PROJECT_ROOT: <$PROJECT_ROOT>
-COMPOSE_PROFILE: <$COMPOSE_PROFILE>
 CYCLE_ID: <$CYCLE_ID>
 SOURCE_PATH: <$SOURCE_PATH>
 ```
@@ -104,7 +100,6 @@ Load {SKILL_ROOT}/compose/fact-intake-runner/fact-disposition-runner/SKILL.md an
 ## Input
 REVISION_DIR: <$REVISION_DIR>
 PROJECT_ROOT: <$PROJECT_ROOT>
-COMPOSE_PROFILE: <$COMPOSE_PROFILE>
 CYCLE_ID: <$CYCLE_ID>
 SOURCE_PATH: <$SOURCE_PATH>
 ```
@@ -140,7 +135,6 @@ Empty ops / no-change: user confirms explicitly. This wave: edit patch in parent
 
 ```text
 Fact-intake complete.
-  Profile: <COMPOSE_PROFILE>
   Source: <SOURCE_PATH>
   Facts: <abs path to _facts.json>
   Eval: done

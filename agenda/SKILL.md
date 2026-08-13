@@ -45,7 +45,7 @@ Subcommands and stdout: `agenda_control.py --help`.
 ## When to use
 
 1. **User says `agenda 查看命令`** (or clearly wants the agenda action list) → `$AGENDA_CTL menu` → offer **only** prefixed L1 labels from stdout / `agenda-presentation.md` (every phrase starts with `agenda`).
-2. **User picks a prefixed option** (e.g. `agenda 新增 blocker`) → run matching `$AGENDA_CTL add|update|list` with `--cycle-id` / `--profile` (writes only after that explicit pick).
+2. **User picks a prefixed option** (e.g. `agenda 新增 blocker`) → run matching `$AGENDA_CTL add|update|list` with `--cycle-id` (writes only after that explicit pick).
 3. **Compose deliver** — mechanical (in `session_control.deliver`); agents do not skip this by calling schema directly.
 
 **Hard rule:** never offer bare labels without the `agenda` prefix (avoids colliding with other workflow stops).

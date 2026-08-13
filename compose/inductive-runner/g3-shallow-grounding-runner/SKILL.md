@@ -28,7 +28,6 @@ Plain-text block from the orchestrating inductive-runner:
 ```
 SWEEP                 positive int — current detect-pass / receipt batch id
 INDUCTIVE_OUT_DIR     absolute path to revision{N}/ inductive state bundle
-COMPOSE_PROFILE       compose profile id
 CYCLE_ID              active cycle id
 PROJECT_ROOT          absolute project root, resolved by the orchestrator
 ```
@@ -40,7 +39,7 @@ Self-resolved: `$SKILL_ROOT` from workflow install path.
 | Macro | Command |
 |-------|---------|
 | `$INDUCTIVE_G3_GROUNDING_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_g3_grounding_control.py" --out-dir "$INDUCTIVE_OUT_DIR"` |
-| `$FETCH_COMPOSE` | `python3 "$SKILL_ROOT/compose/scripts/io/fetch_compose_framework.py" --role <role> --profile "$COMPOSE_PROFILE" --project-root "$PROJECT_ROOT" --cycle-id "$CYCLE_ID"` |
+| `$FETCH_COMPOSE` | `python3 "$SKILL_ROOT/compose/scripts/io/fetch_compose_framework.py" --role <role> --project-root "$PROJECT_ROOT" --cycle-id "$CYCLE_ID"` |
 
 ## Pipeline
 

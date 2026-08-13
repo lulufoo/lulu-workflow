@@ -163,10 +163,8 @@ class TestResolveDomain:
             resolve_domain_markdown()
 
 
-class TestScopeResolverCliProfile:
-    """--profile must work before and after the subcommand (Writing macro friction fix)."""
-
-    def test_profile_after_subcommand_accepted(self, capsys):
+class TestScopeResolverCli:
+    def test_resolve_role_cycle_type(self, capsys):
         from scope_resolver import main
 
         assert (
@@ -177,29 +175,6 @@ class TestScopeResolverCliProfile:
                     "feature",
                     "--project-root",
                     ".",
-                    "--profile",
-                    "lulu-plan",
-                ],
-            )
-            == 0
-        )
-        out = capsys.readouterr().out
-        assert "## Scope Constraints" in out
-        assert "### Role Instance" in out
-
-    def test_profile_before_subcommand_accepted(self, capsys):
-        from scope_resolver import main
-
-        assert (
-            main(
-                [
-                    "--profile",
-                    "lulu-plan",
-                    "--project-root",
-                    ".",
-                    "resolve-role",
-                    "--cycle-type",
-                    "feature",
                 ],
             )
             == 0

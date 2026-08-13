@@ -33,7 +33,6 @@ def main(argv: list[str] | None = None) -> int:
     )
     project_p.add_argument("--revision-dir", type=str, required=True)
     project_p.add_argument("--inductive-dir", type=str, default=None)
-    project_p.add_argument("--profile", type=str, required=True)
     project_p.add_argument("--project-root", type=str, default=".")
     project_p.set_defaults(func=cmd_project)
 

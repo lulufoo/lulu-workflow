@@ -19,7 +19,6 @@ Run only when compose Split Rules dispatch multi-subdesign split (session state 
 |---|---|
 | `$REVISION_DIR` | Absolute path to `revision{N}/` |
 | `$CYCLE_ID` | Active cycle id |
-| `$COMPOSE_PROFILE` | Compose profile id |
 
 Self-resolved: `$PROJECT_ROOT` = `$(pwd)`.
 
@@ -27,7 +26,7 @@ Self-resolved: `$PROJECT_ROOT` = `$(pwd)`.
 
 | Macro | Command |
 |-------|---------|
-| `$MULTI_SLICE` | `python3 "$SKILL_ROOT/compose/scripts/core/multi_slice_control.py" --revision-dir "$REVISION_DIR" --profile "$COMPOSE_PROFILE" <subcommand>` |
+| `$MULTI_SLICE` | `python3 "$SKILL_ROOT/compose/scripts/core/multi_slice_control.py" --revision-dir "$REVISION_DIR" <subcommand>` |
 
 Subcommands: `--help`. Contracts live in the control module / `--help` only.
 

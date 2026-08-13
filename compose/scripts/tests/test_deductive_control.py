@@ -9,20 +9,24 @@ import sys
 from pathlib import Path
 
 _SCRIPTS = Path(__file__).resolve().parents[1]
+_CORE = _SCRIPTS / "core"
+if str(_CORE) not in sys.path:
+    sys.path.insert(0, str(_CORE))
+from workflow_paths import seed_revision_profile_pointer  # noqa: E402
 _CTL = _SCRIPTS / "deductive" / "deductive_control.py"
+_REPO = Path(__file__).resolve().parents[4]
 
 
 def _run(args: list[str], revision_dir: Path) -> subprocess.CompletedProcess[str]:
+    seed_revision_profile_pointer(revision_dir)
     return subprocess.run(
         [
             sys.executable,
             str(_CTL),
             "--revision-dir",
             str(revision_dir),
-            "--profile",
-            "lulu-plan",
             "--project-root",
-            str(revision_dir.parent),
+            str(_REPO),
             *args,
         ],
         capture_output=True,
@@ -304,7 +308,7 @@ def test_disposition_patch_validate_and_apply(tmp_path: Path) -> None:
         json.dumps(patch, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
-    # No --profile: skip lens/rule binding; schema still validates ops.
+    seed_revision_profile_pointer(rev)
     out = subprocess.run(
         [
             sys.executable,
@@ -312,7 +316,7 @@ def test_disposition_patch_validate_and_apply(tmp_path: Path) -> None:
             "--revision-dir",
             str(rev),
             "--project-root",
-            str(tmp_path),
+            str(_REPO),
             "disposition-patch-validate",
             "--patch-file",
             str(patch_path),
@@ -329,7 +333,7 @@ def test_disposition_patch_validate_and_apply(tmp_path: Path) -> None:
             "--revision-dir",
             str(rev),
             "--project-root",
-            str(tmp_path),
+            str(_REPO),
             "disposition-patch-apply",
             "--patch-file",
             str(patch_path),

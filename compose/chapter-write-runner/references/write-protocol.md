@@ -31,7 +31,6 @@ Claim the sole current chapter (no `--chapter`):
 $CHAPTER_WRITE_STATE begin \
   --revision-dir "$REVISION_DIR" \
   --project-root "$PROJECT_ROOT" \
-  --profile "$COMPOSE_PROFILE" \
   --cycle-id "$CYCLE_ID"
 # → work ticket (stdout)
 ```

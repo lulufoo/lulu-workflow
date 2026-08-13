@@ -43,6 +43,7 @@ from role_instance_schema import (  # noqa: E402
 from schema_common import resolve_fetched_instance_path  # noqa: E402
 from scope_resolver import resolve_cycle_type  # noqa: E402
 from workflow_common import CACHE_DIR, load_container_meta  # noqa: E402
+from workflow_paths import resolve_revision_runtime_profile  # noqa: E402
 
 _ROLE_KEYS = ("role_id", "expressive_tendency", "vocabulary_domain")
 _DOMAIN_KEYS = (
@@ -225,17 +226,22 @@ def cmd_context(args: argparse.Namespace) -> int:
         root = Path(args.project_root).resolve()
         cycle_type = _cycle_type(args)
         cycle_id = str(args.cycle_id or "").strip()
+        profile = resolve_revision_runtime_profile(
+            Path(args.revision_dir),
+            root,
+            cycle_id=cycle_id or None,
+        ).profile_id
         role, domain = _scope_instances(
             cycle_type=cycle_type,
             project_root=root,
-            profile=args.profile,
+            profile=profile,
             cycle_id=cycle_id,
         )
         display_name = _cycle_display_name(project_root=root, cycle_id=cycle_id)
         preamble = substitute_document_preamble(
             _registry_preamble(
                 project_root=root,
-                profile=args.profile,
+                profile=profile,
                 cycle_id=cycle_id,
             ),
             cycle_id=cycle_id,
@@ -263,7 +269,6 @@ def build_parser() -> argparse.ArgumentParser:
     context = sub.add_parser("context", help="Print filtered session write context")
     context.add_argument("--revision-dir", required=True)
     context.add_argument("--project-root", required=True)
-    context.add_argument("--profile", required=True)
     cycle = context.add_mutually_exclusive_group(required=True)
     cycle.add_argument("--cycle-id", default="")
     cycle.add_argument("--cycle-type", default="")

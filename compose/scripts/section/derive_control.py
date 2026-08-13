@@ -38,6 +38,7 @@ from facts_schema import (  # noqa: E402
 )
 from compose_state_lock import compose_state_lock  # noqa: E402
 from fetch_compose_framework import fetch_compose_framework  # noqa: E402
+from workflow_paths import resolve_revision_runtime_profile  # noqa: E402
 from derive_shell import (  # noqa: E402
     DeriveCycleError,
     append_derived_facts,
@@ -108,6 +109,13 @@ def _fail(message: str) -> int:
     return 1
 
 
+def _runtime_profile_id(args: argparse.Namespace) -> str:
+    return resolve_revision_runtime_profile(
+        Path(args.revision_dir),
+        Path(args.project_root).resolve(),
+    ).profile_id
+
+
 def _load_registry(project_root: Path, profile_id: str) -> dict[str, Any]:
     raw = fetch_compose_framework(
         "section-registry",
@@ -151,7 +159,7 @@ def cmd_edge_scan(args: argparse.Namespace) -> int:
     try:
         graph, section_order, presence_map = _graph_and_maps(
             args.project_root.resolve(),
-            args.profile.strip(),
+            _runtime_profile_id(args),
         )
     except Exception as exc:  # noqa: BLE001
         return _fail(f"section-registry unavailable: {exc}")
@@ -225,7 +233,7 @@ def cmd_audit(args: argparse.Namespace) -> int:
     try:
         graph, _order, _presence = _graph_and_maps(
             args.project_root.resolve(),
-            args.profile.strip(),
+            _runtime_profile_id(args),
         )
     except Exception as exc:  # noqa: BLE001
         return _fail(f"section-registry unavailable: {exc}")
@@ -260,14 +268,14 @@ def cmd_append(args: argparse.Namespace) -> int:
 
     try:
         out = append_derived_facts(base, derived)
-        allowed = None
-        if args.profile:
-            registry = _load_registry(args.project_root.resolve(), args.profile.strip())
-            allowed = [str(k).upper() for k in registry.get("section_order") or []]
+        registry = _load_registry(
+            args.project_root.resolve(),
+            _runtime_profile_id(args),
+        )
+        allowed = [str(k).upper() for k in registry.get("section_order") or []]
         save_facts(facts_path(revision_dir), out, allowed_lenses=allowed)
-    except ValueError as exc:
+    except (ValueError, FileNotFoundError, OSError) as exc:
         return _fail(str(exc))
-
     return _ok(
         {
             "ok": True,
@@ -288,7 +296,7 @@ def cmd_classify(args: argparse.Namespace) -> int:
     try:
         graph, section_order, presence_map = _graph_and_maps(
             args.project_root.resolve(),
-            args.profile.strip(),
+            _runtime_profile_id(args),
         )
     except Exception as exc:  # noqa: BLE001
         return _fail(f"section-registry unavailable: {exc}")
@@ -315,7 +323,6 @@ def main() -> int:
         help="List edge-coverage holes in topo order + true gaps (deductive-runner)",
     )
     edge_scan_p.add_argument("--revision-dir", type=Path, required=True)
-    edge_scan_p.add_argument("--profile", type=str, required=True)
     edge_scan_p.add_argument("--project-root", type=Path, default=Path.cwd())
     edge_scan_p.set_defaults(func=cmd_edge_scan)
 
@@ -333,14 +340,12 @@ def main() -> int:
         required=True,
         help="Comma-separated triggered lens keys (from edge-scan.order)",
     )
-    audit_p.add_argument("--profile", type=str, required=True)
     audit_p.add_argument("--project-root", type=Path, default=Path.cwd())
     audit_p.set_defaults(func=cmd_audit)
 
     append_p = sub.add_parser("append", help="Append derived facts and write _facts.json")
     append_p.add_argument("--revision-dir", type=Path, required=True)
     append_p.add_argument("--derived-file", type=Path, required=True)
-    append_p.add_argument("--profile", type=str, default="")
     append_p.add_argument("--project-root", type=Path, default=Path.cwd())
     append_p.set_defaults(func=cmd_append)
 
@@ -349,7 +354,6 @@ def main() -> int:
         help="Classify zero-coverage required lenses (derivation vs true gap)",
     )
     classify_p.add_argument("--revision-dir", type=Path, required=True)
-    classify_p.add_argument("--profile", type=str, required=True)
     classify_p.add_argument("--project-root", type=Path, default=Path.cwd())
     classify_p.set_defaults(func=cmd_classify)
 

@@ -36,6 +36,7 @@ from compose_state_lock import canonical_digest  # noqa: E402
 from discussion_pointer_schema import active_slice_dir  # noqa: E402
 from facts_schema import facts_path, load_facts  # noqa: E402
 from fetch_compose_framework import fetch_compose_framework  # noqa: E402
+from workflow_paths import resolve_revision_runtime_profile  # noqa: E402
 from narrative_arc_schema import (  # noqa: E402
     NARRATIVE_ARC_BASENAME,
     chapter_write_units,
@@ -60,6 +61,19 @@ def _allowed_lenses(project_root: Path, profile_id: str) -> set[str]:
         return {str(k).strip().upper() for k in sections}
     order = data.get("section_order") or []
     return {str(k).strip().upper() for k in order if str(k).strip()}
+
+
+def _lenses_for_revision(args: argparse.Namespace) -> set[str]:
+    root = (
+        Path(args.project_root).resolve()
+        if str(args.project_root or "").strip()
+        else Path.cwd()
+    )
+    profile_id = resolve_revision_runtime_profile(
+        Path(args.revision_dir),
+        root,
+    ).profile_id
+    return _allowed_lenses(root, profile_id)
 
 
 def _load_facts(revision_dir: Path) -> list[dict[str, Any]]:
@@ -101,9 +115,10 @@ def cmd_validate(args: argparse.Namespace) -> int:
 
     revision = Path(args.revision_dir).resolve()
     facts = _load_facts(revision) if not args.skip_facts else None
-    lenses = None
-    if args.project_root and args.profile:
-        lenses = _allowed_lenses(Path(args.project_root), args.profile)
+    try:
+        lenses = _lenses_for_revision(args)
+    except (OSError, ValueError, FileNotFoundError, json.JSONDecodeError) as exc:
+        return _fail(str(exc))
 
     errors = validate_narrative_arc(
         data, facts=facts, allowed_lenses=lenses,
@@ -142,9 +157,10 @@ def cmd_write(args: argparse.Namespace) -> int:
 
     revision = Path(args.revision_dir).resolve()
     facts = _load_facts(revision) if not args.skip_facts else None
-    lenses = None
-    if args.project_root and args.profile:
-        lenses = _allowed_lenses(Path(args.project_root), args.profile)
+    try:
+        lenses = _lenses_for_revision(args)
+    except (OSError, ValueError, FileNotFoundError, json.JSONDecodeError) as exc:
+        return _fail(str(exc))
 
     errors = validate_narrative_arc(
         data, facts=facts, allowed_lenses=lenses,
@@ -222,9 +238,10 @@ def cmd_list_chapters(args: argparse.Namespace) -> int:
     path = _resolve_output(args)
     revision = Path(args.revision_dir).resolve()
     facts = _load_facts(revision) if not args.skip_facts else None
-    lenses = None
-    if args.project_root and args.profile:
-        lenses = _allowed_lenses(Path(args.project_root), args.profile)
+    try:
+        lenses = _lenses_for_revision(args)
+    except (OSError, ValueError, FileNotFoundError, json.JSONDecodeError) as exc:
+        return _fail(str(exc))
     try:
         data = load_narrative_arc(path, facts=facts, allowed_lenses=lenses)
     except ValueError as exc:
@@ -248,7 +265,6 @@ def build_parser() -> argparse.ArgumentParser:
     def add_rev(p: argparse.ArgumentParser) -> None:
         p.add_argument("--revision-dir", required=True)
         p.add_argument("--project-root", default="")
-        p.add_argument("--profile", default="")
         p.add_argument(
             "--conversation-id",
             default="",

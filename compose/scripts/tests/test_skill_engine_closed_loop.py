@@ -21,6 +21,10 @@ def test_engine_skill_contains_full_orchestration() -> None:
     text = _ENGINE_SKILL.read_text(encoding="utf-8")
 
     for heading in (
+        "## Session bootstrap",
+        "### Start",
+        "### Bind context",
+        "### Scope constraints",
         "## Working Rules",
         "### Inductive (only when `pipeline.inductive` is `true`)",
         "### Deductive (only when `pipeline.inductive` is `false`)",

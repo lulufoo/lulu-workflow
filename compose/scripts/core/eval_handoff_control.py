@@ -735,7 +735,6 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Compose EvalHandoff control")
     parser.add_argument("--cycle-id", required=True)
     parser.add_argument("--project-root", type=Path, default=Path("."))
-    parser.add_argument("--profile", default="")
     sub = parser.add_subparsers(dest="command", required=True)
 
     req = sub.add_parser(_CMD_REQUEST, help="Build EvalHandoff for current focus L")
@@ -776,7 +775,6 @@ def main(argv: list[str] | None = None) -> int:
         profile_id = resolve_profile_id(
             project_root=root,
             cycle_id=cycle_id,
-            explicit=args.profile,
         )
     except (ValueError, FileNotFoundError, OSError) as exc:
         return _emit(_failure(args.command, str(exc)))

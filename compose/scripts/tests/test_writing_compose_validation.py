@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 _COMPOSE = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(_COMPOSE / "scripts" / "core"))
 sys.path.insert(0, str(_COMPOSE / "scripts" / "section"))
 sys.path.insert(0, str(_COMPOSE / "narrative-arc-runner" / "scripts"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -21,6 +22,7 @@ from writing_compose_validation import (  # noqa: E402
 )
 from narrative_arc_schema import save_narrative_arc  # noqa: E402
 from test_template_data import seed_template_cache  # noqa: E402
+from workflow_paths import seed_revision_profile_pointer  # noqa: E402
 
 _FAKE_DESIGN_SECTION_URL = (
     "https://github.com/lulufoo/lulu-workflow-framework/blob/main/"
@@ -168,8 +170,6 @@ def _complete_write_state(revision_dir: Path, cids: list[str]) -> None:
                 str(revision_dir),
                 "--project-root",
                 str(project_root),
-                "--profile",
-                "lulu-design",
             ],
         ) == 0
         assert write_state_main(
@@ -201,6 +201,7 @@ def revision_dir(tmp_path: Path) -> Path:
     _seed_registries(tmp_path)
     rev = tmp_path / "revision1"
     rev.mkdir()
+    seed_revision_profile_pointer(rev, profile_id="lulu-design")
     return rev
 
 

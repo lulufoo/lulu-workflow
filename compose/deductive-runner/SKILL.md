@@ -44,7 +44,6 @@ and the parent can enter Writing.
 
 | Var | Meaning |
 |-----|---------|
-| `$COMPOSE_PROFILE` | Compose profile id |
 | `$CYCLE_ID` | Active cycle id |
 | `$SCOPE_REF` | Upstream scope structure ref |
 | `$SOURCE_PATH` | Absolute intake SoT doc (fact-intake SoT); format-neutral |
@@ -63,7 +62,7 @@ Bind `$SOURCE_PATH` from `$ATOMIZE_SOURCE_PATH` when only the alias is set.
 |-------|---------|
 | `$FACTS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/facts_control.py"` |
 | `$DERIVE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/derive_control.py"` |
-| `$DEDUCTIVE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/deductive/deductive_control.py" --revision-dir "$DEDUCTIVE_OUT_DIR" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)"` |
+| `$DEDUCTIVE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/deductive/deductive_control.py" --revision-dir "$DEDUCTIVE_OUT_DIR" --project-root "$(pwd)"` |
 
 `$FACTS_CTL` / `$DERIVE_CTL` / `$DEDUCTIVE_CTL`: see each `--help`. Scripts never
 invent derived work-item text.
@@ -86,7 +85,6 @@ Load {SKILL_ROOT}/compose/fact-intake-runner/SKILL.md and follow it.
 ## Input
 REVISION_DIR: <$DEDUCTIVE_OUT_DIR>
 PROJECT_ROOT: <$PROJECT_ROOT>
-COMPOSE_PROFILE: <$COMPOSE_PROFILE>
 CYCLE_ID: <$CYCLE_ID>
 SOURCE_PATH: <$SOURCE_PATH>
 ```
@@ -109,7 +107,6 @@ Load {SKILL_ROOT}/compose/deductive-runner/derive-runner/SKILL.md and follow it.
 ## Input
 REVISION_DIR: <$DEDUCTIVE_OUT_DIR>
 PROJECT_ROOT: <$PROJECT_ROOT>
-COMPOSE_PROFILE: <$COMPOSE_PROFILE>
 CYCLE_ID: <$CYCLE_ID>
 ```
 
@@ -130,7 +127,7 @@ Load and follow [Pending Confirm](references/pending-confirm.md):
 ### Step 4 — Complete
 
 ```bash
-$FACTS_CTL validate --revision-dir "$DEDUCTIVE_OUT_DIR" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)"
+$FACTS_CTL validate --revision-dir "$DEDUCTIVE_OUT_DIR" --project-root "$(pwd)"
 $DEDUCTIVE_CTL gate-check
 ```
 

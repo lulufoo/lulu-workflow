@@ -130,10 +130,28 @@ class TestFetchComposeFramework:
 class TestMainCli:
     def test_main_accepts_section_registry_role(self, tmp_path: Path, monkeypatch) -> None:
         import fetch_compose_framework as mod
+        from workflow_paths import (  # noqa: WPS433
+            DEFAULT_COMPOSE_PROFILE_ID,
+            write_active_profile,
+        )
+
+        write_active_profile(tmp_path, "c1", DEFAULT_COMPOSE_PROFILE_ID)
 
         def stub_fetch(role: str, project_root: Path, **kwargs) -> str:
             assert role == "section-registry"
             return '{"version":"1"}\n'
 
         monkeypatch.setattr(mod, "fetch_compose_framework", stub_fetch)
-        assert mod.main(["--role", "section-registry", "--project-root", str(tmp_path)]) == 0
+        assert (
+            mod.main(
+                [
+                    "--role",
+                    "section-registry",
+                    "--project-root",
+                    str(tmp_path),
+                    "--cycle-id",
+                    "c1",
+                ]
+            )
+            == 0
+        )

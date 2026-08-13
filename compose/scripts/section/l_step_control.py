@@ -247,7 +247,6 @@ def _format_inductive_dispatch_input(
     scope_ref = _inductive_scope_ref_path(cycle_id, project_root, profile_id)
     source = scope_ref.as_posix()
     lines = [
-        f"COMPOSE_PROFILE:      {profile_id}",
         f"CYCLE_ID:             {cycle_id}",
         f"SCOPE_REF:            {source}",
         f"SOURCE_PATH:          {source}",
@@ -305,7 +304,6 @@ def _format_deductive_dispatch_input(
     intent_refs = intent_baseline_from_workflow(cycle_id, project_root, profile_id)
     norm_refs = norm_constraint_from_workflow(cycle_id, project_root, profile_id)
     lines = [
-        f"COMPOSE_PROFILE:      {profile_id}",
         f"CYCLE_ID:             {cycle_id}",
         f"SCOPE_REF:            {scope_path.as_posix()}",
         f"INTENT_BASELINE_REFS: {serialize_delivered_refs(intent_refs)}",
@@ -344,7 +342,6 @@ def _format_init_dispatch_input(
         f"REVISION_DIR:         {revision_dir.as_posix()}",
         f"SCOPE_REF_PATH:       {_scope_doc(cycle_id, project_root, profile_id).as_posix()}",
         f"OUTPUT_DOC_PATH:      {output_doc.resolve().as_posix()}",
-        f"COMPOSE_PROFILE:      {profile_id}",
         f"CYCLE_TYPE:           {detect_cycle_type(cycle_id)}",
         f"CYCLE_ID:             {cycle_id}",
     ]
@@ -706,7 +703,6 @@ def _cli() -> int:
     parser = argparse.ArgumentParser(description="generic compose draft control")
     parser.add_argument("--cycle-id", required=True, help="Cycle ID")
     parser.add_argument("--project-root", type=Path, default=Path("."))
-    parser.add_argument("--profile", default="", help="Compose profile id (default: cycle context after start)")
     sub = parser.add_subparsers(dest="command", required=True)
     for command in (
         _CMD_BEGIN_INDUCTIVE,
@@ -724,7 +720,6 @@ def _cli() -> int:
         profile_id = resolve_profile_id(
             project_root=args.project_root.resolve(),
             cycle_id=args.cycle_id.strip(),
-            explicit=args.profile,
         )
     except (ValueError, FileNotFoundError, OSError) as exc:
         print(str(exc), file=sys.stderr)

@@ -16,9 +16,15 @@ _WORKFLOW_ROOT = Path(__file__).resolve().parents[3]
 _ENGINE_SKILL = _WORKFLOW_ROOT / "compose" / "SKILL.md"
 
 
-def test_engine_calls_kernel_start_directly() -> None:
+def test_engine_registers_start_only_in_macro_table() -> None:
     engine_text = _ENGINE_SKILL.read_text(encoding="utf-8")
-    assert 'python3 "$SKILL_ROOT/compose/scripts/core/start.py"' in engine_text
+    orchestration, macro_table = engine_text.split("## Script Macros", maxsplit=1)
+    invocation = 'python3 "$SKILL_ROOT/compose/scripts/core/start.py"'
+    assert invocation not in orchestration
+    assert invocation in macro_table
+    assert "$START_COMPOSE" in orchestration
+    assert "New revision" not in orchestration
+    assert "Same-revision resume" not in orchestration
 
 
 def test_stage_skills_reference_start_macro_with_own_profile() -> None:

@@ -5,7 +5,7 @@ Single delivery path for all callers. Load only after
 
 ## Preconditions
 
-- Input bound: `REVISION_DIR`, `PROJECT_ROOT`, `COMPOSE_PROFILE`, `CYCLE_ID`,
+- Input bound: `REVISION_DIR`, `PROJECT_ROOT`, `CYCLE_ID`,
   `OUTPUT_PATH`, `MOUNT` (`true`|`false`; default `false` if omitted).
 - Semantic build protocol completed for the current phase candidate.
 - Do **not** paste fact bodies in the caller prompt — use `context`.
@@ -17,7 +17,7 @@ Single delivery path for all callers. Load only after
 2. Run pre-persist self-check (protocol step 5).
 3. `$NARRATIVE_ARC_BUILD_CTL validate-candidate --revision-dir … --file <candidate>`
    → capture `digest`.
-4. `$NARRATIVE_ARC_CTL write --revision-dir … --project-root … --profile …
+4. `$NARRATIVE_ARC_CTL write --revision-dir … --project-root …
    --file <candidate> --output-path "$OUTPUT_PATH" --digest <digest>`
 5. On failure: do not claim write; rebuild candidate; do not run a follow-up
    `validate` solely because write succeeded.

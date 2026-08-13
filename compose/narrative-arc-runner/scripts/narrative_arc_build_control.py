@@ -44,6 +44,7 @@ from role_instance_schema import (  # noqa: E402
 )
 from schema_common import resolve_fetched_instance_path  # noqa: E402
 from scope_resolver import resolve_cycle_type  # noqa: E402
+from workflow_paths import resolve_revision_runtime_profile  # noqa: E402
 from logs.workflow_log import emit_biz  # noqa: E402
 
 
@@ -164,15 +165,20 @@ def cmd_context(args: argparse.Namespace) -> int:
     try:
         cycle_type = _cycle_type(args)
         cycle_id = str(args.cycle_id or "").strip()
+        profile = resolve_revision_runtime_profile(
+            Path(args.revision_dir),
+            root,
+            cycle_id=cycle_id or None,
+        ).profile_id
         role, domain = _scope_instances(
             cycle_type=cycle_type,
             project_root=root,
-            profile=args.profile,
+            profile=profile,
             cycle_id=cycle_id,
         )
         registry, lenses = _registry(
             project_root=root,
-            profile=args.profile,
+            profile=profile,
             cycle_id=cycle_id,
         )
         facts = _facts(args.revision_dir)
@@ -209,12 +215,19 @@ def cmd_context(args: argparse.Namespace) -> int:
 
 def cmd_validate_candidate(args: argparse.Namespace) -> int:
     try:
+        root = Path(args.project_root).resolve()
+        cycle_id = str(args.cycle_id or "").strip()
+        profile = resolve_revision_runtime_profile(
+            Path(args.revision_dir),
+            root,
+            cycle_id=cycle_id or None,
+        ).profile_id
         candidate = _candidate(args.file)
         facts = _facts(args.revision_dir)
         _, lenses = _registry(
-            project_root=Path(args.project_root).resolve(),
-            profile=args.profile,
-            cycle_id=str(args.cycle_id or "").strip(),
+            project_root=root,
+            profile=profile,
+            cycle_id=cycle_id,
         )
         errors = validate_narrative_arc(
             candidate,
@@ -245,7 +258,6 @@ def build_parser() -> argparse.ArgumentParser:
     def add_common(command: argparse.ArgumentParser) -> None:
         command.add_argument("--revision-dir", required=True)
         command.add_argument("--project-root", required=True)
-        command.add_argument("--profile", required=True)
         command.add_argument(
             "--conversation-id",
             default="",

@@ -25,7 +25,6 @@ or `formal|collab` target fork; change Viewer HTML.
 ```text
 REVISION_DIR: <revision or inductive out dir>
 PROJECT_ROOT: <abs project root>
-COMPOSE_PROFILE: <profile id>
 CYCLE_ID: <cycle id>
 OUTPUT_PATH: <arc file relative to slice or absolute>
 MOUNT: true|false

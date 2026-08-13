@@ -52,7 +52,7 @@ from discussion_pointer_schema import (  # noqa: E402
 from l_step_progress_schema import allowed_steps, save_l_step_progress  # noqa: E402
 from multi_slice_control import document_filename_for_profile  # noqa: E402
 from workflow_common import parse_frontmatter_fields  # noqa: E402
-from workflow_paths import resolve_profile_id  # noqa: E402
+from workflow_paths import resolve_revision_runtime_profile  # noqa: E402
 
 _BOUNDARY_HEADING = "## Boundary"
 _L_STEP_PROGRESS = "l-step-progress.md"
@@ -376,8 +376,9 @@ def cmd_demote_acceptance(
 ) -> int:
     """Bucket side-effect: acceptance→pending; FreeEdit sync when target is focus.
 
-    L-step-progress sync runs only when ``profile_id`` is non-empty (CLI always
-    passes ``--profile``; library callers such as facts write may omit it).
+    L-step-progress sync runs only when ``profile_id`` is non-empty (CLI
+    resolves it from the revision session pointer; library callers such as
+    facts write may omit it).
     """
     err = _require_confirm(confirm)
     if err:
@@ -547,9 +548,10 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Path to revision{N}/ directory",
     )
     parser.add_argument(
-        "--profile",
-        default="",
-        help="Compose profile / stage id (default: cycle context after start)",
+        "--project-root",
+        type=Path,
+        default=Path.cwd(),
+        help="Project root for resolving the session profile pointer",
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -613,10 +615,10 @@ def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     rev = args.revision_dir.resolve()
     try:
-        profile_id = resolve_profile_id(
-            revision_dir=rev,
-            explicit=args.profile,
-        )
+        profile_id = resolve_revision_runtime_profile(
+            rev,
+            args.project_root.resolve(),
+        ).profile_id
     except (ValueError, FileNotFoundError, OSError) as exc:
         print(f"错误：{exc}", file=sys.stderr)
         return 1

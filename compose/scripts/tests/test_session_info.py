@@ -95,6 +95,15 @@ class TestSessionSnapshot:
         payload = session_snapshot(cycle_id, project_root)
         assert payload["view"] == "session"
         assert payload["pipeline"]["inductive"] is False
+        assert payload["revision_dir"] == (
+            project_root
+            / ".cache"
+            / "cursor"
+            / "lulu-dev-workflow"
+            / cycle_id
+            / "lulu-plan"
+            / "revision1"
+        ).resolve().as_posix()
         assert payload["workflow_state"]["mode"] == "product"
         assert payload["compose_doc"]["revision"] == 1
         assert payload["compose_doc"]["status"] == "ready"
@@ -116,6 +125,7 @@ class TestSessionSnapshot:
         # No tech-doc.md — mirrors post-start Split before Writing.
         payload = session_snapshot(cycle_id, tmp_path)
         assert payload["view"] == "session"
+        assert payload["revision_dir"] == revision.resolve().as_posix()
         assert payload["workflow_state"]["current_state"] == "Split"
         assert payload["compose_doc"]["revision"] == 1
         assert payload["compose_doc"]["status"] == "pending"

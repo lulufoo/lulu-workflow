@@ -651,11 +651,6 @@ def _cli() -> int:
         default=Path("."),
         help="Project root directory",
     )
-    parser.add_argument(
-        "--profile",
-        default="",
-        help="Compose profile / stage name (default: cycle context after start)",
-    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser(
@@ -691,7 +686,6 @@ def _cli() -> int:
         profile_id = resolve_profile_id(
             project_root=project_root,
             cycle_id=cycle_id,
-            explicit=args.profile,
         )
     except (ValueError, FileNotFoundError, OSError) as exc:
         print(str(exc), file=sys.stderr)

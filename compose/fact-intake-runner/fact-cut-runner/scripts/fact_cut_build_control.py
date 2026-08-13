@@ -21,6 +21,7 @@ from fetch_compose_framework import (  # noqa: E402
     FetchComposeFrameworkError,
     fetch_compose_framework,
 )
+from workflow_paths import resolve_revision_runtime_profile  # noqa: E402
 
 
 def _ok(payload: dict[str, Any]) -> int:
@@ -35,9 +36,13 @@ def _fail(message: str) -> int:
 
 def cmd_context(args: argparse.Namespace) -> int:
     root = Path(args.project_root).resolve()
-    profile = args.profile.strip()
     cycle_id = (args.cycle_id or "").strip() or None
     try:
+        profile = resolve_revision_runtime_profile(
+            Path(args.revision_dir),
+            root,
+            cycle_id=cycle_id,
+        ).profile_id
         reg_raw = fetch_compose_framework(
             "section-registry",
             root,
@@ -81,7 +86,6 @@ def main(argv: list[str] | None = None) -> int:
     context = sub.add_parser("context", help="Fetch cut context (registry + role)")
     context.add_argument("--revision-dir", required=True)
     context.add_argument("--project-root", required=True)
-    context.add_argument("--profile", required=True)
     context.add_argument("--cycle-id", default="")
     context.set_defaults(func=cmd_context)
     args = parser.parse_args(argv)

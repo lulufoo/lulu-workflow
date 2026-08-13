@@ -5,7 +5,7 @@ Subcommands:
     sync       Align state order to narrative-arc write units
     status     Print next / done_count / status (observe only)
     begin      Claim current chapter (no --chapter); return work ticket
-               (requires --project-root and --profile; optional --cycle-id)
+               (requires --project-root; optional --cycle-id)
     complete   Artifact gate + mark current done; advance next
 
 ``begin`` returns ticket fields plus ``writing_cognition`` and ``lens_intent``.
@@ -48,6 +48,7 @@ from chapter_write_state_schema import (  # noqa: E402
 from discussion_pointer_schema import active_slice_dir  # noqa: E402
 from facts_schema import facts_path, load_facts  # noqa: E402
 from fetch_compose_framework import fetch_compose_framework  # noqa: E402
+from workflow_paths import resolve_revision_runtime_profile  # noqa: E402
 from logs.workflow_log import emit_biz  # noqa: E402
 from narrative_arc_schema import (  # noqa: E402
     chapter_write_units,
@@ -403,10 +404,15 @@ def cmd_begin(args: argparse.Namespace) -> int:
         )
 
     root = Path(args.project_root).resolve()
-    profile = str(args.profile or "").strip()
     cycle_id = str(args.cycle_id or "").strip()
-    if not profile:
-        return _fail("begin requires --profile")
+    try:
+        profile = resolve_revision_runtime_profile(
+            Path(args.revision_dir),
+            root,
+            cycle_id=cycle_id or None,
+        ).profile_id
+    except (OSError, ValueError, FileNotFoundError) as exc:
+        return _fail(str(exc))
     try:
         writing_cognition = _writing_cognition_for_lens(
             lens=str(unit["lens"]),
@@ -578,7 +584,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     add_rev(p_begin)
     p_begin.add_argument("--project-root", required=True)
-    p_begin.add_argument("--profile", required=True)
     p_begin.add_argument(
         "--cycle-id",
         default="",

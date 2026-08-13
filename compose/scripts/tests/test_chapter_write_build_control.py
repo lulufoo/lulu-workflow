@@ -10,6 +10,9 @@ from pathlib import Path
 
 _COMPOSE = Path(__file__).resolve().parents[2]
 _REPO = Path(__file__).resolve().parents[4]
+_CORE = _COMPOSE / "scripts" / "core"
+sys.path.insert(0, str(_CORE))
+from workflow_paths import seed_revision_profile_pointer  # noqa: E402
 _BUILD = (
     _COMPOSE / "chapter-write-runner" / "scripts" / "chapter_write_build_control.py"
 )
@@ -36,8 +39,9 @@ def _run(argv: list[str]) -> subprocess.CompletedProcess[str]:
 
 
 def test_context_filters_role_domain_and_preamble(tmp_path: Path):
-    rev = tmp_path / "rev"
+    rev = tmp_path / "revision1"
     rev.mkdir()
+    seed_revision_profile_pointer(rev)
     # facts must not appear even if present on disk
     (rev / "_facts.json").write_text(
         json.dumps([{"id": "F-1", "text": "secret fact"}], ensure_ascii=False),
@@ -50,8 +54,6 @@ def test_context_filters_role_domain_and_preamble(tmp_path: Path):
             str(rev),
             "--project-root",
             str(_REPO),
-            "--profile",
-            "lulu-design",
             "--cycle-type",
             "feature",
         ]

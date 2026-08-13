@@ -41,8 +41,6 @@ from agenda_schema import (  # noqa: E402
     save_agenda,
 )
 from agenda_session import (  # noqa: E402
-    resolve_active_profile_id,
-    resolve_cycle_id,
     resolve_revision_dir,
 )
 
@@ -112,7 +110,7 @@ def _revision_dir_from_args(args: argparse.Namespace) -> Path:
     return resolve_revision_dir(
         root,
         cycle_id=args.cycle_id,
-        profile_id=args.profile,
+        profile_id="",
     )
 
 
@@ -260,11 +258,6 @@ def _add_session_args(p: argparse.ArgumentParser) -> None:
         help="cycle id (default: $LULU_CYCLE_ID)",
     )
     p.add_argument(
-        "--profile",
-        default=None,
-        help="compose profile id; default: cycle context after start",
-    )
-    p.add_argument(
         "--revision-dir",
         default=None,
         help="optional override; otherwise resolved from session-state active_doc",
@@ -275,7 +268,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="agenda_control.py",
         description=(
-            "Stage agenda control. Prefer --cycle-id/--profile to resolve "
+            "Stage agenda control. Prefer --cycle-id to resolve "
             "revision{N} from session-state; --revision-dir overrides."
         ),
     )
@@ -339,16 +332,6 @@ def _build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
-    if args.command != "menu":
-        if not args.revision_dir and not args.profile:
-            try:
-                cid = resolve_cycle_id(args.cycle_id)
-                args.profile = resolve_active_profile_id(
-                    Path(args.project_root),
-                    cid,
-                )
-            except (ValueError, FileNotFoundError, OSError) as exc:
-                return _fail(str(exc))
     return int(args.func(args))
 
 

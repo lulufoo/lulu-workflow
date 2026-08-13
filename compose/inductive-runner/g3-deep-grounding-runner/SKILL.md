@@ -32,7 +32,6 @@ FRONTIER_KW           int 0..4 — altitude this open was surfaced at
 PROBLEM               one-line problem statement from the open
 SWEEP                 positive int — current detect-pass / receipt batch id
 INDUCTIVE_OUT_DIR     absolute path to revision{N}/ inductive state bundle
-COMPOSE_PROFILE       compose profile id
 CYCLE_ID              active cycle id
 PROJECT_ROOT          absolute project root, resolved by the orchestrator
 ```

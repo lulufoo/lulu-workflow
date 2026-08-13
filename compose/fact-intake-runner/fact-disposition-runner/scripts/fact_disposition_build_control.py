@@ -30,6 +30,7 @@ from fetch_compose_framework import (  # noqa: E402
     FetchComposeFrameworkError,
     fetch_compose_framework,
 )
+from workflow_paths import resolve_revision_runtime_profile  # noqa: E402
 
 
 def _ok(payload: dict[str, Any]) -> int:
@@ -44,8 +45,15 @@ def _fail(message: str) -> int:
 
 def cmd_context(args: argparse.Namespace) -> int:
     root = Path(args.project_root).resolve()
-    profile = args.profile.strip()
     cycle_id = (args.cycle_id or "").strip() or None
+    try:
+        profile = resolve_revision_runtime_profile(
+            Path(args.revision_dir),
+            root,
+            cycle_id=cycle_id,
+        ).profile_id
+    except (OSError, ValueError) as exc:
+        return _fail(str(exc))
     slice_dir = active_slice_dir(Path(args.revision_dir).resolve())
     es = evaluate_state_path(slice_dir)
     legacy = slice_dir / "atomize-eval" / "evaluate-state.md"
@@ -109,7 +117,6 @@ def main(argv: list[str] | None = None) -> int:
     )
     context.add_argument("--revision-dir", required=True)
     context.add_argument("--project-root", required=True)
-    context.add_argument("--profile", required=True)
     context.add_argument("--cycle-id", default="")
     context.set_defaults(func=cmd_context)
     args = parser.parse_args(argv)

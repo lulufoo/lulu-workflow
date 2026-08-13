@@ -30,7 +30,7 @@ from chapter_fc_gates import check_chapter_write_artifacts  # noqa: E402
 from discussion_pointer_schema import active_slice_dir  # noqa: E402
 from facts_schema import facts_path, load_facts  # noqa: E402
 from fetch_compose_framework import fetch_compose_framework  # noqa: E402
-from workflow_paths import resolve_profile_id  # noqa: E402
+from workflow_paths import resolve_revision_runtime_profile  # noqa: E402
 
 
 def section_order_for_profile(project_root: Path, profile_id: str) -> list[str]:
@@ -271,11 +271,10 @@ def validate_writing_artifacts(
 
 def cmd_validate(args: argparse.Namespace) -> int:
     try:
-        profile_id = resolve_profile_id(
-            project_root=args.project_root.resolve(),
-            revision_dir=args.revision_dir.resolve(),
-            explicit=args.profile,
-        )
+        profile_id = resolve_revision_runtime_profile(
+            args.revision_dir.resolve(),
+            args.project_root.resolve(),
+        ).profile_id
     except (ValueError, FileNotFoundError, OSError) as exc:
         print(f"错误：{exc}", file=sys.stderr)
         return 1
@@ -298,7 +297,6 @@ def main() -> int:
     validate_parser = sub.add_parser("validate", help="Validate Writing display-layer artifacts")
     validate_parser.add_argument("--revision-dir", type=Path, required=True)
     validate_parser.add_argument("--compose-doc", type=Path, required=True)
-    validate_parser.add_argument("--profile", type=str, default="")
     validate_parser.add_argument("--project-root", type=Path, default=Path.cwd())
     validate_parser.set_defaults(func=cmd_validate)
 

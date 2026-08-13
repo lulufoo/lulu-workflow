@@ -8,7 +8,7 @@
 
 **Read discipline (context guard):** runs in `g5-provenance-runner` subagent only — **do not** inline-read `_facts.json`, opens, `$SCOPE_REF`, or upstream refs during G5.
 
-1. Call `$PROVENANCE_GATE_CTL init-session --cycle-id "$CYCLE_ID" --stage "$COMPOSE_PROFILE"` (once, on entry after G4) — seeds gate state + three empty traces. Resume: `$PROVENANCE_GATE_CTL resolve-context`.
+1. Call `$PROVENANCE_GATE_CTL init-session --cycle-id "$CYCLE_ID"` (once, on entry after G4) — seeds gate state + three empty traces. Resume: `$PROVENANCE_GATE_CTL resolve-context`.
 2. **Provenance scan (subagent):** dispatch `g5-provenance-runner` via `$SUBAGENT_TOOL` with `$SUBAGENT_AWAIT_SYNC`:
 
 ```text
@@ -19,7 +19,6 @@ INDUCTIVE_OUT_DIR: {actual $INDUCTIVE_OUT_DIR}
 SCOPE_REF: {actual $SCOPE_REF}
 INTENT_BASELINE_REFS: {actual $INTENT_BASELINE_REFS}
 NORM_CONSTRAINT_REFS: {actual $NORM_CONSTRAINT_REFS}
-COMPOSE_PROFILE: {actual $COMPOSE_PROFILE}
 CYCLE_ID: {actual $CYCLE_ID}
 PROJECT_ROOT: {actual $PROJECT_ROOT}
 ```

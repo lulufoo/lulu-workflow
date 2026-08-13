@@ -51,7 +51,6 @@ discovery channels (human || AI).
 ```text
 REVISION_DIR: <inductive out dir>
 PROJECT_ROOT: <abs project root>
-COMPOSE_PROFILE: <profile id>
 CYCLE_ID: <cycle id>
 OUTPUT_PATH: _narrative-arc.collab.json
 MOUNT: true

@@ -267,6 +267,10 @@ def test_resolve_from_session_active_doc(tmp_path: Path) -> None:
         "compose-profile.json\n",
         encoding="utf-8",
     )
+    (tmp_path / CACHE_DIR / cycle / ".compose-active-profile").write_text(
+        f"{profile}\n",
+        encoding="utf-8",
+    )
 
     resolved = resolve_revision_dir(
         tmp_path, cycle_id=cycle, profile_id=profile
@@ -280,8 +284,6 @@ def test_resolve_from_session_active_doc(tmp_path: Path) -> None:
             str(tmp_path),
             "--cycle-id",
             cycle,
-            "--profile",
-            profile,
             "--class",
             "blocker",
             "--text",

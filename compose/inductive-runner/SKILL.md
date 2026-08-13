@@ -30,7 +30,6 @@ The parent passes these in the `## Input` block; do not hardcode stage paths.
 
 | Var | Meaning |
 |-----|---------|
-| `$COMPOSE_PROFILE` | Compose profile id (drives every `$FETCH_COMPOSE`) |
 | `$CYCLE_ID` | Active cycle id |
 | `$SCOPE_REF` | Session / G5 source-material path (L mirror `source_path`; not scope-package whole) |
 | `$SOURCE_PATH` | Fact-intake SoT; same path as `$SCOPE_REF` for inductive |
@@ -67,9 +66,9 @@ Also read `../../_subagent.md` for platform dispatch (not Script Macros rows).
 
 | Macro | Command |
 |-------|---------|
-| `$FETCH_COMPOSE` | `python3 "$SKILL_ROOT/compose/scripts/io/fetch_compose_framework.py" --role <role> --profile "$COMPOSE_PROFILE" --project-root "$(pwd)" --cycle-id "$CYCLE_ID"` |
+| `$FETCH_COMPOSE` | `python3 "$SKILL_ROOT/compose/scripts/io/fetch_compose_framework.py" --role <role> --project-root "$(pwd)" --cycle-id "$CYCLE_ID"` |
 | `$INDUCTIVE_GATE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_gate_control.py" --out-dir "$INDUCTIVE_OUT_DIR"` |
-| `$INDUCTIVE_G3_SECTION_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_g3_section_control.py" --out-dir "$INDUCTIVE_OUT_DIR" --project-root "$(pwd)" --compose-profile "$COMPOSE_PROFILE" --compose-cycle-id "$CYCLE_ID"` |
+| `$INDUCTIVE_G3_SECTION_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_g3_section_control.py" --out-dir "$INDUCTIVE_OUT_DIR" --project-root "$(pwd)" --compose-cycle-id "$CYCLE_ID"` |
 | `$PROVENANCE_GATE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/provenance_gate_control.py" --out-dir "$INDUCTIVE_OUT_DIR"` |
 | `$TOPIC_CURRENT_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/topic_current_control.py"` |
 | `$FACT_STORE_CTL` | `python3 "$SKILL_ROOT/compose/fact-store-runner/scripts/fact_production_control.py"` |
@@ -104,7 +103,6 @@ Load {SKILL_ROOT}/compose/fact-intake-runner/SKILL.md and follow it.
 ## Input
 REVISION_DIR: <$INDUCTIVE_OUT_DIR>
 PROJECT_ROOT: <$PROJECT_ROOT>
-COMPOSE_PROFILE: <$COMPOSE_PROFILE>
 CYCLE_ID: <$CYCLE_ID>
 SOURCE_PATH: <$SOURCE_PATH>
 REQUIRE_SEED_ORIGIN: true

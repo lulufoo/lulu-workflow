@@ -19,7 +19,6 @@ dispositions; pass tightened validate.
 ```text
 REVISION_DIR: <revision or focus-L dir>
 PROJECT_ROOT: <abs project root>
-COMPOSE_PROFILE: <profile id>
 CYCLE_ID: <cycle id>
 SOURCE_PATH: <abs intake SoT>
 ```

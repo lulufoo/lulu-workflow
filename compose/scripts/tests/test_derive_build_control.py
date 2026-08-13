@@ -24,6 +24,19 @@ _PLAN_KW = (
 )
 
 
+_CORE = _REPO / "lulu-dev-workflow" / "compose" / "scripts" / "core"
+if str(_CORE) not in sys.path:
+    sys.path.insert(0, str(_CORE))
+from workflow_paths import seed_revision_profile_pointer  # noqa: E402
+
+
+def _revision(tmp_path: Path) -> Path:
+    rev = tmp_path / "revision1"
+    rev.mkdir(parents=True, exist_ok=True)
+    seed_revision_profile_pointer(rev)
+    return rev
+
+
 def _load_ctl():
     spec = importlib.util.spec_from_file_location("derive_build_control", _CTL)
     assert spec and spec.loader
@@ -56,15 +69,13 @@ def test_lens_bundle_help():
 
 def test_context_fails_without_eval_gate(tmp_path: Path):
     mod = _load_ctl()
-    rev = tmp_path / "rev"
-    rev.mkdir()
+    rev = _revision(tmp_path)
     ns = type(
         "Args",
         (),
         {
             "revision_dir": str(rev),
             "project_root": str(tmp_path),
-            "profile": "plan",
             "cycle_id": "",
         },
     )()
@@ -74,7 +85,7 @@ def test_context_fails_without_eval_gate(tmp_path: Path):
 
 def test_context_fails_when_eval_not_done(tmp_path: Path):
     mod = _load_ctl()
-    rev = tmp_path / "rev"
+    rev = _revision(tmp_path)
     gate = rev / "fact-intake-eval"
     gate.mkdir(parents=True)
     (gate / "evaluate-state.md").write_text(
@@ -87,7 +98,6 @@ def test_context_fails_when_eval_not_done(tmp_path: Path):
         {
             "revision_dir": str(rev),
             "project_root": str(tmp_path),
-            "profile": "plan",
             "cycle_id": "",
         },
     )()
@@ -123,8 +133,7 @@ def test_design_registry_has_section_order_no_lens_v2():
 
 def test_lens_bundle_cli_stdout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     mod = _load_ctl()
-    rev = tmp_path / "rev"
-    rev.mkdir()
+    rev = _revision(tmp_path)
     (rev / "_facts.json").write_text(
         json.dumps(
             [
@@ -180,7 +189,6 @@ def test_lens_bundle_cli_stdout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
             "lens": "CTX",
             "revision_dir": str(rev),
             "project_root": str(tmp_path),
-            "profile": "plan",
             "cycle_id": "",
         },
     )()
@@ -201,8 +209,7 @@ def test_lens_bundle_cli_stdout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
 
 def test_lens_bundle_fails_missing_kw_heading(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     mod = _load_ctl()
-    rev = tmp_path / "rev"
-    rev.mkdir()
+    rev = _revision(tmp_path)
     (rev / "_facts.json").write_text("[]", encoding="utf-8")
 
     def _fake_fetch(kind: str, _root, profile_id=None, cycle_id=None):
@@ -230,7 +237,6 @@ def test_lens_bundle_fails_missing_kw_heading(tmp_path: Path, monkeypatch: pytes
             "lens": "CTX",
             "revision_dir": str(rev),
             "project_root": str(tmp_path),
-            "profile": "plan",
             "cycle_id": "",
         },
     )()

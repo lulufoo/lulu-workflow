@@ -21,7 +21,7 @@ Deprecated (fail-fast): register-ep, update-ep, append-to-section
 
 All subcommands print JSON to stdout and exit 0 on success, exit 1 on failure.
 Global flags: --out-dir PATH (required); optional --project-root /
---compose-profile / --compose-cycle-id for section-registry auto-materialize (facet seeds for prompts);
+--compose-cycle-id for section-registry auto-materialize (facet seeds for prompts);
 optional --section-registry.
 """
 
@@ -84,6 +84,7 @@ from facts_schema import (  # noqa: E402
     validate_facts,
 )
 from compose_state_lock import compose_state_lock  # noqa: E402
+from workflow_paths import resolve_revision_runtime_profile  # noqa: E402
 from kw_facets import (  # noqa: E402
     load_section_registry_facets,
     materialize_section_registry,
@@ -108,20 +109,26 @@ def _resolve_section_registry_path(
 
 
 def _compose_fetch_ids(
+    out_dir: Path,
     args: argparse.Namespace,
 ) -> tuple[str | None, str | None]:
-    profile = (
-        getattr(args, "compose_profile", None)
-        or getattr(args, "profile", None)
-        or ""
-    )
-    profile = str(profile).strip() or None
     cycle_id = (
         getattr(args, "compose_cycle_id", None)
         or getattr(args, "cycle_id", None)
         or ""
     )
     cycle_id = str(cycle_id).strip() or None
+    root_raw = getattr(args, "project_root", None)
+    if not root_raw:
+        return None, cycle_id
+    try:
+        profile = resolve_revision_runtime_profile(
+            Path(out_dir),
+            Path(root_raw).resolve(),
+            cycle_id=cycle_id,
+        ).profile_id
+    except (OSError, ValueError, FileNotFoundError):
+        return None, cycle_id
     return profile, cycle_id
 
 
@@ -140,7 +147,7 @@ def _try_fetch_section_registry(
     root = Path(root_raw).resolve()
     if not root.is_dir():
         return None
-    profile, cycle_id = _compose_fetch_ids(args)
+    profile, cycle_id = _compose_fetch_ids(out_dir, args)
     _io = _SCRIPTS / "io"
     if str(_io) not in sys.path:
         sys.path.insert(0, str(_io))
@@ -190,7 +197,7 @@ def cmd_materialize_section_registry(out_dir: Path, args: argparse.Namespace) ->
         if path is None:
             _fail(
                 "materialize-section-registry --from-fetch failed "
-                "(check --project-root / --profile / network)"
+                "(check --project-root / revision profile pointer / network)"
             )
     else:
         _fail(
@@ -425,7 +432,18 @@ def cmd_init_pointer(out_dir: Path, args: argparse.Namespace) -> None:
         _fail(f"section pointer already exists: {ptr_path}")
 
     cycle_id = args.cycle_id or "_"
-    profile = (getattr(args, "profile", None) or "").strip()
+    profile = str(getattr(args, "stage", "") or "").strip()
+    root_raw = getattr(args, "project_root", None)
+    if root_raw:
+        try:
+            profile = resolve_revision_runtime_profile(
+                out_dir,
+                Path(root_raw).resolve(),
+                cycle_id=str(args.cycle_id or "").strip() or None,
+            ).profile_id
+        except (OSError, ValueError, FileNotFoundError):
+            if not profile:
+                profile = ""
     scope_ref = (getattr(args, "scope_ref", None) or "").strip()
     ptr = init_section_pointer(
         coverage_sections=sections,
@@ -1251,13 +1269,6 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Project root for materialize-section-registry --from-fetch / auto-fetch",
     )
     parser.add_argument(
-        "--compose-profile",
-        default=None,
-        dest="compose_profile",
-        metavar="ID",
-        help="Compose profile id for framework fetch (section-registry auto-materialize)",
-    )
-    parser.add_argument(
         "--compose-cycle-id",
         default=None,
         dest="compose_cycle_id",
@@ -1287,7 +1298,11 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--mandatory", default="", help="Comma-separated mandatory section keys")
     p.add_argument("--cycle-id", default="", help="Cycle id for traceability")
-    p.add_argument("--profile", default="", help="Compose profile id (stored on _index)")
+    p.add_argument(
+        "--stage",
+        default="",
+        help="Compose stage id stored as _index.profile when no revision pointer",
+    )
     p.add_argument("--scope-ref", default="", dest="scope_ref", help="Upstream scope path")
 
     sub.add_parser("status", help="Return active_section, statuses, blocking open count")

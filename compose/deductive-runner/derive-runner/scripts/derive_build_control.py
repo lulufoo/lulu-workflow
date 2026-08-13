@@ -45,6 +45,7 @@ from fetch_compose_framework import (  # noqa: E402
     FetchComposeFrameworkError,
     fetch_compose_framework,
 )
+from workflow_paths import resolve_revision_runtime_profile  # noqa: E402
 
 _H2_RE = re.compile(r"^##\s+(\S+)\s*$", re.MULTILINE)
 
@@ -126,8 +127,15 @@ def slice_kw_criteria(kw_raw: str, lens: str) -> str | None:
 
 def cmd_context(args: argparse.Namespace) -> int:
     root = Path(args.project_root).resolve()
-    profile = args.profile.strip()
     cycle_id = (args.cycle_id or "").strip() or None
+    try:
+        profile = resolve_revision_runtime_profile(
+            Path(args.revision_dir),
+            root,
+            cycle_id=cycle_id,
+        ).profile_id
+    except (OSError, ValueError) as exc:
+        return _fail(str(exc))
     data, err = _require_intake_eval(Path(args.revision_dir))
     if err:
         return _fail(err)
@@ -153,8 +161,15 @@ def cmd_context(args: argparse.Namespace) -> int:
 
 def cmd_lens_bundle(args: argparse.Namespace) -> int:
     root = Path(args.project_root).resolve()
-    profile = args.profile.strip()
     cycle_id = (args.cycle_id or "").strip() or None
+    try:
+        profile = resolve_revision_runtime_profile(
+            Path(args.revision_dir),
+            root,
+            cycle_id=cycle_id,
+        ).profile_id
+    except (OSError, ValueError) as exc:
+        return _fail(str(exc))
     lens = args.lens.strip().upper()
     if not lens:
         return _fail("--lens must be a non-empty lens key")
@@ -200,7 +215,6 @@ def main(argv: list[str] | None = None) -> int:
     )
     context.add_argument("--revision-dir", required=True)
     context.add_argument("--project-root", required=True)
-    context.add_argument("--profile", required=True)
     context.add_argument("--cycle-id", default="")
     context.set_defaults(func=cmd_context)
 
@@ -211,7 +225,6 @@ def main(argv: list[str] | None = None) -> int:
     bundle.add_argument("--lens", required=True)
     bundle.add_argument("--revision-dir", required=True)
     bundle.add_argument("--project-root", required=True)
-    bundle.add_argument("--profile", required=True)
     bundle.add_argument("--cycle-id", default="")
     bundle.set_defaults(func=cmd_lens_bundle)
 

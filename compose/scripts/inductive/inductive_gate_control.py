@@ -199,15 +199,16 @@ def cmd_init_session(out_dir: Path, args: argparse.Namespace) -> None:
     sections: str = args.sections or ""
     mandatory: str = args.mandatory or ""
 
-    ptr_result = _run_section_ctl(
-        out_dir,
+    ptr_args = [
         "init-pointer",
         "--sections", sections,
         "--mandatory", mandatory,
         "--cycle-id", cycle_id,
-        "--profile", stage,
         "--scope-ref", getattr(args, "scope_ref", "") or "",
-    )
+    ]
+    if stage:
+        ptr_args.extend(["--stage", stage])
+    ptr_result = _run_section_ctl(out_dir, *ptr_args)
     if not ptr_result.get("ok"):
         _fail("section pointer init failed: " + ptr_result.get("error", "unknown"))
 

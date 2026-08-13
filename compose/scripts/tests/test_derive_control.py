@@ -13,9 +13,12 @@ import sys
 from pathlib import Path
 
 _SECTION = Path(__file__).resolve().parent.parent / "section"
+_CORE = Path(__file__).resolve().parent.parent / "core"
+sys.path.insert(0, str(_CORE))
 sys.path.insert(0, str(_SECTION))
 
 import derive_control as mod  # noqa: E402
+from workflow_paths import seed_revision_profile_pointer  # noqa: E402
 
 _PLANISH_GRAPH = {
     "sections": {
@@ -41,6 +44,7 @@ _PRESENCE = {
 
 def _seed_facts(rev: Path, facts: list[dict]) -> None:
     rev.mkdir(parents=True, exist_ok=True)
+    seed_revision_profile_pointer(rev)
     (rev / "_facts.json").write_text(
         json.dumps(facts, ensure_ascii=False),
         encoding="utf-8",
@@ -52,11 +56,16 @@ def _patch_graph(monkeypatch) -> None:
         return _PLANISH_GRAPH, _ORDER, _PRESENCE
 
     monkeypatch.setattr(mod, "_graph_and_maps", stub_graph_and_maps)
+    monkeypatch.setattr(
+        mod,
+        "_load_registry",
+        lambda root, pid: {"section_order": _ORDER},  # noqa: ARG005
+    )
 
 
 def test_cli_append_and_audit_round_trip(tmp_path: Path, monkeypatch, capsys) -> None:
     _patch_graph(monkeypatch)
-    rev = tmp_path / "rev"
+    rev = tmp_path / "revision1"
     step2_facts = [
         {"id": "F-1", "text": "ar", "lens_tags": ["AR"]},
         {"id": "F-2", "text": "sk", "lens_tags": ["SK"]},
@@ -83,7 +92,6 @@ def test_cli_append_and_audit_round_trip(tmp_path: Path, monkeypatch, capsys) ->
             argparse.Namespace(
                 revision_dir=rev,
                 derived_file=derived,
-                profile="",
                 project_root=tmp_path,
             ),
         )
@@ -102,7 +110,6 @@ def test_cli_append_and_audit_round_trip(tmp_path: Path, monkeypatch, capsys) ->
                 revision_dir=rev,
                 before_file=before,
                 triggered="T",
-                profile="lulu-plan",
                 project_root=tmp_path,
             ),
         )
@@ -110,7 +117,7 @@ def test_cli_append_and_audit_round_trip(tmp_path: Path, monkeypatch, capsys) ->
     )
 
     # Silent T after cascade SK append → audit fails
-    cascade_rev = tmp_path / "cascade"
+    cascade_rev = tmp_path / "revision2"
     cascade_before = [{"id": "F-1", "text": "ar", "lens_tags": ["AR"]}]
     cascade_after = cascade_before + [
         {
@@ -146,7 +153,6 @@ def test_cli_append_and_audit_round_trip(tmp_path: Path, monkeypatch, capsys) ->
                 revision_dir=cascade_rev,
                 before_file=before2,
                 triggered="SK,T",
-                profile="lulu-plan",
                 project_root=tmp_path,
             ),
         )
@@ -168,7 +174,6 @@ def test_cmd_audit_empty_triggered_is_noop_success(tmp_path: Path, capsys) -> No
                 revision_dir=rev,
                 before_file=before,
                 triggered="",
-                profile="lulu-plan",
                 project_root=tmp_path,
             ),
         )
@@ -184,7 +189,7 @@ def test_cli_edge_scan_requires_fact_intake_eval_gate(
     tmp_path: Path, monkeypatch, capsys
 ) -> None:
     _patch_graph(monkeypatch)
-    rev = tmp_path / "rev"
+    rev = tmp_path / "revision1"
     _seed_facts(
         rev,
         [
@@ -194,7 +199,6 @@ def test_cli_edge_scan_requires_fact_intake_eval_gate(
     )
     args = argparse.Namespace(
         revision_dir=rev,
-        profile="lulu-plan",
         project_root=tmp_path,
     )
     assert mod.cmd_edge_scan(args) == 1
@@ -222,7 +226,7 @@ def test_cli_edge_scan_requires_fact_intake_eval_gate(
     data = build_initial_evaluate_state(
         dimension_ids=["e1-doc-coverage", "e2-fact-provenance"],
         evaluate_round=1,
-        focus_l="rev",
+        focus_l="revision1",
     )
     data["eval_status"] = "done"
     data["fix_phase"] = "done"
@@ -235,7 +239,7 @@ def test_cli_edge_scan_requires_fact_intake_eval_gate(
 
 def test_cli_classify(tmp_path: Path, monkeypatch, capsys) -> None:
     _patch_graph(monkeypatch)
-    rev = tmp_path / "rev"
+    rev = tmp_path / "revision1"
     _seed_facts(
         rev,
         [
@@ -247,7 +251,6 @@ def test_cli_classify(tmp_path: Path, monkeypatch, capsys) -> None:
         mod.cmd_classify(
             argparse.Namespace(
                 revision_dir=rev,
-                profile="lulu-plan",
                 project_root=tmp_path,
             ),
         )

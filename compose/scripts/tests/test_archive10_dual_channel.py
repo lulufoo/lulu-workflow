@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 _COMPOSE = Path(__file__).resolve().parents[2]
+_REPO = Path(__file__).resolve().parents[4]
 _SCRIPTS = _COMPOSE / "scripts"
 _SECTION = _SCRIPTS / "section"
 _NARRATIVE = _COMPOSE / "narrative-arc-runner" / "scripts"
@@ -19,7 +20,8 @@ _ARC_BUILD = _NARRATIVE / "narrative_arc_build_control.py"
 _VIEWER_CTL = _VIEWER / "compose_viewer_control.py"
 _HTML = _COMPOSE / "compose-viewer" / "assets" / "compose-viewer.html"
 
-for _p in (_SECTION, _NARRATIVE, _SCRIPTS):
+_CORE = _SCRIPTS / "core"
+for _p in (_SECTION, _NARRATIVE, _SCRIPTS, _CORE):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
@@ -28,6 +30,7 @@ from narrative_arc_schema import (  # noqa: E402
     NARRATIVE_ARC_BASENAME,
     save_narrative_arc,
 )
+from workflow_paths import seed_revision_profile_pointer  # noqa: E402
 
 
 def _run(cmd: list[str], *, cwd: Path | None = None):
@@ -80,8 +83,9 @@ def _facts_file(slice_dir: Path) -> None:
 
 
 def test_unified_write_digest_and_backup(tmp_path: Path):
-    rev = tmp_path / "rev"
+    rev = tmp_path / "revision1"
     rev.mkdir()
+    seed_revision_profile_pointer(rev)
     _facts_file(rev)
     out = rev / "_narrative-arc.collab.json"
     save_narrative_arc(out, _write_ready_arc(), facts=None, allowed_lenses=None)
@@ -97,6 +101,8 @@ def test_unified_write_digest_and_backup(tmp_path: Path):
             "write",
             "--revision-dir",
             str(rev),
+            "--project-root",
+            str(_REPO),
             "--output-path",
             "_narrative-arc.collab.json",
             "--file",
@@ -117,6 +123,8 @@ def test_unified_write_digest_and_backup(tmp_path: Path):
             "write",
             "--revision-dir",
             str(rev),
+            "--project-root",
+            str(_REPO),
             "--output-path",
             "_narrative-arc.collab.json",
             "--file",
@@ -134,6 +142,9 @@ def test_unified_write_digest_and_backup(tmp_path: Path):
 
 
 def test_build_validate_candidate_no_target_flag(tmp_path: Path):
+    rev = tmp_path / "revision1"
+    rev.mkdir()
+    seed_revision_profile_pointer(rev)
     # Minimal: missing facts → fail without --target
     result = _run(
         [
@@ -141,11 +152,9 @@ def test_build_validate_candidate_no_target_flag(tmp_path: Path):
             str(_ARC_BUILD),
             "validate-candidate",
             "--revision-dir",
-            str(tmp_path),
+            str(rev),
             "--project-root",
-            str(tmp_path),
-            "--profile",
-            "x",
+            str(_REPO),
             "--cycle-type",
             "feature",
             "--file",
@@ -157,7 +166,7 @@ def test_build_validate_candidate_no_target_flag(tmp_path: Path):
 
 
 def test_mount_requires_write_ready_unified_schema(tmp_path: Path):
-    rev = tmp_path / "rev"
+    rev = tmp_path / "revision1"
     rev.mkdir()
     _facts_file(rev)
     mapped = {

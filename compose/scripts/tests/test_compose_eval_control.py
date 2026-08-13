@@ -72,8 +72,6 @@ def test_main_forwards_full_round_completion_to_eval_entry(
     seed_profile_pointer_for_tests(tmp_path, "compose-full-round", "lulu-design")
     result = compose_eval_control.main(
         [
-            "--profile-id",
-            "lulu-design",
             "--cycle-id",
             "compose-full-round",
             "--project-root",

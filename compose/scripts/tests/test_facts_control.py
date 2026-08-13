@@ -9,8 +9,11 @@ import sys
 from pathlib import Path
 
 _SECTION = Path(__file__).resolve().parent.parent / "section"
+_CORE = Path(__file__).resolve().parent.parent / "core"
+sys.path.insert(0, str(_CORE))
 sys.path.insert(0, str(_SECTION))
 
+from workflow_paths import seed_revision_profile_pointer  # noqa: E402
 from facts_schema import (  # noqa: E402
     filter_by_lens,
     lenses_present,
@@ -23,6 +26,14 @@ from facts_schema import (  # noqa: E402
 )
 
 _CTL = _SECTION / "facts_control.py"
+_REPO = Path(__file__).resolve().parents[4]
+
+
+def _revision(tmp_path: Path, name: str = "revision1") -> Path:
+    rev = tmp_path / name
+    rev.mkdir(parents=True, exist_ok=True)
+    seed_revision_profile_pointer(rev)
+    return rev
 
 
 def test_validate_accepts_n_to_m_tags():
@@ -126,8 +137,7 @@ def test_control_write_validate_status(tmp_path: Path):
     ]
     facts_file = tmp_path / "facts.json"
     facts_file.write_text(json.dumps(facts), encoding="utf-8")
-    rev = tmp_path / "revision1"
-    rev.mkdir()
+    rev = _revision(tmp_path)
 
     write = subprocess.run(
         [
@@ -136,6 +146,8 @@ def test_control_write_validate_status(tmp_path: Path):
             "write",
             "--revision-dir",
             str(rev),
+            "--project-root",
+            str(_REPO),
             "--facts-file",
             str(facts_file),
         ],
@@ -151,7 +163,15 @@ def test_control_write_validate_status(tmp_path: Path):
     assert payload["unlensed_total"] == 0
 
     validate = subprocess.run(
-        [sys.executable, str(_CTL), "validate", "--revision-dir", str(rev)],
+        [
+            sys.executable,
+            str(_CTL),
+            "validate",
+            "--revision-dir",
+            str(rev),
+            "--project-root",
+            str(_REPO),
+        ],
         check=False,
         capture_output=True,
         text=True,
@@ -188,8 +208,7 @@ def test_control_write_rejects_invalid_facts(tmp_path: Path):
     bad = [{"id": "F-1", "text": "", "lens_tags": ["CTX"]}]
     facts_file = tmp_path / "facts.json"
     facts_file.write_text(json.dumps(bad), encoding="utf-8")
-    rev = tmp_path / "revision1"
-    rev.mkdir()
+    rev = _revision(tmp_path)
 
     write = subprocess.run(
         [
@@ -198,6 +217,8 @@ def test_control_write_rejects_invalid_facts(tmp_path: Path):
             "write",
             "--revision-dir",
             str(rev),
+            "--project-root",
+            str(_REPO),
             "--facts-file",
             str(facts_file),
         ],
@@ -301,8 +322,7 @@ def test_control_write_round_trips_source(tmp_path: Path):
     ]
     facts_file = tmp_path / "facts.json"
     facts_file.write_text(json.dumps(facts), encoding="utf-8")
-    rev = tmp_path / "revision1"
-    rev.mkdir()
+    rev = _revision(tmp_path)
 
     write = subprocess.run(
         [
@@ -311,6 +331,8 @@ def test_control_write_round_trips_source(tmp_path: Path):
             "write",
             "--revision-dir",
             str(rev),
+            "--project-root",
+            str(_REPO),
             "--facts-file",
             str(facts_file),
         ],
@@ -806,8 +828,7 @@ def test_write_target_l_buckets_and_demotes(tmp_path: Path) -> None:
     from discussion_pointer_schema import build_pointer_from_tree, load_discussion_pointer, save_discussion_pointer
     from facts_control import cmd_write
 
-    rev = tmp_path / "revision1"
-    rev.mkdir()
+    rev = _revision(tmp_path)
     tree = build_tree(
         nodes=[
             {"id": "L1", "title": "Base", "summary": "a"},
@@ -846,8 +867,7 @@ def test_write_target_l_buckets_and_demotes(tmp_path: Path) -> None:
         facts_file=facts_file,
         target_l="L1",
         package_confirm=False,
-        profile="",
-        project_root=tmp_path,
+        project_root=_REPO,
     )
     assert cmd_write(args) == 0
     assert (rev / "L1" / "_facts.json").is_file()
@@ -955,8 +975,7 @@ def test_validate_intake_structure_require_seed_origin():
 def test_control_validate_intake_structure_conflicts_with_require_derivation(
     tmp_path: Path,
 ):
-    rev = tmp_path / "rev"
-    rev.mkdir()
+    rev = _revision(tmp_path)
     (rev / "_facts.json").write_text(
         json.dumps(
             [
@@ -977,6 +996,8 @@ def test_control_validate_intake_structure_conflicts_with_require_derivation(
             "validate",
             "--revision-dir",
             str(rev),
+            "--project-root",
+            str(_REPO),
             "--intake-structure",
             "--require-derivation",
         ],
@@ -989,8 +1010,7 @@ def test_control_validate_intake_structure_conflicts_with_require_derivation(
 
 
 def test_control_validate_intake_structure_ok(tmp_path: Path):
-    rev = tmp_path / "rev"
-    rev.mkdir()
+    rev = _revision(tmp_path)
     (rev / "_facts.json").write_text(
         json.dumps(
             [
@@ -1011,6 +1031,8 @@ def test_control_validate_intake_structure_ok(tmp_path: Path):
             "validate",
             "--revision-dir",
             str(rev),
+            "--project-root",
+            str(_REPO),
             "--intake-structure",
         ],
         check=False,
@@ -1025,8 +1047,7 @@ def test_control_validate_intake_structure_ok(tmp_path: Path):
 
 def test_control_write_intake_structure_cut_omits_disposition(tmp_path: Path):
     """Cut path: seed + upstream_ref, no disposition → write + validate OK."""
-    rev = tmp_path / "rev"
-    rev.mkdir()
+    rev = _revision(tmp_path)
     facts_file = tmp_path / "cut-facts.json"
     cut_facts = [
         {
@@ -1046,6 +1067,8 @@ def test_control_write_intake_structure_cut_omits_disposition(tmp_path: Path):
             "write",
             "--revision-dir",
             str(rev),
+            "--project-root",
+            str(_REPO),
             "--facts-file",
             str(facts_file),
             "--intake-structure",
@@ -1067,6 +1090,8 @@ def test_control_write_intake_structure_cut_omits_disposition(tmp_path: Path):
             "validate",
             "--revision-dir",
             str(rev),
+            "--project-root",
+            str(_REPO),
             "--intake-structure",
             "--require-seed-origin",
         ],
@@ -1084,6 +1109,8 @@ def test_control_write_intake_structure_cut_omits_disposition(tmp_path: Path):
             "write",
             "--revision-dir",
             str(rev),
+            "--project-root",
+            str(_REPO),
             "--facts-file",
             str(facts_file),
         ],
@@ -1113,6 +1140,8 @@ def test_control_write_intake_structure_cut_omits_disposition(tmp_path: Path):
             "write",
             "--revision-dir",
             str(rev),
+            "--project-root",
+            str(_REPO),
             "--facts-file",
             str(disposed_file),
         ],
@@ -1128,6 +1157,8 @@ def test_control_write_intake_structure_cut_omits_disposition(tmp_path: Path):
             "validate",
             "--revision-dir",
             str(rev),
+            "--project-root",
+            str(_REPO),
         ],
         check=False,
         capture_output=True,

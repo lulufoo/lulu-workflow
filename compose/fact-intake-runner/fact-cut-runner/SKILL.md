@@ -19,7 +19,6 @@ Read `$SOURCE_PATH` once; write focus-slice `_facts.json` atoms with non-empty
 ```text
 REVISION_DIR: <revision or focus-L dir>
 PROJECT_ROOT: <abs project root>
-COMPOSE_PROFILE: <profile id>
 CYCLE_ID: <cycle id>
 SOURCE_PATH: <abs intake SoT>
 REQUIRE_SEED_ORIGIN: <true|false; default false>
@@ -38,7 +37,7 @@ Facts: `--help` · `write` · `validate`.
 ## Execution
 
 1. Bind Input.  
-2. `$FACT_CUT_BUILD_CTL context --revision-dir … --profile … --project-root … --cycle-id …`  
+2. `$FACT_CUT_BUILD_CTL context --revision-dir … --project-root … --cycle-id …`  
 3. Whole-doc cut → `$FACTS_CTL write … --intake-structure` (omit
    `derivation.disposition`; set seed + `upstream_ref`; add
    `--require-seed-origin` when `$REQUIRE_SEED_ORIGIN=true`).  

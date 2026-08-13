@@ -29,6 +29,7 @@ from fetch_compose_framework import (  # noqa: E402
     FetchComposeFrameworkError,
     fetch_compose_framework,
 )
+from workflow_paths import resolve_revision_runtime_profile  # noqa: E402
 
 DISPOSITION_PATCH_BASENAME = "fact-intake-disposition-review.patch"
 
@@ -52,6 +53,13 @@ def _ok(payload: dict[str, Any]) -> int:
 def _fail(message: str) -> int:
     print(f"错误：{message}", file=sys.stderr)
     return 1
+
+
+def _runtime_profile_id(args: argparse.Namespace) -> str:
+    return resolve_revision_runtime_profile(
+        Path(args.revision_dir),
+        Path(args.project_root).resolve(),
+    ).profile_id
 
 
 def _section_order(project_root: Path, profile: str) -> list[str]:
@@ -116,20 +124,14 @@ def cmd_disposition_patch_path(args: argparse.Namespace) -> int:
 
 def cmd_disposition_patch_validate(args: argparse.Namespace) -> int:
     revision_dir = active_slice_dir(args.revision_dir.resolve())
-    profile = (args.profile or "").strip()
     try:
+        profile = _runtime_profile_id(args)
         facts = load_facts(facts_path(revision_dir))
         patch = _load_patch_file(_resolve_patch_file(args))
-    except ValueError as exc:
+        allowed_lenses = _section_order(args.project_root.resolve(), profile)
+        allowed_rule_ids = _consume_rule_ids(args.project_root.resolve(), profile)
+    except (ValueError, FetchComposeFrameworkError, json.JSONDecodeError, FileNotFoundError, OSError) as exc:
         return _fail(str(exc))
-    allowed_lenses = None
-    allowed_rule_ids = None
-    if profile:
-        try:
-            allowed_lenses = _section_order(args.project_root.resolve(), profile)
-            allowed_rule_ids = _consume_rule_ids(args.project_root.resolve(), profile)
-        except (ValueError, FetchComposeFrameworkError, json.JSONDecodeError) as exc:
-            return _fail(str(exc))
     errors = validate_disposition_patch(
         patch,
         facts,
@@ -150,21 +152,15 @@ def cmd_disposition_patch_validate(args: argparse.Namespace) -> int:
 
 def cmd_disposition_patch_apply(args: argparse.Namespace) -> int:
     revision_dir = active_slice_dir(args.revision_dir.resolve())
-    profile = (args.profile or "").strip()
     path = facts_path(revision_dir)
     try:
+        profile = _runtime_profile_id(args)
         facts = load_facts(path)
         patch = _load_patch_file(_resolve_patch_file(args))
-    except ValueError as exc:
+        allowed_lenses = _section_order(args.project_root.resolve(), profile)
+        allowed_rule_ids = _consume_rule_ids(args.project_root.resolve(), profile)
+    except (ValueError, FetchComposeFrameworkError, json.JSONDecodeError, FileNotFoundError, OSError) as exc:
         return _fail(str(exc))
-    allowed_lenses = None
-    allowed_rule_ids = None
-    if profile:
-        try:
-            allowed_lenses = _section_order(args.project_root.resolve(), profile)
-            allowed_rule_ids = _consume_rule_ids(args.project_root.resolve(), profile)
-        except (ValueError, FetchComposeFrameworkError, json.JSONDecodeError) as exc:
-            return _fail(str(exc))
     errors = validate_disposition_patch(
         patch,
         facts,
@@ -226,7 +222,6 @@ def main(argv: list[str] | None = None) -> int:
                 f"Patch JSON (default: {{active slice}}/{DISPOSITION_PATCH_BASENAME})"
             ),
         )
-        p.add_argument("--profile", default="")
         p.add_argument("--project-root", type=Path, default=Path.cwd())
         p.set_defaults(func=func)
     args = parser.parse_args(argv)

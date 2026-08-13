@@ -19,7 +19,6 @@ kick back to `fact-cut-runner`.
 ```text
 REVISION_DIR: <revision or focus-L dir>
 PROJECT_ROOT: <abs project root>
-COMPOSE_PROFILE: <profile id>
 CYCLE_ID: <cycle id>
 SOURCE_PATH: <abs intake SoT>
 ```
@@ -28,7 +27,7 @@ SOURCE_PATH: <abs intake SoT>
 
 | Macro | Command |
 |-------|---------|
-| `$FACT_INTAKE_EVAL_CTL` | `python3 "$SKILL_ROOT/compose/fact-intake-runner/fact-intake-eval/scripts/fact_intake_eval_control.py" --profile-id "$COMPOSE_PROFILE" --cycle-id "$CYCLE_ID" --project-root "$(pwd)"` |
+| `$FACT_INTAKE_EVAL_CTL` | `python3 "$SKILL_ROOT/compose/fact-intake-runner/fact-intake-eval/scripts/fact_intake_eval_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)"` |
 
 ## Execution
 

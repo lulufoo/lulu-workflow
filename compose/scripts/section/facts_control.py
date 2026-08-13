@@ -50,6 +50,7 @@ from facts_schema import (  # noqa: E402
     validate_facts,
 )
 from compose_state_lock import compose_state_lock  # noqa: E402
+from workflow_paths import resolve_revision_runtime_profile  # noqa: E402
 
 _SESSION = _SCRIPTS / "schema" / "session"
 if str(_SESSION) not in sys.path:
@@ -195,6 +196,13 @@ def _fail(message: str) -> int:
     return 1
 
 
+def _runtime_profile_id(revision_dir: Path, project_root: Path) -> str:
+    return resolve_revision_runtime_profile(
+        Path(revision_dir),
+        Path(project_root),
+    ).profile_id
+
+
 def cmd_write(args: argparse.Namespace) -> int:
     rev = Path(args.revision_dir).resolve()
     target_l = (args.target_l or "").strip() or None
@@ -239,11 +247,11 @@ def cmd_write(args: argparse.Namespace) -> int:
         return _fail("--intake-structure conflicts with --require-derivation")
     if require_seed_origin and not intake_structure:
         return _fail("--require-seed-origin requires --intake-structure")
-    if args.profile:
-        try:
-            allowed = _section_order(args.project_root.resolve(), args.profile.strip())
-        except Exception as exc:  # noqa: BLE001 — surface fetch errors
-            return _fail(f"section-registry unavailable: {exc}")
+    try:
+        profile_id = _runtime_profile_id(rev, args.project_root.resolve())
+        allowed = _section_order(args.project_root.resolve(), profile_id)
+    except Exception as exc:  # noqa: BLE001 — surface fetch errors
+        return _fail(f"section-registry unavailable: {exc}")
 
     try:
         save_facts(
@@ -272,7 +280,7 @@ def cmd_write(args: argparse.Namespace) -> int:
                 rev,
                 target=target_l,
                 confirm=True,
-                profile_id=(args.profile or "").strip(),
+                profile_id=profile_id,
             )
         raw_out = buf_out.getvalue().strip()
         if raw_out:
@@ -319,24 +327,25 @@ def cmd_validate(args: argparse.Namespace) -> int:
     require_consume_policy = bool(getattr(args, "require_consume_policy", False))
     intake_structure = bool(getattr(args, "intake_structure", False))
     require_seed_origin = bool(getattr(args, "require_seed_origin", False))
-    if require_consume_policy and not (args.profile or "").strip():
-        return _fail("--require-consume-policy needs --profile")
     if intake_structure and require_derivation:
         return _fail("--intake-structure conflicts with --require-derivation")
-    if args.profile:
+    try:
+        profile_id = _runtime_profile_id(
+            args.revision_dir.resolve(),
+            args.project_root.resolve(),
+        )
+        allowed = _section_order(args.project_root.resolve(), profile_id)
+    except Exception as exc:  # noqa: BLE001
+        return _fail(f"section-registry unavailable: {exc}")
+    if require_consume_policy or require_derivation:
         try:
-            allowed = _section_order(args.project_root.resolve(), args.profile.strip())
-        except Exception as exc:  # noqa: BLE001
-            return _fail(f"section-registry unavailable: {exc}")
-        if require_consume_policy or require_derivation:
-            try:
-                allowed_rule_ids = _consume_rule_ids(
-                    args.project_root.resolve(),
-                    args.profile.strip(),
-                    required=require_consume_policy,
-                )
-            except ValueError as exc:
-                return _fail(str(exc))
+            allowed_rule_ids = _consume_rule_ids(
+                args.project_root.resolve(),
+                profile_id,
+                required=require_consume_policy,
+            )
+        except ValueError as exc:
+            return _fail(str(exc))
 
     errors = validate_facts(
         data,
@@ -414,7 +423,6 @@ def main() -> int:
         action="store_true",
         help="Human confirm for package-level bucket (AI must not self-select)",
     )
-    write_p.add_argument("--profile", type=str, default="")
     write_p.add_argument("--project-root", type=Path, default=Path.cwd())
     write_p.add_argument(
         "--intake-structure",
@@ -433,7 +441,6 @@ def main() -> int:
 
     validate_p = sub.add_parser("validate", help="Validate _facts.json")
     validate_p.add_argument("--revision-dir", type=Path, required=True)
-    validate_p.add_argument("--profile", type=str, default="")
     validate_p.add_argument("--project-root", type=Path, default=Path.cwd())
     validate_p.add_argument(
         "--require-derivation",

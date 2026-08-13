@@ -45,11 +45,6 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Fact Intake Eval control — fixed compose fact-intake-eval adapter config",
     )
-    parser.add_argument(
-        "--profile-id",
-        default="",
-        help="Compose stage profile id (default: cycle context after start)",
-    )
     parser.add_argument("--cycle-id", required=True)
     parser.add_argument("--project-root", type=Path, default=Path("."))
     parser.add_argument(
@@ -63,7 +58,7 @@ def main(argv: list[str] | None = None) -> int:
     if remainder and remainder[0] == "--":
         remainder = remainder[1:]
     if not remainder:
-        return _emit_error("missing Eval subcommand after --profile-id / --cycle-id")
+        return _emit_error("missing Eval subcommand after --cycle-id")
 
     try:
         config = load_fact_intake_adapter_config()
@@ -75,7 +70,6 @@ def main(argv: list[str] | None = None) -> int:
         profile_id = resolve_profile_id(
             project_root=project_root,
             cycle_id=args.cycle_id.strip(),
-            explicit=args.profile_id,
         )
     except (ValueError, FileNotFoundError, OSError) as exc:
         return _emit_error(str(exc))

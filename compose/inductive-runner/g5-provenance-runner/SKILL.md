@@ -34,7 +34,6 @@ INDUCTIVE_OUT_DIR       absolute path to revision{N}/ inductive state bundle
 SCOPE_REF               absolute path to current-focus source material (派生父级; algorithm B — same intake SoT / SOURCE_PATH, format-neutral)
 INTENT_BASELINE_REFS    JSON array of {type,path} refs (意图基准, algorithm A); [] to skip A
 NORM_CONSTRAINT_REFS    JSON array of {type,path} refs (规范约束, algorithm C); [] to skip C
-COMPOSE_PROFILE         compose profile id
 CYCLE_ID                active cycle id
 PROJECT_ROOT            absolute project root, resolved by the orchestrator
 ```

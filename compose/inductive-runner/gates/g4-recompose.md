@@ -34,7 +34,6 @@ Load {actual $SKILL_ROOT}/compose/inductive-runner/g4-recompose-runner/SKILL.md 
 
 ## Input
 INDUCTIVE_OUT_DIR: {actual $INDUCTIVE_OUT_DIR}
-COMPOSE_PROFILE: {actual $COMPOSE_PROFILE}
 CYCLE_ID: {actual $CYCLE_ID}
 PROJECT_ROOT: {actual $PROJECT_ROOT}
 ```

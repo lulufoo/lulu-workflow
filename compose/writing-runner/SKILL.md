@@ -23,19 +23,16 @@ Fact production belongs to Inductive|Deductive (`inductive-runner` or
 | `$REVISION_DIR` | Absolute path to `revision{N}/` |
 | `$SCOPE_REF_PATH` | Absolute path to compose scope SSOT (Return echo only) |
 | `$OUTPUT_DOC_PATH` | Absolute path to output document (design-doc.md or tech-doc.md); fallback `{REVISION_DIR}/tech-doc.md` when omitted |
-| `$COMPOSE_PROFILE` | Compose profile id from parent dispatch |
 | `$CYCLE_TYPE` | `feature` |
 | `$CYCLE_ID` | Active cycle id |
 
 Self-resolved: `$PROJECT_ROOT` = `$(pwd)` · `$CODE_GROUNDING` = profile `pipeline.code_grounding` (boolean)
 
-All macros that declare `--profile` **must** pass `--profile "$COMPOSE_PROFILE"`.
-
 ## Script Macros
 
 | Macro | Command |
 |-------|---------|
-| `$WRITING_COMPOSE_VALIDATE` | `python3 "$SKILL_ROOT/compose/scripts/section/writing_compose_validation.py" validate --revision-dir "$REVISION_DIR" --compose-doc "$OUTPUT_DOC_PATH" --profile "$COMPOSE_PROFILE" --project-root "$(pwd)"` |
+| `$WRITING_COMPOSE_VALIDATE` | `python3 "$SKILL_ROOT/compose/scripts/section/writing_compose_validation.py" validate --revision-dir "$REVISION_DIR" --compose-doc "$OUTPUT_DOC_PATH" --project-root "$(pwd)"` |
 | `$FACTS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/facts_control.py"` |
 | `$NARRATIVE_ARC_CTL` | `python3 "$SKILL_ROOT/compose/narrative-arc-runner/scripts/narrative_arc_control.py"` |
 
@@ -47,7 +44,7 @@ All macros that declare `--profile` **must** pass `--profile "$COMPOSE_PROFILE"`
 
 ### Step 1 — Load
 
-1. Bind Parent Inputs (`$REVISION_DIR`, `$OUTPUT_DOC_PATH`, `$COMPOSE_PROFILE`, `$CYCLE_ID`, `$SCOPE_REF_PATH` path hold).
+1. Bind Parent Inputs (`$REVISION_DIR`, `$OUTPUT_DOC_PATH`, `$CYCLE_ID`, `$SCOPE_REF_PATH` path hold).
 2. Resolve `$PROJECT_ROOT` = `$(pwd)`.
 3. Read profile `pipeline.code_grounding` → `$CODE_GROUNDING`.
 
@@ -60,7 +57,6 @@ Producer already wrote `_facts.json`. Only validate:
 ```bash
 $FACTS_CTL validate \
   --revision-dir "$REVISION_DIR" \
-  --profile "$COMPOSE_PROFILE" \
   --project-root "$(pwd)"
 ```
 
@@ -82,7 +78,6 @@ references/semantic-build-protocol.md then contracts/delivery.md
 ## Input
 REVISION_DIR: <$REVISION_DIR>
 PROJECT_ROOT: <abs project root = $(pwd)>
-COMPOSE_PROFILE: <$COMPOSE_PROFILE>
 CYCLE_ID: <$CYCLE_ID>
 OUTPUT_PATH: _narrative-arc.json
 MOUNT: false
@@ -93,7 +88,6 @@ MOUNT: false
 ```bash
 $NARRATIVE_ARC_CTL validate \
   --revision-dir "$REVISION_DIR" \
-  --profile "$COMPOSE_PROFILE" \
   --project-root "$(pwd)" \
   --output-path "_narrative-arc.json" \
   --require-write-ready
@@ -115,7 +109,6 @@ references/write-protocol.md then contracts/delivery.md
 ## Input
 REVISION_DIR: <$REVISION_DIR>
 PROJECT_ROOT: <abs project root = $(pwd)>
-COMPOSE_PROFILE: <$COMPOSE_PROFILE>
 CYCLE_ID: <$CYCLE_ID>
 OUTPUT_DOC_PATH: <$OUTPUT_DOC_PATH>
 ARC_PATH: _narrative-arc.json
@@ -135,7 +128,6 @@ On success → Return Summary.
 
 ```text
 Writing complete.
-  Profile: <COMPOSE_PROFILE>
   Output: <OUTPUT_DOC_PATH>
   Facts: <REVISION_DIR>/_facts.json (<N> facts; producer-written, validate-only)
   Narrative arc: <REVISION_DIR>/_narrative-arc.json (status=write_ready; <N> sub-topic chapters)

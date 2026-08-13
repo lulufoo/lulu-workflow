@@ -5,7 +5,9 @@ from __future__ import annotations
 import copy
 import json
 import os
+import re
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -34,6 +36,19 @@ ACTIVE_PROFILE_NAME = ".compose-active-profile"
 COMPOSE_PROFILE_FILENAME = "compose-profile.json"
 
 _profile_cache: dict[str, dict[str, Any]] = {}
+_REVISION_DIR_PATTERN = re.compile(r"revision[1-9]\d*")
+_SLICE_DIR_PATTERN = re.compile(r"L[1-9]\d*")
+
+
+@dataclass(frozen=True)
+class RevisionRuntimeProfile:
+    """Runtime profile and normalized paths owned by a revision."""
+
+    profile_path: Path
+    profile_data: dict[str, Any]
+    profile_id: str
+    revision_root: Path
+    session_base: Path
 
 
 def active_compose_stage_ids(*, workflow_root: Path | None = None) -> tuple[str, ...]:
@@ -194,7 +209,7 @@ def resolve_profile_id(
             raise ValueError(f"empty compose active profile: {marker}")
         return pid
     raise ValueError(
-        "profile_id required: pass --profile or run start with --profile-path first",
+        "profile_id required: run start with --profile-path first",
     )
 
 
@@ -214,6 +229,88 @@ def read_profile_pointer(session_base: Path, project_root: Path) -> Path:
             f"compose profile pointer targets missing file: {resolved} (from {pointer})",
         )
     return resolved
+
+
+def resolve_revision_runtime_profile(
+    revision_dir: Path,
+    project_root: Path,
+    *,
+    cycle_id: str | None = None,
+) -> RevisionRuntimeProfile:
+    """Resolve the session-bound runtime profile owning a revision path.
+
+    ``revision_dir`` must identify ``revisionN`` or ``revisionN/Lx`` beneath the
+    nearest ancestor containing ``.compose-profile-path``. The pointer target is
+    resolved relative to ``project_root`` (absolute pointer paths are allowed).
+    When ``cycle_id`` is supplied, its cycle-level active profile is only a
+    consistency check on pointer identity.
+    """
+    root = Path(project_root).resolve()
+    revision = Path(revision_dir).resolve()
+
+    session_base: Path | None = None
+    candidate = revision
+    while True:
+        pointer = candidate / PROFILE_POINTER_NAME
+        if pointer.exists():
+            if not pointer.is_file():
+                raise ValueError(f"compose profile pointer is not a file: {pointer}")
+            session_base = candidate
+            break
+        parent = candidate.parent
+        if parent == candidate:
+            break
+        candidate = parent
+    if session_base is None:
+        raise FileNotFoundError(
+            f"compose profile pointer not found for revision: {revision}",
+        )
+
+    relative = revision.relative_to(session_base)
+    parts = relative.parts
+    valid_revision = bool(
+        parts
+        and _REVISION_DIR_PATTERN.fullmatch(parts[0])
+        and (
+            len(parts) == 1
+            or (len(parts) == 2 and _SLICE_DIR_PATTERN.fullmatch(parts[1]))
+        )
+    )
+    if not valid_revision:
+        raise ValueError(
+            "malformed revision path: expected revisionN or revisionN/Lx "
+            f"below session base {session_base}, got {relative}",
+        )
+    revision_root = (session_base / parts[0]).resolve()
+
+    profile_path = read_profile_pointer(session_base, root)
+    profile_data = load_profile_json(profile_path)
+    if not isinstance(profile_data, dict):
+        raise ValueError(f"compose profile JSON must be an object: {profile_path}")
+    raw_profile_id = profile_data.get("profile_id")
+    if not isinstance(raw_profile_id, str) or not raw_profile_id.strip():
+        raise ValueError(f"compose profile missing nonempty profile_id: {profile_path}")
+    profile_id = raw_profile_id.strip()
+
+    if cycle_id is not None:
+        cid = cycle_id.strip()
+        if not cid:
+            raise ValueError("cycle_id must be nonempty when provided")
+        active_profile_id = read_active_profile(root, cid)
+        if active_profile_id != profile_id:
+            raise ValueError(
+                "compose active profile mismatch: "
+                f"cycle {cid!r} has {active_profile_id!r}, "
+                f"session pointer has {profile_id!r}",
+            )
+
+    return RevisionRuntimeProfile(
+        profile_path=profile_path,
+        profile_data=profile_data,
+        profile_id=profile_id,
+        revision_root=revision_root,
+        session_base=session_base,
+    )
 
 
 def resolve_compose_session_base(
@@ -350,6 +447,27 @@ def shell_path(profile: dict[str, Any], key: str) -> Path:
     if not rel:
         raise KeyError(f"shell_paths.{key} missing in profile {profile.get('profile_id')!r}")
     return WORKFLOW_ROOT / rel
+
+
+def seed_revision_profile_pointer(
+    revision_dir: Path,
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+    *,
+    project_root: Path | None = None,
+) -> Path:
+    """Test helper: write ``.compose-profile-path`` beside ``revisionN``."""
+    rev = Path(revision_dir).resolve()
+    session_base = rev.parent
+    session_base.mkdir(parents=True, exist_ok=True)
+    target = compose_profile_path(profile_id)
+    text = (
+        _relative_to_project_root(project_root, target)
+        if project_root is not None
+        else str(target)
+    )
+    pointer = session_base / PROFILE_POINTER_NAME
+    pointer.write_text(text + "\n", encoding="utf-8")
+    return pointer
 
 
 def seed_profile_pointer_for_tests(

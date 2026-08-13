@@ -22,8 +22,6 @@ def test_project_cli_returns_retired_error(tmp_path: Path) -> None:
             "project",
             "--revision-dir",
             str(tmp_path),
-            "--profile",
-            "lulu-design",
         ],
         capture_output=True,
         text=True,

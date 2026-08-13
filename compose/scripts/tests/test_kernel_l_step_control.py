@@ -115,7 +115,6 @@ def test_begin_inductive_allows_plan_when_instance_inductive(tmp_path: Path) -> 
     result = l_step_control.begin_inductive(_CYCLE, tmp_path, profile_id="lulu-plan")
 
     assert result["ok"] is True
-    assert "COMPOSE_PROFILE:      lulu-plan" in result["dispatch_input"]
 
 
 def test_begin_deductive_rejects_plan_when_instance_inductive(tmp_path: Path) -> None:
@@ -135,7 +134,6 @@ def test_begin_deductive_succeeds_for_lulu_plan(tmp_path: Path) -> None:
 
     assert result["ok"] is True
     dispatch = result["dispatch_input"]
-    assert "COMPOSE_PROFILE:      lulu-plan" in dispatch
     assert "DEDUCTIVE_OUT_DIR:" in dispatch
     assert "/lulu-plan/revision1" in dispatch
     assert "ATOMIZE_DOC_PATH:" not in dispatch
@@ -309,7 +307,6 @@ def test_begin_inductive_succeeds_for_lulu_spec(tmp_path: Path) -> None:
 
     assert result["ok"] is True
     dispatch = result["dispatch_input"]
-    assert "COMPOSE_PROFILE:      lulu-spec" in dispatch
     assert "INTENT_BASELINE_REFS: []" in dispatch
     assert "lulu-bet" in dispatch or "decision-doc.md" in dispatch
 

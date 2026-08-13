@@ -17,6 +17,7 @@ for _p in (_SECTION, _SCRIPTS, _NARRATIVE):
         sys.path.insert(0, str(_p))
 
 from chapter_write_state_control import main as write_state_main  # noqa: E402
+from workflow_paths import seed_revision_profile_pointer  # noqa: E402
 from chapter_write_state_schema import (  # noqa: E402
     CHAPTER_WRITE_STATE_BASENAME,
     is_complete,
@@ -26,7 +27,6 @@ from chapter_write_state_schema import (  # noqa: E402
 from narrative_arc_schema import chapter_write_units, save_narrative_arc  # noqa: E402
 
 _REPO = Path(__file__).resolve().parents[4]
-_PROFILE = "lulu-design"
 
 
 def _arc() -> dict:
@@ -78,6 +78,13 @@ def _write_artifacts(rev: Path, cid: str, *, body: str = "body") -> None:
     (rev / f"_body-{cid}.txt").write_text(body + "\n", encoding="utf-8")
 
 
+def _rev(tmp_path: Path) -> Path:
+    rev = tmp_path / "revision1"
+    rev.mkdir()
+    seed_revision_profile_pointer(rev, profile_id="lulu-design")
+    return rev
+
+
 def _begin(rev: Path) -> int:
     return write_state_main(
         [
@@ -86,8 +93,6 @@ def _begin(rev: Path) -> int:
             str(rev),
             "--project-root",
             str(_REPO),
-            "--profile",
-            _PROFILE,
         ]
     )
 
@@ -114,8 +119,7 @@ def test_validate_rejects_bad_kind():
 
 
 def test_sync_creates_pending_order(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
-    rev = tmp_path / "rev"
-    rev.mkdir()
+    rev = _rev(tmp_path)
     _seed_arc(rev)
     rc = write_state_main(["sync", "--revision-dir", str(rev)])
     assert rc == 0
@@ -128,8 +132,7 @@ def test_sync_creates_pending_order(tmp_path: Path, capsys: pytest.CaptureFixtur
 
 
 def test_begin_returns_work_ticket(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
-    rev = tmp_path / "rev"
-    rev.mkdir()
+    rev = _rev(tmp_path)
     _seed_arc(rev)
     assert write_state_main(["sync", "--revision-dir", str(rev)]) == 0
     capsys.readouterr()
@@ -160,8 +163,7 @@ def test_begin_returns_work_ticket(tmp_path: Path, capsys: pytest.CaptureFixture
 def test_begin_writing_cognition_is_current_lens_only(
     tmp_path: Path, capsys: pytest.CaptureFixture[str],
 ):
-    rev = tmp_path / "rev"
-    rev.mkdir()
+    rev = _rev(tmp_path)
     _seed_arc(rev)
     assert write_state_main(["sync", "--revision-dir", str(rev)]) == 0
     capsys.readouterr()
@@ -183,8 +185,7 @@ def test_begin_writing_cognition_is_current_lens_only(
 def test_begin_facts_emit_empty_anchors(
     tmp_path: Path, capsys: pytest.CaptureFixture[str],
 ):
-    rev = tmp_path / "rev"
-    rev.mkdir()
+    rev = _rev(tmp_path)
     _seed_arc(rev)
     _seed_facts(rev, with_anchors=False)
     assert write_state_main(["sync", "--revision-dir", str(rev)]) == 0
@@ -199,8 +200,7 @@ def test_begin_facts_emit_empty_anchors(
 def test_begin_facts_order_follows_fact_ids(
     tmp_path: Path, capsys: pytest.CaptureFixture[str],
 ):
-    rev = tmp_path / "rev"
-    rev.mkdir()
+    rev = _rev(tmp_path)
     arc = {
         "version": "1",
         "kind": "narrative-arc",
@@ -229,8 +229,7 @@ def test_begin_facts_order_follows_fact_ids(
 def test_begin_missing_fact_id_fails_without_in_progress(
     tmp_path: Path, capsys: pytest.CaptureFixture[str],
 ):
-    rev = tmp_path / "rev"
-    rev.mkdir()
+    rev = _rev(tmp_path)
     # Contiguous F-1..F-2 in store; chapter asks for absent F-3.
     arc = {
         "version": "1",
@@ -262,8 +261,7 @@ def test_begin_missing_fact_id_fails_without_in_progress(
 
 
 def test_begin_rejects_chapter_arg(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
-    rev = tmp_path / "rev"
-    rev.mkdir()
+    rev = _rev(tmp_path)
     _seed_arc(rev)
     assert write_state_main(["sync", "--revision-dir", str(rev)]) == 0
     capsys.readouterr()
@@ -274,8 +272,6 @@ def test_begin_rejects_chapter_arg(tmp_path: Path, capsys: pytest.CaptureFixture
             str(rev),
             "--project-root",
             str(_REPO),
-            "--profile",
-            _PROFILE,
             "--chapter",
             "A01-I",
         ],
@@ -286,8 +282,7 @@ def test_begin_rejects_chapter_arg(tmp_path: Path, capsys: pytest.CaptureFixture
 
 
 def test_begin_rejects_already_running(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
-    rev = tmp_path / "rev"
-    rev.mkdir()
+    rev = _rev(tmp_path)
     _seed_arc(rev)
     assert write_state_main(["sync", "--revision-dir", str(rev)]) == 0
     assert _begin(rev) == 0
@@ -301,8 +296,7 @@ def test_begin_rejects_already_running(tmp_path: Path, capsys: pytest.CaptureFix
 
 
 def test_begin_complete_happy_path(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
-    rev = tmp_path / "rev"
-    rev.mkdir()
+    rev = _rev(tmp_path)
     _seed_arc(rev)
     assert write_state_main(["sync", "--revision-dir", str(rev)]) == 0
     capsys.readouterr()
@@ -367,8 +361,7 @@ def test_complete_biz_includes_body_path_and_mtime(
         encoding="utf-8",
     )
 
-    rev = tmp_path / "rev"
-    rev.mkdir()
+    rev = _rev(tmp_path)
     _seed_arc(rev)
     assert write_state_main(["sync", "--revision-dir", str(rev)]) == 0
     assert _begin(rev) == 0
@@ -401,8 +394,7 @@ def test_complete_biz_includes_body_path_and_mtime(
 def test_complete_rejects_chapter_mismatch(
     tmp_path: Path, capsys: pytest.CaptureFixture[str],
 ):
-    rev = tmp_path / "rev"
-    rev.mkdir()
+    rev = _rev(tmp_path)
     _seed_arc(rev)
     assert write_state_main(["sync", "--revision-dir", str(rev)]) == 0
     assert _begin(rev) == 0
@@ -418,8 +410,7 @@ def test_complete_rejects_chapter_mismatch(
 def test_complete_accepts_matching_chapter_arg(
     tmp_path: Path, capsys: pytest.CaptureFixture[str],
 ):
-    rev = tmp_path / "rev"
-    rev.mkdir()
+    rev = _rev(tmp_path)
     _seed_arc(rev)
     assert write_state_main(["sync", "--revision-dir", str(rev)]) == 0
     assert _begin(rev) == 0
@@ -431,8 +422,7 @@ def test_complete_accepts_matching_chapter_arg(
 
 
 def test_complete_rejects_missing_body(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
-    rev = tmp_path / "rev"
-    rev.mkdir()
+    rev = _rev(tmp_path)
     _seed_arc(rev)
     assert write_state_main(["sync", "--revision-dir", str(rev)]) == 0
     assert _begin(rev) == 0
@@ -446,8 +436,7 @@ def test_complete_rejects_missing_body(tmp_path: Path, capsys: pytest.CaptureFix
 
 
 def test_sync_discards_ghost_cid(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
-    rev = tmp_path / "rev"
-    rev.mkdir()
+    rev = _rev(tmp_path)
     _seed_arc(rev)
     assert write_state_main(["sync", "--revision-dir", str(rev)]) == 0
     assert _begin(rev) == 0
@@ -468,8 +457,7 @@ def test_sync_discards_ghost_cid(tmp_path: Path, capsys: pytest.CaptureFixture[s
 
 
 def test_full_complete_status(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
-    rev = tmp_path / "rev"
-    rev.mkdir()
+    rev = _rev(tmp_path)
     _seed_arc(rev)
     assert write_state_main(["sync", "--revision-dir", str(rev)]) == 0
     capsys.readouterr()
@@ -493,8 +481,7 @@ def test_full_complete_status(tmp_path: Path, capsys: pytest.CaptureFixture[str]
 
 
 def test_begin_when_all_done(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
-    rev = tmp_path / "rev"
-    rev.mkdir()
+    rev = _rev(tmp_path)
     _seed_arc(rev)
     assert write_state_main(["sync", "--revision-dir", str(rev)]) == 0
     capsys.readouterr()
@@ -518,8 +505,7 @@ def test_no_reset_subcommand():
 def test_assemble_requires_write_state_complete(tmp_path: Path):
     from compose_doc_control import assemble_arc_to_path
 
-    rev = tmp_path / "rev"
-    rev.mkdir()
+    rev = _rev(tmp_path)
     _seed_arc(rev)
     for cid in ("A01-I", "A01-IF"):
         _write_artifacts(rev, cid)
@@ -540,8 +526,7 @@ def test_init_validate_requires_write_state(tmp_path: Path):
     from writing_compose_validation import validate_writing_artifacts
 
     repo = Path(__file__).resolve().parents[4]
-    rev = tmp_path / "rev"
-    rev.mkdir()
+    rev = _rev(tmp_path)
     _seed_arc(rev)
     (rev / "_facts.json").write_text(
         json.dumps(

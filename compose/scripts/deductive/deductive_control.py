@@ -67,6 +67,7 @@ from fetch_compose_framework import (  # noqa: E402
     FetchComposeFrameworkError,
     fetch_compose_framework,
 )
+from workflow_paths import resolve_revision_runtime_profile  # noqa: E402
 
 _SCOPE = _SCRIPTS / "schema" / "section" / "scope"
 if str(_SCOPE) not in sys.path:
@@ -82,6 +83,13 @@ def _ok(payload: dict[str, Any]) -> int:
 def _fail(message: str) -> int:
     print(f"错误：{message}", file=sys.stderr)
     return 1
+
+
+def _runtime_profile_id(args: argparse.Namespace) -> str:
+    return resolve_revision_runtime_profile(
+        Path(args.revision_dir),
+        Path(args.project_root).resolve(),
+    ).profile_id
 
 
 def cmd_pending_init(args: argparse.Namespace) -> int:
@@ -264,15 +272,13 @@ def _section_order(project_root: Path, profile: str) -> list[str]:
 
 
 def cmd_consume_policy_check(args: argparse.Namespace) -> int:
-    profile = (args.profile or "").strip()
-    if not profile:
-        return _fail("--profile required for consume-policy-check")
     try:
+        profile = _runtime_profile_id(args)
         rule_ids = _load_role_consume_rule_ids(
             args.project_root.resolve(),
             profile,
         )
-    except ValueError as exc:
+    except (ValueError, FileNotFoundError, OSError) as exc:
         return _fail(str(exc))
     return _ok(
         {
@@ -298,23 +304,17 @@ def cmd_disposition_patch_validate(args: argparse.Namespace) -> int:
     from discussion_pointer_schema import active_slice_dir
 
     revision_dir = active_slice_dir(args.revision_dir.resolve())
-    profile = (args.profile or "").strip()
     try:
+        profile = _runtime_profile_id(args)
         facts = load_facts(facts_path(revision_dir))
         patch = _load_patch_file(args.patch_file.resolve())
-    except ValueError as exc:
+        allowed_lenses = _section_order(args.project_root.resolve(), profile)
+        allowed_rule_ids = _load_role_consume_rule_ids(
+            args.project_root.resolve(),
+            profile,
+        )
+    except (ValueError, FileNotFoundError, OSError, Exception) as exc:  # noqa: BLE001
         return _fail(str(exc))
-    allowed_lenses = None
-    allowed_rule_ids = None
-    if profile:
-        try:
-            allowed_lenses = _section_order(args.project_root.resolve(), profile)
-            allowed_rule_ids = _load_role_consume_rule_ids(
-                args.project_root.resolve(),
-                profile,
-            )
-        except (ValueError, Exception) as exc:  # noqa: BLE001
-            return _fail(str(exc))
     errors = validate_disposition_patch(
         patch,
         facts,
@@ -337,24 +337,18 @@ def cmd_disposition_patch_apply(args: argparse.Namespace) -> int:
     from discussion_pointer_schema import active_slice_dir
 
     revision_dir = active_slice_dir(args.revision_dir.resolve())
-    profile = (args.profile or "").strip()
     path = facts_path(revision_dir)
     try:
+        profile = _runtime_profile_id(args)
         facts = load_facts(path)
         patch = _load_patch_file(args.patch_file.resolve())
-    except ValueError as exc:
+        allowed_lenses = _section_order(args.project_root.resolve(), profile)
+        allowed_rule_ids = _load_role_consume_rule_ids(
+            args.project_root.resolve(),
+            profile,
+        )
+    except (ValueError, Exception) as exc:  # noqa: BLE001
         return _fail(str(exc))
-    allowed_lenses = None
-    allowed_rule_ids = None
-    if profile:
-        try:
-            allowed_lenses = _section_order(args.project_root.resolve(), profile)
-            allowed_rule_ids = _load_role_consume_rule_ids(
-                args.project_root.resolve(),
-                profile,
-            )
-        except (ValueError, Exception) as exc:  # noqa: BLE001
-            return _fail(str(exc))
     errors = validate_disposition_patch(
         patch,
         facts,
@@ -389,7 +383,6 @@ def cmd_disposition_patch_apply(args: argparse.Namespace) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--revision-dir", type=Path, required=True)
-    parser.add_argument("--profile", type=str, default="")
     parser.add_argument("--project-root", type=Path, default=Path.cwd())
     sub = parser.add_subparsers(dest="command", required=True)
 

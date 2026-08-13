@@ -148,6 +148,7 @@ def session_snapshot(
         "view": _VIEW_SESSION,
         "profile_id": profile_id,
         "pipeline": {"inductive": bool(inductive)},
+        "revision_dir": ws_path.parent.resolve().as_posix(),
         "active_doc": load_active_doc_for_profile(cycle_id, project_root, profile_id),
         "workflow_state": {
             "current_state": state["current_state"],
@@ -186,11 +187,6 @@ def _cli() -> int:
         help="Project root directory",
     )
     parser.add_argument(
-        "--profile",
-        default="",
-        help="Compose profile / stage name (default: cycle context after start)",
-    )
-    parser.add_argument(
         "--view",
         choices=sorted(_VALID_VIEWS),
         default=_VIEW_DELIVERY_PREVIEW,
@@ -202,7 +198,6 @@ def _cli() -> int:
         profile_id = resolve_profile_id(
             project_root=args.project_root.resolve(),
             cycle_id=args.cycle_id.strip(),
-            explicit=args.profile,
         )
         payload = get_session_info(
             args.cycle_id.strip(),

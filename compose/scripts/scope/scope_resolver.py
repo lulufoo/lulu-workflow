@@ -141,11 +141,6 @@ def main(argv: Optional[list[str]] = None) -> int:
         default=".",
         help="Project root for template cache resolution",
     )
-    parser.add_argument(
-        "--profile",
-        default="",
-        help="Compose profile id (default: cycle context after start)",
-    )
     sub = parser.add_subparsers(dest="command")
 
     resolve = sub.add_parser(
@@ -162,11 +157,6 @@ def main(argv: Optional[list[str]] = None) -> int:
         "--project-root",
         default=".",
         help="Project root (reserved; roles load from skill package)",
-    )
-    resolve.add_argument(
-        "--profile",
-        default=argparse.SUPPRESS,
-        help="Compose profile id (also accepted on the parent parser)",
     )
     resolve.add_argument(
         "--role-instance-path",
@@ -190,11 +180,6 @@ def main(argv: Optional[list[str]] = None) -> int:
         help="Project root (reserved; domain instance loads from skill package)",
     )
     domain.add_argument(
-        "--profile",
-        default=argparse.SUPPRESS,
-        help="Compose profile id (also accepted on the parent parser)",
-    )
-    domain.add_argument(
         "--domain-instance-path",
         type=Path,
         help="Override path to domain instance JSON for resolved cycle_type",
@@ -203,11 +188,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     args = parser.parse_args(argv)
 
     project_root = Path(args.project_root).resolve()
-    explicit = str(getattr(args, "profile", "") or "").strip()
     cycle_id = getattr(args, "cycle_id", None)
-    if explicit:
-        profile_id = explicit
-    elif cycle_id:
+    if cycle_id:
         try:
             profile_id = resolve_profile_id(
                 project_root=project_root,
