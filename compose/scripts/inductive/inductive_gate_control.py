@@ -62,13 +62,15 @@ if str(_SCRIPTS) not in sys.path:
 
 _COMPOSE_SCRIPTS = Path(__file__).resolve().parents[1]
 _SESSION = _COMPOSE_SCRIPTS / "schema" / "session"
-for _p in (_COMPOSE_SCRIPTS, _SESSION):
+_CORE = _COMPOSE_SCRIPTS / "core"
+for _p in (_COMPOSE_SCRIPTS, _SESSION, _CORE):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
 from active_context_schema import resolve_conversation_id  # noqa: E402
 from platform_schema import detect_platform  # noqa: E402
 from discussion_pointer_schema import active_slice_dir  # noqa: E402
+from workflow_paths import resolve_revision_runtime_profile  # noqa: E402
 
 from inductive_gate_state_schema import (  # noqa: E402
     GATE_ORDER,
@@ -111,10 +113,20 @@ def _dqi_path(out_dir: Path) -> Path:
     return out_dir / "inductive-dqi.json"
 
 
-def _section_ctl(out_dir: Path) -> list[str]:
+def _section_ctl(
+    out_dir: Path,
+    *,
+    project_root: str = "",
+    cycle_id: str = "",
+) -> list[str]:
     """Return the base argv for invoking inductive_g3_section_control.py."""
     script = _HERE / "inductive_g3_section_control.py"
-    return [sys.executable, str(script), "--out-dir", str(out_dir)]
+    cmd = [sys.executable, str(script), "--out-dir", str(out_dir)]
+    if project_root:
+        cmd.extend(["--project-root", project_root])
+    if cycle_id:
+        cmd.extend(["--compose-cycle-id", cycle_id])
+    return cmd
 
 
 def _g3_grounding_ctl(out_dir: Path) -> list[str]:
@@ -127,9 +139,18 @@ def _g4_ctl(out_dir: Path) -> list[str]:
     return [sys.executable, str(script), "--out-dir", str(out_dir)]
 
 
-def _run_section_ctl(out_dir: Path, *extra_args: str) -> dict[str, Any]:
+def _run_section_ctl(
+    out_dir: Path,
+    *extra_args: str,
+    project_root: str = "",
+    cycle_id: str = "",
+) -> dict[str, Any]:
     """Run section control subcommand and return parsed JSON stdout."""
-    cmd = _section_ctl(out_dir) + list(extra_args)
+    cmd = _section_ctl(
+        out_dir,
+        project_root=project_root,
+        cycle_id=cycle_id,
+    ) + list(extra_args)
     result = subprocess.run(cmd, capture_output=True, text=True)
     try:
         return json.loads(result.stdout)
@@ -187,7 +208,17 @@ def cmd_init_session(out_dir: Path, args: argparse.Namespace) -> None:
         )
 
     cycle_id = args.cycle_id or ""
-    stage = args.stage or ""
+    stage = str(args.stage or "").strip()
+    root = str(getattr(args, "project_root", "") or "").strip()
+    if root:
+        try:
+            stage = resolve_revision_runtime_profile(
+                out_dir,
+                Path(root).resolve(),
+                cycle_id=cycle_id.strip() or None,
+            ).profile_id
+        except (OSError, ValueError, FileNotFoundError):
+            pass
     state = init_gate_state(
         cycle_id=cycle_id,
         stage=stage,
@@ -208,7 +239,12 @@ def cmd_init_session(out_dir: Path, args: argparse.Namespace) -> None:
     ]
     if stage:
         ptr_args.extend(["--stage", stage])
-    ptr_result = _run_section_ctl(out_dir, *ptr_args)
+    ptr_result = _run_section_ctl(
+        out_dir,
+        *ptr_args,
+        project_root=root,
+        cycle_id=cycle_id,
+    )
     if not ptr_result.get("ok"):
         _fail("section pointer init failed: " + ptr_result.get("error", "unknown"))
 
@@ -785,6 +821,12 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="PATH",
         help="$INDUCTIVE_OUT_DIR: directory for inductive state files and artifacts",
     )
+    parser.add_argument(
+        "--project-root",
+        default="",
+        metavar="PATH",
+        help="Project root so init-pointer can fill _index.profile from the revision pointer",
+    )
 
     sub = parser.add_subparsers(dest="subcommand", required=True)
 
@@ -801,7 +843,11 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--mandatory", default="", help="Comma-separated mandatory section keys")
     p.add_argument("--cycle-id", default="", help="Cycle id for traceability")
-    p.add_argument("--stage", default="", help="Compose stage id (e.g. lulu-design); stored as _index.profile")
+    p.add_argument(
+        "--stage",
+        default="",
+        help="Optional compose stage id when no revision pointer is available",
+    )
     p.add_argument(
         "--scope-ref",
         default="",

@@ -137,6 +137,42 @@ def _seed_session(out_dir: Path) -> None:
     assert index.get("scope_ref") == "approach/approach-doc.md"
 
 
+def test_init_session_fills_index_profile_from_revision_pointer(tmp_path: Path) -> None:
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "core"))
+    from workflow_paths import (  # noqa: WPS433
+        seed_revision_profile_pointer,
+        write_active_profile,
+    )
+
+    rev = tmp_path / "revision1"
+    rev.mkdir()
+    seed_revision_profile_pointer(rev, "lulu-design")
+    write_active_profile(tmp_path, "c1", "lulu-design")
+    code, payload = _run_gate(
+        rev,
+        "--project-root",
+        str(tmp_path),
+        "init-session",
+        "--sections",
+        "I,ST",
+        "--mandatory",
+        "",
+        "--cycle-id",
+        "c1",
+        "--scope-ref",
+        "approach/approach-doc.md",
+        "--conversation-id",
+        _PARENT_CONV,
+    )
+    assert code == 0, payload
+    index = json.loads(
+        (rev / "inductive-scope" / "_index.json").read_text(encoding="utf-8")
+    )
+    assert index.get("profile") == "lulu-design"
+    gate = json.loads((rev / "inductive-gate-state.json").read_text(encoding="utf-8"))
+    assert gate.get("stage") == "lulu-design"
+
+
 def _g1_payload() -> str:
     return json.dumps(
         {

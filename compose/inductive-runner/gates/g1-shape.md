@@ -8,7 +8,7 @@
 
 **Order (hard):** Fact-intake **before** first shape view. Do not synthesize a shape view from `$SCOPE_REF` / `$SOURCE_PATH` alone as a substitute for intake facts.
 
-1. **Session init (once):** `$INDUCTIVE_GATE_CTL init-session --sections <SECTION_REGISTRY.section_order as CSV> --mandatory <mandatory CSV> --cycle-id <cycle_id> --stage <compose stage> --scope-ref "$SCOPE_REF"` (skip if resuming). Forwards profile/scope_ref onto `_index.json`.
+1. **Session init (once):** `$INDUCTIVE_GATE_CTL init-session --sections <SECTION_REGISTRY.section_order as CSV> --mandatory <mandatory CSV> --cycle-id <cycle_id> --scope-ref "$SCOPE_REF"` (skip if resuming). Forwards scope_ref onto `_index.json`; `_index.profile` comes from the revision session pointer.
 2. **Maturity bind (if not done):** Intake already wrote `_facts.json` (seed + disposition). Do **not** re-cover intake substance via `seed-decision` from `$SOURCE_PATH`. For each key `S` in `SECTION_REGISTRY.section_order`:
    1. `$INDUCTIVE_G3_SECTION_CTL activate-section --section <S>`
    2. **Has lens substance** iff existing facts (typically `carried` / tagged) map into `S` under **I4**.
