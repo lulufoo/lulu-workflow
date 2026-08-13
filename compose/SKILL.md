@@ -28,14 +28,14 @@ Run `$SESSION_INFO --view session`, then bind:
 | `$CODE_GROUNDING` | `pipeline.code_grounding` | Writing / Deductive runner Input |
 | `$POST_WRITING_OPTIONS` | `pipeline.post_writing_options` | Pause / FreeEdit options |
 | `$DEMAND_MANIFEST` | `demand_manifest` | Delivery Rules producer atomization (`unit_rule`); skip when null |
+| `$ROLE_PROMPT` | `role.role_prompt` | Scope Constraints persona |
 | `$REVISION_DIR` | `revision_dir` | revision-scoped tools and runner Input |
 
 ### Scope constraints
 
 Before producer / evaluation work:
 
-1. Run `$RESOLVE_ROLE` and `$RESOLVE_DOMAIN`.
-2. Read stdout as authoritative **Scope Constraints** (role + domain).
+1. Treat `$ROLE_PROMPT` as authoritative **Scope Constraints** (persona).
 
 ---
 
@@ -257,8 +257,6 @@ Fetch compose framework templates on demand; **do not** read `workflow-config.js
 | `$SESSION_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/core/session_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` — session transitions (`split-complete` / `start-evaluating` / …) via `compose/transitions/compose-session.json`; do not load that file directly |
 | `$L_STEP` | `python3 "$SKILL_ROOT/compose/scripts/section/l_step_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
 | `$INDUCTIVE_FACTS_PROJ` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_facts_projection.py"` (K4 retired — `project` fail-fast; facts written by discovery loop) |
-| `$RESOLVE_ROLE` | `python3 "$SKILL_ROOT/compose/scripts/scope/scope_resolver.py" --project-root "$(pwd)" resolve-role --cycle-id "$CYCLE_ID"` |
-| `$RESOLVE_DOMAIN` | `python3 "$SKILL_ROOT/compose/scripts/scope/scope_resolver.py" --project-root "$(pwd)" resolve-domain --cycle-id "$CYCLE_ID"` |
 | `$FETCH_COMPOSE` | `python3 "$SKILL_ROOT/compose/scripts/io/fetch_compose_framework.py" --role <role> --project-root "$(pwd)" --cycle-id "$CYCLE_ID"` |
 | `$EVAL_HANDOFF` | `python3 "$SKILL_ROOT/compose/scripts/core/eval_handoff_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` — Compose→Eval context (`request-handoff` / `commit-artifacts` / `commit-evaluate-state` / `discard-staging`); Eval entry requests this per command |
 | `$EVAL_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/core/compose_eval_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" -- <subcommand>` — passthrough stage `compose-profile.json.eval` to Eval |

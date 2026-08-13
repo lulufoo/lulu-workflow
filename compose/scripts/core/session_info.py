@@ -36,6 +36,7 @@ from compose_session import (  # noqa: E402
 from workflow_common import detect_cycle_type  # noqa: E402
 from resolved_refs_schema import frozen_delivered_refs  # noqa: E402
 from workflow_state_schema import load_workflow_state  # noqa: E402
+from role_instance_schema import get_role_prompt, load_and_validate_role_instance  # noqa: E402
 
 _VIEW_DELIVERY_PREVIEW = "delivery-preview"
 _VIEW_SESSION = "session"
@@ -122,6 +123,21 @@ def stage_transitions(
     return {"profile_id": profile_id, "next_stages": next_stages}
 
 
+def _session_role_view(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    profile_id: str,
+) -> dict[str, str]:
+    """Return the session role allowlist (role_prompt only)."""
+    data = load_and_validate_role_instance(
+        detect_cycle_type(cycle_id),
+        project_root=project_root,
+        profile_id=profile_id,
+    )
+    return {"role_prompt": get_role_prompt(data)}
+
+
 def session_snapshot(
     cycle_id: str,
     project_root: Path,
@@ -163,6 +179,11 @@ def session_snapshot(
             ],
         },
         "demand_manifest": demand_manifest,
+        "role": _session_role_view(
+            cycle_id,
+            project_root,
+            profile_id=profile_id,
+        ),
         "revision_dir": ws_path.parent.resolve().as_posix(),
         "active_doc": load_active_doc_for_profile(cycle_id, project_root, profile_id),
         "workflow_state": {

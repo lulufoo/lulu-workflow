@@ -23,6 +23,7 @@ from session_info import (  # noqa: E402
 )
 from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, seed_profile_pointer_for_tests  # noqa: E402
 from workflow_state_schema import save_workflow_state  # noqa: E402
+from test_template_data import seed_tech_plan_test_caches  # noqa: E402
 
 import bootstrap  # noqa: F401
 from bootstrap import CORE  # noqa: E402
@@ -37,6 +38,7 @@ def _expected_next_stages(cycle_id: str) -> list[str]:
 
 def _setup_cycle(tmp_path: Path) -> tuple[Path, str]:
     cycle_id = "feat-session-info"
+    seed_tech_plan_test_caches(tmp_path)
     seed_profile_pointer_for_tests(tmp_path, cycle_id, DEFAULT_COMPOSE_PROFILE_ID)
     base = tmp_path / ".cache" / "cursor" / "lulu-dev-workflow" / cycle_id / "lulu-plan"
     revision = base / "revision1"
@@ -98,6 +100,8 @@ class TestSessionSnapshot:
         assert payload["pipeline"]["code_grounding"] is True
         assert payload["pipeline"]["post_writing_options"] == ["freeedit", "evaluate"]
         assert payload["demand_manifest"] is None
+        assert set(payload["role"]) == {"role_prompt"}
+        assert payload["role"]["role_prompt"].startswith("You are acting")
         assert payload["revision_dir"] == (
             project_root
             / ".cache"
@@ -114,6 +118,7 @@ class TestSessionSnapshot:
     def test_split_without_compose_doc_returns_pending(self, tmp_path: Path):
         """Split / pre-Writing: session view must not require design-doc."""
         cycle_id = "feat-session-info-split"
+        seed_tech_plan_test_caches(tmp_path)
         seed_profile_pointer_for_tests(tmp_path, cycle_id, DEFAULT_COMPOSE_PROFILE_ID)
         base = tmp_path / ".cache" / "cursor" / "lulu-dev-workflow" / cycle_id / "lulu-plan"
         revision = base / "revision1"
@@ -135,6 +140,8 @@ class TestSessionSnapshot:
         assert payload["compose_doc"]["title"] == ""
         assert payload["compose_doc"]["summary"] == ""
         assert payload["compose_doc"]["path"].endswith("revision1/tech-doc.md")
+        assert set(payload["role"]) == {"role_prompt"}
+        assert payload["role"]["role_prompt"].startswith("You are acting")
 
 
 class TestStageTransitions:
@@ -215,6 +222,7 @@ class TestCli:
 
     def test_session_view_cli_ok_when_doc_missing(self, tmp_path: Path):
         cycle_id = "feat-session-info-cli-pending"
+        seed_tech_plan_test_caches(tmp_path)
         seed_profile_pointer_for_tests(tmp_path, cycle_id, DEFAULT_COMPOSE_PROFILE_ID)
         base = tmp_path / ".cache" / "cursor" / "lulu-dev-workflow" / cycle_id / "lulu-plan"
         revision = base / "revision1"
@@ -245,6 +253,8 @@ class TestCli:
         payload = json.loads(result.stdout)
         assert payload["compose_doc"]["status"] == "pending"
         assert payload["workflow_state"]["current_state"] == "Split"
+        assert set(payload["role"]) == {"role_prompt"}
+        assert payload["role"]["role_prompt"].startswith("You are acting")
 
     def test_stage_transitions_view(self, tmp_path: Path):
         project_root, cycle_id = _setup_cycle(tmp_path)

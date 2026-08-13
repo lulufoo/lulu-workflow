@@ -29,13 +29,25 @@ from session_info import session_snapshot, stage_transitions  # noqa: E402
 from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, seed_profile_pointer_for_tests  # noqa: E402
 from workflow_state_schema import init_compose_session  # noqa: E402
 from init_working_helpers import init_working_ready, mark_focus_intake_done  # noqa: E402
+from framework_template_sources import tech_design_feature_role_instance  # noqa: E402
+from test_template_data import seed_template_cache  # noqa: E402
 
 _CYCLE = "feature-composesession001-abc12345"
 _PROFILE = "lulu-design"
 _CACHE = Path(".cache/cursor/lulu-dev-workflow")
 
 
+def _seed_design_role_cache(tmp_path: Path) -> None:
+    seed_template_cache(
+        tmp_path,
+        "lulu-design",
+        "tdt_feature_role_instance_url",
+        tech_design_feature_role_instance(),
+    )
+
+
 def _seed_design_session(tmp_path: Path) -> None:
+    _seed_design_role_cache(tmp_path)
     seed_profile_pointer_for_tests(tmp_path, _CYCLE, _PROFILE)
     base = tmp_path / _CACHE / _CYCLE / "lulu-design"
     revision = base / "revision1"
@@ -69,6 +81,8 @@ class TestComposeSessionTechDesign:
         _seed_design_session(tmp_path)
         payload = session_snapshot(_CYCLE, tmp_path, profile_id=_PROFILE)
         assert payload["profile_id"] == "lulu-design"
+        assert set(payload["role"]) == {"role_prompt"}
+        assert payload["role"]["role_prompt"].startswith("You are acting")
         assert payload["compose_doc"]["path"].endswith("L1/design-doc.md")
         assert payload["compose_doc"]["title"] == "Design X"
         assert payload["compose_doc"]["status"] == "ready"
@@ -78,6 +92,7 @@ class TestComposeSessionTechDesign:
         from init_working_helpers import lock_single_l1_tree  # noqa: WPS433
 
         seed_profile_pointer_for_tests(tmp_path, _CYCLE, _PROFILE)
+        _seed_design_role_cache(tmp_path)
         base = tmp_path / _CACHE / _CYCLE / "lulu-design"
         revision = base / "revision1"
         revision.mkdir(parents=True)
@@ -95,6 +110,8 @@ class TestComposeSessionTechDesign:
         assert payload["compose_doc"]["revision"] == 1
         assert payload["compose_doc"]["path"].endswith("L1/design-doc.md")
         assert payload["compose_doc"]["title"] == ""
+        assert set(payload["role"]) == {"role_prompt"}
+        assert payload["role"]["role_prompt"].startswith("You are acting")
 
     def test_stage_transitions(self, tmp_path: Path):
         seed_profile_pointer_for_tests(tmp_path, _CYCLE, _PROFILE)
