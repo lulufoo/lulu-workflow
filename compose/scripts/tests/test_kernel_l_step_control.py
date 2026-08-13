@@ -298,6 +298,7 @@ def test_deductive_complete_and_begin_writing_when_gate_clear(tmp_path: Path) ->
     begin = l_step_control.begin_writing(_CYCLE, tmp_path, profile_id="lulu-plan")
     assert begin["ok"] is True
     assert "REVISION_DIR:" in begin["dispatch_input"]
+    assert "CODE_GROUNDING:" in begin["dispatch_input"]
 
 
 def test_begin_inductive_succeeds_for_lulu_spec(tmp_path: Path) -> None:
@@ -581,6 +582,7 @@ def test_begin_writing_k2_passes_when_facts_present(
     result = l_step_control.begin_writing(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
     assert result["ok"] is True
     assert "REVISION_DIR:" in result["dispatch_input"]
+    assert "CODE_GROUNDING:" in result["dispatch_input"]
     assert "SCOPE_FACTS_PATH:" not in result["dispatch_input"]
     assert "INDUCTIVE_DIR:" not in result["dispatch_input"]
 

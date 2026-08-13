@@ -25,6 +25,8 @@ Run `$SESSION_INFO --view session`, then bind:
 | Name | JSON field | Use |
 |------|------------|-----|
 | `pipeline.inductive` | `pipeline.inductive` | Split / Working route |
+| `pipeline.code_grounding` | `pipeline.code_grounding` | Writing / Deductive `$CODE_GROUNDING` |
+| `pipeline.post_writing_options` | `pipeline.post_writing_options` | Pause / FreeEdit options |
 | `revision_dir` | `revision_dir` | revision-scoped tools and runner Input |
 
 ### Scope constraints
@@ -158,7 +160,7 @@ Load {actual $SKILL_ROOT}/compose/writing-runner/SKILL.md and follow its instruc
 
 2. Run `$L_STEP writing-complete`. On failure → Blocking.
 
-3. **Pause gate:** Present runner return summary and the compose document path. Offer **only** the options listed in this profile's `pipeline.post_writing_options` (do not invent options absent from the list).
+3. **Pause gate:** Present runner return summary and the compose document path. Offer **only** the bound `pipeline.post_writing_options` (do not invent options absent from the list).
    - **freeedit** (when listed) → run `$L_STEP advance-to-freeedit`. On failure → Blocking. Proceed to **FreeEdit**.
    - **evaluate** (when listed) → **Evaluating** below (skip FreeEdit).
    - **deliver** (when listed) → only if every L is already accepted; else prefer **evaluate**. Then **Leave Working** / **ReadyForDelivery Rules**.
@@ -173,7 +175,7 @@ Entry: `advance-to-freeedit` success, or Fix L resume.
   - **Tier A (same revision, presentation):** edit `_body-{cid}.txt` (optionally sync existing fact `text` in `_facts.json`). Narrative-arc: visible group/leaf titles come from `_narrative-arc.json` via `$COMPOSE_DOC_CONTROL assemble-arc` (default `--lens-heading omit`). Writing cognition (What) is disclosed on the Writing/`chapter-write-runner` path via `$CHAPTER_WRITE_STATE begin.writing_cognition`; Fix-L body edits do **not** require re-running claim-current. Never use `_chapters.json` / `_lens-themes.json` / `_chapter-framework.json` / `_chapter-placement.json` (retired). Skip Inductive|Deductive / Writing.
   - **Tier B (new revision, structure/facts topology):** do **not** patch chapter set / `lens_tags` in place — run `$START_COMPOSE` for a new revision, re-run Inductive|Deductive then Writing. Leave Fix-L resume.
   - If the user insists on editing the assembled `.md`: warn that the next rebuild / new revision will overwrite; do not reverse-parse `.md` into JSON.
-- When user signals done, ask using remaining `pipeline.post_writing_options` that still apply (typically Evaluate; Deliver package only if listed and all L already accepted):
+- When user signals done, ask using remaining bound `pipeline.post_writing_options` that still apply (typically Evaluate; Deliver package only if listed and all L already accepted):
   - **Evaluate** → **Evaluating** below.
   - **Deliver** (only if listed) → **Leave Working** only when all L are accepted; otherwise Blocking / continue the L loop.
 

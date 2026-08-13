@@ -143,11 +143,22 @@ def session_snapshot(
     )
     compose_doc = _session_document_view(doc)
     profile = load_profile(profile_id, project_root=project_root, cycle_id=cycle_id)
-    inductive = (profile.get("pipeline") or {}).get("inductive")
+    raw_pipeline = profile.get("pipeline") or {}
+    post_writing_options = raw_pipeline.get("post_writing_options") or []
+    if not isinstance(post_writing_options, list):
+        post_writing_options = []
     return {
         "view": _VIEW_SESSION,
         "profile_id": profile_id,
-        "pipeline": {"inductive": bool(inductive)},
+        "pipeline": {
+            "inductive": bool(raw_pipeline.get("inductive")),
+            "code_grounding": bool(raw_pipeline.get("code_grounding")),
+            "post_writing_options": [
+                str(item).strip()
+                for item in post_writing_options
+                if str(item).strip()
+            ],
+        },
         "revision_dir": ws_path.parent.resolve().as_posix(),
         "active_doc": load_active_doc_for_profile(cycle_id, project_root, profile_id),
         "workflow_state": {

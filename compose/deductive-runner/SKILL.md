@@ -51,7 +51,7 @@ and the parent can enter Writing.
 | `$INTENT_BASELINE_REFS` | JSON array of classified, read-only intent baseline refs; not intake input |
 | `$NORM_CONSTRAINT_REFS` | JSON array of classified, read-only norm constraint refs; not intake input |
 | `$DEDUCTIVE_OUT_DIR` | Active revision dir (`revision{active_doc}/`) |
-| `$CODE_GROUNDING` | Optional; profile `pipeline.code_grounding` (boolean string) |
+| `$CODE_GROUNDING` | Boolean from `begin-deductive` stdout |
 
 Bind `$SOURCE_PATH` from `$ATOMIZE_SOURCE_PATH` when only the alias is set.
 `$REVISION_DIR` for intake = `$DEDUCTIVE_OUT_DIR`. `$PROJECT_ROOT` = `$(pwd)`.

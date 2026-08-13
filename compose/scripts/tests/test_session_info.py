@@ -95,6 +95,8 @@ class TestSessionSnapshot:
         payload = session_snapshot(cycle_id, project_root)
         assert payload["view"] == "session"
         assert payload["pipeline"]["inductive"] is False
+        assert payload["pipeline"]["code_grounding"] is True
+        assert payload["pipeline"]["post_writing_options"] == ["freeedit", "evaluate"]
         assert payload["revision_dir"] == (
             project_root
             / ".cache"

@@ -25,8 +25,9 @@ Fact production belongs to Inductive|Deductive (`inductive-runner` or
 | `$OUTPUT_DOC_PATH` | Absolute path to output document (design-doc.md or tech-doc.md); fallback `{REVISION_DIR}/tech-doc.md` when omitted |
 | `$CYCLE_TYPE` | `feature` |
 | `$CYCLE_ID` | Active cycle id |
+| `$CODE_GROUNDING` | Boolean from `begin-writing` stdout |
 
-Self-resolved: `$PROJECT_ROOT` = `$(pwd)` · `$CODE_GROUNDING` = profile `pipeline.code_grounding` (boolean)
+Self-resolved: `$PROJECT_ROOT` = `$(pwd)`
 
 ## Script Macros
 
@@ -44,9 +45,8 @@ Self-resolved: `$PROJECT_ROOT` = `$(pwd)` · `$CODE_GROUNDING` = profile `pipeli
 
 ### Step 1 — Load
 
-1. Bind Parent Inputs (`$REVISION_DIR`, `$OUTPUT_DOC_PATH`, `$CYCLE_ID`, `$SCOPE_REF_PATH` path hold).
+1. Bind Parent Inputs (`$REVISION_DIR`, `$OUTPUT_DOC_PATH`, `$CYCLE_ID`, `$SCOPE_REF_PATH` path hold, `$CODE_GROUNDING`).
 2. Resolve `$PROJECT_ROOT` = `$(pwd)`.
-3. Read profile `pipeline.code_grounding` → `$CODE_GROUNDING`.
 
 **Done:** Parent required Inputs bound; `$PROJECT_ROOT` resolved; `$CODE_GROUNDING` boolean set. Proceed to Step 2.
 
@@ -135,5 +135,5 @@ Writing complete.
   Write-state: <REVISION_DIR>/_chapter-write-state.json (status=complete)
   Scope cross-check: <SCOPE_REF_PATH>
   Draft status: Written
-  Next step: parent pause gate (options from profile pipeline.post_writing_options)
+  Next step: parent pause gate (bound `pipeline.post_writing_options`)
 ```

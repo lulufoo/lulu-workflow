@@ -338,12 +338,16 @@ def _format_init_dispatch_input(
 ) -> str:
     revision_dir = _revision_dir(cycle_id, project_root, profile_id)
     output_doc = document_file_path(cycle_id, project_root, profile_id)
+    code_grounding = bool(
+        _pipeline_config(cycle_id, project_root, profile_id).get("code_grounding")
+    )
     lines = [
         f"REVISION_DIR:         {revision_dir.as_posix()}",
         f"SCOPE_REF_PATH:       {_scope_doc(cycle_id, project_root, profile_id).as_posix()}",
         f"OUTPUT_DOC_PATH:      {output_doc.resolve().as_posix()}",
         f"CYCLE_TYPE:           {detect_cycle_type(cycle_id)}",
         f"CYCLE_ID:             {cycle_id}",
+        f"CODE_GROUNDING:       {str(code_grounding).lower()}",
     ]
     # K4: Writing consumes intake+discovery _facts.json — never advertise
     # INDUCTIVE_DIR as if Writing still reads decisions[] / projection here.
