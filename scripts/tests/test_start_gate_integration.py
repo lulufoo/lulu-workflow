@@ -73,13 +73,23 @@ def _make_cycles_json(cache_dir: Path, cycle_id: str, extra: dict = None, name: 
 
 
 def _make_session_state(cache_dir: Path, cycle_id: str, stage: str, active: int = 1) -> Path:
-    """Create session-state.md so start.py increments to the NEXT revision."""
+    """Create session-state.md v2 so start.py increments to the NEXT revision."""
     sys.path.insert(0, str(_LDEV / "scripts"))
     from workflow_sessions import stage_subdir
     p = cache_dir / cycle_id / stage_subdir(stage) / "session-state.md"
     p.parent.mkdir(parents=True, exist_ok=True)
-    field = "active_session" if stage == "lulu-code" else "active_doc"
-    p.write_text(f"---\n{field}: {active}\n---\n", encoding="utf-8")
+    p.write_text(
+        "---\n"
+        "version: 2\n"
+        f"active_doc: {active}\n"
+        "profile_path: /tmp/compose-profile.json\n"
+        f"profile_digest: {'a' * 64}\n"
+        "start_id: test-start\n"
+        "holder_finalized: true\n"
+        "updated_at: 2026-06-01T00:00:00Z\n"
+        "---\n",
+        encoding="utf-8",
+    )
     return p
 
 
@@ -135,6 +145,7 @@ def _make_session(
             f"---\n",
             encoding="utf-8",
         )
+        _make_session_state(cache_dir, cycle_id, stage, active=int(revision.lstrip("r") or "1"))
         return ws
     ws.write_text(
         f"---\ncurrent_state: {state}\nupdated_at: {updated_at}\n---\n",

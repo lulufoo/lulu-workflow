@@ -125,12 +125,10 @@ class TestResolveWorkflowStatePathFromCycle:
     def test_resolves_active_doc(self, tmp_path: Path):
         cycle_id = "feat-a"
         seed_profile_pointer_for_tests(tmp_path, cycle_id, DEFAULT_COMPOSE_PROFILE_ID)
+        from session_state_schema import save_active_doc  # noqa: WPS433
+
         base = tmp_path / ".cache" / "cursor" / "lulu-dev-workflow" / cycle_id / "lulu-plan"
-        base.mkdir(parents=True, exist_ok=True)
-        (base / "session-state.md").write_text(
-            "---\nversion: 1\nactive_doc: 2\nupdated_at: 2024-01-01T00:00:00+00:00\n---\n",
-            encoding="utf-8",
-        )
+        save_active_doc(base / "session-state.md", 2)
         path = resolve_workflow_state_path_from_cycle(cycle_id, tmp_path)
         assert path.name == "workflow-state.md"
         assert path.parent.name == "revision2"

@@ -8,8 +8,8 @@ Subcommands:
 
     CLI details: ``python3 facts_control.py --help``
 
-    ``write --target-l Lx`` buckets into ``revision/Lx/_facts.json`` (v1.1).
-    If that L was ``acceptance: done``, demotes it (FreeEdit when it is focus).
+    ``write --target-l Lx`` buckets into ``revision/Lx/_facts.json``.
+    Writes require the current unfrozen focus in Inductive or Deductive.
 
 Design rationale (source repo, why-only): docs/domain/ssot/compose/mechanism-ssot/compose-fact-architecture.md;
 process how archive: docs/domain/archive/compose/archive-2.0/compose-fact-first-display-layer-design.md §3.1, §11 (M1);
@@ -35,10 +35,7 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
-from discussion_pointer_schema import (  # noqa: E402
-    active_slice_dir,
-    discussion_pointer_path,
-)
+from l_ledger_schema import active_slice_dir, load_l_ledger  # noqa: E402
 from fetch_compose_framework import fetch_compose_framework  # noqa: E402
 from facts_schema import (  # noqa: E402
     facts_path,
@@ -68,24 +65,13 @@ def _slice_dir(revision_dir: Path, *, target_l: str | None = None) -> Path:
 
 
 def _multi_l_context(revision_dir: Path) -> tuple[bool, set[str]]:
-    """Return (is_multi_l, allowed_home_ids). package always allowed with flag."""
+    """Return (is_multi_l, allowed_home_ids) from the L ledger."""
     rev = Path(revision_dir).resolve()
     try:
-        from dependency_tree_schema import (  # noqa: WPS433
-            dependency_tree_path,
-            load_dependency_tree,
-        )
-    except ImportError:
+        ledger = load_l_ledger(rev)
+    except (FileNotFoundError, ValueError, OSError, json.JSONDecodeError):
         return False, set()
-    if not dependency_tree_path(rev).is_file():
-        return False, set()
-    try:
-        tree = load_dependency_tree(rev)
-    except (ValueError, OSError, json.JSONDecodeError):
-        return False, set()
-    if tree.get("status") != "locked":
-        return False, set()
-    ids = {str(n["id"]) for n in tree.get("nodes") or []}
+    ids = {str(nid) for nid in ledger.get("order") or []}
     return len(ids) >= 2, ids
 
 
@@ -104,10 +90,9 @@ def _validate_home_l_write(
     effective_target = target_l
     if multi and effective_target is None:
         try:
-            from discussion_pointer_schema import load_discussion_pointer  # noqa: WPS433
-
-            ptr = load_discussion_pointer(Path(revision_dir).resolve())
-            effective_target = str(ptr.get("focus", "")).strip() or None
+            effective_target = str(
+                load_l_ledger(Path(revision_dir).resolve()).get("focus", "")
+            ).strip() or None
         except (FileNotFoundError, ValueError, OSError, json.JSONDecodeError):
             effective_target = None
     for index, fact in enumerate(facts):
@@ -125,7 +110,7 @@ def _validate_home_l_write(
                 )
         elif home_s not in allowed_ids:
             errors.append(
-                f"{prefix}: home_l {home_s!r} not in locked tree nodes "
+                f"{prefix}: home_l {home_s!r} not in ledger order "
                 f"{sorted(allowed_ids)}"
             )
         if effective_target and home_s != effective_target:
@@ -211,10 +196,34 @@ def _runtime_profile(revision_dir: Path, project_root: Path):
     )
 
 
+def _require_producer_focus_write(revision_dir: Path, target_l: str | None) -> str | None:
+    try:
+        ledger = load_l_ledger(revision_dir)
+    except (FileNotFoundError, ValueError, OSError) as exc:
+        return str(exc)
+    focus = str(ledger["focus"])
+    cell = ledger["by_id"][focus]
+    if cell.get("frozen") is True:
+        return f"focus {focus} is frozen"
+    if cell.get("state") not in {"Inductive", "Deductive"}:
+        return (
+            "facts write requires current unfrozen focus in Inductive or Deductive "
+            f"(focus {focus} is {cell.get('state')!r})"
+        )
+    if target_l and target_l not in {focus, "package"}:
+        return (
+            f"cannot write facts to {target_l}; current producer focus is {focus}"
+        )
+    return None
+
+
 def cmd_write(args: argparse.Namespace) -> int:
     rev = Path(args.revision_dir).resolve()
     target_l = (args.target_l or "").strip() or None
     package_confirm = bool(getattr(args, "package_confirm", False))
+    gate = _require_producer_focus_write(rev, target_l)
+    if gate:
+        return _fail(gate)
     multi, allowed_ids = _multi_l_context(rev)
     if target_l == "package" and not package_confirm:
         return _fail("--target-l package requires --package-confirm")
@@ -276,33 +285,6 @@ def cmd_write(args: argparse.Namespace) -> int:
     except ValueError as exc:
         return _fail(str(exc))
 
-    demote: dict[str, Any] | None = None
-    if (
-        target_l
-        and target_l != "package"
-        and discussion_pointer_path(rev).is_file()
-    ):
-        from discussion_pointer_control import cmd_demote_acceptance  # noqa: WPS433
-        import io
-        from contextlib import redirect_stdout, redirect_stderr
-
-        buf_out, buf_err = io.StringIO(), io.StringIO()
-        with redirect_stdout(buf_out), redirect_stderr(buf_err):
-            code = cmd_demote_acceptance(
-                rev,
-                target=target_l,
-                confirm=True,
-                profile_id=runtime.profile_id,
-            )
-        raw_out = buf_out.getvalue().strip()
-        if raw_out:
-            try:
-                demote = json.loads(raw_out)
-            except json.JSONDecodeError:
-                demote = {"ok": code == 0, "raw": raw_out}
-        elif code != 0:
-            return _fail(buf_err.getvalue().strip() or "demote-acceptance failed")
-
     # intake_structure allows derivation without disposition; load_facts() does not.
     if intake_structure:
         loaded = [normalize_fact(entry) for entry in json.loads(path.read_text(encoding="utf-8"))]
@@ -319,8 +301,6 @@ def cmd_write(args: argparse.Namespace) -> int:
     if target_l:
         payload["target_l"] = target_l
         payload["bucketed"] = True
-    if demote is not None:
-        payload["demote"] = demote
     return _ok(payload)
 
 

@@ -31,6 +31,7 @@ from workflow_common import (
 )
 from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID
 from workflow_profile_paths import state_path
+from compose_state_lock import durable_write_text
 
 from transition_registry import session_states as _session_states  # noqa: E402
 
@@ -173,7 +174,7 @@ def save_workflow_state(path: Path, data: dict, *, merge: bool = True) -> None:
     if errors:
         raise ValueError(f"workflow-state data invalid: {'; '.join(errors)}")
 
-    path.write_text(_serialize_frontmatter(payload), encoding="utf-8")
+    durable_write_text(path, _serialize_frontmatter(payload))
 
 
 def load_workflow_state(path: Path) -> dict:

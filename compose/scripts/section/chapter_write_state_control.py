@@ -45,7 +45,7 @@ from chapter_write_state_schema import (  # noqa: E402
     next_chapter_id,
     save_chapter_write_state,
 )
-from discussion_pointer_schema import active_slice_dir  # noqa: E402
+from l_ledger_schema import active_slice_dir  # noqa: E402
 from facts_schema import facts_path, load_facts  # noqa: E402
 from fetch_compose_framework import fetch_compose_framework  # noqa: E402
 from workflow_paths import resolve_revision_runtime_profile  # noqa: E402

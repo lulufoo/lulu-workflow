@@ -17,6 +17,14 @@ _CTL = _SCRIPTS / "deductive" / "deductive_control.py"
 _REPO = Path(__file__).resolve().parents[4]
 
 
+def _prepare(tmp_path: Path) -> Path:
+    rev = tmp_path / "revision1"
+    rev.mkdir()
+    seed_revision_profile_pointer(rev)
+    (rev / "L1").mkdir(parents=True, exist_ok=True)
+    return rev
+
+
 def _run(args: list[str], revision_dir: Path) -> subprocess.CompletedProcess[str]:
     seed_revision_profile_pointer(revision_dir)
     return subprocess.run(
@@ -36,9 +44,8 @@ def _run(args: list[str], revision_dir: Path) -> subprocess.CompletedProcess[str
 
 
 def test_pending_init_add_resolve_gate(tmp_path: Path) -> None:
-    rev = tmp_path / "revision1"
-    rev.mkdir()
-    (rev / "_facts.json").write_text(
+    rev = _prepare(tmp_path)
+    (rev / "L1" / "_facts.json").write_text(
         json.dumps(
             [{"id": "F-1", "text": "ar", "lens_tags": ["AR"]}],
             ensure_ascii=False,
@@ -82,9 +89,8 @@ def test_pending_init_add_resolve_gate(tmp_path: Path) -> None:
 
 
 def test_kw_shortfall_pending_blocks_gate_until_resolved(tmp_path: Path) -> None:
-    rev = tmp_path / "revision1"
-    rev.mkdir()
-    (rev / "_facts.json").write_text(
+    rev = _prepare(tmp_path)
+    (rev / "L1" / "_facts.json").write_text(
         json.dumps(
             [{"id": "F-1", "text": "task thin", "lens_tags": ["T"]}],
             ensure_ascii=False,
@@ -120,9 +126,8 @@ def test_kw_shortfall_pending_blocks_gate_until_resolved(tmp_path: Path) -> None
 
 
 def test_gate_check_fails_when_pending_file_missing(tmp_path: Path) -> None:
-    rev = tmp_path / "revision1"
-    rev.mkdir()
-    (rev / "_facts.json").write_text(
+    rev = _prepare(tmp_path)
+    (rev / "L1" / "_facts.json").write_text(
         json.dumps(
             [{"id": "F-1", "text": "ar", "lens_tags": ["AR"]}],
             ensure_ascii=False,
@@ -135,9 +140,8 @@ def test_gate_check_fails_when_pending_file_missing(tmp_path: Path) -> None:
 
 
 def test_gate_check_fails_on_unsettled_unref_quarantine(tmp_path: Path) -> None:
-    rev = tmp_path / "revision1"
-    rev.mkdir()
-    (rev / "_facts.json").write_text(
+    rev = _prepare(tmp_path)
+    (rev / "L1" / "_facts.json").write_text(
         json.dumps(
             [
                 {
@@ -162,9 +166,8 @@ def test_gate_check_fails_on_unsettled_unref_quarantine(tmp_path: Path) -> None:
 
 
 def test_gate_check_passes_when_unref_quarantine_settled(tmp_path: Path) -> None:
-    rev = tmp_path / "revision1"
-    rev.mkdir()
-    (rev / "_facts.json").write_text(
+    rev = _prepare(tmp_path)
+    (rev / "L1" / "_facts.json").write_text(
         json.dumps(
             [
                 {
@@ -208,9 +211,8 @@ def test_gate_check_passes_when_unref_quarantine_settled(tmp_path: Path) -> None
 
 
 def test_quarantine_unref_lists_uncited(tmp_path: Path) -> None:
-    rev = tmp_path / "revision1"
-    rev.mkdir()
-    (rev / "_facts.json").write_text(
+    rev = _prepare(tmp_path)
+    (rev / "L1" / "_facts.json").write_text(
         json.dumps(
             [
                 {
@@ -261,9 +263,8 @@ def test_quarantine_unref_lists_uncited(tmp_path: Path) -> None:
 
 
 def test_disposition_patch_validate_and_apply(tmp_path: Path) -> None:
-    rev = tmp_path / "revision1"
-    rev.mkdir()
-    (rev / "_facts.json").write_text(
+    rev = _prepare(tmp_path)
+    (rev / "L1" / "_facts.json").write_text(
         json.dumps(
             [
                 {
@@ -343,7 +344,7 @@ def test_disposition_patch_validate_and_apply(tmp_path: Path) -> None:
         check=False,
     )
     assert apply.returncode == 0, apply.stderr
-    facts = json.loads((rev / "_facts.json").read_text(encoding="utf-8"))
+    facts = json.loads((rev / "L1" / "_facts.json").read_text(encoding="utf-8"))
     assert facts[0]["derivation"]["disposition"] == "carried"
     assert facts[0]["lens_tags"] == ["CTX"]
     assert facts[1]["derivation"]["disposition"] == "quarantined"

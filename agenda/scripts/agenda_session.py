@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Resolve revision dir from compose session records (no compose package import).
 
-Uses cycle cache + ``.compose-profile-path`` + ``session-state.md`` ``active_doc``
-→ ``revision{N}/`` — same records ``session_control`` / start already write.
+Uses cycle cache + ``.compose-active-profile`` + ``session-state.md``
+``active_doc`` / ``profile_path`` → ``revision{N}/``.
 """
 
 from __future__ import annotations
@@ -20,7 +20,6 @@ if str(_WORKFLOW_SCRIPTS) not in sys.path:
 
 from archive_common import CACHE_DIR, read_md_field  # noqa: E402
 
-PROFILE_POINTER_NAME = ".compose-profile-path"
 ACTIVE_PROFILE_NAME = ".compose-active-profile"
 
 
@@ -43,29 +42,12 @@ def _load_profile_id(profile_json: Path) -> str:
     return str(data.get("profile_id", "")).strip()
 
 
-def _read_pointer_target(session_base: Path, project_root: Path) -> Path:
-    pointer = session_base / PROFILE_POINTER_NAME
-    raw = pointer.read_text(encoding="utf-8").strip()
-    if not raw:
-        raise ValueError(f"empty compose profile pointer: {pointer}")
-    candidate = Path(raw)
-    if candidate.is_absolute():
-        resolved = candidate
-    else:
-        resolved = (project_root / candidate).resolve()
-    if not resolved.is_file():
-        raise FileNotFoundError(
-            f"compose profile pointer targets missing file: {resolved}"
-        )
-    return resolved
-
-
 def resolve_session_base(
     project_root: Path,
     cycle_id: str,
     profile_id: str,
 ) -> Path:
-    """Locate session base dir that owns ``.compose-profile-path`` for profile_id."""
+    """Locate session base dir that owns ``session-state.md`` for profile_id."""
     root = project_root.resolve()
     pid = profile_id.strip()
     cid = cycle_id.strip()
@@ -74,16 +56,18 @@ def resolve_session_base(
         raise FileNotFoundError(
             f"cycle cache not found: {cycle_dir}. Run stage start first."
         )
-    for pointer in sorted(cycle_dir.rglob(PROFILE_POINTER_NAME)):
-        session_base = pointer.parent
+    for ss in sorted(cycle_dir.rglob("session-state.md")):
+        session_base = ss.parent
         try:
-            profile_path = _read_pointer_target(session_base, root)
+            profile_path = Path(read_md_field(ss, "profile_path", default="").strip())
+            if not profile_path.is_file():
+                continue
             if _load_profile_id(profile_path) == pid:
                 return session_base
         except (OSError, json.JSONDecodeError, ValueError, FileNotFoundError):
             continue
     raise FileNotFoundError(
-        f"no compose profile pointer for {pid!r} under cycle {cid!r} ({cycle_dir})"
+        f"no session-state.md for {pid!r} under cycle {cid!r} ({cycle_dir})"
     )
 
 

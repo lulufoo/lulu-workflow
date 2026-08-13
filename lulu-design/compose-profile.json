@@ -19,13 +19,8 @@
     "code_grounding": true,
     "post_writing_options": [
       "freeedit",
-      "evaluate",
-      "deliver"
+      "evaluate"
     ]
-  },
-  "start": {
-    "adapter_module": "lulu-design/scripts/start/tech_design_start_adapter.py",
-    "adapter_class": "TechDesignStartAdapter"
   },
   "cache_subdir": "lulu-design",
   "framework_section": "lulu-design",

@@ -12,8 +12,7 @@ Shape (v1)::
       ]
     }
 
-Sequence SSOT is ``slices`` array order. Legacy ``order`` if present is ignored
-(not required; not validated; never drives topology).
+Sequence SSOT is ``slices`` array order. Legacy ``order`` is rejected.
 """
 
 from __future__ import annotations
@@ -64,17 +63,16 @@ def build_compose_package(
 
 
 def validate_compose_package(data: dict[str, Any]) -> list[str]:
-    """Validate package shape.
-
-    ``order`` is optional and ignored (F2/F3): presence/absence/mismatch never
-    fails validation; topology readers use ``slices`` array order only.
-    """
+    """Validate package shape. ``order`` is forbidden."""
     errors: list[str] = []
     if not isinstance(data, dict):
         return ["package must be an object"]
 
     if data.get("version") != PACKAGE_VERSION:
         errors.append(f"version must be {PACKAGE_VERSION}")
+
+    if "order" in data:
+        errors.append("order must not be present (sequence is slices array order)")
 
     profile_id = data.get("profile_id")
     if not isinstance(profile_id, str) or not profile_id.strip():
@@ -151,6 +149,38 @@ def load_compose_package(path: Path) -> dict[str, Any]:
     return data
 
 
+def validate_committed_package(
+    revision_dir: Path,
+    *,
+    doc_filename: str,
+    profile_id: str,
+    expected_order: list[str],
+) -> tuple[Path | None, str | None]:
+    """Load an existing Ready package and check it against ledger order + docs.
+
+    Does not write or re-assemble.
+    """
+    rev = Path(revision_dir).resolve()
+    path = compose_package_path(rev, doc_filename)
+    if not path.is_file():
+        return None, "Ready package missing"
+    try:
+        package = load_compose_package(path)
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        return None, str(exc)
+    if str(package.get("profile_id", "")).strip() != str(profile_id).strip():
+        return None, (
+            f"package profile_id {package.get('profile_id')!r} != {profile_id!r}"
+        )
+    order = chain_ids_from_compose_package(package)
+    if order != list(expected_order):
+        return None, f"package slice order {order!r} != ledger order {list(expected_order)!r}"
+    missing = missing_slice_docs(rev, package)
+    if missing:
+        return None, "missing slice docs: " + ", ".join(missing)
+    return path, None
+
+
 def is_compose_package_path(path: Path | str) -> bool:
     name = Path(path).name
     return name.endswith("-package.json")
@@ -180,67 +210,9 @@ def resolve_focus_doc_path(
 
 
 def chain_ids_from_compose_package(package: dict[str, Any]) -> list[str]:
-    """Return L* ids in slices array order (sequence SSOT; ignores legacy ``order``)."""
+    """Return L* ids in slices array order."""
     return [
         str(row["id"]).strip()
         for row in package.get("slices") or []
         if isinstance(row, dict) and str(row.get("id", "")).strip()
     ]
-
-
-def chain_dependency_tree_from_package(package: dict[str, Any]) -> dict[str, Any]:
-    """Materialize slices array order into a chain DAG (slices[i+1] depends on slices[i])."""
-    from dependency_tree_schema import build_tree  # noqa: WPS433
-
-    order = chain_ids_from_compose_package(package)
-    if not order:
-        raise ValueError("compose package slices must be non-empty")
-    by_id = {
-        str(s["id"]): s
-        for s in package["slices"]
-        if isinstance(s, dict) and str(s.get("id", "")).strip()
-    }
-    nodes = [
-        {
-            "id": nid,
-            "title": str(by_id.get(nid, {}).get("title", nid)),
-            # dependency-tree schema requires non-empty summary; hard-mirror has none.
-            "summary": str(by_id.get(nid, {}).get("title", nid)).strip() or nid,
-        }
-        for nid in order
-    ]
-    edges = [
-        {"from": order[i + 1], "to": order[i]}
-        for i in range(len(order) - 1)
-    ]
-    return build_tree(nodes=nodes, edges=edges, order=order, status="draft")
-
-
-def stub_slice_rulers_from_package(package: dict[str, Any]) -> dict[str, Any] | None:
-    """Build multi-L rulers stubs; single-L returns None (exempt)."""
-    from slice_rulers_schema import build_slice_rulers  # noqa: WPS433
-
-    order = chain_ids_from_compose_package(package)
-    if len(order) < 2:
-        return None
-    by_id = {
-        str(s["id"]): s
-        for s in package["slices"]
-        if isinstance(s, dict) and str(s.get("id", "")).strip()
-    }
-    rulers: dict[str, dict[str, Any]] = {}
-    for nid in order:
-        title = str(by_id.get(nid, {}).get("title", nid)).strip() or nid
-        rulers[nid] = {
-            "id": nid,
-            "job": title,
-            "in": ["TBD"],
-            "out": ["TBD"],
-            "seam": [],
-            "plan_checklist": ["TBD"],
-        }
-    return build_slice_rulers(
-        cut_axis="upstream_order",
-        rulers=rulers,
-        status="draft",
-    )

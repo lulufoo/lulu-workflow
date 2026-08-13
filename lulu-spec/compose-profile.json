@@ -19,13 +19,8 @@
     "code_grounding": false,
     "post_writing_options": [
       "freeedit",
-      "evaluate",
-      "deliver"
+      "evaluate"
     ]
-  },
-  "start": {
-    "adapter_module": "lulu-spec/scripts/start/product_spec_start_adapter.py",
-    "adapter_class": "ProductSpecStartAdapter"
   },
   "cache_subdir": "lulu-spec",
   "framework_section": "lulu-spec",

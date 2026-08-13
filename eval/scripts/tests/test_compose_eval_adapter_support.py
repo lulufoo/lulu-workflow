@@ -28,7 +28,8 @@ def test_request_handoff_translates_compose_context_to_generic_v2(
         "cycle_id": "cycle-1",
         "profile_id": "lulu-design",
         "focus_l": "L3",
-        "pointer_fingerprint": "private-pointer-fingerprint",
+        "ledger_fingerprint": "private-ledger-fingerprint",
+        "eval_run_id": "run-1",
         "evaluate_round": 2,
         "revision_dir": "/tmp/revision1",
         "slice_dir": "/tmp/revision1/L3",
@@ -59,6 +60,6 @@ def test_request_handoff_translates_compose_context_to_generic_v2(
     assert handoff["context"]["bindings"] == {
         "eval_target_path": "/tmp/revision1/design-doc.md",
     }
-    assert {"compose_doc", "focus_l", "pointer_fingerprint"}.isdisjoint(
+    assert {"compose_doc", "focus_l", "ledger_fingerprint"}.isdisjoint(
         handoff["context"],
     )

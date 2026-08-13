@@ -30,7 +30,7 @@ import kernel_bootstrap  # noqa: E402
 kernel_bootstrap.ensure_kernel_paths()
 
 from compose_state_lock import canonical_digest  # noqa: E402
-from discussion_pointer_schema import active_slice_dir  # noqa: E402
+from l_ledger_schema import active_slice_dir  # noqa: E402
 from domain_instance_schema import (  # noqa: E402
     DOMAIN_SCHEME_KEY,
     load_and_validate_domain_instance,

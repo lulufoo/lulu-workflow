@@ -25,7 +25,9 @@ def test_engine_registers_start_only_in_macro_table() -> None:
     assert '## Inputs' in orchestration
     assert '| `$PROFILE_PATH` | yes |' in orchestration
     assert '--profile-path "$PROFILE_PATH"' in macro_table
-    assert "$START_COMPOSE" in orchestration
+    assert '--scope-package "$SCOPE_PACKAGE"' in macro_table
+    assert "| `$SCOPE_PACKAGE` | yes |" in orchestration
+    assert "$START_COMPOSE" in macro_table
     assert "New revision" not in orchestration
     assert "Same-revision resume" not in orchestration
 
@@ -33,12 +35,14 @@ def test_engine_registers_start_only_in_macro_table() -> None:
 def test_static_profile_holders_bind_compose_inputs() -> None:
     for stage in ("lulu-arch", "lulu-blueprint", "lulu-design", "lulu-spec"):
         text = (_WORKFLOW_ROOT / stage / "SKILL.md").read_text(encoding="utf-8")
-        assert "$START_COMPOSE" in text
+        assert "$START_COMPOSE" not in text
+        assert "$SCOPE_PACKAGE" in text
+        assert "$PROFILE_PATH" in text
         assert f"--profile {stage} " not in text
-        assert f'$PROFILE_PATH="$SKILL_DIR/compose-profile.json"' in text
         assert "--profile-path" not in text
         assert f"$SKILL_DIR/scripts/{stage}_start.py" not in text
         assert 'python3 "$SKILL_ROOT/compose/scripts/core/start.py"' not in text
+        assert "## Start" in text
 
 
 def test_stage_start_wrappers_removed() -> None:
@@ -62,15 +66,15 @@ def test_plan_skill_hands_stage_inputs_to_session_bootstrap() -> None:
         "## Script Macros",
     ):
         assert heading in text
-    assert "$PLAN_PROFILE" in text
-    assert "tech_plan_profile_control.py" in text
+    assert "$PLAN_PREFLIGHT" in text
+    assert "tech_plan_preflight.py" in text
     assert '--project-root "$PROJECT_ROOT"' in text
     assert '$(pwd)' not in text
     assert "$START_COMPOSE" not in text
-    assert "## Session bootstrap" in text
+    assert "## Start" in text
     assert "$PROFILE_PATH" in text
+    assert "$SCOPE_PACKAGE" in text
     assert "--profile-path" not in text
-    assert "## Start" not in text
     assert "Resume" not in text
     assert "--profile lulu-plan " not in text
     assert "$SKILL_DIR/scripts/lulu-plan_start.py" not in text

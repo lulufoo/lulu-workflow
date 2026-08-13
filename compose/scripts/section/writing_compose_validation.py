@@ -27,7 +27,7 @@ kernel_bootstrap.ensure_kernel_paths()
 from chapter_artifact_paths import chapter_body_path  # noqa: E402
 from chapter_doc_schema import chapter_anchor_present, chapter_body_by_id  # noqa: E402
 from chapter_fc_gates import check_chapter_write_artifacts  # noqa: E402
-from discussion_pointer_schema import active_slice_dir  # noqa: E402
+from l_ledger_schema import active_slice_dir  # noqa: E402
 from facts_schema import facts_path, load_facts  # noqa: E402
 from fetch_compose_framework import fetch_compose_framework  # noqa: E402
 from workflow_paths import resolve_revision_runtime_profile  # noqa: E402

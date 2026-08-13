@@ -29,15 +29,29 @@ from workflow_paths import (
     seed_profile_pointer_for_tests,
 )
 
-_REQUIRED_FIELD_NAMES = {"version", "active_doc", "updated_at"}
+_REQUIRED_FIELD_NAMES = {
+    "version",
+    "active_doc",
+    "profile_path",
+    "profile_digest",
+    "start_id",
+    "holder_finalized",
+    "updated_at",
+}
 _CYCLE_ID = "feat-test-session-state"
 _CACHE_SUBDIR = load_profile_json(compose_profile_path(DEFAULT_COMPOSE_PROFILE_ID))["cache_subdir"]
 
 
 def _write_session_state(path: Path, active_doc: int) -> None:
-    path.write_text(
-        f"---\nversion: 1\nactive_doc: {active_doc}\nupdated_at: 2024-01-01T00:00:00+00:00\n---\n",
-        encoding="utf-8",
+    from session_state_schema import save_session_state  # noqa: WPS433
+
+    save_session_state(
+        path,
+        active_doc=active_doc,
+        profile_path="unbound",
+        profile_digest="0" * 64,
+        start_id="test",
+        holder_finalized=True,
     )
 
 
@@ -137,7 +151,6 @@ class TestNextDocRound:
 
 class TestBumpActiveDoc:
     def test_creates_first_round(self, tmp_path: Path):
-        _seed_cycle(tmp_path)
         assert bump_active_doc(_CYCLE_ID, tmp_path) == 1
         assert load_active_doc_from_cycle(_CYCLE_ID, tmp_path) == 1
 

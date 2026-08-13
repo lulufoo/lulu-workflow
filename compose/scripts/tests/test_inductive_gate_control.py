@@ -64,8 +64,6 @@ def _run_gate(out_dir: Path, *args: str) -> tuple[int, dict]:
     return res.returncode, payload
 
 
-
-
 def _run_g3_grounding(out_dir: Path, *args: str) -> tuple[int, dict]:
     res = subprocess.run(
         [sys.executable, str(_G3_GROUNDING_CTL), "--out-dir", str(out_dir), *args],
@@ -166,7 +164,7 @@ def test_init_session_fills_index_profile_from_revision_pointer(tmp_path: Path) 
     )
     assert code == 0, payload
     index = json.loads(
-        (rev / "inductive-scope" / "_index.json").read_text(encoding="utf-8")
+        (rev / "L1" / "inductive-scope" / "_index.json").read_text(encoding="utf-8")
     )
     assert index.get("profile") == "lulu-design"
     gate = json.loads((rev / "inductive-gate-state.json").read_text(encoding="utf-8"))

@@ -86,12 +86,11 @@ adapter configuration.
    `complete-round` payload to the caller. Do **not** present Accept L / Fix L /
    Re-evaluate / Deliver package.
 3. Otherwise ask the user to choose:
-   - **Accept L** — run `$L_SLICE accept-l --confirm`; exit Eval.
-   - **Fix L** — run `$L_SLICE fix-l --confirm`, or `$SESSION_CONTROL resume-after-eval`; exit Eval.
-   - **Re-evaluate** — return to **Begin Eval**.
-   - **Deliver package** — allow only when every L is accepted; otherwise reject.
+   - **Accept L** — run `$L_STEP accept --confirm`; exit Eval.
+   - **Fix L** — run `$L_STEP fix --confirm`; exit Eval.
+   - **Re-evaluate** — run `$L_STEP re-evaluate --confirm`, then return to **Begin Eval**.
 
 ## Abandon Handler
 
-1. Run `$SESSION_CONTROL abandon-evaluation`.
-2. Stop. Do not dispatch remaining dimensions.
+1. Stop. Do not dispatch remaining dimensions.
+2. Leave the L in Evaluating. Report abandonment and wait for user direction.

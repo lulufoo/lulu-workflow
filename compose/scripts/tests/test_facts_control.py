@@ -24,6 +24,7 @@ from facts_schema import (  # noqa: E402
     unlensed_fact_ids,
     validate_facts,
 )
+from l_ledger_schema import load_l_ledger, save_l_ledger  # noqa: E402
 
 _CTL = _SECTION / "facts_control.py"
 _REPO = Path(__file__).resolve().parents[4]
@@ -33,7 +34,14 @@ def _revision(tmp_path: Path, name: str = "revision1") -> Path:
     rev = tmp_path / name
     rev.mkdir(parents=True, exist_ok=True)
     seed_revision_profile_pointer(rev)
+    ledger = load_l_ledger(rev)
+    ledger["by_id"][str(ledger["focus"])]["state"] = "Inductive"
+    save_l_ledger(rev, ledger)
     return rev
+
+
+def _l1(rev: Path) -> Path:
+    return rev / "L1"
 
 
 def test_validate_accepts_n_to_m_tags():
@@ -156,7 +164,7 @@ def test_control_write_validate_status(tmp_path: Path):
         text=True,
     )
     assert write.returncode == 0, write.stderr
-    assert (rev / "_facts.json").is_file()
+    assert (_l1(rev) / "_facts.json").is_file()
     payload = json.loads(write.stdout)
     assert payload["facts_total"] == 2
     assert payload["by_lens"] == {"GO": 1, "AR": 2}
@@ -191,8 +199,7 @@ def test_control_write_validate_status(tmp_path: Path):
 
 
 def test_control_status_missing_file(tmp_path: Path):
-    rev = tmp_path / "revision1"
-    rev.mkdir()
+    rev = _revision(tmp_path)
     status = subprocess.run(
         [sys.executable, str(_CTL), "status", "--revision-dir", str(rev)],
         check=False,
@@ -341,7 +348,7 @@ def test_control_write_round_trips_source(tmp_path: Path):
         text=True,
     )
     assert write.returncode == 0, write.stderr
-    on_disk = json.loads((rev / "_facts.json").read_text(encoding="utf-8"))
+    on_disk = json.loads((_l1(rev) / "_facts.json").read_text(encoding="utf-8"))
     assert on_disk[0]["source"] == ["F-3"]
 
 
@@ -818,45 +825,33 @@ def test_save_facts_rejects_incomplete_origin_with_value_error(tmp_path: Path):
         assert "origin.ref" in str(exc)
 
 
-def test_write_target_l_buckets_and_demotes(tmp_path: Path) -> None:
-    """v1.1: --target-l writes into Lx and demotes acceptance=done targets."""
+def test_write_target_l_buckets_and_rejects_completed_predecessor(tmp_path: Path) -> None:
+    """--target-l writes into Lx; Completed predecessor writes are rejected."""
     import argparse
 
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "schema" / "session"))
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "core"))
-    from dependency_tree_schema import build_tree, save_dependency_tree
-    from discussion_pointer_schema import build_pointer_from_tree, load_discussion_pointer, save_discussion_pointer
     from facts_control import cmd_write
+    from l_ledger_schema import build_ledger, save_l_ledger
 
     rev = _revision(tmp_path)
-    tree = build_tree(
-        nodes=[
-            {"id": "L1", "title": "Base", "summary": "a"},
-            {"id": "L2", "title": "Dep", "summary": "b"},
-        ],
-        edges=[{"from": "L2", "to": "L1"}],
-        order=["L1", "L2"],
-        status="locked",
-    )
-    save_dependency_tree(rev, tree)
-    ptr = build_pointer_from_tree(tree)
-    ptr["by_id"]["L1"]["intake"] = "done"
-    ptr["by_id"]["L1"]["acceptance"] = "done"
-    ptr["by_id"]["L1"]["phase"] = "accepted"
-    save_discussion_pointer(rev, ptr, tree=tree)
+    ledger = build_ledger(["L1", "L2"])
+    ledger["focus"] = "L2"
+    ledger["by_id"]["L1"]["state"] = "Completed"
+    ledger["by_id"]["L2"]["state"] = "Inductive"
+    save_l_ledger(rev, ledger)
     (rev / "L1").mkdir(exist_ok=True)
-    (rev / "L1" / "design-doc.md").write_text("# L1\n\n## Boundary\n\n", encoding="utf-8")
+    (rev / "L2").mkdir(exist_ok=True)
+    (rev / "L2" / "design-doc.md").write_text("# L2\n", encoding="utf-8")
 
-    facts_file = tmp_path / "facts.json"
+    facts_file = tmp_path / "in.json"
     facts_file.write_text(
         json.dumps(
             [
                 {
                     "id": "F-1",
-                    "text": "bucketed",
+                    "text": "hello",
                     "lens_tags": ["CTX"],
-                    "home_l": "L1",
-                    "home_rationale": "belongs to L1",
+                    "home_l": "L2",
+                    "home_rationale": "current",
                 }
             ]
         ),
@@ -865,14 +860,29 @@ def test_write_target_l_buckets_and_demotes(tmp_path: Path) -> None:
     args = argparse.Namespace(
         revision_dir=rev,
         facts_file=facts_file,
-        target_l="L1",
+        target_l="L2",
         package_confirm=False,
         project_root=_REPO,
     )
     assert cmd_write(args) == 0
-    assert (rev / "L1" / "_facts.json").is_file()
-    loaded = load_discussion_pointer(rev)
-    assert loaded["by_id"]["L1"]["acceptance"] == "pending"
+    assert (rev / "L2" / "_facts.json").is_file()
+
+    args.target_l = "L1"
+    facts_file.write_text(
+        json.dumps(
+            [
+                {
+                    "id": "F-2",
+                    "text": "old",
+                    "lens_tags": ["CTX"],
+                    "home_l": "L1",
+                    "home_rationale": "pred",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    assert cmd_write(args) == 1
 
 
 def test_validate_intake_structure_accepts_pre_disposition_facts():
@@ -976,7 +986,7 @@ def test_control_validate_intake_structure_conflicts_with_require_derivation(
     tmp_path: Path,
 ):
     rev = _revision(tmp_path)
-    (rev / "_facts.json").write_text(
+    (rev / "L1" / "_facts.json").write_text(
         json.dumps(
             [
                 {
@@ -1011,7 +1021,7 @@ def test_control_validate_intake_structure_conflicts_with_require_derivation(
 
 def test_control_validate_intake_structure_ok(tmp_path: Path):
     rev = _revision(tmp_path)
-    (rev / "_facts.json").write_text(
+    (rev / "L1" / "_facts.json").write_text(
         json.dumps(
             [
                 {

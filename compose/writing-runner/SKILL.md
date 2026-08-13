@@ -25,7 +25,7 @@ Fact production belongs to Inductive|Deductive (`inductive-runner` or
 | `$OUTPUT_DOC_PATH` | Absolute path to output document (design-doc.md or tech-doc.md); fallback `{REVISION_DIR}/tech-doc.md` when omitted |
 | `$CYCLE_TYPE` | `feature` |
 | `$CYCLE_ID` | Active cycle id |
-| `$CODE_GROUNDING` | Boolean from `begin-writing` stdout |
+| `$CODE_GROUNDING` | Boolean from `enter-writing` stdout |
 
 Self-resolved: `$PROJECT_ROOT` = `$(pwd)`
 

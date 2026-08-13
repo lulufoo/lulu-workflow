@@ -134,7 +134,7 @@ def test_design_registry_has_section_order_no_lens_v2():
 def test_lens_bundle_cli_stdout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     mod = _load_ctl()
     rev = _revision(tmp_path)
-    (rev / "_facts.json").write_text(
+    (rev / "L1" / "_facts.json").write_text(
         json.dumps(
             [
                 {
@@ -210,7 +210,7 @@ def test_lens_bundle_cli_stdout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
 def test_lens_bundle_fails_missing_kw_heading(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     mod = _load_ctl()
     rev = _revision(tmp_path)
-    (rev / "_facts.json").write_text("[]", encoding="utf-8")
+    (rev / "L1" / "_facts.json").write_text("[]", encoding="utf-8")
 
     def _fake_fetch(kind: str, _root, profile_id=None, cycle_id=None, **_kwargs):
         if kind == "section-registry":

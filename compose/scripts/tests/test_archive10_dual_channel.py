@@ -86,8 +86,10 @@ def test_unified_write_digest_and_backup(tmp_path: Path):
     rev = tmp_path / "revision1"
     rev.mkdir()
     seed_revision_profile_pointer(rev)
-    _facts_file(rev)
-    out = rev / "_narrative-arc.collab.json"
+    slice_dir = rev / "L1"
+    slice_dir.mkdir(parents=True, exist_ok=True)
+    _facts_file(slice_dir)
+    out = slice_dir / "_narrative-arc.collab.json"
     save_narrative_arc(out, _write_ready_arc(), facts=None, allowed_lenses=None)
     candidate = tmp_path / "cand.json"
     arc = _write_ready_arc()
@@ -168,14 +170,17 @@ def test_build_validate_candidate_no_target_flag(tmp_path: Path):
 def test_mount_requires_write_ready_unified_schema(tmp_path: Path):
     rev = tmp_path / "revision1"
     rev.mkdir()
-    _facts_file(rev)
+    seed_revision_profile_pointer(rev)
+    slice_dir = rev / "L1"
+    slice_dir.mkdir(parents=True, exist_ok=True)
+    _facts_file(slice_dir)
     mapped = {
         "version": "1",
         "kind": "narrative-arc",
         "status": "mapped",
         "leaves": [{"id": "L1", "title": "Leaf", "fact_ids": ["F-1"]}],
     }
-    path = rev / "_narrative-arc.collab.json"
+    path = slice_dir / "_narrative-arc.collab.json"
     path.write_text(json.dumps(mapped), encoding="utf-8")
     denied = _run(
         [
@@ -195,7 +200,7 @@ def test_mount_requires_write_ready_unified_schema(tmp_path: Path):
     # Do not start a real server in unit test if port busy — only config gate:
     # re-run write_config path via mount; may succeed starting server.
     # Assert Formal basename is no longer hard-banned at control layer:
-    formal = rev / NARRATIVE_ARC_BASENAME
+    formal = slice_dir / NARRATIVE_ARC_BASENAME
     save_narrative_arc(formal, _write_ready_arc(), facts=None, allowed_lenses=None)
     # Mount Formal basename: control allows; HTML may still client-filter (unchanged).
     # Stop quickly if started.

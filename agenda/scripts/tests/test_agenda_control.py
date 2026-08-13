@@ -254,17 +254,17 @@ def test_resolve_from_session_active_doc(tmp_path: Path) -> None:
     session_base = tmp_path / CACHE_DIR / cycle / profile
     rev = session_base / "revision2"
     rev.mkdir(parents=True)
-    (session_base / "session-state.md").write_text(
-        "---\nversion: 1\nactive_doc: 2\nupdated_at: 2024-01-01T00:00:00+00:00\n---\n",
-        encoding="utf-8",
-    )
     profile_json = tmp_path / "compose-profile.json"
     profile_json.write_text(
         json.dumps({"profile_id": profile}),
         encoding="utf-8",
     )
-    (session_base / ".compose-profile-path").write_text(
-        "compose-profile.json\n",
+    (session_base / "session-state.md").write_text(
+        "---\nversion: 2\nactive_doc: 2\n"
+        f"profile_path: {profile_json.resolve()}\n"
+        "profile_digest: " + ("0" * 64) + "\n"
+        "start_id: test\nholder_finalized: true\n"
+        "updated_at: 2024-01-01T00:00:00+00:00\n---\n",
         encoding="utf-8",
     )
     (tmp_path / CACHE_DIR / cycle / ".compose-active-profile").write_text(

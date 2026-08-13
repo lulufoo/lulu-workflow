@@ -69,7 +69,7 @@ for _p in (_COMPOSE_SCRIPTS, _SESSION, _CORE):
 
 from active_context_schema import resolve_conversation_id  # noqa: E402
 from platform_schema import detect_platform  # noqa: E402
-from discussion_pointer_schema import active_slice_dir  # noqa: E402
+from l_ledger_schema import working_slice_dir  # noqa: E402
 from workflow_paths import resolve_revision_runtime_profile  # noqa: E402
 
 from inductive_gate_state_schema import (  # noqa: E402
@@ -431,7 +431,7 @@ def _validate_g2_close(out_dir: Path, payload: dict[str, Any]) -> None:
             "(pre-close topic-landscape: no gap-state topics, or human hard-skip)",
         )
 
-    slice_dir = active_slice_dir(Path(out_dir))
+    slice_dir = working_slice_dir(Path(out_dir))
     try:
         landscape = load_topic_landscape(topic_landscape_path(slice_dir))
         exit_receipt = load_g2_topic_exit(g2_topic_exit_path(slice_dir))
@@ -503,7 +503,7 @@ def cmd_record_topic_landscape(out_dir: Path, args: argparse.Namespace) -> None:
     if gap < 0:
         _fail("record-topic-landscape --gap-remaining must be >= 0")
     summary = args.summary
-    slice_dir = active_slice_dir(Path(out_dir))
+    slice_dir = working_slice_dir(Path(out_dir))
     path = topic_landscape_path(slice_dir)
     data = {
         "version": "1",
@@ -526,7 +526,7 @@ def cmd_record_g2_topic_exit(out_dir: Path, args: argparse.Namespace) -> None:
     if not bool(getattr(args, "human_confirmed", False)):
         _fail("record-g2-topic-exit requires --human-confirmed")
 
-    slice_dir = active_slice_dir(Path(out_dir))
+    slice_dir = working_slice_dir(Path(out_dir))
     land_path = topic_landscape_path(slice_dir)
     try:
         landscape = load_topic_landscape(land_path)

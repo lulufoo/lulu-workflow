@@ -7,7 +7,10 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "core"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "schema" / "session"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "section"))
 
+from l_ledger_schema import build_ledger, save_l_ledger
 from workflow_paths import seed_profile_pointer_for_tests
 from workflow_profile_paths import (
     approval_path,
@@ -24,6 +27,11 @@ def project_root(tmp_path: Path) -> Path:
     root = tmp_path
     seed_profile_pointer_for_tests(root, "feat-profile-paths", "lulu-design")
     seed_profile_pointer_for_tests(root, "feat-profile-paths", "lulu-plan")
+    for profile in ("lulu-design", "lulu-plan"):
+        rev = root / doc_dir("feat-profile-paths", 1, profile, root)
+        rev.mkdir(parents=True, exist_ok=True)
+        save_l_ledger(rev, build_ledger(["L1"]))
+        (rev / "L1").mkdir(exist_ok=True)
     return root
 
 
@@ -38,7 +46,7 @@ def test_tech_design_paths(project_root: Path):
     assert document_path(cycle, 1, "lulu-design", project_root).name == "design-doc.md"
     assert approval_path(cycle, 1, "lulu-design", project_root).name == "human-delivery-gate.md"
     assert inductive_out_dir(cycle, "lulu-design", project_root).as_posix().endswith(
-        "lulu-design/revision1",
+        "lulu-design/revision1/L1",
     )
 
 

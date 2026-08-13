@@ -19,13 +19,8 @@
     "code_grounding": false,
     "post_writing_options": [
       "freeedit",
-      "evaluate",
-      "deliver"
+      "evaluate"
     ]
-  },
-  "start": {
-    "adapter_module": "lulu-arch/scripts/start/tech_arch_start_adapter.py",
-    "adapter_class": "TechArchStartAdapter"
   },
   "cache_subdir": "lulu-arch",
   "framework_section": "lulu-arch",

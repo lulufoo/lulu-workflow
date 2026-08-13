@@ -27,7 +27,7 @@ from scope_package_projection import (  # noqa: E402
     write_compose_package_scope_projection,
     write_scope_package_projection,
 )
-from start_adapter import primary_scope_from_workflow  # noqa: E402
+from resolved_refs_schema import primary_scope_from_workflow  # noqa: E402
 from start_scope_helpers import first_ref  # noqa: E402
 
 
@@ -132,14 +132,12 @@ class TechPlanStartAdapter:
         *,
         delivered_refs: list[DeliveredRef],
         run_mode: str = "tech",
+        output_dir: Path | None = None,
         revision_dir: Path | None = None,
     ) -> list[DeliveredRef]:
-        """Project either upstream delivery shape to one scope-package contract.
-
-        Design compose packages and Approach decision packages are both projected
-        to revision-local ``scope-package.json`` before becoming ``$SCOPE_REF``.
-        """
+        """Project either upstream delivery shape to one scope-package contract."""
         del run_mode
+        dest = output_dir or revision_dir
         primary = first_ref(delivered_refs, "lulu-design") or first_ref(
             delivered_refs,
             "lulu-approach",
@@ -147,13 +145,12 @@ class TechPlanStartAdapter:
         if primary is None:
             return []
         if primary.type == "lulu-design":
-            if revision_dir is None:
-                raise ValueError(
-                    "revision_dir required to project design package → scope-package"
-                )
+            if dest is None:
+                raise ValueError("output_dir required to project → scope-package")
             scope_path = write_compose_package_scope_projection(
                 compose_package_path=Path(primary.path),
-                revision_dir=Path(revision_dir),
+                output_dir=Path(dest),
+                overwrite=True,
             )
             return [
                 DeliveredRef(
@@ -167,13 +164,12 @@ class TechPlanStartAdapter:
                 "lulu-approach scope requires a decision-package.json "
                 "(artifact=decision-package)"
             )
-        if revision_dir is None:
-            raise ValueError(
-                "revision_dir required to project decision-package → scope-package"
-            )
+        if dest is None:
+            raise ValueError("output_dir required to project → scope-package")
         scope_path = write_scope_package_projection(
             decision_package_path=Path(primary.path),
-            revision_dir=Path(revision_dir),
+            output_dir=Path(dest),
+            overwrite=True,
         )
         reject_decision_package_as_scope(scope_path)
         return [

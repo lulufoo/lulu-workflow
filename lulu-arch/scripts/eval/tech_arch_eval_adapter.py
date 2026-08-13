@@ -26,10 +26,7 @@ LULU_ARCH_COMPOSED_CORPUS_REF = (
     f"{LULU_ARCH_COMPOSED_CORPUS_ID}@{LULU_ARCH_COMPOSED_CORPUS_VERSION}"
 )
 
-from discussion_pointer_schema import (  # noqa: E402
-    focus_phase as pointer_focus_phase,
-    load_discussion_pointer,
-)
+from l_ledger_schema import eval_session_phase, load_l_ledger  # noqa: E402
 from session_state_schema import load_active_doc_from_cycle  # noqa: E402
 from workflow_common import detect_cycle_type  # noqa: E402
 from workflow_profile_paths import (  # noqa: E402
@@ -45,7 +42,7 @@ from workflow_state_schema import (  # noqa: E402
 
 from eval_handoff_control import resolve_evaluate_state_abs  # noqa: E402
 from compose_eval_adapter_support import ComposeEvalAdapterSupport  # noqa: E402
-from session_evaluating import (  # noqa: E402
+from l_step_control import (  # noqa: E402
     enter_evaluating_state,
     rollback_evaluating_phase,
 )
@@ -110,7 +107,7 @@ class TechArchEvalAdapter(ComposeEvalAdapterSupport):
         state = self.load_workflow_state(cycle_id, project_root)
         revision_dir = self.resolve_workflow_state_path(cycle_id, project_root).parent
         try:
-            phase = pointer_focus_phase(load_discussion_pointer(revision_dir))
+            phase = eval_session_phase(revision_dir)
         except (FileNotFoundError, ValueError, OSError):
             phase = "pending"
         return SessionContext(
@@ -142,7 +139,7 @@ class TechArchEvalAdapter(ComposeEvalAdapterSupport):
         layout = eval_layout_for_revision(revision_dir)
         focus_l = "L1"
         try:
-            focus_l = str(load_discussion_pointer(revision_dir)["focus"])
+            focus_l = str(load_l_ledger(revision_dir)["focus"])
         except (FileNotFoundError, ValueError, OSError, KeyError):
             pass
         return {

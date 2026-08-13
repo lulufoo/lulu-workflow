@@ -23,7 +23,7 @@ from deductive_disposition_patch import (  # noqa: E402
     disposition_counts,
     validate_disposition_patch,
 )
-from discussion_pointer_schema import active_slice_dir  # noqa: E402
+from l_ledger_schema import active_slice_dir  # noqa: E402
 from facts_schema import facts_path, load_facts, save_facts  # noqa: E402
 from fetch_compose_framework import (  # noqa: E402
     FetchComposeFrameworkError,

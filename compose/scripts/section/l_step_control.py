@@ -1,13 +1,29 @@
 #!/usr/bin/env python3
-"""Generic profile-aware L-step control for compose stages (`$L_STEP`)."""
+"""Single-L step control for compose (`$L_STEP`).
+
+Subcommands:
+    status
+    enter-producer / complete-producer
+    enter-writing / complete-writing
+    enter-freeedit
+    reverse-to-producer / reverse-to-writing
+    enter-evaluating
+    accept --confirm / fix --confirm / re-evaluate --confirm / reopen --confirm
+
+Writes ``by_id[focus].state`` only. Does not change order, focus, or frozen.
+
+Design rationale:
+docs/domain/archive/compose/archive-33.0/compose-l-execution-subdesign.md
+"""
 
 from __future__ import annotations
 
 import argparse
 import json
 import sys
+import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 _SECTION = Path(__file__).resolve().parent
 _SCRIPTS = _SECTION.parent
@@ -18,48 +34,79 @@ import kernel_bootstrap  # noqa: E402
 kernel_bootstrap.ensure_kernel_paths()
 
 from compose_session import document_file_path, load_active_doc_for_profile  # noqa: E402
-from l_step_progress_schema import (  # noqa: E402
-    load_l_step_progress,
-    read_current_step,
-    resolve_l_step_progress_path_from_cycle,
-    save_l_step_progress,
-)
 from delivered_refs_schema import serialize_delivered_refs  # noqa: E402
-from dependency_tree_schema import load_dependency_tree  # noqa: E402
-from discussion_pointer_schema import (  # noqa: E402
-    active_slice_dir,
-    load_discussion_pointer,
-    save_discussion_pointer,
-)
 from facts_schema import facts_path  # noqa: E402
 from deductive_gate import evaluate_deductive_gate  # noqa: E402
-from writing_compose_validation import validate_writing_artifacts  # noqa: E402
-from multi_slice_control import evaluate_split_ready  # noqa: E402
-from start_adapter import (  # noqa: E402
+from l_ledger_schema import (  # noqa: E402
+    active_slice_dir,
+    l_ledger_path,
+    ledger_fingerprint,
+    load_l_ledger,
+    save_l_ledger,
+)
+from l_transition_kernel import (  # noqa: E402
+    IllegalTransition,
+    PRODUCER_STATES,
+    step_accept,
+    step_enter_evaluating,
+    step_enter_freeedit,
+    step_enter_producer,
+    step_enter_writing,
+    step_fix,
+    step_reopen,
+    step_reverse_to_producer,
+    step_reverse_to_writing,
+)
+from revision_lock import LockTimeout, revision_lock, session_lock  # noqa: E402
+from resolved_refs_schema import (  # noqa: E402
     intent_baseline_from_workflow,
     norm_constraint_from_workflow,
     primary_scope_from_workflow,
 )
 from workflow_common import detect_cycle_type  # noqa: E402
 from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, load_profile, resolve_profile_id  # noqa: E402
-from workflow_profile_paths import doc_dir, inductive_out_dir  # noqa: E402
+from workflow_profile_paths import (  # noqa: E402
+    doc_dir,
+    inductive_out_dir,
+    session_state_path,
+)
 from workflow_state_schema import (  # noqa: E402
     load_workflow_state,
     resolve_workflow_state_path_from_cycle,
 )
+from writing_compose_validation import validate_writing_artifacts  # noqa: E402
 
-_CMD_BEGIN_INDUCTIVE = "begin-inductive"
-_CMD_INDUCTIVE_COMPLETE = "inductive-complete"
-_CMD_BEGIN_DEDUCTIVE = "begin-deductive"
-_CMD_DEDUCTIVE_COMPLETE = "deductive-complete"
-_CMD_BEGIN_WRITING = "begin-writing"
-_CMD_WRITING_COMPLETE = "writing-complete"
-_CMD_ADVANCE_TO_FREEEDIT = "advance-to-freeedit"
 _CMD_STATUS = "status"
-_STEP_INDUCTIVE = "Inductive"
-_STEP_DEDUCTIVE = "Deductive"
-_STEP_WRITTEN = "Written"
-_STEP_FREE_EDIT = "FreeEdit"
+_CMD_ENTER_PRODUCER = "enter-producer"
+_CMD_COMPLETE_PRODUCER = "complete-producer"
+_CMD_ENTER_WRITING = "enter-writing"
+_CMD_COMPLETE_WRITING = "complete-writing"
+_CMD_ENTER_FREEEDIT = "enter-freeedit"
+_CMD_REVERSE_PRODUCER = "reverse-to-producer"
+_CMD_REVERSE_WRITING = "reverse-to-writing"
+_CMD_ENTER_EVALUATING = "enter-evaluating"
+_CMD_ACCEPT = "accept"
+_CMD_FIX = "fix"
+_CMD_RE_EVALUATE = "re-evaluate"
+_CMD_REOPEN = "reopen"
+_CONFIRM_CMDS = frozenset({_CMD_ACCEPT, _CMD_FIX, _CMD_RE_EVALUATE, _CMD_REOPEN})
+_MUTATIONS = frozenset(
+    {
+        _CMD_ENTER_PRODUCER,
+        _CMD_ENTER_WRITING,
+        _CMD_ENTER_FREEEDIT,
+        _CMD_REVERSE_PRODUCER,
+        _CMD_REVERSE_WRITING,
+        _CMD_ENTER_EVALUATING,
+        _CMD_ACCEPT,
+        _CMD_FIX,
+        _CMD_RE_EVALUATE,
+        _CMD_REOPEN,
+    }
+)
+_PRODUCER_STAMP = "_producer.complete"
+_WRITING_STAMP = "_writing.complete"
+_EVAL_RUN_FILE = "_eval_run.json"
 _INDUCTIVE_SUBDIR = "inductive-scope"
 _INDUCTIVE_GATE_STATE_FILE = "inductive-gate-state.json"
 _PROVENANCE_GATE_STATE_FILE = "provenance-gate-state.json"
@@ -71,8 +118,13 @@ def _success(command: str, **extra: Any) -> dict[str, Any]:
     return payload
 
 
-def _failure(command: str, reason: str, **extra: Any) -> dict[str, Any]:
-    payload: dict[str, Any] = {"ok": False, "command": command, "reason": reason}
+def _failure(command: str, code: str, error: str, **extra: Any) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "ok": False,
+        "command": command,
+        "code": code,
+        "error": error,
+    }
     payload.update(extra)
     return payload
 
@@ -82,140 +134,187 @@ def _pipeline_config(cycle_id: str, project_root: Path, profile_id: str) -> dict
     return profile.get("pipeline") or {}
 
 
-def _progress_path(cycle_id: str, project_root: Path, profile_id: str) -> Path:
-    return resolve_l_step_progress_path_from_cycle(
-        cycle_id,
-        project_root,
-        profile_id=profile_id,
-    )
-
-
 def _revision_dir(cycle_id: str, project_root: Path, profile_id: str) -> Path:
     active_doc = load_active_doc_for_profile(cycle_id, project_root, profile_id)
-    return (project_root / doc_dir(cycle_id, active_doc, profile_id, project_root)).resolve()
+    return (
+        project_root / doc_dir(cycle_id, active_doc, profile_id, project_root)
+    ).resolve()
 
 
-def _require_working_session(
+def _session_state(cycle_id: str, project_root: Path, profile_id: str) -> str:
+    ws_path = resolve_workflow_state_path_from_cycle(
+        cycle_id, project_root, profile_id=profile_id
+    )
+    if not ws_path.is_file():
+        raise FileNotFoundError("workflow-state.md not found (run start; then leave-split)")
+    return str(load_workflow_state(ws_path)["current_state"]).strip()
+
+
+def _require_working(
+    command: str,
     cycle_id: str,
     project_root: Path,
     profile_id: str,
-    command: str,
-) -> str | None:
-    """Return failure reason unless workflow-state is Working and topology locked."""
-    _ = command
-    ws_path = resolve_workflow_state_path_from_cycle(
-        cycle_id, project_root, profile_id=profile_id,
-    )
-    if not ws_path.is_file():
-        return "workflow-state.md not found (run start; then leave-split)"
+) -> dict[str, Any] | None:
     try:
-        state = load_workflow_state(ws_path)
-    except ValueError as exc:
-        return str(exc)
-    current = str(state.get("current_state", "")).strip()
+        current = _session_state(cycle_id, project_root, profile_id)
+    except (OSError, ValueError, FileNotFoundError) as exc:
+        return _failure(command, "wrong_session_state", str(exc))
     if current == "Split":
-        return "session is still Split; run leave-split"
+        return _failure(
+            command,
+            "wrong_session_state",
+            "session is still Split; run leave-split",
+            session_state=current,
+        )
     if current != "Working":
-        return f"session current_state is {current!r} (expected Working)"
-    ok, err, _ = evaluate_split_ready(ws_path.parent)
-    if not ok:
-        return (
-            "split topology not ready before Working producer "
-            f"({err or 'topology not ready'})"
+        return _failure(
+            command,
+            "wrong_session_state",
+            f"session current_state is {current!r} (expected Working)",
+            session_state=current,
         )
     return None
 
 
-def _ensure_focus_phase_in_progress(
+def _stamp_path(slice_dir: Path, name: str) -> Path:
+    return Path(slice_dir) / name
+
+
+def _has_stamp(slice_dir: Path, name: str) -> bool:
+    return _stamp_path(slice_dir, name).is_file()
+
+
+def _write_stamp(slice_dir: Path, name: str) -> None:
+    path = _stamp_path(slice_dir, name)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("ok\n", encoding="utf-8")
+
+
+def _clear_stamp(slice_dir: Path, name: str) -> None:
+    path = _stamp_path(slice_dir, name)
+    if path.is_file():
+        path.unlink()
+
+
+def _eval_run_path(slice_dir: Path) -> Path:
+    return Path(slice_dir) / _EVAL_RUN_FILE
+
+
+def _load_eval_run(slice_dir: Path) -> dict[str, Any] | None:
+    path = _eval_run_path(slice_dir)
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    return data
+
+
+def _write_eval_run(slice_dir: Path, ledger: dict[str, Any]) -> str:
+    run_id = uuid.uuid4().hex
+    payload = {
+        "eval_run_id": run_id,
+        "ledger_fingerprint": ledger_fingerprint(ledger),
+    }
+    path = _eval_run_path(slice_dir)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return run_id
+
+
+def _inductive_out(cycle_id: str, project_root: Path, profile_id: str) -> Path:
+    return (project_root / inductive_out_dir(cycle_id, profile_id, project_root)).resolve()
+
+
+def _opaque_producer_closed(
     cycle_id: str,
     project_root: Path,
     profile_id: str,
-) -> str | None:
-    """pending → in_progress on focus when beginning intake producer. None = ok."""
-    revision_dir = _revision_dir(cycle_id, project_root, profile_id)
-    try:
-        tree = load_dependency_tree(revision_dir)
-        pointer = load_discussion_pointer(revision_dir)
-    except (FileNotFoundError, ValueError, OSError) as exc:
-        return str(exc)
-    focus = str(pointer["focus"])
-    cell = pointer["by_id"][focus]
-    phase = str(cell.get("phase") or "pending")
-    if phase == "accepted":
-        return f"focus {focus!r} is accepted; demote or switch before producer"
-    if phase == "evaluating":
-        return f"focus {focus!r} is evaluating; Fix L before producer"
-    if phase == "pending":
-        cell["phase"] = "in_progress"
+    *,
+    inductive: bool,
+    revision_dir: Path,
+) -> bool:
+    if inductive:
+        out = _inductive_out(cycle_id, project_root, profile_id)
+        g4 = out / _INDUCTIVE_GATE_STATE_FILE
+        g5 = out / _PROVENANCE_GATE_STATE_FILE
+        if not g4.is_file() or not g5.is_file():
+            return False
         try:
-            save_discussion_pointer(revision_dir, pointer, tree=tree)
-        except ValueError as exc:
-            return str(exc)
+            g4_data = json.loads(g4.read_text(encoding="utf-8"))
+            g5_data = json.loads(g5.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return False
+        g4_ok = str(g4_data.get("gates", {}).get("G4", {}).get("status", "")).lower() == "closed"
+        g5_ok = str(g5_data.get("status", "")).lower() == "closed"
+        return g4_ok and g5_ok
+    return evaluate_deductive_gate(revision_dir) is None
+
+
+def _producer_complete_error(
+    cycle_id: str,
+    project_root: Path,
+    profile_id: str,
+    *,
+    inductive: bool,
+    revision_dir: Path,
+    slice_dir: Path,
+) -> str | None:
+    if not facts_path(slice_dir).is_file():
+        return "producer complete check failed: facts missing"
+    if _has_stamp(slice_dir, _PRODUCER_STAMP):
+        return None
+    if not _opaque_producer_closed(
+        cycle_id,
+        project_root,
+        profile_id,
+        inductive=inductive,
+        revision_dir=revision_dir,
+    ):
+        return "producer complete check failed"
     return None
 
 
-def _scope_doc(cycle_id: str, project_root: Path, profile_id: str) -> Path:
+def _reset_producer_complete(
+    cycle_id: str,
+    project_root: Path,
+    profile_id: str,
+    slice_dir: Path,
+) -> None:
+    _clear_stamp(slice_dir, _PRODUCER_STAMP)
+    _clear_stamp(slice_dir, _WRITING_STAMP)
+    out = _inductive_out(cycle_id, project_root, profile_id)
+    for name in (_INDUCTIVE_GATE_STATE_FILE, _PROVENANCE_GATE_STATE_FILE):
+        path = out / name
+        if path.is_file():
+            path.unlink()
+
+
+def _scope_doc(revision_dir: Path, cycle_id: str, project_root: Path, profile_id: str) -> Path:
+    packaged = revision_dir / "scope-package.json"
+    if packaged.is_file():
+        return packaged
+    from resolved_refs_schema import resolved_scope_ref  # noqa: WPS433
+
+    ref = resolved_scope_ref(revision_dir)
+    if ref is not None and str(ref.path).strip():
+        path = Path(ref.path)
+        if path.is_file():
+            return path
     init_ref = primary_scope_from_workflow(cycle_id, project_root, profile_id)
     if init_ref is None:
-        raise ValueError("no scope ref available for Writing")
+        raise ValueError("no scope ref available")
     scope_path = Path(init_ref.path).resolve()
     if not scope_path.is_file():
         raise ValueError(f"scope doc not found: {scope_path}")
     return scope_path
 
 
-def _inductive_out_dir(cycle_id: str, project_root: Path, profile_id: str) -> Path:
-    return (project_root / inductive_out_dir(cycle_id, profile_id, project_root)).resolve()
-
-
-def _inductive_dir(cycle_id: str, project_root: Path, profile_id: str) -> Path:
-    return _inductive_out_dir(cycle_id, project_root, profile_id) / _INDUCTIVE_SUBDIR
-
-
-def _inductive_g4_closed(cycle_id: str, project_root: Path, profile_id: str) -> bool:
-    gate_state_path = (
-        _inductive_out_dir(cycle_id, project_root, profile_id) / _INDUCTIVE_GATE_STATE_FILE
-    )
-    if not gate_state_path.exists():
-        return False
-    try:
-        data = json.loads(gate_state_path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        return False
-    return str(data.get("gates", {}).get("G4", {}).get("status", "")).lower() == "closed"
-
-
-def _inductive_g5_closed(cycle_id: str, project_root: Path, profile_id: str) -> bool:
-    gate_state_path = (
-        _inductive_out_dir(cycle_id, project_root, profile_id) / _PROVENANCE_GATE_STATE_FILE
-    )
-    if not gate_state_path.exists():
-        return False
-    try:
-        data = json.loads(gate_state_path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        return False
-    return str(data.get("status", "")).lower() == "closed"
-
-
-def _inductive_spine_gate_failure(
-    cycle_id: str,
-    project_root: Path,
-    profile_id: str,
-) -> str | None:
-    if not _inductive_g4_closed(cycle_id, project_root, profile_id):
-        return "inductive Gate 4 not closed"
-    if not _inductive_g5_closed(cycle_id, project_root, profile_id):
-        return "inductive Gate 5 not closed"
-    return None
-
-
-def _inductive_scope_ref_path(
-    cycle_id: str,
-    project_root: Path,
-    profile_id: str,
-) -> Path:
-    """Resolve inductive ``$SCOPE_REF`` from the L-local source_path mirror."""
+def _focus_source_path(revision_dir: Path, scope_path: Path) -> Path:
     from scope_package_convert import (  # noqa: WPS433
         ScopePackageAntiseepError,
         focus_seed_source_path,
@@ -223,454 +322,187 @@ def _inductive_scope_ref_path(
     )
     from scope_package_schema import is_scope_package_path  # noqa: WPS433
 
-    scope_path = _scope_doc(cycle_id, project_root, profile_id)
-    revision_dir = _revision_dir(cycle_id, project_root, profile_id)
     if revision_uses_scope_package(revision_dir) or is_scope_package_path(scope_path):
         try:
-            fact = focus_seed_source_path(revision_dir)
+            return Path(focus_seed_source_path(revision_dir))
         except ScopePackageAntiseepError:
             raise
-        return Path(fact)
     return scope_path
 
 
-def _format_inductive_dispatch_input(
+def _format_producer_dispatch(
     cycle_id: str,
     project_root: Path,
     profile_id: str,
+    *,
+    inductive: bool,
+    revision_dir: Path,
 ) -> str:
+    scope_path = _scope_doc(revision_dir, cycle_id, project_root, profile_id)
     intent_refs = intent_baseline_from_workflow(cycle_id, project_root, profile_id)
     norm_refs = norm_constraint_from_workflow(cycle_id, project_root, profile_id)
-    scope_ref = _inductive_scope_ref_path(cycle_id, project_root, profile_id)
-    source = scope_ref.as_posix()
-    lines = [
-        f"CYCLE_ID:             {cycle_id}",
-        f"SCOPE_REF:            {source}",
-        f"SOURCE_PATH:          {source}",
-        f"INTENT_BASELINE_REFS: {serialize_delivered_refs(intent_refs)}",
-        f"NORM_CONSTRAINT_REFS: {serialize_delivered_refs(norm_refs)}",
-        f"INDUCTIVE_OUT_DIR:    {_inductive_out_dir(cycle_id, project_root, profile_id).as_posix()}",
-    ]
-    return "\n".join(lines)
-
-
-def _intake_source_path_for_focus(
-    cycle_id: str,
-    project_root: Path,
-    profile_id: str,
-    scope_path: Path,
-) -> Path:
-    """Resolve the current L's format-neutral fact-intake SoT path."""
-    from compose_package_schema import (  # noqa: WPS433
-        is_compose_package_path,
-        load_compose_package,
-        resolve_focus_doc_path,
-    )
-    from discussion_pointer_schema import load_discussion_pointer  # noqa: WPS433
-    from scope_package_convert import (  # noqa: WPS433
-        focus_seed_source_path,
-        revision_uses_scope_package,
-    )
-    from scope_package_schema import is_scope_package_path  # noqa: WPS433
-
-    revision_dir = _revision_dir(cycle_id, project_root, profile_id)
-    if revision_uses_scope_package(revision_dir) or is_scope_package_path(scope_path):
-        return Path(focus_seed_source_path(revision_dir))
-    if not is_compose_package_path(scope_path):
-        return scope_path
-    package = load_compose_package(scope_path)
-    focus = str(
-        load_discussion_pointer(revision_dir).get(
-            "focus", ""
-        )
-    ).strip()
-    if not focus:
-        raise ValueError("discussion-pointer focus missing for SOURCE_PATH")
-    return resolve_focus_doc_path(package, focus, package_path=scope_path)
-
-
-def _format_deductive_dispatch_input(
-    cycle_id: str,
-    project_root: Path,
-    profile_id: str,
-) -> str:
-    revision_dir = _revision_dir(cycle_id, project_root, profile_id)
+    source = _focus_source_path(revision_dir, scope_path).as_posix()
+    if inductive:
+        lines = [
+            f"CYCLE_ID:             {cycle_id}",
+            f"SCOPE_REF:            {source}",
+            f"SOURCE_PATH:          {source}",
+            f"INTENT_BASELINE_REFS: {serialize_delivered_refs(intent_refs)}",
+            f"NORM_CONSTRAINT_REFS: {serialize_delivered_refs(norm_refs)}",
+            f"INDUCTIVE_OUT_DIR:    {_inductive_out(cycle_id, project_root, profile_id).as_posix()}",
+        ]
+        return "\n".join(lines)
     pipeline = _pipeline_config(cycle_id, project_root, profile_id)
-    code_grounding = bool(pipeline.get("code_grounding"))
-    scope_path = _scope_doc(cycle_id, project_root, profile_id)
-    intent_refs = intent_baseline_from_workflow(cycle_id, project_root, profile_id)
-    norm_refs = norm_constraint_from_workflow(cycle_id, project_root, profile_id)
     lines = [
         f"CYCLE_ID:             {cycle_id}",
         f"SCOPE_REF:            {scope_path.as_posix()}",
         f"INTENT_BASELINE_REFS: {serialize_delivered_refs(intent_refs)}",
         f"NORM_CONSTRAINT_REFS: {serialize_delivered_refs(norm_refs)}",
         f"DEDUCTIVE_OUT_DIR:    {revision_dir.as_posix()}",
-        f"CODE_GROUNDING:       {str(code_grounding).lower()}",
+        f"CODE_GROUNDING:       {str(bool(pipeline.get('code_grounding'))).lower()}",
+        f"SOURCE_PATH:          {source}",
     ]
-    source_path = _intake_source_path_for_focus(
-        cycle_id, project_root, profile_id, scope_path
-    )
-    source = source_path.as_posix()
-    lines.append(f"SOURCE_PATH:          {source}")
-    # Retired alias — same path as SOURCE_PATH (fact-intake SoT).
-    lines.append(f"ATOMIZE_SOURCE_PATH:  {source}")
     return "\n".join(lines)
 
 
-def _deductive_gate_failure(
+def _format_writing_dispatch(
     cycle_id: str,
     project_root: Path,
     profile_id: str,
-) -> str | None:
-    return evaluate_deductive_gate(
-        _revision_dir(cycle_id, project_root, profile_id),
-    )
-
-
-def _format_init_dispatch_input(
-    cycle_id: str,
-    project_root: Path,
-    profile_id: str,
+    revision_dir: Path,
 ) -> str:
-    revision_dir = _revision_dir(cycle_id, project_root, profile_id)
     output_doc = document_file_path(cycle_id, project_root, profile_id)
     code_grounding = bool(
         _pipeline_config(cycle_id, project_root, profile_id).get("code_grounding")
     )
-    lines = [
-        f"REVISION_DIR:         {revision_dir.as_posix()}",
-        f"SCOPE_REF_PATH:       {_scope_doc(cycle_id, project_root, profile_id).as_posix()}",
-        f"OUTPUT_DOC_PATH:      {output_doc.resolve().as_posix()}",
-        f"CYCLE_TYPE:           {detect_cycle_type(cycle_id)}",
-        f"CYCLE_ID:             {cycle_id}",
-        f"CODE_GROUNDING:       {str(code_grounding).lower()}",
-    ]
-    # K4: Writing consumes intake+discovery _facts.json — never advertise
-    # INDUCTIVE_DIR as if Writing still reads decisions[] / projection here.
-    return "\n".join(lines)
+    return "\n".join(
+        [
+            f"REVISION_DIR:         {revision_dir.as_posix()}",
+            f"SCOPE_REF_PATH:       {_scope_doc(revision_dir, cycle_id, project_root, profile_id).as_posix()}",
+            f"OUTPUT_DOC_PATH:      {output_doc.resolve().as_posix()}",
+            f"CYCLE_TYPE:           {detect_cycle_type(cycle_id)}",
+            f"CYCLE_ID:             {cycle_id}",
+            f"CODE_GROUNDING:       {str(code_grounding).lower()}",
+        ]
+    )
 
 
-def begin_inductive(
+def derive_step_next_actions(
+    state: str,
+    *,
+    producer_ok: bool,
+    writing_ok: bool,
+    freeedit: bool,
+) -> list[str]:
+    if state == "Pending":
+        return ["enter-producer"]
+    if state in PRODUCER_STATES:
+        return ["enter-writing"] if producer_ok else ["run-producer"]
+    if state == "Writing":
+        if not writing_ok:
+            return ["run-writing"]
+        if freeedit:
+            return ["enter-freeedit", "enter-evaluating"]
+        return ["enter-evaluating"]
+    if state == "FreeEdit":
+        return ["enter-evaluating", "reverse-to-producer", "reverse-to-writing"]
+    if state == "Evaluating":
+        return ["accept", "fix", "re-evaluate"]
+    if state == "Completed":
+        return []
+    return []
+
+
+def _status_payload(
+    command: str,
+    ledger: dict[str, Any],
+    *,
     cycle_id: str,
     project_root: Path,
-    *,
-    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+    profile_id: str,
+    revision_dir: Path,
 ) -> dict[str, Any]:
-    if _pipeline_config(cycle_id, project_root, profile_id).get("inductive") is not True:
-        return _failure(_CMD_BEGIN_INDUCTIVE, "pipeline.inductive is false for this profile")
-
-    session_err = _require_working_session(
-        cycle_id, project_root, profile_id, _CMD_BEGIN_INDUCTIVE,
-    )
-    if session_err:
-        return _failure(_CMD_BEGIN_INDUCTIVE, session_err)
-    phase_err = _ensure_focus_phase_in_progress(cycle_id, project_root, profile_id)
-    if phase_err:
-        return _failure(_CMD_BEGIN_INDUCTIVE, phase_err)
-
-    progress_path = _progress_path(cycle_id, project_root, profile_id)
-    if progress_path.exists():
-        step = read_current_step(progress_path)
-        if step not in (None, _STEP_INDUCTIVE):
-            return _failure(
-                _CMD_BEGIN_INDUCTIVE,
-                f"cannot start Inductive: current_step is {step!r} (expected absent or Inductive)",
-                current_step=step,
-            )
-    from scope_package_convert import ScopePackageAntiseepError  # noqa: WPS433
-
-    try:
-        dispatch_input = _format_inductive_dispatch_input(
-            cycle_id, project_root, profile_id,
-        )
-    except (ScopePackageAntiseepError, ValueError) as exc:
-        return _failure(_CMD_BEGIN_INDUCTIVE, str(exc))
-    save_l_step_progress(
-        progress_path,
-        {"version": "1", "cycle_id": cycle_id, "current_step": _STEP_INDUCTIVE},
-        profile_id=profile_id,
-        project_root=project_root,
-        cycle_id=cycle_id,
-        merge=False,
-    )
-    return _success(
-        _CMD_BEGIN_INDUCTIVE,
-        current_step=_STEP_INDUCTIVE,
-        dispatch_input=dispatch_input,
-    )
-
-
-def inductive_complete(
-    cycle_id: str,
-    project_root: Path,
-    *,
-    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
-) -> dict[str, Any]:
-    if _pipeline_config(cycle_id, project_root, profile_id).get("inductive") is not True:
-        return _failure(_CMD_INDUCTIVE_COMPLETE, "pipeline.inductive is false for this profile")
-    progress_path = _progress_path(cycle_id, project_root, profile_id)
-    if not progress_path.exists():
-        return _failure(_CMD_INDUCTIVE_COMPLETE, "l-step-progress.md not found")
-    step = read_current_step(progress_path)
-    if step != _STEP_INDUCTIVE:
-        return _failure(
-            _CMD_INDUCTIVE_COMPLETE,
-            f"cannot complete Inductive: current_step is {step!r} (expected Inductive)",
-            current_step=step,
-        )
-    gate_reason = _inductive_spine_gate_failure(cycle_id, project_root, profile_id)
-    if gate_reason:
-        return _failure(_CMD_INDUCTIVE_COMPLETE, gate_reason)
-    inductive_dir = _inductive_dir(cycle_id, project_root, profile_id)
-    section_files = (
-        sorted(p.name for p in inductive_dir.glob("*.json") if p.name != "_index.json")
-        if inductive_dir.is_dir()
-        else []
-    )
-    return _success(
-        _CMD_INDUCTIVE_COMPLETE,
-        current_step=_STEP_INDUCTIVE,
-        inductive_dir=inductive_dir.as_posix(),
-        section_files=section_files,
-    )
-
-
-def begin_deductive(
-    cycle_id: str,
-    project_root: Path,
-    *,
-    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
-) -> dict[str, Any]:
-    if _pipeline_config(cycle_id, project_root, profile_id).get("inductive") is True:
-        return _failure(
-            _CMD_BEGIN_DEDUCTIVE,
-            "pipeline.inductive is true — use begin-inductive",
-        )
-
-    session_err = _require_working_session(
-        cycle_id, project_root, profile_id, _CMD_BEGIN_DEDUCTIVE,
-    )
-    if session_err:
-        return _failure(_CMD_BEGIN_DEDUCTIVE, session_err)
-    phase_err = _ensure_focus_phase_in_progress(cycle_id, project_root, profile_id)
-    if phase_err:
-        return _failure(_CMD_BEGIN_DEDUCTIVE, phase_err)
-
-    progress_path = _progress_path(cycle_id, project_root, profile_id)
-    if progress_path.exists():
-        step = read_current_step(progress_path)
-        if step not in (None, _STEP_DEDUCTIVE):
-            return _failure(
-                _CMD_BEGIN_DEDUCTIVE,
-                f"cannot start Deductive: current_step is {step!r} "
-                "(expected absent or Deductive)",
-                current_step=step,
-            )
-    dispatch_input = _format_deductive_dispatch_input(
-        cycle_id, project_root, profile_id,
-    )
-    save_l_step_progress(
-        progress_path,
-        {"version": "1", "cycle_id": cycle_id, "current_step": _STEP_DEDUCTIVE},
-        profile_id=profile_id,
-        project_root=project_root,
-        cycle_id=cycle_id,
-        merge=False,
-    )
-    return _success(
-        _CMD_BEGIN_DEDUCTIVE,
-        current_step=_STEP_DEDUCTIVE,
-        dispatch_input=dispatch_input,
-    )
-
-
-def deductive_complete(
-    cycle_id: str,
-    project_root: Path,
-    *,
-    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
-) -> dict[str, Any]:
-    if _pipeline_config(cycle_id, project_root, profile_id).get("inductive") is True:
-        return _failure(
-            _CMD_DEDUCTIVE_COMPLETE,
-            "pipeline.inductive is true — use inductive-complete",
-        )
-    progress_path = _progress_path(cycle_id, project_root, profile_id)
-    if not progress_path.exists():
-        return _failure(_CMD_DEDUCTIVE_COMPLETE, "l-step-progress.md not found")
-    step = read_current_step(progress_path)
-    if step != _STEP_DEDUCTIVE:
-        return _failure(
-            _CMD_DEDUCTIVE_COMPLETE,
-            f"cannot complete Deductive: current_step is {step!r} (expected Deductive)",
-            current_step=step,
-        )
-    gate_reason = _deductive_gate_failure(cycle_id, project_root, profile_id)
-    if gate_reason:
-        return _failure(_CMD_DEDUCTIVE_COMPLETE, gate_reason)
-    rev = _revision_dir(cycle_id, project_root, profile_id)
-    slice_dir = active_slice_dir(rev)
-    return _success(
-        _CMD_DEDUCTIVE_COMPLETE,
-        current_step=_STEP_DEDUCTIVE,
-        revision_dir=rev.as_posix(),
-        facts_path=facts_path(slice_dir).as_posix(),
-    )
-
-
-def begin_writing(
-    cycle_id: str,
-    project_root: Path,
-    *,
-    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
-) -> dict[str, Any]:
-    progress_path = _progress_path(cycle_id, project_root, profile_id)
+    focus = str(ledger["focus"])
+    cell = ledger["by_id"][focus]
+    slice_dir = (revision_dir / focus).resolve()
     pipeline = _pipeline_config(cycle_id, project_root, profile_id)
-    step = read_current_step(progress_path)
-    if pipeline.get("inductive") is True:
-        if step not in (_STEP_INDUCTIVE, _STEP_WRITTEN):
-            return _failure(
-                _CMD_BEGIN_WRITING,
-                "cannot start Writing: Inductive not run",
-                current_step=step,
-            )
-        if step == _STEP_INDUCTIVE:
-            gate_reason = _inductive_spine_gate_failure(
+    inductive = pipeline.get("inductive") is True
+    producer_ok = _producer_complete_error(
+        cycle_id,
+        project_root,
+        profile_id,
+        inductive=inductive,
+        revision_dir=revision_dir,
+        slice_dir=slice_dir,
+    ) is None and (
+        _has_stamp(slice_dir, _PRODUCER_STAMP)
+        or cell["state"] not in PRODUCER_STATES | {"Pending"}
+    )
+    if cell["state"] in PRODUCER_STATES:
+        producer_ok = _producer_complete_error(
+            cycle_id,
+            project_root,
+            profile_id,
+            inductive=inductive,
+            revision_dir=revision_dir,
+            slice_dir=slice_dir,
+        ) is None
+        if producer_ok and not _has_stamp(slice_dir, _PRODUCER_STAMP):
+            producer_ok = _opaque_producer_closed(
                 cycle_id,
                 project_root,
                 profile_id,
+                inductive=inductive,
+                revision_dir=revision_dir,
             )
-            if gate_reason:
-                return _failure(
-                    _CMD_BEGIN_WRITING,
-                    f"cannot start Writing: {gate_reason}",
-                    current_step=step,
-                )
-        rev = _revision_dir(cycle_id, project_root, profile_id)
-        path = facts_path(active_slice_dir(rev))
-        if not path.is_file():
-            return _failure(
-                _CMD_BEGIN_WRITING,
-                "cannot start Writing: _facts.json missing — seed/settle "
-                "during inductive must have written _facts.json "
-                f"(expected {path.as_posix()})",
-                current_step=step,
-            )
-    else:
-        if step not in (_STEP_DEDUCTIVE, _STEP_WRITTEN):
-            return _failure(
-                _CMD_BEGIN_WRITING,
-                "cannot start Writing: Deductive not run",
-                current_step=step,
-            )
-        if step == _STEP_DEDUCTIVE:
-            gate_reason = _deductive_gate_failure(cycle_id, project_root, profile_id)
-            if gate_reason:
-                return _failure(
-                    _CMD_BEGIN_WRITING,
-                    f"cannot start Writing: {gate_reason}",
-                    current_step=step,
-                )
-    # P4.convert (C1=A): when $SCOPE_REF is scope-package, ensure once (or verify).
-    from scope_package_convert import (  # noqa: WPS433
-        ScopePackageConvertError,
-        ensure_scope_package_convert,
+    writing_ok = _has_stamp(slice_dir, _WRITING_STAMP)
+    eval_run = _load_eval_run(slice_dir)
+    actions = derive_step_next_actions(
+        str(cell["state"]),
+        producer_ok=bool(producer_ok),
+        writing_ok=writing_ok,
+        freeedit=pipeline.get("freeedit") is True,
     )
-    from scope_package_schema import is_scope_package_path  # noqa: WPS433
-
-    try:
-        scope_doc = _scope_doc(cycle_id, project_root, profile_id)
-    except ValueError as exc:
-        return _failure(_CMD_BEGIN_WRITING, str(exc), current_step=step)
-    if is_scope_package_path(scope_doc):
-        try:
-            ensure_scope_package_convert(
-                _revision_dir(cycle_id, project_root, profile_id),
-                scope_package_path=scope_doc,
-            )
-        except ScopePackageConvertError as exc:
-            return _failure(
-                _CMD_BEGIN_WRITING,
-                f"scope-package convert: {exc}",
-                current_step=step,
-            )
-
-    return _success(
-        _CMD_BEGIN_WRITING,
-        current_step=step,
-        dispatch_input=_format_init_dispatch_input(cycle_id, project_root, profile_id),
+    payload = _success(
+        command,
+        state=cell["state"],
+        producer_complete=bool(producer_ok),
+        writing_complete=writing_ok,
+        next_actions=actions,
     )
+    if eval_run and eval_run.get("eval_run_id"):
+        payload["eval_run_id"] = eval_run["eval_run_id"]
+    return payload
 
 
-def writing_complete(
-    cycle_id: str,
-    project_root: Path,
-    *,
-    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+def _with_revision_lock(
+    command: str,
+    revision_dir: Path,
+    apply: Callable[[dict[str, Any]], dict[str, Any]],
 ) -> dict[str, Any]:
-    progress_path = _progress_path(cycle_id, project_root, profile_id)
-    seed_error = validate_writing_artifacts(
-        _revision_dir(cycle_id, project_root, profile_id),
-        document_file_path(cycle_id, project_root, profile_id),
-        project_root,
-        profile_id,
-    )
-    if seed_error:
-        return _failure(_CMD_WRITING_COMPLETE, seed_error)
-    if progress_path.exists():
-        step = read_current_step(progress_path)
-        if step not in (
-            None,
-            _STEP_WRITTEN,
-            _STEP_INDUCTIVE,
-            _STEP_DEDUCTIVE,
-        ):
-            return _failure(
-                _CMD_WRITING_COMPLETE,
-                f"l-step-progress already at {step!r}; cannot re-initialize",
-                current_step=step,
-            )
-    save_l_step_progress(
-        progress_path,
-        {"version": "1", "cycle_id": cycle_id, "current_step": _STEP_WRITTEN},
-        profile_id=profile_id,
-        project_root=project_root,
-        cycle_id=cycle_id,
-        merge=False,
-    )
-    return _success(_CMD_WRITING_COMPLETE, current_step=_STEP_WRITTEN)
-
-
-def advance_to_freeedit(
-    cycle_id: str,
-    project_root: Path,
-    *,
-    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
-) -> dict[str, Any]:
-    if _pipeline_config(cycle_id, project_root, profile_id).get("freeedit") is not True:
-        return _failure(_CMD_ADVANCE_TO_FREEEDIT, "pipeline.freeedit is false for this profile")
-    progress_path = _progress_path(cycle_id, project_root, profile_id)
-    if not progress_path.exists():
-        return _failure(_CMD_ADVANCE_TO_FREEEDIT, "l-step-progress.md not found")
-    step = read_current_step(progress_path)
-    if step == _STEP_FREE_EDIT:
-        return _success(_CMD_ADVANCE_TO_FREEEDIT, current_step=_STEP_FREE_EDIT)
-    if step != _STEP_WRITTEN:
+    path = l_ledger_path(revision_dir)
+    if not path.is_file():
         return _failure(
-            _CMD_ADVANCE_TO_FREEEDIT,
-            f"cannot advance to FreeEdit: current_step is {step!r} (expected Written)",
-            current_step=step,
+            command,
+            "unsupported_revision",
+            "missing l-ledger.json; open a new revision",
         )
-    save_l_step_progress(
-        progress_path,
-        {"version": "1", "cycle_id": cycle_id, "current_step": _STEP_FREE_EDIT},
-        profile_id=profile_id,
-        project_root=project_root,
-        cycle_id=cycle_id,
-        merge=False,
-    )
-    return _success(_CMD_ADVANCE_TO_FREEEDIT, current_step=_STEP_FREE_EDIT)
+    try:
+        with revision_lock(revision_dir, exclusive=True):
+            ledger = load_l_ledger(revision_dir)
+            new_ledger = apply(ledger)
+            save_l_ledger(revision_dir, new_ledger)
+            return _success(
+                command,
+                state=new_ledger["by_id"][new_ledger["focus"]]["state"],
+                focus=new_ledger["focus"],
+            )
+    except LockTimeout:
+        return _failure(command, "lock_timeout", "revision lock timeout")
+    except IllegalTransition as exc:
+        return _failure(command, exc.code, str(exc), **exc.extra)
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        return _failure(command, "invalid_ledger", str(exc))
 
 
 def draft_status(
@@ -679,20 +511,449 @@ def draft_status(
     *,
     profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
 ) -> dict[str, Any]:
-    progress_path = _progress_path(cycle_id, project_root, profile_id)
-    if not progress_path.exists():
-        return _failure(_CMD_STATUS, "l-step-progress.md not found")
-    data = load_l_step_progress(
-        progress_path,
-        profile_id=profile_id,
-        project_root=project_root,
-        cycle_id=cycle_id,
+    revision_dir = _revision_dir(cycle_id, project_root, profile_id)
+    path = l_ledger_path(revision_dir)
+    if not path.is_file():
+        return _failure(
+            _CMD_STATUS,
+            "unsupported_revision",
+            "missing l-ledger.json; open a new revision",
+        )
+    try:
+        with revision_lock(revision_dir, exclusive=False):
+            ledger = load_l_ledger(revision_dir)
+            return _status_payload(
+                _CMD_STATUS,
+                ledger,
+                cycle_id=cycle_id,
+                project_root=project_root,
+                profile_id=profile_id,
+                revision_dir=revision_dir,
+            )
+    except LockTimeout:
+        return _failure(_CMD_STATUS, "lock_timeout", "revision lock timeout")
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        return _failure(_CMD_STATUS, "invalid_ledger", str(exc))
+
+
+def enter_producer(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+) -> dict[str, Any]:
+    blocked = _require_working(_CMD_ENTER_PRODUCER, cycle_id, project_root, profile_id)
+    if blocked:
+        return blocked
+    pipeline = _pipeline_config(cycle_id, project_root, profile_id)
+    revision_dir = _revision_dir(cycle_id, project_root, profile_id)
+    inductive = pipeline.get("inductive") is True
+    try:
+        dispatch_input = _format_producer_dispatch(
+            cycle_id,
+            project_root,
+            profile_id,
+            inductive=inductive,
+            revision_dir=revision_dir,
+        )
+    except (OSError, ValueError) as exc:
+        return _failure(_CMD_ENTER_PRODUCER, "illegal_transition", str(exc))
+
+    def apply(ledger: dict[str, Any]) -> dict[str, Any]:
+        return step_enter_producer(ledger, {"inductive": inductive})
+
+    payload = _with_revision_lock(_CMD_ENTER_PRODUCER, revision_dir, apply)
+    if payload.get("ok"):
+        payload["dispatch_input"] = dispatch_input
+    return payload
+
+
+def complete_producer(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+) -> dict[str, Any]:
+    blocked = _require_working(_CMD_COMPLETE_PRODUCER, cycle_id, project_root, profile_id)
+    if blocked:
+        return blocked
+    revision_dir = _revision_dir(cycle_id, project_root, profile_id)
+    try:
+        ledger = load_l_ledger(revision_dir)
+    except (OSError, ValueError, FileNotFoundError) as exc:
+        return _failure(_CMD_COMPLETE_PRODUCER, "unsupported_revision", str(exc))
+    focus = str(ledger["focus"])
+    state = ledger["by_id"][focus]["state"]
+    if state not in PRODUCER_STATES:
+        return _failure(
+            _CMD_COMPLETE_PRODUCER,
+            "illegal_transition",
+            "complete-producer requires Inductive or Deductive focus",
+            state=state,
+        )
+    pipeline = _pipeline_config(cycle_id, project_root, profile_id)
+    inductive = pipeline.get("inductive") is True
+    expected = "Inductive" if inductive else "Deductive"
+    if state != expected:
+        return _failure(
+            _CMD_COMPLETE_PRODUCER,
+            "illegal_transition",
+            "producer path does not match profile",
+            state=state,
+        )
+    slice_dir = (revision_dir / focus).resolve()
+    err = _producer_complete_error(
+        cycle_id,
+        project_root,
+        profile_id,
+        inductive=inductive,
+        revision_dir=revision_dir,
+        slice_dir=slice_dir,
     )
-    return _success(
-        _CMD_STATUS,
-        current_step=data.get("current_step"),
-        cycle_id=data.get("cycle_id"),
+    if err:
+        return _failure(_CMD_COMPLETE_PRODUCER, "producer_incomplete", err)
+    _write_stamp(slice_dir, _PRODUCER_STAMP)
+    return _success(_CMD_COMPLETE_PRODUCER, state=state, producer_complete=True)
+
+
+def enter_writing(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+) -> dict[str, Any]:
+    blocked = _require_working(_CMD_ENTER_WRITING, cycle_id, project_root, profile_id)
+    if blocked:
+        return blocked
+    revision_dir = _revision_dir(cycle_id, project_root, profile_id)
+    pipeline = _pipeline_config(cycle_id, project_root, profile_id)
+    inductive = pipeline.get("inductive") is True
+    try:
+        ledger = load_l_ledger(revision_dir)
+        slice_dir = (revision_dir / str(ledger["focus"])).resolve()
+        err = _producer_complete_error(
+            cycle_id,
+            project_root,
+            profile_id,
+            inductive=inductive,
+            revision_dir=revision_dir,
+            slice_dir=slice_dir,
+        )
+        if err:
+            return _failure(_CMD_ENTER_WRITING, "producer_incomplete", err)
+        if not _has_stamp(slice_dir, _PRODUCER_STAMP):
+            if not _opaque_producer_closed(
+                cycle_id,
+                project_root,
+                profile_id,
+                inductive=inductive,
+                revision_dir=revision_dir,
+            ):
+                return _failure(
+                    _CMD_ENTER_WRITING,
+                    "producer_incomplete",
+                    "producer complete check failed",
+                )
+            _write_stamp(slice_dir, _PRODUCER_STAMP)
+        dispatch_input = _format_writing_dispatch(
+            cycle_id, project_root, profile_id, revision_dir
+        )
+    except (OSError, ValueError, FileNotFoundError) as exc:
+        return _failure(_CMD_ENTER_WRITING, "illegal_transition", str(exc))
+
+    payload = _with_revision_lock(
+        _CMD_ENTER_WRITING,
+        revision_dir,
+        step_enter_writing,
     )
+    if payload.get("ok"):
+        payload["dispatch_input"] = dispatch_input
+    return payload
+
+
+def complete_writing(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+) -> dict[str, Any]:
+    blocked = _require_working(_CMD_COMPLETE_WRITING, cycle_id, project_root, profile_id)
+    if blocked:
+        return blocked
+    revision_dir = _revision_dir(cycle_id, project_root, profile_id)
+    try:
+        ledger = load_l_ledger(revision_dir)
+    except (OSError, ValueError, FileNotFoundError) as exc:
+        return _failure(_CMD_COMPLETE_WRITING, "unsupported_revision", str(exc))
+    state = ledger["by_id"][str(ledger["focus"])]["state"]
+    if state != "Writing":
+        return _failure(
+            _CMD_COMPLETE_WRITING,
+            "illegal_transition",
+            "complete-writing requires Writing focus",
+            state=state,
+        )
+    seed_error = validate_writing_artifacts(
+        revision_dir,
+        document_file_path(cycle_id, project_root, profile_id),
+        project_root,
+        profile_id,
+    )
+    if seed_error:
+        return _failure(_CMD_COMPLETE_WRITING, "writing_incomplete", seed_error)
+    slice_dir = (revision_dir / str(ledger["focus"])).resolve()
+    _write_stamp(slice_dir, _WRITING_STAMP)
+    return _success(_CMD_COMPLETE_WRITING, state=state, writing_complete=True)
+
+
+def enter_freeedit(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+) -> dict[str, Any]:
+    blocked = _require_working(_CMD_ENTER_FREEEDIT, cycle_id, project_root, profile_id)
+    if blocked:
+        return blocked
+    revision_dir = _revision_dir(cycle_id, project_root, profile_id)
+    pipeline = _pipeline_config(cycle_id, project_root, profile_id)
+    try:
+        ledger = load_l_ledger(revision_dir)
+        slice_dir = (revision_dir / str(ledger["focus"])).resolve()
+        if not _has_stamp(slice_dir, _WRITING_STAMP):
+            return _failure(
+                _CMD_ENTER_FREEEDIT,
+                "writing_incomplete",
+                "writing complete check failed",
+            )
+    except (OSError, ValueError, FileNotFoundError) as exc:
+        return _failure(_CMD_ENTER_FREEEDIT, "illegal_transition", str(exc))
+    return _with_revision_lock(
+        _CMD_ENTER_FREEEDIT,
+        revision_dir,
+        lambda ledger: step_enter_freeedit(ledger, {"freeedit": pipeline.get("freeedit") is True}),
+    )
+
+
+def reverse_to_producer(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+) -> dict[str, Any]:
+    blocked = _require_working(_CMD_REVERSE_PRODUCER, cycle_id, project_root, profile_id)
+    if blocked:
+        return blocked
+    revision_dir = _revision_dir(cycle_id, project_root, profile_id)
+    pipeline = _pipeline_config(cycle_id, project_root, profile_id)
+    inductive = pipeline.get("inductive") is True
+
+    def apply(ledger: dict[str, Any]) -> dict[str, Any]:
+        new = step_reverse_to_producer(ledger, {"inductive": inductive})
+        slice_dir = (revision_dir / str(new["focus"])).resolve()
+        _reset_producer_complete(cycle_id, project_root, profile_id, slice_dir)
+        return new
+
+    payload = _with_revision_lock(_CMD_REVERSE_PRODUCER, revision_dir, apply)
+    if payload.get("ok"):
+        try:
+            payload["dispatch_input"] = _format_producer_dispatch(
+                cycle_id,
+                project_root,
+                profile_id,
+                inductive=inductive,
+                revision_dir=revision_dir,
+            )
+        except (OSError, ValueError) as exc:
+            payload["dispatch_input_error"] = str(exc)
+    return payload
+
+
+def reverse_to_writing(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+) -> dict[str, Any]:
+    blocked = _require_working(_CMD_REVERSE_WRITING, cycle_id, project_root, profile_id)
+    if blocked:
+        return blocked
+    revision_dir = _revision_dir(cycle_id, project_root, profile_id)
+
+    def apply(ledger: dict[str, Any]) -> dict[str, Any]:
+        new = step_reverse_to_writing(ledger)
+        slice_dir = (revision_dir / str(new["focus"])).resolve()
+        _clear_stamp(slice_dir, _WRITING_STAMP)
+        return new
+
+    payload = _with_revision_lock(_CMD_REVERSE_WRITING, revision_dir, apply)
+    if payload.get("ok"):
+        try:
+            payload["dispatch_input"] = _format_writing_dispatch(
+                cycle_id, project_root, profile_id, revision_dir
+            )
+        except (OSError, ValueError) as exc:
+            payload["dispatch_input_error"] = str(exc)
+    return payload
+
+
+def enter_evaluating(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+) -> dict[str, Any]:
+    blocked = _require_working(_CMD_ENTER_EVALUATING, cycle_id, project_root, profile_id)
+    if blocked:
+        return blocked
+    revision_dir = _revision_dir(cycle_id, project_root, profile_id)
+    run_id_holder: dict[str, str] = {}
+
+    def apply(ledger: dict[str, Any]) -> dict[str, Any]:
+        state = ledger["by_id"][str(ledger["focus"])]["state"]
+        slice_dir = (revision_dir / str(ledger["focus"])).resolve()
+        if state == "Writing" and not _has_stamp(slice_dir, _WRITING_STAMP):
+            raise IllegalTransition(
+                "writing_incomplete",
+                "writing complete check failed",
+            )
+        new = step_enter_evaluating(ledger)
+        run_id_holder["eval_run_id"] = _write_eval_run(slice_dir, new)
+        return new
+
+    payload = _with_revision_lock(_CMD_ENTER_EVALUATING, revision_dir, apply)
+    if payload.get("ok") and run_id_holder.get("eval_run_id"):
+        payload["eval_run_id"] = run_id_holder["eval_run_id"]
+    return payload
+
+
+def _eval_exit(
+    command: str,
+    cycle_id: str,
+    project_root: Path,
+    profile_id: str,
+    *,
+    confirm: bool,
+    transform: Callable[[dict[str, Any]], dict[str, Any]],
+) -> dict[str, Any]:
+    if not confirm:
+        return _failure(command, "confirmation_required", f"{command} requires --confirm")
+    blocked = _require_working(command, cycle_id, project_root, profile_id)
+    if blocked:
+        return blocked
+    revision_dir = _revision_dir(cycle_id, project_root, profile_id)
+
+    def apply(ledger: dict[str, Any]) -> dict[str, Any]:
+        slice_dir = (revision_dir / str(ledger["focus"])).resolve()
+        meta = _load_eval_run(slice_dir)
+        if meta is None:
+            raise IllegalTransition("stale_eval", "missing eval_run_id")
+        current = ledger_fingerprint(ledger)
+        if str(meta.get("ledger_fingerprint", "")) != current:
+            raise IllegalTransition("stale_eval", "eval_run_id is stale")
+        return transform(ledger)
+
+    return _with_revision_lock(command, revision_dir, apply)
+
+
+def accept_l(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+    confirm: bool = False,
+) -> dict[str, Any]:
+    return _eval_exit(
+        _CMD_ACCEPT,
+        cycle_id,
+        project_root,
+        profile_id,
+        confirm=confirm,
+        transform=step_accept,
+    )
+
+
+def fix_l(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+    confirm: bool = False,
+) -> dict[str, Any]:
+    return _eval_exit(
+        _CMD_FIX,
+        cycle_id,
+        project_root,
+        profile_id,
+        confirm=confirm,
+        transform=step_fix,
+    )
+
+
+def re_evaluate(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+    confirm: bool = False,
+) -> dict[str, Any]:
+    if not confirm:
+        return _failure(
+            _CMD_RE_EVALUATE,
+            "confirmation_required",
+            "re-evaluate requires --confirm",
+        )
+    blocked = _require_working(_CMD_RE_EVALUATE, cycle_id, project_root, profile_id)
+    if blocked:
+        return blocked
+    revision_dir = _revision_dir(cycle_id, project_root, profile_id)
+    try:
+        with revision_lock(revision_dir, exclusive=True):
+            ledger = load_l_ledger(revision_dir)
+            focus = str(ledger["focus"])
+            if ledger["by_id"][focus]["state"] != "Evaluating":
+                return _failure(
+                    _CMD_RE_EVALUATE,
+                    "illegal_transition",
+                    "re-evaluate requires Evaluating",
+                )
+            if ledger["by_id"][focus]["frozen"] is True:
+                return _failure(
+                    _CMD_RE_EVALUATE,
+                    "illegal_transition",
+                    f"focus {focus} is frozen",
+                )
+            slice_dir = (revision_dir / focus).resolve()
+            run_id = _write_eval_run(slice_dir, ledger)
+            return _success(
+                _CMD_RE_EVALUATE,
+                state="Evaluating",
+                eval_run_id=run_id,
+            )
+    except LockTimeout:
+        return _failure(_CMD_RE_EVALUATE, "lock_timeout", "revision lock timeout")
+    except (OSError, ValueError, FileNotFoundError) as exc:
+        return _failure(_CMD_RE_EVALUATE, "invalid_ledger", str(exc))
+
+
+def reopen_current(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+    confirm: bool = False,
+) -> dict[str, Any]:
+    if not confirm:
+        return _failure(
+            _CMD_REOPEN,
+            "confirmation_required",
+            "reopen requires --confirm",
+        )
+    blocked = _require_working(_CMD_REOPEN, cycle_id, project_root, profile_id)
+    if blocked:
+        return blocked
+    revision_dir = _revision_dir(cycle_id, project_root, profile_id)
+    return _with_revision_lock(_CMD_REOPEN, revision_dir, step_reopen)
 
 
 def _emit(payload: dict[str, Any]) -> int:
@@ -701,21 +962,25 @@ def _emit(payload: dict[str, Any]) -> int:
 
 
 def _cli() -> int:
-    parser = argparse.ArgumentParser(description="generic compose draft control")
-    parser.add_argument("--cycle-id", required=True, help="Cycle ID")
+    parser = argparse.ArgumentParser(description="Compose single-L step control")
+    parser.add_argument("--cycle-id", required=True)
     parser.add_argument("--project-root", type=Path, default=Path("."))
     sub = parser.add_subparsers(dest="command", required=True)
     for command in (
-        _CMD_BEGIN_INDUCTIVE,
-        _CMD_INDUCTIVE_COMPLETE,
-        _CMD_BEGIN_DEDUCTIVE,
-        _CMD_DEDUCTIVE_COMPLETE,
-        _CMD_BEGIN_WRITING,
-        _CMD_WRITING_COMPLETE,
-        _CMD_ADVANCE_TO_FREEEDIT,
         _CMD_STATUS,
+        _CMD_ENTER_PRODUCER,
+        _CMD_COMPLETE_PRODUCER,
+        _CMD_ENTER_WRITING,
+        _CMD_COMPLETE_WRITING,
+        _CMD_ENTER_FREEEDIT,
+        _CMD_REVERSE_PRODUCER,
+        _CMD_REVERSE_WRITING,
+        _CMD_ENTER_EVALUATING,
     ):
         sub.add_parser(command)
+    for command in (_CMD_ACCEPT, _CMD_FIX, _CMD_RE_EVALUATE, _CMD_REOPEN):
+        p = sub.add_parser(command)
+        p.add_argument("--confirm", action="store_true")
     args = parser.parse_args()
     try:
         profile_id = resolve_profile_id(
@@ -730,32 +995,157 @@ def _cli() -> int:
         "project_root": args.project_root.resolve(),
         "profile_id": profile_id,
     }
+    session_dir = session_state_path(
+        kwargs["cycle_id"],
+        profile_id,
+        kwargs["project_root"],
+    ).parent
+    confirm = bool(getattr(args, "confirm", False))
     try:
-        if args.command == _CMD_BEGIN_INDUCTIVE:
-            result = begin_inductive(**kwargs)
-        elif args.command == _CMD_INDUCTIVE_COMPLETE:
-            result = inductive_complete(**kwargs)
-        elif args.command == _CMD_BEGIN_DEDUCTIVE:
-            result = begin_deductive(**kwargs)
-        elif args.command == _CMD_DEDUCTIVE_COMPLETE:
-            result = deductive_complete(**kwargs)
-        elif args.command == _CMD_BEGIN_WRITING:
-            result = begin_writing(**kwargs)
-        elif args.command == _CMD_WRITING_COMPLETE:
-            result = writing_complete(**kwargs)
-        elif args.command == _CMD_ADVANCE_TO_FREEEDIT:
-            result = advance_to_freeedit(**kwargs)
-        elif args.command == _CMD_STATUS:
-            result = draft_status(**kwargs)
-        else:
-            return 1
-    except ValueError as exc:
-        print(str(exc), file=sys.stderr)
-        return 1
+        with session_lock(session_dir, exclusive=False):
+            if args.command == _CMD_STATUS:
+                result = draft_status(**kwargs)
+            elif args.command == _CMD_ENTER_PRODUCER:
+                result = enter_producer(**kwargs)
+            elif args.command == _CMD_COMPLETE_PRODUCER:
+                result = complete_producer(**kwargs)
+            elif args.command == _CMD_ENTER_WRITING:
+                result = enter_writing(**kwargs)
+            elif args.command == _CMD_COMPLETE_WRITING:
+                result = complete_writing(**kwargs)
+            elif args.command == _CMD_ENTER_FREEEDIT:
+                result = enter_freeedit(**kwargs)
+            elif args.command == _CMD_REVERSE_PRODUCER:
+                result = reverse_to_producer(**kwargs)
+            elif args.command == _CMD_REVERSE_WRITING:
+                result = reverse_to_writing(**kwargs)
+            elif args.command == _CMD_ENTER_EVALUATING:
+                result = enter_evaluating(**kwargs)
+            elif args.command == _CMD_ACCEPT:
+                result = accept_l(**kwargs, confirm=confirm)
+            elif args.command == _CMD_FIX:
+                result = fix_l(**kwargs, confirm=confirm)
+            elif args.command == _CMD_RE_EVALUATE:
+                result = re_evaluate(**kwargs, confirm=confirm)
+            elif args.command == _CMD_REOPEN:
+                result = reopen_current(**kwargs, confirm=confirm)
+            else:
+                return 1
+    except LockTimeout:
+        result = _failure(args.command, "lock_timeout", "session lock timeout")
     if result.get("ok") and "dispatch_input" in result:
         print(result["dispatch_input"])
         return 0
     return _emit(result)
+
+
+def _read_evaluate_round_field(path: Path) -> int | None:
+    if not path.is_file():
+        return None
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.startswith("evaluate_round:"):
+            raw = line.split(":", 1)[1].strip()
+            try:
+                return int(raw)
+            except ValueError:
+                return None
+    return None
+
+
+def _allocate_per_l_round(slice_dir: Path) -> int:
+    es_path = slice_dir / "evaluate-state.md"
+    if not es_path.is_file():
+        return 1
+    status = ""
+    for line in es_path.read_text(encoding="utf-8").splitlines():
+        if line.startswith("eval_status:"):
+            status = line.split(":", 1)[1].strip()
+            break
+    current = _read_evaluate_round_field(es_path) or 1
+    if status in {"done", "abandoned"}:
+        return current + 1
+    return current if current >= 1 else 1
+
+
+def enter_evaluating_state(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+) -> dict[str, Any]:
+    """Ensure focus L is Evaluating; session remains Working."""
+    from compose_session import workflow_state_path  # noqa: WPS433
+    from l_ledger_schema import focus_state  # noqa: WPS433
+
+    ws_path = workflow_state_path(cycle_id, project_root, profile_id)
+    state = load_workflow_state(ws_path)
+    current = state["current_state"]
+    if current != "Working":
+        return {
+            "ok": False,
+            "current_state": current,
+            "transitioned": False,
+            "resume": {
+                "entry": current,
+                "action": f"当前状态是 {current}，需要 Working 才能开始评估当前 L。",
+            },
+        }
+    revision_dir = ws_path.parent
+    try:
+        ledger = load_l_ledger(revision_dir)
+    except (OSError, ValueError, FileNotFoundError) as exc:
+        return {
+            "ok": False,
+            "current_state": current,
+            "transitioned": False,
+            "error": str(exc),
+            "resume": {"entry": current, "action": str(exc)},
+        }
+    focus = str(ledger["focus"])
+    if focus_state(ledger) == "Evaluating":
+        evaluate_round = _allocate_per_l_round(revision_dir / focus)
+        return {
+            "ok": True,
+            "current_state": "Working",
+            "focus": focus,
+            "phase": "evaluating",
+            "evaluate_round": evaluate_round,
+            "layout": "per-l",
+            "transitioned": False,
+        }
+    result = enter_evaluating(cycle_id, project_root, profile_id=profile_id)
+    if not result.get("ok"):
+        return {
+            "ok": False,
+            "current_state": current,
+            "transitioned": False,
+            "error": result.get("error") or result.get("code") or "enter-evaluating failed",
+            "resume": {
+                "entry": current,
+                "action": str(result.get("error") or "enter-evaluating failed"),
+            },
+        }
+    evaluate_round = _allocate_per_l_round(revision_dir / focus)
+    return {
+        "ok": True,
+        "current_state": "Working",
+        "focus": focus,
+        "phase": "evaluating",
+        "evaluate_round": evaluate_round,
+        "layout": "per-l",
+        "transitioned": True,
+    }
+
+
+def rollback_evaluating_phase(revision_dir: Path, *, focus: str) -> None:
+    """Undo Evaluating after a failed evaluate-state init (first enter)."""
+    ledger = load_l_ledger(revision_dir)
+    if str(ledger["focus"]) != focus:
+        return
+    try:
+        save_l_ledger(revision_dir, step_fix(ledger))
+    except IllegalTransition:
+        return
 
 
 if __name__ == "__main__":

@@ -119,10 +119,18 @@ def _seed_registries(tmp_path: Path) -> None:
 
 
 def _write_facts(revision_dir: Path, facts: list[dict]) -> None:
-    (revision_dir / "_facts.json").write_text(
+    slice_dir = revision_dir / "L1"
+    slice_dir.mkdir(parents=True, exist_ok=True)
+    (slice_dir / "_facts.json").write_text(
         json.dumps(facts, ensure_ascii=False),
         encoding="utf-8",
     )
+
+
+def _slice(revision_dir: Path) -> Path:
+    path = revision_dir / "L1"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
 
 
 def _arc(*, lens: str = "AR", fact_ids: list[str] | None = None) -> dict:
@@ -152,7 +160,7 @@ def _write_chapter_artifacts(
     *,
     body: str,
 ) -> None:
-    (revision_dir / f"_body-{cid}.txt").write_text(body, encoding="utf-8")
+    (_slice(revision_dir) / f"_body-{cid}.txt").write_text(body, encoding="utf-8")
 
 
 def _minimal_doc(cid: str, body: str) -> str:
@@ -188,7 +196,7 @@ def _seed_happy_path(
         {"id": "F-1", "text": "Architecture fact.", "lens_tags": ["AR"]},
     ]
     _write_facts(revision_dir, facts)
-    save_narrative_arc(revision_dir / "_narrative-arc.json", _arc())
+    save_narrative_arc(_slice(revision_dir) / "_narrative-arc.json", _arc())
     cid = _cid()
     _write_chapter_artifacts(revision_dir, cid, body=body)
     compose_doc.write_text(_minimal_doc(cid, body), encoding="utf-8")
@@ -209,7 +217,7 @@ def test_passes_with_minimal_narrative_arc(revision_dir: Path, tmp_path: Path):
     compose_doc = revision_dir / "design-doc.md"
     _seed_happy_path(revision_dir, compose_doc)
     error = validate_display_layer_artifacts(
-        revision_dir, compose_doc, tmp_path, "lulu-design",
+        _slice(revision_dir), compose_doc, tmp_path, "lulu-design",
     )
     assert error is None
 
@@ -231,7 +239,7 @@ def test_requires_narrative_arc(revision_dir: Path, tmp_path: Path):
         [{"id": "F-1", "text": "Architecture fact.", "lens_tags": ["AR"]}],
     )
     error = validate_display_layer_artifacts(
-        revision_dir, compose_doc, tmp_path, "lulu-design",
+        _slice(revision_dir), compose_doc, tmp_path, "lulu-design",
     )
     assert error is not None
     assert "missing _narrative-arc.json" in error
@@ -240,9 +248,9 @@ def test_requires_narrative_arc(revision_dir: Path, tmp_path: Path):
 def test_fails_when_facts_missing(revision_dir: Path, tmp_path: Path):
     compose_doc = revision_dir / "design-doc.md"
     compose_doc.write_text("# Doc\n", encoding="utf-8")
-    save_narrative_arc(revision_dir / "_narrative-arc.json", _arc())
+    save_narrative_arc(_slice(revision_dir) / "_narrative-arc.json", _arc())
     error = validate_display_layer_artifacts(
-        revision_dir, compose_doc, tmp_path, "lulu-design",
+        _slice(revision_dir), compose_doc, tmp_path, "lulu-design",
     )
     assert error is not None
     assert "invalid or missing _facts.json" in error
@@ -251,9 +259,9 @@ def test_fails_when_facts_missing(revision_dir: Path, tmp_path: Path):
 def test_fails_when_facts_json_invalid(revision_dir: Path, tmp_path: Path):
     compose_doc = revision_dir / "design-doc.md"
     _seed_happy_path(revision_dir, compose_doc)
-    (revision_dir / "_facts.json").write_text("not json", encoding="utf-8")
+    (_slice(revision_dir) / "_facts.json").write_text("not json", encoding="utf-8")
     error = validate_display_layer_artifacts(
-        revision_dir, compose_doc, tmp_path, "lulu-design",
+        _slice(revision_dir), compose_doc, tmp_path, "lulu-design",
     )
     assert error is not None
     assert "invalid or missing _facts.json" in error
@@ -273,9 +281,9 @@ def test_fails_when_retired_plan_file_present(
 ):
     compose_doc = revision_dir / "design-doc.md"
     _seed_happy_path(revision_dir, compose_doc)
-    (revision_dir / retired_name).write_text("{}", encoding="utf-8")
+    (_slice(revision_dir) / retired_name).write_text("{}", encoding="utf-8")
     error = validate_display_layer_artifacts(
-        revision_dir, compose_doc, tmp_path, "lulu-design",
+        _slice(revision_dir), compose_doc, tmp_path, "lulu-design",
     )
     assert error is not None
     assert "retired:" in error
@@ -288,14 +296,14 @@ def test_fails_when_write_state_incomplete(revision_dir: Path, tmp_path: Path):
         revision_dir,
         [{"id": "F-1", "text": "Architecture fact.", "lens_tags": ["AR"]}],
     )
-    save_narrative_arc(revision_dir / "_narrative-arc.json", _arc())
+    save_narrative_arc(_slice(revision_dir) / "_narrative-arc.json", _arc())
     cid = _cid()
     _write_chapter_artifacts(revision_dir, cid, body="body")
     compose_doc.write_text(_minimal_doc(cid, "body"), encoding="utf-8")
     # sync only — not complete
     assert write_state_main(["sync", "--revision-dir", str(revision_dir)]) == 0
     error = validate_display_layer_artifacts(
-        revision_dir, compose_doc, tmp_path, "lulu-design",
+        _slice(revision_dir), compose_doc, tmp_path, "lulu-design",
     )
     assert error is not None
     assert "4.W:" in error
@@ -306,9 +314,9 @@ def test_fails_when_chapter_body_file_whitespace_only(
 ):
     compose_doc = revision_dir / "design-doc.md"
     _seed_happy_path(revision_dir, compose_doc)
-    (revision_dir / f"_body-{_cid()}.txt").write_text("   \n\n", encoding="utf-8")
+    (_slice(revision_dir) / f"_body-{_cid()}.txt").write_text("   \n\n", encoding="utf-8")
     error = validate_display_layer_artifacts(
-        revision_dir, compose_doc, tmp_path, "lulu-design",
+        _slice(revision_dir), compose_doc, tmp_path, "lulu-design",
     )
     assert error is not None
     assert f"empty body file _body-{_cid()}.txt" in error
@@ -317,9 +325,9 @@ def test_fails_when_chapter_body_file_whitespace_only(
 def test_fails_when_chapter_body_missing(revision_dir: Path, tmp_path: Path):
     compose_doc = revision_dir / "design-doc.md"
     _seed_happy_path(revision_dir, compose_doc)
-    (revision_dir / f"_body-{_cid()}.txt").unlink()
+    (_slice(revision_dir) / f"_body-{_cid()}.txt").unlink()
     error = validate_display_layer_artifacts(
-        revision_dir, compose_doc, tmp_path, "lulu-design",
+        _slice(revision_dir), compose_doc, tmp_path, "lulu-design",
     )
     assert error is not None
     assert f"missing _body-{_cid()}.txt" in error
@@ -329,11 +337,11 @@ def test_allows_missing_derive(revision_dir: Path, tmp_path: Path):
     """_derive is not a Writing hard gate (archive-7.0)."""
     compose_doc = revision_dir / "design-doc.md"
     _seed_happy_path(revision_dir, compose_doc)
-    derive = revision_dir / f"_derive-{_cid()}.json"
+    derive = _slice(revision_dir) / f"_derive-{_cid()}.json"
     if derive.is_file():
         derive.unlink()
     error = validate_display_layer_artifacts(
-        revision_dir, compose_doc, tmp_path, "lulu-design",
+        _slice(revision_dir), compose_doc, tmp_path, "lulu-design",
     )
     assert error is None
 
@@ -345,7 +353,7 @@ def test_fails_when_chapter_anchor_missing_in_doc(
     _seed_happy_path(revision_dir, compose_doc)
     compose_doc.write_text("# Preamble\n\nNo chapter anchor here.\n", encoding="utf-8")
     error = validate_display_layer_artifacts(
-        revision_dir, compose_doc, tmp_path, "lulu-design",
+        _slice(revision_dir), compose_doc, tmp_path, "lulu-design",
     )
     assert error is not None
     assert "missing chapter anchor in compose document" in error
@@ -359,7 +367,7 @@ def test_fails_when_doc_chapter_body_empty(revision_dir: Path, tmp_path: Path):
         encoding="utf-8",
     )
     error = validate_display_layer_artifacts(
-        revision_dir, compose_doc, tmp_path, "lulu-design",
+        _slice(revision_dir), compose_doc, tmp_path, "lulu-design",
     )
     assert error is not None
     assert "compose document empty chapter body" in error
@@ -375,7 +383,7 @@ def test_fails_when_doc_chapter_body_is_title_only(
         encoding="utf-8",
     )
     error = validate_display_layer_artifacts(
-        revision_dir, compose_doc, tmp_path, "lulu-design",
+        _slice(revision_dir), compose_doc, tmp_path, "lulu-design",
     )
     assert error is not None
     assert "compose document empty chapter body" in error
@@ -391,7 +399,7 @@ def test_does_not_strip_h3_only_first_line_as_title(
         encoding="utf-8",
     )
     error = validate_display_layer_artifacts(
-        revision_dir, compose_doc, tmp_path, "lulu-design",
+        _slice(revision_dir), compose_doc, tmp_path, "lulu-design",
     )
     assert error is None
 
@@ -413,7 +421,7 @@ def _seed_discovered_anchor_case(
         },
     ]
     _write_facts(revision_dir, facts)
-    save_narrative_arc(revision_dir / "_narrative-arc.json", _arc())
+    save_narrative_arc(_slice(revision_dir) / "_narrative-arc.json", _arc())
     cid = _cid()
     _write_chapter_artifacts(revision_dir, cid, body=body)
     compose_doc.write_text(_minimal_doc(cid, body), encoding="utf-8")
@@ -431,7 +439,7 @@ def test_l6_fails_when_discovered_anchor_absent_from_body(
         body="The attachment copies are stored somewhere sensible.",
     )
     error = validate_display_layer_artifacts(
-        revision_dir, compose_doc, tmp_path, "lulu-design",
+        _slice(revision_dir), compose_doc, tmp_path, "lulu-design",
     )
     assert error is not None
     assert "L6:" in error
@@ -450,7 +458,7 @@ def test_l6_passes_when_discovered_anchor_present_in_body(
         body="Copies land in `tasks/{id}/attachments/` next to the task.",
     )
     error = validate_display_layer_artifacts(
-        revision_dir, compose_doc, tmp_path, "lulu-design",
+        _slice(revision_dir), compose_doc, tmp_path, "lulu-design",
     )
     assert error is None
 
@@ -466,7 +474,7 @@ def test_l6_code_ref_matches_symbol_segment_only(
         body="The `plan_tasks_task_dir` helper resolves the directory.",
     )
     error = validate_display_layer_artifacts(
-        revision_dir, compose_doc, tmp_path, "lulu-design",
+        _slice(revision_dir), compose_doc, tmp_path, "lulu-design",
     )
     assert error is None
 
@@ -483,12 +491,12 @@ def test_l6_ignores_seed_facts_under_s1(revision_dir: Path, tmp_path: Path):
         },
     ]
     _write_facts(revision_dir, facts)
-    save_narrative_arc(revision_dir / "_narrative-arc.json", _arc())
+    save_narrative_arc(_slice(revision_dir) / "_narrative-arc.json", _arc())
     cid = _cid()
     _write_chapter_artifacts(revision_dir, cid, body="Chapter body.")
     compose_doc.write_text(_minimal_doc(cid, "Chapter body."), encoding="utf-8")
     _complete_write_state(revision_dir, [cid])
     error = validate_display_layer_artifacts(
-        revision_dir, compose_doc, tmp_path, "lulu-design",
+        _slice(revision_dir), compose_doc, tmp_path, "lulu-design",
     )
     assert error is None

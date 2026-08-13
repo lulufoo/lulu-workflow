@@ -10,7 +10,7 @@ description: >-
 
 # inductive-runner
 
-Run this sub-skill only when dispatched from a compose stage `start` (inductive path) — e.g. `lulu-design`.
+Run this sub-skill only when dispatched from `$L_STEP enter-producer` on the inductive path — e.g. `lulu-design`.
 
 Produces **three stores** under the active revision dir (`$INDUCTIVE_OUT_DIR`):
 - **Facts (engine state):** `_facts.json` — intake-classified seeds + later
@@ -169,9 +169,9 @@ Fact Intake (Control spine §1) is **pre-gate** — complete it before loading G
 **Opens:** `inductive-opens.json` — `O-n` with `status`, `source{trigger,means}`, `kw`, `blocking`, `problem`, optional `detected_under` / `leaning` / `intent_ref` / `code_refs` / `resolved_by` / `note` / `reason`.
 
 **Facts:** `_facts.json` — `F-n` with `text`, `lens_tags` (non-empty on inductive write), optional `origin{type,ref}`.  
-**Multi-L (when parent locked a multi-node tree):** treat locked slice rulers as the split ruler. Before write: decompose mixed content into pure-L facts (seam → `full_plan` side + `depend_only` side). Each fact **must** include `home_l` and short `home_rationale`; persist via parent `$FACTS_CTL write --target-l <home_l>` (G1 divert allowed). Untagged writes hard-reject. Cannot split → stop for human (do not silent single-tag). `home_l=package` only after human confirms (`--package-confirm`); AI must not self-select package.
+**Multi-L:** treat each L's `scope-ref.json` source as the slice boundary. Before write: decompose mixed content into per-L facts. Each fact **must** include `home_l` and short `home_rationale`; persist via parent `$FACTS_CTL write --target-l <home_l>` (G1 divert allowed). Untagged writes hard-reject. Cannot split → stop for human (do not silent single-tag). `home_l=package` only after human confirms (`--package-confirm`); AI must not self-select package.
 
-**Compose Writing input:** `_facts.json` (parent `begin-writing` validates existence). `$INDUCTIVE_G3_SECTION_CTL view --synthesis off` assembles fact text by lens (I2/V5).
+**Compose Writing input:** `_facts.json` (parent `complete-producer` then `enter-writing` validates existence). `$INDUCTIVE_G3_SECTION_CTL view --synthesis off` assembles fact text by lens (I2/V5).
 
 **DQI** = optional resume/audit aid from gate-control; **not** decision SoT.
 

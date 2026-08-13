@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "section"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "core"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from compose_doc_control import (  # noqa: E402
@@ -371,10 +372,15 @@ def test_assemble_arc_flat_ignore_tree(tmp_path: Path):
 
 
 def test_assemble_arc_cli(tmp_path: Path, doc_path: Path):
+    from workflow_paths import seed_revision_profile_pointer  # noqa: WPS433
+
     rev = tmp_path / "rev"
     rev.mkdir()
+    seed_revision_profile_pointer(rev)
+    slice_dir = rev / "L1"
+    slice_dir.mkdir(parents=True, exist_ok=True)
     arc = _sample_arc_with_tree()
-    (rev / "_narrative-arc.json").write_text(
+    (slice_dir / "_narrative-arc.json").write_text(
         json.dumps(arc, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
@@ -383,7 +389,7 @@ def test_assemble_arc_cli(tmp_path: Path, doc_path: Path):
         ("T1_1-ST", "st body"),
         ("T1_1-IF", "if body"),
     ]:
-        (rev / f"_body-{cid}.txt").write_text(body + "\n", encoding="utf-8")
+        (slice_dir / f"_body-{cid}.txt").write_text(body + "\n", encoding="utf-8")
     rc = main(
         [
             "assemble-arc",

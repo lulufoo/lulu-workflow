@@ -20,7 +20,7 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
-from discussion_pointer_schema import active_slice_dir  # noqa: E402
+from l_ledger_schema import active_slice_dir  # noqa: E402
 from evaluate_state_schema import load_evaluate_state  # noqa: E402
 from fact_intake_eval_runtime_schema import (  # noqa: E402
     evaluate_state_path,

@@ -41,7 +41,7 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
-from discussion_pointer_schema import active_slice_dir  # noqa: E402
+from l_ledger_schema import active_slice_dir  # noqa: E402
 from narrative_arc_schema import (  # noqa: E402
     DEFAULT_DISPLAY_ARC_BASENAME,
     is_write_ready,

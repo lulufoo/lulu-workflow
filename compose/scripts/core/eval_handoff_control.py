@@ -32,14 +32,14 @@ import kernel_bootstrap  # noqa: E402
 kernel_bootstrap.ensure_kernel_paths()
 
 from compose_session import workflow_state_path  # noqa: E402
-from discussion_pointer_schema import (  # noqa: E402
-    DISCUSSION_POINTER_FILENAME,
-    load_discussion_pointer,
-)
 from eval_handoff_schema import (  # noqa: E402
-    pointer_fingerprint,
     validate_artifact_manifest,
     validate_eval_handoff,
+)
+from l_ledger_schema import (  # noqa: E402
+    focus_state,
+    ledger_fingerprint,
+    load_l_ledger,
 )
 from resolved_refs_schema import frozen_delivered_path_by_type  # noqa: E402
 from session_state_schema import load_active_doc_from_cycle  # noqa: E402
@@ -53,7 +53,6 @@ from workflow_paths import (  # noqa: E402
 )
 from workflow_profile_paths import (  # noqa: E402
     document_path,
-    eval_layout_for_revision,
     eval_round_dir_for_layout,
     evaluate_state_path_for_layout,
 )
@@ -67,6 +66,7 @@ _CMD_RESTORE_TARGET = "restore-remediation-target"
 _CMD_DISCARD = "discard-staging"
 _STAGING_ROOT = ".eval-staging"
 _LEASE_META = "lease.json"
+_EVAL_RUN_FILE = "_eval_run.json"
 
 
 def _emit(payload: dict[str, Any]) -> int:
@@ -84,6 +84,54 @@ def _success(command: str, **extra: Any) -> dict[str, Any]:
     payload: dict[str, Any] = {"ok": True, "command": command}
     payload.update(extra)
     return payload
+
+
+def _eval_run_path(slice_dir: Path) -> Path:
+    return Path(slice_dir) / _EVAL_RUN_FILE
+
+
+def _load_eval_run(slice_dir: Path) -> dict[str, Any] | None:
+    path = _eval_run_path(slice_dir)
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    run_id = str(data.get("eval_run_id", "")).strip()
+    digest = str(data.get("ledger_fingerprint", "")).strip()
+    if not run_id or not digest:
+        return None
+    return {"eval_run_id": run_id, "ledger_fingerprint": digest}
+
+
+def _bind_focus(
+    revision_dir: Path,
+    *,
+    command: str,
+    require_evaluating: bool,
+) -> tuple[dict[str, Any], str, Path, str] | dict[str, Any]:
+    """Return (ledger, focus, slice_dir, fingerprint) or a failure payload."""
+    try:
+        ledger = load_l_ledger(revision_dir)
+    except (OSError, ValueError, FileNotFoundError) as exc:
+        return _failure(command, str(exc))
+    focus = str(ledger["focus"])
+    if require_evaluating:
+        state = focus_state(ledger)
+        if state != "Evaluating":
+            return _failure(
+                command,
+                f"focus {focus!r} state is {state!r}, expected 'Evaluating'",
+                focus_l=focus,
+                state=state,
+            )
+        if bool(ledger["by_id"][focus]["frozen"]):
+            return _failure(command, f"focus {focus!r} is frozen")
+    slice_dir = (revision_dir / focus).resolve()
+    return ledger, focus, slice_dir, ledger_fingerprint(ledger)
 
 
 def _read_eval_status(path: Path) -> str:
@@ -152,29 +200,20 @@ def _allocate_per_l_round(slice_dir: Path) -> int:
     return current if current >= 1 else 1
 
 
-def _legacy_round_from_workflow(ws_path: Path, es_path: Path) -> int:
-    state = load_workflow_state(ws_path)
-    try:
-        value = int(state.get("evaluate_round", "0"))
-    except ValueError:
-        value = 0
-    if value < 1:
-        value = 1
-    status = _read_eval_status(es_path)
-    if status == "done":
-        return value + 1
-    if status == "abandoned":
-        return value + 1
-    return value
-
-
-def _create_lease(slice_dir: Path, *, fingerprint: str, focus_l: str) -> dict[str, str]:
+def _create_lease(
+    slice_dir: Path,
+    *,
+    fingerprint: str,
+    eval_run_id: str,
+    focus_l: str,
+) -> dict[str, str]:
     lease_id = uuid.uuid4().hex
     staging = slice_dir / _STAGING_ROOT / lease_id
     staging.mkdir(parents=True, exist_ok=True)
     meta = {
         "lease_id": lease_id,
-        "pointer_fingerprint": fingerprint,
+        "ledger_fingerprint": fingerprint,
+        "eval_run_id": eval_run_id,
         "focus_l": focus_l,
     }
     (staging / _LEASE_META).write_text(
@@ -243,72 +282,58 @@ def request_handoff(
         )
 
     revision_dir = ws_path.parent.resolve()
-    pointer_path = revision_dir / DISCUSSION_POINTER_FILENAME
-    if not pointer_path.is_file():
-        return _failure(_CMD_REQUEST, "discussion-pointer.json not found")
-    try:
-        pointer = load_discussion_pointer(revision_dir)
-    except (OSError, ValueError) as exc:
-        return _failure(_CMD_REQUEST, str(exc))
+    bound = _bind_focus(
+        revision_dir, command=_CMD_REQUEST, require_evaluating=require_evaluating
+    )
+    if isinstance(bound, dict):
+        return bound
+    _ledger, focus, slice_dir, fingerprint = bound
+    slice_dir.mkdir(parents=True, exist_ok=True)
+    eval_run = _load_eval_run(slice_dir)
+    if eval_run is None:
+        if require_evaluating:
+            return _failure(
+                _CMD_REQUEST,
+                "missing eval_run_id; run enter-evaluating first",
+                focus_l=focus,
+            )
+        eval_run = {
+            "eval_run_id": uuid.uuid4().hex,
+            "ledger_fingerprint": fingerprint,
+        }
+    elif eval_run["ledger_fingerprint"] != fingerprint:
+        return _failure(_CMD_REQUEST, "stale eval_run_id: ledger fingerprint mismatch")
+    run_id = eval_run["eval_run_id"]
 
-    focus = str(pointer["focus"])
-    cell = pointer["by_id"][focus]
-    phase = str(cell.get("phase", ""))
-    if require_evaluating and phase != "evaluating":
-        return _failure(
-            _CMD_REQUEST,
-            f"focus {focus!r} phase is {phase!r}, expected 'evaluating'",
-            focus_l=focus,
-            phase=phase,
-        )
-
-    fingerprint = pointer_fingerprint(pointer)
-    layout = eval_layout_for_revision(revision_dir)
     active_doc = load_active_doc_from_cycle(cycle_id, root, profile_id=profile_id)
-
-    if layout == "legacy-root":
-        slice_dir = revision_dir
-        es_rel = evaluate_state_path_for_layout(
-            cycle_id, active_doc, profile_id, root, layout="legacy-root", focus_l=focus
-        )
-        evaluate_round = _legacy_round_from_workflow(ws_path, root / es_rel)
-        eval_rel = eval_round_dir_for_layout(
-            cycle_id,
-            active_doc,
-            evaluate_round,
-            profile_id,
-            root,
-            layout="legacy-root",
-            focus_l=focus,
-        )
-    else:
-        slice_dir = (revision_dir / focus).resolve()
-        slice_dir.mkdir(parents=True, exist_ok=True)
-        evaluate_round = _allocate_per_l_round(slice_dir)
-        es_rel = evaluate_state_path_for_layout(
-            cycle_id, active_doc, profile_id, root, layout="per-l", focus_l=focus
-        )
-        eval_rel = eval_round_dir_for_layout(
-            cycle_id,
-            active_doc,
-            evaluate_round,
-            profile_id,
-            root,
-            layout="per-l",
-            focus_l=focus,
-        )
+    evaluate_round = _allocate_per_l_round(slice_dir)
+    es_rel = evaluate_state_path_for_layout(
+        cycle_id, active_doc, profile_id, root, layout="per-l", focus_l=focus
+    )
+    eval_rel = eval_round_dir_for_layout(
+        cycle_id,
+        active_doc,
+        evaluate_round,
+        profile_id,
+        root,
+        layout="per-l",
+        focus_l=focus,
+    )
 
     compose_doc = (root / document_path(cycle_id, active_doc, profile_id, root)).resolve()
     es_path = (root / es_rel).resolve()
     evaluate_dir = (root / eval_rel).resolve()
-    lease = _create_lease(slice_dir, fingerprint=fingerprint, focus_l=focus)
+    lease = _create_lease(
+        slice_dir, fingerprint=fingerprint, eval_run_id=run_id, focus_l=focus
+    )
 
     upstream = frozen_delivered_path_by_type(revision_dir, "lulu-spec")
     context = {
         "cycle_id": cycle_id,
         "profile_id": profile_id,
         "focus_l": focus,
-        "pointer_fingerprint": fingerprint,
+        "ledger_fingerprint": fingerprint,
+        "eval_run_id": run_id,
         "evaluate_round": evaluate_round,
         "revision_dir": revision_dir.as_posix(),
         "slice_dir": slice_dir.as_posix(),
@@ -317,7 +342,7 @@ def request_handoff(
         "evaluate_dir": evaluate_dir.as_posix(),
         "write_staging_dir": lease["write_staging_dir"],
         "lease_id": lease["lease_id"],
-        "layout": layout,
+        "layout": "per-l",
         "policy_context": {
             "mode": state.get("mode", "tech"),
             "cycle_type": detect_cycle_type(cycle_id),
@@ -345,13 +370,10 @@ def discard_staging_for_cycle(
     if not ws_path.is_file():
         return _failure(_CMD_DISCARD, "workflow-state.md not found")
     revision_dir = ws_path.parent.resolve()
-    try:
-        pointer = load_discussion_pointer(revision_dir)
-    except (OSError, ValueError) as exc:
-        return _failure(_CMD_DISCARD, str(exc))
-    focus = str(pointer["focus"])
-    layout = eval_layout_for_revision(revision_dir)
-    slice_dir = revision_dir if layout == "legacy-root" else (revision_dir / focus)
+    bound = _bind_focus(revision_dir, command=_CMD_DISCARD, require_evaluating=False)
+    if isinstance(bound, dict):
+        return bound
+    _ledger, focus, slice_dir, _fingerprint = bound
     staging = (slice_dir / _STAGING_ROOT / lease_id).resolve()
     if staging.is_dir():
         shutil.rmtree(staging, ignore_errors=True)
@@ -375,29 +397,23 @@ def commit_artifacts(
     if not ws_path.is_file():
         return _failure(_CMD_COMMIT, "workflow-state.md not found")
     revision_dir = ws_path.parent.resolve()
-    try:
-        pointer = load_discussion_pointer(revision_dir)
-    except (OSError, ValueError) as exc:
-        return _failure(_CMD_COMMIT, str(exc))
-
-    focus = str(pointer["focus"])
-    phase = str(pointer["by_id"][focus].get("phase", ""))
-    if phase != "evaluating":
-        return _failure(
-            _CMD_COMMIT,
-            f"focus {focus!r} phase is {phase!r}, expected 'evaluating'",
-        )
+    bound = _bind_focus(revision_dir, command=_CMD_COMMIT, require_evaluating=True)
+    if isinstance(bound, dict):
+        return bound
+    _ledger, focus, slice_dir, fingerprint = bound
     if focus != str(manifest["focus_l"]):
         return _failure(
             _CMD_COMMIT,
             f"stale handoff: focus is {focus!r}, manifest focus_l is {manifest['focus_l']!r}",
         )
-    fingerprint = pointer_fingerprint(pointer)
-    if fingerprint != str(manifest["pointer_fingerprint"]):
-        return _failure(_CMD_COMMIT, "stale handoff: pointer_fingerprint mismatch")
+    if fingerprint != str(manifest["ledger_fingerprint"]):
+        return _failure(_CMD_COMMIT, "stale handoff: ledger_fingerprint mismatch")
+    eval_run = _load_eval_run(slice_dir)
+    if eval_run is None or eval_run["eval_run_id"] != str(manifest["eval_run_id"]):
+        return _failure(_CMD_COMMIT, "stale handoff: eval_run_id mismatch")
+    if eval_run["ledger_fingerprint"] != fingerprint:
+        return _failure(_CMD_COMMIT, "stale handoff: eval_run_id is stale")
 
-    layout = eval_layout_for_revision(revision_dir)
-    slice_dir = revision_dir if layout == "legacy-root" else (revision_dir / focus)
     staging = (slice_dir / _STAGING_ROOT / str(manifest["lease_id"])).resolve()
     if not staging.is_dir():
         return _failure(_CMD_COMMIT, f"staging dir missing: {staging}")
@@ -405,9 +421,12 @@ def commit_artifacts(
         meta = _load_lease_meta(staging)
     except ValueError as exc:
         return _failure(_CMD_COMMIT, str(exc))
-    if str(meta.get("pointer_fingerprint")) != fingerprint:
+    if str(meta.get("ledger_fingerprint")) != fingerprint:
         shutil.rmtree(staging, ignore_errors=True)
-        return _failure(_CMD_COMMIT, "stale lease: pointer changed; staging discarded")
+        return _failure(_CMD_COMMIT, "stale lease: ledger changed; staging discarded")
+    if str(meta.get("eval_run_id")) != str(manifest["eval_run_id"]):
+        shutil.rmtree(staging, ignore_errors=True)
+        return _failure(_CMD_COMMIT, "stale lease: eval_run_id mismatch; staging discarded")
 
     staged = staging / str(manifest["staged_relative_path"])
     if not staged.is_file():
@@ -417,11 +436,7 @@ def commit_artifacts(
         return _failure(_CMD_COMMIT, "artifact digest mismatch")
 
     evaluate_round = int(manifest["evaluate_round"])
-    final_dir = (
-        revision_dir / f"evaluate{evaluate_round}"
-        if layout == "legacy-root"
-        else slice_dir / f"evaluate{evaluate_round}"
-    )
+    final_dir = slice_dir / f"evaluate{evaluate_round}"
     final_path = final_dir / str(manifest["final_relative_path"])
     tmp_publish = final_path.with_name(final_path.name + ".tmp")
     try:
@@ -435,11 +450,7 @@ def commit_artifacts(
 
     state_patch = manifest.get("state_patch") or {}
     if state_patch:
-        es_path = (
-            revision_dir / "evaluate-state.md"
-            if layout == "legacy-root"
-            else slice_dir / "evaluate-state.md"
-        )
+        es_path = slice_dir / "evaluate-state.md"
         if not es_path.is_file():
             return _failure(_CMD_COMMIT, f"evaluate-state.md missing: {es_path}")
         # Deferred: Eval control applies state patches via evaluate_state_ops.
@@ -479,33 +490,20 @@ def commit_evaluate_state(
     if not ws_path.is_file():
         return _failure(_CMD_COMMIT_STATE, "workflow-state.md not found")
     revision_dir = ws_path.parent.resolve()
-    try:
-        pointer = load_discussion_pointer(revision_dir)
-    except (OSError, ValueError) as exc:
-        return _failure(_CMD_COMMIT_STATE, str(exc))
-    focus = str(pointer["focus"])
-    cell = pointer["by_id"][focus]
-    phase = str(cell.get("phase", ""))
-    if set_phase_evaluating:
-        if phase not in {"in_progress", "evaluating"}:
-            return _failure(
-                _CMD_COMMIT_STATE,
-                f"focus {focus!r} phase is {phase!r}, expected in_progress/evaluating",
-            )
-    elif phase != "evaluating":
-        return _failure(
-            _CMD_COMMIT_STATE,
-            f"focus {focus!r} phase is {phase!r}, expected 'evaluating'",
-        )
+    bound = _bind_focus(
+        revision_dir, command=_CMD_COMMIT_STATE, require_evaluating=True
+    )
+    if isinstance(bound, dict):
+        return bound
+    _ledger, focus, slice_dir, _fingerprint = bound
 
-    layout = eval_layout_for_revision(revision_dir)
     active_doc = load_active_doc_from_cycle(cycle_id, root, profile_id=profile_id)
     es_rel = evaluate_state_path_for_layout(
         cycle_id,
         active_doc,
         profile_id,
         root,
-        layout=layout,
+        layout="per-l",
         focus_l=focus,
     )
     formal = (root / es_rel).resolve()
@@ -523,14 +521,6 @@ def commit_evaluate_state(
         if backup is not None:
             shutil.copy2(formal, backup)
         _atomic_replace(staged, formal)
-        if set_phase_evaluating and phase != "evaluating":
-            from dependency_tree_schema import load_dependency_tree  # noqa: WPS433
-            from discussion_pointer_schema import save_discussion_pointer  # noqa: WPS433
-
-            tree = load_dependency_tree(revision_dir)
-            cell["phase"] = "evaluating"
-            cell["acceptance"] = "pending"
-            save_discussion_pointer(revision_dir, pointer, tree=tree)
     except (OSError, ValueError) as exc:
         if backup is not None and backup.is_file() and not formal.is_file():
             shutil.copy2(backup, formal)
@@ -543,7 +533,7 @@ def commit_evaluate_state(
         _CMD_COMMIT_STATE,
         evaluate_state_path=formal.as_posix(),
         focus_l=focus,
-        layout=layout,
+        layout="per-l",
     )
 
 
@@ -560,19 +550,14 @@ def _active_target_and_staging(
     if not ws_path.is_file():
         return _failure(command, "workflow-state.md not found")
     revision_dir = ws_path.parent.resolve()
-    try:
-        pointer = load_discussion_pointer(revision_dir)
-    except (OSError, ValueError) as exc:
-        return _failure(command, str(exc))
-    focus = str(pointer["focus"])
-    if str(pointer["by_id"][focus].get("phase", "")) != "evaluating":
-        return _failure(command, f"focus {focus!r} is not evaluating")
-    layout = eval_layout_for_revision(revision_dir)
-    slice_dir = revision_dir if layout == "legacy-root" else revision_dir / focus
+    bound = _bind_focus(revision_dir, command=command, require_evaluating=True)
+    if isinstance(bound, dict):
+        return bound
+    _ledger, focus, slice_dir, fingerprint = bound
     staging_root = (slice_dir / _STAGING_ROOT).resolve()
     active_doc = load_active_doc_from_cycle(cycle_id, root, profile_id=profile_id)
     target = (root / document_path(cycle_id, active_doc, profile_id, root)).resolve()
-    return target, staging_root, pointer_fingerprint(pointer)
+    return target, staging_root, fingerprint
 
 
 def _current_lease_dir(
@@ -595,8 +580,8 @@ def _current_lease_dir(
         meta = _load_lease_meta(lease_dir)
     except ValueError as exc:
         return _failure(command, str(exc))
-    if str(meta.get("pointer_fingerprint")) != fingerprint:
-        return _failure(command, "stale lease: pointer changed")
+    if str(meta.get("ledger_fingerprint")) != fingerprint:
+        return _failure(command, "stale lease: ledger changed")
     return lease_dir
 
 
@@ -704,22 +689,14 @@ def resolve_evaluate_state_abs(
     *,
     profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
 ) -> Path:
-    """Shared resolver for abandon/resume/eval: legacy-root or per-L state path.
-
-    If a revision-root ``evaluate-state.md`` still exists (including terminal
-    abandoned/done), prefer it so Compose exit commands can finish the legacy
-    session. New Evaluating handoffs use ``eval_layout_for_revision`` instead.
-    """
+    """Per-L evaluate-state.md for the current ledger focus."""
     root = project_root.resolve()
     revision_dir = workflow_state_path(cycle_id, root, profile_id).parent.resolve()
-    root_es = revision_dir / "evaluate-state.md"
-    if root_es.is_file():
-        return root_es.resolve()
     active_doc = load_active_doc_from_cycle(cycle_id, root, profile_id=profile_id)
+    bound = _bind_focus(revision_dir, command=_CMD_REQUEST, require_evaluating=False)
     focus = "L1"
-    pointer_path = revision_dir / DISCUSSION_POINTER_FILENAME
-    if pointer_path.is_file():
-        focus = str(load_discussion_pointer(revision_dir)["focus"])
+    if not isinstance(bound, dict):
+        focus = bound[1]
     rel = evaluate_state_path_for_layout(
         cycle_id,
         active_doc,

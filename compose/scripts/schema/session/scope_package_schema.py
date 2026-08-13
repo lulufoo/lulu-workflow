@@ -122,68 +122,6 @@ def chain_ids_from_scope_package(package: dict[str, Any]) -> list[str]:
     ]
 
 
-def chain_dependency_tree_from_scope_package(package: dict[str, Any]) -> dict[str, Any]:
-    """Materialize slices array order into a strict chain DAG (C2=A).
-
-    No ``order`` field on the package — sequence is ``slices`` index order.
-    Edge convention matches ``chain_dependency_tree_from_package``:
-    ``L{i+1}`` depends on ``L{i}`` (``from`` → ``to``).
-    """
-    from dependency_tree_schema import build_tree  # noqa: WPS433
-
-    order = chain_ids_from_scope_package(package)
-    if not order:
-        raise ValueError("scope-package slices must be non-empty")
-    by_id = {
-        str(s["id"]).strip(): s
-        for s in package["slices"]
-        if isinstance(s, dict) and str(s.get("id", "")).strip()
-    }
-    nodes = [
-        {
-            "id": nid,
-            "title": str(by_id.get(nid, {}).get("title", nid)),
-            "summary": str(by_id.get(nid, {}).get("title", nid)).strip() or nid,
-        }
-        for nid in order
-    ]
-    edges = [
-        {"from": order[i + 1], "to": order[i]}
-        for i in range(len(order) - 1)
-    ]
-    return build_tree(nodes=nodes, edges=edges, order=order, status="draft")
-
-
-def stub_slice_rulers_from_scope_package(package: dict[str, Any]) -> dict[str, Any] | None:
-    """Build multi-L rulers stubs from slices; single-L returns None (exempt)."""
-    from slice_rulers_schema import build_slice_rulers  # noqa: WPS433
-
-    order = chain_ids_from_scope_package(package)
-    if len(order) < 2:
-        return None
-    by_id = {
-        str(s["id"]).strip(): s
-        for s in package["slices"]
-        if isinstance(s, dict) and str(s.get("id", "")).strip()
-    }
-    rulers: dict[str, dict[str, Any]] = {}
-    for nid in order:
-        title = str(by_id.get(nid, {}).get("title", nid)).strip() or nid
-        rulers[nid] = {
-            "id": nid,
-            "job": title,
-            "in": ["TBD"],
-            "out": ["TBD"],
-            "seam": [],
-            "plan_checklist": ["TBD"],
-        }
-    return build_slice_rulers(
-        cut_axis="scope_package_slices",
-        rulers=rulers,
-        status="draft",
-    )
-
-
 def scope_ref_mirror_path(revision_dir: Path, node_id: str) -> Path:
     """Per-L source_path mirror path: ``Lx/scope-ref.json`` (C3=B)."""
     return Path(revision_dir) / str(node_id).strip() / SCOPE_REF_MIRROR_FILENAME

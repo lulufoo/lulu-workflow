@@ -43,7 +43,7 @@ def test_context_filters_role_domain_and_preamble(tmp_path: Path):
     rev.mkdir()
     seed_revision_profile_pointer(rev)
     # facts must not appear even if present on disk
-    (rev / "_facts.json").write_text(
+    (rev / "L1" / "_facts.json").write_text(
         json.dumps([{"id": "F-1", "text": "secret fact"}], ensure_ascii=False),
         encoding="utf-8",
     )

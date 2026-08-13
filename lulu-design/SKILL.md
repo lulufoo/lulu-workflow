@@ -25,18 +25,20 @@ Do NOT proceed until you have read `../_runtime.md` and loaded:
 
 <HARD-GATE name="Compose engine">
 Do NOT proceed until you have read `{SKILL_ROOT}/compose/SKILL.md` in full.
+Continue from its `## Start`.
 </HARD-GATE>
 
-## start
+## Compose Inputs
 
-Identify active cycle per `_runtime.md` § Session Foundation, bind
-`$PROFILE_PATH="$SKILL_DIR/compose-profile.json"`, then run `$START_COMPOSE`.
+1. Run `$DESIGN_PREFLIGHT`. Bind stdout `profile_path` as `$PROFILE_PATH` and `scope_package` as `$SCOPE_PACKAGE`.
 
-Run mode is inferred at start: `product` when cycle `delivered-refs.json` contains a valid `lulu-spec` entry; otherwise `tech`. Do not pass `--run-mode`.
+Run mode is inferred by preflight: `product` when cycle `delivered-refs.json` contains a valid `lulu-spec` entry; otherwise `tech`. To resume, run `$SESSION_INFO --view session` instead of Start.
 
-To resume an in-progress document, do not run start again — run `$SESSION_INFO --view session`.
+## Script Macros
 
----
+| Macro | Command |
+|---|---|
+| `$DESIGN_PREFLIGHT` | `python3 "$SKILL_DIR/scripts/start/tech_design_preflight.py" --project-root "$PROJECT_ROOT" --cycle-id "$CYCLE_ID"` |
 
 ## Reference documents
 

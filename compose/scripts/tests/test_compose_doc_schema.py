@@ -46,18 +46,19 @@ def _write_compose_doc(path: Path, *, title: str = "", summary: str = "Goal.") -
 
 
 def _setup_cycle(tmp_path: Path, *, active_doc: int = 1) -> tuple[Path, str]:
+    from session_state_schema import save_active_doc  # noqa: WPS433
+    from workflow_paths import seed_revision_profile_pointer  # noqa: WPS433
+
     cycle_id = "feat-session-info"
     seed_profile_pointer_for_tests(tmp_path, cycle_id, DEFAULT_COMPOSE_PROFILE_ID)
     base = tmp_path / ".cache" / "cursor" / "lulu-dev-workflow" / cycle_id / "lulu-plan"
-    base.mkdir(parents=True, exist_ok=True)
-    (base / "session-state.md").write_text(
-        f"---\nversion: 1\nactive_doc: {active_doc}\n---\n",
-        encoding="utf-8",
-    )
     revision = base / f"revision{active_doc}"
     revision.mkdir(parents=True)
+    seed_revision_profile_pointer(revision)
+    if active_doc != 1:
+        save_active_doc(base / "session-state.md", active_doc)
     _write_compose_doc(
-        revision / "tech-doc.md",
+        revision / "L1" / "tech-doc.md",
         title="Feature X",
         summary="Deliver a unified session info facade.",
     )
@@ -115,7 +116,8 @@ class TestResolveFromCycle:
         path, revision = resolve_compose_doc_path_from_cycle(cycle_id, project_root)
         assert revision == 2
         assert path.name == "tech-doc.md"
-        assert path.parent.name == "revision2"
+        assert path.parent.name == "L1"
+        assert path.parent.parent.name == "revision2"
 
     def test_load_presentation_from_cycle(self, tmp_path: Path):
         project_root, cycle_id = _setup_cycle(tmp_path)

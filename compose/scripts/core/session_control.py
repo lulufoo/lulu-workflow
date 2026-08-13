@@ -2,14 +2,11 @@
 """Session control for compose orchestrators.
 
 Subcommands:
-    leave-split          Leave session state Split -> Working (topology already locked)
-    start-evaluating     Working: set focus phase=evaluating (session stays Working)
-    ready-for-delivery   Working -> ReadyForDelivery (all L accepted; no skip-eval)
-    deliver              ReadyForDelivery -> Delivered (+ human-delivery-gate.md)
-    abandon-evaluation   Working: focus phase evaluating->in_progress (eval abandoned)
-    resume-after-eval    Working: focus phase evaluating->in_progress (Fix L / after complete-round)
+    leave-split          Split -> Working (published ledger + holder finalize)
+    ready-for-delivery   Working -> ReadyForDelivery (all L Completed; assemble package)
+    return-to-working    ReadyForDelivery -> Working (--confirm)
+    deliver              ReadyForDelivery -> Delivered (--confirm; consume Ready package)
     write-demand-manifest  Persist AI-enumerated demand units as <prefix>-demands.json
-                           (producer profiles with a demand_manifest block only)
 """
 
 from __future__ import annotations
@@ -46,56 +43,27 @@ from demand_manifest_schema import (  # noqa: E402
     write_manifest,
 )
 from delivered_refs_schema import record_delivered_ref  # noqa: E402
+from cycle_delivered_refs import DeliveryInconsistent, file_digest  # noqa: E402
 from human_delivery_gate_schema import write_approved  # noqa: E402
-from session_state_schema import load_active_doc_from_cycle  # noqa: E402
-from workflow_common import parse_frontmatter_fields  # noqa: E402
-from multi_slice_control import (  # noqa: E402
-    assemble_compose_package,
-    evaluate_split_ready,
-)
-from session_evaluating import enter_evaluating_state  # noqa: E402
-from discussion_pointer_schema import (  # noqa: E402
-    all_l_accepted,
-    load_discussion_pointer,
-    save_discussion_pointer,
-)
-from dependency_tree_schema import load_dependency_tree  # noqa: E402
+from l_ledger_schema import all_completed_unfrozen, load_l_ledger  # noqa: E402
+from compose_package_control import assemble_compose_package, validate_ready_package  # noqa: E402
+from revision_lock import LockTimeout, cycle_lock, revision_lock, session_lock  # noqa: E402
+from session_state_schema import load_session_state  # noqa: E402
 from transition_registry import is_allowed  # noqa: E402
+from workflow_common import CACHE_DIR  # noqa: E402
+from workflow_profile_paths import session_state_path  # noqa: E402
 from workflow_state_schema import load_workflow_state, save_workflow_state  # noqa: E402
+from scope_package_schema import load_scope_package  # noqa: E402
 
 _CMD_LEAVE_SPLIT = "leave-split"
-_CMD_START_EVALUATING = "start-evaluating"
 _CMD_READY = "ready-for-delivery"
+_CMD_RETURN_WORKING = "return-to-working"
 _CMD_DELIVER = "deliver"
-_CMD_ABANDON = "abandon-evaluation"
-_CMD_RESUME_AFTER_EVAL = "resume-after-eval"
 _CMD_WRITE_DEMAND_MANIFEST = "write-demand-manifest"
 _EXPECTED_SPLIT_STATE = "Split"
 _EXPECTED_DELIVER_STATE = "ReadyForDelivery"
 _EXPECTED_WORKING_STATE = "Working"
 
-
-
-def _evaluate_state_path(
-    cycle_id: str,
-    project_root: Path,
-    *,
-    profile_id: str,
-) -> Path:
-    from eval_handoff_control import resolve_evaluate_state_abs  # noqa: WPS433
-
-    return resolve_evaluate_state_abs(
-        cycle_id,
-        project_root,
-        profile_id=profile_id,
-    )
-
-
-def _read_eval_status(es_path: Path) -> str:
-    if not es_path.is_file():
-        return ""
-    content = es_path.read_text(encoding="utf-8")
-    return parse_frontmatter_fields(content).get("eval_status", "")
 
 
 def _success(command: str, current_state: str, **extra: Any) -> dict[str, Any]:
@@ -152,15 +120,6 @@ def _agenda_blocking_for_revision(revision_dir: Path) -> list[dict[str, Any]]:
     return blocking_items(data)
 
 
-def _failure_abandon(current_state: str, message: str) -> dict[str, Any]:
-    return {
-        "ok": False,
-        "command": _CMD_ABANDON,
-        "current_state": current_state,
-        "message": message,
-    }
-
-
 def _require_transition(command: str, from_state: str, to_state: str) -> bool:
     return is_allowed(command, from_state, to_state)
 
@@ -183,17 +142,27 @@ def _build_resume(command: str, current_state: str) -> dict[str, Any]:
     }
 
 
-def _set_focus_phase_in_progress(revision_dir: Path) -> dict[str, Any]:
-    """Move focus L from evaluating -> in_progress. Returns focus/phase info."""
-    tree = load_dependency_tree(revision_dir)
-    pointer = load_discussion_pointer(revision_dir)
-    focus = str(pointer["focus"])
-    cell = pointer["by_id"][focus]
-    if cell.get("phase") == "evaluating":
-        cell["phase"] = "in_progress"
-        cell["acceptance"] = "pending"
-        save_discussion_pointer(revision_dir, pointer, tree=tree)
-    return {"focus": focus, "phase": pointer["by_id"][focus]["phase"]}
+def _published_revision(revision_dir: Path) -> tuple[bool, str | None, dict[str, Any]]:
+    try:
+        ledger = load_l_ledger(revision_dir)
+        package = load_scope_package(Path(revision_dir) / "scope-package.json")
+    except (OSError, ValueError, FileNotFoundError) as exc:
+        return False, str(exc), {}
+    missing = [
+        nid
+        for nid in ledger["order"]
+        if not (Path(revision_dir) / nid / "scope-ref.json").is_file()
+    ]
+    if missing:
+        return False, "missing scope-ref mirrors: " + ", ".join(missing), {}
+    ids = list(ledger["order"])
+    details = {
+        "node_ids": ids,
+        "focus": ledger["focus"],
+        "multi_l": len(ids) >= 2,
+        "slices": len(package.get("slices") or []),
+    }
+    return True, None, details
 
 
 def leave_split(
@@ -202,122 +171,85 @@ def leave_split(
     *,
     profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
 ) -> dict[str, Any]:
-    """Leave session state Split → Working after topology is locked."""
-    ws_path = workflow_state_path(cycle_id, project_root, profile_id)
-    state = load_workflow_state(ws_path)
-    current = state["current_state"]
-
-    if current == "Working":
-        ok, err, details = evaluate_split_ready(ws_path.parent)
-        if not ok:
-            return {
-                "ok": False,
-                "command": _CMD_LEAVE_SPLIT,
-                "current_state": current,
-                "error": err or "split topology not ready",
-                "resume": {
-                    "entry": current,
-                    "action": (
-                        "会话已在 Working，但拓扑未就绪；Blocking，请新开 revision。"
-                        f" ({err})"
-                    ),
-                },
-            }
-        return _success(
-            _CMD_LEAVE_SPLIT,
-            "Working",
-            profile_id=profile_id,
-            transitioned=False,
-            **{k: details[k] for k in ("multi_l", "node_ids", "focus") if k in details},
-        )
-
-    if current != _EXPECTED_SPLIT_STATE:
-        return _failure(_CMD_LEAVE_SPLIT, current)
-
-    if not _require_transition(_CMD_LEAVE_SPLIT, current, "Working"):
-        return _failure(_CMD_LEAVE_SPLIT, current)
-
-    ok, err, details = evaluate_split_ready(ws_path.parent)
-    if not ok:
+    """Leave session state Split → Working after holder finalize."""
+    ss_path = project_root / session_state_path(cycle_id, profile_id, project_root)
+    try:
+        session = load_session_state(ss_path)
+    except ValueError as exc:
         return {
             "ok": False,
             "command": _CMD_LEAVE_SPLIT,
-            "current_state": current,
-            "error": err or "split topology not ready",
-            "resume": {
-                "entry": current,
-                "action": (
-                    "会话仍在 Split 且拓扑未就绪；Blocking，请新开 revision。"
-                    f" ({err})"
-                ),
-            },
+            "code": "holder_finalize_pending",
+            "error": str(exc),
+            "current_state": "unknown",
         }
-
-    merged = dict(state)
-    merged["current_state"] = "Working"
-    save_workflow_state(ws_path, merged, merge=False)
-    return _success(
-        _CMD_LEAVE_SPLIT,
-        "Working",
-        profile_id=profile_id,
-        transitioned=True,
-        **{k: details[k] for k in ("multi_l", "node_ids", "focus") if k in details},
-    )
-
-
-def start_evaluating(
-    cycle_id: str,
-    project_root: Path,
-    *,
-    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
-) -> dict[str, Any]:
-    """Set focus phase=evaluating; session stays Working."""
+    if session["holder_finalized"] is not True:
+        return {
+            "ok": False,
+            "command": _CMD_LEAVE_SPLIT,
+            "code": "holder_finalize_pending",
+            "error": "holder finalize is pending",
+            "current_state": "Split",
+        }
     ws_path = workflow_state_path(cycle_id, project_root, profile_id)
-    state = load_workflow_state(ws_path)
-    current = state["current_state"]
-
-    if current != _EXPECTED_WORKING_STATE:
-        return _failure(_CMD_START_EVALUATING, current)
-
-    topo_ok, topo_err, _ = evaluate_split_ready(ws_path.parent)
-    if not topo_ok:
+    session_dir = ss_path.parent
+    try:
+        with session_lock(session_dir, exclusive=False):
+            with revision_lock(ws_path.parent, exclusive=True):
+                state = load_workflow_state(ws_path)
+                current = state["current_state"]
+                ok, err, details = _published_revision(ws_path.parent)
+                if current == "Working":
+                    if not ok:
+                        return {
+                            "ok": False,
+                            "command": _CMD_LEAVE_SPLIT,
+                            "current_state": current,
+                            "error": err or "published revision not ready",
+                        }
+                    return _success(
+                        _CMD_LEAVE_SPLIT,
+                        "Working",
+                        profile_id=profile_id,
+                        transitioned=False,
+                        **{
+                            k: details[k]
+                            for k in ("multi_l", "node_ids", "focus")
+                            if k in details
+                        },
+                    )
+                if current != _EXPECTED_SPLIT_STATE:
+                    return _failure(_CMD_LEAVE_SPLIT, current)
+                if not _require_transition(_CMD_LEAVE_SPLIT, current, "Working"):
+                    return _failure(_CMD_LEAVE_SPLIT, current)
+                if not ok:
+                    return {
+                        "ok": False,
+                        "command": _CMD_LEAVE_SPLIT,
+                        "current_state": current,
+                        "error": err or "published revision not ready",
+                    }
+                merged = dict(state)
+                merged["current_state"] = "Working"
+                save_workflow_state(ws_path, merged, merge=False)
+                return _success(
+                    _CMD_LEAVE_SPLIT,
+                    "Working",
+                    profile_id=profile_id,
+                    transitioned=True,
+                    **{
+                        k: details[k]
+                        for k in ("multi_l", "node_ids", "focus")
+                        if k in details
+                    },
+                )
+    except LockTimeout:
         return {
             "ok": False,
-            "command": _CMD_START_EVALUATING,
-            "current_state": current,
-            "error": topo_err or "split topology not ready",
-            "resume": {
-                "entry": current,
-                "action": (
-                    "无 locked 拓扑，不能进入 L evaluating；Blocking，请新开 revision。"
-                    f" ({topo_err})"
-                ),
-            },
+            "command": _CMD_LEAVE_SPLIT,
+            "code": "lock_timeout",
+            "error": "lock timeout",
         }
-
-    entry = enter_evaluating_state(cycle_id, project_root, profile_id=profile_id)
-    if not entry.get("ok"):
-        return {
-            "ok": False,
-            "command": _CMD_START_EVALUATING,
-            "current_state": entry.get("current_state", current),
-            "resume": entry.get(
-                "resume",
-                _build_resume(
-                    _CMD_START_EVALUATING, entry.get("current_state", current)
-                ),
-            ),
-        }
-
-    return _success(
-        _CMD_START_EVALUATING,
-        "Working",
-        profile_id=profile_id,
-        evaluate_round=entry["evaluate_round"],
-        focus=entry.get("focus"),
-        phase=entry.get("phase"),
-        transitioned=entry.get("transitioned"),
-    )
 
 
 def ready_for_delivery(
@@ -327,52 +259,121 @@ def ready_for_delivery(
     profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
 ) -> dict[str, Any]:
     ws_path = workflow_state_path(cycle_id, project_root, profile_id)
-    state = load_workflow_state(ws_path)
-    current = state["current_state"]
-
-    if current == "ReadyForDelivery":
-        return _success(_CMD_READY, "ReadyForDelivery", profile_id=profile_id)
-
-    if current != _EXPECTED_WORKING_STATE:
-        return _failure(_CMD_READY, current)
-
-    if not _require_transition(_CMD_READY, current, "ReadyForDelivery"):
-        return _failure(_CMD_READY, current)
-
-    revision_dir = ws_path.parent
+    session_dir = (
+        project_root / session_state_path(cycle_id, profile_id, project_root)
+    ).parent
     try:
-        pointer = load_discussion_pointer(revision_dir)
-    except (FileNotFoundError, ValueError) as exc:
+        with session_lock(session_dir, exclusive=False):
+            with revision_lock(ws_path.parent, exclusive=True):
+                state = load_workflow_state(ws_path)
+                current = state["current_state"]
+                revision_dir = ws_path.parent
+                if current == "ReadyForDelivery":
+                    path, err = validate_ready_package(
+                        revision_dir,
+                        profile_id=profile_id,
+                    )
+                    if err or path is None:
+                        return {
+                            "ok": False,
+                            "command": _CMD_READY,
+                            "current_state": current,
+                            "error": err or "Ready package missing or invalid",
+                        }
+                    return _success(
+                        _CMD_READY,
+                        "ReadyForDelivery",
+                        profile_id=profile_id,
+                        package_path=str(path),
+                    )
+                if current != _EXPECTED_WORKING_STATE:
+                    return _failure(_CMD_READY, current)
+                if not _require_transition(_CMD_READY, current, "ReadyForDelivery"):
+                    return _failure(_CMD_READY, current)
+                try:
+                    ledger = load_l_ledger(revision_dir)
+                except (OSError, ValueError, FileNotFoundError) as exc:
+                    return {
+                        "ok": False,
+                        "command": _CMD_READY,
+                        "current_state": current,
+                        "error": str(exc),
+                    }
+                if not all_completed_unfrozen(ledger):
+                    return {
+                        "ok": False,
+                        "command": _CMD_READY,
+                        "current_state": current,
+                        "error": "not all L Completed and unfrozen",
+                    }
+                path, err = assemble_compose_package(
+                    revision_dir,
+                    profile_id=profile_id,
+                    require_completed=True,
+                )
+                if err or path is None:
+                    return {
+                        "ok": False,
+                        "command": _CMD_READY,
+                        "current_state": current,
+                        "error": err or "assemble-package failed",
+                    }
+                merged = dict(state)
+                merged["current_state"] = "ReadyForDelivery"
+                save_workflow_state(ws_path, merged, merge=False)
+                return _success(
+                    _CMD_READY,
+                    "ReadyForDelivery",
+                    profile_id=profile_id,
+                    package_path=str(path),
+                )
+    except LockTimeout:
         return {
             "ok": False,
             "command": _CMD_READY,
-            "current_state": current,
-            "error": str(exc),
-            "resume": {
-                "entry": current,
-                "action": f"无法读取 discussion-pointer：{exc}",
-            },
+            "code": "lock_timeout",
+            "error": "lock timeout",
         }
 
-    if not all_l_accepted(pointer):
+
+def return_to_working(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+    confirm: bool = False,
+) -> dict[str, Any]:
+    if not confirm:
         return {
             "ok": False,
-            "command": _CMD_READY,
-            "current_state": current,
-            "error": "not all L accepted (phase=accepted required)",
-            "resume": {
-                "entry": current,
-                "action": (
-                    "尚未全员 accepted，不能 ReadyForDelivery；"
-                    "请完成各 L 评估（Accept L）。skip-eval 已禁止。"
-                ),
-            },
+            "command": _CMD_RETURN_WORKING,
+            "code": "confirmation_required",
+            "error": "return-to-working requires --confirm",
         }
-
-    merged = dict(state)
-    merged["current_state"] = "ReadyForDelivery"
-    save_workflow_state(ws_path, merged, merge=False)
-    return _success(_CMD_READY, "ReadyForDelivery", profile_id=profile_id)
+    ws_path = workflow_state_path(cycle_id, project_root, profile_id)
+    session_dir = (
+        project_root / session_state_path(cycle_id, profile_id, project_root)
+    ).parent
+    try:
+        with session_lock(session_dir, exclusive=False):
+            with revision_lock(ws_path.parent, exclusive=True):
+                state = load_workflow_state(ws_path)
+                current = state["current_state"]
+                if current != "ReadyForDelivery":
+                    return _failure(_CMD_RETURN_WORKING, current)
+                if not _require_transition(_CMD_RETURN_WORKING, current, "Working"):
+                    return _failure(_CMD_RETURN_WORKING, current)
+                merged = dict(state)
+                merged["current_state"] = "Working"
+                save_workflow_state(ws_path, merged, merge=False)
+                return _success(_CMD_RETURN_WORKING, "Working", profile_id=profile_id)
+    except LockTimeout:
+        return {
+            "ok": False,
+            "command": _CMD_RETURN_WORKING,
+            "code": "lock_timeout",
+            "error": "lock timeout",
+        }
 
 
 def deliver(
@@ -381,7 +382,15 @@ def deliver(
     *,
     note: str = "",
     profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+    confirm: bool = False,
 ) -> dict[str, Any]:
+    if not confirm:
+        return {
+            "ok": False,
+            "command": _CMD_DELIVER,
+            "code": "confirmation_required",
+            "error": "deliver requires --confirm",
+        }
     ws_path = workflow_state_path(cycle_id, project_root, profile_id)
     state = load_workflow_state(ws_path)
     current = state["current_state"]
@@ -393,44 +402,78 @@ def deliver(
         return _failure_deliver(current)
 
     revision_dir = ws_path.parent
-    agenda_blockers = _agenda_blocking_for_revision(revision_dir)
-    if agenda_blockers:
-        return _failure_deliver_agenda(current, agenda_blockers)
-
-    write_approved(approval_gate_path(cycle_id, project_root, profile_id), note=note)
-
-    active_doc = load_active_doc_for_profile(cycle_id, project_root, profile_id)
-    package_path, package_err = assemble_compose_package(
-        revision_dir,
-        profile_id=profile_id,
-        require_acceptance_done=True,
-    )
-    if package_err or package_path is None:
+    session_dir = (
+        project_root / session_state_path(cycle_id, profile_id, project_root)
+    ).parent
+    cycle_cache = project_root / CACHE_DIR / cycle_id
+    try:
+        with cycle_lock(cycle_cache, exclusive=True):
+            with session_lock(session_dir, exclusive=False):
+                with revision_lock(revision_dir, exclusive=True):
+                    state = load_workflow_state(ws_path)
+                    current = state["current_state"]
+                    if current != _EXPECTED_DELIVER_STATE:
+                        return _failure_deliver(current)
+                    if not _require_transition(_CMD_DELIVER, current, "Delivered"):
+                        return _failure_deliver(current)
+                    agenda_blockers = _agenda_blocking_for_revision(revision_dir)
+                    if agenda_blockers:
+                        return _failure_deliver_agenda(current, agenda_blockers)
+                    package_path, package_err = validate_ready_package(
+                        revision_dir,
+                        profile_id=profile_id,
+                    )
+                    if package_err or package_path is None:
+                        return {
+                            "ok": False,
+                            "command": _CMD_DELIVER,
+                            "current_state": current,
+                            "code": "package_failed",
+                            "error": package_err or "Ready package missing or invalid",
+                            "message": (
+                                "deliver blocked: Ready package missing or invalid "
+                                f"({package_err or 'unknown error'})"
+                            ),
+                        }
+                    digest = file_digest(package_path)
+                    write_approved(
+                        approval_gate_path(cycle_id, project_root, profile_id),
+                        note=note,
+                    )
+                    active_doc = load_active_doc_for_profile(
+                        cycle_id, project_root, profile_id
+                    )
+                    try:
+                        record_delivered_ref(
+                            cycle_id,
+                            project_root,
+                            delivered_type=profile_id,
+                            path=str(package_path.resolve()),
+                            revision=active_doc,
+                            profile_id=profile_id,
+                            source_workflow_state=str(ws_path.resolve()),
+                            artifact="compose-package",
+                            package_digest=digest,
+                        )
+                    except DeliveryInconsistent as exc:
+                        return {
+                            "ok": False,
+                            "command": _CMD_DELIVER,
+                            "current_state": current,
+                            "code": "delivery_inconsistent",
+                            "error": str(exc),
+                        }
+                    merged = dict(state)
+                    merged["current_state"] = "Delivered"
+                    save_workflow_state(ws_path, merged, merge=False)
+                    return _success(_CMD_DELIVER, "Delivered", profile_id=profile_id)
+    except LockTimeout:
         return {
             "ok": False,
             "command": _CMD_DELIVER,
-            "current_state": current,
-            "error": package_err or "assemble-package failed",
-            "message": (
-                f"deliver blocked: cannot assemble *-package.json "
-                f"({package_err or 'unknown error'})"
-            ),
+            "code": "lock_timeout",
+            "error": "lock timeout",
         }
-    record_delivered_ref(
-        cycle_id,
-        project_root,
-        delivered_type=profile_id,
-        path=str(package_path.resolve()),
-        revision=active_doc,
-        profile_id=profile_id,
-        source_workflow_state=str(ws_path.resolve()),
-    )
-
-    merged = dict(state)
-    merged["current_state"] = "Delivered"
-    save_workflow_state(ws_path, merged, merge=False)
-
-    return _success(_CMD_DELIVER, "Delivered", profile_id=profile_id)
 
 
 
@@ -487,156 +530,6 @@ def write_demand_manifest(
     }
 
 
-def abandon_evaluation(
-    cycle_id: str,
-    project_root: Path,
-    *,
-    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
-) -> dict[str, Any]:
-    """Focus evaluating → in_progress after evaluate-state abandoned; stay Working."""
-    ws_path = workflow_state_path(cycle_id, project_root, profile_id)
-    state = load_workflow_state(ws_path)
-    current = state["current_state"]
-
-    if current != _EXPECTED_WORKING_STATE:
-        return _failure_abandon(
-            current,
-            (
-                f"abandon-evaluation 被拒绝：当前状态为 {current}，"
-                f"预期状态为 {_EXPECTED_WORKING_STATE}。"
-                "请暂停执行，等待用户指示。"
-            ),
-        )
-
-    es_path = _evaluate_state_path(cycle_id, project_root, profile_id=profile_id)
-    if not es_path.exists():
-        return _failure_abandon(
-            current,
-            "abandon-evaluation 被拒绝：evaluate-state.md 不存在。"
-            "请暂停执行，等待用户指示。",
-        )
-
-    eval_status = _read_eval_status(es_path)
-    if eval_status != "abandoned":
-        return _failure_abandon(
-            current,
-            (
-                f"abandon-evaluation 被拒绝：eval_status 为 "
-                f"{eval_status!r}，预期为 'abandoned'。"
-                "请暂停执行，等待用户指示。"
-            ),
-        )
-
-    try:
-        phase_info = _set_focus_phase_in_progress(ws_path.parent)
-    except (FileNotFoundError, ValueError, KeyError) as exc:
-        return _failure_abandon(current, f"abandon-evaluation 被拒绝：{exc}")
-
-    merged = dict(state)
-    merged["current_state"] = "Working"
-    save_workflow_state(ws_path, merged, merge=False)
-
-    try:
-        evaluate_round = int(merged.get("evaluate_round", "0"))
-    except ValueError:
-        evaluate_round = 0
-
-    return _success(
-        _CMD_ABANDON,
-        "Working",
-        profile_id=profile_id,
-        evaluate_round=evaluate_round,
-        **phase_info,
-    )
-
-
-def resume_after_eval(
-    cycle_id: str,
-    project_root: Path,
-    *,
-    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
-) -> dict[str, Any]:
-    """Fix L: focus evaluating → in_progress after complete-round; stay Working."""
-    ws_path = workflow_state_path(cycle_id, project_root, profile_id)
-    state = load_workflow_state(ws_path)
-    current = state["current_state"]
-    if current != _EXPECTED_WORKING_STATE:
-        return _failure(_CMD_RESUME_AFTER_EVAL, current)
-
-    es_path = _evaluate_state_path(cycle_id, project_root, profile_id=profile_id)
-    if not es_path.exists():
-        return {
-            "ok": False,
-            "command": _CMD_RESUME_AFTER_EVAL,
-            "current_state": current,
-            "reason": "evaluate-state.md not found.",
-        }
-
-    eval_status = _read_eval_status(es_path)
-    if eval_status == "abandoned":
-        return {
-            "ok": False,
-            "command": _CMD_RESUME_AFTER_EVAL,
-            "current_state": current,
-            "reason": "evaluation was abandoned (eval_status: abandoned).",
-        }
-    if eval_status != "done":
-        return {
-            "ok": False,
-            "command": _CMD_RESUME_AFTER_EVAL,
-            "current_state": current,
-            "reason": (
-                f"eval_status is {eval_status!r}, "
-                "expected 'done' (run complete-round first)."
-            ),
-        }
-
-    try:
-        evaluate_round = int(state.get("evaluate_round", "0"))
-    except ValueError:
-        evaluate_round = 0
-    if evaluate_round < 1:
-        # Per-L layout stores the round on evaluate-state.md.
-        for line in es_path.read_text(encoding="utf-8").splitlines():
-            if line.startswith("evaluate_round:"):
-                raw = line.split(":", 1)[1].strip()
-                try:
-                    evaluate_round = int(raw)
-                except ValueError:
-                    evaluate_round = 0
-                break
-    if evaluate_round < 1:
-        return {
-            "ok": False,
-            "command": _CMD_RESUME_AFTER_EVAL,
-            "current_state": current,
-            "reason": f"evaluate_round is {evaluate_round!r} (expected >= 1).",
-        }
-
-    try:
-        phase_info = _set_focus_phase_in_progress(ws_path.parent)
-    except (FileNotFoundError, ValueError, KeyError) as exc:
-        return {
-            "ok": False,
-            "command": _CMD_RESUME_AFTER_EVAL,
-            "current_state": current,
-            "reason": str(exc),
-        }
-
-    merged = dict(state)
-    merged["current_state"] = "Working"
-    save_workflow_state(ws_path, merged, merge=False)
-
-    return _success(
-        _CMD_RESUME_AFTER_EVAL,
-        "Working",
-        profile_id=profile_id,
-        evaluate_round=evaluate_round,
-        **phase_info,
-    )
-
-
-
 def _emit(payload: dict[str, Any]) -> int:
     print(json.dumps(payload, ensure_ascii=False))
     return 0 if payload.get("ok") else 1
@@ -652,26 +545,16 @@ def _cli() -> int:
         help="Project root directory",
     )
     sub = parser.add_subparsers(dest="command", required=True)
-
-    sub.add_parser(
-        _CMD_LEAVE_SPLIT,
-        help="Leave session state Split -> Working",
-    )
-    sub.add_parser(_CMD_START_EVALUATING, help="Set focus phase=evaluating (stay Working)")
+    sub.add_parser(_CMD_LEAVE_SPLIT, help="Leave session state Split -> Working")
     sub.add_parser(_CMD_READY, help="Transition to ReadyForDelivery")
+    ret = sub.add_parser(_CMD_RETURN_WORKING, help="ReadyForDelivery -> Working")
+    ret.add_argument("--confirm", action="store_true")
     deliver_parser = sub.add_parser(_CMD_DELIVER, help="Transition to Delivered")
     deliver_parser.add_argument("--note", default="", help="Optional delivery note")
-    sub.add_parser(
-        _CMD_ABANDON,
-        help="Focus evaluating->in_progress after eval abandoned (stay Working)",
-    )
-    sub.add_parser(
-        _CMD_RESUME_AFTER_EVAL,
-        help="Focus evaluating->in_progress after complete-round / Fix L (stay Working)",
-    )
+    deliver_parser.add_argument("--confirm", action="store_true")
     manifest_parser = sub.add_parser(
         _CMD_WRITE_DEMAND_MANIFEST,
-        help="Write <prefix>-demands.json from AI-enumerated units (producer profiles only)",
+        help="Write <prefix>-demands.json from AI-enumerated units",
     )
     manifest_parser.add_argument(
         "--units-json",
@@ -694,18 +577,27 @@ def _cli() -> int:
     try:
         if args.command == _CMD_LEAVE_SPLIT:
             return _emit(leave_split(cycle_id, project_root, profile_id=profile_id))
-        if args.command == _CMD_START_EVALUATING:
-            return _emit(start_evaluating(cycle_id, project_root, profile_id=profile_id))
         if args.command == _CMD_READY:
             return _emit(ready_for_delivery(cycle_id, project_root, profile_id=profile_id))
+        if args.command == _CMD_RETURN_WORKING:
+            return _emit(
+                return_to_working(
+                    cycle_id,
+                    project_root,
+                    profile_id=profile_id,
+                    confirm=args.confirm,
+                )
+            )
         if args.command == _CMD_DELIVER:
             return _emit(
-                deliver(cycle_id, project_root, note=args.note, profile_id=profile_id),
+                deliver(
+                    cycle_id,
+                    project_root,
+                    note=args.note,
+                    profile_id=profile_id,
+                    confirm=args.confirm,
+                ),
             )
-        if args.command == _CMD_ABANDON:
-            return _emit(abandon_evaluation(cycle_id, project_root, profile_id=profile_id))
-        if args.command == _CMD_RESUME_AFTER_EVAL:
-            return _emit(resume_after_eval(cycle_id, project_root, profile_id=profile_id))
         if args.command == _CMD_WRITE_DEMAND_MANIFEST:
             return _emit(
                 write_demand_manifest(

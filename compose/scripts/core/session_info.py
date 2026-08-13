@@ -33,9 +33,11 @@ from compose_session import (  # noqa: E402
     stage_name,
     workflow_state_path,
 )
+from workflow_state_schema import load_workflow_state  # noqa: E402
 from workflow_common import detect_cycle_type  # noqa: E402
 from resolved_refs_schema import frozen_delivered_refs  # noqa: E402
-from workflow_state_schema import load_workflow_state  # noqa: E402
+from l_ledger_schema import all_completed_unfrozen, l_ledger_path, load_l_ledger  # noqa: E402
+from l_shell_control import cmd_status as l_shell_status  # noqa: E402
 from role_instance_schema import get_role_prompt, load_and_validate_role_instance  # noqa: E402
 
 _VIEW_DELIVERY_PREVIEW = "delivery-preview"
@@ -166,6 +168,19 @@ def session_snapshot(
     demand_manifest = profile.get("demand_manifest")
     if not isinstance(demand_manifest, dict) or not demand_manifest:
         demand_manifest = None
+    l_shell: dict[str, Any] = {}
+    ledger_path = l_ledger_path(ws_path.parent)
+    if ledger_path.is_file():
+        shell = l_shell_status(ws_path.parent, str(state["current_state"]))
+        if shell.get("ok"):
+            l_shell = {
+                "ledger_fingerprint": shell.get("ledger_fingerprint"),
+                "order": shell.get("order"),
+                "focus": shell.get("focus"),
+                "by_id": shell.get("by_id"),
+                "ready_for_delivery": shell.get("ready_for_delivery"),
+                "next_actions": shell.get("next_actions"),
+            }
     return {
         "view": _VIEW_SESSION,
         "profile_id": profile_id,
@@ -175,7 +190,7 @@ def session_snapshot(
             "post_writing_options": [
                 str(item).strip()
                 for item in post_writing_options
-                if str(item).strip()
+                if str(item).strip() and str(item).strip() != "deliver"
             ],
         },
         "demand_manifest": demand_manifest,
@@ -192,6 +207,7 @@ def session_snapshot(
             "evaluate_round": state.get("evaluate_round", "0"),
             "delivered_refs": [r.to_dict() for r in frozen_delivered_refs(ws_path.parent)],
         },
+        "l_shell": l_shell,
         "compose_doc": compose_doc,
     }
 

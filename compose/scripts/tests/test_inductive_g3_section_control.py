@@ -26,6 +26,9 @@ from g3_section_pointer_schema import (  # noqa: E402
 
 
 def _run(out_dir: Path, *args: str) -> tuple[int, dict]:
+    from init_working_helpers import ensure_l1_revision  # noqa: WPS433
+
+    ensure_l1_revision(out_dir)
     res = subprocess.run(
         [sys.executable, str(_SECTION_CTL), "--out-dir", str(out_dir), *args],
         capture_output=True,
@@ -174,12 +177,12 @@ def test_seed_decision_writes_facts(tmp_path):
     )
     assert code == 0, p2
     assert p2["id"] == "F-2"
-    facts = json.loads((tmp_path / "_facts.json").read_text(encoding="utf-8"))
+    facts = json.loads((tmp_path / "L1" / "_facts.json").read_text(encoding="utf-8"))
     assert [f["text"] for f in facts] == ["first", "second"]
     assert facts[0]["origin"]["type"] == "seed"
     assert facts[0]["lens_tags"] == ["I"]
     # Maturity file has no decisions
-    sec = json.loads((tmp_path / "inductive-scope" / "I.json").read_text(encoding="utf-8"))
+    sec = json.loads((tmp_path / "L1" / "inductive-scope" / "I.json").read_text(encoding="utf-8"))
     assert "decisions" not in sec
     assert sec["status"] == "active"
 
@@ -199,7 +202,7 @@ def test_add_open_writes_opens_without_focus_guard(tmp_path):
     )
     assert code == 0, payload
     assert payload["id"] == "O-1"
-    opens = json.loads((tmp_path / "inductive-opens.json").read_text(encoding="utf-8"))
+    opens = json.loads((tmp_path / "L1" / "inductive-opens.json").read_text(encoding="utf-8"))
     assert opens[0]["id"] == "O-1"
     assert opens[0]["status"] == "open"
     assert opens[0]["detected_under"] == "ST"
@@ -232,8 +235,8 @@ def test_g3_settle_open_write_path_removed(tmp_path):
     assert code != 0
     err = str(payload.get("error") or payload.get("stderr") or payload)
     assert "fact-store-runner" in err.lower()
-    assert not (tmp_path / "_facts.json").is_file()
-    opens = json.loads((tmp_path / "inductive-opens.json").read_text(encoding="utf-8"))
+    assert not (tmp_path / "L1" / "_facts.json").is_file()
+    opens = json.loads((tmp_path / "L1" / "inductive-opens.json").read_text(encoding="utf-8"))
     assert opens[0]["status"] == "open"
 
 
@@ -265,10 +268,10 @@ def test_settle_open_one_to_n_facts(tmp_path):
     assert payload["fact_ids"] == ["F-1", "F-2"]
     assert payload.get("stale_signal") is True
     assert payload.get("suggest_check") is True
-    facts = json.loads((tmp_path / "_facts.json").read_text(encoding="utf-8"))
+    facts = json.loads((tmp_path / "L1" / "_facts.json").read_text(encoding="utf-8"))
     assert facts[0]["origin"] == {"type": "discovered", "ref": ["O-1"]}
     assert facts[0]["lens_tags"] == ["ST", "I"]
-    opens = json.loads((tmp_path / "inductive-opens.json").read_text(encoding="utf-8"))
+    opens = json.loads((tmp_path / "L1" / "inductive-opens.json").read_text(encoding="utf-8"))
     assert opens[0]["status"] == "settled"
     assert opens[0]["resolved_by"] == ["F-1", "F-2"]
 
@@ -284,7 +287,7 @@ def test_seed_decision_declares_anchors(tmp_path):
         "--anchors", json.dumps([{"kind": "path", "value": "a/b/"}]),
     )
     assert code == 0, payload
-    facts = json.loads((tmp_path / "_facts.json").read_text(encoding="utf-8"))
+    facts = json.loads((tmp_path / "L1" / "_facts.json").read_text(encoding="utf-8"))
     assert facts[0]["anchors"] == [{"kind": "path", "value": "a/b/"}]
 
 
@@ -327,7 +330,7 @@ def test_settle_open_uses_declared_entry_anchors(tmp_path):
         ),
     )
     assert code == 0, err or payload
-    facts = json.loads((tmp_path / "_facts.json").read_text(encoding="utf-8"))
+    facts = json.loads((tmp_path / "L1" / "_facts.json").read_text(encoding="utf-8"))
     assert facts[0]["anchors"] == [{"kind": "artifact", "value": "attachments.json"}]
 
 
@@ -358,12 +361,12 @@ def test_settle_open_fallback_distributes_code_refs(tmp_path):
         ),
     )
     assert code == 0, err or payload
-    facts = json.loads((tmp_path / "_facts.json").read_text(encoding="utf-8"))
+    facts = json.loads((tmp_path / "L1" / "_facts.json").read_text(encoding="utf-8"))
     # matched ref projected (parens stripped); unmatched ref stays on open only
     assert facts[0]["anchors"] == [
         {"kind": "code_ref", "value": "paths.rs::plan_tasks_task_dir"},
     ]
-    opens = json.loads((tmp_path / "inductive-opens.json").read_text(encoding="utf-8"))
+    opens = json.loads((tmp_path / "L1" / "inductive-opens.json").read_text(encoding="utf-8"))
     assert "other.rs::unused_symbol (9)" in opens[0]["code_refs"]
 
 
@@ -385,7 +388,7 @@ def test_reject_open(tmp_path):
         "--reason", "真·域外",
     )
     assert code == 0, payload
-    opens = json.loads((tmp_path / "inductive-opens.json").read_text(encoding="utf-8"))
+    opens = json.loads((tmp_path / "L1" / "inductive-opens.json").read_text(encoding="utf-8"))
     assert opens[0]["status"] == "rejected"
     assert opens[0]["reason"] == "真·域外"
 
@@ -555,7 +558,7 @@ def test_init_pointer_does_not_create_ep_ledger(tmp_path):
     code, payload = _run(tmp_path, "init-pointer", "--sections", "I,ST", "--mandatory", "")
     assert code == 0, payload
     assert not (tmp_path / "exposed-points.json").exists()
-    assert (tmp_path / "inductive-scope" / "_index.json").exists()
+    assert (tmp_path / "L1" / "inductive-scope" / "_index.json").exists()
 
 
 def test_check_coverage_passes_when_all_cleared(tmp_path):
@@ -612,7 +615,7 @@ def test_full_section_order_allows_former_peel_seed(tmp_path):
     )
     assert code == 0, payload
     assert payload["id"] == "F-1"
-    facts = json.loads((tmp_path / "_facts.json").read_text(encoding="utf-8"))
+    facts = json.loads((tmp_path / "L1" / "_facts.json").read_text(encoding="utf-8"))
     assert facts[0]["lens_tags"] == ["CTX"]
 
 
@@ -689,7 +692,7 @@ def test_defer_open(tmp_path):
         "--note", "本轮不展开",
     )
     assert code == 0, payload
-    opens = json.loads((tmp_path / "inductive-opens.json").read_text(encoding="utf-8"))
+    opens = json.loads((tmp_path / "L1" / "inductive-opens.json").read_text(encoding="utf-8"))
     assert opens[0]["status"] == "deferred"
     assert opens[0]["note"] == "本轮不展开"
 
@@ -712,7 +715,7 @@ def test_g3_update_decision_write_path_removed(tmp_path):
     assert code != 0
     err = str(payload.get("error") or payload.get("stderr") or payload)
     assert "fact-store-runner" in err.lower()
-    facts = json.loads((tmp_path / "_facts.json").read_text(encoding="utf-8"))
+    facts = json.loads((tmp_path / "L1" / "_facts.json").read_text(encoding="utf-8"))
     assert facts[0]["text"] == "初稿"
 
 
@@ -733,7 +736,7 @@ def test_fact_production_update_requires_ack_and_signals_stale(tmp_path):
     )
     assert code == 0, err or payload
     assert payload.get("stale_signal") is True
-    facts = json.loads((tmp_path / "_facts.json").read_text(encoding="utf-8"))
+    facts = json.loads((tmp_path / "L1" / "_facts.json").read_text(encoding="utf-8"))
     assert facts[0]["text"] == "修订稿"
 
 
@@ -817,7 +820,7 @@ def test_checkpoint_sets_last_checkpoint(tmp_path):
     assert code == 0, payload
     assert payload["last_checkpoint"] == "shape"
     idx = json.loads(
-        (tmp_path / "inductive-scope" / "_index.json").read_text(encoding="utf-8")
+        (tmp_path / "L1" / "inductive-scope" / "_index.json").read_text(encoding="utf-8")
     )
     assert idx["last_checkpoint"] == "shape"
 
@@ -947,7 +950,7 @@ def test_update_open_rejects_unknown_detected_under(tmp_path):
     )
     assert code == 1
     assert "detected_under" in payload.get("error", "")
-    opens = json.loads((tmp_path / "inductive-opens.json").read_text(encoding="utf-8"))
+    opens = json.loads((tmp_path / "L1" / "inductive-opens.json").read_text(encoding="utf-8"))
     assert opens[0]["detected_under"] == "I"
 
 
@@ -973,7 +976,7 @@ def test_settle_rolls_back_facts_when_opens_save_fails(tmp_path, monkeypatch, ca
     import inductive_g3_section_control as ctl
 
     _seed_open_for_settle(tmp_path)
-    assert not (tmp_path / "_facts.json").exists()
+    assert not (tmp_path / "L1" / "_facts.json").exists()
 
     monkeypatch.setattr(
         ctl,
@@ -992,14 +995,14 @@ def test_settle_rolls_back_facts_when_opens_save_fails(tmp_path, monkeypatch, ca
         }
     ]
     opens_after = json.loads(
-        (tmp_path / "inductive-opens.json").read_text(encoding="utf-8")
+        (tmp_path / "L1" / "inductive-opens.json").read_text(encoding="utf-8")
     )
     opens_after[0]["status"] = "settled"
     opens_after[0]["resolved_by"] = ["F-1"]
 
     with pytest.raises(SystemExit) as exc:
         ctl._commit_facts_then_opens(
-            tmp_path,
+            tmp_path / "L1",
             facts_before=[],
             facts_after=facts_after,
             opens_after=opens_after,
@@ -1008,8 +1011,8 @@ def test_settle_rolls_back_facts_when_opens_save_fails(tmp_path, monkeypatch, ca
     err = json.loads(capsys.readouterr().out)
     assert err.get("ok") is False
     assert "rolled back" in err.get("error", "")
-    assert not (tmp_path / "_facts.json").exists()
-    opens = json.loads((tmp_path / "inductive-opens.json").read_text(encoding="utf-8"))
+    assert not (tmp_path / "L1" / "_facts.json").exists()
+    opens = json.loads((tmp_path / "L1" / "inductive-opens.json").read_text(encoding="utf-8"))
     assert opens[0]["status"] == "open"
 
 
@@ -1026,7 +1029,7 @@ def test_settle_rolls_back_to_prior_facts_when_opens_fails(tmp_path, monkeypatch
             "origin": {"type": "seed", "ref": ["D-1"]},
         }
     ]
-    (tmp_path / "_facts.json").write_text(
+    (tmp_path / "L1" / "_facts.json").write_text(
         json.dumps(prior, ensure_ascii=False, indent=2), encoding="utf-8"
     )
 
@@ -1045,14 +1048,14 @@ def test_settle_rolls_back_to_prior_facts_when_opens_fails(tmp_path, monkeypatch
         }
     ]
     opens_after = json.loads(
-        (tmp_path / "inductive-opens.json").read_text(encoding="utf-8")
+        (tmp_path / "L1" / "inductive-opens.json").read_text(encoding="utf-8")
     )
     opens_after[0]["status"] = "settled"
     opens_after[0]["resolved_by"] = ["F-2"]
 
     with pytest.raises(SystemExit) as exc:
         ctl._commit_facts_then_opens(
-            tmp_path,
+            tmp_path / "L1",
             facts_before=prior,
             facts_after=facts_after,
             opens_after=opens_after,
@@ -1060,10 +1063,10 @@ def test_settle_rolls_back_to_prior_facts_when_opens_fails(tmp_path, monkeypatch
     assert exc.value.code == 1
     err = json.loads(capsys.readouterr().out)
     assert "rolled back" in err.get("error", "")
-    restored = json.loads((tmp_path / "_facts.json").read_text(encoding="utf-8"))
+    restored = json.loads((tmp_path / "L1" / "_facts.json").read_text(encoding="utf-8"))
     assert [f["id"] for f in restored] == ["F-1"]
     assert restored[0]["text"] == "seed fact"
-    opens = json.loads((tmp_path / "inductive-opens.json").read_text(encoding="utf-8"))
+    opens = json.loads((tmp_path / "L1" / "inductive-opens.json").read_text(encoding="utf-8"))
     assert opens[0]["status"] == "open"
 
 
@@ -1088,14 +1091,14 @@ def test_settle_rolls_back_on_opens_oserror(tmp_path, monkeypatch, capsys):
         }
     ]
     opens_after = json.loads(
-        (tmp_path / "inductive-opens.json").read_text(encoding="utf-8")
+        (tmp_path / "L1" / "inductive-opens.json").read_text(encoding="utf-8")
     )
     opens_after[0]["status"] = "settled"
     opens_after[0]["resolved_by"] = ["F-1"]
 
     with pytest.raises(SystemExit) as exc:
         ctl._commit_facts_then_opens(
-            tmp_path,
+            tmp_path / "L1",
             facts_before=[],
             facts_after=facts_after,
             opens_after=opens_after,
@@ -1103,8 +1106,8 @@ def test_settle_rolls_back_on_opens_oserror(tmp_path, monkeypatch, capsys):
     assert exc.value.code == 1
     err = json.loads(capsys.readouterr().out)
     assert "rolled back" in err.get("error", "")
-    assert not (tmp_path / "_facts.json").exists()
-    opens = json.loads((tmp_path / "inductive-opens.json").read_text(encoding="utf-8"))
+    assert not (tmp_path / "L1" / "_facts.json").exists()
+    opens = json.loads((tmp_path / "L1" / "inductive-opens.json").read_text(encoding="utf-8"))
     assert opens[0]["status"] == "open"
 
 
@@ -1142,7 +1145,7 @@ def test_clear_ops_ok_without_facet_receipts(tmp_path):
     )
     assert code == 0, payload
     _run(tmp_path, "activate-section", "--section", "OPS")
-    (tmp_path / "section-registry.json").write_text(
+    (tmp_path / "L1" / "section-registry.json").write_text(
         json.dumps(_OPS_SECTION_REGISTRY, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
@@ -1170,7 +1173,7 @@ def test_add_open_without_facet_id(tmp_path):
     )
     assert code == 0, payload
     _run(tmp_path, "activate-section", "--section", "OPS")
-    (tmp_path / "section-registry.json").write_text(
+    (tmp_path / "L1" / "section-registry.json").write_text(
         json.dumps(_OPS_SECTION_REGISTRY, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
@@ -1198,7 +1201,7 @@ def test_materialize_section_registry_from_source(tmp_path):
         json.dumps(_OPS_SECTION_REGISTRY, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
-    local = tmp_path / "section-registry.json"
+    local = tmp_path / "L1" / "section-registry.json"
     if local.exists():
         local.unlink()
     code, payload = _run(
@@ -1208,7 +1211,7 @@ def test_materialize_section_registry_from_source(tmp_path):
         str(src),
     )
     assert code == 0, payload
-    assert (tmp_path / "section-registry.json").is_file()
+    assert (tmp_path / "L1" / "section-registry.json").is_file()
     assert "OPS" in payload.get("seed_lenses", [])
 
 

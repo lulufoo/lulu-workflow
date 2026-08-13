@@ -93,7 +93,8 @@ class ComposeEvalAdapterSupport:
             return {"ok": False, "error": "Compose legacy EvalHandoff unavailable"}
         legacy_manifest = {
             "lease_id": manifest["lease_id"],
-            "pointer_fingerprint": legacy_context["pointer_fingerprint"],
+            "ledger_fingerprint": legacy_context["ledger_fingerprint"],
+            "eval_run_id": legacy_context["eval_run_id"],
             "focus_l": legacy_context["focus_l"],
             "evaluate_round": manifest["evaluate_round"],
             "staged_relative_path": manifest["staged_relative_path"],

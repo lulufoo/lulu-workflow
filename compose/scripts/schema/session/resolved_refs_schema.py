@@ -155,6 +155,51 @@ def frozen_delivered_path_by_type(revision_dir: Path, delivered_type: str) -> st
     return ""
 
 
+def _revision_dir_for_workflow(
+    cycle_id: str,
+    project_root: Path,
+    profile_id: str,
+) -> Path | None:
+    from compose_session import workflow_state_path  # noqa: WPS433
+
+    revision_dir = workflow_state_path(cycle_id, project_root, profile_id).parent
+    return revision_dir if revision_dir.is_dir() else None
+
+
+def primary_scope_from_workflow(
+    cycle_id: str,
+    project_root: Path,
+    profile_id: str,
+) -> DeliveredRef | None:
+    """Read scope from the per-revision resolved-refs.json."""
+    revision_dir = _revision_dir_for_workflow(cycle_id, project_root, profile_id)
+    if revision_dir is None or not has_resolved_refs(revision_dir):
+        return None
+    return resolved_scope_ref(revision_dir)
+
+
+def intent_baseline_from_workflow(
+    cycle_id: str,
+    project_root: Path,
+    profile_id: str,
+) -> list[DeliveredRef]:
+    revision_dir = _revision_dir_for_workflow(cycle_id, project_root, profile_id)
+    if revision_dir is None or not has_resolved_refs(revision_dir):
+        return []
+    return resolved_intent_baseline_refs(revision_dir)
+
+
+def norm_constraint_from_workflow(
+    cycle_id: str,
+    project_root: Path,
+    profile_id: str,
+) -> list[DeliveredRef]:
+    revision_dir = _revision_dir_for_workflow(cycle_id, project_root, profile_id)
+    if revision_dir is None or not has_resolved_refs(revision_dir):
+        return []
+    return resolved_norm_constraint_refs(revision_dir)
+
+
 def frozen_delivered_refs(revision_dir: Path) -> list[DeliveredRef]:
     """Return ① frozen upstream stage entries (doc path; ignore legacy facts keys)."""
     path = frozen_delivered_path(revision_dir)

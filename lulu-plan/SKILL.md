@@ -32,17 +32,17 @@ Do NOT proceed until you have read `../_runtime.md` and:
 
 ## Compose Inputs
 
-Run `$PLAN_PROFILE` and bind stdout as `$PROFILE_PATH`.
+1. Run `$PLAN_PREFLIGHT`. Bind stdout `profile_path` as `$PROFILE_PATH` and `scope_package` as `$SCOPE_PACKAGE`.
 
 ## Compose Handoff
 
 <HARD-GATE>
 Do NOT proceed until you have read `{SKILL_ROOT}/compose/SKILL.md` in full.
-Continue from its `## Session bootstrap`.
+Continue from its `## Start`.
 </HARD-GATE>
 
 ## Script Macros
 
 | Macro | Command |
 |---|---|
-| `$PLAN_PROFILE` | `python3 "$SKILL_DIR/scripts/start/tech_plan_profile_control.py" --project-root "$PROJECT_ROOT" --cycle-id "$CYCLE_ID"` |
+| `$PLAN_PREFLIGHT` | `python3 "$SKILL_DIR/scripts/start/tech_plan_preflight.py" --project-root "$PROJECT_ROOT" --cycle-id "$CYCLE_ID"` |

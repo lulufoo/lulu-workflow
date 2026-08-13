@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import os
 import re
@@ -31,7 +32,6 @@ SCHEMA_SECTION_SCOPE_SCRIPTS = SCHEMA_SECTION_SCRIPTS / "scope"
 SCHEMA_SESSION_SCRIPTS = COMPOSE_ROOT / "scripts" / "schema" / "session"
 SCHEMA_SCRIPTS = COMPOSE_ROOT / "scripts" / "schema"
 
-PROFILE_POINTER_NAME = ".compose-profile-path"
 ACTIVE_PROFILE_NAME = ".compose-active-profile"
 COMPOSE_PROFILE_FILENAME = "compose-profile.json"
 
@@ -117,6 +117,30 @@ def _resolve_from_project_root(project_root: Path, raw: str) -> Path:
     return (project_root.resolve() / path).resolve()
 
 
+def cache_subdir_for_profile(profile_id: str) -> str:
+    data = load_profile_json(compose_profile_path(profile_id))
+    subdir = str(data.get("cache_subdir", "")).strip()
+    if not subdir:
+        raise ValueError(f"cache_subdir missing in profile {profile_id!r}")
+    return subdir
+
+
+def compose_session_base(
+    project_root: Path,
+    cycle_id: str,
+    profile_id: str,
+) -> Path:
+    """Deterministic session directory: cache / cycle / cache_subdir."""
+    from workflow_common import CACHE_DIR  # noqa: WPS433
+
+    return (
+        project_root.resolve()
+        / CACHE_DIR
+        / cycle_id.strip()
+        / cache_subdir_for_profile(profile_id)
+    )
+
+
 def session_pointer_path(
     project_root: Path,
     cycle_id: str,
@@ -129,8 +153,45 @@ def session_pointer_path(
         / CACHE_DIR
         / cycle_id.strip()
         / cache_subdir.strip()
-        / PROFILE_POINTER_NAME
+        / "session-state.md"
     )
+
+
+def _write_session_runtime_binding(
+    session_base: Path,
+    profile_json_path: Path,
+    *,
+    active_doc: int = 1,
+) -> Path:
+    from session_state_schema import load_session_state, save_session_state  # noqa: WPS433
+
+    target = Path(profile_json_path).resolve()
+    digest = hashlib.sha256(target.read_bytes()).hexdigest()
+    ss = session_base / "session-state.md"
+    session_base.mkdir(parents=True, exist_ok=True)
+    if ss.is_file():
+        try:
+            existing = load_session_state(ss)
+            save_session_state(
+                ss,
+                active_doc=int(existing["active_doc"]),
+                profile_path=str(target),
+                profile_digest=digest,
+                start_id=str(existing["start_id"]),
+                holder_finalized=bool(existing["holder_finalized"]),
+            )
+            return ss
+        except ValueError:
+            pass
+    save_session_state(
+        ss,
+        active_doc=active_doc,
+        profile_path=str(target),
+        profile_digest=digest,
+        start_id="test",
+        holder_finalized=True,
+    )
+    return ss
 
 
 def write_profile_pointer(
@@ -139,16 +200,14 @@ def write_profile_pointer(
     cache_subdir: str,
     profile_json_path: Path,
 ) -> Path:
-    """Write session pointer with path relative to project_root."""
-    pointer = session_pointer_path(project_root, cycle_id, cache_subdir)
-    pointer.parent.mkdir(parents=True, exist_ok=True)
-    rel = _relative_to_project_root(project_root, profile_json_path)
-    pointer.write_text(rel + "\n", encoding="utf-8")
-    data = load_profile_json(profile_json_path.resolve())
+    """Bind session-state v2 to a runtime profile path (test/helper)."""
+    session_base = session_pointer_path(project_root, cycle_id, cache_subdir).parent
+    ss = _write_session_runtime_binding(session_base, profile_json_path)
+    data = load_profile_json(Path(profile_json_path).resolve())
     pid = str(data.get("profile_id", "")).strip()
     if pid:
         write_active_profile(project_root, cycle_id, pid)
-    return pointer
+    return ss
 
 
 def active_profile_path(project_root: Path, cycle_id: str) -> Path:
@@ -213,22 +272,31 @@ def resolve_profile_id(
     )
 
 
-def read_profile_pointer(session_base: Path, project_root: Path) -> Path:
-    pointer = session_base / PROFILE_POINTER_NAME
-    if not pointer.is_file():
-        raise FileNotFoundError(
-            f"compose profile pointer not found: {pointer}. "
-            f"Run stage start with --profile-path first.",
-        )
-    raw = pointer.read_text(encoding="utf-8").strip()
-    if not raw:
-        raise ValueError(f"empty compose profile pointer: {pointer}")
-    resolved = _resolve_from_project_root(project_root, raw)
+def read_session_profile_path(session_base: Path) -> Path:
+    """Return the runtime profile path bound in session-state.md v2."""
+    from session_state_schema import load_session_state  # noqa: WPS433
+
+    ss = Path(session_base) / "session-state.md"
+    state = load_session_state(ss)
+    resolved = Path(str(state["profile_path"]).strip())
     if not resolved.is_file():
         raise FileNotFoundError(
-            f"compose profile pointer targets missing file: {resolved} (from {pointer})",
+            f"session-state profile_path missing: {resolved} (from {ss})",
+        )
+    digest = hashlib.sha256(resolved.read_bytes()).hexdigest()
+    expected = str(state["profile_digest"]).strip()
+    if digest != expected:
+        raise ValueError(
+            f"runtime profile digest mismatch for {resolved}: "
+            f"got {digest}, session-state has {expected}"
         )
     return resolved
+
+
+def read_profile_pointer(session_base: Path, project_root: Path) -> Path:
+    """Compatibility name: session-state v2 profile_path."""
+    del project_root
+    return read_session_profile_path(session_base)
 
 
 def resolve_revision_runtime_profile(
@@ -240,10 +308,7 @@ def resolve_revision_runtime_profile(
     """Resolve the session-bound runtime profile owning a revision path.
 
     ``revision_dir`` must identify ``revisionN`` or ``revisionN/Lx`` beneath the
-    nearest ancestor containing ``.compose-profile-path``. The pointer target is
-    resolved relative to ``project_root`` (absolute pointer paths are allowed).
-    When ``cycle_id`` is supplied, its cycle-level active profile is only a
-    consistency check on pointer identity.
+    nearest ancestor containing ``session-state.md``.
     """
     root = Path(project_root).resolve()
     revision = Path(revision_dir).resolve()
@@ -251,10 +316,8 @@ def resolve_revision_runtime_profile(
     session_base: Path | None = None
     candidate = revision
     while True:
-        pointer = candidate / PROFILE_POINTER_NAME
-        if pointer.exists():
-            if not pointer.is_file():
-                raise ValueError(f"compose profile pointer is not a file: {pointer}")
+        ss = candidate / "session-state.md"
+        if ss.is_file():
             session_base = candidate
             break
         parent = candidate.parent
@@ -263,7 +326,7 @@ def resolve_revision_runtime_profile(
         candidate = parent
     if session_base is None:
         raise FileNotFoundError(
-            f"compose profile pointer not found for revision: {revision}",
+            f"session-state.md not found for revision: {revision}",
         )
 
     relative = revision.relative_to(session_base)
@@ -283,7 +346,7 @@ def resolve_revision_runtime_profile(
         )
     revision_root = (session_base / parts[0]).resolve()
 
-    profile_path = read_profile_pointer(session_base, root)
+    profile_path = read_session_profile_path(session_base)
     profile_data = load_profile_json(profile_path)
     if not isinstance(profile_data, dict):
         raise ValueError(f"compose profile JSON must be an object: {profile_path}")
@@ -301,7 +364,7 @@ def resolve_revision_runtime_profile(
             raise ValueError(
                 "compose active profile mismatch: "
                 f"cycle {cid!r} has {active_profile_id!r}, "
-                f"session pointer has {profile_id!r}",
+                f"session-state has {profile_id!r}",
             )
 
     return RevisionRuntimeProfile(
@@ -318,28 +381,15 @@ def resolve_compose_session_base(
     cycle_id: str,
     profile_id: str,
 ) -> Path:
-    """Locate session base via .compose-profile-path under cycle cache."""
-    from workflow_common import CACHE_DIR  # noqa: WPS433
-
-    pid = profile_id.strip()
-    cid = cycle_id.strip()
-    cycle_dir = project_root.resolve() / CACHE_DIR / cid
-    if not cycle_dir.is_dir():
+    """Locate session base via cache_subdir + session-state.md."""
+    base = compose_session_base(project_root, cycle_id, profile_id)
+    ss = base / "session-state.md"
+    if not ss.is_file():
         raise FileNotFoundError(
-            f"cycle cache not found: {cycle_dir}. "
+            f"session-state.md not found: {ss}. "
             f"Run stage start with --profile-path first.",
         )
-    for pointer in sorted(cycle_dir.rglob(PROFILE_POINTER_NAME)):
-        try:
-            profile_path = read_profile_pointer(pointer.parent, project_root)
-            data = load_profile_json(profile_path)
-        except (OSError, json.JSONDecodeError, ValueError, FileNotFoundError):
-            continue
-        if str(data.get("profile_id", "")).strip() == pid:
-            return pointer.parent
-    raise FileNotFoundError(
-        f"no compose profile pointer for {pid!r} under cycle {cid!r} ({cycle_dir})",
-    )
+    return base
 
 
 def resolve_cycle_id(
@@ -378,11 +428,11 @@ def load_profile(
     conversation_id: str | None = None,
     profile_path: Path | None = None,
 ) -> dict[str, Any]:
-    """Load compose profile JSON (session pointer or authoring path).
+    """Load compose profile JSON (session-state v2 or authoring path).
 
     When ``profile_path`` is set, load that file and skip cycle lookup.
     When ``project_root`` is set and a cycle id is explicit or resolvable from
-    env/active-context, the session ``.compose-profile-path`` is required (no
+    env/active-context, session-state.md ``profile_path`` is required (no
     fallback to authoring). Authoring path is used only when ``project_root`` is
     omitted, or when no cycle id can be resolved.
     """
@@ -459,19 +509,18 @@ def seed_revision_profile_pointer(
     *,
     project_root: Path | None = None,
 ) -> Path:
-    """Test helper: write ``.compose-profile-path`` beside ``revisionN``."""
+    """Test helper: bind session-state v2 beside ``revisionN`` and seed L1 ledger."""
+    del project_root
+    from l_ledger_schema import build_ledger, l_ledger_path, save_l_ledger  # noqa: WPS433
+
     rev = Path(revision_dir).resolve()
     session_base = rev.parent
-    session_base.mkdir(parents=True, exist_ok=True)
-    target = compose_profile_path(profile_id)
-    text = (
-        _relative_to_project_root(project_root, target)
-        if project_root is not None
-        else str(target)
-    )
-    pointer = session_base / PROFILE_POINTER_NAME
-    pointer.write_text(text + "\n", encoding="utf-8")
-    return pointer
+    ss = _write_session_runtime_binding(session_base, compose_profile_path(profile_id))
+    rev.mkdir(parents=True, exist_ok=True)
+    if not l_ledger_path(rev).is_file():
+        save_l_ledger(rev, build_ledger(["L1"]))
+        (rev / "L1").mkdir(parents=True, exist_ok=True)
+    return ss
 
 
 def seed_profile_pointer_for_tests(

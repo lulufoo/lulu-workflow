@@ -27,7 +27,7 @@ sys.path.insert(0, str(CORE))
 
 from fact_intake_eval_adapter import FactIntakeEvalAdapter, _PROFILE_ENV  # noqa: E402
 from fact_intake_eval_runtime_schema import evaluate_state_path, load_runtime, runtime_path  # noqa: E402
-from discussion_pointer_schema import active_slice_dir  # noqa: E402
+from l_ledger_schema import active_slice_dir  # noqa: E402
 from facts_schema import FACTS_BASENAME  # noqa: E402
 from init_working_helpers import init_working_ready  # noqa: E402
 from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, seed_profile_pointer_for_tests  # noqa: E402

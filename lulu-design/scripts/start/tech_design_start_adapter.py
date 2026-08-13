@@ -20,7 +20,7 @@ from delivered_refs_schema import (  # noqa: E402
     load_delivered_refs_file,
     ref_from_file_entry,
 )
-from start_adapter import primary_scope_from_workflow  # noqa: E402
+from resolved_refs_schema import primary_scope_from_workflow  # noqa: E402
 from start_scope_helpers import first_ref  # noqa: E402
 from workflow_common import CACHE_DIR  # noqa: E402
 
@@ -107,14 +107,12 @@ class TechDesignStartAdapter:
         *,
         delivered_refs: list[DeliveredRef],
         run_mode: str = "tech",
+        output_dir: Path | None = None,
         revision_dir: Path | None = None,
     ) -> list[DeliveredRef]:
-        """Primary scope SSOT for design start.
-
-        Requires ``artifact=decision-package`` (or path ``decision-package.json``);
-        projects to revision ``scope-package.json`` (``revision_dir``; D3 write-once).
-        """
+        """Primary scope SSOT for design start."""
         del run_mode
+        dest = output_dir or revision_dir
         primary = first_ref(delivered_refs, "lulu-approach")
         if primary is None:
             return []
@@ -123,13 +121,12 @@ class TechDesignStartAdapter:
                 "lulu-approach scope requires a decision-package.json "
                 "(artifact=decision-package)"
             )
-        if revision_dir is None:
-            raise ValueError(
-                "revision_dir required to project decision-package → scope-package"
-            )
+        if dest is None:
+            raise ValueError("output_dir required to project → scope-package")
         scope_path = write_scope_package_projection(
             decision_package_path=Path(primary.path),
-            revision_dir=Path(revision_dir),
+            output_dir=Path(dest),
+            overwrite=True,
         )
         reject_decision_package_as_scope(scope_path)
         return [

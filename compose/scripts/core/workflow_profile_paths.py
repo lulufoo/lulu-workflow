@@ -6,8 +6,8 @@ from pathlib import Path
 
 from workflow_paths import (
     DEFAULT_COMPOSE_PROFILE_ID,
+    compose_session_base,
     load_profile,
-    resolve_compose_session_base,
 )
 
 
@@ -16,7 +16,7 @@ def session_base_dir(
     profile_id: str,
     project_root: Path,
 ) -> Path:
-    base = resolve_compose_session_base(project_root.resolve(), cycle_id, profile_id)
+    base = compose_session_base(project_root.resolve(), cycle_id, profile_id)
     return base.relative_to(project_root.resolve())
 
 
@@ -42,12 +42,8 @@ def inductive_out_dir(
     profile_id: str,
     project_root: Path,
 ) -> Path:
-    """Inductive state bundle root: active slice under revision{active_doc}/.
-
-    When ``discussion-pointer.json`` exists, this is ``revision{N}/Lx`` for the
-    current pointer; otherwise the revision root (legacy).
-    """
-    from discussion_pointer_schema import active_slice_dir  # noqa: WPS433
+    """Inductive state bundle root: active slice under revision{active_doc}/."""
+    from l_ledger_schema import active_slice_dir  # noqa: WPS433
     from session_state_schema import load_active_doc_from_cycle  # noqa: WPS433
 
     active_doc = load_active_doc_from_cycle(cycle_id, project_root, profile_id=profile_id)
@@ -78,7 +74,7 @@ def document_path(
     profile = load_profile(profile_id, project_root=project_root, cycle_id=cycle_id)
     filename = profile["document"]["filename"]
     rev = doc_dir(cycle_id, doc_round, profile_id, project_root)
-    from discussion_pointer_schema import active_slice_dir  # noqa: WPS433
+    from l_ledger_schema import active_slice_dir  # noqa: WPS433
 
     slice_abs = active_slice_dir(project_root.resolve() / rev)
     try:
@@ -128,16 +124,8 @@ def _root_eval_status(path: Path) -> str:
 
 
 def eval_layout_for_revision(revision_dir: Path) -> str:
-    """Return ``legacy-root`` while a revision-root evaluate session continues.
-
-    ``active`` and ``done`` keep legacy-root so the same session can start the
-    next round at revision root. ``abandoned`` (or missing root state) uses
-    per-L paths for subsequent Evaluating entries.
-    """
-    root_state = Path(revision_dir).resolve() / "evaluate-state.md"
-    status = _root_eval_status(root_state)
-    if status in {"active", "done"}:
-        return "legacy-root"
+    """Always per-L. ``revision_dir`` is unused (hard-cut: no legacy-root)."""
+    del revision_dir
     return "per-l"
 
 
@@ -150,10 +138,9 @@ def evaluate_state_path_for_layout(
     layout: str,
     focus_l: str,
 ) -> Path:
-    """evaluate-state.md relative path for legacy-root or per-L layout."""
+    """evaluate-state.md relative path (always per-L)."""
+    del layout
     rev = doc_dir(cycle_id, active_doc, profile_id, project_root)
-    if layout == "legacy-root":
-        return rev / "evaluate-state.md"
     return rev / focus_l / "evaluate-state.md"
 
 
@@ -167,8 +154,7 @@ def eval_round_dir_for_layout(
     layout: str,
     focus_l: str,
 ) -> Path:
-    """evaluate{M}/ relative path for legacy-root or per-L layout."""
+    """evaluate{M}/ relative path (always per-L)."""
+    del layout
     rev = doc_dir(cycle_id, doc_round, profile_id, project_root)
-    if layout == "legacy-root":
-        return rev / f"evaluate{evaluate_round}"
     return rev / focus_l / f"evaluate{evaluate_round}"

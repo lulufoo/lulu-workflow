@@ -40,7 +40,8 @@ _HERE = Path(__file__).resolve().parent
 _SCRIPTS = _HERE.parent
 _SECTION = _SCRIPTS / "section"
 _CORE = _SCRIPTS / "core"
-for _p in (_HERE, _SECTION, _CORE, _SCRIPTS):
+_SCHEMA_SESSION = _SCRIPTS / "schema" / "session"
+for _p in (_HERE, _SECTION, _CORE, _SCRIPTS, _SCHEMA_SESSION):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
@@ -85,6 +86,7 @@ from facts_schema import (  # noqa: E402
 )
 from compose_state_lock import compose_state_lock  # noqa: E402
 from workflow_paths import resolve_revision_runtime_profile  # noqa: E402
+from l_ledger_schema import working_slice_dir  # noqa: E402
 from kw_facets import (  # noqa: E402
     load_section_registry_facets,
     materialize_section_registry,
@@ -1470,7 +1472,7 @@ def _build_parser() -> argparse.ArgumentParser:
 def main() -> None:
     parser = _build_parser()
     args = parser.parse_args()
-    out_dir = Path(args.out_dir)
+    out_dir = working_slice_dir(Path(args.out_dir).resolve())
 
     dispatch = {
         "init-pointer": cmd_init_pointer,

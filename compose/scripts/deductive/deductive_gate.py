@@ -19,15 +19,14 @@ from deductive_pending_schema import (  # noqa: E402
     pending_path,
 )
 from derive_shell import collect_ref_tokens  # noqa: E402
-from discussion_pointer_schema import active_slice_dir  # noqa: E402
+from l_ledger_schema import active_slice_dir  # noqa: E402
 from facts_schema import facts_path, load_facts, unlensed_fact_ids  # noqa: E402
 
 _SETTLED = frozenset({"resolved", "escalated", "out_of_scope"})
 
 
-def _unreferenced_quarantine_ids(revision_dir: Path) -> list[str]:
-    slice_dir = active_slice_dir(Path(revision_dir).resolve())
-    facts = load_facts(facts_path(slice_dir))
+def _unreferenced_quarantine_ids(slice_dir: Path) -> list[str]:
+    facts = load_facts(facts_path(Path(slice_dir).resolve()))
     cited: set[str] = set()
     for fact in facts:
         cited |= collect_ref_tokens(fact)

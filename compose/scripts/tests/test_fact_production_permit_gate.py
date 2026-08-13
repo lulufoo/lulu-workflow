@@ -12,6 +12,11 @@ _FACT_CTL = _COMPOSE / "fact-store-runner" / "scripts" / "fact_production_contro
 
 
 def _run(*args: str) -> tuple[int, dict, str]:
+    if "--revision-dir" in args:
+        idx = list(args).index("--revision-dir")
+        from init_working_helpers import ensure_l1_revision  # noqa: WPS433
+
+        ensure_l1_revision(Path(args[idx + 1]))
     result = subprocess.run(
         [sys.executable, str(_FACT_CTL), *args],
         capture_output=True,
@@ -64,7 +69,7 @@ def test_append_requires_digest_bound_ack_before_consume(tmp_path: Path):
     )
     assert code == 0, err
     assert proposal["preview"]["facts_after"][0]["id"] == "F-1"
-    assert not (tmp_path / "_facts.json").exists()
+    assert not (tmp_path / "L1" / "_facts.json").exists()
 
     code, _, err = _run(
         "ack",
@@ -79,7 +84,7 @@ def test_append_requires_digest_bound_ack_before_consume(tmp_path: Path):
         "--human-ack",
     )
     assert code != 0
-    assert not (tmp_path / "_facts.json").exists()
+    assert not (tmp_path / "L1" / "_facts.json").exists()
 
     code, payload, err = _ack_and_consume(tmp_path, proposal)
     assert code == 0, err
@@ -99,7 +104,8 @@ def test_append_requires_digest_bound_ack_before_consume(tmp_path: Path):
 
 
 def test_delete_preserves_surviving_stable_ids(tmp_path: Path):
-    (tmp_path / "_facts.json").write_text(
+    (tmp_path / "L1").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "L1" / "_facts.json").write_text(
         json.dumps(
             [
                 {"id": "F-1", "text": "one", "lens_tags": ["I"]},
@@ -124,7 +130,7 @@ def test_delete_preserves_surviving_stable_ids(tmp_path: Path):
     code, payload, err = _ack_and_consume(tmp_path, proposal)
     assert code == 0, err
     assert payload["deleted"] == "F-2"
-    facts = json.loads((tmp_path / "_facts.json").read_text(encoding="utf-8"))
+    facts = json.loads((tmp_path / "L1" / "_facts.json").read_text(encoding="utf-8"))
     assert [fact["id"] for fact in facts] == ["F-1", "F-3"]
 
 
@@ -139,7 +145,7 @@ def test_consume_rejects_changed_facts_baseline(tmp_path: Path):
         json.dumps([{"text": "permit fact", "lens_tags": ["I"]}]),
     )
     assert code == 0, err
-    (tmp_path / "_facts.json").write_text(
+    (tmp_path / "L1" / "_facts.json").write_text(
         json.dumps([{"id": "F-1", "text": "external fact", "lens_tags": ["I"]}]),
         encoding="utf-8",
     )
@@ -195,7 +201,8 @@ def test_only_one_active_permit_and_revoke_unblocks_next_proposal(tmp_path: Path
 
 
 def test_settle_open_consumes_exact_open_precondition(tmp_path: Path):
-    (tmp_path / "inductive-opens.json").write_text(
+    (tmp_path / "L1").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "L1" / "inductive-opens.json").write_text(
         json.dumps(
             [
                 {
@@ -226,13 +233,14 @@ def test_settle_open_consumes_exact_open_precondition(tmp_path: Path):
     code, payload, err = _ack_and_consume(tmp_path, proposal)
     assert code == 0, err
     assert payload["settled"] == "O-1"
-    opens = json.loads((tmp_path / "inductive-opens.json").read_text(encoding="utf-8"))
+    opens = json.loads((tmp_path / "L1" / "inductive-opens.json").read_text(encoding="utf-8"))
     assert opens[0]["status"] == "settled"
     assert opens[0]["resolved_by"] == ["F-1"]
 
 
 def test_settle_open_failure_reconciles_to_acknowledged(tmp_path: Path, monkeypatch):
-    (tmp_path / "inductive-opens.json").write_text(
+    (tmp_path / "L1").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "L1" / "inductive-opens.json").write_text(
         json.dumps(
             [
                 {
@@ -294,9 +302,9 @@ def test_settle_open_failure_reconciles_to_acknowledged(tmp_path: Path, monkeypa
         ]
     )
     assert code != 0
-    assert not (tmp_path / "_facts.json").exists()
+    assert not (tmp_path / "L1" / "_facts.json").exists()
     store = json.loads(
-        (tmp_path / "_fact-production-permits.json").read_text(encoding="utf-8")
+        (tmp_path / "L1" / "_fact-production-permits.json").read_text(encoding="utf-8")
     )
     assert store["permits"][0]["state"] == "acknowledged"
 
@@ -325,11 +333,11 @@ def test_repair_required_recovery_restores_exact_before_state(tmp_path: Path):
         "--human-ack",
     )
     assert code == 0, err
-    (tmp_path / "_facts.json").write_text(
+    (tmp_path / "L1" / "_facts.json").write_text(
         json.dumps([{"id": "F-1", "text": "unrelated", "lens_tags": ["I"]}]),
         encoding="utf-8",
     )
-    store_path = tmp_path / "_fact-production-permits.json"
+    store_path = tmp_path / "L1" / "_fact-production-permits.json"
     store = json.loads(store_path.read_text(encoding="utf-8"))
     store["permits"][0]["state"] = "consuming"
     store_path.write_text(json.dumps(store), encoding="utf-8")
@@ -360,4 +368,4 @@ def test_repair_required_recovery_restores_exact_before_state(tmp_path: Path):
     )
     assert code == 0, err
     assert payload["state"] == "acknowledged"
-    assert not (tmp_path / "_facts.json").exists()
+    assert not (tmp_path / "L1" / "_facts.json").exists()

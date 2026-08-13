@@ -17,12 +17,18 @@ if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
 
+_COMPOSE_STAGES = frozenset(
+    {"lulu-arch", "lulu-blueprint", "lulu-design", "lulu-plan", "lulu-spec"}
+)
+
+
 def _make_workflow_state(tmp_path: Path, cycle_id: str, stage: str, revision: str,
                           state: str, updated_at: str = "2026-06-01T00:00:00+00:00") -> Path:
     """Create a session state file at the correct path for the given stage.
 
     Flat stages (lulu-bet, lulu-approach, diagnostic) → session-state.md.
-    Plan stages → revision{N}/workflow-state.md.
+    Compose stages → session-state.md v2 + revision{N}/workflow-state.md.
+    Other plan-like stages → revision{N}/workflow-state.md.
     """
     from workflow_sessions import STAGE_FLAT, stage_subdir
     subdir = stage_subdir(stage)
@@ -30,15 +36,50 @@ def _make_workflow_state(tmp_path: Path, cycle_id: str, stage: str, revision: st
         session_dir = tmp_path / cycle_id / subdir
         session_dir.mkdir(parents=True, exist_ok=True)
         ws = session_dir / "session-state.md"
-    else:
-        rev_name = (
-            f"revision{revision.lstrip('r')}"
-            if re.match(r"^r\d+$", revision)
-            else revision
+        ws.write_text(
+            f"---\ncurrent_state: {state}\nupdated_at: {updated_at}\n---\n",
+            encoding="utf-8",
         )
-        session_dir = tmp_path / cycle_id / subdir / rev_name
-        session_dir.mkdir(parents=True, exist_ok=True)
-        ws = session_dir / "workflow-state.md"
+        return ws
+    rev_name = (
+        f"revision{revision.lstrip('r')}"
+        if re.match(r"^r\d+$", revision)
+        else revision
+    )
+    session_dir = tmp_path / cycle_id / subdir / rev_name
+    session_dir.mkdir(parents=True, exist_ok=True)
+    ws = session_dir / "workflow-state.md"
+    if stage in _COMPOSE_STAGES:
+        active_doc = int(re.sub(r"\D", "", rev_name) or "1")
+        ss = tmp_path / cycle_id / subdir / "session-state.md"
+        if not ss.is_file():
+            ss.write_text(
+                "---\n"
+                "version: 2\n"
+                f"active_doc: {active_doc}\n"
+                "profile_path: /tmp/compose-profile.json\n"
+                f"profile_digest: {'a' * 64}\n"
+                "start_id: test-start\n"
+                "holder_finalized: true\n"
+                f"updated_at: {updated_at}\n"
+                "---\n",
+                encoding="utf-8",
+            )
+        mode = "product" if stage == "lulu-spec" else "tech"
+        cycle_type = "topic" if cycle_id.startswith("topic") else "feature"
+        ws.write_text(
+            "---\n"
+            "version: 1\n"
+            "workflow: tech-doc\n"
+            f"mode: {mode}\n"
+            f"cycle_type: {cycle_type}\n"
+            f"current_state: {state}\n"
+            "evaluate_round: 0\n"
+            f"updated_at: {updated_at}\n"
+            "---\n",
+            encoding="utf-8",
+        )
+        return ws
     ws.write_text(
         f"---\ncurrent_state: {state}\nupdated_at: {updated_at}\n---\n",
         encoding="utf-8",

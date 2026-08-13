@@ -52,10 +52,6 @@ def _seed_design_session(tmp_path: Path) -> None:
     base = tmp_path / _CACHE / _CYCLE / "lulu-design"
     revision = base / "revision1"
     revision.mkdir(parents=True)
-    (base / "session-state.md").write_text(
-        "---\nversion: 1\nactive_doc: 1\nupdated_at: 2024-01-01T00:00:00+00:00\n---\n",
-        encoding="utf-8",
-    )
     ws = revision / "workflow-state.md"
     init_working_ready(ws, mode="tech")
     (revision / "L1" / "design-doc.md").write_text(
@@ -96,10 +92,6 @@ class TestComposeSessionTechDesign:
         base = tmp_path / _CACHE / _CYCLE / "lulu-design"
         revision = base / "revision1"
         revision.mkdir(parents=True)
-        (base / "session-state.md").write_text(
-            "---\nversion: 1\nactive_doc: 1\nupdated_at: 2024-01-01T00:00:00+00:00\n---\n",
-            encoding="utf-8",
-        )
         ws = revision / "workflow-state.md"
         init_compose_session(ws, mode="tech")
         lock_single_l1_tree(revision)

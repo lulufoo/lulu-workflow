@@ -3,39 +3,70 @@
 from __future__ import annotations
 
 import json
+import uuid
 from pathlib import Path
 
 from delivered_refs_schema import DeliveredRef, load_delivered_refs_file, record_delivered_ref
-from multi_slice_control import cmd_lock_tree
+from l_ledger_schema import build_ledger, ledger_fingerprint, load_l_ledger, save_l_ledger
 from resolved_refs_schema import freeze_delivered_copy, write_resolved_refs
+from scope_package_schema import build_scope_package, save_scope_package, write_source_path_mirrors
 from start_scope_helpers import first_ref
-from session_state_schema import bump_active_doc
+from session_state_schema import load_active_doc, resolve_path
 from workflow_common import CACHE_DIR
 from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, seed_profile_pointer_for_tests
 from workflow_profile_paths import state_path
-from dependency_tree_schema import load_dependency_tree
-from discussion_pointer_schema import load_discussion_pointer, save_discussion_pointer
 from workflow_state_schema import init_compose_session, save_workflow_state
 
 
-def lock_single_l1_tree(revision_dir: Path) -> None:
-    """Lock an explicit single-node L1 dependency tree (Split complete precondition)."""
-    tree = {
-        "version": 1,
-        "nodes": [{"id": "L1", "title": "Only", "summary": "single"}],
-        "edges": [],
-        "order": ["L1"],
-    }
-    rc = cmd_lock_tree(
-        Path(revision_dir).resolve(),
-        tree_json=json.dumps(tree),
-        tree_file=None,
-        rulers_json=None,
-        rulers_file=None,
-        confirm=True,
+def seed_l1_revision(revision_dir: Path) -> None:
+    """Publish a single-L ledger, scope-package, and L1 dir."""
+    rev = Path(revision_dir).resolve()
+    src = rev / "_scope-src.md"
+    if not src.is_file():
+        src.write_text("# scope\n", encoding="utf-8")
+    save_l_ledger(rev, build_ledger(["L1"]))
+    package = build_scope_package(
+        [{"id": "L1", "title": "Only", "source_path": str(src.resolve())}]
     )
-    if rc != 0:
-        raise RuntimeError(f"lock_single_l1_tree failed rc={rc}")
+    save_scope_package(rev, package)
+    write_source_path_mirrors(rev, package)
+    (rev / "L1").mkdir(parents=True, exist_ok=True)
+
+
+def ensure_l1_revision(revision_dir: Path, *, producer: str = "Inductive") -> Path:
+    """Idempotent: seed a single-L ledger if missing; return the L1 dir."""
+    rev = Path(revision_dir).resolve()
+    from l_ledger_schema import l_ledger_path  # noqa: WPS433
+
+    if not l_ledger_path(rev).is_file():
+        seed_l1_revision(rev)
+        mark_focus_producer(rev, producer)
+    path = rev / "L1"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def l1_dir(revision_dir: Path) -> Path:
+    """Active-slice directory for a seeded single-L revision."""
+    path = Path(revision_dir).resolve() / "L1"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def mark_focus_producer(revision_dir: Path, state: str = "Inductive") -> None:
+    """Focus L: Inductive or Deductive (facts write)."""
+    if state not in {"Inductive", "Deductive"}:
+        raise ValueError(f"producer state must be Inductive or Deductive, got {state!r}")
+    rev = Path(revision_dir).resolve()
+    ledger = load_l_ledger(rev)
+    focus = str(ledger["focus"])
+    ledger["by_id"][focus]["state"] = state
+    save_l_ledger(rev, ledger)
+
+
+def lock_single_l1_tree(revision_dir: Path) -> None:
+    """Compatibility name: seed a single-L ledger revision."""
+    seed_l1_revision(revision_dir)
 
 
 def init_working_ready(
@@ -45,51 +76,56 @@ def init_working_ready(
     cycle_type: str = "feature",
     evaluate_round: int = 0,
 ) -> None:
-    """Init session at Split, lock L1, advance to Working (tests that need Working)."""
+    """Init session at Split, publish L1 ledger, advance to Working."""
     init_compose_session(
         path,
         mode=mode,
         cycle_type=cycle_type,
         evaluate_round=evaluate_round,
     )
-    lock_single_l1_tree(path.parent)
+    seed_l1_revision(path.parent)
     save_workflow_state(path, {"current_state": "Working"})
 
 
 def mark_all_l_accepted(revision_dir: Path) -> None:
-    """Set every by_id cell to intake/acceptance done + phase=accepted."""
+    """Set every ledger cell to Completed and unfrozen."""
     rev = Path(revision_dir).resolve()
-    tree = load_dependency_tree(rev)
-    pointer = load_discussion_pointer(rev)
-    for cell in pointer["by_id"].values():
-        cell["intake"] = "done"
-        cell["acceptance"] = "done"
-        cell["phase"] = "accepted"
-    save_discussion_pointer(rev, pointer, tree=tree)
+    ledger = load_l_ledger(rev)
+    for cell in ledger["by_id"].values():
+        cell["state"] = "Completed"
+        cell["frozen"] = False
+    save_l_ledger(rev, ledger)
 
 
 def mark_focus_intake_done(revision_dir: Path) -> None:
-    """Focus L: intake=done, phase=in_progress (ready for start-evaluating)."""
+    """Focus L: Writing (ready for enter-evaluating)."""
     rev = Path(revision_dir).resolve()
-    tree = load_dependency_tree(rev)
-    pointer = load_discussion_pointer(rev)
-    cell = pointer["by_id"][str(pointer["focus"])]
-    cell["intake"] = "done"
-    cell["acceptance"] = "pending"
-    cell["phase"] = "in_progress"
-    save_discussion_pointer(rev, pointer, tree=tree)
+    ledger = load_l_ledger(rev)
+    focus = str(ledger["focus"])
+    ledger["by_id"][focus]["state"] = "Writing"
+    save_l_ledger(rev, ledger)
+    stamp = rev / focus / "_writing.complete"
+    stamp.parent.mkdir(parents=True, exist_ok=True)
+    stamp.write_text("ok\n", encoding="utf-8")
 
 
 def mark_focus_evaluating(revision_dir: Path) -> None:
-    """Focus L: intake=done, phase=evaluating (eval in progress)."""
+    """Focus L: Evaluating with an active eval_run_id."""
     rev = Path(revision_dir).resolve()
-    tree = load_dependency_tree(rev)
-    pointer = load_discussion_pointer(rev)
-    cell = pointer["by_id"][str(pointer["focus"])]
-    cell["intake"] = "done"
-    cell["acceptance"] = "pending"
-    cell["phase"] = "evaluating"
-    save_discussion_pointer(rev, pointer, tree=tree)
+    ledger = load_l_ledger(rev)
+    focus = str(ledger["focus"])
+    ledger["by_id"][focus]["state"] = "Evaluating"
+    save_l_ledger(rev, ledger)
+    slice_dir = rev / focus
+    slice_dir.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "eval_run_id": uuid.uuid4().hex,
+        "ledger_fingerprint": ledger_fingerprint(load_l_ledger(rev)),
+    }
+    (slice_dir / "_eval_run.json").write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
 
 
 def seed_frozen_delivered(ws_path: Path, refs: list[DeliveredRef]) -> None:
@@ -196,7 +232,7 @@ def seed_tech_plan_session(
         refs = [DeliveredRef(type="lulu-approach", path=str(decision.resolve()))]
     seed_delivered_refs_file(project_root, cycle_id, refs)
     seed_profile_pointer_for_tests(project_root, cycle_id, profile_id)
-    active_doc = bump_active_doc(cycle_id, project_root, profile_id)
+    active_doc = load_active_doc(resolve_path(cycle_id, project_root, profile_id))
     ws_path = project_root / state_path(cycle_id, active_doc, profile_id, project_root)
     init_working_ready(ws_path, mode=mode)
     seed_provenance_artifacts(
@@ -228,7 +264,7 @@ def seed_tech_design_session(
         refs = [DeliveredRef(type="lulu-approach", path=str(decision.resolve()))]
     seed_delivered_refs_file(project_root, cycle_id, refs)
     seed_profile_pointer_for_tests(project_root, cycle_id, "lulu-design")
-    active_doc = bump_active_doc(cycle_id, project_root, "lulu-design")
+    active_doc = load_active_doc(resolve_path(cycle_id, project_root, "lulu-design"))
     ws_path = project_root / state_path(cycle_id, active_doc, "lulu-design", project_root)
     init_working_ready(ws_path, mode=mode)
     intent_refs = []
@@ -265,7 +301,7 @@ def seed_product_spec_session(
         refs = [DeliveredRef(type="lulu-bet", path=str(decision.resolve()))]
     seed_delivered_refs_file(project_root, cycle_id, refs)
     seed_profile_pointer_for_tests(project_root, cycle_id, "lulu-spec")
-    active_doc = bump_active_doc(cycle_id, project_root, "lulu-spec")
+    active_doc = load_active_doc(resolve_path(cycle_id, project_root, "lulu-spec"))
     ws_path = project_root / state_path(cycle_id, active_doc, "lulu-spec", project_root)
     init_working_ready(ws_path, mode="product")
     seed_provenance_artifacts(

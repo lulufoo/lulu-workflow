@@ -17,43 +17,50 @@ _HOLDER_LINE_THRESHOLD = 60
 
 
 def test_engine_skill_contains_full_orchestration() -> None:
-    """Item 2: engine SKILL owns Working multi-L steps + Delivery."""
+    """Item 2: engine SKILL owns outer Working loop + Delivery."""
     text = _ENGINE_SKILL.read_text(encoding="utf-8")
+    inner = (_WORKFLOW_ROOT / "compose" / "references" / "l-execution.md").read_text(
+        encoding="utf-8"
+    )
 
     for heading in (
-        "## Session bootstrap",
-        "### Start",
-        "### Bind context",
-        "### Scope constraints",
+        "## Inputs",
+        "## Script Macros",
+        "## Outer spine",
+        "## Start",
+        "## Bind context",
         "## Split",
-        "## Working Rules",
-        "### Inductive (only when `$INDUCTIVE` is `true`)",
-        "### Deductive (only when `$INDUCTIVE` is `false`)",
-        "### Writing",
-        "### FreeEdit",
-        "### Evaluating",
-        "## Delivery Rules",
+        "## Working",
+        "## ReadyForDelivery",
+        "## Delivery",
     ):
         assert heading in text, f"engine SKILL missing {heading!r}"
 
+    for heading in (
+        "## Producer",
+        "## Writing",
+        "## FreeEdit",
+        "## Evaluating",
+    ):
+        assert heading in inner, f"l-execution.md missing {heading!r}"
+
+    assert "$L_STEP" in inner
+    assert "$ROLE_PROMPT" in inner
+
+    assert "## Session bootstrap" not in text
     assert "## Drafting Rules" not in text
     assert "### Drafting" not in text
     assert "## Evaluating Rules" not in text
-    assert "pipeline.inductive" in text
-    assert "pipeline.code_grounding" in text
-    assert "pipeline.post_writing_options" in text
-    assert "demand_manifest" in text
-    assert "role.role_prompt" in text
-    assert "$ROLE_PROMPT" in text
+    assert "begin-deductive" not in text
+    assert "begin-inductive" not in text
+    assert "assemble-package" not in text
+    assert "$SCOPE_PACKAGE" in text
+    assert "$L_STEP" in text
     assert "$RESOLVE_ROLE" not in text
     assert "$RESOLVE_DOMAIN" not in text
     assert "$L_STEP" in text
+    assert "$L_SHELL" in text
     assert "$DRAFT_CONTROL" not in text
-    assert "inductive" in text.lower()
-    assert "deductive" in text.lower()
-    assert "begin-deductive" in text
-    assert "deductive-runner" in text
-    assert "assemble-package" in text
     assert "leave-split" in text
     assert "lock-hard-mirror" not in text
     assert "check-split-ready" not in text
@@ -63,15 +70,17 @@ def test_engine_skill_contains_full_orchestration() -> None:
 
 
 def test_engine_evaluating_delegates_without_dimension_table() -> None:
-    """Item 3: engine hands off to Eval orchestration without dimensions."""
-    text = _ENGINE_SKILL.read_text(encoding="utf-8")
+    """Item 3: inner L-execution hands off to Eval without dimensions."""
+    text = (
+        _WORKFLOW_ROOT / "compose" / "references" / "l-execution.md"
+    ).read_text(encoding="utf-8")
 
     assert "eval/SKILL.md" in text
     assert "eval/eval-rules.md" not in text
 
     lowered = text.lower()
     for forbidden in ("| d1 ", "| d2 ", "| d3 ", "pdqa"):
-        assert forbidden not in lowered, f"engine SKILL should not enumerate dimension {forbidden!r}"
+        assert forbidden not in lowered, f"l-execution.md should not enumerate dimension {forbidden!r}"
 
 
 def test_holder_skills_are_thin_shells() -> None:

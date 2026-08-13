@@ -3,16 +3,18 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "core"))
+_SCRIPTS = Path(__file__).resolve().parents[1]
+for _p in (_SCRIPTS / "core", _SCRIPTS / "section", _SCRIPTS / "schema" / "session"):
+    sys.path.insert(0, str(_p))
 
 from workflow_paths import (  # noqa: E402
-    PROFILE_POINTER_NAME,
     active_profile_path,
     compose_profile_path,
     load_profile,
@@ -22,6 +24,23 @@ from workflow_paths import (  # noqa: E402
     validate_compose_profile_path,
     write_active_profile,
 )
+
+
+def _bind_session(session_base: Path, profile_path: Path, *, active_doc: int = 2) -> None:
+    digest = hashlib.sha256(profile_path.read_bytes()).hexdigest()
+    session_base.mkdir(parents=True, exist_ok=True)
+    (session_base / "session-state.md").write_text(
+        "---\n"
+        "version: 2\n"
+        f"active_doc: {active_doc}\n"
+        f"profile_path: {profile_path.resolve()}\n"
+        f"profile_digest: {digest}\n"
+        "start_id: test\n"
+        "holder_finalized: true\n"
+        "updated_at: 2024-01-01T00:00:00+00:00\n"
+        "---\n",
+        encoding="utf-8",
+    )
 
 
 def _seed_revision_runtime_profile(
@@ -38,10 +57,7 @@ def _seed_revision_runtime_profile(
     )
     session_base = active_profile_path(project_root, cycle_id).parent / profile_id
     session_base.mkdir(parents=True, exist_ok=True)
-    (session_base / PROFILE_POINTER_NAME).write_text(
-        profile_path.relative_to(project_root).as_posix() + "\n",
-        encoding="utf-8",
-    )
+    _bind_session(session_base, profile_path, active_doc=2)
     write_active_profile(project_root, cycle_id, profile_id)
     revision_root = session_base / "revision2"
     revision_root.mkdir()
@@ -67,7 +83,7 @@ def test_load_profile_session_via_pointer(tmp_path: Path) -> None:
 
 
 def test_load_profile_raises_without_pointer_when_cycle_id_given(tmp_path: Path) -> None:
-    with pytest.raises(FileNotFoundError, match="compose profile pointer|cycle cache not found"):
+    with pytest.raises(FileNotFoundError, match="session-state.md not found"):
         load_profile("lulu-plan", project_root=tmp_path, cycle_id="missing-pointer-cycle")
 
 
@@ -143,23 +159,37 @@ def test_resolve_revision_runtime_profile_rejects_missing_pointer(
     revision_root = tmp_path / "cache" / "session" / "revision1"
     revision_root.mkdir(parents=True)
 
-    with pytest.raises(FileNotFoundError, match="profile pointer not found"):
+    with pytest.raises(FileNotFoundError, match="session-state.md not found"):
         resolve_revision_runtime_profile(revision_root, tmp_path)
 
 
-@pytest.mark.parametrize("pointer_text", ["", "runtime-profiles/missing.json\n"])
+@pytest.mark.parametrize("missing_target", [True, False])
 def test_resolve_revision_runtime_profile_rejects_empty_or_missing_target(
     tmp_path: Path,
-    pointer_text: str,
+    missing_target: bool,
 ) -> None:
     session_base = tmp_path / "cache" / "session"
     revision_root = session_base / "revision1"
     revision_root.mkdir(parents=True)
-    (session_base / PROFILE_POINTER_NAME).write_text(pointer_text, encoding="utf-8")
-
-    expected = ValueError if not pointer_text else FileNotFoundError
-    with pytest.raises(expected):
-        resolve_revision_runtime_profile(revision_root, tmp_path)
+    if missing_target:
+        ghost = tmp_path / "runtime-profiles" / "missing.json"
+        digest = "0" * 64
+        (session_base / "session-state.md").write_text(
+            "---\nversion: 2\nactive_doc: 1\n"
+            f"profile_path: {ghost}\nprofile_digest: {digest}\n"
+            "start_id: test\nholder_finalized: true\n"
+            "updated_at: 2024-01-01T00:00:00+00:00\n---\n",
+            encoding="utf-8",
+        )
+        with pytest.raises(FileNotFoundError):
+            resolve_revision_runtime_profile(revision_root, tmp_path)
+    else:
+        (session_base / "session-state.md").write_text(
+            "---\nversion: 1\nactive_doc: 1\n---\n",
+            encoding="utf-8",
+        )
+        with pytest.raises(ValueError):
+            resolve_revision_runtime_profile(revision_root, tmp_path)
 
 
 @pytest.mark.parametrize(
@@ -180,10 +210,7 @@ def test_resolve_revision_runtime_profile_rejects_invalid_profile(
     session_base = tmp_path / "cache" / "session"
     revision_root = session_base / "revision1"
     revision_root.mkdir(parents=True)
-    (session_base / PROFILE_POINTER_NAME).write_text(
-        profile_path.relative_to(tmp_path).as_posix(),
-        encoding="utf-8",
-    )
+    _bind_session(session_base, profile_path, active_doc=1)
 
     with pytest.raises((json.JSONDecodeError, ValueError), match=message):
         resolve_revision_runtime_profile(revision_root, tmp_path)
@@ -204,10 +231,7 @@ def test_resolve_revision_runtime_profile_outside_project_root(
     tmp_path: Path,
 ) -> None:
     session_base, revision_root, profile_path = _seed_revision_runtime_profile(tmp_path)
-    (session_base / PROFILE_POINTER_NAME).write_text(
-        str(profile_path) + "\n",
-        encoding="utf-8",
-    )
+    _bind_session(session_base, profile_path, active_doc=2)
     other_root = tmp_path / "other-project"
     other_root.mkdir()
 

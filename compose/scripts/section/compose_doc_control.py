@@ -39,7 +39,7 @@ from chapter_doc_schema import (  # noqa: E402
     format_chapter_anchor,
     has_any_chapter_anchor,
 )
-from discussion_pointer_schema import active_slice_dir  # noqa: E402
+from l_ledger_schema import active_slice_dir  # noqa: E402
 from narrative_arc_schema import (  # noqa: E402
     is_write_ready,
     load_narrative_arc,

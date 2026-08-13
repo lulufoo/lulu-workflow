@@ -28,7 +28,6 @@ _COMPOSE_PROFILE_REQUIRED = frozenset(
         "framework_section",
         "framework_templates",
         "pipeline",
-        "start",
         "eval",
         "cycle_types",
     }
@@ -41,8 +40,7 @@ _COMPOSE_SHELL_PATH_KEYS = frozenset(
 )
 _COMPOSE_SCHEME_PATH = KERNEL_SCHEMES / "compose-template-scheme.json"
 _PIPELINE_REQUIRED = frozenset({"inductive", "freeedit", "code_grounding", "post_writing_options"})
-_POST_WRITING_OPTIONS = frozenset({"freeedit", "evaluate", "deliver"})
-_START_REQUIRED = frozenset({"adapter_module", "adapter_class"})
+_POST_WRITING_OPTIONS = frozenset({"freeedit", "evaluate"})
 _EVAL_REQUIRED = frozenset({"adapter_module", "adapter_class"})
 
 
@@ -113,18 +111,15 @@ def _validate_active_compose_profile(path: Path, data: dict) -> list[str]:
                         f"{path.name}: unknown pipeline.post_writing_options value {value!r}; "
                         f"allowed: {', '.join(sorted(_POST_WRITING_OPTIONS))}",
                     )
-            if "evaluate" not in post_writing_options and "deliver" in post_writing_options:
+            if "deliver" in post_writing_options:
                 errors.append(
-                    f"{path.name}: pipeline.post_writing_options may not include "
-                    "'deliver' without 'evaluate' (Eval is the delivery gate)",
+                    f"{path.name}: pipeline.post_writing_options must not include "
+                    "'deliver' (stage delivery is outer Ready/Deliver)",
                 )
-    start = data.get("start")
-    if isinstance(start, dict):
-        for key in _START_REQUIRED:
-            if key not in start:
-                errors.append(f"{path.name}: missing start.{key}")
-            elif not isinstance(start[key], str) or not start[key].strip():
-                errors.append(f"{path.name}: start.{key} must be a non-empty string")
+    if "start" in data:
+        errors.append(
+            f"{path.name}: start adapter contract retired; holder preflight owns inputs"
+        )
     eval_block = data.get("eval")
     if isinstance(eval_block, dict):
         for key in _EVAL_REQUIRED:

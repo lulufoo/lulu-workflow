@@ -35,11 +35,7 @@ _MINIMAL_ACTIVE_PROFILE = {
         "inductive": False,
         "freeedit": True,
         "code_grounding": False,
-        "post_writing_options": ["freeedit", "evaluate", "deliver"],
-    },
-    "start": {
-        "adapter_module": "tech-foo/scripts/start/tech_foo_start_adapter.py",
-        "adapter_class": "TechFooStartAdapter",
+        "post_writing_options": ["freeedit", "evaluate"],
     },
     "eval": {
         "adapter_module": "tech-foo/scripts/eval/tech_foo_eval_adapter.py",
@@ -108,7 +104,7 @@ def test_active_profile_rejects_unknown_post_writing_option(tmp_path: Path) -> N
     assert any("unknown pipeline.post_writing_options value 'round'" in err for err in errors)
 
 
-def test_active_profile_missing_start_adapter_class_fails(tmp_path: Path) -> None:
+def test_active_profile_rejects_retired_start_block(tmp_path: Path) -> None:
     stage_dir = tmp_path / "tech-foo"
     stage_dir.mkdir()
     path = stage_dir / "compose-profile.json"
@@ -116,7 +112,7 @@ def test_active_profile_missing_start_adapter_class_fails(tmp_path: Path) -> Non
     data["start"] = {"adapter_module": "tech-foo/scripts/start/tech_foo_start_adapter.py"}
     path.write_text(json.dumps(data), encoding="utf-8")
     errors = _validate_profile(path)
-    assert any("missing start.adapter_class" in err for err in errors)
+    assert any("start adapter contract retired" in err for err in errors)
 
 
 def test_active_profile_missing_eval_adapter_class_fails(tmp_path: Path) -> None:

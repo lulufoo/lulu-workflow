@@ -22,10 +22,6 @@
       "evaluate"
     ]
   },
-  "start": {
-    "adapter_module": "lulu-plan/scripts/start/tech_plan_start_adapter.py",
-    "adapter_class": "TechPlanStartAdapter"
-  },
   "cache_subdir": "lulu-plan",
   "framework_section": "lulu-plan",
   "framework_templates": {

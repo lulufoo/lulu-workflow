@@ -6,8 +6,6 @@ Handoff is a runtime JSON object — not persisted as session SSOT.
 
 from __future__ import annotations
 
-import hashlib
-import json
 from pathlib import Path
 from typing import Any
 
@@ -26,7 +24,8 @@ EVAL_CONTEXT_REQUIRED = frozenset(
         "cycle_id",
         "profile_id",
         "focus_l",
-        "pointer_fingerprint",
+        "ledger_fingerprint",
+        "eval_run_id",
         "evaluate_round",
         "revision_dir",
         "slice_dir",
@@ -40,13 +39,7 @@ EVAL_CONTEXT_REQUIRED = frozenset(
     }
 )
 HANDOFF_REQUIRED = frozenset({"adapter", "context"})
-LAYOUT_VALUES = frozenset({"per-l", "legacy-root"})
-
-
-def pointer_fingerprint(pointer: dict[str, Any]) -> str:
-    """Stable digest of discussion-pointer content for stale-handoff detection."""
-    payload = json.dumps(pointer, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
-    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+LAYOUT_VALUES = frozenset({"per-l"})
 
 
 def validate_adapter_ref(adapter: dict[str, Any]) -> list[str]:
@@ -125,7 +118,8 @@ def validate_eval_handoff(handoff: dict[str, Any]) -> list[str]:
 def build_artifact_manifest(
     *,
     lease_id: str,
-    pointer_fingerprint_value: str,
+    ledger_fingerprint_value: str,
+    eval_run_id: str,
     focus_l: str,
     evaluate_round: int,
     staged_relative_path: str,
@@ -135,7 +129,8 @@ def build_artifact_manifest(
 ) -> dict[str, Any]:
     return {
         "lease_id": lease_id,
-        "pointer_fingerprint": pointer_fingerprint_value,
+        "ledger_fingerprint": ledger_fingerprint_value,
+        "eval_run_id": eval_run_id,
         "focus_l": focus_l,
         "evaluate_round": int(evaluate_round),
         "staged_relative_path": staged_relative_path,
@@ -148,7 +143,8 @@ def build_artifact_manifest(
 def validate_artifact_manifest(manifest: dict[str, Any]) -> list[str]:
     required = {
         "lease_id",
-        "pointer_fingerprint",
+        "ledger_fingerprint",
+        "eval_run_id",
         "focus_l",
         "evaluate_round",
         "staged_relative_path",

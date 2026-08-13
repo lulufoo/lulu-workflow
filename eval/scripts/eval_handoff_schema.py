@@ -23,7 +23,8 @@ EVAL_CONTEXT_REQUIRED = frozenset(
         "cycle_id",
         "profile_id",
         "focus_l",
-        "pointer_fingerprint",
+        "ledger_fingerprint",
+        "eval_run_id",
         "evaluate_round",
         "revision_dir",
         "slice_dir",
@@ -37,7 +38,7 @@ EVAL_CONTEXT_REQUIRED = frozenset(
     }
 )
 HANDOFF_REQUIRED = frozenset({"adapter", "context"})
-LAYOUT_VALUES = frozenset({"per-l", "legacy-root"})
+LAYOUT_VALUES = frozenset({"per-l"})
 GENERIC_EVAL_CONTEXT_REQUIRED = frozenset(
     {
         "workflow_id",
@@ -53,7 +54,7 @@ GENERIC_EVAL_CONTEXT_REQUIRED = frozenset(
     }
 )
 GENERIC_EVAL_CONTEXT_FORBIDDEN = frozenset(
-    {"compose_doc", "focus_l", "pointer_fingerprint"}
+    {"compose_doc", "focus_l", "ledger_fingerprint"}
 )
 GENERIC_HANDOFF_REQUIRED = frozenset({"version", "context"})
 GENERIC_ARTIFACT_MANIFEST_REQUIRED = frozenset(
@@ -232,7 +233,8 @@ def validate_artifact_manifest_v2(manifest: dict[str, Any]) -> list[str]:
 def build_artifact_manifest(
     *,
     lease_id: str,
-    pointer_fingerprint_value: str,
+    ledger_fingerprint_value: str,
+    eval_run_id: str,
     focus_l: str,
     evaluate_round: int,
     staged_relative_path: str,
@@ -243,7 +245,8 @@ def build_artifact_manifest(
     """Build the provider-validated artifact publication manifest."""
     return {
         "lease_id": lease_id,
-        "pointer_fingerprint": pointer_fingerprint_value,
+        "ledger_fingerprint": ledger_fingerprint_value,
+        "eval_run_id": eval_run_id,
         "focus_l": focus_l,
         "evaluate_round": int(evaluate_round),
         "staged_relative_path": staged_relative_path,
@@ -257,7 +260,8 @@ def validate_artifact_manifest(manifest: dict[str, Any]) -> list[str]:
     """Validate a review publication manifest before provider commit."""
     required = {
         "lease_id",
-        "pointer_fingerprint",
+        "ledger_fingerprint",
+        "eval_run_id",
         "focus_l",
         "evaluate_round",
         "staged_relative_path",

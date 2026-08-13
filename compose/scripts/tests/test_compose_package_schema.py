@@ -10,14 +10,12 @@ import bootstrap  # noqa: F401
 import pytest
 from compose_package_schema import (  # noqa: E402
     build_compose_package,
-    chain_dependency_tree_from_package,
     is_compose_package_path,
     load_compose_package,
     missing_slice_docs,
     package_filename_from_doc,
     resolve_focus_doc_path,
     save_compose_package,
-    stub_slice_rulers_from_package,
     validate_compose_package,
 )
 
@@ -45,8 +43,7 @@ def test_validate_accepts_single_l() -> None:
     assert validate_compose_package(pkg) == []
 
 
-def test_validate_ignores_stale_order() -> None:
-    """F2: legacy/mismatched order must not fail validation or drive topology."""
+def test_validate_rejects_legacy_order() -> None:
     pkg = {
         "version": 1,
         "profile_id": "lulu-design",
@@ -56,10 +53,8 @@ def test_validate_ignores_stale_order() -> None:
             {"id": "L2", "title": "B", "doc_path": "L2/design-doc.md"},
         ],
     }
-    assert validate_compose_package(pkg) == []
-    tree = chain_dependency_tree_from_package(pkg)
-    assert tree["order"] == ["L1", "L2"]
-    assert tree["edges"] == [{"from": "L2", "to": "L1"}]
+    errors = validate_compose_package(pkg)
+    assert any("order must not" in e for e in errors)
 
 
 def test_validate_rejects_duplicate_slice_ids() -> None:
@@ -111,7 +106,9 @@ def test_missing_slice_docs(tmp_path: Path) -> None:
         save_compose_package(rev, "design-doc.md", pkg)
 
 
-def test_chain_tree_and_stub_rulers() -> None:
+def test_chain_ids_from_slices() -> None:
+    from compose_package_schema import chain_ids_from_compose_package
+
     pkg = build_compose_package(
         profile_id="lulu-design",
         slices=[
@@ -120,20 +117,4 @@ def test_chain_tree_and_stub_rulers() -> None:
             {"id": "L3", "title": "C", "doc_path": "L3/design-doc.md"},
         ],
     )
-    tree = chain_dependency_tree_from_package(pkg)
-    assert tree["order"] == ["L1", "L2", "L3"]
-    assert tree["edges"] == [
-        {"from": "L2", "to": "L1"},
-        {"from": "L3", "to": "L2"},
-    ]
-    rulers = stub_slice_rulers_from_package(pkg)
-    assert rulers is not None
-    assert rulers["cut_axis"] == "upstream_order"
-    assert rulers["rulers"]["L1"]["job"] == "A"
-    assert rulers["rulers"]["L1"]["in"] == ["TBD"]
-    assert stub_slice_rulers_from_package(
-        build_compose_package(
-            profile_id="lulu-design",
-            slices=[{"id": "L1", "title": "Only", "doc_path": "L1/design-doc.md"}],
-        )
-    ) is None
+    assert chain_ids_from_compose_package(pkg) == ["L1", "L2", "L3"]

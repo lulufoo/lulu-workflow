@@ -17,7 +17,7 @@ and the parent can enter Writing.
 | Invocation | Run only from a compose stage `start` on the deductive path. |
 | Owns | Fact Intake → Derive → Pending Confirm → Complete. |
 | Delegates | `fact-intake-runner` owns cut / eval / disposition / intake Confirm; `derive-runner` owns Floor / Ceiling / Cascade. |
-| Downstream | Writing, delivery Eval / StageGate, and FreeEdit remain with the parent. |
+| Downstream | Writing, delivery Eval, and FreeEdit remain with the parent. |
 
 ## Cognitive Map
 
@@ -51,7 +51,7 @@ and the parent can enter Writing.
 | `$INTENT_BASELINE_REFS` | JSON array of classified, read-only intent baseline refs; not intake input |
 | `$NORM_CONSTRAINT_REFS` | JSON array of classified, read-only norm constraint refs; not intake input |
 | `$DEDUCTIVE_OUT_DIR` | Active revision dir (`revision{active_doc}/`) |
-| `$CODE_GROUNDING` | Boolean from `begin-deductive` stdout |
+| `$CODE_GROUNDING` | Boolean from `enter-producer` stdout |
 
 Bind `$SOURCE_PATH` from `$ATOMIZE_SOURCE_PATH` when only the alias is set.
 `$REVISION_DIR` for intake = `$DEDUCTIVE_OUT_DIR`. `$PROJECT_ROOT` = `$(pwd)`.
@@ -132,7 +132,7 @@ $DEDUCTIVE_CTL gate-check
 ```
 
 Return control to the parent compose stage. Parent runs
-`$L_STEP deductive-complete`, then `$L_STEP begin-writing`.
+`$L_STEP complete-producer`, then `$L_STEP enter-writing`.
 
 **Done:** both commands exit 0; `_facts.json` ready for Writing validate-only.
 

@@ -51,7 +51,7 @@ from corpus_compose import (  # noqa: E402
     load_dimension_def,
 )
 from corpus_schema import corpus_ref, dispatch_ids  # noqa: E402
-from discussion_pointer_schema import active_slice_dir  # noqa: E402
+from l_ledger_schema import active_slice_dir  # noqa: E402
 from eval_handoff_schema import (  # noqa: E402
     build_eval_handoff_v2,
     validate_artifact_manifest_v2,

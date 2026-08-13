@@ -1,9 +1,23 @@
 #!/usr/bin/env python3
+"""Staged Compose Start: publish a new revision from holder-provided inputs.
+
+Requires ``--profile-path`` and ``--scope-package``. Does not load holder adapters.
+
+Design rationale:
+docs/domain/archive/compose/archive-33.0/compose-outer-shell-management-subdesign.md
+"""
+
+from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import re
+import shutil
 import sys
+import uuid
 from pathlib import Path
+from typing import Any
 
 _CORE = Path(__file__).resolve().parent
 _SCRIPTS = _CORE.parent
@@ -15,302 +29,327 @@ kernel_bootstrap.ensure_kernel_paths()
 from workflow_paths import WORKFLOW_SCRIPTS  # noqa: E402
 
 sys.path.insert(0, str(WORKFLOW_SCRIPTS))
-from cycle_schema import write_stage as write_cycle_state  # noqa: E402
 from start_gate import check_gate, get_topic_doc  # noqa: E402
-from transition_table import load_stage_order  # noqa: E402
-from workflow_sessions import current_effective_delivered, get_sessions  # noqa: E402
-from invalidation_hook import invalidate_downstream  # noqa: E402
 
-from delivered_refs_schema import (  # noqa: E402
-    load_delivered_refs_file,
-    serialize_delivered_refs,
-)
+from delivered_refs_schema import DeliveredRef, load_delivered_refs_file  # noqa: E402
+from l_ledger_schema import build_ledger, load_l_ledger, save_l_ledger  # noqa: E402
 from resolved_refs_schema import freeze_delivered_copy, write_resolved_refs  # noqa: E402
-from session_state_schema import load_active_doc, next_doc_round, save_active_doc
-from start_adapter import StartAdapter, load_start_adapter
-from workflow_profile_paths import (
-    session_state_path as profile_session_state_path,
-    state_path as profile_state_path,
+from revision_lock import LockTimeout, session_lock  # noqa: E402
+from scope_package_schema import (  # noqa: E402
+    chain_ids_from_scope_package,
+    load_scope_package,
+    save_scope_package,
+    write_source_path_mirrors,
 )
-from workflow_common import (
-    CACHE_DIR,
-    detect_cycle_type,
-    load_container_meta,
-    write_active_context,
+from session_state_schema import (  # noqa: E402
+    load_active_doc,
+    load_session_state,
+    save_session_state,
 )
-from workflow_state_schema import init_compose_session, mark_historical
-
-from scope_resolver import resolve_role_summary, ScopeResolverError  # noqa: E402
-
+from workflow_common import CACHE_DIR, detect_cycle_type  # noqa: E402
 from workflow_paths import (  # noqa: E402
     read_profile_for_start,
     validate_compose_profile_path,
-    write_profile_pointer,
 )
+from workflow_profile_paths import (  # noqa: E402
+    session_state_path as profile_session_state_path,
+    state_path as profile_state_path,
+)
+from workflow_state_schema import init_compose_session, load_workflow_state  # noqa: E402
+
+_REV_DIR = re.compile(r"^revision(\d+)$")
+_STAGING = re.compile(r"^\.staging-revision(\d+)-")
 
 
-def _bump_active_doc(cycle_id: str, project_root: Path, profile_id: str) -> int:
-    path = project_root / profile_session_state_path(cycle_id, profile_id, project_root)
-    active_doc = next_doc_round(path)
-    save_active_doc(path, active_doc)
-    return active_doc
+def _emit(payload: dict[str, Any]) -> int:
+    print(json.dumps(payload, ensure_ascii=False))
+    return 0 if payload.get("ok") else 1
 
 
-def _find_latest_delivered_stage(cycle_id: str, cycle_type: str,
-                                  cache_dir: Path) -> "str | None":
-    """Return the last stage in cycle order where current_effective_delivered is True."""
-    try:
-        stages = load_stage_order(cycle_type)
-    except Exception:
+def _failure(code: str, error: str, **extra: Any) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "ok": False,
+        "command": "start",
+        "code": code,
+        "error": error,
+    }
+    payload.update(extra)
+    return payload
+
+
+def _file_digest(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _revision_numbers(session_dir: Path) -> list[int]:
+    nums: list[int] = []
+    if not session_dir.is_dir():
+        return nums
+    for child in session_dir.iterdir():
+        match = _REV_DIR.fullmatch(child.name)
+        if match and child.is_dir():
+            nums.append(int(match.group(1)))
+    return nums
+
+
+def _reserve_revision(session_dir: Path, ss_path: Path) -> int:
+    nums = _revision_numbers(session_dir)
+    active = 0
+    if ss_path.is_file():
+        try:
+            active = int(load_session_state(ss_path)["active_doc"])
+        except ValueError:
+            try:
+                active = load_active_doc(ss_path)
+            except ValueError:
+                active = 0
+    return 1 + max([active, *nums], default=0)
+
+
+def _canonicalize_scope_package(package: dict[str, Any]) -> dict[str, Any]:
+    slices: list[dict[str, Any]] = []
+    for idx, row in enumerate(package.get("slices") or []):
+        if not isinstance(row, dict):
+            raise ValueError(f"slices[{idx}] must be an object")
+        raw = str(row.get("source_path", "")).strip()
+        path = Path(raw)
+        if not path.is_absolute():
+            raise ValueError(f"slices[{idx}].source_path must be an absolute path")
+        resolved = path.resolve(strict=True)
+        if str(resolved) != raw:
+            raise ValueError(
+                f"slices[{idx}].source_path must equal resolve(strict=True); "
+                f"got {raw!r}"
+            )
+        item = dict(row)
+        item["source_path"] = raw
+        slices.append(item)
+    from scope_package_schema import build_scope_package, validate_scope_package  # noqa: WPS433
+
+    built = build_scope_package(slices, version=int(package.get("version", 1)))
+    errors = validate_scope_package(built)
+    if errors:
+        raise ValueError("; ".join(errors))
+    order = chain_ids_from_scope_package(built)
+    build_ledger(order)
+    return built
+
+
+def _reject_unfinished_handshake(session_dir: Path, ss_path: Path) -> dict[str, Any] | None:
+    if not ss_path.is_file():
         return None
-    latest = None
-    for s in stages:
-        if current_effective_delivered(cycle_id, s, cache_dir):
-            latest = s
-    return latest
+    try:
+        existing = load_session_state(ss_path)
+    except ValueError:
+        return None
+    if existing["holder_finalized"] is True:
+        return None
+    ws_path = session_dir / f"revision{existing['active_doc']}" / "workflow-state.md"
+    if not ws_path.is_file():
+        return _failure(
+            "unfinished_holder_finalize",
+            "existing start handshake is unfinished",
+            start_id=existing["start_id"],
+            active_doc=existing["active_doc"],
+        )
+    try:
+        state = load_workflow_state(ws_path)
+    except ValueError as exc:
+        return _failure("unfinished_holder_finalize", str(exc))
+    if str(state.get("current_state")) != "Invalidated":
+        return _failure(
+            "unfinished_holder_finalize",
+            "existing start handshake is unfinished; retry holder finalize",
+            start_id=existing["start_id"],
+            active_doc=existing["active_doc"],
+        )
+    return None
 
 
-def _mark_latest_delivered_historical(cycle_id: str, stage: str, cache_dir: Path) -> None:
-    """Mark the current effective delivered session as historical."""
-    sessions = [s for s in get_sessions(cycle_id, stage, cache_dir)
-                if s.state != "Invalidated"]
-    if not sessions:
+def _cleanup_staging(session_dir: Path) -> None:
+    if not session_dir.is_dir():
         return
-    latest = max(sessions, key=lambda s: (s.created_at, s.revision))
-    if latest.state_path and latest.state_path.exists():
-        mark_historical(latest.state_path)
+    for child in session_dir.iterdir():
+        if child.is_dir() and _STAGING.match(child.name):
+            shutil.rmtree(child, ignore_errors=True)
+
+
+def _validate_published(revision_dir: Path, digest: str) -> None:
+    runtime = revision_dir / "runtime-profile.json"
+    if not runtime.is_file():
+        raise ValueError("runtime-profile.json missing after publish")
+    if _file_digest(runtime) != digest:
+        raise ValueError("runtime-profile digest mismatch after publish")
+    package = load_scope_package(revision_dir / "scope-package.json")
+    _canonicalize_scope_package(package)
+    load_l_ledger(revision_dir)
+    for nid in chain_ids_from_scope_package(package):
+        mirror = revision_dir / nid / "scope-ref.json"
+        if not mirror.is_file():
+            raise ValueError(f"missing scope-ref mirror for {nid}")
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Start a new compose workflow session.")
+    parser = argparse.ArgumentParser(
+        description="Start a new compose revision from holder profile + scope-package.",
+    )
     parser.add_argument("--project-root", default=".", help="Project root directory.")
-    parser.add_argument("--cycle-id", required=True, help="Cycle ID (from cycle_init.py).")
+    parser.add_argument("--cycle-id", required=True, help="Cycle ID.")
     parser.add_argument(
         "--profile-path",
         required=True,
-        help="Path to runtime compose-profile.json (holder-provided).",
+        help="Path to holder-provided runtime compose-profile.json.",
+    )
+    parser.add_argument(
+        "--scope-package",
+        required=True,
+        help="Path to holder-normalized scope-package.json.",
     )
     parser.add_argument(
         "--conversation-id",
         default="",
-        help="Cursor/Copilot conversation ID for active-context indexing.",
+        help="Unused at Start; holder finalize records active-context.",
     )
-    return parser.parse_known_args()[0]
+    return parser.parse_args()
 
 
-def _profile_path_from_args(args: argparse.Namespace) -> Path:
-    profile_json_path = Path(args.profile_path).expanduser()
-    if not profile_json_path.is_absolute():
-        profile_json_path = (Path(args.project_root).resolve() / profile_json_path).resolve()
-    return profile_json_path
-
-
-def run_start(
-    args: argparse.Namespace,
-    adapter: StartAdapter,
-) -> int:
+def run_start(args: argparse.Namespace) -> dict[str, Any]:
     project_root = Path(args.project_root).resolve()
     cycle_id = args.cycle_id.strip()
     profile_json_path = Path(args.profile_path).expanduser()
     if not profile_json_path.is_absolute():
         profile_json_path = (project_root / profile_json_path).resolve()
+    scope_package_path = Path(args.scope_package).expanduser()
+    if not scope_package_path.is_absolute():
+        scope_package_path = (project_root / scope_package_path).resolve()
+
     try:
         validate_compose_profile_path(profile_json_path)
         profile = read_profile_for_start(profile_json_path)
     except ValueError as exc:
-        print(f"错误：{exc}", file=sys.stderr)
-        return 1
+        return _failure("invalid_profile", str(exc))
     profile_id = str(profile.get("profile_id", "")).strip()
-    if not profile_id:
-        print("错误：compose-profile.json missing profile_id", file=sys.stderr)
-        return 1
     cache_subdir = str(profile.get("cache_subdir", "")).strip()
     if not cache_subdir:
-        print("错误：profile 缺少 cache_subdir", file=sys.stderr)
-        return 1
-    to_stage = profile["stage_name"]
+        return _failure("invalid_profile", "profile missing cache_subdir")
+
+    if not scope_package_path.is_file():
+        return _failure("invalid_scope_package", f"scope-package not found: {scope_package_path}")
+    try:
+        incoming = load_scope_package(scope_package_path)
+        package = _canonicalize_scope_package(incoming)
+    except (OSError, ValueError) as exc:
+        return _failure("invalid_scope_package", str(exc))
 
     cycle_type = detect_cycle_type(cycle_id)
-
     cache_dir = project_root / CACHE_DIR
-
-    run_mode = adapter.infer_run_mode(cycle_id, project_root)
-
-    start_errors = adapter.validate_for_start(
-        cycle_id,
-        project_root,
-        run_mode=run_mode,
-    )
-    if start_errors:
-        print("错误：start 校验失败：", file=sys.stderr)
-        for err in start_errors:
-            print(f"  - {err}", file=sys.stderr)
-        return 1
-
-    delivered_refs = adapter.resolve_delivered_refs(
-        cycle_id,
-        project_root,
-        run_mode=run_mode,
-    )
-    if not delivered_refs:
-        print("错误：delivered_refs 快照为空（start 校验已通过但无可写入条目）", file=sys.stderr)
-        return 1
-
-    try:
-        load_container_meta(cache_dir, cycle_id, cycle_type)
-    except ValueError as e:
-        print(f"错误：{e}")
-        return 1
-
-    if current_effective_delivered(cycle_id, to_stage, cache_dir):
-        _mark_latest_delivered_historical(cycle_id, to_stage, cache_dir)
-        invalidate_downstream(cycle_id, to_stage, cycle_type, cache_dir)
-
-    latest_stage = _find_latest_delivered_stage(cycle_id, cycle_type, cache_dir)
-    if latest_stage:
-        try:
-            _stages = load_stage_order(cycle_type)
-        except Exception:
-            _stages = []
-        if to_stage in _stages and latest_stage in _stages:
-            if _stages.index(to_stage) < _stages.index(latest_stage):
-                invalidate_downstream(cycle_id, to_stage, cycle_type, cache_dir)
-
-    ok, reason = check_gate(cycle_id, to_stage, cycle_type, cache_dir)
-    if not ok:
-        print(f"Gate blocked: {reason}", file=sys.stderr)
-        sys.exit(1)
-
-    write_profile_pointer(project_root, cycle_id, cache_subdir, profile_json_path)
-
-    try:
-        topic_doc = get_topic_doc(cycle_id, to_stage, cache_dir)
-        if topic_doc:
-            print(f"Topic doc: {topic_doc}")
-    except ValueError as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
-
-    active_doc = _bump_active_doc(cycle_id, project_root, profile_id)
     ss_path = project_root / profile_session_state_path(cycle_id, profile_id, project_root)
-    write_active_context(
-        project_root,
-        cycle_id,
-        conversation_id=args.conversation_id.strip() or None,
-        stage=to_stage,
-        cycle_type=cycle_type,
-    )
-    write_cycle_state(cycle_id, to_stage, cache_dir)
+    session_dir = ss_path.parent
+    session_dir.mkdir(parents=True, exist_ok=True)
 
-    ws_path = project_root / profile_state_path(cycle_id, active_doc, profile_id, project_root)
-    init_compose_session(
-        ws_path,
-        mode=run_mode,
-        cycle_type=cycle_type,
-    )
-
-    # Per-revision provenance artifacts (see resolved_refs_schema):
-    #   ① frozen full copy of the mutable cycle delivered-refs.json (audit baseline)
-    #   ② stage-resolved three refs — compose consumers read this
-    # Scope resolution runs after revision_dir exists so design can write
-    # scope-package.json once under the new revision (archive-1.0 P3 D3).
-    revision_dir = ws_path.parent
     try:
-        scope_refs = adapter.resolve_scope_refs(
-            delivered_refs=delivered_refs,
-            run_mode=run_mode,
-            revision_dir=revision_dir,
-        )
-    except ValueError as e:
-        print(f"错误：scope_refs 解析失败：{e}", file=sys.stderr)
-        return 1
-    if not scope_refs:
-        print("错误：scope_refs 快照为空（无法解析 primary scope SSOT）", file=sys.stderr)
-        return 1
+        ok, reason = check_gate(cycle_id, profile["stage_name"], cycle_type, cache_dir)
+    except Exception as exc:  # noqa: BLE001
+        return _failure("gate_blocked", str(exc))
+    if not ok:
+        return _failure("gate_blocked", str(reason))
 
-    intent_baseline_refs = adapter.resolve_intent_baseline_refs(
-        delivered_refs=delivered_refs,
-        run_mode=run_mode,
-    )
-    norm_constraint_refs = adapter.resolve_norm_constraint_refs(
-        cycle_id=cycle_id,
-        project_root=project_root,
-        delivered_refs=delivered_refs,
-    )
-    freeze_delivered_copy(revision_dir, load_delivered_refs_file(cycle_id, project_root))
-    write_resolved_refs(
-        revision_dir,
-        cycle_id=cycle_id,
-        stage=profile_id,
-        run_mode=run_mode,
-        scope_ref=scope_refs[0],
-        intent_baseline_refs=intent_baseline_refs,
-        norm_constraint_refs=norm_constraint_refs,
-    )
-
-    # P4.convert (C1=A): when $SCOPE_REF is scope-package.json, hard-convert once.
-    from scope_package_convert import (  # noqa: WPS433
-        ScopePackageConvertError,
-        ensure_scope_package_convert,
-    )
-    from scope_package_schema import is_scope_package_path  # noqa: WPS433
-
-    scope_path = Path(scope_refs[0].path)
-    if is_scope_package_path(scope_path):
-        try:
-            ensure_scope_package_convert(
-                revision_dir,
-                scope_package_path=scope_path,
+    start_id = uuid.uuid4().hex
+    try:
+        with session_lock(session_dir, exclusive=True):
+            blocked = _reject_unfinished_handshake(session_dir, ss_path)
+            if blocked:
+                return blocked
+            _cleanup_staging(session_dir)
+            active_doc = _reserve_revision(session_dir, ss_path)
+            final_dir = session_dir / f"revision{active_doc}"
+            if final_dir.exists():
+                active_doc = _reserve_revision(session_dir, ss_path)
+                final_dir = session_dir / f"revision{active_doc}"
+            staging = session_dir / f".staging-revision{active_doc}-{start_id}"
+            if staging.exists():
+                shutil.rmtree(staging)
+            staging.mkdir(parents=True, exist_ok=True)
+            try:
+                runtime = staging / "runtime-profile.json"
+                runtime.write_bytes(profile_json_path.read_bytes())
+                digest = _file_digest(runtime)
+                save_scope_package(staging, package)
+                write_source_path_mirrors(staging, package)
+                save_l_ledger(staging, build_ledger(chain_ids_from_scope_package(package)))
+                try:
+                    freeze_delivered_copy(
+                        staging,
+                        load_delivered_refs_file(cycle_id, project_root),
+                    )
+                except (OSError, ValueError, FileNotFoundError):
+                    freeze_delivered_copy(staging, {"version": 1, "entries": {}})
+                final_scope = (final_dir / "scope-package.json").resolve()
+                write_resolved_refs(
+                    staging,
+                    cycle_id=cycle_id,
+                    stage=profile_id,
+                    run_mode="tech",
+                    scope_ref=DeliveredRef(
+                        type="scope-package",
+                        path=str(final_scope),
+                        artifact="scope-package",
+                    ),
+                    intent_baseline_refs=[],
+                    norm_constraint_refs=[],
+                )
+                ws_path = staging / "workflow-state.md"
+                init_compose_session(ws_path, mode="tech", cycle_type=cycle_type)
+                _validate_published(staging, digest)
+                staging.rename(final_dir)
+                _validate_published(final_dir, digest)
+            except BaseException:
+                if staging.exists():
+                    shutil.rmtree(staging, ignore_errors=True)
+                raise
+            runtime_final = (final_dir / "runtime-profile.json").resolve()
+            save_session_state(
+                ss_path,
+                active_doc=active_doc,
+                profile_path=str(runtime_final),
+                profile_digest=digest,
+                start_id=start_id,
+                holder_finalized=False,
             )
-        except ScopePackageConvertError as exc:
-            print(f"错误：scope-package convert 失败：{exc}", file=sys.stderr)
-            return 1
+    except LockTimeout:
+        return _failure("lock_timeout", "session lock timeout")
+    except (OSError, ValueError) as exc:
+        return _failure("start_failed", str(exc))
 
+    topic = ""
     try:
-        role_summary = resolve_role_summary(cycle_type=cycle_type)
-    except ScopeResolverError:
-        role_summary = cycle_type
+        topic_doc = get_topic_doc(cycle_id, profile["stage_name"], cache_dir)
+        if topic_doc:
+            topic = str(topic_doc)
+    except ValueError:
+        topic = ""
 
-    note = adapter.post_start_guidance(
-        run_mode=run_mode,
-        scope_refs=scope_refs,
-    )
-
-    doc_label = profile["document"]["filename"]
-    refs_json = serialize_delivered_refs(delivered_refs)
-    scope_json = serialize_delivered_refs(scope_refs)
-    inductive = (profile.get("pipeline") or {}).get("inductive")
-    print(f"""
-会话已启动。
-
-会话状态文件：{ss_path.as_posix()}
-当前文档：    revision{active_doc} / {doc_label}
-状态文件：    {ws_path.as_posix()}
-当前状态：    Split
-运行模式：    {run_mode}
-Profile：     {profile_id}
-pipeline.inductive: {json.dumps(bool(inductive))}
-Cycle type：  {role_summary}
-评估轮次：    0
-delivered_refs：{refs_json}
-scope（派生）：{scope_json}
-
-{note}
-""")
-    return 0
+    payload = {
+        "ok": True,
+        "command": "start",
+        "start_id": start_id,
+        "active_doc": active_doc,
+        "profile_id": profile_id,
+        "profile_path": str(runtime_final),
+        "profile_digest": digest,
+        "revision_dir": str(final_dir.resolve()),
+        "session_state": "Split",
+        "holder_finalized": False,
+        "order": chain_ids_from_scope_package(package),
+    }
+    if topic:
+        payload["topic_doc"] = topic
+    return payload
 
 
 def main() -> int:
     args = parse_args()
-    profile_json_path = _profile_path_from_args(args)
-    try:
-        validate_compose_profile_path(profile_json_path)
-        profile = read_profile_for_start(profile_json_path)
-        adapter = load_start_adapter(profile, profile_json_path)
-    except ValueError as exc:
-        print(f"错误：{exc}", file=sys.stderr)
-        return 1
-    return run_start(args, adapter)
+    return _emit(run_start(args))
 
 
 if __name__ == "__main__":

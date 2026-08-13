@@ -10,59 +10,18 @@ import bootstrap  # noqa: F401
 import pytest
 
 from facts_control import cmd_write  # noqa: E402
-from multi_slice_control import cmd_lock_tree  # noqa: E402
+from l_ledger_schema import build_ledger, save_l_ledger  # noqa: E402
 from workflow_paths import seed_revision_profile_pointer  # noqa: E402
 
 _REPO = Path(__file__).resolve().parents[4]
 
 
 def _lock_multi(rev: Path) -> None:
-    tree = {
-        "version": 1,
-        "nodes": [
-            {"id": "L1", "title": "A", "summary": "a"},
-            {"id": "L2", "title": "B", "summary": "b"},
-        ],
-        "edges": [{"from": "L2", "to": "L1"}],
-        "order": ["L1", "L2"],
-    }
-    rulers = {
-        "version": 1,
-        "cut_axis": "tech_domain",
-        "rulers": {
-            "L1": {
-                "id": "L1",
-                "job": "Core",
-                "in": ["api"],
-                "out": ["ui"],
-                "seam": [
-                    {"with": "L2", "owns": "full_plan", "note": "owns contract"}
-                ],
-                "plan_checklist": ["api listed"],
-            },
-            "L2": {
-                "id": "L2",
-                "job": "UI",
-                "in": ["ui"],
-                "out": ["api"],
-                "seam": [
-                    {"with": "L1", "owns": "depend_only", "note": "depends"}
-                ],
-                "plan_checklist": ["screens"],
-            },
-        },
-    }
-    assert (
-        cmd_lock_tree(
-            rev,
-            tree_json=json.dumps(tree),
-            tree_file=None,
-            rulers_json=json.dumps(rulers),
-            rulers_file=None,
-            confirm=True,
-        )
-        == 0
-    )
+    ledger = build_ledger(["L1", "L2"])
+    ledger["by_id"]["L1"]["state"] = "Inductive"
+    save_l_ledger(rev, ledger)
+    (rev / "L1").mkdir(exist_ok=True)
+    (rev / "L2").mkdir(exist_ok=True)
 
 
 def _args(rev: Path, facts_file: Path, *, target_l: str = "", package_confirm: bool = False):

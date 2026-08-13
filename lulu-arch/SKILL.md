@@ -10,33 +10,30 @@ disable-model-invocation: true
 
 Domain holder for the arch-doc compose document. Delegates full Drafting / Evaluating / Delivery orchestration to the `compose` kernel.
 
-> **Prerequisite:** Delivered `decision-package` from `lulu-approach`, projected to this revision's `scope-package`. Produces **arch-doc.md** — topic-level technical architecture for human sign-off before opening a feature cycle.
+> **Prerequisite:** Delivered `decision-package` from `lulu-approach`. Produces **arch-doc.md**.
 
 **Scope:** Topic cycles only. Feature technical planning uses `lulu-plan` / `lulu-design`.
 
 <HARD-GATE name="Runtime bootstrap">
-Do NOT proceed until you have read `../_runtime.md` and loaded:
-
-- `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, `$CACHE_DIR` from `## Platform Context`
-- `$SKILL_DIR` = `$SKILL_ROOT/lulu-arch` (before Session Foundation)
-- Feature identification logic from `## Session Foundation`
-
+Do NOT proceed until you have read `../_runtime.md` and loaded `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, `$CACHE_DIR`; set `$SKILL_DIR` = `$SKILL_ROOT/lulu-arch`; then Session Foundation.
 </HARD-GATE>
 
 <HARD-GATE name="Compose engine">
 Do NOT proceed until you have read `{SKILL_ROOT}/compose/SKILL.md` in full.
+Continue from its `## Start`.
 </HARD-GATE>
 
-## start
+## Compose Inputs
 
-Identify active cycle per `_runtime.md` § Session Foundation, bind
-`$PROFILE_PATH="$SKILL_DIR/compose-profile.json"`, then run `$START_COMPOSE`.
+1. Run `$ARCH_PREFLIGHT`. Bind stdout `profile_path` as `$PROFILE_PATH` and `scope_package` as `$SCOPE_PACKAGE`.
 
-Run mode is always `tech` for topic architecture shaping. Do not pass `--run-mode`.
+Run mode is always `tech`. To resume, run `$SESSION_INFO --view session` instead of Start.
 
-To resume an in-progress document, do not run start again — run `$SESSION_INFO --view session`.
+## Script Macros
 
----
+| Macro | Command |
+|---|---|
+| `$ARCH_PREFLIGHT` | `python3 "$SKILL_DIR/scripts/start/tech_arch_preflight.py" --project-root "$PROJECT_ROOT" --cycle-id "$CYCLE_ID"` |
 
 ## Reference documents
 

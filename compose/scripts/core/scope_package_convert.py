@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""P4.convert control: scope-package → locked chain tree + per-L source_path mirrors.
+"""P4.convert control: scope-package → ledger + per-L source_path mirrors.
 
 C1=A: run once at compose start / Writing (no rebuild-convert CLI).
 C2=A: strict chain from slices array order (no package ``order`` field).
 C3=B: mirror ``source_path`` into ``Lx/scope-ref.json`` (no source file copy).
-C5=A: refuse overwrite when tree already locked — open a new revision.
+C5=A: refuse overwrite when ledger already published — open a new revision.
 """
 
 from __future__ import annotations
@@ -22,16 +22,6 @@ for _p in (_HERE, _SESSION, _SECTION, _SCRIPTS):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
-from dependency_tree_schema import (  # noqa: E402
-    dependency_tree_path,
-    load_dependency_tree,
-    save_dependency_tree,
-    validate_dependency_tree,
-)
-from discussion_pointer_schema import (  # noqa: E402
-    build_pointer_from_tree,
-    save_discussion_pointer,
-)
 from facts_schema import FACTS_BASENAME  # noqa: E402
 from resolved_refs_schema import (  # noqa: E402
     has_resolved_refs,
@@ -40,18 +30,12 @@ from resolved_refs_schema import (  # noqa: E402
 from scope_package_schema import (  # noqa: E402
     SCOPE_PACKAGE_FILENAME,
     SCOPE_REF_MIRROR_FILENAME,
-    chain_dependency_tree_from_scope_package,
     chain_ids_from_scope_package,
     is_scope_package_path,
     load_scope_package,
     load_scope_ref_mirror,
     scope_ref_mirror_path,
-    stub_slice_rulers_from_scope_package,
     write_source_path_mirrors,
-)
-from slice_rulers_schema import (  # noqa: E402
-    save_slice_rulers,
-    validate_slice_rulers,
 )
 
 _SLICE_MUTATION_BLOCK = (
@@ -115,21 +99,20 @@ def resolve_l_seed_source_path(revision_dir: Path, node_id: str) -> str:
 
 
 def focus_seed_source_path(revision_dir: Path) -> str:
-    """Resolve Seed source_path for the discussion-pointer focus L (A1)."""
-    from discussion_pointer_schema import load_discussion_pointer  # noqa: WPS433
+    """Resolve Seed source_path for the ledger focus L (A1)."""
+    from l_ledger_schema import load_l_ledger  # noqa: WPS433
 
     rev = Path(revision_dir).resolve()
     try:
-        pointer = load_discussion_pointer(rev)
+        ledger = load_l_ledger(rev)
     except (FileNotFoundError, ValueError, OSError) as exc:
         raise ScopePackageAntiseepError(
-            f"P4.antiseep: cannot load discussion-pointer for L seed source_path: {exc}"
+            f"P4.antiseep: cannot load l-ledger for L seed source_path: {exc}"
         ) from exc
-    focus = str(pointer.get("focus", "")).strip()
+    focus = str(ledger.get("focus", "")).strip()
     if not focus:
         raise ScopePackageAntiseepError(
-            "P4.antiseep: discussion-pointer focus missing; "
-            "cannot resolve L seed source_path"
+            "P4.antiseep: ledger focus missing; cannot resolve L seed source_path"
         )
     return resolve_l_seed_source_path(rev, focus)
 
@@ -187,61 +170,17 @@ def _mirrors_match_package(revision_dir: Path, package: dict[str, Any]) -> list[
     return errors
 
 
-def _tree_already_locked(revision_dir: Path) -> bool:
-    path = dependency_tree_path(revision_dir)
+def _ledger_published(revision_dir: Path) -> bool:
+    from l_ledger_schema import l_ledger_path, load_l_ledger  # noqa: WPS433
+
+    path = l_ledger_path(revision_dir)
     if not path.is_file():
         return False
     try:
-        tree = load_dependency_tree(revision_dir)
-    except (ValueError, json.JSONDecodeError, FileNotFoundError):
+        load_l_ledger(revision_dir)
+    except (ValueError, json.JSONDecodeError, FileNotFoundError, OSError):
         return False
-    return tree.get("status") == "locked"
-
-
-def _lock_chain_tree(
-    revision_dir: Path,
-    *,
-    tree: dict[str, Any],
-    rulers: dict[str, Any] | None,
-) -> None:
-    rev = Path(revision_dir).resolve()
-    root_facts = rev / FACTS_BASENAME
-    if root_facts.is_file():
-        raise ScopePackageConvertError(
-            f"root {FACTS_BASENAME} present; migrate to L1/ or remove before convert "
-            f"(path={root_facts.as_posix()})"
-        )
-
-    locked = dict(tree)
-    locked.setdefault("version", 1)
-    locked["status"] = "locked"
-    errors = validate_dependency_tree(locked)
-    if errors:
-        raise ScopePackageConvertError("; ".join(errors))
-
-    node_ids = [str(n["id"]) for n in locked["nodes"]]
-    rulers_payload: dict[str, Any] | None = None
-    if len(node_ids) >= 2:
-        if rulers is None:
-            raise ScopePackageConvertError(
-                "multi-L scope-package convert requires slice rulers"
-            )
-        rulers_payload = dict(rulers)
-        rulers_payload.setdefault("version", 1)
-        rulers_payload["status"] = "locked"
-        r_errors = validate_slice_rulers(
-            rulers_payload, required_node_ids=node_ids
-        )
-        if r_errors:
-            raise ScopePackageConvertError("; ".join(r_errors))
-
-    save_dependency_tree(rev, locked)
-    pointer = build_pointer_from_tree(locked)
-    save_discussion_pointer(rev, pointer, tree=locked)
-    for node in locked["nodes"]:
-        (rev / str(node["id"])).mkdir(parents=True, exist_ok=True)
-    if rulers_payload is not None:
-        save_slice_rulers(rev, rulers_payload)
+    return True
 
 
 def convert_scope_package(
@@ -249,29 +188,37 @@ def convert_scope_package(
     *,
     scope_package_path: Path,
 ) -> dict[str, Any]:
-    """Hard-convert once: lock chain tree + pointer + Lx/ + source_path mirrors.
+    """Publish L dirs + source_path mirrors + ledger from a scope-package.
 
-    Raises ``ScopePackageConvertError`` when the tree is already locked (C5)
-    or the package path is not a scope-package.
+    Refuses overwrite when a ledger is already published.
     """
+    from l_ledger_schema import build_ledger, save_l_ledger  # noqa: WPS433
+
     rev = Path(revision_dir).resolve()
     pkg_path = Path(scope_package_path).resolve()
     if not is_scope_package_path(pkg_path):
         raise ScopePackageConvertError(
             f"expected {SCOPE_PACKAGE_FILENAME}, got {pkg_path.name!r}"
         )
-    if _tree_already_locked(rev):
+    if _ledger_published(rev):
         raise ScopePackageConvertError(
-            "dependency tree already locked; scope-package convert refuses "
+            "l-ledger already published; scope-package convert refuses "
             "overwrite (start a new compose revision)"
         )
 
+    root_facts = rev / FACTS_BASENAME
+    if root_facts.is_file():
+        raise ScopePackageConvertError(
+            f"root {FACTS_BASENAME} present; migrate to L1/ or remove before convert "
+            f"(path={root_facts.as_posix()})"
+        )
+
     package = load_scope_package(pkg_path)
-    tree = chain_dependency_tree_from_scope_package(package)
-    rulers = stub_slice_rulers_from_scope_package(package)
-    _lock_chain_tree(rev, tree=tree, rulers=rulers)
-    mirrors = write_source_path_mirrors(rev, package)
     order = chain_ids_from_scope_package(package)
+    for nid in order:
+        (rev / nid).mkdir(parents=True, exist_ok=True)
+    mirrors = write_source_path_mirrors(rev, package)
+    save_l_ledger(rev, build_ledger(order))
     return {
         "ok": True,
         "command": "convert-scope-package",
@@ -287,12 +234,7 @@ def ensure_scope_package_convert(
     *,
     scope_package_path: Path | None = None,
 ) -> dict[str, Any]:
-    """Run convert once when needed; verify mirrors if already locked (C1/C5).
-
-    * Tree locked + mirrors match → noop success.
-    * Tree locked + mirrors missing/mismatch → error (new revision).
-    * Tree not locked → convert once.
-    """
+    """Run convert once when needed; verify mirrors if ledger already published."""
     rev = Path(revision_dir).resolve()
     pkg_path: Path | None
     if scope_package_path is not None:
@@ -312,7 +254,7 @@ def ensure_scope_package_convert(
         return {"ok": True, "skipped": True, "reason": "scope is not scope-package"}
 
     package = load_scope_package(pkg_path)
-    if _tree_already_locked(rev):
+    if _ledger_published(rev):
         mismatches = _mirrors_match_package(rev, package)
         if mismatches:
             raise ScopePackageConvertError(

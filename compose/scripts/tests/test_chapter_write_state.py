@@ -48,6 +48,12 @@ def _arc() -> dict:
     }
 
 
+def _l1(rev: Path) -> Path:
+    path = rev / "L1"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 def _seed_facts(rev: Path, *, with_anchors: bool = True) -> None:
     facts = [
         {
@@ -63,19 +69,19 @@ def _seed_facts(rev: Path, *, with_anchors: bool = True) -> None:
     ]
     if with_anchors:
         facts[0]["anchors"] = [{"kind": "path", "value": "src/a.py"}]
-    (rev / "_facts.json").write_text(
+    (_l1(rev) / "_facts.json").write_text(
         json.dumps(facts, ensure_ascii=False),
         encoding="utf-8",
     )
 
 
 def _seed_arc(rev: Path) -> None:
-    save_narrative_arc(rev / "_narrative-arc.json", _arc())
+    save_narrative_arc(_l1(rev) / "_narrative-arc.json", _arc())
     _seed_facts(rev)
 
 
 def _write_artifacts(rev: Path, cid: str, *, body: str = "body") -> None:
-    (rev / f"_body-{cid}.txt").write_text(body + "\n", encoding="utf-8")
+    (_l1(rev) / f"_body-{cid}.txt").write_text(body + "\n", encoding="utf-8")
 
 
 def _rev(tmp_path: Path) -> Path:
@@ -126,7 +132,7 @@ def test_sync_creates_pending_order(tmp_path: Path, capsys: pytest.CaptureFixtur
     out = json.loads(capsys.readouterr().out)
     assert out["ok"] is True
     assert out["order"] == ["A01-I", "A01-IF"]
-    state = load_chapter_write_state(rev / CHAPTER_WRITE_STATE_BASENAME)
+    state = load_chapter_write_state(_l1(rev) / CHAPTER_WRITE_STATE_BASENAME)
     assert state["by_id"]["A01-I"]["status"] == "pending"
     assert state["status"] == "pending"
 
@@ -216,7 +222,7 @@ def test_begin_facts_order_follows_fact_ids(
             }
         ],
     }
-    save_narrative_arc(rev / "_narrative-arc.json", arc)
+    save_narrative_arc(_l1(rev) / "_narrative-arc.json", arc)
     _seed_facts(rev, with_anchors=False)
     assert write_state_main(["sync", "--revision-dir", str(rev)]) == 0
     capsys.readouterr()
@@ -244,7 +250,7 @@ def test_begin_missing_fact_id_fails_without_in_progress(
             }
         ],
     }
-    save_narrative_arc(rev / "_narrative-arc.json", arc)
+    save_narrative_arc(_l1(rev) / "_narrative-arc.json", arc)
     _seed_facts(rev, with_anchors=False)
     assert write_state_main(["sync", "--revision-dir", str(rev)]) == 0
     capsys.readouterr()
@@ -254,7 +260,7 @@ def test_begin_missing_fact_id_fails_without_in_progress(
     assert err["error"] == "missing_fact_ids"
     assert err["missing_fact_ids"] == ["F-3"]
     assert "facts" not in err
-    state = load_chapter_write_state(rev / CHAPTER_WRITE_STATE_BASENAME)
+    state = load_chapter_write_state(_l1(rev) / CHAPTER_WRITE_STATE_BASENAME)
     # sync may already point current at the next cid while pending; claim must not start.
     assert state["by_id"]["A01-I"]["status"] == "pending"
     assert state["by_id"]["A01-I"].get("started_at") is None
@@ -366,7 +372,7 @@ def test_complete_biz_includes_body_path_and_mtime(
     assert write_state_main(["sync", "--revision-dir", str(rev)]) == 0
     assert _begin(rev) == 0
     _write_artifacts(rev, "A01-I")
-    body = rev / "_body-A01-I.txt"
+    body = _l1(rev) / "_body-A01-I.txt"
     expected_mtime = datetime.fromtimestamp(
         body.stat().st_mtime, tz=timezone.utc
     ).isoformat()
@@ -431,7 +437,7 @@ def test_complete_rejects_missing_body(tmp_path: Path, capsys: pytest.CaptureFix
     assert rc != 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["error"] == "artifact_gate_failed"
-    state = load_chapter_write_state(rev / CHAPTER_WRITE_STATE_BASENAME)
+    state = load_chapter_write_state(_l1(rev) / CHAPTER_WRITE_STATE_BASENAME)
     assert state["by_id"]["A01-I"]["status"] == "in_progress"
 
 
@@ -445,12 +451,12 @@ def test_sync_discards_ghost_cid(tmp_path: Path, capsys: pytest.CaptureFixture[s
     arc = _arc()
     arc["leaves"][0]["chapters"] = [{"lens": "I", "fact_ids": ["F-1"]}]
     arc["leaves"][0]["fact_ids"] = ["F-1"]
-    save_narrative_arc(rev / "_narrative-arc.json", arc)
+    save_narrative_arc(_l1(rev) / "_narrative-arc.json", arc)
     capsys.readouterr()
     assert write_state_main(["sync", "--revision-dir", str(rev)]) == 0
     captured = capsys.readouterr()
     assert "A01-IF" in captured.err
-    state = load_chapter_write_state(rev / CHAPTER_WRITE_STATE_BASENAME)
+    state = load_chapter_write_state(_l1(rev) / CHAPTER_WRITE_STATE_BASENAME)
     assert state["order"] == ["A01-I"]
     assert "A01-IF" not in state["by_id"]
     assert is_complete(state)
@@ -477,7 +483,7 @@ def test_full_complete_status(tmp_path: Path, capsys: pytest.CaptureFixture[str]
     status = json.loads(capsys.readouterr().out)
     assert status["status"] == "complete"
     assert status["next"] is None
-    assert is_complete(load_chapter_write_state(rev / CHAPTER_WRITE_STATE_BASENAME))
+    assert is_complete(load_chapter_write_state(_l1(rev) / CHAPTER_WRITE_STATE_BASENAME))
 
 
 def test_begin_when_all_done(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
@@ -528,7 +534,7 @@ def test_init_validate_requires_write_state(tmp_path: Path):
     repo = Path(__file__).resolve().parents[4]
     rev = _rev(tmp_path)
     _seed_arc(rev)
-    (rev / "_facts.json").write_text(
+    (_l1(rev) / "_facts.json").write_text(
         json.dumps(
             [
                 {"id": "F-1", "text": "fact one", "lens_tags": ["I"]},

@@ -37,10 +37,9 @@ def _fsync_parent(path: Path) -> None:
         os.close(descriptor)
 
 
-def durable_write_json(path: Path, value: Any) -> None:
-    """Write JSON by fsync + replace + parent fsync."""
+def durable_write_bytes(path: Path, data: bytes) -> None:
+    """Write bytes by fsync + replace + parent fsync."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    data = (json.dumps(value, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
     descriptor, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
     tmp_path = Path(tmp_name)
     try:
@@ -54,6 +53,17 @@ def durable_write_json(path: Path, value: Any) -> None:
         if tmp_path.exists():
             tmp_path.unlink()
         raise
+
+
+def durable_write_text(path: Path, text: str) -> None:
+    """Write UTF-8 text by fsync + replace + parent fsync."""
+    durable_write_bytes(path, text.encode("utf-8"))
+
+
+def durable_write_json(path: Path, value: Any) -> None:
+    """Write JSON by fsync + replace + parent fsync."""
+    data = (json.dumps(value, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+    durable_write_bytes(path, data)
 
 
 def durable_unlink(path: Path) -> None:

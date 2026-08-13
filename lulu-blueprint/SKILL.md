@@ -10,34 +10,31 @@ disable-model-invocation: true
 
 Domain holder for the product-doc compose document. Delegates full Drafting / Evaluating / Delivery orchestration to the `compose` kernel.
 
-> **Prerequisite:** Delivered `decision-package` from `lulu-bet`, projected to this revision's `scope-package`. Produces **product-doc.md** — topic-level product architecture for human sign-off before opening a feature cycle.
+> **Prerequisite:** Delivered `decision-package` from `lulu-bet`. Produces **product-doc.md**.
 
 **Scope:** Topic cycles only. Feature PRD cycles use `lulu-spec`.
 
 <HARD-GATE name="Runtime bootstrap">
-Do NOT proceed until you have read `../_runtime.md` and loaded:
-
-- `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, `$CACHE_DIR` from `## Platform Context`
-- `$SKILL_DIR` = `$SKILL_ROOT/lulu-blueprint` (before Session Foundation)
-- Feature identification logic from `## Session Foundation`
-
+Do NOT proceed until you have read `../_runtime.md` and loaded `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, `$CACHE_DIR`; set `$SKILL_DIR` = `$SKILL_ROOT/lulu-blueprint`; then Session Foundation.
 </HARD-GATE>
 
 <HARD-GATE name="Compose engine">
 Do NOT proceed until you have read `{SKILL_ROOT}/compose/SKILL.md` in full.
+Continue from its `## Start`.
 </HARD-GATE>
 
-## start
+## Compose Inputs
 
-Identify active cycle per `_runtime.md` § Session Foundation, bind
-`$PROFILE_PATH="$SKILL_DIR/compose-profile.json"`, then run `$START_COMPOSE`.
+1. Run `$BLUEPRINT_PREFLIGHT`. Bind stdout `profile_path` as `$PROFILE_PATH` and `scope_package` as `$SCOPE_PACKAGE`.
 
-Run mode is always `product` for topic product architecture shaping. Do not pass `--run-mode`.
+Run mode is always `product`. To resume, run `$SESSION_INFO --view session` instead of Start.
 
-To resume an in-progress document, do not run start again — run `$SESSION_INFO --view session`.
+## Script Macros
 
----
+| Macro | Command |
+|---|---|
+| `$BLUEPRINT_PREFLIGHT` | `python3 "$SKILL_DIR/scripts/start/product_blueprint_preflight.py" --project-root "$PROJECT_ROOT" --cycle-id "$CYCLE_ID"` |
 
 ## Reference documents
 
-Template SSOT: [blueprint templates on GitHub](https://github.com/lulufoo/lulu-workflow-framework/tree/main/lulu-dev-workflow/template/blueprint) (`skill-config` → `pbt_*_url`)
+Template SSOT: [blueprint templates on GitHub](https://github.com/lulufoo/lulu-workflow-framework/tree/main/lulu-dev-workflow/template/blueprint)

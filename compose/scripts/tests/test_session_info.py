@@ -21,7 +21,7 @@ from session_info import (  # noqa: E402
     session_snapshot,
     stage_transitions,
 )
-from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, seed_profile_pointer_for_tests  # noqa: E402
+from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, seed_profile_pointer_for_tests, seed_revision_profile_pointer  # noqa: E402
 from workflow_state_schema import save_workflow_state  # noqa: E402
 from test_template_data import seed_tech_plan_test_caches  # noqa: E402
 
@@ -43,11 +43,9 @@ def _setup_cycle(tmp_path: Path) -> tuple[Path, str]:
     base = tmp_path / ".cache" / "cursor" / "lulu-dev-workflow" / cycle_id / "lulu-plan"
     revision = base / "revision1"
     revision.mkdir(parents=True)
-    (base / "session-state.md").write_text(
-        "---\nversion: 1\nactive_doc: 1\n---\n",
-        encoding="utf-8",
-    )
-    (revision / "tech-doc.md").write_text(
+    seed_revision_profile_pointer(revision)
+    (revision / "L1").mkdir(parents=True, exist_ok=True)
+    (revision / "L1" / "tech-doc.md").write_text(
         "---\n\n"
         "# Feature X\n\n"
         "<!-- chapter:chap-ov -->\n"
@@ -76,7 +74,7 @@ class TestDeliveryPreview:
         assert payload["current_state"] == "ReadyForDelivery"
         assert payload["compose_doc"]["title"] == "Feature X"
         assert "session info facade" in payload["compose_doc"]["summary"]
-        assert payload["compose_doc"]["path"].endswith("revision1/tech-doc.md")
+        assert payload["compose_doc"]["path"].endswith("revision1/L1/tech-doc.md")
 
     def test_rejects_non_ready_for_delivery_state(self, tmp_path: Path):
         project_root, cycle_id = _setup_cycle(tmp_path)
@@ -123,10 +121,7 @@ class TestSessionSnapshot:
         base = tmp_path / ".cache" / "cursor" / "lulu-dev-workflow" / cycle_id / "lulu-plan"
         revision = base / "revision1"
         revision.mkdir(parents=True)
-        (base / "session-state.md").write_text(
-            "---\nversion: 1\nactive_doc: 1\n---\n",
-            encoding="utf-8",
-        )
+        seed_revision_profile_pointer(revision)
         from workflow_state_schema import init_compose_session  # noqa: WPS433
 
         init_compose_session(revision / "workflow-state.md", mode="tech")
@@ -139,7 +134,7 @@ class TestSessionSnapshot:
         assert payload["compose_doc"]["status"] == "pending"
         assert payload["compose_doc"]["title"] == ""
         assert payload["compose_doc"]["summary"] == ""
-        assert payload["compose_doc"]["path"].endswith("revision1/tech-doc.md")
+        assert payload["compose_doc"]["path"].endswith("revision1/L1/tech-doc.md")
         assert set(payload["role"]) == {"role_prompt"}
         assert payload["role"]["role_prompt"].startswith("You are acting")
 
@@ -227,10 +222,7 @@ class TestCli:
         base = tmp_path / ".cache" / "cursor" / "lulu-dev-workflow" / cycle_id / "lulu-plan"
         revision = base / "revision1"
         revision.mkdir(parents=True)
-        (base / "session-state.md").write_text(
-            "---\nversion: 1\nactive_doc: 1\n---\n",
-            encoding="utf-8",
-        )
+        seed_revision_profile_pointer(revision)
         from workflow_state_schema import init_compose_session  # noqa: WPS433
 
         init_compose_session(revision / "workflow-state.md", mode="tech")

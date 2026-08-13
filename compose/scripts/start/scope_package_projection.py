@@ -153,9 +153,11 @@ def project_decision_package_to_scope_slices(
 def write_scope_package_projection(
     *,
     decision_package_path: Path,
-    revision_dir: Path,
+    output_dir: Path | None = None,
+    revision_dir: Path | None = None,
+    overwrite: bool = False,
 ) -> Path:
-    """Load decision-package, project, write ``scope-package.json`` once (D3)."""
+    """Load decision-package, project, write ``scope-package.json``."""
     pkg_path = Path(decision_package_path).resolve()
     if not is_decision_package_path(pkg_path):
         raise ScopePackageProjectionError(
@@ -166,7 +168,12 @@ def write_scope_package_projection(
         package,
         approach_root=pkg_path.parent,
     )
-    return materialize_scope_package(slices=slices, revision_dir=revision_dir)
+    return materialize_scope_package(
+        slices=slices,
+        output_dir=output_dir,
+        revision_dir=revision_dir,
+        overwrite=overwrite,
+    )
 
 
 def project_compose_package_to_scope_slices(
@@ -205,31 +212,46 @@ def project_compose_package_to_scope_slices(
 def write_compose_package_scope_projection(
     *,
     compose_package_path: Path,
-    revision_dir: Path,
+    output_dir: Path | None = None,
+    revision_dir: Path | None = None,
+    overwrite: bool = False,
 ) -> Path:
-    """Project a compose delivery package to a revision-local scope package."""
+    """Project a compose delivery package to a scope package."""
     pkg_path = Path(compose_package_path).resolve()
     package = load_compose_package(pkg_path)
     slices = project_compose_package_to_scope_slices(
         package,
         package_root=pkg_path.parent,
     )
-    return materialize_scope_package(slices=slices, revision_dir=revision_dir)
+    return materialize_scope_package(
+        slices=slices,
+        output_dir=output_dir,
+        revision_dir=revision_dir,
+        overwrite=overwrite,
+    )
 
 
 def materialize_scope_package(
     *,
     slices: list[dict[str, Any]],
-    revision_dir: Path,
+    output_dir: Path | None = None,
+    revision_dir: Path | None = None,
+    overwrite: bool = False,
 ) -> Path:
-    """Write a previously validated scope projection exactly once."""
-    rev = Path(revision_dir).resolve()
-    existing = rev / SCOPE_PACKAGE_FILENAME
-    if existing.is_file():
+    """Write a previously validated scope projection.
+
+    ``revision_dir`` is an alias of ``output_dir`` (holder preflight writes
+    outside any revision).
+    """
+    dest = Path(output_dir or revision_dir or "").resolve()
+    if not dest.as_posix():
+        raise ScopePackageProjectionError("output_dir required")
+    existing = dest / SCOPE_PACKAGE_FILENAME
+    if existing.is_file() and not overwrite:
         raise ScopePackageProjectionError(
-            "scope-package.json already exists; no same-revision rebuild (D3)"
+            "scope-package.json already exists; no same-dir rebuild (D3)"
         )
-    return save_scope_package(rev, build_scope_package(slices))
+    return save_scope_package(dest, build_scope_package(slices))
 
 
 def make_norm_ref(
