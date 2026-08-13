@@ -26,7 +26,7 @@ Self-resolved: `$PROJECT_ROOT` = `$(pwd)`.
 
 | Macro | Command |
 |-------|---------|
-| `$MULTI_SLICE` | `python3 "$SKILL_ROOT/compose/scripts/core/multi_slice_control.py" --revision-dir "$REVISION_DIR" <subcommand>` |
+| `$MULTI_SLICE` | `python3 "$SKILL_ROOT/compose/scripts/core/multi_slice_control.py" --revision-dir "$REVISION_DIR" --project-root "$(pwd)" <subcommand>` |
 
 Subcommands: `--help`. Contracts live in the control module / `--help` only.
 
