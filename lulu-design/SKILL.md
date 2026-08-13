@@ -1,45 +1,46 @@
 ---
 name: lulu-design
 description: >-
-  Use when: 技术方案设计, tech design stage, design-doc,
-  lulu-dev-workflow lulu-design, design delivered, 设计文档.
+  Produce and deliver a design-doc for a feature cycle.
 disable-model-invocation: true
 ---
 
 # lulu-design
 
-Domain holder for the design-doc compose document. Delegates full Drafting / Evaluating / Delivery orchestration to the `compose` kernel.
+Own the stage-specific contract and inputs for composing the design doc.
+Completion is delivery through the shared `compose` engine.
 
-> **Prerequisite:** Delivered `decision-doc` from `lulu-approach`. Produces **design-doc.md** — technical solution design for human sign-off before `lulu-plan`.
+## Contract
 
-**Scope:** Feature cycle only.
+| Boundary | Contract |
+|---|---|
+| Scope | Feature cycle only |
+| Prerequisite | Delivered `lulu-approach` as a `decision-package`. Product mode also requires Delivered `lulu-spec`. |
+| Output | Delivered design doc |
+| Ownership | `lulu-design` prepares stage inputs; `compose` owns orchestration |
 
-<HARD-GATE name="Runtime bootstrap">
-Do NOT proceed until you have read `../_runtime.md` and loaded:
+## Runtime
 
-- `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, `$CACHE_DIR` from `## Platform Context`
-- `$SKILL_DIR` = `$SKILL_ROOT/lulu-design` (before Session Foundation)
-- Feature identification logic from `## Session Foundation`
+<HARD-GATE>
+Do NOT proceed until you have read `../_runtime.md` and:
+
+- loaded `$PROJECT_ROOT`, `$SKILL_ROOT`, and `$PLATFORM` from `## Platform Context`
+- established `$CYCLE_ID` and `$CYCLE_TYPE` via `## Session Foundation`
+- set `$SKILL_DIR` = `$SKILL_ROOT/lulu-design`
 
 </HARD-GATE>
 
-<HARD-GATE name="Compose engine">
-Do NOT proceed until you have read `{SKILL_ROOT}/compose/SKILL.md` in full.
-Continue from its `## Entry`.
-</HARD-GATE>
-
-## Compose Inputs
+## Compose
 
 1. Run `$DESIGN_PREFLIGHT`. Bind stdout `profile_path` as `$PROFILE_PATH` and `scope_package` as `$SCOPE_PACKAGE`.
 
-Run mode is inferred by preflight: `product` when cycle `delivered-refs.json` contains a valid `lulu-spec` entry; otherwise `tech`. To resume, run `$SESSION_INFO --view session` instead of Start.
+<HARD-GATE>
+Do NOT proceed until you have read `{SKILL_ROOT}/compose/SKILL.md` in full.
+Continue from its `## Entry`.
+</HARD-GATE>
 
 ## Script Macros
 
 | Macro | Command |
 |---|---|
 | `$DESIGN_PREFLIGHT` | `python3 "$SKILL_DIR/scripts/start/tech_design_preflight.py" --project-root "$PROJECT_ROOT" --cycle-id "$CYCLE_ID"` |
-
-## Reference documents
-
-Template SSOT: [design templates on GitHub](https://github.com/lulufoo/lulu-workflow-framework/tree/main/lulu-dev-workflow/template/design)

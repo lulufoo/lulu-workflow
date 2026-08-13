@@ -10,7 +10,7 @@ disable-model-invocation: true
 Own the stage-specific contract and inputs for composing the plan doc.
 Completion is delivery through the shared `compose` engine.
 
-## Stage Contract
+## Contract
 
 | Boundary | Contract |
 |---|---|
@@ -19,7 +19,7 @@ Completion is delivery through the shared `compose` engine.
 | Output | Delivered plan doc |
 | Ownership | `lulu-plan` prepares stage inputs; `compose` owns orchestration |
 
-## Runtime Foundation
+## Runtime
 
 <HARD-GATE>
 Do NOT proceed until you have read `../_runtime.md` and:
@@ -30,11 +30,9 @@ Do NOT proceed until you have read `../_runtime.md` and:
 
 </HARD-GATE>
 
-## Compose Inputs
+## Compose
 
 1. Run `$PLAN_PREFLIGHT`. Bind stdout `profile_path` as `$PROFILE_PATH` and `scope_package` as `$SCOPE_PACKAGE`.
-
-## Compose Handoff
 
 <HARD-GATE>
 Do NOT proceed until you have read `{SKILL_ROOT}/compose/SKILL.md` in full.

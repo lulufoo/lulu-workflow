@@ -43,8 +43,20 @@ def test_engine_registers_start_only_in_macro_table() -> None:
 
 
 def test_static_profile_holders_bind_compose_inputs() -> None:
-    for stage in ("lulu-arch", "lulu-blueprint", "lulu-design", "lulu-spec"):
+    for stage, preflight in (
+        ("lulu-arch", "tech_arch_preflight.py"),
+        ("lulu-blueprint", "product_blueprint_preflight.py"),
+        ("lulu-design", "tech_design_preflight.py"),
+        ("lulu-spec", "product_spec_preflight.py"),
+    ):
         text = (_WORKFLOW_ROOT / stage / "SKILL.md").read_text(encoding="utf-8")
+        for heading in (
+            "## Contract",
+            "## Runtime",
+            "## Compose",
+            "## Script Macros",
+        ):
+            assert heading in text, f"{stage} missing {heading!r}"
         assert "$START_COMPOSE" not in text
         assert "$SCOPE_PACKAGE" in text
         assert "$PROFILE_PATH" in text
@@ -53,6 +65,10 @@ def test_static_profile_holders_bind_compose_inputs() -> None:
         assert f"$SKILL_DIR/scripts/{stage}_start.py" not in text
         assert 'python3 "$SKILL_ROOT/compose/scripts/core/start.py"' not in text
         assert "## Entry" in text
+        assert preflight in text
+        assert '--project-root "$PROJECT_ROOT"' in text
+        assert "$(pwd)" not in text
+        assert "Resume" not in text
 
 
 def test_stage_start_wrappers_removed() -> None:
@@ -69,10 +85,9 @@ def test_start_macro_consumes_compose_profile_input() -> None:
 def test_plan_skill_hands_stage_inputs_to_session_bootstrap() -> None:
     text = (_WORKFLOW_ROOT / "lulu-plan" / "SKILL.md").read_text(encoding="utf-8")
     for heading in (
-        "## Stage Contract",
-        "## Runtime Foundation",
-        "## Compose Inputs",
-        "## Compose Handoff",
+        "## Contract",
+        "## Runtime",
+        "## Compose",
         "## Script Macros",
     ):
         assert heading in text

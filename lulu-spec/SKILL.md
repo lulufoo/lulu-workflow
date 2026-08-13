@@ -1,45 +1,46 @@
 ---
 name: lulu-spec
 description: >-
-  Use when: 产品规格, feature PRD, product spec, product-doc,
-  lulu-dev-workflow lulu-spec, product delivered, 产品文档.
+  Produce and deliver a product-doc for a feature cycle.
 disable-model-invocation: true
 ---
 
 # lulu-spec
 
-Domain holder for the product-doc compose document. Delegates full Drafting / Evaluating / Delivery orchestration to the `compose` kernel.
+Own the stage-specific contract and inputs for composing the product doc.
+Completion is delivery through the shared `compose` engine.
 
-> **Prerequisite:** Delivered `decision-package` from `lulu-bet`, projected to this revision's `scope-package`. Produces **product-doc.md** — feature product specification for human sign-off before `lulu-approach`.
+## Contract
 
-**Scope:** Feature cycle only. Topic/shaping cycles are out of scope (future `lulu-blueprint`).
+| Boundary | Contract |
+|---|---|
+| Scope | Feature cycle only |
+| Prerequisite | Delivered `lulu-bet` as a `decision-package` |
+| Output | Delivered product doc |
+| Ownership | `lulu-spec` prepares stage inputs; `compose` owns orchestration |
 
-<HARD-GATE name="Runtime bootstrap">
-Do NOT proceed until you have read `../_runtime.md` and loaded:
+## Runtime
 
-- `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, `$CACHE_DIR` from `## Platform Context`
-- `$SKILL_DIR` = `$SKILL_ROOT/lulu-spec` (before Session Foundation)
-- Feature identification logic from `## Session Foundation`
+<HARD-GATE>
+Do NOT proceed until you have read `../_runtime.md` and:
+
+- loaded `$PROJECT_ROOT`, `$SKILL_ROOT`, and `$PLATFORM` from `## Platform Context`
+- established `$CYCLE_ID` and `$CYCLE_TYPE` via `## Session Foundation`
+- set `$SKILL_DIR` = `$SKILL_ROOT/lulu-spec`
 
 </HARD-GATE>
 
-<HARD-GATE name="Compose engine">
-Do NOT proceed until you have read `{SKILL_ROOT}/compose/SKILL.md` in full.
-Continue from its `## Entry`.
-</HARD-GATE>
-
-## Compose Inputs
+## Compose
 
 1. Run `$SPEC_PREFLIGHT`. Bind stdout `profile_path` as `$PROFILE_PATH` and `scope_package` as `$SCOPE_PACKAGE`.
 
-Requires `lulu-bet` in delivered-refs. Run mode is always `product`. To resume, run `$SESSION_INFO --view session` instead of Start.
+<HARD-GATE>
+Do NOT proceed until you have read `{SKILL_ROOT}/compose/SKILL.md` in full.
+Continue from its `## Entry`.
+</HARD-GATE>
 
 ## Script Macros
 
 | Macro | Command |
 |---|---|
 | `$SPEC_PREFLIGHT` | `python3 "$SKILL_DIR/scripts/start/product_spec_preflight.py" --project-root "$PROJECT_ROOT" --cycle-id "$CYCLE_ID"` |
-
-## Reference documents
-
-Template SSOT: [spec templates on GitHub](https://github.com/lulufoo/lulu-workflow-framework/tree/main/lulu-dev-workflow/template/spec)

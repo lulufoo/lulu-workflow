@@ -1,40 +1,46 @@
 ---
 name: lulu-blueprint
 description: >-
-  Topic-cycle product architecture shaping stage. Use when cycle_type is topic and
-  lulu-bet is Delivered.
+  Produce and deliver a product-doc for a topic cycle.
 disable-model-invocation: true
 ---
 
 # lulu-blueprint
 
-Domain holder for the product-doc compose document. Delegates full Drafting / Evaluating / Delivery orchestration to the `compose` kernel.
+Own the stage-specific contract and inputs for composing the product doc.
+Completion is delivery through the shared `compose` engine.
 
-> **Prerequisite:** Delivered `decision-package` from `lulu-bet`. Produces **product-doc.md**.
+## Contract
 
-**Scope:** Topic cycles only. Feature PRD cycles use `lulu-spec`.
+| Boundary | Contract |
+|---|---|
+| Scope | Topic cycle only |
+| Prerequisite | Delivered `lulu-bet` as a `decision-package` |
+| Output | Delivered product doc |
+| Ownership | `lulu-blueprint` prepares stage inputs; `compose` owns orchestration |
 
-<HARD-GATE name="Runtime bootstrap">
-Do NOT proceed until you have read `../_runtime.md` and loaded `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, `$CACHE_DIR`; set `$SKILL_DIR` = `$SKILL_ROOT/lulu-blueprint`; then Session Foundation.
+## Runtime
+
+<HARD-GATE>
+Do NOT proceed until you have read `../_runtime.md` and:
+
+- loaded `$PROJECT_ROOT`, `$SKILL_ROOT`, and `$PLATFORM` from `## Platform Context`
+- established `$CYCLE_ID` and `$CYCLE_TYPE` via `## Session Foundation`
+- set `$SKILL_DIR` = `$SKILL_ROOT/lulu-blueprint`
+
 </HARD-GATE>
 
-<HARD-GATE name="Compose engine">
-Do NOT proceed until you have read `{SKILL_ROOT}/compose/SKILL.md` in full.
-Continue from its `## Entry`.
-</HARD-GATE>
-
-## Compose Inputs
+## Compose
 
 1. Run `$BLUEPRINT_PREFLIGHT`. Bind stdout `profile_path` as `$PROFILE_PATH` and `scope_package` as `$SCOPE_PACKAGE`.
 
-Run mode is always `product`. To resume, run `$SESSION_INFO --view session` instead of Start.
+<HARD-GATE>
+Do NOT proceed until you have read `{SKILL_ROOT}/compose/SKILL.md` in full.
+Continue from its `## Entry`.
+</HARD-GATE>
 
 ## Script Macros
 
 | Macro | Command |
 |---|---|
 | `$BLUEPRINT_PREFLIGHT` | `python3 "$SKILL_DIR/scripts/start/product_blueprint_preflight.py" --project-root "$PROJECT_ROOT" --cycle-id "$CYCLE_ID"` |
-
-## Reference documents
-
-Template SSOT: [blueprint templates on GitHub](https://github.com/lulufoo/lulu-workflow-framework/tree/main/lulu-dev-workflow/template/blueprint)
