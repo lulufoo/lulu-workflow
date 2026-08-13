@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "core"))
 from workflow_paths import (  # noqa: E402
     compose_profile_path,
     load_profile,
+    read_active_profile,
     seed_profile_pointer_for_tests,
     validate_compose_profile_path,
 )
@@ -48,9 +49,19 @@ def test_validate_compose_profile_path_accepts_non_authoring(tmp_path: Path) -> 
         compose_profile_path("lulu-plan").read_text(encoding="utf-8"),
         encoding="utf-8",
     )
-    validate_compose_profile_path("lulu-plan", instance)
+    validate_compose_profile_path(instance)
 
 
 def test_validate_compose_profile_path_missing_file(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="--profile-path not found"):
-        validate_compose_profile_path("lulu-plan", tmp_path / "missing.json")
+        validate_compose_profile_path(tmp_path / "missing.json")
+
+
+def test_seed_writes_active_profile(tmp_path: Path) -> None:
+    seed_profile_pointer_for_tests(tmp_path, "feat-active-profile", "lulu-design")
+    assert read_active_profile(tmp_path, "feat-active-profile") == "lulu-design"
+    data = load_profile(
+        project_root=tmp_path,
+        cycle_id="feat-active-profile",
+    )
+    assert data["profile_id"] == "lulu-design"

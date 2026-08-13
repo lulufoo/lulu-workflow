@@ -30,7 +30,7 @@ if str(_AGENDA_SCRIPTS) not in sys.path:
 import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
-from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, load_profile  # noqa: E402
+from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, load_profile, resolve_profile_id  # noqa: E402
 from agenda_schema import agenda_path, blocking_items, load_agenda  # noqa: E402
 
 from compose_session import (  # noqa: E402
@@ -653,8 +653,8 @@ def _cli() -> int:
     )
     parser.add_argument(
         "--profile",
-        default=DEFAULT_COMPOSE_PROFILE_ID,
-        help="Compose profile / stage name (default: lulu-plan)",
+        default="",
+        help="Compose profile / stage name (default: cycle context after start)",
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -687,7 +687,15 @@ def _cli() -> int:
     args = parser.parse_args()
     project_root = args.project_root.resolve()
     cycle_id = args.cycle_id.strip()
-    profile_id = args.profile.strip()
+    try:
+        profile_id = resolve_profile_id(
+            project_root=project_root,
+            cycle_id=cycle_id,
+            explicit=args.profile,
+        )
+    except (ValueError, FileNotFoundError, OSError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
 
     try:
         if args.command == _CMD_SPLIT_COMPLETE:

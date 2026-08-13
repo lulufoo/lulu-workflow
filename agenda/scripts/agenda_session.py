@@ -21,6 +21,7 @@ if str(_WORKFLOW_SCRIPTS) not in sys.path:
 from archive_common import CACHE_DIR, read_md_field  # noqa: E402
 
 PROFILE_POINTER_NAME = ".compose-profile-path"
+ACTIVE_PROFILE_NAME = ".compose-active-profile"
 
 
 def resolve_cycle_id(explicit: str | None = None) -> str:
@@ -99,6 +100,21 @@ def load_active_doc(session_base: Path, *, default: int = 1) -> int:
         raise ValueError(f"active_doc must be an integer in {ss}, got {raw!r}") from exc
 
 
+def resolve_active_profile_id(project_root: Path, cycle_id: str) -> str:
+    """Read ``.compose-active-profile`` written by compose start."""
+    cid = cycle_id.strip()
+    path = project_root.resolve() / CACHE_DIR / cid / ACTIVE_PROFILE_NAME
+    if not path.is_file():
+        raise FileNotFoundError(
+            f"compose active profile not found: {path}. "
+            f"Run stage start with --profile-path first.",
+        )
+    pid = path.read_text(encoding="utf-8").strip()
+    if not pid:
+        raise ValueError(f"empty compose active profile: {path}")
+    return pid
+
+
 def resolve_revision_dir(
     project_root: Path,
     *,
@@ -107,9 +123,9 @@ def resolve_revision_dir(
 ) -> Path:
     """Return absolute ``…/revision{active_doc}/`` for the active compose session."""
     cid = resolve_cycle_id(cycle_id)
-    pid = profile_id.strip()
+    pid = (profile_id or "").strip()
     if not pid:
-        raise ValueError("--profile is required when resolving session revision")
+        pid = resolve_active_profile_id(project_root, cid)
     session_base = resolve_session_base(project_root, cid, pid)
     active_doc = load_active_doc(session_base)
     revision_dir = session_base / f"revision{active_doc}"

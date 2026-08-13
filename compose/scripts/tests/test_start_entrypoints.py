@@ -3,8 +3,8 @@
 
 Since the compose SKILL closed-loop refactor, the `start.py` invocation is
 defined once (generically) in the compose engine SKILL's `$START_COMPOSE`
-macro / § start; holders reference `$START_COMPOSE` with their concrete
-`--profile <stage>` flag rather than repeating the raw script invocation
+macro / § start; holders pass `--profile-path` (start reads `profile_id` from
+that JSON) rather than repeating the raw script invocation
 (see docs/domain/ssot/compose/business-ssot/compose-business-ssot.md §7; this test is the executable check).
 """
 
@@ -25,7 +25,8 @@ def test_stage_skills_reference_start_macro_with_own_profile() -> None:
     for stage in ("lulu-design", "lulu-plan", "lulu-spec"):
         text = (_WORKFLOW_ROOT / stage / "SKILL.md").read_text(encoding="utf-8")
         assert "$START_COMPOSE" in text
-        assert f"--profile {stage} " in text
+        assert f"--profile {stage} " not in text
+        assert "--profile-path" in text
         assert f"$SKILL_DIR/scripts/{stage}_start.py" not in text
         assert 'python3 "$SKILL_ROOT/compose/scripts/core/start.py"' not in text
 

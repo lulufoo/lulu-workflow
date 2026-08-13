@@ -2,8 +2,7 @@
 """Tests for stage SKILL draft-control macro migration.
 
 Since the compose SKILL closed-loop refactor, `$L_STEP` is defined
-once (generically, via `<profile_id>`) in the compose engine SKILL;
-holders no longer redefine it locally (see
+once in the compose engine SKILL; holders no longer redefine it locally (see
 docs/domain/ssot/compose/business-ssot/compose-business-ssot.md §7; this test is the executable check).
 """
 
@@ -19,8 +18,9 @@ def test_engine_defines_generic_l_step() -> None:
     engine_text = _ENGINE_SKILL.read_text(encoding="utf-8")
     assert (
         'python3 "$SKILL_ROOT/compose/scripts/section/l_step_control.py" '
-        '--cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile <profile_id> <subcommand>'
+        '--cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>'
     ) in engine_text
+    assert "--profile <profile_id>" not in engine_text
 
 
 def test_stage_skills_do_not_locally_redefine_l_step() -> None:

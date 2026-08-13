@@ -8,13 +8,13 @@ description: >-
 
 Shared compose engine consumed by stage holder skills (`lulu-design`, `lulu-plan`, `lulu-spec`). Holders declare their profile id and a HARD-GATE to Read this file in full; this engine owns the reusable orchestration, scripts, and schemas so holders stay thin.
 
-Wherever this document says `<profile_id>`, substitute the calling holder's stage id (e.g. `lulu-design`).
+Wherever this document says a compose session, `profile_id` comes from the runtime profile JSON passed to `$START_COMPOSE` (`--profile-path`). `start` writes it into cycle context; later macros resolve it from that context. Do not pass `--profile`.
 
-`DEFAULT_COMPOSE_PROFILE_ID` (`lulu-plan`) is for kernel tests and `load_profile()` fallbacks only. Production invocations must pass `--profile` via the macros below.
+`DEFAULT_COMPOSE_PROFILE_ID` (`lulu-plan`) is for kernel tests and authoring `load_profile()` calls without a cycle. Production start takes only `--profile-path`.
 
 ## Compose profiles
 
-Authoring templates live at `{WORKFLOW_ROOT}/{stage}/compose-profile.json`. Holders pass the runtime profile address as `--profile-path` (plan materializes a session instance first; other stages pass the authoring file). `start` writes `.compose-profile-path` under `{cache_subdir}/` pointing at that address. Runtime `load_profile()` resolves via the pointer when `project_root` and `cycle_id` are set.
+Authoring templates live at `{WORKFLOW_ROOT}/{stage}/compose-profile.json`. Holders pass the runtime profile address as `--profile-path` (plan materializes a session instance first; other stages pass the authoring file). `start` reads `profile_id` from that JSON, writes `.compose-profile-path` under `{cache_subdir}/`, and writes `.compose-active-profile` under the cycle cache. Runtime `load_profile()` resolves via the pointer when `project_root` and `cycle_id` are set.
 
 Choose Inductive vs Deductive from `start` / `$SESSION_INFO --view session` stdout `pipeline.inductive` (session value on the runtime profile — do not read the authoring template for this field).
 
@@ -46,12 +46,11 @@ Before producer / evaluation work:
 python3 "$SKILL_ROOT/compose/scripts/core/start.py" \
   --project-root "$(pwd)" \
   --cycle-id "<cycle_id>" \
-  --profile <profile_id> \
   --profile-path "<holder-provided runtime profile JSON>" \
   [--carry-forward-ref "<absolute-path-to-previous-revision>"]  # optional, if this profile's adapter supports it
 ```
 
-`--profile-path` is required and supplied by the holder (not this macro). On success, stdout includes `pipeline.inductive: true|false` for Working path selection.
+`--profile-path` is required and supplied by the holder (not this macro). `start` reads `profile_id` from that JSON and writes cycle context. On success, stdout includes `Profile` and `pipeline.inductive: true|false` for Working path selection.
 
 - `start.py` validates required upstream entries via this profile's `StartAdapter`, infers `run_mode` (`product` or `tech`) from cycle `delivered-refs.json`, then writes two per-revision artifacts: a frozen full copy of the cycle `delivered-refs.json` (audit baseline) and the resolver-materialized `resolved-refs.json` (scope/intent/norm); Writing reads the resolved scope from the latter.
 - **Run-mode inference is this profile's `StartAdapter.infer_run_mode`'s responsibility** (each adapter owns the heuristic; e.g. plan/design treat a valid product-spec delivered-ref as `product`, else `tech`). Do not pass `--run-mode`; it is not a CLI parameter.
@@ -82,7 +81,7 @@ Load {actual $SKILL_ROOT}/compose/split-runner/SKILL.md and follow its instructi
 ## Input
 REVISION_DIR=<revision_dir from $SESSION_INFO>
 CYCLE_ID=$CYCLE_ID
-COMPOSE_PROFILE=<profile_id>
+COMPOSE_PROFILE=<profile_id from start / $SESSION_INFO>
 ```
 
    Human confirms stay on existing intake / `lock-tree --confirm`. Locked trees are immutable this iteration — re-split means a new revision. Multi-L lock requires rulers; single-L rulers exempt.
@@ -271,31 +270,31 @@ Stage-agenda items (design-external blockers/notes) live under the revision dir;
 
 ## Script Macros
 
-Macro expansion: `{$SKILL_ROOT}/_runtime.md` § Script Macros → Macro expansion. Non-zero exit → Blocking (Principles). Substitute `<profile_id>` with the calling holder's stage id.
+Macro expansion: `{$SKILL_ROOT}/_runtime.md` § Script Macros → Macro expansion. Non-zero exit → Blocking (Principles). After `$START_COMPOSE`, macros resolve `profile_id` from cycle context (do not pass `--profile`).
 
 Fetch compose framework templates on demand; **do not** read `workflow-config.json` directly. Scheme roles: `schemes/compose-template-scheme.json` (mapped per profile in `compose-profile.json` → `framework_templates`).
 
 | Macro | Command |
 |-------|---------|
-| `$START_COMPOSE` | `python3 "$SKILL_ROOT/compose/scripts/core/start.py" --project-root "$(pwd)" --cycle-id "$CYCLE_ID" --profile <profile_id>` — holder must also pass `--profile-path <runtime profile JSON>` |
-| `$SESSION_INFO` | `python3 "$SKILL_ROOT/compose/scripts/core/session_info.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile <profile_id> --view <view>` |
-| `$SESSION_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/core/session_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile <profile_id> <subcommand>` — session transitions (`split-complete` / `start-evaluating` / …) via `compose/transitions/compose-session.json`; do not load that file directly |
-| `$L_STEP` | `python3 "$SKILL_ROOT/compose/scripts/section/l_step_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile <profile_id> <subcommand>` |
+| `$START_COMPOSE` | `python3 "$SKILL_ROOT/compose/scripts/core/start.py" --project-root "$(pwd)" --cycle-id "$CYCLE_ID"` — holder must also pass `--profile-path <runtime profile JSON>` |
+| `$SESSION_INFO` | `python3 "$SKILL_ROOT/compose/scripts/core/session_info.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --view <view>` |
+| `$SESSION_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/core/session_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` — session transitions (`split-complete` / `start-evaluating` / …) via `compose/transitions/compose-session.json`; do not load that file directly |
+| `$L_STEP` | `python3 "$SKILL_ROOT/compose/scripts/section/l_step_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
 | `$INDUCTIVE_FACTS_PROJ` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_facts_projection.py"` (K4 retired — `project` fail-fast; facts written by discovery loop) |
-| `$RESOLVE_ROLE` | `python3 "$SKILL_ROOT/compose/scripts/scope/scope_resolver.py" --profile <profile_id> --project-root "$(pwd)" resolve-role --cycle-id "$CYCLE_ID"` |
-| `$RESOLVE_DOMAIN` | `python3 "$SKILL_ROOT/compose/scripts/scope/scope_resolver.py" --profile <profile_id> --project-root "$(pwd)" resolve-domain --cycle-id "$CYCLE_ID"` |
-| `$FETCH_COMPOSE` | `python3 "$SKILL_ROOT/compose/scripts/io/fetch_compose_framework.py" --role <role> --profile <profile_id> --project-root "$(pwd)" --cycle-id "$CYCLE_ID"` |
-| `$EVAL_HANDOFF` | `python3 "$SKILL_ROOT/compose/scripts/core/eval_handoff_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --profile <profile_id> <subcommand>` — Compose→Eval context (`request-handoff` / `commit-artifacts` / `commit-evaluate-state` / `discard-staging`); Eval entry requests this per command |
-| `$EVAL_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/core/compose_eval_control.py" --profile-id <profile_id> --cycle-id "$CYCLE_ID" --project-root "$(pwd)" -- <subcommand>` — passthrough stage `compose-profile.json.eval` to Eval |
-| `$FACT_INTAKE_EVAL_CTL` | `python3 "$SKILL_ROOT/compose/fact-intake-runner/fact-intake-eval/scripts/fact_intake_eval_control.py" --profile-id <profile_id> --cycle-id "$CYCLE_ID" --project-root "$(pwd)" -- <subcommand>` — Fact Intake Eval (doc→`_facts.json`); independent of delivery Evaluating; `completion_mode=return_to_caller` |
-| `$ATOMIZE_EVAL_CONTROL` | Same command as `$FACT_INTAKE_EVAL_CTL` (retired name; prefer `$FACT_INTAKE_EVAL_CTL`): `python3 "$SKILL_ROOT/compose/fact-intake-runner/fact-intake-eval/scripts/fact_intake_eval_control.py" --profile-id <profile_id> --cycle-id "$CYCLE_ID" --project-root "$(pwd)" -- <subcommand>` |
+| `$RESOLVE_ROLE` | `python3 "$SKILL_ROOT/compose/scripts/scope/scope_resolver.py" --project-root "$(pwd)" resolve-role --cycle-id "$CYCLE_ID"` |
+| `$RESOLVE_DOMAIN` | `python3 "$SKILL_ROOT/compose/scripts/scope/scope_resolver.py" --project-root "$(pwd)" resolve-domain --cycle-id "$CYCLE_ID"` |
+| `$FETCH_COMPOSE` | `python3 "$SKILL_ROOT/compose/scripts/io/fetch_compose_framework.py" --role <role> --project-root "$(pwd)" --cycle-id "$CYCLE_ID"` |
+| `$EVAL_HANDOFF` | `python3 "$SKILL_ROOT/compose/scripts/core/eval_handoff_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` — Compose→Eval context (`request-handoff` / `commit-artifacts` / `commit-evaluate-state` / `discard-staging`); Eval entry requests this per command |
+| `$EVAL_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/core/compose_eval_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" -- <subcommand>` — passthrough stage `compose-profile.json.eval` to Eval |
+| `$FACT_INTAKE_EVAL_CTL` | `python3 "$SKILL_ROOT/compose/fact-intake-runner/fact-intake-eval/scripts/fact_intake_eval_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" -- <subcommand>` — Fact Intake Eval (doc→`_facts.json`); independent of delivery Evaluating; `completion_mode=return_to_caller` |
+| `$ATOMIZE_EVAL_CONTROL` | Same command as `$FACT_INTAKE_EVAL_CTL` (retired name; prefer `$FACT_INTAKE_EVAL_CTL`): `python3 "$SKILL_ROOT/compose/fact-intake-runner/fact-intake-eval/scripts/fact_intake_eval_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" -- <subcommand>` |
 | `$COMPOSE_DOC_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/section/compose_doc_control.py" <subcommand> [args...]` |
 | `$NARRATIVE_ARC_CTL` | `python3 "$SKILL_ROOT/compose/narrative-arc-runner/scripts/narrative_arc_control.py"` |
 | `$CHAPTER_WRITE_STATE` | `python3 "$SKILL_ROOT/compose/scripts/section/chapter_write_state_control.py"` — chapter-write-runner claim-current gate: `sync` / `status` / `begin` (ticket + writing_cognition + lens_intent) / `complete` (current) |
-| `$WRITING_COMPOSE_VALIDATE` | `python3 "$SKILL_ROOT/compose/scripts/section/writing_compose_validation.py" validate --revision-dir <dir> --compose-doc <path> --profile <profile_id> --project-root "$(pwd)"` |
-| `$AGENDA_CTL` | `python3 "$SKILL_ROOT/agenda/scripts/agenda_control.py" <subcommand> --project-root "$(pwd)" --cycle-id "$CYCLE_ID" --profile <profile_id> [args...]` — stage agenda; resolves `revision{N}` from session-state (see `$SKILL_ROOT/agenda/SKILL.md`) |
-| `$MULTI_SLICE` | `python3 "$SKILL_ROOT/compose/scripts/core/multi_slice_control.py" --revision-dir <revision_dir> --profile <profile_id> <subcommand>` — see `--help` (`lock-hard-mirror` / `assemble-package` / …) |
-| `$L_SLICE` | `python3 "$SKILL_ROOT/compose/scripts/core/discussion_pointer_control.py" --revision-dir <revision_dir> --profile <profile_id> <subcommand>` — `status` / `resume` / `ready` / `can-admit` / `can-enter-evaluate` / `switch` / `mark-done` / `accept-l` / `fix-l` / `demote-acceptance` / `seam-report` |
+| `$WRITING_COMPOSE_VALIDATE` | `python3 "$SKILL_ROOT/compose/scripts/section/writing_compose_validation.py" validate --revision-dir <dir> --compose-doc <path> --project-root "$(pwd)"` |
+| `$AGENDA_CTL` | `python3 "$SKILL_ROOT/agenda/scripts/agenda_control.py" <subcommand> --project-root "$(pwd)" --cycle-id "$CYCLE_ID" [args...]` — stage agenda; resolves `revision{N}` from session-state (see `$SKILL_ROOT/agenda/SKILL.md`) |
+| `$MULTI_SLICE` | `python3 "$SKILL_ROOT/compose/scripts/core/multi_slice_control.py" --revision-dir <revision_dir> <subcommand>` — see `--help` (`lock-hard-mirror` / `assemble-package` / …) |
+| `$L_SLICE` | `python3 "$SKILL_ROOT/compose/scripts/core/discussion_pointer_control.py" --revision-dir <revision_dir> <subcommand>` — `status` / `resume` / `ready` / `can-admit` / `can-enter-evaluate` / `switch` / `mark-done` / `accept-l` / `fix-l` / `demote-acceptance` / `seam-report` |
 | `$FACTS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/facts_control.py"` — `write` / `validate` / `status` (multi-L: `write` requires `home_l`; package bucket needs `--package-confirm`) |
 
 Subcommands and stdout: script module docstrings or `--help`.

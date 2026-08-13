@@ -34,7 +34,6 @@ Session identity (preferred — same as compose session controls):
 $AGENDA_CTL add \
   --project-root "$(pwd)" \
   --cycle-id "$CYCLE_ID" \
-  --profile <profile_id> \
   --class blocker \
   --text "..."
 ```

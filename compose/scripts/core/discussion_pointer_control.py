@@ -52,6 +52,7 @@ from discussion_pointer_schema import (  # noqa: E402
 from l_step_progress_schema import allowed_steps, save_l_step_progress  # noqa: E402
 from multi_slice_control import document_filename_for_profile  # noqa: E402
 from workflow_common import parse_frontmatter_fields  # noqa: E402
+from workflow_paths import resolve_profile_id  # noqa: E402
 
 _BOUNDARY_HEADING = "## Boundary"
 _L_STEP_PROGRESS = "l-step-progress.md"
@@ -547,8 +548,8 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--profile",
-        required=True,
-        help="Compose profile / stage id (document.filename + L-step progress)",
+        default="",
+        help="Compose profile / stage id (default: cycle context after start)",
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -611,7 +612,14 @@ def _build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     rev = args.revision_dir.resolve()
-    profile_id = str(args.profile).strip()
+    try:
+        profile_id = resolve_profile_id(
+            revision_dir=rev,
+            explicit=args.profile,
+        )
+    except (ValueError, FileNotFoundError, OSError) as exc:
+        print(f"错误：{exc}", file=sys.stderr)
+        return 1
     if args.command == "status":
         return cmd_status(rev)
     if args.command == "resume":

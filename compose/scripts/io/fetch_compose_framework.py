@@ -15,7 +15,7 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
-from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, WORKFLOW_SCRIPTS  # noqa: E402
+from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, WORKFLOW_SCRIPTS, resolve_profile_id  # noqa: E402
 
 if str(WORKFLOW_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(WORKFLOW_SCRIPTS))
@@ -82,8 +82,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
     parser.add_argument(
         "--profile",
-        default=DEFAULT_COMPOSE_PROFILE_ID,
-        help="Compose profile id (default: lulu-plan)",
+        default="",
+        help="Compose profile id (default: cycle context after start)",
     )
     parser.add_argument(
         "--cycle-id",
@@ -112,17 +112,29 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    project_root = Path(args.project_root).resolve()
+    explicit = args.profile.strip()
+    cycle_id = args.cycle_id.strip() or None
     try:
+        if explicit:
+            profile_id = explicit
+        elif cycle_id:
+            profile_id = resolve_profile_id(
+                project_root=project_root,
+                cycle_id=cycle_id,
+            )
+        else:
+            profile_id = DEFAULT_COMPOSE_PROFILE_ID
         content = fetch_compose_framework(
             role=args.role,
-            project_root=Path(args.project_root).resolve(),
-            profile_id=args.profile.strip(),
-            cycle_id=args.cycle_id.strip() or None,
+            project_root=project_root,
+            profile_id=profile_id,
+            cycle_id=cycle_id,
             conversation_id=args.conversation_id.strip() or None,
             platform=args.platform,
             force=args.force,
         )
-    except FetchComposeFrameworkError as exc:
+    except (FetchComposeFrameworkError, ValueError, FileNotFoundError, OSError) as exc:
         print(str(exc), file=sys.stderr)
         return 1
 

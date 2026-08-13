@@ -78,7 +78,7 @@ from split_intake_schema import (  # noqa: E402
     split_intake_path,
     validate_split_intake,
 )
-from workflow_paths import load_profile  # noqa: E402
+from workflow_paths import load_profile, resolve_profile_id  # noqa: E402
 
 
 def document_filename_for_profile(profile_id: str) -> str:
@@ -656,8 +656,8 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--revision-dir", required=True, type=Path)
     parser.add_argument(
         "--profile",
-        required=True,
-        help="Compose profile / stage id (document.filename + index derivation)",
+        default="",
+        help="Compose profile / stage id (default: cycle context after start)",
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -718,7 +718,14 @@ def _build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     rev = args.revision_dir.resolve()
-    profile_id = str(args.profile).strip()
+    try:
+        profile_id = resolve_profile_id(
+            revision_dir=rev,
+            explicit=args.profile,
+        )
+    except (ValueError, FileNotFoundError, OSError) as exc:
+        print(f"错误：{exc}", file=sys.stderr)
+        return 1
     if args.command == "check-root-facts":
         return cmd_check_root_facts(rev)
     if args.command == "migrate-root-facts":

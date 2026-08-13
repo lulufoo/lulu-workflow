@@ -26,7 +26,6 @@ Do NOT proceed until you have read `../_runtime.md` and loaded:
 
 <HARD-GATE name="Compose engine">
 Do NOT proceed until you have read `{SKILL_ROOT}/compose/SKILL.md` in full.
-All Drafting / Evaluating / Delivery rules, gates, and macros defined there apply to this session, with `<profile_id>` = `lulu-plan`.
 
 </HARD-GATE>
 
@@ -41,7 +40,6 @@ All Drafting / Evaluating / Delivery rules, gates, and macros defined there appl
 Identify active cycle per `_runtime.md` § Session Foundation. Run `$PLAN_PROFILE`; stdout is the runtime profile path. Then run `$START_COMPOSE` (`compose/SKILL.md` § start) with:
 
 ```bash
---profile lulu-plan \
 --profile-path "<$PLAN_PROFILE stdout>" \
 [--carry-forward-ref "<absolute-path-to-previous-tech-doc.md>"]
 ```

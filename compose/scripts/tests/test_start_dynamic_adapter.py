@@ -123,7 +123,7 @@ def test_main_loads_profile_adapter_before_run_start(tmp_path: Path, monkeypatch
     workflow_root = tmp_path / "lulu-dev-workflow"
     _write_adapter_module(workflow_root)
     profile_path = _write_profile(workflow_root)
-    args = argparse.Namespace(profile="tech-foo", profile_path=profile_path.as_posix())
+    args = argparse.Namespace(profile_path=profile_path.as_posix())
     captured = {}
 
     monkeypatch.setattr(start, "parse_args", lambda: args)

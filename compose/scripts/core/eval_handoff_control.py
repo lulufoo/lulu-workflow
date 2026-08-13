@@ -8,7 +8,7 @@ Subcommands:
 
 CLI:
     python3 eval_handoff_control.py --cycle-id <id> --project-root <root>
-        --profile <profile_id> <subcommand> [...]
+        <subcommand> [...]
 """
 
 from __future__ import annotations
@@ -48,6 +48,7 @@ from workflow_paths import (  # noqa: E402
     DEFAULT_COMPOSE_PROFILE_ID,
     WORKFLOW_ROOT,
     load_profile,
+    resolve_profile_id,
     shell_path,
 )
 from workflow_profile_paths import (  # noqa: E402
@@ -734,7 +735,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Compose EvalHandoff control")
     parser.add_argument("--cycle-id", required=True)
     parser.add_argument("--project-root", type=Path, default=Path("."))
-    parser.add_argument("--profile", default=DEFAULT_COMPOSE_PROFILE_ID)
+    parser.add_argument("--profile", default="")
     sub = parser.add_subparsers(dest="command", required=True)
 
     req = sub.add_parser(_CMD_REQUEST, help="Build EvalHandoff for current focus L")
@@ -770,8 +771,15 @@ def _build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     root = args.project_root.resolve()
-    profile_id = str(args.profile).strip()
     cycle_id = str(args.cycle_id).strip()
+    try:
+        profile_id = resolve_profile_id(
+            project_root=root,
+            cycle_id=cycle_id,
+            explicit=args.profile,
+        )
+    except (ValueError, FileNotFoundError, OSError) as exc:
+        return _emit(_failure(args.command, str(exc)))
 
     if args.command == _CMD_REQUEST:
         return _emit(

@@ -86,11 +86,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--project-root", default=".", help="Project root directory.")
     parser.add_argument("--cycle-id", required=True, help="Cycle ID (from cycle_init.py).")
     parser.add_argument(
-        "--profile",
-        required=True,
-        help="Compose profile / stage id.",
-    )
-    parser.add_argument(
         "--profile-path",
         required=True,
         help="Path to runtime compose-profile.json (holder-provided).",
@@ -121,15 +116,18 @@ def run_start(
 ) -> int:
     project_root = Path(args.project_root).resolve()
     cycle_id = args.cycle_id.strip()
-    profile_id = args.profile.strip()
     profile_json_path = Path(args.profile_path).expanduser()
     if not profile_json_path.is_absolute():
         profile_json_path = (project_root / profile_json_path).resolve()
     try:
-        validate_compose_profile_path(profile_id, profile_json_path)
-        profile = read_profile_for_start(profile_json_path, profile_id)
+        validate_compose_profile_path(profile_json_path)
+        profile = read_profile_for_start(profile_json_path)
     except ValueError as exc:
         print(f"错误：{exc}", file=sys.stderr)
+        return 1
+    profile_id = str(profile.get("profile_id", "")).strip()
+    if not profile_id:
+        print("错误：compose-profile.json missing profile_id", file=sys.stderr)
         return 1
     cache_subdir = str(profile.get("cache_subdir", "")).strip()
     if not cache_subdir:
@@ -322,8 +320,8 @@ def main() -> int:
     args = parse_args()
     profile_json_path = _profile_path_from_args(args)
     try:
-        validate_compose_profile_path(args.profile, profile_json_path)
-        profile = read_profile_for_start(profile_json_path, args.profile)
+        validate_compose_profile_path(profile_json_path)
+        profile = read_profile_for_start(profile_json_path)
         adapter = load_start_adapter(profile, profile_json_path)
     except ValueError as exc:
         print(f"错误：{exc}", file=sys.stderr)

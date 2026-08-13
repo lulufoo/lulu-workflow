@@ -27,6 +27,7 @@ from domain_instance_schema import load_and_validate_domain_instance  # noqa: E4
 from schema_common import VALID_CYCLE_TYPES, validate_all_plan_scope_instances  # noqa: E402
 from role_instance_schema import load_and_validate_role_instance  # noqa: E402
 from workflow_common import detect_cycle_type  # noqa: E402
+from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, resolve_profile_id  # noqa: E402
 
 
 class ScopeResolverError(Exception):
@@ -142,8 +143,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
     parser.add_argument(
         "--profile",
-        default="lulu-plan",
-        help="Compose profile id (e.g. lulu-plan, lulu-design, …)",
+        default="",
+        help="Compose profile id (default: cycle context after start)",
     )
     sub = parser.add_subparsers(dest="command")
 
@@ -202,7 +203,21 @@ def main(argv: Optional[list[str]] = None) -> int:
     args = parser.parse_args(argv)
 
     project_root = Path(args.project_root).resolve()
-    profile_id = getattr(args, "profile", "lulu-plan").strip() or "lulu-plan"
+    explicit = str(getattr(args, "profile", "") or "").strip()
+    cycle_id = getattr(args, "cycle_id", None)
+    if explicit:
+        profile_id = explicit
+    elif cycle_id:
+        try:
+            profile_id = resolve_profile_id(
+                project_root=project_root,
+                cycle_id=str(cycle_id),
+            )
+        except (ValueError, FileNotFoundError, OSError) as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
+    else:
+        profile_id = DEFAULT_COMPOSE_PROFILE_ID
 
     if args.validate:
         errors = validate_all_plan_scope_instances(project_root)

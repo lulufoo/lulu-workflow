@@ -8,8 +8,9 @@ Subcommands:
     menu    Print available commands / L1 option keys (JSON)
 
 Default location: cycle cache ``session-state.md`` ``active_doc`` → ``revision{N}/``.
-Pass ``--project-root`` ``--cycle-id`` ``--profile`` (same identity as compose session
-controls). ``--revision-dir`` is an optional override (tests / escape hatch).
+Pass ``--project-root`` ``--cycle-id`` (same identity as compose session
+controls; ``profile_id`` comes from compose start context). ``--revision-dir``
+is an optional override (tests / escape hatch).
 
 Design rationale (source repo, why-only):
 docs/domain/archive/workflow/stage-agenda-design.md
@@ -39,10 +40,14 @@ from agenda_schema import (  # noqa: E402
     normalize_item,
     save_agenda,
 )
-from agenda_session import resolve_revision_dir  # noqa: E402
+from agenda_session import (  # noqa: E402
+    resolve_active_profile_id,
+    resolve_cycle_id,
+    resolve_revision_dir,
+)
 
 _SESSION_FLAGS = (
-    "--project-root $(pwd) --cycle-id $CYCLE_ID --profile <profile_id>"
+    "--project-root $(pwd) --cycle-id $CYCLE_ID"
 )
 
 _MENU = {
@@ -257,7 +262,7 @@ def _add_session_args(p: argparse.ArgumentParser) -> None:
     p.add_argument(
         "--profile",
         default=None,
-        help="compose profile id (e.g. lulu-spec); required unless --revision-dir",
+        help="compose profile id; default: cycle context after start",
     )
     p.add_argument(
         "--revision-dir",
@@ -336,7 +341,14 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.command != "menu":
         if not args.revision_dir and not args.profile:
-            return _fail("--profile is required unless --revision-dir is set")
+            try:
+                cid = resolve_cycle_id(args.cycle_id)
+                args.profile = resolve_active_profile_id(
+                    Path(args.project_root),
+                    cid,
+                )
+            except (ValueError, FileNotFoundError, OSError) as exc:
+                return _fail(str(exc))
     return int(args.func(args))
 
 

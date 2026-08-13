@@ -5,7 +5,6 @@ Aggregates schema modules for SKILL-facing reads. No state mutations.
 
 CLI:
     python3 session_info.py --cycle-id <id> --project-root . \\
-        [--profile <profile_id>] \\
         [--view delivery-preview|session|stage-transitions]
 """
 
@@ -24,7 +23,7 @@ if str(_SCRIPTS) not in sys.path:
 import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
-from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, WORKFLOW_SCRIPTS, load_profile  # noqa: E402
+from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, WORKFLOW_SCRIPTS, load_profile, resolve_profile_id  # noqa: E402
 
 sys.path.insert(0, str(WORKFLOW_SCRIPTS))
 from transition_table import load_transitions  # noqa: E402
@@ -188,8 +187,8 @@ def _cli() -> int:
     )
     parser.add_argument(
         "--profile",
-        default=DEFAULT_COMPOSE_PROFILE_ID,
-        help="Compose profile / stage name (default: lulu-plan)",
+        default="",
+        help="Compose profile / stage name (default: cycle context after start)",
     )
     parser.add_argument(
         "--view",
@@ -200,13 +199,18 @@ def _cli() -> int:
     args = parser.parse_args()
 
     try:
+        profile_id = resolve_profile_id(
+            project_root=args.project_root.resolve(),
+            cycle_id=args.cycle_id.strip(),
+            explicit=args.profile,
+        )
         payload = get_session_info(
             args.cycle_id.strip(),
             args.project_root.resolve(),
             view=args.view,
-            profile_id=args.profile.strip(),
+            profile_id=profile_id,
         )
-    except ValueError as exc:
+    except (ValueError, FileNotFoundError, OSError) as exc:
         print(str(exc), file=sys.stderr)
         return 1
 

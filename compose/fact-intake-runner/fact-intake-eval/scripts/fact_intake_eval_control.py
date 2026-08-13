@@ -16,9 +16,17 @@ from pathlib import Path
 
 _INTAKE_EVAL_ROOT = Path(__file__).resolve().parents[1]
 _WORKFLOW_ROOT = Path(__file__).resolve().parents[4]
+_COMPOSE_SCRIPTS = _WORKFLOW_ROOT / "compose" / "scripts"
 _EVAL_ENTRY = _WORKFLOW_ROOT / "eval" / "scripts" / "eval_entry.py"
 _PROFILE_PATH = _INTAKE_EVAL_ROOT / "eval-profile.json"
 _PROFILE_ENV = "COMPOSE_FACT_INTAKE_PROFILE_ID"
+
+if str(_COMPOSE_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_COMPOSE_SCRIPTS))
+import kernel_bootstrap  # noqa: E402
+
+kernel_bootstrap.ensure_kernel_paths()
+from workflow_paths import resolve_profile_id  # noqa: E402
 
 
 def _emit_error(message: str) -> int:
@@ -39,8 +47,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--profile-id",
-        required=True,
-        help="Compose stage profile id (e.g. lulu-plan) for revision resolution",
+        default="",
+        help="Compose stage profile id (default: cycle context after start)",
     )
     parser.add_argument("--cycle-id", required=True)
     parser.add_argument("--project-root", type=Path, default=Path("."))
@@ -63,7 +71,14 @@ def main(argv: list[str] | None = None) -> int:
         return _emit_error(str(exc))
 
     project_root = args.project_root.resolve()
-    profile_id = args.profile_id.strip()
+    try:
+        profile_id = resolve_profile_id(
+            project_root=project_root,
+            cycle_id=args.cycle_id.strip(),
+            explicit=args.profile_id,
+        )
+    except (ValueError, FileNotFoundError, OSError) as exc:
+        return _emit_error(str(exc))
     env = os.environ.copy()
     env[_PROFILE_ENV] = profile_id
 

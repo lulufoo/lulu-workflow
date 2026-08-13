@@ -41,7 +41,7 @@ from start_adapter import (  # noqa: E402
     primary_scope_from_workflow,
 )
 from workflow_common import detect_cycle_type  # noqa: E402
-from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, load_profile  # noqa: E402
+from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, load_profile, resolve_profile_id  # noqa: E402
 from workflow_profile_paths import doc_dir, inductive_out_dir  # noqa: E402
 from workflow_state_schema import (  # noqa: E402
     load_workflow_state,
@@ -706,7 +706,7 @@ def _cli() -> int:
     parser = argparse.ArgumentParser(description="generic compose draft control")
     parser.add_argument("--cycle-id", required=True, help="Cycle ID")
     parser.add_argument("--project-root", type=Path, default=Path("."))
-    parser.add_argument("--profile", default=DEFAULT_COMPOSE_PROFILE_ID)
+    parser.add_argument("--profile", default="", help="Compose profile id (default: cycle context after start)")
     sub = parser.add_subparsers(dest="command", required=True)
     for command in (
         _CMD_BEGIN_INDUCTIVE,
@@ -720,10 +720,19 @@ def _cli() -> int:
     ):
         sub.add_parser(command)
     args = parser.parse_args()
+    try:
+        profile_id = resolve_profile_id(
+            project_root=args.project_root.resolve(),
+            cycle_id=args.cycle_id.strip(),
+            explicit=args.profile,
+        )
+    except (ValueError, FileNotFoundError, OSError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
     kwargs = {
         "cycle_id": args.cycle_id.strip(),
         "project_root": args.project_root.resolve(),
-        "profile_id": args.profile.strip(),
+        "profile_id": profile_id,
     }
     try:
         if args.command == _CMD_BEGIN_INDUCTIVE:

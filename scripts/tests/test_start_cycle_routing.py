@@ -248,8 +248,6 @@ _LDEV = _SRC / "lulu-dev-workflow"
 
 def _compose_start_args(profile_id: str, *extra: str) -> list[str]:
     return [
-        "--profile",
-        profile_id,
         "--profile-path",
         str(_LDEV / profile_id / "compose-profile.json"),
         *extra,

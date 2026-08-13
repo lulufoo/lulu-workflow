@@ -30,6 +30,7 @@ SCHEMA_SESSION_SCRIPTS = COMPOSE_ROOT / "scripts" / "schema" / "session"
 SCHEMA_SCRIPTS = COMPOSE_ROOT / "scripts" / "schema"
 
 PROFILE_POINTER_NAME = ".compose-profile-path"
+ACTIVE_PROFILE_NAME = ".compose-active-profile"
 COMPOSE_PROFILE_FILENAME = "compose-profile.json"
 
 _profile_cache: dict[str, dict[str, Any]] = {}
@@ -128,7 +129,73 @@ def write_profile_pointer(
     pointer.parent.mkdir(parents=True, exist_ok=True)
     rel = _relative_to_project_root(project_root, profile_json_path)
     pointer.write_text(rel + "\n", encoding="utf-8")
+    data = load_profile_json(profile_json_path.resolve())
+    pid = str(data.get("profile_id", "")).strip()
+    if pid:
+        write_active_profile(project_root, cycle_id, pid)
     return pointer
+
+
+def active_profile_path(project_root: Path, cycle_id: str) -> Path:
+    from workflow_common import CACHE_DIR  # noqa: WPS433
+
+    return (
+        project_root.resolve()
+        / CACHE_DIR
+        / cycle_id.strip()
+        / ACTIVE_PROFILE_NAME
+    )
+
+
+def write_active_profile(project_root: Path, cycle_id: str, profile_id: str) -> Path:
+    """Record the cycle's active compose profile_id (written at start)."""
+    path = active_profile_path(project_root, cycle_id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(profile_id.strip() + "\n", encoding="utf-8")
+    return path
+
+
+def read_active_profile(project_root: Path, cycle_id: str) -> str:
+    path = active_profile_path(project_root, cycle_id)
+    if not path.is_file():
+        raise FileNotFoundError(
+            f"compose active profile not found: {path}. "
+            f"Run stage start with --profile-path first.",
+        )
+    pid = path.read_text(encoding="utf-8").strip()
+    if not pid:
+        raise ValueError(f"empty compose active profile: {path}")
+    return pid
+
+
+def resolve_profile_id(
+    *,
+    project_root: Path | None = None,
+    cycle_id: str | None = None,
+    revision_dir: Path | None = None,
+    explicit: str | None = None,
+) -> str:
+    """Resolve profile_id: explicit CLI, else cycle context written at start."""
+    pid = (explicit or "").strip()
+    if pid:
+        return pid
+    if project_root is not None and (cycle_id or "").strip():
+        return read_active_profile(project_root, cycle_id.strip())
+    if revision_dir is not None:
+        cycle_dir = Path(revision_dir).resolve().parent.parent
+        marker = cycle_dir / ACTIVE_PROFILE_NAME
+        if not marker.is_file():
+            raise FileNotFoundError(
+                f"compose active profile not found: {marker}. "
+                f"Run stage start with --profile-path first.",
+            )
+        pid = marker.read_text(encoding="utf-8").strip()
+        if not pid:
+            raise ValueError(f"empty compose active profile: {marker}")
+        return pid
+    raise ValueError(
+        "profile_id required: pass --profile or run start with --profile-path first",
+    )
 
 
 def read_profile_pointer(session_base: Path, project_root: Path) -> Path:
@@ -220,7 +287,19 @@ def load_profile(
     fallback to authoring). Authoring path is used only when ``project_root`` is
     omitted, or when no cycle id can be resolved.
     """
-    pid = (profile_id or DEFAULT_COMPOSE_PROFILE_ID).strip()
+    pid = (profile_id or "").strip()
+    if not pid:
+        if project_root is None:
+            raise ValueError(
+                "profile_id required when project_root is omitted",
+            )
+        root = project_root.resolve()
+        cid = (cycle_id or "").strip() or resolve_cycle_id(
+            root,
+            cycle_id=None,
+            conversation_id=conversation_id,
+        )
+        pid = read_active_profile(root, cid)
     if project_root is None:
         return load_profile_json(compose_profile_path(pid))
 
@@ -245,23 +324,20 @@ def load_profile(
     return load_profile_json(profile_path)
 
 
-def read_profile_for_start(profile_json_path: Path, profile_id: str) -> dict[str, Any]:
-    """Read profile JSON at start before session pointer exists."""
+def read_profile_for_start(profile_json_path: Path) -> dict[str, Any]:
+    """Read profile JSON at start; ``profile_id`` comes from the file."""
     data = load_profile_json(profile_json_path.resolve())
-    pid = profile_id.strip()
-    if str(data.get("profile_id", "")).strip() != pid:
-        raise ValueError(
-            f"profile_id mismatch: --profile {pid!r} vs JSON {data.get('profile_id')!r}",
-        )
+    pid = str(data.get("profile_id", "")).strip()
+    if not pid:
+        raise ValueError("compose-profile.json missing profile_id")
     stage = str(data.get("stage_name", pid)).strip()
     if stage != pid:
         raise ValueError(f"stage_name {stage!r} != profile {pid!r}")
     return data
 
 
-def validate_compose_profile_path(profile_id: str, profile_json_path: Path) -> None:
-    """Ensure --profile-path exists; ``profile_id`` is checked on read."""
-    del profile_id
+def validate_compose_profile_path(profile_json_path: Path) -> None:
+    """Ensure --profile-path exists; ``profile_id`` is read from the JSON."""
     actual = profile_json_path.resolve()
     if not actual.is_file():
         raise ValueError(f"--profile-path not found: {actual.as_posix()}")
