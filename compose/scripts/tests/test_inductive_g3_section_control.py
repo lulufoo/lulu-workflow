@@ -1210,3 +1210,35 @@ def test_materialize_section_registry_from_source(tmp_path):
     assert code == 0, payload
     assert (tmp_path / "section-registry.json").is_file()
     assert "OPS" in payload.get("seed_lenses", [])
+
+
+def test_from_fetch_without_revision_pointer_does_not_default_plan(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import inductive_g3_section_control as ctl
+    import fetch_compose_framework as fetch_mod
+
+    def boom(*_args, **_kwargs) -> str:
+        raise AssertionError("must not fetch without a resolved profile_id")
+
+    monkeypatch.setattr(fetch_mod, "fetch_compose_framework", boom)
+    args = type(
+        "Args",
+        (),
+        {
+            "project_root": str(tmp_path),
+            "compose_cycle_id": "",
+            "cycle_id": "",
+        },
+    )()
+    assert ctl._try_fetch_section_registry(tmp_path, args) is None
+
+    code, payload = _run(
+        tmp_path,
+        "--project-root",
+        str(tmp_path),
+        "materialize-section-registry",
+        "--from-fetch",
+    )
+    assert code != 0
+    assert "revision profile pointer" in (payload.get("error") or payload.get("raw") or "")

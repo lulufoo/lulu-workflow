@@ -16,7 +16,6 @@ import kernel_bootstrap  # noqa: E402
 kernel_bootstrap.ensure_kernel_paths()
 
 from workflow_paths import (  # noqa: E402
-    DEFAULT_COMPOSE_PROFILE_ID,
     WORKFLOW_SCRIPTS,
     resolve_cycle_id,
     resolve_profile_id,
@@ -48,7 +47,9 @@ def fetch_compose_framework(
     platform: Optional[str] = None,
     force: bool = False,
 ) -> str:
-    pid = profile_id or DEFAULT_COMPOSE_PROFILE_ID
+    pid = str(profile_id or "").strip()
+    if not pid:
+        raise FetchComposeFrameworkError("profile_id required")
     root = project_root.resolve()
     try:
         section = framework_section(

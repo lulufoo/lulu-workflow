@@ -148,6 +148,8 @@ def _try_fetch_section_registry(
     if not root.is_dir():
         return None
     profile, cycle_id = _compose_fetch_ids(out_dir, args)
+    if not profile:
+        return None
     _io = _SCRIPTS / "io"
     if str(_io) not in sys.path:
         sys.path.insert(0, str(_io))

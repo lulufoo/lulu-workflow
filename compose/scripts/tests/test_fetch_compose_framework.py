@@ -103,7 +103,7 @@ class TestFetchComposeFramework:
         original = mod.fetch_template
         mod.fetch_template = stub_fetch
         try:
-            content = fetch_compose_framework("section-registry", tmp_path)
+            content = fetch_compose_framework("section-registry", tmp_path, profile_id="lulu-plan")
         finally:
             mod.fetch_template = original
 
@@ -122,7 +122,7 @@ class TestFetchComposeFramework:
         mod.fetch_template = fail_fetch
         try:
             with pytest.raises(FetchComposeFrameworkError, match="network failed"):
-                fetch_compose_framework("section-registry", tmp_path)
+                fetch_compose_framework("section-registry", tmp_path, profile_id="lulu-plan")
         finally:
             mod.fetch_template = original
 
@@ -155,3 +155,7 @@ class TestMainCli:
             )
             == 0
         )
+
+    def test_library_rejects_missing_profile_id(self, tmp_path: Path) -> None:
+        with pytest.raises(FetchComposeFrameworkError, match="profile_id required"):
+            fetch_compose_framework("section-registry", tmp_path)
