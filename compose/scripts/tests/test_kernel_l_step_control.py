@@ -16,11 +16,16 @@ from workflow_common import CACHE_DIR  # noqa: E402
 from workflow_paths import (  # noqa: E402
     compose_profile_path,
     load_profile_json,
+    seed_profile_pointer_for_tests,
     write_profile_pointer,
 )
 from workflow_profile_paths import doc_dir, inductive_out_dir, session_state_path, state_path  # noqa: E402
 from resolved_refs_schema import frozen_delivered_refs  # noqa: E402
-from workflow_state_schema import init_compose_session, load_workflow_state  # noqa: E402
+from workflow_state_schema import (  # noqa: E402
+    init_compose_session,
+    load_workflow_state,
+    save_workflow_state,
+)
 
 from delivered_refs_schema import DeliveredRef  # noqa: E402
 from init_working_helpers import (
@@ -608,4 +613,55 @@ def test_begin_writing_real_design_profile_requires_facts(tmp_path: Path) -> Non
     result = l_step_control.begin_writing(_CYCLE, tmp_path, profile_id=_PROFILE_DESIGN)
     assert result["ok"] is False
     assert "_facts.json missing" in result["reason"]
+
+
+def _seed_plan_workflow_state(tmp_path: Path) -> Path:
+    seed_profile_pointer_for_tests(tmp_path, _CYCLE, "lulu-plan")
+    base = tmp_path / CACHE_DIR / _CYCLE / "lulu-plan"
+    base.mkdir(parents=True, exist_ok=True)
+    (base / "session-state.md").write_text(
+        "---\nversion: 1\nactive_doc: 1\nupdated_at: 2024-01-01T00:00:00+00:00\n---\n",
+        encoding="utf-8",
+    )
+    return base / "revision1" / "workflow-state.md"
+
+
+def test_require_working_session_missing_state_points_to_start(
+    tmp_path: Path,
+) -> None:
+    seed_profile_pointer_for_tests(tmp_path, _CYCLE, "lulu-plan")
+    reason = l_step_control._require_working_session(
+        _CYCLE, tmp_path, "lulu-plan", "begin-deductive"
+    )
+    assert reason is not None
+    assert "run start" in reason
+    assert "leave-split" in reason
+    assert "complete Split" not in reason
+
+
+def test_require_working_session_split_asks_leave_split_only(
+    tmp_path: Path,
+) -> None:
+    ws = _seed_plan_workflow_state(tmp_path)
+    init_compose_session(ws, mode="tech")
+    reason = l_step_control._require_working_session(
+        _CYCLE, tmp_path, "lulu-plan", "begin-deductive"
+    )
+    assert reason is not None
+    assert "leave-split" in reason
+    assert "locking topology" not in reason
+
+
+def test_require_working_session_working_without_topology(
+    tmp_path: Path,
+) -> None:
+    ws = _seed_plan_workflow_state(tmp_path)
+    init_compose_session(ws, mode="tech")
+    save_workflow_state(ws, {"current_state": "Working"})
+    reason = l_step_control._require_working_session(
+        _CYCLE, tmp_path, "lulu-plan", "begin-deductive"
+    )
+    assert reason is not None
+    assert "check-split-ready" not in reason
+    assert "topology" in reason.lower()
 

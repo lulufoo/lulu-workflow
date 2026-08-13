@@ -107,24 +107,21 @@ def _require_working_session(
         cycle_id, project_root, profile_id=profile_id,
     )
     if not ws_path.is_file():
-        return "workflow-state.md not found (run start; complete Split first)"
+        return "workflow-state.md not found (run start; then leave-split)"
     try:
         state = load_workflow_state(ws_path)
     except ValueError as exc:
         return str(exc)
     current = str(state.get("current_state", "")).strip()
     if current == "Split":
-        return (
-            "session is still Split; run leave-split after locking topology "
-            "(single-req = explicit L1 tree)"
-        )
+        return "session is still Split; run leave-split"
     if current != "Working":
         return f"session current_state is {current!r} (expected Working)"
     ok, err, _ = evaluate_split_ready(ws_path.parent)
     if not ok:
         return (
-            "locked split topology required before Working producer "
-            f"({err or 'check-split-ready failed'})"
+            "split topology not ready before Working producer "
+            f"({err or 'topology not ready'})"
         )
     return None
 
