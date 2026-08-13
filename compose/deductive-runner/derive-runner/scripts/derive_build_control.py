@@ -134,6 +134,10 @@ def slice_kw_criteria(kw_raw: str, lens: str) -> str | None:
 def cmd_context(args: argparse.Namespace) -> int:
     root = Path(args.project_root).resolve()
     cycle_id = (args.cycle_id or "").strip() or None
+    data, err = _require_intake_eval(Path(args.revision_dir))
+    if err:
+        return _fail(err)
+    assert data is not None
     try:
         runtime = resolve_revision_runtime_profile(
             Path(args.revision_dir),
@@ -142,10 +146,6 @@ def cmd_context(args: argparse.Namespace) -> int:
         )
     except (OSError, ValueError) as exc:
         return _fail(str(exc))
-    data, err = _require_intake_eval(Path(args.revision_dir))
-    if err:
-        return _fail(err)
-    assert data is not None
     reg, kw_raw, ferr = _fetch_registry_and_kw(
         root,
         runtime.profile_id,
@@ -173,6 +173,12 @@ def cmd_context(args: argparse.Namespace) -> int:
 def cmd_lens_bundle(args: argparse.Namespace) -> int:
     root = Path(args.project_root).resolve()
     cycle_id = (args.cycle_id or "").strip() or None
+    lens = args.lens.strip().upper()
+    if not lens:
+        return _fail("--lens must be a non-empty lens key")
+    _data, err = _require_intake_eval(Path(args.revision_dir))
+    if err:
+        return _fail(err)
     try:
         runtime = resolve_revision_runtime_profile(
             Path(args.revision_dir),
@@ -181,12 +187,6 @@ def cmd_lens_bundle(args: argparse.Namespace) -> int:
         )
     except (OSError, ValueError) as exc:
         return _fail(str(exc))
-    lens = args.lens.strip().upper()
-    if not lens:
-        return _fail("--lens must be a non-empty lens key")
-    _data, err = _require_intake_eval(Path(args.revision_dir))
-    if err:
-        return _fail(err)
     reg, kw_raw, ferr = _fetch_registry_and_kw(
         root,
         runtime.profile_id,
