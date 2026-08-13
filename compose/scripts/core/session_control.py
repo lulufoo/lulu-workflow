@@ -2,7 +2,7 @@
 """Session control for compose orchestrators.
 
 Subcommands:
-    split-complete       Split -> Working (requires check-split-ready topology)
+    leave-split          Leave session state Split -> Working (topology already locked)
     start-evaluating     Working: set focus phase=evaluating (session stays Working)
     ready-for-delivery   Working -> ReadyForDelivery (all L accepted; no skip-eval)
     deliver              ReadyForDelivery -> Delivered (+ human-delivery-gate.md)
@@ -63,7 +63,7 @@ from dependency_tree_schema import load_dependency_tree  # noqa: E402
 from transition_registry import is_allowed  # noqa: E402
 from workflow_state_schema import load_workflow_state, save_workflow_state  # noqa: E402
 
-_CMD_SPLIT_COMPLETE = "split-complete"
+_CMD_LEAVE_SPLIT = "leave-split"
 _CMD_START_EVALUATING = "start-evaluating"
 _CMD_READY = "ready-for-delivery"
 _CMD_DELIVER = "deliver"
@@ -196,13 +196,13 @@ def _set_focus_phase_in_progress(revision_dir: Path) -> dict[str, Any]:
     return {"focus": focus, "phase": pointer["by_id"][focus]["phase"]}
 
 
-def split_complete(
+def leave_split(
     cycle_id: str,
     project_root: Path,
     *,
     profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
 ) -> dict[str, Any]:
-    """Split → Working after topology is locked (check-split-ready)."""
+    """Leave session state Split → Working after topology is locked."""
     ws_path = workflow_state_path(cycle_id, project_root, profile_id)
     state = load_workflow_state(ws_path)
     current = state["current_state"]
@@ -212,7 +212,7 @@ def split_complete(
         if not ok:
             return {
                 "ok": False,
-                "command": _CMD_SPLIT_COMPLETE,
+                "command": _CMD_LEAVE_SPLIT,
                 "current_state": current,
                 "error": err or "split topology not ready",
                 "resume": {
@@ -224,7 +224,7 @@ def split_complete(
                 },
             }
         return _success(
-            _CMD_SPLIT_COMPLETE,
+            _CMD_LEAVE_SPLIT,
             "Working",
             profile_id=profile_id,
             transitioned=False,
@@ -232,23 +232,23 @@ def split_complete(
         )
 
     if current != _EXPECTED_SPLIT_STATE:
-        return _failure(_CMD_SPLIT_COMPLETE, current)
+        return _failure(_CMD_LEAVE_SPLIT, current)
 
-    if not _require_transition(_CMD_SPLIT_COMPLETE, current, "Working"):
-        return _failure(_CMD_SPLIT_COMPLETE, current)
+    if not _require_transition(_CMD_LEAVE_SPLIT, current, "Working"):
+        return _failure(_CMD_LEAVE_SPLIT, current)
 
     ok, err, details = evaluate_split_ready(ws_path.parent)
     if not ok:
         return {
             "ok": False,
-            "command": _CMD_SPLIT_COMPLETE,
+            "command": _CMD_LEAVE_SPLIT,
             "current_state": current,
             "error": err or "split topology not ready",
             "resume": {
                 "entry": current,
                 "action": (
-                    "Split 未完成：请先 lock 依赖树（单需求 = 显式 L1），"
-                    f"再 split-complete。 ({err})"
+                    "会话仍在 Split：请确认拓扑已锁（单需求 = 显式 L1），"
+                    f"再 leave-split。 ({err})"
                 ),
             },
         }
@@ -257,7 +257,7 @@ def split_complete(
     merged["current_state"] = "Working"
     save_workflow_state(ws_path, merged, merge=False)
     return _success(
-        _CMD_SPLIT_COMPLETE,
+        _CMD_LEAVE_SPLIT,
         "Working",
         profile_id=profile_id,
         transitioned=True,
@@ -654,8 +654,8 @@ def _cli() -> int:
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser(
-        _CMD_SPLIT_COMPLETE,
-        help="Transition Split -> Working after topology lock",
+        _CMD_LEAVE_SPLIT,
+        help="Leave session state Split -> Working",
     )
     sub.add_parser(_CMD_START_EVALUATING, help="Set focus phase=evaluating (stay Working)")
     sub.add_parser(_CMD_READY, help="Transition to ReadyForDelivery")
@@ -692,8 +692,8 @@ def _cli() -> int:
         return 1
 
     try:
-        if args.command == _CMD_SPLIT_COMPLETE:
-            return _emit(split_complete(cycle_id, project_root, profile_id=profile_id))
+        if args.command == _CMD_LEAVE_SPLIT:
+            return _emit(leave_split(cycle_id, project_root, profile_id=profile_id))
         if args.command == _CMD_START_EVALUATING:
             return _emit(start_evaluating(cycle_id, project_root, profile_id=profile_id))
         if args.command == _CMD_READY:

@@ -23,7 +23,8 @@ Start compose when directed by the holder, then load the active session context.
 
 ### Start
 
-Confirm Inputs, then run `$START_COMPOSE`.
+Confirm Inputs (`$CYCLE_ID`, `$PROFILE_PATH`), then run `$START_COMPOSE`.
+`$PROFILE_PATH` is the holder-bound runtime `compose-profile.json`.
 
 ### Bind context
 
@@ -31,7 +32,7 @@ Run `$SESSION_INFO --view session`, then bind:
 
 | Cite | JSON field | Use |
 |------|------------|-----|
-| `$INDUCTIVE` | `pipeline.inductive` | Split / Working route |
+| `$INDUCTIVE` | `pipeline.inductive` | Working Inductive / Deductive route |
 | `$CODE_GROUNDING` | `pipeline.code_grounding` | Writing / Deductive runner Input |
 | `$POST_WRITING_OPTIONS` | `pipeline.post_writing_options` | Pause / FreeEdit options |
 | `$DEMAND_MANIFEST` | `demand_manifest` | Delivery Rules producer atomization (`unit_rule`); skip when null |
@@ -46,40 +47,23 @@ Before producer / evaluation work:
 
 ---
 
-## Split Rules
+## Split
 
-**Session state:** `$START_COMPOSE` lands in **`Split`**. Topology lock is revision-level; single-req still locks an explicit **L1** tree. No `split-skip`.
+**Session state:** `$START_COMPOSE` lands in **`Split`**. Topology is already locked at start.
 
-1. Use `$REVISION_DIR`.
-2. `$MULTI_SLICE check-split-ready` — if ok, go to step 6.
-3. **Scope-package already converted** (primary `$SCOPE_REF` is `scope-package.json`): L topology was locked at start via convert — do **not** soft-split or hard-mirror. Non-zero check-split-ready → **Blocking**.
-4. **Deductive hard-mirror** (when `$INDUCTIVE` is `false` and primary `$SCOPE_REF` is compose `*-package.json`, not `scope-package.json`):
-   - Present the package `order` / titles (no cut edits). Human confirms once.
-   - `$MULTI_SLICE lock-hard-mirror --package-path <absolute SCOPE_REF> --confirm`
-   - Missing / invalid package / missing slice docs → **Blocking** (return upstream to re-deliver). Do **not** fall back to soft split-runner.
-5. **Inductive soft split** (only when `$INDUCTIVE` is `true`) dispatch **split-runner** inline (not a subagent):
+1. Run `$SESSION_CONTROL leave-split`. On failure → Blocking.
+2. From stdout `node_ids` and `focus`: tell the user the work is already sliced into N L units (`node_ids`); execute them one at a time, current focus = `focus`.
+3. Continue with ## Working Rules.
 
-```text
-Load {actual $SKILL_ROOT}/compose/split-runner/SKILL.md and follow its instructions in this conversation (interactive, human-driven — NOT a subagent).
+**Done:** workflow-state `current_state=Working`.
 
-## Input
-REVISION_DIR=$REVISION_DIR
-CYCLE_ID=$CYCLE_ID
-```
-
-   Human confirms stay on existing intake / `lock-tree --confirm`. Locked trees are immutable this iteration — re-split means a new revision. Multi-L lock requires rulers; single-L rulers exempt.
-6. `$MULTI_SLICE check-split-ready` — non-zero → Blocking.
-7. `$SESSION_CONTROL split-complete` — Split → Working. On failure → Blocking.
-
-**Done:** workflow-state `current_state=Working` and check-split-ready exits 0.
-
-CLI: `$MULTI_SLICE --help`, `$SESSION_CONTROL` (`split-complete`).
+CLI: `$SESSION_CONTROL` (`leave-split`).
 
 ---
 
 ## Working Rules
 
-**Session state:** `Working` after Split Rules (`split-complete`).
+**Session state:** `Working` after Split (`leave-split`).
 
 **Shape:** N L each hold an independent sub-state (`by_id[Lx].phase` + `intake`/`acceptance`); **one focus thread** (sibling L may be `ready` in parallel — that is not parallel editing). Steps below run **only on the current focus L**.
 
@@ -236,7 +220,6 @@ Stage-agenda items (design-external blockers/notes) live under the revision dir;
 
 | Document | When |
 |----------|------|
-| `{SKILL_ROOT}/compose/split-runner/SKILL.md` | Split Rules — multi-subdesign split (intake → lock tree+rulers) |
 | `{SKILL_ROOT}/compose/inductive-runner/SKILL.md` | Working → Inductive — inductive-runner (`$INDUCTIVE: true`) |
 | `{SKILL_ROOT}/compose/deductive-runner/SKILL.md` | Working → Deductive — deductive-runner (`$INDUCTIVE: false`) |
 | `{SKILL_ROOT}/compose/fact-intake-runner/SKILL.md` | Deductive Step 1 / Inductive Fact Intake — shared doc→`_facts.json` |
@@ -261,7 +244,7 @@ Fetch compose framework templates on demand; **do not** read `workflow-config.js
 |-------|---------|
 | `$START_COMPOSE` | `python3 "$SKILL_ROOT/compose/scripts/core/start.py" --project-root "$(pwd)" --cycle-id "$CYCLE_ID" --profile-path "$PROFILE_PATH"` |
 | `$SESSION_INFO` | `python3 "$SKILL_ROOT/compose/scripts/core/session_info.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --view <view>` |
-| `$SESSION_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/core/session_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` — session transitions (`split-complete` / `start-evaluating` / …) via `compose/transitions/compose-session.json`; do not load that file directly |
+| `$SESSION_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/core/session_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` — session transitions (`leave-split` / `start-evaluating` / …) via `compose/transitions/compose-session.json`; do not load that file directly |
 | `$L_STEP` | `python3 "$SKILL_ROOT/compose/scripts/section/l_step_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
 | `$INDUCTIVE_FACTS_PROJ` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_facts_projection.py"` (K4 retired — `project` fail-fast; facts written by discovery loop) |
 | `$FETCH_COMPOSE` | `python3 "$SKILL_ROOT/compose/scripts/io/fetch_compose_framework.py" --role <role> --project-root "$(pwd)" --cycle-id "$CYCLE_ID"` |
@@ -274,7 +257,7 @@ Fetch compose framework templates on demand; **do not** read `workflow-config.js
 | `$CHAPTER_WRITE_STATE` | `python3 "$SKILL_ROOT/compose/scripts/section/chapter_write_state_control.py"` — chapter-write-runner claim-current gate: `sync` / `status` / `begin` (ticket + writing_cognition + lens_intent) / `complete` (current) |
 | `$WRITING_COMPOSE_VALIDATE` | `python3 "$SKILL_ROOT/compose/scripts/section/writing_compose_validation.py" validate --revision-dir "$REVISION_DIR" --compose-doc <path> --project-root "$(pwd)"` |
 | `$AGENDA_CTL` | `python3 "$SKILL_ROOT/agenda/scripts/agenda_control.py" <subcommand> --project-root "$(pwd)" --cycle-id "$CYCLE_ID" [args...]` — stage agenda; resolves `revision{N}` from session-state (see `$SKILL_ROOT/agenda/SKILL.md`) |
-| `$MULTI_SLICE` | `python3 "$SKILL_ROOT/compose/scripts/core/multi_slice_control.py" --revision-dir "$REVISION_DIR" --project-root "$(pwd)" <subcommand>` — see `--help` (`lock-hard-mirror` / `assemble-package` / …) |
+| `$MULTI_SLICE` | `python3 "$SKILL_ROOT/compose/scripts/core/multi_slice_control.py" --revision-dir "$REVISION_DIR" --project-root "$(pwd)" <subcommand>` — see `--help` (`assemble-package` / …) |
 | `$L_SLICE` | `python3 "$SKILL_ROOT/compose/scripts/core/discussion_pointer_control.py" --revision-dir "$REVISION_DIR" --project-root "$(pwd)" <subcommand>` — `status` / `resume` / `ready` / `can-admit` / `can-enter-evaluate` / `switch` / `mark-done` / `accept-l` / `fix-l` / `demote-acceptance` / `seam-report` |
 | `$FACTS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/facts_control.py"` — `write` / `validate` / `status` (multi-L: `write` requires `home_l`; package bucket needs `--package-confirm`) |
 

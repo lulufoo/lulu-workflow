@@ -28,7 +28,7 @@ def test_session_states_match_whitelist():
 
 
 def test_allowed_transitions():
-    assert is_allowed("split-complete", "Split", "Working")
+    assert is_allowed("leave-split", "Split", "Working")
     assert is_allowed("ready-for-delivery", "Working", "ReadyForDelivery")
     assert is_allowed("deliver", "ReadyForDelivery", "Delivered")
 
@@ -36,6 +36,6 @@ def test_allowed_transitions():
 def test_disallowed_transitions():
     assert not is_allowed("deliver", "Working", "Delivered")
     assert not is_allowed("ready-for-delivery", "Split", "ReadyForDelivery")
-    assert not is_allowed("split-complete", "Working", "Working")
+    assert not is_allowed("leave-split", "Working", "Working")
     # Per-L evaluating is not a session transition
     assert not is_allowed("start-evaluating", "Working", "ReadyForDelivery")

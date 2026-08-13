@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Schema and I/O for revision ``split-intake.json`` (split-runner S0).
+"""Schema and I/O for revision ``split-intake.json``.
 
 Eight-slot v1 minimum set. Empty slot (missing or blank) without explicit
 ``N/A`` blocks complete status.

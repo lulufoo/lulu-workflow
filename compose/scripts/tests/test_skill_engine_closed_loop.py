@@ -25,6 +25,7 @@ def test_engine_skill_contains_full_orchestration() -> None:
         "### Start",
         "### Bind context",
         "### Scope constraints",
+        "## Split",
         "## Working Rules",
         "### Inductive (only when `$INDUCTIVE` is `true`)",
         "### Deductive (only when `$INDUCTIVE` is `false`)",
@@ -53,8 +54,12 @@ def test_engine_skill_contains_full_orchestration() -> None:
     assert "begin-deductive" in text
     assert "deductive-runner" in text
     assert "assemble-package" in text
-    assert "lock-hard-mirror" in text
+    assert "leave-split" in text
+    assert "lock-hard-mirror" not in text
+    assert "check-split-ready" not in text
+    assert "split-runner" not in text
     assert "assemble-index --confirm" not in text
+    assert not (_WORKFLOW_ROOT / "compose" / "split-runner").exists()
 
 
 def test_engine_evaluating_delegates_without_dimension_table() -> None:

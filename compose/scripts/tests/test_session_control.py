@@ -46,7 +46,7 @@ from init_working_helpers import (  # noqa: E402
     mark_focus_evaluating,
     mark_focus_intake_done,
 )
-from session_control import split_complete  # noqa: E402
+from session_control import leave_split  # noqa: E402
 
 _CYCLE = "feat-test"
 _CACHE = Path(".cache/cursor/lulu-dev-workflow")
@@ -598,18 +598,18 @@ class TestSplitComplete:
         assert load_workflow_state(ws)["current_state"] == "Split"
         lock_single_l1_tree(ws.parent)
 
-        result = split_complete(_CYCLE, tmp_path)
+        result = leave_split(_CYCLE, tmp_path)
 
         assert result["ok"] is True
         assert result["current_state"] == "Working"
         assert result.get("transitioned") is True
         assert load_workflow_state(ws)["current_state"] == "Working"
 
-    def test_split_complete_rejects_without_tree(self, tmp_path: Path):
+    def test_leave_split_rejects_without_tree(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
         init_compose_session(ws, mode="tech")
 
-        result = split_complete(_CYCLE, tmp_path)
+        result = leave_split(_CYCLE, tmp_path)
 
         assert result["ok"] is False
         assert result["current_state"] == "Split"

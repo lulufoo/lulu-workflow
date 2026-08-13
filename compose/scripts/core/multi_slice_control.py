@@ -377,7 +377,7 @@ def cmd_lock_tree(
 def evaluate_split_ready(revision_dir: Path) -> tuple[bool, str | None, dict[str, Any]]:
     """Return (ok, error, details) for check-split-ready conditions.
 
-    Library entry for session ``split-complete`` and Working L-step gates.
+    Library entry for session ``leave-split`` and Working L-step gates.
     """
     rev = Path(revision_dir).resolve()
     try:
@@ -399,7 +399,7 @@ def evaluate_split_ready(revision_dir: Path) -> tuple[bool, str | None, dict[str
         if not rulers_path.is_file():
             return (
                 False,
-                "multi-L requires locked slice-rulers.json (run split-runner lock)",
+                "multi-L requires locked slice-rulers.json",
                 {},
             )
         try:

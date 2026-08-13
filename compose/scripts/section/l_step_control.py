@@ -115,7 +115,7 @@ def _require_working_session(
     current = str(state.get("current_state", "")).strip()
     if current == "Split":
         return (
-            "session is still Split; run split-complete after locking topology "
+            "session is still Split; run leave-split after locking topology "
             "(single-req = explicit L1 tree)"
         )
     if current != "Working":
