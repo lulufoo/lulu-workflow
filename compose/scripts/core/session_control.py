@@ -218,7 +218,7 @@ def leave_split(
                 "resume": {
                     "entry": current,
                     "action": (
-                        "会话已在 Working，但拓扑未就绪；请补 lock 树或新开 revision。"
+                        "会话已在 Working，但拓扑未就绪；Blocking，请新开 revision。"
                         f" ({err})"
                     ),
                 },
@@ -247,8 +247,8 @@ def leave_split(
             "resume": {
                 "entry": current,
                 "action": (
-                    "会话仍在 Split：请确认拓扑已锁（单需求 = 显式 L1），"
-                    f"再 leave-split。 ({err})"
+                    "会话仍在 Split 且拓扑未就绪；Blocking，请新开 revision。"
+                    f" ({err})"
                 ),
             },
         }
@@ -289,8 +289,8 @@ def start_evaluating(
             "resume": {
                 "entry": current,
                 "action": (
-                    "无 locked 拓扑，不能进入 L evaluating；请回到 Split 补 lock "
-                    f"或新开 revision。 ({topo_err})"
+                    "无 locked 拓扑，不能进入 L evaluating；Blocking，请新开 revision。"
+                    f" ({topo_err})"
                 ),
             },
         }

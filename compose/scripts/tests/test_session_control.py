@@ -613,9 +613,25 @@ class TestSplitComplete:
 
         assert result["ok"] is False
         assert result["current_state"] == "Split"
-        assert "dependency tree" in (result.get("error") or "").lower() or (
-            "tree" in (result.get("resume") or {}).get("action", "").lower()
-        )
+        assert "dependency tree" in (result.get("error") or "").lower()
+        action = (result.get("resume") or {}).get("action", "")
+        assert "Blocking" in action
+        assert "新开 revision" in action
+        assert "补 lock" not in action
+
+    def test_leave_split_working_without_topology_is_blocking(self, tmp_path: Path):
+        ws = _seed_session(tmp_path)
+        init_compose_session(ws, mode="tech")
+        save_workflow_state(ws, {"current_state": "Working"})
+
+        result = leave_split(_CYCLE, tmp_path)
+
+        assert result["ok"] is False
+        assert result["current_state"] == "Working"
+        action = (result.get("resume") or {}).get("action", "")
+        assert "Blocking" in action
+        assert "新开 revision" in action
+        assert "补 lock" not in action
 
     def test_start_evaluating_rejects_without_topology(self, tmp_path: Path):
         ws = _seed_session(tmp_path)
@@ -626,3 +642,8 @@ class TestSplitComplete:
 
         assert result["ok"] is False
         assert result["current_state"] == "Working"
+        action = (result.get("resume") or {}).get("action", "")
+        assert "Blocking" in action
+        assert "新开 revision" in action
+        assert "补 lock" not in action
+        assert "回到 Split" not in action
