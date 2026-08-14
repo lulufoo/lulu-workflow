@@ -14,23 +14,28 @@
     "dimension_profile": {
       "acceptance_criteria": {
         "question": "How do we know the implementation is done? What observable, verifiable technical indicators confirm success?",
-        "depth": "Outcome-level, observable behaviors, 3–6 items — not individual unit-test names or assertions."
+        "depth": "Outcome-level, observable behaviors, 3–6 items — not individual unit-test names or assertions.",
+        "goal": "Observable, verifiable technical indicators show the implementation is done — not subjective judgment."
       },
       "impact_surface": {
         "question": "What systems, modules, interfaces, and external parties does this decision affect?",
-        "depth": "Layer/module or directory level (storage, service, host, UI, MCP, tests) — not individual file paths."
+        "depth": "Layer/module or directory level (storage, service, host, UI, MCP, tests) — not individual file paths.",
+        "goal": "Affected systems, modules, interfaces, and external parties are enumerated."
       },
       "external_dependencies": {
         "question": "Who owns the components this depends on? What is the contract, authoritative source, and confirmation mechanism for each dependency?",
-        "depth": "Only dependencies genuinely outside this feature's own change set, each with contract + authoritative source + confirmation mechanism — no deeper."
+        "depth": "Only dependencies genuinely outside this feature's own change set, each with contract + authoritative source + confirmation mechanism — no deeper.",
+        "goal": "Every dependency outside this feature's change set has a contract, authoritative source, and confirmation mechanism; unknowns are Assumptions."
       },
       "implementation_sketch": {
         "question": "What are the key technical changes? What non-obvious constraints or complexity exist? How reversible is this change?",
-        "depth": "A few sentences on the shape of the key change, non-obvious constraints, and reversibility — not a file-by-file change list."
+        "depth": "A few sentences on the shape of the key change, non-obvious constraints, and reversibility — not a file-by-file change list.",
+        "goal": "Key technical changes, non-obvious constraints, and reversibility are established; unknown constraints are Assumptions."
       },
       "gap_check": {
         "question": "Does the expected implementation output meet the acceptance criteria? Where does it fall short?",
-        "depth": "One-line verdict — no separate breakdown."
+        "depth": "One-line verdict — no separate breakdown.",
+        "goal": "The expected implementation output meets the acceptance criteria, or the shortfall is recorded."
       }
     }
   },

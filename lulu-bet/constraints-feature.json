@@ -13,23 +13,28 @@
     "dimension_profile": {
       "acceptance_criteria": {
         "question": "How will we know this feature succeeds for users? What observable, verifiable user-facing outcomes indicate it is done?",
-        "depth": "User-observable outcomes, 3–6 items — not internal QA test-case specifics."
+        "depth": "User-observable outcomes, 3–6 items — not internal QA test-case specifics.",
+        "goal": "Observable, verifiable user-facing outcomes show the feature succeeds."
       },
       "impact_surface": {
         "question": "Who and what is affected by this product decision — users, workflows, teams, or external parties?",
-        "depth": "Named user-segment/workflow/team level — not individual UI elements or screens."
+        "depth": "Named user-segment/workflow/team level — not individual UI elements or screens.",
+        "goal": "Affected users, workflows, teams, and external parties are named."
       },
       "external_dependencies": {
         "question": "What capabilities does this feature rely on, and what is the promise to users?",
-        "depth": "Only capabilities/promises this feature relies on that are owned outside this feature — not internal implementation details."
+        "depth": "Only capabilities/promises this feature relies on that are owned outside this feature — not internal implementation details.",
+        "goal": "Every outside-owned capability this feature relies on has a user-facing promise and a confirmation mechanism; unknowns are Assumptions."
       },
       "implementation_sketch": {
         "question": "What changes will users see, what are the product constraints, and is this reversible?",
-        "depth": "A few sentences on what users will notice, product constraints, and reversibility — not a feature spec."
+        "depth": "A few sentences on what users will notice, product constraints, and reversibility — not a feature spec.",
+        "goal": "What users will notice, product constraints, and reversibility are established."
       },
       "gap_check": {
         "question": "Does the planned product outcome fully meet the acceptance criteria? Where does it fall short from the user's perspective?",
-        "depth": "One-line verdict."
+        "depth": "One-line verdict.",
+        "goal": "The planned product outcome meets the acceptance criteria from the user's perspective, or the shortfall is recorded."
       }
     }
   },

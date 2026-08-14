@@ -13,23 +13,28 @@
     "dimension_profile": {
       "acceptance_criteria": {
         "question": "How will we know this topic direction is validated? What observable, verifiable signals indicate this direction is worth pursuing?",
-        "depth": "Strategic validation signals for the direction — not single-feature success metrics."
+        "depth": "Strategic validation signals for the direction — not single-feature success metrics.",
+        "goal": "Observable, verifiable signals show the topic direction is worth pursuing."
       },
       "impact_surface": {
         "question": "Which users, workflows, teams, or future features would be affected by committing to this direction?",
-        "depth": "User-segment/market/future-feature-family level — not individual feature impacts."
+        "depth": "User-segment/market/future-feature-family level — not individual feature impacts.",
+        "goal": "Affected users, workflows, teams, and future feature families are named."
       },
       "external_dependencies": {
         "question": "What capabilities or commitments does this direction rely on, and what promise does it make to users or the business?",
-        "depth": "Strategic-level capabilities or commitments — not feature-specific dependencies."
+        "depth": "Strategic-level capabilities or commitments — not feature-specific dependencies.",
+        "goal": "Every strategic capability or commitment this direction relies on has a promise and a confirmation mechanism; unknowns are Assumptions."
       },
       "implementation_sketch": {
         "question": "What is the shape of this direction, what are its product constraints, and how reversible is committing to it?",
-        "depth": "The shape of the direction and its strategic constraints — not a feature roadmap."
+        "depth": "The shape of the direction and its strategic constraints — not a feature roadmap.",
+        "goal": "The shape of the direction, its strategic constraints, and reversibility of committing to it are established."
       },
       "gap_check": {
         "question": "Does the proposed direction fully address the strategic need? Where does it fall short from the user's or business's perspective?",
-        "depth": "One-line verdict."
+        "depth": "One-line verdict.",
+        "goal": "The proposed direction addresses the strategic need from the user or business perspective, or the shortfall is recorded."
       }
     }
   },

@@ -329,6 +329,10 @@ def test_load_constraints_config_from_explicit_path() -> None:
         assert holder["domain"]["name"]
         assert holder["domain"]["instruction"]
         assert set(holder["domain"]["dimension_profile"]) == set(ALL_X_DIMENSIONS)
+        for entry in holder["domain"]["dimension_profile"].values():
+            assert entry["question"]
+            assert entry["depth"]
+            assert entry["goal"]
 
 
 def test_holder_constraints_require_objective_and_domain() -> None:
@@ -424,6 +428,48 @@ def test_merge_domain_constraints_empty_docs_passes_through() -> None:
     base = load_constraints_config(_holder_constraints("lulu-bet"))
     merged = merge_domain_constraints(base, {"context": {"docs": {}}})
     assert merged["context"] == {"docs": {}}
+
+
+def test_holder_topic_constraints_include_goal() -> None:
+    from dec_domain_constraints_schema import ALL_X_DIMENSIONS, load_constraints_config
+
+    for stage in ("lulu-approach", "lulu-bet"):
+        path = _WORKFLOW_ROOT / stage / "constraints-topic.json"
+        loaded = load_constraints_config(path)
+        assert set(loaded["domain"]["dimension_profile"]) == set(ALL_X_DIMENSIONS)
+        for entry in loaded["domain"]["dimension_profile"].values():
+            assert entry["goal"]
+
+
+def test_default_kernel_constraints_includes_dimension_profile() -> None:
+    from dec_domain_constraints_schema import (
+        ALL_X_DIMENSIONS,
+        DEFAULT_DIMENSION_PROFILE,
+        default_kernel_constraints,
+    )
+
+    constraints = default_kernel_constraints(stage="decision")
+    profile = constraints["domain"]["dimension_profile"]
+    assert set(profile) == set(ALL_X_DIMENSIONS)
+    for dim, entry in DEFAULT_DIMENSION_PROFILE.items():
+        assert profile[dim]["question"] == entry["question"]
+        assert profile[dim]["depth"] == entry["depth"]
+        assert profile[dim]["goal"] == entry["goal"]
+
+
+def test_dimension_profile_requires_goal() -> None:
+    data = json.loads(_holder_constraints("lulu-approach").read_text(encoding="utf-8"))
+    data["domain"]["dimension_profile"]["acceptance_criteria"].pop("goal")
+    with pytest.raises(ValueError, match=r"dimension_profile\['acceptance_criteria'\]\.goal"):
+        load_constraints_config_from_dict(data)
+
+
+def test_active_dimension_requires_complete_profile() -> None:
+    data = json.loads(_holder_constraints("lulu-approach").read_text(encoding="utf-8"))
+    data["x_dimensions"] = ["acceptance_criteria", "gap_check"]
+    del data["domain"]["dimension_profile"]["gap_check"]
+    with pytest.raises(ValueError, match=r"dimension_profile\['gap_check'\]"):
+        load_constraints_config_from_dict(data)
 
 
 def test_merge_domain_constraints_without_context_override_keeps_base() -> None:

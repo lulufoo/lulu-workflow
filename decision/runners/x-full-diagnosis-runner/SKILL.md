@@ -6,8 +6,8 @@ meta-skill-version: 1.0.0
 
 # x-full-diagnosis-runner
 
-Diagnose the active X dimensions at decision granularity. Complete when the user
-confirms each active dimension's result.
+Diagnose active X dimensions against each `dimension_profile.goal`. Complete
+when the user confirms the packed draft of all active dimensions.
 
 ## Blocking policy
 
@@ -28,30 +28,40 @@ Control CLI non-zero → stop, report error, wait for user direction.
 
 - Execute only `$CTX.domain_constraints.x_dimensions`; do not infer dimensions
   from holder prose.
-- For each active dimension, use
-  `$CTX.domain_constraints.domain.dimension_profile[<dimension>].question` as
-  its Core question when present; otherwise use the table default.
-- A configured `depth` is the depth ceiling. Before confirmation, self-check
-  the draft against that ceiling.
-- Without a configured `depth`, stop when one deeper level would change who
-  decides or require implementation detail. Do not name concrete file paths,
-  individual tests, or UI element IDs.
+- Read each active dimension's `question`, `depth`, and `goal` from
+  `$CTX.domain_constraints.domain.dimension_profile[<dimension>]`. No table
+  fallback.
+- A missing or incomplete profile on an active dimension → stop; do not open
+  dialogue.
+- `depth` is the ceiling. Self-check the draft against it before showing it.
 
-### Dimension goals
+### Coverage
 
-| Key | Core question | Complete when |
-|-----|---------------|---------------|
-| `acceptance_criteria` | How do we know it is done? Which observable, verifiable indicators show that? | Criteria are observable and verifiable, not subjective. |
-| `impact_surface` | What does this decision affect, including outside-system parties? | Impact domains, including external ones, are enumerated. |
-| `external_dependencies` | Who owns what this depends on? What are the contract, authoritative source, and confirmation mechanism? | Every dependency has a contract, source, and confirmation mechanism; unknowns are logged as Assumptions. |
-| `implementation_sketch` | What are the key changes, critical constraints or complexity, and reversibility? | Key changes, critical constraints, and reversibility are all established; unknown constraints are logged as Assumptions. |
-| `gap_check` | Does the expected implementation output meet the Acceptance Criteria? Where does it fall short? | The gap is recorded, or explicitly confirmed as none. |
+Evaluate each active dimension from this session, `$CTX.gl`, `$E`, `$D`, and
+related G0 priors.
 
-### Dialogue model
+| State | When |
+|-------|------|
+| Covered | A restatable conclusion meets this dimension's `goal` and stays within `depth`. |
+| Gap | Conclusion missing, not restatable, or fails `goal`. |
+| Contradiction | The conclusion conflicts with another dimension or with locked E/D. Mark every involved dimension. |
 
-For each active dimension, ask its Core question one question at a time (G1/G7),
-present the result, then obtain user confirmation before starting the next
-dimension. An adjustment revises the current dimension before progression.
+Do not re-ask a covered dimension. If the user names a dimension, treat it as
+unresolved.
+
+### Dialogue modes
+
+| Mode | When | Behavior |
+|------|------|----------|
+| `probe` | Any active dimension is a gap or contradiction | Ask only that one (G1). Use `question` as the default stem, or a more specific gap/contradiction question. |
+| `flag-gap` | All active dimensions Covered, no Contradiction, and `gap` is non-empty | Show the packed draft including the gap. Do not ask for confirm. Do not `gate-close`. Load RS. |
+| `present` | All active dimensions Covered, no Contradiction, and `gap` is empty or `None` | Show the packed draft. Ask for one confirm. |
+| `close` | User confirms the packed draft | `gate-close` with payload below. |
+
+`probe` may repeat. One gap or contradiction per turn.
+
+If the user rejects the `present` draft, treat the denied point as that
+dimension's gap or contradiction → `probe` only that dimension.
 
 ### Output rule
 
@@ -61,34 +71,36 @@ Gap Check does not create a separate document section. Record its result in the
 ### Side routes
 
 - Identification hit → load G0 runner immediately → `G0_COMPLETE` → resume the
-  current dimension.
+  current mode (`probe` or `present`).
 - G9 hit → load RS runner.
-- A non-empty Gap Check → explicitly flag the gap and load RS to realign E or D.
-  Do not close X by force.
+- Non-empty `gap` after all dimensions are Covered → `flag-gap`.
 
 ## Pipeline
 
 **Entry:**
 
 1. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
-   `domain.instruction`) to the dialogue.
+   `domain.instruction`, `x_dimensions`, `dimension_profile`) to the dialogue.
 2. If `$CTX.gates.X.status == stale`, follow
    `$SKILL_DIR/references/rs-stale-gate-update.md`, return `GATE_COMPLETE X`,
    and skip Act.
+3. Run `$GET_PAYLOAD --gates E,D`; pin `payloads.E` as `$E` and `payloads.D` as
+   `$D`. If either is missing, stop and report the missing required input.
 
 **Act:**
 
-1. Run every Cognitive map active dimension. For each one, apply its configured
-   question and depth before asking, then complete its dialogue model and side
-   routes, including its pre-confirmation depth self-check.
-2. After all active dimensions are confirmed and no Gap Check routes to RS, run
-   `$GATE_CONTROL gate-close --gate X --payload '<json>'` (only active-dimension
-   fields are required).
+1. Loop (Cognitive map):
+   - Evaluate each active dimension.
+   - If any gap or contradiction → `probe`.
+   - If all Covered and `gap` is non-empty → `flag-gap` → break.
+   - If all Covered and `gap` is empty or `None` → `present` → on confirm →
+     `$GATE_CONTROL gate-close --gate X --payload '<json>'` (only
+     active-dimension fields are required) → break.
 
 **Done:** Return `GATE_COMPLETE X`.
 
-**Stop:** Non-zero CLI, an unconfirmed active dimension, or a gap that requires
-realignment stops X.
+**Stop:** Non-zero CLI, an unconfirmed packed draft, a missing required payload,
+or a gap that requires realignment stops X.
 
 ## gate-close payload
 

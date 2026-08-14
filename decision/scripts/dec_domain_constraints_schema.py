@@ -29,6 +29,61 @@ ALL_X_DIMENSIONS: tuple[str, ...] = (
     "gap_check",
 )
 
+_PROFILE_FIELDS: tuple[str, ...] = ("question", "depth", "goal")
+
+_KERNEL_DEPTH = (
+    "Stop before a deeper level would change who decides or require "
+    "implementation detail. No concrete file paths, individual tests, or UI element IDs."
+)
+
+DEFAULT_DIMENSION_PROFILE: dict[str, dict[str, str]] = {
+    "acceptance_criteria": {
+        "question": (
+            "How do we know it is done? Which observable, verifiable "
+            "indicators show that?"
+        ),
+        "depth": _KERNEL_DEPTH,
+        "goal": "Criteria are observable and verifiable, not subjective.",
+    },
+    "impact_surface": {
+        "question": (
+            "What does this decision affect, including outside-system parties?"
+        ),
+        "depth": _KERNEL_DEPTH,
+        "goal": "Impact domains, including external ones, are enumerated.",
+    },
+    "external_dependencies": {
+        "question": (
+            "Who owns what this depends on? What are the contract, "
+            "authoritative source, and confirmation mechanism?"
+        ),
+        "depth": _KERNEL_DEPTH,
+        "goal": (
+            "Every dependency has a contract, source, and confirmation "
+            "mechanism; unknowns are logged as Assumptions."
+        ),
+    },
+    "implementation_sketch": {
+        "question": (
+            "What are the key changes, critical constraints or complexity, "
+            "and reversibility?"
+        ),
+        "depth": _KERNEL_DEPTH,
+        "goal": (
+            "Key changes, critical constraints, and reversibility are all "
+            "established; unknown constraints are logged as Assumptions."
+        ),
+    },
+    "gap_check": {
+        "question": (
+            "Does the expected implementation output meet the Acceptance "
+            "Criteria? Where does it fall short?"
+        ),
+        "depth": _KERNEL_DEPTH,
+        "goal": "The gap is recorded, or explicitly confirmed as none.",
+    },
+}
+
 KERNEL_STAGE = "decision"
 
 
@@ -50,7 +105,7 @@ def _normalize_role(data: dict[str, Any]) -> dict[str, str] | None:
 
 
 def _normalize_dimension_profile(raw: Any) -> dict[str, dict[str, str]]:
-    """Canonical per-dimension ``{question, depth}`` map."""
+    """Canonical per-dimension ``{question, depth, goal}`` map."""
     profile: dict[str, dict[str, str]] = {}
     if not isinstance(raw, dict):
         return profile
@@ -59,12 +114,10 @@ def _normalize_dimension_profile(raw: Any) -> dict[str, dict[str, str]]:
         if dim not in ALL_X_DIMENSIONS or not isinstance(value, dict):
             continue
         entry: dict[str, str] = {}
-        question = str(value.get("question", "")).strip()
-        depth = str(value.get("depth", "")).strip()
-        if question:
-            entry["question"] = question
-        if depth:
-            entry["depth"] = depth
+        for field in _PROFILE_FIELDS:
+            text = str(value.get(field, "")).strip()
+            if text:
+                entry[field] = text
         if entry:
             profile[dim] = entry
     return profile
@@ -76,14 +129,14 @@ def _normalize_domain(data: dict[str, Any]) -> dict[str, Any] | None:
         return None
     name = str(raw.get("name", "")).strip()
     instruction = str(raw.get("instruction", "")).strip()
-    if not name and not instruction:
+    profile = _normalize_dimension_profile(raw.get("dimension_profile"))
+    if not name and not instruction and not profile:
         return None
     result: dict[str, Any] = {}
     if name:
         result["name"] = name
     if instruction:
         result["instruction"] = instruction
-    profile = _normalize_dimension_profile(raw.get("dimension_profile"))
     if profile:
         result["dimension_profile"] = profile
     return result or None
@@ -133,6 +186,11 @@ def default_kernel_constraints(*, stage: str) -> dict[str, Any]:
             "cache_subdir": default_cache_subdir(stage),
             "omitted_sections": [],
             "x_dimensions": list(ALL_X_DIMENSIONS),
+            "domain": {
+                "dimension_profile": {
+                    dim: dict(entry) for dim, entry in DEFAULT_DIMENSION_PROFILE.items()
+                }
+            },
         }
     )
 
@@ -174,6 +232,12 @@ def normalize_domain_constraints(data: dict[str, Any]) -> dict[str, Any]:
     if role:
         normalized["role"] = role
     domain = _normalize_domain(data)
+    if domain is None or not domain.get("dimension_profile"):
+        filled = dict(domain) if isinstance(domain, dict) else {}
+        filled["dimension_profile"] = {
+            dim: dict(entry) for dim, entry in DEFAULT_DIMENSION_PROFILE.items()
+        }
+        domain = filled
     if domain:
         normalized["domain"] = domain
     context = _normalize_context(data)
@@ -243,14 +307,11 @@ def validate_domain_constraints(data: dict[str, Any]) -> list[str]:
                         elif not isinstance(value, dict):
                             errors.append(f"dimension_profile[{key!r}] must be an object")
                         else:
-                            if not str(value.get("question", "")).strip():
-                                errors.append(
-                                    f"dimension_profile[{key!r}].question must be non-empty"
-                                )
-                            if not str(value.get("depth", "")).strip():
-                                errors.append(
-                                    f"dimension_profile[{key!r}].depth must be non-empty"
-                                )
+                            for field in _PROFILE_FIELDS:
+                                if not str(value.get(field, "")).strip():
+                                    errors.append(
+                                        f"dimension_profile[{key!r}].{field} must be non-empty"
+                                    )
     stage = str(data.get("stage", "")).strip()
     if stage and stage != KERNEL_STAGE:
         if not str(data.get("objective", "")).strip():
@@ -262,6 +323,19 @@ def validate_domain_constraints(data: dict[str, Any]) -> list[str]:
                 errors.append("domain.name is required for holder stages")
             if not str(domain.get("instruction", "")).strip():
                 errors.append("domain.instruction is required for holder stages")
+    profile = domain_dimension_profile(data)
+    for dim in data.get("x_dimensions", []):
+        entry = profile.get(str(dim))
+        if not isinstance(entry, dict):
+            errors.append(
+                f"dimension_profile[{dim!r}] is required for active x_dimensions"
+            )
+            continue
+        for field in _PROFILE_FIELDS:
+            if not str(entry.get(field, "")).strip():
+                errors.append(
+                    f"dimension_profile[{dim!r}].{field} must be non-empty"
+                )
     return errors
 
 

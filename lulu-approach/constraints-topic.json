@@ -14,23 +14,28 @@
     "dimension_profile": {
       "acceptance_criteria": {
         "question": "How do we know this architecture direction is sound? What observable, verifiable technical indicators confirm it can support follow-on architecture work?",
-        "depth": "Direction-level signals that validate the architecture direction — not feature-level implementation details."
+        "depth": "Direction-level signals that validate the architecture direction — not feature-level implementation details.",
+        "goal": "Observable, verifiable signals show the architecture direction can support follow-on work."
       },
       "impact_surface": {
         "question": "What systems, modules, interfaces, and external parties does this architecture decision affect?",
-        "depth": "Subsystem/architecture-domain level, spanning potential future features — not module or file level."
+        "depth": "Subsystem/architecture-domain level, spanning potential future features — not module or file level.",
+        "goal": "Affected systems, modules, interfaces, and external parties are enumerated."
       },
       "external_dependencies": {
         "question": "Who owns the components this depends on? What is the contract, authoritative source, and confirmation mechanism for each dependency?",
-        "depth": "Cross-cutting dependencies/contracts this direction commits to — not feature-specific integration details."
+        "depth": "Cross-cutting dependencies/contracts this direction commits to — not feature-specific integration details.",
+        "goal": "Every cross-cutting dependency this direction commits to has a contract, source, and confirmation mechanism; unknowns are Assumptions."
       },
       "implementation_sketch": {
         "question": "What is the shape of this architecture direction? What non-obvious constraints or complexity exist? How reversible is committing to it?",
-        "depth": "The shape of the direction and its structural constraints — not a concrete implementation plan."
+        "depth": "The shape of the direction and its structural constraints — not a concrete implementation plan.",
+        "goal": "The shape of the direction, its structural constraints, and reversibility of committing to it are established."
       },
       "gap_check": {
         "question": "Does the proposed architecture direction meet the acceptance criteria? Where does it fall short?",
-        "depth": "One-line verdict against the direction's acceptance criteria."
+        "depth": "One-line verdict against the direction's acceptance criteria.",
+        "goal": "The proposed architecture direction meets the acceptance criteria, or the shortfall is recorded."
       }
     }
   },

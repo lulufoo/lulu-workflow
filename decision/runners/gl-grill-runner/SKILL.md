@@ -49,8 +49,8 @@ not completion conditions for this goal.
 
 `G-diagnosis-preflight` probes use active `$CTX.domain_constraints.x_dimensions`
 as coverage handles (`lens` ids) only; phrase from locked Q + optional
-`domain.dimension_profile` hints to match the Goals row — not as mini-X stems
-or shallow X fills.
+`domain.dimension_profile` (`question` / `depth`) hints — not as mini-X
+stems or shallow X fills.
 
 ### Ask domain / bounds
 
