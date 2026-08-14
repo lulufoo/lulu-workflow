@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Decision-owned Eval runtime state (maps onto Eval Working/evaluating)."""
+"""Decision-owned Eval runtime state (maps onto Eval Working/evaluating).
+
+Pass flag is last_outcome == "pass". No failure_count / max_rounds.
+Design: docs/domain/archive/decision/decision-eval-pass-flag-replace-round-limit.md
+"""
 
 from __future__ import annotations
 
@@ -12,7 +16,6 @@ from typing import Any
 from dec_io import atomic_write_text
 
 RUNTIME_FILENAME = "decision-eval-runtime.json"
-MAX_EVAL_ROUNDS = 2
 EVAL_WORKFLOW_STATE_FILENAME = "decision-eval-workflow-state.md"
 
 
@@ -41,7 +44,6 @@ def default_runtime() -> dict[str, Any]:
         "version": 1,
         "focus_phase": "pending",
         "evaluate_round": 0,
-        "failure_count": 0,
         "last_outcome": "",
         "active_lease_id": "",
         "write_staging_dir": "",
@@ -57,11 +59,13 @@ def load_runtime(path: Path) -> dict[str, Any]:
         raise ValueError(f"decision eval runtime must be an object: {path}")
     merged = default_runtime()
     merged.update(data)
+    merged.pop("failure_count", None)
     return merged
 
 
 def save_runtime(path: Path, data: dict[str, Any]) -> None:
     payload = dict(data)
+    payload.pop("failure_count", None)
     payload["updated_at"] = _now_iso()
     atomic_write_text(path, json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
 
@@ -104,17 +108,13 @@ def exit_evaluating_runtime(
     runtime: dict[str, Any],
     *,
     outcome: str,
-    increment_failure: bool,
 ) -> dict[str, Any]:
     updated = dict(runtime)
     updated["focus_phase"] = "pending"
     updated["active_lease_id"] = ""
     updated["write_staging_dir"] = ""
     updated["last_outcome"] = outcome
-    if increment_failure:
-        updated["failure_count"] = int(updated.get("failure_count") or 0) + 1
-    elif outcome == "pass":
-        updated["failure_count"] = 0
+    updated.pop("failure_count", None)
     return updated
 
 
@@ -128,5 +128,3 @@ def allocate_lease(session_dir: Path, runtime: dict[str, Any]) -> dict[str, Any]
     return updated
 
 
-def hard_blocked(runtime: dict[str, Any], *, max_rounds: int = MAX_EVAL_ROUNDS) -> bool:
-    return int(runtime.get("failure_count") or 0) >= int(max_rounds)

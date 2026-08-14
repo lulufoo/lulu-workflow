@@ -31,7 +31,6 @@ from dec_eval_runtime_schema import (  # noqa: E402
     evaluate_dir,
     evaluate_state_path,
     exit_evaluating_runtime,
-    hard_blocked,
     load_runtime,
     load_workflow_state_view,
     runtime_path,
@@ -250,21 +249,6 @@ class DecisionEvalAdapter:
         paths = self._paths(cycle_id, project_root)
         session_dir = paths["session_dir"]
         runtime = load_runtime(runtime_path(session_dir))
-        if hard_blocked(runtime):
-            return {
-                "ok": False,
-                "current_state": "Working",
-                "transitioned": False,
-                "error": (
-                    f"decision Eval hard-blocked: failure_count="
-                    f"{runtime.get('failure_count')} >= max_rounds"
-                ),
-                "resume": {
-                    "entry": "DC",
-                    "action": "Eval max rounds exhausted; Realign or abort session",
-                },
-            }
-
         gate_state = load_gate_state(paths["gate_state"])
         if str(gate_state.get("active_gate", "")) != "DC":
             return {
@@ -327,8 +311,6 @@ class DecisionEvalAdapter:
         runtime = load_runtime(runtime_path(session_dir))
         if require_evaluating and runtime.get("focus_phase") != "evaluating":
             raise ValueError("decision EvalHandoff requires focus_phase=evaluating")
-        if hard_blocked(runtime):
-            raise ValueError("decision Eval hard-blocked (max rounds)")
 
         runtime = allocate_lease(session_dir, runtime)
         self._save_runtime(cycle_id, project_root, runtime)
@@ -457,19 +439,11 @@ class DecisionEvalAdapter:
             data["eval_status"] = "done"
             save_evaluate_state(es_path, data, merge=False)
 
-        failed = outcome == "fail"
-        runtime = exit_evaluating_runtime(
-            runtime,
-            outcome=outcome,
-            increment_failure=failed,
-        )
+        runtime = exit_evaluating_runtime(runtime, outcome=outcome)
         self._save_runtime(cycle_id, project_root, runtime)
-        blocked = hard_blocked(runtime)
         return {
             "ok": True,
             "outcome": outcome,
-            "failure_count": int(runtime.get("failure_count") or 0),
             "evaluate_round": int(runtime.get("evaluate_round") or 0),
-            "hard_blocked": blocked,
             "issues": issues or [],
         }

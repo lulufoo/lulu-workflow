@@ -71,8 +71,7 @@ Subcommand contracts: module docstring / `--help`. `$SUBAGENT_*`: `_subagent.md`
 
 ### Side routes
 
-- Eval fail (not hard-blocked) → summarize issues → `$DEC_EVAL fail-exit` → RS at `realign_gate`; do not present completion.
-- Eval `hard_blocked` → stop; no DC close.
+- Eval fail → summarize issues → RS at `realign_gate`; do not present completion.
 - Confirm-time realign → load RS runner; after sync, `$GATE_CONTROL resolve-context` (fresh `$CTX`); restore `G-cleared` / `G-confirm` before close.
 - Identification hit → load G0 runner → `G0_COMPLETE` → resume DC dialogue.
 - G9 hit → load RS runner → after return, resume DC dialogue.
@@ -85,8 +84,7 @@ Subcommand contracts: module docstring / `--help`. `$SUBAGENT_*`: `_subagent.md`
 2. Pin the successful `probe-complete` JSON as `probe_result`.
 3. Run `$DEC_EVAL route-probe-result --probe-result-json '<probe_result JSON>'`.
    - `outcome: pass` → continue to `$SESSION_INTEGRITY render`.
-   - `outcome: fail` and `hard_blocked: false` → RS at `realign_gate`.
-   - `hard_blocked: true` → stop; do not close DC.
+   - `outcome: fail` → RS at `realign_gate`.
 
 ## Pipeline
 
@@ -110,7 +108,7 @@ Subcommand contracts: module docstring / `--help`. `$SUBAGENT_*`: `_subagent.md`
 
 **Done:** Return `GATE_COMPLETE DC Completed`.
 
-**Stop:** Non-zero CLI, Eval hard-block, or confirmation cannot be judged → stop
+**Stop:** Non-zero CLI or confirmation cannot be judged → stop
 and wait for user direction.
 
 ## gate-close payload

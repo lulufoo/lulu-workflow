@@ -3,7 +3,6 @@
 
 CLI:
     python3 dec_eval_control.py --project-root . --cycle-id <id> render-eval-target
-    python3 dec_eval_control.py --project-root . --cycle-id <id> check-rounds
     python3 dec_eval_control.py --project-root . --cycle-id <id> pass-exit
     python3 dec_eval_control.py --project-root . --cycle-id <id> fail-exit --issues-json '<array>'
     python3 dec_eval_control.py --project-root . --cycle-id <id> route-probe-result --probe-result-json '<object>'
@@ -25,12 +24,6 @@ for p in (_SCRIPTS, _EVAL_ADAPTER):
 
 from decision_eval_adapter import DecisionEvalAdapter  # noqa: E402
 from dec_domain_constraints_schema import resolve_stage  # noqa: E402
-from dec_eval_runtime_schema import (  # noqa: E402
-    MAX_EVAL_ROUNDS,
-    hard_blocked,
-    load_runtime,
-    runtime_path,
-)
 from dec_eval_target_schema import render_and_save_eval_target  # noqa: E402
 from dec_gate_state_schema import (  # noqa: E402
     is_gate_closed,
@@ -87,25 +80,6 @@ def cmd_render_eval_target(
     except (FileNotFoundError, ValueError, OSError, json.JSONDecodeError) as exc:
         return _emit_error(str(exc))
     return _emit({"ok": True, "eval_target_path": out.as_posix()})
-
-
-def cmd_check_rounds(project_root: Path, cycle_id: str, stage: str) -> int:
-    try:
-        paths = _session_paths(project_root, cycle_id, stage)
-        runtime = load_runtime(runtime_path(paths["session_dir"]))
-    except (FileNotFoundError, ValueError, OSError) as exc:
-        return _emit_error(str(exc))
-    blocked = hard_blocked(runtime)
-    return _emit(
-        {
-            "ok": True,
-            "hard_blocked": blocked,
-            "failure_count": int(runtime.get("failure_count") or 0),
-            "max_rounds": MAX_EVAL_ROUNDS,
-            "evaluate_round": int(runtime.get("evaluate_round") or 0),
-            "last_outcome": runtime.get("last_outcome") or "",
-        }
-    )
 
 
 def _earliest_realign_gate(issues: list[dict[str, Any]]) -> str | None:
@@ -194,7 +168,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--constraints", default="")
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("render-eval-target")
-    sub.add_parser("check-rounds")
     sub.add_parser("pass-exit")
     fail = sub.add_parser("fail-exit")
     fail.add_argument(
@@ -223,8 +196,6 @@ def main(argv: list[str] | None = None) -> int:
         return _emit_error(str(exc))
     if args.command == "render-eval-target":
         return cmd_render_eval_target(project_root, cycle_id, stage)
-    if args.command == "check-rounds":
-        return cmd_check_rounds(project_root, cycle_id, stage)
     if args.command == "pass-exit":
         return cmd_pass_exit(project_root, cycle_id, stage)
     if args.command == "fail-exit":

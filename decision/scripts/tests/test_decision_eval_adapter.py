@@ -22,7 +22,6 @@ from contextlib import redirect_stdout
 
 import eval_control  # noqa: E402
 from dec_eval_control import (  # noqa: E402
-    cmd_check_rounds,
     cmd_fail_exit,
     cmd_pass_exit,
     cmd_route_probe_result,
@@ -150,7 +149,7 @@ def test_enter_evaluating_binds_target_and_handoff(tmp_path: Path) -> None:
     assert EVAL_TARGET_FILENAME in handoff["context"]["bindings"]["eval_target_path"]
 
 
-def test_fail_exit_sets_realign_and_hard_block(tmp_path: Path) -> None:
+def test_fail_exit_sets_realign_and_allows_retry(tmp_path: Path) -> None:
     cycle_id = "feature-dec-eval-2"
     _seed_dc_session(tmp_path, cycle_id)
     adapter = DecisionEvalAdapter()
@@ -173,7 +172,8 @@ def test_fail_exit_sets_realign_and_hard_block(tmp_path: Path) -> None:
     assert fail1["realign_gate"] == "E"
     runtime = load_runtime(runtime_path(tmp_path / CACHE_DIR / cycle_id / "decision"))
     assert runtime["focus_phase"] == "pending"
-    assert runtime["failure_count"] == 1
+    assert runtime["last_outcome"] == "fail"
+    assert "failure_count" not in runtime
 
     assert adapter.enter_evaluating(cycle_id, tmp_path)["ok"] is True
     _run_json(
@@ -189,16 +189,53 @@ def test_fail_exit_sets_realign_and_hard_block(tmp_path: Path) -> None:
             }
         ],
     )
-    payload = _run_json(cmd_check_rounds, tmp_path, cycle_id, "decision")
-    assert payload["hard_blocked"] is True
-    assert payload["failure_count"] == 2
-
-    blocked = adapter.enter_evaluating(cycle_id, tmp_path)
-    assert blocked["ok"] is False
-    assert "hard-blocked" in blocked["error"]
+    runtime = load_runtime(runtime_path(tmp_path / CACHE_DIR / cycle_id / "decision"))
+    assert runtime["last_outcome"] == "fail"
+    assert adapter.enter_evaluating(cycle_id, tmp_path)["ok"] is True
 
 
-def test_pass_exit_resets_failure_count(tmp_path: Path) -> None:
+def test_route_then_fail_exit_still_allows_reentry(tmp_path: Path) -> None:
+    cycle_id = "feature-dec-eval-double-exit"
+    _seed_dc_session(tmp_path, cycle_id)
+    adapter = DecisionEvalAdapter()
+    assert adapter.enter_evaluating(cycle_id, tmp_path)["ok"] is True
+    routed = _run_json(
+        cmd_route_probe_result,
+        tmp_path,
+        cycle_id,
+        "decision",
+        probe_result={
+            "ok": True,
+            "command": "probe-complete",
+            "issues": [
+                {
+                    "dimension_id": "decision-consistency",
+                    "realign_gate": "D",
+                    "description": "phase",
+                }
+            ],
+        },
+    )
+    assert routed["outcome"] == "fail"
+    _run_json(
+        cmd_fail_exit,
+        tmp_path,
+        cycle_id,
+        "decision",
+        issues=[
+            {
+                "dimension_id": "decision-consistency",
+                "realign_gate": "D",
+                "description": "phase",
+            }
+        ],
+    )
+    runtime = load_runtime(runtime_path(tmp_path / CACHE_DIR / cycle_id / "decision"))
+    assert runtime["last_outcome"] == "fail"
+    assert adapter.enter_evaluating(cycle_id, tmp_path)["ok"] is True
+
+
+def test_pass_exit_sets_pass_flag(tmp_path: Path) -> None:
     cycle_id = "feature-dec-eval-3"
     _seed_dc_session(tmp_path, cycle_id)
     adapter = DecisionEvalAdapter()
@@ -219,7 +256,9 @@ def test_pass_exit_resets_failure_count(tmp_path: Path) -> None:
     assert adapter.enter_evaluating(cycle_id, tmp_path)["ok"] is True
     payload = _run_json(cmd_pass_exit, tmp_path, cycle_id, "decision")
     assert payload["outcome"] == "pass"
-    assert payload["failure_count"] == 0
+    runtime = load_runtime(runtime_path(tmp_path / CACHE_DIR / cycle_id / "decision"))
+    assert runtime["last_outcome"] == "pass"
+    assert "failure_count" not in runtime
 
 
 def test_probe_handoff_routes_eval_result_through_decision_realign(
@@ -317,4 +356,5 @@ def test_probe_result_without_issues_routes_decision_pass(tmp_path: Path) -> Non
     )
 
     assert routed["outcome"] == "pass"
-    assert routed["failure_count"] == 0
+    runtime = load_runtime(runtime_path(tmp_path / CACHE_DIR / cycle_id / "decision"))
+    assert runtime["last_outcome"] == "pass"
