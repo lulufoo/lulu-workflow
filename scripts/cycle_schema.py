@@ -122,7 +122,7 @@ def format_cycles_menu(cache_dir: Path) -> str:
                 lines.append(f"[{kind}]   {prefix}{index}. {name}")
 
     lines.extend(_MENU_CREATE_LINES)
-    return "\n".join(lines)
+    return "  \n".join(lines)
 
 
 def resolve_menu_token(cache_dir: Path, token: str) -> Optional[str]:

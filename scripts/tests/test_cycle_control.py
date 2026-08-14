@@ -127,12 +127,24 @@ class TestCycleControlMenu:
         result = _run("--project-root", str(tmp_path), "menu")
         assert result.returncode == 0, result.stderr
         lines = [ln for ln in result.stdout.splitlines() if ln.startswith("[")]
-        assert lines == [
+        assert [ln.rstrip() for ln in lines] == [
             "[topic]   T1. new-topic",
             "[topic]   T2. old-topic",
             "[feature]   F1. new-feature",
             "[feature]   F2. old-feature",
         ]
+        expected = "  \n".join(
+            [
+                "Cycles:",
+                "[topic]   T1. new-topic",
+                "[topic]   T2. old-topic",
+                "[feature]   F1. new-feature",
+                "[feature]   F2. old-feature",
+                "N. New topic — type a description to create",
+                "M. New feature — type a description to create",
+            ]
+        )
+        assert result.stdout == expected + "\n"
 
     def test_menu_truncates_to_five_per_type(self, tmp_path):
         data = {}
