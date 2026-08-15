@@ -92,6 +92,7 @@ def test_topic_landscape_tool_contract():
     assert "## Discovery" in text
     assert "Applies when deriving the initial temporary `gap` Topic set." in text
     assert "**Source**" in text
+    assert "Declared Inputs." in text
     assert "**Recompute**" in text
     assert "**Authority**" in text
     assert "**Human role**" not in text

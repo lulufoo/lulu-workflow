@@ -38,7 +38,7 @@ A human-confirmable view containing:
 Applies when deriving the initial temporary `gap` Topic set.
 
 1. **Topic** — One commitment the induction still needs dialogue to settle.
-2. **Source** — Induction context, settled facts, and the project.
+2. **Source** — Declared Inputs.
 3. **Method** — Compare settled facts to the project, and whether those
    facts are complete for the induction context. Autonomous; not a
    scripted detector.
