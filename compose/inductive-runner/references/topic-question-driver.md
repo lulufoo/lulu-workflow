@@ -51,8 +51,8 @@ The question must carry:
 
 1. the current remaining gap;
 2. the one minimum judgment this question will settle;
-3. project grounding directly relevant to that judgment — when an
-   implementation surface exists, an openable location already read;
+3. project grounding for that judgment — already read when a surface
+   exists;
 4. what result becomes determinate after the judgment.
 
 Reuse the portrait's Facts-first Grounding. Question language follows
