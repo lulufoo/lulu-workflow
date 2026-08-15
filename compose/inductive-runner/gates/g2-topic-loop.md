@@ -2,17 +2,13 @@
 
 # Gate 2 — Topic Loop
 
-**Status:** Design-convergence dialogue. **Not** draft-as-topic-tree.
-
 **Prerequisites:** `$INDUCTIVE_GATE_CTL resolve-context` reports `active_gate` is `G2` (G1 closed).
 
 ## Goal
 
-Converge design via dialogue (not by writing the whole document at once).
-
-Domain `cognitive_frame` (D1) and `intent_anchor` (D2) are the shared traction for the whole Topic Loop and for exit detection (`design_goal_met`) — not per-topic KPIs.
-
-Close does **not** require a narrative arc.
+Converge the current Compose stage's substance through Topic-driven dialogue.
+Domain `cognitive_frame` (D1) and `intent_anchor` (D2) jointly guide the Topic
+Loop as a whole.
 
 ## Dialogue cognition
 
