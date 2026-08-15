@@ -25,4 +25,4 @@
    - Optional resume aid only: you may also include `architecture_view` + `shape_constraints` in the payload for DQI; if present, fields must be complete. **Never** treat DQI as SoT or as G4's shape baseline.
 6. Advance to G2 (Topic Loop — see `g2-topic-loop.md`). After G1 close: enter dialogue Topic Loop directly. **Do not** ensure draft-as-topic-tree. Viewer / semantic collab-arc rebuild are optional later (after fact-settle stale), human-chosen.
 
-**After close:** default-present the confirmed shape view once more, then enter Topic Loop orchestration (`g2-topic-loop.md`). Do **not** auto-close G2. View (Class 3, sensing) and Class 1A discovery remain available anytime after fact-intake (parent SKILL).
+**After close:** default-present the confirmed shape view once more, then enter Topic Loop orchestration (`g2-topic-loop.md`). Do **not** auto-close G2. Class 1A discovery remains available anytime after fact-intake (parent SKILL).

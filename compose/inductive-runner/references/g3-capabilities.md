@@ -24,13 +24,13 @@ Produces opens in `inductive-opens.json`. Two triggers with **different natures*
 
 Not a prescriptive menu — an **awareness map** so the AI recognizes "an open point has arrived" via any of these paths and routes it to Class 2. Lands via `add-open --trigger human`.
 
-| Path | means | Nature |
-|------|-------|--------|
-| Collision | `human_probe` | gap surfaced while the user questions / challenges |
-| Direct | `human_direct` | user directly asserts a gap |
-| View-derived | `human_view` | user notices a gap while viewing — one possible situation, **not** required to happen inside View |
+| Path | means |
+|------|-------|
+| Collision | `human_probe` |
+| Direct | `human_direct` |
+| Noticed-while-looking | `human_view` |
 
-**Collision contract:** AI may infer, but **must** label ✅ Verified (with anchor) / ⚠️ Inferred / say unknown; multiple readings OK; **never** decides for the user. Do **not** fold inference into View (violates V2).
+**Collision contract:** AI may infer, but **must** label ✅ Verified (with anchor) / ⚠️ Inferred / say unknown; multiple readings OK; **never** decides for the user.
 
 ### 1B — AI-triggered (active methods)
 
@@ -50,13 +50,7 @@ AI probe rule: silence ∧ KW-false → gap; no correctness judging (that is G4)
 
 ## Class 2 — Process open points
 
-Consumes `open` → facts via `fact-store-runner` `$FACT_STORE_CTL propose --kind settle_open → ack → consume` (1:N) or `deferred`/`rejected`. The user picks the mode after seeing problem + leaning (I6 informed authorization).
-
-| Mode | Behavior |
-|------|----------|
-| `auto` | (optional `deep-grounding`) → `attach-code-refs` → `propose settle_open` → show exact preview → user ACK → `ack` → `consume`, continuous (no per-point pause) |
-| `manual` | **Manual turn** per open (below) |
-| `ignore` | `defer-open` (park) |
+Consumes `open` → facts via `fact-store-runner` `$FACT_STORE_CTL propose --kind settle_open → ack → consume` (1:N) or `deferred`/`rejected`. I6: settle requires informed ACK on the exact preview; Ignore is a Manual-turn act (`defer-open`).
 
 **Manual turn** (Class 2 only — not detect Output):
 1. Lock one open.
@@ -65,7 +59,7 @@ Consumes `open` → facts via `fact-store-runner` `$FACT_STORE_CTL propose --kin
 4. **Options (2–5)** — `/plain` wording; keep proper nouns. Command names are orchestration maps only, not option titles.
 5. **Objective leaning** — recommended option + one-line why; do not select for the user.
 6. **Wait / legal replies:** refine option · new idea (rewrite) · discuss-then-decide (no settle) · **skip** (leave `open`, next Manual turn; ≠ Ignore) · **Ignore** (`defer-open`) · settle when ready.
-7. **Legal exit** (anytime): stop/abandon Manual · return to open-point detect · switch to **Auto**. No prescription after exit.
+7. **Legal exit** (anytime): stop/abandon Manual · return to open-point detect. No prescription after exit.
 8. **Act** — settle tools / `defer-open` / skip-to-next / leave as chosen.
 
 **Manual turn MUST NOT:** batch opens in one ask; second deep after act; deep agent user-facing or settling; dispatch `plain` skill; treat skip as Ignore.
@@ -73,24 +67,6 @@ Consumes `open` → facts via `fact-store-runner` `$FACT_STORE_CTL propose --kin
 **Tools:**
 - `g3-deep-grounding-runner` (optional): read-only evidence for **one** chosen open; may carry `file:line` / signatures. Never forms the leaning — the parent does.
 - `attach-code-refs`: fix code anchors onto an **open** (`O-` only; facts have no `code_refs` field).
-- `$FACT_STORE_CTL propose --kind settle_open` → `ack` → `consume`: commit `open` → 1:N facts (`origin.type=discovered`, `ref=[O-n]`); ACK binds the displayed digest; `consume` returns `stale_signal`; `code_refs` stay on the open; `resolved_by` lists new `F-` ids. One git commit (I8). G3 section `settle-open` write path is removed (archive-11.0).
+- `$FACT_STORE_CTL propose --kind settle_open` → `ack` → `consume`: commit `open` → 1:N facts (`origin.type=discovered`, `ref=[O-n]`); ACK binds the displayed digest; `consume` returns `stale_signal`; `code_refs` stay on the open; `resolved_by` lists new `F-` ids. One git commit (I8). G3 section `settle-open` write path is removed.
 - `defer-open`: park open (`status=deferred` + `note`; keeps `intent_ref`; does **not** copy stamps onto facts). One git commit (I8).
 - `reject-open`: true out-of-domain exit (`status=rejected` + `--reason`).
-
----
-
-## Class 3 — View (perception tool)
-
-Read-only fidelity projection of current SoT, driven by user intent. **Produces no `open`, performs no inference.** View contract:
-
-- **V1** source = facts + opens + maturity SoT only
-- **V2** no invention; gaps stay gaps
-- **V3** shape-free
-- **V4** non-authoritative
-- **V5** `synthesis:off` = compose-init mechanical assembly of fact text by lens
-
-View ≠ 碰撞 (I13).
-
-View is **one tool** for perception, not perception itself. The ambient baseline is free-dialogue sensing (no script); it is described by the flow layer (`../gates/g3-refine.md`), not catalogued here — it has no capability of its own.
-
-**Dual role:** View also serves as the *tool* for Class 1A `human_view`-derived discovery — when a gap is noticed while viewing, it is recorded as a discovery (`human` × `human_view`), which is a Class 1 act, not part of View itself. The two are distinguished by whether an `open` is produced: Class 3 does not; Class 1A does.

@@ -4,7 +4,7 @@ description: >-
   Pre-compose inductive investigation for compose stages. Dispatches shared
   fact-intake into _facts.json, tracks opens in inductive-opens.json and per-lens
   maturity under inductive-scope/, confirms a shape view, then refines via a
-  two-lane dialogue (free discovery / open-processing) over a Class 1/2/3
+  two-lane dialogue (free discovery / open-processing) over a Class 1/2
   capability surface. Hands facts to compose Writing.
 ---
 
@@ -118,7 +118,7 @@ Do not re-implement cut / eval / disposition / Confirm; do not `seed-decision` t
 
 ### Capability surface
 
-Capabilities are catalogued in `references/g3-capabilities.md` — **Class 1** discover (1A user-triggered · 1B AI detect) · **Class 2** process · **Class 3** View. Availability and orchestration (what is global-anytime vs G3-scoped, and the two lanes) are owned by `gates/g3-refine.md`; this section does not restate them.
+Capabilities are catalogued in `references/g3-capabilities.md` — **Class 1** discover (1A user-triggered · 1B AI detect) · **Class 2** process. Availability and orchestration (what is global-anytime vs G3-scoped, and the two lanes) are owned by `gates/g3-refine.md`; this section does not restate them.
 
 Provenance: opens stamp `trigger` × `means` (feeds G5 / I10); seed facts use `origin.type=seed` (not open trigger vocabulary). Presentation ref owns the rule that wording never drops stamps.
 
@@ -181,7 +181,7 @@ Fact Intake (Control spine §1) is **pre-gate** — complete it before loading G
 
 - Triple SoT = facts + opens + maturity (I1). Views non-authoritative (I3 / V1–V5). I13: View ≠ 碰撞.
 - No AI hand-written JSON (I12) — section-control commands only.
-- I5: subtract Settled facts (`_facts.json` by lens) before detect. I6: informed batch auto/manual/ignore. I7: coarse views stay coarse (no file:line in arch overview).
+- I5: subtract Settled facts (`_facts.json` by lens) before detect. I6: settle requires informed ACK; Ignore only inside a Manual turn. I7: coarse views stay coarse (no file:line in arch overview).
 - G2 not an independent discovery gate; ground via `attach-code-refs` on `O-` ids.
 - G4 hard / G5 soft; both user-triggered at delivery time.
 - Clean cutover: no legacy `.md` / EP ledger as SoT; K2 projection retired.

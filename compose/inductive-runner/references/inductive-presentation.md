@@ -7,7 +7,7 @@
 - SKILL / gates stay English; **L1 landmarks are fixed** (no mid-session synonyms). Surrounding prose follows the user's language.
 - **L0 never to user:** `trigger` / `means` tokens, command names, ids, `KW`, `Class 1B`, `recompose`, `provenance`, bare mechanism talk.
 - **L1 ok:** landmarks below (`G1`…`G5` prefixes allowed). Optional L2 = one first-use gloss only.
-- **Output:** detect / Stop D batch = finding + one leaning (not a verdict menu). **Manual** options = Class 2 only (`g3-capabilities.md` Manual turn; `/plain` obligations, no `plain` skill dispatch). Process modes: **Auto / Manual / Ignore** only. Stamps / ✅⚠️ stay on disk — never drop for cleaner wording.
+- **Output:** detect batch = finding + one leaning (not a verdict menu). **Manual** options = Class 2 only (`g3-capabilities.md` Manual turn; `/plain` obligations, no `plain` skill dispatch). Stamps / ✅⚠️ stay on disk — never drop for cleaner wording.
 - Collision labels: follow `g3-capabilities.md`.
 
 ## L1 map (SSOT)
@@ -17,10 +17,9 @@
 | G1 Shape-confirm | **G1 形态确认** | 确认粗轮廓 |
 | G3 Refine | **G3 协作完善** | 形态确认后的协作补齐与定稿 |
 | continue discussion | **继续讨论** | 讨论中可碰撞（疑惑/质疑）；有缺口则走开放点处理 |
-| view extract | **G3 View 提取** | 只读抽出当前图景 |
 | open-point detect | **G3 开放点探测** | 授权后扫描开放点 |
-| open-point process | **G3 开放点处理** | Auto / Manual / Ignore |
-| Manual (process mode) | **Manual** | 逐条：可选取证 → `/plain` 义务 + 选项 + 倾向；可改选项/新想法/讨论/跳过/Ignore/退出 |
+| open-point process | **G3 开放点处理** | 逐条处理；处理中可忽略 |
+| Manual (process) | **Manual** | 逐条：可选取证 → `/plain` 义务 + 选项 + 倾向；可改选项/新想法/讨论/跳过/Ignore/退出 |
 | continue refine | **继续 G3 协作完善** | 不关闸 |
 | refine close / close-only | **G3 关闭收口** | 仅关闭 G3 |
 | G4 / internal coherence | **G4 自洽检查** | 内部是否互相矛盾 |
@@ -28,7 +27,7 @@
 | pre-publish check (G4→G5) | **成稿前检查（G4→G5）** | 自洽 → 上游对照 |
 | produce-document | **生成文档** | 须 G4+G5 已关闭 |
 
-**Retired:** `细化` / `看全貌` / `找缺口` / `lock·talk·skip` / `交付前审计（重组+溯源）` 等口语顶替。
+**Retired:** `细化` / `看全貌` / `找缺口` / `lock·talk·skip` / `交付前审计（重组+溯源）` / `G3 View 提取` / 处理模式 `Auto` / 独立模式 `Ignore` 等口语顶替。
 
 ## Stop → L1
 
@@ -36,8 +35,7 @@ Behavior SSOT = `g3-refine.md`. Render only:
 
 | Stop | Say |
 |------|-----|
-| E | **G3 协作完善** + 继续讨论（讨论中可碰撞（疑惑/质疑）；有缺口则走开放点处理） · View 提取 · 开放点探测 ·（可时）开放点处理 ·（可时）**G3 关闭收口** |
-| D | **G3 开放点处理**？**Auto** / **Manual** / **Ignore** |
+| E | **G3 协作完善** + 继续讨论（讨论中可碰撞（疑惑/质疑）；有缺口则走开放点处理） · 开放点探测 ·（可时）开放点处理 ·（可时）**G3 关闭收口** |
 | P | Short nav (same as E keys) |
 | X | **继续 G3 协作完善** · **G3 关闭收口** · **成稿前检查（G4→G5）** |
 | A | **G4 自洽检查 → G5 上游对照**；之后父流程可 **生成文档** |
