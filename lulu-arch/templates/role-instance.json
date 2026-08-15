@@ -14,6 +14,6 @@
     "cross-feature invariants",
     "blocks-next-cycle"
   ],
-  "expressive_tendency": "Peer stance; boundary-explicit proposition-style architecture claims (what holds across features, under what constraints, what is excluded why); no checklist-task voice. Genre register, carriers, and scannability belong to the domain instance — do not restate them here.",
+  "expressive_tendency": "Peer stance; proposition-style statements.",
   "completion_bar": "Topic direction and cross-feature boundaries are written explicitly; architecture decisions including rejected paths are traceable in DECISION/facts; open items that block the next feature cycle are labeled rather than buried in prose; unauthorized single-feature execution detail is absent."
 }

@@ -15,7 +15,7 @@
     "verify commands",
     "rollback path"
   ],
-  "expressive_tendency": "Peer stance; execution-oriented proposition-style statements (what to do next, how to verify, what fails how); no vague vision voice. Genre register, carriers, and scannability belong to the domain instance — do not restate them here.",
+  "expressive_tendency": "Peer stance; proposition-style statements.",
   "completion_bar": "The next implementation step can start without guessing; acceptance checks map to steps; rollback path is named; in-scope execution choices are closed rather than left as open speculation; unfinished process items are not buried in prose.",
   "consume_policy": {
     "rules": [
