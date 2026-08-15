@@ -71,8 +71,8 @@ unresolved-area overview.
 
 ## Constraints
 
-Present it only for an adopted Topic. It may return `Blocked` but must not
-mutate Topic state, confirm a conclusion, produce facts, or own caller routing.
+It may return `Blocked` but must not mutate Topic state, confirm a
+conclusion, produce facts, or own caller routing.
 
 ## Boundaries
 
