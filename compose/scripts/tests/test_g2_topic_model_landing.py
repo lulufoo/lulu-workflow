@@ -84,7 +84,6 @@ def test_topic_landscape_tool_contract():
     assert "[`topic-model.md`](topic-model.md)" in text
     assert "## Purpose" in text
     assert "## Inputs" in text
-    assert "**Human corrections**" in text
     assert "## Delivers" in text
     assert "**Seeking context**" in text
     assert "**Direction**" in text

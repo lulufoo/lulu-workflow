@@ -17,11 +17,8 @@ First the context needed to judge what remains unresolved, then the Topic DAG.
 
 ## Inputs
 
-- **Induction context** — required.
-- **Settled facts** — required.
-- **Cognitive frame** — required to apply Grain from `topic-model.md`.
-- **Human corrections** — optional after initial presentation: add, correct, or
-  remove a Topic.
+Induction context, settled facts, the project, and cognitive frame (to
+apply Grain).
 
 ## Delivers
 
@@ -40,11 +37,14 @@ A human-confirmable view containing:
 
 Applies when deriving the initial temporary `gap` Topic set.
 
-1. **Source** — AI derives the initial temporary `gap` Topics from induction
-   context and settled facts; autonomous judgment, not a scripted detector.
-2. **Recompute** — each build rediscovers from declared inputs only; no hidden
-   Topic registry.
-3. **Authority** — discovery grants neither priority nor adoption authority.
+1. **Topic** — One commitment the induction still needs dialogue to settle.
+2. **Source** — Induction context, settled facts, and the project.
+3. **Method** — Compare settled facts to the project, and whether those
+   facts are complete for the induction context. Autonomous; not a
+   scripted detector.
+4. **Recompute** — Each build rediscovers from declared inputs only; no
+   hidden Topic registry.
+5. **Authority** — Discovery grants neither priority nor adoption authority.
 
 ## Presentation
 
