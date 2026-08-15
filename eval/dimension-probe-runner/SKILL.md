@@ -17,16 +17,14 @@ supplied by Eval orchestration.
 | Macro | Command |
 |-------|---------|
 | `$READ_B_SNAPSHOT` | `$EVAL_CONTROL read-b-snapshot --dimension-token "$DIMENSION_TOKEN"` |
-| `$READ_SOT_EVIDENCE` | `$EVAL_CONTROL read-evidence-snapshot --dimension-token "$DIMENSION_TOKEN" --evidence-ref "$EVIDENCE_REF"` |
 | `$SUBMIT_PROBE_FINDINGS` | `$EVAL_CONTROL submit-probe-findings --payload-file "$FINDINGS_PAYLOAD"` |
 
 ## Workflow
 
 1. Run `$READ_B_SNAPSHOT`; evaluate only its returned B snapshot.
-2. Load the resolved method and SoT evidence from the operation context. For each
-   evidence reference, run `$READ_SOT_EVIDENCE` and use its returned content and
-   digest as evidence.
-3. Follow the resolved method to derive findings from B and the evidence.
+2. Load the resolved method. Each `resolved_sots[].ref` is the SoT; read that
+   link (quality-standard file, live document path, or `.` as the codebase).
+3. Follow the resolved method to derive findings from B and the SoT.
 4. Create the control-compatible findings payload, then run
    `$SUBMIT_PROBE_FINDINGS`.
 5. On a non-zero control result, stop and report it to the parent.

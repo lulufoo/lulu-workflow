@@ -89,12 +89,12 @@ class TestProductSpecEvalAdapter:
         )
         assert paths["compose_doc"].endswith("/lulu-spec/revision1/product-doc.md")
 
-    def test_corpus_bind_extensions_includes_decision_ref(self, tmp_path: Path):
+    def test_corpus_bind_extensions_has_no_decision_ref(self, tmp_path: Path):
         _seed_session(tmp_path)
         adapter = ProductSpecEvalAdapter()
         bind = adapter.corpus_bind_extensions(_CYCLE, tmp_path)
-        assert bind["decision_ref"].endswith("/lulu-bet/decision-doc.md")
-        assert "pst_product_eval_framework_url" not in bind
+        assert bind == {}
+        assert "decision_ref" not in bind
 
     def test_resolve_evaluate_state_path(self, tmp_path: Path):
         _seed_session(tmp_path)

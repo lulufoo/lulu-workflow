@@ -10,10 +10,7 @@
   },
   "sots": [
     {
-      "ref": "lulu-dev-workflow/lulu-spec/eval/sots/product-doc-quality.md",
-      "bindings": {
-        "source_ref": "{decision_ref}"
-      }
+      "ref": "lulu-dev-workflow/lulu-spec/eval/sots/product-doc-quality.md"
     }
   ],
   "method": {

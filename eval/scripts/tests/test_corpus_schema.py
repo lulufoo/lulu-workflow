@@ -117,23 +117,18 @@ class TestExpandCorpus:
         expanded = expand_corpus(data, self._BIND)
         e4 = expanded["dimensions"][2]
         assert e4["eval_target"]["path"] == "/abs/tech-doc.md"
-        assert e4["sots"][0]["ref"] == (
-            "lulu-dev-workflow/lulu-plan/eval/sots/tech-conformance.md"
-        )
-        assert e4["sots"][0]["bindings"]["source_ref"] == "/abs/design-doc.md"
+        assert e4["sots"][0]["ref"] == "/abs/design-doc.md"
+        assert e4["sots"][0] == {"ref": "/abs/design-doc.md"}
         assert e4["method"]["ref"] == (
             "lulu-dev-workflow/lulu-plan/eval/methods/tech-conformance.md"
         )
         assert e4["review"]["output_path"] == "tech-review-e13.md"
 
-    def test_expand_preserves_codebase_root_dot(self):
+    def test_expand_preserves_codebase_ref_dot(self):
         data = _feature_base_corpus()
         expanded = expand_corpus(data, self._BIND)
         e2 = expanded["dimensions"][0]
-        assert e2["sots"][0] == {
-            "ref": "lulu-dev-workflow/eval/sots/codebase-consistency.md",
-            "bindings": {"codebase_root": ".", "read_strategy": "all"},
-        }
+        assert e2["sots"][0] == {"ref": "."}
 
     def test_expand_e3_preserves_local_method_and_sot_paths(self):
         data = _feature_tech_upstream_corpus()
@@ -176,7 +171,6 @@ class TestExpandCorpus:
                 "dimensions": [dim],
             },
         )
-        assert any("bindings must be an object" in err for err in errors)
         assert any("missing or invalid string field 'ref'" in err for err in errors)
 
     def test_unbound_placeholder_raises(self):

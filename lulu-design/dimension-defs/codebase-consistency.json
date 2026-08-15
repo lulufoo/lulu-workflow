@@ -10,11 +10,7 @@
   },
   "sots": [
     {
-      "ref": "lulu-dev-workflow/eval/sots/codebase-consistency.md",
-      "bindings": {
-        "codebase_root": ".",
-        "read_strategy": "all"
-      }
+      "ref": "."
     }
   ],
   "method": {

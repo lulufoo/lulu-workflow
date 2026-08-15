@@ -10,8 +10,7 @@
   },
   "sots": [
     {
-      "ref": "lulu-dev-workflow/lulu-blueprint/eval/sots/blueprint-quality.md",
-      "bindings": {}
+      "ref": "lulu-dev-workflow/lulu-blueprint/eval/sots/blueprint-quality.md"
     }
   ],
   "method": {

@@ -87,7 +87,6 @@ def test_blueprint_k0b_skill_config_uses_local_eval_templates() -> None:
     assert dimension["sots"] == [
         {
             "ref": "lulu-dev-workflow/lulu-blueprint/eval/sots/blueprint-quality.md",
-            "bindings": {},
         },
     ]
     assert _METHOD.is_file()

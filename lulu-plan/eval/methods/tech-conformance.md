@@ -4,9 +4,16 @@
 
 ## Boundary
 
-Evaluate EvalTarget **B** against the upstream technical intent supplied by the
-paired SoT template. B is a `tech-doc`; the bound upstream document is either a
-`design-doc` or a `decision-doc`.
+Evaluate EvalTarget **B** against SoT **A**. B is a `tech-doc`. A is the
+upstream `design-doc` or `decision-doc` at `sots[].ref`.
+
+## Evidence
+
+1. Read A as the complete upstream technical intent basis.
+2. A `design-doc` supplies decisions, constraints, and Acceptance Criteria.
+3. A `decision-doc` supplies directions and constraints but no Acceptance
+   Criteria to trace.
+4. Quote upstream passages when recording a conformance finding.
 
 ## Procedure
 
@@ -22,8 +29,8 @@ reflects it and does not violate it.
 
 ### P3 — Acceptance Traceability
 
-When the bound upstream document is a `design-doc`, verify that every
-Acceptance Criterion has an explicit task or verification counterpart in B.
+When A is a `design-doc`, verify that every Acceptance Criterion has an
+explicit task or verification counterpart in B.
 
 ### P4 — No Scope Inflation
 

@@ -72,8 +72,6 @@ def _validate_sot(sot: Any, errors: list[str], *, ctx: str) -> None:
         errors.append(f"{ctx}: sot must be an object")
         return
     _require_str(sot, "ref", errors, ctx=ctx)
-    if not isinstance(sot.get("bindings"), dict):
-        errors.append(f"{ctx}: bindings must be an object")
 
 
 def _validate_method(method: Any, errors: list[str], *, ctx: str) -> None:

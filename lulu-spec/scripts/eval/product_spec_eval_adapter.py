@@ -22,7 +22,6 @@ from workflow_paths import EVAL_SCRIPTS, load_profile, shell_path  # noqa: E402
 _WORKFLOW_ID = "lulu-spec"
 
 from l_ledger_schema import eval_session_phase, load_l_ledger  # noqa: E402
-from resolved_refs_schema import has_resolved_refs, resolved_scope_ref  # noqa: E402
 from session_state_schema import load_active_doc_from_cycle  # noqa: E402
 from workflow_common import detect_cycle_type  # noqa: E402
 from workflow_profile_paths import (  # noqa: E402
@@ -192,16 +191,14 @@ class ProductSpecEvalAdapter(ComposeEvalAdapterSupport):
 
     @staticmethod
     def _empty_corpus_bind() -> dict[str, str]:
-        return {"decision_ref": ""}
+        return {}
 
     def corpus_bind_extensions(
         self,
         cycle_id: str,
         project_root: Path,
     ) -> dict[str, str]:
-        revision_dir = self.resolve_workflow_state_path(cycle_id, project_root).parent
-        scope = resolved_scope_ref(revision_dir) if has_resolved_refs(revision_dir) else None
-        return {"decision_ref": scope.path if scope is not None else ""}
+        return {}
 
     def detect_cycle_type(self, cycle_id: str) -> str:
         return detect_cycle_type(cycle_id)

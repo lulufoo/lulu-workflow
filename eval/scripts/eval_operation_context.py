@@ -26,57 +26,9 @@ def _snapshot_path(write_staging_dir: Path, dimension_token: str) -> tuple[str, 
     return staging_scope, write_staging_dir / staging_scope / "target.snapshot"
 
 
-def _public_sot(
-    sot: dict[str, Any],
-    *,
-    source_evidence: dict[str, str] | None = None,
-) -> dict[str, Any]:
-    bindings = sot.get("bindings")
-    public_bindings = dict(bindings) if isinstance(bindings, dict) else {}
-    if source_evidence is not None:
-        public_bindings["source_ref"] = source_evidence
-    return {
-        "ref": str(sot.get("ref", "")),
-        "bindings": public_bindings,
-    }
-
-
-def _snapshot_sot_evidence(
-    *,
-    sots: list[dict[str, Any]],
-    scope_dir: Path,
-) -> tuple[list[dict[str, Any]], dict[str, dict[str, str]]]:
-    """Snapshot dynamic SoT source bindings and return their public replacements."""
-    public_sots: list[dict[str, Any]] = []
-    evidence_snapshots: dict[str, dict[str, str]] = {}
-    for sot in sots:
-        bindings = sot.get("bindings")
-        source_ref = bindings.get("source_ref") if isinstance(bindings, dict) else None
-        if source_ref is None:
-            public_sots.append(_public_sot(sot))
-            continue
-        if not isinstance(source_ref, str) or not source_ref:
-            raise ValueError("SoT source_ref binding must be a non-empty string")
-        source_bytes = Path(source_ref).read_bytes()
-        digest = hashlib.sha256(source_bytes).hexdigest()
-        evidence_ref = uuid.uuid4().hex
-        snapshot_path = scope_dir / "evidence" / f"{evidence_ref}.snapshot"
-        snapshot_path.parent.mkdir(parents=True, exist_ok=True)
-        snapshot_path.write_bytes(source_bytes)
-        evidence_snapshots[evidence_ref] = {
-            "path": snapshot_path.as_posix(),
-            "digest": digest,
-        }
-        public_sots.append(
-            _public_sot(
-                sot,
-                source_evidence={
-                    "evidence_ref": evidence_ref,
-                    "digest": digest,
-                },
-            ),
-        )
-    return public_sots, evidence_snapshots
+def _public_sots(sots: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Publish SoT identity: `ref` is the SoT link."""
+    return [{"ref": str(sot.get("ref", ""))} for sot in sots]
 
 
 def issue_probe_context(
@@ -98,10 +50,7 @@ def issue_probe_context(
     snapshot_path.write_bytes(target_bytes)
 
     try:
-        public_sots, evidence_snapshots = _snapshot_sot_evidence(
-            sots=sots,
-            scope_dir=snapshot_path.parent,
-        )
+        public_sots = _public_sots(sots)
         record = {
             "round_token": round_token,
             "dimension_token": dimension_token,
@@ -112,7 +61,7 @@ def issue_probe_context(
             "target_digest": target_digest,
             "resolved_method": dict(method),
             "resolved_sots": [dict(sot) for sot in sots],
-            "evidence_snapshots": evidence_snapshots,
+            "evidence_snapshots": {},
             "allowed_submission": "finding",
             "status": "open",
         }
@@ -167,10 +116,7 @@ def issue_remediation_context(
     snapshot_path.write_bytes(target_bytes)
 
     try:
-        public_sots, evidence_snapshots = _snapshot_sot_evidence(
-            sots=sots,
-            scope_dir=snapshot_path.parent,
-        )
+        public_sots = _public_sots(sots)
         add_operation_record(
             operations_path,
             {
@@ -184,7 +130,7 @@ def issue_remediation_context(
                 "target_digest": target_digest,
                 "resolved_method": dict(method),
                 "resolved_sots": [dict(sot) for sot in sots],
-                "evidence_snapshots": evidence_snapshots,
+                "evidence_snapshots": {},
                 "allowed_submission": allowed_submission,
                 "status": "open",
             },

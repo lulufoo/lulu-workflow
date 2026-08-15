@@ -10,10 +10,7 @@
   },
   "sots": [
     {
-      "ref": "lulu-dev-workflow/lulu-design/eval/sots/intent-alignment.md",
-      "bindings": {
-        "source_ref": "{upstream_baseline_ref}"
-      }
+      "ref": "{upstream_baseline_ref}"
     }
   ],
   "method": {

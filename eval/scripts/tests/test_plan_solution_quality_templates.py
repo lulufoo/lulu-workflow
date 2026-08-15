@@ -32,7 +32,7 @@ def test_plan_solution_quality_uses_local_method_and_sot():
         "ref": _METHOD_REF,
         "focus": "Plan solution quality",
     }
-    assert data["sots"] == [{"ref": _SOT_REF, "bindings": {}}]
+    assert data["sots"] == [{"ref": _SOT_REF}]
 
 
 def test_plan_local_templates_are_resolvable_from_project_root():

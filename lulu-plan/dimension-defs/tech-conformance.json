@@ -10,10 +10,7 @@
   },
   "sots": [
     {
-      "ref": "lulu-dev-workflow/lulu-plan/eval/sots/tech-conformance.md",
-      "bindings": {
-        "source_ref": "{upstream_doc_path}"
-      }
+      "ref": "{upstream_doc_path}"
     }
   ],
   "method": {

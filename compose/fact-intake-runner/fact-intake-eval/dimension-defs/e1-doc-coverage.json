@@ -9,8 +9,7 @@
   },
   "sots": [
     {
-      "ref": "{scope_doc}",
-      "bindings": {}
+      "ref": "{scope_doc}"
     }
   ],
   "method": {

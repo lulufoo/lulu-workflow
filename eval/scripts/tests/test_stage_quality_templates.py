@@ -62,7 +62,7 @@ def test_stage_quality_uses_resolvable_local_method_and_sot(stage):
         "ref": stage["method"],
         "focus": stage["focus"],
     }
-    assert dimension["sots"] == [{"ref": stage["sot"], "bindings": {}}]
+    assert dimension["sots"] == [{"ref": stage["sot"]}]
 
     method = read_ref(stage["method"], project_root=_REPO)
     sot = read_ref(stage["sot"], project_root=_REPO)

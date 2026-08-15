@@ -10,8 +10,7 @@
   },
   "sots": [
     {
-      "ref": "lulu-dev-workflow/lulu-arch/eval/sots/arch-quality.md",
-      "bindings": {}
+      "ref": "lulu-dev-workflow/lulu-arch/eval/sots/arch-quality.md"
     }
   ],
   "method": {

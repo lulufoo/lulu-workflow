@@ -73,7 +73,6 @@ def test_arch_k0b_skill_config_uses_local_eval_templates() -> None:
     assert dimension["sots"] == [
         {
             "ref": "lulu-dev-workflow/lulu-arch/eval/sots/arch-quality.md",
-            "bindings": {},
         },
     ]
     assert _METHOD.is_file()

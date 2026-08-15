@@ -10,8 +10,7 @@
   },
   "sots": [
     {
-      "ref": "lulu-dev-workflow/lulu-design/eval/sots/solution-quality.md",
-      "bindings": {}
+      "ref": "lulu-dev-workflow/lulu-design/eval/sots/solution-quality.md"
     }
   ],
   "method": {

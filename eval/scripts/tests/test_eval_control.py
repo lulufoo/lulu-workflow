@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Tests for eval/scripts/eval_control.py."""
 
-import hashlib
 import json
 import subprocess
 import sys
@@ -45,7 +44,6 @@ from eval_control import (  # noqa: E402
     init_round,
     probe_complete,
     read_b_snapshot_cmd,
-    read_evidence_snapshot_cmd,
     human_resolution_complete,
     submit_remediation_diff,
     submit_probe_findings,
@@ -62,7 +60,6 @@ from evaluate_state_schema import (  # noqa: E402
     patch_issue_count,
     save_evaluate_state,
 )
-from session_control import resume_after_eval  # noqa: E402
 from init_working_helpers import (  # noqa: E402
     init_working_ready,
     mark_focus_evaluating,
@@ -390,6 +387,34 @@ class TestBeginEvalRound:
         assert "abandoned" in result["reason"]
 
 
+class TestIssueProbeSots:
+    def test_resolved_sot_ref_is_the_sot_link(self, tmp_path: Path):
+        from eval_operation_context import issue_probe_context  # noqa: WPS433
+        from eval_operation_record_schema import get_operation_record  # noqa: WPS433
+
+        source_path = tmp_path / "upstream-intent.md"
+        source_path.write_text("# Upstream intent\n", encoding="utf-8")
+        target_path = tmp_path / "target.md"
+        target_path.write_text("# B\n", encoding="utf-8")
+        operations_path = tmp_path / "eval-operations.json"
+
+        ctx = issue_probe_context(
+            operations_path=operations_path,
+            write_staging_dir=tmp_path / "staging",
+            target_path=target_path,
+            round_token="round-1",
+            dimension_id="tech-conformance",
+            method={"ref": "method.md", "focus": "focus"},
+            sots=[{"ref": str(source_path.resolve())}],
+        )
+
+        sot = ctx["resolved_sots"][0]
+        assert sot == {"ref": str(source_path.resolve())}
+        record = get_operation_record(operations_path, ctx["dimension_token"])
+        assert record["evidence_snapshots"] == {}
+        assert record["resolved_sots"][0]["ref"] == str(source_path.resolve())
+
+
 class TestBeginDimension:
     def test_marks_in_progress_and_returns_token_scoped_context(self, tmp_path: Path):
         ws = _setup_evaluating(tmp_path)
@@ -405,10 +430,7 @@ class TestBeginDimension:
         assert operation_ctx["resolved_method"]["ref"].endswith(
             "eval/methods/codebase-consistency.md",
         )
-        assert operation_ctx["resolved_sots"][0]["bindings"] == {
-            "codebase_root": ".",
-            "read_strategy": "all",
-        }
+        assert operation_ctx["resolved_sots"][0] == {"ref": "."}
         assert parse_dimension_tokens(es["dimension_tokens"]) == {
             "codebase-consistency": operation_ctx["dimension_token"],
         }
@@ -421,75 +443,6 @@ class TestBeginDimension:
         assert snapshot["ok"] is True
         assert snapshot["target_digest"] == operation_ctx["target_digest"]
         assert snapshot["content"]
-
-    def test_dynamic_sot_evidence_uses_opaque_snapshot(self, tmp_path: Path):
-        from delivered_refs_schema import DeliveredRef  # noqa: WPS433
-        from eval_operation_record_schema import get_operation_record  # noqa: WPS433
-
-        ws = _setup_evaluating(tmp_path, mode="tech")
-        source_path = tmp_path / "upstream-intent.md"
-        source_content = "# Upstream intent\n\nPreserve this requirement.\n"
-        source_path.write_text(source_content, encoding="utf-8")
-        seed_frozen_delivered(
-            ws,
-            [DeliveredRef(type="lulu-approach", path=str(source_path.resolve()))],
-        )
-        _init_evaluate_state(
-            ws.parent / "evaluate-state.md",
-            cycle_id=_CYCLE,
-            tmp_path=tmp_path,
-        )
-
-        result = begin_dimension(_CYCLE, tmp_path, dim="e4")
-
-        assert result["ok"] is True
-        operation_ctx = result["operation_ctx"]
-        source_binding = operation_ctx["resolved_sots"][0]["bindings"]["source_ref"]
-        public_context = json.dumps(operation_ctx)
-        assert str(source_path) not in public_context
-        assert str(source_path) not in result["dispatch_input"]
-        assert set(source_binding) == {"evidence_ref", "digest"}
-
-        snapshot = read_evidence_snapshot_cmd(
-            _CYCLE,
-            tmp_path,
-            dimension_token=operation_ctx["dimension_token"],
-            evidence_ref=source_binding["evidence_ref"],
-        )
-
-        assert snapshot["ok"] is True
-        assert snapshot["content"] == source_content
-        assert snapshot["digest"] == source_binding["digest"]
-        assert snapshot["digest"] == hashlib.sha256(
-            source_content.encode("utf-8"),
-        ).hexdigest()
-
-        source_path.write_text("# Changed upstream\n", encoding="utf-8")
-        replay = read_evidence_snapshot_cmd(
-            _CYCLE,
-            tmp_path,
-            dimension_token=operation_ctx["dimension_token"],
-            evidence_ref=source_binding["evidence_ref"],
-        )
-        assert replay["content"] == source_content
-        assert replay["digest"] == source_binding["digest"]
-
-        record = get_operation_record(
-            ws.parent / "evaluate1" / "eval-operations.json",
-            operation_ctx["dimension_token"],
-        )
-        evidence_path = Path(
-            record["evidence_snapshots"][source_binding["evidence_ref"]]["path"],
-        )
-        evidence_path.write_text("tampered", encoding="utf-8")
-        tampered = read_evidence_snapshot_cmd(
-            _CYCLE,
-            tmp_path,
-            dimension_token=operation_ctx["dimension_token"],
-            evidence_ref=source_binding["evidence_ref"],
-        )
-        assert tampered["ok"] is False
-        assert "digest mismatch" in tampered["reason"]
 
     def test_commits_staged_state_through_adapter(self, tmp_path: Path, monkeypatch):
         ws = _setup_evaluating(tmp_path)
@@ -1260,6 +1213,8 @@ class TestComputeFixSeverity:
 
 class TestResumeAfterEval:
     def test_success_after_complete_round(self, tmp_path: Path):
+        from session_control import resume_after_eval  # noqa: WPS433
+
         ws = _setup_complete_round_ready(tmp_path)
         complete_round(_CYCLE, tmp_path)
         result = resume_after_eval(_CYCLE, tmp_path)
@@ -1267,6 +1222,8 @@ class TestResumeAfterEval:
         assert load_workflow_state(ws)["current_state"] == "Working"
 
     def test_failure_when_abandoned(self, tmp_path: Path):
+        from session_control import resume_after_eval  # noqa: WPS433
+
         ws = _setup_complete_round_ready(tmp_path)
         save_evaluate_state(ws.parent / "evaluate-state.md", {"eval_status": "abandoned"})
         result = resume_after_eval(_CYCLE, tmp_path)

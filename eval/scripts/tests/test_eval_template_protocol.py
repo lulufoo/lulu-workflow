@@ -35,20 +35,16 @@ def test_active_eval_dimensions_use_only_template_refs(relative_path: str):
     assert read_ref(method["ref"], project_root=_REPO).strip()
 
     for sot in definition["sots"]:
-        assert set(sot) == {"ref", "bindings"}
-        assert isinstance(sot["bindings"], dict)
-        assert read_ref(sot["ref"], project_root=_REPO).strip()
+        assert set(sot) == {"ref"}
+        if sot["ref"] != "." and not sot["ref"].startswith("{"):
+            assert read_ref(sot["ref"], project_root=_REPO).strip()
 
 
-def test_shared_codebase_consistency_templates_define_their_evidence_contract():
+def test_shared_codebase_consistency_method_defines_the_evidence_contract():
     method = read_ref(
         "lulu-dev-workflow/eval/methods/codebase-consistency.md",
         project_root=_REPO,
     )
-    sot = read_ref(
-        "lulu-dev-workflow/eval/sots/codebase-consistency.md",
-        project_root=_REPO,
-    )
 
     assert "explicit code claims" in method
-    assert "`codebase_root`" in sot
+    assert "evidence basis" in method
