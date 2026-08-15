@@ -45,13 +45,11 @@ from scope_resolver import resolve_cycle_type  # noqa: E402
 from workflow_common import CACHE_DIR, load_container_meta  # noqa: E402
 from workflow_paths import resolve_revision_runtime_profile  # noqa: E402
 
-_ROLE_KEYS = ("role_id", "expressive_tendency", "vocabulary_domain")
+_ROLE_KEYS = ("role_id", "expressive_tendency")
 _DOMAIN_KEYS = (
-    "domain_id",
     "cognitive_frame",
-    "intent_anchor",
-    "audience_type",
     "expression_conventions",
+    "vocabulary_domain",
 )
 _EXPRESSION_KEYS = ("register", "carriers", "scannability", "altitude")
 _NAME_PLACEHOLDER_RE = re.compile(r"\{(?:Feature|Topic) Name\}")

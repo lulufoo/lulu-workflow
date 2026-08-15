@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 from domain_instance_schema import (  # noqa: E402
+    get_schema as get_domain_schema,
     load_and_validate_domain_instance,
     normalize_expression_conventions,
     validate_domain_instance,
@@ -35,6 +36,7 @@ def _base_domain(**overrides: object) -> dict:
         "domain_id": "test_domain",
         "cognitive_frame": "frame",
         "expression_conventions": _four_key_ec(),
+        "vocabulary_domain": ["term"],
         "intent_anchor": "anchor",
         "audience_type": "audience",
     }
@@ -43,6 +45,11 @@ def _base_domain(**overrides: object) -> dict:
 
 
 class TestExpressionConventionsValidate:
+    def test_schema_has_vocabulary_domain_not_inside_conventions(self):
+        fields = {entry["field"] for entry in get_domain_schema()}
+        assert "vocabulary_domain" in fields
+        assert "expression_conventions" in fields
+
     def test_object_four_keys_ok(self):
         assert validate_domain_instance(_base_domain()) == []
 
@@ -81,6 +88,12 @@ class TestExpressionConventionsValidate:
             _base_domain(expression_conventions=_four_key_ec(register="  ")),
         )
         assert any("expression_conventions.register" in err for err in errors)
+
+    def test_vocabulary_domain_required(self):
+        data = _base_domain()
+        del data["vocabulary_domain"]
+        errors = validate_domain_instance(data)
+        assert any("vocabulary_domain" in err for err in errors)
 
 
 class TestExpressionConventionsNormalize:

@@ -101,14 +101,6 @@ TOPIC_ROLE_INSTANCE: dict[str, Any] = {
     ),
     "cognitive_framework": "system boundaries, structural evolution, execution phasing at milestone granularity",
     "priority_tendency": "early registry sections establish the arc; SK and T carry phased momentum",
-    "vocabulary_domain": [
-        "module boundaries",
-        "coupling",
-        "evolution paths",
-        "exclusion rationale",
-        "system invariants",
-        "phase Done criteria",
-    ],
     "expressive_tendency": "boundary-explicit blocks first; phase skeleton with clear Done lines",
     "completion_bar": "direction clear, boundaries explicit, key decisions traceable",
 }
@@ -125,6 +117,14 @@ TOPIC_DOMAIN_INSTANCE: dict[str, Any] = {
         "scannability": "short items over walls; comparable claims in tables",
         "altitude": "topic-shaping only",
     },
+    "vocabulary_domain": [
+        "module boundaries",
+        "coupling",
+        "evolution paths",
+        "exclusion rationale",
+        "system invariants",
+        "phase Done criteria",
+    ],
     "intent_anchor": "all content must be traceable to the decision-doc SSOT",
     "audience_type": "architects who validate structure and evolution",
 }

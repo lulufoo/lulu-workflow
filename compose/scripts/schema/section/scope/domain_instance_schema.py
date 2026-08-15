@@ -41,6 +41,8 @@ _SCHEMA: list[dict[str, Any]] = [
          "register/carriers/scannability/altitude (non-empty strings). "
          "Consumers receive a normalized multiline labeled string."
      )},
+    {"field": "vocabulary_domain", "type": "list[string]", "required": True,
+     "description": "Genre vocabulary for this document type (not author stance)"},
     {"field": "intent_anchor", "type": "string", "required": True,
      "description": "How this domain locks intent and prevents drift"},
     {"field": "audience_type", "type": "string", "required": True,
@@ -158,6 +160,12 @@ def validate_domain_instance(
         value = data.get(key)
         if key == "expression_conventions":
             errors.extend(_validate_expression_conventions(value))
+            continue
+        if key == "vocabulary_domain":
+            if not isinstance(value, list) or not value:
+                errors.append("vocabulary_domain must be a non-empty list")
+            elif not all(isinstance(item, str) and item.strip() for item in value):
+                errors.append("vocabulary_domain items must be non-empty strings")
             continue
         if not isinstance(value, str) or not value.strip():
             errors.append(f"{key} must be a non-empty string")

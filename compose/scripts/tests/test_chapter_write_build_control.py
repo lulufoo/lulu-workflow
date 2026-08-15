@@ -66,15 +66,13 @@ def test_context_filters_role_domain_and_preamble(tmp_path: Path):
     assert "facts" not in payload
     assert "section_registry" not in payload
     role = payload["role"]
-    assert set(role) == {"role_id", "expressive_tendency", "vocabulary_domain"}
+    assert set(role) == {"role_id", "expressive_tendency"}
     assert not (_ROLE_EXCLUDE & set(role))
     domain = payload["domain"]
     assert set(domain) == {
-        "domain_id",
         "cognitive_frame",
-        "intent_anchor",
-        "audience_type",
         "expression_conventions",
+        "vocabulary_domain",
     }
     assert not (_DOMAIN_EXCLUDE & set(domain))
     assert set(domain["expression_conventions"]) == _EXPRESSION_KEYS

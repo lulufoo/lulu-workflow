@@ -10,6 +10,15 @@
     "scannability": "short items over walls; comparable claims in tables; contrast partitions only when facts already contain the contrast (e.g. coverage vs exclusion); do not mix actions, criteria, and background in one dense block; present boundary, structure, and binding decisions in separate leaves or blocks rather than one undifferentiated surface",
     "altitude": "topic-shaping only — no file tasks, run commands, field specs, or acceptance criteria"
   },
+  "vocabulary_domain": [
+    "capability domains",
+    "feature-milestone dependency graph",
+    "coupling",
+    "evolution paths",
+    "exclusion rationale",
+    "cross-feature invariants",
+    "blocks-next-cycle"
+  ],
   "intent_anchor": "topic-level architecture shaping only — not single-feature solution design, not execution-level specs",
   "audience_type": "architects validating topic direction; tech leads judging whether a feature cycle may open; reviewers deciding whether shaping is complete — after a clear through-line at milestone granularity, the reader can affirm direction or point to section-level gaps"
 }

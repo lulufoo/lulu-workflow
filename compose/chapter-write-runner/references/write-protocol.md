@@ -7,12 +7,9 @@ Theory: [`../../references/compose-theory.md`](../../references/compose-theory.m
 
 Write is a claim-current serial process over narrative-arc chapters.
 `$CHAPTER_WRITE_STATE` owns chapter order and the sole current claim; the
-writer owns semantic composition for that claim from its ticket. Each claim
-must complete before the process advances.
+writer owns semantic composition for that claim from its ticket.
 
 ## Prepare
-
-Align write-state to the narrative-arc write units:
 
 ```bash
 $CHAPTER_WRITE_STATE sync --revision-dir "$REVISION_DIR"
@@ -21,7 +18,8 @@ $CHAPTER_WRITE_STATE sync --revision-dir "$REVISION_DIR"
 ## Write
 
 Loop: Begin → Compose → Complete. On non-zero from `begin`/`complete` → stop;
-follow the command error.
+follow the command error. If stdout `status` is `complete` → exit the Write
+loop; otherwise next Begin.
 
 ### Begin
 
@@ -40,12 +38,11 @@ $CHAPTER_WRITE_STATE begin \
 1. `lens` = ticket.lens; `facts_ℓ` = ticket.facts (authoritative substance —
    id set must match `fact_ids`; do not expand).
 2. Use ticket.`writing_cognition` (`reading_axis`, `presentation`,
-   `expression`) — What mechanisms; see `compose-theory.md`. Do **not** fetch
-   full `section-form-registry` to “complete” this chapter.
-3. Soft attention (not machine-gated): session `context.domain`
-   `expression_conventions`, session `context.role` fields, ticket
-   `lens_intent` (`intent` / `intent_boundary`), and that cognition's
-   `reading_axis` / `presentation` / `expression` while choosing how to write.
+   `expression`) — What mechanisms; see `compose-theory.md`.
+3. Soft attention (not machine-gated) while choosing how to write:
+   - session `context.domain`
+   - session `context.role`
+   - ticket `lens_intent` (`intent` / `intent_boundary`)
 4. Write `_body-{cid}.txt` once for this ticket: content ⊆ `facts_ℓ`; carry
    anchors (L6); resolve raw `F-id` citations; mark gaps with
    `> **待决：** …`.
@@ -56,12 +53,7 @@ $CHAPTER_WRITE_STATE begin \
 $CHAPTER_WRITE_STATE complete --revision-dir "$REVISION_DIR"
 ```
 
-If stdout `status` is `complete` → exit the Write loop. Otherwise loop to
-Begin for the next claim.
-
 ## Assemble
-
-After Write completes, run once:
 
 ```bash
 $COMPOSE_DOC_CONTROL assemble-arc \

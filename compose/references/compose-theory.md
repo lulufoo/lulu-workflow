@@ -12,7 +12,7 @@ Each compose stage has a `compose-profile.json` that selects framework templates
 | `section-form-registry` | Per-intent writing cognition (What): `reading_axis`, `presentation` (`guidance`, `allowed`+`when`, `forbidden`), `expression` |
 | `section-kw-criteria` | Per-intent completeness altitude: KW rows only |
 | `role-instance` | Stage author lens → expressive tendency (input to Write attention) |
-| `domain-instance` | Stage domain lens → conventions (input to Write attention) |
+| `domain-instance` | Stage domain lens → conventions and genre vocabulary (input to Write attention) |
 
 **Axes:** registry = *what belongs* (belonging + optional facet seeds) · kw-criteria = *how deep* (altitude) · `section-form-registry` = *writing cognition* (What) · dynamic narrative arc = *where chapters sit*.
 
@@ -151,7 +151,7 @@ These are **mechanisms** (What constraints), not enum-locked steps. Selection am
 
 `expression` states manner-of-expression constraints for the lens (`required` / `forbidden` string lists). It is cognitive input to Write — not a mandatory per-chapter Derive C array, and not content-substance rules.
 
-Domain `expression_conventions` and Role Instance fields remain soft Write-time attention (register / carriers / scannability / altitude) when present.
+Write-time soft attention is session `context.domain` (`cognitive_frame`, `expression_conventions`, `vocabulary_domain`) and session `context.role` (`role_id`, `expressive_tendency`).
 
 ### 3.4 Write unit & binding
 

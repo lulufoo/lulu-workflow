@@ -36,8 +36,6 @@ _SCHEMA: list[dict[str, Any]] = [
      )},
     {"field": "priority_tendency", "type": "string", "required": True,
      "description": "Which section types or content aspects this role prioritizes"},
-    {"field": "vocabulary_domain", "type": "list[string]", "required": True,
-     "description": "Vocabulary set characteristic of this role's reasoning"},
     {"field": "expressive_tendency", "type": "string", "required": True,
      "description": "Author stance and collaboration tone (not genre register/carriers)"},
     {"field": "completion_bar", "type": "string", "required": True,
@@ -114,12 +112,6 @@ def validate_role_instance(
         value = data.get(key)
         optional = key in _OPTIONAL_ROLE_FIELD_KEYS
         if optional and value is None:
-            continue
-        if key == "vocabulary_domain":
-            if not isinstance(value, list) or not value:
-                errors.append("vocabulary_domain must be a non-empty list")
-            elif not all(isinstance(item, str) and item.strip() for item in value):
-                errors.append("vocabulary_domain items must be non-empty strings")
             continue
         if key == "consume_policy":
             if optional and key not in data:

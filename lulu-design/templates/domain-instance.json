@@ -10,6 +10,29 @@
     "scannability": "short items over walls; comparable claims in tables; contrast partitions only when facts already contain the contrast; do not mix background, contracts, and binding choices in one dense paragraph; present contract-related concerns in separate leaves or blocks rather than one undifferentiated surface",
     "altitude": "readers act on placement, responsibilities, and contracts without re-deriving intent from body prose; detailed code loci and codebase claims stay out of body prose"
   },
+  "vocabulary_domain": [
+    "system boundary",
+    "dependency direction",
+    "data and control flow",
+    "component responsibility",
+    "interface contract",
+    "error semantics",
+    "invariants",
+    "trade-offs",
+    "alternatives rejected",
+    "failure modes",
+    "shared-state semantics",
+    "concurrency semantics",
+    "observability hooks",
+    "release/traffic shifting",
+    "degrade/recover",
+    "reversibility",
+    "acceptance criteria (semantic)",
+    "blocks-plan",
+    "open assumptions",
+    "state/path view",
+    "path end-state"
+  ],
   "intent_anchor": "Lock to the adopted decision; do not rewrite the spec or write an execution plan.",
   "audience_type": "technical owners confirming the design matches expected intent; reviewers validating trade-offs and open items — after a clear through-line that is systemic, detailed, and accurate, the signer can affirm the documented design or point to section-level gaps"
 }

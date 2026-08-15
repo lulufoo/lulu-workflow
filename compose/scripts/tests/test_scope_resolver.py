@@ -33,6 +33,7 @@ class TestRoleSchema:
         assert "role_prompt" in fields
         assert "$schema_id" in fields
         assert "consume_policy" in fields
+        assert "vocabulary_domain" not in fields
 
     def test_plan_framework_role_consume_policy_valid(self):
         from framework_template_sources import tech_plan_feature_role_instance
