@@ -15,9 +15,11 @@ from fetch_template import (  # noqa: E402
     FetchTemplateError,
     cache_path,
     fetch_template,
+    fetch_template_ref,
     main,
     parse_blob_url,
     resolve_local_template_path,
+    template_ref_cache_path,
 )
 
 
@@ -246,6 +248,98 @@ class TestFetchTemplate:
             gh_fetcher=mock_fetch,
         )
         assert content == "# diagnostic template\n"
+
+    def test_direct_file_ref_skips_workflow_config(self, tmp_path):
+        template = tmp_path / "section-registry.json"
+        template.write_text('{"version": "1"}\n', encoding="utf-8")
+
+        content = fetch_template_ref(
+            template.as_uri(),
+            tmp_path,
+            stage="lulu-plan",
+            file_name=template.name,
+            platform="cursor",
+        )
+
+        assert content == '{"version": "1"}\n'
+
+    def test_direct_local_ref_wins_over_stale_cache(self, tmp_path):
+        template = tmp_path / "section-registry.json"
+        template.write_text("fresh\n", encoding="utf-8")
+        cache = template_ref_cache_path(
+            tmp_path,
+            "cursor",
+            "lulu-plan",
+            template.name,
+            template.as_uri(),
+        )
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        cache.write_text("stale\n", encoding="utf-8")
+
+        content = fetch_template_ref(
+            template.as_uri(),
+            tmp_path,
+            stage="lulu-plan",
+            file_name=template.name,
+            platform="cursor",
+        )
+
+        assert content == "fresh\n"
+
+    def test_direct_remote_ref_uses_hashed_cache_name(self, tmp_path):
+        url = "https://github.com/o/r/blob/main/template/section-registry.json"
+
+        content = fetch_template_ref(
+            url,
+            tmp_path,
+            stage="lulu-plan",
+            file_name="section-registry.json",
+            platform="cursor",
+            gh_fetcher=lambda *_: '{"remote": true}\n',
+        )
+
+        cache = template_ref_cache_path(
+            tmp_path,
+            "cursor",
+            "lulu-plan",
+            "section-registry.json",
+            url,
+        )
+        assert content == '{"remote": true}\n'
+        assert cache.name.startswith("lulu-plan-section-registry-")
+        assert cache.suffix == ".json"
+        assert cache.read_text(encoding="utf-8") == content
+
+    def test_direct_remote_refs_with_same_name_do_not_collide(self, tmp_path):
+        first = "https://github.com/o/r/blob/main/a/section-registry.json"
+        second = "https://github.com/o/r/blob/main/b/section-registry.json"
+
+        fetch_template_ref(
+            first,
+            tmp_path,
+            stage="lulu-plan",
+            file_name="section-registry.json",
+            platform="cursor",
+            gh_fetcher=lambda *_: "first\n",
+        )
+        fetch_template_ref(
+            second,
+            tmp_path,
+            stage="lulu-plan",
+            file_name="section-registry.json",
+            platform="cursor",
+            gh_fetcher=lambda *_: "second\n",
+        )
+
+        first_cache = template_ref_cache_path(
+            tmp_path, "cursor", "lulu-plan", "section-registry.json", first
+        )
+        second_cache = template_ref_cache_path(
+            tmp_path, "cursor", "lulu-plan", "section-registry.json", second
+        )
+        assert first_cache != second_cache
+        assert first_cache.read_text(encoding="utf-8") == "first\n"
+        assert second_cache.read_text(encoding="utf-8") == "second\n"
 
 
 class TestMainCli:

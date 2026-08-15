@@ -35,32 +35,9 @@ def resolve_fetched_instance_path(
     pid = profile_id or DEFAULT_COMPOSE_PROFILE_ID
     if str(WORKFLOW_SCRIPTS) not in sys.path:
         sys.path.insert(0, str(WORKFLOW_SCRIPTS))
-    from compose_template_registry import framework_section, resolve_config_key  # noqa: WPS433
-    from fetch_template import cache_path  # noqa: WPS433
-    from subagent_config import detect_platform  # noqa: WPS433
+    from fetch_compose_framework import resolve_compose_template_path  # noqa: WPS433
 
-    section = framework_section(
-        pid,
-        project_root=root,
-        cycle_id=cycle_id,
-        conversation_id=conversation_id,
-        profile_path=profile_path,
-    )
-    config_key = resolve_config_key(
-        scheme_key,
-        pid,
-        project_root=root,
-        cycle_id=cycle_id,
-        conversation_id=conversation_id,
-        profile_path=profile_path,
-    )
-    cached = cache_path(root, detect_platform(), section, config_key)
-    if cached.exists() and cached.read_text(encoding="utf-8").strip():
-        return cached
-
-    from fetch_compose_framework import fetch_compose_framework  # noqa: WPS433
-
-    content = fetch_compose_framework(
+    return resolve_compose_template_path(
         scheme_key,
         root,
         profile_id=pid,
@@ -68,11 +45,6 @@ def resolve_fetched_instance_path(
         conversation_id=conversation_id,
         profile_path=profile_path,
     )
-    if not content.strip():
-        raise FileNotFoundError(f"empty template for {scheme_key}")
-    cached.parent.mkdir(parents=True, exist_ok=True)
-    cached.write_text(content if content.endswith("\n") else content + "\n", encoding="utf-8")
-    return cached
 
 
 def validate_all_plan_scope_instances(project_root: Path | None = None) -> list[str]:

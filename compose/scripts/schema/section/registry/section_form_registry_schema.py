@@ -289,52 +289,31 @@ def resolve_section_form_registry_path(
     profile_id: str | None = None,
     cycle_id: str | None = None,
     conversation_id: str | None = None,
+    platform: str | None = None,
+    force: bool = False,
+    profile_path: Path | None = None,
 ) -> Path | None:
-    """Return fetched form template cache path, or None when profile omits the role."""
+    """Return a direct form template path, or None when the role is omitted."""
     root = _effective_project_root(project_root)
     _ensure_workflow_scripts()
     from compose_profile_context import get_active_profile  # noqa: WPS433
-    from compose_template_registry import (  # noqa: WPS433
-        ComposeTemplateError,
-        framework_section,
-        resolve_config_key,
-    )
-    from fetch_template import cache_path  # noqa: WPS433
-    from subagent_config import detect_platform  # noqa: WPS433
+    from compose_template_registry import ComposeTemplateError  # noqa: WPS433
+    from fetch_compose_framework import resolve_compose_template_path  # noqa: WPS433
 
     pid = profile_id or get_active_profile()
     try:
-        config_key = resolve_config_key(
+        return resolve_compose_template_path(
             _FORM_SCHEME_KEY,
-            pid,
-            project_root=root,
+            root,
+            profile_id=pid,
             cycle_id=cycle_id,
             conversation_id=conversation_id,
+            platform=platform,
+            force=force,
+            profile_path=profile_path,
         )
     except ComposeTemplateError:
         return None
-    section = framework_section(
-        pid,
-        project_root=root,
-        cycle_id=cycle_id,
-        conversation_id=conversation_id,
-    )
-    cached = cache_path(root, detect_platform(), section, config_key)
-    if cached.exists() and cached.read_text(encoding="utf-8").strip():
-        return cached
-    fetch_section_form_registry(
-        root,
-        profile_id=pid,
-        cycle_id=cycle_id,
-        conversation_id=conversation_id,
-    )
-    if cached.exists() and cached.read_text(encoding="utf-8").strip():
-        return cached
-    raise FileNotFoundError(
-        f"section form registry cache not available after fetch: {cached}. "
-        f"Run: python3 fetch_compose_framework.py --role section-form-registry "
-        f"--profile {pid} --project-root ."
-    )
 
 
 def fetch_section_form_registry(
@@ -345,25 +324,15 @@ def fetch_section_form_registry(
     profile_id: str | None = None,
     cycle_id: str | None = None,
     conversation_id: str | None = None,
+    profile_path: Path | None = None,
 ) -> dict[str, Any]:
-    """Fetch section form registry via workflow-config template URL."""
+    """Fetch and validate a section form registry through its template ref."""
     _ensure_workflow_scripts()
     from compose_profile_context import get_active_profile  # noqa: WPS433
-    from compose_template_registry import ComposeTemplateError, resolve_config_key  # noqa: WPS433
     from fetch_compose_framework import fetch_compose_framework  # noqa: WPS433
     from section_registry_schema import fetch_section_registry  # noqa: WPS433
 
     pid = profile_id or get_active_profile()
-    try:
-        resolve_config_key(
-            _FORM_SCHEME_KEY,
-            pid,
-            project_root=project_root.resolve(),
-            cycle_id=cycle_id,
-            conversation_id=conversation_id,
-        )
-    except ComposeTemplateError as exc:
-        raise FileNotFoundError(str(exc)) from exc
     content = fetch_compose_framework(
         _FORM_SCHEME_KEY,
         project_root.resolve(),
@@ -372,6 +341,7 @@ def fetch_section_form_registry(
         profile_id=pid,
         cycle_id=cycle_id,
         conversation_id=conversation_id,
+        profile_path=profile_path,
     )
     data = json.loads(content)
     errors = validate_section_form_registry(data)

@@ -49,7 +49,7 @@ Subcommand contracts: module docstring / `--help`. `$SUBAGENT_*`: `_subagent.md`
 ### Coverage / bounds
 
 - **Entry:** R→`dc` only.
-- **Decision-doc:** not maintained during the session; `$SESSION_INTEGRITY render` builds it once before present. Layout / section filtering: `render --help`. Template: `$FETCH_TEMPLATE --section decision --key decision_doc_template_url`.
+- **Decision-doc:** not maintained during the session; `$SESSION_INTEGRITY render` builds it once before present. Layout / section filtering: `render --help`. Template: bundled at `$SKILL_DIR/templates/decision-doc.template.md` and loaded by the render command.
 - **Present** (from rendered doc; do not show file paths): Direction Readiness;
   Decision Rationale; Scope (incl. exclusions); Assumptions & Risks
   (`risk_level`, `risk_class`, `risk_state`, `release_terms` where set).

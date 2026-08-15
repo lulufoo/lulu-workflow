@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
-"""Fetch workflow template markdown from workflow-config.json with local cache."""
+"""Fetch workflow templates from config keys or direct refs."""
 
 from __future__ import annotations
 
 import argparse
 import base64
+import hashlib
 import json
 import re
 import subprocess
 import sys
 from pathlib import Path
 from typing import Callable, Optional
+from urllib.parse import urlparse
 
 from platforms.registry import resolve_skill_root
 from subagent_config import (
@@ -55,6 +57,65 @@ def cache_path(
         / CACHE_TEMPLATE_SUBDIR
         / section
         / f"{key}.md"
+    )
+
+
+def normalize_template_ref(template_ref: str) -> str:
+    """Normalize a profile template reference without changing its identity."""
+    return str(template_ref).strip()
+
+
+def is_direct_template_ref(template_ref: str) -> bool:
+    """Return whether a profile value is a direct local or remote reference."""
+    ref = normalize_template_ref(template_ref)
+    return ref.startswith(
+        ("lulu-dev-workflow/", "file://", "/", "http://", "https://")
+    )
+
+
+def template_ref_file_name(template_ref: str, fallback: str = "template.md") -> str:
+    """Return a stable basename for a local path or remote template reference."""
+    ref = normalize_template_ref(template_ref)
+    if ref.startswith(("http://", "https://")):
+        name = Path(urlparse(ref).path).name
+    elif ref.startswith("file://"):
+        name = Path(ref[7:]).name
+    else:
+        name = Path(ref).name
+    return name or fallback
+
+
+def _safe_cache_component(value: str) -> str:
+    component = re.sub(r"[^A-Za-z0-9._-]+", "-", str(value).strip())
+    return component.strip("-") or "template"
+
+
+def template_ref_cache_path(
+    project_root: Path,
+    platform: Optional[str],
+    stage: str,
+    file_name: str,
+    template_ref: str,
+) -> Path:
+    """Return the cache path for a direct template reference.
+
+    The logical reference is hashed so paths with separators never become
+    nested cache directories. The source extension remains at the end.
+    """
+    ref = normalize_template_ref(template_ref)
+    digest = hashlib.sha256(ref.encode("utf-8")).hexdigest()[:16]
+    safe_stage = _safe_cache_component(stage)
+    safe_name = _safe_cache_component(Path(file_name).name)
+    suffix = Path(safe_name).suffix
+    stem = safe_name[: -len(suffix)] if suffix else safe_name
+    filename = f"{safe_stage}-{stem}-{digest}{suffix}"
+    return (
+        project_root
+        / ".cache"
+        / detect_platform(platform)
+        / CACHE_ROOT_NAME
+        / CACHE_TEMPLATE_SUBDIR
+        / filename
     )
 
 
@@ -196,6 +257,87 @@ def read_local_file(local_path: Path) -> str:
     if not local_path.exists():
         raise FetchTemplateError(f"Local file not found: {local_path}")
     return local_path.read_text(encoding="utf-8")
+
+
+def fetch_template_ref(
+    template_ref: str,
+    project_root: Path,
+    *,
+    stage: str,
+    file_name: Optional[str] = None,
+    platform: Optional[str] = None,
+    force: bool = False,
+    gh_fetcher: GhFetcher = gh_api_fetch,
+) -> str:
+    """Fetch a direct local or GitHub template reference.
+
+    This path intentionally bypasses workflow-config. Legacy config-key
+    loading remains available through ``fetch_template``.
+    """
+    ref = normalize_template_ref(template_ref)
+    if not ref:
+        raise FetchTemplateError("Empty template reference")
+
+    local_path = resolve_local_template_path(ref, project_root)
+    if local_path is not None:
+        return read_local_file(local_path)
+
+    cache_file = template_ref_cache_path(
+        project_root,
+        platform,
+        stage,
+        file_name or template_ref_file_name(ref),
+        ref,
+    )
+    if not force and cache_file.exists():
+        cached = cache_file.read_text(encoding="utf-8")
+        if cached.strip():
+            return cached
+
+    parsed = parse_blob_url(ref)
+    content = gh_fetcher(
+        parsed["owner"],
+        parsed["repo"],
+        parsed["ref"],
+        parsed["path"],
+    )
+    atomic_write(cache_file, content)
+    return content
+
+
+def resolve_template_ref_path(
+    template_ref: str,
+    project_root: Path,
+    *,
+    stage: str,
+    file_name: Optional[str] = None,
+    platform: Optional[str] = None,
+    force: bool = False,
+    gh_fetcher: GhFetcher = gh_api_fetch,
+) -> Path:
+    """Return the source path for local refs or cache path for remote refs."""
+    ref = normalize_template_ref(template_ref)
+    local_path = resolve_local_template_path(ref, project_root)
+    if local_path is not None:
+        read_local_file(local_path)
+        return local_path
+
+    fetch_template_ref(
+        ref,
+        project_root,
+        stage=stage,
+        file_name=file_name,
+        platform=platform,
+        force=force,
+        gh_fetcher=gh_fetcher,
+    )
+    return template_ref_cache_path(
+        project_root,
+        platform,
+        stage,
+        file_name or template_ref_file_name(ref),
+        ref,
+    )
 
 
 def fetch_template(

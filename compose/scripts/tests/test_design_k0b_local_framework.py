@@ -26,9 +26,6 @@ from section_registry_schema import (  # noqa: E402
     validate_section_registry,
 )
 
-_SKILL_CONFIG = (
-    _REPO / "skill-config" / "lulu-dev-workflow" / "stages" / "lulu-design.json"
-)
 _PROFILE = _REPO / "lulu-dev-workflow" / "lulu-design" / "compose-profile.json"
 
 def test_design_k0b_section_registry_has_presence() -> None:
@@ -50,31 +47,28 @@ def test_design_k0b_section_registry_has_presence() -> None:
     assert "GOAL" in keys and "SCOPE" in keys and "DECISION" in keys
 
 
-def test_design_k0b_skill_config_points_upstream() -> None:
-    cfg = json.loads(_SKILL_CONFIG.read_text(encoding="utf-8"))
-    compose = cfg["compose"]
-    assert compose["tdt_section_registry_url"] == (
+def test_design_k0b_profile_points_to_direct_templates() -> None:
+    profile = json.loads(_PROFILE.read_text(encoding="utf-8"))
+    compose = profile["framework_templates"]
+    assert compose["section-registry"] == (
         "lulu-dev-workflow/lulu-design/templates/section-registry.json"
     )
-    assert compose["tdt_section_form_registry_url"] == (
+    assert compose["section-form-registry"] == (
         "lulu-dev-workflow/lulu-design/templates/section-form-registry.json"
     )
     # Prefix = skill runtime root; remainder is under installed/source skill tree.
     skill_root = _REPO / "lulu-dev-workflow"
-    for key in (
-        "tdt_section_registry_url",
-        "tdt_section_form_registry_url",
-        "tdt_section_kw_criteria_url",
-        "tdt_feature_role_instance_url",
-        "tdt_feature_domain_instance_url",
+    for key, filename in (
+        ("section-registry", "section-registry.json"),
+        ("section-form-registry", "section-form-registry.json"),
+        ("section-kw-criteria", "section-kw-criteria.md"),
+        ("role-instance", "role-instance.json"),
+        ("domain-instance", "domain-instance.json"),
+        ("inductive-scan-criteria", "inductive-scan-criteria.json"),
     ):
-        assert compose[key].startswith(
-            "lulu-dev-workflow/lulu-design/templates/"
-        ), key
-        rel = compose[key].split("/", 1)[1]
-        assert (skill_root / rel).is_file(), key
-    # inductive scan criteria remains remote for now
-    assert compose["tdt_inductive_scan_criteria_url"].startswith("https://")
+        expected = f"lulu-dev-workflow/lulu-design/templates/{filename}"
+        assert compose[key] == expected
+        assert (skill_root / expected.split("/", 1)[1]).is_file(), key
     form = json.loads(
         (skill_root / "lulu-design/templates/section-form-registry.json").read_text(
             encoding="utf-8"

@@ -25,12 +25,12 @@
   "cache_subdir": "lulu-design",
   "framework_section": "lulu-design",
   "framework_templates": {
-    "section-registry": "tdt_section_registry_url",
-    "section-form-registry": "tdt_section_form_registry_url",
-    "section-kw-criteria": "tdt_section_kw_criteria_url",
-    "role-instance": "tdt_feature_role_instance_url",
-    "domain-instance": "tdt_feature_domain_instance_url",
-    "inductive-scan-criteria": "tdt_inductive_scan_criteria_url"
+    "section-registry": "lulu-dev-workflow/lulu-design/templates/section-registry.json",
+    "section-form-registry": "lulu-dev-workflow/lulu-design/templates/section-form-registry.json",
+    "section-kw-criteria": "lulu-dev-workflow/lulu-design/templates/section-kw-criteria.md",
+    "role-instance": "lulu-dev-workflow/lulu-design/templates/role-instance.json",
+    "domain-instance": "lulu-dev-workflow/lulu-design/templates/domain-instance.json",
+    "inductive-scan-criteria": "lulu-dev-workflow/lulu-design/templates/inductive-scan-criteria.json"
   },
   "eval": {
     "enabled": true,

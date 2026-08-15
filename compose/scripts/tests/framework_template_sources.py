@@ -80,7 +80,7 @@ def product_spec_section_form_registry() -> dict[str, Any]:
 
 
 def product_spec_inductive_scan_criteria() -> dict[str, Any]:
-    return load_framework_json("spec", "27-product-spec-inductive-scan-criteria.json")
+    return _skill_builtin_template("lulu-spec", "inductive-scan-criteria.json")
 
 
 def tech_design_section_registry() -> dict[str, Any]:

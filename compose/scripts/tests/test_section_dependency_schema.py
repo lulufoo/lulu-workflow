@@ -17,12 +17,16 @@ from test_registry_fixtures import fourth_section_key  # noqa: E402
 
 import json
 
-from test_template_data import LEGACY_SECTION_REGISTRY  # noqa: E402
-
 
 def _registry_path(tmp_path: Path) -> Path:
+    source = (
+        Path(__file__).resolve().parents[3]
+        / "lulu-plan"
+        / "templates"
+        / "section-registry.json"
+    )
     path = tmp_path / "section-registry.json"
-    path.write_text(json.dumps(LEGACY_SECTION_REGISTRY), encoding="utf-8")
+    path.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
     return path
 
 

@@ -26,9 +26,6 @@ from section_registry_schema import (  # noqa: E402
     validate_section_registry,
 )
 
-_SKILL_CONFIG = (
-    _REPO / "skill-config" / "lulu-dev-workflow" / "stages" / "lulu-spec.json"
-)
 _PROFILE = _REPO / "lulu-dev-workflow" / "lulu-spec" / "compose-profile.json"
 
 def test_spec_k0b_section_registry_has_presence() -> None:
@@ -39,21 +36,20 @@ def test_spec_k0b_section_registry_has_presence() -> None:
         assert normalized["sections"][key]["presence"] == "required"
 
 
-def test_spec_k0b_skill_config_points_upstream() -> None:
-    cfg = json.loads(_SKILL_CONFIG.read_text(encoding="utf-8"))
-    compose = cfg["compose"]
-    for key in (
-        "pst_section_registry_url",
-        "pst_section_form_registry_url",
-        "pst_section_kw_criteria_url",
-        "pst_feature_role_instance_url",
-        "pst_feature_domain_instance_url",
+def test_spec_k0b_profile_points_to_direct_templates() -> None:
+    profile = json.loads(_PROFILE.read_text(encoding="utf-8"))
+    compose = profile["framework_templates"]
+    for key, filename in (
+        ("section-registry", "section-registry.json"),
+        ("section-form-registry", "section-form-registry.json"),
+        ("section-kw-criteria", "section-kw-criteria.md"),
+        ("role-instance", "role-instance.json"),
+        ("domain-instance", "domain-instance.json"),
+        ("inductive-scan-criteria", "inductive-scan-criteria.json"),
     ):
-        assert compose[key].startswith("lulu-dev-workflow/lulu-spec/templates/"), key
-        assert (_REPO / compose[key]).is_file(), key
-    assert compose["pst_inductive_scan_criteria_url"].startswith("https://")
-
-
+        expected = f"lulu-dev-workflow/lulu-spec/templates/{filename}"
+        assert compose[key] == expected
+        assert (_REPO / expected).is_file(), key
 def test_spec_k0b_profile_has_no_display_layer_flag() -> None:
     profile = json.loads(_PROFILE.read_text(encoding="utf-8"))
     assert profile["pipeline"]["inductive"] is True

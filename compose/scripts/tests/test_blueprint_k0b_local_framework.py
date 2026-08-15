@@ -26,9 +26,6 @@ from section_registry_schema import (  # noqa: E402
     validate_section_registry,
 )
 
-_SKILL_CONFIG = (
-    _REPO / "skill-config" / "lulu-dev-workflow" / "stages" / "lulu-blueprint.json"
-)
 _PROFILE = _REPO / "lulu-dev-workflow" / "lulu-blueprint" / "compose-profile.json"
 _DIMENSION_DEF = (
     _REPO
@@ -64,21 +61,19 @@ def test_blueprint_k0b_section_registry_presence_and_edges() -> None:
     assert normalized["sections"]["PR"]["relations"]["PS"] == "instantiate"
 
 
-def test_blueprint_k0b_skill_config_uses_local_eval_templates() -> None:
-    cfg = json.loads(_SKILL_CONFIG.read_text(encoding="utf-8"))
-    compose = cfg["compose"]
-    for key in (
-        "pbt_section_registry_url",
-        "pbt_section_form_registry_url",
-        "pbt_section_kw_criteria_url",
-        "pbt_topic_role_instance_url",
-        "pbt_topic_domain_instance_url",
+def test_blueprint_k0b_profile_uses_direct_template_refs() -> None:
+    profile = json.loads(_PROFILE.read_text(encoding="utf-8"))
+    compose = profile["framework_templates"]
+    for key, filename in (
+        ("section-registry", "section-registry.json"),
+        ("section-form-registry", "section-form-registry.json"),
+        ("section-kw-criteria", "section-kw-criteria.md"),
+        ("role-instance", "role-instance.json"),
+        ("domain-instance", "domain-instance.json"),
     ):
-        assert compose[key].startswith(
-            "lulu-dev-workflow/lulu-blueprint/templates/"
-        ), key
-        assert (_REPO / compose[key]).is_file(), key
-    assert "eval" not in cfg
+        expected = f"lulu-dev-workflow/lulu-blueprint/templates/{filename}"
+        assert compose[key] == expected
+        assert (_REPO / expected).is_file(), key
 
     dimension = json.loads(_DIMENSION_DEF.read_text(encoding="utf-8"))
     assert dimension["method"]["ref"] == (

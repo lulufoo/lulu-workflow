@@ -20,7 +20,9 @@ _SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
-from fetch_template import fetch_template  # noqa: E402
+_DECISION_DOC_TEMPLATE = (
+    Path(__file__).resolve().parents[1] / "templates" / "decision-doc.template.md"
+)
 
 from dec_decision_doc_schema import (  # noqa: E402
     init_decision_doc,
@@ -54,6 +56,10 @@ from dec_session_paths import (  # noqa: E402
     session_artifact_paths,
 )
 from dec_workflow_common import CACHE_DIR  # noqa: E402
+
+
+def _load_decision_doc_template() -> str:
+    return _DECISION_DOC_TEMPLATE.read_text(encoding="utf-8")
 
 
 def _emit(payload: dict[str, Any]) -> None:
@@ -214,7 +220,7 @@ def render_decision_doc(
 ) -> Path:
     paths = _session_paths(project_root, cycle_id, stage, constraints_path=constraints_path)
     constraints = _load_constraints(paths)
-    template = fetch_template("decision", "decision_doc_template_url", project_root)
+    template = _load_decision_doc_template()
     doc = init_decision_doc(template=template, cycle_id=cycle_id, constraints=constraints)
 
     payloads = gate_payloads_for_session(paths["payloads_dir"])

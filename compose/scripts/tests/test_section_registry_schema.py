@@ -8,7 +8,6 @@ import sys
 from pathlib import Path
 
 import bootstrap  # noqa: F401
-from workflow_paths import WORKFLOW_SCRIPTS  # noqa: E402
 
 from section_registry_schema import (  # noqa: E402
     document_preamble,
@@ -23,13 +22,20 @@ from section_registry_schema import (  # noqa: E402
     validate_section_registry,
 )
 from section_dependency_schema import load_dependency_graph  # noqa: E402
-from test_template_data import (  # noqa: E402
-    LEGACY_SECTION_REGISTRY,
-    legacy_section_registry_normalized,
-)
+from test_template_data import legacy_section_registry_normalized  # noqa: E402
 
 
 def _load_fixture_registry() -> dict:
+    path = (
+        Path(__file__).resolve().parents[3]
+        / "lulu-plan"
+        / "templates"
+        / "section-registry.json"
+    )
+    return normalize_section_registry(json.loads(path.read_text(encoding="utf-8")))
+
+
+def _load_legacy_fixture_registry() -> dict:
     return legacy_section_registry_normalized()
 
 
@@ -73,52 +79,33 @@ def test_upstream_edges_from_registry(tmp_path: Path):
     reg = _load_fixture_registry()
     kd_key = reg["section_order"][3]
     registry_path = tmp_path / "section-registry.json"
-    registry_path.write_text(json.dumps(LEGACY_SECTION_REGISTRY), encoding="utf-8")
+    registry_path.write_text(json.dumps(reg), encoding="utf-8")
     graph = load_dependency_graph(registry_path)
     edges = upstream_edges(kd_key, graph)
     assert {e["upstream_section"] for e in edges} == set(reg["sections"][kd_key]["upstream"])
 
 
-def test_resolve_prefers_fetch_cache(tmp_path: Path):
-    if str(WORKFLOW_SCRIPTS) not in sys.path:
-        sys.path.insert(0, str(WORKFLOW_SCRIPTS))
-    from fetch_template import cache_path  # noqa: E402
-    from subagent_config import detect_platform  # noqa: E402
-
-    cached = cache_path(tmp_path, detect_platform(), "lulu-plan", "tpt_section_registry_url")
-    cached.parent.mkdir(parents=True, exist_ok=True)
-    cached.write_text(
-        json.dumps(
-            {
-                "version": "1",
-                "section_order": ["NS"],
-                "document_preamble": "preamble\n",
-                "sections": {
-                    "NS": {
-                        "heading": "North Star",
-                        "aliases": [],
-                        "upstream": [],
-                        "relations": {},
-                    }
-                },
-            }
-        ),
-        encoding="utf-8",
-    )
+def test_resolve_uses_direct_skill_template_ref(tmp_path: Path):
     from section_registry_schema import resolve_section_registry_path  # noqa: E402
 
-    assert resolve_section_registry_path(tmp_path) == cached
+    expected = (
+        Path(__file__).resolve().parents[3]
+        / "lulu-plan"
+        / "templates"
+        / "section-registry.json"
+    )
+    assert resolve_section_registry_path(tmp_path) == expected
 
 
 def test_validate_rejects_missing_heading():
-    payload = _load_fixture_registry()
+    payload = _load_legacy_fixture_registry()
     payload["sections"]["NG"]["heading"] = ""
     errors = validate_section_registry(payload)
     assert any("sections.NG.heading" in err for err in errors)
 
 
 def test_section_desc_preserved():
-    reg = _load_fixture_registry()
+    reg = _load_legacy_fixture_registry()
     assert reg["sections"]["NS"]["desc"].startswith("One clear before")
     assert "desc" in reg["sections"]["T"]
 
@@ -147,7 +134,7 @@ def test_intent_copied_to_desc_on_normalize():
 
 
 def test_validate_requires_intent_or_desc():
-    payload = _load_fixture_registry()
+    payload = _load_legacy_fixture_registry()
     key = payload["section_order"][0]
     payload["sections"][key].pop("desc", None)
     errors = validate_section_registry(payload)

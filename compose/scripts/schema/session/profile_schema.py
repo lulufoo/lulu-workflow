@@ -78,6 +78,9 @@ def _validate_active_compose_profile(path: Path, data: dict) -> list[str]:
     if not isinstance(cycle_types, list) or not cycle_types:
         errors.append(f"{path.name}: cycle_types must be a non-empty list")
     templates = data.get("framework_templates") or {}
+    if not isinstance(templates, dict):
+        errors.append(f"{path.name}: framework_templates must be an object")
+        templates = {}
     for scheme_key in _required_scheme_keys():
         if scheme_key not in templates:
             errors.append(f"{path.name}: missing framework_templates[{scheme_key!r}]")
@@ -87,6 +90,12 @@ def _validate_active_compose_profile(path: Path, data: dict) -> list[str]:
             errors.append(
                 f"{path.name}: unknown framework_templates key {scheme_key!r}; "
                 f"allowed: {', '.join(sorted(allowed))}",
+            )
+        value = templates.get(scheme_key)
+        if not isinstance(value, str) or not value.strip():
+            errors.append(
+                f"{path.name}: framework_templates[{scheme_key!r}] "
+                "must be a non-empty string",
             )
     pipeline = data.get("pipeline")
     if isinstance(pipeline, dict):

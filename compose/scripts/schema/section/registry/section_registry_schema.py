@@ -96,44 +96,26 @@ def resolve_section_registry_path(
     profile_id: str | None = None,
     cycle_id: str | None = None,
     conversation_id: str | None = None,
+    platform: str | None = None,
+    force: bool = False,
+    profile_path: Path | None = None,
 ) -> Path:
-    """Return fetched template cache path; fetch from framework when cache is empty."""
+    """Return a direct template path or materialized remote/legacy cache path."""
     root = _effective_project_root(project_root)
     _ensure_workflow_scripts()
     from compose_profile_context import get_active_profile  # noqa: WPS433
-    from compose_template_registry import framework_section, resolve_config_key  # noqa: WPS433
-    from fetch_template import cache_path  # noqa: WPS433
-    from subagent_config import detect_platform  # noqa: WPS433
+    from fetch_compose_framework import resolve_compose_template_path  # noqa: WPS433
 
     pid = profile_id or get_active_profile()
-    section = framework_section(
-        pid,
-        project_root=root,
-        cycle_id=cycle_id,
-        conversation_id=conversation_id,
-    )
-    config_key = resolve_config_key(
+    return resolve_compose_template_path(
         _REGISTRY_SCHEME_KEY,
-        pid,
-        project_root=root,
-        cycle_id=cycle_id,
-        conversation_id=conversation_id,
-    )
-    cached = cache_path(root, detect_platform(), section, config_key)
-    if cached.exists() and cached.read_text(encoding="utf-8").strip():
-        return cached
-    fetch_section_registry(
         root,
         profile_id=pid,
         cycle_id=cycle_id,
         conversation_id=conversation_id,
-    )
-    if cached.exists() and cached.read_text(encoding="utf-8").strip():
-        return cached
-    raise FileNotFoundError(
-        f"section registry cache not available after fetch: {cached}. "
-        f"Run: python3 fetch_compose_framework.py --role section-registry "
-        f"--profile {pid} --project-root ."
+        platform=platform,
+        force=force,
+        profile_path=profile_path,
     )
 
 
@@ -150,8 +132,9 @@ def fetch_section_registry(
     profile_id: str | None = None,
     cycle_id: str | None = None,
     conversation_id: str | None = None,
+    profile_path: Path | None = None,
 ) -> dict[str, Any]:
-    """Fetch section registry via workflow-config template URL."""
+    """Fetch and validate a section registry through its template ref."""
     _ensure_workflow_scripts()
     from compose_profile_context import get_active_profile  # noqa: WPS433
     from fetch_compose_framework import fetch_compose_framework  # noqa: WPS433
@@ -165,6 +148,7 @@ def fetch_section_registry(
         profile_id=pid,
         cycle_id=cycle_id,
         conversation_id=conversation_id,
+        profile_path=profile_path,
     )
     data = json.loads(content)
     errors = validate_section_registry(data)

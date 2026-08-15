@@ -43,6 +43,55 @@ _DROP_ORPHAN_CONFIG_KEYS = frozenset(
         "tpt_spec_template_url",
     }
 )
+_LEGACY_COMPOSE_FRAMEWORK_KEYS = {
+    "lulu-arch": frozenset(
+        {
+            "tat_section_registry_url",
+            "tat_section_form_registry_url",
+            "tat_section_kw_criteria_url",
+            "tat_topic_role_instance_url",
+            "tat_topic_domain_instance_url",
+        }
+    ),
+    "lulu-blueprint": frozenset(
+        {
+            "pbt_section_registry_url",
+            "pbt_section_form_registry_url",
+            "pbt_section_kw_criteria_url",
+            "pbt_topic_role_instance_url",
+            "pbt_topic_domain_instance_url",
+        }
+    ),
+    "lulu-design": frozenset(
+        {
+            "tdt_section_registry_url",
+            "tdt_section_form_registry_url",
+            "tdt_section_kw_criteria_url",
+            "tdt_feature_role_instance_url",
+            "tdt_feature_domain_instance_url",
+            "tdt_inductive_scan_criteria_url",
+        }
+    ),
+    "lulu-plan": frozenset(
+        {
+            "tpt_section_registry_url",
+            "tpt_section_form_registry_url",
+            "tpt_section_kw_criteria_url",
+            "tpt_feature_role_instance_url",
+            "tpt_feature_domain_instance_url",
+        }
+    ),
+    "lulu-spec": frozenset(
+        {
+            "pst_section_registry_url",
+            "pst_section_form_registry_url",
+            "pst_section_kw_criteria_url",
+            "pst_feature_role_instance_url",
+            "pst_feature_domain_instance_url",
+            "pst_inductive_scan_criteria_url",
+        }
+    ),
+}
 
 
 def detect_platform(platform: Optional[str] = None) -> str:
@@ -271,18 +320,25 @@ def get_stage_config(project_root: Path, stage: str, platform: Optional[str] = N
 
 
 def compose_framework_config_keys(stage: str) -> frozenset[str]:
-    """Compose URL field names from compose-profile.json → framework_templates values."""
+    """Return legacy Compose config keys for flat-config compatibility."""
     profile_path = _WORKFLOW_ROOT / stage / _COMPOSE_PROFILE_FILENAME
+    keys = set(_LEGACY_COMPOSE_FRAMEWORK_KEYS.get(stage, ()))
     if not profile_path.is_file():
-        return frozenset()
+        return frozenset(keys)
     try:
         profile = json.loads(profile_path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
-        return frozenset()
+        return frozenset(keys)
     templates = profile.get("framework_templates") or {}
     if not isinstance(templates, dict):
-        return frozenset()
-    return frozenset(str(value) for value in templates.values() if value)
+        return frozenset(keys)
+    for value in templates.values():
+        ref = str(value).strip() if isinstance(value, str) else ""
+        if ref and not ref.startswith(
+            ("lulu-dev-workflow/", "file://", "/", "http://", "https://")
+        ):
+            keys.add(ref)
+    return frozenset(keys)
 
 
 def lookup_stage_config_value(cfg: dict, key: str) -> Optional[str]:

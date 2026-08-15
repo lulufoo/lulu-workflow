@@ -26,9 +26,6 @@ from section_registry_schema import (  # noqa: E402
     validate_section_registry,
 )
 
-_SKILL_CONFIG = (
-    _REPO / "skill-config" / "lulu-dev-workflow" / "stages" / "lulu-arch.json"
-)
 _PROFILE = _REPO / "lulu-dev-workflow" / "lulu-arch" / "compose-profile.json"
 _DIMENSION_DEF = (
     _REPO / "lulu-dev-workflow" / "lulu-arch" / "dimension-defs" / "arch-quality.json"
@@ -48,25 +45,19 @@ def test_arch_k0b_section_registry_presence_and_remap() -> None:
     assert normalized["sections"]["KD"]["relations"]["SH"] == "instantiate"
 
 
-def test_arch_k0b_skill_config_uses_local_eval_templates() -> None:
-    cfg = json.loads(_SKILL_CONFIG.read_text(encoding="utf-8"))
-    compose = cfg["compose"]
-    assert compose["tat_section_registry_url"] == (
-        "lulu-dev-workflow/lulu-arch/templates/section-registry.json"
-    )
-    assert compose["tat_section_form_registry_url"] == (
-        "lulu-dev-workflow/lulu-arch/templates/section-form-registry.json"
-    )
-    for key in (
-        "tat_section_registry_url",
-        "tat_section_form_registry_url",
-        "tat_section_kw_criteria_url",
-        "tat_topic_role_instance_url",
-        "tat_topic_domain_instance_url",
+def test_arch_k0b_profile_uses_direct_template_refs() -> None:
+    profile = json.loads(_PROFILE.read_text(encoding="utf-8"))
+    compose = profile["framework_templates"]
+    for key, filename in (
+        ("section-registry", "section-registry.json"),
+        ("section-form-registry", "section-form-registry.json"),
+        ("section-kw-criteria", "section-kw-criteria.md"),
+        ("role-instance", "role-instance.json"),
+        ("domain-instance", "domain-instance.json"),
     ):
-        assert compose[key].startswith("lulu-dev-workflow/lulu-arch/templates/"), key
-        assert (_REPO / compose[key]).is_file(), key
-    assert "eval" not in cfg
+        expected = f"lulu-dev-workflow/lulu-arch/templates/{filename}"
+        assert compose[key] == expected
+        assert (_REPO / expected).is_file(), key
 
     dimension = json.loads(_DIMENSION_DEF.read_text(encoding="utf-8"))
     assert dimension["method"]["ref"] == "lulu-dev-workflow/lulu-arch/eval/methods/arch-quality.md"

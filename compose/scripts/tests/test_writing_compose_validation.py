@@ -21,16 +21,10 @@ from writing_compose_validation import (  # noqa: E402
     validate_writing_artifacts,
 )
 from narrative_arc_schema import save_narrative_arc  # noqa: E402
-from test_template_data import seed_template_cache  # noqa: E402
 from workflow_paths import seed_revision_profile_pointer  # noqa: E402
 
-_FAKE_DESIGN_SECTION_URL = (
-    "https://github.com/lulufoo/lulu-workflow-framework/blob/main/"
-    "lulu-dev-workflow/template/design/42-tech-design-section-registry.json"
-)
-_FAKE_DESIGN_FORM_URL = (
-    "https://github.com/lulufoo/lulu-workflow-framework/blob/main/"
-    "lulu-dev-workflow/template/design/42-tech-design-section-form-registry.json"
+_PROFILE_SOURCE = (
+    Path(__file__).resolve().parents[3] / "lulu-design" / "compose-profile.json"
 )
 
 _SECTION_REGISTRY = {
@@ -72,50 +66,23 @@ _FORM_REGISTRY = {
 }
 
 
-def _ensure_stage_compose(tmp_path: Path, stage: str, compose: dict) -> None:
-    root = tmp_path / "skill-config" / "lulu-dev-workflow"
-    stages = root / "stages"
-    stages.mkdir(parents=True, exist_ok=True)
-    manifest = root / "manifest.json"
-    if not manifest.exists():
-        manifest.write_text(
-            json.dumps({"version": 1, "layout": "stages"}) + "\n",
-            encoding="utf-8",
-        )
-    path = stages / f"{stage}.json"
-    payload: dict = {}
-    if path.is_file():
-        try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            payload = {}
-    nested = dict(payload.get("compose") or {})
-    nested.update(compose)
-    payload["compose"] = nested
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+def _seed_registries(tmp_path: Path) -> tuple[Path, Path]:
+    template_dir = tmp_path / "direct-templates"
+    template_dir.mkdir(parents=True, exist_ok=True)
+    section_path = template_dir / "section-registry.json"
+    form_path = template_dir / "section-form-registry.json"
+    section_path.write_text(json.dumps(_SECTION_REGISTRY), encoding="utf-8")
+    form_path.write_text(json.dumps(_FORM_REGISTRY), encoding="utf-8")
+    return section_path, form_path
 
 
-def _seed_registries(tmp_path: Path) -> None:
-    seed_template_cache(
-        tmp_path,
-        "lulu-design",
-        "tdt_section_registry_url",
-        _SECTION_REGISTRY,
-    )
-    seed_template_cache(
-        tmp_path,
-        "lulu-design",
-        "tdt_section_form_registry_url",
-        _FORM_REGISTRY,
-    )
-    _ensure_stage_compose(
-        tmp_path,
-        "lulu-design",
-        {
-            "tdt_section_registry_url": _FAKE_DESIGN_SECTION_URL,
-            "tdt_section_form_registry_url": _FAKE_DESIGN_FORM_URL,
-        },
-    )
+def _write_test_profile(tmp_path: Path, section_path: Path, form_path: Path) -> Path:
+    profile = json.loads(_PROFILE_SOURCE.read_text(encoding="utf-8"))
+    profile["framework_templates"]["section-registry"] = section_path.as_uri()
+    profile["framework_templates"]["section-form-registry"] = form_path.as_uri()
+    profile_path = tmp_path / "lulu-design-compose-profile.json"
+    profile_path.write_text(json.dumps(profile), encoding="utf-8")
+    return profile_path
 
 
 def _write_facts(revision_dir: Path, facts: list[dict]) -> None:
@@ -205,8 +172,16 @@ def _seed_happy_path(
 
 
 @pytest.fixture
-def revision_dir(tmp_path: Path) -> Path:
-    _seed_registries(tmp_path)
+def revision_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    section_path, form_path = _seed_registries(tmp_path)
+    profile_path = _write_test_profile(tmp_path, section_path, form_path)
+    import workflow_paths
+
+    monkeypatch.setattr(
+        workflow_paths,
+        "compose_profile_path",
+        lambda _profile_id: profile_path,
+    )
     rev = tmp_path / "revision1"
     rev.mkdir()
     seed_revision_profile_pointer(rev, profile_id="lulu-design")

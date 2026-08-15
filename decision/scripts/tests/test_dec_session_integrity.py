@@ -17,20 +17,11 @@ from dec_gate_control import cmd_check_delivery_ready, cmd_gate_close, cmd_init_
 from dec_session_integrity import cmd_audit, cmd_render, run_structural_audit  # noqa: E402
 from dec_workflow_common import decision_doc_path  # noqa: E402
 from dec_test_helpers import gate_payload_exists, load_rendered_doc  # noqa: E402
-from test_dec_gate_loop_a import _close_qe, _full_template  # noqa: E402
+from test_dec_gate_loop_a import _close_qe  # noqa: E402
 
 
 @pytest.fixture
 def template_config(tmp_path: Path) -> Path:
-    cfg_dir = tmp_path / "skill-config" / "lulu-dev-workflow"
-    cfg_dir.mkdir(parents=True)
-    local_template = tmp_path / "decision-doc.template.md"
-    local_template.write_text(_full_template(), encoding="utf-8")
-    cfg_path = cfg_dir / "workflow-config.json"
-    cfg_path.write_text(
-        json.dumps({"decision": {"decision_doc_template_url": local_template.as_uri()}}),
-        encoding="utf-8",
-    )
     return tmp_path
 def test_structural_audit_passes_with_payloads(template_config: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     project_root = template_config
