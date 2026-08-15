@@ -181,7 +181,6 @@ def test_g2_gate_declares_tools_and_points_at_split_references():
     assert "## Topic operation" not in text
     assert "### Adopt" not in text
     assert "Autonomously build the initial `topic-landscape`" in text
-    assert "reconcile human corrections and re-present" in text
     assert "Treat human correction as a parallel discovery source" in text
     assert "select a `gap` node (caller then adopts)" in text
     assert "select its node for adoption" not in text

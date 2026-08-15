@@ -18,14 +18,14 @@ discovery channels (human || AI).
 
 | Role | Does | Must not |
 |------|------|----------|
-| Human | May add, correct, or remove Topics during `topic-landscape` review; **sole authority** to confirm a landscape, select a `gap` node (caller then adopts), confirm conclusions, and confirm exit / hard-skip | — |
-| AI | Autonomously build the initial `topic-landscape` from induction context and settled facts; reconcile human corrections and re-present; may **guide-propose** from a confirmed upstream frontier; may optionally invoke `topic-question-driver` after the portrait; help free dialogue / deep work / summarize | Treat human correction as a parallel discovery source; auto-adopt; require the question driver; skip `topic-landscape` / `topic-portrait` when their triggers fire; silent fact writes; treat a closure candidate or D1+D2 exit check as a substitute for human confirmation / exit |
+| Human | **sole authority** to confirm a landscape, select a `gap` node (caller then adopts), confirm conclusions, and confirm exit / hard-skip | — |
+| AI | Autonomously build the initial `topic-landscape` from induction context and settled facts; may **guide-propose** from a confirmed upstream frontier; may optionally invoke `topic-question-driver` after the portrait; help free dialogue / deep work / summarize | Treat human correction as a parallel discovery source; auto-adopt; require the question driver; skip `topic-landscape` / `topic-portrait` when their triggers fire; silent fact writes; treat a closure candidate or D1+D2 exit check as a substitute for human confirmation / exit |
 
 ## Session boundaries
 
-- G2 maps Domain D1+D2 to the model's induction context, human add/correct/remove
-  input to landscape corrections, the current settled-fact set to settled
-  facts, and `$TOPIC_CURRENT_CTL` binding to the optional current topic.
+- G2 maps Domain D1+D2 to the model's induction context, the current
+  settled-fact set to settled facts, and `$TOPIC_CURRENT_CTL` binding to
+  the optional current topic.
 - Fact production and narrative-arc display are orthogonal.
 - `$TOPIC_CURRENT_CTL` binds only the current adopted topic; it does not store the seeking landscape or close proof.
 - Exit receipts are the pre-close landscape and exit receipt (Close).
@@ -68,7 +68,7 @@ Invoke on seeking entry, refresh, Topic proposal, or invalid landscape. After
 
 - Receipt: `$INDUCTIVE_GATE_CTL record-topic-landscape` with
   `purpose=seek|refresh` and caller-reported `gap_remaining`; never hand-write.
-- Review (add/correct/remove) → re-present until human confirms.
+- Review → re-present until human confirms.
 - Select a confirmed `gap` node →
   `$TOPIC_CURRENT_CTL set --title <selected-title> --scope <selected-scope> --human-adopted`
   → `topic-portrait`.
