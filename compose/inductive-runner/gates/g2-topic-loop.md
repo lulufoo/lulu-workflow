@@ -90,7 +90,7 @@ After `topic-portrait` runs: behavior map for the adopted-topic view.
 
 After `topic-question-driver` runs: behavior map for its outputs.
 
-- `Next Question` / `Blocked` → dialogue.
+- `Next Question` → dialogue.
 - `Topic Closure Candidate` → Topic conclusion.
 - Not mandatory; free dialogue or rewrite remains open.
 

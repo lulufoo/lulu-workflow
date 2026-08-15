@@ -219,7 +219,7 @@ def test_g2_gate_declares_tools_and_points_at_split_references():
     assert "--scope <selected-scope> --human-adopted" in text
     assert "--scope <corrected-scope> --human-adopted" in text
     assert "State which path is active" in text
-    assert "`Next Question` / `Blocked`" in text
+    assert "`Next Question` → dialogue" in text
     assert "`Topic Closure Candidate`" in text
     assert "set-conclusion" in text
     assert "confirm-conclusion" in text

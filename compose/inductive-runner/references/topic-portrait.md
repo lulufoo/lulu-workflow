@@ -29,8 +29,9 @@ material relevant to that Topic.
 
 One compact view in this semantic order:
 
-1. **Grounding** — the system/capability location, relevant component or
-   contract/state boundary, and settled design facts that locate the Topic.
+1. **Grounding** — settled target facts and the location Domain
+   `cognitive_frame` requires. When an implementation surface exists, an
+   openable location.
 2. **Closure target** — what design result must become determinate, why it
    matters to the overall induction, and which unresolved area it closes.
 3. **Boundary** — adjacent Topics, implementation detail, or unauthorized
@@ -40,20 +41,19 @@ One compact view in this semantic order:
 
 Apply evidence in this order:
 
-1. settled design facts define the target design;
+1. settled target facts define the target;
 2. the adopted Topic scope and induction context constrain that target;
-3. project evidence locates the current system and its constraints.
+3. project evidence locates the current state Domain `cognitive_frame`
+   requires, and its constraints.
 
-Project evidence must not override settled target design. When current
-implementation and target design differ, show the current → target gap instead
-of collapsing the target into the current state.
+Project evidence must not override settled target facts. When current and
+target differ, show the current → target gap instead of collapsing the
+target into the current state.
 
 ## Grounding outcomes
 
-- If the design has no existing implementation surface, state that explicitly
-  and continue.
-- If the Topic requires an existing-system location but evidence cannot locate
-  it, return `Blocked`; do not enter deep work or invent a location.
+- No surface: state that and continue.
+- Surface but no openable location: return `Blocked`. Do not invent one.
 
 ## Closure-target authority
 

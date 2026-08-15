@@ -39,8 +39,8 @@ Each invocation reads:
 - human-confirmed decisions visible in the current Topic dialogue.
 
 The driver does not persist intermediate decisions. If required decisions are
-not visible after a context or window transition, return `Blocked` and request
-a recap; do not reconstruct them from guesswork.
+not visible after a context or window transition, do not emit `Next Question`;
+ask for a recap in ordinary dialogue. Do not reconstruct them from guesswork.
 
 ## Core principle
 
@@ -53,34 +53,41 @@ Use a **minimum-judgment / closure-review loop**:
 4. Deliver one `Next Question`.
 5. After the user's answer, ask internally: *Did this decision close the gap?
    If not, what gap remains?*
-6. Re-run from the current inputs until the Goal is met or progress is blocked.
+6. Re-run from the current inputs until the Goal is met.
 
 Question count is not predetermined. Remaining gap, not queue exhaustion, is
 the stop condition.
 
 ## Outputs
 
-Return exactly one result per invocation.
+Emit `Next Question` or `Topic Closure Candidate` when either applies. If the
+remaining gap is not a real Topic-local design gap — missing or conflicting
+input, or a question that would invent facts — do not emit a driver result;
+say what is missing in ordinary dialogue.
+
+No implementation hit alone does not withhold `Next Question`: Ask Protocol
+permits noting that absence and continuing with a grounded recommendation.
 
 ### `Next Question`
 
-Use when one evidence-supported minimum design judgment remains.
+Use when one real, evidence-supported minimum design judgment remains.
 
 The question must carry these semantics without requiring a fixed display
 template:
 
 1. the current remaining gap;
 2. the one minimum design judgment this question will settle;
-3. project grounding directly relevant to that judgment;
+3. project grounding directly relevant to that judgment — when an
+   implementation surface exists, an openable location already read;
 4. a self-contained question with explicit object, condition, and result;
 5. exactly one recommended answer or option, with one-line rationale;
 6. what design result becomes determinate after the judgment.
 
-Apply Ask Protocol only after the candidate question is bounded. Reuse the
-portrait's Facts-first Grounding: settled target-design facts outrank project
-evidence, which only locates the current system and constrains the judgment.
-Implementation detail must not replace design-level boundary, state, contract,
-or observable-result language.
+Apply Ask Protocol only after the candidate is bounded. Reuse the portrait's
+Facts-first Grounding: settled target facts outrank project evidence, which
+only locates the current state Domain `cognitive_frame` requires and
+constrains the judgment. Question
+language follows Domain `cognitive_frame` in the induction context.
 
 ### `Topic Closure Candidate`
 
@@ -90,14 +97,6 @@ human-confirmation flow.
 
 This result does not mutate Topic state, confirm a conclusion, produce facts,
 or establish a gate-exit receipt.
-
-### `Blocked`
-
-Use when required input is missing or conflicting, or a question would require
-invented facts. State what prevents safe progress.
-
-No implementation hit alone is not a blocker: Ask Protocol permits noting that
-absence and continuing with a grounded recommendation.
 
 ## Constraints
 
