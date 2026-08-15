@@ -36,7 +36,7 @@ def test_driver_contract_and_optional_g2_routing():
     assert "### `Blocked`" not in driver
     assert "ordinary dialogue" in driver
     assert "$SKILL_ROOT/shared/references/ask-protocol.md" in driver
-    assert "does not persist intermediate decisions" in driver
+    assert "Do not persist driver state or intermediate decisions" in driver
     assert "`/converge` is neither required nor invoked" in driver
     assert "presented portrait's `Grounding`, `Closure target`, and `Boundary`" in driver
     assert "settled target facts outrank project" in driver
