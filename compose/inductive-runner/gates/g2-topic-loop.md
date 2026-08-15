@@ -91,12 +91,12 @@ After `topic-portrait` runs: behavior map for the adopted-topic view.
 After `topic-question-driver` runs: behavior map for its outputs.
 
 - `Next Question` → dialogue.
-- `Topic Closure Candidate` → Topic conclusion.
+- `Conclusion Candidate` → Topic conclusion.
 - Not mandatory; free dialogue or rewrite remains open.
 
 ### Topic conclusion
 
-After a Closure Candidate or free-dialogue conclusion: behavior map for
+After a Conclusion Candidate or free-dialogue conclusion: behavior map for
 convergent close.
 
 - Conclude: Summarize → `set-conclusion` → human confirm →

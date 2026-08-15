@@ -31,15 +31,15 @@ def test_driver_contract_and_optional_g2_routing():
 
     assert "## Goal" in driver
     assert "minimum-judgment / closure-review loop" in driver
-    assert "### `Next Question`" in driver
-    assert "### `Topic Closure Candidate`" in driver
+    assert "### Next Question" in driver
+    assert "### Conclusion Candidate" in driver
     assert "### `Blocked`" not in driver
     assert "ordinary dialogue" in driver
     assert "$SKILL_ROOT/shared/references/ask-protocol.md" in driver
     assert "Do not persist driver state or intermediate decisions" in driver
     assert "`/converge` is neither required nor invoked" in driver
     assert "presented portrait's `Grounding`, `Closure target`, and `Boundary`" in driver
-    assert "settled target facts outrank project" in driver
+    assert "Reuse the portrait's Facts-first Grounding" in driver
 
     assert "caller workflow" in model
 
@@ -48,7 +48,7 @@ def test_driver_contract_and_optional_g2_routing():
     assert "After `topic-question-driver` runs: behavior map" in gate
     assert "prefer `topic-question-driver`" in gate
     assert "`Next Question` → dialogue" in gate
-    assert "`Topic Closure Candidate`" in gate
+    assert "`Conclusion Candidate`" in gate
 
 
 def test_shared_ask_protocol_is_single_runtime_ssot():

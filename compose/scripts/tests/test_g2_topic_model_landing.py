@@ -208,7 +208,7 @@ def test_g2_gate_declares_tools_and_points_at_split_references():
     assert "After\n`topic-landscape` runs: behavior map" in text
     assert "After `topic-portrait` runs: behavior map" in text
     assert "After `topic-question-driver` runs: behavior map" in text
-    assert "After a Closure Candidate or free-dialogue conclusion: behavior map" in text
+    assert "After a Conclusion Candidate or free-dialogue conclusion: behavior map" in text
     assert "purpose=seek|refresh" in text
     assert "caller-reported `gap_remaining`" in text
     assert "prefer `topic-question-driver`" in text
@@ -220,7 +220,7 @@ def test_g2_gate_declares_tools_and_points_at_split_references():
     assert "--scope <corrected-scope> --human-adopted" in text
     assert "State which path is active" in text
     assert "`Next Question` → dialogue" in text
-    assert "`Topic Closure Candidate`" in text
+    assert "`Conclusion Candidate`" in text
     assert "set-conclusion" in text
     assert "confirm-conclusion" in text
     assert "stale_signal" in text
