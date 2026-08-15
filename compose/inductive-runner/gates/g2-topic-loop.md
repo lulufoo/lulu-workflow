@@ -12,14 +12,13 @@ Loop as a whole.
 
 ## Dialogue cognition
 
-Mechanism = use `topic-landscape` to discover and manage `gap` Topics, then
-work human-adopted Topics **in dialogue**. This is **not** two independent
-discovery channels (human || AI).
+Use `topic-landscape` to discover and manage `gap` Topics, then work
+human-adopted Topics **in dialogue**.
 
 | Role | Does | Must not |
 |------|------|----------|
-| Human | **sole authority** to confirm a landscape, select a `gap` node (caller then adopts), confirm conclusions, and confirm exit / hard-skip | — |
-| AI | Autonomously build the initial `topic-landscape` from induction context and settled facts; may **guide-propose** from a confirmed upstream frontier; may optionally invoke `topic-question-driver` after the portrait; help free dialogue / deep work / summarize | Treat human correction as a parallel discovery source; auto-adopt; require the question driver; skip `topic-landscape` / `topic-portrait` when their triggers fire; silent fact writes; treat a closure candidate or D1+D2 exit check as a substitute for human confirmation / exit |
+| Human | **Sole authority** to confirm landscape, select a `gap` Topic, confirm a conclusion, and confirm exit | — |
+| AI | Autonomously build `topic-landscape`; may **guide-propose**; support dialogue | Auto-adopt; silent fact writes; substitute human confirmation or exit |
 
 ## Session boundaries
 

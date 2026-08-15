@@ -181,9 +181,9 @@ def test_g2_gate_declares_tools_and_points_at_split_references():
     assert "## Session boundaries" in text
     assert "## Topic operation" not in text
     assert "### Adopt" not in text
-    assert "Autonomously build the initial `topic-landscape`" in text
-    assert "Treat human correction as a parallel discovery source" in text
-    assert "select a `gap` node (caller then adopts)" in text
+    assert "Autonomously build `topic-landscape`" in text
+    assert "substitute human confirmation or exit" in text
+    assert "**Sole authority** to confirm landscape, select a `gap` Topic, confirm a conclusion, and confirm exit" in text
     assert "select its node for adoption" not in text
     assert "seeking landscape or close proof" in text
     assert "seeking map" not in text

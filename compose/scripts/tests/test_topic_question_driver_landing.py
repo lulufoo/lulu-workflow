@@ -43,7 +43,7 @@ def test_driver_contract_and_optional_g2_routing():
 
     assert "caller workflow" in model
 
-    assert "may optionally invoke `topic-question-driver` after the portrait" in gate
+    assert "optional stateless contract" in gate
     assert "### Topic question drive" in gate
     assert "After `topic-question-driver` runs: behavior map" in gate
     assert "prefer `topic-question-driver`" in gate
